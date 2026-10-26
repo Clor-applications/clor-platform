@@ -401,7 +401,7 @@ export default function Employees({ description = '' } = {}) {
                   <span className={`ui-pill ${statusOf(p.status).pill}`}>{statusOf(p.status).label}</span>
                   {p.code ? <span className="ui-pill ui-pill-neutral">{p.code}</span> : null}
                   {(p.tags || []).slice(0, 2).map((t) => (
-                    <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, #000)` }}>{t.name}</span>
+                    <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, rgb(var(--fg)))` }}>{t.name}</span>
                   ))}
                 </span>
               </span>
@@ -697,7 +697,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                   </span>
                 ))}
                 {(person.tags || []).map((t) => (
-                  <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, #000)` }}>{t.name}</span>
+                  <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, rgb(var(--fg)))` }}>{t.name}</span>
                 ))}
               </div>
               <div className="ui-caption mt-1">{person.workEmail || person.email || ''}</div>
@@ -1619,7 +1619,11 @@ export function ResignForm({ person, onClose, onDone }) {
   /* Someone on a contract usually leaves when it ends: that date and reason come pre-filled. */
   const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
   const contractEnd = person.contractEndDate ? String(person.contractEndDate).slice(0, 10) : '';
-  const [form, setForm] = useState({ lastDay: contractEnd || today, leavingType: contractEnd ? 'CONTRACT_ENDED' : 'RESIGNED', reason: '' });
+  /* On notice already: the form changes what is on record (another last day, another reason). */
+  const onNotice = person.status === 'ON_NOTICE' && person.dateOfLeaving;
+  const [form, setForm] = useState(onNotice
+    ? { lastDay: String(person.dateOfLeaving).slice(0, 10), leavingType: person.leavingType || 'RESIGNED', reason: person.leavingReason || '' }
+    : { lastDay: contractEnd || today, leavingType: contractEnd ? 'CONTRACT_ENDED' : 'RESIGNED', reason: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const save = async (e) => {
@@ -1955,7 +1959,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
                     type="button"
                     aria-pressed={on}
                     className="ui-pill"
-                    style={on ? { backgroundColor: t.color, color: '#fff' } : { backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, #000)` }}
+                    style={on ? { backgroundColor: t.color, color: '#fff' } : { backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, rgb(var(--fg)))` }}
                     onClick={() =>
                       setForm((x) => ({ ...x, tagIds: on ? x.tagIds.filter((i) => i !== t.id) : [...(x.tagIds || []), t.id] }))
                     }

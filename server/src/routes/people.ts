@@ -1925,7 +1925,7 @@ const STRUCTURE_KINDS = {
   departments: { model: 'department', usedBy: 'departmentId', extra: ['parentId', 'description'] },
   'job-positions': { model: 'jobPosition', usedBy: 'jobPositionId', extra: ['departmentId', 'description'] },
   'job-roles': { model: 'jobRole', usedBy: 'jobRoleId', extra: ['jobPositionId', 'description'] },
-  'employee-types': { model: 'employeeType', usedBy: 'employeeTypeId', extra: ['category'] },
+  'employee-types': { model: 'employeeType', usedBy: 'employeeTypeId', extra: ['category', 'probationMonths'] },
   'work-types': { model: 'workType', usedBy: 'workTypeId', extra: [] },
   areas: { model: 'area', usedBy: 'areaId', extra: ['parentId', 'description'] },
   'business-units': { model: 'businessUnit', usedBy: 'businessUnitId', extra: ['description'] },
@@ -1960,6 +1960,7 @@ const structureSchema = z.object({
   registrations: z.array(z.object({ type: z.string().trim().max(40), number: z.string().trim().max(80), validTill: z.string().trim().regex(ISO_DATE).optional().nullable().or(z.literal('')) })).max(20).optional().nullable(),
   isActive: z.boolean().optional(),
   category: z.enum(EMPLOYMENT_KINDS).optional(),
+  probationMonths: z.union([z.coerce.number().int().min(1, 'Probation is at least a month.').max(24, 'Probation is at most 24 months.'), z.literal(''), z.null()]).optional().transform((v) => (v === '' ? null : v)),
 });
 
 /** A PAN is shown as its last four characters (CORE-04): the full number is for Payroll and the vault. */
@@ -2011,7 +2012,7 @@ peopleRouter.post('/orgs/:orgId/people/structure/:kind', can(PermissionAction.CR
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid.' });
   const cfg = STRUCTURE_KINDS[kind];
   const data: any = { accountId, orgId, name: parsed.data.name, createdByUserId: req.auth!.userId };
-  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' || k === 'holdsOriginals' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
+  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' || k === 'holdsOriginals' || k === 'probationMonths' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
   if (kind === 'establishments' && !data.state) return res.status(400).json({ error: 'Say which state the establishment is in: its rules follow from that.' });
   /* An unset type takes the default; an unset entity is simply absent. */
   if (kind === 'establishments') { if (!data.kind) delete data.kind; if (!data.legalEntityId) delete data.legalEntityId; }
@@ -2044,7 +2045,7 @@ peopleRouter.put('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAction
   }
   const data: any = { name: parsed.data.name };
   if (parsed.data.isActive !== undefined) data.isActive = parsed.data.isActive;
-  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' || k === 'holdsOriginals' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
+  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' || k === 'holdsOriginals' || k === 'probationMonths' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
   /* A masked PAN sent back unchanged is not a change. */
   if (kind === 'legal-entities' && typeof data.pan === 'string' && data.pan.includes('*')) delete data.pan;
   if (kind === 'establishments' && data.state === null) return res.status(400).json({ error: 'An establishment keeps its state.' });

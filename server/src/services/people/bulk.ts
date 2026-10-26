@@ -3,6 +3,7 @@ import type { Actor } from './changeLog.js';
 import { updateEmployee } from './employees.js';
 import { activeRule } from './approvals/engine.js';
 import { SCHEDULABLE_FIELDS } from './effectiveDating.js';
+import { HOURS } from './employmentKinds.js';
 
 /**
  * Bulk update from the directory (docs/people/02-PRD.md CORE-01). Every
@@ -19,6 +20,7 @@ const STRUCTURE: Record<string, { model: string; nameField?: 'department' | 'des
   employeeTypeId: { model: 'employeeType' },
   workTypeId: { model: 'workType' },
   establishmentId: { model: 'establishment' },
+  areaId: { model: 'area' },
   teamId: { model: 'team' },
   gradeId: { model: 'grade' },
   costCenterId: { model: 'costCenter' },
@@ -50,9 +52,13 @@ export async function bulkUpdate(actor: Actor, input: { ids?: unknown; set?: unk
   const raw = (input.set && typeof input.set === 'object' ? input.set : {}) as Record<string, unknown>;
   const set: Record<string, string | null> = {};
   for (const [k, v] of Object.entries(raw)) {
-    if (!STRUCTURE[k]) throw new BulkError(`${k} cannot be changed in bulk.`);
+    if (!STRUCTURE[k] && k !== 'hours') throw new BulkError(`${k} cannot be changed in bulk.`);
     set[k] = v == null || v === '' ? null : String(v);
   }
+  /* Hours are a word, not a list item: full-time or part-time, never blank in bulk. */
+  if ('hours' in set && !(HOURS as readonly string[]).includes(String(set.hours))) throw new BulkError('Hours are full-time or part-time.');
+  /* A department is never cleared for a whole selection at once (Workforce audit O20). */
+  if ('departmentId' in set && !set.departmentId) throw new BulkError('Choose the department to move them to.');
   if (!Object.keys(set).length) throw new BulkError('Say what to change.');
   const reason = String(input.reason ?? '').trim().slice(0, 500) || null;
   if (Object.keys(set).some((k) => SCHEDULABLE_FIELDS.has(k)) && (await activeRule(actor.orgId, 'JOB_CHANGE'))) {
@@ -60,6 +66,7 @@ export async function bulkUpdate(actor: Actor, input: { ids?: unknown; set?: unk
   }
   const data: Record<string, unknown> = { ...set };
   for (const [k, v] of Object.entries(set)) {
+    if (k === 'hours') continue;
     if (!v) { if (STRUCTURE[k].nameField) data[STRUCTURE[k].nameField!] = null; continue; }
     const row = await (peoplePrisma as any)[STRUCTURE[k].model].findFirst({ where: { id: v, orgId: actor.orgId }, select: { id: true, name: true } });
     if (!row) throw new BulkError(`That ${k.replace(/Id$/, '').replace(/([A-Z])/g, ' $1').toLowerCase()} is not in this company.`);

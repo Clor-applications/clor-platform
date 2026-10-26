@@ -263,6 +263,8 @@ model EmployeeType {
   /// The company keeps its own words ("Staff", "Retainer"); the kind decides which dates are asked and
   /// whether payroll expects them.
   category  String  @default("PERMANENT")
+  /// How long probation runs for this type, in months; fills the date on a new hire. Blank: not assumed.
+  probationMonths Int?
   isActive  Boolean @default(true)
 
   createdByUserId String

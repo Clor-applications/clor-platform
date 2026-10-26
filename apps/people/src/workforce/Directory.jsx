@@ -456,14 +456,19 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
   );
 }
 
+/* What a small team moves together: place, job, type, hours and manager. A department is never cleared in bulk; the others may be. */
 const BULK_FIELDS = [
   ['departmentId', 'Department', 'departments'], ['jobPositionId', 'Designation', 'positions'], ['employeeTypeId', 'Employment type', 'types'],
-  ['areaId', 'Location', 'areas'], ['reportingManagerId', 'Manager', null],
+  ['hours', 'Hours', 'hours'], ['workTypeId', 'Work mode', 'workTypes'], ['areaId', 'Location', 'areas'], ['establishmentId', 'Work site', 'establishments'],
+  ['reportingManagerId', 'Manager', null],
 ];
+const NO_CLEAR = new Set(['departmentId', 'hours']);
 function BulkDrawer({ count, lists, managers, value, onChange, onClose, onSend }) {
   const [busy, setBusy] = useState(false);
-  const f = BULK_FIELDS.find(([k]) => k === value.field) || BULK_FIELDS[0];
-  const options = f[2] ? lists[f[2]] || [] : managers;
+  /* Only lists the company has set up are offered. */
+  const fields = BULK_FIELDS.filter(([k, , src]) => !src || src === 'hours' || k === 'departmentId' || (lists[src] || []).length);
+  const f = fields.find(([k]) => k === value.field) || fields[0];
+  const options = f[2] === 'hours' ? Object.entries(HOURS_WORDS).map(([id, name]) => ({ id, name })) : f[2] ? lists[f[2]] || [] : managers;
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={`Change ${count} ${count === 1 ? 'employee' : 'employees'}`} dirty={Boolean(value.value || value.reason)}
       footer={<>
@@ -471,8 +476,8 @@ function BulkDrawer({ count, lists, managers, value, onChange, onClose, onSend }
         <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !value.value} onClick={async () => { setBusy(true); try { await onSend(); } finally { setBusy(false); } }}>{busy ? 'Changing…' : `Change ${count}`}</button>
       </>}>
       <div className="grid gap-4">
-        <div><PopupSelect showValueSubtext={false} label="What" value={value.field} onChange={(v) => onChange({ ...value, field: v, value: '' })} options={BULK_FIELDS.map(([k, l]) => ({ value: k, label: l }))} /></div>
-        <div><PopupSelect showValueSubtext={false} label="To" value={value.value} onChange={(v) => onChange({ ...value, value: v })} placeholder="Choose…" alwaysSearch options={[{ value: '__clear', label: 'None' }, ...options.map((o) => ({ value: o.id, label: o.name }))]} /></div>
+        <div><PopupSelect showValueSubtext={false} label="What" value={value.field} onChange={(v) => onChange({ ...value, field: v, value: '' })} options={fields.map(([k, l]) => ({ value: k, label: l }))} /></div>
+        <div><PopupSelect showValueSubtext={false} label="To" value={value.value} onChange={(v) => onChange({ ...value, value: v })} placeholder="Choose…" alwaysSearch options={[...(NO_CLEAR.has(f[0]) ? [] : [{ value: '__clear', label: 'None' }]), ...options.map((o) => ({ value: o.id, label: o.name }))]} /></div>
         <label className="block"><span className="ui-label">Reason</span><input className="ui-input w-full" maxLength={500} value={value.reason} onChange={(e) => onChange({ ...value, reason: e.target.value })} placeholder="Ops folded into Sales" /></label>
       </div>
     </Drawer>

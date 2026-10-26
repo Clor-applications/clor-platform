@@ -22,7 +22,7 @@ import { LEAVING_TYPES } from '@ui/personnel/api';
 import { HOURS_WORDS, datesFor, kindOf, probationState } from '@ui/personnel/employmentKinds';
 
 import {
-  addComment, changeImpact, employeeReadiness, linkCandidates, linkUser, decideProbation, deleteEmployee, employeeActivity, employeeAsOf, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, structure, updateEmployee, withdrawScheduled,
+  addComment, changeImpact, employeeReadiness, linkCandidates, linkUser, decideProbation, deleteEmployee, employeeActivity, employeeAsOf, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, stayOn, structure, updateEmployee, withdrawScheduled,
 } from './api';
 import { StatusBadge, can } from './shared';
 
@@ -118,6 +118,16 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       notify.error(String(e?.message || 'Not deleted.'));
     }
   };
+  /* A resignation taken back, a termination reversed before the day: active again, the leaving tasks closed as not needed. */
+  const withdrawLeaving = async () => {
+    if (!(await confirmDialog({ title: `Keep ${person.name}?`, message: `Their last day, ${formatDate(String(person.dateOfLeaving).slice(0, 10))}, is cancelled and they stay active.`, confirmLabel: 'Withdraw leaving', tone: 'primary' }))) return;
+    try {
+      const r = await stayOn(person.id);
+      notify.success(`${person.name} stays on.`);
+      setPerson({ ...person, ...r.employee });
+      rec.reload();
+    } catch (e) { notify.error(String(e?.message || 'Not changed.')); }
+  };
   const moreItems = [
     editable ? ['manager', 'Change manager'] : null,
     editable ? ['transfer', 'Transfer'] : null,
@@ -126,7 +136,9 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
     editable && person.status !== 'SUSPENDED' ? ['status', 'Suspend'] : null,
     allowed('PEOPLE::Employees::EDIT') && person.status === 'SUSPENDED' ? ['status', 'Reactivate'] : null,
     person.status !== 'LEFT' && allowed('PEOPLE::Lifecycle::CREATE') ? ['invite', 'Invite to complete profile'] : null,
-    person.status !== 'LEFT' && allowed('PEOPLE::Employees::EDIT') ? ['leave', 'Mark as left'] : null,
+    person.status !== 'LEFT' && person.status !== 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['leave', 'Mark as left'] : null,
+    person.status === 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['leave', 'Change leaving details'] : null,
+    person.status === 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['stay', 'Withdraw leaving'] : null,
     person.status === 'LEFT' && allowed('PEOPLE::Employees::EDIT') ? ['rehire', 'Rehire'] : null,
     allowed('PEOPLE::Employees::DELETE') ? ['delete', 'Delete'] : null,
   ].filter(Boolean);
@@ -176,6 +188,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
                     if (k === 'delete') return remove();
                     if (k === 'invite') { setMoreOpen(false); return setInviting(true); }
                     if (k === 'leave') { setMoreOpen(false); return setResigning(true); }
+                    if (k === 'stay') { setMoreOpen(false); return withdrawLeaving(); }
                     /* Rehire lives on the Employment tab; the caret goes to its first field so the step is visible. */
                     if (k === 'rehire') { setMoreOpen(false); set({ tab: 'employment', action: null }, true); return setTimeout(() => document.getElementById('rejoin')?.focus(), 150); }
                     return openAction(k);
@@ -400,7 +413,7 @@ function TagLine({ person, tags, canEdit, onSaved }) {
   if (!mine.length && (!canEdit || !tags.length)) return null;
   return (
     <span className="mt-2 flex flex-wrap items-center gap-1.5 font-normal">
-      {(person.tags || []).map((t) => <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, #000)` }}>{t.name}</span>)}
+      {(person.tags || []).map((t) => <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, rgb(var(--fg)))` }}>{t.name}</span>)}
       {canEdit && tags.length ? (
         <>
           <button ref={btn} type="button" className="ui-tag-add" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{mine.length ? <><Pencil size={12} aria-hidden="true" /> Tags</> : <><Plus size={12} aria-hidden="true" /> Add tag</>}</button>
@@ -605,7 +618,8 @@ const PERSONAL_KEYS = new Set(['dateOfBirth', 'maritalStatus', 'guardianName', '
 const shownFields = (person, fields) => (person.personalHidden ? fields.filter((f) => !PERSONAL_KEYS.has(f.key)) : fields);
 
 function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
-  const canEdit = allowed('PEOPLE::Employees::EDIT') && person.status !== 'LEFT';
+  /* Personal and contact details stay correctable after someone leaves: a settlement, a certificate or a reference still needs them right. */
+  const canEdit = allowed('PEOPLE::Employees::EDIT');
   const value = (s, f) => {
     if (f.key === 'gender') return GENDER_WORDS[person.gender] || person.gender;
     if (f.key === 'maritalStatus') return MARITAL.find(([k]) => k === person.maritalStatus)?.[1] || person.maritalStatus;

@@ -8,6 +8,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { inScope, teamScope } from '../services/people/scope.js';
+import { StayOnError, cancelLeaving } from '../services/people/lifecycle/stayOn.js';
 import { istDate } from '../services/attendance/compute.js';
 import { pushEmployeeToReaders, revokeFromReaders } from '../services/attendance/readerSync.js';
 import { deleteToBin } from '../services/recycleBin.js';
@@ -209,6 +210,21 @@ personnelRouter.post(`${base}/employees/:id/resign`, can(PermissionAction.EDIT, 
   if (existing.dateOfJoining && parsed.data.lastDay < existing.dateOfJoining) return res.status(400).json({ error: 'Somebody cannot leave before they joined.' });
   const r = await leaveEmployee({ accountId, orgId, userId: req.auth!.userId }, existing as any, { lastDay: parsed.data.lastDay, leavingType: parsed.data.leavingType, reason: blank(parsed.data.reason) });
   res.json({ employee: r.employee, readers: r.readers });
+});
+
+/** Leaving withdrawn while on notice (Workforce audit O11): active again, the leaving tasks closed as not needed. */
+personnelRouter.post(`${base}/employees/:id/stay`, can(PermissionAction.EDIT, R.employees), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!existing || !inScope(await teamScope(req), existing.id)) return res.status(404).json({ error: 'No such employee.' });
+  try {
+    const employee = await cancelLeaving({ accountId, orgId, userId: req.auth!.userId }, existing.id, typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 500) || null : null);
+    res.json({ employee });
+  } catch (e) {
+    if (e instanceof StayOnError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
 });
 
 /**

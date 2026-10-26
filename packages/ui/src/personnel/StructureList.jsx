@@ -40,8 +40,8 @@ const KINDS = {
     singular: 'employment type',
     description: 'Permanent, fixed-term, trainee, intern, consultant. Probation is a date on the person, not a type.',
     noDescription: true,
-    fields: [{ key: 'category', label: 'Counts as', type: 'select', options: Object.entries(KIND_WORDS) }],
-    columns: [{ key: 'category', label: 'Counts as', value: (r) => KIND_WORDS[r.category] || '' }],
+    fields: [{ key: 'category', label: 'Counts as', type: 'select', options: Object.entries(KIND_WORDS) }, { key: 'probationMonths', label: 'Probation, months', placeholder: 'Blank if none' }],
+    columns: [{ key: 'category', label: 'Counts as', value: (r) => KIND_WORDS[r.category] || '' }, { key: 'probationMonths', label: 'Probation', value: (r) => (r.probationMonths ? `${r.probationMonths} ${r.probationMonths === 1 ? 'month' : 'months'}` : '') }],
   },
   'work-types': {
     title: 'Work Modes',

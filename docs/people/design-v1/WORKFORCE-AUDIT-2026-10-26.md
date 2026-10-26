@@ -68,7 +68,7 @@ code, then each finding checked before fixing. Status: **Fixed** (commit),
 | O8 | No "End after probation" on screen | Fixed (lifecycle batch) |
 | O9 | No Renew contract action | Fixed (lifecycle batch) |
 | O10 | Changing employment type does not ask for or clear the dates | Fixed (lifecycle batch) |
-| O11 | Nothing editable after leaving; no cancel leaving | Open |
+| O11 | Nothing editable after leaving; no cancel leaving | Fixed (leaving, bulk, probation length batch) |
 | O12 | Three place fields (Location, Work site, Work location) | Fixed (headcount and words batch) |
 | O13 | Record and Transfer show lists the company has not set up | Fixed (headcount and words batch) |
 | O14–15 | Words: Establishment/Work site, Seat/Position, Reports to/Manager, Job roles | Fixed (headcount and words batch) |
@@ -76,10 +76,10 @@ code, then each finding checked before fixing. Status: **Fixed** (commit),
 | O17 | Import cannot carry manager or work site | Fixed (import and screens batch) |
 | O18 | Import has a review step that repeats the counts plus a confirm | Fixed (import and screens batch) |
 | O19 | Onboarding & Exit calls every non-joining task "Leaving"; raw dates | Fixed (import and screens batch) |
-| O20 | Bulk change: few fields, no date, "None" can blank departments | Open |
+| O20 | Bulk change: few fields, no date, "None" can blank departments | Fixed: Location (was refused by the server), Hours, Work mode, Work site added; department never cleared in bulk. A dated move stays one person at a time | 
 | O21 | Data Health snooze uses a browser prompt | Fixed (import and screens batch) |
-| O22 | No default probation length; no next steps after hiring | Open |
-| O23 | Tag colours mix with #000 (dark mode) | Open |
+| O22 | No default probation length; no next steps after hiring | Fixed (leaving, bulk, probation length batch) |
+| O23 | Tag colours mix with #000 (dark mode) | Fixed (leaving, bulk, probation length batch) |
 | D24–28 | DESIGN.md: extra primary buttons, lists in cards, drawer descriptions, 20px figures, page spacing, raw dates | Open |
 | O29–30 | Words and small fixes (Stint, four names for onboarding, Suspended on hire, Home shortcut) | Open |
 

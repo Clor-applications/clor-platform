@@ -100,4 +100,16 @@ describe('leaving', () => {
     expect(await runSeparations(new Date(Date.now() + 6 * 86_400_000))).toBeGreaterThanOrEqual(1);
     expect((await people(hr).get(`/employees/${f.id}`).expect(200)).body.employee.status).toBe('LEFT');
   });
+
+  it('someone on notice can be kept: active again, last day cleared, leaving tasks closed as not needed (Workforce audit O11)', async () => {
+    const e = (await people(hr).post('/employees', { name: 'Changes Mind', code: `CM-${rnd()}`, dateOfJoining: '2025-01-05' }).expect(201)).body.employee;
+    await people(hr).post(`/employees/${e.id}/resign`, { lastDay: plus(20), leavingType: 'RESIGNED' }).expect(200);
+    const kept = (await people(hr).post(`/employees/${e.id}/stay`, { reason: 'Counter-offer accepted' }).expect(200)).body.employee;
+    expect(kept).toMatchObject({ status: 'ACTIVE', dateOfLeaving: null, leavingType: null });
+    const open = await runInTenant(hr.orgId, () => peoplePrisma.checklistTask.count({ where: { orgId: hr.orgId, employeeId: e.id, kind: 'LEAVING', doneAt: null } }));
+    expect(open).toBe(0);
+    await people(hr).post(`/employees/${e.id}/stay`, {}).expect(409);
+    const journey = JSON.stringify((await people(hr).get(`/employees/${e.id}/journey`).expect(200)).body);
+    expect(journey).toContain('Leaving withdrawn');
+  });
 });

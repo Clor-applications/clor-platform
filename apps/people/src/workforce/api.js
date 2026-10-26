@@ -55,6 +55,8 @@ export const employeeActivity = (id, before) => apiFetch(`${base()}/employees/${
 export const addComment = (id, body) => send(`/employees/${encodeURIComponent(id)}/notes`, 'POST', { body });
 export const deleteEmployee = (id) => send(`/employees/${encodeURIComponent(id)}`, 'DELETE');
 export const rehireEmployee = (id, body) => send(`/employees/${encodeURIComponent(id)}/rehire`, 'POST', body);
+/* Leaving withdrawn while on notice: active again (Workforce audit O11). */
+export const stayOn = (id, body) => send(`/employees/${encodeURIComponent(id)}/stay`, 'POST', body || {});
 export const decideProbation = (id, body) => send(`/employees/${encodeURIComponent(id)}/probation/decide`, 'POST', body);
 export const withdrawScheduled = (id, changeId) => send(`/employees/${encodeURIComponent(id)}/scheduled/${encodeURIComponent(changeId)}`, 'DELETE');
 export const changeImpact = (id, fields) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/change-impact${qs(fields)}`, opts);

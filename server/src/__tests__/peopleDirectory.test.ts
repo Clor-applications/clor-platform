@@ -112,4 +112,18 @@ describe('directory (CORE-01)', () => {
     await people(b).del(`/saved-views/${mine.id}`).expect(404);
     await people(a).del(`/saved-views/${mine.id}`).expect(200);
   });
+
+  it('bulk moves location and hours; a department is never cleared in bulk (Workforce audit O20)', async () => {
+    /* A company of its own: the one above has a job-change rule, which rightly stops bulk job moves. */
+    const boss = await owner();
+    const area = (await people(boss).post('/structure/areas', { name: `Bulk area ${Date.now()}` }).expect(201)).body.item;
+    const a = (await people(boss).post('/employees', { name: 'Bulk One', code: `BK-${Date.now()}-1` }).expect(201)).body.employee;
+    const b = (await people(boss).post('/employees', { name: 'Bulk Two', code: `BK-${Date.now()}-2` }).expect(201)).body.employee;
+    await people(boss).post('/employees/bulk', { ids: [a.id, b.id], set: { areaId: area.id } }).expect(200);
+    await people(boss).post('/employees/bulk', { ids: [a.id, b.id], set: { hours: 'PART_TIME' } }).expect(200);
+    const after = (await people(boss).get(`/employees/${a.id}`).expect(200)).body.employee;
+    expect(after).toMatchObject({ areaId: area.id, hours: 'PART_TIME' });
+    await people(boss).post('/employees/bulk', { ids: [a.id], set: { hours: 'SOMETIMES' } }).expect(400);
+    await people(boss).post('/employees/bulk', { ids: [a.id], set: { departmentId: null } }).expect(400);
+  });
 });

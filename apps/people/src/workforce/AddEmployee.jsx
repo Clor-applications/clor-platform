@@ -10,7 +10,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar, GENDER_WORDS, shrinkPhoto } from '@ui/personnel/Employees';
-import { HOURS_WORDS, datesFor, kindOf } from '@ui/personnel/employmentKinds';
+import { HOURS_WORDS, datesFor, kindOf, probationEndFor } from '@ui/personnel/employmentKinds';
 import { hasApp } from '@platform/context';
 import { clearUnsaved } from '@platform/unsaved';
 
@@ -71,6 +71,12 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   const [lists, setLists] = useState(null);
   /* The employment type decides which end dates are asked for (an intern has no probation, a permanent hire no contract end). */
   const dates = datesFor(kindOf(lists?.types, form.employeeTypeId));
+  /* The type's probation length fills the end date once both are known; a date typed by hand is never replaced. */
+  const probationMonths = (lists?.types || []).find((t) => t.id === form.employeeTypeId)?.probationMonths;
+  const suggestedProbation = dates.probation ? probationEndFor(form.dateOfJoining, probationMonths) : '';
+  useEffect(() => {
+    if (suggestedProbation && !form.probationEndDate) setForm((f) => (f.probationEndDate ? f : { ...f, probationEndDate: suggestedProbation }));
+  }, [suggestedProbation]); // eslint-disable-line react-hooks/exhaustive-deps
   const [people, setPeople] = useState([]);
   const stepKey = STEPS.some(([k]) => k === params.step) ? params.step : 'personal';
   const stepIndex = STEPS.findIndex(([k]) => k === stepKey);

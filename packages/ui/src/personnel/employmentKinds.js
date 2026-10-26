@@ -46,3 +46,13 @@ export function probationState(person, today) {
   if (!person?.probationEndDate || person.confirmedOn || person.status === 'LEFT') return null;
   return String(person.probationEndDate).slice(0, 10) >= today ? 'ON' : 'OVER';
 }
+
+/** The day probation ends for a joining date and a length in months: the day before the same date that many months on (1 Oct + 6 = 31 Mar). */
+export function probationEndFor(joining, months) {
+  if (!joining || !months) return '';
+  const [y, m, d] = String(joining).slice(0, 10).split('-').map(Number);
+  const end = new Date(Date.UTC(y, m - 1 + Number(months), d));
+  if (end.getUTCDate() !== d) end.setUTCDate(0);
+  end.setUTCDate(end.getUTCDate() - 1);
+  return end.toISOString().slice(0, 10);
+}
