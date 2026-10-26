@@ -7836,11 +7836,8 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-attention-x { width: 1.5rem; height: 1.5rem; margin-left: -0.125rem; color: rgb(var(--fg-subtle)); }
 .ui-tab-count { display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.25rem; margin-left: 0.375rem; padding: 0 0.375rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); }
 .ui-tab.is-active .ui-tab-count { background: rgb(var(--brand-soft)); color: rgb(var(--brand-ink)); }
-.ui-composer { border: 1px solid rgb(var(--border-field)); background: rgb(var(--surface)); }
-.ui-composer:focus-within { border-color: rgb(var(--ring)); box-shadow: 0 0 0 1px rgb(var(--ring)); }
-.ui-composer textarea { display: block; width: 100%; resize: vertical; min-height: 3.25rem; padding: 0.625rem 0.75rem; border: 0; outline: 0; background: transparent; font-size: 0.875rem; line-height: 1.25rem; color: rgb(var(--fg)); }
-.ui-composer textarea::placeholder { color: rgb(var(--fg-subtle)); }
-.ui-composer-bar { display: flex; justify-content: flex-end; padding: 0.375rem 0.5rem; border-top: 1px solid rgb(var(--border)); }
+.ui-composer textarea { resize: vertical; min-height: 3.25rem; }
+.ui-composer-bar { display: flex; justify-content: flex-end; margin-top: 0.5rem; }
 /* The Activity tab reads as a column, not a banner across the screen. */
 .ui-record-activity { max-width: 46rem; }
 .ui-doc-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid rgb(var(--border)); }
@@ -7862,7 +7859,6 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-panel-in { animation: ui-panel-in var(--dur-surface) var(--ease-out) both; }
 @keyframes ui-panel-in { from { opacity: 0; transform: translate3d(0, 4px, 0); } to { opacity: 1; transform: none; } }
 .ui-avatar-edit-badge, .ui-tag-add, .ui-activity-filter, .ui-doc-title, .ui-attention-x { transition: color var(--dur-state) ease, background-color var(--dur-state) ease, border-color var(--dur-state) ease; }
-.ui-composer { transition: border-color var(--dur-state) ease, box-shadow var(--dur-state) ease; }
 @media (prefers-reduced-motion: reduce) {
   .ui-tab-indicator { transition: none; }
   .ui-panel-in { animation: none; }

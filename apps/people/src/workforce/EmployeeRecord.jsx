@@ -440,7 +440,7 @@ function CommentBox({ employeeId, onPosted }) {
   };
   return (
     <div className="ui-composer">
-      <textarea aria-label="Add a comment" rows={2} maxLength={4000} value={text} placeholder="Add a comment…" onChange={(e) => setText(e.target.value)}
+      <textarea className="ui-input w-full" aria-label="Add a comment" rows={2} maxLength={4000} value={text} placeholder="Add a comment…" onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); post(); } }} />
       <div className="ui-composer-bar">
         <button type="button" className={`ui-btn ui-btn-sm ${text.trim() ? 'ui-btn-primary' : 'ui-btn-secondary'}`} disabled={!text.trim() || busy} onClick={post}>{busy ? 'Posting…' : 'Comment'}</button>
