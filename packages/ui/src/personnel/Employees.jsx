@@ -1654,7 +1654,7 @@ export function ResignForm({ person, onClose, onDone }) {
 }
 
 /** A square photo, scaled down to 160px and stored as a small JPEG data URL. */
-const shrinkPhoto = (file) =>
+export const shrinkPhoto = (file) =>
   new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {

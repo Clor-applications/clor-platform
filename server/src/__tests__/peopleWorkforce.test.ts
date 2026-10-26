@@ -189,4 +189,31 @@ describe('workforce backend', () => {
     expect((await people(lead).get('/employees/counts').expect(200)).body.myTeam).toBe(2);
     expect((await people(boss).get('/employees?team=mine').expect(200)).body).toMatchObject({ employees: [], total: 0 });
   });
+
+  it('a save returns the record with its tags, photo kept small, and reader fields', async () => {
+    const tag = (await people(boss).post('/tags', { name: 'Night shift', color: '#A45761' }).expect(201)).body.tag;
+    const e = (await people(boss).post('/employees', { name: 'Tag Holder', code: 'W-060', tagIds: [tag.id] }).expect(201)).body.employee;
+    expect(e.tags.map((t: any) => t.name)).toEqual(['Night shift']);
+    const after = (await put(boss, `/employees/${e.id}`, { phone: '9000000060', guardianName: 'R. Holder', workLocation: 'Client site, Whitefield' }).expect(200)).body.employee;
+    expect(after.tags.map((t: any) => t.name)).toEqual(['Night shift']);
+    expect(after).toMatchObject({ guardianName: 'R. Holder', workLocation: 'Client site, Whitefield' });
+    const cleared = (await put(boss, `/employees/${e.id}`, { tagIds: [] }).expect(200)).body.employee;
+    expect(cleared.tags).toEqual([]);
+    await put(boss, `/employees/${e.id}`, { photoUrl: `data:image/jpeg;base64,${'A'.repeat(400_000)}` }).expect(400);
+  });
+
+  it('filters by grade, business unit, work type, establishment and tag; searches phone and designation; exports a team', async () => {
+    const grade = (await people(boss).post('/structure/grades', { name: 'G7' }).expect(201)).body.item;
+    const unit = (await people(boss).post('/structure/business-units', { name: 'Retail' }).expect(201)).body.item;
+    const tag = (await people(boss).post('/tags', { name: 'Field', color: '#333333' }).expect(201)).body.tag;
+    await people(boss).post('/employees', { name: 'Filter Match', code: 'W-070', gradeId: grade.id, businessUnitId: unit.id, tagIds: [tag.id], phone: '9123456789' }).expect(201);
+    await people(boss).post('/employees', { name: 'Filter Other', code: 'W-071' }).expect(201);
+    for (const q of [`gradeId=${grade.id}`, `businessUnitId=${unit.id}`, `tagId=${tag.id}`, 'q=9123456789']) {
+      expect((await people(boss).get(`/employees?${q}`).expect(200)).body.employees.map((e: any) => e.name), q).toEqual(['Filter Match']);
+    }
+    const csv = (await people(boss).get(`/employees/export?gradeId=${grade.id}`).expect(200)).text;
+    expect(csv).toContain('Filter Match');
+    expect(csv).not.toContain('Filter Other');
+    expect((await people(boss).get('/employees/export?team=mine').expect(200)).text.split('\r\n')).toHaveLength(1);
+  });
 });

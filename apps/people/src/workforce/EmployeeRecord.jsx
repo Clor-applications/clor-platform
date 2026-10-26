@@ -15,12 +15,12 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { hasApp } from '@platform/context';
 import {
-  Avatar, CustomFields, EmployeeChecklist, EmployeeDocuments, EmploymentHistory, GENDER_WORDS, InviteForm, JoiningDetails, Journey, ResignForm, SCHEDULED_LABELS, StatutoryDetails,
+  Avatar, CustomFields, EmployeeChecklist, shrinkPhoto, EmployeeDocuments, EmploymentHistory, GENDER_WORDS, InviteForm, JoiningDetails, Journey, ResignForm, SCHEDULED_LABELS, StatutoryDetails,
 } from '@ui/personnel/Employees';
 import { LEAVING_TYPES } from '@ui/personnel/api';
 
 import {
-  addComment, changeImpact, decideProbation, deleteEmployee, employeeActivity, getEmployee, listEmployees, openTasksFor, rehireEmployee, structure, updateEmployee, withdrawScheduled,
+  addComment, changeImpact, decideProbation, deleteEmployee, employeeActivity, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, structure, updateEmployee, withdrawScheduled,
 } from './api';
 import { StatusBadge, can } from './shared';
 
@@ -75,8 +75,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   const setPerson = (patch) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...patch } }));
   const [lists, setLists] = useState(null);
   useEffect(() => {
-    Promise.all(['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'teams', 'business-units', 'grades', 'cost-centres'].map((k) => structure(k).catch(() => [])))
-      .then(([departments, positions, types, workTypes, areas, establishments, teams, units, grades, centres]) => setLists({ departments, positions, types, workTypes, areas, establishments, teams, units, grades, centres }));
+    Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'teams', 'business-units', 'grades', 'cost-centres', 'seats', 'job-roles'].map((k) => structure(k).catch(() => [])), hasApp('attendance') ? listContractors() : Promise.resolve([]), listTags().catch(() => [])])
+      .then(([departments, positions, types, workTypes, areas, establishments, teams, units, grades, centres, seats, roles, contractors, tags]) => setLists({ departments, positions, types, workTypes, areas, establishments, teams, units, grades, centres, seats, roles, contractors, tags }));
   }, []);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef(null);
@@ -127,11 +127,12 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
         breadcrumb={[{ label: 'People' }, { label: 'Workforce', onClick: backToDirectory }, { label: person.name }]}
         title={
           <span className="flex flex-wrap items-center gap-3">
-            <Avatar person={person} size={56} />
+            <PhotoControl person={person} canEdit={editable} onSaved={(emp) => setPerson(emp)} />
             <span className="min-w-0">
               <span className="flex flex-wrap items-center gap-2">{person.name}{person.preferredName ? <span className="ui-muted text-base font-normal">({person.preferredName})</span> : null}<StatusBadge employee={person} /></span>
               <span className="block ui-caption font-normal tabular-nums">{[person.code, person.designation, person.department, person.areaName || person.workLocation].filter(Boolean).join(' · ') || 'No role or department yet'}</span>
               {person.reportingManagerName ? <span className="block ui-caption font-normal">Reports to {person.reportingManagerName}</span> : null}
+              <TagLine person={person} tags={lists?.tags || []} canEdit={allowed('PEOPLE::Employees::EDIT')} onSaved={(emp) => setPerson(emp)} />
             </span>
           </span>
         }
@@ -165,7 +166,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
         {tab === 'overview' ? <Overview person={person} data={rec.data} lists={lists} allowed={allowed} goTo={(t) => set({ tab: t }, true)} /> : null}
         {tab === 'personal' ? <Personal person={person} allowed={allowed} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...emp } }))} reload={rec.reload} /> : null}
         {tab === 'employment' ? <Employment person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => setPerson(emp)} reload={rec.reload} openAction={openAction} /> : null}
-        {tab === 'organization' ? <Organization person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} /> : null}
+        {tab === 'organization' ? <Organization person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => setPerson(emp)} reload={rec.reload} /> : null}
         {tab === 'documents' ? <EmployeeDocuments employeeId={person.id} /> : null}
         {tab === 'history' ? <div className="space-y-6"><Section title="Employment history"><EmploymentHistory employeeId={person.id} /></Section><Section title="Every change and why"><Journey employeeId={person.id} /></Section></div> : null}
         {tab === 'activity' ? <Activity person={person} canComment={allowed('PEOPLE::Employee Notes::CREATE')} /> : null}
@@ -193,6 +194,77 @@ function MenuList({ items, onPick, onEscape }) {
     }}>
       {items.map(([k, label]) => <button key={k} type="button" role="menuitem" className={`ui-menu-item ${k === 'delete' ? 'is-danger' : ''}`} onClick={() => onPick(k)}>{label}</button>)}
     </div>
+  );
+}
+
+/* --------------------------------------------------------------- Photo and tags */
+
+/** The portrait: a square photo kept small (160px), or initials. Changing it is a normal, logged edit. */
+function PhotoControl({ person, canEdit, onSaved }) {
+  const input = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const save = async (photoUrl) => {
+    setBusy(true);
+    try {
+      const r = await updateEmployee(person.id, { photoUrl, version: person.version });
+      onSaved(r.employee);
+      notify.success(photoUrl ? 'Photo updated.' : 'Photo removed.');
+    } catch (e) {
+      notify.error(String(e?.status === 409 ? 'Someone else changed this record. Reload and try again.' : e?.message || 'Photo not saved.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <span className="ui-photo-control">
+      <Avatar person={person} size={56} />
+      {canEdit ? (
+        <span className="flex flex-col gap-0.5">
+          <button type="button" className="ui-link text-xs font-normal" disabled={busy} onClick={() => input.current?.click()}>{person.photoUrl ? 'Change photo' : 'Add photo'}</button>
+          {person.photoUrl ? <button type="button" className="ui-link text-xs font-normal" disabled={busy} onClick={() => save(null)}>Remove</button> : null}
+          <input ref={input} type="file" accept="image/*" className="sr-only" aria-label="Choose a photo" onChange={async (e) => {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            if (!f) return;
+            try { await save(await shrinkPhoto(f)); } catch (err) { notify.error(String(err?.message || 'Could not use that photo.')); }
+          }} />
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/** Tags on the person, edited in place; the directory filters by them. */
+function TagLine({ person, tags, canEdit, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const btn = useRef(null);
+  const mine = (person.tags || []).map((t) => t.id);
+  const toggle = async (id) => {
+    const next = mine.includes(id) ? mine.filter((x) => x !== id) : [...mine, id];
+    try {
+      const r = await updateEmployee(person.id, { tagIds: next, version: person.version });
+      onSaved(r.employee);
+    } catch (e) {
+      notify.error(String(e?.message || 'Tags not saved.'));
+    }
+  };
+  if (!mine.length && (!canEdit || !tags.length)) return null;
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-1 font-normal">
+      {(person.tags || []).map((t) => <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: t.color }}>{t.name}</span>)}
+      {canEdit && tags.length ? (
+        <>
+          <button ref={btn} type="button" className="ui-link text-xs" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{mine.length ? 'Edit tags' : 'Add tags'}</button>
+          {open ? (
+            <Popover anchorRef={btn} onClose={() => setOpen(false)} minWidth={220}>
+              <div role="dialog" aria-label="Tags" className="p-2 space-y-1">
+                {tags.map((t) => <label key={t.id} className="flex items-center gap-2 text-sm px-1 py-1"><input type="checkbox" className="ui-checkbox" checked={mine.includes(t.id)} onChange={() => toggle(t.id)} />{t.name}</label>)}
+              </div>
+            </Popover>
+          ) : null}
+        </>
+      ) : null}
+    </span>
   );
 }
 
@@ -290,7 +362,7 @@ function CommentBox({ employeeId, onPosted }) {
  */
 function SectionForm({ person, fields, onCancel, onSaved, reload }) {
   const formId = useId();
-  const initial = Object.fromEntries(fields.map((f) => [f.key, person[f.key] ?? '']));
+  const initial = Object.fromEntries(fields.map((f) => [f.key, f.writeOnly ? '' : (f.kind === 'checkbox' ? person[f.key] !== false : person[f.key] ?? '')]));
   const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -307,7 +379,8 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
     setBusy(true);
     setError(null);
     try {
-      const body = Object.fromEntries(fields.map((f) => [f.key, form[f.key] === '' ? null : form[f.key]]));
+      /* Only what changed goes up; a write-only field (the reader PIN) left blank is not sent. */
+      const body = Object.fromEntries(fields.filter((f) => form[f.key] !== initial[f.key] && !(f.writeOnly && form[f.key] === '')).map((f) => [f.key, form[f.key] === '' ? null : form[f.key]]));
       const r = await updateEmployee(person.id, { ...body, version: conflict?.version ?? person.version });
       setConflict(null);
       notify.success('Saved.');
@@ -335,10 +408,12 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
             <div key={f.key} className={f.wide ? 'sm:col-span-2' : ''}>
               <label htmlFor={id} className="ui-label">{f.label}{f.required ? ' *' : ''}</label>
               {f.kind === 'select' ? (
-                <select id={id} className="ui-select w-full" aria-describedby={help} value={form[f.key] ?? ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}>
-                  <option value="">Not set</option>
+                <select id={id} className="ui-select w-full" aria-describedby={help} value={form[f.key] ?? ''} onChange={(e) => setForm({ ...form, [f.key]: f.number ? Number(e.target.value) : e.target.value })}>
+                  {f.noBlank ? null : <option value="">Not set</option>}
                   {f.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
+              ) : f.kind === 'checkbox' ? (
+                <span className="flex items-center gap-2 text-sm"><input id={id} type="checkbox" className="ui-checkbox" aria-describedby={help} checked={form[f.key] !== false} onChange={(e) => setForm({ ...form, [f.key]: e.target.checked })} />{f.checkLabel}</span>
               ) : f.kind === 'date' ? (
                 <DatePicker id={id} describedBy={help} value={form[f.key] ? String(form[f.key]).slice(0, 10) : ''} onChange={(v) => setForm({ ...form, [f.key]: v })} />
               ) : f.kind === 'textarea' ? (
@@ -363,8 +438,9 @@ const GENDERS = Object.entries(GENDER_WORDS);
 const MARITAL = [['SINGLE', 'Single'], ['MARRIED', 'Married'], ['DIVORCED', 'Divorced'], ['WIDOWED', 'Widowed']];
 const PERSONAL_SECTIONS = {
   name: { title: 'Name', fields: [{ key: 'firstName', label: 'Legal first name', required: true }, { key: 'lastName', label: 'Legal last name' }, { key: 'preferredName', label: 'Preferred name', help: 'Used in everyday communication.' }] },
-  contact: { title: 'Contact', fields: [{ key: 'workEmail', label: 'Work email', type: 'email', inputMode: 'email' }, { key: 'workPhone', label: 'Work phone', type: 'tel', inputMode: 'tel' }, { key: 'personalEmail', label: 'Personal email', type: 'email', inputMode: 'email' }, { key: 'phone', label: 'Personal phone', type: 'tel', inputMode: 'tel' }] },
-  personal: { title: 'Personal details', fields: [{ key: 'dateOfBirth', label: 'Date of birth', kind: 'date' }, { key: 'gender', label: 'Gender', kind: 'select', options: GENDERS }, { key: 'maritalStatus', label: 'Marital status', kind: 'select', options: MARITAL }] },
+  /* `email` is the personal address the employee form has always saved; `personalEmail` is what a joiner gives on their invite. */
+  contact: { title: 'Contact', fields: [{ key: 'workEmail', label: 'Work email', type: 'email', inputMode: 'email' }, { key: 'workPhone', label: 'Work phone', type: 'tel', inputMode: 'tel' }, { key: 'email', label: 'Personal email', type: 'email', inputMode: 'email' }, { key: 'phone', label: 'Personal phone', type: 'tel', inputMode: 'tel' }, { key: 'personalEmail', label: 'Email given on the joining invite', type: 'email', inputMode: 'email', help: 'Filled in by the joiner; used for privacy notices if set.' }] },
+  personal: { title: 'Personal details', fields: [{ key: 'dateOfBirth', label: 'Date of birth', kind: 'date' }, { key: 'gender', label: 'Gender', kind: 'select', options: GENDERS }, { key: 'maritalStatus', label: 'Marital status', kind: 'select', options: MARITAL }, { key: 'guardianName', label: 'Father’s / husband’s name', help: 'For the muster roll.' }] },
   address: { title: 'Address', fields: [{ key: 'addressLine', label: 'Address', wide: true }, { key: 'city', label: 'City' }, { key: 'state', label: 'State' }, { key: 'pincode', label: 'PIN code', inputMode: 'numeric', max: 10 }, { key: 'country', label: 'Country' }] },
   emergency: { title: 'Emergency contact', fields: [{ key: 'emergencyContactName', label: 'Name' }, { key: 'emergencyContactRelation', label: 'Relationship' }, { key: 'emergencyContactPhone', label: 'Phone', type: 'tel', inputMode: 'tel' }] },
 };
@@ -427,6 +503,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
     { key: 'dateOfJoining', label: 'Joining date', kind: 'date' },
     { key: 'probationEndDate', label: 'Probation ends', kind: 'date' },
     { key: 'contractEndDate', label: 'Contract ends', kind: 'date' },
+    { key: 'jobRoleId', label: 'Job role', kind: 'select', options: (lists?.roles || []).map((x) => [x.id, x.name]) },
   ];
   return (
     <div className="space-y-4">
@@ -439,6 +516,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
             <Field label="Designation" value={person.designation} />
             <Field label="Employment type" value={typeName} />
             <Field label="Work type" value={workTypeName} />
+            <Field label="Job role" value={lists?.roles?.find((r) => r.id === person.jobRoleId)?.name} />
             <Field label={person.currentEpisodeSeq > 1 ? `Joined (stint ${person.currentEpisodeSeq})` : 'Joining date'} value={person.dateOfJoining ? formatDate(String(person.dateOfJoining).slice(0, 10)) : null} mono />
             {person.currentEpisodeSeq > 1 ? <Field label="First joined" value={person.firstJoiningDate ? formatDate(person.firstJoiningDate) : null} mono /> : null}
             <Field label={person.confirmedOn ? 'Confirmed on' : 'Probation ends'} value={person.confirmedOn ? formatDate(person.confirmedOn) : person.probationEndDate ? formatDate(person.probationEndDate) : null} mono />
@@ -485,7 +563,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
 
 /* --------------------------------------------------------------- Organization */
 
-function Organization({ person, lists, allowed, openAction, openPerson }) {
+function Organization({ person, lists, allowed, openAction, openPerson, editing, setEditing, onSaved, reload }) {
   const canEdit = allowed('PEOPLE::Employees::EDIT') && person.status !== 'LEFT';
   const name = (k, v) => lists?.[k]?.find((x) => x.id === v)?.name;
   return (
@@ -503,6 +581,11 @@ function Organization({ person, lists, allowed, openAction, openPerson }) {
           <Field label="Cost centre" value={person.costCenterName} />
         </dl>
       </Section>
+      <Section title="Where they work" onEdit={canEdit && editing !== 'place' ? () => setEditing('place') : null}>
+        {editing === 'place' ? (
+          <SectionForm person={person} fields={[{ key: 'workLocation', label: 'Work location', help: 'Free text, for a place not in the Locations list (a client site, home).' }]} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} />
+        ) : <dl className="ui-field-grid"><Field label="Work location" value={person.workLocation} /></dl>}
+      </Section>
       <Section title="Reporting" action={canEdit ? <button type="button" className="ui-link text-sm" onClick={() => openAction('manager')}>Change manager</button> : null}>
         <dl className="ui-field-grid">
           <Field label="Manager" value={person.reportingManagerId ? <button type="button" className="ui-link" onClick={() => openPerson(person.reportingManagerId)}>{person.reportingManagerName}</button> : null} />
@@ -518,13 +601,27 @@ function Organization({ person, lists, allowed, openAction, openPerson }) {
         ) : <p className="ui-muted text-sm mt-1">None</p>}
       </Section>
       {hasApp('attendance') ? (
-        <Section title="Attendance readers">
-          <dl className="ui-field-grid">
-            <Field label="Reader ID" value={person.devicePin || (person.code ? `${person.code} (employee ID)` : null)} />
-            <Field label="Card" value={person.cardNumber ? 'Set' : null} />
-            <Field label="Reader PIN" value={person.hasDevicePassword ? 'Set' : null} />
-            <Field label="Attendance expected" value={person.attendanceRequired === false ? 'No, door only' : 'Yes'} />
-          </dl>
+        /* Stored on the employee and pushed to the biometric readers by Attendance; edited here as the old form did. */
+        <Section title="Attendance readers" onEdit={canEdit && editing !== 'readers' ? () => setEditing('readers') : null}>
+          {editing === 'readers' ? (
+            <SectionForm person={person} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} fields={[
+              { key: 'devicePin', label: 'Reader ID', help: person.code ? `Blank means the employee ID (${person.code}).` : 'The ID on the biometric reader.', max: 20 },
+              { key: 'cardNumber', label: 'Card number', max: 20 },
+              { key: 'devicePassword', label: 'Reader PIN', type: 'password', writeOnly: true, max: 8, help: person.hasDevicePassword ? 'A PIN is set. Type a new one to change it.' : 'Optional.' },
+              { key: 'devicePrivilege', label: 'On the readers as', kind: 'select', number: true, noBlank: true, options: [[0, 'User'], [14, 'Reader administrator']] },
+              { key: 'contractorId', label: 'Contractor', kind: 'select', options: (lists?.contractors || []).map((c) => [c.id, c.name]) },
+              { key: 'attendanceRequired', label: 'Attendance', kind: 'checkbox', checkLabel: 'Expected to mark attendance (untick for door access only)' },
+            ]} />
+          ) : (
+            <dl className="ui-field-grid">
+              <Field label="Reader ID" value={person.devicePin || (person.code ? `${person.code} (employee ID)` : null)} />
+              <Field label="Card" value={person.cardNumber ? 'Set' : null} />
+              <Field label="Reader PIN" value={person.hasDevicePassword ? 'Set' : null} />
+              <Field label="On the readers as" value={person.devicePrivilege === 14 ? 'Reader administrator' : 'User'} />
+              <Field label="Contractor" value={person.contractorName} />
+              <Field label="Attendance expected" value={person.attendanceRequired === false ? 'No, door only' : 'Yes'} />
+            </dl>
+          )}
         </Section>
       ) : null}
     </div>
@@ -535,7 +632,7 @@ function Organization({ person, lists, allowed, openAction, openPerson }) {
 
 const OPERATIONS = {
   manager: { title: 'Change manager', fields: [['reportingManagerId', 'New manager', 'people'], ['dottedManagerId', 'Also reports to (optional)', 'people']] },
-  transfer: { title: 'Transfer', fields: [['departmentId', 'Department', 'departments'], ['areaId', 'Location', 'areas'], ['establishmentId', 'Establishment', 'establishments'], ['teamId', 'Team', 'teams']] },
+  transfer: { title: 'Transfer', fields: [['departmentId', 'Department', 'departments'], ['areaId', 'Location', 'areas'], ['establishmentId', 'Establishment', 'establishments'], ['businessUnitId', 'Business unit', 'units'], ['teamId', 'Team', 'teams'], ['seatId', 'Seat', 'seats'], ['costCenterId', 'Cost centre', 'centres']] },
   designation: { title: 'Change designation', fields: [['jobPositionId', 'New designation', 'positions'], ['gradeId', 'Grade', 'grades']] },
   type: { title: 'Change employment type', fields: [['employeeTypeId', 'Employment type', 'types'], ['workTypeId', 'Work type', 'workTypes']] },
   /* Allowed moves only: active or on notice can be suspended, suspended can be reactivated; leaving and rehire have their own flows (WF-14). */
@@ -602,7 +699,7 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
           : <ErrorState error={error} compact onRetry={submit} retryLabel="Try again" body={error?.status === 400 ? error.message : undefined} />) : null}
         {op.fields.map(([k, label, src]) => (
           <div key={k}>
-            <PopupSelect showValueSubtext={false} label={label} value={form[k]} onChange={(v) => setForm({ ...form, [k]: v || '' })} placeholder="Choose…" alwaysSearch={src !== 'statuses'} options={src === 'statuses' ? options(src) : [{ value: '', label: 'None' }, ...options(src)]} />
+            <PopupSelect showValueSubtext={false} label={label} value={form[k]} onChange={(v) => setForm({ ...form, [k]: v || '' })} placeholder="Choose…" alwaysSearch={src !== 'statuses'} options={src === 'statuses' ? options(src) : [{ value: '', label: 'None' }, ...(k === 'seatId' ? options(src).filter((o) => { const seat = lists.seats?.find((x) => x.id === o.value); return !form.teamId || !seat?.teamId || seat.teamId === form.teamId; }) : options(src))]} />
             <span className="ui-caption">Now: {current(k, src)}</span>
           </div>
         ))}

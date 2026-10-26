@@ -6,6 +6,7 @@ import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
 import Alert from '@ui/components/ui/Alert';
+import Popover from '@ui/components/ui/Popover';
 import ErrorState from '@ui/components/ui/ErrorState';
 import DatePicker from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
@@ -15,7 +16,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
 import { formatDate } from '@ui/components/ui/DatePicker';
 
-import { bulkUpdate, dataHealth, deleteView, downloadText, employeeCounts, exportEmployees, listEmployees, listViews, openChecklistTasks, saveView, structure } from './api';
+import { bulkUpdate, dataHealth, deleteView, downloadText, employeeCounts, exportEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure } from './api';
 import { STATUS, StatusBadge, can } from './shared';
 
 /**
@@ -26,13 +27,14 @@ import { STATUS, StatusBadge, can } from './shared';
  * `updateParams`), so Back and refresh return to the same list. Choosing
  * people is per page; changing filters or company clears the choice.
  */
-const FILTER_KEYS = ['status', 'dept', 'pos', 'type', 'area', 'mgr', 'from', 'to'];
+const FILTER_KEYS = ['status', 'dept', 'pos', 'type', 'wtype', 'area', 'est', 'unit', 'grade', 'centre', 'tag', 'mgr', 'from', 'to'];
 const COLUMNS_KEY = 'people.workforce.columns';
 const DISMISS_KEY = 'people.workforce.dismissed';
 const readJson = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || '') || fallback; } catch { return fallback; } };
 const writeJson = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* a convenience only */ } };
 const apiParams = (p) => ({
-  q: p.q, status: p.status, departmentId: p.dept, jobPositionId: p.pos, employeeTypeId: p.type, areaId: p.area, managerId: p.mgr,
+  q: p.q, status: p.status, departmentId: p.dept, jobPositionId: p.pos, employeeTypeId: p.type, workTypeId: p.wtype, areaId: p.area, establishmentId: p.est,
+  businessUnitId: p.unit, gradeId: p.grade, costCenterId: p.centre, tagId: p.tag, managerId: p.mgr,
   joinedFrom: p.from, joinedTo: p.to, sort: p.sort, dir: p.dir,
 });
 
@@ -58,9 +60,10 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
   const listKey = JSON.stringify([apiParams(p), page, size, tab]);
   const list = useRequest(() => listEmployees({ ...apiParams(p), ...(tab === 'team' ? { team: 'mine' } : {}), limit: size, offset: (page - 1) * size }), [listKey]);
   const counts = useRequest(() => employeeCounts(), []);
-  const [lists, setLists] = useState({ departments: [], positions: [], types: [], areas: [] });
+  const [lists, setLists] = useState({ departments: [], positions: [], types: [], workTypes: [], areas: [], establishments: [], units: [], grades: [], centres: [], tags: [] });
   useEffect(() => {
-    Promise.all(['departments', 'job-positions', 'employee-types', 'areas'].map((k) => structure(k).catch(() => []))).then(([departments, positions, types, areas]) => setLists({ departments, positions, types, areas }));
+    Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'business-units', 'grades', 'cost-centres'].map((k) => structure(k).catch(() => [])), listTags().catch(() => [])])
+      .then(([departments, positions, types, workTypes, areas, establishments, units, grades, centres, tags]) => setLists({ departments, positions, types, workTypes, areas, establishments, units, grades, centres, tags }));
   }, []);
 
   /* Choosing people: this page, reset whenever the query changes (spec §4.2). */
@@ -117,7 +120,7 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
   const doExport = async (scope) => {
     setExporting(true);
     try {
-      const filter = scope === 'selected' ? null : apiParams(p);
+      const filter = scope === 'all' ? {} : { ...apiParams(p), ...(tab === 'team' ? { team: 'mine' } : {}) };
       let text;
       if (scope === 'selected') {
         /* The rows chosen on this page, as the same columns the server exports. */
@@ -128,7 +131,7 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
         text = await exportEmployees(filter);
       }
       downloadText(text, `employees-${new Date().toISOString().slice(0, 10)}.csv`);
-      notify.success(scope === 'selected' ? `${selected.size} exported.` : 'Export downloaded.');
+      notify.success(scope === 'selected' ? `${selected.size} exported.` : scope === 'all' ? 'Everyone you can see, exported.' : 'This view exported.');
     } catch (e) {
       notify.error(String(e?.message || 'Export failed.'));
     } finally {
@@ -143,7 +146,13 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
     p.dept && { k: 'dept', label: `Department: ${lookup('departments', p.dept)}` },
     p.pos && { k: 'pos', label: `Designation: ${lookup('positions', p.pos)}` },
     p.type && { k: 'type', label: `Type: ${lookup('types', p.type)}` },
+    p.wtype && { k: 'wtype', label: `Work type: ${lookup('workTypes', p.wtype)}` },
     p.area && { k: 'area', label: `Location: ${lookup('areas', p.area)}` },
+    p.est && { k: 'est', label: `Establishment: ${lookup('establishments', p.est)}` },
+    p.unit && { k: 'unit', label: `Business unit: ${lookup('units', p.unit)}` },
+    p.grade && { k: 'grade', label: `Grade: ${lookup('grades', p.grade)}` },
+    p.centre && { k: 'centre', label: `Cost centre: ${lookup('centres', p.centre)}` },
+    p.tag && { k: 'tag', label: `Tag: ${lookup('tags', p.tag)}` },
     p.mgr && { k: 'mgr', label: `Manager: ${managers.find((m) => m.id === p.mgr)?.name || 'Chosen'}` },
     (p.from || p.to) && { k: 'dates', label: `Joined ${p.from ? formatDate(p.from) : 'any time'} – ${p.to ? formatDate(p.to) : 'now'}` },
   ].filter(Boolean);
@@ -156,7 +165,7 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
         description={`Manage employees and employment records for ${company}.`}
         actions={<>
           {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('employeeImport')}><Upload size={16} aria-hidden="true" /> Import</button> : null}
-          {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary" disabled={exporting || !total} onClick={() => doExport('filtered')}><Download size={16} aria-hidden="true" /> {exporting ? 'Exporting…' : 'Export'}</button> : null}
+          {allowed('PEOPLE::Employees::EXPORT') ? <ExportMenu busy={exporting} counts={{ view: total, all: counts.data ? counts.data.total : null, selected: selected.size }} filtered={Boolean(p.q || filtersOn || tab === 'team')} onPick={doExport} /> : null}
           {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => openScreen?.('employeeNew', {})}><Plus size={16} aria-hidden="true" /> Add employee</button> : null}
         </>}
       />
@@ -263,6 +272,30 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
 
 const tomorrowIst = () => new Date(Date.now() + 330 * 60_000 + 86_400_000).toISOString().slice(0, 10);
 
+/* WF-07 export scopes, each with its row count before anything is downloaded. Only the columns the server allows; every export is logged. */
+function ExportMenu({ busy, counts, filtered, onPick }) {
+  const [open, setOpen] = useState(false);
+  const btn = React.useRef(null);
+  const items = [
+    ['filtered', filtered ? `This view (${counts.view})` : `Everyone shown (${counts.view})`],
+    ...(filtered && counts.all != null ? [['all', `All employees you can see (${counts.all})`]] : []),
+    ...(counts.selected ? [['selected', `Selected (${counts.selected})`]] : []),
+  ];
+  return (
+    <>
+      <button ref={btn} type="button" className="ui-btn ui-btn-secondary" disabled={busy} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}><Download size={16} aria-hidden="true" /> {busy ? 'Exporting…' : 'Export'}</button>
+      {open ? (
+        <Popover anchorRef={btn} onClose={() => setOpen(false)} minWidth={240}>
+          <div role="menu" className="ui-menu" onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); btn.current?.focus(); } }}>
+            {items.map(([k, label]) => <button key={k} type="button" role="menuitem" className="ui-menu-item" disabled={k === 'filtered' && !counts.view} onClick={() => { setOpen(false); onPick(k); }}>{label}</button>)}
+            <p className="ui-caption px-3 pb-2">CSV, without statutory or secret fields. The export is logged.</p>
+          </div>
+        </Popover>
+      ) : null}
+    </>
+  );
+}
+
 function MetricStrip({ counts, onPick }) {
   if (!counts) return <div className="ui-metric-strip" aria-busy="true"><span className="ui-skel ui-skel-text" /></div>;
   const items = [
@@ -336,6 +369,12 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
         {field('pos', 'Designation', opt(lists.positions))}
         {field('area', 'Location', opt(lists.areas))}
         {field('type', 'Employment type', opt(lists.types))}
+        {lists.workTypes.length ? field('wtype', 'Work type', opt(lists.workTypes)) : null}
+        {lists.establishments.length ? field('est', 'Establishment', opt(lists.establishments)) : null}
+        {lists.units.length ? field('unit', 'Business unit', opt(lists.units)) : null}
+        {lists.grades.length ? field('grade', 'Grade', opt(lists.grades)) : null}
+        {lists.centres.length ? field('centre', 'Cost centre', opt(lists.centres)) : null}
+        {lists.tags.length ? field('tag', 'Tag', opt(lists.tags)) : null}
         {field('mgr', 'Manager', opt(managers))}
         <fieldset>
           <legend className="ui-label">Joining date</legend>

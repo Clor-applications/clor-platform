@@ -624,9 +624,19 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
     ...(pick('employeeTypeId') ? { employeeTypeId: pick('employeeTypeId') } : {}),
     ...(pick('managerId') ? { reportingManagerId: pick('managerId') } : {}),
     ...(pick('areaId') ? { areaId: pick('areaId') } : {}),
+    ...(pick('workTypeId') ? { workTypeId: pick('workTypeId') } : {}),
+    ...(pick('establishmentId') ? { establishmentId: pick('establishmentId') } : {}),
+    ...(pick('businessUnitId') ? { businessUnitId: pick('businessUnitId') } : {}),
+    ...(pick('gradeId') ? { gradeId: pick('gradeId') } : {}),
+    ...(pick('costCenterId') ? { costCenterId: pick('costCenterId') } : {}),
+    ...(pick('tagId') ? { tags: { some: { tagId: pick('tagId') } } } : {}),
     ...(pick('joinedFrom') || pick('joinedTo') ? { dateOfJoining: { ...(pick('joinedFrom') ? { gte: pick('joinedFrom') } : {}), ...(pick('joinedTo') ? { lte: pick('joinedTo') } : {}) } } : {}),
-    ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { code: { contains: q, mode: 'insensitive' } }, { email: { contains: q, mode: 'insensitive' } }, { workEmail: { contains: q, mode: 'insensitive' } }, { department: { contains: q, mode: 'insensitive' } }] } : {}),
+    ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { code: { contains: q, mode: 'insensitive' } }, { email: { contains: q, mode: 'insensitive' } }, { workEmail: { contains: q, mode: 'insensitive' } }, { phone: { contains: q } }, { designation: { contains: q, mode: 'insensitive' } }, { department: { contains: q, mode: 'insensitive' } }] } : {}),
   };
+  if (req.query.team === 'mine') {
+    const mine = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
+    where.AND = [{ OR: mine ? [{ reportingManagerId: mine.id }, { dottedManagerId: mine.id }] : [{ id: '__none__' }] }];
+  }
   const rows = await peoplePrisma.employee.findMany({ where, orderBy: directoryOrder(String(req.query.sort || ''), String(req.query.dir || '')), take: 10_000 });
   const shaped = await withMeta(orgId, rows);
   const lines = [EXPORT_COLUMNS.map(([h]) => h), ...shaped.map((e: any) => EXPORT_COLUMNS.map(([, , f]) => f(e)))];
@@ -739,7 +749,8 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
     await pushEmployeeToReaders(orgId, row, req.auth!.userId);
     /* Created from a wizard draft (EMP-02): the draft has done its job. */
     if (typeof req.body?.draftId === 'string') await peoplePrisma.employeeDraft.deleteMany({ where: { id: req.body.draftId, orgId, userId: req.auth!.userId } });
-    res.status(201).json({ employee: (await withMeta(orgId, [row]))[0] });
+    const fresh = (await peoplePrisma.employee.findUnique({ where: { id: row.id }, include: { tags: { include: { tag: true } } } })) || row;
+    res.status(201).json({ employee: (await withMeta(orgId, [fresh]))[0] });
     emitWebhook(orgId, 'employee.created', employeeEvent(row));
     void peopleEvent(accountId, orgId, 'people.joined', row, req.auth!.userId);
   } catch (e) {
@@ -851,7 +862,9 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
     /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
     else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
-    res.json({ employee: (await withMeta(orgId, [row]))[0], scheduled, request: request ? await shapeRequest(request) : null });
+    /* With its tags, as GET returns it: a save must not blank the tag line. */
+    const fresh = (await peoplePrisma.employee.findUnique({ where: { id: row.id }, include: { tags: { include: { tag: true } } } })) || row;
+    res.json({ employee: (await withMeta(orgId, [fresh]))[0], scheduled, request: request ? await shapeRequest(request) : null });
     emitWebhook(orgId, row.status === 'LEFT' && existing.status !== 'LEFT' ? 'employee.left' : 'employee.updated', employeeEvent(row));
     if (row.status === 'LEFT' && existing.status !== 'LEFT') void peopleEvent(accountId, orgId, 'people.left', row, req.auth!.userId);
   } catch (e) {

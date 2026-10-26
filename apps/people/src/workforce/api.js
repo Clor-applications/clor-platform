@@ -54,3 +54,5 @@ export const decideProbation = (id, body) => send(`/employees/${encodeURICompone
 export const withdrawScheduled = (id, changeId) => send(`/employees/${encodeURIComponent(id)}/scheduled/${encodeURIComponent(changeId)}`, 'DELETE');
 export const changeImpact = (id, fields) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/change-impact${qs(fields)}`, opts);
 export const openTasksFor = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/checklist`, opts);
+export const listTags = () => apiFetch(`${base()}/tags`, opts).then((r) => r?.tags || []);
+export const listContractors = () => apiFetch(`${base()}/contractors`, opts).then((r) => r?.contractors || []).catch(() => []);

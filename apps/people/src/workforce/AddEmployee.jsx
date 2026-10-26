@@ -8,9 +8,10 @@ import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
-import { GENDER_WORDS } from '@ui/personnel/Employees';
+import { Avatar, GENDER_WORDS, shrinkPhoto } from '@ui/personnel/Employees';
+import { hasApp } from '@platform/context';
 
-import { createEmployee, deleteDraft, getDraft, listEmployees, nextEmployeeCode, saveDraft, structure } from './api';
+import { createEmployee, deleteDraft, getDraft, listContractors, listEmployees, listTags, nextEmployeeCode, saveDraft, structure } from './api';
 import { can } from './shared';
 
 /**
@@ -26,10 +27,11 @@ import { can } from './shared';
 const STEPS = [['personal', 'Personal', 'Basic details'], ['employment', 'Employment', 'Job information'], ['organization', 'Organization', 'Reporting and location'], ['review', 'Review', 'Confirm details']];
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BLANK = {
-  firstName: '', lastName: '', preferredName: '', workEmail: '', personalEmail: '', phone: '', dateOfBirth: '', gender: '',
+  firstName: '', lastName: '', preferredName: '', workEmail: '', workPhone: '', email: '', phone: '', dateOfBirth: '', gender: '', guardianName: '', photoUrl: '',
   emergencyContactName: '', emergencyContactRelation: '', emergencyContactPhone: '',
-  code: '', employeeTypeId: '', workTypeId: '', dateOfJoining: '', probationEndDate: '', contractEndDate: '', status: 'ACTIVE',
-  departmentId: '', jobPositionId: '', areaId: '', establishmentId: '', teamId: '', reportingManagerId: '', costCenterId: '', gradeId: '',
+  code: '', employeeTypeId: '', workTypeId: '', jobRoleId: '', dateOfJoining: '', probationEndDate: '', contractEndDate: '', status: 'ACTIVE',
+  departmentId: '', jobPositionId: '', areaId: '', establishmentId: '', businessUnitId: '', teamId: '', seatId: '', reportingManagerId: '', dottedManagerId: '', costCenterId: '', gradeId: '', workLocation: '',
+  tagIds: [], devicePin: '', cardNumber: '', contractorId: '', attendanceRequired: true,
 };
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
@@ -38,7 +40,7 @@ function check(step, f) {
   if (step === 'personal') {
     if (!f.firstName.trim()) e.firstName = 'Enter the legal first name.';
     if (f.workEmail && !EMAIL.test(f.workEmail.trim())) e.workEmail = 'Enter a valid work email, like name@company.com.';
-    if (f.personalEmail && !EMAIL.test(f.personalEmail.trim())) e.personalEmail = 'Enter a valid email.';
+    if (f.email && !EMAIL.test(f.email.trim())) e.email = 'Enter a valid email.';
     if (f.phone && f.phone.replace(/\D/g, '').length < 10) e.phone = 'Enter at least 10 digits.';
     if (f.dateOfBirth && f.dateOfBirth > todayIst()) e.dateOfBirth = 'The date of birth cannot be in the future.';
     if (f.emergencyContactPhone && f.emergencyContactPhone.replace(/\D/g, '').length < 10) e.emergencyContactPhone = 'Enter at least 10 digits.';
@@ -71,8 +73,8 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   const dirty = JSON.stringify(form) !== JSON.stringify(saved);
 
   useEffect(() => {
-    Promise.all(['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'teams', 'cost-centres', 'grades'].map((k) => structure(k).catch(() => [])))
-      .then(([departments, positions, types, workTypes, areas, establishments, teams, centres, grades]) => setLists({ departments, positions, types, workTypes, areas, establishments, teams, centres, grades }));
+    Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'teams', 'cost-centres', 'grades', 'business-units', 'seats', 'job-roles'].map((k) => structure(k).catch(() => [])), hasApp('attendance') ? listContractors() : Promise.resolve([]), listTags().catch(() => [])])
+      .then(([departments, positions, types, workTypes, areas, establishments, teams, centres, grades, units, seats, roles, contractors, tags]) => setLists({ departments, positions, types, workTypes, areas, establishments, teams, centres, grades, units, seats, roles, contractors, tags }));
     listEmployees({ limit: 500, sort: 'name' }).then((r) => setPeople((r?.employees || []).filter((e) => e.status !== 'LEFT'))).catch(() => {});
   }, []);
   /* A draft named in the address opens as it was left; otherwise the next ID is suggested. */
@@ -114,7 +116,9 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
     if (busy) return;
     setBusy(true);
     try {
-      const d = await saveDraft(draftId, { step: stepIndex + 1, data: form });
+      /* The photo is left out of a draft: it is the one large value, and is quick to choose again. */
+      const { photoUrl: _photo, ...kept } = form;
+      const d = await saveDraft(draftId, { step: stepIndex + 1, data: kept });
       setDraftId(d.id);
       setSaved(form);
       updateParams?.({ draft: d.id });
@@ -143,7 +147,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
     setBusy(true);
     setFailure(null);
     try {
-      const body = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== '' && v !== null));
+      const body = Object.fromEntries(Object.entries(form).filter(([k, v]) => v !== '' && v !== null && !(k === 'tagIds' && !v.length) && !(k === 'attendanceRequired' && !hasApp('attendance'))));
       const r = await createEmployee({ ...body, ...(duplicateReason ? { duplicateReason } : {}), ...(draftId ? { draftId } : {}) });
       setSaved(form);
       notify.success(`${r.employee.name} added.`);
@@ -195,9 +199,12 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             <Text id="preferredName" label="Preferred name" optional help="Used in everyday communication." placeholder="E.g. Sari" {...field('preferredName')} />
             <Text id="workEmail" label="Work email" optional type="email" inputMode="email" placeholder="name@company.com" help="Not every worker has one." {...field('workEmail')} error={errors.workEmail} />
             <Text id="phone" label="Phone" optional type="tel" inputMode="tel" placeholder="98765 43210" {...field('phone')} error={errors.phone} />
-            <Text id="personalEmail" label="Personal email" optional type="email" inputMode="email" {...field('personalEmail')} error={errors.personalEmail} />
+            <Text id="email" label="Personal email" optional type="email" inputMode="email" {...field('email')} error={errors.email} />
+            <Text id="workPhone" label="Work phone" optional type="tel" inputMode="tel" {...field('workPhone')} />
             <DateField id="dateOfBirth" label="Date of birth" optional max={todayIst()} {...field('dateOfBirth')} error={errors.dateOfBirth} />
             <SelectField id="gender" label="Gender" optional options={[{ value: '', label: 'Not set' }, ...Object.entries(GENDER_WORDS).map(([value, label]) => ({ value, label }))]} {...field('gender')} />
+            <Text id="guardianName" label="Father’s / husband’s name" optional help="For the muster roll." {...field('guardianName')} />
+            <PhotoField value={form.photoUrl} onChange={(v) => field('photoUrl').onChange(v)} name={[form.firstName, form.lastName].filter(Boolean).join(' ')} />
             <h3 className="ui-t-sec sm:col-span-2 mt-2">Emergency contact <span className="ui-caption font-normal">(optional)</span></h3>
             <Text id="emergencyContactName" label="Name" {...field('emergencyContactName')} />
             <Text id="emergencyContactRelation" label="Relationship" {...field('emergencyContactRelation')} />
@@ -211,6 +218,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             <SelectField id="employeeTypeId" label="Employment type" optional options={opts(lists.types)} {...field('employeeTypeId')} />
             <DateField id="dateOfJoining" label="Date of joining" required {...field('dateOfJoining')} error={errors.dateOfJoining} />
             <SelectField id="workTypeId" label="Work type" optional options={opts(lists.workTypes)} {...field('workTypeId')} />
+            {lists.roles.length ? <SelectField id="jobRoleId" label="Job role" optional options={opts(lists.roles)} {...field('jobRoleId')} /> : null}
             <DateField id="probationEndDate" label="Probation ends" optional min={form.dateOfJoining || ''} {...field('probationEndDate')} error={errors.probationEndDate} />
             <DateField id="contractEndDate" label="Contract ends" optional min={form.dateOfJoining || ''} {...field('contractEndDate')} error={errors.contractEndDate} />
             <SelectField id="status" label="Work status" options={[{ value: 'ACTIVE', label: 'Active' }, { value: 'SUSPENDED', label: 'Suspended' }]} {...field('status')} />
@@ -224,7 +232,28 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             <SelectField id="areaId" label="Work location" optional options={opts(lists.areas)} {...field('areaId')} />
             <SelectField id="establishmentId" label="Establishment" optional options={opts(lists.establishments)} {...field('establishmentId')} />
             <SelectField id="reportingManagerId" label="Reporting manager" optional options={[{ value: '', label: 'Not set' }, ...people.map((e) => ({ value: e.id, label: e.code ? `${e.name} (${e.code})` : e.name }))]} {...field('reportingManagerId')} />
+            <SelectField id="dottedManagerId" label="Also reports to (dotted line)" optional options={[{ value: '', label: 'Not set' }, ...people.map((e) => ({ value: e.id, label: e.code ? `${e.name} (${e.code})` : e.name }))]} {...field('dottedManagerId')} />
+            {lists.units.length ? <SelectField id="businessUnitId" label="Business unit" optional options={opts(lists.units)} {...field('businessUnitId')} /> : null}
             {lists.teams.length ? <SelectField id="teamId" label="Team" optional options={opts(lists.teams)} {...field('teamId')} /> : null}
+            {lists.seats.length ? <SelectField id="seatId" label="Seat" optional options={opts(lists.seats.filter((x) => !form.teamId || !x.teamId || x.teamId === form.teamId))} {...field('seatId')} /> : null}
+            <Text id="workLocation" label="Work location (text)" optional help="For a place not in the Locations list." {...field('workLocation')} />
+            {lists.tags.length ? (
+              <fieldset className="sm:col-span-2">
+                <legend className="ui-label">Tags <span className="ui-caption font-normal">(optional)</span></legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {lists.tags.map((t) => { const on = form.tagIds.includes(t.id); return <button key={t.id} type="button" aria-pressed={on} className={`ui-pill ${on ? 'ui-pill-info' : ''}`} onClick={() => field('tagIds').onChange(on ? form.tagIds.filter((x) => x !== t.id) : [...form.tagIds, t.id])}>{t.name}</button>; })}
+                </div>
+              </fieldset>
+            ) : null}
+            {hasApp('attendance') ? (
+              <>
+                <h3 className="ui-t-sec sm:col-span-2 mt-2">Attendance readers <span className="ui-caption font-normal">(optional)</span></h3>
+                <Text id="devicePin" label="Reader ID" optional help={form.code ? `Blank means the employee ID (${form.code}).` : 'The ID on the biometric reader.'} max={20} {...field('devicePin')} />
+                <Text id="cardNumber" label="Card number" optional max={20} {...field('cardNumber')} />
+                {lists.contractors.length ? <SelectField id="contractorId" label="Contractor" optional options={opts(lists.contractors)} {...field('contractorId')} /> : null}
+                <label className="flex items-center gap-2 text-sm self-end pb-2"><input type="checkbox" className="ui-checkbox" checked={form.attendanceRequired !== false} onChange={(e) => field('attendanceRequired').onChange(e.target.checked)} />Expected to mark attendance</label>
+              </>
+            ) : null}
             {lists.centres.length ? <SelectField id="costCenterId" label="Cost centre" optional options={opts(lists.centres)} {...field('costCenterId')} /> : null}
             {lists.grades.length ? <SelectField id="gradeId" label="Grade" optional options={opts(lists.grades)} {...field('gradeId')} /> : null}
           </Step>
@@ -243,7 +272,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             {form.dateOfJoining > todayIst() ? <Alert tone="info" title={`Joining on ${formatDate(form.dateOfJoining)}`}>They show as "Joining soon" until then.</Alert> : null}
             {[['personal', 'Personal', [['Legal name', [form.firstName, form.lastName].filter(Boolean).join(' ')], ['Preferred name', form.preferredName], ['Work email', form.workEmail], ['Phone', form.phone], ['Personal email', form.personalEmail], ['Date of birth', form.dateOfBirth && formatDate(form.dateOfBirth)], ['Emergency contact', [form.emergencyContactName, form.emergencyContactRelation, form.emergencyContactPhone].filter(Boolean).join(' · ')]]],
               ['employment', 'Employment', [['Employee ID', form.code], ['Employment type', lists.types.find((t) => t.id === form.employeeTypeId)?.name], ['Date of joining', form.dateOfJoining && formatDate(form.dateOfJoining)], ['Probation ends', form.probationEndDate && formatDate(form.probationEndDate)], ['Work status', form.status === 'ACTIVE' ? 'Active' : 'Suspended']]],
-              ['organization', 'Organization', [['Department', lists.departments.find((x) => x.id === form.departmentId)?.name], ['Designation', lists.positions.find((x) => x.id === form.jobPositionId)?.name], ['Work location', lists.areas.find((x) => x.id === form.areaId)?.name], ['Reporting manager', people.find((x) => x.id === form.reportingManagerId)?.name]]],
+              ['organization', 'Organization', [['Department', lists.departments.find((x) => x.id === form.departmentId)?.name], ['Designation', lists.positions.find((x) => x.id === form.jobPositionId)?.name], ['Work location', lists.areas.find((x) => x.id === form.areaId)?.name || form.workLocation], ['Establishment', lists.establishments.find((x) => x.id === form.establishmentId)?.name], ['Reporting manager', people.find((x) => x.id === form.reportingManagerId)?.name], ['Team', lists.teams.find((x) => x.id === form.teamId)?.name], ['Tags', lists.tags.filter((t) => form.tagIds.includes(t.id)).map((t) => t.name).join(', ')], ...(hasApp('attendance') ? [['Reader ID', form.devicePin || (form.code ? `${form.code} (employee ID)` : '')], ['Attendance expected', form.attendanceRequired === false ? 'No, door only' : 'Yes']] : [])]],
             ].map(([k, title, rows]) => (
               <section key={k} className="ui-review-block" aria-label={title}>
                 <header className="flex items-center justify-between"><h3 className="text-sm font-semibold">{title}</h3><button type="button" className="ui-link text-sm" onClick={() => goStep(k)}>Edit</button></header>
@@ -264,6 +293,26 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
           </span>
         </div>
       </form>
+    </div>
+  );
+}
+
+function PhotoField({ value, onChange, name }) {
+  const input = useRef(null);
+  return (
+    <div>
+      <span className="ui-label">Photo <span className="ui-caption font-normal">(optional)</span></span>
+      <div className="flex items-center gap-3">
+        <Avatar person={{ name: name || '?', photoUrl: value || null }} size={44} />
+        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => input.current?.click()}>{value ? 'Change' : 'Choose a photo'}</button>
+        {value ? <button type="button" className="ui-link text-sm" onClick={() => onChange('')}>Remove</button> : null}
+        <input ref={input} type="file" accept="image/*" className="sr-only" aria-label="Choose a photo" onChange={async (e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (!f) return;
+          try { onChange(await shrinkPhoto(f)); } catch (err) { notify.error(String(err?.message || 'Could not use that photo.')); }
+        }} />
+      </div>
     </div>
   );
 }
