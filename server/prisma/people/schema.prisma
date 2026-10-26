@@ -213,6 +213,8 @@ model Department {
   parentId    String?
   description String?
   isActive    Boolean @default(true)
+  /// Who runs it (Organization, D04): descriptive only, never a permission.
+  headEmployeeId String?
 
   createdByUserId String
   createdAt       DateTime @default(now())

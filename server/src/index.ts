@@ -25,6 +25,7 @@ import { startCredentialBackfill } from './services/credentialBackfill.js';
 import { startOwnerPermissionSync } from './services/ownerPermissions.js';
 import { startCredentialChecks } from './services/credentialReview.js';
 import { startIntegrityChecks } from './services/integrity/checks.js';
+import { startOrgDetailBackfill } from './services/people/organization.js';
 
 /* Crashes and unhandled rejections are reported, not lost. */
 reportProcessErrors();
@@ -104,3 +105,5 @@ startOwnerPermissionSync();
 startCredentialChecks();
 /* GAP-010: links between the databases, checked nightly; safe ones repaired, the rest logged. */
 startIntegrityChecks();
+/* Organization: "Detailed structure" on, once, for every company already using those lists. */
+startOrgDetailBackfill();

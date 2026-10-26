@@ -3,6 +3,7 @@ import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { isFeatureEnabled } from '../features.js';
 import { OUTSIDE_PAYROLL } from './employmentKinds.js';
 import { balancesFor, leaveYearOf } from '../attendance/leaveBalances.js';
+import { structureChecks } from './structureHealth.js';
 
 /**
  * Data health: the implementation auditor from the HR research ("finds
@@ -17,7 +18,7 @@ export type Severity = 'BLOCKS_PAYROLL' | 'FIX_SOON' | 'TIDY_UP';
 type Person = { id: string; name: string; code: string | null };
 export type Check = {
   id: string;
-  area: 'People' | 'Payroll' | 'Attendance' | 'Leave';
+  area: 'People' | 'Payroll' | 'Attendance' | 'Leave' | 'Structure';
   severity: Severity;
   title: string;
   why: string;
@@ -172,6 +173,13 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
     { id: 'no-department', area: 'People', severity: 'TIDY_UP', title: 'No department', why: 'Salary cost cannot be booked to a department and department reports leave them out.', fix: 'Set a department, or move several at once with Transfers.', screen: 'transfer' },
     employees.filter((e) => !e.departmentId).map((e) => who(e, e.department ? `"${e.department}" is text only, not a department in the list` : undefined))
   );
+
+  /* Structure (Organization): the company's shape. Rows naming a department or a team are for whole-company viewers; `add` keeps a team lead to their own people. */
+  try {
+    await structureChecks(accountId, orgId, add);
+  } catch (e) {
+    console.error('[data-health] structure:', e instanceof Error ? e.message : e);
+  }
 
   /* Attendance: people readers cannot match, punches nobody owns. */
   if (readers > 0) {

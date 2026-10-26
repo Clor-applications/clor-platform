@@ -47,7 +47,8 @@ export const appForFeature = (featureKey: string) => APP_CATALOG.find((a) => a.f
  */
 export const APP_TIER_MODULES: Record<string, Record<string, string[] | '*'>> = {
   people: {
-    CORE: [],
+    /* Detailed structure is how a company is laid out, not a paid module: every tier may switch it on. */
+    CORE: ['peopleOrgDetail'],
     FULL: '*',
   },
 };

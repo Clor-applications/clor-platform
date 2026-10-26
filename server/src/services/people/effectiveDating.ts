@@ -1,4 +1,5 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
+import { platformPrisma } from '../../utils/platformPrisma.js';
 import { outsideTenant, runInTenant } from '../../utils/tenantScope.js';
 import { exclusive, leaseFor } from '../jobLease.js';
 import type { Actor } from './changeLog.js';
@@ -43,6 +44,11 @@ async function labelFor(orgId: string, field: string, value: string | null): Pro
     case 'costCenterId': return (await peoplePrisma.costCenter.findFirst(by))?.name ?? value;
     case 'businessUnitId': return (await peoplePrisma.businessUnit.findFirst(by))?.name ?? value;
     case 'contractorId': return (await peoplePrisma.contractor.findFirst(by))?.name ?? value;
+    case 'dottedManagerId': return (await peoplePrisma.employee.findFirst(by))?.name ?? value;
+    case 'teamId': return (await peoplePrisma.team.findFirst(by))?.name ?? value;
+    case 'seatId': return (await peoplePrisma.seat.findFirst(by))?.name ?? value;
+    /* Branches are the platform's (the company's registered places), not one of People's lists. */
+    case 'branchId': return (await platformPrisma.branch.findFirst({ where: { id: value, orgId }, select: { branchName: true } }))?.branchName ?? value;
     default: return value;
   }
 }
