@@ -460,7 +460,8 @@ function Requests({ guard, month, onChanged }) {
   const latest = useRef(0);
   const load = useCallback(() => {
     const n = ++latest.current;
-    Promise.all([guard(requestRules(month)), guard(listRequests(month))])
+    /* The list is every recent request of mine, whatever month is on view; the month decides only the usage line. */
+    Promise.all([guard(requestRules(month)), guard(listRequests())])
       .then(([r, l]) => { if (n !== latest.current) return; setRules(r); setList(l); setError(''); })
       .catch((e) => n === latest.current && !(e instanceof SignedOut) && setError(String(e?.message || 'Could not load your requests.')));
   }, [month, guard]);
