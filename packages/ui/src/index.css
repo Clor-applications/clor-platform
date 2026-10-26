@@ -7941,3 +7941,8 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
   .ui-decide-row { grid-template-columns: 1fr; gap: 0.375rem; }
   .ui-decide-row > span:empty { display: none; }
 }
+
+/* Data Health: each check a ruled block on the page ground (no card per check). */
+.ui-health-list { display: grid; }
+.ui-health-item { display: grid; gap: 0.5rem; padding: 1rem 0; border-top: 1px solid rgb(var(--border)); }
+.ui-health-item:first-child { border-top: 0; padding-top: 0; }

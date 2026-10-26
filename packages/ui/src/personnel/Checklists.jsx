@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { CheckCheck, Plus, Trash2 } from 'lucide-react';
 
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { formatDate } from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { CHECKLIST_OWNER, getChecklistTemplates, listOpenChecklistTasks, resetChecklistTemplate, saveChecklistTemplate, updateChecklistTask } from './api';
 
@@ -40,7 +41,7 @@ function TemplateEditor({ kind, template, onSaved }) {
     onSaved(kind, t);
   };
   return (
-    <section className="ui-card p-4 space-y-3" aria-label={KIND_COPY[kind].title}>
+    <section className="space-y-3 border-t pt-6" aria-label={KIND_COPY[kind].title}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="ui-t-sec">{KIND_COPY[kind].title}</h2>
@@ -48,7 +49,7 @@ function TemplateEditor({ kind, template, onSaved }) {
         </div>
         <span className="flex gap-2">
           {template.custom ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={reset}>Use defaults</button> : null}
-          <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save'}</button>
+          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save'}</button>
         </span>
       </div>
       <ul className="space-y-2">
@@ -72,7 +73,10 @@ function TemplateEditor({ kind, template, onSaved }) {
   );
 }
 
-export default function Checklists() {
+/* Every kind of plan task by name: a change, a renewal or a letter is not a leaving task. */
+const TASK_KIND = { JOINING: 'Joining', LEAVING: 'Leaving', CHANGE: 'Change', PROBATION: 'Probation', RENEWAL: 'Renewal', LETTER: 'Letter' };
+
+export default function Checklists({ openScreen }) {
   const [open, setOpen] = useState(null);
   const [templates, setTemplates] = useState(null);
   const [error, setError] = useState('');
@@ -98,19 +102,17 @@ export default function Checklists() {
   };
 
   return (
-    <div className="space-y-3">
-      <PageHeader entity="employee" title="Onboarding & Exit" description="What is still to do for people joining and leaving, and the checklists themselves." />
-      <div className="pb-8 space-y-4">
-        {error ? <p className="ui-card p-4 text-sm" role="alert">{error}</p> : null}
+    <div className="space-y-6">
+      <PageHeader entity="employee" title="Onboarding & Exit" />
+      <div className="pb-8 space-y-6">
+        {error ? <p className="ui-field-error" role="alert">{error}</p> : null}
         {!open || !templates ? (
           error ? null : <SkeletonCard lines={8} />
         ) : (
           <>
-            <section className="ui-card overflow-hidden" aria-labelledby="open-h">
-              <div className="px-4 pt-4 pb-2">
-                <h2 id="open-h" className="ui-t-sec">Open items <span className="tabular-nums">· {open.length}</span></h2>
-                <p className="ui-caption">Late first. Tick what is done; each person’s full checklist is on their file.</p>
-              </div>
+            {/* A list on the page ground under one rule, late first; each person's full plan is on their record. */}
+            <section className="space-y-2" aria-labelledby="open-h">
+              <h2 id="open-h" className="ui-t-sec">Open items <span className="ui-caption tabular-nums">{open.length}</span></h2>
               {open.length ? (
                 <div className="ui-table-scroll">
                   <table className="ui-table w-full">
@@ -126,10 +128,10 @@ export default function Checklists() {
                     <tbody>
                       {open.map((t) => (
                         <tr key={t.id}>
-                          <td>{t.employee.name}{t.employee.code ? ` · ${t.employee.code}` : ''}<div className="ui-caption">{t.kind === 'JOINING' ? 'Joining' : 'Leaving'}</div></td>
+                          <td><button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: t.employee.id })}>{t.employee.name}</button>{t.employee.code ? <span className="ui-caption tabular-nums"> · {t.employee.code}</span> : null}<div className="ui-caption">{TASK_KIND[t.kind] || t.kind}</div></td>
                           <td className="whitespace-normal">{t.title}</td>
                           <td>{CHECKLIST_OWNER[t.owner] || t.owner}</td>
-                          <td className={`whitespace-nowrap tabular-nums ${t.overdue ? 'text-[rgb(var(--neg))] font-medium' : ''}`}>{t.dueDate || '—'}{t.overdue ? ' (late)' : ''}</td>
+                          <td className={`whitespace-nowrap tabular-nums ${t.overdue ? 'text-[rgb(var(--neg))] font-medium' : ''}`}>{t.dueDate ? formatDate(t.dueDate) : '—'}{t.overdue ? ' (late)' : ''}</td>
                           <td className="text-right">
                             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => tick(t)}>
                               <CheckCheck size={14} aria-hidden="true" /> Done
@@ -141,7 +143,7 @@ export default function Checklists() {
                   </table>
                 </div>
               ) : (
-                <div className="px-4 pb-4"><EmptyState icon={CheckCheck} title="Nothing open" description="When someone joins or leaves, their checklist items appear here until they are done." /></div>
+                <EmptyState icon={CheckCheck} title="Nothing open" description="When someone joins or leaves, their checklist items appear here until they are done." />
               )}
             </section>
             {['JOINING', 'LEAVING'].map((kind) => (

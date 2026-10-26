@@ -17,7 +17,7 @@ import { IMPORT_COLUMNS, IMPORT_FIELDS, guessField } from '@ui/personnel/Employe
 const FIELD_WORDS = {
   name: 'Name', code: 'Employee ID', email: 'Personal email', workEmail: 'Work email', phone: 'Phone', department: 'Department', jobPosition: 'Designation',
   employeeType: 'Employment type', workType: 'Work mode', dateOfJoining: 'Joining date', dateOfBirth: 'Date of birth', gender: 'Gender', businessUnit: 'Business unit', grade: 'Grade', costCentre: 'Cost centre',
-  hours: 'Hours', probationEndDate: 'Probation ends', contractEndDate: 'Contract ends',
+  hours: 'Hours', probationEndDate: 'Probation ends', contractEndDate: 'Contract ends', managerCode: 'Manager (employee ID)', workSite: 'Work site',
 };
 import { importEmployees, undoImport } from '@ui/personnel/api';
 
@@ -32,7 +32,8 @@ import { can } from './shared';
  * rows that did not go in. An import can be undone for 24 hours. Nothing is
  * saved before the Import button.
  */
-const STEPS = [['upload', 'Upload'], ['map', 'Map columns'], ['validate', 'Check'], ['review', 'Review'], ['results', 'Results']];
+/* Check and import are one step: the counts and every row's answer are on screen when Import is pressed, and an import can be undone for a day. */
+const STEPS = [['upload', 'Upload'], ['map', 'Map columns'], ['validate', 'Check'], ['results', 'Results']];
 const MAX_BYTES = 2_000_000;
 const MAX_ROWS = 1000;
 /* Quoted when a spreadsheet would run it as a formula; a plain number (+91 98450 12345) stays as it is so the file imports again. */
@@ -108,7 +109,6 @@ export default function ImportEmployees({ openScreen }) {
   };
   const commit = async () => {
     if (busy) return;
-    if (!(await confirmDialog({ title: `Import ${preview.imported} ${preview.imported === 1 ? 'row' : 'rows'}?`, message: `${preview.failed} with a problem will be skipped. You can undo the import for 24 hours.`, confirmLabel: 'Import', tone: 'primary' }))) return;
     setBusy(true);
     setFailure(null);
     try {
@@ -156,7 +156,7 @@ export default function ImportEmployees({ openScreen }) {
         ))}
       </ol>
       <div className="ui-record-section space-y-4">
-        {failure ? <ErrorState error={failure.status || failure.network ? failure : null} title={failure.status || failure.network ? undefined : 'That file cannot be used'} body={failure.status || failure.network ? undefined : failure.message} compact onRetry={step === 'map' ? check : step === 'review' ? commit : null} retryLabel="Try again" /> : null}
+        {failure ? <ErrorState error={failure.status || failure.network ? failure : null} title={failure.status || failure.network ? undefined : 'That file cannot be used'} body={failure.status || failure.network ? undefined : failure.message} compact onRetry={step === 'map' ? check : step === 'validate' ? commit : null} retryLabel="Try again" /> : null}
 
         {step === 'upload' ? (
           <div className="space-y-3">
@@ -167,7 +167,7 @@ export default function ImportEmployees({ openScreen }) {
               <input ref={input} type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(e) => take(e.target.files?.[0])} />
             </label>
             <div className="flex flex-wrap items-center gap-3">
-              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => downloadCsvTemplate({ fileName: 'Employees import template', columns: IMPORT_COLUMNS, sample: { name: 'Asha Rao', code: 'EMP-0001', department: 'Finance', jobPosition: 'Accountant', dateOfJoining: '2026-04-01', gender: 'FEMALE' } })}><FileDown size={16} aria-hidden="true" /> Download the template</button>
+              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => downloadCsvTemplate({ fileName: 'Employees import template', columns: IMPORT_COLUMNS, sample: { name: 'Asha Rao', code: 'EMP-0001', department: 'Finance', jobPosition: 'Accountant', dateOfJoining: '01/04/2026', gender: 'Female' } })}><FileDown size={16} aria-hidden="true" /> Download the template</button>
             </div>
           </div>
         ) : null}
@@ -203,13 +203,14 @@ export default function ImportEmployees({ openScreen }) {
           </div>
         ) : null}
 
-        {(step === 'validate' || step === 'review') && preview ? (
+        {step === 'validate' && preview ? (
           <div className="space-y-3">
             <dl className="ui-metric-strip">
               <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{preview.imported}</dd><dt className="ui-metric-label">Ready{preview.results.some((r) => r.action === 'UPDATE') ? ` (${preview.results.filter((r) => r.action === 'UPDATE').length} updates)` : ''}</dt></span></div>
               <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{preview.failed}</dd><dt className="ui-metric-label">With a problem</dt></span></div>
               <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{preview.results.filter((r) => r.warning).length}</dd><dt className="ui-metric-label">May be someone already here</dt></span></div>
             </dl>
+            <p className="ui-caption">{mode === 'update' ? 'People already here are updated with the columns given.' : 'Rows with an employee ID already here are skipped.'} An import can be undone for 24 hours.</p>
             {step === 'validate' ? (
               <>
                 <div className="flex flex-wrap items-center gap-3">
@@ -222,9 +223,7 @@ export default function ImportEmployees({ openScreen }) {
                   ))}
                 </ul>
               </>
-            ) : (
-              <Alert tone="info" title={`${preview.imported} ${preview.imported === 1 ? 'row goes' : 'rows go'} in; ${preview.failed} ${preview.failed === 1 ? 'is' : 'are'} skipped`}>{mode === 'update' ? 'People already here are updated with the columns given.' : 'Rows naming an employee ID already here are skipped.'} It can be undone for 24 hours.</Alert>
-            )}
+            ) : null}
           </div>
         ) : null}
 
@@ -239,8 +238,7 @@ export default function ImportEmployees({ openScreen }) {
           <button type="button" className="ui-btn ui-btn-secondary" onClick={async () => { if (step === 'results' || !file || await confirmDialog({ title: 'Leave the import?', message: 'Nothing has been imported.', confirmLabel: 'Leave' })) { clearUnsaved(); openScreen?.('employees'); } }}>{step === 'results' ? 'Back to Workforce' : 'Cancel'}</button>
           <span className="flex flex-wrap gap-2 ml-auto">
             {step === 'map' ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStep('upload')}>Choose another file</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !mappedKeys.includes('name') || twice.length > 0} onClick={check}>{busy ? 'Checking…' : 'Check rows'}</button></> : null}
-            {step === 'validate' ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStep('map')}>Back to mapping</button><button type="button" className="ui-btn ui-btn-primary" disabled={!preview?.imported} onClick={() => setStep('review')}>Continue</button></> : null}
-            {step === 'review' ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStep('validate')}>Back</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={commit}>{busy ? 'Importing…' : `Import ${preview?.imported || ''}`}</button></> : null}
+            {step === 'validate' ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStep('map')}>Back to mapping</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !preview?.imported} onClick={commit}>{busy ? 'Importing…' : `Import ${preview?.imported || ''} ${preview?.imported === 1 ? 'row' : 'rows'}`}</button></> : null}
             {step === 'results' ? <>{result?.failed ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={failedRows}>Download rows to fix</button><button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setFile(null); setPreview(null); setResult(null); setStep('upload'); }}>Upload the fixed file</button></> : null}{result?.batchId && !result.undone ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={undo}>Undo this import</button> : null}</> : null}
           </span>
         </div>

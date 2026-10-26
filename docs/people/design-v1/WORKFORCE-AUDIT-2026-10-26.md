@@ -72,12 +72,12 @@ code, then each finding checked before fixing. Status: **Fixed** (commit),
 | O12 | Three place fields (Location, Work site, Work location) | Fixed (headcount and words batch) |
 | O13 | Record and Transfer show lists the company has not set up | Fixed (headcount and words batch) |
 | O14–15 | Words: Establishment/Work site, Seat/Position, Reports to/Manager, Job roles | Fixed (headcount and words batch) |
-| O16 | Import rejects dd/mm/yyyy and "Male" | Open |
-| O17 | Import cannot carry manager or work site | Open |
-| O18 | Import has a review step that repeats the counts plus a confirm | Open |
-| O19 | Onboarding & Exit calls every non-joining task "Leaving"; raw dates | Open |
+| O16 | Import rejects dd/mm/yyyy and "Male" | Fixed (import and screens batch) |
+| O17 | Import cannot carry manager or work site | Fixed (import and screens batch) |
+| O18 | Import has a review step that repeats the counts plus a confirm | Fixed (import and screens batch) |
+| O19 | Onboarding & Exit calls every non-joining task "Leaving"; raw dates | Fixed (import and screens batch) |
 | O20 | Bulk change: few fields, no date, "None" can blank departments | Open |
-| O21 | Data Health snooze uses a browser prompt | Open |
+| O21 | Data Health snooze uses a browser prompt | Fixed (import and screens batch) |
 | O22 | No default probation length; no next steps after hiring | Open |
 | O23 | Tag colours mix with #000 (dark mode) | Open |
 | D24–28 | DESIGN.md: extra primary buttons, lists in cards, drawer descriptions, 20px figures, page spacing, raw dates | Open |

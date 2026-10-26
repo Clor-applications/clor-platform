@@ -1626,6 +1626,25 @@ peopleRouter.delete('/orgs/:orgId/people/employees/:id', can(PermissionAction.DE
  * department, position and type rather than ids, so a spreadsheet can be
  * filled in by hand). Each row stands or falls alone and the answer says which.
  */
+/* How dates and gender arrive in Indian spreadsheets: 05/10/2026, 5-10-2026, 05.10.2026, 5 Oct 2026, 2026/10/05; Male, M, f. */
+const MONTH_NAMES = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const two = (n: number | string) => String(n).padStart(2, '0');
+export function importDateToIso(v: unknown): unknown {
+  if (typeof v !== 'string') return v;
+  const t = v.trim();
+  if (!t || ISO_DATE.test(t)) return t;
+  let m = t.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  if (m) return `${m[3]}-${two(m[2])}-${two(m[1])}`;
+  m = t.match(/^(\d{4})[/.](\d{1,2})[/.](\d{1,2})$/);
+  if (m) return `${m[1]}-${two(m[2])}-${two(m[3])}`;
+  m = t.match(/^(\d{1,2})[\s/.-]([A-Za-z]{3,9})[\s/.,-]+(\d{4})$/);
+  if (m && MONTH_NAMES.includes(m[2].slice(0, 3).toLowerCase())) return `${m[3]}-${two(MONTH_NAMES.indexOf(m[2].slice(0, 3).toLowerCase()) + 1)}-${two(m[1])}`;
+  return t;
+}
+const GENDER_WORDS: Record<string, string> = { m: 'MALE', male: 'MALE', f: 'FEMALE', female: 'FEMALE', o: 'OTHER', other: 'OTHER', nonbinary: 'NON_BINARY', prefernottosay: 'PREFER_NOT_TO_SAY' };
+const importDate = z.preprocess(importDateToIso, date);
+const importGender = z.preprocess((v) => (typeof v === 'string' && v.trim() ? GENDER_WORDS[v.trim().toLowerCase().replace(/[^a-z]/g, '')] || v.trim().toUpperCase() : v), z.enum(GENDER_OPTIONS, { message: 'Gender should be Male, Female, Other, Non-binary or Prefer not to say.' }).optional().nullable().or(z.literal('')));
+
 const importRow = z.object({
   name: z.string().trim().min(1).max(120),
   code: text(40),
@@ -1639,10 +1658,13 @@ const importRow = z.object({
   businessUnit: text(120),
   grade: text(120),
   costCentre: text(120),
-  dateOfJoining: date,
-  dateOfBirth: date,
-  probationEndDate: date,
-  contractEndDate: date,
+  dateOfJoining: importDate,
+  dateOfBirth: importDate,
+  probationEndDate: importDate,
+  contractEndDate: importDate,
+  /* The manager by their employee ID, and the work site by its name (Workforce audit O17). */
+  managerCode: text(40),
+  workSite: text(120),
   /* Written the way people write it: "Part-time", "part time", "PT". Blank is full-time. */
   hours: z.preprocess(
     (v) => {
@@ -1654,7 +1676,7 @@ const importRow = z.object({
     },
     z.enum(HOURS, { message: 'Hours should be Full-time or Part-time.' }).nullable(),
   ),
-  gender: z.enum(GENDER_OPTIONS).optional().nullable().or(z.literal('')),
+  gender: importGender,
   workEmail: z.string().trim().email().max(160).optional().nullable().or(z.literal('')),
 });
 
@@ -1700,6 +1722,24 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
     return row as { id: string; name: string };
   };
 
+  /* A manager named by employee ID, someone already here or a row earlier in this file; a work site by its name (never made up: its state decides the rules). */
+  const managerByCode = new Map<string, string>();
+  const managerOf = async (code: string | null) => {
+    if (!code) return null;
+    const key = code.toLowerCase();
+    if (managerByCode.has(key)) return managerByCode.get(key)!;
+    const found = await peoplePrisma.employee.findFirst({ where: { orgId, code: { equals: code, mode: 'insensitive' }, status: { not: 'LEFT' } }, select: { id: true } });
+    if (!found) throw new ImportRowError(`Nobody has the employee ID ${code} to be the manager.`);
+    managerByCode.set(key, found.id);
+    return found.id;
+  };
+  const siteOf = async (name: string | null) => {
+    if (!name) return null;
+    const found = await peoplePrisma.establishment.findFirst({ where: { orgId, name: { equals: name, mode: 'insensitive' } }, select: { id: true } });
+    if (!found) throw new ImportRowError(`"${name}" is not one of the company's work sites; add it under Settings, Work Sites, first.`);
+    return found.id;
+  };
+
   const results: Array<{ row: number; ok: boolean; id?: string; error?: string; action?: 'CREATE' | 'UPDATE'; warning?: string }> = [];
   for (let i = 0; i < rows.length; i += 1) {
     const parsed = importRow.safeParse(rows[i]);
@@ -1727,6 +1767,10 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
       if (dryRun) {
         await ensure('department', r.department);
         await ensure('jobPosition', r.jobPosition);
+        await siteOf(blank(r.workSite));
+        if (blank(r.managerCode) && blank(r.managerCode)!.toLowerCase() === code?.toLowerCase()) throw new ImportRowError('Someone cannot be their own manager.');
+        await managerOf(blank(r.managerCode));
+        if (code) managerByCode.set(code.toLowerCase(), existingByCode?.id || '');
         results.push({ row: i + 1, ok: true, action: existingByCode ? 'UPDATE' : 'CREATE', warning });
         continue;
       }
@@ -1744,6 +1788,9 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
         for (const [kind, col, field] of [['employeeType', r.employeeType, 'employeeTypeId'], ['workType', r.workType, 'workTypeId'], ['businessUnit', r.businessUnit, 'businessUnitId'], ['grade', r.grade, 'gradeId'], ['costCenter', r.costCentre, 'costCenterId']] as const) {
           const row = await ensure(kind, col); if (row) data[field] = row.id;
         }
+        const site = await siteOf(blank(r.workSite)); if (site) data.establishmentId = site;
+        const mgr = await managerOf(blank(r.managerCode));
+        if (mgr) { await checkManager(orgId, existingByCode.id, mgr); data.reportingManagerId = mgr; }
         const before = Object.fromEntries(Object.keys(data).map((k) => [k, (existingByCode as any)[k] ?? null]));
         await updateEmployee(actorOf(req, 'IMPORT', 'Import (update existing)'), existingByCode, data as any, {});
         updatedRows.push({ id: existingByCode.id, before });
@@ -1752,6 +1799,8 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
       }
       const department = await ensure('department', r.department);
       const jobPosition = await ensure('jobPosition', r.jobPosition);
+      const establishmentId = await siteOf(blank(r.workSite));
+      const reportingManagerId = await managerOf(blank(r.managerCode));
       const created = await createEmployee(actorOf(req, 'IMPORT'), {
           accountId,
           orgId,
@@ -1775,14 +1824,17 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
           contractEndDate: blank(r.contractEndDate),
           hours: r.hours,
           gender: blank(r.gender),
+          establishmentId,
+          reportingManagerId,
           status: 'ACTIVE',
           createdByUserId: userId,
         } as any);
       createdIds.push(created.id);
+      if (code) managerByCode.set(code.toLowerCase(), created.id);
       results.push({ row: i + 1, ok: true, id: created.id, action: 'CREATE', warning });
     } catch (e: any) {
       /* Our own reasons are shown; a database message is not (it can name tables and other people's values). */
-      results.push({ row: i + 1, ok: false, error: e instanceof ImportRowError ? e.message : String(e?.code) === 'P2002' ? 'Already exists.' : 'This row could not be saved.' });
+      results.push({ row: i + 1, ok: false, error: e instanceof ImportRowError || e?.status === 400 ? e.message : String(e?.code) === 'P2002' ? 'Already exists.' : 'This row could not be saved.' });
     }
   }
   const imported = results.filter((r) => r.ok).length;
