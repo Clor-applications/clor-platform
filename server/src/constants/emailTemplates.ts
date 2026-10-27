@@ -236,13 +236,30 @@ You get one message when a problem starts and one when it clears. Reader health 
     subject: 'Welcome to {{orgName}} — a few details before {{joiningDate}}',
     body: `Hello {{name}},
 
-Welcome to {{orgName}}. Before you join on {{joiningDate}}, please fill in your personal details and add copies of your ID and other documents here:
+Welcome to {{orgName}}. Before you join on {{joiningDate}}, please fill in your personal details, your PAN, PF, ESI and bank details for pay, and add copies of your ID and other documents here:
 {{link}}
 
 The link works once and runs out on {{expiresOn}}. You see only your own details; HR checks what you send before it goes on your record.
 {{message}}
 If you did not expect this, ignore it.`,
     fields: ['name', 'orgName', 'joiningDate', 'link', 'expiresOn', 'message'],
+  },
+  {
+    key: 'people.offer',
+    label: 'Offer letter',
+    description: 'Sent to a candidate or someone about to join, with their offer letter and a link to accept it that works until the offer runs out.',
+    subject: 'Your offer from {{orgName}}: {{designation}}',
+    body: `Hello {{name}},
+
+{{orgName}} is pleased to offer you the position of {{designation}}, with a cost to the company (CTC) of {{ctc}} a year.
+
+Read your offer letter and accept it here:
+{{link}}
+
+The offer is open until {{acceptBy}}.
+{{message}}
+If you did not expect this, ignore it.`,
+    fields: ['name', 'orgName', 'designation', 'ctc', 'link', 'acceptBy', 'message'],
   },
   {
     key: 'people.task_assigned',

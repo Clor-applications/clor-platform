@@ -22,6 +22,8 @@ import { SCHEDULABLE_FIELDS, asOf, cancelScheduledChange, pendingChangesOf, sche
 import { writeChangeLog, type Actor, type Change, type ChangeSource } from '../services/people/changeLog.js';
 import { checkIdentifier, maskTail } from '../services/people/identifiers.js';
 import { PAYROLL_STATUTORY_FIELDS, maskedStatutory, revealStatutory } from '../services/payroll/statutoryRead.js';
+import { nomineesOf } from '../services/payroll/statutoryWrite.js';
+import { heldFor } from '../services/people/lifecycle/joiningStatutory.js';
 import { stepUpRefusal } from '../services/stepUp.js';
 import { inScope, scopeWhere, seesPersonal, teamScope } from '../services/people/scope.js';
 import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/attendance/suggestions.js';
@@ -382,9 +384,10 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/statutory', can(PermissionAc
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   /* Without the grant the section says so, rather than refusing the whole record. */
   if (await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, STATUTORY)) return res.json({ visible: false });
-  const [payroll, identity] = await Promise.all([maskedStatutory(orgId, employee.id), peoplePrisma.employeeIdentity.findUnique({ where: { employeeId: employee.id } })]);
+  const [payroll, identity, nominees, joining] = await Promise.all([maskedStatutory(orgId, employee.id), peoplePrisma.employeeIdentity.findUnique({ where: { employeeId: employee.id } }), nomineesOf(orgId, employee.id), heldFor(orgId, employee.id)]);
   const canEdit = !(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, STATUTORY));
-  res.json({ visible: true, canEdit, ...payroll, identity: identityRow(identity) });
+  /* PF nominees from Payroll; and what the joiner sent that waits for HR, or for Payroll to be switched on (masked). */
+  res.json({ visible: true, canEdit, ...payroll, identity: identityRow(identity), nominees, joining });
 });
 
 peopleRouter.put('/orgs/:orgId/people/employees/:id/identity', can(PermissionAction.EDIT, STATUTORY), async (req, res) => {

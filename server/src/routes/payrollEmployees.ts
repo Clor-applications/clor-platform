@@ -17,6 +17,7 @@ import { PAYROLL_HISTORY, PAYROLL_SETUP, lockPayrollEmployee } from '../services
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { BANK_FIELDS, BankChangeError, approveBankChange, maskNumber, rejectBankChange, routeBankUpdate } from '../services/payroll/bankChanges.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
+import { nomineesOf } from '../services/payroll/statutoryWrite.js';
 import { costCentreRefusal } from '../services/payroll/accounting/references.js';
 
 /**
@@ -233,7 +234,8 @@ payrollEmployeesRouter.get(
     if (!row) return res.status(404).json({ error: 'No such employee.' });
     const payroll = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: row.id } });
     const reveal = await mayRevealSensitive(req);
-    res.json({ employee: shape({ ...row, payroll }, reveal), sensitiveVisible: reveal });
+    /* PF nominees (Form 2): names and shares, from the joining form or entered here. */
+    res.json({ employee: shape({ ...row, payroll }, reveal), sensitiveVisible: reveal, nominees: await nomineesOf(orgId, row.id) });
   }
 );
 

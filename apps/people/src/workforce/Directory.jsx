@@ -22,6 +22,7 @@ import { formatDate } from '@ui/components/ui/DatePicker';
 import { bulkUpdate, dataHealth, employeeIds, deleteView, downloadText, employeeCounts, exportColumns, exportEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure, workforcePending } from './api';
 import { listBranches } from '../organization/api';
 import { STATUS, StatusBadge, can } from './shared';
+import AppAccessSend from './AppAccessSend';
 
 /**
  * Workforce → Directory (People design spec v1 EMP-01, EMP-11, EMP-12; Workforce
@@ -87,6 +88,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const setPrefs = (next) => { setPrefsState(next); writeJson(COLUMNS_KEY, next); };
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [bulk, setBulk] = useState(null);
+  const [appAccess, setAppAccess] = useState(null);
   const [result, setResult] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -261,6 +263,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
                 ) : null}
                 {allowed('PEOPLE::Employees::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ field: 'departmentId', value: '', reason: '' })}>Change…</button> : null}
                 {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setExportOpen(true)}>Export…</button> : null}
+                {allowed('PEOPLE::Lifecycle::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAppAccess([...selected].map((id) => ({ id, name: rows.find((r) => r.id === id)?.name || '' })))}>Send employee app access</button> : null}
                 <button type="button" className="ui-link text-sm" onClick={() => setSelected(new Set())}>Clear selection</button>
               </div>
             ) : null}
@@ -307,6 +310,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
           }
         }} /> : null}
       {result ? <BulkResult result={result} onClose={() => setResult(null)} /> : null}
+      {appAccess ? <AppAccessSend people={appAccess} onClose={() => { setAppAccess(null); setSelected(new Set()); }} /> : null}
     </div>
   );
 }

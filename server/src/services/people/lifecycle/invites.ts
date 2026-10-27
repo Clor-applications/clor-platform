@@ -8,6 +8,8 @@ import { type Actor, writeChangeLog } from '../changeLog.js';
 import { updateEmployee } from '../employees.js';
 import { writeEvent } from '../outbox.js';
 import { decodeDocument } from '../documentFiles.js';
+import { NOMINEE_RELATIONS } from '../../payroll/statutoryWrite.js';
+import { StatutoryError, parseStatutory, saveFromJoiner, summariesFor } from './joiningStatutory.js';
 
 /**
  * Before day one (docs/people/02-PRD.md LIFE-01). HR invites someone who is
@@ -116,6 +118,8 @@ export async function joinerView(invite: { id: string; orgId: string; employeeId
     orgName: org?.name || '', name: employee?.name || '', code: employee?.code || null, dateOfJoining: employee?.dateOfJoining || null, designation: employee?.designation || null,
     fields: JOINER_FIELDS.map((k) => ({ key: k, label: JOINER_FIELD_LABEL[k] })),
     documentKinds: [...JOINER_DOC_KINDS],
+    /* PAN, UAN, ESIC, bank and PF nominees: checked by HR before they reach Payroll (joiningStatutory.ts). */
+    statutory: { fields: ['pan', 'uan', 'esicNumber', 'bankAccountName', 'bankAccountNumber', 'bankIfsc', 'bankName'], nomineeRelations: [...NOMINEE_RELATIONS] },
   };
 }
 
@@ -149,6 +153,13 @@ export async function submitInvite(invite: { id: string; accountId: string; orgI
     if ('error' in file) throw new InviteError(file.error);
     files.push({ kind, title, mime: file.mime, data: file.data });
   }
+  let statutory: ReturnType<typeof parseStatutory> = null;
+  try {
+    statutory = parseStatutory(body.statutory);
+  } catch (e) {
+    if (e instanceof StatutoryError) throw new InviteError(e.message, e.status);
+    throw e;
+  }
   const actor = { accountId: invite.accountId, orgId: invite.orgId, correlationId: `invite_${invite.id}` };
   const result = await peoplePrisma.$transaction(async (tx) => {
     const documentIds: string[] = [];
@@ -156,9 +167,11 @@ export async function submitInvite(invite: { id: string; accountId: string; orgI
       const row = await tx.employeeDocument.create({ data: { accountId: invite.accountId, orgId: invite.orgId, employeeId: invite.employeeId, kind: f.kind, title: f.title, mime: f.mime, size: f.data.length, data: f.data, classification: 'EMPLOYEE_VISIBLE', visibleToEmployee: true, uploadedByUserId: 'JOINER' }, select: { id: true } });
       documentIds.push(row.id);
     }
+    /* Held apart from the invite, so its plain values never travel with a list of invites. */
+    if (statutory) await saveFromJoiner(tx, invite, statutory);
     const submitted: Submitted = { fields, declarations, documentIds };
     const row = await tx.joinInvite.update({ where: { id: invite.id }, data: { status: 'RETURNED', returnedAt: new Date(), submitted: submitted as any } });
-    await writeEvent(tx, actor, 'people.invite.returned.v1', { inviteId: invite.id, fields: Object.keys(fields), documents: documentIds.length }, invite.employeeId);
+    await writeEvent(tx, actor, 'people.invite.returned.v1', { inviteId: invite.id, fields: Object.keys(fields), documents: documentIds.length, statutory: Boolean(statutory) }, invite.employeeId);
     return row;
   });
   try {
@@ -194,5 +207,6 @@ export async function invitesOf(orgId: string, where: { employeeId?: string; sta
   const rows = await peoplePrisma.joinInvite.findMany({ where: { orgId, ...(where.employeeId ? { employeeId: where.employeeId } : {}), ...(where.status ? { status: where.status } : {}) }, orderBy: { createdAt: 'desc' }, take: 200 });
   const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.employeeId))] } }, select: { id: true, name: true, code: true, dateOfJoining: true } });
   const of = new Map(people.map((p) => [p.id, p]));
-  return rows.map((r) => ({ ...shapeInvite(r), employeeName: of.get(r.employeeId)?.name || '', employeeCode: of.get(r.employeeId)?.code || null, dateOfJoining: of.get(r.employeeId)?.dateOfJoining || null }));
+  const statutory = await summariesFor(orgId, rows.map((r) => r.id));
+  return rows.map((r) => ({ ...shapeInvite(r), statutory: statutory.get(r.id) ?? null, employeeName: of.get(r.employeeId)?.name || '', employeeCode: of.get(r.employeeId)?.code || null, dateOfJoining: of.get(r.employeeId)?.dateOfJoining || null }));
 }

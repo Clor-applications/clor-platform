@@ -2,12 +2,13 @@ import { Router, type Request } from 'express';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { correlationOf } from '../services/people/employees.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
+import { OfferError, annexure, createOffer, linesFor, offerSetup, offersOf, withdrawOffer } from '../services/people/offers.js';
 import { LETTER_KINDS, LETTER_LABEL, LetterError, MERGE_FIELDS, issueLetter, recordLetterRequest, saveTemplate, serviceCertificateDue, templatesOf, versionsOf } from '../services/people/letters.js';
 
 /**
@@ -68,6 +69,60 @@ peopleLettersRouter.get(`${base}/employees/:id/letters/service-certificate`, can
     res.json(await serviceCertificateDue(req.tenant!.orgId, String(req.params.id), askedOn));
   } catch (e) {
     sendError(res, e);
+  }
+});
+
+/* ---------------------------------------------------------------- offers sent from CLOR (HR-VIEW gap 5) */
+
+const offerError = (res: any, e: unknown) => {
+  if (e instanceof OfferError) return res.status(e.status).json({ error: e.message });
+  return sendError(res, e);
+};
+
+/** What the offer form needs: whether Payroll is on, and its salary structures if so. */
+peopleLettersRouter.get(`${base}/offers/setup`, can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json(await offerSetup(req.tenant!.accountId, req.tenant!.orgId));
+});
+
+/** The monthly lines and the annexure for a CTC, without sending anything. */
+peopleLettersRouter.post(`${base}/offers/preview`, can(PermissionAction.CREATE, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  try {
+    const annualCtc = Math.round(Number(req.body?.annualCtc) * 100) / 100;
+    if (!Number.isFinite(annualCtc) || annualCtc <= 0) return res.status(400).json({ error: 'Enter the annual CTC.' });
+    const r = await linesFor(req.tenant!.accountId, req.tenant!.orgId, { annualCtc, structureId: req.body?.structureId || null, lines: req.body?.lines });
+    res.json({ ...r, annexure: annexure(annualCtc, r.lines) });
+  } catch (e) {
+    offerError(res, e);
+  }
+});
+
+peopleLettersRouter.post(`${base}/offers`, can(PermissionAction.CREATE, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  /* An offer to a candidate also changes the candidate: it needs the Recruitment grant too. */
+  if (req.body?.candidateId) {
+    const refused = await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT as any, 'Recruitment');
+    if (refused) return res.status(refused.status).json(refused.body);
+  }
+  try {
+    res.status(201).json(await createOffer(actorOf(req), req.body && typeof req.body === 'object' ? req.body : {}));
+  } catch (e) {
+    offerError(res, e);
+  }
+});
+
+peopleLettersRouter.get(`${base}/offers`, can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json({ offers: await offersOf(req.tenant!.orgId, { employeeId: req.query.employeeId ? String(req.query.employeeId) : undefined, candidateId: req.query.candidateId ? String(req.query.candidateId) : undefined }) });
+});
+
+peopleLettersRouter.post(`${base}/offers/:id/withdraw`, can(PermissionAction.CREATE, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  try {
+    res.json({ offer: await withdrawOffer(actorOf(req), String(req.params.id)) });
+  } catch (e) {
+    offerError(res, e);
   }
 });
 

@@ -2,7 +2,6 @@ import { recordAudit } from '../services/auditTrail.js';
 import { endPortalSessions } from '../services/portalSessions.js';
 import { actorFrom } from '../services/credentials.js';
 import { Router } from 'express';
-import bcrypt from 'bcrypt';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
@@ -10,12 +9,10 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
-import { platformPrisma } from '../utils/platformPrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from '../services/attendance/guards.js';
 import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
-import { assignOrgCode } from '../services/displayCodes.js';
-import { sendTemplate } from '../services/mailer.js';
-import { CODE_TTL_MS, formatCode, newActivationCode, validPosition } from '../services/attendance/portal.js';
+import { CODE_TTL_MS, validPosition } from '../services/attendance/portal.js';
+import { companyCode, emailCode, issueCode, portalUrl } from '../services/portalCodes.js';
 import { sendError } from '../services/attendance/days.js';
 import { geocodeLimiter } from '../middleware/rateLimit.js';
 import { placeAt, searchPlaces } from '../services/geocode.js';
@@ -30,14 +27,6 @@ portalAdminRouter.use(requireAuth, requireTenantContext);
 
 const can = (action: string) => requirePermission(ATTENDANCE_MODULE, action as any, ATTENDANCE_RESOURCE.portal);
 const base = '/orgs/:orgId/attendance';
-/* Where the employee portal is: PORTAL_URL (https://attendance.clor.in/#/portal in production), else the app's own address. */
-const portalUrl = () => process.env.PORTAL_URL || `${process.env.APP_URL || 'http://localhost:5173'}/#/portal`;
-
-/** The company code people sign in with; given now if the company has none yet. */
-async function companyCode(accountId: string, orgId: string) {
-  const org = await platformPrisma.org.findUnique({ where: { id: orgId }, select: { code: true, name: true } });
-  return { name: org?.name || '', code: org?.code || (await assignOrgCode(accountId, orgId, org?.name || 'Company')) };
-}
 
 portalAdminRouter.get(`${base}/portal-access`, can(PermissionAction.VIEW), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
@@ -102,38 +91,18 @@ portalAdminRouter.post(`${base}/portal-access/codes`, can(PermissionAction.EDIT)
   const expires = new Date(Date.now() + CODE_TTL_MS);
   const codes = [];
   for (const p of people) {
-    const code = newActivationCode();
-    await peoplePrisma.employee.update({ where: { id: p.id }, data: { portalEnabled: true, portalSetupHash: await bcrypt.hash(code, 10), portalSetupExpires: expires } });
+    const { formatted } = await issueCode(p.id, expires);
     const to = p.workEmail || p.email;
     let emailed = false;
     if (parsed.data.email && to) {
       try {
-        await sendTemplate({
-          templateKey: 'attendance.portal_invite',
-          to,
-          toName: p.name,
-          accountId,
-          orgId,
-          relatedType: 'Employee',
-          relatedId: p.id,
-          data: {
-            employeeName: p.name,
-            orgName: org.name,
-            /* Company and employee code filled in when they open it. */
-            portalUrl: `${portalUrl()}?c=${encodeURIComponent(org.code)}&e=${encodeURIComponent(p.code!)}`,
-            companyCode: org.code,
-            employeeCode: p.code,
-            activationCode: formatCode(code),
-            expires: expires.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }),
-            phoneLine: p.mobilePunch ? ', and punching in and out from your phone' : '',
-          },
-        });
+        await emailCode({ accountId, orgId, to, person: { id: p.id, name: p.name, code: p.code!, mobilePunch: p.mobilePunch }, company: org, formatted, expires });
         emailed = true;
       } catch {
         emailed = false;
       }
     }
-    codes.push({ employeeId: p.id, name: p.name, employeeCode: p.code, activationCode: formatCode(code), emailedTo: emailed ? to : null });
+    codes.push({ employeeId: p.id, name: p.name, employeeCode: p.code, activationCode: formatted, emailedTo: emailed ? to : null });
   }
   res.json({ company: org, portalUrl: portalUrl(), expiresAt: expires, codes });
 });
