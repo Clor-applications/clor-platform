@@ -17,10 +17,11 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma, peopleWrite, afterPeopleCommit } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from '../services/attendance/guards.js';
 import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
-import { isWeeklyOff } from '../services/attendance/compute.js';
+import { isOvernight, isWeeklyOff, type ShiftRule } from '../services/attendance/compute.js';
+import { nightCover, nightShiftsOn } from '../services/attendance/nightShift.js';
 import { ACCRUALS, CALENDAR, balanceFor, carryLimitOf, periodEnd, periodLabel, periodOf, periodStart, workedCredit, type LeavePeriod, type Worked } from '../services/attendance/leaveAccrual.js';
 import { emit as emitWebhook, leaveEvent, leaveEventFor } from '../services/attendance/webhooks.js';
-import { ISO_DATE, PayrollTakenError, closedMonths, codeKey, employeeIn, fail, isHoliday, myEmployee, payrollTaken, peopleByCode, sendError, shiftFor, today, withNames, assertMonthOpen, writeDay } from '../services/attendance/days.js';
+import { ISO_DATE, MonthClosedError, PayrollTakenError, closedMonthRefusal, closedMonths, codeKey, employeeIn, fail, isHoliday, myEmployee, payrollTaken, peopleByCode, sendError, shiftFor, today, withNames, assertMonthOpen, writeDay } from '../services/attendance/days.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { policyProblem } from '../services/people/leavePolicy.js';
@@ -75,7 +76,13 @@ const spanWords = (from: string, to: string) =>
 export const periodBounds = (p: LeavePeriod, year: number) => ({ year, from: periodStart(p, year), to: periodEnd(p, year), label: periodLabel(p, year) });
 
 /** One date in a request: whether it is charged, and if not, why (the preview shows every one). */
-export type PlannedDay = { date: string; counted: boolean; why: string | null };
+export type PlannedDay = {
+  date: string;
+  counted: boolean;
+  why: string | null;
+  /** With night shifts on, a date whose shift ends the next morning: the shift, and the hours this leave covers (the day record says the same). */
+  night?: { label: string; covers: string };
+};
 
 /**
  * Every date from first to last: a weekly off on that day's shift (or the
@@ -107,11 +114,22 @@ export async function dayPlan(orgId: string, employee: { id: string; branchId: s
   const picked = optional.length ? new Set((await peoplePrisma.holidayPick.findMany({ where: { orgId, employeeId: employee.id, holidayId: { in: optional.map((h) => h.id) } }, select: { holidayId: true } })).map((x) => x.holidayId)) : new Set<string>();
   const holidayOn = new Map(holidays.filter((h) => !h.isOptional || picked.has(h.id)).map((h) => [h.date, h.name]));
   const out: PlannedDay[] = [];
+  /* Holidays and weekly offs are the shift date's: a night starting on a holiday is the holiday's, whatever the morning after is. */
+  const rules = new Map<string, ShiftRule>();
   for (let d = from; d <= to; d = addDays(d, 1)) {
+    const rule = resolveShift(schedule, employee.id, d).rule;
+    rules.set(d, rule);
     const name = holidayOn.get(d);
     if (name !== undefined) out.push({ date: d, counted: false, why: `Holiday: ${name}` });
-    else if (isWeeklyOff(resolveShift(schedule, employee.id, d).rule, d)) out.push({ date: d, counted: false, why: 'Weekly off' });
+    else if (isWeeklyOff(rule, d)) out.push({ date: d, counted: false, why: 'Weekly off' });
     else out.push({ date: d, counted: true, why: null });
+  }
+  /* Leave on a date covers the night shift that starts on it (feature attendanceNightShifts). */
+  if ([...rules.values()].some(isOvernight) && (await nightShiftsOn(orgId))) {
+    for (const x of out) {
+      const cover = nightCover(rules.get(x.date)!, x.date);
+      if (cover) x.night = cover;
+    }
   }
   /* Calendar days (maternity: 26 weeks are 182 days): every date is leave, and the skipped ones say why they count. */
   if (calendar) {
@@ -646,6 +664,11 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
   if (b.halfDay && b.fromDate !== b.toDate) return { error: 'A half-day leave is for one day.' } as const;
   const period = await leavePeriodOf(orgId);
   const plan = await dayPlan(orgId, employee, b.fromDate, b.toDate, type);
+  /* A half day on a night shift is the first or second half of that night. */
+  if (b.halfDay && plan.length === 1 && plan[0].night) {
+    const cover = nightCover((await shiftFor(orgId, employee.id, b.fromDate)).rule, b.fromDate, b.halfDay);
+    if (cover) plan[0].night = cover;
+  }
   const t0 = today();
   const parts = [];
   for (const part of partsOf(period, b.fromDate, b.toDate)) {
@@ -666,7 +689,11 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
   const workedBefore = type.availableAfterBasis === 'DAYS_WORKED' && type.availableAfterDays && person ? (await daysWorkedBefore(accountId, orgId, { id: employee.id, ...person }, b.fromDate)).eligible : null;
   const clash = await peoplePrisma.leaveRequest.findFirst({ where: { orgId, employeeId: employee.id, status: { in: OPEN }, fromDate: { lte: b.toDate }, toDate: { gte: b.fromDate }, ...(ignoreIds.length ? { id: { notIn: ignoreIds } } : {}) } });
   const reasonText = String(b.reason || '').trim();
-  const problems: Array<{ code: string; message: string }> = [];
+  const problems: Array<{ code: string; message: string; month?: string; months?: string[] }> = [];
+  /* A closed Attendance month: refused now, not left waiting for an approval that can never happen (O-09). */
+  const counted = plan.filter((d) => d.counted).map((d) => d.date);
+  const shut = await closedMonthRefusal(orgId, counted.length ? counted : [b.fromDate, b.toDate], 'leave');
+  if (shut) problems.push({ code: shut.code, message: shut.message, month: shut.month, months: shut.months });
   if (!total) problems.push({ code: 'NO_WORKING_DAYS', message: 'Those are all weekly offs or holidays — there is nothing to take leave from.' });
   const policy = total ? policyProblem(type, person, { fromDate: b.fromDate, halfDay: b.halfDay ?? null, days: total, workedBefore }, t0, onBehalf) : null;
   if (policy) problems.push({ code: 'LEAVE_POLICY', message: policy });
@@ -696,6 +723,8 @@ export async function createLeave(
   const b = parsed.data;
   const first = await planLeave(accountId, orgId, employee, b, Boolean(opts.onBehalf));
   if ('error' in first) return res.status(400).json({ error: first.error });
+  const closed = first.problems.find((p) => p.code === 'ATTENDANCE_MONTH_CLOSED');
+  if (closed) return res.status(409).json({ error: closed.message, code: closed.code, month: closed.month, months: closed.months });
   if (first.split && !b.split) {
     const end = first.parts[0].to;
     return res.status(400).json({ error: `Leave stays inside one leave period (${first.parts[0].label}). Split it at ${end}.`, code: 'CROSSES_PERIOD', splitAt: end });
@@ -715,6 +744,8 @@ export async function createLeave(
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`leave:${employee.id}`}))`;
     const plan = await planLeave(accountId, orgId, employee, b, Boolean(opts.onBehalf));
     if ('error' in plan) return { status: 400, body: { error: plan.error } };
+    const closedNow = plan.problems.find((p) => p.code === 'ATTENDANCE_MONTH_CLOSED');
+    if (closedNow) return { status: 409, body: { error: closedNow.message, code: closedNow.code, month: closedNow.month, months: closedNow.months } };
     const overlap = plan.problems.find((p) => p.code === 'OVERLAP');
     if (overlap) return { status: 409, body: { error: overlap.message } };
     const short = plan.problems.find((p) => p.code === 'NO_BALANCE');
@@ -2039,6 +2070,8 @@ export async function editLeave(accountId: string, orgId: string, r: any, body: 
     const plan = await planLeave(accountId, orgId, employee, b, onBehalf, group.map((x) => x.id));
     if ('error' in plan) throw fail(400, String(plan.error));
     const blocking = plan.problems.filter((p) => p.code !== 'NO_BALANCE' && p.code !== 'REASON' || (p.code === 'REASON' && !plan.type.isPrivate));
+    const closedNow = plan.problems.find((p) => p.code === 'ATTENDANCE_MONTH_CLOSED');
+    if (closedNow) throw new MonthClosedError(closedNow.month!, closedNow.message, closedNow.months);
     if (blocking.length) throw fail(blocking[0].code === 'OVERLAP' ? 409 : 400, blocking[0].message, blocking[0].code);
     /* The balance check counted this request's own waiting days; they come back before the new ones are charged. */
     for (const part of plan.parts) {

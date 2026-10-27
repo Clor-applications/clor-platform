@@ -16,6 +16,8 @@ import {
   computeDay,
   isWeeklyOff,
   isHHMM,
+  isOvernight,
+  nightShiftLabel,
   istDate,
   istInstant,
   istTime,
@@ -55,6 +57,8 @@ import {
 } from '../services/attendance/days.js';
 import { DEFAULT_RULES, KINDS, KIND_WORDS, askRequest, cancelRequest, decideRequest, editRequest, rulesFor, saveRules, story, usage, type Kind } from '../services/attendance/requests.js';
 import { CHAINS } from '../services/attendance/approvalChain.js';
+import { nightShiftsOn, timesOn } from '../services/attendance/nightShift.js';
+import { clockDateFor } from '../services/attendance/punches.js';
 import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
 import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/attendance/suggestions.js';
 import { recordAudit } from '../services/auditTrail.js';
@@ -149,6 +153,17 @@ const markSchema = z.object({
   note: z.string().trim().max(500).optional().nullable(),
 });
 
+/**
+ * Times typed for a day as instants. With night shifts on and the person's
+ * shift that day ending the next morning, a time after midnight is after
+ * midnight (compute.ts nightInstants); otherwise as always.
+ */
+async function handTimes(orgId: string, accountId: string, employeeId: string, date: string, inHHMM?: string | null, outHHMM?: string | null, on?: boolean) {
+  const { rule } = await shiftFor(orgId, employeeId, date);
+  if (!isOvernight(rule)) return instants(date, inHHMM, outHHMM);
+  return timesOn(date, rule, on ?? (await nightShiftsOn(orgId, accountId)), inHHMM, outHHMM);
+}
+
 /** Mark or correct a day for someone (a manager's entry). */
 attendanceRouter.put('/orgs/:orgId/attendance/records', can(PermissionAction.EDIT, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
@@ -161,7 +176,7 @@ attendanceRouter.put('/orgs/:orgId/attendance/records', can(PermissionAction.EDI
     if (b.checkOut && !b.checkIn) throw fail(400, 'A check-out needs a check-in.');
     if (b.date > today()) throw fail(400, 'Attendance cannot be marked for a day that has not happened.');
     const employee = await employeeIn(orgId, accountId, b.employeeId);
-    const { checkIn, checkOut } = instants(b.date, b.checkIn, b.checkOut);
+    const { checkIn, checkOut } = await handTimes(orgId, accountId, employee.id, b.date, b.checkIn, b.checkOut);
     const record = await writeDay({
       accountId, orgId, userId: req.auth!.userId, employee, date: b.date, checkIn, checkOut,
       statusOverride: b.status ?? null, source: 'MANUAL', note: b.note ?? null,
@@ -196,6 +211,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/import', can(PermissionAc
   /* dryRun: check every row the same way and save nothing, so the screen can show what would happen first. */
   const dryRun = req.body?.dryRun === true;
   const byCode = await peopleByCode(orgId);
+  const nightOn = await nightShiftsOn(orgId, accountId);
   const results: RowResult[] = [];
   for (let i = 0; i < rows.length; i += 1) {
     const r = rows[i] || {};
@@ -209,7 +225,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/import', can(PermissionAc
       if (b.checkOut && !b.checkIn) throw fail(400, 'A check-out needs a check-in.');
       if (b.date > today()) throw fail(400, 'That day has not happened yet.');
       const employee = await employeeIn(orgId, accountId, b.employeeId);
-      const { checkIn, checkOut } = instants(b.date, b.checkIn, b.checkOut);
+      const { checkIn, checkOut } = await handTimes(orgId, accountId, employee.id, b.date, b.checkIn, b.checkOut, nightOn);
       if (dryRun) await assertMonthOpen(orgId, b.date);
       else await writeDay({ accountId, orgId, userId: req.auth!.userId, employee, date: b.date, checkIn, checkOut, statusOverride: b.status ?? null, source: 'IMPORT', note: b.note ?? null });
       results.push({ row: i + 1, ok: true });
@@ -400,7 +416,7 @@ attendanceRouter.get('/orgs/:orgId/attendance/me', can(PermissionAction.VIEW, R.
     res.json({
       employee: { id: me.id, name: me.name, code: me.code },
       today: t,
-      shift: { name: shift.name, startTime: shift.rule.startTime, endTime: shift.rule.endTime },
+      shift: { name: shift.name, startTime: shift.rule.startTime, endTime: shift.rule.endTime, ...(isOvernight(shift.rule) && (await nightShiftsOn(orgId, accountId)) ? { label: nightShiftLabel(shift.rule) } : {}) },
       clockedIn: Boolean(open),
       todayRecord: shaped.find((r) => r.date === t) || open,
       records: shaped,
@@ -445,7 +461,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/clock', can(PermissionAction.CREA
       record = await writeDay({ accountId, orgId, userId: req.auth!.userId, employee: me, date: open.date, checkIn: open.checkIn, checkOut: now, source: 'CLOCK' });
     } else {
       if (open) throw fail(409, 'You are already clocked in.');
-      const date = istDate(now);
+      const date = await clockDateFor(orgId, accountId, me.id, now);
       const existing = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: me.id, date } } });
       if (existing?.checkOut) throw fail(409, 'Today is already closed. Ask for a correction if you came back in.');
       record = await writeDay({ accountId, orgId, userId: req.auth!.userId, employee: me, date, checkIn: now, checkOut: null, source: 'CLOCK' });

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
+import { getFeatures, setFeatures } from '@ui/api/features';
+import { usePermissions } from '@ui/permissions/usePermissions';
 import { dayLabel, getRules, hm, listRuleVersions, listShifts, recompute, saveRules, simulateRules, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
@@ -135,6 +137,8 @@ export default function AttendanceRules() {
         <div><button type="submit" className="ui-btn ui-btn-primary">Save rules</button></div>
       </form>
 
+      <NightShifts />
+
       <section className="ui-card space-y-3 p-4" aria-labelledby="recompute-h">
         <h2 id="recompute-h" className="ui-t-sec">Recalculate past days</h2>
         <p className="ui-caption">After changing shifts or schedules. Days set by hand, corrections and leave stay as they are. Up to 62 days at a time.</p>
@@ -149,6 +153,49 @@ export default function AttendanceRules() {
       <RuleHistory shifts={shifts} attempt={attempt} />
       </div>
     </div>
+  );
+}
+
+/**
+ * The company switch for night shifts (feature attendanceNightShifts, off by
+ * default). Saved on its own, the moment it is changed, because it is a
+ * company feature rather than one of the rules above; changing it needs the
+ * right to change company features.
+ */
+export function NightShifts() {
+  const perms = usePermissions();
+  const canSwitch = Boolean(perms?.isAdmin) || Boolean(perms?.permissions?.has?.('SETTINGS::Company Profile::EDIT'));
+  const [on, setOn] = useState(null);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    let live = true;
+    getFeatures().then((r) => { if (live) setOn(Boolean((r?.features || r || {}).attendanceNightShifts)); }).catch(() => { if (live) setOn(false); });
+    return () => { live = false; };
+  }, []);
+  const turn = async (next) => {
+    setSaving(true);
+    try {
+      const r = await setFeatures({ attendanceNightShifts: next });
+      setOn(Boolean((r?.features || {}).attendanceNightShifts ?? next));
+      notify.success(next ? 'Night shifts are on. Recalculate past days below if any were worked across midnight.' : 'Night shifts are off.');
+    } catch (err) {
+      notify.error(String(err?.message || 'Not changed.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <section className="ui-card space-y-3 p-4" aria-labelledby="night-h">
+      <h2 id="night-h" className="ui-t-sec">Night shifts</h2>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="ui-checkbox mt-0.5" checked={Boolean(on)} disabled={on === null || saving || !canSwitch} onChange={(e) => turn(e.target.checked)} />
+        <span>
+          Count a shift that ends the next morning on the day it starts
+          <span className="ui-caption block">For shifts like 22:00–06:00: punches, corrections and leave after midnight go to that night.</span>
+          {!canSwitch ? <span className="ui-caption block">Only someone who can change company features can switch this.</span> : null}
+        </span>
+      </label>
+    </section>
   );
 }
 

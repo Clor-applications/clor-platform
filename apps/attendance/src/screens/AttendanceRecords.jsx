@@ -251,7 +251,7 @@ export default function AttendanceRecords({ params, openScreen } = {}) {
                       <td onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" className="ui-checkbox" aria-label={`Select ${r.employeeName} ${r.date}`} checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
                       </td>
-                      <td className="ui-col-date whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}</td>
+                      <td className="ui-col-date whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}{r.shiftLabel ? <span className="ui-caption block">{r.shiftLabel}</span> : null}</td>
                       <td className="ui-col-entity">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
                       <td className="hidden min-[1800px]:table-cell">{r.department || <span className="ui-caption">—</span>}</td>
                       <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
@@ -476,7 +476,7 @@ function MarkDay({ initial, people, onClose, onSaved }) {
       open
       onClose={onClose}
       title={form.id ? `${form.employeeName} · ${form.date}` : 'Mark attendance'}
-      description="Times are 24-hour, Indian Standard Time. An out earlier than the in is the next morning."
+      description={form.shiftLabel ? `${form.shiftLabel}. Times are 24-hour, Indian Standard Time; a time after midnight is that night's.` : 'Times are 24-hour, Indian Standard Time. An out earlier than the in is the next morning.'}
       actions={
         <>
           {form.id ? <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Delete</button> : null}

@@ -16,6 +16,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
 
 import { can, homeCrumbs } from './shared';
+import { MONTH_CLOSED, MonthClosedNote } from './MonthClosed';
 import { useSuggestions } from './suggestions';
 import {
   MONTH_NAMES, STATUS_LABEL, STATUS_PILL, bulkReviewRequests, cancelRequest, createMyRequest, createRequest, decideRequest, getRequest, getRequestRules, listPeople,
@@ -385,6 +386,8 @@ export function EnterRequest({ onClose, onDone, request = null, own = false, rul
   const start = useMemo(() => (request ? fromRequest(request) : blank), [request]);
   const [form, setForm] = useState(start);
   const [saving, setSaving] = useState(false);
+  /* A closed Attendance month is said in the form, with the way to Month close (O-09). */
+  const [closed, setClosed] = useState(null);
   const people = useRequest(() => (editing || own ? Promise.resolve([]) : listPeople()), [editing, own]);
   const rulesReq = useRequest(() => (givenRules ? Promise.resolve({ rules: givenRules }) : getRequestRules()), [givenRules]);
   const rules = rulesReq.data?.rules || givenRules || null;
@@ -393,7 +396,7 @@ export function EnterRequest({ onClose, onDone, request = null, own = false, rul
   const kind = form.kind;
   const spans = SPANS.includes(kind);
   const oneDay = spans && form.date && (!form.toDate || form.toDate === form.date);
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v, ...(k === 'date' && v && (!f.toDate || f.toDate < v) ? { toDate: v } : {}), ...(k === 'kind' ? { halfDay: '', place: '', checkIn: '', checkOut: '' } : {}) }));
+  const set = (k, v) => { setClosed(null); setForm((f) => ({ ...f, [k]: v, ...(k === 'date' && v && (!f.toDate || f.toDate < v) ? { toDate: v } : {}), ...(k === 'kind' ? { halfDay: '', place: '', checkIn: '', checkOut: '' } : {}) })); };
   /* A kind that is off cannot be asked for; a missed punch always can. */
   const kindOptions = KINDS.filter((k) => k === 'MISSED_PUNCH' || !rules || rules[k]?.on || k === request?.kind).map((k) => ({ value: k, label: KIND_NAME[k] }));
   const month = form.date ? form.date.slice(0, 7) : '';
@@ -425,7 +428,8 @@ export function EnterRequest({ onClose, onDone, request = null, own = false, rul
       notify.success(editing ? 'Changed. It waits in Waiting.' : own ? 'Sent for approval.' : 'Entered. It waits in Waiting.');
       onDone();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      if (err?.code === MONTH_CLOSED) setClosed({ message: String(err.message), month: err.data?.month });
+      else notify.error(String(err?.message || 'Not saved.'));
     } finally {
       setSaving(false);
     }
@@ -479,6 +483,7 @@ export function EnterRequest({ onClose, onDone, request = null, own = false, rul
               <SuggestInput maxLength={500} value={form.reason} onChange={(v) => set('reason', v)} suggestions={reasons} />
             </label>
             {usage ? <p className="text-sm tabular-nums" aria-live="polite">{usageText(kind, usage)}{usage.quota != null ? `, ${usage.left} left in ${monthLabel(month)}` : ''}.</p> : null}
+            {closed ? <MonthClosedNote message={closed.message} month={closed.month} /> : null}
           </>
         ) : null}
       </form>

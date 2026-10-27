@@ -2,8 +2,9 @@ import { z } from 'zod';
 
 import { peoplePrisma, peopleWrite, afterPeopleCommit } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
-import { ISO_DATE, daysBetween, employeeIn, fail, instants, isHoliday, shiftFor, today, withNames, writeDay } from './days.js';
-import { isHHMM, isWeeklyOff } from './compute.js';
+import { ISO_DATE, closedMonthRefusal, daysBetween, employeeIn, fail, instants, isHoliday, shiftFor, today, withNames, writeDay } from './days.js';
+import { isHHMM, isOvernight, isWeeklyOff } from './compute.js';
+import { nightShiftsOn, timesOn } from './nightShift.js';
 import { CHAINS, activeManagerOf, chainFor, type Chain } from './approvalChain.js';
 import { deciderFor, managerStepBy, standingInFor } from './standIns.js';
 import { REASON_CODES } from './corrections.js';
@@ -187,10 +188,16 @@ async function validate(who: Asker, employee: Employee, b: Ask, rules: Record<Ki
   let minutes: number | null = null;
   let checkIn: Date | null = null;
   let checkOut: Date | null = null;
+  /* Times after midnight on a night shift are that night's (feature attendanceNightShifts); off, as they always were. */
+  const at = async (inHHMM: string, outHHMM: string | null) => {
+    const { rule: shift } = await shiftFor(who.orgId, employee.id, b.date);
+    if (isOvernight(shift) && (await nightShiftsOn(who.orgId, who.accountId))) return timesOn(b.date, shift, true, inHHMM, outHHMM);
+    return instants(b.date, inHHMM, outHHMM);
+  };
   if (kind === 'MISSED_PUNCH') {
     if (!b.checkIn) throw fail(400, 'Give the time you came in, HH:MM.');
     if (b.date > t) throw fail(400, 'A correction is for a day that has happened.');
-    ({ checkIn, checkOut } = instants(b.date, b.checkIn, b.checkOut || null));
+    ({ checkIn, checkOut } = await at(b.checkIn, b.checkOut || null));
   }
   if (kind === 'WFH' || kind === 'ON_DUTY') {
     toDate = b.toDate || b.date;
@@ -201,10 +208,13 @@ async function validate(who: Asker, employee: Employee, b: Ask, rules: Record<Ki
   }
   if (kind === 'PERMISSION') {
     if (!b.checkIn || !b.checkOut) throw fail(400, 'Give the hours: from and to, HH:MM.');
-    ({ checkIn, checkOut } = instants(b.date, b.checkIn, b.checkOut));
+    ({ checkIn, checkOut } = await at(b.checkIn, b.checkOut));
     minutes = Math.round((checkOut!.getTime() - checkIn!.getTime()) / 60_000);
     if (minutes < 15 || minutes > rule.maxMinutes) throw fail(400, `A permission is between 15 minutes and ${hoursWords(rule.maxMinutes)}.`);
   }
+  /* A closed Attendance month: refused now, not left waiting for an approval that can never happen (O-09). */
+  const shut = await closedMonthRefusal(who.orgId, daysBetween(b.date, toDate || b.date), 'request');
+  if (shut) throw shut;
   if (!who.onBehalf && b.date < addDays(t, -rule.backDays)) throw fail(400, `${name} requests go back ${rule.backDays} days at most; ask HR for older days.`, 'TOO_OLD');
   const span = { date: b.date, toDate };
   const last = toDate || b.date;

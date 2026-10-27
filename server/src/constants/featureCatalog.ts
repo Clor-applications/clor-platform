@@ -468,6 +468,21 @@ export const FEATURE_CATALOG: FeatureDef[] = [
     defaultEnabled: false,
     category: 'Attendance',
   },
+  /*
+   * Night shifts (O-11, TLA-003): a shift ending the next morning belongs to
+   * the date it starts. Hand-written times after midnight, web clock-ins,
+   * leave and half days all follow that night. Off, nothing changes.
+   * Switched under Attendance → Settings → Attendance policy.
+   */
+  {
+    key: 'attendanceNightShifts',
+    label: 'Night shifts',
+    description:
+      'A shift that ends the next morning (22:00–06:00) counts on the day it starts: punches, corrections, leave and half days after midnight go to that night.',
+    defaultEnabled: false,
+    category: 'Attendance',
+    dependsOn: 'attendance',
+  },
 
   // ---- Payroll ----------------------------------------------------------
   /*

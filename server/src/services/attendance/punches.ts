@@ -6,6 +6,8 @@ import { emit as emitWebhook } from './webhooks.js';
 import { closedMonths, shiftFor, writeDay } from './days.js';
 import { readerIdMatcher } from './readerIds.js';
 import { driverOf, parserOf } from './drivers.js';
+import { istDate } from './compute.js';
+import { nightShiftsOn } from './nightShift.js';
 
 /**
  * Punches in: one path for every reader channel — parse, match the person, drop repeats, keep the evidence, store, then work the affected days out again.
@@ -61,6 +63,17 @@ export async function shiftDayFor(orgId: string, employeeId: string, localTime: 
 }
 
 /**
+ * The day a clock-in from the web or the app goes on. With night shifts on
+ * (attendanceNightShifts), the shift day a reader would give the same moment:
+ * 01:30 after a 22:00–06:00 night is that night's. Off, the calendar date, as
+ * it always was.
+ */
+export async function clockDateFor(orgId: string, accountId: string, employeeId: string, at: Date) {
+  if (!(await nightShiftsOn(orgId, accountId))) return istDate(at);
+  return shiftDayFor(orgId, employeeId, istLocal(at));
+}
+
+/**
  * Work a day out again from its reader punches (and any app clock-ins on the
  * same shift day), then write it through the same path as every other day.
  */
@@ -83,7 +96,10 @@ export async function recomputeDeviceDay(accountId: string, orgId: string, emplo
     select: { at: true, kind: true },
   });
   const { rule } = await shiftFor(orgId, employee.id, date);
-  const sameDay = clocks.filter((c) => shiftDayOf(istLocal(c.at), isNight(rule)) === date);
+  /* With night shifts on, a clock belongs where a reader's punch at that moment would (shiftDayFor), so the two never split one night. */
+  const night = clocks.length ? await nightShiftsOn(orgId, accountId) : false;
+  const sameDay: typeof clocks = [];
+  for (const c of clocks) if ((night ? await shiftDayFor(orgId, employee.id, istLocal(c.at)) : shiftDayOf(istLocal(c.at), isNight(rule))) === date) sameDay.push(c);
   const points = [
     ...punches.map((p) => ({ at: p.at, kind: (p.kind as 'IN' | 'OUT' | null) ?? null })),
     ...sameDay.map((c) => ({ at: c.at, kind: c.kind === 'OUT' ? ('OUT' as const) : ('IN' as const) })),

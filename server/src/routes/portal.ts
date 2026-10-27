@@ -17,7 +17,8 @@ import { DeclarationError, financialYearOf, saveDeclaration, shapeDeclaration } 
 import { isDevOrTest } from '../utils/devMode.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { portalLimiter } from '../middleware/rateLimit.js';
-import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js';
+import { isOvernight, isWeeklyOff, istDate, istTime, nightShiftLabel } from '../services/attendance/compute.js';
+import { nightShiftsOn } from '../services/attendance/nightShift.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
 import { phoneStatus, recordPhonePunch } from '../services/attendance/phonePunch.js';
 import { normaliseCode, passwordProblem } from '../services/attendance/portal.js';
@@ -356,7 +357,7 @@ portalRouter.get('/home', async (req, res) => {
     /* Where they work: their site, else their branch, else the company's main branch. */
     site: area?.name || branch?.branchName || status.phone.sites[0]?.name || (await platformPrisma.branch.findFirst({ where: { orgId: e.orgId }, orderBy: { createdAt: 'asc' }, select: { branchName: true } }).catch(() => null))?.branchName || null,
     today: t,
-    shift: { name: shift.name, startTime: shift.rule.startTime, endTime: shift.rule.endTime, off: isWeeklyOff(shift.rule, t), holiday: mine.has(t) ? holidays.rows.find((h) => h.date === t)?.name || 'Holiday' : null },
+    shift: { name: shift.name, startTime: shift.rule.startTime, endTime: shift.rule.endTime, off: isWeeklyOff(shift.rule, t), holiday: mine.has(t) ? holidays.rows.find((h) => h.date === t)?.name || 'Holiday' : null, ...(isOvernight(shift.rule) && (await nightShiftsOn(e.orgId, e.accountId)) ? { label: nightShiftLabel(shift.rule) } : {}) },
     record: record ? (await withNames(e.orgId, [record]))[0] : null,
     punches: status.punches,
     phone: status.phone,
@@ -689,7 +690,7 @@ portalRouter.get('/attendance', async (req, res) => {
   const count = (s: string) => records.filter((r) => r.status === s).length;
   res.json({
     month,
-    days: shaped.map((r) => ({ date: r.date, status: r.status, checkIn: r.checkInTime, checkOut: r.checkOutTime, workedMinutes: r.workedMinutes, lateMinutes: r.lateMinutes, earlyOutMinutes: r.earlyOutMinutes, overtimeMinutes: r.overtimeMinutes })),
+    days: shaped.map((r: any) => ({ date: r.date, status: r.status, checkIn: r.checkInTime, checkOut: r.checkOutTime, workedMinutes: r.workedMinutes, lateMinutes: r.lateMinutes, earlyOutMinutes: r.earlyOutMinutes, overtimeMinutes: r.overtimeMinutes, ...(r.shiftLabel ? { shiftLabel: r.shiftLabel } : {}) })),
     totals: { present: count('PRESENT'), halfDay: count('HALF_DAY'), absent: count('ABSENT'), leave: count('ON_LEAVE'), late: records.filter((r) => (r.lateMinutes || 0) > 0).length },
     corrections: requests.map((r) => ({ id: r.id, date: r.date, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, status: r.status, note: r.reviewNote })),
   });
