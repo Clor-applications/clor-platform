@@ -9,8 +9,10 @@ need on a phone, and leaves everything else to the web.
 | Sign in | Company code + employee code + password; first time, HR's activation code | `POST /login`, `POST /activate` |
 | Privacy notice | Shown until the current version is read (DPDP) | `GET /privacy-notice`, `POST /privacy-notice/read` |
 | Today | Shift, one punch button (location, optional selfie), today's punches | `GET /me`, `POST /punch` |
-| Attendance | Month, totals, why a day counts as it does, ask to fix a day | `GET /attendance`, `GET /attendance/explain`, `POST /corrections` |
-| Leave | Balances, apply, cancel | `GET /leave`, `POST /leave`, `POST /leave/:id/cancel` |
+| Attendance | Month, totals, why a day counts as it does, ask to fix a day | `GET /attendance`, `GET /attendance/explain`, `POST /requests` |
+| Requests | Missed punch, work from home, on duty (with place), permission hours, with this month's used / left; change, withdraw | `GET /requests`, `GET /request-rules`, `POST /requests`, `PUT /requests/:id`, `POST /requests/:id/cancel` |
+| Leave | Balances by leave year, apply with the date-by-date preview (split at the year end), change a waiting request, came back early, cancel, restricted holidays | `GET /leave`, `POST /leave/preview`, `POST /leave`, `PUT /leave/:id`, `POST /leave/:id/shorten`, `POST /leave/:id/cancel`, `GET/POST /holidays/restricted` |
+| My details | My job, personal details (contact saves at once, the rest to HR), my requests to HR | `GET /people/me/details`, `POST /people/me/change-request`, `/people/me/requests/:id/reply`, `/withdraw` |
 | Approvals | Only for people with reportees: approve / decline | `GET /approvals`, `POST /approvals/:type/:id` |
 | Me | My payslips (from locked payroll; Save PDF made on the phone), documents, my data, privacy notice, permissions, password, sign out | `GET /payslips`, `GET /payslips/:id`, `GET /documents`, `GET /my-data`, `POST /password` |
 

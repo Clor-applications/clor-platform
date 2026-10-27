@@ -132,6 +132,10 @@ data class LeaveRequest(
     val halfDay: String? = null,
     val reason: String? = null,
     val status: String = "",
+    val note: String? = null,
+    /** The parts of one leave split at the leave-year end share a group. */
+    val groupId: String? = null,
+    val leaveTypeId: String? = null,
 )
 
 @Serializable
@@ -240,11 +244,21 @@ data class Holiday(val date: String = "", val name: String = "")
 @Serializable
 data class TeamSummary(val approver: Boolean = false, val team: Int = 0, val waiting: Int = 0, val awayToday: List<String> = emptyList())
 
-/** One of my requests (GET /portal/requests): a correction / on-duty / missed punch, a leave, or a data request. */
+/**
+ * One of my requests (GET /portal/requests). `kind` is "correction" (a missed
+ * punch), "request" (work from home, on duty, permission: see `requestKind`),
+ * "leave", "overtime", "compoff" or "data".
+ */
 @Serializable
 data class MyRequest(
     val id: String = "",
     val kind: String = "",
+    /** MISSED_PUNCH, WFH, ON_DUTY or PERMISSION, for attendance requests. */
+    val requestKind: String? = null,
+    val kindName: String? = null,
+    val place: String? = null,
+    /** May be withdrawn (or, approved WFH / on duty before its day, cancelled). Attendance requests only; others use canChange. */
+    val canCancel: Boolean = false,
     val reasonCode: String? = null,
     val type: String? = null,
     val date: String? = null,

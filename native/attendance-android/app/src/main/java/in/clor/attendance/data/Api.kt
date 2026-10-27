@@ -3,10 +3,12 @@ package `in`.clor.attendance.data
 import `in`.clor.attendance.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -23,10 +25,34 @@ class ApiError(message: String, val code: String? = null, val status: Int = 0) :
 /** The session is over (switched off, password changed, token expired): back to sign-in. */
 class SignedOut(message: String) : Exception(message)
 
+const val OFFLINE_WORDS = "No connection to CLOR. Check the internet and try again."
+const val UNREADABLE_WORDS = "CLOR sent an answer this app could not read. Try again, or update the app."
+
 val json = Json {
     ignoreUnknownKeys = true
     explicitNulls = false
     coerceInputValues = true
+}
+
+/** An answer the app cannot read (a newer or broken server) is a plain error with a retry, never a crash. */
+inline fun <reified T> readAnswer(text: String): T = try {
+    json.decodeFromString<T>(text)
+} catch (e: SerializationException) {
+    throw ApiError(UNREADABLE_WORDS, "BAD_ANSWER")
+} catch (e: IllegalArgumentException) {
+    throw ApiError(UNREADABLE_WORDS, "BAD_ANSWER")
+}
+
+/** A request body from a model: its nulls are left out, as the web app leaves them out. */
+inline fun <reified T> bodyOf(value: T): JsonObject = json.encodeToJsonElement(value).jsonObject
+
+/** The server's words for a failed answer: its `error`, or a plain line by the status. */
+fun errorWords(status: Int, text: String): Pair<String, String?> {
+    val err = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull()
+    val message = runCatching { err?.get("error")?.jsonPrimitive?.content }.getOrNull()?.takeIf { it.isNotBlank() }
+        ?: if (status >= 500) "CLOR could not answer just now ($status). Try again in a moment." else "Something went wrong ($status)."
+    val code = runCatching { err?.get("code")?.jsonPrimitive?.content }.getOrNull()
+    return message to code
 }
 
 /**
@@ -47,27 +73,24 @@ class Api(private val session: Session, private val base: String = BuildConfig.A
         session.token()?.let { builder.header("Authorization", "Bearer $it") }
         val payload = body?.toString()?.toRequestBody(jsonType)
         builder.method(method, if (method == "GET") null else (payload ?: "{}".toRequestBody(jsonType)))
-        val response = try {
-            http.newCall(builder.build()).execute()
+        /* Reading the answer can fail as well as sending it: both are "no connection", in words, never a crash. */
+        val (status, ok, text) = try {
+            http.newCall(builder.build()).execute().use { r -> Triple(r.code, r.isSuccessful, r.body?.string().orEmpty()) }
         } catch (e: IOException) {
-            throw ApiError("No connection to CLOR. Check the internet and try again.", "OFFLINE")
+            throw ApiError(OFFLINE_WORDS, "OFFLINE")
         }
-        response.use { r ->
-            val text = r.body?.string().orEmpty()
-            if (r.isSuccessful) return@withContext text
-            val err = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull()
-            val message = err?.get("error")?.jsonPrimitive?.content ?: "Something went wrong (${r.code})."
-            val code = err?.get("code")?.jsonPrimitive?.content
-            if (r.code == 401 && code == "PORTAL_SIGNIN") {
-                session.clear()
-                throw SignedOut(message)
-            }
-            throw ApiError(message, code, r.code)
+        if (ok) return@withContext text
+        val (message, code) = errorWords(status, text)
+        if (status == 401 && code == "PORTAL_SIGNIN") {
+            session.clear()
+            throw SignedOut(message)
         }
+        throw ApiError(message, code, status)
     }
 
-    private suspend inline fun <reified T> get(path: String): T = json.decodeFromString(call("GET", path))
-    private suspend inline fun <reified T> post(path: String, body: JsonObject = JsonObject(emptyMap())): T = json.decodeFromString(call("POST", path, body))
+    private suspend inline fun <reified T> get(path: String): T = readAnswer(call("GET", path))
+    private suspend inline fun <reified T> post(path: String, body: JsonObject = JsonObject(emptyMap())): T = readAnswer(call("POST", path, body))
+    private suspend inline fun <reified T> put(path: String, body: JsonObject): T = readAnswer(call("PUT", path, body))
 
     suspend fun signIn(company: String, employeeCode: String, password: String): SignedIn =
         post<SignedIn>("/login", buildJsonObject { put("company", company); put("employeeCode", employeeCode); put("password", password) }).also { session.save(it.token) }
@@ -89,31 +112,50 @@ class Api(private val session: Session, private val base: String = BuildConfig.A
     suspend fun month(month: String): Month = get("/attendance?month=$month")
     suspend fun explain(date: String): Explained = get("/attendance/explain?date=$date")
 
-    suspend fun askCorrection(date: String, checkIn: String, checkOut: String?, reason: String, reasonCode: String? = null) {
-        call("POST", "/corrections", buildJsonObject {
-            put("date", date); put("checkIn", checkIn); checkOut?.let { put("checkOut", it) }; put("reason", reason); reasonCode?.let { put("reasonCode", it) }
-        })
-    }
-    suspend fun editCorrection(id: String, checkIn: String, checkOut: String?, reason: String, reasonCode: String?) {
-        call("PUT", "/corrections/$id", buildJsonObject {
-            put("checkIn", checkIn); checkOut?.let { put("checkOut", it) }; put("reason", reason); reasonCode?.let { put("reasonCode", it) }
-        })
-    }
-    suspend fun cancelCorrection(id: String) { call("POST", "/corrections/$id/cancel") }
     suspend fun requests(): MyRequests = get("/requests")
-    /** Ask HR about my data: CORRECTION (update my details), ACCESS, ERASURE, NOMINATE, GRIEVANCE. */
+
+    /*
+     * Attendance requests (portal /requests): a missed punch, work from home,
+     * on duty (with a place) and permission hours, on one list with one
+     * approval and a monthly quota. Change and withdraw go through the same
+     * routes for every kind; nothing goes through the old /corrections path.
+     */
+    suspend fun requestRules(month: String): RequestRules = get("/request-rules?month=$month")
+    suspend fun requestUsage(month: String): UsageAnswer = get("/requests/usage?month=$month")
+    suspend fun askRequest(ask: AttendanceAsk) { call("POST", "/requests", bodyOf(ask)) }
+    suspend fun changeRequest(id: String, ask: AttendanceAsk) { call("PUT", "/requests/$id", bodyOf(ask)) }
+    suspend fun cancelRequest(id: String) { call("POST", "/requests/$id/cancel") }
+
+    /*
+     * My details (portal /people/me/details): contact details save at once, by
+     * the company's setting; the rest becomes a change request HR decides.
+     * Not a data-protection request: those are askData below.
+     */
+    suspend fun myDetails(): MyDetails = get("/people/me/details")
+    suspend fun changeDetails(changes: Map<String, String>): DetailsSaved = post("/people/me/change-request", buildJsonObject { changes.forEach { (k, v) -> put(k, v) } })
+    suspend fun answerMyRequest(id: String, note: String) { call("POST", "/people/me/requests/$id/reply", buildJsonObject { put("note", note) }) }
+    suspend fun withdrawMyRequest(id: String) { call("POST", "/people/me/requests/$id/withdraw") }
+
+    /** A data-protection request, answered within 30 days: CORRECTION, ACCESS, ERASURE, NOMINATE, GRIEVANCE. Never for everyday profile edits. */
     suspend fun askData(type: String, details: String) { call("POST", "/data-requests", buildJsonObject { put("type", type); put("details", details) }) }
     suspend fun askPhonePunch(note: String?): Said = post("/phone-punch/ask", buildJsonObject { note?.let { put("note", it) } })
 
     suspend fun leave(year: Int? = null): Leave = get(if (year != null) "/leave?year=$year" else "/leave")
-    suspend fun askLeave(leaveTypeId: String, fromDate: String, toDate: String, reason: String, halfDay: String? = null) {
-        call("POST", "/leave", buildJsonObject { put("leaveTypeId", leaveTypeId); put("fromDate", fromDate); put("toDate", toDate); put("reason", reason); halfDay?.let { put("halfDay", it) } })
-    }
+    /** What a request would charge, date by date, before it is sent; `editing` leaves that request's own days out. */
+    suspend fun previewLeave(ask: LeaveAsk): LeavePreview = post("/leave/preview", bodyOf(ask))
+    /** Leave across the leave-year end is sent with split = true and comes back as one request per year. */
+    suspend fun askLeave(ask: LeaveAsk): LeaveSent = post("/leave", bodyOf(ask))
+    suspend fun editLeave(id: String, ask: LeaveAsk): LeaveSent = put("/leave/$id", bodyOf(ask))
+    /** Came back early: approved leave that has started ends on an earlier day. */
+    suspend fun shortenLeave(id: String, toDate: String): LeaveSent = post("/leave/$id/shorten", buildJsonObject { put("toDate", toDate) })
+    suspend fun cancelLeave(id: String) { call("POST", "/leave/$id/cancel") }
+    suspend fun restrictedHolidays(): RestrictedHolidays = get("/holidays/restricted")
+    suspend fun pickHoliday(id: String, picked: Boolean) { call("POST", "/holidays/restricted/$id", buildJsonObject { put("picked", picked) }) }
+
     /** Forgot password: HR is asked for a new activation code. */
     suspend fun forgot(company: String, employeeCode: String): Said = post("/forgot", buildJsonObject { put("company", company); put("employeeCode", employeeCode) })
     suspend fun updates(): Updates = get("/updates")
     suspend fun punchPhoto(id: String): PhotoAnswer = get("/approvals/punch/$id/photo")
-    suspend fun cancelLeave(id: String) { call("POST", "/leave/$id/cancel") }
 
     suspend fun attention(): AttentionList = get("/attention")
     suspend fun monthReview(month: String): MonthReview = get("/month-review?month=$month")
