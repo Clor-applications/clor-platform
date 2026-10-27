@@ -11,6 +11,7 @@ const { buildApp } = await import('../app.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { outsideTenant } = await import('../utils/tenantScope.js');
 const { stepNow, codeAt } = await import('../services/totp.js');
+const { clearOfStepEdge } = await import('./totpTiming.js');
 
 const app = buildApp().listen(0);
 afterAll(() => new Promise((done) => app.close(done)));
@@ -52,6 +53,7 @@ const events = (accountId: string) =>
 async function stepUp(c: Ctx) {
   const sec = (p: string, b?: unknown) => request(app).post(`/api/orgs/${c.orgId}/security${p}`).set(at(c)).send(b as any);
   const { secret } = (await sec('/two-factor/setup').expect(200)).body;
+  await clearOfStepEdge();
   const s0 = stepNow();
   await sec('/two-factor/enable', { code: codeAt(secret, s0) }).expect(200);
   return (await sec('/step-up', { code: codeAt(secret, s0 + 1) }).expect(200)).body.token as string;

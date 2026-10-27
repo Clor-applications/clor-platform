@@ -46,6 +46,7 @@ const people = (c: Ctx, extra: Record<string, string> = {}) => ({
 });
 /** Enrol an authenticator once and return a fresh step-up token (the full joiner view asks for one). */
 const { codeAt, stepNow } = await import('../services/totp.js');
+const { clearOfStepEdge } = await import('./totpTiming.js');
 /* One token per person: it lasts 15 minutes, and a code cannot be used twice (replay). */
 const tokens = new Map<string, string>();
 async function stepUp(c: Ctx) {
@@ -53,6 +54,7 @@ async function stepUp(c: Ctx) {
   if (have) return have;
   const sec = (p: string, b: unknown = {}) => request(app).post(`/api/orgs/${c.orgId}/security${p}`).set(at(c)).send(b as any);
   const secret = (await sec('/two-factor/setup').expect(200)).body.secret as string;
+  await clearOfStepEdge();
   await sec('/two-factor/enable', { code: codeAt(secret, stepNow() - 1) }).expect(200);
   const token = (await sec('/step-up', { code: codeAt(secret, stepNow()) }).expect(200)).body.token as string;
   tokens.set(c.token, token);
