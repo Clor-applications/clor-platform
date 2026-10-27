@@ -6,28 +6,18 @@ import SettingsHub from '@ui/settings/SettingsHub';
 const GROUPS = [
   {
     title: 'Company',
-    note: 'Who the employer is and how the company is organised.',
+    note: 'Who the employer is. How the company is organised is under Organization.',
     items: [
       ['modules', 'Switch HR modules on or off, and see which apps the subscription carries'],
       ['companyDetails', 'Legal name, PAN, TAN, address and statutory registrations'],
-      ['legalEntities', 'The registered company its establishments belong to'],
-      ['establishments', 'Each place of work in law, in one state: the state decides which rules apply'],
-      ['businessUnits', 'Divisions or domains the company runs as one business'],
-      ['areas', 'Offices, plants and sites people work at'],
-      ['departments', 'How the company is divided; a department can sit under another'],
-      ['teams', 'Teams under departments'],
-      ['seats', 'Approved seats on each team, filled or open'],
-      ['jobPositions', 'The titles people hold'],
-      ['grades', 'Levels or pay bands'],
-      ['costCentres', 'Where salary cost is booked in the accounts'],
-      ['jobRoles', 'Finer roles inside a designation'],
+      ['legalEntities', 'The registered company its work sites belong to'],
     ],
   },
   {
     title: 'Employees',
     note: 'How people are classified, and what happens when they join or leave.',
     items: [
-      ['employeeTypes', 'Permanent, probation, contract, intern'],
+      ['employeeTypes', 'Permanent, fixed-term, trainee, intern, consultant: what each counts as, probation and notice'],
       ['workTypes', 'Office, remote, hybrid, field'],
       ['tags', 'Labels to group people any way you like'],
       ['customFields', 'Your own fields on every person: who sees them, who edits them'],
@@ -40,11 +30,14 @@ const GROUPS = [
     ],
   },
   {
-    title: 'Leave & Holidays',
+    title: 'Time & Leave',
     note: 'Leave rules and the company calendar; Attendance uses the same ones.',
     items: [
       ['leaveTypes', 'The leave period, and each kind of leave: credits and their dates, who it is for, notice, carry forward, pay-out'],
       ['holidays', 'Company and location holidays'],
+      ['workingWeek', 'Which days of the week are off, for everyone not on a shift'],
+      ['requestRules', 'Work from home, on duty, missed punch and permission hours: what is on, monthly limits, who approves'],
+      ['leaveYearEnd', 'What carries, lapses or is paid out when the leave period ends'],
     ],
   },
   {

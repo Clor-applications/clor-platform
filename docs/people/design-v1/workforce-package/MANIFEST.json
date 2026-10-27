@@ -1,0 +1,143 @@
+{
+  "package": "Clor_People_Workforce",
+  "version": "1.0",
+  "created": "2026-10-26",
+  "files": {
+    "README.md": {
+      "bytes": 3935,
+      "sha256": "bea4ab2a8d7a6cfbf47ad6c5481f7a0a03f84c9d667673a926a30da2c2c1b668"
+    },
+    "WORKFORCE_MASTER_SPEC.md": {
+      "bytes": 55559,
+      "sha256": "5fd7e62e49e66114963a66b16275eb12a909f328f8b444ea637cb02814b4f83c"
+    },
+    "agent/AGENT_IMPLEMENTATION_PROMPT.md": {
+      "bytes": 4826,
+      "sha256": "dfbb241418ad6f1fc74aedf64d96a8bd8be69db098837084e5087738a3d714d3"
+    },
+    "agent/EVIDENCE_REGISTER.csv": {
+      "bytes": 682,
+      "sha256": "8c2e84d6703d4787ad12d4bc5a1f2bdf53956ec26d23e0aec3d354eb3f6da7bf"
+    },
+    "assets/gallery.html": {
+      "bytes": 5178,
+      "sha256": "54357a0e6d54543cf7ac93fb964e7008541bff7cd2871fea3bf4316c5ebe3845"
+    },
+    "assets/visual_references/directory_dense.png": {
+      "bytes": 1335591,
+      "sha256": "e2cc3c108e7920868b4ab4da52eed3ba9055f62bba386a941a4e83f3b4a328ce"
+    },
+    "assets/visual_references/directory_editorial.png": {
+      "bytes": 1431149,
+      "sha256": "ef70e10720f658df5e2696c78f9ef905e02594666ea092168c16fc29556e29de"
+    },
+    "assets/visual_references/directory_modular.png": {
+      "bytes": 1365287,
+      "sha256": "dfe5754c9bd7d6cfe47bcb88fc1788939b1edb02489cb856798f24e685fdd534"
+    },
+    "assets/visual_references/employee_form_states.png": {
+      "bytes": 1294177,
+      "sha256": "d26773a6f333f1f3bb5619ed2e19a5c8c272d2ecc3f24d4883b09cc014332025"
+    },
+    "assets/visual_references/full_screen_reference_board.png": {
+      "bytes": 1551235,
+      "sha256": "355cffe44da827bc12ff91beaa343d6462c98af9a32a2b110755e598523af0e9"
+    },
+    "assets/visual_references/mobile_workforce.png": {
+      "bytes": 1501319,
+      "sha256": "b64ba20d61a9dc6f0674d1f15adefca97c691c53b1927aad590d7f4c8a35acc0"
+    },
+    "assets/visual_references/profile_audit.png": {
+      "bytes": 1312642,
+      "sha256": "1c436e0087624e6bb9ede58c1d4d482e9acea6278d945318a132c1b41d56a7ef"
+    },
+    "assets/visual_references/split_sidebar_canonical.png": {
+      "bytes": 1480830,
+      "sha256": "ddb1a3973d8cc5fdfbdb640037cef947c51dde9027510b5578ba0f0f1131b567"
+    },
+    "assets/visual_references/split_sidebar_exploration.png": {
+      "bytes": 1390069,
+      "sha256": "45377370e98de8b13739bfc588a1370fa1ae446f8131ff5f1e8bcfd7ffc0d244"
+    },
+    "checklists/authorization_matrix.csv": {
+      "bytes": 841,
+      "sha256": "0051896d73e4cca166c14c2b65b319b22d1e0e18ca04d0d4eabc081ca93e6ad6"
+    },
+    "checklists/field_inventory.csv": {
+      "bytes": 2131,
+      "sha256": "36c853c9a3a5f345aea11856a01e2a61c35776896488199df2351cd21d32d033"
+    },
+    "checklists/route_manifest.json": {
+      "bytes": 2162,
+      "sha256": "a4b8f03c4ffb178cde2f6db62ebad526548042a0a5811347682fedbce1583ef0"
+    },
+    "checklists/test_cases.csv": {
+      "bytes": 4118,
+      "sha256": "919f20eec3186cbcde1b00659b329f337405f1866d84cc6b963cea1f787679e5"
+    },
+    "checklists/workforce_acceptance.csv": {
+      "bytes": 2673,
+      "sha256": "2014188b48d46a3de6eee0a9a6d58d075af9cec53cf49a43e7728c14033b638d"
+    },
+    "specs/00_SCOPE_AND_ARCHITECTURE.md": {
+      "bytes": 3874,
+      "sha256": "11a938a4b36dc22020e511ca7dd02c92073c5033f78d0ad033fefcc519d8cbe9"
+    },
+    "specs/01_NAV_AND_PAGE_INVENTORY.md": {
+      "bytes": 4215,
+      "sha256": "746cf2cd372314ad60f3c8ac02dff1d646b9989b5c114fa02c3d86d0e6994751"
+    },
+    "specs/02_VISUAL_SYSTEM_COMPONENTS.md": {
+      "bytes": 4216,
+      "sha256": "cb84a7ab7e276a0ab381b85e52e3b01f10205f56cfc3725b4663b4d55216f242"
+    },
+    "specs/03_WORKFORCE_DIRECTORY.md": {
+      "bytes": 5870,
+      "sha256": "e7e4214c7d8674ce7f7a36b0d99f8bce0b0c1c767748c2c13339e8918cda63c3"
+    },
+    "specs/04_EMPLOYEE_PROFILE.md": {
+      "bytes": 3891,
+      "sha256": "7b99e2e268dee7529e24af35d29854c24aa5e3d000b08f0103c85db0abc51420"
+    },
+    "specs/05_ADD_EDIT_FIELD_AND_FORM_SPEC.md": {
+      "bytes": 5097,
+      "sha256": "6243dd103c181b06948b9e48b6e4feac97f40efd586691f0ea8ed6602c106f87"
+    },
+    "specs/06_OPERATIONS_AND_EMPLOYMENT_HISTORY.md": {
+      "bytes": 3304,
+      "sha256": "cf3f73f568b8d72e2fec79bc6c63c10ecef13d0199e7956bce7607f782dcc449"
+    },
+    "specs/07_IMPORT_EXPORT_BULK.md": {
+      "bytes": 2770,
+      "sha256": "fcdeeb5dfeeb0e03915b2373f98cfcfa2e2383d7f3724dd0523086c902f839c0"
+    },
+    "specs/08_AUDIT_HISTORY_AND_COMMENTS.md": {
+      "bytes": 3771,
+      "sha256": "23346a8a4e8c5e81c45cd15708db3db1cb80ac6d4633c7df762e6ca956cbbd5c"
+    },
+    "specs/09_MOBILE_RESPONSIVE.md": {
+      "bytes": 2957,
+      "sha256": "2bdf0df6449548853f97fb4a4747f109531bf74f505f335eba5a50c95e9021b7"
+    },
+    "specs/10_INPUTS_STATES_ACCESSIBILITY.md": {
+      "bytes": 4368,
+      "sha256": "e619e5a4682e94a02fcdbd3e8d9f7d23de03230cf6ca8a985d3891550b345668"
+    },
+    "specs/11_PERMISSIONS_PRIVACY_INTEGRATIONS.md": {
+      "bytes": 4073,
+      "sha256": "8c35fb0310240e3abcbc4cd528bcae5c7b25092b0841c5fd415b9f95eb154cd7"
+    },
+    "specs/12_API_DATA_CONTRACT_PROPOSALS.md": {
+      "bytes": 3389,
+      "sha256": "6f729dd22e62643f412192c87c3e7d2302490a704d4ef2f7ce76516266dddbbf"
+    },
+    "specs/13_QA_DELIVERY_GATES.md": {
+      "bytes": 3352,
+      "sha256": "232e745aa2b0e0798ba771912dfd59ea652e9ec3119ca8d9900a55a331d16061"
+    },
+    "ui_tokens/people_workforce.tokens.css": {
+      "bytes": 753,
+      "sha256": "5abadf7d9c11335e2a802abad9329caf22f3507972bf919ff45c51d200511982"
+    }
+  }
+}

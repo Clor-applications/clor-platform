@@ -489,23 +489,24 @@ payrollRunsRouter.post(
     const members = (await payrollPrisma.payrollRunEmployee.findMany({ where: { orgId, runId: run.id, inclusion: 'INCLUDED' }, select: { employeeId: true } })).map((m) => m.employeeId);
     const days = await peoplePrisma.attendanceRecord.findMany({
       where: { orgId, employeeId: { in: members }, date: { gte: period.startDate, lte: period.endDate }, leaveRequestId: { not: null } },
-      select: { employeeId: true, status: true, leaveRequestId: true },
+      select: { employeeId: true, status: true, leaveRequestId: true, checkIn: true },
     });
     const requests = await peoplePrisma.leaveRequest.findMany({ where: { orgId, id: { in: [...new Set(days.map((d) => d.leaveRequestId!))] } }, select: { id: true, leaveTypeId: true } });
     const types = new Map((await peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, isPaid: true } })).map((t) => [t.id, t]));
     const typeOf = new Map(requests.map((r) => [r.id, types.get(r.leaveTypeId)]));
     /* Per person: cost = the leave fraction the person lost (0.5 for a half
        day, 1 for a whole day, only on an unpaid type) plus the unworked other
-       half of a linked half day, whatever the type. The leave fraction alone
-       is what the attendance summary calls unpaid leave; with the unworked
-       half it is the same loss of pay both handoffs report. */
+       half of a linked half day when the person clocked in and fell short.
+       Without Attendance nobody need clock in at all: a half day of paid
+       leave with no punches is half leave and half an ordinary working day,
+       not half a day's loss of pay (Time & Leave audit, 27 Oct 2026). */
     const unpaid = new Map<string, { days: number; leaveDays: number; names: Set<string> }>();
     for (const d of days) {
       const t = typeOf.get(d.leaveRequestId!);
       if (!t) continue;
       const onLeave = d.status === 'ON_LEAVE';
       const leaveFraction = t.isPaid ? 0 : onLeave ? 1 : 0.5;
-      const loss = leaveFraction + (d.status === 'HALF_DAY' ? 0.5 : 0);
+      const loss = leaveFraction + (d.status === 'HALF_DAY' && d.checkIn ? 0.5 : 0);
       if (!loss) continue;
       const u = unpaid.get(d.employeeId) || { days: 0, leaveDays: 0, names: new Set<string>() };
       u.days += loss;

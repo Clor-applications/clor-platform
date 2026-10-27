@@ -2113,6 +2113,16 @@
     }
   }
 
+  /* The org chart on paper: the chart alone, no rail, no buttons. */
+  @media print {
+    body.print-chart * { visibility: hidden; }
+    body.print-chart .ui-print-area, body.print-chart .ui-print-area * { visibility: visible; }
+    body.print-chart .ui-print-area { position: absolute; inset: 0 auto auto 0; width: 100%; }
+    body.print-chart .ui-no-print { display: none !important; }
+    body.print-chart .ui-print-area .ui-tree-toggle, body.print-chart .ui-print-area .ui-tree-toggle * { visibility: hidden; }
+    body.print-chart .ui-print-area nav[aria-label="Breadcrumb"] { display: none !important; }
+  }
+
   .invoice-print-host {
     position: fixed;
     left: -100000px;
@@ -7040,7 +7050,10 @@ th.ui-th {
  *   dark theme    #D89FA8 as the fill and as text (9.0:1 on #09090B), dark ink on it
  *
  * Tokens it sets (others keep the platform values): --brand*, --btn-primary-*,
- * --on-brand, --accent-soft, --ring, --hero-hi.
+ * --on-brand, --accent-soft, --ring, --hero-hi; and, from the People design
+ * spec v1 (26 Oct 2026, D-V4/D-V5), the canvas (#F6F4F2), ink (#232226) and a
+ * graphite rail like Attendance's, so the split sidebar reads dark rail +
+ * light People panel. Ink on canvas is 14.2:1; muted text keeps the platform value.
  */
 :root[data-palette='rose'],
 [data-palette='rose'] {
@@ -7058,6 +7071,19 @@ th.ui-th {
   --accent-soft: 247 237 240;
   --ring: 164 87 97;
   --hero-hi: 164 87 97;
+  --app-bg: 246 244 242;
+  --fg: 35 34 38;
+  --col-party: 35 34 38;
+  --rail-graphite: 35 34 38;
+  --rail-graphite-top: 45 43 48;
+  --rail-graphite-hover: 52 50 56;
+  --rail-ink: 205 202 208;
+  --rail-ink-strong: 255 255 255;
+  --rail-rose: 216 159 168;
+  /* Page heading and table head in warm neutrals: the platform's pale blue fought the rose. The heading sits on the canvas, set off by its hairline. */
+  --page-heading-bg: 246 244 242;
+  --heading-bg: 239 236 233;
+  --heading-hover: 230 226 222;
 }
 :root[data-theme='dark'][data-palette='rose'],
 :root[data-theme='dark'] [data-palette='rose'] {
@@ -7075,6 +7101,70 @@ th.ui-th {
   --accent-soft: 61 30 36;
   --ring: 216 159 168;
   --hero-hi: 216 159 168;
+  --app-bg: 9 9 11;
+  --fg: 250 250 250;
+  --col-party: 250 250 250;
+  --rail-graphite: 18 17 20;
+  --rail-graphite-top: 26 24 28;
+  --rail-graphite-hover: 35 34 38;
+}
+
+/* The work area sits on the warm canvas; cards, tables and forms stay white on it. */
+:root[data-palette='rose'] main.ui-content {
+  background-color: rgb(var(--app-bg));
+}
+
+/*
+ * The app rail in graphite (D-V4), as under Blaze: the module you are in gets a
+ * rose bar on the rail's edge, a rose icon and a warm tint behind it; hover
+ * lifts the icon a touch; "Me" sits apart at the foot.
+ */
+:root[data-palette='rose'] .ui-split-rail {
+  background: linear-gradient(to bottom, rgb(var(--rail-graphite-top)), rgb(var(--rail-graphite)) 14rem);
+  border-right-color: rgb(var(--rail-graphite));
+  box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.04);
+}
+:root[data-palette='rose'] .ui-split-mod {
+  position: relative;
+  color: rgb(var(--rail-ink));
+  transition: background-color var(--dur-surface) ease, color var(--dur-surface) ease;
+}
+:root[data-palette='rose'] .ui-split-mod > svg {
+  transition: transform var(--dur-surface, 150ms) ease, color var(--dur-surface, 150ms) ease;
+}
+:root[data-palette='rose'] .ui-split-mod:hover {
+  background: rgb(255 255 255 / 0.06);
+  color: rgb(var(--rail-ink-strong));
+}
+:root[data-palette='rose'] .ui-split-mod:hover > svg { transform: translateY(-1px); }
+:root[data-palette='rose'] .ui-split-mod[data-current] {
+  background: rgb(var(--rail-rose) / 0.18);
+  color: rgb(var(--rail-ink-strong));
+  box-shadow: inset 0 0 0 1px rgb(var(--rail-rose) / 0.3);
+}
+:root[data-palette='rose'] .ui-split-mod[data-current] > svg { color: rgb(var(--rail-rose)); }
+:root[data-palette='rose'] .ui-split-mod[data-current]::before {
+  content: '';
+  position: absolute;
+  left: -0.375rem; top: 22%; bottom: 22%;
+  width: 3px;
+  background: rgb(var(--rail-rose));
+}
+:root[data-palette='rose'] .ui-split-mod[aria-pressed='true']:not([data-current]) {
+  background: rgb(255 255 255 / 0.09);
+  color: rgb(var(--rail-ink-strong));
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+}
+:root[data-palette='rose'] .ui-split-mod:focus-visible {
+  outline-color: rgb(var(--rail-ink-strong));
+}
+:root[data-palette='rose'] .ui-split-rail > .ui-split-mod:last-child:not(:first-child) {
+  margin-top: auto;
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-palette='rose'] .ui-split-mod[data-current]::before { animation: ui-rail-mark 260ms cubic-bezier(.2,.8,.2,1) both; }
+  /* People (WORKFORCE-LAYOUT.md): rows arrive as they are, no fade; a list is read, not watched. */
+  :root[data-palette='rose'] .ui-rows > tr { animation: none; }
 }
 
 /* The current screen in the module panel and the phone tab bar take the accent, as under Blaze. */
@@ -7161,6 +7251,9 @@ th.ui-th {
   align-items: center;
   gap: 8px;
   width: min(360px, 32vw);
+  /* Gives way first when the bar is tight (a phone on its side): the label ellipsises, the icon stays. */
+  min-width: 2.5rem;
+  flex-shrink: 1;
   height: 36px;
   margin-left: 12px;
   padding: 0 8px 0 12px;
@@ -7530,3 +7623,367 @@ th.ui-th {
     grid-template-columns: 1fr;
   }
 }
+
+/*
+ * Reduced motion, everywhere (People design spec v1 §2): one global rule on top
+ * of the per-component ones, so nothing new slips through. Transitions shrink
+ * to an instant; nothing loops.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------------------------------------------ People design v1 shared components
+ * (spec §5). Tokens only; light and dark follow the theme tokens. */
+.ui-breadcrumb ol { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0 0 0.25rem; padding: 0; list-style: none; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.ui-breadcrumb li + li::before { content: '/'; margin-right: 0.25rem; color: rgb(var(--fg-subtle)); }
+.ui-breadcrumb [aria-current='page'] { color: rgb(var(--fg)); }
+
+.ui-search-field input::-webkit-search-cancel-button { display: none; }
+
+.ui-record-tablist { display: flex; gap: 0.25rem; overflow-x: auto; border-bottom: 1px solid rgb(var(--border)); scrollbar-width: none; }
+.ui-record-tablist::-webkit-scrollbar { display: none; }
+.ui-record-tablist .ui-tab { white-space: nowrap; }
+/*
+ * An employee record is one document, so each tab is one sheet: a single white
+ * surface with its sections divided by hairlines, never a stack of separate
+ * boxes (DESIGN.md: a document earns a surface; no card-in-card).
+ */
+.ui-record-tabpanel { margin-top: 1rem; padding: 1.25rem 1.5rem; background: rgb(var(--surface)); border: 1px solid rgb(var(--border)); }
+.ui-record-tabpanel .ui-record-section { background: transparent; border: 0; border-top: 1px solid rgb(var(--border)); padding: 1.25rem 0; }
+.ui-record-tabpanel .ui-record-section:first-child { border-top: 0; padding-top: 0; }
+.ui-record-tabpanel .ui-record-section:last-child { padding-bottom: 0; }
+.ui-record-tabpanel .space-y-4 > * + .ui-record-section { margin-top: 0; }
+.ui-record-tabpanel .ui-doc-list > li:last-child { border-bottom: 0; }
+@media (max-width: 639px) { .ui-record-tabpanel { padding: 1rem; } }
+.ui-record-tabpanel:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+
+.ui-alert { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem 1rem; border: 1px solid rgb(var(--border)); background: rgb(var(--surface)); }
+.ui-alert-icon { flex: none; margin-top: 0.125rem; }
+.ui-alert-title { font-weight: 600; font-size: 0.875rem; }
+.ui-alert-body { font-size: 0.8125rem; color: rgb(var(--fg-muted)); margin-top: 0.125rem; }
+.ui-alert-action { flex: none; align-self: center; }
+.ui-alert-neg { background: rgb(var(--neg-soft)); border-color: rgb(var(--neg) / 0.3); }
+.ui-alert-neg .ui-alert-icon { color: rgb(var(--neg)); }
+.ui-alert-warn { background: rgb(var(--warn-soft)); border-color: rgb(var(--warn) / 0.3); }
+.ui-alert-warn .ui-alert-icon { color: rgb(var(--warn-ink)); }
+.ui-alert-pos { background: rgb(var(--pos-soft)); border-color: rgb(var(--pos) / 0.3); }
+.ui-alert-pos .ui-alert-icon { color: rgb(var(--pos)); }
+.ui-alert-info { background: rgb(var(--info-soft)); border-color: rgb(var(--info) / 0.3); }
+.ui-alert-info .ui-alert-icon { color: rgb(var(--info)); }
+
+.ui-error-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem; padding: 2.5rem 1rem; }
+.ui-error-state.is-compact { padding: 1rem; }
+.ui-error-state-icon { color: rgb(var(--fg-muted)); }
+.ui-error-state-title { font-weight: 600; font-size: 1rem; color: rgb(var(--fg)); }
+.ui-error-state-body { font-size: 0.875rem; color: rgb(var(--fg-muted)); max-width: 28rem; }
+.ui-error-state-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+
+.ui-activity-list { list-style: none; margin: 0.25rem 0 0; padding: 0; position: relative; }
+.ui-activity-item { position: relative; display: flex; gap: 0.75rem; padding: 0.625rem 0 0.625rem 0; }
+.ui-activity-item + .ui-activity-item::before { content: ''; position: absolute; left: 0.8125rem; top: -0.625rem; height: 1.25rem; width: 1px; background: rgb(var(--border)); }
+.ui-activity-dot { flex: none; display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border: 1px solid rgb(var(--border)); background: rgb(var(--surface)); color: rgb(var(--fg-subtle)); }
+.ui-activity-item.is-changes .ui-activity-dot { color: rgb(var(--brand-ink)); }
+.ui-activity-item.is-approvals .ui-activity-dot { color: rgb(var(--pos)); }
+.ui-activity-item.is-documents .ui-activity-dot { color: rgb(var(--info)); }
+/* Filters stay on one line in a narrow rail and scroll sideways if they must; the chosen one is filled. */
+.ui-activity-filters { display: flex; gap: 0.25rem; overflow-x: auto; scrollbar-width: none; margin-inline: -0.125rem; padding: 0.125rem; }
+.ui-activity-filter { flex: none; height: 1.75rem; padding: 0 0.625rem; border-radius: 999px; border: 1px solid transparent; font-size: 0.75rem; font-weight: 500; color: rgb(var(--fg-muted)); white-space: nowrap; }
+.ui-activity-filter:hover { color: rgb(var(--fg)); background: rgb(var(--surface-sunken)); }
+.ui-activity-filter[aria-checked='true'] { color: rgb(var(--brand-ink)); background: rgb(var(--brand-soft)); border-color: rgb(var(--brand-border)); }
+.ui-activity-filter:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 1px; }
+/* One change a line: the field, then the old and new values, each wrapping as a whole. */
+.ui-activity-changes { list-style: none; margin: 0.25rem 0 0; padding: 0; font-size: 0.8125rem; line-height: 1.25rem; display: grid; gap: 0.125rem; }
+.ui-activity-changes > li { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 0.375rem; }
+/* The arrow travels with the new value, so a wrap never strands it at a line end. */
+.ui-activity-to { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: 0.375rem; }
+.ui-activity-field { color: rgb(var(--fg-subtle)); }
+.ui-activity-field { flex-basis: 100%; font-size: 0.75rem; line-height: 1rem; }
+.ui-activity-before { color: rgb(var(--fg-subtle)); text-decoration: line-through; text-decoration-color: rgb(var(--fg-subtle) / 0.6); }
+.ui-activity-arrow { color: rgb(var(--fg-subtle)); }
+.ui-activity-after { color: rgb(var(--fg)); font-weight: 500; }
+
+.ui-datepicker-pop { position: absolute; z-index: var(--z-popover, 60); top: calc(100% + 4px); left: 0; width: 17.5rem; padding: 0.75rem; background: rgb(var(--surface)); border: 1px solid rgb(var(--border)); box-shadow: 0 8px 24px rgb(0 0 0 / 0.12); }
+.ui-datepicker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.ui-datepicker-day { height: 2.25rem; font-size: 0.8125rem; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); background: transparent; border: 1px solid transparent; }
+.ui-datepicker-day:hover:not(:disabled) { background: rgb(var(--surface-sunken)); }
+.ui-datepicker-day:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: -2px; }
+.ui-datepicker-day.is-today { border-color: rgb(var(--border-strong)); }
+.ui-datepicker-day.is-selected { background: rgb(var(--brand)); color: rgb(var(--on-brand)); }
+.ui-datepicker-day:disabled { color: rgb(var(--fg-subtle)); opacity: 0.5; cursor: not-allowed; }
+@media (max-width: 639px) {
+  .ui-datepicker-pop { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; }
+  .ui-datepicker-day { height: 2.75rem; }
+}
+
+.ui-drawer-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; padding: 0.75rem 1.25rem; border-top: 1px solid rgb(var(--border)); background: rgb(var(--surface)); }
+
+/* DataTable (People design v1 §5) */
+.ui-datatable-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.75rem 0; }
+.ui-th-sort { display: inline-flex; align-items: center; gap: 0.25rem; font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.ui-th-sort:focus-visible, .ui-row-open:focus-visible, .ui-card-open:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+.ui-row-open, .ui-card-open { font: inherit; color: inherit; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; width: 100%; }
+.ui-datatable tbody tr.is-selected { background: rgb(var(--brand-subtle)); }
+.ui-datatable.is-compact .ui-table td, .ui-datatable.is-compact .ui-table th { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+.ui-table-pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.75rem 0; border-top: 1px solid rgb(var(--border)); }
+.ui-page-btn { min-width: 2rem; height: 2rem; padding: 0 0.5rem; font-size: 0.8125rem; color: rgb(var(--fg)); background: transparent; border: 1px solid transparent; cursor: pointer; }
+.ui-page-btn:hover { background: rgb(var(--surface-sunken)); }
+.ui-page-btn.is-current { background: rgb(var(--brand)); color: rgb(var(--on-brand)); }
+.ui-page-btn:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 1px; }
+.ui-menu { display: flex; flex-direction: column; padding: 0.25rem; }
+.ui-menu-item { text-align: left; font-size: 0.875rem; padding: 0.5rem 0.75rem; color: rgb(var(--fg)); background: transparent; border: 0; cursor: pointer; }
+.ui-menu-item:hover:not(:disabled), .ui-menu-item:focus-visible { background: rgb(var(--surface-sunken)); outline: none; }
+.ui-menu-item.is-danger { color: rgb(var(--neg)); }
+.ui-menu-item:disabled { color: rgb(var(--fg-subtle)); cursor: not-allowed; }
+.ui-datatable-cards { display: none; list-style: none; margin: 0; padding: 0; }
+.ui-datatable-card { position: relative; display: flex; align-items: center; gap: 0.75rem; min-height: 44px; padding: 0.75rem 0; border-bottom: 1px solid rgb(var(--border)); }
+.ui-datatable-card.is-selected { background: rgb(var(--brand-subtle)); }
+.ui-card-check { flex: none; width: 1.25rem; height: 1.25rem; }
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+.ui-spin { animation: ui-spin 1s linear infinite; }
+@media (max-width: 639px) {
+  .ui-datatable.has-cards .ui-datatable-desktop { display: none; }
+  .ui-datatable.has-cards .ui-datatable-cards { display: block; }
+  .ui-table-pager { justify-content: center; }
+}
+
+/* Workforce directory (People design v1 EMP-01, Workforce package WF-03) */
+.ui-metric-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0; background: rgb(var(--surface)); border: 1px solid rgb(var(--border)); }
+.ui-metric { display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem 1rem; text-align: left; background: transparent; border: 0; color: rgb(var(--fg)); font: inherit; }
+/* The rules sit on the strip's cells (a tile, or the list item holding a tile button), so a button keeps its role. */
+.ui-metric-strip > * { display: flex; border-right: 1px solid rgb(var(--border)); }
+.ui-metric-strip > * > .ui-metric { flex: 1; }
+.ui-metric-strip > :last-child { border-right: 0; }
+button.ui-metric { cursor: pointer; }
+button.ui-metric:hover { background: rgb(var(--surface-sunken)); }
+button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: -2px; }
+.ui-metric-icon { flex: none; color: rgb(var(--brand-ink)); }
+.ui-metric-value { display: block; font-size: 1.375rem; font-weight: 600; line-height: 1.2; }
+.ui-metric-label { display: block; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.ui-bulkbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 0.25rem 0.75rem; background: rgb(var(--brand-subtle)); border: 1px solid rgb(var(--brand-border)); }
+@media (max-width: 639px) {
+  .ui-metric-strip { grid-template-columns: repeat(2, 1fr); }
+  .ui-metric-strip > * { border-bottom: 1px solid rgb(var(--border)); }
+  /* An odd last tile takes the full row instead of leaving half of it empty; no rule under the bottom row. */
+  .ui-metric-strip > :nth-child(even) { border-right: 0; }
+  .ui-metric-strip > :last-child:nth-child(odd) { grid-column: 1 / -1; border-right: 0; }
+  .ui-metric-strip > :last-child, .ui-metric-strip > :nth-last-child(2):nth-child(odd) { border-bottom: 0; }
+  /* On cards, Columns does nothing: the search takes the row and Filters sits beside it. */
+  .ui-datatable.has-cards .ui-columns-btn { display: none; }
+  .ui-attention { gap: 0.5rem; }
+  .ui-attention > li { flex-wrap: wrap; }
+  /* The words stay beside their dot; only the action may drop to the next line. */
+  .ui-attention > li > span:not(.ui-attention-dot) { flex: 1 1 12rem; min-width: 0; }
+}
+.ui-attention .ui-link { white-space: nowrap; }
+
+/* Workforce employee record (People design v1 EMP-03..09) */
+.ui-record-section { background: rgb(var(--surface)); border: 1px solid rgb(var(--border)); padding: 1rem 1.25rem; }
+.ui-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 1.5rem; }
+.ui-field-row { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 0.5rem; align-items: baseline; min-width: 0; }
+.ui-field-row dd { min-width: 0; overflow-wrap: anywhere; }
+.ui-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 1rem; }
+.ui-record-overview { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.ui-record-rail { display: none; }
+@media (min-width: 1280px) {
+  .ui-record-overview { grid-template-columns: minmax(0, 1fr) 22rem; }
+  .ui-record-rail { display: flex; flex-direction: column; gap: 0; margin-left: 1.5rem; padding-left: 1.5rem; border-left: 1px solid rgb(var(--border)); }
+}
+@media (max-width: 899px) {
+  .ui-field-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 639px) {
+  .ui-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .ui-field-row { grid-template-columns: minmax(0, 1fr); gap: 0.125rem; }
+  .ui-record-section { padding: 0.875rem 1rem; }
+}
+
+/* Add employee wizard (People design v1 EMP-02) */
+.ui-stepper { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; list-style: none; margin: 0; padding: 0; }
+.ui-step { display: flex; align-items: center; gap: 0.5rem; color: rgb(var(--fg-muted)); }
+.ui-step-mark { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border: 1px solid rgb(var(--border-strong)); font-size: 0.8125rem; font-variant-numeric: tabular-nums; background: rgb(var(--surface)); }
+.ui-step.is-current { color: rgb(var(--fg)); }
+.ui-step.is-current .ui-step-mark { background: rgb(var(--brand)); border-color: rgb(var(--brand)); color: rgb(var(--on-brand)); }
+.ui-step.is-done .ui-step-mark { border-color: rgb(var(--brand)); color: rgb(var(--brand-ink)); }
+.ui-step-label { display: block; font-size: 0.875rem; font-weight: 500; }
+.ui-step-hint { display: block; font-size: 0.75rem; color: rgb(var(--fg-muted)); }
+.ui-wizard-body:focus { outline: none; }
+.ui-wizard-actions { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.25rem -1.25rem -1rem; padding: 0.75rem 1.25rem; background: rgb(var(--surface)); border-top: 1px solid rgb(var(--border)); }
+.ui-review-block { border-top: 1px solid rgb(var(--border)); padding: 1rem 0 0.25rem; }
+/* A choice that toggles: outlined when off, filled in the accent when on, with a tick so the state is not colour alone. */
+.ui-choice-chip { display: inline-flex; align-items: center; gap: 0.25rem; height: 1.75rem; padding: 0 0.75rem; border-radius: 999px; border: 1px solid rgb(var(--border-strong)); font-size: 0.8125rem; font-weight: 500; color: rgb(var(--fg-muted)); background: rgb(var(--surface)); transition: background-color var(--dur-state) ease, border-color var(--dur-state) ease, color var(--dur-state) ease; }
+.ui-choice-chip:hover { border-color: rgb(var(--fg-subtle)); color: rgb(var(--fg)); }
+.ui-choice-chip[aria-pressed='true'] { background: rgb(var(--brand-soft)); border-color: rgb(var(--brand-border)); color: rgb(var(--brand-ink)); }
+.ui-choice-chip[aria-pressed='true']::before { content: '✓'; font-size: 0.75rem; }
+.ui-choice-chip:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+.ui-required { color: rgb(var(--neg)); }
+.ui-input.is-invalid { border-color: rgb(var(--neg)); }
+@media (max-width: 639px) {
+  .ui-step-hint { display: none; }
+  .ui-wizard-actions { margin: 1rem -1rem -0.875rem; padding: 0.75rem 1rem; }
+  .ui-wizard-actions .ui-btn { min-height: 44px; }
+}
+
+.ui-dropzone { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; padding: 2rem 1rem; text-align: center; border: 1px dashed rgb(var(--border-strong)); background: rgb(var(--surface-sunken)); cursor: pointer; color: rgb(var(--fg)); }
+.ui-dropzone:hover { border-color: rgb(var(--brand)); }
+.ui-dropzone:focus-within { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+.ui-text-neg { color: rgb(var(--neg)); }
+/* Time & Leave: a request waiting too long; a private leave's dot carries no type colour. */
+.ui-text-warn { color: rgb(var(--warn)); }
+.ui-dot-quiet { background: rgb(var(--fg-subtle)); }
+/* Below the phone tab bar's top edge, a sticky footer would sit under the bar (it is 61px plus the safe area). */
+@media (max-width: 767px) {
+  .ui-wizard-actions { bottom: calc(62px + env(safe-area-inset-bottom)); }
+  .ui-wizard-actions > .ui-btn:first-child { order: 2; }
+}
+/* A short window (a phone on its side, a laptop at 200% zoom) cannot spare the rows: the actions sit at the end of the form instead. */
+@media (max-height: 520px) {
+  .ui-wizard-actions { position: static; }
+}
+.ui-record-tablist .ui-tab { padding: 0.625rem 0.75rem; }
+@media (max-width: 639px) { .ui-record-tablist .ui-tab { padding: 0.75rem 0.625rem; min-height: 44px; } }
+
+.ui-attention { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; align-items: center; margin: 0; padding: 0.5rem 0.25rem; list-style: none; font-size: 0.875rem; border-bottom: 1px solid rgb(var(--border)); }
+.ui-attention > li { display: inline-flex; align-items: center; gap: 0.5rem; }
+.ui-attention-dot { width: 0.5rem; height: 0.5rem; border-radius: 999px; flex: none; }
+.ui-attention-dot.is-neg { background: rgb(var(--neg)); }
+.ui-attention-dot.is-warn { background: rgb(var(--warn)); }
+.ui-attention-x { width: 1.5rem; height: 1.5rem; margin-left: -0.125rem; color: rgb(var(--fg-subtle)); }
+.ui-tab-count { display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.25rem; margin-left: 0.375rem; padding: 0 0.375rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); }
+.ui-tab.is-active .ui-tab-count { background: rgb(var(--brand-soft)); color: rgb(var(--brand-ink)); }
+.ui-composer textarea { resize: vertical; min-height: 3.25rem; }
+.ui-composer-bar { display: flex; justify-content: flex-end; margin-top: 0.5rem; }
+/* The Activity tab reads as a column, not a banner across the screen. */
+.ui-record-activity { max-width: 46rem; }
+.ui-doc-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid rgb(var(--border)); }
+.ui-doc-list > li { border-bottom: 1px solid rgb(var(--border)); }
+.ui-doc-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 1rem; padding: 0.75rem 0.25rem; }
+.ui-doc-title { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.875rem; font-weight: 500; color: rgb(var(--fg)); text-align: left; }
+.ui-doc-title:hover { color: rgb(var(--brand-ink)); text-decoration: underline; }
+.ui-doc-meta { display: block; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-subtle)); }
+.ui-doc-expiry { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.ui-doc-versions { list-style: none; margin: 0 0 0.75rem; padding: 0 0.25rem 0 1rem; border-left: 2px solid rgb(var(--border)); display: grid; gap: 0.25rem; font-size: 0.8125rem; }
+.ui-doc-versions > li { display: flex; gap: 0.75rem; align-items: baseline; }
+@media (max-width: 639px) { .ui-doc-row { grid-template-columns: minmax(0, 1fr) auto; } .ui-doc-expiry { grid-column: 1; } }
+.ui-photo-empty { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; border: 1px dashed rgb(var(--border-strong)); color: rgb(var(--fg-subtle)); background: rgb(var(--surface-sunken)); }
+/* ---- Motion (People): functional only, on the duration tokens; reduced motion turns each off. ---- */
+.ui-record-tablist { position: relative; }
+.ui-record-tablist.has-indicator .ui-tab.is-active::after { content: none; }
+.ui-tab-indicator { position: absolute; left: 0; bottom: 0; height: 2px; background: rgb(var(--brand)); border-radius: 1px; pointer-events: none;
+  transition: transform var(--dur-surface) var(--ease-out), width var(--dur-surface) var(--ease-out); }
+.ui-panel-in { animation: ui-panel-in var(--dur-surface) var(--ease-out) both; }
+@keyframes ui-panel-in { from { opacity: 0; transform: translate3d(0, 4px, 0); } to { opacity: 1; transform: none; } }
+.ui-avatar-edit-badge, .ui-tag-add, .ui-activity-filter, .ui-doc-title, .ui-attention-x { transition: color var(--dur-state) ease, background-color var(--dur-state) ease, border-color var(--dur-state) ease; }
+@media (prefers-reduced-motion: reduce) {
+  .ui-tab-indicator { transition: none; }
+  .ui-panel-in { animation: none; }
+}
+.ui-compare { table-layout: fixed; }
+.ui-compare thead th:first-child { width: 14rem; }
+.ui-compare tbody th[scope='row'] { border-bottom: 1px solid rgb(var(--border)); padding-block: 0.625rem; }
+.ui-doc-title.inline { display: inline; }
+.ui-filter-groups > section + section { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid rgb(var(--border)); }
+.ui-filter-group-title { margin-bottom: 0.75rem; font-size: 0.875rem; font-weight: 600; color: rgb(var(--fg)); }
+/* On a phone a drawer marked as a sheet rises from the bottom, as phone pickers do, and stops short of the top. */
+@keyframes ui-sheet-up { from { transform: translate3d(0, 100%, 0); } to { transform: none; } }
+@media (max-width: 639px) {
+  .ui-scrim:has(> .ui-drawer-sheet) { align-items: flex-end; }
+  .ui-drawer-sheet { width: 100% !important; height: auto !important; max-height: 88vh; border-radius: 12px 12px 0 0; animation-name: ui-sheet-up !important; }
+}
+@media (max-width: 639px) and (prefers-reduced-motion: reduce) { .ui-drawer-sheet { animation: none !important; } }
+.ui-avatar-initials::before { content: attr(data-initials); }
+.ui-choice-list, .ui-column-checks { display: grid; gap: 0.125rem; }
+.ui-column-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1rem; }
+.ui-choice-row { display: flex; align-items: center; gap: 0.625rem; min-height: 2.25rem; padding: 0 0.5rem; margin: 0 -0.5rem; border-radius: 8px; font-size: 0.875rem; cursor: pointer; }
+.ui-choice-row:hover { background: rgb(var(--surface-sunken)); }
+.ui-choice-row input[type='radio'] { accent-color: rgb(var(--brand)); width: 1rem; height: 1rem; }
+@media (max-width: 639px) { .ui-column-checks { grid-template-columns: minmax(0, 1fr); } }
+.ui-doc-preview { display: block; max-width: 100%; margin: 0 auto; border: 1px solid rgb(var(--border)); background: rgb(var(--surface-sunken)); }
+.ui-doc-preview-pdf { width: 100%; height: calc(100vh - 12rem); }
+.ui-history-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid rgb(var(--border)); }
+.ui-history-list > li { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) auto; gap: 1rem; padding: 0.875rem 0; border-bottom: 1px solid rgb(var(--border)); align-items: baseline; }
+.ui-history-list > li:last-child { border-bottom: 0; }
+.ui-history-when { display: flex; flex-direction: column; font-size: 0.875rem; }
+.ui-history-recorded { font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-subtle)); text-align: right; }
+@media (max-width: 639px) { .ui-history-list > li { grid-template-columns: 1fr; gap: 0.25rem; } .ui-history-recorded { text-align: left; } }
+.ui-impact { display: grid; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid rgb(var(--border)); }
+.ui-impact .ui-impact-heading { margin-bottom: 0.25rem; font-size: 0.75rem; line-height: 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: rgb(var(--fg-subtle)); }
+.ui-impact-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.ui-impact-group li { padding-left: 0.75rem; border-left: 2px solid rgb(var(--border)); }
+.ui-impact-group.is-action li { border-left-color: rgb(var(--warn)); }
+.ui-impact-group.is-auto li { border-left-color: rgb(var(--pos)); }
+.ui-impact-fix { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.375rem; font-size: 0.875rem; cursor: pointer; }
+.ui-ready-list { list-style: none; margin: 0; padding: 0; }
+.ui-ready-list > li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.75rem; align-items: start; padding: 0.625rem 0; border-top: 1px solid rgb(var(--border)); }
+.ui-ready-list > li:first-child { border-top: 0; }
+.ui-ready-list .ui-attention-dot { margin-top: 0.375rem; }
+.ui-ready-line { display: flex; align-items: center; gap: 0.5rem; padding-bottom: 1rem; font-size: 0.875rem; color: rgb(var(--fg-muted)); border-bottom: 1px solid rgb(var(--border)); }
+.ui-attention-dot.is-pos { background: rgb(var(--pos)); }
+.ui-attention-dot.is-neutral { background: rgb(var(--fg-subtle)); }
+.ui-section-count { margin-left: 0.5rem; font-size: 0.8125rem; font-weight: 500; color: rgb(var(--fg-subtle)); }
+.ui-task-list { list-style: none; margin: 0; padding: 0; font-size: 0.875rem; line-height: 1.25rem; }
+.ui-task-list > li { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 0.625rem 0; border-top: 1px solid rgb(var(--border)); }
+.ui-task-list > li:first-child { border-top: 0; padding-top: 0.25rem; }
+.ui-task-list > li > :last-child { font-size: 0.8125rem; }
+/* Record header (People): portrait, name line, a row of facts with small icons, then tags. */
+.ui-profile { display: flex; align-items: center; gap: 1rem; }
+.ui-profile-aka { font-size: 1rem; line-height: 1.5rem; font-weight: 400; color: rgb(var(--fg-muted)); letter-spacing: 0; }
+.ui-profile-facts { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin-top: 0.375rem; font-size: 0.8125rem; line-height: 1.25rem; font-weight: 400; letter-spacing: 0; color: rgb(var(--fg-muted)); }
+.ui-profile-facts li { display: inline-flex; align-items: center; gap: 0.375rem; }
+.ui-profile-facts svg { color: rgb(var(--fg-subtle)); flex-shrink: 0; }
+/* A date that has passed with nothing decided reads in the warning colour; the words carry it too. */
+.ui-profile-facts li.is-warn, .ui-profile-facts li.is-warn svg { color: rgb(var(--warn)); }
+.ui-avatar-edit { position: relative; display: inline-flex; flex-shrink: 0; border-radius: 999px; }
+.ui-avatar-edit:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+.ui-avatar-edit-badge { position: absolute; right: -2px; bottom: -2px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: rgb(var(--surface)); color: rgb(var(--fg-muted)); border: 1px solid rgb(var(--border)); }
+.ui-avatar-edit:hover .ui-avatar-edit-badge { color: rgb(var(--brand-ink)); border-color: rgb(var(--brand-border)); }
+.ui-tag-add { display: inline-flex; align-items: center; gap: 0.25rem; height: 22px; padding: 0 0.5rem; border-radius: 999px; border: 1px dashed rgb(var(--border-strong)); font-size: 0.75rem; font-weight: 500; color: rgb(var(--fg-muted)); }
+.ui-tag-add:hover { color: rgb(var(--fg)); border-color: rgb(var(--fg-subtle)); }
+.ui-tag-add:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+
+.ui-table tr.is-changed td, .ui-table tr.is-changed th { background: rgb(var(--brand-subtle)); }
+
+/* A decision with several outcomes (probation, a contract): one ruled row per outcome, label, its date, its button; the buttons line up so the choice reads down the page. */
+.ui-decide { display: grid; }
+.ui-decide-row { display: grid; grid-template-columns: 8.5rem minmax(0, 15rem) auto; align-items: center; gap: 0.75rem; padding: 0.625rem 0; border-top: 1px solid rgb(var(--border)); }
+.ui-decide-row:first-child { border-top: 0; padding-top: 0; }
+.ui-decide-row > .ui-btn { justify-self: start; }
+.ui-decide-label { font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+@media (max-width: 639px) {
+  .ui-decide-row { grid-template-columns: 1fr; gap: 0.375rem; }
+  .ui-decide-row > span:empty { display: none; }
+}
+
+/* Data Health: each check a ruled block on the page ground (no card per check). */
+.ui-health-list { display: grid; }
+.ui-health-item { display: grid; gap: 0.5rem; padding: 1rem 0; border-top: 1px solid rgb(var(--border)); }
+.ui-health-item:first-child { border-top: 0; padding-top: 0; }
+
+/* Organization changes: the same ruled list as employment history, one block per change (what and who on one line, fields under it). */
+.ui-history-list > li.ui-history-row { display: block; }
+
+/* Organization outline: one ruled row per department (indented under its parent) or branch — name, who runs it, how many people. Names and counts line up down the page. */
+.ui-org-outline { list-style: none; margin: 0; padding: 0; border-top: 1px solid rgb(var(--border)); }
+.ui-org-outline > li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 14rem) 4rem; align-items: center; gap: 1rem; min-height: 2.75rem; padding: 0.375rem 0 0.375rem calc(var(--depth, 0) * 1.25rem); border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+.ui-org-outline-name { justify-self: start; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; font-weight: 500; color: rgb(var(--fg)); background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.ui-org-outline-name:hover { text-decoration: underline; }
+.ui-org-outline-name:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; border-radius: 4px; }
+.ui-org-outline-head { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-org-outline-count { justify-self: end; }
+.ui-org-outline > li > :nth-child(1) { position: relative; }
+@media (max-width: 639px) { .ui-org-outline > li { grid-template-columns: minmax(0, 1fr) 3rem; row-gap: 0.125rem; padding-left: calc(var(--depth, 0) * 0.75rem); } .ui-org-outline-head { grid-column: 1; grid-row: 2; font-size: 0.8125rem; } .ui-org-outline-count { grid-row: 1; grid-column: 2; } }
+.ui-attention-dot.is-quiet { background: rgb(var(--fg-subtle)); }
+
+/* SuggestInput: what the company already has, under a text field. The active row reads like PopupSelect's. */
+.ui-suggest-list { list-style: none; margin: 0; padding: 0.25rem 0; overflow-y: auto; }
+.ui-suggest-option { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; cursor: pointer; min-width: 0; }
+.ui-suggest-option[data-active="true"] { background-color: rgb(var(--brand) / 0.12); color: rgb(var(--brand-ink)); box-shadow: inset 3px 0 0 rgb(var(--brand)); }
+
+/* An outline drawn as a tree (useTreeKeys): the focused row shows the ring on its own line, not around everything under it. */
+.ui-tree [role="treeitem"] { outline: none; }
+.ui-tree [role="treeitem"]:focus-visible > .ui-tree-row, .ui-tree .ui-tree-row[role="treeitem"]:focus-visible { box-shadow: inset 0 0 0 2px rgb(var(--ring)); border-radius: 8px; }

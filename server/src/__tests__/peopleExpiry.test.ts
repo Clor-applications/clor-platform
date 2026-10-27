@@ -35,6 +35,7 @@ const people = (c: Ctx) => ({
 });
 const file = (text: string) => ({ data: `data:text/plain;base64,${Buffer.from(text).toString('base64')}`, mime: 'text/plain' });
 const ist = (d: Date) => new Date(d.getTime() + 330 * 60_000).toISOString().slice(0, 10);
+const inWords = (iso: string) => { const [y, m, d] = iso.split('-'); return `${Number(d)} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m) - 1]} ${y}`; };
 const plus = (days: number, from = new Date()) => ist(new Date(from.getTime() + days * 86_400_000));
 
 let hr: Ctx;
@@ -113,6 +114,6 @@ describe('expiry watch', () => {
     const health = (await people(hr).get('/data-health').expect(200)).body;
     const check = health.checks.find((c: any) => c.id === 'permit-expired');
     expect(check).toBeTruthy();
-    expect(check.people).toEqual([expect.objectContaining({ id: e.id, detail: `Forklift licence expired ${plus(-3, now)} · may not: operate the forklift` })]);
+    expect(check.people).toEqual([expect.objectContaining({ id: e.id, detail: `Forklift licence expired ${inWords(plus(-3, now))} · may not: operate the forklift` })]);
   });
 });

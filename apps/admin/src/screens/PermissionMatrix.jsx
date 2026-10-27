@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ChevronDown, Lock } from 'lucide-react';
 
-import { moduleKeys, permissionKey } from './permissionKeys';
+import { displayModules, moduleKeys, permissionKey } from './permissionKeys';
 import './workspace.css';
 
 /*
@@ -29,8 +29,12 @@ const actionLabel = {
 
 const key = permissionKey;
 
-export default function PermissionMatrix({ modules, granted, onToggle, onSetMany, initiallyOpen = 2 }) {
-  const [openModules, setOpenModules] = useState(() => new Set((modules || []).slice(0, initiallyOpen).map((m) => m.key)));
+export default function PermissionMatrix({ modules: given, granted, onToggle, onSetMany, initiallyOpen = 2 }) {
+  /* Every editor draws the same sections, Time & Leave included, whichever list it was handed (split already or not). */
+  const modules = useMemo(() => displayModules(given), [given]);
+  /* Two sections share the ATTENDANCE key, which every wire key carries; displayKey tells them apart on screen. */
+  const idOf = (m) => m.displayKey || m.key;
+  const [openModules, setOpenModules] = useState(() => new Set(modules.slice(0, initiallyOpen).map(idOf)));
   const keysOf = moduleKeys;
 
   return (
@@ -40,11 +44,12 @@ export default function PermissionMatrix({ modules, granted, onToggle, onSetMany
         const on = keys.filter((k) => granted.has(k)).length;
         const all = on === keys.length && keys.length > 0;
         const some = on > 0 && !all;
-        const isOpen = openModules.has(mod.key);
+        const id = idOf(mod);
+        const isOpen = openModules.has(id);
 
         /* One surface per module: its header and, when open, its table — no box inside a box. */
         return (
-          <section key={mod.key} className="ws-table-wrap" aria-label={mod.label}>
+          <section key={id} className="ws-table-wrap" aria-label={mod.label}>
             <div
               className="flex items-center justify-between gap-3"
               style={{ padding: '12px 14px', borderBottom: isOpen ? '1px solid rgb(var(--ws-line))' : 'none' }}
@@ -55,8 +60,8 @@ export default function PermissionMatrix({ modules, granted, onToggle, onSetMany
                 onClick={() =>
                   setOpenModules((prev) => {
                     const next = new Set(prev);
-                    if (next.has(mod.key)) next.delete(mod.key);
-                    else next.add(mod.key);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
                     return next;
                   })
                 }

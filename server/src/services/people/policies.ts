@@ -16,8 +16,32 @@ import { ask } from './acknowledgements.js';
  * a conflict Health check shows (POL-06).
  */
 
-export const POLICY_CATEGORIES = ['LEAVE', 'HOURS', 'CONDUCT', 'TRAVEL', 'BENEFITS', 'IT', 'POSH', 'OTHER'] as const;
-export const CATEGORY_LABEL: Record<string, string> = { LEAVE: 'Leave', HOURS: 'Working hours', CONDUCT: 'Conduct', TRAVEL: 'Travel', BENEFITS: 'Benefits', IT: 'IT and security', POSH: 'POSH', OTHER: 'Other' };
+export const POLICY_CATEGORIES = ['LEAVE', 'HOURS', 'CONDUCT', 'TRAVEL', 'BENEFITS', 'IT', 'POSH', 'PRIVACY', 'OTHER'] as const;
+export const CATEGORY_LABEL: Record<string, string> = { LEAVE: 'Leave', HOURS: 'Working hours', CONDUCT: 'Conduct', TRAVEL: 'Travel', BENEFITS: 'Benefits', IT: 'IT and security', POSH: 'POSH', PRIVACY: 'Privacy notice', OTHER: 'Other' };
+/** A privacy notice says what it covers (PRV-01): one notice per purpose, each with its own versions and read receipts. */
+export const PRIVACY_PURPOSES: Record<string, string> = { EMPLOYMENT: 'Employment records', ATTENDANCE: 'Attendance and leave', PAYROLL: 'Pay and statutory deductions', RECRUITMENT: 'Hiring', MONITORING: 'Devices, CCTV and IT monitoring', BENEFITS: 'Insurance and benefits', OTHER: 'Other' };
+/** The scheduled languages a notice may be offered in besides English (Constitution, Eighth Schedule; the common ones first). */
+export const NOTICE_LANGUAGES: Record<string, string> = { hi: 'Hindi', bn: 'Bengali', mr: 'Marathi', te: 'Telugu', ta: 'Tamil', gu: 'Gujarati', ur: 'Urdu', kn: 'Kannada', or: 'Odia', ml: 'Malayalam', pa: 'Punjabi', as: 'Assamese' };
+
+export async function noticeLanguages(orgId: string): Promise<string[]> {
+  const row = await peoplePrisma.peopleSetting.findUnique({ where: { orgId }, select: { noticeLanguages: true } });
+  return (Array.isArray(row?.noticeLanguages) ? (row!.noticeLanguages as unknown[]) : []).map(String).filter((l) => NOTICE_LANGUAGES[l]);
+}
+
+export async function saveNoticeLanguages(actor: Actor, input: unknown) {
+  const list = [...new Set((Array.isArray(input) ? input : []).map((l) => String(l ?? '').trim().toLowerCase()))];
+  const bad = list.find((l) => !NOTICE_LANGUAGES[l]);
+  if (bad) throw new PolicyError(`${bad} is not one of the languages offered.`);
+  await peoplePrisma.peopleSetting.upsert({ where: { orgId: actor.orgId }, create: { accountId: actor.accountId, orgId: actor.orgId, noticeLanguages: list, updatedByUserId: actor.userId }, update: { noticeLanguages: list, updatedByUserId: actor.userId } });
+  return list;
+}
+
+const cleanPurpose = (category: string, purpose: unknown) => {
+  if (category !== 'PRIVACY') return null;
+  const p = String(purpose ?? '').trim().toUpperCase();
+  if (!PRIVACY_PURPOSES[p]) throw new PolicyError('Say what the notice covers: employment records, attendance, pay, hiring, monitoring, benefits or other.');
+  return p;
+};
 export const VERSION_STATUSES = ['DRAFT', 'WAITING', 'PUBLISHED', 'RETIRED'] as const;
 export type AppliesTo = { establishmentIds?: string[]; states?: string[]; departmentIds?: string[]; employeeTypeIds?: string[]; gradeIds?: string[]; workTypeIds?: string[] };
 const APPLIES_KEYS: Array<keyof AppliesTo> = ['establishmentIds', 'states', 'departmentIds', 'employeeTypeIds', 'gradeIds', 'workTypeIds'];
@@ -66,8 +90,9 @@ export async function peopleInScope(orgId: string, rule: AppliesTo) {
   return (await peopleOf(orgId)).filter((p) => applies(rule, p));
 }
 
-const shapeVersion = (v: { id: string; policyId: string; version: number; body: string | null; documentId: string | null; effectiveFrom: string; effectiveTo: string | null; appliesTo: unknown; needsAcceptance: boolean; status: string; publishedAt: Date | null; publishedByUserId: string | null; requestId: string | null; createdAt: Date }) => ({
+const shapeVersion = (v: { id: string; policyId: string; version: number; body: string | null; translations?: unknown; documentId: string | null; effectiveFrom: string; effectiveTo: string | null; appliesTo: unknown; needsAcceptance: boolean; status: string; publishedAt: Date | null; publishedByUserId: string | null; requestId: string | null; createdAt: Date }) => ({
   id: v.id, policyId: v.policyId, version: v.version, body: v.body, documentId: v.documentId, effectiveFrom: v.effectiveFrom, effectiveTo: v.effectiveTo, appliesTo: (v.appliesTo as AppliesTo) || {},
+  translations: (v.translations as Record<string, string> | null) || {},
   needsAcceptance: v.needsAcceptance, status: v.status, publishedAt: v.publishedAt, publishedByUserId: v.publishedByUserId, requestId: v.requestId, createdAt: v.createdAt,
 });
 
@@ -76,19 +101,20 @@ export function inForce<T extends { version: number; status: string; effectiveFr
   return versions.filter((v) => (v.status === 'PUBLISHED' || v.status === 'RETIRED') && v.effectiveFrom <= asOf && (!v.effectiveTo || v.effectiveTo >= asOf)).sort((a, b) => b.version - a.version)[0] || null;
 }
 
-export async function createPolicy(actor: Actor, input: { title?: string; category?: string; description?: string | null; ownerUserId?: string | null }) {
+export async function createPolicy(actor: Actor, input: { title?: string; category?: string; purpose?: string | null; description?: string | null; ownerUserId?: string | null }) {
   const title = String(input.title || '').trim().slice(0, 160);
   if (!title) throw new PolicyError('Name the policy.');
   const category = String(input.category || 'OTHER').toUpperCase();
-  if (!POLICY_CATEGORIES.includes(category as any)) throw new PolicyError('Pick a category: leave, working hours, conduct, travel, benefits, IT, POSH or other.');
+  if (!POLICY_CATEGORIES.includes(category as any)) throw new PolicyError('Pick a category: leave, working hours, conduct, travel, benefits, IT, POSH, privacy notice or other.');
+  const purpose = cleanPurpose(category, input.purpose);
   const ownerUserId = String(input.ownerUserId || actor.userId || '').trim();
   if (!ownerUserId) throw new PolicyError('A policy needs an owner.');
   const owner = await platformPrisma.user.findUnique({ where: { id: ownerUserId }, select: { id: true } });
   if (!owner) throw new PolicyError('That owner is not a user here.');
-  return peoplePrisma.policy.create({ data: { accountId: actor.accountId, orgId: actor.orgId, title, category, description: String(input.description || '').trim().slice(0, 2000) || null, ownerUserId, createdByUserId: actor.userId } });
+  return peoplePrisma.policy.create({ data: { accountId: actor.accountId, orgId: actor.orgId, title, category, purpose, description: String(input.description || '').trim().slice(0, 2000) || null, ownerUserId, createdByUserId: actor.userId } });
 }
 
-export async function updatePolicy(actor: Actor, id: string, input: { title?: string; category?: string; description?: string | null; ownerUserId?: string | null; isActive?: boolean }) {
+export async function updatePolicy(actor: Actor, id: string, input: { title?: string; category?: string; purpose?: string | null; description?: string | null; ownerUserId?: string | null; isActive?: boolean }) {
   const row = await peoplePrisma.policy.findFirst({ where: { id, orgId: actor.orgId } });
   if (!row) throw new PolicyError('No such policy.', 404);
   const data: Record<string, unknown> = {};
@@ -97,6 +123,7 @@ export async function updatePolicy(actor: Actor, id: string, input: { title?: st
   if (input.description !== undefined) data.description = String(input.description || '').trim().slice(0, 2000) || null;
   if (input.ownerUserId !== undefined) { const o = String(input.ownerUserId || '').trim(); if (!o || !(await platformPrisma.user.findUnique({ where: { id: o }, select: { id: true } }))) throw new PolicyError('That owner is not a user here.'); data.ownerUserId = o; }
   if (input.isActive !== undefined) data.isActive = Boolean(input.isActive);
+  if (input.category !== undefined || input.purpose !== undefined) data.purpose = cleanPurpose(String(data.category ?? row.category), input.purpose ?? row.purpose);
   return peoplePrisma.policy.update({ where: { id: row.id }, data });
 }
 
@@ -114,7 +141,7 @@ export async function listPolicies(orgId: string, where: { q?: string; category?
   return rows.map((p) => {
     const current = inForce(p.versions, today);
     const latest = p.versions[0] || null;
-    return { id: p.id, title: p.title, category: p.category, categoryLabel: CATEGORY_LABEL[p.category] || p.category, description: p.description, ownerUserId: p.ownerUserId, ownerName: ownerOf.get(p.ownerUserId) || '', isActive: p.isActive, updatedAt: p.updatedAt, current: current ? shapeVersion(current) : null, latest: latest ? shapeVersion(latest) : null, versions: p.versions.length };
+    return { id: p.id, title: p.title, category: p.category, categoryLabel: CATEGORY_LABEL[p.category] || p.category, purpose: p.purpose, purposeLabel: p.purpose ? PRIVACY_PURPOSES[p.purpose] || p.purpose : null, description: p.description, ownerUserId: p.ownerUserId, ownerName: ownerOf.get(p.ownerUserId) || '', isActive: p.isActive, updatedAt: p.updatedAt, current: current ? shapeVersion(current) : null, latest: latest ? shapeVersion(latest) : null, versions: p.versions.length };
   });
 }
 
@@ -128,13 +155,13 @@ export async function policyDetail(orgId: string, id: string) {
   const acceptedOf = new Map(accepted.map((a) => [a.targetId, a._count._all]));
   const current = inForce(p.versions);
   return {
-    id: p.id, title: p.title, category: p.category, categoryLabel: CATEGORY_LABEL[p.category] || p.category, description: p.description, ownerUserId: p.ownerUserId, ownerName: owner?.fullName || '', isActive: p.isActive,
+    id: p.id, title: p.title, category: p.category, categoryLabel: CATEGORY_LABEL[p.category] || p.category, purpose: p.purpose, purposeLabel: p.purpose ? PRIVACY_PURPOSES[p.purpose] || p.purpose : null, description: p.description, ownerUserId: p.ownerUserId, ownerName: owner?.fullName || '', isActive: p.isActive,
     currentVersion: current?.version ?? null,
     versions: p.versions.map((v) => ({ ...shapeVersion(v), inForce: current?.id === v.id, asked: askedOf.get(v.id) || 0, accepted: acceptedOf.get(v.id) || 0 })),
   };
 }
 
-type VersionInput = { body?: string | null; documentId?: string | null; effectiveFrom?: string; effectiveTo?: string | null; appliesTo?: unknown; needsAcceptance?: boolean };
+type VersionInput = { body?: string | null; documentId?: string | null; effectiveFrom?: string; effectiveTo?: string | null; appliesTo?: unknown; needsAcceptance?: boolean; translations?: unknown };
 async function cleanVersion(orgId: string, input: VersionInput, existing?: { body: string | null; documentId: string | null }) {
   const body = input.body !== undefined ? String(input.body || '').trim().slice(0, 100_000) || null : existing?.body ?? null;
   const documentId = input.documentId !== undefined ? String(input.documentId || '').trim() || null : existing?.documentId ?? null;
@@ -144,29 +171,43 @@ async function cleanVersion(orgId: string, input: VersionInput, existing?: { bod
   if (effectiveFrom !== undefined && !ISO_DATE.test(effectiveFrom)) throw new PolicyError('Say from which day it applies (YYYY-MM-DD).');
   const effectiveTo = input.effectiveTo !== undefined ? String(input.effectiveTo || '').trim() || null : undefined;
   if (effectiveTo && !ISO_DATE.test(effectiveTo)) throw new PolicyError('Dates are YYYY-MM-DD.');
-  return { body, documentId, effectiveFrom, effectiveTo, appliesTo: input.appliesTo !== undefined ? cleanAppliesTo(input.appliesTo) : undefined, needsAcceptance: input.needsAcceptance !== undefined ? Boolean(input.needsAcceptance) : undefined };
+  let translations: Record<string, string> | undefined;
+  if (input.translations !== undefined) {
+    const enabled = await noticeLanguages(orgId);
+    translations = {};
+    for (const [lang, text] of Object.entries((input.translations && typeof input.translations === 'object' ? input.translations : {}) as Record<string, unknown>)) {
+      const t = String(text ?? '').trim().slice(0, 100_000);
+      if (!t) continue;
+      if (!enabled.includes(lang)) throw new PolicyError(`${NOTICE_LANGUAGES[lang] || lang} is not switched on for notices. Add it under Privacy notice languages first.`);
+      translations[lang] = t;
+    }
+  }
+  return { body, documentId, effectiveFrom, effectiveTo, translations, appliesTo: input.appliesTo !== undefined ? cleanAppliesTo(input.appliesTo) : undefined, needsAcceptance: input.needsAcceptance !== undefined ? Boolean(input.needsAcceptance) : undefined };
 }
 
 export async function addVersion(actor: Actor, policyId: string, input: VersionInput) {
-  const p = await peoplePrisma.policy.findFirst({ where: { id: policyId, orgId: actor.orgId }, select: { id: true } });
+  const p = await peoplePrisma.policy.findFirst({ where: { id: policyId, orgId: actor.orgId }, select: { id: true, category: true } });
   if (!p) throw new PolicyError('No such policy.', 404);
   const c = await cleanVersion(actor.orgId, input);
+  /* PRV-01: every version of a privacy notice asks everyone it reaches to read it again. */
+  if (p.category === 'PRIVACY') c.needsAcceptance = true;
   if (!c.effectiveFrom) throw new PolicyError('Say from which day it applies (YYYY-MM-DD).');
   if (c.effectiveTo && c.effectiveTo < c.effectiveFrom) throw new PolicyError('It cannot end before it starts.');
   const last = await peoplePrisma.policyVersion.findFirst({ where: { policyId }, orderBy: { version: 'desc' }, select: { version: true } });
-  const row = await peoplePrisma.policyVersion.create({ data: { accountId: actor.accountId, orgId: actor.orgId, policyId, version: (last?.version ?? 0) + 1, body: c.body, documentId: c.documentId, effectiveFrom: c.effectiveFrom, effectiveTo: c.effectiveTo ?? null, appliesTo: (c.appliesTo || {}) as any, needsAcceptance: c.needsAcceptance ?? false, createdByUserId: actor.userId } });
+  const row = await peoplePrisma.policyVersion.create({ data: { accountId: actor.accountId, orgId: actor.orgId, policyId, version: (last?.version ?? 0) + 1, body: c.body, documentId: c.documentId, effectiveFrom: c.effectiveFrom, effectiveTo: c.effectiveTo ?? null, appliesTo: (c.appliesTo || {}) as any, needsAcceptance: c.needsAcceptance ?? false, translations: (c.translations ?? undefined) as any, createdByUserId: actor.userId } });
   return shapeVersion(row);
 }
 
 export async function updateVersion(actor: Actor, policyId: string, version: number, input: VersionInput) {
-  const row = await peoplePrisma.policyVersion.findFirst({ where: { policyId, version, orgId: actor.orgId } });
+  const row = await peoplePrisma.policyVersion.findFirst({ where: { policyId, version, orgId: actor.orgId }, include: { policy: { select: { category: true } } } });
   if (!row) throw new PolicyError('No such version.', 404);
   if (row.status !== 'DRAFT') throw new PolicyError('Only a draft can be changed; make a new version instead.', 409);
   const c = await cleanVersion(actor.orgId, input, row);
+  if (row.policy.category === 'PRIVACY') c.needsAcceptance = true;
   const effectiveFrom = c.effectiveFrom ?? row.effectiveFrom;
   const effectiveTo = c.effectiveTo === undefined ? row.effectiveTo : c.effectiveTo;
   if (effectiveTo && effectiveTo < effectiveFrom) throw new PolicyError('It cannot end before it starts.');
-  const updated = await peoplePrisma.policyVersion.update({ where: { id: row.id }, data: { body: c.body, documentId: c.documentId, effectiveFrom, effectiveTo, ...(c.appliesTo !== undefined ? { appliesTo: c.appliesTo as any } : {}), ...(c.needsAcceptance !== undefined ? { needsAcceptance: c.needsAcceptance } : {}) } });
+  const updated = await peoplePrisma.policyVersion.update({ where: { id: row.id }, data: { body: c.body, documentId: c.documentId, effectiveFrom, effectiveTo, ...(c.appliesTo !== undefined ? { appliesTo: c.appliesTo as any } : {}), ...(c.needsAcceptance !== undefined ? { needsAcceptance: c.needsAcceptance } : {}), ...(c.translations !== undefined ? { translations: c.translations as any } : {}) } });
   return shapeVersion(updated);
 }
 
@@ -219,11 +260,11 @@ export async function policiesFor(orgId: string, employeeId: string, asOf = toda
   const [person] = await peopleOf(orgId, [employeeId]);
   if (!person) return [];
   const rows = await peoplePrisma.policy.findMany({ where: { orgId, isActive: true }, include: { versions: { where: { status: { in: ['PUBLISHED', 'RETIRED'] } }, orderBy: { version: 'desc' } } } });
-  const out: Array<{ policyId: string; title: string; category: string; categoryLabel: string; versionId: string; version: number; effectiveFrom: string; effectiveTo: string | null; needsAcceptance: boolean; hasBody: boolean; documentId: string | null }> = [];
+  const out: Array<{ policyId: string; title: string; category: string; categoryLabel: string; purpose: string | null; purposeLabel: string | null; languages: string[]; versionId: string; version: number; effectiveFrom: string; effectiveTo: string | null; needsAcceptance: boolean; hasBody: boolean; documentId: string | null }> = [];
   for (const p of rows) {
     const v = inForce(p.versions, asOf);
     if (!v || !applies((v.appliesTo as AppliesTo) || {}, person)) continue;
-    out.push({ policyId: p.id, title: p.title, category: p.category, categoryLabel: CATEGORY_LABEL[p.category] || p.category, versionId: v.id, version: v.version, effectiveFrom: v.effectiveFrom, effectiveTo: v.effectiveTo, needsAcceptance: v.needsAcceptance, hasBody: Boolean(v.body), documentId: v.documentId });
+    out.push({ policyId: p.id, title: p.title, category: p.category, categoryLabel: CATEGORY_LABEL[p.category] || p.category, purpose: p.purpose, purposeLabel: p.purpose ? PRIVACY_PURPOSES[p.purpose] || p.purpose : null, languages: Object.keys((v.translations as Record<string, string>) || {}), versionId: v.id, version: v.version, effectiveFrom: v.effectiveFrom, effectiveTo: v.effectiveTo, needsAcceptance: v.needsAcceptance, hasBody: Boolean(v.body), documentId: v.documentId });
   }
   const acks = out.length ? await peoplePrisma.acknowledgement.findMany({ where: { orgId, employeeId, targetType: 'POLICY_VERSION', targetId: { in: out.map((o) => o.versionId) } } }) : [];
   const ackOf = new Map(acks.map((a) => [a.targetId, a]));
@@ -236,19 +277,19 @@ export async function versionForPerson(orgId: string, employeeId: string, versio
   if (!v) return null;
   const [person] = await peopleOf(orgId, [employeeId]);
   if (!person || !applies((v.appliesTo as AppliesTo) || {}, person)) return null;
-  return { ...shapeVersion(v), title: v.policy.title, category: v.policy.category };
+  return { ...shapeVersion(v), title: v.policy.title, category: v.policy.category, purpose: v.policy.purpose };
 }
 
 /** Two published policies of one category reaching the same people on a day (POL-06). */
 export async function conflicts(orgId: string, asOf = todayIst()) {
   const rows = await peoplePrisma.policy.findMany({ where: { orgId, isActive: true }, include: { versions: { where: { status: { in: ['PUBLISHED', 'RETIRED'] } } } } });
   const everyone = await peopleOf(orgId);
-  const live = rows.map((p) => ({ policyId: p.id, title: p.title, category: p.category, v: inForce(p.versions, asOf) })).filter((x) => x.v);
+  const live = rows.map((p) => ({ policyId: p.id, title: p.title, category: p.category, purpose: p.purpose, v: inForce(p.versions, asOf) })).filter((x) => x.v);
   const out: Array<{ category: string; a: { policyId: string; title: string; version: number }; b: { policyId: string; title: string; version: number }; people: number; sample: string[] }> = [];
   for (let i = 0; i < live.length; i += 1) {
     for (let j = i + 1; j < live.length; j += 1) {
       const a = live[i]; const b = live[j];
-      if (a.category !== b.category) continue;
+      if (a.category !== b.category || (a.purpose || null) !== (b.purpose || null)) continue;
       const both = everyone.filter((p) => applies((a.v!.appliesTo as AppliesTo) || {}, p) && applies((b.v!.appliesTo as AppliesTo) || {}, p));
       if (!both.length) continue;
       out.push({ category: a.category, a: { policyId: a.policyId, title: a.title, version: a.v!.version }, b: { policyId: b.policyId, title: b.title, version: b.v!.version }, people: both.length, sample: both.slice(0, 3).map((p) => p.name) });

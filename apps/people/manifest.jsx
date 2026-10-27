@@ -58,25 +58,46 @@ import { lazyScreens } from '@ui/utils/lazyScreens';
 /* Screens load as one file the first time the app opens (WX-03). */
 const screen = lazyScreens(() => import('./src/screens.js'));
 const PeopleOverview = screen('PeopleOverview');
-const Employees = screen('Employees');
+const Employees = screen('Workforce');
+const EmployeeRecord = screen('EmployeeRecord');
+const AddEmployee = screen('AddEmployee');
+const ImportEmployees = screen('ImportEmployees');
 const Approvals = screen('Approvals');
 const Policies = screen('Policies');
 const ApprovalRules = screen('ApprovalRules');
 const HelpDesk = screen('HelpDesk');
+const PrivateCases = screen('PrivateCases');
 const HelpDeskSettings = screen('HelpDeskSettings');
 const OrgChart = screen('OrgChart');
+const OrganizationOverview = screen('OrganizationOverview');
+const Branches = screen('Branches');
+const OrgChanges = screen('OrgChanges');
+const OrgDepartments = screen('OrgDepartments');
+const OrgEmploymentTypes = screen('OrgEmploymentTypes');
+const OrgWorkModes = screen('OrgWorkModes');
+const OrgLegalEntities = screen('OrgLegalEntities');
+const OrgDesignations = screen('OrgDesignations');
+const OrgJobRoles = screen('OrgJobRoles');
+const OrgTeams = screen('OrgTeams');
+const OrgPositions = screen('OrgPositions');
+const OrgLocations = screen('OrgLocations');
+const OrgWorkSites = screen('OrgWorkSites');
+const OrgBusinessUnits = screen('OrgBusinessUnits');
+const OrgGrades = screen('OrgGrades');
+const OrgCostCentres = screen('OrgCostCentres');
 const Tags = screen('Tags');
 const Departments = screen('Departments');
-const EmployeeTypes = screen('EmployeeTypes');
 const JobPositions = screen('JobPositions');
 const JobRoles = screen('JobRoles');
-const WorkTypes = screen('WorkTypes');
 const DataHealth = screen('DataHealth');
 const Checklists = screen('Checklists');
 const LetterTemplates = screen('LetterTemplates');
 const CustomFieldsSettings = screen('CustomFieldsSettings');
 const SelfServiceSettings = screen('SelfServiceSettings');
 const ComplianceCalendar = screen('ComplianceCalendar');
+const Compliance = screen('Compliance');
+const Privacy = screen('Privacy');
+const AuditEvidence = screen('AuditEvidence');
 const WorkspaceList = screen('WorkspaceList');
 const PeopleReports = screen('PeopleReports');
 const PeopleDocuments = screen('PeopleDocuments');
@@ -84,6 +105,12 @@ const Holidays = screen('Holidays');
 const PortalAccess = screen('PortalAccess');
 const SalaryRevisions = screen('SalaryRevisions');
 const LeaveRequests = screen('LeaveRequests');
+const TimeOverview = screen('TimeOverview');
+const WorkingWeek = screen('WorkingWeek');
+const LeaveYearEnd = screen('LeaveYearEnd');
+const StandIns = screen('StandIns');
+const AttendanceRequests = screen('AttendanceRequests');
+const RequestRules = screen('RequestRules');
 const LeaveBalances = screen('LeaveBalances');
 const LeaveTypes = screen('LeaveTypes');
 const MyLeave = screen('MyLeave');
@@ -97,7 +124,6 @@ const PeopleSettings = screen('PeopleSettings');
 const PeopleModules = screen('PeopleModules');
 const CompanyDetails = screen('CompanyDetails');
 const BusinessUnits = screen('BusinessUnits');
-const LegalEntities = screen('LegalEntities');
 const Establishments = screen('Establishments');
 const Teams = screen('Teams');
 const Seats = screen('Seats');
@@ -194,27 +220,37 @@ export const peopleApp = {
      docs/people/08-DECISIONS-AND-RISKS.md D-01). The shared palette lives in packages/ui/src/index.css;
      the colour icons stay. */
   palette: 'rose',
+  /* The phone's tab bar (spec v1 §6): what employees and managers reach for; the rest is behind Menu. */
+  mobileTabs: ['overview', 'employees', 'approvals', 'leaveRequests'],
   iconSet: 'color',
 
   /* The sidebar holds the day's work; everything set up once lives on one Settings page (PeopleSettings), its pages marked `parent: 'settings'`. */
   modules: [
     { key: 'overview', label: 'Home', items: ['overview', 'approvals'] },
-    { key: 'employees', label: 'Employees', groups: [
-      { label: 'Directory', items: ['employees', 'orgChart', 'documents'] },
-      { label: 'Help', items: ['helpdesk', 'policies'] },
+    /* Workforce package (owner, 26 Oct 2026): the visible module is Workforce; screen keys stay `employees` so old links keep working. */
+    { key: 'employees', label: 'Workforce', groups: [
+      { label: 'Directory', items: ['employees', 'documents'] },
+      { label: 'Help', items: ['helpdesk', 'policies', 'privateCases'] },
       { label: 'Joining & Leaving', items: ['checklists', 'assets'] },
       { label: 'Pay & Benefits', items: ['compensation', 'benefits'] },
     ] },
-    /* Leave and holidays are HR's; Attendance reads the same records (founder, 22 Oct 2026). */
-    { key: 'leave', label: 'Leave & Attendance', short: 'Time', groups: [
-      { label: 'Leave', items: ['leaveRequests', 'leaveCalendar', 'leaveBalances', 'leaveRegister'] },
-      { label: 'Attendance', items: ['attendance'] },
+    /* Organization (ORGANIZATION-DECISIONS.md): how the company is set up and who runs what. The detailed lists show with the Detailed structure switch. */
+    { key: 'organization', label: 'Organization', short: 'Org', groups: [
+      { label: 'Structure', items: ['organization', 'departments', 'jobPositions', 'orgChart'] },
+      { label: 'Places', items: ['branches'] },
+      { label: 'Detailed', items: ['establishments', 'areas', 'teams', 'seats', 'businessUnits', 'grades', 'costCentres', 'jobRoles'] },
+      { label: 'History', items: ['orgChanges'] },
+    ] },
+    /* Time & Leave (TIME-LEAVE-DECISIONS.md): one engine with Attendance, which reads and writes the same records. */
+    { key: 'leave', label: 'Time & Leave', short: 'Time', groups: [
+      { label: 'Leave', items: ['timeOverview', 'leaveRequests', 'leaveCalendar', 'leaveBalances', 'leaveRegister', 'standIns'] },
+      { label: 'Attendance', items: ['attendanceRequests', 'attendance'] },
       { label: 'Me', items: ['myLeave', 'myDays'] },
     ] },
     { key: 'hiring', label: 'Hiring', items: ['recruitment', 'candidates'] },
     { key: 'growth', label: 'Performance', items: ['performance', 'learning'] },
     { key: 'workplace', label: 'Engage', items: ['announcements', 'events'] },
-    { key: 'reports', label: 'Insights', items: ['reports', 'dataHealth', 'complianceCalendar'] },
+    { key: 'reports', label: 'Insights', items: ['reports', 'dataHealth', 'compliance', 'complianceCalendar', 'privacy', 'auditEvidence'] },
     { key: 'settings', label: 'Settings', items: ['settings'] },
   ],
 
@@ -223,45 +259,63 @@ export const peopleApp = {
     { key: 'overview', label: 'Home', icon: I.home, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'approvals', label: 'Approvals', icon: I.checklist, permission: 'PEOPLE::Requests::VIEW' },
     { key: 'employees', label: 'Employees', icon: I.people, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'orgChart', label: 'Org Chart', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'documents', label: 'Documents', icon: I.folder, permission: 'PEOPLE::Employees::VIEW' },
+    /* Pages inside Workforce (profile, add, import): reached from the directory, never their own sidebar entries; the shell shows "← Workforce". */
+    { key: 'employee', label: 'Employee', icon: I.people, permission: 'PEOPLE::Employees::VIEW', parent: 'employees' },
+    { key: 'employeeNew', label: 'Add Employee', icon: I.people, permission: 'PEOPLE::Employees::CREATE', parent: 'employees' },
+    { key: 'employeeImport', label: 'Import Employees', icon: I.import, permission: 'PEOPLE::Employees::CREATE', parent: 'employees' },
+    { key: 'orgChart', label: 'Org Chart', icon: I.org, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'organization', label: 'Overview', icon: I.org, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'branches', label: 'Branches', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'orgChanges', label: 'Changes', icon: I.audit, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'documents', label: 'Documents', icon: I.folder, permission: 'PEOPLE::Documents::VIEW' },
     { key: 'policies', label: 'Policies', icon: I.policy, permission: 'PEOPLE::Policies::VIEW' },
     { key: 'checklists', label: 'Onboarding & Exit', icon: I.checklist, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'selfService', label: 'Employee Portal Access', icon: I.key, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
     { key: 'letterTemplates', label: 'Letters', icon: I.policy, permission: 'PEOPLE::Documents::VIEW', parent: 'settings' },
-    { key: 'customFields', label: 'Custom fields', icon: I.tag, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
-    { key: 'selfServiceChanges', label: 'Changes employees make themselves', icon: I.key, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
-    { key: 'approvalRules', label: 'Approval rules', icon: I.checklist, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
-    { key: 'leaveRequests', label: 'Leave Applications', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveBalances', label: 'Leave Balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'customFields', label: 'Custom Fields', icon: I.tag, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
+    { key: 'selfServiceChanges', label: 'Employee Self-Edits', icon: I.key, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
+    { key: 'approvalRules', label: 'Approval Rules', icon: I.checklist, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
+    { key: 'timeOverview', label: 'Overview', icon: I.home, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveRequests', label: 'Leave Requests', short: 'Leave', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveBalances', label: 'Balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRegister', label: 'Leave Register', icon: I.register, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveCalendar', label: 'Leave Calendar', icon: I.calendar, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveCalendar', label: 'Calendar', icon: I.calendar, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'standIns', label: 'Stand-ins', icon: I.people, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'attendanceRequests', label: 'Attendance Requests', short: 'Requests', icon: I.checklist, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
     { key: 'attendance', label: 'Attendance', icon: I.attendance, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'myDays', label: 'My Attendance', icon: I.myDays, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'myLeave', label: 'My Leave', icon: I.myLeave, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'leaveTypes', label: 'Leave Policy', icon: I.policy, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
     { key: 'holidays', label: 'Holidays', icon: I.holiday, permission: 'ATTENDANCE::Holidays::VIEW', parent: 'settings' },
+    { key: 'workingWeek', label: 'Working Week', icon: I.calendar, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
+    { key: 'leaveYearEnd', label: 'Leave Year End', icon: I.register, permission: 'ATTENDANCE::Leave Requests::EDIT', parent: 'settings' },
+    { key: 'requestRules', label: 'Request Rules', icon: I.policy, permission: 'ATTENDANCE::Attendance Requests::APPROVE', parent: 'settings' },
     { key: 'recruitment', label: 'Jobs', icon: I.job, permission: 'PEOPLE::Recruitment::VIEW', feature: 'peopleHiring' },
     { key: 'candidates', label: 'Candidates', icon: I.candidate, permission: 'PEOPLE::Recruitment::VIEW', feature: 'peopleHiring' },
     { key: 'performance', label: 'Goals & Feedback', icon: I.goal, permission: 'PEOPLE::Performance::VIEW', feature: 'peoplePerformance' },
     { key: 'learning', label: 'Training', icon: I.training, permission: 'PEOPLE::Learning::VIEW', feature: 'peoplePerformance' },
     { key: 'announcements', label: 'Announcements', icon: I.news, permission: 'PEOPLE::Announcements::VIEW', feature: 'peopleEngage' },
     { key: 'events', label: 'Events', icon: I.event, permission: 'PEOPLE::Events::VIEW', feature: 'peopleEngage' },
-    { key: 'helpdesk', label: 'Help desk', icon: I.hrCase, permission: 'PEOPLE::HR Cases::VIEW' },
-    { key: 'helpDeskSettings', label: 'Help desk settings', icon: I.hrCase, permission: 'PEOPLE::HR Cases::EDIT', parent: 'settings' },
+    { key: 'helpdesk', label: 'Help Desk', icon: I.hrCase, permission: 'PEOPLE::HR Cases::VIEW' },
+    { key: 'privateCases', label: 'Private Cases', icon: I.privacy, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'helpDeskSettings', label: 'Help Desk Settings', icon: I.hrCase, permission: 'PEOPLE::HR Cases::EDIT', parent: 'settings' },
     { key: 'assets', label: 'Assets', icon: I.asset, permission: 'PEOPLE::Assets::VIEW', feature: 'peopleBenefits' },
     { key: 'benefits', label: 'Benefits', icon: I.benefit, permission: 'PEOPLE::Benefits::VIEW', feature: 'peopleBenefits' },
     { key: 'compensation', label: 'Salary Revisions', icon: I.salary, permission: 'PAYROLL::Salary Revisions::VIEW', feature: 'peopleBenefits' },
     { key: 'reports', label: 'Workforce Report', icon: I.report, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'dataHealth', label: 'Data Health', icon: I.health, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'compliance', label: 'Compliance', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'complianceCalendar', label: 'Compliance Calendar', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'departments', label: 'Departments', icon: I.department, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'teams', label: 'Teams', icon: I.people, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'seats', label: 'Seats', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'jobPositions', label: 'Designations', icon: I.designation, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'jobRoles', label: 'Job Roles', icon: I.role, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'employeeTypes', label: 'Employee Types', icon: I.type, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'workTypes', label: 'Work Types', icon: I.workType, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'privacy', label: 'Privacy', icon: I.privacy, permission: 'PEOPLE::Privacy::VIEW' },
+    /* The external auditor's own list: what a live grant names (PRV-06). */
+    { key: 'auditEvidence', label: 'Audit Evidence', icon: I.audit, permission: 'SETTINGS::Audit trail::VIEW' },
+    { key: 'departments', label: 'Departments', icon: I.department, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'teams', label: 'Teams', icon: I.people, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
+    { key: 'seats', label: 'Positions', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
+    { key: 'jobPositions', label: 'Designations', icon: I.designation, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'jobRoles', label: 'Job Roles', icon: I.role, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
+    { key: 'employeeTypes', label: 'Employment Types', icon: I.type, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'workTypes', label: 'Work Modes', icon: I.workType, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'tags', label: 'Tags', icon: I.tag, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'dataImport', label: 'Import Data', icon: I.import, permission: 'PEOPLE::Employees::CREATE', parent: 'settings' },
     { key: 'settings', label: 'Settings', icon: I.settings, hub: true },
@@ -269,11 +323,11 @@ export const peopleApp = {
     { key: 'modules', label: 'Modules & Apps', icon: I.modules, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     { key: 'companyDetails', label: 'Company Details', icon: I.company, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     { key: 'legalEntities', label: 'Company (legal)', icon: I.company, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'establishments', label: 'Establishments', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'businessUnits', label: 'Business Units', icon: I.unit, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'areas', label: 'Locations & Sites', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'grades', label: 'Grades', icon: I.grade, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'costCentres', label: 'Cost Centres', icon: I.costCentre, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'establishments', label: 'Work Sites', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
+    { key: 'businessUnits', label: 'Business Units', icon: I.unit, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
+    { key: 'areas', label: 'Locations', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
+    { key: 'grades', label: 'Grades', icon: I.grade, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
+    { key: 'costCentres', label: 'Cost Centres', icon: I.costCentre, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
     { key: 'sso', label: 'Users & Security', icon: I.sso, permission: 'SETTINGS::Users::VIEW', parent: 'settings' },
     { key: 'rolesAccess', label: 'Roles & Access', icon: I.sso, permission: 'SETTINGS::Roles::VIEW', parent: 'settings' },
     { key: 'integrations', label: 'Integrations', icon: I.integrations, permission: 'ATTENDANCE::Attendance Integrations::VIEW', parent: 'settings' },
@@ -289,7 +343,13 @@ export const peopleApp = {
     approvals: Approvals,
     policies: Policies,
     employees: Employees,
+    employee: EmployeeRecord,
+    employeeNew: AddEmployee,
+    employeeImport: ImportEmployees,
     orgChart: OrgChart,
+    organization: OrganizationOverview,
+    branches: Branches,
+    orgChanges: OrgChanges,
     documents: PeopleDocuments,
     checklists: Checklists,
     letterTemplates: LetterTemplates,
@@ -297,6 +357,12 @@ export const peopleApp = {
     selfServiceChanges: SelfServiceSettings,
     approvalRules: ApprovalRules,
     selfService: PortalAccess,
+    timeOverview: TimeOverview,
+    workingWeek: WorkingWeek,
+    leaveYearEnd: LeaveYearEnd,
+    standIns: StandIns,
+    attendanceRequests: AttendanceRequests,
+    requestRules: RequestRules,
     leaveRequests: LeaveRequests,
     leaveBalances: LeaveBalances,
     myLeave: MyLeave,
@@ -313,32 +379,36 @@ export const peopleApp = {
     announcements: register('announcements'),
     events: register('events'),
     helpdesk: HelpDesk,
+    privateCases: PrivateCases,
     helpDeskSettings: HelpDeskSettings,
     assets: register('assets'),
     benefits: register('benefits'),
     compensation: SalaryRevisions,
     reports: PeopleReports,
     dataHealth: DataHealth,
+    compliance: Compliance,
     complianceCalendar: ComplianceCalendar,
-    departments: Departments,
-    teams: Teams,
-    seats: Seats,
-    jobPositions: JobPositions,
-    jobRoles: JobRoles,
-    employeeTypes: EmployeeTypes,
-    workTypes: WorkTypes,
+    privacy: Privacy,
+    auditEvidence: AuditEvidence,
+    departments: OrgDepartments,
+    teams: OrgTeams,
+    seats: OrgPositions,
+    jobPositions: OrgDesignations,
+    jobRoles: OrgJobRoles,
+    employeeTypes: OrgEmploymentTypes,
+    workTypes: OrgWorkModes,
     tags: Tags,
     dataImport: DataImport,
     auditLogs: AuditLogs,
     settings: PeopleSettings,
     modules: PeopleModules,
     companyDetails: CompanyDetails,
-    legalEntities: LegalEntities,
-    establishments: Establishments,
-    businessUnits: BusinessUnits,
-    areas: Locations,
-    grades: Grades,
-    costCentres: CostCentres,
+    legalEntities: OrgLegalEntities,
+    establishments: OrgWorkSites,
+    businessUnits: OrgBusinessUnits,
+    areas: OrgLocations,
+    grades: OrgGrades,
+    costCentres: OrgCostCentres,
     sso: SsoSettings,
     rolesAccess: RolesAccess,
     integrations: Integrations,

@@ -278,14 +278,15 @@ export const leaveEvent = (r: any) => ({
   employeeId: r.employeeId,
   employeeCode: r.employeeCode ?? null,
   employeeName: r.employeeName ?? null,
-  leaveType: r.leaveTypeName ?? null,
+  /* Private leave leaves CLOR as "Private leave", without its reason or note: the receiver needs the dates and whether it is paid. */
+  leaveType: r.isPrivate ? 'Private leave' : r.leaveTypeName ?? null,
   isPaid: r.isPaid ?? null,
   fromDate: r.fromDate,
   toDate: r.toDate,
   days: r.days,
   status: r.status,
-  reason: r.reason,
-  reviewNote: r.reviewNote ?? null,
+  reason: r.isPrivate ? null : r.reason,
+  reviewNote: r.isPrivate ? null : r.reviewNote ?? null,
 });
 
 /** Which leave event a request's new status is. */

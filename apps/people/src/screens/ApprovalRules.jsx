@@ -1,88 +1,100 @@
-import React, { useEffect, useState } from 'react';
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import React, { useState } from 'react';
+import { Plus } from 'lucide-react';
+import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
+import ErrorState from '@ui/components/ui/ErrorState';
+import PopupSelect from '@ui/components/pickers/PopupSelect';
+import useRequest from '@ui/components/ui/useRequest';
+import { formatDate } from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { apiFetch } from '@platform/http';
 import { orgId } from '@platform/context';
 import { listRules, retireRule, saveRule } from '../api/approvals';
 import { orgUsers } from '../api/desk';
+import { listEmployees, structure } from '../workforce/api';
 
 /**
  * Approval rules (APR-01, APR-02, APR-03): who decides what, in which
  * order, by when. One rule per kind of request; saving writes a new version
  * and the old ones stay readable, so a request shows the rule as it was.
+ * A condition names a real department, designation or person, never an id.
  */
 
 const TYPE_WORDS = {
   PROFILE_CHANGE: ['Personal detail changes', 'A person changes their own details from the app, or HR changes them for them.'],
-  JOB_CHANGE: ['Job changes', 'Department, designation, manager, establishment, grade, type: a transfer or a promotion.'],
+  JOB_CHANGE: ['Job changes', 'Department, designation, manager, work site, grade, type: a transfer or a promotion.'],
   LEAVING: ['Resignations and leaving', 'A resignation from the app, or a leaving HR records with a last day ahead.'],
   PROBATION: ['Probation decisions', 'Confirm, extend or end after probation.'],
   POLICY_PUBLISH: ['Publishing a policy', 'A new policy version going live.'],
   DOCUMENT_REQUEST: ['Document requests', 'A person asks for a document on their file.'],
   LETTER_REQUEST: ['Letter requests', 'A person asks for a letter.'],
   DESK_ESCALATION: ['Help desk escalations', 'A help desk request handed up.'],
-  SEAT_REQUEST: ['Seat requests', 'A new seat on a team.'],
+  SEAT_REQUEST: ['Position requests', 'A new position on a team.'],
 };
 const APPROVERS = [['MANAGER', 'Their manager'], ['MANAGER_OF_MANAGER', 'Their manager’s manager'], ['HR', 'HR (anyone who may edit people)'], ['USER', 'A named person'], ['ROLE', 'Anyone holding a role']];
-const FIELDS = [['departmentId', 'Department'], ['jobPositionId', 'Designation'], ['reportingManagerId', 'Reports to'], ['establishmentId', 'Establishment'], ['gradeId', 'Grade'], ['employeeTypeId', 'Employee type'], ['phone', 'Phone'], ['addressLine', 'Address'], ['dateOfBirth', 'Date of birth']];
+/* What a step can depend on; a field with a list says which list its value comes from. */
+const FIELDS = [
+  ['departmentId', 'Department', 'departments'], ['jobPositionId', 'Designation', 'job-positions'], ['reportingManagerId', 'Manager', 'people'],
+  ['establishmentId', 'Work site', 'establishments'], ['gradeId', 'Grade', 'grades'], ['employeeTypeId', 'Employment type', 'employee-types'],
+  ['phone', 'Phone', null], ['addressLine', 'Address', null], ['dateOfBirth', 'Date of birth', null],
+];
+const OPS = [['changed', 'changes'], ['eq', 'becomes'], ['ne', 'is not']];
 const blankStep = (order) => ({ order, approver: { kind: 'MANAGER' }, condition: null, dueDays: 3, overdue: { action: 'REMIND' } });
+const typeName = (t) => TYPE_WORDS[t]?.[0] || t;
 
 const approverWords = (a, users, roles) => {
   if (!a) return '—';
   if (a.kind === 'USER') return users.find((u) => u.id === a.id)?.fullName || 'a named person';
-  if (a.kind === 'ROLE') return `role: ${roles.find((r) => r.id === a.id)?.name || a.id}`;
+  if (a.kind === 'ROLE') return `role ${roles.find((r) => r.id === a.id)?.name || ''}`.trim();
   return APPROVERS.find(([k]) => k === a.kind)?.[1] || a.kind;
 };
 
 export default function ApprovalRules() {
-  const [data, setData] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [roles, setRoles] = useState([]);
+  const req = useRequest(() => Promise.all([
+    listRules(),
+    orgUsers(),
+    apiFetch(`/orgs/${encodeURIComponent(orgId())}/roles`, { skipWarehouseHeader: true }).then((r) => r?.roles || []).catch(() => []),
+  ]), []);
+  const [data, users, roles] = req.data || [null, [], []];
   const [editing, setEditing] = useState(null);
-  const load = () => listRules().then(setData).catch((e) => notify.error(String(e?.message || 'Could not load.')));
-  useEffect(() => {
-    load();
-    orgUsers().then(setUsers);
-    apiFetch(`/orgs/${encodeURIComponent(orgId())}/roles`, { skipWarehouseHeader: true }).then((r) => setRoles(r?.roles || [])).catch(() => setRoles([]));
-  }, []);
-  if (!data) return <SkeletonCard lines={6} />;
-  const active = (type) => data.rules.find((r) => r.requestType === type && r.active) || null;
-  const versions = (type) => data.rules.filter((r) => r.requestType === type);
+  const active = (type) => data?.rules.find((r) => r.requestType === type && r.active) || null;
+  const versions = (type) => (data?.rules || []).filter((r) => r.requestType === type);
+  const open = (t) => {
+    const rule = active(t);
+    setEditing({ requestType: t, name: rule?.name || `${typeName(t)} rule`, steps: rule ? rule.steps.map((s, i) => ({ ...blankStep(i + 1), ...s, order: i + 1 })) : [blankStep(1)] });
+  };
   const retire = async (type) => {
-    if (!(await confirmDialog({ title: `Switch off the rule for ${TYPE_WORDS[type]?.[0] || type}?`, message: 'Requests of this kind then apply at once with no approval; earlier versions stay readable.', confirmLabel: 'Switch off' }))) return;
+    if (!(await confirmDialog({ title: `Switch off the rule for ${typeName(type).toLowerCase()}?`, message: 'Requests of this kind then apply at once with no approval; earlier versions stay readable.', confirmLabel: 'Switch off' }))) return;
     try {
       await retireRule(type);
       notify.success('Switched off.');
-      load();
+      req.reload();
     } catch (e) {
       notify.error(String(e?.message || 'Not changed.'));
     }
   };
+  const steps = (rule) => (rule.steps || []).map((s) => `${approverWords(s.approver, users, roles)} (${s.dueDays} d)`).join(' → ');
+  const columns = [
+    { key: 'type', label: 'Kind of request', always: true, render: (t) => <span className="min-w-0"><span className="block font-medium">{typeName(t)}</span><span className="block ui-caption">{TYPE_WORDS[t]?.[1] || ''}</span></span> },
+    { key: 'steps', label: 'Who decides', render: (t) => { const rule = active(t); return rule ? steps(rule) : <span className="ui-muted">Nobody: applies at once</span>; } },
+    { key: 'version', label: 'Version', render: (t) => { const rule = active(t); const all = versions(t); return rule ? <span className="tabular-nums">v{rule.version}</span> : all.length ? <span className="ui-muted tabular-nums">Off (v{all[0].version} last)</span> : '—'; } },
+  ];
+  const rowActions = (t) => [
+    { key: 'edit', label: active(t) ? 'Edit' : 'Set up', onSelect: () => open(t) },
+    active(t) ? { key: 'off', label: 'Switch off', onSelect: () => retire(t) } : null,
+  ];
   return (
-    <div className="space-y-4">
-      <PageHeader title="Approval rules" subtitle="Who decides what, in which order, by when. Saving a rule writes a new version; a request shows the version that decided it." />
-      <table className="w-full text-sm">
-        <thead><tr className="ui-caption text-left"><th className="py-1.5 font-medium">Kind of request</th><th className="py-1.5 font-medium">Rule</th><th className="py-1.5 font-medium">Steps</th><th className="py-1.5 font-medium">Version</th><th className="py-1.5 font-medium" /></tr></thead>
-        <tbody className="divide-y">
-          {data.requestTypes.map((t) => {
-            const rule = active(t);
-            return (
-              <tr key={t}>
-                <td className="py-2 pr-2"><span className="font-medium">{TYPE_WORDS[t]?.[0] || t}</span><span className="ui-caption block">{TYPE_WORDS[t]?.[1] || ''}</span></td>
-                <td className="py-2 pr-2">{rule ? rule.name : <span className="ui-muted">None: applies at once</span>}</td>
-                <td className="py-2 pr-2">{rule ? (rule.steps || []).map((s) => `${approverWords(s.approver, users, roles)} (${s.dueDays}d)`).join(' → ') : '—'}</td>
-                <td className="py-2 pr-2 tabular-nums">{rule ? `v${rule.version}` : versions(t).length ? <span className="ui-muted">off (v{versions(t)[0].version} last)</span> : '—'}</td>
-                <td className="py-2 text-right">
-                  <button type="button" className="ui-link" onClick={() => setEditing({ requestType: t, name: rule?.name || `${TYPE_WORDS[t]?.[0] || t} rule`, steps: rule ? rule.steps.map((s, i) => ({ ...blankStep(i + 1), ...s, order: i + 1 })) : [blankStep(1)] })}>{rule ? 'Edit' : 'Set up'}</button>
-                  {rule ? <button type="button" className="ui-link ml-3" onClick={() => retire(t)}>Switch off</button> : null}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {editing ? <RuleDrawer rule={editing} users={users} roles={roles} versions={versions(editing.requestType)} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}
+    <div className="space-y-6">
+      <PageHeader title="Approval Rules" />
+      {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
+        <DataTable label="Approval rules" columns={columns} rows={data?.requestTypes || []} rowKey={(t) => t} loading={req.loading} refreshing={req.refreshing}
+          total={data?.requestTypes?.length || 0} pageSize={Math.max(25, data?.requestTypes?.length || 0)} noun="kinds of request"
+          onRowClick={open} rowActions={rowActions}
+          card={(t) => { const rule = active(t); return <span className="min-w-0 flex-1"><span className="block truncate font-medium">{typeName(t)}</span><span className="block truncate ui-caption">{rule ? steps(rule) : 'Applies at once'}</span></span>; }}
+          empty={<EmptyState title="No kinds of request" description="Reload; the kinds of request come with People." />} />
+      )}
+      {editing ? <RuleDrawer rule={editing} users={users} roles={roles} versions={versions(editing.requestType)} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); req.reload(); }} /> : null}
     </div>
   );
 }
@@ -90,74 +102,79 @@ export default function ApprovalRules() {
 function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
   const [form, setForm] = useState(rule);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const dirty = JSON.stringify(form) !== JSON.stringify(rule);
+  /* The values a condition can name: the company's own lists. */
+  const lists = useRequest(async () => {
+    const kinds = ['departments', 'job-positions', 'establishments', 'grades', 'employee-types'];
+    const rows = await Promise.all(kinds.map((k) => structure(k).catch(() => [])));
+    const people = await listEmployees({ limit: 500, status: 'CURRENT', sort: 'name' }).then((r) => r?.employees || []).catch(() => []);
+    return { ...Object.fromEntries(kinds.map((k, i) => [k, rows[i].map((x) => ({ value: x.id, label: x.name }))])), people: people.map((p) => ({ value: p.id, label: p.code ? `${p.name} (${p.code})` : p.name })) };
+  }, []);
   const setStep = (i, patch) => setForm((f) => ({ ...f, steps: f.steps.map((s, j) => (j === i ? { ...s, ...patch } : s)) }));
-  const save = async (e) => {
-    e.preventDefault();
+  const save = async () => {
+    if (!form.name.trim()) { setError({ message: 'Give the rule a name.' }); return; }
+    const bad = form.steps.findIndex((s) => (s.approver.kind === 'USER' || s.approver.kind === 'ROLE') && !s.approver.id);
+    if (bad >= 0) { setError({ message: `Step ${bad + 1}: choose the ${form.steps[bad].approver.kind === 'USER' ? 'person' : 'role'}.` }); return; }
+    const noValue = form.steps.findIndex((s) => s.condition?.field && s.condition.op !== 'changed' && !s.condition.value);
+    if (noValue >= 0) { setError({ message: `Step ${noValue + 1}: choose what it becomes.` }); return; }
     setSaving(true);
+    setError(null);
     try {
-      const r = await saveRule({ requestType: form.requestType, name: form.name, steps: form.steps.map((s, i) => ({ ...s, order: i + 1, dueDays: Number(s.dueDays) || 1, condition: s.condition?.field ? s.condition : null })) });
+      const r = await saveRule({ requestType: form.requestType, name: form.name.trim(), steps: form.steps.map((s, i) => ({ ...s, order: i + 1, dueDays: Number(s.dueDays) || 1, condition: s.condition?.field ? s.condition : null })) });
       notify.success(`${r.rule.name} saved as version ${r.rule.version}.`);
       onSaved();
-    } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
-    } finally {
-      setSaving(false);
-    }
+    } catch (err) { setError(err); } finally { setSaving(false); }
   };
   const approverPicker = (value, onChange, label) => (
-    <span className="flex flex-wrap gap-1.5 items-center">
-      <select className="ui-select" value={value?.kind || 'MANAGER'} onChange={(e) => onChange({ kind: e.target.value })} aria-label={label}>{APPROVERS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-      {value?.kind === 'USER' ? <select className="ui-select" value={value.id || ''} onChange={(e) => onChange({ kind: 'USER', id: e.target.value })} aria-label={`${label}: person`}><option value="">— pick —</option>{users.map((u) => <option key={u.id} value={u.id}>{u.fullName || u.email}</option>)}</select> : null}
-      {value?.kind === 'ROLE' ? <select className="ui-select" value={value.id || ''} onChange={(e) => onChange({ kind: 'ROLE', id: e.target.value })} aria-label={`${label}: role`}><option value="">— pick —</option>{roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select> : null}
-    </span>
+    <>
+      <div><PopupSelect showValueSubtext={false} label={label} value={value?.kind || 'MANAGER'} onChange={(v) => onChange({ kind: v || 'MANAGER' })} options={APPROVERS.map(([k, l]) => ({ value: k, label: l }))} /></div>
+      {value?.kind === 'USER' ? <div><PopupSelect showValueSubtext={false} label="Person" value={value.id || ''} placeholder="Choose…" alwaysSearch onChange={(v) => onChange({ kind: 'USER', id: v || '' })} options={users.map((u) => ({ value: u.id, label: u.fullName || u.email }))} /></div> : null}
+      {value?.kind === 'ROLE' ? <div><PopupSelect showValueSubtext={false} label="Role" value={value.id || ''} placeholder="Choose…" onChange={(v) => onChange({ kind: 'ROLE', id: v || '' })} options={roles.map((r) => ({ value: r.id, label: r.name }))} /></div> : null}
+    </>
   );
   return (
-    <Drawer open onClose={onClose} title={`${TYPE_WORDS[form.requestType]?.[0] || form.requestType}: who decides`} description="Steps run in order; a step whose condition does not hold is skipped, and the person who asked never decides their own request. Overdue: remind, or hand on to someone else." widthClass="w-[min(44rem,96vw)]"
-      actions={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="rule-form" className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save as new version'}</button></>}>
-      <form id="rule-form" onSubmit={save} className="space-y-4">
-        <label className="block"><span className="ui-label">Rule name *</span><input className="ui-input w-full sm:max-w-md" required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
-        <ol className="space-y-3">
-          {form.steps.map((s, i) => (
-            <li key={i} className="ui-card p-3 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="ui-pill ui-pill-info">Step {i + 1}</span>
-                {approverPicker(s.approver, (a) => setStep(i, { approver: a }), `Step ${i + 1} decides`)}
-                <label className="flex items-center gap-1.5 text-sm ml-auto">within <input type="number" min={1} max={60} className="ui-input w-16 tabular-nums" value={s.dueDays} onChange={(e) => setStep(i, { dueDays: e.target.value })} aria-label={`Step ${i + 1} due days`} /> working days</label>
-                {form.steps.length > 1 ? <button type="button" className="ui-link text-sm" onClick={() => setForm((f) => ({ ...f, steps: f.steps.filter((_, j) => j !== i) }))}>Remove</button> : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="ui-label">Only when</span>
-                <select className="ui-select" value={s.condition?.field || ''} onChange={(e) => setStep(i, { condition: e.target.value ? { field: e.target.value, op: s.condition?.op || 'changed', value: s.condition?.value || null } : null })} aria-label={`Step ${i + 1} condition field`}>
-                  <option value="">always</option>
-                  {FIELDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-                </select>
-                {s.condition?.field ? (
-                  <>
-                    <select className="ui-select" value={s.condition.op} onChange={(e) => setStep(i, { condition: { ...s.condition, op: e.target.value } })} aria-label={`Step ${i + 1} condition`}>
-                      <option value="changed">changes</option><option value="eq">becomes</option><option value="ne">is not</option>
-                    </select>
-                    {s.condition.op !== 'changed' ? <input className="ui-input" placeholder="value (id)" value={s.condition.value || ''} onChange={(e) => setStep(i, { condition: { ...s.condition, value: e.target.value } })} aria-label={`Step ${i + 1} condition value`} /> : null}
-                  </>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="ui-label">If overdue</span>
-                <select className="ui-select" value={s.overdue?.action || 'REMIND'} onChange={(e) => setStep(i, { overdue: { action: e.target.value, to: e.target.value === 'HAND_ON' ? s.overdue?.to || { kind: 'HR' } : undefined } })} aria-label={`Step ${i + 1} overdue`}>
-                  <option value="REMIND">remind them</option><option value="HAND_ON">hand on to</option>
-                </select>
-                {s.overdue?.action === 'HAND_ON' ? approverPicker(s.overdue.to, (a) => setStep(i, { overdue: { action: 'HAND_ON', to: a } }), `Step ${i + 1} hand on to`) : null}
-              </div>
-            </li>
-          ))}
+    <Drawer open onClose={onClose} title={`${typeName(form.requestType)}: who decides`} widthClass="w-[min(44rem,96vw)] ui-drawer-sheet" dirty={dirty}
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={saving || !dirty} onClick={save}>{saving ? 'Saving…' : 'Save as new version'}</button></>}>
+      <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); save(); }}>
+        {error ? <ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /> : null}
+        <label className="block"><span className="ui-label">Rule name *</span><input className="ui-input w-full" maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+        <ol className="divide-y border-t" aria-label="Steps">
+          {form.steps.map((s, i) => {
+            const field = FIELDS.find(([k]) => k === s.condition?.field);
+            const ops = field?.[2] ? OPS : OPS.slice(0, 1);
+            return (
+              <li key={i} className="py-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="ui-t-sec">Step {i + 1}</h3>
+                  {form.steps.length > 1 ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setForm((f) => ({ ...f, steps: f.steps.filter((_, j) => j !== i) }))}>Remove</button> : null}
+                </div>
+                <div className="ui-form-grid">
+                  {approverPicker(s.approver, (a) => setStep(i, { approver: a }), 'Decides')}
+                  <label className="block"><span className="ui-label">Within (working days)</span><input className="ui-input w-full tabular-nums" inputMode="numeric" value={s.dueDays} onChange={(e) => setStep(i, { dueDays: e.target.value.replace(/\D/g, '').slice(0, 2) })} /></label>
+                </div>
+                <div className="ui-form-grid">
+                  <div><PopupSelect showValueSubtext={false} label="Only when" value={s.condition?.field || ''} placeholder="Always" onChange={(v) => setStep(i, { condition: v ? { field: v, op: 'changed', value: null } : null })} options={[{ value: '', label: 'Always' }, ...FIELDS.map(([k, l]) => ({ value: k, label: `${l} changes` }))]} /></div>
+                  {field ? <div><PopupSelect showValueSubtext={false} label="How" value={s.condition.op} onChange={(v) => setStep(i, { condition: { ...s.condition, op: v || 'changed', value: v === 'changed' ? null : s.condition.value } })} options={ops.map(([k, l]) => ({ value: k, label: `${field[1]} ${l}` }))} /></div> : null}
+                  {field?.[2] && s.condition.op !== 'changed' ? <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label={s.condition.op === 'eq' ? 'Becomes' : 'Is not'} value={s.condition.value || ''} placeholder={lists.data ? 'Choose…' : 'Loading…'} alwaysSearch onChange={(v) => setStep(i, { condition: { ...s.condition, value: v || null } })} options={lists.data?.[field[2]] || []} /></div> : null}
+                </div>
+                <div className="ui-form-grid">
+                  <div><PopupSelect showValueSubtext={false} label="If overdue" value={s.overdue?.action || 'REMIND'} onChange={(v) => setStep(i, { overdue: { action: v || 'REMIND', to: v === 'HAND_ON' ? s.overdue?.to || { kind: 'HR' } : undefined } })} options={[{ value: 'REMIND', label: 'Remind them' }, { value: 'HAND_ON', label: 'Hand it on' }]} /></div>
+                  {s.overdue?.action === 'HAND_ON' ? approverPicker(s.overdue.to, (a) => setStep(i, { overdue: { action: 'HAND_ON', to: a } }), 'Hand on to') : null}
+                </div>
+              </li>
+            );
+          })}
         </ol>
-        {form.steps.length < 8 ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setForm((f) => ({ ...f, steps: [...f.steps, blankStep(f.steps.length + 1)] }))}>Add a step</button> : null}
+        {form.steps.length < 8 ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setForm((f) => ({ ...f, steps: [...f.steps, blankStep(f.steps.length + 1)] }))}><Plus size={16} aria-hidden="true" /> Add a step</button> : null}
         {versions.length ? (
-          <section>
+          <section className="space-y-2">
             <h3 className="ui-t-sec">Versions</h3>
-            <ul className="divide-y text-sm">{versions.map((v) => <li key={v.id} className="py-1.5">v{v.version} · {v.name}{v.active ? ' · in use' : ''} · {new Date(v.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })} · {(v.steps || []).length} step{(v.steps || []).length === 1 ? '' : 's'}</li>)}</ul>
+            <ul className="divide-y border-t text-sm">{versions.map((v) => <li key={v.id} className="py-2 flex flex-wrap gap-x-2"><span className="tabular-nums font-medium">v{v.version}</span><span>{v.name}</span>{v.active ? <span className="ui-pill ui-pill-pos">In use</span> : null}<span className="ui-caption ms-auto tabular-nums">{formatDate(new Date(new Date(v.createdAt).getTime() + 330 * 60_000).toISOString().slice(0, 10))} · {(v.steps || []).length} {(v.steps || []).length === 1 ? 'step' : 'steps'}</span></li>)}</ul>
           </section>
         ) : null}
       </form>
     </Drawer>
   );
 }
+

@@ -27,6 +27,7 @@ export async function recordAudit(
         message: entry.message.slice(0, 500),
         metadata: entry.metadata ? JSON.stringify(entry.metadata).slice(0, 20_000) : null,
         createdByUserId: req.auth!.userId,
+        correlationId: typeof (req as any).id === 'string' ? String((req as any).id).slice(0, 80) : null,
       },
     });
   } catch (e) {

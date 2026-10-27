@@ -78,12 +78,14 @@ const num = (v: unknown) => {
  * value) is dropped from every row.
  */
 const HEAVY = new Set(['DevicePunch', 'DeviceLog', 'PunchPhoto', 'BiometricTemplate', 'WebhookDelivery', 'ApiIdempotency', 'DeviceCommand', 'UnclaimedReader', 'HrOutbox', 'HrSyncLog']);
+/* Private cases are never exported (PRIV-04; POSH Act s.16): not even encrypted, not even counts. */
+const PRIVATE = new Set(['PrivateCase', 'PrivateCaseMember', 'PrivateCaseEvidence', 'PrivateCaseAccess', 'CommitteeSetup']);
 const SECRETISH = /hash|secret|token|passwordenc|enc$|salt|apikey/i;
 const scrub = (rows: any[]) => rows.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !SECRETISH.test(k))));
 async function exportDomain(client: any, dmmf: { datamodel: { models: Array<{ name: string; fields: Array<{ name: string }> }> } }, prefix: string, scope: { orgId: string }) {
   const out: Record<string, any[]> = {};
   for (const m of dmmf.datamodel.models) {
-    if (HEAVY.has(m.name) || !m.fields.some((f) => f.name === 'orgId')) continue;
+    if (HEAVY.has(m.name) || PRIVATE.has(m.name) || !m.fields.some((f) => f.name === 'orgId')) continue;
     const key = m.name.charAt(0).toLowerCase() + m.name.slice(1);
     const delegate = client[key];
     if (!delegate?.findMany) continue;

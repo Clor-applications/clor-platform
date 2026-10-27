@@ -428,6 +428,16 @@
     },
     {
       "method": "POST",
+      "path": "/api/portal/people/me/requests/:id/reply",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; answers HR on a request the person made about themselves (selfService.ownRequest: subject and requester are them) (Workforce audit E5)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/requests/:id/withdraw",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; withdraws a request the person made about themselves, while it is still open (selfService.ownRequest) (Workforce audit E5)."
+    },
+    {
+      "method": "POST",
       "path": "/api/portal/people/desk/:id/reopen",
       "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; reopens their own resolved request within seven days (DESK-04)."
     },
@@ -460,6 +470,11 @@
       "method": "GET",
       "path": "/api/portal/people/policies/:versionId",
       "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; one published version that applies to them, 404 otherwise (POL-03)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/private-cases",
+      "reason": "Employee self-service (People): portal token + anyAppLive; a POSH complaint or grievance on their own employee id; goes to the named committee only; the answer carries the reference, nothing else (PRIV-02)."
     },
     {
       "method": "POST",
@@ -525,6 +540,56 @@
       "method": "GET",
       "path": "/api/portal/updates",
       "reason": "Employee self-service: reads their own updates; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/holidays/restricted",
+      "reason": "Employee self-service: reads their own restricted holidays; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/holidays/restricted/:holidayId",
+      "reason": "Employee self-service: picks or drops their own restricted holiday, within the quota; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "PUT",
+      "path": "/api/portal/leave/:id",
+      "reason": "Employee self-service: changes their own waiting leave; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/leave/:id/shorten",
+      "reason": "Employee self-service: ends their own started leave early (came back early); portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/leave/preview",
+      "reason": "Employee self-service: previews their own leave, writes nothing; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/request-rules",
+      "reason": "Employee self-service: reads which attendance requests the company allows; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/requests",
+      "reason": "Employee self-service: asks for WFH, on duty, permission or a missed punch for themselves; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "PUT",
+      "path": "/api/portal/requests/:id",
+      "reason": "Employee self-service: changes their own waiting attendance request; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/requests/:id/cancel",
+      "reason": "Employee self-service: withdraws their own attendance request; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/requests/usage",
+      "reason": "Employee self-service: reads their own monthly request quotas; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
     },
     {
       "method": "GET",

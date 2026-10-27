@@ -113,7 +113,7 @@ describe('webhook deliveries', () => {
       expect(rx.got).toHaveLength(3);
 
       /* Leaving: the event says so. */
-      await request(app).put(`/api/orgs/${c.orgId}/people/employees/${emp.id}`).set(at(c)).send({ name: 'Asha Rao', status: 'LEFT', dateOfLeaving: '2026-10-01' }).expect(200);
+      await request(app).post(`/api/orgs/${c.orgId}/people/employees/${emp.id}/resign`).set(at(c)).send({ lastDay: '2026-10-01', leavingType: 'RESIGNED' }).expect(200);
       await flushWebhooks();
       expect(rx.got.at(-1)!.headers['x-clor-event']).toBe('employee.left');
 

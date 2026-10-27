@@ -251,7 +251,7 @@ export const HELP_TOPICS = [
         heading: 'Where things are',
         points: [
           'Employees — directory, org chart, documents, onboarding and exit, letters.',
-          'Leave & Attendance — leave applications, balances, calendar, holidays.',
+          'Time & Leave — leave requests, balances, calendar, attendance requests, holidays.',
           'Hiring — jobs and candidates. Performance — goals, feedback, training.',
           'Settings — company details, departments, designations, approval rules, modules.',
         ],

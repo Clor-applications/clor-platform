@@ -34,7 +34,7 @@ export type AccrualType = {
   creditDay?: number | null;
 };
 export type LeavePeriod = { startMonth: number; startDay: number };
-export type AccrualOptions = { period?: LeavePeriod | null; left?: string | null };
+export type AccrualOptions = { period?: LeavePeriod | null; left?: string | null; /** The days a year for a given period, when they differ by period (entitlement slabs); the type's own days otherwise. */ annualDaysFor?: (year: number) => number };
 export type Credit = { date: string; days: number; total: number; from: string; to: string };
 
 export const CALENDAR: LeavePeriod = { startMonth: 1, startDay: 1 };
@@ -158,7 +158,9 @@ export function balanceFor(
   const carriedInto = (y: number): number => {
     if (type.carryForwardMax == null || type.carryForwardMax <= 0 || y - 1 < firstYear) return 0;
     const prev = y - 1;
-    const total = allocations.has(prev) ? allocations.get(prev)! : earned(type, prev, joined, periodEnd(opts.period, prev), opts) + carriedInto(prev);
+    /* The previous period is earned at what it gave then, not at today's slab: a person crossing three years does not re-earn their first two. */
+    const then = opts.annualDaysFor ? { ...type, annualDays: opts.annualDaysFor(prev) } : type;
+    const total = allocations.has(prev) ? allocations.get(prev)! : earned(then, prev, joined, periodEnd(opts.period, prev), opts) + carriedInto(prev);
     return round2(Math.min(type.carryForwardMax, Math.max(0, total - (taken.get(prev) || 0))));
   };
 

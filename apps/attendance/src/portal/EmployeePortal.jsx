@@ -7,14 +7,25 @@ import LoadFailed from '../components/LoadFailed';
 import DayExplain from '../components/DayExplain';
 import LeaveExplain from '../components/LeaveExplain';
 import PhonePunch from '../components/PhonePunch';
+import { MyDetails, Policies } from './MyDetails';
 import {
   SignedOut,
+  acceptItem,
+  getToAccept,
   activate,
-  askCorrection,
   askLeave,
+  listRequests,
+  askRequest,
+  changeRequest,
+  cancelRequest as cancelPortalRequest,
+  requestRules,
   explainDay as portalExplainDay,
   explainLeave as portalExplainLeave,
   cancelLeave,
+  editLeave,
+  shortenLeave,
+  getRestrictedHolidays,
+  pickRestrictedHoliday,
   changePassword,
   endOtherSessions,
   endSession,
@@ -31,6 +42,7 @@ import {
   getDocuments,
   getAttendance,
   getLeave,
+  previewLeave,
   getMe,
   getCompanyUpdates,
   getHrCases,
@@ -130,7 +142,7 @@ export default function EmployeePortal() {
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
         {tab === 'schedule' ? <MySchedule guard={guard} /> : null}
         {tab === 'leave' ? <MyLeave guard={guard} /> : null}
-        {tab === 'me' ? <><AskHr guard={guard} /><Account me={me} guard={guard} onSignOut={leave} /></> : null}
+        {tab === 'me' ? <><MyDetails guard={guard} /><Policies guard={guard} /><AskHr guard={guard} /><Account me={me} guard={guard} onSignOut={leave} /></> : null}
       </main>
 
       <nav aria-label="Portal" className="fixed inset-x-0 bottom-0 z-10 border-t" style={{ backgroundColor: 'rgb(var(--surface))', borderColor: 'rgb(var(--border))' }}>
@@ -319,8 +331,6 @@ function MyDays({ guard }) {
   const [month, setMonth] = useState(todayIst().slice(0, 7));
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
-  const [form, setForm] = useState({ date: '', checkIn: '', checkOut: '', reason: '', reasonCode: '' });
-  const [note, setNote] = useState(null);
   const [explaining, setExplaining] = useState(null);
   const explainLoad = useCallback(() => guard(portalExplainDay(explaining)), [explaining, guard]);
   /* Only the latest request may fill the screen: a slow earlier month must not overwrite the one picked since. */
@@ -334,19 +344,6 @@ function MyDays({ guard }) {
   useEffect(() => {
     load();
   }, [load]);
-
-  const ask = async (e) => {
-    e.preventDefault();
-    setNote(null);
-    try {
-      await guard(askCorrection({ ...form, checkOut: form.checkOut || null, reasonCode: form.reasonCode || null }));
-      setNote({ ok: true, text: 'Sent to HR for approval.' });
-      setForm({ date: '', checkIn: '', checkOut: '', reason: '', reasonCode: '' });
-      load();
-    } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
-    }
-  };
 
   return (
     <>
@@ -418,39 +415,7 @@ function MyDays({ guard }) {
         </>
       )}
 
-      <form onSubmit={ask} className="ui-card space-y-3 p-5" aria-labelledby="fix-h">
-        <h2 id="fix-h" className="ui-t-sec">Ask for a correction</h2>
-        <p className="ui-caption">Missed a punch, or the reader was down? Say when you were in.</p>
-        <label className="block"><span className="ui-label">Day</span><input type="date" className="ui-input w-full" required max={todayIst()} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block"><span className="ui-label">In</span><input type="time" className="ui-input w-full" required value={form.checkIn} onChange={(e) => setForm({ ...form, checkIn: e.target.value })} /></label>
-          <label className="block"><span className="ui-label">Out</span><input type="time" className="ui-input w-full" value={form.checkOut} onChange={(e) => setForm({ ...form, checkOut: e.target.value })} /></label>
-        </div>
-        <label className="block">
-          <span className="ui-label">What happened</span>
-          <select className="ui-select w-full" value={form.reasonCode} onChange={(e) => setForm({ ...form, reasonCode: e.target.value })}>
-            <option value="">Choose…</option>
-            {REASON_CODES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
-        </label>
-        <label className="block"><span className="ui-label">Why</span><input className="ui-input w-full" required minLength={3} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
-        {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
-        <button type="submit" className="ui-btn ui-btn-primary w-full">Send</button>
-      </form>
-
-      {data?.corrections?.length ? (
-        <section className="ui-card p-5" aria-labelledby="fixes-h">
-          <h2 id="fixes-h" className="ui-t-sec mb-2">My corrections</h2>
-          <ul className="space-y-2 text-sm">
-            {data.corrections.map((c) => (
-              <li key={c.id} className="flex items-start justify-between gap-2">
-                <span>{dayLabel(c.date)} · {c.checkIn || '—'}–{c.checkOut || '—'}<span className="ui-caption block">{c.reason}{c.note ? ` — ${c.note}` : ''}</span></span>
-                <RequestPill status={c.status} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <Requests guard={guard} month={month} onChanged={load} />
       <DayExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} title="Why my day says this" />
     </>
   );
@@ -459,6 +424,180 @@ function MyDays({ guard }) {
 const REQUEST_PILL = { PENDING: 'ui-pill-warn', APPROVED: 'ui-pill-pos', REJECTED: 'ui-pill-neg', CANCELLED: 'ui-pill-neutral' };
 const REQUEST_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled' };
 const RequestPill = ({ status }) => <span className={`ui-pill ${REQUEST_PILL[status] || 'ui-pill-neutral'}`}>{REQUEST_LABEL[status] || status}</span>;
+
+/*
+ * Requests (TIME-LEAVE-DECISIONS.md, advanced build): a missed punch, and —
+ * when the company switches them on — work from home, on duty and permission
+ * hours, from one card with the fields the kind needs and what is left of the
+ * month's quota. Below it, what I asked for this month, with Change while it
+ * waits and Cancel while it can be.
+ */
+const fmtDay = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const hoursText = (minutes) => {
+  const m = Math.max(0, Number(minutes) || 0);
+  const h = Math.floor(m / 60);
+  return [h ? `${h} ${h === 1 ? 'hour' : 'hours'}` : '', m % 60 ? `${m % 60} min` : ''].filter(Boolean).join(' ');
+};
+/** "2 of 4 used", "1 of 3 used, 1 waiting", "2 used, no limit". */
+const usageLine = (u) => (!u ? '' : `${u.quota == null ? `${u.used} used, no limit` : `${u.used} of ${u.quota} used`}${u.pending ? `, ${u.pending} waiting` : ''}`);
+/** What a request says about itself: dates, half day, place, hours. */
+export const requestWords = (r) => {
+  const when = !r.toDate || r.toDate === r.date ? fmtDay(r.date) : `${fmtDay(r.date)} – ${fmtDay(r.toDate)}`;
+  const kind = r.requestKind || r.kind;
+  const extra = kind === 'ON_DUTY' ? r.place : kind === 'PERMISSION' ? `${r.checkIn || ''}–${r.checkOut || ''}, ${hoursText(r.minutes)}` : kind === 'MISSED_PUNCH' || r.kind === 'correction' ? `in ${r.checkIn || '—'}${r.checkOut ? `, out ${r.checkOut}` : ''}` : r.halfDay ? (r.halfDay === 'FIRST' ? 'first half' : 'second half') : '';
+  return extra ? `${when} · ${extra}` : when;
+};
+const EMPTY_ASK = { kind: '', date: '', toDate: '', halfDay: '', place: '', checkIn: '', checkOut: '', reason: '', reasonCode: '' };
+
+function Requests({ guard, month, onChanged }) {
+  const [rules, setRules] = useState(null);
+  const [list, setList] = useState(null);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState(EMPTY_ASK);
+  const [editing, setEditing] = useState(null);
+  const [note, setNote] = useState(null);
+  const [busy, setBusy] = useState('');
+  const latest = useRef(0);
+  const load = useCallback(() => {
+    const n = ++latest.current;
+    /* The list is every recent request of mine, whatever month is on view; the month decides only the usage line. */
+    Promise.all([guard(requestRules(month)), guard(listRequests())])
+      .then(([r, l]) => { if (n !== latest.current) return; setRules(r); setList(l); setError(''); })
+      .catch((e) => n === latest.current && !(e instanceof SignedOut) && setError(String(e?.message || 'Could not load your requests.')));
+  }, [month, guard]);
+  useEffect(() => { load(); }, [load]);
+
+  const kinds = rules?.kinds || [];
+  const kind = form.kind || (editing ? editing.requestKind : kinds[0]?.kind) || '';
+  const spans = kind === 'WFH' || kind === 'ON_DUTY';
+  const oneDay = spans && form.date && (!form.toDate || form.toDate === form.date);
+  const usage = rules?.usage?.[kind];
+  const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+  const pick = (k) => { setEditing(null); setForm({ ...EMPTY_ASK, kind: k }); setNote(null); };
+  const startChange = (r) => {
+    setEditing(r);
+    setNote(null);
+    setForm({ kind: r.requestKind, date: r.date, toDate: r.toDate || r.date, halfDay: r.halfDay || '', place: r.place || '', checkIn: r.checkIn || '', checkOut: r.checkOut || '', reason: r.reason || '', reasonCode: r.reasonCode || '' });
+  };
+
+  const send = async (e) => {
+    e.preventDefault();
+    setNote(null);
+    setBusy('send');
+    const body = {
+      kind, date: form.date, reason: form.reason,
+      toDate: spans && form.toDate && form.toDate !== form.date ? form.toDate : null,
+      halfDay: oneDay && form.halfDay ? form.halfDay : null,
+      place: kind === 'ON_DUTY' ? form.place : null,
+      checkIn: kind === 'MISSED_PUNCH' || kind === 'PERMISSION' ? form.checkIn : null,
+      checkOut: kind === 'MISSED_PUNCH' || kind === 'PERMISSION' ? form.checkOut || null : null,
+      reasonCode: kind === 'MISSED_PUNCH' ? form.reasonCode || null : null,
+    };
+    try {
+      await guard(editing ? changeRequest(editing.id, body) : askRequest(body));
+      setNote({ ok: true, text: editing ? 'Changed. It waits for approval.' : 'Sent for approval.' });
+      setForm({ ...EMPTY_ASK, kind });
+      setEditing(null);
+      load();
+      onChanged?.();
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
+    } finally {
+      setBusy('');
+    }
+  };
+  const cancel = async (r) => {
+    const ok = await confirmDialog({ title: r.status === 'APPROVED' ? 'Cancel this request?' : 'Withdraw this request?', confirmLabel: r.status === 'APPROVED' ? 'Cancel request' : 'Withdraw' });
+    if (!ok) return;
+    setBusy(r.id);
+    try {
+      await guard(cancelPortalRequest(r.id));
+      setNote({ ok: true, text: r.status === 'APPROVED' ? 'Cancelled.' : 'Withdrawn.' });
+      load();
+      onChanged?.();
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not done.') });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const mine = (list?.requests || []).filter((r) => r.kind === 'correction' || r.kind === 'request');
+  return (
+    <>
+      <form onSubmit={send} className="ui-card space-y-3 p-5" aria-labelledby="ask-h">
+        <h2 id="ask-h" className="ui-t-sec">{editing ? `Change: ${editing.kindName}` : 'Ask'}</h2>
+        <LoadFailed message={error} onRetry={load} />
+        {!editing && kinds.length > 1 ? (
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Kind">
+            {kinds.map((k) => <button key={k.kind} type="button" className="ui-choice-chip" aria-pressed={kind === k.kind} onClick={() => pick(k.kind)}>{k.name}</button>)}
+          </div>
+        ) : null}
+        {!kinds.length && rules ? <p className="ui-caption">Nothing can be asked for right now.</p> : null}
+        {kind ? (
+          <>
+            <div className={spans ? 'grid grid-cols-2 gap-3' : ''}>
+              <label className="block"><span className="ui-label">{spans ? 'First day' : 'Day'}</span><input type="date" className="ui-input w-full" required max={kind === 'MISSED_PUNCH' ? todayIst() : undefined} value={form.date} onChange={(e) => set({ date: e.target.value, ...(spans && (!form.toDate || form.toDate < e.target.value) ? { toDate: e.target.value } : {}) })} /></label>
+              {spans ? <label className="block"><span className="ui-label">Last day</span><input type="date" className="ui-input w-full" required min={form.date} value={form.toDate} onChange={(e) => set({ toDate: e.target.value })} /></label> : null}
+            </div>
+            {oneDay ? (
+              <label className="block"><span className="ui-label">Day</span>
+                <select className="ui-select w-full" value={form.halfDay} onChange={(e) => set({ halfDay: e.target.value })}>
+                  <option value="">Whole day</option><option value="FIRST">First half</option><option value="SECOND">Second half</option>
+                </select>
+              </label>
+            ) : null}
+            {kind === 'ON_DUTY' ? <label className="block"><span className="ui-label">Place</span><input className="ui-input w-full" required maxLength={120} value={form.place} onChange={(e) => set({ place: e.target.value })} /></label> : null}
+            {kind === 'MISSED_PUNCH' || kind === 'PERMISSION' ? (
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block"><span className="ui-label">{kind === 'PERMISSION' ? 'From' : 'In'}</span><input type="time" className="ui-input w-full" required value={form.checkIn} onChange={(e) => set({ checkIn: e.target.value })} /></label>
+                <label className="block"><span className="ui-label">{kind === 'PERMISSION' ? 'To' : 'Out'}</span><input type="time" className="ui-input w-full" required={kind === 'PERMISSION'} value={form.checkOut} onChange={(e) => set({ checkOut: e.target.value })} /></label>
+              </div>
+            ) : null}
+            {kind === 'MISSED_PUNCH' ? (
+              <label className="block">
+                <span className="ui-label">What happened</span>
+                <select className="ui-select w-full" value={form.reasonCode} onChange={(e) => set({ reasonCode: e.target.value })}>
+                  <option value="">Choose…</option>
+                  {REASON_CODES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              </label>
+            ) : null}
+            <label className="block"><span className="ui-label">Why</span><input className="ui-input w-full" required minLength={3} maxLength={500} value={form.reason} onChange={(e) => set({ reason: e.target.value })} /></label>
+            {usage ? <p className="ui-caption tabular-nums">{usage.unit === 'hours' ? 'Permission hours' : usage.unit === 'requests' ? 'Missed-punch requests' : `${kind === 'WFH' ? 'Work-from-home' : 'On-duty'} days`} this month: {usageLine(usage)}{usage.quota != null ? `, ${usage.left} left` : ''}.</p> : null}
+            {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
+            <div className="flex gap-2">
+              <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={busy === 'send'}>{busy === 'send' ? 'Saving…' : editing ? 'Save' : 'Send'}</button>
+              {editing ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setEditing(null); setForm({ ...EMPTY_ASK, kind: kinds[0]?.kind || '' }); }}>Cancel</button> : null}
+            </div>
+          </>
+        ) : null}
+      </form>
+
+      {mine.length ? (
+        <section className="ui-card p-5" aria-labelledby="mine-h">
+          <h2 id="mine-h" className="ui-t-sec mb-2">My requests</h2>
+          <ul className="space-y-3 text-sm">
+            {mine.map((r) => (
+              <li key={r.id} className="space-y-1">
+                <div className="flex items-start justify-between gap-2">
+                  <span><span className="font-medium">{r.kindName}</span><span className="block tabular-nums">{requestWords(r)}</span><span className="ui-caption block">{r.reason}{r.note ? ` — ${r.note}` : ''}</span></span>
+                  <RequestPill status={r.status} />
+                </div>
+                {r.canChange || r.canCancel ? (
+                  <div className="flex gap-2">
+                    {r.canChange ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy === r.id} onClick={() => startChange(r)}>Change</button> : null}
+                    {r.canCancel ? <button type="button" className="ui-btn ui-btn-ghost" disabled={busy === r.id} onClick={() => cancel(r)}>Cancel</button> : null}
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Schedule
@@ -513,9 +652,96 @@ function MySchedule({ guard }) {
 // Leave
 // ---------------------------------------------------------------------------
 
+const BLANK_LEAVE = { leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', reason: '' };
+const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's'}`);
+const NUMBER_WORD = ['', 'one', 'two', 'three', 'four'];
+
+/**
+ * What the request would charge, asked of the server as the dates are picked
+ * (AUT-05), so what the person sees is what the save does. `last` is the
+ * newest answer for any dates; `preview` only the one for the dates on screen.
+ */
+function useLeavePreview(run, form) {
+  const one = !form.toDate || form.toDate === form.fromDate;
+  const key = form.leaveTypeId && form.fromDate
+    ? JSON.stringify({ leaveTypeId: form.leaveTypeId, fromDate: form.fromDate, toDate: form.toDate || form.fromDate, halfDay: one && form.halfDay ? form.halfDay : null })
+    : '';
+  const [got, setGot] = useState(null);
+  useEffect(() => {
+    if (!key) return undefined;
+    let off = false;
+    const timer = setTimeout(() => {
+      run(JSON.parse(key))
+        .then((p) => { if (!off) setGot({ ...p, key }); })
+        .catch((e) => {
+          if (!off && !(e instanceof SignedOut)) setGot({ key, ok: false, total: 0, parts: [], problems: [{ code: 'INPUT', message: String(e?.message || 'The days could not be worked out.') }] });
+        });
+    }, 300);
+    return () => { off = true; clearTimeout(timer); };
+  }, [key, run]);
+  const preview = got && got.key === key ? got : null;
+  return { preview, last: got, checking: Boolean(key) && !preview };
+}
+
+/**
+ * The preview while a request of mine is being changed still sees the request
+ * itself: an overlap with its own dates and a balance short by its own days
+ * are not problems, and the balance after gets its own days back when the
+ * type is unchanged. The server checks the rest on save.
+ */
+function ownPreview(p, request) {
+  if (!p || !request) return p;
+  const sameType = Boolean(p.type) && (p.type.id === request.leaveTypeId || p.type.name === request.leaveTypeName);
+  const own = (x) => (x.code === 'OVERLAP' && String(x.message || '').includes(request.fromDate) && String(x.message || '').includes(request.toDate)) || (x.code === 'NO_BALANCE' && sameType);
+  const parts = p.parts || [];
+  return {
+    ...p,
+    problems: (p.problems || []).filter((x) => !own(x)),
+    parts: sameType && parts.length === 1 ? parts.map((x) => (x.balance?.after == null ? x : { ...x, balance: { ...x.balance, after: Math.round((x.balance.after + request.days) * 100) / 100 } })) : parts,
+  };
+}
+
+/** The days a request takes, the dates it skips and why, the balance after, and anything stopping it. */
+function LeavePreview({ preview, checking }) {
+  if (!preview) return checking ? <p className="ui-caption" role="status">Working out the days…</p> : null;
+  const parts = preview.parts || [];
+  const saved = parts.filter((p) => p.days > 0);
+  const skipped = parts.flatMap((p) => p.dates || []).filter((d) => d.why);
+  return (
+    <div className="space-y-2 text-sm" role="status" aria-live="polite">
+      {preview.total ? <p className="font-medium tabular-nums">{daysText(preview.total)}</p> : null}
+      {preview.split && saved.length > 1 ? (
+        <div>
+          <p>This crosses the end of the leave period, so it is saved as {NUMBER_WORD[saved.length] || saved.length} requests, one per leave period.</p>
+          <ul className="ui-caption">
+            {saved.map((p) => <li key={p.label} className="tabular-nums">{p.label}: {daysText(p.days)}</li>)}
+          </ul>
+        </div>
+      ) : null}
+      {skipped.length ? (
+        <ul className="ui-caption space-y-0.5" aria-label="Dates not counted">
+          {skipped.map((d) => <li key={d.date}>{dayLabel(d.date)} — {d.why}</li>)}
+        </ul>
+      ) : null}
+      {saved.filter((p) => p.balance?.after != null).map((p) => (
+        <p key={p.label} className="tabular-nums">{saved.length > 1 ? `${p.label}: ` : ''}{p.balance.after} left after this</p>
+      ))}
+      {(preview.problems || []).map((x) => <p key={x.code + x.message} role="alert" style={{ color: 'rgb(var(--neg))' }}>{x.message}</p>)}
+    </div>
+  );
+}
+
 function MyLeave({ guard }) {
   const [data, setData] = useState(null);
-  const [form, setForm] = useState({ leaveTypeId: '', fromDate: '', toDate: '', reason: '' });
+  const [form, setForm] = useState(BLANK_LEAVE);
+  const [sending, setSending] = useState(false);
+  const runPreview = useCallback((body) => guard(previewLeave(body)), [guard]);
+  const { preview, last, checking } = useLeavePreview(runPreview, form);
+  const type = last?.type && last.type.id === form.leaveTypeId ? last.type : null;
+  const oneDay = Boolean(form.fromDate) && (!form.toDate || form.toDate === form.fromDate);
+  const halfDayOffered = oneDay && Boolean(type?.allowHalfDay);
+  const reasonNeeded = !type?.isPrivate;
+  const blocked = Boolean(preview?.problems?.length);
   const [note, setNote] = useState(null);
   const [error, setError] = useState('');
   const [explaining, setExplaining] = useState(null);
@@ -531,14 +757,27 @@ function MyLeave({ guard }) {
 
   const ask = async (e) => {
     e.preventDefault();
+    if (blocked || sending) return;
     setNote(null);
+    setSending(true);
     try {
-      const r = await guard(askLeave({ ...form, toDate: form.toDate || form.fromDate }));
-      setNote({ ok: true, text: `Asked for ${r.request.days} day${r.request.days === 1 ? '' : 's'} of ${r.request.leaveTypeName}. HR will approve it.` });
-      setForm({ leaveTypeId: '', fromDate: '', toDate: '', reason: '' });
+      const r = await guard(askLeave({
+        leaveTypeId: form.leaveTypeId,
+        fromDate: form.fromDate,
+        toDate: form.toDate || form.fromDate,
+        halfDay: halfDayOffered && form.halfDay ? form.halfDay : null,
+        reason: form.reason.trim(),
+        ...(preview?.split ? { split: true } : {}),
+      }));
+      const sent = r.requests || [r.request];
+      const days = Math.round(sent.reduce((a, x) => a + (Number(x.days) || 0), 0) * 100) / 100;
+      setNote({ ok: true, text: `Asked for ${daysText(days)} of ${r.request.leaveTypeName}${sent.length > 1 ? `, as ${NUMBER_WORD[sent.length] || sent.length} requests` : ''}.` });
+      setForm(BLANK_LEAVE);
       load();
     } catch (err) {
       if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
+    } finally {
+      setSending(false);
     }
   };
   const cancel = async (id) => {
@@ -547,6 +786,79 @@ function MyLeave({ guard }) {
       load();
     } catch (err) {
       if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not cancelled.') });
+    }
+  };
+  /* Change a waiting request: the ask form, prefilled, saves over it. */
+  const [editing, setEditing] = useState(null);
+  const formRef = useRef(null);
+  const startChange = (r) => {
+    setEditing(r);
+    setNote(null);
+    setForm({ leaveTypeId: r.leaveTypeId || data.types.find((t) => t.name === r.leaveTypeName)?.id || '', fromDate: r.fromDate, toDate: r.toDate, halfDay: r.halfDay || '', reason: r.reason || '' });
+    formRef.current?.scrollIntoView?.({ block: 'start' });
+  };
+  const stopChange = () => { setEditing(null); setForm(BLANK_LEAVE); };
+  /* While changing, the preview still sees the request itself; its own overlap and its own days are not problems. */
+  const shown = editing ? ownPreview(preview, editing) : preview;
+  const held = Boolean(shown?.problems?.length);
+  const change = async (e) => {
+    e.preventDefault();
+    if (sending || !editing || held) return;
+    setNote(null);
+    setSending(true);
+    try {
+      await guard(editLeave(editing.id, {
+        leaveTypeId: form.leaveTypeId,
+        fromDate: form.fromDate,
+        toDate: form.toDate || form.fromDate,
+        halfDay: halfDayOffered && form.halfDay ? form.halfDay : null,
+        reason: form.reason.trim(),
+        ...(preview?.split ? { split: true } : {}),
+      }));
+      setNote({ ok: true, text: 'Changed. It waits for a decision again.' });
+      stopChange();
+      load();
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not changed.') });
+    } finally {
+      setSending(false);
+    }
+  };
+  /* Came back early: the approved leave I am on ends on an earlier day. */
+  const [shortening, setShortening] = useState(null);
+  const [shortTo, setShortTo] = useState('');
+  const shorten = async (e) => {
+    e.preventDefault();
+    if (!shortening || !shortTo || sending) return;
+    setSending(true);
+    try {
+      await guard(shortenLeave(shortening.id, shortTo));
+      setNote({ ok: true, text: `Your leave now ends ${dayLabel(shortTo)}.` });
+      setShortening(null);
+      setShortTo('');
+      load();
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not changed.') });
+    } finally {
+      setSending(false);
+    }
+  };
+  const shortenable = (r) => r.status === 'APPROVED' && !r.halfDay && r.fromDate <= data?.today && r.toDate > data?.today;
+  const dayBefore = (iso) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
+  /* Restricted holidays: the optional list, what I picked, how many I may still pick. */
+  const [restricted, setRestricted] = useState(null);
+  const loadRestricted = useCallback(() => {
+    guard(getRestrictedHolidays()).then(setRestricted).catch(() => setRestricted(null));
+  }, [guard]);
+  useEffect(() => {
+    loadRestricted();
+  }, [loadRestricted]);
+  const pick = async (h) => {
+    try {
+      await guard(pickRestrictedHoliday(h.id, !h.picked));
+      loadRestricted();
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not changed.') });
     }
   };
 
@@ -576,22 +888,37 @@ function MyLeave({ guard }) {
       )}
 
       {data.types.length ? (
-        <form onSubmit={ask} className="ui-card space-y-3 p-5" aria-labelledby="ask-leave-h">
-          <h2 id="ask-leave-h" className="ui-t-sec">Ask for leave</h2>
+        <form ref={formRef} onSubmit={editing ? change : ask} className="ui-card space-y-3 p-5" aria-labelledby="ask-leave-h">
+          <h2 id="ask-leave-h" className="ui-t-sec">{editing ? 'Change leave' : 'Ask for leave'}</h2>
           <label className="block">
-            <span className="ui-label">Kind</span>
-            <select className="ui-select w-full" required value={form.leaveTypeId} onChange={(e) => setForm({ ...form, leaveTypeId: e.target.value })}>
+            <span className="ui-label">Leave type *</span>
+            <select className="ui-select w-full" required value={form.leaveTypeId} onChange={(e) => setForm({ ...form, leaveTypeId: e.target.value, halfDay: '' })}>
               <option value="">Choose…</option>
               {data.types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </label>
           <div className="grid grid-cols-2 gap-3">
-            <label className="block"><span className="ui-label">From</span><input type="date" className="ui-input w-full" required value={form.fromDate} onChange={(e) => setForm({ ...form, fromDate: e.target.value, toDate: form.toDate && form.toDate < e.target.value ? e.target.value : form.toDate })} /></label>
-            <label className="block"><span className="ui-label">To</span><input type="date" className="ui-input w-full" min={form.fromDate} value={form.toDate} onChange={(e) => setForm({ ...form, toDate: e.target.value })} /></label>
+            <label className="block"><span className="ui-label">First day *</span><input type="date" className="ui-input w-full" required value={form.fromDate} onChange={(e) => setForm({ ...form, fromDate: e.target.value, toDate: form.toDate && form.toDate < e.target.value ? e.target.value : form.toDate })} /></label>
+            <label className="block"><span className="ui-label">Last day</span><input type="date" className="ui-input w-full" min={form.fromDate} value={form.toDate} onChange={(e) => setForm({ ...form, toDate: e.target.value, halfDay: e.target.value && e.target.value !== form.fromDate ? '' : form.halfDay })} /></label>
           </div>
-          <label className="block"><span className="ui-label">Why</span><input className="ui-input w-full" required minLength={3} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
+          {halfDayOffered ? (
+            <label className="block">
+              <span className="ui-label">How much of the day</span>
+              <select className="ui-select w-full" value={form.halfDay} onChange={(e) => setForm({ ...form, halfDay: e.target.value })}>
+                <option value="">Whole day</option>
+                <option value="FIRST">First half</option>
+                <option value="SECOND">Second half</option>
+              </select>
+            </label>
+          ) : null}
+          <label className="block">
+            <span className="ui-label">{reasonNeeded ? 'Reason *' : 'Reason'}</span>
+            <input className="ui-input w-full" required={reasonNeeded} minLength={reasonNeeded ? 3 : undefined} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+          </label>
+          <LeavePreview preview={shown} checking={checking} />
           {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
-          <button type="submit" className="ui-btn ui-btn-primary w-full">Send</button>
+          <button type="submit" className="ui-btn ui-btn-primary w-full" disabled={held || sending}>{sending ? (editing ? 'Saving…' : 'Sending…') : editing ? 'Save' : 'Send'}</button>
+          {editing ? <button type="button" className="ui-btn ui-btn-secondary w-full" onClick={stopChange}>Keep it as it was</button> : null}
         </form>
       ) : null}
 
@@ -604,16 +931,50 @@ function MyLeave({ guard }) {
                 <span>
                   {r.leaveTypeName} · {r.days} day{r.days === 1 ? '' : 's'}
                   <span className="ui-caption block">{r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`}</span>
+                  {r.note && r.status !== 'PENDING' ? <span className="ui-caption block">“{r.note}”</span> : null}
                 </span>
                 <span className="flex flex-col items-end gap-1">
                   <RequestPill status={r.status} />
-                  {r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > data.today) ? (
-                    <button type="button" className="ui-link text-xs" onClick={() => cancel(r.id)}>Cancel</button>
+                  <span className="flex gap-3">
+                    {r.status === 'PENDING' && editing?.id !== r.id ? <button type="button" className="ui-link text-xs" onClick={() => startChange(r)}>Change</button> : null}
+                    {shortenable(r) && shortening?.id !== r.id ? <button type="button" className="ui-link text-xs" onClick={() => { setShortening(r); setShortTo(''); setNote(null); }}>Came back early</button> : null}
+                    {r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > data.today) ? (
+                      <button type="button" className="ui-link text-xs" onClick={() => cancel(r.id)}>Cancel</button>
+                    ) : null}
+                  </span>
+                  {shortening?.id === r.id ? (
+                    <form onSubmit={shorten} className="flex flex-wrap items-end justify-end gap-2 pt-1" aria-label="Came back early">
+                      <label className="block">
+                        <span className="ui-label">Last day of leave</span>
+                        <input type="date" className="ui-input" required min={r.fromDate} max={dayBefore(r.toDate)} value={shortTo} onChange={(e) => setShortTo(e.target.value)} />
+                      </label>
+                      <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={!shortTo || sending}>Save</button>
+                      <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => { setShortening(null); setShortTo(''); }}>Cancel</button>
+                    </form>
                   ) : null}
                 </span>
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {restricted?.quota > 0 ? (
+        <section className="ui-card p-5" aria-labelledby="rh-h">
+          <h2 id="rh-h" className="ui-t-sec mb-1">Restricted holidays {restricted.year}</h2>
+          <p className="ui-caption tabular-nums mb-2">{restricted.picked} of {restricted.quota} picked</p>
+          {restricted.holidays.length ? (
+            <ul className="space-y-2 text-sm">
+              {restricted.holidays.map((h) => (
+                <li key={h.id} className="flex items-center justify-between gap-2">
+                  <span>{h.name}<span className="ui-caption block">{dayLabel(h.date)}{h.picked ? ' · Picked' : ''}</span></span>
+                  {h.past ? <span className="ui-caption">Past</span> : (
+                    <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!h.picked && restricted.left <= 0} onClick={() => pick(h)}>{h.picked ? 'Drop' : 'Pick'}</button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : <p className="ui-caption">No optional holidays this year.</p>}
         </section>
       ) : null}
       <LeaveExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />
@@ -891,7 +1252,7 @@ function Approvals({ guard }) {
 
   if (error && !data) return <LoadFailed message={error} onRetry={load} />;
   if (!data) return <div className="ui-card p-6 ui-caption">Loading…</div>;
-  const items = [...data.leaves, ...data.corrections].sort((a, b) => String(a.askedAt).localeCompare(String(b.askedAt)));
+  const items = [...data.leaves, ...data.corrections, ...(data.requests || [])].sort((a, b) => String(a.askedAt).localeCompare(String(b.askedAt)));
   const fmt = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
   return (
@@ -902,7 +1263,7 @@ function Approvals({ guard }) {
           <span className="ui-caption">{data.team} report{data.team === 1 ? 's' : ''} to you</span>
         </div>
         {error ? <p className="mt-2 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
-        {!items.length ? <p className="ui-caption mt-2">Nothing waiting. Leave and correction requests from your team appear here.</p> : null}
+        {!items.length ? <p className="ui-caption mt-2">Nothing waiting. Leave and attendance requests from your team appear here.</p> : null}
       </section>
       {items.map((item) => {
         const key = `${item.type}:${item.id}`;
@@ -914,24 +1275,28 @@ function Approvals({ guard }) {
                 <div className="text-sm">
                   {item.type === 'leave'
                     ? <>{item.leaveTypeName} · {fmt(item.fromDate)}{item.toDate !== item.fromDate ? ` – ${fmt(item.toDate)}` : ''} · {item.days} day{item.days === 1 ? '' : 's'}</>
-                    : <>Correction · {fmt(item.date)} · in {item.checkIn || '—'}{item.checkOut ? `, out ${item.checkOut}` : ''}</>}
+                    : item.type === 'request'
+                      ? <span className="tabular-nums">{item.kindName} · {requestWords(item)}</span>
+                      : <>Correction · {fmt(item.date)} · in {item.checkIn || '—'}{item.checkOut ? `, out ${item.checkOut}` : ''}</>}
                 </div>
               </div>
-              <span className={`ui-pill ${item.type === 'leave' ? 'ui-pill-neutral' : 'ui-pill-warn'}`}>{item.type === 'leave' ? 'Leave' : 'Correction'}</span>
+              <span className={`ui-pill ${item.type === 'leave' ? 'ui-pill-neutral' : 'ui-pill-warn'}`}>{item.type === 'leave' ? 'Leave' : item.type === 'request' ? item.kindName : 'Correction'}</span>
             </div>
-            {item.reason ? <p className="text-sm ui-muted">“{item.reason}”</p> : null}
+            {/* Private leave comes masked ("Private leave", no reason): a manager plans cover from the dates. */}
+            {item.reason && !item.reasonHidden ? <p className="text-sm ui-muted">“{item.reason}”</p> : null}
             {rejecting === key ? (
               <div className="space-y-2">
-                <textarea className="ui-input w-full" rows={2} placeholder="Why not? (optional, the person sees this)" value={note} onChange={(e) => setNote(e.target.value)} />
+                {/* A rejected leave or request needs a reason; the person sees it. */}
+                <textarea className="ui-input w-full" rows={2} aria-label="Why not" placeholder="Why not? The person sees this." value={note} onChange={(e) => setNote(e.target.value)} />
                 <div className="flex gap-2">
-                  <button type="button" className="ui-btn ui-btn-danger flex-1" disabled={busy === key} onClick={() => decide(item, 'reject')}>Reject</button>
+                  <button type="button" className="ui-btn ui-btn-danger flex-1" disabled={busy === key || ((item.type === 'leave' || item.type === 'request') && !note.trim())} onClick={() => decide(item, 'reject')}>Reject</button>
                   <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setRejecting(null); setNote(''); }}>Cancel</button>
                 </div>
               </div>
             ) : (
               <div className="flex gap-2">
                 <button type="button" className="ui-btn ui-btn-primary flex-1" disabled={busy === key} onClick={() => decide(item, 'approve')}>{busy === key ? 'Saving…' : 'Approve'}</button>
-                <button type="button" className="ui-btn ui-btn-secondary" disabled={busy === key} onClick={() => setRejecting(key)}>Reject</button>
+                <button type="button" className="ui-btn ui-btn-secondary" disabled={busy === key} onClick={() => { setRejecting(key); setNote(''); }}>Reject</button>
               </div>
             )}
           </section>
@@ -947,12 +1312,31 @@ function Approvals({ guard }) {
 
 const sizeOf = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
-/** What HR has put on my file and marked for me: download, nothing else. */
+/**
+ * What HR has put on my file and marked for me: download, and Accept where HR
+ * asked me to read it (E3). A document asked of me but not on my visible
+ * list still shows, with Accept.
+ */
 function MyDocuments({ guard }) {
   const [docs, setDocs] = useState(null);
-  useEffect(() => {
+  const [asks, setAsks] = useState([]);
+  const [failed, setFailed] = useState('');
+  const load = useCallback(() => {
     guard(getDocuments()).then((d) => setDocs(d?.documents || [])).catch(() => setDocs([]));
+    guard(getToAccept()).then((d) => setAsks((d?.pending || []).filter((p) => p.targetType === 'DOCUMENT'))).catch(() => setAsks([]));
   }, [guard]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const accept = async (ack) => {
+    setFailed('');
+    try {
+      await guard(acceptItem(ack.id));
+      load();
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setFailed(String(err?.message || 'Not accepted.'));
+    }
+  };
   const open = async (d) => {
     try {
       const full = await guard(getDocument(d.id));
@@ -964,15 +1348,28 @@ function MyDocuments({ guard }) {
       if (!(err instanceof SignedOut)) alert(String(err?.message || 'Could not open.'));
     }
   };
-  if (!docs || !docs.length) return null;
+  const askOf = new Map(asks.map((a) => [a.targetId, a]));
+  const hidden = asks.filter((a) => !(docs || []).some((d) => d.id === a.targetId));
+  if ((!docs || !docs.length) && !hidden.length) return null;
   return (
     <section className="ui-card space-y-2 p-5" aria-labelledby="docs-h">
       <h2 id="docs-h" className="ui-t-sec">My documents</h2>
+      {asks.length ? <p className="ui-caption">HR asked you to read {asks.length === 1 ? 'one document' : `${asks.length} documents`}. Read it, then accept.</p> : null}
+      {failed ? <p className="text-sm" role="alert">{failed}</p> : null}
       <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
-        {docs.map((d) => (
+        {(docs || []).map((d) => (
           <li key={d.id} className="flex items-center justify-between gap-2 py-2 text-sm">
             <span className="min-w-0"><span className="block truncate font-medium">{d.title}</span><span className="ui-caption">{sizeOf(d.size)}{d.expiresOn ? ` · valid until ${d.expiresOn}` : ''}</span></span>
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm shrink-0" onClick={() => open(d)}>Download</button>
+            <span className="flex shrink-0 gap-2">
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => open(d)}>Download</button>
+              {askOf.has(d.id) ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => accept(askOf.get(d.id))}>Accept</button> : null}
+            </span>
+          </li>
+        ))}
+        {hidden.map((a) => (
+          <li key={a.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+            <span className="min-w-0"><span className="block truncate font-medium">{a.title}</span><span className="ui-caption">Ask HR for a copy if you have not read it</span></span>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm shrink-0" onClick={() => accept(a)}>Accept</button>
           </li>
         ))}
       </ul>
@@ -1189,7 +1586,7 @@ function AskHr({ guard }) {
           {data.cases.map((c) => (
             <li key={c.id} className="py-2">
               <div className="flex items-center justify-between gap-2"><span className="text-sm font-medium">{c.title}</span><span className="ui-caption">{CASE_STATUS[c.status] || c.status}</span></div>
-              <p className="ui-caption">{CASE_TOPIC[c.category] || c.category} · {String(c.createdAt).slice(0, 10)}</p>
+              <p className="ui-caption">{CASE_TOPIC[c.category] || c.category} · {(() => { const [y, m, d] = new Date(new Date(c.createdAt).getTime() + 330 * 60_000).toISOString().slice(0, 10).split('-'); return `${Number(d)} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m) - 1]} ${y}`; })()}</p>
               {c.resolution ? <p className="text-sm mt-1">HR: {c.resolution}</p> : null}
             </li>
           ))}

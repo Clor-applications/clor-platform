@@ -24,6 +24,8 @@ type Ranged = { shiftId: string; from: string; to: string | null };
 export type ScheduleData = {
   shifts: Map<string, { rule: ShiftRule; name: string; code: string | null; color: string | null; isActive: boolean }>;
   defaultShiftId: string | null;
+  /** The company's working week on the standard 09:00–18:00 day, for anyone no shift covers (People-only companies set only this). */
+  standardRule?: ShiftRule;
   temporary: Map<string, Ranged[]>;
   assignments: Map<string, Ranged[]>;
   rotations: Map<string, { sequence: Array<string | null>; periodDays: number; anchorDate: string; isActive: boolean }>;
@@ -93,7 +95,7 @@ export function resolveShift(data: ScheduleData, employeeId: string, date: strin
 
   const def = usable(data.defaultShiftId);
   if (def) return shaped(def, 'DEFAULT');
-  return { shiftId: null, rule: DEFAULT_SHIFT, name: 'Standard', code: null, color: null, source: 'DEFAULT' };
+  return { shiftId: null, rule: data.standardRule || DEFAULT_SHIFT, name: 'Standard', code: null, color: null, source: 'DEFAULT' };
 }
 
 const group = <T, K extends string>(rows: T[], key: (r: T) => K) => {
@@ -122,6 +124,7 @@ export async function loadSchedule(orgId: string, employeeIds?: string[]): Promi
   return {
     shifts: new Map(shifts.map((s) => [s.id, { rule: toRule(s), name: s.name, code: s.code, color: s.color, isActive: s.isActive }])),
     defaultShiftId: settings?.defaultShiftId || null,
+    standardRule: settings ? { ...DEFAULT_SHIFT, weeklyOffDays: settings.weeklyOffDays ?? DEFAULT_SHIFT.weeklyOffDays, offSaturdays: settings.offSaturdays || '' } : DEFAULT_SHIFT,
     temporary: group(temporary.map((t) => ({ employeeId: t.employeeId, shiftId: t.shiftId, from: t.fromDate, to: t.toDate })), (t) => t.employeeId) as any,
     assignments: group(assignments.map((a) => ({ employeeId: a.employeeId, shiftId: a.shiftId, from: a.effectiveFrom, to: a.effectiveTo })), (a) => a.employeeId) as any,
     rotations: new Map(

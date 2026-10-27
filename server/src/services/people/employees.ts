@@ -50,18 +50,42 @@ export async function createEmployee(actor: Actor, data: Prisma.EmployeeUnchecke
     return created;
   });
   await recordJoined({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, row, actor.source === 'IMPORT' ? 'IMPORT' : 'FORM');
+  await firstInStateOf(actor, row);
   return row;
+}
+
+/** First person in a new state: HR's registration task (services/people/organization.ts). Never fails the write. */
+async function firstInStateOf(actor: Actor, row: Row) {
+  const { firstInState } = await import('./organization.js');
+  await firstInState({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, row as any).catch((e) => console.error('[organization] first in state:', e instanceof Error ? e.message : e));
+}
+
+/** The record moved on since the editor loaded it (409 STALE). */
+export class StaleEmployeeError extends Error {
+  constructor(public current: Row) { super('STALE'); }
 }
 
 export async function updateEmployee(
   actor: Actor,
   existing: Row,
   data: Prisma.EmployeeUncheckedUpdateInput,
-  opts: { effectiveDate?: string | null; afterWrite?: (tx: Prisma.TransactionClient, row: Row) => Promise<void> } = {},
+  opts: { effectiveDate?: string | null; expectedVersion?: number; afterWrite?: (tx: Prisma.TransactionClient, row: Row) => Promise<void> } = {},
 ): Promise<{ row: Row; changes: ReturnType<typeof diffEmployee> }> {
   const result = await peoplePrisma.$transaction(async (tx) => {
-    const updated = await tx.employee.update({ where: { id: existing.id }, data });
-    const changes = diffEmployee(existing as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>);
+    /* Every write moves the version on, so an edit made against an older copy is refused (People design v1, 409 STALE). */
+    /*
+     * Compare against the row as it is now, read under the row lock, not the
+     * copy the caller loaded: an approval that applied a change a moment ago
+     * (a rule whose only approver is the requester) must not be logged again
+     * by the rest of the same form.
+     */
+    const current = ((await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM "Employee" WHERE id = ${existing.id} FOR UPDATE`).length
+      ? await tx.employee.findUnique({ where: { id: existing.id } })
+      : null) || existing;
+    /* Checked under the lock: two saves made from the same copy cannot both pass. */
+    if (opts.expectedVersion !== undefined && (current as Row).version !== opts.expectedVersion) throw new StaleEmployeeError(current as Row);
+    const updated = await tx.employee.update({ where: { id: existing.id }, data: { ...(data as Record<string, unknown>), version: { increment: 1 } } as Prisma.EmployeeUncheckedUpdateInput });
+    const changes = diffEmployee(current as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>);
     await writeChangeLog(tx, actor, { kind: 'Employee', id: updated.id, employeeId: updated.id }, changes);
     const job = changes.filter((c) => JOB_FIELDS.has(c.field));
     for (const c of job) {
@@ -80,16 +104,24 @@ export async function updateEmployee(
       await writeEvent(tx, actor, 'people.employee.updated.v1', { fields: changes.filter((c) => !JOB_FIELDS.has(c.field)).map((c) => c.field), employee: employeeSummary(updated) }, updated.id);
     }
     if (opts.afterWrite) await opts.afterWrite(tx, updated);
-    return { row: updated, changes };
+    return { row: updated, changes, before: current as Row };
   });
-  await recordChanges({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, existing, result.row, {
-    source: actor.source === 'IMPORT' ? 'IMPORT' : actor.source === 'SCHEDULED' || actor.source === 'APPROVAL' ? 'TRANSFER' : 'FORM',
+  /* Employment history compares against the same locked row, or an approval applied a moment ago is recorded twice. */
+  await recordChanges({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, result.before, result.row, {
+    source: actor.source === 'IMPORT' ? 'IMPORT' : actor.source === 'SCHEDULED' || actor.source === 'APPROVAL' || actor.source === 'BULK' ? 'TRANSFER' : 'FORM',
     effectiveDate: opts.effectiveDate ?? null,
     note: actor.reason ?? null,
   });
   /* A-33: suspended or gone, their employee-app sign-ins end — on every path through here, not only the form. */
-  await employeeStatusChanged(result.row, existing.status, result.row.status, credentialActor(actor));
-  return result;
+  await employeeStatusChanged(result.row, result.before.status, result.row.status, credentialActor(actor));
+  /* Someone placed in a state nobody else works in: HR gets the registrations to do. */
+  if (result.changes.some((c) => c.field === 'branchId')) await firstInStateOf(actor, result.row);
+  /* A new manager takes over the requests waiting on the old one, on every path that changes the manager (form, bulk, dated, approval). */
+  if (result.changes.some((c) => c.field === 'reportingManagerId')) {
+    const { rerouteManagerSteps } = await import('./approvals/engine.js');
+    await rerouteManagerSteps(actor, result.row.id).catch((e) => console.error('[approvals] reroute after manager change:', e instanceof Error ? e.message : e));
+  }
+  return { row: result.row, changes: result.changes };
 }
 
 /** The actor as the credentials registry names one: a signed-in user, or the system (a job, an approval effect). */

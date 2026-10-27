@@ -382,8 +382,11 @@ export function Contact() {
   const [about, setAbout] = useState('general');
   const [form, setForm] = useState({ name: '', company: '', email: '', message: '' });
   useEffect(() => {
+    /* The address is read after hydration (the server has none); on the next frame, not inside the effect. */
     const q = new URLSearchParams(window.location.search).get('about');
-    if (q && TOPICS[q]) setAbout(q);
+    if (!q || !TOPICS[q]) return undefined;
+    const frame = requestAnimationFrame(() => setAbout(q));
+    return () => cancelAnimationFrame(frame);
   }, []);
   /* No form backend yet: the message opens in the visitor's own email app, addressed to us. */
   const mailto = () => {

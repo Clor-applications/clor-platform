@@ -43,6 +43,10 @@ model Employee {
   /// Human-facing identifier, unique within the org when set.
   code        String?
   name        String
+  /// What they like to be called (PRD CORE-02); the legal name stays in name/firstName/lastName.
+  preferredName String?
+  /// Bumped by every write through the one write path; an edit that names an older version is refused (409 STALE).
+  version     Int     @default(1)
   email       String?
   phone       String?
   designation String?
@@ -114,6 +118,8 @@ model Employee {
   jobRoleId           String?
   employeeTypeId      String?
   workTypeId          String?
+  /// FULL_TIME | PART_TIME; null means not said (read as full-time).
+  hours               String?
   /// Another Employee in the same org; drives the org chart.
   reportingManagerId  String?
   /// A second, dotted-line manager (ORG-02): sees the person as a report, approves nothing by default.
@@ -143,6 +149,9 @@ model Employee {
   /// When they left: RESIGNED | TERMINATED | RETIRED | ABSCONDED | CONTRACT_ENDED | DECEASED
   leavingType         String?
   leavingReason       String?
+  /// When the resignation was received, and whether the notice owed was waived (Workforce final audit W15).
+  resignedOn      String?
+  noticeWaived    Boolean  @default(false)
   /// Employee portal (ClorTime's self-service): the person chooses their own
   /// password with a one-time activation code from HR; only hashes are kept,
   /// so nobody else ever knows it.
@@ -171,6 +180,8 @@ model Employee {
   updatedAt       DateTime @updatedAt
 
   @@unique([orgId, code])
+  /// One login is one person in a company (team scope, self-service and manager approvals read it).
+  @@unique([orgId, userId])
   @@unique([orgId, devicePin])
   @@index([accountId, orgId, areaId])
   @@index([accountId, orgId, contractorId])
@@ -202,6 +213,8 @@ model Department {
   parentId    String?
   description String?
   isActive    Boolean @default(true)
+  /// Who runs it (Organization, D04): descriptive only, never a permission.
+  headEmployeeId String?
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -251,6 +264,14 @@ model EmployeeType {
   accountId String
   orgId     String
   name      String
+  /// What CLOR understands the name to mean: PERMANENT | FIXED_TERM | TRAINEE | INTERN | CONSULTANT | AGENCY.
+  /// The company keeps its own words ("Staff", "Retainer"); the kind decides which dates are asked and
+  /// whether payroll expects them.
+  category  String  @default("PERMANENT")
+  /// How long probation runs for this type, in months; fills the date on a new hire. Blank: not assumed.
+  probationMonths Int?
+  /// Notice the person owes when they resign, in days; the leaving form works out any shortfall. Blank: not assumed.
+  noticeDays      Int?
   isActive  Boolean @default(true)
 
   createdByUserId String
@@ -261,7 +282,7 @@ model EmployeeType {
   @@index([accountId, orgId])
 }
 
-/// Office, Remote, Hybrid, Field…
+/// Where someone works from (shown as Work mode): Office, Remote, Hybrid, Field…
 model WorkType {
   id        String  @id @default(cuid())
   accountId String
@@ -431,6 +452,9 @@ model AttendanceRecord {
 
   /// The approved leave that wrote this day, if any (its type says paid or unpaid).
   leaveRequestId String?
+  /// How the day was worked when not at the usual place: WFH | ON_DUTY; PERMISSION when hours were excused. From an approved attendance request.
+  dayKind        String?
+  attendanceRequestId String?
 
   /// Checked by a manager (Horilla's "validate"). Payroll reads validated days.
   validated         Boolean   @default(false)
@@ -492,12 +516,74 @@ model AttendanceRequest {
   beforeStatus        String?
   /// A category for the reason: FORGOT_PUNCH | READER_DOWN | ON_DUTY | WRONG_SHIFT | OTHER
   reasonCode          String?
+  /// What is asked for: MISSED_PUNCH (a correction, the default) | WFH | ON_DUTY | PERMISSION (hours off).
+  kind                String    @default("MISSED_PUNCH")
+  /// WFH and On duty may span days; null = the one date.
+  toDate              String?
+  /// On duty: where (a client, a site, a city).
+  place               String?
+  /// Permission: how long, in minutes, between checkIn and checkOut.
+  minutes             Int?
+  /// A half day of WFH or On duty: FIRST or SECOND half.
+  halfDay             String?
+  managerNote         String?
+  history             Json      @default("[]")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, employeeId, date])
+}
+
+/// A stand-in for a manager's approvals while they are away (leave and
+/// attendance requests of their team), between two dates. Set by HR or by
+/// the manager themselves; the stand-in decides as the manager would.
+model ApprovalStandIn {
+  id                String   @id @default(cuid())
+  accountId         String
+  orgId             String
+  managerEmployeeId String
+  standInEmployeeId String
+  fromDate          String
+  toDate            String
+  createdByUserId   String
+  createdAt         DateTime @default(now())
+
+  @@index([orgId, managerEmployeeId, fromDate, toDate])
+}
+
+/// A restricted (optional) holiday a person chose for a year, within the
+/// company's quota (AttendanceSettings.restrictedHolidayQuota). The day is a
+/// holiday for them alone.
+model HolidayPick {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  holidayId  String
+  year       Int
+  createdAt  DateTime @default(now())
+
+  @@unique([employeeId, holidayId])
+  @@index([orgId, employeeId, year])
+}
+
+/// One run of the leave year-end: what carried, lapsed and was paid out per
+/// person and type, so it can be read back and undone until payroll takes it.
+model LeaveYearEnd {
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  /// The leave period that closed (named by the year it started in).
+  year          Int
+  summaryJson   String
+  ranByUserId   String
+  ranAt         DateTime  @default(now())
+  undoneAt      DateTime?
+  undoneByUserId String?
+
+  @@index([orgId, year])
 }
 
 /// A kind of leave: casual, sick, earned, loss of pay…
@@ -545,6 +631,26 @@ model LeaveType {
   availableAfterDays Int?
   /// Sandwich rule: weekly offs and holidays inside a request count as leave.
   sandwich           Boolean  @default(false)
+  /// Private leave (sick, medical, maternity): the reason is optional and only
+  /// those who decide leave read it; the calendar and the team see "Away".
+  isPrivate          Boolean  @default(false)
+  /// Days a year by who the person is, over the type's own annualDays:
+  /// [{ employeeTypeId?: string, minServiceMonths?: number, annualDays: number }].
+  /// The most specific rule that fits wins (employee type and service over
+  /// service alone over employee type alone), read as of the period start or
+  /// the joining date, whichever is later.
+  entitlements       Json     @default("[]")
+  /// Rules added to a type already in use apply from this period start (ISO date); earlier periods keep annualDays.
+  entitlementsFrom   String?
+  /// During probation: ACCRUE as normal, HOLD (credits start at confirmation),
+  /// or LOCK (credits build but cannot be taken until confirmation).
+  probationRule      String   @default("ACCRUE")
+  /// This type's own approval chain (HR | MANAGER | MANAGER_THEN_HR); null = the company's.
+  approval           String?
+  /// A person's own request of up to this many days, within their balance, is approved as it is sent.
+  autoApproveUpToDays Float?
+  /// A step that waits longer than this many days is handed on to HR. Null = never.
+  handOnAfterDays    Int?
   /// Unused days may be paid out, up to this many a year.
   encashable         Boolean  @default(false)
   maxEncashDays      Float?
@@ -602,6 +708,9 @@ model LeaveAdjustment {
   paidInRunId String?
 
   createdByUserId String
+  /// A comp-off grant names the date worked; a year-end pay-out names its run.
+  workedOn        String?
+  yearEndId       String?
   createdAt       DateTime @default(now())
 
   @@index([accountId, orgId, year])
@@ -632,12 +741,22 @@ model LeaveRequest {
   /// The manager's step, when the company asks for it before HR (AttendanceSettings.*Approval).
   managerApprovedAt   DateTime?
   managerApprovedById String?
+  /// The manager's note with their step; HR's decision note is reviewNote.
+  managerNote         String?
+  /// What happened to the request, in order: [{ at, by, what, note?, from?, to? }] (edits, steps, hand-ons, decisions).
+  history             Json      @default("[]")
+  /// Set when the request was approved by its own rule (autoApproveUpToDays), not by a person.
+  autoApproved        Boolean   @default(false)
+  /// Leave that crosses the leave-period end is saved as one request per
+  /// period; the parts share this id so they read, and cancel, as one.
+  groupId             String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, employeeId, fromDate])
+  @@index([orgId, fromDate, toDate])
 }
 
 /// A biometric reader (ZKTeco / eSSL) that pushes punches to /iclock. The
@@ -1183,6 +1302,17 @@ model AttendanceSettings {
   /// year it starts in. Default 1 January, the calendar year.
   leavePeriodStartMonth      Int     @default(1)
   leavePeriodStartDay        Int     @default(1)
+  /// The company's working week (People → Time & Leave): the weekly offs of
+  /// anyone with no shift. Day numbers 0–6 (Sunday 0); offSaturdays names the
+  /// Saturdays of a month that are off (e.g. "2,4") when 6 is not a weekly off.
+  /// Shifts, when Attendance sets them, still decide for the people on them.
+  weeklyOffDays              String  @default("0")
+  offSaturdays               String  @default("")
+  /// Attendance request rules (People → Settings → Request rules):
+  /// { WFH: { on, quotaPerMonth, backDays, approval }, ON_DUTY: {...}, PERMISSION: { on, hoursPerMonth, maxMinutes, approval }, MISSED_PUNCH: { quotaPerMonth, backDays } }.
+  requestRules               Json    @default("{}")
+  /// Restricted holidays a person may pick a year from the optional list; 0 = none.
+  restrictedHolidayQuota     Int     @default(0)
 
   /// DPDP (services/attendance/biometrics.ts): CLOR keeps and copies fingerprints and
   /// faces between readers only when the company switches this on, recording who
@@ -1334,8 +1464,10 @@ model Policy {
   accountId       String
   orgId           String
   title           String
-  /// LEAVE | HOURS | CONDUCT | TRAVEL | BENEFITS | IT | POSH | OTHER
+  /// LEAVE | HOURS | CONDUCT | TRAVEL | BENEFITS | IT | POSH | PRIVACY | OTHER
   category        String
+  /// Privacy notices only (PRV-01): EMPLOYMENT | ATTENDANCE | PAYROLL | RECRUITMENT | MONITORING | BENEFITS | OTHER
+  purpose         String?
   description     String?
   ownerUserId     String
   isActive        Boolean  @default(true)
@@ -1363,6 +1495,8 @@ model PolicyVersion {
   /// { establishmentIds?, states?, departmentIds?, employeeTypeIds?, gradeIds?, workTypeIds? } — every list given must match.
   appliesTo         Json
   needsAcceptance   Boolean   @default(false)
+  /// { "hi": "...", "ta": "..." }: the same text in the languages the company enables (PRV-01). English is `body`.
+  translations      Json?
   /// DRAFT | WAITING | PUBLISHED | RETIRED
   status            String    @default("DRAFT")
   publishedAt       DateTime?
@@ -1448,6 +1582,8 @@ model DeskRequest {
   /// Moved to Private cases (DESK-05): the details here are wiped; only the date and the case stay.
   movedToCaseAt      DateTime?
   movedToCaseId      String?
+  /// Raised from the Why panel (TRACE-03): the change it is about (a change-log correlation id or history_<id>).
+  changeRef          String?
   raisedByUserId     String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -1575,6 +1711,8 @@ model PeopleSetting {
   orgId              String   @unique
   /// CONTACT_DIRECT (contact details save at once, the rest needs HR approval) | ALL (everything needs approval) | NONE (saves at once, HR told)
   selfServiceChanges String   @default("CONTACT_DIRECT")
+  /// Languages privacy notices are offered in besides English (PRV-01), e.g. ["hi","ta"].
+  noticeLanguages    Json?
   updatedByUserId    String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -1619,6 +1757,308 @@ model Seat {
 
   @@unique([orgId, name])
   @@index([orgId, teamId])
+}
+
+/// A compliance rule as the company holds it (docs/people/02-PRD.md COMP-01;
+/// services/people/complianceRules.ts): seeded from CLOR's catalogue, then the
+/// company's own. Every edit is a new version; nothing is overwritten. A rule is
+/// "checked" when a named person has confirmed it with their adviser (COMP-05).
+model ComplianceRule {
+  id                 String    @id @default(cuid())
+  accountId          String
+  orgId              String
+  /// stable, e.g. IN-POSH-IC, IN-KA-SE-REG
+  ruleId             String
+  version            Int       @default(1)
+  title              String
+  /// IN (central) or IN-<state>, e.g. IN-KA
+  jurisdiction       String
+  /// ["SHOP","OFFICE",…] or [] for any
+  establishmentKinds Json
+  /// ["ALL"] or a list of employee types the rule reaches
+  employeeCategories Json
+  legalSource        String
+  notificationRef    String?
+  effectiveFrom      String
+  effectiveTo        String?
+  supersedesVersion  Int?
+  obligation         String
+  /// { minHeadcount?: number }
+  threshold          Json?
+  ownerRole          String    @default("HR")
+  /// { kind: "MONTHLY", day } | { kind: "ANNUAL", month, day } | { kind: "HALF_YEARLY", months, day } | { kind: "ONCE", days } | { kind: "EVENT", after, days }
+  dueRule            Json
+  requiredProof      Json
+  /// DRAFT | CHECKED | NEEDS_REVIEW
+  reviewStatus       String    @default("DRAFT")
+  checkedByUserId    String?
+  checkedAt          DateTime?
+  active             Boolean   @default(true)
+  createdByUserId    String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([orgId, ruleId, version])
+  @@index([orgId, active])
+}
+
+/// What the company owes, worked out from its establishments and headcount (COMP-02).
+model Obligation {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  ruleId          String
+  ruleVersion     Int
+  establishmentId String?
+  /// the month, year or event the obligation is for, e.g. 2026-11, 2026, EST:<id>
+  period          String
+  title           String
+  dueOn           String
+  ownerUserId     String?
+  /// UPCOMING | DUE | OVERDUE | DONE | CHECKED
+  status          String    @default("UPCOMING")
+  proofDocIds     Json
+  note            String?
+  dueToldAt       DateTime?
+  doneAt          DateTime?
+  doneByUserId    String?
+  checkedAt       DateTime?
+  checkedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([orgId, ruleId, establishmentId, period])
+  @@index([orgId, status, dueOn])
+}
+
+/// A Health check item put aside until a date, with the reason (HLTH-03). It comes back on its date; the history stays.
+model HealthSnooze {
+  id        String    @id @default(cuid())
+  accountId String
+  orgId     String
+  checkId   String
+  reason    String
+  /// YYYY-MM-DD the item comes back
+  until     String
+  byUserId  String?
+  createdAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  @@index([orgId, checkId, until])
+}
+
+/// A private case (docs/people/02-PRD.md PRIV-01..06; services/people/privateCases.ts): a POSH
+/// complaint or a grievance. Only its named members open it — not company admins unless named.
+/// The summary and evidence are encrypted with PEOPLE_CASE_KEY (D-09); every open is logged.
+/// Never in search, exports, reports or AI (PRIV-04).
+model PrivateCase {
+  id                    String   @id @default(cuid())
+  accountId             String
+  orgId                 String
+  /// POSH | GRIEVANCE | OTHER
+  kind                  String
+  /// PC-<year>-<n>: what members and the report call it; carries no name
+  reference             String
+  complainantEmployeeId String?
+  raisedByUserId        String?
+  onBehalf              Boolean  @default(false)
+  respondentEmployeeIds Json
+  summaryEnc            String
+  incidentOn            String
+  receivedOn            String
+  filingDeadline        String
+  extendedTo            String?
+  extensionReason       String?
+  inquiryDue            String
+  inquiryClosedOn       String?
+  reportDue             String?
+  reportOn              String?
+  actionDue             String?
+  actionOn              String?
+  /// RECEIVED | INQUIRY | REPORT_DUE | ACTION_DUE | CLOSED
+  status                String   @default("RECEIVED")
+  outcome               String?
+  /// [{ userId, why }]: committee members left out by the conflict check
+  excluded              Json
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  members  PrivateCaseMember[]
+  evidence PrivateCaseEvidence[]
+
+  @@unique([orgId, reference])
+  @@index([orgId, status])
+}
+
+model PrivateCaseMember {
+  id        String   @id @default(cuid())
+  accountId String
+  orgId     String
+  caseId    String
+  userId    String
+  /// PRESIDING | MEMBER | EXTERNAL | OFFICER
+  role      String
+  createdAt DateTime @default(now())
+
+  case PrivateCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, userId])
+  @@index([orgId, userId])
+}
+
+model PrivateCaseEvidence {
+  id            String   @id @default(cuid())
+  accountId     String
+  orgId         String
+  caseId        String
+  titleEnc      String
+  mime          String
+  size          Int
+  dataEnc       String
+  addedByUserId String?
+  createdAt     DateTime @default(now())
+
+  case PrivateCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, caseId])
+}
+
+/// Every open of a case or its evidence (PRIV-03), shown to the presiding officer.
+model PrivateCaseAccess {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  caseId     String
+  userId     String
+  /// OPEN | EVIDENCE
+  what       String
+  evidenceId String?
+  at         DateTime @default(now())
+
+  @@index([orgId, caseId, at])
+}
+
+/// The committee that hears private cases (PRIV-06): POSH_IC or GRIEVANCE.
+model CommitteeSetup {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  kind            String
+  /// [{ userId, role: PRESIDING|MEMBER|EXTERNAL|OFFICER, gender: FEMALE|MALE|OTHER, external: boolean, termStart, termEnd, name? }]
+  members         Json
+  updatedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, kind])
+}
+
+/// An Add-employee wizard left part-way (People design v1 EMP-02): one person's own, kept 30 days.
+model EmployeeDraft {
+  id        String   @id @default(cuid())
+  accountId String
+  orgId     String
+  userId    String
+  step      Int      @default(1)
+  label     String?
+  data      Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId, userId])
+}
+
+/// A named set of filters on a list or report (CORE-01, RPT-02): the user's own, or shared with everyone who can open that screen.
+model SavedView {
+  id        String   @id @default(cuid())
+  accountId String
+  orgId     String
+  userId    String
+  /// employees | report:<key>
+  screen    String
+  name      String
+  filters   Json
+  shared    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId, screen])
+}
+
+/// What an approved change rested on (TRACE-05), frozen at the decision: the policy
+/// versions in force for the person and the evidence with its version. A later
+/// policy change never rewrites it.
+model DecisionRecord {
+  id             String   @id @default(cuid())
+  accountId      String
+  orgId          String
+  requestId      String   @unique
+  employeeId     String?
+  ruleId         String
+  ruleVersion    Int
+  /// [{ policyId, versionId, title, category, version, effectiveFrom }]
+  policyVersions Json
+  /// [{ documentId, title, version }]
+  evidence       Json
+  decidedAt      DateTime @default(now())
+
+  @@index([orgId, employeeId])
+}
+
+/// How long each kind of personal data is kept (PRV-03), with a legal hold that stops any deletion.
+model RetentionRule {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  /// PEOPLE_RECORD | DOCUMENTS | PAYROLL | ATTENDANCE | SELFIES | ACCESS_LOG
+  dataType        String
+  keepYears       Int
+  legalHold       Boolean  @default(false)
+  holdReason      String?
+  basis           String
+  updatedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, dataType])
+}
+
+/// Data past its retention, waiting for a person to decide (PRV-03): nothing is deleted without one.
+model DeletionReview {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  dataType        String
+  entityId        String
+  label           String
+  dueSince        String
+  /// PENDING | APPROVED | KEPT
+  status          String    @default("PENDING")
+  note            String?
+  decidedByUserId String?
+  decidedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@unique([orgId, dataType, entityId])
+  @@index([orgId, status])
+}
+
+/// An external auditor's access (PRV-06): named documents only, from a time until a time, every view logged.
+model AuditorGrant {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  userId          String
+  purpose         String
+  documentIds     Json
+  fromAt          DateTime
+  untilAt         DateTime
+  grantedByUserId String?
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([orgId, userId, untilAt])
 }
 
 /// Letters the company issues (docs/people/02-PRD.md DOC-04; services/people/letters.ts):

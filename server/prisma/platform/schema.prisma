@@ -390,11 +390,14 @@ model AuditLog {
 
   createdByUserId String
   createdAt       DateTime @default(now())
+  /// The request id (X-Request-Id) that wrote it; People's change log shares it (D-V8).
+  correlationId   String?
 
   org       Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   createdBy User @relation("AuditCreatedBy", fields: [createdByUserId], references: [id])
 
   @@index([accountId, orgId, branchId])
+  @@index([orgId, entityId])
 }
 
 // ----------------------------

@@ -59,10 +59,10 @@ describe('employment history', () => {
 
     const toFinance = events.find((x: any) => x.field === 'departmentId' && x.to === 'Finance');
     expect(toFinance).toMatchObject({ from: 'Sales', effectiveDate: '2026-09-01', source: 'FORM', note: 'Moved to accounts team', by: 'Owner' });
-    expect(toFinance.payrollImpact).toMatch(/booked to Finance from 2026-09-01/);
+    expect(toFinance.payrollImpact).toMatch(/booked to Finance from 1 Sep 2026/);
 
     const manager = events.find((x: any) => x.field === 'reportingManagerId');
-    expect(manager).toMatchObject({ to: 'Meera', title: 'Reporting manager changed' });
+    expect(manager).toMatchObject({ to: 'Meera', title: 'Manager changed' });
 
     const back = events.find((x: any) => x.source === 'TRANSFER');
     expect(back).toMatchObject({ from: 'Finance', to: 'Sales', effectiveDate: '2026-10-01', note: 'Reorganisation' });

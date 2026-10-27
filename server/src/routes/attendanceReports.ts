@@ -11,6 +11,7 @@ import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../se
 import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js';
 import { FACE, ONLINE_WINDOW_MS } from '../services/attendance/adms.js';
 import { ISO_DATE, daysOfMonth, monthRows, periodContext, today } from '../services/attendance/days.js';
+import { sentOnly } from '../utils/sentOnly.js';
 
 /**
  * Attendance reports — ClorTime's catalogue (routes/reports.js) and its
@@ -438,14 +439,15 @@ export async function build(id: string, accountId: string, orgId: string, q: any
     );
     const [requests, types] = await Promise.all([
       peoplePrisma.leaveRequest.findMany({ where: { accountId, orgId, status: 'APPROVED', fromDate: { lte: to }, toDate: { gte: from } }, orderBy: { fromDate: 'asc' } }),
-      peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, isPaid: true } }),
+      peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, isPaid: true, isPrivate: true } }),
     ]);
-    const type = new Map(types.map((t) => [t.id, t]));
+    /* Reports are read and mailed beyond those who decide leave: a private type reads "Private leave", with no reason. People's register has the detail for HR. */
+    const type = new Map(types.map((t) => [t.id, t.isPrivate ? { ...t, name: 'Private leave' } : t]));
     const rows = requests
       .filter((r) => people.has(r.employeeId))
       .map((r) => {
         const p = people.get(r.employeeId)!;
-        return { code: p.code, name: p.name, department: p.department, type: type.get(r.leaveTypeId)?.name || '—', paid: type.get(r.leaveTypeId)?.isPaid === false ? 'No' : 'Yes', from: r.fromDate, to: r.toDate, days: r.days, reason: r.reason };
+        return { code: p.code, name: p.name, department: p.department, type: type.get(r.leaveTypeId)?.name || '—', paid: type.get(r.leaveTypeId)?.isPaid === false ? 'No' : 'Yes', from: r.fromDate, to: r.toDate, days: r.days, reason: type.get(r.leaveTypeId)?.isPrivate ? '' : r.reason };
       });
     return {
       title: 'Leave register',
@@ -846,7 +848,7 @@ attendanceReportsRouter.put('/orgs/:orgId/attendance/reports/schedules/:id', can
   if (!s) return res.status(404).json({ error: 'No such schedule.' });
   const parsed = scheduleSchema.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the schedule.' });
-  const b = parsed.data;
+  const b = sentOnly(parsed.data, req.body);
   const cadence = b.cadence || s.cadence;
   const row = await peoplePrisma.reportSchedule.update({ where: { id: s.id }, data: { ...(b.reportId ? { reportId: b.reportId } : {}), ...(b.params ? { paramsJson: JSON.stringify(b.params) } : {}), cadence, dayOfWeek: cadence === 'WEEKLY' ? b.dayOfWeek ?? s.dayOfWeek ?? 1 : null, dayOfMonth: cadence === 'MONTHLY' ? b.dayOfMonth ?? s.dayOfMonth ?? 1 : null, ...(b.hour !== undefined ? { hour: b.hour } : {}), ...(b.recipients ? { recipients: b.recipients.trim() } : {}), ...(b.enabled !== undefined ? { enabled: b.enabled } : {}) } });
   res.json({ schedule: publicSchedule(row) });

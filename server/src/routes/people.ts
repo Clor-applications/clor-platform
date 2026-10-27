@@ -1,4 +1,4 @@
-import { Router, type Request } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
@@ -8,6 +8,7 @@ import { PermissionAction, type PermissionAction as PermissionActionType } from 
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { AnonymiseError, anonymiseEmployee } from '../services/anonymiseEmployee.js';
+import { retentionExceptions } from '../services/people/privacy.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { peopleEvent } from '../services/people/documentReminders.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
@@ -15,25 +16,36 @@ import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from '.
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { episodesOf } from '../services/people/episodes.js';
-import { timelineOf } from '../services/people/employmentHistory.js';
-import { createEmployee, updateEmployee, correlationOf } from '../services/people/employees.js';
+import { joiningCorrected, timelineOf } from '../services/people/employmentHistory.js';
+import { StaleEmployeeError, createEmployee, updateEmployee, correlationOf } from '../services/people/employees.js';
 import { SCHEDULABLE_FIELDS, asOf, cancelScheduledChange, pendingChangesOf, scheduleChanges } from '../services/people/effectiveDating.js';
 import { writeChangeLog, type Actor, type Change, type ChangeSource } from '../services/people/changeLog.js';
 import { checkIdentifier, maskTail } from '../services/people/identifiers.js';
 import { PAYROLL_STATUTORY_FIELDS, maskedStatutory, revealStatutory } from '../services/payroll/statutoryRead.js';
 import { stepUpRefusal } from '../services/stepUp.js';
-import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
+import { inScope, scopeWhere, seesPersonal, teamScope } from '../services/people/scope.js';
+import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/attendance/suggestions.js';
 import { activeRule, shape as shapeRequest, submitRequest } from '../services/people/approvals/engine.js';
 import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
 import { changeImpact } from '../services/people/lifecycle/changes.js';
+import { isFeatureEnabled } from '../services/features.js';
+import { closeOutFor } from '../services/people/lifecycle/closeOut.js';
+import { DEFAULT_EMPLOYEE_TYPES, EMPLOYMENT_KINDS, HOURS, guessKind } from '../services/people/employmentKinds.js';
 import { journeyOf, whyOf } from '../services/people/journey.js';
+import { salaryQuestion } from '../services/people/salaryQuestion.js';
+import { activityOf } from '../services/people/activity.js';
+import { BULK_LIMIT, BulkError, bulkUpdate } from '../services/people/bulk.js';
+import { deleteView, saveView, viewsFor } from '../services/people/savedViews.js';
+import { raiseRequest } from '../services/people/desk.js';
+import { HeadcountError, headcount as headcountOf, snooze as snoozeCheck, snoozeHistory, unsnooze as unsnoozeCheck } from '../services/people/headcount.js';
 import { SelfServiceError, saveSettings, settingsOf } from '../services/people/selfService.js';
 import { CustomFieldError, FIELD_TYPES, defsOf, saveDef as saveCustomFieldDef, setValues as setCustomValues, valuesFor as customValuesFor } from '../services/people/customFields.js';
 import { PERMIT_KINDS, daysUntil } from '../services/people/documentReminders.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
 import { NO_ORIGINALS_STATES } from '../services/people/letters.js';
 import { ask as askToRead, remind as ackRemind, report as ackReport } from '../services/people/acknowledgements.js';
-import { dataHealth } from '../services/people/dataHealth.js';
+import { dataHealth, readinessOf } from '../services/people/dataHealth.js';
+import { KIND_LABEL, MERGEABLE, OrgError, STRUCTURE_KINDS, actionOf, ensureOrgDetail, headFields, headsOf, inUseRefusal, logStructure, mergeInto, movePeople, organizationOverview, peopleIn, retireBranch, structureChanges, structureHistory, targetFor, type Kind } from '../services/people/organization.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, myTasks, openTasks, readTaskDoneToken, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { addCustom, calendar, evidenceOf, updateTask } from '../services/people/compliance.js';
@@ -68,8 +80,49 @@ const EMPLOYEE_STATUSES = ['ACTIVE', 'ON_NOTICE', 'LEFT', 'SUSPENDED'] as const;
 export const GENDER_OPTIONS = ['MALE', 'FEMALE', 'NON_BINARY', 'OTHER', 'PREFER_NOT_TO_SAY'] as const;
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const date = z.string().trim().regex(ISO_DATE, 'Dates are YYYY-MM-DD.').optional().nullable().or(z.literal(''));
+/* A real day, not only the right shape: 2026-13-01 and 2026-02-30 are refused. */
+const realDay = (v: string) => { const d = new Date(`${v}T00:00:00Z`); return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v; };
+const date = z.string().trim().regex(ISO_DATE, 'Dates are YYYY-MM-DD.').refine(realDay, 'That date does not exist.').optional().nullable().or(z.literal(''));
+/* A phone number: 7 to 15 digits once spaces, dashes, brackets and a leading + are set aside. */
+const phoneField = z.string().trim().max(40).refine((v) => !v || /^\+?[\d\s\-()]+$/.test(v) && v.replace(/\D/g, '').length >= 7 && v.replace(/\D/g, '').length <= 15, 'That phone number is too short or has letters in it.').optional().nullable();
 const text = (max: number) => z.string().trim().max(max).optional().nullable();
+
+/**
+ * Personal details (Workforce audit E4): the date of birth, home address,
+ * personal email, family and emergency contacts, private notes and card
+ * number go to whoever keeps the records (an administrator, anyone who may
+ * edit employees or see statutory details) and to the person themselves.
+ * A read-only role (IT, a team lead) gets the work profile.
+ */
+const PERSONAL_FIELDS = ['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber'] as const;
+const withoutPersonal = (row: any, me: string) => {
+  if (row?.userId && row.userId === me) return row;
+  const out = { ...row, personalHidden: true };
+  for (const k of PERSONAL_FIELDS) delete out[k];
+  return out;
+};
+
+/** One person by id in this company and inside the caller's team scope (scope.ts); outside it reads as absent. */
+async function scopedEmployee<S extends Record<string, boolean>>(req: Request, id: string, select?: S) {
+  const { accountId, orgId } = req.tenant!;
+  const e = await peoplePrisma.employee.findFirst({ where: { id, accountId, orgId }, ...(select ? { select } : {}) });
+  if (!e || !inScope(await teamScope(req), (e as any).id)) return null;
+  return e as any;
+}
+
+/** Company-wide HR work (imports, data requests, anonymising, linking logins): a role limited to its own team is refused. */
+async function wholeCompany(req: Request, res: Response) {
+  if ((await teamScope(req)).all) return true;
+  res.status(403).json({ error: 'This is HR work for the whole company; your role covers your own team.' });
+  return false;
+}
+
+/** A reason an import row is refused, worded for the person importing. */
+class ImportRowError extends Error {}
+
+const inWords = (iso: string) => { const [y, m, d] = String(iso).slice(0, 10).split('-'); return y && m && d ? `${Number(d)} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m) - 1]} ${y}` : iso; };
+const SCHEDULED_WORDS: Record<string, string> = { departmentId: 'Department', jobPositionId: 'Designation', reportingManagerId: 'Manager', dottedManagerId: 'Secondary manager', areaId: 'Location', establishmentId: 'Work site', teamId: 'Team', seatId: 'Position', employeeTypeId: 'Employment type', workTypeId: 'Work mode', gradeId: 'Grade', costCenterId: 'Cost centre', businessUnitId: 'Business unit', jobRoleId: 'Job role', branchId: 'Branch', contractorId: 'Contractor' };
+const addDaysIso = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 const blank = (v: unknown) => {
   const s = typeof v === 'string' ? v.trim() : v == null ? '' : String(v);
@@ -80,9 +133,12 @@ const employeeSchema = z.object({
   name: z.string().trim().max(120).optional(),
   firstName: text(60),
   lastName: text(60),
+  preferredName: text(80),
+  /* The version the editor saw (or send it as If-Match); a stale one gets 409 STALE. */
+  version: z.coerce.number().int().positive().optional(),
   code: text(40),
   email: z.string().trim().email('That is not an email address.').max(160).optional().nullable().or(z.literal('')),
-  phone: text(40),
+  phone: phoneField,
   status: z.enum(EMPLOYEE_STATUSES).optional(),
   branchId: text(60),
   dateOfJoining: date,
@@ -100,7 +156,7 @@ const employeeSchema = z.object({
   country: text(80),
   pincode: text(12),
   emergencyContactName: text(120),
-  emergencyContactPhone: text(40),
+  emergencyContactPhone: phoneField,
   emergencyContactRelation: text(60),
 
   departmentId: text(60),
@@ -111,10 +167,11 @@ const employeeSchema = z.object({
   costCenterId: text(60),
   employeeTypeId: text(60),
   workTypeId: text(60),
+  hours: z.enum(HOURS).optional().nullable().or(z.literal('')).transform((v) => v || null),
   reportingManagerId: text(60),
   dottedManagerId: text(60),
   workEmail: z.string().trim().email('That is not an email address.').max(160).optional().nullable().or(z.literal('')),
-  workPhone: text(40),
+  workPhone: phoneField,
   workLocation: text(120),
   devicePin: text(40),
   areaId: text(60),
@@ -143,8 +200,18 @@ const composeName = (b: EmployeeBody, fallback = '') =>
  * display strings they imply: `department` and `designation` stay the strings
  * payroll and every older screen read, so they are written alongside the ids.
  */
-async function resolveStructure(orgId: string, b: EmployeeBody) {
+async function resolveStructure(orgId: string, b: EmployeeBody, existing?: { branchId?: string | null }) {
   const out: Record<string, string | null> = {};
+  /* A branch is the company's own (platform Branch), and open; one already on the record may stay after the branch closes. */
+  if (b.branchId !== undefined) {
+    const id = blank(b.branchId);
+    if (id) {
+      const branch = await platformPrisma.branch.findFirst({ where: { id, orgId }, select: { isActive: true } });
+      if (!branch) throw Object.assign(new Error('Choose one of this company\'s branches.'), { status: 400 });
+      if (!branch.isActive && id !== (existing?.branchId ?? null)) throw Object.assign(new Error('That branch is closed. Choose an open one.'), { status: 400 });
+    }
+    out.branchId = id;
+  }
   const check = async (key: keyof EmployeeBody, find: (id: string) => Promise<{ name: string } | null>) => {
     if (b[key] === undefined) return null;
     const id = blank(b[key]);
@@ -196,13 +263,18 @@ async function checkManager(orgId: string, employeeId: string | null, managerId:
   }
 }
 
+/* Hours left blank mean full-time; SQL's "not part-time" would skip those blank rows. Added to AND so it never meets the search's OR. */
+const addHours = (where: any, v?: string) => {
+  if (v) (where.AND ||= []).push(v === 'FULL_TIME' ? { OR: [{ hours: null }, { hours: { not: 'PART_TIME' } }] } : { hours: v });
+};
+
 const employeeData = (b: EmployeeBody) => {
   const d: Record<string, unknown> = {};
   const keys = [
-    'firstName', 'lastName', 'phone', 'branchId', 'dateOfJoining', 'dateOfLeaving', 'notes', 'gender', 'dateOfBirth',
+    'firstName', 'lastName', 'preferredName', 'phone', 'branchId', 'dateOfJoining', 'dateOfLeaving', 'notes', 'gender', 'dateOfBirth',
     'maritalStatus', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
     'emergencyContactPhone', 'emergencyContactRelation', 'reportingManagerId', 'dottedManagerId', 'workPhone', 'workLocation',
-    'probationEndDate', 'contractEndDate', 'email', 'personalEmail', 'workEmail', 'devicePin',
+    'probationEndDate', 'contractEndDate', 'hours', 'email', 'personalEmail', 'workEmail', 'devicePin',
     'cardNumber', 'devicePassword', 'guardianName',
   ] as const;
   for (const k of keys) if (b[k] !== undefined) d[k] = blank(b[k]);
@@ -218,6 +290,7 @@ const withMeta = async (orgId: string, rows: any[]) => {
     ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, name: true } })
     : [];
   const managerName = new Map(managers.map((m) => [m.id, m.name]));
+  const branchNames = new Map((await platformPrisma.branch.findMany({ where: { orgId }, select: { id: true, branchName: true } })).map((b) => [b.id, b.branchName]));
   const [areas, contractors, units, grades, centres, establishments, teams, seats] = await Promise.all([
     peoplePrisma.area.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.contractor.findMany({ where: { orgId }, select: { id: true, name: true } }),
@@ -236,11 +309,15 @@ const withMeta = async (orgId: string, rows: any[]) => {
   const unitName = new Map(units.map((u) => [u.id, u.name]));
   const gradeName = new Map(grades.map((g) => [g.id, g.name]));
   const centreName = new Map(centres.map((c) => [c.id, c.name]));
-  return rows.map(({ devicePassword, ...r }) => ({
+  /* Secrets never leave the server: the reader PIN, and the employee app's password and set-up hashes. */
+  return rows.map(({ devicePassword, portalPasswordHash, portalSetupHash, portalSetupExpires, ...r }: any) => ({
     ...r,
     /* The reader PIN is write-only here; screens only need to know one is set. */
     hasDevicePassword: Boolean(devicePassword),
+    hasPortalPassword: Boolean(portalPasswordHash),
+    portalSetupPending: Boolean(portalSetupHash && portalSetupExpires && new Date(portalSetupExpires) > new Date()),
     areaName: r.areaId ? areaName.get(r.areaId) || null : null,
+    branchName: r.branchId ? branchNames.get(r.branchId) || null : null,
     contractorName: r.contractorId ? contractorName.get(r.contractorId) || null : null,
     businessUnitName: r.businessUnitId ? unitName.get(r.businessUnitId) || null : null,
     gradeName: r.gradeId ? gradeName.get(r.gradeId) || null : null,
@@ -298,7 +375,7 @@ const identityRow = (i: any) => ({
   categoryFrom: i?.categoryFrom || null,
 });
 
-peopleRouter.get('/orgs/:orgId/people/employees/:id/statutory', async (req, res) => {
+peopleRouter.get('/orgs/:orgId/people/employees/:id/statutory', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
@@ -313,7 +390,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/statutory', async (req, res)
 peopleRouter.put('/orgs/:orgId/people/employees/:id/identity', can(PermissionAction.EDIT, STATUTORY), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  const employee = await scopedEmployee(req, String(req.params.id), { id: true });
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
   const parsed = identitySchema.safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the details.' });
@@ -344,7 +421,7 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id/identity', can(PermissionAct
 peopleRouter.post('/orgs/:orgId/people/employees/:id/statutory/reveal', can(PermissionAction.VIEW, STATUTORY), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  const employee = await scopedEmployee(req, String(req.params.id), { id: true });
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
   const field = String(req.body?.field || '');
   const payrollField = (PAYROLL_STATUTORY_FIELDS as readonly string[]).includes(field);
@@ -369,12 +446,14 @@ peopleRouter.get('/orgs/:orgId/people/overview', can(PermissionAction.VIEW, EMPL
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const rows = await peoplePrisma.employee.findMany({
-    where: { accountId, orgId },
+    where: { accountId, orgId, ...scopeWhere(await teamScope(req)) },
     select: { id: true, name: true, status: true, departmentId: true, department: true, dateOfJoining: true, dateOfLeaving: true, dateOfBirth: true, photoUrl: true, designation: true },
   });
   const today = new Date();
-  const ym = today.toISOString().slice(0, 7);
-  const active = rows.filter((r) => r.status !== 'LEFT');
+  /* India's month, and today's headcount: someone joining next week is not working here yet. */
+  const todayIn = todayIst();
+  const ym = todayIn.slice(0, 7);
+  const active = rows.filter((r) => r.status !== 'LEFT' && (!r.dateOfJoining || String(r.dateOfJoining).slice(0, 10) <= todayIn));
   const byDepartment = new Map<string, number>();
   for (const r of active) {
     const k = r.department || 'Unassigned';
@@ -397,9 +476,10 @@ peopleRouter.get('/orgs/:orgId/people/overview', can(PermissionAction.VIEW, EMPL
     byStatus: Object.fromEntries(EMPLOYEE_STATUSES.map((s) => [s, rows.filter((r) => r.status === s).length])),
     byDepartment: [...byDepartment.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count),
     joinedThisMonth: rows
-      .filter((r) => String(r.dateOfJoining || '').startsWith(ym))
+      /* This month so far: a joiner later this month is under Joining, not joined (W14). */
+      .filter((r) => String(r.dateOfJoining || '').startsWith(ym) && String(r.dateOfJoining).slice(0, 10) <= todayIn)
       .map((r) => ({ id: r.id, name: r.name, designation: r.designation, date: r.dateOfJoining })),
-    leftThisMonth: rows.filter((r) => String(r.dateOfLeaving || '').startsWith(ym)).length,
+    leftThisMonth: rows.filter((r) => r.status === 'LEFT' && String(r.dateOfLeaving || '').startsWith(ym)).length,
     upcomingBirthdays: soon,
   });
 });
@@ -416,19 +496,33 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
   const tagId = pick('tagId');
   /* A role limited to its own records sees its own team only (services/people/scope.ts). */
   const scope = await teamScope(req);
+  /* Workforce "My team" (WF-01): the caller's own reports, solid or dotted line. */
+  const mine = req.query.team === 'mine' ? await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } }) : null;
+  if (req.query.team === 'mine' && !mine) return res.json({ employees: [], total: 0 });
   const where: any = {
     accountId,
     orgId,
     ...scopeWhere(scope),
-    ...(pick('status') ? { status: pick('status') } : {}),
-    ...(pick('departmentId') ? { departmentId: pick('departmentId') } : {}),
+    ...(mine ? { AND: [{ OR: [{ reportingManagerId: mine.id }, { dottedManagerId: mine.id }] }] } : {}),
+    ...statusWhere(pick('status')),
+    /* "none": people in no department / no branch (the Organization overview's counts open these). */
+    ...(pick('departmentId') ? { departmentId: pick('departmentId') === 'none' ? null : pick('departmentId') } : {}),
     ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
     ...(pick('employeeTypeId') ? { employeeTypeId: pick('employeeTypeId') } : {}),
     ...(pick('workTypeId') ? { workTypeId: pick('workTypeId') } : {}),
+    /* On probation until confirmed in writing, whether or not the date has passed (a passed one is the more urgent). */
+    ...(pick('probation') === 'on' ? { probationEndDate: { not: null }, confirmedOn: null } : {}),
+    ...(pick('contract') === 'ending' ? { contractEndDate: { not: null, lte: addDaysIso(todayIst(), 30) } } : {}),
     ...(pick('businessUnitId') ? { businessUnitId: pick('businessUnitId') } : {}),
     ...(pick('gradeId') ? { gradeId: pick('gradeId') } : {}),
     ...(pick('costCenterId') ? { costCenterId: pick('costCenterId') } : {}),
-    ...(pick('managerId') ? { reportingManagerId: pick('managerId') } : {}),
+    ...(pick('managerId') ? { reportingManagerId: pick('managerId') === 'none' ? null : pick('managerId') } : {}),
+    /* People design v1 EMP-01: location (site), establishment, joining-date range. */
+    ...(pick('areaId') ? { areaId: pick('areaId') } : {}),
+    ...(pick('establishmentId') ? { establishmentId: pick('establishmentId') } : {}),
+    ...(pick('branchId') ? { branchId: pick('branchId') === 'none' ? null : pick('branchId') } : {}),
+    ...(pick('joinedFrom') || pick('joinedTo') ? { dateOfJoining: { ...(pick('joinedFrom') ? { gte: pick('joinedFrom') } : {}), ...(pick('joinedTo') ? { lte: pick('joinedTo') } : {}) } } : {}),
+    ...(pick('leftFrom') || pick('leftTo') ? { dateOfLeaving: { not: null, ...(pick('leftFrom') ? { gte: pick('leftFrom') } : {}), ...(pick('leftTo') ? { lte: pick('leftTo') } : {}) } } : {}),
     ...(tagId ? { tags: { some: { tagId } } } : {}),
     ...(q
       ? {
@@ -444,6 +538,19 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
         }
       : {}),
   };
+  addHours(where, pick('hours'));
+  /* No manager, as the Organization overview counts it: the top of the tree (someone others report to) is not listed. */
+  if (pick('managerId') === 'none') (where.AND ||= []).push({ id: { notIn: (await peoplePrisma.employee.findMany({ where: { orgId, status: { not: 'LEFT' }, reportingManagerId: { not: null } }, select: { reportingManagerId: true }, distinct: ['reportingManagerId'] })).map((r) => r.reportingManagerId!) } });
+  /* Working now: here and already joined; the count strip's first tile opens exactly these (W14). */
+  if (pick('working') === 'now') (where.AND ||= []).push({ status: { not: 'LEFT' } }, { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: todayIst() } }] });
+  /* Every id the filters match (Select all matching, WF-07): the same filters and scope, capped at what one bulk change takes. */
+  if (req.query.idsOnly === '1') {
+    const [found, total] = await Promise.all([
+      peoplePrisma.employee.findMany({ where, select: { id: true }, orderBy: { id: 'asc' }, take: BULK_LIMIT }),
+      peoplePrisma.employee.count({ where }),
+    ]);
+    return res.json({ ids: found.map((r) => r.id), total, capped: total > BULK_LIMIT });
+  }
   const take = Math.min(500, Math.max(1, Number(req.query.limit || 200)));
   const skip = Math.max(0, Number(req.query.offset || 0));
   const asOfDate = String(req.query.asOf || '').trim();
@@ -451,7 +558,7 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     peoplePrisma.employee.findMany({
       where,
       include: { tags: { include: { tag: true } } },
-      orderBy: [{ status: 'asc' }, { name: 'asc' }],
+      orderBy: directoryOrder(String(req.query.sort || ''), String(req.query.dir || '')),
       take,
       skip,
     }),
@@ -459,7 +566,332 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
   ]);
   /* As of a date (FND-03): the job fields rolled back through history; people not yet there are left out. */
   const viewed = asOfDate ? await asOf(orgId, rows as any[], asOfDate) : rows;
-  res.json({ employees: await withMeta(orgId, viewed), total: asOfDate ? viewed.length : total, asOf: asOfDate || undefined });
+  const personal = await seesPersonal(req);
+  const shapedRows = await withMeta(orgId, viewed);
+  res.json({ employees: personal ? shapedRows : shapedRows.map((r: any) => withoutPersonal(r, req.auth!.userId)), total: asOfDate ? viewed.length : total, asOf: asOfDate || undefined });
+});
+
+/* Sortable directory columns (People design v1 EMP-01); name breaks ties so a page never reshuffles. */
+/* CURRENT is everyone still with the company (the directory's default); ALL includes those who left; otherwise one status. */
+const statusWhere = (v?: string) => {
+  const s = String(v || '').toUpperCase();
+  if (!s || s === 'ALL') return {};
+  if (s === 'CURRENT') return { status: { not: 'LEFT' as const } };
+  return { status: s as any };
+};
+const SORTABLE: Record<string, string> = { name: 'name', code: 'code', department: 'department', designation: 'designation', dateOfJoining: 'dateOfJoining', status: 'status', location: 'workLocation' };
+function directoryOrder(sort: string, dir: string): any[] {
+  const field = SORTABLE[sort];
+  const d = dir === 'desc' ? 'desc' : 'asc';
+  if (!field) return [{ status: 'asc' }, { name: 'asc' }, { id: 'asc' }];
+  /* Prisma takes nulls-last only on optional columns; name and status are always set. */
+  const order = field === 'name' || field === 'status' ? { [field]: d } : { [field]: { sort: d, nulls: 'last' } };
+  return [order, ...(field === 'name' ? [] : [{ name: 'asc' }]), { id: 'asc' }];
+}
+
+/**
+ * The directory's headline counts (People design v1 EMP-01): everyone, active,
+ * joining (a joining date still to come), on leave today (approved leave
+ * covering today), on notice. Same team scope as the list.
+ */
+peopleRouter.get('/orgs/:orgId/people/employees/counts', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const scope = await teamScope(req);
+  const base = { accountId, orgId, ...scopeWhere(scope) };
+  const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+  const monthStart = `${today.slice(0, 8)}01`;
+  /* Working now: not left, and already joined (someone joining next week is under Joining, not in the headcount). */
+  const joined = { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: today } }] };
+  const [byStatus, joining, onLeave, working, joinedThisMonth, leftThisMonth] = await Promise.all([
+    peoplePrisma.employee.groupBy({ by: ['status'], where: { ...base, ...joined }, _count: { _all: true } }),
+    peoplePrisma.employee.count({ where: { ...base, status: 'ACTIVE', dateOfJoining: { gt: today } } }),
+    peoplePrisma.leaveRequest.findMany({ where: { orgId, status: 'APPROVED', fromDate: { lte: today }, toDate: { gte: today }, ...(scope.all ? {} : { employeeId: { in: (scope as any).ids } }) }, select: { employeeId: true }, distinct: ['employeeId'] }),
+    peoplePrisma.employee.count({ where: { ...base, status: { not: 'LEFT' }, ...joined } }),
+    peoplePrisma.employee.count({ where: { ...base, dateOfJoining: { gte: monthStart, lte: today } } }),
+    peoplePrisma.employee.count({ where: { ...base, status: 'LEFT', dateOfLeaving: { gte: monthStart, lte: today } } }),
+  ]);
+  const of = (s: string) => byStatus.find((x) => x.status === s)?._count._all || 0;
+  const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
+  const myTeam = me ? await peoplePrisma.employee.count({ where: { ...base, status: { not: 'LEFT' }, OR: [{ reportingManagerId: me.id }, { dottedManagerId: me.id }] } }) : 0;
+  res.json({ total: working, active: of('ACTIVE'), onNotice: of('ON_NOTICE'), suspended: of('SUSPENDED'), left: of('LEFT'), joining, onLeave: onLeave.length, myTeam, joinedThisMonth, leftThisMonth, monthStart });
+});
+
+/** A suggestion for the next employee ID (People design v1 EMP-02): the company's own pattern, one past the highest. Still editable. */
+peopleRouter.get('/orgs/:orgId/people/employees/next-code', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const codes = (await peoplePrisma.employee.findMany({ where: { orgId, code: { not: null } }, select: { code: true } })).map((r) => r.code!).filter(Boolean);
+  res.json({ code: nextCode(codes) });
+});
+
+/*
+ * What the company already has, for a text field to suggest (owner rule: every
+ * field offers existing matching data). Only shared vocabulary is offered —
+ * cities, relationships, the email domain, reasons used more than once — never
+ * one person's private details (phones, personal emails, IDs, addresses).
+ * Most used first.
+ */
+const PUBLIC_MAIL = /^(gmail|googlemail|yahoo|ymail|outlook|hotmail|live|msn|icloud|me|rediffmail|rediff|aol|proton|protonmail|zoho|zohomail|gmx|mail|yandex)\.[a-z.]+$/;
+const SUGGEST_EMPLOYEE_FIELDS: Record<string, 'city' | 'state' | 'country' | 'emergencyContactRelation' | 'workLocation' | 'department' | 'designation'> = {
+  city: 'city', state: 'state', country: 'country', relation: 'emergencyContactRelation', workLocation: 'workLocation', department: 'department', designation: 'designation',
+};
+peopleRouter.get('/orgs/:orgId/people/suggestions', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const field = String(req.query.field || '');
+  const scope = await teamScope(req);
+  const values: Array<{ value: string; count?: number; hint?: string }> = [];
+  const column = SUGGEST_EMPLOYEE_FIELDS[field];
+  if (column) {
+    const rows: any[] = await (peoplePrisma.employee.groupBy as any)({ by: [column], where: { accountId, orgId, ...scopeWhere(scope), [column]: { not: null } } as any, _count: { _all: true }, orderBy: { _count: { [column]: 'desc' } } as any, take: 50 });
+    for (const r of rows) if (String(r[column] || '').trim()) values.push({ value: String(r[column]).trim(), count: r._count._all });
+    /* Cities also come from the company's branches. */
+    if (field === 'city') for (const b of await platformPrisma.branch.findMany({ where: { accountId, orgId, city: { not: null } }, select: { city: true } })) if (b.city?.trim()) values.push({ value: b.city.trim() });
+  } else if (field === 'emailDomain') {
+    /* The domain only, never the addresses. */
+    const counts = new Map<string, number>();
+    for (const r of await peoplePrisma.employee.findMany({ where: { accountId, orgId, workEmail: { contains: '@' } }, select: { workEmail: true }, take: 2000 })) {
+      const d = r.workEmail!.split('@').pop()!.trim().toLowerCase();
+      if (d) counts.set(d, (counts.get(d) || 0) + 1);
+    }
+    /* No work emails yet: the domain the company's own CLOR sign-ins use, unless it is a public mail service. */
+    if (!counts.size) {
+      const members = await platformPrisma.userBranchMembership.findMany({ where: { accountId, orgId }, select: { userId: true }, distinct: ['userId'], take: 200 });
+      const users = members.length ? await platformPrisma.user.findMany({ where: { id: { in: members.map((m) => m.userId) } }, select: { email: true } }) : [];
+      for (const u of users) {
+        const d = String(u.email || '').split('@').pop()!.trim().toLowerCase();
+        if (d && !PUBLIC_MAIL.test(d)) counts.set(d, (counts.get(d) || 0) + 1);
+      }
+    }
+    for (const [value, count] of [...counts].sort((x, y) => y[1] - x[1]).slice(0, 5)) values.push({ value, count });
+  } else if (field === 'reason') {
+    /* Reasons on job changes, used at least twice: shared phrases, not one person's story. */
+    /* One change writes a line per field: count changes (by correlation), not lines. */
+    const rows = await peoplePrisma.changeLog.findMany({ where: { orgId, entity: 'Employee', reason: { not: null }, source: { in: ['FORM', 'TRANSFER', 'APPROVAL', 'SCHEDULED'] } }, select: { reason: true, correlationId: true }, orderBy: { at: 'desc' }, take: 3000 });
+    const changes = new Map<string, Set<string>>();
+    for (const r of rows) {
+      const text = r.reason!.trim();
+      if (!text || text.length > 80) continue;
+      if (!changes.has(text)) changes.set(text, new Set());
+      changes.get(text)!.add(r.correlationId);
+    }
+    for (const [value, ids] of [...changes].sort((x, y) => y[1].size - x[1].size)) if (ids.size >= 2) values.push({ value, count: ids.size });
+  } else if (isTimeLeaveSuggestionField(field)) {
+    /* Time & Leave: one service with Attendance's `/attendance/suggestions` (services/attendance/suggestions.ts). */
+    values.push(...(await timeLeaveSuggestions(orgId, field)));
+  } else if (field === 'budgetRef') {
+    for (const r of await peoplePrisma.seat.findMany({ where: { orgId, budgetRef: { not: null } }, select: { budgetRef: true }, distinct: ['budgetRef'], take: 50 })) if (r.budgetRef?.trim()) values.push({ value: r.budgetRef.trim() });
+  } else if (field === 'branch' || field === 'branchAddress') {
+    /* A work site is usually one of the branches: its name, or its address. */
+    for (const b of await platformPrisma.branch.findMany({ where: { accountId, orgId, isActive: true }, select: { branchName: true, addressLine1: true, city: true }, orderBy: { branchName: 'asc' } })) {
+      const v = field === 'branch' ? b.branchName : [b.addressLine1, b.city].filter(Boolean).join(', ');
+      if (v?.trim()) values.push({ value: v.trim(), hint: field === 'branch' ? 'Branch' : b.branchName });
+    }
+  } else return res.status(400).json({ error: 'Nothing to suggest for that field.' });
+  const seen = new Set<string>();
+  res.json({ values: values.filter((v) => { const k = v.value.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; }) });
+});
+
+/** The most used prefix (letters and separators before the digits), and one past its highest number, keeping the width. */
+export function nextCode(codes: string[]): string {
+  const parsed = codes.map((c) => c.match(/^(.*?)(\d+)$/)).filter((m): m is RegExpMatchArray => Boolean(m));
+  if (!parsed.length) return 'EMP-0001';
+  const count = new Map<string, number>();
+  for (const m of parsed) count.set(m[1], (count.get(m[1]) || 0) + 1);
+  const prefix = [...count.entries()].sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)[0][0];
+  const same = parsed.filter((m) => m[1] === prefix);
+  const width = Math.max(...same.map((m) => m[2].length));
+  const max = Math.max(...same.map((m) => Number(m[2])));
+  const taken = new Set(codes.map((c) => c.toLowerCase()));
+  let n = max + 1;
+  while (taken.has(`${prefix}${String(n).padStart(width, '0')}`.toLowerCase())) n += 1;
+  return `${prefix}${String(n).padStart(width, '0')}`;
+}
+
+/**
+ * Workforce → Pending actions (WF-01): what is waiting on employee records,
+ * in the caller's scope. Requests waiting for approval about a person (and
+ * whether the caller can decide the step), changes dated for later, joiner
+ * details sent back to check, and the caller's own add-employee drafts.
+ */
+peopleRouter.get('/orgs/:orgId/people/workforce/pending', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const scope = await teamScope(req);
+  const inScopeIds = (ids: string[]) => (scope.all ? ids : ids.filter((id) => (scope as any).ids.includes(id)));
+  const [requests, scheduled, invites, drafts] = await Promise.all([
+    /* The team filter goes into the query, before the 200 cap: a lead in a busy company still sees their own team's items. */
+    peoplePrisma.approvalRequest.findMany({ where: { orgId, status: 'WAITING', subjectEmployeeId: scope.all ? { not: null } : { in: scope.ids } }, include: { steps: true }, orderBy: { createdAt: 'asc' }, take: 200 }),
+    peoplePrisma.scheduledChange.findMany({ where: { orgId, status: 'PENDING', ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: [{ effectiveOn: 'asc' }], take: 200 }),
+    peoplePrisma.joinInvite.findMany({ where: { orgId, status: 'RETURNED', ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: { returnedAt: 'asc' }, take: 200 }).catch(() => []),
+    peoplePrisma.employeeDraft.findMany({ where: { orgId, userId: req.auth!.userId, expiresAt: { gt: new Date() } }, orderBy: { updatedAt: 'desc' }, take: 20 }),
+  ]);
+  const ids = inScopeIds([...new Set([...requests.map((r) => r.subjectEmployeeId!), ...scheduled.map((c) => c.employeeId), ...(invites as any[]).map((i) => i.employeeId)])]);
+  const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true, code: true } })).map((e) => [e.id, e]));
+  const label = (f: string) => ({ departmentId: 'Department', jobPositionId: 'Designation', reportingManagerId: 'Manager', dottedManagerId: 'Secondary manager', areaId: 'Location', establishmentId: 'Work site', teamId: 'Team', seatId: 'Position', employeeTypeId: 'Employment type', workTypeId: 'Work mode', gradeId: 'Grade', costCenterId: 'Cost centre', businessUnitId: 'Business unit', jobRoleId: 'Job role', status: 'Status' } as Record<string, string>)[f] || f;
+  const me = req.auth!.userId;
+  res.json({
+    requests: requests.filter((r) => people.has(r.subjectEmployeeId!)).map((r) => {
+      const step = r.steps.find((x) => x.order === r.currentStep && x.status === 'WAITING');
+      return { id: r.id, title: r.title, type: r.requestType, employee: people.get(r.subjectEmployeeId!), createdAt: r.createdAt, dueAt: step?.dueAt || null, overdue: Boolean(step && step.dueAt < new Date()), mine: Boolean(step && ((step.candidateUserIds as string[]) || []).includes(me)) };
+    }),
+    scheduled: scheduled.filter((c) => people.has(c.employeeId)).map((c) => ({ id: c.id, employee: people.get(c.employeeId), field: c.field, label: label(c.field), from: c.fromLabel, to: c.toLabel, effectiveOn: c.effectiveOn, reason: c.reason })),
+    invites: (invites as any[]).filter((i) => people.has(i.employeeId)).map((i) => ({ id: i.id, employee: people.get(i.employeeId), returnedAt: i.returnedAt })),
+    drafts: drafts.map((d) => ({ id: d.id, label: d.label, step: d.step, updatedAt: d.updatedAt })),
+  });
+  void accountId;
+});
+
+/* ------------------------------------------------ add-employee drafts (EMP-02) */
+
+const DRAFT_DAYS = 30;
+const draftRow = (d: any) => ({ id: d.id, step: d.step, label: d.label, data: d.data, updatedAt: d.updatedAt, expiresAt: d.expiresAt });
+
+peopleRouter.get('/orgs/:orgId/people/employee-drafts', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const rows = await peoplePrisma.employeeDraft.findMany({ where: { orgId, userId: req.auth!.userId, expiresAt: { gt: new Date() } }, orderBy: { updatedAt: 'desc' }, take: 20 });
+  res.json({ drafts: rows.map(draftRow) });
+});
+
+peopleRouter.get('/orgs/:orgId/people/employee-drafts/:id', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const d = await peoplePrisma.employeeDraft.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId, userId: req.auth!.userId, expiresAt: { gt: new Date() } } });
+  if (!d) return res.status(404).json({ error: 'No such draft.' });
+  res.json({ draft: draftRow(d) });
+});
+
+/** Save the wizard as it stands; only its maker sees it. Statutory numbers are never kept in a draft. */
+peopleRouter.put('/orgs/:orgId/people/employee-drafts/:id?', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const raw = req.body?.data && typeof req.body.data === 'object' && !Array.isArray(req.body.data) ? { ...req.body.data } : null;
+  if (!raw) return res.status(400).json({ error: 'Nothing to save.' });
+  for (const k of ['pan', 'aadhaar', 'aadhaarNumber', 'passportNumber', 'bankAccount', 'uan', 'esic', 'devicePassword']) delete raw[k];
+  if (JSON.stringify(raw).length > 50_000) return res.status(400).json({ error: 'That draft is too large.' });
+  const step = Math.min(4, Math.max(1, Number(req.body?.step || 1)));
+  const label = String(raw.name || [raw.firstName, raw.lastName].filter(Boolean).join(' ') || '').trim().slice(0, 120) || null;
+  const expiresAt = new Date(Date.now() + DRAFT_DAYS * 86_400_000);
+  const id = req.params.id ? String(req.params.id) : null;
+  if (id) {
+    const mine = await peoplePrisma.employeeDraft.findFirst({ where: { id, orgId, userId: req.auth!.userId } });
+    if (!mine) return res.status(404).json({ error: 'No such draft.' });
+    const d = await peoplePrisma.employeeDraft.update({ where: { id }, data: { data: raw, step, label, expiresAt } });
+    return res.json({ draft: draftRow(d) });
+  }
+  const count = await peoplePrisma.employeeDraft.count({ where: { orgId, userId: req.auth!.userId } });
+  if (count >= 20) return res.status(409).json({ error: 'You have 20 drafts already. Finish or delete one first.' });
+  const d = await peoplePrisma.employeeDraft.create({ data: { accountId, orgId, userId: req.auth!.userId, data: raw, step, label, expiresAt } });
+  res.status(201).json({ draft: draftRow(d) });
+});
+
+peopleRouter.delete('/orgs/:orgId/people/employee-drafts/:id', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const r = await peoplePrisma.employeeDraft.deleteMany({ where: { id: String(req.params.id), orgId: req.tenant!.orgId, userId: req.auth!.userId } });
+  if (!r.count) return res.status(404).json({ error: 'No such draft.' });
+  res.json({ ok: true });
+});
+
+/* ------------------------------------------------ server export (EMP-01) */
+
+/*
+ * The fields an export may carry: work details and the mobile number (an
+ * owner's contact list). Statutory numbers, the date of birth, gender, the
+ * personal email, the home address and anything secret are never in this
+ * list, so no choice of columns can reach them. The first eleven are the
+ * default, as before.
+ */
+const STATUS_WORDS: Record<string, string> = { ACTIVE: 'Active', ON_NOTICE: 'On notice', SUSPENDED: 'Suspended', LEFT: 'Left' };
+const EXPORT_COLUMNS: Array<[string, string, (e: any) => unknown]> = [
+  ['Employee ID', 'code', (e) => e.code], ['Name', 'name', (e) => e.name], ['Preferred name', 'preferredName', (e) => e.preferredName],
+  ['Work email', 'workEmail', (e) => e.workEmail || e.email], ['Phone', 'phone', (e) => e.phone], ['Department', 'department', (e) => e.department],
+  ['Designation', 'designation', (e) => e.designation], ['Manager', 'reportingManagerName', (e) => e.reportingManagerName], ['Location', 'location', (e) => e.areaName || e.workLocation],
+  ['Joining date', 'dateOfJoining', (e) => e.dateOfJoining], ['Status', 'status', (e) => (e.status === 'ACTIVE' && e.dateOfJoining && String(e.dateOfJoining).slice(0, 10) > todayIst() ? 'Joining' : STATUS_WORDS[e.status] || e.status)],
+  ['Work phone', 'workPhone', (e) => e.workPhone], ['Secondary manager', 'dottedManagerName', (e) => e.dottedManagerName], ['Employment type', 'employeeType', (e) => e.employeeTypeName],
+  ['Work mode', 'workType', (e) => e.workTypeName], ['Hours', 'hours', (e) => (e.hours === 'PART_TIME' ? 'Part-time' : 'Full-time')], ['Work site', 'establishment', (e) => e.establishment], ['Business unit', 'businessUnit', (e) => e.businessUnitName],
+  ['Team', 'team', (e) => e.teamName], ['Position', 'position', (e) => e.seatName], ['Grade', 'grade', (e) => e.gradeName], ['Cost centre', 'costCentre', (e) => e.costCenterName],
+  ['Probation ends', 'probationEndDate', (e) => e.probationEndDate], ['Contract ends', 'contractEndDate', (e) => e.contractEndDate], ['Tags', 'tags', (e) => (e.tags || []).map((t: any) => t.name).join('; ')],
+  ['Branch', 'branch', (e) => e.branchName],
+];
+const DEFAULT_EXPORT = EXPORT_COLUMNS.slice(0, 11).map(([, k]) => k);
+/* A cell a spreadsheet would run as a formula is quoted; a plain number such as +91 98450 12345 is left as it is, so the file imports again. */
+const PLAIN_NUMBER = /^[+-]?\d[\d\s().-]*$/;
+const csvSafe = (v: unknown) => {
+  let s = String(v ?? '');
+  if (/^[=+\-@\t\r]/.test(s) && !PLAIN_NUMBER.test(s)) s = `'${s}`;
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+/**
+ * The directory as CSV, with the filters on screen (People design v1 EMP-01:
+ * "Import/export separately permission-checked and audited"). Needs the
+ * Employees EXPORT grant; team scope applies; no statutory or secret columns;
+ * an audit row records who exported how many.
+ */
+/** The columns an export can carry, and which are chosen unless the person picks others. */
+peopleRouter.get('/orgs/:orgId/people/employees/export/columns', can(PermissionAction.EXPORT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json({ columns: EXPORT_COLUMNS.map(([label, key]) => ({ key, label, default: DEFAULT_EXPORT.includes(key) })) });
+});
+
+peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EXPORT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const q = String(req.query.q || '').trim();
+  const pick = (k: string) => String(req.query[k] || '').trim() || undefined;
+  const scope = await teamScope(req);
+  const where: any = {
+    accountId, orgId, ...scopeWhere(scope),
+    ...statusWhere(pick('status')),
+    /* "none": people in no department / no branch (the Organization overview's counts open these). */
+    ...(pick('departmentId') ? { departmentId: pick('departmentId') === 'none' ? null : pick('departmentId') } : {}),
+    ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
+    ...(pick('employeeTypeId') ? { employeeTypeId: pick('employeeTypeId') } : {}),
+    ...(pick('managerId') ? { reportingManagerId: pick('managerId') === 'none' ? null : pick('managerId') } : {}),
+    ...(pick('areaId') ? { areaId: pick('areaId') } : {}),
+    ...(pick('workTypeId') ? { workTypeId: pick('workTypeId') } : {}),
+    /* On probation until confirmed in writing, whether or not the date has passed (a passed one is the more urgent). */
+    ...(pick('probation') === 'on' ? { probationEndDate: { not: null }, confirmedOn: null } : {}),
+    ...(pick('contract') === 'ending' ? { contractEndDate: { not: null, lte: addDaysIso(todayIst(), 30) } } : {}),
+    ...(pick('establishmentId') ? { establishmentId: pick('establishmentId') } : {}),
+    ...(pick('branchId') ? { branchId: pick('branchId') === 'none' ? null : pick('branchId') } : {}),
+    ...(pick('businessUnitId') ? { businessUnitId: pick('businessUnitId') } : {}),
+    ...(pick('gradeId') ? { gradeId: pick('gradeId') } : {}),
+    ...(pick('costCenterId') ? { costCenterId: pick('costCenterId') } : {}),
+    ...(pick('tagId') ? { tags: { some: { tagId: pick('tagId') } } } : {}),
+    ...(pick('joinedFrom') || pick('joinedTo') ? { dateOfJoining: { ...(pick('joinedFrom') ? { gte: pick('joinedFrom') } : {}), ...(pick('joinedTo') ? { lte: pick('joinedTo') } : {}) } } : {}),
+    ...(pick('leftFrom') || pick('leftTo') ? { dateOfLeaving: { not: null, ...(pick('leftFrom') ? { gte: pick('leftFrom') } : {}), ...(pick('leftTo') ? { lte: pick('leftTo') } : {}) } } : {}),
+    ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { code: { contains: q, mode: 'insensitive' } }, { email: { contains: q, mode: 'insensitive' } }, { workEmail: { contains: q, mode: 'insensitive' } }, { phone: { contains: q } }, { designation: { contains: q, mode: 'insensitive' } }, { department: { contains: q, mode: 'insensitive' } }] } : {}),
+  };
+  if (req.query.team === 'mine') {
+    const mine = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
+    where.AND = [{ OR: mine ? [{ reportingManagerId: mine.id }, { dottedManagerId: mine.id }] : [{ id: '__none__' }] }];
+  }
+  addHours(where, pick('hours'));
+  /* No manager, as the Organization overview counts it: the top of the tree (someone others report to) is not listed. */
+  if (pick('managerId') === 'none') (where.AND ||= []).push({ id: { notIn: (await peoplePrisma.employee.findMany({ where: { orgId, status: { not: 'LEFT' }, reportingManagerId: { not: null } }, select: { reportingManagerId: true }, distinct: ['reportingManagerId'] })).map((r) => r.reportingManagerId!) } });
+  /* Working now: here and already joined; the count strip's first tile opens exactly these (W14). */
+  if (pick('working') === 'now') (where.AND ||= []).push({ status: { not: 'LEFT' } }, { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: todayIst() } }] });
+  /* The rows ticked on screen: still inside the caller's scope and this company, whatever ids are sent. */
+  const ids = String(req.query.ids || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 1000);
+  if (ids.length) (where.AND ||= []).push({ id: { in: ids } });
+  /* Only columns from the catalogue, in its order; none asked for means the default set. */
+  const asked = String(req.query.columns || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const chosen = EXPORT_COLUMNS.filter(([, k]) => (asked.length ? asked.includes(k) : DEFAULT_EXPORT.includes(k)));
+  if (!chosen.length) return res.status(400).json({ error: 'Choose at least one column.' });
+  const rows = await peoplePrisma.employee.findMany({ where, include: { tags: { include: { tag: true } } }, orderBy: directoryOrder(String(req.query.sort || ''), String(req.query.dir || '')), take: 10_000 });
+  const [types, workTypes] = await Promise.all([
+    peoplePrisma.employeeType.findMany({ where: { orgId }, select: { id: true, name: true } }),
+    peoplePrisma.workType.findMany({ where: { orgId }, select: { id: true, name: true } }),
+  ]);
+  const typeName = new Map(types.map((t) => [t.id, t.name]));
+  const workTypeName = new Map(workTypes.map((t) => [t.id, t.name]));
+  const shaped = (await withMeta(orgId, rows)).map((e: any) => ({ ...e, employeeTypeName: typeName.get(e.employeeTypeId) || null, workTypeName: workTypeName.get(e.workTypeId) || null }));
+  const lines = [chosen.map(([h]) => h), ...shaped.map((e: any) => chosen.map(([, , f]) => f(e)))];
+  await recordAudit(req, { entity: 'PEOPLE_EMPLOYEES', entityId: 'export', action: 'EXPORT', message: `Exported ${rows.length} ${rows.length === 1 ? 'employee' : 'employees'}`, metadata: { count: rows.length, columns: chosen.map(([, k]) => k), filters: Object.keys(req.query).filter((k) => k !== 'q' && k !== 'ids'), searched: Boolean(req.query.q), ticked: String(req.query.ids || '').split(',').filter(Boolean).length } });
+  res.set('Content-Type', 'text/csv; charset=utf-8').set('Content-Disposition', `attachment; filename="employees-${new Date().toISOString().slice(0, 10)}.csv"`).set('Cache-Control', 'no-store');
+  res.send(`\ufeff${lines.map((l) => l.map(csvSafe).join(',')).join('\r\n')}`);
 });
 
 /** Work permits and certificates on file, with how long they have left (LIFE-08): shown on the profile, not enforced. */
@@ -468,6 +900,16 @@ async function permitsOf(orgId: string, employeeId: string) {
   const docs = await peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId, kind: { in: [...PERMIT_KINDS] }, expiresOn: { not: null } }, select: { id: true, kind: true, title: true, expiresOn: true, restrictsWork: true }, orderBy: { expiresOn: 'asc' } });
   return docs.map((d) => ({ ...d, daysLeft: daysUntil(d.expiresOn!, now), expired: daysUntil(d.expiresOn!, now) < 0 }));
 }
+
+peopleRouter.get('/orgs/:orgId/people/employees/link-candidates', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const members = await platformPrisma.userOrgMembership.findMany({ where: { accountId, orgId }, select: { userId: true } });
+  const taken = new Set((await peoplePrisma.employee.findMany({ where: { orgId, userId: { not: null } }, select: { userId: true } })).map((e) => e.userId));
+  const ids = members.map((m) => m.userId).filter((id) => !taken.has(id));
+  const users = ids.length ? await platformPrisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true, email: true }, orderBy: { email: 'asc' } }) : [];
+  res.json({ users: users.map((u) => ({ id: u.id, name: u.fullName || u.email, email: u.email })) });
+});
 
 peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
@@ -486,16 +928,25 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW,
   const viewed = asOfDate ? (await asOf(orgId, [row as any], asOfDate))[0] : row;
   if (!viewed) return res.status(404).json({ error: `Not here on ${asOfDate}.` });
   const scheduledChanges = await pendingChangesOf(orgId, row.id);
-  const [shaped] = await withMeta(orgId, [viewed]);
-  res.json({ scheduledChanges, permits: await permitsOf(orgId, row.id), employee: { ...shaped, directReports: reports } });
+  const [full] = await withMeta(orgId, [viewed]);
+  const viewScope = await teamScope(req);
+  /* The manager's name is shown either way; whether their record opens depends on the viewer's scope (E20). */
+  const shaped = { ...((await seesPersonal(req)) ? full : withoutPersonal(full, req.auth!.userId)), managerOpens: !row.reportingManagerId || inScope(viewScope, row.reportingManagerId), ownRecordLocked: !viewScope.all && Boolean(row.userId) && row.userId === req.auth!.userId };
+  const linked = row.userId ? await platformPrisma.user.findFirst({ where: { id: row.userId }, select: { fullName: true, email: true } }) : null;
+  res.json({ scheduledChanges, permits: await permitsOf(orgId, row.id), employee: { ...shaped, directReports: reports, linkedUser: linked ? { name: linked.fullName || linked.email, email: linked.email } : null } });
 });
 
-async function setTags(accountId: string, orgId: string, employeeId: string, tagIds: string[]) {
-  const valid = await peoplePrisma.employeeTag.findMany({ where: { orgId, id: { in: tagIds } }, select: { id: true } });
-  await peoplePrisma.$transaction([
-    peoplePrisma.employeeTagLink.deleteMany({ where: { employeeId } }),
-    ...valid.map((t) => peoplePrisma.employeeTagLink.create({ data: { accountId, orgId, employeeId, tagId: t.id } })),
-  ]);
+/** Replace a person's tags; a real change goes on their change log by tag name (Workforce Activity). */
+async function setTags(accountId: string, orgId: string, employeeId: string, tagIds: string[], actor?: Actor) {
+  const valid = await peoplePrisma.employeeTag.findMany({ where: { orgId, id: { in: tagIds } }, select: { id: true, name: true } });
+  const before = await peoplePrisma.employeeTagLink.findMany({ where: { orgId, employeeId }, select: { tag: { select: { name: true } } } });
+  const was = before.map((l) => l.tag.name).sort().join(', ');
+  const now = valid.map((t) => t.name).sort().join(', ');
+  await peoplePrisma.$transaction(async (tx) => {
+    await tx.employeeTagLink.deleteMany({ where: { employeeId } });
+    for (const t of valid) await tx.employeeTagLink.create({ data: { accountId, orgId, employeeId, tagId: t.id } });
+    if (actor && was !== now) await writeChangeLog(tx as any, actor, { kind: 'Employee', id: employeeId, employeeId }, [{ field: 'tags', before: was || null, after: now || null, redacted: false }]);
+  });
 }
 
 /** People already here who share an email, phone or employee ID with what is being saved (CORE-02). */
@@ -505,19 +956,20 @@ async function findDuplicates(orgId: string, exceptId: string | null, b: { email
   const code = String(b.code || '').trim();
   if (!emails.length && !phone && !code) return [];
   const rows = await peoplePrisma.employee.findMany({
-    where: { orgId, status: { not: 'LEFT' }, ...(exceptId ? { id: { not: exceptId } } : {}), OR: [
+    /* Someone who left counts too: adding them again as new loses their history; the answer says to rehire them (W13). */
+    where: { orgId, ...(exceptId ? { id: { not: exceptId } } : {}), OR: [
       ...(emails.length ? [{ email: { in: emails, mode: 'insensitive' as const } }, { personalEmail: { in: emails, mode: 'insensitive' as const } }, { workEmail: { in: emails, mode: 'insensitive' as const } }] : []),
       /* Phones are stored as typed ("+91 98765 11111"); the last four digits narrow the query and the digits decide. */
       ...(phone ? [{ phone: { contains: phone.slice(-4) } }] : []),
       ...(code ? [{ code }] : []),
     ] },
-    select: { id: true, name: true, code: true, email: true, personalEmail: true, workEmail: true, phone: true }, take: 20,
+    select: { id: true, name: true, code: true, email: true, personalEmail: true, workEmail: true, phone: true, status: true }, take: 20,
   });
   const digits = (v: string | null) => String(v || '').replace(/\D/g, '');
-  const out: Array<{ id: string; name: string; code: string | null; field: string }> = [];
+  const out: Array<{ id: string; name: string; code: string | null; field: string; left?: boolean }> = [];
   for (const r of rows) {
     const field = code && r.code === code ? 'employee ID' : phone && digits(r.phone).endsWith(phone) ? 'phone' : emails.some((e) => [r.email, r.personalEmail, r.workEmail].map((x) => String(x || '').toLowerCase()).includes(e)) ? 'email' : null;
-    if (field) out.push({ id: r.id, name: r.name, code: r.code, field });
+    if (field) out.push({ id: r.id, name: r.name, code: r.code, field, ...(r.status === 'LEFT' ? { left: true } : {}) });
   }
   return out.slice(0, 5);
 }
@@ -525,7 +977,8 @@ async function findDuplicates(orgId: string, exceptId: string | null, b: { email
 /** A seat holds one person (ORG-04): taken by someone else, it is refused in words. */
 async function seatFree(orgId: string, seatId: string | null | undefined, exceptId: string | null) {
   if (!seatId) return null;
-  const holder = await peoplePrisma.employee.findFirst({ where: { orgId, seatId, ...(exceptId ? { id: { not: exceptId } } : {}) }, select: { name: true, code: true } });
+  /* Someone who left no longer holds it (W12). */
+  const holder = await peoplePrisma.employee.findFirst({ where: { orgId, seatId, status: { not: 'LEFT' }, ...(exceptId ? { id: { not: exceptId } } : {}) }, select: { name: true, code: true } });
   return holder ? `${holder.name}${holder.code ? ` (${holder.code})` : ''} already holds that seat.` : null;
 }
 
@@ -546,6 +999,11 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
   if (duplicates.length && !duplicateReason) return res.status(409).json({ error: `${duplicates[0].name} already has this ${duplicates[0].field}. Open their record, or say why this is a different person.`, code: 'DUPLICATE', duplicates });
   try {
     const structure = await resolveStructure(orgId, b);
+    /* A company with one open branch: everyone hired works from it, so Attendance gives them its holidays without anyone setting it. */
+    if (!structure.branchId) {
+      const open = await platformPrisma.branch.findMany({ where: { accountId, orgId, isActive: true }, select: { id: true }, take: 2 });
+      if (open.length === 1) structure.branchId = open[0].id;
+    }
     const taken = await seatFree(orgId, blank(b.seatId), null);
     if (taken) return res.status(409).json({ error: taken });
     await checkManager(orgId, null, blank(b.reportingManagerId));
@@ -560,11 +1018,14 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
       status: b.status || 'ACTIVE',
       createdByUserId: req.auth!.userId,
     } as any);
-    if (b.tagIds?.length) await setTags(accountId, orgId, row.id, b.tagIds);
+    if (b.tagIds?.length) await setTags(accountId, orgId, row.id, b.tagIds, actorOf(req, 'FORM'));
     await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
     /* On every reader straight away, as ClorTime does: enrolment can start the same minute. */
     await pushEmployeeToReaders(orgId, row, req.auth!.userId);
-    res.status(201).json({ employee: (await withMeta(orgId, [row]))[0] });
+    /* Created from a wizard draft (EMP-02): the draft has done its job. */
+    if (typeof req.body?.draftId === 'string') await peoplePrisma.employeeDraft.deleteMany({ where: { id: req.body.draftId, orgId, userId: req.auth!.userId } });
+    const fresh = (await peoplePrisma.employee.findUnique({ where: { id: row.id }, include: { tags: { include: { tag: true } } } })) || row;
+    res.status(201).json({ employee: (await withMeta(orgId, [fresh]))[0] });
     emitWebhook(orgId, 'employee.created', employeeEvent(row));
     void peopleEvent(accountId, orgId, 'people.joined', row, req.auth!.userId);
   } catch (e) {
@@ -576,15 +1037,42 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!existing) return res.status(404).json({ error: 'No such employee.' });
+  /* A role limited to its own team edits only its team; anyone else reads as absent. */
+  const editScope = await teamScope(req);
+  if (!existing || !inScope(editScope, existing.id)) return res.status(404).json({ error: 'No such employee.' });
+  /* A team lead's own record changes the way anyone's does, through the employee app and HR (Workforce audit E10). */
+  if (!editScope.all && existing.userId && existing.userId === req.auth!.userId) return res.status(403).json({ error: 'Change your own details in the employee app; HR approves what needs approving.', code: 'OWN_RECORD' });
   const parsed = employeeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid employee.' });
   const b = parsed.data;
+  /*
+   * Someone else saved since this editor loaded the record: never overwrite
+   * silently (People design spec v1 §8). The current record comes back so
+   * the screen can show what changed and let them apply theirs again.
+   */
+  const ifMatch = String(req.headers['if-match'] || '').replace(/[^0-9]/g, '');
+  const expected = b.version ?? (ifMatch ? Number(ifMatch) : undefined);
+  delete (b as any).version;
+  /* Someone who has left comes back through Rehire, which opens a new stint; an edit cannot quietly make them active (WF-14). */
+  if (existing.status === 'LEFT' && b.status && b.status !== 'LEFT') {
+    return res.status(409).json({ error: `${existing.name} has left. Use Rehire to bring them back: it starts a new period of employment and keeps the earlier one.`, code: 'USE_REHIRE' });
+  }
+  /* Leaving has its own step (last day, reason, the period closed, Payroll told); an edit cannot put someone on notice or mark them left (Workforce final audit W7). */
+  if (b.status && b.status !== existing.status && (b.status === 'LEFT' || b.status === 'ON_NOTICE')) {
+    return res.status(409).json({ error: `Use Mark as left on ${existing.name}'s record: it records the last day and the reason.`, code: 'USE_LEAVING' });
+  }
+  /* Someone on notice leaves on their day; suspending or reactivating them would break that (W2). */
+  if (existing.status === 'ON_NOTICE' && b.status && b.status !== 'ON_NOTICE') {
+    return res.status(409).json({ error: `${existing.name} is on notice. Change the leaving details, or withdraw the leaving, instead.`, code: 'ON_NOTICE' });
+  }
+  if (expected !== undefined && expected !== existing.version) {
+    return res.status(409).json({ error: 'Someone else changed this record after you opened it. Reload to see their changes, then make yours again.', code: 'STALE', employee: (await withMeta(orgId, [existing]))[0] });
+  }
   const joined = b.dateOfJoining !== undefined ? blank(b.dateOfJoining) : existing.dateOfJoining;
   const left = b.dateOfLeaving !== undefined ? blank(b.dateOfLeaving) : existing.dateOfLeaving;
   if (joined && left && left < joined) return res.status(400).json({ error: 'Somebody cannot leave before they joined.' });
   try {
-    const structure = await resolveStructure(orgId, b);
+    const structure = await resolveStructure(orgId, b, existing);
     const taken = await seatFree(orgId, blank(b.seatId), existing.id);
     if (taken) return res.status(409).json({ error: taken });
     if (b.reportingManagerId !== undefined) await checkManager(orgId, existing.id, blank(b.reportingManagerId));
@@ -601,6 +1089,12 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
      * change to a job field becomes a request instead of a write; the rest of
      * the form still saves. The record says "waiting for approval".
      */
+    /* A field with a dated change waiting would be overwritten on that day without anyone noticing: changing it now is refused until that one is withdrawn (Workforce final audit W11). */
+    if (!(effectiveFrom && effectiveFrom > todayIst())) {
+      const nowFields = [...SCHEDULABLE_FIELDS].filter((f) => f !== 'status' && (b as any)[f] !== undefined && ((existing as any)[f] ?? null) !== ((structure as any)[f] !== undefined ? (structure as any)[f] : blank((b as any)[f])));
+      const waiting = nowFields.length ? await peoplePrisma.scheduledChange.findFirst({ where: { orgId, employeeId: existing.id, status: 'PENDING', field: { in: nowFields } }, orderBy: { effectiveOn: 'asc' } }) : null;
+      if (waiting) return res.status(409).json({ error: `A change to ${(SCHEDULED_WORDS[waiting.field] || waiting.field).toLowerCase()} is already set for ${inWords(waiting.effectiveOn)}. Withdraw it under Upcoming changes first, or date this one.`, code: 'CHANGE_WAITING' });
+    }
     const jobRule = await activeRule(orgId, 'JOB_CHANGE');
     let request: Awaited<ReturnType<typeof submitRequest>>['request'] | null = null;
     if (jobRule) {
@@ -617,9 +1111,12 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
       if (fields.jobPositionId) delete (structure as any).designation;
       if (Object.keys(fields).length) {
         const labels = Object.keys(fields).map((f) => f.replace(/Id$/, '')).join(', ');
+        /* TRACE-05: documents on this person's file the change rests on (an appraisal, an offer); their versions are frozen at the decision. */
+        const askedIds = (Array.isArray(req.body?.evidenceDocumentIds) ? req.body.evidenceDocumentIds : []).map(String).slice(0, 20);
+        const evidence = askedIds.length ? (await peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId: existing.id, id: { in: askedIds } }, select: { id: true, title: true } })).map((d) => ({ documentId: d.id, title: d.title })) : [];
         const r = await submitRequest(actorOf(req, 'FORM', typeof req.body?.changeNote === 'string' ? req.body.changeNote : null), {
           requestType: 'JOB_CHANGE', subjectEmployeeId: existing.id, title: `${existing.name}: ${labels} change`,
-          payload: { employeeId: existing.id, fields, effectiveOn: effectiveFrom, reason: typeof req.body?.changeNote === 'string' ? req.body.changeNote : null },
+          payload: { employeeId: existing.id, fields, effectiveOn: effectiveFrom, reason: typeof req.body?.changeNote === 'string' ? req.body.changeNote : null, ...(evidence.length ? { evidence } : {}) },
           idempotencyKey: typeof req.headers['idempotency-key'] === 'string' ? req.headers['idempotency-key'] : null,
         });
         request = r.request;
@@ -648,19 +1145,30 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
         ...employeeData(b),
         ...structure,
       } as any,
-      { effectiveDate: typeof req.body?.effectiveFrom === 'string' ? req.body.effectiveFrom : null },
+      /* An approval applied in this same save has already moved the version on; then the earlier check stands. */
+      { effectiveDate: typeof req.body?.effectiveFrom === 'string' ? req.body.effectiveFrom : null, expectedVersion: request ? undefined : expected },
     );
-    if (b.tagIds) await setTags(accountId, orgId, row.id, b.tagIds);
+    if (b.tagIds) await setTags(accountId, orgId, row.id, b.tagIds, actorOf(req, 'FORM'));
+    /* A corrected joining date moves the dates service counts from, while the first stint is still open (W6). */
+    if (row.dateOfJoining !== existing.dateOfJoining) await joiningCorrected({ accountId, orgId, userId: req.auth!.userId }, row, row.dateOfJoining ? String(row.dateOfJoining).slice(0, 10) : null);
     /* Leaving or coming back starts that checklist; CLOR takes them off the readers itself, so it ticks that item. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'LEAVING', row.dateOfLeaving, { done: [READER_ACCESS_ITEM] });
     else if (row.status !== 'LEFT' && existing.status === 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
     /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
+    /* Suspended means not at work: off the doors while suspended, back on when reactivated (W9). */
+    else if (row.status === 'SUSPENDED' && existing.status !== 'SUSPENDED') await revokeFromReaders(orgId, existing, req.auth!.userId);
+    else if (row.status === 'ACTIVE' && existing.status === 'SUSPENDED') await pushEmployeeToReaders(orgId, row, req.auth!.userId);
     else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
-    res.json({ employee: (await withMeta(orgId, [row]))[0], scheduled, request: request ? await shapeRequest(request) : null });
+    /* Professional Tax follows the move only when the person asked for it on the transfer (the preview's ACTION line). */
+    const ptState = req.body?.alsoPtState === true ? await followPtState(req, existing, row, typeof req.body?.establishmentId === 'string' ? req.body.establishmentId : null, Boolean(request) || scheduled.length > 0, effectiveFrom) : null;
+    /* With its tags, as GET returns it: a save must not blank the tag line. */
+    const fresh = (await peoplePrisma.employee.findUnique({ where: { id: row.id }, include: { tags: { include: { tag: true } } } })) || row;
+    res.json({ employee: (await withMeta(orgId, [fresh]))[0], scheduled, request: request ? await shapeRequest(request) : null, ptState });
     emitWebhook(orgId, row.status === 'LEFT' && existing.status !== 'LEFT' ? 'employee.left' : 'employee.updated', employeeEvent(row));
     if (row.status === 'LEFT' && existing.status !== 'LEFT') void peopleEvent(accountId, orgId, 'people.left', row, req.auth!.userId);
   } catch (e) {
+    if (e instanceof StaleEmployeeError) return res.status(409).json({ error: 'Someone else changed this record after you opened it. Reload to see their changes, then make yours again.', code: 'STALE', employee: (await withMeta(orgId, [e.current]))[0] });
     return sendError(res, e);
   }
 });
@@ -674,7 +1182,50 @@ peopleRouter.get('/orgs/:orgId/people/data-health', can(PermissionAction.VIEW, E
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const payroll = !(await authorize(req, PAYROLL_MODULE, PermissionAction.VIEW as any, PAYROLL_RESOURCE.profile));
-  res.json(await dataHealth(accountId, orgId, { payroll }));
+  const scope = await teamScope(req);
+  res.json(await dataHealth(accountId, orgId, { payroll, readable: await readableClassifications(req), ...(scope.all ? {} : { onlyIds: scope.ids }) }));
+});
+
+/** One person's readiness (the same checks, filtered to them): shown on their record. */
+peopleRouter.get('/orgs/:orgId/people/employees/:id/readiness', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  const apps = await impactApps(req);
+  res.json({ apps: { payroll: apps.payroll, attendance: apps.attendance, seePayroll: apps.seePayroll }, ...(await readinessOf(accountId, orgId, employee.id, { payroll: apps.seePayroll, readable: await readableClassifications(req) })) });
+});
+
+/** Snooze a Health check item with a reason and a date (HLTH-03); it returns on its date. */
+peopleRouter.post('/orgs/:orgId/people/data-health/:checkId/snooze', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
+  try {
+    res.status(201).json({ snooze: await snoozeCheck(actorOf(req, 'FORM'), String(req.params.checkId), req.body || {}) });
+  } catch (e) {
+    if (e instanceof HeadcountError) return res.status(e.status).json({ error: e.message });
+    return sendError(res, e);
+  }
+});
+
+peopleRouter.delete('/orgs/:orgId/people/data-health/:checkId/snooze', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
+  res.json(await unsnoozeCheck(actorOf(req, 'FORM'), String(req.params.checkId)));
+});
+
+peopleRouter.get('/orgs/:orgId/people/data-health/snoozes', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json({ snoozes: await snoozeHistory(req.tenant!.orgId, String(req.query.checkId || '') || undefined) });
+});
+
+/** Headcount and movements (HLTH-04): joiners, leavers, transfers by month and establishment; headcount as of any day. */
+peopleRouter.get('/orgs/:orgId/people/headcount', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
+  try {
+    res.json(await headcountOf(req.tenant!.orgId, { asOf: String(req.query.asOf || ''), from: String(req.query.from || ''), to: String(req.query.to || '') }));
+  } catch (e) {
+    if (e instanceof HeadcountError) return res.status(e.status).json({ error: e.message });
+    return sendError(res, e);
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -686,7 +1237,8 @@ const kindParam = (v: unknown): ChecklistKind | null => (KINDS.includes(String(v
 peopleRouter.get('/orgs/:orgId/people/employees/:id/checklist', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  void accountId;
+  const employee = await scopedEmployee(req, String(req.params.id), { id: true });
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
   res.json(await checklistOf(orgId, employee.id));
 });
@@ -697,7 +1249,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/checklist/:kind', can(Permi
   const { accountId, orgId } = req.tenant!;
   const kind = kindParam(req.params.kind);
   if (!kind) return res.status(404).json({ error: 'Checklists are JOINING or LEAVING.' });
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  const employee = await scopedEmployee(req, String(req.params.id));
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
   const started = await startChecklist({ accountId, orgId, userId: req.auth!.userId }, employee, kind, kind === 'JOINING' ? employee.dateOfJoining : employee.dateOfLeaving);
   if (!started) return res.status(409).json({ error: 'That checklist is already under way.' });
@@ -719,7 +1271,8 @@ peopleRouter.patch('/orgs/:orgId/people/checklist-tasks/:id', async (req, res) =
   const task = await peoplePrisma.checklistTask.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!task) return res.status(404).json({ error: 'No such task.' });
   const own = task.ownerUserId === req.auth!.userId;
-  const hr = !(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, EMPLOYEES));
+  /* HR may act on anyone's task inside their scope; a team lead's grant reaches their own team only. */
+  const hr = !(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, EMPLOYEES)) && inScope(await teamScope(req), task.employeeId);
   if (!own && !hr) return res.status(403).json({ error: 'This task is on somebody else\'s name.' });
   const { done, note, ownerUserId } = parsed.data;
   if (ownerUserId !== undefined && !hr) return res.status(403).json({ error: 'Only HR gives a task to someone else.' });
@@ -743,7 +1296,8 @@ peopleRouter.patch('/orgs/:orgId/people/checklist-tasks/:id', async (req, res) =
 /** Open checklist items across the company, overdue first. */
 peopleRouter.get('/orgs/:orgId/people/checklist-tasks', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  res.json({ tasks: await openTasks(req.tenant!.orgId) });
+  const scope = await teamScope(req);
+  res.json({ tasks: (await openTasks(req.tenant!.orgId)).filter((t) => inScope(scope, t.employee!.id)) });
 });
 
 peopleRouter.get('/orgs/:orgId/people/checklist-templates', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
@@ -789,7 +1343,7 @@ peopleRouter.get('/orgs/:orgId/people/compliance', can(PermissionAction.VIEW, EM
 });
 
 peopleRouter.post('/orgs/:orgId/people/compliance', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
-  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
     const task = await addCustom({ accountId, orgId, userId: req.auth!.userId }, req.body);
@@ -800,7 +1354,7 @@ peopleRouter.post('/orgs/:orgId/people/compliance', can(PermissionAction.EDIT, E
 });
 
 peopleRouter.patch('/orgs/:orgId/people/compliance/:id', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
-  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
     await updateTask({ accountId, orgId, userId: req.auth!.userId }, String(req.params.id), req.body || {});
@@ -896,35 +1450,203 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id/custom-fields', can(Permissi
   }
 });
 
+/* --------------------------------------------- saved views and bulk update (CORE-01) */
+
+peopleRouter.get('/orgs/:orgId/people/saved-views', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  try {
+    res.json({ views: await viewsFor(req.tenant!.orgId, req.auth!.userId, String(req.query.screen || '')) });
+  } catch (e: any) {
+    res.status(e?.status || 400).json({ error: String(e?.message || 'Could not load.') });
+  }
+});
+
+peopleRouter.post('/orgs/:orgId/people/saved-views', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  try {
+    res.status(201).json({ view: await saveView({ accountId: req.tenant!.accountId, orgId: req.tenant!.orgId, userId: req.auth!.userId }, req.body || {}) });
+  } catch (e: any) {
+    res.status(e?.status || 400).json({ error: String(e?.message || 'Not saved.') });
+  }
+});
+
+peopleRouter.delete('/orgs/:orgId/people/saved-views/:id', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  try {
+    await deleteView(req.tenant!.orgId, req.auth!.userId, String(req.params.id));
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(e?.status || 400).json({ error: String(e?.message || 'Not deleted.') });
+  }
+});
+
+/** Change many people at once (CORE-01): one write path per person, one correlation id for the batch. */
+peopleRouter.post('/orgs/:orgId/people/employees/bulk', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  try {
+    const actor = { ...actorOf(req, 'BULK', null), correlationId: `bulk_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}` };
+    res.json(await bulkUpdate(actor, req.body || {}, await teamScope(req)));
+  } catch (e: any) {
+    if (e instanceof BulkError) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
+  }
+});
+
+/**
+ * Activity & Audit Trail for one employee (People design v1 EMP-09, Workforce WF-18/19):
+ * changes, approvals, documents and comments, newest first, redacted for this viewer.
+ * `before` pages back. Read-only: nothing here edits or deletes an event.
+ */
+/**
+ * The CLOR sign-in an employee uses, if any (WF-06 Link Portal User). Only a
+ * login that is a member of this company can be linked, and one login is one
+ * employee here. The link is an ordinary logged edit (userId is on the change
+ * log), so History and Activity show who linked whom and when.
+ */
+peopleRouter.put('/orgs/:orgId/people/employees/:id/user', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!existing || !inScope(await teamScope(req), existing.id)) return res.status(404).json({ error: 'No such employee.' });
+  const userId = req.body?.userId ? String(req.body.userId) : null;
+  if (userId) {
+    /* Linking your own login to a record makes its manager approvals and self-service yours: only an administrator may do that to themselves. */
+    if (userId === req.auth!.userId && !req.isAdmin) return res.status(403).json({ error: 'Ask an administrator to link your own sign-in.' });
+    const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
+    if (!member) return res.status(400).json({ error: 'That login is not a member of this company.' });
+    const other = await peoplePrisma.employee.findFirst({ where: { orgId, userId, id: { not: existing.id } }, select: { name: true } });
+    if (other) return res.status(409).json({ error: `That login is already linked to ${other.name}.` });
+  }
+  if ((existing.userId || null) === userId) return res.json({ employee: (await withMeta(orgId, [existing]))[0] });
+  const { row } = await updateEmployee(actorOf(req, 'FORM', userId ? 'Linked a sign-in' : 'Removed the sign-in link'), existing, { userId });
+  const user = userId ? await platformPrisma.user.findFirst({ where: { id: userId }, select: { fullName: true, email: true } }) : null;
+  res.json({ employee: { ...(await withMeta(orgId, [row]))[0], linkedUser: user ? { name: user.fullName || user.email, email: user.email } : null } });
+});
+
+peopleRouter.get('/orgs/:orgId/people/employees/:id/activity', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  const allows = async (permission: string) => {
+    const [m, sub, action] = permission.split('::');
+    return !(await authorize(req, m, action as PermissionActionType, sub));
+  };
+  const out = await activityOf({
+    orgId,
+    canStatutory: !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, STATUTORY)),
+    canNotes: !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, NOTES)),
+    canPersonal: await seesPersonal(req),
+    docClasses: await readableClassifications(req),
+    allows,
+  }, employee.id, { before: req.query.before ? new Date(String(req.query.before)) : null, limit: Number(req.query.limit || 50) });
+  res.set('Cache-Control', 'private, no-store').json(out);
+});
+
 /** The journey (CORE-06): every change in order, under its stint, each with a key for its Why. */
 peopleRouter.get('/orgs/:orgId/people/employees/:id/journey', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
-  res.json(await journeyOf(orgId, employee as any));
+  res.json(await journeyOf(orgId, employee as any, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId }));
 });
 
 /** Why (TRACE-01, 02): what changed, when, who asked, who approved, the rule version, the evidence, what it set off — or plain words for what is not known. */
 peopleRouter.get('/orgs/:orgId/people/employees/:id/why/:key', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, userId: true } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
-  const why = await whyOf(orgId, employee.id, String(req.params.key));
+  const why = await whyOf(orgId, employee.id, String(req.params.key), { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId });
   if (!why) return res.status(404).json({ error: 'No such change.' });
   res.json({ why });
 });
 
+/**
+ * TRACE-03: raise a correction or a question about a change, straight from
+ * its Why panel. The help desk request is pre-filled from the change and
+ * carries its key, so whoever answers opens the same panel.
+ */
+peopleRouter.post('/orgs/:orgId/people/employees/:id/why/:key/raise', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, name: true, userId: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  const key = String(req.params.key);
+  const why = await whyOf(orgId, employee.id, key, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId });
+  if (!why) return res.status(404).json({ error: 'No such change.' });
+  const kind = String(req.body?.kind || 'CORRECTION').toUpperCase() === 'QUESTION' ? 'QUESTION' : 'CORRECTION';
+  const what = (why.what as Array<{ field: string; before: string | null; after: string | null }>).map((w) => `${w.field}: ${w.before ?? 'blank'} to ${w.after ?? 'blank'}`).join('; ') || 'the change';
+  const when = why.when instanceof Date ? why.when.toISOString().slice(0, 10) : String(why.when || '').slice(0, 10);
+  const note = String(req.body?.note || '').trim().slice(0, 3000);
+  try {
+    const request = await raiseRequest({ accountId, orgId, userId: req.auth!.userId }, employee.id, {
+      category: String(req.body?.category || (kind === 'CORRECTION' ? 'DOCUMENTS' : 'OTHER')),
+      subject: `${kind === 'CORRECTION' ? 'Correction' : 'Question'}: ${what}`.slice(0, 200),
+      description: `${note ? `${note}\n\n` : ''}About the change on ${when}: ${what}.${why.request ? ` Request: ${why.request.title}.` : ''}`,
+      changeRef: key,
+    });
+    res.status(201).json({ request });
+  } catch (e: any) {
+    res.status(e?.status || 400).json({ error: String(e?.message || 'Not raised.') });
+  }
+});
+
+/** TRACE-04: a salary question, answered from Payroll's and Attendance's read interfaces; People never computes pay. */
+peopleRouter.get('/orgs/:orgId/people/employees/:id/salary-question', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 7);
+  res.json(await salaryQuestion(orgId, employee.id, month));
+});
+
 /** What else a change would affect (LIFE-04), before it is sent: pass the fields as they would be saved. */
+/**
+ * After a transfer to a work site in another state, set the payroll
+ * profile's Professional Tax state to match, when the move has taken effect
+ * and the caller may change payroll profiles. A move that waits (dated
+ * ahead, or for an approver) or a caller without that grant gets a task on
+ * the person's record for the day instead: nothing in Payroll changes early
+ * or behind someone's back.
+ */
+async function followPtState(req: any, before: { id: string; establishmentId: string | null }, after: { id: string; establishmentId: string | null }, asked: string | null, waits: boolean, effectiveFrom: string | null) {
+  const { accountId, orgId } = req.tenant!;
+  if (!asked || asked === before.establishmentId) return null;
+  const est = await peoplePrisma.establishment.findFirst({ where: { id: asked, orgId }, select: { state: true } });
+  if (!est?.state || !(await isFeatureEnabled(accountId, orgId, 'payroll'))) return null;
+  const profile = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: before.id }, select: { ptApplicable: true, professionalTaxState: true } });
+  if (!profile?.ptApplicable || profile.professionalTaxState === est.state) return null;
+  const mayEdit = !(await authorize(req, PAYROLL_MODULE, PermissionAction.EDIT as any, PAYROLL_RESOURCE.profile));
+  if (!waits && after.establishmentId === asked && mayEdit) {
+    await payrollPrisma.employeePayrollProfile.updateMany({ where: { orgId, employeeId: before.id }, data: { professionalTaxState: est.state } });
+    await recordAudit(req, { entity: 'PAYROLL_PROFILE', entityId: before.id, action: 'UPDATE', message: `Professional Tax state set to ${est.state} with a transfer`, metadata: { from: profile.professionalTaxState, to: est.state } });
+    return { applied: true, state: est.state };
+  }
+  const due = effectiveFrom && effectiveFrom > todayIst() ? effectiveFrom : todayIst();
+  await startChecklist({ accountId, orgId, userId: req.auth!.userId }, { id: before.id }, 'CHANGE', due, { items: [{ title: `Set Professional Tax state to ${est.state} in Payroll`, owner: 'PAYROLL', dueDays: 0, note: 'The work site moved to another state; Payroll deducts PT for the state on the payroll profile.' }] });
+  return { applied: false, task: true, state: est.state, due };
+}
+
+/* Which apps this company uses, and whether the caller may see and change payroll profiles: the preview says only what is true for them. */
+async function impactApps(req: any) {
+  const { accountId, orgId } = req.tenant!;
+  const [payroll, attendance] = await Promise.all([isFeatureEnabled(accountId, orgId, 'payroll'), isFeatureEnabled(accountId, orgId, 'attendance')]);
+  const seePayroll = payroll && !(await authorize(req, PAYROLL_MODULE, PermissionAction.VIEW as any, PAYROLL_RESOURCE.profile));
+  return { payroll, attendance, seePayroll };
+}
+
 peopleRouter.get('/orgs/:orgId/people/employees/:id/change-impact', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, establishmentId: true, departmentId: true, reportingManagerId: true } });
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, establishmentId: true, departmentId: true, reportingManagerId: true, areaId: true } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   const fields: Record<string, string | null> = {};
-  for (const k of ['establishmentId', 'departmentId', 'reportingManagerId']) if (req.query[k] !== undefined) fields[k] = String(req.query[k] || '') || null;
-  res.json({ impact: await changeImpact(orgId, employee, fields) });
+  for (const k of ['establishmentId', 'departmentId', 'reportingManagerId', 'areaId']) if (req.query[k] !== undefined) fields[k] = String(req.query[k] || '') || null;
+  const scope = await teamScope(req);
+  res.json({ impact: await changeImpact(orgId, employee, fields, await impactApps(req), { managerVisible: !fields.reportingManagerId || inScope(scope, fields.reportingManagerId) }) });
 });
 
 /**
@@ -940,6 +1662,9 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/probation', can(PermissionAc
 
 peopleRouter.post('/orgs/:orgId/people/employees/:id/probation/review', can(PermissionAction.EDIT, LIFECYCLE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
+  const subject = await scopedEmployee(req, String(req.params.id), { id: true, userId: true });
+  if (!subject) return res.status(404).json({ error: 'No such employee.' });
+  if (subject.userId && subject.userId === req.auth!.userId) return res.status(403).json({ error: 'Someone else reviews and decides your own probation.' });
   const parsed = z.object({ goals: text(2000), observations: text(4000), recommendation: z.enum(PROBATION_OUTCOMES).optional().nullable().or(z.literal('')), newEndDate: date, note: text(1000) }).safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the review.' });
   try {
@@ -954,6 +1679,9 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/probation/review', can(Perm
 
 peopleRouter.post('/orgs/:orgId/people/employees/:id/probation/decide', can(PermissionAction.APPROVE, LIFECYCLE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
+  const subject = await scopedEmployee(req, String(req.params.id), { id: true, userId: true });
+  if (!subject) return res.status(404).json({ error: 'No such employee.' });
+  if (subject.userId && subject.userId === req.auth!.userId) return res.status(403).json({ error: 'Someone else reviews and decides your own probation.' });
   const parsed = z.object({ outcome: z.enum(PROBATION_OUTCOMES), newEndDate: date, note: text(1000), lastDay: date }).safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Confirm, extend or end.' });
   try {
@@ -970,7 +1698,8 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/probation/decide', can(Perm
 peopleRouter.delete('/orgs/:orgId/people/employees/:id/scheduled/:changeId', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
-  const ok = await cancelScheduledChange(orgId, String(req.params.changeId));
+  if (!inScope(await teamScope(req), String(req.params.id))) return res.status(404).json({ error: 'No pending change by that id.' });
+  const ok = await cancelScheduledChange(orgId, String(req.params.changeId), String(req.params.id));
   if (!ok) return res.status(404).json({ error: 'No pending change by that id.' });
   res.json({ ok: true });
 });
@@ -984,7 +1713,7 @@ peopleRouter.delete('/orgs/:orgId/people/employees/:id', can(PermissionAction.DE
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!existing) return res.status(404).json({ error: 'No such employee.' });
+  if (!existing || !inScope(await teamScope(req), existing.id)) return res.status(404).json({ error: 'No such employee.' });
   /*
    * In payroll at all — a profile, or any payroll history (A-39: only
    * payslips were checked, so someone with a loan or an adjustment was
@@ -1016,6 +1745,9 @@ peopleRouter.delete('/orgs/:orgId/people/employees/:id', can(PermissionAction.DE
       code: 'EMPLOYEE_IN_PAYROLL',
     });
   }
+  /* Their dated changes and open requests close with them; anyone with them as a secondary manager loses that line (W1, W4). */
+  await closeOutFor(actorOf(req, 'FORM', `${existing.name} removed`), existing.id);
+  await peoplePrisma.employee.updateMany({ where: { orgId, dottedManagerId: existing.id }, data: { dottedManagerId: null } });
   res.json({ ok: true });
 });
 
@@ -1024,11 +1756,31 @@ peopleRouter.delete('/orgs/:orgId/people/employees/:id', can(PermissionAction.DE
  * department, position and type rather than ids, so a spreadsheet can be
  * filled in by hand). Each row stands or falls alone and the answer says which.
  */
+/* How dates and gender arrive in Indian spreadsheets: 05/10/2026, 5-10-2026, 05.10.2026, 5 Oct 2026, 2026/10/05; Male, M, f. */
+const MONTH_NAMES = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const two = (n: number | string) => String(n).padStart(2, '0');
+export function importDateToIso(v: unknown): unknown {
+  if (typeof v !== 'string') return v;
+  const t = v.trim();
+  if (!t || ISO_DATE.test(t)) return t;
+  let m = t.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  if (m) return `${m[3]}-${two(m[2])}-${two(m[1])}`;
+  m = t.match(/^(\d{4})[/.](\d{1,2})[/.](\d{1,2})$/);
+  if (m) return `${m[1]}-${two(m[2])}-${two(m[3])}`;
+  m = t.match(/^(\d{1,2})[\s/.-]([A-Za-z]{3,9})[\s/.,-]+(\d{4})$/);
+  if (m && MONTH_NAMES.includes(m[2].slice(0, 3).toLowerCase())) return `${m[3]}-${two(MONTH_NAMES.indexOf(m[2].slice(0, 3).toLowerCase()) + 1)}-${two(m[1])}`;
+  return t;
+}
+const GENDER_WORDS: Record<string, string> = { m: 'MALE', male: 'MALE', f: 'FEMALE', female: 'FEMALE', o: 'OTHER', other: 'OTHER', nonbinary: 'NON_BINARY', prefernottosay: 'PREFER_NOT_TO_SAY' };
+const importDate = z.preprocess(importDateToIso, date);
+const importGender = z.preprocess((v) => (typeof v === 'string' && v.trim() ? GENDER_WORDS[v.trim().toLowerCase().replace(/[^a-z]/g, '')] || v.trim().toUpperCase() : v), z.enum(GENDER_OPTIONS, { message: 'Gender should be Male, Female, Other, Non-binary or Prefer not to say.' }).optional().nullable().or(z.literal('')));
+
 const importRow = z.object({
   name: z.string().trim().min(1).max(120),
   code: text(40),
   email: z.string().trim().email().max(160).optional().nullable().or(z.literal('')),
-  phone: text(40),
+  /* A "rows to fix" file from before carried a leading ' on phone numbers; it is dropped. */
+  phone: z.preprocess((v) => (typeof v === 'string' ? v.replace(/^'/, '') : v), phoneField),
   department: text(120),
   jobPosition: text(120),
   employeeType: text(120),
@@ -1036,14 +1788,32 @@ const importRow = z.object({
   businessUnit: text(120),
   grade: text(120),
   costCentre: text(120),
-  dateOfJoining: date,
-  dateOfBirth: date,
-  gender: z.enum(GENDER_OPTIONS).optional().nullable().or(z.literal('')),
+  dateOfJoining: importDate,
+  dateOfBirth: importDate,
+  probationEndDate: importDate,
+  contractEndDate: importDate,
+  /* The manager by their employee ID, and the work site by its name (Workforce audit O17). */
+  managerCode: text(40),
+  workSite: text(120),
+  /* The branch by its name or code; never made up (it is the company's registered place). */
+  branch: text(120),
+  /* Written the way people write it: "Part-time", "part time", "PT". Blank is full-time. */
+  hours: z.preprocess(
+    (v) => {
+      const t = String(v ?? '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+      if (!t) return null;
+      if (t === 'parttime' || t === 'pt' || t === 'part') return 'PART_TIME';
+      if (t === 'fulltime' || t === 'ft' || t === 'full') return 'FULL_TIME';
+      return v;
+    },
+    z.enum(HOURS, { message: 'Hours should be Full-time or Part-time.' }).nullable(),
+  ),
+  gender: importGender,
   workEmail: z.string().trim().email().max(160).optional().nullable().or(z.literal('')),
 });
 
 peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
-  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
   if (!rows.length) return res.status(400).json({ error: 'Nothing to import.' });
@@ -1053,6 +1823,15 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
   const dryRun = req.body?.dryRun === true;
   /* update: a row whose code is already here changes that person (only the columns given); otherwise it is an error, as before. */
   const mode = String(req.body?.mode || 'create').toLowerCase() === 'update' ? 'UPDATE' : 'CREATE';
+  /* Changing people already here is an edit, and needs the edit grant. */
+  if (mode === 'UPDATE') {
+    const refused = await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, EMPLOYEES);
+    if (refused) return res.status(refused.status).json(refused.body);
+  }
+  /* A department or designation change waits for its approver on the record; an import does not go round that. */
+  const jobRule = mode === 'UPDATE' ? await activeRule(orgId, 'JOB_CHANGE') : null;
+  /* Only someone who may add to the company's lists gets new departments, types and grades made for them. */
+  const canMakeLists = !(await authorize(req, PEOPLE_MODULE, PermissionAction.CREATE, STRUCTURE));
   const codesInFile = new Set<string>();
   const createdIds: string[] = [];
   const updatedRows: Array<{ id: string; before: Record<string, unknown> }> = [];
@@ -1069,16 +1848,42 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
     if (cache.has(key)) return cache.get(key)!;
     const model: any = (peoplePrisma as any)[kind];
     const found = await model.findFirst({ where: { orgId, name: { equals: n, mode: 'insensitive' } }, select: { id: true, name: true } });
-    const row = found || (dryRun ? { id: '', name: n } : await model.create({ data: { accountId, orgId, name: n, createdByUserId: userId }, select: { id: true, name: true } }));
+    if (!found && !canMakeLists) throw new ImportRowError(`"${n}" is not in the company's lists yet; ask whoever looks after the lists to add it.`);
+    const row = found || (dryRun ? { id: '', name: n } : await model.create({ data: { accountId, orgId, name: n, createdByUserId: userId, ...(kind === 'employeeType' ? { category: guessKind(n) } : {}) }, select: { id: true, name: true } }));
     cache.set(key, row);
     return row as { id: string; name: string };
+  };
+
+  /* A manager named by employee ID, someone already here or a row earlier in this file; a work site by its name (never made up: its state decides the rules). */
+  const managerByCode = new Map<string, string>();
+  const managerOf = async (code: string | null) => {
+    if (!code) return null;
+    const key = code.toLowerCase();
+    if (managerByCode.has(key)) return managerByCode.get(key)!;
+    const found = await peoplePrisma.employee.findFirst({ where: { orgId, code: { equals: code, mode: 'insensitive' }, status: { not: 'LEFT' } }, select: { id: true } });
+    if (!found) throw new ImportRowError(`Nobody has the employee ID ${code} to be the manager.`);
+    managerByCode.set(key, found.id);
+    return found.id;
+  };
+  const siteOf = async (name: string | null) => {
+    if (!name) return null;
+    const found = await peoplePrisma.establishment.findFirst({ where: { orgId, name: { equals: name, mode: 'insensitive' } }, select: { id: true } });
+    if (!found) throw new ImportRowError(`"${name}" is not one of the company's work sites; add it under Settings, Work Sites, first.`);
+    return found.id;
+  };
+  const branchOf = async (name: string | null) => {
+    if (!name) return null;
+    const found = await platformPrisma.branch.findFirst({ where: { orgId, isActive: true, OR: [{ branchName: { equals: name, mode: 'insensitive' } }, { branchCode: { equals: name, mode: 'insensitive' } }] }, select: { id: true } });
+    if (!found) throw new ImportRowError(`"${name}" is not one of the company's open branches; check the name or code under Branches.`);
+    return found.id;
   };
 
   const results: Array<{ row: number; ok: boolean; id?: string; error?: string; action?: 'CREATE' | 'UPDATE'; warning?: string }> = [];
   for (let i = 0; i < rows.length; i += 1) {
     const parsed = importRow.safeParse(rows[i]);
     if (!parsed.success) {
-      results.push({ row: i + 1, ok: false, error: parsed.error.issues[0]?.message || 'Invalid row.' });
+      /* Every problem in the row at once, so the file is fixed in one pass. */
+      results.push({ row: i + 1, ok: false, error: [...new Set(parsed.error.issues.map((x) => x.message))].join(' ') || 'Invalid row.' });
       continue;
     }
     const r = parsed.data;
@@ -1100,6 +1905,11 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
       if (dryRun) {
         await ensure('department', r.department);
         await ensure('jobPosition', r.jobPosition);
+        await siteOf(blank(r.workSite));
+        await branchOf(blank(r.branch));
+        if (blank(r.managerCode) && blank(r.managerCode)!.toLowerCase() === code?.toLowerCase()) throw new ImportRowError('Someone cannot be their own manager.');
+        await managerOf(blank(r.managerCode));
+        if (code) managerByCode.set(code.toLowerCase(), existingByCode?.id || '');
         results.push({ row: i + 1, ok: true, action: existingByCode ? 'UPDATE' : 'CREATE', warning });
         continue;
       }
@@ -1107,12 +1917,20 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
         /* Update: only the columns the file carries; names of lists resolve as on create. */
         const data: Record<string, unknown> = {};
         const set = (k: string, v: unknown) => { if (v !== undefined && v !== null && v !== '') data[k] = v; };
-        set('name', r.name); set('email', blank(r.email)); set('workEmail', blank(r.workEmail)); set('phone', blank(r.phone)); set('dateOfJoining', blank(r.dateOfJoining)); set('dateOfBirth', blank(r.dateOfBirth)); set('gender', blank(r.gender));
+        set('name', r.name); set('email', blank(r.email)); set('workEmail', blank(r.workEmail)); set('phone', blank(r.phone)); set('dateOfJoining', blank(r.dateOfJoining)); set('dateOfBirth', blank(r.dateOfBirth)); set('gender', blank(r.gender)); set('hours', r.hours); set('probationEndDate', blank(r.probationEndDate)); set('contractEndDate', blank(r.contractEndDate));
         const dep = await ensure('department', r.department); if (dep) { data.department = dep.name; data.departmentId = dep.id; }
         const pos = await ensure('jobPosition', r.jobPosition); if (pos) { data.designation = pos.name; data.jobPositionId = pos.id; }
+        if (jobRule && ((data.departmentId && data.departmentId !== existingByCode.departmentId) || (data.jobPositionId && data.jobPositionId !== existingByCode.jobPositionId))) {
+          results.push({ row: i + 1, ok: false, error: `A department or designation change for ${existingByCode.name} needs approval; make it on their record.` });
+          continue;
+        }
         for (const [kind, col, field] of [['employeeType', r.employeeType, 'employeeTypeId'], ['workType', r.workType, 'workTypeId'], ['businessUnit', r.businessUnit, 'businessUnitId'], ['grade', r.grade, 'gradeId'], ['costCenter', r.costCentre, 'costCenterId']] as const) {
           const row = await ensure(kind, col); if (row) data[field] = row.id;
         }
+        const site = await siteOf(blank(r.workSite)); if (site) data.establishmentId = site;
+        const branch = await branchOf(blank(r.branch)); if (branch) data.branchId = branch;
+        const mgr = await managerOf(blank(r.managerCode));
+        if (mgr) { await checkManager(orgId, existingByCode.id, mgr); data.reportingManagerId = mgr; }
         const before = Object.fromEntries(Object.keys(data).map((k) => [k, (existingByCode as any)[k] ?? null]));
         await updateEmployee(actorOf(req, 'IMPORT', 'Import (update existing)'), existingByCode, data as any, {});
         updatedRows.push({ id: existingByCode.id, before });
@@ -1121,6 +1939,9 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
       }
       const department = await ensure('department', r.department);
       const jobPosition = await ensure('jobPosition', r.jobPosition);
+      const establishmentId = await siteOf(blank(r.workSite));
+      const branchId = await branchOf(blank(r.branch));
+      const reportingManagerId = await managerOf(blank(r.managerCode));
       const created = await createEmployee(actorOf(req, 'IMPORT'), {
           accountId,
           orgId,
@@ -1140,14 +1961,22 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
           costCenterId: (await ensure('costCenter', r.costCentre))?.id ?? null,
           dateOfJoining: blank(r.dateOfJoining),
           dateOfBirth: blank(r.dateOfBirth),
+          probationEndDate: blank(r.probationEndDate),
+          contractEndDate: blank(r.contractEndDate),
+          hours: r.hours,
           gender: blank(r.gender),
+          establishmentId,
+          branchId,
+          reportingManagerId,
           status: 'ACTIVE',
           createdByUserId: userId,
         } as any);
       createdIds.push(created.id);
+      if (code) managerByCode.set(code.toLowerCase(), created.id);
       results.push({ row: i + 1, ok: true, id: created.id, action: 'CREATE', warning });
     } catch (e: any) {
-      results.push({ row: i + 1, ok: false, error: String(e?.code) === 'P2002' ? 'Already exists.' : String(e?.message || e) });
+      /* Our own reasons are shown; a database message is not (it can name tables and other people's values). */
+      results.push({ row: i + 1, ok: false, error: e instanceof ImportRowError || e?.status === 400 ? e.message : String(e?.code) === 'P2002' ? 'Already exists.' : 'This row could not be saved.' });
     }
   }
   const imported = results.filter((r) => r.ok).length;
@@ -1156,13 +1985,14 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
   const batch = !dryRun && (createdIds.length || updatedRows.length)
     ? await peoplePrisma.importBatch.create({ data: { accountId, orgId, mode, rows: rows.length, failed, createdIds, updated: updatedRows as any, createdByUserId: userId } })
     : null;
+  if (batch) await recordAudit(req, { entity: 'PEOPLE_EMPLOYEES', entityId: batch.id, action: 'IMPORT', message: `Imported ${createdIds.length} new and ${updatedRows.length} updated ${createdIds.length + updatedRows.length === 1 ? 'employee' : 'employees'}`, metadata: { mode, rows: rows.length, failed, created: createdIds.length, updated: updatedRows.length } });
   res.json({ dryRun, mode, imported, failed, results, batchId: batch?.id ?? null, undoUntil: batch ? new Date(batch.createdAt.getTime() + IMPORT_UNDO_HOURS * 3_600_000) : null });
 });
 
 const IMPORT_UNDO_HOURS = 24;
 
 peopleRouter.get('/orgs/:orgId/people/employees/import/batches', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
-  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   const rows = await peoplePrisma.importBatch.findMany({ where: { orgId: req.tenant!.orgId }, orderBy: { createdAt: 'desc' }, take: 20 });
   const now = Date.now();
   res.json({ batches: rows.map((b) => ({ id: b.id, mode: b.mode, rows: b.rows, failed: b.failed, created: (b.createdIds as string[]).length, updated: (b.updated as unknown[]).length, createdAt: b.createdAt, undoneAt: b.undoneAt, canUndo: !b.undoneAt && now - b.createdAt.getTime() < IMPORT_UNDO_HOURS * 3_600_000 })) });
@@ -1170,77 +2000,78 @@ peopleRouter.get('/orgs/:orgId/people/employees/import/batches', can(PermissionA
 
 /** Undo an import within a day (CORE-07): the people it made go, with their events; the people it changed go back to what they were. */
 peopleRouter.post('/orgs/:orgId/people/employees/import/:batchId/undo', can(PermissionAction.DELETE, EMPLOYEES), async (req, res) => {
-  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const batch = await peoplePrisma.importBatch.findFirst({ where: { id: String(req.params.batchId), orgId } });
   if (!batch) return res.status(404).json({ error: 'No such import.' });
   if (batch.undoneAt) return res.status(409).json({ error: 'This import was already undone.' });
   if (Date.now() - batch.createdAt.getTime() > IMPORT_UNDO_HOURS * 3_600_000) return res.status(409).json({ error: 'An import can be undone within 24 hours; this one is older. Correct the people by hand.' });
+  /* Claimed first, so two clicks cannot both undo it. */
+  const claimed = await peoplePrisma.importBatch.updateMany({ where: { id: batch.id, undoneAt: null }, data: { undoneAt: new Date(), undoneByUserId: req.auth!.userId } });
+  if (!claimed.count) return res.status(409).json({ error: 'This import was already undone.' });
   const actor = actorOf(req, 'IMPORT', 'Import undone');
   const createdIds = batch.createdIds as string[];
   let removed = 0;
   let restored = 0;
   let kept = 0;
+  /* Someone changed by hand since the import keeps those changes; the answer counts them as kept. */
+  const touchedSince = (e: { updatedAt: Date }) => e.updatedAt.getTime() > batch.createdAt.getTime() + 1000;
   for (const id of createdIds) {
-    const e = await peoplePrisma.employee.findFirst({ where: { id, orgId }, select: { id: true, name: true, code: true } });
+    const e = await peoplePrisma.employee.findFirst({ where: { id, orgId } });
     if (!e) continue;
-    /* Someone the import made but payroll has since paid stays; the answer says so. */
-    const inPayroll = await payrollPrisma.employeePayrollProfile.count({ where: { orgId, employeeId: id } }).catch(() => 0);
+    if (touchedSince(e)) { kept += 1; continue; }
+    /* The same rule as deleting one person: anyone payroll has touched stays; the rest go to the bin and off the readers. */
+    const inPayroll = await payrollPrisma.$transaction(async (tx: any) => {
+      await lockPayrollEmployee(tx, e.id);
+      if (await tx.employeePayrollProfile.count({ where: { orgId, employeeId: e.id } })) return true;
+      for (const [model] of PAYROLL_HISTORY) if (await tx[model].count({ where: { orgId, employeeId: e.id } })) return true;
+      await revokeFromReaders(orgId, e, req.auth!.userId);
+      await peoplePrisma.outboxEvent.deleteMany({ where: { orgId, employeeId: e.id, deliveredAt: null } });
+      await deleteToBin(req, 'employee', e);
+      return false;
+    }, { timeout: 30_000 });
     if (inPayroll) { kept += 1; continue; }
-    await peoplePrisma.$transaction(async (tx) => {
-      await tx.outboxEvent.deleteMany({ where: { orgId, employeeId: id, deliveredAt: null } });
-      await tx.employee.delete({ where: { id } });
-      await writeChangeLog(tx, actor, { kind: 'Employee', id, employeeId: id }, [{ field: 'record', before: 'created', after: 'removed: import undone', redacted: false }]);
-    });
+    await writeChangeLog(peoplePrisma as any, actor, { kind: 'Employee', id, employeeId: id }, [{ field: 'record', before: 'created', after: 'removed: import undone', redacted: false }]);
     removed += 1;
   }
   for (const u of batch.updated as Array<{ id: string; before: Record<string, unknown> }>) {
     const existing = await peoplePrisma.employee.findFirst({ where: { id: u.id, orgId } });
     if (!existing) continue;
+    if (touchedSince(existing)) { kept += 1; continue; }
     await updateEmployee(actor, existing, u.before as any, {});
     restored += 1;
   }
-  await peoplePrisma.importBatch.update({ where: { id: batch.id }, data: { undoneAt: new Date(), undoneByUserId: req.auth!.userId } });
   res.json({ removed, restored, kept });
 });
 
 peopleRouter.get('/orgs/:orgId/people/org-chart', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const nodes = await peoplePrisma.employee.findMany({
-    where: { accountId, orgId, status: { not: 'LEFT' }, ...scopeWhere(await teamScope(req)) },
-    select: { id: true, name: true, code: true, designation: true, department: true, photoUrl: true, reportingManagerId: true, dottedManagerId: true },
-    orderBy: { name: 'asc' },
-  });
-  /* Open seats show on the chart (ORG-04): seats on an active team that nobody holds. */
-  const seats = await peoplePrisma.seat.findMany({ where: { orgId, isActive: true }, select: { id: true, name: true, teamId: true, jobPositionId: true, budgetRef: true, team: { select: { name: true, leadEmployeeId: true, departmentId: true } } } });
-  const held = new Set((await peoplePrisma.employee.findMany({ where: { orgId, seatId: { not: null } }, select: { seatId: true } })).map((e) => e.seatId));
-  const openSeats = seats.filter((s) => !held.has(s.id)).map((s) => ({ id: s.id, name: s.name, teamId: s.teamId, teamName: s.team?.name || null, leadEmployeeId: s.team?.leadEmployeeId || null, budgetRef: s.budgetRef }));
+  const scope = await teamScope(req);
+  /* As of a date (FND-03): reporting lines rolled back through each person's history; people who left since are back, people who joined since are not. */
+  const day = String(req.query.asOf || '').trim();
+  if (day && !ISO_DATE.test(day)) return res.status(400).json({ error: 'Give the date as YYYY-MM-DD.' });
+  const past = day && day < todayIst() ? day : '';
+  const select = { id: true, name: true, code: true, designation: true, department: true, departmentId: true, photoUrl: true, reportingManagerId: true, dottedManagerId: true, status: true, dateOfJoining: true };
+  const rows = await peoplePrisma.employee.findMany({ where: { accountId, orgId, ...(past ? {} : { status: { not: 'LEFT' } }), ...scopeWhere(scope) }, select, orderBy: { name: 'asc' } });
+  const nodes = (past ? (await asOf(orgId, rows as any[], past)).filter((r: any) => r.status !== 'LEFT') : rows).map(({ status: _s, dateOfJoining: _d, ...n }: any) => n);
+  /* Open seats (ORG-04) are today's: not shown for a past date. A team-limited viewer sees only seats on teams their own people lead, and no budget references (ORG-G01). */
+  if (past) return res.json({ nodes, openSeats: [], asOf: past });
+  const seats = await peoplePrisma.seat.findMany({ where: { orgId, isActive: true, team: { isActive: true } }, select: { id: true, name: true, teamId: true, jobPositionId: true, budgetRef: true, team: { select: { name: true, leadEmployeeId: true, departmentId: true } } } });
+  const held = new Set((await peoplePrisma.employee.findMany({ where: { orgId, seatId: { not: null }, status: { not: 'LEFT' } }, select: { seatId: true } })).map((e) => e.seatId));
+  const visibleLeads = new Set(nodes.map((n: any) => n.id));
+  const openSeats = seats
+    .filter((s) => !held.has(s.id))
+    .filter((s) => scope.all || (s.team?.leadEmployeeId && visibleLeads.has(s.team.leadEmployeeId)))
+    .map((s) => ({ id: s.id, name: s.name, teamId: s.teamId, teamName: s.team?.name || null, leadEmployeeId: s.team?.leadEmployeeId || null, ...(scope.all ? { budgetRef: s.budgetRef } : {}) }));
   res.json({ nodes, openSeats });
 });
 
 // ---------------------------------------------------------------------------
-// Org structure: one shape for five lists
+// Org structure: one shape for every list
 // ---------------------------------------------------------------------------
 
-const STRUCTURE_KINDS = {
-  departments: { model: 'department', usedBy: 'departmentId', extra: ['parentId', 'description'] },
-  'job-positions': { model: 'jobPosition', usedBy: 'jobPositionId', extra: ['departmentId', 'description'] },
-  'job-roles': { model: 'jobRole', usedBy: 'jobRoleId', extra: ['jobPositionId', 'description'] },
-  'employee-types': { model: 'employeeType', usedBy: 'employeeTypeId', extra: [] },
-  'work-types': { model: 'workType', usedBy: 'workTypeId', extra: [] },
-  areas: { model: 'area', usedBy: 'areaId', extra: ['parentId', 'description'] },
-  'business-units': { model: 'businessUnit', usedBy: 'businessUnitId', extra: ['description'] },
-  grades: { model: 'grade', usedBy: 'gradeId', extra: ['description'] },
-  'cost-centres': { model: 'costCenter', usedBy: 'costCenterId', extra: ['description'] },
-  /* The company in law and its places of work (FND-07). A person's work state is their establishment's. */
-  'legal-entities': { model: 'legalEntity', usedBy: null, extra: ['description', 'pan', 'cin', 'address'] },
-  establishments: { model: 'establishment', usedBy: 'establishmentId', extra: ['description', 'legalEntityId', 'kind', 'state', 'address', 'registrations', 'holdsOriginals'] },
-  /* Teams under departments, with a lead; approved seats on a team, filled or open (ORG-01, ORG-04). */
-  teams: { model: 'team', usedBy: 'teamId', extra: ['departmentId', 'leadEmployeeId', 'description'] },
-  seats: { model: 'seat', usedBy: 'seatId', extra: ['teamId', 'jobPositionId', 'budgetRef', 'description'] },
-} as const;
-type Kind = keyof typeof STRUCTURE_KINDS;
+/* The lists themselves (STRUCTURE_KINDS), their history, merge and the overview live in services/people/organization.ts. */
 
 const structureSchema = z.object({
   name: z.string().trim().min(1, 'A name is needed.').max(120),
@@ -1255,17 +2086,34 @@ const structureSchema = z.object({
   holdsOriginals: z.boolean().optional(),
   teamId: text(60),
   leadEmployeeId: text(60),
+  /* Who runs a department: descriptive only, never a permission (Organization, D04). */
+  headEmployeeId: text(60),
   budgetRef: text(80),
   /* A real PAN, or the masked form a screen sends back unchanged. */
   pan: z.string().trim().regex(/^([A-Z]{5}\d{4}[A-Z]|\*{6}[0-9A-Z]{4})$/, 'PAN looks like ABCDE1234F.').optional().nullable().or(z.literal('')),
   cin: text(40),
   registrations: z.array(z.object({ type: z.string().trim().max(40), number: z.string().trim().max(80), validTill: z.string().trim().regex(ISO_DATE).optional().nullable().or(z.literal('')) })).max(20).optional().nullable(),
   isActive: z.boolean().optional(),
+  category: z.enum(EMPLOYMENT_KINDS).optional(),
+  probationMonths: z.union([z.coerce.number().int().min(1, 'Probation is at least a month.').max(24, 'Probation is at most 24 months.'), z.literal(''), z.null()]).optional().transform((v) => (v === '' ? null : v)),
+  noticeDays: z.union([z.coerce.number().int().min(0, 'Notice cannot be negative.').max(365, 'Notice is at most a year.'), z.literal(''), z.null()]).optional().transform((v) => (v === '' ? null : v)),
 });
 
 /** A PAN is shown as its last four characters (CORE-04): the full number is for Payroll and the vault. */
 const maskPan = (pan: string | null | undefined) => (pan ? `******${pan.slice(-4)}` : pan ?? null);
 const kindOf = (req: any): Kind | null => (String(req.params.kind) in STRUCTURE_KINDS ? (String(req.params.kind) as Kind) : null);
+/** Why a structure change was made, when the screen asks (the history shows it). */
+const reasonOf = (req: Request) => (typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 500) || null : null);
+const orgError = (res: Response, e: unknown) => {
+  if (e instanceof OrgError) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}), ...e.extra });
+  return sendError(res, e);
+};
+
+/** A department's head works here: someone in this company who has not left. One already named may stay after they leave (the check says so). */
+async function badHead(orgId: string, id: string, keep: string | null) {
+  const e = await peoplePrisma.employee.findFirst({ where: { id, orgId }, select: { status: true } });
+  return !e || (e.status === 'LEFT' && id !== keep) ? 'Choose a head who works here.' : null;
+}
 
 peopleRouter.get('/orgs/:orgId/people/structure/:kind', can(PermissionAction.VIEW, STRUCTURE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
@@ -1273,13 +2121,60 @@ peopleRouter.get('/orgs/:orgId/people/structure/:kind', can(PermissionAction.VIE
   if (!kind) return res.status(404).json({ error: 'Unknown list.' });
   const { accountId, orgId } = req.tenant!;
   const cfg = STRUCTURE_KINDS[kind];
+  /* "Detailed structure" is decided once for a company that already uses these lists (organization.ts). */
+  await ensureOrgDetail(accountId, orgId, req.auth?.userId || null).catch((e) => console.error('[org-detail]', e instanceof Error ? e.message : e));
+  /* A company that has not set up its employment types yet starts with the standard ones (safe to repeat: names are unique). */
+  if (kind === 'employee-types' && !(await peoplePrisma.employeeType.count({ where: { orgId } }))) {
+    await peoplePrisma.employeeType.createMany({ data: DEFAULT_EMPLOYEE_TYPES.map(([name, category]) => ({ accountId, orgId, name, category, createdByUserId: req.auth!.userId })), skipDuplicates: true });
+  }
   const rows = await (peoplePrisma as any)[cfg.model].findMany({ where: { accountId, orgId }, orderBy: { name: 'asc' } });
   /* A legal entity is used by its establishments, not by people directly. */
   const used = cfg.usedBy
     ? new Map(((await (peoplePrisma.employee.groupBy as any)({ by: [cfg.usedBy], where: { accountId, orgId, status: { not: 'LEFT' } }, _count: { _all: true } })) as any[]).map((c) => [c[cfg.usedBy as string], c._count._all]))
     : new Map(((await (peoplePrisma.establishment.groupBy as any)({ by: ['legalEntityId'], where: { orgId }, _count: { _all: true } })) as any[]).map((c) => [c.legalEntityId, c._count._all]));
-  res.json({ items: rows.map((r: any) => ({ ...r, ...(kind === 'legal-entities' ? { pan: maskPan(r.pan) } : {}), employeeCount: used.get(r.id) || 0 })) });
+  const heads = kind === 'departments' ? await headsOf(orgId, rows.map((r: any) => r.headEmployeeId)) : null;
+  res.json({ items: rows.map((r: any) => ({ ...r, ...(kind === 'legal-entities' ? { pan: maskPan(r.pan) } : {}), ...(heads ? headFields(heads, r.headEmployeeId) : {}), employeeCount: used.get(r.id) || 0 })) });
 });
+
+/** What still sits under an item, in words ("2 sub-departments and 1 team"), or null. */
+async function dependentsOf(orgId: string, kind: string, id: string): Promise<string | null> {
+  const n = (count: number, one: string, many: string) => (count ? `${count} ${count === 1 ? one : many}` : null);
+  const parts: Array<string | null> = [];
+  if (kind === 'departments') {
+    const [subs, teams, titles] = await Promise.all([peoplePrisma.department.count({ where: { orgId, parentId: id } }), peoplePrisma.team.count({ where: { orgId, departmentId: id } }), peoplePrisma.jobPosition.count({ where: { orgId, departmentId: id } })]);
+    parts.push(n(subs, 'sub-department', 'sub-departments'), n(teams, 'team', 'teams'), n(titles, 'designation', 'designations'));
+  } else if (kind === 'teams') {
+    parts.push(n(await peoplePrisma.seat.count({ where: { orgId, teamId: id } }), 'position', 'positions'));
+  } else if (kind === 'job-positions') {
+    const [roles, seats] = await Promise.all([peoplePrisma.jobRole.count({ where: { orgId, jobPositionId: id } }), peoplePrisma.seat.count({ where: { orgId, jobPositionId: id } })]);
+    parts.push(n(roles, 'job role', 'job roles'), n(seats, 'position', 'positions'));
+  } else if (kind === 'areas') {
+    parts.push(n(await peoplePrisma.area.count({ where: { orgId, parentId: id } }), 'location', 'locations'));
+  }
+  const words = parts.filter(Boolean) as string[];
+  return words.length ? words.join(' and ') : null;
+}
+
+/* A list item points only at things in this company, and never under itself, however deep (Workforce audit S18). */
+const REF_MODELS: Record<string, string> = { departmentId: 'department', legalEntityId: 'legalEntity', teamId: 'team', jobPositionId: 'jobPosition', leadEmployeeId: 'employee', headEmployeeId: 'employee' };
+async function badStructureRef(orgId: string, model: string, data: Record<string, unknown>, selfId: string | null, current: Record<string, unknown> | null = null): Promise<string | null> {
+  for (const [key, ref] of Object.entries({ ...REF_MODELS, parentId: model })) {
+    const id = data[key];
+    if (typeof id !== 'string' || !id) continue;
+    const found = await (peoplePrisma as any)[ref].findFirst({ where: { id, orgId }, select: ref === 'employee' ? { id: true } : { id: true, isActive: true, name: true } });
+    if (!found) return 'That link points at something not in this company.';
+    /* A retired item is not offered for anything new; a link that was already there may stay (ORG-G03). */
+    if (ref !== 'employee' && found.isActive === false && (!current || current[key] !== id)) return `${found.name} is retired. Bring it back first, or choose one in use.`;
+  }
+  if (selfId && typeof data.parentId === 'string') {
+    let at: string | null = data.parentId;
+    for (let depth = 0; at && depth < 50; depth += 1) {
+      if (at === selfId) return 'That would put it under itself.';
+      at = ((await (peoplePrisma as any)[model].findFirst({ where: { id: at, orgId }, select: { parentId: true } })) as { parentId: string | null } | null)?.parentId ?? null;
+    }
+  }
+  return null;
+}
 
 peopleRouter.post('/orgs/:orgId/people/structure/:kind', can(PermissionAction.CREATE, STRUCTURE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
@@ -1290,24 +2185,43 @@ peopleRouter.post('/orgs/:orgId/people/structure/:kind', can(PermissionAction.CR
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid.' });
   const cfg = STRUCTURE_KINDS[kind];
   const data: any = { accountId, orgId, name: parsed.data.name, createdByUserId: req.auth!.userId };
-  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' || k === 'holdsOriginals' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
+  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' || k === 'holdsOriginals' || k === 'probationMonths' || k === 'noticeDays' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
   if (kind === 'establishments' && !data.state) return res.status(400).json({ error: 'Say which state the establishment is in: its rules follow from that.' });
   /* An unset type takes the default; an unset entity is simply absent. */
   if (kind === 'establishments') { if (!data.kind) delete data.kind; if (!data.legalEntityId) delete data.legalEntityId; }
+  /* A type created without saying what it counts as is read from its name ("Summer intern" is an intern). */
+  if (kind === 'employee-types' && !data.category) data.category = guessKind(data.name);
   if (kind === 'establishments' && data.holdsOriginals === true && NO_ORIGINALS_STATES.has(String(data.state || '').trim().toLowerCase())) return res.status(400).json({ error: `${data.state} does not allow an employer to hold employees' original documents (Shops & Establishments amendment, 2026).` });
+  if (kind === 'departments' && data.headEmployeeId) {
+    const bad = await badHead(orgId, data.headEmployeeId, null);
+    if (bad) return res.status(400).json({ error: bad });
+  }
+  const badRef = await badStructureRef(orgId, cfg.model, data, null);
+  if (badRef) return res.status(400).json({ error: badRef });
   try {
-    const row = await (peoplePrisma as any)[cfg.model].create({ data });
+    const actor = actorOf(req, 'FORM', reasonOf(req));
+    const row = await peoplePrisma.$transaction(async (tx) => {
+      const created = await (tx as any)[cfg.model].create({ data });
+      await logStructure(tx, actor, kind, created, 'CREATED', await structureChanges(orgId, kind, null, created));
+      return created;
+    });
     res.status(201).json({ item: kind === 'legal-entities' ? { ...row, pan: maskPan(row.pan) } : row });
   } catch (e) {
     return sendError(res, e);
   }
 });
 
+/**
+ * Edit, rename, move, retire or bring back a list item. Retiring one that
+ * people are still in is refused until the screen says where they go
+ * (`moveTo`, an item of the same list still in use); then they move, each
+ * through the one write path, and it is retired. Every change is logged.
+ */
 peopleRouter.put('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAction.EDIT, STRUCTURE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const kind = kindOf(req);
   if (!kind) return res.status(404).json({ error: 'Unknown list.' });
-  const { accountId, orgId } = req.tenant!;
+  const { orgId, accountId } = req.tenant!;
   const cfg = STRUCTURE_KINDS[kind];
   const model: any = (peoplePrisma as any)[cfg.model];
   const existing = await model.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
@@ -1319,7 +2233,7 @@ peopleRouter.put('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAction
   }
   const data: any = { name: parsed.data.name };
   if (parsed.data.isActive !== undefined) data.isActive = parsed.data.isActive;
-  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' || k === 'holdsOriginals' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
+  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' || k === 'holdsOriginals' || k === 'probationMonths' || k === 'noticeDays' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
   /* A masked PAN sent back unchanged is not a change. */
   if (kind === 'legal-entities' && typeof data.pan === 'string' && data.pan.includes('*')) delete data.pan;
   if (kind === 'establishments' && data.state === null) return res.status(400).json({ error: 'An establishment keeps its state.' });
@@ -1328,17 +2242,48 @@ peopleRouter.put('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAction
     const state = data.state !== undefined ? data.state : (await peoplePrisma.establishment.findFirst({ where: { id: String(req.params.id), orgId }, select: { state: true } }))?.state;
     if (NO_ORIGINALS_STATES.has(String(state || '').trim().toLowerCase())) return res.status(400).json({ error: `${state} does not allow an employer to hold employees' original documents (Shops & Establishments amendment, 2026).` });
   }
+  if (kind === 'departments' && data.headEmployeeId) {
+    const bad = await badHead(orgId, data.headEmployeeId, existing.headEmployeeId ?? null);
+    if (bad) return res.status(400).json({ error: bad });
+  }
+  const badRef = await badStructureRef(orgId, cfg.model, data, existing.id, existing);
+  if (badRef) return res.status(400).json({ error: badRef });
+  const actor = actorOf(req, 'FORM', reasonOf(req));
+  /* Retiring with people still in it: say where they go first. */
+  let moved: { count: number; to: { id: string; name: string } } | null = null;
+  if (data.isActive === false && existing.isActive !== false && cfg.usedBy) {
+    const count = await peopleIn(orgId, kind, existing.id);
+    if (count) {
+      const moveTo = req.body?.moveTo;
+      if (moveTo === undefined || moveTo === null || moveTo === '') {
+        const refusal = inUseRefusal(count, existing.name);
+        return res.status(409).json({ code: 'IN_USE', count, error: refusal.message });
+      }
+      /* Moving people is whole-company HR work and an edit to each of them. */
+      if (!(await wholeCompany(req, res))) return;
+      const refused = await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, EMPLOYEES);
+      if (refused) return res.status(refused.status).json(refused.body);
+      try {
+        const to = await targetFor(orgId, kind, existing, moveTo);
+        moved = { count: await movePeople(actor, kind, existing, to, `${existing.name} retired; moved to ${to.name}`), to };
+      } catch (e) {
+        return orgError(res, e);
+      }
+    }
+  }
   try {
-    const row = await model.update({ where: { id: existing.id }, data });
+    const changes = await structureChanges(orgId, kind, existing, { ...existing, ...data });
+    const row = await peoplePrisma.$transaction(async (tx) => {
+      const updated = await (tx as any)[cfg.model].update({ where: { id: existing.id }, data });
+      const action = actionOf(kind, changes);
+      if (action) await logStructure(tx, actor, kind, updated, action, [...changes, ...(moved ? [{ field: 'peopleMovedTo', label: 'People moved to', before: null, after: `${moved.to.name} (${moved.count})` }] : [])]);
+      /* Renaming a department or position renames what the files display, in the same save (ORG-R033). */
+      if (kind === 'departments' && updated.name !== existing.name) await tx.employee.updateMany({ where: { orgId, departmentId: updated.id }, data: { department: updated.name } });
+      if (kind === 'job-positions' && updated.name !== existing.name) await tx.employee.updateMany({ where: { orgId, jobPositionId: updated.id }, data: { designation: updated.name } });
+      return updated;
+    });
     if (kind === 'legal-entities') row.pan = maskPan(row.pan);
-    /* Renaming a department or position renames what the files display. */
-    if (kind === 'departments' && row.name !== existing.name) {
-      await peoplePrisma.employee.updateMany({ where: { orgId, departmentId: row.id }, data: { department: row.name } });
-    }
-    if (kind === 'job-positions' && row.name !== existing.name) {
-      await peoplePrisma.employee.updateMany({ where: { orgId, jobPositionId: row.id }, data: { designation: row.name } });
-    }
-    res.json({ item: row });
+    res.json({ item: row, ...(moved ? { moved: moved.count, movedTo: moved.to.id } : {}) });
   } catch (e) {
     return sendError(res, e);
   }
@@ -1357,10 +2302,80 @@ peopleRouter.delete('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAct
     ? await peoplePrisma.employee.count({ where: { orgId, [cfg.usedBy]: existing.id } as any })
     : await peoplePrisma.establishment.count({ where: { orgId, legalEntityId: existing.id } });
   if (inUse) {
-    return res.status(409).json({ error: cfg.usedBy ? `${inUse} ${inUse === 1 ? 'person uses' : 'people use'} this. Move them first, or mark it inactive.` : `${inUse} establishment${inUse === 1 ? ' belongs' : 's belong'} to it. Move them first, or mark it inactive.` });
+    return res.status(409).json({ error: cfg.usedBy ? `${inUse} ${inUse === 1 ? 'person uses' : 'people use'} this. Move them first, or retire it instead.` : `${inUse} establishment${inUse === 1 ? ' belongs' : 's belong'} to it. Move them first, or mark it inactive.` });
   }
+  /* Nothing is left pointing at a deleted item: what sits under it is moved, or it is retired instead (ORG-G04). */
+  const under = await dependentsOf(orgId, kind, existing.id);
+  if (under) return res.status(409).json({ error: `Still under it: ${under}. Move them first, or retire it instead.`, code: 'HAS_DEPENDENTS' });
   await deleteToBin(req, cfg.model, existing);
+  await logStructure(peoplePrisma, actorOf(req, 'FORM', reasonOf(req)), kind, existing, 'DELETED', [{ field: 'name', label: 'Name', before: existing.name, after: null }]);
   res.json({ ok: true });
+});
+
+/**
+ * Merge one list item into another of the same list (Organization): its
+ * people move (each person's history says "Merged into …"), what sits under
+ * it moves, and it is retired. Whole-company work: a role limited to its own
+ * team is refused, and moving people needs the Employees edit grant.
+ */
+peopleRouter.post('/orgs/:orgId/people/structure/:kind/:id/merge', can(PermissionAction.EDIT, STRUCTURE), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const kind = kindOf(req);
+  if (!kind) return res.status(404).json({ error: 'Unknown list.' });
+  if (!MERGEABLE.has(kind)) return res.status(400).json({ error: `${KIND_LABEL[kind]}s cannot be merged.` });
+  if (!(await wholeCompany(req, res))) return;
+  const refused = await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, EMPLOYEES);
+  if (refused) return res.status(refused.status).json(refused.body);
+  try {
+    res.json(await mergeInto(actorOf(req, 'FORM', reasonOf(req)), kind, String(req.params.id), req.body?.intoId));
+  } catch (e) {
+    return orgError(res, e);
+  }
+});
+
+/**
+ * Retire a branch: the people working there move to another open branch first
+ * (each move on their history), then the branch is marked not in use. Needs
+ * the branch-setup grant and the right to move people, for the whole company.
+ */
+peopleRouter.post('/orgs/:orgId/people/branches/:branchId/retire', requirePermission('MASTERS', PermissionAction.EDIT, 'Company/Branch setup'), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
+  const refused = await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, EMPLOYEES);
+  if (refused) return res.status(refused.status).json(refused.body);
+  try {
+    res.json(await retireBranch(actorOf(req, 'FORM', reasonOf(req)), String(req.params.branchId), req.body?.moveTo));
+  } catch (e) {
+    return orgError(res, e);
+  }
+});
+
+/** Every structure change, newest first, a page at a time: who renamed, merged, retired or moved what, and when. */
+peopleRouter.get('/orgs/:orgId/people/structure-history', can(PermissionAction.VIEW, STRUCTURE), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const kindAsked = String(req.query.kind || '').trim();
+  if (kindAsked && kindAsked !== 'branches' && !(kindAsked in STRUCTURE_KINDS)) return res.status(400).json({ error: 'Unknown list.' });
+  const { orgId } = req.tenant!;
+  res.json(await structureHistory(orgId, {
+    kind: (kindAsked || null) as Kind | null,
+    id: String(req.query.id || '').trim() || null,
+    limit: Number(req.query.limit) || undefined,
+    before: String(req.query.before || '').trim() || null,
+  }));
+});
+
+/**
+ * The Organization overview: branches, departments under their heads, how
+ * many people where ("working now", inside the viewer's team scope), what is
+ * unplaced, how many items each list has, and the structure checks.
+ */
+peopleRouter.get('/orgs/:orgId/people/organization', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const scope = await teamScope(req);
+  const overview = await organizationOverview(accountId, orgId, scope, req.auth?.userId || null);
+  const health = await dataHealth(accountId, orgId, { payroll: false, ...(scope.all ? {} : { onlyIds: scope.ids }) });
+  res.json({ ...overview, checks: health.checks.filter((c) => c.area === 'Structure') });
 });
 
 // ---------------------------------------------------------------------------
@@ -1402,7 +2417,8 @@ peopleRouter.delete('/orgs/:orgId/people/tags/:id', can(PermissionAction.EDIT, E
 peopleRouter.get('/orgs/:orgId/people/employees/:id/notes', can(PermissionAction.VIEW, NOTES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  void accountId;
+  const employee = await scopedEmployee(req, String(req.params.id), { id: true });
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
   res.json({
     notes: await peoplePrisma.employeeNote.findMany({ where: { orgId, employeeId: employee.id }, orderBy: { createdAt: 'desc' } }),
@@ -1412,7 +2428,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/notes', can(PermissionAction
 peopleRouter.post('/orgs/:orgId/people/employees/:id/notes', can(PermissionAction.CREATE, NOTES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  const employee = await scopedEmployee(req, String(req.params.id), { id: true });
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
   const parsed = z.object({ body: z.string().trim().min(1, 'Write something first.').max(4000) }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid note.' });
@@ -1426,7 +2442,7 @@ peopleRouter.delete('/orgs/:orgId/people/notes/:noteId', can(PermissionAction.DE
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const note = await peoplePrisma.employeeNote.findFirst({ where: { id: String(req.params.noteId), accountId, orgId } });
-  if (!note) return res.status(404).json({ error: 'No such note.' });
+  if (!note || !inScope(await teamScope(req), note.employeeId)) return res.status(404).json({ error: 'No such note.' });
   await deleteToBin(req, 'employeeNote', note);
   res.json({ ok: true });
 });
@@ -1571,7 +2587,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/documents', can(PermissionA
   if (!DOC_CLASSIFICATIONS.includes(classification as DocClass)) return res.status(400).json({ error: 'Say who can see it: the person and HR, HR only, restricted, or confidential.' });
   const refused = await authorize(req, ...writeGrantFor(classification, PermissionAction.CREATE));
   if (refused) return res.status(refused.status).json(refused.body);
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  const employee = await scopedEmployee(req, String(req.params.id), { id: true });
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
   const kind = String(req.body?.kind || 'OTHER').toUpperCase();
   if (!DOC_KINDS.has(kind)) return res.status(400).json({ error: 'Unknown document kind.' });
@@ -1597,17 +2613,23 @@ peopleRouter.get('/orgs/:orgId/people/documents/:docId', can(PermissionAction.VI
   const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId } });
   /* A file the caller may not open reads as absent, so its title does not leak through a 403. */
   if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  /* PRV-07: every open of a confidential or restricted file is on the access log. */
+  if (d.classification === 'CONFIDENTIAL' || d.classification === 'RESTRICTED') {
+    await peoplePrisma.accessLog.create({ data: { accountId, orgId, what: d.classification === 'CONFIDENTIAL' ? 'DOC_CONFIDENTIAL' : 'DOC_RESTRICTED', entityId: d.id, employeeId: d.employeeId, userId: req.auth!.userId } });
+  }
   res.json({ document: { ...docRow(d), dataUrl: `data:${d.mime};base64,${Buffer.from(d.data).toString('base64')}` } });
 });
 
 peopleRouter.delete('/orgs/:orgId/people/documents/:docId', can(PermissionAction.DELETE, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, classification: true } });
-  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass)) return res.status(404).json({ error: 'No such document.' });
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, classification: true, title: true, employeeId: true } });
+  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
   const refused = await authorize(req, ...writeGrantFor(d.classification, PermissionAction.DELETE));
   if (refused) return res.status(refused.status).json(refused.body);
   await deleteToBin(req, 'employeeDocument', { id: d.id });
+  /* The person's Activity shows a removed file, as it shows an uploaded one (Workforce WF-18). */
+  await writeChangeLog(peoplePrisma as any, actorOf(req, 'FORM'), { kind: 'EmployeeDocument', id: d.id, employeeId: d.employeeId }, [{ field: 'document', before: d.title, after: null, redacted: false }]);
   res.json({ ok: true });
 });
 
@@ -1616,16 +2638,21 @@ peopleRouter.delete('/orgs/:orgId/people/documents/:docId', can(PermissionAction
 // ---------------------------------------------------------------------------
 
 peopleRouter.get('/orgs/:orgId/people/data-requests', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
-  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const status = String(req.query.status || '').toUpperCase();
   const rows = await peoplePrisma.dataRequest.findMany({ where: { accountId, orgId, ...(['PENDING', 'RESOLVED', 'REJECTED'].includes(status) ? { status } : {}) }, orderBy: [{ status: 'desc' }, { createdAt: 'desc' }], take: 500 });
   const names = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.employeeId))] } }, select: { id: true, name: true, code: true } })).map((e) => [e.id, e]));
-  res.json({ requests: rows.map((r) => ({ ...r, employeeName: names.get(r.employeeId)?.name || null, employeeCode: names.get(r.employeeId)?.code || null })), pending: rows.filter((r) => r.status === 'PENDING').length });
+  /* PRV-02: an erasure shows what the law keeps, and until when, before anyone answers it. */
+  const erasures = rows.filter((r) => r.type === 'ERASURE');
+  const leftOn = new Map((erasures.length ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: erasures.map((r) => r.employeeId) } }, select: { id: true, dateOfLeaving: true } }) : []).map((e) => [e.id, e.dateOfLeaving]));
+  const kept = new Map<string, Awaited<ReturnType<typeof retentionExceptions>>>();
+  for (const r of erasures) kept.set(r.id, await retentionExceptions(orgId, leftOn.get(r.employeeId) ?? null));
+  res.json({ requests: rows.map((r) => ({ ...r, employeeName: names.get(r.employeeId)?.name || null, employeeCode: names.get(r.employeeId)?.code || null, retentionExceptions: kept.get(r.id) || null })), pending: rows.filter((r) => r.status === 'PENDING').length });
 });
 
 peopleRouter.post('/orgs/:orgId/people/data-requests/:id/resolve', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
-  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.dataRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
@@ -1646,7 +2673,7 @@ peopleRouter.post('/orgs/:orgId/people/data-requests/:id/resolve', can(Permissio
  * as done, in words the person will read in the portal.
  */
 peopleRouter.post('/orgs/:orgId/people/employees/:id/anonymise', can(PermissionAction.DELETE, EMPLOYEES), async (req, res) => {
-  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const employeeId = String(req.params.id);
   const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, accountId, orgId }, select: { name: true } });
@@ -1672,7 +2699,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/anonymise', can(PermissionA
       where: { id: request.id },
       data: {
         status: 'RESOLVED',
-        resolution: `Your personal data was erased on ${result.anonymisedAt.slice(0, 10)}. The law makes us keep your name, employee code, dates of employment, attendance and pay records for a fixed period; they are deleted when it ends.`,
+        resolution: `Your personal data was erased on ${result.anonymisedAt.slice(0, 10)}. The law makes us keep some records for a fixed period, deleted when it ends: ${(await retentionExceptions(orgId, (await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { dateOfLeaving: true } }))?.dateOfLeaving ?? null)).map((k) => `${k.label.toLowerCase()} until ${k.until || `${k.keepYears} years after leaving`} (${k.basis})`).join('; ')}.`,
         reviewedByUserId: req.auth!.userId,
         reviewedAt: new Date(),
       },

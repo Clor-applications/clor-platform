@@ -10,6 +10,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { ensureDefaultSeries, allocateNumber } from '../services/numbering.js';
 import { refuseUnknownLineItems } from '../services/lineItems.js';
+import { sentOnly } from '../utils/sentOnly.js';
 
 /**
  * Quote-stage documents: estimates and purchase orders.
@@ -238,7 +239,7 @@ function register(kind: QuoteKind) {
       const { accountId, orgId } = req.tenant!;
       const doc = await table().findFirst({ where: { id: String(req.params.docId), accountId, orgId, ...ownDocsWhere(req) } });
       if (!doc) return res.status(404).json({ error: `${cfg.resource} not found` });
-      const body = bodySchema.partial().parse(req.body);
+      const body = sentOnly(bodySchema.partial().parse(req.body), req.body);
       if (body.items !== undefined && (await refuseUnknownLineItems(res, req.tenant!.accountId, req.tenant!.orgId, body.items))) return;
 
       const updated = await table().update({

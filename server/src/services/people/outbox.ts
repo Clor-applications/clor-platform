@@ -71,7 +71,7 @@ export function onPeopleEvent(name: PeopleEventName | '*', handler: Handler) {
   };
 }
 
-/** A minute, five, thirty, two hours, twelve; then parked. */
+/** A minute, five, thirty, two hours, twelve; then parked: undelivered with more attempts than this list is long. */
 export const RETRY_MINUTES = [1, 5, 30, 120, 720];
 
 const toEnvelope = (r: { id: string; name: string; accountId: string; orgId: string; employeeId: string | null; occurredAt: Date; correlationId: string; payload: unknown }): Envelope => ({
@@ -94,7 +94,8 @@ const toEnvelope = (r: { id: string; name: string; accountId: string; orgId: str
 export async function deliverOutbox(now = new Date(), limit = 50) {
   const due = await outsideTenant('job: people outbox', () =>
     peoplePrisma.outboxEvent.findMany({
-      where: { deliveredAt: null, OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }] },
+      /* Parked events (every retry used) wait for someone to look; they are not tried each tick, nor do they take the queue's places. */
+      where: { deliveredAt: null, attempts: { lte: RETRY_MINUTES.length }, OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }] },
       orderBy: { occurredAt: 'asc' },
       take: limit,
     }),
@@ -115,7 +116,7 @@ export async function deliverOutbox(now = new Date(), limit = 50) {
       await runInTenant(row.orgId, () =>
         peoplePrisma.outboxEvent.update({
           where: { id: row.id },
-          data: { attempts, lastError: String(e instanceof Error ? e.message : e).slice(0, 500), nextAttemptAt: parked ? null : new Date(now.getTime() + wait * 60_000), ...(parked ? {} : {}) },
+          data: { attempts, lastError: String(e instanceof Error ? e.message : e).slice(0, 500), nextAttemptAt: parked ? null : new Date(now.getTime() + wait * 60_000) },
         }),
       );
       failed += 1;

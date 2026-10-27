@@ -22,7 +22,7 @@ export const LETTER_LABEL: Record<LetterKind, string> = {
 };
 
 /** What a template may merge from the record. Nothing about pay: that is Payroll's. */
-export const MERGE_FIELDS = ['name', 'code', 'designation', 'department', 'dateOfJoining', 'firstJoiningDate', 'dateOfLeaving', 'probationEndDate', 'confirmedOn', 'establishment', 'establishmentAddress', 'orgName', 'today'] as const;
+export const MERGE_FIELDS = ['name', 'code', 'designation', 'department', 'dateOfJoining', 'firstJoiningDate', 'dateOfLeaving', 'leavingWords', 'probationEndDate', 'confirmedOn', 'establishment', 'establishmentAddress', 'orgName', 'today'] as const;
 export type MergeField = (typeof MERGE_FIELDS)[number];
 
 /**
@@ -109,7 +109,7 @@ For {{orgName}}
 
 Dear {{name}},
 
-This is to confirm that you have been relieved from the services of {{orgName}} at the close of working hours on {{dateOfLeaving}}, following your resignation. You were employed as {{designation}} in {{department}} from {{dateOfJoining}} to {{dateOfLeaving}}.
+This is to confirm that you have been relieved from the services of {{orgName}} at the close of working hours on {{dateOfLeaving}}, {{leavingWords}}. You were employed as {{designation}} in {{department}} from {{dateOfJoining}} to {{dateOfLeaving}}.
 
 Your final settlement is being processed by Payroll as per the company's policy.
 
@@ -218,6 +218,14 @@ const fmt = (d: string | null | undefined) => {
   return new Date(`${d}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
 };
 
+/* How the relieving letter says why they went: never "following your resignation" for someone whose contract ended or who retired (Workforce final audit W17). */
+const LEAVING_WORDS: Record<string, string> = {
+  RESIGNED: 'following your resignation', CONTRACT_ENDED: 'on the completion of your contract', RETIRED: 'on your retirement', TERMINATED: 'on the termination of your services',
+};
+/* Letters that say someone has gone, and who never gets one. */
+const LEAVING_LETTERS = new Set(['RELIEVING', 'EXPERIENCE', 'SERVICE_CERT']);
+const NO_RELIEVING = new Set(['ABSCONDED', 'DECEASED', 'NOT_JOINED', 'DUPLICATE']);
+
 /** The record's values for the merge fields, as the letter prints them. */
 export async function mergeValues(orgId: string, employeeId: string): Promise<Record<MergeField, string>> {
   const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId } });
@@ -228,7 +236,7 @@ export async function mergeValues(orgId: string, employeeId: string): Promise<Re
   ]);
   return {
     name: e.name, code: e.code || '', designation: e.designation || '', department: e.department || '',
-    dateOfJoining: fmt(e.dateOfJoining), firstJoiningDate: fmt(e.firstJoiningDate), dateOfLeaving: fmt(e.dateOfLeaving), probationEndDate: fmt(e.probationEndDate), confirmedOn: fmt(e.confirmedOn),
+    dateOfJoining: fmt(e.dateOfJoining), firstJoiningDate: fmt(e.firstJoiningDate), dateOfLeaving: fmt(e.dateOfLeaving), leavingWords: LEAVING_WORDS[e.leavingType || ''] || '', probationEndDate: fmt(e.probationEndDate), confirmedOn: fmt(e.confirmedOn),
     establishment: est ? `${est.name}${est.state ? `, ${est.state}` : ''}` : '', establishmentAddress: est?.address || '', orgName: org?.name || '', today: fmt(todayIst()),
   };
 }
@@ -257,6 +265,11 @@ export function render(body: string, values: Record<string, string>, extra: Reco
 export async function issueLetter(actor: Actor, employeeId: string, input: { kind?: string; extra?: Record<string, unknown>; classification?: string }) {
   const kind = String(input.kind || '').toUpperCase() as LetterKind;
   if (!LETTER_KINDS.includes(kind)) throw new LetterError('Unknown letter kind.');
+  if (LEAVING_LETTERS.has(kind)) {
+    const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId: actor.orgId }, select: { status: true, leavingType: true } });
+    if (!e || (e.status !== 'LEFT' && e.status !== 'ON_NOTICE')) throw new LetterError('This letter is for someone who is leaving or has left. Record their leaving first.', 409);
+    if (kind === 'RELIEVING' && NO_RELIEVING.has(e.leavingType || '')) throw new LetterError('A relieving letter is not issued for this kind of leaving.', 409);
+  }
   const template = (await templatesOf(actor.orgId)).find((t) => t.kind === kind)!;
   const extra = Object.fromEntries(Object.entries(input.extra || {}).map(([k, v]) => [k, String(v ?? '').trim().slice(0, 1000)]));
   const values = await mergeValues(actor.orgId, employeeId);

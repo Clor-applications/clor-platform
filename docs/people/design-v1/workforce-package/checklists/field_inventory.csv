@@ -1,0 +1,21 @@
+section,logical_field,label,ui_control,validation,classification,views,actual_schema_field,required_by_PRD,confirmed
+identity,employeeId,Employee number,text/auto,company-scoped unique,HR permitted,form+profile+list,,TBD,NO
+personal,legalName,Legal name,text,policy required; Unicode-safe,HR permitted,form+profile,,TBD,NO
+personal,preferredName,Preferred name,text,optional,HR permitted,form+profile,,TBD,NO
+contact,workEmail,Work email,email,conditional; syntax,role/field scope,form+profile+list,,TBD,NO
+contact,personalEmail,Personal email,email,optional; privacy notice,restricted,form+profile,,TBD,NO
+contact,phone,Phone,tel,country-aware,restricted,form+profile,,TBD,NO
+personal,dateOfBirth,Date of birth,date,conditional lawful collection,sensitive,form+profile,,TBD,NO
+contact,address,Home address,structured,optional,sensitive,form+profile,,TBD,NO
+contact,emergencyContact,Emergency contact,structured,optional/conditional,sensitive,form+profile,,TBD,NO
+employment,employmentType,Employment type,select,company allowed options,HR permitted,form+profile+list,,TBD,NO
+employment,joiningDate,Joining date,date,valid effective date,HR permitted,form+profile+list,,TBD,NO
+employment,status,Employment status,enum,valid workflow transitions,HR permitted,profile+list,,TBD,NO
+employment,probationDate,Probation/confirmation date,date,conditional; valid range,HR restricted,profile,,TBD,NO
+organization,departmentId,Department,combobox,active company + as-of,HR permitted,form+profile+list,,TBD,NO
+organization,designationId,Designation,combobox,active company + as-of,HR permitted,form+profile+list,,TBD,NO
+organization,managerId,Reporting manager,combobox,no self/cycle; scoped,HR permitted,form+profile+list,,TBD,NO
+organization,locationId,Work location,select,company/branch allowed,HR permitted,form+profile+list,,TBD,NO
+organization,gradeId,Grade,select,if configured,HR restricted,form+profile,,TBD,NO
+organization,costCenterId,Cost center,select,if configured,HR restricted,form+profile,,TBD,NO
+documents,documentType,Document classification,select,allowed company types,classified,documents,,TBD,NO

@@ -37,8 +37,10 @@ describe('People home', () => {
     await people('post', '/workspace/candidates', { title: 'Meera K', status: 'APPLIED', details: { jobId: job.id, email: 'meera@example.com' } }).expect(201);
     await people('post', '/workspace/assets', { title: 'Laptop', status: 'ASSIGNED', employeeId: r.id, details: { assetTag: 'LT-01' } }).expect(201);
     await people('post', `/employees/${r.id}/resign`, { lastDay: plus(-1), leavingType: 'RESIGNED' }).expect(200);
+    /* Five days ahead, moved off a Sunday: leave on a weekly off has nothing to take. */
+    const workday = new Date(`${plus(5)}T00:00:00Z`).getUTCDay() === 0 ? plus(6) : plus(5);
     const type = (await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/types`).set(at(c)).send({ name: 'Casual', annualDays: 12 }).expect(201)).body.type;
-    await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/requests`).set(at(c)).send({ employeeId: a.id, leaveTypeId: type.id, fromDate: plus(5), toDate: plus(5), reason: 'Family function' }).expect(201);
+    await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/requests`).set(at(c)).send({ employeeId: a.id, leaveTypeId: type.id, fromDate: workday, toDate: workday, reason: 'Family function' }).expect(201);
 
     const todos = (await people('get', '/home').expect(200)).body.todos;
     const by = (k: string) => todos.find((t: any) => t.key === k);

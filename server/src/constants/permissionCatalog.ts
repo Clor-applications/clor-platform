@@ -257,6 +257,18 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
         actions: [A.VIEW, A.CREATE, A.EDIT, A.APPROVE],
       },
       {
+        key: 'Private Cases',
+        label: 'Private cases',
+        description: 'Take in a POSH complaint or a grievance and set up the committee. Opening a case needs more: being named on it. Company admins do not see cases unless named',
+        actions: [A.VIEW, A.CREATE, A.EDIT],
+      },
+      {
+        key: 'Privacy',
+        label: 'Privacy',
+        description: 'Who viewed what (statutory details, confidential documents, private-case opens as counts), the retention schedule and legal hold, the deletion review, and time-limited auditor access to named evidence',
+        actions: [A.VIEW, A.EDIT, A.DELETE],
+      },
+      {
         key: 'Policies',
         label: 'Policies',
         description: 'The policy library: versions with effective dates, who each applies to, acceptance and reminders. Publishing follows the approval rule',
@@ -284,7 +296,7 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
       {
         key: 'Attendance Requests',
         label: 'Attendance requests',
-        description: 'Corrections people ask for; Approve to accept or refuse them',
+        description: 'Missed punch, work from home, on duty and permission hours people ask for; Approve to decide, change or cancel them',
         actions: [A.VIEW, A.CREATE, A.APPROVE],
       },
       {
@@ -697,6 +709,8 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['ATTENDANCE', 'Leave Types', [A.VIEW]],
       ['ATTENDANCE', 'Holidays', [A.VIEW]],
       ['ATTENDANCE', 'My Attendance', [A.VIEW]],
+      /* Attendance requests (work from home, on duty, missed punch) are Time & Leave's too. */
+      ['ATTENDANCE', 'Attendance Requests', [A.VIEW, A.CREATE]],
     ],
   },
   HR_MANAGER: {
@@ -721,6 +735,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['ATTENDANCE', 'Holidays', ['*']],
       ['ATTENDANCE', 'My Attendance', [A.VIEW]],
       ['ATTENDANCE', 'Employee Portal', ['*']],
+      ['ATTENDANCE', 'Attendance Requests', ['*']],
     ],
   },
   TEAM_MANAGER: {
@@ -737,6 +752,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Lifecycle', [A.VIEW, A.EDIT]],
       ['PEOPLE', 'Policies', [A.VIEW]],
       ['ATTENDANCE', 'Leave Requests', [A.VIEW, A.APPROVE]],
+      ['ATTENDANCE', 'Attendance Requests', [A.VIEW, A.APPROVE]],
       ['ATTENDANCE', 'My Attendance', [A.VIEW]],
     ],
   },
@@ -770,10 +786,10 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   EXTERNAL_AUDITOR: {
     label: 'External Auditor',
     group: 'Read-only',
-    description: 'Read the audit trail and the documents shared for an audit; nothing personal, nothing editable',
+    description: 'Read the audit trail, and only the documents named in a time-limited audit grant (PRV-06); nothing personal, nothing editable',
     roleType: 'CUSTOM',
     grants: [
-      ['PEOPLE', 'Documents', [A.VIEW]],
+      /* No Documents grant: that opened every employee-visible and HR-only file. Documents come through an AuditorGrant only. */
       ['SETTINGS', 'Audit trail', [A.VIEW, A.EXPORT]],
     ],
   },

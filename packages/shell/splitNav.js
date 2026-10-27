@@ -72,17 +72,44 @@ export function railAction({ single, phone, panelShown, opensHome = false, curre
  * already use) and, where the hostname does not say which app this is,
  * `?app=<app>`. Other query parameters are kept as they are.
  */
-export function screenSearch(search, { app, open, appInHost }) {
+export function screenSearch(search, { app, open, appInHost, params }) {
   const q = new URLSearchParams(search || '');
   if (!appInHost && app) q.set('app', app);
   if (open) q.set('open', open);
   else q.delete('open');
+  /*
+   * A screen's own state (the record open, its tab, the directory's filters)
+   * rides along as `s.<key>`, so Back, refresh and a shared link land on the
+   * same record and tab (People design spec v1, D-V7). Passing `params`
+   * replaces them; a new screen with none clears them.
+   */
+  if (params !== undefined) {
+    for (const k of [...q.keys()]) if (k.startsWith(PARAM_PREFIX)) q.delete(k);
+    for (const [k, v] of Object.entries(params || {})) {
+      if (v == null || v === '' || typeof v === 'object') continue;
+      q.set(`${PARAM_PREFIX}${k}`, String(v));
+    }
+  }
   const s = q.toString();
   return s ? `?${s}` : '';
 }
 
-/** The app and screen an address names, for a reload or the back button. */
+export const PARAM_PREFIX = 's.';
+
+/** The app, screen and screen state an address names, for a reload or the back button. */
 export function readScreenSearch(search) {
   const q = new URLSearchParams(search || '');
-  return { app: q.get('app') || null, open: q.get('open') || null };
+  const params = {};
+  for (const [k, v] of q.entries()) if (k.startsWith(PARAM_PREFIX) && k.length > PARAM_PREFIX.length) params[k.slice(PARAM_PREFIX.length)] = v;
+  return { app: q.get('app') || null, open: q.get('open') || null, params: Object.keys(params).length ? params : null };
+}
+
+/** Params after a patch: a null or empty value removes the key. Null when nothing is left. */
+export function mergeParams(current, patch) {
+  const out = { ...(current || {}) };
+  for (const [k, v] of Object.entries(patch || {})) {
+    if (v == null || v === '') delete out[k];
+    else out[k] = v;
+  }
+  return Object.keys(out).length ? out : null;
 }

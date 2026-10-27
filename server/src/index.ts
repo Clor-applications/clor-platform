@@ -12,6 +12,8 @@ import { startScheduledChanges } from './services/people/effectiveDating.js';
 import { startApprovalDues } from './services/people/approvals/engine.js';
 import { startDeskDues } from './services/people/desk.js';
 import { startSeparations } from './services/people/lifecycle/leaving.js';
+import { startObligationDues } from './services/people/complianceRules.js';
+import { startLeaveJobs } from './services/attendance/leaveJobs.js';
 import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
@@ -24,6 +26,7 @@ import { startCredentialBackfill } from './services/credentialBackfill.js';
 import { startOwnerPermissionSync } from './services/ownerPermissions.js';
 import { startCredentialChecks } from './services/credentialReview.js';
 import { startIntegrityChecks } from './services/integrity/checks.js';
+import { startOrgDetailBackfill } from './services/people/organization.js';
 
 /* Crashes and unhandled rejections are reported, not lost. */
 reportProcessErrors();
@@ -90,6 +93,9 @@ registerPeopleEffects();
 startApprovalDues();
 startDeskDues();
 startSeparations();
+startObligationDues();
+/* Leave: steps handed on to HR when a manager does not decide, and the morning digest of what waits. */
+startLeaveJobs();
 startNotificationPruning();
 startBooksDigest();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */
@@ -102,3 +108,5 @@ startOwnerPermissionSync();
 startCredentialChecks();
 /* GAP-010: links between the databases, checked nightly; safe ones repaired, the rest logged. */
 startIntegrityChecks();
+/* Organization: "Detailed structure" on, once, for every company already using those lists. */
+startOrgDetailBackfill();

@@ -40,9 +40,10 @@ describe('Attendance navigation structure', () => {
       ['Other Punch Sources', ['Mobile Punches']],
     ]);
     expect(s.Attendance).toEqual([
-      ['Daily Operations', ['Attendance Records', 'Punches', 'Exceptions', 'Corrections']],
+      ['Daily Operations', ['Attendance Records', 'Punches', 'Exceptions', 'Attendance Requests']],
       ['Scheduling', ['Schedule Calendar', 'Shifts', 'Shift Assignments', 'Department Schedules', 'Temporary Schedules', 'Shift Rotations']],
-      ['Leave', ['Leave Requests', 'Leave Balances']],
+      /* Time & Leave: the screens People shows, shared (TIME-LEAVE-DECISIONS.md). */
+      ['Leave', ['Leave Overview', 'Leave Requests', 'Leave Calendar', 'Leave Balances', 'Leave Register', 'Stand-Ins']],
       ['Time Management', ['Overtime & Comp-Off']],
       ['Period Closing', ['Payroll Readiness', 'Employee Confirmations', 'Month Close']],
     ]);
@@ -56,7 +57,7 @@ describe('Attendance navigation structure', () => {
     ]);
     expect(s.Settings).toEqual([
       ['Organization', ['Attendance Setup', 'Work Sites', 'Work Site Check']],
-      ['Work Policy', ['Attendance Policy', 'Weekly Off Policy', 'Overtime Policy', 'Leave Policy', 'Holidays']],
+      ['Work Policy', ['Attendance Policy', 'Weekly Off Policy', 'Overtime Policy', 'Leave Policy', 'Working Week', 'Holidays', 'Leave Year End', 'Request Rules']],
       ['Integrations', ['Integrations']],
       ['Access & Security', ['Users & Security', 'Roles & Access']],
       ['Data Management', ['Data Health', 'Import Data', 'Export Data', 'Close Company']],
@@ -97,7 +98,7 @@ describe('Attendance navigation structure', () => {
     });
   }
   it('a person without a screen does not see it, and a module left empty disappears', () => {
-    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'integrations', 'sso', 'rolesAccess', 'dataImport', 'dataExport', 'closeCompany', 'dataProtection', 'dataRequests', 'auditLogs', 'recycleBin', 'dataHealth', 'complianceCalendar']);
+    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'workingWeek', 'leaveYearEnd', 'requestRules', 'integrations', 'sso', 'rolesAccess', 'dataImport', 'dataExport', 'closeCompany', 'dataProtection', 'dataRequests', 'auditLogs', 'recycleBin', 'dataHealth', 'complianceCalendar']);
     const nav = attendanceApp.nav.filter((i) => !settings.has(i.key));
     const labels = resolveModules(attendanceApp, nav).map((m) => m.label);
     expect(labels).not.toContain('Settings');
@@ -155,7 +156,27 @@ describe('the address names the screen', () => {
     expect(screenSearch('?open=records', { app: 'payroll', open: null, appInHost: true })).toBe('');
   });
   it('reads back what it wrote', () => {
-    expect(readScreenSearch(screenSearch('', { app: 'attendance', open: 'shifts', appInHost: false }))).toEqual({ app: 'attendance', open: 'shifts' });
-    expect(readScreenSearch('')).toEqual({ app: null, open: null });
+    expect(readScreenSearch(screenSearch('', { app: 'attendance', open: 'shifts', appInHost: false }))).toEqual({ app: 'attendance', open: 'shifts', params: null });
+    expect(readScreenSearch('')).toEqual({ app: null, open: null, params: null });
+  });
+});
+
+describe('screen state in the address (People design v1, D-V7)', () => {
+  it('carries a record and its tab as s.* params, and reads them back', () => {
+    const url = screenSearch('', { app: 'people', open: 'employee', appInHost: false, params: { id: 'e1', tab: 'history' } });
+    expect(url).toBe('?app=people&open=employee&s.id=e1&s.tab=history');
+    expect(readScreenSearch(url)).toEqual({ app: 'people', open: 'employee', params: { id: 'e1', tab: 'history' } });
+  });
+  it('a new screen without params clears the last one\'s, and keeps unrelated query keys', () => {
+    expect(screenSearch('?x=1&open=employee&s.id=e1', { app: 'people', open: 'employees', appInHost: true, params: null })).toBe('?x=1&open=employees');
+  });
+  it('leaves params alone when none are given, and drops blank and nested values', () => {
+    expect(screenSearch('?open=a&s.q=ravi', { open: 'a', appInHost: true })).toBe('?open=a&s.q=ravi');
+    expect(screenSearch('', { open: 'a', appInHost: true, params: { q: '', f: { a: 1 }, page: 2 } })).toBe('?open=a&s.page=2');
+  });
+  it('merges a patch, removing keys set to null', async () => {
+    const { mergeParams } = await import('../packages/shell/splitNav');
+    expect(mergeParams({ id: 'e1', tab: 'overview' }, { tab: 'history' })).toEqual({ id: 'e1', tab: 'history' });
+    expect(mergeParams({ id: 'e1' }, { id: null })).toBeNull();
   });
 });

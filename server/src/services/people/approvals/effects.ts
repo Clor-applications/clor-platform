@@ -5,7 +5,8 @@ import { leaveEmployee } from '../lifecycle/leaving.js';
 import { applyOutcome } from '../lifecycle/probation.js';
 import { registerChangeReviewTasks } from '../lifecycle/changes.js';
 import { publishVersion } from '../policies.js';
-import { onApproved, type Payload } from './engine.js';
+import { ApprovalError, beforeApproving, onApproved, type Payload } from './engine.js';
+import { staleFields } from '../selfService.js';
 
 /**
  * What an approved request does (contract §5.3). Registered once at start-up
@@ -40,6 +41,15 @@ export function registerPeopleEffects() {
   onApproved('JOB_CHANGE', applyChange);
   onApproved('PROFILE_CHANGE', applyChange);
 
+  /* E22: a profile change is approved only onto the value it was asked against; a later edit by HR is not overwritten silently. */
+  beforeApproving('PROFILE_CHANGE', async (request) => {
+    if (!request.subjectEmployeeId) return;
+    const current = await peoplePrisma.employee.findFirst({ where: { id: request.subjectEmployeeId, orgId: request.orgId } });
+    if (!current) return;
+    const stale = staleFields(current as unknown as Record<string, unknown>, (request.payload || {}) as Payload);
+    if (stale.length) throw new ApprovalError(`${stale.join(', ')} changed on the record after this was asked. Reject this request; the person can ask again.`, 409, 'STALE');
+  });
+
   /* Probation: the outcome the request carried, applied as HR would by hand. */
   onApproved('PROBATION', async ({ request, actor }) => {
     const p = (request.payload || {}) as { outcome?: 'CONFIRM' | 'EXTEND' | 'END'; newEndDate?: string | null; note?: string | null; lastDay?: string | null };
@@ -61,7 +71,8 @@ export function registerPeopleEffects() {
     if (!request.subjectEmployeeId || !p.lastDay || !p.leavingType) return;
     const existing = await peoplePrisma.employee.findFirst({ where: { id: request.subjectEmployeeId, orgId: request.orgId } });
     if (!existing || existing.status === 'LEFT') return { skipped: 'Already left.' };
-    const r = await leaveEmployee({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, existing, { lastDay: p.lastDay, leavingType: p.leavingType, reason: p.reason ?? null });
+    /* The approval actor goes through, so the leaving traces back to this request and decision (E16). */
+    const r = await leaveEmployee(actor, existing, { lastDay: p.lastDay, leavingType: p.leavingType, reason: p.reason ?? null });
     return { left: true, scheduled: r.scheduled, readers: r.readers };
   });
 }

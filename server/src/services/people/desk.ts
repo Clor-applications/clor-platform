@@ -92,11 +92,11 @@ const shapeRequest = (r: any, now = new Date()) => ({
   assigneeUserId: r.assigneeUserId, queue: r.queue, replyBy: r.replyBy, resolveBy: r.resolveBy, firstReplyAt: r.firstReplyAt, status: r.status,
   replyOverdue: !r.firstReplyAt && ['OPEN', 'REOPENED'].includes(r.status) && r.replyBy < now,
   resolveOverdue: ['OPEN', 'REOPENED', 'WAITING_EMPLOYEE'].includes(r.status) && r.resolveBy < now,
-  resolution: r.resolution, resolvedAt: r.resolvedAt, reopenedAt: r.reopenedAt, movedToCaseAt: r.movedToCaseAt, movedToCaseId: r.movedToCaseId, createdAt: r.createdAt, updatedAt: r.updatedAt,
+  resolution: r.resolution, resolvedAt: r.resolvedAt, reopenedAt: r.reopenedAt, movedToCaseAt: r.movedToCaseAt, movedToCaseId: r.movedToCaseId, changeRef: r.changeRef ?? null, createdAt: r.createdAt, updatedAt: r.updatedAt,
 });
 
 /** The employee raises a request (DESK-01); HR may raise one on their behalf. */
-export async function raiseRequest(who: Who & { employeeId?: string | null }, employeeId: string, input: { category?: string; subject?: string; description?: string; urgency?: string; replyChannel?: string | null; attachment?: { title?: string; data?: unknown; mime?: unknown } | null }) {
+export async function raiseRequest(who: Who & { employeeId?: string | null }, employeeId: string, input: { category?: string; subject?: string; description?: string; urgency?: string; replyChannel?: string | null; changeRef?: string | null; attachment?: { title?: string; data?: unknown; mime?: unknown } | null }) {
   const cats = await categoriesOf(who.accountId, who.orgId);
   const cat = cats.find((c) => c.key === String(input.category || '').toUpperCase() && c.isActive) || cats.find((c) => c.key === 'OTHER') || cats[0];
   if (!cat) throw new DeskError('The help desk has no categories yet.');
@@ -122,7 +122,7 @@ export async function raiseRequest(who: Who & { employeeId?: string | null }, em
   const now = new Date();
   const row = await peoplePrisma.deskRequest.create({
     data: {
-      accountId: who.accountId, orgId: who.orgId, employeeId, category: cat.key, subject, description, urgency, replyChannel, queue: cat.queue,
+      accountId: who.accountId, orgId: who.orgId, employeeId, category: cat.key, subject, description, urgency, replyChannel, queue: cat.queue, changeRef: input.changeRef ? String(input.changeRef).slice(0, 120) : null,
       replyBy: new Date(now.getTime() + cat.replyHours * 3_600_000), resolveBy: addWorkingDays(now, cat.resolveDays), raisedByUserId: who.userId,
       ...(attachmentDocId ? { messages: { create: { accountId: who.accountId, orgId: who.orgId, authorEmployeeId: employeeId, body: 'Attachment', attachmentDocId } } } : {}),
     },

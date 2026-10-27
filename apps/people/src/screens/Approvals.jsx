@@ -7,6 +7,14 @@ import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { formatDateIn } from '@ui/utils/dates';
 import { decideRequest, listRequests, replyRequest, withdrawRequest } from '../api/approvals';
+import { SCHEDULED_LABELS } from '@ui/personnel/Employees';
+
+/* The fields a request can name, in plain words (never "photoUrl" or "addressLine"). */
+const FIELD_WORDS = {
+  photoUrl: 'Photo', firstName: 'First name', lastName: 'Last name', preferredName: 'Preferred name', phone: 'Phone', personalEmail: 'Personal email', email: 'Personal email',
+  addressLine: 'Address', city: 'City', state: 'State', country: 'Country', pincode: 'PIN code', dateOfBirth: 'Date of birth', gender: 'Gender', maritalStatus: 'Marital status',
+  emergencyContactName: 'Emergency contact', emergencyContactPhone: 'Emergency phone', emergencyContactRelation: 'Relationship', guardianName: 'Father / husband name',
+};
 
 /*
  * Approvals (docs/people/04 §4.2): everything waiting for me, by due date,
@@ -68,7 +76,7 @@ export default function Approvals() {
     <DocumentListShell
       entity="people"
       title="Approvals"
-      subtitle="What is waiting for you, by when it is due; and what you asked for."
+      description="What is waiting for you, by when it is due; and what you asked for."
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search requests…', label: 'Search requests' }}
       tabs={TABS}
       statusValue={tab}
@@ -128,7 +136,10 @@ export default function Approvals() {
                 <h3 className="ui-t-label mb-1">What changes</h3>
                 <ul className="space-y-1">
                   {Object.entries(open.payload.fields).map(([k, v]) => (
-                    <li key={k}><span className="ui-muted">{k.replace(/Id$/, '')}</span>: <span className="ui-muted">{String(v.before ?? 'None')}</span> → <strong>{String(v.after ?? 'None')}</strong></li>
+                    k === 'photoUrl' && open.payload.data?.photoUrl
+                      /* A new photo is shown, not described: HR sees what they are approving. */
+                      ? <li key={k} className="flex items-center gap-3"><span className="ui-muted">Photo:</span><img src={open.payload.data.photoUrl} alt="New photo asked for" className="h-16 w-16 rounded-full object-cover" /></li>
+                      : <li key={k}><span className="ui-muted">{FIELD_WORDS[k] || SCHEDULED_LABELS[k] || k.replace(/Id$/, '')}</span>: <span className="ui-muted">{String(v.before ?? 'None')}</span> → <strong>{String(v.after ?? 'None')}</strong></li>
                   ))}
                 </ul>
                 {open.payload.effectiveOn ? <p className="ui-caption mt-1">Takes effect {formatDateIn(open.payload.effectiveOn)}</p> : null}

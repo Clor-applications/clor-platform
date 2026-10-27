@@ -23,6 +23,10 @@ export const getOverview = () => apiFetch(`${base()}/overview`, opts);
 export const getPeopleHome = () => apiFetch(`${base()}/home`, opts).then((r) => r?.todos || []);
 
 export const listEmployees = (params) => apiFetch(`${base()}/employees${query(params)}`, opts);
+export const bulkUpdateEmployees = (body) => apiFetch(`${base()}/employees/bulk`, { ...opts, method: 'POST', body });
+export const listSavedViews = (screen) => apiFetch(`${base()}/saved-views?screen=${encodeURIComponent(screen)}`, opts).then((r) => r?.views || []);
+export const saveSavedView = (body) => apiFetch(`${base()}/saved-views`, { ...opts, method: 'POST', body }).then((r) => r?.view);
+export const deleteSavedView = (id) => apiFetch(`${base()}/saved-views/${encodeURIComponent(id)}`, { ...opts, method: 'DELETE' });
 /** Fetch every API page for complete reports and employee pickers. */
 export async function listAllEmployees(params = {}) {
   const employees = [];
@@ -44,7 +48,7 @@ export const importEmployees = (rows, dryRun = false, mode = 'create') => send('
 export const importBatches = () => apiFetch(`${base()}/employees/import/batches`, opts).then((r) => r?.batches || []);
 export const undoImport = (batchId) => send(`/employees/import/${encodeURIComponent(batchId)}/undo`, 'POST', {});
 export const importContractors = (rows, dryRun = false) => send('/contractors/import', 'POST', { rows, dryRun });
-export const getOrgChart = () => apiFetch(`${base()}/org-chart`, opts);
+export const getOrgChart = (params = {}) => apiFetch(`${base()}/org-chart${params.asOf ? `?asOf=${encodeURIComponent(params.asOf)}` : ''}`, opts);
 
 /** kind: departments | job-positions | job-roles | employee-types | work-types */
 export const listStructure = (kind) => apiFetch(`${base()}/structure/${kind}`, opts).then((r) => r?.items || []);
@@ -114,6 +118,10 @@ export const addComplianceTask = (body) => send('/compliance', 'POST', body);
 export const getComplianceEvidence = (id) => apiFetch(`${base()}/compliance/${encodeURIComponent(id)}/evidence`, opts).then((r) => r?.evidence);
 /* Data health: the implementation auditor (server: services/people/dataHealth.ts). */
 export const getDataHealth = () => apiFetch(`${base()}/data-health`, opts);
+/* Snooze a Health check item with a reason and a date (HLTH-03); headcount and movements (HLTH-04). */
+export const snoozeHealthCheck = (checkId, body) => send(`/data-health/${encodeURIComponent(checkId)}/snooze`, 'POST', body);
+export const unsnoozeHealthCheck = (checkId) => send(`/data-health/${encodeURIComponent(checkId)}/snooze`, 'DELETE');
+export const getHeadcount = (params = {}) => apiFetch(`${base()}/headcount?${new URLSearchParams(Object.entries(params).filter(([, v]) => v))}`, opts);
 /* What else a change affects (LIFE-04): asked before the form is sent, with the fields as they would be saved. */
 export const getChangeImpact = (id, fields) => {
   const q = new URLSearchParams(Object.entries(fields).map(([k, v]) => [k, v || '']));
@@ -129,6 +137,8 @@ export const getCustomValues = (id) => apiFetch(`${base()}/employees/${encodeURI
 export const saveCustomValues = (id, values) => send(`/employees/${encodeURIComponent(id)}/custom-fields`, 'PUT', { values });
 /* The journey and Why (CORE-06, TRACE-01): every change in order, each with its reasons. */
 export const getJourney = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/journey`, opts);
+export const raiseFromWhy = (id, key, body) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/why/${encodeURIComponent(key)}/raise`, { ...opts, method: 'POST', body });
+export const getSalaryQuestion = (id, month) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/salary-question?month=${encodeURIComponent(month)}`, opts);
 export const getWhy = (id, key) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/why/${encodeURIComponent(key)}`, opts).then((r) => r?.why);
 /* Before day one (LIFE-01): invite the joiner; see what they sent; check it onto the record. */
 export const createInvite = (id, body) => send(`/employees/${encodeURIComponent(id)}/invites`, 'POST', body);
@@ -150,4 +160,6 @@ export const LEAVING_TYPES = {
   ABSCONDED: 'Absconded',
   CONTRACT_ENDED: 'Contract ended',
   DECEASED: 'Deceased',
+  NOT_JOINED: 'Did not join',
+  DUPLICATE: 'Duplicate record',
 };

@@ -7,7 +7,7 @@ import { Spinner } from '@ui/components/ui/Primitives';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { hasApp, orgId as platformOrgId } from '@platform/context';
 import PermissionMatrix from './PermissionMatrix';
-import { PERMISSION_APPS, appOfModule, catalogKeys, moduleKeys } from './permissionKeys';
+import { PERMISSION_APPS, catalogKeys, moduleKeys, visibleModules } from './permissionKeys';
 import { Meter, PageHead, Panel } from './wsKit';
 import './workspace.css';
 
@@ -227,11 +227,8 @@ export const RolePermissionManager = () => {
 
               <PermissionMatrix
                 key={`${roleId}:${forApp}`}
-                modules={catalog.modules.filter((m) => {
-                  const app = appOfModule(m.key);
-                  if (app !== 'company' && !offeredApps.some((a) => a.id === app)) return false;
-                  return forApp === 'all' || app === forApp;
-                })}
+                /* Time & Leave shows under People or Attendance, whichever the company has (TIME-LEAVE-DECISIONS M1). */
+                modules={visibleModules(catalog.modules, offeredApps.map((a) => a.id), forApp)}
                 granted={granted}
                 onToggle={toggle}
                 onSetMany={setMany}

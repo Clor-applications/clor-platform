@@ -3,15 +3,17 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
+import { inScope, teamScope } from '../services/people/scope.js';
+import { StayOnError, cancelLeaving } from '../services/people/lifecycle/stayOn.js';
 import { istDate } from '../services/attendance/compute.js';
 import { pushEmployeeToReaders, revokeFromReaders } from '../services/attendance/readerSync.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { openNextEpisode } from '../services/people/episodes.js';
-import { leaveEmployee } from '../services/people/lifecycle/leaving.js';
+import { LEAVING_TYPES, leaveEmployee } from '../services/people/lifecycle/leaving.js';
 import { correlationOf, employeeSummary } from '../services/people/employees.js';
 import { diffEmployee, writeChangeLog } from '../services/people/changeLog.js';
 import { writeEvent } from '../services/people/outbox.js';
@@ -114,6 +116,8 @@ personnelRouter.post(`${base}/contractors/import`, can(PermissionAction.CREATE, 
   if (!rows.length) return res.status(400).json({ error: 'Nothing to import.' });
   if (rows.length > 500) return res.status(400).json({ error: 'Import up to 500 contractors at a time.' });
   const dryRun = req.body?.dryRun === true;
+  /* Changing a contractor already on the list is an edit, and needs the edit grant; without it those rows are refused. */
+  const mayUpdate = !(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, R.structure));
   const existing = new Map((await peoplePrisma.contractor.findMany({ where: { accountId, orgId }, select: { id: true, name: true } })).map((c) => [c.name.trim().toLowerCase(), c.id]));
   const results: Array<{ row: number; ok: boolean; error?: string }> = [];
   let imported = 0;
@@ -133,9 +137,16 @@ personnelRouter.post(`${base}/contractors/import`, can(PermissionAction.CREATE, 
     });
     if (!parsed.success) { results.push({ row: i + 1, ok: false, error: parsed.error.issues[0]?.message || 'Check the row.' }); continue; }
     const id = existing.get(parsed.data.name.trim().toLowerCase());
+    if (id && !mayUpdate) { results.push({ row: i + 1, ok: false, error: `${parsed.data.name} is already on the list; changing it needs the edit permission.` }); continue; }
     if (!dryRun) {
-      if (id) await peoplePrisma.contractor.update({ where: { id }, data: contractorData(parsed.data) });
-      else existing.set(parsed.data.name.trim().toLowerCase(), (await peoplePrisma.contractor.create({ data: { accountId, orgId, ...contractorData(parsed.data), createdByUserId: req.auth!.userId } })).id);
+      /* Each row stands alone: a clash (a code another contractor uses) fails that row, not the file. */
+      try {
+        if (id) await peoplePrisma.contractor.update({ where: { id }, data: contractorData(parsed.data) });
+        else existing.set(parsed.data.name.trim().toLowerCase(), (await peoplePrisma.contractor.create({ data: { accountId, orgId, ...contractorData(parsed.data), createdByUserId: req.auth!.userId } })).id);
+      } catch (e: any) {
+        results.push({ row: i + 1, ok: false, error: String(e?.code) === 'P2002' ? 'That code is already used by another contractor.' : 'This row could not be saved.' });
+        continue;
+      }
     } else if (!id) existing.set(parsed.data.name.trim().toLowerCase(), 'new');
     if (id) updated += 1;
     else imported += 1;
@@ -174,7 +185,7 @@ personnelRouter.delete(`${base}/contractors/:id`, can(PermissionAction.DELETE, R
 // Resignation and rehire
 // ---------------------------------------------------------------------------
 
-export const LEAVING_TYPES = ['RESIGNED', 'TERMINATED', 'RETIRED', 'ABSCONDED', 'CONTRACT_ENDED', 'DECEASED'] as const;
+export { LEAVING_TYPES };
 
 /**
  * Someone leaves: last day, why, and whether they are still expected at work
@@ -190,15 +201,36 @@ personnelRouter.post(`${base}/employees/:id/resign`, can(PermissionAction.EDIT, 
       lastDay: z.string().regex(ISO_DATE, 'Choose the last working day.'),
       leavingType: z.enum(LEAVING_TYPES),
       reason: text(500),
+      /* Notice (W15): when the resignation came, and whether the notice owed is waived. */
+      resignedOn: z.string().regex(ISO_DATE, 'Give the date the resignation was received.').optional().nullable().or(z.literal('')).transform((v) => v || null),
+      noticeWaived: z.boolean().optional(),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the details.' });
   const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!existing) return res.status(404).json({ error: 'No such employee.' });
+  if (!existing || !inScope(await teamScope(req), existing.id)) return res.status(404).json({ error: 'No such employee.' });
   if (existing.status === 'LEFT') return res.status(409).json({ error: 'This person has already left.' });
-  if (existing.dateOfJoining && parsed.data.lastDay < existing.dateOfJoining) return res.status(400).json({ error: 'Somebody cannot leave before they joined.' });
-  const r = await leaveEmployee({ accountId, orgId, userId: req.auth!.userId }, existing as any, { lastDay: parsed.data.lastDay, leavingType: parsed.data.leavingType, reason: blank(parsed.data.reason) });
+  /* Did not join: the day they were to start closes the record, whatever date was sent (W5). A duplicate closes today. */
+  const lastDay = parsed.data.leavingType === 'NOT_JOINED' ? existing.dateOfJoining || parsed.data.lastDay : parsed.data.lastDay;
+  if (parsed.data.leavingType !== 'NOT_JOINED' && parsed.data.leavingType !== 'DUPLICATE' && existing.dateOfJoining && lastDay < existing.dateOfJoining) return res.status(400).json({ error: 'Somebody cannot leave before they joined. If they never came, choose Did not join.' });
+  if (parsed.data.resignedOn && parsed.data.resignedOn > lastDay) return res.status(400).json({ error: 'The resignation came before the last day, not after it.' });
+  const r = await leaveEmployee({ accountId, orgId, userId: req.auth!.userId }, existing as any, { lastDay, leavingType: parsed.data.leavingType, reason: blank(parsed.data.reason), resignedOn: parsed.data.resignedOn ?? undefined, noticeWaived: parsed.data.noticeWaived });
   res.json({ employee: r.employee, readers: r.readers });
+});
+
+/** Leaving withdrawn while on notice (Workforce audit O11): active again, the leaving tasks closed as not needed. */
+personnelRouter.post(`${base}/employees/:id/stay`, can(PermissionAction.EDIT, R.employees), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!existing || !inScope(await teamScope(req), existing.id)) return res.status(404).json({ error: 'No such employee.' });
+  try {
+    const employee = await cancelLeaving({ accountId, orgId, userId: req.auth!.userId }, existing.id, typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 500) || null : null);
+    res.json({ employee });
+  } catch (e) {
+    if (e instanceof StayOnError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
 });
 
 /**
@@ -213,12 +245,20 @@ personnelRouter.post(`${base}/employees/:id/resign`, can(PermissionAction.EDIT, 
 personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, R.employees), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const parsed = z.object({ rejoinDate: z.string().regex(ISO_DATE, 'Give the rejoin date, YYYY-MM-DD.') }).safeParse(req.body || {});
+  /* A new stint has its own terms: the type, probation and contract end are asked again; last time's dates never carry over (Workforce audit O6). */
+  const optDay = z.string().regex(ISO_DATE).optional().nullable().or(z.literal('')).transform((v) => v || null);
+  const parsed = z.object({ rejoinDate: z.string().regex(ISO_DATE, 'Give the rejoin date, YYYY-MM-DD.'), employeeTypeId: z.string().trim().max(60).optional().nullable().or(z.literal('')).transform((v) => v || null), reportingManagerId: z.string().trim().max(60).optional().nullable().or(z.literal('')).transform((v) => v || null), probationEndDate: optDay, contractEndDate: optDay }).safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ error: 'Give the rejoin date (YYYY-MM-DD).', code: 'REJOIN_DATE_REQUIRED' });
   const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!existing) return res.status(404).json({ error: 'No such employee.' });
+  if (!existing || !inScope(await teamScope(req), existing.id)) return res.status(404).json({ error: 'No such employee.' });
   if (existing.status !== 'LEFT') return res.status(409).json({ error: 'This person has not left.' });
   if (existing.dateOfLeaving && parsed.data.rejoinDate <= existing.dateOfLeaving) return res.status(400).json({ error: `The rejoin date must be after their last day, ${existing.dateOfLeaving}.` });
+  for (const k of ['probationEndDate', 'contractEndDate'] as const) if (parsed.data[k] && parsed.data[k]! < parsed.data.rejoinDate) return res.status(400).json({ error: k === 'probationEndDate' ? 'Probation cannot end before they rejoin.' : 'The contract cannot end before they rejoin.' });
+  if (parsed.data.employeeTypeId && !(await peoplePrisma.employeeType.findFirst({ where: { id: parsed.data.employeeTypeId, orgId }, select: { id: true } }))) return res.status(400).json({ error: 'Choose an employment type from the list.' });
+  /* The manager they come back to: the one chosen, else the old one only if still here (W18). */
+  const managerId = parsed.data.reportingManagerId ?? existing.reportingManagerId ?? null;
+  const manager = managerId ? await peoplePrisma.employee.findFirst({ where: { id: managerId, orgId, status: { not: 'LEFT' } }, select: { id: true } }) : null;
+  if (parsed.data.reportingManagerId && (!manager || manager.id === existing.id)) return res.status(400).json({ error: 'Choose a manager who works here.' });
   const employee = await peoplePrisma.$transaction(async (tx) => {
     const next = await openNextEpisode({ accountId, orgId }, existing, parsed.data.rejoinDate, tx);
     const row = await tx.employee.update({
@@ -228,13 +268,23 @@ personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, 
         dateOfLeaving: null,
         leavingType: null,
         leavingReason: null,
+        /* A new stint: last stint's resignation and waiver must not count against the next leaving. */
+        resignedOn: null,
+        noticeWaived: false,
         dateOfJoining: parsed.data.rejoinDate,
         firstJoiningDate: existing.firstJoiningDate || existing.dateOfJoining || null,
+        probationEndDate: parsed.data.probationEndDate,
+        confirmedOn: null,
+        contractEndDate: parsed.data.contractEndDate,
+        ...(parsed.data.employeeTypeId ? { employeeTypeId: parsed.data.employeeTypeId } : {}),
+        reportingManagerId: manager?.id ?? null,
+        /* Their old position was freed when they left (W12). */
+        seatId: null,
         currentEpisodeSeq: next.seq,
       },
     });
     /* The one write path's log and event, in the same transaction (FND-04, FND-05). */
-    const actor = { accountId, orgId, userId: req.auth!.userId, source: 'HIRE' as const, correlationId: correlationOf(req as any), reason: `Rejoined: stint ${next.seq}` };
+    const actor = { accountId, orgId, userId: req.auth!.userId, source: 'HIRE' as const, correlationId: correlationOf(req as any), reason: `Rejoined (employment period ${next.seq})` };
     await writeChangeLog(tx, actor, { kind: 'Employee', id: row.id, employeeId: row.id }, diffEmployee(existing as unknown as Record<string, unknown>, row as unknown as Record<string, unknown>));
     await writeEvent(tx, actor, 'people.employee.rejoined.v1', { rejoinDate: parsed.data.rejoinDate, stint: next.seq, employee: employeeSummary(row) }, row.id);
     return row;
@@ -250,7 +300,14 @@ personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, 
 // Bulk transfer
 // ---------------------------------------------------------------------------
 
-/** Move people to another department, area, position or contractor in one go (ClorTime personnel-transfer). */
+/**
+ * Move people to another department, area, position or contractor in one go
+ * (ClorTime personnel-transfer). It is a bulk change like the directory's
+ * (services/people/bulk.ts): only people in the mover's team scope, refused
+ * while a job-change approval rule is in force, each person through the one
+ * write path (change log, events, version, history), and a later date waits
+ * for that day instead of applying now.
+ */
 personnelRouter.post(`${base}/employees/transfer`, can(PermissionAction.EDIT, R.employees), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -259,29 +316,20 @@ personnelRouter.post(`${base}/employees/transfer`, can(PermissionAction.EDIT, R.
       employeeIds: z.array(z.string().min(1)).min(1, 'Choose people to move.').max(2000),
       field: z.enum(['departmentId', 'areaId', 'jobPositionId', 'contractorId']),
       targetId: z.string().min(1).nullable(),
-      /** From when the move counts (employment history); today when not given. */
+      /** From when the move counts; today when not given. A later day is scheduled. */
       effectiveDate: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.').optional().nullable(),
       note: text(500),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the details.' });
   const { employeeIds, field, targetId } = parsed.data;
-  const target =
-    targetId === null
-      ? { name: null }
-      : field === 'departmentId'
-        ? await peoplePrisma.department.findFirst({ where: { id: targetId, orgId }, select: { name: true } })
-        : field === 'areaId'
-          ? await peoplePrisma.area.findFirst({ where: { id: targetId, orgId }, select: { name: true } })
-          : field === 'jobPositionId'
-            ? await peoplePrisma.jobPosition.findFirst({ where: { id: targetId, orgId }, select: { name: true } })
-            : await peoplePrisma.contractor.findFirst({ where: { id: targetId, orgId }, select: { name: true } });
-  if (!target) return res.status(400).json({ error: 'That is not in this organisation.' });
-  /* The department and position names are kept on the employee for lists and payslips. */
-  const mirror = field === 'departmentId' ? { department: target.name } : field === 'jobPositionId' ? { designation: target.name } : {};
-  const before = await peoplePrisma.employee.findMany({ where: { accountId, orgId, id: { in: employeeIds } } });
-  const r = await peoplePrisma.employee.updateMany({ where: { accountId, orgId, id: { in: employeeIds } }, data: { [field]: targetId, ...mirror } as any });
-  const who = { accountId, orgId, userId: req.auth!.userId };
-  for (const e of before) await recordChanges(who, e, { ...e, [field]: targetId }, { source: 'TRANSFER', effectiveDate: parsed.data.effectiveDate || null, note: blank(parsed.data.note) });
-  res.json({ moved: r.count });
+  const { BulkError, bulkUpdate } = await import('../services/people/bulk.js');
+  const actor = { accountId, orgId, userId: req.auth!.userId, source: 'BULK' as const, correlationId: `transfer_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, reason: blank(parsed.data.note) };
+  try {
+    const r = await bulkUpdate(actor, { ids: employeeIds, set: { [field]: targetId }, reason: blank(parsed.data.note), effectiveFrom: parsed.data.effectiveDate || null }, await teamScope(req));
+    res.json({ moved: r.changed, ...r });
+  } catch (e) {
+    if (e instanceof BulkError) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
+  }
 });

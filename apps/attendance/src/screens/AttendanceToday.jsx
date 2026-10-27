@@ -152,7 +152,7 @@ export default function AttendanceToday({ openScreen }) {
   const waiting = data
     ? [
         { n: data.toValidate, label: data.toValidate === 1 ? 'day to validate' : 'days to validate', key: 'records', icon: ListChecks },
-        { n: data.pendingRequests, label: data.pendingRequests === 1 ? 'correction request' : 'correction requests', key: 'requests', icon: Inbox },
+        { n: data.pendingRequests, label: data.pendingRequests === 1 ? 'attendance request' : 'attendance requests', key: 'requests', icon: Inbox },
         { n: data.pendingLeave, label: data.pendingLeave === 1 ? 'leave request' : 'leave requests', key: 'leaveRequests', icon: CalendarCheck },
       ]
     : [];

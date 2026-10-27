@@ -17,16 +17,17 @@ import { LOGGED_EMPLOYEE_FIELDS } from './changeLog.js';
  */
 
 const FIELD_WORDS: Record<string, string> = {
+  devicePassword: 'Device PIN', devicePin: 'Attendance ID', cardNumber: 'Card number', devicePrivilege: 'Device role', attendanceRequired: 'Marks attendance', tags: 'Tags', userId: 'CLOR sign-in', photoUrl: 'Photo', preferredName: 'Preferred name', workLocation: 'Work location',
   record: 'Record', name: 'Name', firstName: 'First name', lastName: 'Last name', code: 'Employee ID', email: 'Email', personalEmail: 'Personal email', workEmail: 'Work email', phone: 'Phone', workPhone: 'Work phone',
-  designation: 'Designation', department: 'Department', departmentId: 'Department', jobPositionId: 'Designation', jobRoleId: 'Job role', businessUnitId: 'Business unit', gradeId: 'Grade', costCenterId: 'Cost centre',
-  areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to',
-  dateOfJoining: 'Date of joining', dateOfLeaving: 'Date of leaving', firstJoiningDate: 'First joining date', currentEpisodeSeq: 'Stint', confirmedOn: 'Confirmed on', probationEndDate: 'Probation ends', contractEndDate: 'Contract ends', status: 'Status',
+  designation: 'Designation', department: 'Department', departmentId: 'Department', jobPositionId: 'Designation', jobRoleId: 'Job role', seatId: 'Position', teamId: 'Team', businessUnitId: 'Business unit', gradeId: 'Grade', costCenterId: 'Cost centre',
+  areaId: 'Location', branchId: 'Branch', establishmentId: 'Work site', employeeTypeId: 'Employment type', workTypeId: 'Work mode', hours: 'Hours', contractorId: 'Contractor', reportingManagerId: 'Manager', dottedManagerId: 'Secondary manager',
+  dateOfJoining: 'Joining date', dateOfLeaving: 'Date of leaving', firstJoiningDate: 'First joining date', currentEpisodeSeq: 'Stint', confirmedOn: 'Confirmed on', probationEndDate: 'Probation ends', contractEndDate: 'Contract ends', status: 'Status',
   leavingType: 'Leaving type', leavingReason: 'Leaving reason', dateOfBirth: 'Date of birth', gender: 'Gender', maritalStatus: 'Marital status', addressLine: 'Address', city: 'City', state: 'State', country: 'Country', pincode: 'PIN code',
-  emergencyContactName: 'Emergency contact', emergencyContactPhone: 'Emergency contact phone', emergencyContactRelation: 'Emergency contact relation', guardianName: 'Guardian', invite: 'Invite', letter: 'Letter', version: 'Version', done: 'Done',
+  emergencyContactName: 'Emergency contact', emergencyContactPhone: 'Emergency contact phone', emergencyContactRelation: 'Emergency contact relation', guardianName: 'Father / husband name', invite: 'Invite', letter: 'Letter', version: 'Version', done: 'Done',
 };
 export const fieldWord = (f: string) => FIELD_WORDS[f] || f.replace(/Id$/, '').replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
 
-const SOURCE_WORDS: Record<string, string> = { FORM: 'by hand', IMPORT: 'from an import', APPROVAL: 'through an approved request', API: 'through the API', SYSTEM: 'by CLOR', SELF_SERVICE: 'by the person', SCHEDULED: 'on the day it was due', HIRE: 'at hiring' };
+const SOURCE_WORDS: Record<string, string> = { FORM: 'by hand', IMPORT: 'from an import', APPROVAL: 'through an approved request', API: 'through the API', SYSTEM: 'by CLOR', SELF_SERVICE: 'by the person', SCHEDULED: 'on the day it was due', HIRE: 'at hiring', BULK: 'in bulk from the directory' };
 
 type Line = { id: string; field: string; before: string | null; after: string | null; redacted: boolean; reason: string | null; source: string; actorUserId: string | null; correlationId: string; requestId: string | null; decisionId: string | null; at: Date; entity: string; entityId: string };
 
@@ -39,15 +40,40 @@ function stintAt(episodes: Array<{ seq: number; startDate: string; endDate: stri
 
 /** An id field reads as its name, as it was at the time of asking; an id nobody can name any more stays an id. */
 const NAMED_ID = /^(teamId|seatId|departmentId|jobPositionId|jobRoleId|businessUnitId|gradeId|costCenterId|areaId|branchId|establishmentId|employeeTypeId|workTypeId|contractorId|reportingManagerId|dottedManagerId)$/;
+/* Stored values in the words a reader uses: statuses and other codes as words, dates as "2 Nov 2026", yes/no for a flag. */
+const VALUE_WORDS: Record<string, Record<string, string>> = {
+  status: { ACTIVE: 'Active', ON_NOTICE: 'On notice', SUSPENDED: 'Suspended', LEFT: 'Left' },
+  gender: { MALE: 'Male', FEMALE: 'Female', OTHER: 'Other', UNDISCLOSED: 'Prefer not to say' },
+  maritalStatus: { SINGLE: 'Single', MARRIED: 'Married', DIVORCED: 'Divorced', WIDOWED: 'Widowed' },
+  leavingType: { RESIGNED: 'Resigned', TERMINATED: 'Terminated', RETIRED: 'Retired', ABSCONDED: 'Absconded', CONTRACT_ENDED: 'Contract ended', DECEASED: 'Deceased' },
+  devicePrivilege: { USER: 'User', ADMIN: 'Administrator', ENROLLER: 'Enroller' },
+  hours: { FULL_TIME: 'Full-time', PART_TIME: 'Part-time' },
+};
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export function readableValue(field: string, value: string | null): string | null {
+  if (value == null || value === '') return null;
+  const words = VALUE_WORDS[field]?.[value];
+  if (words) return words;
+  if (value === 'true' || value === 'false') return value === 'true' ? 'Yes' : 'No';
+  const day = /^(\d{4})-(\d{2})-(\d{2})(?:T[\d:.]+Z?)?$/.exec(value);
+  if (day) {
+    /* A timestamp is read on the Indian calendar day; a plain date is already one. */
+    const [y, m, d] = value.length > 10 ? new Date(Date.parse(value) + 330 * 60_000).toISOString().slice(0, 10).split('-') : [day[1], day[2], day[3]];
+    return `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}`;
+  }
+  return value;
+}
 async function named(orgId: string, field: string, value: string | null) {
-  if (!value || !NAMED_ID.test(field)) return value;
+  /* A linked sign-in reads as the person's name, never as an internal id. */
+  if (field === 'userId' && value) return (await namesFor([value])).get(value) || 'a CLOR login';
+  if (!value || !NAMED_ID.test(field)) return readableValue(field, value);
   try {
     return (await labelOf(orgId, field, value)) || value;
   } catch {
     return value;
   }
 }
-async function changesOf(orgId: string, g: Line[]) {
+export async function changesOf(orgId: string, g: Line[]) {
   return Promise.all(g.map(async (l) => ({ field: fieldWord(l.field), key: l.field, before: l.redacted ? null : await named(orgId, l.field, l.before), after: l.redacted ? null : await named(orgId, l.field, l.after), redacted: l.redacted })));
 }
 
@@ -62,18 +88,31 @@ function groupLines(lines: Line[]) {
 }
 
 /** The whole journey, newest first, each change with enough to show and a key for its Why. */
-export async function journeyOf(orgId: string, employee: { id: string; currentEpisodeSeq?: number | null; status?: string | null } & Record<string, unknown>) {
-  const [lines, episodes, history] = await Promise.all([
+/* Personal details a read-only viewer may not see: the line says changed, never the values (Workforce audit E4). */
+const PERSONAL_LINES = new Set(['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber']);
+const maskPersonal = <T extends { field: string; redacted: boolean }>(rows: T[], hide: boolean) => (hide ? rows.map((l) => (PERSONAL_LINES.has(l.field) ? { ...l, redacted: true } : l)) : rows);
+
+export async function journeyOf(orgId: string, employee: { id: string; currentEpisodeSeq?: number | null; status?: string | null } & Record<string, unknown>, opts: { hidePersonal?: boolean } = {}) {
+  const [rawLines, episodes, history] = await Promise.all([
     peoplePrisma.changeLog.findMany({ where: { orgId, employeeId: employee.id }, orderBy: { at: 'asc' } }),
     episodesOf(orgId, employee),
     timelineOf(orgId, employee as any),
   ]);
+  const lines = maskPersonal(rawLines as Line[], Boolean(opts.hidePersonal));
   /* The person's own lines: a request's status lines carry the employee id too, but they are the request's story, told on the Why panel. */
   const groups = groupLines((lines as Line[]).filter((l) => l.entity === 'Employee'));
   const names = await namesFor([...new Set(lines.map((l) => l.actorUserId).filter((x): x is string => Boolean(x)))]);
   const firstLogAt = lines[0]?.at ?? null;
-  const entries = await Promise.all(groups.map(async (g) => {
-    const first = g[0];
+  const entries = await Promise.all(groups.map(async (all) => {
+    /*
+     * One line per field: rows written twice before the locked-row diff (an
+     * instant approval plus the form) read as one change, and the text copies
+     * (department, designation) ride with their id field, as on Activity.
+     */
+    const ids = new Set(all.map((l) => l.field));
+    const g = [...new Map(all.map((l) => [l.field, l])).values()]
+      .filter((l) => !(l.field === 'department' && ids.has('departmentId')) && !(l.field === 'designation' && ids.has('jobPositionId')));
+    const first = all[0];
     const fields = g.filter((l) => l.entity === 'Employee' || LOGGED_EMPLOYEE_FIELDS.includes(l.field as any) || l.field === 'record');
     const summary = first.field === 'record' && first.after === 'created' ? 'Joined the record' : fields.length === 1 ? `${fieldWord(fields[0].field)} changed` : `${fields.length} details changed`;
     return {
@@ -93,7 +132,7 @@ export async function journeyOf(orgId: string, employee: { id: string; currentEp
 }
 
 /** Why: the seven things a reader asks about one change, and plain words for each one that is not known. */
-export async function whyOf(orgId: string, employeeId: string, key: string) {
+export async function whyOf(orgId: string, employeeId: string, key: string, opts: { hidePersonal?: boolean } = {}) {
   if (key.startsWith('history_')) {
     const ev = await peoplePrisma.employmentEvent.findFirst({ where: { orgId, employeeId, id: key.slice('history_'.length) } });
     if (!ev) return null;
@@ -104,7 +143,7 @@ export async function whyOf(orgId: string, employeeId: string, key: string) {
       reason: ev.note, impact: ev.payrollImpact,
     };
   }
-  const lines = await peoplePrisma.changeLog.findMany({ where: { orgId, employeeId, correlationId: key, entity: 'Employee' }, orderBy: { at: 'asc' } });
+  const lines = maskPersonal((await peoplePrisma.changeLog.findMany({ where: { orgId, employeeId, correlationId: key, entity: 'Employee' }, orderBy: { at: 'asc' } })) as Line[], Boolean(opts.hidePersonal));
   if (!lines.length) return null;
   const first = lines[0];
   const [events, request, actorNames] = await Promise.all([
@@ -113,6 +152,8 @@ export async function whyOf(orgId: string, employeeId: string, key: string) {
     namesFor(lines.map((l) => l.actorUserId).filter((x): x is string => Boolean(x))),
   ]);
   const shaped = request ? await shape(request) : null;
+  /* TRACE-05: the rules and evidence as they were on the day it was decided, not as they are now. */
+  const record = request?.decisionId ? await peoplePrisma.decisionRecord.findFirst({ where: { orgId, id: request.decisionId } }) : request ? await peoplePrisma.decisionRecord.findFirst({ where: { orgId, requestId: request.id } }) : null;
   const rule = request ? await peoplePrisma.approvalRule.findUnique({ where: { id: request.ruleId }, select: { name: true, version: true, requestType: true } }) : null;
   /* Tasks this change set off: the plan tasks created in the minute after it, on this person. */
   const tasks = await peoplePrisma.checklistTask.findMany({ where: { orgId, employeeId, createdAt: { gte: first.at, lte: new Date(first.at.getTime() + 60_000) } }, select: { id: true, title: true, kind: true, owner: true, dueDate: true, doneAt: true } });
@@ -120,8 +161,15 @@ export async function whyOf(orgId: string, employeeId: string, key: string) {
   const payload = (request?.payload || {}) as Record<string, unknown>;
   for (const d of (Array.isArray(payload.evidence) ? payload.evidence : []) as Array<{ documentId?: string; title?: string }>) if (d.documentId) evidence.push({ kind: 'DOCUMENT', id: d.documentId, title: d.title || 'Document' });
   const unknown: string[] = [];
-  if (!request) unknown.push(first.source === 'FORM' || first.source === 'IMPORT' || first.source === 'API' ? `No approval recorded: changed ${SOURCE_WORDS[first.source]}, with no rule in force for it.` : first.source === 'SELF_SERVICE' ? 'No approval recorded: the person sent it and HR checked it.' : first.source === 'SCHEDULED' ? 'Approved when it was scheduled; see the change that scheduled it.' : 'No approval recorded.');
+  if (!request) unknown.push(first.source === 'FORM' || first.source === 'IMPORT' || first.source === 'API' || first.source === 'BULK' ? `No approval recorded: changed ${SOURCE_WORDS[first.source]}, with no rule in force for it.` : first.source === 'SELF_SERVICE' ? 'No approval recorded: the person sent it and HR checked it.' : first.source === 'SCHEDULED' ? 'Approved when it was scheduled; see the change that scheduled it.' : 'No approval recorded.');
+  if (record) {
+    for (const d of (record.evidence as Array<{ documentId: string; title: string; version: number | null }>) || []) {
+      const at = evidence.find((e) => e.id === d.documentId);
+      if (at) Object.assign(at, { title: d.title, version: d.version }); else evidence.push({ kind: 'DOCUMENT', id: d.documentId, title: d.title, version: d.version } as any);
+    }
+  }
   if (!evidence.length) unknown.push('No evidence attached to this change.');
+  if (request && !record) unknown.push('No decision record: approved before decision records were kept, so the policy versions it relied on are not known.');
   if (!events.length) unknown.push('Nothing was sent to other apps for this change.');
   const decided = shaped?.steps.filter((s) => s.status === 'APPROVED' || s.status === 'REJECTED') || [];
   return {
@@ -134,6 +182,7 @@ export async function whyOf(orgId: string, employeeId: string, key: string) {
     rule: rule ? { name: rule.name, version: request!.ruleVersion, type: rule.requestType } : null,
     reason: first.reason,
     evidence,
+    decision: record ? { id: record.id, decidedAt: record.decidedAt, policies: record.policyVersions, ruleVersion: record.ruleVersion } : null,
     downstream: { events: events.map((e) => ({ id: e.id, name: e.name, at: e.occurredAt, delivered: Boolean(e.deliveredAt) })), tasks },
     unknown,
   };

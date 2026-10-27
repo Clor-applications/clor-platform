@@ -1,0 +1,23 @@
+/* Proposal to reconcile with existing Clor shared design system; NOT a replacement for Attendance shell tokens. */
+:root {
+  --people-accent: #A45761;
+  --people-ink: #232226;
+  --people-canvas: #F6F4F2;
+  --people-surface: #FFFFFF;
+  --people-border: #E6E2E0;
+  --people-muted: #6B6670;
+  --people-space-1: 4px;
+  --people-space-2: 8px;
+  --people-space-3: 12px;
+  --people-space-4: 16px;
+  --people-space-6: 24px;
+  --people-control-min-height: 40px;
+  --people-mobile-touch-min: 44px;
+  --people-radius-control: 8px;
+  --people-radius-card: 12px;
+  --people-transition: 150ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --people-transition: 0ms; }
+}
+/* Verify accent-on-white and white-on-accent contrast before using for normal text. */

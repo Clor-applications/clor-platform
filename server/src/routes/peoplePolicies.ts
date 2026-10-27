@@ -8,7 +8,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { correlationOf } from '../services/people/employees.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
-import { CATEGORY_LABEL, POLICY_CATEGORIES, PolicyError, addVersion, conflicts, createPolicy, listPolicies, peopleInScope, cleanAppliesTo, policiesFor, policyDetail, retireVersion, submitVersion, updatePolicy, updateVersion } from '../services/people/policies.js';
+import { CATEGORY_LABEL, NOTICE_LANGUAGES, POLICY_CATEGORIES, PRIVACY_PURPOSES, PolicyError, noticeLanguages, saveNoticeLanguages, addVersion, conflicts, createPolicy, listPolicies, peopleInScope, cleanAppliesTo, policiesFor, policyDetail, retireVersion, submitVersion, updatePolicy, updateVersion } from '../services/people/policies.js';
 import { AckError, remind, report } from '../services/people/acknowledgements.js';
 
 /**
@@ -33,7 +33,7 @@ const versionParam = (v: unknown) => (Number.isInteger(Number(v)) && Number(v) >
 
 peoplePoliciesRouter.get(`${base}/policies`, can(PermissionAction.VIEW, POLICIES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  res.json({ policies: await listPolicies(req.tenant!.orgId, { q: String(req.query.q || ''), category: String(req.query.category || '') || undefined, includeInactive: req.query.all === '1' }), categories: POLICY_CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABEL[c] })) });
+  res.json({ policies: await listPolicies(req.tenant!.orgId, { q: String(req.query.q || ''), category: String(req.query.category || '') || undefined, includeInactive: req.query.all === '1' }), categories: POLICY_CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABEL[c] })), purposes: Object.entries(PRIVACY_PURPOSES).map(([key, label]) => ({ key, label })), languages: (await noticeLanguages(req.tenant!.orgId)).map((key) => ({ key, label: NOTICE_LANGUAGES[key] })) });
 });
 
 peoplePoliciesRouter.get(`${base}/policies/conflicts`, can(PermissionAction.VIEW, POLICIES), async (req, res) => {
@@ -47,6 +47,21 @@ peoplePoliciesRouter.post(`${base}/policies/scope`, can(PermissionAction.VIEW, P
   if (!(await peopleRouteOk(req, res))) return;
   const people = await peopleInScope(req.tenant!.orgId, cleanAppliesTo(req.body?.appliesTo));
   res.json({ count: people.length, sample: people.slice(0, 8).map((p) => ({ id: p.id, name: p.name, code: p.code })) });
+});
+
+/** The languages privacy notices are offered in besides English (PRV-01). */
+peoplePoliciesRouter.get(`${base}/policies/notice-languages`, can(PermissionAction.VIEW, POLICIES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json({ enabled: await noticeLanguages(req.tenant!.orgId), offered: Object.entries(NOTICE_LANGUAGES).map(([key, label]) => ({ key, label })) });
+});
+
+peoplePoliciesRouter.put(`${base}/policies/notice-languages`, can(PermissionAction.EDIT, POLICIES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  try {
+    res.json({ enabled: await saveNoticeLanguages(actorOf(req), req.body?.languages) });
+  } catch (e) {
+    sendError(res, e);
+  }
 });
 
 peoplePoliciesRouter.post(`${base}/policies`, can(PermissionAction.CREATE, POLICIES), async (req, res) => {

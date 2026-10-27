@@ -107,6 +107,13 @@ export const cancelLeave = (id) => send(`/leave/requests/${encodeURIComponent(id
 export const getMyLeave = (year) => get(`/me/leave${query({ year })}`);
 export const applyLeave = (body) => send('/me/leave', 'POST', body);
 export const cancelMyLeave = (id) => send(`/me/leave/${encodeURIComponent(id)}/cancel`, 'POST', {});
+/** Change a waiting request of one's own (same body as applyLeave). */
+export const editMyLeave = (id, body) => send(`/me/leave/${encodeURIComponent(id)}`, 'PUT', body);
+/** Came back early: approved leave that has started now ends on `toDate`. */
+export const shortenMyLeave = (id, toDate) => send(`/me/leave/${encodeURIComponent(id)}/shorten`, 'POST', { toDate });
+/** Restricted holidays for a calendar year: { quota, picked, left, holidays: [{ id, date, name, picked, past }] }. */
+export const getMyRestrictedHolidays = (year) => get(`/me/holidays/restricted${query({ year })}`);
+export const pickMyRestrictedHoliday = (holidayId, picked) => send(`/me/holidays/restricted/${encodeURIComponent(holidayId)}`, 'POST', { picked });
 
 export const LEAVE_STATUS = {
   PENDING: 'ui-pill-warn',

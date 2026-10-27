@@ -2,7 +2,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { notifyPermission } from '../notifications.js';
 import { isWeeklyOff, istTime, monthSummary } from './compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from './schedule.js';
-import { chainFor } from './approvalChain.js';
+import { activeManagerOf, chainFor } from './approvalChain.js';
 
 /**
  * What an employee sees about their own attendance beyond the day itself:
@@ -296,8 +296,8 @@ export async function decideOvertime(orgId: string, id: string, approve: boolean
       return peoplePrisma.overtimeRequest.update({ where: { id: r.id }, data: { managerApprovedAt: new Date(), managerApprovedById: by.managerId, reviewNote: note } });
     }
   } else if (chain === 'MANAGER_THEN_HR' && !r.managerApprovedAt) {
-    const owner = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { reportingManagerId: true } });
-    if (owner?.reportingManagerId && approve) throw Object.assign(new Error('The manager approves this first.'), { status: 409 });
+    /* A manager who has left or is suspended is no manager: HR decides. */
+    if (approve && (await activeManagerOf(orgId, r.employeeId))) throw Object.assign(new Error('The manager approves this first.'), { status: 409 });
   }
   if (approve) {
     if (r.kind === 'OVERTIME') {

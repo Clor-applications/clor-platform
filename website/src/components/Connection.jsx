@@ -59,12 +59,10 @@ export default function Connection() {
 
   useEffect(() => {
     if (!geo || phase !== 'idle') return undefined;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setPhase('still');
-      return undefined;
-    }
-    setPhase('armed');
-    return undefined;
+    /* On the next frame, not inside the effect (react-hooks/set-state-in-effect). */
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const frame = requestAnimationFrame(() => setPhase(still ? 'still' : 'armed'));
+    return () => cancelAnimationFrame(frame);
   }, [geo, phase]);
 
   useEffect(() => {

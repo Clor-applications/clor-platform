@@ -15,9 +15,14 @@ import { IconSetContext } from '@ui/components/ui/iconSet';
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { ADMIN_APP_ID, appFromHost, hostForApp, isFrontDoor } from './appHosts';
 import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
-import { moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
+import { mergeParams, moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
 import { OPEN_APP_EVENT, OPEN_HELP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
+import { clearUnsaved, confirmLeave, hasUnsaved } from '@platform/unsaved';
+import { confirmDialog } from '@ui/components/ui/notify';
+
+/* Asked before any navigation that would drop edits a screen has not saved (spec v1 §5.1, WF-11). */
+const askLeave = () => confirmDialog({ title: 'Leave without saving?', message: 'Your changes on this page have not been saved.', confirmLabel: 'Leave', tone: 'danger' });
 import HelpCenter from './HelpCenter';
 import ClorMark from './ClorMark';
 import { ClorLogo } from '@ui/components/brand';
@@ -241,7 +246,28 @@ export default function Shell() {
   });
   const [browseModule, setBrowseModule] = useState(null);
   /* Filters a screen was opened with (a report row or an exception opening Records for one person and day). */
-  const [screenParams, setScreenParams] = useState(null);
+  const [screenParams, setScreenParamsState] = useState(() => {
+    try { return readScreenSearch(window.location.search).params; } catch { return null; }
+  });
+  /*
+   * What the screen shows now (D-V7): the params it was opened with, as it
+   * changes them through `updateParams` (a tab, a filter) without remounting.
+   * Opening a screen sets both; Back sets both from the address.
+   */
+  const [liveParams, setLiveParams] = useState(() => screenParams);
+  const setScreenParams = (next) => {
+    setScreenParamsState(next);
+    setLiveParams(next);
+  };
+  /* Switching company (spec v1 §5.1): the record, tab and filters were the last company's; drop them. */
+  const [paramsTenant, setParamsTenant] = useState(tenant?.id || null);
+  if ((tenant?.id || null) !== paramsTenant) {
+    if (paramsTenant && tenant?.id) {
+      setScreenParamsState(null);
+      setLiveParams(null);
+    }
+    setParamsTenant(tenant?.id || null);
+  }
   /* The screens panel beside the rail can be closed on a desktop; the choice
      is a per-browser convenience, so it survives a reload but nothing else. */
   const [panelClosed, setPanelClosed] = useState(() => {
@@ -279,7 +305,8 @@ export default function Shell() {
 
   /* `open` names a screen inside the app (Accounting's settings): carried in the address so it survives the hop to the app's own host. */
   /* `params` travel with it in the address too (Workspace's permissions opened for one app: ?for=payroll). */
-  const openApp = (id, open = '', params = {}) => {
+  const openApp = (...args) => { confirmLeave(askLeave).then((ok) => ok && openAppNow(...args)); };
+  const openAppNow = (id, open = '', params = {}) => {
     const next = appById(id);
     const query = new URLSearchParams();
     if (open) query.set('open', open);
@@ -317,7 +344,8 @@ export default function Shell() {
     window.addEventListener(OPEN_APP_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_APP_EVENT, onOpen);
   }, []);
-  const goTo = (key) => {
+  const goTo = (key) => { confirmLeave(askLeave).then((ok) => ok && goToNow(key)); };
+  const goToNow = (key) => {
     setScreenKey(key);
     setScreenParams(null);
     setPlatformScreen(null);
@@ -478,6 +506,11 @@ export default function Shell() {
    * `?open=` is the name notifications already use to link into a screen.
    */
   const fromHistory = useRef(false);
+  /* The address this screen last stood at, to return to when Back would drop unsaved edits. */
+  const lastUrlRef = useRef(typeof window !== 'undefined' ? window.location.href : '');
+  const screenKeyRef = useRef(screenKey);
+  const activeAppIdRef = useRef(activeAppId);
+  useEffect(() => { screenKeyRef.current = screenKey; activeAppIdRef.current = activeAppId; }, [screenKey, activeAppId]);
   const urlReady = useRef(false);
   const ownsAddress = Boolean(user && tenant && activeAppId && !appById(activeAppId)?.Root);
   useEffect(() => {
@@ -486,24 +519,39 @@ export default function Shell() {
     const was = readScreenSearch(window.location.search);
     const current = was.open;
     const appChanged = !appInHost && was.app !== activeAppId;
-    const search = screenSearch(window.location.search, { app: activeAppId, open: screenKey, appInHost });
+    const search = screenSearch(window.location.search, { app: activeAppId, open: screenKey, appInHost, params: liveParams });
     const url = `${window.location.pathname}${search}${window.location.hash}`;
-    if (fromHistory.current || (!appChanged && current === (screenKey || null))) {
+    const sameParams = JSON.stringify(was.params || null) === JSON.stringify(liveParams || null);
+    if (fromHistory.current || (!appChanged && current === (screenKey || null) && sameParams)) {
       fromHistory.current = false;
       urlReady.current = true;
+      lastUrlRef.current = window.location.href;
       return;
     }
     if (urlReady.current) window.history.pushState(null, '', url);
     else window.history.replaceState(null, '', url);
     urlReady.current = true;
-  }, [screenKey, ownsAddress, activeAppId]);
+    lastUrlRef.current = window.location.href;
+  }, [screenKey, ownsAddress, activeAppId, liveParams]);
   useEffect(() => {
     if (!ownsAddress) return undefined;
     const onPop = () => {
-      const { open, app: appInUrl } = readScreenSearch(window.location.search);
+      const { open, app: appInUrl, params } = readScreenSearch(window.location.search);
       fromHistory.current = true;
       if (appInUrl && !appFromHost()) setChosenAppId(appInUrl);
-      setScreenParams(null);
+      /* Back within the same screen (a wizard step, a record tab) changes its state in place; what was typed stays. */
+      if (open && open === screenKeyRef.current && (!appInUrl || appInUrl === activeAppIdRef.current)) {
+        setLiveParams(params);
+        return;
+      }
+      /* Back would leave a screen with unsaved edits: stay, ask, and only then go back for real. */
+      if (hasUnsaved() && lastUrlRef.current) {
+        fromHistory.current = false;
+        window.history.pushState(null, '', lastUrlRef.current);
+        askLeave().then((ok) => { if (ok) { clearUnsaved(); window.history.back(); } });
+        return;
+      }
+      setScreenParams(params);
       setScreenKey(open);
       setPlatformScreen(null);
       setShowMoreApps(false);
@@ -925,10 +973,11 @@ export default function Shell() {
                 <Search size={18} aria-hidden="true" />
               </button>
             ) : (
-              <button type="button" className="ui-global-search" onClick={() => setPaletteOpen(true)} aria-label="Search screens and apps" aria-keyshortcuts="Meta+K Control+K">
+              <button type="button" className="ui-global-search" onClick={() => setPaletteOpen(true)} aria-keyshortcuts="Meta+K Control+K">
                 <Search size={16} aria-hidden="true" />
+                {/* Named by its visible words; the shortcut is announced through aria-keyshortcuts, so the keycap is hidden from it. */}
                 <span>Search screens and apps</span>
-                <kbd>{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
+                <kbd aria-hidden="true">{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
               </button>
             )
           ) : null}
@@ -943,7 +992,7 @@ export default function Shell() {
               style={{ width: 'auto', minWidth: phone ? '4rem' : '12rem', maxWidth: phone ? '30vw' : undefined }}
               value={tenant.id}
               disabled={tenants.length < 2}
-              onChange={(e) => setTenantId(e.target.value)}
+              onChange={(e) => { const next = e.target.value; confirmLeave(askLeave).then((ok) => ok && setTenantId(next)); }}
               aria-label="Company"
             >
               {companyGroups(tenants, accounts).map((g) =>
@@ -1170,7 +1219,8 @@ export default function Shell() {
                     {(() => {
                       /* A page under a hub (People → Settings → Departments) shows the way back to it. */
                       const parentKey = (app?.nav || []).find((n) => n.key === screen)?.parent;
-                      const parent = parentKey && nav.find((n) => n.key === parentKey);
+                      /* Only under a hub (Settings); a page inside a list's module (an employee record) draws its own breadcrumb. */
+                      const parent = parentKey && nav.find((n) => n.key === parentKey && n.hub);
                       return parent ? (
                         <button type="button" className="ui-link mb-2 inline-flex items-center gap-1 text-sm" onClick={() => goTo(parent.key)}>
                           ← {parent.label}
@@ -1179,8 +1229,18 @@ export default function Shell() {
                     })()}
                     <Suspense fallback={<AppLoading />}>
                       <Screen
-                        key={screenParams ? `${tenant.id}:${JSON.stringify(screenParams)}` : tenant.id}
-                        params={screenParams || undefined}
+                        key={screenParams ? `${tenant.id}:${screenKey}:${JSON.stringify(screenParams)}` : tenant.id}
+                        params={liveParams || undefined}
+                        /* Change this screen's own state (a tab, a filter) in place; the address follows. `push` adds a Back step. */
+                        updateParams={(patch, opts = {}) => {
+                          const next = mergeParams(liveParams, patch);
+                          const appInHost = Boolean(appFromHost());
+                          const url = `${window.location.pathname}${screenSearch(window.location.search, { app: activeAppId, open: screenKey, appInHost, params: next })}${window.location.hash}`;
+                          if (opts.push) window.history.pushState(null, '', url);
+                          else window.history.replaceState(null, '', url);
+                          lastUrlRef.current = window.location.href;
+                          setLiveParams(next);
+                        }}
                         /* The screens this person may open, for a hub page (People's Settings) to list. */
                         navItems={nav}
                         /* The company being looked at, its apps, and a way into one (Workspace's home). */
@@ -1194,13 +1254,16 @@ export default function Shell() {
                         openMoreApps={() => setShowMoreApps(true)}
                         /* W-R5: the Workspace's Companies page adds a company and switches to one. */
                         addCompany={createCompany}
-                        switchCompany={setTenantId}
+                        switchCompany={(id) => { confirmLeave(askLeave).then((ok) => ok && setTenantId(id)); }}
                         openScreen={(key, params) => {
                           if (!app?.screens?.[key]) return;
-                          setScreenKey(key);
-                          setScreenParams(params && typeof params === 'object' ? params : null);
-                          setPlatformScreen(null);
-                          window.scrollTo(0, 0);
+                          confirmLeave(askLeave).then((ok) => {
+                            if (!ok) return;
+                            setScreenKey(key);
+                            setScreenParams(params && typeof params === 'object' ? params : null);
+                            setPlatformScreen(null);
+                            window.scrollTo(0, 0);
+                          });
                         }}
                       />
                     </Suspense>

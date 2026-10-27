@@ -1,3 +1,5 @@
+import { PRIVATE_LABEL, readsPrivateLeave } from './leave.js';
+import { inScope, teamScope } from '../services/people/scope.js';
 import { Router } from 'express';
 import { pinMatcher, recomputeDeviceDay } from '../services/attendance/punches.js';
 import { z } from 'zod';
@@ -21,7 +23,7 @@ import { confirmationsFor, decideOvertime, overtimeChain } from '../services/att
 import { balancesFor } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodLabel, periodStart } from '../services/attendance/leaveAccrual.js';
 import { leavePeriodOf } from '../services/attendance/leaveBalances.js';
-import { reviewCorrection } from '../services/attendance/corrections.js';
+import { decideRequest } from '../services/attendance/requests.js';
 import { ISO_DATE, employeeIn, fail, isHoliday, myEmployee, sendError, today, withNames, writeDay } from '../services/attendance/days.js';
 import { payrollReadiness } from '../services/payroll/readinessTower.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
@@ -57,7 +59,8 @@ const addDays = (date: string, n: number) => {
 // ---------------------------------------------------------------------------
 
 /** Everything about one person's day, narrated from the rules that scored it. */
-export async function explainFor(orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null; name?: string }, date: string) {
+/** `reads`: whether the reader may see a private leave type's name (HR who decide leave, or the person). */
+export async function explainFor(orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null; name?: string }, date: string, reads = true) {
   const [schedule, record, punches, clocks, holiday, corrections] = await Promise.all([
     loadSchedule(orgId, [employee.id]),
     peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: employee.id, date } } }),
@@ -86,8 +89,8 @@ export async function explainFor(orgId: string, employee: { id: string; branchId
   let leaveName: string | null = null;
   if (record?.leaveRequestId) {
     const lr = await peoplePrisma.leaveRequest.findFirst({ where: { id: record.leaveRequestId, orgId }, select: { leaveTypeId: true } });
-    const lt = lr ? await peoplePrisma.leaveType.findFirst({ where: { id: lr.leaveTypeId, orgId }, select: { name: true, isPaid: true } }) : null;
-    leaveName = lt ? `${lt.name}${lt.isPaid ? '' : ' (unpaid)'}` : null;
+    const lt = lr ? await peoplePrisma.leaveType.findFirst({ where: { id: lr.leaveTypeId, orgId }, select: { name: true, isPaid: true, isPrivate: true } }) : null;
+    leaveName = lt ? `${lt.isPrivate && !reads ? PRIVATE_LABEL : lt.name}${lt.isPaid ? '' : ' (unpaid)'}` : null;
   }
   const points = [
     ...punches.map((p) => ({ at: p.at, kind: (p.kind as 'IN' | 'OUT' | null) ?? null, where: deviceName.get(p.deviceId) || 'a reader' })),
@@ -138,7 +141,7 @@ attendanceInsightsRouter.get(`${base}/days/explain`, can(PermissionAction.VIEW, 
   if (!date) return res.status(400).json({ error: 'Which day? Dates are YYYY-MM-DD.' });
   try {
     const employee = await employeeIn(orgId, accountId, String(req.query.employeeId || ''));
-    res.json(await explainFor(orgId, employee, date));
+    res.json(await explainFor(orgId, employee, date, await readsPrivateLeave(req)));
   } catch (e) {
     return sendError(res, e);
   }
@@ -475,30 +478,34 @@ async function requirePermissionNow(req: any, action: string, resource: string) 
   });
 }
 
-/** Approve or reject several corrections at once; each goes through the same checks as one. */
+/**
+ * Approve or reject several requests at once, of any kind: each goes through
+ * the same decision as one (services/attendance/requests.ts `decideRequest`),
+ * so a work-from-home day is marked as such and a manager-first chain is kept.
+ * Rejecting several needs one note, which every person reads with the decision.
+ */
 attendanceInsightsRouter.post(`${base}/requests/bulk-review`, can(PermissionAction.APPROVE, R.requests), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String).slice(0, 200) : [];
   const approve = req.body?.approve !== false;
   const note = String(req.body?.note || '').trim().slice(0, 500) || null;
   if (!ids.length) return res.status(400).json({ error: 'Choose the requests.' });
-  const rows = await peoplePrisma.attendanceRequest.findMany({ where: { accountId, orgId, id: { in: ids } } });
+  const scope = await teamScope(req);
+  const rows = await peoplePrisma.attendanceRequest.findMany({ where: { accountId, orgId, id: { in: ids }, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) } });
+  const mine = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
   const results: any[] = [];
+  let handedOn = 0;
   for (const r of rows) {
-    if (r.status !== 'PENDING') { results.push({ id: r.id, ok: false, error: `Already ${r.status.toLowerCase()}.` }); continue; }
-    if (approve) {
-      const turn = await hrMayDecide(orgId, 'correction', r);
-      if (!turn.ok) { results.push({ id: r.id, ok: false, error: turn.error }); continue; }
-    }
     try {
-      await reviewCorrection(accountId, orgId, r, approve, req.auth!.userId, note);
+      const out = await decideRequest(accountId, orgId, r, approve, { userId: req.auth!.userId, managerId: mine?.id ?? null, scopeAll: scope.all }, note);
+      if (out.stage === 'HR') handedOn += 1;
       results.push({ id: r.id, ok: true });
     } catch (e: any) {
       results.push({ id: r.id, ok: false, error: e?.message || 'Not done.' });
     }
   }
-  res.json({ done: results.filter((x) => x.ok).length, failed: results.filter((x) => !x.ok).length, results: results.filter((x) => !x.ok) });
+  res.json({ done: results.filter((x) => x.ok).length, failed: results.filter((x) => !x.ok).length, handedOn, results: results.filter((x) => !x.ok) });
 });
 
 // ---------------------------------------------------------------------------
@@ -706,7 +713,12 @@ attendanceInsightsRouter.get(`${base}/leave/explain`, can(PermissionAction.VIEW,
   const { accountId, orgId } = req.tenant!;
   try {
     const year = Number(req.query.year) || Number(today().slice(0, 4));
-    res.json(await leaveExplain(accountId, orgId, String(req.query.employeeId || ''), String(req.query.leaveTypeId || ''), year));
+    const employeeId = String(req.query.employeeId || '');
+    /* Team scope and private leave, as every other leave read (Time & Leave audit). */
+    if (!inScope(await teamScope(req), employeeId)) return res.status(404).json({ error: 'No such leave type or person.' });
+    const type = await peoplePrisma.leaveType.findFirst({ where: { id: String(req.query.leaveTypeId || ''), orgId }, select: { isPrivate: true } });
+    if (type?.isPrivate && !(await readsPrivateLeave(req))) return res.status(404).json({ error: 'No such leave type or person.' });
+    res.json(await leaveExplain(accountId, orgId, employeeId, String(req.query.leaveTypeId || ''), year));
   } catch (e) {
     return sendError(res, e);
   }
@@ -737,6 +749,8 @@ attendanceInsightsRouter.get(`${base}/evidence`, can(PermissionAction.VIEW, R.re
   if (addDays(from, 92) < to) return res.status(400).json({ error: 'Up to 92 days at a time.' });
   try {
     const employee = await employeeIn(orgId, accountId, String(req.query.employeeId || ''));
+    const reads = await readsPrivateLeave(req);
+    const privateTypes = new Set((await peoplePrisma.leaveType.findMany({ where: { orgId, isPrivate: true }, select: { id: true } })).map((t) => t.id));
     const fromAt = istInstant(from, '00:00');
     const toAt = istInstant(to, '12:00', 1);
     const [person, records, punches, clocks, requests, leave, history, locks, snapshots, audit] = await Promise.all([
@@ -772,7 +786,7 @@ attendanceInsightsRouter.get(`${base}/evidence`, can(PermissionAction.VIEW, R.re
         ...clocks.map((c: any) => ({ time: c.at, local: `${istInstantDate(c.at)} ${istTime(c.at)}`, kind: c.kind, source: c.source === 'CLOCK' ? 'App' : c.source, readerId: null, shiftDate: null, latitude: c.latitude ?? null, longitude: c.longitude ?? null })),
       ].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()),
       corrections: requests.map((r) => ({ date: r.date, requested: { in: r.checkIn ? istTime(r.checkIn) : null, out: r.checkOut ? istTime(r.checkOut) : null }, before: { in: r.beforeCheckIn ? istTime(r.beforeCheckIn) : null, out: r.beforeCheckOut ? istTime(r.beforeCheckOut) : null, status: r.beforeStatus }, reason: r.reason, reasonCode: r.reasonCode, status: r.status, askedBy: who(r.requestedByUserId), askedAt: r.createdAt, managerApprovedBy: who(r.managerApprovedById), managerApprovedAt: r.managerApprovedAt, decidedBy: who(r.reviewedByUserId), decidedAt: r.reviewedAt, note: r.reviewNote })),
-      leave: leave.map((l: any) => ({ from: l.fromDate, to: l.toDate, days: l.days, status: l.status, reason: l.reason, decidedBy: who(l.reviewedByUserId), decidedAt: l.reviewedAt || null })),
+      leave: leave.map((l: any) => ({ from: l.fromDate, to: l.toDate, days: l.days, status: l.status, reason: privateTypes.has(l.leaveTypeId) && !reads ? null : l.reason, decidedBy: who(l.reviewedByUserId), decidedAt: l.reviewedAt || null })),
       history: history.map((h) => ({ date: h.date, at: h.at, action: h.action, by: who(h.userId), reason: h.reason, changes: dayDiff(h.beforeJson ? JSON.parse(h.beforeJson) : null, h.afterJson ? JSON.parse(h.afterJson) : null) })),
       monthsClosed: locks.map((l) => ({ month: l.month, at: l.lockedAt, by: who(l.lockedByUserId) })),
       snapshots,

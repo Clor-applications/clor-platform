@@ -90,13 +90,90 @@ describe('a manager limited to their own team', () => {
     expect(one).toMatchObject({ dottedManagerId: me.id, dottedManagerName: 'Ravi Manager', reportingManagerId: null });
     await people(hr).put(`/employees/${dotted.id}`, { dottedManagerId: null }).expect(200);
     const after = (await people(hr).get(`/employees/${dotted.id}/history`).expect(200)).body.events.find((x: any) => x.field === 'dottedManagerId');
-    expect(after).toMatchObject({ from: 'Ravi Manager', to: null, title: 'Dotted-line manager changed' });
+    expect(after).toMatchObject({ from: 'Ravi Manager', to: null, title: 'Secondary manager changed' });
     expect(after.payrollImpact).toBeNull();
     void history;
+  });
+
+  it('cannot edit, delete or withdraw a change for someone outside their team, even with those grants', async () => {
+    const editor = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Employees::EDIT', 'PEOPLE::Employees::DELETE'], true);
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: report.id }, data: { userId: editor.userId } }));
+    await people(editor).put(`/employees/${stranger.id}`, { phone: '9000000001' }).expect(404);
+    await request(app).delete(`/api/orgs/${hr.orgId}/people/employees/${stranger.id}`).set(at(editor)).expect(404);
+    await request(app).delete(`/api/orgs/${hr.orgId}/people/employees/${stranger.id}/scheduled/any`).set(at(editor)).expect(404);
+    const untouched = await runInTenant(hr.orgId, () => peoplePrisma.employee.findUniqueOrThrow({ where: { id: stranger.id } }));
+    expect(untouched.phone).not.toBe('9000000001');
+    /* Their own line is still theirs to edit. */
+    await people(editor).put(`/employees/${grandReport.id}`, { phone: '9000000002' }).expect(200);
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: report.id }, data: { userId: null } }));
   });
 
   it('a manager with no employee record of their own sees nobody', async () => {
     const lone = await colleague(hr, ['PEOPLE::Employees::VIEW'], true);
     expect((await people(lone).get('/employees?limit=500').expect(200)).body).toMatchObject({ employees: [], total: 0 });
+  });
+
+  it('the rest of People keeps to the team too (Workforce audit S1–S4)', async () => {
+    const lead = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Employees::EDIT', 'PEOPLE::Employees::EXPORT', 'PEOPLE::Employees::CREATE', 'PEOPLE::Employees::DELETE', 'PEOPLE::Employee Notes::VIEW', 'PEOPLE::Employee Notes::CREATE', 'PEOPLE::Statutory Details::VIEW', 'PEOPLE::Statutory Details::EDIT', 'PEOPLE::Lifecycle::EDIT'], true);
+    const mine = (await people(hr).post('/employees', { name: 'Lead Self', code: `L-${rnd()}`, probationEndDate: '2099-01-01' }).expect(201)).body.employee;
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: mine.id }, data: { userId: lead.userId } }));
+    /* Ticked ids from outside the team are not exported. */
+    const csv = (await people(lead).get(`/employees/export?ids=${stranger.id}`).expect(200)).text;
+    expect(csv).not.toContain('Someone Else');
+    /* Statutory, identity, notes, checklist: a stranger reads as absent. */
+    await people(lead).get(`/employees/${stranger.id}/statutory`).expect(404);
+    await people(lead).put(`/employees/${stranger.id}/identity`, { aadhaarLast4: '1234' }).expect(404);
+    await people(lead).get(`/employees/${stranger.id}/notes`).expect(404);
+    await people(lead).post(`/employees/${stranger.id}/notes`, { body: 'Should not land' }).expect(404);
+    await people(lead).get(`/employees/${stranger.id}/checklist`).expect(404);
+    await people(lead).post(`/employees/${stranger.id}/probation/review`, { observations: 'x' }).expect(404);
+    /* Nobody reviews their own probation. */
+    await people(lead).post(`/employees/${mine.id}/probation/review`, { observations: 'All good' }).expect(403);
+    /* Open tasks and the overview show the team only. */
+    const tasks = (await people(lead).get('/checklist-tasks').expect(200)).body.tasks.map((t: any) => t.employee.id);
+    expect(tasks).not.toContain(stranger.id);
+    const overview = (await people(lead).get('/overview').expect(200)).body;
+    expect(overview.headcount).toBe(1);
+    /* Company-wide HR work is refused outright. */
+    await people(lead).post('/employees/import', { rows: [{ name: 'Imported' }] }).expect(403);
+    await people(lead).get('/data-requests').expect(403);
+    await people(lead).get('/headcount').expect(403);
+    await people(lead).post(`/employees/${stranger.id}/anonymise`, { confirmName: 'Someone Else' }).expect(403);
+  });
+
+  it('a read-only role gets the work profile; date of birth, address and family stay with HR (Workforce audit E4)', async () => {
+    await people(hr).put(`/employees/${report.id}`, { dateOfBirth: '1990-05-04', addressLine: '12 Lake Road', emergencyContactName: 'Sita' }).expect(200);
+    const seen = (await people(manager).get(`/employees/${report.id}`).expect(200)).body.employee;
+    expect(seen).toMatchObject({ personalHidden: true, name: 'Direct Report' });
+    expect(seen.dateOfBirth).toBeUndefined();
+    expect(seen.addressLine).toBeUndefined();
+    const listed = (await people(manager).get('/employees?limit=500').expect(200)).body.employees.find((e: any) => e.id === report.id);
+    expect(listed.emergencyContactName).toBeUndefined();
+    /* Their own record is theirs to see in full. */
+    await people(hr).put(`/employees/${me.id}`, { dateOfBirth: '1985-01-01' }).expect(200);
+    expect((await people(manager).get(`/employees/${me.id}`).expect(200)).body.employee.dateOfBirth).toBe('1985-01-01');
+    /* HR sees it all; the change shows as changed, without values, to the read-only role. */
+    expect((await people(hr).get(`/employees/${report.id}`).expect(200)).body.employee.dateOfBirth).toBe('1990-05-04');
+    const activity = (await people(manager).get(`/employees/${report.id}/activity`).expect(200)).body;
+    expect(JSON.stringify(activity)).not.toContain('12 Lake Road');
+  });
+
+  it("a team lead's own record is changed through the employee app; a manager outside their team does not open (Workforce audit E10, E20)", async () => {
+    const lead = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Employees::EDIT'], true);
+    const boss = (await people(hr).post('/employees', { name: 'Their Boss', code: `TB-${rnd()}` }).expect(201)).body.employee;
+    const self = (await people(hr).post('/employees', { name: 'Lead Own', code: `LO-${rnd()}`, reportingManagerId: boss.id }).expect(201)).body.employee;
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: self.id }, data: { userId: lead.userId } }));
+    const mine = (await people(lead).get(`/employees/${self.id}`).expect(200)).body.employee;
+    expect(mine).toMatchObject({ ownRecordLocked: true, managerOpens: false, reportingManagerName: 'Their Boss' });
+    const refused = await people(lead).put(`/employees/${self.id}`, { phone: '9876501234' }).expect(403);
+    expect(refused.body.code).toBe('OWN_RECORD');
+    /* HR edits it as ever. */
+    await people(hr).put(`/employees/${self.id}`, { phone: '9876501234' }).expect(200);
+  });
+
+  it('the change preview does not name a manager outside the viewer\'s team (Workforce audit S17)', async () => {
+    const impact = (await people(manager).get(`/employees/${report.id}/change-impact?reportingManagerId=${stranger.id}`).expect(200)).body.impact;
+    /* The stranger has no login, so before this the preview said "Someone Else cannot sign in yet". */
+    expect(JSON.stringify(impact)).not.toContain('Someone Else');
   });
 });

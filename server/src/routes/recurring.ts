@@ -8,6 +8,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { runDueSchedules } from '../services/recurring.js';
 import { refuseUnknownLineItems } from '../services/lineItems.js';
+import { sentOnly } from '../utils/sentOnly.js';
 
 /**
  * Recurring invoice schedules.
@@ -105,7 +106,7 @@ recurringRouter.patch('/orgs/:orgId/recurring/:id', EDIT, async (req, res) => {
   });
   if (!existing) return res.status(404).json({ error: 'Schedule not found' });
 
-  const body = scheduleSchema.partial().parse(req.body);
+  const body = sentOnly(scheduleSchema.partial().parse(req.body), req.body);
   if (body.template !== undefined && (await refuseUnknownLineItems(res, req.tenant!.accountId, req.tenant!.orgId, (body.template as any)?.items))) return;
   const row = await prisma.recurringSchedule.update({
     where: { id: existing.id },

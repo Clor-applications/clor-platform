@@ -62,7 +62,11 @@ export default function Transfer() {
     setSaving(true);
     try {
       const r = await transferEmployees({ employeeIds: [...picked], field, targetId: target === '__none' ? null : target, effectiveDate, note: note || null });
-      notify.success(`${r.moved} moved.`);
+      const parts = [];
+      if (r.changed) parts.push(`${r.changed} moved`);
+      if (r.scheduled) parts.push(`${r.scheduled} to move on ${r.effectiveFrom}`);
+      if (r.skipped?.length) parts.push(`${r.skipped.length} not moved (${r.skipped.map((s) => `${s.name} ${s.why}`).join(', ')})`);
+      notify.success(parts.length ? `${parts.join('; ')}.` : 'Nothing changed: they were already there.');
       setPicked(new Set());
       load();
     } catch (e) {

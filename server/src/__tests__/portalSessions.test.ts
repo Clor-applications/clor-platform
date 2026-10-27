@@ -129,7 +129,7 @@ describe('HR and the person’s status', () => {
 
   it('on notice: they keep the app', async () => {
     const e = await employee(c);
-    await request(app).put(`/api/orgs/${c.orgId}/people/employees/${e.id}`).set(at(c)).send({ status: 'ON_NOTICE' }).expect(200);
+    await request(app).post(`/api/orgs/${c.orgId}/people/employees/${e.id}/resign`).set(at(c)).send({ lastDay: new Date(Date.now() + 330 * 60_000 + 20 * 86_400_000).toISOString().slice(0, 10), leavingType: 'RESIGNED' }).expect(200);
     await me(e.first).expect(200);
   });
 

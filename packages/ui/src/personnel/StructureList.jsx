@@ -9,6 +9,7 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createStructure, deleteStructure, listStructure, updateStructure } from './api';
+import { KIND_WORDS } from './employmentKinds';
 
 /**
  * One screen for the five org-structure lists: departments, job positions,
@@ -23,26 +24,30 @@ const KINDS = {
     parent: { key: 'parentId', kind: 'departments', label: 'Under department' },
   },
   'job-positions': {
-    title: 'Job Positions',
-    singular: 'job position',
+    title: 'Designations',
+    singular: 'designation',
     description: 'The designations people hold — Accountant, Store Manager, Driver.',
     parent: { key: 'departmentId', kind: 'departments', label: 'Department' },
   },
   'job-roles': {
     title: 'Job Roles',
     singular: 'job role',
-    description: 'Finer roles inside a position — Senior, Trainee, Night shift.',
-    parent: { key: 'jobPositionId', kind: 'job-positions', label: 'Job position' },
+    description: 'A specialisation inside a designation — Accounts payable under Accountant, Night supervisor under Site supervisor.',
+    parent: { key: 'jobPositionId', kind: 'job-positions', label: 'Designation' },
   },
   'employee-types': {
-    title: 'Employee Types',
-    singular: 'employee type',
-    description: 'Permanent, probation, contract, intern, consultant.',
+    title: 'Employment Types',
+    singular: 'employment type',
+    description: 'Permanent, fixed-term, trainee, intern, consultant. Probation is a date on the person, not a type.',
+    noDescription: true,
+    fields: [{ key: 'category', label: 'Counts as', type: 'select', options: Object.entries(KIND_WORDS) }, { key: 'probationMonths', label: 'Probation, months', placeholder: 'Blank if none' }, { key: 'noticeDays', label: 'Notice, days', placeholder: 'Blank if none' }],
+    columns: [{ key: 'category', label: 'Counts as', value: (r) => KIND_WORDS[r.category] || '' }, { key: 'probationMonths', label: 'Probation', value: (r) => (r.probationMonths ? `${r.probationMonths} ${r.probationMonths === 1 ? 'month' : 'months'}` : '') }],
   },
   'work-types': {
-    title: 'Work Types',
-    singular: 'work type',
+    title: 'Work Modes',
+    singular: 'work mode',
     description: 'Where the work happens — office, remote, hybrid, field.',
+    noDescription: true,
   },
   areas: {
     title: 'Areas',
@@ -76,9 +81,9 @@ const KINDS = {
     ],
   },
   establishments: {
-    title: 'Establishments',
-    singular: 'establishment',
-    description: 'Each place of work in law — a shop, factory, office or site — in one state. The state decides which rules apply to the people there.',
+    title: 'Work Sites',
+    singular: 'work site',
+    description: 'Each place of work in law (an establishment) — a shop, factory, office or site — in one state. The state decides which rules apply to the people there.',
     parent: { key: 'legalEntityId', kind: 'legal-entities', label: 'Legal entity' },
     fields: [
       { key: 'kind', label: 'Type', type: 'select', options: [['OFFICE', 'Office'], ['SHOP', 'Shop'], ['FACTORY', 'Factory'], ['SITE', 'Site'], ['WAREHOUSE', 'Warehouse']] },
@@ -91,15 +96,15 @@ const KINDS = {
   teams: {
     title: 'Teams',
     singular: 'team',
-    description: 'A team under a department. Its lead is set on the people themselves (Reports to); seats on the team are listed under Seats.',
+    description: 'A team under a department. Its lead is set on the people themselves (Manager); positions on the team are listed under Positions.',
     parent: { key: 'departmentId', kind: 'departments', label: 'Department' },
     fields: [],
     columns: [],
   },
   seats: {
-    title: 'Seats',
-    singular: 'seat',
-    description: 'Approved seats on a team: a title, a designation and a budget reference. A seat is filled by the person placed in it on their record, or open — and open seats show on the org chart.',
+    title: 'Positions',
+    singular: 'position',
+    description: 'Approved positions on a team: a title, a designation and a budget reference. A position is filled by the person placed in it on their record, or open — and open positions show on the org chart.',
     parent: { key: 'teamId', kind: 'teams', label: 'Team' },
     fields: [{ key: 'budgetRef', label: 'Budget reference', placeholder: 'e.g. FY27-OPS-04' }],
     columns: [{ key: 'budgetRef', label: 'Budget' }],
@@ -152,7 +157,7 @@ export default function StructureList({ kind, title = '', singular = '' }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const body = { name: editing.name, description: editing.description || null, isActive: editing.isActive !== false };
+      const body = { name: editing.name, ...(cfg.noDescription ? {} : { description: editing.description || null }), isActive: editing.isActive !== false };
       if (cfg.parent) body[cfg.parent.key] = editing[cfg.parent.key] || null;
       for (const f of cfg.fields || []) body[f.key] = editing[f.key] || null;
       if (editing.id) await updateStructure(kind, editing.id, body);
@@ -347,10 +352,12 @@ export default function StructureList({ kind, title = '', singular = '' }) {
                 )}
               </label>
             ))}
-            <label className="block">
-              <span className="ui-label">Description</span>
-              <textarea className="ui-input w-full" rows={3} value={editing.description || ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
-            </label>
+            {cfg.noDescription ? null : (
+              <label className="block">
+                <span className="ui-label">Description</span>
+                <textarea className="ui-input w-full" rows={3} value={editing.description || ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
+              </label>
+            )}
             {editing.id ? (
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" className="ui-checkbox" checked={editing.isActive !== false} onChange={(e) => setEditing({ ...editing, isActive: e.target.checked })} />

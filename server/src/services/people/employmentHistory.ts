@@ -22,15 +22,15 @@ export const TRACKED: Record<string, { label: string; kind: 'TRANSFERRED' | 'CHA
   businessUnitId: { label: 'Business unit', kind: 'TRANSFERRED' },
   areaId: { label: 'Location', kind: 'TRANSFERRED' },
   branchId: { label: 'Branch', kind: 'TRANSFERRED' },
-  establishmentId: { label: 'Office / site', kind: 'TRANSFERRED' },
+  establishmentId: { label: 'Work site', kind: 'TRANSFERRED' },
   teamId: { label: 'Team', kind: 'TRANSFERRED' },
-  seatId: { label: 'Seat', kind: 'CHANGED' },
+  seatId: { label: 'Position', kind: 'CHANGED' },
   jobPositionId: { label: 'Designation', kind: 'CHANGED' },
   jobRoleId: { label: 'Job role', kind: 'CHANGED' },
-  reportingManagerId: { label: 'Reporting manager', kind: 'CHANGED' },
-  dottedManagerId: { label: 'Dotted-line manager', kind: 'CHANGED' },
-  employeeTypeId: { label: 'Employee type', kind: 'CHANGED' },
-  workTypeId: { label: 'Work type', kind: 'CHANGED' },
+  reportingManagerId: { label: 'Manager', kind: 'CHANGED' },
+  dottedManagerId: { label: 'Secondary manager', kind: 'CHANGED' },
+  employeeTypeId: { label: 'Employment type', kind: 'CHANGED' },
+  workTypeId: { label: 'Work mode', kind: 'CHANGED' },
   contractorId: { label: 'Contractor', kind: 'CHANGED' },
   gradeId: { label: 'Grade', kind: 'CHANGED' },
   costCenterId: { label: 'Cost centre', kind: 'CHANGED' },
@@ -72,11 +72,15 @@ const yearsBetween = (from: string | null | undefined, to: string) => {
 };
 
 /** What the change means for pay, approvals or registers — the "payroll impact" the research asks every change to carry. */
-export function impactOf(kind: string, field: string | null, to: string | null, date: string, employee: Row): string | null {
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/* A day as people write it, 2 Nov 2026, in the notes a person reads. */
+const dayWords = (iso: string) => { const [y, m, d] = String(iso).slice(0, 10).split('-'); return y && m && d ? `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}` : iso; };
+export function impactOf(kind: string, field: string | null, to: string | null, isoDate: string, employee: Row): string | null {
+  const date = dayWords(isoDate);
   if (kind === 'JOINED') return `Joins payroll from ${date}. Add salary and statutory details (PAN, UAN, ESIC) in Payroll before the first run.`;
   if (kind === 'REHIRED') return `Back on payroll from ${date}. Check salary assignment and statutory details are still right.`;
   if (kind === 'LEFT') {
-    const years = yearsBetween(employee.dateOfJoining, date);
+    const years = yearsBetween(employee.dateOfJoining, isoDate);
     const gratuity = years == null ? '' : years >= 5 ? ` Gratuity applies (${years} years of service).` : ` No gratuity (${years} years of service; 5 needed).`;
     return `Full and final settlement due for service up to ${date}: last salary, notice pay, leave encashment.${gratuity}`;
   }
@@ -195,4 +199,22 @@ export async function timelineOf(orgId: string, employee: Row) {
     });
   }
   return events;
+}
+
+/**
+ * A joining date corrected during the first, still-open stint (Workforce
+ * final audit W6): the dates service is measured from move with it — the
+ * first joining date, the first stint's start and the Joined entry — so
+ * service length, letters and "as of" views follow the corrected date. A
+ * rejoined person's first joining date never moves.
+ */
+export async function joiningCorrected(who: Who, employee: { id: string; currentEpisodeSeq?: number | null }, newDate: string | null) {
+  if (!newDate || !ISO_DAY.test(newDate) || (employee.currentEpisodeSeq || 1) > 1) return;
+  const first = await peoplePrisma.employmentEpisode.findFirst({ where: { orgId: who.orgId, employeeId: employee.id, seq: 1 } });
+  if (first?.endDate) return;
+  await peoplePrisma.$transaction([
+    peoplePrisma.employee.updateMany({ where: { id: employee.id, orgId: who.orgId }, data: { firstJoiningDate: newDate } }),
+    peoplePrisma.employmentEpisode.updateMany({ where: { orgId: who.orgId, employeeId: employee.id, seq: 1, endDate: null }, data: { startDate: newDate } }),
+    peoplePrisma.employmentEvent.updateMany({ where: { orgId: who.orgId, employeeId: employee.id, kind: 'JOINED' }, data: { effectiveDate: newDate } }),
+  ]);
 }

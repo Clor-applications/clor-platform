@@ -79,16 +79,24 @@ export default function Nav() {
     setMobile(false);
   };
 
-  useEffect(close, [path]);
+  /* A new page closes the menus: reset while rendering, not in an effect after it. */
+  const [seenPath, setSeenPath] = useState(path);
+  if (seenPath !== path) {
+    setSeenPath(path);
+    setOpen(null);
+    setMobile(false);
+  }
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && close();
     const onClick = (e) => ref.current && !ref.current.contains(e.target) && setOpen(null);
     const onScroll = () => setScrolled(window.scrollY > 8);
-    onScroll();
+    /* The page may open scrolled (Back, a #link): read it on the next frame, not inside the effect. */
+    const frame = requestAnimationFrame(onScroll);
     window.addEventListener('keydown', onKey);
     document.addEventListener('pointerdown', onClick);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
+      cancelAnimationFrame(frame);
       window.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onClick);
       window.removeEventListener('scroll', onScroll);

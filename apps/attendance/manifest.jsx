@@ -73,6 +73,13 @@ const MyLeave = screen('MyLeave');
 const LeaveRequests = screen('LeaveRequests');
 const LeaveBalances = screen('LeaveBalances');
 const LeaveTypes = screen('LeaveTypes');
+const TimeOverview = screen('TimeOverview');
+const LeaveCalendar = screen('LeaveCalendar');
+const LeaveRegister = screen('LeaveRegister');
+const StandIns = screen('StandIns');
+const WorkingWeek = screen('WorkingWeek');
+const LeaveYearEnd = screen('LeaveYearEnd');
+const RequestRules = screen('RequestRules');
 const AttendanceDevices = screen('AttendanceDevices');
 const ReaderHealth = screen('ReaderHealth');
 const ReaderSync = screen('ReaderSync');
@@ -238,7 +245,8 @@ export const attendanceApp = {
     { key: 'attendance', label: 'Attendance', groups: [
       { label: 'Daily Operations', items: ['records', 'punches', 'exceptions', 'requests'] },
       { label: 'Scheduling', items: ['scheduleCalendar', 'shifts', 'shiftAssignments', 'departmentSchedule', 'temporarySchedule', 'rotations'] },
-      { label: 'Leave', items: ['leaveRequests', 'leaveBalances'] },
+      /* Time & Leave (TIME-LEAVE-DECISIONS.md): the same screens People shows, over the same records. */
+      { label: 'Leave', items: ['timeOverview', 'leaveRequests', 'leaveCalendar', 'leaveBalances', 'leaveRegister', 'standIns'] },
       { label: 'Time Management', items: ['overtime'] },
       { label: 'Period Closing', items: ['payrollReadiness', 'confirmations', 'monthClose'] },
     ] },
@@ -254,7 +262,7 @@ export const attendanceApp = {
       { label: 'Organization', items: ['setup', 'sites', 'siteCheck'] },
       /* Founder's Work Policy group (NV-02). Weekly off and overtime are views
          over the shifts' own fields and the company rules, not new rules. */
-      { label: 'Work Policy', items: ['rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'holidays'] },
+      { label: 'Work Policy', items: ['rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'workingWeek', 'holidays', 'leaveYearEnd', 'requestRules'] },
       { label: 'Integrations', items: ['integrations'] },
       { label: 'Access & Security', items: ['sso', 'rolesAccess'] },
       { label: 'Data Management', items: ['dataHealth', 'dataImport', 'dataExport', 'closeCompany'] },
@@ -300,15 +308,20 @@ export const attendanceApp = {
     { section: 'Attendance' },
     { key: 'records', label: 'Attendance Records', short: 'Records', icon: ListChecks, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'exceptions', label: 'Exceptions', icon: ShieldAlert, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'requests', label: 'Corrections', icon: Inbox, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
+    /* Missed punch, work from home, on duty, permission hours: one list, one approval (was Corrections). */
+    { key: 'requests', label: 'Attendance Requests', short: 'Requests', icon: Inbox, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
     { key: 'scheduleCalendar', label: 'Schedule Calendar', icon: CalendarRange, permission: 'ATTENDANCE::Shifts::VIEW' },
     { key: 'shifts', label: 'Shifts', icon: Clock3, permission: 'ATTENDANCE::Shifts::VIEW' },
     { key: 'shiftAssignments', label: 'Shift Assignments', icon: Users, permission: 'ATTENDANCE::Shifts::VIEW' },
     { key: 'departmentSchedule', label: 'Department Schedules', icon: Building2, permission: 'ATTENDANCE::Shifts::VIEW' },
     { key: 'temporarySchedule', label: 'Temporary Schedules', icon: CalendarClock, permission: 'ATTENDANCE::Shifts::VIEW' },
     { key: 'rotations', label: 'Shift Rotations', icon: Repeat, permission: 'ATTENDANCE::Shifts::VIEW' },
-    { key: 'leaveRequests', label: 'Leave Requests', icon: CalendarCheck, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'timeOverview', label: 'Leave Overview', icon: LayoutDashboard, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveRequests', label: 'Leave Requests', short: 'Leave', icon: CalendarCheck, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveCalendar', label: 'Leave Calendar', icon: CalendarDays, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveBalances', label: 'Leave Balances', icon: Scale, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveRegister', label: 'Leave Register', icon: Grid3x3, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'standIns', label: 'Stand-Ins', icon: Users, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'overtime', label: 'Overtime & Comp-Off', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'confirmations', label: 'Employee Confirmations', icon: BadgeCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'monthClose', label: 'Month Close', icon: Lock, permission: 'ATTENDANCE::Attendance Records::VIEW' },
@@ -335,7 +348,11 @@ export const attendanceApp = {
     { key: 'weeklyOffPolicy', label: 'Weekly Off Policy', icon: CalendarOff, permission: 'ATTENDANCE::Shifts::VIEW' },
     { key: 'overtimePolicy', label: 'Overtime Policy', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'leaveTypes', label: 'Leave Policy', icon: Tags, permission: 'ATTENDANCE::Leave Types::VIEW' },
+    /* Days off for anyone with no shift; with shifts, the shift decides (TIME-LEAVE-DECISIONS.md M2). */
+    { key: 'workingWeek', label: 'Working Week', icon: CalendarOff, permission: 'ATTENDANCE::Leave Types::VIEW' },
     { key: 'holidays', label: 'Holidays', icon: CalendarDays, permission: 'ATTENDANCE::Holidays::VIEW' },
+    { key: 'leaveYearEnd', label: 'Leave Year End', icon: ClipboardCheck, permission: 'ATTENDANCE::Leave Requests::EDIT' },
+    { key: 'requestRules', label: 'Request Rules', icon: Gavel, permission: 'ATTENDANCE::Attendance Requests::APPROVE' },
     { key: 'integrations', label: 'Integrations', icon: Plug, permission: 'ATTENDANCE::Attendance Integrations::VIEW' },
     /* The same SSO set-up as Accounting's Settings → Single Sign-On: one per company, for every CLOR app. */
     { key: 'sso', label: 'Users & Security', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },
@@ -382,6 +399,13 @@ export const attendanceApp = {
     records: AttendanceRecords,
     requests: AttendanceRequests,
     leaveRequests: LeaveRequests,
+    timeOverview: TimeOverview,
+    leaveCalendar: LeaveCalendar,
+    leaveRegister: LeaveRegister,
+    standIns: StandIns,
+    workingWeek: WorkingWeek,
+    leaveYearEnd: LeaveYearEnd,
+    requestRules: RequestRules,
     summary: MonthSummary,
     register: AttendanceRegister,
     calendar: AttendanceCalendar,

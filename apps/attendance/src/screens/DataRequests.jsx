@@ -171,6 +171,14 @@ export default function DataRequests() {
                       <td className="ui-col-grow whitespace-normal min-w-[14rem]">
                         <div>{TYPES[r.type] || r.type}</div>
                         <p className="ui-caption">“{r.details}”</p>
+                        {r.retentionExceptions?.length ? (
+                          <div className="mt-1">
+                            <span className="ui-caption block">The law keeps, even after erasure:</span>
+                            <ul className="ui-caption list-disc pl-4">
+                              {r.retentionExceptions.map((k) => <li key={k.dataType}>{k.label}{k.until ? `, until ${k.until}` : `, ${k.keepYears} years after leaving`}{k.legalHold ? ' (on legal hold)' : ''}</li>)}
+                            </ul>
+                          </div>
+                        ) : null}
                       </td>
                       <td className="ui-col-date whitespace-nowrap">
                         {dateOf(new Date(r.createdAt))}

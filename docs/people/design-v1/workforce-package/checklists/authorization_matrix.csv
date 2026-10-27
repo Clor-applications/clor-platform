@@ -1,0 +1,9 @@
+example_persona,action_area,decision_logic,existing_permission_catalog_mapping,verified
+Company Owner,directory read,Only when explicit People grant + company scope,,NO
+People Admin,directory / profile,"Grant + role + company scope, sensitive classification checked separately",,NO
+HR Operator,create/edit,"Limited allowed fields, escalation for high-risk changes",,NO
+Manager,team list/read,"Direct reports/delegated scope only, no PII inferred",,NO
+Employee Self Service,own profile,"Verified employee link, HR-owned field correction workflow",,NO
+Auditor,audit view/export,"Explicit event and field permission, no automatic write",,NO
+CA Partner Staff,client company directory,Client-approved delegation + People entitlement + per-client grant,,NO
+All Users,import/export,Denied by default without explicit scoped permission,,NO

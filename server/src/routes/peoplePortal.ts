@@ -4,9 +4,11 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { policiesFor, versionForPerson } from '../services/people/policies.js';
 import { AckError, accept, pendingFor } from '../services/people/acknowledgements.js';
 import { DeskError, categoriesOf, employeeReply, listRequests, raiseRequest, reopenRequest, requestDetail } from '../services/people/desk.js';
-import { SelfServiceError, myDetails, requestChange } from '../services/people/selfService.js';
+import { SelfServiceError, answerFromApp, myDetails, requestChange, withdrawFromApp } from '../services/people/selfService.js';
 import { correlationOf } from '../services/people/employees.js';
 import { ResignError, resignFromApp } from '../services/people/lifecycle/leaving.js';
+import { CaseError, intake } from '../services/people/privateCases.js';
+import { CaseKeyMissing } from '../services/people/caseBox.js';
 
 /**
  * People's own employee-facing routes, behind the employee app's sign-in
@@ -35,7 +37,10 @@ peoplePortalRouter.get('/policies/:versionId', async (req, res) => {
     const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: v.documentId, orgId } });
     if (d) document = { id: d.id, title: d.title, mime: d.mime, dataUrl: `data:${d.mime};base64,${Buffer.from(d.data).toString('base64')}` };
   }
-  res.json({ policy: { id: v.id, policyId: v.policyId, title: v.title, category: v.category, version: v.version, effectiveFrom: v.effectiveFrom, effectiveTo: v.effectiveTo, body: v.body, needsAcceptance: v.needsAcceptance, document } });
+  /* PRV-01: the same text in a language the company offers, when asked for and written; English otherwise. */
+  const lang = String(req.query.lang || '').toLowerCase();
+  const translated = lang && v.translations[lang] ? v.translations[lang] : null;
+  res.json({ policy: { id: v.id, policyId: v.policyId, title: v.title, category: v.category, purpose: v.purpose, version: v.version, effectiveFrom: v.effectiveFrom, effectiveTo: v.effectiveTo, body: translated || v.body, language: translated ? lang : 'en', languages: ['en', ...Object.keys(v.translations)], needsAcceptance: v.needsAcceptance, document } });
 });
 
 /** What I still have to accept (DOC-05, POL-04). */
@@ -123,10 +128,33 @@ peoplePortalRouter.post('/me/change-request', async (req, res) => {
     const r = await requestChange({ accountId, orgId, employeeId, userId: req.portal!.employee.userId || null, correlationId: correlationOf(req as any) }, req.body && typeof req.body === 'object' ? req.body : {});
     res.status(r.request ? 202 : 200).json(r);
   } catch (e) {
-    if (e instanceof SelfServiceError) return res.status(e.status).json({ error: e.message });
-    if ((e as any)?.status) return res.status((e as any).status).json({ error: (e as Error).message });
-    console.error('[people-portal me]', e instanceof Error ? e.message : e);
-    res.status(500).json({ error: 'Something went wrong.' });
+    selfServiceError(res, e);
+  }
+});
+
+const selfServiceError = (res: any, e: unknown) => {
+  if (e instanceof SelfServiceError) return res.status(e.status).json({ error: e.message });
+  if ((e as any)?.status) return res.status((e as any).status).json({ error: (e as Error).message });
+  console.error('[people-portal me]', e instanceof Error ? e.message : e);
+  res.status(500).json({ error: 'Something went wrong.' });
+};
+
+/* My own requests (E5): answer HR when they ask for more, or withdraw one still open. Only requests I made about myself. */
+peoplePortalRouter.post('/me/requests/:id/reply', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  try {
+    res.json(await answerFromApp({ accountId, orgId, employeeId, correlationId: correlationOf(req as any) }, String(req.params.id), typeof req.body?.note === 'string' ? req.body.note : ''));
+  } catch (e) {
+    selfServiceError(res, e);
+  }
+});
+
+peoplePortalRouter.post('/me/requests/:id/withdraw', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  try {
+    res.json(await withdrawFromApp({ accountId, orgId, employeeId, correlationId: correlationOf(req as any) }, String(req.params.id)));
+  } catch (e) {
+    selfServiceError(res, e);
   }
 });
 
@@ -146,6 +174,20 @@ peoplePortalRouter.post('/me/resign', async (req, res) => {
 peoplePortalRouter.get('/me/leaving', async (req, res) => {
   const { orgId, employeeId } = me(req);
   const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { status: true, dateOfLeaving: true, leavingType: true } });
-  const waiting = await peoplePrisma.approvalRequest.findFirst({ where: { orgId, subjectEmployeeId: employeeId, requestType: 'LEAVING', status: 'WAITING' }, select: { id: true, title: true, createdAt: true } });
+  const waiting = await peoplePrisma.approvalRequest.findFirst({ where: { orgId, subjectEmployeeId: employeeId, requestType: 'LEAVING', status: { in: ['WAITING', 'MORE_INFO'] } }, select: { id: true, title: true, status: true, createdAt: true } });
   res.json({ status: e?.status || null, lastDay: e?.dateOfLeaving || null, leavingType: e?.leavingType || null, waiting });
+});
+
+/* A private complaint from the app (PRIV-02): it goes to the committee chosen; the person gets the reference only, and nothing about it is listed back here. */
+peoplePortalRouter.post('/private-cases', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  try {
+    const c = await intake({ accountId, orgId, userId: req.portal!.employee.userId || null, employeeId }, { ...(req.body || {}), complainantEmployeeId: employeeId, onBehalf: false });
+    res.status(201).json({ reference: c.reference, receivedOn: c.receivedOn, inquiryDue: c.inquiryDue });
+  } catch (e) {
+    if (e instanceof CaseError) return res.status(e.status).json({ error: e.message });
+    if (e instanceof CaseKeyMissing) return res.status(503).json({ error: e.message });
+    console.error('[people-portal case]', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
 });

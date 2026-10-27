@@ -67,7 +67,7 @@ export default function Tags() {
       {tags.length ? (
         <ul className="flex flex-wrap gap-2">
           {tags.map((t) => (
-            <li key={t.id} className="ui-pill inline-flex items-center gap-1" style={{ backgroundColor: `${t.color}22`, color: t.color }}>
+            <li key={t.id} className="ui-pill inline-flex items-center gap-1" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, #000)` }}>
               {t.name}
               <button type="button" aria-label={`Delete ${t.name}`} onClick={() => remove(t)}>
                 <Trash2 size={12} aria-hidden="true" />

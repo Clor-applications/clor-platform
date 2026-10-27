@@ -64,13 +64,13 @@ describe('the journey and Why', () => {
 
     const journey = (await people(hr).get(`/employees/${e.id}/journey`).expect(200)).body;
     expect(journey.entries.map((x: any) => [x.kind, x.summary])).toEqual([
-      ['APPROVED', '2 details changed'],
+      ['APPROVED', 'Designation changed'],
       ['CHANGE', 'Phone changed'],
       ['CHANGE', 'Joined the record'],
     ]);
     expect(journey.entries.every((x: any) => x.stint === 1)).toBe(true);
     const promo = journey.entries[0];
-    expect(promo.changes.map((c: any) => [c.field, c.before, c.after])).toEqual(expect.arrayContaining([['Designation', 'Designer', 'Senior designer']]));
+    expect(promo.changes.map((c: any) => [c.field, c.before, c.after])).toEqual([['Designation', 'Designer', 'Senior designer']]);
 
     const why = (await people(hr).get(`/employees/${e.id}/why/${promo.key}`).expect(200)).body.why;
     expect(why.askedBy).toBe('Asha HR');

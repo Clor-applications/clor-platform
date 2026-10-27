@@ -9,6 +9,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { validateGstinOrThrow } from '../utils/gstin.js';
 import { allowsEntity, resolveUserPermissions } from '../services/access.js';
 import { forgetEntityAccess } from '../services/integrity/crossStore.js';
+import { sentOnly } from '../utils/sentOnly.js';
 
 /**
  * Customers and vendors.
@@ -446,7 +447,7 @@ function register(kind: PartyKind, basePath: string) {
       return res.status(403).json({ error: 'You are not permitted to edit this record' });
     }
 
-    const body = partySchema.partial().parse(req.body);
+    const body = sentOnly(partySchema.partial().parse(req.body), req.body);
     if (body.code != null && !validPartyCode(kind, String(body.code).trim())) {
       return res.status(400).json({
         error: kind === 'VENDOR'

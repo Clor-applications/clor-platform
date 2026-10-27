@@ -43,10 +43,11 @@ describe('what a change affects', () => {
     const pune = (await people(hr).post('/structure/establishments', { name: 'Pune shop', kind: 'SHOP', state: 'Maharashtra', legalEntityId: entity.id }).expect(201)).body.item;
     const e = (await people(hr).post('/employees', { name: 'Kavya Reddy', code: 'CH-1', dateOfJoining: '2026-01-05', establishmentId: blr.id }).expect(201)).body.employee;
 
-    /* Preview: the differences, which apps are told, and nothing for a same-state move. */
+    /* Preview: the differences to review, nothing claimed as "told", and nothing for a same-state move.
+       (Professional Tax appears only with a payroll profile that deducts it: peopleChangeImpact.test.ts.) */
     const preview = (await people(hr).get(`/employees/${e.id}/change-impact?establishmentId=${pune.id}`).expect(200)).body.impact;
-    expect(preview.map((i: any) => i.key)).toEqual(['holidays', 'pt', 'se', 'leave', 'attendance', 'payroll']);
-    expect(preview.find((i: any) => i.key === 'pt').title).toContain('Karnataka → Maharashtra');
+    expect(preview.map((i: any) => i.key)).toEqual(['se', 'leave']);
+    expect(JSON.stringify(preview)).not.toMatch(/told/i);
     const same = (await people(hr).get(`/employees/${e.id}/change-impact?establishmentId=${blr.id}`).expect(200)).body.impact;
     expect(same).toEqual([]);
     const dept = (await people(hr).get(`/employees/${e.id}/change-impact?departmentId=x`).expect(200)).body.impact;
@@ -62,11 +63,11 @@ describe('what a change affects', () => {
     await deliverOutbox(new Date(), 1000);
     const plan = (await people(hr).get(`/employees/${e.id}/checklist`).expect(200)).body;
     const titles = plan.changes.tasks.map((t: any) => t.title).sort();
-    expect(titles).toEqual(['Different holiday list (Maharashtra)', 'Leave policy for Maharashtra may apply', 'Shops & Establishments rules differ (Maharashtra)']);
+    expect(titles).toEqual(['Leave policy for Maharashtra may apply', 'Shops & Establishments rules differ (Maharashtra)']);
     expect(plan.changes.tasks.every((t: any) => t.owner === 'HR' && t.dueDate)).toBe(true);
 
     /* Delivered again (a retry), the same tasks are not added twice. */
     await deliverOutbox(new Date(), 1000);
-    expect((await people(hr).get(`/employees/${e.id}/checklist`).expect(200)).body.changes.tasks).toHaveLength(3);
+    expect((await people(hr).get(`/employees/${e.id}/checklist`).expect(200)).body.changes.tasks).toHaveLength(2);
   });
 });

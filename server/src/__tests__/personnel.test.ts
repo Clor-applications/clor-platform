@@ -65,6 +65,19 @@ describe('Attendance on its own', () => {
   });
 });
 
+describe('secrets', () => {
+  it('never returns the employee app password or set-up hash, only whether one is set', async () => {
+    const e = (await people(c).post('/employees', { name: 'Hash Holder', code: 'H-1' }).expect(201)).body.employee;
+    await peoplePrisma.employee.update({ where: { id: e.id }, data: { portalPasswordHash: '$2b$10$planted.hash.value.for.the.test.only', portalSetupHash: 'planted-setup', portalSetupExpires: new Date(Date.now() + 86_400_000) } });
+    const one = (await people(c).get(`/employees/${e.id}`).expect(200)).body.employee;
+    const list = (await people(c).get('/employees?q=Hash%20Holder').expect(200)).body.employees;
+    for (const row of [one, list[0]]) {
+      expect(JSON.stringify(row)).not.toContain('planted');
+      expect(row).toMatchObject({ hasPortalPassword: true, portalSetupPending: true });
+    }
+  });
+});
+
 describe('reader fields', () => {
   it('pushes a new employee to every reader with card, PIN and privilege, and never returns the PIN', async () => {
     await peoplePrisma.deviceCommand.deleteMany({ where: { serialNumber: sn } });

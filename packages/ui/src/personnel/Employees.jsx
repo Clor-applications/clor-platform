@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileDown, LayoutGrid, List, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from 'lucide-react';
+import { FileDown, LayoutGrid, List, MoreHorizontal, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from 'lucide-react';
 
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import Drawer from '@ui/components/ui/Drawer';
+import Popover from '@ui/components/ui/Popover';
+import PopupSelect from '@ui/components/pickers/PopupSelect';
+import DatePicker from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { DOC_WHO_CAN_SEE, docWhoLabel } from './documentClassification';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
@@ -22,6 +25,10 @@ import {
   importEmployees,
   undoImport,
   listEmployees,
+  bulkUpdateEmployees,
+  listSavedViews,
+  saveSavedView,
+  deleteSavedView,
   listNotes,
   listDocuments,
   uploadDocument,
@@ -43,6 +50,8 @@ import {
   saveCustomValues,
   getJourney,
   getWhy,
+  getSalaryQuestion,
+  raiseFromWhy,
   listEmployeeInvites,
   getChecklist,
   getEmployeeStatutory,
@@ -89,17 +98,21 @@ const initials = (name) =>
     .map((w) => w[0].toUpperCase())
     .join('');
 
+/* "2 Nov 2026" from an ISO day. */
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const formatDateShort = (d) => { const [y, m, dd] = String(d).slice(0, 10).split('-'); return y && m && dd ? `${Number(dd)} ${MONTHS_SHORT[Number(m) - 1]} ${y}` : String(d); };
+
 export const Avatar = ({ person, size = 40 }) =>
   person?.photoUrl ? (
     <img src={person.photoUrl} alt="" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
   ) : (
     <span
-      className="inline-grid shrink-0 place-items-center rounded-full font-semibold"
+      className="ui-avatar-initials inline-grid shrink-0 place-items-center rounded-full font-semibold"
       style={{ width: size, height: size, fontSize: size * 0.38, backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand-ink))' }}
       aria-hidden="true"
-    >
-      {initials(person?.name)}
-    </span>
+      /* Drawn, not text: the initials are a picture of the person, so they never become part of a button's name. */
+      data-initials={initials(person?.name)}
+    />
   );
 
 const EXPORT_COLUMNS = [
@@ -115,7 +128,7 @@ const EXPORT_COLUMNS = [
   { key: 'status', label: 'Status', value: (r) => statusOf(r.status).label },
 ];
 
-const IMPORT_COLUMNS = [
+export const IMPORT_COLUMNS = [
   { key: 'name', label: 'name' },
   { key: 'code', label: 'code' },
   { key: 'email', label: 'email' },
@@ -148,6 +161,16 @@ export default function Employees({ description = '' } = {}) {
   const [openId, setOpenId] = useState(null);
   const [editing, setEditing] = useState(null);
   const fileRef = useRef(null);
+  const perms = usePermissions();
+  const canEdit = Boolean(perms?.isAdmin || perms?.permissions?.has?.('PEOPLE::Employees::EDIT'));
+  /* CORE-01: bulk select in the list view, and saved views (own or shared). */
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulk, setBulk] = useState(null);
+  const [views, setViews] = useState([]);
+  const [viewId, setViewId] = useState('');
+  const [savingView, setSavingView] = useState(null);
+  const loadViews = useCallback(() => listSavedViews('employees').then(setViews).catch(() => setViews([])), []);
+  useEffect(() => { loadViews(); }, [loadViews]);
 
   const loadLists = useCallback(async () => {
     const withAttendance = hasApp('attendance');
@@ -212,10 +235,10 @@ export default function Employees({ description = '' } = {}) {
   const onImport = async (file) => {
     if (!file) return;
     try {
-      const table = parseCsv(await readFileText(file));
-      const [head, ...body] = table;
-      const keys = (head || []).map((h) => String(h || '').trim());
-      const rows = body.filter((r) => r.some((c) => String(c || '').trim()));
+      /* parseCsv returns { headers, rows } with rows keyed by header; the drawer maps columns, so rows go back to arrays. */
+      const parsed = parseCsv(await readFileText(file));
+      const keys = (parsed.headers || []).map((h) => String(h || '').trim());
+      const rows = (parsed.rows || []).map((o) => keys.map((h) => o[h] ?? '')).filter((r) => r.some((c) => String(c || '').trim()));
       if (!rows.length) return notify.error('That file has no rows under its header.');
       setImporting({ name: file.name, headers: keys, rows });
     } catch (e) {
@@ -246,6 +269,28 @@ export default function Employees({ description = '' } = {}) {
     return c;
   }, [all]);
   const rows = useMemo(() => all.filter((p) => !status || p.status === status), [all, status]);
+  const toggle = (id) => setSelected((cur) => { const next = new Set(cur); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const allChosen = rows.length > 0 && rows.every((p) => selected.has(p.id));
+  const chooseAll = () => setSelected(allChosen ? new Set() : new Set(rows.map((p) => p.id)));
+  const applyView = (id) => {
+    setViewId(id);
+    const v = views.find((x) => x.id === id);
+    if (!v) return;
+    const f = v.filters || {};
+    setFilters({ q: f.q || '', departmentId: f.departmentId || '', jobPositionId: f.jobPositionId || '', employeeTypeId: f.employeeTypeId || '', tagId: f.tagId || '' });
+    setStatus(f.status ?? 'ACTIVE');
+  };
+  const removeView = async () => {
+    const v = views.find((x) => x.id === viewId);
+    if (!v || !(await confirmDialog({ title: `Delete the view "${v.name}"?`, confirmLabel: 'Delete', tone: 'danger' }))) return;
+    try {
+      await deleteSavedView(v.id);
+      setViewId('');
+      loadViews();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not deleted.'));
+    }
+  };
   const figures = useMemo(() => {
     const here = all.filter((p) => p.status !== 'LEFT');
     return {
@@ -316,6 +361,13 @@ export default function Employees({ description = '' } = {}) {
           {filterSelect('jobPositionId', 'Position', lists.positions)}
           {filterSelect('employeeTypeId', 'Type', lists.types)}
           {lists.tags.length ? filterSelect('tagId', 'Tag', lists.tags) : null}
+          <select className="ui-select ui-ctl-compact" style={{ width: 'auto', minWidth: '9rem' }} aria-label="Saved views" value={viewId}
+            onChange={(e) => (e.target.value === '__save' ? setSavingView({ name: '', shared: false }) : applyView(e.target.value))}>
+            <option value="">Views</option>
+            {views.map((v) => <option key={v.id} value={v.id}>{v.name}{v.shared ? (v.mine ? ' (shared by you)' : ' (shared)') : ''}</option>)}
+            <option value="__save">Save these filters as a view…</option>
+          </select>
+          {viewId && views.find((v) => v.id === viewId)?.mine ? <button type="button" className="ui-link text-sm" onClick={removeView}>Delete view</button> : null}
         </>
       }
     >
@@ -349,7 +401,7 @@ export default function Employees({ description = '' } = {}) {
                   <span className={`ui-pill ${statusOf(p.status).pill}`}>{statusOf(p.status).label}</span>
                   {p.code ? <span className="ui-pill ui-pill-neutral">{p.code}</span> : null}
                   {(p.tags || []).slice(0, 2).map((t) => (
-                    <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: t.color }}>{t.name}</span>
+                    <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, rgb(var(--fg)))` }}>{t.name}</span>
                   ))}
                 </span>
               </span>
@@ -358,9 +410,17 @@ export default function Employees({ description = '' } = {}) {
         </div>
       ) : (
           <div className="ui-table-scroll">
+            {canEdit && selected.size ? (
+              <div className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm" role="status">
+                <span className="tabular-nums">{selected.size} chosen</span>
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ field: 'departmentId', value: '', reason: '' })}>Change…</button>
+                <button type="button" className="ui-link" onClick={() => setSelected(new Set())}>Clear</button>
+              </div>
+            ) : null}
             <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
+                  {canEdit ? <th scope="col" className="w-8"><input type="checkbox" className="ui-checkbox" aria-label="Choose everyone shown" checked={allChosen} onChange={chooseAll} /></th> : null}
                   <th scope="col" className="ui-col-grow">Employee</th>
                   <th scope="col">ID</th>
                   <th scope="col">Department</th>
@@ -373,6 +433,7 @@ export default function Employees({ description = '' } = {}) {
               <tbody className="ui-rows">
                 {rows.map((p) => (
                   <tr key={p.id} className="ui-row-click" onClick={() => setOpenId(p.id)}>
+                    {canEdit ? <td className="w-8" onClick={(e) => e.stopPropagation()}><input type="checkbox" className="ui-checkbox" aria-label={`Choose ${p.name}`} checked={selected.has(p.id)} onChange={() => toggle(p.id)} /></td> : null}
                     <td className="ui-col-entity">
                       <span className="flex items-center gap-2">
                         <Avatar person={p} size={28} />
@@ -406,6 +467,37 @@ export default function Employees({ description = '' } = {}) {
         }}
       />
 
+      {bulk ? <BulkDrawer count={selected.size} lists={lists} people={all} value={bulk} onChange={setBulk} onClose={() => setBulk(null)}
+        onSend={async () => {
+          try {
+            const r = await bulkUpdateEmployees({ ids: [...selected], set: { [bulk.field]: bulk.value === '__clear' ? null : bulk.value }, reason: bulk.reason });
+            notify.success(`${r.changed} changed${r.unchanged ? `, ${r.unchanged} already so` : ''}${r.skipped.length ? `, ${r.skipped.length} skipped (${r.skipped.slice(0, 3).map((x) => `${x.name} ${x.why}`).join('; ')})` : ''}.`);
+            setBulk(null);
+            setSelected(new Set());
+            load();
+          } catch (e) {
+            notify.error(String(e?.message || 'Not changed.'));
+          }
+        }} /> : null}
+      {savingView ? (
+        <Drawer open onClose={() => setSavingView(null)} title="Save as a view" description="The search, the filters and the status tab, under a name."
+          actions={<button type="button" className="ui-btn ui-btn-primary" disabled={!savingView.name.trim()} onClick={async () => {
+            try {
+              const v = await saveSavedView({ screen: 'employees', name: savingView.name, shared: savingView.shared, filters: { ...filters, status } });
+              setSavingView(null);
+              await loadViews();
+              setViewId(v.id);
+            } catch (e) {
+              notify.error(String(e?.message || 'Not saved.'));
+            }
+          }}>Save view</button>}>
+          <div className="space-y-3">
+            <label className="block"><span className="ui-label">Name *</span><input className="ui-input w-full" maxLength={80} value={savingView.name} onChange={(e) => setSavingView({ ...savingView, name: e.target.value })} placeholder="Sales on notice" /></label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={savingView.shared} onChange={(e) => setSavingView({ ...savingView, shared: e.target.checked })} />Share with everyone who can see the directory</label>
+          </div>
+        </Drawer>
+      ) : null}
+
       {importing ? <ImportDrawer file={importing} onClose={() => setImporting(null)} onDone={() => { setImporting(null); loadLists().catch(() => {}); load(); }} /> : null}
 
       {editing ? (
@@ -427,10 +519,11 @@ export default function Employees({ description = '' } = {}) {
 
 // ---------------------------------------------------------------------------
 
-const Field = ({ label, value }) => (
-  <div>
-    <dt className="ui-t-label">{label}</dt>
-    <dd className="mt-0.5 text-sm">{value || <span className="ui-muted">Not set</span>}</dd>
+/* `row` is the record page's label-beside-value row; without it, the drawer's label-above-value. */
+const Field = ({ label, value, row = false }) => (
+  <div className={row ? 'ui-field-row' : undefined}>
+    <dt className={row ? 'ui-caption' : 'ui-t-label'}>{label}</dt>
+    <dd className={row ? 'text-sm' : 'mt-0.5 text-sm'}>{value || <span className="ui-muted">{row ? 'Not provided' : 'Not set'}</span>}</dd>
   </div>
 );
 
@@ -508,7 +601,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
   const rehire = async () => {
     if (!rejoinDate) return notify.error('Give the rejoin date first.');
     if (person.dateOfLeaving && rejoinDate <= person.dateOfLeaving) return notify.error(`The rejoin date must be after their last day, ${person.dateOfLeaving}.`);
-    const ok = await confirmDialog({ title: `Rehire ${person.name} from ${formatDateIn(rejoinDate)}?`, message: `A new stint starts on that date; their first joining date (${person.firstJoiningDate ? formatDateIn(person.firstJoiningDate) : 'on file'}) stays. They become active again and are put back on every reader; fingerprints and faces were deleted when they left, so they enrol again.`, confirmLabel: 'Rehire', tone: 'primary' });
+    const ok = await confirmDialog({ title: `Rehire ${person.name} from ${formatDateIn(rejoinDate)}?`, message: `A new period of employment starts on that date; their first joining date (${person.firstJoiningDate ? formatDateIn(person.firstJoiningDate) : 'on file'}) stays. They become active again and are put back on every reader; fingerprints and faces were deleted when they left, so they enrol again.`, confirmLabel: 'Rehire', tone: 'primary' });
     if (!ok) return;
     try {
       const r = await rehireEmployee(person.id, { rejoinDate });
@@ -604,7 +697,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                   </span>
                 ))}
                 {(person.tags || []).map((t) => (
-                  <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: t.color }}>{t.name}</span>
+                  <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, rgb(var(--fg)))` }}>{t.name}</span>
                 ))}
               </div>
               <div className="ui-caption mt-1">{person.workEmail || person.email || ''}</div>
@@ -684,7 +777,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                   <Field label="Father’s / husband’s name" value={person.guardianName} />
                 </>
               ) : null}
-              <Field label={person.currentEpisodeSeq > 1 ? `Joined (stint ${person.currentEpisodeSeq})` : 'Joined'} value={person.dateOfJoining} />
+              <Field label={person.currentEpisodeSeq > 1 ? 'Rejoined' : 'Joined'} value={person.dateOfJoining} />
               {person.currentEpisodeSeq > 1 && person.firstJoiningDate ? <Field label="First joined" value={person.firstJoiningDate} /> : null}
               {person.scheduledChanges?.length ? (
                 <div className="sm:col-span-2">
@@ -778,7 +871,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
 
 /* The fields whose change is recorded in employment history (server: TRACKED in services/people/employmentHistory.ts). */
 /* The job fields a change may be dated for, as the record names them (server: SCHEDULABLE_FIELDS). */
-const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', teamId: 'Team', seatId: 'Seat', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
+export const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Work site', teamId: 'Team', seatId: 'Position', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Manager', dottedManagerId: 'Secondary manager', employeeTypeId: 'Employment type', workTypeId: 'Work mode', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
 /* How each line of the impact list lands: a review task on the record, an app told through an event, or a note. */
 const IMPACT_TARGET = { TASK: 'review task for HR', TOLD: 'told automatically', INFO: 'for information' };
 const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'establishmentId', 'teamId', 'seatId', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'dottedManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
@@ -790,7 +883,7 @@ const HISTORY_TONE = { JOINED: 'pos', LEFT: 'neg', REHIRED: 'pos', TRANSFERRED: 
  * first, each with the date it counts from, before and after, who recorded it
  * and what it means for payroll.
  */
-function EmploymentHistory({ employeeId }) {
+export function EmploymentHistory({ employeeId }) {
   const [events, setEvents] = useState(null);
   const [episodes, setEpisodes] = useState([]);
   useEffect(() => {
@@ -802,37 +895,37 @@ function EmploymentHistory({ employeeId }) {
     };
   }, [employeeId]);
   if (!events) return <SkeletonCard lines={4} />;
-  if (!events.length) return <p className="ui-muted text-sm">No history yet. Changes to department, location, designation, manager, type and leaving are recorded here from now on.</p>;
+  if (!events.length) return <p className="ui-muted text-sm">No changes recorded yet.</p>;
   return (
     <>
     {episodes.length > 1 ? (
-      <ol className="space-y-1 mb-3" aria-label="Stints">
+      <ol className="space-y-1 mb-3" aria-label="Employment periods">
         {episodes.map((st) => (
           <li key={st.seq} className="text-sm flex flex-wrap items-center gap-2">
-            <span className={`ui-pill ${st.current ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>Stint {st.seq}</span>
+            <span className={`ui-pill ${st.current ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>Period {st.seq}</span>
             <span className="tabular-nums">{formatDateIn(st.startDate)} – {st.endDate ? formatDateIn(st.endDate) : 'now'}</span>
             {st.endType ? <span className="ui-caption">{st.endType.replaceAll('_', ' ').toLowerCase()}{st.endReason ? ` · ${st.endReason}` : ''}</span> : null}
           </li>
         ))}
       </ol>
     ) : null}
-    <ol className="space-y-3" aria-label="Employment history">
+    <ol className="ui-history-list" aria-label="Employment history">
       {events.map((e) => (
-        <li key={e.id} className="ui-card p-3 space-y-1">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="flex items-center gap-2">
-              <span className={`ui-pill ui-pill-${HISTORY_TONE[e.kind] || 'neutral'}`}>{e.title}</span>
-              <span className="text-sm font-medium tabular-nums">from {e.effectiveDate}</span>
-            </span>
-            <span className="ui-caption">{[HISTORY_SOURCE[e.source] || e.source, e.by].filter(Boolean).join(' · ')}</span>
-          </div>
-          {e.field ? (
-            <p className="text-sm">
-              <span className="ui-muted">{e.from || 'None'}</span> → <strong>{e.to || 'None'}</strong>
-            </p>
-          ) : null}
-          {e.note ? <p className="text-sm">{e.note}</p> : null}
-          {e.payrollImpact ? <p className="ui-caption">Impact: {e.payrollImpact}</p> : null}
+        <li key={e.id}>
+          <span className="ui-history-when">
+            <span className="tabular-nums font-medium">{formatDateShort(e.effectiveDate)}</span>
+            <span className="ui-caption">effective</span>
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-medium">{e.title}</span>
+            {e.field ? <span className="block text-sm"><span className="ui-muted">{e.from || 'None'}</span> <span aria-hidden="true">→</span><span className="sr-only">to</span> {e.to || 'None'}</span> : null}
+            {e.note ? <span className="block text-sm ui-muted">{e.note}</span> : null}
+            {e.payrollImpact ? <span className="block ui-caption">{e.payrollImpact}</span> : null}
+          </span>
+          <span className="ui-history-recorded">
+            Recorded {e.at ? new Date(e.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
+            <span className="block">{[e.by, HISTORY_SOURCE[e.source] || e.source].filter(Boolean).join(' · ')}</span>
+          </span>
         </li>
       ))}
     </ol>
@@ -840,7 +933,7 @@ function EmploymentHistory({ employeeId }) {
   );
 }
 
-const GENDER_WORDS = { MALE: 'Male', FEMALE: 'Female', NON_BINARY: 'Non-binary', OTHER: 'Other', PREFER_NOT_TO_SAY: 'Prefer not to say' };
+export const GENDER_WORDS = { MALE: 'Male', FEMALE: 'Female', NON_BINARY: 'Non-binary', OTHER: 'Other', PREFER_NOT_TO_SAY: 'Prefer not to say' };
 const JOURNEY_TONE = { APPROVED: 'pos', SCHEDULED: 'info', SELF: 'info', CHANGE: 'neutral', HISTORY: 'neutral' };
 const JOURNEY_KIND = { APPROVED: 'Approved', SCHEDULED: 'Scheduled', SELF: 'Self-service', CHANGE: 'Change', HISTORY: 'History' };
 const whenAt = (d) => new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
@@ -850,7 +943,7 @@ const whenAt = (d) => new Date(d).toLocaleString('en-IN', { dateStyle: 'medium',
  * a Why? that opens what changed, when, who asked, who approved, which rule
  * version, the evidence, and what it set off — or says what is not known.
  */
-function Journey({ employeeId }) {
+export function Journey({ employeeId }) {
   const [data, setData] = useState(null);
   const [why, setWhy] = useState(null);
   useEffect(() => {
@@ -872,11 +965,12 @@ function Journey({ employeeId }) {
   };
   return (
     <div className="space-y-5">
+      <PayQuestion employeeId={employeeId} />
       {stints.map((seq) => {
         const st = data.episodes.find((x) => x.seq === seq);
         return (
-          <section key={seq} aria-label={`Stint ${seq}`} className="space-y-2">
-            {data.episodes.length > 1 || st ? <h3 className="text-sm font-semibold">Stint {seq}{st ? <span className="ui-caption font-normal"> · {formatDateIn(st.startDate)} – {st.endDate ? formatDateIn(st.endDate) : 'now'}</span> : null}</h3> : null}
+          <section key={seq} aria-label={`Employment period ${seq}`} className="space-y-2">
+            {data.episodes.length > 1 || st ? <h3 className="text-sm font-semibold">Employment period {seq}{st ? <span className="ui-caption font-normal"> · {formatDateIn(st.startDate)} – {st.endDate ? formatDateIn(st.endDate) : 'now'}</span> : null}</h3> : null}
             <ol className="divide-y">
               {data.entries.filter((e) => e.stint === seq).map((e) => (
                 <li key={e.key} className="py-2.5 flex flex-wrap items-start gap-2">
@@ -899,11 +993,109 @@ function Journey({ employeeId }) {
         );
       })}
       {why ? (
-        <Drawer open onClose={() => setWhy(null)} title={why.entry.summary} description={`${whenAt(why.entry.at)} · ${why.entry.how}`}>
+        <Drawer open onClose={() => setWhy(null)} widthClass="w-[min(36rem,96vw)]" title={why.entry.summary} description={`${whenAt(why.entry.at)} · ${why.entry.how}`}
+          actions={why.why ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setWhy({ ...why, raising: { kind: 'CORRECTION', note: '' } })}>Raise a correction</button> : null}>
           {!why.why ? <SkeletonCard lines={5} /> : <WhyPanel why={why.why} />}
+          {why.raising ? (
+            <form className="mt-5 space-y-2 border-t border-[rgb(var(--border))] pt-4" onSubmit={async (ev) => {
+              ev.preventDefault();
+              try {
+                await raiseFromWhy(employeeId, why.entry.key, why.raising);
+                notify.success('Sent to the help desk with this change attached.');
+                setWhy({ ...why, raising: null });
+              } catch (err) {
+                notify.error(String(err?.message || 'Not sent.'));
+              }
+            }}>
+              <div role="radiogroup" aria-label="Kind" className="flex gap-1">
+                {[['CORRECTION', 'Something is wrong'], ['QUESTION', 'A question']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={why.raising.kind === k} className={`ui-pill ${why.raising.kind === k ? 'ui-pill-info' : ''}`} onClick={() => setWhy({ ...why, raising: { ...why.raising, kind: k } })}>{l}</button>)}
+              </div>
+              <label className="block"><span className="ui-label">What should it say</span><textarea className="ui-input w-full" rows={3} maxLength={3000} value={why.raising.note} onChange={(ev) => setWhy({ ...why, raising: { ...why.raising, note: ev.target.value } })} /></label>
+              <div className="flex justify-end gap-2"><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setWhy({ ...why, raising: null })}>Cancel</button><button type="submit" className="ui-btn ui-btn-primary">Send to the help desk</button></div>
+            </form>
+          ) : null}
         </Drawer>
       ) : null}
     </div>
+  );
+}
+
+const BULK_FIELDS = [
+  ['departmentId', 'Department', 'departments'], ['jobPositionId', 'Designation', 'positions'], ['employeeTypeId', 'Employment type', 'types'],
+  ['workTypeId', 'Work mode', 'workTypes'], ['establishmentId', 'Work site', 'establishments'], ['teamId', 'Team', 'teams'],
+  ['gradeId', 'Grade', 'grades'], ['costCenterId', 'Cost centre', 'centres'], ['businessUnitId', 'Business unit', 'units'], ['reportingManagerId', 'Manager', null],
+];
+
+/** Change one detail for everyone chosen (CORE-01). Each person gets their own change record; the batch shares one. */
+function BulkDrawer({ count, lists, people, value, onChange, onClose, onSend }) {
+  const [busy, setBusy] = useState(false);
+  const field = BULK_FIELDS.find(([k]) => k === value.field) || BULK_FIELDS[0];
+  const options = field[2] ? lists[field[2]] || [] : people.filter((p) => p.status !== 'LEFT');
+  return (
+    <Drawer open onClose={onClose} title={`Change ${count} ${count === 1 ? 'person' : 'people'}`} description="Each person's history records the change and the reason. Where a job-change approval rule is in force, job details change one person at a time."
+      actions={<button type="button" className="ui-btn ui-btn-primary" disabled={busy || !value.value} onClick={async () => { setBusy(true); try { await onSend(); } finally { setBusy(false); } }}>{busy ? 'Changing…' : `Change ${count}`}</button>}>
+      <div className="space-y-3">
+        <label className="block"><span className="ui-label">What</span>
+          <select className="ui-select w-full" value={value.field} onChange={(e) => onChange({ ...value, field: e.target.value, value: '' })}>
+            {BULK_FIELDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+        </label>
+        <label className="block"><span className="ui-label">To</span>
+          <select className="ui-select w-full" value={value.value} onChange={(e) => onChange({ ...value, value: e.target.value })}>
+            <option value="" disabled>Choose…</option>
+            <option value="__clear">None (clear it for everyone chosen)</option>
+            {options.map((o) => <option key={o.id} value={o.id}>{o.name || o.label}{o.code ? ` (${o.code})` : ''}</option>)}
+          </select>
+        </label>
+        <label className="block"><span className="ui-label">Reason</span><input className="ui-input w-full" maxLength={500} value={value.reason} onChange={(e) => onChange({ ...value, reason: e.target.value })} placeholder="Ops folded into Sales" /></label>
+      </div>
+    </Drawer>
+  );
+}
+
+/**
+ * A question about pay (TRACE-04): what Payroll and Attendance are willing to
+ * show, side by side, and what they cannot show yet. People never works out
+ * pay; a correction goes to Payroll's queue.
+ */
+function PayQuestion({ employeeId }) {
+  const [month, setMonth] = useState(null);
+  const [data, setData] = useState(null);
+  const ask = async (m) => {
+    setMonth(m);
+    setData(null);
+    try {
+      setData(await getSalaryQuestion(employeeId, m));
+    } catch (err) {
+      notify.error(String(err?.message || 'Could not load.'));
+      setMonth(null);
+    }
+  };
+  const lastMonth = () => { const d = new Date(Date.now() + 330 * 60_000); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7); };
+  if (!month) return <button type="button" className="ui-link text-sm" onClick={() => ask(lastMonth())}>A question about pay?</button>;
+  return (
+    <section aria-label="A question about pay" className="space-y-2 border-b border-[rgb(var(--border))] pb-4">
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="block"><span className="ui-label">Month</span><input type="month" className="ui-input" value={month} onChange={(e) => e.target.value && ask(e.target.value)} /></label>
+        <button type="button" className="ui-link text-sm ml-auto" onClick={() => setMonth(null)}>Close</button>
+      </div>
+      {!data ? <SkeletonCard lines={3} /> : (
+        <div className="space-y-2 text-sm">
+          {data.payslip ? (
+            <table className="w-full">
+              <tbody className="divide-y">
+                {data.payslip.lines.map((l) => <tr key={l.code}><td className="py-1">{l.label}{l.basis ? <span className="ui-caption"> · {l.basis}</span> : null}</td><td className="py-1 text-right tabular-nums">{l.kind === 'DEDUCTION' ? '−' : ''}{Number(l.amount).toLocaleString('en-IN')}</td></tr>)}
+                <tr><td className="py-1 font-medium">Net</td><td className="py-1 text-right tabular-nums font-medium">{Number(data.payslip.net).toLocaleString('en-IN')}</td></tr>
+              </tbody>
+            </table>
+          ) : null}
+          {data.payslip ? <p className="ui-caption">Rules: {data.payslip.ruleSet}, version {data.payslip.ruleVersion}.</p> : null}
+          {data.days ? <p>{data.days.payableDays} payable days, {data.days.lopDays} loss-of-pay{data.days.absences.length ? `: ${data.days.absences.map((a) => `${formatDateIn(a.date)} (${a.reason})`).join(', ')}` : ''}.</p> : null}
+          {data.missing.length ? <ul className="ui-muted list-disc pl-4 space-y-0.5">{data.missing.map((m) => <li key={m.evidence}>{m.evidence}: {m.why}</li>)}</ul> : null}
+          <p className="ui-caption">{data.correction.note}</p>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -922,7 +1114,13 @@ function WhyPanel({ why }) {
       <Row label="Who approved">{why.approvedBy?.length ? why.approvedBy.join('; ') : <span className="ui-muted">Not known</span>}</Row>
       <Row label="Rule">{why.rule ? `${why.rule.name}, version ${why.rule.version}` : <span className="ui-muted">No rule recorded</span>}{why.request ? <span className="ui-caption block">Request: {why.request.title} · {why.request.status.toLowerCase()}</span> : null}</Row>
       {why.reason ? <Row label="Reason given">{why.reason}</Row> : null}
-      <Row label="Evidence">{why.evidence?.length ? <ul>{why.evidence.map((e) => <li key={e.id}>{e.title}</li>)}</ul> : <span className="ui-muted">None attached</span>}</Row>
+      <Row label="Evidence">{why.evidence?.length ? <ul>{why.evidence.map((e) => <li key={e.id}>{e.title}{e.version ? <span className="ui-caption"> · version {e.version} when decided</span> : null}</li>)}</ul> : <span className="ui-muted">None attached</span>}</Row>
+      {why.decision ? (
+        <Row label="Policies it rested on">
+          {why.decision.policies.length ? <ul>{why.decision.policies.map((p) => <li key={p.versionId}>{p.title}, version {p.version}<span className="ui-caption"> · in force from {formatDateIn(p.effectiveFrom)}</span></li>)}</ul> : <span className="ui-muted">No policy applied to the person that day</span>}
+          <span className="ui-caption block">As they stood when it was decided, {whenAt(why.decision.decidedAt)}.</span>
+        </Row>
+      ) : null}
       <Row label="What it set off">
         {why.downstream.events.length || why.downstream.tasks.length ? (
           <ul>
@@ -945,7 +1143,7 @@ function WhyPanel({ why }) {
  * Joining and leaving checklists: what is done and what is due, ticked here.
  * Started when someone joins or leaves; by hand for anyone added before.
  */
-function EmployeeChecklist({ person }) {
+export function EmployeeChecklist({ person }) {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState('');
   useEffect(() => {
@@ -990,7 +1188,7 @@ function EmployeeChecklist({ person }) {
                   <p className={`text-sm ${t.done ? 'line-through ui-muted' : ''}`}>{t.title}</p>
                   <p className="ui-caption">
                     {t.ownerName ? `${t.ownerName} (${CHECKLIST_OWNER[t.owner] || t.owner})` : CHECKLIST_OWNER[t.owner] || t.owner}
-                    {t.dueDate ? <span className={t.overdue ? 'text-[rgb(var(--neg))] font-medium' : ''}> · due {t.dueDate}{t.overdue ? ' (late)' : ''}</span> : null}
+                    {t.dueDate ? <span className={t.overdue ? 'ui-text-neg font-medium' : ''}> · {t.overdue ? 'was due' : 'due'} {formatDateShort(t.dueDate)}</span> : null}
                     {t.done && t.doneBy ? ` · done by ${t.doneBy}` : ''}
                   </p>
                   {t.note ? <p className="ui-caption">{t.note}</p> : null}
@@ -1022,7 +1220,8 @@ function EmployeeChecklist({ person }) {
  * Statutory and bank details, from Payroll's profile, masked (PE-05). Only for
  * someone who may see payroll profiles; nothing is changed here.
  */
-function StatutoryDetails({ employeeId }) {
+/** `embedded`: inside a record section that already carries the heading, in the record's row style. */
+export function StatutoryDetails({ employeeId, embedded = false }) {
   const [d, setD] = useState(null);
   const [shown, setShown] = useState({});
   const [editing, setEditing] = useState(null);
@@ -1047,10 +1246,10 @@ function StatutoryDetails({ employeeId }) {
     }
   };
   const Masked = ({ label, field, value }) => (
-    <div>
-      <dt className="ui-t-label">{label}</dt>
-      <dd className="mt-1 text-sm flex items-center gap-2">
-        <span className="tabular-nums">{shown[field] ?? (value || 'Not set')}</span>
+    <div className={embedded ? 'ui-field-row' : undefined}>
+      <dt className={embedded ? 'ui-caption' : 'ui-t-label'}>{label}</dt>
+      <dd className={`${embedded ? '' : 'mt-1 '}text-sm flex items-center gap-2`}>
+        <span className="tabular-nums">{shown[field] ?? (value || <span className="ui-muted">{embedded ? 'Not provided' : 'Not set'}</span>)}</span>
         {value && !shown[field] ? <button type="button" className="ui-link" onClick={() => show(field)}>Show</button> : null}
       </dd>
     </div>
@@ -1071,50 +1270,48 @@ function StatutoryDetails({ employeeId }) {
   };
   const id = d.identity || {};
   return (
-    <section className="mt-5 space-y-3" aria-label="Statutory details">
+    <section className={embedded ? 'space-y-3' : 'mt-5 space-y-3'} aria-label="Statutory details">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">Statutory details <span className="ui-caption font-normal">masked; a full value needs your authenticator code and is logged</span></h3>
+        {embedded
+          ? <span />
+          : <h3 className="text-sm font-semibold">Statutory details <span className="ui-caption font-normal">masked; a full value needs your authenticator code and is logged</span></h3>}
         {d.canEdit && !editing ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing({ aadhaarLast4: '', passportNumber: '', passportExpiry: id.passportExpiry || '', workPermitNumber: '', workPermitExpiry: id.workPermitExpiry || '', statutoryCategory: id.statutoryCategory || '', categoryFrom: id.categoryFrom || '' })}>Edit identifiers</button> : null}
       </div>
       {editing ? (
-        <form onSubmit={saveIdentityForm} className="ui-card p-3 grid gap-3 sm:grid-cols-2">
-          <label className="block"><span className="ui-label">Aadhaar, last 4 digits</span><input className="ui-input w-full" value={editing.aadhaarLast4} maxLength={4} inputMode="numeric" placeholder={id.aadhaarLast4 ? 'unchanged' : '9012'} onChange={(e) => setEditing({ ...editing, aadhaarLast4: e.target.value })} /></label>
-          <label className="block"><span className="ui-label">Statutory category</span>
-            <select className="ui-select w-full" value={editing.statutoryCategory} onChange={(e) => setEditing({ ...editing, statutoryCategory: e.target.value })}>
-              <option value="">— Not set —</option>
-              {[['WORKER', 'Worker'], ['SUPERVISOR', 'Supervisor'], ['MANAGER', 'Manager'], ['APPRENTICE', 'Apprentice'], ['CONTRACT', 'Contract']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </label>
-          <label className="block"><span className="ui-label">Passport number</span><input className="ui-input w-full" value={editing.passportNumber} placeholder={id.passportNumber ? 'unchanged' : 'A1234567'} onChange={(e) => setEditing({ ...editing, passportNumber: e.target.value.toUpperCase() })} /></label>
-          <label className="block"><span className="ui-label">Passport expiry</span><input type="date" className="ui-input w-full" value={editing.passportExpiry} onChange={(e) => setEditing({ ...editing, passportExpiry: e.target.value })} /></label>
-          <label className="block"><span className="ui-label">Work permit number</span><input className="ui-input w-full" value={editing.workPermitNumber} placeholder={id.workPermitNumber ? 'unchanged' : ''} onChange={(e) => setEditing({ ...editing, workPermitNumber: e.target.value.toUpperCase() })} /></label>
-          <label className="block"><span className="ui-label">Work permit expiry</span><input type="date" className="ui-input w-full" value={editing.workPermitExpiry} onChange={(e) => setEditing({ ...editing, workPermitExpiry: e.target.value })} /></label>
-          <label className="block"><span className="ui-label">Category from</span><input type="date" className="ui-input w-full" value={editing.categoryFrom} onChange={(e) => setEditing({ ...editing, categoryFrom: e.target.value })} /></label>
+        <form onSubmit={saveIdentityForm} className="ui-form-grid">
+          <label className="block"><span className="ui-label">Aadhaar, last 4 digits</span><input className="ui-input w-full" value={editing.aadhaarLast4} maxLength={4} inputMode="numeric" placeholder={id.aadhaarLast4 ? '••••' : ''} onChange={(e) => setEditing({ ...editing, aadhaarLast4: e.target.value })} /></label>
+          <div><PopupSelect showValueSubtext={false} label="Statutory category" value={editing.statutoryCategory} placeholder="Not set" onChange={(v) => setEditing({ ...editing, statutoryCategory: v || '' })}
+            options={[{ value: '', label: 'Not set' }, ...[['WORKER', 'Worker'], ['SUPERVISOR', 'Supervisor'], ['MANAGER', 'Manager'], ['APPRENTICE', 'Apprentice'], ['CONTRACT', 'Contract']].map(([value, label]) => ({ value, label }))]} /></div>
+          <label className="block"><span className="ui-label">Passport number</span><input className="ui-input w-full" value={editing.passportNumber} placeholder={id.passportNumber ? '••••' : ''} onChange={(e) => setEditing({ ...editing, passportNumber: e.target.value.toUpperCase() })} /></label>
+          <div><label className="ui-label" htmlFor="sd-passport-exp">Passport expiry</label><DatePicker id="sd-passport-exp" value={editing.passportExpiry || ''} onChange={(v) => setEditing({ ...editing, passportExpiry: v || '' })} /></div>
+          <label className="block"><span className="ui-label">Work permit number</span><input className="ui-input w-full" value={editing.workPermitNumber} placeholder={id.workPermitNumber ? '••••' : ''} onChange={(e) => setEditing({ ...editing, workPermitNumber: e.target.value.toUpperCase() })} /></label>
+          <div><label className="ui-label" htmlFor="sd-permit-exp">Work permit expiry</label><DatePicker id="sd-permit-exp" value={editing.workPermitExpiry || ''} onChange={(v) => setEditing({ ...editing, workPermitExpiry: v || '' })} /></div>
+          <div><label className="ui-label" htmlFor="sd-cat-from">Category from</label><DatePicker id="sd-cat-from" value={editing.categoryFrom || ''} onChange={(v) => setEditing({ ...editing, categoryFrom: v || '' })} /></div>
           <div className="sm:col-span-2 flex justify-end gap-2">
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing(null)}>Cancel</button>
             <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           </div>
         </form>
       ) : null}
-      <dl className="grid gap-4 sm:grid-cols-2">
-        <Field label="Aadhaar" value={id.aadhaarLast4} />
+      <dl className={embedded ? 'ui-field-grid' : 'grid gap-4 sm:grid-cols-2'}>
+        <Field row={embedded} label="Aadhaar" value={id.aadhaarLast4} />
         <Masked label="Passport" field="passportNumber" value={id.passportNumber} />
-        <Field label="Passport expiry" value={id.passportExpiry} />
+        <Field row={embedded} label="Passport expiry" value={id.passportExpiry} />
         <Masked label="Work permit" field="workPermitNumber" value={id.workPermitNumber} />
-        <Field label="Work permit expiry" value={id.workPermitExpiry} />
-        <Field label="Statutory category" value={id.statutoryCategory ? `${id.statutoryCategory.charAt(0)}${id.statutoryCategory.slice(1).toLowerCase()}${id.categoryFrom ? ` from ${id.categoryFrom}` : ''}` : null} />
+        <Field row={embedded} label="Work permit expiry" value={id.workPermitExpiry} />
+        <Field row={embedded} label="Statutory category" value={id.statutoryCategory ? `${id.statutoryCategory.charAt(0)}${id.statutoryCategory.slice(1).toLowerCase()}${id.categoryFrom ? ` from ${id.categoryFrom}` : ''}` : null} />
       </dl>
       <h4 className="text-sm font-semibold mt-2">From Payroll</h4>
       {d.inPayroll === false ? (
         <p className="ui-muted text-sm">Not set up in Payroll yet.</p>
       ) : (
-        <dl className="grid gap-4 sm:grid-cols-2">
+        <dl className={embedded ? 'ui-field-grid' : 'grid gap-4 sm:grid-cols-2'}>
           <Masked label="PAN" field="pan" value={d.pan} />
           <Masked label="UAN" field="uan" value={d.uan} />
           <Masked label="ESIC number" field="esic" value={d.esic} />
           <Masked label="Bank account" field="account" value={[d.bank, d.account].filter(Boolean).join(' ')} />
-          <Field label="IFSC" value={d.ifsc} />
-          <Field label="Covered by" value={[d.pf && 'PF', d.esi && 'ESI', d.pt && `PT (${d.pt})`].filter(Boolean).join(' · ')} />
+          <Field row={embedded} label="IFSC" value={d.ifsc} />
+          <Field row={embedded} label="Covered by" value={[d.pf && 'PF', d.esi && 'ESI', d.pt && `PT (${d.pt})`].filter(Boolean).join(' · ')} />
         </dl>
       )}
     </section>
@@ -1122,7 +1319,8 @@ function StatutoryDetails({ employeeId }) {
 }
 
 /** The company's own fields on this person (CORE-08): only the ones this user may see; edited in place where they may. */
-function CustomFields({ employeeId }) {
+/** `embedded`: inside a record section that already says "More details"; the Save button stays. */
+export function CustomFields({ employeeId, embedded = false }) {
   const [fields, setFields] = useState(null);
   const [edits, setEdits] = useState({});
   const [busy, setBusy] = useState(false);
@@ -1131,7 +1329,7 @@ function CustomFields({ employeeId }) {
     getCustomValues(employeeId).then((f) => live && setFields(f)).catch(() => live && setFields([]));
     return () => { live = false; };
   }, [employeeId]);
-  if (!fields?.length) return null;
+  if (!fields?.length) return embedded && fields ? <p className="ui-muted text-sm">No custom fields.</p> : null;
   const dirty = Object.keys(edits).length > 0;
   const save = async () => {
     setBusy(true);
@@ -1150,21 +1348,22 @@ function CustomFields({ employeeId }) {
     const v = edits[f.key] !== undefined ? edits[f.key] : f.value;
     const set = (val) => setEdits({ ...edits, [f.key]: val });
     if (!f.canEdit) return <span>{f.type === 'BOOLEAN' ? (f.value === true ? 'Yes' : f.value === false ? 'No' : '—') : f.value ?? <span className="ui-muted">Not set</span>}</span>;
-    if (f.type === 'CHOICE') return <select className="ui-select w-full" value={v ?? ''} onChange={(e) => set(e.target.value)} aria-label={f.label}><option value="">—</option>{f.options.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
-    if (f.type === 'BOOLEAN') return <select className="ui-select w-full" value={v === true ? 'yes' : v === false ? 'no' : ''} onChange={(e) => set(e.target.value === '' ? null : e.target.value === 'yes')} aria-label={f.label}><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select>;
+    if (f.type === 'CHOICE') return <PopupSelect showValueSubtext={false} ariaLabel={f.label} value={v ?? ''} placeholder="Not set" onChange={(x) => set(x || '')} options={[{ value: '', label: 'Not set' }, ...f.options.map((o) => ({ value: o, label: o }))]} />;
+    if (f.type === 'BOOLEAN') return <PopupSelect showValueSubtext={false} ariaLabel={f.label} value={v === true ? 'yes' : v === false ? 'no' : ''} placeholder="Not set" onChange={(x) => set(!x ? null : x === 'yes')} options={[{ value: '', label: 'Not set' }, { value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]} />;
+    if (f.type === 'DATE') return <DatePicker id={`cf-${f.key}`} value={v ?? ''} onChange={(x) => set(x || '')} />;
     if (f.type === 'FILE') return <input className="ui-input w-full" value={v ?? ''} placeholder="Document id from the Documents tab" onChange={(e) => set(e.target.value)} aria-label={f.label} />;
     return <input className="ui-input w-full" type={f.type === 'NUMBER' ? 'number' : f.type === 'DATE' ? 'date' : 'text'} value={v ?? ''} onChange={(e) => set(e.target.value)} aria-label={f.label} />;
   };
   return (
     <section className="space-y-2" aria-label="More details">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">More details</h3>
+        {embedded ? <span /> : <h3 className="text-sm font-semibold">More details</h3>}
         {dirty ? <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button> : null}
       </div>
-      <dl className="grid gap-3 sm:grid-cols-2">
+      <dl className={embedded ? 'ui-field-grid' : 'grid gap-3 sm:grid-cols-2'}>
         {fields.map((f) => (
-          <div key={f.key}>
-            <dt className="ui-t-label">{f.label}{f.required ? ' *' : ''}</dt>
+          <div key={f.key} className={embedded ? 'ui-field-row' : undefined}>
+            <dt className={embedded ? 'ui-caption' : 'ui-t-label'}>{f.label}{f.required ? ' *' : ''}</dt>
             <dd className="mt-0.5 text-sm">{control(f)}{f.help ? <span className="ui-caption block">{f.help}</span> : null}</dd>
           </div>
         ))}
@@ -1178,15 +1377,15 @@ function CustomFields({ employeeId }) {
  * row (errors and matches named), choose add-only or update-by-code, then
  * commit — and undo the whole batch within a day.
  */
-const IMPORT_FIELDS = [...IMPORT_COLUMNS, { key: 'businessUnit', label: 'businessUnit' }, { key: 'grade', label: 'grade' }, { key: 'costCentre', label: 'costCentre' }];
-const guessField = (header) => {
+export const IMPORT_FIELDS = [...IMPORT_COLUMNS, { key: 'businessUnit', label: 'businessUnit' }, { key: 'grade', label: 'grade' }, { key: 'costCentre', label: 'costCentre' }, { key: 'hours', label: 'hours' }, { key: 'probationEndDate', label: 'probationEndDate' }, { key: 'contractEndDate', label: 'contractEndDate' }, { key: 'managerCode', label: 'managerCode' }, { key: 'workSite', label: 'workSite' }];
+export const guessField = (header) => {
   const h = String(header || '').toLowerCase().replace(/[^a-z]/g, '');
-  const aliases = { employeeid: 'code', empcode: 'code', id: 'code', fullname: 'name', employeename: 'name', mobile: 'phone', phonenumber: 'phone', emailid: 'email', personalemail: 'email', designation: 'jobPosition', position: 'jobPosition', dept: 'department', doj: 'dateOfJoining', joiningdate: 'dateOfJoining', dateofjoining: 'dateOfJoining', dob: 'dateOfBirth', dateofbirth: 'dateOfBirth', type: 'employeeType', costcenter: 'costCentre' };
+  const aliases = { employeeid: 'code', empcode: 'code', id: 'code', fullname: 'name', employeename: 'name', mobile: 'phone', phonenumber: 'phone', emailid: 'email', personalemail: 'email', designation: 'jobPosition', position: 'jobPosition', dept: 'department', doj: 'dateOfJoining', joiningdate: 'dateOfJoining', dateofjoining: 'dateOfJoining', dob: 'dateOfBirth', dateofbirth: 'dateOfBirth', type: 'employeeType', employmenttype: 'employeeType', worktype: 'workType', workmode: 'workType', costcenter: 'costCentre', costcentre: 'costCentre', workinghours: 'hours', fulltimeparttime: 'hours', probationends: 'probationEndDate', probationenddate: 'probationEndDate', probationend: 'probationEndDate', contractends: 'contractEndDate', contractenddate: 'contractEndDate', contractend: 'contractEndDate', internshipends: 'contractEndDate', manager: 'managerCode', managerid: 'managerCode', managercode: 'managerCode', reportsto: 'managerCode', managerempid: 'managerCode', worksite: 'workSite', establishment: 'workSite', site: 'workSite', branch: 'workSite' };
   if (aliases[h]) return aliases[h];
   const hit = IMPORT_FIELDS.find((f) => f.key.toLowerCase() === h);
   return hit ? hit.key : '';
 };
-function ImportDrawer({ file, onClose, onDone }) {
+export function ImportDrawer({ file, onClose, onDone }) {
   const [mapping, setMapping] = useState(() => file.headers.map(guessField));
   const [mode, setMode] = useState('create');
   const [preview, setPreview] = useState(null);
@@ -1293,7 +1492,7 @@ const JOINER_FIELDS = [
 const INVITE_STATUS = { SENT: 'Sent, not opened', STARTED: 'Opened, not sent back', RETURNED: 'Sent back — check it', CHECKED: 'Checked', EXPIRED: 'Ran out' };
 
 /** Invite someone about to join to fill in their own details (LIFE-01). By phone, HR is handed the link to send. */
-function InviteForm({ person, onClose, onDone }) {
+export function InviteForm({ person, onClose, onDone }) {
   const [form, setForm] = useState({ channel: person.email || person.personalEmail ? 'EMAIL' : 'SMS', sentTo: person.email || person.personalEmail || person.phone || '', message: '' });
   const [saving, setSaving] = useState(false);
   const [link, setLink] = useState('');
@@ -1319,6 +1518,7 @@ function InviteForm({ person, onClose, onDone }) {
     <Drawer
       open
       onClose={link ? onDone : onClose}
+      widthClass="w-[min(36rem,96vw)]"
       title={`Invite ${person.name} to fill in their details`}
       description="They see only their own name and joining date, fill in personal details, upload documents and sign the declaration. What they send waits here until you check it."
       actions={
@@ -1340,13 +1540,8 @@ function InviteForm({ person, onClose, onDone }) {
         </div>
       ) : (
         <form id="invite-form" onSubmit={save} className="grid gap-4">
-          <label className="block">
-            <span className="ui-label">Send by</span>
-            <select className="ui-select w-full" value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value, sentTo: e.target.value === 'EMAIL' ? person.email || person.personalEmail || '' : person.phone || '' })}>
-              <option value="EMAIL">Email (CLOR sends it)</option>
-              <option value="SMS">Phone (you send the link)</option>
-            </select>
-          </label>
+          <div><PopupSelect showValueSubtext={false} label="Send by" value={form.channel} onChange={(v) => setForm({ ...form, channel: v || 'EMAIL', sentTo: v === 'SMS' ? person.phone || '' : person.email || person.personalEmail || '' })}
+            options={[{ value: 'EMAIL', label: 'Email' }, { value: 'SMS', label: 'Phone (you share the link)' }]} /></div>
           <label className="block">
             <span className="ui-label">{form.channel === 'EMAIL' ? 'Personal email *' : 'Phone *'}</span>
             <input className="ui-input w-full" type={form.channel === 'EMAIL' ? 'email' : 'tel'} required value={form.sentTo} onChange={(e) => setForm({ ...form, sentTo: e.target.value })} />
@@ -1362,7 +1557,7 @@ function InviteForm({ person, onClose, onDone }) {
 }
 
 /** The invite on file and, once sent back, what the joiner typed beside what the record says — checked onto the record in one go. */
-function JoiningDetails({ person, onChecked }) {
+export function JoiningDetails({ person, onChecked }) {
   const [invites, setInvites] = useState(null);
   const [edits, setEdits] = useState({});
   const [busy, setBusy] = useState(false);
@@ -1420,18 +1615,45 @@ function JoiningDetails({ person, onChecked }) {
 }
 
 /** Someone leaving: last day, why. They come off every reader at once. */
-function ResignForm({ person, onClose, onDone }) {
-  const [form, setForm] = useState({ lastDay: new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10), leavingType: 'RESIGNED', reason: '' });
+export function ResignForm({ person, onClose, onDone }) {
+  /* Someone on a contract usually leaves when it ends: that date and reason come pre-filled. */
+  const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+  const contractEnd = person.contractEndDate ? String(person.contractEndDate).slice(0, 10) : '';
+  /* On notice already: the form changes what is on record (another last day, another reason). */
+  const onNotice = person.status === 'ON_NOTICE' && person.dateOfLeaving;
+  /* Someone not yet joined who will not come: the offer is withdrawn, closed on their joining date with no settlement. */
+  const notYetJoined = person.dateOfJoining && String(person.dateOfJoining).slice(0, 10) > today;
+  const [form, setForm] = useState(onNotice
+    ? { lastDay: String(person.dateOfLeaving).slice(0, 10), leavingType: person.leavingType || 'RESIGNED', reason: person.leavingReason || '' }
+    : notYetJoined ? { lastDay: String(person.dateOfJoining).slice(0, 10), leavingType: 'NOT_JOINED', reason: '' }
+    : { lastDay: contractEnd || today, leavingType: contractEnd ? 'CONTRACT_ENDED' : 'RESIGNED', reason: '' });
+  /* Notice (W15): the type's notice in days, when the resignation came, and what is short; Payroll recovers or waives from it. */
+  const [noticeDays, setNoticeDays] = useState(null);
+  const [resignedOn, setResignedOn] = useState(person.resignedOn ? String(person.resignedOn).slice(0, 10) : today);
+  const [noticeWaived, setNoticeWaived] = useState(Boolean(person.noticeWaived));
+  useEffect(() => {
+    if (!person.employeeTypeId) return;
+    listStructure('employee-types').then((types) => setNoticeDays((types || []).find((t) => t.id === person.employeeTypeId)?.noticeDays ?? null)).catch(() => setNoticeDays(null));
+  }, [person.employeeTypeId]);
+  const resigning = form.leavingType === 'RESIGNED';
+  const served = resigning && resignedOn && form.lastDay ? Math.max(0, Math.round((Date.parse(`${form.lastDay}T00:00:00Z`) - Date.parse(`${resignedOn}T00:00:00Z`)) / 86_400_000) + 1) : null;
+  const short = noticeDays != null && served != null && !noticeWaived ? Math.max(0, noticeDays - served) : null;
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const save = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
+    if (!form.lastDay) { setError('Choose the last working day.'); return; }
     setSaving(true);
+    setError('');
     try {
-      const r = await resignEmployee(person.id, { ...form, reason: form.reason || null });
-      notify.success(r.readers ? `${person.name} recorded as left and removed from ${r.readers} reader${r.readers === 1 ? '' : 's'}.` : `${person.name} recorded as left.`);
+      const r = await resignEmployee(person.id, { ...form, reason: form.reason || null, ...(resigning ? { resignedOn: resignedOn || null, noticeWaived } : {}) });
+      /* Said as it is: a later last day puts them on notice, still paid and on the readers until then. */
+      notify.success(form.leavingType === 'NOT_JOINED' ? `${person.name}'s offer is withdrawn.` : form.leavingType === 'DUPLICATE' ? 'Duplicate record closed.' : form.lastDay >= today
+        ? `${person.name} is on notice until ${formatDateShort(form.lastDay)}, and stays on payroll and the readers until then.`
+        : r.readers ? `${person.name} recorded as left and removed from ${r.readers} reader${r.readers === 1 ? '' : 's'}.` : `${person.name} recorded as left.`);
       onDone(r.employee);
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      setError(String(err?.message || 'Not saved.'));
     } finally {
       setSaving(false);
     }
@@ -1440,9 +1662,10 @@ function ResignForm({ person, onClose, onDone }) {
     <Drawer
       open
       onClose={onClose}
+      widthClass="w-[min(36rem,96vw)]"
       title={`${person.name} is leaving`}
-      description="From the day after the last day they are not expected at work, and they come off every reader now."
-      actions={
+      dirty={Boolean(form.reason)}
+      footer={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
           <button type="submit" form="resign-form" className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Record leaving'}</button>
@@ -1450,21 +1673,28 @@ function ResignForm({ person, onClose, onDone }) {
       }
     >
       <form id="resign-form" onSubmit={save} className="grid gap-4">
-        <label className="block"><span className="ui-label">Last working day *</span><input type="date" className="ui-input w-full" required value={form.lastDay} onChange={(e) => setForm({ ...form, lastDay: e.target.value })} /></label>
-        <label className="block">
-          <span className="ui-label">Why</span>
-          <select className="ui-select w-full" value={form.leavingType} onChange={(e) => setForm({ ...form, leavingType: e.target.value })}>
-            {Object.entries(LEAVING_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-        </label>
-        <label className="block"><span className="ui-label">Note</span><input className="ui-input w-full" maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
+        {error ? <p className="ui-field-error" role="alert">{error}</p> : null}
+        <div><PopupSelect showValueSubtext={false} label="Why" value={form.leavingType} onChange={(v) => setForm({ ...form, leavingType: v || 'RESIGNED' })} options={Object.entries(LEAVING_TYPES).map(([value, label]) => ({ value, label }))} /></div>
+        {form.leavingType === 'NOT_JOINED' ? null : <div><label className="ui-label" htmlFor="resign-last-day">Last working day *</label><DatePicker id="resign-last-day" value={form.lastDay} min={person.dateOfJoining ? String(person.dateOfJoining).slice(0, 10) : undefined} onChange={(v) => setForm({ ...form, lastDay: v || '' })} /></div>}
+        {resigning ? (
+          <>
+            <div><label className="ui-label" htmlFor="resign-received">Resignation received on</label><DatePicker id="resign-received" value={resignedOn} max={form.lastDay || undefined} onChange={(v) => setResignedOn(v || '')} /></div>
+            {noticeDays != null ? (
+              <div className="grid gap-2">
+                <p className="text-sm">Notice {noticeDays} {noticeDays === 1 ? 'day' : 'days'}{served != null ? <>, served <span className="tabular-nums">{served}</span></> : null}{short ? <>, <strong className="tabular-nums">{short} short</strong></> : null}</p>
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={noticeWaived} onChange={(e) => setNoticeWaived(e.target.checked)} /> Notice waived</label>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+        <label className="block"><span className="ui-label">Note</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
       </form>
     </Drawer>
   );
 }
 
 /** A square photo, scaled down to 160px and stored as a small JPEG data URL. */
-const shrinkPhoto = (file) =>
+export const shrinkPhoto = (file) =>
   new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -1675,8 +1905,8 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
 
         <section className="grid gap-4 sm:grid-cols-2">
           <h3 className="ui-t-sec sm:col-span-2">Employment</h3>
-          {select('employeeTypeId', 'Employee type', lists.types)}
-          {select('workTypeId', 'Work type', lists.workTypes)}
+          {select('employeeTypeId', 'Employment type', lists.types)}
+          {select('workTypeId', 'Work mode', lists.workTypes)}
           {select('jobRoleId', 'Job role', roles)}
           {input('workEmail', 'Work email', { type: 'email' })}
           {input('workPhone', 'Work phone', { type: 'tel' })}
@@ -1754,7 +1984,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
                     type="button"
                     aria-pressed={on}
                     className="ui-pill"
-                    style={on ? { backgroundColor: t.color, color: '#fff' } : { backgroundColor: `${t.color}22`, color: t.color }}
+                    style={on ? { backgroundColor: t.color, color: '#fff' } : { backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, rgb(var(--fg)))` }}
                     onClick={() =>
                       setForm((x) => ({ ...x, tagIds: on ? x.tagIds.filter((i) => i !== t.id) : [...(x.tagIds || []), t.id] }))
                     }
@@ -1802,8 +2032,8 @@ export function EmployeeDocuments({ employeeId }) {
 
   const upload = async (e) => {
     e.preventDefault();
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) return notify.error('Files up to 5 MB.');
+    if (!file) return false;
+    if (file.size > 5 * 1024 * 1024) { notify.error('Files up to 5 MB.'); return false; }
     setBusy(true);
     try {
       const dataUrl = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('Could not read the file.')); r.readAsDataURL(file); });
@@ -1811,8 +2041,9 @@ export function EmployeeDocuments({ employeeId }) {
       setFile(null);
       setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE', restrictsWork: '' });
       if (input.current) input.current.value = '';
-      notify.success('Added to the file.');
+      notify.success('Uploaded.');
       load();
+      return true;
     } catch (err) {
       notify.error(String(err?.message || 'Not uploaded.'));
     } finally {
@@ -1830,6 +2061,21 @@ export function EmployeeDocuments({ employeeId }) {
       notify.error(String(err?.message || 'Could not open.'));
     }
   };
+  /* A look without a download: images and PDFs open in a panel; other kinds say so and offer the download. */
+  const [viewing, setViewing] = useState(null);
+  const preview = async (d) => {
+    const canShow = /^image\//.test(d.mime) || d.mime === 'application/pdf';
+    setViewing({ doc: d, url: null, canShow, error: null });
+    if (!canShow) return;
+    try {
+      const full = await getDocument(d.id);
+      const blob = await (await fetch(full.dataUrl)).blob();
+      setViewing((v) => (v?.doc.id === d.id ? { ...v, url: URL.createObjectURL(blob) } : v));
+    } catch (err) {
+      setViewing((v) => (v?.doc.id === d.id ? { ...v, error: String(err?.message || 'Could not open it.') } : v));
+    }
+  };
+  const closePreview = () => { if (viewing?.url) URL.revokeObjectURL(viewing.url); setViewing(null); };
   const remove = async (d) => {
     if (!(await confirmDialog({ title: `Remove ${d.title}?`, message: 'The file is deleted from the record.', confirmLabel: 'Remove' }))) return;
     await deleteDocument(d.id).catch((e) => notify.error(String(e?.message || 'Could not remove.')));
@@ -1873,68 +2119,109 @@ export function EmployeeDocuments({ employeeId }) {
     }
   };
 
+  const [uploading, setUploading] = useState(false);
+  const [lettering, setLettering] = useState(false);
+  const [menu, setMenu] = useState(null);
+  const menuBtn = useRef({});
+  const kindWord = (k) => DOC_KINDS.find(([x]) => x === k)?.[1] || k;
+  const added = (d) => formatDateShort(String(d.createdAt).slice(0, 10));
+  const closeUpload = () => { setUploading(false); setFile(null); setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE' }); };
+  const permit = PERMIT_KINDS.includes(form.kind);
+
   return (
     <div className="space-y-3">
       <input ref={replaceInput} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="hidden" onChange={replaceWith} aria-label="Replacement file" />
-      <IssueLetter employeeId={employeeId} onIssued={load} />
-      <form onSubmit={upload} className="ui-card p-3 space-y-2">
-        <div className="flex flex-wrap gap-2">
-          <select className="ui-select" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} aria-label="Kind">
-            {DOC_KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-          </select>
-          <input className="ui-input flex-1 min-w-[10rem]" placeholder="Title (blank: the file name)" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} aria-label="Title" />
-          <input type="date" className="ui-input" style={{ width: 'auto' }} value={form.expiresOn} onChange={(e) => setForm({ ...form, expiresOn: e.target.value })} aria-label="Valid until" title={PERMIT_KINDS.includes(form.kind) ? 'Valid until' : 'Valid until (optional)'} required={PERMIT_KINDS.includes(form.kind)} />
-        </div>
-        {PERMIT_KINDS.includes(form.kind) ? (
-          <input className="ui-input w-full" placeholder="Work they may not do once it lapses, e.g. drive company vehicles; work at height" value={form.restrictsWork || ''} onChange={(e) => setForm({ ...form, restrictsWork: e.target.value })} maxLength={500} aria-label="Work they may not do once it lapses" />
-        ) : null}
-        <div className="flex flex-wrap items-center gap-3">
-          <input ref={input} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] || null)} aria-label="File" />
-          <label className="flex items-center gap-1.5 text-sm">Who can see
-            <select className="ui-select" style={{ width: 'auto' }} value={form.classification} onChange={(e) => setForm({ ...form, classification: e.target.value })} aria-label="Who can see">
-              {DOC_WHO_CAN_SEE.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-            </select>
-          </label>
-          <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm ml-auto" disabled={!file || busy}>{busy ? 'Uploading…' : 'Add to file'}</button>
-        </div>
-      </form>
-      {!docs ? <p className="ui-caption">Loading…</p> : !docs.length ? <p className="ui-caption">No documents on this file yet.</p> : (
-        <ul className="space-y-2">
-          {docs.map((d) => (
-            <li key={d.id} className="ui-card p-3 text-sm flex flex-wrap items-center gap-2">
-              <span className="min-w-0 flex-1">
-                <span className="font-medium">{d.title}</span>
-                <span className="ui-caption block">{DOC_KINDS.find(([k]) => k === d.kind)?.[1] || d.kind} · {kb(d.size)} · {new Date(d.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{d.expiresOn ? (d.expiresOn < today ? ` · expired ${d.expiresOn}` : ` · valid until ${d.expiresOn}`) : ''}{d.restrictsWork ? ` · until renewed: ${d.restrictsWork}` : ''}{d.classification !== 'EMPLOYEE_VISIBLE' ? ` · ${docWhoLabel(d)}` : ''}</span>
-                {d.expiresOn && d.expiresOn < today ? <span className="ui-pill ui-pill-neg mt-1">Expired</span> : null}
-                {d.version > 1 ? <button type="button" className="ui-link ui-caption block" onClick={() => showVersions(d)}>Version {d.version} · {versions[d.id] ? 'hide earlier versions' : `${d.version - 1} earlier`}</button> : null}
-                {d.templateVersion != null ? <span className="ui-caption block">Issued from template v{d.templateVersion}</span> : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="ui-t-sec">Documents{docs?.length ? <span className="ui-section-count tabular-nums">{docs.length}</span> : null}</h2>
+        <span className="ml-auto flex gap-2">
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setLettering(true)}>Issue a letter</button>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setUploading(true)}><Upload size={16} aria-hidden="true" /> Upload</button>
+        </span>
+      </div>
+      {!docs ? <SkeletonCard lines={3} /> : !docs.length ? (
+        <EmptyState icon={FileDown} title="No documents yet" action={<button type="button" className="ui-btn ui-btn-secondary" onClick={() => setUploading(true)}><Upload size={16} aria-hidden="true" /> Upload</button>} />
+      ) : (
+        <ul className="ui-doc-list" aria-label="Documents">
+          {docs.map((d) => {
+            const expired = d.expiresOn && d.expiresOn < today;
+            return (
+              <li key={d.id}>
+                <div className="ui-doc-row">
+                  <span className="min-w-0">
+                    <button type="button" className="ui-doc-title" onClick={() => preview(d)}>{d.title}</button>
+                    <span className="ui-doc-meta">{[kindWord(d.kind), kb(d.size), `added ${added(d)}`, d.version > 1 ? `version ${d.version}` : null, d.classification !== 'EMPLOYEE_VISIBLE' ? docWhoLabel(d) : null].filter(Boolean).join(' · ')}</span>
+                    {d.restrictsWork && expired ? <span className="ui-doc-meta ui-text-neg">Until renewed: {d.restrictsWork}</span> : null}
+                  </span>
+                  <span className="ui-doc-expiry">
+                    {d.expiresOn ? <>{expired ? <span className="ui-pill ui-pill-neg">Expired</span> : null}<span className="tabular-nums">{expired ? '' : 'Valid until '}{formatDateShort(d.expiresOn)}</span></> : null}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <button type="button" className="ui-icon-btn" aria-label={`Download ${d.title}`} onClick={() => open(d)}><FileDown size={16} aria-hidden="true" /></button>
+                    <button ref={(el) => { menuBtn.current[d.id] = el; }} type="button" className="ui-icon-btn" aria-label={`More for ${d.title}`} aria-haspopup="menu" aria-expanded={menu === d.id} onClick={() => setMenu(menu === d.id ? null : d.id)}><MoreHorizontal size={16} aria-hidden="true" /></button>
+                    {menu === d.id ? (
+                      <Popover anchorRef={{ current: menuBtn.current[d.id] }} onClose={() => setMenu(null)} minWidth={200}>
+                        <div role="menu" className="ui-menu">
+                          {d.kind !== 'LETTER' ? <button type="button" role="menuitem" data-autofocus="" className="ui-menu-item" disabled={busy} onClick={() => { setMenu(null); pickReplacement(d); }}>Replace with a new version</button> : null}
+                          {d.version > 1 ? <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { setMenu(null); showVersions(d); }}>{versions[d.id] ? 'Hide earlier versions' : 'Earlier versions'}</button> : null}
+                          <button type="button" role="menuitem" data-autofocus={d.kind === 'LETTER' ? '' : undefined} className="ui-menu-item is-danger" onClick={() => { setMenu(null); remove(d); }}>Remove</button>
+                        </div>
+                      </Popover>
+                    ) : null}
+                  </span>
+                </div>
                 {versions[d.id] ? (
-                  <ul className="mt-1 space-y-0.5 ui-caption" aria-label="Earlier versions">
+                  <ul className="ui-doc-versions" aria-label="Earlier versions">
                     {versions[d.id].filter((v) => v.id !== d.id).map((v) => (
-                      <li key={v.id}>v{v.version} · {kb(v.size)} · {new Date(v.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })} · <button type="button" className="ui-link" onClick={() => open(v)}>Download</button></li>
+                      <li key={v.id}><span className="tabular-nums">Version {v.version}</span><span className="ui-muted">{kb(v.size)} · {formatDateShort(String(v.createdAt).slice(0, 10))}</span><button type="button" className="ui-link" onClick={() => open(v)}>Download</button></li>
                     ))}
                   </ul>
                 ) : null}
-              </span>
-              <button type="button" className="ui-link" onClick={() => open(d)}>Download</button>
-              {d.kind !== 'LETTER' ? <button type="button" className="ui-link" disabled={busy} onClick={() => pickReplacement(d)}>Replace</button> : null}
-              <button type="button" className="ui-link" onClick={() => remove(d)}>Remove</button>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
+
+      {uploading ? (
+        <Drawer open onClose={closeUpload} widthClass="w-[min(36rem,96vw)]" title="Upload a document" dirty={Boolean(file || form.title)}
+          footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={closeUpload}>Cancel</button><button type="submit" form="doc-upload" className="ui-btn ui-btn-primary" disabled={!file || busy || (permit && !form.expiresOn)}>{busy ? 'Uploading…' : 'Upload'}</button></>}>
+          <form id="doc-upload" className="grid gap-4" onSubmit={async (e) => { if (await upload(e)) setUploading(false); }}>
+            <label className="ui-dropzone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) setFile(f); }}>
+              <Upload size={18} aria-hidden="true" />
+              <span className="text-sm font-medium">{file ? file.name : 'Choose a file'}</span>
+              <span className="ui-caption">{file ? kb(file.size) : 'or drop it here · PDF, image or Word, up to 5 MB'}</span>
+              <input ref={input} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] || null)} aria-label="File" />
+            </label>
+            <div><PopupSelect showValueSubtext={false} label="Type" value={form.kind} onChange={(v) => setForm({ ...form, kind: v || 'ID_PROOF' })} options={DOC_KINDS.filter(([k]) => k !== 'LETTER').map(([value, label]) => ({ value, label }))} /></div>
+            <label className="block"><span className="ui-label">Title</span><input className="ui-input w-full" value={form.title} placeholder={file ? file.name.replace(/\.[^.]+$/, '') : ''} onChange={(e) => setForm({ ...form, title: e.target.value })} maxLength={160} /></label>
+            <div><label className="ui-label" htmlFor="doc-valid">{permit ? 'Valid until *' : 'Valid until'}</label><DatePicker id="doc-valid" value={form.expiresOn} onChange={(v) => setForm({ ...form, expiresOn: v || '' })} /></div>
+            {permit ? <label className="block"><span className="ui-label">Work they may not do once it lapses</span><input className="ui-input w-full" value={form.restrictsWork || ''} onChange={(e) => setForm({ ...form, restrictsWork: e.target.value })} maxLength={500} /></label> : null}
+            <div><PopupSelect showValueSubtext={false} label="Who can see" value={form.classification} onChange={(v) => setForm({ ...form, classification: v || 'EMPLOYEE_VISIBLE' })} options={DOC_WHO_CAN_SEE.map(([value, label]) => ({ value, label }))} /></div>
+          </form>
+        </Drawer>
+      ) : null}
+      {viewing ? (
+        <Drawer open onClose={closePreview} widthClass="w-[min(56rem,96vw)]" title={viewing.doc.title}
+          footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={closePreview}>Close</button><button type="button" className="ui-btn ui-btn-primary" onClick={() => open(viewing.doc)}><FileDown size={16} aria-hidden="true" /> Download</button></>}>
+          {!viewing.canShow ? <EmptyState icon={FileDown} title="No preview for this kind of file" description="Download it to open." />
+            : viewing.error ? <p className="ui-field-error" role="alert">{viewing.error}</p>
+              : !viewing.url ? <SkeletonCard lines={6} />
+                : /^image\//.test(viewing.doc.mime) ? <img src={viewing.url} alt={viewing.doc.title} className="ui-doc-preview" />
+                  : <iframe src={viewing.url} title={viewing.doc.title} className="ui-doc-preview ui-doc-preview-pdf" />}
+        </Drawer>
+      ) : null}
+      {lettering ? <IssueLetter employeeId={employeeId} onClose={() => setLettering(false)} onIssued={() => { setLettering(false); load(); }} /> : null}
     </div>
   );
 }
-
 
 /**
  * Issue a letter onto the record (DOC-04): pick the kind, fill in what the
  * template asks for, and a PDF lands under Documents naming the template
  * version. A service certificate shows when it is due (DOC-07).
  */
-function IssueLetter({ employeeId, onIssued }) {
-  const [openForm, setOpenForm] = useState(false);
+function IssueLetter({ employeeId, onClose, onIssued }) {
+  const openForm = true;
   const [templates, setTemplates] = useState(null);
   const [kind, setKind] = useState('APPOINTMENT');
   const [extra, setExtra] = useState({});
@@ -1948,7 +2235,6 @@ function IssueLetter({ employeeId, onIssued }) {
     if (!openForm || kind !== 'SERVICE_CERT') { setDue(null); return; }
     serviceCertificateDue(employeeId).then(setDue).catch(() => setDue(null));
   }, [openForm, kind, employeeId]);
-  if (!openForm) return <div className="flex justify-end"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setOpenForm(true)}>Issue a letter</button></div>;
   const t = templates?.templates.find((x) => x.kind === kind);
   const issue = async (e) => {
     e.preventDefault();
@@ -1956,7 +2242,6 @@ function IssueLetter({ employeeId, onIssued }) {
     try {
       const r = await issueLetter(employeeId, { kind, extra });
       notify.success(`${r.document.title} is on the record (template v${r.document.templateVersion}).`);
-      setOpenForm(false);
       setExtra({});
       onIssued();
     } catch (err) {
@@ -1974,26 +2259,18 @@ function IssueLetter({ employeeId, onIssued }) {
     }
   };
   return (
-    <form onSubmit={issue} className="ui-card p-3 space-y-2" aria-label="Issue a letter">
-      <div className="flex flex-wrap items-center gap-2">
-        <select className="ui-select" value={kind} onChange={(e) => { setKind(e.target.value); setExtra({}); }} aria-label="Letter">
-          {(templates?.kinds || [{ kind: 'APPOINTMENT', label: 'Appointment letter' }]).map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
-        </select>
-        {t ? <span className="ui-caption">{t.builtIn ? 'Built-in letter' : `Template v${t.version}`}</span> : null}
-        <button type="button" className="ui-link ml-auto" onClick={() => setOpenForm(false)}>Close</button>
-      </div>
-      {due ? <p className="ui-caption">{due.note}{due.dueOn ? ` Asked today: due ${due.dueOn}.` : ''} <button type="button" className="ui-link" onClick={asked}>Note that it was asked for</button></p> : null}
-      {t?.extra?.length ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {t.extra.map((k) => (
-            <label key={k} className="block">
-              <span className="ui-label">{k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase())}</span>
-              <input className="ui-input w-full" value={extra[k] || ''} onChange={(e) => setExtra({ ...extra, [k]: e.target.value })} maxLength={1000} />
-            </label>
-          ))}
-        </div>
-      ) : null}
-      <div className="flex justify-end"><button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy || !t}>{busy ? 'Issuing…' : 'Issue as PDF'}</button></div>
-    </form>
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title="Issue a letter"
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="issue-letter" className="ui-btn ui-btn-primary" disabled={busy || !t}>{busy ? 'Issuing…' : 'Issue as PDF'}</button></>}>
+      <form id="issue-letter" onSubmit={issue} className="grid gap-4">
+        <div><PopupSelect showValueSubtext={false} label="Letter" value={kind} onChange={(v) => { setKind(v || 'APPOINTMENT'); setExtra({}); }} options={(templates?.kinds || [{ kind: 'APPOINTMENT', label: 'Appointment letter' }]).map((k) => ({ value: k.kind, label: k.label }))} /></div>
+        {due ? <p className="text-sm">{due.note}{due.dueOn ? ` Due ${formatDateShort(due.dueOn)} if asked today.` : ''} <button type="button" className="ui-link" onClick={asked}>Record the request</button></p> : null}
+        {(t?.extra || []).map((k) => (
+          <label key={k} className="block">
+            <span className="ui-label">{k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase())}</span>
+            <input className="ui-input w-full" value={extra[k] || ''} onChange={(e) => setExtra({ ...extra, [k]: e.target.value })} maxLength={1000} />
+          </label>
+        ))}
+      </form>
+    </Drawer>
   );
 }

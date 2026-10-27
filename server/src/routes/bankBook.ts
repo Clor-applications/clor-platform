@@ -9,6 +9,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { recordBankDateChange } from '../services/bankDateAudit.js';
+import { sentOnly } from '../utils/sentOnly.js';
 
 /**
  * The cash and bank book.
@@ -106,7 +107,7 @@ bankBookRouter.patch('/orgs/:orgId/bank-book/:id', EDIT, async (req, res) => {
   });
   if (!existing) return res.status(404).json({ error: 'Entry not found' });
 
-  const body = entrySchema.partial().parse(req.body);
+  const body = sentOnly(entrySchema.partial().parse(req.body), req.body);
   const row = await prisma.bankBookEntry.update({
     where: { id: existing.id },
     data: {
