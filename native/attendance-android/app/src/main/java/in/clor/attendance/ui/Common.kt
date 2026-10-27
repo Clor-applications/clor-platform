@@ -62,6 +62,8 @@ fun <T> rememberLoad(onSignedOut: () -> Unit, vararg keys: Any?, fetch: suspend 
             Load.Failed(e.message ?: "Please sign in again.")
         } catch (e: ApiError) {
             Load.Failed(e.message ?: "Something went wrong.")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Load.Failed("Something went wrong.")
         }
@@ -147,6 +149,45 @@ fun Hint(text: String, color: Color = MaterialTheme.colorScheme.onSurfaceVariant
 
 @Composable
 fun Fill(content: @Composable () -> Unit) = Box(Modifier.fillMaxSize()) { content() }
+
+/** Ask before something that cannot be taken back (withdraw, cancel leave). */
+@Composable
+fun ConfirmDialog(title: String, text: String? = null, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = text?.let { { Text(it) } },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { onDismiss(); onConfirm() }) { Text(confirm) } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Keep it") } },
+    )
+}
+
+/**
+ * Runs an action and turns every failure into words: signed out goes to
+ * sign-in, anything else lands in `onError` (never a crash, never silence).
+ */
+suspend fun attempt(onSignedOut: () -> Unit, onError: (String) -> Unit, block: suspend () -> Unit) {
+    try {
+        block()
+    } catch (e: SignedOut) {
+        onSignedOut()
+    } catch (e: ApiError) {
+        onError(e.message ?: "Something went wrong. Try again.")
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        onError("Something went wrong. Try again.")
+    }
+}
+
+/** A failed load inside a card: what went wrong and Try again, never an empty space. */
+@Composable
+fun FailedLine(message: String, onRetry: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+        OutlinedButton(onClick = onRetry) { Text("Try again") }
+    }
+}
 
 /** A small tinted square with an icon, as on the home cards. */
 @Composable

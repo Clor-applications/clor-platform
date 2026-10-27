@@ -23,6 +23,9 @@ const range = (from, to) => (from === to ? formatDate(from) : `${formatDate(from
 const addDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const waited = (at) => { const d = Math.max(0, Math.floor((Date.now() - new Date(at).getTime()) / 86_400_000)); return d === 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`; };
 
+/** Approved work from home and on duty: shown with the people away, marked as working. */
+const WORKING_LABEL = { WFH: 'Work from home', ON_DUTY: 'On duty' };
+
 function Group({ title, count, action, children }) {
   return (
     <section className="space-y-1" aria-label={title}>
@@ -64,8 +67,10 @@ export default function TimeOverview({ openScreen }) {
   if (req.error && !d) return <div className="space-y-6">{header}<ErrorState error={req.error} onRetry={req.reload} /></div>;
   if (!d) return <div className="space-y-6" aria-busy="true">{header}<SkeletonCard lines={2} /><SkeletonCard lines={6} /></div>;
 
+  /* Working, but not at the office: approved work from home and on duty, their own mark, never leave. */
+  const working = d.workingAwayToday || [];
   const strip = [
-    { k: 'away', label: 'Away today', value: d.awayToday.length, Icon: CalendarDays, onClick: () => openScreen?.('leaveCalendar') },
+    { k: 'away', label: 'Away today', value: d.awayToday.length + working.length, Icon: CalendarDays, onClick: () => openScreen?.('leaveCalendar') },
     { k: 'waiting', label: 'Waiting for a decision', value: d.waiting.count, Icon: Clock3, onClick: () => openScreen?.('leaveRequests') },
     { k: 'old', label: 'Waiting over 3 days', value: d.waiting.olderThan3Days, Icon: Hourglass, onClick: () => openScreen?.('leaveRequests') },
     { k: 'soon', label: 'Away in the next 7 days', value: new Set(d.upcoming.map((r) => r.employeeId)).size, Icon: CalendarClock, onClick: () => openScreen?.('leaveCalendar') },
@@ -94,15 +99,28 @@ export default function TimeOverview({ openScreen }) {
           )) : <li className="py-3 text-sm ui-muted">Nothing waiting.</li>}
         </Group>
 
-        <Group title="Away today" count={d.awayToday.length}>
-          {d.awayToday.length ? d.awayToday.map((r) => (
+        <Group title="Away today" count={d.awayToday.length + working.length}>
+          {d.awayToday.length || working.length ? d.awayToday.map((r) => (
             <li key={r.id}>
               <button type="button" className="flex w-full flex-wrap items-center gap-3 py-2 text-left" onClick={() => open(r)}>
                 <Person r={r} />
                 <span className="ui-caption whitespace-nowrap">{r.halfDay ? (r.halfDay === 'FIRST' ? 'First half' : 'Second half') : `Back ${formatDate(addDays(r.toDate, 1))}`}</span>
               </button>
             </li>
-          )) : <li className="py-3 text-sm ui-muted">Everyone is in.</li>}
+          )).concat(working.map((w) => (
+            <li key={`w:${w.id}`}>
+              <button type="button" className="flex w-full flex-wrap items-center gap-3 py-2 text-left" onClick={() => openScreen?.('attendanceRequests', { id: w.id, tab: 'APPROVED' })}>
+                <span className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <Avatar person={{ name: w.employeeName, photoUrl: w.photoUrl }} size={28} />
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{w.employeeName}</span>
+                    <span className="block ui-caption truncate">{[w.place, w.department].filter(Boolean).join(' · ') || 'Working'}</span>
+                  </span>
+                </span>
+                <span className="ui-pill ui-pill-info whitespace-nowrap">{WORKING_LABEL[w.kind] || w.kind}{w.halfDay ? ', half day' : ''}</span>
+              </button>
+            </li>
+          ))) : <li className="py-3 text-sm ui-muted">Everyone is in.</li>}
         </Group>
       </div>
 

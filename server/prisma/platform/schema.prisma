@@ -228,7 +228,6 @@ model User {
   createdOrgs     Org[]    @relation("OrgCreatedBy")
   createdBranches Branch[] @relation("BranchCreatedBy")
 
-  auditCreated AuditLog[] @relation("AuditCreatedBy")
 
   /// Globally unique, not per account. Login resolves a user by email across
   /// every account, so two accounts sharing one would make it non-deterministic
@@ -388,16 +387,37 @@ model AuditLog {
   // SQLite-compatible: store JSON metadata as string (optional)
   metadata String?
 
+  /// A CLOR user id, or `portal:<employeeId>`, `system`, `api:<client>` (no foreign key: see migration 20261028090000).
   createdByUserId String
   createdAt       DateTime @default(now())
   /// The request id (X-Request-Id) that wrote it; People's change log shares it (D-V8).
   correlationId   String?
 
   org       Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  createdBy User @relation("AuditCreatedBy", fields: [createdByUserId], references: [id])
 
   @@index([accountId, orgId, branchId])
   @@index([orgId, entityId])
+}
+
+/// Product telemetry, written on the server only (PRODUCT-VIEW §7): what a
+/// company did, never what a person typed. Append-only, like AuditLog
+/// (migration 20261031090100); no third-party tracker sees any of it.
+model ProductEvent {
+  id        String   @id @default(cuid())
+  accountId String?
+  orgId     String
+  /// A CLOR user id, `portal:<employeeId>` or `system`.
+  userId    String?
+  /// The acting user's first role name, as it was then.
+  userRole  String?
+  app       String?
+  name      String
+  /// JSON object, small: counts, sources, steps; never names or personal data.
+  props     String?
+  createdAt DateTime @default(now())
+
+  @@index([orgId, name, createdAt])
+  @@index([name, createdAt])
 }
 
 // ----------------------------

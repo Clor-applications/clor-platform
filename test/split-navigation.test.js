@@ -56,7 +56,7 @@ describe('Attendance navigation structure', () => {
       ['All Reports', ['Report Catalogue']],
     ]);
     expect(s.Settings).toEqual([
-      ['Organization', ['Attendance Setup', 'Work Sites', 'Work Site Check']],
+      ['Organization', ['Attendance Setup', 'Punch Areas', 'Punch Area Check']],
       ['Work Policy', ['Attendance Policy', 'Weekly Off Policy', 'Overtime Policy', 'Leave Policy', 'Working Week', 'Holidays', 'Leave Year End', 'Request Rules']],
       ['Integrations', ['Integrations']],
       ['Access & Security', ['Users & Security', 'Roles & Access']],

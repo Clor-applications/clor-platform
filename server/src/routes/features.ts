@@ -1,3 +1,4 @@
+import { track } from '../services/productEvents.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma.js';
@@ -7,7 +8,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { isKnownFeature } from '../constants/featureCatalog.js';
-import { featureDisableBlocker, getFeatureCatalogWithValues, getFeatures } from '../services/features.js';
+import { featureDisableBlocker, getFeatureCatalogWithValues, getFeatures, DETAILED_KEY } from '../services/features.js';
 import { appOfFeature, entitlementFor, upgradeHintFor } from '../services/entitlements.js';
 import { appOwnershipReason } from '../services/subscriptions.js';
 import { MODULE_PACKS } from '../constants/planCatalog.js';
@@ -90,6 +91,8 @@ featuresRouter.put(
     if (!orgOk(req, res)) return;
     const { accountId, orgId } = req.tenant!;
     const body = putSchema.parse(req.body);
+    /* Derived on read (on unless simple mode is), never stored: a client that sends back what it read is not refused for it. */
+    delete (body.features as Record<string, unknown>)[DETAILED_KEY];
 
     for (const key of Object.keys(body.features)) {
       if (!isKnownFeature(key)) return res.status(400).json({ error: `Unknown feature: ${key}` });
@@ -142,6 +145,10 @@ featuresRouter.put(
         update: { enabled, updatedByUserId: req.auth!.userId },
         create: { accountId, orgId, key, enabled, updatedByUserId: req.auth!.userId },
       });
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body.features, 'peopleSimpleMode') && Boolean(body.features.peopleSimpleMode) !== Boolean(current.peopleSimpleMode)) {
+      void track(orgId, req.auth!.userId, 'simple_mode_toggled', { on: Boolean(body.features.peopleSimpleMode), trigger: String(req.body?.trigger || 'settings').slice(0, 30), app: 'people' });
     }
 
     /* Written by name here; the general recorder (auditMutations) leaves it. */

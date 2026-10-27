@@ -48,6 +48,12 @@ export const createLeaveRequest = (body) => send('/leave/requests', 'POST', body
 export const approveLeave = (requestId, note) => send(`/leave/requests/${id(requestId)}/approve`, 'POST', { note });
 export const rejectLeave = (requestId, note) => send(`/leave/requests/${id(requestId)}/reject`, 'POST', { note });
 export const cancelLeave = (requestId) => send(`/leave/requests/${id(requestId)}/cancel`, 'POST', {});
+/** Decide several waiting leave requests at once, each through the same checks as one: { done, failed, handedOn, results: [{ id, error, code }] }. */
+export const bulkReviewLeave = (ids, approve, note) => send('/leave/requests/bulk-review', 'POST', { ids, approve, ...(note ? { note } : {}) });
+/** Approved work from home and on duty in a month: { rows: [{ id, employeeId, employeeName, department, kind, fromDate, toDate, halfDay, place }] }. */
+export const getWorkingAway = (month) => get(`/leave/working-away${query({ month })}`).then((r) => r?.rows || []);
+/** A month's payable and loss-of-pay days per person, as Payroll takes them: { month, source: 'ATTENDANCE'|'LEAVE', rows, payrollTaken }. */
+export const getPayableDays = (month) => get(`/payable-days${query({ month })}`);
 /** Change a waiting request (same body as create; the manager's step starts again). */
 export const updateLeaveRequest = (requestId, body) => send(`/leave/requests/${id(requestId)}`, 'PUT', body);
 /** Came back early: approved leave that has started now ends on `toDate`. */
@@ -80,6 +86,8 @@ export const getLeaveSettings = () => get('/leave/settings');
 export const saveLeaveSettings = (body) => send('/leave/settings', 'PUT', body);
 /** The leave register of a period: opening, credited, changed, taken, paid out, waiting, lapsed, left. */
 export const getLeaveRegister = (params) => get(`/leave/register${query(params)}`);
+/** The register per worker, in a prescribed form's layout: days worked, opening, earned, availed and refused with dates, paid out, closing. */
+export const getLeaveRegisterBook = (params) => get(`/leave/register/book${query(params)}`);
 /** The periods to choose from, newest first, named as the company's leave year names them. */
 /** The leave period a date falls in, by the year it starts in (the calendar year without settings). */
 export const periodYearOf = (s, date) => {

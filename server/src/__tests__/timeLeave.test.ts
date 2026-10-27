@@ -591,3 +591,88 @@ describe('second audit (27 Oct 2026): slabs by period, rules on a type in use, e
     void t;
   });
 });
+
+describe('closure audit (28 Oct 2026): nobody decides their own, team roles keep to their team, closed months stay closed', () => {
+  let hr: Ctx;
+  let ownerEmp: any;
+  let casual: any;
+  const ownerId = async (c: Ctx) => (await platformPrisma.userOrgMembership.findFirst({ where: { orgId: c.orgId }, orderBy: { createdAt: 'asc' }, select: { userId: true } }))!.userId;
+  beforeAll(async () => {
+    hr = await company({ people: true, attendance: true });
+    casual = (await att(hr, 'post', '/leave/types', { name: 'Casual', annualDays: 12 }).expect(201)).body.type;
+    ownerEmp = await person(hr, { name: 'Owner Self', code: 'O1' });
+    const uid = await ownerId(hr);
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: ownerEmp.id }, data: { userId: uid } }));
+    await att(hr, 'put', '/request-rules', { WFH: { on: true } }).expect(200);
+  }, 90_000);
+
+  it('the owner alone may decide their own request, and the audit log says so; once somebody else can, they may not', async () => {
+    const mine = (await att(hr, 'post', '/requests', { employeeId: ownerEmp.id, kind: 'WFH', date: '2027-02-01', reason: 'Home' }).expect(201)).body.request;
+    await att(hr, 'post', `/requests/${mine.id}/approve`).expect(200);
+    const lines = await platformPrisma.auditLog.findMany({ where: { orgId: hr.orgId, entityId: mine.id } });
+    expect(lines.map((l) => l.action)).toEqual(expect.arrayContaining(['SELF_APPROVED', 'APPROVE']));
+    const deputy = await colleague(hr, ['ATTENDANCE::Attendance Requests::VIEW', 'ATTENDANCE::Attendance Requests::APPROVE', 'ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::EDIT', 'ATTENDANCE::Leave Requests::APPROVE', 'PEOPLE::Employees::VIEW']);
+    const next = (await att(hr, 'post', '/requests', { employeeId: ownerEmp.id, kind: 'WFH', date: '2027-02-02', reason: 'Home again' }).expect(201)).body.request;
+    expect((await att(hr, 'post', `/requests/${next.id}/approve`).expect(403)).body.code).toBe('OWN_RECORD');
+    /* Several at once: the same rule, per request. */
+    const bulk = (await att(hr, 'post', '/requests/bulk-review', { ids: [next.id], approve: true }).expect(200)).body;
+    expect(bulk).toMatchObject({ done: 0, failed: 1 });
+    await att(deputy, 'post', `/requests/${next.id}/approve`).expect(200);
+    /* A balance of one's own, or a pay-out: the same. */
+    expect((await att(hr, 'post', '/leave/adjustments', { employeeId: ownerEmp.id, leaveTypeId: casual.id, year: 2026, days: 5, reason: 'Gift to myself' }).expect(403)).body.code).toBe('MAKER_CHECKER');
+    expect((await att(hr, 'put', '/leave/allocations', { employeeId: ownerEmp.id, leaveTypeId: casual.id, year: 2026, days: 40 }).expect(403)).body.code).toBe('MAKER_CHECKER');
+    await att(deputy, 'post', '/leave/adjustments', { employeeId: ownerEmp.id, leaveTypeId: casual.id, year: 2026, days: 1, reason: 'Worked a holiday' }).expect(201);
+  }, 60_000);
+
+  it('a team role does not change leave types, and does not see how a private type was used', async () => {
+    const lead = await colleague(hr, ['ATTENDANCE::Leave Types::VIEW', 'ATTENDANCE::Leave Types::CREATE', 'ATTENDANCE::Leave Types::EDIT', 'ATTENDANCE::Leave Requests::VIEW'], true);
+    await att(lead, 'post', '/leave/types', { name: 'Team Fun', annualDays: 3 }).expect(403);
+    await att(lead, 'put', `/leave/types/${casual.id}`, { name: 'Casual', annualDays: 30 }).expect(403);
+    const sick = (await att(hr, 'post', '/leave/types', { name: 'Medical', annualDays: 6, isPrivate: true }).expect(201)).body.type;
+    const p = await person(hr, { name: 'Someone', code: 'O9' });
+    await att(hr, 'post', '/leave/requests', { employeeId: p.id, leaveTypeId: sick.id, fromDate: '2027-03-01', toDate: '2027-03-01', reason: 'Clinic' }).expect(201);
+    const seen = (await att(lead, 'get', '/leave/types').expect(200)).body.types.find((t: any) => t.id === sick.id);
+    expect(seen.requests).toBeNull();
+    expect((await att(hr, 'get', '/leave/types').expect(200)).body.types.find((t: any) => t.id === sick.id).requests).toBe(1);
+  });
+
+  it('once the manager has passed leave to HR, the manager can no longer reject it', async () => {
+    const slow = (await att(hr, 'post', '/leave/types', { name: 'Two step', annualDays: 10, approval: 'MANAGER_THEN_HR' }).expect(201)).body.type;
+    const mgr = await colleague(hr, ['ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::APPROVE', 'PEOPLE::Employees::VIEW'], true);
+    const mgrEmp = await person(hr, { name: 'Manager', code: 'M7' });
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: mgrEmp.id }, data: { userId: mgr.userId } }));
+    const rep = await person(hr, { name: 'Reportee', code: 'M8', reportingManagerId: mgrEmp.id });
+    const r = (await att(hr, 'post', '/leave/requests', { employeeId: rep.id, leaveTypeId: slow.id, fromDate: '2027-04-05', toDate: '2027-04-05', reason: 'Errand' }).expect(201)).body.request;
+    expect((await att(mgr, 'post', `/leave/requests/${r.id}/approve`).expect(200)).body.stage).toBe('HR');
+    expect((await att(mgr, 'post', `/leave/requests/${r.id}/reject`, { note: 'Changed my mind' }).expect(403)).body.code).toBe('HR_STEP');
+    await att(hr, 'post', `/leave/requests/${r.id}/reject`, { note: 'Busy week' }).expect(200);
+  });
+
+  it('a closed month refuses a holiday added, moved or removed in it, and overtime approved in it; a reopen says why and is audited', async () => {
+    const p = await person(hr, { name: 'Late Worker', code: 'O2' });
+    const day = (await att(hr, 'put', '/records', { employeeId: p.id, date: '2026-09-03', checkIn: '09:00', checkOut: '22:00' }).expect(200)).body.record;
+    const keep = (await att(hr, 'post', '/holidays', { date: '2026-09-15', name: 'Before close' }).expect(201)).body.holiday;
+    await att(hr, 'post', '/months/2026-09/close', { acknowledge: true }).expect(200);
+    expect((await att(hr, 'post', '/holidays', { date: '2026-09-10', name: 'Too late' }).expect(409)).body.code).toBe('ATTENDANCE_MONTH_CLOSED');
+    await att(hr, 'put', `/holidays/${keep.id}`, { date: '2026-10-15', name: 'Moved out' }).expect(409);
+    await (request(app) as any).delete(`/api/orgs/${hr.orgId}/attendance/holidays/${keep.id}`).set(at(hr)).expect(409);
+    if (day.overtimeMinutes) await att(hr, 'post', `/records/${day.id}/overtime`, { approved: true }).expect(409);
+    expect((await att(hr, 'post', '/months/2026-09/reopen', {}).expect(400)).body.code).toBe('REASON_NEEDED');
+    await att(hr, 'post', '/months/2026-09/reopen', { reason: 'Holiday was missed' }).expect(200);
+    const line = await platformPrisma.auditLog.findFirst({ where: { orgId: hr.orgId, entity: 'ATTENDANCE_MONTH', action: 'REOPEN' } });
+    expect(line?.message).toBe('Reopened 2026-09: Holiday was missed');
+    await att(hr, 'post', '/holidays', { date: '2026-09-10', name: 'Now allowed' }).expect(201);
+  });
+
+  it('the automatic hand-on writes an audit line, and never writes over a decision taken meanwhile', async () => {
+    const { runLeaveHandOns } = await import('../services/attendance/leaveJobs.js');
+    const slow = (await att(hr, 'post', '/leave/types', { name: 'Hand on', annualDays: 10, approval: 'MANAGER_THEN_HR', handOnAfterDays: 2 }).expect(201)).body.type;
+    const boss = await person(hr, { name: 'Away Boss', code: 'H1' });
+    const staff = await person(hr, { name: 'Waiting Staff', code: 'H2', reportingManagerId: boss.id });
+    const r = (await att(hr, 'post', '/leave/requests', { employeeId: staff.id, leaveTypeId: slow.id, fromDate: '2027-05-03', toDate: '2027-05-03', reason: 'Later' }).expect(201)).body.request;
+    await runInTenant(hr.orgId, () => peoplePrisma.leaveRequest.update({ where: { id: r.id }, data: { createdAt: new Date(Date.now() - 5 * 86_400_000) } }));
+    await runLeaveHandOns();
+    const line = await platformPrisma.auditLog.findFirst({ where: { orgId: hr.orgId, entityId: r.id, action: 'HAND_ON' } });
+    expect(line?.createdByUserId).toBe('system');
+  });
+});

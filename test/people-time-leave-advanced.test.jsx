@@ -197,8 +197,15 @@ describe('Stand-ins', () => {
     await waitFor(() => expect(api.addStandIn).toHaveBeenCalledWith({ managerEmployeeId: 'e1', standInEmployeeId: 'e2', fromDate: '2026-11-01', toDate: '2026-11-05' }));
   });
 
-  it('a team role names one for themselves only', async () => {
+  it('a reader without the approve right names nobody (the server would refuse)', async () => {
     perms.current = { isAdmin: false, permissions: new Set(['ATTENDANCE::Leave Requests::VIEW']) };
+    render(<StandIns />);
+    await screen.findByRole('heading', { name: /Stand-ins/ });
+    expect(screen.queryByRole('button', { name: /Add stand-in/ })).toBeNull();
+  });
+
+  it('a team role names one for themselves only', async () => {
+    perms.current = { isAdmin: false, ownDocumentsOnly: true, permissions: new Set(['ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::APPROVE']) };
     render(<StandIns />);
     fireEvent.click(await screen.findByRole('button', { name: /Add stand-in/ }));
     await screen.findByRole('dialog', { name: 'Add stand-in' });

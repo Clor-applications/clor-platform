@@ -267,7 +267,7 @@ export function RequestHistory({ history }) {
   );
 }
 
-function RequestDrawer({ id, allowed, onClose, onDone }) {
+export function RequestDrawer({ id, allowed, onClose, onDone }) {
   const req = useRequest(() => getRequest(id), [id]);
   const [note, setNote] = useState('');
   const [noteError, setNoteError] = useState('');
@@ -333,6 +333,7 @@ function RequestDrawer({ id, allowed, onClose, onDone }) {
           </dl>
 
           {d.waitingForManager ? <p className="text-sm ui-text-warn">{d.waitingForManager}</p> : null}
+          {d.ownRequest && r.status === 'PENDING' ? <p className="text-sm ui-muted">This is your own request. Somebody else decides it, unless nobody else in the company can.</p> : null}
 
           {d.usage ? (
             <section aria-labelledby="ar-usage" className="space-y-1">

@@ -1,4 +1,5 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
+import { trackFirst } from '../productEvents.js';
 import { FACE, admsField, FINGER, SEQ, addFinger, removalCommandsFor, templateCommands, userCommandFor, type Template } from './adms.js';
 import { biometricPolicy, openTemplate, sealTemplate, sendableWhere } from './biometrics.js';
 import { vendorsWith } from './drivers.js';
@@ -90,6 +91,7 @@ async function adoptReaderUser(device: Device, pin: string, u: { name: string | 
     /* Two readers reporting the same new person at once: the other one made it. */
     return;
   }
+  void trackFirst(device.orgId, 'system', 'employee_added', { source: 'reader', app: 'attendance' });
   await attachPunchesTo(device.accountId, device.orgId, employee, pin);
   await peoplePrisma.biometricTemplate.updateMany({ where: { orgId: device.orgId, scope: '', pin, employeeId: null }, data: { employeeId: employee.id } });
   /* …and on to the company's other readers. */

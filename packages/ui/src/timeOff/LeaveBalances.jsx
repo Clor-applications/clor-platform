@@ -236,7 +236,7 @@ function Ledger({ person, year, label, onClose, onChanged }) {
             </div>
             {asOf ? <button type="button" className="ui-link text-sm" onClick={() => setAsOf('')}>Today</button> : null}
           </div>
-          {data.types.map(({ type, balance, projected, entries }) => (
+          {data.types.map(({ type, balance, projected, entries, explain }) => (
             <section key={type.id} aria-label={type.name} className="space-y-1">
               <div className="flex items-baseline justify-between gap-3">
                 <h3 className="ui-t-sec inline-flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: colorOf(type) }} aria-hidden="true" />{type.name}</h3>
@@ -264,6 +264,12 @@ function Ledger({ person, year, label, onClose, onChanged }) {
                   </tbody>
                 </table>
               ) : <p className="ui-caption">Nothing in this period.</p>}
+              {explain?.length ? (
+                <details className="text-sm">
+                  <summary className="ui-link cursor-pointer">How is this worked out?</summary>
+                  <ul className="mt-1 space-y-1 ui-caption">{explain.map((line) => <li key={line}>{line}</li>)}</ul>
+                </details>
+              ) : null}
             </section>
           ))}
 

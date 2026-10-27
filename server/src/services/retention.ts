@@ -2,6 +2,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { exclusive, leaseFor, pruneJobRuns } from './jobLease.js';
 import { BIOMETRIC_GRACE_UNTIL, isMinor } from './attendance/biometrics.js';
+import { registerJob } from './jobRegistry.js';
 
 /**
  * Deletes sign-in records once they have no further use.
@@ -130,6 +131,7 @@ export function startRetentionPurge() {
       console.error('[retention] purge failed:', e instanceof Error ? e.message : e);
     }
   };
+  registerJob('startRetentionPurge', run, 24 * 60 * 60 * 1000);
   const first = setTimeout(run, 60_000);
   const timer = setInterval(run, 24 * 60 * 60 * 1000);
   first.unref?.();

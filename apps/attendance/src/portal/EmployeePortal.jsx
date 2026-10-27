@@ -1,4 +1,4 @@
-import { confirmDialog } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, CalendarOff, Camera, CheckSquare, Clock3, Fingerprint, HelpCircle, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from 'lucide-react';
 
@@ -8,6 +8,9 @@ import DayExplain from '../components/DayExplain';
 import LeaveExplain from '../components/LeaveExplain';
 import PhonePunch from '../components/PhonePunch';
 import { MyDetails, Policies } from './MyDetails';
+import AskHr from './AskHr';
+import { LeavingCompany, PayCard, Payslips, PrivateComplaint } from './MeExtras';
+import { HolidaysYear, WhatsNew } from './PortalFeeds';
 import {
   SignedOut,
   acceptItem,
@@ -24,8 +27,6 @@ import {
   cancelLeave,
   editLeave,
   shortenLeave,
-  getRestrictedHolidays,
-  pickRestrictedHoliday,
   changePassword,
   endOtherSessions,
   endSession,
@@ -45,8 +46,6 @@ import {
   previewLeave,
   getMe,
   getCompanyUpdates,
-  getHrCases,
-  askHr,
   getSchedule,
   getTax,
   hm,
@@ -73,6 +72,13 @@ export default function EmployeePortal() {
   const [tab, setTab] = useState('today');
   const [me, setMe] = useState(null);
   const [error, setError] = useState('');
+  /* Me: whether Ask HR is on (the Pay card hands over to it), a question it should open filled, and a nudge after resigning so My job reloads. */
+  const [deskOn, setDeskOn] = useState(false);
+  const [askPreset, setAskPreset] = useState(null);
+  const [leavingSent, setLeavingSent] = useState(0);
+  const presetUsed = useCallback(() => setAskPreset(null), []);
+  const askBank = useCallback(() => setAskPreset({ category: 'PAYROLL', subject: 'Change my salary account', description: 'Please change the bank account my salary is paid into. Tell me how to give you the new account details.' }), []);
+  const resigned = useCallback(() => setLeavingSent((n) => n + 1), []);
 
   useEffect(() => {
     document.title = 'Employee portal · Clor';
@@ -137,12 +143,23 @@ export default function EmployeePortal() {
 
       <main className="mx-auto max-w-md space-y-4 px-4 py-4">
         {error ? <div className="ui-card p-4 text-sm" role="alert">{error}</div> : null}
-        {tab === 'today' ? <><Today me={me} reload={loadMe} guard={guard} /><CompanyUpdates guard={guard} /></> : null}
+        {tab === 'today' ? <><WhatsNew guard={guard} /><Today me={me} reload={loadMe} guard={guard} /><CompanyUpdates guard={guard} /></> : null}
         {tab === 'days' ? <MyDays guard={guard} /> : null}
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
         {tab === 'schedule' ? <MySchedule guard={guard} /> : null}
         {tab === 'leave' ? <MyLeave guard={guard} /> : null}
-        {tab === 'me' ? <><MyDetails guard={guard} /><Policies guard={guard} /><AskHr guard={guard} /><Account me={me} guard={guard} onSignOut={leave} /></> : null}
+        {tab === 'me' ? (
+          <>
+            <Payslips guard={guard} />
+            <MyDetails guard={guard} refreshKey={leavingSent} />
+            <Policies guard={guard} />
+            {deskOn ? <PayCard onAsk={askBank} /> : null}
+            <AskHr guard={guard} preset={askPreset} onPresetUsed={presetUsed} onAvailability={setDeskOn} />
+            <PrivateComplaint guard={guard} />
+            <LeavingCompany guard={guard} refreshKey={leavingSent} onSent={resigned} />
+            <Account me={me} guard={guard} onSignOut={leave} />
+          </>
+        ) : null}
       </main>
 
       <nav aria-label="Portal" className="fixed inset-x-0 bottom-0 z-10 border-t" style={{ backgroundColor: 'rgb(var(--surface))', borderColor: 'rgb(var(--border))' }}>
@@ -780,9 +797,18 @@ function MyLeave({ guard }) {
       setSending(false);
     }
   };
-  const cancel = async (id) => {
+  const cancel = async (r) => {
+    const approved = r.status === 'APPROVED';
+    const span = r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`;
+    const ok = await confirmDialog({
+      title: approved ? 'Cancel this leave?' : 'Withdraw this request?',
+      message: `${r.leaveTypeName}, ${span}. ${approved ? 'It was approved; the days go back to your balance and you are expected at work.' : 'It will not be decided.'}`,
+      confirmLabel: approved ? 'Cancel leave' : 'Withdraw',
+    });
+    if (!ok) return;
     try {
-      await guard(cancelLeave(id));
+      await guard(cancelLeave(r.id));
+      setNote({ ok: true, text: approved ? 'Leave cancelled.' : 'Request withdrawn.' });
       load();
     } catch (err) {
       if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not cancelled.') });
@@ -845,23 +871,6 @@ function MyLeave({ guard }) {
   };
   const shortenable = (r) => r.status === 'APPROVED' && !r.halfDay && r.fromDate <= data?.today && r.toDate > data?.today;
   const dayBefore = (iso) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
-  /* Restricted holidays: the optional list, what I picked, how many I may still pick. */
-  const [restricted, setRestricted] = useState(null);
-  const loadRestricted = useCallback(() => {
-    guard(getRestrictedHolidays()).then(setRestricted).catch(() => setRestricted(null));
-  }, [guard]);
-  useEffect(() => {
-    loadRestricted();
-  }, [loadRestricted]);
-  const pick = async (h) => {
-    try {
-      await guard(pickRestrictedHoliday(h.id, !h.picked));
-      loadRestricted();
-    } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not changed.') });
-    }
-  };
-
   if (!data) return error ? <LoadFailed message={error} onRetry={load} /> : <div className="ui-card p-6 ui-caption">Loading…</div>;
   return (
     <>
@@ -939,7 +948,7 @@ function MyLeave({ guard }) {
                     {r.status === 'PENDING' && editing?.id !== r.id ? <button type="button" className="ui-link text-xs" onClick={() => startChange(r)}>Change</button> : null}
                     {shortenable(r) && shortening?.id !== r.id ? <button type="button" className="ui-link text-xs" onClick={() => { setShortening(r); setShortTo(''); setNote(null); }}>Came back early</button> : null}
                     {r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > data.today) ? (
-                      <button type="button" className="ui-link text-xs" onClick={() => cancel(r.id)}>Cancel</button>
+                      <button type="button" className="ui-link text-xs" onClick={() => cancel(r)}>Cancel</button>
                     ) : null}
                   </span>
                   {shortening?.id === r.id ? (
@@ -959,24 +968,7 @@ function MyLeave({ guard }) {
         </section>
       ) : null}
 
-      {restricted?.quota > 0 ? (
-        <section className="ui-card p-5" aria-labelledby="rh-h">
-          <h2 id="rh-h" className="ui-t-sec mb-1">Restricted holidays {restricted.year}</h2>
-          <p className="ui-caption tabular-nums mb-2">{restricted.picked} of {restricted.quota} picked</p>
-          {restricted.holidays.length ? (
-            <ul className="space-y-2 text-sm">
-              {restricted.holidays.map((h) => (
-                <li key={h.id} className="flex items-center justify-between gap-2">
-                  <span>{h.name}<span className="ui-caption block">{dayLabel(h.date)}{h.picked ? ' · Picked' : ''}</span></span>
-                  {h.past ? <span className="ui-caption">Past</span> : (
-                    <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!h.picked && restricted.left <= 0} onClick={() => pick(h)}>{h.picked ? 'Drop' : 'Pick'}</button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : <p className="ui-caption">No optional holidays this year.</p>}
-        </section>
-      ) : null}
+      <HolidaysYear guard={guard} />
       <LeaveExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />
     </>
   );
@@ -1114,11 +1106,14 @@ function MyTax({ guard }) {
       seniorParents: x.seniorParents,
     });
   };
-  useEffect(() => {
+  const [failed, setFailed] = useState('');
+  const load = useCallback(() => {
     guard(getTax())
-      .then(take)
-      .catch(() => setD(false));
+      .then((r) => { take(r); setFailed(''); })
+      .catch((e) => !(e instanceof SignedOut) && setFailed(String(e?.message || 'Could not load your tax declaration.')));
   }, [guard]);
+  useEffect(() => { load(); }, [load]);
+  if (failed) return <LoadFailed message={failed} onRetry={load} />;
   if (!d || !form) return null;
 
   const locked = d.status === 'VERIFIED';
@@ -1321,9 +1316,15 @@ function MyDocuments({ guard }) {
   const [docs, setDocs] = useState(null);
   const [asks, setAsks] = useState([]);
   const [failed, setFailed] = useState('');
+  const [loadFailed, setLoadFailed] = useState('');
   const load = useCallback(() => {
-    guard(getDocuments()).then((d) => setDocs(d?.documents || [])).catch(() => setDocs([]));
-    guard(getToAccept()).then((d) => setAsks((d?.pending || []).filter((p) => p.targetType === 'DOCUMENT'))).catch(() => setAsks([]));
+    Promise.all([guard(getDocuments()), guard(getToAccept())])
+      .then(([d, a]) => {
+        setDocs(d?.documents || []);
+        setAsks((a?.pending || []).filter((p) => p.targetType === 'DOCUMENT'));
+        setLoadFailed('');
+      })
+      .catch((e) => !(e instanceof SignedOut) && setLoadFailed(String(e?.message || 'Could not load your documents.')));
   }, [guard]);
   useEffect(() => {
     load();
@@ -1345,9 +1346,10 @@ function MyDocuments({ guard }) {
       a.download = d.title;
       a.click();
     } catch (err) {
-      if (!(err instanceof SignedOut)) alert(String(err?.message || 'Could not open.'));
+      if (!(err instanceof SignedOut)) notify.error(String(err?.message || 'Could not open this document.'));
     }
   };
+  if (loadFailed) return <LoadFailed message={loadFailed} onRetry={load} />;
   const askOf = new Map(asks.map((a) => [a.targetId, a]));
   const hidden = asks.filter((a) => !(docs || []).some((d) => d.id === a.targetId));
   if ((!docs || !docs.length) && !hidden.length) return null;
@@ -1451,7 +1453,11 @@ function MyData({ guard }) {
     }
   };
   const withdraw = async (what) => {
-    const sure = window.confirm(what === 'BIOMETRIC' ? 'CLOR will delete any copy of your fingerprints and face it keeps, and keep none. The readers still recognise you. Go ahead?' : 'Your phone will stop punching and reading your location; you will punch at a reader. Go ahead?');
+    const sure = await confirmDialog(
+      what === 'BIOMETRIC'
+        ? { title: 'Withdraw consent for fingerprint and face copies?', message: 'CLOR will delete any copy of your fingerprints and face it keeps, and keep none. The readers still recognise you.', confirmLabel: 'Withdraw consent' }
+        : { title: 'Withdraw consent for phone punches?', message: 'Your phone will stop punching and reading your location; you will punch at a reader.', confirmLabel: 'Withdraw consent' }
+    );
     if (!sure) return;
     try {
       const r = await guard(withdrawConsent(what));
@@ -1532,66 +1538,11 @@ function MyData({ guard }) {
 function CompanyUpdates({ guard }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
-  const load = useCallback(() => guard(getCompanyUpdates()).then((d) => { setData(d); setError(''); }).catch((e) => setError(e.message)), [guard]);
+  const load = useCallback(() => guard(getCompanyUpdates()).then((d) => { setData(d); setError(''); }).catch((e) => !(e instanceof SignedOut) && setError('Could not load company updates.')), [guard]);
   useEffect(() => { load(); }, [load]);
-  if (error) return <section className="ui-card p-4" aria-label="Company updates"><p role="alert">{error}</p><button className="ui-btn mt-2" onClick={load}>Retry updates</button></section>;
+  if (error) return <LoadFailed message={error} onRetry={load} />;
   if (!data || (!data.announcements.length && !data.events.length)) return null;
   return <section className="ui-card p-4" aria-labelledby="company-updates-heading"><h2 id="company-updates-heading" className="ui-t-sec mb-3">Company updates</h2>
     <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>{data.announcements.map((a) => <li className="py-3" key={a.id}><h3 className="font-semibold text-sm">{a.title}</h3><p className="mt-1 whitespace-pre-wrap text-sm ui-muted">{a.body}</p></li>)}{data.events.map((e) => <li className="py-3" key={e.id}><h3 className="font-semibold text-sm">{e.title}</h3><p className="text-sm ui-muted">{e.startDate}{e.endDate && e.endDate !== e.startDate ? ` – ${e.endDate}` : ''}{e.location ? ` · ${e.location}` : ''}</p>{e.description && <p className="mt-1 text-sm">{e.description}</p>}</li>)}</ul>
   </section>;
-}
-
-const CASE_STATUS = { OPEN: 'Waiting for HR', IN_PROGRESS: 'HR is on it', RESOLVED: 'Answered', CLOSED: 'Closed' };
-const CASE_TOPIC = { GENERAL: 'General', PAYROLL: 'Pay', LEAVE: 'Leave', DOCUMENTS: 'Documents', OTHER: 'Other' };
-
-/** Ask HR: a question or a problem, and HR's answer, without an email chain. */
-function AskHr({ guard }) {
-  const [data, setData] = useState(null);
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: '', category: 'GENERAL', description: '' });
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState('');
-  const load = useCallback(() => guard(getHrCases()).then(setData).catch(() => setData({ available: false, cases: [] })), [guard]);
-  useEffect(() => { load(); }, [load]);
-  if (!data?.available) return null;
-  const send = async (e) => {
-    e.preventDefault(); setBusy(true); setNote('');
-    try {
-      await guard(askHr(form));
-      setForm({ title: '', category: 'GENERAL', description: '' }); setOpen(false); setNote('Sent. HR will answer here.');
-      load();
-    } catch (err) { setNote(err.message || 'Not sent.'); } finally { setBusy(false); }
-  };
-  return (
-    <section className="ui-card p-4 space-y-3" aria-labelledby="ask-hr-h">
-      <div className="flex items-center justify-between gap-2">
-        <h2 id="ask-hr-h" className="ui-t-sec">Ask HR</h2>
-        {!open ? <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={() => setOpen(true)}>New question</button> : null}
-      </div>
-      {note ? <p className="text-sm" role="status">{note}</p> : null}
-      {open ? (
-        <form onSubmit={send} className="space-y-3">
-          <label className="block"><span className="ui-label">About</span>
-            <select className="ui-select w-full" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
-              {Object.entries(CASE_TOPIC).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </label>
-          <label className="block"><span className="ui-label">In a few words</span><input className="ui-input w-full" value={form.title} maxLength={200} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="October salary is short" required /></label>
-          <label className="block"><span className="ui-label">What happened</span><textarea className="ui-input w-full" rows={4} value={form.description} maxLength={5000} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} required /></label>
-          <div className="flex gap-2"><button type="submit" className="ui-btn ui-btn-primary" disabled={busy}>{busy ? 'Sending…' : 'Send to HR'}</button><button type="button" className="ui-btn" onClick={() => setOpen(false)}>Cancel</button></div>
-        </form>
-      ) : null}
-      {data.cases.length ? (
-        <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
-          {data.cases.map((c) => (
-            <li key={c.id} className="py-2">
-              <div className="flex items-center justify-between gap-2"><span className="text-sm font-medium">{c.title}</span><span className="ui-caption">{CASE_STATUS[c.status] || c.status}</span></div>
-              <p className="ui-caption">{CASE_TOPIC[c.category] || c.category} · {(() => { const [y, m, d] = new Date(new Date(c.createdAt).getTime() + 330 * 60_000).toISOString().slice(0, 10).split('-'); return `${Number(d)} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m) - 1]} ${y}`; })()}</p>
-              {c.resolution ? <p className="text-sm mt-1">HR: {c.resolution}</p> : null}
-            </li>
-          ))}
-        </ul>
-      ) : !open ? <p className="ui-muted text-sm">Questions about pay, leave or documents go straight to HR, and the answer comes back here.</p> : null}
-    </section>
-  );
 }

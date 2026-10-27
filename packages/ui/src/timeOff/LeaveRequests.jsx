@@ -190,7 +190,7 @@ function Fact({ label, children }) {
   return <div><dt className="ui-label">{label}</dt><dd className="mt-0.5">{children}</dd></div>;
 }
 
-function RequestDrawer({ id, allowed, onClose, onDone }) {
+export function RequestDrawer({ id, allowed, onClose, onDone }) {
   const req = useRequest(() => getLeaveRequest(id), [id]);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -282,6 +282,7 @@ function RequestDrawer({ id, allowed, onClose, onDone }) {
           </dl>
 
           {d.waitingForManager ? <p className="text-sm ui-text-warn">{d.waitingForManager}</p> : null}
+          {d.ownRequest && r.status === 'PENDING' ? <p className="text-sm ui-muted">This is your own request. Somebody else decides it, unless nobody else in the company can.</p> : null}
 
           {shortening ? (
             <form id="came-back-early" onSubmit={shorten} className="space-y-3" aria-labelledby="lr-short">

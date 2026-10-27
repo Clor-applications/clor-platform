@@ -18,6 +18,8 @@ export type LeavePolicy = {
   gender: string | null;
   employeeTypeIds: string[];
   availableAfterDays: number | null;
+  /** JOINING (calendar days after joining, the default) or DAYS_WORKED (days worked in the 12 months before the leave). */
+  availableAfterBasis?: string | null;
 };
 
 export type LeavePerson = { gender: string | null; employeeTypeId: string | null; dateOfJoining: string | null } | null;
@@ -32,7 +34,8 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 export function policyProblem(
   type: LeavePolicy,
   person: LeavePerson,
-  ask: { fromDate: string; halfDay: string | null; days: number },
+  /** workedBefore: days worked in the 12 months before fromDate, when the type counts days worked; undefined = not known. */
+  ask: { fromDate: string; halfDay: string | null; days: number; workedBefore?: number | null },
   today: string,
   onBehalf: boolean
 ): string | null {
@@ -43,7 +46,12 @@ export function policyProblem(
   if (type.employeeTypeIds?.length && !(person?.employeeTypeId && type.employeeTypeIds.includes(person.employeeTypeId))) {
     return `${type.name} is not open to this person’s employee type.`;
   }
-  if (type.availableAfterDays && person?.dateOfJoining) {
+  if (type.availableAfterDays && type.availableAfterBasis === 'DAYS_WORKED') {
+    /* Code on Social Security (maternity): 80 days worked in the 12 months before. Paid leave counts as worked. */
+    if (ask.workedBefore != null && ask.workedBefore < type.availableAfterDays) {
+      return `${type.name} needs ${plural(type.availableAfterDays, 'day')} worked in the 12 months before it starts; this person has ${ask.workedBefore} to ${addDays(ask.fromDate, -1)}.`;
+    }
+  } else if (type.availableAfterDays && person?.dateOfJoining) {
     const from = addDays(person.dateOfJoining, type.availableAfterDays);
     if (ask.fromDate < from) return `${type.name} can be taken from ${from}, ${plural(type.availableAfterDays, 'day')} after joining.`;
   }

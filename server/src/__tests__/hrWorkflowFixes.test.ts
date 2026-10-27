@@ -82,7 +82,7 @@ describe('leave workflow invariants', () => {
     await leave('post', `/requests/${r.id}/cancel`).expect(409);
     expect((await peoplePrisma.leaveRequest.findUnique({ where: { id: r.id } }))?.status).toBe('APPROVED');
     expect(await peoplePrisma.attendanceRecord.count({ where: { orgId, leaveRequestId: r.id } })).toBe(1);
-    await api('post', '/attendance/months/2026-09/reopen').expect(200);
+    await api('post', '/attendance/months/2026-09/reopen', { reason: 'Test reopens to check again' }).expect(200);
   });
 
   it('keeps approved leave linked and treated the same for a punch from any source', async () => {
@@ -167,7 +167,7 @@ describe('leave workflow invariants', () => {
     const day = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: p.id, date: '2026-09-01' } } });
     expect(day).toMatchObject({ leaveRequestId: r.id, status: 'HALF_DAY' });
     expect((await peoplePrisma.leaveRequest.findUnique({ where: { id: r.id } }))?.status).toBe('APPROVED');
-    await api('post', '/attendance/months/2026-09/reopen').expect(200);
+    await api('post', '/attendance/months/2026-09/reopen', { reason: 'Test reopens to check again' }).expect(200);
   });
 
   it('does not restate entitlement or periods once balances have activity', async () => {

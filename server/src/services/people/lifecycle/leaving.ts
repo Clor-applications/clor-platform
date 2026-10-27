@@ -12,6 +12,7 @@ import { peopleEvent } from '../documentReminders.js';
 import { employeeStatusChanged } from '../../portalSessions.js';
 import { activeRule, saveRule, submitRequest } from '../approvals/engine.js';
 import { writeChangeLog, type Actor } from '../changeLog.js';
+import { registerJob } from '../../jobRegistry.js';
 
 /**
  * Someone leaves (docs/people/02-PRD.md LIFE-05): the last day, how and why.
@@ -146,6 +147,7 @@ export async function runSeparations(now = new Date()) {
 export function startSeparations({ intervalMs = 60 * 60_000, startupDelayMs = 120_000 } = {}) {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
   const tick = () => exclusive('people.separations', leaseFor(intervalMs), () => runSeparations()).catch((e) => console.error('[separations] failed:', e instanceof Error ? e.message : e));
+  registerJob('startSeparations', tick, intervalMs);
   const t = setTimeout(() => {
     tick();
     const i = setInterval(tick, intervalMs);

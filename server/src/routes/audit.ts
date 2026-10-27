@@ -7,6 +7,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
+import { peoplePrisma } from '../utils/peoplePrisma.js';
 
 /**
  * Reading the audit trail.
@@ -100,8 +101,20 @@ auditRouter.get('/orgs/:orgId/audit', AUDIT_VIEW, async (req, res) => {
     orderBy: { createdAt: 'desc' },
     take: limit + 1,
     ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
-    include: { createdBy: { select: { id: true, fullName: true, email: true } } },
   });
+  /* Who acted: a CLOR user, or an employee in the employee app (`portal:<id>`), the leave rule (`system`), an API client (`api:<id>`). */
+  const ids = [...new Set(rows.map((r) => r.createdByUserId))];
+  const users = new Map((await platformPrisma.user.findMany({ where: { id: { in: ids.filter((i) => !i.includes(':') && i !== 'system') } }, select: { id: true, fullName: true, email: true } })).map((u) => [u.id, u]));
+  const staffIds = ids.filter((i) => i.startsWith('portal:')).map((i) => i.slice(7));
+  const staff = new Map(staffIds.length ? (await peoplePrisma.employee.findMany({ where: { orgId: req.tenant!.orgId, id: { in: staffIds } }, select: { id: true, name: true } })).map((e) => [`portal:${e.id}`, e.name]) : []);
+  const actor = (id: string) => {
+    const u = users.get(id);
+    if (u) return { id: u.id, name: u.fullName, email: u.email };
+    if (staff.has(id)) return { id, name: `${staff.get(id)} (employee app)`, email: null };
+    if (id === 'system') return { id, name: 'Automatic', email: null };
+    if (id.startsWith('api:')) return { id, name: 'API', email: null };
+    return null;
+  };
 
   const page = rows.slice(0, limit);
   res.json({
@@ -122,7 +135,7 @@ auditRouter.get('/orgs/:orgId/audit', AUDIT_VIEW, async (req, res) => {
         message: r.message || '',
         metadata,
         at: r.createdAt,
-        by: r.createdBy ? { id: r.createdBy.id, name: r.createdBy.fullName, email: r.createdBy.email } : null,
+        by: actor(r.createdByUserId),
       };
     }),
     nextCursor: rows.length > limit ? page[page.length - 1]?.id || null : null,

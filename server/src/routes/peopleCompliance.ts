@@ -6,6 +6,8 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { seesPersonal, teamScope } from '../services/people/scope.js';
+import { isFeatureEnabled } from '../services/features.js';
+import { leaveSummary, musterRoll } from '../services/people/registers.js';
 import { ComplianceError, checkRule, employeeRegister, leaveRegister, obligationsOf, rulesOf, saveRuleVersion, updateObligation } from '../services/people/complianceRules.js';
 
 /**
@@ -89,4 +91,25 @@ peopleComplianceRouter.get(`${base}/registers/leave`, can(PermissionAction.VIEW,
   const to = String(req.query.to || '');
   if (!ISO.test(from) || !ISO.test(to) || to < from) return res.status(400).json({ error: 'Give the range as from and to, YYYY-MM-DD.' });
   res.json(await leaveRegister(req.tenant!.orgId, String(req.query.establishmentId || '') || null, from, to));
+});
+
+/** Muster roll for a month (YYYY-MM), from the day record; built for a People-only company too (services/people/registers.ts). */
+peopleComplianceRouter.get(`${base}/registers/muster`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await keepsRegisters(req, res))) return;
+  const month = String(req.query.month || '');
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return res.status(400).json({ error: 'Give the month as YYYY-MM.' });
+  const { accountId, orgId } = req.tenant!;
+  res.json(await musterRoll(accountId, orgId, month, String(req.query.establishmentId || '') || null, await isFeatureEnabled(accountId, orgId, 'attendance')));
+});
+
+/** Leave taken in a range by department and type, paid and unpaid. */
+peopleComplianceRouter.get(`${base}/registers/leave-summary`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await keepsRegisters(req, res))) return;
+  const from = String(req.query.from || '');
+  const to = String(req.query.to || '');
+  if (!ISO.test(from) || !ISO.test(to) || to < from) return res.status(400).json({ error: 'Give the range as from and to, YYYY-MM-DD.' });
+  if (Date.parse(to) - Date.parse(from) > 400 * 86_400_000) return res.status(400).json({ error: 'A summary covers at most a year.' });
+  res.json(await leaveSummary(req.tenant!.orgId, String(req.query.establishmentId || '') || null, from, to));
 });

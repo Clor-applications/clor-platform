@@ -9,6 +9,7 @@ import { correlationOf } from '../services/people/employees.js';
 import { ResignError, resignFromApp } from '../services/people/lifecycle/leaving.js';
 import { CaseError, intake } from '../services/people/privateCases.js';
 import { CaseKeyMissing } from '../services/people/caseBox.js';
+import { isFeatureEnabled } from '../services/features.js';
 
 /**
  * People's own employee-facing routes, behind the employee app's sign-in
@@ -70,8 +71,14 @@ const deskError = (res: any, e: unknown) => {
 
 peoplePortalRouter.get('/desk', async (req, res) => {
   const { accountId, orgId, employeeId } = me(req);
-  const [requests, categories] = await Promise.all([listRequests(orgId, { employeeId }), categoriesOf(accountId, orgId)]);
-  res.json({ requests: requests.map((r) => ({ ...r, description: r.status === 'MOVED' ? '' : r.description })), categories: categories.filter((c) => c.isActive).map((c) => ({ key: c.key, label: c.label, replyHours: c.replyHours, resolveDays: c.resolveDays })) });
+  const [requests, categories, available] = await Promise.all([listRequests(orgId, { employeeId }), categoriesOf(accountId, orgId), isFeatureEnabled(accountId, orgId, 'peopleEngage')]);
+  /* Who wrote last on each, internal notes left out: the app badges a request where HR spoke and the person has not answered. */
+  const last = requests.length
+    ? await peoplePrisma.deskMessage.findMany({ where: { orgId, requestId: { in: requests.map((r) => r.id) }, internal: false }, orderBy: { createdAt: 'desc' }, distinct: ['requestId'], select: { requestId: true, authorEmployeeId: true, createdAt: true } })
+    : [];
+  const lastBy = new Map(last.map((m) => [m.requestId, m]));
+  const hrWroteLast = (r: { id: string; status: string }) => r.status !== 'MOVED' && (r.status === 'WAITING_EMPLOYEE' || (lastBy.has(r.id) && !lastBy.get(r.id)!.authorEmployeeId && r.status !== 'RESOLVED'));
+  res.json({ available, requests: requests.map((r) => ({ ...r, description: r.status === 'MOVED' ? '' : r.description, hrWroteLast: hrWroteLast(r) })), categories: categories.filter((c) => c.isActive).map((c) => ({ key: c.key, label: c.label, replyHours: c.replyHours, resolveDays: c.resolveDays })) });
 });
 
 peoplePortalRouter.post('/desk', async (req, res) => {

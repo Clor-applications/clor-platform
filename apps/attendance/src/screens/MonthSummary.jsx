@@ -6,7 +6,8 @@ import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import { closeMonth, getSummary, hm, reopenMonth, todayIst } from '../api/attendance';
+import { closeMonth, getSummary, hm, todayIst } from '../api/attendance';
+import ReopenMonth from '../components/ReopenMonth';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import LoadFailed from '../components/LoadFailed';
 
@@ -24,8 +25,14 @@ export default function MonthSummary({ openScreen } = {}) {
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
   const ended = month < todayIst().slice(0, 7);
+  const [reopening, setReopening] = useState(false);
   const toggleClosed = async () => {
     const closing = !data?.closed;
+    /* Reopening says why (it goes in the audit log). */
+    if (!closing) {
+      setReopening(true);
+      return;
+    }
     /* Closing goes through the month-close checklist, so nobody closes a month without seeing what is open. */
     if (closing && openScreen) {
       openScreen('monthClose', { month });
@@ -43,8 +50,8 @@ export default function MonthSummary({ openScreen } = {}) {
     }
     setBusy(true);
     try {
-      await (closing ? closeMonth(month, true) : reopenMonth(month));
-      notify.success(closing ? `${month} closed.` : `${month} reopened.`);
+      await closeMonth(month, true);
+      notify.success(`${month} closed.`);
       setAttempt((n) => n + 1);
     } catch (e) {
       notify.error(String(e?.message || 'Not done.'));
@@ -185,6 +192,7 @@ export default function MonthSummary({ openScreen } = {}) {
           </table>
         </div>
       )}
+      {reopening ? <ReopenMonth month={month} onClose={() => setReopening(false)} onDone={() => { setReopening(false); setAttempt((n) => n + 1); }} /> : null}
     </DocumentListShell>
   );
 }

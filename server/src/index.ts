@@ -18,6 +18,7 @@ import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
 import { startBooksDigest } from './services/booksDigest.js';
+import { startWeeklySummary } from './services/people/weeklySummary.js';
 import { build as buildReport } from './routes/attendanceReports.js';
 import { startPhotoPurge, startReaderChecks, startVendorSync, startWebhookRetries } from './services/vendorSyncScheduler.js';
 import { reportProcessErrors } from './utils/log.js';
@@ -98,6 +99,7 @@ startObligationDues();
 startLeaveJobs();
 startNotificationPruning();
 startBooksDigest();
+startWeeklySummary();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */
 startReportSchedules(buildReport);
 /* Batch 5: credentials issued before the registry are registered once, on one instance. */

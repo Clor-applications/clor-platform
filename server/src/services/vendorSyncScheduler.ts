@@ -2,6 +2,7 @@ import { syncAllVendorConnections } from './attendance/vendorSync.js';
 import { purgePunchPhotos } from './attendance/punchPhotos.js';
 import { runReaderChecks } from './attendance/readerHealth.js';
 import { exclusive, leaseFor } from './jobLease.js';
+import { registerJob } from './jobRegistry.js';
 
 /**
  * Pulls punches from vendor clouds (e-Time Office) every five minutes, the
@@ -30,6 +31,7 @@ export function startVendorSync({ intervalMs = 5 * 60_000, startupDelayMs = 45_0
       running = false;
     }
   };
+  registerJob('startVendorSync', tick, intervalMs);
   const startup = setTimeout(tick, startupDelayMs);
   const timer = setInterval(tick, intervalMs);
   startup.unref?.();
@@ -52,6 +54,7 @@ export function startPhotoPurge({ intervalMs = 6 * 3_600_000, startupDelayMs = 9
       console.error('[photo-purge] run failed:', e instanceof Error ? e.message : e);
     }
   };
+  registerJob('startPhotoPurge', tick, intervalMs);
   const startup = setTimeout(tick, startupDelayMs);
   const timer = setInterval(tick, intervalMs);
   startup.unref?.();
@@ -85,6 +88,7 @@ export function startReaderChecks({ intervalMs = 5 * 60_000, startupDelayMs = 60
       running = false;
     }
   };
+  registerJob('startReaderChecks', tick, intervalMs);
   const startup = setTimeout(tick, startupDelayMs);
   const timer = setInterval(tick, intervalMs);
   startup.unref?.();
@@ -125,6 +129,7 @@ export function startWebhookRetries({ intervalMs = 60_000, startupDelayMs = 30_0
       running = false;
     }
   };
+  registerJob('startWebhookRetries', tick, intervalMs);
   const startup = setTimeout(tick, startupDelayMs);
   const timer = setInterval(tick, intervalMs);
   timer.unref?.();

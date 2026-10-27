@@ -433,6 +433,27 @@ export const FEATURE_CATALOG: FeatureDef[] = [
     dependsOn: 'people',
   },
 
+  /*
+   * Simple mode (PRODUCT-VIEW §6): for a company of up to 10 people and up to
+   * 2 users, People hides the screens a larger HR team needs (stand-ins,
+   * request rules, year-end internals, compliance and privacy lists, custom
+   * fields and similar). Nothing a person needs for their own data is hidden,
+   * and every hidden screen still opens from a link. On for a company when it
+   * is created (routes/auth.ts); never switched off on its own — Home suggests
+   * it once when the company outgrows it (services/people/setup.ts).
+   *
+   * The menus read it the other way round, as `peopleDetailed` (services/
+   * features.ts), because the shell shows an item unless its feature is off.
+   */
+  {
+    key: 'peopleSimpleMode',
+    label: 'Simple mode',
+    description: 'A shorter People menu for a small company: the detailed HR screens are hidden until you need them.',
+    defaultEnabled: false,
+    category: 'People',
+    dependsOn: 'people',
+  },
+
   // ---- Attendance -------------------------------------------------------
   /*
    * Native cloud attendance (after Horilla): shifts, holidays, clock in/out,

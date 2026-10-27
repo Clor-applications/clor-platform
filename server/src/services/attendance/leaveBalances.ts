@@ -1,5 +1,6 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
-import { CALENDAR, balanceFor, periodEnd, periodOf, periodStart, type LeavePeriod } from './leaveAccrual.js';
+import { CALENDAR, balanceFor, carryLimitOf, periodEnd, periodOf, periodStart, type LeavePeriod, type Worked } from './leaveAccrual.js';
+import { daysWorkedByPeriod } from './daysWorked.js';
 import { today } from './days.js';
 
 /**
@@ -97,12 +98,23 @@ export async function balancesFor(accountId: string, orgId: string, employeeIds:
       where: { accountId, orgId, employeeId: { in: employeeIds }, status: { in: OPEN }, fromDate: { gte: periodStart(period, from), lte: end } },
       select: { employeeId: true, leaveTypeId: true, status: true, days: true, fromDate: true },
     }),
-    peoplePrisma.employee.findMany({ where: { orgId, id: { in: employeeIds } }, select: { id: true, dateOfJoining: true, dateOfLeaving: true, employeeTypeId: true, probationEndDate: true, confirmedOn: true } }),
+    peoplePrisma.employee.findMany({ where: { orgId, id: { in: employeeIds } }, select: { id: true, dateOfJoining: true, dateOfLeaving: true, employeeTypeId: true, probationEndDate: true, confirmedOn: true, branchId: true, areaId: true } }),
     peoplePrisma.leaveAdjustment.findMany({ where: { accountId, orgId, year: { gte: from, lte: year }, employeeId: { in: employeeIds } }, select: { employeeId: true, leaveTypeId: true, year: true, days: true } }),
   ]);
+  /* Statutory types only (each opt-in): days worked per period, and the days asked for and refused per period. */
+  const byWorked = types.filter((t) => t.isPaid && t.accrualBasis === 'PER_DAYS_WORKED');
+  const workedOf = new Map<string, Map<string, Worked>>();
+  if (byWorked.length && people.length) {
+    const firstYear = Math.max(from - 1, Math.min(...byWorked.map((t) => periodOf(period, t.createdAt.toISOString().slice(0, 10)))) - 1);
+    for (const [id, m] of await daysWorkedByPeriod(accountId, orgId, people, period, firstYear, year)) workedOf.set(id, m);
+  }
+  const oshTypes = types.filter((t) => t.isPaid && t.oshCarry).map((t) => t.id);
+  const refusedRows = oshTypes.length
+    ? await peoplePrisma.leaveRequest.findMany({ where: { accountId, orgId, employeeId: { in: employeeIds }, leaveTypeId: { in: oshTypes }, status: 'REJECTED', reviewedByUserId: { not: 'system' }, fromDate: { gte: periodStart(period, from), lte: end } }, select: { employeeId: true, leaveTypeId: true, days: true, fromDate: true } })
+    : [];
   const personOf = new Map(people.map((p) => [p.id, p]));
   const leftOf = new Map(people.map((p) => [p.id, p.dateOfLeaving || null]));
-  const out = new Map<string, Map<string, Balance & { allocated: number | null; available: number | null; allocationId: string | null; earned?: number; carriedIn?: number; fullYear?: number | null; adjusted?: number; credits?: Array<{ date: string; days: number; total: number; from: string; to: string }>; entitled?: number; locked?: boolean; lockedUntil?: string | null }>>();
+  const out = new Map<string, Map<string, Balance & { allocated: number | null; available: number | null; allocationId: string | null; earned?: number; carriedIn?: number; fullYear?: number | null; adjusted?: number; credits?: Array<{ date: string; days: number; total: number; from: string; to: string }>; entitled?: number; locked?: boolean; lockedUntil?: string | null; carryLimit?: number; refused?: number; worked?: { previous: Worked | null; current: Worked | null } }>>();
   for (const id of employeeIds) {
     const m = new Map();
     for (const t of types) {
@@ -128,7 +140,10 @@ export async function balancesFor(accountId: string, orgId: string, employeeIds:
       const entitledFor = (y: number) => { const ps = periodStart(period, y); return entitledDays(t, person, joined && joined > ps ? joined : ps); };
       const entitled = entitledFor(year);
       const probation = probationOf(t, person, on);
-      const b = balanceFor({ ...t, annualDays: entitled }, year, probation.joinedForLeave, on, new Map(allocs.map((a) => [a.year, a.days])), taken, { period, left: leftOf.get(id) ?? null, annualDaysFor: entitledFor });
+      const workedIn = (y: number) => workedOf.get(id)?.get(String(y)) ?? null;
+      const refusedIn = (y: number) => round(refusedRows.filter((r) => r.employeeId === id && r.leaveTypeId === t.id && periodOf(period, r.fromDate) === y).reduce((a, r) => a + r.days, 0));
+      const b = balanceFor({ ...t, annualDays: entitled }, year, probation.joinedForLeave, on, new Map(allocs.map((a) => [a.year, a.days])), taken, { period, left: leftOf.get(id) ?? null, annualDaysFor: entitledFor, workedIn, refusedIn });
+      const refused = t.oshCarry ? refusedIn(year) : 0;
       const allocated = round(b.allocated + adjusted);
       m.set(t.id, {
         allocated,
@@ -145,6 +160,10 @@ export async function balancesFor(accountId: string, orgId: string, employeeIds:
         fullYear: b.fullYear == null ? null : round(b.fullYear + adjusted),
         adjusted,
         credits: b.credits,
+        /* What can carry out of this period: the type's limit, and refused days on top under the OSH rule. */
+        carryLimit: carryLimitOf(t, refused),
+        refused,
+        ...(t.accrualBasis === 'PER_DAYS_WORKED' ? { worked: { previous: workedIn(year - 1), current: workedIn(year) } } : {}),
       });
     }
     out.set(id, m);

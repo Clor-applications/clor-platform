@@ -5,6 +5,7 @@ import { exclusive, leaseFor } from '../jobLease.js';
 import type { Actor } from './changeLog.js';
 import { updateEmployee } from './employees.js';
 import { TRACKED } from './employmentHistory.js';
+import { registerJob } from '../jobRegistry.js';
 
 /**
  * Effective-dated changes (docs/people/02-PRD.md FND-02, FND-03).
@@ -161,6 +162,7 @@ export function startScheduledChanges({ intervalMs = 10 * 60_000, startupDelayMs
       running = false;
     }
   };
+  registerJob('startScheduledChanges', tick, intervalMs);
   const startup = setTimeout(tick, startupDelayMs);
   const timer = setInterval(tick, intervalMs);
   startup.unref?.();

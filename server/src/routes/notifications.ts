@@ -4,6 +4,10 @@ import { z } from 'zod';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
+import { track } from '../services/productEvents.js';
+
+/** Summaries whose opening is counted. */
+const DIGEST_KINDS = ['people.weekly_summary'];
 
 /**
  * The signed-in person's inbox for the organisation on screen. No permission
@@ -50,7 +54,10 @@ notificationsRouter.post(`${base}/read`, async (req, res) => {
   const p = z.object({ ids: z.array(z.string().min(1)).max(200).optional(), all: z.boolean().optional() }).safeParse(req.body || {});
   if (!p.success) return res.status(400).json({ error: 'Say which notifications.' });
   const where = { orgId, userId, readAt: null, ...(p.data.all ? {} : { id: { in: p.data.ids || [] } }) };
+  /* A weekly summary opened from the bell (not "mark all read"): the habit the summary is for (PRODUCT-VIEW §7). */
+  const opened = p.data.all ? [] : await platformPrisma.notification.findMany({ where: { ...where, kind: { in: DIGEST_KINDS } }, select: { kind: true } });
   const r = await platformPrisma.notification.updateMany({ where, data: { readAt: new Date() } });
+  for (const n of opened) void track(orgId, userId, 'digest_opened', { kind: n.kind, channel: 'bell' });
   const unread = await platformPrisma.notification.count({ where: { orgId, userId, readAt: null } });
   res.json({ marked: r.count, unread });
 });

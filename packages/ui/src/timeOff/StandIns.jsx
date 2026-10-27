@@ -25,7 +25,9 @@ const when = (r, today) => (r.live ? ['Live', 'ui-pill-pos'] : r.fromDate > toda
 export default function StandIns() {
   const perms = usePermissions();
   /* Whole-company roles name a stand-in for anyone; a team role only for themselves. */
-  const wholeCompany = Boolean(perms?.isAdmin) || can(perms, 'PEOPLE::Employees::EDIT');
+  const wholeCompany = Boolean(perms?.isAdmin) || !perms?.ownDocumentsOnly;
+  /* Naming or removing a stand-in takes the right to approve leave, as the server asks. */
+  const canName = can(perms, 'ATTENDANCE::Leave Requests::APPROVE');
   const req = useRequest(() => listStandIns(), []);
   const [adding, setAdding] = useState(false);
   const today = req.data?.today || '';
@@ -56,7 +58,7 @@ export default function StandIns() {
       <PageHeader
         breadcrumb={homeCrumbs()}
         title="Stand-ins"
-        actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Add stand-in</button>}
+        actions={canName ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Add stand-in</button> : null}
       />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
@@ -69,7 +71,7 @@ export default function StandIns() {
           noun="stand-ins"
           loading={req.loading}
           refreshing={req.refreshing}
-          rowActions={(r) => [{ key: 'remove', label: 'Remove', danger: true, onSelect: () => remove(r) }]}
+          rowActions={canName ? (r) => [{ key: 'remove', label: 'Remove', danger: true, onSelect: () => remove(r) }] : null}
           card={(r) => {
             const [label, pill] = when(r, today);
             return (

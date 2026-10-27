@@ -108,10 +108,11 @@ export const featuresFor = (orgId, branchId) =>
     skipWarehouseHeader: true,
   });
 
-export const setFeature = (orgId, branchId, key, enabled) =>
+/* `extra`: said with the switch, e.g. { trigger: 'outgrown' } for simple mode (counted on the server). */
+export const setFeature = (orgId, branchId, key, enabled, extra = {}) =>
   apiFetch(`/orgs/${encodeURIComponent(orgId)}/features`, {
     method: 'PUT',
-    body: { features: { [key]: enabled } },
+    body: { ...extra, features: { [key]: enabled } },
     headers: tenantHeaders(orgId, branchId),
     skipWarehouseHeader: true,
   });

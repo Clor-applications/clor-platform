@@ -2113,6 +2113,27 @@
     }
   }
 
+  /* The leave register on paper (LeaveRegister.jsx): a printed document, black on white whatever the theme, one
+     worker to a page, laid out after OSH Form XX / Factories Form 15. */
+  .leave-book { background: #fff; color: #000; font-size: 12px; line-height: 1.4; }
+  .leave-book-worker + .leave-book-worker { margin-top: 32px; padding-top: 24px; border-top: 1px solid #000; }
+  .leave-book h2 { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
+  .leave-book dl { display: grid; grid-template-columns: max-content 1fr max-content 1fr; gap: 2px 12px; margin: 8px 0 12px; }
+  .leave-book dt { color: #444; }
+  .leave-book table { width: 100%; border-collapse: collapse; }
+  .leave-book th, .leave-book td { border: 1px solid #000; padding: 4px 6px; vertical-align: top; text-align: left; }
+  .leave-book th { font-weight: 600; }
+  .leave-book .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .leave-book .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-top: 40px; }
+  .leave-book .sign span { display: block; border-top: 1px solid #000; padding-top: 4px; }
+  .leave-book .basis { margin-top: 12px; color: #444; }
+  @media print {
+    .leave-book-worker { break-after: page; }
+    .leave-book-worker:last-child { break-after: auto; }
+    .leave-book-worker + .leave-book-worker { margin-top: 0; padding-top: 0; border-top: 0; }
+    .leave-book tr { break-inside: avoid; }
+  }
+
   /* The org chart on paper: the chart alone, no rail, no buttons. */
   @media print {
     body.print-chart * { visibility: hidden; }

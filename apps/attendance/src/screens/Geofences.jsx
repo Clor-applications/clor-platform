@@ -71,12 +71,12 @@ export default function Geofences() {
   return (
     <DocumentListShell
       entity="location"
-      title="Work sites"
-      description="Where a phone punch counts: within the radius of a site."
+      title="Punch areas"
+      description="Where a phone punch counts: within the radius of an area. Not People's work sites, which are the company's legal establishments."
       compact
       tight
       denseCards
-      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search sites…', label: 'Search work sites' }}
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search punch areas…', label: 'Search punch areas' }}
       primary={
         <button type="button" className="ui-btn ui-btn-primary" onClick={add}>
           <Plus size={16} aria-hidden="true" /> New site
@@ -119,7 +119,7 @@ export default function Geofences() {
                     ) : (
                       <EmptyState
                         icon={MapPin}
-                        title={status === 'INACTIVE' ? 'No inactive sites' : 'No work sites'}
+                        title={status === 'INACTIVE' ? 'No inactive punch areas' : 'No punch areas'}
                         description={status === 'INACTIVE' ? 'Try another tab.' : 'Add the office, the factory gate or a client site: search for its address and check the pin on the map.'}
                         routes={status === 'INACTIVE' ? undefined : [{ label: 'New site', description: 'Search for its address and check the pin on the map.', onSelect: add }]}
                       />
@@ -296,7 +296,7 @@ function SiteForm({ initial, areas, onClose, onSaved }) {
       widthClass="w-[min(44rem,96vw)]"
       open
       onClose={onClose}
-      title={form.id ? form.name : 'New work site'}
+      title={form.id ? form.name : 'New punch area'}
       actions={
         <>
           {form.id ? <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Delete</button> : null}

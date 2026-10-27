@@ -22,6 +22,8 @@ import { SCHEDULABLE_FIELDS, asOf, cancelScheduledChange, pendingChangesOf, sche
 import { writeChangeLog, type Actor, type Change, type ChangeSource } from '../services/people/changeLog.js';
 import { checkIdentifier, maskTail } from '../services/people/identifiers.js';
 import { PAYROLL_STATUTORY_FIELDS, maskedStatutory, revealStatutory } from '../services/payroll/statutoryRead.js';
+import { nomineesOf } from '../services/payroll/statutoryWrite.js';
+import { heldFor } from '../services/people/lifecycle/joiningStatutory.js';
 import { stepUpRefusal } from '../services/stepUp.js';
 import { inScope, scopeWhere, seesPersonal, teamScope } from '../services/people/scope.js';
 import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/attendance/suggestions.js';
@@ -50,6 +52,8 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js'
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, myTasks, openTasks, readTaskDoneToken, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { addCustom, calendar, evidenceOf, updateTask } from '../services/people/compliance.js';
 import { homeTodos } from '../services/people/home.js';
+import { SetupError, changeSetup, peopleSetup } from '../services/people/setup.js';
+import { track } from '../services/productEvents.js';
 import { PAYROLL_HISTORY, lockPayrollEmployee } from '../services/payroll/employeeLock.js';
 /* Only for Payroll's own delete guard (employeeLock.ts), which takes a payroll transaction; People reads nothing else from it. */
 import { payrollPrisma } from '../utils/payrollPrisma.js';
@@ -382,9 +386,10 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/statutory', can(PermissionAc
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   /* Without the grant the section says so, rather than refusing the whole record. */
   if (await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, STATUTORY)) return res.json({ visible: false });
-  const [payroll, identity] = await Promise.all([maskedStatutory(orgId, employee.id), peoplePrisma.employeeIdentity.findUnique({ where: { employeeId: employee.id } })]);
+  const [payroll, identity, nominees, joining] = await Promise.all([maskedStatutory(orgId, employee.id), peoplePrisma.employeeIdentity.findUnique({ where: { employeeId: employee.id } }), nomineesOf(orgId, employee.id), heldFor(orgId, employee.id)]);
   const canEdit = !(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, STATUTORY));
-  res.json({ visible: true, canEdit, ...payroll, identity: identityRow(identity) });
+  /* PF nominees from Payroll; and what the joiner sent that waits for HR, or for Payroll to be switched on (masked). */
+  res.json({ visible: true, canEdit, ...payroll, identity: identityRow(identity), nominees, joining });
 });
 
 peopleRouter.put('/orgs/:orgId/people/employees/:id/identity', can(PermissionAction.EDIT, STATUTORY), async (req, res) => {
@@ -440,6 +445,30 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/statutory/reveal', can(Perm
 peopleRouter.get('/orgs/:orgId/people/home', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   res.json({ todos: await homeTodos(req) });
+});
+
+/** People → Home: the setup list and simple mode's suggestion, for whoever sets the company up (services/people/setup.ts). */
+peopleRouter.get('/orgs/:orgId/people/setup', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  res.json(await peopleSetup(accountId, orgId, req.auth?.userId || null));
+});
+
+peopleRouter.post('/orgs/:orgId/people/setup', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    res.json(await changeSetup(accountId, orgId, req.auth?.userId || null, req.body || {}));
+  } catch (e) {
+    if (e instanceof SetupError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
+});
+
+/** The Monday summary opened from its e-mail link (?from=weekly): counted, nothing else (PRODUCT-VIEW §7). */
+peopleRouter.post('/orgs/:orgId/people/summary-opened', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  void track(req.tenant!.orgId, req.auth?.userId || null, 'digest_opened', { kind: 'people.weekly_summary', channel: 'email' });
+  res.json({ ok: true });
 });
 
 peopleRouter.get('/orgs/:orgId/people/overview', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {

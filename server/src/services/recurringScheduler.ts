@@ -1,5 +1,6 @@
 import { runDueSchedules } from './recurring.js';
 import { exclusive, leaseFor } from './jobLease.js';
+import { registerJob } from './jobRegistry.js';
 
 /**
  * The thing that makes a schedule a schedule.
@@ -53,6 +54,7 @@ export function startRecurringScheduler({
     }
   };
 
+  registerJob('startRecurringScheduler', tick, intervalMs);
   // Catch up on boot: a service that was down over a billing date should raise
   // what it missed as soon as it is back, not wait an hour.
   const startupTimer = setTimeout(tick, startupDelayMs);

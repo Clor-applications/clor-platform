@@ -115,15 +115,24 @@ export async function proposeSettlement(accountId: string, orgId: string, employ
   const { types, balances } = await balancesFor(accountId, orgId, [employeeId], year);
   const mine = balances.get(employeeId);
   const daily = round2(wage / 26);
-  for (const t of types.filter((x) => x.isPaid && x.isActive)) {
-    const left = Number(mine?.get(t.id)?.available) || 0;
-    if (left <= 0) continue;
+  /*
+   * Only the types the company's policy pays out (Leave Policy → "Paid out at
+   * year end / on leaving"), up to the type's cap. Casual and sick leave are
+   * not money on leaving unless the policy says so (HR-view audit, 28 Oct 2026:
+   * every paid type was proposed, and HR had to spot and delete the lines).
+   */
+  for (const t of types.filter((x) => x.isPaid && x.isActive && x.encashable)) {
+    const balance = Number(mine?.get(t.id)?.available) || 0;
+    if (balance <= 0) continue;
+    const cap = t.maxEncashDays != null ? Number(t.maxEncashDays) : null;
+    const left = cap != null ? Math.min(balance, cap) : balance;
+    const capped = cap != null && balance > cap ? ` (${balance} left; the policy pays up to ${cap})` : '';
     lines.push({
       code: `LEAVE_${(t.code || t.name).toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`.slice(0, 40),
       label: `${t.name} encashment`,
       kind: 'EARNING',
       amount: round2(left * daily),
-      explanation: !from ? `${left} days left; no approved payslip yet, so enter days × a day's wages. Remove it if this leave is not encashable under your policy.` : `${left} days left × a day's wages ₹${daily.toLocaleString('en-IN')} (₹${wage.toLocaleString('en-IN')} ÷ 26). Remove it if this leave is not encashable under your policy.`,
+      explanation: !from ? `${left} days${capped}; no approved payslip yet, so enter days × a day's wages.` : `${left} days${capped} × a day's wages ₹${daily.toLocaleString('en-IN')} (₹${wage.toLocaleString('en-IN')} ÷ 26).`,
     });
   }
 

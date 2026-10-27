@@ -34,6 +34,7 @@ const BLANK = {
   allowHalfDay: true, minNoticeDays: '', maxDaysPerRequest: '', backdatedDays: '', sandwich: false,
   negativeDays: 0, encashable: false, maxEncashDays: '',
   entitlements: [], probationRule: 'ACCRUE', approval: '', autoApproveUpToDays: '', handOnAfterDays: '',
+  accrualBasis: 'CALENDAR', perDaysWorked: '', minDaysWorked: '', oshCarry: false, countsCalendarDays: false, availableAfterBasis: 'JOINING',
 };
 /* One entitlement rule: days a year for an employee type, after years of service, or both. */
 const BLANK_RULE = { employeeTypeId: '', years: '', annualDays: '' };
@@ -56,25 +57,47 @@ const APPROVAL_WORDS = { HR: 'HR decides', MANAGER: 'the manager decides', MANAG
 const EARNED = { name: 'Earned Leave', code: 'EL', accrual: 'MONTHLY', encashable: true, minNoticeDays: 7, color: '#d97706' };
 const CASUAL = { name: 'Casual Leave', code: 'CL', accrual: 'MONTHLY', creditOn: 'START', minNoticeDays: 1, maxDaysPerRequest: 3, color: '#2563eb' };
 const SICK = { name: 'Sick Leave', code: 'SL', backdatedDays: 7, isPrivate: true, color: '#16a34a' };
-const MATERNITY = { name: 'Maternity Leave', code: 'ML', annualDays: 182, gender: 'FEMALE', allowHalfDay: false, prorateForJoiners: false, isPrivate: true, color: '#db2777' };
+/* Code on Social Security, ch. VI: 26 weeks as one request in calendar days, 80 days worked in the 12 months before. */
+const MATERNITY_HELP = '26 weeks (12 from the third child).';
+const MATERNITY = { name: 'Maternity Leave', code: 'ML', annualDays: 182, gender: 'FEMALE', allowHalfDay: false, prorateForJoiners: false, isPrivate: true, color: '#db2777', description: MATERNITY_HELP, maxDaysPerRequest: 182, countsCalendarDays: true, availableAfterDays: 80, availableAfterBasis: 'DAYS_WORKED' };
 const PATERNITY = { name: 'Paternity Leave', code: 'PL', annualDays: 15, gender: 'MALE', allowHalfDay: false, isPrivate: true, color: '#0891b2' };
 const LOP = { name: 'Loss of Pay', code: 'LOP', isPaid: false, annualDays: 0, color: '#64748b' };
+/*
+ * Each set's figure the research says is disputed or out of date (TIME-LEAVE-MARKET-RESEARCH.md, statute table and
+ * G1). The numbers are left as they were; the owner is told to check them when creating the set.
+ */
 const STATE_SETS = [
-  { value: 'KA', label: 'Karnataka', types: [{ ...EARNED, annualDays: 18, carryForwardMax: 45 }, { ...CASUAL, annualDays: 12 }, { ...SICK, annualDays: 12 }, MATERNITY, PATERNITY, LOP] },
-  { value: 'MH', label: 'Maharashtra', types: [{ ...EARNED, annualDays: 21, carryForwardMax: 45 }, { ...CASUAL, annualDays: 8 }, { ...SICK, annualDays: 10 }, MATERNITY, PATERNITY, LOP] },
-  { value: 'TN', label: 'Tamil Nadu', types: [{ ...EARNED, annualDays: 12, carryForwardMax: 24, availableAfterDays: 240 }, { ...CASUAL, annualDays: 12 }, { ...SICK, annualDays: 12 }, MATERNITY, PATERNITY, LOP] },
-  { value: 'DL', label: 'Delhi', types: [{ ...EARNED, annualDays: 15, carryForwardMax: 45 }, { ...CASUAL, name: 'Casual & Sick Leave', code: 'CSL', annualDays: 12, backdatedDays: 7 }, MATERNITY, PATERNITY, LOP] },
-  { value: 'FA', label: 'Factories Act', types: [{ ...EARNED, annualDays: 15, carryForwardMax: 30, availableAfterDays: 240 }, MATERNITY, LOP] },
-  { value: 'OSH', label: 'OSH Code default', types: [{ ...EARNED, annualDays: 15, carryForwardMax: 30, availableAfterDays: 180 }, { ...CASUAL, annualDays: 12 }, { ...SICK, annualDays: 12 }, MATERNITY, PATERNITY, LOP] },
+  { value: 'KA', label: 'Karnataka', note: 'The carry-forward limit: 30 days, or 45 after a 2020–21 amendment; sources conflict, and this set uses 45.', types: [{ ...EARNED, annualDays: 18, carryForwardMax: 45 }, { ...CASUAL, annualDays: 12 }, { ...SICK, annualDays: 12 }, MATERNITY, PATERNITY, LOP] },
+  { value: 'MH', label: 'Maharashtra', note: 'Earned leave: the 2017 Act gives 1 day per 20 worked after 240 days; this set’s flat 21 is the old Act’s figure.', types: [{ ...EARNED, annualDays: 21, carryForwardMax: 45 }, { ...CASUAL, annualDays: 8 }, { ...SICK, annualDays: 10 }, MATERNITY, PATERNITY, LOP] },
+  { value: 'TN', label: 'Tamil Nadu', note: 'The carry-forward limit: 45 or 36 days, sources conflict (this set uses 24); some sources combine sick and casual leave.', types: [{ ...EARNED, annualDays: 12, carryForwardMax: 24, availableAfterDays: 240 }, { ...CASUAL, annualDays: 12 }, { ...SICK, annualDays: 12 }, MATERNITY, PATERNITY, LOP] },
+  { value: 'DL', label: 'Delhi', note: 'The carry-forward limit: 45 days in the Labour Department’s FAQ, 30 in commentary; this set uses 45.', types: [{ ...EARNED, annualDays: 15, carryForwardMax: 45 }, { ...CASUAL, name: 'Casual & Sick Leave', code: 'CSL', annualDays: 12, backdatedDays: 7 }, MATERNITY, PATERNITY, LOP] },
+  { value: 'FA', label: 'Factories Act', note: 'Earned leave is 1 day per 20 worked after 240 days, not a flat 15; the Act gave way to the OSH Code on 21 Nov 2025, though state rules may lag. The Factories Act earned leave starting point counts days worked.', types: [{ ...EARNED, annualDays: 15, carryForwardMax: 30, availableAfterDays: 240 }, MATERNITY, LOP] },
+  { value: 'OSH', label: 'OSH Code default', note: 'Earned leave is 1 day per 20 worked after 180 days in a calendar year, not a flat 15; whether the excess over 30 is paid out at the year end or on demand, sources conflict. The OSH Code earned leave starting point counts days worked.', types: [{ ...EARNED, annualDays: 15, carryForwardMax: 30, availableAfterDays: 180 }, { ...CASUAL, annualDays: 12 }, { ...SICK, annualDays: 12 }, MATERNITY, PATERNITY, LOP] },
 ];
 /* The usual Indian set. Sick and maternity leave are private: the reason is nobody's business but HR's. */
 const TEMPLATES = [
   { name: 'Casual Leave', code: 'CL', annualDays: 12, accrual: 'MONTHLY', creditOn: 'START', minNoticeDays: 1, maxDaysPerRequest: 3, color: '#2563eb' },
   { name: 'Sick Leave', code: 'SL', annualDays: 6, backdatedDays: 7, isPrivate: true, color: '#16a34a' },
   { name: 'Earned Leave', code: 'EL', annualDays: 15, accrual: 'MONTHLY', carryForwardMax: 30, encashable: true, maxEncashDays: 15, minNoticeDays: 7, availableAfterDays: 180, color: '#d97706' },
-  { name: 'Maternity Leave', code: 'ML', annualDays: 182, gender: 'FEMALE', allowHalfDay: false, prorateForJoiners: false, isPrivate: true, color: '#db2777' },
+  MATERNITY,
   { name: 'Paternity Leave', code: 'PL', annualDays: 5, gender: 'MALE', allowHalfDay: false, color: '#0891b2' },
   { name: 'Loss of Pay', code: 'LOP', isPaid: false, annualDays: 0, color: '#64748b' },
+];
+/*
+ * Statutory earned leave, by days worked (OSH Code s.32, Factories Act s.79: TIME-LEAVE-MARKET-RESEARCH.md G1 and G3).
+ * On the calendar year, as both laws count it. Starting points: the owner edits them.
+ */
+const STATUTORY = [
+  { name: 'Earned Leave (OSH Code)', code: 'EL', accrualBasis: 'PER_DAYS_WORKED', perDaysWorked: 20, minDaysWorked: 180, annualDays: 0, carryForwardMax: 30, oshCarry: true, minNoticeDays: 7, color: '#d97706', description: 'One day for every 20 days worked last year, once 180 days are worked.' },
+  { name: 'Earned Leave (Factories Act)', code: 'EL', accrualBasis: 'PER_DAYS_WORKED', perDaysWorked: 20, minDaysWorked: 240, annualDays: 0, carryForwardMax: 30, minNoticeDays: 7, color: '#b45309', description: 'One day for every 20 days worked last year, once 240 days are worked.' },
+];
+const BASIS = [
+  { value: 'CALENDAR', label: 'Days a year' },
+  { value: 'PER_DAYS_WORKED', label: 'Days worked' },
+];
+const AFTER_BASIS = [
+  { value: 'JOINING', label: 'Days after joining' },
+  { value: 'DAYS_WORKED', label: 'Days worked in the 12 months before' },
 ];
 const CREDIT_ON = [
   { value: 'START', label: 'The first day of each part' },
@@ -100,25 +123,30 @@ const ruleText = (e, typeNames) => [e.annualDays, e.employeeTypeId ? `for ${type
 /** One line per rule that is on, so the list reads as the policy. */
 function rulesOf(t, typeNames = new Map()) {
   const r = [];
-  if (t.isPaid) {
+  if (t.isPaid && t.accrualBasis === 'PER_DAYS_WORKED') {
+    r.push(`1 per ${t.perDaysWorked} worked last period${t.minDaysWorked ? `, after ${t.minDaysWorked} worked` : ''}`);
+    r.push(t.carryForwardMax != null ? `carry up to ${t.carryForwardMax}` : 'lapses at year end');
+  } else if (t.isPaid) {
     r.push(`${t.annualDays} a year: ${creditText(t)}`);
     for (const e of t.entitlements || []) r.push(ruleText(e, typeNames));
     if (t.probationRule === 'HOLD') r.push('starts when confirmed');
     if (t.probationRule === 'LOCK') r.push('locked until confirmed');
     r.push(t.carryForwardMax != null ? `carry up to ${t.carryForwardMax}` : 'lapses at year end');
-  } else r.push('unpaid: loss of pay');
+  } else if (!t.isPaid) r.push('unpaid: loss of pay');
+  if (t.isPaid && t.oshCarry) r.push('refused days carry, the excess paid out');
   if (t.approval && APPROVAL_WORDS[t.approval]) r.push(APPROVAL_WORDS[t.approval]);
   if (t.autoApproveUpToDays != null) r.push(`approved on its own up to ${t.autoApproveUpToDays}`);
   if (t.handOnAfterDays != null) r.push(`to HR after ${plural(t.handOnAfterDays, 'day')} waiting`);
   if (t.isPrivate) r.push('private');
   if (t.gender) r.push(t.gender === 'FEMALE' ? 'women' : 'men');
   if (t.employeeTypeIds?.length) r.push(t.employeeTypeIds.map((i) => typeNames.get(i) || 'a type').join(', '));
-  if (t.availableAfterDays) r.push(`after ${plural(t.availableAfterDays, 'day')} of joining`);
+  if (t.availableAfterDays) r.push(t.availableAfterBasis === 'DAYS_WORKED' ? `after ${plural(t.availableAfterDays, 'day')} worked in 12 months` : `after ${plural(t.availableAfterDays, 'day')} of joining`);
   if (t.minNoticeDays) r.push(`${plural(t.minNoticeDays, 'day')} notice`);
   if (t.maxDaysPerRequest != null) r.push(`at most ${t.maxDaysPerRequest} at a time`);
   if (t.backdatedDays != null) r.push(t.backdatedDays ? `up to ${plural(t.backdatedDays, 'day')} late` : 'not after the day');
   if (t.allowHalfDay === false) r.push('whole days');
   if (t.sandwich) r.push('sandwich rule');
+  if (t.countsCalendarDays) r.push('calendar days');
   if (t.negativeDays) r.push(`${t.negativeDays} in advance`);
   if (t.encashable) r.push(t.maxEncashDays != null ? `pay out up to ${t.maxEncashDays}` : 'paid out');
   return r;
@@ -133,11 +161,14 @@ const formOf = (t) => ({
   backdatedDays: t.backdatedDays ?? '', availableAfterDays: t.availableAfterDays ?? '', maxEncashDays: t.maxEncashDays ?? '',
   entitlements: (t.entitlements || []).map((e) => ({ employeeTypeId: e.employeeTypeId || '', years: yearsOf(e.minServiceMonths), annualDays: e.annualDays ?? '' })),
   probationRule: t.probationRule || 'ACCRUE', approval: t.approval || '', autoApproveUpToDays: t.autoApproveUpToDays ?? '', handOnAfterDays: t.handOnAfterDays ?? '',
+  accrualBasis: t.accrualBasis || 'CALENDAR', perDaysWorked: t.perDaysWorked ?? '', minDaysWorked: t.minDaysWorked ?? '',
+  oshCarry: Boolean(t.oshCarry), countsCalendarDays: Boolean(t.countsCalendarDays), availableAfterBasis: t.availableAfterBasis || 'JOINING',
 });
 
 /** What the server is sent, for a save and for the preview alike. */
 function bodyOf(form) {
   const paid = Boolean(form.isPaid);
+  const byWorked = paid && form.accrualBasis === 'PER_DAYS_WORKED';
   return {
     name: String(form.name || '').trim(),
     code: String(form.code || '').trim() || null,
@@ -163,11 +194,17 @@ function bodyOf(form) {
     negativeDays: paid ? Number(form.negativeDays) || 0 : 0,
     encashable: paid && Boolean(form.encashable),
     maxEncashDays: paid && form.encashable ? num(form.maxEncashDays) : null,
-    entitlements: paid ? (form.entitlements || []).map((e) => ({ employeeTypeId: e.employeeTypeId || null, minServiceMonths: monthsOf(e.years) || null, annualDays: Number(e.annualDays) || 0 })) : [],
+    entitlements: paid && !byWorked ? (form.entitlements || []).map((e) => ({ employeeTypeId: e.employeeTypeId || null, minServiceMonths: monthsOf(e.years) || null, annualDays: Number(e.annualDays) || 0 })) : [],
     probationRule: paid ? form.probationRule || 'ACCRUE' : 'ACCRUE',
     approval: form.approval || null,
     autoApproveUpToDays: num(form.autoApproveUpToDays),
     handOnAfterDays: num(form.handOnAfterDays),
+    accrualBasis: byWorked ? 'PER_DAYS_WORKED' : 'CALENDAR',
+    perDaysWorked: byWorked ? num(form.perDaysWorked) : null,
+    minDaysWorked: byWorked ? num(form.minDaysWorked) : null,
+    oshCarry: paid && Boolean(form.oshCarry),
+    countsCalendarDays: Boolean(form.countsCalendarDays),
+    availableAfterBasis: form.availableAfterBasis === 'DAYS_WORKED' ? 'DAYS_WORKED' : 'JOINING',
   };
 }
 
@@ -194,6 +231,8 @@ export default function LeavePolicy() {
     .filter((t) => (tab === 'active' ? t.isActive : !t.isActive))
     .filter((t) => !q || `${t.name} ${t.code || ''} ${t.description || ''}`.toLowerCase().includes(q.toLowerCase()));
   const missing = TEMPLATES.filter((x) => !all.some((t) => lower(t.name) === lower(x.name)));
+  /* A statutory starting point keeps its code only when no type has it yet: one code per type. */
+  const statutory = STATUTORY.filter((x) => !all.some((t) => lower(t.name) === lower(x.name))).map((x) => (all.some((t) => lower(t.code || '') === lower(x.code)) ? { ...x, code: '' } : x));
   const start = (value) => setEditing((e) => ({ value, seq: (e?.seq || 0) + 1 }));
   const [startingFrom, setStartingFrom] = useState(false);
 
@@ -206,7 +245,7 @@ export default function LeavePolicy() {
     if (!fresh.length) { notify.error(`Every type in the ${set.label} set is already in the list.`); return; }
     const ok = await confirmDialog({
       title: `Start from ${set.label}?`,
-      message: `Creates ${fresh.map((x) => (x.isPaid === false ? `${x.name} (unpaid)` : `${x.name}, ${x.annualDays} a year`)).join('; ')}.${skipped ? ` ${plural(skipped, 'type')} already in the list ${skipped === 1 ? 'is' : 'are'} left as ${skipped === 1 ? 'it is' : 'they are'}.` : ''} Starting points: edit them.`,
+      message: `Creates ${fresh.map((x) => (x.isPaid === false ? `${x.name} (unpaid)` : `${x.name}, ${x.annualDays} a year`)).join('; ')}.${skipped ? ` ${plural(skipped, 'type')} already in the list ${skipped === 1 ? 'is' : 'are'} left as ${skipped === 1 ? 'it is' : 'they are'}.` : ''} Starting points: edit them. Check against your state's rules: ${set.note}`,
       confirmLabel: 'Create them',
       tone: 'default',
     });
@@ -232,7 +271,7 @@ export default function LeavePolicy() {
     ) },
     { key: 'code', label: 'Code', render: (t) => t.code || '—' },
     { key: 'policy', label: 'Policy', render: (t) => <span className="whitespace-normal">{rulesOf(t, typeNames).join('; ')}</span> },
-    { key: 'requests', label: 'Requests', align: 'right', render: (t) => <span className="tabular-nums">{t.requests || 0}</span> },
+    { key: 'requests', label: 'Requests', align: 'right', render: (t) => <span className="tabular-nums">{t.requests == null ? '—' : t.requests}</span> },
   ];
 
   return (
@@ -248,10 +287,13 @@ export default function LeavePolicy() {
           {canEdit ? <button type="button" className="ui-link ml-3" onClick={() => setEditingPeriod(true)}>Change</button> : null}
         </p>
       ) : null}
-      {canCreate && req.data && missing.length ? (
+      {canCreate && req.data && (missing.length || statutory.length) ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className="ui-caption">Usual types</span>
           {missing.map((x) => (
+            <button key={x.name} type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => start({ ...BLANK, ...x })}><Plus size={14} aria-hidden="true" /> {x.name}</button>
+          ))}
+          {statutory.map((x) => (
             <button key={x.name} type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => start({ ...BLANK, ...x })}><Plus size={14} aria-hidden="true" /> {x.name}</button>
           ))}
           <div className="w-full sm:w-64 sm:ml-auto">
@@ -351,6 +393,7 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
   const [error, setError] = useState(null);
   const set = (k) => (v) => { setError(null); setForm((f) => ({ ...f, [k]: v })); };
   const paid = Boolean(form.isPaid);
+  const byWorked = paid && form.accrualBasis === 'PER_DAYS_WORKED';
   /* A usual type, or a new type made from one in use, is unsaved work before it is touched; a blank form is not. */
   const dirty = (!form.id && Boolean(start.name)) || JSON.stringify(form) !== JSON.stringify(start);
   const body = bodyOf(form);
@@ -359,9 +402,9 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
   const forkable = Boolean(form.id && canCreate && error?.code === 'LEAVE_POLICY_IN_USE');
   const setRule = (i, patch) => set('entitlements')(form.entitlements.map((e, j) => (j === i ? { ...e, ...patch } : e)));
   /* A rule says who: an employee type, a length of service, or both; and how many days. */
-  const ruleProblem = paid && form.entitlements.some((e) => !e.employeeTypeId && !(Number(e.years) > 0))
+  const ruleProblem = paid && !byWorked && form.entitlements.some((e) => !e.employeeTypeId && !(Number(e.years) > 0))
     ? 'Each rule names an employee type, years of service, or both.'
-    : paid && form.entitlements.some((e) => e.annualDays === '' || Number(e.annualDays) < 0) ? 'Each rule says how many days a year.' : null;
+    : paid && !byWorked && form.entitlements.some((e) => e.annualDays === '' || Number(e.annualDays) < 0) ? 'Each rule says how many days a year.' : null;
 
   const save = async (e) => {
     e?.preventDefault();
@@ -414,7 +457,7 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
       title={form.id ? start.name : 'New leave type'}
       footer={canSave ? (
         <>
-          {form.id && canDelete && !Number(form.requests) ? <button type="button" className="ui-btn ui-btn-secondary mr-auto" onClick={remove}>Delete</button> : null}
+          {form.id && canDelete && form.requests === 0 ? <button type="button" className="ui-btn ui-btn-secondary mr-auto" onClick={remove}>Delete</button> : null}
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
           <button type="submit" form="leave-policy" className="ui-btn ui-btn-primary" disabled={saving || !body.name || !dirty || Boolean(ruleProblem)}>{saving ? 'Saving…' : 'Save'}</button>
         </>
@@ -443,6 +486,19 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
 
           {paid ? (
             <Section title="What it gives">
+              <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Earned on" value={form.accrualBasis || 'CALENDAR'} onChange={(v) => set('accrualBasis')(v || 'CALENDAR')} options={BASIS} /></div>
+              {byWorked ? (
+                <>
+                  <NumberField label="One day for every, days worked" value={form.perDaysWorked} onChange={set('perDaysWorked')} placeholder="e.g. 20" step={0.5} />
+                  <NumberField label="Only once worked, days in the period" value={form.minDaysWorked} onChange={set('minDaysWorked')} placeholder="e.g. 180" hint="Paid leave counts towards it." />
+                  <p className="ui-caption sm:col-span-2">Credited on the first day of each leave period, from the days worked in the period before: the attendance record with Attendance, otherwise working days less leave. The OSH Code and the Factories Act count the calendar year, so set the leave period to January if it is not.</p>
+                </>
+              ) : null}
+            </Section>
+          ) : null}
+
+          {paid && !byWorked ? (
+            <Section title="How it is credited">
               <NumberField label="Days a year" value={form.annualDays} onChange={set('annualDays')} step={0.5} />
               <div><PopupSelect showValueSubtext={false} label="Credited" value={form.accrual || 'YEARLY'} onChange={(v) => set('accrual')(v || 'YEARLY')} options={Object.entries(ACCRUAL_LABEL).map(([value, label]) => ({ value, label }))} /></div>
               <div><PopupSelect showValueSubtext={false} label="On" value={form.creditOn || 'START'} onChange={(v) => set('creditOn')(v || 'START')} options={CREDIT_ON} /></div>
@@ -452,7 +508,7 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
             </Section>
           ) : null}
 
-          {paid ? (
+          {paid && !byWorked ? (
             <Section title="Who gets how much">
               <div className="sm:col-span-2 space-y-3">
                 <p className="text-sm">Everyone else: <span className="tabular-nums">{Number(form.annualDays) || 0}</span> a year.</p>
@@ -486,7 +542,9 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
 
           <Section title="Who it is for">
             <div><PopupSelect showValueSubtext={false} label="Gender" value={form.gender} onChange={(v) => set('gender')(v || '')} options={GENDERS} /></div>
-            <NumberField label="Usable after joining, days" value={form.availableAfterDays} onChange={set('availableAfterDays')} placeholder="From the first day" />
+            <NumberField label="Usable after, days" value={form.availableAfterDays} onChange={set('availableAfterDays')} placeholder="From the first day" />
+            <div><PopupSelect showValueSubtext={false} label="Counted as" value={form.availableAfterBasis || 'JOINING'} onChange={(v) => set('availableAfterBasis')(v || 'JOINING')} options={AFTER_BASIS} /></div>
+            {form.availableAfterBasis === 'DAYS_WORKED' ? <p className="ui-caption sm:col-span-2">Days worked in the 12 months before the leave starts, paid leave included. Maternity under the Code on Social Security asks for 80.</p> : null}
             {empTypes.length ? (
               <fieldset className="sm:col-span-2">
                 <legend className="ui-label">Employee types</legend>
@@ -502,11 +560,13 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
 
           <Section title="How it is asked for" note="Notice and lateness apply to people asking for themselves; HR can always enter leave.">
             <NumberField label="Notice, days ahead" value={form.minNoticeDays} onChange={set('minNoticeDays')} placeholder="Any time" />
-            <NumberField label="Longest request, days" value={form.maxDaysPerRequest} onChange={set('maxDaysPerRequest')} placeholder="No limit" step={0.5} />
+            <NumberField label="Longest request, days" value={form.maxDaysPerRequest} onChange={set('maxDaysPerRequest')} placeholder="No limit" step={0.5} hint="Up to 182 (26 weeks). Without it, one request spans at most 60 days." />
             <NumberField label="Asked for after the day, up to" value={form.backdatedDays} onChange={set('backdatedDays')} placeholder="No limit" hint="0: only before the day." />
             <div />
             <Check label="Half days allowed" checked={form.allowHalfDay} onChange={set('allowHalfDay')} />
-            <Check label="Sandwich rule" hint="Weekly offs and holidays between two leave days count as leave. Friday and Monday off makes four days." checked={form.sandwich} onChange={set('sandwich')} />
+            <Check label="Sandwich rule" hint="Weekly offs and holidays between two leave days count as leave. Friday and Monday off makes four days." checked={form.sandwich} disabled={form.countsCalendarDays} onChange={set('sandwich')} />
+            <Check label="Counts calendar days" hint="Every date in a request is a leave day, weekly offs and holidays included, as maternity leave counts." checked={form.countsCalendarDays} onChange={set('countsCalendarDays')} />
+            {form.countsCalendarDays && form.gender === 'FEMALE' ? <p className="ui-caption sm:col-span-2">For a woman insured under ESIC, maternity benefit is paid by ESIC, not by the employer through payroll. CLOR does not work it out.</p> : null}
           </Section>
 
           <Section title="Who approves">
@@ -518,6 +578,7 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
           {paid ? (
             <Section title="What happens to the balance">
               <NumberField label="Carry into next year, up to" value={form.carryForwardMax} onChange={set('carryForwardMax')} placeholder="Nothing: unused days lapse" step={0.5} />
+              <Check label="OSH Code carry-forward" hint="Days asked for and refused in the year carry on top of the limit (30 under the Code), and what is over the limit is paid out by the year end, encashment or not." checked={form.oshCarry} onChange={set('oshCarry')} />
               <NumberField label="Days allowed in advance" value={form.negativeDays} onChange={set('negativeDays')} hint="The balance may go this far below zero." step={0.5} />
               <Check label="Unused days can be paid out (encashment)" checked={form.encashable} onChange={set('encashable')} />
               {form.encashable ? <NumberField label="Paid out at most, days a year" value={form.maxEncashDays} onChange={set('maxEncashDays')} placeholder="No limit" step={0.5} /> : null}

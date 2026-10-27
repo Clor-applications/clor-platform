@@ -103,4 +103,22 @@ describe('days from leave, without Attendance', () => {
     const { runId } = await setUp(c);
     expect((await pay(c, `/runs/${runId}/inputs/from-leave`).expect(409)).body.code).toBe('USE_ATTENDANCE');
   }, 60_000);
+
+  it('once a payroll run is approved or locked, leave in its period no longer moves: People-only too (closure audit, 28 Oct 2026)', async () => {
+    const c = await makeOwner({ payroll: true, people: true, attendance: false });
+    const { employeeId, runId } = await setUp(c);
+    const lop = (await att(c, '/leave/types', { name: 'Loss of pay', isPaid: false }).expect(201)).body.type;
+    const taken = (await att(c, '/leave/requests', { employeeId, leaveTypeId: lop.id, fromDate: '2026-09-01', toDate: '2026-09-01', reason: 'Personal' }).expect(201)).body.request;
+    await att(c, `/leave/requests/${taken.id}/approve`).expect(200);
+    const waiting = (await att(c, '/leave/requests', { employeeId, leaveTypeId: lop.id, fromDate: '2026-09-10', toDate: '2026-09-10', reason: 'Later' }).expect(201)).body.request;
+    const run = await payrollPrisma.payrollRun.findFirstOrThrow({ where: { id: runId } });
+    const member = await payrollPrisma.payrollRunEmployee.findFirst({ where: { runId, employeeId } });
+    if (!member) await payrollPrisma.payrollRunEmployee.create({ data: { accountId: run.accountId, orgId: run.orgId, runId, employeeId, inclusion: 'INCLUDED' } as any });
+    await payrollPrisma.payrollRun.update({ where: { id: runId }, data: { status: 'LOCKED' } });
+    expect((await att(c, `/leave/requests/${taken.id}/cancel`).expect(409)).body.code).toBe('PAYROLL_TAKEN');
+    expect((await att(c, `/leave/requests/${waiting.id}/approve`).expect(409)).body.code).toBe('PAYROLL_TAKEN');
+    /* Outside the period, leave goes on as before. */
+    const october = (await att(c, '/leave/requests', { employeeId, leaveTypeId: lop.id, fromDate: '2026-10-06', toDate: '2026-10-06', reason: 'Next month' }).expect(201)).body.request;
+    await att(c, `/leave/requests/${october.id}/approve`).expect(200);
+  }, 60_000);
 });

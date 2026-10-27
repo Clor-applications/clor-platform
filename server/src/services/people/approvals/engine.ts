@@ -6,6 +6,7 @@ import { exclusive, leaseFor } from '../../jobLease.js';
 import { notifyUsers, usersHoldingRoles, usersWithPermission } from '../../notifications.js';
 import type { Actor } from '../changeLog.js';
 import { writeChangeLog } from '../changeLog.js';
+import { registerJob } from '../../jobRegistry.js';
 
 /**
  * The approval engine (docs/people/02-PRD.md APR-01..07; build contract §5.3).
@@ -552,6 +553,7 @@ export function startApprovalDues({ intervalMs = 15 * 60_000, startupDelayMs = 6
       running = false;
     }
   };
+  registerJob('startApprovalDues', tick, intervalMs);
   const startup = setTimeout(tick, startupDelayMs);
   const timer = setInterval(tick, intervalMs);
   startup.unref?.();

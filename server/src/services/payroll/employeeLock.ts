@@ -35,7 +35,7 @@ export const PAYROLL_HISTORY = [
 ] as const;
 
 /** Setup that belongs to the person and nothing else: removed with them. */
-export const PAYROLL_SETUP = ['employeePayrollProfile', 'employeeStatutoryConfig', 'salaryComponentEmployee'] as const;
+export const PAYROLL_SETUP = ['employeePayrollProfile', 'employeeStatutoryConfig', 'salaryComponentEmployee', 'pfNominee'] as const;
 
 /**
  * Write a payroll record for someone only while they exist: the lock, then

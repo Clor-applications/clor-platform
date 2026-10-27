@@ -63,7 +63,9 @@ async function leaver(c: Ctx) {
   await api.post(c, `/runs/${run}/approve`).expect(200);
 
   /* Twelve days of paid leave a year; none taken. */
-  await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/types`).set(at(c)).send({ name: 'Earned', annualDays: 12 }).expect(201);
+  await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/types`).set(at(c)).send({ name: 'Earned', annualDays: 12, encashable: true }).expect(201);
+  /* Not paid out on leaving: the settlement must not propose it (HR-view audit, 28 Oct 2026). */
+  await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/types`).set(at(c)).send({ name: 'Casual', annualDays: 12 }).expect(201);
   const { accountId } = (await peoplePrisma.employee.findUnique({ where: { id: employeeId }, select: { accountId: true } }))!;
   await payrollPrisma.payrollLoan.create({
     data: { accountId, orgId: c.orgId, number: `L-${rnd()}`, employeeId, type: 'SALARY_ADVANCE', principal: 10_000, startDate: '2026-08-01', outstandingBalance: 4_000, status: 'ACTIVE', createdByUserId: 'test' },
@@ -100,6 +102,7 @@ describe('a settlement', () => {
     const line = (code: string) => s.lines.find((l: { code: string }) => l.code === code);
     expect(line('GRATUITY').amount).toBe(121_153.85);
     expect(line('LOAN_RECOVERY')).toMatchObject({ kind: 'DEDUCTION', amount: 4000, label: 'Advance recovery' });
+    expect(s.lines.filter((l: { code: string }) => l.code.startsWith('LEAVE_')).map((l: { label: string }) => l.label)).toEqual(['Earned encashment']);
     const leave = s.lines.find((l: { code: string }) => l.code.startsWith('LEAVE_'));
     expect(leave.amount).toBe(Math.round(Number(leave.explanation.match(/^([\d.]+) days/)![1]) * 1153.85 * 100) / 100);
     expect(s.netPayable).toBeCloseTo(121_153.85 + leave.amount - 4000, 2);

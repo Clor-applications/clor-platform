@@ -269,6 +269,7 @@ export default async function setup() {
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261017150100_tax_declarations_rls');
   /* A-35: fail closed — last, after every policy above exists. */
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261024100000_rls_fail_closed');
+  await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261031100100_pf_nominees_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261014130100_people_org_structure_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261014140100_attendance_rls');
@@ -324,6 +325,7 @@ export default async function setup() {
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261025120100_saved_views_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261026100100_employee_drafts_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261029110100_time_leave_advanced_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261031100100_joining_statutory_app_access_offers_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024100000_rls_fail_closed');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024120500_portal_sessions_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');
@@ -337,6 +339,8 @@ export default async function setup() {
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261024120100_credentials_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261024140100_outside_access_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261026090100_operator_audit_append_only');
+  await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261028090000_audit_log_actor_append_only');
+  await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261031090100_product_events_append_only');
 
   await grantToAppRole(database, schemas);
 

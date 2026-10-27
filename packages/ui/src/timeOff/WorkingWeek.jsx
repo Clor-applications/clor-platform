@@ -32,7 +32,8 @@ const text = (a) => [...a].sort((x, y) => x - y).join(',');
 
 export default function WorkingWeek() {
   const perms = usePermissions();
-  const canEdit = can(perms, 'ATTENDANCE::Leave Types::EDIT');
+  /* The working week is the company's: a team-scoped role reads it (the server refuses its changes). */
+  const canEdit = can(perms, 'ATTENDANCE::Leave Types::EDIT') && !perms?.ownDocumentsOnly;
   const req = useRequest(() => getWorkingWeek(), []);
   const saved = useMemo(() => (req.data ? { offs: text(list(req.data.weeklyOffDays)), sats: text(list(req.data.offSaturdays)), quota: String(req.data.restrictedHolidayQuota ?? 0), compOff: req.data.compOffLeaveTypeId || '' } : null), [req.data]);
   /* Comp-off lands in one paid leave type; set here so a People-only company can grant it. */

@@ -251,6 +251,14 @@ describe('a People-only company, and the employee app', () => {
     /* Approved, still ahead: the person may withdraw it, and the day goes back. */
     expect((await me.post(`/requests/${r.id}/cancel`).expect(200)).body.request.status).toBe('CANCELLED');
     expect((await days(c, asha.id, nextMonth.thu, nextMonth.thu))[0].dayKind).toBeNull();
+    /* Closure audit (28 Oct 2026): the app's actions are in the audit log, named for the employee, and the log cannot be edited. */
+    const { platformPrisma } = await import('../utils/platformPrisma.js');
+    const lines = await platformPrisma.auditLog.findMany({ where: { orgId: c.orgId, entityId: r.id }, orderBy: { createdAt: 'asc' } });
+    expect(lines.map((l) => [l.action, l.createdByUserId])).toEqual(expect.arrayContaining([['CREATE', `portal:${asha.id}`], ['APPROVE', `portal:${boss.id}`]]));
+    await expect(platformPrisma.auditLog.update({ where: { id: lines[0].id }, data: { message: 'changed' } })).rejects.toThrow(/append_only/);
+    await expect(platformPrisma.auditLog.delete({ where: { id: lines[0].id } })).rejects.toThrow(/append_only/);
+    const shown = (await request(app).get(`/api/orgs/${c.orgId}/audit?entityId=${r.id}`).set(at(c)).expect(200)).body.entries;
+    expect(shown.find((e: any) => e.action === 'APPROVE').by).toMatchObject({ name: 'Boss (employee app)' });
     /* The old correction route still works, as a missed punch. */
     const corr = (await me.post('/corrections', { date: pastTuesday, checkIn: '09:00', reason: 'Reader was slow' }).expect(201)).body.request;
     expect(corr.kind).toBe('MISSED_PUNCH');
@@ -354,4 +362,63 @@ describe('Attendance app on the shared engine (27 Oct 2026): bulk decisions, the
     expect(ok.employees).toEqual([]);
     expect((await att(only, 'get', '/suggestions?field=leaveReason').expect(200)).body.values).toEqual([]);
   });
+});
+
+describe('closure audit (28 Oct 2026): the employee app', () => {
+  let c: Ctx;
+  let boss: any;
+  let asha: any;
+  let ravi: any;
+  let app2: (employeeId: string, code: string) => Promise<any>;
+  beforeAll(async () => {
+    c = await company({ people: true, attendance: true });
+    boss = await person(c, { name: 'Boss', code: 'B1' });
+    asha = await person(c, { name: 'Asha', code: 'P1', reportingManagerId: boss.id });
+    ravi = await person(c, { name: 'Ravi', code: 'P2', reportingManagerId: boss.id });
+    await att(c, 'put', '/request-rules', { WFH: { on: true } }).expect(200);
+    const access = (await att(c, 'get', '/portal-access').expect(200)).body.company.code;
+    app2 = async (employeeId: string, code: string) => {
+      const issued = (await att(c, 'post', '/portal-access/codes', { employeeIds: [employeeId] }).expect(200)).body.codes[0].activationCode;
+      const token = (await request(app).post('/api/portal/activate').send({ company: access, employeeCode: code, activationCode: issued, password: 'mine pass 1' }).expect(200)).body.token;
+      return {
+        get: (p: string) => request(app).get(`/api/portal${p}`).set('Authorization', `Bearer ${token}`),
+        post: (p: string, b: unknown = {}) => request(app).post(`/api/portal${p}`).set('Authorization', `Bearer ${token}`).send(b as any),
+        put: (p: string, b: unknown = {}) => request(app).put(`/api/portal${p}`).set('Authorization', `Bearer ${token}`).send(b as any),
+      };
+    };
+  }, 90_000);
+
+  it('a stand-in for their own manager decides the team, but never their own request', async () => {
+    const t = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    await att(c, 'post', '/leave/stand-ins', { managerEmployeeId: boss.id, standInEmployeeId: asha.id, fromDate: t, toDate: t }).expect(201);
+    const me = await app2(asha.id, 'P1');
+    const mine = (await me.post('/requests', { kind: 'WFH', date: nextMonth.mon, reason: 'Home' }).expect(201)).body.request;
+    const his = (await att(c, 'post', '/requests', { employeeId: ravi.id, kind: 'WFH', date: nextMonth.tue, reason: 'Home' }).expect(201)).body.request;
+    const queue = (await me.get('/approvals').expect(200)).body;
+    expect(queue.requests.map((x: any) => x.id)).toContain(his.id);
+    expect(queue.requests.map((x: any) => x.id)).not.toContain(mine.id);
+    await me.post(`/approvals/request/${mine.id}`, { decision: 'approve' }).expect(403);
+    await me.post(`/approvals/request/${his.id}`, { decision: 'approve' }).expect(200);
+  }, 60_000);
+
+  it('the old correction routes change and withdraw a missed punch only, through the shared rules', async () => {
+    const me = await app2(ravi.id, 'P2');
+    const wfh = (await me.post('/requests', { kind: 'WFH', date: nextMonth.wed, reason: 'Home' }).expect(201)).body.request;
+    expect((await me.put(`/corrections/${wfh.id}`, { checkIn: '09:00', reason: 'sneaky' }).expect(409)).body.code).toBe('NOT_A_CORRECTION');
+    expect((await me.post(`/corrections/${wfh.id}/cancel`).expect(409)).body.code).toBe('NOT_A_CORRECTION');
+    const corr = (await me.post('/corrections', { date: pastTuesday, checkIn: '09:00', reason: 'Reader was slow' }).expect(201)).body.request;
+    const changed = (await me.put(`/corrections/${corr.id}`, { checkIn: '09:15', reason: 'Reader was slow, 9:15' }).expect(200)).body.request;
+    expect(changed.history.map((h: any) => h.what)).toEqual(['ASKED', 'EDITED']);
+    expect((await me.post(`/corrections/${corr.id}/cancel`).expect(200)).body.request.status).toBe('CANCELLED');
+  }, 60_000);
+
+  it('lists only the leave types a person may ask for: a woman does not see paternity leave', async () => {
+    await att(c, 'post', '/leave/types', { name: 'Paternity', annualDays: 15, gender: 'MALE' }).expect(201);
+    await att(c, 'post', '/leave/types', { name: 'Casual', annualDays: 12 }).expect(201);
+    const meera = await person(c, { name: 'Meera', code: 'P3', gender: 'FEMALE' });
+    const me = await app2(meera.id, 'P3');
+    const names = (await me.get('/leave').expect(200)).body.types.map((t: any) => t.name);
+    expect(names).toContain('Casual');
+    expect(names).not.toContain('Paternity');
+  }, 60_000);
 });

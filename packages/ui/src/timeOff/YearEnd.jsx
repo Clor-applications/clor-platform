@@ -25,7 +25,8 @@ const stamp = (at) => formatDate(new Date(new Date(at).getTime() + 330 * 60_000)
 
 export default function YearEnd() {
   const perms = usePermissions();
-  const canRun = can(perms, 'ATTENDANCE::Leave Requests::EDIT');
+  /* Year end is run for the whole company: a team-scoped role sees it, the server refuses its run. */
+  const canRun = can(perms, 'ATTENDANCE::Leave Requests::EDIT') && !perms?.ownDocumentsOnly;
   const settings = useRequest(() => getLeaveSettings().catch(() => null), []);
   const [picked, setPicked] = useState(null);
   const year = picked ?? settings.data?.previous?.year ?? (settings.data?.current ? settings.data.current.year - 1 : null);

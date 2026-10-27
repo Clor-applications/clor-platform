@@ -43,9 +43,9 @@ const DEFAULTS: Record<LetterKind, { name: string; body: string }> = {
 
 Dear {{name}},
 
-We are pleased to offer you the position of {{extra.designation}} at {{orgName}}, at {{establishment}}.
+We are pleased to offer you the position of {{extra.designation}} at {{orgName}}.
 
-Your expected date of joining is {{extra.joiningDate}}. The pay and benefits offered are set out in the attached annexure. This offer is open until {{extra.acceptBy}}; please sign and return a copy to accept it.
+Your expected date of joining is {{extra.joiningDate}}. Your cost to the company (CTC) will be {{extra.ctc}} a year; the monthly pay is set out in the annexure. This offer is open until {{extra.acceptBy}}; to accept it, use the link in the e-mail that came with this letter, or sign and return a copy.
 
 Your appointment is subject to the documents you have listed being found in order and to the company's policies, which you will receive on joining.
 

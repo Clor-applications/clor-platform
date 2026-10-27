@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { CheckCheck, ChevronRight, Cake, Megaphone, UserMinus, UserPlus, Users } from 'lucide-react';
 
 import { EmptyState, PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
-import { getOverview, getPeopleHome, listMyTasks, updateChecklistTask } from '@ui/personnel/api';
+import { getOverview, getPeopleHome, listMyTasks, summaryOpened, updateChecklistTask } from '@ui/personnel/api';
 import { notify } from '@ui/components/ui/notify';
 import { formatDateIn } from '@ui/utils/dates';
 import { Avatar } from '@ui/personnel/Employees';
 import { HomeCheckIn } from '@ui/timeOff/MyDays';
+import HomeSetup from './HomeSetup';
 
 const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'warn' }, info: { label: 'When you can', pill: 'neutral' } };
 const greeting = () => {
@@ -25,6 +26,9 @@ export default function PeopleOverview({ openScreen }) {
   const [todos, setTodos] = useState(null);
   const [tasks, setTasks] = useState(null);
   const [error, setError] = useState('');
+  /* The setup list replaces "All caught up" while it is showing (HomeSetup). */
+  const [setupShowing, setSetupShowing] = useState(false);
+  const onSetup = useCallback((d) => setSetupShowing(Boolean(d?.setup?.show)), []);
   const loadTasks = () => listMyTasks().then(setTasks).catch(() => setTasks([]));
   const tick = async (t) => {
     try {
@@ -44,6 +48,10 @@ export default function PeopleOverview({ openScreen }) {
       .then(setTodos)
       .catch(() => setTodos([]));
     loadTasks();
+    /* Opened from the Monday summary's e-mail: counted once (PRODUCT-VIEW §7). */
+    try {
+      if (new URLSearchParams(window.location.search).get('from') === 'weekly') summaryOpened().catch(() => {});
+    } catch { /* no address to read */ }
   }, []);
   const go = (screen, params) => () => openScreen?.(screen, params);
 
@@ -56,6 +64,7 @@ export default function PeopleOverview({ openScreen }) {
     <div className="space-y-6">
       <PageHeader entity="people" title={greeting()} description="What needs you today, then who works here." />
       <HomeCheckIn />
+      <HomeSetup openScreen={openScreen} onState={onSetup} />
 
       {tasks?.filter((t) => !t.done).length ? (
         <section className="space-y-2" aria-labelledby="mytasks-h">
@@ -96,6 +105,8 @@ export default function PeopleOverview({ openScreen }) {
               </li>
             ))}
           </ul>
+        ) : setupShowing ? (
+          <p className="ui-muted text-sm">Nothing waits for you yet. Start with the steps above.</p>
         ) : (
           <EmptyState icon={CheckCheck} title="All caught up" description="Nothing waits for you: no late onboarding items, payroll details, deadlines, leave, cases or candidates." />
         )}

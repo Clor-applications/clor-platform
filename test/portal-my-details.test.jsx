@@ -13,6 +13,7 @@ vi.mock('../apps/attendance/src/portal/portalApi', () => ({
   getPolicy: vi.fn(),
   acceptItem: vi.fn(async () => ({})),
   shrinkPhoto: vi.fn(),
+  getLeaving: vi.fn(async () => ({ status: 'ACTIVE', lastDay: null, waiting: null })),
 }));
 
 import * as api from '../apps/attendance/src/portal/portalApi';

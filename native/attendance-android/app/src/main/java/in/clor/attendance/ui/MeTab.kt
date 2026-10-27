@@ -66,6 +66,7 @@ fun MeTab(api: Api, onSignedOut: () -> Unit, appearance: Appearance = Appearance
     val me = rememberLoad(onSignedOut) { api.me() }
     val docs = rememberLoad(onSignedOut) { api.documents() }
     var notice by remember { mutableStateOf(false) }
+    var details by remember { mutableStateOf(false) }
     /* The payslip open on its own screen, if any. */
     var slip by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -106,6 +107,12 @@ fun MeTab(api: Api, onSignedOut: () -> Unit, appearance: Appearance = Appearance
         NoticeScreen(api, onSignedOut, mustRead = false) { notice = false }
         return
     }
+    if (details) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding)) {
+            MyDetailsScreen(api, onBack = { details = false }, onSignedOut = onSignedOut)
+        }
+        return
+    }
     slip?.let { id ->
         Column {
             message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
@@ -128,6 +135,7 @@ fun MeTab(api: Api, onSignedOut: () -> Unit, appearance: Appearance = Appearance
                 Text(m.employee.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 Hint(listOfNotNull(m.employee.code, m.employee.designation, m.employee.department).joinToString(" · "))
                 Hint(m.company.name)
+                OutlinedButton(onClick = { details = true }) { Text("My details") }
             }
         }
         message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
@@ -170,7 +178,7 @@ fun MeTab(api: Api, onSignedOut: () -> Unit, appearance: Appearance = Appearance
                 }
             }) { Text("Download my data") }
             TextButton(onClick = { notice = true }) { Text("Privacy notice") }
-            Hint("To correct or erase data, withdraw consent, name a nominee or complain, use My data in the web portal or ask HR.")
+            Hint("To change your phone or address, use My details above. To correct data held about you or raise a concern, use Requests → My data rights. To erase data, withdraw consent or name a nominee, use My data in the web portal or ask HR.")
         }
         Section("Display") {
             Text("Appearance", style = MaterialTheme.typography.bodyLarge)

@@ -72,6 +72,8 @@ describe('the audit log', () => {
     const all = await entries(c.orgId);
     expect(all.filter((e) => e.entity === 'ATTENDANCE_RECORD')).toHaveLength(0);
     expect(all.filter((e) => e.entity === 'ATTENDANCE_MONTH')).toHaveLength(1);
-    expect(all.find((e) => e.entity === 'ATTENDANCE_MONTH')).toMatchObject({ action: 'CLOSE', entityId: '2026-09', message: 'Closed an attendance month' });
+    /* The close writes its own line, with the snapshot it kept (closure audit, 28 Oct 2026), so the generic line is not written as well. */
+    expect(all.find((e) => e.entity === 'ATTENDANCE_MONTH')).toMatchObject({ action: 'CLOSE', entityId: '2026-09' });
+    expect(all.find((e) => e.entity === 'ATTENDANCE_MONTH')!.message).toMatch(/^Closed 2026-09 \(snapshot 1\)/);
   });
 });

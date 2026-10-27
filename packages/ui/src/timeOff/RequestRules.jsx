@@ -39,7 +39,8 @@ const toBody = (k, f) => ({
 
 export default function RequestRules() {
   const perms = usePermissions();
-  const canEdit = can(perms, 'ATTENDANCE::Attendance Requests::APPROVE');
+  /* The rules are the company's: a team-scoped role reads them (the server refuses its changes). */
+  const canEdit = can(perms, 'ATTENDANCE::Attendance Requests::APPROVE') && !perms?.ownDocumentsOnly;
   const req = useRequest(() => getRequestRules(), []);
   const saved = useMemo(() => (req.data?.rules ? Object.fromEntries(KINDS.map((k) => [k, toForm(req.data.rules[k] || {})])) : null), [req.data]);
   const [draft, setDraft] = useState(null);

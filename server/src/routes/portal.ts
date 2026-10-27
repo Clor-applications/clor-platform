@@ -1,4 +1,5 @@
 import { checkPortalSession, endPortalSession, endPortalSessions, legacyCutoff, listPortalSessions, startPortalSession } from '../services/portalSessions.js';
+import { trackFirst } from '../services/productEvents.js';
 import { orgByCode } from '../services/displayCodes.js';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
@@ -27,9 +28,10 @@ import { REASON_CODES } from '../services/attendance/corrections.js';
 import { KINDS, KIND_WORDS, askRequest, cancelRequest, chainOf, decideRequest, editRequest, rulesFor, usage as requestUsage } from '../services/attendance/requests.js';
 import { managerStepBy, teamDecidedBy } from '../services/attendance/standIns.js';
 import { daysOfMonth, instants, sendError, today, withNames } from '../services/attendance/days.js';
-import { cancelOwnLeave, createLeave, decideLeave, editLeave, leaveAudit, leaveChainFor, managerStep, masked, pickRestrictedHoliday, previewOut, restrictedHolidaysFor, shortenLeave, withTypes } from './leave.js';
+import { cancelOwnLeave, createLeave, dayWords, eligibleFor, decideLeave, editLeave, leaveAudit, leaveChainFor, managerStep, masked, pickRestrictedHoliday, previewOut, restrictedHolidaysFor, shortenLeave, withTypes } from './leave.js';
 import { balancesFor, leavePeriodOf, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
+import { lapseFor } from '../services/attendance/leaveJobs.js';
 import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
 import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { DeskError, listRequests as listDeskRequests, raiseRequest as raiseDeskRequest } from '../services/people/desk.js';
@@ -77,6 +79,9 @@ const PORTAL_FIELDS = {
   designation: true,
   photoUrl: true,
   status: true,
+  /* Which leave types the person may ask for (gender, employee type). */
+  gender: true,
+  employeeTypeId: true,
   branchId: true,
   areaId: true,
   devicePin: true,
@@ -184,6 +189,7 @@ portalRouter.post('/activate', ...portalLimiter, async (req, res) => {
   if (updated.status === 'SUSPENDED') return res.status(403).json({ error: PAUSED, code: 'PORTAL_PAUSED' });
   /* A new password ends every earlier sign-in (A-33); this device starts its own. */
   await endPortalSessions(updated, 'password set with an activation code', { type: 'EMPLOYEE', id: updated.id });
+  void trackFirst(found.org.id, `portal:${updated.id}`, 'portal_activated', { again: Boolean(e.portalPasswordSetAt), app: 'attendance' });
   const session = await startPortalSession(updated, deviceOf(req));
   res.json({ token: sign(updated, session.id), employee: { name: updated.name, code: updated.code }, company: { name: found.org.name } });
 });
@@ -430,34 +436,67 @@ portalRouter.get('/company-updates', async (req, res) => {
 });
 
 /**
- * What changed for me, for the phone's notifications: requests and field
- * punches decided in the last few days, and how much waits on me as an approver.
+ * What changed for me: the phone's notifications and the web app's "What's
+ * new". Requests and field punches decided in the last seven days, with the
+ * approver's note; leave someone else cancelled or shortened; the lapse
+ * warning near the period end; and how much waits on me as an approver.
+ * Notices go to a CLOR user only (leave.ts announce, leaveJobs runLapseNotices),
+ * so for staff with the app alone this feed is how they hear. What I did
+ * myself is not news and is left out. `key` is stable per event, so a phone
+ * or a browser marks an item seen once.
  */
+type Update = { key: string; kind: 'leave' | 'request' | 'punch' | 'people' | 'lapse'; status: string; text: string; note: string | null; at: string };
+const quoted = (n?: string | null) => (n && n.trim() ? ` “${n.trim()}”` : '');
 portalRouter.get('/updates', async (req, res) => {
   const e = req.portal!.employee;
   const since = new Date(Date.now() - 7 * 86_400_000);
+  const self = new Set([`portal:${e.id}`, ...(e.userId ? [e.userId] : [])]);
   const team = (await peoplePrisma.employee.findMany({ where: { orgId: e.orgId, reportingManagerId: e.id, status: { not: 'LEFT' } }, select: { id: true } })).map((x) => x.id);
-  const [leave, corrections, punches, waitLeave, waitCorr, waitPunch, myAsks] = await Promise.all([
-    peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: { in: ['APPROVED', 'REJECTED'] }, updatedAt: { gte: since } }, select: { id: true, status: true, fromDate: true, toDate: true } }),
-    peoplePrisma.attendanceRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: { in: ['APPROVED', 'REJECTED'] }, updatedAt: { gte: since } }, select: { id: true, status: true, date: true, reviewNote: true } }),
-    peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: e.id, outsideSite: true, reviewStatus: { in: ['APPROVED', 'REJECTED'] }, at: { gte: since } }, select: { id: true, reviewStatus: true, localTime: true } }),
+  const [leave, corrections, punches, waitLeave, waitCorr, waitPunch, myAsks, lapse] = await Promise.all([
+    peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: { in: ['APPROVED', 'REJECTED', 'CANCELLED'] }, updatedAt: { gte: since } }, select: { id: true, status: true, fromDate: true, toDate: true, leaveTypeId: true, reviewNote: true, managerNote: true, history: true, updatedAt: true } }),
+    peoplePrisma.attendanceRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: { in: ['APPROVED', 'REJECTED'] }, updatedAt: { gte: since } }, select: { id: true, status: true, date: true, kind: true, reviewNote: true, managerNote: true, updatedAt: true } }),
+    peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: e.id, outsideSite: true, reviewStatus: { in: ['APPROVED', 'REJECTED'] }, at: { gte: since } }, select: { id: true, reviewStatus: true, localTime: true, at: true } }),
     team.length ? peoplePrisma.leaveRequest.count({ where: { orgId: e.orgId, employeeId: { in: team }, status: 'PENDING', managerApprovedAt: null } }) : 0,
     team.length ? peoplePrisma.attendanceRequest.count({ where: { orgId: e.orgId, employeeId: { in: team }, status: 'PENDING', managerApprovedAt: null } }) : 0,
     team.length ? peoplePrisma.devicePunch.count({ where: { orgId: e.orgId, employeeId: { in: team }, outsideSite: true, reviewStatus: 'PENDING' } }) : 0,
     /* E5: my own People requests (details, resignation) that HR answered or asked more about: the app's notice, as there may be no CLOR user to notify. */
     peoplePrisma.approvalRequest.findMany({ where: { orgId: e.orgId, subjectEmployeeId: e.id, requesterUserId: { in: [`portal:${e.id}`, ...(e.userId ? [e.userId] : [])] }, status: { in: ['APPROVED', 'REJECTED', 'MORE_INFO'] }, updatedAt: { gte: since } }, select: { id: true, status: true, requestType: true, updatedAt: true } }),
+    lapseFor(e.accountId, e.orgId, e.id).catch((err) => {
+      console.error('[portal updates] lapse', err instanceof Error ? err.message : err);
+      return null;
+    }),
   ]);
+  const types = new Map((await peoplePrisma.leaveType.findMany({ where: { orgId: e.orgId, id: { in: [...new Set(leave.map((l) => l.leaveTypeId))] } }, select: { id: true, name: true } })).map((t) => [t.id, t.name]));
   const ASK_WORDS: Record<string, string> = { PROFILE_CHANGE: 'Your change to your details', LEAVING: 'Your resignation' };
   const ASK_DONE: Record<string, string> = { APPROVED: 'was approved.', REJECTED: 'was not approved. See My details.', MORE_INFO: 'needs more information from you. Answer it under My details.' };
-  res.json({
-    decided: [
-      ...myAsks.map((a) => ({ key: `people:${a.id}:${a.status}:${a.updatedAt.getTime()}`, text: `${ASK_WORDS[a.requestType] || 'Your request'} ${ASK_DONE[a.status]}` })),
-      ...leave.map((l) => ({ key: `leave:${l.id}:${l.status}`, text: `Leave ${l.fromDate}${l.toDate !== l.fromDate ? ` to ${l.toDate}` : ''} was ${l.status.toLowerCase()}.` })),
-      ...corrections.map((c) => ({ key: `corr:${c.id}:${c.status}`, text: `Your request for ${c.date} was ${c.status.toLowerCase()}.${c.reviewNote ? ` ${c.reviewNote}` : ''}` })),
-      ...punches.map((p) => ({ key: `punch:${p.id}:${p.reviewStatus}`, text: `Your field punch at ${p.localTime.slice(11, 16)} on ${p.localTime.slice(0, 10)} was ${p.reviewStatus === 'APPROVED' ? 'approved and counts' : 'refused'}.` })),
-    ],
-    waitingForMe: (waitLeave as number) + (waitCorr as number) + (waitPunch as number),
-  });
+  const span = (from: string, to: string) => (to && to !== from ? `${dayWords(from)} to ${dayWords(to)}` : dayWords(from));
+  const items: Update[] = [];
+  for (const a of myAsks) items.push({ key: `people:${a.id}:${a.status}:${a.updatedAt.getTime()}`, kind: 'people', status: a.status, text: `${ASK_WORDS[a.requestType] || 'Your request'} ${ASK_DONE[a.status]}`, note: null, at: a.updatedAt.toISOString() });
+  for (const l of leave) {
+    const name = types.get(l.leaveTypeId) || 'Leave';
+    const history = (Array.isArray(l.history) ? l.history : []) as Array<{ at?: string; by?: string; what?: string; note?: string | null; from?: string; to?: string }>;
+    if (l.status === 'APPROVED' || l.status === 'REJECTED') {
+      const note = l.reviewNote || l.managerNote || null;
+      items.push({ key: `leave:${l.id}:${l.status}`, kind: 'leave', status: l.status, text: `${name} ${span(l.fromDate, l.toDate)} was ${l.status === 'APPROVED' ? 'approved' : 'rejected'}.${quoted(note)}`, note, at: l.updatedAt.toISOString() });
+    }
+    if (l.status === 'CANCELLED') {
+      const last = [...history].reverse().find((h) => h.what === 'CANCELLED' || h.what === 'WITHDRAWN');
+      if (last && !self.has(String(last.by || ''))) items.push({ key: `leave:${l.id}:CANCELLED`, kind: 'leave', status: 'CANCELLED', text: `${name} ${span(l.fromDate, l.toDate)} was cancelled for you.${quoted(last.note)}`, note: last.note || null, at: last.at || l.updatedAt.toISOString() });
+    }
+    for (const h of history) {
+      if (h.what !== 'SHORTENED' || self.has(String(h.by || '')) || !h.at || new Date(h.at) < since) continue;
+      items.push({ key: `leave:${l.id}:SHORTENED:${h.to}`, kind: 'leave', status: 'SHORTENED', text: `${name} from ${dayWords(l.fromDate)} now ends ${dayWords(String(h.to))}, not ${dayWords(String(h.from))}.`, note: null, at: h.at });
+    }
+  }
+  for (const c of corrections) {
+    const note = c.reviewNote || c.managerNote || null;
+    const what = KIND_WORDS[c.kind as keyof typeof KIND_WORDS]?.name || 'Request';
+    items.push({ key: `corr:${c.id}:${c.status}`, kind: 'request', status: c.status, text: `${what} for ${dayWords(c.date)} was ${c.status === 'APPROVED' ? 'approved' : 'rejected'}.${quoted(note)}`, note, at: c.updatedAt.toISOString() });
+  }
+  for (const p of punches) items.push({ key: `punch:${p.id}:${p.reviewStatus}`, kind: 'punch', status: String(p.reviewStatus), text: `Your field punch at ${p.localTime.slice(11, 16)} on ${dayWords(p.localTime.slice(0, 10))} was ${p.reviewStatus === 'APPROVED' ? 'approved and counts' : 'refused'}.`, note: null, at: p.at.toISOString() });
+  if (lapse) items.push({ key: `lapse:${lapse.year}`, kind: 'lapse', status: 'LAPSE', text: `${lapse.total} ${lapse.total === 1 ? 'day' : 'days'} of leave will lapse on ${dayWords(lapse.end)} unless you take them: ${lapse.lines.map((x) => `${x.leaveType} ${x.days}`).join(', ')}.`, note: null, at: new Date().toISOString() });
+  items.sort((a, b) => b.at.localeCompare(a.at));
+  res.json({ decided: items, waitingForMe: (waitLeave as number) + (waitCorr as number) + (waitPunch as number) });
 });
 
 /** A field punch's selfie, for the manager deciding it. */
@@ -580,23 +619,23 @@ portalRouter.post('/requests/:id/cancel', async (req, res) => {
   }
 });
 
-/** Change a correction that nobody has looked at yet. */
+/**
+ * The old correction routes (the Android app still calls them): a missed
+ * punch only, through the same edit and cancel as /requests, so the quota,
+ * the back-date window, the history and the audit line apply (closure audit,
+ * 28 Oct 2026: they wrote the row directly and could change any kind).
+ */
 portalRouter.put('/corrections/:id', async (req, res) => {
   const e = req.portal!.employee;
   const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
+  if (r.kind !== 'MISSED_PUNCH') return res.status(409).json({ error: 'Change this request under Requests.', code: 'NOT_A_CORRECTION' });
   if (r.status !== 'PENDING' || r.managerApprovedAt) return res.status(409).json({ error: 'This request is already being decided; it cannot be changed now.' });
-  const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
-  const checkIn = String(req.body?.checkIn || '');
-  const checkOut = req.body?.checkOut ? String(req.body.checkOut) : null;
-  const reason = String(req.body?.reason || '').trim();
-  const reasonCode = req.body?.reasonCode == null ? r.reasonCode : String(req.body.reasonCode);
-  if (!hhmm.test(checkIn) || (checkOut && !hhmm.test(checkOut))) return res.status(400).json({ error: 'Times are HH:MM, 24-hour.' });
-  if (reason.length < 3) return res.status(400).json({ error: 'Say why.' });
-  if (reasonCode && !(REASON_CODES as readonly string[]).includes(reasonCode)) return res.status(400).json({ error: 'Unknown reason.' });
-  const at = instants(r.date, checkIn, checkOut);
-  const updated = await peoplePrisma.attendanceRequest.update({ where: { id: r.id }, data: { checkIn: at.checkIn, checkOut: at.checkOut, reason: reason.slice(0, 500), reasonCode } });
-  res.json({ request: updated });
+  try {
+    res.json({ request: await editRequest({ ...who(req), onBehalf: false }, r, { ...req.body, kind: 'MISSED_PUNCH', date: r.date }) });
+  } catch (err) {
+    return sendError(res, err);
+  }
 });
 
 /** Withdraw a correction that nobody has looked at yet. */
@@ -604,9 +643,13 @@ portalRouter.post('/corrections/:id/cancel', async (req, res) => {
   const e = req.portal!.employee;
   const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
+  if (r.kind !== 'MISSED_PUNCH') return res.status(409).json({ error: 'Withdraw this request under Requests.', code: 'NOT_A_CORRECTION' });
   if (r.status !== 'PENDING' || r.managerApprovedAt) return res.status(409).json({ error: 'This request is already being decided; ask HR to withdraw it.' });
-  const updated = await peoplePrisma.attendanceRequest.update({ where: { id: r.id }, data: { status: 'CANCELLED', reviewNote: 'Withdrawn by the employee.' } });
-  res.json({ request: updated });
+  try {
+    res.json({ request: await cancelRequest(e.accountId, e.orgId, r, { userId: who(req).userId, employeeId: e.id, hr: false }, 'Withdrawn by the employee.') });
+  } catch (err) {
+    return sendError(res, err);
+  }
 });
 
 /** Ask HR to allow punching from the phone. HR sees it in its notifications, with a link to Portal access. */
@@ -720,7 +763,7 @@ portalRouter.get('/leave', async (req, res) => {
   res.json({
     year,
     today: today(),
-    types: types.filter((t) => t.isActive).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, ...mine.get(t.id) })),
+    types: types.filter((t) => t.isActive && (eligibleFor(t as any, req.portal!.employee as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, ...mine.get(t.id) })),
     requests: (await withTypes(orgId, requests)).map((r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null, groupId: r.groupId ?? null })),
   });
 });
@@ -781,6 +824,29 @@ portalRouter.post('/leave/:id/shorten', async (req, res) => {
 portalRouter.get('/holidays/restricted', async (req, res) => {
   const e = req.portal!.employee;
   res.json(await restrictedHolidaysFor(e.orgId, e, Number(req.query.year) || Number(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 4))));
+});
+
+/**
+ * My holidays for a calendar year: every holiday of my area and branch, and
+ * the restricted (optional) ones marked, with what I picked and the quota, so
+ * one list shows the year and a restricted day is picked where it is read.
+ */
+portalRouter.get('/holidays', async (req, res) => {
+  const e = req.portal!.employee;
+  const asked = Number(req.query.year);
+  const year = Number.isInteger(asked) && asked >= 2000 && asked <= 2100 ? asked : Number(today().slice(0, 4));
+  const [fixed, restricted] = await Promise.all([loadHolidays(e.orgId, `${year}-01-01`, `${year}-12-31`), restrictedHolidaysFor(e.orgId, e, year)]);
+  const t = today();
+  const mine = fixed.forArea(e.areaId, e.branchId);
+  const seen = new Set<string>();
+  const holidays = [
+    ...fixed.rows
+      .filter((h) => mine.has(h.date) && (!h.areaId || h.areaId === e.areaId) && (!h.branchId || h.branchId === e.branchId))
+      .filter((h) => !seen.has(`${h.date}|${h.name}`) && Boolean(seen.add(`${h.date}|${h.name}`)))
+      .map((h) => ({ id: null as string | null, date: h.date, name: h.name, restricted: false, picked: false, past: h.date < t })),
+    ...restricted.holidays.map((h) => ({ id: h.id, date: h.date, name: h.name, restricted: true, picked: h.picked, past: h.past })),
+  ].sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+  res.json({ year, quota: restricted.quota, picked: restricted.picked, left: restricted.left, holidays });
 });
 
 portalRouter.post('/holidays/restricted/:holidayId', async (req, res) => {
@@ -908,6 +974,8 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
       await leaveAudit({ accountId: e.accountId, orgId: e.orgId, userId }, { entityId: r.id, action: 'MANAGER_APPROVE', message: `${e.name} (manager) approved leave, ${r.fromDate} to ${r.toDate}; now with HR`, metadata: { employeeId: r.employeeId } });
       return res.json({ request: masked([out], false)[0], stage: 'HR' });
     }
+    /* Once the manager's step is taken, the request is HR's: the manager no longer rejects it either. */
+    if (chain === 'MANAGER_THEN_HR' && r.managerApprovedAt) return res.status(409).json({ error: 'You have already approved this; it is with HR now.', code: 'HR_STEP' });
     /* A refusal says why: the person reads it in the employee app. */
     if (decision === 'reject' && !note) return res.status(400).json({ error: 'Say why. They see this with the decision.' });
     const out = await decideLeave(e.accountId, e.orgId, r, userId, note, decision === 'approve');

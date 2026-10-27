@@ -12,6 +12,7 @@ import { currentLease, exclusive, leaseFor, LeaseLost, shuttingDown } from './jo
 import { userIsAdmin } from './roleGuards.js';
 import { getGateway } from '../billing/gateway.js';
 import { fileStore } from './fileStore.js';
+import { registerJob } from './jobRegistry.js';
 
 /**
  * Closing a company (LX-07 part 2). Policy, in words a client can read:
@@ -123,7 +124,7 @@ const KEEP = new Set(['OrgClosure']);
  * something outside the company still points at them — stop and report.
  */
 /** Tables whose rows are never edited or deleted except by this purge (prisma/people/migrations/20261025020000_change_log_purge). */
-const APPEND_ONLY = new Set(['people.ChangeLog']);
+const APPEND_ONLY = new Set(['people.ChangeLog', 'platform.AuditLog', 'platform.ProductEvent']);
 
 async function purgeDatabase(client: any, dmmf: Dmmf, prefix: string, orgId: string) {
   const models = dmmf.datamodel.models.filter((m) => !KEEP.has(m.name) && m.fields.some((f) => f.name === 'orgId'));
@@ -340,6 +341,7 @@ export function startClosurePurge({ intervalMs = 60 * 60 * 1000 } = {}) {
     // eslint-disable-next-line no-console
     console.error('[closure] ALERT purge failed:', e instanceof Error ? e.message : e);
   });
+  registerJob('startClosurePurge', run, intervalMs);
   const first = setTimeout(run, 90_000);
   const timer = setInterval(run, intervalMs);
   first.unref?.();

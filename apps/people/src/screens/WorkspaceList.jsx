@@ -15,6 +15,7 @@ import { runListExport } from '@ui/components/list/exportMenu';
 import { listAllEmployees } from '@ui/personnel/api';
 import { deleteRecord, hireCandidate, listRecords, saveRecord } from '../api/workspace';
 import { nextEmployeeCode } from '../workforce/api';
+import OfferDrawer from '../workforce/OfferDrawer';
 import { WORKSPACE_CONFIG, statusLabel } from './workspaceConfig';
 
 /**
@@ -45,6 +46,7 @@ export default function WorkspaceList({ kind, openScreen }) {
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState(null);
   const [hiring, setHiring] = useState(null);
+  const [offering, setOffering] = useState(null);
   const tabsRef = useRef(null);
   const tabIndicator = useTabIndicator(tabsRef, status);
   const names = useMemo(() => new Map(employees.map((e) => [e.id, e.name])), [employees]);
@@ -82,7 +84,8 @@ export default function WorkspaceList({ kind, openScreen }) {
   ];
   const rowActions = (r) => [
     { key: 'edit', label: 'Edit', onSelect: () => setEditing({ ...r, details: { ...r.details } }) },
-    kind === 'candidates' && !r.employeeId && ['OFFERED', 'HIRED'].includes(r.status) ? { key: 'hire', label: 'Hire', onSelect: () => setHiring(r) } : null,
+    kind === 'candidates' && !r.employeeId && ['APPLIED', 'SHORTLISTED', 'INTERVIEW', 'OFFERED'].includes(r.status) ? { key: 'offer', label: r.status === 'OFFERED' ? 'Send a new offer' : 'Send an offer', onSelect: () => setOffering(r) } : null,
+    kind === 'candidates' && !r.employeeId && ['OFFERED', 'HIRED'].includes(r.status) ? { key: 'hire', label: r.details?.offerAcceptedOn ? 'Hire (offer accepted)' : 'Hire', onSelect: () => setHiring(r) } : null,
     { key: 'delete', label: 'Delete', onSelect: () => remove(r) },
   ];
 
@@ -111,6 +114,7 @@ export default function WorkspaceList({ kind, openScreen }) {
       )}
       {editing ? <RecordDrawer kind={kind} cfg={cfg} rows={rows} value={editing} employees={employees} jobs={jobs} onClose={() => setEditing(null)} onDone={() => { setEditing(null); req.reload(); }} /> : null}
       {hiring ? <HireDrawer row={hiring} onClose={() => setHiring(null)} onDone={() => { setHiring(null); req.reload(); openScreen?.('checklists'); }} /> : null}
+      {offering ? <OfferDrawer candidate={offering} onClose={() => setOffering(null)} onSent={() => { setOffering(null); req.reload(); }} /> : null}
     </div>
   );
 }

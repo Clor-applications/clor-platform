@@ -10,6 +10,7 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import DatePicker from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { DOC_WHO_CAN_SEE, docWhoLabel } from './documentClassification';
+import JoiningStatutory from './JoiningStatutory';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
 import { formatDateIn } from '@ui/utils/dates';
 import { hasApp } from '@platform/context';
@@ -1610,6 +1611,7 @@ export function JoiningDetails({ person, onChecked }) {
           ) : null}
         </>
       ) : null}
+      {latest.statutory ? <JoiningStatutory key={latest.id} invite={latest} canView={allowed('PEOPLE::Statutory Details::VIEW')} canApprove={allowed('PEOPLE::Statutory Details::EDIT')} /> : null}
     </section>
   );
 }

@@ -174,7 +174,7 @@ private fun CorrectionForm(api: Api, date: String, onDone: () -> Unit, onSignedO
                     error = null
                     scope.launch {
                         try {
-                            api.askCorrection(date, inAt!!, outAt, reason.trim())
+                            api.askRequest(`in`.clor.attendance.data.attendanceAsk(`in`.clor.attendance.data.Kinds.MISSED, date, null, null, null, inAt, outAt, reason, null))
                             onDone()
                         } catch (e: SignedOut) {
                             onSignedOut()

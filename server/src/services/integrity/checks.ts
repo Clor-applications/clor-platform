@@ -7,6 +7,7 @@ import { exclusive, leaseFor } from '../jobLease.js';
 import { ownerExists } from '../credentialReview.js';
 import { revokeCredential, SYSTEM } from '../credentials.js';
 import { fileStore } from '../fileStore.js';
+import { registerJob } from '../jobRegistry.js';
 
 /**
  * GAP-010: find, and where it is safe, repair, names one database keeps of
@@ -135,6 +136,7 @@ export function startIntegrityChecks({ intervalMs = 24 * 3_600_000, startupDelay
     exclusive('integrity.crossStore', leaseFor(intervalMs), () => checkAllCompanies({ repair: true }), { idempotent: true }).catch((e) =>
       console.error('[integrity] nightly check failed:', e instanceof Error ? e.message : e)
     );
+  registerJob('startIntegrityChecks', tick, intervalMs);
   const t = setTimeout(() => {
     tick();
     const i = setInterval(tick, intervalMs);

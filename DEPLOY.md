@@ -81,6 +81,52 @@ Backups run as `postgres` for the opposite reason: every tenant table has
 `FORCE ROW LEVEL SECURITY`, which subjects even the owner to its own policies,
 and `pg_dump` as the owner fails outright rather than dumping half a table.
 
+## Background jobs on Cloud Run (Cloud Scheduler wake call)
+
+The API scales to zero and gets CPU only while it serves a request, so the jobs
+started in `server/src/index.ts` do not run on their timers when nobody is
+using the app. That covers leave hand-on to HR, the leave digest, lapse
+notices, dated changes, the People outbox, approval reminders, recurring
+invoices and the rest. Cloud Scheduler wakes them: every 10 minutes it posts
+to `/api/internal/jobs/tick`, which runs each job's tick inside the request
+and waits for it (`server/src/services/jobRegistry.ts`).
+
+- **Once per period:** each job runs at most once per its own interval. The
+  lease stops two instances from running it, and the registry stops one
+  instance from running it twice. Waking a job often is safe.
+- **After downtime:** what is due is read from the database, so the first wake
+  catches up on what was missed.
+- **Retries:** a job that throws makes the call answer 500, and Cloud Scheduler
+  retries it with backoff. A job that runs past 4 minutes is reported as
+  timed out and keeps running under its lease.
+- **Off by default:** without `JOBS_TOKEN` the route does not exist (404).
+
+Set it up once per service (production shown; repeat with `clor-api-staging`
+and its own token):
+
+```sh
+# 1. The token, as a secret, mounted on the service
+openssl rand -hex 32 | gcloud secrets create jobs-token --data-file=-
+gcloud run services update clor-api --region asia-south1 \
+  --update-secrets JOBS_TOKEN=jobs-token:latest
+
+# 2. Cloud Scheduler (the first three jobs per billing account are free)
+gcloud services enable cloudscheduler.googleapis.com
+gcloud scheduler jobs create http clor-api-jobs --location asia-south1 \
+  --schedule '*/10 * * * *' --time-zone 'Asia/Kolkata' \
+  --uri 'https://api.clor.in/api/internal/jobs/tick' --http-method POST \
+  --headers "x-jobs-token=$(gcloud secrets versions access latest --secret jobs-token),Content-Type=application/json" \
+  --message-body '{}' --attempt-deadline 300s \
+  --max-retry-attempts 3 --min-backoff 30s --max-backoff 300s
+
+# 3. Check it
+gcloud scheduler jobs run clor-api-jobs --location asia-south1
+gcloud logging read 'resource.type="cloud_run_revision" AND httpRequest.requestUrl:"/internal/jobs/tick"' --limit 5
+```
+
+The call goes through `api.clor.in`, so the Worker adds the edge header. Cloud
+Run's request timeout must be at least 300s, which is the default.
+
 ## Backups
 
 Installed on the server as `/usr/local/bin/clor-backup`, run by cron at 02:30:

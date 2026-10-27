@@ -213,6 +213,31 @@
     },
     {
       "method": "GET",
+      "path": "/api/people/offer-page.js",
+      "reason": "Static script for the offer page's Accept and Decline buttons; no data; served as a file because CSP allows no inline script (HR-VIEW gap 5)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/people/offer/:token",
+      "reason": "The person's offer link (HR-VIEW gap 5): sha256-hashed 32-byte token, runs out at the end of the accept-by day; shows only their own offer letter; looked up outsideTenant then enterTenant."
+    },
+    {
+      "method": "GET",
+      "path": "/api/people/offer/:token/pdf",
+      "reason": "The same offer letter as a PDF, by the same token; nothing but the person's own letter."
+    },
+    {
+      "method": "POST",
+      "path": "/api/people/offer/:token/accept",
+      "reason": "Accept the offer once, by the same token, before it runs out; records the time and IP and tells HR."
+    },
+    {
+      "method": "POST",
+      "path": "/api/people/offer/:token/decline",
+      "reason": "Decline the offer once, by the same token, before it runs out; tells HR."
+    },
+    {
+      "method": "GET",
       "path": "/api/people/task-links/:token",
       "reason": "Signed task done-link (LIFE-07): JWT bound to one task and its named owner, 30 days; ticks that task only and is logged; outsideTenant lookup then enterTenant."
     },
@@ -543,6 +568,11 @@
     },
     {
       "method": "GET",
+      "path": "/api/portal/holidays",
+      "reason": "Employee self-service: reads their own holidays for a year (their area and branch, restricted ones marked with their picks); portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
       "path": "/api/portal/holidays/restricted",
       "reason": "Employee self-service: reads their own restricted holidays; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
     },
@@ -870,6 +900,16 @@
       "method": "POST",
       "path": "/api/invitations/accept-signed-in",
       "reason": "Workspace W-3: accepting with an existing login (requireAuth). The signed-in user must be the invited address and in the inviting account; single-use token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/internal/jobs/tick",
+      "reason": "Cloud Scheduler wake call for background jobs; x-jobs-token compared in constant time with JOBS_TOKEN (Secret Manager), 404 when unset; behind the edge Worker like every route; runs only the registered jobs, each under its lease (closure audit, 28 Oct 2026)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/internal/jobs",
+      "reason": "Lists the registered job names for the operator checking the scheduler; same JOBS_TOKEN check, 404 when unset; returns names only."
     }
   ]
 }
