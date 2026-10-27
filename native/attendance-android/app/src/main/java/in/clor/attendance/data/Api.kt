@@ -132,7 +132,8 @@ class Api(private val session: Session, private val base: String = BuildConfig.A
      * Not a data-protection request: those are askData below.
      */
     suspend fun myDetails(): MyDetails = get("/people/me/details")
-    suspend fun changeDetails(changes: Map<String, String>): DetailsSaved = post("/people/me/change-request", buildJsonObject { changes.forEach { (k, v) -> put(k, v) } })
+    /** A new photo always goes to HR as a change request; it is sent as a small JPEG data URL (Photos.shrink). */
+    suspend fun changeDetails(changes: Map<String, String>, photo: String? = null): DetailsSaved = post("/people/me/change-request", changeBody(changes, photo))
     suspend fun answerMyRequest(id: String, note: String) { call("POST", "/people/me/requests/$id/reply", buildJsonObject { put("note", note) }) }
     suspend fun withdrawMyRequest(id: String) { call("POST", "/people/me/requests/$id/withdraw") }
 

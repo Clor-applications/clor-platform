@@ -1,11 +1,22 @@
 package `in`.clor.attendance.ui
 
+import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -26,27 +37,39 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import `in`.clor.attendance.data.Api
 import `in`.clor.attendance.data.DetailFields
 import `in`.clor.attendance.data.MyDetails
+import `in`.clor.attendance.data.PhotoUnreadable
+import `in`.clor.attendance.data.Photos
 import `in`.clor.attendance.data.SelfRequest
 import `in`.clor.attendance.data.Terms
 import `in`.clor.attendance.data.detailsSavedWords
 import `in`.clor.attendance.data.fullDayWords
+import `in`.clor.attendance.data.photoWaiting
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * My details (server: routes/peoplePortal.ts, the web app's MyDetails.jsx):
  * my job in words, my personal details and a way to change them, and my
  * requests to HR with HR's answer. Contact details save at once (by the
- * company's setting); the rest goes to HR as a change request — never a
- * data-protection request.
+ * company's setting); the rest, and a new photo, goes to HR as a change
+ * request — never a data-protection request.
  */
 @Composable
 fun MyDetailsScreen(api: Api, onBack: () -> Unit, onSignedOut: () -> Unit) {
@@ -61,6 +84,7 @@ fun MyDetailsScreen(api: Api, onBack: () -> Unit, onSignedOut: () -> Unit) {
         LoadView(data) { d ->
             d.terms?.let { MyJob(it) }
             PersonalDetails(api, d, onSaved = { note = it to true; data.reload() }, onSignedOut = onSignedOut)
+            NewPhoto(api, d, onSent = { note = it to true; data.reload() }, onSignedOut = onSignedOut)
             MyAsks(api, d.requests, onChanged = { msg -> note = msg; data.reload() }, onSignedOut = onSignedOut)
         }
     }
@@ -165,7 +189,145 @@ private fun PersonalDetails(api: Api, d: MyDetails, onSaved: (String) -> Unit, o
                 }, enabled = !busy && changes.isNotEmpty() && !badDate) { Text(if (busy) "Sending…" else "Save changes") }
                 TextButton(onClick = { editing = false }) { Text("Cancel") }
             }
-            Hint("A new photo is changed in the web app for now.")
+        }
+    }
+}
+
+/** A picked or taken picture, made small on the phone, and its preview. */
+private class Chosen(val dataUrl: String, val preview: ImageBitmap)
+
+/**
+ * A new photo (the web app's "New photo" in My details): from the gallery
+ * through the Photo Picker (no permission) or a picture from the camera app
+ * (the camera permission, asked only then). It is made small here, shown, and
+ * sent as a change request; HR decides it, and while they do it shows as
+ * waiting and no second one can be asked for.
+ */
+@Composable
+private fun NewPhoto(api: Api, d: MyDetails, onSent: (String) -> Unit, onSignedOut: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var chosen by remember { mutableStateOf<Chosen?>(null) }
+    var reading by remember { mutableStateOf(false) }
+    var sending by remember { mutableStateOf(false) }
+    /* What went wrong, and what Try again does: read the same picture again, open the camera again, or send again. */
+    var error by remember { mutableStateOf<String?>(null) }
+    var retry by remember { mutableStateOf<(() -> Unit)?>(null) }
+    /* Where the camera app writes; kept if the app is closed behind the camera. */
+    var cameraUri by rememberSaveable { mutableStateOf<String?>(null) }
+
+    fun read(uri: Uri, fromCamera: Boolean) {
+        reading = true
+        error = null
+        retry = null
+        scope.launch {
+            try {
+                val (url, bytes) = withContext(Dispatchers.Default) { Photos.shrink(context, uri) }
+                val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: throw PhotoUnreadable("That photo could not be read. Choose another.")
+                chosen = Chosen(url, bmp.asImageBitmap())
+                if (fromCamera) withContext(Dispatchers.IO) { Photos.clearCamera(context) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: PhotoUnreadable) {
+                error = e.message
+                retry = { read(uri, fromCamera) }
+            } catch (e: OutOfMemoryError) {
+                error = "That photo is too big for this phone to open. Choose a smaller one."
+            } catch (e: Exception) {
+                error = "That photo could not be read. Try again, or choose another."
+                retry = { read(uri, fromCamera) }
+            } finally {
+                reading = false
+            }
+        }
+    }
+
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) read(uri, fromCamera = false) }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
+        val uri = cameraUri?.let(Uri::parse)
+        if (taken && uri != null) read(uri, fromCamera = true) else Photos.clearCamera(context)
+        cameraUri = null
+    }
+    fun openCamera() {
+        error = null
+        retry = null
+        try {
+            val uri = Photos.cameraTarget(context)
+            cameraUri = uri.toString()
+            camera.launch(uri)
+        } catch (e: ActivityNotFoundException) {
+            cameraUri = null
+            error = "This phone has no camera app to take a picture with. Choose one from your photos instead."
+        } catch (e: Exception) {
+            cameraUri = null
+            error = "The camera could not be opened. Try again, or choose from your photos."
+            retry = { openCamera() }
+        }
+    }
+    val allowCamera = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) {
+            openCamera()
+        } else {
+            error = "Camera not allowed. Choose a photo from your gallery, or allow the camera in Settings."
+        }
+    }
+    fun takePicture() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) openCamera() else allowCamera.launch(Manifest.permission.CAMERA)
+    }
+    fun send(c: Chosen) {
+        sending = true
+        error = null
+        retry = null
+        scope.launch {
+            attempt(onSignedOut, { error = it; retry = { send(c) } }) {
+                val r = api.changeDetails(emptyMap(), c.dataUrl)
+                chosen = null
+                onSent(detailsSavedWords(r, d))
+            }
+            sending = false
+        }
+    }
+
+    val waiting = d.photoWaiting()
+    Section("Photo") {
+        if (waiting != null) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("New photo sent", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                StatusPill(if (waiting.status == "MORE_INFO") "HR asked for more" else "Waiting for HR", Tone.Warn)
+            }
+            Hint(
+                if (waiting.status == "MORE_INFO") "HR need more from you before they decide. Answer under My requests."
+                else "HR check it before it shows, within ${d.hrDecidesWithinDays} working days. To send a different one, withdraw this under My requests.",
+            )
+            return@Section
+        }
+        val c = chosen
+        if (c != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Image(c.preview, contentDescription = "Your new photo", contentScale = ContentScale.Crop, modifier = Modifier.size(96.dp).clip(RoundedCornerShape(12.dp)))
+                Text(
+                    "This is the photo that will be sent. HR check it before it shows.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else {
+            Hint("${if (d.hasPhoto) "" else "No photo on file yet. "}A new photo goes to HR, who decide within ${d.hrDecidesWithinDays} working days.")
+        }
+        if (reading) Hint("Getting the photo ready…")
+        error?.let { msg ->
+            Text(msg, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+            retry?.let { again -> OutlinedButton(onClick = again, enabled = !reading && !sending) { Text("Try again") } }
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (c != null) {
+                Button(onClick = { send(c) }, enabled = !sending && !reading) { Text(if (sending) "Sending…" else "Send to HR") }
+                TextButton(onClick = { chosen = null; error = null; retry = null }, enabled = !sending) { Text("Cancel") }
+            } else {
+                OutlinedButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !reading) { Text("Choose a photo") }
+                OutlinedButton(onClick = { takePicture() }, enabled = !reading) { Text("Take a picture") }
+            }
         }
     }
 }

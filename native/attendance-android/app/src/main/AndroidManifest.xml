@@ -5,7 +5,7 @@
     <!-- Read once, at the moment of a phone punch, to check the person is at a work site. Never in the background. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <!-- An optional selfie with a phone punch; asked for only when the person chooses to add one. -->
+    <!-- An optional selfie with a phone punch, or a new photo for My details; asked for only when the person chooses to take one. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <!-- Reminders to punch, and word when HR decides a request (Android 13 and later ask). -->
@@ -32,7 +32,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- Opens a document saved on Android 8 and 9 (later versions open it straight from Downloads). -->
+        <!-- Opens a document saved on Android 8 and 9 (later versions open it straight from Downloads),
+             and gives the camera app a place to put a new My details photo. -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"
