@@ -122,6 +122,27 @@ export async function runLapseNotices(date = today()) {
   return sent;
 }
 
+/**
+ * What of one person's leave lapses at this period's end, once that end is 30
+ * days away or less (the same window and sum as runLapseNotices). The employee
+ * app's feed reads it on demand: staff with no CLOR sign-in get no
+ * notification, so this is how they hear.
+ */
+export async function lapseFor(accountId: string, orgId: string, employeeId: string, date = today()) {
+  const period = await leavePeriodOf(orgId);
+  const year = periodOf(period, date);
+  const end = periodEnd(period, year);
+  if (date < addDays(end, -30) || date > end) return null;
+  const { yearEndPreview } = await import('../../routes/leave.js');
+  const preview = await yearEndPreview(accountId, orgId, year, [employeeId]);
+  const lines = preview.rows
+    .filter((r) => r.employeeId === employeeId)
+    .map((r) => ({ leaveType: r.leaveType, days: Math.round((r.lapse - r.payOut) * 100) / 100 }))
+    .filter((l) => l.days > 0);
+  if (!lines.length) return null;
+  return { year, end, total: Math.round(lines.reduce((a, l) => a + l.days, 0) * 100) / 100, lines };
+}
+
 export function startLeaveJobs({ intervalMs = 3_600_000, startupDelayMs = 180_000 } = {}) {
   const tick = () =>
     exclusive('leave.automation', leaseFor(intervalMs), async () => {

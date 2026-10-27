@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { confirmDialog } from '@ui/components/ui/notify';
 
-import { SignedOut, acceptItem, answerMyRequest, askDetailsChange, getMyDetails, getPolicies, getPolicy, shrinkPhoto, withdrawMyRequest } from './portalApi';
+import LoadFailed from '../components/LoadFailed';
+import { SignedOut, acceptItem, answerMyRequest, askDetailsChange, getLeaving, getMyDetails, getPolicies, getPolicy, shrinkPhoto, withdrawMyRequest } from './portalApi';
 
 /**
  * People self-service in the employee app (server: routes/peoplePortal.ts):
@@ -34,20 +35,23 @@ const Row = ({ label, children }) => (
   </div>
 );
 
-export function MyDetails({ guard }) {
+export function MyDetails({ guard, refreshKey }) {
   const [d, setD] = useState(null);
+  const [leaving, setLeaving] = useState(null);
   const [failed, setFailed] = useState('');
   const load = useCallback(() => {
     guard(getMyDetails())
       .then((r) => { setD(r); setFailed(''); })
       .catch((e) => setFailed(errText(e, 'Could not load your details.')));
+    /* Where a resignation stands, shown under My job; a failure here only hides that line. */
+    guard(getLeaving()).then(setLeaving).catch(() => setLeaving(null));
   }, [guard]);
-  useEffect(() => { load(); }, [load]);
-  if (failed) return <section className="ui-card p-5 text-sm" role="alert">{failed} <button type="button" className="ui-link" onClick={load}>Try again</button></section>;
+  useEffect(() => { load(); }, [load, refreshKey]);
+  if (failed) return <LoadFailed message={failed} onRetry={load} />;
   if (!d) return null;
   return (
     <>
-      <MyJob terms={d.terms} />
+      <MyJob terms={d.terms} leaving={leaving} />
       <PersonalDetails d={d} guard={guard} reload={load} />
       <MyRequests requests={d.requests} guard={guard} reload={load} />
     </>
@@ -55,8 +59,9 @@ export function MyDetails({ guard }) {
 }
 
 /** E13: type, hours, work mode, manager and the dates that matter, in words. */
-function MyJob({ terms: t }) {
+function MyJob({ terms: t, leaving }) {
   if (!t) return null;
+  const waiting = leaving?.waiting;
   const type = [t.employmentType, t.hours].filter(Boolean).join(' · ');
   return (
     <section className="ui-card p-5" aria-labelledby="job-h">
@@ -72,6 +77,8 @@ function MyJob({ terms: t }) {
         {t.joinedOn ? <Row label="Joined">{longDate(t.joinedOn)}</Row> : null}
         {t.confirmedOn ? <Row label="Confirmed">{longDate(t.confirmedOn)}</Row> : t.probationEndsOn ? <Row label="Probation ends">{longDate(t.probationEndsOn)}</Row> : null}
         {t.contractEndsOn ? <Row label="Contract ends">{longDate(t.contractEndsOn)}</Row> : null}
+        {waiting ? <Row label="Resignation">{waiting.status === 'MORE_INFO' ? 'HR asked you for more; see My requests' : `With your manager and HR since ${shortDate(waiting.createdAt)}`}</Row> : null}
+        {!waiting && leaving?.status === 'ON_NOTICE' ? <Row label="Resignation">Approved</Row> : null}
         {t.lastDay ? <Row label="Last working day">{longDate(t.lastDay)}</Row> : null}
       </dl>
     </section>
@@ -217,10 +224,14 @@ export function Policies({ guard }) {
   const [rows, setRows] = useState(null);
   const [reading, setReading] = useState({});
   const [failed, setFailed] = useState('');
+  const [loadFailed, setLoadFailed] = useState('');
   const load = useCallback(() => {
-    guard(getPolicies()).then((r) => setRows(r?.policies || [])).catch(() => setRows([]));
+    guard(getPolicies())
+      .then((r) => { setRows(r?.policies || []); setLoadFailed(''); })
+      .catch((e) => setLoadFailed(errText(e, 'Could not load the company policies.')));
   }, [guard]);
   useEffect(() => { load(); }, [load]);
+  if (loadFailed) return <LoadFailed message={loadFailed} onRetry={load} />;
   if (!rows?.length) return null;
   const read = async (p) => {
     if (reading[p.versionId]) return setReading((r) => ({ ...r, [p.versionId]: null }));
