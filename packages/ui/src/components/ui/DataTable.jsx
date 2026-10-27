@@ -13,7 +13,8 @@ import Popover from './Popover';
  * - Columns: the viewer picks which show and in what order, and the density;
  *   the caller stores that (a saved view or the browser) through `prefs`.
  * - Selection: a checkbox column; the header box chooses the page; the caller
- *   draws the bulk toolbar from `selected`.
+ *   draws the bulk toolbar from `selected`. `canSelect(row)` false leaves a
+ *   row without a box (a row that cannot be decided with the others).
  * - Row actions: an ellipsis menu (keyboard: arrows, Enter, Escape); row click
  *   opens the record. A click on a control inside a row never opens it.
  * - Below 640px rows become cards: `card(row)` draws one.
@@ -149,14 +150,15 @@ export function TablePager({ total, page, pageSize, onPage, onPageSize, noun = '
 export default function DataTable({
   columns, rows, rowKey = (r) => r.id, label = 'Results',
   sort = null, onSort, prefs = {}, onPrefs = null,
-  selectable = false, selected = new Set(), onSelect,
+  selectable = false, selected = new Set(), onSelect, canSelect = null,
   rowActions = null, onRowClick = null, card = null,
   loading = false, refreshing = false, empty = null,
   total = 0, page = 1, pageSize = 25, onPage, onPageSize, noun = 'results', toolbar = null, defaultPrefs = {},
 }) {
   const cols = visibleColumns(columns, prefs);
   const compact = prefs?.density === 'compact';
-  const ids = rows.map(rowKey);
+  const choosable = (r) => !canSelect || canSelect(r) !== false;
+  const ids = rows.filter(choosable).map(rowKey);
   const allOn = ids.length > 0 && ids.every((id) => selected.has(id));
   const someOn = !allOn && ids.some((id) => selected.has(id));
   const headBox = useRef(null);
@@ -213,7 +215,7 @@ export default function DataTable({
               const id = rowKey(r);
               return (
                 <tr key={id} className={`${onRowClick ? 'ui-row-click' : ''} ${selected.has(id) ? 'is-selected' : ''}`} onClick={(e) => open(e, r)}>
-                  {selectable ? <td className="w-10"><input type="checkbox" className="ui-checkbox" aria-label={`Choose ${r.name || r.employeeName || id}`} checked={selected.has(id)} onChange={() => toggle(id)} /></td> : null}
+                  {selectable ? <td className="w-10">{choosable(r) ? <input type="checkbox" className="ui-checkbox" aria-label={`Choose ${r.name || r.employeeName || id}`} checked={selected.has(id)} onChange={() => toggle(id)} /> : null}</td> : null}
                   {cols.map((c, i) => (
                     <td key={c.key} className={c.align === 'right' ? 'text-right tabular-nums' : c.align === 'center' ? 'text-center' : ''}>
                       {i === 0 && onRowClick ? (
@@ -234,7 +236,7 @@ export default function DataTable({
             const id = rowKey(r);
             return (
               <li key={id} className={`ui-datatable-card ${selected.has(id) ? 'is-selected' : ''}`}>
-                {selectable ? <input type="checkbox" className="ui-checkbox ui-card-check" aria-label={`Choose ${r.name || r.employeeName || id}`} checked={selected.has(id)} onChange={() => toggle(id)} /> : null}
+                {selectable && choosable(r) ? <input type="checkbox" className="ui-checkbox ui-card-check" aria-label={`Choose ${r.name || r.employeeName || id}`} checked={selected.has(id)} onChange={() => toggle(id)} /> : null}
                 {/* A card opens the record only when there is one to open; otherwise it is plain content, not a stop for Tab. */}
                 {onRowClick ? <button type="button" className="ui-card-open" onClick={() => onRowClick(r)}>{card(r)}</button> : <div className="w-full min-w-0">{card(r)}</div>}
                 {rowActions ? (() => { const items = rowActions(r).filter(Boolean); return items.length ? <RowMenu label={`Actions for ${r.name || id}`} items={items} /> : null; })() : null}

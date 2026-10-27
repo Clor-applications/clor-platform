@@ -190,7 +190,7 @@ function Fact({ label, children }) {
   return <div><dt className="ui-label">{label}</dt><dd className="mt-0.5">{children}</dd></div>;
 }
 
-function RequestDrawer({ id, allowed, onClose, onDone }) {
+export function RequestDrawer({ id, allowed, onClose, onDone }) {
   const req = useRequest(() => getLeaveRequest(id), [id]);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);

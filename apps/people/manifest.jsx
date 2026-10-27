@@ -100,6 +100,8 @@ const Privacy = screen('Privacy');
 const AuditEvidence = screen('AuditEvidence');
 const WorkspaceList = screen('WorkspaceList');
 const PeopleReports = screen('PeopleReports');
+const Registers = screen('Registers');
+const LeaveSummaryReport = screen('LeaveSummaryReport');
 const PeopleDocuments = screen('PeopleDocuments');
 const Holidays = screen('Holidays');
 const PortalAccess = screen('PortalAccess');
@@ -250,7 +252,7 @@ export const peopleApp = {
     { key: 'hiring', label: 'Hiring', items: ['recruitment', 'candidates'] },
     { key: 'growth', label: 'Performance', items: ['performance', 'learning'] },
     { key: 'workplace', label: 'Engage', items: ['announcements', 'events'] },
-    { key: 'reports', label: 'Insights', items: ['reports', 'dataHealth', 'compliance', 'complianceCalendar', 'privacy', 'auditEvidence'] },
+    { key: 'reports', label: 'Insights', items: ['reports', 'registers', 'leaveSummary', 'dataHealth', 'compliance', 'complianceCalendar', 'privacy', 'auditEvidence'] },
     { key: 'settings', label: 'Settings', items: ['settings'] },
   ],
 
@@ -306,6 +308,9 @@ export const peopleApp = {
     { key: 'benefits', label: 'Benefits', icon: I.benefit, permission: 'PEOPLE::Benefits::VIEW', feature: 'peopleBenefits' },
     { key: 'compensation', label: 'Salary Revisions', icon: I.salary, permission: 'PAYROLL::Salary Revisions::VIEW', feature: 'peopleBenefits' },
     { key: 'reports', label: 'Workforce Report', icon: I.report, permission: 'PEOPLE::Employees::VIEW' },
+    /* What an inspector asks for (HR view audit, gap 4), and leave taken by department and type (gap 9). */
+    { key: 'registers', label: 'Registers', icon: I.register, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'leaveSummary', label: 'Leave Summary', icon: I.calendar, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'dataHealth', label: 'Data Health', icon: I.health, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'compliance', label: 'Compliance', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW', feature: 'peopleDetailed' },
     { key: 'complianceCalendar', label: 'Compliance Calendar', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW', feature: 'peopleDetailed' },
@@ -388,6 +393,8 @@ export const peopleApp = {
     benefits: register('benefits'),
     compensation: SalaryRevisions,
     reports: PeopleReports,
+    registers: Registers,
+    leaveSummary: LeaveSummaryReport,
     dataHealth: DataHealth,
     compliance: Compliance,
     complianceCalendar: ComplianceCalendar,

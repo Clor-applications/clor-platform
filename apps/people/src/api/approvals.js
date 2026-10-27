@@ -7,6 +7,8 @@ const opts = { skipWarehouseHeader: true };
 const send = (path, method, body) => apiFetch(`${base()}${path}`, { ...opts, method, body });
 
 export const listRequests = () => apiFetch(`${base()}/requests`, opts);
+/** One inbox: { items: [{ key, kind: APPROVAL|LEAVE|ATTENDANCE|HELPDESK, id, what, subKind, employeeName, fromDate, toDate, days, since, dueAt, overdue, managerApproved, bulk }], counts, rights }. */
+export const getInbox = () => apiFetch(`${base()}/inbox`, opts);
 export const getRequest = (id) => apiFetch(`${base()}/requests/${encodeURIComponent(id)}`, opts).then((r) => r?.request);
 export const submitRequest = (body, idempotencyKey) => apiFetch(`${base()}/requests`, { ...opts, method: 'POST', body, headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined });
 export const decideRequest = (id, action, comment) => send(`/requests/${encodeURIComponent(id)}/${action}`, 'POST', comment ? { comment } : {});
