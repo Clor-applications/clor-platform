@@ -12,8 +12,12 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/pa
 import { calculateRun, daysBetween, eligibleEmployees, validateRun } from '../services/payroll/run.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { recordAudit } from '../services/auditTrail.js';
-import { closedMonths, daysBetween as datesBetween, periodRows } from '../services/attendance/days.js';
+import { daysBetween as datesBetween, periodRows } from '../services/attendance/days.js';
 import { leaveLossOfPay } from '../services/attendance/payableDays.js';
+import { provisionalWarning, snapshotChange, snapshotRows, takenMonths } from '../services/payroll/attendanceSnapshots.js';
+import { runLopCheck } from '../services/payroll/readinessTower.js';
+import { correctProvisionalDays, cutoffDateFor, ordinal, provisionalMessage, provisionalPeriodRows, provisionalSetting } from '../services/payroll/provisionalDays.js';
+import { Prisma } from '../generated/payroll/index.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 
@@ -66,6 +70,11 @@ const shape = (row: any, extra: Record<string, unknown> = {}) => ({
   rejectedAt: row.rejectedAt,
   rejectionReason: row.rejectionReason || null,
   lockedAt: row.lockedAt,
+  /* Which Attendance month closes the days were taken from (O-04): [{ month, version, closed }]. */
+  attendanceSnapshots: row.attendanceSnapshots ?? null,
+  /* Days after the company's cut-off counted as present (payrollProvisionalDays): { cutoffDate, from, to, people, days }, and the sentence the run screen shows. */
+  provisionalDays: row.provisionalDays ?? null,
+  provisionalMessage: row.provisionalDays && (row.provisionalDays as any).people ? provisionalMessage(row.provisionalDays as any) : null,
   createdAt: row.createdAt,
   ...extra,
 });
@@ -155,6 +164,8 @@ payrollRunsRouter.get(
               /* Where the days came from (MANUAL, ATTENDANCE), and the attendance breakdown when they came from there. */
               source: inputByEmployee.get(m.employeeId)!.source,
               notes: inputByEmployee.get(m.employeeId)!.notes,
+              /* Days after the cut-off counted as present before they happened. */
+              provisionalDays: Number(inputByEmployee.get(m.employeeId)!.provisionalDays ?? 0),
             }
           : null,
       })),
@@ -365,6 +376,9 @@ payrollRunsRouter.put(
           ...(row.overtimeHours !== undefined ? { overtimeHours: row.overtimeHours } : {}),
           notes: row.notes || null,
           source: 'MANUAL',
+          /* Typed days are a decision, not an assumption: nothing for next month to correct. */
+          provisionalDays: 0,
+          provisionalDates: Prisma.DbNull,
         },
       });
     }
@@ -398,7 +412,13 @@ payrollRunsRouter.post(
 
     const members = await payrollPrisma.payrollRunEmployee.findMany({ where: { orgId, runId: run.id, inclusion: 'INCLUDED' }, select: { employeeId: true } });
     const inRun = new Set(members.map((m) => m.employeeId));
-    const rows = (await periodRows(accountId, orgId, datesBetween(period.startDate, period.endDate))).filter((r) => inRun.has(r.employeeId));
+    /* Closed in Attendance: the figures saved when each month was closed (O-04). Open: today's, said to be provisional. */
+    const fromSnapshot = await snapshotRows(orgId, period.startDate, period.endDate);
+    /* Paying before the month ends (payrollProvisionalDays, O-11): live figures to the cut-off, the days after it counted as present. */
+    const setting = fromSnapshot ? null : await provisionalSetting(accountId, orgId);
+    const cutoffDate = setting?.enabled ? cutoffDateFor(period, setting.cutoffDay) : null;
+    const provisional = cutoffDate ? await provisionalPeriodRows(accountId, orgId, period.startDate, period.endDate, cutoffDate) : null;
+    const rows = (fromSnapshot ? fromSnapshot.rows : provisional ? provisional.rows : await periodRows(accountId, orgId, datesBetween(period.startDate, period.endDate))).filter((r: any) => inRun.has(r.employeeId));
     const existing = new Map(
       (await payrollPrisma.payrollInput.findMany({ where: { orgId, runId: run.id } })).map((i) => [i.employeeId, i])
     );
@@ -407,6 +427,7 @@ payrollRunsRouter.post(
     let saved = 0;
     const keptManual: string[] = [];
     const toResolve: Array<{ employeeId: string; name: string; incompleteDays: number }> = [];
+    const assumed = { people: 0, days: 0 };
     for (const r of rows) {
       const had = existing.get(r.employeeId);
       if (had && had.source === 'MANUAL' && !overwrite) {
@@ -426,10 +447,21 @@ payrollRunsRouter.post(
       const notes = [
         `From attendance: loss of pay ${lop}${parts.length ? ` (${parts.join(', ')})` : ''}.`,
         r.notYet ? `${r.notYet} days still to come counted as paid.` : '',
+        r.provisionalDays ? `${r.provisionalDays} ${r.provisionalDays === 1 ? 'day' : 'days'} after the ${ordinal(Number(cutoffDate!.slice(8, 10)))} counted as present.` : '',
       ].filter(Boolean).join(' ').slice(0, 300);
       /* Approved overtime only, as hours: a component's formula prices it (OVERTIME_HOURS). */
       const overtimeHours = Math.round(((Number(r.approvedOvertimeMinutes) || 0) / 60) * 100) / 100;
-      const days = { workingDays, payableDays, lwpDays: lop, overtimeHours, source: 'ATTENDANCE', notes };
+      /* What was assumed after the cut-off, for next month's pull to compare with what happened. None without the feature. */
+      const assumedDates = provisional && Array.isArray(r.provisionalDates) && r.provisionalDates.length ? r.provisionalDates : null;
+      if (r.provisionalDays) {
+        assumed.people += 1;
+        assumed.days += Number(r.provisionalDays);
+      }
+      const days = {
+        workingDays, payableDays, lwpDays: lop, overtimeHours, source: 'ATTENDANCE', notes,
+        provisionalDays: Number(r.provisionalDays) || 0,
+        provisionalDates: assumedDates ?? Prisma.DbNull,
+      };
       await payrollPrisma.payrollInput.upsert({
         where: { runId_employeeId: { runId: run.id, employeeId: r.employeeId } },
         create: { accountId, orgId, runId: run.id, employeeId: r.employeeId, ...days, createdByUserId: req.auth!.userId },
@@ -438,21 +470,32 @@ payrollRunsRouter.post(
       });
       saved += 1;
     }
-    const periodMonths = [...new Set(datesBetween(period.startDate, period.endDate).map((d) => d.slice(0, 7)))];
-    const shut = await closedMonths(orgId, periodMonths);
-    /* Which close of each month these figures match: the latest snapshot, kept when the month was closed. */
-    const snaps = await peoplePrisma.attendanceMonthSnapshot.findMany({ where: { orgId, month: { in: periodMonths } }, orderBy: { version: 'desc' }, select: { month: true, version: true, createdAt: true } });
-    const attendanceSnapshots = periodMonths.filter((m) => shut.has(m)).map((m) => snaps.find((x) => x.month === m)).filter(Boolean);
+    /* Which close of each month these figures match, kept on the run so approve and lock can tell if a month moved since. */
+    const taken = await takenMonths(orgId, period.startDate, period.endDate);
+    const provisionalDays = provisional && cutoffDate ? { cutoffDate, from: provisional.windowFrom, to: provisional.windowTo, people: assumed.people, days: Math.round(assumed.days * 100) / 100 } : null;
+    await payrollPrisma.payrollRun.update({ where: { id: run.id }, data: { attendanceSnapshots: taken as any, provisionalDays: provisionalDays ?? Prisma.DbNull } });
+    /* Last month's assumed days against what happened, booked as corrections in this period (nothing when no earlier run assumed any). */
+    const corrections = await correctProvisionalDays({ accountId, orgId, run, period, employeeIds: [...inRun], userId: req.auth!.userId });
+    const openMonths = taken.filter((t) => !t.closed).map((t) => t.month);
     res.json({
-      attendanceSnapshots,
+      attendanceSnapshots: taken.filter((t) => t.closed),
+      /* SNAPSHOT: the closed months' saved figures. LIVE: today's (a month open, or a period that is not whole months). */
+      figuresFrom: fromSnapshot ? 'SNAPSHOT' : 'LIVE',
+      provisional: openMonths.length > 0,
+      openMonths,
+      warning: openMonths.length ? provisionalWarning(openMonths) : null,
       ok: true,
       saved,
       keptManual: keptManual.length,
       /* Closed in Attendance, the figures cannot move after this; open, a correction there would not reach this run. */
-      attendanceClosed: periodMonths.every((m) => shut.has(m)),
+      attendanceClosed: openMonths.length === 0,
       /* People in the run Attendance has no figures for (not employed in the period per People, or not expected at work). */
       missing: [...inRun].filter((id) => !rows.some((r) => r.employeeId === id)).length,
       toResolve,
+      provisionalDays,
+      provisionalMessage: provisionalDays?.people ? provisionalMessage(provisionalDays) : null,
+      /* Corrections booked for days an earlier run counted as present. */
+      corrections: corrections.filter((c) => c.type),
     });
   }
 );
@@ -507,7 +550,7 @@ payrollRunsRouter.post(
       /* What the person would be paid for before leave: the days already worked out for them, or the whole period. */
       const base = had && had.source !== 'MANUAL' ? Number(had.payableDays) + Number(had.lwpDays) : workingDays;
       const notes = lop ? `From leave: loss of pay ${lop} (${[...u!.names].join(', ')}).` : 'From leave: no unpaid leave.';
-      const data = { workingDays: had ? Number(had.workingDays) : workingDays, payableDays: Math.max(0, base - lop), lwpDays: lop, source: 'LEAVE', notes };
+      const data = { workingDays: had ? Number(had.workingDays) : workingDays, payableDays: Math.max(0, base - lop), lwpDays: lop, source: 'LEAVE', notes, provisionalDays: 0, provisionalDates: Prisma.DbNull };
       await payrollPrisma.payrollInput.upsert({
         where: { runId_employeeId: { runId: run.id, employeeId } },
         create: { accountId, orgId, runId: run.id, employeeId, ...data, createdByUserId: req.auth!.userId },
@@ -517,7 +560,7 @@ payrollRunsRouter.post(
     }
     /* Paid out in HR and not yet paid by a run: shown so the amount is added, never paid twice. */
     const year = Number(period.endDate.slice(0, 4));
-    const encash = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, kind: 'ENCASH', paidInRunId: null, employeeId: { in: members }, year: { lte: year } }, select: { id: true, employeeId: true, days: true, leaveTypeId: true } });
+    const encash = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, kind: 'ENCASH', paidInRunId: null, reversedAt: null, employeeId: { in: members }, year: { lte: year } }, select: { id: true, employeeId: true, days: true, leaveTypeId: true } });
     res.json({
       ok: true,
       saved,
@@ -529,6 +572,35 @@ payrollRunsRouter.post(
 );
 
 // ---------------------------------------------------------------- the stages
+
+/**
+ * The loss-of-pay cross-check for the run review (O-06): per person, approved
+ * unpaid leave, loss of pay on the day records, and loss of pay on the run,
+ * listed where they do not agree. Locking refuses while any are listed,
+ * unless somebody acknowledges them with a reason.
+ */
+payrollRunsRouter.get(
+  '/orgs/:orgId/payroll/runs/:id/lop-check',
+  requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const run = await runOr404(req, res);
+    if (!run) return;
+    const check = await runLopCheck(accountId, orgId, run.id);
+    /* Whether the days were taken from months still open, and whether a month has moved since (O-04). */
+    const taken = Array.isArray(run.attendanceSnapshots) ? (run.attendanceSnapshots as Array<{ month: string; closed: boolean }>) : [];
+    const openMonths = taken.filter((t) => t && !t.closed).map((t) => t.month);
+    const changed = await snapshotChange(orgId, run.attendanceSnapshots);
+    res.json({
+      ...check,
+      provisional: openMonths.length > 0,
+      openMonths,
+      warning: openMonths.length ? provisionalWarning(openMonths) : null,
+      snapshotChanged: changed,
+    });
+  }
+);
 
 payrollRunsRouter.post(
   '/orgs/:orgId/payroll/runs/:id/validate',
@@ -618,6 +690,30 @@ const transition = (
         });
       }
 
+      /* O-04: a closed Attendance month the days were taken from has been reopened, or closed again, since the pull. */
+      if (to === 'APPROVED' || to === 'LOCKED') {
+        const changed = await snapshotChange(run.orgId, run.attendanceSnapshots);
+        if (changed) return res.status(409).json({ error: changed.message, code: 'SNAPSHOT_CHANGED', month: changed.month, reason: changed.reason });
+      }
+
+      /* O-06: loss of pay that leave, the days and the run do not agree on is locked only when somebody says why. */
+      let lopAcknowledged: { reason: string; mismatches: unknown[] } | null = null;
+      if (to === 'LOCKED') {
+        const { mismatches } = await runLopCheck(run.accountId, run.orgId, run.id);
+        if (mismatches.length) {
+          const reason = String(req.body?.reason || '').trim().slice(0, 300);
+          if (req.body?.acknowledge !== true) {
+            return res.status(409).json({
+              error: `Loss of pay does not agree for ${mismatches.length} ${mismatches.length === 1 ? 'person' : 'people'}: leave, the days and this payroll say different things. Correct it, or lock with a reason.`,
+              code: 'LOP_MISMATCH',
+              mismatches,
+            });
+          }
+          if (reason.length < 5) return res.status(400).json({ error: 'Say why this payroll is locked with loss of pay that does not agree. It goes in the audit log.', code: 'REASON_NEEDED', mismatches });
+          lopAcknowledged = { reason, mismatches };
+        }
+      }
+
       /* A-13: whoever prepared the run approves it only as the company's maker-checker setting allows. */
       if (to === 'APPROVED') {
         const refused = await ownWorkRefusal(req, { makers: [run.createdByUserId, run.submittedByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_RUN', entityId: run.id, what: 'payroll' });
@@ -631,6 +727,15 @@ const transition = (
       });
       if (moved.count !== 1) return res.status(409).json({ error: 'Somebody else has just changed this payroll. Reload it.', code: 'RUN_WRONG_STATUS' });
       const updated = await payrollPrisma.payrollRun.findUniqueOrThrow({ where: { id: run.id } });
+      if (lopAcknowledged) {
+        await recordAudit(req, {
+          entity: 'PAYROLL_RUN',
+          entityId: run.id,
+          action: 'LOCK_LOP_ACKNOWLEDGED',
+          message: `Payroll ${run.number || run.id} locked with loss of pay not agreeing for ${lopAcknowledged.mismatches.length}: ${lopAcknowledged.reason}`,
+          metadata: { reason: lopAcknowledged.reason, mismatches: lopAcknowledged.mismatches },
+        });
+      }
       res.json({ run: shape(updated) });
       /* Payslips are final: attendance for the period is settled, accounting can post (HR research: PayrollPeriodLocked). */
       if (to === 'LOCKED') emitWebhook(updated.orgId, 'payroll.locked', { runId: updated.id, number: updated.number, periodId: updated.periodId, status: updated.status, lockedAt: (updated as any).lockedAt ?? null });

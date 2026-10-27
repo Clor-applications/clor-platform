@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlarmClock, CalendarCheck, CheckCheck, FileSpreadsheet, HelpCircle, Plus, Timer, UserX, Upload, Wand2, X } from 'lucide-react';
+import { AlarmClock, CalendarCheck, CheckCheck, FileSearch, FileSpreadsheet, HelpCircle, Plus, Timer, UserX, Upload, Wand2, X } from 'lucide-react';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -13,6 +13,8 @@ import { approveOvertime, bulkChangeDays, dayLabel, deleteDay, explainDay, hm, l
 import LoadFailed from '../components/LoadFailed';
 import DayExplain from '../components/DayExplain';
 import { downloadEvidence } from '../components/evidenceXlsx';
+import PunchEvidence from '../components/PunchEvidence';
+import { TRUST } from '../components/readerTrust';
 
 /**
  * Everyone's days: filter, correct, validate, approve overtime. After
@@ -41,6 +43,7 @@ const COLUMNS = {
   employee: (r) => r.employeeName,
   status: (r) => STATUS[r.status]?.label || r.status,
   validated: (r) => (r.validated ? 'Validated' : 'Not validated'),
+  trust: (r) => TRUST[r.trust]?.label || 'Not worked out',
 };
 const EXPORT_COLUMNS = [
   { key: 'date', label: 'Date' },
@@ -57,15 +60,23 @@ const EXPORT_COLUMNS = [
   { key: 'validated', label: 'Validated', value: (r) => (r.validated ? 'Yes' : 'No') },
   { key: 'source', label: 'Source', value: (r) => SOURCE[r.source] || r.source || '' },
 ];
+/* Reader trust (O-11), only while the company has it on. */
+const TRUST_EXPORT = [
+  { key: 'trust', label: 'Trust', value: (r) => TRUST[r.trust]?.label || '' },
+  { key: 'trustReasons', label: 'Why', value: (r) => (Array.isArray(r.trustReasons) ? r.trustReasons.map((x) => x.text).join(' ') : '') },
+];
 
 export default function AttendanceRecords({ params, openScreen } = {}) {
   /* Opened from a report row or an exception: start on that person and those days. */
-  const [filters, setFilters] = useState(() => ({ from: weekAgo(), to: todayIst(), employeeId: '', validated: '', late: '', ...(params || {}), status: '' }));
+  const [filters, setFilters] = useState(() => ({ from: weekAgo(), to: todayIst(), employeeId: '', validated: '', late: '', trust: '', ...(params || {}), status: '' }));
   const [status, setStatus] = useState(() => params?.status || '');
   const [explaining, setExplaining] = useState(null);
   const [bulk, setBulk] = useState(null);
   const explainLoad = useCallback(() => explainDay(explaining?.employeeId, explaining?.date), [explaining]);
   const [all, setAll] = useState(null);
+  /* Whether the company has reader trust on: the server says so with the days. */
+  const [readerTrust, setReaderTrust] = useState(false);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [people, setPeople] = useState([]);
   const [selected, setSelected] = useState(() => new Set());
@@ -77,6 +88,7 @@ export default function AttendanceRecords({ params, openScreen } = {}) {
     listRecords(filters)
       .then((r) => {
         setAll(r.records || []);
+        setReaderTrust(Boolean(r.readerTrust));
         setLoadError('');
         setSelected(new Set());
       })
@@ -144,12 +156,13 @@ export default function AttendanceRecords({ params, openScreen } = {}) {
       tight
       denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people or dates…', label: 'Search records' }}
-      moreItems={[exportMenuItem('Export days'), ...(openScreen ? [{ key: 'import', label: 'Import from a spreadsheet', Icon: Upload }] : [])]}
+      moreItems={[exportMenuItem('Export days'), ...(readerTrust ? [{ key: 'evidence', label: 'Attendance evidence', Icon: FileSearch }] : []), ...(openScreen ? [{ key: 'import', label: 'Import from a spreadsheet', Icon: Upload }] : [])]}
       onMoreSelect={(k) => {
         if (k === 'import') return openScreen('dataImport', { kind: 'records' });
+        if (k === 'evidence') return setEvidenceOpen(true);
         const format = exportFormatFromKey(k);
         if (!format) return;
-        runListExport({ format, title: 'Attendance', subtitle: `${filters.from} to ${filters.to}`, fileName: `Attendance ${filters.from} to ${filters.to}`, label: 'day/days', columns: EXPORT_COLUMNS, rows });
+        runListExport({ format, title: 'Attendance', subtitle: `${filters.from} to ${filters.to}`, fileName: `Attendance ${filters.from} to ${filters.to}`, label: 'day/days', columns: readerTrust ? [...EXPORT_COLUMNS, ...TRUST_EXPORT] : EXPORT_COLUMNS, rows });
       }}
       primary={
         <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ date: todayIst(), checkIn: '', checkOut: '', status: '' })}>
@@ -181,6 +194,12 @@ export default function AttendanceRecords({ params, openScreen } = {}) {
           <label className="flex items-center gap-1.5 text-sm">
             <input type="checkbox" className="ui-checkbox" checked={filters.late === 'true'} onChange={(e) => setFilters((f) => ({ ...f, late: e.target.checked ? 'true' : '' }))} /> Late only
           </label>
+          {readerTrust ? (
+            <select className="ui-select ui-ctl-compact !w-auto" value={filters.trust || ''} onChange={set('trust')} aria-label="Reader trust">
+              <option value="">Any trust</option>
+              {Object.entries(TRUST).map(([value, t]) => <option key={value} value={value}>{t.label}</option>)}
+            </select>
+          ) : null}
         </>
       }
       above={
@@ -226,13 +245,14 @@ export default function AttendanceRecords({ params, openScreen } = {}) {
                   <ColumnHeader label="Status" col="status" state={columns} align="center" />
                   <ColumnHeader label="Source" col="source" state={columns} className="hidden 2xl:table-cell" />
                   <ColumnHeader label="Validated" col="validated" state={columns} align="center" className="hidden 2xl:table-cell" />
+                  {readerTrust ? <ColumnHeader label="Trust" col="trust" state={columns} align="center" /> : null}
                   <th scope="col" className="w-10"><span className="sr-only">Explain</span></th>
                 </tr>
               </thead>
               <tbody className="ui-rows">
                 {!rows.length ? (
                   <tr>
-                    <td colSpan={14}>
+                    <td colSpan={readerTrust ? 15 : 14}>
                       {all.length ? (
                         <EmptyState kind="filtered" totalCount={inTab.length || all.length} title="No days match" description="Nothing in this tab matches the search or the column filters." />
                       ) : (
@@ -251,7 +271,7 @@ export default function AttendanceRecords({ params, openScreen } = {}) {
                       <td onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" className="ui-checkbox" aria-label={`Select ${r.employeeName} ${r.date}`} checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
                       </td>
-                      <td className="ui-col-date whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}</td>
+                      <td className="ui-col-date whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}{r.shiftLabel ? <span className="ui-caption block">{r.shiftLabel}</span> : null}</td>
                       <td className="ui-col-entity">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
                       <td className="hidden min-[1800px]:table-cell">{r.department || <span className="ui-caption">—</span>}</td>
                       <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
@@ -285,6 +305,11 @@ export default function AttendanceRecords({ params, openScreen } = {}) {
                       <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span></td>
                       <td className="ui-col-meta hidden 2xl:table-cell">{SOURCE[r.source] || r.source || '—'}</td>
                       <td className="ui-col-h-center hidden 2xl:table-cell">{r.validated ? <span className="ui-pill ui-pill-pos">Validated</span> : <span className="ui-caption">—</span>}</td>
+                      {readerTrust ? (
+                        <td className="ui-col-h-center" title={Array.isArray(r.trustReasons) ? r.trustReasons.map((x) => x.text).join(' ') : ''}>
+                          {TRUST[r.trust] ? <span className={`ui-pill ${TRUST[r.trust].pill}`}>{TRUST[r.trust].label}</span> : <span className="ui-caption">—</span>}
+                        </td>
+                      ) : null}
                       <td onClick={(e) => e.stopPropagation()}>
                         <button type="button" className="ui-icon-btn" aria-label={`Why is ${r.employeeName} ${STATUS[r.status]?.label?.toLowerCase() || r.status} on ${r.date}?`} title="Why does this day say this?" onClick={() => setExplaining(r)}>
                           <HelpCircle size={16} aria-hidden="true" />
@@ -318,6 +343,7 @@ export default function AttendanceRecords({ params, openScreen } = {}) {
           ) : null
         }
       />
+      {evidenceOpen ? <PunchEvidence open onClose={() => setEvidenceOpen(false)} people={people} initial={{ employeeId: filters.employeeId, from: filters.from, to: filters.to }} /> : null}
       {bulk ? <BulkChange spec={bulk} ids={[...selected]} onClose={() => setBulk(null)} onDone={() => { setBulk(null); load(); }} /> : null}
     </DocumentListShell>
   );
@@ -476,7 +502,7 @@ function MarkDay({ initial, people, onClose, onSaved }) {
       open
       onClose={onClose}
       title={form.id ? `${form.employeeName} · ${form.date}` : 'Mark attendance'}
-      description="Times are 24-hour, Indian Standard Time. An out earlier than the in is the next morning."
+      description={form.shiftLabel ? `${form.shiftLabel}. Times are 24-hour, Indian Standard Time; a time after midnight is that night's.` : 'Times are 24-hour, Indian Standard Time. An out earlier than the in is the next morning.'}
       actions={
         <>
           {form.id ? <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Delete</button> : null}

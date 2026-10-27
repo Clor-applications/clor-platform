@@ -48,7 +48,7 @@ export function CheckInCard({ me, onChanged }) {
       <div>
         <h2 className="ui-t-sec">{me.clockedIn ? 'You are checked in' : closed ? 'Done for today' : 'Not checked in today'}</h2>
         <p className="ui-caption tabular-nums">
-          {t?.checkInTime ? `In ${t.checkInTime}` : me.shift?.startTime ? `Shift ${me.shift.startTime}–${me.shift.endTime || ''}` : ''}
+          {t?.checkInTime ? `In ${t.checkInTime}` : me.shift?.label ? me.shift.label : me.shift?.startTime ? `Shift ${me.shift.startTime}–${me.shift.endTime || ''}` : ''}
           {t?.checkOutTime ? `, out ${t.checkOutTime}` : ''}
         </p>
       </div>
@@ -156,7 +156,7 @@ export default function MyDays() {
   /* No employee file behind this sign-in is a fact about the person, not a failure to retry. */
   const unlinked = req.error?.code === 'NO_EMPLOYEE_LINK' || req.error?.status === 404;
   const columns = [
-    { key: 'date', label: 'Date', always: true, render: (r) => <span className="tabular-nums whitespace-nowrap">{formatDate(r.date)}</span> },
+    { key: 'date', label: 'Date', always: true, render: (r) => <span className="tabular-nums whitespace-nowrap">{formatDate(r.date)}{r.shiftLabel ? <span className="ui-caption block">{r.shiftLabel}</span> : null}</span> },
     { key: 'status', label: 'Day', render: (r) => <span className={`ui-pill ${DAY_PILL[r.status] || 'ui-pill-neutral'}`}>{DAY_LABEL[r.status] || r.status}</span> },
     { key: 'in', label: 'In', align: 'right', render: (r) => <span className="tabular-nums">{r.checkInTime || '—'}</span> },
     { key: 'out', label: 'Out', align: 'right', render: (r) => <span className="tabular-nums">{r.checkOutTime || '—'}</span> },

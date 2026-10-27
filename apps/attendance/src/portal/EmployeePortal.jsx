@@ -301,7 +301,7 @@ function Today({ me, reload, guard }) {
           {r ? <span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span> : null}
         </div>
         <p className="text-sm">
-          {s.holiday ? `Holiday — ${s.holiday}` : s.off ? 'Weekly off' : `${s.name} · ${s.startTime}–${s.endTime}`}
+          {s.holiday ? `Holiday — ${s.holiday}` : s.off ? 'Weekly off' : s.label ? `${s.name} · ${s.label}` : `${s.name} · ${s.startTime}–${s.endTime}`}
         </p>
         <dl className="grid grid-cols-3 gap-2 text-center">
           <div className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">In</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkInTime || '—'}</dd></div>
@@ -402,7 +402,7 @@ function MyDays({ guard }) {
                     const open = d.status === 'PRESENT' && d.checkIn && !d.checkOut && d.date < todayIst();
                     return (
                       <tr key={d.date}>
-                        <td className="whitespace-nowrap">{dayLabel(d.date)}</td>
+                        <td className="whitespace-nowrap">{dayLabel(d.date)}{d.shiftLabel ? <span className="ui-caption block">{d.shiftLabel}</span> : null}</td>
                         <td>
                           {open ? (
                             <span className="ui-pill ui-pill-warn">No check-out</span>

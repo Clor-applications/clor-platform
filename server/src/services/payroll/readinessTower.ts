@@ -1,7 +1,11 @@
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
+import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { monthReadiness } from '../attendance/readiness.js';
+import { daysBetween, periodRows } from '../attendance/days.js';
+import { lastOfMonth, leaveLossOfPay, payableMonth } from '../attendance/payableDays.js';
 import { dataHealth } from '../people/dataHealth.js';
 import { isFeatureEnabled } from '../features.js';
+import { provisionalPeriodRows } from './provisionalDays.js';
 
 /**
  * Payroll readiness, the HR research's "Workforce Control Tower": one answer
@@ -39,6 +43,7 @@ const OWNER: Record<string, string> = {
   overtime: 'Managers approve or reject',
   unvalidated: 'HR validates the days',
   readers: 'Whoever looks after the readers',
+  trustCheck: 'HR looks at the punches (reader trust)',
 };
 
 const rupees = (n: number) => Math.round(n);
@@ -119,4 +124,137 @@ export async function payrollReadiness(accountId: string, orgId: string, month: 
     issues,
     blockers: people.slice(0, 50),
   };
+}
+
+// ---------------------------------------------------------------- loss of pay, three ways
+
+const r2 = (n: number) => Math.round(n * 100) / 100;
+const dayWord = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
+
+export type LopMismatch = {
+  employeeId: string;
+  name: string;
+  code: string | null;
+  /** Approved unpaid leave in the pay period, from the leave requests. */
+  leaveDays: number;
+  /** The unpaid-leave part of the day records (what approval wrote on the days). */
+  recordsLeaveDays: number;
+  /** Loss of pay from the day records, as Payroll takes it (Attendance's month summary, or leave alone). */
+  recordsLossOfPay: number;
+  /** Loss of pay on the run, or null when nothing was entered for the person. */
+  inputLwpDays: number | null;
+  /** Where the run's figure came from: MANUAL, ATTENDANCE, LEAVE, or null. */
+  inputSource: string | null;
+  problems: string[];
+};
+
+/**
+ * The loss-of-pay cross-check before a run is locked (closure audit O-06):
+ * per person, approved unpaid leave from the leave requests, loss of pay from
+ * the day records (services/attendance/payableDays.ts, the figures Payroll
+ * takes), and the loss of pay on the run. A mismatch is one of:
+ *
+ * - the days do not carry the unpaid leave that was approved (leave and the
+ *   register have drifted);
+ * - the run's figure was taken from the days and the days now say otherwise
+ *   (something changed after the pull);
+ * - a figure typed on the run pays approved unpaid leave, or, without
+ *   Attendance (where the days are the leave), does not match the days.
+ *
+ * Days typed by hand with Attendance on are a decision about absence and are
+ * not second-guessed beyond the unpaid leave they must at least cover.
+ *
+ * Days a run counted as present after the company's cut-off
+ * (payrollProvisionalDays) are read the way the pull read them: an absence
+ * marked on one since is next month's correction, not a mismatch here.
+ * Approved unpaid leave on those days still has to agree.
+ */
+export async function runLopCheck(accountId: string, orgId: string, runId: string) {
+  const none = { checked: 0, source: null as 'ATTENDANCE' | 'LEAVE' | null, mismatches: [] as LopMismatch[] };
+  const run = await payrollPrisma.payrollRun.findFirst({ where: { id: runId, orgId }, select: { id: true, periodId: true, provisionalDays: true } });
+  const period = run ? await payrollPrisma.payrollPeriod.findFirst({ where: { orgId, id: run.periodId }, select: { startDate: true, endDate: true } }) : null;
+  if (!run || !period) return none;
+  const { startDate: from, endDate: to } = period;
+  const members = (await payrollPrisma.payrollRunEmployee.findMany({ where: { orgId, runId, inclusion: 'INCLUDED' }, select: { employeeId: true } })).map((m) => m.employeeId);
+  if (!members.length) return none;
+  const inRun = new Set(members);
+  const attendanceOn = await isFeatureEnabled(accountId, orgId, 'attendance');
+
+  /* 1. The leave requests: approved, on an unpaid type, the part inside the period. */
+  const unpaidTypes = await peoplePrisma.leaveType.findMany({ where: { orgId, isPaid: false }, select: { id: true, sandwich: true, countsCalendarDays: true } });
+  const requests = unpaidTypes.length
+    ? await peoplePrisma.leaveRequest.findMany({
+        where: { orgId, status: 'APPROVED', employeeId: { in: members }, leaveTypeId: { in: unpaidTypes.map((t) => t.id) }, fromDate: { lte: to }, toDate: { gte: from } },
+        select: { employeeId: true, leaveTypeId: true, fromDate: true, toDate: true, days: true },
+      })
+    : [];
+  const leave = new Map<string, number>();
+  for (const q of requests) {
+    let days = q.days;
+    if (q.fromDate < from || q.toDate > to) {
+      /* Across the period edge: the request's charged dates inside the period, counted as the request counted them. */
+      const { dayPlan } = await import('../../routes/leave.js');
+      const person = await peoplePrisma.employee.findFirst({ where: { orgId, id: q.employeeId }, select: { id: true, branchId: true, areaId: true } });
+      const type = unpaidTypes.find((t) => t.id === q.leaveTypeId);
+      const plan = person ? await dayPlan(orgId, person, q.fromDate, q.toDate, { sandwich: type?.sandwich, countsCalendarDays: type?.countsCalendarDays }) : [];
+      days = plan.filter((d) => d.counted && d.date >= from && d.date <= to).length;
+    }
+    leave.set(q.employeeId, (leave.get(q.employeeId) || 0) + days);
+  }
+
+  /* 2. The day records, the way Payroll takes them: whole months through payableMonth, a part-month period directly. */
+  const records = new Map<string, { name: string; code: string | null; lop: number; leave: number }>();
+  const add = (id: string, name: string, code: string | null, lop: number, lv: number) => {
+    const had = records.get(id) || { name, code, lop: 0, leave: 0 };
+    had.lop += lop;
+    had.leave += lv;
+    records.set(id, had);
+  };
+  const months = [...new Set(daysBetween(from, to).map((d) => d.slice(0, 7)))];
+  const cutoffDate = (run.provisionalDays as { cutoffDate?: string } | null)?.cutoffDate;
+  if (cutoffDate && attendanceOn) {
+    for (const r of (await provisionalPeriodRows(accountId, orgId, from, to, cutoffDate)).rows) {
+      if (inRun.has(r.employeeId)) add(r.employeeId, r.name, r.code ?? null, Number(r.lossOfPayDays) || 0, Number(r.unpaidLeaveDays) || 0);
+    }
+  } else if (months.every((m) => `${m}-01` >= from && lastOfMonth(m) <= to)) {
+    for (const m of months) {
+      const { rows } = await payableMonth(accountId, orgId, m, members);
+      for (const r of rows) add(r.employeeId, r.name, r.code, r.lossOfPayDays, r.unpaidLeaveDays);
+    }
+  } else if (attendanceOn) {
+    for (const r of await periodRows(accountId, orgId, daysBetween(from, to))) {
+      if (inRun.has(r.employeeId)) add(r.employeeId, r.name, r.code ?? null, Number(r.lossOfPayDays) || 0, Number(r.unpaidLeaveDays) || 0);
+    }
+  } else {
+    for (const [id, u] of await leaveLossOfPay(orgId, members, from, to)) add(id, '', null, u.days, u.leaveDays);
+  }
+
+  /* 3. The run. */
+  const inputs = new Map((await payrollPrisma.payrollInput.findMany({ where: { orgId, runId }, select: { employeeId: true, lwpDays: true, source: true } })).map((i) => [i.employeeId, i]));
+  const names = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: members } }, select: { id: true, name: true, code: true } })).map((e) => [e.id, e]));
+
+  const mismatches: LopMismatch[] = [];
+  for (const id of members) {
+    const rec = records.get(id);
+    const leaveDays = r2(leave.get(id) || 0);
+    const recordsLeaveDays = r2(rec?.leave || 0);
+    const recordsLossOfPay = r2(rec?.lop || 0);
+    const input = inputs.get(id);
+    const inputLwpDays = input ? r2(Number(input.lwpDays)) : null;
+    const inputSource = input?.source || null;
+    const onRun = inputLwpDays ?? 0;
+    const problems: string[] = [];
+    if (leaveDays !== recordsLeaveDays) problems.push(`Approved unpaid leave is ${dayWord(leaveDays)}, but the days carry ${recordsLeaveDays}.`);
+    const taken = inputSource === 'ATTENDANCE' || inputSource === 'LEAVE';
+    if (taken || !attendanceOn) {
+      if (onRun !== recordsLossOfPay) problems.push(`The run has ${dayWord(onRun)} of loss of pay; the days say ${recordsLossOfPay}.${taken ? ' Take the days again.' : ''}`);
+    } else if (onRun < leaveDays) {
+      problems.push(`The run has ${dayWord(onRun)} of loss of pay, less than the ${leaveDays} of approved unpaid leave.`);
+    }
+    if (!problems.length) continue;
+    const who = names.get(id);
+    mismatches.push({ employeeId: id, name: who?.name || rec?.name || '', code: who?.code ?? rec?.code ?? null, leaveDays, recordsLeaveDays, recordsLossOfPay, inputLwpDays, inputSource, problems });
+  }
+  mismatches.sort((a, b) => a.name.localeCompare(b.name));
+  return { checked: members.length, source: attendanceOn ? ('ATTENDANCE' as const) : ('LEAVE' as const), mismatches };
 }

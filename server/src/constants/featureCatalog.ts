@@ -19,6 +19,8 @@ export type FeatureDef = {
   category: 'Operations' | 'Accounting' | 'Inventory' | 'Governance' | 'Communication' | 'Data' | 'Payroll' | 'People' | 'Attendance';
   /** Turning the parent off forces these off too. */
   dependsOn?: string;
+  /** Other features this one also needs, each forcing it off when off (a second parent the catalog tree cannot show). */
+  alsoNeeds?: string[];
   /** Not switchable — listed so the screen can show why. */
   locked?: boolean;
   lockedReason?: string;
@@ -468,6 +470,37 @@ export const FEATURE_CATALOG: FeatureDef[] = [
     defaultEnabled: false,
     category: 'Attendance',
   },
+  /*
+   * Night shifts (O-11, TLA-003): a shift ending the next morning belongs to
+   * the date it starts. Hand-written times after midnight, web clock-ins,
+   * leave and half days all follow that night. Off, nothing changes.
+   * Switched under Attendance → Settings → Attendance policy.
+   */
+  {
+    key: 'attendanceNightShifts',
+    label: 'Night shifts',
+    description:
+      'A shift that ends the next morning (22:00–06:00) counts on the day it starts: punches, corrections, leave and half days after midnight go to that night.',
+    defaultEnabled: false,
+    category: 'Attendance',
+    dependsOn: 'attendance',
+  },
+  /*
+   * Per-day reader trust (closure audit O-11, TLA-005): for companies that must
+   * show a day's punches are genuine — an inspector, a dispute, a labour court.
+   * Each day is marked Trusted, Check or Manual when it is written. Off, days
+   * are written exactly as before. Switched on from Attendance policy, beside
+   * the reader settings.
+   */
+  {
+    key: 'attendanceReaderTrust',
+    label: 'Reader trust for each day',
+    description:
+      'Mark each day Trusted, Check or Manual from where its punches came from: a registered reader that was online with its clock right and sent them in time, or not, or a day written by hand. Adds an evidence export for a person and a period.',
+    defaultEnabled: false,
+    category: 'Attendance',
+    dependsOn: 'attendance',
+  },
 
   // ---- Payroll ----------------------------------------------------------
   /*
@@ -559,6 +592,22 @@ export const FEATURE_CATALOG: FeatureDef[] = [
     dependsOn: 'payroll',
   },
   {
+    /*
+     * Closure audit O-11 (TLA-004). A company that pays on the 25th does not
+     * know the 26th to the 30th yet: those days are paid as present, and next
+     * month's run compares each with what happened and corrects it. The
+     * cut-off day is a payroll setting (PayrollSetting.provisionalCutoffDay).
+     */
+    key: 'payrollProvisionalDays',
+    label: 'Pay before the month ends',
+    description:
+      'Run payroll before the month is over: the days after a cut-off are counted as present, and next month\'s payroll corrects any that turned out absent.',
+    defaultEnabled: false,
+    category: 'Payroll',
+    dependsOn: 'payroll',
+    alsoNeeds: ['attendance'],
+  },
+  {
     key: 'payrollReports',
     label: 'Payroll reports',
     description: 'Salary register, component summaries, cost by branch and cost centre, and the statutory summaries.',
@@ -594,8 +643,9 @@ export function resolveFeatures(overrides: Record<string, boolean>) {
   for (let i = 0; i < 3; i += 1) {
     let changed = false;
     for (const f of FEATURE_CATALOG) {
-      if (!f.dependsOn) continue;
-      if (resolved[f.key] && resolved[f.dependsOn] === false) {
+      const parents = [...(f.dependsOn ? [f.dependsOn] : []), ...(f.alsoNeeds || [])];
+      if (!parents.length) continue;
+      if (resolved[f.key] && parents.some((p) => resolved[p] === false)) {
         resolved[f.key] = false;
         changed = true;
       }

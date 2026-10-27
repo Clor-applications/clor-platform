@@ -270,6 +270,7 @@ export default async function setup() {
   /* A-35: fail closed — last, after every policy above exists. */
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261024100000_rls_fail_closed');
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261031100100_pf_nominees_rls');
+  await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261102100100_provisional_days_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261014130100_people_org_structure_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261014140100_attendance_rls');
@@ -328,6 +329,8 @@ export default async function setup() {
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261031100100_joining_statutory_app_access_offers_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024100000_rls_fail_closed');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024120500_portal_sessions_rls');
+  /* O-12: one code per leave type, a partial expression index `db push` cannot build. */
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261101090100_leave_type_code_unique');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018040100_scim_tokens_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018060100_notifications_rls');

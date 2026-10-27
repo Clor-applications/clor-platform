@@ -1,11 +1,13 @@
 import { peoplePrisma, peopleWrite, afterPeopleCommit } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
-import { computeDay, isWeeklyOff, istDate, istInstant, istTime, monthSummary } from './compute.js';
+import { computeDay, isOvernight, isWeeklyOff, istDate, istInstant, istTime, monthSummary, nightShiftLabel } from './compute.js';
+import { nightShiftsOn } from './nightShift.js';
 import { loadHolidays, loadSchedule, resolveShift } from './schedule.js';
 import { emit as emitWebhook } from './webhooks.js';
 import { logDayChange } from './history.js';
 import { permissionCovers } from './permissionWindow.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
+import { asJson, decidedMarker, readerTrustOn, trustForDay } from './trust.js';
 
 /**
  * Attendance days: the one path a day is written by, and the reads every
@@ -21,7 +23,7 @@ export const STATUSES = ['PRESENT', 'HALF_DAY', 'ABSENT', 'ON_LEAVE', 'HOLIDAY',
 
 export const fail = (status: number, message: string, code?: string) => Object.assign(new Error(message), { status, code });
 export const sendError = (res: any, e: any) => {
-  if (e?.status) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
+  if (e?.status) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}), ...(e.month ? { month: e.month, months: e.months || [e.month] } : {}) });
   if (String(e?.code) === 'P2002') return res.status(409).json({ error: 'That already exists.' });
   throw e;
 };
@@ -66,9 +68,33 @@ export const instants = (date: string, inHHMM?: string | null, outHHMM?: string 
 export class MonthClosedError extends Error {
   status = 409;
   code = 'ATTENDANCE_MONTH_CLOSED';
-  constructor(month: string) {
-    super(`${month} is closed in Attendance. Reopen the month to change its days.`);
+  month: string;
+  months: string[];
+  constructor(month: string, message?: string, months?: string[]) {
+    super(message || `${month} is closed in Attendance. Reopen the month to change its days.`);
+    this.month = month;
+    this.months = months?.length ? months : [month];
   }
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+/** "September", or "September 2025" for a month outside this year. */
+const monthName = (month: string) => `${MONTH_NAMES[Number(month.slice(5, 7)) - 1]}${month.slice(0, 4) === today().slice(0, 4) ? '' : ` ${month.slice(0, 4)}`}`;
+
+/**
+ * Leave or an attendance request on a day in a closed Attendance month is
+ * refused when it is asked (closure audit O-09), not left waiting for an
+ * approval that can never happen: approving writes the day, and a closed
+ * month's days do not move. The same words for the employee and for HR; the
+ * error carries the code and the month, so People can link to Month close.
+ */
+export async function closedMonthRefusal(orgId: string, dates: string[], what: 'leave' | 'request'): Promise<MonthClosedError | null> {
+  const shut = [...(await closedMonths(orgId, dates.map((d) => d.slice(0, 7))))].sort();
+  if (!shut.length) return null;
+  const names = shut.map(monthName);
+  const listed = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  const message = `${listed} ${shut.length === 1 ? 'is' : 'are'} closed. Ask HR to reopen ${shut.length === 1 ? 'it' : 'them'} if this ${what} must count.`;
+  return new MonthClosedError(shut[0], message, shut);
 }
 
 /** Which of these months (YYYY-MM) are closed for the company. */
@@ -98,8 +124,11 @@ const FINAL_RUN = ['APPROVED', 'LOCKED', 'PAID', 'POSTED'];
 export async function payrollTaken(orgId: string, employeeId: string, date: string): Promise<{ period: string; state: string } | null> {
   const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lte: date }, endDate: { gte: date } }, select: { id: true, name: true } });
   if (!periods.length) return null;
-  const run = await payrollPrisma.payrollRun.findFirst({ where: { orgId, periodId: { in: periods.map((p) => p.id) }, status: { in: FINAL_RUN } }, select: { id: true, status: true, periodId: true } });
+  const run = await payrollPrisma.payrollRun.findFirst({ where: { orgId, periodId: { in: periods.map((p) => p.id) }, status: { in: FINAL_RUN } }, select: { id: true, status: true, periodId: true, provisionalDays: true } });
   if (!run) return null;
+  /* A day after the cut-off that the run counted as present before it happened (payrollProvisionalDays) was assumed, not taken: it is recorded as it happens, and next month's payroll corrects the difference. */
+  const cutoff = (run.provisionalDays as { cutoffDate?: string } | null)?.cutoffDate;
+  if (cutoff && date > cutoff) return null;
   const member = await payrollPrisma.payrollRunEmployee.findFirst({ where: { orgId, runId: run.id, employeeId, inclusion: 'INCLUDED' }, select: { id: true } });
   if (!member) return null;
   return { period: periods.find((p) => p.id === run.periodId)?.name || date.slice(0, 7), state: run.status };
@@ -146,6 +175,8 @@ export async function writeDay(opts: {
   dayKind?: string | null;
   attendanceRequestId?: string | null;
 }) {
+  /* Reader trust (O-11): asked once, outside the write; off, the two columns are never touched. */
+  const trustOn = await readerTrustOn(opts.accountId, opts.orgId);
   return peopleWrite(opts.orgId, async () => {
     /* Every way a day is written comes through here, so a closed month is held shut in one place. */
     await assertMonthOpen(opts.orgId, opts.date, opts.employee.id);
@@ -208,10 +239,17 @@ export async function writeDay(opts: {
       ...(opts.dayKind !== undefined ? { dayKind: opts.dayKind } : {}),
       ...(opts.attendanceRequestId !== undefined ? { attendanceRequestId: opts.attendanceRequestId } : {}),
     };
+    let trustData: { trust?: string; trustReasons?: ReturnType<typeof asJson> } = {};
+    if (trustOn) {
+      const t = await trustForDay({ orgId: opts.orgId, employeeId: opts.employee.id, date: opts.date, source: opts.source, userId: opts.userId, dayKind: opts.dayKind !== undefined ? opts.dayKind : before?.dayKind ?? null });
+      /* Punches that reached a day decided by hand stay raised for HR while the day stays decided. */
+      const reasons = t.trust === 'MANUAL' ? [...t.reasons, ...decidedMarker(before?.trustReasons)] : t.reasons;
+      trustData = { trust: t.trust, trustReasons: asJson(reasons) };
+    }
     const record = await peoplePrisma.attendanceRecord.upsert({
       where: { employeeId_date: { employeeId: opts.employee.id, date: opts.date } },
-      create: { accountId: opts.accountId, orgId: opts.orgId, employeeId: opts.employee.id, date: opts.date, createdByUserId: opts.userId, ...data },
-      update: { ...data, overtimeApproved: false },
+      create: { accountId: opts.accountId, orgId: opts.orgId, employeeId: opts.employee.id, date: opts.date, createdByUserId: opts.userId, ...data, ...trustData },
+      update: { ...data, ...trustData, overtimeApproved: false },
     });
     await logDayChange({
       accountId: opts.accountId, orgId: opts.orgId, employeeId: record.employeeId, date: record.date, recordId: record.id,
@@ -263,16 +301,32 @@ export async function myEmployee(accountId: string, orgId: string, userId: strin
   throw fail(404, 'Your sign-in is not linked to an employee file yet. Ask HR to set your email on your employee file.', 'NO_EMPLOYEE_LINK');
 }
 
+/**
+ * "Night shift 22:00–06:00 (ends next day)" by shift id, for the days among
+ * these on a shift that ends the next morning — only with night shifts on.
+ * Asked only when such a shift is there, so a day-shift company pays nothing.
+ */
+async function nightLabels(orgId: string, rows: Array<{ shiftId?: string | null; accountId?: string | null }>) {
+  const ids = [...new Set(rows.map((r) => r.shiftId).filter((x): x is string => Boolean(x)))];
+  if (!ids.length) return new Map<string, string>();
+  const night = (await peoplePrisma.shift.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, startTime: true, endTime: true } })).filter(isOvernight);
+  if (!night.length || !(await nightShiftsOn(orgId, rows.find((r) => r.accountId)?.accountId))) return new Map<string, string>();
+  return new Map(night.map((x) => [x.id, nightShiftLabel(x)]));
+}
+
 export const withNames = async (orgId: string, rows: any[]) => {
   const ids = [...new Set(rows.map((r) => r.employeeId))];
   const people = ids.length
     ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true, code: true, department: true, photoUrl: true } })
     : [];
   const byId = new Map(people.map((p) => [p.id, p]));
+  const nights = await nightLabels(orgId, rows);
   return rows.map((r) => {
     const p = byId.get(r.employeeId);
+    const shiftLabel = r.shiftId ? nights.get(r.shiftId) : undefined;
     return {
       ...r,
+      ...(shiftLabel ? { shiftLabel } : {}),
       employeeName: p?.name || '—',
       employeeCode: p?.code || null,
       department: p?.department || null,

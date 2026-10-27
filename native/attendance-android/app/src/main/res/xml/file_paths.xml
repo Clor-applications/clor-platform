@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <external-path name="downloads" path="Download/" />
+    <!-- A picture the camera app takes for a new My details photo; deleted once it is made small. -->
+    <cache-path name="photos" path="photos/" />
 </paths>

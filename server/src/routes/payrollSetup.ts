@@ -8,7 +8,12 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { accountingFor } from '../services/payroll/accounting/client.js';
 import { isFeatureEnabled } from '../services/features.js';
-import { PAYROLL_MODULE, PAYROLL_RESOURCE, orgMatches } from '../services/payroll/guards.js';
+import { PAYROLL_MODULE, PAYROLL_RESOURCE, orgMatches, payrollRouteOk } from '../services/payroll/guards.js';
+import { z } from 'zod';
+import { platformPrisma } from '../utils/platformPrisma.js';
+import { entitlementFor } from '../services/entitlements.js';
+import { recordAudit } from '../services/auditTrail.js';
+import { FEATURE as PROVISIONAL, ordinal, provisionalSetting } from '../services/payroll/provisionalDays.js';
 
 /**
  * Whether payroll is ready to run, and what is left to do.
@@ -181,5 +186,71 @@ payrollSetupRouter.get(
         nextStep: outstanding[0] || null,
       },
     });
+  }
+);
+
+// ---------------------------------------------------------------- paying before the month ends
+
+/**
+ * Paying before the month ends (payrollProvisionalDays, closure audit O-11):
+ * whether the days after a cut-off are counted as present, and the cut-off
+ * day. A payroll setting, so whoever looks after payroll settings switches it
+ * without the company-settings permission the Features screen needs. It needs
+ * Attendance: without it there are no days to assume or correct.
+ */
+payrollSetupRouter.get(
+  '/orgs/:orgId/payroll/settings/provisional-days',
+  requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, PAYROLL_RESOURCE.settings),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const [setting, attendance] = await Promise.all([provisionalSetting(accountId, orgId), isFeatureEnabled(accountId, orgId, 'attendance')]);
+    res.json({ ...setting, attendance });
+  }
+);
+
+const provisionalBody = z.object({
+  enabled: z.boolean(),
+  cutoffDay: z.number().int('The cut-off is a day of the month, such as 25.').min(1, 'The cut-off is a day of the month, from 1 to 30.').max(30, 'The cut-off is a day of the month, from 1 to 30.'),
+});
+
+payrollSetupRouter.put(
+  '/orgs/:orgId/payroll/settings/provisional-days',
+  requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, PAYROLL_RESOURCE.settings),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const parsed = provisionalBody.safeParse(req.body || {});
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Say whether to count the days after the cut-off, and the cut-off day.' });
+    const { enabled, cutoffDay } = parsed.data;
+    if (enabled) {
+      if (!(await isFeatureEnabled(accountId, orgId, 'attendance'))) {
+        return res.status(409).json({ error: 'Switch Attendance on first: the days after the cut-off are counted, and corrected, from Attendance.', code: 'ATTENDANCE_DISABLED' });
+      }
+      if (!(await entitlementFor(accountId)).features.has(PROVISIONAL)) {
+        return res.status(403).json({ error: 'Paying before the month ends is not in your Payroll plan.', code: 'NOT_ENTITLED', feature: PROVISIONAL });
+      }
+    }
+    const before = await provisionalSetting(accountId, orgId);
+    await payrollPrisma.payrollSetting.upsert({
+      where: { orgId },
+      update: { provisionalCutoffDay: cutoffDay, updatedByUserId: req.auth!.userId },
+      create: { accountId, orgId, provisionalCutoffDay: cutoffDay, updatedByUserId: req.auth!.userId },
+    });
+    await platformPrisma.featureSetting.upsert({
+      where: { orgId_key: { orgId, key: PROVISIONAL } },
+      update: { enabled, updatedByUserId: req.auth!.userId },
+      create: { accountId, orgId, key: PROVISIONAL, enabled, updatedByUserId: req.auth!.userId },
+    });
+    if (req.res) req.res.locals.audited = true;
+    await recordAudit(req, {
+      entity: 'PAYROLL_SETTINGS',
+      entityId: orgId,
+      action: 'EDIT',
+      message: enabled ? `Days after the ${ordinal(cutoffDay)} of the month counted as present in payroll, corrected the next month` : 'Payroll counts only the days that have happened',
+      metadata: { before, after: { enabled, cutoffDay } },
+    });
+    const after = await provisionalSetting(accountId, orgId);
+    res.json({ ...after, attendance: await isFeatureEnabled(accountId, orgId, 'attendance') });
   }
 );

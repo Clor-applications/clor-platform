@@ -29,6 +29,7 @@ const KIND = {
   UNMATCHED: 'Unknown reader ID',
   READER: 'Reader problem',
   SHIFT_CLASH: 'Schedule clash',
+  READER_ON_MANUAL: 'Punch on a day marked by hand',
 };
 const KIND_TONE = {
   MISSING_OUT: 'overdue',
@@ -39,6 +40,7 @@ const KIND_TONE = {
   UNMATCHED: 'outstanding',
   READER: 'outstanding',
   SHIFT_CLASH: 'draft',
+  READER_ON_MANUAL: 'partial',
 };
 const COLUMNS = {
   what: (x) => x.title,

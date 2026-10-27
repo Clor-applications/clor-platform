@@ -197,6 +197,8 @@ model Employee {
   deskRequests DeskRequest[]
 
   @@unique([orgId, seatId])
+  /// Made by migration 20261025060000_teams_and_seats and missing here until the CI drift check found it.
+  @@index([orgId, teamId])
 }
 
 // ============================================================================
@@ -462,6 +464,12 @@ model AttendanceRecord {
   validatedAt       DateTime?
   note              String?
 
+  /// Reader trust (feature attendanceReaderTrust; null while it is off): TRUSTED |
+  /// CHECK | MANUAL, worked out each time the day is written (services/attendance/trust.ts).
+  trust             String?
+  /// Why: [{ code, text, ... }] — each punch that needs a look, or who wrote the day by hand.
+  trustReasons      Json?
+
   createdByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -469,6 +477,8 @@ model AttendanceRecord {
   @@unique([employeeId, date])
   @@index([accountId, orgId, date])
   @@index([accountId, orgId, employeeId, date])
+  @@index([attendanceRequestId])
+  @@index([orgId, trust, date])
 }
 
 /// Each clock-in and clock-out as it happened; the record keeps the day's
@@ -551,6 +561,7 @@ model ApprovalStandIn {
   createdAt         DateTime @default(now())
 
   @@index([orgId, managerEmployeeId, fromDate, toDate])
+  @@index([orgId, standInEmployeeId, fromDate, toDate])
 }
 
 /// A restricted (optional) holiday a person chose for a year, within the
@@ -681,6 +692,11 @@ model LeaveType {
 
   @@unique([orgId, name])
   @@index([accountId, orgId])
+  // One code per type in a company, ignoring case: a partial unique index on
+  // ("orgId", lower("code")) WHERE "code" IS NOT NULL, which Prisma cannot
+  // express. It lives in SQL only (migration 20261101090100_leave_type_code_unique,
+  // replayed by src/__tests__/globalSetup.ts); a clash is a P2002 the leave
+  // routes answer as LEAVE_TYPE_CODE_TAKEN.
 }
 
 /// One person's days of one leave type for one calendar year, when it
@@ -726,10 +742,15 @@ model LeaveAdjustment {
   /// A comp-off grant names the date worked; a year-end pay-out names its run.
   workedOn        String?
   yearEndId       String?
+  /// Set when a year-end undo reverses this pay-out; every reader skips reversed rows.
+  reversedAt       DateTime?
+  reversedByUserId String?
   createdAt       DateTime @default(now())
 
   @@index([accountId, orgId, year])
   @@index([orgId, employeeId, leaveTypeId])
+  @@index([orgId, employeeId, leaveTypeId, workedOn])
+  @@index([yearEndId])
 }
 
 /// Time off someone asks for. Approving it marks each working day on leave.
@@ -772,6 +793,7 @@ model LeaveRequest {
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, employeeId, fromDate])
   @@index([orgId, fromDate, toDate])
+  @@index([orgId, groupId])
 }
 
 /// A biometric reader (ZKTeco / eSSL) that pushes punches to /iclock. The
@@ -1323,6 +1345,11 @@ model AttendanceSettings {
   /// Shifts, when Attendance sets them, still decide for the people on them.
   weeklyOffDays              String  @default("0")
   offSaturdays               String  @default("")
+  /// Working weeks before the current one, when a change was made from a date
+  /// (closure audit O-05): [{ until, weeklyOffDays, offSaturdays }], `until`
+  /// exclusive, oldest first. A date before an `until` keeps that week; null or
+  /// empty = the current week has always applied.
+  workingWeekEarlier         Json?
   /// Attendance request rules (People → Settings → Request rules):
   /// { WFH: { on, quotaPerMonth, backDays, approval }, ON_DUTY: {...}, PERMISSION: { on, hoursPerMonth, maxMinutes, approval }, MISSED_PUNCH: { quotaPerMonth, backDays } }.
   requestRules               Json    @default("{}")
@@ -1354,6 +1381,9 @@ model AttendanceSettings {
   compOffLeaveTypeId         String?
   /// Who decides overtime and comp-off requests: HR | MANAGER | MANAGER_THEN_HR.
   overtimeApproval           String    @default("HR")
+  /// Reader trust: a punch that reaches CLOR more than this many hours after it
+  /// was made needs a look (feature attendanceReaderTrust).
+  readerLateUploadHours      Int       @default(24)
 
   updatedByUserId String
   updatedAt       DateTime @updatedAt
@@ -2648,6 +2678,8 @@ model OutboxEvent {
   attempts      Int       @default(0)
   nextAttemptAt DateTime?
   lastError     String?
+  /// Every retry used and still not delivered: kept, with its error, for an operator (GET /internal/outbox/failed).
+  failedAt      DateTime?
 
   @@index([orgId, deliveredAt, nextAttemptAt])
   @@index([orgId, employeeId, occurredAt])

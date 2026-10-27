@@ -296,3 +296,218 @@ describe('reader ID mapping', () => {
     expect(a.body.noPin.some((x: any) => x.employeeId === p.id)).toBe(true);
   });
 });
+
+/*
+ * Per-day reader trust (closure audit O-11, TLA-005): an optional feature, off
+ * by default. On, each day is Trusted, Check or Manual, says why, and a
+ * person's punches can be exported as evidence.
+ */
+describe('reader trust for each day', () => {
+  /* Three days ago in IST: a day that has ended, inside an open month. */
+  const ago = (n: number) => new Date(Date.now() + 330 * 60_000 - n * 86_400_000).toISOString().slice(0, 10);
+  const day = ago(3);
+  const rules = (extra: Record<string, unknown> = {}) => ({ defaultShiftId: null, lateAllowancePerMonth: 0, latePenaltyEvery: 0, ...extra });
+  const trustOn = async (c: Ctx, hours = 24 * 31) => {
+    await request(app).put(`/api/orgs/${c.orgId}/features`).set(at(c)).send({ features: { people: true, attendance: true, attendanceReaderTrust: true } }).expect(200);
+    await att(c).put('/rules', rules({ readerLateUploadHours: hours })).expect(200);
+  };
+  const reader = async (c: Ctx) => {
+    const sn = `RT${Date.now().toString(36).toUpperCase()}${rnd().toUpperCase()}`;
+    const device = (await att(c).post('/devices', { serialNumber: sn, name: 'Gate', direction: 'both' }).expect(201)).body.device;
+    const send = (lines: string[]) => request(app).post(`/iclock/cdata?SN=${sn}&table=ATTLOG&Stamp=9999`).set('Content-Type', 'text/plain').send(lines.join('\n')).expect(200);
+    return { device, sn, send };
+  };
+  const dayOf = (employeeId: string, date = day) => peoplePrisma.attendanceRecord.findUniqueOrThrow({ where: { employeeId_date: { employeeId, date } } });
+  const codes = (r: { trustReasons: unknown }) => ((r.trustReasons as any[]) || []).map((x) => x.code);
+
+  it('off: days, records, readiness and readers behave exactly as before', async () => {
+    const c = await makeOwner();
+    const p = await person(c, '701');
+    const q = await person(c, '702');
+    await att(c).put('/records', { employeeId: p.id, date: day, checkIn: '09:00', checkOut: '18:00' }).expect(200);
+    expect(await dayOf(p.id)).toMatchObject({ trust: null, trustReasons: null });
+
+    const list = await att(c).get(`/records?from=${day}&to=${day}&trust=CHECK`).expect(200);
+    expect(list.body.readerTrust).toBe(false);
+    /* The trust filter is ignored and no trust is on the rows. */
+    expect(list.body.records).toHaveLength(1);
+    expect('trust' in list.body.records[0]).toBe(false);
+    expect((await att(c).get('/rules').expect(200)).body.rules.readerTrust).toBe(false);
+    expect((await att(c).get(`/months/${day.slice(0, 7)}/readiness`).expect(200)).body.checks.some((x: any) => x.key === 'trustCheck')).toBe(false);
+    expect((await att(c).get(`/days/explain?employeeId=${p.id}&date=${day}`).expect(200)).body.trust).toBeNull();
+    await att(c).get(`/evidence/punches?employeeId=${p.id}&from=${day}&to=${day}`).expect(409);
+    await att(c).post('/trust/recompute', { from: day, to: day }).expect(409);
+
+    /* A reader punch on the day marked by hand is dropped silently, as today. */
+    const { send } = await reader(c);
+    await send([`701\t${day} 10:00:00\t0\t1`, `702\t${day} 09:00:00\t0\t1`, `702\t${day} 18:00:00\t1\t1`]);
+    const kept = await dayOf(p.id);
+    expect(kept.source).toBe('MANUAL');
+    expect(kept.trustReasons).toBeNull();
+    expect(await dayOf(q.id)).toMatchObject({ source: 'DEVICE', trust: null });
+    const ex = await att(c).get(`/exceptions?from=${day}&to=${day}`).expect(200);
+    expect(ex.body.exceptions.some((x: any) => x.kind === 'READER_ON_MANUAL')).toBe(false);
+  });
+
+  it('switched on in Attendance policy: a day written by hand, imported or corrected is Manual, saying which and who', async () => {
+    const c = await makeOwner();
+    const [a, b, d] = [await person(c, '711'), await person(c, '712'), await person(c, '713')];
+    await att(c).put('/rules', rules({ readerTrust: true })).expect(200);
+    expect((await att(c).get('/rules').expect(200)).body.rules).toMatchObject({ readerTrust: true, readerLateUploadHours: 24 });
+
+    await att(c).put('/records', { employeeId: a.id, date: day, checkIn: '09:00', checkOut: '18:00' }).expect(200);
+    const hand = await dayOf(a.id);
+    expect(hand.trust).toBe('MANUAL');
+    expect((hand.trustReasons as any[])[0]).toMatchObject({ code: 'BY_HAND', by: 'Owner', text: 'Written by hand by Owner.' });
+
+    await att(c).post('/records/import', { rows: [{ employeeCode: '712', date: day, checkIn: '09:00', checkOut: '18:00' }] }).expect(200);
+    expect(codes(await dayOf(b.id))).toEqual(['IMPORT']);
+
+    await att(c).put('/records', { employeeId: d.id, date: day, checkIn: '09:40', checkOut: '18:00' }).expect(200);
+    const asked = await att(c).post('/requests', { employeeId: d.id, date: day, checkIn: '09:00', checkOut: '18:00', reason: 'Gate reader was slow' }).expect(201);
+    await att(c).post('/requests/bulk-review', { ids: [asked.body.request.id], approve: true }).expect(200);
+    const corrected = await dayOf(d.id);
+    expect(corrected).toMatchObject({ source: 'REQUEST', trust: 'MANUAL' });
+    expect((corrected.trustReasons as any[])[0]).toMatchObject({ code: 'CORRECTION', by: 'Owner' });
+
+    /* The drawer says why. */
+    const x = await att(c).get(`/days/explain?employeeId=${a.id}&date=${day}`).expect(200);
+    expect(x.body.trust.level).toBe('MANUAL');
+    expect(x.body.trust.reasons[0].text).toMatch(/by hand/);
+
+    /* Off again: the switch is the company's feature. */
+    await att(c).put('/rules', rules({ readerTrust: false })).expect(200);
+    expect((await request(app).get(`/api/orgs/${c.orgId}/features`).set(at(c)).expect(200)).body.features.attendanceReaderTrust).toBe(false);
+  });
+
+  it('a registered reader online, clock right, in time: Trusted; the same punches past the window: Check (late upload)', async () => {
+    const c = await makeOwner();
+    const p = await person(c, '721');
+    await trustOn(c);
+    const { send } = await reader(c);
+    await send([`721\t${day} 09:00:00\t0\t1`, `721\t${day} 18:00:00\t1\t1`]);
+    const trusted = await dayOf(p.id);
+    expect(trusted).toMatchObject({ source: 'DEVICE', trust: 'TRUSTED', status: 'PRESENT' });
+    expect(codes(trusted)).toEqual(['READERS_OK']);
+
+    /* The filter and column on Attendance records. */
+    const list = await att(c).get(`/records?from=${day}&to=${day}&trust=TRUSTED`).expect(200);
+    expect(list.body.readerTrust).toBe(true);
+    expect(list.body.records.map((r: any) => [r.employeeId, r.trust])).toEqual([[p.id, 'TRUSTED']]);
+    expect((await att(c).get(`/records?from=${day}&to=${day}&trust=CHECK`).expect(200)).body.records).toHaveLength(0);
+
+    /* A 24-hour window: punches made three days ago arrived late. */
+    await att(c).put('/rules', rules({ readerLateUploadHours: 24 })).expect(200);
+    expect((await att(c).post('/trust/recompute', { from: day, to: day }).expect(200)).body.worked).toBe(1);
+    const late = await dayOf(p.id);
+    expect(late.trust).toBe('CHECK');
+    expect(codes(late)).toEqual(['LATE_UPLOAD', 'LATE_UPLOAD']);
+    expect((late.trustReasons as any[])[0].text).toMatch(/reached CLOR \d+ days after it was made \(the window is 24 h\)/);
+    /* Only the trust changed: the day and its history are as they were. */
+    expect(await peoplePrisma.attendanceRecordHistory.count({ where: { orgId: c.orgId, employeeId: p.id } })).toBe(1);
+    expect(late.checkIn).toEqual(trusted.checkIn);
+    expect(late.validated).toBe(trusted.validated);
+
+    /* Month close lists Check days as something to look at, not a blocker. */
+    const r = await att(c).get(`/months/${day.slice(0, 7)}/readiness`).expect(200);
+    expect(r.body.checks.find((x: any) => x.key === 'trustCheck')).toMatchObject({ severity: 'check', count: 1 });
+  });
+
+  it('a reader offline that day, or with its clock out, or not registered: Check, saying which', async () => {
+    const c = await makeOwner();
+    const p = await person(c, '731');
+    await trustOn(c);
+    const { device, send } = await reader(c);
+    await peoplePrisma.readerAlert.create({
+      data: { accountId: (await peoplePrisma.employee.findUniqueOrThrow({ where: { id: p.id } })).accountId, orgId: c.orgId, key: `offline:${device.id}`, kind: 'offline', deviceId: device.id, severity: 'high', title: 'Gate has stopped reporting', details: '-', openedAt: new Date(Date.now() - 5 * 86_400_000) },
+    });
+    await send([`731\t${day} 09:00:00\t0\t1`, `731\t${day} 18:00:00\t1\t1`]);
+    const offline = await dayOf(p.id);
+    expect(offline.trust).toBe('CHECK');
+    expect(codes(offline)).toEqual(['READER_OFFLINE']);
+    expect((offline.trustReasons as any[])[0]).toMatchObject({ deviceId: device.id, text: 'Gate was offline that day.' });
+
+    /* Back online before the day, but its clock was 20 minutes out that day. */
+    await peoplePrisma.readerAlert.updateMany({ where: { orgId: c.orgId }, data: { resolvedAt: new Date(Date.now() - 4 * 86_400_000) } });
+    await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { clockOffsetSec: 1200, clockCheckedAt: new Date(`${day}T10:00:00+05:30`) } });
+    await att(c).post('/trust/recompute', { from: day, to: day }).expect(200);
+    const drift = await dayOf(p.id);
+    expect(codes(drift)).toEqual(['CLOCK_DRIFT']);
+    expect((drift.trustReasons as any[])[0].text).toBe('Gate’s clock was out by about 20 min that day.');
+
+    /* A reader taken off the register. */
+    await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { isActive: false, clockOffsetSec: 0 } });
+    await att(c).post('/trust/recompute', { from: day, to: day }).expect(200);
+    expect(codes(await dayOf(p.id))).toEqual(['UNKNOWN_READER']);
+  });
+
+  it('a phone punch outside every work site is Check; inside one it counts like a reader', async () => {
+    const { assessTrust } = await import('../services/attendance/trust.js');
+    const phone = { id: 'ph', name: 'Phone punches', serialNumber: 'MOBILE-x', vendor: 'MOBILE', isActive: true, clockOffsetSec: null, clockCheckedAt: null };
+    const at0 = new Date('2026-09-02T03:30:00Z');
+    const base = { source: 'DEVICE', devices: new Map([['ph', phone]]), alerts: [], lateUploadHours: 24, window: { start: new Date('2026-09-01T18:30:00Z'), end: new Date('2026-09-02T18:30:00Z') } };
+    const outside = assessTrust({ ...base, punches: [{ at: at0, createdAt: at0, deviceId: 'ph', verifyMode: 100, latitude: 12.9, outsideSite: true, geofenceId: null }] });
+    expect(outside.trust).toBe('CHECK');
+    expect(outside.reasons.map((r) => r.code)).toEqual(['OUTSIDE_GEOFENCE']);
+    expect(outside.reasons[0].text).toBe('Phone punch at 09:00 was made outside every work site.');
+    /* A phone has no reader clock to drift and is never "offline". */
+    const inside = assessTrust({ ...base, alerts: [{ deviceId: 'ph', kind: 'offline', openedAt: at0, resolvedAt: null }], punches: [{ at: at0, createdAt: at0, deviceId: 'ph', verifyMode: 100, latitude: 12.9, outsideSite: false, geofenceId: 'g1' }] });
+    expect(inside.trust).toBe('TRUSTED');
+    /* An app clock-in is not a reader. */
+    expect(assessTrust({ ...base, source: 'CLOCK', punches: [], clocks: [{ at: at0 }] }).reasons.map((r) => r.code)).toEqual(['NOT_A_READER']);
+    /* Leave says so, and who. */
+    expect(assessTrust({ ...base, source: 'LEAVE', by: 'Asha', punches: [] })).toEqual({ trust: 'MANUAL', reasons: [expect.objectContaining({ code: 'LEAVE', text: 'Written from approved leave by Asha.' })] });
+  });
+
+  it('exports a person’s punches as evidence: reader, serial, made and received, method, work site and the day’s trust', async () => {
+    const c = await makeOwner();
+    const p = await person(c, '741');
+    await trustOn(c, 24);
+    const { sn, send } = await reader(c);
+    await send([`741\t${day} 09:02:00\t0\t1`, `741\t${day} 18:05:00\t1\t15`]);
+    const e = await att(c).get(`/evidence/punches?employeeId=${p.id}&from=${day}&to=${day}`).expect(200);
+    expect(e.body.employee.code).toBe('741');
+    expect(e.body.summary).toMatchObject({ punches: 2, days: 1, check: 1, trusted: 0, manual: 0 });
+    expect(e.body.rows).toHaveLength(2);
+    expect(e.body.rows[0]).toMatchObject({ date: day, punched: `${day} 09:02:00`, readerId: '741', serialNumber: sn, reader: 'Gate', method: 'Fingerprint', geofence: 'Not a phone punch', dayTrust: 'CHECK' });
+    expect(e.body.rows[1]).toMatchObject({ method: 'Face', punched: `${day} 18:05:00` });
+    expect(e.body.rows[0].delayMinutes).toBeGreaterThan(24 * 60);
+    expect(new Date(e.body.rows[0].receivedAt).getTime()).toBeGreaterThan(new Date(e.body.rows[0].punchedAt).getTime());
+    expect(e.body.rows[0].dayReasons).toMatch(/reached CLOR/);
+
+    const csv = await att(c).get(`/evidence/punches?employeeId=${p.id}&from=${day}&to=${day}&format=csv`).expect(200);
+    expect(csv.headers['content-type']).toMatch(/text\/csv/);
+    expect(csv.headers['content-disposition']).toMatch(/Attendance evidence 741/);
+    const lines = csv.text.replace(/^﻿/, '').trim().split('\r\n');
+    expect(lines[0]).toBe('Day,Punched (IST),Received (IST),Delay (min),Direction,Reader ID,Reader serial,Reader,Method,Work site,Field punch review,Day trust,Why');
+    expect(lines).toHaveLength(3);
+    expect(lines[1].startsWith(`${day},${day} 09:02:00,`)).toBe(true);
+    expect(lines[1]).toContain(`,741,${sn},Gate,Fingerprint,Not a phone punch,,CHECK,`);
+  });
+
+  it('a reader punch on a day marked by hand leaves the day alone and raises it for HR', async () => {
+    const c = await makeOwner();
+    const p = await person(c, '751');
+    await trustOn(c);
+    await att(c).put('/records', { employeeId: p.id, date: day, status: 'ABSENT' }).expect(200);
+    const { send } = await reader(c);
+    await send([`751\t${day} 09:00:00\t0\t1`]);
+    const rec = await dayOf(p.id);
+    expect(rec).toMatchObject({ source: 'MANUAL', status: 'ABSENT', checkIn: null, trust: 'MANUAL' });
+    expect(codes(rec)).toEqual(['BY_HAND', 'READER_PUNCH_ON_DECIDED_DAY']);
+
+    const ex = await att(c).get(`/exceptions?from=${day}&to=${day}`).expect(200);
+    const item = ex.body.exceptions.find((x: any) => x.key === `READER_ON_MANUAL:${rec.id}`);
+    expect(item).toMatchObject({ kind: 'READER_ON_MANUAL', title: 'Reader punch on a day marked by hand', employeeId: p.id, date: day, screen: 'records' });
+    expect(item.detail).toMatch(/1 reader punch \(09:00\) arrived after the day was marked by hand/);
+
+    /* Written by hand again, the punch stays raised until HR settles it. */
+    await att(c).put('/records', { employeeId: p.id, date: day, status: 'ABSENT', note: 'Was not at work' }).expect(200);
+    expect(codes(await dayOf(p.id))).toEqual(['BY_HAND', 'READER_PUNCH_ON_DECIDED_DAY']);
+    /* Recalculating does not raise old punches again, nor drop the one raised. */
+    await att(c).post('/trust/recompute', { from: day, to: day }).expect(200);
+    expect(codes(await dayOf(p.id))).toEqual(['BY_HAND', 'READER_PUNCH_ON_DECIDED_DAY']);
+    await att(c).post('/exceptions/state', { key: item.key, status: 'RESOLVED', note: 'Kept absent' }).expect(200);
+    expect((await att(c).get(`/exceptions?from=${day}&to=${day}`).expect(200)).body.exceptions.some((x: any) => x.key === item.key)).toBe(false);
+  });
+});

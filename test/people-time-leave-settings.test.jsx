@@ -41,7 +41,7 @@ describe('Working week', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Saturday' }));
     expect(screen.queryByText('Saturdays')).toBeNull();
     fireEvent.click(save);
-    await waitFor(() => expect(api.saveWorkingWeek).toHaveBeenCalledWith({ weeklyOffDays: '0,6', offSaturdays: '', restrictedHolidayQuota: 0, compOffLeaveTypeId: null }));
+    await waitFor(() => expect(api.saveWorkingWeek).toHaveBeenCalledWith({ weeklyOffDays: '0,6', offSaturdays: '', restrictedHolidayQuota: 0, compOffLeaveTypeId: null, effectiveFrom: null }));
   });
 
   /* Advanced build: how many restricted holidays a person may pick a year, saved with the week. */

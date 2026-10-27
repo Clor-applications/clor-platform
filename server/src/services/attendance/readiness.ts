@@ -2,6 +2,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { isWeeklyOff, istInstant } from './compute.js';
 import { clashingTemporaries } from './conflicts.js';
 import { daysBetween, daysOfMonth, monthRows, periodContext } from './days.js';
+import { readerTrustOn } from './trust.js';
 
 /**
  * What is still unsettled in a stretch of days, person by person.
@@ -75,12 +76,15 @@ export async function monthReadiness(accountId: string, orgId: string, month: st
   const days = daysOfMonth(month);
   const from = days[0];
   const to = days[days.length - 1];
-  const [{ people }, queues, lock, snapshots] = await Promise.all([
+  const [{ people }, queues, lock, snapshots, trustOn] = await Promise.all([
     scanDays(accountId, orgId, from, to),
     scanQueues(orgId, from, to),
     peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } }),
     peoplePrisma.attendanceMonthSnapshot.findMany({ where: { orgId, month }, orderBy: { version: 'desc' }, select: { version: true, createdAt: true, createdByUserId: true } }),
+    readerTrustOn(accountId, orgId),
   ]);
+  /* Reader trust (O-11): days whose punches need a look. Worth a look, never a blocker. */
+  const trustCheck = trustOn ? await peoplePrisma.attendanceRecord.count({ where: { accountId, orgId, date: { gte: from, lte: to }, trust: 'CHECK' } }) : 0;
   const sum = (f: (p: PersonIssues) => number) => people.reduce((s, p) => s + f(p), 0);
   const checks = [
     { key: 'missingOut', label: 'Days with a check-in and no check-out', severity: 'block', count: sum((p) => p.missingOut.length), screen: 'records', hint: 'Not paid until corrected.' },
@@ -91,6 +95,7 @@ export async function monthReadiness(accountId: string, orgId: string, month: st
     { key: 'overtime', label: 'Overtime not yet approved', severity: 'check', count: sum((p) => p.unapprovedOvertime.length), screen: 'records', hint: 'Unapproved overtime is not paid.' },
     { key: 'unvalidated', label: 'Days not validated', severity: 'check', count: sum((p) => p.unvalidated.length), screen: 'records', hint: 'Payable days are worked out from validated and unvalidated days alike.' },
     { key: 'readers', label: 'Reader problems open now', severity: 'check', count: queues.alerts.length, screen: 'readerHealth', hint: 'Punches may be missing from these readers.' },
+    ...(trustOn ? [{ key: 'trustCheck', label: 'Days whose punches need a look', severity: 'check', count: trustCheck, screen: 'records', hint: 'A punch arrived late, a reader was offline or its clock was out, a phone punch was outside the work sites, or a reader is not registered.' }] : []),
   ];
   const perPerson = people
     .map((p) => ({ employeeId: p.employeeId, name: p.name, code: p.code, missingOut: p.missingOut.length, noRecord: p.noRecord.length, unvalidated: p.unvalidated.length, unapprovedOvertime: p.unapprovedOvertime.length }))
@@ -118,6 +123,13 @@ export async function snapshotMonth(accountId: string, orgId: string, month: str
   return peoplePrisma.attendanceMonthSnapshot.create({
     data: { accountId, orgId, month, version: (last?.version || 0) + 1, rowsJson: JSON.stringify(rows), readinessJson: JSON.stringify(readiness ?? null), createdByUserId: userId },
   });
+}
+
+/** The latest close of a month: its version and the rows Payroll takes, or null if it was never closed. */
+export async function getMonthSnapshot(orgId: string, month: string) {
+  const snap = await peoplePrisma.attendanceMonthSnapshot.findFirst({ where: { orgId, month }, orderBy: { version: 'desc' } });
+  if (!snap) return null;
+  return { month, version: snap.version, createdAt: snap.createdAt, rows: JSON.parse(snap.rowsJson || '[]') as any[] };
 }
 
 export { daysBetween };

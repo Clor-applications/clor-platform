@@ -1,6 +1,9 @@
 package `in`.clor.attendance.data
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -320,9 +323,24 @@ data class MyDetails(
     /** What happens to a change, in one line, by the company's setting. */
     fun rule(): String = when {
         savesAtOnce.size >= DetailFields.ORDER.size -> "Your changes save at once."
-        savesAtOnce.isNotEmpty() -> "Phone, personal email and emergency contact save at once. Other changes go to HR, who decide within $hrDecidesWithinDays working days."
+        savesAtOnce.isNotEmpty() -> "Phone, personal email and emergency contact save at once. Other changes, and a new photo, go to HR, who decide within $hrDecidesWithinDays working days."
         else -> "Every change goes to HR, who decide within $hrDecidesWithinDays working days."
     }
+}
+
+/** The open request that asks for a new photo, if there is one: the server takes one at a time. */
+fun MyDetails.photoWaiting(): SelfRequest? =
+    requests.firstOrNull { r -> r.status in OPEN_ASKS && r.asked.any { it.field == "photoUrl" } }
+
+private val OPEN_ASKS = setOf("WAITING", "MORE_INFO")
+
+/**
+ * The body of POST /people/me/change-request, as the web app sends it: the
+ * changed fields by name, and a new photo as `photoUrl`, a JPEG data URL.
+ */
+fun changeBody(changes: Map<String, String>, photo: String? = null): JsonObject = buildJsonObject {
+    changes.forEach { (k, v) -> put(k, v) }
+    photo?.let { put("photoUrl", it) }
 }
 
 @Serializable

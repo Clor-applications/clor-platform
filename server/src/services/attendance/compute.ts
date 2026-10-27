@@ -108,6 +108,41 @@ export const shiftWindow = (shift: ShiftRule, date: string) => {
   return { start, end };
 };
 
+/** A shift that ends the next day: its end at or before its start (22:00–06:00). */
+export const isOvernight = (shift: Pick<ShiftRule, 'startTime' | 'endTime'>) => minutesOf(shift.endTime) <= minutesOf(shift.startTime);
+
+/** How the screens name an overnight shift: "Night shift 22:00–06:00 (ends next day)". */
+export const nightShiftLabel = (shift: Pick<ShiftRule, 'startTime' | 'endTime'>) => `Night shift ${shift.startTime}–${shift.endTime} (ends next day)`;
+
+/**
+ * The two halves of a shift on its date, for a half-day leave: the first half
+ * from the start to the midpoint, the second from the midpoint to the end. A
+ * night shift's midpoint is after midnight (22:00–06:00 splits at 02:00).
+ */
+export const shiftHalves = (shift: ShiftRule, date: string) => {
+  const { start, end } = shiftWindow(shift, date);
+  const mid = new Date(start.getTime() + Math.round((end.getTime() - start.getTime()) / 2 / 60_000) * 60_000);
+  return { FIRST: { from: start, to: mid }, SECOND: { from: mid, to: end } };
+};
+
+/**
+ * Wall-clock times written for a night shift's date (a correction, a missed
+ * punch, a manager's entry) as the instants they mean. A time before the
+ * shift's start and before noon is after midnight, on the next calendar day:
+ * in 00:30 on a 22:00–06:00 shift is half past midnight that night, not the
+ * morning before it began. Noon, because no night shift starts before it and
+ * none ends after it (the same boundary readers use, adms.ts shiftDayOf). An
+ * out at or before the in is later again, as for any day.
+ */
+export const nightInstants = (date: string, shift: Pick<ShiftRule, 'startTime' | 'endTime'>, inHHMM?: string | null, outHHMM?: string | null) => {
+  const start = minutesOf(shift.startTime);
+  const nextDay = (hhmm: string) => (minutesOf(hhmm) < start && minutesOf(hhmm) < 12 * 60 ? 1 : 0);
+  const checkIn = inHHMM ? istInstant(date, inHHMM, nextDay(inHHMM)) : null;
+  let checkOut = outHHMM ? istInstant(date, outHHMM, nextDay(outHHMM)) : null;
+  if (checkIn && checkOut && checkOut <= checkIn) checkOut = istInstant(date, outHHMM!, nextDay(outHHMM!) + 1);
+  return { checkIn, checkOut };
+};
+
 const mins = (ms: number) => Math.max(0, Math.round(ms / 60_000));
 
 export function computeDay(input: {

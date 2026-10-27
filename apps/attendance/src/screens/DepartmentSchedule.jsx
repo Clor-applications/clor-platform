@@ -137,7 +137,7 @@ export default function DepartmentSchedule() {
                     <td className="ui-col-date whitespace-nowrap">{r.effectiveTo || 'until changed'}</td>
                     <td className="ui-col-meta">
                       <span className="flex justify-end">
-                        <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.departmentName} from ${r.effectiveFrom}`} onClick={async () => { await removeDepartmentSchedule(r.id); load(); }}>
+                        <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.departmentName} from ${r.effectiveFrom}`} onClick={async () => { try { await removeDepartmentSchedule(r.id); load(); } catch (err) { notify.error(String(err?.message || 'Not removed.')); } }}>
                           <Trash2 size={14} aria-hidden="true" /> Remove
                         </button>
                       </span>

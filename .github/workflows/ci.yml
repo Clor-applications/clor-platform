@@ -60,6 +60,25 @@ jobs:
         run: npm run prisma:generate
         working-directory: server
 
+      # Each schema.prisma must describe what its migrations build (O-12).
+      # Production is built by `migrate deploy` and the test suite by `db
+      # push`, so a column, default or index on only one side passes every
+      # test and still differs on the box. The script replays each schema's
+      # migrations into an empty shadow database and runs
+      #   prisma migrate diff --from-migrations <dir> --to-schema-datamodel
+      #     <schema> --shadow-database-url <url> --exit-code
+      # for all four; any difference fails the build. The one difference it
+      # allows, and why, is written at the top of the script.
+      - name: Schema and migrations agree
+        working-directory: server
+        env:
+          PGPASSWORD: clor_ci
+          SHADOW_DATABASE_URL: postgresql://clor_ci:clor_ci@localhost:5432/clor_shadow_check
+        run: |
+          createdb -h localhost -U clor_ci clor_shadow_check
+          node scripts/checkMigrationDrift.mjs
+          dropdb -h localhost -U clor_ci clor_shadow_check
+
       - name: Lint
         run: npm run lint
 

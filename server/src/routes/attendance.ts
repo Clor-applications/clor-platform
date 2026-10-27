@@ -16,6 +16,8 @@ import {
   computeDay,
   isWeeklyOff,
   isHHMM,
+  isOvernight,
+  nightShiftLabel,
   istDate,
   istInstant,
   istTime,
@@ -28,6 +30,7 @@ import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { logDayChange } from '../services/attendance/history.js';
 import { recordRuleVersion } from '../services/attendance/ruleVersions.js';
 import { deleteToBin } from '../services/recycleBin.js';
+import { MONTH_DAYS, scheduleGuard, shiftRanges, type DateRange } from '../services/attendance/scheduleGuard.js';
 import {
   ISO_DATE,
   STATUSES,
@@ -54,9 +57,12 @@ import {
 } from '../services/attendance/days.js';
 import { DEFAULT_RULES, KINDS, KIND_WORDS, askRequest, cancelRequest, decideRequest, editRequest, rulesFor, saveRules, story, usage, type Kind } from '../services/attendance/requests.js';
 import { CHAINS } from '../services/attendance/approvalChain.js';
+import { nightShiftsOn, timesOn } from '../services/attendance/nightShift.js';
+import { clockDateFor } from '../services/attendance/punches.js';
 import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
 import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/attendance/suggestions.js';
 import { recordAudit } from '../services/auditTrail.js';
+import { TRUST_LEVELS, readerTrustOn } from '../services/attendance/trust.js';
 
 /**
  * Attendance, native (after Horilla HRMS's attendance; reference only).
@@ -122,6 +128,9 @@ attendanceRouter.get('/orgs/:orgId/attendance/records', can(PermissionAction.VIE
   const to = dateParam(req.query.to, today());
   const from = dateParam(req.query.from, to);
   const pick = (k: string) => String(req.query[k] || '').trim() || undefined;
+  /* Reader trust (O-11): the filter and the column only while the company has it on. */
+  const readerTrust = await readerTrustOn(accountId, orgId);
+  const trust = readerTrust && (TRUST_LEVELS as readonly string[]).includes(String(pick('trust'))) ? pick('trust') : undefined;
   const rows = await peoplePrisma.attendanceRecord.findMany({
     where: {
       accountId,
@@ -132,11 +141,15 @@ attendanceRouter.get('/orgs/:orgId/attendance/records', can(PermissionAction.VIE
       ...(pick('validated') ? { validated: pick('validated') === 'true' } : {}),
       ...(pick('late') === 'true' ? { lateMinutes: { gt: 0 } } : {}),
       ...(pick('overtime') === 'true' ? { overtimeMinutes: { gt: 0 } } : {}),
+      ...(trust ? { trust } : {}),
     },
     orderBy: [{ date: 'desc' }],
     take: 2000,
   });
-  res.json({ records: await withNames(orgId, rows), from, to });
+  const named = await withNames(orgId, rows);
+  /* Off: the rows are exactly as before, with no trust on them. */
+  const records = readerTrust ? named : named.map(({ trust: _t, trustReasons: _r, ...r }) => r);
+  res.json({ records, from, to, readerTrust });
 });
 
 const markSchema = z.object({
@@ -147,6 +160,17 @@ const markSchema = z.object({
   status: z.enum(STATUSES).optional().nullable(),
   note: z.string().trim().max(500).optional().nullable(),
 });
+
+/**
+ * Times typed for a day as instants. With night shifts on and the person's
+ * shift that day ending the next morning, a time after midnight is after
+ * midnight (compute.ts nightInstants); otherwise as always.
+ */
+async function handTimes(orgId: string, accountId: string, employeeId: string, date: string, inHHMM?: string | null, outHHMM?: string | null, on?: boolean) {
+  const { rule } = await shiftFor(orgId, employeeId, date);
+  if (!isOvernight(rule)) return instants(date, inHHMM, outHHMM);
+  return timesOn(date, rule, on ?? (await nightShiftsOn(orgId, accountId)), inHHMM, outHHMM);
+}
 
 /** Mark or correct a day for someone (a manager's entry). */
 attendanceRouter.put('/orgs/:orgId/attendance/records', can(PermissionAction.EDIT, R.records), async (req, res) => {
@@ -160,7 +184,7 @@ attendanceRouter.put('/orgs/:orgId/attendance/records', can(PermissionAction.EDI
     if (b.checkOut && !b.checkIn) throw fail(400, 'A check-out needs a check-in.');
     if (b.date > today()) throw fail(400, 'Attendance cannot be marked for a day that has not happened.');
     const employee = await employeeIn(orgId, accountId, b.employeeId);
-    const { checkIn, checkOut } = instants(b.date, b.checkIn, b.checkOut);
+    const { checkIn, checkOut } = await handTimes(orgId, accountId, employee.id, b.date, b.checkIn, b.checkOut);
     const record = await writeDay({
       accountId, orgId, userId: req.auth!.userId, employee, date: b.date, checkIn, checkOut,
       statusOverride: b.status ?? null, source: 'MANUAL', note: b.note ?? null,
@@ -195,6 +219,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/import', can(PermissionAc
   /* dryRun: check every row the same way and save nothing, so the screen can show what would happen first. */
   const dryRun = req.body?.dryRun === true;
   const byCode = await peopleByCode(orgId);
+  const nightOn = await nightShiftsOn(orgId, accountId);
   const results: RowResult[] = [];
   for (let i = 0; i < rows.length; i += 1) {
     const r = rows[i] || {};
@@ -208,7 +233,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/import', can(PermissionAc
       if (b.checkOut && !b.checkIn) throw fail(400, 'A check-out needs a check-in.');
       if (b.date > today()) throw fail(400, 'That day has not happened yet.');
       const employee = await employeeIn(orgId, accountId, b.employeeId);
-      const { checkIn, checkOut } = instants(b.date, b.checkIn, b.checkOut);
+      const { checkIn, checkOut } = await handTimes(orgId, accountId, employee.id, b.date, b.checkIn, b.checkOut, nightOn);
       if (dryRun) await assertMonthOpen(orgId, b.date);
       else await writeDay({ accountId, orgId, userId: req.auth!.userId, employee, date: b.date, checkIn, checkOut, statusOverride: b.status ?? null, source: 'IMPORT', note: b.note ?? null });
       results.push({ row: i + 1, ok: true });
@@ -260,6 +285,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/shift-assignments/import', can(Pe
   const dryRun = req.body?.dryRun === true;
   const [byCode, shifts] = await Promise.all([peopleByCode(orgId), peoplePrisma.shift.findMany({ where: { orgId }, select: { id: true, name: true } })]);
   const shiftByName = new Map(shifts.map((x) => [x.name.trim().toLowerCase(), x.id]));
+  const guard = await scheduleGuard(orgId);
   const results: RowResult[] = [];
   let imported = 0;
   for (let i = 0; i < rows.length; i += 1) {
@@ -272,6 +298,10 @@ attendanceRouter.post('/orgs/:orgId/attendance/shift-assignments/import', can(Pe
     const to = String(r.to ?? r.effectiveTo ?? '').trim() || null;
     if (!ISO_DATE.test(from) || (to && !ISO_DATE.test(to))) { results.push({ row: i + 1, ok: false, error: 'Dates are YYYY-MM-DD.' }); continue; }
     if (to && to < from) { results.push({ row: i + 1, ok: false, error: 'The end is before the start.' }); continue; }
+    /* A row reaching into a closed month is refused like the screen's add (O-05); the rest still import. */
+    const replaced = guard.months.length ? await peoplePrisma.shiftAssignment.findUnique({ where: { employeeId_effectiveFrom: { employeeId: emp.id, effectiveFrom: from } }, select: { effectiveTo: true } }) : null;
+    const refused = guard.refusal(assignmentRanges(from, to, replaced));
+    if (refused) { results.push({ row: i + 1, ok: false, error: refused.message }); continue; }
     if (!dryRun) await peoplePrisma.shiftAssignment.upsert({
       where: { employeeId_effectiveFrom: { employeeId: emp.id, effectiveFrom: from } },
       create: { accountId, orgId, employeeId: emp.id, shiftId, effectiveFrom: from, effectiveTo: to, createdByUserId: req.auth!.userId },
@@ -394,7 +424,7 @@ attendanceRouter.get('/orgs/:orgId/attendance/me', can(PermissionAction.VIEW, R.
     res.json({
       employee: { id: me.id, name: me.name, code: me.code },
       today: t,
-      shift: { name: shift.name, startTime: shift.rule.startTime, endTime: shift.rule.endTime },
+      shift: { name: shift.name, startTime: shift.rule.startTime, endTime: shift.rule.endTime, ...(isOvernight(shift.rule) && (await nightShiftsOn(orgId, accountId)) ? { label: nightShiftLabel(shift.rule) } : {}) },
       clockedIn: Boolean(open),
       todayRecord: shaped.find((r) => r.date === t) || open,
       records: shaped,
@@ -439,7 +469,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/clock', can(PermissionAction.CREA
       record = await writeDay({ accountId, orgId, userId: req.auth!.userId, employee: me, date: open.date, checkIn: open.checkIn, checkOut: now, source: 'CLOCK' });
     } else {
       if (open) throw fail(409, 'You are already clocked in.');
-      const date = istDate(now);
+      const date = await clockDateFor(orgId, accountId, me.id, now);
       const existing = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: me.id, date } } });
       if (existing?.checkOut) throw fail(409, 'Today is already closed. Ask for a correction if you came back in.');
       record = await writeDay({ accountId, orgId, userId: req.auth!.userId, employee: me, date, checkIn: now, checkOut: null, source: 'CLOCK' });
@@ -711,6 +741,30 @@ const shiftSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+/**
+ * A shift's times and rules can change only while no closed month uses it:
+ * a schedule on it covering a closed month, it being the company default, or
+ * a closed month's day recorded on it.
+ */
+async function shiftOpen(orgId: string, shiftId: string) {
+  const guard = await scheduleGuard(orgId);
+  if (!guard.months.length) return;
+  const message = (month: string) => `${month} is closed in Attendance and uses this shift, so its times and rules cannot change. Create a new shift from a date instead.`;
+  guard.assertOpen(await shiftRanges(orgId, shiftId), message);
+  const day = await peoplePrisma.attendanceRecord.findFirst({
+    where: { orgId, shiftId, OR: guard.months.map((m) => ({ date: { gte: `${m}-01`, lte: `${m}-${MONTH_DAYS}` } })) },
+    orderBy: { date: 'asc' },
+    select: { date: true },
+  });
+  if (day) throw new MonthClosedError(day.date.slice(0, 7), message(day.date.slice(0, 7)));
+}
+
+/** The dates an assignment write affects: the new range, and the range of the row it replaces (same person, same start). */
+const assignmentRanges = (from: string, to: string | null, replaced?: { effectiveTo: string | null } | null): DateRange[] => [
+  { from, to },
+  ...(replaced ? [{ from, to: replaced.effectiveTo }] : []),
+];
+
 attendanceRouter.get('/orgs/:orgId/attendance/shifts', can(PermissionAction.VIEW, R.shifts), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -742,9 +796,16 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
   const parsed = shiftSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid shift.' });
   if (parsed.data.halfDayMinutes > parsed.data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.' });
+  const scoring = (x: any) => ({ startTime: x.startTime, endTime: x.endTime, breakMinutes: x.breakMinutes, graceMinutes: x.graceMinutes, earlyOutGraceMinutes: x.earlyOutGraceMinutes, halfDayMinutes: x.halfDayMinutes, fullDayMinutes: x.fullDayMinutes, overtimeAfterMinutes: x.overtimeAfterMinutes ?? null, weeklyOffDays: x.weeklyOffDays, offSaturdays: x.offSaturdays, isActive: x.isActive });
   try {
+    /*
+     * A shift has no effective date: new times or rules apply to every date it
+     * covers, closed months included (O-05). While a closed month uses it, its
+     * times and rules stay; the name, code and colour can still change.
+     */
+    const next = { ...existing, ...Object.fromEntries(Object.entries(parsed.data).filter(([, v]) => v !== undefined)) };
+    if (JSON.stringify(scoring(existing)) !== JSON.stringify(scoring(next))) await shiftOpen(orgId, existing.id);
     const shift = await peoplePrisma.shift.update({ where: { id: existing.id }, data: { ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null } as any });
-    const scoring = (x: any) => ({ startTime: x.startTime, endTime: x.endTime, breakMinutes: x.breakMinutes, graceMinutes: x.graceMinutes, earlyOutGraceMinutes: x.earlyOutGraceMinutes, halfDayMinutes: x.halfDayMinutes, fullDayMinutes: x.fullDayMinutes, overtimeAfterMinutes: x.overtimeAfterMinutes, weeklyOffDays: x.weeklyOffDays, offSaturdays: x.offSaturdays, isActive: x.isActive });
     if (JSON.stringify(scoring(existing)) !== JSON.stringify(scoring(shift))) {
       await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'SHIFT', ref: shift.id, name: shift.name, before: scoring(existing), after: scoring(shift) });
     }
@@ -797,6 +858,10 @@ attendanceRouter.post('/orgs/:orgId/attendance/shift-assignments', can(Permissio
   const shift = await peoplePrisma.shift.findFirst({ where: { id: shiftId, orgId } });
   if (!shift) return res.status(400).json({ error: 'That shift is not in this organisation.' });
   const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: employeeIds } }, select: { id: true } });
+  /* The new range, and any row it replaces, may not reach into a closed month (O-05). */
+  const replaced = await peoplePrisma.shiftAssignment.findMany({ where: { orgId, employeeId: { in: people.map((p) => p.id) }, effectiveFrom }, select: { effectiveTo: true } });
+  const refused = (await scheduleGuard(orgId)).refusal([{ from: effectiveFrom, to: effectiveTo }, ...replaced.map((r) => ({ from: effectiveFrom, to: r.effectiveTo }))]);
+  if (refused) return sendError(res, refused);
   for (const p of people) {
     await peoplePrisma.shiftAssignment.upsert({
       where: { employeeId_effectiveFrom: { employeeId: p.id, effectiveFrom } },
@@ -812,6 +877,8 @@ attendanceRouter.delete('/orgs/:orgId/attendance/shift-assignments/:id', can(Per
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.shiftAssignment.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such assignment.' });
+  const refused = (await scheduleGuard(orgId)).refusal([{ from: r.effectiveFrom, to: r.effectiveTo }]);
+  if (refused) return sendError(res, refused);
   await deleteToBin(req, 'shiftAssignment', r);
   res.json({ ok: true });
 });

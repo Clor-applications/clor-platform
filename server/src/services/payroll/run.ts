@@ -6,6 +6,7 @@ import { recoveriesDue, recoverable, type DueRecovery } from './loan.js';
 import { financialYearOf, deductionsFor } from './taxDeclaration.js';
 import { round2 } from '../../utils/money.js';
 import { componentApplies, monthsOfService, type EligibilityFacts } from './eligibility.js';
+import { isCorrection } from './provisionalDays.js';
 
 /**
  * A payroll run: turning a population and a period into payslips.
@@ -889,7 +890,8 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
       adjustmentLines.push({
         componentId: adj.componentId,
         componentCode: component?.code || 'ADJUSTMENT',
-        componentName: component?.name || 'Adjustment',
+        /* A correction for days an earlier run counted as present says what it corrects: "Correction for 26–30 Sep: 2 days absent". */
+        componentName: isCorrection(adj) && adj.reason ? adj.reason : component?.name || 'Adjustment',
         type: isDeduction ? 'DEDUCTION' : 'EARNING',
         amount,
         isTaxable: component?.isTaxable ?? true,

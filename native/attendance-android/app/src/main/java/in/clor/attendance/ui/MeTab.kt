@@ -202,7 +202,7 @@ private fun PermissionsCard(context: Context) {
     fun has(p: String) = ContextCompat.checkSelfPermission(context, p) == PackageManager.PERMISSION_GRANTED
     val rows = listOf(
         Triple("Location", has(Manifest.permission.ACCESS_FINE_LOCATION), "Read once when you punch from the phone."),
-        Triple("Camera", has(Manifest.permission.CAMERA), "Only for a selfie you choose to add to a punch."),
+        Triple("Camera", has(Manifest.permission.CAMERA), "Only for a selfie you add to a punch, or a new photo you take for My details."),
         Triple("Notifications", Reminders.allowed(context), "Punch reminders and decisions on your requests."),
     )
     Section("Permissions") {

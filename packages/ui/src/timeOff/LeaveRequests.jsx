@@ -17,6 +17,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
 
 import { can, homeCrumbs } from './shared';
+import { MONTH_CLOSED, MonthClosedNote } from './MonthClosed';
 import { useSuggestions } from './suggestions';
 import {
   PRIVATE_LABEL, STATUS_LABEL, STATUS_PILL, approveLeave, cancelLeave, colorOf, createLeaveRequest, daysText,
@@ -372,6 +373,17 @@ function ownPreview(p, request, leaveTypeId) {
   };
 }
 
+/** Night shifts on: which night each charged date covers, so the preview and the day record say the same. */
+export function NightCover({ dates }) {
+  const nights = (dates || []).filter((d) => d.counted && d.night);
+  if (!nights.length) return null;
+  return (
+    <ul className="text-sm space-y-0.5">
+      {nights.map((d) => <li key={d.date}><span className="tabular-nums">{formatDate(d.date)}</span>: {d.night.label}. Covers {d.night.covers}.</li>)}
+    </ul>
+  );
+}
+
 /** What the preview says, in the words the form needs: days, balance after, dates skipped, problems, the split. */
 export function LeavePreview({ preview, loading }) {
   if (!preview) return loading ? <p className="text-sm ui-muted" aria-live="polite">Working out the days…</p> : null;
@@ -394,7 +406,10 @@ export function LeavePreview({ preview, loading }) {
         </div>
       ) : null}
       <SkippedDates dates={parts.flatMap((x) => x.dates || [])} />
-      {(preview.problems || []).map((x) => <p key={x.code + x.message} className="text-sm ui-text-neg" role="alert">{x.message}</p>)}
+      <NightCover dates={parts.flatMap((x) => x.dates || [])} />
+      {(preview.problems || []).map((x) => (x.code === MONTH_CLOSED
+        ? <MonthClosedNote key={x.code + x.message} message={x.message} month={x.month} />
+        : <p key={x.code + x.message} className="text-sm ui-text-neg" role="alert">{x.message}</p>))}
     </section>
   );
 }
@@ -456,7 +471,9 @@ export function EnterLeave({ onClose, onDone, request = null }) {
       }
       onDone();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      /* A closed month says so in the form, with the way to Month close; anything else is a toast. */
+      if (err?.code === MONTH_CLOSED) setPreview((p) => ({ ...(p || { parts: [] }), problems: [{ code: MONTH_CLOSED, message: String(err.message), month: err.data?.month }] }));
+      else notify.error(String(err?.message || 'Not saved.'));
     } finally {
       setSaving(false);
     }

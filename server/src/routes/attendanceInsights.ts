@@ -8,7 +8,8 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
-import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { peoplePrisma, peopleWrite } from '../utils/peoplePrisma.js';
+import { recordAudit } from '../services/auditTrail.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
@@ -27,6 +28,7 @@ import { decideRequest } from '../services/attendance/requests.js';
 import { ISO_DATE, employeeIn, fail, isHoliday, myEmployee, sendError, today, withNames, writeDay } from '../services/attendance/days.js';
 import { payrollReadiness } from '../services/payroll/readinessTower.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
+import { PUNCH_ON_DECIDED, evidenceCsv, evidenceRows, readerTrustOn, reasonsOf, recomputeTrust } from '../services/attendance/trust.js';
 
 /**
  * Attendance you can trust: the reads and the careful writes built on top of
@@ -109,7 +111,10 @@ export async function explainFor(orgId: string, employee: { id: string; branchId
     peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month: date.slice(0, 7) } } }),
   ]);
   const actors = await namesOf(history.map((h) => h.userId).concat(record?.validatedByUserId ? [record.validatedByUserId] : []));
+  /* Reader trust (O-11), only while the company has it on: the level and why. */
+  const trust = record?.trust && (await readerTrustOn(record.accountId, orgId)) ? { level: record.trust, reasons: reasonsOf(record.trustReasons) } : null;
   return {
+    trust,
     date,
     employee: { id: employee.id, name: employee.name || null },
     shift: { name: shift.name, source: shift.source, ...shift.rule },
@@ -198,6 +203,17 @@ attendanceInsightsRouter.get(`${base}/exceptions`, can(PermissionAction.VIEW, R.
   for (const a of queues.alerts) add({ key: `READER:${a.id}`, kind: 'READER', severity: a.severity === 'critical' || a.severity === 'high' ? 'high' : 'medium', title: a.title, detail: a.details, date: istInstantDate(a.openedAt), screen: 'readerHealth', ref: a.id });
   const clashNames = await named(queues.clashes.map((c) => ({ employeeId: c.employeeId })));
   queues.clashes.forEach((c, i) => add({ key: `SHIFT_CLASH:${c.a.id}:${c.b.id}`, kind: 'SHIFT_CLASH', severity: 'high', title: 'Two temporary schedules on the same days', detail: `Different shifts overlap from ${c.from}${c.to ? ` to ${c.to}` : ''}; which one applies is arbitrary.`, employeeId: c.employeeId, employeeName: clashNames[i]?.employeeName || null, date: c.from, screen: 'temporarySchedule' }));
+
+  /* Reader trust (O-11): a reader punch reached a day already decided by hand. The day was not changed; HR decides. */
+  if (await readerTrustOn(accountId, orgId)) {
+    const decided = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: from, lte: to }, trust: 'MANUAL' }, select: { id: true, employeeId: true, date: true, trustReasons: true } });
+    const raised = decided.filter((r) => reasonsOf(r.trustReasons).some((x) => x.code === PUNCH_ON_DECIDED));
+    const names = await named(raised.map((r) => ({ employeeId: r.employeeId })));
+    raised.forEach((r, i) => {
+      const m = reasonsOf(r.trustReasons).find((x) => x.code === PUNCH_ON_DECIDED)!;
+      add({ key: `READER_ON_MANUAL:${r.id}`, kind: 'READER_ON_MANUAL', severity: 'medium', title: 'Reader punch on a day marked by hand', detail: `${m.text} Keep the day as it is, or correct it from the punches.`, employeeId: r.employeeId, employeeName: names[i]?.employeeName || null, date: r.date, screen: 'records', ref: r.id });
+    });
+  }
 
   const assignees = await namesOf(states.map((s) => s.assigneeUserId || '').filter(Boolean));
   const withState = items.map((x) => {
@@ -684,7 +700,7 @@ export async function leaveExplain(accountId: string, orgId: string, employeeId:
   }
   /* HR's ledger lines: added, taken away, paid out (People → Time Off → Balances). */
   if (type.isPaid) {
-    const adjustments = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, employeeId, leaveTypeId: type.id, year }, orderBy: { createdAt: 'asc' } });
+    const adjustments = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, employeeId, leaveTypeId: type.id, year, reversedAt: null }, orderBy: { createdAt: 'asc' } });
     for (const a of adjustments) {
       lines.push({ kind: a.kind === 'ENCASH' ? 'encashed' : 'adjusted', label: a.kind === 'ENCASH' ? `Paid out: ${a.reason}` : `${a.days > 0 ? 'Added' : 'Taken away'} by HR: ${a.reason}`, days: a.days, date: a.createdAt.toISOString().slice(0, 10) });
     }
@@ -739,6 +755,53 @@ attendanceInsightsRouter.get(`${base}/me/leave/explain`, can(PermissionAction.VI
 // ---------------------------------------------------------------------------
 // Evidence: everything behind one person's days, for a dispute or an inspector
 // ---------------------------------------------------------------------------
+
+/**
+ * Attendance evidence (reader trust, O-11): every punch of one person in a
+ * period — reader ID, serial, when it was made and when CLOR received it,
+ * finger, face, card or phone, the work-site check, and the day's trust. JSON
+ * for the printable page, or CSV (`format=csv`). Only while the company has
+ * reader trust on.
+ */
+attendanceInsightsRouter.get(`${base}/evidence/punches`, can(PermissionAction.VIEW, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  if (!(await readerTrustOn(accountId, orgId))) return res.status(409).json({ error: 'Turn on reader trust in Attendance policy first.', code: 'READER_TRUST_OFF' });
+  const from = dateQ(req.query.from);
+  const to = dateQ(req.query.to);
+  if (!from || !to || to < from) return res.status(400).json({ error: 'Choose a period (from and to, YYYY-MM-DD).' });
+  if (addDays(from, 92) < to) return res.status(400).json({ error: 'Up to 92 days at a time.' });
+  try {
+    const employee = await employeeIn(orgId, accountId, String(req.query.employeeId || ''));
+    const person = await peoplePrisma.employee.findFirst({ where: { id: employee.id }, select: { name: true, code: true, devicePin: true, department: true } });
+    const rows = await evidenceRows(orgId, employee.id, from, to);
+    const days = await peoplePrisma.attendanceRecord.findMany({ where: { orgId, employeeId: employee.id, date: { gte: from, lte: to } }, select: { trust: true } });
+    const summary = { punches: rows.length, days: days.length, trusted: days.filter((d) => d.trust === 'TRUSTED').length, check: days.filter((d) => d.trust === 'CHECK').length, manual: days.filter((d) => d.trust === 'MANUAL').length };
+    /* Who took a person's evidence, and for when: it carries their locations and times. */
+    await recordAudit(req, { entity: 'Employee', entityId: employee.id, action: 'ATTENDANCE_EVIDENCE_EXPORT', message: `Attendance evidence for ${person?.name || 'a person'}, ${from} to ${to}`, metadata: { from, to, format: String(req.query.format || 'json') } });
+    if (String(req.query.format || '') === 'csv') {
+      const name = `Attendance evidence ${person?.code || person?.name || employee.id} ${from} to ${to}.csv`.replace(/[^\w .-]+/g, '');
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+      return res.send(`\uFEFF${evidenceCsv(rows)}`);
+    }
+    res.json({ generatedAt: new Date(), period: { from, to }, employee: { id: employee.id, ...person }, summary, rows });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+/** Work reader trust out for days already recorded (after turning it on). Only the trust changes. */
+attendanceInsightsRouter.post(`${base}/trust/recompute`, can(PermissionAction.EDIT, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  if (!(await readerTrustOn(accountId, orgId))) return res.status(409).json({ error: 'Turn on reader trust in Attendance policy first.', code: 'READER_TRUST_OFF' });
+  const from = dateQ(req.body?.from);
+  const to = dateQ(req.body?.to);
+  if (!from || !to || to < from) return res.status(400).json({ error: 'Choose a period (from and to, YYYY-MM-DD).' });
+  if (addDays(from, 62) < to) return res.status(400).json({ error: 'Up to 62 days at a time.' });
+  res.json({ worked: await recomputeTrust(accountId, orgId, from, to) });
+});
 
 attendanceInsightsRouter.get(`${base}/evidence`, can(PermissionAction.VIEW, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
@@ -892,7 +955,13 @@ attendanceInsightsRouter.put(`${base}/phone-punches/settings`, can(PermissionAct
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const on = req.body?.fieldPunchApproval !== false;
-  await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, fieldPunchApproval: on, updatedByUserId: req.auth!.userId }, update: { fieldPunchApproval: on, updatedByUserId: req.auth!.userId } });
+  /* Read before the change, in the same write, so the audit line says what it was. No row yet means the default: approval on. */
+  const before = await peopleWrite(orgId, async () => {
+    const old = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { fieldPunchApproval: true } });
+    await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, fieldPunchApproval: on, updatedByUserId: req.auth!.userId }, update: { fieldPunchApproval: on, updatedByUserId: req.auth!.userId } });
+    return { fieldPunchApproval: old?.fieldPunchApproval ?? true };
+  });
+  await recordAudit(req, { entity: 'ATTENDANCE_SETTINGS', entityId: orgId, action: 'UPDATE', message: `Field punches ${on ? 'wait for approval' : 'count without approval'}`, metadata: { before, after: { fieldPunchApproval: on } } });
   res.json({ fieldPunchApproval: on });
 });
 
@@ -987,8 +1056,15 @@ attendanceInsightsRouter.put(`${base}/overtime/rules`, can(PermissionAction.EDIT
   const v = parsed.data;
   if (v.compOffEnabled && !v.compOffLeaveTypeId) return res.status(400).json({ error: 'Choose the leave type comp-off days are added to.' });
   if (v.compOffLeaveTypeId && !(await peoplePrisma.leaveType.findFirst({ where: { id: v.compOffLeaveTypeId, orgId } }))) return res.status(400).json({ error: 'No such leave type.' });
-  const s = await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, ...v, updatedByUserId: req.auth!.userId }, update: { ...v, updatedByUserId: req.auth!.userId } });
-  res.json({ rules: overtimeRules(s) });
+  const { before, s } = await peopleWrite(orgId, async () => {
+    const before = overtimeRules(await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }));
+    const s = await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, ...v, updatedByUserId: req.auth!.userId }, update: { ...v, updatedByUserId: req.auth!.userId } });
+    return { before, s };
+  });
+  const after = overtimeRules(s);
+  const changed = (Object.keys(after) as Array<keyof typeof after>).filter((k) => before[k] !== after[k]);
+  await recordAudit(req, { entity: 'ATTENDANCE_OVERTIME_RULES', entityId: orgId, action: 'UPDATE', message: changed.length ? `Overtime rules changed: ${changed.join(', ')}` : 'Overtime rules saved, nothing changed', metadata: { before, after } });
+  res.json({ rules: after });
 });
 
 attendanceInsightsRouter.get(`${base}/overtime/requests`, can(PermissionAction.VIEW, R.records), async (req, res) => {

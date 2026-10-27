@@ -35,7 +35,7 @@ export default function WorkingWeek() {
   /* The working week is the company's: a team-scoped role reads it (the server refuses its changes). */
   const canEdit = can(perms, 'ATTENDANCE::Leave Types::EDIT') && !perms?.ownDocumentsOnly;
   const req = useRequest(() => getWorkingWeek(), []);
-  const saved = useMemo(() => (req.data ? { offs: text(list(req.data.weeklyOffDays)), sats: text(list(req.data.offSaturdays)), quota: String(req.data.restrictedHolidayQuota ?? 0), compOff: req.data.compOffLeaveTypeId || '' } : null), [req.data]);
+  const saved = useMemo(() => (req.data ? { offs: text(list(req.data.weeklyOffDays)), sats: text(list(req.data.offSaturdays)), quota: String(req.data.restrictedHolidayQuota ?? 0), compOff: req.data.compOffLeaveTypeId || '', from: req.data.firstOpenDate || '' } : null), [req.data]);
   /* Comp-off lands in one paid leave type; set here so a People-only company can grant it. */
   const types = useRequest(() => listLeaveTypes().then((t) => t.filter((x) => x.isActive && x.isPaid)), []);
   /* Edits sit over what was loaded; null means nothing has been changed. */
@@ -56,6 +56,9 @@ export default function WorkingWeek() {
   const saturdayWorks = !offs.includes(SATURDAY);
   const plan = !form.sats && !custom ? 'none' : custom || !SATURDAY_PLANS.some((p) => p.value === form.sats) ? 'custom' : form.sats;
   const change = (next) => { setError(null); setDraft({ ...form, ...next }); };
+  /* A new week changes which days are off; it can start from a date so earlier days, a closed month's among them, keep theirs. */
+  const weekChanged = Boolean(saved && (form.offs !== saved.offs || form.sats !== saved.sats));
+  const firstOpen = req.data.firstOpenDate || '';
   const toggleDay = (d) => change({ offs: text(offs.includes(d) ? offs.filter((x) => x !== d) : [...offs, d]) });
   const toggleSat = (n) => change({ sats: text(sats.includes(n) ? sats.filter((x) => x !== n) : [...sats, n]) });
 
@@ -67,13 +70,15 @@ export default function WorkingWeek() {
     setError(null);
     try {
       /* A Saturday off every week leaves nothing to choose; the server clears it too. */
-      const out = await saveWorkingWeek({ weeklyOffDays: form.offs, offSaturdays: saturdayWorks ? form.sats : '', restrictedHolidayQuota: Math.max(0, Math.min(20, Number(form.quota) || 0)), compOffLeaveTypeId: form.compOff || null });
+      const out = await saveWorkingWeek({ weeklyOffDays: form.offs, offSaturdays: saturdayWorks ? form.sats : '', restrictedHolidayQuota: Math.max(0, Math.min(20, Number(form.quota) || 0)), compOffLeaveTypeId: form.compOff || null, ...(weekChanged ? { effectiveFrom: form.from || null } : {}) });
       req.setData((d) => ({ ...d, ...out }));
       setDraft(null);
       setCustom(false);
       notify.success('Working week saved.');
     } catch (err) {
       setError(err);
+      /* A refusal (a closed month, say) is also said where the eye is, as every Attendance schedule screen does. */
+      notify.error(String(err?.message || 'Not saved.'));
     } finally {
       setSaving(false);
     }
@@ -124,6 +129,16 @@ export default function WorkingWeek() {
             ) : null}
           </div>
         ) : null}
+
+        {weekChanged ? (
+          <div className="sm:w-72">
+            <label className="block">
+              <span className="ui-label">New week starts from</span>
+              <input type="date" className="ui-input w-full tabular-nums" disabled={!canEdit} min={firstOpen || undefined} value={form.from} onChange={(e) => change({ from: e.target.value })} />
+            </label>
+            <span className="ui-caption">{firstOpen ? `Attendance has closed months, so the earliest is ${firstOpen}. Days before keep the week they had.` : 'Days before keep the week they had. Blank: every day, past ones too.'}</span>
+          </div>
+        ) : req.data.effectiveFrom ? <p className="ui-caption">This week applies from {req.data.effectiveFrom}.</p> : null}
 
         <div className="sm:w-72">
           <label className="block">

@@ -47,6 +47,14 @@ export const takeDaysFromAttendance = (id, overwrite = false) =>
 export const takeDaysFromLeave = (id, overwrite = false) =>
   apiFetch(`${base()}/${encodeURIComponent(id)}/inputs/from-leave`, { ...opts, method: 'POST', body: { overwrite } });
 
+/**
+ * Loss of pay three ways, per person: approved unpaid leave, the day records,
+ * and this run. Lists who disagrees; locking waits for those to be corrected
+ * or acknowledged with a reason. Also says whether the days came from an
+ * Attendance month still open, and whether a closed month moved since.
+ */
+export const getRunLopCheck = (id) => apiFetch(`${base()}/${encodeURIComponent(id)}/lop-check`, opts);
+
 /** What would stop this payroll producing a payslip somebody could defend. */
 export const validatePayrollRun = (id) =>
   apiFetch(`${base()}/${encodeURIComponent(id)}/validate`, { ...opts, method: 'POST' });
