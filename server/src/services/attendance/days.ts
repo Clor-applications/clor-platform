@@ -123,8 +123,11 @@ const FINAL_RUN = ['APPROVED', 'LOCKED', 'PAID', 'POSTED'];
 export async function payrollTaken(orgId: string, employeeId: string, date: string): Promise<{ period: string; state: string } | null> {
   const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lte: date }, endDate: { gte: date } }, select: { id: true, name: true } });
   if (!periods.length) return null;
-  const run = await payrollPrisma.payrollRun.findFirst({ where: { orgId, periodId: { in: periods.map((p) => p.id) }, status: { in: FINAL_RUN } }, select: { id: true, status: true, periodId: true } });
+  const run = await payrollPrisma.payrollRun.findFirst({ where: { orgId, periodId: { in: periods.map((p) => p.id) }, status: { in: FINAL_RUN } }, select: { id: true, status: true, periodId: true, provisionalDays: true } });
   if (!run) return null;
+  /* A day after the cut-off that the run counted as present before it happened (payrollProvisionalDays) was assumed, not taken: it is recorded as it happens, and next month's payroll corrects the difference. */
+  const cutoff = (run.provisionalDays as { cutoffDate?: string } | null)?.cutoffDate;
+  if (cutoff && date > cutoff) return null;
   const member = await payrollPrisma.payrollRunEmployee.findFirst({ where: { orgId, runId: run.id, employeeId, inclusion: 'INCLUDED' }, select: { id: true } });
   if (!member) return null;
   return { period: periods.find((p) => p.id === run.periodId)?.name || date.slice(0, 7), state: run.status };

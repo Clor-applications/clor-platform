@@ -19,3 +19,18 @@ export async function getPayrollSetup() {
   const { setup } = await apiFetch(`/orgs/${encodeURIComponent(orgId())}/payroll/setup`, { skipWarehouseHeader: true });
   return setup;
 }
+
+/**
+ * Paying before the month ends: whether the days after a cut-off are counted
+ * as present (and corrected the next month), and the cut-off day.
+ * `{ enabled, cutoffDay, attendance }`.
+ */
+export const getProvisionalDays = () =>
+  apiFetch(`/orgs/${encodeURIComponent(orgId())}/payroll/settings/provisional-days`, { skipWarehouseHeader: true });
+
+export const saveProvisionalDays = ({ enabled, cutoffDay }) =>
+  apiFetch(`/orgs/${encodeURIComponent(orgId())}/payroll/settings/provisional-days`, {
+    method: 'PUT',
+    body: { enabled, cutoffDay },
+    skipWarehouseHeader: true,
+  });

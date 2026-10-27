@@ -19,6 +19,8 @@ export type FeatureDef = {
   category: 'Operations' | 'Accounting' | 'Inventory' | 'Governance' | 'Communication' | 'Data' | 'Payroll' | 'People' | 'Attendance';
   /** Turning the parent off forces these off too. */
   dependsOn?: string;
+  /** Other features this one also needs, each forcing it off when off (a second parent the catalog tree cannot show). */
+  alsoNeeds?: string[];
   /** Not switchable — listed so the screen can show why. */
   locked?: boolean;
   lockedReason?: string;
@@ -574,6 +576,22 @@ export const FEATURE_CATALOG: FeatureDef[] = [
     dependsOn: 'payroll',
   },
   {
+    /*
+     * Closure audit O-11 (TLA-004). A company that pays on the 25th does not
+     * know the 26th to the 30th yet: those days are paid as present, and next
+     * month's run compares each with what happened and corrects it. The
+     * cut-off day is a payroll setting (PayrollSetting.provisionalCutoffDay).
+     */
+    key: 'payrollProvisionalDays',
+    label: 'Pay before the month ends',
+    description:
+      'Run payroll before the month is over: the days after a cut-off are counted as present, and next month\'s payroll corrects any that turned out absent.',
+    defaultEnabled: false,
+    category: 'Payroll',
+    dependsOn: 'payroll',
+    alsoNeeds: ['attendance'],
+  },
+  {
     key: 'payrollReports',
     label: 'Payroll reports',
     description: 'Salary register, component summaries, cost by branch and cost centre, and the statutory summaries.',
@@ -609,8 +627,9 @@ export function resolveFeatures(overrides: Record<string, boolean>) {
   for (let i = 0; i < 3; i += 1) {
     let changed = false;
     for (const f of FEATURE_CATALOG) {
-      if (!f.dependsOn) continue;
-      if (resolved[f.key] && resolved[f.dependsOn] === false) {
+      const parents = [...(f.dependsOn ? [f.dependsOn] : []), ...(f.alsoNeeds || [])];
+      if (!parents.length) continue;
+      if (resolved[f.key] && parents.some((p) => resolved[p] === false)) {
         resolved[f.key] = false;
         changed = true;
       }

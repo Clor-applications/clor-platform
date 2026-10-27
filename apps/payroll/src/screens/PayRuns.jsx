@@ -46,6 +46,7 @@ import {
 } from "../api/payrollRuns";
 import LoadFailed from "../components/LoadFailed";
 import { LopCheckPanel, ProvisionalNotice } from "../components/RunGuards";
+import { ProvisionalDaysNotice } from "../components/ProvisionalDaysSetting";
 import { openMonthsOf } from "../components/runGuardText";
 
 /**
@@ -440,6 +441,9 @@ const RunWorkflow = ({ runId, onBack }) => {
         <Tile label="Net pay" value={money(run.netTotal)} strong />
       </div>
 
+      {/* Days after the company's cut-off paid as present before they happened (O-11). */}
+      <ProvisionalDaysNotice run={run} />
+
       {errorCount > 0 || warningCount > 0 ? (
         <div className="flex flex-wrap items-center gap-3">
           {errorCount > 0 ? (
@@ -822,7 +826,11 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
             ? (out.attendanceSnapshots || []).length
               ? ` Matches the Attendance close of ${out.attendanceSnapshots.map((x) => `${x.month} (snapshot ${x.version})`).join(", ")}.`
               : ""
-            : ` ${out.warning || "The month is not closed in Attendance; these figures can still change."}`),
+            : ` ${out.warning || "The month is not closed in Attendance; these figures can still change."}`) +
+          (out.provisionalMessage ? ` ${out.provisionalMessage}` : "") +
+          ((out.corrections || []).length
+            ? ` ${out.corrections.length} ${out.corrections.length === 1 ? "correction" : "corrections"} for last month’s counted days added to this payroll.`
+            : ""),
       );
       onSaved();
     } catch (e) {
