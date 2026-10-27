@@ -77,7 +77,7 @@ export default function EmployeePortal() {
   const [askPreset, setAskPreset] = useState(null);
   const [leavingSent, setLeavingSent] = useState(0);
   const presetUsed = useCallback(() => setAskPreset(null), []);
-  const askBank = useCallback(() => setAskPreset({ category: 'PAYROLL', subject: 'Change my salary account', description: 'Please change the bank account my salary is paid into.\nNew account holder name:\nBank and branch:\nIFSC:\nAccount number:' }), []);
+  const askBank = useCallback(() => setAskPreset({ category: 'PAYROLL', subject: 'Change my salary account', description: 'Please change the bank account my salary is paid into. Tell me how to give you the new account details.' }), []);
   const resigned = useCallback(() => setLeavingSent((n) => n + 1), []);
 
   useEffect(() => {
