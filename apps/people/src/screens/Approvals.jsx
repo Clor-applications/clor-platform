@@ -17,7 +17,7 @@ import { can } from '@ui/timeOff/shared';
 import { bulkReviewLeave, bulkReviewRequests } from '@ui/timeOff/api';
 import { RequestDrawer as LeaveDrawer } from '@ui/timeOff/LeaveRequests';
 import { RequestDrawer as AttendanceDrawer, KIND_NAME } from '@ui/timeOff/AttendanceRequests';
-import { decideRequest, getInbox, listRequests, replyRequest, withdrawRequest } from '../api/approvals';
+import { bulkDecideRequests, decideRequest, getInbox, listRequests, replyRequest, withdrawRequest } from '../api/approvals';
 
 /* The fields a request can name, in plain words (never "photoUrl" or "addressLine"). */
 const FIELD_WORDS = {
@@ -90,7 +90,8 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     const failed = [];
     const ids = (k) => chosen.filter((i) => i.kind === k).map((i) => i.id);
     try {
-      for (const [k, fn] of [['LEAVE', bulkReviewLeave], ['ATTENDANCE', bulkReviewRequests]]) {
+      /* Each source's own bulk route: its checks hold per request, and one refused never stops the rest. */
+      for (const [k, fn] of [['LEAVE', bulkReviewLeave], ['ATTENDANCE', bulkReviewRequests], ['APPROVAL', bulkDecideRequests]]) {
         if (!ids(k).length) continue;
         try {
           const out = await fn(ids(k), approve, note || undefined);
@@ -99,15 +100,6 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
           for (const r of out.results || []) failed.push(r.error);
         } catch (e) {
           failed.push(...ids(k).map(() => String(e?.message || 'Not done.')));
-        }
-      }
-      /* People approvals have no bulk route: one decision each, the same as from the drawer. */
-      for (const id of ids('APPROVAL')) {
-        try {
-          await decideRequest(id, approve ? 'approve' : 'reject', note || undefined);
-          done += 1;
-        } catch (e) {
-          failed.push(String(e?.message || 'Not done.'));
         }
       }
       const did = approve ? 'approved' : 'rejected';

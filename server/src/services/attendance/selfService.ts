@@ -336,7 +336,7 @@ export async function decideOvertime(orgId: string, id: string, approve: boolean
     } else if (approve) {
       const settings = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { compOffLeaveTypeId: true } });
       if (!settings?.compOffLeaveTypeId) throw Object.assign(new Error('Choose the comp-off leave type first (Overtime & comp-off settings).'), { status: 409 });
-      const twice = await peoplePrisma.leaveAdjustment.findFirst({ where: { orgId, employeeId: r.employeeId, leaveTypeId: settings.compOffLeaveTypeId, workedOn: r.date } });
+      const twice = await peoplePrisma.leaveAdjustment.findFirst({ where: { orgId, reversedAt: null, employeeId: r.employeeId, leaveTypeId: settings.compOffLeaveTypeId, workedOn: r.date } });
       if (twice) throw Object.assign(new Error(`Comp-off for ${r.date} is already granted.`), { status: 409, code: 'COMP_OFF_TWICE' });
       await peoplePrisma.leaveAdjustment.create({ data: { accountId: r.accountId, orgId, employeeId: r.employeeId, leaveTypeId: settings.compOffLeaveTypeId, year: await leaveYearOf(orgId, r.date), days: r.days, kind: 'ADJUST', reason: `Comp-off for ${r.date} (request approved)${note ? `: ${note}` : ''}`.slice(0, 500), workedOn: r.date, createdByUserId: by.userId } });
     }

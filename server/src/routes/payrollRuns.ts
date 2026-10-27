@@ -517,7 +517,7 @@ payrollRunsRouter.post(
     }
     /* Paid out in HR and not yet paid by a run: shown so the amount is added, never paid twice. */
     const year = Number(period.endDate.slice(0, 4));
-    const encash = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, kind: 'ENCASH', paidInRunId: null, employeeId: { in: members }, year: { lte: year } }, select: { id: true, employeeId: true, days: true, leaveTypeId: true } });
+    const encash = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, kind: 'ENCASH', paidInRunId: null, reversedAt: null, employeeId: { in: members }, year: { lte: year } }, select: { id: true, employeeId: true, days: true, leaveTypeId: true } });
     res.json({
       ok: true,
       saved,

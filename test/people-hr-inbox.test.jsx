@@ -41,6 +41,7 @@ const approvalsApi = vi.hoisted(() => ({
   getInbox: vi.fn(),
   listRequests: vi.fn(async () => ({ waitingForMe: [], mine: [] })),
   decideRequest: vi.fn(async () => ({ request: { status: 'APPROVED' } })),
+  bulkDecideRequests: vi.fn(async (ids) => ({ done: ids.length, failed: 0, results: [] })),
   replyRequest: vi.fn(),
   withdrawRequest: vi.fn(),
 }));
@@ -96,7 +97,7 @@ describe('one Approvals inbox', () => {
     expect(within(screen.getByRole('table')).getByText('Ravi Kumar')).toBeInTheDocument();
   });
 
-  it('decides the chosen rows at once with one note, each through its own route; rejecting needs the note', async () => {
+  it('decides the chosen rows at once with one note, each through its own bulk route; rejecting needs the note', async () => {
     approvalsApi.getInbox.mockResolvedValue(INBOX);
     render(<Approvals params={{}} updateParams={() => {}} />);
     await screen.findAllByText('Ravi Kumar');
@@ -112,7 +113,21 @@ describe('one Approvals inbox', () => {
     await waitFor(() => expect(dialogs.notify.success).toHaveBeenCalledWith('3 rejected.'));
     expect(timeApi.bulkReviewLeave).toHaveBeenCalledWith(['l1'], false, 'Year-end week');
     expect(timeApi.bulkReviewRequests).toHaveBeenCalledWith(['a1'], false, 'Year-end week');
-    expect(approvalsApi.decideRequest).toHaveBeenCalledWith('p1', 'reject', 'Year-end week');
+    /* People approvals go through their own bulk route now, not one call each. */
+    expect(approvalsApi.bulkDecideRequests).toHaveBeenCalledWith(['p1'], false, 'Year-end week');
+    expect(approvalsApi.decideRequest).not.toHaveBeenCalled();
+  });
+
+  it('a People approval the bulk route refuses is counted, and the rest still go through', async () => {
+    approvalsApi.getInbox.mockResolvedValue({ ...INBOX, items: [...INBOX.items, item({ key: 'APPROVAL:p2', kind: 'APPROVAL', id: 'p2', what: 'Address for Ravi', subKind: 'PROFILE_CHANGE', employeeName: 'Ravi Kumar', since: '2026-10-24T05:00:00Z' })] });
+    approvalsApi.bulkDecideRequests.mockResolvedValueOnce({ done: 1, failed: 1, results: [{ id: 'p1', error: 'Nobody decides their own request.' }] });
+    render(<Approvals params={{ kind: 'APPROVAL' }} updateParams={() => {}} />);
+    await screen.findAllByText('Meera Shah');
+    for (const name of ['Choose Meera Shah', 'Choose Ravi Kumar']) fireEvent.click(screen.getAllByRole('checkbox', { name })[0]);
+    fireEvent.click(within(screen.getByRole('region', { name: 'Decide the chosen requests' })).getByRole('button', { name: /Approve/ }));
+    await waitFor(() => expect(dialogs.notify.error).toHaveBeenCalledWith('1 approved; 1 not: Nobody decides their own request.'));
+    expect(approvalsApi.bulkDecideRequests).toHaveBeenCalledWith(['p1', 'p2'], true, undefined);
+    expect(timeApi.bulkReviewLeave).not.toHaveBeenCalled();
   });
 
   it('says what was not done, with the first reason', async () => {

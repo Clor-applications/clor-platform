@@ -99,7 +99,7 @@ export async function balancesFor(accountId: string, orgId: string, employeeIds:
       select: { employeeId: true, leaveTypeId: true, status: true, days: true, fromDate: true },
     }),
     peoplePrisma.employee.findMany({ where: { orgId, id: { in: employeeIds } }, select: { id: true, dateOfJoining: true, dateOfLeaving: true, employeeTypeId: true, probationEndDate: true, confirmedOn: true, branchId: true, areaId: true } }),
-    peoplePrisma.leaveAdjustment.findMany({ where: { accountId, orgId, year: { gte: from, lte: year }, employeeId: { in: employeeIds } }, select: { employeeId: true, leaveTypeId: true, year: true, days: true } }),
+    peoplePrisma.leaveAdjustment.findMany({ where: { accountId, orgId, reversedAt: null, year: { gte: from, lte: year }, employeeId: { in: employeeIds } }, select: { employeeId: true, leaveTypeId: true, year: true, days: true } }),
   ]);
   /* Statutory types only (each opt-in): days worked per period, and the days asked for and refused per period. */
   const byWorked = types.filter((t) => t.isPaid && t.accrualBasis === 'PER_DAYS_WORKED');

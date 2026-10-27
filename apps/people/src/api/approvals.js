@@ -12,7 +12,9 @@ export const getInbox = () => apiFetch(`${base()}/inbox`, opts);
 export const getRequest = (id) => apiFetch(`${base()}/requests/${encodeURIComponent(id)}`, opts).then((r) => r?.request);
 export const submitRequest = (body, idempotencyKey) => apiFetch(`${base()}/requests`, { ...opts, method: 'POST', body, headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined });
 export const decideRequest = (id, action, comment) => send(`/requests/${encodeURIComponent(id)}/${action}`, 'POST', comment ? { comment } : {});
-export const replyRequest = (id, note) => send(`/requests/${encodeURIComponent(id)}/reply`, 'POST', { note });
+/** Several at once, each through the same checks as one: { done, failed, results: [{ id, error }] }. */
+export const bulkDecideRequests = (ids, approve, note) => send('/approvals/bulk-decide', 'POST', { ids, action: approve ? 'approve' : 'reject', ...(note ? { comment: note } : {}) });
+export const replyRequest =(id, note) => send(`/requests/${encodeURIComponent(id)}/reply`, 'POST', { note });
 export const withdrawRequest = (id) => send(`/requests/${encodeURIComponent(id)}/withdraw`, 'POST', {});
 
 export const listRules = () => apiFetch(`${base()}/approval-rules`, opts);
