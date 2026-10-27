@@ -8,7 +8,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { isKnownFeature } from '../constants/featureCatalog.js';
-import { featureDisableBlocker, getFeatureCatalogWithValues, getFeatures } from '../services/features.js';
+import { featureDisableBlocker, getFeatureCatalogWithValues, getFeatures, DETAILED_KEY } from '../services/features.js';
 import { appOfFeature, entitlementFor, upgradeHintFor } from '../services/entitlements.js';
 import { appOwnershipReason } from '../services/subscriptions.js';
 import { MODULE_PACKS } from '../constants/planCatalog.js';
@@ -91,6 +91,8 @@ featuresRouter.put(
     if (!orgOk(req, res)) return;
     const { accountId, orgId } = req.tenant!;
     const body = putSchema.parse(req.body);
+    /* Derived on read (on unless simple mode is), never stored: a client that sends back what it read is not refused for it. */
+    delete (body.features as Record<string, unknown>)[DETAILED_KEY];
 
     for (const key of Object.keys(body.features)) {
       if (!isKnownFeature(key)) return res.status(400).json({ error: `Unknown feature: ${key}` });

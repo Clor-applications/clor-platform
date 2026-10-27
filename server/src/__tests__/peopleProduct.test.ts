@@ -127,8 +127,11 @@ describe('Simple mode', () => {
     expect((await events(c, 'simple_mode_toggled')).slice(1).map((e) => props(e))).toEqual([{ on: false, trigger: 'settings' }, { on: true, trigger: 'outgrown' }]);
   });
 
-  it('is never a switch of its own on the menus: peopleDetailed cannot be set', async () => {
-    await request(app).put(`/api/orgs/${c.orgId}/features`).set(at(c)).send({ features: { peopleDetailed: true } }).expect(400);
+  it('is never a switch of its own on the menus: peopleDetailed sent back is ignored, simple mode decides it', async () => {
+    /* A screen that saves what it read sends the derived key too; that must not fail, nor turn simple mode off. */
+    await request(app).put(`/api/orgs/${c.orgId}/features`).set(at(c)).send({ features: { peopleDetailed: true } }).expect(200);
+    const f = (await request(app).get(`/api/orgs/${c.orgId}/features`).set(at(c)).expect(200)).body.features;
+    expect(f).toMatchObject({ peopleSimpleMode: true, peopleDetailed: false });
   });
 
   it('suggests the full menus once, when the company outgrows it', async () => {
