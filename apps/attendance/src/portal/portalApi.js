@@ -210,3 +210,25 @@ export const changeRequest = (id, body) => call(`/requests/${encodeURIComponent(
 export const cancelRequest = (id) => call(`/requests/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
 /** What is switched on, with this month's usage: { month, rules, kinds: [{ kind, name }], usage, reasons }. */
 export const requestRules = (month) => call(`/request-rules${month ? `?month=${encodeURIComponent(month)}` : ''}`);
+
+/* Payslips (server: portal /payslips): { available, slips: [{ id, number, period, payrollDate, gross, deductions, net, paid }] }; one with its lines. */
+export const getPayslips = () => call('/payslips');
+export const getPayslip = (id) => call(`/payslips/${encodeURIComponent(id)}`);
+/** What changed for me: { decided: [{ key, kind, status, text, note, at }], waitingForMe }. */
+export const getUpdates = () => call('/updates');
+/** Every holiday of mine in a calendar year, restricted ones marked: { year, quota, picked, left, holidays: [{ id, date, name, restricted, picked, past }] }. */
+export const getHolidays = (year) => call(`/holidays${year ? `?year=${encodeURIComponent(year)}` : ''}`);
+
+/* Leaving the company (server: peoplePortal /me/resign, /me/leaving). */
+export const resign = (body) => call('/people/me/resign', { method: 'POST', body });
+export const getLeaving = () => call('/people/me/leaving');
+
+/* Ask HR as a conversation (server: peoplePortal /desk): my requests with who wrote last, one with its thread (no internal notes), a reply, a reopen. */
+export const getDesk = () => call('/people/desk');
+export const raiseDesk = (body) => call('/people/desk', { method: 'POST', body });
+export const getDeskCase = (id) => call(`/people/desk/${encodeURIComponent(id)}`);
+export const replyDesk = (id, body) => call(`/people/desk/${encodeURIComponent(id)}/messages`, { method: 'POST', body: { body } });
+export const reopenDesk = (id) => call(`/people/desk/${encodeURIComponent(id)}/reopen`, { method: 'POST' });
+
+/** A private complaint to the committee: { reference, receivedOn, inquiryDue } and nothing listed back. */
+export const raisePrivateCase = (body) => call('/people/private-cases', { method: 'POST', body });

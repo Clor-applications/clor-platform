@@ -543,6 +543,11 @@
     },
     {
       "method": "GET",
+      "path": "/api/portal/holidays",
+      "reason": "Employee self-service: reads their own holidays for a year (their area and branch, restricted ones marked with their picks); portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
       "path": "/api/portal/holidays/restricted",
       "reason": "Employee self-service: reads their own restricted holidays; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
     },

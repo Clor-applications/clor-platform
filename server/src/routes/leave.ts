@@ -1951,10 +1951,10 @@ leaveRouter.post('/orgs/:orgId/attendance/me/holidays/restricted/:holidayId', ca
  * lists for the next run. Previewed per person first; undone until Payroll
  * takes any of it.
  */
-export async function yearEndPreview(accountId: string, orgId: string, year: number) {
+export async function yearEndPreview(accountId: string, orgId: string, year: number, onlyEmployeeIds?: string[]) {
   const period = await leavePeriodOf(orgId);
   const bounds = periodBounds(period, year);
-  const people = await peoplePrisma.employee.findMany({ where: { accountId, orgId, OR: [{ dateOfLeaving: null }, { dateOfLeaving: { gte: bounds.from } }] }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' } });
+  const people = await peoplePrisma.employee.findMany({ where: { accountId, orgId, ...(onlyEmployeeIds ? { id: { in: onlyEmployeeIds } } : {}), OR: [{ dateOfLeaving: null }, { dateOfLeaving: { gte: bounds.from } }] }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' } });
   const ids = people.map((p) => p.id);
   const [{ types, balances }, encashed] = await Promise.all([
     balancesFor(accountId, orgId, ids, year, bounds.to),

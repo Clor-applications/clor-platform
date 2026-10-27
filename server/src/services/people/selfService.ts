@@ -135,7 +135,7 @@ async function myRequests(orgId: string, e: { id: string; userId?: string | null
 /** E13: my terms of employment, in words. */
 async function termsOf(orgId: string, e: any) {
   const [type, mode, manager, dept, branch] = await Promise.all([
-    e.employeeTypeId ? peoplePrisma.employeeType.findFirst({ where: { id: e.employeeTypeId, orgId }, select: { name: true } }) : null,
+    e.employeeTypeId ? peoplePrisma.employeeType.findFirst({ where: { id: e.employeeTypeId, orgId }, select: { name: true, noticeDays: true } }) : null,
     e.workTypeId ? peoplePrisma.workType.findFirst({ where: { id: e.workTypeId, orgId }, select: { name: true } }) : null,
     e.reportingManagerId ? peoplePrisma.employee.findFirst({ where: { id: e.reportingManagerId, orgId }, select: { name: true } }) : null,
     e.departmentId ? peoplePrisma.department.findFirst({ where: { id: e.departmentId, orgId }, select: { headEmployeeId: true } }) : null,
@@ -148,6 +148,8 @@ async function termsOf(orgId: string, e: any) {
     designation: e.designation ?? null,
     department: e.department ?? null,
     employmentType: type?.name ?? null,
+    /* The notice owed on resigning, by employment type: the leaving form fills the last day from it. */
+    noticeDays: type?.noticeDays ?? null,
     hours: e.hours === 'PART_TIME' ? 'Part-time' : 'Full-time',
     workMode: mode?.name ?? null,
     worksAt: branch?.branchName ?? null,
