@@ -3076,3 +3076,91 @@ model CostCenter {
   @@unique([orgId, name])
   @@index([accountId, orgId])
 }
+
+/// The statutory half of a joiner's form (PAN, UAN, ESIC, bank, PF nominees;
+/// services/people/lifecycle/joiningStatutory.ts). Held apart from the invite
+/// so the plain values never travel with a list of invites. HR approves it in
+/// People; on approval the values go to Payroll's record through Payroll's
+/// interface, and the plain values here are replaced by masked ones. Where
+/// Payroll is not on, an approved set waits here (HELD) until it is.
+model JoinStatutory {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  employeeId      String
+  inviteId        String    @unique
+  /// { pan, uan, esicNumber, bankAccountName, bankAccountNumber, bankIfsc, bankName, nominees: [{ name, relation, sharePercent, dateOfBirth }] }
+  data            Json
+  /// SENT | HELD | APPLIED | REJECTED
+  status          String    @default("SENT")
+  decidedByUserId String?
+  decidedAt       DateTime?
+  appliedAt       DateTime?
+  /// What Payroll did with the bank details: APPLIED (first on file), PENDING (a change waits for Payroll's approval), NONE.
+  bankOutcome     String?
+  note            String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([orgId, employeeId])
+  @@index([orgId, status])
+}
+
+/// Employee app access sent from People (services/people/lifecycle/appAccess.ts):
+/// who was sent a one-time activation code, how, and when. The code itself
+/// is never kept here (only its hash, on the person), so it is never shown twice.
+model AppAccessSend {
+  id           String   @id @default(cuid())
+  accountId    String
+  orgId        String
+  employeeId   String
+  /// EMAIL | PRINT (no e-mail on file: a printed sheet and a WhatsApp link, handed over by HR)
+  channel      String
+  /// The e-mail address, or the phone's last four digits.
+  sentTo       String?
+  expiresAt    DateTime
+  sentByUserId String
+  createdAt    DateTime @default(now())
+
+  @@index([orgId, employeeId, createdAt])
+}
+
+/// An offer sent from CLOR (services/people/offers.ts): to a candidate or to
+/// a draft hire, with the CTC and its monthly lines, by e-mail with a link to
+/// accept. The token is kept only as its sha256.
+model Offer {
+  id           String    @id @default(cuid())
+  accountId    String
+  orgId        String
+  /// One of: an employee record (pre-joiner) or a candidate (PeopleRecord kind "candidates").
+  employeeId   String?
+  candidateId  String?
+  name         String
+  email        String
+  designation  String
+  joiningDate  String?
+  acceptBy     String
+  annualCtc    Decimal   @db.Decimal(14, 2)
+  /// [{ label, monthly }] from the salary structure (Payroll on) or typed.
+  lines        Json
+  /// STRUCTURE | TYPED
+  linesFrom    String    @default("TYPED")
+  structureId  String?
+  letterText   String
+  /// The PDF on the record, when the offer is to an employee record.
+  documentId   String?
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  /// SENT | ACCEPTED | DECLINED | EXPIRED | WITHDRAWN
+  status       String    @default("SENT")
+  sentByUserId String?
+  acceptedAt   DateTime?
+  acceptedIp   String?
+  declinedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([orgId, status])
+  @@index([orgId, employeeId])
+  @@index([orgId, candidateId])
+}

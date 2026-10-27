@@ -1172,3 +1172,28 @@ model TaxDeclaration {
   @@unique([orgId, employeeId, financialYear])
   @@index([accountId, orgId, financialYear, status])
 }
+
+/// A PF nominee (EPF Form 2): who receives the PF if the member dies, and
+/// what share. One or more per person; shares add up to 100. Written by
+/// Payroll's joining interface (services/payroll/statutoryWrite.ts) once HR
+/// in People has checked what the joiner sent, or by Payroll itself.
+model PfNominee {
+  id           String  @id @default(cuid())
+  accountId    String
+  orgId        String
+  employeeId   String
+  name         String
+  /// SPOUSE | SON | DAUGHTER | FATHER | MOTHER | BROTHER | SISTER | OTHER
+  relation     String
+  sharePercent Decimal @db.Decimal(5, 2)
+  dateOfBirth  String?
+  /// JOINING (from the joiner's form, checked in People) | PAYROLL
+  source       String  @default("PAYROLL")
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountId, orgId])
+  @@index([orgId, employeeId])
+}

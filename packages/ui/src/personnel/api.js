@@ -151,6 +151,10 @@ export const createInvite = (id, body) => send(`/employees/${encodeURIComponent(
 export const listEmployeeInvites = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/invites`, opts).then((r) => r?.invites || []);
 export const listInvites = (status) => apiFetch(`${base()}/invites${status ? `?status=${encodeURIComponent(status)}` : ''}`, opts).then((r) => r?.invites || []);
 export const checkInvite = (id, body) => send(`/invites/${encodeURIComponent(id)}/check`, 'POST', body || {});
+/* PAN, UAN, ESIC, bank and PF nominees the joiner sent: in full only here, approved onto Payroll's record (HR-VIEW gap 2). */
+export const joiningStatutory = (inviteId) => apiFetch(`${base()}/invites/${encodeURIComponent(inviteId)}/statutory`, opts).then((r) => r?.statutory);
+export const approveJoiningStatutory = (inviteId, values) => send(`/invites/${encodeURIComponent(inviteId)}/statutory/approve`, 'POST', values ? { values } : {});
+export const rejectJoiningStatutory = (inviteId, note) => send(`/invites/${encodeURIComponent(inviteId)}/statutory/reject`, 'POST', { note });
 /* Probation (LIFE-03): the review on file, and the decision — confirm, extend or end. */
 export const getProbation = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/probation`, opts).then((r) => r?.reviews || []);
 export const saveProbationReview = (id, body) => send(`/employees/${encodeURIComponent(id)}/probation/review`, 'POST', body);

@@ -28,6 +28,8 @@ import { listBranches } from '../organization/api';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { refreshSuggestions, useEmailSuggestions, useSuggestions } from './suggestions';
 import { StatusBadge, can } from './shared';
+import OfferDrawer from './OfferDrawer';
+import AppAccessSend from './AppAccessSend';
 
 /**
  * Workforce → Employee (People design spec v1 EMP-03..09; Workforce package
@@ -98,6 +100,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   const moreRef = useRef(null);
   const [resigning, setResigning] = useState(false);
   const [inviting, setInviting] = useState(false);
+  const [offering, setOffering] = useState(false);
+  const [givingAccess, setGivingAccess] = useState(false);
   const set = (patch, push = false) => updateParams?.(patch, { push });
   const formDirty = useRef(false);
   const reportDirty = useCallback((d) => { formDirty.current = d; }, []);
@@ -153,7 +157,9 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
     /* Someone on notice is not suspended: their leaving runs on its day (W2). */
     editable && person.status === 'ACTIVE' ? ['status', 'Suspend'] : null,
     allowed('PEOPLE::Employees::EDIT') && person.status === 'SUSPENDED' ? ['status', 'Reactivate'] : null,
-    person.status !== 'LEFT' && allowed('PEOPLE::Lifecycle::CREATE') ? ['invite', 'Invite to complete profile'] : null,
+    person.status !== 'LEFT' && allowed('PEOPLE::Lifecycle::CREATE') ? ['invite', 'Send joining form'] : null,
+    person.status !== 'LEFT' && allowed('PEOPLE::Documents::CREATE') && person.dateOfJoining && String(person.dateOfJoining).slice(0, 10) > todayIst() ? ['offer', 'Send an offer'] : null,
+    person.status !== 'LEFT' && allowed('PEOPLE::Lifecycle::CREATE') ? ['appAccess', 'Give employee app access'] : null,
     person.status !== 'LEFT' && person.status !== 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['leave', person.dateOfJoining && String(person.dateOfJoining).slice(0, 10) > todayIst() ? 'Did not join' : 'Mark as left'] : null,
     person.status === 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['leave', 'Change leaving details'] : null,
     person.status === 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['stay', 'Withdraw leaving'] : null,
@@ -205,6 +211,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
                   <MenuList items={moreItems} onPick={(k) => {
                     if (k === 'delete') return remove();
                     if (k === 'invite') { setMoreOpen(false); return setInviting(true); }
+                    if (k === 'offer') { setMoreOpen(false); return setOffering(true); }
+                    if (k === 'appAccess') { setMoreOpen(false); return setGivingAccess(true); }
                     if (k === 'leave') { setMoreOpen(false); return setResigning(true); }
                     if (k === 'stay') { setMoreOpen(false); return withdrawLeaving(); }
                     /* Rehire lives on the Employment tab; the caret goes to its first field so the step is visible. */
@@ -241,6 +249,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       ) : null}
       {resigning ? <ResignForm person={person} onClose={() => setResigning(false)} onDone={(p) => { setResigning(false); setPerson(p); rec.reload(); }} /> : null}
       {inviting ? <InviteForm person={person} onClose={() => setInviting(false)} onDone={() => setInviting(false)} /> : null}
+      {offering ? <OfferDrawer employee={person} onClose={() => setOffering(false)} onSent={() => { setOffering(false); rec.reload(); }} /> : null}
+      {givingAccess ? <AppAccessSend people={[{ id: person.id, name: person.name }]} onClose={() => setGivingAccess(false)} /> : null}
     </div>
   );
 }

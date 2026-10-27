@@ -213,6 +213,31 @@
     },
     {
       "method": "GET",
+      "path": "/api/people/offer-page.js",
+      "reason": "Static script for the offer page's Accept and Decline buttons; no data; served as a file because CSP allows no inline script (HR-VIEW gap 5)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/people/offer/:token",
+      "reason": "The person's offer link (HR-VIEW gap 5): sha256-hashed 32-byte token, runs out at the end of the accept-by day; shows only their own offer letter; looked up outsideTenant then enterTenant."
+    },
+    {
+      "method": "GET",
+      "path": "/api/people/offer/:token/pdf",
+      "reason": "The same offer letter as a PDF, by the same token; nothing but the person's own letter."
+    },
+    {
+      "method": "POST",
+      "path": "/api/people/offer/:token/accept",
+      "reason": "Accept the offer once, by the same token, before it runs out; records the time and IP and tells HR."
+    },
+    {
+      "method": "POST",
+      "path": "/api/people/offer/:token/decline",
+      "reason": "Decline the offer once, by the same token, before it runs out; tells HR."
+    },
+    {
+      "method": "GET",
       "path": "/api/people/task-links/:token",
       "reason": "Signed task done-link (LIFE-07): JWT bound to one task and its named owner, 30 days; ticks that task only and is logged; outsideTenant lookup then enterTenant."
     },
