@@ -367,14 +367,14 @@ leaveRouter.put(`${base}/types/:id`, can(PermissionAction.EDIT, R.leaveTypes), a
        * are not re-earned (leaveBalances.entitledDays) and history stays as it was.
        */
       const rulesChanged = 'entitlements' in next && JSON.stringify(next.entitlements) !== JSON.stringify(existing.entitlements);
-      if (rulesChanged && (await peoplePrisma.leaveRequest.count({ where: { orgId, leaveTypeId: existing.id } })) + (await peoplePrisma.leaveAllocation.count({ where: { orgId, leaveTypeId: existing.id } })) + (await peoplePrisma.leaveAdjustment.count({ where: { orgId, leaveTypeId: existing.id } })) > 0) {
+      if (rulesChanged && (await peoplePrisma.leaveRequest.count({ where: { orgId, leaveTypeId: existing.id } })) + (await peoplePrisma.leaveAllocation.count({ where: { orgId, leaveTypeId: existing.id } })) + (await peoplePrisma.leaveAdjustment.count({ where: { orgId, leaveTypeId: existing.id, reversedAt: null } })) > 0) {
         next.entitlementsFrom = periodStart(await leavePeriodOf(orgId), await leaveYearOf(orgId));
       }
       if (changed) {
         const activity = await Promise.all([
           peoplePrisma.leaveRequest.count({ where: { orgId, leaveTypeId: existing.id } }),
           peoplePrisma.leaveAllocation.count({ where: { orgId, leaveTypeId: existing.id } }),
-          peoplePrisma.leaveAdjustment.count({ where: { orgId, leaveTypeId: existing.id } }),
+          peoplePrisma.leaveAdjustment.count({ where: { orgId, leaveTypeId: existing.id, reversedAt: null } }),
         ]);
         const accrued = existing.createdAt.toISOString().slice(0, 10) < today() && await peoplePrisma.employee.count({ where: { orgId } });
         if (activity.some(Boolean) || accrued) throw fail(409, 'This policy already has balances or requests. Create a new leave type for the new entitlement; existing history is preserved.', 'LEAVE_POLICY_IN_USE');
@@ -452,17 +452,28 @@ leaveRouter.put(`${base}/allocations`, can(PermissionAction.EDIT, R.leave), asyn
     if (!type) return res.status(400).json({ error: 'That leave type is not in this organisation.' });
     if (!type.isPaid) return res.status(400).json({ error: 'Unpaid leave has no balance to set.' });
     const key = { employeeId_leaveTypeId_year: { employeeId: b.employeeId, leaveTypeId: b.leaveTypeId, year: b.year } };
-    if (b.days === null) {
-      await peoplePrisma.leaveAllocation.deleteMany({ where: { orgId, employeeId: b.employeeId, leaveTypeId: b.leaveTypeId, year: b.year } });
-      await recordAudit(req, { entity: 'LeaveAllocation', entityId: `${b.employeeId}:${b.leaveTypeId}:${b.year}`, action: 'DELETE', message: `${employee.name}: ${type.name} for ${b.year} back on the policy's days`, metadata: { employeeId: b.employeeId, leaveTypeId: b.leaveTypeId, year: b.year } });
+    const which = { employeeId: b.employeeId, leaveTypeId: b.leaveTypeId, year: b.year };
+    /* Read before the change, in the same write, so the audit line says what it was as well as what it is now. */
+    const daysNote = (a: { days: number; note: string | null } | null) => (a ? { days: a.days, note: a.note } : null);
+    const out = await peopleWrite(orgId, async () => {
+      const before = await peoplePrisma.leaveAllocation.findUnique({ where: key, select: { days: true, note: true } });
+      if (b.days === null) {
+        await peoplePrisma.leaveAllocation.deleteMany({ where: { orgId, ...which } });
+        return { before, allocation: null };
+      }
+      const allocation = await peoplePrisma.leaveAllocation.upsert({
+        where: key,
+        create: { accountId, orgId, ...which, days: b.days, note: b.note || null, createdByUserId: req.auth!.userId },
+        update: { days: b.days, note: b.note || null },
+      });
+      return { before, allocation };
+    });
+    if (!out.allocation) {
+      await recordAudit(req, { entity: 'LeaveAllocation', entityId: `${b.employeeId}:${b.leaveTypeId}:${b.year}`, action: 'DELETE', message: `${employee.name}: ${type.name} for ${b.year} back on the policy's days`, metadata: { ...which, before: daysNote(out.before), after: null } });
       return res.json({ allocation: null });
     }
-    const allocation = await peoplePrisma.leaveAllocation.upsert({
-      where: key,
-      create: { accountId, orgId, employeeId: b.employeeId, leaveTypeId: b.leaveTypeId, year: b.year, days: b.days, note: b.note || null, createdByUserId: req.auth!.userId },
-      update: { days: b.days, note: b.note || null },
-    });
-    await recordAudit(req, { entity: 'LeaveAllocation', entityId: allocation.id, action: 'UPDATE', message: `${employee.name}: ${type.name} for ${b.year} set to ${b.days} days${b.note ? ` (${b.note})` : ''}`, metadata: { employeeId: b.employeeId, leaveTypeId: b.leaveTypeId, year: b.year, days: b.days } });
+    const allocation = out.allocation;
+    await recordAudit(req, { entity: 'LeaveAllocation', entityId: allocation.id, action: 'UPDATE', message: `${employee.name}: ${type.name} for ${b.year} set to ${b.days} days${b.note ? ` (${b.note})` : ''}`, metadata: { ...which, days: b.days, before: daysNote(out.before), after: daysNote(allocation) } });
     res.json({ allocation });
   } catch (e) {
     return sendError(res, e);
@@ -1286,7 +1297,7 @@ leaveRouter.get(`${base}/adjustments`, can(PermissionAction.VIEW, R.leave), asyn
   const { accountId, orgId } = req.tenant!;
   const employeeId = String(req.query.employeeId || '').trim();
   const rows = await peoplePrisma.leaveAdjustment.findMany({
-    where: { accountId, orgId, year: await yearParam(orgId, req.query.year), ...(employeeId ? { employeeId } : {}), ...scopeRows(await leaveScope(req)) },
+    where: { accountId, orgId, reversedAt: null, year: await yearParam(orgId, req.query.year), ...(employeeId ? { employeeId } : {}), ...scopeRows(await leaveScope(req)) },
     orderBy: { createdAt: 'desc' },
     take: 500,
   });
@@ -1313,7 +1324,7 @@ leaveRouter.post(`${base}/adjustments`, can(PermissionAction.EDIT, R.leave), asy
       if (b.kind === 'ENCASH') {
         if (!type.encashable) throw fail(400, `${type.name} is not paid out. Turn on encashment in its policy first.`);
         if (days < 0) throw fail(400, 'Give the days paid out as a positive number.');
-        const paidOut = -((await peoplePrisma.leaveAdjustment.aggregate({ where: { orgId, employeeId: employee.id, leaveTypeId: type.id, year: b.year, kind: 'ENCASH' }, _sum: { days: true } }))._sum.days ?? 0);
+        const paidOut = -((await peoplePrisma.leaveAdjustment.aggregate({ where: { orgId, employeeId: employee.id, leaveTypeId: type.id, year: b.year, kind: 'ENCASH', reversedAt: null }, _sum: { days: true } }))._sum.days ?? 0);
         if (type.maxEncashDays != null && paidOut + days > type.maxEncashDays) {
           throw fail(400, `At most ${type.maxEncashDays} days of ${type.name} are paid out a year; ${paidOut} already are.`);
         }
@@ -1343,13 +1354,16 @@ leaveRouter.post(`${base}/adjustments`, can(PermissionAction.EDIT, R.leave), asy
 leaveRouter.delete(`${base}/adjustments/:id`, can(PermissionAction.EDIT, R.leave), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  await peopleWrite(orgId, async () => {
-    const row = await peoplePrisma.leaveAdjustment.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  const row = await peopleWrite(orgId, async () => {
+    const row = await peoplePrisma.leaveAdjustment.findFirst({ where: { id: String(req.params.id), accountId, orgId, reversedAt: null } });
     if (!row || !inScope(await leaveScope(req), row.employeeId)) throw fail(404, 'No such adjustment.');
     const earning = row.kind === 'ENCASH' ? await payrollPrisma.payrollAdjustment.findUnique({ where: { id: `leave-encash:${row.id}` } }) : null;
     if (row.paidInRunId || (earning && earning.status !== 'CANCELLED')) throw fail(409, 'This encashment is linked to payroll. Cancel its unconsumed earning first, or use a correcting adjustment.');
     await deleteToBin(req, 'leaveAdjustment', row);
+    return row;
   });
+  const before = { employeeId: row.employeeId, leaveTypeId: row.leaveTypeId, year: row.year, days: row.days, kind: row.kind, reason: row.reason, workedOn: row.workedOn };
+  await recordAudit(req, { entity: 'LeaveAdjustment', entityId: row.id, action: 'DELETE', message: `Removed ${row.kind === 'ENCASH' ? 'a pay-out of' : 'an adjustment of'} ${Math.abs(row.days)} days (${row.year}): ${row.reason}`.slice(0, 500), metadata: { employeeId: row.employeeId, before, after: null } });
   res.json({ ok: true });
 });
 
@@ -1400,7 +1414,7 @@ leaveRouter.get(`${base}/ledger`, can(PermissionAction.VIEW, R.leave), async (re
     const t0 = today();
     const [requests, adjustments] = await Promise.all([
       peoplePrisma.leaveRequest.findMany({ where: { orgId, employeeId: employee.id, status: { in: OPEN }, fromDate: { gte: bounds.from, lte: bounds.to } }, orderBy: { fromDate: 'asc' } }),
-      peoplePrisma.leaveAdjustment.findMany({ where: { orgId, employeeId: employee.id, year }, orderBy: { createdAt: 'asc' } }),
+      peoplePrisma.leaveAdjustment.findMany({ where: { orgId, employeeId: employee.id, year, reversedAt: null }, orderBy: { createdAt: 'asc' } }),
     ]);
     const mine = balances.get(employee.id)!;
     const own = Boolean(req.auth?.userId) && (await peoplePrisma.employee.findFirst({ where: { id: employee.id, orgId }, select: { userId: true } }))?.userId === req.auth!.userId;
@@ -1460,19 +1474,20 @@ leaveRouter.put(`${base}/settings`, can(PermissionAction.EDIT, R.leaveTypes), as
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the leave period.' });
   const data = { leavePeriodStartMonth: parsed.data.startMonth, leavePeriodStartDay: parsed.data.startDay };
-  await peopleWrite(orgId, async () => {
+  const old = await peopleWrite(orgId, async () => {
     const old = await leavePeriodOf(orgId);
     if (old.startMonth !== data.leavePeriodStartMonth || old.startDay !== data.leavePeriodStartDay) {
       const counts = await Promise.all([
         peoplePrisma.leaveRequest.count({ where: { orgId } }),
         peoplePrisma.leaveAllocation.count({ where: { orgId } }),
-        peoplePrisma.leaveAdjustment.count({ where: { orgId } }),
+        peoplePrisma.leaveAdjustment.count({ where: { orgId, reversedAt: null } }),
       ]);
       if (counts.some(Boolean)) throw fail(409, 'Leave periods cannot change after balances or requests have been recorded. Migrate the existing balances before changing the period.', 'LEAVE_PERIOD_IN_USE');
     }
-  await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, update: data, create: { accountId, orgId, ...data, updatedByUserId: req.auth!.userId } as any });
+    await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, update: data, create: { accountId, orgId, ...data, updatedByUserId: req.auth!.userId } as any });
+    return old;
   });
-  await recordAudit(req, { entity: 'LeaveSettings', entityId: orgId, action: 'UPDATE', message: `Leave period starts on day ${parsed.data.startDay} of month ${parsed.data.startMonth}`, metadata: parsed.data });
+  await recordAudit(req, { entity: 'LeaveSettings', entityId: orgId, action: 'UPDATE', message: `Leave period starts on day ${parsed.data.startDay} of month ${parsed.data.startMonth}`, metadata: { ...parsed.data, before: { startMonth: old.startMonth, startDay: old.startDay }, after: parsed.data } });
   const period = await leavePeriodOf(orgId);
   res.json({ ...period, current: periodBounds(period, periodOf(period, today())) });
 });
@@ -1499,7 +1514,7 @@ leaveRouter.get(`${base}/register`, can(PermissionAction.VIEW, R.leave), async (
   const ids = people.map((p) => p.id);
   const [{ types, balances }, adjustments] = await Promise.all([
     balancesFor(accountId, orgId, ids, year),
-    peoplePrisma.leaveAdjustment.findMany({ where: { orgId, year, employeeId: { in: ids } }, select: { employeeId: true, leaveTypeId: true, days: true, kind: true } }),
+    peoplePrisma.leaveAdjustment.findMany({ where: { orgId, year, reversedAt: null, employeeId: { in: ids } }, select: { employeeId: true, leaveTypeId: true, days: true, kind: true } }),
   ]);
   const ended = today() > bounds.to;
   const reads = await readsPrivateLeave(req);
@@ -1557,7 +1572,7 @@ leaveRouter.get(`${base}/register/book`, can(PermissionAction.VIEW, R.leave), as
   const ids = people.map((p) => p.id);
   const [{ types, balances }, adjustments, requests, worked] = await Promise.all([
     balancesFor(accountId, orgId, ids, year),
-    peoplePrisma.leaveAdjustment.findMany({ where: { orgId, year, employeeId: { in: ids } }, select: { employeeId: true, leaveTypeId: true, days: true, kind: true } }),
+    peoplePrisma.leaveAdjustment.findMany({ where: { orgId, year, reversedAt: null, employeeId: { in: ids } }, select: { employeeId: true, leaveTypeId: true, days: true, kind: true } }),
     peoplePrisma.leaveRequest.findMany({ where: { orgId, employeeId: { in: ids }, status: { in: ['APPROVED', 'REJECTED'] }, fromDate: { gte: bounds.from, lte: bounds.to } }, select: { employeeId: true, leaveTypeId: true, fromDate: true, toDate: true, days: true, status: true, reviewNote: true, reviewedByUserId: true }, orderBy: { fromDate: 'asc' } }),
     daysWorkedByPeriod(accountId, orgId, people, period, year, year),
   ]);
@@ -1922,9 +1937,14 @@ leaveRouter.put(`${base}/working-week`, can(PermissionAction.EDIT, R.leaveTypes)
   const sats = offs.split(',').includes('6') ? '' : [...new Set(parsed.data.offSaturdays.split(',').filter(Boolean))].sort().join(',');
   if (parsed.data.compOffLeaveTypeId && !(await peoplePrisma.leaveType.findFirst({ where: { id: parsed.data.compOffLeaveTypeId, orgId, isPaid: true }, select: { id: true } }))) return res.status(400).json({ error: 'Choose a paid leave type for comp-off.' });
   const data = { weeklyOffDays: offs, offSaturdays: sats, ...(parsed.data.restrictedHolidayQuota != null ? { restrictedHolidayQuota: parsed.data.restrictedHolidayQuota } : {}), ...(parsed.data.compOffLeaveTypeId !== undefined ? { compOffLeaveTypeId: parsed.data.compOffLeaveTypeId, compOffEnabled: Boolean(parsed.data.compOffLeaveTypeId) } : {}) };
-  await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, update: data, create: { accountId, orgId, ...data, updatedByUserId: req.auth!.userId } as any });
+  const fields = { weeklyOffDays: true, offSaturdays: true, restrictedHolidayQuota: true, compOffLeaveTypeId: true, compOffEnabled: true } as const;
+  const { before, after } = await peopleWrite(orgId, async () => {
+    const before = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: fields });
+    const after = await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, update: data, create: { accountId, orgId, ...data, updatedByUserId: req.auth!.userId } as any, select: fields });
+    return { before, after };
+  });
   const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  await recordAudit(req, { entity: 'WorkingWeek', entityId: orgId, action: 'UPDATE', message: `Working week: ${offs ? offs.split(',').map((d) => names[Number(d)]).join(', ') : 'no day'} off${sats ? `; Saturdays ${sats} off` : ''}`, metadata: data });
+  await recordAudit(req, { entity: 'WorkingWeek', entityId: orgId, action: 'UPDATE', message: `Working week: ${offs ? offs.split(',').map((d) => names[Number(d)]).join(', ') : 'no day'} off${sats ? `; Saturdays ${sats} off` : ''}`, metadata: { ...data, before, after } });
   res.json(data);
 });
 
@@ -2076,7 +2096,7 @@ leaveRouter.post(`${base}/comp-off`, can(PermissionAction.EDIT, R.leave), async 
     const type = settings?.compOffLeaveTypeId ? await peoplePrisma.leaveType.findFirst({ where: { id: settings.compOffLeaveTypeId, orgId } }) : null;
     if (!type) return res.status(409).json({ error: 'Choose the comp-off leave type first, under Settings → Working week.', code: 'COMP_OFF_TYPE' });
     if (b.workedOn > today()) return res.status(400).json({ error: 'Comp-off is for a day already worked.' });
-    const twice = await peoplePrisma.leaveAdjustment.findFirst({ where: { orgId, employeeId: employee.id, leaveTypeId: type.id, workedOn: b.workedOn } });
+    const twice = await peoplePrisma.leaveAdjustment.findFirst({ where: { orgId, employeeId: employee.id, leaveTypeId: type.id, workedOn: b.workedOn, reversedAt: null } });
     if (twice) return res.status(409).json({ error: `Comp-off for ${dayWords(b.workedOn)} is already granted.` });
     const year = await leaveYearOf(orgId, b.workedOn);
     const row = await peoplePrisma.leaveAdjustment.create({ data: { accountId, orgId, employeeId: employee.id, leaveTypeId: type.id, year, days: b.days, kind: 'ADJUST', reason: `Comp-off for ${dayWords(b.workedOn)}: ${b.reason}`, workedOn: b.workedOn, createdByUserId: req.auth!.userId } });
@@ -2218,7 +2238,7 @@ export async function yearEndPreview(accountId: string, orgId: string, year: num
   const ids = people.map((p) => p.id);
   const [{ types, balances }, encashed] = await Promise.all([
     balancesFor(accountId, orgId, ids, year, bounds.to),
-    peoplePrisma.leaveAdjustment.findMany({ where: { orgId, year, kind: 'ENCASH', employeeId: { in: ids } }, select: { employeeId: true, leaveTypeId: true, days: true } }),
+    peoplePrisma.leaveAdjustment.findMany({ where: { orgId, year, kind: 'ENCASH', reversedAt: null, employeeId: { in: ids } }, select: { employeeId: true, leaveTypeId: true, days: true } }),
   ]);
   const rows: Array<{ employeeId: string; name: string; code: string | null; leaveTypeId: string; leaveType: string; closing: number; carry: number; lapse: number; payOut: number }> = [];
   for (const p of people) for (const t of types.filter((x) => x.isPaid)) {
@@ -2278,18 +2298,28 @@ leaveRouter.post(`${base}/year-end/:id/undo`, can(PermissionAction.EDIT, R.leave
   if (!(await wholeCompany(req, res))) return;
   const { orgId } = req.tenant!;
   try {
-    await peopleWrite(orgId, async () => {
+    const reversed = await peopleWrite(orgId, async () => {
       const run = await peoplePrisma.leaveYearEnd.findFirst({ where: { id: String(req.params.id), orgId } });
       if (!run || run.undoneAt) throw fail(404, 'No such run.');
-      const made = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, yearEndId: run.id }, select: { id: true, paidInRunId: true } });
+      const made = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, yearEndId: run.id, reversedAt: null }, select: { id: true, paidInRunId: true, employeeId: true, leaveTypeId: true, days: true, year: true, kind: true } });
       if (made.some((a) => a.paidInRunId)) throw fail(409, 'Payroll has already paid some of these days out; the run cannot be undone.');
       /* Listed for the next run but not paid yet: the same guard as deleting one encashment by hand. */
       const listed = await payrollPrisma.payrollAdjustment.count({ where: { orgId, id: { in: made.map((a) => `leave-encash:${a.id}`) }, status: { not: 'CANCELLED' } } });
       if (listed) throw fail(409, `Payroll has already listed ${listed === 1 ? 'one of these pay-outs' : `${listed} of these pay-outs`} for its next run. Cancel ${listed === 1 ? 'that earning' : 'those earnings'} there first.`);
-      await peoplePrisma.leaveAdjustment.deleteMany({ where: { orgId, yearEndId: run.id } });
-      await peoplePrisma.leaveYearEnd.update({ where: { id: run.id }, data: { undoneAt: new Date(), undoneByUserId: req.auth!.userId } });
+      /* Reversed, not deleted: the pay-outs stay on record with when and by whom they were taken back. Every reader skips them. */
+      const now = new Date();
+      await peoplePrisma.leaveAdjustment.updateMany({ where: { orgId, yearEndId: run.id, reversedAt: null }, data: { reversedAt: now, reversedByUserId: req.auth!.userId } });
+      await peoplePrisma.leaveYearEnd.update({ where: { id: run.id }, data: { undoneAt: now, undoneByUserId: req.auth!.userId } });
+      return made;
     });
-    await recordAudit(req, { entity: 'LeaveYearEnd', entityId: String(req.params.id), action: 'DELETE', message: 'Leave year end undone', metadata: {} });
+    const rows = reversed.map((a) => ({ id: a.id, employeeId: a.employeeId, leaveTypeId: a.leaveTypeId, kind: a.kind, days: a.days, year: a.year }));
+    await recordAudit(req, {
+      entity: 'LeaveYearEnd',
+      entityId: String(req.params.id),
+      action: 'DELETE',
+      message: `Leave year end undone: ${rows.length} ${rows.length === 1 ? 'pay-out' : 'pay-outs'} reversed`,
+      metadata: { reversed: rows, before: { undone: false, payOuts: rows.length }, after: { undone: true, payOuts: 0 } },
+    });
     res.json({ ok: true });
   } catch (e) {
     return sendError(res, e);

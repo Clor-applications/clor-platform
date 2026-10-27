@@ -735,6 +735,9 @@ model LeaveAdjustment {
   /// A comp-off grant names the date worked; a year-end pay-out names its run.
   workedOn        String?
   yearEndId       String?
+  /// Set when a year-end undo reverses this pay-out; every reader skips reversed rows.
+  reversedAt       DateTime?
+  reversedByUserId String?
   createdAt       DateTime @default(now())
 
   @@index([accountId, orgId, year])

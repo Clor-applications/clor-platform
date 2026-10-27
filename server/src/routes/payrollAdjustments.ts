@@ -120,7 +120,7 @@ payrollAdjustmentsRouter.get(
 payrollAdjustmentsRouter.get('/orgs/:orgId/payroll/leave-encashments', requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE), async (req, res) => {
   if (!(await payrollRouteOk(req, res))) return;
   const { orgId, accountId } = req.tenant!;
-  const rows = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, accountId, kind: 'ENCASH' }, orderBy: { createdAt: 'asc' } });
+  const rows = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, accountId, kind: 'ENCASH', reversedAt: null }, orderBy: { createdAt: 'asc' } });
   const linked = await payrollPrisma.payrollAdjustment.findMany({ where: { orgId, id: { in: rows.map((r) => `leave-encash:${r.id}`) }, status: { not: 'CANCELLED' } }, select: { id: true } });
   const used = new Set(linked.map((r) => r.id));
   res.json({ encashments: rows.filter((r) => !used.has(`leave-encash:${r.id}`)).map((r) => ({ id: r.id, employeeId: r.employeeId, days: -r.days, reason: r.reason })) });
@@ -185,7 +185,7 @@ payrollAdjustmentsRouter.post(
     if (!checked.ok) return res.status(checked.status).json({ error: checked.error, code: checked.code });
 
     const create = async () => {
-      const source = parsed.data.leaveEncashmentId ? await peoplePrisma.leaveAdjustment.findFirst({ where: { id: parsed.data.leaveEncashmentId, accountId, orgId, employeeId: parsed.data.employeeId, kind: 'ENCASH' } }) : null;
+      const source = parsed.data.leaveEncashmentId ? await peoplePrisma.leaveAdjustment.findFirst({ where: { id: parsed.data.leaveEncashmentId, accountId, orgId, employeeId: parsed.data.employeeId, kind: 'ENCASH', reversedAt: null } }) : null;
       if (parsed.data.leaveEncashmentId && (!source || checked.type !== 'EARNING')) throw Object.assign(new Error('Choose an encashment for this employee and an earning component.'), { status: 400 });
       if (source) {
         const prior = await payrollPrisma.payrollAdjustment.findUnique({ where: { id: `leave-encash:${source.id}` } });

@@ -8,7 +8,8 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
-import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { peoplePrisma, peopleWrite } from '../utils/peoplePrisma.js';
+import { recordAudit } from '../services/auditTrail.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
@@ -684,7 +685,7 @@ export async function leaveExplain(accountId: string, orgId: string, employeeId:
   }
   /* HR's ledger lines: added, taken away, paid out (People → Time Off → Balances). */
   if (type.isPaid) {
-    const adjustments = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, employeeId, leaveTypeId: type.id, year }, orderBy: { createdAt: 'asc' } });
+    const adjustments = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, employeeId, leaveTypeId: type.id, year, reversedAt: null }, orderBy: { createdAt: 'asc' } });
     for (const a of adjustments) {
       lines.push({ kind: a.kind === 'ENCASH' ? 'encashed' : 'adjusted', label: a.kind === 'ENCASH' ? `Paid out: ${a.reason}` : `${a.days > 0 ? 'Added' : 'Taken away'} by HR: ${a.reason}`, days: a.days, date: a.createdAt.toISOString().slice(0, 10) });
     }
@@ -892,7 +893,13 @@ attendanceInsightsRouter.put(`${base}/phone-punches/settings`, can(PermissionAct
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const on = req.body?.fieldPunchApproval !== false;
-  await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, fieldPunchApproval: on, updatedByUserId: req.auth!.userId }, update: { fieldPunchApproval: on, updatedByUserId: req.auth!.userId } });
+  /* Read before the change, in the same write, so the audit line says what it was. No row yet means the default: approval on. */
+  const before = await peopleWrite(orgId, async () => {
+    const old = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { fieldPunchApproval: true } });
+    await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, fieldPunchApproval: on, updatedByUserId: req.auth!.userId }, update: { fieldPunchApproval: on, updatedByUserId: req.auth!.userId } });
+    return { fieldPunchApproval: old?.fieldPunchApproval ?? true };
+  });
+  await recordAudit(req, { entity: 'ATTENDANCE_SETTINGS', entityId: orgId, action: 'UPDATE', message: `Field punches ${on ? 'wait for approval' : 'count without approval'}`, metadata: { before, after: { fieldPunchApproval: on } } });
   res.json({ fieldPunchApproval: on });
 });
 
@@ -987,8 +994,15 @@ attendanceInsightsRouter.put(`${base}/overtime/rules`, can(PermissionAction.EDIT
   const v = parsed.data;
   if (v.compOffEnabled && !v.compOffLeaveTypeId) return res.status(400).json({ error: 'Choose the leave type comp-off days are added to.' });
   if (v.compOffLeaveTypeId && !(await peoplePrisma.leaveType.findFirst({ where: { id: v.compOffLeaveTypeId, orgId } }))) return res.status(400).json({ error: 'No such leave type.' });
-  const s = await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, ...v, updatedByUserId: req.auth!.userId }, update: { ...v, updatedByUserId: req.auth!.userId } });
-  res.json({ rules: overtimeRules(s) });
+  const { before, s } = await peopleWrite(orgId, async () => {
+    const before = overtimeRules(await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }));
+    const s = await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, ...v, updatedByUserId: req.auth!.userId }, update: { ...v, updatedByUserId: req.auth!.userId } });
+    return { before, s };
+  });
+  const after = overtimeRules(s);
+  const changed = (Object.keys(after) as Array<keyof typeof after>).filter((k) => before[k] !== after[k]);
+  await recordAudit(req, { entity: 'ATTENDANCE_OVERTIME_RULES', entityId: orgId, action: 'UPDATE', message: changed.length ? `Overtime rules changed: ${changed.join(', ')}` : 'Overtime rules saved, nothing changed', metadata: { before, after } });
+  res.json({ rules: after });
 });
 
 attendanceInsightsRouter.get(`${base}/overtime/requests`, can(PermissionAction.VIEW, R.records), async (req, res) => {

@@ -435,7 +435,9 @@ describe('advanced build: entitlements, probation, workflow per type, stand-ins,
     const adj = await runInTenant(c.orgId, () => peoplePrisma.leaveAdjustment.findMany({ where: { orgId: c.orgId, kind: 'ENCASH' } }));
     expect(adj).toEqual([expect.objectContaining({ days: -10, year })]);
     await att(c, 'post', `/leave/year-end/${run.run.id}/undo`, {}).expect(200);
-    expect(await runInTenant(c.orgId, () => peoplePrisma.leaveAdjustment.count({ where: { orgId: c.orgId, kind: 'ENCASH' } }))).toBe(0);
+    /* Reversed, not deleted: the pay-out stays on record, and nothing reads it as paid. */
+    expect(await runInTenant(c.orgId, () => peoplePrisma.leaveAdjustment.count({ where: { orgId: c.orgId, kind: 'ENCASH', reversedAt: null } }))).toBe(0);
+    expect(await runInTenant(c.orgId, () => peoplePrisma.leaveAdjustment.count({ where: { orgId: c.orgId, kind: 'ENCASH', reversedAt: { not: null } } }))).toBe(1);
   });
 
   it('hand-on: a manager step that waited too long goes to HR; the digest tells an approver once a day', async () => {

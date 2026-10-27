@@ -136,11 +136,21 @@ peopleApprovalsRouter.post(`${base}/requests`, can(PermissionAction.CREATE, REQU
   }
 });
 
-for (const action of ['approve', 'reject', 'more-info'] as const) {
+type DecideAction = 'approve' | 'reject' | 'more-info';
+const DECIDE_ACTIONS: readonly DecideAction[] = ['approve', 'reject', 'more-info'];
+const commentOf = (req: Request) => {
+  const raw = typeof req.body?.comment === 'string' ? req.body.comment : typeof req.body?.note === 'string' ? req.body.note : '';
+  return raw.trim() || null;
+};
+/** The reason rule, the same for one request and for many: rejecting or asking for more says why. */
+const reasonMissing = (action: DecideAction, comment: string | null) => (action !== 'approve' && !comment ? (action === 'reject' ? 'Say why it is not approved.' : 'Say what more is needed.') : null);
+
+for (const action of DECIDE_ACTIONS) {
   peopleApprovalsRouter.post(`${base}/requests/:id/${action}`, can(PermissionAction.APPROVE, REQUESTS), async (req, res) => {
     if (!(await peopleRouteOk(req, res))) return;
-    const comment = typeof req.body?.comment === 'string' ? req.body.comment.trim() : null;
-    if (action !== 'approve' && !comment) return res.status(400).json({ error: action === 'reject' ? 'Say why it is not approved.' : 'Say what more is needed.' });
+    const comment = commentOf(req);
+    const missing = reasonMissing(action, comment);
+    if (missing) return res.status(400).json({ error: missing });
     try {
       const r = await decide(actorOf(req, 'APPROVAL', comment), String(req.params.id), action, comment);
       res.json({ request: await shape(r.request), outcome: (r as any).outcome ?? null });
@@ -149,6 +159,42 @@ for (const action of ['approve', 'reject', 'more-info'] as const) {
     }
   });
 }
+
+/**
+ * Decide several People approvals at once from the Approvals inbox. Each id
+ * goes through the same `decide` as one request — the approver check, nobody
+ * deciding their own or their own subject (maker-checker), the step that is
+ * waiting now, and the type's own checks — so the rules hold per request, and
+ * one refused never stops the rest. One note goes with every decision, and the
+ * reason rule is the single route's: rejecting or asking for more says why.
+ */
+peopleApprovalsRouter.post(`${base}/approvals/bulk-decide`, can(PermissionAction.APPROVE, REQUESTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const ids: string[] = Array.isArray(req.body?.ids) ? [...new Set<string>(req.body.ids.map(String).filter(Boolean))].slice(0, 200) : [];
+  const action: DecideAction | null = typeof req.body?.action === 'string'
+    ? (DECIDE_ACTIONS.includes(req.body.action) ? req.body.action : null)
+    : req.body?.approve === false ? 'reject' : 'approve';
+  if (!action) return res.status(400).json({ error: 'Approve, reject or ask for more.' });
+  if (!ids.length) return res.status(400).json({ error: 'Choose the requests.' });
+  const comment = commentOf(req);
+  const missing = reasonMissing(action, comment);
+  if (missing) return res.status(400).json({ error: missing });
+  const results: Array<{ id: string; error: string; code?: string }> = [];
+  let done = 0;
+  for (const id of ids) {
+    try {
+      await decide(actorOf(req, 'APPROVAL', comment), id, action, comment);
+      done += 1;
+    } catch (e) {
+      if (e instanceof ApprovalError) results.push({ id, error: e.message, ...(e.code ? { code: e.code } : {}) });
+      else {
+        console.error('[approvals] bulk decision failed:', e instanceof Error ? e.message : e);
+        results.push({ id, error: 'Something went wrong.' });
+      }
+    }
+  }
+  res.json({ done, failed: results.length, results });
+});
 
 peopleApprovalsRouter.post(`${base}/requests/:id/reply`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
