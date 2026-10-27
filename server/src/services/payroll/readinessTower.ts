@@ -5,6 +5,7 @@ import { daysBetween, periodRows } from '../attendance/days.js';
 import { lastOfMonth, leaveLossOfPay, payableMonth } from '../attendance/payableDays.js';
 import { dataHealth } from '../people/dataHealth.js';
 import { isFeatureEnabled } from '../features.js';
+import { provisionalPeriodRows } from './provisionalDays.js';
 
 /**
  * Payroll readiness, the HR research's "Workforce Control Tower": one answer
@@ -161,10 +162,15 @@ export type LopMismatch = {
  *
  * Days typed by hand with Attendance on are a decision about absence and are
  * not second-guessed beyond the unpaid leave they must at least cover.
+ *
+ * Days a run counted as present after the company's cut-off
+ * (payrollProvisionalDays) are read the way the pull read them: an absence
+ * marked on one since is next month's correction, not a mismatch here.
+ * Approved unpaid leave on those days still has to agree.
  */
 export async function runLopCheck(accountId: string, orgId: string, runId: string) {
   const none = { checked: 0, source: null as 'ATTENDANCE' | 'LEAVE' | null, mismatches: [] as LopMismatch[] };
-  const run = await payrollPrisma.payrollRun.findFirst({ where: { id: runId, orgId }, select: { id: true, periodId: true } });
+  const run = await payrollPrisma.payrollRun.findFirst({ where: { id: runId, orgId }, select: { id: true, periodId: true, provisionalDays: true } });
   const period = run ? await payrollPrisma.payrollPeriod.findFirst({ where: { orgId, id: run.periodId }, select: { startDate: true, endDate: true } }) : null;
   if (!run || !period) return none;
   const { startDate: from, endDate: to } = period;
@@ -204,7 +210,12 @@ export async function runLopCheck(accountId: string, orgId: string, runId: strin
     records.set(id, had);
   };
   const months = [...new Set(daysBetween(from, to).map((d) => d.slice(0, 7)))];
-  if (months.every((m) => `${m}-01` >= from && lastOfMonth(m) <= to)) {
+  const cutoffDate = (run.provisionalDays as { cutoffDate?: string } | null)?.cutoffDate;
+  if (cutoffDate && attendanceOn) {
+    for (const r of (await provisionalPeriodRows(accountId, orgId, from, to, cutoffDate)).rows) {
+      if (inRun.has(r.employeeId)) add(r.employeeId, r.name, r.code ?? null, Number(r.lossOfPayDays) || 0, Number(r.unpaidLeaveDays) || 0);
+    }
+  } else if (months.every((m) => `${m}-01` >= from && lastOfMonth(m) <= to)) {
     for (const m of months) {
       const { rows } = await payableMonth(accountId, orgId, m, members);
       for (const r of rows) add(r.employeeId, r.name, r.code, r.lossOfPayDays, r.unpaidLeaveDays);

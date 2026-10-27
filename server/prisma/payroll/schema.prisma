@@ -613,6 +613,12 @@ model PayrollRun {
   /// closed again since (closure audit O-04).
   attendanceSnapshots Json?
 
+  /// Days after the company's cut-off counted as present because they had not
+  /// happened yet (payrollProvisionalDays): { cutoffDate, from, to, people,
+  /// days }. Null when the pull counted none. The next month's pull compares
+  /// each one with what happened and adds a correction.
+  provisionalDays Json?
+
   createdByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -681,6 +687,15 @@ model PayrollInput {
   /// MANUAL | ATTENDANCE | IMPORT — where the numbers came from.
   source String  @default("MANUAL")
   notes  String?
+
+  /// Days after the cut-off counted as present before they happened
+  /// (payrollProvisionalDays). A half day of leave leaves half a day assumed.
+  provisionalDays           Decimal @default(0)
+  /// What was assumed for each day after the cut-off: [{ date, paid, provisional }],
+  /// paid as a fraction of the day. Read by the next month's pull to correct it.
+  provisionalDates          Json?
+  /// The later run whose pull compared these days with what happened.
+  provisionalSettledByRunId String?
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -1202,4 +1217,21 @@ model PfNominee {
 
   @@index([accountId, orgId])
   @@index([orgId, employeeId])
+}
+
+/// Payroll's own company settings, one row per company.
+model PayrollSetting {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String @unique
+
+  /// Day of the month after which a pay run counts the remaining days as
+  /// present (payrollProvisionalDays). Read only while that feature is on.
+  provisionalCutoffDay Int @default(25)
+
+  updatedByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountId, orgId])
 }
