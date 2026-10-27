@@ -167,7 +167,7 @@ export default function TemporarySchedule() {
                       <td className="ui-col-grow whitespace-normal min-w-[10rem]">{r.reason || '—'}</td>
                       <td className="ui-col-meta">
                         <span className="flex justify-end">
-                          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.employeeName}'s temporary schedule`} onClick={async () => { await removeTemporarySchedule(r.id); load(); }}>
+                          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.employeeName}'s temporary schedule`} onClick={async () => { try { await removeTemporarySchedule(r.id); load(); } catch (err) { notify.error(String(err?.message || 'Not removed.')); } }}>
                             <Trash2 size={14} aria-hidden="true" /> Remove
                           </button>
                         </span>

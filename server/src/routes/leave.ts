@@ -26,7 +26,9 @@ import { policyProblem } from '../services/people/leavePolicy.js';
 import { OPEN, balancesFor, entitledDays, leavePeriodOf, leaveYearOf, probationOf, round } from '../services/attendance/leaveBalances.js';
 import { daysWorkedBefore, daysWorkedByPeriod } from '../services/attendance/daysWorked.js';
 import { deciderFor, managerStepBy, standingInFor, teamDecidedBy } from '../services/attendance/standIns.js';
-import { loadSchedule, resolveShift } from '../services/attendance/schedule.js';
+import { earlierWeeks, loadSchedule, resolveShift, weeksBefore, type EarlierWeek } from '../services/attendance/schedule.js';
+import { dayAfterMonth, scheduleGuard } from '../services/attendance/scheduleGuard.js';
+import { Prisma as PeoplePrisma } from '../generated/people/index.js';
 import { authorize } from '../middleware/rbac.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { inScope, teamScope, type TeamScope } from '../services/people/scope.js';
@@ -1859,16 +1861,21 @@ const WEEKDAY = /^([0-6](,[0-6])*)?$/;
 leaveRouter.get(`${base}/working-week`, can(PermissionAction.VIEW, R.leave), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const s = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { weeklyOffDays: true, offSaturdays: true, defaultShiftId: true, restrictedHolidayQuota: true, compOffLeaveTypeId: true } });
+  const s = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { weeklyOffDays: true, offSaturdays: true, defaultShiftId: true, restrictedHolidayQuota: true, compOffLeaveTypeId: true, workingWeekEarlier: true } });
   /* What the schedule engine really reads (schedule.ts resolveShift), Attendance on or not: anyone on a shift follows it. */
-  const [assigned, rotating, departments, temporary] = await Promise.all([
+  const [assigned, rotating, departments, temporary, guard] = await Promise.all([
     peoplePrisma.shiftAssignment.count({ where: { orgId } }),
     peoplePrisma.rotationAssignment.count({ where: { orgId } }),
     peoplePrisma.departmentSchedule.count({ where: { orgId } }),
     peoplePrisma.temporarySchedule.count({ where: { orgId } }),
+    scheduleGuard(orgId),
   ]);
+  const earlier = earlierWeeks(s?.workingWeekEarlier);
   res.json({
     weeklyOffDays: s?.weeklyOffDays ?? '0',
+    /* The date this week applies from (null = always), and the first date a change may start from while months are closed. */
+    effectiveFrom: earlier.length ? earlier[earlier.length - 1].until : null,
+    firstOpenDate: guard.latest ? dayAfterMonth(guard.latest) : null,
     offSaturdays: s?.offSaturdays ?? '',
     restrictedHolidayQuota: s?.restrictedHolidayQuota ?? 0,
     compOffLeaveTypeId: s?.compOffLeaveTypeId ?? null,
@@ -1889,17 +1896,43 @@ leaveRouter.put(`${base}/working-week`, can(PermissionAction.EDIT, R.leaveTypes)
     restrictedHolidayQuota: z.coerce.number().int().min(0).max(20).optional(),
     /** The leave type comp-off is credited to (null = comp-off off). */
     compOffLeaveTypeId: z.string().min(1).nullable().optional(),
+    /**
+     * The first date the new week applies on; earlier dates keep the week they
+     * had. Omitted: the new week applies to every date, which a closed month
+     * refuses (O-05).
+     */
+    effectiveFrom: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.').nullable().optional().or(z.literal('')),
   }).safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the working week.' });
   const offs = [...new Set(parsed.data.weeklyOffDays.split(',').filter(Boolean))].sort().join(',');
   if (offs.split(',').filter(Boolean).length >= 7) return res.status(400).json({ error: 'At least one day of the week is a working day.' });
   const sats = offs.split(',').includes('6') ? '' : [...new Set(parsed.data.offSaturdays.split(',').filter(Boolean))].sort().join(',');
   if (parsed.data.compOffLeaveTypeId && !(await peoplePrisma.leaveType.findFirst({ where: { id: parsed.data.compOffLeaveTypeId, orgId, isPaid: true }, select: { id: true } }))) return res.status(400).json({ error: 'Choose a paid leave type for comp-off.' });
+  /*
+   * A closed month's weekly offs are final (O-05): a new week either starts
+   * after the last closed month, or waits for the month to be reopened. A
+   * change from a date keeps the weeks before it, so those dates do not move.
+   */
+  const current = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { weeklyOffDays: true, offSaturdays: true, workingWeekEarlier: true } });
+  const was = { weeklyOffDays: current?.weeklyOffDays ?? '0', offSaturdays: current?.offSaturdays ?? '' };
+  const from = parsed.data.effectiveFrom || null;
+  const weekChanged = offs !== was.weeklyOffDays || sats !== was.offSaturdays;
+  let history: { workingWeekEarlier?: EarlierWeek[] | typeof PeoplePrisma.DbNull } = {};
+  if (weekChanged) {
+    const refused = (await scheduleGuard(orgId)).refusal([{ from, to: null }], (month, latest) =>
+      from
+        ? `${month} is closed in Attendance, and a new working week from ${from} would work its days out again. Start it from ${dayAfterMonth(latest)} or later, or reopen the month.`
+        : `${month} is closed in Attendance, and a new working week would work its days out again. Set the date it starts from, ${dayAfterMonth(latest)} or later.`);
+    if (refused) return sendError(res, refused);
+    const kept = from ? weeksBefore(earlierWeeks(current?.workingWeekEarlier), was, from) : [];
+    history = { workingWeekEarlier: kept.length ? kept : PeoplePrisma.DbNull };
+  }
   const data = { weeklyOffDays: offs, offSaturdays: sats, ...(parsed.data.restrictedHolidayQuota != null ? { restrictedHolidayQuota: parsed.data.restrictedHolidayQuota } : {}), ...(parsed.data.compOffLeaveTypeId !== undefined ? { compOffLeaveTypeId: parsed.data.compOffLeaveTypeId, compOffEnabled: Boolean(parsed.data.compOffLeaveTypeId) } : {}) };
-  await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, update: data, create: { accountId, orgId, ...data, updatedByUserId: req.auth!.userId } as any });
+  await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, update: { ...data, ...history } as any, create: { accountId, orgId, ...data, ...history, updatedByUserId: req.auth!.userId } as any });
   const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  await recordAudit(req, { entity: 'WorkingWeek', entityId: orgId, action: 'UPDATE', message: `Working week: ${offs ? offs.split(',').map((d) => names[Number(d)]).join(', ') : 'no day'} off${sats ? `; Saturdays ${sats} off` : ''}`, metadata: data });
-  res.json(data);
+  await recordAudit(req, { entity: 'WorkingWeek', entityId: orgId, action: 'UPDATE', message: `Working week: ${offs ? offs.split(',').map((d) => names[Number(d)]).join(', ') : 'no day'} off${sats ? `; Saturdays ${sats} off` : ''}${weekChanged && from ? `, from ${from}` : ''}`, metadata: { ...data, before: was, effectiveFrom: weekChanged ? from : undefined } });
+  const kept = history.workingWeekEarlier !== undefined ? earlierWeeks(history.workingWeekEarlier) : earlierWeeks(current?.workingWeekEarlier);
+  res.json({ ...data, effectiveFrom: kept.length ? kept[kept.length - 1].until : null });
 });
 
 // ---------------------------------------------------------------------------
