@@ -1,0 +1,42 @@
+# CI on a Mac (self-hosted GitHub Actions runner)
+
+The `CI` (verify) and `Security` (audit, secrets) workflows run on a Mac, not
+on GitHub's machines. The Clor-applications organization is on GitHub's free
+plan; its Actions minutes for a private repository ran out in October 2026
+(one full CI run takes about 75 minutes). A self-hosted runner costs no
+minutes. The Android, iOS and VM-deploy jobs still name GitHub's machines.
+
+## What is on the Mac
+
+| Piece | Where | How it starts |
+|---|---|---|
+| Runner `suresh-mac`, label `clor-mac` | `~/actions-runner/clor-platform` | LaunchAgent `actions.runner.Clor-applications-clor-platform.suresh-mac`, at login |
+| PostgreSQL 16 for CI, port 5433, `max_connections = 300`, superuser `clor_ci` / `clor_ci` | Homebrew `postgresql@16`, data in `/opt/homebrew/var/postgresql@16` | `brew services` (`sh.brew.postgresql@16`), at login |
+| gitleaks (secrets scan) | Homebrew | — |
+
+The developer's own PostgreSQL (port 5432) is untouched; CI never uses it.
+
+## Day to day
+
+- CI runs only while the Mac is on and signed in. A job waits ("Queued") until it is.
+- A newer push to a pull request cancels the run in progress.
+- Status: `cd ~/actions-runner/clor-platform && ./svc.sh status`. Logs: `~/Library/Logs/actions.runner.Clor-applications-clor-platform.suresh-mac/`.
+- Stop: `./svc.sh stop`. Start: `./svc.sh start`.
+- The runner updates itself.
+
+## Security
+
+Jobs run as the Mac's user, with what that user can reach (gcloud, wrangler,
+SSH keys). Only people with write access to this private repository can start
+a job. Keep it that way: do not make the repository public while this runner
+is attached, and do not add outside collaborators with write access.
+
+## Removing it
+
+    cd ~/actions-runner/clor-platform
+    ./svc.sh stop && ./svc.sh uninstall
+    ./config.sh remove --token "$(gh api -X POST repos/Clor-applications/clor-platform/actions/runners/remove-token --jq .token)"
+    brew services stop postgresql@16
+
+Then set `runs-on: ubuntu-latest` again in `.github/workflows/ci.yml` and
+`security.yml` (and put back the `postgres:16` service in ci.yml).
