@@ -32,7 +32,7 @@ const istDay = (d) => new Date(new Date(d).getTime() + 330 * 60_000).toISOString
 const day = (d) => (d ? formatDate(istDay(d)) : '');
 const when = (d) => (d ? `${day(d)}, ${time(d)}` : '');
 
-export default function HelpDesk() {
+export default function HelpDesk({ params = {} }) {
   const perms = usePermissions();
   const allowed = (key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
   const canEdit = allowed('PEOPLE::HR Cases::EDIT');
@@ -40,7 +40,8 @@ export default function HelpDesk() {
   const [queue, setQueue] = useState('all');
   const [mine, setMine] = useState(false);
   const [q, setQ] = useState('');
-  const [open, setOpen] = useState(null);
+  /* Opened from the Approvals inbox or a notice with the case named: it opens on that case. */
+  const [open, setOpen] = useState(params?.id || null);
   const [raising, setRaising] = useState(false);
   const tabsRef = useRef(null);
   const tabIndicator = useTabIndicator(tabsRef, status);

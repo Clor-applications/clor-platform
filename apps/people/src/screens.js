@@ -38,6 +38,7 @@ export { Departments, EmployeeTypes, JobRoles, WorkTypes } from '@ui/personnel/S
 export { JobPositions } from './screens/Designations';
 export { default as WorkspaceList } from './screens/WorkspaceList';
 export { default as PeopleReports } from './screens/PeopleReports';
+export { default as Registers, LeaveSummaryReport } from './screens/Registers';
 export { default as PeopleDocuments } from './screens/PeopleDocuments';
 export { default as Holidays } from '../../attendance/src/screens/Holidays';
 export { default as PortalAccess } from '../../attendance/src/screens/PortalAccess';

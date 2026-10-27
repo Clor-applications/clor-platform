@@ -125,7 +125,7 @@ const leaveDays = async (orgId: string, employee: { id: string; branchId: string
  * person stands in for today (standIns.ts), so a stand-in can see what they
  * are asked to decide.
  */
-async function leaveScope(req: any): Promise<TeamScope> {
+export async function leaveScope(req: any): Promise<TeamScope> {
   const scope = await teamScope(req);
   if (scope.all || !scope.selfId) return scope;
   const covered = await teamDecidedBy(req.tenant!.orgId, scope.selfId);
@@ -1056,68 +1056,126 @@ export async function leaveAudit(who: { accountId: string; orgId: string; userId
 
 const noteOf = (req: any) => String(req.body?.note || '').trim().slice(0, 500) || null;
 
-leaveRouter.post(`${base}/requests/:id/approve`, can(PermissionAction.APPROVE, R.leave), async (req, res) => {
-  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+/** An error from the leave engine as the status and body a route sends; anything unexpected still throws. */
+const asOutcome = (e: any): { status: number; body: any } => {
+  if (e?.status) return { status: e.status, body: { error: e.message, ...(e.code ? { code: e.code } : {}) } };
+  if (String(e?.code) === 'P2002') return { status: 409, body: { error: 'That already exists.' } };
+  throw e;
+};
+
+/**
+ * One decision on one leave request, as the single routes and the bulk route
+ * take it: scope, the manager's step under manager-then-HR, HR's second pair
+ * of eyes (HR_STEP), the manager first (MANAGER_FIRST) and maker-checker on
+ * your own leave. Answers the status and body the route sends.
+ */
+async function reviewLeave(req: any, id: string, approve: boolean, note: string | null): Promise<{ status: number; body: any }> {
   const { accountId, orgId } = req.tenant!;
-  const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!r || !inScope(await leaveScope(req), r.employeeId)) return res.status(404).json({ error: 'No such request.' });
-  if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
+  const r = await peoplePrisma.leaveRequest.findFirst({ where: { id, accountId, orgId } });
   const scope = await leaveScope(req);
+  if (!r || !inScope(scope, r.employeeId)) return { status: 404, body: { error: 'No such request.' } };
+  if (r.status !== 'PENDING') return { status: 409, body: { error: `This request was already ${r.status.toLowerCase()}.` } };
   const chain = await leaveChainFor(orgId, r.leaveTypeId);
+  const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
+  const firstByUser = async () => (r.managerApprovedById ? (await peoplePrisma.employee.findFirst({ where: { id: r.managerApprovedById, orgId }, select: { userId: true } }))?.userId : null);
+  if (!approve) {
+    /* Once the manager has passed it to HR, it is HR's to decide either way: not the manager's again, nor a team-scoped role's (closure audit). */
+    if (r.managerApprovedAt && chain === 'MANAGER_THEN_HR') {
+      const firstBy = await firstByUser();
+      if ((firstBy && firstBy === req.auth!.userId) || (me && r.managerApprovedById === me.id) || !scope.all) return { status: 403, body: { error: 'The manager has passed this to HR; HR decides it now.', code: 'HR_STEP' } };
+    }
+    try {
+      const request = await decideLeave(accountId, orgId, r, req.auth!.userId, note, false);
+      await recordAudit(req, { entity: 'LeaveRequest', entityId: r.id, action: 'REJECT', message: `Rejected ${request.employeeName}'s ${request.leaveTypeName}, ${r.fromDate === r.toDate ? r.fromDate : `${r.fromDate} to ${r.toDate}`}${note ? `: ${note}` : ''}`, metadata: { employeeId: r.employeeId, leaveTypeId: r.leaveTypeId } });
+      return { status: 200, body: { request: masked([request], await readsPrivateLeave(req))[0] } };
+    } catch (e) {
+      return asOutcome(e);
+    }
+  }
   if (chain === 'MANAGER_THEN_HR') {
     const manager = await activeManagerOf(orgId, r.employeeId);
     /* The manager's own step, taken in People — or their stand-in's: recorded, and the request goes on to HR. */
-    const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
     const asManager = manager && me ? await managerStepBy(orgId, me.id, r.employeeId) : null;
     if (!r.managerApprovedAt && asManager) {
       try {
-        const request = await managerStep(orgId, r, asManager, noteOf(req), { employeeId: me!.id, userId: req.auth!.userId });
+        const request = await managerStep(orgId, r, asManager, note, { employeeId: me!.id, userId: req.auth!.userId });
         await recordAudit(req, { entity: 'LeaveRequest', entityId: r.id, action: 'MANAGER_APPROVE', message: `Manager approved ${request.employeeName}'s leave, ${r.fromDate} to ${r.toDate}; now with HR`, metadata: { employeeId: r.employeeId } });
-        return res.json({ request: masked([request], await readsPrivateLeave(req))[0], stage: 'HR' });
+        return { status: 200, body: { request: masked([request], await readsPrivateLeave(req))[0], stage: 'HR' } };
       } catch (e) {
-        return sendError(res, e);
+        return asOutcome(e);
       }
     }
     /* HR's step is a second pair of eyes: not the manager who took the first, and someone who decides for the whole company. */
     if (r.managerApprovedAt) {
-      const firstBy = r.managerApprovedById ? (await peoplePrisma.employee.findFirst({ where: { id: r.managerApprovedById, orgId }, select: { userId: true } }))?.userId : null;
-      if ((firstBy && firstBy === req.auth!.userId) || (me && r.managerApprovedById === me.id) || !scope.all) return res.status(403).json({ error: 'HR approves after the manager; the manager cannot take both steps.', code: 'HR_STEP' });
+      const firstBy = await firstByUser();
+      if ((firstBy && firstBy === req.auth!.userId) || (me && r.managerApprovedById === me.id) || !scope.all) return { status: 403, body: { error: 'HR approves after the manager; the manager cannot take both steps.', code: 'HR_STEP' } };
     }
   }
   const turn = await hrMayDecide(orgId, 'leave', r, chain);
-  if (!turn.ok) return res.status(409).json({ error: turn.error, code: 'MANAGER_FIRST' });
+  if (!turn.ok) return { status: 409, body: { error: turn.error, code: 'MANAGER_FIRST' } };
   /* A-13: your own leave is approved by somebody else, as the company's maker-checker setting decides (a one-person company still can). */
   const own = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { userId: true } });
   const refused = await ownWorkRefusal(req, { makers: [own?.userId], module: ATTENDANCE_MODULE, resource: R.leave, entity: 'ATTENDANCE_LEAVE_REQUEST', entityId: r.id, what: 'leave request' });
-  if (refused) return res.status(refused.status).json(refused.body);
+  if (refused) return { status: refused.status, body: refused.body };
   try {
-    const request = await decideLeave(accountId, orgId, r, req.auth!.userId, noteOf(req), true);
+    const request = await decideLeave(accountId, orgId, r, req.auth!.userId, note, true);
     await recordAudit(req, { entity: 'LeaveRequest', entityId: r.id, action: 'APPROVE', message: `Approved ${request.employeeName}'s ${request.leaveTypeName}, ${r.fromDate === r.toDate ? r.fromDate : `${r.fromDate} to ${r.toDate}`} (${request.days} days)`, metadata: { employeeId: r.employeeId, leaveTypeId: r.leaveTypeId, days: request.days } });
-    res.json({ request: masked([request], await readsPrivateLeave(req))[0] });
+    return { status: 200, body: { request: masked([request], await readsPrivateLeave(req))[0] } };
   } catch (e) {
-    return sendError(res, e);
+    return asOutcome(e);
   }
+}
+
+leaveRouter.post(`${base}/requests/:id/approve`, can(PermissionAction.APPROVE, R.leave), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const out = await reviewLeave(req, String(req.params.id), true, noteOf(req));
+  res.status(out.status).json(out.body);
 });
 
 leaveRouter.post(`${base}/requests/:id/reject`, can(PermissionAction.APPROVE, R.leave), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
-  const { accountId, orgId } = req.tenant!;
-  const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!r || !inScope(await leaveScope(req), r.employeeId)) return res.status(404).json({ error: 'No such request.' });
-  if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
-  /* Once the manager has passed it to HR, it is HR's to decide either way: not the manager's again, nor a team-scoped role's (closure audit). */
-  if (r.managerApprovedAt && (await leaveChainFor(orgId, r.leaveTypeId)) === 'MANAGER_THEN_HR') {
-    const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
-    const firstBy = r.managerApprovedById ? (await peoplePrisma.employee.findFirst({ where: { id: r.managerApprovedById, orgId }, select: { userId: true } }))?.userId : null;
-    if ((firstBy && firstBy === req.auth!.userId) || (me && r.managerApprovedById === me.id) || !(await leaveScope(req)).all) return res.status(403).json({ error: 'The manager has passed this to HR; HR decides it now.', code: 'HR_STEP' });
+  const out = await reviewLeave(req, String(req.params.id), false, noteOf(req));
+  res.status(out.status).json(out.body);
+});
+
+/**
+ * Approve or reject several waiting leave requests at once (G14): each goes
+ * through the same decision as one (reviewLeave), so the manager's step,
+ * HR's step and maker-checker hold per request, and one refused never stops
+ * the rest. Rejecting needs one note, which every person reads with the
+ * decision. A part of a leave split at the period end that its first part
+ * already decided counts as done.
+ */
+leaveRouter.post(`${base}/requests/bulk-review`, can(PermissionAction.APPROVE, R.leave), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const ids: string[] = Array.isArray(req.body?.ids) ? [...new Set<string>(req.body.ids.map(String))].slice(0, 200) : [];
+  const approve = req.body?.approve !== false;
+  const note = noteOf(req);
+  if (!ids.length) return res.status(400).json({ error: 'Choose the requests.' });
+  if (!approve && !note) return res.status(400).json({ error: 'Say why. They see this with the decision.' });
+  const { orgId } = req.tenant!;
+  const decided = new Set<string>();
+  const results: Array<{ id: string; ok: boolean; error?: string; code?: string }> = [];
+  let handedOn = 0;
+  for (const id of ids) {
+    if (decided.has(id)) { results.push({ id, ok: true }); continue; }
+    let out: { status: number; body: any };
+    try {
+      out = await reviewLeave(req, id, approve, note);
+    } catch (e) {
+      console.error('[leave] bulk decision failed:', e instanceof Error ? e.message : e);
+      out = { status: 500, body: { error: 'Something went wrong.' } };
+    }
+    if (out.status === 200) {
+      if (out.body.stage === 'HR') handedOn += 1;
+      results.push({ id, ok: true });
+      const groupId = out.body.request?.groupId;
+      if (groupId) for (const x of await peoplePrisma.leaveRequest.findMany({ where: { orgId, groupId }, select: { id: true } })) decided.add(x.id);
+    } else {
+      results.push({ id, ok: false, error: out.body.error || 'Not done.', ...(out.body.code ? { code: out.body.code } : {}) });
+    }
   }
-  try {
-    const request = await decideLeave(accountId, orgId, r, req.auth!.userId, noteOf(req), false);
-    await recordAudit(req, { entity: 'LeaveRequest', entityId: r.id, action: 'REJECT', message: `Rejected ${request.employeeName}'s ${request.leaveTypeName}, ${r.fromDate === r.toDate ? r.fromDate : `${r.fromDate} to ${r.toDate}`}${noteOf(req) ? `: ${noteOf(req)}` : ''}`, metadata: { employeeId: r.employeeId, leaveTypeId: r.leaveTypeId } });
-    res.json({ request: masked([request], await readsPrivateLeave(req))[0] });
-  } catch (e) {
-    return sendError(res, e);
-  }
+  res.json({ done: results.filter((x) => x.ok).length, failed: results.filter((x) => !x.ok).length, handedOn, results: results.filter((x) => !x.ok) });
 });
 
 export async function cancelLeaveRequest(accountId: string, orgId: string, id: string, userId: string) {
@@ -1531,6 +1589,50 @@ leaveRouter.get(`${base}/requests/:id`, can(PermissionAction.VIEW, R.leave), asy
 });
 
 /**
+ * Approved work from home and on duty overlapping a range, inside a scope:
+ * the people working but not at the office. Shown beside leave with their
+ * own mark, never counted as leave.
+ */
+export async function workingAway(orgId: string, scope: TeamScope, from: string, to: string) {
+  const rows = await peoplePrisma.attendanceRequest.findMany({
+    where: { orgId, status: 'APPROVED', kind: { in: ['WFH', 'ON_DUTY'] }, date: { lte: to }, OR: [{ toDate: null, date: { gte: from } }, { toDate: { gte: from } }], ...scopeRows(scope) },
+    orderBy: [{ date: 'asc' }],
+    take: 2000,
+  });
+  return (await withNames(orgId, rows)).map((r: any) => ({ id: r.id, employeeId: r.employeeId, employeeName: r.employeeName, employeeCode: r.employeeCode, department: r.department, photoUrl: r.photoUrl, kind: r.kind, fromDate: r.date, toDate: r.toDate || r.date, halfDay: r.halfDay, place: r.kind === 'ON_DUTY' ? r.place : null }));
+}
+
+/** The calendar's other marks: approved work from home and on duty in a month or range. */
+leaveRouter.get(`${base}/working-away`, can(PermissionAction.VIEW, R.leave), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : '';
+  const from = month ? `${month}-01` : ISO_DATE.test(String(req.query.from || '')) ? String(req.query.from) : today();
+  const to = month ? `${month}-31` : ISO_DATE.test(String(req.query.to || '')) ? String(req.query.to) : from;
+  if (to < from) return res.status(400).json({ error: 'The end is before the start.' });
+  res.json({ from, to, rows: await workingAway(req.tenant!.orgId, await leaveScope(req), from, to) });
+});
+
+/**
+ * A month's payable and loss-of-pay days per person (Time & Leave →
+ * Attendance), from the calculation Payroll takes them with
+ * (services/attendance/payableDays.ts): Attendance's month summary when it is
+ * on, approved leave alone when it is not. Inside the reader's team.
+ */
+leaveRouter.get('/orgs/:orgId/attendance/payable-days', requirePermission(ATTENDANCE_MODULE, PermissionAction.VIEW as any, R.records), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7);
+  const scope = await teamScope(req);
+  const { payableMonth } = await import('../services/attendance/payableDays.js');
+  const out = await payableMonth(accountId, orgId, month, scope.all ? null : scope.ids);
+  /* Once a payroll run has taken the month, say when: the figures are then the ones paid. */
+  const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lte: `${month}-31` }, endDate: { gte: `${month}-01` } }, select: { id: true, name: true } });
+  const run = periods.length ? await payrollPrisma.payrollRun.findFirst({ where: { orgId, periodId: { in: periods.map((p) => p.id) }, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] } }, orderBy: { updatedAt: 'desc' }, select: { periodId: true, status: true, updatedAt: true } }) : null;
+  const payrollTook = run ? { period: periods.find((p) => p.id === run.periodId)?.name || month, state: run.status, on: new Date(run.updatedAt.getTime() + 330 * 60_000).toISOString().slice(0, 10) } : null;
+  res.json({ month, source: out.source, rows: out.rows, payrollTaken: payrollTook });
+});
+
+/**
  * The Time & Leave overview: who is away today, what is waiting (oldest
  * first, and how long), who comes back this week, who is away in the next
  * seven days, and days that lapse at the period end. Inside the reader's scope.
@@ -1572,6 +1674,8 @@ leaveRouter.get(`${base}/overview`, can(PermissionAction.VIEW, R.leave), async (
   res.json({
     today: t0,
     awayToday: await shape(awayRows),
+    /* Working, but not at the office: approved work from home and on duty, their own mark, never leave (HR view audit 3.3). */
+    workingAwayToday: await workingAway(orgId, scope, t0, t0),
     waiting: { count: waitingCount, olderThan3Days: oldWaiting, oldest: await shape(waitingRows) },
     upcoming: await shape(upcomingRows),
     lapsing: { periodEnd: end, label: periodLabel(period, year), rows: lapsing },

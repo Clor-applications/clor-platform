@@ -47,7 +47,7 @@ describe('People home', () => {
     expect(by('helpdesk')).toMatchObject({ tone: 'urgent', screen: 'helpdesk', count: 1 });
     expect(by('assets')).toMatchObject({ tone: 'urgent', screen: 'assets', count: 1 });
     expect(by('probation')).toMatchObject({ count: 1, screen: 'employees' });
-    expect(by('leave')).toMatchObject({ count: 1, screen: 'leaveRequests' });
+    expect(by('leave')).toMatchObject({ count: 1, screen: 'approvals', params: { kind: 'LEAVE' } });
     expect(by('candidates')).toMatchObject({ count: 1, screen: 'candidates' });
     expect(by('checklists')?.screen).toBe('checklists');
     /* Urgent first. */

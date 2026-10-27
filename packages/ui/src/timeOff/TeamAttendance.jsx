@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 
 import { useListSearch } from '@ui/components/ListToolbar';
 import { usePaged, useResetPage } from '@ui/components/list/ListPageParts';
@@ -10,7 +10,10 @@ import ErrorState from '@ui/components/ui/ErrorState';
 import DatePicker from '@ui/components/ui/DatePicker';
 import useRequest from '@ui/components/ui/useRequest';
 import { useTabIndicator } from '@ui/components/ui/RecordTabs';
-import { listPeople } from './api';
+import { getPayableDays, listPeople } from './api';
+import { runListExport } from '@ui/components/list/exportMenu';
+import { notify } from '@ui/components/ui/notify';
+import { formatDate } from '@ui/components/ui/DatePicker';
 import { DAY_LABEL, DAY_PILL, attendanceIsOn, listRecords, todayIst } from './api';
 import { homeCrumbs } from './shared';
 
@@ -23,7 +26,13 @@ import { homeCrumbs } from './shared';
  *
  * A day's note is not shown for a leave day: approval writes the leave's
  * reason into it, and a private leave's reason is not for every reader.
+ *
+ * The month view carries each person's unpaid leave, loss-of-pay and payable
+ * days, from the calculation Payroll takes them with (server:
+ * services/attendance/payableDays.ts), so HR checks the month before payroll
+ * against the very numbers payroll will use, and can export them.
  */
+const fig = (n) => (n == null ? '—' : String(Math.round(Number(n) * 100) / 100));
 const pad = (n) => String(n).padStart(2, '0');
 const daysIn = (month) => {
   const [y, m] = month.split('-').map(Number);
@@ -52,6 +61,8 @@ export default function TeamAttendance() {
   const people = useRequest(() => listPeople(), []);
   const range = view === 'day' ? { from: date, to: date } : { from: `${month}-01`, to: daysIn(month).at(-1) };
   const records = useRequest(() => listRecords(range), [range.from, range.to]);
+  const payable = useRequest(() => (view === 'month' ? getPayableDays(month) : Promise.resolve(null)), [view, month]);
+  const payOf = useMemo(() => new Map((payable.data?.rows || []).map((r) => [r.employeeId, r])), [payable.data]);
   const tabsRef = useRef(null);
   const tabIndicator = useTabIndicator(tabsRef, status);
 
@@ -79,6 +90,21 @@ export default function TeamAttendance() {
   const error = people.error || records.error;
   const loading = !people.data || !records.data;
 
+  const exportMonth = () => {
+    try {
+      const rows = search.filtered.map((p) => {
+        const mine = byPerson.get(p.id) || new Map();
+        const n = (st) => [...mine.values()].filter((r) => r.status === st).length;
+        const pay = payOf.get(p.id);
+        return { name: p.name, code: p.code || '', department: p.departmentName || p.department || '', present: n('PRESENT') + n('HALF_DAY') / 2, leave: n('ON_LEAVE'), absent: n('ABSENT'), unpaid: pay?.unpaidLeaveDays ?? '', lop: pay?.lossOfPayDays ?? '', payable: pay?.payableDays ?? '', totalDays: pay?.totalDays ?? '', why: pay?.why || '' };
+      });
+      const cols = [['name', 'Employee'], ['code', 'Employee ID'], ['department', 'Department'], ['present', 'Present'], ['leave', 'Leave'], ['absent', 'Absent'], ['unpaid', 'Unpaid leave'], ['lop', 'Loss of pay'], ['payable', 'Payable days'], ['totalDays', 'Days in month'], ['why', 'Loss of pay from']].map(([key, label]) => ({ key, label }));
+      runListExport({ format: 'xlsx', title: `Attendance ${monthTitle(month)}`, fileName: `attendance-${month}`, label: 'Attendance', rows, columns: cols });
+    } catch (e) {
+      notify.error(String(e?.message || 'Could not export.'));
+    }
+  };
+
   const columns = [
     { key: 'name', label: 'Employee', always: true, render: (p) => (
       <span className="min-w-0"><span className="block truncate font-medium">{p.name}</span><span className="block truncate ui-caption">{[p.code, p.departmentName || p.department].filter(Boolean).join(' · ')}</span></span>
@@ -96,7 +122,10 @@ export default function TeamAttendance() {
       <PageHeader
         breadcrumb={homeCrumbs()}
         title="Attendance"
-        actions={hasAttendance.data ? <a className="ui-btn ui-btn-secondary" href="?app=attendance&open=records">Open in Attendance <ArrowUpRight size={16} aria-hidden="true" /></a> : null}
+        actions={<>
+          {view === 'month' && !loading ? <button type="button" className="ui-btn ui-btn-secondary" onClick={exportMonth}><Download size={16} aria-hidden="true" /> Export</button> : null}
+          {hasAttendance.data ? <a className="ui-btn ui-btn-secondary" href="?app=attendance&open=records">Open in Attendance <ArrowUpRight size={16} aria-hidden="true" /></a> : null}
+        </>}
       />
       {hasAttendance.data === false ? <p className="text-sm ui-muted">Days from leave, holidays and people’s own check-ins.</p> : null}
 
@@ -162,6 +191,9 @@ export default function TeamAttendance() {
                     <th scope="col" className="p-2 text-right font-medium">Present</th>
                     <th scope="col" className="p-2 text-right font-medium">Leave</th>
                     <th scope="col" className="p-2 text-right font-medium">Absent</th>
+                    <th scope="col" className="p-2 text-right font-medium">Unpaid leave</th>
+                    <th scope="col" className="p-2 text-right font-medium">Loss of pay</th>
+                    <th scope="col" className="p-2 text-right font-medium">Payable</th>
                     {daysIn(month).map((d) => <th key={d} scope="col" className={`p-0.5 text-center font-normal min-w-5 tabular-nums ${d === today ? 'text-[rgb(var(--brand-ink))]' : ''}`}>{Number(d.slice(8))}</th>)}
                   </tr>
                 </thead>
@@ -175,6 +207,9 @@ export default function TeamAttendance() {
                         <td className="p-2 text-right tabular-nums">{n('PRESENT') + n('HALF_DAY') / 2}</td>
                         <td className="p-2 text-right tabular-nums">{n('ON_LEAVE')}</td>
                         <td className="p-2 text-right tabular-nums">{n('ABSENT')}</td>
+                        <td className="p-2 text-right tabular-nums">{fig(payOf.get(p.id)?.unpaidLeaveDays)}</td>
+                        <td className="p-2 text-right tabular-nums" title={payOf.get(p.id)?.why || undefined}>{fig(payOf.get(p.id)?.lossOfPayDays)}</td>
+                        <td className="p-2 text-right tabular-nums font-medium">{fig(payOf.get(p.id)?.payableDays)}</td>
                         {daysIn(month).map((d) => {
                           const r = mine.get(d);
                           return <td key={d} className="p-0.5 text-center" title={r ? `${d}: ${DAY_LABEL[r.status] || r.status}` : undefined}>{r ? LETTER[r.status] || '·' : <span className="ui-muted">·</span>}</td>;
@@ -187,6 +222,12 @@ export default function TeamAttendance() {
             </div>
           )}
           <p className="ui-caption">P present, ½ half day, A absent, L leave, H holiday, W weekly off.</p>
+          {payable.data ? (
+            <p className="ui-caption">
+              {payable.data.source === 'ATTENDANCE' ? 'Loss of pay and payable days are what Payroll takes from Attendance: absences, half days, unpaid leave and late penalties.' : 'Loss of pay and payable days are what Payroll takes from leave: unpaid leave only, out of every day of the month.'}
+              {payable.data.payrollTaken ? ` Payroll took these on ${formatDate(payable.data.payrollTaken.on)} (${payable.data.payrollTaken.period}).` : ''}
+            </p>
+          ) : payable.error ? <p className="ui-caption">Loss of pay could not be worked out: {String(payable.error?.message || payable.error)}</p> : null}
         </section>
       )}
     </div>

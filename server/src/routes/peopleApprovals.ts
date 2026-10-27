@@ -3,7 +3,9 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { requireAnyPermission, requirePermission } from '../middleware/rbac.js';
+import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from '../services/attendance/guards.js';
+import { inboxFor } from '../services/people/inbox.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -73,6 +75,27 @@ peopleApprovalsRouter.get(`${base}/requests`, can(PermissionAction.VIEW, REQUEST
   const names = await namesFor([...waiting, ...asked].flatMap((r) => [r.requesterUserId, ...r.steps.flatMap((s) => [s.approverUserId, s.decidedByUserId, s.standInForUserId, ...((s.candidateUserIds as string[]) || [])].filter(Boolean) as string[])]), orgId);
   res.json({ waitingForMe: await Promise.all(waiting.map((r) => shape(r, names))), mine: await Promise.all(asked.map((r) => shape(r, names))) });
 });
+
+/**
+ * One Approvals inbox (HR view audit, gap 1): People approvals, leave,
+ * attendance requests and Help Desk cases waiting on the reader, oldest
+ * first, with a count per kind. Each source is shown only to those who may
+ * open it (services/people/inbox.ts); decisions go through each source's own
+ * routes, single or bulk.
+ */
+peopleApprovalsRouter.get(
+  `${base}/inbox`,
+  requireAnyPermission(
+    [PEOPLE_MODULE, PermissionAction.VIEW, REQUESTS],
+    [ATTENDANCE_MODULE, PermissionAction.APPROVE, ATTENDANCE_RESOURCE.leave],
+    [ATTENDANCE_MODULE, PermissionAction.APPROVE, ATTENDANCE_RESOURCE.requests],
+    [PEOPLE_MODULE, PermissionAction.VIEW, 'HR Cases'],
+  ),
+  async (req, res) => {
+    if (!(await peopleRouteOk(req, res))) return;
+    res.json(await inboxFor(req));
+  },
+);
 
 peopleApprovalsRouter.get(`${base}/requests/:id`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;

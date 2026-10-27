@@ -5,13 +5,13 @@ import { platformPrisma } from '../../utils/platformPrisma.js';
 import { ISO_DATE, daysBetween, employeeIn, fail, instants, isHoliday, shiftFor, today, withNames, writeDay } from './days.js';
 import { isHHMM, isWeeklyOff } from './compute.js';
 import { CHAINS, activeManagerOf, chainFor, type Chain } from './approvalChain.js';
-import { deciderFor, managerStepBy } from './standIns.js';
+import { deciderFor, managerStepBy, standingInFor } from './standIns.js';
 import { REASON_CODES } from './corrections.js';
 import { selfDecisionAllowed } from '../makerChecker.js';
 import { emit as emitWebhook } from './webhooks.js';
 import { notifyUsers, usersWithPermission } from '../notifications.js';
 import { resolveAccess } from '../access.js';
-import { inScope, teamScope } from '../people/scope.js';
+import { inScope, teamScope, type TeamScope } from '../people/scope.js';
 import { isFeatureEnabled } from '../features.js';
 
 /**
@@ -517,4 +517,33 @@ export async function story(accountId: string, orgId: string, r: any) {
     days: await withNames(orgId, days),
     waitingForManager: chain === 'MANAGER_THEN_HR' && manager ? `${manager.name || 'Their manager'} has not approved this yet; the company asks for the manager first.` : null,
   };
+}
+
+/**
+ * Attendance requests waiting on this reader, not on someone before them:
+ * inside their scope, not their own, and not still with the person's manager
+ * when the kind asks the manager first (unless the reader is that manager or
+ * stands in for them). The same rule as leave's waitingForReader; one
+ * definition for the Approvals inbox and Home's count. Oldest first.
+ */
+export async function requestsWaitingForReader(orgId: string, scope: TeamScope, userId: string) {
+  const rows = await peoplePrisma.attendanceRequest.findMany({ where: { orgId, status: 'PENDING', ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: { createdAt: 'asc' }, take: 2000 });
+  if (!rows.length) return rows;
+  const rules = await rulesFor(orgId);
+  const chains = new Map<string, Chain>();
+  for (const k of KINDS) chains.set(k, await chainOf(orgId, k, rules));
+  const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.employeeId))] } }, select: { id: true, userId: true, reportingManagerId: true } });
+  const of = new Map(people.map((p) => [p.id, p]));
+  const managerIds = [...new Set(people.map((p) => p.reportingManagerId).filter(Boolean) as string[])];
+  const managers = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, status: true, userId: true } })).map((m) => [m.id, m]));
+  const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } });
+  const covers = new Set(me ? await standingInFor(orgId, me.id) : []);
+  return rows.filter((r) => {
+    const p = of.get(r.employeeId);
+    if (p?.userId && p.userId === userId) return false;
+    const m = p?.reportingManagerId ? managers.get(p.reportingManagerId) : null;
+    const activeManager = m && m.status !== 'LEFT' && m.status !== 'SUSPENDED' ? m : null;
+    if (chains.get(r.kind) === 'MANAGER_THEN_HR' && !r.managerApprovedAt && activeManager) return activeManager.userId === userId || covers.has(activeManager.id);
+    return true;
+  });
 }

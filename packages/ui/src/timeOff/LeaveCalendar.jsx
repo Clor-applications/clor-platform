@@ -5,7 +5,7 @@ import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitiv
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
-import { PRIVATE_LABEL, STATUS_LABEL, colorOf, getWorkingWeek, listHolidays, listLeaveRequests, todayIst } from './api';
+import { PRIVATE_LABEL, STATUS_LABEL, colorOf, getWorkingAway, getWorkingWeek, listHolidays, listLeaveRequests, todayIst } from './api';
 import { homeCrumbs } from './shared';
 
 /**
@@ -13,8 +13,12 @@ import { homeCrumbs } from './shared';
  * the holidays and the company's weekly offs shaded. Waiting requests show
  * lighter, so a manager sees a clash before approving into it. Private leave
  * reaches a reader without the right to see it as "Private leave": no type
- * colour, one neutral tone.
+ * colour, one neutral tone. Approved work from home and on duty show on the
+ * same line with their own outlined mark and letter (H, D): working, not
+ * away on leave, and never counted as leave in the Away row.
  */
+const WORKING = { WFH: { letter: 'H', name: 'Work from home' }, ON_DUTY: { letter: 'D', name: 'On duty' } };
+const workingMark = { border: '1px dashed rgb(var(--fg-subtle))', color: 'rgb(var(--fg-muted))' };
 const pad = (n) => String(n).padStart(2, '0');
 const monthOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
 const shift = (month, by) => {
@@ -44,8 +48,8 @@ export default function LeaveCalendar() {
   const [month, setMonth] = useState(today.slice(0, 7));
   const [dept, setDept] = useState('');
   const req = useRequest(
-    () => Promise.all([listLeaveRequests({ month }), listHolidays(month.slice(0, 4)).catch(() => []), getWorkingWeek().catch(() => null)])
-      .then(([r, h, week]) => ({ requests: r.filter((x) => ['APPROVED', 'PENDING'].includes(x.status)), holidays: h, week })),
+    () => Promise.all([listLeaveRequests({ month }), listHolidays(month.slice(0, 4)).catch(() => []), getWorkingWeek().catch(() => null), getWorkingAway(month).catch(() => [])])
+      .then(([r, h, week, working]) => ({ requests: r.filter((x) => ['APPROVED', 'PENDING'].includes(x.status)), holidays: h, week, working })),
     [month],
   );
   const requests = req.data?.requests;
@@ -53,16 +57,23 @@ export default function LeaveCalendar() {
   const days = daysIn(month);
   const isOffDay = useMemo(() => offTest(req.data?.week), [req.data?.week]);
   const holidayOn = useMemo(() => new Map((req.data?.holidays || []).filter((h) => h.date.startsWith(month) && !h.isOptional).map((h) => [h.date, h.name])), [req.data, month]);
-  const departments = useMemo(() => [...new Set((requests || []).map((r) => r.department).filter(Boolean))].sort(), [requests]);
+  const working = req.data?.working;
+  const departments = useMemo(() => [...new Set([...(requests || []), ...(working || [])].map((r) => r.department).filter(Boolean))].sort(), [requests, working]);
   const people = useMemo(() => {
     const byPerson = new Map();
     for (const r of requests || []) {
       if (dept && r.department !== dept) continue;
-      if (!byPerson.has(r.employeeId)) byPerson.set(r.employeeId, { id: r.employeeId, name: r.employeeName, department: r.department, leave: [] });
+      if (!byPerson.has(r.employeeId)) byPerson.set(r.employeeId, { id: r.employeeId, name: r.employeeName, department: r.department, leave: [], working: [] });
       byPerson.get(r.employeeId).leave.push(r);
     }
+    for (const w of working || []) {
+      if (dept && w.department !== dept) continue;
+      if (!byPerson.has(w.employeeId)) byPerson.set(w.employeeId, { id: w.employeeId, name: w.employeeName, department: w.department, leave: [], working: [] });
+      byPerson.get(w.employeeId).working.push(w);
+    }
     return [...byPerson.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [requests, dept]);
+  }, [requests, working, dept]);
+  const workingKinds = [...new Set((working || []).map((w) => w.kind))].filter((k) => WORKING[k]);
   const awayOn = (date) => people.filter((p) => p.leave.some((r) => r.fromDate <= date && date <= r.toDate && r.status === 'APPROVED')).length;
   const legend = useMemo(() => {
     const m = new Map();
@@ -97,7 +108,7 @@ export default function LeaveCalendar() {
       ) : null}
 
       {req.error && !requests ? <ErrorState error={req.error} onRetry={req.reload} /> : !requests ? <SkeletonCard lines={6} /> : !people.length ? (
-        <EmptyState title={`Nobody is away in ${title(month)}${dept ? ` in ${dept}` : ''}`} />
+        <EmptyState title={`Nobody is away or working elsewhere in ${title(month)}${dept ? ` in ${dept}` : ''}`} />
       ) : (
         <section className="space-y-3" aria-label={`Leave in ${title(month)}`}>
           <div className="ui-table-scroll border-t" style={{ borderColor: 'rgb(var(--border))' }}>
@@ -122,6 +133,7 @@ export default function LeaveCalendar() {
                     {days.map((d) => {
                       const r = p.leave.find((x) => x.fromDate <= d && d <= x.toDate);
                       const tone = r ? toneOf(r) : null;
+                      const w = r ? null : p.working.find((x) => x.fromDate <= d && d <= x.toDate && !shaded(d));
                       return (
                         <td key={d} className={`p-0.5 text-center ${shaded(d) ? 'bg-[rgb(var(--border)/0.45)]' : ''}`}>
                           {r ? (
@@ -131,6 +143,13 @@ export default function LeaveCalendar() {
                               title={`${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}${r.halfDay ? ', half day' : ''}`}
                               aria-label={`${d}: ${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}`}
                             />
+                          ) : w ? (
+                            <span
+                              className="flex h-5 items-center justify-center text-[0.75rem] font-medium"
+                              style={workingMark}
+                              title={`${WORKING[w.kind]?.name || w.kind}${w.place ? `, ${w.place}` : ''}${w.halfDay ? ', half day' : ''}`}
+                              aria-label={`${d}: ${WORKING[w.kind]?.name || w.kind}`}
+                            >{WORKING[w.kind]?.letter || ''}</span>
                           ) : null}
                         </td>
                       );
@@ -150,6 +169,7 @@ export default function LeaveCalendar() {
               return <li key={t.key} className="inline-flex items-center gap-1.5"><span className={`inline-block h-2.5 w-2.5 rounded-full ${tone.className || ''}`} style={tone.style} aria-hidden="true" />{t.name}</li>;
             })}
             <li className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full ui-dot-quiet" style={{ opacity: 0.4 }} aria-hidden="true" />Waiting</li>
+            {workingKinds.map((k) => <li key={k} className="inline-flex items-center gap-1.5"><span className="inline-flex h-4 w-4 items-center justify-center text-[0.75rem]" style={workingMark} aria-hidden="true">{WORKING[k].letter}</span>{WORKING[k].name}, working</li>)}
             {[...holidayOn.entries()].map(([d, n]) => <li key={d} className="ui-muted tabular-nums">{Number(d.slice(8))}: {n}</li>)}
           </ul>
         </section>

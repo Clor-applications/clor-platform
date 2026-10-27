@@ -267,7 +267,7 @@ export function RequestHistory({ history }) {
   );
 }
 
-function RequestDrawer({ id, allowed, onClose, onDone }) {
+export function RequestDrawer({ id, allowed, onClose, onDone }) {
   const req = useRequest(() => getRequest(id), [id]);
   const [note, setNote] = useState('');
   const [noteError, setNoteError] = useState('');

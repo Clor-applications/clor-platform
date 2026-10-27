@@ -73,12 +73,20 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
       if (left) out.push({ key: 'assets', title: 'Company property with people who left', detail: `${plural(left, 'person', 'people')} who left still hold assets`, count: left, tone: 'urgent', screen: 'assets' });
     }
   }
-  if (leave) {
-    /* What waits on this reader, in their scope, not still with a manager first (Time & Leave's own count). */
-    const { waitingForReader } = await import('../../routes/leave.js');
-    const { teamScope } = await import('./scope.js');
-    const waiting = (await waitingForReader(orgId, await teamScope(req), req.auth!.userId)).length;
-    if (waiting) out.push({ key: 'leave', title: 'Leave waiting for a decision', detail: `${plural(waiting, 'request')} to approve or reject`, count: waiting, tone: 'soon', screen: 'leaveRequests' });
+  /*
+   * What waits on this reader to decide, from the one Approvals inbox (services/people/inbox.ts):
+   * leave, attendance requests and People approvals, each in their scope and not still with a manager first.
+   * Help desk cases keep their own line below, which also counts cases waiting on the employee.
+   */
+  {
+    const { inboxFor } = await import('./inbox.js');
+    const { counts, items } = await inboxFor(req);
+    if (counts.LEAVE) out.push({ key: 'leave', title: 'Leave waiting for a decision', detail: `${plural(counts.LEAVE, 'request')} to approve or reject`, count: counts.LEAVE, tone: 'soon', screen: 'approvals', params: { kind: 'LEAVE' } });
+    if (counts.ATTENDANCE) out.push({ key: 'attendanceRequests', title: 'Attendance requests waiting', detail: `${plural(counts.ATTENDANCE, 'request')}: work from home, on duty, permission or missed punch`, count: counts.ATTENDANCE, tone: 'soon', screen: 'approvals', params: { kind: 'ATTENDANCE' } });
+    if (counts.APPROVAL) {
+      const overdue = items.filter((i) => i.kind === 'APPROVAL' && i.overdue).length;
+      out.push({ key: 'peopleApprovals', title: 'Approvals waiting for you', detail: `${plural(counts.APPROVAL, 'request')}: profile, job, leaving, letters${overdue ? ` · ${overdue} overdue` : ''}`, count: counts.APPROVAL, tone: overdue ? 'urgent' : 'soon', screen: 'approvals', params: { kind: 'APPROVAL' } });
+    }
   }
   if (cases) {
     const open = await peoplePrisma.deskRequest.findMany({ where: { accountId, orgId, status: { in: ['OPEN', 'REOPENED', 'WAITING_EMPLOYEE'] } }, select: { urgency: true, resolveBy: true, replyBy: true, firstReplyAt: true } });
