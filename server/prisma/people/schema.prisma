@@ -197,6 +197,8 @@ model Employee {
   deskRequests DeskRequest[]
 
   @@unique([orgId, seatId])
+  /// Made by migration 20261025060000_teams_and_seats and missing here until the CI drift check found it.
+  @@index([orgId, teamId])
 }
 
 // ============================================================================
@@ -469,6 +471,7 @@ model AttendanceRecord {
   @@unique([employeeId, date])
   @@index([accountId, orgId, date])
   @@index([accountId, orgId, employeeId, date])
+  @@index([attendanceRequestId])
 }
 
 /// Each clock-in and clock-out as it happened; the record keeps the day's
@@ -551,6 +554,7 @@ model ApprovalStandIn {
   createdAt         DateTime @default(now())
 
   @@index([orgId, managerEmployeeId, fromDate, toDate])
+  @@index([orgId, standInEmployeeId, fromDate, toDate])
 }
 
 /// A restricted (optional) holiday a person chose for a year, within the
@@ -681,6 +685,11 @@ model LeaveType {
 
   @@unique([orgId, name])
   @@index([accountId, orgId])
+  // One code per type in a company, ignoring case: a partial unique index on
+  // ("orgId", lower("code")) WHERE "code" IS NOT NULL, which Prisma cannot
+  // express. It lives in SQL only (migration 20261101090100_leave_type_code_unique,
+  // replayed by src/__tests__/globalSetup.ts); a clash is a P2002 the leave
+  // routes answer as LEAVE_TYPE_CODE_TAKEN.
 }
 
 /// One person's days of one leave type for one calendar year, when it
@@ -730,6 +739,8 @@ model LeaveAdjustment {
 
   @@index([accountId, orgId, year])
   @@index([orgId, employeeId, leaveTypeId])
+  @@index([orgId, employeeId, leaveTypeId, workedOn])
+  @@index([yearEndId])
 }
 
 /// Time off someone asks for. Approving it marks each working day on leave.
@@ -772,6 +783,7 @@ model LeaveRequest {
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, employeeId, fromDate])
   @@index([orgId, fromDate, toDate])
+  @@index([orgId, groupId])
 }
 
 /// A biometric reader (ZKTeco / eSSL) that pushes punches to /iclock. The
