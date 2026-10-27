@@ -86,6 +86,8 @@ export const getLeaveSettings = () => get('/leave/settings');
 export const saveLeaveSettings = (body) => send('/leave/settings', 'PUT', body);
 /** The leave register of a period: opening, credited, changed, taken, paid out, waiting, lapsed, left. */
 export const getLeaveRegister = (params) => get(`/leave/register${query(params)}`);
+/** The register per worker, in a prescribed form's layout: days worked, opening, earned, availed and refused with dates, paid out, closing. */
+export const getLeaveRegisterBook = (params) => get(`/leave/register/book${query(params)}`);
 /** The periods to choose from, newest first, named as the company's leave year names them. */
 /** The leave period a date falls in, by the year it starts in (the calendar year without settings). */
 export const periodYearOf = (s, date) => {
