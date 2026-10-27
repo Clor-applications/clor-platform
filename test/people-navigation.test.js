@@ -15,8 +15,9 @@ describe('People navigation', () => {
 
   it('keeps the sidebar to the day’s work, Settings last', () => {
     /* Workforce package (owner, 26 Oct 2026): the visible module is Workforce; its key stays `employees`. */
-    /* Organization follows Workforce (ORGANIZATION-DECISIONS.md): the company's shape moved out of Settings. */
-    expect(modules.map((m) => m.label)).toEqual(['Home', 'Workforce', 'Organization', 'Time & Leave', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
+    /* Organization follows Workforce (ORGANIZATION-DECISIONS.md): the company's shape moved out of Settings. Joining & Leaving is its own module after Workforce (JOINING-LEAVING-DECISIONS.md). */
+    expect(modules.map((m) => m.label)).toEqual(['Home', 'Workforce', 'Joining & Leaving', 'Organization', 'Time & Leave', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
+    for (const k of ['lifecycle', 'joiners', 'lifecycleChanges', 'leavers', 'checklists']) expect(moduleForScreen(modules, k, peopleApp.nav)?.label, k).toBe('Joining & Leaving');
     expect(modules.find((m) => m.label === 'Settings').single).toBe(true);
   });
 
@@ -86,7 +87,7 @@ describe('People navigation in simple mode', () => {
 
   it('keeps every module that has a screen left, and the leave screens under one naming rule', () => {
     const modules = resolveModules(peopleApp, simple);
-    expect(modules.map((m) => m.label)).toEqual(['Home', 'Workforce', 'Organization', 'Time & Leave', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
+    expect(modules.map((m) => m.label)).toEqual(['Home', 'Workforce', 'Joining & Leaving', 'Organization', 'Time & Leave', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
     expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(['Leave Overview', 'Leave Requests', 'Leave Calendar', 'Leave Balances', 'Leave Register', 'Attendance Requests', 'Attendance', 'My Leave', 'My Attendance']);
   });
 

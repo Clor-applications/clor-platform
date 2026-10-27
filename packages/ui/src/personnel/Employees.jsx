@@ -68,6 +68,7 @@ import {
   resignEmployee,
   updateEmployee,
 } from './api';
+import { TaskDrawer } from '../lifecycle/shared';
 
 /**
  * The staff directory, after Horilla's employee view: cards or a list, a
@@ -1147,6 +1148,8 @@ function WhyPanel({ why }) {
 export function EmployeeChecklist({ person }) {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState('');
+  /* A step that needs a note, or CLOR's own reader removal, opens to be closed with a note (Joining & Leaving). */
+  const [noting, setNoting] = useState(null);
   useEffect(() => {
     let live = true;
     getChecklist(person.id).then((d) => live && setData(d)).catch(() => live && setData({ joining: { tasks: [] }, leaving: { tasks: [] } }));
@@ -1155,6 +1158,7 @@ export function EmployeeChecklist({ person }) {
     };
   }, [person.id]);
   const tick = async (t) => {
+    if (!t.done && (t.needsNote || t.system)) { setNoting(t); return; }
     setBusy(t.id);
     try {
       setData(await updateChecklistTask(t.id, { done: !t.done }));
@@ -1180,11 +1184,11 @@ export function EmployeeChecklist({ person }) {
       </div>
       {list.total ? (
         <>
-          <div className="ui-meter" aria-hidden="true"><span style={{ width: `${Math.round((list.done / list.total) * 100)}%` }} /></div>
+          <div className="ui-meter" data-tone="progress" aria-hidden="true"><span style={{ width: `${Math.round((list.done / list.total) * 100)}%` }} /></div>
           <ul className="divide-y">
             {list.tasks.map((t) => (
               <li key={t.id} className="flex items-start gap-3 py-2">
-                <input type="checkbox" className="mt-1" checked={t.done} disabled={busy === t.id} onChange={() => tick(t)} aria-label={t.title} />
+                <input type="checkbox" className="mt-1" checked={t.done} disabled={busy === t.id || (t.system && (t.done || t.systemState !== 'FAILED'))} onChange={() => tick(t)} aria-label={t.title} />
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm ${t.done ? 'line-through ui-muted' : ''}`}>{t.title}</p>
                   <p className="ui-caption">
@@ -1193,6 +1197,7 @@ export function EmployeeChecklist({ person }) {
                     {t.done && t.doneBy ? ` · done by ${t.doneBy}` : ''}
                   </p>
                   {t.note ? <p className="ui-caption">{t.note}</p> : null}
+                  {t.needsNote && !t.done ? <p className="ui-caption">Closes with a note.</p> : null}
                 </div>
               </li>
             ))}
@@ -1213,6 +1218,7 @@ export function EmployeeChecklist({ person }) {
       {data.changes?.total ? section('CHANGE', 'Changes to review', data.changes) : null}
       {data.probation?.total ? section('PROBATION', 'Probation', data.probation) : null}
       {data.renewals?.total ? section('RENEWAL', 'Renewals', data.renewals) : null}
+      {noting ? <TaskDrawer task={{ ...noting, late: noting.overdue, employee: { id: person.id, name: person.name } }} canAssign={false} onClose={() => setNoting(null)} onSaved={() => { setNoting(null); getChecklist(person.id).then(setData).catch(() => undefined); }} /> : null}
     </div>
   );
 }

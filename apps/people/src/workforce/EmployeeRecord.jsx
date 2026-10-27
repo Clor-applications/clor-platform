@@ -856,7 +856,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
           <div className="mt-4"><button type="button" className="ui-btn ui-btn-secondary" disabled={!rejoin} onClick={rehire}>Rehire</button></div>
         </Section>
       ) : null}
-      <Section title="Onboarding & exit"><EmployeeChecklist person={person} /></Section>
+      <Section title="Joining & leaving"><EmployeeChecklist person={person} /></Section>
     </div>
   );
 }

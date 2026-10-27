@@ -90,7 +90,8 @@ const Punches = screen('Punches');
 const AuditLogs = screen('AuditLogs');
 const DataHealth = screen('DataHealth');
 const PayrollReadiness = screen('PayrollReadiness');
-const Checklists = screen('Checklists');
+const LifecycleTasks = screen('LifecycleTasks');
+const JourneySteps = screen('JourneySteps');
 const ComplianceCalendar = screen('ComplianceCalendar');
 const RecycleBin = screen('RecycleBin');
 const DeviceLogs = screen('DeviceLogs');
@@ -259,7 +260,7 @@ export const attendanceApp = {
       { label: 'All Reports', items: ['reports'] },
     ] },
     { key: 'system', label: 'Settings', groups: [
-      { label: 'Organization', items: ['setup', 'sites', 'siteCheck'] },
+      { label: 'Organization', items: ['setup', 'sites', 'siteCheck', 'journeySteps'] },
       /* Founder's Work Policy group (NV-02). Weekly off and overtime are views
          over the shifts' own fields and the company rules, not new rules. */
       { label: 'Work Policy', items: ['rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'workingWeek', 'holidays', 'leaveYearEnd', 'requestRules'] },
@@ -365,7 +366,9 @@ export const attendanceApp = {
     /* HR research Phase 2: statutory and company deadlines with owners and evidence. */
     { key: 'complianceCalendar', label: 'Compliance Calendar', icon: CalendarCheck, permission: 'PEOPLE::Employees::VIEW' },
     /* HR research: joining and leaving checklists. */
-    { key: 'checklists', label: 'Onboarding & Exit', icon: ClipboardCheck, permission: 'PEOPLE::Employees::VIEW' },
+    /* Joining & Leaving tasks and steps: the same screens People shows (JOINING-LEAVING-DECISIONS.md). */
+    { key: 'checklists', label: 'Joining & Leaving Tasks', icon: ClipboardCheck, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'journeySteps', label: 'Joining & Leaving Steps', icon: ClipboardCheck, permission: 'PEOPLE::Employees::VIEW' },
     /* HR research Phase 1: the control tower for one month's payroll. */
     { key: 'payrollReadiness', label: 'Payroll Readiness', icon: ClipboardCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     /* HR research Phase 1: the implementation auditor. */
@@ -440,7 +443,8 @@ export const attendanceApp = {
     auditLogs: AuditLogs,
     dataHealth: DataHealth,
     payrollReadiness: PayrollReadiness,
-    checklists: Checklists,
+    checklists: LifecycleTasks,
+    journeySteps: JourneySteps,
     complianceCalendar: ComplianceCalendar,
     recycleBin: RecycleBin,
     dataProtection: DataProtection,

@@ -6578,6 +6578,8 @@ th.ui-th {
 .ui-trend-label { font-size: 0.75rem; color: rgb(var(--fg-muted)); white-space: nowrap; }
 .ui-meter { height: 0.5rem; border-radius: 999px; background: rgb(var(--fg) / 0.06); overflow: hidden; min-width: 4rem; }
 .ui-meter > span { display: block; height: 100%; border-radius: inherit; background: rgb(var(--neg) / 0.7); }
+/* Work done out of all (a plan's tasks): done is good news, never the colour of a problem (the rose brand reads as one). */
+.ui-meter[data-tone='progress'] > span { background: rgb(var(--pos)); }
 
 /*
  * The week as a rate: each bar is everyone expected that day, filled by the
@@ -7857,6 +7859,8 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 /* Time & Leave: a request waiting too long; a private leave's dot carries no type colour. */
 .ui-text-warn { color: rgb(var(--warn)); }
 .ui-dot-quiet { background: rgb(var(--fg-subtle)); }
+.ui-dot-pos { background: rgb(var(--pos)); }
+.ui-dot-neg { background: rgb(var(--neg)); }
 /* Below the phone tab bar's top edge, a sticky footer would sit under the bar (it is 61px plus the safe area). */
 @media (max-width: 767px) {
   .ui-wizard-actions { bottom: calc(62px + env(safe-area-inset-bottom)); }

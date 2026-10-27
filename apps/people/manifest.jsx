@@ -1,6 +1,12 @@
 import React from 'react';
 import {
   AppsListColor,
+  ArrowClockwiseDashesColor,
+  CheckboxPersonColor,
+  ClipboardTextEditColor,
+  PeopleSyncColor,
+  PersonAddColor,
+  PersonTentativeColor,
   ArrowSyncColor,
   BeachColor,
   BookOpenLightbulbColor,
@@ -90,7 +96,12 @@ const Departments = screen('Departments');
 const JobPositions = screen('JobPositions');
 const JobRoles = screen('JobRoles');
 const DataHealth = screen('DataHealth');
-const Checklists = screen('Checklists');
+const LifecycleTasks = screen('LifecycleTasks');
+const LifecycleOverview = screen('LifecycleOverview');
+const Joiners = screen('Joiners');
+const LifecycleChanges = screen('LifecycleChanges');
+const Leavers = screen('Leavers');
+const JourneySteps = screen('JourneySteps');
 const LetterTemplates = screen('LetterTemplates');
 const CustomFieldsSettings = screen('CustomFieldsSettings');
 const SelfServiceSettings = screen('SelfServiceSettings');
@@ -192,6 +203,12 @@ const I = {
   requests: colorIcon(GlobeShieldColor, 'GlobeShield'),
   sso: colorIcon(LockClosedColor, 'LockClosed'),
   sync: colorIcon(ArrowSyncColor, 'ArrowSync'),
+  lifecycle: colorIcon(PeopleSyncColor, 'PeopleSync'),
+  joiner: colorIcon(PersonAddColor, 'PersonAdd'),
+  leaver: colorIcon(PersonTentativeColor, 'PersonTentative'),
+  change: colorIcon(ArrowClockwiseDashesColor, 'ArrowClockwiseDashes'),
+  task: colorIcon(CheckboxPersonColor, 'CheckboxPerson'),
+  steps: colorIcon(ClipboardTextEditColor, 'ClipboardTextEdit'),
 };
 
 /* One register screen per kind, with the shell's props (openScreen, params). */
@@ -233,9 +250,10 @@ export const peopleApp = {
     { key: 'employees', label: 'Workforce', groups: [
       { label: 'Directory', items: ['employees', 'documents'] },
       { label: 'Help', items: ['helpdesk', 'policies', 'privateCases'] },
-      { label: 'Joining & Leaving', items: ['checklists', 'assets'] },
-      { label: 'Pay & Benefits', items: ['compensation', 'benefits'] },
+      { label: 'Pay, Benefits & Assets', items: ['compensation', 'benefits', 'assets'] },
     ] },
+    /* Joining & Leaving (JOINING-LEAVING-DECISIONS.md): who is joining or leaving, what is not done yet, and whose it is. `checklists` keeps its key (old links); it is now Tasks. */
+    { key: 'lifecycle', label: 'Joining & Leaving', short: 'Join', items: ['lifecycle', 'joiners', 'lifecycleChanges', 'leavers', 'checklists'] },
     /* Organization (ORGANIZATION-DECISIONS.md): how the company is set up and who runs what. The detailed lists show with the Detailed structure switch. */
     { key: 'organization', label: 'Organization', short: 'Org', groups: [
       { label: 'Structure', items: ['organization', 'departments', 'jobPositions', 'orgChart'] },
@@ -274,7 +292,13 @@ export const peopleApp = {
     { key: 'orgChanges', label: 'Changes', icon: I.audit, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleDetailed' },
     { key: 'documents', label: 'Documents', icon: I.folder, permission: 'PEOPLE::Documents::VIEW' },
     { key: 'policies', label: 'Policies', icon: I.policy, permission: 'PEOPLE::Policies::VIEW', feature: 'peopleDetailed' },
-    { key: 'checklists', label: 'Onboarding & Exit', icon: I.checklist, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'lifecycle', label: 'Overview', icon: I.lifecycle, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'joiners', label: 'Joining', icon: I.joiner, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'lifecycleChanges', label: 'Changes', icon: I.change, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'leavers', label: 'Leaving', icon: I.leaver, permission: 'PEOPLE::Employees::VIEW' },
+    /* Anyone with a task on their name opens Tasks (their own only); the server decides what each sees. */
+    { key: 'checklists', label: 'Tasks', icon: I.task },
+    { key: 'journeySteps', label: 'Joining & Leaving Steps', icon: I.steps, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     { key: 'selfService', label: 'Employee Portal Access', icon: I.key, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
     { key: 'letterTemplates', label: 'Letters', icon: I.policy, permission: 'PEOPLE::Documents::VIEW', parent: 'settings' },
     { key: 'customFields', label: 'Custom Fields', icon: I.tag, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings', feature: 'peopleDetailed' },
@@ -359,7 +383,12 @@ export const peopleApp = {
     branches: Branches,
     orgChanges: OrgChanges,
     documents: PeopleDocuments,
-    checklists: Checklists,
+    checklists: LifecycleTasks,
+    lifecycle: LifecycleOverview,
+    joiners: Joiners,
+    lifecycleChanges: LifecycleChanges,
+    leavers: Leavers,
+    journeySteps: JourneySteps,
     letterTemplates: LetterTemplates,
     customFields: CustomFieldsSettings,
     selfServiceChanges: SelfServiceSettings,

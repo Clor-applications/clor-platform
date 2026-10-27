@@ -222,6 +222,9 @@ export const getHolidays = (year) => call(`/holidays${year ? `?year=${encodeURIC
 /* Leaving the company (server: peoplePortal /me/resign, /me/leaving). */
 export const resign = (body) => call('/people/me/resign', { method: 'POST', body });
 export const getLeaving = () => call('/people/me/leaving');
+/* My joining and leaving steps (server: peoplePortal /me/journey): the ones that are mine to tick, and what I hand back. */
+export const getJourney = () => call('/people/me/journey');
+export const doneJourneyTask = (id, note) => call(`/people/me/journey/tasks/${encodeURIComponent(id)}/done`, { method: 'POST', body: note ? { note } : {} });
 
 /* Ask HR as a conversation (server: peoplePortal /desk): my requests with who wrote last, one with its thread (no internal notes), a reply, a reopen. */
 export const getDesk = () => call('/people/desk');

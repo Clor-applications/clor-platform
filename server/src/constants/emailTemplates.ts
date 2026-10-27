@@ -271,11 +271,22 @@ For: {{employeeName}}{{employeeCode}}
 Due: {{dueDate}}
 Part of: {{kind}}
 
-When a task is done, open its link and it is ticked in People (each link works once and only for you):
+When a task is done, open its link and press Mark done (each link is only for you; opening it changes nothing by itself):
 {{doneLink}}
 
 Or open People at {{appUrl}}.`,
     fields: ['title', 'employeeName', 'employeeCode', 'dueDate', 'kind', 'doneLink'],
+  },
+  {
+    key: 'people.task_digest',
+    label: 'Joining and leaving tasks due',
+    description: 'Once a day, to each person with joining, leaving or change tasks due that day or late: one list, never one e-mail per task. HR also hears about tasks three or more days late on someone else\'s name.',
+    subject: '{{count}} joining and leaving tasks for you today',
+    body: `Due today or late:
+{{lines}}
+{{others}}
+Open People to tick them: {{appUrl}}`,
+    fields: ['count', 'lines', 'others'],
   },
   {
     key: 'people.data_breach',

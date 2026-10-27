@@ -105,3 +105,20 @@ Read first: `TIME-LEAVE-DECISIONS.md` (how it works per subscription, scope, rea
 | T.10 Second audit and close | DONE | Independent audit of the advanced build: 16 findings, all closed (slabs by period, rules on a type in use from this period, stand-in as themselves, edit by type, half-day WFH present, leave over WFH refused, the rule waits instead of refusing, hand-on clock, stand-in queue and digest, lapse notice, year-end undo guard, stand-in right, comp-off save, approve while with the manager, picked holidays in WFH days); one code per type; tests `timeLeave.test.ts` 31, `attendanceRequests.test.ts` 11; decisions in `TIME-LEAVE-DECISIONS.md` |
 | T.11 Attendance app on the shared engine | DONE | Time & Leave screens moved to `packages/ui/src/timeOff/`, Attendance's rail and Settings rewired to them, its old leave and Corrections screens deleted; bulk decide on Attendance Requests through `decideRequest`; people picker and suggestions served by the leave engine for a company with Attendance alone; tests `attendanceRequests.test.ts` 15, `people-attendance-requests.test.jsx` 6, `split-navigation.test.js` updated |
 | T.12 Post-merge closure audit | DONE (code); 2 release gates with the owner | `TIME-LEAVE-CLOSURE-AUDIT-2026-10-28.md`: 20 findings fixed (job wake-up on Cloud Run, employee-app audit lines, append-only audit, no deciding one's own requests/balances, overtime and corrections atomic, month reopen with reason, holidays/overtime/payroll-taken days frozen). Open: Cloud Scheduler setup, OSH earned-leave by days worked, Payroll reading the snapshot, shift edits in closed months. Market research: `TIME-LEAVE-MARKET-RESEARCH.md` |
+
+## Joining & Leaving module (27 Oct 2026)
+
+Read first: `JOINING-LEAVING-DECISIONS.md` (why this module before Hiring, scope, what is left out), then `JOINING-LEAVING-AUDIT-2026-10-27.md`.
+Source: the owner's `Clor_People_Joining_Changes_Leaving_Repo_Research_2026-10-27.zip`, checked finding by finding against `main` at `e24d7c6`.
+
+| Step | State | Where |
+|---|---|---|
+| J.0 Module choice and decisions | DONE | `JOINING-LEAVING-DECISIONS.md`: PRD ranks Employee Lifecycle P0 and Hiring P1; the owner's pack arrived 27 Oct. No new case table: lists are projections of employee, tasks, invites, dated changes, requests |
+| J.1 Safety fixes from the pack | DONE | E-mail task link ticks only on its button (JCL-A10); reader removal waits for every reader, fails visibly, closes by hand with a note (A02); final wages split from the settlement, due in working days, with a payment note, on their real date (A03/A23); missing plans started by the job (A01). Migration `20261103090000_lifecycle_tasks` (people) |
+| J.2 Server | DONE | `routes/peopleLifecycle.ts` (overview, joiners, changes, leavers, tasks, leaving preview), `services/people/lifecycle/{board,jobs,readersDone,workdays}.ts`, steps by employment type / working days / needs a note, moved dates move plans, nobody closes their own plan, audit rows, employee app `/me/journey` |
+| J.3 Screens | DONE | Rail module Joining & Leaving: Overview, Joining, Changes, Leaving, Tasks (key `checklists` kept); Settings → Joining & Leaving Steps; plan and task drawers; Attendance uses the same Tasks and Steps; employee app "Before your last day" / hand back |
+| J.4 Tests | DONE | `peopleLifecycle.test.ts` 11, `peoplePlans.test.ts` and `checklists.test.ts` updated, `routeManifest.test.ts` (allow-list entries); web `test/people-lifecycle.test.jsx` 6, navigation tests updated |
+| J.5 Browser | DONE | 1366 and 375 px, every screen and drawer, employee app at 375; no sideways scroll; `evidence/joining-leaving/` |
+| J.6 Audit and fixes | DONE | `JOINING-LEAVING-AUDIT-2026-10-27.md`: 11 browser findings, 18 role findings, 6 workflow checks; parked: H5 (close old joiners' plans in one go), E2 (default employee steps) |
+
+Open after this module: identity-provider connectors and e-signature (only if customers have them), a legal rules catalogue reviewed by counsel, Payroll acknowledging a separation. Hiring is next on the rail.

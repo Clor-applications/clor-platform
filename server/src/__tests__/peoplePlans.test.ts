@@ -102,12 +102,17 @@ describe('a joining plan with named owners', () => {
     expect((await people(itAdmin).get('/tasks/mine').expect(200)).body.tasks.map((t: any) => t.title).sort()).toEqual(['Laptop ready', 'Welcome and desk']);
   });
 
-  it('the e-mail link ticks the task once, only for its owner, and is logged', async () => {
+  it('the e-mail link ticks the task once, only for its owner, by its button, and is logged', async () => {
     const task = await runInTenant(hr.orgId, () => peoplePrisma.checklistTask.findFirstOrThrow({ where: { employeeId: joiner.id, title: 'Collect ID proof' } }));
     const link = `/api/people/task-links/${taskDoneToken(task)}`;
     const wrong = `/api/people/task-links/${taskDoneToken({ ...task, ownerUserId: itAdmin.userId })}`;
     expect((await request(app).get(wrong).expect(403)).text).toMatch(/not yours/);
-    expect((await request(app).get(link).expect(200)).text).toMatch(/Done/);
+    /* Opening the link (a mail scanner, a preview) changes nothing; the button does (JCL-A10). */
+    expect((await request(app).get(link).expect(200)).text).toMatch(/Mark done/);
+    expect((await runInTenant(hr.orgId, () => peoplePrisma.checklistTask.findUniqueOrThrow({ where: { id: task.id } }))).doneAt).toBeNull();
+    expect((await request(app).post(wrong).expect(403)).text).toMatch(/not yours/);
+    expect((await request(app).post(link).expect(200)).text).toMatch(/is ticked/);
+    expect((await request(app).post(link).expect(200)).text).toMatch(/Already done/);
     expect((await request(app).get(link).expect(200)).text).toMatch(/Already done/);
     expect((await request(app).get('/api/people/task-links/not-a-token').expect(400)).text).toMatch(/does not work/);
     const row = await runInTenant(hr.orgId, () => peoplePrisma.checklistTask.findUniqueOrThrow({ where: { id: task.id } }));

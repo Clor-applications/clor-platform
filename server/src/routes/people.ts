@@ -49,7 +49,8 @@ import { ask as askToRead, remind as ackRemind, report as ackReport } from '../s
 import { dataHealth, readinessOf } from '../services/people/dataHealth.js';
 import { KIND_LABEL, MERGEABLE, OrgError, STRUCTURE_KINDS, actionOf, ensureOrgDetail, headFields, headsOf, inUseRefusal, logStructure, mergeInto, movePeople, organizationOverview, peopleIn, retireBranch, structureChanges, structureHistory, targetFor, type Kind } from '../services/people/organization.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
-import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, myTasks, openTasks, readTaskDoneToken, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
+import { KINDS, checklistOf, cleanItems, itemsFor, myTasks, openTasks, ownPlanRefusal, redatePlan, startChecklist, tickRefusal, type Kind as ChecklistKind } from '../services/people/checklists.js';
+import { settleReaderTask } from '../services/people/lifecycle/readersDone.js';
 import { addCustom, calendar, evidenceOf, updateTask } from '../services/people/compliance.js';
 import { homeTodos } from '../services/people/home.js';
 import { SetupError, changeSetup, peopleSetup } from '../services/people/setup.js';
@@ -1181,10 +1182,13 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
     /* A corrected joining date moves the dates service counts from, while the first stint is still open (W6). */
     if (row.dateOfJoining !== existing.dateOfJoining) await joiningCorrected({ accountId, orgId, userId: req.auth!.userId }, row, row.dateOfJoining ? String(row.dateOfJoining).slice(0, 10) : null);
     /* Leaving or coming back starts that checklist; CLOR takes them off the readers itself, so it ticks that item. */
-    if (row.status === 'LEFT' && existing.status !== 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'LEAVING', row.dateOfLeaving, { done: [READER_ACCESS_ITEM] });
+    if (row.status === 'LEFT' && existing.status !== 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'LEAVING', row.dateOfLeaving);
     else if (row.status !== 'LEFT' && existing.status === 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
-    /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted. */
-    if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
+    /* A moved joining day, or a moved last day while on notice, moves that plan's open tasks with it (JCL-A04). */
+    if (row.dateOfJoining !== existing.dateOfJoining && row.status !== 'LEFT') await redatePlan(orgId, row.id, 'JOINING', row.dateOfJoining);
+    if (row.dateOfLeaving !== existing.dateOfLeaving && row.status === 'ON_NOTICE') await redatePlan(orgId, row.id, 'LEAVING', row.dateOfLeaving);
+    /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted; the leaving task waits for the readers to confirm. */
+    if (row.status === 'LEFT' && existing.status !== 'LEFT') await settleReaderTask({ accountId, orgId, userId: req.auth!.userId }, row, await revokeFromReaders(orgId, existing, req.auth!.userId));
     /* Suspended means not at work: off the doors while suspended, back on when reactivated (W9). */
     else if (row.status === 'SUSPENDED' && existing.status !== 'SUSPENDED') await revokeFromReaders(orgId, existing, req.auth!.userId);
     else if (row.status === 'ACTIVE' && existing.status === 'SUSPENDED') await pushEmployeeToReaders(orgId, row, req.auth!.userId);
@@ -1306,10 +1310,19 @@ peopleRouter.patch('/orgs/:orgId/people/checklist-tasks/:id', async (req, res) =
   const { done, note, ownerUserId } = parsed.data;
   if (ownerUserId !== undefined && !hr) return res.status(403).json({ error: 'Only HR gives a task to someone else.' });
   if (ownerUserId && !(await platformPrisma.userOrgMembership.findFirst({ where: { orgId, userId: ownerUserId }, select: { id: true } }))) return res.status(400).json({ error: 'That person is not in this company.' });
+  /* CLOR's own work closes when confirmed; some steps need a note; nobody closes their own plan's tasks (Joining & Leaving). */
+  const refused = tickRefusal(task, { done, note });
+  if (refused) return res.status(refused.status).json({ error: refused.error });
+  if (done !== undefined || ownerUserId !== undefined) {
+    const own = await ownPlanRefusal({ accountId, orgId, userId: req.auth!.userId }, task);
+    if (own) return res.status(403).json({ error: own, code: 'OWN_PLAN' });
+  }
   const actor = actorOf(req, 'FORM');
   await peoplePrisma.$transaction(async (tx) => {
     const data = {
       ...(done === true ? { doneAt: task.doneAt || new Date(), doneByUserId: task.doneAt ? task.doneByUserId : req.auth!.userId } : done === false ? { doneAt: null, doneByUserId: null } : {}),
+      /* A reader removal that failed and was then done at the reader by a person: closed by hand, not confirmed by the reader. */
+      ...(done === true && !task.doneAt && task.system && task.systemState === 'FAILED' ? { systemState: 'MANUAL' } : {}),
       ...(note !== undefined ? { note: note || null } : {}),
       ...(ownerUserId !== undefined ? { ownerUserId: ownerUserId || null } : {}),
     };
@@ -1319,6 +1332,8 @@ peopleRouter.patch('/orgs/:orgId/people/checklist-tasks/:id', async (req, res) =
     if (ownerUserId !== undefined && ownerUserId !== task.ownerUserId) changes.push({ field: 'ownerUserId', before: task.ownerUserId, after: ownerUserId || null, redacted: false });
     await writeChangeLog(tx, actor, { kind: 'ChecklistTask', id: task.id, employeeId: task.employeeId }, changes);
   });
+  if (done !== undefined && Boolean(task.doneAt) !== done) await recordAudit(req, { entity: 'ChecklistTask', entityId: task.id, action: done ? 'TASK_DONE' : 'TASK_REOPENED', message: `${done ? 'Done' : 'Opened again'}: ${task.title}`, metadata: { employeeId: task.employeeId, kind: task.kind } });
+  if (ownerUserId !== undefined && ownerUserId !== task.ownerUserId) await recordAudit(req, { entity: 'ChecklistTask', entityId: task.id, action: 'TASK_REASSIGNED', message: `Task handed on: ${task.title}`, metadata: { employeeId: task.employeeId, from: task.ownerUserId, to: ownerUserId || null } });
   res.json(await checklistOf(orgId, task.employeeId));
 });
 
@@ -1344,11 +1359,15 @@ peopleRouter.put('/orgs/:orgId/people/checklist-templates/:kind', can(Permission
   if (!kind) return res.status(404).json({ error: 'Checklists are JOINING or LEAVING.' });
   const items = cleanItems(req.body?.items);
   if (typeof items === 'string') return res.status(400).json({ error: items });
+  /* "Only for" names this company's employment types, nothing else. */
+  const named = [...new Set(items.flatMap((it) => it.types || []))];
+  if (named.length && (await peoplePrisma.employeeType.count({ where: { orgId, id: { in: named } } })) !== named.length) return res.status(400).json({ error: 'Pick employment types from this company.' });
   await peoplePrisma.checklistTemplate.upsert({
     where: { orgId_kind: { orgId, kind } },
     create: { accountId, orgId, kind, items: items as any, updatedByUserId: req.auth!.userId },
     update: { items: items as any, updatedByUserId: req.auth!.userId },
   });
+  await recordAudit(req, { entity: 'ChecklistTemplate', entityId: kind, action: 'UPDATE', message: `${kind === 'JOINING' ? 'Joining' : 'Leaving'} steps saved (${items.length})`, metadata: { kind, items: items.length } });
   res.json(await itemsFor(orgId, kind));
 });
 
@@ -1358,6 +1377,7 @@ peopleRouter.delete('/orgs/:orgId/people/checklist-templates/:kind', can(Permiss
   const kind = kindParam(req.params.kind);
   if (!kind) return res.status(404).json({ error: 'Checklists are JOINING or LEAVING.' });
   await peoplePrisma.checklistTemplate.deleteMany({ where: { orgId, kind } });
+  await recordAudit(req, { entity: 'ChecklistTemplate', entityId: kind, action: 'RESET', message: `${kind === 'JOINING' ? 'Joining' : 'Leaving'} steps back to CLOR's defaults`, metadata: { kind } });
   res.json(await itemsFor(orgId, kind));
 });
 

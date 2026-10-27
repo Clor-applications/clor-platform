@@ -78,6 +78,7 @@ describe('joining and leaving checklists', () => {
     expect(open.some((t: any) => t.employee.code === 'C2' && t.title === 'Full and final settlement paid')).toBe(true);
     const reset = (await api('delete', '/checklist-templates/leaving').expect(200)).body;
     expect(reset.custom).toBe(false);
-    expect(reset.items.length).toBe(7);
+    /* CLOR's leaving steps: wages and the rest of the settlement are two steps (Joining & Leaving, JCL-A03). */
+    expect(reset.items.length).toBe(8);
   });
 });

@@ -106,17 +106,13 @@ export const getEmployeeStatutory = (id) => apiFetch(`${base()}/employees/${enco
 export const revealStatutory = (id, field) => send(`/employees/${encodeURIComponent(id)}/statutory/reveal`, 'POST', { field }).then((r) => r?.value ?? null);
 /* The identifiers People keeps: last four of Aadhaar, passport, work permit, statutory category. */
 export const saveIdentity = (id, body) => send(`/employees/${encodeURIComponent(id)}/identity`, 'PUT', body).then((r) => r?.identity);
-/* Joining and leaving checklists (server: services/people/checklists.ts). */
+/* Joining and leaving plans on a record (server: services/people/checklists.ts); the lists live in packages/ui/src/lifecycle. */
 export const CHECKLIST_OWNER = { HR: 'HR', MANAGER: 'Manager', PAYROLL: 'Payroll', IT: 'IT / admin', EMPLOYEE: 'Employee' };
 export const getChecklist = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/checklist`, opts);
 export const startChecklist = (id, kind) => send(`/employees/${encodeURIComponent(id)}/checklist/${kind}`, 'POST', {});
 export const updateChecklistTask = (taskId, body) => send(`/checklist-tasks/${encodeURIComponent(taskId)}`, 'PATCH', body);
-export const listOpenChecklistTasks = () => apiFetch(`${base()}/checklist-tasks`, opts).then((r) => r?.tasks || []);
 /* The tasks on my name (LIFE-07), open first. */
 export const listMyTasks = () => apiFetch(`${base()}/tasks/mine`, opts).then((r) => r?.tasks || []);
-export const getChecklistTemplates = () => apiFetch(`${base()}/checklist-templates`, opts);
-export const saveChecklistTemplate = (kind, items) => send(`/checklist-templates/${kind}`, 'PUT', { items });
-export const resetChecklistTemplate = (kind) => send(`/checklist-templates/${kind}`, 'DELETE');
 /* Compliance calendar (server: services/people/compliance.ts). */
 export const getComplianceCalendar = () => apiFetch(`${base()}/compliance`, opts);
 export const updateComplianceTask = (id, body) => send(`/compliance/${encodeURIComponent(id)}`, 'PATCH', body);
