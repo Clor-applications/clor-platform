@@ -16,13 +16,14 @@ import { peoplePrisma, peopleWrite, afterPeopleCommit } from '../utils/peoplePri
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from '../services/attendance/guards.js';
 import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
 import { isWeeklyOff } from '../services/attendance/compute.js';
-import { ACCRUALS, CALENDAR, balanceFor, periodEnd, periodLabel, periodOf, periodStart, type LeavePeriod } from '../services/attendance/leaveAccrual.js';
+import { ACCRUALS, CALENDAR, balanceFor, carryLimitOf, periodEnd, periodLabel, periodOf, periodStart, workedCredit, type LeavePeriod, type Worked } from '../services/attendance/leaveAccrual.js';
 import { emit as emitWebhook, leaveEvent, leaveEventFor } from '../services/attendance/webhooks.js';
 import { ISO_DATE, PayrollTakenError, closedMonths, codeKey, employeeIn, fail, isHoliday, myEmployee, payrollTaken, peopleByCode, sendError, shiftFor, today, withNames, assertMonthOpen, writeDay } from '../services/attendance/days.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { policyProblem } from '../services/people/leavePolicy.js';
 import { OPEN, balancesFor, entitledDays, leavePeriodOf, leaveYearOf, probationOf, round } from '../services/attendance/leaveBalances.js';
+import { daysWorkedBefore, daysWorkedByPeriod } from '../services/attendance/daysWorked.js';
 import { deciderFor, managerStepBy, standingInFor, teamDecidedBy } from '../services/attendance/standIns.js';
 import { loadSchedule, resolveShift } from '../services/attendance/schedule.js';
 import { authorize } from '../middleware/rbac.js';
@@ -46,6 +47,9 @@ const R = ATTENDANCE_RESOURCE;
 const can = (action: string, resource: string) => requirePermission(ATTENDANCE_MODULE, action as any, resource);
 const base = '/orgs/:orgId/attendance/leave';
 const MAX_SPAN_DAYS = 60;
+/** The longest single request: 26 weeks. A type's own longest request above 60 days lifts the span to it. */
+export const MAX_REQUEST_DAYS = 182;
+export const spanLimitOf = (type: { maxDaysPerRequest?: number | null }) => Math.min(MAX_REQUEST_DAYS, Math.max(MAX_SPAN_DAYS, Math.ceil(Number(type.maxDaysPerRequest) || 0)));
 
 const addDays = (date: string, n: number) => {
   const d = new Date(`${date}T00:00:00Z`);
@@ -76,7 +80,11 @@ export type PlannedDay = { date: string; counted: boolean; why: string | null };
  * between the first and last working day are charged too, and say so.
  * Loaded once for the range, not once a day.
  */
-export async function dayPlan(orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, from: string, to: string, sandwich: boolean): Promise<PlannedDay[]> {
+/** How a type charges dates: the sandwich rule, or every calendar date (maternity). A boolean is the sandwich rule alone. */
+export type CountRule = boolean | { sandwich?: boolean | null; countsCalendarDays?: boolean | null };
+export async function dayPlan(orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, from: string, to: string, rule: CountRule): Promise<PlannedDay[]> {
+  const sandwich = typeof rule === 'boolean' ? rule : Boolean(rule?.sandwich);
+  const calendar = typeof rule === 'boolean' ? false : Boolean(rule?.countsCalendarDays);
   const [schedule, holidays] = await Promise.all([
     loadSchedule(orgId, [employee.id]),
     peoplePrisma.holiday.findMany({
@@ -101,6 +109,11 @@ export async function dayPlan(orgId: string, employee: { id: string; branchId: s
     else if (isWeeklyOff(resolveShift(schedule, employee.id, d).rule, d)) out.push({ date: d, counted: false, why: 'Weekly off' });
     else out.push({ date: d, counted: true, why: null });
   }
+  /* Calendar days (maternity: 26 weeks are 182 days): every date is leave, and the skipped ones say why they count. */
+  if (calendar) {
+    for (const x of out) if (!x.counted) { x.counted = true; x.why = `${x.why}, counted (calendar days)`; }
+    return out;
+  }
   const working = out.filter((x) => x.counted);
   if (sandwich && working.length >= 2) {
     const first = working[0].date;
@@ -115,8 +128,8 @@ const workingDays = async (orgId: string, employee: { id: string; branchId: stri
   (await dayPlan(orgId, employee, from, to, false)).filter((x) => x.counted).map((x) => x.date);
 
 /** The days a request takes: working days, and under the sandwich rule the offs between them. */
-const leaveDays = async (orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, from: string, to: string, sandwich: boolean) =>
-  (await dayPlan(orgId, employee, from, to, sandwich)).filter((x) => x.counted).map((x) => x.date);
+const leaveDays = async (orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, from: string, to: string, rule: CountRule) =>
+  (await dayPlan(orgId, employee, from, to, rule)).filter((x) => x.counted).map((x) => x.date);
 
 /*
  * Team scope (services/people/scope.ts), as every People read: a role
@@ -210,7 +223,7 @@ const policySchema = z.object({
   color: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, 'A colour is #rrggbb.').nullable().optional(),
   allowHalfDay: z.boolean().optional(),
   minNoticeDays: z.coerce.number().int().min(0).max(365).nullable().optional(),
-  maxDaysPerRequest: z.coerce.number().min(0.5, 'At least half a day.').max(366).nullable().optional(),
+  maxDaysPerRequest: z.coerce.number().min(0.5, 'At least half a day.').max(182, 'One request is at most 182 days (26 weeks).').nullable().optional(),
   backdatedDays: z.coerce.number().int().min(0).max(366).nullable().optional(),
   negativeDays: z.coerce.number().min(0, 'Days cannot be negative.').max(366).optional(),
   gender: z.enum(['FEMALE', 'MALE']).nullable().optional(),
@@ -234,12 +247,20 @@ const policySchema = z.object({
   /** When each credit lands: START or END of each part of the leave period, or DAY (creditDay, 1–28). */
   creditOn: z.enum(['START', 'END', 'DAY']).optional(),
   creditDay: z.coerce.number().int().min(1, 'A day from 1 to 28.').max(28, 'A day from 1 to 28, so every month has it.').nullable().optional(),
+  /** Statutory leave, each opt-in (TIME-LEAVE-MARKET-RESEARCH.md G1–G3). */
+  accrualBasis: z.enum(['CALENDAR', 'PER_DAYS_WORKED']).optional(),
+  perDaysWorked: z.coerce.number().min(1, 'At least one day worked per day earned.').max(366).nullable().optional(),
+  minDaysWorked: z.coerce.number().min(0).max(366).nullable().optional(),
+  oshCarry: z.boolean().optional(),
+  countsCalendarDays: z.boolean().optional(),
+  availableAfterBasis: z.enum(['JOINING', 'DAYS_WORKED']).optional(),
 });
 
 async function policyOf(orgId: string, body: unknown): Promise<{ data: Record<string, unknown> } | { error: string }> {
   const parsed = policySchema.safeParse(body || {});
   if (!parsed.success) return { error: parsed.error.issues[0]?.message || 'Check the leave policy.' };
   if (parsed.data.creditOn === 'DAY' && !parsed.data.creditDay) return { error: 'Say which day of the month leave is credited.' };
+  if (parsed.data.accrualBasis === 'PER_DAYS_WORKED' && !parsed.data.perDaysWorked) return { error: 'Say how many days worked earn one day of leave.' };
   const ids = [...(parsed.data.employeeTypeIds || []), ...(parsed.data.entitlements || []).map((e) => e.employeeTypeId).filter(Boolean) as string[]];
   if (ids.length) {
     const found = await peoplePrisma.employeeType.count({ where: { orgId, id: { in: [...new Set(ids)] } } });
@@ -311,7 +332,7 @@ leaveRouter.put(`${base}/types/:id`, can(PermissionAction.EDIT, R.leaveTypes), a
   if (clash) return res.status(409).json({ error: `The code ${parsed.data.code} is already used by ${clash}. Pick another.`, code: 'LEAVE_TYPE_CODE_TAKEN' });
   try {
     const type = await peopleWrite(orgId, async () => {
-      const financial = ['isPaid', 'annualDays', 'accrual', 'prorateForJoiners', 'carryForwardMax', 'creditOn', 'creditDay', 'sandwich'] as const;
+      const financial = ['isPaid', 'annualDays', 'accrual', 'prorateForJoiners', 'carryForwardMax', 'creditOn', 'creditDay', 'sandwich', 'accrualBasis', 'perDaysWorked', 'minDaysWorked', 'oshCarry', 'countsCalendarDays'] as const;
       const next: Record<string, unknown> = { ...parsed.data, ...policy.data };
       const changed = financial.some((key) => key in next && JSON.stringify((next as any)[key]) !== JSON.stringify(existing[key]));
       /*
@@ -575,13 +596,15 @@ type Ask = { leaveTypeId: string; fromDate: string; toDate: string; halfDay?: 'F
 export async function planLeave(accountId: string, orgId: string, employee: Asker, b: Ask, onBehalf: boolean, ignoreIds: string[] = []) {
   if (!ISO_DATE.test(b.fromDate) || !ISO_DATE.test(b.toDate)) return { error: 'Dates are YYYY-MM-DD.' } as const;
   if (b.toDate < b.fromDate) return { error: 'The last day is before the first.' } as const;
-  if (addDays(b.fromDate, MAX_SPAN_DAYS - 1) < b.toDate) return { error: `One request covers at most ${MAX_SPAN_DAYS} days.` } as const;
   if (employee.status === 'LEFT') return { error: 'This person has left.' } as const;
   const type = await peoplePrisma.leaveType.findFirst({ where: { id: b.leaveTypeId, accountId, orgId, isActive: true } });
   if (!type) return { error: 'That leave type is not available.' } as const;
+  /* The span is per type: 60 days, or the type's own longest request up to 26 weeks (maternity as one request). */
+  const span = spanLimitOf(type);
+  if (addDays(b.fromDate, span - 1) < b.toDate) return { error: `One request for ${type.name} covers at most ${span} days.` } as const;
   if (b.halfDay && b.fromDate !== b.toDate) return { error: 'A half-day leave is for one day.' } as const;
   const period = await leavePeriodOf(orgId);
-  const plan = await dayPlan(orgId, employee, b.fromDate, b.toDate, type.sandwich);
+  const plan = await dayPlan(orgId, employee, b.fromDate, b.toDate, type);
   const t0 = today();
   const parts = [];
   for (const part of partsOf(period, b.fromDate, b.toDate)) {
@@ -597,12 +620,14 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
     parts.push({ ...part, label: periodLabel(period, part.year), days, dates, balance });
   }
   const total = round(parts.reduce((a, p) => a + p.days, 0));
-  const person = await peoplePrisma.employee.findFirst({ where: { id: employee.id, orgId }, select: { gender: true, employeeTypeId: true, dateOfJoining: true } });
+  const person = await peoplePrisma.employee.findFirst({ where: { id: employee.id, orgId }, select: { gender: true, employeeTypeId: true, dateOfJoining: true, dateOfLeaving: true, branchId: true, areaId: true } });
+  /* Eligibility by days worked in the 12 months before (Code on Social Security, maternity: 80), when the type asks for it. */
+  const workedBefore = type.availableAfterBasis === 'DAYS_WORKED' && type.availableAfterDays && person ? (await daysWorkedBefore(accountId, orgId, { id: employee.id, ...person }, b.fromDate)).eligible : null;
   const clash = await peoplePrisma.leaveRequest.findFirst({ where: { orgId, employeeId: employee.id, status: { in: OPEN }, fromDate: { lte: b.toDate }, toDate: { gte: b.fromDate }, ...(ignoreIds.length ? { id: { notIn: ignoreIds } } : {}) } });
   const reasonText = String(b.reason || '').trim();
   const problems: Array<{ code: string; message: string }> = [];
   if (!total) problems.push({ code: 'NO_WORKING_DAYS', message: 'Those are all weekly offs or holidays — there is nothing to take leave from.' });
-  const policy = total ? policyProblem(type, person, { fromDate: b.fromDate, halfDay: b.halfDay ?? null, days: total }, t0, onBehalf) : null;
+  const policy = total ? policyProblem(type, person, { fromDate: b.fromDate, halfDay: b.halfDay ?? null, days: total, workedBefore }, t0, onBehalf) : null;
   if (policy) problems.push({ code: 'LEAVE_POLICY', message: policy });
   if (clash) problems.push({ code: 'OVERLAP', message: `This overlaps leave already asked for (${clash.fromDate} to ${clash.toDate}).` });
   for (const p of parts) {
@@ -811,7 +836,7 @@ export async function approveLeave(accountId: string, orgId: string, r: any, use
     const type = await peoplePrisma.leaveType.findFirst({ where: { id: r.leaveTypeId, orgId } });
     if (!type) throw fail(409, 'The leave type is gone.');
     /* Holidays or shifts may have changed since it was asked for: count again. */
-    const days = await leaveDays(orgId, employee, r.fromDate, r.toDate, type.sandwich);
+    const days = await leaveDays(orgId, employee, r.fromDate, r.toDate, type);
     if (!days.length) throw fail(409, 'Nothing in this range is a working day any more. Reject it instead.');
     /* A half-day leave sits beside the other half's punches; a whole day must have none. */
     const worked = r.halfDay
@@ -1235,6 +1260,35 @@ leaveRouter.delete(`${base}/adjustments/:id`, can(PermissionAction.EDIT, R.leave
   res.json({ ok: true });
 });
 
+const n2 = (n: number) => String(Math.round(n * 100) / 100);
+const workedWords = (w: Worked) => (w.source === 'RECORD' ? 'from the attendance record (present 1, half day 0.5)' : 'from working days by the working week and holidays, less leave taken: there is no attendance record (People only)');
+
+/**
+ * "How is this worked out?" for the statutory rules on a type, in the words the ledger shows. Empty for a type
+ * on none of them, so nothing changes for the others.
+ */
+export function explainOf(t: any, bal: any, period: LeavePeriod, year: number): string[] {
+  const out: string[] = [];
+  if (t.isPaid && t.accrualBasis === 'PER_DAYS_WORKED') {
+    const per = Number(t.perDaysWorked) || 0;
+    const min = Number(t.minDaysWorked) || 0;
+    out.push(`One day for every ${n2(per)} days worked in ${periodLabel(period, year - 1)}${min ? `, once the days worked that period reach ${n2(min)}` : ''}; credited on the first day of ${periodLabel(period, year)}. A half day or more of a fraction is a whole day.`);
+    const prev: Worked | null = bal.worked?.previous ?? null;
+    if (prev) {
+      const c = workedCredit(t, prev)!;
+      out.push(`${periodLabel(period, year - 1)}: ${n2(prev.worked)} days worked, ${workedWords(prev)}. Towards the ${n2(min)} needed, paid leave counts as worked: ${n2(prev.eligible)}.`);
+      out.push(c.eligible ? `${n2(prev.worked)} ÷ ${n2(per)} = ${n2(prev.worked / per)}, so ${c.days} ${c.days === 1 ? 'day' : 'days'}.` : `${n2(prev.eligible)} is under ${n2(min)}, so nothing is earned for ${periodLabel(period, year - 1)}.`);
+    }
+    const cur: Worked | null = bal.worked?.current ?? null;
+    if (cur) out.push(`${periodLabel(period, year)} so far: ${n2(cur.worked)} days worked (${n2(cur.eligible)} towards the ${n2(min)}); what they earn is credited next period.`);
+  }
+  if (t.isPaid && t.oshCarry) {
+    out.push(`Carries up to ${n2(Number(t.carryForwardMax) || 0)} days, plus the days asked for and refused this period${bal.refused ? ` (${n2(bal.refused)})` : ''}: up to ${n2(bal.carryLimit ?? 0)}. What is over is paid out by the year end.`);
+  }
+  if (t.countsCalendarDays) out.push('Every date in a request is a leave day, weekly offs and holidays included.');
+  return out;
+}
+
 /**
  * One person's year, line by line for each type: carried in, earned,
  * adjustments, leave taken and waiting — the answer to "why is my balance this?".
@@ -1281,7 +1335,7 @@ leaveRouter.get(`${base}/ledger`, can(PermissionAction.VIEW, R.leave), async (re
         entries.sort((a, b) => a.date.localeCompare(b.date));
         /* Projected to the period end: every credit landed, every booked day taken. */
         const projected = t.isPaid && bal.fullYear != null ? { allocated: bal.fullYear, available: round(bal.fullYear - bal.used - bal.pending) } : null;
-        return { type: { id: t.id, name: t.name, code: t.code, color: t.color, isPaid: t.isPaid, encashable: t.encashable }, balance: bal, projected, entries };
+        return { type: { id: t.id, name: t.name, code: t.code, color: t.color, isPaid: t.isPaid, encashable: t.encashable, accrualBasis: t.accrualBasis, oshCarry: t.oshCarry, countsCalendarDays: t.countsCalendarDays }, balance: bal, projected, entries, explain: explainOf(t, bal, period, year) };
       });
     res.json({ employee: { id: employee.id, name: employee.name }, year, period: bounds, asOf: asOf || null, types: out });
   } catch (e) {
@@ -1371,7 +1425,7 @@ leaveRouter.get(`${base}/register`, can(PermissionAction.VIEW, R.leave), async (
       }
       const closing = round((b.allocated ?? 0) - b.used - b.pending);
       /* At the period end, what the type does not carry forward lapses. */
-      const carry = t.carryForwardMax == null || t.carryForwardMax <= 0 ? 0 : Math.min(t.carryForwardMax, Math.max(0, round((b.allocated ?? 0) - b.used)));
+      const carry = Math.min(b.carryLimit ?? carryLimitOf(t), Math.max(0, round((b.allocated ?? 0) - b.used)));
       rows.push({
         employeeId: p.id, name: p.name, code: p.code, department: p.department, leaveTypeId: t.id, leaveType: t.name, isPaid: true,
         opening: b.carriedIn ?? 0,
@@ -1383,6 +1437,71 @@ leaveRouter.get(`${base}/register`, can(PermissionAction.VIEW, R.leave), async (
     }
   }
   res.json({ period: bounds, ended, types: shown.map((t) => ({ id: t.id, name: t.name, isPaid: t.isPaid, color: t.color })), rows });
+});
+
+/**
+ * The leave register in a prescribed form, one worker at a time (TIME-LEAVE-MARKET-RESEARCH.md G2): days worked in
+ * the period, and for each leave type the opening balance, leave earned, leave availed with its dates, leave asked
+ * for and refused, paid out, lapsed and the closing balance. The layout follows OSH (Central) Rules 2026 Form XX and
+ * Factories Rules Form 15 as the research describes them (secondary sources; the forms' own columns were not read),
+ * so the screen says "format based on". Same scope and privacy as the register.
+ */
+leaveRouter.get(`${base}/register/book`, can(PermissionAction.VIEW, R.leave), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const year = await yearParam(orgId, req.query.year);
+  const only = String(req.query.employeeId || '').trim();
+  const period = await leavePeriodOf(orgId);
+  const bounds = periodBounds(period, year);
+  const scope = await leaveScope(req);
+  if (only && !inScope(scope, only)) return res.status(404).json({ error: 'No such employee.' });
+  const people = await peoplePrisma.employee.findMany({
+    where: { accountId, orgId, ...(only ? { id: only } : scope.all ? {} : { id: { in: scope.ids } }), OR: [{ dateOfLeaving: null }, { dateOfLeaving: { gte: bounds.from } }], AND: [{ OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: bounds.to } }] }] },
+    select: { id: true, name: true, code: true, department: true, designation: true, dateOfJoining: true, dateOfLeaving: true, branchId: true, areaId: true },
+    orderBy: { name: 'asc' },
+    take: 500,
+  });
+  const ids = people.map((p) => p.id);
+  const [{ types, balances }, adjustments, requests, worked] = await Promise.all([
+    balancesFor(accountId, orgId, ids, year),
+    peoplePrisma.leaveAdjustment.findMany({ where: { orgId, year, employeeId: { in: ids } }, select: { employeeId: true, leaveTypeId: true, days: true, kind: true } }),
+    peoplePrisma.leaveRequest.findMany({ where: { orgId, employeeId: { in: ids }, status: { in: ['APPROVED', 'REJECTED'] }, fromDate: { gte: bounds.from, lte: bounds.to } }, select: { employeeId: true, leaveTypeId: true, fromDate: true, toDate: true, days: true, status: true, reviewNote: true, reviewedByUserId: true }, orderBy: { fromDate: 'asc' } }),
+    daysWorkedByPeriod(accountId, orgId, people, period, year, year),
+  ]);
+  const ended = today() > bounds.to;
+  const reads = await readsPrivateLeave(req);
+  const shown = types.filter((t) => reads || !t.isPrivate);
+  const workers = people.map((p) => {
+    const w = worked.get(p.id)?.get(String(year)) ?? null;
+    const leave = [];
+    for (const t of shown) {
+      const b = balances.get(p.id)?.get(t.id);
+      const mine = requests.filter((r) => r.employeeId === p.id && r.leaveTypeId === t.id);
+      const availed = mine.filter((r) => r.status === 'APPROVED').map((r) => ({ from: r.fromDate, to: r.toDate, days: r.days }));
+      /* Refused: rejected by HR or the manager, not by the system. */
+      const refused = mine.filter((r) => r.status === 'REJECTED' && r.reviewedByUserId !== 'system').map((r) => ({ from: r.fromDate, to: r.toDate, days: r.days }));
+      if (!b) continue;
+      if (!t.isPaid) {
+        if (availed.length || refused.length) leave.push({ leaveTypeId: t.id, leaveType: t.name, code: t.code, isPaid: false, opening: null, earned: null, changed: null, availed, availedDays: round(availed.reduce((a, r) => a + r.days, 0)), refused, refusedDays: round(refused.reduce((a, r) => a + r.days, 0)), encashed: null, lapsed: null, closing: null });
+        continue;
+      }
+      if (!t.isActive && !availed.length && !b.allocated) continue;
+      const adj = adjustments.filter((a) => a.employeeId === p.id && a.leaveTypeId === t.id);
+      const encashed = round(-adj.filter((a) => a.kind === 'ENCASH').reduce((x, a) => x + a.days, 0));
+      const changed = round(adj.filter((a) => a.kind !== 'ENCASH').reduce((x, a) => x + a.days, 0));
+      const carry = Math.min(b.carryLimit ?? carryLimitOf(t), Math.max(0, round((b.allocated ?? 0) - b.used)));
+      leave.push({
+        leaveTypeId: t.id, leaveType: t.name, code: t.code, isPaid: true,
+        opening: b.carriedIn ?? 0,
+        earned: b.allocationId ? round((b.allocated ?? 0) - (b.adjusted ?? 0)) : b.earned ?? 0,
+        changed, availed, availedDays: b.used, refused, refusedDays: round(refused.reduce((a, r) => a + r.days, 0)), encashed,
+        lapsed: ended ? round(Math.max(0, (b.allocated ?? 0) - b.used) - carry) : null,
+        closing: round((b.allocated ?? 0) - b.used),
+      });
+    }
+    return { employeeId: p.id, name: p.name, code: p.code, department: p.department, designation: p.designation, dateOfJoining: p.dateOfJoining, dateOfLeaving: p.dateOfLeaving, daysWorked: w ? { worked: w.worked, withPaidLeave: w.eligible, source: w.source } : null, leave };
+  });
+  res.json({ period: bounds, ended, format: 'Based on OSH (Central) Rules 2026 Form XX and Factories Rules Form 15', workers });
 });
 
 // ---------------------------------------------------------------------------
@@ -1500,7 +1619,7 @@ leaveRouter.get(`${base}/requests/:id`, can(PermissionAction.VIEW, R.leave), asy
       : [{ at: r.createdAt, what: own ? 'Asked' : `Entered for ${employee?.name || 'them'}`, by: names.get(r.requestedByUserId) || null }];
     if (!stored.length && r.managerApprovedAt) history.push({ at: r.managerApprovedAt, what: r.managerApprovedById ? 'Approved by the manager' : 'Handed on to HR', by: manager?.name || null, note: shaped.reasonHidden ? null : r.managerNote });
     if (!stored.length && r.reviewedAt && r.status !== 'PENDING') history.push({ at: r.reviewedAt, what: ({ APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled' } as Record<string, string>)[r.status] || r.status, by: names.get(r.reviewedByUserId || '') || null, note: shaped.reviewNote });
-    const dates = employee && type ? await dayPlan(orgId, employee, r.fromDate, r.toDate, type.sandwich) : [];
+    const dates = employee && type ? await dayPlan(orgId, employee, r.fromDate, r.toDate, type) : [];
     let balance = null;
     if (type?.isPaid && !shaped.reasonHidden) {
       const year = await leaveYearOf(orgId, r.fromDate);
@@ -1563,7 +1682,7 @@ leaveRouter.get(`${base}/overview`, can(PermissionAction.VIEW, R.leave), async (
     for (const p of people) for (const t of types.filter((x) => x.isPaid && x.isActive && (reads || !x.isPrivate))) {
       const b = balances.get(p.id)?.get(t.id);
       if (!b || b.available == null) continue;
-      const carry = t.carryForwardMax == null || t.carryForwardMax <= 0 ? 0 : t.carryForwardMax;
+      const carry = b.carryLimit ?? carryLimitOf(t);
       const lapse = round(b.available - carry);
       if (lapse > 0) lapsing.push({ employeeId: p.id, employeeName: p.name, leaveTypeName: t.name, days: lapse });
     }
@@ -1604,18 +1723,20 @@ leaveRouter.post(`${base}/types/preview`, can(PermissionAction.VIEW, R.leaveType
   add(joined[0], 'Longest serving');
   add(joined.find((p) => p.dateOfJoining! > bounds.from && p.dateOfJoining! <= bounds.to), 'Joined this period');
   for (const p of all) add(p, '');
-  const accrualType = { id: 'preview', annualDays: t.annualDays, accrual: t.accrual, prorateForJoiners: t.prorateForJoiners, carryForwardMax: t.carryForwardMax ?? null, createdAt: new Date(`${bounds.from}T00:00:00Z`), creditOn: t.creditOn ?? 'START', creditDay: t.creditDay ?? null };
+  const accrualType = { id: 'preview', annualDays: t.annualDays, accrual: t.accrual, prorateForJoiners: t.prorateForJoiners, carryForwardMax: t.carryForwardMax ?? null, createdAt: new Date(`${bounds.from}T00:00:00Z`), creditOn: t.creditOn ?? 'START', creditDay: t.creditDay ?? null, accrualBasis: t.accrualBasis ?? 'CALENDAR', perDaysWorked: t.perDaysWorked ?? null, minDaysWorked: t.minDaysWorked ?? null, oshCarry: Boolean(t.oshCarry) };
   const t0 = today();
-  const full = all.length ? new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...picks.keys()] } }, select: { id: true, employeeTypeId: true, dateOfJoining: true, probationEndDate: true, confirmedOn: true } })).map((p) => [p.id, p])) : new Map();
+  const full = all.length ? new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...picks.keys()] } }, select: { id: true, employeeTypeId: true, dateOfJoining: true, dateOfLeaving: true, probationEndDate: true, confirmedOn: true, branchId: true, areaId: true } })).map((p) => [p.id, p])) : new Map();
+  /* Earned by days worked: the five people's days worked last period and this one. */
+  const worked = t.isPaid && t.accrualBasis === 'PER_DAYS_WORKED' && full.size ? await daysWorkedByPeriod(accountId, orgId, [...full.values()], period, year - 1, year) : new Map<string, Map<string, Worked>>();
   const rows = [...picks.values()].map(({ person, why }) => {
-    const problem = policyProblem({ name: 'This type', allowHalfDay: true, minNoticeDays: null, maxDaysPerRequest: null, backdatedDays: null, gender: t.gender ?? null, employeeTypeIds: t.employeeTypeIds || [], availableAfterDays: t.availableAfterDays ?? null }, person, { fromDate: t0 > (person.dateOfJoining || '') ? t0 : person.dateOfJoining!, halfDay: null, days: 0 }, t0, true);
+    const problem = policyProblem({ name: 'This type', allowHalfDay: true, minNoticeDays: null, maxDaysPerRequest: null, backdatedDays: null, gender: t.gender ?? null, employeeTypeIds: t.employeeTypeIds || [], availableAfterDays: t.availableAfterDays ?? null, availableAfterBasis: t.availableAfterBasis ?? 'JOINING' }, person, { fromDate: t0 > (person.dateOfJoining || '') ? t0 : person.dateOfJoining!, halfDay: null, days: 0 }, t0, true);
     if (!t.isPaid) return { employeeId: person.id, name: person.name, code: person.code, why, dateOfJoining: person.dateOfJoining, open: !problem, note: problem, fullPeriod: null, soFar: null, credits: [] };
     const p = full.get(person.id) || person;
     const joined = p.dateOfJoining || null;
     const entitled = entitledDays({ annualDays: t.annualDays, entitlements: t.entitlements }, p, joined && joined > bounds.from ? joined : bounds.from);
     const probation = probationOf({ probationRule: t.probationRule }, p, t0);
-    const b = balanceFor({ ...accrualType, annualDays: entitled }, year, probation.joinedForLeave, t0 > bounds.to ? bounds.to : t0, new Map(), new Map(), { period });
-    return { employeeId: person.id, name: person.name, code: person.code, why, dateOfJoining: person.dateOfJoining, open: !problem, note: problem ?? (probation.locked ? `Locked until confirmed${probation.until ? ` (${dayWords(probation.until)})` : ''}` : null), entitled, fullPeriod: b.fullYear ?? null, soFar: b.earned, credits: (b.credits || []).slice(0, 12).map((c: any) => ({ date: c.date, days: c.days })) };
+    const b = balanceFor({ ...accrualType, annualDays: entitled }, year, probation.joinedForLeave, t0 > bounds.to ? bounds.to : t0, new Map(), new Map(), { period, workedIn: (y) => worked.get(person.id)?.get(String(y)) ?? null });
+    return { employeeId: person.id, name: person.name, code: person.code, why, dateOfJoining: person.dateOfJoining, open: !problem, note: problem ?? (probation.locked ? `Locked until confirmed${probation.until ? ` (${dayWords(probation.until)})` : ''}` : null), entitled: t.accrualBasis === 'PER_DAYS_WORKED' ? b.fullYear : entitled, fullPeriod: b.fullYear ?? null, soFar: b.earned, credits: (b.credits || []).slice(0, 12).map((c: any) => ({ date: c.date, days: c.days })) };
   });
   res.json({ period: bounds, rows, carry: t.carryForwardMax ?? null });
 });
@@ -1732,7 +1853,7 @@ export async function shortenLeave(accountId: string, orgId: string, r: any, toD
     if (toDate < current.fromDate || toDate >= current.toDate) throw fail(400, `Choose a day from ${dayWords(current.fromDate)} to ${dayWords(addDays(current.toDate, -1))}.`);
     const employee = await employeeIn(orgId, accountId, current.employeeId);
     const type = await peoplePrisma.leaveType.findFirst({ where: { id: current.leaveTypeId, orgId } });
-    const plan = await dayPlan(orgId, employee, current.fromDate, toDate, Boolean(type?.sandwich));
+    const plan = await dayPlan(orgId, employee, current.fromDate, toDate, type ?? false);
     const days = plan.filter((d) => d.counted).length;
     if (!days) throw fail(400, 'That leaves no working day; cancel the leave instead.');
     const gone = await peoplePrisma.attendanceRecord.findMany({ where: { orgId, leaveRequestId: current.id, date: { gt: toDate } } });
@@ -1966,10 +2087,11 @@ export async function yearEndPreview(accountId: string, orgId: string, year: num
     if (!b || b.allocated == null) continue;
     const closing = round((b.allocated ?? 0) - b.used);
     if (closing <= 0) continue;
-    const carry = t.carryForwardMax == null || t.carryForwardMax <= 0 ? 0 : Math.min(t.carryForwardMax, closing);
+    /* Under the OSH rule the limit is the cap plus the days refused this period, and everything over it is paid out (s.32, G3). */
+    const carry = Math.min(b.carryLimit ?? carryLimitOf(t), closing);
     const lapse = round(closing - carry);
     const already = -encashed.filter((e) => e.employeeId === p.id && e.leaveTypeId === t.id).reduce((a, e) => a + e.days, 0);
-    const room = t.encashable ? (t.maxEncashDays == null ? lapse : Math.max(0, t.maxEncashDays - already)) : 0;
+    const room = t.oshCarry ? lapse : t.encashable ? (t.maxEncashDays == null ? lapse : Math.max(0, t.maxEncashDays - already)) : 0;
     const payOut = round(Math.min(lapse, room));
     rows.push({ employeeId: p.id, name: p.name, code: p.code, leaveTypeId: t.id, leaveType: t.name, closing, carry, lapse, payOut });
   }

@@ -32,9 +32,53 @@ export type AccrualType = {
   createdAt: Date;
   creditOn?: string | null;
   creditDay?: number | null;
+  /** CALENDAR (annualDays) or PER_DAYS_WORKED (perDaysWorked, minDaysWorked). */
+  accrualBasis?: string | null;
+  perDaysWorked?: number | null;
+  minDaysWorked?: number | null;
+  /** OSH Code carry-forward: refused days carry on top of carryForwardMax. */
+  oshCarry?: boolean | null;
 };
 export type LeavePeriod = { startMonth: number; startDay: number };
-export type AccrualOptions = { period?: LeavePeriod | null; left?: string | null; /** The days a year for a given period, when they differ by period (entitlement slabs); the type's own days otherwise. */ annualDaysFor?: (year: number) => number };
+/**
+ * Days worked in one leave period (services/attendance/daysWorked.ts): `worked` earns leave, `eligible` (worked plus
+ * paid leave, which the Acts deem worked) is checked against the threshold. `source` says where they came from.
+ */
+export type Worked = { worked: number; eligible: number; source: 'RECORD' | 'WORKING_DAYS'; from: string; to: string };
+export type AccrualOptions = {
+  period?: LeavePeriod | null;
+  left?: string | null;
+  /** The days a year for a given period, when they differ by period (entitlement slabs); the type's own days otherwise. */
+  annualDaysFor?: (year: number) => number;
+  /** PER_DAYS_WORKED: the days worked in a period, or null when unknown. */
+  workedIn?: (year: number) => Worked | null;
+  /** oshCarry: the days of the type asked for and refused in a period. */
+  refusedIn?: (year: number) => number;
+};
+
+/**
+ * The most that carries out of a period: the type's limit, and under the OSH Code rule the days refused that
+ * period on top (s.32 as summarised in TIME-LEAVE-MARKET-RESEARCH.md G3). 0 when nothing carries.
+ */
+export function carryLimitOf(type: Pick<AccrualType, 'carryForwardMax' | 'oshCarry'>, refused = 0) {
+  const cap = type.carryForwardMax != null && type.carryForwardMax > 0 ? type.carryForwardMax : 0;
+  if (!type.oshCarry) return cap;
+  return round2(cap + Math.max(0, refused));
+}
+
+/**
+ * Earned leave by days worked (OSH Code s.32, Factories Act s.79): a worker whose days worked in a period reach the
+ * threshold is allowed, in the next period, one day for every `perDaysWorked` worked. A fraction of half a day or
+ * more is a whole day, less is dropped (s.79(1), applied to both). Null when the type is not on this basis.
+ */
+export function workedCredit(type: AccrualType, prev: Worked | null | undefined) {
+  if (type.accrualBasis !== 'PER_DAYS_WORKED') return null;
+  const per = Number(type.perDaysWorked) || 0;
+  const min = Number(type.minDaysWorked) || 0;
+  if (!prev || per <= 0) return { days: 0, eligible: false, prev: prev ?? null };
+  const eligible = prev.eligible >= min;
+  return { days: eligible ? Math.floor(prev.worked / per + 0.5) : 0, eligible, prev };
+}
 export type Credit = { date: string; days: number; total: number; from: string; to: string };
 
 export const CALENDAR: LeavePeriod = { startMonth: 1, startDay: 1 };
@@ -102,6 +146,14 @@ function creditDate(type: AccrualType, from: string, to: string) {
 export function creditsFor(type: AccrualType, year: number, joined: string | null, opts: AccrualOptions = {}): Credit[] {
   const step = STEP[type.accrual] || 12;
   const start = periodStart(opts.period, year);
+  if (type.accrualBasis === 'PER_DAYS_WORKED') {
+    /* One credit at the period start, from the period before; someone joining this period has worked none of it. */
+    const c = workedCredit(type, opts.workedIn?.(year - 1));
+    if (!c || !c.days) return [];
+    const date = joined && joined > start ? joined : start;
+    if (opts.left && date > opts.left) return [];
+    return [{ date, days: c.days, total: c.days, from: start, to: periodEnd(opts.period, year) }];
+  }
   const per = (type.annualDays * step) / 12;
   const out: Credit[] = [];
   let raw = 0;
@@ -156,12 +208,14 @@ export function balanceFor(
 
   /* What carries into `y`: the last period's full entitlement less what was taken, up to the limit. */
   const carriedInto = (y: number): number => {
-    if (type.carryForwardMax == null || type.carryForwardMax <= 0 || y - 1 < firstYear) return 0;
+    if (y - 1 < firstYear) return 0;
     const prev = y - 1;
+    const limit = carryLimitOf(type, type.oshCarry ? opts.refusedIn?.(prev) || 0 : 0);
+    if (limit <= 0) return 0;
     /* The previous period is earned at what it gave then, not at today's slab: a person crossing three years does not re-earn their first two. */
     const then = opts.annualDaysFor ? { ...type, annualDays: opts.annualDaysFor(prev) } : type;
     const total = allocations.has(prev) ? allocations.get(prev)! : earned(then, prev, joined, periodEnd(opts.period, prev), opts) + carriedInto(prev);
-    return round2(Math.min(type.carryForwardMax, Math.max(0, total - (taken.get(prev) || 0))));
+    return round2(Math.min(limit, Math.max(0, total - (taken.get(prev) || 0))));
   };
 
   if (allocations.has(year)) {

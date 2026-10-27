@@ -617,7 +617,7 @@ model LeaveType {
   allowHalfDay       Boolean  @default(true)
   /// Days ahead someone must ask (their own request; HR entering it is not held to it). Null = any time.
   minNoticeDays      Int?
-  /// Longest single request, in days. Null = no limit beyond the 60-day span.
+  /// Longest single request, in days (up to 182, 26 weeks). Null = no limit beyond the 60-day span; above 60 it is also the span.
   maxDaysPerRequest  Float?
   /// How far back someone may ask for leave they already took. Null = no limit.
   backdatedDays      Int?
@@ -659,6 +659,21 @@ model LeaveType {
   /// creditDay (1–28) on or after the part begins.
   creditOn           String   @default("START")
   creditDay          Int?
+  /// Statutory leave (TIME-LEAVE-MARKET-RESEARCH.md, G1–G3). Each is opt-in; the defaults keep a type as it was.
+  /// CALENDAR: annualDays, credited as above. PER_DAYS_WORKED: one day for every perDaysWorked days worked in the
+  /// previous leave period, credited at this period's start, when that period's days worked reach minDaysWorked
+  /// (OSH Code s.32: 1 per 20 after 180; Factories Act s.79: 1 per 20 after 240).
+  accrualBasis       String   @default("CALENDAR")
+  perDaysWorked      Float?
+  minDaysWorked      Float?
+  /// OSH Code carry-forward: carry up to carryForwardMax, plus the days of this type asked for and refused in the
+  /// period; what is over is paid out by the year end's run.
+  oshCarry           Boolean  @default(false)
+  /// Every date inside a request is a leave day, weekly offs and holidays included (maternity).
+  countsCalendarDays Boolean  @default(false)
+  /// JOINING: availableAfterDays counts calendar days from joining. DAYS_WORKED: days worked in the 12 months
+  /// before the leave starts (Code on Social Security, maternity: 80).
+  availableAfterBasis String  @default("JOINING")
 
   createdByUserId String
   createdAt       DateTime @default(now())
