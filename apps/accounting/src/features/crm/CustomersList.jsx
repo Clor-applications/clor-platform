@@ -222,9 +222,7 @@ export default function CustomersList({ db, setDb, currentCompany, onNewTransact
       statusCounts={custStatusCounts}
       onStatusChange={setCustStatus}
     >
-      <div
-        className="overflow-x-auto ui-table-scroll customer-table-scroll"
-      >
+      <div className="overflow-x-auto ui-table-scroll customer-table-scroll">
         <table className="ui-table ui-table-wide ui-table-sticky">
           <thead>
             <tr>

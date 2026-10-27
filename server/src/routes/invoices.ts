@@ -24,6 +24,7 @@ import { SettledDocument, assertInvoiceCancellable } from '../services/settledDo
 import { refuseUnknownLineItems } from '../services/lineItems.js';
 import { InsufficientStock, withStockCheck } from '../services/stockLedger.js';
 import { reportError } from '../utils/log.js';
+import { sentOnly } from '../utils/sentOnly.js';
 
 /** An invoice's stored lines, or none if the text is not a list. */
 const safeParseLines = (json: string | null | undefined): unknown[] => {
@@ -594,7 +595,7 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVOI
    * stored, which is what makes this a PATCH rather than a replace.
    */
   const sent = new Set(Object.keys((req.body ?? {}) as Record<string, unknown>));
-  const parsedPatch = invoiceUpsertSchema.partial().parse(req.body);
+  const parsedPatch = sentOnly(invoiceUpsertSchema.partial().parse(req.body), req.body);
   if (parsedPatch.items !== undefined && (await refuseUnknownLineItems(res, accountId, orgId, parsedPatch.items))) return;
   if (parsedPatch.warehouseId !== undefined && (parsedPatch.warehouseId || null) !== (existing.warehouseId || null)) {
     const warehouseRefused = await warehouseRefusal(req, parsedPatch.warehouseId);

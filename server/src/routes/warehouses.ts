@@ -8,6 +8,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { forgetWarehouseAccess } from '../services/integrity/crossStore.js';
+import { sentOnly } from '../utils/sentOnly.js';
 
 export const warehousesRouter = Router();
 warehousesRouter.use(requireAuth, requireTenantContext);
@@ -95,7 +96,7 @@ warehousesRouter.patch('/orgs/:orgId/warehouses/:warehouseId', requirePermission
   const warehouseId = String(req.params.warehouseId);
   if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
 
-  const body = warehouseSchema.partial().parse(req.body);
+  const body = sentOnly(warehouseSchema.partial().parse(req.body), req.body);
 
   const existing = await prisma.warehouse.findFirst({ where: { accountId, orgId, id: warehouseId } });
   if (!existing) return res.status(404).json({ error: 'Warehouse not found' });

@@ -22,6 +22,7 @@ import {
   rolePermissionKeys,
   unheldGrants,
 } from '../services/roleGuards.js';
+import { sentOnly } from '../utils/sentOnly.js';
 
 export const rolesRouter = Router();
 rolesRouter.use(requireAuth, requireTenantContext);
@@ -215,7 +216,7 @@ rolesRouter.patch('/orgs/:orgId/roles/:roleId', requirePermission('SETTINGS', Pe
   const roleId = String(req.params.roleId);
   if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
 
-  const body = roleSchema.partial().parse(req.body);
+  const body = sentOnly(roleSchema.partial().parse(req.body), req.body);
 
   const role = await platformPrisma.role.findFirst({ where: { id: roleId, accountId, orgId } });
   if (!role) return res.status(404).json({ error: 'Role not found' });

@@ -8,6 +8,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { forgetEntityAccess, payrollUsesCostCentre } from '../services/integrity/crossStore.js';
+import { sentOnly } from '../utils/sentOnly.js';
 
 /**
  * The masters that were only ever in the browser.
@@ -90,7 +91,7 @@ orgMastersRouter.patch('/orgs/:orgId/salesmen/:id', SALESMAN_EDIT, async (req, r
   const existing = await prisma.salesman.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'Salesman not found' });
 
-  const body = salesmanSchema.partial().parse(req.body);
+  const body = sentOnly(salesmanSchema.partial().parse(req.body), req.body);
   const row = await prisma.salesman.update({
     where: { id: existing.id },
     data: {
@@ -195,7 +196,7 @@ orgMastersRouter.patch('/orgs/:orgId/fixed-assets/:id', ASSET_EDIT, async (req, 
   const existing = await prisma.fixedAsset.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'Asset not found' });
 
-  const b = assetSchema.partial().parse(req.body);
+  const b = sentOnly(assetSchema.partial().parse(req.body), req.body);
   const row = await prisma.fixedAsset.update({
     where: { id: existing.id },
     data: {
@@ -320,7 +321,7 @@ orgMastersRouter.patch('/orgs/:orgId/masters/:id', MASTERS_EDIT, async (req, res
   const existing = await prisma.orgMaster.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'Master not found' });
 
-  const body = masterSchema.partial().omit({ kind: true }).parse(req.body);
+  const body = sentOnly(masterSchema.partial().omit({ kind: true }).parse(req.body), req.body);
   try {
     const row = await prisma.orgMaster.update({
       where: { id: existing.id },

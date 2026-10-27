@@ -86,7 +86,8 @@ export function Reveal({ children, className = '' }) {
     const el = ref.current;
     const box = el.getBoundingClientRect();
     if (box.top < window.innerHeight * 0.85) return; /* already on screen: leave it be */
-    setState('is-armed');
+    /* Armed on the next frame, not inside the effect: still before the first paint of the section. */
+    const frame = requestAnimationFrame(() => setState((s) => s || 'is-armed'));
     const io = new IntersectionObserver(
       (es) => {
         if (es.some((e) => e.isIntersecting)) {
@@ -97,7 +98,10 @@ export function Reveal({ children, className = '' }) {
       { threshold: 0.25 }
     );
     io.observe(el);
-    return () => io.disconnect();
+    return () => {
+      cancelAnimationFrame(frame);
+      io.disconnect();
+    };
   }, []);
   return (
     <div ref={ref} className={`reveal ${state} ${className}`}>
@@ -118,7 +122,7 @@ export function RevealGroup({ as: Tag = 'div', className = '', children }) {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const el = ref.current;
     if (el.getBoundingClientRect().top < window.innerHeight * 0.85) return;
-    setState('is-armed');
+    const frame = requestAnimationFrame(() => setState((s) => s || 'is-armed'));
     const io = new IntersectionObserver(
       (es) => {
         if (es.some((e) => e.isIntersecting)) {
@@ -129,7 +133,10 @@ export function RevealGroup({ as: Tag = 'div', className = '', children }) {
       { threshold: 0.15 }
     );
     io.observe(el);
-    return () => io.disconnect();
+    return () => {
+      cancelAnimationFrame(frame);
+      io.disconnect();
+    };
   }, []);
   return (
     <Tag ref={ref} className={`stagger ${state} ${className}`.trim()}>

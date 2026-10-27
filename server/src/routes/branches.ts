@@ -7,6 +7,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
+import { sentOnly } from '../utils/sentOnly.js';
 
 export const branchesRouter = Router();
 
@@ -119,7 +120,7 @@ branchesRouter.patch('/orgs/:orgId/branches/:branchId', requirePermission('MASTE
 
   if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
 
-  const body = branchSchema.partial().parse(req.body);
+  const body = sentOnly(branchSchema.partial().parse(req.body), req.body);
 
   const existing = await platformPrisma.branch.findFirst({
     where: { accountId, orgId, id: branchId },

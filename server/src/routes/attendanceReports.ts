@@ -11,6 +11,7 @@ import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../se
 import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js';
 import { FACE, ONLINE_WINDOW_MS } from '../services/attendance/adms.js';
 import { ISO_DATE, daysOfMonth, monthRows, periodContext, today } from '../services/attendance/days.js';
+import { sentOnly } from '../utils/sentOnly.js';
 
 /**
  * Attendance reports — ClorTime's catalogue (routes/reports.js) and its
@@ -847,7 +848,7 @@ attendanceReportsRouter.put('/orgs/:orgId/attendance/reports/schedules/:id', can
   if (!s) return res.status(404).json({ error: 'No such schedule.' });
   const parsed = scheduleSchema.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the schedule.' });
-  const b = parsed.data;
+  const b = sentOnly(parsed.data, req.body);
   const cadence = b.cadence || s.cadence;
   const row = await peoplePrisma.reportSchedule.update({ where: { id: s.id }, data: { ...(b.reportId ? { reportId: b.reportId } : {}), ...(b.params ? { paramsJson: JSON.stringify(b.params) } : {}), cadence, dayOfWeek: cadence === 'WEEKLY' ? b.dayOfWeek ?? s.dayOfWeek ?? 1 : null, dayOfMonth: cadence === 'MONTHLY' ? b.dayOfMonth ?? s.dayOfMonth ?? 1 : null, ...(b.hour !== undefined ? { hour: b.hour } : {}), ...(b.recipients ? { recipients: b.recipients.trim() } : {}), ...(b.enabled !== undefined ? { enabled: b.enabled } : {}) } });
   res.json({ schedule: publicSchedule(row) });

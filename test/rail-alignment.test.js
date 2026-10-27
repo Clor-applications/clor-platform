@@ -74,6 +74,11 @@ describe('the rail has one left edge', () => {
   });
 
   it('keeps the control in the rail, where the icons are', () => {
-    expect(APP).toMatch(/ui-nav-item ui-nav-collapse/);
+    /* The collapse control is now an icon button in the rail's own header
+       (App.jsx), not a nav row: it must still exist, say what it does, and
+       report its state. */
+    expect(APP).toMatch(/onClick=\{toggleNavCollapsed\}/);
+    expect(APP).toMatch(/aria-pressed=\{navCollapsed\}/);
+    expect(APP).toMatch(/'Expand navigation' : 'Collapse navigation'/);
   });
 });

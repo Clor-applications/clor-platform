@@ -7,6 +7,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { authorizeAny, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { ensureDefaultSeries, peekNumber } from '../services/numbering.js';
+import { sentOnly } from '../utils/sentOnly.js';
 
 /** Item master, and the numbering series administration that sits beside it. */
 export const itemsRouter = Router();
@@ -176,7 +177,7 @@ itemsRouter.patch('/orgs/:orgId/items/:itemId', EDIT, async (req, res) => {
   });
   if (!existing) return res.status(404).json({ error: 'Item not found' });
 
-  const body = itemSchema.partial().parse(req.body);
+  const body = sentOnly(itemSchema.partial().parse(req.body), req.body);
   const nextType = body.itemType || existing.itemType;
   if (body.code != null && !validItemCode(nextType, String(body.code).trim())) {
     return res.status(400).json({
@@ -300,7 +301,7 @@ itemsRouter.patch('/orgs/:orgId/number-series/:seriesId', SETTINGS_EDIT, async (
   });
   if (!existing) return res.status(404).json({ error: 'Series not found' });
 
-  const body = seriesSchema.partial().parse(req.body);
+  const body = sentOnly(seriesSchema.partial().parse(req.body), req.body);
   const updated = await prisma.numberSeries.update({
     where: { id: existing.id },
     data: { ...body, branchId: body.branchId ?? existing.branchId, name: body.name?.trim() ?? existing.name },

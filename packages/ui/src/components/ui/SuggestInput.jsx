@@ -85,7 +85,7 @@ const SuggestInput = forwardRef(function SuggestInput({ value, onChange, suggest
       <input
         ref={outerRef}
         {...rest}
-        className={className}
+        className={className || 'ui-input w-full'}
         value={value ?? ''}
         autoComplete="off"
         role="combobox"

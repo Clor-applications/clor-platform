@@ -380,7 +380,7 @@ function Text({ id, label, required, help, error, value, onChange, type = 'text'
     <div>
       <Label id={id} label={label} required={required} />
       {/* What the company already has is offered under the field; typing stays free. */}
-      {suggestions ? <SuggestInput {...common} value={value} onChange={onChange} suggestions={suggestions} /> : <input {...common} value={value} onChange={(e) => onChange(e.target.value)} />}
+      {suggestions ? <SuggestInput {...common} value={value} onChange={onChange} suggestions={suggestions} /> : <input {...common} className={common.className || 'ui-input w-full'} value={value} onChange={(e) => onChange(e.target.value)} />}
       {error ? <p id={`${id}-err`} className="ui-field-error">{error}</p> : help ? <p id={`${id}-help`} className="ui-caption">{help}</p> : null}
     </div>
   );
