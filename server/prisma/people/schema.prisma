@@ -1338,6 +1338,11 @@ model AttendanceSettings {
   /// Shifts, when Attendance sets them, still decide for the people on them.
   weeklyOffDays              String  @default("0")
   offSaturdays               String  @default("")
+  /// Working weeks before the current one, when a change was made from a date
+  /// (closure audit O-05): [{ until, weeklyOffDays, offSaturdays }], `until`
+  /// exclusive, oldest first. A date before an `until` keeps that week; null or
+  /// empty = the current week has always applied.
+  workingWeekEarlier         Json?
   /// Attendance request rules (People → Settings → Request rules):
   /// { WFH: { on, quotaPerMonth, backDays, approval }, ON_DUTY: {...}, PERMISSION: { on, hoursPerMonth, maxMinutes, approval }, MISSED_PUNCH: { quotaPerMonth, backDays } }.
   requestRules               Json    @default("{}")

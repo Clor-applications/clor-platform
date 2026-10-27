@@ -66,8 +66,10 @@ export const instants = (date: string, inHHMM?: string | null, outHHMM?: string 
 export class MonthClosedError extends Error {
   status = 409;
   code = 'ATTENDANCE_MONTH_CLOSED';
-  constructor(month: string) {
-    super(`${month} is closed in Attendance. Reopen the month to change its days.`);
+  month: string;
+  constructor(month: string, message?: string) {
+    super(message || `${month} is closed in Attendance. Reopen the month to change its days.`);
+    this.month = month;
   }
 }
 

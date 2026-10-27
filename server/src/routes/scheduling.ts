@@ -13,6 +13,7 @@ import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance
 import { ISO_DATE, closedMonths, daysBetween, daysOfMonth, sendError, today, withNames, writeDay } from '../services/attendance/days.js';
 import { recomputeDeviceDay } from '../services/attendance/punches.js';
 import { deleteToBin } from '../services/recycleBin.js';
+import { assertScheduleOpen, rotationRanges, scheduleGuard } from '../services/attendance/scheduleGuard.js';
 
 /**
  * Scheduling — ClorTime's Shift and Schedule modules: temporary schedules,
@@ -58,6 +59,8 @@ schedulingRouter.post(`${base}/temporary-schedules`, can(PermissionAction.EDIT),
   if (b.toDate < b.fromDate) return res.status(400).json({ error: 'The last day is before the first.' });
   try {
     await shiftIn(orgId, b.shiftId);
+    /* Its days may not be in a closed month (O-05). */
+    await assertScheduleOpen(orgId, [{ from: b.fromDate, to: b.toDate }]);
     const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: b.employeeIds } }, select: { id: true } });
     await peoplePrisma.temporarySchedule.createMany({
       data: people.map((p) => ({ accountId, orgId, employeeId: p.id, shiftId: b.shiftId, fromDate: b.fromDate, toDate: b.toDate, reason: b.reason || null, createdByUserId: req.auth!.userId })),
@@ -73,6 +76,11 @@ schedulingRouter.delete(`${base}/temporary-schedules/:id`, can(PermissionAction.
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.temporarySchedule.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such schedule.' });
+  try {
+    await assertScheduleOpen(orgId, [{ from: r.fromDate, to: r.toDate }]);
+  } catch (e) {
+    return sendError(res, e);
+  }
   await deleteToBin(req, 'temporarySchedule', r);
   res.json({ ok: true });
 });
@@ -104,6 +112,9 @@ schedulingRouter.post(`${base}/department-schedules`, can(PermissionAction.EDIT)
   try {
     await shiftIn(orgId, b.shiftId);
     if (!(await peoplePrisma.department.findFirst({ where: { id: b.departmentId, orgId }, select: { id: true } }))) return res.status(400).json({ error: 'That department is not in this organisation.' });
+    /* The new range, and the range of a row it replaces (same department, same start), may not reach into a closed month (O-05). */
+    const replaced = await peoplePrisma.departmentSchedule.findUnique({ where: { departmentId_effectiveFrom: { departmentId: b.departmentId, effectiveFrom: b.effectiveFrom } }, select: { effectiveTo: true } });
+    await assertScheduleOpen(orgId, [{ from: b.effectiveFrom, to: b.effectiveTo || null }, ...(replaced ? [{ from: b.effectiveFrom, to: replaced.effectiveTo }] : [])]);
     const row = await peoplePrisma.departmentSchedule.upsert({
       where: { departmentId_effectiveFrom: { departmentId: b.departmentId, effectiveFrom: b.effectiveFrom } },
       create: { accountId, orgId, departmentId: b.departmentId, shiftId: b.shiftId, effectiveFrom: b.effectiveFrom, effectiveTo: b.effectiveTo || null, createdByUserId: req.auth!.userId },
@@ -120,6 +131,11 @@ schedulingRouter.delete(`${base}/department-schedules/:id`, can(PermissionAction
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.departmentSchedule.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such schedule.' });
+  try {
+    await assertScheduleOpen(orgId, [{ from: r.effectiveFrom, to: r.effectiveTo }]);
+  } catch (e) {
+    return sendError(res, e);
+  }
   await deleteToBin(req, 'departmentSchedule', r);
   res.json({ ok: true });
 });
@@ -180,6 +196,16 @@ schedulingRouter.put(`${base}/rotations/:id`, can(PermissionAction.EDIT), async 
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the rotation.' });
   try {
     await checkSequence(orgId, parsed.data.sequence);
+    /*
+     * A rotation has no effective date: a new pattern, period, anchor or on/off
+     * re-works every date of everyone on it, so it may not touch a closed
+     * month (O-05). The name can always change.
+     */
+    const pattern = (x: { sequence: string; periodDays: number; anchorDate: string; isActive: boolean }) => JSON.stringify([x.sequence, x.periodDays, x.anchorDate, x.isActive]);
+    const next = { sequence: parsed.data.sequence.join(','), periodDays: parsed.data.periodDays, anchorDate: parsed.data.anchorDate, isActive: parsed.data.isActive ?? existing.isActive };
+    if (pattern(existing) !== pattern(next)) {
+      await assertScheduleOpen(orgId, await rotationRanges(orgId, existing.id), (month) => `${month} is closed in Attendance and people on this rotation work it, so its pattern cannot change. Start a new rotation from a date instead.`);
+    }
     const r = await peoplePrisma.shiftRotation.update({ where: { id: existing.id }, data: { ...parsed.data, sequence: parsed.data.sequence.join(',') } });
     res.json({ rotation: { ...r, sequence: r.sequence.split(',') } });
   } catch (e) {
@@ -216,7 +242,12 @@ schedulingRouter.post(`${base}/rotations/:id/assignments`, can(PermissionAction.
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Choose people and a start date.' });
   const b = parsed.data;
+  if (b.endsOn && b.endsOn < b.startsOn) return res.status(400).json({ error: 'The end is before the start.' });
   const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: b.employeeIds } }, select: { id: true } });
+  /* The new range, and any row it replaces (same person, rotation and start), may not reach into a closed month (O-05). */
+  const replaced = await peoplePrisma.rotationAssignment.findMany({ where: { orgId, rotationId: rotation.id, startsOn: b.startsOn, employeeId: { in: people.map((p) => p.id) } }, select: { endsOn: true } });
+  const refused = (await scheduleGuard(orgId)).refusal([{ from: b.startsOn, to: b.endsOn || null }, ...replaced.map((r) => ({ from: b.startsOn, to: r.endsOn }))]);
+  if (refused) return sendError(res, refused);
   for (const p of people) {
     await peoplePrisma.rotationAssignment.upsert({
       where: { employeeId_rotationId_startsOn: { employeeId: p.id, rotationId: rotation.id, startsOn: b.startsOn } },
@@ -232,6 +263,8 @@ schedulingRouter.delete(`${base}/rotation-assignments/:id`, can(PermissionAction
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.rotationAssignment.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such assignment.' });
+  const refused = (await scheduleGuard(orgId)).refusal([{ from: r.startsOn, to: r.endsOn }]);
+  if (refused) return sendError(res, refused);
   await deleteToBin(req, 'rotationAssignment', r);
   res.json({ ok: true });
 });
@@ -265,6 +298,10 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
   try {
     if (parsed.data.defaultShiftId) await shiftIn(orgId, parsed.data.defaultShiftId);
     const previous = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
+    /* The default shift decides every date of anyone with no other schedule, closed months included (O-05). */
+    if ((previous?.defaultShiftId || null) !== parsed.data.defaultShiftId) {
+      await assertScheduleOpen(orgId, [{ from: null, to: null }], (month) => `${month} is closed in Attendance, and the default shift decides its days. Reopen the month to change the default shift, or assign the shift from a date instead.`);
+    }
     const s = await peoplePrisma.attendanceSettings.upsert({
       where: { orgId },
       create: { accountId, orgId, ...parsed.data, updatedByUserId: req.auth!.userId },

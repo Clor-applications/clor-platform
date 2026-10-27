@@ -26,6 +26,8 @@ export type ScheduleData = {
   defaultShiftId: string | null;
   /** The company's working week on the standard 09:00–18:00 day, for anyone no shift covers (People-only companies set only this). */
   standardRule?: ShiftRule;
+  /** Earlier working weeks, oldest first: a date before `until` follows that week instead (a change made from a date). */
+  standardEarlier?: Array<{ until: string; rule: ShiftRule }>;
   temporary: Map<string, Ranged[]>;
   assignments: Map<string, Ranged[]>;
   rotations: Map<string, { sequence: Array<string | null>; periodDays: number; anchorDate: string; isActive: boolean }>;
@@ -95,7 +97,8 @@ export function resolveShift(data: ScheduleData, employeeId: string, date: strin
 
   const def = usable(data.defaultShiftId);
   if (def) return shaped(def, 'DEFAULT');
-  return { shiftId: null, rule: data.standardRule || DEFAULT_SHIFT, name: 'Standard', code: null, color: null, source: 'DEFAULT' };
+  const earlier = data.standardEarlier?.find((e) => date < e.until);
+  return { shiftId: null, rule: earlier?.rule || data.standardRule || DEFAULT_SHIFT, name: 'Standard', code: null, color: null, source: 'DEFAULT' };
 }
 
 const group = <T, K extends string>(rows: T[], key: (r: T) => K) => {
@@ -107,6 +110,31 @@ const group = <T, K extends string>(rows: T[], key: (r: T) => K) => {
   }
   return m;
 };
+
+/** A week the company worked before a working-week change made from a date. */
+export type EarlierWeek = { until: string; weeklyOffDays: string; offSaturdays: string };
+
+/** AttendanceSettings.workingWeekEarlier, read safely: well-formed entries, oldest first. */
+export function earlierWeeks(raw: unknown): EarlierWeek[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((w: any) => w && /^\d{4}-\d{2}-\d{2}$/.test(String(w.until)) && typeof w.weeklyOffDays === 'string')
+    .map((w: any) => ({ until: String(w.until), weeklyOffDays: String(w.weeklyOffDays), offSaturdays: String(w.offSaturdays || '') }))
+    .sort((a, b) => (a.until < b.until ? -1 : a.until > b.until ? 1 : 0));
+}
+
+/**
+ * The weeks to keep when the working week changes from `from`: every earlier
+ * week that ended by then, and the week `from` falls in, cut short at `from`.
+ * Weeks that would have started on or after `from` are replaced by the new one.
+ */
+export function weeksBefore(earlier: EarlierWeek[], current: { weeklyOffDays: string; offSaturdays: string }, from: string): EarlierWeek[] {
+  const kept = earlier.filter((w) => w.until <= from);
+  const startOfSegment = kept.length ? kept[kept.length - 1].until : null;
+  const covering = earlier.find((w) => w.until > from) || current;
+  if (startOfSegment === null || startOfSegment < from) kept.push({ until: from, weeklyOffDays: covering.weeklyOffDays, offSaturdays: covering.offSaturdays || '' });
+  return kept;
+}
 
 /** Everything resolveShift needs for a company, optionally narrowed to some people. */
 export async function loadSchedule(orgId: string, employeeIds?: string[]): Promise<ScheduleData> {
@@ -125,6 +153,7 @@ export async function loadSchedule(orgId: string, employeeIds?: string[]): Promi
     shifts: new Map(shifts.map((s) => [s.id, { rule: toRule(s), name: s.name, code: s.code, color: s.color, isActive: s.isActive }])),
     defaultShiftId: settings?.defaultShiftId || null,
     standardRule: settings ? { ...DEFAULT_SHIFT, weeklyOffDays: settings.weeklyOffDays ?? DEFAULT_SHIFT.weeklyOffDays, offSaturdays: settings.offSaturdays || '' } : DEFAULT_SHIFT,
+    standardEarlier: earlierWeeks(settings?.workingWeekEarlier).map((w) => ({ until: w.until, rule: { ...DEFAULT_SHIFT, weeklyOffDays: w.weeklyOffDays, offSaturdays: w.offSaturdays } })),
     temporary: group(temporary.map((t) => ({ employeeId: t.employeeId, shiftId: t.shiftId, from: t.fromDate, to: t.toDate })), (t) => t.employeeId) as any,
     assignments: group(assignments.map((a) => ({ employeeId: a.employeeId, shiftId: a.shiftId, from: a.effectiveFrom, to: a.effectiveTo })), (a) => a.employeeId) as any,
     rotations: new Map(
