@@ -45,6 +45,8 @@ import {
   postPayrollRun,
 } from "../api/payrollRuns";
 import LoadFailed from "../components/LoadFailed";
+import { LopCheckPanel, ProvisionalNotice } from "../components/RunGuards";
+import { openMonthsOf } from "../components/runGuardText";
 
 /**
  * Running payroll.
@@ -424,6 +426,7 @@ const RunWorkflow = ({ runId, onBack }) => {
               act={act}
               runId={runId}
               setIssues={setIssues}
+              onLopMismatch={() => setStage("review")}
             />
           </>
         }
@@ -499,7 +502,15 @@ const RunWorkflow = ({ runId, onBack }) => {
       ) : stage === "issues" ? (
         <ChecksStage issues={issues} byEmployee={byEmployee} data={data} />
       ) : stage === "review" ? (
-        <ReviewStage data={data} byEmployee={byEmployee} />
+        <div className="space-y-3">
+          <LopCheckPanel
+            runId={runId}
+            run={run}
+            refreshKey={`${run.status}:${run.lockedAt || ""}:${JSON.stringify(run.attendanceSnapshots || null)}`}
+            onLocked={load}
+          />
+          <ReviewStage data={data} byEmployee={byEmployee} />
+        </div>
       ) : (
         <BooksStage runId={runId} run={run} onPosted={load} />
       )}
@@ -527,7 +538,7 @@ const RunWorkflow = ({ runId, onBack }) => {
  * The status is the server's, so the button follows it rather than the screen
  * keeping its own idea of where the run has got to.
  */
-const RunPrimaryAction = ({ run, busy, act, runId, setIssues }) => {
+const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismatch }) => {
   if (
     run.status === "DRAFT" ||
     (run.status === "CALCULATED" && run.errorCount > 0)
@@ -585,7 +596,15 @@ const RunPrimaryAction = ({ run, busy, act, runId, setIssues }) => {
           onClick={() =>
             act(
               "lock",
-              () => lockPayrollRun(runId),
+              async () => {
+                try {
+                  return await lockPayrollRun(runId);
+                } catch (e) {
+                  /* Loss of pay that does not agree: the review lists who, with the way to lock with a reason. */
+                  if (e?.code === "LOP_MISMATCH" && onLopMismatch) onLopMismatch();
+                  throw e;
+                }
+              },
               () => notify.success("Payroll locked."),
             )
           }
@@ -803,7 +822,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
             ? (out.attendanceSnapshots || []).length
               ? ` Matches the Attendance close of ${out.attendanceSnapshots.map((x) => `${x.month} (snapshot ${x.version})`).join(", ")}.`
               : ""
-            : " The month is not closed in Attendance yet, so its figures can still change there; take the days again before calculating."),
+            : ` ${out.warning || "The month is not closed in Attendance; these figures can still change."}`),
       );
       onSaved();
     } catch (e) {
@@ -867,6 +886,8 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
 
   return (
     <div className="space-y-3">
+      {/* Days taken from an Attendance month still open: said until the month is closed and the days taken again. */}
+      <ProvisionalNotice openMonths={openMonthsOf(data.run)} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="ui-caption max-w-[60ch]">
           {hasApp("attendance")

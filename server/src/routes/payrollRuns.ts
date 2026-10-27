@@ -12,8 +12,10 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/pa
 import { calculateRun, daysBetween, eligibleEmployees, validateRun } from '../services/payroll/run.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { recordAudit } from '../services/auditTrail.js';
-import { closedMonths, daysBetween as datesBetween, periodRows } from '../services/attendance/days.js';
+import { daysBetween as datesBetween, periodRows } from '../services/attendance/days.js';
 import { leaveLossOfPay } from '../services/attendance/payableDays.js';
+import { provisionalWarning, snapshotChange, snapshotRows, takenMonths } from '../services/payroll/attendanceSnapshots.js';
+import { runLopCheck } from '../services/payroll/readinessTower.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 
@@ -66,6 +68,8 @@ const shape = (row: any, extra: Record<string, unknown> = {}) => ({
   rejectedAt: row.rejectedAt,
   rejectionReason: row.rejectionReason || null,
   lockedAt: row.lockedAt,
+  /* Which Attendance month closes the days were taken from (O-04): [{ month, version, closed }]. */
+  attendanceSnapshots: row.attendanceSnapshots ?? null,
   createdAt: row.createdAt,
   ...extra,
 });
@@ -398,7 +402,9 @@ payrollRunsRouter.post(
 
     const members = await payrollPrisma.payrollRunEmployee.findMany({ where: { orgId, runId: run.id, inclusion: 'INCLUDED' }, select: { employeeId: true } });
     const inRun = new Set(members.map((m) => m.employeeId));
-    const rows = (await periodRows(accountId, orgId, datesBetween(period.startDate, period.endDate))).filter((r) => inRun.has(r.employeeId));
+    /* Closed in Attendance: the figures saved when each month was closed (O-04). Open: today's, said to be provisional. */
+    const fromSnapshot = await snapshotRows(orgId, period.startDate, period.endDate);
+    const rows = (fromSnapshot ? fromSnapshot.rows : await periodRows(accountId, orgId, datesBetween(period.startDate, period.endDate))).filter((r: any) => inRun.has(r.employeeId));
     const existing = new Map(
       (await payrollPrisma.payrollInput.findMany({ where: { orgId, runId: run.id } })).map((i) => [i.employeeId, i])
     );
@@ -438,18 +444,22 @@ payrollRunsRouter.post(
       });
       saved += 1;
     }
-    const periodMonths = [...new Set(datesBetween(period.startDate, period.endDate).map((d) => d.slice(0, 7)))];
-    const shut = await closedMonths(orgId, periodMonths);
-    /* Which close of each month these figures match: the latest snapshot, kept when the month was closed. */
-    const snaps = await peoplePrisma.attendanceMonthSnapshot.findMany({ where: { orgId, month: { in: periodMonths } }, orderBy: { version: 'desc' }, select: { month: true, version: true, createdAt: true } });
-    const attendanceSnapshots = periodMonths.filter((m) => shut.has(m)).map((m) => snaps.find((x) => x.month === m)).filter(Boolean);
+    /* Which close of each month these figures match, kept on the run so approve and lock can tell if a month moved since. */
+    const taken = await takenMonths(orgId, period.startDate, period.endDate);
+    await payrollPrisma.payrollRun.update({ where: { id: run.id }, data: { attendanceSnapshots: taken as any } });
+    const openMonths = taken.filter((t) => !t.closed).map((t) => t.month);
     res.json({
-      attendanceSnapshots,
+      attendanceSnapshots: taken.filter((t) => t.closed),
+      /* SNAPSHOT: the closed months' saved figures. LIVE: today's (a month open, or a period that is not whole months). */
+      figuresFrom: fromSnapshot ? 'SNAPSHOT' : 'LIVE',
+      provisional: openMonths.length > 0,
+      openMonths,
+      warning: openMonths.length ? provisionalWarning(openMonths) : null,
       ok: true,
       saved,
       keptManual: keptManual.length,
       /* Closed in Attendance, the figures cannot move after this; open, a correction there would not reach this run. */
-      attendanceClosed: periodMonths.every((m) => shut.has(m)),
+      attendanceClosed: openMonths.length === 0,
       /* People in the run Attendance has no figures for (not employed in the period per People, or not expected at work). */
       missing: [...inRun].filter((id) => !rows.some((r) => r.employeeId === id)).length,
       toResolve,
@@ -529,6 +539,35 @@ payrollRunsRouter.post(
 );
 
 // ---------------------------------------------------------------- the stages
+
+/**
+ * The loss-of-pay cross-check for the run review (O-06): per person, approved
+ * unpaid leave, loss of pay on the day records, and loss of pay on the run,
+ * listed where they do not agree. Locking refuses while any are listed,
+ * unless somebody acknowledges them with a reason.
+ */
+payrollRunsRouter.get(
+  '/orgs/:orgId/payroll/runs/:id/lop-check',
+  requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const run = await runOr404(req, res);
+    if (!run) return;
+    const check = await runLopCheck(accountId, orgId, run.id);
+    /* Whether the days were taken from months still open, and whether a month has moved since (O-04). */
+    const taken = Array.isArray(run.attendanceSnapshots) ? (run.attendanceSnapshots as Array<{ month: string; closed: boolean }>) : [];
+    const openMonths = taken.filter((t) => t && !t.closed).map((t) => t.month);
+    const changed = await snapshotChange(orgId, run.attendanceSnapshots);
+    res.json({
+      ...check,
+      provisional: openMonths.length > 0,
+      openMonths,
+      warning: openMonths.length ? provisionalWarning(openMonths) : null,
+      snapshotChanged: changed,
+    });
+  }
+);
 
 payrollRunsRouter.post(
   '/orgs/:orgId/payroll/runs/:id/validate',
@@ -618,6 +657,30 @@ const transition = (
         });
       }
 
+      /* O-04: a closed Attendance month the days were taken from has been reopened, or closed again, since the pull. */
+      if (to === 'APPROVED' || to === 'LOCKED') {
+        const changed = await snapshotChange(run.orgId, run.attendanceSnapshots);
+        if (changed) return res.status(409).json({ error: changed.message, code: 'SNAPSHOT_CHANGED', month: changed.month, reason: changed.reason });
+      }
+
+      /* O-06: loss of pay that leave, the days and the run do not agree on is locked only when somebody says why. */
+      let lopAcknowledged: { reason: string; mismatches: unknown[] } | null = null;
+      if (to === 'LOCKED') {
+        const { mismatches } = await runLopCheck(run.accountId, run.orgId, run.id);
+        if (mismatches.length) {
+          const reason = String(req.body?.reason || '').trim().slice(0, 300);
+          if (req.body?.acknowledge !== true) {
+            return res.status(409).json({
+              error: `Loss of pay does not agree for ${mismatches.length} ${mismatches.length === 1 ? 'person' : 'people'}: leave, the days and this payroll say different things. Correct it, or lock with a reason.`,
+              code: 'LOP_MISMATCH',
+              mismatches,
+            });
+          }
+          if (reason.length < 5) return res.status(400).json({ error: 'Say why this payroll is locked with loss of pay that does not agree. It goes in the audit log.', code: 'REASON_NEEDED', mismatches });
+          lopAcknowledged = { reason, mismatches };
+        }
+      }
+
       /* A-13: whoever prepared the run approves it only as the company's maker-checker setting allows. */
       if (to === 'APPROVED') {
         const refused = await ownWorkRefusal(req, { makers: [run.createdByUserId, run.submittedByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_RUN', entityId: run.id, what: 'payroll' });
@@ -631,6 +694,15 @@ const transition = (
       });
       if (moved.count !== 1) return res.status(409).json({ error: 'Somebody else has just changed this payroll. Reload it.', code: 'RUN_WRONG_STATUS' });
       const updated = await payrollPrisma.payrollRun.findUniqueOrThrow({ where: { id: run.id } });
+      if (lopAcknowledged) {
+        await recordAudit(req, {
+          entity: 'PAYROLL_RUN',
+          entityId: run.id,
+          action: 'LOCK_LOP_ACKNOWLEDGED',
+          message: `Payroll ${run.number || run.id} locked with loss of pay not agreeing for ${lopAcknowledged.mismatches.length}: ${lopAcknowledged.reason}`,
+          metadata: { reason: lopAcknowledged.reason, mismatches: lopAcknowledged.mismatches },
+        });
+      }
       res.json({ run: shape(updated) });
       /* Payslips are final: attendance for the period is settled, accounting can post (HR research: PayrollPeriodLocked). */
       if (to === 'LOCKED') emitWebhook(updated.orgId, 'payroll.locked', { runId: updated.id, number: updated.number, periodId: updated.periodId, status: updated.status, lockedAt: (updated as any).lockedAt ?? null });
