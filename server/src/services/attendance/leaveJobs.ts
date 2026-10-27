@@ -9,6 +9,7 @@ import { addDays, periodEnd, periodOf } from './leaveAccrual.js';
 import { leavePeriodOf } from './leaveBalances.js';
 import { today } from './days.js';
 import { teamScope } from '../people/scope.js';
+import { registerJob } from '../jobRegistry.js';
 
 /**
  * Leave automation that runs on its own (TIME-LEAVE-DECISIONS.md, advanced
@@ -45,7 +46,12 @@ export async function runLeaveHandOns(now = new Date()) {
       if (!(await activeManagerOf(t.orgId, r.employeeId))) continue;
       const history = [...((Array.isArray(r.history) ? r.history : []) as any[]), { at: now.toISOString(), by: 'system', what: 'HANDED_ON', note: `No decision from the manager in ${t.handOnAfterDays} days` }];
       /* The manager's step counts as taken by nobody: HR decides, and the story says so. */
-      await peoplePrisma.leaveRequest.update({ where: { id: r.id }, data: { managerApprovedAt: now, managerApprovedById: null, managerNote: `Handed on to HR: no decision in ${t.handOnAfterDays} days`, history } });
+      /* Only while it still waits for the manager: a decision taken meanwhile is never written over (closure audit, 28 Oct 2026). */
+      const claimed = await peoplePrisma.leaveRequest.updateMany({ where: { id: r.id, status: 'PENDING', managerApprovedAt: null, updatedAt: r.updatedAt }, data: { managerApprovedAt: now, managerApprovedById: null, managerNote: `Handed on to HR: no decision in ${t.handOnAfterDays} days`, history } });
+      if (!claimed.count) continue;
+      await platformPrisma.auditLog
+        .create({ data: { accountId: r.accountId, orgId: t.orgId, branchId: '', entity: 'LeaveRequest', entityId: r.id, action: 'HAND_ON', message: `Handed on to HR: no decision from the manager in ${t.handOnAfterDays} days`, metadata: JSON.stringify({ employeeId: r.employeeId, leaveTypeId: r.leaveTypeId }), createdByUserId: 'system' } })
+        .catch((e) => console.error('[audit] hand-on not recorded:', e instanceof Error ? e.message : e));
       handed += 1;
       const { tellWaiting } = await import('../../routes/leave.js');
       await tellWaiting(t.orgId, r.id).catch((e) => console.error('[leave] hand-on notice not sent:', e instanceof Error ? e.message : e));
@@ -126,10 +132,16 @@ export function startLeaveJobs({ intervalMs = 3_600_000, startupDelayMs = 180_00
         await runLeaveDigest();
         await runLapseNotices();
       }
-    }).catch((e) => console.error('[leave-automation] failed:', e instanceof Error ? e.message : e));
+    }).catch((e) => {
+      console.error('[leave-automation] failed:', e instanceof Error ? e.message : e);
+      /* Thrown on, so the wake call reports it and Cloud Scheduler retries (services/jobRegistry.ts); the timer swallows it below. */
+      throw e;
+    });
+  registerJob('startLeaveJobs', tick, intervalMs);
+  const timed = () => tick().catch(() => {});
   const t = setTimeout(() => {
-    tick();
-    const i = setInterval(tick, intervalMs);
+    timed();
+    const i = setInterval(timed, intervalMs);
     i.unref?.();
   }, startupDelayMs);
   return () => clearTimeout(t);

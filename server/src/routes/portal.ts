@@ -27,7 +27,7 @@ import { REASON_CODES } from '../services/attendance/corrections.js';
 import { KINDS, KIND_WORDS, askRequest, cancelRequest, chainOf, decideRequest, editRequest, rulesFor, usage as requestUsage } from '../services/attendance/requests.js';
 import { managerStepBy, teamDecidedBy } from '../services/attendance/standIns.js';
 import { daysOfMonth, instants, sendError, today, withNames } from '../services/attendance/days.js';
-import { cancelOwnLeave, createLeave, decideLeave, editLeave, leaveAudit, leaveChainFor, managerStep, masked, pickRestrictedHoliday, previewOut, restrictedHolidaysFor, shortenLeave, withTypes } from './leave.js';
+import { cancelOwnLeave, createLeave, eligibleFor, decideLeave, editLeave, leaveAudit, leaveChainFor, managerStep, masked, pickRestrictedHoliday, previewOut, restrictedHolidaysFor, shortenLeave, withTypes } from './leave.js';
 import { balancesFor, leavePeriodOf, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
 import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
@@ -77,6 +77,9 @@ const PORTAL_FIELDS = {
   designation: true,
   photoUrl: true,
   status: true,
+  /* Which leave types the person may ask for (gender, employee type). */
+  gender: true,
+  employeeTypeId: true,
   branchId: true,
   areaId: true,
   devicePin: true,
@@ -580,23 +583,23 @@ portalRouter.post('/requests/:id/cancel', async (req, res) => {
   }
 });
 
-/** Change a correction that nobody has looked at yet. */
+/**
+ * The old correction routes (the Android app still calls them): a missed
+ * punch only, through the same edit and cancel as /requests, so the quota,
+ * the back-date window, the history and the audit line apply (closure audit,
+ * 28 Oct 2026: they wrote the row directly and could change any kind).
+ */
 portalRouter.put('/corrections/:id', async (req, res) => {
   const e = req.portal!.employee;
   const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
+  if (r.kind !== 'MISSED_PUNCH') return res.status(409).json({ error: 'Change this request under Requests.', code: 'NOT_A_CORRECTION' });
   if (r.status !== 'PENDING' || r.managerApprovedAt) return res.status(409).json({ error: 'This request is already being decided; it cannot be changed now.' });
-  const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
-  const checkIn = String(req.body?.checkIn || '');
-  const checkOut = req.body?.checkOut ? String(req.body.checkOut) : null;
-  const reason = String(req.body?.reason || '').trim();
-  const reasonCode = req.body?.reasonCode == null ? r.reasonCode : String(req.body.reasonCode);
-  if (!hhmm.test(checkIn) || (checkOut && !hhmm.test(checkOut))) return res.status(400).json({ error: 'Times are HH:MM, 24-hour.' });
-  if (reason.length < 3) return res.status(400).json({ error: 'Say why.' });
-  if (reasonCode && !(REASON_CODES as readonly string[]).includes(reasonCode)) return res.status(400).json({ error: 'Unknown reason.' });
-  const at = instants(r.date, checkIn, checkOut);
-  const updated = await peoplePrisma.attendanceRequest.update({ where: { id: r.id }, data: { checkIn: at.checkIn, checkOut: at.checkOut, reason: reason.slice(0, 500), reasonCode } });
-  res.json({ request: updated });
+  try {
+    res.json({ request: await editRequest({ ...who(req), onBehalf: false }, r, { ...req.body, kind: 'MISSED_PUNCH', date: r.date }) });
+  } catch (err) {
+    return sendError(res, err);
+  }
 });
 
 /** Withdraw a correction that nobody has looked at yet. */
@@ -604,9 +607,13 @@ portalRouter.post('/corrections/:id/cancel', async (req, res) => {
   const e = req.portal!.employee;
   const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
+  if (r.kind !== 'MISSED_PUNCH') return res.status(409).json({ error: 'Withdraw this request under Requests.', code: 'NOT_A_CORRECTION' });
   if (r.status !== 'PENDING' || r.managerApprovedAt) return res.status(409).json({ error: 'This request is already being decided; ask HR to withdraw it.' });
-  const updated = await peoplePrisma.attendanceRequest.update({ where: { id: r.id }, data: { status: 'CANCELLED', reviewNote: 'Withdrawn by the employee.' } });
-  res.json({ request: updated });
+  try {
+    res.json({ request: await cancelRequest(e.accountId, e.orgId, r, { userId: who(req).userId, employeeId: e.id, hr: false }, 'Withdrawn by the employee.') });
+  } catch (err) {
+    return sendError(res, err);
+  }
 });
 
 /** Ask HR to allow punching from the phone. HR sees it in its notifications, with a link to Portal access. */
@@ -720,7 +727,7 @@ portalRouter.get('/leave', async (req, res) => {
   res.json({
     year,
     today: today(),
-    types: types.filter((t) => t.isActive).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, ...mine.get(t.id) })),
+    types: types.filter((t) => t.isActive && (eligibleFor(t as any, req.portal!.employee as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, ...mine.get(t.id) })),
     requests: (await withTypes(orgId, requests)).map((r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null, groupId: r.groupId ?? null })),
   });
 });
@@ -908,6 +915,8 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
       await leaveAudit({ accountId: e.accountId, orgId: e.orgId, userId }, { entityId: r.id, action: 'MANAGER_APPROVE', message: `${e.name} (manager) approved leave, ${r.fromDate} to ${r.toDate}; now with HR`, metadata: { employeeId: r.employeeId } });
       return res.json({ request: masked([out], false)[0], stage: 'HR' });
     }
+    /* Once the manager's step is taken, the request is HR's: the manager no longer rejects it either. */
+    if (chain === 'MANAGER_THEN_HR' && r.managerApprovedAt) return res.status(409).json({ error: 'You have already approved this; it is with HR now.', code: 'HR_STEP' });
     /* A refusal says why: the person reads it in the employee app. */
     if (decision === 'reject' && !note) return res.status(400).json({ error: 'Say why. They see this with the decision.' });
     const out = await decideLeave(e.accountId, e.orgId, r, userId, note, decision === 'approve');

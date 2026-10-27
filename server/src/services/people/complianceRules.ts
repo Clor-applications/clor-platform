@@ -4,6 +4,7 @@ import { outsideTenant, runInTenant } from '../../utils/tenantScope.js';
 import { exclusive, leaseFor } from '../jobLease.js';
 import { notifyPermission, notifyUsers } from '../notifications.js';
 import { writeEvent } from './outbox.js';
+import { registerJob } from '../jobRegistry.js';
 
 /**
  * The rule library and the obligations it produces (docs/people/02-PRD.md
@@ -248,6 +249,7 @@ export async function runObligationDues(now = new Date()) {
 export function startObligationDues({ intervalMs = 6 * 3_600_000, startupDelayMs = 240_000 } = {}) {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
   const tick = () => exclusive('people.obligation-dues', leaseFor(intervalMs), () => runObligationDues()).catch((e) => console.error('[obligation-dues] failed:', e instanceof Error ? e.message : e));
+  registerJob('startObligationDues', tick, intervalMs);
   const t = setTimeout(() => {
     tick();
     const i = setInterval(tick, intervalMs);

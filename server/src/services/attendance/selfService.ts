@@ -1,4 +1,9 @@
-import { peoplePrisma } from '../../utils/peoplePrisma.js';
+import { peoplePrisma, peopleWrite } from '../../utils/peoplePrisma.js';
+import { platformPrisma } from '../../utils/platformPrisma.js';
+import { assertMonthOpen } from './days.js';
+import { logDayChange } from './history.js';
+import { leaveYearOf } from './leaveBalances.js';
+import { selfDecisionAllowed } from '../makerChecker.js';
 import { notifyPermission } from '../notifications.js';
 import { isWeeklyOff, istTime, monthSummary } from './compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from './schedule.js';
@@ -286,32 +291,59 @@ export async function decideOvertime(orgId: string, id: string, approve: boolean
   const r = await peoplePrisma.overtimeRequest.findFirst({ where: { id, orgId } });
   if (!r) throw Object.assign(new Error('No such request.'), { status: 404 });
   if (r.status !== 'PENDING') throw Object.assign(new Error(`This request was already ${r.status.toLowerCase()}.`), { status: 409 });
+  /* Nobody decides their own overtime or comp-off (closure audit, 28 Oct 2026). */
+  const subject = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { userId: true, reportingManagerId: true } });
+  const ownByLogin = Boolean(subject?.userId && subject.userId === by.userId);
+  if ((by.managerId && by.managerId === r.employeeId && !ownByLogin) || (ownByLogin && !(await selfDecisionAllowed(r.accountId, orgId, by.userId, 'ATTENDANCE::Attendance Records::EDIT')).allowed)) {
+    throw Object.assign(new Error('This is your own request; somebody else has to decide it.'), { status: 403, code: 'OWN_RECORD' });
+  }
   const chain = await overtimeChain(orgId);
+  const audit = (action: string, message: string) =>
+    platformPrisma.auditLog
+      .create({ data: { accountId: r.accountId, orgId, branchId: '', entity: 'OvertimeRequest', entityId: r.id, action, message: message.slice(0, 500), metadata: JSON.stringify({ employeeId: r.employeeId, kind: r.kind, date: r.date, days: r.days, note }), createdByUserId: by.userId } })
+      .catch((e) => console.error('[audit] OvertimeRequest not recorded:', e instanceof Error ? e.message : e)); // eslint-disable-line no-console
   if (by.managerId) {
-    const owner = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { reportingManagerId: true } });
-    if (owner?.reportingManagerId !== by.managerId) throw Object.assign(new Error('This request is not yours to decide.'), { status: 403 });
+    if (subject?.reportingManagerId !== by.managerId) throw Object.assign(new Error('This request is not yours to decide.'), { status: 403 });
     if (chain === 'HR') throw Object.assign(new Error('HR decides overtime and comp-off at this company.'), { status: 403 });
+    if (chain === 'MANAGER_THEN_HR' && r.managerApprovedAt) throw Object.assign(new Error('You have already approved this; it is with HR now.'), { status: 409 });
     if (approve && chain === 'MANAGER_THEN_HR') {
-      if (r.managerApprovedAt) throw Object.assign(new Error('You have already approved this; it is with HR now.'), { status: 409 });
-      return peoplePrisma.overtimeRequest.update({ where: { id: r.id }, data: { managerApprovedAt: new Date(), managerApprovedById: by.managerId, reviewNote: note } });
+      const claimed = await peoplePrisma.overtimeRequest.updateMany({ where: { id: r.id, status: 'PENDING', managerApprovedAt: null }, data: { managerApprovedAt: new Date(), managerApprovedById: by.managerId, reviewNote: note } });
+      if (!claimed.count) throw Object.assign(new Error('This request was already decided.'), { status: 409 });
+      await audit('MANAGER_APPROVE', `Manager approved ${r.kind === 'OVERTIME' ? 'overtime' : 'comp-off'} for ${r.date}; now with HR`);
+      return peoplePrisma.overtimeRequest.findFirstOrThrow({ where: { id: r.id } });
     }
   } else if (chain === 'MANAGER_THEN_HR' && !r.managerApprovedAt) {
     /* A manager who has left or is suspended is no manager: HR decides. */
     if (approve && (await activeManagerOf(orgId, r.employeeId))) throw Object.assign(new Error('The manager approves this first.'), { status: 409 });
   }
-  if (approve) {
-    if (r.kind === 'OVERTIME') {
-      await peoplePrisma.attendanceRecord.updateMany({ where: { orgId, employeeId: r.employeeId, date: r.date }, data: { overtimeApproved: true } });
-    } else {
+  /*
+   * One transaction, claimed by status: two people deciding at once cannot
+   * both credit comp-off or both approve. Overtime is paid in the month, so a
+   * closed month refuses it; comp-off is a dated credit like HR's grant
+   * (a LeaveAdjustment with the day worked), in the leave period of that day,
+   * once per day worked whichever way it was asked for.
+   */
+  const row = await peopleWrite(orgId, async () => {
+    const claimed = await peoplePrisma.overtimeRequest.updateMany({ where: { id: r.id, status: 'PENDING' }, data: { status: approve ? 'APPROVED' : 'REJECTED', reviewedByUserId: by.userId, reviewedAt: new Date(), reviewNote: note } });
+    if (!claimed.count) throw Object.assign(new Error('This request was already decided.'), { status: 409 });
+    if (approve && r.kind === 'OVERTIME') {
+      await assertMonthOpen(orgId, r.date, r.employeeId);
+      const day = await peoplePrisma.attendanceRecord.findFirst({ where: { orgId, employeeId: r.employeeId, date: r.date } });
+      if (day) {
+        const after = await peoplePrisma.attendanceRecord.update({ where: { id: day.id }, data: { overtimeApproved: true } });
+        await logDayChange({ accountId: r.accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: day.id, action: 'OVERTIME', before: day, after, userId: by.userId, reason: `Overtime request approved${note ? `: ${note}` : ''}` });
+      }
+    } else if (approve) {
       const settings = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { compOffLeaveTypeId: true } });
       if (!settings?.compOffLeaveTypeId) throw Object.assign(new Error('Choose the comp-off leave type first (Overtime & comp-off settings).'), { status: 409 });
-      const year = Number(r.date.slice(0, 4));
-      const have = await peoplePrisma.leaveAllocation.findFirst({ where: { orgId, employeeId: r.employeeId, leaveTypeId: settings.compOffLeaveTypeId, year } });
-      if (have) await peoplePrisma.leaveAllocation.update({ where: { id: have.id }, data: { days: have.days + r.days, note: `${have.note ? `${have.note}; ` : ''}comp-off ${r.date}` .slice(0, 500) } });
-      else await peoplePrisma.leaveAllocation.create({ data: { accountId: r.accountId, orgId, employeeId: r.employeeId, leaveTypeId: settings.compOffLeaveTypeId, year, days: r.days, note: `comp-off ${r.date}`, createdByUserId: by.userId } });
+      const twice = await peoplePrisma.leaveAdjustment.findFirst({ where: { orgId, employeeId: r.employeeId, leaveTypeId: settings.compOffLeaveTypeId, workedOn: r.date } });
+      if (twice) throw Object.assign(new Error(`Comp-off for ${r.date} is already granted.`), { status: 409, code: 'COMP_OFF_TWICE' });
+      await peoplePrisma.leaveAdjustment.create({ data: { accountId: r.accountId, orgId, employeeId: r.employeeId, leaveTypeId: settings.compOffLeaveTypeId, year: await leaveYearOf(orgId, r.date), days: r.days, kind: 'ADJUST', reason: `Comp-off for ${r.date} (request approved)${note ? `: ${note}` : ''}`.slice(0, 500), workedOn: r.date, createdByUserId: by.userId } });
     }
-  }
-  return peoplePrisma.overtimeRequest.update({ where: { id: r.id }, data: { status: approve ? 'APPROVED' : 'REJECTED', reviewedByUserId: by.userId, reviewedAt: new Date(), reviewNote: note } });
+    return peoplePrisma.overtimeRequest.findFirstOrThrow({ where: { id: r.id } });
+  });
+  await audit(approve ? 'APPROVE' : 'REJECT', `${approve ? 'Approved' : 'Rejected'} ${r.kind === 'OVERTIME' ? 'overtime' : `${r.days} day comp-off`} for ${r.date}${note ? `: ${note}` : ''}`);
+  return row;
 }
 
 export async function overtimeChain(orgId: string) {

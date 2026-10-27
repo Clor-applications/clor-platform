@@ -63,7 +63,8 @@ export const getSummary = (month) => get(`/summary${query({ month })}`);
 /** Close a month (its days become final) or reopen it. */
 /* `acknowledge`: the month-close checklist has open items and the person closing has seen them. */
 export const closeMonth = (month, acknowledge = false) => send(`/months/${encodeURIComponent(month)}/close`, 'POST', acknowledge ? { acknowledge: true } : {});
-export const reopenMonth = (month) => send(`/months/${encodeURIComponent(month)}/reopen`, 'POST', {});
+/** Reopen a closed month; `reason` (5+ characters) goes in the audit log. */
+export const reopenMonth = (month, reason) => send(`/months/${encodeURIComponent(month)}/reopen`, 'POST', { reason });
 
 /** IST "today", the attendance day. */
 export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);

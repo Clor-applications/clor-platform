@@ -6,6 +6,7 @@ import { exclusive, leaseFor } from './jobLease.js';
 import { notifyPermission, notifyUsers } from './notifications.js';
 import { closing } from './principalAllowed.js';
 import { recordCredentialEvent, revokeCredential, SYSTEM, type Actor } from './credentials.js';
+import { registerJob } from './jobRegistry.js';
 
 /**
  * Keeping the company's credentials looked after (Batch 5, U6).
@@ -134,6 +135,7 @@ export function startCredentialChecks({ intervalMs = 24 * 3_600_000, startupDela
     exclusive('credentials.daily', leaseFor(intervalMs), () => runCredentialChecks(), { idempotent: true }).catch((e) =>
       console.error('[credentials] daily checks failed:', e instanceof Error ? e.message : e)
     );
+  registerJob('startCredentialChecks', tick, intervalMs);
   const t = setTimeout(() => {
     tick();
     const i = setInterval(tick, intervalMs);

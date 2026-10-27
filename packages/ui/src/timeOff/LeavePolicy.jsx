@@ -232,7 +232,7 @@ export default function LeavePolicy() {
     ) },
     { key: 'code', label: 'Code', render: (t) => t.code || '—' },
     { key: 'policy', label: 'Policy', render: (t) => <span className="whitespace-normal">{rulesOf(t, typeNames).join('; ')}</span> },
-    { key: 'requests', label: 'Requests', align: 'right', render: (t) => <span className="tabular-nums">{t.requests || 0}</span> },
+    { key: 'requests', label: 'Requests', align: 'right', render: (t) => <span className="tabular-nums">{t.requests == null ? '—' : t.requests}</span> },
   ];
 
   return (
@@ -414,7 +414,7 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
       title={form.id ? start.name : 'New leave type'}
       footer={canSave ? (
         <>
-          {form.id && canDelete && !Number(form.requests) ? <button type="button" className="ui-btn ui-btn-secondary mr-auto" onClick={remove}>Delete</button> : null}
+          {form.id && canDelete && form.requests === 0 ? <button type="button" className="ui-btn ui-btn-secondary mr-auto" onClick={remove}>Delete</button> : null}
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
           <button type="submit" form="leave-policy" className="ui-btn ui-btn-primary" disabled={saving || !body.name || !dirty || Boolean(ruleProblem)}>{saving ? 'Saving…' : 'Save'}</button>
         </>

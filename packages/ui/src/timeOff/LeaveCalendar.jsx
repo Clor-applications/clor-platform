@@ -44,7 +44,7 @@ export default function LeaveCalendar() {
   const [month, setMonth] = useState(today.slice(0, 7));
   const [dept, setDept] = useState('');
   const req = useRequest(
-    () => Promise.all([listLeaveRequests({ month }), listHolidays(month.slice(0, 4)), getWorkingWeek().catch(() => null)])
+    () => Promise.all([listLeaveRequests({ month }), listHolidays(month.slice(0, 4)).catch(() => []), getWorkingWeek().catch(() => null)])
       .then(([r, h, week]) => ({ requests: r.filter((x) => ['APPROVED', 'PENDING'].includes(x.status)), holidays: h, week })),
     [month],
   );

@@ -30,6 +30,8 @@ export async function standingInFor(orgId: string, employeeId: string, date = to
  * manager it counts as, or null.
  */
 export async function managerStepBy(orgId: string, actorEmployeeId: string, employeeId: string, date = today()) {
+  /* Nobody takes the manager's step on their own request, even standing in for their own manager (closure audit, 28 Oct 2026). */
+  if (actorEmployeeId === employeeId) return null;
   const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { reportingManagerId: true } });
   if (!e?.reportingManagerId) return null;
   if (e.reportingManagerId === actorEmployeeId) return actorEmployeeId;
@@ -40,5 +42,5 @@ export async function managerStepBy(orgId: string, actorEmployeeId: string, empl
 /** Everyone whose requests this person decides today: their own reportees and those of the managers they stand in for. */
 export async function teamDecidedBy(orgId: string, employeeId: string, date = today()) {
   const managers = [employeeId, ...(await standingInFor(orgId, employeeId, date))];
-  return peoplePrisma.employee.findMany({ where: { orgId, reportingManagerId: { in: managers }, status: { not: 'LEFT' } }, select: { id: true, name: true, code: true, reportingManagerId: true } });
+  return peoplePrisma.employee.findMany({ where: { orgId, reportingManagerId: { in: managers }, status: { not: 'LEFT' }, id: { not: employeeId } }, select: { id: true, name: true, code: true, reportingManagerId: true } });
 }

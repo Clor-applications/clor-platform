@@ -4,6 +4,7 @@ import { sendTemplate } from '../mailer.js';
 import { istDate } from './compute.js';
 import { exclusive, leaseFor } from '../jobLease.js';
 import { appLive } from '../principalAllowed.js';
+import { registerJob } from '../jobRegistry.js';
 
 /**
  * Reports that go out by e-mail on their own.
@@ -162,6 +163,7 @@ export async function runDueSchedules(build: (reportId: string, accountId: strin
 export function startReportSchedules(build: (reportId: string, accountId: string, orgId: string, q: any) => Promise<any>, { intervalMs = 15 * 60_000, startupDelayMs = 120_000 } = {}) {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
   const tick = () => exclusive('reports.schedules', leaseFor(intervalMs), () => runDueSchedules(build)).catch((e) => console.error('[reports] schedules failed:', e instanceof Error ? e.message : e)); // eslint-disable-line no-console
+  registerJob('startReportSchedules', tick, intervalMs);
   const t = setTimeout(() => { tick(); const i = setInterval(tick, intervalMs); i.unref?.(); }, startupDelayMs);
   t.unref?.();
   return () => clearTimeout(t);

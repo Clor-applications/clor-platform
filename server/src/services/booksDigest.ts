@@ -3,6 +3,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { notifyPermissionOnce } from './notifications.js';
 import { exclusive, leaseFor } from './jobLease.js';
 import { appLive } from './principalAllowed.js';
+import { registerJob } from './jobRegistry.js';
 
 /**
  * What Accounting's own bell used to work out in the browser — invoices past
@@ -72,6 +73,7 @@ export async function runBooksDigest(now = new Date()) {
 export function startBooksDigest({ intervalMs = 24 * 3_600_000, startupDelayMs = 300_000 } = {}) {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
   const tick = () => exclusive('books.digest', leaseFor(intervalMs), () => runBooksDigest(), { idempotent: true }).catch((e) => console.error('[books-digest] failed:', e instanceof Error ? e.message : e));
+  registerJob('startBooksDigest', tick, intervalMs);
   const t = setTimeout(() => {
     tick();
     const i = setInterval(tick, intervalMs);

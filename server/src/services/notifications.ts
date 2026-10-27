@@ -1,5 +1,6 @@
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { exclusive, leaseFor } from './jobLease.js';
+import { registerJob } from './jobRegistry.js';
 
 /**
  * In-app notifications: the bell every app shares.
@@ -107,6 +108,7 @@ export async function pruneNotifications(now = new Date()) {
 export function startNotificationPruning({ intervalMs = 24 * 3_600_000, startupDelayMs = 240_000 } = {}) {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
   const tick = () => exclusive('notifications.prune', leaseFor(intervalMs), () => pruneNotifications(), { idempotent: true }).catch((e) => console.error('[notifications] prune failed:', e instanceof Error ? e.message : e));
+  registerJob('startNotificationPruning', tick, intervalMs);
   const t = setTimeout(() => {
     tick();
     const i = setInterval(tick, intervalMs);

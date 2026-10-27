@@ -289,7 +289,7 @@ attendanceRouter.delete('/orgs/:orgId/attendance/records/:id', can(PermissionAct
     await peopleWrite(orgId, async () => {
       const r = await peoplePrisma.attendanceRecord.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
       if (!r) throw fail(404, 'No such day.');
-      await assertMonthOpen(orgId, r.date);
+      await assertMonthOpen(orgId, r.date, r.employeeId);
       if (r.leaveRequestId) throw fail(409, 'Cancel the linked leave request before deleting this day.', 'LEAVE_CONFLICT');
       await deleteToBin(req, 'attendanceRecord', r);
       await logDayChange({ accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'DELETE', before: r, after: null, userId: req.auth!.userId });
@@ -325,6 +325,12 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/:id/overtime', can(Permis
   const r = await peoplePrisma.attendanceRecord.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such day.' });
   if (!r.overtimeMinutes) return res.status(400).json({ error: 'There is no overtime on that day.' });
+  /* Overtime is paid with the month: a closed month's overtime is final (closure audit, 28 Oct 2026). */
+  try {
+    await assertMonthOpen(orgId, r.date, r.employeeId);
+  } catch (e) {
+    return sendError(res, e);
+  }
   const updated = await peoplePrisma.attendanceRecord.update({
     where: { id: r.id },
     data: { overtimeApproved: req.body?.approved !== false },
@@ -837,12 +843,24 @@ attendanceRouter.get('/orgs/:orgId/attendance/holidays', can(PermissionAction.VI
   res.json({ holidays: holidays.map((h) => ({ ...h, areaName: h.areaId ? areas.get(h.areaId) || null : null })), year });
 });
 
+/**
+ * A holiday decides whether a day is payable, and a closed month's payable
+ * days are final (Payroll has taken them): adding, moving or removing a
+ * holiday in a closed month is refused like any other change to its days.
+ */
+async function holidayMonthsOpen(orgId: string, dates: string[]) {
+  const months = [...new Set(dates.filter(Boolean).map((d) => String(d).slice(0, 7)))];
+  const closed = await closedMonths(orgId, months);
+  if (closed.size) throw new MonthClosedError([...closed][0]);
+}
+
 attendanceRouter.post('/orgs/:orgId/attendance/holidays', can(PermissionAction.CREATE, R.holidays), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const parsed = holidaySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid holiday.' });
   try {
+    await holidayMonthsOpen(orgId, [parsed.data.date]);
     const holiday = await peoplePrisma.holiday.create({
       data: { accountId, orgId, ...parsed.data, branchId: parsed.data.branchId || null, areaId: await areaOrNull(orgId, parsed.data.areaId), isOptional: Boolean(parsed.data.isOptional), createdByUserId: req.auth!.userId },
     });
@@ -860,6 +878,7 @@ attendanceRouter.put('/orgs/:orgId/attendance/holidays/:id', can(PermissionActio
   const parsed = holidaySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid holiday.' });
   try {
+    await holidayMonthsOpen(orgId, [existing.date, parsed.data.date]);
     const holiday = await peoplePrisma.holiday.update({
       where: { id: existing.id },
       data: { ...parsed.data, branchId: parsed.data.branchId || null, areaId: await areaOrNull(orgId, parsed.data.areaId), isOptional: Boolean(parsed.data.isOptional) },
@@ -875,6 +894,11 @@ attendanceRouter.delete('/orgs/:orgId/attendance/holidays/:id', can(PermissionAc
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.holiday.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'No such holiday.' });
+  try {
+    await holidayMonthsOpen(orgId, [existing.date]);
+  } catch (e) {
+    return sendError(res, e);
+  }
   await deleteToBin(req, 'holiday', existing);
   res.json({ ok: true });
 });
@@ -925,15 +949,27 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
     const snapshot = await snapshotMonth(accountId, orgId, month, req.auth!.userId, { ...latest, acknowledged: latest.checks.filter((c) => c.count > 0).map((c) => ({ key: c.key, count: c.count })) });
     return { month, closed: { at: lock.lockedAt, byUserId: lock.lockedByUserId }, snapshot: { version: snapshot.version } };
   });
+  await recordAudit(req, { entity: 'ATTENDANCE_MONTH', entityId: month, action: 'CLOSE', message: `Closed ${month} (snapshot ${result.snapshot.version})${open.length ? `, with ${open.length} checklist item${open.length === 1 ? '' : 's'} acknowledged` : ''}`, metadata: { month, snapshotVersion: result.snapshot.version, acknowledged: open.map((c) => ({ key: c.key, count: c.count })) } });
   res.json(result);
   emitWebhook(orgId, 'month.closed', { month, closedAt: result.closed.at, byUserId: req.auth!.userId });
 });
 
-/** Reopen a closed month, to correct it. Payroll already taken from it is not changed. */
+/**
+ * Reopen a closed month, to correct it. Payroll already taken from it is not
+ * changed, so a reopen says why and is written to the audit log with who
+ * closed it and when (closure audit, 28 Oct 2026: a reopen left no trace).
+ */
 attendanceRouter.post('/orgs/:orgId/attendance/months/:month/reopen', can(PermissionAction.APPROVE, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
-  await peopleWrite(orgId, () => peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId, month: String(req.params.month) } }));
-  res.json({ month: String(req.params.month), closed: null });
+  const month = String(req.params.month);
+  if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
+  const reason = String(req.body?.reason || '').trim().slice(0, 300);
+  if (reason.length < 5) return res.status(400).json({ error: 'Say why the month is reopened. It goes in the audit log.', code: 'REASON_NEEDED' });
+  const lock = await peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } });
+  if (!lock) return res.status(409).json({ error: `${month} is not closed.` });
+  await peopleWrite(orgId, () => peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId, month } }));
+  await recordAudit(req, { entity: 'ATTENDANCE_MONTH', entityId: month, action: 'REOPEN', message: `Reopened ${month}: ${reason}`, metadata: { month, reason, closedAt: lock.lockedAt, closedByUserId: lock.lockedByUserId } });
+  res.json({ month, closed: null });
   emitWebhook(orgId, 'month.reopened', { month: String(req.params.month), byUserId: req.auth!.userId });
 });

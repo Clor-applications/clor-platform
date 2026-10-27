@@ -2,6 +2,7 @@ import type { Prisma } from '../../generated/people/index.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { outsideTenant, runInTenant } from '../../utils/tenantScope.js';
 import { exclusive, leaseFor } from '../jobLease.js';
+import { registerJob } from '../jobRegistry.js';
 
 /**
  * The outbox (docs/people/02-PRD.md FND-05; build contract §7).
@@ -143,6 +144,7 @@ export function startPeopleOutbox({ intervalMs = 5_000, startupDelayMs = 15_000 
       running = false;
     }
   };
+  registerJob('startPeopleOutbox', tick, intervalMs);
   const startup = setTimeout(tick, startupDelayMs);
   const timer = setInterval(tick, intervalMs);
   startup.unref?.();

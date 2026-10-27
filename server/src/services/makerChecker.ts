@@ -77,6 +77,19 @@ export async function ownWorkRefusal(
   return null;
 }
 
+/**
+ * The same company setting, for a decision made outside a request handler
+ * (services/attendance/requests.ts, selfService.ts): may this user decide a
+ * request of their own? STRICT never; ALLOW always; AUTO only when nobody
+ * else holds `permission`. When allowed, the caller writes SELF_APPROVED.
+ */
+export async function selfDecisionAllowed(accountId: string, orgId: string, userId: string, permission: string): Promise<{ allowed: boolean; mode: string }> {
+  const mode = (await getAuthPolicy(accountId, orgId)).makerChecker;
+  if (mode === 'STRICT') return { allowed: false, mode };
+  if (mode === 'ALLOW') return { allowed: true, mode };
+  return { allowed: !(await anotherApproverExists(accountId, orgId, userId, permission)), mode };
+}
+
 /** Refused when the employee concerned is the person signed in. Never overridable. */
 export async function ownRecordRefusal(req: Request, employeeId: string, what: string): Promise<Refusal | null> {
   const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId: req.tenant!.orgId }, select: { userId: true } });

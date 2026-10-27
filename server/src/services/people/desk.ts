@@ -5,6 +5,7 @@ import { notifyPermission, notifyUsers, usersWithPermission } from '../notificat
 import { exclusive, leaseFor } from '../jobLease.js';
 import { decodeDocument } from './documentFiles.js';
 import { inForce } from './policies.js';
+import { registerJob } from '../jobRegistry.js';
 
 /**
  * Help desk (docs/people/02-PRD.md DESK-01..06). An employee raises a
@@ -329,6 +330,7 @@ export async function runDeskDues(now = new Date()) {
 export function startDeskDues({ intervalMs = 30 * 60_000, startupDelayMs = 90_000 } = {}) {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
   const tick = () => exclusive('people.desk-dues', leaseFor(intervalMs), () => runDeskDues()).catch((e) => console.error('[desk-dues] failed:', e instanceof Error ? e.message : e));
+  registerJob('startDeskDues', tick, intervalMs);
   const t = setTimeout(() => {
     tick();
     const i = setInterval(tick, intervalMs);

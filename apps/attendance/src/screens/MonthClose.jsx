@@ -3,9 +3,10 @@ import { AlertTriangle, CalendarDays, CheckCircle2, Download, Lock, Unlock } fro
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
-import { confirmDialog, notify } from '@ui/components/ui/notify';
+import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
-import { closeMonth, getMonthReadiness, getMonthSnapshot, reopenMonth, todayIst } from '../api/attendance';
+import { closeMonth, getMonthReadiness, getMonthSnapshot, todayIst } from '../api/attendance';
+import ReopenMonth from '../components/ReopenMonth';
 import LoadFailed from '../components/LoadFailed';
 
 /**
@@ -54,17 +55,8 @@ export default function MonthClose({ openScreen, params }) {
       setBusy(false);
     }
   };
-  const reopen = async () => {
-    const ok = await confirmDialog({ title: `Reopen ${monthName(month)}?`, message: 'Its days can change again. Payroll already run from it is not changed; closing again keeps a new snapshot.', confirmLabel: 'Reopen', tone: 'default' });
-    if (!ok) return;
-    try {
-      await reopenMonth(month);
-      notify.success('Reopened.');
-      load();
-    } catch (e) {
-      notify.error(String(e?.message || 'Not reopened.'));
-    }
-  };
+  const [reopening, setReopening] = useState(false);
+  const reopen = () => setReopening(true);
   const downloadSnapshot = async (version) => {
     try {
       const s = await getMonthSnapshot(month, version);
@@ -222,6 +214,7 @@ export default function MonthClose({ openScreen, params }) {
         </>
       )}
       </div>
+      {reopening ? <ReopenMonth month={month} label={monthName(month)} onClose={() => setReopening(false)} onDone={() => { setReopening(false); load(); }} /> : null}
     </div>
   );
 }

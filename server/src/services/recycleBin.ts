@@ -5,6 +5,7 @@ import { Prisma as PeoplePrisma } from '../generated/people/index.js';
 import { exclusive, leaseFor } from './jobLease.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from './attendance/guards.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE } from './people/guards.js';
+import { registerJob } from './jobRegistry.js';
 
 /**
  * The recycle bin (founder, 21 Oct 2026): something deleted by mistake can be
@@ -205,6 +206,7 @@ export function startRecycleBinPurge() {
         console.error('[recycle bin] purge failed:', e instanceof Error ? e.message : e);
       }
     );
+  registerJob('startRecycleBinPurge', run, 24 * 60 * 60 * 1000);
   const first = setTimeout(run, 120_000);
   const timer = setInterval(run, 24 * 60 * 60 * 1000);
   first.unref?.();

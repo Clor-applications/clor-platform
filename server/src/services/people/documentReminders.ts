@@ -6,6 +6,7 @@ import { anyAppLive, appLive } from '../principalAllowed.js';
 import { exclusive, leaseFor } from '../jobLease.js';
 import { startChecklist } from './checklists.js';
 import { writeEvent } from './outbox.js';
+import { registerJob } from '../jobRegistry.js';
 
 /**
  * People's own events, told to whoever manages employees (PEOPLE::Employees
@@ -266,6 +267,7 @@ export function startDocumentReminders({ intervalMs = 24 * 3_600_000, startupDel
     exclusive('people.contractor-licences', leaseFor(intervalMs), () => runContractorLicenceReminders(), { idempotent: true }).catch((e) => console.error('[contractor-licence] failed:', e instanceof Error ? e.message : e));
     exclusive('people.end-dates', leaseFor(intervalMs), () => runEndDateReminders(), { idempotent: true }).catch((e) => console.error('[end-dates] failed:', e instanceof Error ? e.message : e));
   };
+  registerJob('startDocumentReminders', tick, intervalMs);
   const t = setTimeout(() => {
     tick();
     const i = setInterval(tick, intervalMs);

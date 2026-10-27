@@ -89,8 +89,9 @@ describe('a closed month', () => {
     expect(re.body).toMatchObject({ recomputed: 0 });
     expect(re.body.skippedClosed).toBe(1);
 
-    // Reopened, it changes again.
-    await att(c).post('/months/2026-09/reopen').expect(200);
+    // Reopening says why (closure audit, 28 Oct 2026); reopened, it changes again.
+    expect((await att(c).post('/months/2026-09/reopen').expect(400)).body.code).toBe('REASON_NEEDED');
+    await att(c).post('/months/2026-09/reopen', { reason: 'Correct a missed holiday' }).expect(200);
     await att(c).put('/records', { employeeId: p.id, date: '2026-09-03', checkIn: '09:00', checkOut: '18:00' }).expect(200);
   });
 });

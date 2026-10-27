@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { requireAnyPermission, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { logDayChange } from '../services/attendance/history.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
@@ -18,7 +18,7 @@ import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
 import { isWeeklyOff } from '../services/attendance/compute.js';
 import { ACCRUALS, CALENDAR, balanceFor, periodEnd, periodLabel, periodOf, periodStart, type LeavePeriod } from '../services/attendance/leaveAccrual.js';
 import { emit as emitWebhook, leaveEvent, leaveEventFor } from '../services/attendance/webhooks.js';
-import { ISO_DATE, closedMonths, codeKey, employeeIn, fail, isHoliday, myEmployee, peopleByCode, sendError, shiftFor, today, withNames, assertMonthOpen, writeDay } from '../services/attendance/days.js';
+import { ISO_DATE, PayrollTakenError, closedMonths, codeKey, employeeIn, fail, isHoliday, myEmployee, payrollTaken, peopleByCode, sendError, shiftFor, today, withNames, assertMonthOpen, writeDay } from '../services/attendance/days.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { policyProblem } from '../services/people/leavePolicy.js';
@@ -137,6 +137,19 @@ async function scopedOr404(req: any, employeeId: string) {
   if (!inScope(await leaveScope(req), employeeId)) throw fail(404, 'No such employee.');
 }
 /** Company-wide leave set-up (imports, the leave period, the working week): a team role is refused. */
+/**
+ * Days added to your own balance, or paid out to you, are approved by
+ * somebody else, as the company's maker-checker setting decides (the same
+ * rule as approving your own leave; a one-person company still can).
+ */
+async function ownBalanceRefused(req: any, res: any, employee: { id: string }, what: string) {
+  const own = await peoplePrisma.employee.findFirst({ where: { id: employee.id, orgId: req.tenant!.orgId }, select: { userId: true } });
+  const refused = await ownWorkRefusal(req, { makers: [own?.userId], module: ATTENDANCE_MODULE, resource: R.leave, entity: 'ATTENDANCE_LEAVE_BALANCE', entityId: employee.id, what });
+  if (!refused) return false;
+  res.status(refused.status).json({ ...refused.body, error: `This is your own leave balance; somebody else has to make this ${what}.` });
+  return true;
+}
+
 async function wholeCompany(req: any, res: any) {
   if ((await leaveScope(req)).all) return true;
   res.status(403).json({ error: 'This is set up for the whole company; your role covers your own team.' });
@@ -236,13 +249,18 @@ async function policyOf(orgId: string, body: unknown): Promise<{ data: Record<st
   return { data: parsed.data };
 }
 
-leaveRouter.get(`${base}/types`, can(PermissionAction.VIEW, R.leaveTypes), async (req, res) => {
+/* Read by whoever enters or decides leave too (Enter leave lists the types), not only by those who set the policy. */
+leaveRouter.get(`${base}/types`, requireAnyPermission([ATTENDANCE_MODULE, PermissionAction.VIEW, R.leaveTypes], [ATTENDANCE_MODULE, PermissionAction.VIEW, R.leave]), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const types = await peoplePrisma.leaveType.findMany({ where: { accountId, orgId }, orderBy: { name: 'asc' } });
-  const used = await peoplePrisma.leaveRequest.groupBy({ by: ['leaveTypeId'], where: { accountId, orgId }, _count: { _all: true } });
+  /* The types are policy and listed to anyone who enters leave; how much each was used is counted inside the reader's
+     own scope, and a private type's count only for those who read private leave (closure audit: "Maternity: 1" told a team lead too much). */
+  const scope = await leaveScope(req);
+  const reads = await readsPrivateLeave(req);
+  const used = await peoplePrisma.leaveRequest.groupBy({ by: ['leaveTypeId'], where: { accountId, orgId, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, _count: { _all: true } });
   const n = new Map(used.map((u) => [u.leaveTypeId, u._count._all]));
-  res.json({ types: types.map((t) => ({ ...t, requests: n.get(t.id) || 0 })) });
+  res.json({ types: types.map((t) => ({ ...t, requests: t.isPrivate && !reads ? null : n.get(t.id) || 0 })) });
 });
 
 /** The name of the other type in this org already using `code` (codes print on payslips and reports, so one each), or null. */
@@ -255,6 +273,8 @@ async function codeTakenBy(orgId: string, code: string | null | undefined, excep
 
 leaveRouter.post(`${base}/types`, can(PermissionAction.CREATE, R.leaveTypes), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  /* A leave type is company policy, like the working week: a team-scoped role does not change it (closure audit). */
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const parsed = typeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid leave type.' });
@@ -275,6 +295,8 @@ leaveRouter.post(`${base}/types`, can(PermissionAction.CREATE, R.leaveTypes), as
 
 leaveRouter.put(`${base}/types/:id`, can(PermissionAction.EDIT, R.leaveTypes), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  /* A leave type is company policy, like the working week: a team-scoped role does not change it (closure audit). */
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.leaveType.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'No such leave type.' });
@@ -322,6 +344,8 @@ leaveRouter.put(`${base}/types/:id`, can(PermissionAction.EDIT, R.leaveTypes), a
 
 leaveRouter.delete(`${base}/types/:id`, can(PermissionAction.DELETE, R.leaveTypes), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  /* A leave type is company policy, like the working week: a team-scoped role does not change it (closure audit). */
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.leaveType.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'No such leave type.' });
@@ -375,6 +399,7 @@ leaveRouter.put(`${base}/allocations`, can(PermissionAction.EDIT, R.leave), asyn
   try {
     const employee = await employeeIn(orgId, accountId, b.employeeId);
     await scopedOr404(req, employee.id);
+    if (await ownBalanceRefused(req, res, employee, 'change')) return;
     const type = await peoplePrisma.leaveType.findFirst({ where: { id: b.leaveTypeId, accountId, orgId } });
     if (!type) return res.status(400).json({ error: 'That leave type is not in this organisation.' });
     if (!type.isPaid) return res.status(400).json({ error: 'Unpaid leave has no balance to set.' });
@@ -669,8 +694,8 @@ export async function createLeave(
 
 /** Undo an approved leave's days. Days someone clocked in on anyway are theirs, and stay. */
 async function clearLeaveDays(orgId: string, requestId: string) {
-  const linked = await peoplePrisma.attendanceRecord.findMany({ where: { orgId, leaveRequestId: requestId }, select: { date: true } });
-  for (const day of linked) await assertMonthOpen(orgId, day.date);
+  const linked = await peoplePrisma.attendanceRecord.findMany({ where: { orgId, leaveRequestId: requestId }, select: { date: true, employeeId: true } });
+  for (const day of linked) await assertMonthOpen(orgId, day.date, day.employeeId);
   /* A half-day leave's day keeps its punches: worked out again without the leave. */
   const halves = await peoplePrisma.attendanceRecord.findMany({ where: { orgId, leaveRequestId: requestId, status: { not: 'ON_LEAVE' } } });
   for (const h of halves) {
@@ -757,7 +782,9 @@ leaveRouter.post(`${base}/requests`, can(PermissionAction.CREATE, R.leave), asyn
   try {
     const employee = await employeeIn(req.tenant!.orgId, req.tenant!.accountId, String(req.body?.employeeId || ''));
     await scopedOr404(req, employee.id);
-    await createLeave(req, res, employee, undefined, { onBehalf: true });
+    /* Your own leave entered here keeps the rules your employee app would (notice, back-dating): on behalf means somebody else's. */
+    const ownFile = await peoplePrisma.employee.findFirst({ where: { id: employee.id, orgId: req.tenant!.orgId }, select: { userId: true } });
+    await createLeave(req, res, employee, undefined, { onBehalf: ownFile?.userId !== req.auth!.userId });
     if (res.statusCode === 201) await recordAudit(req, { entity: 'LeaveRequest', entityId: employee.id, action: 'CREATE', message: `Entered leave for ${employee.name}, ${req.body?.fromDate} to ${req.body?.toDate}`, metadata: { employeeId: employee.id, leaveTypeId: req.body?.leaveTypeId, fromDate: req.body?.fromDate, toDate: req.body?.toDate } });
     return;
   } catch (e) {
@@ -807,6 +834,11 @@ export async function approveLeave(accountId: string, orgId: string, r: any, use
     /* Checked before any day is written, so an approval never stops halfway through a closed month. */
     const shut = await closedMonths(orgId, days.map((d) => d.slice(0, 7)));
     if (shut.size) throw fail(409, `${[...shut].sort().join(', ')} ${shut.size === 1 ? 'is' : 'are'} closed in Attendance. Reopen it to approve leave in it.`, 'ATTENDANCE_MONTH_CLOSED');
+    /* Nor where Payroll has already taken the days (every mode, People-only included). */
+    for (const d of days) {
+      const taken = await payrollTaken(orgId, r.employeeId, d);
+      if (taken) throw new PayrollTakenError(taken.period, taken.state);
+    }
     if (r.halfDay) {
       /* The day keeps its punches; it is worked out with half of it as leave (writeDay's halfDayLeave rule). */
       const day = days[0];
@@ -1073,6 +1105,12 @@ leaveRouter.post(`${base}/requests/:id/reject`, can(PermissionAction.APPROVE, R.
   const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r || !inScope(await leaveScope(req), r.employeeId)) return res.status(404).json({ error: 'No such request.' });
   if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
+  /* Once the manager has passed it to HR, it is HR's to decide either way: not the manager's again, nor a team-scoped role's (closure audit). */
+  if (r.managerApprovedAt && (await leaveChainFor(orgId, r.leaveTypeId)) === 'MANAGER_THEN_HR') {
+    const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
+    const firstBy = r.managerApprovedById ? (await peoplePrisma.employee.findFirst({ where: { id: r.managerApprovedById, orgId }, select: { userId: true } }))?.userId : null;
+    if ((firstBy && firstBy === req.auth!.userId) || (me && r.managerApprovedById === me.id) || !(await leaveScope(req)).all) return res.status(403).json({ error: 'The manager has passed this to HR; HR decides it now.', code: 'HR_STEP' });
+  }
   try {
     const request = await decideLeave(accountId, orgId, r, req.auth!.userId, noteOf(req), false);
     await recordAudit(req, { entity: 'LeaveRequest', entityId: r.id, action: 'REJECT', message: `Rejected ${request.employeeName}'s ${request.leaveTypeName}, ${r.fromDate === r.toDate ? r.fromDate : `${r.fromDate} to ${r.toDate}`}${noteOf(req) ? `: ${noteOf(req)}` : ''}`, metadata: { employeeId: r.employeeId, leaveTypeId: r.leaveTypeId } });
@@ -1148,6 +1186,7 @@ leaveRouter.post(`${base}/adjustments`, can(PermissionAction.EDIT, R.leave), asy
   try {
     const employee = await employeeIn(orgId, accountId, b.employeeId);
     await scopedOr404(req, employee.id);
+    if (await ownBalanceRefused(req, res, employee, b.kind === 'ENCASH' ? 'pay-out' : 'adjustment')) return;
     const type = await peoplePrisma.leaveType.findFirst({ where: { id: b.leaveTypeId, accountId, orgId } });
     if (!type) return res.status(400).json({ error: 'No such leave type.' });
     if (!type.isPaid) return res.status(400).json({ error: `${type.name} is unpaid and has no balance to adjust.` });
@@ -1697,7 +1736,7 @@ export async function shortenLeave(accountId: string, orgId: string, r: any, toD
     const days = plan.filter((d) => d.counted).length;
     if (!days) throw fail(400, 'That leaves no working day; cancel the leave instead.');
     const gone = await peoplePrisma.attendanceRecord.findMany({ where: { orgId, leaveRequestId: current.id, date: { gt: toDate } } });
-    for (const d of gone) await assertMonthOpen(orgId, d.date);
+    for (const d of gone) await assertMonthOpen(orgId, d.date, d.employeeId);
     await peoplePrisma.attendanceRecord.deleteMany({ where: { orgId, leaveRequestId: current.id, date: { gt: toDate }, status: 'ON_LEAVE', checkIn: null } });
     for (const d of gone) await logDayChange({ accountId, orgId, employeeId: d.employeeId, date: d.date, recordId: d.id, action: 'LEAVE_CANCELLED', before: d, after: null, userId: by, reason: 'Came back early' });
     const updated = await peoplePrisma.leaveRequest.update({ where: { id: current.id }, data: { toDate, days, history: withHistory(current, { by, what: 'SHORTENED', from: current.toDate, to: toDate }) } });
@@ -1735,7 +1774,8 @@ leaveRouter.put(`${base}/requests/:id`, can(PermissionAction.EDIT, R.leave), asy
   const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r || !inScope(await leaveScope(req), r.employeeId)) return res.status(404).json({ error: 'No such request.' });
   try {
-    const request = await editLeave(accountId, orgId, r, req.body, req.auth!.userId, true);
+    const ownFile = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { userId: true } });
+    const request = await editLeave(accountId, orgId, r, req.body, req.auth!.userId, ownFile?.userId !== req.auth!.userId);
     await recordAudit(req, { entity: 'LeaveRequest', entityId: r.id, action: 'UPDATE', message: `Changed ${request.employeeName}'s leave from ${r.fromDate} to ${r.toDate} into ${request.fromDate} to ${request.toDate}`, metadata: { employeeId: r.employeeId } });
     res.json({ request: masked([request], await readsPrivateLeave(req))[0] });
   } catch (e) {
@@ -1771,6 +1811,7 @@ leaveRouter.post(`${base}/comp-off`, can(PermissionAction.EDIT, R.leave), async 
   try {
     const employee = await employeeIn(orgId, accountId, b.employeeId);
     await scopedOr404(req, employee.id);
+    if (await ownBalanceRefused(req, res, employee, 'comp-off grant')) return;
     const settings = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { compOffLeaveTypeId: true } });
     const type = settings?.compOffLeaveTypeId ? await peoplePrisma.leaveType.findFirst({ where: { id: settings.compOffLeaveTypeId, orgId } }) : null;
     if (!type) return res.status(409).json({ error: 'Choose the comp-off leave type first, under Settings → Working week.', code: 'COMP_OFF_TYPE' });
@@ -2028,6 +2069,19 @@ leaveRouter.post('/orgs/:orgId/attendance/me/leave/:id/shorten', can(PermissionA
 // My leave
 // ---------------------------------------------------------------------------
 
+/**
+ * Whether a person may ask for a type at all: its gender rule and the
+ * employee types it is for. The person's own leave screens list only these,
+ * plus any type they already have requests under (closure audit, 28 Oct 2026:
+ * a woman saw "Paternity leave: 15 left" in the employee app).
+ */
+export function eligibleFor(type: { gender?: string | null; employeeTypeIds?: unknown }, person: { gender?: string | null; employeeTypeId?: string | null }) {
+  if (type.gender && person.gender && type.gender !== person.gender) return false;
+  const only = Array.isArray(type.employeeTypeIds) ? (type.employeeTypeIds as string[]) : [];
+  if (only.length && !(person.employeeTypeId && only.includes(person.employeeTypeId))) return false;
+  return true;
+}
+
 leaveRouter.get('/orgs/:orgId/attendance/me/leave', can(PermissionAction.VIEW, R.self), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -2044,7 +2098,7 @@ leaveRouter.get('/orgs/:orgId/attendance/me/leave', can(PermissionAction.VIEW, R
       employee: { id: me.id, name: me.name },
       year,
       today: today(),
-      types: types.filter((t) => t.isActive).map((t) => { const b = mine.get(t.id)!; return { id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, isPrivate: t.isPrivate, allowHalfDay: t.allowHalfDay, ...b, projectedAvailable: t.isPaid && b.fullYear != null ? round(b.fullYear - b.used - b.pending) : null }; }),
+      types: types.filter((t) => t.isActive && (eligibleFor(t as any, me as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => { const b = mine.get(t.id)!; return { id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, isPrivate: t.isPrivate, allowHalfDay: t.allowHalfDay, ...b, projectedAvailable: t.isPaid && b.fullYear != null ? round(b.fullYear - b.used - b.pending) : null }; }),
       requests: await withTypes(orgId, requests),
     });
   } catch (e) {

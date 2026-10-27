@@ -3,6 +3,7 @@ import { decryptSecret, encryptSecret } from '../mailer.js';
 import { adapterOf, type Punch } from './adapters.js';
 import { exclusive, leaseFor } from '../jobLease.js';
 import { appLive } from '../principalAllowed.js';
+import { registerJob } from '../jobRegistry.js';
 
 /**
  * The outbox and the sync runs behind HR connections.
@@ -165,6 +166,8 @@ export function startHrSync({ flushMs = 60_000, pullMs = 3_600_000, startupDelay
     const flush = safe(() => exclusive('hr.flush', leaseFor(flushMs), () => flushOutbox()), 'flush');
     const pull = safe(() => exclusive('hr.pull', leaseFor(pullMs), () => pullAllDue()), 'pull');
     flush();
+    registerJob('hr.flush', flush, flushMs);
+    registerJob('hr.pull', pull, pullMs);
     const a = setInterval(flush, flushMs);
     const b = setInterval(pull, pullMs);
     a.unref?.();

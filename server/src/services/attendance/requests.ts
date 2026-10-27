@@ -6,7 +6,9 @@ import { ISO_DATE, daysBetween, employeeIn, fail, instants, isHoliday, shiftFor,
 import { isHHMM, isWeeklyOff } from './compute.js';
 import { CHAINS, activeManagerOf, chainFor, type Chain } from './approvalChain.js';
 import { deciderFor, managerStepBy } from './standIns.js';
-import { REASON_CODES, reviewCorrection } from './corrections.js';
+import { REASON_CODES } from './corrections.js';
+import { selfDecisionAllowed } from '../makerChecker.js';
+import { emit as emitWebhook } from './webhooks.js';
 import { notifyUsers, usersWithPermission } from '../notifications.js';
 import { resolveAccess } from '../access.js';
 import { inScope, teamScope } from '../people/scope.js';
@@ -305,6 +307,14 @@ export type Decider = { userId: string; /** The employee file of whoever decides
  */
 export async function decideRequest(accountId: string, orgId: string, r: any, approve: boolean, by: Decider, note: string | null): Promise<{ request: any; stage?: 'HR' }> {
   if (r.status !== 'PENDING') throw fail(409, `This request was already ${String(r.status).toLowerCase()}.`);
+  /* Nobody decides their own request: not HR, not the owner, not a manager or stand-in (closure audit, 28 Oct 2026). */
+  const subject = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { userId: true } });
+  const ownByLogin = Boolean(subject?.userId && subject.userId === by.userId);
+  if ((by.managerId && by.managerId === r.employeeId && !ownByLogin) || (ownByLogin && !(await selfDecisionAllowed(accountId, orgId, by.userId, 'ATTENDANCE::Attendance Requests::APPROVE')).allowed)) {
+    throw fail(403, 'This is your own request; somebody else has to decide it. You can change or withdraw it.', 'OWN_RECORD');
+  }
+  /* Allowed only by the company's setting, or because nobody else can decide it (a one-person company): said so in the audit log. */
+  if (ownByLogin) await requestAudit({ accountId, orgId, userId: by.userId }, { entityId: r.id, action: 'SELF_APPROVED', message: 'Decided by the person it is about: nobody else in the company can, or the company allows it', metadata: { employeeId: r.employeeId } });
   const kind = r.kind as Kind;
   const name = KIND_WORDS[kind].name;
   const chain = await chainOf(orgId, kind);
@@ -332,18 +342,24 @@ export async function decideRequest(accountId: string, orgId: string, r: any, ap
   /* A refusal says why: the person reads it in the employee app. Corrections keep their old manners. */
   if (!approve && kind !== 'MISSED_PUNCH' && !note) throw fail(400, 'Say why. They see this with the decision.');
   const history = pushHistory(r.history, { by: by.userId, what: approve ? 'APPROVED' : 'REJECTED', note });
-  let row: any;
-  if (kind === 'MISSED_PUNCH') {
-    await reviewCorrection(accountId, orgId, r, approve, by.userId, note);
-    row = await peoplePrisma.attendanceRequest.update({ where: { id: r.id }, data: { history } });
-  } else {
-    row = await peopleWrite(orgId, async () => {
-      const changed = await peoplePrisma.attendanceRequest.updateMany({ where: { id: r.id, status: 'PENDING' }, data: { status: approve ? 'APPROVED' : 'REJECTED', reviewedByUserId: by.userId, reviewedAt: new Date(), reviewNote: note, history } });
-      if (!changed.count) throw fail(409, 'This request was already decided.');
-      if (approve) await applyApproved(accountId, orgId, r, by.userId, note);
-      return peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: r.id } });
-    });
-  }
+  /*
+   * One transaction for every kind, claimed by status: the decision, the day
+   * it writes and the history line commit together or not at all, and two
+   * people deciding at once cannot both write the day (closure audit,
+   * 28 Oct 2026: a missed punch was three separate writes with no claim).
+   */
+  const row = await peopleWrite(orgId, async () => {
+    const changed = await peoplePrisma.attendanceRequest.updateMany({ where: { id: r.id, status: 'PENDING' }, data: { status: approve ? 'APPROVED' : 'REJECTED', reviewedByUserId: by.userId, reviewedAt: new Date(), reviewNote: note, history } });
+    if (!changed.count) throw fail(409, 'This request was already decided.');
+    if (approve && kind === 'MISSED_PUNCH') {
+      const employee = await employeeIn(orgId, accountId, r.employeeId);
+      await writeDay({ accountId, orgId, userId: by.userId, employee, date: r.date, checkIn: r.checkIn, checkOut: r.checkOut, source: 'REQUEST', reason: `Correction approved: ${r.reason}` });
+    } else if (approve) {
+      await applyApproved(accountId, orgId, r, by.userId, note);
+    }
+    return peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: r.id } });
+  });
+  if (approve && kind === 'MISSED_PUNCH') afterPeopleCommit(() => emitWebhook(orgId, 'correction.approved', { id: row.id, employeeId: row.employeeId, date: row.date, checkIn: row.checkIn, checkOut: row.checkOut, reason: row.reason ?? null, reviewNote: row.reviewNote }));
   await requestAudit(who, { entityId: r.id, action: approve ? 'APPROVE' : 'REJECT', message: `${approve ? 'Approved' : 'Rejected'} ${name.toLowerCase()} request, ${spanWords(r)}${note ? `: ${note}` : ''}`, metadata: { employeeId: r.employeeId, kind } });
   afterPeopleCommit(() => tellDecided(orgId, row).catch((e) => console.error('[attendance requests] notice not sent:', e instanceof Error ? e.message : e)));
   return { request: row };

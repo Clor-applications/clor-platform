@@ -228,7 +228,6 @@ model User {
   createdOrgs     Org[]    @relation("OrgCreatedBy")
   createdBranches Branch[] @relation("BranchCreatedBy")
 
-  auditCreated AuditLog[] @relation("AuditCreatedBy")
 
   /// Globally unique, not per account. Login resolves a user by email across
   /// every account, so two accounts sharing one would make it non-deterministic
@@ -388,13 +387,13 @@ model AuditLog {
   // SQLite-compatible: store JSON metadata as string (optional)
   metadata String?
 
+  /// A CLOR user id, or `portal:<employeeId>`, `system`, `api:<client>` (no foreign key: see migration 20261028090000).
   createdByUserId String
   createdAt       DateTime @default(now())
   /// The request id (X-Request-Id) that wrote it; People's change log shares it (D-V8).
   correlationId   String?
 
   org       Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  createdBy User @relation("AuditCreatedBy", fields: [createdByUserId], references: [id])
 
   @@index([accountId, orgId, branchId])
   @@index([orgId, entityId])

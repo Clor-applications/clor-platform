@@ -870,6 +870,16 @@
       "method": "POST",
       "path": "/api/invitations/accept-signed-in",
       "reason": "Workspace W-3: accepting with an existing login (requireAuth). The signed-in user must be the invited address and in the inviting account; single-use token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/internal/jobs/tick",
+      "reason": "Cloud Scheduler wake call for background jobs; x-jobs-token compared in constant time with JOBS_TOKEN (Secret Manager), 404 when unset; behind the edge Worker like every route; runs only the registered jobs, each under its lease (closure audit, 28 Oct 2026)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/internal/jobs",
+      "reason": "Lists the registered job names for the operator checking the scheduler; same JOBS_TOKEN check, 404 when unset; returns names only."
     }
   ]
 }

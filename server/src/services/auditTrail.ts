@@ -13,8 +13,6 @@ export async function recordAudit(
   req: Request,
   entry: { entity: string; entityId: string; action: string; message: string; metadata?: Record<string, unknown> }
 ) {
-  /* Logged here with the detail; the generic change log (middleware/auditMutations.ts) skips this request. */
-  if (req.res) req.res.locals.audited = true;
   try {
     await platformPrisma.auditLog.create({
       data: {
@@ -30,6 +28,9 @@ export async function recordAudit(
         correlationId: typeof (req as any).id === 'string' ? String((req as any).id).slice(0, 80) : null,
       },
     });
+    /* Logged here with the detail; the generic change log (middleware/auditMutations.ts) skips this request. Only once
+       written: a line that failed leaves the generic log to record the request instead of nothing. */
+    if (req.res) req.res.locals.audited = true;
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error(`[audit] ${entry.entity} ${entry.action} not recorded:`, e instanceof Error ? e.message : e);

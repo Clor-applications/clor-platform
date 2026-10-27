@@ -5,6 +5,7 @@ import { loadHolidays, loadSchedule, resolveShift } from './schedule.js';
 import { emit as emitWebhook } from './webhooks.js';
 import { logDayChange } from './history.js';
 import { permissionCovers } from './permissionWindow.js';
+import { payrollPrisma } from '../../utils/payrollPrisma.js';
 
 /**
  * Attendance days: the one path a day is written by, and the reads every
@@ -78,9 +79,40 @@ export async function closedMonths(orgId: string, months: string[]) {
   return new Set(rows.map((r) => r.month));
 }
 
-export async function assertMonthOpen(orgId: string, date: string) {
+/**
+ * A day inside a payroll run that is approved, locked, paid or posted, for a
+ * person that run pays. Payroll has taken that day's figures; changing the
+ * day now would make leave, the register and the payslip disagree. This
+ * holds in every mode, People-only included, where there is no Attendance
+ * month close at all (closure audit, 28 Oct 2026). Corrections after that go
+ * through Payroll, as an adjustment or the next run.
+ */
+export class PayrollTakenError extends Error {
+  status = 409;
+  code = 'PAYROLL_TAKEN';
+  constructor(period: string, state: string) {
+    super(`Payroll for ${period} is ${state.toLowerCase()} and has taken this day. Record the change in Payroll as an adjustment instead.`);
+  }
+}
+const FINAL_RUN = ['APPROVED', 'LOCKED', 'PAID', 'POSTED'];
+export async function payrollTaken(orgId: string, employeeId: string, date: string): Promise<{ period: string; state: string } | null> {
+  const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lte: date }, endDate: { gte: date } }, select: { id: true, name: true } });
+  if (!periods.length) return null;
+  const run = await payrollPrisma.payrollRun.findFirst({ where: { orgId, periodId: { in: periods.map((p) => p.id) }, status: { in: FINAL_RUN } }, select: { id: true, status: true, periodId: true } });
+  if (!run) return null;
+  const member = await payrollPrisma.payrollRunEmployee.findFirst({ where: { orgId, runId: run.id, employeeId, inclusion: 'INCLUDED' }, select: { id: true } });
+  if (!member) return null;
+  return { period: periods.find((p) => p.id === run.periodId)?.name || date.slice(0, 7), state: run.status };
+}
+
+/** The day can still change: its Attendance month is open and, for `employeeId`, no final payroll run has taken it. */
+export async function assertMonthOpen(orgId: string, date: string, employeeId?: string | null) {
   const month = date.slice(0, 7);
   if ((await closedMonths(orgId, [month])).has(month)) throw new MonthClosedError(month);
+  if (employeeId) {
+    const taken = await payrollTaken(orgId, employeeId, date);
+    if (taken) throw new PayrollTakenError(taken.period, taken.state);
+  }
 }
 
 export async function writeDay(opts: {
@@ -116,7 +148,7 @@ export async function writeDay(opts: {
 }) {
   return peopleWrite(opts.orgId, async () => {
     /* Every way a day is written comes through here, so a closed month is held shut in one place. */
-    await assertMonthOpen(opts.orgId, opts.date);
+    await assertMonthOpen(opts.orgId, opts.date, opts.employee.id);
     // Resolve leave for every source, not just biometric readers.
     const { shiftId, rule } = await shiftFor(opts.orgId, opts.employee.id, opts.date);
     const holiday = await isHoliday(opts.orgId, opts.date, opts.employee.branchId, opts.employee.areaId ?? null, opts.employee.id);

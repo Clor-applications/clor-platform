@@ -107,6 +107,7 @@ import { notFound, errorHandler } from './middleware/errors.js';
 import { billingRouter, billingOperatorRouter, billingWebhook } from './routes/billing.js';
 import { opsRouter } from './routes/ops.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
+import { internalJobsRouter } from './routes/internalJobs.js';
 import { auditMutations } from './middleware/auditMutations.js';
 import { clearAccessCacheOnWrite } from './utils/accessCache.js';
 import { safeUrl } from './utils/safeUrl.js';
@@ -343,6 +344,8 @@ export function buildApp() {
   app.use('/api/auth/sso', ssoRouter);
   app.use('/api/auth', authRouter);
   /* W-3: an invited person's side of an invitation — before they belong to any company, so not company-scoped. */
+  /* Cloud Scheduler's wake call for background jobs (token-guarded; 404 without JOBS_TOKEN). */
+  app.use('/api', internalJobsRouter);
   app.use('/api', invitationsRouter);
 
   /* No auth and no tenant headers: the customer has no account here. Mounted
