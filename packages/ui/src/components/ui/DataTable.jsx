@@ -213,7 +213,7 @@ export default function DataTable({
               const id = rowKey(r);
               return (
                 <tr key={id} className={`${onRowClick ? 'ui-row-click' : ''} ${selected.has(id) ? 'is-selected' : ''}`} onClick={(e) => open(e, r)}>
-                  {selectable ? <td className="w-10"><input type="checkbox" className="ui-checkbox" aria-label={`Choose ${r.name || id}`} checked={selected.has(id)} onChange={() => toggle(id)} /></td> : null}
+                  {selectable ? <td className="w-10"><input type="checkbox" className="ui-checkbox" aria-label={`Choose ${r.name || r.employeeName || id}`} checked={selected.has(id)} onChange={() => toggle(id)} /></td> : null}
                   {cols.map((c, i) => (
                     <td key={c.key} className={c.align === 'right' ? 'text-right tabular-nums' : c.align === 'center' ? 'text-center' : ''}>
                       {i === 0 && onRowClick ? (
@@ -234,7 +234,7 @@ export default function DataTable({
             const id = rowKey(r);
             return (
               <li key={id} className={`ui-datatable-card ${selected.has(id) ? 'is-selected' : ''}`}>
-                {selectable ? <input type="checkbox" className="ui-checkbox ui-card-check" aria-label={`Choose ${r.name || id}`} checked={selected.has(id)} onChange={() => toggle(id)} /> : null}
+                {selectable ? <input type="checkbox" className="ui-checkbox ui-card-check" aria-label={`Choose ${r.name || r.employeeName || id}`} checked={selected.has(id)} onChange={() => toggle(id)} /> : null}
                 {/* A card opens the record only when there is one to open; otherwise it is plain content, not a stop for Tab. */}
                 {onRowClick ? <button type="button" className="ui-card-open" onClick={() => onRowClick(r)}>{card(r)}</button> : <div className="w-full min-w-0">{card(r)}</div>}
                 {rowActions ? (() => { const items = rowActions(r).filter(Boolean); return items.length ? <RowMenu label={`Actions for ${r.name || id}`} items={items} /> : null; })() : null}

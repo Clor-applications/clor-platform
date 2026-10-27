@@ -10,8 +10,9 @@ import ErrorState from '@ui/components/ui/ErrorState';
 import DatePicker from '@ui/components/ui/DatePicker';
 import useRequest from '@ui/components/ui/useRequest';
 import { useTabIndicator } from '@ui/components/ui/RecordTabs';
-import { listEmployees } from '@ui/personnel/api';
+import { listPeople } from './api';
 import { DAY_LABEL, DAY_PILL, attendanceIsOn, listRecords, todayIst } from './api';
+import { homeCrumbs } from './shared';
 
 /**
  * Time & Leave → Attendance: everyone's days, read only — the day record leave
@@ -48,7 +49,7 @@ export default function TeamAttendance() {
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(50);
   const hasAttendance = useRequest(() => attendanceIsOn(), []);
-  const people = useRequest(() => listEmployees({ limit: 500, sort: 'name', status: 'CURRENT' }).then((r) => (r?.employees || []).filter((e) => e.status !== 'LEFT')), []);
+  const people = useRequest(() => listPeople(), []);
   const range = view === 'day' ? { from: date, to: date } : { from: `${month}-01`, to: daysIn(month).at(-1) };
   const records = useRequest(() => listRecords(range), [range.from, range.to]);
   const tabsRef = useRef(null);
@@ -93,7 +94,7 @@ export default function TeamAttendance() {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Time & Leave' }]}
+        breadcrumb={homeCrumbs()}
         title="Attendance"
         actions={hasAttendance.data ? <a className="ui-btn ui-btn-secondary" href="?app=attendance&open=records">Open in Attendance <ArrowUpRight size={16} aria-hidden="true" /></a> : null}
       />

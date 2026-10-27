@@ -10,6 +10,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { DAY_LABEL, DAY_PILL, STATUS_LABEL, STATUS_PILL, cancelMyRequest, clock, getMyDays, myRequests, todayIst } from './api';
 import { EnterRequest, KINDS, KIND_NAME, WhenCell, detailsText, monthChoices } from './AttendanceRequests';
+import { homeCrumbs } from './shared';
 
 /**
  * The basic check-in in HR (founder, 22 Oct 2026): one button for someone
@@ -163,7 +164,7 @@ export default function MyDays() {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Time & Leave' }]}
+        breadcrumb={homeCrumbs()}
         title="My days"
         /* Checking in is the day's action and keeps the primary button; asking is occasional. */
         actions={me ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setAsking(true)}><Plus size={16} aria-hidden="true" /> Ask</button> : null}

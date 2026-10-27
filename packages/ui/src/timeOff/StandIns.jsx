@@ -11,9 +11,8 @@ import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 
-import { can } from '../workforce/shared';
-import { listEmployees } from '../workforce/api';
-import { addStandIn, listStandIns, removeStandIn } from './api';
+import { can, homeCrumbs } from './shared';
+import { addStandIn, listStandIns, removeStandIn, listPeople } from './api';
 
 /**
  * Time & Leave → Stand-ins: who decides leave for a manager while they are
@@ -55,7 +54,7 @@ export default function StandIns() {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Time & Leave' }]}
+        breadcrumb={homeCrumbs()}
         title="Stand-ins"
         actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Add stand-in</button>}
       />
@@ -91,7 +90,7 @@ export default function StandIns() {
 function AddStandIn({ wholeCompany, onClose, onDone }) {
   const [form, setForm] = useState({ managerEmployeeId: '', standInEmployeeId: '', fromDate: '', toDate: '' });
   const [saving, setSaving] = useState(false);
-  const people = useRequest(() => listEmployees({ limit: 500, sort: 'name', status: 'CURRENT' }).then((r) => r?.employees || []), []);
+  const people = useRequest(() => listPeople(), []);
   const options = (people.data || []).map((x) => ({ value: x.id, label: x.code ? `${x.name} (${x.code})` : x.name }));
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v, ...(k === 'fromDate' && v && (!f.toDate || f.toDate < v) ? { toDate: v } : {}) }));
   const same = Boolean(form.managerEmployeeId) && form.managerEmployeeId === form.standInEmployeeId;

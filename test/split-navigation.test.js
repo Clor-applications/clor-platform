@@ -40,9 +40,10 @@ describe('Attendance navigation structure', () => {
       ['Other Punch Sources', ['Mobile Punches']],
     ]);
     expect(s.Attendance).toEqual([
-      ['Daily Operations', ['Attendance Records', 'Punches', 'Exceptions', 'Corrections']],
+      ['Daily Operations', ['Attendance Records', 'Punches', 'Exceptions', 'Attendance Requests']],
       ['Scheduling', ['Schedule Calendar', 'Shifts', 'Shift Assignments', 'Department Schedules', 'Temporary Schedules', 'Shift Rotations']],
-      ['Leave', ['Leave Requests', 'Leave Balances']],
+      /* Time & Leave: the screens People shows, shared (TIME-LEAVE-DECISIONS.md). */
+      ['Leave', ['Leave Overview', 'Leave Requests', 'Leave Calendar', 'Leave Balances', 'Leave Register', 'Stand-Ins']],
       ['Time Management', ['Overtime & Comp-Off']],
       ['Period Closing', ['Payroll Readiness', 'Employee Confirmations', 'Month Close']],
     ]);
@@ -56,7 +57,7 @@ describe('Attendance navigation structure', () => {
     ]);
     expect(s.Settings).toEqual([
       ['Organization', ['Attendance Setup', 'Work Sites', 'Work Site Check']],
-      ['Work Policy', ['Attendance Policy', 'Weekly Off Policy', 'Overtime Policy', 'Leave Policy', 'Holidays']],
+      ['Work Policy', ['Attendance Policy', 'Weekly Off Policy', 'Overtime Policy', 'Leave Policy', 'Working Week', 'Holidays', 'Leave Year End', 'Request Rules']],
       ['Integrations', ['Integrations']],
       ['Access & Security', ['Users & Security', 'Roles & Access']],
       ['Data Management', ['Data Health', 'Import Data', 'Export Data', 'Close Company']],
@@ -97,7 +98,7 @@ describe('Attendance navigation structure', () => {
     });
   }
   it('a person without a screen does not see it, and a module left empty disappears', () => {
-    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'integrations', 'sso', 'rolesAccess', 'dataImport', 'dataExport', 'closeCompany', 'dataProtection', 'dataRequests', 'auditLogs', 'recycleBin', 'dataHealth', 'complianceCalendar']);
+    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'workingWeek', 'leaveYearEnd', 'requestRules', 'integrations', 'sso', 'rolesAccess', 'dataImport', 'dataExport', 'closeCompany', 'dataProtection', 'dataRequests', 'auditLogs', 'recycleBin', 'dataHealth', 'complianceCalendar']);
     const nav = attendanceApp.nav.filter((i) => !settings.has(i.key));
     const labels = resolveModules(attendanceApp, nav).map((m) => m.label);
     expect(labels).not.toContain('Settings');

@@ -10,6 +10,7 @@ import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { colorOf, getLeaveRegister, getLeaveSettings, listLeaveTypes, periodChoices } from './api';
+import { homeCrumbs } from './shared';
 
 /**
  * Time & Leave → Leave register (founder, 22 Oct 2026): for one leave
@@ -67,7 +68,7 @@ export default function LeaveRegister() {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Time & Leave' }]}
+        breadcrumb={homeCrumbs()}
         title="Leave register"
         actions={data?.rows?.length ? <MoreButton items={[exportMenuItem('Export the register')]} onSelect={onMore} /> : null}
       />

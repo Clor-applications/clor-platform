@@ -6,7 +6,7 @@ import { getOverview, getPeopleHome, listMyTasks, updateChecklistTask } from '@u
 import { notify } from '@ui/components/ui/notify';
 import { formatDateIn } from '@ui/utils/dates';
 import { Avatar } from '@ui/personnel/Employees';
-import { HomeCheckIn } from '../timeOff/MyDays';
+import { HomeCheckIn } from '@ui/timeOff/MyDays';
 
 const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'warn' }, info: { label: 'When you can', pill: 'neutral' } };
 const greeting = () => {

@@ -10,7 +10,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 
-import { can } from '../workforce/shared';
+import { can, homeCrumbs } from './shared';
 import { daysText, getLeaveSettings, getYearEnd, periodChoices, runYearEnd, undoYearEnd } from './api';
 
 /**
@@ -79,7 +79,7 @@ export default function YearEnd() {
 
   const header = (
     <PageHeader
-      breadcrumb={[{ label: 'People' }, { label: 'Time & Leave' }]}
+      breadcrumb={homeCrumbs()}
       title="Year end"
       actions={<>
         {choices.length > 1 ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave period" value={String(year || '')} onChange={(v) => v && setPicked(Number(v))} options={choices.map((c) => ({ value: String(c.year), label: c.label }))} /></div> : null}

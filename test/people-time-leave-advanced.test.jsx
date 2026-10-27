@@ -17,8 +17,7 @@ vi.mock('@ui/components/ui/notify', () => dialogs);
 vi.mock('../packages/ui/src/components/ui/notify', () => dialogs);
 vi.mock('@ui/components/ui/useUnsavedChanges', () => ({ default: () => {} }));
 vi.mock('@ui/personnel/api', () => ({ listStructure: vi.fn(async () => [{ id: 'et1', name: 'Interns' }]) }));
-vi.mock('../apps/people/src/workforce/suggestions', () => ({ useSuggestions: () => [] }));
-vi.mock('../apps/people/src/workforce/api', () => ({ listEmployees: vi.fn(async () => ({ employees: [{ id: 'e1', name: 'Asha Rao', code: 'A1' }, { id: 'e2', name: 'Ravi Kumar', code: 'A2' }] })) }));
+vi.mock('../packages/ui/src/timeOff/suggestions', () => ({ useSuggestions: () => [] }));
 const api = vi.hoisted(() => ({
   listLeaveTypes: vi.fn(async () => []),
   getLeaveSettings: vi.fn(async () => ({ startDay: 1, startMonth: 4, current: { year: 2026, label: 'Apr 2026 – Mar 2027' }, previous: { year: 2025, label: 'Apr 2025 – Mar 2026' }, next: { year: 2027, label: 'Apr 2027 – Mar 2028' } })),
@@ -37,13 +36,14 @@ const api = vi.hoisted(() => ({
   listStandIns: vi.fn(async () => ({ standIns: [], today: '2026-10-27' })),
   addStandIn: vi.fn(async () => ({ standIn: { standInName: 'Ravi Kumar', managerName: 'Asha Rao' } })),
   removeStandIn: vi.fn(),
+  listPeople: vi.fn(async () => [{ id: 'e1', name: 'Asha Rao', code: 'A1' }, { id: 'e2', name: 'Ravi Kumar', code: 'A2' }]),
 }));
-vi.mock('../apps/people/src/timeOff/api', async (orig) => ({ ...(await orig()), ...api }));
+vi.mock('../packages/ui/src/timeOff/api', async (orig) => ({ ...(await orig()), ...api }));
 
-import LeavePolicy from '../apps/people/src/timeOff/LeavePolicy';
-import LeaveRequests from '../apps/people/src/timeOff/LeaveRequests';
-import YearEnd from '../apps/people/src/timeOff/YearEnd';
-import StandIns from '../apps/people/src/timeOff/StandIns';
+import LeavePolicy from '../packages/ui/src/timeOff/LeavePolicy';
+import LeaveRequests from '../packages/ui/src/timeOff/LeaveRequests';
+import YearEnd from '../packages/ui/src/timeOff/YearEnd';
+import StandIns from '../packages/ui/src/timeOff/StandIns';
 
 afterEach(() => {
   cleanup();

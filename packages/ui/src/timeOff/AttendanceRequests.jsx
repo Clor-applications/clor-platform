@@ -15,12 +15,11 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
 
-import { can } from '../workforce/shared';
-import { listEmployees } from '../workforce/api';
-import { useSuggestions } from '../workforce/suggestions';
+import { can, homeCrumbs } from './shared';
+import { useSuggestions } from './suggestions';
 import {
-  MONTH_NAMES, STATUS_LABEL, STATUS_PILL, cancelRequest, createMyRequest, createRequest, decideRequest, getRequest, getRequestRules, pageRequests,
-  requestUsage, todayIst, updateMyRequest, updateRequest,
+  MONTH_NAMES, STATUS_LABEL, STATUS_PILL, bulkReviewRequests, cancelRequest, createMyRequest, createRequest, decideRequest, getRequest, getRequestRules, listPeople,
+  pageRequests, requestUsage, todayIst, updateMyRequest, updateRequest,
 } from './api';
 
 /**
@@ -121,6 +120,33 @@ export default function AttendanceRequests({ params = {}, updateParams }) {
   const tabIndicator = useTabIndicator(tabsRef, tab);
   const filtered = Boolean(p.q || p.kind || p.month);
   const months = useMemo(() => [{ value: '', label: 'Every month' }, ...monthChoices()], []);
+  /* Several waiting requests decided at once (a week of missed punches on a Monday): one note, the same checks as one. */
+  const canDecide = allowed('ATTENDANCE::Attendance Requests::APPROVE');
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulkNote, setBulkNote] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [seenTab, setSeenTab] = useState(tab);
+  if (seenTab !== tab) { setSeenTab(tab); setSelected(new Set()); }
+  const chosen = rows.filter((r) => selected.has(r.id) && r.status === 'PENDING');
+  const decideMany = async (approve) => {
+    const ids = chosen.map((r) => r.id);
+    if (!ids.length || bulkBusy) return;
+    if (!approve && !bulkNote.trim()) { notify.error('Say why. They see this with the decision.'); return; }
+    setBulkBusy(true);
+    try {
+      const out = await bulkReviewRequests(ids, approve, bulkNote.trim() || undefined);
+      const did = approve ? (out.handedOn && out.handedOn === out.done ? 'approved as the manager; they now wait for HR' : 'approved') : 'rejected';
+      if (out.failed) notify.error(`${out.done} ${did}, ${out.failed} not: ${out.results?.[0]?.error || ''}`);
+      else notify.success(`${out.done} ${did}.`);
+      setSelected(new Set());
+      setBulkNote('');
+      list.reload();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not done.'));
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   const columns = [
     { key: 'employee', label: 'Employee', always: true, render: (r) => (
@@ -143,7 +169,7 @@ export default function AttendanceRequests({ params = {}, updateParams }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Time & Leave' }]}
+        breadcrumb={homeCrumbs()}
         title="Attendance requests"
         actions={allowed('ATTENDANCE::Attendance Requests::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Enter request</button> : null}
       />
@@ -157,6 +183,16 @@ export default function AttendanceRequests({ params = {}, updateParams }) {
         {tabIndicator}
       </div>
 
+      {chosen.length ? (
+        <div className="ui-bulkbar" role="region" aria-label="Decide the chosen requests">
+          <span className="text-sm"><strong className="tabular-nums">{chosen.length}</strong> chosen</span>
+          <input className="ui-input w-full sm:w-72" aria-label="Note to them" placeholder="Note to them (needed to reject)" maxLength={500} value={bulkNote} onChange={(e) => setBulkNote(e.target.value)} />
+          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={bulkBusy} onClick={() => decideMany(true)}><Check size={14} aria-hidden="true" /> Approve</button>
+          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={bulkBusy || !bulkNote.trim()} onClick={() => decideMany(false)}><X size={14} aria-hidden="true" /> Reject</button>
+          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setSelected(new Set())}>Clear</button>
+        </div>
+      ) : null}
+
       <DataTable
         label="Attendance requests"
         columns={columns}
@@ -165,6 +201,9 @@ export default function AttendanceRequests({ params = {}, updateParams }) {
         page={page}
         pageSize={size}
         noun="requests"
+        selectable={tab === 'PENDING' && canDecide}
+        selected={selected}
+        onSelect={setSelected}
         onPage={(n) => set({ page: n > 1 ? n : null }, true)}
         onPageSize={(n) => set({ size: n === 25 ? null : n, page: null })}
         onRowClick={(r) => setOpenId(r.id)}
@@ -345,7 +384,7 @@ export function EnterRequest({ onClose, onDone, request = null, own = false, rul
   const start = useMemo(() => (request ? fromRequest(request) : blank), [request]);
   const [form, setForm] = useState(start);
   const [saving, setSaving] = useState(false);
-  const people = useRequest(() => (editing || own ? Promise.resolve([]) : listEmployees({ limit: 500, sort: 'name', status: 'CURRENT' }).then((x) => x?.employees || [])), [editing, own]);
+  const people = useRequest(() => (editing || own ? Promise.resolve([]) : listPeople()), [editing, own]);
   const rulesReq = useRequest(() => (givenRules ? Promise.resolve({ rules: givenRules }) : getRequestRules()), [givenRules]);
   const rules = rulesReq.data?.rules || givenRules || null;
   const reasons = useSuggestions('requestReason');

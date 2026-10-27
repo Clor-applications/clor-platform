@@ -43,20 +43,20 @@ export { default as Holidays } from '../../attendance/src/screens/Holidays';
 export { default as PortalAccess } from '../../attendance/src/screens/PortalAccess';
 export { default as SalaryRevisions } from '../../payroll/src/screens/SalaryRevisions';
 /* Leave is HR's (founder, 22 Oct 2026): People's own screens over the same records Attendance reads. */
-export { default as LeaveRequests } from './timeOff/LeaveRequests';
-export { default as TimeOverview } from './timeOff/TimeOverview';
-export { default as WorkingWeek } from './timeOff/WorkingWeek';
-export { default as LeaveBalances } from './timeOff/LeaveBalances';
-export { default as LeaveTypes } from './timeOff/LeavePolicy';
-export { default as LeaveCalendar } from './timeOff/LeaveCalendar';
-export { default as LeaveRegister } from './timeOff/LeaveRegister';
-export { default as TeamAttendance } from './timeOff/TeamAttendance';
-export { default as LeaveYearEnd } from './timeOff/YearEnd';
-export { default as StandIns } from './timeOff/StandIns';
-export { default as MyDays } from './timeOff/MyDays';
+export { default as LeaveRequests } from '@ui/timeOff/LeaveRequests';
+export { default as TimeOverview } from '@ui/timeOff/TimeOverview';
+export { default as WorkingWeek } from '@ui/timeOff/WorkingWeek';
+export { default as LeaveBalances } from '@ui/timeOff/LeaveBalances';
+export { default as LeaveTypes } from '@ui/timeOff/LeavePolicy';
+export { default as LeaveCalendar } from '@ui/timeOff/LeaveCalendar';
+export { default as LeaveRegister } from '@ui/timeOff/LeaveRegister';
+export { default as TeamAttendance } from '@ui/timeOff/TeamAttendance';
+export { default as LeaveYearEnd } from '@ui/timeOff/YearEnd';
+export { default as StandIns } from '@ui/timeOff/StandIns';
+export { default as MyDays } from '@ui/timeOff/MyDays';
 /* Attendance requests of four kinds (missed punch, work from home, on duty, permission) and their rules. */
-export { default as AttendanceRequests } from './timeOff/AttendanceRequests';
-export { default as RequestRules } from './timeOff/RequestRules';
+export { default as AttendanceRequests } from '@ui/timeOff/AttendanceRequests';
+export { default as RequestRules } from '@ui/timeOff/RequestRules';
 export { default as MyLeave } from '../../attendance/src/screens/MyLeave';
 export { default as DataImport } from '../../attendance/src/screens/DataImport';
 /* One audit trail for the company, in Workspace (ADR-010); this opens it on People and Attendance's share. */

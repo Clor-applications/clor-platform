@@ -6,6 +6,7 @@ import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { PRIVATE_LABEL, STATUS_LABEL, colorOf, getWorkingWeek, listHolidays, listLeaveRequests, todayIst } from './api';
+import { homeCrumbs } from './shared';
 
 /**
  * Time & Leave → Calendar: who is away in a month, one line a person, with
@@ -76,7 +77,7 @@ export default function LeaveCalendar() {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Time & Leave' }]}
+        breadcrumb={homeCrumbs()}
         title="Calendar"
         actions={<>
           <div className="inline-flex items-center gap-1" role="group" aria-label="Month">

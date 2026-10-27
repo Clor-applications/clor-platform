@@ -23,7 +23,7 @@ import { confirmationsFor, decideOvertime, overtimeChain } from '../services/att
 import { balancesFor } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodLabel, periodStart } from '../services/attendance/leaveAccrual.js';
 import { leavePeriodOf } from '../services/attendance/leaveBalances.js';
-import { reviewCorrection } from '../services/attendance/corrections.js';
+import { decideRequest } from '../services/attendance/requests.js';
 import { ISO_DATE, employeeIn, fail, isHoliday, myEmployee, sendError, today, withNames, writeDay } from '../services/attendance/days.js';
 import { payrollReadiness } from '../services/payroll/readinessTower.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
@@ -478,30 +478,34 @@ async function requirePermissionNow(req: any, action: string, resource: string) 
   });
 }
 
-/** Approve or reject several corrections at once; each goes through the same checks as one. */
+/**
+ * Approve or reject several requests at once, of any kind: each goes through
+ * the same decision as one (services/attendance/requests.ts `decideRequest`),
+ * so a work-from-home day is marked as such and a manager-first chain is kept.
+ * Rejecting several needs one note, which every person reads with the decision.
+ */
 attendanceInsightsRouter.post(`${base}/requests/bulk-review`, can(PermissionAction.APPROVE, R.requests), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String).slice(0, 200) : [];
   const approve = req.body?.approve !== false;
   const note = String(req.body?.note || '').trim().slice(0, 500) || null;
   if (!ids.length) return res.status(400).json({ error: 'Choose the requests.' });
-  const rows = await peoplePrisma.attendanceRequest.findMany({ where: { accountId, orgId, id: { in: ids } } });
+  const scope = await teamScope(req);
+  const rows = await peoplePrisma.attendanceRequest.findMany({ where: { accountId, orgId, id: { in: ids }, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) } });
+  const mine = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
   const results: any[] = [];
+  let handedOn = 0;
   for (const r of rows) {
-    if (r.status !== 'PENDING') { results.push({ id: r.id, ok: false, error: `Already ${r.status.toLowerCase()}.` }); continue; }
-    if (approve) {
-      const turn = await hrMayDecide(orgId, 'correction', r);
-      if (!turn.ok) { results.push({ id: r.id, ok: false, error: turn.error }); continue; }
-    }
     try {
-      await reviewCorrection(accountId, orgId, r, approve, req.auth!.userId, note);
+      const out = await decideRequest(accountId, orgId, r, approve, { userId: req.auth!.userId, managerId: mine?.id ?? null, scopeAll: scope.all }, note);
+      if (out.stage === 'HR') handedOn += 1;
       results.push({ id: r.id, ok: true });
     } catch (e: any) {
       results.push({ id: r.id, ok: false, error: e?.message || 'Not done.' });
     }
   }
-  res.json({ done: results.filter((x) => x.ok).length, failed: results.filter((x) => !x.ok).length, results: results.filter((x) => !x.ok) });
+  res.json({ done: results.filter((x) => x.ok).length, failed: results.filter((x) => !x.ok).length, handedOn, results: results.filter((x) => !x.ok) });
 });
 
 // ---------------------------------------------------------------------------

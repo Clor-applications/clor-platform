@@ -15,8 +15,8 @@ import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 
-import { can } from '../workforce/shared';
-import { useSuggestions } from '../workforce/suggestions';
+import { can, homeCrumbs } from './shared';
+import { useSuggestions } from './suggestions';
 import { addLeaveAdjustment, colorOf, deleteLeaveAdjustment, getLeaveBalances, getLeaveLedger, getLeaveSettings, grantCompOff, periodChoices, thisYear, todayIst } from './api';
 
 /**
@@ -71,7 +71,7 @@ export default function LeaveBalances() {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Time & Leave' }]} title="Balances" />
+      <PageHeader breadcrumb={homeCrumbs()} title="Balances" />
       {req.error && !data ? <ErrorState error={req.error} onRetry={req.reload} /> : !data ? <SkeletonCard lines={6} /> : !types.length ? (
         <EmptyState title="No paid leave types yet" description="Add them in Settings → Leave Policy." />
       ) : (

@@ -15,7 +15,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { listStructure } from '@ui/personnel/api';
 
-import { can } from '../workforce/shared';
+import { can } from './shared';
 import {
   ACCRUAL_LABEL, MONTH_NAMES, PRIVATE_LABEL, colorOf, createLeaveType, creditText, deleteLeaveType, getLeaveSettings, listLeaveTypes,
   previewLeaveType, saveLeaveSettings, todayIst, updateLeaveType,

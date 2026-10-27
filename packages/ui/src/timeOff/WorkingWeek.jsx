@@ -8,7 +8,7 @@ import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 
-import { can } from '../workforce/shared';
+import { can } from './shared';
 import { WEEKDAYS, getWorkingWeek, listLeaveTypes, saveWorkingWeek } from './api';
 
 /**

@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 /*
@@ -19,18 +19,19 @@ const api = vi.hoisted(() => ({
   requestUsage: vi.fn(() => Promise.resolve({ month: '2026-11', usage: { ON_DUTY: { kind: 'ON_DUTY', unit: 'days', used: 1, pending: 0, quota: 4, left: 3 } } })),
   getRequestRules: vi.fn(),
   saveRequestRules: vi.fn((body) => Promise.resolve({ rules: body })),
+  listPeople: vi.fn(() => Promise.resolve([{ id: 'e1', name: 'Rekha Nair', code: 'MF-020' }])),
+  bulkReviewRequests: vi.fn(() => Promise.resolve({ done: 1, failed: 0, handedOn: 0, results: [] })),
 }));
 const perms = vi.hoisted(() => ({ current: { isAdmin: true, permissions: new Set() } }));
-vi.mock('../apps/people/src/timeOff/api', async (orig) => ({ ...(await orig()), ...api }));
-vi.mock('../apps/people/src/workforce/api', () => ({ listEmployees: vi.fn(() => Promise.resolve({ employees: [{ id: 'e1', name: 'Rekha Nair', code: 'MF-020' }] })) }));
-vi.mock('../apps/people/src/workforce/suggestions', () => ({ useSuggestions: () => [] }));
+vi.mock('../packages/ui/src/timeOff/api', async (orig) => ({ ...(await orig()), ...api }));
+vi.mock('../packages/ui/src/timeOff/suggestions', () => ({ useSuggestions: () => [] }));
 vi.mock('@ui/permissions/usePermissions', () => ({ usePermissions: () => perms.current }));
 vi.mock('../packages/ui/src/permissions/usePermissions', () => ({ usePermissions: () => perms.current }));
 vi.mock('@ui/components/ui/notify', () => ({ confirmDialog: vi.fn(async () => true), notify: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('@ui/components/ui/useUnsavedChanges', () => ({ default: () => {} }));
 
-import AttendanceRequests from '../apps/people/src/timeOff/AttendanceRequests';
-import RequestRules from '../apps/people/src/timeOff/RequestRules';
+import AttendanceRequests from '../packages/ui/src/timeOff/AttendanceRequests';
+import RequestRules from '../packages/ui/src/timeOff/RequestRules';
 
 const RULES = {
   MISSED_PUNCH: { on: true, quotaPerMonth: 3, hoursPerMonth: null, maxMinutes: 0, backDays: 30, approval: null },
@@ -64,6 +65,20 @@ describe('Attendance requests', () => {
     expect(api.pageRequests).toHaveBeenCalledWith(expect.objectContaining({ status: 'PENDING', kind: 'ON_DUTY', limit: 25, offset: 0 }));
     expect(screen.getByRole('tab', { name: /Approved/ })).toHaveTextContent('6');
     expect(screen.getAllByText('Work from home').length).toBeGreaterThan(0);
+  });
+
+  it('several waiting requests can be chosen and decided at once; rejecting them needs one note', async () => {
+    const user = userEvent.setup();
+    render(<AttendanceRequests params={{}} updateParams={() => {}} />);
+    await screen.findAllByText('Rekha Nair');
+    await user.click(screen.getAllByRole('checkbox', { name: 'Choose Rekha Nair' })[0]);
+    const bar = await screen.findByRole('region', { name: 'Decide the chosen requests' });
+    expect(bar).toHaveTextContent('1 chosen');
+    expect(within(bar).getByRole('button', { name: /Reject/ })).toBeDisabled();
+    await user.type(within(bar).getByLabelText('Note to them'), 'Office day');
+    expect(within(bar).getByRole('button', { name: /Reject/ })).toBeEnabled();
+    await user.click(within(bar).getByRole('button', { name: /Approve/ }));
+    await waitFor(() => expect(api.bulkReviewRequests).toHaveBeenCalledWith(['r1'], true, 'Office day'));
   });
 
   it('a rejection needs a note; the drawer says how much of the month is used', async () => {

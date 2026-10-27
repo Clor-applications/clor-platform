@@ -16,13 +16,12 @@ import { runListExport } from '@ui/components/list/exportMenu';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
 
-import { can } from '../workforce/shared';
-import { listEmployees } from '../workforce/api';
-import { useSuggestions } from '../workforce/suggestions';
+import { can, homeCrumbs } from './shared';
+import { useSuggestions } from './suggestions';
 import {
   PRIVATE_LABEL, STATUS_LABEL, STATUS_PILL, approveLeave, cancelLeave, colorOf, createLeaveRequest, daysText,
   getLeaveRequest, getLeaveSettings, listLeaveRequests, listLeaveTypes, pageLeaveRequests, periodChoices, previewLeave, rejectLeave,
-  shortenLeave, updateLeaveRequest,
+  shortenLeave, updateLeaveRequest, listPeople,
 } from './api';
 
 /**
@@ -111,7 +110,7 @@ export default function LeaveRequests({ params = {}, updateParams }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Time & Leave' }]}
+        breadcrumb={homeCrumbs()}
         title="Leave requests"
         actions={<>
           {allowed('ATTENDANCE::Leave Requests::EXPORT') || perms?.isAdmin ? <button type="button" className="ui-btn ui-btn-secondary" onClick={exportAll}><Download size={16} aria-hidden="true" /> Export</button> : null}
@@ -415,7 +414,7 @@ export function EnterLeave({ onClose, onDone, request = null }) {
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState(null);
   const [previewing, setPreviewing] = useState(false);
-  const people = useRequest(() => (editing ? Promise.resolve([]) : listEmployees({ limit: 500, sort: 'name', status: 'CURRENT' }).then((r) => r?.employees || [])), [editing]);
+  const people = useRequest(() => (editing ? Promise.resolve([]) : listPeople()), [editing]);
   const types = useRequest(() => listLeaveTypes().then((t) => t.filter((x) => x.isActive || x.id === request?.leaveTypeId)), []);
   const reasons = useSuggestions('leaveReason');
   const type = (types.data || []).find((t) => t.id === form.leaveTypeId);

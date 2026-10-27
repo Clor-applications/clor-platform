@@ -8,7 +8,7 @@ import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
 
-import { can } from '../workforce/shared';
+import { can, homeCrumbs } from './shared';
 import { daysText, getTimeOverview } from './api';
 import { EnterLeave, TypeDot } from './LeaveRequests';
 
@@ -55,7 +55,7 @@ export default function TimeOverview({ openScreen }) {
   const open = (r) => openScreen?.('leaveRequests', { id: r.id, tab: r.status === 'PENDING' ? null : 'all' });
   const header = (
     <PageHeader
-      breadcrumb={[{ label: 'People' }, { label: 'Time & Leave' }]}
+      breadcrumb={homeCrumbs()}
       title="Time & Leave"
       actions={can(perms, 'ATTENDANCE::Leave Requests::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Enter leave</button> : null}
     />

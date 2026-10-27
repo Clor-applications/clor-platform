@@ -14,7 +14,7 @@ const api = vi.hoisted(() => ({
   rejectLeave: vi.fn(() => Promise.resolve({})),
   approveLeave: vi.fn(() => Promise.resolve({})),
 }));
-vi.mock('../apps/people/src/timeOff/api', async (orig) => ({
+vi.mock('../packages/ui/src/timeOff/api', async (orig) => ({
   ...(await orig()),
   ...api,
   getLeaveSettings: vi.fn(() => Promise.resolve({ current: { year: 2026, label: '2026' }, previous: { year: 2025, label: '2025' }, next: { year: 2027, label: '2027' } })),
@@ -40,7 +40,7 @@ describe('Leave requests', () => {
   });
 
   it('asks the server for one page of the Waiting tab with the period, and shows the tab counts', async () => {
-    const { default: LeaveRequests } = await import('../apps/people/src/timeOff/LeaveRequests');
+    const { default: LeaveRequests } = await import('../packages/ui/src/timeOff/LeaveRequests');
     render(<LeaveRequests params={{}} updateParams={() => {}} />);
     await screen.findAllByText('Rekha Nair');
     expect(api.pageLeaveRequests).toHaveBeenCalledWith(expect.objectContaining({ status: 'PENDING', year: 2026, limit: 25, offset: 0 }));
@@ -48,7 +48,7 @@ describe('Leave requests', () => {
   });
 
   it('a rejection needs a reason; the skipped dates say why; the balance shows with and without', async () => {
-    const { default: LeaveRequests } = await import('../apps/people/src/timeOff/LeaveRequests');
+    const { default: LeaveRequests } = await import('../packages/ui/src/timeOff/LeaveRequests');
     const user = userEvent.setup();
     render(<LeaveRequests params={{ id: 'r1' }} updateParams={() => {}} />);
     await screen.findByText('Holiday: Christmas');
@@ -63,7 +63,7 @@ describe('Leave requests', () => {
 
   it('private leave shows no reason', async () => {
     api.getLeaveRequest.mockResolvedValueOnce({ request: { ...row, leaveTypeName: 'Private leave', reason: null, reasonHidden: true }, history: [], dates: [], balance: null, parts: [], alsoAway: [], waitingForManager: null });
-    const { default: LeaveRequests } = await import('../apps/people/src/timeOff/LeaveRequests');
+    const { default: LeaveRequests } = await import('../packages/ui/src/timeOff/LeaveRequests');
     render(<LeaveRequests params={{ id: 'r1' }} updateParams={() => {}} />);
     expect(await screen.findByText('Private: HR reads the reason.')).toBeInTheDocument();
     expect(screen.queryByText('Family wedding')).not.toBeInTheDocument();

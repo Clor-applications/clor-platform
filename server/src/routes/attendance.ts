@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { requireAnyPermission, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { phoneStatus, recordPhonePunch } from '../services/attendance/phonePunch.js';
 import { hrMayDecide } from '../services/attendance/approvalChain.js';
@@ -54,7 +54,8 @@ import {
 } from '../services/attendance/days.js';
 import { DEFAULT_RULES, KINDS, KIND_WORDS, askRequest, cancelRequest, decideRequest, editRequest, rulesFor, saveRules, story, usage, type Kind } from '../services/attendance/requests.js';
 import { CHAINS } from '../services/attendance/approvalChain.js';
-import { inScope, teamScope } from '../services/people/scope.js';
+import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
+import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/attendance/suggestions.js';
 import { recordAudit } from '../services/auditTrail.js';
 
 /**
@@ -332,17 +333,38 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/:id/overtime', can(Permis
   res.json({ record: updated });
 });
 
-/** Who can be marked: the people pickers in Attendance, without needing People. */
-attendanceRouter.get('/orgs/:orgId/attendance/employees', can(PermissionAction.VIEW, R.records), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
-  const { accountId, orgId } = req.tenant!;
-  const employees = await peoplePrisma.employee.findMany({
-    where: { accountId, orgId, status: { not: 'LEFT' } },
-    select: { id: true, name: true, code: true, department: true },
-    orderBy: { name: 'asc' },
-  });
-  res.json({ employees });
-});
+/**
+ * Who can be marked or asked for: the people pickers in Attendance and in the
+ * shared Time & Leave screens, without needing People. Anyone who may see
+ * days, leave or attendance requests may list them; a team-scoped role sees
+ * its own team only.
+ */
+attendanceRouter.get(
+  '/orgs/:orgId/attendance/employees',
+  requireAnyPermission([ATTENDANCE_MODULE, PermissionAction.VIEW, R.records], [ATTENDANCE_MODULE, PermissionAction.VIEW, R.leave], [ATTENDANCE_MODULE, PermissionAction.VIEW, R.requests]),
+  async (req, res) => {
+    if (!(await hrOrAttendanceRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const employees = await peoplePrisma.employee.findMany({
+      where: { accountId, orgId, status: { not: 'LEFT' }, ...scopeWhere(await teamScope(req)) },
+      select: { id: true, name: true, code: true, department: true },
+      orderBy: { name: 'asc' },
+    });
+    res.json({ employees });
+  },
+);
+
+/** Time & Leave field suggestions (a leave reason, a request reason, an on-duty place): the same words People offers, for a company with only Attendance. */
+attendanceRouter.get(
+  '/orgs/:orgId/attendance/suggestions',
+  requireAnyPermission([ATTENDANCE_MODULE, PermissionAction.VIEW, R.leave], [ATTENDANCE_MODULE, PermissionAction.VIEW, R.requests]),
+  async (req, res) => {
+    if (!(await hrOrAttendanceRouteOk(req, res))) return;
+    const field = String(req.query.field || '');
+    if (!isTimeLeaveSuggestionField(field)) return res.json({ values: [] });
+    res.json({ values: await timeLeaveSuggestions(req.tenant!.orgId, field) });
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Self-service: my attendance and the clock

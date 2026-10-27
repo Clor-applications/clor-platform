@@ -7,7 +7,7 @@ vi.mock('@ui/permissions/usePermissions', () => ({ usePermissions: () => perms.c
 vi.mock('@ui/components/ui/notify', () => ({ confirmDialog: vi.fn(async () => true), notify: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('@ui/components/ui/useUnsavedChanges', () => ({ default: () => {} }));
 vi.mock('@ui/personnel/api', () => ({ listStructure: vi.fn(async () => []) }));
-vi.mock('../apps/people/src/timeOff/api', async (importOriginal) => ({
+vi.mock('../packages/ui/src/timeOff/api', async (importOriginal) => ({
   ...(await importOriginal()),
   getWorkingWeek: vi.fn(),
   saveWorkingWeek: vi.fn(async (body) => body),
@@ -20,9 +20,9 @@ vi.mock('../apps/people/src/timeOff/api', async (importOriginal) => ({
   saveLeaveSettings: vi.fn(),
 }));
 
-import * as api from '../apps/people/src/timeOff/api';
-import WorkingWeek from '../apps/people/src/timeOff/WorkingWeek';
-import LeavePolicy from '../apps/people/src/timeOff/LeavePolicy';
+import * as api from '../packages/ui/src/timeOff/api';
+import WorkingWeek from '../packages/ui/src/timeOff/WorkingWeek';
+import LeavePolicy from '../packages/ui/src/timeOff/LeavePolicy';
 
 afterEach(() => {
   cleanup();

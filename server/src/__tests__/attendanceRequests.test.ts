@@ -289,3 +289,69 @@ describe('second audit (27 Oct 2026): a span over a month end, a half day withou
     expect(day).toMatchObject({ status: 'PRESENT', dayKind: 'WFH' });
   });
 });
+
+describe('Attendance app on the shared engine (27 Oct 2026): bulk decisions, the people picker, suggestions', () => {
+  let c: Ctx;
+  let asha: any;
+  let ravi: any;
+  beforeAll(async () => {
+    c = await company({ people: true, attendance: true });
+    asha = await person(c, { name: 'Asha', code: 'S1' });
+    ravi = await person(c, { name: 'Ravi', code: 'S2' });
+    await att(c, 'put', '/request-rules', { WFH: { on: true }, ON_DUTY: { on: true } }).expect(200);
+  }, 60_000);
+
+  it('deciding several at once goes through the same decision as one: a WFH day is marked WFH, a missed punch writes the day, a refusal needs a note', async () => {
+    const wfh = (await att(c, 'post', '/requests', { employeeId: asha.id, kind: 'WFH', date: nextMonth.mon, reason: 'Home' }).expect(201)).body.request;
+    const punch = (await att(c, 'post', '/requests', { employeeId: ravi.id, date: pastTuesday, checkIn: '09:00', checkOut: '18:00', reason: 'Reader was down' }).expect(201)).body.request;
+    const out = (await att(c, 'post', '/requests/bulk-review', { ids: [wfh.id, punch.id], approve: true }).expect(200)).body;
+    expect(out).toMatchObject({ done: 2, failed: 0, handedOn: 0 });
+    expect((await days(c, asha.id, nextMonth.mon, nextMonth.mon))[0]).toMatchObject({ status: 'PRESENT', dayKind: 'WFH', attendanceRequestId: wfh.id });
+    expect((await days(c, ravi.id, pastTuesday, pastTuesday))[0]).toMatchObject({ status: 'PRESENT', source: 'REQUEST', dayKind: null });
+    const story = (await att(c, 'get', `/requests/${wfh.id}`).expect(200)).body;
+    expect(story.history.map((h: any) => h.what)).toEqual(['Asked', 'Approved']);
+    /* Rejecting without a note: the missed punch keeps its old manners, the WFH is refused and says why. */
+    const wfh2 = (await att(c, 'post', '/requests', { employeeId: asha.id, kind: 'WFH', date: nextMonth.tue, reason: 'Home again' }).expect(201)).body.request;
+    const pastMonday = new Date(new Date(`${pastTuesday}T00:00:00Z`).getTime() - 86_400_000).toISOString().slice(0, 10);
+    const punch2 = (await att(c, 'post', '/requests', { employeeId: ravi.id, date: pastMonday, checkIn: '09:00', reason: 'Forgot' }).expect(201)).body.request;
+    const refused = (await att(c, 'post', '/requests/bulk-review', { ids: [wfh2.id, punch2.id, wfh.id], approve: false }).expect(200)).body;
+    expect(refused.done).toBe(1);
+    expect(refused.failed).toBe(2);
+    expect(refused.results.find((x: any) => x.id === wfh2.id).error).toMatch(/Say why/);
+    expect(refused.results.find((x: any) => x.id === wfh.id).error).toMatch(/already approved/);
+    const withNote = (await att(c, 'post', '/requests/bulk-review', { ids: [wfh2.id], approve: false, note: 'Office day' }).expect(200)).body;
+    expect(withNote).toMatchObject({ done: 1, failed: 0 });
+    expect((await att(c, 'get', `/requests/${wfh2.id}`).expect(200)).body.request).toMatchObject({ status: 'REJECTED', reviewNote: 'Office day' });
+  });
+
+  it('the people picker opens to anyone who may see leave or requests, not only days; a team-scoped role sees its team', async () => {
+    const leaveOnly = await colleague(c, ['ATTENDANCE::Leave Requests::VIEW']);
+    const names = (await att(leaveOnly, 'get', '/employees').expect(200)).body.employees.map((e: any) => e.name).sort();
+    expect(names).toEqual(['Asha', 'Ravi']);
+    const requestsOnly = await colleague(c, ['ATTENDANCE::Attendance Requests::VIEW']);
+    expect((await att(requestsOnly, 'get', '/employees').expect(200)).body.employees).toHaveLength(2);
+    const nobody = await colleague(c, ['ATTENDANCE::Holidays::VIEW']);
+    await att(nobody, 'get', '/employees').expect(403);
+    const ownOnly = await colleague(c, ['ATTENDANCE::Leave Requests::VIEW'], true);
+    expect((await att(ownOnly, 'get', '/employees').expect(200)).body.employees).toEqual([]);
+  });
+
+  it('suggests the company’s own places and reasons from the leave engine, so Attendance alone gets them too', async () => {
+    await att(c, 'post', '/requests', { employeeId: ravi.id, kind: 'ON_DUTY', date: nextMonth.wed, place: 'Peenya works', reason: 'Client visit' }).expect(201);
+    const places = (await att(c, 'get', '/suggestions?field=place').expect(200)).body.values;
+    expect(places.map((v: any) => v.value)).toContain('Peenya works');
+    /* A reason counts once two people have used it. */
+    const reasons = (await att(c, 'get', '/suggestions?field=requestReason').expect(200)).body.values.map((v: any) => v.value);
+    expect(reasons).not.toContain('Client visit');
+    await att(c, 'post', '/requests', { employeeId: asha.id, kind: 'ON_DUTY', date: nextMonth.wed, place: 'Peenya works', reason: 'Client visit' }).expect(201);
+    expect((await att(c, 'get', '/suggestions?field=requestReason').expect(200)).body.values.map((v: any) => v.value)).toContain('Client visit');
+    expect((await att(c, 'get', '/suggestions?field=salary').expect(200)).body.values).toEqual([]);
+  });
+
+  it('a company with Attendance only lists people and suggestions the same way', async () => {
+    const only = await company({ people: false, attendance: true });
+    const ok = (await att(only, 'get', '/employees').expect(200)).body;
+    expect(ok.employees).toEqual([]);
+    expect((await att(only, 'get', '/suggestions?field=leaveReason').expect(200)).body.values).toEqual([]);
+  });
+});

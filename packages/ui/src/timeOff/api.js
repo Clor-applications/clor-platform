@@ -140,6 +140,8 @@ export const createRequest = (body) => send('/requests', 'POST', body);
 export const updateRequest = (requestId, body) => send(`/requests/${id(requestId)}`, 'PUT', body);
 /** Approve or reject; under manager-then-HR the manager's step answers { stage: 'HR' }. */
 export const decideRequest = (requestId, approve, note) => send(`/requests/${id(requestId)}/${approve ? 'approve' : 'reject'}`, 'POST', { note });
+/** Decide several at once, each through the same checks as one: { done, failed, handedOn, results: [{ id, error }] }. */
+export const bulkReviewRequests = (ids, approve, note) => send('/requests/bulk-review', 'POST', { ids, approve, ...(note ? { note } : {}) });
 export const cancelRequest = (requestId, note) => send(`/requests/${id(requestId)}/cancel`, 'POST', note ? { note } : {});
 /** Used, waiting and left this month: { month, usage: { [kind]: { unit, used, pending, quota, left } } }. */
 export const requestUsage = (employeeId, month, kind) => get(`/requests/usage${query({ employeeId, month, kind })}`);
@@ -151,3 +153,6 @@ export const myRequests = (month) => get(`/me/requests${query({ month })}`);
 export const createMyRequest = (body) => send('/me/requests', 'POST', body);
 export const updateMyRequest = (requestId, body) => send(`/me/requests/${id(requestId)}`, 'PUT', body);
 export const cancelMyRequest = (requestId) => send(`/me/requests/${id(requestId)}/cancel`, 'POST', {});
+
+/** Who a request can be entered for: current people in the caller's scope, from the leave engine (works with People or Attendance alone). */
+export const listPeople = () => get('/employees').then((r) => r?.employees || []);
