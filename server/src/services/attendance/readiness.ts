@@ -120,4 +120,11 @@ export async function snapshotMonth(accountId: string, orgId: string, month: str
   });
 }
 
+/** The latest close of a month: its version and the rows Payroll takes, or null if it was never closed. */
+export async function getMonthSnapshot(orgId: string, month: string) {
+  const snap = await peoplePrisma.attendanceMonthSnapshot.findFirst({ where: { orgId, month }, orderBy: { version: 'desc' } });
+  if (!snap) return null;
+  return { month, version: snap.version, createdAt: snap.createdAt, rows: JSON.parse(snap.rowsJson || '[]') as any[] };
+}
+
 export { daysBetween };

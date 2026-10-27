@@ -607,6 +607,12 @@ model PayrollRun {
   rejectionReason   String?
   lockedAt          DateTime?
 
+  /// Which close of each Attendance month the days were taken from:
+  /// [{ month, version, closed }], version null for a month still open at the
+  /// pull. Approve and lock refuse when a closed month has been reopened or
+  /// closed again since (closure audit O-04).
+  attendanceSnapshots Json?
+
   createdByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
