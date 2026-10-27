@@ -21,6 +21,12 @@ const query = (params = {}) => {
 export const getOverview = () => apiFetch(`${base()}/overview`, opts);
 /* People → Home: what needs someone today (server: services/people/home.ts). */
 export const getPeopleHome = () => apiFetch(`${base()}/home`, opts).then((r) => r?.todos || []);
+/* People → Home's setup list and simple mode's suggestion (server: services/people/setup.ts). */
+export const getPeopleSetup = () => apiFetch(`${base()}/setup`, opts);
+/* { action: 'skip' | 'unskip' | 'hide' | 'show' | 'simpleAdviceSeen', step? } */
+export const changePeopleSetup = (body) => apiFetch(`${base()}/setup`, { ...opts, method: 'POST', body });
+/* The Monday summary opened from its e-mail (?from=weekly): counted on the server, nothing else. */
+export const summaryOpened = () => apiFetch(`${base()}/summary-opened`, { ...opts, method: 'POST', body: {} });
 
 export const listEmployees = (params) => apiFetch(`${base()}/employees${query(params)}`, opts);
 export const bulkUpdateEmployees = (body) => apiFetch(`${base()}/employees/bulk`, { ...opts, method: 'POST', body });

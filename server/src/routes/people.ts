@@ -50,6 +50,8 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js'
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, myTasks, openTasks, readTaskDoneToken, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { addCustom, calendar, evidenceOf, updateTask } from '../services/people/compliance.js';
 import { homeTodos } from '../services/people/home.js';
+import { SetupError, changeSetup, peopleSetup } from '../services/people/setup.js';
+import { track } from '../services/productEvents.js';
 import { PAYROLL_HISTORY, lockPayrollEmployee } from '../services/payroll/employeeLock.js';
 /* Only for Payroll's own delete guard (employeeLock.ts), which takes a payroll transaction; People reads nothing else from it. */
 import { payrollPrisma } from '../utils/payrollPrisma.js';
@@ -440,6 +442,30 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/statutory/reveal', can(Perm
 peopleRouter.get('/orgs/:orgId/people/home', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   res.json({ todos: await homeTodos(req) });
+});
+
+/** People → Home: the setup list and simple mode's suggestion, for whoever sets the company up (services/people/setup.ts). */
+peopleRouter.get('/orgs/:orgId/people/setup', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  res.json(await peopleSetup(accountId, orgId, req.auth?.userId || null));
+});
+
+peopleRouter.post('/orgs/:orgId/people/setup', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    res.json(await changeSetup(accountId, orgId, req.auth?.userId || null, req.body || {}));
+  } catch (e) {
+    if (e instanceof SetupError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
+});
+
+/** The Monday summary opened from its e-mail link (?from=weekly): counted, nothing else (PRODUCT-VIEW §7). */
+peopleRouter.post('/orgs/:orgId/people/summary-opened', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  void track(req.tenant!.orgId, req.auth?.userId || null, 'digest_opened', { kind: 'people.weekly_summary', channel: 'email' });
+  res.json({ ok: true });
 });
 
 peopleRouter.get('/orgs/:orgId/people/overview', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {

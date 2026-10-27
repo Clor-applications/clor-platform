@@ -17,7 +17,9 @@ const toCsv = (set) => [...set].sort().join(',');
  * Not a second set of rules: weekly offs belong to shifts (Shift.weeklyOffDays
  * and Shift.offSaturdays), as on the Shifts screen. This screen only shows
  * them side by side and saves them back to the same shift, so a company can
- * see and change its weekly-off pattern without opening each shift.
+ * see and change its weekly-off pattern without opening each shift. Working
+ * Week is the one answer to "which day is off" for everyone not on a shift
+ * (TIME-LEAVE-DECISIONS M2); this screen and Shifts link to it.
  */
 export default function WeeklyOffPolicy({ openScreen }) {
   const [shifts, setShifts] = useState(null);
@@ -59,7 +61,12 @@ export default function WeeklyOffPolicy({ openScreen }) {
       <PageHeader
         entity="shift"
         title="Weekly off policy"
-        description="The days each shift has off. Someone with no shift is off on Sunday."
+        description={
+          <>
+            The days off of the people on each shift. Everyone without a shift follows the{' '}
+            {openScreen ? <button type="button" className="ui-link" onClick={() => openScreen('workingWeek')}>Working Week</button> : 'Working Week'}, which is the company’s answer to which day is off.
+          </>
+        }
       />
       <div className="pb-8 space-y-3">
         <LoadFailed message={error} onRetry={load} />

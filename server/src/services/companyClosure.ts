@@ -124,7 +124,7 @@ const KEEP = new Set(['OrgClosure']);
  * something outside the company still points at them — stop and report.
  */
 /** Tables whose rows are never edited or deleted except by this purge (prisma/people/migrations/20261025020000_change_log_purge). */
-const APPEND_ONLY = new Set(['people.ChangeLog', 'platform.AuditLog']);
+const APPEND_ONLY = new Set(['people.ChangeLog', 'platform.AuditLog', 'platform.ProductEvent']);
 
 async function purgeDatabase(client: any, dmmf: Dmmf, prefix: string, orgId: string) {
   const models = dmmf.datamodel.models.filter((m) => !KEEP.has(m.name) && m.fields.some((f) => f.name === 'orgId'));

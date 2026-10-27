@@ -1,4 +1,5 @@
 import { employeeStatusChanged } from '../services/portalSessions.js';
+import { trackFirst } from '../services/productEvents.js';
 import { actorFrom } from '../services/credentials.js';
 import { Router } from 'express';
 import { ownRecordRefusal, ownWorkRefusal } from '../services/makerChecker.js';
@@ -279,6 +280,8 @@ payrollEmployeesRouter.post(
         createdByUserId: req.auth!.userId,
       },
     });
+
+    void trackFirst(orgId, req.auth!.userId, 'employee_added', { source: 'payroll', app: 'payroll' });
 
     const payroll = body.payroll
       ? await payrollPrisma.employeePayrollProfile.create({

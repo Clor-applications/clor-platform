@@ -1,4 +1,5 @@
 import { checkPortalSession, endPortalSession, endPortalSessions, legacyCutoff, listPortalSessions, startPortalSession } from '../services/portalSessions.js';
+import { trackFirst } from '../services/productEvents.js';
 import { orgByCode } from '../services/displayCodes.js';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
@@ -188,6 +189,7 @@ portalRouter.post('/activate', ...portalLimiter, async (req, res) => {
   if (updated.status === 'SUSPENDED') return res.status(403).json({ error: PAUSED, code: 'PORTAL_PAUSED' });
   /* A new password ends every earlier sign-in (A-33); this device starts its own. */
   await endPortalSessions(updated, 'password set with an activation code', { type: 'EMPLOYEE', id: updated.id });
+  void trackFirst(found.org.id, `portal:${updated.id}`, 'portal_activated', { again: Boolean(e.portalPasswordSetAt), app: 'attendance' });
   const session = await startPortalSession(updated, deviceOf(req));
   res.json({ token: sign(updated, session.id), employee: { name: updated.name, code: updated.code }, company: { name: found.org.name } });
 });

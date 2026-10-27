@@ -321,7 +321,8 @@ export const attendanceApp = {
     { key: 'leaveCalendar', label: 'Leave Calendar', icon: CalendarDays, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveBalances', label: 'Leave Balances', icon: Scale, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRegister', label: 'Leave Register', icon: Grid3x3, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'standIns', label: 'Stand-Ins', icon: Users, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    /* People's simple mode hides the same three Time & Leave screens here (services/features.ts peopleDetailed). */
+    { key: 'standIns', label: 'Stand-Ins', icon: Users, permission: 'ATTENDANCE::Leave Requests::VIEW', feature: 'peopleDetailed' },
     { key: 'overtime', label: 'Overtime & Comp-Off', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'confirmations', label: 'Employee Confirmations', icon: BadgeCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'monthClose', label: 'Month Close', icon: Lock, permission: 'ATTENDANCE::Attendance Records::VIEW' },
@@ -342,8 +343,8 @@ export const attendanceApp = {
 
     { section: 'Settings' },
     { key: 'setup', label: 'Attendance Setup', icon: ClipboardList, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'sites', label: 'Work Sites', icon: LocateFixed, permission: 'ATTENDANCE::Employee Portal::VIEW' },
-    { key: 'siteCheck', label: 'Work Site Check', icon: MapPin, permission: 'ATTENDANCE::Employee Portal::VIEW' },
+    { key: 'sites', label: 'Punch Areas', icon: LocateFixed, permission: 'ATTENDANCE::Employee Portal::VIEW' },
+    { key: 'siteCheck', label: 'Punch Area Check', icon: MapPin, permission: 'ATTENDANCE::Employee Portal::VIEW' },
     { key: 'rules', label: 'Attendance Policy', icon: Gavel, permission: 'ATTENDANCE::Shifts::VIEW' },
     { key: 'weeklyOffPolicy', label: 'Weekly Off Policy', icon: CalendarOff, permission: 'ATTENDANCE::Shifts::VIEW' },
     { key: 'overtimePolicy', label: 'Overtime Policy', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW' },
@@ -351,8 +352,8 @@ export const attendanceApp = {
     /* Days off for anyone with no shift; with shifts, the shift decides (TIME-LEAVE-DECISIONS.md M2). */
     { key: 'workingWeek', label: 'Working Week', icon: CalendarOff, permission: 'ATTENDANCE::Leave Types::VIEW' },
     { key: 'holidays', label: 'Holidays', icon: CalendarDays, permission: 'ATTENDANCE::Holidays::VIEW' },
-    { key: 'leaveYearEnd', label: 'Leave Year End', icon: ClipboardCheck, permission: 'ATTENDANCE::Leave Requests::EDIT' },
-    { key: 'requestRules', label: 'Request Rules', icon: Gavel, permission: 'ATTENDANCE::Attendance Requests::APPROVE' },
+    { key: 'leaveYearEnd', label: 'Leave Year End', icon: ClipboardCheck, permission: 'ATTENDANCE::Leave Requests::EDIT', feature: 'peopleDetailed' },
+    { key: 'requestRules', label: 'Request Rules', icon: Gavel, permission: 'ATTENDANCE::Attendance Requests::APPROVE', feature: 'peopleDetailed' },
     { key: 'integrations', label: 'Integrations', icon: Plug, permission: 'ATTENDANCE::Attendance Integrations::VIEW' },
     /* The same SSO set-up as Accounting's Settings → Single Sign-On: one per company, for every CLOR app. */
     { key: 'sso', label: 'Users & Security', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },

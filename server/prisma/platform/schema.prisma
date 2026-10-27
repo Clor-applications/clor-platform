@@ -399,6 +399,27 @@ model AuditLog {
   @@index([orgId, entityId])
 }
 
+/// Product telemetry, written on the server only (PRODUCT-VIEW §7): what a
+/// company did, never what a person typed. Append-only, like AuditLog
+/// (migration 20261031090100); no third-party tracker sees any of it.
+model ProductEvent {
+  id        String   @id @default(cuid())
+  accountId String?
+  orgId     String
+  /// A CLOR user id, `portal:<employeeId>` or `system`.
+  userId    String?
+  /// The acting user's first role name, as it was then.
+  userRole  String?
+  app       String?
+  name      String
+  /// JSON object, small: counts, sources, steps; never names or personal data.
+  props     String?
+  createdAt DateTime @default(now())
+
+  @@index([orgId, name, createdAt])
+  @@index([name, createdAt])
+}
+
 // ----------------------------
 // Role profiles — bundles of roles, assigned as one unit
 // ----------------------------

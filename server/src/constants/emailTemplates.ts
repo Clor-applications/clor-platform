@@ -278,6 +278,20 @@ Questions: {{contact}}. You can also complain to the Data Protection Board of In
     fields: ['orgName', 'description', 'when', 'categories', 'consequences', 'mitigation', 'stepsForPeople', 'contact'],
     transactional: true,
   },
+  {
+    key: 'people.weekly_summary',
+    label: 'Monday summary',
+    description: 'Each Monday, to owners and HR: who is away this week, what waits for a decision, lapsing leave, and who joins or leaves (services/people/weeklySummary.ts).',
+    subject: '{{orgName}} this week: {{headline}}',
+    body: `Hello {{name}},
+
+{{summary}}
+
+Open it in CLOR: {{appUrl}}/{{link}}
+
+You get this because you look after people at {{orgName}}. Your company can switch this e-mail off in its notification settings, and you can mute it from the bell.`,
+    fields: ['name', 'orgName', 'headline', 'summary', 'link', 'appName', 'appUrl'],
+  },
 ];
 
 export const TEMPLATE_BY_KEY = new Map(EMAIL_TEMPLATES.map((t) => [t.key, t]));

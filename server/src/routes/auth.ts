@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { track } from '../services/productEvents.js';
 import { assignOrgCode, assignUserCode } from '../services/displayCodes.js';
 import type { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
@@ -892,6 +893,23 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
     }
   } catch {
     /* The org exists even if its switches could not be written. */
+  }
+
+  /*
+   * Simple mode (PRODUCT-VIEW §6), on for a new company: it has no employees
+   * and one user, so it fits (up to 10 and up to 2). Only ever written here,
+   * once: a company that already exists keeps the menus it has, and one that
+   * grows is offered the switch on Home, never switched for it.
+   */
+  try {
+    await platformPrisma.featureSetting.upsert({
+      where: { orgId_key: { orgId: org.id, key: 'peopleSimpleMode' } },
+      update: {},
+      create: { accountId: auth.accountId, orgId: org.id, key: 'peopleSimpleMode', enabled: true, updatedByUserId: 'system' },
+    });
+    void track(org.id, auth.userId, 'simple_mode_toggled', { on: true, trigger: 'company_created', app: 'people' });
+  } catch {
+    /* The full menus are the fallback. */
   }
 
   /*

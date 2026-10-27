@@ -59,3 +59,64 @@ describe('People navigation', () => {
     }
   });
 });
+
+/*
+ * Simple mode (PRODUCT-VIEW §6): the server reads `peopleSimpleMode` and the
+ * menus see `peopleDetailed: false` (server/src/services/features.ts). The
+ * shell hides an item whose `feature` is off (packages/shell/Shell.jsx), so
+ * this is the same filter, run over the manifest.
+ */
+describe('People navigation in simple mode', () => {
+  const shown = (features) => peopleApp.nav.filter((i) => i.section || !i.feature || features[i.feature] !== false);
+  const simple = shown({ peopleDetailed: false, peopleOrgDetail: false });
+  const full = shown({ peopleDetailed: true, peopleOrgDetail: false });
+  const keys = (nav) => new Set(nav.filter((i) => i.key).map((i) => i.key));
+
+  it('hides the detailed screens a larger HR team needs', () => {
+    const hidden = [...keys(full)].filter((k) => !keys(simple).has(k)).sort();
+    expect(hidden).toEqual(['approvalRules', 'auditEvidence', 'compliance', 'complianceCalendar', 'customFields', 'employeeTypes', 'helpDeskSettings', 'integrations', 'leaveYearEnd', 'legalEntities', 'orgChanges', 'policies', 'privacy', 'privateCases', 'recycleBin', 'requestRules', 'rolesAccess', 'selfServiceChanges', 'standIns', 'tags', 'workTypes']);
+  });
+
+  it('never hides a person’s own data, the day’s work, or the setup steps on Home', () => {
+    const kept = keys(simple);
+    for (const k of ['overview', 'approvals', 'employees', 'employee', 'employeeNew', 'employeeImport', 'documents', 'leaveRequests', 'leaveCalendar', 'leaveBalances', 'timeOverview', 'attendance', 'attendanceRequests', 'myLeave', 'myDays', 'helpdesk', 'dataHealth', 'dataRequests', 'dataProtection', 'auditLogs', 'workingWeek', 'holidays', 'leaveTypes', 'selfService', 'modules', 'companyDetails', 'sso', 'dataImport', 'dataExport', 'settings']) {
+      expect(kept.has(k), k).toBe(true);
+    }
+  });
+
+  it('keeps every module that has a screen left, and the leave screens under one naming rule', () => {
+    const modules = resolveModules(peopleApp, simple);
+    expect(modules.map((m) => m.label)).toEqual(['Home', 'Workforce', 'Organization', 'Time & Leave', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
+    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(['Leave Overview', 'Leave Requests', 'Leave Calendar', 'Leave Balances', 'Leave Register', 'Attendance Requests', 'Attendance', 'My Leave', 'My Attendance']);
+  });
+
+  it('shows everything when simple mode is off, or when the company’s switches are not known yet', () => {
+    expect(keys(shown({ peopleDetailed: true })).size).toBe(keys(shown({})).size);
+    expect(keys(shown({})).has('standIns')).toBe(true);
+  });
+});
+
+/* One name for one screen, in both apps that show it (PRODUCT-VIEW §1). */
+describe('Shared Time & Leave screens', () => {
+  it('carry the same label in People and Attendance', async () => {
+    const { attendanceApp } = await import('../apps/attendance/manifest.jsx');
+    const label = (app, k) => app.nav.find((i) => i.key === k)?.label;
+    for (const k of ['timeOverview', 'leaveRequests', 'leaveCalendar', 'leaveBalances', 'leaveRegister', 'standIns', 'leaveTypes', 'holidays', 'workingWeek', 'leaveYearEnd', 'requestRules', 'myLeave']) {
+      expect(label(peopleApp, k), k).toBe(label(attendanceApp, k));
+    }
+    expect(label(peopleApp, 'attendanceRequests')).toBe(label(attendanceApp, 'requests'));
+  });
+
+  it('do not call two different things Work Sites', async () => {
+    const { attendanceApp } = await import('../apps/attendance/manifest.jsx');
+    expect(peopleApp.nav.find((i) => i.key === 'establishments').label).toBe('Work Sites');
+    expect(attendanceApp.nav.some((i) => i.label === 'Work Sites')).toBe(false);
+    expect(attendanceApp.nav.find((i) => i.key === 'sites').label).toBe('Punch Areas');
+  });
+
+  it('hide the same detailed Time & Leave screens in Attendance under simple mode', async () => {
+    const { attendanceApp } = await import('../apps/attendance/manifest.jsx');
+    const tagged = attendanceApp.nav.filter((i) => i.feature === 'peopleDetailed').map((i) => i.key).sort();
+    expect(tagged).toEqual(['leaveYearEnd', 'requestRules', 'standIns']);
+  });
+});

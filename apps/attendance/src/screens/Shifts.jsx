@@ -49,7 +49,7 @@ const COLUMNS = {
  * Work timings. People with no shift fall back to 09:00–18:00, Sunday off.
  * An end at or before the start is a night shift (ends the next morning).
  */
-export default function Shifts() {
+export default function Shifts({ openScreen }) {
   const [all, setAll] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState(null);
@@ -84,7 +84,12 @@ export default function Shifts() {
     <DocumentListShell
       entity="shift"
       title="Shifts"
-      description="Timings, grace and weekly offs. Anyone without a shift works 09:00–18:00 with Sunday off."
+      description={
+        <>
+          Timings, grace and the days off of the people on each shift. Anyone without a shift works 09:00–18:00 and has the days off set in{' '}
+          {openScreen ? <button type="button" className="ui-link" onClick={() => openScreen('workingWeek')}>Working Week</button> : 'Working Week'}.
+        </>
+      }
       compact
       tight
       denseCards
@@ -134,7 +139,7 @@ export default function Shifts() {
                       <EmptyState
                         icon={Clock3}
                         title={status ? `No ${status.toLowerCase()} shifts` : 'No shifts yet'}
-                        description="Timings, grace and weekly offs. Anyone without a shift works 09:00–18:00 with Sunday off. Create one, then assign people to it."
+                        description="Timings, grace and days off. Anyone without a shift works 09:00–18:00 with the days off set in Working Week. Create one, then assign people to it."
                         routes={status ? undefined : [{ label: 'New shift', description: 'Timings, grace and weekly offs; then assign people to it.', onSelect: create }]}
                       />
                     )}

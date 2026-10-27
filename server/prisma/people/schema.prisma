@@ -1713,6 +1713,8 @@ model PeopleSetting {
   selfServiceChanges String   @default("CONTACT_DIRECT")
   /// Languages privacy notices are offered in besides English (PRV-01), e.g. ["hi","ta"].
   noticeLanguages    Json?
+  /// People Home's setup list (services/people/setup.ts): { skipped: [step], hidden: ISO, recorded: [step], simpleAdvice: ISO }.
+  setupState         Json?
   updatedByUserId    String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
