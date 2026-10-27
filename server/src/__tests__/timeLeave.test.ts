@@ -13,6 +13,7 @@ const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
+const { deliverOutbox } = await import('../services/people/outbox.js');
 
 const app = buildApp().listen(0);
 afterAll(async () => {
@@ -185,11 +186,14 @@ describe('preview, split, privacy, scope, story, overview', () => {
   it('a request tells the people who decide; a decision tells the person, once per leave; private leave stays "leave"', async () => {
     /* HR decides (the default chain); the person has a sign-in of their own. */
     const reportUser = await colleague(hr, ['ATTENDANCE::My Attendance::VIEW']);
+    /* Notices about earlier changes are sent first: the outbox works out who to tell when it delivers, and this person had no sign-in then. */
+    await deliverOutbox(new Date(), 5000);
     await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: report.id }, data: { userId: reportUser.userId } }));
     const before = new Date();
     const r = (await att(hr, 'post', '/leave/requests', { employeeId: report.id, leaveTypeId: sick.id, fromDate: '2026-12-15', toDate: '2026-12-15' }).expect(201)).body.request;
     await att(hr, 'post', `/leave/requests/${r.id}/approve`, { note: 'Get well' }).expect(200);
-    await new Promise((done) => setTimeout(done, 300));
+    /* Notices go through the outbox (closure audit O-07): deliver what is queued. */
+    await deliverOutbox(new Date(), 5000);
     const notes = await platformPrisma.notification.findMany({ where: { orgId: hr.orgId, createdAt: { gte: before }, kind: { in: ['attendance.leave_asked', 'attendance.leave_decided'] } } });
     const mine = notes.filter((n) => n.userId === reportUser.userId);
     expect(mine).toEqual([expect.objectContaining({ kind: 'attendance.leave_decided', title: 'Your Sick, 15 Dec 2026, is approved', body: 'Get well' })]);
@@ -586,6 +590,7 @@ describe('second audit (27 Oct 2026): slabs by period, rules on a type in use, e
     expect(await runLapseNotices('2026-10-15')).toBe(0);
     const sent = await runLapseNotices('2026-12-05');
     expect(sent).toBeGreaterThan(0);
+    await deliverOutbox(new Date(), 5000);
     const note = await platformPrisma.notification.findFirst({ where: { orgId: hr.orgId, userId: user.userId!, kind: 'attendance.leave_lapse' } });
     expect(note?.title).toContain('will lapse on 31 Dec 2026');
     expect(note?.body).toContain('Lapsing: 6');

@@ -9,7 +9,8 @@ import { deciderFor, managerStepBy, standingInFor } from './standIns.js';
 import { REASON_CODES } from './corrections.js';
 import { selfDecisionAllowed } from '../makerChecker.js';
 import { emit as emitWebhook } from './webhooks.js';
-import { notifyUsers, usersWithPermission } from '../notifications.js';
+import { sendNotice, usersWithPermission } from '../notifications.js';
+import { approverUsers, queueNotice, revisionOf } from './notices.js';
 import { resolveAccess } from '../access.js';
 import { inScope, teamScope, type TeamScope } from '../people/scope.js';
 import { isFeatureEnabled } from '../features.js';
@@ -257,16 +258,20 @@ export async function askRequest(who: Asker, employee: Employee, body: unknown) 
   /* The day as it stands now, so whoever reviews sees what would change. */
   const current = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: employee.id, date: b.date } } });
   const { span: _span, ...data } = v;
-  const row = await peoplePrisma.attendanceRequest.create({
-    data: {
-      accountId: who.accountId, orgId: who.orgId, employeeId: employee.id, ...data,
-      beforeCheckIn: current?.checkIn ?? null, beforeCheckOut: current?.checkOut ?? null, beforeStatus: current?.status ?? null,
-      requestedByUserId: who.userId,
-      history: pushHistory([], { by: who.userId, what: 'ASKED' }),
-    },
+  /* The request and its notice commit together (closure audit O-07). */
+  const row = await peopleWrite(who.orgId, async () => {
+    const created = await peoplePrisma.attendanceRequest.create({
+      data: {
+        accountId: who.accountId, orgId: who.orgId, employeeId: employee.id, ...data,
+        beforeCheckIn: current?.checkIn ?? null, beforeCheckOut: current?.checkOut ?? null, beforeStatus: current?.status ?? null,
+        requestedByUserId: who.userId,
+        history: pushHistory([], { by: who.userId, what: 'ASKED' }),
+      },
+    });
+    await queueRequestNotice(created);
+    return created;
   });
   await requestAudit(who, { entityId: row.id, action: 'CREATE', message: `${who.onBehalf ? `Entered ${KIND_WORDS[b.kind].name.toLowerCase()} for ${employee.name || 'an employee'}` : `${employee.name || 'An employee'} asked for ${KIND_WORDS[b.kind].name.toLowerCase()}`}, ${spanWords(v.span)}`, metadata: { employeeId: employee.id, kind: b.kind, date: b.date, toDate: v.toDate } });
-  tellAsked(who.orgId, row).catch((e) => console.error('[attendance requests] notice not sent:', e instanceof Error ? e.message : e));
   return row;
 }
 
@@ -283,13 +288,20 @@ export async function editRequest(who: Asker, r: any, body: unknown) {
   if (!changed.length) return r;
   const from = Object.fromEntries(changed.map((k) => [k, r[k]]));
   const to = Object.fromEntries(changed.map((k) => [k, (data as any)[k]]));
-  const row = await peoplePrisma.attendanceRequest.update({
-    where: { id: r.id },
-    data: { ...data, managerApprovedAt: null, managerApprovedById: null, managerNote: null, history: pushHistory(r.history, { by: who.userId, what: 'EDITED', from, to }) },
+  /* Only the reason: nothing the approver decides on moved, so the manager's step stands and nobody is asked again (closure audit O-07). */
+  const reasonOnly = changed.every((k) => k === 'reason');
+  const row = await peopleWrite(who.orgId, async () => {
+    const updated = await peoplePrisma.attendanceRequest.update({
+      where: { id: r.id },
+      data: reasonOnly
+        ? { reason: data.reason, history: pushHistory(r.history, { by: who.userId, what: 'REASON_EDITED' }) }
+        : { ...data, managerApprovedAt: null, managerApprovedById: null, managerNote: null, history: pushHistory(r.history, { by: who.userId, what: 'EDITED', from, to }) },
+    });
+    /* Back to the start of the chain: whoever decides first hears of it again. */
+    if (!reasonOnly && r.managerApprovedAt) await queueRequestNotice(updated);
+    return updated;
   });
   await requestAudit(who, { entityId: r.id, action: 'UPDATE', message: `${KIND_WORDS[r.kind as Kind].name} request for ${employee.name} changed: ${changed.join(', ')}`, metadata: { employeeId: r.employeeId, from, to } });
-  /* Back to the start of the chain: whoever decides first hears of it again. */
-  if (r.managerApprovedAt) tellAsked(who.orgId, row).catch((e) => console.error('[attendance requests] notice not sent:', e instanceof Error ? e.message : e));
   return row;
 }
 
@@ -324,14 +336,17 @@ export async function decideRequest(accountId: string, orgId: string, r: any, ap
   if (approve && chain === 'MANAGER_THEN_HR' && manager) {
     if (!r.managerApprovedAt) {
       if (!asManager) throw fail(409, `${manager.name || 'Their manager'} has not approved this yet; the company asks for the manager first.`, 'MANAGER_FIRST');
-      const changed = await peoplePrisma.attendanceRequest.updateMany({
-        where: { id: r.id, status: 'PENDING', managerApprovedAt: null },
-        data: { managerApprovedAt: new Date(), managerApprovedById: by.managerId!, managerNote: note, history: pushHistory(r.history, { by: by.userId, what: 'MANAGER_APPROVED', note }) },
+      const row = await peopleWrite(orgId, async () => {
+        const changed = await peoplePrisma.attendanceRequest.updateMany({
+          where: { id: r.id, status: 'PENDING', managerApprovedAt: null },
+          data: { managerApprovedAt: new Date(), managerApprovedById: by.managerId!, managerNote: note, history: pushHistory(r.history, { by: by.userId, what: 'MANAGER_APPROVED', note }) },
+        });
+        if (!changed.count) throw fail(409, 'This request is no longer waiting for the manager.');
+        const stepped = await peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: r.id } });
+        await queueRequestNotice(stepped);
+        return stepped;
       });
-      if (!changed.count) throw fail(409, 'This request is no longer waiting for the manager.');
-      const row = await peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: r.id } });
       await requestAudit(who, { entityId: r.id, action: 'MANAGER_APPROVE', message: `Manager approved ${name.toLowerCase()} request, ${spanWords(r)}; now with HR`, metadata: { employeeId: r.employeeId, kind } });
-      tellAsked(orgId, row).catch((e) => console.error('[attendance requests] notice not sent:', e instanceof Error ? e.message : e));
       return { request: row, stage: 'HR' };
     }
     /* HR's step is a second pair of eyes: not the manager who took the first, and someone who decides for the whole company. */
@@ -357,11 +372,12 @@ export async function decideRequest(accountId: string, orgId: string, r: any, ap
     } else if (approve) {
       await applyApproved(accountId, orgId, r, by.userId, note);
     }
-    return peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: r.id } });
+    const decided = await peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: r.id } });
+    await queueRequestNotice(decided);
+    return decided;
   });
   if (approve && kind === 'MISSED_PUNCH') afterPeopleCommit(() => emitWebhook(orgId, 'correction.approved', { id: row.id, employeeId: row.employeeId, date: row.date, checkIn: row.checkIn, checkOut: row.checkOut, reason: row.reason ?? null, reviewNote: row.reviewNote }));
   await requestAudit(who, { entityId: r.id, action: approve ? 'APPROVE' : 'REJECT', message: `${approve ? 'Approved' : 'Rejected'} ${name.toLowerCase()} request, ${spanWords(r)}${note ? `: ${note}` : ''}`, metadata: { employeeId: r.employeeId, kind } });
-  afterPeopleCommit(() => tellDecided(orgId, row).catch((e) => console.error('[attendance requests] notice not sent:', e instanceof Error ? e.message : e)));
   return { request: row };
 }
 
@@ -416,10 +432,17 @@ export async function cancelRequest(accountId: string, orgId: string, r: any, by
         await writeDay({ accountId, orgId, userId: by.userId, employee, date: d.date, checkIn: d.checkIn, checkOut: d.checkOut, source: d.source === 'REQUEST' ? 'MANUAL' : d.source, dayKind: null, attendanceRequestId: null, reason: `${KIND_WORDS[kind].name} cancelled` });
       }
     }
-    return peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: r.id } });
+    const cancelled = await peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: r.id } });
+    /*
+     * HR cancelling tells the person. The person cancelling their own approved
+     * request tells whoever approved it (read before the cancellation wrote
+     * over reviewedByUserId), who planned around it.
+     */
+    if (!own) await queueRequestNotice(cancelled);
+    else if (r.status === 'APPROVED') await queueRequestNotice(cancelled, { own: true, approvedBy: r.reviewedByUserId || 'system' });
+    return cancelled;
   });
   await requestAudit(who, { entityId: r.id, action: 'CANCEL', message: `${own ? 'Withdrew' : 'Cancelled'} ${KIND_WORDS[kind].name.toLowerCase()} request, ${spanWords(r)}`, metadata: { employeeId: r.employeeId, kind, wasApproved: r.status === 'APPROVED' } });
-  if (!own) afterPeopleCommit(() => tellDecided(orgId, row).catch((e) => console.error('[attendance requests] notice not sent:', e instanceof Error ? e.message : e)));
   return row;
 }
 
@@ -446,8 +469,28 @@ const linkFor = async (accountId: string, orgId: string, screen: string, params?
   return { app: people ? 'people' : 'attendance', screen: people ? PEOPLE_SCREEN[screen] || screen : ATTENDANCE_SCREEN[screen] || screen, ...(params ? { params } : {}) };
 };
 
+/** What a request notice needs of the request, as it is now. */
+const requestSnapshot = (r: any) => ({
+  id: r.id, accountId: r.accountId, employeeId: r.employeeId, kind: r.kind, status: r.status,
+  date: r.date, toDate: r.toDate ?? null, halfDay: r.halfDay ?? null, place: r.place ?? null, minutes: r.minutes ?? null,
+  managerApprovedAt: r.managerApprovedAt ?? null, managerApprovedById: r.managerApprovedById ?? null,
+  requestedByUserId: r.requestedByUserId ?? null, reviewedByUserId: r.reviewedByUserId ?? null, reviewNote: r.reviewNote ?? null,
+});
+
+/** Queue the notice for this request as it now stands, in the caller's People transaction (closure audit O-07). */
+async function queueRequestNotice(r: any, extra: { own?: boolean; approvedBy?: string | null } = {}) {
+  await queueNotice({ accountId: r.accountId, orgId: r.orgId }, 'request', { request: requestSnapshot(r), rev: revisionOf(r.history), own: Boolean(extra.own), approvedBy: extra.approvedBy ?? null }, { employeeId: r.employeeId, correlationId: `attendance_request_${r.id}` });
+}
+
+/** Delivered from the outbox (services/attendance/notices.ts): who hears of this request, and what. Throws when it cannot send, so the outbox tries again. */
+export async function tellAboutRequest(orgId: string, r: any, ctx: { approvedBy?: string | null; rev?: number; own?: boolean } = {}) {
+  if (r.status === 'PENDING') return tellAsked(orgId, r, ctx.rev ?? 0);
+  if (ctx.own && r.status === 'CANCELLED') return tellOwnCancel(orgId, r, ctx.approvedBy ?? null);
+  return tellDecided(orgId, r);
+}
+
 /** A new request goes to whoever acts on it next: the manager (or their stand-in) when the company asks the manager first, else those who approve for that person. */
-async function tellAsked(orgId: string, r: any) {
+async function tellAsked(orgId: string, r: any, rev: number) {
   const emp = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { accountId: true, name: true, code: true, userId: true } });
   if (!emp) return;
   const kind = r.kind as Kind;
@@ -456,16 +499,18 @@ async function tellAsked(orgId: string, r: any) {
   const when = spanWords(r);
   const link = await linkFor(emp.accountId, orgId, 'attendanceRequests', { id: r.id });
   const body = kind === 'PERMISSION' ? hoursWords(r.minutes || 0) : kind === 'ON_DUTY' ? r.place : r.halfDay ? 'Half a day' : null;
+  /* A retry has the same key; the manager's step, or a real change, does not. */
+  const dedupeKey = `request-asked:${r.id}:${r.managerApprovedAt ? 'manager' : 'new'}:${rev}`;
   const chain = await chainOf(orgId, kind);
   const manager = chain !== 'HR' && !r.managerApprovedAt ? await activeManagerOf(orgId, r.employeeId) : null;
   if (manager) {
     const decider = await deciderFor(orgId, manager.id);
     const user = (await peoplePrisma.employee.findFirst({ where: { id: decider, orgId }, select: { userId: true } }))?.userId;
-    if (user) await notifyUsers(emp.accountId, orgId, [user], { kind: 'attendance.request_asked', title: `${who} asks for ${what}, ${when}`, body, link }, { except: r.requestedByUserId });
+    if (user) await sendNotice(emp.accountId, orgId, [user], { kind: 'attendance.request_asked', title: `${who} asks for ${what}, ${when}`, body, link }, { except: r.requestedByUserId, dedupeKey });
     return;
   }
   const title = r.managerApprovedAt ? `${who}'s ${what}, ${when}, is approved by the manager and waits for you` : `${who} asks for ${what}, ${when}`;
-  await notifyUsers(emp.accountId, orgId, await approversOf(emp.accountId, orgId, r.employeeId), { kind: 'attendance.request_asked', title, body, link }, { except: r.requestedByUserId });
+  await sendNotice(emp.accountId, orgId, await approversOf(emp.accountId, orgId, r.employeeId), { kind: 'attendance.request_asked', title, body, link }, { except: r.requestedByUserId, dedupeKey });
 }
 
 /** A decision goes to the person, once, unless they made it themselves. */
@@ -474,7 +519,16 @@ async function tellDecided(orgId: string, r: any) {
   const emp = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { accountId: true, userId: true } });
   if (!emp?.userId || r.reviewedByUserId === emp.userId || r.reviewedByUserId === `portal:${r.employeeId}`) return;
   const word = ({ APPROVED: 'approved', REJECTED: 'not approved', CANCELLED: 'cancelled' } as Record<string, string>)[r.status];
-  await notifyUsers(emp.accountId, orgId, [emp.userId], { kind: 'attendance.request_decided', title: `Your ${KIND_WORDS[r.kind as Kind].name.toLowerCase()} request for ${spanWords(r)} is ${word}`, body: r.reviewNote || null, link: await linkFor(emp.accountId, orgId, 'myRequests') }, { except: r.reviewedByUserId });
+  await sendNotice(emp.accountId, orgId, [emp.userId], { kind: 'attendance.request_decided', title: `Your ${KIND_WORDS[r.kind as Kind].name.toLowerCase()} request for ${spanWords(r)} is ${word}`, body: r.reviewNote || null, link: await linkFor(emp.accountId, orgId, 'myRequests') }, { except: r.reviewedByUserId, dedupeKey: `request-decided:${r.id}:${r.status}` });
+}
+
+/** The person cancelled their own approved work from home or on duty: whoever approved it is told; the rule's or a sign-in-less manager's approval goes to those who approve for this person. */
+async function tellOwnCancel(orgId: string, r: any, approvedBy: string | null) {
+  const emp = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { accountId: true, name: true, code: true, userId: true } });
+  if (!emp) return;
+  const to = await approverUsers(orgId, approvedBy, () => approversOf(emp.accountId, orgId, r.employeeId));
+  const who = `${emp.name}${emp.code ? ` (${emp.code})` : ''}`;
+  await sendNotice(emp.accountId, orgId, to, { kind: 'attendance.request_decided', title: `${who} cancelled their ${KIND_WORDS[r.kind as Kind].name.toLowerCase()}, ${spanWords(r)}`, link: await linkFor(emp.accountId, orgId, 'attendanceRequests', { id: r.id }) }, { except: emp.userId, dedupeKey: `request-cancelled:${r.id}` });
 }
 
 // ---------------------------------------------------------------------------
@@ -493,7 +547,7 @@ async function actorNames(orgId: string, ids: Array<string | null | undefined>) 
   return new Map<string, string>([...u.map((x) => [x.id, x.fullName] as [string, string]), ...e.map((x) => [`portal:${x.id}`, x.name] as [string, string])]);
 }
 
-const HISTORY_WORDS: Record<string, string> = { ASKED: 'Asked', EDITED: 'Changed', MANAGER_APPROVED: 'Approved by the manager', APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled' };
+const HISTORY_WORDS: Record<string, string> = { ASKED: 'Asked', EDITED: 'Changed', REASON_EDITED: 'Changed the reason', MANAGER_APPROVED: 'Approved by the manager', APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled' };
 
 /** The request's story for its drawer: the row with names, what happened and who did it, the month's usage, and the days as they stand. */
 export async function story(accountId: string, orgId: string, r: any) {

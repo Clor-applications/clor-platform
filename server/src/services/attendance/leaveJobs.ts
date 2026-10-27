@@ -1,7 +1,8 @@
-import { peoplePrisma } from '../../utils/peoplePrisma.js';
+import { peoplePrisma, peopleWrite } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { exclusive, leaseFor } from '../jobLease.js';
-import { notifyUsers, usersWithPermission } from '../notifications.js';
+import { usersWithPermission } from '../notifications.js';
+import { queueNotice, type DirectNotice } from './notices.js';
 import { resolveAccess } from '../access.js';
 import { isFeatureEnabled } from '../features.js';
 import { activeManagerOf, chainFor, CHAINS, type Chain } from './approvalChain.js';
@@ -47,17 +48,37 @@ export async function runLeaveHandOns(now = new Date()) {
       const history = [...((Array.isArray(r.history) ? r.history : []) as any[]), { at: now.toISOString(), by: 'system', what: 'HANDED_ON', note: `No decision from the manager in ${t.handOnAfterDays} days` }];
       /* The manager's step counts as taken by nobody: HR decides, and the story says so. */
       /* Only while it still waits for the manager: a decision taken meanwhile is never written over (closure audit, 28 Oct 2026). */
-      const claimed = await peoplePrisma.leaveRequest.updateMany({ where: { id: r.id, status: 'PENDING', managerApprovedAt: null, updatedAt: r.updatedAt }, data: { managerApprovedAt: now, managerApprovedById: null, managerNote: `Handed on to HR: no decision in ${t.handOnAfterDays} days`, history } });
+      /* The hand-on and the notice to HR commit together (closure audit O-07). */
+      const { tellWaiting } = await import('../../routes/leave.js');
+      const claimed = await peopleWrite(t.orgId, async () => {
+        const c = await peoplePrisma.leaveRequest.updateMany({ where: { id: r.id, status: 'PENDING', managerApprovedAt: null, updatedAt: r.updatedAt }, data: { managerApprovedAt: now, managerApprovedById: null, managerNote: `Handed on to HR: no decision in ${t.handOnAfterDays} days`, history } });
+        if (c.count) await tellWaiting(t.orgId, r.id);
+        return c;
+      });
       if (!claimed.count) continue;
       await platformPrisma.auditLog
         .create({ data: { accountId: r.accountId, orgId: t.orgId, branchId: '', entity: 'LeaveRequest', entityId: r.id, action: 'HAND_ON', message: `Handed on to HR: no decision from the manager in ${t.handOnAfterDays} days`, metadata: JSON.stringify({ employeeId: r.employeeId, leaveTypeId: r.leaveTypeId }), createdByUserId: 'system' } })
         .catch((e) => console.error('[audit] hand-on not recorded:', e instanceof Error ? e.message : e));
       handed += 1;
-      const { tellWaiting } = await import('../../routes/leave.js');
-      await tellWaiting(t.orgId, r.id).catch((e) => console.error('[leave] hand-on notice not sent:', e instanceof Error ? e.message : e));
     }
   }
   return handed;
+}
+
+/*
+ * The digest and lapse notices are addressed here and delivered by the outbox
+ * (attendance/notices.ts), under a key unique per person (Notification
+ * dedupeKey): a job that runs twice, or a delivery tried again, sends once.
+ * Before queueing, the job skips a person who already has it, sent or queued.
+ */
+const correlationFor = (userId: string, key: string) => `notice_${key}_${userId}`;
+async function alreadyQueued(orgId: string, userId: string, key: string) {
+  const sent = await platformPrisma.notification.findUnique({ where: { orgId_userId_dedupeKey: { orgId, userId, dedupeKey: key } }, select: { id: true } });
+  if (sent) return true;
+  return Boolean(await peoplePrisma.outboxEvent.findFirst({ where: { orgId, correlationId: correlationFor(userId, key) }, select: { id: true } }));
+}
+async function queueDirect(accountId: string, orgId: string, d: DirectNotice, employeeId: string | null = null) {
+  await queueNotice({ accountId, orgId }, 'direct', d as unknown as Record<string, unknown>, { employeeId, correlationId: correlationFor(d.userIds[0], d.dedupeKey) });
 }
 
 /** Approvers with something waiting on them, told once a day. */
@@ -74,10 +95,9 @@ export async function runLeaveDigest(now = new Date()) {
       const waiting = await waitingForReader(orgId, scope, userId);
       if (!waiting.length) continue;
       const key = `leave-digest:${date}`;
-      const had = await platformPrisma.notification.findFirst({ where: { orgId, userId, kind: 'attendance.leave_digest', linkJson: { contains: `"dedupe":"${key}"` } }, select: { id: true } });
-      if (had) continue;
+      if (await alreadyQueued(orgId, userId, key)) continue;
       const oldest = Math.floor((now.getTime() - waiting[0].createdAt.getTime()) / DAY);
-      await notifyUsers(accountId, orgId, [userId], { kind: 'attendance.leave_digest', title: `${waiting.length} leave ${waiting.length === 1 ? 'request waits' : 'requests wait'} for you${oldest >= 3 ? `; the oldest for ${oldest} days` : ''}`, link: { app, screen: 'leaveRequests', dedupe: key } as any });
+      await queueDirect(accountId, orgId, { userIds: [userId], dedupeKey: key, notice: { kind: 'attendance.leave_digest', title: `${waiting.length} leave ${waiting.length === 1 ? 'request waits' : 'requests wait'} for you${oldest >= 3 ? `; the oldest for ${oldest} days` : ''}`, link: { app, screen: 'leaveRequests' } } });
       sent += 1;
     }
   }
@@ -111,11 +131,10 @@ export async function runLapseNotices(date = today()) {
     const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...byPerson.keys()] }, userId: { not: null } }, select: { id: true, userId: true } });
     for (const p of people) {
       const key = `leave-lapse:${year}`;
-      const had = await platformPrisma.notification.findFirst({ where: { orgId, userId: p.userId!, kind: 'attendance.leave_lapse', linkJson: { contains: `"dedupe":"${key}"` } }, select: { id: true } });
-      if (had) continue;
+      if (await alreadyQueued(orgId, p.userId!, key)) continue;
       const lines = byPerson.get(p.id)!;
       const total = lines.reduce((a, l) => a + l.days, 0);
-      await notifyUsers(accountId, orgId, [p.userId!], { kind: 'attendance.leave_lapse', title: `${total} ${total === 1 ? 'day' : 'days'} of leave will lapse on ${dayWords(end)}`, body: lines.map((l) => `${l.leaveType}: ${l.days}`).join('; '), link: { app, screen: 'myLeave', dedupe: key } as any });
+      await queueDirect(accountId, orgId, { userIds: [p.userId!], dedupeKey: key, notice: { kind: 'attendance.leave_lapse', title: `${total} ${total === 1 ? 'day' : 'days'} of leave will lapse on ${dayWords(end)}`, body: lines.map((l) => `${l.leaveType}: ${l.days}`).join('; '), link: { app, screen: 'myLeave' } } }, p.id);
       sent += 1;
     }
   }

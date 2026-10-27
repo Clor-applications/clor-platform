@@ -910,6 +910,11 @@
       "method": "GET",
       "path": "/api/internal/jobs",
       "reason": "Lists the registered job names for the operator checking the scheduler; same JOBS_TOKEN check, 404 when unset; returns names only."
+    },
+    {
+      "method": "GET",
+      "path": "/api/internal/outbox/failed",
+      "reason": "Lists People outbox events that used every retry (leave and request notices among them) for the operator: ids, company, event name, attempts and last error, no payload; same JOBS_TOKEN check, 404 when unset (closure audit O-07)."
     }
   ]
 }

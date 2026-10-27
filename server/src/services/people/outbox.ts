@@ -34,7 +34,14 @@ export const PEOPLE_EVENTS = [
   'people.document.expiring.v1',
   'people.obligation.due.v1',
 ] as const;
-export type PeopleEventName = (typeof PEOPLE_EVENTS)[number];
+/**
+ * Events for this server alone, not the catalogue other apps subscribe to:
+ * a leave or attendance-request notice queued with the change it is about
+ * (closure audit O-07). The outbox delivers it itself (services/attendance/
+ * notices.ts), so no consumer can miss it by not being loaded yet.
+ */
+export const NOTICE_EVENT = 'people.notice.v1';
+export type PeopleEventName = (typeof PEOPLE_EVENTS)[number] | typeof NOTICE_EVENT;
 
 export type Envelope = {
   eventId: string;
@@ -107,6 +114,10 @@ export async function deliverOutbox(now = new Date(), limit = 50) {
     const envelope = toEnvelope(row);
     const list = [...(handlers.get(row.name) || []), ...(handlers.get('*') || [])];
     try {
+      if (row.name === NOTICE_EVENT) {
+        const { deliverNotice } = await import('../attendance/notices.js');
+        await deliverNotice(envelope);
+      }
       for (const h of list) await h(envelope);
       await runInTenant(row.orgId, () => peoplePrisma.outboxEvent.updateMany({ where: { id: row.id, deliveredAt: null }, data: { deliveredAt: new Date(), attempts: { increment: 1 }, lastError: null } }));
       delivered += 1;
@@ -117,13 +128,27 @@ export async function deliverOutbox(now = new Date(), limit = 50) {
       await runInTenant(row.orgId, () =>
         peoplePrisma.outboxEvent.update({
           where: { id: row.id },
-          data: { attempts, lastError: String(e instanceof Error ? e.message : e).slice(0, 500), nextAttemptAt: parked ? null : new Date(now.getTime() + wait * 60_000) },
+          data: { attempts, lastError: String(e instanceof Error ? e.message : e).slice(0, 500), nextAttemptAt: parked ? null : new Date(now.getTime() + wait * 60_000), ...(parked ? { failedAt: now } : {}) },
         }),
       );
+      // eslint-disable-next-line no-console
+      if (parked) console.error(`[people-outbox] ${row.name} ${row.id} failed after ${attempts} attempts: ${String(e instanceof Error ? e.message : e).slice(0, 200)}`);
       failed += 1;
     }
   }
   return { due: due.length, delivered, failed };
+}
+
+/** Events that used every retry, newest first, for an operator (GET /internal/outbox/failed). Across companies. */
+export async function failedEvents(limit = 100) {
+  return outsideTenant('ops: failed outbox events', () =>
+    peoplePrisma.outboxEvent.findMany({
+      where: { deliveredAt: null, failedAt: { not: null } },
+      orderBy: { failedAt: 'desc' },
+      take: Math.min(Math.max(1, limit), 500),
+      select: { id: true, orgId: true, name: true, employeeId: true, correlationId: true, occurredAt: true, attempts: true, lastError: true, failedAt: true },
+    }),
+  );
 }
 
 /** Every five seconds, under a lease so only one instance sends. */
