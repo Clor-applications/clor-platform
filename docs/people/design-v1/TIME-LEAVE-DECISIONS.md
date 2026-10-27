@@ -190,7 +190,7 @@ leave law; `TIME-LEAVE-RESEARCH.md`) and against the code.
 | The people picker and field suggestions come from the leave engine | `GET /attendance/employees` opens to anyone who may see days, leave or requests, inside their team scope, under `hrOrAttendanceRouteOk`; `GET /attendance/suggestions?field=leaveReason\|requestReason\|place` serves the same words People's `/people/suggestions` does (one service, `services/attendance/suggestions.ts`). | People's `/people/employees` and `/people/suggestions` need the People subscription; a company with Attendance alone must still pick a person and get suggestions. |
 | Several attendance requests decided at once | The Waiting tab has a checkbox column for whoever may approve; the bar takes one note, Approve, Reject (needs the note). `POST /requests/bulk-review` runs each through `decideRequest`, so a WFH span is marked WFH, a manager-first chain is kept, and the answer says how many were handed on to HR. | A Monday's missed punches are decided together. The old bulk route wrote punches for every kind: a WFH approved in bulk became a 00:00 punch day. |
 
-## Statutory leave (31 Oct 2026, from TIME-LEAVE-MARKET-RESEARCH.md P0 gaps G1–G3)
+## Statutory leave (27 Oct 2026, from TIME-LEAVE-MARKET-RESEARCH.md P0 gaps G1–G3)
 
 Every rule is opt-in on a leave type; the migration only adds defaulted columns, so existing types and balances do not move. Nothing here is legal advice: the figures come from the research doc's secondary sources.
 

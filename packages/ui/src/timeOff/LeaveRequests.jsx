@@ -54,7 +54,7 @@ export function StatusPill({ row }) {
   );
 }
 
-export default function LeaveRequests({ params = {}, updateParams }) {
+export default function LeaveRequests({ params = {}, updateParams, openScreen }) {
   const perms = usePermissions();
   const allowed = (k) => can(perms, k);
   const p = params || {};
@@ -168,7 +168,7 @@ export default function LeaveRequests({ params = {}, updateParams }) {
       />
 
       {openId ? <RequestDrawer id={openId} allowed={allowed} onClose={() => { setOpenId(null); if (p.id) set({ id: null }); }} onDone={() => { setOpenId(null); if (p.id) set({ id: null }); list.reload(); }} /> : null}
-      {adding ? <EnterLeave onClose={() => setAdding(false)} onDone={() => { setAdding(false); set({ tab: null, page: null }); list.reload(); }} /> : null}
+      {adding ? <EnterLeave openScreen={openScreen} onClose={() => setAdding(false)} onDone={() => { setAdding(false); set({ tab: null, page: null }); list.reload(); }} /> : null}
     </div>
   );
 }
@@ -421,8 +421,21 @@ export function LeavePreview({ preview, loading }) {
  * and a balance short by its own days are not problems; the server decides
  * those on save.
  */
-export function EnterLeave({ onClose, onDone, request = null }) {
+const LEAVE_TYPES_EDIT = 'ATTENDANCE::Leave Types::EDIT';
+
+/** Nothing to choose until the company has a kind of leave: say so, and the way to make one. */
+function NoLeaveTypes({ setUp }) {
+  return (
+    <p className="text-sm ui-muted" role="status">
+      No leave types yet, so there is nothing to enter leave against.{' '}
+      {setUp ? <button type="button" className="ui-link" onClick={setUp}>Set up leave types</button> : 'Ask whoever runs HR to set them up.'}
+    </p>
+  );
+}
+
+export function EnterLeave({ onClose, onDone, request = null, openScreen }) {
   const editing = Boolean(request);
+  const perms = usePermissions();
   const start = useMemo(() => (request
     ? { employeeId: request.employeeId, leaveTypeId: request.leaveTypeId, fromDate: request.fromDate, toDate: request.toDate, halfDay: request.halfDay || '', reason: request.reason || '' }
     : { employeeId: '', leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', reason: '' }), [request]);
@@ -495,7 +508,9 @@ export function EnterLeave({ onClose, onDone, request = null }) {
         {editing
           ? <dl className="text-sm"><Fact label="Employee">{request.employeeName}{request.employeeCode ? <span className="ui-muted"> · {request.employeeCode}</span> : null}</Fact></dl>
           : <PopupSelect showValueSubtext={false} label="Employee *" value={form.employeeId} onChange={(v) => set('employeeId', v || '')} placeholder="Choose…" alwaysSearch options={(people.data || []).map((x) => ({ value: x.id, label: x.code ? `${x.name} (${x.code})` : x.name }))} />}
-        <PopupSelect showValueSubtext={false} label="Leave type *" value={form.leaveTypeId} onChange={(v) => set('leaveTypeId', v || '')} placeholder="Choose…" options={(types.data || []).map((t) => ({ value: t.id, label: t.isPaid ? t.name : `${t.name} (unpaid)` }))} />
+        {types.data && !types.data.length
+          ? <div><span className="ui-label">Leave type *</span><NoLeaveTypes setUp={can(perms, LEAVE_TYPES_EDIT) && openScreen ? () => { onClose(); openScreen('leaveTypes'); } : null} /></div>
+          : <PopupSelect showValueSubtext={false} label="Leave type *" value={form.leaveTypeId} onChange={(v) => set('leaveTypeId', v || '')} placeholder="Choose…" options={(types.data || []).map((t) => ({ value: t.id, label: t.isPaid ? t.name : `${t.name} (unpaid)` }))} />}
         <div className="grid gap-4 sm:grid-cols-2">
           <div><span className="ui-label" id="el-from">First day *</span><DatePicker label="First day" describedBy="el-from" value={form.fromDate} onChange={(v) => set('fromDate', v || '')} /></div>
           <div><span className="ui-label" id="el-to">Last day *</span><DatePicker label="Last day" describedBy="el-to" value={form.toDate} min={form.fromDate} onChange={(v) => set('toDate', v || '')} /></div>

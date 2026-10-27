@@ -50,7 +50,9 @@ const querySchema = z.object({
   app: z.enum(['attendance', 'payroll', 'company', 'accounting']).optional(),
 });
 
-const ATTENDANCE = [{ entity: { startsWith: 'ATTENDANCE_' } }, { entity: { startsWith: 'PEOPLE_' } }, { entity: { in: ['Employee', 'PeopleRecord', 'LeaveSettings', 'LeaveAdjustment'] } }];
+/* Time & Leave writes its decisions by record name (leave.ts leaveAudit, the attendance services); without them here a self-approval or a reopen showed under Accounting. */
+export const PEOPLE_NAMED = ['Employee', 'PeopleRecord', 'LeaveSettings', 'LeaveAdjustment', 'LeaveAllocation', 'LeaveRequest', 'LeaveType', 'LeaveYearEnd', 'AttendanceRequest', 'AttendanceSettings', 'OvertimeRequest', 'DevicePunch', 'HolidayPick', 'ApprovalStandIn', 'WorkingWeek'];
+const ATTENDANCE = [{ entity: { startsWith: 'ATTENDANCE_' } }, { entity: { startsWith: 'PEOPLE_' } }, { entity: { in: PEOPLE_NAMED } }];
 const PAYROLL = [{ entity: { startsWith: 'PAYROLL_' } }];
 const COMPANY = [{ entity: { in: ['Company', 'User', 'Role', 'UserPermission', 'Features', 'DataProtection', 'Branch', 'Subscription', 'Credential', 'ApprovalRule', 'SSO', 'Security', 'OutsideAccess'] } }];
 const APP_WHERE: Record<string, Record<string, unknown>> = {

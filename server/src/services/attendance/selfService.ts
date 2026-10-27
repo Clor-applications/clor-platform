@@ -291,7 +291,7 @@ export async function decideOvertime(orgId: string, id: string, approve: boolean
   const r = await peoplePrisma.overtimeRequest.findFirst({ where: { id, orgId } });
   if (!r) throw Object.assign(new Error('No such request.'), { status: 404 });
   if (r.status !== 'PENDING') throw Object.assign(new Error(`This request was already ${r.status.toLowerCase()}.`), { status: 409 });
-  /* Nobody decides their own overtime or comp-off (closure audit, 28 Oct 2026). */
+  /* Nobody decides their own overtime or comp-off (closure audit, 27 Oct 2026). */
   const subject = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { userId: true, reportingManagerId: true } });
   const ownByLogin = Boolean(subject?.userId && subject.userId === by.userId);
   if ((by.managerId && by.managerId === r.employeeId && !ownByLogin) || (ownByLogin && !(await selfDecisionAllowed(r.accountId, orgId, by.userId, 'ATTENDANCE::Attendance Records::EDIT')).allowed)) {

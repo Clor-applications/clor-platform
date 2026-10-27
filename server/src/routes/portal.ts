@@ -505,8 +505,7 @@ portalRouter.get('/approvals/punch/:id/photo', async (req, res) => {
   const e = req.portal!.employee;
   const p = await peoplePrisma.devicePunch.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, outsideSite: true } });
   if (!p?.photoId) return res.status(404).json({ error: 'No selfie with this punch.' });
-  const owner = await peoplePrisma.employee.findFirst({ where: { id: p.employeeId || '', orgId: e.orgId }, select: { reportingManagerId: true } });
-  if (owner?.reportingManagerId !== e.id) return res.status(403).json({ error: 'This punch is not yours to see.' });
+  if (!p.employeeId || !(await managerStepBy(e.orgId, e.id, p.employeeId))) return res.status(403).json({ error: 'This punch is not yours to see.' });
   const photo = await peoplePrisma.punchPhoto.findFirst({ where: { id: p.photoId, orgId: e.orgId } });
   if (!photo) return res.status(404).json({ error: 'The selfie has been deleted (kept for a limited time).' });
   res.set('Cache-Control', 'private, no-store').json({ photo: `data:${photo.mime};base64,${Buffer.from(photo.data).toString('base64')}` });
@@ -624,7 +623,7 @@ portalRouter.post('/requests/:id/cancel', async (req, res) => {
  * The old correction routes (the Android app still calls them): a missed
  * punch only, through the same edit and cancel as /requests, so the quota,
  * the back-date window, the history and the audit line apply (closure audit,
- * 28 Oct 2026: they wrote the row directly and could change any kind).
+ * 27 Oct 2026: they wrote the row directly and could change any kind).
  */
 portalRouter.put('/corrections/:id', async (req, res) => {
   const e = req.portal!.employee;
@@ -891,7 +890,8 @@ portalRouter.get('/approvals', async (req, res) => {
     ? await Promise.all([
         decidedIds.length ? peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: decidedIds }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }) : [],
         decidedIds.length ? peoplePrisma.attendanceRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: decidedIds }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }) : [],
-        ids.length ? peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: { in: ids }, outsideSite: true, reviewStatus: 'PENDING' }, orderBy: { at: 'asc' }, take: 200 }) : [],
+        /* Field punches too, for whoever stands in today. */
+        decidedIds.length ? peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: { in: decidedIds }, outsideSite: true, reviewStatus: 'PENDING' }, orderBy: { at: 'asc' }, take: 200 }) : [],
       ])
     : [[], [], []];
   const who = (id: string) => ({ employeeName: names.get(id)?.name || '', employeeCode: names.get(id)?.code || null });
@@ -951,7 +951,7 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
   }
   if (type === 'punch') {
     try {
-      const r = await reviewFieldPunch(e.orgId, String(req.params.id), decision === 'approve', { managerId: e.id });
+      const r = await reviewFieldPunch(e.orgId, String(req.params.id), decision === 'approve', { userId: e.userId || `portal:${e.id}`, managerId: e.id });
       return res.json({ punch: { id: r.id, review: r.reviewStatus } });
     } catch (err: any) {
       return res.status(err?.status || 500).json({ error: err?.message || 'Not done.' });

@@ -3,7 +3,7 @@ import request from 'supertest';
 
 /**
  * Leave and attendance-request notices are never lost (closure audit O-07,
- * docs/people/design-v1/TIME-LEAVE-CLOSURE-AUDIT-2026-10-28.md). Each notice
+ * docs/people/design-v1/TIME-LEAVE-CLOSURE-AUDIT-2026-10-27.md). Each notice
  * is an outbox event written with the change; the outbox sends it, tries
  * again when sending fails, and marks it failed after the last try. A dedupe
  * key per person means a retry never sends twice.

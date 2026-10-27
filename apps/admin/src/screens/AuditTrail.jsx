@@ -40,6 +40,9 @@ const ENTITY_LABEL = {
   Features: 'Feature setting',
   /* People's registers (jobs, cases, assets…) are logged as one entity; the message names which. */
   PeopleRecord: 'HR registers',
+  /* Time & Leave's field punch review logs the punch by its table name. */
+  DevicePunch: 'Field punch',
+  ATTENDANCE_PHONE_PUNCHE: 'Phone punch',
 };
 
 /*
@@ -54,6 +57,8 @@ const entityLabel = (entity) => {
   const words = String(entity || '')
     .replace(/^(ATTENDANCE|PEOPLE|PAYROLL)_/, '')
     .replace(/_/g, ' ')
+    /* Records logged by name (LeaveRequest) read as words too. */
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
     .toLowerCase()
     .replace(/\bacces\b/g, 'access');
   return words ? words[0].toUpperCase() + words.slice(1) : '';

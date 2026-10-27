@@ -38,12 +38,47 @@ export async function shiftFor(orgId: string, employeeId: string, date: string) 
   return resolveShift(await loadSchedule(orgId, [employeeId]), employeeId, date);
 }
 
+type Place = { areaId: string | null; branchId: string | null };
+type Move = { employeeId: string; field: string | null; fromId: string | null; effectiveDate: string };
+
+/**
+ * Where people worked on the days after `from`: a location or branch move takes
+ * effect from its date, so the days before it keep the old place (and its
+ * holidays). Employment history is undone back from today's values, as asOf
+ * does for one date. Someone who never moved costs nothing per day.
+ */
+export async function placesSince(orgId: string, employeeIds: string[], from: string) {
+  const moves = employeeIds.length
+    ? ((await peoplePrisma.employmentEvent.findMany({
+        where: { orgId, employeeId: { in: employeeIds }, field: { in: ['areaId', 'branchId'] }, effectiveDate: { gt: from } },
+        orderBy: [{ effectiveDate: 'desc' }, { createdAt: 'desc' }],
+        select: { employeeId: true, field: true, fromId: true, effectiveDate: true },
+      })) as Move[])
+    : [];
+  const byEmployee = new Map<string, Move[]>();
+  for (const m of moves) byEmployee.set(m.employeeId, [...(byEmployee.get(m.employeeId) || []), m]);
+  return {
+    moved: (employeeId: string | undefined) => Boolean(employeeId && byEmployee.has(employeeId)),
+    on(person: { id?: string; areaId?: string | null; branchId?: string | null }, date: string): Place {
+      const place: Place = { areaId: person.areaId ?? null, branchId: person.branchId ?? null };
+      for (const m of (person.id && byEmployee.get(person.id)) || []) {
+        if (m.effectiveDate <= date) break;
+        if (m.field === 'areaId') place.areaId = m.fromId;
+        else place.branchId = m.fromId;
+      }
+      return place;
+    },
+  };
+}
+
 /**
  * A company holiday, or one for the person's area (ClorTime's holiday
  * locations); with `employeeId`, also a restricted holiday that person picked
- * for themselves (HolidayPick).
+ * for themselves (HolidayPick). With `employeeId`, the area and branch are the
+ * ones the person had on that date, not today's.
  */
 export async function isHoliday(orgId: string, date: string, branchId: string | null, areaId: string | null = null, employeeId: string | null = null) {
+  if (employeeId) ({ areaId, branchId } = (await placesSince(orgId, [employeeId], date)).on({ id: employeeId, areaId, branchId }, date));
   const scope = [
     { OR: [{ branchId: null }, ...(branchId ? [{ branchId }] : [])] },
     { OR: [{ areaId: null }, ...(areaId ? [{ areaId }] : [])] },
@@ -110,7 +145,7 @@ export async function closedMonths(orgId: string, months: string[]) {
  * person that run pays. Payroll has taken that day's figures; changing the
  * day now would make leave, the register and the payslip disagree. This
  * holds in every mode, People-only included, where there is no Attendance
- * month close at all (closure audit, 28 Oct 2026). Corrections after that go
+ * month close at all (closure audit, 27 Oct 2026). Corrections after that go
  * through Payroll, as an adjustment or the next run.
  */
 export class PayrollTakenError extends Error {
@@ -400,8 +435,20 @@ export async function periodContext(accountId: string, orgId: string, from: stri
   const optionalDates = picked.length ? new Map((await peoplePrisma.holiday.findMany({ where: { orgId, id: { in: [...new Set(picked.map((x) => x.holidayId))] }, date: { gte: from, lte: to } }, select: { id: true, date: true } })).map((h) => [h.id, h.date])) : new Map<string, string>();
   const pickedOf = new Map<string, string[]>();
   for (const x of picked) { const d = optionalDates.get(x.holidayId); if (d) pickedOf.set(x.employeeId, [...(pickedOf.get(x.employeeId) || []), d]); }
+  /* Someone who moved branch or location in (or after) the period has each day's holidays from where they were that day. */
+  const places = await placesSince(orgId, people.map((p) => p.id), from);
+  const movedHolidays = new Map<string, Set<string>>();
   const holidaysFor = (p: { id?: string; areaId?: string | null; branchId?: string | null }) => {
-    const base = holidayData.forArea(p.areaId, p.branchId);
+    let base = holidayData.forArea(p.areaId, p.branchId);
+    if (places.moved(p.id)) {
+      if (!movedHolidays.has(p.id!)) {
+        movedHolidays.set(p.id!, new Set(days.filter((d) => {
+          const at = places.on(p, d);
+          return holidayData.forArea(at.areaId, at.branchId).has(d);
+        })));
+      }
+      base = movedHolidays.get(p.id!)!;
+    }
     const mine = p.id ? pickedOf.get(p.id) : null;
     return mine?.length ? new Set([...base, ...mine]) : base;
   };

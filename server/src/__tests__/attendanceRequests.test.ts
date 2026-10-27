@@ -251,7 +251,7 @@ describe('a People-only company, and the employee app', () => {
     /* Approved, still ahead: the person may withdraw it, and the day goes back. */
     expect((await me.post(`/requests/${r.id}/cancel`).expect(200)).body.request.status).toBe('CANCELLED');
     expect((await days(c, asha.id, nextMonth.thu, nextMonth.thu))[0].dayKind).toBeNull();
-    /* Closure audit (28 Oct 2026): the app's actions are in the audit log, named for the employee, and the log cannot be edited. */
+    /* Closure audit (27 Oct 2026): the app's actions are in the audit log, named for the employee, and the log cannot be edited. */
     const { platformPrisma } = await import('../utils/platformPrisma.js');
     const lines = await platformPrisma.auditLog.findMany({ where: { orgId: c.orgId, entityId: r.id }, orderBy: { createdAt: 'asc' } });
     expect(lines.map((l) => [l.action, l.createdByUserId])).toEqual(expect.arrayContaining([['CREATE', `portal:${asha.id}`], ['APPROVE', `portal:${boss.id}`]]));
@@ -364,7 +364,7 @@ describe('Attendance app on the shared engine (27 Oct 2026): bulk decisions, the
   });
 });
 
-describe('closure audit (28 Oct 2026): the employee app', () => {
+describe('closure audit (27 Oct 2026): the employee app', () => {
   let c: Ctx;
   let boss: any;
   let asha: any;

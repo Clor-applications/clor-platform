@@ -199,7 +199,7 @@ describe('employee self-service', () => {
     t = (await me.get('/requests').expect(200)).body.requests.find((r: any) => r.id === co.id);
     expect(t).toMatchObject({ next: 'HR', withHr: true });
     await api(c).post(`/overtime/requests/${co.id}/approve`, { note: 'ok' }).expect(200);
-    /* Comp-off is a dated credit, like HR's grant: once per day worked (closure audit, 28 Oct 2026). */
+    /* Comp-off is a dated credit, like HR's grant: once per day worked (closure audit, 27 Oct 2026). */
     const credit = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId: c.orgId, employeeId: p.id, leaveTypeId: comp.id } });
     expect(credit.map((x) => [x.days, x.workedOn])).toEqual([[1, co.date]]);
     t = (await me.get('/requests').expect(200)).body.requests.find((r: any) => r.id === co.id);

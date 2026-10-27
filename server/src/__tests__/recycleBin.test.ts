@@ -9,6 +9,7 @@ import request from 'supertest';
 const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { purgeRecycleBin } = await import('../services/recycleBin.js');
+const { PEOPLE_NAMED } = await import('../routes/audit.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const jwt = (await import('jsonwebtoken')).default;
 
@@ -89,7 +90,7 @@ describe('recycle bin', () => {
   it('records restores in the audit log, and Attendance sees only its own entries', async () => {
     const entries = (await api(c).get('/audit?app=attendance&limit=200').expect(200)).body.entries;
     expect(entries.some((e: any) => e.action === 'RESTORE' && /Meera/.test(e.message))).toBe(true);
-    expect(entries.every((e: any) => /^(ATTENDANCE_|PEOPLE_)/.test(e.entity) || ['Employee', 'Company'].includes(e.entity))).toBe(true);
+    expect(entries.every((e: any) => /^(ATTENDANCE_|PEOPLE_)/.test(e.entity) || [...PEOPLE_NAMED, 'Company'].includes(e.entity))).toBe(true);
   });
 
   it('purges items whose days are over', async () => {
