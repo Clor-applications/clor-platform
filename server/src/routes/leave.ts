@@ -293,6 +293,30 @@ async function codeTakenBy(orgId: string, code: string | null | undefined, excep
   return other?.name ?? null;
 }
 
+/*
+ * The database holds one code per type too (partial unique index
+ * LeaveType_orgId_lower_code_key, migration 20261101090100): two saves at the
+ * same moment can both pass codeTakenBy, and the second is refused there. It
+ * reaches us as a P2002 (or, from a raw driver error, a 23505), answered like
+ * the check's own 409 rather than as a generic clash.
+ *
+ * Prisma does not say which constraint refused the row (its P2002 here has
+ * target null, for the name's constraint as for the code's), so the clash is
+ * told apart by asking: LeaveType has one other unique key, (orgId, name), and
+ * a clash with no other type of that name is the code's. A save with no code
+ * cannot clash on it, and an error that is not a unique violation is not ours.
+ */
+const isCodeClash = async (e: any, orgId: string, data: { name: string; code?: string | null }, exceptId?: string) => {
+  const state = String(e?.code || '');
+  if ((state !== 'P2002' && state !== '23505') || !String(data.code || '').trim()) return false;
+  const twin = await peoplePrisma.leaveType.findFirst({ where: { orgId, name: data.name, ...(exceptId ? { id: { not: exceptId } } : {}) }, select: { id: true } });
+  return !twin;
+};
+const codeTaken = (code: string | null | undefined, by: string | null) => ({
+  error: `The code ${code} is already used by ${by || 'another leave type'}. Pick another.`,
+  code: 'LEAVE_TYPE_CODE_TAKEN',
+});
+
 leaveRouter.post(`${base}/types`, can(PermissionAction.CREATE, R.leaveTypes), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   /* A leave type is company policy, like the working week: a team-scoped role does not change it (closure audit). */
@@ -303,7 +327,7 @@ leaveRouter.post(`${base}/types`, can(PermissionAction.CREATE, R.leaveTypes), as
   const policy = await policyOf(orgId, req.body);
   if ('error' in policy) return res.status(400).json({ error: policy.error });
   const clash = await codeTakenBy(orgId, parsed.data.code);
-  if (clash) return res.status(409).json({ error: `The code ${parsed.data.code} is already used by ${clash}. Pick another.`, code: 'LEAVE_TYPE_CODE_TAKEN' });
+  if (clash) return res.status(409).json(codeTaken(parsed.data.code, clash));
   try {
     const type = await peoplePrisma.leaveType.create({
       data: { accountId, orgId, ...parsed.data, ...policy.data, code: parsed.data.code || null, createdByUserId: req.auth!.userId },
@@ -311,6 +335,7 @@ leaveRouter.post(`${base}/types`, can(PermissionAction.CREATE, R.leaveTypes), as
     await recordAudit(req, { entity: 'LeaveType', entityId: type.id, action: 'CREATE', message: `Leave type ${type.name}: ${type.isPaid ? `${type.annualDays} days a period, ${type.accrual.toLowerCase().replace('_', '-')}` : 'unpaid'}`, metadata: { ...parsed.data, ...policy.data } });
     res.status(201).json({ type });
   } catch (e) {
+    if (await isCodeClash(e, orgId, parsed.data)) return res.status(409).json(codeTaken(parsed.data.code, await codeTakenBy(orgId, parsed.data.code)));
     return sendError(res, e);
   }
 });
@@ -330,7 +355,7 @@ leaveRouter.put(`${base}/types/:id`, can(PermissionAction.EDIT, R.leaveTypes), a
   const policy = await policyOf(orgId, req.body);
   if ('error' in policy) return res.status(400).json({ error: policy.error });
   const clash = await codeTakenBy(orgId, parsed.data.code, existing.id);
-  if (clash) return res.status(409).json({ error: `The code ${parsed.data.code} is already used by ${clash}. Pick another.`, code: 'LEAVE_TYPE_CODE_TAKEN' });
+  if (clash) return res.status(409).json(codeTaken(parsed.data.code, clash));
   try {
     const type = await peopleWrite(orgId, async () => {
       const financial = ['isPaid', 'annualDays', 'accrual', 'prorateForJoiners', 'carryForwardMax', 'creditOn', 'creditDay', 'sandwich', 'accrualBasis', 'perDaysWorked', 'minDaysWorked', 'oshCarry', 'countsCalendarDays'] as const;
@@ -360,6 +385,7 @@ leaveRouter.put(`${base}/types/:id`, can(PermissionAction.EDIT, R.leaveTypes), a
     if (changed.length) await recordAudit(req, { entity: 'LeaveType', entityId: type.id, action: 'UPDATE', message: `Leave type ${type.name} changed: ${changed.join(', ')}`, metadata: Object.fromEntries(changed.map((k) => [k, { before: (existing as any)[k], after: (type as any)[k] }])) });
     res.json({ type });
   } catch (e) {
+    if (await isCodeClash(e, orgId, parsed.data, existing.id)) return res.status(409).json(codeTaken(parsed.data.code, await codeTakenBy(orgId, parsed.data.code, existing.id)));
     return sendError(res, e);
   }
 });
