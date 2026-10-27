@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 import { registeredJobs, runRegisteredJobs } from '../services/jobRegistry.js';
+import { failedEvents } from '../services/people/outbox.js';
 
 /**
  * The wake call for background jobs (services/jobRegistry.ts).
@@ -37,4 +38,11 @@ internalJobsRouter.get('/internal/jobs', (req, res) => {
   if (!process.env.JOBS_TOKEN) return res.status(404).json({ error: 'Not found' });
   if (!tokenOk(req.get('x-jobs-token'))) return res.status(401).json({ error: 'Unauthorized' });
   res.json({ jobs: registeredJobs() });
+});
+
+/** People outbox events that used every retry (leave and request notices among them), with their last error. */
+internalJobsRouter.get('/internal/outbox/failed', async (req, res) => {
+  if (!process.env.JOBS_TOKEN) return res.status(404).json({ error: 'Not found' });
+  if (!tokenOk(req.get('x-jobs-token'))) return res.status(401).json({ error: 'Unauthorized' });
+  res.json({ events: await failedEvents(Number(req.query.limit) || 100) });
 });

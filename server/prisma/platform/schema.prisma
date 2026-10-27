@@ -1023,9 +1023,12 @@ model Notification {
   title     String
   body      String?
   linkJson  String?
+  /// One notice about one thing, per person: a retry or a second run never sends it twice (services/notifications.ts sendNotice). Null on rows that need no such guard.
+  dedupeKey String?
   readAt    DateTime?
   createdAt DateTime  @default(now())
 
+  @@unique([orgId, userId, dedupeKey])
   @@index([userId, orgId, readAt])
   @@index([orgId, createdAt])
 }

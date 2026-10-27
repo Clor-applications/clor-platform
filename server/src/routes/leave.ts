@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { trackFirst } from '../services/productEvents.js';
 import { ownWorkRefusal } from '../services/makerChecker.js';
 import { CHAINS, activeManagerOf, chainFor, hrMayDecide, type Chain } from '../services/attendance/approvalChain.js';
-import { notifyUsers, usersWithPermission } from '../services/notifications.js';
+import { sendNotice, usersWithPermission } from '../services/notifications.js';
+import { approverUsers, queueNotice, revisionOf } from '../services/attendance/notices.js';
 import { resolveAccess } from '../services/access.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { z } from 'zod';
@@ -710,11 +711,13 @@ export async function createLeave(
         rows = fresh;
       }
     }
-    return { rows };
+    /* Announced inside the transaction: the notice is queued with the request (closure audit O-07). */
+    const shaped: any[] = [];
+    for (const row of rows) shaped.push(await announce(orgId, row));
+    return { rows: shaped };
   });
   if (!('rows' in outcome)) return res.status(outcome.status).json(outcome.body);
-  const shaped: any[] = [];
-  for (const row of outcome.rows) shaped.push(await announce(orgId, row));
+  const shaped = outcome.rows;
   res.status(201).json({ request: shaped[0], ...(shaped.length > 1 ? { requests: shaped } : {}) });
 }
 
@@ -967,13 +970,31 @@ export async function managerStep(orgId: string, r: any, managerId: string, note
   });
 }
 
-/** The request with names, sent to webhooks as the event its status is, and to the people it concerns. */
-async function announce(orgId: string, row: any) {
+/**
+ * The request with names, sent to webhooks as the event its status is, and to
+ * the people it concerns: the notice is queued on the outbox in the caller's
+ * transaction (every caller is inside peopleWrite), so it commits with the
+ * change and is tried again until it is sent. `approvedBy`: who approved it,
+ * read before a cancellation wrote over reviewedByUserId.
+ */
+async function announce(orgId: string, row: any, extra: { approvedBy?: string | null } = {}) {
   const shaped = (await withTypes(orgId, [row]))[0];
   const event = leaveEventFor(row.status);
   if (event) afterPeopleCommit(() => emitWebhook(orgId, event, leaveEvent(shaped)));
-  afterPeopleCommit(() => tellAboutLeave(orgId, shaped).catch((e) => console.error('[leave] notice not sent:', e instanceof Error ? e.message : e)));
+  await queueLeaveNotice(orgId, shaped, extra);
   return shaped;
+}
+
+/** What a leave notice needs of the request, as it is now. */
+const leaveSnapshot = (r: any) => ({
+  id: r.id, accountId: r.accountId, employeeId: r.employeeId, groupId: r.groupId ?? null, status: r.status,
+  fromDate: r.fromDate, toDate: r.toDate, days: r.days, leaveTypeId: r.leaveTypeId, leaveTypeName: r.leaveTypeName, isPrivate: Boolean(r.isPrivate),
+  managerApprovedAt: r.managerApprovedAt ?? null, managerApprovedById: r.managerApprovedById ?? null,
+  requestedByUserId: r.requestedByUserId ?? null, reviewedByUserId: r.reviewedByUserId ?? null, reviewNote: r.reviewNote ?? null,
+});
+
+async function queueLeaveNotice(orgId: string, shaped: any, extra: { approvedBy?: string | null } = {}) {
+  await queueNotice({ accountId: shaped.accountId, orgId }, 'leave', { request: leaveSnapshot(shaped), rev: revisionOf(shaped.history), approvedBy: extra.approvedBy ?? null }, { employeeId: shaped.employeeId, correlationId: `leave_request_${shaped.id}` });
 }
 
 /**
@@ -999,7 +1020,7 @@ async function approversOf(accountId: string, orgId: string, employeeId: string)
  * cancelled approved leave tells whoever approved it. Private leave says
  * "leave", not its type, outside the person's own notice.
  */
-async function tellAboutLeave(orgId: string, r: any) {
+export async function tellAboutLeave(orgId: string, r: any, ctx: { approvedBy?: string | null; rev?: number } = {}) {
   let from = r.fromDate;
   let to = r.toDate;
   let days = r.days;
@@ -1020,27 +1041,36 @@ async function tellAboutLeave(orgId: string, r: any) {
   const link = { app, screen: 'leaveRequests', params: { id: r.id } };
   const byPerson = (u: string | null | undefined) => Boolean(u) && (u === emp.userId || u === `portal:${r.employeeId}`);
   if (r.status === 'PENDING') {
+    /* Which "asks for" this is: new, after the manager, or handed on; and after how many changes. A retry has the same key; a real change does not. */
+    const stage = r.managerApprovedAt ? (r.managerApprovedById ? 'manager' : 'handed') : 'new';
+    const dedupeKey = `leave-asked:${r.id}:${stage}:${ctx.rev ?? 0}`;
     const chain = await leaveChainFor(orgId, r.leaveTypeId);
     const manager = chain !== 'HR' && !r.managerApprovedAt ? await activeManagerOf(orgId, r.employeeId) : null;
     if (manager) {
       /* The manager acts first — or their stand-in while they are away: in People with a sign-in, else in the employee app's queue (no notice there). */
       const managerUser = (await peoplePrisma.employee.findFirst({ where: { id: await deciderFor(orgId, manager.id), orgId }, select: { userId: true } }))?.userId;
-      if (managerUser) await notifyUsers(emp.accountId, orgId, [managerUser], { kind: 'attendance.leave_asked', title: `${who} asks for ${what}, ${when}`, body: `${days} ${days === 1 ? 'day' : 'days'}`, link }, { except: r.requestedByUserId });
+      if (managerUser) await sendNotice(emp.accountId, orgId, [managerUser], { kind: 'attendance.leave_asked', title: `${who} asks for ${what}, ${when}`, body: `${days} ${days === 1 ? 'day' : 'days'}`, link }, { except: r.requestedByUserId, dedupeKey });
       return;
     }
     const title = r.managerApprovedAt ? (r.managerApprovedById ? `${who}'s ${what}, ${when}, is approved by the manager and waits for you` : `${who}'s ${what}, ${when}, waited too long for the manager and now waits for you`) : `${who} asks for ${what}, ${when}`;
-    await notifyUsers(emp.accountId, orgId, await approversOf(emp.accountId, orgId, r.employeeId), { kind: 'attendance.leave_asked', title, body: `${days} ${days === 1 ? 'day' : 'days'}`, link }, { except: r.requestedByUserId });
+    await sendNotice(emp.accountId, orgId, await approversOf(emp.accountId, orgId, r.employeeId), { kind: 'attendance.leave_asked', title, body: `${days} ${days === 1 ? 'day' : 'days'}`, link }, { except: r.requestedByUserId, dedupeKey });
     return;
   }
   if (!['APPROVED', 'REJECTED', 'CANCELLED'].includes(r.status)) return;
   const word = ({ APPROVED: 'approved', REJECTED: 'not approved', CANCELLED: 'cancelled' } as Record<string, string>)[r.status];
   if (emp.userId && !byPerson(r.reviewedByUserId)) {
-    await notifyUsers(emp.accountId, orgId, [emp.userId], { kind: 'attendance.leave_decided', title: `Your ${r.leaveTypeName}, ${when}, is ${word}`, body: r.reviewNote || null, link: { app, screen: 'myLeave' } }, { except: r.reviewedByUserId });
+    await sendNotice(emp.accountId, orgId, [emp.userId], { kind: 'attendance.leave_decided', title: `Your ${r.leaveTypeName}, ${when}, is ${word}`, body: r.reviewNote || null, link: { app, screen: 'myLeave' } }, { except: r.reviewedByUserId, dedupeKey: `leave-decided:${r.id}:${r.status}` });
   }
-  /* The person took back leave that was approved: whoever approved it plans around it. */
-  if (r.status === 'CANCELLED' && byPerson(r.reviewedByUserId)) {
-    const approval = await platformPrisma.auditLog.findFirst({ where: { orgId, entity: 'LeaveRequest', entityId: r.id, action: 'APPROVE' }, orderBy: { createdAt: 'desc' }, select: { createdByUserId: true } });
-    if (approval?.createdByUserId) await notifyUsers(emp.accountId, orgId, [approval.createdByUserId], { kind: 'attendance.leave_decided', title: `${who} cancelled ${what}, ${when}`, link }, { except: emp.userId });
+  /*
+   * The person took back leave that was approved: whoever approved it plans
+   * around it. The approver is read from the request before the cancellation
+   * (ctx.approvedBy); a manager who approved in the employee app is reached
+   * through their own sign-in, and leave the rule approved goes to those who
+   * approve for this person.
+   */
+  if (r.status === 'CANCELLED' && byPerson(r.reviewedByUserId) && ctx.approvedBy) {
+    const to = await approverUsers(orgId, ctx.approvedBy, () => approversOf(emp.accountId, orgId, r.employeeId));
+    await sendNotice(emp.accountId, orgId, to, { kind: 'attendance.leave_decided', title: `${who} cancelled ${what}, ${when}`, link }, { except: emp.userId, dedupeKey: `leave-withdrawn:${r.id}` });
   }
 }
 
@@ -1072,11 +1102,11 @@ export async function waitingForReader(orgId: string, scope: TeamScope, userId: 
   });
 }
 
-/** Tell whoever acts next on a request now (the hand-on job, after it moves a request on to HR). */
+/** Queue a notice to whoever acts next on a request now (the hand-on job, in the transaction that moves a request on to HR). */
 export async function tellWaiting(orgId: string, requestId: string) {
   const row = await peoplePrisma.leaveRequest.findFirst({ where: { id: requestId, orgId } });
   if (!row) return;
-  await tellAboutLeave(orgId, (await withTypes(orgId, [row]))[0]);
+  await queueLeaveNotice(orgId, (await withTypes(orgId, [row]))[0]);
 }
 
 /** An audit row for leave actions that have no CLOR request behind them (the employee app, imports). */
@@ -1222,7 +1252,8 @@ export async function cancelLeaveRequest(accountId: string, orgId: string, id: s
     for (const x of [r, ...parts]) {
       const updated = await peoplePrisma.leaveRequest.update({ where: { id: x.id }, data: { status: 'CANCELLED', reviewedByUserId: userId, reviewedAt: new Date(), history: withHistory(x, { by: userId, what: x.status === 'APPROVED' ? 'CANCELLED' : 'WITHDRAWN' }) } });
       if (x.status === 'APPROVED') await clearLeaveDays(orgId, x.id);
-      const shaped = await announce(orgId, updated);
+      /* Who approved it, before the cancellation wrote over it: they are told (tellAboutLeave). */
+      const shaped = await announce(orgId, updated, { approvedBy: x.status === 'APPROVED' ? x.reviewedByUserId || 'system' : null });
       first = first || shaped;
     }
     return first;
@@ -1679,7 +1710,7 @@ leaveRouter.get(`${base}/requests/:id`, can(PermissionAction.VIEW, R.leave), asy
     const names = await actorNames(orgId, [r.requestedByUserId, r.reviewedByUserId, ...stored.map((h) => h.by)]);
     const manager = r.managerApprovedById ? await peoplePrisma.employee.findFirst({ where: { id: r.managerApprovedById, orgId }, select: { name: true } }) : null;
     const own = Boolean(employee?.userId && r.requestedByUserId === employee.userId) || r.requestedByUserId === `portal:${r.employeeId}`;
-    const WORDS: Record<string, string> = { ASKED: 'Asked', ENTERED: `Entered for ${employee?.name || 'them'}`, MANAGER_APPROVED: 'Approved by the manager', HANDED_ON: 'Handed on to HR', APPROVED: 'Approved', AUTO_APPROVED: 'Approved by the leave rule', REJECTED: 'Rejected', CANCELLED: 'Cancelled', WITHDRAWN: 'Withdrawn', EDITED: 'Changed', SHORTENED: 'Came back early' };
+    const WORDS: Record<string, string> = { ASKED: 'Asked', ENTERED: `Entered for ${employee?.name || 'them'}`, MANAGER_APPROVED: 'Approved by the manager', HANDED_ON: 'Handed on to HR', APPROVED: 'Approved', AUTO_APPROVED: 'Approved by the leave rule', REJECTED: 'Rejected', CANCELLED: 'Cancelled', WITHDRAWN: 'Withdrawn', EDITED: 'Changed', REASON_EDITED: 'Changed the reason', SHORTENED: 'Came back early' };
     /* The request's own history where it has one (every change since the advanced build); the fields it carried before otherwise. */
     const history: Array<{ at: Date; what: string; by: string | null; note?: string | null; from?: string | null; to?: string | null }> = stored.length
       ? stored.map((h) => ({ at: new Date(h.at), what: WORDS[h.what] || h.what, by: h.by === 'system' ? null : names.get(h.by || '') || null, note: shaped.reasonHidden ? null : h.note ?? null, from: h.from ?? null, to: h.to ?? null }))
@@ -1936,6 +1967,19 @@ export async function editLeave(accountId: string, orgId: string, r: any, body: 
     }
     if (plan.split && !b.split) throw fail(400, `Leave stays inside one leave period. Split it at ${plan.parts[0].to}.`, 'CROSSES_PERIOD');
     const parts = plan.parts.filter((x) => x.days > 0);
+    /*
+     * Only the reason changed: the same type, days and half. Nothing the
+     * approver decides on moved, so the manager's step stands and nobody is
+     * asked again (closure audit O-07); the history says the reason changed.
+     */
+    const spanFrom = group.reduce((a, x) => (x.fromDate < a ? x.fromDate : a), current.fromDate);
+    const spanTo = group.reduce((a, x) => (x.toDate > a ? x.toDate : a), current.toDate);
+    if (plan.type.id === current.leaveTypeId && b.fromDate === spanFrom && b.toDate === spanTo && (b.halfDay ?? null) === (current.halfDay ?? null)) {
+      if (plan.reason !== current.reason) {
+        for (const x of group) await peoplePrisma.leaveRequest.update({ where: { id: x.id }, data: { reason: plan.reason, history: withHistory(x, { by, what: 'REASON_EDITED', note: null }) } });
+      }
+      return (await withTypes(orgId, [await peoplePrisma.leaveRequest.findUniqueOrThrow({ where: { id: current.id } })]))[0];
+    }
     const groupId = parts.length > 1 ? current.groupId || `lg_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}` : null;
     const change = { from: `${current.fromDate} to ${current.toDate}`, to: `${b.fromDate} to ${b.toDate}` };
     const entry = { by, what: 'EDITED', note: null, ...change };
@@ -1983,22 +2027,24 @@ export async function shortenLeave(accountId: string, orgId: string, r: any, toD
       }
     }
     const shaped = (await withTypes(orgId, [updated]))[0];
-    afterPeopleCommit(() => tellShortened(orgId, shaped, by).catch((e) => console.error('[leave] notice not sent:', e instanceof Error ? e.message : e)));
+    await queueNotice({ accountId, orgId }, 'leave-shortened', { request: leaveSnapshot(shaped), by }, { employeeId: shaped.employeeId, correlationId: `leave_request_${shaped.id}` });
     return shaped;
   });
 }
 
-async function tellShortened(orgId: string, r: any, by: string) {
+/** Delivered from the outbox (services/attendance/notices.ts). */
+export async function tellShortened(orgId: string, r: any, by: string) {
   const emp = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { accountId: true, name: true, code: true, userId: true } });
   if (!emp) return;
   const app = (await isFeatureEnabled(emp.accountId, orgId, 'people')) ? 'people' : 'attendance';
   const byPerson = by === emp.userId || by === `portal:${r.employeeId}`;
+  const dedupeKey = `leave-shortened:${r.id}:${r.toDate}`;
   if (byPerson) {
-    const approval = await platformPrisma.auditLog.findFirst({ where: { orgId, entity: 'LeaveRequest', entityId: r.id, action: 'APPROVE' }, orderBy: { createdAt: 'desc' }, select: { createdByUserId: true } });
-    const to = approval?.createdByUserId ? [approval.createdByUserId] : await approversOf(emp.accountId, orgId, r.employeeId);
-    await notifyUsers(emp.accountId, orgId, to, { kind: 'attendance.leave_decided', title: `${emp.name}${emp.code ? ` (${emp.code})` : ''} came back early: ${r.isPrivate ? 'leave' : r.leaveTypeName} now ends ${dayWords(r.toDate)}`, link: { app, screen: 'leaveRequests', params: { id: r.id } } }, { except: emp.userId });
+    /* Shortening leaves reviewedByUserId as it was: the approver. */
+    const to = await approverUsers(orgId, r.reviewedByUserId, () => approversOf(emp.accountId, orgId, r.employeeId));
+    await sendNotice(emp.accountId, orgId, to, { kind: 'attendance.leave_decided', title: `${emp.name}${emp.code ? ` (${emp.code})` : ''} came back early: ${r.isPrivate ? 'leave' : r.leaveTypeName} now ends ${dayWords(r.toDate)}`, link: { app, screen: 'leaveRequests', params: { id: r.id } } }, { except: emp.userId, dedupeKey });
   } else if (emp.userId) {
-    await notifyUsers(emp.accountId, orgId, [emp.userId], { kind: 'attendance.leave_decided', title: `Your ${r.leaveTypeName} now ends ${dayWords(r.toDate)}`, link: { app, screen: 'myLeave' } }, { except: by });
+    await sendNotice(emp.accountId, orgId, [emp.userId], { kind: 'attendance.leave_decided', title: `Your ${r.leaveTypeName} now ends ${dayWords(r.toDate)}`, link: { app, screen: 'myLeave' } }, { except: by, dedupeKey });
   }
 }
 

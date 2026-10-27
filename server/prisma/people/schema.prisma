@@ -2648,6 +2648,8 @@ model OutboxEvent {
   attempts      Int       @default(0)
   nextAttemptAt DateTime?
   lastError     String?
+  /// Every retry used and still not delivered: kept, with its error, for an operator (GET /internal/outbox/failed).
+  failedAt      DateTime?
 
   @@index([orgId, deliveredAt, nextAttemptAt])
   @@index([orgId, employeeId, occurredAt])

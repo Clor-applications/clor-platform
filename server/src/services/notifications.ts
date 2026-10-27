@@ -44,20 +44,33 @@ export async function usersHoldingRoles(accountId: string, orgId: string, roleId
   return active.map((u) => u.id);
 }
 
-/** One row per person. Never throws: a notification must not break the thing it is about. */
-export async function notifyUsers(accountId: string, orgId: string, userIds: string[], notice: Notice, opts: { except?: string | null } = {}) {
-  let ids = [...new Set(userIds)].filter((id) => id && id !== opts.except);
+/**
+ * One row per person, and throws when the rows cannot be written: for the
+ * outbox (services/attendance/notices.ts), which tries again. With a
+ * `dedupeKey`, a person who already has a notice under that key is not sent
+ * another (the unique key on Notification), so a retry, or the same notice
+ * queued twice, is one notice. Returns how many rows were written.
+ */
+export async function sendNotice(accountId: string, orgId: string, userIds: string[], notice: Notice, opts: { except?: string | null; dedupeKey?: string | null } = {}) {
+  let ids = [...new Set(userIds)].filter((id) => id && !id.startsWith('portal:') && id !== 'system' && id !== opts.except);
   if (!ids.length) return 0;
+  /* People who muted this kind for this company are skipped. */
+  const muted = await platformPrisma.notificationMute.findMany({ where: { orgId, kind: notice.kind, userId: { in: ids } }, select: { userId: true } });
+  const off = new Set(muted.map((m) => m.userId));
+  ids = ids.filter((id) => !off.has(id));
+  if (!ids.length) return 0;
+  const dedupeKey = opts.dedupeKey ? String(opts.dedupeKey).slice(0, 300) : null;
+  const r = await platformPrisma.notification.createMany({
+    data: ids.map((userId) => ({ accountId, orgId, userId, kind: notice.kind, title: notice.title.slice(0, 200), body: notice.body ? String(notice.body).slice(0, 1000) : null, linkJson: notice.link ? JSON.stringify(notice.link) : null, dedupeKey })),
+    ...(dedupeKey ? { skipDuplicates: true } : {}),
+  });
+  return r.count;
+}
+
+/** One row per person. Never throws: a notification must not break the thing it is about. Leave and request notices go through the outbox instead (sendNotice). */
+export async function notifyUsers(accountId: string, orgId: string, userIds: string[], notice: Notice, opts: { except?: string | null } = {}) {
   try {
-    /* People who muted this kind for this company are skipped. */
-    const muted = await platformPrisma.notificationMute.findMany({ where: { orgId, kind: notice.kind, userId: { in: ids } }, select: { userId: true } });
-    const off = new Set(muted.map((m) => m.userId));
-    ids = ids.filter((id) => !off.has(id));
-    if (!ids.length) return 0;
-    const r = await platformPrisma.notification.createMany({
-      data: ids.map((userId) => ({ accountId, orgId, userId, kind: notice.kind, title: notice.title.slice(0, 200), body: notice.body ? String(notice.body).slice(0, 1000) : null, linkJson: notice.link ? JSON.stringify(notice.link) : null })),
-    });
-    return r.count;
+    return await sendNotice(accountId, orgId, userIds, notice, opts);
   } catch (e) {
     console.error('[notifications]', e instanceof Error ? e.message : e);
     return 0;
