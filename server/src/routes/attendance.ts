@@ -62,6 +62,7 @@ import { clockDateFor } from '../services/attendance/punches.js';
 import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
 import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/attendance/suggestions.js';
 import { recordAudit } from '../services/auditTrail.js';
+import { TRUST_LEVELS, readerTrustOn } from '../services/attendance/trust.js';
 
 /**
  * Attendance, native (after Horilla HRMS's attendance; reference only).
@@ -127,6 +128,9 @@ attendanceRouter.get('/orgs/:orgId/attendance/records', can(PermissionAction.VIE
   const to = dateParam(req.query.to, today());
   const from = dateParam(req.query.from, to);
   const pick = (k: string) => String(req.query[k] || '').trim() || undefined;
+  /* Reader trust (O-11): the filter and the column only while the company has it on. */
+  const readerTrust = await readerTrustOn(accountId, orgId);
+  const trust = readerTrust && (TRUST_LEVELS as readonly string[]).includes(String(pick('trust'))) ? pick('trust') : undefined;
   const rows = await peoplePrisma.attendanceRecord.findMany({
     where: {
       accountId,
@@ -137,11 +141,15 @@ attendanceRouter.get('/orgs/:orgId/attendance/records', can(PermissionAction.VIE
       ...(pick('validated') ? { validated: pick('validated') === 'true' } : {}),
       ...(pick('late') === 'true' ? { lateMinutes: { gt: 0 } } : {}),
       ...(pick('overtime') === 'true' ? { overtimeMinutes: { gt: 0 } } : {}),
+      ...(trust ? { trust } : {}),
     },
     orderBy: [{ date: 'desc' }],
     take: 2000,
   });
-  res.json({ records: await withNames(orgId, rows), from, to });
+  const named = await withNames(orgId, rows);
+  /* Off: the rows are exactly as before, with no trust on them. */
+  const records = readerTrust ? named : named.map(({ trust: _t, trustReasons: _r, ...r }) => r);
+  res.json({ records, from, to, readerTrust });
 });
 
 const markSchema = z.object({

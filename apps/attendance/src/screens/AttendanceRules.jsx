@@ -4,7 +4,7 @@ import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { getFeatures, setFeatures } from '@ui/api/features';
 import { usePermissions } from '@ui/permissions/usePermissions';
-import { dayLabel, getRules, hm, listRuleVersions, listShifts, recompute, saveRules, simulateRules, todayIst } from '../api/attendance';
+import { dayLabel, getRules, hm, listRuleVersions, listShifts, recompute, recomputeTrust, saveRules, simulateRules, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
 const monthStart = () => `${todayIst().slice(0, 7)}-01`;
@@ -29,10 +29,22 @@ export default function AttendanceRules() {
   const save = async (e) => {
     e.preventDefault();
     try {
-      setRules(await saveRules({ ...rules, defaultShiftId: rules.defaultShiftId || null }));
+      setRules(await saveRules({ ...rules, defaultShiftId: rules.defaultShiftId || null, readerLateUploadHours: Number(rules.readerLateUploadHours) || 24 }));
       notify.success('Rules saved. Past days keep their figures until you recalculate them below.');
     } catch (err) {
       notify.error(String(err?.message || 'Not saved.'));
+    }
+  };
+  /* Reader trust for days recorded before it was on (or before the window changed): only the trust changes. */
+  const runTrust = async () => {
+    setBusy(true);
+    try {
+      const r = await recomputeTrust(range.from, range.to);
+      notify.success(`Trust worked out for ${r.worked} day${r.worked === 1 ? '' : 's'}.`);
+    } catch (err) {
+      notify.error(String(err?.message || 'Not done.'));
+    } finally {
+      setBusy(false);
     }
   };
   const run = async () => {
@@ -117,6 +129,23 @@ export default function AttendanceRules() {
             </div>
             <span className="ui-caption">Then the photo is deleted; the punch stays.</span>
           </label>
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" className="ui-checkbox mt-0.5" checked={rules.readerTrust === true} onChange={(e) => setRules({ ...rules, readerTrust: e.target.checked })} />
+            <span>
+              Mark how far each day’s punches can be trusted
+              <span className="ui-caption block">Trusted: every punch from a registered reader that was online, with its clock right, and sent in time. Check: something needs a look. Manual: written by hand, an import, a correction or leave. For an inspector, a dispute or a labour court. Off by default.</span>
+            </span>
+          </label>
+          {rules.readerTrust ? (
+            <label className="block">
+              <span className="ui-label">A punch is late if it reaches CLOR more than</span>
+              <div className="flex items-center gap-2">
+                <input type="number" inputMode="numeric" min={1} max={744} className="ui-input w-24" value={rules.readerLateUploadHours ?? 24} onChange={num('readerLateUploadHours', 24)} />
+                <span className="text-sm">hours after it was made</span>
+              </div>
+              <span className="ui-caption">Days already recorded keep their trust until you work it out again below.</span>
+            </label>
+          ) : null}
         </section>
 
         <section className="ui-card space-y-3 p-4" aria-labelledby="approvals-h">
@@ -146,7 +175,9 @@ export default function AttendanceRules() {
           <label className="block"><span className="ui-label">From</span><input type="date" className="ui-input" value={range.from} max={range.to} onChange={(e) => setRange({ ...range, from: e.target.value })} /></label>
           <label className="block"><span className="ui-label">To</span><input type="date" className="ui-input" value={range.to} max={todayIst()} onChange={(e) => setRange({ ...range, to: e.target.value })} /></label>
           <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={run}>{busy ? 'Recalculating…' : 'Recalculate'}</button>
+          {rules.readerTrust ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={runTrust}>Work out reader trust</button> : null}
         </div>
+        {rules.readerTrust ? <p className="ui-caption">Reader trust for these days changes only the trust, every day included; nothing else on a day moves.</p> : null}
       </section>
 
       <RulePreview shifts={shifts} />

@@ -464,6 +464,12 @@ model AttendanceRecord {
   validatedAt       DateTime?
   note              String?
 
+  /// Reader trust (feature attendanceReaderTrust; null while it is off): TRUSTED |
+  /// CHECK | MANUAL, worked out each time the day is written (services/attendance/trust.ts).
+  trust             String?
+  /// Why: [{ code, text, ... }] — each punch that needs a look, or who wrote the day by hand.
+  trustReasons      Json?
+
   createdByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -472,6 +478,7 @@ model AttendanceRecord {
   @@index([accountId, orgId, date])
   @@index([accountId, orgId, employeeId, date])
   @@index([attendanceRequestId])
+  @@index([orgId, trust, date])
 }
 
 /// Each clock-in and clock-out as it happened; the record keeps the day's
@@ -1374,6 +1381,9 @@ model AttendanceSettings {
   compOffLeaveTypeId         String?
   /// Who decides overtime and comp-off requests: HR | MANAGER | MANAGER_THEN_HR.
   overtimeApproval           String    @default("HR")
+  /// Reader trust: a punch that reaches CLOR more than this many hours after it
+  /// was made needs a look (feature attendanceReaderTrust).
+  readerLateUploadHours      Int       @default(24)
 
   updatedByUserId String
   updatedAt       DateTime @updatedAt

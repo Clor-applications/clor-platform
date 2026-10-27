@@ -485,6 +485,22 @@ export const FEATURE_CATALOG: FeatureDef[] = [
     category: 'Attendance',
     dependsOn: 'attendance',
   },
+  /*
+   * Per-day reader trust (closure audit O-11, TLA-005): for companies that must
+   * show a day's punches are genuine — an inspector, a dispute, a labour court.
+   * Each day is marked Trusted, Check or Manual when it is written. Off, days
+   * are written exactly as before. Switched on from Attendance policy, beside
+   * the reader settings.
+   */
+  {
+    key: 'attendanceReaderTrust',
+    label: 'Reader trust for each day',
+    description:
+      'Mark each day Trusted, Check or Manual from where its punches came from: a registered reader that was online with its clock right and sent them in time, or not, or a day written by hand. Adds an evidence export for a person and a period.',
+    defaultEnabled: false,
+    category: 'Attendance',
+    dependsOn: 'attendance',
+  },
 
   // ---- Payroll ----------------------------------------------------------
   /*

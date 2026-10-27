@@ -7,6 +7,7 @@ import { emit as emitWebhook } from './webhooks.js';
 import { logDayChange } from './history.js';
 import { permissionCovers } from './permissionWindow.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
+import { asJson, decidedMarker, readerTrustOn, trustForDay } from './trust.js';
 
 /**
  * Attendance days: the one path a day is written by, and the reads every
@@ -174,6 +175,8 @@ export async function writeDay(opts: {
   dayKind?: string | null;
   attendanceRequestId?: string | null;
 }) {
+  /* Reader trust (O-11): asked once, outside the write; off, the two columns are never touched. */
+  const trustOn = await readerTrustOn(opts.accountId, opts.orgId);
   return peopleWrite(opts.orgId, async () => {
     /* Every way a day is written comes through here, so a closed month is held shut in one place. */
     await assertMonthOpen(opts.orgId, opts.date, opts.employee.id);
@@ -236,10 +239,17 @@ export async function writeDay(opts: {
       ...(opts.dayKind !== undefined ? { dayKind: opts.dayKind } : {}),
       ...(opts.attendanceRequestId !== undefined ? { attendanceRequestId: opts.attendanceRequestId } : {}),
     };
+    let trustData: { trust?: string; trustReasons?: ReturnType<typeof asJson> } = {};
+    if (trustOn) {
+      const t = await trustForDay({ orgId: opts.orgId, employeeId: opts.employee.id, date: opts.date, source: opts.source, userId: opts.userId, dayKind: opts.dayKind !== undefined ? opts.dayKind : before?.dayKind ?? null });
+      /* Punches that reached a day decided by hand stay raised for HR while the day stays decided. */
+      const reasons = t.trust === 'MANUAL' ? [...t.reasons, ...decidedMarker(before?.trustReasons)] : t.reasons;
+      trustData = { trust: t.trust, trustReasons: asJson(reasons) };
+    }
     const record = await peoplePrisma.attendanceRecord.upsert({
       where: { employeeId_date: { employeeId: opts.employee.id, date: opts.date } },
-      create: { accountId: opts.accountId, orgId: opts.orgId, employeeId: opts.employee.id, date: opts.date, createdByUserId: opts.userId, ...data },
-      update: { ...data, overtimeApproved: false },
+      create: { accountId: opts.accountId, orgId: opts.orgId, employeeId: opts.employee.id, date: opts.date, createdByUserId: opts.userId, ...data, ...trustData },
+      update: { ...data, ...trustData, overtimeApproved: false },
     });
     await logDayChange({
       accountId: opts.accountId, orgId: opts.orgId, employeeId: record.employeeId, date: record.date, recordId: record.id,

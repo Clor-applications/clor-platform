@@ -297,6 +297,10 @@ export const getReaderTimeline = (id, days = 7) => get(`/devices/${encodeURIComp
 export const explainLeave = (employeeId, leaveTypeId, year) => get(`/leave/explain${query({ employeeId, leaveTypeId, year })}`);
 export const explainMyLeave = (leaveTypeId, year) => get(`/me/leave/explain${query({ leaveTypeId, year })}`);
 export const getEvidence = (employeeId, from, to) => get(`/evidence${query({ employeeId, from, to })}`);
+/* Reader trust (O-11): every punch of a person's period with reader, serial, made and received, method, work site and the day's trust. */
+export const getPunchEvidence = (employeeId, from, to) => get(`/evidence/punches${query({ employeeId, from, to })}`);
+export const getPunchEvidenceCsv = (employeeId, from, to) => apiFetch(`${base()}/evidence/punches${query({ employeeId, from, to, format: 'csv' })}`, { ...opts, asText: true });
+export const recomputeTrust = (from, to) => send('/trust/recompute', 'POST', { from, to });
 export const getPhonePunches = (params) => get(`/phone-punches${query(params)}`);
 export const listScheduleRuns = (id) => get(`/reports/schedules/${encodeURIComponent(id)}/runs`).then((r) => r?.runs || []);
 

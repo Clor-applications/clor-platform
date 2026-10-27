@@ -8,6 +8,7 @@ import { readerIdMatcher } from './readerIds.js';
 import { driverOf, parserOf } from './drivers.js';
 import { istDate } from './compute.js';
 import { nightShiftsOn } from './nightShift.js';
+import { notePunchOnDecidedDay } from './trust.js';
 
 /**
  * Punches in: one path for every reader channel — parse, match the person, drop repeats, keep the evidence, store, then work the affected days out again.
@@ -81,7 +82,11 @@ export async function recomputeDeviceDay(accountId: string, orgId: string, emplo
   /* A closed month keeps its days: the punch is stored, the day does not move (and the reader is not told to resend). */
   if ((await closedMonths(orgId, [date.slice(0, 7)])).size) return null;
   const existing = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: employee.id, date } } });
-  if (existing && DECIDED.has(existing.source)) return null;
+  if (existing && DECIDED.has(existing.source)) {
+    /* The day stays as decided. With reader trust on, the punch is raised for HR instead of vanishing (O-11). */
+    await notePunchOnDecidedDay(accountId, orgId, existing);
+    return null;
+  }
 
   /* Field punches still waiting for approval, or refused, do not count. */
   const punches = await peoplePrisma.devicePunch.findMany({

@@ -77,7 +77,7 @@ export default function MonthClose({ openScreen, params }) {
   const go = (c) => {
     if (!openScreen) return;
     const end = `${month}-${String(new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate()).padStart(2, '0')}`;
-    if (c.screen === 'records') openScreen('records', { from: `${month}-01`, to: end, ...(c.key === 'unvalidated' ? { validated: 'false' } : {}) });
+    if (c.screen === 'records') openScreen('records', { from: `${month}-01`, to: end, ...(c.key === 'unvalidated' ? { validated: 'false' } : {}), ...(c.key === 'trustCheck' ? { trust: 'CHECK' } : {}) });
     else openScreen(c.screen);
   };
 
