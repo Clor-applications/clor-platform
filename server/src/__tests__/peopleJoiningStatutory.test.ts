@@ -40,10 +40,24 @@ async function colleague(boss: Ctx, name: string, permissions: string[]): Promis
   const login = await request(app).post('/api/auth/login').send({ email, password: 'Passw0rd!23' }).expect(200);
   return { token: login.body.token, orgId: boss.orgId, branchId: boss.branchId, userId: user.body.user.id };
 }
-const people = (c: Ctx) => ({
-  get: (path: string) => request(app).get(`/api/orgs/${c.orgId}/people${path}`).set(at(c)),
-  post: (path: string, body: unknown) => request(app).post(`/api/orgs/${c.orgId}/people${path}`).set(at(c)).send(body as any),
+const people = (c: Ctx, extra: Record<string, string> = {}) => ({
+  get: (path: string) => request(app).get(`/api/orgs/${c.orgId}/people${path}`).set({ ...at(c), ...extra }),
+  post: (path: string, body: unknown) => request(app).post(`/api/orgs/${c.orgId}/people${path}`).set({ ...at(c), ...extra }).send(body as any),
 });
+/** Enrol an authenticator once and return a fresh step-up token (the full joiner view asks for one). */
+const { codeAt, stepNow } = await import('../services/totp.js');
+/* One token per person: it lasts 15 minutes, and a code cannot be used twice (replay). */
+const tokens = new Map<string, string>();
+async function stepUp(c: Ctx) {
+  const have = tokens.get(c.token);
+  if (have) return have;
+  const sec = (p: string, b: unknown = {}) => request(app).post(`/api/orgs/${c.orgId}/security${p}`).set(at(c)).send(b as any);
+  const secret = (await sec('/two-factor/setup').expect(200)).body.secret as string;
+  await sec('/two-factor/enable', { code: codeAt(secret, stepNow() - 1) }).expect(200);
+  const token = (await sec('/step-up', { code: codeAt(secret, stepNow()) }).expect(200)).body.token as string;
+  tokens.set(c.token, token);
+  return token;
+}
 const tokenOf = (link: string) => link.split('/').pop()!;
 const STATUTORY = {
   pan: 'abcde1234f', uan: '100200300400', esicNumber: '1234567890',
@@ -100,7 +114,9 @@ describe('statutory details at joining', () => {
     const lifecycleOnly = await colleague(hr, 'Lifecycle', ['PEOPLE::Employees::VIEW', 'PEOPLE::Lifecycle::VIEW', 'PEOPLE::Lifecycle::EDIT']);
     await people(lifecycleOnly).get(`/invites/${invite.id}/statutory`).expect(403);
     await people(lifecycleOnly).post(`/invites/${invite.id}/statutory/approve`, {}).expect(403);
-    const full = (await people(hr).get(`/invites/${invite.id}/statutory`).expect(200)).body.statutory;
+    /* Without a fresh authenticator code, the full values are not shown. */
+    await people(hr).get(`/invites/${invite.id}/statutory`).expect(403);
+    const full = (await people(hr, { 'x-step-up': await stepUp(hr) }).get(`/invites/${invite.id}/statutory`).expect(200)).body.statutory;
     expect(full).toMatchObject({ masked: false, values: { pan: 'ABCDE1234F', uan: '100200300400', esicNumber: '1234567890', bankAccountNumber: '123456789012', bankIfsc: 'HDFC0001234' } });
     const seen = await runInTenant(hr.orgId, () => peoplePrisma.accessLog.findFirst({ where: { orgId: hr.orgId, what: 'STATUTORY', employeeId: e.id, field: 'joining' } }));
     expect(seen?.userId).toBe(hr.userId);
@@ -122,7 +138,7 @@ describe('statutory details at joining', () => {
     /* People keeps only the masked copy; the approval view no longer shows it in full. */
     const stored = await runInTenant(hr.orgId, () => peoplePrisma.joinStatutory.findFirst({ where: { inviteId: invite.id } }));
     expect(JSON.stringify(stored?.data)).not.toContain('ABCDE1234F');
-    expect((await people(hr).get(`/invites/${invite.id}/statutory`).expect(200)).body.statutory.masked).toBe(true);
+    expect((await people(hr, { 'x-step-up': await stepUp(hr) }).get(`/invites/${invite.id}/statutory`).expect(200)).body.statutory.masked).toBe(true);
     await people(hr).post(`/invites/${invite.id}/statutory/approve`, {}).expect(409);
     /* Payroll's own employee record shows the nominees. */
     const pr = (await request(app).get(`/api/orgs/${hr.orgId}/payroll/employees/${e.id}`).set(at(hr)).expect(200)).body;

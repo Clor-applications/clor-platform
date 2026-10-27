@@ -12,6 +12,7 @@ import { INVITE_STATUSES, InviteError, checkInvite, createInvite, invitesOf } fr
 import { StatutoryError, approveStatutory, forApproval, pushHeld, rejectStatutory } from '../services/people/lifecycle/joiningStatutory.js';
 import { ownRecordRefusal } from '../services/makerChecker.js';
 import { AppAccessError, appAccessSends, sendAppAccess } from '../services/people/lifecycle/appAccess.js';
+import { stepUpRefusal } from '../services/stepUp.js';
 
 /**
  * Invites before day one (docs/people/02-PRD.md LIFE-01), HR's side: send,
@@ -81,6 +82,9 @@ peopleInvitesRouter.get(`${base}/invites/:id/statutory`, can(PermissionAction.VI
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
+    /* Full PAN, UAN, ESIC and bank on screen: a fresh authenticator code, as the record's own reveal asks (people.ts statutory/reveal). */
+    const refused = await stepUpRefusal(req, 'Showing a joiner’s full identifiers needs an authenticator app. Set one up in your profile first (your name or picture, top right).');
+    if (refused) return res.status(refused.status).json(refused.body);
     const statutory = await forApproval(orgId, String(req.params.id));
     if (!statutory.masked) await peoplePrisma.accessLog.create({ data: { accountId, orgId, what: 'STATUTORY', entityId: statutory.id, employeeId: statutory.employeeId, field: 'joining', userId: req.auth!.userId } });
     res.json({ statutory });
