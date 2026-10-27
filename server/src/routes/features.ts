@@ -1,3 +1,4 @@
+import { track } from '../services/productEvents.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma.js';
@@ -142,6 +143,10 @@ featuresRouter.put(
         update: { enabled, updatedByUserId: req.auth!.userId },
         create: { accountId, orgId, key, enabled, updatedByUserId: req.auth!.userId },
       });
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body.features, 'peopleSimpleMode') && Boolean(body.features.peopleSimpleMode) !== Boolean(current.peopleSimpleMode)) {
+      void track(orgId, req.auth!.userId, 'simple_mode_toggled', { on: Boolean(body.features.peopleSimpleMode), trigger: String(req.body?.trigger || 'settings').slice(0, 30), app: 'people' });
     }
 
     /* Written by name here; the general recorder (auditMutations) leaves it. */

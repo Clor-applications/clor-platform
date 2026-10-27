@@ -9,6 +9,9 @@ import { entitlementFor, upgradeHintFor } from './entitlements.js';
  * Read on the server before doing anything a disabled feature would imply, and
  * served to the client so navigation and forms hide the same things.
  */
+/** The menus' reading of simple mode: detailed People screens shown. Not a catalog switch; it follows `peopleSimpleMode`. */
+export const DETAILED_KEY = 'peopleDetailed';
+
 export async function getFeatures(accountId: string, orgId: string) {
   const rows = await platformPrisma.featureSetting.findMany({
     where: { accountId, orgId },
@@ -36,6 +39,8 @@ export async function getFeatures(accountId: string, orgId: string) {
   for (const [key, on] of Object.entries(resolved)) {
     effective[key] = on && entitlement.features.has(key);
   }
+  /* Derived, not stored: what the menus check (nav `feature: 'peopleDetailed'`), on unless simple mode is. */
+  effective[DETAILED_KEY] = !effective.peopleSimpleMode;
   return effective;
 }
 

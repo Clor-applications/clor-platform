@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { trackFirst } from '../services/productEvents.js';
 import { ownWorkRefusal } from '../services/makerChecker.js';
 import { CHAINS, activeManagerOf, chainFor, hrMayDecide, type Chain } from '../services/attendance/approvalChain.js';
 import { notifyUsers, usersWithPermission } from '../services/notifications.js';
@@ -897,6 +898,14 @@ export async function rejectLeave(orgId: string, r: any, userId: string, note: s
  * one leave, so it is approved or refused as one.
  */
 export async function decideLeave(accountId: string, orgId: string, r: any, userId: string, note: string | null, approve: boolean) {
+  const out = await decideLeaveParts(accountId, orgId, r, userId, note, approve);
+  /* After the decision is written: telemetry never decides whether it stands. */
+  const decision = approve ? 'approved' : 'rejected';
+  void trackFirst(orgId, userId, 'leave_decided', { decision, channel: String(userId).startsWith('portal:') ? 'app' : 'web' }, { decision });
+  return out;
+}
+
+async function decideLeaveParts(accountId: string, orgId: string, r: any, userId: string, note: string | null, approve: boolean) {
   return peopleWrite(orgId, async () => {
     const parts = r.groupId ? await peoplePrisma.leaveRequest.findMany({ where: { orgId, groupId: r.groupId, status: 'PENDING', id: { not: r.id } }, orderBy: { fromDate: 'asc' } }) : [];
     const first = approve ? await approveLeave(accountId, orgId, r, userId, note) : await rejectLeave(orgId, r, userId, note);

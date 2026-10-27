@@ -1,4 +1,5 @@
 import type { Prisma } from '../../generated/people/index.js';
+import { trackFirst } from '../productEvents.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { type Actor, diffEmployee, writeChangeLog } from './changeLog.js';
 import { writeEvent } from './outbox.js';
@@ -51,6 +52,7 @@ export async function createEmployee(actor: Actor, data: Prisma.EmployeeUnchecke
   });
   await recordJoined({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, row, actor.source === 'IMPORT' ? 'IMPORT' : 'FORM');
   await firstInStateOf(actor, row);
+  void trackFirst(actor.orgId, actor.userId, 'employee_added', { source: actor.source.toLowerCase(), app: 'people' });
   return row;
 }
 

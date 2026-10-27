@@ -75,8 +75,8 @@ export default function SiteCheck() {
     <div className="space-y-3">
       <PageHeader
         entity="location"
-        title="Work site check"
-        description="Stand where staff will punch and see whether this spot is inside a work site. Nothing is recorded."
+        title="Punch area check"
+        description="Stand where staff will punch and see whether this spot is inside a punch area. Nothing is recorded."
         actions={
           <button type="button" className="ui-btn ui-btn-primary" onClick={start} disabled={locating}>
             <LocateFixed size={16} aria-hidden="true" /> {position ? 'Check again' : 'Use my location'}
@@ -98,7 +98,7 @@ export default function SiteCheck() {
                 <table className="ui-table ui-table-sticky w-full">
                   <thead>
                     <tr>
-                      <th className="ui-col-grow" scope="col">Work site</th>
+                      <th className="ui-col-grow" scope="col">Punch area</th>
                       <th scope="col" className="ui-num">Radius</th>
                       <th scope="col" className="ui-num">Distance from here</th>
                       <th scope="col" className="ui-col-h-center">A punch here</th>
@@ -108,7 +108,7 @@ export default function SiteCheck() {
                     {!sites.length ? (
                       <tr>
                         <td colSpan={4}>
-                          <EmptyState icon={MapPin} title="No work sites yet" description="Add one under Employee portal → Work sites; then come back here to test its radius." />
+                          <EmptyState icon={MapPin} title="No punch areas yet" description="Add one under Settings → Punch Areas; then come back here to test its radius." />
                         </td>
                       </tr>
                     ) : (position ? rows : sites.map((site) => ({ site }))).map((r) => (
