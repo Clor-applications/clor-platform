@@ -13,6 +13,8 @@ import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance
 import { ISO_DATE, closedMonths, daysBetween, daysOfMonth, sendError, today, withNames, writeDay } from '../services/attendance/days.js';
 import { recomputeDeviceDay } from '../services/attendance/punches.js';
 import { deleteToBin } from '../services/recycleBin.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
+import { DEFAULT_LATE_UPLOAD_HOURS, READER_TRUST, readerTrustOn } from '../services/attendance/trust.js';
 import { assertScheduleOpen, rotationRanges, scheduleGuard } from '../services/attendance/scheduleGuard.js';
 
 /**
@@ -275,9 +277,15 @@ schedulingRouter.delete(`${base}/rotation-assignments/:id`, can(PermissionAction
 
 schedulingRouter.get(`${base}/rules`, can(PermissionAction.VIEW), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
-  const { orgId } = req.tenant!;
+  const { accountId, orgId } = req.tenant!;
   const s = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
-  res.json({ rules: { defaultShiftId: s?.defaultShiftId || null, lateAllowancePerMonth: s?.lateAllowancePerMonth ?? 0, latePenaltyEvery: s?.latePenaltyEvery ?? 0, photoRetentionDays: s?.photoRetentionDays ?? 90, readerUsersBecomeEmployees: s?.readerUsersBecomeEmployees ?? true, leaveApproval: s?.leaveApproval ?? 'HR', correctionApproval: s?.correctionApproval ?? 'HR' } });
+  res.json({ rules: { defaultShiftId: s?.defaultShiftId || null, lateAllowancePerMonth: s?.lateAllowancePerMonth ?? 0, latePenaltyEvery: s?.latePenaltyEvery ?? 0, photoRetentionDays: s?.photoRetentionDays ?? 90, readerUsersBecomeEmployees: s?.readerUsersBecomeEmployees ?? true, leaveApproval: s?.leaveApproval ?? 'HR', correctionApproval: s?.correctionApproval ?? 'HR', ...(await trustRules(accountId, orgId, s)) } });
+});
+
+/** Reader trust (O-11): the company feature switch, kept beside the reader settings, and the late-upload window. */
+const trustRules = async (accountId: string, orgId: string, s: { readerLateUploadHours?: number } | null) => ({
+  readerTrust: await readerTrustOn(accountId, orgId),
+  readerLateUploadHours: s?.readerLateUploadHours ?? DEFAULT_LATE_UPLOAD_HOURS,
 });
 
 schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, res) => {
@@ -292,9 +300,13 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
       readerUsersBecomeEmployees: z.boolean().default(true),
       leaveApproval: z.enum(['HR', 'MANAGER', 'MANAGER_THEN_HR']).default('HR'),
       correctionApproval: z.enum(['HR', 'MANAGER', 'MANAGER_THEN_HR']).default('HR'),
+      /* Left out: unchanged. */
+      readerTrust: z.boolean().optional(),
+      readerLateUploadHours: z.coerce.number().int().min(1, 'At least 1 hour.').max(24 * 31, 'At most 31 days.').optional(),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the rules.' });
+  const { readerTrust, ...settings } = parsed.data;
   try {
     if (parsed.data.defaultShiftId) await shiftIn(orgId, parsed.data.defaultShiftId);
     const previous = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
@@ -304,14 +316,22 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
     }
     const s = await peoplePrisma.attendanceSettings.upsert({
       where: { orgId },
-      create: { accountId, orgId, ...parsed.data, updatedByUserId: req.auth!.userId },
-      update: { ...parsed.data, updatedByUserId: req.auth!.userId },
+      create: { accountId, orgId, ...settings, updatedByUserId: req.auth!.userId },
+      update: { ...settings, updatedByUserId: req.auth!.userId },
     });
-    const pick = (x: any) => (x ? { defaultShiftId: x.defaultShiftId, lateAllowancePerMonth: x.lateAllowancePerMonth, latePenaltyEvery: x.latePenaltyEvery, photoRetentionDays: x.photoRetentionDays, readerUsersBecomeEmployees: x.readerUsersBecomeEmployees, leaveApproval: x.leaveApproval, correctionApproval: x.correctionApproval } : null);
+    if (readerTrust !== undefined && readerTrust !== (await readerTrustOn(accountId, orgId))) {
+      await platformPrisma.featureSetting.upsert({
+        where: { orgId_key: { orgId, key: READER_TRUST } },
+        update: { enabled: readerTrust, updatedByUserId: req.auth!.userId },
+        create: { accountId, orgId, key: READER_TRUST, enabled: readerTrust, updatedByUserId: req.auth!.userId },
+      });
+      await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'RULES', before: { readerTrust: !readerTrust }, after: { readerTrust } });
+    }
+    const pick = (x: any) => (x ? { defaultShiftId: x.defaultShiftId, lateAllowancePerMonth: x.lateAllowancePerMonth, latePenaltyEvery: x.latePenaltyEvery, photoRetentionDays: x.photoRetentionDays, readerUsersBecomeEmployees: x.readerUsersBecomeEmployees, leaveApproval: x.leaveApproval, correctionApproval: x.correctionApproval, readerLateUploadHours: x.readerLateUploadHours } : null);
     if (JSON.stringify(pick(previous)) !== JSON.stringify(pick(s))) {
       await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'RULES', before: pick(previous), after: pick(s) });
     }
-    res.json({ rules: { defaultShiftId: s.defaultShiftId, lateAllowancePerMonth: s.lateAllowancePerMonth, latePenaltyEvery: s.latePenaltyEvery, photoRetentionDays: s.photoRetentionDays, readerUsersBecomeEmployees: s.readerUsersBecomeEmployees, leaveApproval: s.leaveApproval, correctionApproval: s.correctionApproval } });
+    res.json({ rules: { defaultShiftId: s.defaultShiftId, lateAllowancePerMonth: s.lateAllowancePerMonth, latePenaltyEvery: s.latePenaltyEvery, photoRetentionDays: s.photoRetentionDays, readerUsersBecomeEmployees: s.readerUsersBecomeEmployees, leaveApproval: s.leaveApproval, correctionApproval: s.correctionApproval, ...(await trustRules(accountId, orgId, s)) } });
   } catch (e) {
     return sendError(res, e);
   }

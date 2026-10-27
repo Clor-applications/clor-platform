@@ -42,6 +42,7 @@ const OWNER: Record<string, string> = {
   overtime: 'Managers approve or reject',
   unvalidated: 'HR validates the days',
   readers: 'Whoever looks after the readers',
+  trustCheck: 'HR looks at the punches (reader trust)',
 };
 
 const rupees = (n: number) => Math.round(n);

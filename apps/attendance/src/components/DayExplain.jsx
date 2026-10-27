@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, Clock, Fingerprint, History, Info, MapPin, Smartphone } from 'lucide-react';
+import { AlertTriangle, Clock, Fingerprint, History, Info, MapPin, ShieldCheck, Smartphone } from 'lucide-react';
 
 import Drawer from '@ui/components/ui/Drawer';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
@@ -9,6 +9,13 @@ const STATUS_TONE = { PRESENT: 'pos', HALF_DAY: 'warn', ABSENT: 'neg', ON_LEAVE:
 const FIELD = { status: 'Status', in: 'In', out: 'Out', workedMinutes: 'Worked', lateMinutes: 'Late', earlyOutMinutes: 'Left early', overtimeMinutes: 'Overtime', overtimeApproved: 'Overtime approved', validated: 'Validated', source: 'Set by', note: 'Note' };
 const ACTION = { WRITE: 'Changed', DELETE: 'Removed', VALIDATE: 'Validated', OVERTIME: 'Overtime decision', LEAVE_CANCELLED: 'Leave undone', BULK: 'Bulk change' };
 const SOURCE = { DEVICE: 'reader punches', CLOCK: 'app clock-in', MANUAL: 'hand entry', REQUEST: 'correction', LEAVE: 'leave', IMPORT: 'import' };
+
+/* Reader trust (O-11): shown only when the server sends it, i.e. the company has it on. */
+const TRUST = {
+  TRUSTED: { label: 'Trusted', tone: 'pos', hint: 'Every punch came from a registered reader that was online with its clock right, and reached CLOR in time.' },
+  CHECK: { label: 'Check', tone: 'warn', hint: 'At least one punch needs a look before you rely on this day.' },
+  MANUAL: { label: 'Manual', tone: 'neutral', hint: 'A person wrote this day; the punches did not.' },
+};
 
 const mins = (m) => (m == null ? '—' : `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`);
 const show = (field, v) => {
@@ -62,6 +69,24 @@ export default function DayExplain({ open, onClose, load, actions = null, title 
             <div><span className="ui-caption">Late</span><strong className="tabular-nums">{r?.lateMinutes ? `${r.lateMinutes} min` : '—'}</strong></div>
             <div><span className="ui-caption">Overtime</span><strong className="tabular-nums">{r?.overtimeMinutes ? `${mins(r.overtimeMinutes)}${r.overtimeApproved ? '' : ' (not approved)'}` : '—'}</strong></div>
           </section>
+
+          {data.trust ? (
+            <section aria-labelledby="explain-trust">
+              <h3 id="explain-trust" className="ui-t-sec mb-2 flex items-center gap-2">
+                <ShieldCheck size={15} aria-hidden="true" /> Reader trust
+                <span className={`ui-pill ui-pill-${TRUST[data.trust.level]?.tone || 'neutral'}`}>{TRUST[data.trust.level]?.label || data.trust.level}</span>
+              </h3>
+              <p className="ui-caption mb-1">{TRUST[data.trust.level]?.hint}</p>
+              <ul className="ui-explain-steps" aria-label="Why">
+                {data.trust.reasons.map((x, i) => (
+                  <li key={i} data-kind={data.trust.level === 'CHECK' ? 'mismatch' : 'info'}>
+                    {data.trust.level === 'CHECK' ? <AlertTriangle size={15} aria-hidden="true" /> : <Info size={15} aria-hidden="true" />}
+                    <span>{x.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
           <section aria-labelledby="explain-steps">
             <h3 id="explain-steps" className="ui-t-sec mb-2">How it was worked out</h3>
