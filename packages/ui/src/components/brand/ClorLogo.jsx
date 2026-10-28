@@ -2,36 +2,45 @@ import React from 'react';
 import ClorMark from './ClorMark.jsx';
 
 /**
- * The Clor logo: the wordmark clor.in uses (public/brand/clor-logo.png), or the
- * mark alone. One logo across the site and every app.
+ * The CLOR logo: the C-tick mark beside the wordmark, set in Bricolage
+ * Grotesque ExtraBold capitals. One logo across the site and every app; the
+ * wordmark is always "CLOR".
  *
- * `variant`: 'horizontal' (default) and 'wordmark' show the wordmark,
- * 'stacked' the mark above it, 'mark' the mark only. `color` is accepted for
- * older callers and ignored.
+ * `variant`: 'horizontal' (default) is mark + wordmark, 'wordmark' the word
+ * alone, 'stacked' the mark above it, 'mark' the mark only. `size` is the
+ * mark's height in px (or sm/md/lg/xl). `color` overrides the theme colour.
  */
-const RATIO = 669 / 188;
 const HEIGHTS = { sm: 20, md: 28, lg: 40, xl: 56 };
 
-// eslint-disable-next-line no-unused-vars
-export default function ClorLogo({ variant = 'horizontal', size = 'md', color, className = '', title = 'Clor' }) {
+export default function ClorLogo({ variant = 'horizontal', size = 'md', color, className = '', title = 'CLOR' }) {
   const h = typeof size === 'number' ? size : HEIGHTS[size] || HEIGHTS.md;
-  if (variant === 'mark') return <ClorMark size={h} className={className} title={title} />;
+  if (variant === 'mark') return <ClorMark size={h} color={color} className={className} title={title} />;
   const word = (
-    <img
-      src="/brand/clor-logo.png"
-      height={h}
-      width={Math.round(h * RATIO)}
-      alt={title || ''}
-      aria-hidden={title ? undefined : 'true'}
-      className={variant === 'stacked' ? '' : className}
-      draggable={false}
-      style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
-    />
+    <span
+      className="ui-wordmark"
+      aria-hidden="true"
+      style={{ fontSize: Math.round(h * 0.92), color: color || undefined }}
+    >
+      CLOR
+    </span>
   );
-  if (variant !== 'stacked') return word;
+  const stacked = variant === 'stacked';
   return (
-    <span className={className} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(h / 3) }}>
-      <ClorMark size={h * 1.6} title="" />
+    <span
+      role="img"
+      aria-label={title || undefined}
+      aria-hidden={title ? undefined : 'true'}
+      className={className}
+      style={{
+        display: 'inline-flex',
+        flexDirection: stacked ? 'column' : 'row',
+        alignItems: 'center',
+        gap: stacked ? Math.round(h / 3) : Math.round(h * 0.28),
+        verticalAlign: 'middle',
+        flexShrink: 0,
+      }}
+    >
+      {variant !== 'wordmark' && <ClorMark size={stacked ? h * 1.6 : h} color={color} title="" />}
       {word}
     </span>
   );

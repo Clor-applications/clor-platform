@@ -2,11 +2,11 @@ import React from 'react';
 import { BookOpen, Briefcase, CalendarClock, Fingerprint, UserRound, Wallet } from 'lucide-react';
 import { Link } from '../router.jsx';
 
-/** The approved wordmark (placeholder file until the final logo arrives: public/brand/clor-logo.png). */
+/** The CLOR logo: C-tick mark and wordmark (public/brand/clor-logo.png, 778 x 188). */
 export function Logo({ height = 22 }) {
   return (
-    <Link href="/" className="logo" aria-label="Clor home" translate="no">
-      <img src="/brand/clor-logo.png" alt="Clor" height={height} width={Math.round(height * 3.56)} />
+    <Link href="/" className="logo" aria-label="CLOR home" translate="no">
+      <img src="/brand/clor-logo.png" alt="CLOR" height={height} width={Math.round((height * 778) / 188)} />
     </Link>
   );
 }
