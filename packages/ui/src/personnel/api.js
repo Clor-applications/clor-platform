@@ -77,6 +77,9 @@ export const deleteDocument = (docId) => send(`/documents/${encodeURIComponent(d
 /* Versions (DOC-02): replacing keeps the earlier file. */
 export const replaceDocument = (docId, body) => send(`/documents/${encodeURIComponent(docId)}/replace`, 'POST', body);
 export const listDocumentVersions = (docId) => apiFetch(`${base()}/documents/${encodeURIComponent(docId)}/versions`, opts).then((r) => r?.versions || []);
+/* Ask the person to read and accept a file (DOC-05), and remind those who have not. */
+export const askToAccept = (docId) => send(`/documents/${encodeURIComponent(docId)}/ask-to-read`, 'POST', {});
+export const remindToAccept = (docId) => send(`/documents/${encodeURIComponent(docId)}/remind`, 'POST', {});
 /* Letters (DOC-04, DOC-07): templates under Settings; issued onto the record as a PDF. */
 export const getLetterTemplates = () => apiFetch(`${base()}/letter-templates`, opts);
 export const getLetterTemplateVersions = (kind) => apiFetch(`${base()}/letter-templates/${encodeURIComponent(kind)}/versions`, opts).then((r) => r?.versions || []);
@@ -153,6 +156,8 @@ export const checkInvite = (id, body) => send(`/invites/${encodeURIComponent(id)
 export const joiningStatutory = (inviteId) => apiFetch(`${base()}/invites/${encodeURIComponent(inviteId)}/statutory`, opts).then((r) => r?.statutory);
 export const approveJoiningStatutory = (inviteId, values) => send(`/invites/${encodeURIComponent(inviteId)}/statutory/approve`, 'POST', values ? { values } : {});
 export const rejectJoiningStatutory = (inviteId, note) => send(`/invites/${encodeURIComponent(inviteId)}/statutory/reject`, 'POST', { note });
+/* Payroll has been switched on since: every approved set kept in People goes to it (HR-VIEW gap 2, audit gap 15). */
+export const sendHeldToPayroll = () => send('/joining-statutory/send-held', 'POST', {});
 /* Probation (LIFE-03): the review on file, and the decision — confirm, extend or end. */
 export const getProbation = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/probation`, opts).then((r) => r?.reviews || []);
 export const saveProbationReview = (id, body) => send(`/employees/${encodeURIComponent(id)}/probation/review`, 'POST', body);

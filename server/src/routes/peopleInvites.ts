@@ -13,6 +13,7 @@ import { StatutoryError, approveStatutory, forApproval, pushHeld, rejectStatutor
 import { ownRecordRefusal } from '../services/makerChecker.js';
 import { AppAccessError, appAccessSends, sendAppAccess } from '../services/people/lifecycle/appAccess.js';
 import { stepUpRefusal } from '../services/stepUp.js';
+import { inScope, teamScope } from '../services/people/scope.js';
 
 /**
  * Invites before day one (docs/people/02-PRD.md LIFE-01), HR's side: send,
@@ -55,7 +56,9 @@ peopleInvitesRouter.get(`${base}/invites`, can(PermissionAction.VIEW, LIFECYCLE)
   if (!(await peopleRouteOk(req, res))) return;
   const status = String(req.query.status || '').toUpperCase();
   if (status && !INVITE_STATUSES.includes(status as any)) return res.status(400).json({ error: 'Unknown status.' });
-  res.json({ invites: await invitesOf(req.tenant!.orgId, { status: status || undefined }) });
+  /* A team-limited role sees its own team's joiners only. */
+  const scope = await teamScope(req);
+  res.json({ invites: (await invitesOf(req.tenant!.orgId, { status: status || undefined })).filter((i) => inScope(scope, i.employeeId)) });
 });
 
 /** HR checks what the joiner sent, with any corrections in `fields`; it goes on the record. */
@@ -148,5 +151,8 @@ peopleInvitesRouter.post(`${base}/app-access/send`, can(PermissionAction.CREATE,
 /** Who was sent employee app access, how and when (never the code). */
 peopleInvitesRouter.get(`${base}/app-access/sends`, can(PermissionAction.VIEW, LIFECYCLE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  res.json({ sends: await appAccessSends(req.tenant!.orgId, req.query.employeeId ? String(req.query.employeeId) : undefined) });
+  const scope = await teamScope(req);
+  const employeeId = req.query.employeeId ? String(req.query.employeeId) : undefined;
+  if (employeeId && !inScope(scope, employeeId)) return res.status(404).json({ error: 'No such employee.' });
+  res.json({ sends: (await appAccessSends(req.tenant!.orgId, employeeId)).filter((s) => inScope(scope, s.employeeId)) });
 });

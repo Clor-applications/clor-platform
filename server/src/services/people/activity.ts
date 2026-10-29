@@ -19,6 +19,10 @@ export type ActivityViewer = {
   orgId: string;
   canStatutory: boolean;
   canNotes: boolean;
+  /** Who is reading, and whether they may write or delete comments: a comment's author may take it back. */
+  userId?: string;
+  canWriteNotes?: boolean;
+  canDeleteNotes?: boolean;
   /** Personal details (date of birth, address, family, emergency contact): only for who keeps the records (routes/people.ts seesPersonal). */
   canPersonal?: boolean;
   docClasses: string[];
@@ -31,6 +35,7 @@ type Event = {
   title: string; changes?: Array<{ field: string; label: string; before: string | null; after: string | null; redacted: boolean }>;
   reason?: string | null; body?: string | null; source?: string; batch?: { id: string; size: number } | null;
   requestId?: string | null; correlationId?: string; effectiveDate?: string | null;
+  noteId?: string; canDelete?: boolean;
 };
 
 const SOURCE_TITLE: Record<string, string> = { IMPORT: 'Imported', APPROVAL: 'Change approved', BULK: 'Changed in bulk', SCHEDULED: 'Scheduled change took effect', SELF_SERVICE: 'Changed by the employee', HIRE: 'Hired', SYSTEM: 'Changed by Clor' };
@@ -156,7 +161,7 @@ export async function activityOf(viewer: ActivityViewer, employeeId: string, opt
     events.push({ id: `doc_${d.id}`, type: 'upload', at: d.createdAt.toISOString(), actorId: d.uploadedByUserId && d.uploadedByUserId !== 'EMPLOYEE' ? d.uploadedByUserId : null, actor: d.uploadedByUserId === 'EMPLOYEE' ? 'The employee' : null, role: null, title: `${d.version && d.version > 1 ? `New version (${d.version}) of` : 'Uploaded'} ${d.title}` });
   }
   for (const n of notes as any[]) {
-    events.push({ id: `note_${n.id}`, type: 'comment', at: n.createdAt.toISOString(), actorId: n.createdByUserId, actor: null, role: null, title: 'Comment', body: n.body });
+    events.push({ id: `note_${n.id}`, type: 'comment', at: n.createdAt.toISOString(), actorId: n.createdByUserId, actor: null, role: null, title: 'Comment', body: n.body, noteId: n.id, canDelete: Boolean(viewer.canDeleteNotes || (viewer.canWriteNotes && viewer.userId && n.createdByUserId === viewer.userId)) });
   }
 
   /*

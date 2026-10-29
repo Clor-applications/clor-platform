@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
-import { approveJoiningStatutory, joiningStatutory, rejectJoiningStatutory } from './api';
+import { hasApp } from '@platform/context';
+import { approveJoiningStatutory, joiningStatutory, listEmployeeInvites, rejectJoiningStatutory, sendHeldToPayroll } from './api';
 
 /*
  * The statutory half of a joiner's form (HR-VIEW gap 2): PAN, UAN, ESIC,
@@ -16,6 +17,7 @@ const FIELDS = [
 const STATUS_WORDS = {
   SENT: 'Sent, not checked',
   HELD: 'Approved; kept in People until Payroll is switched on',
+  SENDING: 'Going to Payroll now',
   APPLIED: 'Approved and on the Payroll record',
   REJECTED: 'Not accepted',
 };
@@ -55,6 +57,24 @@ export default function JoiningStatutory({ invite, canView, canApprove, onDecide
     }
   };
   const waiting = summary.status === 'SENT';
+  /* Approved while Payroll was off and kept here; once Payroll is on, HR sends every such set across in one go (gap 15). */
+  const sendHeld = async () => {
+    setBusy(true);
+    try {
+      const r = await sendHeldToPayroll();
+      notify.success(r?.sent ? `${r.sent === 1 ? 'One set' : `${r.sent} sets`} of details sent to Payroll.` : 'Nothing was waiting to go to Payroll.');
+      /* What the server now holds for this invite, not a guess: another send may have taken it, or skipped it. */
+      const fresh = (await listEmployeeInvites(invite.employeeId).catch(() => [])).find((i) => i.id === invite.id)?.statutory;
+      if (fresh) {
+        setSummary(fresh);
+        onDecided?.(fresh);
+      }
+    } catch (e) {
+      notify.error(String(e?.message || 'Not sent.'));
+    } finally {
+      setBusy(false);
+    }
+  };
   const shown = FIELDS.filter(([k]) => values[k]);
   return (
     <section className="space-y-2 border-t pt-3" aria-label="PAN, PF, ESI and bank">
@@ -90,6 +110,9 @@ export default function JoiningStatutory({ invite, canView, canApprove, onDecide
             ))}
           </ul>
         </div>
+      ) : null}
+      {summary.status === 'HELD' && canApprove && hasApp('payroll') ? (
+        <div className="flex flex-wrap items-center justify-end gap-2"><span className="ui-caption mr-auto">Payroll is on now.</span><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={sendHeld}>{busy ? 'Sending…' : 'Send to Payroll'}</button></div>
       ) : null}
       {waiting && canView && !full ? (
         <div className="flex justify-end"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={open}>Show in full to check</button></div>

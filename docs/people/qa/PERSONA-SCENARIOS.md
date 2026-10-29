@@ -52,6 +52,8 @@ the same account, plus a separate account, "Other Co", for boundary checks.
 | M6 | Open a team member's profile | Work details visible; salary, bank, PAN and health hidden |
 | M7 | Try to open Arjun (not in my team) | Refused or not listed; no details leak via search or the address |
 | M8 | My own leave request | Goes to my manager, never to me; I can't approve my own |
+| M9 | Write Priya's probation review: goals, what I saw, recommend extending | Saved with my name; HR sees it with Extend recommended and the date filled in; I cannot decide it myself |
+| M10 | Before my leave, name Kavya to decide my leave and other approvals (Time → Delegates) | Both show as live for the dates; Kavya can be chosen though she is outside my team |
 
 ## HR (Kavya, desktop)
 
@@ -68,6 +70,11 @@ the same account, plus a separate account, "Other Co", for boundary checks.
 | H9 | Publish a policy needing acceptance | Employees see it; the acceptance count updates |
 | H10 | A confidential case visible only to named members | Others can't see it, even in search or history |
 | H11 | Edit the same employee in two tabs | The second save is refused with "someone else changed this"; nothing overwritten |
+| H12 | Ask Priya to read and accept the code of conduct (record → Documents) | The row says not accepted yet; Priya sees Accept under Me → Documents; after she accepts the row says Accepted with the day; Remind works before that |
+| H13 | Withdraw an offer still waiting (Joining & leaving → Offers) | Asked first; moves to Declined or withdrawn; the accept link stops working |
+| H14 | See who has not sent back the joining form (Joining → Forms not back) | Not opened, opened, and ran-out links listed; each opens the record to send again |
+| H15 | Undo yesterday's import from Import employees → Past imports | Undone once, even on a double click; an import older than a day cannot be undone |
+| H16 | Change grade and manager for three people at once | Every field the company keeps is offered; the manager change shows what else it affects |
 
 ## Owner / admin (Suresh)
 

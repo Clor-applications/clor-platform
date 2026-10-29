@@ -127,14 +127,28 @@ export async function forApproval(orgId: string, inviteId: string) {
 
 /** Approved sets waiting for Payroll, and those already applied, for a person's record (masked). */
 export async function heldFor(orgId: string, employeeId: string) {
-  const row = await peoplePrisma.joinStatutory.findFirst({ where: { orgId, employeeId, status: { in: ['HELD', 'SENT'] } }, orderBy: { createdAt: 'desc' } });
+  const row = await peoplePrisma.joinStatutory.findFirst({ where: { orgId, employeeId, status: { in: ['HELD', 'SENT', 'SENDING'] } }, orderBy: { createdAt: 'desc' } });
   return row ? shape(row) : null;
 }
 
+/**
+ * Send one approved set to Payroll, once. The row is claimed first (HELD to
+ * SENDING, an update that only succeeds while it is still HELD), so an
+ * approval and a "Send to Payroll", or two clicks, cannot both write the
+ * payroll profile, the bank approval and the PF nominees. Null when someone
+ * else claimed it; a failure puts it back to HELD for the next try.
+ */
 async function sendToPayroll(actor: Actor & { branchId?: string | null }, row: Row, values: JoiningStatutory) {
-  const r = await applyJoiningStatutory({ accountId: actor.accountId, orgId: actor.orgId, branchId: actor.branchId, employeeId: row.employeeId, userId: actor.userId || 'system', correlationId: actor.correlationId, values });
-  /* Payroll has it now; People keeps only what it may show. */
-  return peoplePrisma.joinStatutory.update({ where: { id: row.id }, data: { status: 'APPLIED', appliedAt: new Date(), bankOutcome: r.bank, data: { masked: true, values: maskStatutory(values) } as any } });
+  const claimed = await peoplePrisma.joinStatutory.updateMany({ where: { id: row.id, status: 'HELD' }, data: { status: 'SENDING' } });
+  if (claimed.count !== 1) return null;
+  try {
+    const r = await applyJoiningStatutory({ accountId: actor.accountId, orgId: actor.orgId, branchId: actor.branchId, employeeId: row.employeeId, userId: actor.userId || 'system', correlationId: actor.correlationId, values });
+    /* Payroll has it now; People keeps only what it may show. */
+    return await peoplePrisma.joinStatutory.update({ where: { id: row.id }, data: { status: 'APPLIED', appliedAt: new Date(), bankOutcome: r.bank, data: { masked: true, values: maskStatutory(values) } as any } });
+  } catch (e) {
+    await peoplePrisma.joinStatutory.updateMany({ where: { id: row.id, status: 'SENDING' }, data: { status: 'HELD' } });
+    throw e;
+  }
 }
 
 /** HR approves (with any corrections): to Payroll if it is on, else held here. Logged in People's change log; Payroll writes its own audit line. */
@@ -155,7 +169,7 @@ export async function approveStatutory(actor: Actor & { branchId?: string | null
   });
   const fresh = (await peoplePrisma.joinStatutory.findUniqueOrThrow({ where: { id: row.id } })) as Row;
   const payrollOn = await isFeatureEnabled(actor.accountId, actor.orgId, 'payroll');
-  const done = payrollOn ? await sendToPayroll(actor, fresh, values) : fresh;
+  const done = (payrollOn ? await sendToPayroll(actor, fresh, values) : null) ?? (await peoplePrisma.joinStatutory.findUniqueOrThrow({ where: { id: row.id } }));
   return { statutory: shape(done as Row), payroll: payrollOn ? 'SENT' : 'HELD_UNTIL_PAYROLL' };
 }
 
@@ -176,8 +190,7 @@ export async function pushHeld(actor: Actor & { branchId?: string | null }) {
   let sent = 0;
   for (const r of rows) {
     if (isMasked(r.data)) continue;
-    await sendToPayroll(actor, r, r.data as JoiningStatutory);
-    sent += 1;
+    if (await sendToPayroll(actor, r, r.data as JoiningStatutory)) sent += 1;
   }
   return { sent };
 }

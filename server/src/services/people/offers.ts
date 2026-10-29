@@ -184,8 +184,10 @@ export async function createOffer(actor: Actor, input: CreateInput) {
   return { offer: shape(offer), text };
 }
 
-export async function offersOf(orgId: string, where: { employeeId?: string; candidateId?: string } = {}) {
-  const rows = await peoplePrisma.offer.findMany({ where: { orgId, ...(where.employeeId ? { employeeId: where.employeeId } : {}), ...(where.candidateId ? { candidateId: where.candidateId } : {}) }, orderBy: { createdAt: 'desc' }, take: 200 });
+/** `employeeIds`: a team-limited caller's team, applied in the query so the 200 newest are theirs. */
+export async function offersOf(orgId: string, where: { employeeId?: string; candidateId?: string; employeeIds?: string[] } = {}) {
+  const person = where.employeeIds ? { employeeId: { in: where.employeeId ? where.employeeIds.filter((x) => x === where.employeeId) : where.employeeIds } } : where.employeeId ? { employeeId: where.employeeId } : {};
+  const rows = await peoplePrisma.offer.findMany({ where: { orgId, ...person, ...(where.candidateId ? { candidateId: where.candidateId } : {}) }, orderBy: { createdAt: 'desc' }, take: 200 });
   return rows.map(shape);
 }
 

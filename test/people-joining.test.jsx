@@ -37,7 +37,7 @@ afterEach(() => {
 describe('Send employee app access', () => {
   it('sends for everyone picked; shows codes only for those handed over, with WhatsApp, and says who was skipped', async () => {
     wf.sendAppAccess.mockResolvedValue({
-      company: { name: 'Acme', code: 'ACME' }, portalUrl: 'https://app.example/#/portal', expiresAt: '2026-11-02T10:00:00.000Z',
+      company: { name: 'Acme', code: 'ACME' }, portalUrl: 'https://app.example/#/portal', expiresAt: '2026-11-02T10:00:00.000Z', expiresWords: '2 Nov 2026, 3:30 pm',
       sent: [
         { employeeId: 'e1', name: 'Mail Person', employeeCode: 'A-1', channel: 'EMAIL', sentTo: 'mail@example.com' },
         { employeeId: 'e2', name: 'Phone Person', employeeCode: 'A-2', channel: 'PRINT', phoneEnding: '2345', activationCode: 'ABCD-EFGH', whatsappUrl: 'https://wa.me/919845012345?text=hello', link: 'x' },
@@ -57,6 +57,8 @@ describe('Send employee app access', () => {
     expect(within(handed).getByRole('link', { name: 'Send on WhatsApp' })).toHaveAttribute('href', 'https://wa.me/919845012345?text=hello');
     expect(screen.getByRole('region', { name: 'Not sent' })).toHaveTextContent('No e-mail or phone on file.');
     expect(screen.getByRole('button', { name: 'Print codes' })).toBeInTheDocument();
+    /* One wording for when the codes stop, the server's, the same the WhatsApp text carries. */
+    expect(handed).toHaveTextContent('they work until 2 Nov 2026, 3:30 pm');
   });
 });
 

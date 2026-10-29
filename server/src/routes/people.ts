@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { authorize, requirePermission } from '../middleware/rbac.js';
+import { authorize, requireAnyPermission, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction, type PermissionAction as PermissionActionType } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -1592,6 +1592,9 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/activity', can(PermissionAct
     orgId,
     canStatutory: !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, STATUTORY)),
     canNotes: !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, NOTES)),
+    userId: req.auth!.userId,
+    canWriteNotes: !(await authorize(req, PEOPLE_MODULE, PermissionAction.CREATE, NOTES)),
+    canDeleteNotes: !(await authorize(req, PEOPLE_MODULE, PermissionAction.DELETE, NOTES)),
     canPersonal: await seesPersonal(req),
     docClasses: await readableClassifications(req),
     allows,
@@ -1713,7 +1716,12 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/probation', can(PermissionAc
   if (!(await peopleRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   if (!inScope(await teamScope(req), String(req.params.id))) return res.status(404).json({ error: 'No such employee.' });
-  res.json({ reviews: await reviewsOf(orgId, String(req.params.id)) });
+  const reviews = await reviewsOf(orgId, String(req.params.id));
+  /* Who wrote and who decided each review, by name, so HR deciding sees whose view it is. */
+  const ids = [...new Set(reviews.flatMap((r) => [r.reviewedByUserId, r.decidedByUserId]).filter((x): x is string => Boolean(x)))];
+  const users = ids.length ? await platformPrisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true, email: true } }) : [];
+  const nameOf = new Map(users.map((u) => [u.id, u.fullName || u.email]));
+  res.json({ reviews: reviews.map((r) => ({ ...r, reviewedBy: r.reviewedByUserId ? nameOf.get(r.reviewedByUserId) || null : null, decidedBy: r.decidedByUserId ? nameOf.get(r.decidedByUserId) || null : null })) });
 });
 
 peopleRouter.post('/orgs/:orgId/people/employees/:id/probation/review', can(PermissionAction.EDIT, LIFECYCLE), async (req, res) => {
@@ -2494,11 +2502,13 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/notes', can(PermissionActio
   res.status(201).json({ note });
 });
 
-peopleRouter.delete('/orgs/:orgId/people/notes/:noteId', can(PermissionAction.DELETE, NOTES), async (req, res) => {
+/* Whoever wrote a comment may take it back (Notes create); anyone else's needs the Notes delete grant. */
+peopleRouter.delete('/orgs/:orgId/people/notes/:noteId', requireAnyPermission([PEOPLE_MODULE, PermissionAction.CREATE, NOTES], [PEOPLE_MODULE, PermissionAction.DELETE, NOTES]), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const note = await peoplePrisma.employeeNote.findFirst({ where: { id: String(req.params.noteId), accountId, orgId } });
   if (!note || !inScope(await teamScope(req), note.employeeId)) return res.status(404).json({ error: 'No such note.' });
+  if (note.createdByUserId !== req.auth!.userId && (await authorize(req, PEOPLE_MODULE, PermissionAction.DELETE, NOTES))) return res.status(403).json({ error: 'Only the person who wrote this comment can delete it.' });
   await deleteToBin(req, 'employeeNote', note);
   res.json({ ok: true });
 });
@@ -2557,7 +2567,13 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/documents', can(PermissionAc
   const classification = { in: await readableClassifications(req) };
   if (!inScope(await teamScope(req), String(req.params.id))) return res.status(404).json({ error: 'No such employee.' });
   const rows = await peoplePrisma.employeeDocument.findMany({ where: { accountId, orgId, employeeId: String(req.params.id), classification, supersededById: null }, orderBy: { createdAt: 'desc' }, select: DOC_SELECT });
-  res.json({ documents: rows.map(docRow) });
+  /* Whether the person was asked to read and accept each file, and when they did (DOC-05): one read for the whole list. */
+  const acks = rows.length ? await peoplePrisma.acknowledgement.findMany({ where: { orgId, employeeId: String(req.params.id), targetType: 'DOCUMENT', targetId: { in: rows.map((r) => r.id) } }, select: { targetId: true, askedAt: true, acceptedAt: true, remindedAt: true, remindCount: true } }) : [];
+  const ackOf = new Map(acks.map((a) => [a.targetId, a]));
+  res.json({ documents: rows.map((r) => {
+    const a = ackOf.get(r.id);
+    return { ...docRow(r), acceptance: a ? { askedAt: a.askedAt, acceptedAt: a.acceptedAt, remindedAt: a.remindedAt, remindCount: a.remindCount } : null };
+  }) });
 });
 
 /** Replace a file (DOC-02): the new one takes the old one's place; the old one stays, pointed both ways, under "Earlier versions". */

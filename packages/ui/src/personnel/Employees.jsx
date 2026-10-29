@@ -38,6 +38,8 @@ import {
   issueLetter,
   listDocumentVersions,
   replaceDocument,
+  askToAccept,
+  remindToAccept,
   requestLetter,
   serviceCertificateDue,
   deleteDocument,
@@ -102,6 +104,10 @@ const initials = (name) =>
 
 /* "2 Nov 2026" from an ISO day. */
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/* A moment (accepted, asked) as India's calendar day: the UTC date would put a 2 a.m. IST ask on the day before. */
+const istDayOf = (t) => new Date(new Date(t).getTime() + 330 * 60_000).toISOString().slice(0, 10);
+/* Older reminder tasks start their note with a machine marker (`probation:2026-11-04.`); people read the words after it. */
+export const taskNote = (note) => String(note || '').replace(/^(probation|contract):\d{4}-\d{2}-\d{2}\.\s*/, '');
 const formatDateShort = (d) => { const [y, m, dd] = String(d).slice(0, 10).split('-'); return y && m && dd ? `${Number(dd)} ${MONTHS_SHORT[Number(m) - 1]} ${y}` : String(d); };
 
 export const Avatar = ({ person, size = 40 }) =>
@@ -1204,7 +1210,7 @@ export function EmployeeChecklist({ person }) {
                     {t.dueDate ? <span className={t.overdue ? 'ui-text-neg font-medium' : ''}> · {t.overdue ? 'was due' : 'due'} {formatDateShort(t.dueDate)}</span> : null}
                     {t.done && t.doneBy ? ` · done by ${t.doneBy}` : ''}
                   </p>
-                  {t.note ? <p className="ui-caption">{t.note}</p> : null}
+                  {taskNote(t.note) ? <p className="ui-caption">{taskNote(t.note)}</p> : null}
                   {t.needsNote && !t.done ? <p className="ui-caption">Closes with a note.</p> : null}
                 </div>
               </li>
@@ -2056,9 +2062,12 @@ const kb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max
  * into the browser and sent as a data URL (≤ 5 MB). The person sees what HR
  * marks visible, in the portal under Me.
  */
-export function EmployeeDocuments({ employeeId }) {
+export function EmployeeDocuments({ employeeId, personName = '' }) {
+  const perms = usePermissions();
+  /* Asking a person to read and accept a file, and reminding them, take Documents EDIT (DOC-05), as the server checks. */
+  const canAsk = Boolean(perms?.isAdmin || perms?.permissions?.has?.('PEOPLE::Documents::EDIT'));
   const [docs, setDocs] = useState(null);
-  const [form, setForm] = useState({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE' });
+  const [form, setForm] = useState({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE', ask: false });
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const input = useRef(null);
@@ -2072,11 +2081,15 @@ export function EmployeeDocuments({ employeeId }) {
     setBusy(true);
     try {
       const dataUrl = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('Could not read the file.')); r.readAsDataURL(file); });
-      await uploadDocument(employeeId, { ...form, title: form.title.trim() || file.name.replace(/\.[^.]+$/, ''), expiresOn: form.expiresOn || null, data: dataUrl, mime: file.type });
+      const { ask, ...fields } = form;
+      const up = await uploadDocument(employeeId, { ...fields, title: form.title.trim() || file.name.replace(/\.[^.]+$/, ''), expiresOn: form.expiresOn || null, data: dataUrl, mime: file.type });
+      /* Asked at upload: one step for the usual case, a letter or policy the person must read. */
+      const askNow = ask && canAsk && form.classification === 'EMPLOYEE_VISIBLE' && up?.document?.id;
+      if (askNow) await askToAccept(up.document.id).catch((err) => notify.error(String(err?.message || 'Uploaded, but not asked to accept.')));
       setFile(null);
-      setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE', restrictsWork: '' });
+      setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE', restrictsWork: '', ask: false });
       if (input.current) input.current.value = '';
-      notify.success('Uploaded.');
+      notify.success(askNow ? `Uploaded. ${personName || 'They'} will be asked to read and accept it.` : 'Uploaded.');
       load();
       return true;
     } catch (err) {
@@ -2111,6 +2124,25 @@ export function EmployeeDocuments({ employeeId }) {
     }
   };
   const closePreview = () => { if (viewing?.url) URL.revokeObjectURL(viewing.url); setViewing(null); };
+  /* Ask to read and accept, or remind: the employee app lists it under Me → Documents with an Accept button. */
+  const ask = async (d) => {
+    try {
+      const r = await askToAccept(d.id);
+      notify.success(r?.newlyAsked ? `${personName || 'They'} will be asked to read and accept ${d.title}.` : 'Already asked.');
+      load();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not asked.'));
+    }
+  };
+  const remind = async (d) => {
+    try {
+      await remindToAccept(d.id);
+      notify.success('Reminder sent.');
+      load();
+    } catch (err) {
+      notify.error(String(err?.message || 'Reminder not sent.'));
+    }
+  };
   const remove = async (d) => {
     if (!(await confirmDialog({ title: `Remove ${d.title}?`, message: 'The file is deleted from the record.', confirmLabel: 'Remove' }))) return;
     await deleteDocument(d.id).catch((e) => notify.error(String(e?.message || 'Could not remove.')));
@@ -2161,7 +2193,14 @@ export function EmployeeDocuments({ employeeId }) {
   const menuBtn = useRef({});
   const kindWord = (k) => DOC_KINDS.find(([x]) => x === k)?.[1] || k;
   const added = (d) => formatDateShort(String(d.createdAt).slice(0, 10));
-  const closeUpload = () => { setUploading(false); setFile(null); setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE' }); };
+  const closeUpload = () => { setUploading(false); setFile(null); setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE', ask: false }); };
+  /* Acceptance in words, never colour alone: accepted on a day, or asked and waiting. */
+  const acceptance = (d) => {
+    const a = d.acceptance;
+    if (!a) return null;
+    if (a.acceptedAt) return <span className="ui-pill ui-pill-pos">Accepted {formatDateShort(istDayOf(a.acceptedAt))}</span>;
+    return <span className="ui-pill ui-pill-warn">Not accepted yet · asked {formatDateShort(istDayOf(a.askedAt))}{a.remindCount ? `, reminded ${a.remindCount === 1 ? 'once' : `${a.remindCount} times`}` : ''}</span>;
+  };
   const permit = PERMIT_KINDS.includes(form.kind);
 
   return (
@@ -2187,6 +2226,7 @@ export function EmployeeDocuments({ employeeId }) {
                     <button type="button" className="ui-doc-title" onClick={() => preview(d)}>{d.title}</button>
                     <span className="ui-doc-meta">{[kindWord(d.kind), kb(d.size), `added ${added(d)}`, d.version > 1 ? `version ${d.version}` : null, d.classification !== 'EMPLOYEE_VISIBLE' ? docWhoLabel(d) : null].filter(Boolean).join(' · ')}</span>
                     {d.restrictsWork && expired ? <span className="ui-doc-meta ui-text-neg">Until renewed: {d.restrictsWork}</span> : null}
+                    {d.acceptance ? <span className="ui-doc-meta">{acceptance(d)}</span> : null}
                   </span>
                   <span className="ui-doc-expiry">
                     {d.expiresOn ? <>{expired ? <span className="ui-pill ui-pill-neg">Expired</span> : null}<span className="tabular-nums">{expired ? '' : 'Valid until '}{formatDateShort(d.expiresOn)}</span></> : null}
@@ -2198,6 +2238,8 @@ export function EmployeeDocuments({ employeeId }) {
                       <Popover anchorRef={{ current: menuBtn.current[d.id] }} onClose={() => setMenu(null)} minWidth={200}>
                         <div role="menu" className="ui-menu">
                           {d.kind !== 'LETTER' ? <button type="button" role="menuitem" data-autofocus="" className="ui-menu-item" disabled={busy} onClick={() => { setMenu(null); pickReplacement(d); }}>Replace with a new version</button> : null}
+                          {canAsk && d.classification === 'EMPLOYEE_VISIBLE' && !d.acceptance ? <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { setMenu(null); ask(d); }}>Ask to read and accept</button> : null}
+                          {canAsk && d.acceptance && !d.acceptance.acceptedAt ? <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { setMenu(null); remind(d); }}>Remind to accept</button> : null}
                           {d.version > 1 ? <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { setMenu(null); showVersions(d); }}>{versions[d.id] ? 'Hide earlier versions' : 'Earlier versions'}</button> : null}
                           <button type="button" role="menuitem" data-autofocus={d.kind === 'LETTER' ? '' : undefined} className="ui-menu-item is-danger" onClick={() => { setMenu(null); remove(d); }}>Remove</button>
                         </div>
@@ -2232,7 +2274,8 @@ export function EmployeeDocuments({ employeeId }) {
             <label className="block"><span className="ui-label">Title</span><input className="ui-input w-full" value={form.title} placeholder={file ? file.name.replace(/\.[^.]+$/, '') : ''} onChange={(e) => setForm({ ...form, title: e.target.value })} maxLength={160} /></label>
             <div><label className="ui-label" htmlFor="doc-valid">{permit ? 'Valid until *' : 'Valid until'}</label><DatePicker id="doc-valid" value={form.expiresOn} onChange={(v) => setForm({ ...form, expiresOn: v || '' })} /></div>
             {permit ? <label className="block"><span className="ui-label">Work they may not do once it lapses</span><input className="ui-input w-full" value={form.restrictsWork || ''} onChange={(e) => setForm({ ...form, restrictsWork: e.target.value })} maxLength={500} /></label> : null}
-            <div><PopupSelect showValueSubtext={false} label="Who can see" value={form.classification} onChange={(v) => setForm({ ...form, classification: v || 'EMPLOYEE_VISIBLE' })} options={DOC_WHO_CAN_SEE.map(([value, label]) => ({ value, label }))} /></div>
+            <div><PopupSelect showValueSubtext={false} label="Who can see" value={form.classification} onChange={(v) => setForm({ ...form, classification: v || 'EMPLOYEE_VISIBLE', ask: v && v !== 'EMPLOYEE_VISIBLE' ? false : form.ask })} options={DOC_WHO_CAN_SEE.map(([value, label]) => ({ value, label }))} /></div>
+            {canAsk && form.classification === 'EMPLOYEE_VISIBLE' ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={Boolean(form.ask)} onChange={(e) => setForm({ ...form, ask: e.target.checked })} />Ask {personName || 'them'} to read and accept it</label> : null}
           </form>
         </Drawer>
       ) : null}

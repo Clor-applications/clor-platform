@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
-import { formatDate } from '@ui/components/ui/DatePicker';
 import { sendAppAccess } from './api';
 
 /*
@@ -12,12 +11,14 @@ import { sendAppAccess } from './api';
  * away: sending again makes new ones.
  */
 
+/* The server's own words for when the codes stop (India's time), so this, the sheet and the WhatsApp text agree. */
+const untilWords = (result) => result.expiresWords || new Date(result.expiresAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 /** One slip per person, to cut and hand over. Black on white: it is a printed document. */
 function printSheet(result) {
   const slips = result.sent.filter((s) => s.channel === 'PRINT');
-  const until = new Date(result.expiresAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+  const until = untilWords(result);
   const html = `<!doctype html><meta charset="utf-8"><title>Employee app codes</title><style>body{font-family:Inter,system-ui,sans-serif;color:#000;background:#fff;margin:24px}.slip{border:1px dashed #000;padding:16px;margin-bottom:16px;break-inside:avoid}h2{font-size:16px;margin:0 0 8px}dl{display:grid;grid-template-columns:10rem 1fr;gap:4px;margin:0}dt{font-weight:600}dd{margin:0;font-variant-numeric:tabular-nums}p{font-size:12px;margin:8px 0 0}</style>${slips.map((s) => `<div class="slip"><h2>${esc(s.name)}</h2><dl><dt>Open</dt><dd>${esc(result.portalUrl)}</dd><dt>Company code</dt><dd>${esc(result.company.code)}</dd><dt>Employee code</dt><dd>${esc(s.employeeCode)}</dd><dt>Activation code</dt><dd>${esc(s.activationCode)}</dd></dl><p>Choose "First time? Activate", enter these and choose your own password. The code works once, until ${esc(until)}.</p></div>`).join('')}`;
   const w = window.open('', '_blank');
   if (!w) return notify.error('The browser blocked the sheet. Allow pop-ups for CLOR and try again.');
@@ -69,7 +70,7 @@ export default function AppAccessSend({ people, onClose }) {
           {handed.length ? (
             <section aria-label="To hand over">
               <h3 className="ui-t-sec">To hand over <span className="ui-caption tabular-nums">{handed.length}</span></h3>
-              <p className="ui-caption">These codes are shown only now. Print them or send them on WhatsApp before you close this. Company code <span className="tabular-nums">{result.company.code}</span>; they work until {formatDate(String(result.expiresAt).slice(0, 10))}.</p>
+              <p className="ui-caption">These codes are shown only now. Print them or send them on WhatsApp before you close this. Company code <span className="tabular-nums">{result.company.code}</span>; they work until {untilWords(result)}.</p>
               <ul className="divide-y text-sm">
                 {handed.map((s) => (
                   <li key={s.employeeId} className="flex flex-wrap items-center gap-3 py-2">

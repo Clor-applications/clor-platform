@@ -68,6 +68,9 @@ describe('send employee app access', () => {
     expect(byPhone).toMatchObject({ channel: 'PRINT', phoneEnding: '2345', activationCode: expect.stringMatching(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/) });
     expect(byPhone.whatsappUrl).toMatch(/^https:\/\/wa\.me\/919845012345\?text=/);
     expect(decodeURIComponent(byPhone.whatsappUrl)).toContain(byPhone.activationCode);
+    /* One wording for when the code stops, in India's time: the WhatsApp text says exactly what HR's screen shows. */
+    expect(r.expiresWords).toBe(new Date(r.expiresAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }));
+    expect(decodeURIComponent(byPhone.whatsappUrl)).toContain(`until ${r.expiresWords})`);
     /* The code handed over is the one that works: only its hash is kept. */
     const row = await runInTenant(hr.orgId, () => peoplePrisma.employee.findFirst({ where: { id: phoned.id }, select: { portalEnabled: true, portalSetupHash: true } }));
     expect(row?.portalEnabled).toBe(true);

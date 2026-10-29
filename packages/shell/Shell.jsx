@@ -977,7 +977,7 @@ export default function Shell() {
         ) : null}
         <header
           /* Tighter on a phone: the bar carries menu, logo, switcher, alerts, help, profile and sign-out in 360 px. */
-          className={`ui-topbar sticky top-0 flex h-14 items-center ${phone ? 'gap-1.5 px-2.5' : 'gap-3 px-4'}`}
+          className={`ui-topbar sticky top-0 flex h-14 items-center ${phone ? 'gap-1 px-1.5' : 'gap-3 px-4'}`}
           style={{
             backgroundColor: 'rgb(var(--surface))',
             borderBottom: '1px solid rgb(var(--border))',
@@ -1007,6 +1007,8 @@ export default function Shell() {
               <button
                 type="button"
                 className="ui-app-switch"
+                /* On a phone the bar's own gap spaces it; the desktop's 1.5rem lead pushed sign-out past a 390 px screen. */
+                style={phone ? { marginLeft: 0, gap: '0.25rem', paddingRight: '0.25rem' } : undefined}
                 onClick={() => setSwitcherOpen((v) => !v)}
                 aria-expanded={switcherOpen}
                 aria-haspopup="menu"
@@ -1089,7 +1091,8 @@ export default function Shell() {
             )
           ) : null}
 
-          <div className="flex-1" />
+          {/* A phone's search button already takes the free space (ml-auto); a second spacer only adds a gap. */}
+          {!phone ? <div className="flex-1" /> : null}
 
           {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
           {/* The company in use. The Workspace shows it too: half its pages change only this company. */}

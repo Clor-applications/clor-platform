@@ -33,8 +33,10 @@ export const waNumber = (phone: string | null | undefined) => {
   return d.length >= 11 && d.length <= 15 ? d : null;
 };
 
+/** When a code stops working, in India's time: the one wording the WhatsApp text, the e-mail and HR's screen all use. */
+export const expiryWords = (d: Date) => d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
 export const whatsappText = (o: { name: string; orgName: string; link: string; companyCode: string; employeeCode: string; code: string; expires: Date }) =>
-  `Hello ${o.name}, ${o.orgName} has set you up on the employee app. Open ${o.link} and choose "First time? Activate". Company code: ${o.companyCode}. Employee code: ${o.employeeCode}. Activation code: ${o.code} (works once, until ${o.expires.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })}). Choose your own password; nobody at ${o.orgName} will know it.`;
+  `Hello ${o.name}, ${o.orgName} has set you up on the employee app. Open ${o.link} and choose "First time? Activate". Company code: ${o.companyCode}. Employee code: ${o.employeeCode}. Activation code: ${o.code} (works once, until ${expiryWords(o.expires)}). Choose your own password; nobody at ${o.orgName} will know it.`;
 
 type Sent =
   | { employeeId: string; name: string; employeeCode: string; channel: 'EMAIL'; sentTo: string }
@@ -83,7 +85,7 @@ export async function sendAppAccess(actor: Actor, employeeIds: string[]) {
       sent.push({ employeeId: p.id, name: p.name, employeeCode: p.code, channel, phoneEnding, activationCode: formatted, whatsappUrl: wa ? `https://wa.me/${wa}?text=${encodeURIComponent(text)}` : null, link });
     }
   }
-  return { company, portalUrl: portalUrl(), expiresAt: expires, sent, skipped };
+  return { company, portalUrl: portalUrl(), expiresAt: expires, expiresWords: expiryWords(expires), sent, skipped };
 }
 
 /** The record of sends, newest first. */
