@@ -13,8 +13,10 @@
 const SIG_EOCD = 0x06054b50;
 const SIG_CENTRAL = 0x02014b50;
 const SIG_LOCAL = 0x04034b50;
-/* Excel's built-in date and time formats. */
-const DATE_FORMAT_IDS = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 30, 36, 45, 46, 47, 50, 57]);
+/* Excel's built-in date and time formats: dates, times of day, and the one that is both. */
+const DATE_FORMAT_IDS = new Set([14, 15, 16, 17, 27, 30, 36, 50, 57]);
+const TIME_FORMAT_IDS = new Set([18, 19, 20, 21, 45, 46, 47]);
+const DATETIME_FORMAT_IDS = new Set([22]);
 /* Limits a hand-made or hostile file cannot get past: Excel's own last column, and far more rows and bytes than an import takes. */
 const MAX_COLUMNS = 16_384;
 const MAX_ROWS = 5_000;
@@ -91,6 +93,12 @@ const columnIndex = (ref) => {
 /* Excel counts days from 30 Dec 1899 (its 1900 leap-year quirk included). */
 export const excelSerialToIso = (serial) => new Date(Date.UTC(1899, 11, 30) + Math.round(Number(serial) * 86_400_000)).toISOString().slice(0, 10);
 
+/* A time of day is the fraction of the day: 0.375 is 09:00. Rounded to the minute, as a time sheet means it. */
+export const excelFractionToHHMM = (serial) => {
+  const minutes = Math.round((Number(serial) % 1) * 1440) % 1440;
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+};
+
 async function firstSheetPath(entries) {
   const book = await xmlOf(entries, 'xl/workbook.xml');
   const rels = await xmlOf(entries, 'xl/_rels/workbook.xml.rels');
@@ -107,10 +115,15 @@ async function dateStyles(entries) {
   const xfs = all(all(styles, 'cellXfs')[0], 'xf');
   return xfs.map((xf) => {
     const id = Number(xf.getAttribute('numFmtId') || 0);
-    if (DATE_FORMAT_IDS.has(id)) return true;
-    /* A custom format is a date when it has day, month or year codes outside quoted text. */
+    if (DATE_FORMAT_IDS.has(id)) return 'date';
+    if (TIME_FORMAT_IDS.has(id)) return 'time';
+    if (DATETIME_FORMAT_IDS.has(id)) return 'datetime';
+    /* A custom format: day or year codes make a date, hour or second codes a time; "m" is minutes beside an hour and a month otherwise. Quoted text and [colour] codes do not count. */
     const code = (custom.get(id) || '').replace(/"[^"]*"|\[[^\]]*\]/g, '');
-    return /[dmy]/i.test(code) && !/^[#0.,%\s]*$/.test(code);
+    if (/^[#0.,%\s]*$/.test(code)) return null;
+    const time = /[hs]/i.test(code);
+    const date = /[dy]/i.test(code) || (!time && /m/i.test(code));
+    return date && time ? 'datetime' : date ? 'date' : time ? 'time' : null;
   });
 }
 
@@ -134,7 +147,11 @@ export async function readXlsx(file) {
       else if (type === 'inlineStr') value = textOf(all(c, 'is')[0]);
       else if (type === 'b') value = v === '1' ? 'TRUE' : 'FALSE';
       else if (type === 'str' || type === 'e') value = v;
-      else if (v !== '' && isDate[Number(c.getAttribute('s') || 0)]) value = excelSerialToIso(v);
+      else if (v !== '' && isDate[Number(c.getAttribute('s') || 0)]) {
+        const kind = isDate[Number(c.getAttribute('s') || 0)];
+        /* A time sheet's In and Out are times of day; a punch log's one cell is the date and the time. */
+        value = kind === 'time' ? excelFractionToHHMM(v) : kind === 'datetime' ? `${excelSerialToIso(Math.floor(Number(v)))} ${excelFractionToHHMM(v)}` : excelSerialToIso(v);
+      }
       else value = v;
       /* A cell without a reference is the next one along (allowed by the format). */
       const ref = c.getAttribute('r');

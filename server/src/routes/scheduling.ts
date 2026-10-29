@@ -280,7 +280,7 @@ schedulingRouter.get(`${base}/rules`, can(PermissionAction.VIEW), async (req, re
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const s = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
-  res.json({ rules: { defaultShiftId: s?.defaultShiftId || null, lateAllowancePerMonth: s?.lateAllowancePerMonth ?? 0, latePenaltyEvery: s?.latePenaltyEvery ?? 0, photoRetentionDays: s?.photoRetentionDays ?? 90, readerUsersBecomeEmployees: s?.readerUsersBecomeEmployees ?? true, leaveApproval: s?.leaveApproval ?? 'HR', correctionApproval: s?.correctionApproval ?? 'HR', ...(await trustRules(accountId, orgId, s)) } });
+  res.json({ rules: { defaultShiftId: s?.defaultShiftId || null, lateAllowancePerMonth: s?.lateAllowancePerMonth ?? 0, latePenaltyEvery: s?.latePenaltyEvery ?? 0, photoRetentionDays: s?.photoRetentionDays ?? 90, readerUsersBecomeEmployees: s?.readerUsersBecomeEmployees ?? true, leaveApproval: s?.leaveApproval ?? 'HR', correctionApproval: s?.correctionApproval ?? 'HR', autoShiftByPunch: s?.autoShiftByPunch ?? false, ...(await trustRules(accountId, orgId, s)) } });
 });
 
 /** Reader trust (O-11): the company feature switch, kept beside the reader settings, and the late-upload window. */
@@ -303,6 +303,7 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
       leaveApproval: z.enum(['HR', 'MANAGER', 'MANAGER_THEN_HR', 'RULE']).default('HR'),
       correctionApproval: z.enum(['HR', 'MANAGER', 'MANAGER_THEN_HR']).default('HR'),
       /* Left out: unchanged. */
+      autoShiftByPunch: z.boolean().optional(),
       readerTrust: z.boolean().optional(),
       readerLateUploadHours: z.coerce.number().int().min(1, 'At least 1 hour.').max(24 * 31, 'At most 31 days.').optional(),
     })
@@ -330,11 +331,11 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
       });
       await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'RULES', before: { readerTrust: !readerTrust }, after: { readerTrust } });
     }
-    const pick = (x: any) => (x ? { defaultShiftId: x.defaultShiftId, lateAllowancePerMonth: x.lateAllowancePerMonth, latePenaltyEvery: x.latePenaltyEvery, photoRetentionDays: x.photoRetentionDays, readerUsersBecomeEmployees: x.readerUsersBecomeEmployees, leaveApproval: x.leaveApproval, correctionApproval: x.correctionApproval, readerLateUploadHours: x.readerLateUploadHours } : null);
+    const pick = (x: any) => (x ? { defaultShiftId: x.defaultShiftId, lateAllowancePerMonth: x.lateAllowancePerMonth, latePenaltyEvery: x.latePenaltyEvery, photoRetentionDays: x.photoRetentionDays, readerUsersBecomeEmployees: x.readerUsersBecomeEmployees, leaveApproval: x.leaveApproval, correctionApproval: x.correctionApproval, readerLateUploadHours: x.readerLateUploadHours, autoShiftByPunch: x.autoShiftByPunch } : null);
     if (JSON.stringify(pick(previous)) !== JSON.stringify(pick(s))) {
       await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'RULES', before: pick(previous), after: pick(s) });
     }
-    res.json({ rules: { defaultShiftId: s.defaultShiftId, lateAllowancePerMonth: s.lateAllowancePerMonth, latePenaltyEvery: s.latePenaltyEvery, photoRetentionDays: s.photoRetentionDays, readerUsersBecomeEmployees: s.readerUsersBecomeEmployees, leaveApproval: s.leaveApproval, correctionApproval: s.correctionApproval, ...(await trustRules(accountId, orgId, s)) } });
+    res.json({ rules: { defaultShiftId: s.defaultShiftId, lateAllowancePerMonth: s.lateAllowancePerMonth, latePenaltyEvery: s.latePenaltyEvery, photoRetentionDays: s.photoRetentionDays, readerUsersBecomeEmployees: s.readerUsersBecomeEmployees, leaveApproval: s.leaveApproval, correctionApproval: s.correctionApproval, autoShiftByPunch: s.autoShiftByPunch, ...(await trustRules(accountId, orgId, s)) } });
   } catch (e) {
     return sendError(res, e);
   }

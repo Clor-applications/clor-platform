@@ -142,8 +142,8 @@ People already matches or beats ERPNext HR on leave (accrual, carry forward incl
 | 2 | Leave block dates (ERPNext Leave Block List) | DONE |
 | 3 | Grant leave to many (ERPNext Leave Control Panel) | DONE |
 | 4 | Carried days expire after N days of the period | DONE |
-| 5 | Import attendance from Excel (check before saving) | NEXT (batch 2) |
-| 6 | Punch window before/after a shift; auto-pick shift by first punch | NEXT (batch 2) |
+| 5 | Import attendance from Excel (check before saving) | DONE (batch 2) |
+| 6 | Punch window before/after a shift; auto-pick shift by first punch | DONE (batch 2) |
 | 7 | Reminders: birthday, work anniversary, holiday, monthly leave balance | TODO |
 | 8 | Alert rules builder (N days before/after any date field, tell a person or role) | TODO |
 | 9 | Help desk auto-assign in turn | TODO |
@@ -163,6 +163,14 @@ People already matches or beats ERPNext HR on leave (accrual, carry forward incl
 - **Carried days expire.** `LeaveType.carryExpiresAfterDays` (migration `20261105110000_carry_expiry`); carried days are used first, what is left lapses that many days after the period start and does not carry again; shown in "Why this number?". `services/attendance/leaveAccrual.ts` (`lapsedIn`), `leaveBalances.ts` (`takenBefore`), Leave policy field. Tests `carryExpiry.test.ts` (4).
 - All three migrations are applied to the owner's dev database (`npx prisma migrate deploy --schema prisma/people/schema.prisma`).
 
+### Batch 2 as built (29 Oct, branch `claude/people-batch-2` from `main`)
+
+- **Import attendance from Excel.** Settings → Import data (shared screen `apps/attendance/src/screens/DataImport.jsx`) takes `.xlsx` as well as CSV (an old `.xls` is told to save as `.xlsx`). A sheet's own headings work: `Emp code`, `In time`, `Out`, `Remarks` match the template columns by key, label or other name (`packages/ui/src/utils/importColumns.js` `matchColumns`, `rowsByColumn`); times as people type them (`9:05 am`, `09.30`, `0930`, Excel time cells) become HH:MM (`toHHMM`); `P / A / HD / Leave / WO` become CLOR's statuses (`toStatus`). The screen says which columns it read and which are missing. The Excel reader now reads time-of-day cells as `HH:MM` and date-and-time cells as `YYYY-MM-DD HH:MM` instead of a 1899 date (`xlsx.js` `excelFractionToHHMM`). The check (dry run) on `POST /attendance/records/import` refuses the same person and day twice ("Same person and day as row N") and lists days already recorded that the import would replace, with how they were made (reader, by hand, request …). Tests: `punchWindowAutoShift.test.ts` (import block), web `people-attendance-import.test.js` (6), `xlsx-reader.test.js` (+1).
+- **Punch window.** `Shift.checkInBeforeMinutes`, `checkOutAfterMinutes` (blank = no limit): a reader punch outside the window is kept but does not make the day (`services/attendance/autoShift.ts` `withinWindow`, applied in `punches.ts` `recomputeDeviceDay`). Fields on the Shifts form (Attendance app) and carried by `shiftBody.js` so policy screens keep them; part of a shift's rule version.
+- **First punch picks the shift.** `AttendanceSettings.autoShiftByPunch` (Attendance rules → "Pick the shift from the first punch") and `Shift.autoPick` ("Can be picked by the first punch"; not for night shifts). For someone with no temporary, personal or rotation schedule, the first punch of the day picks the pickable shift whose start is nearest, within its window (default 3 hours early); saved as a one-day `TemporarySchedule` with `pickedByPunch = true`, so day, month, reports and payroll agree. A later, earlier punch re-picks; a schedule a person wrote is never replaced. `autoShift.ts` `pickShift`, `autoPickShift`.
+- Migration `20261106090000_punch_window_auto_shift` (columns only), applied to `clor_people_dev` and `clor_ui_audit`.
+- Tests: server `punchWindowAutoShift.test.ts` (7); web `shiftBody.test.js` (+1).
+
 ### Tests left behind by the Talent move, fixed (29 Oct)
 
 Hiring, goals and training moved from the workspace registers to Talent tables (`routes/peopleTalent.ts`, `TALENT-DECISIONS.md`); seven server test files still used `/workspace/recruitment|candidates|performance`. Rewritten to the Talent routes: `peopleWorkspace`, `peopleHire`, `peopleOffers`, `peopleHome`, `peopleChangeLog`, `modules`; `peopleTalent` (one-on-ones) now gives the peer an employee file so it checks "not your report" (403), not "link your sign-in" (409).
@@ -175,7 +183,7 @@ Hiring, goals and training moved from the workspace registers to Talent tables (
 
 ### Next
 
-1. Batch 2: import attendance from Excel; punch window and auto shift by first punch.
+1. Batch 2 is built (above); commit and open its PR when the owner asks.
 2. Then reminders, alert rules, help desk auto-assign, custom request types, employee form setup, shift swap.
 3. Approval workflow upgrades W1–W5 when the owner returns to them.
 4. Commit on a named branch when the owner asks (no employer names in commits; see memory).

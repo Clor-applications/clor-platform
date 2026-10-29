@@ -221,6 +221,14 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/import', can(PermissionAc
   const byCode = await peopleByCode(orgId);
   const nightOn = await nightShiftsOn(orgId, accountId);
   const results: RowResult[] = [];
+  /* Days already recorded for the people and dates in the file: the check says which an import would replace, and how they were made. */
+  const dates = [...new Set(rows.map((r: any) => String(r?.date || '').trim()).filter((d: string) => ISO_DATE.test(d)))] as string[];
+  const ids = [...new Set(rows.map((r: any) => byCode.get(codeKey(r?.employeeCode ?? r?.code))?.id).filter(Boolean))] as string[];
+  const recorded = dates.length && ids.length
+    ? new Map((await peoplePrisma.attendanceRecord.findMany({ where: { orgId, employeeId: { in: ids }, date: { in: dates } }, select: { employeeId: true, date: true, source: true } })).map((x) => [`${x.employeeId}|${x.date}`, x.source]))
+    : new Map<string, string>();
+  const replacing: Array<{ row: number; source: string }> = [];
+  const seen = new Map<string, number>();
   for (let i = 0; i < rows.length; i += 1) {
     const r = rows[i] || {};
     const emp = byCode.get(codeKey(r.employeeCode ?? r.code));
@@ -228,6 +236,10 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/import', can(PermissionAc
     const parsed = markSchema.safeParse({ employeeId: emp.id, date: String(r.date || '').trim(), checkIn: r.checkIn || null, checkOut: r.checkOut || null, status: r.status ? String(r.status).trim().toUpperCase().replace(/[\s-]+/g, '_') : null, note: r.note || null });
     if (!parsed.success) { results.push({ row: i + 1, ok: false, error: parsed.error.issues[0]?.message || 'Invalid row.' }); continue; }
     const b = parsed.data;
+    /* The same person and day twice: the second would silently overwrite the first, so neither guess is made. */
+    const key = `${emp.id}|${b.date}`;
+    if (seen.has(key)) { results.push({ row: i + 1, ok: false, error: `Same person and day as row ${seen.get(key)}. Keep one of them.` }); continue; }
+    seen.set(key, i + 1);
     try {
       if ((b.checkIn && !isHHMM(b.checkIn)) || (b.checkOut && !isHHMM(b.checkOut))) throw fail(400, 'Times are HH:MM, 24-hour.');
       if (b.checkOut && !b.checkIn) throw fail(400, 'A check-out needs a check-in.');
@@ -237,12 +249,13 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/import', can(PermissionAc
       if (dryRun) await assertMonthOpen(orgId, b.date);
       else await writeDay({ accountId, orgId, userId: req.auth!.userId, employee, date: b.date, checkIn, checkOut, statusOverride: b.status ?? null, source: 'IMPORT', note: b.note ?? null });
       results.push({ row: i + 1, ok: true });
+      if (recorded.has(key)) replacing.push({ row: i + 1, source: recorded.get(key)! });
     } catch (e: any) {
       results.push({ row: i + 1, ok: false, error: e?.message || 'Not imported.' });
     }
   }
   const imported = results.filter((x) => x.ok).length;
-  res.json({ dryRun, imported, failed: results.length - imported, results: results.filter((x) => !x.ok) });
+  res.json({ dryRun, imported, failed: results.length - imported, results: results.filter((x) => !x.ok), replacing });
 });
 
 /** Holidays from a list: date, name, optional (yes/no), area (by name; blank = everyone). A date already on the calendar with the same name is skipped. */
@@ -735,6 +748,10 @@ const shiftSchema = z.object({
   halfDayMinutes: z.coerce.number().int().min(0).max(1440).default(240),
   fullDayMinutes: z.coerce.number().int().min(1).max(1440).default(480),
   overtimeAfterMinutes: z.coerce.number().int().min(0).max(1440).optional().nullable(),
+  /* The punch window: how early a check-in and how late a check-out still count; blank = no limit. */
+  checkInBeforeMinutes: z.coerce.number().int().min(0, 'The punch window is minutes, 0 or more.').max(720, 'At most 12 hours before the start.').optional().nullable(),
+  checkOutAfterMinutes: z.coerce.number().int().min(0, 'The punch window is minutes, 0 or more.').max(720, 'At most 12 hours after the end.').optional().nullable(),
+  autoPick: z.boolean().optional(),
   weeklyOffDays: z.string().regex(/^([0-6](,[0-6])*)?$/, 'Weekly offs are day numbers 0–6.').default('0'),
   offSaturdays: z.string().regex(/^([1-5](,[1-5])*)?$/, 'Saturdays off are 1–5 (first to fifth).').default(''),
   code: z.string().trim().max(6).optional().nullable(),
@@ -797,7 +814,7 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
   const parsed = shiftSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid shift.' });
   if (parsed.data.halfDayMinutes > parsed.data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.' });
-  const scoring = (x: any) => ({ startTime: x.startTime, endTime: x.endTime, breakMinutes: x.breakMinutes, graceMinutes: x.graceMinutes, earlyOutGraceMinutes: x.earlyOutGraceMinutes, halfDayMinutes: x.halfDayMinutes, fullDayMinutes: x.fullDayMinutes, overtimeAfterMinutes: x.overtimeAfterMinutes ?? null, weeklyOffDays: x.weeklyOffDays, offSaturdays: x.offSaturdays, isActive: x.isActive });
+  const scoring = (x: any) => ({ startTime: x.startTime, endTime: x.endTime, breakMinutes: x.breakMinutes, graceMinutes: x.graceMinutes, earlyOutGraceMinutes: x.earlyOutGraceMinutes, halfDayMinutes: x.halfDayMinutes, fullDayMinutes: x.fullDayMinutes, overtimeAfterMinutes: x.overtimeAfterMinutes ?? null, checkInBeforeMinutes: x.checkInBeforeMinutes ?? null, checkOutAfterMinutes: x.checkOutAfterMinutes ?? null, weeklyOffDays: x.weeklyOffDays, offSaturdays: x.offSaturdays, isActive: x.isActive });
   try {
     /*
      * A shift has no effective date: new times or rules apply to every date it
