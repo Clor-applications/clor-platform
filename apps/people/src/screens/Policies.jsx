@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, X } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -121,16 +121,21 @@ function PolicyForm({ policy, taken = [], categories, purposes = [], onClose, on
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+  /* Enter in a text field submits the form; pressed twice it lands before
+     the disabled button re-renders, so a ref (not state) stops the second save. */
+  const inFlight = useRef(false);
   const save = async () => {
+    if (inFlight.current) return;
     if (!form.title.trim()) { setError({ message: 'Give it a title.' }); return; }
     if (form.category === 'PRIVACY' && !form.purpose) { setError({ message: 'Choose what the notice covers.' }); return; }
+    inFlight.current = true;
     setSaving(true);
     setError(null);
     try {
       const r = policy ? await updatePolicy(policy.id, { ...form, title: form.title.trim() }) : await createPolicy({ ...form, title: form.title.trim() });
       notify.success(`${r.policy.title} saved.`);
       onSaved(r.policy);
-    } catch (err) { setError(err); } finally { setSaving(false); }
+    } catch (err) { setError(err); } finally { inFlight.current = false; setSaving(false); }
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={policy ? `Edit ${policy.title}` : 'New policy'} dirty={dirty}

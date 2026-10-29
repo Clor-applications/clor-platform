@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Download, FileText, Search, Table2 } from 'lucide-react';
+import { Download, FileText, Search, Table2 } from '@ui/components/ui/lineIcons';
 
 import { downloadCsv } from '../utils/csv';
 import { consumeSearchSeed } from '../utils/searchSeed';

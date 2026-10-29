@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlugZap } from 'lucide-react';
+import { PlugZap } from '@ui/components/ui/lineIcons';
 
 /**
  * A page that is built but not wired, saying so where nobody can miss it.

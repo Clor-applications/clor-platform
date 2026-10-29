@@ -184,11 +184,11 @@ describe('Year end', () => {
   });
 });
 
-describe('Stand-ins', () => {
+describe('Delegates (stand-ins)', () => {
   it('HR names a stand-in for a manager between two dates', async () => {
     render(<StandIns />);
-    fireEvent.click(await screen.findByRole('button', { name: /Add stand-in/ }));
-    await screen.findByRole('dialog', { name: 'Add stand-in' });
+    fireEvent.click(await screen.findByRole('button', { name: /Add delegate/ }));
+    await screen.findByRole('dialog', { name: 'Add delegate' });
     await pick('Manager *', /Asha Rao/);
     await pick('Stands in *', /Ravi Kumar/);
     typeDate(screen.getByLabelText('From'), '01/11/2026');
@@ -200,15 +200,15 @@ describe('Stand-ins', () => {
   it('a reader without the approve right names nobody (the server would refuse)', async () => {
     perms.current = { isAdmin: false, permissions: new Set(['ATTENDANCE::Leave Requests::VIEW']) };
     render(<StandIns />);
-    await screen.findByRole('heading', { name: /Stand-ins/ });
-    expect(screen.queryByRole('button', { name: /Add stand-in/ })).toBeNull();
+    await screen.findByRole('heading', { name: /Delegates/ });
+    expect(screen.queryByRole('button', { name: /Add delegate/ })).toBeNull();
   });
 
   it('a team role names one for themselves only', async () => {
     perms.current = { isAdmin: false, ownDocumentsOnly: true, permissions: new Set(['ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::APPROVE']) };
     render(<StandIns />);
-    fireEvent.click(await screen.findByRole('button', { name: /Add stand-in/ }));
-    await screen.findByRole('dialog', { name: 'Add stand-in' });
+    fireEvent.click(await screen.findByRole('button', { name: /Add delegate/ }));
+    await screen.findByRole('dialog', { name: 'Add delegate' });
     expect(screen.queryByRole('combobox', { name: 'Manager *' })).toBeNull();
     await pick('Stands in *', /Ravi Kumar/);
     typeDate(screen.getByLabelText('From'), '01/11/2026');

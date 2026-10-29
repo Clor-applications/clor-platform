@@ -28,12 +28,19 @@ export const listLeaveTypes = () => get('/leave/types').then((r) => r?.types || 
 export const createLeaveType = (body) => send('/leave/types', 'POST', body);
 export const updateLeaveType = (typeId, body) => send(`/leave/types/${id(typeId)}`, 'PUT', body);
 export const deleteLeaveType = (typeId) => send(`/leave/types/${id(typeId)}`, 'DELETE');
+export const bulkGrantLeave = (body) => send('/leave/adjustments/bulk', 'POST', body);
+export const listLeaveBlocks = () => get('/leave/blocks').then((r) => r?.blocks || []);
+export const createLeaveBlock = (body) => send('/leave/blocks', 'POST', body);
+export const updateLeaveBlock = (blockId, body) => send(`/leave/blocks/${id(blockId)}`, 'PUT', body);
+export const deleteLeaveBlock = (blockId) => send(`/leave/blocks/${id(blockId)}`, 'DELETE');
 
 export const listLeaveRequests = (params) => get(`/leave/requests${query(params)}`).then((r) => r?.requests || []);
 /** One page of requests, searched and filtered on the server: { requests, total, counts: { PENDING, APPROVED, REJECTED, CANCELLED, all } }. */
 export const pageLeaveRequests = (params) => get(`/leave/requests${query(params)}`);
 /** One request's story: { request, history, dates, balance, parts, alsoAway, waitingForManager, ownRequest }. */
 export const getLeaveRequest = (requestId) => get(`/leave/requests/${id(requestId)}`);
+/** The document sent with a request (a certificate), as a data URL. */
+export const getLeaveDocument = (requestId) => get(`/leave/requests/${id(requestId)}/document`).then((r) => r?.document || null);
 /** What a request would charge, without saving: { ok, total, split, parts[{label, from, to, days, balance, dates}], problems, reasonNeeded, alsoAway }. */
 export const previewLeave = (body) => send('/leave/requests/preview', 'POST', body);
 export const previewMyLeave = (body) => send('/me/leave/preview', 'POST', body);
@@ -111,6 +118,8 @@ export function creditText(t) {
 }
 export const listHolidays = (year) => get(`/holidays${query({ year })}`).then((r) => r?.holidays || []);
 export const listRecords = (params) => get(`/records${query(params)}`).then((r) => r?.records || []);
+/* Mark one person's day by hand: check-in, check-out (HH:MM) or a status (server: PUT /attendance/records). */
+export const markDay = (body) => send('/records', 'PUT', body);
 export const getMyDays = () => get('/me');
 export const clock = (kind) => send('/clock', 'POST', kind ? { kind } : {});
 

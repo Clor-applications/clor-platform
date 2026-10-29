@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CornerDownLeft, Search } from 'lucide-react';
+import { CornerDownLeft, Search } from '@ui/components/ui/lineIcons';
 
 /**
  * Spotlight-style command palette (⌘K / Ctrl+K).

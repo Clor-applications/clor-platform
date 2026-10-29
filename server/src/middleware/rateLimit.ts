@@ -73,6 +73,9 @@ export const refreshLimiter = [guard(60 * 1000, 60, 'session refreshes', (req) =
 /** The payment gateway's webhook: unauthenticated by nature, so a ceiling per address (A-16). */
 export const billingWebhookLimiter = [bucket(60 * 1000, 300, 'webhook calls', (req) => `billing-hook:${ipOf(req)}`)];
 /** Authenticator codes: ten tries in fifteen minutes per signed-in user, so six digits cannot be walked. */
+/* A job opening's public apply page (Talent): a few applications an hour from one address, per link and overall. */
+export const applyLimiter = [guard(60 * 60 * 1000, 10, 'applications', (req) => `apply:${ipOf(req)}`)];
+
 export const codeLimiter = [guard(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 
 /** Machine clients with a bearer token (SCIM providers, on-site connectors): per token, and per address for the ones guessing. */

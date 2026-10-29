@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X } from '@ui/components/ui/lineIcons';
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
@@ -55,7 +55,7 @@ export default function CustomFieldsSettings() {
   ];
   return (
     <div className="space-y-6">
-      <PageHeader title="Custom Fields" actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setDraft(blank())}><Plus size={16} aria-hidden="true" /> New field</button>} />
+      <PageHeader title="Custom fields" actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setDraft(blank())}><Plus size={16} aria-hidden="true" /> New field</button>} />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable label="Custom fields" columns={columns} rows={fields} loading={req.loading} refreshing={req.refreshing}
           total={fields.length} pageSize={Math.max(25, fields.length)} noun="fields"

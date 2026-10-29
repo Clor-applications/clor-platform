@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
@@ -76,7 +76,7 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
     <div className="space-y-6">
       <PageHeader
         entity="privacy"
-        title="Data Health"
+        title="Data check"
         actions={
           <span className="flex items-center gap-2">
             <button type="button" className="ui-btn ui-btn-secondary" onClick={load}>Check again</button>
@@ -84,7 +84,7 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
               items={[exportMenuItem('Export')]}
               onSelect={(k) => {
                 const format = exportFormatFromKey(k);
-                if (format) runListExport({ format, title: 'Data Health', fileName: 'Data health', label: 'problem/problems', columns: EXPORT_COLUMNS, rows });
+                if (format) runListExport({ format, title: 'Data check', fileName: 'Data check', label: 'problem/problems', columns: EXPORT_COLUMNS, rows });
               }}
             />
           </span>

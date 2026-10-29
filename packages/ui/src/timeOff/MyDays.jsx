@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { LogIn, LogOut, Plus } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { LogIn, LogOut, Plus } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -19,8 +19,11 @@ import { homeCrumbs } from './shared';
  */
 function useMyDays() {
   const [me, setMe] = useState(undefined);
+  /* A check-in reloads straight away; the older answer, if it lands later, must not put the day back as it was. */
+  const seq = useRef(0);
   const load = useCallback(() => {
-    getMyDays().then(setMe).catch(() => setMe(null));
+    const n = ++seq.current;
+    getMyDays().then((x) => { if (n === seq.current) setMe(x); }).catch(() => { if (n === seq.current) setMe(null); });
   }, []);
   useEffect(() => { load(); }, [load]);
   return [me, load];
@@ -83,7 +86,7 @@ export function MyRequests({ month, onMonth, asking, onAsk, onAsked }) {
   const on = KINDS.filter((k) => d?.rules?.[k]?.on);
   const today = todayIst();
   const canChange = (r) => r.status === 'PENDING';
-  const canCancel = (r) => r.status === 'PENDING' || (r.status === 'APPROVED' && (r.kind === 'WFH' || r.kind === 'ON_DUTY') && r.date > today);
+  const canCancel = (r) => r.status === 'PENDING' || (r.status === 'APPROVED' && ['WFH', 'ON_DUTY', 'SHIFT_CHANGE'].includes(r.kind) && r.date > today);
   const cancel = async (r) => {
     const ok = await confirmDialog({ title: r.status === 'APPROVED' ? 'Cancel this request?' : 'Withdraw this request?', confirmLabel: r.status === 'APPROVED' ? 'Cancel request' : 'Withdraw' });
     if (!ok) return;
@@ -142,8 +145,8 @@ export function MyRequests({ month, onMonth, asking, onAsk, onAsked }) {
         )}
         empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} compact /> : <EmptyState title="Nothing asked for this month" />}
       />
-      {editing ? <EnterRequest own request={editing} rules={d?.rules} usage={d?.usage} month={month} onClose={() => setEditing(null)} onDone={() => { setEditing(null); req.reload(); }} /> : null}
-      {asking ? <EnterRequest own rules={d?.rules} usage={d?.usage} month={month} onClose={onAsk} onDone={() => { onAsked(); req.reload(); }} /> : null}
+      {editing ? <EnterRequest own request={editing} rules={d?.rules} shifts={d?.shifts} usage={d?.usage} month={month} onClose={() => setEditing(null)} onDone={() => { setEditing(null); req.reload(); }} /> : null}
+      {asking ? <EnterRequest own rules={d?.rules} shifts={d?.shifts} usage={d?.usage} month={month} onClose={onAsk} onDone={() => { onAsked(); req.reload(); }} /> : null}
     </section>
   );
 }
@@ -165,7 +168,7 @@ export default function MyDays() {
     <div className="space-y-6">
       <PageHeader
         breadcrumb={homeCrumbs()}
-        title="My days"
+        title="My attendance"
         /* Checking in is the day's action and keeps the primary button; asking is occasional. */
         actions={me ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setAsking(true)}><Plus size={16} aria-hidden="true" /> Ask</button> : null}
       />

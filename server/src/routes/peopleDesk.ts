@@ -6,6 +6,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PEOPLE_MODULE, peopleRouteOk } from '../services/people/guards.js';
+import { inScope, teamScope } from '../services/people/scope.js';
 import { DESK_STATUSES, DeskError, URGENCIES, addMessage, assignRequest, categoriesOf, listRequests, moveToCase, raiseRequest, reopenRequest, requestDetail, resolveRequest, saveCategory, saveTemplate, templatesOf } from '../services/people/desk.js';
 
 /**
@@ -20,6 +21,8 @@ const CASES = 'HR Cases';
 const can = (action: string) => requirePermission(PEOPLE_MODULE, action as any, CASES);
 const base = '/orgs/:orgId/people/desk';
 const who = (req: Request) => ({ accountId: req.tenant!.accountId, orgId: req.tenant!.orgId, userId: req.auth?.userId || null });
+/** Who, with their team scope: a team lead works only the requests of their own people; anyone else's reads as absent. */
+const scoped = async (req: Request) => ({ ...who(req), scope: await teamScope(req) });
 const sendError = (res: any, e: unknown) => {
   if (e instanceof DeskError) return res.status(e.status).json({ error: e.message });
   console.error('[people-desk]', e instanceof Error ? e.message : e);
@@ -32,7 +35,7 @@ peopleDeskRouter.get(base, can(PermissionAction.VIEW), async (req, res) => {
   const status = String(req.query.status || '').toUpperCase();
   if (status && status !== 'OPEN' && !DESK_STATUSES.includes(status as any)) return res.status(400).json({ error: 'Unknown status.' });
   const [requests, categories] = await Promise.all([
-    listRequests(orgId, { status: status || undefined, queue: String(req.query.queue || '') || undefined, assigneeUserId: req.query.mine === '1' ? req.auth!.userId : String(req.query.assignee || '') || undefined, employeeId: String(req.query.employeeId || '') || undefined, q: String(req.query.q || '') }),
+    listRequests(orgId, { status: status || undefined, queue: String(req.query.queue || '') || undefined, assigneeUserId: req.query.mine === '1' ? req.auth!.userId : String(req.query.assignee || '') || undefined, employeeId: String(req.query.employeeId || '') || undefined, q: String(req.query.q || ''), scope: await teamScope(req) }),
     categoriesOf(accountId, orgId),
   ]);
   res.json({ requests, categories, queues: [...new Set(categories.map((c) => c.queue))], urgencies: URGENCIES });
@@ -80,7 +83,7 @@ peopleDeskRouter.post(base, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.body?.employeeId || ''), accountId, orgId }, select: { id: true } });
-  if (!employee) return res.status(400).json({ error: 'Pick the employee it is for.' });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(400).json({ error: 'Pick the employee it is for.' });
   try {
     res.status(201).json({ request: await raiseRequest(who(req), employee.id, req.body || {}) });
   } catch (e) {
@@ -91,7 +94,7 @@ peopleDeskRouter.post(base, can(PermissionAction.EDIT), async (req, res) => {
 peopleDeskRouter.get(`${base}/:id`, can(PermissionAction.VIEW), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
-    res.json({ request: await requestDetail(req.tenant!.orgId, String(req.params.id)) });
+    res.json({ request: await requestDetail(req.tenant!.orgId, String(req.params.id), { scope: await teamScope(req) }) });
   } catch (e) {
     sendError(res, e);
   }
@@ -100,7 +103,7 @@ peopleDeskRouter.get(`${base}/:id`, can(PermissionAction.VIEW), async (req, res)
 peopleDeskRouter.post(`${base}/:id/messages`, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
-    res.status(201).json({ message: await addMessage(who(req), String(req.params.id), req.body || {}) });
+    res.status(201).json({ message: await addMessage(await scoped(req), String(req.params.id), req.body || {}) });
   } catch (e) {
     sendError(res, e);
   }
@@ -109,7 +112,7 @@ peopleDeskRouter.post(`${base}/:id/messages`, can(PermissionAction.EDIT), async 
 peopleDeskRouter.post(`${base}/:id/assign`, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
-    res.json({ request: await assignRequest(who(req), String(req.params.id), req.body || {}) });
+    res.json({ request: await assignRequest(await scoped(req), String(req.params.id), req.body || {}) });
   } catch (e) {
     sendError(res, e);
   }
@@ -118,7 +121,7 @@ peopleDeskRouter.post(`${base}/:id/assign`, can(PermissionAction.EDIT), async (r
 peopleDeskRouter.post(`${base}/:id/resolve`, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
-    res.json({ request: await resolveRequest(who(req), String(req.params.id), req.body || {}) });
+    res.json({ request: await resolveRequest(await scoped(req), String(req.params.id), req.body || {}) });
   } catch (e) {
     sendError(res, e);
   }
@@ -127,7 +130,7 @@ peopleDeskRouter.post(`${base}/:id/resolve`, can(PermissionAction.EDIT), async (
 peopleDeskRouter.post(`${base}/:id/reopen`, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
-    res.json({ request: await reopenRequest(who(req), String(req.params.id)) });
+    res.json({ request: await reopenRequest(await scoped(req), String(req.params.id)) });
   } catch (e) {
     sendError(res, e);
   }
@@ -136,7 +139,7 @@ peopleDeskRouter.post(`${base}/:id/reopen`, can(PermissionAction.EDIT), async (r
 peopleDeskRouter.post(`${base}/:id/move-to-case`, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
-    res.json({ request: await moveToCase(who(req), String(req.params.id), req.body || {}) });
+    res.json({ request: await moveToCase(await scoped(req), String(req.params.id), req.body || {}) });
   } catch (e) {
     sendError(res, e);
   }

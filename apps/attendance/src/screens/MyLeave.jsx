@@ -12,6 +12,8 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { LEAVE_STATUS, applyLeave, cancelMyLeave, editMyLeave, explainMyLeave, getMyLeave, getMyRestrictedHolidays, pickMyRestrictedHoliday, shortenMyLeave } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 import LeaveExplain from '../components/LeaveExplain';
+import LeaveDocumentField from '@ui/timeOff/LeaveDocumentField';
+import HalfDayChoice, { HalfDayNote, halfDayBody, leaveSpan } from '@ui/timeOff/HalfDayChoice';
 
 /**
  * My leave (People → Time & Leave → My leave, and Attendance's own): one's
@@ -19,7 +21,7 @@ import LeaveExplain from '../components/LeaveExplain';
  * as the dates are picked, the days it takes, the dates it skips and why,
  * and the balance after (AUT-05) — the same preview the employee app shows.
  */
-const BLANK = { leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', reason: '' };
+const BLANK = { leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', startHalf: false, endHalf: false, reason: '' };
 const STATUS_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled' };
 const PRIVATE_LABEL = 'Private leave';
 const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's'}`);
@@ -215,7 +217,7 @@ export default function MyLeave() {
       ) : null}
 
       {asking ? <AskLeave types={me.types} onClose={() => setAsking(false)} onDone={() => { setAsking(false); load(); }} /> : null}
-      {editing ? <AskLeave types={me.types} request={editing} onClose={() => setEditing(null)} onDone={() => { setEditing(null); load(); }} /> : null}
+      {editing ? <AskLeave types={me.types} rows={me.requests || []} request={editing} onClose={() => setEditing(null)} onDone={() => { setEditing(null); load(); }} /> : null}
       {shortening ? <CameBackEarly request={shortening} onClose={() => setShortening(null)} onDone={() => { setShortening(null); load(); }} /> : null}
       <LeaveExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />
     </div>
@@ -245,6 +247,7 @@ function LeavePreview({ preview, checking }) {
           </ul>
         </div>
       ) : null}
+      <HalfDayNote parts={parts} />
       {skipped.length ? (
         <ul className="space-y-0.5 ui-muted" aria-label="Dates not counted">
           {skipped.map((d) => <li key={d.date}><span className="tabular-nums">{dayLabel(d.date)}</span> — {d.why}</li>)}
@@ -255,23 +258,24 @@ function LeavePreview({ preview, checking }) {
   );
 }
 
-function AskLeave({ types, onClose, onDone, request = null }) {
+function AskLeave({ types, rows = [], onClose, onDone, request = null }) {
   const editing = Boolean(request);
-  const startForm = request ? { leaveTypeId: request.leaveTypeId, fromDate: request.fromDate, toDate: request.toDate, halfDay: request.halfDay || '', reason: request.reason || '' } : BLANK;
+  const startForm = request ? { leaveTypeId: request.leaveTypeId, ...leaveSpan(request, rows), reason: request.reason || '' } : BLANK;
   const [form, setForm] = useState(startForm);
   const [saving, setSaving] = useState(false);
   const [got, setGot] = useState(null);
+  /* The document a long request of some types asks for; a change keeps the one already sent. */
+  const [doc, setDoc] = useState(null);
   const set = (k, v) => setForm((f) => ({
     ...f,
     [k]: v,
     ...(k === 'fromDate' && v && f.toDate && f.toDate < v ? { toDate: v } : {}),
-    ...(k === 'leaveTypeId' ? { halfDay: '' } : {}),
+    ...(k === 'leaveTypeId' ? { halfDay: '', startHalf: false, endHalf: false } : {}),
   }));
-  const oneDay = Boolean(form.fromDate) && (!form.toDate || form.toDate === form.fromDate);
 
   /* The preview follows the form; only the answer for the dates on screen counts. */
   const key = form.leaveTypeId && form.fromDate
-    ? JSON.stringify({ leaveTypeId: form.leaveTypeId, fromDate: form.fromDate, toDate: form.toDate || form.fromDate, halfDay: oneDay && form.halfDay ? form.halfDay : null, ...(request ? { editing: request.id } : {}) })
+    ? JSON.stringify({ leaveTypeId: form.leaveTypeId, fromDate: form.fromDate, toDate: form.toDate || form.fromDate, ...halfDayBody(form, true), ...(request ? { editing: request.id } : {}) })
     : '';
   useEffect(() => {
     if (!key) return undefined;
@@ -286,11 +290,13 @@ function AskLeave({ types, onClose, onDone, request = null }) {
   const preview = got && got.key === key ? got : null;
   /* Whether the type allows a half day or is private comes with the preview. */
   const type = got?.type && got.type.id === form.leaveTypeId ? got.type : null;
-  const halfDayOffered = oneDay && Boolean(type?.allowHalfDay);
+  /* Known from the list of types before the preview answers, so the choice shows as soon as a day is picked. */
+  const halfAllowed = Boolean((type || types.find((t) => t.id === form.leaveTypeId))?.allowHalfDay);
   const reasonNeeded = !type?.isPrivate;
   const reasonOk = !reasonNeeded || form.reason.trim().length >= 3;
   const dirty = editing ? JSON.stringify(form) !== JSON.stringify(startForm) : Boolean(form.leaveTypeId || form.fromDate || form.reason);
-  const blocked = !key || !preview || Boolean(preview.problems?.length) || !reasonOk || (editing && !dirty);
+  const documentMissing = Boolean(preview?.documentNeeded) && !doc && !request?.attachmentDocId;
+  const blocked = !key || !preview || Boolean(preview.problems?.length) || !reasonOk || documentMissing || (editing && !dirty && !doc);
 
   const save = async (e) => {
     e?.preventDefault();
@@ -301,9 +307,10 @@ function AskLeave({ types, onClose, onDone, request = null }) {
         leaveTypeId: form.leaveTypeId,
         fromDate: form.fromDate,
         toDate: form.toDate || form.fromDate,
-        halfDay: halfDayOffered && form.halfDay ? form.halfDay : null,
+        ...halfDayBody(form, halfAllowed),
         reason: form.reason.trim(),
         ...(preview.split ? { split: true } : {}),
+        ...(doc ? { attachment: doc } : {}),
       };
       if (editing) {
         await editMyLeave(request.id, body);
@@ -342,16 +349,12 @@ function AskLeave({ types, onClose, onDone, request = null }) {
           <div><label className="ui-label" htmlFor="ml-from">First day *</label><DatePicker id="ml-from" value={form.fromDate} onChange={(v) => set('fromDate', v || '')} /></div>
           <div><label className="ui-label" htmlFor="ml-to">Last day</label><DatePicker id="ml-to" value={form.toDate} min={form.fromDate} onChange={(v) => set('toDate', v || '')} /></div>
         </div>
-        {halfDayOffered ? (
-          <div>
-            <PopupSelect showValueSubtext={false} label="How much of the day" value={form.halfDay || 'WHOLE'} onChange={(v) => set('halfDay', v === 'WHOLE' ? '' : v || '')}
-              options={[{ value: 'WHOLE', label: 'Whole day' }, { value: 'FIRST', label: 'First half' }, { value: 'SECOND', label: 'Second half' }]} />
-          </div>
-        ) : null}
+        <HalfDayChoice form={form} allowed={halfAllowed} typeName={(type || types.find((t) => t.id === form.leaveTypeId))?.name} label="How much of the day" onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
         <label className="block">
           <span className="ui-label">{reasonNeeded ? 'Reason *' : 'Reason'}</span>
           <input className="ui-input w-full" maxLength={500} value={form.reason} onChange={(e) => set('reason', e.target.value)} />
         </label>
+        {preview?.documentNeeded || doc ? <LeaveDocumentField typeName={type?.name} afterDays={preview?.documentAfterDays} value={doc} onChange={setDoc} required={!request?.attachmentDocId} note={request?.attachmentDocId ? 'The one already sent stays unless you choose another.' : ''} /> : null}
         <LeavePreview preview={preview} checking={Boolean(key) && !preview} />
       </form>
     </Drawer>

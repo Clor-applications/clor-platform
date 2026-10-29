@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useDismissable } from '../ui/useDismissable';
-import { Bookmark } from 'lucide-react';
+import { Bookmark } from '@ui/components/ui/lineIcons';
 
 /**
  * The one grid control in a list's toolbar: Layout.

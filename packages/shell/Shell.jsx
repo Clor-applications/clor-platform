@@ -1,5 +1,5 @@
-import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CalendarDays, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from 'lucide-react';
+import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Building2, CalendarDays, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -10,7 +10,7 @@ import { getMyPermissions } from '@ui/api/permissions';
 import { PermissionProvider } from '@ui/permissions/PermissionContext';
 import { WriteGuard } from '@ui/permissions/WriteGuard';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
-import { IconSetContext } from '@ui/components/ui/iconSet';
+import { IconSetContext, LineSetContext } from '@ui/components/ui/iconSet';
 
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { ADMIN_APP_ID, appFromHost, hostForApp, isFrontDoor } from './appHosts';
@@ -25,8 +25,9 @@ import { confirmDialog } from '@ui/components/ui/notify';
 const askLeave = () => confirmDialog({ title: 'Leave without saving?', message: 'Your changes on this page have not been saved.', confirmLabel: 'Leave', tone: 'danger' });
 import HelpCenter from './HelpCenter';
 import ClorMark from './ClorMark';
-import { ClorLogo } from '@ui/components/brand';
+import { ClorLogo, ClorTick } from '@ui/components/brand';
 import NotificationBell from './NotificationBell';
+import { watchWideTables } from './wideTables';
 import HelpMenu from './HelpMenu';
 import TwoFactorGate from './TwoFactorGate';
 import CommandPalette from '@ui/components/ui/CommandPalette';
@@ -255,6 +256,8 @@ export default function Shell() {
    * Opening a screen sets both; Back sets both from the address.
    */
   const [liveParams, setLiveParams] = useState(() => screenParams);
+  const liveParamsRef = useRef(liveParams);
+  useEffect(() => { liveParamsRef.current = liveParams; });
   const setScreenParams = (next) => {
     setScreenParamsState(next);
     setLiveParams(next);
@@ -286,6 +289,28 @@ export default function Shell() {
    * shell's stays out of its way.
    */
   const [paletteOpen, setPaletteOpen] = useState(false);
+  /* The bar's search starts where the page's own content starts, just past the
+     module panel's edge (owner, 28 Oct 2026), and follows it as the panel opens
+     and closes or the window changes. */
+  const searchRef = useRef(null);
+  useEffect(() => watchWideTables(document.body), []);
+  useLayoutEffect(() => {
+    const search = searchRef.current;
+    const main = document.getElementById('main-content');
+    if (!search || !main || typeof ResizeObserver === 'undefined') return undefined;
+    const place = () => {
+      search.style.marginLeft = '';
+      const pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const target = main.getBoundingClientRect().left + pad;
+      const gap = target - search.getBoundingClientRect().left;
+      if (gap > 12) search.style.marginLeft = `${12 + gap}px`;
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(main);
+    window.addEventListener('resize', place);
+    return () => { ro.disconnect(); window.removeEventListener('resize', place); };
+  });
   const paletteAppRef = useRef('');
   useEffect(() => {
     const onKey = (e) => {
@@ -344,8 +369,17 @@ export default function Shell() {
     window.addEventListener(OPEN_APP_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_APP_EVENT, onOpen);
   }, []);
+  /* Where each screen was opened from (owner, 29 Oct 2026): a Settings page opened from Leave balances or an
+     employee's record goes back there, not to the Settings hub. Kept per screen, for the visit in hand. */
+  const [cameFrom, setCameFrom] = useState({});
+  const noteOrigin = (next) => {
+    if (!next || next === screenKeyRef.current) return;
+    const from = screenKeyRef.current;
+    setCameFrom((m) => ({ ...m, [next]: from ? { key: from, params: liveParamsRef.current || null } : null }));
+  };
   const goTo = (key) => { confirmLeave(askLeave).then((ok) => ok && goToNow(key)); };
   const goToNow = (key) => {
+    noteOrigin(key);
     setScreenKey(key);
     setScreenParams(null);
     setPlatformScreen(null);
@@ -489,6 +523,16 @@ export default function Shell() {
     return () => document.documentElement.removeAttribute('data-app');
   }, [activeAppId]);
 
+  /* The browser tab shows the open app: People wears the new mark (brand kit,
+     28 Oct 2026); every other app the CLOR icon index.html starts with. */
+  useEffect(() => {
+    const icon = document.querySelector('link[rel="icon"]');
+    if (!icon) return undefined;
+    const was = { href: icon.getAttribute('href'), type: icon.getAttribute('type') };
+    if (activeAppId === 'people') { icon.setAttribute('type', 'image/svg+xml'); icon.setAttribute('href', '/icons/people.svg'); }
+    return () => { icon.setAttribute('href', was.href); icon.setAttribute('type', was.type); };
+  }, [activeAppId]);
+
   /* The shared palette the open app has chosen (`palette` in its manifest,
      e.g. 'blaze'), on <html> for the same reason. An app without one keeps
      the platform's colours. */
@@ -593,7 +637,8 @@ export default function Shell() {
   if (restoring) {
     return (
       <div className="min-h-dvh grid place-items-center" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
-        <ClorMark size={40} />
+        {/* The app the address names is known before the session is: People's loading screen wears its own mark. */}
+        {chosenAppId === 'people' ? <ClorTick size={40} /> : <ClorMark size={40} />}
       </div>
     );
   }
@@ -745,6 +790,21 @@ export default function Shell() {
           </button>
         );
       })}
+      {/* More apps sits on the rail, under the modules, where every app's last stop is (owner, 28 Oct 2026). The phone sheet keeps its own. */}
+      {!phone && app?.id !== ADMIN_APP_ID ? (
+        <button
+          type="button"
+          className="ui-split-mod"
+          data-more=""
+          data-current={showMoreApps || undefined}
+          aria-current={showMoreApps ? 'true' : undefined}
+          title="More apps"
+          onClick={() => { setShowMoreApps(true); setNavOpen(false); }}
+        >
+          <LayoutGrid size={20} aria-hidden="true" />
+          <span>More apps</span>
+        </button>
+      ) : null}
       {/* An app may use the rail's foot (manifest `railFoot`): its own item, then Help, which then leaves the bar. */}
       {app?.railFoot && !phone ? (
         <div className="ui-split-rail-foot">
@@ -791,7 +851,7 @@ export default function Shell() {
         </div>
       ))}
       {/* The Workspace lists the apps on its Overview and the switcher has More apps; its own panel is administration only. */}
-      {app?.id === ADMIN_APP_ID ? null : (
+      {app?.id === ADMIN_APP_ID || !phone ? null : (
         <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="mt-4 pt-3">
           <button type="button" className="ui-split-item" onClick={() => { setShowMoreApps(true); setNavOpen(false); }}>
             <LayoutGrid size={15} aria-hidden="true" />
@@ -858,6 +918,7 @@ export default function Shell() {
     /* The open app's icon set (`iconSet` in its manifest): shared marks such as
        the page-header icon draw in it. No icon set, the line icons as before. */
     <IconSetContext.Provider value={app?.iconSet || 'line'}>
+    <LineSetContext.Provider value={app?.lineIcons || 'lucide'}>
       <div
         className="ui-min-h-viewport"
         /* Which app is open, for styling: People, Attendance and Payroll wear the
@@ -874,7 +935,7 @@ export default function Shell() {
         ) : null}
         <header
           /* Tighter on a phone: the bar carries menu, logo, switcher, alerts, help, profile and sign-out in 360 px. */
-          className={`sticky top-0 flex h-14 items-center ${phone ? 'gap-1.5 px-2.5' : 'gap-3 px-4'}`}
+          className={`ui-topbar sticky top-0 flex h-14 items-center ${phone ? 'gap-1.5 px-2.5' : 'gap-3 px-4'}`}
           style={{
             backgroundColor: 'rgb(var(--surface))',
             borderBottom: '1px solid rgb(var(--border))',
@@ -890,7 +951,10 @@ export default function Shell() {
             </button>
           ) : null}
           <button type="button" className="flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
-            {phone ? <ClorMark size={24} /> : <ClorLogo size={20} />}
+            {/* People wears the new mark (brand direction D, 29 Oct 2026); the other apps keep clor.in's until they move over. */}
+            {activeAppId === 'people'
+              ? <ClorTick size={phone ? 24 : 22} wordmark={!phone} />
+              : phone ? <ClorMark size={24} /> : <ClorLogo size={20} />}
           </button>
 
           {/* The app switcher. Named for the app you are in, because that is the
@@ -900,15 +964,16 @@ export default function Shell() {
             <div className="relative" ref={switcherRef}>
               <button
                 type="button"
-                className="ui-btn ui-btn-secondary ui-btn-sm"
+                className="ui-app-switch"
                 onClick={() => setSwitcherOpen((v) => !v)}
                 aria-expanded={switcherOpen}
                 aria-haspopup="menu"
                 aria-label={`${app.name}: switch app`}
               >
-                <app.icon size={15} aria-hidden="true" />
+                {/* The app you are in, as a mark in its own colour and its name in full weight: the first thing the bar answers. */}
+                <span className="ui-app-switch-mark"><app.icon size={16} aria-hidden="true" /></span>
                 {/* On a phone the name is cut short rather than pushing the bar past the screen; the full name is the button's label. */}
-                <span className={phone ? 'truncate' : undefined} style={phone ? { maxWidth: '3.75rem' } : undefined}>{app.name}</span>
+                <span className={`ui-app-switch-name${phone ? ' truncate' : ''}`} style={phone ? { maxWidth: '3.75rem' } : undefined}>{app.name}</span>
                 <ChevronDown size={14} aria-hidden="true" />
               </button>
 
@@ -973,7 +1038,7 @@ export default function Shell() {
                 <Search size={18} aria-hidden="true" />
               </button>
             ) : (
-              <button type="button" className="ui-global-search" onClick={() => setPaletteOpen(true)} aria-keyshortcuts="Meta+K Control+K">
+              <button type="button" ref={searchRef} className="ui-global-search" onClick={() => setPaletteOpen(true)} aria-keyshortcuts="Meta+K Control+K">
                 <Search size={16} aria-hidden="true" />
                 {/* Named by its visible words; the shortcut is announced through aria-keyshortcuts, so the keycap is hidden from it. */}
                 <span>Search screens and apps</span>
@@ -987,9 +1052,11 @@ export default function Shell() {
           {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
           {/* The company in use. The Workspace shows it too: half its pages change only this company. */}
           {!phone || tenants.length > 1 ? (
+            <label className="ui-company-pick">
+              {!phone ? <Building2 size={16} aria-hidden="true" className="ui-company-pick-icon" /> : null}
             <select
               className="ui-select ui-select-sm min-w-0"
-              style={{ width: 'auto', minWidth: phone ? '4rem' : '12rem', maxWidth: phone ? '30vw' : undefined }}
+              style={{ width: 'auto', minWidth: phone ? '4rem' : '10rem', maxWidth: phone ? '30vw' : undefined }}
               value={tenant.id}
               disabled={tenants.length < 2}
               onChange={(e) => { const next = e.target.value; confirmLeave(askLeave).then((ok) => ok && setTenantId(next)); }}
@@ -1009,6 +1076,7 @@ export default function Shell() {
                 )
               )}
             </select>
+            </label>
           ) : null}
 
           {/* The Workspace's date, once, in the bar: the browser's own locale and timezone. */}
@@ -1044,15 +1112,18 @@ export default function Shell() {
               }}
               aria-label="My profile"
               title="My profile"
-              style={user?.avatarUrl ? { width: 36, height: 36, padding: 2 } : undefined}
+              style={user?.avatarUrl || user?.fullName ? { width: 38, height: 38, padding: 2, borderRadius: 999 } : undefined}
             >
               {/* A person's own photo, larger and round, when they have one; otherwise the app's profile icon. */}
               {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt="" width="32" height="32" className="rounded-full object-cover" style={{ width: 32, height: 32, boxShadow: '0 0 0 1px rgb(var(--border))' }} />
+                <img src={user.avatarUrl} alt="" width="34" height="34" className="rounded-full object-cover" style={{ width: 34, height: 34, boxShadow: '0 0 0 2px rgb(var(--surface)), 0 0 0 3px rgb(var(--border))' }} />
+              ) : user?.fullName ? (
+                /* No photo yet: the person's initials, so the button is theirs at a glance (in the colour set too: a stock figure is nobody's). */
+                <span className="ui-topbar-initials" aria-hidden="true">{String(user.fullName).trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>
               ) : app?.iconSet === 'color' ? (
                 <ProfileColor size={20} />
               ) : (
-                <UserRound size={16} />
+                <UserRound size={18} />
               )}
             </button>
           ) : null}
@@ -1192,7 +1263,10 @@ export default function Shell() {
                         <ArrowLeft size={16} aria-hidden="true" /> Back{app ? ` to ${app.name}` : ''}
                       </button>
                     </div>
-                    <ProfileScreen key={tenant.id} />
+                    <ProfileScreen
+                      key={tenant.id}
+                      links={(app?.profileLinks || []).map((k) => nav.find((i) => i.key === k)).filter(Boolean).map((i) => ({ key: i.key, label: i.label, icon: i.icon, onOpen: () => goTo(i.key) }))}
+                    />
                   </div>
                 </div>
               </ScreenBoundary>
@@ -1221,11 +1295,23 @@ export default function Shell() {
                       const parentKey = (app?.nav || []).find((n) => n.key === screen)?.parent;
                       /* Only under a hub (Settings); a page inside a list's module (an employee record) draws its own breadcrumb. */
                       const parent = parentKey && nav.find((n) => n.key === parentKey && n.hub);
-                      return parent ? (
-                        <button type="button" className="ui-link mb-2 inline-flex items-center gap-1 text-sm" onClick={() => goTo(parent.key)}>
-                          ← {parent.label}
+                      if (!parent) return null;
+                      /* Opened from elsewhere (a list, a record, a quick link): back goes there, with its tab and filters. */
+                      const from = cameFrom[screen];
+                      const origin = from && from.key !== parent.key ? nav.find((n) => n.key === from.key) : null;
+                      const back = () => confirmLeave(askLeave).then((ok) => {
+                        if (!ok) return;
+                        if (!origin) { goToNow(parent.key); return; }
+                        setScreenKey(origin.key);
+                        setScreenParams(from.params);
+                        setPlatformScreen(null);
+                        window.scrollTo(0, 0);
+                      });
+                      return (
+                        <button type="button" className="ui-link mb-2 inline-flex items-center gap-1 text-sm" onClick={back}>
+                          ← {origin ? origin.label : parent.label}
                         </button>
-                      ) : null;
+                      );
                     })()}
                     <Suspense fallback={<AppLoading />}>
                       <Screen
@@ -1236,7 +1322,11 @@ export default function Shell() {
                           const next = mergeParams(liveParams, patch);
                           const appInHost = Boolean(appFromHost());
                           const url = `${window.location.pathname}${screenSearch(window.location.search, { app: activeAppId, open: screenKey, appInHost, params: next })}${window.location.hash}`;
-                          if (opts.push) window.history.pushState(null, '', url);
+                          /* Under Settings a change of tab or item is not a step of its own: the browser's Back leaves the
+                             page for where it was opened from, not the last thing clicked on it (owner, 29 Oct 2026). */
+                          const hubKey = (app?.nav || []).find((n) => n.key === screen)?.parent;
+                          const underHub = Boolean(hubKey && (app?.nav || []).find((n) => n.key === hubKey)?.hub);
+                          if (opts.push && !underHub) window.history.pushState(null, '', url);
                           else window.history.replaceState(null, '', url);
                           lastUrlRef.current = window.location.href;
                           setLiveParams(next);
@@ -1259,6 +1349,7 @@ export default function Shell() {
                           if (!app?.screens?.[key]) return;
                           confirmLeave(askLeave).then((ok) => {
                             if (!ok) return;
+                            noteOrigin(key);
                             setScreenKey(key);
                             setScreenParams(params && typeof params === 'object' ? params : null);
                             setPlatformScreen(null);
@@ -1336,6 +1427,7 @@ export default function Shell() {
           />
         ) : null}
       </div>
+    </LineSetContext.Provider>
     </IconSetContext.Provider>
   );
 }

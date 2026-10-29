@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus } from '@ui/components/ui/lineIcons';
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
@@ -45,7 +45,7 @@ export default function HelpDeskSettings() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Help Desk"
+      <PageHeader title="Help desk settings"
         actions={tab === 'templates' ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setDraft({ title: '', body: '', category: '', policyId: '' })}><Plus size={16} aria-hidden="true" /> New template</button> : null} />
       <div ref={tabsRef} role="tablist" aria-label="Help desk settings" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
         {[['categories', 'Categories', cats.length], ['templates', 'Answer templates', templates.length]].map(([k, l, n]) => (

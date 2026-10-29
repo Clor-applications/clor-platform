@@ -102,12 +102,14 @@ describe('offers with an accept link', () => {
   });
 
   it('to a candidate: makes them offered; a newer offer withdraws the older; an offer past its day cannot be accepted; declining tells HR', async () => {
-    const job = (await people(hr).post('/workspace/recruitment', { title: 'Accountant', status: 'OPEN', details: { openings: 1 } }).expect(201)).body.record;
-    const cand = (await people(hr).post('/workspace/candidates', { title: 'Meera K', status: 'INTERVIEW', details: { jobId: job.id, email: 'meera@example.com', phone: '' } }).expect(201)).body.record;
+    /* Candidates live in Talent (routes/peopleTalent.ts). */
+    const job = (await people(hr).post('/talent/openings', { title: 'Accountant', status: 'OPEN' }).expect(201)).body.opening;
+    const cand = (await people(hr).post('/talent/candidates', { openingId: job.id, name: 'Meera K', email: 'meera@example.com' }).expect(201)).body.candidate;
+    await people(hr).post(`/talent/candidates/${cand.id}/stage`, { stage: 'INTERVIEW' }).expect(200);
+    const stageOf = async (id: string) => (await people(hr).get(`/talent/candidates/${id}`).expect(200)).body.candidate;
     const first = (await people(hr).post('/offers', { candidateId: cand.id, designation: 'Accountant', annualCtc: 360000, signatory: 'Owner', lines: [] }).expect(201)).body.offer;
     expect(first.acceptBy).toBe(plus(7));
-    const after = (await people(hr).get('/workspace/candidates').expect(200)).body.records.find((r: any) => r.id === cand.id);
-    expect(after.status).toBe('OFFERED');
+    expect((await stageOf(cand.id)).stage).toBe('OFFER');
     const firstToken = await linkFor(hr.orgId, 'meera@example.com');
     const second = (await people(hr).post('/offers', { candidateId: cand.id, designation: 'Senior accountant', annualCtc: 420000, signatory: 'Owner' }).expect(201)).body.offer;
     expect((await people(hr).get(`/offers?candidateId=${cand.id}`).expect(200)).body.offers.map((o: any) => o.status)).toEqual(['SENT', 'WITHDRAWN']);
@@ -122,10 +124,10 @@ describe('offers with an accept link', () => {
     const t3 = await linkFor(hr.orgId, 'meera@example.com');
     const accepted = (await request(app).post(`/api/people/offer/${t3}/accept`).send({}).expect(200)).body;
     expect(accepted.next).toBe('READY_TO_HIRE');
-    const ready = (await people(hr).get('/workspace/candidates').expect(200)).body.records.find((r: any) => r.id === cand.id);
-    expect(ready).toMatchObject({ status: 'OFFERED', details: { offerAcceptedOn: today(), offerId: third.id } });
+    expect(await stageOf(cand.id)).toMatchObject({ stage: 'OFFER', offerAcceptedOn: today() });
+    expect((await people(hr).get(`/offers?candidateId=${cand.id}`).expect(200)).body.offers.find((o: any) => o.id === third.id).status).toBe('ACCEPTED');
 
-    const other = (await people(hr).post('/workspace/candidates', { title: 'Arun', status: 'APPLIED', details: { jobId: job.id, email: 'arun@example.com', phone: '' } }).expect(201)).body.record;
+    const other = (await people(hr).post('/talent/candidates', { openingId: job.id, name: 'Arun', email: 'arun@example.com' }).expect(201)).body.candidate;
     await people(hr).post('/offers', { candidateId: other.id, designation: 'Accountant', annualCtc: 300000, signatory: 'Owner' }).expect(201);
     const t4 = await linkFor(hr.orgId, 'arun@example.com');
     expect((await request(app).post(`/api/people/offer/${t4}/decline`).send({}).expect(200)).body.status).toBe('DECLINED');

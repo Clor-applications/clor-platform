@@ -1,9 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { CheckCheck, Plus, Trash2 } from 'lucide-react';
+import { CheckCheck, Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import ErrorState from '@ui/components/ui/ErrorState';
+import SearchField from '@ui/components/ui/SearchField';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { useTabIndicator } from '@ui/components/ui/RecordTabs';
@@ -86,6 +87,15 @@ export default function Checklists({ openScreen }) {
   const [saved, setSaved] = useState({});
   const [tasks, fetched] = req.data || [[], null];
   const open = tasks.filter((t) => !doneIds.has(t.id));
+  /* A busy month is two hundred items: find one person's, one kind or one owner's (owner, 28 Oct 2026). */
+  const [q, setQ] = useState('');
+  const [kind, setKind] = useState('');
+  const [owner, setOwner] = useState('');
+  const needle = q.trim().toLowerCase();
+  const shown = open.filter((t) => (!kind || t.kind === kind) && (!owner || t.owner === owner)
+    && (!needle || [t.employee.name, t.employee.code, t.title].some((v) => String(v || '').toLowerCase().includes(needle))));
+  const filtered = Boolean(needle || kind || owner);
+  const kinds = [...new Set(open.map((t) => t.kind))].map((k) => ({ value: k, label: TASK_KIND[k] || k }));
   const templates = fetched ? { ...fetched, ...saved } : null;
   const tick = async (t) => {
     try {
@@ -103,22 +113,31 @@ export default function Checklists({ openScreen }) {
     { key: 'due', label: 'Due', render: (t) => <span className={`whitespace-nowrap tabular-nums ${t.overdue ? 'ui-text-neg font-medium' : ''}`}>{t.dueDate ? formatDate(t.dueDate) : '—'}{t.overdue ? ' (late)' : ''}</span> },
     { key: 'done', label: '', render: (t) => <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={(e) => { e.stopPropagation(); tick(t); }}><CheckCheck size={14} aria-hidden="true" /> Done</button> },
   ];
+  const tablist = (
+    <div ref={tabsRef} role="tablist" aria-label="Onboarding and exit" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+      {[['open', 'Open items', open.length], ['JOINING', 'Joining checklist'], ['LEAVING', 'Leaving checklist']].map(([k, l, n]) => (
+        <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
+      ))}
+      {tabIndicator}
+    </div>
+  );
   return (
     <div className="space-y-6">
       <PageHeader entity="employee" breadcrumb={[{ label: 'People' }, { label: 'Onboarding & Exit' }]} title="Onboarding & Exit" />
-      <div ref={tabsRef} role="tablist" aria-label="Onboarding and exit" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {[['open', 'Open items', open.length], ['JOINING', 'Joining checklist'], ['LEAVING', 'Leaving checklist']].map(([k, l, n]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
-        ))}
-        {tabIndicator}
-      </div>
+      {tab === 'open' && !(req.error && !req.data) ? null : tablist}
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : tab === 'open' ? (
-        <DataTable label="Open items" columns={columns} rows={open} loading={req.loading} refreshing={req.refreshing}
-          total={open.length} pageSize={Math.max(25, open.length)} noun="items"
+        <DataTable label="Open items" columns={columns} rows={shown} loading={req.loading} refreshing={req.refreshing}
+          total={shown.length} pageSize={Math.max(25, shown.length)} noun="items"
+          tabs={tablist}
+          toolbar={<>
+            <SearchField value={q} onSearch={(v) => setQ(v || '')} placeholder="Search name, ID or item" label="Search open items" className="w-full sm:w-72" />
+            {kinds.length > 1 ? <div className="w-full sm:w-44"><PopupSelect showValueSubtext={false} ariaLabel="Kind" value={kind} onChange={(v) => setKind(v || '')} options={kinds} placeholder="Every kind" /></div> : null}
+            <div className="w-full sm:w-44"><PopupSelect showValueSubtext={false} ariaLabel="Owner" value={owner} onChange={(v) => setOwner(v || '')} options={OWNERS} placeholder="Every owner" /></div>
+          </>}
           onRowClick={(t) => openScreen?.('employee', { id: t.employee.id })}
           card={(t) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{t.title}</span><span className={`ui-caption tabular-nums ${t.overdue ? 'ui-text-neg' : ''}`}>{t.dueDate ? formatDate(t.dueDate) : ''}</span></span><span className="block truncate ui-caption">{[t.employee.name, CHECKLIST_OWNER[t.owner] || t.owner].join(' · ')}</span></span>}
           rowActions={(t) => [{ key: 'done', label: 'Mark done', onSelect: () => tick(t) }, { key: 'open', label: 'Open their record', onSelect: () => openScreen?.('employee', { id: t.employee.id }) }]}
-          empty={<EmptyState icon={CheckCheck} title="Nothing open" description="When someone joins or leaves, their checklist items appear here until they are done." />} />
+          empty={filtered && open.length ? <EmptyState kind="filtered" title="No items match" onClearFilters={() => { setQ(''); setKind(''); setOwner(''); }} /> : <EmptyState icon={CheckCheck} title="Nothing open" description="When someone joins or leaves, their checklist items appear here until they are done." />} />
       ) : templates ? (
         <TemplateEditor key={`${tab}-${templates[tab.toLowerCase()].custom}-${JSON.stringify(templates[tab.toLowerCase()].items).length}`} kind={tab} template={templates[tab.toLowerCase()]} onSaved={(k, t) => setSaved((all) => ({ ...all, [k.toLowerCase()]: t }))} />
       ) : null}

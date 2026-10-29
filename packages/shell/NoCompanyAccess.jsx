@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, LogOut } from 'lucide-react';
+import { Building2, LogOut } from '@ui/components/ui/lineIcons';
 
 import { ClorLogo } from '@ui/components/brand';
 import { useSession } from './session';

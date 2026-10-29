@@ -31,7 +31,7 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
   const itemName = item && entries?.[0]?.itemId === item ? entries[0].itemName : null;
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Organization', onClick: () => openScreen?.('organization') }, { label: 'Changes' }]} title={itemName ? `Changes: ${itemName}` : 'Changes'} />
+      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Organisation', onClick: () => openScreen?.('organization') }, { label: 'Change history' }]} title={itemName ? `Change history: ${itemName}` : 'Change history'} />
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-full sm:w-64"><PopupSelect showValueSubtext={false} label="Show" value={kind || 'all'} onChange={(v) => updateParams?.({ kind: v && v !== 'all' ? v : null, item: null }, { push: true })} options={KIND_FILTER.map(([value, label]) => ({ value, label }))} /></div>
         {item ? <button type="button" className="ui-btn ui-btn-ghost" onClick={() => updateParams?.({ item: null }, { push: true })}>Show all {KIND_FILTER.find(([k]) => k === kind && k !== 'all')?.[1] || 'changes'}</button> : null}

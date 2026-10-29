@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Download, Printer } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Printer } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -91,8 +91,8 @@ export default function Registers({ params = {}, updateParams, register: fixed }
     <div className="space-y-6">
       <style>{PRINT_CSS}</style>
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Insights' }]}
-        title={fixed ? reg.label : 'Registers'}
+        breadcrumb={[{ label: 'People' }, { label: 'Reports' }]}
+        title={fixed ? reg.label : 'Statutory registers'}
         actions={<>
           <button type="button" className="ui-btn ui-btn-secondary" disabled={!d?.rows?.length} onClick={exportCsv}><Download size={16} aria-hidden="true" /> Export CSV</button>
           <button type="button" className="ui-btn ui-btn-primary" disabled={!d?.rows?.length} onClick={() => window.print()}><Printer size={16} aria-hidden="true" /> Print</button>

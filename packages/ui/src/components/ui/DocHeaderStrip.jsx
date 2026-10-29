@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal } from '@ui/components/ui/lineIcons';
 
 import DocNumberingPopover from '../DocNumberingPopover';
 

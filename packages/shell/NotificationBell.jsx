@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Bell, BellOff, Check } from 'lucide-react';
+import { Bell, BellOff, Check } from '@ui/components/ui/lineIcons';
 
 import { useDismissable } from '@ui/components/ui/useDismissable';
 import { getInbox, getMutes, markAllRead, markRead, setMute } from '@ui/api/notifications';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check } from 'lucide-react';
+import { Check } from '@ui/components/ui/lineIcons';
 
 import Illustration from './Illustration';
 import { iconFor } from './entityIdentity';
@@ -76,7 +76,7 @@ export const PageHeader = ({ title, description, actions = null, entity = '', br
           </nav>
         ) : null}
         <h1 className="ui-t-page">{title}</h1>
-        {description ? <p className="ui-muted ui-t-body mt-1">{description}</p> : null}
+        {description ? <p className="ui-muted ui-t-body mt-0.5" title={typeof description === 'string' ? description : undefined}>{description}</p> : null}
       </div>
     </div>
     {actions ? (

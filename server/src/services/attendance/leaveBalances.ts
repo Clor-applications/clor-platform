@@ -114,7 +114,7 @@ export async function balancesFor(accountId: string, orgId: string, employeeIds:
     : [];
   const personOf = new Map(people.map((p) => [p.id, p]));
   const leftOf = new Map(people.map((p) => [p.id, p.dateOfLeaving || null]));
-  const out = new Map<string, Map<string, Balance & { allocated: number | null; available: number | null; allocationId: string | null; earned?: number; carriedIn?: number; fullYear?: number | null; adjusted?: number; credits?: Array<{ date: string; days: number; total: number; from: string; to: string }>; entitled?: number; locked?: boolean; lockedUntil?: string | null; carryLimit?: number; refused?: number; worked?: { previous: Worked | null; current: Worked | null } }>>();
+  const out = new Map<string, Map<string, Balance & { allocated: number | null; available: number | null; allocationId: string | null; earned?: number; carriedIn?: number; lapsed?: number; fullYear?: number | null; adjusted?: number; credits?: Array<{ date: string; days: number; total: number; from: string; to: string }>; entitled?: number; locked?: boolean; lockedUntil?: string | null; carryLimit?: number; refused?: number; worked?: { previous: Worked | null; current: Worked | null } }>>();
   for (const id of employeeIds) {
     const m = new Map();
     for (const t of types) {
@@ -142,7 +142,9 @@ export async function balancesFor(accountId: string, orgId: string, employeeIds:
       const probation = probationOf(t, person, on);
       const workedIn = (y: number) => workedOf.get(id)?.get(String(y)) ?? null;
       const refusedIn = (y: number) => round(refusedRows.filter((r) => r.employeeId === id && r.leaveTypeId === t.id && periodOf(period, r.fromDate) === y).reduce((a, r) => a + r.days, 0));
-      const b = balanceFor({ ...t, annualDays: entitled }, year, probation.joinedForLeave, on, new Map(allocs.map((a) => [a.year, a.days])), taken, { period, left: leftOf.get(id) ?? null, annualDaysFor: entitledFor, workedIn, refusedIn });
+      /* Carried days lapse unless used in time: the days taken or waiting before then, period by period. */
+      const takenBefore = (y: number, date: string) => round(mine.filter((r) => periodOf(period, r.fromDate) === y && r.fromDate < date).reduce((a, r) => a + r.days, 0));
+      const b = balanceFor({ ...t, annualDays: entitled }, year, probation.joinedForLeave, on, new Map(allocs.map((a) => [a.year, a.days])), taken, { period, left: leftOf.get(id) ?? null, annualDaysFor: entitledFor, workedIn, refusedIn, takenBefore });
       const refused = t.oshCarry ? refusedIn(year) : 0;
       const allocated = round(b.allocated + adjusted);
       m.set(t.id, {
@@ -157,6 +159,7 @@ export async function balancesFor(accountId: string, orgId: string, employeeIds:
         lockedUntil: probation.locked ? probation.until : null,
         earned: b.earned,
         carriedIn: b.carriedIn,
+        lapsed: 'lapsed' in b ? b.lapsed : 0,
         fullYear: b.fullYear == null ? null : round(b.fullYear + adjusted),
         adjusted,
         credits: b.credits,

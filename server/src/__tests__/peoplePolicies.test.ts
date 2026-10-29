@@ -210,3 +210,23 @@ describe('policies', () => {
     expect((await people(hr).post(`/documents/${doc.id}/remind`, {}).expect(200)).body.reminded).toBe(0);
   });
 });
+
+describe('a policy that points at a document', () => {
+  it('only a document employees may read can stand in for the text, and the app never hands out an HR-only one', async () => {
+    const e = (await people(hr).post('/employees', { name: 'Doc Reader', code: `PD-${rnd()}`, dateOfJoining: '2026-01-05' }).expect(201)).body.employee;
+    const hrOnly = (await people(hr).post(`/employees/${e.id}/documents`, { title: 'Salary benchmarks', kind: 'OTHER', classification: 'HR_ONLY', ...file('secret') }).expect(201)).body.document;
+    const open = (await people(hr).post(`/employees/${e.id}/documents`, { title: 'Handbook', kind: 'OTHER', classification: 'EMPLOYEE_VISIBLE', ...file('handbook') }).expect(201)).body.document;
+    const p = (await people(hr).post('/policies', { title: 'Travel policy', category: 'CONDUCT' }).expect(201)).body.policy;
+    const refused = await people(hr).post(`/policies/${p.id}/versions`, { documentId: hrOnly.id, effectiveFrom: '2026-01-01' }).expect(400);
+    expect(refused.body.error).toContain('HR only');
+    const v = (await people(hr).post(`/policies/${p.id}/versions`, { documentId: open.id, effectiveFrom: '2026-01-01' }).expect(201)).body.version;
+    await people(hr).post(`/policies/${p.id}/versions/1/submit`, {}).expect(200);
+    const reader = await portalFor(hr, companyCode, e);
+    expect((await request(app).get(`/api/portal/people/policies/${v.id}`).set(reader).expect(200)).body.policy.document).toMatchObject({ id: open.id, title: 'Handbook' });
+    /* A version saved before the check, still pointing at an HR-only file: the employee gets the policy without the file. */
+    await runInTenant(hr.orgId, () => peoplePrisma.policyVersion.update({ where: { id: v.id }, data: { documentId: hrOnly.id } }));
+    const read = (await request(app).get(`/api/portal/people/policies/${v.id}`).set(reader).expect(200)).body.policy;
+    expect(read.document).toBeNull();
+    expect(JSON.stringify(read)).not.toContain(Buffer.from('secret').toString('base64'));
+  });
+});

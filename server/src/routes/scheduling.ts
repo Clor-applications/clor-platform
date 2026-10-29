@@ -1,3 +1,4 @@
+import { activeLeaveRule } from '../services/attendance/leaveRules.js';
 import { Router } from 'express';
 import { z } from 'zod';
 
@@ -298,7 +299,8 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
       latePenaltyEvery: z.coerce.number().int().min(0).max(31),
       photoRetentionDays: z.coerce.number().int().min(7, 'Keep punch photos at least 7 days.').max(365, 'Keep punch photos at most a year.').default(90),
       readerUsersBecomeEmployees: z.boolean().default(true),
-      leaveApproval: z.enum(['HR', 'MANAGER', 'MANAGER_THEN_HR']).default('HR'),
+      /* RULE: the company's leave approval rule (People → Settings → Approval Rules). */
+      leaveApproval: z.enum(['HR', 'MANAGER', 'MANAGER_THEN_HR', 'RULE']).default('HR'),
       correctionApproval: z.enum(['HR', 'MANAGER', 'MANAGER_THEN_HR']).default('HR'),
       /* Left out: unchanged. */
       readerTrust: z.boolean().optional(),
@@ -307,6 +309,7 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the rules.' });
   const { readerTrust, ...settings } = parsed.data;
+  if (settings.leaveApproval === 'RULE' && !(await activeLeaveRule(orgId))) return res.status(400).json({ error: 'Set up the leave approval rule first, in Settings → Approval Rules.' });
   try {
     if (parsed.data.defaultShiftId) await shiftIn(orgId, parsed.data.defaultShiftId);
     const previous = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });

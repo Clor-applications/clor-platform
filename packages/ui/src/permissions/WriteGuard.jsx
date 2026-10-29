@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock } from '@ui/components/ui/lineIcons';
 
 import { notify } from '../components/ui/notify';
 import { usePermissions } from './usePermissions';
