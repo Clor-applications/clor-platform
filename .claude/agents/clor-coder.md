@@ -25,3 +25,6 @@ You implement one CLOR module. Read `docs/TEAM.md` first, then `CLAUDE.md`, `DES
 
 ## Machine etiquette (one Mac runs everything)
 Use the ports and database your lane was given in `docs/TEAM.md`. Never stop or start another project's servers, Docker containers or databases. Stop your dev servers when you're done.
+
+## Work log
+After every task, add an entry at the top of `docs/team/log/<your name>.md` (for example `clor-coder-people.md`): Did / Evidence / Next / Blocked on. Format in `docs/team/log/README.md`. Commit it with your work.
