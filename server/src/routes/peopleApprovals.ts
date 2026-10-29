@@ -26,6 +26,8 @@ const { approvals: APPROVALS, requests: REQUESTS } = PEOPLE_RESOURCE;
 const can = (action: string, resource: string) => requirePermission(PEOPLE_MODULE, action as any, resource);
 const base = '/orgs/:orgId/people';
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/* India's date, as the approval engine counts a stand-in's days. */
+const today = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const actorOf = (req: Request, source: ChangeSource = 'FORM', reason: string | null = null): Actor => ({
   accountId: req.tenant!.accountId, orgId: req.tenant!.orgId, userId: req.auth?.userId || null, source, correlationId: correlationOf(req as any), reason,
 });
@@ -230,20 +232,52 @@ peopleApprovalsRouter.get(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUES
   const { orgId } = req.tenant!;
   const rows = await peoplePrisma.standIn.findMany({ where: { orgId, userId: req.auth!.userId }, orderBy: { fromDate: 'desc' } });
   const names = await namesFor(rows.map((r) => r.standInUserId), orgId);
-  res.json({ standIns: rows.map((r) => ({ ...r, standInName: names.get(r.standInUserId) || '' })) });
+  /* The People record behind each login, so the Delegates screen can name people the way the leave list does. */
+  const records = await peoplePrisma.employee.findMany({ where: { orgId, userId: { in: [req.auth!.userId, ...rows.map((r) => r.standInUserId)] } }, select: { id: true, userId: true, name: true } });
+  const recordOf = new Map(records.map((e) => [e.userId, e]));
+  const day = today();
+  res.json({
+    today: day,
+    selfEmployeeId: recordOf.get(req.auth!.userId)?.id ?? null,
+    standIns: rows.map((r) => ({ ...r, standInName: recordOf.get(r.standInUserId)?.name || names.get(r.standInUserId) || '', standInEmployeeId: recordOf.get(r.standInUserId)?.id ?? null, live: r.fromDate <= day && r.toDate >= day })),
+  });
 });
 
-/** Name someone to decide in my place between two dates. Only my own; a manager cannot be given one. */
+/**
+ * Who can stand in: anyone here with a CLOR sign-in, by name and code only.
+ * A team-limited manager's own lists stop at their team, but the person they
+ * hand their decisions to is usually above or beside them (their own manager,
+ * HR), so this list is the company's, and says nothing beyond the name.
+ */
+peopleApprovalsRouter.get(`${base}/stand-ins/candidates`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const rows = await peoplePrisma.employee.findMany({ where: { orgId: req.tenant!.orgId, status: { not: 'LEFT' }, userId: { not: null } }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' }, take: 1000 });
+  res.json({ people: rows });
+});
+
+/**
+ * Name someone to decide in my place between two dates. Only my own; a
+ * manager cannot be given one. The stand-in is named by their login, or by
+ * their People record when it carries one (the Delegates screen picks people).
+ */
 peopleApprovalsRouter.post(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  const parsed = z.object({ standInUserId: z.string().trim().min(1), fromDate: z.string().regex(ISO_DATE), toDate: z.string().regex(ISO_DATE) }).safeParse(req.body || {});
-  if (!parsed.success) return res.status(400).json({ error: 'Name the person and the dates (YYYY-MM-DD).' });
+  const parsed = z.object({ standInUserId: z.string().trim().min(1).optional(), standInEmployeeId: z.string().trim().min(1).optional(), fromDate: z.string().regex(ISO_DATE), toDate: z.string().regex(ISO_DATE) }).safeParse(req.body || {});
+  if (!parsed.success || (!parsed.data.standInUserId && !parsed.data.standInEmployeeId)) return res.status(400).json({ error: 'Name the person and the dates (YYYY-MM-DD).' });
   const { accountId, orgId } = req.tenant!;
-  if (parsed.data.toDate < parsed.data.fromDate) return res.status(400).json({ error: 'The end is before the start.' });
-  if (parsed.data.standInUserId === req.auth!.userId) return res.status(400).json({ error: 'Someone else has to stand in.' });
-  const member = await platformPrisma.userOrgMembership.findFirst({ where: { orgId, userId: parsed.data.standInUserId }, select: { id: true } });
+  const b = parsed.data;
+  if (b.toDate < b.fromDate) return res.status(400).json({ error: 'The end is before the start.' });
+  let standInUserId = b.standInUserId || '';
+  if (b.standInEmployeeId) {
+    const person = await peoplePrisma.employee.findFirst({ where: { id: b.standInEmployeeId, orgId, status: { not: 'LEFT' } }, select: { name: true, userId: true } });
+    if (!person) return res.status(400).json({ error: 'That person is not in this company.' });
+    if (!person.userId) return res.status(400).json({ error: `${person.name} has no CLOR sign-in, so they cannot decide requests. Link one on their record first.` });
+    standInUserId = person.userId;
+  }
+  if (standInUserId === req.auth!.userId) return res.status(400).json({ error: 'Someone else has to stand in.' });
+  const member = await platformPrisma.userOrgMembership.findFirst({ where: { orgId, userId: standInUserId }, select: { id: true } });
   if (!member) return res.status(400).json({ error: 'That person is not in this company.' });
-  const row = await peoplePrisma.standIn.create({ data: { accountId, orgId, userId: req.auth!.userId, ...parsed.data } });
+  const row = await peoplePrisma.standIn.create({ data: { accountId, orgId, userId: req.auth!.userId, standInUserId, fromDate: b.fromDate, toDate: b.toDate } });
   res.status(201).json({ standIn: row });
 });
 

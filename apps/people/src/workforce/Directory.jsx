@@ -20,8 +20,9 @@ import { Avatar } from '@ui/personnel/Employees';
 import { HOURS_WORDS } from '@ui/personnel/employmentKinds';
 import { formatDate } from '@ui/components/ui/DatePicker';
 
-import { bulkUpdate, dataHealth, employeeIds, deleteView, downloadText, employeeCounts, exportColumns, exportEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure, workforcePending } from './api';
+import { bulkUpdate, changeImpact, dataHealth, employeeIds, listContractors, deleteView, downloadText, employeeCounts, exportColumns, exportEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure, workforcePending } from './api';
 import { listBranches } from '../organization/api';
+import { hasApp } from '@platform/context';
 import { STATUS, StatusBadge, can } from './shared';
 import AppAccessSend from './AppAccessSend';
 
@@ -73,10 +74,10 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const counts = useRequest(() => employeeCounts(), []);
   const pending = useRequest(() => workforcePending(), []);
   const pendingCount = pending.data ? pending.data.requests.length + pending.data.scheduled.length + pending.data.invites.length + pending.data.drafts.length : 0;
-  const [lists, setLists] = useState({ branches: [], departments: [], positions: [], types: [], workTypes: [], areas: [], establishments: [], units: [], grades: [], centres: [], tags: [] });
+  const [lists, setLists] = useState({ branches: [], departments: [], positions: [], types: [], workTypes: [], areas: [], establishments: [], units: [], grades: [], centres: [], teams: [], contractors: [], tags: [] });
   useEffect(() => {
-    Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'business-units', 'grades', 'cost-centres'].map((k) => structure(k).catch(() => [])), listTags().catch(() => []), listBranches().catch(() => [])])
-      .then(([departments, positions, types, workTypes, areas, establishments, units, grades, centres, tags, branchRows]) => setLists({ departments, positions, types, workTypes, areas, establishments, units, grades, centres, tags , branches: branchRows.filter((b) => b.isActive !== false).map((b) => ({ id: b.id, name: b.branchName, isActive: true })) }));
+    Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'business-units', 'grades', 'cost-centres', 'teams'].map((k) => structure(k).catch(() => [])), listTags().catch(() => []), listBranches().catch(() => []), hasApp('attendance') ? listContractors() : Promise.resolve([])])
+      .then(([departments, positions, types, workTypes, areas, establishments, units, grades, centres, teams, tags, branchRows, contractors]) => setLists({ departments, positions, types, workTypes, areas, establishments, units, grades, centres, teams, contractors, tags , branches: branchRows.filter((b) => b.isActive !== false).map((b) => ({ id: b.id, name: b.branchName, isActive: true })) }));
   }, []);
 
   /* Choosing people: this page, reset whenever the query changes (spec §4.2). */
@@ -298,7 +299,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
 
       {filtersOpen ? <FiltersDrawer params={p} lists={lists} managers={managers} onClose={() => setFiltersOpen(false)} onApply={(f) => { set({ ...f, page: null }, true); setFiltersOpen(false); }} /> : null}
       {exportOpen ? <ExportDrawer counts={{ view: total, all: counts.data ? counts.data.total : null, selected: selected.size }} filtered={Boolean(p.q || filtersOn || tab === 'team')} onClose={() => setExportOpen(false)} onExport={doExport} /> : null}
-      {bulk ? <BulkDrawer count={selected.size} lists={lists} managers={managers} value={bulk} onChange={setBulk} onClose={() => setBulk(null)}
+      {bulk ? <BulkDrawer count={selected.size} ids={[...selected]} lists={lists} managers={managers} value={bulk} onChange={setBulk} onClose={() => setBulk(null)}
         onSend={async () => {
           try {
             const r = await bulkUpdate({ ids: [...selected], set: { [bulk.field]: bulk.value === '__clear' ? null : bulk.value }, reason: bulk.reason, ...(bulk.field !== 'hours' && bulk.effectiveFrom && bulk.effectiveFrom !== todayIst() ? { effectiveFrom: bulk.effectiveFrom } : {}) });
@@ -484,18 +485,81 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
   );
 }
 
-/* What a small team moves together: place, job, type, hours and manager. A department is never cleared in bulk; the others may be. */
+/* What a small team moves together: every field the server's bulk change takes (services/people/bulk.ts), offered once the company keeps that list. A department is never cleared in bulk; the others may be. */
 const BULK_FIELDS = [
-  ['departmentId', 'Department', 'departments'], ['jobPositionId', 'Designation', 'positions'], ['employeeTypeId', 'Employment type', 'types'],
-  ['hours', 'Hours', 'hours'], ['workTypeId', 'Work mode', 'workTypes'], ['areaId', 'Location', 'areas'], ['establishmentId', 'Work site', 'establishments'],
-  ['reportingManagerId', 'Manager', null],
+  ['departmentId', 'Department', 'departments'], ['jobPositionId', 'Designation', 'positions'], ['reportingManagerId', 'Manager', null],
+  ['branchId', 'Works at', 'branches'], ['areaId', 'Location', 'areas'], ['establishmentId', 'Work site', 'establishments'],
+  ['teamId', 'Team', 'teams'], ['businessUnitId', 'Business unit', 'units'], ['gradeId', 'Grade', 'grades'], ['costCenterId', 'Cost centre', 'centres'],
+  ['employeeTypeId', 'Employment type', 'types'], ['hours', 'Hours', 'hours'], ['workTypeId', 'Work mode', 'workTypes'], ['contractorId', 'Contractor', 'contractors'],
 ];
 const NO_CLEAR = new Set(['departmentId', 'hours']);
-function BulkDrawer({ count, lists, managers, value, onChange, onClose, onSend }) {
+/* The change-impact preview answers for these (routes/people.ts change-impact); asked for the first people picked and summed. */
+const IMPACT_FIELDS = new Set(['establishmentId', 'departmentId', 'reportingManagerId', 'areaId']);
+const IMPACT_SAMPLE = 25;
+const IMPACT_HEADINGS = [['ACTION', 'Needs you'], ['AUTO', 'Follows by itself'], ['TASK', 'To check (a task is added)'], ['INFO', 'Nothing to do']];
+
+/** What else the change affects, for the people picked: each line once, with how many of them it touches. */
+function BulkImpact({ ids, field, value }) {
+  /* The answer is kept with the question it answers; a newer question shows as checking until its own answer lands. */
+  const [state, setState] = useState({ ask: '', lines: [], asked: 0 });
+  const key = ids.join(',');
+  const wanted = IMPACT_FIELDS.has(field) && value ? `${field}=${value}|${key}` : '';
+  useEffect(() => {
+    if (!wanted) return undefined;
+    let live = true;
+    const sample = key.split(',').filter(Boolean).slice(0, IMPACT_SAMPLE);
+    /* Five at a time: a long selection must not open twenty-five requests at once. */
+    const ask = (id) => changeImpact(id, { [field]: value === '__clear' ? '' : value }).then((r) => r?.impact || []).catch(() => []);
+    (async () => {
+      const all = [];
+      for (let i = 0; i < sample.length && live; i += 5) all.push(...(await Promise.all(sample.slice(i, i + 5).map(ask))));
+      return all;
+    })()
+      .then((all) => {
+        if (!live) return;
+        const byKey = new Map();
+        for (const impact of all) {
+          for (const i of impact) {
+            const k = `${i.target}:${i.title}`;
+            const had = byKey.get(k);
+            byKey.set(k, had ? { ...had, people: had.people + 1 } : { ...i, people: 1 });
+          }
+        }
+        setState({ ask: wanted, lines: [...byKey.values()], asked: sample.length });
+      });
+    return () => { live = false; };
+  }, [wanted, key, field, value]);
+  if (!wanted) return null;
+  if (state.ask !== wanted) return <span className="ui-skel ui-skel-text" aria-label="Checking what else this affects" />;
+  if (!state.lines.length) return null;
+  return (
+    <div className="ui-impact" aria-label="What else this affects">
+      {ids.length > state.asked ? <p className="ui-caption">Checked for the first {state.asked} of {ids.length} people.</p> : null}
+      {IMPACT_HEADINGS.map(([kind, heading]) => {
+        const lines = state.lines.filter((i) => i.target === kind);
+        return lines.length ? (
+          <section key={kind} className={`ui-impact-group is-${kind.toLowerCase()}`} aria-label={heading}>
+            <p className="ui-impact-heading" aria-hidden="true">{heading}</p>
+            <ul>
+              {lines.map((i) => (
+                <li key={`${i.target}:${i.title}`}>
+                  <span className="block text-sm font-medium">{i.title}{state.asked > 1 ? <span className="ui-muted font-normal tabular-nums"> · {i.people} of {state.asked}</span> : null}</span>
+                  {i.detail ? <span className="block ui-caption">{i.detail}</span> : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null;
+      })}
+    </div>
+  );
+}
+
+function BulkDrawer({ count, ids = [], lists, managers, value, onChange, onClose, onSend }) {
   const [busy, setBusy] = useState(false);
   const reasonHints = useSuggestions('reason');
-  /* Only lists the company has set up are offered. */
-  const fields = BULK_FIELDS.filter(([k, , src]) => !src || src === 'hours' || k === 'departmentId' || (lists[src] || []).length);
+  /* Only lists the company has set up are offered (a branch once there is more than one to move between). */
+  const fields = BULK_FIELDS.filter(([k, , src]) => !src || src === 'hours' || k === 'departmentId' || (lists[src] || []).length > (src === 'branches' ? 1 : 0));
   const f = fields.find(([k]) => k === value.field) || fields[0];
   const options = f[2] === 'hours' ? Object.entries(HOURS_WORDS).map(([id, name]) => ({ id, name })) : f[2] ? lists[f[2]] || [] : managers;
   return (
@@ -505,11 +569,12 @@ function BulkDrawer({ count, lists, managers, value, onChange, onClose, onSend }
         <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !value.value} onClick={async () => { setBusy(true); try { await onSend(); } finally { setBusy(false); } }}>{busy ? 'Changing…' : `Change ${count}`}</button>
       </>}>
       <div className="grid gap-4">
-        <div><PopupSelect showValueSubtext={false} label="What" value={value.field} onChange={(v) => onChange({ ...value, field: v, value: '' })} options={fields.map(([k, l]) => ({ value: k, label: l }))} /></div>
+        <div><PopupSelect showValueSubtext={false} label="What" value={f[0]} onChange={(v) => onChange({ ...value, field: v, value: '' })} alwaysSearch={fields.length > 8} options={fields.map(([k, l]) => ({ value: k, label: l }))} /></div>
         <div><PopupSelect showValueSubtext={false} label="To" value={value.value} onChange={(v) => onChange({ ...value, value: v })} placeholder="Choose…" alwaysSearch options={[...(NO_CLEAR.has(f[0]) ? [] : [{ value: '__clear', label: 'None' }]), ...options.map((o) => ({ value: o.id, label: o.name }))]} /></div>
         {/* From when, as for one person: a later day waits for that day and shows on each record under Upcoming changes. Hours change from today. */}
         {f[0] !== 'hours' ? <div><label className="ui-label" htmlFor="bulk-effective">Effective from</label><DatePicker id="bulk-effective" value={value.effectiveFrom || todayIst()} onChange={(v) => onChange({ ...value, effectiveFrom: v || '' })} /></div> : null}
         <label className="block"><span className="ui-label">Reason</span><SuggestInput maxLength={500} value={value.reason} suggestions={reasonHints} onChange={(v) => onChange({ ...value, reason: v })} placeholder="Ops folded into Sales" /></label>
+        <BulkImpact ids={ids} field={f[0]} value={value.value} />
       </div>
     </Drawer>
   );

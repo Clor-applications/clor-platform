@@ -38,12 +38,13 @@ const SCOPE_KEYS = [
 const day = (v) => (v ? formatDate(String(v).slice(0, 10)) : '');
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
-export default function Policies({ openScreen }) {
+export default function Policies({ openScreen, params }) {
   const perms = usePermissions();
   const allowed = (key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
   const [q, setQ] = useState('');
   const [category, setCategory] = useState('all');
-  const [open, setOpen] = useState(null);
+  /* A link from an employee's record opens that policy (FEATURE-UI-AUDIT gap 22). */
+  const [open, setOpen] = useState(() => params?.id || null);
   const [creating, setCreating] = useState(false);
   const [languagesOpen, setLanguagesOpen] = useState(false);
   const req = useRequest(() => listPolicies(q, category === 'all' ? '' : category), [q, category]);

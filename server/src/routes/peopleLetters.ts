@@ -8,6 +8,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { correlationOf } from '../services/people/employees.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
+import { inScope, teamScope } from '../services/people/scope.js';
 import { OfferError, annexure, createOffer, linesFor, offerSetup, offersOf, withdrawOffer } from '../services/people/offers.js';
 import { LETTER_KINDS, LETTER_LABEL, LetterError, MERGE_FIELDS, issueLetter, recordLetterRequest, saveTemplate, serviceCertificateDue, templatesOf, versionsOf } from '../services/people/letters.js';
 
@@ -114,7 +115,10 @@ peopleLettersRouter.post(`${base}/offers`, can(PermissionAction.CREATE, DOCUMENT
 
 peopleLettersRouter.get(`${base}/offers`, can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  res.json({ offers: await offersOf(req.tenant!.orgId, { employeeId: req.query.employeeId ? String(req.query.employeeId) : undefined, candidateId: req.query.candidateId ? String(req.query.candidateId) : undefined }) });
+  /* An offer carries the pay offered: a team-limited role sees offers to its own team only, never to candidates. */
+  const scope = await teamScope(req);
+  const offers = await offersOf(req.tenant!.orgId, { employeeId: req.query.employeeId ? String(req.query.employeeId) : undefined, candidateId: req.query.candidateId ? String(req.query.candidateId) : undefined });
+  res.json({ offers: scope.all ? offers : offers.filter((o) => o.employeeId && inScope(scope, o.employeeId)) });
 });
 
 peopleLettersRouter.post(`${base}/offers/:id/withdraw`, can(PermissionAction.CREATE, DOCUMENTS), async (req, res) => {

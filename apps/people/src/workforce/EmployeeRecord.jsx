@@ -22,7 +22,7 @@ import { LEAVING_TYPES } from '@ui/personnel/api';
 import { HOURS_WORDS, datesFor, kindOf, probationState } from '@ui/personnel/employmentKinds';
 
 import {
-  addComment, changeImpact, employeeReadiness, linkCandidates, linkUser, decideProbation, deleteEmployee, employeeActivity, employeeAsOf, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, stayOn, structure, updateEmployee, withdrawScheduled,
+  addComment, changeImpact, employeeReadiness, linkCandidates, linkUser, deleteEmployee, deleteNote, employeeActivity, employeeAsOf, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, stayOn, structure, updateEmployee, withdrawScheduled,
 } from './api';
 import { listBranches } from '../organization/api';
 import SuggestInput from '@ui/components/ui/SuggestInput';
@@ -30,6 +30,7 @@ import { refreshSuggestions, useEmailSuggestions, useSuggestions } from './sugge
 import { StatusBadge, can } from './shared';
 import OfferDrawer from './OfferDrawer';
 import AppAccessSend from './AppAccessSend';
+import { AppAccessHistory, PersonAssets, PersonPolicies, ProbationSection } from './RecordExtras';
 
 /**
  * Workforce → Employee (People design spec v1 EMP-03..09; Workforce package
@@ -102,6 +103,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   const [inviting, setInviting] = useState(false);
   const [offering, setOffering] = useState(false);
   const [givingAccess, setGivingAccess] = useState(false);
+  /* The record's list of access sent reloads after a send. */
+  const [accessKey, setAccessKey] = useState(0);
   const set = (patch, push = false) => updateParams?.(patch, { push });
   const formDirty = useRef(false);
   const reportDirty = useCallback((d) => { formDirty.current = d; }, []);
@@ -239,9 +242,9 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       <RecordTabs tabs={tabsAllowed} value={tab} onChange={(k) => leaveTo({ tab: k === 'overview' ? null : k, edit: null, action: null }, true)} label={`${person.name} sections`}>
         {tab === 'overview' ? <Overview key={person.id} person={person} data={rec.data} lists={lists} allowed={allowed} goTo={(t) => set({ tab: t }, true)} go={(patch) => set(patch, true)} /> : null}
         {tab === 'personal' ? <Personal key={person.id} person={person} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...emp } }))} reload={rec.reload} /> : null}
-        {tab === 'employment' ? <Employment key={person.id} person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} onLeave={() => setResigning(true)} /> : null}
-        {tab === 'organization' ? <Organization key={person.id} person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} /> : null}
-        {tab === 'documents' ? <EmployeeDocuments key={person.id} employeeId={person.id} /> : null}
+        {tab === 'employment' ? <Employment key={person.id} person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} onLeave={() => setResigning(true)} openScreen={openScreen} /> : null}
+        {tab === 'organization' ? <Organization key={person.id} person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} onSendAccess={() => setGivingAccess(true)} accessKey={accessKey} /> : null}
+        {tab === 'documents' ? <div className="space-y-6"><EmployeeDocuments key={person.id} employeeId={person.id} personName={person.preferredName || person.firstName || person.name} />{allowed('PEOPLE::Policies::VIEW') ? <PersonPolicies key={`p-${person.id}`} employeeId={person.id} openScreen={openScreen} /> : null}</div> : null}
         {tab === 'history' ? <div className="space-y-6"><HistoryCompare key={person.id} person={person} lists={lists} /><Section title="Employment history"><EmploymentHistory key={person.id} employeeId={person.id} /></Section><Section title="Every change and why"><Journey key={person.id} employeeId={person.id} /></Section></div> : null}
         {tab === 'activity' ? <Activity key={person.id} person={person} canComment={allowed('PEOPLE::Employee Notes::CREATE')} /> : null}
       </RecordTabs>
@@ -253,7 +256,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       {resigning ? <ResignForm person={person} onClose={() => setResigning(false)} onDone={(p) => { setResigning(false); setPerson(p); rec.reload(); }} /> : null}
       {inviting ? <InviteForm person={person} onClose={() => setInviting(false)} onDone={() => setInviting(false)} /> : null}
       {offering ? <OfferDrawer employee={person} onClose={() => setOffering(false)} onSent={() => { setOffering(false); rec.reload(); }} /> : null}
-      {givingAccess ? <AppAccessSend people={[{ id: person.id, name: person.name }]} onClose={() => setGivingAccess(false)} /> : null}
+      {givingAccess ? <AppAccessSend people={[{ id: person.id, name: person.name }]} onClose={() => { setGivingAccess(false); setAccessKey((k) => k + 1); }} /> : null}
     </div>
   );
 }
@@ -700,10 +703,8 @@ function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
 
 /* --------------------------------------------------------------- Employment */
 
-function Employment({ person, data, lists, allowed, editing, setEditing, onSaved, reload, onLeave }) {
+function Employment({ person, data, lists, allowed, editing, setEditing, onSaved, reload, onLeave, openScreen }) {
   const canEdit = allowed('PEOPLE::Employees::EDIT') && person.status !== 'LEFT';
-  const [extendTo, setExtendTo] = useState('');
-  const [endOn, setEndOn] = useState('');
   const [renewTo, setRenewTo] = useState('');
   const [rejoin, setRejoin] = useState('');
   const [rejoinType, setRejoinType] = useState(person.employeeTypeId || '');
@@ -725,21 +726,6 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
   const typeName = lists?.types.find((t) => t.id === person.employeeTypeId)?.name;
   const workTypeName = lists?.workTypes.find((t) => t.id === person.workTypeId)?.name;
   const dates = datesFor(kindOf(lists?.types, person.employeeTypeId));
-  const probation = async (outcome) => {
-    const ask = {
-      CONFIRM: { title: `Confirm ${person.name} after probation?`, confirmLabel: 'Confirm', tone: 'primary' },
-      EXTEND: { title: `Extend probation to ${formatDate(extendTo)}?`, confirmLabel: 'Extend', tone: 'primary' },
-      END: { title: `End ${person.name}’s employment after probation?`, message: `Their last day is ${formatDate(endOn)}. The leaving checklist starts.`, confirmLabel: 'End employment' },
-    }[outcome];
-    if (!(await confirmDialog(ask))) return;
-    try {
-      const r = await decideProbation(person.id, outcome === 'CONFIRM' ? { outcome } : outcome === 'EXTEND' ? { outcome, newEndDate: extendTo } : { outcome, lastDay: endOn });
-      notify.success(r.request ? `Sent for approval: ${r.request.title}.` : { CONFIRM: 'Confirmed.', EXTEND: 'Probation extended.', END: 'Employment ends after probation.' }[outcome]);
-      setExtendTo('');
-      setEndOn('');
-      reload();
-    } catch (e) { notify.error(String(e?.message || 'Not saved.')); }
-  };
   /* A renewal is the end date moving on, said in words on the history. */
   const renew = async () => {
     if (!(await confirmDialog({ title: `Renew ${person.name}’s ${dates.contractLabel === 'Internship ends' ? 'internship' : 'contract'} to ${formatDate(renewTo)}?`, confirmLabel: 'Renew', tone: 'primary' }))) return;
@@ -794,27 +780,9 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
           </dl>
         )}
       </Section>
-      {person.probationEndDate && !person.confirmedOn && person.status !== 'LEFT' && !(person.dateOfJoining && String(person.dateOfJoining).slice(0, 10) > todayIst()) && allowed('PEOPLE::Lifecycle::APPROVE') ? (
-        <Section title="Probation">
-          {/* One decision, three outcomes: a row each, so the choice reads down the page. */}
-          <div className="ui-decide">
-            <div className="ui-decide-row">
-              <span className="ui-decide-label">Passed</span>
-              <span />
-              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => probation('CONFIRM')}>Confirm</button>
-            </div>
-            <div className="ui-decide-row">
-              <label className="ui-decide-label" htmlFor="prob-extend">Extend to</label>
-              <DatePicker id="prob-extend" value={extendTo} min={person.probationEndDate} onChange={setExtendTo} />
-              <button type="button" className="ui-btn ui-btn-secondary" disabled={!extendTo} onClick={() => probation('EXTEND')}>Extend</button>
-            </div>
-            <div className="ui-decide-row">
-              <label className="ui-decide-label" htmlFor="prob-end">End on</label>
-              <DatePicker id="prob-end" value={endOn} min={String(person.dateOfJoining || '').slice(0, 10)} onChange={setEndOn} />
-              <button type="button" className="ui-btn ui-btn-secondary" disabled={!endOn} onClick={() => probation('END')}>End employment</button>
-            </div>
-          </div>
-        </Section>
+      {/* Probation (gap 8): the manager's review, then confirm, extend or end, with the review in view. */}
+      {person.probationEndDate && !person.confirmedOn && person.status !== 'LEFT' && !(person.dateOfJoining && String(person.dateOfJoining).slice(0, 10) > todayIst()) && (allowed('PEOPLE::Lifecycle::EDIT') || allowed('PEOPLE::Lifecycle::APPROVE')) ? (
+        <ProbationSection person={person} canReview={allowed('PEOPLE::Lifecycle::EDIT')} canDecide={allowed('PEOPLE::Lifecycle::APPROVE')} onDecided={reload} />
       ) : null}
       {dates.contract && person.contractEndDate && canEdit ? (
         <Section title={dates.contractLabel === 'Internship ends' ? 'Internship' : 'Contract'}>
@@ -860,13 +828,14 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
         </Section>
       ) : null}
       <Section title="Joining & leaving"><EmployeeChecklist person={person} /></Section>
+      {allowed('PEOPLE::Assets::VIEW') ? <PersonAssets employeeId={person.id} openScreen={openScreen} /> : null}
     </div>
   );
 }
 
 /* --------------------------------------------------------------- Organization */
 
-function Organization({ person, lists, allowed, openAction, openPerson, editing, setEditing, onSaved, reload }) {
+function Organization({ person, lists, allowed, openAction, openPerson, editing, setEditing, onSaved, reload, onSendAccess, accessKey }) {
   const canEdit = allowed('PEOPLE::Employees::EDIT') && person.status !== 'LEFT';
   const name = (k, v) => lists?.[k]?.find((x) => x.id === v)?.name;
   /* A list the company has not set up is not shown as "Not provided" on everyone; a value already on the person always is. */
@@ -910,6 +879,7 @@ function Organization({ person, lists, allowed, openAction, openPerson, editing,
         </dl>
       </Section>
       <SignInSection person={person} canEdit={allowed('PEOPLE::Employees::EDIT') && person.status !== 'LEFT'} editing={editing === 'signin'} setEditing={setEditing} onSaved={onSaved} />
+      {allowed('PEOPLE::Lifecycle::VIEW') ? <AppAccessHistory key={`${person.id}-${accessKey}`} employeeId={person.id} canSend={person.status !== 'LEFT' && allowed('PEOPLE::Lifecycle::CREATE')} onSend={onSendAccess} /> : null}
       {hasApp('attendance') ? (
         /* Stored on the employee and pushed to the biometric readers by Attendance; edited here as the old form did. */
         <Section title="Attendance device" onEdit={canEdit && editing !== 'readers' ? () => setEditing('readers') : null}>
@@ -1176,12 +1146,21 @@ function Activity({ person, canComment }) {
     const mine = seq.current;
     try { const r = await employeeActivity(person.id, next); if (seq.current !== mine) return; setEvents((e) => [...e, ...r.events]); setNext(r.nextBefore); } catch (e) { notify.error(String(e?.message || 'Could not load older activity.')); } finally { setMore(false); }
   };
+  /* A comment its author takes back (or HR, with the delete grant): asked once, gone from the list at once. */
+  const removeNote = async (e) => {
+    if (!(await confirmDialog({ title: 'Delete this comment?', message: 'It goes to the recycle bin.', confirmLabel: 'Delete' }))) return;
+    try {
+      await deleteNote(e.noteId);
+      setEvents((list) => (list || []).filter((x) => x.id !== e.id));
+      notify.success('Comment deleted.');
+    } catch (err) { notify.error(String(err?.message || 'Not deleted.')); }
+  };
   if (error && !events) return <ErrorState error={error} onRetry={load} />;
   if (!events) return <SkeletonCard lines={5} />;
   return (
     <div className="ui-record-activity space-y-4">
       {canComment ? <CommentBox employeeId={person.id} onPosted={load} /> : null}
-      <ActivityTimeline events={events} onLoadMore={next ? older : null} loadingMore={more} />
+      <ActivityTimeline events={events} onLoadMore={next ? older : null} loadingMore={more} eventAction={(e) => (e.canDelete && e.noteId ? <> · <button type="button" className="ui-link" aria-label="Delete this comment" onClick={() => removeNote(e)}>Delete</button></> : null)} />
     </div>
   );
 }

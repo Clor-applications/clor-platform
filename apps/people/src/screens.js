@@ -11,6 +11,7 @@ export { default as Workforce } from './workforce/Directory';
 export { default as EmployeeRecord } from './workforce/EmployeeRecord';
 export { default as AddEmployee } from './workforce/AddEmployee';
 export { default as ImportEmployees } from './workforce/ImportEmployees';
+export { default as Offers } from './workforce/Offers';
 export { default as Approvals } from './screens/Approvals';
 export { default as Policies } from './screens/Policies';
 export { default as ApprovalRules } from './screens/ApprovalRules';
@@ -64,7 +65,8 @@ export { default as LeaveCalendar } from '@ui/timeOff/LeaveCalendar';
 export { default as LeaveRegister } from '@ui/timeOff/LeaveRegister';
 export { default as TeamAttendance } from '@ui/timeOff/TeamAttendance';
 export { default as LeaveYearEnd } from '@ui/timeOff/YearEnd';
-export { default as StandIns } from '@ui/timeOff/StandIns';
+/* Delegates: leave delegates and People approval stand-ins on one screen (FEATURE-UI-AUDIT gap 9); Attendance keeps the leave-only list. */
+export { default as StandIns } from './screens/Delegates';
 export { default as LeaveBlocks } from '@ui/timeOff/LeaveBlocks';
 export { default as MyDays } from '@ui/timeOff/MyDays';
 /* Attendance requests of four kinds (missed punch, work from home, on duty, permission) and their rules. */

@@ -23,6 +23,7 @@ import { importEmployees, undoImport } from '@ui/personnel/api';
 
 import { downloadText } from './api';
 import { can } from './shared';
+import ImportHistory from './ImportHistory';
 
 /**
  * Workforce → Import employees (People design spec v1 EMP-10; Workforce
@@ -169,6 +170,8 @@ export default function ImportEmployees({ openScreen }) {
             <div className="flex flex-wrap items-center gap-3">
               <button type="button" className="ui-btn ui-btn-secondary" onClick={() => downloadCsvTemplate({ fileName: 'Employees import template', columns: IMPORT_COLUMNS, sample: { name: 'Asha Rao', code: 'EMP-0001', department: 'Finance', jobPosition: 'Accountant', dateOfJoining: '01/04/2026', gender: 'Female' } })}><FileDown size={16} aria-hidden="true" /> Download the template</button>
             </div>
+            {/* Earlier imports, and undo within the day (gap 14). */}
+            <ImportHistory canUndo={can(perms, 'PEOPLE::Employees::DELETE')} />
           </div>
         ) : null}
 
@@ -239,7 +242,7 @@ export default function ImportEmployees({ openScreen }) {
           <span className="flex flex-wrap gap-2 ml-auto">
             {step === 'map' ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStep('upload')}>Choose another file</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !mappedKeys.includes('name') || twice.length > 0} onClick={check}>{busy ? 'Checking…' : 'Check rows'}</button></> : null}
             {step === 'validate' ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStep('map')}>Back to mapping</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !preview?.imported} onClick={commit}>{busy ? 'Importing…' : `Import ${preview?.imported || ''} ${preview?.imported === 1 ? 'row' : 'rows'}`}</button></> : null}
-            {step === 'results' ? <>{result?.failed ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={failedRows}>Download rows to fix</button><button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setFile(null); setPreview(null); setResult(null); setStep('upload'); }}>Upload the fixed file</button></> : null}{result?.batchId && !result.undone ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={undo}>Undo this import</button> : null}</> : null}
+            {step === 'results' ? <>{result?.failed ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={failedRows}>Download rows to fix</button><button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setFile(null); setPreview(null); setResult(null); setStep('upload'); }}>Upload the fixed file</button></> : null}{result?.batchId && !result.undone && can(perms, 'PEOPLE::Employees::DELETE') ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={undo}>Undo this import</button> : null}</> : null}
           </span>
         </div>
       </div>

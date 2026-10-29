@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
-import { approveJoiningStatutory, joiningStatutory, rejectJoiningStatutory } from './api';
+import { hasApp } from '@platform/context';
+import { approveJoiningStatutory, joiningStatutory, rejectJoiningStatutory, sendHeldToPayroll } from './api';
 
 /*
  * The statutory half of a joiner's form (HR-VIEW gap 2): PAN, UAN, ESIC,
@@ -55,6 +56,22 @@ export default function JoiningStatutory({ invite, canView, canApprove, onDecide
     }
   };
   const waiting = summary.status === 'SENT';
+  /* Approved while Payroll was off and kept here; once Payroll is on, HR sends every such set across in one go (gap 15). */
+  const sendHeld = async () => {
+    setBusy(true);
+    try {
+      const r = await sendHeldToPayroll();
+      notify.success(r?.sent ? `${r.sent === 1 ? 'One set' : `${r.sent} sets`} of details sent to Payroll.` : 'Nothing was waiting to go to Payroll.');
+      if (r?.sent) {
+        setSummary({ ...summary, status: 'APPLIED' });
+        onDecided?.({ ...summary, status: 'APPLIED' });
+      }
+    } catch (e) {
+      notify.error(String(e?.message || 'Not sent.'));
+    } finally {
+      setBusy(false);
+    }
+  };
   const shown = FIELDS.filter(([k]) => values[k]);
   return (
     <section className="space-y-2 border-t pt-3" aria-label="PAN, PF, ESI and bank">
@@ -90,6 +107,9 @@ export default function JoiningStatutory({ invite, canView, canApprove, onDecide
             ))}
           </ul>
         </div>
+      ) : null}
+      {summary.status === 'HELD' && canApprove && hasApp('payroll') ? (
+        <div className="flex flex-wrap items-center justify-end gap-2"><span className="ui-caption mr-auto">Payroll is on now.</span><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={sendHeld}>{busy ? 'Sending…' : 'Send to Payroll'}</button></div>
       ) : null}
       {waiting && canView && !full ? (
         <div className="flex justify-end"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={open}>Show in full to check</button></div>

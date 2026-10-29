@@ -83,6 +83,7 @@ const Employees = screen('Workforce');
 const EmployeeRecord = screen('EmployeeRecord');
 const AddEmployee = screen('AddEmployee');
 const ImportEmployees = screen('ImportEmployees');
+const Offers = screen('Offers');
 const Approvals = screen('Approvals');
 const Policies = screen('Policies');
 const ApprovalRules = screen('ApprovalRules');
@@ -263,6 +264,7 @@ const I = {
   field: duo(Textbox, 'Textbox'),
   lifecycle: duo(UserCirclePlus, 'UserCirclePlus'),
   joiner: duo(SignIn, 'SignIn'),
+  offer: duo(FileText, 'FileText'),
   leaver: duo(SignOut, 'SignOut'),
   change: duo(ArrowsLeftRight, 'ArrowsLeftRight'),
   task: duo(ListChecks, 'ListChecks'),
@@ -313,7 +315,7 @@ export const peopleApp = {
     { key: 'employees', label: 'People', icon: M.workforce, groups: [
       { label: 'People', items: ['employees', 'documents'] },
       /* Joining & leaving (JOINING-LEAVING-DECISIONS.md): who is joining or leaving, what is not done yet, and whose it is. `checklists` keeps its key (old links); it is now Tasks. */
-      { label: 'Joining & leaving', items: ['lifecycle', 'joiners', 'lifecycleChanges', 'leavers', 'checklists'] },
+      { label: 'Joining & leaving', items: ['lifecycle', 'joiners', 'offers', 'lifecycleChanges', 'leavers', 'checklists'] },
       { label: 'Pay, benefits & assets', items: ['compensation', 'benefits', 'assets'] },
     ] },
     /* Organisation: one flat list; headings over one item each only made it longer. The detailed lists
@@ -363,6 +365,8 @@ export const peopleApp = {
     { key: 'policies', label: 'Policies', icon: I.policy, permission: 'PEOPLE::Policies::VIEW', feature: 'peopleDetailed' },
     { key: 'lifecycle', label: 'Joining & leaving', icon: I.lifecycle, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'joiners', label: 'Joining', icon: I.joiner, permission: 'PEOPLE::Employees::VIEW' },
+    /* Offers sent with an accept link: status and withdraw (FEATURE-UI-AUDIT gap 7). */
+    { key: 'offers', label: 'Offers', icon: I.offer, permission: 'PEOPLE::Documents::VIEW' },
     { key: 'lifecycleChanges', label: 'Job changes', icon: I.change, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'leavers', label: 'Leaving', icon: I.leaver, permission: 'PEOPLE::Employees::VIEW' },
     /* Anyone with a task on their name opens Tasks (their own only); the server decides what each sees. */
@@ -464,6 +468,7 @@ export const peopleApp = {
     checklists: withSidePanel(LifecycleTasks, panel('ChecklistsPanel')),
     lifecycle: LifecycleOverview,
     joiners: Joiners,
+    offers: Offers,
     lifecycleChanges: LifecycleChanges,
     leavers: Leavers,
     journeySteps: JourneySteps,
