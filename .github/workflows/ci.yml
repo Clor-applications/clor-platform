@@ -36,11 +36,11 @@ jobs:
       PGPORT: 5433
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # No npm cache: the runner keeps its files between runs, and saving the
       # cache to GitHub after every run took ~8 minutes on the Mac.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
@@ -110,9 +110,9 @@ jobs:
       PGHOST: localhost
       PGPORT: 5433
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
@@ -167,9 +167,9 @@ jobs:
       group: deploy-production
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
