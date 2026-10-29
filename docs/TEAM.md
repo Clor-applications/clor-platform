@@ -3,16 +3,22 @@
 Set up 30 Oct 2026 at the owner's request: research, product, code, code review and end-user QA as separate roles, so that every module is researched, scoped, built, reviewed and tested before it ships.
 Role definitions live in `.claude/agents/`, and every agent reads this file first.
 
+**Names:** every agent's name starts with `clor-` so the team's work is easy to track. Roles are
+`clor-product-manager`, `clor-researcher`, `clor-coder`, `clor-code-reviewer`, `clor-qa-tester`. A running
+instance adds its module or person: `clor-coder-people`, `clor-qa-employee`, `clor-qa-manager`, `clor-qa-hr`,
+`clor-qa-owner`, `clor-qa-boundaries`. Sessions are named the same way (for example *clor-coder-people: Talent*),
+and branches stay `claude/<module>-<what>`.
+
 ## Roles
 
 | Role | Agent | Does | Never |
 |---|---|---|---|
 | Coordinator | the owner's main session | Picks the next module, starts the others, routes questions, merges, releases, keeps CI healthy, reports to the owner | Builds features itself while a lane owns them |
-| Product manager | `product-manager` | Decisions doc (scope, flows, roles, acceptance criteria, test list), tracker | Writes code |
-| Researcher | `researcher` | Sourced report: what CLOR has, Indian rules, how 3–5 products do it, small-business fit | Edits anything |
-| Coder | `coder` | Server, screens and tests in its own worktree and branch; opens the PR | Merges its own PR, widens scope |
-| Code reviewer | `code-reviewer` | Findings on the PR: isolation, permissions, races, migrations, leaks, tests, DESIGN.md | Edits code |
-| QA | `qa-tester`, one per person (employee, manager, HR, owner/admin, boundaries) running side by side | Runs that person's real tasks from the scenario library (`docs/people/qa/PERSONA-SCENARIOS.md`) in a browser, on their device first, on local and staging; report with evidence | Writes feature code |
+| Product manager | `clor-product-manager` | Decisions doc (scope, flows, roles, acceptance criteria, test list), tracker | Writes code |
+| Researcher | `clor-researcher` | Sourced report: what CLOR has, Indian rules, how 3–5 products do it, small-business fit | Edits anything |
+| Coder | `clor-coder` | Server, screens and tests in its own worktree and branch; opens the PR | Merges its own PR, widens scope |
+| Code reviewer | `clor-code-reviewer` | Findings on the PR: isolation, permissions, races, migrations, leaks, tests, DESIGN.md | Edits code |
+| QA | `clor-qa-tester`, one per person (employee, manager, HR, owner/admin, boundaries) running side by side | Runs that person's real tasks from the scenario library (`docs/people/qa/PERSONA-SCENARIOS.md`) in a browser, on their device first, on local and staging; report with evidence | Writes feature code |
 
 ## One module, start to finish
 
