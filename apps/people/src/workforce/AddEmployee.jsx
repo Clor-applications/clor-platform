@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Camera, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Check } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import Alert from '@ui/components/ui/Alert';
@@ -30,7 +30,7 @@ import { can } from './shared';
  * (statutory numbers are never kept in it). Create is sent once, with an
  * idempotency key, and the server checks everything again.
  */
-const STEPS = [['personal', 'Personal'], ['employment', 'Employment'], ['organization', 'Organization'], ['review', 'Review']];
+const STEPS = [['personal', 'Personal'], ['employment', 'Employment'], ['organization', 'Organisation'], ['review', 'Review']];
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BLANK = {
   firstName: '', lastName: '', preferredName: '', workEmail: '', workPhone: '', email: '', phone: '', dateOfBirth: '', gender: '', guardianName: '', photoUrl: '',
@@ -267,7 +267,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
         ) : null}
 
         {stepKey === 'organization' ? (
-          <Step title="Organization">
+          <Step title="Organisation">
             {(lists.branches || []).length > 1 ? <SelectField id="branchId" label="Works at" optional options={opts(lists.branches)} {...field('branchId')} /> : null}
             <SelectField id="departmentId" label="Department" optional options={opts(lists.departments)} {...field('departmentId')} />
             <SelectField id="jobPositionId" label="Designation" optional options={opts(within(lists.positions, 'departmentId', form.departmentId, form.jobPositionId))} {...field('jobPositionId')} />
@@ -312,7 +312,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             ) : null}
             {[['personal', 'Personal', [['Name', [form.firstName, form.lastName].filter(Boolean).join(' ')], ['Preferred name', form.preferredName], ['Photo', form.photoUrl ? 'Added' : ''], ['Work email', form.workEmail], ['Phone', form.phone], ['Work phone', form.workPhone], ['Personal email', form.email], ['Date of birth', form.dateOfBirth && formatDate(form.dateOfBirth)], ['Gender', GENDER_WORDS[form.gender]], ['Father / husband name', form.guardianName], ['Emergency contact', [form.emergencyContactName, form.emergencyContactRelation, form.emergencyContactPhone].filter(Boolean).join(' · ')]]],
               ['employment', 'Employment', [['Employee ID', form.code], ['Employment type', nameIn(lists.types, form.employeeTypeId)], ['Joining date', form.dateOfJoining && formatDate(form.dateOfJoining)], ['Hours', HOURS_WORDS[form.hours]], ['Work mode', nameIn(lists.workTypes, form.workTypeId)], ['Probation ends', dates.probation && form.probationEndDate && formatDate(form.probationEndDate)], [dates.contractLabel, dates.contract && form.contractEndDate && formatDate(form.contractEndDate)]]],
-              ['organization', 'Organization', [...((lists.branches || []).length > 1 ? [['Works at', nameIn(lists.branches, form.branchId)]] : []), ['Department', nameIn(lists.departments, form.departmentId)], ['Designation', nameIn(lists.positions, form.jobPositionId)], ...(lists.roles.length ? [['Job role', nameIn(lists.roles, form.jobRoleId)]] : []), ...(lists.areas.length ? [['Location', nameIn(lists.areas, form.areaId)]] : []), ...(lists.establishments.length ? [['Work site', nameIn(lists.establishments, form.establishmentId)]] : []), ['Manager', people.find((x) => x.id === form.reportingManagerId)?.name], ['Secondary manager', people.find((x) => x.id === form.dottedManagerId)?.name], ...(lists.units.length ? [['Business unit', nameIn(lists.units, form.businessUnitId)]] : []), ...(lists.teams.length ? [['Team', nameIn(lists.teams, form.teamId)]] : []), ...(lists.seats.length ? [['Position', nameIn(lists.seats, form.seatId)]] : []), ...(lists.centres.length ? [['Cost centre', nameIn(lists.centres, form.costCenterId)]] : []), ...(lists.grades.length ? [['Grade', nameIn(lists.grades, form.gradeId)]] : []), ['Tags', lists.tags.filter((t) => form.tagIds.includes(t.id)).map((t) => t.name).join(', ')], ...(hasApp('attendance') ? [['Attendance ID', form.devicePin || (form.code ? `${form.code} (employee ID)` : '')], ['Card number', form.cardNumber], ...(lists.contractors.length ? [['Contractor', nameIn(lists.contractors, form.contractorId)]] : []), ['Marks attendance', form.attendanceRequired === false ? 'No, door only' : 'Yes']] : [])]],
+              ['organization', 'Organisation', [...((lists.branches || []).length > 1 ? [['Works at', nameIn(lists.branches, form.branchId)]] : []), ['Department', nameIn(lists.departments, form.departmentId)], ['Designation', nameIn(lists.positions, form.jobPositionId)], ...(lists.roles.length ? [['Job role', nameIn(lists.roles, form.jobRoleId)]] : []), ...(lists.areas.length ? [['Location', nameIn(lists.areas, form.areaId)]] : []), ...(lists.establishments.length ? [['Work site', nameIn(lists.establishments, form.establishmentId)]] : []), ['Manager', people.find((x) => x.id === form.reportingManagerId)?.name], ['Secondary manager', people.find((x) => x.id === form.dottedManagerId)?.name], ...(lists.units.length ? [['Business unit', nameIn(lists.units, form.businessUnitId)]] : []), ...(lists.teams.length ? [['Team', nameIn(lists.teams, form.teamId)]] : []), ...(lists.seats.length ? [['Position', nameIn(lists.seats, form.seatId)]] : []), ...(lists.centres.length ? [['Cost centre', nameIn(lists.centres, form.costCenterId)]] : []), ...(lists.grades.length ? [['Grade', nameIn(lists.grades, form.gradeId)]] : []), ['Tags', lists.tags.filter((t) => form.tagIds.includes(t.id)).map((t) => t.name).join(', ')], ...(hasApp('attendance') ? [['Attendance ID', form.devicePin || (form.code ? `${form.code} (employee ID)` : '')], ['Card number', form.cardNumber], ...(lists.contractors.length ? [['Contractor', nameIn(lists.contractors, form.contractorId)]] : []), ['Marks attendance', form.attendanceRequired === false ? 'No, door only' : 'Yes']] : [])]],
             ].map(([k, title, rows]) => (
               <section key={k} className="ui-review-block" aria-label={title}>
                 <header className="flex items-center justify-between"><h3 className="text-sm font-semibold">{title}</h3><button type="button" className="ui-link text-sm" onClick={() => goStep(k)}>Edit</button></header>

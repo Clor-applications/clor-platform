@@ -3,7 +3,7 @@ import request from 'supertest';
 
 /**
  * Hire (connected workflows): an offered candidate becomes an employee in one
- * step, in the job's department, with the joining checklist started.
+ * step, in the opening's department, with the joining checklist started.
  */
 const { buildApp } = await import('../app.js');
 
@@ -25,26 +25,28 @@ describe('hire a candidate', () => {
     await request(app).put(`/api/orgs/${c.orgId}/features`).set(at(c)).send({ features: { people: true, attendance: true } }).expect(200);
     const people = (m: 'get' | 'post' | 'put', p: string, b?: unknown) => (request(app) as any)[m](`/api/orgs/${c.orgId}/people${p}`).set(at(c)).send(b as any);
 
-    await people('post', '/structure/departments', { name: 'Finance' }).expect(201);
-    const job = (await people('post', '/workspace/recruitment', { title: 'Accountant', status: 'OPEN', details: { department: 'finance', openings: 1 } }).expect(201)).body.record;
-    const cand = (await people('post', '/workspace/candidates', { title: 'Meera K', status: 'APPLIED', details: { jobId: job.id, email: 'meera@example.com', phone: '9800000001' } }).expect(201)).body.record;
+    const finance = (await people('post', '/structure/departments', { name: 'Finance' }).expect(201)).body.item;
+    /* Hiring lives in Talent (routes/peopleTalent.ts): an opening, a candidate on it, Offer, then Hire. */
+    const job = (await people('post', '/talent/openings', { title: 'Accountant', departmentId: finance.id, places: 2, status: 'OPEN' }).expect(201)).body.opening;
+    const cand = (await people('post', '/talent/candidates', { openingId: job.id, name: 'Meera K', email: 'meera@example.com', phone: '9800000001' }).expect(201)).body.candidate;
 
     /* Not before an offer. */
-    await people('post', `/workspace/candidates/${cand.id}/hire`, { dateOfJoining: '2026-11-02' }).expect(409);
-    await people('put', `/workspace/candidates/${cand.id}`, { title: cand.title, status: 'OFFERED', details: cand.details, version: cand.version }).expect(200);
-    await people('post', `/workspace/candidates/${cand.id}/hire`, {}).expect(400);
+    await people('post', `/talent/candidates/${cand.id}/hire`, { dateOfJoining: '2026-11-02' }).expect(409);
+    await people('post', `/talent/candidates/${cand.id}/stage`, { stage: 'OFFER' }).expect(200);
+    await people('post', `/talent/candidates/${cand.id}/hire`, {}).expect(400);
 
-    const hired = (await people('post', `/workspace/candidates/${cand.id}/hire`, { dateOfJoining: '2026-11-02', code: 'F-21' }).expect(201)).body.employee;
+    const hired = (await people('post', `/talent/candidates/${cand.id}/hire`, { dateOfJoining: '2026-11-02', code: 'F-21' }).expect(201)).body.employee;
     const file = (await people('get', `/employees/${hired.id}`).expect(200)).body.employee;
     expect(file).toMatchObject({ name: 'Meera K', code: 'F-21', email: 'meera@example.com', phone: '9800000001', dateOfJoining: '2026-11-02', department: 'Finance' });
     const { joining } = (await people('get', `/employees/${hired.id}/checklist`).expect(200)).body;
     expect(joining.total).toBeGreaterThan(0);
-    const after = (await people('get', '/workspace/candidates').expect(200)).body.records.find((r: any) => r.id === cand.id);
-    expect(after).toMatchObject({ status: 'HIRED', employeeId: hired.id });
+    const after = (await people('get', `/talent/candidates/${cand.id}`).expect(200)).body.candidate;
+    expect(after).toMatchObject({ stage: 'HIRED', employeeId: hired.id });
 
-    await people('post', `/workspace/candidates/${cand.id}/hire`, { dateOfJoining: '2026-11-02' }).expect(409);
-    const concurrent = (await people('post', '/workspace/candidates', { title: 'Concurrent Hire', status: 'OFFERED', details: { jobId: job.id, email: 'concurrent@example.com', phone: '' } }).expect(201)).body.record;
-    const attempts = await Promise.all([people('post', `/workspace/candidates/${concurrent.id}/hire`, { dateOfJoining: '2026-11-02' }), people('post', `/workspace/candidates/${concurrent.id}/hire`, { dateOfJoining: '2026-11-02' })]);
+    await people('post', `/talent/candidates/${cand.id}/hire`, { dateOfJoining: '2026-11-02' }).expect(409);
+    const concurrent = (await people('post', '/talent/candidates', { openingId: job.id, name: 'Concurrent Hire', email: 'concurrent@example.com' }).expect(201)).body.candidate;
+    await people('post', `/talent/candidates/${concurrent.id}/stage`, { stage: 'OFFER' }).expect(200);
+    const attempts = await Promise.all([people('post', `/talent/candidates/${concurrent.id}/hire`, { dateOfJoining: '2026-11-02' }), people('post', `/talent/candidates/${concurrent.id}/hire`, { dateOfJoining: '2026-11-02' })]);
     expect(attempts.map((a: any) => a.status).sort()).toEqual([201, 409]);
     const directory = (await people('get', '/employees?q=Concurrent').expect(200)).body.employees;
     expect(directory).toHaveLength(1);

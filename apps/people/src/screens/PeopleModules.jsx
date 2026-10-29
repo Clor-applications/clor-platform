@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock } from '@ui/components/ui/lineIcons';
 
 import { apiFetch } from '@platform/http';
 import { billingFor, setFeature } from '@platform/auth';
@@ -71,7 +71,7 @@ export default function PeopleModules() {
 
   return (
     <div className="space-y-5 pb-8">
-      <PageHeader entity="settings" title="Modules & Apps" description="Switch off what your company does not use; the menu follows. What can be switched on comes from your subscription." />
+      <PageHeader entity="settings" title="Features & apps" description="Switch off what your company does not use; the menu follows. What can be switched on comes from your subscription." />
       {error ? <p role="alert" className="ui-card p-4 text-sm">{error} <button type="button" className="ui-btn ml-2" onClick={load}>Retry</button></p> : null}
       {!catalog ? (error ? null : <SkeletonCard lines={6} />) : (
         <>

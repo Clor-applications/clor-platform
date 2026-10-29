@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock } from '@ui/components/ui/lineIcons';
 
 import PopupSelect from './pickers/PopupSelect';
 import { useFeatures } from '../permissions/useFeatures';

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowLeft, Check, Clock, Percent, Plus, TrendingUp } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, Clock, Percent, Plus, TrendingUp } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';

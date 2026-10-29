@@ -210,6 +210,25 @@ const Popover = ({
     panelRef.current?.focus({ preventScroll: true });
   }, [autoFocus, pos]);
 
+  /*
+   * People (Sky): a panel leaves as it came, fading back toward its field over
+   * 100ms. Its owner unmounts it at once, so what fades is a copy of its last
+   * frame that takes no clicks and is gone when the fade ends.
+   */
+  useLayoutEffect(() => () => {
+    const node = panelRef.current;
+    if (!node || document.documentElement.dataset.palette !== 'sky') return;
+    const ghost = node.cloneNode(true);
+    ghost.removeAttribute('id');
+    for (const el of ghost.querySelectorAll('[id]')) el.removeAttribute('id');
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.setAttribute('inert', '');
+    ghost.classList.add('ui-popover-out');
+    ghost.style.pointerEvents = 'none';
+    document.body.appendChild(ghost);
+    setTimeout(() => ghost.remove(), 140);
+  }, []);
+
   return createPortal(
     <div
       ref={panelRef}
@@ -218,6 +237,8 @@ const Popover = ({
       tabIndex={-1}
       onKeyDown={onKeyDown}
       className="ui-popover"
+      /* Which side of its field it opened on: it arrives from that field, rising when it sits above. */
+      data-side={pos ? (pos.top === undefined ? 'top' : 'bottom') : undefined}
       style={
         pos
           ? {

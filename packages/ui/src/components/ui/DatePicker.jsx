@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 
 /**
  * DatePicker (People design spec v1 §5): type a date or pick one. Value in

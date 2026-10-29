@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Copy } from 'lucide-react';
+import { Copy } from '@ui/components/ui/lineIcons';
 
 import { notify } from './notify';
 

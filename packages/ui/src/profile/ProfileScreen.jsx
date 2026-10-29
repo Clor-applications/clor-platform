@@ -14,7 +14,7 @@ import {
   UserRound,
   Warehouse,
   X,
-} from 'lucide-react';
+} from '@ui/components/ui/lineIcons';
 
 import { changePassword, exportMyData, forgotPassword, getProfile, resendVerification, updateProfile } from '@platform/auth';
 import { operator } from '@platform/operator';
@@ -154,7 +154,7 @@ const nameParts = (u) => {
  * `Header` is the page heading. Accounting passes its settings header, which
  * moves the actions into the settings frame; elsewhere a plain page header.
  */
-export const ProfileScreen = ({ Header = PageHeader }) => {
+export const ProfileScreen = ({ Header = PageHeader, links = [] }) => {
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -282,7 +282,7 @@ export const ProfileScreen = ({ Header = PageHeader }) => {
   const setF = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
-    <div className="ui-profile space-y-6">
+    <div className="ui-profile-page space-y-6">
       <Header
         entity="customer"
         title="My profile"
@@ -311,6 +311,17 @@ export const ProfileScreen = ({ Header = PageHeader }) => {
           </>
         }
       />
+
+      {/* The open app's pages about the person themself (People: their leave and days), here rather than in the admin menu. */}
+      {links.length ? (
+        <nav aria-label="Your pages" className="ui-profile-links flex flex-wrap gap-2">
+          {links.map((l) => (
+            <button key={l.key} type="button" className="ui-btn ui-btn-secondary" onClick={l.onOpen}>
+              {l.icon ? <l.icon size={16} aria-hidden="true" /> : null} {l.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
 
       {error ? (
         <div className="ui-card p-3 ui-t-body" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>

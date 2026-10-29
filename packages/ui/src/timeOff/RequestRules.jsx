@@ -51,8 +51,8 @@ export default function RequestRules() {
   const dirty = changed.length > 0;
   useUnsavedChanges(dirty);
 
-  if (req.error && !req.data) return <div className="space-y-6 max-w-2xl"><PageHeader title="Request rules" /><ErrorState error={req.error} onRetry={req.reload} /></div>;
-  if (!form) return <div className="space-y-6 max-w-2xl"><PageHeader title="Request rules" /><SkeletonCard lines={6} /></div>;
+  if (req.error && !req.data) return <div className="space-y-6 max-w-2xl"><PageHeader title="Attendance request types" /><ErrorState error={req.error} onRetry={req.reload} /></div>;
+  if (!form) return <div className="space-y-6 max-w-2xl"><PageHeader title="Attendance request types" /><SkeletonCard lines={6} /></div>;
 
   const change = (k, patch) => { setError(null); setDraft({ ...form, [k]: { ...form[k], ...patch } }); };
   const save = async (e) => {
@@ -75,7 +75,7 @@ export default function RequestRules() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <PageHeader title="Request rules" />
+      <PageHeader title="Attendance request types" />
       <form className="ui-record-section ui-wizard-body" aria-label="Request rules" onSubmit={save}>
         {error ? <ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /> : null}
         <div className="divide-y">
@@ -88,6 +88,7 @@ export default function RequestRules() {
                   <legend id={`${id}-h`} className="ui-t-sec">{KIND_NAME[k]}</legend>
                   <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={f.on} onChange={(e) => change(k, { on: e.target.checked })} />On</label>
                 </div>
+                {k === 'SHIFT_CHANGE' ? <p className="ui-caption">Someone asks to work another shift for some days. Approved, those days run on that shift; cancelled, they go back.</p> : null}
                 <div className="grid gap-4 sm:grid-cols-3">
                   {k === 'PERMISSION' ? (
                     <>

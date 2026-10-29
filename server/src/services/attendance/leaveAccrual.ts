@@ -38,6 +38,8 @@ export type AccrualType = {
   minDaysWorked?: number | null;
   /** OSH Code carry-forward: refused days carry on top of carryForwardMax. */
   oshCarry?: boolean | null;
+  /** Carried-in days must be used within this many days of the period start, else what is left of them lapses. */
+  carryExpiresAfterDays?: number | null;
 };
 export type LeavePeriod = { startMonth: number; startDay: number };
 /**
@@ -54,6 +56,8 @@ export type AccrualOptions = {
   workedIn?: (year: number) => Worked | null;
   /** oshCarry: the days of the type asked for and refused in a period. */
   refusedIn?: (year: number) => number;
+  /** carryExpiresAfterDays: the days of the type taken or waiting in a period, on dates before `date`. */
+  takenBefore?: (year: number, date: string) => number;
 };
 
 /**
@@ -206,7 +210,19 @@ export function balanceFor(
   const created = periodOf(opts.period, type.createdAt.toISOString().slice(0, 10));
   const firstYear = Math.max(created, joined ? periodOf(opts.period, joined) : 0, year - 10);
 
-  /* What carries into `y`: the last period's full entitlement less what was taken, up to the limit. */
+  /*
+   * Carried-in days are used first. Once the type's days from the period
+   * start have gone by (`asOfY` on or after the day they lapse), what is
+   * left of them lapses: they are not in the balance, and do not carry again.
+   */
+  const lapsedIn = (y: number, carried: number, asOfY: string): number => {
+    if (!type.carryExpiresAfterDays || carried <= 0) return 0;
+    const lapseOn = addDays(periodStart(opts.period, y), type.carryExpiresAfterDays);
+    if (asOfY < lapseOn) return 0;
+    return round2(Math.max(0, carried - (opts.takenBefore?.(y, lapseOn) || 0)));
+  };
+
+  /* What carries into `y`: the last period's full entitlement less what was taken (and what lapsed), up to the limit. */
   const carriedInto = (y: number): number => {
     if (y - 1 < firstYear) return 0;
     const prev = y - 1;
@@ -214,7 +230,8 @@ export function balanceFor(
     if (limit <= 0) return 0;
     /* The previous period is earned at what it gave then, not at today's slab: a person crossing three years does not re-earn their first two. */
     const then = opts.annualDaysFor ? { ...type, annualDays: opts.annualDaysFor(prev) } : type;
-    const total = allocations.has(prev) ? allocations.get(prev)! : earned(then, prev, joined, periodEnd(opts.period, prev), opts) + carriedInto(prev);
+    const carriedPrev = allocations.has(prev) ? 0 : carriedInto(prev);
+    const total = allocations.has(prev) ? allocations.get(prev)! : earned(then, prev, joined, periodEnd(opts.period, prev), opts) + carriedPrev - lapsedIn(prev, carriedPrev, periodEnd(opts.period, prev));
     return round2(Math.min(limit, Math.max(0, total - (taken.get(prev) || 0))));
   };
 
@@ -225,12 +242,14 @@ export function balanceFor(
   const carriedIn = carriedInto(year);
   const credits = creditsFor(type, year, joined, opts);
   const soFar = earned(type, year, joined, asOf, opts);
+  const lapsed = lapsedIn(year, carriedIn, asOf);
   return {
-    allocated: round2(soFar + carriedIn),
+    allocated: round2(soFar + carriedIn - lapsed),
     earned: soFar,
     carriedIn,
+    lapsed,
     /* What the period comes to by its last day, for "you will have" on screen. */
-    fullYear: round2((credits.at(-1)?.total || 0) + carriedIn),
+    fullYear: round2((credits.at(-1)?.total || 0) + carriedIn - lapsedIn(year, carriedIn, periodEnd(opts.period, year))),
     manual: false,
     credits,
   };

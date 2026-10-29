@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Download, Plus } from 'lucide-react';
+import { Download, Plus } from '@ui/components/ui/lineIcons';
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
@@ -75,14 +75,17 @@ export default function PeopleDocuments({ openScreen }) {
           <button type="button" className="ui-btn ui-btn-secondary" disabled={!shown.length} onClick={() => runListExport({ format: 'csv', title: 'Documents', fileName: 'document-register', label: 'Documents', rows: shown, columns: EXPORT_COLUMNS })}><Download size={16} aria-hidden="true" /> Export</button>
           <button type="button" className="ui-btn ui-btn-primary" onClick={() => setDrawer({ employeeId: '' })}><Plus size={16} aria-hidden="true" /> New document</button>
         </>} />
-      <div ref={tabsRef} role="tablist" aria-label="Documents" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {[['all', 'All', counts.all], ['valid', 'Current', counts.valid], ['expired', 'Expired', counts.expired]].map(([k, l, n]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
-        ))}
-        {tabIndicator}
-      </div>
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
-        <DataTable label="Documents" columns={columns} rows={shown} loading={req.loading} refreshing={req.refreshing}
+        <DataTable
+          tabs={(
+            <div ref={tabsRef} role="tablist" aria-label="Documents" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+              {[['all', 'All', counts.all], ['valid', 'Current', counts.valid], ['expired', 'Expired', counts.expired]].map(([k, l, n]) => (
+                <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
+              ))}
+              {tabIndicator}
+            </div>
+          )}
+          label="Documents" columns={columns} rows={shown} loading={req.loading} refreshing={req.refreshing}
           total={shown.length} pageSize={Math.max(25, shown.length)} noun="documents"
           onRowClick={(r) => setDrawer({ employeeId: r.employeeId || '' })} rowActions={rowActions}
           card={(r) => <span className="min-w-0 flex-1"><span className="block truncate font-medium">{r.title}</span><span className="block truncate ui-caption">{[r.employeeName, kindWord(r.kind), r.expiresOn ? `until ${formatDate(r.expiresOn)}` : null].filter(Boolean).join(' · ')}</span></span>}

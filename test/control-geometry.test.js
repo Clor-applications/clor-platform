@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
  * both invisible in a diff and obvious on screen.
  */
 
-const CSS = readFileSync('packages/ui/src/index.css', 'utf8');
+const CSS = readFileSync('packages/ui/src/index.css', 'utf8') + readFileSync('packages/ui/src/people.css', 'utf8');
 
 /*
  * The block a selector OPENS, not the first place its text appears.

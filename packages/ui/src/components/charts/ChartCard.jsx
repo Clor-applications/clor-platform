@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Maximize2 } from 'lucide-react';
+import { ArrowRight, Maximize2 } from '@ui/components/ui/lineIcons';
 
 /**
  * The tile every chart on a dashboard sits in.

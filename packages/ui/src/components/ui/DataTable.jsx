@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Columns3, MoreVertical, RefreshCw } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Columns3, MoreVertical, RefreshCw } from '@ui/components/ui/lineIcons';
 
 import Popover from './Popover';
 
@@ -153,7 +153,7 @@ export default function DataTable({
   selectable = false, selected = new Set(), onSelect, canSelect = null,
   rowActions = null, onRowClick = null, card = null,
   loading = false, refreshing = false, empty = null,
-  total = 0, page = 1, pageSize = 25, onPage, onPageSize, noun = 'results', toolbar = null, defaultPrefs = {},
+  total = 0, page = 1, pageSize = 25, onPage, onPageSize, noun = 'results', toolbar = null, tabs = null, defaultPrefs = {},
 }) {
   const cols = visibleColumns(columns, prefs);
   const compact = prefs?.density === 'compact';
@@ -177,8 +177,10 @@ export default function DataTable({
 
   return (
     <div className={`ui-datatable ${compact ? 'is-compact' : ''} ${card ? 'has-cards' : ''}`} aria-busy={loading || refreshing || undefined}>
-      {toolbar || onPrefs ? (
+      {toolbar || onPrefs || tabs ? (
         <div className="ui-datatable-toolbar">
+          {/* The list's own tabs (status, In use / Retired) start the search row instead of taking a row of their own (owner, 28 Oct 2026). */}
+          {tabs ? <div className="ui-datatable-tabs">{tabs}</div> : null}
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">{toolbar}</div>
           {refreshing ? <span className="ui-caption inline-flex items-center gap-1" role="status"><RefreshCw size={12} aria-hidden="true" className="ui-spin" /> Updating</span> : null}
           {onPrefs ? <ColumnSettings columns={columns} prefs={prefs} onPrefs={onPrefs} defaults={defaultPrefs} /> : null}

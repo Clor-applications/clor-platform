@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 
 import ErrorBoundary from './packages/ui/src/components/ui/ErrorBoundary';
 import './packages/ui/src/index.css';
+import './packages/ui/src/people.css';
 import { SessionProvider } from './packages/shell/session';
 import Shell from './packages/shell/Shell';
 

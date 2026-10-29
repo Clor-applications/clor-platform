@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { KIND_WORDS } from '@ui/personnel/employmentKinds';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { useSuggestions } from '../workforce/suggestions';
-import { Plus } from 'lucide-react';
+import { Plus } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -37,7 +37,7 @@ export const KINDS = {
       { key: 'parentId', label: 'Under', type: 'ref', ref: 'departments', placeholder: 'Top level', tree: true },
       { key: 'headEmployeeId', label: 'Head', type: 'person', placeholder: 'Not set' },
     ],
-    columns: [{ key: 'head', label: 'Head', render: (r) => (r.headName ? <span className={r.headLeft ? 'ui-text-neg' : ''}>{r.headName}{r.headLeft ? ' (left)' : ''}</span> : <span className="ui-muted">No head</span>) }],
+    columns: [{ key: 'head', label: 'Head', render: (r) => (r.headName ? <span className={`org-head ${r.headLeft ? 'ui-text-neg' : ''}`}><span className="org-head-face" aria-hidden="true">{r.headName.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>{r.headName}{r.headLeft ? ' (left)' : ''}</span> : <span className="ui-muted">No head</span>) }],
   },
   'job-positions': {
     title: 'Designations', singular: 'designation', screen: 'jobPositions',
@@ -98,7 +98,7 @@ export const KINDS = {
   },
   'work-types': { title: 'Work Modes', singular: 'work mode', screen: 'workTypes', settings: true, fields: [], columns: [] },
   'legal-entities': {
-    title: 'Company (legal)', singular: 'legal company', noun: 'legal companies', screen: 'legalEntities', settings: true,
+    title: 'Legal entity', singular: 'legal entity', noun: 'legal companies', screen: 'legalEntities', settings: true,
     fields: [
       { key: 'pan', label: 'PAN', type: 'text', placeholder: 'ABCDE1234F' },
       { key: 'cin', label: 'CIN', type: 'text' },
@@ -177,17 +177,30 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
     try { await deleteItem(kind, r.id); notify.success('Deleted.'); req.reload(); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
   };
 
+  /* Each row's own colour (stable by name) and its share of the biggest, so a list reads at a glance. */
+  const TINTS = ['sky', 'mint', 'lilac', 'peach', 'butter'];
+  const tintOf = (name = '') => TINTS[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % TINTS.length];
+  const peak = Math.max(1, ...items.map((x) => x.employeeCount || 0));
   const columns = [
     { key: 'name', label: 'Name', always: true, render: (r) => (
+      <span className="flex min-w-0 items-center gap-2.5">
+      <span className="org-tile" data-tint={tintOf(r.name)} aria-hidden="true">{(r.name || '?').trim().charAt(0).toUpperCase()}</span>
       <span className="min-w-0">
         <span className="block truncate font-medium">{r.name}</span>
         {TREE_KEY[kind] && r[TREE_KEY[kind]] ? <span className="block truncate ui-caption">{pathOf(items, items.find((x) => x.id === r[TREE_KEY[kind]]) || {}, TREE_KEY[kind])}</span> : null}
+      </span>
       </span>
     ) },
     ...cfg.columns.map((c) => ({ ...c, render: (r) => c.render(r, refNames) })),
     /* Direct count; a department with sub-departments also says how many with them (ORG-R050). */
     /* A legal company is used by its work sites, not by people directly. */
-    { key: 'people', label: kind === 'legal-entities' ? 'Work sites' : 'People', align: 'right', render: (r) => { const all = withUnder(r); return <span className="tabular-nums">{r.employeeCount || 0}{all > (r.employeeCount || 0) ? <span className="block ui-caption">{all} with sub-{kind === 'areas' ? 'locations' : 'departments'}</span> : null}</span>; } },
+    { key: 'people', label: kind === 'legal-entities' ? 'Work sites' : 'People', width: '14rem', render: (r) => { const all = withUnder(r); return (
+      <span className="org-count">
+        <span className="org-count-bar" aria-hidden="true"><span style={{ width: `${((r.employeeCount || 0) / peak) * 100}%` }} /></span>
+        <span className="tabular-nums org-count-n">{r.employeeCount || 0}</span>
+        {all > (r.employeeCount || 0) ? <span className="block ui-caption">{all} with sub-{kind === 'areas' ? 'locations' : 'departments'}</span> : null}
+      </span>
+    ); } },
   ];
   const rowActions = (r) => [
     canEdit ? { key: 'edit', label: 'Edit', onSelect: () => setEditing({ ...r }) } : null,
@@ -201,18 +214,20 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={cfg.settings ? null : [{ label: 'People' }, { label: 'Organization', onClick: () => openScreen?.('organization') }, { label: cfg.title }]}
+        breadcrumb={cfg.settings ? null : [{ label: 'People' }, { label: 'Organisation', onClick: () => openScreen?.('organization') }, { label: cfg.title }]}
         title={cfg.title}
         actions={canCreate ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ name: '', isActive: true })}><Plus size={16} aria-hidden="true" /> New {cfg.singular}</button> : null}
       />
-      <div ref={tabsRef} role="tablist" aria-label={cfg.title} className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {[['active', 'In use', counts.active], ['retired', 'Retired', counts.retired]].map(([k, l, n]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
-        ))}
-        {tabIndicator}
-      </div>
       {req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
+          tabs={(
+            <div ref={tabsRef} role="tablist" aria-label={cfg.title} className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+              {[['active', 'In use', counts.active], ['retired', 'Retired', counts.retired]].map(([k, l, n]) => (
+                <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
+              ))}
+              {tabIndicator}
+            </div>
+          )}
           label={cfg.title}
           columns={columns}
           rows={shown}

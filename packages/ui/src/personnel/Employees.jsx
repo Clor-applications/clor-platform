@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileDown, LayoutGrid, List, MoreHorizontal, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from 'lucide-react';
+import { FileDown, LayoutGrid, List, MoreHorizontal, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from '@ui/components/ui/lineIcons';
 
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
@@ -109,10 +109,12 @@ export const Avatar = ({ person, size = 40 }) =>
   ) : (
     <span
       className="ui-avatar-initials inline-grid shrink-0 place-items-center rounded-full font-semibold"
-      style={{ width: size, height: size, fontSize: size * 0.38, backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand-ink))' }}
+      style={{ width: size, height: size, fontSize: Math.max(12, size * 0.38), backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand-ink))' }}
       aria-hidden="true"
       /* Drawn, not text: the initials are a picture of the person, so they never become part of a button's name. */
       data-initials={initials(person?.name)}
+      /* A wash picked from the name; only palettes that opt in draw it (People's Sky). */
+      data-hue={[...String(person?.name || '')].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 9973, 0) % 5}
     />
   );
 
@@ -194,23 +196,29 @@ export default function Employees({ description = '' } = {}) {
     setLists({ departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres, establishments, teams, seats });
   }, []);
 
+  /* Each load takes a number; an answer for an older filter that arrives late is dropped, so it cannot replace the newer list. */
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     try {
       /* Everyone, 500 a page, until the server's total is reached (CORE-01: no 500 cap). */
       const first = await listEmployees({ ...filters, status: '', limit: 500, offset: 0 });
       const rows = [...(first?.employees || [])];
       const total = Number(first?.total || rows.length);
       while (rows.length < total) {
+        if (seq !== loadSeq.current) return;
         const more = await listEmployees({ ...filters, status: '', limit: 500, offset: rows.length });
         if (!more?.employees?.length) break;
         rows.push(...more.employees);
       }
+      if (seq !== loadSeq.current) return;
       setAll(rows);
       setError('');
     } catch (e) {
+      if (seq !== loadSeq.current) return;
       setError(String(e?.message || 'Could not load employees.'));
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
   }, [filters]);
 
@@ -1227,21 +1235,37 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
   const [shown, setShown] = useState({});
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
+  /* One hide-again timer per field: a second Show restarts that field's minute, and leaving the page cancels them all. */
+  const hideTimers = useRef({});
+  const clearHideTimers = () => {
+    Object.values(hideTimers.current).forEach(clearTimeout);
+    hideTimers.current = {};
+  };
   const load = useCallback(() => getEmployeeStatutory(employeeId).then(setD).catch(() => setD({ visible: false })), [employeeId]);
   useEffect(() => {
     let live = true;
+    /* Another person's record: never show the last person's details or revealed values while this one loads. */
+    setD(null);
+    setShown({});
+    setEditing(null);
+    clearHideTimers();
     getEmployeeStatutory(employeeId).then((x) => live && setD(x)).catch(() => live && setD({ visible: false }));
     return () => {
       live = false;
     };
   }, [employeeId]);
+  useEffect(() => clearHideTimers, []);
   if (!d?.visible) return null;
   /* A full value shows for a minute and is logged on the server; the client asks for the authenticator code when the server wants one. */
   const show = async (field) => {
     try {
       const value = await revealStatutory(employeeId, field);
       setShown((x) => ({ ...x, [field]: value || '—' }));
-      setTimeout(() => setShown((x) => { const next = { ...x }; delete next[field]; return next; }), 60_000);
+      clearTimeout(hideTimers.current[field]);
+      hideTimers.current[field] = setTimeout(() => {
+        delete hideTimers.current[field];
+        setShown((x) => { const next = { ...x }; delete next[field]; return next; });
+      }, 60_000);
     } catch (e) {
       notify.error(String(e?.message || 'Not shown.'));
     }
@@ -1327,6 +1351,9 @@ export function CustomFields({ employeeId, embedded = false }) {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let live = true;
+    /* Another person's record: unsaved edits belong to the last one, so they go. */
+    setFields(null);
+    setEdits({});
     getCustomValues(employeeId).then((f) => live && setFields(f)).catch(() => live && setFields([]));
     return () => { live = false; };
   }, [employeeId]);
@@ -2083,7 +2110,8 @@ export function EmployeeDocuments({ employeeId }) {
     await deleteDocument(d.id).catch((e) => notify.error(String(e?.message || 'Could not remove.')));
     load();
   };
-  const [today] = useState(() => new Date().toISOString().slice(0, 10));
+  /* India's date, as the server counts expiry: the browser's UTC date would call a document expired 5½ hours late. */
+  const [today] = useState(() => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10));
   /* Replacing keeps the earlier file (DOC-02): a hidden picker per row, then the earlier versions on demand. */
   const replaceInput = useRef(null);
   const [replacing, setReplacing] = useState(null);

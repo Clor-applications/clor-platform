@@ -26,6 +26,8 @@ import {
  * without it renders exactly as before.
  */
 export const IconSetContext = createContext('line');
+/** Which line icons the open app draws: 'lucide' (the default) or 'fluent' (Fluent Regular, beside Fluent Color). See lineIcons.js. */
+export const LineSetContext = createContext('lucide');
 export const useIconSet = () => useContext(IconSetContext);
 
 /**

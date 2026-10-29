@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -130,21 +130,33 @@ export default function StructureList({ kind, title = '', singular = '' }) {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  /* Moving from one list to another quickly: the list asked for last wins, an older answer is dropped. */
+  const seq = useRef(0);
   const load = useCallback(async () => {
+    const n = ++seq.current;
     try {
       const [items, parentItems] = await Promise.all([
         listStructure(kind),
         cfg.parent ? listStructure(cfg.parent.kind) : Promise.resolve([]),
       ]);
+      if (n !== seq.current) return;
       setRows(items);
       setParents(parentItems);
       setError('');
     } catch (e) {
+      if (n !== seq.current) return;
       setError(String(e?.message || `Could not load ${cfg.title.toLowerCase()}.`));
     } finally {
-      setLoading(false);
+      if (n === seq.current) setLoading(false);
     }
   }, [kind, cfg]);
+
+  /* Another kind of list: the last one's rows would show under the new title while it loads. */
+  useEffect(() => {
+    setRows([]);
+    setParents([]);
+    setEditing(null);
+  }, [kind]);
 
   useEffect(() => {
     setLoading(true);

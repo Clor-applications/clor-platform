@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { MoreVertical } from 'lucide-react';
+import { MoreVertical } from '@ui/components/ui/lineIcons';
 
 import Popover from './ui/Popover';
 

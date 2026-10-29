@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { BookOpen, CircleHelp, Cpu, Keyboard, ListChecks, Mail, MessageCircle } from 'lucide-react';
+import { BookOpen, CircleHelp, Cpu, Keyboard, ListChecks, Mail, MessageCircle } from '@ui/components/ui/lineIcons';
 import { requestOpenHelp } from '@platform/context';
 
 import Popover from '@ui/components/ui/Popover';

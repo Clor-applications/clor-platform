@@ -6,6 +6,7 @@ import { exclusive, leaseFor } from '../jobLease.js';
 import { decodeDocument } from './documentFiles.js';
 import { inForce } from './policies.js';
 import { registerJob } from '../jobRegistry.js';
+import type { TeamScope } from './scope.js';
 
 /**
  * Help desk (docs/people/02-PRD.md DESK-01..06). An employee raises a
@@ -40,7 +41,11 @@ export class DeskError extends Error {
   }
 }
 
-type Who = { accountId: string; orgId: string; userId: string | null };
+/** `scope` is the signed-in user's team scope on HR's side; the employee's own portal leaves it out. */
+type Who = { accountId: string; orgId: string; userId: string | null; scope?: TeamScope };
+
+/** A request about someone outside the team scope reads as absent, as every other People record does. */
+const inScopeWhere = (scope?: TeamScope): Record<string, unknown> => (!scope || scope.all ? {} : { employeeId: { in: scope.ids } });
 
 /** Working days skip Saturday and Sunday; company holidays are the next step. */
 export function addWorkingDays(from: Date, days: number): Date {
@@ -135,11 +140,11 @@ export async function raiseRequest(who: Who & { employeeId?: string | null }, em
   return shapeRequest(row, now);
 }
 
-export async function listRequests(orgId: string, where: { status?: string; queue?: string; assigneeUserId?: string; employeeId?: string; q?: string } = {}) {
+export async function listRequests(orgId: string, where: { status?: string; queue?: string; assigneeUserId?: string; employeeId?: string; q?: string; scope?: TeamScope } = {}) {
   const status = where.status ? (where.status === 'OPEN' ? { in: ['OPEN', 'REOPENED', 'WAITING_EMPLOYEE'] } : where.status) : undefined;
   const q = String(where.q || '').trim();
   const rows = await peoplePrisma.deskRequest.findMany({
-    where: { orgId, ...(status ? { status } : {}), ...(where.queue ? { queue: where.queue } : {}), ...(where.assigneeUserId ? { assigneeUserId: where.assigneeUserId } : {}), ...(where.employeeId ? { employeeId: where.employeeId } : {}), ...(q ? { OR: [{ subject: { contains: q, mode: 'insensitive' } }, { employee: { name: { contains: q, mode: 'insensitive' } } }] } : {}) },
+    where: { orgId, ...inScopeWhere(where.scope), ...(status ? { status } : {}), ...(where.queue ? { queue: where.queue } : {}), ...(where.assigneeUserId ? { assigneeUserId: where.assigneeUserId } : {}), ...(where.employeeId ? { employeeId: where.employeeId } : {}), ...(q ? { OR: [{ subject: { contains: q, mode: 'insensitive' } }, { employee: { name: { contains: q, mode: 'insensitive' } } }] } : {}) },
     include: { employee: { select: { name: true, code: true } } }, orderBy: [{ resolveBy: 'asc' }], take: 500,
   });
   const now = new Date();
@@ -160,8 +165,8 @@ async function namesFor(orgId: string, msgs: Array<{ authorUserId: string | null
 }
 
 /** The request with its thread; for the employee, internal notes are left out (DESK-02) and a moved request shows only its date. */
-export async function requestDetail(orgId: string, id: string, opts: { forEmployeeId?: string | null } = {}) {
-  const r = await peoplePrisma.deskRequest.findFirst({ where: { id, orgId, ...(opts.forEmployeeId ? { employeeId: opts.forEmployeeId } : {}) }, include: { employee: { select: { name: true, code: true } }, messages: { orderBy: { createdAt: 'asc' } } } });
+export async function requestDetail(orgId: string, id: string, opts: { forEmployeeId?: string | null; scope?: TeamScope } = {}) {
+  const r = await peoplePrisma.deskRequest.findFirst({ where: { id, orgId, ...inScopeWhere(opts.scope), ...(opts.forEmployeeId ? { employeeId: opts.forEmployeeId } : {}) }, include: { employee: { select: { name: true, code: true } }, messages: { orderBy: { createdAt: 'asc' } } } });
   if (!r) throw new DeskError('No such request.', 404);
   const msgs = opts.forEmployeeId ? r.messages.filter((m) => !m.internal) : r.messages;
   const names = await namesFor(orgId, msgs, [r.assigneeUserId, r.resolvedByUserId]);
@@ -170,7 +175,7 @@ export async function requestDetail(orgId: string, id: string, opts: { forEmploy
 
 /** HR answers, notes internally, or inserts a template (DESK-06). The first answer the employee can see stops the reply clock. */
 export async function addMessage(who: Who, id: string, input: { body?: string; internal?: boolean; templateId?: string | null; attachment?: { title?: string; data?: unknown; mime?: unknown } | null; waitForEmployee?: boolean }) {
-  const r = await peoplePrisma.deskRequest.findFirst({ where: { id, orgId: who.orgId }, include: { employee: { select: { userId: true, name: true } } } });
+  const r = await peoplePrisma.deskRequest.findFirst({ where: { id, orgId: who.orgId, ...inScopeWhere(who.scope) }, include: { employee: { select: { userId: true, name: true } } } });
   if (!r) throw new DeskError('No such request.', 404);
   if (r.status === 'MOVED') throw new DeskError('This request was moved to Private cases.', 409);
   let body = String(input.body || '').trim().slice(0, 10_000);
@@ -222,7 +227,7 @@ export async function employeeReply(who: Who, employeeId: string, id: string, in
 }
 
 export async function assignRequest(who: Who, id: string, input: { assigneeUserId?: string | null; queue?: string | null }) {
-  const r = await peoplePrisma.deskRequest.findFirst({ where: { id, orgId: who.orgId } });
+  const r = await peoplePrisma.deskRequest.findFirst({ where: { id, orgId: who.orgId, ...inScopeWhere(who.scope) } });
   if (!r) throw new DeskError('No such request.', 404);
   const data: Record<string, unknown> = {};
   if (input.assigneeUserId !== undefined) {
@@ -238,7 +243,7 @@ export async function assignRequest(who: Who, id: string, input: { assigneeUserI
 
 /** Resolved, with a reason the employee reads (DESK-04). */
 export async function resolveRequest(who: Who, id: string, input: { resolution?: string }) {
-  const r = await peoplePrisma.deskRequest.findFirst({ where: { id, orgId: who.orgId }, include: { employee: { select: { userId: true } } } });
+  const r = await peoplePrisma.deskRequest.findFirst({ where: { id, orgId: who.orgId, ...inScopeWhere(who.scope) }, include: { employee: { select: { userId: true } } } });
   if (!r) throw new DeskError('No such request.', 404);
   if (r.status === 'MOVED') throw new DeskError('This request was moved to Private cases.', 409);
   const resolution = String(input.resolution || '').trim().slice(0, 5000);
@@ -251,7 +256,7 @@ export async function resolveRequest(who: Who, id: string, input: { resolution?:
 /** Within seven days of resolving; after that, a new request (DESK-04). */
 export async function reopenRequest(who: Who, id: string, opts: { employeeId?: string | null; now?: Date } = {}) {
   const now = opts.now || new Date();
-  const r = await peoplePrisma.deskRequest.findFirst({ where: { id, orgId: who.orgId, ...(opts.employeeId ? { employeeId: opts.employeeId } : {}) } });
+  const r = await peoplePrisma.deskRequest.findFirst({ where: { id, orgId: who.orgId, ...inScopeWhere(who.scope), ...(opts.employeeId ? { employeeId: opts.employeeId } : {}) } });
   if (!r) throw new DeskError('No such request.', 404);
   if (r.status !== 'RESOLVED' || !r.resolvedAt) throw new DeskError('Only a resolved request can be reopened.', 409);
   if (now.getTime() - r.resolvedAt.getTime() > REOPEN_DAYS * 86_400_000) throw new DeskError(`That was resolved more than ${REOPEN_DAYS} days ago; raise a new request.`, 409);
@@ -266,12 +271,16 @@ export async function reopenRequest(who: Who, id: string, opts: { employeeId?: s
 
 /** Moved to Private cases (DESK-05): the details and the thread are wiped here; only the date and the case stay. */
 export async function moveToCase(who: Who, id: string, input: { caseId?: string | null } = {}) {
-  const r = await peoplePrisma.deskRequest.findFirst({ where: { id, orgId: who.orgId } });
+  const r = await peoplePrisma.deskRequest.findFirst({ where: { id, orgId: who.orgId, ...inScopeWhere(who.scope) } });
   if (!r) throw new DeskError('No such request.', 404);
   if (r.status === 'MOVED') return requestDetail(who.orgId, id);
   const when = new Date();
   await peoplePrisma.$transaction(async (tx) => {
+    /* The files sent in the thread go too, or the case would stay readable from the employee's documents. */
+    const sent = await tx.deskMessage.findMany({ where: { requestId: r.id, attachmentDocId: { not: null } }, select: { attachmentDocId: true } });
+    const docIds = sent.map((m) => m.attachmentDocId).filter((x): x is string => Boolean(x));
     await tx.deskMessage.deleteMany({ where: { requestId: r.id } });
+    if (docIds.length) await tx.employeeDocument.deleteMany({ where: { id: { in: docIds }, orgId: who.orgId, employeeId: r.employeeId } });
     await tx.deskRequest.update({ where: { id: r.id }, data: { status: 'MOVED', subject: `Moved on ${when.toISOString().slice(0, 10)}`, description: '', resolution: null, replyChannel: null, movedToCaseAt: when, movedToCaseId: String(input.caseId || '').trim() || null } });
   });
   return requestDetail(who.orgId, id);

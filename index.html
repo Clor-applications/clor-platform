@@ -20,8 +20,10 @@
         var m = document.querySelector('link[rel="manifest"]');
         if (m) m.href = '/manifest-' + app + '.webmanifest';
         var a = document.querySelector('link[rel="apple-touch-icon"]');
-        /* People has no icon of its own yet: the CLOR mark until it does. */
-        if (a) a.href = app === 'people' ? '/clor-icon-192.png' : '/icons/' + app + '-192.png';
+        if (a) a.href = '/icons/' + app + '-192.png';
+        /* People wears the new mark in the browser tab too (brand kit, 28 Oct 2026); the other apps keep the CLOR icon there. */
+        var f = document.querySelector('link[rel="icon"]');
+        if (f && app === 'people') { f.type = 'image/svg+xml'; f.href = '/icons/people.svg'; }
         var t = document.querySelector('meta[name="theme-color"]');
         if (t) t.content = '#14152B';
         document.title = 'CLOR ' + app.charAt(0).toUpperCase() + app.slice(1);

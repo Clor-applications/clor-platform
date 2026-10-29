@@ -30,8 +30,8 @@ async function owner(): Promise<Ctx> {
   ctx.userId = (await request(app).get('/api/auth/me').set('Authorization', `Bearer ${signup.body.token}`).expect(200)).body.user.id;
   return ctx;
 }
-async function colleague(boss: Ctx, name: string, permissions: string[]): Promise<Ctx> {
-  const role = await request(app).post(`/api/orgs/${boss.orgId}/roles`).set(at(boss)).send({ name: `Role ${rnd()}`, roleType: 'CUSTOM', permissions: [] }).expect(201);
+async function colleague(boss: Ctx, name: string, permissions: string[], ownOnly = false): Promise<Ctx> {
+  const role = await request(app).post(`/api/orgs/${boss.orgId}/roles`).set(at(boss)).send({ name: `Role ${rnd()}`, roleType: 'CUSTOM', permissions: [], ownDocumentsOnly: ownOnly }).expect(201);
   await request(app).put(`/api/orgs/${boss.orgId}/roles/${role.body.role.id}/permissions`).set(at(boss)).send({ permissions }).expect(200);
   const email = `${name.toLowerCase()}.${Date.now()}.${rnd()}@example.com`;
   const user = await request(app).post('/api/users').set(at(boss)).send({ email, fullName: name, password: 'Passw0rd!23', orgIds: [boss.orgId], branchIdsByOrg: { [boss.orgId]: [boss.branchId] } }).expect(201);
@@ -164,6 +164,49 @@ describe('help desk', () => {
     expect(mine.subject).toMatch(/^Moved on/);
     expect(JSON.stringify(mine)).not.toContain('names and dates');
     await people(hr).post(`/desk/${r.id}/messages`, { body: 'x' }).expect(409);
+  });
+
+  it('moved to Private cases, the files sent in the thread go too (DESK-05)', async () => {
+    const e = (await people(hr).post('/employees', { name: 'Neha Iyer', code: 'D-6', dateOfJoining: '2026-01-05' }).expect(201)).body.employee;
+    const neha = await portalFor(hr, companyCode, e);
+    const r = (await request(app).post('/api/portal/people/desk').set(neha).send({ category: 'OTHER', subject: 'Messages from my lead', description: 'Screenshots of the messages are attached.', attachment: { title: 'Screenshots', ...file('screens') } }).expect(201)).body.request;
+    await people(hr).post(`/desk/${r.id}/messages`, { body: 'Our notes.', internal: true, attachment: { title: 'HR notes', ...file('notes') } }).expect(201);
+    await people(hr).post(`/desk/${r.id}/messages`, { body: 'The form to fill.', attachment: { title: 'Complaint form', ...file('form') } }).expect(201);
+    const before = (await people(hr).get(`/employees/${e.id}/documents`).expect(200)).body.documents.map((d: any) => d.title).sort();
+    expect(before).toEqual(['Complaint form', 'HR notes', 'Screenshots']);
+    await people(hr).post(`/desk/${r.id}/move-to-case`, {}).expect(200);
+    expect((await people(hr).get(`/employees/${e.id}/documents`).expect(200)).body.documents).toEqual([]);
+    expect((await request(app).get('/api/portal/documents').set(neha).expect(200)).body.documents).toEqual([]);
+  });
+
+  it('a team lead limited to their own people sees and works only their requests (team scope)', async () => {
+    const lead = await colleague(hr, 'TeamLead', ['PEOPLE::HR Cases::VIEW', 'PEOPLE::HR Cases::EDIT'], true);
+    const self = (await people(hr).post('/employees', { name: 'Lead Self', code: `DS-${rnd()}`, dateOfJoining: '2026-01-05' }).expect(201)).body.employee;
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: self.id }, data: { userId: lead.userId } }));
+    const mineE = (await people(hr).post('/employees', { name: 'In Team', code: `DT-${rnd()}`, dateOfJoining: '2026-01-05', reportingManagerId: self.id }).expect(201)).body.employee;
+    const outE = (await people(hr).post('/employees', { name: 'Out Of Team', code: `DO-${rnd()}`, dateOfJoining: '2026-01-05' }).expect(201)).body.employee;
+    const inside = (await people(hr).post('/desk', { employeeId: mineE.id, category: 'IT', subject: 'Laptop is slow', description: 'Takes ten minutes to start.' }).expect(201)).body.request;
+    const outside = (await people(hr).post('/desk', { employeeId: outE.id, category: 'IT', subject: 'Need a new mouse', description: 'The old one broke.' }).expect(201)).body.request;
+
+    const listed = (await people(lead).get('/desk').expect(200)).body.requests.map((x: any) => x.id);
+    expect(listed).toContain(inside.id);
+    expect(listed).not.toContain(outside.id);
+    await people(lead).get(`/desk/${inside.id}`).expect(200);
+    await people(lead).get(`/desk/${outside.id}`).expect(404);
+    await people(lead).post(`/desk/${outside.id}/messages`, { body: 'Hello' }).expect(404);
+    await people(lead).post(`/desk/${outside.id}/assign`, { assigneeUserId: lead.userId }).expect(404);
+    await people(lead).post(`/desk/${outside.id}/resolve`, { resolution: 'Done.' }).expect(404);
+    await people(lead).post(`/desk/${outside.id}/move-to-case`, {}).expect(404);
+    await people(lead).post('/desk', { employeeId: outE.id, category: 'IT', subject: 'On their behalf', description: 'Raised for someone else.' }).expect(400);
+    await people(hr).post(`/desk/${outside.id}/resolve`, { resolution: 'Mouse handed over.' }).expect(200);
+    await people(lead).post(`/desk/${outside.id}/reopen`, {}).expect(404);
+    /* Inside the team, everything works as for HR. */
+    await people(lead).post(`/desk/${inside.id}/messages`, { body: 'Bring it to IT at 3.' }).expect(201);
+    await people(lead).post(`/desk/${inside.id}/resolve`, { resolution: 'Reinstalled.' }).expect(200);
+    /* The out-of-team request was never touched by the lead. */
+    const row = await runInTenant(hr.orgId, () => peoplePrisma.deskRequest.findUniqueOrThrow({ where: { id: outside.id } }));
+    expect(row.assigneeUserId).toBeNull();
+    expect(row.status).toBe('RESOLVED');
   });
 
   it('a template answer cites the policy version in force (DESK-06)', async () => {
