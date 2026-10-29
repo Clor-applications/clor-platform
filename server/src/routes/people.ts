@@ -51,7 +51,7 @@ import { KIND_LABEL, MERGEABLE, OrgError, STRUCTURE_KINDS, actionOf, ensureOrgDe
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { KINDS, checklistOf, cleanItems, itemsFor, myTasks, openTasks, ownPlanRefusal, redatePlan, startChecklist, tickRefusal, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { settleReaderTask } from '../services/people/lifecycle/readersDone.js';
-import { addCustom, calendar, evidenceOf, updateTask } from '../services/people/compliance.js';
+import { calendar, evidenceOf } from '../services/people/compliance.js';
 import { homeTodos } from '../services/people/home.js';
 import { SetupError, changeSetup, peopleSetup } from '../services/people/setup.js';
 import { track } from '../services/productEvents.js';
@@ -1398,27 +1398,18 @@ peopleRouter.get('/orgs/:orgId/people/compliance', can(PermissionAction.VIEW, EM
   res.json(await calendar({ accountId, orgId, userId: req.auth!.userId }));
 });
 
-peopleRouter.post('/orgs/:orgId/people/compliance', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
-  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
-  const { accountId, orgId } = req.tenant!;
-  try {
-    const task = await addCustom({ accountId, orgId, userId: req.auth!.userId }, req.body);
-    res.status(201).json({ id: task.id });
-  } catch (e) {
-    return sendError(res, e);
-  }
-});
-
-peopleRouter.patch('/orgs/:orgId/people/compliance/:id', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
-  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
-  const { accountId, orgId } = req.tenant!;
-  try {
-    await updateTask({ accountId, orgId, userId: req.auth!.userId }, String(req.params.id), req.body || {});
-    res.json(await calendar({ accountId, orgId, userId: req.auth!.userId }));
-  } catch (e) {
-    return sendError(res, e);
-  }
-});
+/*
+ * The calendar is read-only now (People audit gap 10): its deadlines moved into
+ * Compliance (routes/peopleCompliance.ts), which makes them as obligations and
+ * keeps owner, proof and checked there. A write here would make a second record
+ * nobody reads, so it is refused with where to go instead.
+ */
+const calendarMoved = async (req: Request, res: Response) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.status(410).json({ error: 'The compliance calendar moved into Compliance: add deadlines, owners and proof there.', code: 'MOVED_TO_COMPLIANCE' });
+};
+peopleRouter.post('/orgs/:orgId/people/compliance', can(PermissionAction.EDIT, EMPLOYEES), calendarMoved);
+peopleRouter.patch('/orgs/:orgId/people/compliance/:id', can(PermissionAction.EDIT, EMPLOYEES), calendarMoved);
 
 peopleRouter.get('/orgs/:orgId/people/compliance/:id/evidence', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;

@@ -125,9 +125,10 @@ export async function saveRuleVersion(who: { accountId: string; orgId: string; u
     const obligation = String(input.obligation ?? latest?.obligation ?? '').trim().slice(0, 4000);
     const legalSource = String(input.legalSource ?? latest?.legalSource ?? '').trim().slice(0, 400);
     if (!title || !obligation || !legalSource) throw new ComplianceError('A rule needs a title, what it obliges, and its legal source.');
-    const effectiveFrom = String(input.effectiveFrom ?? latest?.effectiveFrom ?? todayIst()).trim();
+    const effectiveFrom = String(input.effectiveFrom ?? todayIst()).trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)) throw new ComplianceError('Effective from is YYYY-MM-DD.');
-    if (latest && effectiveFrom < latest.effectiveFrom) throw new ComplianceError(`The new version starts on or after ${latest.effectiveFrom}, when the one before it did.`);
+    /* A version replaces the one before from the day it starts; the old one closes the day before, so the new one starts strictly later. */
+    if (latest && effectiveFrom <= latest.effectiveFrom) throw new ComplianceError(`The new version has to start after ${latest.effectiveFrom}, when version ${latest.version} did.`);
     const jurisdiction = String(input.jurisdiction ?? latest?.jurisdiction ?? 'IN').trim().toUpperCase();
     /* A company writes rules for India, every state, or a state it works in; a rule already in the library keeps where it reaches. */
     if (jurisdiction !== latest?.jurisdiction && !allowed.has(jurisdiction)) throw new ComplianceError('A rule reaches all of India, every state, or a state where you have a work site.');
@@ -249,34 +250,51 @@ export async function buildObligations(accountId: string, orgId: string, now = n
       rows.push({ ruleId, ruleVersion: 0, establishmentId: est.id, period, title: `Renew ${registrationLabel(reg.type)} — ${est.name}${reg.number ? ` (${reg.number})` : ''}`, dueOn: reg.validTill, source: 'REGISTRATION' });
     }
   }
-  /* A company-wide row has no establishment, and Postgres treats two nulls as different keys; so what exists is read first and skipped here. */
-  const existing = new Set((await peoplePrisma.obligation.findMany({ where: { orgId }, select: { ruleId: true, establishmentId: true, period: true } })).map((o) => `${o.ruleId}|${o.establishmentId || ''}|${o.period}`));
-  const fresh = rows.filter((o) => !existing.has(`${o.ruleId}|${o.establishmentId || ''}|${o.period}`));
-  if (fresh.length) await peoplePrisma.obligation.createMany({ data: fresh.map((o) => ({ accountId, orgId, ...o, proofDocIds: [] })), skipDuplicates: true });
-  /* A registration renewed on the work site (a new date or number) settles the renewal it replaces. */
-  const stale = (await peoplePrisma.obligation.findMany({ where: { orgId, source: 'REGISTRATION', status: { notIn: DONE_STATES } }, select: { id: true, ruleId: true, establishmentId: true, period: true } })).filter((o) => !current.has(`${o.ruleId}|${o.establishmentId}|${o.period}`));
-  if (stale.length) await peoplePrisma.obligation.updateMany({ where: { orgId, id: { in: stale.map((o) => o.id) } }, data: { status: 'DONE', doneAt: now, note: 'Renewed: the work site has the new registration.' } });
-  /* A work site with its Shops & Establishments number on file has registered. */
-  for (const est of ests) {
-    const se = registrationsOf(est.registrations).find((r) => r.type === 'SE_REG' && r.number);
-    if (se) await peoplePrisma.obligation.updateMany({ where: { orgId, establishmentId: est.id, ruleId: { in: ['IN-SE-REG', 'IN-TS-SE-REG'] }, status: { notIn: DONE_STATES } }, data: { status: 'DONE', doneAt: now, reference: se.number, note: 'Registration number on the work site.' } });
-  }
-  /* Statuses move with the calendar; done and checked ones are left alone. */
-  await peoplePrisma.obligation.updateMany({ where: { orgId, status: { in: ['UPCOMING', 'DUE'] }, dueOn: { lt: today } }, data: { status: 'OVERDUE' } });
-  await peoplePrisma.obligation.updateMany({ where: { orgId, status: 'UPCOMING', dueOn: { gte: today, lte: addDays(today, 14) } }, data: { status: 'DUE' } });
-  await peoplePrisma.obligation.updateMany({ where: { orgId, source: 'REGISTRATION', status: 'UPCOMING', dueOn: { gte: today, lte: addDays(today, 30) } }, data: { status: 'DUE' } });
+  /*
+   * The writes run one company at a time (an advisory lock): a company-wide row has
+   * no establishment, and Postgres treats two nulls as different keys, so two reads
+   * at once (Home and Compliance opening together) would otherwise both add it.
+   */
+  const note = (was: string | null, line: string) => (was && was.includes(line) ? was : [was, line].filter(Boolean).join('\n').slice(0, 2000));
+  await peoplePrisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`obligations:${orgId}`}))`;
+    const existing = new Set((await tx.obligation.findMany({ where: { orgId }, select: { ruleId: true, establishmentId: true, period: true } })).map((o) => `${o.ruleId}|${o.establishmentId || ''}|${o.period}`));
+    const fresh = rows.filter((o) => !existing.has(`${o.ruleId}|${o.establishmentId || ''}|${o.period}`));
+    if (fresh.length) await tx.obligation.createMany({ data: fresh.map((o) => ({ accountId, orgId, ...o, proofDocIds: [] })), skipDuplicates: true });
+    /* A renewal is settled only by a newer registration of the same kind on the same site; one removed from the site stays open for someone to close. */
+    const latestTill = new Map<string, string>();
+    for (const est of ests) for (const r of registrationsOf(est.registrations)) if (r.validTill && (latestTill.get(`${est.id}|${r.type}`) || '') < r.validTill) latestTill.set(`${est.id}|${r.type}`, r.validTill);
+    const open = await tx.obligation.findMany({ where: { orgId, source: 'REGISTRATION', status: { notIn: DONE_STATES } }, select: { id: true, ruleId: true, establishmentId: true, period: true, dueOn: true, note: true } });
+    for (const o of open) {
+      if (current.has(`${o.ruleId}|${o.establishmentId}|${o.period}`)) continue;
+      const newer = latestTill.get(`${o.establishmentId}|${o.ruleId.replace(/^REG-/, '')}`);
+      if (!newer || newer <= o.dueOn) continue;
+      await tx.obligation.update({ where: { id: o.id }, data: { status: 'DONE', doneAt: now, note: note(o.note, `Renewed: the work site has it valid till ${newer}.`) } });
+    }
+    /* A work site with its Shops & Establishments number on file has registered. */
+    for (const est of ests) {
+      const se = registrationsOf(est.registrations).find((r) => r.type === 'SE_REG' && r.number);
+      if (!se) continue;
+      const due = await tx.obligation.findMany({ where: { orgId, establishmentId: est.id, ruleId: { in: ['IN-SE-REG', 'IN-TS-SE-REG'] }, status: { notIn: DONE_STATES } }, select: { id: true, note: true, reference: true } });
+      for (const o of due) await tx.obligation.update({ where: { id: o.id }, data: { status: 'DONE', doneAt: now, reference: o.reference || se.number, note: note(o.note, 'Registration number on the work site.') } });
+    }
+    /* Statuses move with the calendar; done and checked ones are left alone. */
+    await tx.obligation.updateMany({ where: { orgId, status: { in: ['UPCOMING', 'DUE'] }, dueOn: { lt: today } }, data: { status: 'OVERDUE' } });
+    await tx.obligation.updateMany({ where: { orgId, status: 'UPCOMING', dueOn: { gte: today, lte: addDays(today, 14) } }, data: { status: 'DUE' } });
+    await tx.obligation.updateMany({ where: { orgId, source: 'REGISTRATION', status: 'UPCOMING', dueOn: { gte: today, lte: addDays(today, 30) } }, data: { status: 'DUE' } });
+  });
   return rows.length;
 }
 
 const STATUSES = ['UPCOMING', 'DUE', 'OVERDUE', 'DONE', 'CHECKED', 'NOT_APPLICABLE'];
 
-export async function obligationsOf(accountId: string, orgId: string, where: { status?: string; establishmentId?: string; id?: string } = {}) {
+export async function obligationsOf(accountId: string, orgId: string, where: { status?: string; establishmentId?: string; id?: string; statutory?: boolean } = {}) {
   await buildObligations(accountId, orgId);
   const statuses = String(where.status || '').toUpperCase().split(',').filter((x) => STATUSES.includes(x));
-  const rows = await peoplePrisma.obligation.findMany({ where: { orgId, ...(statuses.length ? { status: { in: statuses } } : {}), ...(where.establishmentId ? { establishmentId: where.establishmentId } : {}), ...(where.id ? { id: where.id } : {}) }, orderBy: [{ dueOn: 'asc' }, { title: 'asc' }] });
+  const rows = await peoplePrisma.obligation.findMany({ where: { orgId, ...(statuses.length ? { status: { in: statuses } } : {}), ...(where.establishmentId ? { establishmentId: where.establishmentId } : {}), ...(where.id ? { id: where.id } : {}), ...(where.statutory === false ? { source: { not: 'STATUTORY' } } : {}) }, orderBy: [{ dueOn: 'asc' }, { title: 'asc' }] });
   const ests = await peoplePrisma.establishment.findMany({ where: { orgId }, select: { id: true, name: true, state: true } });
   const estOf = new Map(ests.map((e) => [e.id, e]));
-  const proofs = rows.length ? await peoplePrisma.obligationProof.findMany({ where: { orgId, obligationId: { in: rows.map((r) => r.id) } }, select: { id: true, obligationId: true, name: true, mime: true, size: true, uploadedByUserId: true, createdAt: true }, orderBy: { createdAt: 'asc' } }) : [];
+  const proofs = rows.length ? await peoplePrisma.obligationProof.findMany({ where: { orgId, obligationId: { in: rows.map((r) => r.id) }, removedAt: null }, select: { id: true, obligationId: true, name: true, mime: true, size: true, uploadedByUserId: true, createdAt: true }, orderBy: { createdAt: 'asc' } }) : [];
   const names = await namesOf([...rows.flatMap((r) => [r.ownerUserId, r.doneByUserId, r.checkedByUserId]), ...proofs.map((p) => p.uploadedByUserId)]);
   const rules = await peoplePrisma.complianceRule.findMany({ where: { orgId, ruleId: { in: [...new Set(rows.map((r) => r.ruleId))] } }, select: { ruleId: true, version: true, reviewStatus: true, legalSource: true, requiredProof: true, ownerRole: true } });
   const ruleOf = new Map(rules.map((r) => [`${r.ruleId}@${r.version}`, r]));
@@ -383,33 +401,46 @@ const MAX_PROOF = 5 * 1024 * 1024;
 const PROOF_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 const LOCKED = 'It has been checked with this proof; open it again to change the proof.';
 
+/** The obligation, locked for the rest of the transaction: a proof is added or removed against what it is now (checked or not, how many files). */
+async function lockedObligation(tx: any, orgId: string, id: string) {
+  const rows = await tx.$queryRaw`SELECT "id", "accountId", "status" FROM "Obligation" WHERE "id" = ${id} AND "orgId" = ${orgId} FOR UPDATE`;
+  return (rows as Array<{ id: string; accountId: string; status: string }>)[0] || null;
+}
+
 /** A proof file (PDF, PNG or JPEG, up to 5 MB), its bytes checked against what it says it is. Not on one already checked. */
 export async function addProof(who: { accountId: string; orgId: string; userId: string | null }, id: string, input: { name?: string; mime?: string; dataUrl?: string }) {
-  const row = await peoplePrisma.obligation.findFirst({ where: { id, orgId: who.orgId }, select: { id: true, status: true } });
-  if (!row) throw new ComplianceError('No such obligation.', 404);
-  if (row.status === 'CHECKED') throw new ComplianceError(LOCKED, 409);
   const mime = String(input.mime || '').toLowerCase();
   if (!PROOF_TYPES.includes(mime)) throw new ComplianceError('Proof is a PDF, PNG or JPEG.');
   const bytes = Buffer.from(String(input.dataUrl || '').replace(/^data:[^,]+,/, ''), 'base64');
   if (!bytes.length || bytes.length > MAX_PROOF) throw new ComplianceError('Proof is up to 5 MB.');
   if (!verifiedMime(bytes, mime, (t) => PROOF_TYPES.includes(t))) throw new ComplianceError('That file is not what its name says. Upload the PDF or picture itself.');
-  if ((await peoplePrisma.obligationProof.count({ where: { orgId: who.orgId, obligationId: row.id } })) >= 10) throw new ComplianceError('Ten files at most; remove one first.');
-  const p = await peoplePrisma.obligationProof.create({ data: { accountId: who.accountId, orgId: who.orgId, obligationId: row.id, name: String(input.name || 'Proof').trim().slice(0, 200) || 'Proof', mime, size: bytes.length, data: bytes, uploadedByUserId: who.userId } });
+  const p = await peoplePrisma.$transaction(async (tx) => {
+    const row = await lockedObligation(tx, who.orgId, id);
+    if (!row) throw new ComplianceError('No such obligation.', 404);
+    if (row.status === 'CHECKED') throw new ComplianceError(LOCKED, 409);
+    if ((await tx.obligationProof.count({ where: { orgId: who.orgId, obligationId: row.id, removedAt: null } })) >= 10) throw new ComplianceError('Ten files at most; remove one first.');
+    return tx.obligationProof.create({ data: { accountId: who.accountId, orgId: who.orgId, obligationId: row.id, name: String(input.name || 'Proof').trim().slice(0, 200) || 'Proof', mime, size: bytes.length, data: bytes, uploadedByUserId: who.userId } });
+  });
   return { id: p.id, name: p.name, mime: p.mime, size: p.size };
 }
 
-export async function proofFile(orgId: string, id: string, proofId: string) {
-  const p = await peoplePrisma.obligationProof.findFirst({ where: { id: proofId, obligationId: id, orgId }, select: { name: true, mime: true, data: true } });
+export async function proofFile(orgId: string, id: string, proofId: string, opts: { statutory?: boolean } = {}) {
+  /* A statutory deadline's challan carries Payroll's figures: only for those who see statutory details. */
+  if (opts.statutory === false && (await peoplePrisma.obligation.count({ where: { id, orgId, source: 'STATUTORY' } }))) throw new ComplianceError('No such file.', 404);
+  const p = await peoplePrisma.obligationProof.findFirst({ where: { id: proofId, obligationId: id, orgId, removedAt: null }, select: { name: true, mime: true, data: true } });
   if (!p || !p.data?.length) throw new ComplianceError('No such file.', 404);
   return { name: p.name, mime: p.mime, dataUrl: `data:${p.mime};base64,${Buffer.from(p.data).toString('base64')}` };
 }
 
-export async function removeProof(orgId: string, id: string, proofId: string) {
-  const row = await peoplePrisma.obligation.findFirst({ where: { id, orgId }, select: { status: true } });
-  if (!row) throw new ComplianceError('No such obligation.', 404);
-  if (row.status === 'CHECKED') throw new ComplianceError(LOCKED, 409);
-  const n = await peoplePrisma.obligationProof.deleteMany({ where: { id: proofId, obligationId: id, orgId } });
-  if (!n.count) throw new ComplianceError('No such file.', 404);
+/** Taken off the obligation, never erased: the row stays with who removed it and when, as the record of what was once shown as proof. */
+export async function removeProof(who: { orgId: string; userId: string | null }, id: string, proofId: string) {
+  await peoplePrisma.$transaction(async (tx) => {
+    const row = await lockedObligation(tx, who.orgId, id);
+    if (!row) throw new ComplianceError('No such obligation.', 404);
+    if (row.status === 'CHECKED') throw new ComplianceError(LOCKED, 409);
+    const n = await tx.obligationProof.updateMany({ where: { id: proofId, obligationId: id, orgId: who.orgId, removedAt: null }, data: { removedAt: new Date(), removedByUserId: who.userId } });
+    if (!n.count) throw new ComplianceError('No such file.', 404);
+  });
 }
 
 /** What is due inside fourteen days is announced once, to the owner or to HR, with the event other apps read (`people.obligation.due.v1`). */

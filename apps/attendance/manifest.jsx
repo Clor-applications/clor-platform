@@ -92,7 +92,8 @@ const DataHealth = screen('DataHealth');
 const PayrollReadiness = screen('PayrollReadiness');
 const LifecycleTasks = screen('LifecycleTasks');
 const JourneySteps = screen('JourneySteps');
-const ComplianceCalendar = screen('ComplianceCalendar');
+/* The old calendar retired into People's Compliance (People audit gap 10): one place for deadlines, owners and proof. */
+const ComplianceCalendar = lazy(() => import('../people/src/screens/Compliance'));
 const RecycleBin = screen('RecycleBin');
 const DeviceLogs = screen('DeviceLogs');
 const AttendanceReports = screen('AttendanceReports');
@@ -364,7 +365,7 @@ export const attendanceApp = {
     /* LX-07: shared screen; the server lets only the company's owner ask or cancel. */
     { key: 'closeCompany', label: 'Close Company', icon: Lock, permission: 'SETTINGS::Company data::VIEW' },
     /* HR research Phase 2: statutory and company deadlines with owners and evidence. */
-    { key: 'complianceCalendar', label: 'Compliance Calendar', icon: CalendarCheck, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'complianceCalendar', label: 'Compliance', icon: CalendarCheck, permission: 'PEOPLE::Employees::VIEW' },
     /* HR research: joining and leaving checklists. */
     /* Joining & Leaving tasks and steps: the same screens People shows (JOINING-LEAVING-DECISIONS.md). */
     { key: 'checklists', label: 'Joining & Leaving Tasks', icon: ClipboardCheck, permission: 'PEOPLE::Employees::VIEW' },

@@ -293,7 +293,7 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
 
 const field = (f, form, set, ctx) => {
   const id = `org-${f.key}`;
-  if (f.type === 'registrations') return <RegistrationsField key={f.key} value={form[f.key]} onChange={(v) => set(f.key, v)} />;
+  if (f.type === 'registrations') return <RegistrationsField key={f.key} value={form[f.key]} onChange={(v) => set(f.key, v)} sites={ctx.refs?.establishments || []} siteId={form.id} />;
   if (f.type === 'checkbox') {
     return <label key={f.key} className={`flex items-center gap-2 text-sm ${f.wide ? 'sm:col-span-2' : ''}`}><input id={id} type="checkbox" className="ui-checkbox" checked={Boolean(form[f.key])} onChange={(e) => set(f.key, e.target.checked)} />{f.label}</label>;
   }
@@ -322,8 +322,10 @@ const field = (f, form, set, ctx) => {
 };
 
 /** A work site's registrations: type, number, valid till; added and removed in place. */
-function RegistrationsField({ value, onChange }) {
+function RegistrationsField({ value, onChange, sites = [], siteId }) {
   const rows = Array.isArray(value) ? value : [];
+  /* Numbers the company's other sites hold for the same kind: a PF or ESI code is often one for the whole company. */
+  const numbersFor = (type) => [...new Set(sites.filter((s) => s.id !== siteId).flatMap((s) => (Array.isArray(s.registrations) ? s.registrations : [])).filter((r) => r.type === type && r.number).map((r) => r.number))];
   const put = (i, patch) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   return (
     <fieldset className="grid gap-3 sm:col-span-2 border-t pt-3">
@@ -331,7 +333,7 @@ function RegistrationsField({ value, onChange }) {
       {rows.map((r, i) => (
         <div key={i} className="grid gap-2 sm:grid-cols-3" role="group" aria-label={`Registration ${i + 1}`}>
           <div><PopupSelect showValueSubtext={false} label="Type" value={r.type || ''} onChange={(v) => put(i, { type: v || 'OTHER' })} placeholder="Choose…" options={REGISTRATION_TYPES.map(([v, l]) => ({ value: v, label: l }))} /></div>
-          <label className="block"><span className="ui-label">Number</span><SuggestInput maxLength={80} value={r.number || ''} onChange={(v) => put(i, { number: v })} suggestions={[]} aria-label={`Registration ${i + 1} number`} /></label>
+          <label className="block"><span className="ui-label">Number</span><SuggestInput maxLength={80} value={r.number || ''} onChange={(v) => put(i, { number: v })} suggestions={numbersFor(r.type)} aria-label={`Registration ${i + 1} number`} /></label>
           <div><span className="ui-label" id={`reg-till-${i}`}>Valid till</span><DatePicker label="Valid till" describedBy={`reg-till-${i}`} value={r.validTill || ''} onChange={(v) => put(i, { validTill: v || '' })} /></div>
           <span className="sm:col-span-3"><button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove registration ${i + 1}`} onClick={() => onChange(rows.filter((_, j) => j !== i))}><X size={16} aria-hidden="true" /> Remove</button></span>
         </div>

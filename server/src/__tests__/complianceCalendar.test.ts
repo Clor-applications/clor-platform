@@ -61,29 +61,33 @@ describe('the calendar', () => {
     await request(app).post(`/api/orgs/${c.orgId}/payroll/employees`).set(at(c)).send({ name: 'Ravi', code: 'K1', dateOfJoining: '2026-01-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW', pfApplicable: true, esiApplicable: false, ptApplicable: true, professionalTaxState: 'Karnataka' } }).expect(201);
     const api = (m: 'get' | 'post' | 'patch', p: string, b?: unknown) => (request(app) as any)[m](`/api/orgs/${c.orgId}/people/compliance${p}`).set(at(c)).send(b as any);
 
-    const cal = (await api('get', '').expect(200)).body;
-    expect(cal.applies).toMatchObject({ payroll: true, pf: true, esi: false, ptStates: ['Karnataka'], posh: false });
-    const codes = new Set(cal.tasks.map((t: any) => t.code));
+    /* The calendar's deadlines are made in Compliance now (People audit gap 10): from Payroll's settings, as obligations. */
+    const list = (await api('get', '/obligations').expect(200)).body.obligations.filter((o: any) => o.source === 'STATUTORY');
+    const codes = new Set(list.map((o: any) => o.ruleId));
     expect(codes.has('PF_ECR')).toBe(true);
     expect(codes.has('TDS_DEPOSIT')).toBe(true);
     expect(codes.has('PT_KARNATAKA')).toBe(true);
     expect(codes.has('ESIC')).toBe(false);
+    expect(codes.has('POSH_REPORT')).toBe(false);
 
-    const pf = cal.tasks.find((t: any) => t.code === 'PF_ECR');
-    expect(pf.link).toEqual({ app: 'payroll', screen: 'reports' });
+    const pf = list.find((o: any) => o.ruleId === 'PF_ECR');
+    expect(pf).toMatchObject({ link: { app: 'payroll', screen: 'reports' }, requiredProof: ['PAYMENT_CHALLAN'], owner: 'Payroll' });
     const pdf = `data:application/pdf;base64,${Buffer.from('%PDF-1.4 challan').toString('base64')}`;
-    const after = (await api('patch', `/${pf.id}`, { status: 'DONE', owner: 'Meera (payroll)', reference: 'TRRN 1234567890', evidence: { name: 'challan.pdf', mime: 'application/pdf', dataUrl: pdf } }).expect(200)).body;
-    expect(after.tasks.find((t: any) => t.id === pf.id)).toMatchObject({ status: 'DONE', owner: 'Meera (payroll)', reference: 'TRRN 1234567890', evidenceName: 'challan.pdf', doneBy: 'Owner', overdue: false });
-    const ev = (await api('get', `/${pf.id}/evidence`).expect(200)).body.evidence;
+    const proof = (await api('post', `/obligations/${pf.id}/proofs`, { name: 'challan.pdf', mime: 'application/pdf', dataUrl: pdf }).expect(201)).body.proof;
+    const after = (await api('patch', `/obligations/${pf.id}`, { status: 'DONE', ownerName: 'Meera (payroll)', reference: 'TRRN 1234567890' }).expect(200)).body.obligation;
+    expect(after).toMatchObject({ status: 'DONE', owner: 'Meera (payroll)', reference: 'TRRN 1234567890', doneBy: 'Owner' });
+    const ev = (await api('get', `/obligations/${pf.id}/proofs/${proof.id}`).expect(200)).body.proof;
     expect(Buffer.from(ev.dataUrl.split(',')[1], 'base64').toString()).toBe('%PDF-1.4 challan');
-    await api('patch', `/${pf.id}`, { evidence: { name: 'x.exe', mime: 'application/x-msdownload', dataUrl: pdf } }).expect(400);
+    await api('post', `/obligations/${pf.id}/proofs`, { name: 'x.exe', mime: 'application/x-msdownload', dataUrl: pdf }).expect(400);
 
     /* Opening again does not double anything. */
-    const again = (await api('get', '').expect(200)).body;
-    expect(again.tasks.length).toBe(cal.tasks.length);
+    const again = (await api('get', '/obligations').expect(200)).body.obligations.filter((o: any) => o.source === 'STATUTORY');
+    expect(again.length).toBe(list.length);
 
-    await api('post', '', { title: 'Shops & Establishments licence renewal', dueDate: '2026-12-31', owner: 'Admin' }).expect(201);
-    const withOwn = (await api('get', '').expect(200)).body;
-    expect(withOwn.tasks.find((t: any) => t.code === 'CUSTOM')).toMatchObject({ title: 'Shops & Establishments licence renewal', dueDate: '2026-12-31', status: 'OPEN', link: null });
+    /* The company's own deadline, and the old calendar refusing writes with where to go. */
+    await api('post', '/obligations', { title: 'Shops & Establishments licence renewal', dueOn: '2026-12-31', ownerName: 'Admin' }).expect(201);
+    expect((await api('get', '/obligations').expect(200)).body.obligations.find((o: any) => o.source === 'OWN')).toMatchObject({ title: 'Shops & Establishments licence renewal', dueOn: '2026-12-31', owner: 'Admin', link: null });
+    await api('post', '', { title: 'x', dueDate: '2026-12-31' }).expect(410);
+    await api('patch', `/${pf.id}`, { status: 'DONE' }).expect(410);
   }, 60_000);
 });

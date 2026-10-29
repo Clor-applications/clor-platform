@@ -42,6 +42,12 @@ const STATE_CODES = { karnataka: 'KA', maharashtra: 'MH', 'tamil nadu': 'TN', te
 const STATE_NAMES = Object.fromEntries(Object.entries(STATE_CODES).map(([name, code]) => [code, name.replace(/\b\w/g, (c) => c.toUpperCase())]));
 const reach = (j) => (j === 'IN' ? 'All of India' : j === 'IN-STATE' ? 'Every state' : STATE_NAMES[String(j || '').replace('IN-', '')] || String(j || '').replace('IN-', ''));
 const codeOf = (state) => STATE_CODES[String(state || '').trim().toLowerCase()] || String(state || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+/** A new version starts today, or the day after the version it replaces starts if that is later: a version cannot start on or before the one it replaces. */
+const startOf = (prev) => {
+  const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+  if (!prev || prev < today) return today;
+  return new Date(Date.parse(`${prev}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+};
 const daysTo = (iso) => Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10)}T00:00:00Z`)) / 86_400_000);
 
 /** A proof shown in its own window, as a data: frame with an opaque origin, never written into HTML. */
@@ -143,7 +149,7 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
       {view === 'registrations' ? <Registrations req={regs} openScreen={openScreen} /> : null}
       {view === 'rules' ? <Rules req={rules} canRules={canRules} onEdit={setRule} /> : null}
 
-      {open ? <ObligationDrawer key={open.id} o={open} canAct={canAct} owners={owners.data} onClose={() => set({ id: null })} onSaved={owed.reload} /> : null}
+      {open ? <ObligationDrawer key={open.id} o={open} known={all} canAct={canAct} owners={owners.data} onClose={() => set({ id: null })} onSaved={owed.reload} /> : null}
       {adding ? <AddDrawer owners={owners.data} sites={regs.data?.sites || []} known={all} onClose={() => setAdding(false)} onDone={(o) => { setAdding(false); owed.reload(); if (o?.id) set({ id: o.id, status: null }); }} /> : null}
       {rule ? <RuleDrawer value={rule} rules={rules.data || []} sites={regs.data?.sites || []} onClose={() => setRule(null)} onDone={() => { setRule(null); rules.reload(); owed.reload(); }} /> : null}
     </div>
@@ -160,7 +166,7 @@ const ownerBody = (typed, owners) => {
   return user ? { ownerUserId: user.id, ownerName: null } : { ownerUserId: null, ownerName: t || null };
 };
 
-function ObligationDrawer({ o, canAct, owners, onClose, onSaved }) {
+function ObligationDrawer({ o, known = [], canAct, owners, onClose, onSaved }) {
   const own = o.source === 'OWN';
   const locked = o.status === 'CHECKED';
   const initial = useMemo(() => ({ owner: o.ownerSet ? o.owner : '', reference: o.reference || '', note: o.note || '', title: o.title, dueOn: o.dueOn }), [o]);
@@ -170,6 +176,9 @@ function ObligationDrawer({ o, canAct, owners, onClose, onSaved }) {
   const fileRef = useRef(null);
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+  /* References kept on the same kind of deadline before (a challan series, the office's acknowledgement prefix). */
+  const refHints = [...new Set(known.filter((x) => x.id !== o.id && x.ruleId === o.ruleId && x.reference).map((x) => x.reference))];
+  const titleHints = [...new Set(known.filter((x) => x.source === 'OWN' && x.id !== o.id).map((x) => x.title))];
   const edits = () => ({
     ...(form.owner !== initial.owner ? ownerBody(form.owner, owners) : {}),
     ...(form.reference !== initial.reference ? { reference: form.reference } : {}),
@@ -265,10 +274,10 @@ function ObligationDrawer({ o, canAct, owners, onClose, onSaved }) {
 
         {canAct ? (
           <div className="ui-form-grid">
-            {own ? <label className="block sm:col-span-2"><span className="ui-label">What</span><SuggestInput maxLength={200} value={form.title} onChange={(v) => setF('title', v)} suggestions={[]} /></label> : null}
+            {own ? <label className="block sm:col-span-2"><span className="ui-label">What</span><SuggestInput maxLength={200} value={form.title} onChange={(v) => setF('title', v)} suggestions={titleHints} /></label> : null}
             {own ? <div><span className="ui-label" id="obl-due">Due on</span><DatePicker label="Due on" describedBy="obl-due" value={form.dueOn} onChange={(v) => setF('dueOn', v || '')} /></div> : null}
             <label className="block"><span className="ui-label">Owner</span><SuggestInput maxLength={120} placeholder={o.ownerSet ? '' : o.owner} value={form.owner} onChange={(v) => setF('owner', v)} suggestions={ownerHints(owners)} /></label>
-            <label className="block"><span className="ui-label">Reference</span><SuggestInput maxLength={120} placeholder="Challan or acknowledgement no." value={form.reference} onChange={(v) => setF('reference', v)} suggestions={[]} /></label>
+            <label className="block"><span className="ui-label">Reference</span><SuggestInput maxLength={120} placeholder="Challan or acknowledgement no." value={form.reference} onChange={(v) => setF('reference', v)} suggestions={refHints} /></label>
             <label className="block sm:col-span-2"><span className="ui-label">Note</span><textarea className="ui-input w-full" rows={3} maxLength={2000} value={form.note} onChange={(e) => setF('note', e.target.value)} /></label>
           </div>
         ) : (
@@ -407,7 +416,7 @@ function RuleDrawer({ value, rules, sites, onClose, onDone }) {
   const [form, setForm] = useState({
     title: value.title || '', jurisdiction: value.jurisdiction || 'IN', minHeadcount: value.threshold?.minHeadcount ? String(value.threshold.minHeadcount) : '',
     kind: due.kind, day: String(due.day || 15), month: String(due.month || 1), month2: String(due.months?.[1] || 10), days: String(due.days || 30),
-    legalSource: value.legalSource || '', obligation: value.obligation || '', proof: (value.requiredProof || []).map(words).join(', '), effectiveFrom: new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10),
+    legalSource: value.legalSource || '', obligation: value.obligation || '', proof: (value.requiredProof || []).map(words).join(', '), effectiveFrom: startOf(value.effectiveFrom),
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -451,7 +460,7 @@ function RuleDrawer({ value, rules, sites, onClose, onDone }) {
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {!isNew ? <p className="ui-caption sm:col-span-2">Version {value.version + 1} replaces version {value.version} from the date below and needs checking again.</p> : null}
         {error ? <p role="alert" className="ui-text-neg text-sm sm:col-span-2">{error}</p> : null}
-        <label className="block sm:col-span-2"><span className="ui-label">Title *</span><SuggestInput autoFocus={isNew} maxLength={160} value={form.title} onChange={(v) => setF('title', v)} suggestions={[]} /></label>
+        <label className="block sm:col-span-2"><span className="ui-label">Title *</span><SuggestInput autoFocus={isNew} maxLength={160} value={form.title} onChange={(v) => setF('title', v)} suggestions={[...new Set(rules.map((r) => r.title))]} /></label>
         <div><PopupSelect showValueSubtext={false} label="Where" value={form.jurisdiction} onChange={(v) => setF('jurisdiction', v || 'IN')} options={whereOptions} /></div>
         {num('minHeadcount', 'From how many people', 99999)}
         <div><PopupSelect showValueSubtext={false} label="When" value={form.kind} onChange={(v) => setF('kind', v || 'STANDING')} options={DUE_KINDS.map(([v, l]) => ({ value: v, label: l }))} /></div>
@@ -462,7 +471,7 @@ function RuleDrawer({ value, rules, sites, onClose, onDone }) {
         <label className="block sm:col-span-2"><span className="ui-label">Legal source *</span><SuggestInput maxLength={400} placeholder="Act, section or notification" value={form.legalSource} onChange={(v) => setF('legalSource', v)} suggestions={sources} /></label>
         <label className="block sm:col-span-2"><span className="ui-label">What it asks *</span><textarea className="ui-input w-full" rows={3} maxLength={4000} value={form.obligation} onChange={(e) => setF('obligation', e.target.value)} /></label>
         <label className="block sm:col-span-2"><span className="ui-label">Proof it needs</span><SuggestInput maxLength={200} placeholder="filing receipt, payment challan" value={form.proof} onChange={(v) => setF('proof', v)} suggestions={proofs} /></label>
-        <div><span className="ui-label" id="rule-from">Starts on</span><DatePicker label="Starts on" describedBy="rule-from" value={form.effectiveFrom} onChange={(v) => setF('effectiveFrom', v || '')} /></div>
+        <div><span className="ui-label" id="rule-from">Starts on</span><DatePicker label="Starts on" describedBy="rule-from" value={form.effectiveFrom} min={isNew ? undefined : startOf(value.effectiveFrom)} onChange={(v) => setF('effectiveFrom', v || '')} /></div>
       </form>
     </Drawer>
   );

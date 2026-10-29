@@ -76,19 +76,14 @@ describe('a file goes to the store and comes back unchanged', () => {
     const shown = await request(app).get(`/api/orgs/${a.orgId}/attendance/punch-photos/${photo.id}`).set(at(a)).expect(200);
     expect(shown.body.photo).toBe(`data:image/png;base64,${PNG.toString('base64')}`);
 
-    const task = await runInTenant(a.orgId, () =>
-      peoplePrisma.complianceTask.create({ data: { accountId: a.accountId, orgId: a.orgId, code: 'CUSTOM', period: `custom-${rnd()}`, title: 'PF challan', dueDate: '2026-11-15' } })
-    );
-    await request(app)
-      .patch(`/api/orgs/${a.orgId}/people/compliance/${task.id}`)
-      .set(at(a))
-      .send({ evidence: { name: 'challan.pdf', mime: 'application/pdf', dataUrl: `data:application/pdf;base64,${PDF.toString('base64')}` } })
-      .expect(200);
-    const stored = await runInTenant(a.orgId, () => peoplePrisma.$queryRawUnsafe<any[]>(`SELECT "evidenceKey", length("evidenceData") AS n FROM "ComplianceTask" WHERE id = $1`, task.id));
-    expect(stored[0].evidenceKey).toBe(keyFor(a.orgId, 'compliance-evidence', task.id));
+    /* Compliance proof (the calendar's evidence moved here): same store, same kind of key. */
+    const ob = (await request(app).post(`/api/orgs/${a.orgId}/people/compliance/obligations`).set(at(a)).send({ title: 'PF challan', dueOn: '2026-11-15' }).expect(201)).body.obligation;
+    const proof = (await request(app).post(`/api/orgs/${a.orgId}/people/compliance/obligations/${ob.id}/proofs`).set(at(a)).send({ name: 'challan.pdf', mime: 'application/pdf', dataUrl: `data:application/pdf;base64,${PDF.toString('base64')}` }).expect(201)).body.proof;
+    const stored = await runInTenant(a.orgId, () => peoplePrisma.$queryRawUnsafe<any[]>(`SELECT "storageKey", length("data") AS n FROM "ObligationProof" WHERE id = $1`, proof.id));
+    expect(stored[0].storageKey).toBe(keyFor(a.orgId, 'compliance-evidence', proof.id));
     expect(Number(stored[0].n)).toBe(0);
-    const ev = await request(app).get(`/api/orgs/${a.orgId}/people/compliance/${task.id}/evidence`).set(at(a)).expect(200);
-    expect(ev.body.evidence.dataUrl).toContain(PDF.toString('base64'));
+    const ev = await request(app).get(`/api/orgs/${a.orgId}/people/compliance/obligations/${ob.id}/proofs/${proof.id}`).set(at(a)).expect(200);
+    expect(ev.body.proof.dataUrl).toContain(PDF.toString('base64'));
   });
 
   it('with no store configured, files stay in the row as before', async () => {

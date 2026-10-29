@@ -76,7 +76,7 @@ export default function PeopleReports({ params = {}, updateParams }) {
       above={(
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-full sm:w-80"><PopupSelect showValueSubtext={false} label="Period" value={period.value} onChange={(v) => updateParams?.({ period: v && v !== 'last12' ? v : null }, { push: false })} options={periods.map((p) => ({ value: p.value, label: p.label }))} /></div>
-          {t ? <p className="ui-caption">{[`Average headcount ${t.averageHeadcount}`, reasons.length ? `Left: ${reasons.map(([k, n]) => `${REASONS[k] || k} ${n}`).join(', ')}` : null].filter(Boolean).join(' · ')}</p> : null}
+          {t ? <p className="ui-caption">{[`Attrition: leavers over the average headcount of the months (${t.averageHeadcount})`, reasons.length ? `Left: ${reasons.map(([k, n]) => `${REASONS[k] || k} ${n}`).join(', ')}` : null].filter(Boolean).join(' · ')}</p> : null}
         </div>
       )}>
       {req.error && !d ? <div className="p-4"><ErrorState error={req.error} onRetry={req.reload} body={req.error?.status === 403 ? 'The people report covers the whole company; your role covers your own team.' : undefined} /></div>

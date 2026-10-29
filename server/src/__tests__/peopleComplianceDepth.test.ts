@@ -99,6 +99,12 @@ describe('obligations: owner, proof, checked', () => {
     const reopened = (await people(hr).patch(`/compliance/obligations/${made.id}`, { status: 'OPEN' }).expect(200)).body.obligation;
     expect(reopened).toMatchObject({ status: 'DUE', doneAt: null, checkedAt: null });
     await people(hr).del(`/compliance/obligations/${made.id}/proofs/${proof.id}`).expect(204);
+    /* Taken off, never erased: the row stays with who removed it. */
+    const kept = await runInTenant(boss.orgId, () => peoplePrisma.obligationProof.findFirst({ where: { id: proof.id } }));
+    expect(kept).toMatchObject({ removedByUserId: hr.userId });
+    expect(kept?.removedAt).toBeTruthy();
+    await people(hr).get(`/compliance/obligations/${made.id}/proofs/${proof.id}`).expect(404);
+    await people(hr).del(`/compliance/obligations/${made.id}/proofs/${proof.id}`).expect(404);
     /* Only the company's own deadline moves; a rule's follows the rule. */
     const moved = (await people(hr).patch(`/compliance/obligations/${made.id}`, { dueOn: plus(40), title: 'Fire licence renewal (main site)' }).expect(200)).body.obligation;
     expect(moved).toMatchObject({ dueOn: plus(40), status: 'UPCOMING', title: 'Fire licence renewal (main site)' });
@@ -108,6 +114,48 @@ describe('obligations: owner, proof, checked', () => {
     const na = (await people(hr).patch(`/compliance/obligations/${made.id}`, { status: 'NOT_APPLICABLE' }).expect(200)).body.obligation;
     expect(na).toMatchObject({ status: 'NOT_APPLICABLE', doneBy: 'Kiran HR' });
     expect((await people(hr).get('/compliance/obligations?status=DONE,CHECKED,NOT_APPLICABLE').expect(200)).body.obligations.map((o: any) => o.id)).toContain(made.id);
+  });
+
+  it('takes a proof of about 2 MB (the body limit is the file’s, not the API’s 1 MB)', async () => {
+    const made = (await people(hr).post('/compliance/obligations', { title: 'Big scan', dueOn: plus(9) }).expect(201)).body.obligation;
+    const big = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(2 * 1024 * 1024, 0x20), Buffer.from('\n%%EOF')]);
+    const proof = (await people(hr).post(`/compliance/obligations/${made.id}/proofs`, { name: 'scan.pdf', mime: 'application/pdf', dataUrl: `data:application/pdf;base64,${big.toString('base64')}` }).expect(201)).body.proof;
+    expect(proof.size).toBe(big.length);
+    const tooBig = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(5 * 1024 * 1024 + 10, 0x20)]);
+    await people(hr).post(`/compliance/obligations/${made.id}/proofs`, { name: 'huge.pdf', mime: 'application/pdf', dataUrl: `data:application/pdf;base64,${tooBig.toString('base64')}` }).expect(400);
+  });
+
+  it('a team-only lead reads none of it; Payroll’s statutory deadlines and their proofs are for those who see statutory details', async () => {
+    const made = (await people(hr).post('/compliance/obligations', { title: 'Lift licence', dueOn: plus(12) }).expect(201)).body.obligation;
+    const proof = (await people(hr).post(`/compliance/obligations/${made.id}/proofs`, { name: 'a.pdf', mime: 'application/pdf', dataUrl: pdf }).expect(201)).body.proof;
+    await people(teamLead).get('/compliance/obligations').expect(403);
+    await people(teamLead).get(`/compliance/obligations/${made.id}/proofs/${proof.id}`).expect(403);
+    await people(teamLead).get('/compliance/registrations').expect(403);
+    /* A statutory row (as Payroll's settings make one) with its challan. */
+    const st = await runInTenant(boss.orgId, () => peoplePrisma.obligation.create({ data: { accountId: 'acc', orgId: boss.orgId, ruleId: 'PF_ECR', ruleVersion: 0, period: `2026-${rnd()}`, title: 'PF: ECR for Oct 2026', dueOn: plus(15), source: 'STATUTORY', proofDocIds: [] } }));
+    const challan = (await people(hr).post(`/compliance/obligations/${st.id}/proofs`, { name: 'challan.pdf', mime: 'application/pdf', dataUrl: pdf }).expect(201)).body.proof;
+    expect((await people(hr).get('/compliance/obligations').expect(200)).body.obligations.map((o: any) => o.id)).toContain(st.id);
+    const seen = (await people(viewer).get('/compliance/obligations').expect(200)).body.obligations.map((o: any) => o.id);
+    expect(seen).toContain(made.id);
+    expect(seen).not.toContain(st.id);
+    await people(viewer).get(`/compliance/obligations/${st.id}/proofs/${challan.id}`).expect(404);
+    await people(viewer).get(`/compliance/obligations/${made.id}/proofs/${proof.id}`).expect(200);
+  });
+
+  it('opening Compliance from several places at once adds each company-wide obligation once', async () => {
+    const fresh = await owner('Fresh Owner');
+    await Promise.all(Array.from({ length: 6 }, () => people(fresh).get('/compliance/obligations').expect(200)));
+    await people(fresh).get('/home').expect(200);
+    const rows = await runInTenant(fresh.orgId, () => peoplePrisma.obligation.findMany({ where: { orgId: fresh.orgId, establishmentId: null }, select: { ruleId: true, period: true } }));
+    expect(rows.length).toBeGreaterThan(0);
+    expect(new Set(rows.map((r) => `${r.ruleId}|${r.period}`)).size).toBe(rows.length);
+  });
+
+  it('the old calendar no longer takes writes: it points to Compliance', async () => {
+    const moved = await people(hr).post('/compliance', { title: 'x', dueDate: plus(3) }).expect(410);
+    expect(moved.body.code).toBe('MOVED_TO_COMPLIANCE');
+    await people(hr).patch('/compliance/anything', { status: 'DONE' }).expect(410);
+    await people(viewer).post('/compliance', { title: 'x', dueDate: plus(3) }).expect(403);
   });
 
   it('refuses a viewer, a team-only lead and another company; an owner who is not a user here is refused', async () => {
@@ -147,18 +195,23 @@ describe('rules: a state rule of the company’s own', () => {
     expect(own.ruleId).toMatch(/^IN-MH-OWN-/);
     await people(viewer).post('/compliance/rules', { ruleId: own.ruleId, obligation: 'x' }).expect(403);
     await people(hr).post(`/compliance/rules/${own.ruleId}/versions/1/check`, {}).expect(200);
-    /* Two people re-version at the same moment: each gets its own number; one stays active. */
+    /* A new version starts strictly after the one it replaces. */
+    await people(hr).post('/compliance/rules', { ruleId: own.ruleId, obligation: 'Same day.', effectiveFrom: own.effectiveFrom }).expect(400);
+    /* Two people re-version at the same moment: they are put one after the other, so no number is taken twice and one version stays active. */
     const [a, b] = await Promise.all([
-      people(hr).post('/compliance/rules', { ruleId: own.ruleId, obligation: 'Keep the register, signed weekly.' }),
-      people(boss).post('/compliance/rules', { ruleId: own.ruleId, obligation: 'Keep the register, signed daily.' }),
+      people(hr).post('/compliance/rules', { ruleId: own.ruleId, obligation: 'Keep the register, signed weekly.', effectiveFrom: plus(1) }),
+      people(boss).post('/compliance/rules', { ruleId: own.ruleId, obligation: 'Keep the register, signed daily.', effectiveFrom: plus(2) }),
     ]);
-    expect([a.status, b.status]).toEqual([201, 201]);
-    expect([a.body.rule.version, b.body.rule.version].sort()).toEqual([2, 3]);
+    const made = [a, b].filter((r) => r.status === 201).map((r) => r.body.rule.version).sort();
+    expect([a.status, b.status].every((st) => st === 201 || st === 400)).toBe(true);
+    expect(made).toEqual(made.length === 2 ? [2, 3] : [2]);
     const all = (await people(hr).get('/compliance/rules?all=1').expect(200)).body.rules.filter((r: any) => r.ruleId === own.ruleId);
+    expect(new Set(all.map((r: any) => r.version)).size).toBe(all.length);
     expect(all.filter((r: any) => r.active)).toHaveLength(1);
-    expect(all.find((r: any) => r.active)).toMatchObject({ version: 3, reviewStatus: 'DRAFT', checkedLine: 'Check with your adviser' });
+    const active = all.find((r: any) => r.active);
+    expect(active).toMatchObject({ version: 1 + made.length, reviewStatus: 'DRAFT', checkedLine: 'Check with your adviser' });
     /* Another company cannot check this company's rule. */
-    await people(other).post(`/compliance/rules/${own.ruleId}/versions/3/check`, {}).expect(404);
+    await people(other).post(`/compliance/rules/${own.ruleId}/versions/${active.version}/check`, {}).expect(404);
   });
 });
 
@@ -184,10 +237,15 @@ describe('work-site registrations feed Compliance (gap 16)', () => {
     /* Renewed on the work site: the old renewal is settled, the next one waits for its own date. */
     await people(hr).put(`/structure/establishments/${site.id}`, { name: 'Hubli shop', registrations: [{ type: 'SE_REG', number: 'KA/SE/2026/0042', validTill: plus(170) }] }).expect(200);
     const after = (await people(hr).get(`/compliance/obligations?establishmentId=${site.id}`).expect(200)).body.obligations.filter((o: any) => o.source === 'REGISTRATION');
-    expect(after.find((o: any) => o.id === renew.id)).toMatchObject({ status: 'DONE', note: 'Renewed: the work site has the new registration.' });
+    expect(after.find((o: any) => o.id === renew.id)).toMatchObject({ status: 'DONE', note: `Renewed: the work site has it valid till ${plus(170)}.` });
     expect(after.find((o: any) => o.id !== renew.id)).toMatchObject({ dueOn: plus(170), status: 'UPCOMING' });
     /* Another company sees none of it. */
     expect((await people(other).get('/compliance/registrations').expect(200)).body.sites.map((s: any) => s.id)).not.toContain(site.id);
+    /* A registration taken off the site does not settle its renewal: only a newer one of the same kind does. */
+    const town = (await people(hr).post('/structure/establishments', { name: 'Mysuru depot', kind: 'WAREHOUSE', state: 'Karnataka', registrations: [{ type: 'TRADE', number: 'MYS/TL/9', validTill: plus(10) }] }).expect(201)).body.item;
+    const tl = (await people(hr).get(`/compliance/obligations?establishmentId=${town.id}`).expect(200)).body.obligations.find((o: any) => o.ruleId === 'REG-TRADE');
+    await people(hr).put(`/structure/establishments/${town.id}`, { name: 'Mysuru depot', registrations: [] }).expect(200);
+    expect((await people(hr).get(`/compliance/obligations?id=${tl.id}`).expect(200)).body.obligations[0]).toMatchObject({ status: 'DUE' });
   });
 });
 
@@ -197,6 +255,10 @@ describe('the old calendar moves into Compliance (data migration)', () => {
     const pf = await make(boss, { code: 'PF_ECR', period: '2026-08', title: 'PF: ECR filed and paid for Aug 2026', dueDate: '2026-09-15', status: 'DONE', owner: 'Our CA', reference: 'TRRN 1234', doneAt: new Date('2026-09-14T06:00:00Z'), doneByUserId: hr.userId, evidenceName: 'challan.pdf', evidenceMime: 'application/pdf', evidenceData: Buffer.from('%PDF-1.4 x') });
     const own = await make(boss, { code: 'CUSTOM', period: `custom-${rnd()}`, title: 'Pollution board consent', dueDate: plus(60), owner: 'Plant head', note: 'Renew online' });
     const theirs = await make(other, { code: 'ESIC', period: '2026-08', title: 'ESIC for Aug 2026', dueDate: '2026-09-15', status: 'NOT_APPLICABLE' });
+    /* The POSH report: in the calendar for boss's company (period = the year it fell due), and already made by the rule for one year. */
+    const ruleRow = await runInTenant(boss.orgId, () => peoplePrisma.obligation.create({ data: { accountId: 'acc', orgId: boss.orgId, ruleId: 'IN-POSH-REPORT', ruleVersion: 1, period: '2025', title: 'POSH: annual report of the Internal Committee (2025)', dueOn: '2026-01-31', proofDocIds: [] } }));
+    const poshDue = await make(boss, { code: 'POSH_REPORT', period: '2026', title: 'POSH: Internal Committee annual report for 2025', dueDate: '2026-01-31', status: 'DONE', reference: 'DO/2026/77', doneAt: new Date('2026-01-20T06:00:00Z'), doneByUserId: hr.userId, evidenceName: 'filed.pdf', evidenceMime: 'application/pdf', evidenceData: Buffer.from('%PDF-1.4 y') });
+    const poshNext = await make(boss, { code: 'POSH_REPORT', period: '2027', title: 'POSH: Internal Committee annual report for 2026', dueDate: '2027-01-31' });
     const sql = readFileSync(resolve(process.cwd(), 'prisma/people/migrations/20261107090200_calendar_into_obligations/migration.sql'), 'utf8');
     const statements = sql.replace(/^\s*--.*$/gm, '').split(';').map((s) => s.trim()).filter(Boolean);
     /* The application role, as production runs migrations: no superuser, no BYPASSRLS. */
@@ -227,5 +289,12 @@ describe('the old calendar moves into Compliance (data migration)', () => {
     expect(Buffer.from(opened.dataUrl.split(',')[1], 'base64').toString()).toBe('%PDF-1.4 x');
     /* Another company's row never shows here. */
     expect((await people(hr).get(`/compliance/obligations?id=cal_${theirs.id}`).expect(200)).body.obligations).toEqual([]);
+    /* The POSH report is listed once per year: the calendar's row joins the rule's, never a second "statutory" copy. */
+    const posh = await runInTenant(boss.orgId, () => peoplePrisma.obligation.findMany({ where: { orgId: boss.orgId, OR: [{ ruleId: 'IN-POSH-REPORT' }, { ruleId: 'POSH_REPORT' }] }, orderBy: { period: 'asc' } }));
+    expect(posh.filter((o) => o.ruleId === 'POSH_REPORT')).toEqual([]);
+    expect(posh.filter((o) => o.period === '2025')).toHaveLength(1);
+    expect(posh.find((o) => o.period === '2025')).toMatchObject({ id: ruleRow.id, status: 'DONE', reference: 'DO/2026/77', doneByUserId: hr.userId });
+    expect(posh.find((o) => o.period === '2026')).toMatchObject({ id: `cal_${poshNext.id}`, source: 'RULE', ruleId: 'IN-POSH-REPORT', dueOn: '2027-01-31' });
+    expect(await runInTenant(boss.orgId, () => peoplePrisma.obligationProof.count({ where: { orgId: boss.orgId, obligationId: ruleRow.id, id: `cal_${poshDue.id}` } }))).toBe(1);
   });
 });

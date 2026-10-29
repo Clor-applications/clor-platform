@@ -71,10 +71,11 @@ peopleComplianceRouter.post(`${base}/rules/:ruleId/versions/:v/check`, can(Permi
   }
 });
 
+/* The company's filings are whole-company HR work; Payroll's statutory deadlines (and their challans) only for those who see statutory details. */
 peopleComplianceRouter.get(`${base}/obligations`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
-  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  res.json({ obligations: await obligationsOf(accountId, orgId, { status: String(req.query.status || '').toUpperCase() || undefined, establishmentId: String(req.query.establishmentId || '') || undefined, id: String(req.query.id || '') || undefined }) });
+  res.json({ obligations: await obligationsOf(accountId, orgId, { status: String(req.query.status || '').toUpperCase() || undefined, establishmentId: String(req.query.establishmentId || '') || undefined, id: String(req.query.id || '') || undefined, statutory: await seesPersonal(req) }) });
 });
 
 /** A deadline of the company's own, beside what the rules bring. */
@@ -112,9 +113,9 @@ peopleComplianceRouter.post(`${base}/obligations/:id/proofs`, can(PermissionActi
 });
 
 peopleComplianceRouter.get(`${base}/obligations/:id/proofs/:proofId`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
-  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   try {
-    res.json({ proof: await proofFile(req.tenant!.orgId, String(req.params.id), String(req.params.proofId)) });
+    res.json({ proof: await proofFile(req.tenant!.orgId, String(req.params.id), String(req.params.proofId), { statutory: await seesPersonal(req) }) });
   } catch (e) {
     sendError(res, e);
   }
@@ -123,7 +124,7 @@ peopleComplianceRouter.get(`${base}/obligations/:id/proofs/:proofId`, can(Permis
 peopleComplianceRouter.delete(`${base}/obligations/:id/proofs/:proofId`, can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   try {
-    await removeProof(req.tenant!.orgId, String(req.params.id), String(req.params.proofId));
+    await removeProof({ orgId: req.tenant!.orgId, userId: req.auth!.userId }, String(req.params.id), String(req.params.proofId));
     res.status(204).end();
   } catch (e) {
     sendError(res, e);
@@ -146,7 +147,7 @@ peopleComplianceRouter.get(`${base}/owners`, can(PermissionAction.EDIT, EMPLOYEE
 
 /** Each work site's statutory registrations (PF, ESI, Shops & Establishments…), with what runs out soon, read from the work sites. */
 peopleComplianceRouter.get(`${base}/registrations`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
-  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   const sites = await peoplePrisma.establishment.findMany({ where: { orgId: req.tenant!.orgId, isActive: true }, select: { id: true, name: true, state: true, kind: true, registrations: true }, orderBy: { name: 'asc' } });
   res.json({
     types: Object.entries(REGISTRATION_TYPES).map(([value, label]) => ({ value, label })),

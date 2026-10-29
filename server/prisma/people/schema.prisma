@@ -1965,6 +1965,9 @@ model ObligationProof {
   storageKey       String?
   uploadedByUserId String?
   createdAt        DateTime @default(now())
+  /// Taken off the obligation (never erased): when and by whom.
+  removedAt        DateTime?
+  removedByUserId  String?
 
   @@index([orgId, obligationId])
 }
