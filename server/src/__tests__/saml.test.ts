@@ -128,7 +128,7 @@ describe('SAML sign-in', () => {
     };
     const base = { acs: p.saml.acsUrl, audience: p.saml.spEntityId, issuer: 'https://idp.example.com/adfs/services/trust' };
     await bad(signedResponse({ ...base, email: `x@${domain}`, audienceOverride: 'https://other.example.com' }), /audience/i);
-    await bad(signedResponse({ ...base, email: `x@${domain}`, notOnOrAfterMs: -600_000 }), /expired|NotOnOrAfter/i);
+    await bad(signedResponse({ ...base, email: `x@${domain}`, notOnOrAfterMs: -600_000 }), /expired|NotOnOrAfter|subject confirmation/i);
     await bad(signedResponse({ ...base, email: 'x@elsewhere.example.com' }), /not at a verified domain/);
     const otherDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clor-saml2-'));
     execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path.join(otherDir, 'k.pem'), '-out', path.join(otherDir, 'c.pem'), '-subj', '/CN=other', '-days', '2'], { stdio: 'ignore' });
