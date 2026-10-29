@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 
 /**
- * O-09 and night shifts (TIME-LEAVE-CLOSURE-AUDIT-2026-10-28.md O-09, O-11).
+ * O-09 and night shifts (TIME-LEAVE-CLOSURE-AUDIT-2026-10-27.md O-09, O-11).
  *
  * O-09, always on: leave or an attendance request on a day in a closed
  * Attendance month is refused when it is asked — from the employee app, the

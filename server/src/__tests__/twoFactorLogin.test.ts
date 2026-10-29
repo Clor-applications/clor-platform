@@ -11,6 +11,7 @@ import request from 'supertest';
  */
 const { buildApp } = await import('../app.js');
 const { codeAt, stepNow } = await import('../services/totp.js');
+const { clearOfStepEdge } = await import('./totpTiming.js');
 
 const app = buildApp().listen(0);
 afterAll(async () => {
@@ -38,6 +39,7 @@ async function makeOwner(): Promise<Ctx> {
 async function enable2fa(c: Ctx) {
   const setup = await sec(c, '/two-factor/setup').expect(200);
   const secret = setup.body.secret as string;
+  await clearOfStepEdge();
   const on = await sec(c, '/two-factor/enable', { code: codeAt(secret, stepNow() - 1) }).expect(200);
   return { secret, recovery: on.body.recoveryCodes as string[] };
 }

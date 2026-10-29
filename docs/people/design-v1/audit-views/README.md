@@ -1,4 +1,4 @@
-# Workforce, Organization, Time & Leave: three views (28 Oct 2026)
+# Workforce, Organization, Time & Leave: three views (27 Oct 2026)
 
 Three audits of the same modules, each from one seat:
 
@@ -8,7 +8,7 @@ Three audits of the same modules, each from one seat:
 | HR team: owner or office manager running HR | [HR-VIEW.md](HR-VIEW.md) | A 20-person company's month, step by step, with hours lost |
 | Product manager | [PRODUCT-VIEW.md](PRODUCT-VIEW.md) | Positioning, activation, retention, competitors with INR prices, pricing, complexity, metrics, roadmap |
 
-They sit on top of [TIME-LEAVE-CLOSURE-AUDIT-2026-10-28.md](../TIME-LEAVE-CLOSURE-AUDIT-2026-10-28.md) (controls and correctness) and [TIME-LEAVE-MARKET-RESEARCH.md](../TIME-LEAVE-MARKET-RESEARCH.md) (12 products, statute). Findings already listed there are linked, not repeated.
+They sit on top of [TIME-LEAVE-CLOSURE-AUDIT-2026-10-27.md](../TIME-LEAVE-CLOSURE-AUDIT-2026-10-27.md) (controls and correctness) and [TIME-LEAVE-MARKET-RESEARCH.md](../TIME-LEAVE-MARKET-RESEARCH.md) (12 products, statute). Findings already listed there are linked, not repeated.
 
 ## What the modules solve today
 

@@ -50,7 +50,7 @@ export async function runLeaveHandOns(now = new Date()) {
       if (!(await activeManagerOf(t.orgId, r.employeeId))) continue;
       const history = [...((Array.isArray(r.history) ? r.history : []) as any[]), { at: now.toISOString(), by: 'system', what: 'HANDED_ON', note: `No decision from the manager in ${t.handOnAfterDays} days` }];
       /* The manager's step counts as taken by nobody: HR decides, and the story says so. */
-      /* Only while it still waits for the manager: a decision taken meanwhile is never written over (closure audit, 28 Oct 2026). */
+      /* Only while it still waits for the manager: a decision taken meanwhile is never written over (closure audit, 27 Oct 2026). */
       /* The hand-on and the notice to HR commit together (closure audit O-07). */
       const { tellWaiting } = await import('../../routes/leave.js');
       const claimed = await peopleWrite(t.orgId, async () => {

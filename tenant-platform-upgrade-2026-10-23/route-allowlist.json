@@ -904,7 +904,7 @@
     {
       "method": "POST",
       "path": "/api/internal/jobs/tick",
-      "reason": "Cloud Scheduler wake call for background jobs; x-jobs-token compared in constant time with JOBS_TOKEN (Secret Manager), 404 when unset; behind the edge Worker like every route; runs only the registered jobs, each under its lease (closure audit, 28 Oct 2026)."
+      "reason": "Cloud Scheduler wake call for background jobs; x-jobs-token compared in constant time with JOBS_TOKEN (Secret Manager), 404 when unset; behind the edge Worker like every route; runs only the registered jobs, each under its lease (closure audit, 27 Oct 2026)."
     },
     {
       "method": "GET",

@@ -64,7 +64,7 @@ async function leaver(c: Ctx) {
 
   /* Twelve days of paid leave a year; none taken. */
   await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/types`).set(at(c)).send({ name: 'Earned', annualDays: 12, encashable: true }).expect(201);
-  /* Not paid out on leaving: the settlement must not propose it (HR-view audit, 28 Oct 2026). */
+  /* Not paid out on leaving: the settlement must not propose it (HR-view audit, 27 Oct 2026). */
   await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/types`).set(at(c)).send({ name: 'Casual', annualDays: 12 }).expect(201);
   const { accountId } = (await peoplePrisma.employee.findUnique({ where: { id: employeeId }, select: { accountId: true } }))!;
   await payrollPrisma.payrollLoan.create({

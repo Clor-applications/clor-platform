@@ -1,4 +1,4 @@
-import { PRIVATE_LABEL, readsPrivateLeave } from './leave.js';
+import { PRIVATE_LABEL, dayWords, readsPrivateLeave } from './leave.js';
 import { inScope, teamScope } from '../services/people/scope.js';
 import { Router } from 'express';
 import { pinMatcher, recomputeDeviceDay } from '../services/attendance/punches.js';
@@ -25,6 +25,8 @@ import { balancesFor } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodLabel, periodStart } from '../services/attendance/leaveAccrual.js';
 import { leavePeriodOf } from '../services/attendance/leaveBalances.js';
 import { decideRequest } from '../services/attendance/requests.js';
+import { managerStepBy } from '../services/attendance/standIns.js';
+import { selfDecisionAllowed } from '../services/makerChecker.js';
 import { ISO_DATE, employeeIn, fail, isHoliday, myEmployee, sendError, today, withNames, writeDay } from '../services/attendance/days.js';
 import { payrollReadiness } from '../services/payroll/readinessTower.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
@@ -923,30 +925,51 @@ attendanceInsightsRouter.get(`${base}/devices/:id/timeline`, can(PermissionActio
  * Approve or refuse a field punch (made outside every work site). Approved, it
  * counts and goes on to webhooks and HR tools like any punch; refused, it
  * stays on record but never counts.
+ *
+ * The same rules as every other attendance decision (closure audit): the
+ * person's manager or whoever stands in for them today, never the person
+ * themselves; HR deciding their own punch only where maker-checker allows it.
+ * Claimed by its status, so two deciders cannot both write the day, and
+ * written to the audit log.
  */
-export async function reviewFieldPunch(orgId: string, punchId: string, approve: boolean, scope?: { managerId: string }) {
+export async function reviewFieldPunch(orgId: string, punchId: string, approve: boolean, by: { userId: string; managerId?: string }) {
   const p = await peoplePrisma.devicePunch.findFirst({ where: { id: punchId, orgId } });
   if (!p || !p.outsideSite) throw fail(404, 'No such field punch.');
   if (p.reviewStatus !== 'PENDING') throw fail(409, `This punch was already ${String(p.reviewStatus || 'counted').toLowerCase()}.`);
-  if (scope) {
-    const owner = await peoplePrisma.employee.findFirst({ where: { id: p.employeeId || '', orgId }, select: { reportingManagerId: true } });
-    if (owner?.reportingManagerId !== scope.managerId) throw fail(403, 'This punch is not yours to decide.');
+  const emp = p.employeeId ? await peoplePrisma.employee.findFirst({ where: { id: p.employeeId, orgId }, select: { id: true, accountId: true, name: true, userId: true, branchId: true, areaId: true } }) : null;
+  let selfApproved = false;
+  if (by.managerId) {
+    if (!emp || !(await managerStepBy(orgId, by.managerId, emp.id))) throw fail(403, 'This punch is not yours to decide.');
+  } else if (emp?.userId && emp.userId === by.userId) {
+    if (!(await selfDecisionAllowed(p.accountId, orgId, by.userId, `${ATTENDANCE_MODULE}::${R.devices}::EDIT`)).allowed) {
+      throw fail(403, 'This is your own punch; somebody else has to decide it.', 'OWN_RECORD');
+    }
+    selfApproved = true;
   }
-  const updated = await peoplePrisma.devicePunch.update({ where: { id: p.id }, data: { reviewStatus: approve ? 'APPROVED' : 'REJECTED' } });
-  if (p.employeeId && p.shiftDate) {
-    const emp = await peoplePrisma.employee.findFirst({ where: { id: p.employeeId, orgId }, select: { id: true, accountId: true, branchId: true, areaId: true } });
-    if (emp) await recomputeDeviceDay(emp.accountId, orgId, { id: emp.id, branchId: emp.branchId, areaId: emp.areaId }, p.shiftDate);
+  const claimed = await peoplePrisma.devicePunch.updateMany({ where: { id: p.id, reviewStatus: 'PENDING' }, data: { reviewStatus: approve ? 'APPROVED' : 'REJECTED' } });
+  if (!claimed.count) throw fail(409, 'Somebody decided this punch a moment ago.');
+  if (emp && p.shiftDate) await recomputeDeviceDay(emp.accountId, orgId, { id: emp.id, branchId: emp.branchId, areaId: emp.areaId }, p.shiftDate);
+  try {
+    await platformPrisma.auditLog.create({ data: {
+      accountId: p.accountId, orgId, branchId: '', entity: 'DevicePunch', entityId: p.id,
+      action: selfApproved ? 'SELF_APPROVED' : approve ? 'FIELD_PUNCH_APPROVE' : 'FIELD_PUNCH_REJECT',
+      message: `Field punch${emp ? ` by ${emp.name}` : ''} on ${dayWords(p.shiftDate || String(p.localTime).slice(0, 10))} ${approve ? 'approved' : 'refused'}${by.managerId ? ' by their manager' : ''}`,
+      metadata: JSON.stringify({ employeeId: emp?.id || null, shiftDate: p.shiftDate, approve, managerId: by.managerId || null }),
+      createdByUserId: by.userId, correlationId: null,
+    } });
+  } catch (e) {
+    console.error('[attendance] field punch audit not recorded:', e instanceof Error ? e.message : e);
   }
-  return updated;
+  return { ...p, reviewStatus: approve ? 'APPROVED' : 'REJECTED' };
 }
 
 attendanceInsightsRouter.post(`${base}/phone-punches/:id/review`, can(PermissionAction.EDIT, R.devices), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   try {
-    const r = await reviewFieldPunch(req.tenant!.orgId, String(req.params.id), req.body?.approve === true);
+    const r = await reviewFieldPunch(req.tenant!.orgId, String(req.params.id), req.body?.approve === true, { userId: req.auth!.userId });
     res.json({ punch: { id: r.id, review: r.reviewStatus } });
   } catch (e: any) {
-    res.status(e?.status || 500).json({ error: e?.message || 'Not done.' });
+    res.status(e?.status || 500).json({ error: e?.message || 'Not done.', ...(e?.code ? { code: e.code } : {}) });
   }
 });
 

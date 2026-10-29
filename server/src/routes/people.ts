@@ -1319,7 +1319,14 @@ peopleRouter.patch('/orgs/:orgId/people/checklist-tasks/:id', async (req, res) =
     if (ownerUserId !== undefined && ownerUserId !== task.ownerUserId) changes.push({ field: 'ownerUserId', before: task.ownerUserId, after: ownerUserId || null, redacted: false });
     await writeChangeLog(tx, actor, { kind: 'ChecklistTask', id: task.id, employeeId: task.employeeId }, changes);
   });
-  res.json(await checklistOf(orgId, task.employeeId));
+  const list = await checklistOf(orgId, task.employeeId);
+  if (hr) return res.json(list);
+  /* Someone ticking only their own task sees only their own tasks: the rest of the plan (leaving, letters, HR's notes) is not theirs to read. */
+  const mineOnly = (g: (typeof list)['joining']) => {
+    const tasks = g.tasks.filter((t) => t.ownerUserId === req.auth!.userId);
+    return { tasks, done: tasks.filter((t) => t.done).length, total: tasks.length };
+  };
+  res.json(Object.fromEntries(Object.entries(list).map(([k, g]) => [k, mineOnly(g)])));
 });
 
 /** Open checklist items across the company, overdue first. */

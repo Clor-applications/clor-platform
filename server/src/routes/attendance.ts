@@ -355,7 +355,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/:id/overtime', can(Permis
   const r = await peoplePrisma.attendanceRecord.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such day.' });
   if (!r.overtimeMinutes) return res.status(400).json({ error: 'There is no overtime on that day.' });
-  /* Overtime is paid with the month: a closed month's overtime is final (closure audit, 28 Oct 2026). */
+  /* Overtime is paid with the month: a closed month's overtime is final (closure audit, 27 Oct 2026). */
   try {
     await assertMonthOpen(orgId, r.date, r.employeeId);
   } catch (e) {
@@ -1025,7 +1025,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
 /**
  * Reopen a closed month, to correct it. Payroll already taken from it is not
  * changed, so a reopen says why and is written to the audit log with who
- * closed it and when (closure audit, 28 Oct 2026: a reopen left no trace).
+ * closed it and when (closure audit, 27 Oct 2026: a reopen left no trace).
  */
 attendanceRouter.post('/orgs/:orgId/attendance/months/:month/reopen', can(PermissionAction.APPROVE, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;

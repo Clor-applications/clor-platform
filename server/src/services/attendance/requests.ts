@@ -379,7 +379,7 @@ export type Decider = { userId: string; /** The employee file of whoever decides
  */
 export async function decideRequest(accountId: string, orgId: string, r: any, approve: boolean, by: Decider, note: string | null): Promise<{ request: any; stage?: 'HR' }> {
   if (r.status !== 'PENDING') throw fail(409, `This request was already ${String(r.status).toLowerCase()}.`);
-  /* Nobody decides their own request: not HR, not the owner, not a manager or stand-in (closure audit, 28 Oct 2026). */
+  /* Nobody decides their own request: not HR, not the owner, not a manager or stand-in (closure audit, 27 Oct 2026). */
   const subject = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { userId: true } });
   const ownByLogin = Boolean(subject?.userId && subject.userId === by.userId);
   if ((by.managerId && by.managerId === r.employeeId && !ownByLogin) || (ownByLogin && !(await selfDecisionAllowed(accountId, orgId, by.userId, 'ATTENDANCE::Attendance Requests::APPROVE')).allowed)) {
@@ -427,7 +427,7 @@ export async function decideRequest(accountId: string, orgId: string, r: any, ap
    * One transaction for every kind, claimed by status: the decision, the day
    * it writes and the history line commit together or not at all, and two
    * people deciding at once cannot both write the day (closure audit,
-   * 28 Oct 2026: a missed punch was three separate writes with no claim).
+   * 27 Oct 2026: a missed punch was three separate writes with no claim).
    */
   const row = await peopleWrite(orgId, async () => {
     const changed = await peoplePrisma.attendanceRequest.updateMany({ where: { id: r.id, status: 'PENDING' }, data: { status: approve ? 'APPROVED' : 'REJECTED', reviewedByUserId: by.userId, reviewedAt: new Date(), reviewNote: note, history } });

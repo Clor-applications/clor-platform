@@ -12,6 +12,7 @@ const { buildApp } = await import('../app.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { outsideTenant } = await import('../utils/tenantScope.js');
 const { stepNow, codeAt } = await import('../services/totp.js');
+const { clearOfStepEdge } = await import('./totpTiming.js');
 
 const app = buildApp().listen(0);
 afterAll(() => new Promise((done) => app.close(done)));
@@ -156,6 +157,7 @@ describe('the account’s people', () => {
     const grant = (extra: Record<string, string> = {}) => request(app).post(`/api/orgs/${o.orgId}/users/${p.userId}/roles`).set({ ...at(o), ...extra }).send({ roleId: admin.id, branchId: null });
     const sec = (path: string, b?: unknown) => request(app).post(`/api/orgs/${o.orgId}/security${path}`).set(at(o)).send(b as any);
     const { secret } = (await sec('/two-factor/setup').expect(200)).body;
+    await clearOfStepEdge();
     const s0 = stepNow();
     await sec('/two-factor/enable', { code: codeAt(secret, s0) }).expect(200);
     expect((await grant().expect(403)).body.code).toBe('STEP_UP_REQUIRED');

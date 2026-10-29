@@ -599,7 +599,7 @@ describe('second audit (27 Oct 2026): slabs by period, rules on a type in use, e
   });
 });
 
-describe('closure audit (28 Oct 2026): nobody decides their own, team roles keep to their team, closed months stay closed', () => {
+describe('closure audit (27 Oct 2026): nobody decides their own, team roles keep to their team, closed months stay closed', () => {
   let hr: Ctx;
   let ownerEmp: any;
   let casual: any;

@@ -19,6 +19,7 @@ const { Prisma: AccountingPrisma } = await import('@prisma/client');
 const { purgeClosedCompanies, noticeDays } = await import('../services/companyClosure.js');
 const jobLease = await import('../services/jobLease.js');
 const { codeAt, stepNow } = await import('../services/totp.js');
+const { clearOfStepEdge } = await import('./totpTiming.js');
 
 const app = buildApp().listen(0);
 const ownerUrl = () => {
@@ -54,6 +55,7 @@ async function closedCompany(): Promise<Ctx> {
   /* A-21: closing needs a fresh authenticator code. */
   const sec = (p: string, body: unknown = {}) => request(app).post(`/api/orgs/${c.orgId}/security${p}`).set(at(c)).send(body as any);
   const { secret } = (await sec('/two-factor/setup').expect(200)).body;
+  await clearOfStepEdge();
   await sec('/two-factor/enable', { code: codeAt(secret, stepNow() - 1) }).expect(200);
   const stepUp = (await sec('/step-up', { code: codeAt(secret, stepNow()) }).expect(200)).body.token as string;
   await request(app).post(`/api/orgs/${c.orgId}/closure`).set({ ...at(c), 'x-step-up': stepUp }).send({ confirmName: name }).expect(201);

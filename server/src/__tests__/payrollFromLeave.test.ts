@@ -104,7 +104,7 @@ describe('days from leave, without Attendance', () => {
     expect((await pay(c, `/runs/${runId}/inputs/from-leave`).expect(409)).body.code).toBe('USE_ATTENDANCE');
   }, 60_000);
 
-  it('once a payroll run is approved or locked, leave in its period no longer moves: People-only too (closure audit, 28 Oct 2026)', async () => {
+  it('once a payroll run is approved or locked, leave in its period no longer moves: People-only too (closure audit, 27 Oct 2026)', async () => {
     const c = await makeOwner({ payroll: true, people: true, attendance: false });
     const { employeeId, runId } = await setUp(c);
     const lop = (await att(c, '/leave/types', { name: 'Loss of pay', isPaid: false }).expect(201)).body.type;

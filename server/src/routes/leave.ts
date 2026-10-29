@@ -2944,7 +2944,7 @@ leaveRouter.post('/orgs/:orgId/attendance/me/leave/:id/shorten', can(PermissionA
 /**
  * Whether a person may ask for a type at all: its gender rule and the
  * employee types it is for. The person's own leave screens list only these,
- * plus any type they already have requests under (closure audit, 28 Oct 2026:
+ * plus any type they already have requests under (closure audit, 27 Oct 2026:
  * a woman saw "Paternity leave: 15 left" in the employee app).
  */
 export function eligibleFor(type: { name?: string; gender?: string | null; employeeTypeIds?: unknown; departmentIds?: unknown; branchIds?: unknown; gradeIds?: unknown }, person: { gender?: string | null; employeeTypeId?: string | null; departmentId?: string | null; branchId?: string | null; gradeId?: string | null }) {

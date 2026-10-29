@@ -118,7 +118,7 @@ export async function proposeSettlement(accountId: string, orgId: string, employ
   /*
    * Only the types the company's policy pays out (Leave Policy → "Paid out at
    * year end / on leaving"), up to the type's cap. Casual and sick leave are
-   * not money on leaving unless the policy says so (HR-view audit, 28 Oct 2026:
+   * not money on leaving unless the policy says so (HR-view audit, 27 Oct 2026:
    * every paid type was proposed, and HR had to spot and delete the lines).
    */
   for (const t of types.filter((x) => x.isPaid && x.isActive && x.encashable)) {

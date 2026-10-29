@@ -156,7 +156,7 @@ export default function TimeOverview({ openScreen }) {
         </Group>
       ) : null}
 
-      {adding ? <EnterLeave onClose={() => setAdding(false)} onDone={() => { setAdding(false); req.reload(); }} /> : null}
+      {adding ? <EnterLeave openScreen={openScreen} onClose={() => setAdding(false)} onDone={() => { setAdding(false); req.reload(); }} /> : null}
     </div>
   );
 }
