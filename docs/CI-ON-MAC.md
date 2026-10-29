@@ -40,3 +40,24 @@ is attached, and do not add outside collaborators with write access.
 
 Then set `runs-on: ubuntu-latest` again in `.github/workflows/ci.yml` and
 `security.yml` (and put back the `postgres:16` service in ci.yml).
+
+## Three runners, three test shards (29 Oct 2026)
+
+One runner ran every job in turn: a pull request waited behind the others, and
+`verify` took ~43 minutes, 32 of them the server tests one file at a time.
+
+- **Three runners on the Mac**, `suresh-mac`, `suresh-mac-2`, `suresh-mac-3`,
+  in `~/actions-runner/clor-platform`, `-2`, `-3`, each a launchd service, all
+  labelled `clor-mac`. Pull requests run side by side.
+- **Server tests in three shards** (`server-tests`, `vitest --shard=N/3`). Each
+  shard still runs its files one at a time against a database of its own
+  (`clor_test_<pid>`); shadow databases are per run (`clor_shadow_<run>`).
+  Postgres on 5433 allows 300 connections, enough for three runs at once.
+- **No npm cache upload**: the runner keeps its files; saving the cache to
+  GitHub cost ~8 minutes a run.
+- **Text-only changes skip CI** (`**/*.md`, `docs/**`); Security still runs.
+
+Add a runner: `gh api -X POST repos/Clor-applications/clor-platform/actions/runners/registration-token`,
+copy the runner folder without `.runner`, `.credentials*` and `_work`, then
+`./config.sh --unattended --url https://github.com/Clor-applications/clor-platform --token <token> --name suresh-mac-N --labels clor-mac --work _work`
+and `./svc.sh install && ./svc.sh start`.

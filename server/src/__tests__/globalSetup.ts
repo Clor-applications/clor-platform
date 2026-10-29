@@ -173,6 +173,8 @@ async function ensureAppRole(database: string) {
          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}') THEN
            EXECUTE format('CREATE ROLE %I LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD %L', '${role}', '${password}');
          END IF;
+       /* CI shards set up at the same moment: the one that loses the race to create the role finds it made. */
+       EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
        END $$;`
     );
   } finally {
