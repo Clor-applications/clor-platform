@@ -145,9 +145,14 @@ describe('the category filters on a narrow screen', () => {
     expect(kids).toContain('flex: 0 0 auto');
   });
 
-  it('scrolls without JavaScript', () => {
+  /* "scrolls without JavaScript" is retired (30 Oct 2026): the ten category
+     chips it was written for are gone. Since the import (00f6a61a)
+     FeatureFilters carries search and three state chips (All, Enabled,
+     Disabled), which fit on a phone without a scrolling row. The class above
+     stays for the next row of chips that needs it. What still applies is
+     that the filters never scroll themselves by script: */
+  it('never scrolls the filters by script', () => {
     const src = readFileSync('apps/accounting/src/features/features/FeatureCatalog.jsx', 'utf8');
-    expect(src).toContain('ui-filter-scroll');
     expect(src).not.toMatch(/scrollLeft|scrollIntoView|scrollBy/);
   });
 });

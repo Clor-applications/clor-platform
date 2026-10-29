@@ -384,9 +384,9 @@ export default function PurchaseOverview({ db, currentCompany, onNavigate, onNew
 
   return (
     <div className="space-y-3 rounded-xl p-3">
-      {/* The same band Home opens with — see HeroBand. The module names
-          itself, and the controls that govern every figure below sit
-          where Home keeps its search. */}
+      {/* The same header a running Home opens with (test/hero-band.test.js).
+          The module names itself, and the controls that govern every
+          figure below sit on the right. */}
       <header className="flex flex-wrap items-start justify-between gap-3 px-0.5">
         <div><h1 className="ui-t-page">Purchase Overview</h1><p className="ui-muted mt-0.5 text-sm">View purchase performance and vendor payables at a glance.</p></div>
         <div className="flex items-center gap-2 flex-wrap justify-end">

@@ -494,9 +494,9 @@ const SalesOverview = ({
        read as three separate pages stacked, and a third of the useful content
        sat below the fold. */
     <div className="space-y-3 rounded-xl p-3">
-      {/* The same band Home opens with. What differs is only what goes
-          in it: the module names itself, and the controls that govern
-          every figure below sit where Home keeps its search. */}
+      {/* The same header a running Home opens with (test/hero-band.test.js).
+          The module names itself, and the controls that govern every
+          figure below sit on the right. */}
       <header className="flex flex-wrap items-start justify-between gap-3 px-0.5">
         <div>
           <h1 className="ui-t-page">Sales Overview</h1>
