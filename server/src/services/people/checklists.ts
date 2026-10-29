@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../auth.js';
 import { sendTemplate } from '../mailer.js';
 import { notifyUsers, usersHoldingRoles, usersWithPermission } from '../notifications.js';
+import { countFrom, workingCalendar } from './lifecycle/workdays.js';
 
 /**
  * Joining and leaving checklists (HR research, People first release:
@@ -16,7 +17,14 @@ import { notifyUsers, usersHoldingRoles, usersWithPermission } from '../notifica
 
 export type Kind = 'JOINING' | 'LEAVING' | 'CHANGE' | 'PROBATION' | 'RENEWAL' | 'LETTER';
 export type Owner = 'HR' | 'MANAGER' | 'PAYROLL' | 'IT' | 'EMPLOYEE';
-export type Item = { title: string; owner: Owner; dueDays: number; note?: string };
+/**
+ * One step of a plan. `workingDays`: the due date counts working days (the
+ * person's weekly offs and holidays skipped). `needsNote`: it closes only with
+ * a note. `types`: only for these employment types (empty or absent: everyone).
+ * `system`: work CLOR does itself and closes when it is confirmed (READERS);
+ * its state: WAITING, CONFIRMED, FAILED, MANUAL (failed, then done by hand), NONE.
+ */
+export type Item = { title: string; owner: Owner; dueDays: number; note?: string; workingDays?: boolean; needsNote?: boolean; types?: string[]; system?: 'READERS' };
 type Who = { accountId: string; orgId: string; userId: string | null };
 
 export const OWNERS: Owner[] = ['HR', 'MANAGER', 'PAYROLL', 'IT', 'EMPLOYEE'];
@@ -43,17 +51,14 @@ export const DEFAULT_ITEMS: Record<'JOINING' | 'LEAVING', Item[]> = {
     { title: 'Handover plan agreed', owner: 'MANAGER', dueDays: -7 },
     { title: 'Exit interview', owner: 'HR', dueDays: -2 },
     { title: 'Recover laptop, ID card, keys and other company property', owner: 'IT', dueDays: 0 },
-    { title: READER_ACCESS_ITEM, owner: 'HR', dueDays: 0 },
+    { title: READER_ACCESS_ITEM, owner: 'HR', dueDays: 0, system: 'READERS' },
     { title: 'Relieving and experience letters issued', owner: 'HR', dueDays: 0 },
-    { title: 'Full and final settlement paid', owner: 'PAYROLL', dueDays: 2, note: 'Code on Wages: wages are due within two working days of someone leaving.' },
+    /* Wages and the rest of the settlement are two things (JCL-A03): only wages have the two-working-day rule, and nothing else holds them up. */
+    { title: 'Final wages paid', owner: 'PAYROLL', dueDays: 2, workingDays: true, needsNote: true, note: 'Code on Wages s.17(2): wages within two working days of leaving. Note the payment reference. Company property not yet returned does not hold up wages. Check with your adviser how this applies to you.' },
+    { title: 'Full and final settlement closed (leave encashment, gratuity, other dues)', owner: 'PAYROLL', dueDays: 30 },
   ],
 };
 
-const plusDays = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -142,11 +147,11 @@ async function tellOwners(who: Who, employee: { id: string; name: string; code: 
  * under way (so a re-save never doubles it); a finished one may start again
  * (a rehire). `done` titles are ticked by CLOR at once.
  */
-export async function startChecklist(who: Who, employee: { id: string }, kind: Kind, baseDate: string | null | undefined, opts: { done?: string[]; items?: Item[] } = {}) {
+export async function startChecklist(who: Who, employee: { id: string }, kind: Kind, baseDate: string | null | undefined, opts: { items?: Item[] } = {}) {
   try {
     const alreadyOpen = (tx: { checklistTask: typeof peoplePrisma.checklistTask }) => tx.checklistTask.count({ where: { orgId: who.orgId, employeeId: employee.id, kind, doneAt: null } });
     if ((await alreadyOpen(peoplePrisma)) && !opts.items) return 0;
-    const person = await peoplePrisma.employee.findFirst({ where: { id: employee.id, orgId: who.orgId }, select: { id: true, name: true, code: true, reportingManagerId: true, userId: true } });
+    const person = await peoplePrisma.employee.findFirst({ where: { id: employee.id, orgId: who.orgId }, select: { id: true, name: true, code: true, reportingManagerId: true, userId: true, employeeTypeId: true, areaId: true, branchId: true } });
     if (!person) return 0;
     const owners = await resolveOwners(who, person);
     const base = baseDate && ISO.test(String(baseDate).slice(0, 10)) ? String(baseDate).slice(0, 10) : todayIst();
@@ -156,14 +161,18 @@ export async function startChecklist(who: Who, employee: { id: string }, kind: K
       ? await peoplePrisma.peopleRecord.findMany({ where: { orgId: who.orgId, kind: 'assets', status: 'ASSIGNED', employeeId: employee.id }, select: { title: true, details: true } })
       : [];
     const items: Item[] = opts.items ? opts.items : [
-      ...template,
+      /* A step for some employment types only (no PF task for a contractor). */
+      ...template.filter((it) => !it.types?.length || (person.employeeTypeId && it.types.includes(person.employeeTypeId))),
       ...held.map((a) => ({ title: `Return ${a.title}${(a.details as any)?.assetTag ? ` (${(a.details as any).assetTag})` : ''}`, owner: 'IT' as Owner, dueDays: 0, note: 'From the asset register: mark the asset Returned there too.' })),
     ];
-    const done = new Set(opts.done || []);
-    const now = new Date();
-    /* A joiner entered after they started is not late on day one: nothing falls due before the day the plan is made. */
+    /*
+     * A joiner entered after they started is not late on day one: nothing falls due before the day the plan is made.
+     * Except a step counted in working days (final wages): that is a legal clock, and a leaving recorded late does
+     * not restart it; it shows late from the day it really fell due.
+     */
     const today = todayIst();
-    const due = (n: number) => { const d = plusDays(base, n); return d < today ? today : d; };
+    const works = items.some((it) => it.workingDays) ? await workingCalendar(who.orgId, person, base) : null;
+    const due = (it: Item) => { const d = countFrom(base, Math.round(Number(it.dueDays) || 0), it.workingDays ? works : null); return d < today && !it.workingDays ? today : d; };
     /* Two saves at once (a create and a rehire, two clicks) must not both start one: checked again under a lock per person and kind. */
     const made = await peoplePrisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`checklist:${employee.id}:${kind}`}))`;
@@ -177,10 +186,13 @@ export async function startChecklist(who: Who, employee: { id: string }, kind: K
           title: it.title.slice(0, 200),
           owner: OWNERS.includes(it.owner) ? it.owner : 'HR',
           ownerUserId: owners[OWNERS.includes(it.owner) ? it.owner : 'HR'],
-          dueDate: due(Math.round(Number(it.dueDays) || 0)),
+          dueDate: due(it),
+          offsetDays: Math.round(Number(it.dueDays) || 0),
+          workingDays: Boolean(it.workingDays),
+          needsNote: Boolean(it.needsNote),
+          system: it.system === 'READERS' ? 'READERS' : null,
           sortOrder: i,
           note: it.note ? it.note.slice(0, 500) : null,
-          ...(done.has(it.title) ? { doneAt: now, note: 'Done by CLOR.' } : {}),
         })),
       });
       return true;
@@ -229,6 +241,10 @@ export async function checklistOf(orgId: string, employeeId: string) {
     doneAt: t.doneAt,
     doneBy: t.doneByUserId ? nameOf.get(t.doneByUserId) || '' : t.doneAt ? 'CLOR' : '',
     note: t.note,
+    needsNote: t.needsNote,
+    workingDays: t.workingDays,
+    system: t.system,
+    systemState: t.systemState,
   });
   const of = (kind: Kind) => {
     const list = tasks.filter((t) => t.kind === kind).map(shape);
@@ -258,7 +274,69 @@ export function cleanItems(raw: unknown): Item[] | string {
     if (!title) continue;
     const owner = OWNERS.includes(r?.owner) ? r.owner : 'HR';
     const dueDays = Math.max(-365, Math.min(365, Math.round(Number(r?.dueDays) || 0)));
-    out.push({ title: title.slice(0, 200), owner, dueDays, ...(r?.note ? { note: String(r.note).slice(0, 500) } : {}) });
+    const types = Array.isArray(r?.types) ? [...new Set((r.types as unknown[]).map(String).filter((t) => /^[\w-]{1,60}$/.test(t)))].slice(0, 20) : [];
+    out.push({
+      title: title.slice(0, 200), owner, dueDays,
+      ...(r?.note ? { note: String(r.note).slice(0, 500) } : {}),
+      ...(r?.workingDays === true ? { workingDays: true } : {}),
+      ...(r?.needsNote === true ? { needsNote: true } : {}),
+      ...(types.length ? { types } : {}),
+      ...(r?.system === 'READERS' ? { system: 'READERS' as const } : {}),
+    });
   }
   return out.length ? out : 'Add at least one item.';
+}
+
+/**
+ * Why a tick is refused, or null (JCL-A02, JCL-078): CLOR's own work closes
+ * when it is confirmed, not when a person says so, unless it failed and a
+ * person did it by hand; a step that needs a note closes only with one.
+ */
+export function tickRefusal(task: { doneAt: Date | null; needsNote: boolean; system: string | null; systemState: string | null }, change: { done?: boolean; note?: string | null }): { status: number; error: string } | null {
+  if (task.system && change.done === false && task.doneAt) return { status: 409, error: 'CLOR closed this when it was confirmed; it cannot be opened again.' };
+  if (change.done !== true || task.doneAt) return null;
+  if (task.system === 'READERS' && task.systemState !== 'FAILED') {
+    return { status: 409, error: task.systemState === 'WAITING' ? 'CLOR closes this when every reader confirms the removal.' : 'CLOR takes them off the readers on the last day and closes this when every reader confirms.' };
+  }
+  if ((task.needsNote || task.systemState === 'FAILED') && !String(change.note || '').trim()) {
+    return { status: 400, error: task.systemState === 'FAILED' ? 'Say how it was done, for example removed at the reader by hand.' : 'Add a note to close this, for example the payment reference.' };
+  }
+  return null;
+}
+
+/**
+ * A joining day or last day moved (JCL-A04, JCL-025): the open tasks of that
+ * plan move with it, each by its own offset. Done tasks keep their dates.
+ */
+export async function redatePlan(orgId: string, employeeId: string, kind: 'JOINING' | 'LEAVING', base: string | null) {
+  if (!base || !ISO.test(base)) return 0;
+  const tasks = await peoplePrisma.checklistTask.findMany({ where: { orgId, employeeId, kind, doneAt: null, offsetDays: { not: null } } });
+  if (!tasks.length) return 0;
+  const person = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { id: true, areaId: true, branchId: true } });
+  if (!person) return 0;
+  const works = tasks.some((t) => t.workingDays) ? await workingCalendar(orgId, person, base) : null;
+  const today = todayIst();
+  let moved = 0;
+  for (const t of tasks) {
+    const d = countFrom(base, t.offsetDays!, t.workingDays ? works : null);
+    const dueDate = d < today && !t.workingDays ? today : d;
+    if (dueDate === t.dueDate) continue;
+    await peoplePrisma.checklistTask.update({ where: { id: t.id }, data: { dueDate } });
+    moved += 1;
+  }
+  return moved;
+}
+
+/**
+ * Nobody closes or hands on a task on their own joining or leaving plan
+ * (JCL-007): HR who is leaving does not tick "Final wages paid" for
+ * themself. Their own hand-in (the employee's steps) is theirs to tick. In a
+ * company where nobody else may edit people, the only HR person may.
+ */
+export async function ownPlanRefusal(who: { accountId: string; orgId: string; userId: string }, task: { employeeId: string; owner: string }) {
+  if (task.owner === 'EMPLOYEE') return null;
+  const subject = await peoplePrisma.employee.findFirst({ where: { id: task.employeeId, orgId: who.orgId }, select: { userId: true } });
+  if (!subject?.userId || subject.userId !== who.userId) return null;
+  const others = (await usersWithPermission(who.accountId, who.orgId, 'PEOPLE::Employees::EDIT')).filter((u) => u !== who.userId);
+  return others.length ? 'This task is on your own plan: someone else closes it.' : null;
 }

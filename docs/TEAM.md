@@ -3,32 +3,55 @@
 Set up 30 Oct 2026 at the owner's request: research, product, code, code review and end-user QA as separate roles, so that every module is researched, scoped, built, reviewed and tested before it ships.
 Role definitions live in `.claude/agents/`, and every agent reads this file first.
 
+**Names:** every agent's name starts with `clor-` so the team's work is easy to track. Roles are
+`clor-product-manager`, `clor-researcher`, `clor-coder`, `clor-code-reviewer`, `clor-designer`, `clor-qa-tester`, `clor-devops`. A running
+instance adds its module or person: `clor-coder-people`, `clor-qa-employee`, `clor-qa-manager`, `clor-qa-hr`,
+`clor-qa-owner`, `clor-qa-boundaries`. Sessions are named the same way (for example *clor-coder-people: Talent*),
+and branches stay `claude/<module>-<what>`.
+
 ## Roles
 
 | Role | Agent | Does | Never |
 |---|---|---|---|
 | Coordinator | the owner's main session | Picks the next module, starts the others, routes questions, merges, releases, keeps CI healthy, reports to the owner | Builds features itself while a lane owns them |
-| Product manager | `product-manager` | Decisions doc (scope, flows, roles, acceptance criteria, test list), tracker | Writes code |
-| Researcher | `researcher` | Sourced report: what CLOR has, Indian rules, how 3–5 products do it, small-business fit | Edits anything |
-| Coder | `coder` | Server, screens and tests in its own worktree and branch; opens the PR | Merges its own PR, widens scope |
-| Code reviewer | `code-reviewer` | Findings on the PR: isolation, permissions, races, migrations, leaks, tests, DESIGN.md | Edits code |
-| QA | `qa-tester`, one per person (employee, manager, HR, owner/admin, boundaries) running side by side | Runs that person's real tasks from the scenario library (`docs/people/qa/PERSONA-SCENARIOS.md`) in a browser, on their device first, on local and staging; report with evidence | Writes feature code |
+| Product manager | `clor-product-manager` | Decisions doc (scope, flows, roles, acceptance criteria, test list), tracker | Writes code |
+| Researcher | `clor-researcher` | Sourced report: what CLOR has, Indian rules, how 3–5 products do it, small-business fit | Edits anything |
+| Coder | `clor-coder` | Server, screens and tests in its own worktree and branch; opens the PR | Merges its own PR, widens scope |
+| Code reviewer | `clor-code-reviewer` | Findings on the PR: isolation, permissions, races, migrations, leaks, tests, DESIGN.md | Edits code |
+| Designer | `clor-designer` | Looks at every new or changed screen in a browser at desktop and phone width; review with screenshots and exact fixes against DESIGN.md | Edits feature code |
+| DevOps | `clor-devops` | CI runners and database, staging, release preparation and checks, cancelling runs nobody needs | Touches other projects' services, or spends money without asking |
+| QA | `clor-qa-tester`, one per person (employee, manager, HR, owner/admin, boundaries) running side by side | Runs that person's real tasks from the scenario library (`docs/people/qa/PERSONA-SCENARIOS.md`) in a browser, on their device first, on local and staging; report with evidence | Writes feature code |
 
 ## One module, start to finish
 
 ```
-owner brief ─▶ researcher ─▶ product-manager ─▶ coder ─▶ code-reviewer ─▶ coder fixes ─▶ qa-tester ─▶ coder fixes ─▶ qa re-test ─▶ coordinator merges + releases
+owner brief ─▶ clor-researcher ─▶ clor-product-manager ─▶ clor-coder ─▶ clor-code-reviewer + clor-designer ─▶ clor-coder fixes ─▶ clor-qa-* (one per person) ─▶ clor-coder fixes ─▶ QA re-test ─▶ coordinator merges ─▶ clor-devops releases
                 (report)      (DECISIONS.md)    (PR)     (findings)                       (QA report)
 ```
 
 1. **Research.** The coordinator starts the researcher with the owner's brief or research pack.
 2. **Decide.** The product manager writes `docs/<app>/design-v1/<MODULE>-DECISIONS.md` and the tracker section. The owner prefers decisions made, not asked (`finish-without-asking`); only legal or money questions go to the owner.
 3. **Build in batches.** The coder builds batch by batch, each batch in its own PR with tests and a browser check.
-4. **Review.** The code reviewer reviews every PR. Blockers are fixed before QA.
+4. **Review.** The code reviewer reviews every PR, and the designer reviews every new or changed screen in the browser, at the same time. Blockers are fixed before QA.
 5. **QA.** The QA tester runs the decisions doc's test list end to end. Failures go back to the coder, then QA re-tests.
 6. **Done.** The product manager marks an item DONE only with QA evidence. The coordinator merges and, at a sensible point, releases (see `DEPLOY.md`).
 
 Questions travel through the coordinator. The answer is written into the decisions doc, not left in chat.
+
+## Working in parallel (speed)
+
+- **Overlap modules:** while the coder builds module N, the researcher and product manager prepare module N+1. The coder is never waiting for a decisions doc.
+- **QA runs side by side:** `clor-qa-employee`, `clor-qa-manager`, `clor-qa-hr`, `clor-qa-owner` and `clor-qa-boundaries` run at the same time, each with its own test company user.
+- **Two coders at once** only on modules that touch different files (lanes below), each with its own ports and database.
+- **DevOps keeps the road clear:** cancels superseded runs, keeps staging current, and has the release ready before the module's QA ends.
+
+## QA happens in the browser
+
+Every QA scenario and design review is done in a real browser (Playwright), by clicking and typing as the person would, at 1440×900 and 390×844. API calls are allowed only to *set up* test data (an account, 20 employees), never to *check* a result. If the browser shows it wrong, it fails, whatever the API says.
+
+## Work logs
+
+Every agent keeps its own log: `docs/team/log/<agent name>.md`, newest entry first. After every task it records: Did / Evidence / Next / Blocked on (format in `docs/team/log/README.md`). One file per agent, so logs never clash. Trackers hold status per item, and logs hold who did what. The coordinator writes a daily summary in `clor-coordinator.md`.
 
 ## Lanes: who owns which files
 

@@ -10,6 +10,8 @@ import { ResignError, resignFromApp } from '../services/people/lifecycle/leaving
 import { CaseError, intake } from '../services/people/privateCases.js';
 import { CaseKeyMissing } from '../services/people/caseBox.js';
 import { isFeatureEnabled } from '../services/features.js';
+import { tickRefusal } from '../services/people/checklists.js';
+import { writeChangeLog } from '../services/people/changeLog.js';
 import * as growth from '../services/people/talent/growth.js';
 import { TalentError } from '../services/people/talent/hiring.js';
 
@@ -251,6 +253,38 @@ peoplePortalRouter.get('/me/leaving', async (req, res) => {
   const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { status: true, dateOfLeaving: true, leavingType: true } });
   const waiting = await peoplePrisma.approvalRequest.findFirst({ where: { orgId, subjectEmployeeId: employeeId, requestType: 'LEAVING', status: { in: ['WAITING', 'MORE_INFO'] } }, select: { id: true, title: true, status: true, createdAt: true } });
   res.json({ status: e?.status || null, lastDay: e?.dateOfLeaving || null, leavingType: e?.leavingType || null, waiting });
+});
+
+/*
+ * My joining or leaving (Joining & Leaving): the steps that are mine to do,
+ * which I tick here, and the company things I hand back before my last day
+ * (read only: IT or HR ticks them when they have them). Never HR's other
+ * steps or their notes.
+ */
+const isReturn = (t: { title: string }) => /^Return /.test(t.title);
+peoplePortalRouter.get('/me/journey', async (req, res) => {
+  const { orgId, employeeId } = me(req);
+  const tasks = await peoplePrisma.checklistTask.findMany({ where: { orgId, employeeId, kind: { in: ['JOINING', 'LEAVING'] }, OR: [{ owner: 'EMPLOYEE' }, { kind: 'LEAVING', title: { startsWith: 'Return ' } }] }, orderBy: [{ dueDate: 'asc' }, { sortOrder: 'asc' }] });
+  const shape = (t: (typeof tasks)[number]) => ({ id: t.id, title: t.title, dueDate: t.dueDate, done: Boolean(t.doneAt), mine: t.owner === 'EMPLOYEE', needsNote: t.needsNote });
+  /* Only the open plan of each kind, and the done ones beside it from the same plan: an earlier stint's tasks are history. */
+  const recent = (kind: string) => tasks.filter((t) => t.kind === kind && (!t.doneAt || Date.now() - t.doneAt.getTime() < 60 * 86_400_000));
+  res.json({ joining: recent('JOINING').filter((t) => t.owner === 'EMPLOYEE').map(shape), leaving: recent('LEAVING').map(shape), handBack: recent('LEAVING').filter(isReturn).map(shape) });
+});
+
+peoplePortalRouter.post('/me/journey/tasks/:id/done', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  const task = await peoplePrisma.checklistTask.findFirst({ where: { id: String(req.params.id), orgId, employeeId } });
+  /* Only my own steps: HR's, IT's and the hand-back items are theirs to tick. */
+  if (!task || task.owner !== 'EMPLOYEE') return res.status(404).json({ error: 'No such task.' });
+  const note = typeof req.body?.note === 'string' ? req.body.note.trim().slice(0, 500) : '';
+  const refused = tickRefusal(task, { done: true, note });
+  if (refused) return res.status(refused.status).json({ error: refused.error });
+  if (task.doneAt) return res.json({ id: task.id, done: true });
+  await peoplePrisma.$transaction(async (tx) => {
+    const r = await tx.checklistTask.updateMany({ where: { id: task.id, doneAt: null }, data: { doneAt: new Date(), doneByUserId: req.portal!.employee.userId || null, ...(note ? { note } : {}) } });
+    if (r.count) await writeChangeLog(tx, { accountId, orgId, userId: req.portal!.employee.userId || null, source: 'SELF_SERVICE', correlationId: correlationOf(req as any), reason: 'Done in the employee app' }, { kind: 'ChecklistTask', id: task.id, employeeId }, [{ field: 'done', before: 'no', after: 'yes', redacted: false }]);
+  });
+  res.json({ id: task.id, done: true });
 });
 
 /* A private complaint from the app (PRIV-02): it goes to the committee chosen; the person gets the reference only, and nothing about it is listed back here. */

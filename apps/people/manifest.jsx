@@ -55,6 +55,11 @@ import {
   UserSwitch,
   UsersFour,
   UsersThree,
+  ArrowsLeftRight,
+  ListNumbers,
+  SignIn,
+  SignOut,
+  UserCirclePlus,
 } from '@phosphor-icons/react';
 import { lazyScreens } from '@ui/utils/lazyScreens';
 import { withSidePanel } from '@ui/components/list/SidePanel';
@@ -102,7 +107,12 @@ const Departments = screen('Departments');
 const JobPositions = screen('JobPositions');
 const JobRoles = screen('JobRoles');
 const DataHealth = screen('DataHealth');
-const Checklists = screen('Checklists');
+const LifecycleTasks = screen('LifecycleTasks');
+const LifecycleOverview = screen('LifecycleOverview');
+const Joiners = screen('Joiners');
+const LifecycleChanges = screen('LifecycleChanges');
+const Leavers = screen('Leavers');
+const JourneySteps = screen('JourneySteps');
 const LetterTemplates = screen('LetterTemplates');
 const CustomFieldsSettings = screen('CustomFieldsSettings');
 const SelfServiceSettings = screen('SelfServiceSettings');
@@ -244,6 +254,12 @@ const I = {
   orgChart: duo(TreeStructure, 'TreeStructure'),
   dataCheck: duo(ShieldCheck, 'ShieldCheck'),
   field: duo(Textbox, 'Textbox'),
+  lifecycle: duo(UserCirclePlus, 'UserCirclePlus'),
+  joiner: duo(SignIn, 'SignIn'),
+  leaver: duo(SignOut, 'SignOut'),
+  change: duo(ArrowsLeftRight, 'ArrowsLeftRight'),
+  task: duo(ListChecks, 'ListChecks'),
+  steps: duo(ListNumbers, 'ListNumbers'),
 };
 
 /* One register screen per kind, with the shell's props (openScreen, params). */
@@ -289,8 +305,9 @@ export const peopleApp = {
        service staff come to (help desk, policies, news) under Workplace. Screen keys stay, so old links work. */
     { key: 'employees', label: 'People', icon: M.workforce, groups: [
       { label: 'People', items: ['employees', 'documents'] },
-      { label: 'Joining & leaving', items: ['checklists', 'assets'] },
-      { label: 'Pay & benefits', items: ['compensation', 'benefits'] },
+      /* Joining & leaving (JOINING-LEAVING-DECISIONS.md): who is joining or leaving, what is not done yet, and whose it is. `checklists` keeps its key (old links); it is now Tasks. */
+      { label: 'Joining & leaving', items: ['lifecycle', 'joiners', 'lifecycleChanges', 'leavers', 'checklists'] },
+      { label: 'Pay, benefits & assets', items: ['compensation', 'benefits', 'assets'] },
     ] },
     /* Organisation: one flat list; headings over one item each only made it longer. The detailed lists
        (Detailed structure switch) follow under one heading. */
@@ -337,7 +354,13 @@ export const peopleApp = {
     { key: 'orgChanges', label: 'Change history', icon: I.history, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleDetailed' },
     { key: 'documents', label: 'Documents', icon: I.folder, permission: 'PEOPLE::Documents::VIEW' },
     { key: 'policies', label: 'Policies', icon: I.policy, permission: 'PEOPLE::Policies::VIEW', feature: 'peopleDetailed' },
-    { key: 'checklists', label: 'Onboarding & exit', icon: I.checklist, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'lifecycle', label: 'Joining & leaving', icon: I.lifecycle, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'joiners', label: 'Joining', icon: I.joiner, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'lifecycleChanges', label: 'Job changes', icon: I.change, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'leavers', label: 'Leaving', icon: I.leaver, permission: 'PEOPLE::Employees::VIEW' },
+    /* Anyone with a task on their name opens Tasks (their own only); the server decides what each sees. */
+    { key: 'checklists', label: 'Tasks', icon: I.task },
+    { key: 'journeySteps', label: 'Joining & leaving steps', icon: I.steps, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     { key: 'selfService', label: 'Employee app', icon: I.key, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
     { key: 'letterTemplates', label: 'Letters', icon: I.policy, permission: 'PEOPLE::Documents::VIEW', parent: 'settings' },
     { key: 'customFields', label: 'Custom fields', icon: I.field, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings', feature: 'peopleDetailed' },
@@ -423,7 +446,12 @@ export const peopleApp = {
     branches: withSidePanel(Branches, panel('BranchesPanel')),
     orgChanges: withSidePanel(OrgChanges, panel('ChangesPanel')),
     documents: withSidePanel(PeopleDocuments, panel('DocumentsPanel')),
-    checklists: withSidePanel(Checklists, panel('ChecklistsPanel')),
+    checklists: withSidePanel(LifecycleTasks, panel('ChecklistsPanel')),
+    lifecycle: LifecycleOverview,
+    joiners: Joiners,
+    lifecycleChanges: LifecycleChanges,
+    leavers: Leavers,
+    journeySteps: JourneySteps,
     letterTemplates: LetterTemplates,
     customFields: CustomFieldsSettings,
     selfServiceChanges: SelfServiceSettings,

@@ -39,7 +39,8 @@ export { default as Transactions, Punches } from './screens/Transactions';
 /* One audit trail for the company, in Workspace (ADR-010); this opens it on People and Attendance's share. */
 export const AuditLogs = () => React.createElement(OpenInCompanyAdmin, { title: 'Audit Logs', screen: 'audit', forApp: 'attendance' });
 export { default as PayrollReadiness } from './screens/PayrollReadiness';
-export { default as Checklists } from '@ui/personnel/Checklists';
+export { default as LifecycleTasks } from '@ui/lifecycle/Tasks';
+export { default as JourneySteps } from '@ui/lifecycle/Steps';
 export { default as ComplianceCalendar } from '@ui/personnel/ComplianceCalendar';
 export { default as RecycleBin } from './screens/RecycleBin';
 export { default as DeviceLogs } from './screens/DeviceLogs';

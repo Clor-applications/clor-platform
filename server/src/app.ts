@@ -36,6 +36,7 @@ import { payrollEmployeesRouter } from './routes/payrollEmployees.js';
 import { payrollSettlementsRouter } from './routes/payrollSettlements.js';
 import { payrollTaxDeclarationsRouter } from './routes/payrollTaxDeclarations.js';
 import { peopleRouter } from './routes/people.js';
+import { peopleLifecycleRouter } from './routes/peopleLifecycle.js';
 import { peopleApprovalsRouter } from './routes/peopleApprovals.js';
 import { peopleTaskLinksRouter } from './routes/peopleTaskLinks.js';
 import { peopleTalentRouter } from './routes/peopleTalent.js';
@@ -409,6 +410,7 @@ export function buildApp() {
   app.use('/api', payrollEmployeesRouter);
   app.use('/api', payrollSettlementsRouter);
   app.use('/api', payrollTaxDeclarationsRouter);
+  app.use('/api', peopleLifecycleRouter);
   app.use('/api', peopleTalentRouter);
   app.use('/api', peopleRouter);
   app.use('/api', peopleApprovalsRouter);

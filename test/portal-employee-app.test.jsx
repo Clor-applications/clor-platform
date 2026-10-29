@@ -22,6 +22,9 @@ const api = vi.hoisted(() => ({
   getHolidays: vi.fn(),
   pickRestrictedHoliday: vi.fn(async () => ({ ok: true })),
   getLeaving: vi.fn(),
+  /* Joining & Leaving: nothing of the person's own to do, so the card stays away. */
+  getJourney: vi.fn(async () => ({ joining: [], leaving: [], handBack: [] })),
+  doneJourneyTask: vi.fn(async () => ({ done: true })),
   resign: vi.fn(async () => ({ request: { id: 'l1', status: 'WAITING' } })),
   getMyDetails: vi.fn(),
   getDesk: vi.fn(),
