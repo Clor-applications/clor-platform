@@ -4,7 +4,7 @@
 **Audit Scope:** Full Monorepo (`apps/`, `packages/`, `server/`, `prisma/`, `deploy/`, `mobile/`, `native/`, CI/CD)  
 **Auditor:** Antigravity AI Senior Systems & Compliance Review  
 **Benchmark Reference:** Tier-1 Cloud ERP, Accounting & Workforce SaaS Platforms (*Zoho Books / Zoho People, QuickBooks Online, Xero, Tally Prime, Keka, Stripe Billing*)  
-**Reconciliation Target:** Previous audits ([audit-report.md](audit-report.md), [audit-report-2026-09-10.md](audit-report-2026-09-10.md))
+**Reconciliation Target:** Previous audits (`audit-report.md`, `audit-report-2026-09-10.md`; removed 30 Oct 2026 as superseded by this report, still in git history: `git show 0a2cbc28:audit-report.md`)
 
 ---
 
