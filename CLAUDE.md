@@ -2,6 +2,14 @@
 
 Indian GST accounting and business SaaS. React 19 + Vite + Tailwind SPA (`src/`), Express + Prisma + SQLite API (`server/`).
 
+## Where People work stands (read before touching People, Time or Attendance)
+
+The latest People code is on branch `claude/people-live` (the owner's live app runs from
+its worktree, `/private/tmp/clor-people-latest-20261028`, web 5186 / API 4002). Until it is
+merged into `main`, a session cut from `main` has old People code: base new People work on
+`claude/people-live`, not `main`. What is done, what is next and how to run the tests:
+`docs/people/design-v1/TRACKER.md` (latest section at the end).
+
 ## Design System
 
 Always read `DESIGN.md` before making any visual or UI decision. Fonts, colors,
