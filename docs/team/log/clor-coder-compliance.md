@@ -2,7 +2,7 @@
 
 ## 2026-10-30 IST — People / Compliance depth — review fixes on PR #69
 - Did: Fixed the blocker and the four should-fixes from review. Proof uploads get a 7 MB body limit. The old calendar's write routes now answer 410, and Attendance's entry opens People's Compliance. The migration maps POSH_REPORT onto the IN-POSH-REPORT rule, so there is one row per year. Reads are whole-company only, and statutory rows need the statutory view. buildObligations takes a lock per company. Nits done: renewal settles only on a newer registration and appends to the note; proof add/remove lock the row with FOR UPDATE; removing a proof soft-deletes it; a new rule version must start later; the attrition wording; real suggestions in more fields. Rebased on main after PR #67, so a notice now opens the obligation itself.
-- Evidence: server 12 files, 87 passed; web: compliance, nav and design tests passed. Browser: a 2 MB proof attached; a notice opened its obligation. Screenshots 13 and 14 in `docs/people/design-v1/evidence/compliance-depth/`.
+- Evidence: server 12 files, 84 passed; web: compliance, nav and design tests passed. Browser: a 2 MB proof attached; a notice opened its obligation. Screenshots 13 and 14 in `docs/people/design-v1/evidence/compliance-depth/`.
 - Next: re-review.
 - Blocked on: nothing. Attendance's Compliance entry was not opened in a browser: the test company could not switch Attendance on (400).
 
