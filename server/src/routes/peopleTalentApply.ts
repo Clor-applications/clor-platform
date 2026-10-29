@@ -1,6 +1,6 @@
 import { Router, urlencoded } from 'express';
 
-import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
+import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { applyLimiter } from '../middleware/rateLimit.js';
 import { TalentError, applyFromLink, openingByToken } from '../services/people/talent/hiring.js';
@@ -56,7 +56,8 @@ peopleTalentApplyRouter.post('/people/apply/:token', ...applyLimiter, urlencoded
   /* A bot filled the hidden field: say thanks and keep nothing. */
   if (String(b.website || '').trim()) return res.type('html').send(thanks);
   try {
-    await applyFromLink(found.o, b);
+    /* The company found by the token, held for the write: enterTenant inside findOpening does not reach back out to this handler, and the policies fail closed. */
+    await runInTenant(found.o.orgId, () => applyFromLink(found.o, b));
     res.type('html').send(thanks);
   } catch (e) {
     if (e instanceof TalentError) return res.status(e.status === 410 ? 410 : 400).type('html').send(form(found.o.title, found.orgName, found.o.description, e.message, b));

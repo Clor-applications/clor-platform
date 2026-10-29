@@ -22,6 +22,7 @@ CREATE INDEX IF NOT EXISTS "LeaveBlock_orgId_fromDate_idx" ON "LeaveBlock"("orgI
 ALTER TABLE "LeaveBlock" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "LeaveBlock" FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON "LeaveBlock";
+-- Fails closed (20261024100000_rls_fail_closed): a row shows only for its own company, or to background work with the bypass on.
 CREATE POLICY tenant_isolation ON "LeaveBlock"
-  USING (current_setting('clor.org_id', true) IS NULL OR current_setting('clor.org_id', true) = '' OR "orgId" = current_setting('clor.org_id', true))
-  WITH CHECK (current_setting('clor.org_id', true) IS NULL OR current_setting('clor.org_id', true) = '' OR "orgId" = current_setting('clor.org_id', true));
+  USING (current_setting('clor.bypass', true) = 'on' OR "orgId" = NULLIF(current_setting('clor.org_id', true), ''))
+  WITH CHECK (current_setting('clor.bypass', true) = 'on' OR "orgId" = NULLIF(current_setting('clor.org_id', true), ''));
