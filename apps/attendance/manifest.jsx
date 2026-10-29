@@ -322,8 +322,8 @@ export const attendanceApp = {
     { key: 'leaveCalendar', label: 'Leave Calendar', icon: CalendarDays, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveBalances', label: 'Leave Balances', icon: Scale, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRegister', label: 'Leave Register', icon: Grid3x3, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    /* People's simple mode hides the same three Time & Leave screens here (services/features.ts peopleDetailed). */
-    { key: 'standIns', label: 'Delegates', icon: Users, permission: 'ATTENDANCE::Leave Requests::VIEW', feature: 'peopleDetailed' },
+    /* Delegates, Leave Year End and Request Types show in simple mode too, as in People (People audit 30 Oct 2026, gap 4). */
+    { key: 'standIns', label: 'Delegates', icon: Users, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'overtime', label: 'Overtime & Comp-Off', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'confirmations', label: 'Employee Confirmations', icon: BadgeCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'monthClose', label: 'Month Close', icon: Lock, permission: 'ATTENDANCE::Attendance Records::VIEW' },
@@ -353,8 +353,8 @@ export const attendanceApp = {
     /* Days off for anyone with no shift; with shifts, the shift decides (TIME-LEAVE-DECISIONS.md M2). */
     { key: 'workingWeek', label: 'Working Week', icon: CalendarOff, permission: 'ATTENDANCE::Leave Types::VIEW' },
     { key: 'holidays', label: 'Holidays', icon: CalendarDays, permission: 'ATTENDANCE::Holidays::VIEW' },
-    { key: 'leaveYearEnd', label: 'Leave Year End', icon: ClipboardCheck, permission: 'ATTENDANCE::Leave Requests::EDIT', feature: 'peopleDetailed' },
-    { key: 'requestRules', label: 'Attendance Request Types', icon: Gavel, permission: 'ATTENDANCE::Attendance Requests::APPROVE', feature: 'peopleDetailed' },
+    { key: 'leaveYearEnd', label: 'Leave Year End', icon: ClipboardCheck, permission: 'ATTENDANCE::Leave Requests::EDIT' },
+    { key: 'requestRules', label: 'Attendance Request Types', icon: Gavel, permission: 'ATTENDANCE::Attendance Requests::APPROVE' },
     { key: 'integrations', label: 'Integrations', icon: Plug, permission: 'ATTENDANCE::Attendance Integrations::VIEW' },
     /* The same SSO set-up as Accounting's Settings → Single Sign-On: one per company, for every CLOR app. */
     { key: 'sso', label: 'Users & Security', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },

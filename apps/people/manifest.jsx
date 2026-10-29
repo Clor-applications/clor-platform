@@ -304,6 +304,8 @@ export const peopleApp = {
   mobileTabs: ['overview', 'employees', 'approvals', 'leaveRequests'],
   /* A person's own pages, opened from My profile rather than the admin menu (owner, 28 Oct 2026 audit). */
   profileLinks: ['myLeave', 'myDays'],
+  /* Grant- and membership-based access the shell merges with the person's permissions (src/api/access.js). */
+  access: () => import('./src/api/access.js').then((m) => m.myPeopleAccess()),
 
   /* The sidebar holds the day's work; everything set up once lives on one Settings page (PeopleSettings), its pages marked `parent: 'settings'`. */
   modules: [
@@ -343,10 +345,11 @@ export const peopleApp = {
     { key: 'settings', label: 'Settings', icon: M.settings, items: ['settings'] },
   ],
 
-  /* `permission`: what the screen's data needs; the shell hides what this user cannot open.
-     `feature: 'peopleDetailed'`: hidden in simple mode (PRODUCT-VIEW §6; server: services/features.ts), the
-     detailed screens a larger HR team needs. Never a person's own data (Me, Home, the directory, leave
-     requests); each still opens from a link, so Home's to-dos still reach them. */
+  /* `permission`: what the screen's data needs; the shell hides what this user cannot open. A list means any
+     one of them, where the route takes several; `access` above adds the grant- and membership-based keys.
+     `feature: 'peopleDetailed'`: hidden in simple mode (PRODUCT-VIEW §6; server: services/features.ts). Since
+     the People audit (30 Oct 2026, gap 4) simple mode trims organisation-structure detail only: year end,
+     delegates, policies, compliance, privacy and the like are always shown, as a small business needs them. */
   nav: [
     { key: 'overview', label: 'Home', icon: I.home, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'approvals', label: 'Approvals', icon: I.approve, permission: 'PEOPLE::Requests::VIEW' },
@@ -358,9 +361,9 @@ export const peopleApp = {
     { key: 'orgChart', label: 'Org chart', icon: I.orgChart, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'organization', label: 'Overview', icon: I.orgOverview, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'branches', label: 'Branches', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'orgChanges', label: 'Change history', icon: I.history, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleDetailed' },
+    { key: 'orgChanges', label: 'Change history', icon: I.history, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'documents', label: 'Documents', icon: I.folder, permission: 'PEOPLE::Documents::VIEW' },
-    { key: 'policies', label: 'Policies', icon: I.policy, permission: 'PEOPLE::Policies::VIEW', feature: 'peopleDetailed' },
+    { key: 'policies', label: 'Policies', icon: I.policy, permission: 'PEOPLE::Policies::VIEW' },
     { key: 'lifecycle', label: 'Joining & leaving', icon: I.lifecycle, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'joiners', label: 'Joining', icon: I.joiner, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'lifecycleChanges', label: 'Job changes', icon: I.change, permission: 'PEOPLE::Employees::VIEW' },
@@ -370,15 +373,15 @@ export const peopleApp = {
     { key: 'journeySteps', label: 'Joining & leaving steps', icon: I.steps, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     { key: 'selfService', label: 'Employee app', icon: I.key, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
     { key: 'letterTemplates', label: 'Letters', icon: I.policy, permission: 'PEOPLE::Documents::VIEW', parent: 'settings' },
-    { key: 'customFields', label: 'Custom fields', icon: I.field, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings', feature: 'peopleDetailed' },
-    { key: 'selfServiceChanges', label: 'Self-service edits', icon: I.key, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings', feature: 'peopleDetailed' },
-    { key: 'approvalRules', label: 'Approval rules', icon: I.checklist, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings', feature: 'peopleDetailed' },
+    { key: 'customFields', label: 'Custom fields', icon: I.field, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
+    { key: 'selfServiceChanges', label: 'Self-service edits', icon: I.key, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
+    { key: 'approvalRules', label: 'Approval rules', icon: I.checklist, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
     { key: 'timeOverview', label: "Who's away", icon: I.away, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRequests', label: 'Leave requests', short: 'Leave', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveBalances', label: 'Leave balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRegister', label: 'Leave register', icon: I.register, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveCalendar', label: 'Leave calendar', icon: I.calendar, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'standIns', label: 'Delegates', icon: I.delegate, permission: 'ATTENDANCE::Leave Requests::VIEW', feature: 'peopleDetailed' },
+    { key: 'standIns', label: 'Delegates', icon: I.delegate, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'attendanceRequests', label: 'Attendance requests', short: 'Requests', icon: I.attRequest, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
     { key: 'attendance', label: 'Daily attendance', icon: I.attendance, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'myDays', label: 'My attendance', icon: I.myDays, permission: 'ATTENDANCE::My Attendance::VIEW' },
@@ -387,8 +390,8 @@ export const peopleApp = {
     { key: 'holidays', label: 'Holidays', icon: I.holiday, permission: 'ATTENDANCE::Holidays::VIEW', parent: 'settings' },
     { key: 'leaveBlocks', label: 'Leave block dates', icon: I.holiday, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
     { key: 'workingWeek', label: 'Working week', icon: I.calendar, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
-    { key: 'leaveYearEnd', label: 'Leave year end', icon: I.register, permission: 'ATTENDANCE::Leave Requests::EDIT', parent: 'settings', feature: 'peopleDetailed' },
-    { key: 'requestRules', label: 'Attendance request types', icon: I.policy, permission: 'ATTENDANCE::Attendance Requests::APPROVE', parent: 'settings', feature: 'peopleDetailed' },
+    { key: 'leaveYearEnd', label: 'Leave year end', icon: I.register, permission: 'ATTENDANCE::Leave Requests::EDIT', parent: 'settings' },
+    { key: 'requestRules', label: 'Attendance request types', icon: I.policy, permission: 'ATTENDANCE::Attendance Requests::APPROVE', parent: 'settings' },
     /* Talent. Interviews and one-on-ones need no right of their own: anyone can sit on an interview or
        manage someone, and the server shows each person only their own. Goals, reviews and plans are not
        read-only without Performance Edit (`writeGuard: false`): a manager acts on their own team there, and
@@ -404,8 +407,9 @@ export const peopleApp = {
     { key: 'announcements', label: 'Announcements', icon: I.news, permission: 'PEOPLE::Announcements::VIEW', feature: 'peopleEngage' },
     { key: 'events', label: 'Events', icon: I.event, permission: 'PEOPLE::Events::VIEW', feature: 'peopleEngage' },
     { key: 'helpdesk', label: 'Help desk', icon: I.hrCase, permission: 'PEOPLE::HR Cases::VIEW' },
-    { key: 'privateCases', label: 'Confidential cases', icon: I.privacy, permission: 'PEOPLE::Employees::VIEW', feature: 'peopleDetailed' },
-    { key: 'helpDeskSettings', label: 'Help desk settings', icon: I.hrCase, permission: 'PEOPLE::HR Cases::EDIT', parent: 'settings', feature: 'peopleDetailed' },
+    /* Who the case routes let in (gap 5): the grant to take cases in and set committees, or a seat on a case or committee. */
+    { key: 'privateCases', label: 'Confidential cases', icon: I.privacy, permission: ['PEOPLE::Private Cases::VIEW', 'PEOPLE::Private Cases::CREATE', 'PEOPLE::Case committee::VIEW'] },
+    { key: 'helpDeskSettings', label: 'Help desk settings', icon: I.hrCase, permission: 'PEOPLE::HR Cases::EDIT', parent: 'settings' },
     { key: 'assets', label: 'Assets', icon: I.asset, permission: 'PEOPLE::Assets::VIEW', feature: 'peopleBenefits' },
     { key: 'benefits', label: 'Benefits', icon: I.benefit, permission: 'PEOPLE::Benefits::VIEW', feature: 'peopleBenefits' },
     { key: 'compensation', label: 'Salary revisions', icon: I.salary, permission: 'PAYROLL::Salary Revisions::VIEW', feature: 'peopleBenefits' },
@@ -414,19 +418,19 @@ export const peopleApp = {
     { key: 'registers', label: 'Statutory registers', icon: I.statutory, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'leaveSummary', label: 'Leave summary', icon: I.summary, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'dataHealth', label: 'Data check', icon: I.dataCheck, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
-    { key: 'compliance', label: 'Compliance', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW', feature: 'peopleDetailed' },
-    { key: 'complianceCalendar', label: 'Compliance calendar', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW', feature: 'peopleDetailed' },
-    { key: 'privacy', label: 'Privacy controls', icon: I.privacy, permission: 'PEOPLE::Privacy::VIEW', parent: 'settings', feature: 'peopleDetailed' },
+    { key: 'compliance', label: 'Compliance', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'complianceCalendar', label: 'Compliance calendar', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'privacy', label: 'Privacy controls', icon: I.privacy, permission: 'PEOPLE::Privacy::VIEW', parent: 'settings' },
     /* The external auditor's own list: what a live grant names (PRV-06). */
-    { key: 'auditEvidence', label: 'Audit evidence', icon: I.evidence, permission: 'SETTINGS::Audit trail::VIEW', feature: 'peopleDetailed' },
+    { key: 'auditEvidence', label: 'Audit evidence', icon: I.evidence, permission: ['PEOPLE::Audit grant::VIEW'] },
     { key: 'departments', label: 'Departments', icon: I.department, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'teams', label: 'Teams', icon: I.people, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
     { key: 'seats', label: 'Positions', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
     { key: 'jobPositions', label: 'Designations', icon: I.designation, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'jobRoles', label: 'Job roles', icon: I.role, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
-    { key: 'employeeTypes', label: 'Employment types', icon: I.type, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings', feature: 'peopleDetailed' },
-    { key: 'workTypes', label: 'Work modes', icon: I.workType, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings', feature: 'peopleDetailed' },
-    { key: 'tags', label: 'Tags', icon: I.tag, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings', feature: 'peopleDetailed' },
+    { key: 'employeeTypes', label: 'Employment types', icon: I.type, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'workTypes', label: 'Work modes', icon: I.workType, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'tags', label: 'Tags', icon: I.tag, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'dataImport', label: 'Import data', icon: I.import, permission: 'PEOPLE::Employees::CREATE', parent: 'settings' },
     { key: 'settings', label: 'Settings', icon: I.settings, hub: true },
     /* Founder, 22 Oct 2026: modules switch on and off, within what the subscription carries. */
@@ -439,10 +443,13 @@ export const peopleApp = {
     { key: 'grades', label: 'Grades', icon: I.grade, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
     { key: 'costCentres', label: 'Cost centres', icon: I.costCentre, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
     { key: 'sso', label: 'Users & security', icon: I.sso, permission: 'SETTINGS::Users::VIEW', parent: 'settings' },
-    { key: 'rolesAccess', label: 'Roles & permissions', icon: I.sso, permission: 'SETTINGS::Roles::VIEW', parent: 'settings', feature: 'peopleDetailed' },
-    { key: 'integrations', label: 'Integrations', icon: I.integrations, permission: 'ATTENDANCE::Attendance Integrations::VIEW', parent: 'settings', feature: 'peopleDetailed' },
-    { key: 'dataExport', label: 'Export data', icon: I.export, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings' },
-    { key: 'recycleBin', label: 'Recycle bin', icon: I.bin, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings', feature: 'peopleDetailed' },
+    { key: 'rolesAccess', label: 'Roles & permissions', icon: I.sso, permission: 'SETTINGS::Roles::VIEW', parent: 'settings' },
+    /* Its routes answer only where Attendance is on (attendanceRouteOk). */
+    { key: 'integrations', label: 'Integrations', icon: I.integrations, permission: 'ATTENDANCE::Attendance Integrations::VIEW', parent: 'settings', feature: 'attendance' },
+    /* Any one read behind its datasets (DataExport.jsx `need`); the screen lists only those this person holds. */
+    { key: 'dataExport', label: 'Export data', icon: I.export, permission: ['ATTENDANCE::Attendance Records::VIEW', 'ATTENDANCE::Attendance Devices::VIEW', 'ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Attendance Requests::VIEW', 'ATTENDANCE::Holidays::VIEW', 'ATTENDANCE::Shifts::VIEW'], parent: 'settings' },
+    /* Each kind in the bin opens to whoever may delete it (server/src/services/recycleBin.ts BIN_KINDS). */
+    { key: 'recycleBin', label: 'Recycle bin', icon: I.bin, permission: ['PEOPLE::Employees::DELETE', 'PEOPLE::Employee Notes::DELETE', 'PEOPLE::Documents::DELETE', 'PEOPLE::Org Structure::DELETE', 'ATTENDANCE::Holidays::DELETE', 'ATTENDANCE::Leave Types::DELETE', 'ATTENDANCE::Shifts::DELETE', 'ATTENDANCE::Attendance Records::DELETE'], parent: 'settings' },
     { key: 'dataProtection', label: 'Data protection', icon: I.privacy, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
     { key: 'dataRequests', label: 'Data requests', icon: I.requests, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     { key: 'auditLogs', label: 'Audit logs', icon: I.audit, permission: 'SETTINGS::Audit trail::VIEW', parent: 'settings' },

@@ -179,10 +179,15 @@ export function DateTile({ iso }) {
   );
 }
 
-/** Where to go next: small chips with their icons, two to a row. */
-export function SideLinks({ links }) {
+/**
+ * Where to go next: small chips with their icons, two to a row. A link that
+ * names its `screen` shows only when that screen is in `navItems` (the nav the
+ * shell kept for this person), so nobody is sent to a page that refuses them.
+ */
+export function SideLinks({ links, navItems = null }) {
   const mark = useContentIcon();
-  const shown = (links || []).filter(Boolean).map((l) => ({ ...l, icon: mark(l.icon) }));
+  const open = Array.isArray(navItems) && navItems.length ? new Set(navItems.map((i) => i.key)) : null;
+  const shown = (links || []).filter((l) => l && (!l.screen || !open || open.has(l.screen))).map((l) => ({ ...l, icon: mark(l.icon) }));
   if (!shown.length) return null;
   return (
     <section className="ui-side-block">

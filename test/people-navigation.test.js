@@ -78,9 +78,17 @@ describe('People navigation in simple mode', () => {
   const full = shown({ peopleDetailed: true, peopleOrgDetail: false });
   const keys = (nav) => new Set(nav.filter((i) => i.key).map((i) => i.key));
 
-  it('hides the detailed screens a larger HR team needs', () => {
+  /* People audit, 30 Oct 2026, gap 4: simple mode trims organisation detail only; a small business needs the rest. */
+  it('hides organisation detail only', () => {
     const hidden = [...keys(full)].filter((k) => !keys(simple).has(k)).sort();
-    expect(hidden).toEqual(['approvalRules', 'auditEvidence', 'compliance', 'complianceCalendar', 'customFields', 'employeeTypes', 'helpDeskSettings', 'integrations', 'leaveYearEnd', 'legalEntities', 'orgChanges', 'policies', 'privacy', 'privateCases', 'recycleBin', 'requestRules', 'rolesAccess', 'selfServiceChanges', 'standIns', 'tags', 'workTypes']);
+    expect(hidden).toEqual(['legalEntities']);
+  });
+
+  it('shows a new company year end, delegates, policies, compliance, privacy and the other screens it needs', () => {
+    const kept = keys(simple);
+    for (const k of ['leaveYearEnd', 'standIns', 'approvalRules', 'requestRules', 'policies', 'compliance', 'complianceCalendar', 'privacy', 'privateCases', 'employeeTypes', 'customFields', 'orgChanges', 'helpDeskSettings', 'auditEvidence', 'tags', 'recycleBin']) {
+      expect(kept.has(k), k).toBe(true);
+    }
   });
 
   it('never hides a person’s own data, the day’s work, or the setup steps on Home', () => {
@@ -93,7 +101,7 @@ describe('People navigation in simple mode', () => {
   it('keeps every module that has a screen left, and the leave screens under one naming rule', () => {
     const modules = resolveModules(peopleApp, simple);
     expect(modules.map((m) => m.label)).toEqual(['Home', 'People', 'Organisation', 'Time', 'Talent', 'Workplace', 'Reports', 'Settings']);
-    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Daily attendance', 'Attendance requests']);
+    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Delegates', 'Daily attendance', 'Attendance requests']);
   });
 
   it('shows everything when simple mode is off, or when the company’s switches are not known yet', () => {
@@ -120,9 +128,8 @@ describe('Shared Time & Leave screens', () => {
     expect(attendanceApp.nav.find((i) => i.key === 'sites').label).toBe('Punch Areas');
   });
 
-  it('hide the same detailed Time & Leave screens in Attendance under simple mode', async () => {
+  it('show in Attendance under simple mode too, as in People', async () => {
     const { attendanceApp } = await import('../apps/attendance/manifest.jsx');
-    const tagged = attendanceApp.nav.filter((i) => i.feature === 'peopleDetailed').map((i) => i.key).sort();
-    expect(tagged).toEqual(['leaveYearEnd', 'requestRules', 'standIns']);
+    expect(attendanceApp.nav.filter((i) => i.feature === 'peopleDetailed').map((i) => i.key)).toEqual([]);
   });
 });

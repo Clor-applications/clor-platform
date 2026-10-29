@@ -59,7 +59,7 @@ export default function PeopleModules() {
     setBusy(key);
     try {
       await setFeature(orgId(), branchId(), key, on);
-      notify.success(key === 'peopleSimpleMode' ? (on ? 'Simple mode is on: the detailed screens are out of the menu.' : 'Simple mode is off: every People screen is in the menu.') : on ? 'Switched on.' : 'Switched off. Its records are kept and come back when it is switched on.');
+      notify.success(key === 'peopleSimpleMode' ? (on ? 'Simple mode is on: organisation detail is out of the menu.' : 'Simple mode is off: every People screen is in the menu.') : on ? 'Switched on.' : 'Switched off. Its records are kept and come back when it is switched on.');
       window.dispatchEvent(new Event('clor:features-changed'));
       load();
     } catch (e) {
@@ -86,7 +86,7 @@ export default function PeopleModules() {
                   <li key={f.key} className="flex items-start justify-between gap-4 p-4">
                     <div className="min-w-0">
                       <p className="font-medium">{f.label}</p>
-                      <p className="ui-caption">Hides the detailed screens a larger HR team uses: stand-ins, request rules, leave year end, compliance and privacy lists, custom fields, approval rules and similar. They still open from any link to them.</p>
+                      <p className="ui-caption">Keeps organisation detail a larger company uses, such as legal entities, out of the menu. Leave, policy, compliance and privacy screens always show.</p>
                     </div>
                     <Toggle label={f.label} checked={Boolean(f.enabled)} disabled={busy === f.key || (!f.entitled && !f.enabled)} onChange={(on) => flip(f.key, on)} />
                   </li>

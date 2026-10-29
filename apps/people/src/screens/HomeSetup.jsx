@@ -68,7 +68,7 @@ export default function HomeSetup({ openScreen, onState }) {
           <div className="min-w-0 flex-1">
             <h2 id="simple-h" className="font-medium">Your company has grown</h2>
             <p className="ui-caption">
-              {simpleMode.reasons.join(', ').replace(/^./, (c) => c.toUpperCase())}. Simple mode keeps the detailed screens (stand-ins, request rules, compliance lists and more) out of the menu. You can switch it off now, or later in Settings → Modules &amp; Apps.
+              {simpleMode.reasons.join(', ').replace(/^./, (c) => c.toUpperCase())}. Simple mode keeps organisation detail, such as legal entities, out of the menu. You can switch it off now, or later in Settings → Modules &amp; Apps.
             </p>
           </div>
           <div className="flex gap-2">

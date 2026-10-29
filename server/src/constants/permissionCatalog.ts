@@ -712,7 +712,9 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['ATTENDANCE', 'Leave Requests', [A.VIEW, A.CREATE, A.EDIT]],
       ['ATTENDANCE', 'Leave Types', [A.VIEW]],
       ['ATTENDANCE', 'Holidays', [A.VIEW]],
-      ['ATTENDANCE', 'My Attendance', [A.VIEW]],
+      /* Their own leave and check-in (People audit, 30 Oct 2026, gap 3): VIEW alone showed the buttons and the
+         server refused them. HR Manager and Team Manager carry the same; migration 20261102090000 fixes old roles. */
+      ['ATTENDANCE', 'My Attendance', [A.VIEW, A.CREATE]],
       /* Attendance requests (work from home, on duty, missed punch) are Time & Leave's too. */
       ['ATTENDANCE', 'Attendance Requests', [A.VIEW, A.CREATE]],
     ],
@@ -737,7 +739,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['ATTENDANCE', 'Leave Requests', ['*']],
       ['ATTENDANCE', 'Leave Types', ['*']],
       ['ATTENDANCE', 'Holidays', ['*']],
-      ['ATTENDANCE', 'My Attendance', [A.VIEW]],
+      ['ATTENDANCE', 'My Attendance', [A.VIEW, A.CREATE]],
       ['ATTENDANCE', 'Employee Portal', ['*']],
       ['ATTENDANCE', 'Attendance Requests', ['*']],
     ],
@@ -745,7 +747,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   TEAM_MANAGER: {
     label: 'Team Manager',
     group: 'People',
-    description: 'Their own team only: the people who report to them, their documents and their joining and leaving tasks; no statutory details',
+    description: 'Their own team only: the people who report to them, their documents, joining and leaving tasks, and their goals, reviews and improvement plans; no statutory details',
     roleType: 'CUSTOM',
     ownDocumentsOnly: true,
     grants: [
@@ -755,9 +757,12 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Requests', [A.VIEW, A.CREATE, A.APPROVE]],
       ['PEOPLE', 'Lifecycle', [A.VIEW, A.EDIT]],
       ['PEOPLE', 'Policies', [A.VIEW]],
+      /* Goals, reviews and improvement plans for their own team (People Talent): every manager save there needs
+         Performance VIEW, and the services decide whom a manager may act on. Edit stays HR's (cycles, final ratings). */
+      ['PEOPLE', 'Performance', [A.VIEW]],
       ['ATTENDANCE', 'Leave Requests', [A.VIEW, A.APPROVE]],
       ['ATTENDANCE', 'Attendance Requests', [A.VIEW, A.APPROVE]],
-      ['ATTENDANCE', 'My Attendance', [A.VIEW]],
+      ['ATTENDANCE', 'My Attendance', [A.VIEW, A.CREATE]],
     ],
   },
   COMPLIANCE_OFFICER: {
