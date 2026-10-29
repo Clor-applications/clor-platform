@@ -94,6 +94,13 @@ jobs:
       - name: Route manifest gate
         run: node tenant-platform-upgrade-2026-10-23/scripts/inventory-routes.mjs --check
 
+      # The web suite (vitest at the repository root: Accounting, People,
+      # Payroll and the shared packages, ~1,800 tests in jsdom). About two and
+      # a half minutes and no database, so it runs on every pull request. It
+      # ran nowhere before 30 Oct 2026 and 53 tests had rotted unseen.
+      - name: Web tests
+        run: npm run test:web
+
       - name: Build frontend
         run: npm run build
 
@@ -105,7 +112,7 @@ jobs:
   # ~32 minutes as one job, ~11 as three side by side.
   #
   # Not on pull requests (30 Oct 2026): a pull request gets the quick checks
-  # in `verify` (lint, schema, typecheck, build, minutes); the server suite
+  # in `verify` (lint, schema, typecheck, web tests, build, minutes); the server suite
   # runs after merge on main, nightly, by hand, or on a pull request labelled
   # `full-tests`. Three Mac runners could not keep up with a full suite per
   # pull request.
