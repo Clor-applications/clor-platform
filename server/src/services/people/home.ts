@@ -55,7 +55,7 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
     ]);
     const late = tasks.filter((t) => t.overdue).length;
     const dueSoon = tasks.filter((t) => !t.overdue && t.dueDate && t.dueDate <= week).length;
-    if (late || dueSoon) out.push({ key: 'checklists', title: 'Onboarding & exit items', detail: [late && `${late} late`, dueSoon && `${dueSoon} due this week`].filter(Boolean).join(' · '), count: late + dueSoon, tone: late ? 'urgent' : 'soon', screen: 'checklists' });
+    if (late || dueSoon) out.push({ key: 'checklists', title: 'Joining and leaving tasks', detail: [late && `${late} late`, dueSoon && `${dueSoon} due this week`].filter(Boolean).join(' · '), count: late + dueSoon, tone: late ? 'urgent' : 'soon', screen: 'checklists' });
     if (health.blocking) out.push({ key: 'dataHealth', title: 'Details that would stop payroll', detail: `${plural(health.blocking, 'person', 'people')} to fix: missing PAN, UAN, bank, joining date…`, count: health.blocking, tone: 'urgent', screen: 'dataHealth' });
     const cLate = compliance.summary.overdue;
     const cSoon = compliance.summary.dueSoon;

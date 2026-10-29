@@ -407,7 +407,7 @@ function Banners({ openScreen }) {
   const dismiss = (k, n) => { const next = { ...dismissed, [k]: n }; setDismissed(next); writeJson(DISMISS_KEY, next); };
   const items = [
     docs && dismissed.docs !== docs ? { key: 'docs', tone: 'neg', text: `${docs} expired ${docs === 1 ? 'document' : 'documents'}`, link: 'Review', screen: 'dataHealth', n: docs } : null,
-    joiners && dismissed.joiners !== joiners ? { key: 'joiners', tone: 'warn', text: `${joiners} ${joiners === 1 ? 'joiner' : 'joiners'} with onboarding open`, link: 'Open Onboarding & Exit', screen: 'checklists', n: joiners } : null,
+    joiners && dismissed.joiners !== joiners ? { key: 'joiners', tone: 'warn', text: `${joiners} ${joiners === 1 ? 'joiner' : 'joiners'} with joining steps open`, link: 'Open Joining', screen: 'joiners', n: joiners } : null,
   ].filter(Boolean);
   if (!items.length) return null;
   /* One quiet line, not a stack of coloured boxes: the list below is what the page is for. */

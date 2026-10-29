@@ -18,7 +18,7 @@ import { correlationOf, employeeSummary } from '../services/people/employees.js'
 import { diffEmployee, writeChangeLog } from '../services/people/changeLog.js';
 import { writeEvent } from '../services/people/outbox.js';
 import { recordChanges } from '../services/people/employmentHistory.js';
-import { READER_ACCESS_ITEM, startChecklist } from '../services/people/checklists.js';
+import { startChecklist } from '../services/people/checklists.js';
 
 /**
  * Personnel operations from ClorTime (routes/personnel_expansion.js,

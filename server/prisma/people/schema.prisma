@@ -3088,11 +3088,23 @@ model ChecklistTask {
   doneAt       DateTime?
   doneByUserId String?
   note         String?
+  /// Days from the joining day or last day, and whether they are working days; a moved date moves the open task.
+  offsetDays   Int?
+  workingDays  Boolean   @default(false)
+  /// Closes only with a note (a payment reference, an asset tag).
+  needsNote    Boolean   @default(false)
+  /// Work CLOR does itself and must see confirmed: READERS. State WAITING | CONFIRMED | FAILED | NONE; refs = the command ids.
+  system       String?
+  systemState  String?
+  systemRefs   Json?
+  /// The last day (IST) this task went into its owner's digest.
+  remindedOn   String?
   createdAt    DateTime  @default(now())
 
   @@index([orgId, employeeId])
   @@index([orgId, doneAt, dueDate])
   @@index([orgId, ownerUserId, doneAt])
+  @@index([orgId, system, systemState])
 }
 
 /// One statutory or company deadline for one period (services/people/compliance.ts):
