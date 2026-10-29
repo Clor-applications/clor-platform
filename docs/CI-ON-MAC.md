@@ -73,5 +73,8 @@ and `./svc.sh install && ./svc.sh start`.
 | Run workflow by hand | yes | yes |
 
 Docs-only changes run nothing. A newer push cancels an older run on the same
-branch (main included); the nightly run is never cancelled. A server-test
-failure on main is fixed the same day, before the next release.
+branch (main included); the nightly run and a run started by hand are never
+cancelled. On a busy day merges keep replacing main's run, so the release check
+is a run by hand on the commit being released
+(`gh workflow run CI --ref main`), which finishes whatever merges after it.
+A server-test failure on main is fixed the same day, before the next release.
