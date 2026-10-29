@@ -11,9 +11,9 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { nextEmployeeCode } from '../workforce/api';
 import OfferDrawer from '../workforce/OfferDrawer';
 import {
-  addCandidate, cancelInterview, getCandidate, giveFeedback, hireCandidate, interviewers, moveCandidate, moveInterview, noteCandidate, readFile, resumeFile, saveResume, scheduleInterview, updateCandidate,
+  addCandidate, cancelInterview, getCandidate, giveFeedback, hireCandidate, interviewers, listInterviews, moveCandidate, moveInterview, noteCandidate, readFile, resumeFile, saveResume, scheduleInterview, updateCandidate,
 } from '../api/talent';
-import { FormError, Footer, MODES, OPEN_STAGES, Pill, RECOMMENDATIONS, ReasonDrawer, SHEET, SOURCES, STAGES, WIDE_SHEET, day, fromLocalInput, toLocalInput, todayIst, when, word } from './shared';
+import { FormError, Footer, MODES, OPEN_STAGES, Pill, RECOMMENDATIONS, ReasonDrawer, SHEET, SOURCES, STAGES, WIDE_SHEET, day, fromLocalInput, toLocalInput, todayIst, usedValues, when, word } from './shared';
 
 /**
  * One candidate (TALENT-DECISIONS.md): where they stand, their résumé, interviews with each
@@ -24,7 +24,7 @@ import { FormError, Footer, MODES, OPEN_STAGES, Pill, RECOMMENDATIONS, ReasonDra
 const OFFER_STATUS = { DRAFT: ['Draft', 'ui-pill-neutral'], SENT: ['Sent', 'ui-pill-info'], ACCEPTED: ['Accepted', 'ui-pill-pos'], DECLINED: ['Declined', 'ui-pill-neg'], WITHDRAWN: ['Withdrawn', 'ui-pill-neutral'], EXPIRED: ['Expired', 'ui-pill-neutral'] };
 const INTERVIEW_STATUS = { SCHEDULED: ['Set', 'ui-pill-info'], DONE: ['Done', 'ui-pill-pos'], CANCELLED: ['Cancelled', 'ui-pill-neutral'] };
 
-export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canOffer, onClose, onChanged, onHired }) {
+export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canOffer, known = [], onClose, onChanged, onHired }) {
   const req = useRequest(() => getCandidate(id), [id]);
   const d = req.data;
   const c = d?.candidate;
@@ -175,7 +175,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
           ) : null}
         </div>
       )}
-      {sub?.kind === 'edit' ? <CandidateForm value={c} onClose={() => setSub(null)} onSaved={() => { setSub(null); reload(); }} /> : null}
+      {sub?.kind === 'edit' ? <CandidateForm value={c} known={known} onClose={() => setSub(null)} onSaved={() => { setSub(null); reload(); }} /> : null}
       {sub?.kind === 'interview' ? <InterviewForm candidate={c} interview={sub.interview} onClose={() => setSub(null)} onSaved={() => { setSub(null); reload(); }} /> : null}
       {sub?.kind === 'feedback' ? <FeedbackForm interview={sub.interview} name={c.name} onClose={() => setSub(null)} onSaved={() => { setSub(null); reload(); }} /> : null}
       {sub?.kind === 'offer' ? <OfferDrawer candidate={offerTarget} onClose={() => setSub(null)} onSent={() => { setSub(null); reload(); }} /> : null}
@@ -199,7 +199,7 @@ const eventText = (e) => {
 };
 
 /** Add a candidate to an opening, or change their details. */
-export function CandidateForm({ value, openings = [], onClose, onSaved }) {
+export function CandidateForm({ value, openings = [], known = [], onClose, onSaved }) {
   const initial = useMemo(() => ({ openingId: value.openingId || '', name: value.name || '', email: value.email || '', phone: value.phone || '', source: value.source || 'REFERRAL', sourceDetail: value.sourceDetail || '', currentEmployer: value.currentEmployer || '' }), [value]);
   const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -234,7 +234,7 @@ export function CandidateForm({ value, openings = [], onClose, onSaved }) {
         <label className="block"><span className="ui-label">Phone</span><input className="ui-input w-full" type="tel" inputMode="tel" maxLength={40} value={form.phone} onChange={(e) => set({ phone: e.target.value })} /></label>
         <div><PopupSelect showValueSubtext={false} label="Came through" value={form.source} onChange={(v) => set({ source: v || 'OTHER' })} options={SOURCES.filter(([k]) => k !== 'APPLY_LINK' || form.source === 'APPLY_LINK').map(([v, l]) => ({ value: v, label: l }))} /></div>
         <label className="block"><span className="ui-label">{detailLabel}</span><SuggestInput maxLength={120} value={form.sourceDetail} onChange={(v) => set({ sourceDetail: v })} suggestions={form.source === 'JOB_PORTAL' ? ['Naukri', 'LinkedIn', 'Indeed', 'Apna', 'WorkIndia'] : []} /></label>
-        <label className="block sm:col-span-2"><span className="ui-label">Works at now</span><SuggestInput maxLength={120} value={form.currentEmployer} onChange={(v) => set({ currentEmployer: v })} suggestions={[]} /></label>
+        <label className="block sm:col-span-2"><span className="ui-label">Works at now</span><SuggestInput maxLength={120} value={form.currentEmployer} onChange={(v) => set({ currentEmployer: v })} suggestions={usedValues(known, (r) => r.currentEmployer)} /></label>
       </form>
     </Drawer>
   );
@@ -243,6 +243,8 @@ export function CandidateForm({ value, openings = [], onClose, onSaved }) {
 /** Set or move an interview: when, how, where, and who sits on it. */
 function InterviewForm({ candidate, interview, onClose, onSaved }) {
   const users = useRequest(() => interviewers().catch(() => []), []);
+  /* Rooms and meeting links used before (the company's own places, nobody's private details). */
+  const places = useRequest(() => listInterviews({ when: 'all' }).then((r) => usedValues(r?.interviews || [], (i) => i.place)).catch(() => []), []);
   const initial = useMemo(() => ({ at: toLocalInput(interview?.at) || '', minutes: String(interview?.minutes || 45), mode: interview?.mode || 'IN_PERSON', place: interview?.place || '', ids: interview?.interviewers?.map((u) => u.id) || [] }), [interview]);
   const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -262,7 +264,8 @@ function InterviewForm({ candidate, interview, onClose, onSaved }) {
     } catch (e) { setError(e); setBusy(false); }
   };
   const list = users.data || [];
-  const toggle = (uid) => set({ ids: form.ids.includes(uid) ? form.ids.filter((x) => x !== uid) : [...form.ids, uid] });
+  /* Up to 10, as the server takes. */
+  const toggle = (uid) => set({ ids: form.ids.includes(uid) ? form.ids.filter((x) => x !== uid) : form.ids.length >= 10 ? form.ids : [...form.ids, uid] });
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={dirty} title={`${interview ? 'Move the interview' : 'Interview'} with ${candidate.name}`}
       footer={<Footer onCancel={onClose} onSave={save} busy={busy} busyLabel="Saving…" label={interview ? 'Move' : 'Set'} />}>
@@ -271,14 +274,15 @@ function InterviewForm({ candidate, interview, onClose, onSaved }) {
         <label className="block"><span className="ui-label">When *</span><input className="ui-input w-full tabular-nums" type="datetime-local" value={form.at} min={`${todayIst()}T00:00`} onChange={(e) => set({ at: e.target.value })} /></label>
         <div><PopupSelect showValueSubtext={false} label="How long" value={form.minutes} onChange={(v) => set({ minutes: v || '45' })} options={['30', '45', '60', '90', '120'].map((m) => ({ value: m, label: `${m} minutes` }))} /></div>
         <div><PopupSelect showValueSubtext={false} label="How" value={form.mode} onChange={(v) => set({ mode: v || 'IN_PERSON' })} options={MODES.map(([v, l]) => ({ value: v, label: l }))} /></div>
-        <label className="block"><span className="ui-label">{form.mode === 'VIDEO' ? 'Meeting link' : form.mode === 'PHONE' ? 'Who calls whom' : 'Where'}</span><SuggestInput maxLength={300} value={form.place} onChange={(v) => set({ place: v })} suggestions={[]} /></label>
+        <label className="block"><span className="ui-label">{form.mode === 'VIDEO' ? 'Meeting link' : form.mode === 'PHONE' ? 'Who calls whom' : 'Where'}</span><SuggestInput maxLength={300} value={form.place} onChange={(v) => set({ place: v })} suggestions={places.data || []} /></label>
         <fieldset className="sm:col-span-2 space-y-1.5">
           <legend className="ui-label">Interviewers *</legend>
           {users.loading ? <p className="text-sm ui-muted">Loading…</p> : !list.length ? <p className="text-sm ui-muted">No users to choose from.</p> : (
             <div className="grid gap-1.5 sm:grid-cols-2">
-              {list.map((u) => <label key={u.id} className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={form.ids.includes(u.id)} onChange={() => toggle(u.id)} />{u.name}</label>)}
+              {list.map((u) => <label key={u.id} className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={form.ids.includes(u.id)} disabled={!form.ids.includes(u.id) && form.ids.length >= 10} onChange={() => toggle(u.id)} />{u.name}</label>)}
             </div>
           )}
+          {form.ids.length >= 10 ? <p className="ui-caption">Up to 10 interviewers.</p> : null}
         </fieldset>
       </form>
     </Drawer>

@@ -82,8 +82,8 @@ export default function Candidates({ params = {}, openScreen }) {
             : <EmptyState title="No candidates yet" description="Add someone who applied, or turn on an opening's apply link." routes={canCreate ? [{ label: 'Add candidate', onSelect: () => setAdding(true) }, { label: 'Job openings', onSelect: () => openScreen?.('recruitment') }] : undefined} />}
           toolbar={<ToolbarItems {...{ q, setQ, opening, setOpening, openings: openings.data || [], view, chooseView }} />} />
       )}
-      {open ? <CandidateDrawer id={open} hr canEdit={canEdit} canHire={canHire} canOffer={canOffer} onClose={() => setOpen(null)} onChanged={req.reload} onHired={() => openScreen?.('joiners')} /> : null}
-      {adding ? <CandidateForm value={{ openingId: opening && live.some((o) => o.id === opening) ? opening : live.length === 1 ? live[0].id : '' }} openings={live} onClose={() => setAdding(false)} onSaved={(c) => { setAdding(false); req.reload(); if (c?.id) setOpen(c.id); }} /> : null}
+      {open ? <CandidateDrawer id={open} hr known={rows} canEdit={canEdit} canHire={canHire} canOffer={canOffer} onClose={() => setOpen(null)} onChanged={req.reload} onHired={() => openScreen?.('joiners')} /> : null}
+      {adding ? <CandidateForm value={{ openingId: opening && live.some((o) => o.id === opening) ? opening : live.length === 1 ? live[0].id : '' }} openings={live} known={rows} onClose={() => setAdding(false)} onSaved={(c) => { setAdding(false); req.reload(); if (c?.id) setOpen(c.id); }} /> : null}
     </div>
   );
 }

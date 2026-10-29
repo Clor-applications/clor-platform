@@ -47,7 +47,8 @@ export const cancelInterview = (interviewId) => send(`/interviews/${id(interview
 export const giveFeedback = (interviewId, body) => send(`/interviews/${id(interviewId)}/feedback`, 'POST', body);
 
 /* Goals */
-export const listGoals = (params) => get(`/goals${qs(params)}`).then((r) => r?.goals || []);
+/* Goals and plans come with who the viewer is: { me, reports, hr }, so a screen offers only what they may do. */
+export const listGoals = (params) => get(`/goals${qs(params)}`).then((r) => ({ goals: r?.goals || [], me: r?.me || null, reports: r?.reports || [], hr: Boolean(r?.hr) }));
 export const getGoal = (goalId) => get(`/goals/${id(goalId)}`);
 export const createGoal = (body) => send('/goals', 'POST', body).then((r) => r?.goal);
 export const updateGoal = (goalId, body) => send(`/goals/${id(goalId)}`, 'PUT', body).then((r) => r?.goal);
@@ -64,7 +65,7 @@ export const writeManager = (reviewId, body) => send(`/reviews/${id(reviewId)}/m
 export const setFinal = (reviewId, body) => send(`/reviews/${id(reviewId)}/final`, 'POST', body);
 
 /* Improvement plans and one-on-ones */
-export const listPlans = (params) => get(`/plans${qs(params)}`).then((r) => r?.plans || []);
+export const listPlans = (params) => get(`/plans${qs(params)}`).then((r) => ({ plans: r?.plans || [], me: r?.me || null, reports: r?.reports || [], hr: Boolean(r?.hr) }));
 export const createPlan = (body) => send('/plans', 'POST', body).then((r) => r?.plan);
 export const notePlan = (planId, note) => send(`/plans/${id(planId)}/notes`, 'POST', { note });
 export const decidePlan = (planId, body) => send(`/plans/${id(planId)}/decide`, 'POST', body).then((r) => r?.plan);

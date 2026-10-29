@@ -9,6 +9,7 @@ import Toaster from '@ui/components/ui/Toaster';
 import { getMyPermissions } from '@ui/api/permissions';
 import { PermissionProvider } from '@ui/permissions/PermissionContext';
 import { WriteGuard } from '@ui/permissions/WriteGuard';
+import { paramsForOpen } from './openParams';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { IconSetContext, LineSetContext } from '@ui/components/ui/iconSet';
 
@@ -353,6 +354,8 @@ export default function Shell() {
     setChosenAppId(id);
     /* A shell app's screen named outright (a notification's link); Accounting reads the address itself. */
     setScreenKey(open && next?.screens?.[open] ? open : next?.home || null);
+    /* The link's params open that screen on its one thing (a notice about one candidate); otherwise none, never the last screen's. */
+    setScreenParams(paramsForOpen(next, open, params));
     setPlatformScreen(null);
     setSwitcherOpen(false);
     setShowMoreApps(false);

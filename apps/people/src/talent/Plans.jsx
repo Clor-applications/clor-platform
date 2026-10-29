@@ -25,7 +25,9 @@ export default function Plans({ params = {} }) {
   const [open, setOpen] = useParamState(params?.id);
   const [creating, setCreating] = useState(false);
   const req = useRequest(() => listPlans({ status }), [status]);
-  const rows = req.data || [];
+  const rows = req.data?.plans || [];
+  /* A plan is HR's or a manager's: New plan only for them, picking from the whole company or their own team. */
+  const canStart = Boolean(req.data?.hr || req.data?.reports?.length);
   const today = todayIst();
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (p) => <span className="font-medium">{p.employee?.name || '—'}</span> },
@@ -35,11 +37,15 @@ export default function Plans({ params = {} }) {
     { key: 'notes', label: 'Notes', render: (p) => <span className="tabular-nums">{p.notes.length}</span> },
     { key: 'status', label: 'Status', render: (p) => <Pill map={PLAN_STATUS} value={p.status} /> },
   ];
-  const current = rows.find((p) => p.id === open);
+  /* A link to one plan finds it even once it is decided and off the Running tab. */
+  const lookup = useRequest(() => (params?.id ? listPlans({ status: 'all' }).then((r) => r.plans).catch(() => []) : Promise.resolve(null)), [params?.id]);
+  const current = rows.find((p) => p.id === open) || (lookup.data || []).find((p) => p.id === open);
+  const gone = Boolean(open && open === params?.id && lookup.data && !lookup.loading && !lookup.refreshing && !current);
   return (
     <div className="space-y-6">
       <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Improvement plans' }]} title="Improvement plans"
-        actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setCreating(true)}><Plus size={16} aria-hidden="true" /> New plan</button>} />
+        actions={canStart ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setCreating(true)}><Plus size={16} aria-hidden="true" /> New plan</button> : null} />
+      {gone ? <p className="ui-alert ui-alert-info text-sm" role="status">That plan is not in your sight any more. The plans you can see are below.</p> : null}
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable tabs={<Tabs label="Plans" tabs={TABS} value={status} onChange={setStatus} />}
           label="Improvement plans" columns={columns} rows={rows} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun="plans"
@@ -53,7 +59,7 @@ export default function Plans({ params = {} }) {
           empty={<EmptyState title={status ? 'No plans here' : 'No plans running'} description="A plan is agreed with someone whose work needs to change: why, what is expected, and by when." />} />
       )}
       {current ? <PlanDrawer plan={current} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
-      {creating ? <PlanForm onClose={() => setCreating(false)} onSaved={(p) => { setCreating(false); req.reload(); setOpen(p.id); }} /> : null}
+      {creating ? <PlanForm hr={Boolean(req.data?.hr)} reports={req.data?.reports || []} onClose={() => setCreating(false)} onSaved={(p) => { setCreating(false); req.reload(); setOpen(p.id); }} /> : null}
     </div>
   );
 }
@@ -127,8 +133,9 @@ function OutcomeForm({ plan, onClose, onSaved }) {
   );
 }
 
-function PlanForm({ onClose, onSaved }) {
-  const staff = useStaff();
+function PlanForm({ hr, reports, onClose, onSaved }) {
+  const staff = useStaff(hr);
+  const people = hr && staff.length ? staff : reports;
   const initial = useMemo(() => ({ employeeId: '', reason: '', expectations: '', startDate: todayIst(), endDate: '' }), []);
   const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -146,7 +153,7 @@ function PlanForm({ onClose, onSaved }) {
       footer={<Footer onCancel={onClose} onSave={save} busy={busy} busyLabel="Saving…" label="Start plan" />}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         <FormError error={error} />
-        <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Person *" value={form.employeeId} placeholder="Choose…" alwaysSearch onChange={(v) => set({ employeeId: v || '' })} options={staffOptions(staff)} /></div>
+        <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Person *" value={form.employeeId} placeholder="Choose…" alwaysSearch onChange={(v) => set({ employeeId: v || '' })} options={staffOptions(people)} /></div>
         <div><label className="ui-label" htmlFor="plan-from">From *</label><DatePicker id="plan-from" value={form.startDate} onChange={(d) => set({ startDate: d || '' })} /></div>
         <div><label className="ui-label" htmlFor="plan-to">To *</label><DatePicker id="plan-to" min={form.startDate} value={form.endDate} onChange={(d) => set({ endDate: d || '' })} /></div>
         <label className="block sm:col-span-2"><span className="ui-label">Why *</span><textarea className="ui-input w-full" rows={4} maxLength={4000} value={form.reason} onChange={(e) => set({ reason: e.target.value })} /></label>

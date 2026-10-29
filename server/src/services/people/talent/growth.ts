@@ -47,6 +47,20 @@ async function userNames(ids: (string | null | undefined)[]) {
   return new Map((await platformPrisma.user.findMany({ where: { id: { in: want } }, select: { id: true, fullName: true, email: true } })).map((u) => [u.id, u.fullName || u.email]));
 }
 
+/**
+ * Who the viewer is, for the screens: their own record, the people who report to them (directly or
+ * on a dotted line) and whether they are HR. Lets a screen offer New goal or New plan only to someone
+ * who may act, and pick from their own team when they cannot read the whole directory.
+ */
+export async function whoAmI(v: Viewer) {
+  if (!v.selfEmployeeId) return { me: null, reports: [], hr: v.hr };
+  const [me, reports] = await Promise.all([
+    peoplePrisma.employee.findFirst({ where: { id: v.selfEmployeeId, orgId: v.orgId }, select: { id: true, name: true, code: true } }),
+    peoplePrisma.employee.findMany({ where: { orgId: v.orgId, status: { not: 'LEFT' }, OR: [{ reportingManagerId: v.selfEmployeeId }, { dottedManagerId: v.selfEmployeeId }] }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' } }),
+  ]);
+  return { me, reports, hr: v.hr };
+}
+
 /* --------------------------------------------------------------------- goals */
 
 /** Who may set and change someone's goals: HR in scope, their manager, or the person themselves. */
@@ -191,13 +205,13 @@ export async function cycleReviews(v: Viewer, id: string) {
     cycle: c,
     reviews: visible.map((r) => {
       const own = r.employeeId === v.selfEmployeeId;
-      /* Your own review shows its outcome to you only once it is shared; until then only what you wrote. */
-      const hide = own && !v.hr && !r.sharedAt;
+      /* Your own review shows its outcome to you only once it is shared; until then only what you wrote. HR too: their own ratings wait like everyone's. */
+      const hide = own && !r.sharedAt;
       return {
         id: r.id, employee: people.get(r.employeeId) || null, department: depts.get(r.employeeId) || '', manager: r.managerEmployeeId ? people.get(r.managerEmployeeId) || null : null,
         selfRating: r.selfRating, selfText: r.selfText, selfAt: r.selfAt,
         managerRating: hide ? null : r.managerRating, managerText: hide ? null : r.managerText, managerAt: r.managerAt,
-        finalRating: hide ? null : r.finalRating, finalReason: v.hr ? r.finalReason : null, sharedAt: r.sharedAt, acknowledgedAt: r.acknowledgedAt,
+        finalRating: hide ? null : r.finalRating, finalReason: v.hr && !hide ? r.finalReason : null, sharedAt: r.sharedAt, acknowledgedAt: r.acknowledgedAt,
         own, mineToWrite: Boolean(v.selfEmployeeId && r.managerEmployeeId === v.selfEmployeeId && !own),
       };
     }),

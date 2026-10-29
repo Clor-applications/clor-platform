@@ -12,7 +12,7 @@ import userEvent from '@testing-library/user-event';
 const talent = vi.hoisted(() => ({
   listOpenings: vi.fn(), getOpening: vi.fn(), setApplyLink: vi.fn(), setOpeningStatus: vi.fn(), createOpening: vi.fn(),
   listCandidates: vi.fn(), getCandidate: vi.fn(), moveCandidate: vi.fn(), addCandidate: vi.fn(), giveFeedback: vi.fn(), interviewers: vi.fn(async () => []),
-  listInterviews: vi.fn(), listCycles: vi.fn(), getCycle: vi.fn(), writeManager: vi.fn(), listGoals: vi.fn(), expiringCertificates: vi.fn(), listTrainings: vi.fn(),
+  listInterviews: vi.fn(), listPlans: vi.fn(), listCycles: vi.fn(), getCycle: vi.fn(), writeManager: vi.fn(), listGoals: vi.fn(), expiringCertificates: vi.fn(), listTrainings: vi.fn(),
 }));
 const portal = vi.hoisted(() => ({ getGrowth: vi.fn(), checkInGoal: vi.fn(async () => ({})), writeSelfReview: vi.fn(async () => ({})), acknowledgeReview: vi.fn(async () => ({})) }));
 vi.mock('../apps/people/src/api/talent', async (orig) => ({ ...(await orig()), ...talent }));
@@ -26,6 +26,8 @@ import Openings from '../apps/people/src/talent/Openings';
 import Interviews from '../apps/people/src/talent/Interviews';
 import Reviews from '../apps/people/src/talent/Reviews';
 import Trainings from '../apps/people/src/talent/Trainings';
+import Plans from '../apps/people/src/talent/Plans';
+import Goals from '../apps/people/src/talent/Goals';
 import MyGrowth from '../apps/attendance/src/portal/MyGrowth';
 import { peopleApp } from '../apps/people/manifest.jsx';
 import { WORKSPACE_CONFIG } from '../apps/people/src/screens/workspaceConfig';
@@ -149,6 +151,43 @@ describe('Interviews', () => {
     await user.click(await screen.findByText('Strong yes'));
     await user.click(screen.getByRole('button', { name: 'Give feedback' }));
     await waitFor(() => expect(talent.giveFeedback).toHaveBeenCalledWith('i1', { recommendation: 'STRONG_YES', notes: null }));
+  });
+});
+
+describe('Links to something no longer there', () => {
+  it('an interview cancelled since its notice says so, instead of doing nothing', async () => {
+    talent.listInterviews.mockResolvedValue({ hr: false, interviews: [] });
+    render(withPerms([], <Interviews params={{ id: 'gone' }} />));
+    expect(await screen.findByText(/This interview was cancelled or has moved/)).toBeInTheDocument();
+    expect(talent.listInterviews).toHaveBeenCalledWith({ when: 'all' });
+  });
+
+  it('a decided plan opens from its link even though it is off the Running tab', async () => {
+    const plan = { id: 'p1', status: 'COMPLETED', employee: { name: 'Priya' }, manager: { name: 'Rahul' }, startDate: '2026-07-01', endDate: '2026-09-30', reason: 'Late closes', expectations: 'Close by the 5th', outcomeNote: 'Met', notes: [] };
+    talent.listPlans.mockImplementation(async ({ status }) => ({ plans: status === 'all' ? [plan] : [], me: null, reports: [], hr: true }));
+    render(withPerms(['PEOPLE::Performance::VIEW'], <Plans params={{ id: 'p1' }} />));
+    expect(await screen.findByRole('dialog', { name: 'Plan: Priya' })).toBeInTheDocument();
+  });
+});
+
+describe('Growth offers only what the person may do', () => {
+  it('New plan is for HR or someone with reports, not every viewer', async () => {
+    talent.listPlans.mockResolvedValue({ plans: [], me: { id: 'e9', name: 'Arjun' }, reports: [], hr: false });
+    render(withPerms(['PEOPLE::Performance::VIEW'], <Plans />));
+    await screen.findByText('No plans running');
+    expect(screen.queryByRole('button', { name: /New plan/ })).not.toBeInTheDocument();
+    cleanup();
+    talent.listPlans.mockResolvedValue({ plans: [], me: { id: 'e2', name: 'Rahul' }, reports: [{ id: 'e3', name: 'Priya' }], hr: false });
+    render(withPerms(['PEOPLE::Performance::VIEW'], <Plans />));
+    expect(await screen.findByRole('button', { name: /New plan/ })).toBeInTheDocument();
+  });
+
+  it('without the directory, a new goal is for the viewer themselves', async () => {
+    const user = userEvent.setup();
+    talent.listGoals.mockResolvedValue({ goals: [], me: { id: 'e9', name: 'Arjun Rao', code: 'AT-4' }, reports: [], hr: false });
+    render(withPerms(['PEOPLE::Performance::VIEW'], <Goals />));
+    await user.click((await screen.findAllByRole('button', { name: /New goal/ }))[0]);
+    expect(await screen.findByRole('combobox', { name: 'Person *' })).toHaveTextContent('Arjun Rao (AT-4)');
   });
 });
 

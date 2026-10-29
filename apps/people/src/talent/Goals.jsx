@@ -38,7 +38,11 @@ export default function Goals({ params = {} }) {
   const [editing, setEditing] = useState(null);
   const staff = useStaff();
   const req = useRequest(() => listGoals({ status, employeeId: person, q }), [status, person, q]);
-  const rows = req.data || [];
+  const rows = req.data?.goals || [];
+  /* Who they may set goals for: everyone they can read, or, without the directory, themselves and their team. */
+  const me = req.data?.me || null;
+  const people = staff.length ? staff : [...(me ? [me] : []), ...(req.data?.reports || [])];
+  const canAdd = Boolean(people.length || req.data?.hr);
   const columns = [
     { key: 'title', label: 'Goal', always: true, render: (g) => <span className="min-w-0"><span className="block truncate font-medium">{g.title}</span>{g.measure ? <span className="block truncate ui-caption">{g.measure}</span> : null}</span> },
     ...(person ? [] : [{ key: 'person', label: 'Person', render: (g) => g.employee?.name || '—' }]),
@@ -47,11 +51,11 @@ export default function Goals({ params = {} }) {
     { key: 'health', label: 'How it is going', render: (g) => (g.status === 'ACTIVE' ? <Pill map={HEALTH} value={g.health} /> : <Pill map={STATUS} value={g.status} />) },
     { key: 'last', label: 'Last check-in', render: (g) => <span className="tabular-nums whitespace-nowrap">{g.lastCheckIn ? day(g.lastCheckIn) : <span className="ui-muted">None</span>}</span> },
   ];
-  const blank = { employeeId: person || '' };
+  const blank = { employeeId: person || (people.length === 1 ? people[0].id : me && !staff.length ? me.id : '') };
   return (
     <div className="space-y-6">
       <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Goals' }]} title="Goals"
-        actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blank)}><Plus size={16} aria-hidden="true" /> New goal</button>} />
+        actions={canAdd ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blank)}><Plus size={16} aria-hidden="true" /> New goal</button> : null} />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
           tabs={<Tabs label="Goals" tabs={TABS} value={status} onChange={setStatus} />}
@@ -65,14 +69,14 @@ export default function Goals({ params = {} }) {
           )}
           empty={q || person || status !== 'ACTIVE'
             ? <EmptyState kind="filtered" title="No goals match" description="Nothing here matches the search, the person or the tab." />
-            : <EmptyState title="No goals yet" description="Agree what someone is working towards, how it is measured and by when." routes={[{ label: 'New goal', onSelect: () => setEditing(blank) }]} />}
+            : <EmptyState title="No goals yet" description="Agree what someone is working towards, how it is measured and by when." routes={canAdd ? [{ label: 'New goal', onSelect: () => setEditing(blank) }] : undefined} />}
           toolbar={<>
             <SearchField value={q} onSearch={setQ} placeholder="Search goal or person" label="Search goals" className="w-full sm:w-72" />
-            <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Person" value={person} alwaysSearch onChange={(v) => setPerson(v || '')} options={[{ value: '', label: 'Everyone I can see' }, ...staffOptions(staff)]} /></div>
+            <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Person" value={person} alwaysSearch onChange={(v) => setPerson(v || '')} options={[{ value: '', label: 'Everyone I can see' }, ...staffOptions(people)]} /></div>
           </>} />
       )}
       {open ? <GoalDrawer id={open} onEdit={(g) => { setOpen(null); setEditing(g); }} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
-      {editing ? <GoalForm value={editing} staff={staff} rows={rows} onClose={() => setEditing(null)} onSaved={(g) => { setEditing(null); req.reload(); setOpen(g.id); }} /> : null}
+      {editing ? <GoalForm value={editing} staff={people} rows={rows} onClose={() => setEditing(null)} onSaved={(g) => { setEditing(null); req.reload(); setOpen(g.id); }} /> : null}
     </div>
   );
 }

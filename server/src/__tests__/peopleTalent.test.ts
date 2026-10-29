@@ -176,6 +176,12 @@ describe('hiring, from opening to employee record', () => {
     const opening = (await api(c).post('/talent/openings', { title: 'Cashier', status: 'OPEN' }).expect(201)).body.opening;
     const cand = (await api(c).post('/talent/candidates', { openingId: opening.id, name: 'Noor S', phone: '9822222222' }).expect(201)).body.candidate;
     const iv = (await api(c).post(`/talent/candidates/${cand.id}/interviews`, { at: new Date(Date.now() + 86_400_000).toISOString(), interviewerUserIds: [interviewer.userId] }).expect(201)).body.interview;
+    /* Up to 10 interviewers, as the picker allows; never more cut off silently. Someone who can no longer sign in is refused. */
+    await api(c).post(`/talent/candidates/${cand.id}/interviews`, { at: new Date(Date.now() + 86_400_000).toISOString(), interviewerUserIds: Array.from({ length: 11 }, (_, i) => `u${i}`) }).expect(400);
+    await runInTenant(c.orgId, () => platformPrisma.user.update({ where: { id: manager.userId }, data: { isActive: false } }));
+    await api(c).post(`/talent/candidates/${cand.id}/interviews`, { at: new Date(Date.now() + 86_400_000).toISOString(), interviewerUserIds: [manager.userId] }).expect(400);
+    expect((await api(c).get('/talent/interviewers').expect(200)).body.users.map((u: any) => u.id)).not.toContain(manager.userId);
+    await runInTenant(c.orgId, () => platformPrisma.user.update({ where: { id: manager.userId }, data: { isActive: true } }));
     const notice = await runInTenant(c.orgId, () => platformPrisma.notification.findFirst({ where: { orgId: c.orgId, userId: interviewer.userId, title: 'Interview: Noor S' } }));
     expect(JSON.parse(String(notice?.linkJson))).toEqual({ app: 'people', screen: 'interviews', params: { id: iv.id } });
   }, 90_000);
@@ -248,6 +254,10 @@ describe('growth: goals, reviews, plans, one-on-ones', () => {
     await api(c).post(`/talent/reviews/${ashaReview.id}/final`, { finalRating: 4 }).expect(400);
     await api(c).post(`/talent/reviews/${ashaReview.id}/final`, { finalRating: 4, finalReason: 'Led the GST move' }).expect(200);
     expect((await api(c).post(`/talent/reviews/${ownerReview.id}/final`, { finalRating: 5 }).expect(403)).body.code).toBe('OWN_REVIEW');
+    /* HR's own review waits like everyone's: their manager rating stays hidden from them until shared. */
+    await runInTenant(c.orgId, () => peoplePrisma.review.update({ where: { id: ownerReview.id }, data: { managerRating: 4, managerText: 'From the board', managerAt: new Date(), finalRating: 4, finalReason: 'Board view' } }));
+    const own = (await api(c).get(`/talent/cycles/${cycle.id}`).expect(200)).body.reviews.find((r: any) => r.id === ownerReview.id);
+    expect(own).toMatchObject({ own: true, managerRating: null, managerText: null, finalRating: null, finalReason: null });
     const cal = (await api(c).get(`/talent/cycles/${cycle.id}/calibration`).expect(200)).body;
     expect(cal.spread.find((s: any) => s.rating === 3).manager).toBe(1);
     await api(c).post(`/talent/cycles/${cycle.id}/move`, { to: 'SHARED' }).expect(409);
@@ -255,6 +265,8 @@ describe('growth: goals, reviews, plans, one-on-ones', () => {
     await api(c).post(`/talent/cycles/${cycle.id}/move`, { to: 'SHARED' }).expect(200);
     mine = (await request(app).get('/api/portal/people/me/growth').set(app_).expect(200)).body.reviews[0];
     expect(mine).toMatchObject({ finalRating: 4, managerText: 'Solid year', shared: true });
+    const ownShared = (await api(c).get(`/talent/cycles/${cycle.id}`).expect(200)).body.reviews.find((r: any) => r.id === ownerReview.id);
+    expect(ownShared).toMatchObject({ managerRating: 4, managerText: 'From the board', finalRating: 4 });
     await request(app).post(`/api/portal/people/me/reviews/${ashaReview.id}/acknowledge`).set(app_).expect(200);
   }, 90_000);
 
@@ -262,7 +274,11 @@ describe('growth: goals, reviews, plans, one-on-ones', () => {
     await api(lead).post('/talent/plans', { employeeId: leadEmp.id, reason: 'x', expectations: 'y', startDate: today(), endDate: plus(30) }).expect(403);
     const p = (await api(lead).post('/talent/plans', { employeeId: asha.id, reason: 'Late closes', expectations: 'Close by the 5th, three months running', startDate: today(), endDate: plus(90) }).expect(201)).body.plan;
     await api(lead).post('/talent/plans', { employeeId: asha.id, reason: 'again', expectations: 'again', startDate: today(), endDate: plus(90) }).expect(409);
-    await api(peer).get('/talent/plans').expect(200).then((r) => expect(r.body.plans).toHaveLength(0));
+    await api(peer).get('/talent/plans').expect(200).then((r) => { expect(r.body.plans).toHaveLength(0); expect(r.body.reports).toEqual([]); expect(r.body.hr).toBe(false); });
+    /* The screens learn who may start a plan: the lead has two reports, the peer none. */
+    const leadView = (await api(lead).get('/talent/plans').expect(200)).body;
+    expect(leadView.reports.map((x: any) => x.name).sort()).toEqual(['Asha Rao', 'Peer Person']);
+    expect((await api(lead).get('/talent/goals').expect(200)).body.me).toMatchObject({ id: leadEmp.id, name: 'Lead Person' });
     await api(lead).post(`/talent/plans/${p.id}/notes`, { note: 'Week 2: on time' }).expect(201);
     await api(lead).post(`/talent/plans/${p.id}/decide`, { outcome: 'NOT_MET' }).expect(400);
     await api(lead).post(`/talent/plans/${p.id}/decide`, { outcome: 'EXTENDED', note: 'Better, not yet steady', endDate: plus(120) }).expect(200);

@@ -7,7 +7,7 @@ import { SignedOut, acknowledgeReview, checkInGoal, getGrowth, writeSelfReview }
  * Growth in the employee app (Talent, TALENT-DECISIONS.md): my goals with a check-in, my reviews
  * (write the self-review while the cycle is open; read the outcome once HR shares it and say I
  * have read it), my improvement plan, one-on-ones and trainings. Shown only while the company
- * has Performance on.
+ * has Performance on. Buttons in the list are secondary; the one primary is Save inside the form that is open.
  */
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const longDate = (d) => {
@@ -179,7 +179,7 @@ function Review({ review: r, guard, onDone, onFail }) {
         <div className="space-y-1">
           <p><span className="ui-label">Final rating</span> {r.finalRating ? `${r.finalRating} · ${ratingWord(r.finalRating)}` : '—'}</p>
           {r.managerText ? <p className="whitespace-pre-wrap">{r.managerText}</p> : null}
-          {r.acknowledgedAt ? <p className="ui-caption">You read it on {longDate(istDate(r.acknowledgedAt))}.</p> : <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy} onClick={ack}>I have read it</button>}
+          {r.acknowledgedAt ? <p className="ui-caption">You read it on {longDate(istDate(r.acknowledgedAt))}.</p> : <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={ack}>I have read it</button>}
         </div>
       ) : r.canWriteSelf ? (
         open ? (
@@ -199,7 +199,7 @@ function Review({ review: r, guard, onDone, onFail }) {
         ) : (
           <div className="space-y-1">
             <p className="ui-caption">{r.selfAt ? `You wrote yours on ${longDate(istDate(r.selfAt))}. You can change it while the review is open.` : r.selfDue ? `Write yours by ${longDate(r.selfDue)}.` : 'Write yours while the review is open.'}</p>
-            <button type="button" className={`ui-btn ui-btn-sm ${r.selfAt ? 'ui-btn-secondary' : 'ui-btn-primary'}`} onClick={() => setOpen(true)}>{r.selfAt ? 'Change my self-review' : 'Write my self-review'}</button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setOpen(true)}>{r.selfAt ? 'Change my self-review' : 'Write my self-review'}</button>
           </div>
         )
       ) : (

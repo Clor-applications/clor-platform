@@ -20,12 +20,15 @@ export default function Interviews({ params = {} }) {
   const req = useRequest(() => listInterviews({ when: when_ === 'past' ? 'past' : '', mine: mine ? '1' : '' }), [when_, mine]);
   const rows = req.data?.interviews || [];
   const hr = Boolean(req.data?.hr);
-  /* A notice about one interview opens its candidate, once the list has it. */
+  /* A notice about one interview opens its candidate. It is looked up among all of mine, not only those
+     coming up; one cancelled since (or no longer mine) says so instead of doing nothing. */
+  const lookup = useRequest(() => (params?.id ? listInterviews({ when: 'all' }).catch(() => null) : Promise.resolve(null)), [params?.id]);
   const [seen, setSeen] = useState(null);
-  if (params?.id && req.data && seen !== params.id) {
+  const [gone, setGone] = useState(false);
+  if (params?.id && lookup.data !== undefined && !lookup.loading && !lookup.refreshing && seen !== params.id) {
     setSeen(params.id);
-    const row = rows.find((r) => r.id === params.id);
-    if (row) setOpen(row.candidate.id);
+    const row = (lookup.data?.interviews || []).find((r) => r.id === params.id);
+    if (row) { setOpen(row.candidate.id); setGone(false); } else setGone(true);
   }
 
   const columns = [
@@ -39,6 +42,7 @@ export default function Interviews({ params = {} }) {
   return (
     <div className="space-y-6">
       <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Interviews' }]} title="Interviews" />
+      {gone ? <p className="ui-alert ui-alert-info text-sm" role="status">This interview was cancelled or has moved. The ones on your name are below.</p> : null}
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
           tabs={<Tabs label="Interviews" tabs={[['upcoming', 'Coming up'], ['past', 'Past']]} value={when_} onChange={setWhen} />}
@@ -51,7 +55,7 @@ export default function Interviews({ params = {} }) {
             </span>
           )}
           empty={<EmptyState title={when_ === 'past' ? 'No past interviews' : 'No interviews coming up'} description={hr ? 'Interviews are set from a candidate.' : 'Interviews you are asked to sit on show here.'} />}
-          toolbar={hr && allowed('PEOPLE::Recruitment::VIEW') ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />Only mine</label> : null} />
+          toolbar={hr ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />Only mine</label> : null} />
       )}
       {open ? <CandidateDrawer id={open} hr={hr} canEdit={hr && allowed('PEOPLE::Recruitment::EDIT')} canHire={false} canOffer={false} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
     </div>

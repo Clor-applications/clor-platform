@@ -339,9 +339,11 @@ export async function interviewerChoices(orgId: string) {
   return users.map((u) => ({ id: u.id, name: u.fullName || 'Unnamed user' }));
 }
 
+/** The users among `ids` who belong to this company and can still sign in: the only ones who may interview. */
 async function companyUsers(orgId: string, ids: string[]) {
   const found = await platformPrisma.userOrgMembership.findMany({ where: { orgId, userId: { in: ids } }, select: { userId: true } });
-  return new Set(found.map((f) => f.userId));
+  const active = await platformPrisma.user.findMany({ where: { id: { in: found.map((f) => f.userId) }, isActive: true }, select: { id: true } });
+  return new Set(active.map((u) => u.id));
 }
 
 export async function scheduleInterview(who: Who, candidateId: string, raw: any, id?: string) {
@@ -352,10 +354,11 @@ export async function scheduleInterview(who: Who, candidateId: string, raw: any,
   if (Number.isNaN(at.getTime())) throw new TalentError('Pick the date and time.');
   const minutes = Math.max(10, Math.min(480, Math.round(Number(raw?.minutes) || 45)));
   const mode = ['IN_PERSON', 'PHONE', 'VIDEO'].includes(raw?.mode) ? raw.mode : 'IN_PERSON';
-  const ids = [...new Set((Array.isArray(raw?.interviewerUserIds) ? raw.interviewerUserIds : []).map(String))].slice(0, 10) as string[];
+  const ids = [...new Set((Array.isArray(raw?.interviewerUserIds) ? raw.interviewerUserIds : []).map(String))] as string[];
   if (!ids.length) throw new TalentError('Pick at least one interviewer.');
+  if (ids.length > 10) throw new TalentError('Up to 10 interviewers.');
   const known = await companyUsers(who.orgId, ids);
-  if (ids.some((u) => !known.has(u))) throw new TalentError('Interviewers must be users of this company.');
+  if (ids.some((u) => !known.has(u))) throw new TalentError('Interviewers must be users of this company who can sign in.');
   const data = { at, minutes, mode, place: text(raw?.place, 300), interviewerUserIds: ids };
   const row = await peoplePrisma.$transaction(async (tx) => {
     const r = id
