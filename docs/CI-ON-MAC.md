@@ -62,3 +62,16 @@ Add a runner: `gh api -X POST repos/Clor-applications/clor-platform/actions/runn
 copy the runner folder without `.runner`, `.credentials*` and `_work`, then
 `./config.sh --unattended --url https://github.com/Clor-applications/clor-platform --token <token> --name suresh-mac-N --labels clor-mac --work _work`
 and `./svc.sh install && ./svc.sh start`.
+
+## What runs when (30 Oct 2026)
+
+| Event | `verify` (lint, schema, typecheck, build) | `server-tests` (3 shards) |
+|---|---|---|
+| Pull request | yes | only with the `full-tests` label |
+| Push to main (a merge) | yes | yes |
+| Nightly, 03:00 IST | yes | yes |
+| Run workflow by hand | yes | yes |
+
+Docs-only changes run nothing. A newer push cancels an older run on the same
+branch (main included); the nightly run is never cancelled. A server-test
+failure on main is fixed the same day, before the next release.
