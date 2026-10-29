@@ -1,34 +1,116 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
+import { Percent, UserMinus, UserPlus, Users } from '@ui/components/ui/lineIcons';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
-import { useListSearch } from '@ui/components/ListToolbar';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import { listAllEmployees } from '@ui/personnel/api';
-const fields = ['name', 'code', 'department', 'designation', 'status', 'dateOfJoining', 'dateOfLeaving'];
-const labels = ['Employee', 'Code', 'Department', 'Designation', 'Status', 'Joined', 'Left'];
-const STATUS_LABEL = { ACTIVE: 'Active', ON_NOTICE: 'On notice', LEFT: 'Left', SUSPENDED: 'Suspended' };
-const cell = (r, f) => (f === 'status' ? STATUS_LABEL[r.status] || r.status : r[f]) || '—';
-export default function PeopleReports() {
-  const [rows, setRows] = useState(null);
-  const [error, setError] = useState('');
-  const [status, setStatus] = useState('');
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(25);
-  const load = useCallback(() => listAllEmployees().then((r) => { setRows(r.employees); setError(''); }).catch((e) => setError(e.message)), []);
-  useEffect(() => { load(); }, [load]);
-  const inTab = useMemo(() => (rows || []).filter((r) => !status || r.status === status), [rows, status]);
-  const search = useListSearch(inTab, fields);
-  const columns = useColumnFilters();
-  const shown = columns.applyFilters(search.filtered, Object.fromEntries(fields.map((k) => [k, (r) => r[k] || ''])));
-  useResetPage(setPage, [status, search.query, columns.filters, perPage]);
-  const { pageRows, safePage, pageCount } = usePaged(shown, perPage, page);
-  if (!rows && !error) return <SkeletonCard lines={6} />;
-  return <DocumentListShell title="People report" entity="people" tight description="Current employee records. Filter and export the rows you see; historical headcount is not inferred from today's status."
-    search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search workforce…' }}
-    tabs={['', 'ACTIVE', 'ON_NOTICE', 'LEFT', 'SUSPENDED'].map((s) => ({ value: s, label: s ? STATUS_LABEL[s] : 'All', tone: 'all' }))} statusValue={status} onStatusChange={setStatus} statusCounts={Object.fromEntries(['', 'ACTIVE', 'ON_NOTICE', 'LEFT', 'SUSPENDED'].map((s) => [s, (rows || []).filter((r) => !s || r.status === s).length]))}
-    moreItems={[exportMenuItem('Export workforce report')]} onMoreSelect={(k) => { const format = exportFormatFromKey(k); if (format) runListExport({ format, title: 'Workforce report', fileName: 'workforce-report', label: 'Employees', rows: shown, columns: fields.map((k, i) => ({ key: k, label: labels[i] })) }); }}>
-    {error ? <div role="alert" className="p-4">{error}<button className="ui-btn ml-3" onClick={load}>Retry</button></div> : <><div className="ui-table-scroll"><table className="ui-table w-full"><thead><tr>{fields.map((f, i) => <ColumnHeader key={f} label={labels[i]} col={f} state={columns} />)}</tr></thead><tbody>{pageRows.map((r) => <tr key={r.id}>{fields.map((f) => <td key={f}>{cell(r, f)}</td>)}</tr>)}{!shown.length && <tr><td colSpan={7}><EmptyState title="No matching employees" description="Add employees or change the report filters." /></td></tr>}</tbody></table></div><Pagination total={shown.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={setPerPage} /></>}
-  </DocumentListShell>;
+import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
+import ErrorState from '@ui/components/ui/ErrorState';
+import PopupSelect from '@ui/components/pickers/PopupSelect';
+import useRequest from '@ui/components/ui/useRequest';
+import { apiFetch } from '@platform/http';
+import { orgId } from '@platform/context';
+
+/**
+ * People report (People audit gap 21): headcount, joiners, leavers and
+ * attrition month by month, worked out on the server from each person's
+ * stints of employment (routes/people.ts → services/people/headcount.ts),
+ * so a month in the past reads as it was, not from today's status.
+ * Attrition is leavers over the month's average headcount; over the period,
+ * leavers over the average of the months.
+ */
+
+const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const monthWord = (m) => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
+const lastOf = (y, m) => new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+const pct = (v) => (v === null || v === undefined ? '—' : `${v.toFixed(1)}%`);
+const REASONS = { RESIGNED: 'Resigned', TERMINATED: 'Let go', RETIRED: 'Retired', ABSCONDED: 'Absconded', CONTRACT_ENDED: 'Contract ended', DECEASED: 'Died', NOT_SAID: 'Not said' };
+
+/** The periods a small business asks about: the last year, and the financial years (April to March). */
+function periodsOf(today = todayIst()) {
+  const y = Number(today.slice(0, 4));
+  const m = Number(today.slice(5, 7));
+  const fy = m >= 4 ? y : y - 1;
+  const back = new Date(Date.UTC(y, m - 12, 1)).toISOString().slice(0, 10);
+  return [
+    { value: 'last12', label: 'Last 12 months', from: back, to: today },
+    { value: 'thisFy', label: `This financial year (${fy}–${String((fy + 1) % 100).padStart(2, '0')})`, from: `${fy}-04-01`, to: today },
+    { value: 'lastFy', label: `Last financial year (${fy - 1}–${String(fy % 100).padStart(2, '0')})`, from: `${fy - 1}-04-01`, to: lastOf(fy, 3) },
+    { value: 'thisYear', label: `This calendar year (${y})`, from: `${y}-01-01`, to: today },
+  ];
+}
+
+const headcount = (from, to) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/people/headcount?from=${from}&to=${to}`, { skipWarehouseHeader: true });
+
+export default function PeopleReports({ params = {}, updateParams }) {
+  const periods = useMemo(() => periodsOf(), []);
+  const period = periods.find((p) => p.value === params.period) || periods[0];
+  const req = useRequest(() => headcount(period.from, period.to), [period.from, period.to]);
+  const d = req.data;
+  const months = d?.months || [];
+  const t = d?.totals;
+  const reasons = Object.entries(months.reduce((acc, m) => { for (const [k, n] of Object.entries(m.leaversByReason || {})) acc[k] = (acc[k] || 0) + n; return acc; }, {}));
+
+  const columns = [
+    { key: 'month', label: 'Month' }, { key: 'start', label: 'Headcount at start' }, { key: 'joiners', label: 'Joiners' },
+    { key: 'leavers', label: 'Leavers' }, { key: 'end', label: 'Headcount at end' }, { key: 'attrition', label: 'Attrition' },
+  ];
+  const exportRows = () => [
+    ...months.map((m) => ({ month: monthWord(m.month), start: m.headcountAtStart, joiners: m.joiners, leavers: m.leavers, end: m.headcountAtEnd, attrition: pct(m.attritionPct) })),
+    ...(t ? [{ month: 'Whole period', start: t.headcountAtStart, joiners: t.joiners, leavers: t.leavers, end: t.headcountAtEnd, attrition: pct(t.attritionPct) }] : []),
+  ];
+  const onExport = (key) => {
+    const format = exportFormatFromKey(key);
+    if (!format || !months.length) return;
+    runListExport({ format, title: 'People report', subtitle: `${period.label}: headcount, joiners, leavers and attrition`, fileName: `people-report-${period.from}-to-${period.to}`, label: 'months', rows: exportRows(), columns, footNote: 'Attrition: leavers over the month’s average headcount; whole period: leavers over the average of the months.' });
+  };
+
+  return (
+    <DocumentListShell title="People report" entity="people" tight
+      moreItems={[exportMenuItem('Export')]} onMoreSelect={onExport}
+      cards={t ? [
+        { label: 'Headcount today', value: d.headcount, count: true, Icon: Users, tone: 'sent' },
+        { label: 'Joiners', value: t.joiners, count: true, Icon: UserPlus, tone: 'paid' },
+        { label: 'Leavers', value: t.leavers, count: true, Icon: UserMinus, tone: t.leavers ? 'outstanding' : 'draft' },
+        { label: 'Attrition', value: pct(t.attritionPct), count: true, Icon: Percent, tone: 'draft' },
+      ] : null}
+      above={(
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-full sm:w-80"><PopupSelect showValueSubtext={false} label="Period" value={period.value} onChange={(v) => updateParams?.({ period: v && v !== 'last12' ? v : null }, { push: false })} options={periods.map((p) => ({ value: p.value, label: p.label }))} /></div>
+          {t ? <p className="ui-caption">{[`Average headcount ${t.averageHeadcount}`, reasons.length ? `Left: ${reasons.map(([k, n]) => `${REASONS[k] || k} ${n}`).join(', ')}` : null].filter(Boolean).join(' · ')}</p> : null}
+        </div>
+      )}>
+      {req.error && !d ? <div className="p-4"><ErrorState error={req.error} onRetry={req.reload} body={req.error?.status === 403 ? 'The people report covers the whole company; your role covers your own team.' : undefined} /></div>
+        : !d ? <SkeletonCard lines={8} />
+          : !months.length || (!t.headcountAtEnd && !t.joiners && !t.leavers) ? <EmptyState title="Nobody in this period" description="Add employees with their joining dates; their months show here." />
+            : (
+              <div className="ui-table-scroll">
+                <table className="ui-table w-full">
+                  <thead><tr>{columns.map((c, i) => <th key={c.key} className={i ? 'text-right' : ''} scope="col">{c.label}</th>)}</tr></thead>
+                  <tbody>
+                    {months.map((m) => (
+                      <tr key={m.month}>
+                        <th scope="row" className="font-normal text-left whitespace-nowrap">{monthWord(m.month)}</th>
+                        <td className="text-right tabular-nums">{m.headcountAtStart}</td>
+                        <td className="text-right tabular-nums">{m.joiners || '—'}</td>
+                        <td className="text-right tabular-nums">{m.leavers || '—'}</td>
+                        <td className="text-right tabular-nums">{m.headcountAtEnd}</td>
+                        <td className="text-right tabular-nums">{pct(m.attritionPct)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="font-medium">
+                      <th scope="row" className="text-left">Whole period</th>
+                      <td className="text-right tabular-nums">{t.headcountAtStart}</td>
+                      <td className="text-right tabular-nums">{t.joiners}</td>
+                      <td className="text-right tabular-nums">{t.leavers}</td>
+                      <td className="text-right tabular-nums">{t.headcountAtEnd}</td>
+                      <td className="text-right tabular-nums">{pct(t.attritionPct)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+    </DocumentListShell>
+  );
 }

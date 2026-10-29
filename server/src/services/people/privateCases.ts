@@ -299,7 +299,22 @@ export async function advance(who: Who, caseId: string, input: { step?: string; 
 // The annual report: counts only (PRIV-05; POSH Act s.21, Rule 14)
 // ---------------------------------------------------------------------------
 
-export async function annualReport(orgId: string, year: number) {
+/** Is this user named on the company's POSH Internal Committee? */
+export async function onPoshCommittee(orgId: string, userId: string) {
+  if (!userId) return false;
+  const row = await peoplePrisma.committeeSetup.findUnique({ where: { orgId_kind: { orgId, kind: 'POSH_IC' } }, select: { members: true } });
+  return ((row?.members as Member[]) || []).some((m) => m.userId === userId);
+}
+
+/**
+ * The Internal Committee's annual report for a calendar year (POSH Act s.21,
+ * Rule 14): complaints received, disposed of, pending over ninety days; plus
+ * those pending at the start and end. Counts only — no names, no references.
+ * Workshops held and the action taken are the presiding officer's to write in
+ * before filing. The committee is described (who presides, how many members),
+ * as the District Officer's form asks.
+ */
+export async function annualReport(orgId: string, year: number, accountId?: string) {
   const from = `${year}-01-01`;
   const to = `${year}-12-31`;
   const rows = await peoplePrisma.privateCase.findMany({ where: { orgId, kind: 'POSH' }, select: { receivedOn: true, status: true, actionOn: true, inquiryDue: true, reportOn: true } });
@@ -308,5 +323,13 @@ export async function annualReport(orgId: string, year: number) {
   const disposed = rows.filter((r) => r.actionOn && r.actionOn >= from && r.actionOn <= to).length;
   const pendingEnd = rows.filter((r) => r.receivedOn <= to && (!r.actionOn || r.actionOn > to)).length;
   const over90 = rows.filter((r) => r.receivedOn <= to && (!r.reportOn || r.reportOn > to) && r.inquiryDue < to).length;
-  return { year, pendingAtStart: pendingStart, received, disposed, pendingAtEnd: pendingEnd, pendingOver90Days: over90, note: 'Counts only. Workshops held and action taken are added by the presiding officer before filing.' };
+  const committee = await committeeOf(orgId, 'POSH_IC');
+  const presiding = committee.members.find((m) => m.role === 'PRESIDING');
+  const org = accountId ? await platformPrisma.org.findFirst({ where: { id: orgId, accountId }, select: { name: true } }) : null;
+  return {
+    year, company: org?.name || null, pendingAtStart: pendingStart, received, disposed, pendingAtEnd: pendingEnd, pendingOver90Days: over90,
+    committee: { presiding: presiding?.name || null, members: committee.members.length, external: committee.members.filter((m) => m.external || m.role === 'EXTERNAL').length, women: committee.members.filter((m) => m.gender === 'FEMALE').length },
+    dueOn: `${year + 1}-01-31`,
+    note: 'Counts only. Workshops held and action taken are added by the presiding officer before filing.',
+  };
 }
