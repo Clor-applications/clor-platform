@@ -108,7 +108,7 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
       const cur = perPerson.get(t.employeeId);
       if (cur) cur.n += 1; else perPerson.set(t.employeeId, { n: 1, oldest: t });
     }
-    add({ id: 'overdue-tasks', area: 'People', severity: 'FIX_SOON', title: 'Plan tasks past their date', why: 'A joining or leaving step not done on time: a missed PF form, a laptop not recovered, a settlement late.', fix: 'Open the person’s Checklist tab and tick or reassign each task. A joining plan for someone who joined long ago can be ticked off in one go there.', screen: 'checklists' },
+    add({ id: 'overdue-tasks', area: 'People', severity: 'FIX_SOON', title: 'Plan tasks past their date', why: 'A joining or leaving step not done on time: a missed PF form, a laptop not recovered, a settlement late.', fix: 'Open Joining & Leaving, Tasks, Late, and close or hand on each task. A joining plan for someone who joined long ago can be ticked off from their record.', screen: 'checklists' },
       [...perPerson.entries()].map(([id, v]) => who(byId.get(id)!, v.n === 1 ? `${v.oldest.title}, due ${dayWords(v.oldest.dueDate)}` : `${v.n} late; the oldest, ${v.oldest.title}, was due ${dayWords(v.oldest.dueDate)}`)));
   }
 

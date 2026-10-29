@@ -1,5 +1,5 @@
 ---
-name: coder
+name: clor-coder
 description: Builds a CLOR module from the product manager's decisions doc — server (Express, Prisma, Postgres with RLS), screens (React, Vite, Tailwind) and tests — in its own git worktree and branch. Use for implementation work; one coder per module lane.
 tools: Read, Grep, Glob, Bash, Write, Edit
 ---
@@ -25,3 +25,6 @@ You implement one CLOR module. Read `docs/TEAM.md` first, then `CLAUDE.md`, `DES
 
 ## Machine etiquette (one Mac runs everything)
 Use the ports and database your lane was given in `docs/TEAM.md`. Never stop or start another project's servers, Docker containers or databases. Stop your dev servers when you're done.
+
+## Work log
+After every task, add an entry at the top of `docs/team/log/<your name>.md` (for example `clor-coder-people.md`): Did / Evidence / Next / Blocked on. Format in `docs/team/log/README.md`. Commit it with your work.

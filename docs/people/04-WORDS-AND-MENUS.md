@@ -88,7 +88,7 @@ Seven groups for HR. Fewer for other roles (section 3.2). P1/P2 items hidden in 
 | **Home** | Home · To do | P0 | Home exists; To do new |
 | **Me** | My profile · My requests · My documents · My timeline · My leave · My attendance | P0 | My leave, My attendance exist (shared) |
 | **People** | Directory · Org chart · Teams and seats | P0 | Directory, Org chart exist |
-| **Join and leave** | Before day one · Joining · Changes · Leaving | P0 | Checklists exist as "Onboarding & Exit" |
+| **Join and leave** | Before day one · Joining · Changes · Leaving | P0 | Built 27 Oct 2026 as the rail module **Joining & Leaving**: Overview · Joining · Changes · Leaving · Tasks (was "Onboarding & Exit"); steps under Settings (`design-v1/JOINING-LEAVING-DECISIONS.md`) |
 | **Help** | Help desk · Policies · Private cases | P0 | HR Cases register exists |
 | **Time** (shared, unchanged) | Leave requests · Leave calendar · Leave balances · Leave register · Attendance | exists | Shared module, out of scope |
 | **Checks** | Health check · Compliance · Reports | P0 | Data Health, Compliance Calendar, Workforce Report exist |

@@ -305,7 +305,7 @@ export async function revokeFromReaders(orgId: string, employee: { id: string; c
     pinsAt.set(r.id, set);
   }
   const all = new Set([...pinsAt.values()].flatMap((x) => [...x]));
-  if (!all.size) return { readers: 0, pins: 0 };
+  if (!all.size) return { readers: 0, pins: 0, commandIds: [] as number[] };
   /*
    * Anything still waiting to go to a reader for them goes first: the removals
    * below are handed out before fingerprint copies (lower sequence), so a copy
@@ -315,17 +315,23 @@ export async function revokeFromReaders(orgId: string, employee: { id: string; c
   const pinOf = (c: string) => /\b(?:PIN|Pin)=([^\t]*)/.exec(c)?.[1] ?? /\buser-id=([^ ]+)/.exec(c)?.[1] ?? '';
   const theirs = waiting.filter((c) => pinsAt.get(c.deviceId)?.has(pinOf(c.command))).map((c) => c.id);
   if (theirs.length) await peoplePrisma.deviceCommand.deleteMany({ where: { id: { in: theirs } } });
+  /* The command ids, so the leaving task can wait for each reader to confirm (Joining & Leaving, JCL-A02). */
+  const commandIds: number[] = [];
+  let reached = 0;
   for (const r of readers) {
     const pins = [...(pinsAt.get(r.id) || [])];
     if (!pins.length) continue;
-    await peoplePrisma.deviceCommand.createMany({
+    const made = await peoplePrisma.deviceCommand.createManyAndReturn({
       data: pins.flatMap((pin) => removalCommandsFor(r.vendor, pin).map((command) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command, sequence: SEQ.USER, createdByUserId }))),
+      select: { id: true },
     });
+    commandIds.push(...made.map((c) => c.id));
+    if (made.length) reached += 1;
     await peoplePrisma.deviceUser.deleteMany({ where: { orgId, deviceId: r.id, pin: { in: pins } } });
   }
   const company = String(employee.devicePin || employee.code || '').trim();
   await peoplePrisma.biometricTemplate.deleteMany({ where: { orgId, OR: [{ employeeId: employee.id }, ...(company ? [{ employeeId: null, scope: '', pin: company }] : [])] } });
-  return { readers: readers.length, pins: all.size };
+  return { readers: reached, pins: all.size, commandIds };
 }
 
 /**

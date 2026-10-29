@@ -218,3 +218,20 @@ Hiring, goals and training moved from the workspace registers to Talent tables (
 ### Merged, 29 Oct 2026 17:20 IST
 
 PR #50 merged into `main` as `73ace60` with `verify`, `audit` and `secrets` green on the Mac runner; no deploy (`DEPLOY_VM_ENABLED` unset). From here, start from `origin/main`; the handover above stands, except that `claude/people-live` is now history. Next: batch 2.
+
+## Joining & Leaving module (27 Oct 2026)
+
+Read first: `JOINING-LEAVING-DECISIONS.md` (why this module before Hiring, scope, what is left out), then `JOINING-LEAVING-AUDIT-2026-10-27.md`.
+Source: the owner's `Clor_People_Joining_Changes_Leaving_Repo_Research_2026-10-27.zip`, checked finding by finding against `main` at `e24d7c6`.
+
+| Step | State | Where |
+|---|---|---|
+| J.0 Module choice and decisions | DONE | `JOINING-LEAVING-DECISIONS.md`: PRD ranks Employee Lifecycle P0 and Hiring P1; the owner's pack arrived 27 Oct. No new case table: lists are projections of employee, tasks, invites, dated changes, requests |
+| J.1 Safety fixes from the pack | DONE | E-mail task link ticks only on its button (JCL-A10); reader removal waits for every reader, fails visibly, closes by hand with a note (A02); final wages split from the settlement, due in working days, with a payment note, on their real date (A03/A23); missing plans started by the job (A01). Migration `20261103090000_lifecycle_tasks` (people) |
+| J.2 Server | DONE | `routes/peopleLifecycle.ts` (overview, joiners, changes, leavers, tasks, leaving preview), `services/people/lifecycle/{board,jobs,readersDone,workdays}.ts`, steps by employment type / working days / needs a note, moved dates move plans, nobody closes their own plan, audit rows, employee app `/me/journey` |
+| J.3 Screens | DONE | Under People → Joining & leaving (placed in the 28 Oct menu when merged, 29 Oct): Joining & leaving, Joining, Job changes, Leaving, Tasks (key `checklists` kept); Settings → Joining & Leaving Steps; plan and task drawers; Attendance uses the same Tasks and Steps; employee app "Before your last day" / hand back |
+| J.4 Tests | DONE | `peopleLifecycle.test.ts` 11, `peoplePlans.test.ts` and `checklists.test.ts` updated, `routeManifest.test.ts` (allow-list entries); web `test/people-lifecycle.test.jsx` 6, navigation tests updated |
+| J.5 Browser | DONE | 1366 and 375 px, every screen and drawer, employee app at 375; no sideways scroll; `evidence/joining-leaving/` |
+| J.6 Audit and fixes | DONE | `JOINING-LEAVING-AUDIT-2026-10-27.md`: 11 browser findings, 18 role findings, 6 workflow checks; parked: H5 (close old joiners' plans in one go), E2 (default employee steps) |
+
+Open after this module: identity-provider connectors and e-signature (only if customers have them), a legal rules catalogue reviewed by counsel, Payroll acknowledging a separation. Hiring is next on the rail.

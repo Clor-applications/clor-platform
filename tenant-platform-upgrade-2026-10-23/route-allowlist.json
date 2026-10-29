@@ -239,7 +239,12 @@
     {
       "method": "GET",
       "path": "/api/people/task-links/:token",
-      "reason": "Signed task done-link (LIFE-07): JWT bound to one task and its named owner, 30 days; ticks that task only and is logged; outsideTenant lookup then enterTenant."
+      "reason": "Signed task done-link (LIFE-07): JWT bound to one task and its named owner, 30 days; GET only shows the task and a Mark done button, changes nothing (JCL-A10); outsideTenant lookup then enterTenant."
+    },
+    {
+      "method": "POST",
+      "path": "/api/people/task-links/:token",
+      "reason": "The Mark done button of the signed task link (JCL-A10): same JWT (one task, its named owner, 30 days); ticks once (doneAt null guard), refuses tasks needing a note, CLOR's own tasks and the person's own plan; logged."
     },
     {
       "method": "POST",
@@ -450,6 +455,16 @@
       "method": "POST",
       "path": "/api/portal/people/desk/:id/messages",
       "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; a reply on their own request only (DESK-02)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/me/journey",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; the person's own joining and leaving steps and hand-back items, titles and dates only, no HR notes (Joining & Leaving)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/journey/tasks/:id/done",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; ticks only a task on the person's own plan whose owner is the employee role, once, with a note when the step needs one; change-logged (Joining & Leaving)."
     },
     {
       "method": "POST",
