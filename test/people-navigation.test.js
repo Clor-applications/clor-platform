@@ -17,6 +17,8 @@ describe('People navigation', () => {
     /* Workforce package (owner, 26 Oct 2026): the visible module is Workforce; its key stays `employees`. */
     /* Organization follows Workforce (ORGANIZATION-DECISIONS.md): the company's shape moved out of Settings. */
     expect(modules.map((m) => m.label)).toEqual(['Home', 'People', 'Organisation', 'Time', 'Talent', 'Workplace', 'Reports', 'Settings']);
+    /* Joining & leaving sits under People (JOINING-LEAVING-DECISIONS.md, placed in the 28 Oct menu). */
+    for (const k of ['lifecycle', 'joiners', 'lifecycleChanges', 'leavers', 'checklists']) expect(moduleForScreen(modules, k, peopleApp.nav)?.label, k).toBe('People');
     expect(modules.find((m) => m.label === 'Settings').single).toBe(true);
   });
 

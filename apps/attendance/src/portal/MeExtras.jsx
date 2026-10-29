@@ -4,7 +4,7 @@ import { ChevronLeft } from 'lucide-react';
 import { confirmDialog } from '@ui/components/ui/notify';
 
 import LoadFailed from '../components/LoadFailed';
-import { SignedOut, getLeaving, getMyDetails, getPayslip, getPayslips, raisePrivateCase, resign, todayIst } from './portalApi';
+import { SignedOut, doneJourneyTask, getJourney, getLeaving, getMyDetails, getPayslip, getPayslips, raisePrivateCase, resign, todayIst } from './portalApi';
 
 /**
  * The Me tab's pay and leaving pieces (EMPLOYEE-VIEW gaps 1, 3, 7, 8):
@@ -302,6 +302,72 @@ export function LeavingCompany({ guard, refreshKey, onSent }) {
           <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={start}>I want to resign</button>
         </>
       )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// My joining or leaving steps
+// ---------------------------------------------------------------------------
+
+/**
+ * The steps that are mine when I join or leave (Joining & Leaving): the ones
+ * I tick myself, and the company things I hand back before my last day,
+ * which IT or HR tick when they have them. Nothing shows when there is none.
+ */
+export function MySteps({ guard, refreshKey }) {
+  const [data, setData] = useState(null);
+  const [failed, setFailed] = useState('');
+  const [noteFor, setNoteFor] = useState(null);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState('');
+  const [said, setSaid] = useState(null);
+  const load = useCallback(() => {
+    guard(getJourney()).then((d) => { setData(d); setFailed(''); }).catch((e) => setFailed(errText(e, 'Could not load your steps.')));
+  }, [guard]);
+  useEffect(() => { load(); }, [load, refreshKey]);
+  if (failed) return <LoadFailed message={failed} onRetry={load} />;
+  if (!data) return null;
+  const mine = [...data.joining, ...data.leaving.filter((t) => t.mine)];
+  if (!mine.length && !data.handBack.length) return null;
+  const tick = async (t) => {
+    if (t.needsNote && noteFor !== t.id) { setNoteFor(t.id); setNote(''); return; }
+    if (t.needsNote && !note.trim()) { setSaid({ ok: false, text: 'Add a note to close this.' }); return; }
+    setBusy(t.id);
+    setSaid(null);
+    try {
+      await guard(doneJourneyTask(t.id, note.trim() || null));
+      setNoteFor(null);
+      setSaid({ ok: true, text: `${t.title}: done.` });
+      load();
+    } catch (e) {
+      const text = errText(e, 'Not saved.');
+      if (text) setSaid({ ok: false, text });
+    } finally {
+      setBusy('');
+    }
+  };
+  const row = (t, own) => (
+    <li key={t.id} className="flex items-start gap-3 py-2">
+      <span className="min-w-0 flex-1">
+        <span className={`block text-sm ${t.done ? 'ui-muted line-through' : ''}`}>{t.title}</span>
+        <span className="block ui-caption">{t.done ? 'Done' : t.dueDate ? `By ${longDate(t.dueDate)}` : ''}{!own && !t.done ? ' · HR or IT marks it when they have it' : ''}</span>
+        {noteFor === t.id ? <textarea className="ui-input mt-2 w-full" rows={2} maxLength={500} aria-label={`Note for ${t.title}`} value={note} onChange={(e) => setNote(e.target.value)} /> : null}
+      </span>
+      {own && !t.done ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === t.id} onClick={() => tick(t)}>{busy === t.id ? 'Saving…' : noteFor === t.id ? 'Save' : 'Done'}</button> : null}
+    </li>
+  );
+  return (
+    <section className="ui-card space-y-2 p-5" aria-labelledby="steps-h">
+      <h2 id="steps-h" className="ui-t-sec">{data.leaving.length ? 'Before your last day' : 'Your joining steps'}</h2>
+      {said ? <p className="text-sm" role={said.ok ? 'status' : 'alert'}>{said.text}</p> : null}
+      {mine.length ? <ul className="divide-y" aria-label="Your steps">{mine.map((t) => row(t, true))}</ul> : null}
+      {data.handBack.length ? (
+        <>
+          <h3 className="ui-label pt-2">Hand back</h3>
+          <ul className="divide-y" aria-label="Hand back">{data.handBack.map((t) => row(t, false))}</ul>
+        </>
+      ) : null}
     </section>
   );
 }

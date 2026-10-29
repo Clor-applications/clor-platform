@@ -5,7 +5,8 @@ import { exclusive, leaseFor } from '../../jobLease.js';
 import { notifyPermission } from '../../notifications.js';
 import { closeEpisode } from '../episodes.js';
 import { recordChanges } from '../employmentHistory.js';
-import { READER_ACCESS_ITEM, startChecklist } from '../checklists.js';
+import { startChecklist } from '../checklists.js';
+import { settleReaderTask } from './readersDone.js';
 import { writeEvent } from '../outbox.js';
 import { closeOutFor } from './closeOut.js';
 import { peopleEvent } from '../documentReminders.js';
@@ -109,10 +110,10 @@ async function finishLeaving(who: Who, existing: Existing, input: Input) {
     await peoplePrisma.checklistTask.updateMany({ where: { orgId, employeeId: employee.id, doneAt: null }, data: { doneAt: new Date(), doneByUserId: who.userId, note: input.leavingType === 'NOT_JOINED' ? 'Not needed: did not join.' : 'Not needed: duplicate record.' } });
     return { employee, readers: removed.readers, scheduled: false as const };
   }
-  await startChecklist({ accountId, orgId, userId: who.userId }, employee, 'LEAVING', input.lastDay, { done: [READER_ACCESS_ITEM] });
+  await startChecklist({ accountId, orgId, userId: who.userId }, employee, 'LEAVING', input.lastDay);
   await successorsFor(who, employee, input.lastDay);
-  /* The plan may have started on notice: the reader item is ticked now that it is done. */
-  await peoplePrisma.checklistTask.updateMany({ where: { orgId, employeeId: employee.id, kind: 'LEAVING', title: READER_ACCESS_ITEM, doneAt: null }, data: { doneAt: new Date(), doneByUserId: who.userId, note: 'Removed from every reader by CLOR.' } });
+  /* The removal is queued, not done: the reader task waits until every reader confirms (JCL-A02; lifecycle/readersDone.ts). */
+  await settleReaderTask({ accountId, orgId, userId: who.userId }, employee, removed);
   /* A CLOR sign-in is not turned off by CLOR on its own (it may also be someone's admin access): HR gets the task (W-A5). */
   if (employee.userId && !(await peoplePrisma.checklistTask.count({ where: { orgId, employeeId: employee.id, kind: 'LEAVING', title: { startsWith: 'Turn off' } } }))) {
     await startChecklist({ accountId, orgId, userId: who.userId }, employee, 'LEAVING', input.lastDay, { items: [{ title: `Turn off ${employee.name}’s CLOR sign-in`, owner: 'HR', dueDays: 0, note: 'Settings, Users & Security. Hand their approvals and tasks to someone first.' }] });

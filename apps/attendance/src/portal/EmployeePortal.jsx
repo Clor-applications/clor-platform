@@ -11,7 +11,7 @@ import HalfDayChoice, { halfDayBody, leaveSpan } from '@ui/timeOff/HalfDayChoice
 import PhonePunch from '../components/PhonePunch';
 import { MyDetails, Policies } from './MyDetails';
 import AskHr from './AskHr';
-import { LeavingCompany, PayCard, Payslips, PrivateComplaint } from './MeExtras';
+import { LeavingCompany, MySteps, PayCard, Payslips, PrivateComplaint } from './MeExtras';
 import { HolidaysYear, WhatsNew } from './PortalFeeds';
 import {
   SignedOut,
@@ -152,6 +152,8 @@ export default function EmployeePortal() {
         {tab === 'leave' ? <MyLeave guard={guard} /> : null}
         {tab === 'me' ? (
           <>
+            {/* Steps that are mine while I join or leave come first: they have dates. */}
+            <MySteps guard={guard} refreshKey={leavingSent} />
             <Payslips guard={guard} />
             <MyDetails guard={guard} refreshKey={leavingSent} />
             <Policies guard={guard} />

@@ -21,7 +21,7 @@ const GROUPS = [
       ['workTypes', 'Office, remote, hybrid, field'],
       ['tags', 'Labels to group people any way you like'],
       ['customFields', 'Your own fields on every person: who sees them, who edits them'],
-      ['checklists', 'Joining and leaving checklists'],
+      ['journeySteps', 'The steps when someone joins or leaves: whose, when, for whom, and which need a note'],
       ['letterTemplates', 'Offer, appointment, relieving and other letters the company issues'],
       ['helpDeskSettings', 'Help desk categories, reply and resolve times, and answer templates'],
       ['approvalRules', 'Who decides job changes, resignations, probation, policies: steps, due days, overdue'],

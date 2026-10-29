@@ -131,7 +131,7 @@ export default function WorkspaceList({ kind, openScreen, params }) {
           toolbar={<SearchField value={q} onSearch={setQ} placeholder={`Search ${noun}`} label={`Search ${noun}`} className="w-full sm:w-80" />} />
       )}
       {editing ? <RecordDrawer kind={kind} cfg={cfg} rows={rows} value={editing} employees={employees} jobs={jobs} onClose={() => setEditing(null)} onDone={() => { setEditing(null); req.reload(); }} /> : null}
-      {hiring ? <HireDrawer row={hiring} onClose={() => setHiring(null)} onDone={() => { setHiring(null); req.reload(); openScreen?.('checklists'); }} /> : null}
+      {hiring ? <HireDrawer row={hiring} onClose={() => setHiring(null)} onDone={() => { setHiring(null); req.reload(); openScreen?.('joiners'); }} /> : null}
       {offering ? <OfferDrawer candidate={offering} onClose={() => setOffering(null)} onSent={() => { setOffering(null); req.reload(); }} /> : null}
     </div>
   );
