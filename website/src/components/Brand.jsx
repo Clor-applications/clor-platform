@@ -2,11 +2,11 @@ import React from 'react';
 import { BookOpen, Briefcase, CalendarClock, Fingerprint, UserRound, Wallet } from 'lucide-react';
 import { Link } from '../router.jsx';
 
-/** The CLOR logo: C-tick mark and wordmark (public/brand/clor-logo.png, 778 x 188). */
+/** The CLOR logo: C-tick mark and wordmark (public/brand/clor-logo.png, 752 x 188). */
 export function Logo({ height = 22 }) {
   return (
     <Link href="/" className="logo" aria-label="CLOR home" translate="no">
-      <img src="/brand/clor-logo.png" alt="CLOR" height={height} width={Math.round((height * 778) / 188)} />
+      <img src="/brand/clor-logo.png" alt="CLOR" height={height} width={Math.round((height * 752) / 188)} />
     </Link>
   );
 }

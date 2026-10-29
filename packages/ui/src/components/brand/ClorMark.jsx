@@ -1,4 +1,5 @@
 import React from 'react';
+import { TICK_PATH } from './ClorTick.jsx';
 
 /**
  * The CLOR mark: one stroke, never lifted. It runs round the C and finishes
@@ -6,12 +7,11 @@ import React from 'react';
  * "Filed / Paid / Approved" chips are the same idea.
  *
  * Drawn inline so it follows the theme: indigo on cotton, marigold on the
- * dark indigo ground (`--logo-mark`). Same geometry as public/brand/clor-mark.svg.
+ * dark indigo ground (`--logo-mark`). The path is ClorTick's, so People and
+ * every other app draw the same mark; public/brand/clor-mark.svg matches it.
  *
  * `color` overrides the theme colour for the rare surface that needs it.
  */
-export const MARK_PATH = 'M61.74 29.19A28 28 0 1 0 51.65 76.63L85 24';
-
 export default function ClorMark({ size = 28, color, className = '', title = 'CLOR' }) {
   return (
     <svg
@@ -24,11 +24,12 @@ export default function ClorMark({ size = 28, color, className = '', title = 'CL
       className={className}
       style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
     >
+      {/* A small mark gets a heavier stroke so the tick still reads at favicon size. */}
       <path
-        d={MARK_PATH}
+        d={TICK_PATH}
         fill="none"
         stroke={color || 'rgb(var(--logo-mark))'}
-        strokeWidth="13"
+        strokeWidth={size < 24 ? 15 : 12}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
