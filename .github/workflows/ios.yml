@@ -43,7 +43,7 @@ jobs:
     env:
       HAS_SIGNING: ${{ secrets.IOS_DIST_CERT_P12_BASE64 != '' && secrets.APPSTORE_API_KEY_P8_BASE64 != '' && secrets.APPLE_TEAM_ID != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Which app and version
         id: v
@@ -60,7 +60,7 @@ jobs:
           echo "build=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
           echo "Building $APP $VER (build ${GITHUB_RUN_NUMBER})"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -82,7 +82,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO build | tail -20
           cd build/Build/Products/Release-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/clor-${{ steps.v.outputs.app }}-simulator.zip" App.app
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: clor-${{ steps.v.outputs.app }}-ios-simulator-${{ steps.v.outputs.version }}
           path: clor-${{ steps.v.outputs.app }}-simulator.zip

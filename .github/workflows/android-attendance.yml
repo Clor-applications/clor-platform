@@ -32,14 +32,14 @@ jobs:
       HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
       HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
@@ -94,7 +94,7 @@ jobs:
           find mobile/attendance/android/app/build/outputs -name '*.aab' -exec cp {} out/ \; || true
           ls -la out
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: clor-attendance-android-${{ env.VERSION_NAME }}
           path: out/*
@@ -121,7 +121,7 @@ jobs:
           printf '/*\n  Access-Control-Allow-Origin: *\n' > site/_headers
           ls -la site
 
-      - uses: cloudflare/wrangler-action@v3
+      - uses: cloudflare/wrangler-action@v4
         if: steps.signing.outputs.release == 'true' && env.HAS_CF == 'true'
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
