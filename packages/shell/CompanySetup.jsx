@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Building2, Check, LogOut } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, Check, LogOut } from '@ui/components/ui/lineIcons';
 
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 

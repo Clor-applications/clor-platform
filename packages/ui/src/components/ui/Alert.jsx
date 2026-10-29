@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from '@ui/components/ui/lineIcons';
 
 /**
  * Inline Alert / Banner (People design spec v1 §5 "Toast / Alert"): a message

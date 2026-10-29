@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight } from '@ui/components/ui/lineIcons';
 
 import { PageHeader } from '../components/ui/Primitives';
 import { requestOpenApp } from '@platform/context';

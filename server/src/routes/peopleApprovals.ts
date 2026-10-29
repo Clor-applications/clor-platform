@@ -12,7 +12,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { correlationOf } from '../services/people/employees.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
-import { ApprovalError, REQUEST_TYPES, activeRule, cleanSteps, decide, mine, namesFor, reply, retireRule, saveRule, shape, submitRequest, waitingFor, withdraw, type RequestType } from '../services/people/approvals/engine.js';
+import { ApprovalError, REQUEST_TYPES, RULE_TYPES, activeRule, cleanSteps, decide, mine, namesFor, reply, retireRule, saveRule, shape, submitRequest, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
 
 /**
  * Approvals (docs/people/02-PRD.md APR-01..07): rules, requests, decisions,
@@ -40,10 +40,10 @@ peopleApprovalsRouter.get(`${base}/approval-rules`, can(PermissionAction.VIEW, A
   if (!(await peopleRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const rows = await peoplePrisma.approvalRule.findMany({ where: { orgId }, orderBy: [{ requestType: 'asc' }, { version: 'desc' }] });
-  res.json({ rules: rows, requestTypes: REQUEST_TYPES });
+  res.json({ rules: rows, requestTypes: RULE_TYPES });
 });
 
-const ruleSchema = z.object({ requestType: z.enum(REQUEST_TYPES), name: z.string().trim().min(1, 'Name the rule.').max(120), steps: z.array(z.any()).min(1) });
+const ruleSchema = z.object({ requestType: z.enum(RULE_TYPES), name: z.string().trim().min(1, 'Name the rule.').max(120), steps: z.array(z.any()).min(1) });
 
 /** Saving writes a new version of the rule for that request type. */
 peopleApprovalsRouter.post(`${base}/approval-rules`, can(PermissionAction.EDIT, APPROVALS), async (req, res) => {
@@ -59,8 +59,8 @@ peopleApprovalsRouter.post(`${base}/approval-rules`, can(PermissionAction.EDIT, 
 
 peopleApprovalsRouter.delete(`${base}/approval-rules/:requestType`, can(PermissionAction.DELETE, APPROVALS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  const type = String(req.params.requestType) as RequestType;
-  if (!REQUEST_TYPES.includes(type)) return res.status(404).json({ error: 'Unknown request type.' });
+  const type = String(req.params.requestType) as RuleType;
+  if (!(RULE_TYPES as readonly string[]).includes(type)) return res.status(404).json({ error: 'Unknown request type.' });
   const retired = await retireRule(req.tenant!.orgId, type);
   res.json({ ok: true, retired });
 });
@@ -83,14 +83,21 @@ peopleApprovalsRouter.get(`${base}/requests`, can(PermissionAction.VIEW, REQUEST
  * open it (services/people/inbox.ts); decisions go through each source's own
  * routes, single or bulk.
  */
+const inboxRight = requireAnyPermission(
+  [PEOPLE_MODULE, PermissionAction.VIEW, REQUESTS],
+  [ATTENDANCE_MODULE, PermissionAction.APPROVE, ATTENDANCE_RESOURCE.leave],
+  [ATTENDANCE_MODULE, PermissionAction.APPROVE, ATTENDANCE_RESOURCE.requests],
+  [PEOPLE_MODULE, PermissionAction.VIEW, 'HR Cases'],
+);
 peopleApprovalsRouter.get(
   `${base}/inbox`,
-  requireAnyPermission(
-    [PEOPLE_MODULE, PermissionAction.VIEW, REQUESTS],
-    [ATTENDANCE_MODULE, PermissionAction.APPROVE, ATTENDANCE_RESOURCE.leave],
-    [ATTENDANCE_MODULE, PermissionAction.APPROVE, ATTENDANCE_RESOURCE.requests],
-    [PEOPLE_MODULE, PermissionAction.VIEW, 'HR Cases'],
-  ),
+  /* Someone a step of the leave approval rule names has an inbox, whatever else they may do. */
+  async (req: any, res: any, next: any) => {
+    const orgId = req.tenant?.orgId || req.params?.orgId;
+    const userId = req.auth?.userId;
+    if (orgId && userId && (await peoplePrisma.leaveRequest.count({ where: { orgId, status: 'PENDING', ruleId: { not: null }, stepUserIds: { has: userId } } }))) return next();
+    return inboxRight(req, res, next);
+  },
   async (req, res) => {
     if (!(await peopleRouteOk(req, res))) return;
     res.json(await inboxFor(req));
@@ -250,8 +257,8 @@ peopleApprovalsRouter.delete(`${base}/stand-ins/:id`, can(PermissionAction.VIEW,
 /** Is there a rule for this type? Screens ask before showing "send for approval". */
 peopleApprovalsRouter.get(`${base}/approval-rules/active/:requestType`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  const type = String(req.params.requestType) as RequestType;
-  if (!REQUEST_TYPES.includes(type)) return res.status(404).json({ error: 'Unknown request type.' });
+  const type = String(req.params.requestType) as RuleType;
+  if (!(RULE_TYPES as readonly string[]).includes(type)) return res.status(404).json({ error: 'Unknown request type.' });
   const rule = await activeRule(req.tenant!.orgId, type);
   res.json({ rule: rule ? { id: rule.id, name: rule.name, version: rule.version, steps: rule.steps } : null });
 });

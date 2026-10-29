@@ -49,7 +49,7 @@ import {
   HandCoins,
   Handshake,
   Layers,
-} from 'lucide-react';
+} from '@ui/components/ui/lineIcons';
 
 /**
  * What a thing is, said the same way everywhere.

@@ -98,6 +98,23 @@ export async function anonymiseEmployee(args: { accountId: string; orgId: string
       ? await tx.peopleRecord.updateMany({ where: { id: { in: recordIds }, orgId }, data: { details: { anonymised: true }, updatedBy: 'anonymise' } })
       : { count: 0 };
     await tx.peopleRecord.updateMany({ where: { id: { in: recordIds }, orgId, kind: 'candidates' }, data: { title: 'Anonymised' } });
+    /* Talent: their candidate card (linked, or with their e-mail or phone), and the free text about them in goals, reviews, plans, one-on-ones and certificates. */
+    const asCandidate = await tx.candidate.findMany({ where: { orgId, OR: [{ employeeId }, ...(contacts.length ? [{ email: { in: contacts } }, { phone: { in: contacts } }] : [])] }, select: { id: true } });
+    if (asCandidate.length) {
+      const ids = asCandidate.map((c) => c.id);
+      await tx.candidate.updateMany({ where: { orgId, id: { in: ids } }, data: { name: 'Anonymised', email: null, phone: null, sourceDetail: null, currentEmployer: null, resumeName: null, resumeMime: null, resumeSize: null, resumeData: null, resumeUrl: null, closedReason: null, anonymisedAt: new Date() } });
+      await tx.candidateEvent.updateMany({ where: { orgId, candidateId: { in: ids } }, data: { text: null } });
+      await tx.interviewFeedback.updateMany({ where: { orgId, candidateId: { in: ids } }, data: { notes: null } });
+    }
+    const goalIds = (await tx.goal.findMany({ where, select: { id: true } })).map((g) => g.id);
+    await tx.goal.updateMany({ where, data: { description: null } });
+    if (goalIds.length) await tx.goalCheckIn.updateMany({ where: { orgId, goalId: { in: goalIds } }, data: { note: null } });
+    await tx.review.updateMany({ where, data: { selfText: null, managerText: null, finalReason: null } });
+    const planIds = (await tx.improvementPlan.findMany({ where, select: { id: true } })).map((p) => p.id);
+    await tx.improvementPlan.updateMany({ where, data: { reason: '[erased]', expectations: '[erased]', outcomeNote: null } });
+    if (planIds.length) await tx.talentNote.deleteMany({ where: { orgId, subject: 'PLAN', subjectId: { in: planIds } } });
+    await tx.oneOnOne.updateMany({ where: { orgId, OR: [{ employeeId }, { managerEmployeeId: employeeId }] }, data: { notes: null, actions: null } });
+    await tx.trainingSeat.updateMany({ where, data: { certName: null, certMime: null, certSize: null, certData: null, certUrl: null } });
     const checklistNotes = await tx.checklistTask.updateMany({ where: { ...where, note: { not: null } }, data: { note: null } });
     const dataRequests = await tx.dataRequest.updateMany({ where: { ...where, details: { not: '[erased]' } }, data: { details: '[erased]' } });
     const historyNotes = await tx.employmentEvent.updateMany({ where: { ...where, note: { not: null } }, data: { note: null } });

@@ -7,6 +7,7 @@
    it from fonts.googleapis.com sent every visitor's IP address to Google
    before they had signed in to anything. */
 @import '@fontsource-variable/inter';
+@import '@fontsource-variable/plus-jakarta-sans';
 
 @tailwind base;
 @tailwind components;
@@ -7056,188 +7057,88 @@ th.ui-th {
 }
 
 /*
- * The Rose palette: People's accent, on Accounting's layout.
- *
- * Owner, 24 Oct 2026 (docs/people/08-DECISIONS-AND-RISKS.md, D-01): People
- * keeps the same ground, rail, type scale, radii and shadows as Accounting and
- * wears one colour of its own. This block therefore sets colour tokens only,
- * and answers the !important graphite control rules the way Blaze does. It
- * never restates geometry or type; test/palette.test.js holds it to that.
- *
- *   rose          #A45761  primary fill (white on it 5.1:1), focus ring, active bars
- *   rose, deep    #8A4652  where rose is text (6.8:1 on white)
- *   rose, pressed #6E3842
- *   tints         #F7EDF0 soft, #FCF7F8 subtle, #D89FA8 border
- *   dark theme    #D89FA8 as the fill and as text (9.0:1 on #09090B), dark ink on it
- *
- * Tokens it sets (others keep the platform values): --brand*, --btn-primary-*,
- * --on-brand, --accent-soft, --ring, --hero-hi; and, from the People design
- * spec v1 (26 Oct 2026, D-V4/D-V5), the canvas (#F6F4F2), ink (#232226) and a
- * graphite rail like Attendance's, so the split sidebar reads dark rail +
- * light People panel. Ink on canvas is 14.2:1; muted text keeps the platform value.
+ * The bar: which app you are in and which company, before anything else.
+ * The app wears its palette's colour as a mark; the company is named in full.
  */
-:root[data-palette='rose'],
-[data-palette='rose'] {
-  --brand: 164 87 97;
-  --brand-deep: 138 70 82;
-  --brand-hover: 138 70 82;
-  --brand-pressed: 110 56 66;
-  --btn-primary-bg: 164 87 97;
-  --btn-primary-hover: 138 70 82;
-  --brand-soft: 247 237 240;
-  --brand-subtle: 252 247 248;
-  --brand-border: 216 159 168;
-  --brand-ink: 138 70 82;
-  --on-brand: 255 255 255;
-  --accent-soft: 247 237 240;
-  --ring: 164 87 97;
-  --hero-hi: 164 87 97;
-  --app-bg: 246 244 242;
-  --fg: 35 34 38;
-  --col-party: 35 34 38;
-  --rail-graphite: 35 34 38;
-  --rail-graphite-top: 45 43 48;
-  --rail-graphite-hover: 52 50 56;
-  --rail-ink: 205 202 208;
-  --rail-ink-strong: 255 255 255;
-  --rail-rose: 216 159 168;
-  /* Page heading and table head in warm neutrals: the platform's pale blue fought the rose. The heading sits on the canvas, set off by its hairline. */
-  --page-heading-bg: 246 244 242;
-  --heading-bg: 239 236 233;
-  --heading-hover: 230 226 222;
+.ui-app-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.25rem;
+  padding: 0 0.5rem 0 0.25rem;
+  border-radius: var(--radius-btn);
+  color: rgb(var(--fg));
+  transition: background-color var(--dur-surface) ease;
 }
-:root[data-theme='dark'][data-palette='rose'],
-:root[data-theme='dark'] [data-palette='rose'] {
-  --brand: 216 159 168;
-  --brand-deep: 227 180 187;
-  --brand-hover: 227 180 187;
-  --brand-pressed: 200 140 150;
-  --btn-primary-bg: 216 159 168;
-  --btn-primary-hover: 227 180 187;
-  --brand-soft: 61 30 36;
-  --brand-subtle: 31 19 22;
-  --brand-border: 122 60 72;
-  --brand-ink: 227 180 187;
-  --on-brand: 9 9 11;
-  --accent-soft: 61 30 36;
-  --ring: 216 159 168;
-  --hero-hi: 216 159 168;
-  --app-bg: 9 9 11;
-  --fg: 250 250 250;
-  --col-party: 250 250 250;
-  --rail-graphite: 18 17 20;
-  --rail-graphite-top: 26 24 28;
-  --rail-graphite-hover: 35 34 38;
+.ui-app-switch:hover { background: rgb(var(--surface-sunken)); }
+.ui-app-switch:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+.ui-app-switch-mark {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-btn);
+  background: rgb(var(--brand));
+  color: rgb(var(--on-brand));
 }
-
-/* The work area sits on the warm canvas; cards, tables and forms stay white on it. */
-:root[data-palette='rose'] main.ui-content {
-  background-color: rgb(var(--app-bg));
+.ui-app-switch-name {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
-
-/*
- * The app rail in graphite (D-V4), as under Blaze: the module you are in gets a
- * rose bar on the rail's edge, a rose icon and a warm tint behind it; hover
- * lifts the icon a touch; "Me" sits apart at the foot.
- */
-:root[data-palette='rose'] .ui-split-rail {
-  background: linear-gradient(to bottom, rgb(var(--rail-graphite-top)), rgb(var(--rail-graphite)) 14rem);
-  border-right-color: rgb(var(--rail-graphite));
-  box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.04);
-}
-:root[data-palette='rose'] .ui-split-mod {
+.ui-company-pick {
   position: relative;
-  color: rgb(var(--rail-ink));
-  transition: background-color var(--dur-surface) ease, color var(--dur-surface) ease;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
 }
-:root[data-palette='rose'] .ui-split-mod > svg {
-  transition: transform var(--dur-surface, 150ms) ease, color var(--dur-surface, 150ms) ease;
-}
-:root[data-palette='rose'] .ui-split-mod:hover {
-  background: rgb(255 255 255 / 0.06);
-  color: rgb(var(--rail-ink-strong));
-}
-:root[data-palette='rose'] .ui-split-mod:hover > svg { transform: translateY(-1px); }
-:root[data-palette='rose'] .ui-split-mod[data-current] {
-  background: rgb(var(--rail-rose) / 0.18);
-  color: rgb(var(--rail-ink-strong));
-  box-shadow: inset 0 0 0 1px rgb(var(--rail-rose) / 0.3);
-}
-:root[data-palette='rose'] .ui-split-mod[data-current] > svg { color: rgb(var(--rail-rose)); }
-:root[data-palette='rose'] .ui-split-mod[data-current]::before {
-  content: '';
+.ui-company-pick-icon {
   position: absolute;
-  left: -0.375rem; top: 22%; bottom: 22%;
-  width: 3px;
-  background: rgb(var(--rail-rose));
+  left: 0.625rem;
+  color: rgb(var(--fg-muted));
+  pointer-events: none;
 }
-:root[data-palette='rose'] .ui-split-mod[aria-pressed='true']:not([data-current]) {
-  background: rgb(255 255 255 / 0.09);
-  color: rgb(var(--rail-ink-strong));
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
-}
-:root[data-palette='rose'] .ui-split-mod:focus-visible {
-  outline-color: rgb(var(--rail-ink-strong));
-}
-:root[data-palette='rose'] .ui-split-rail > .ui-split-mod:last-child:not(:first-child) {
-  margin-top: auto;
-}
-@media (prefers-reduced-motion: no-preference) {
-  :root[data-palette='rose'] .ui-split-mod[data-current]::before { animation: ui-rail-mark 260ms cubic-bezier(.2,.8,.2,1) both; }
-  /* People (WORKFORCE-LAYOUT.md): rows arrive as they are, no fade; a list is read, not watched. */
-  :root[data-palette='rose'] .ui-rows > tr { animation: none; }
-}
-
-/* The current screen in the module panel and the phone tab bar take the accent, as under Blaze. */
-:root[data-palette='rose'] .ui-split-item[aria-current='page'] {
-  box-shadow: inset 3px 0 0 rgb(var(--brand));
-}
-:root[data-palette='rose'] .ui-split-item[aria-current='page'] > svg {
-  color: rgb(var(--brand-ink));
-}
-:root[data-palette='rose'] .ui-tabbar-item[aria-current='page'] {
-  box-shadow: inset 0 2px 0 rgb(var(--brand));
-}
-:root[data-palette='rose'] .ui-tabbar-item[aria-current='page'] > svg {
-  color: rgb(var(--brand-ink));
-}
-
-/*
- * Primary actions, selected segments and the active tab. The graphite rules
- * further up are !important literals, so these answer them the same way and
- * come later; in both themes the tokens above carry the colour.
- */
-:root[data-palette='rose'] :is(.ui-btn-primary, .ui-btn-brand) {
-  background-color: rgb(var(--btn-primary-bg)) !important;
-  border-color: rgb(var(--btn-primary-bg)) !important;
-  color: rgb(var(--on-brand)) !important;
-}
-:root[data-palette='rose'] :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
-  background-color: rgb(var(--btn-primary-hover)) !important;
-  border-color: rgb(var(--btn-primary-hover)) !important;
-  color: rgb(var(--on-brand)) !important;
-}
-:root[data-palette='rose'] :is(.ui-btn-primary, .ui-btn-brand):active:not(:disabled) {
-  background-color: rgb(var(--brand-pressed)) !important;
-  border-color: rgb(var(--brand-pressed)) !important;
-}
-:root[data-palette='rose'] :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
-  background-color: rgb(var(--btn-primary-bg)) !important;
-  border-color: rgb(var(--btn-primary-bg)) !important;
-  color: rgb(var(--on-brand)) !important;
-}
-:root[data-palette='rose'] .ui-segment[aria-selected='true'] .ui-segment-count {
-  color: rgb(var(--on-brand)) !important;
-}
-:root[data-palette='rose'] :is(.ui-tab.is-active, [role='tab'][aria-selected='true']:not(.ui-segment)) {
+.ui-company-pick .ui-select {
+  padding-left: 2.125rem;
+  font-weight: 600;
   color: rgb(var(--fg));
 }
-:root[data-palette='rose'] .ui-tab.is-active::after {
-  background-color: rgb(var(--brand));
+
+/*
+ * People → Home. Teams wear a colour each, so a face and its slice of the
+ * company bar read as one group. Each step holds 4.5:1 as text on its own
+ * 14% tint; dark mode lifts every one so it reads on the dark ground.
+ */
+:root {
+  --dept-0: 113 113 122;
+  --dept-1: 14 116 144;
+  --dept-2: 180 83 9;
+  --dept-3: 190 18 60;
+  --dept-4: 77 124 15;
+  --dept-5: 126 34 206;
+  --dept-6: 3 105 161;
+  --dept-7: 194 65 12;
+  --dept-8: 71 85 105;
 }
-:root[data-theme='dark'][data-palette='rose'] .ui-segment[aria-selected='true'] .ui-segment-count {
-  background-color: rgb(0 0 0 / 0.16) !important;
-  color: rgb(var(--on-brand)) !important;
+:root[data-theme='dark'] {
+  --dept-0: 161 161 170;
+  --dept-1: 103 200 220;
+  --dept-2: 245 176 90;
+  --dept-3: 251 113 133;
+  --dept-4: 163 207 90;
+  --dept-5: 196 160 250;
+  --dept-6: 125 196 245;
+  --dept-7: 251 146 100;
+  --dept-8: 160 174 192;
+}
+@keyframes people-arrive {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes people-grow {
+  from { transform: scaleX(0); opacity: 0; }
+  to { transform: scaleX(1); opacity: 1; }
 }
 
 /* W-2.1: the strip that says this company belongs to another account (outside access). */
@@ -8008,3 +7909,223 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 /* An outline drawn as a tree (useTreeKeys): the focused row shows the ring on its own line, not around everything under it. */
 .ui-tree [role="treeitem"] { outline: none; }
 .ui-tree [role="treeitem"]:focus-visible > .ui-tree-row, .ui-tree .ui-tree-row[role="treeitem"]:focus-visible { box-shadow: inset 0 0 0 2px rgb(var(--ring)); border-radius: 8px; }
+
+/*
+ * People → Home, soft structural (28 Oct 2026). Silver ground; every block a
+ * double bezel: a tinted tray with a hairline ring, a white core inside with
+ * a top highlight, radii concentric. Shadows are wide and faint, so blocks
+ * float rather than sit. Motion is one spring curve for everything.
+ */
+:root {
+  --soft-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --soft-r: 1.5rem;
+  --soft-pad: 0.375rem;
+  --soft-tray: 24 24 27 / 0.022;
+  --soft-ring: 24 24 27 / 0.05;
+  --soft-ambient: 0 1px 1px rgb(24 24 27 / 0.02), 0 12px 40px -16px rgb(24 24 27 / 0.12);
+  --soft-ambient-hi: 0 2px 4px rgb(24 24 27 / 0.03), 0 24px 56px -20px rgb(24 24 27 / 0.2);
+  --soft-highlight: inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+:root[data-theme='dark'] {
+  --soft-tray: 255 255 255 / 0.04;
+  --soft-ring: 255 255 255 / 0.08;
+  --soft-ambient: 0 1px 1px rgb(0 0 0 / 0.3), 0 16px 40px -16px rgb(0 0 0 / 0.6);
+  --soft-ambient-hi: 0 2px 4px rgb(0 0 0 / 0.35), 0 24px 56px -20px rgb(0 0 0 / 0.75);
+  --soft-highlight: inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+@keyframes soft-draw { to { stroke-dashoffset: 0; } }
+
+/* The symbol picker on announcements and events: one tap picks, a second clears. */
+.ws-symbols { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.375rem; }
+.ws-symbol {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-btn);
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--surface));
+  font-size: 1.25rem;
+  line-height: 1;
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+.ws-symbol:hover { transform: translateY(-1px) scale(1.06); border-color: rgb(var(--border-strong)); }
+.ws-symbol[aria-pressed='true'] { border-color: rgb(var(--brand)); background: rgb(var(--brand-soft)); box-shadow: 0 0 0 1px rgb(var(--brand)); }
+.ws-symbol:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .ws-symbol { transition: none; } .ws-symbol:hover { transform: none; } }
+
+/* Pastel tints: one hook for every tile, icon and chip on Home. */
+[data-tint='sky'] { --tint: var(--sky-soft); --tint-ink: var(--sky-ink); }
+[data-tint='butter'] { --tint: var(--butter-soft); --tint-ink: var(--butter-ink); }
+[data-tint='mint'] { --tint: var(--mint-soft); --tint-ink: var(--mint-ink); }
+[data-tint='lilac'] { --tint: var(--lilac-soft); --tint-ink: var(--lilac-ink); }
+[data-tint='peach'] { --tint: var(--peach-soft); --tint-ink: var(--peach-ink); }
+.ui-split-rail > .ui-split-mod[data-more] { margin-top: 0 !important; }
+.ui-split-rail > .ui-split-mod:nth-last-child(2):has(+ .ui-split-mod[data-more]) { margin-top: auto; }
+
+/* The bar: room after the CLOR mark for branding, and the right-hand icons in full ink at a readable size. */
+.ui-topbar .ui-app-switch { margin-left: 1.5rem; }
+.ui-topbar .ui-icon-btn { color: rgb(var(--fg)); }
+.ui-topbar .ui-icon-btn > svg { width: 1.25rem; height: 1.25rem; }
+.ui-topbar .ui-icon-btn:hover { background: rgb(var(--surface-sunken)); }
+.ui-topbar-initials {
+  display: grid;
+  place-items: center;
+  width: 2.125rem;
+  height: 2.125rem;
+  border-radius: 999px;
+  background: rgb(var(--brand-soft));
+  color: rgb(var(--brand-deep));
+  font-family: var(--font-display, inherit);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.org-head { display: inline-flex; align-items: center; gap: 0.5rem; }
+.org-head-face { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 999px; background: rgb(var(--brand-soft)); color: rgb(var(--brand-deep)); font-size: 0.6875rem; font-weight: 700; }
+.org-count { display: grid; grid-template-columns: minmax(4rem, 8rem) 2rem; align-items: center; gap: 0.625rem; justify-content: end; }
+.org-count-bar { height: 0.4375rem; border-radius: 999px; background: rgb(var(--surface-sunken)); overflow: hidden; }
+.org-count-bar > span { display: block; height: 100%; border-radius: 999px; background: rgb(var(--brand) / 0.75); }
+.org-count-n { text-align: right; font-weight: 600; }
+
+/* A list's tabs in its search row (DataTable `tabs`), so they no longer take a
+   row of their own. The palette draws the tabs; this only places them. */
+.ui-datatable-tabs { display: flex; min-width: 0; max-width: 100%; }
+.ui-datatable-tabs .ui-record-tablist { max-width: 100%; overflow-x: auto; margin: 0; }
+@media (min-width: 640px) {
+  .ui-datatable-toolbar:has(.ui-datatable-tabs) .ui-search-field { width: 15rem; }
+  .ui-datatable-toolbar:has(.ui-datatable-tabs) > .flex-1 > div[class*='sm:w-'] { width: 10rem; }
+}
+@media (max-width: 639px) {
+  .ui-datatable-tabs { flex: 1 1 100%; }
+}
+
+/*
+ * The side panel beside a list (SidePanel.jsx; owner, 28 Oct 2026). On the
+ * page ground behind one hairline, no card; it stays in view while the list
+ * scrolls. Blocks part by hairlines; a heading carries its count; statuses
+ * are small pills; what happened reads as a timeline; links are chips.
+ */
+.ui-with-panel[data-panel='on'] { display: grid; grid-template-columns: minmax(0, 1fr) 16rem; column-gap: 1.5rem; align-items: start; }
+.ui-with-panel-main { min-width: 0; }
+.ui-side-panel {
+  position: sticky;
+  top: calc(var(--platform-bar, 3.5rem) + 1rem);
+  max-height: calc(100vh - var(--platform-bar, 3.5rem) - 2rem);
+  overflow-y: auto;
+  padding-left: 1.25rem;
+  border-left: 1px solid rgb(var(--border));
+  scrollbar-width: thin;
+}
+.ui-side-block + .ui-side-block { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgb(var(--border)); }
+.ui-side-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; }
+.ui-side-title { display: inline-flex; align-items: center; gap: 0.375rem; margin: 0; font-size: 0.8125rem; line-height: 1.25rem; font-weight: 700; color: rgb(var(--fg-heading, var(--fg))); }
+.ui-side-count { display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.125rem; padding: 0 0.3125rem; border-radius: 999px; background: rgb(var(--brand-soft)); color: rgb(var(--brand-ink)); font-size: 0.6875rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ui-side-more { font-size: 0.75rem; font-weight: 600; color: rgb(var(--brand-ink)); background: none; border: 0; padding: 0; cursor: pointer; }
+.ui-side-more:hover { text-decoration: underline; }
+.ui-side-lines { display: flex; flex-direction: column; gap: 0.125rem; }
+.ui-side-line {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.25rem;
+  padding: 0.3125rem 0.5rem;
+  margin-left: -0.5rem;
+  width: calc(100% + 0.5rem);
+  border: 0;
+  border-radius: var(--radius-btn);
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: rgb(var(--fg));
+}
+button.ui-side-line { cursor: pointer; transition: background-color var(--dur-state, 150ms) ease; }
+button.ui-side-line:hover { background: rgb(var(--brand-subtle)); }
+:is(button.ui-side-line, .ui-side-chip, .ui-side-more, button.ui-side-alert):focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 1px; }
+.ui-side-lead { flex: none; display: inline-flex; }
+.ui-side-text { min-width: 0; flex: 1; }
+.ui-side-name { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 1.125rem; font-weight: 500; }
+.ui-side-sub { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); }
+.ui-side-meta { flex: none; font-size: 0.75rem; font-variant-numeric: tabular-nums; color: rgb(var(--fg-muted)); }
+.ui-side-meta[data-tone='count'] { font-size: 0.8125rem; font-weight: 700; color: rgb(var(--fg)); }
+.ui-side-pill { flex: none; padding: 0.0625rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; line-height: 1.125rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ui-side-pill[data-tone='neg'] { background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
+.ui-side-pill[data-tone='warn'] { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+.ui-side-pill[data-tone='pos'] { background: rgb(var(--pos-soft)); color: rgb(var(--pos)); }
+.ui-side-pill[data-tone='info'] { background: rgb(var(--info-soft)); color: rgb(var(--info)); }
+.ui-side-bar { display: block; height: 0.3125rem; margin-top: 0.3125rem; border-radius: 999px; background: rgb(var(--brand-soft)); overflow: hidden; }
+.ui-side-bar > span { display: block; height: 100%; border-radius: 999px; background: rgb(var(--brand)); }
+.ui-side-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  margin-bottom: 0.25rem;
+  border: 0;
+  border-radius: var(--radius-btn);
+  text-align: left;
+  font: inherit;
+  font-size: 0.8125rem;
+}
+.ui-side-alert > svg { flex: none; margin-top: 0.0625rem; }
+.ui-side-alert[data-tone='neg'] { background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
+.ui-side-alert[data-tone='warn'] { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+.ui-side-alert .ui-side-name { font-weight: 600; }
+.ui-side-alert .ui-side-sub { color: inherit; opacity: 0.85; }
+button.ui-side-alert { cursor: pointer; }
+.ui-side-clear { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.ui-side-clear > svg { flex: none; color: rgb(var(--pos)); }
+.ui-side-timeline { position: relative; margin: 0; padding: 0; list-style: none; }
+.ui-side-timeline::before { content: ''; position: absolute; left: 0.25rem; top: 0.5rem; bottom: 0.5rem; width: 1px; background: rgb(var(--border)); }
+.ui-side-timeline > li { position: relative; display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.3125rem 0; font-size: 0.8125rem; }
+.ui-side-dot { flex: none; position: relative; z-index: 1; width: 0.5625rem; height: 0.5625rem; margin-top: 0.3125rem; border-radius: 999px; background: rgb(var(--surface)); box-shadow: 0 0 0 2px rgb(var(--fg-subtle)); }
+.ui-side-timeline > li[data-tone='pos'] .ui-side-dot { background: rgb(var(--pos)); box-shadow: 0 0 0 2px rgb(var(--pos-soft)); }
+.ui-side-timeline > li[data-tone='neg'] .ui-side-dot { background: rgb(var(--neg)); box-shadow: 0 0 0 2px rgb(var(--neg-soft)); }
+.ui-side-timeline > li[data-tone='warn'] .ui-side-dot { background: rgb(var(--warn)); box-shadow: 0 0 0 2px rgb(var(--warn-soft)); }
+.ui-side-timeline > li[data-tone='info'] .ui-side-dot { background: rgb(var(--brand)); box-shadow: 0 0 0 2px rgb(var(--brand-soft)); }
+.ui-side-date { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: var(--radius-btn); background: rgb(var(--brand-subtle)); box-shadow: inset 0 0 0 1px rgb(var(--brand-border)); color: rgb(var(--brand-ink)); line-height: 1; }
+.ui-side-date > span { font-size: 0.5625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.ui-side-date > b { margin-top: 0.125rem; font-size: 0.875rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ui-side-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.375rem; }
+.ui-side-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+  height: 2rem;
+  padding: 0 0.625rem;
+  border: 1px solid rgb(var(--border));
+  border-radius: var(--radius-btn);
+  background: rgb(var(--surface));
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+  cursor: pointer;
+  transition: border-color var(--dur-state, 150ms) ease, background-color var(--dur-state, 150ms) ease;
+}
+.ui-side-chip > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ui-side-chip > svg { flex: none; color: rgb(var(--brand-ink)); }
+.ui-side-chip:hover { border-color: rgb(var(--brand-border)); background: rgb(var(--brand-subtle)); }
+.ui-side-today { margin: 0 0 0.875rem; font-size: 0.75rem; font-weight: 600; color: rgb(var(--fg-muted)); }
+/* Inside the page, a section heading rule sized h2 at 18px; the panel's headings are labels. */
+/* (h2 sizes carry !important app-wide, so this one must too.) */
+#main-content .ui-side-panel .ui-side-title { font-size: 0.8125rem !important; line-height: 1.25rem !important; font-family: var(--font-display, inherit); }
+/* Beside the panel a list with four or more tabs puts its search and pickers on their own row, all together, rather than leaving one picker stranded. */
+.ui-with-panel[data-panel='on'] .ui-datatable-toolbar:has(.ui-datatable-tabs .ui-tab:nth-child(4)) > .flex-1 { flex-basis: 100%; }
+
+/*
+ * People: motion after the Apple design notes (owner, 28 Oct 2026;
+ * .agents/skills/apple-design). Sky palette only.
+ */
+/* 1. A phone sheet leaves the way it came: down. */
+@keyframes ui-sheet-down { from { transform: none; } to { transform: translate3d(0, 100%, 0); } }
+.ui-sheet-grabber { display: none; }
+
+/* 3. A list that opens above its field rises from it; one that closes fades back toward it (Popover's last frame). */
+@keyframes ui-popover-up { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+@keyframes ui-popover-out-down { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-2px); } }
+@keyframes ui-popover-out-up { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(2px); } }
+/* A leave balance running low (15% or one day left): the warm highlight, never the error red (that is below zero). */
+.ui-balance-low { color: rgb(var(--warn-ink)); }

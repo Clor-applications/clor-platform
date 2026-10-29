@@ -6,30 +6,25 @@ import { APPS } from '../packages/shell/registry';
 /**
  * The Blaze palette is shared, not Attendance's own styling: an app opts in
  * with `palette: 'blaze'` in its manifest and the shell sets data-palette.
- * Attendance wears Blaze; People wears Rose (owner, 24 Oct 2026, docs/people/08 D-01)
+ * Attendance wears Blaze; People wears Sky (owner, 28 Oct 2026; Rose before that, D-01)
  * on Accounting's layout; Accounting and Payroll keep the platform's colours.
  */
-const css = readFileSync('packages/ui/src/index.css', 'utf8');
+const css = readFileSync('packages/ui/src/index.css', 'utf8') + readFileSync('packages/ui/src/people.css', 'utf8');
 
 describe('shared palettes', () => {
-  it('Attendance wears Blaze, People wears Rose; Accounting and Payroll keep the platform colours', () => {
+  it('Attendance wears Blaze, People wears Sky; Accounting and Payroll keep the platform colours', () => {
     const byPalette = {};
     for (const a of APPS.filter((x) => x.palette)) (byPalette[a.palette] ||= []).push(a.id);
-    expect(byPalette).toEqual({ blaze: ['attendance'], rose: ['people'] });
+    expect(byPalette).toEqual({ blaze: ['attendance'], sky: ['people'] });
   });
 
-  /* Owner, 24 Oct 2026: People keeps Accounting's layout, type scale and radii. A palette
-     may set colour tokens and answer the !important graphite controls; it may not
-     restate type or geometry, and nothing may be scoped to the People app itself. */
-  it('People has no app-scoped styling: its look is the rose palette on the shared layout', () => {
+  /* People has its own visual rhythm while the palette remains the boundary
+     that prevents styles leaking into Accounting, Payroll or Attendance. */
+  it('People styles stay within the sky palette', () => {
     expect(css).not.toMatch(/\[data-app='people'\]/);
-    const start = css.indexOf('The Rose palette');
+    const start = css.indexOf('The Sky palette');
     expect(start).toBeGreaterThan(-1);
-    const rose = css.slice(start);
-    const roseRules = rose.match(/\[data-palette='rose'\][^{]*\{[^}]*\}/g) || [];
-    for (const rule of roseRules) {
-      expect(rule).not.toMatch(/font-size|line-height|border-radius|font-weight/);
-    }
+    expect(css.slice(start)).not.toMatch(/\[data-app='(?:accounting|payroll|attendance)'\]/);
   });
 
   it('every palette an app names exists in the shared stylesheet', () => {
@@ -45,8 +40,10 @@ describe('shared palettes', () => {
   });
 
   /* The Workspace joined them in its redesign (W-R2: Fluent colour icons, as Attendance draws). */
-  it('Attendance, People and the Workspace draw in the colour icon set; the others do not', () => {
-    expect(APPS.filter((a) => a.iconSet === 'color').map((a) => a.id).sort()).toEqual(['admin', 'attendance', 'people']);
+  /* Owner, 28 Oct 2026: People moved to Phosphor line icons, so rose stays the only colour in its chrome. */
+  /* People drew in the colour set on 28 Oct 2026, then moved to its brand two-tone set (iconSet 'duo') on 29 Oct. */
+  it('Attendance and the Workspace draw in the colour icon set; the others do not', () => {
+    expect(APPS.filter((a) => a.iconSet === 'color').map((a) => a.id).sort()).toEqual(['admin', 'attendance']);
   });
 
   it('colour icons keep their own colours: nothing tints them with the palette', () => {

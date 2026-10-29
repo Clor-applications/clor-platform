@@ -36,7 +36,7 @@ export default function SelfServiceSettings() {
   };
   return (
     <div className="space-y-6">
-      <PageHeader title="Employee Self-Edits" />
+      <PageHeader title="Self-service edits" />
       <fieldset className="space-y-1" disabled={busy}>
         <legend className="ui-t-sec mb-2">When someone changes their own details in the employee app</legend>
         <ul className="divide-y border-t">

@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { useSuggestions } from './suggestions';
 import { useTabIndicator } from '@ui/components/ui/RecordTabs';
-import { CalendarClock, Download, Filter, Pencil, Plus, Trash2, Upload, UserCheck, UserMinus, Users, X } from 'lucide-react';
+import { CalendarClock, Download, Filter, Pencil, Plus, Trash2, TreePalm, Upload, UserCheck, UserMinus, Users, X } from '@ui/components/ui/lineIcons';
+import { useContentIcon } from '@ui/components/ui/colorSwap';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -105,7 +106,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const columns = [
     { key: 'name', label: 'Employee', sortable: true, always: true, render: (r) => (
       <span className="flex items-center gap-2.5 min-w-0">
-        <Avatar person={r} size={32} />
+        <Avatar person={r} size={28} />
         <span className="min-w-0">
           <span className="block truncate font-medium">{r.preferredName ? `${r.name} (${r.preferredName})` : r.name}</span>
           <span className="block truncate ui-caption">{r.workEmail || r.email || ''}</span>
@@ -120,7 +121,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     { key: 'location', label: 'Location', sortable: true, render: (r) => r.areaName || r.workLocation || '—' },
     { key: 'type', label: 'Employment type', render: (r) => lists.types.find((t) => t.id === r.employeeTypeId)?.name || '—' },
     { key: 'dateOfJoining', label: 'Joining date', sortable: true, render: (r) => <span className="tabular-nums whitespace-nowrap">{r.dateOfJoining ? formatDate(String(r.dateOfJoining).slice(0, 10)) : '—'}</span> },
-    { key: 'status', label: 'Status', sortable: true, render: (r) => <StatusBadge employee={r} /> },
+    { key: 'status', label: 'Status', sortable: true, render: (r) => <StatusBadge employee={r} quiet /> },
   ];
 
   const rowActions = (r) => [
@@ -197,7 +198,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   ].filter(Boolean);
 
   return (
-    <div className="space-y-6">
+    <div className="people-directory space-y-6">
       <PageHeader
         breadcrumb={[{ label: 'People' }, { label: 'Employees' }]}
         title="Employees"
@@ -244,7 +245,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
             <span className="flex items-center gap-3 min-w-0">
               <Avatar person={r} size={40} />
               <span className="min-w-0 flex-1">
-                <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.name}</span><StatusBadge employee={r} /></span>
+                <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.name}</span><StatusBadge employee={r} quiet /></span>
                 <span className="block truncate ui-caption">{[r.code, r.designation].filter(Boolean).join(' · ')}</span>
                 <span className="block truncate ui-caption">{[r.department, r.branchName || r.areaName || r.workLocation].filter(Boolean).join(' · ')}</span>
               </span>
@@ -369,6 +370,7 @@ function ExportDrawer({ counts, filtered, onClose, onExport }) {
 }
 
 function MetricStrip({ counts, onPick }) {
+  const mark = useContentIcon();
   if (!counts) return <div className="ui-metric-strip" aria-busy="true"><span className="ui-skel ui-skel-text" /></div>;
   /* The owner's and the CEO's picture: who works here now, who is coming, who came and went this month, who is leaving. */
   const items = [
@@ -377,16 +379,17 @@ function MetricStrip({ counts, onPick }) {
     { k: 'joinedMonth', label: 'Joined this month', value: counts.joinedThisMonth ?? 0, Icon: UserCheck, patch: 'joinedMonth' },
     { k: 'leftMonth', label: 'Left this month', value: counts.leftThisMonth ?? 0, Icon: UserMinus, patch: 'leftMonth' },
     { k: 'onNotice', label: 'On notice', value: counts.onNotice, Icon: UserMinus, patch: { status: 'ON_NOTICE' } },
-    { k: 'onLeave', label: 'On leave today', value: counts.onLeave, Icon: CalendarClock, patch: null },
+    { k: 'onLeave', label: 'On leave today', value: counts.onLeave, Icon: TreePalm, patch: null },
   ];
   return (
     <div className="ui-metric-strip" role="list" aria-label="Workforce counts">
-      {items.map(({ k, label, value, Icon, patch }) => {
+      {items.map(({ k, label, value, Icon: LineIcon, patch }) => {
+        const Icon = mark(LineIcon);
         const body = <><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span><span className="ui-metric-label">{label}</span></span></>;
         /* The list item holds the button, so it is still announced as a button. */
         return patch ? (
-          <div key={k} role="listitem"><button type="button" className="ui-metric" onClick={() => onPick(patch === 'joining' ? { from: tomorrowIst() } : patch === 'joinedMonth' ? { status: 'ALL', from: counts.monthStart, to: todayIst() } : patch === 'leftMonth' ? { status: 'LEFT', lfrom: counts.monthStart, lto: todayIst() } : patch)} aria-label={`${value} ${label}: show them`}>{body}</button></div>
-        ) : <div key={k} role="listitem" className="ui-metric">{body}</div>;
+          <div key={k} role="listitem"><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={() => onPick(patch === 'joining' ? { from: tomorrowIst() } : patch === 'joinedMonth' ? { status: 'ALL', from: counts.monthStart, to: todayIst() } : patch === 'leftMonth' ? { status: 'LEFT', lfrom: counts.monthStart, lto: todayIst() } : patch)} aria-label={`${value} ${label}: show them`}>{body}</button></div>
+        ) : <div key={k} role="listitem" className="ui-metric" data-zero={Number(value) === 0 || undefined}>{body}</div>;
       })}
     </div>
   );

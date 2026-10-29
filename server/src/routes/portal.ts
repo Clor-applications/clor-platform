@@ -23,13 +23,14 @@ import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance
 import { phoneStatus, recordPhonePunch } from '../services/attendance/phonePunch.js';
 import { normaliseCode, passwordProblem } from '../services/attendance/portal.js';
 import { chainFor } from '../services/attendance/approvalChain.js';
-import { askOvertime, attentionFor, chainsFor, confirmMonth, decideOvertime, monthReview, overtimeFor, timelineOf, upcomingShifts } from '../services/attendance/selfService.js';
+import { askOvertime, attentionFor, chainsFor, confirmMonth, decideOvertime, monthReview, overtimeFor, ruleTimelineOf, timelineOf, upcomingShifts } from '../services/attendance/selfService.js';
+import { portalOf } from '../services/attendance/leaveRules.js';
 import { createRequest } from './attendance.js';
 import { REASON_CODES } from '../services/attendance/corrections.js';
-import { KINDS, KIND_WORDS, askRequest, cancelRequest, chainOf, decideRequest, editRequest, rulesFor, usage as requestUsage } from '../services/attendance/requests.js';
+import { KINDS, KIND_WORDS, askRequest, cancelRequest, chainOf, decideRequest, editRequest, rulesFor, shiftChoices, usage as requestUsage } from '../services/attendance/requests.js';
 import { managerStepBy, teamDecidedBy } from '../services/attendance/standIns.js';
 import { daysOfMonth, instants, sendError, today, withNames } from '../services/attendance/days.js';
-import { cancelOwnLeave, createLeave, dayWords, eligibleFor, decideLeave, editLeave, leaveAudit, leaveChainFor, managerStep, masked, pickRestrictedHoliday, previewOut, restrictedHolidaysFor, shortenLeave, withTypes } from './leave.js';
+import { actorNames, cancelOwnLeave, createLeave, dayWords, decideRuleLeave, eligibleFor, decideLeave, editLeave, leaveAudit, leaveChainFor, managerStep, masked, pickRestrictedHoliday, previewOut, restrictedHolidaysFor, shortenLeave, withTypes } from './leave.js';
 import { balancesFor, leavePeriodOf, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
 import { lapseFor } from '../services/attendance/leaveJobs.js';
@@ -534,24 +535,31 @@ portalRouter.get('/requests', async (req, res) => {
     e.reportingManagerId ? peoplePrisma.employee.findFirst({ where: { id: e.reportingManagerId, orgId: e.orgId }, select: { name: true } }) : null,
   ]);
   const names = { manager: manager?.name || null };
+  /* Leave under the leave rule: who its waiting step names, for "with whom" in the app. */
+  const waitingIds = leave.filter((r) => r.status === 'PENDING' && r.ruleId).flatMap((r) => r.stepUserIds);
+  const stepNames = waitingIds.length ? await actorNames(e.orgId, waitingIds) : new Map<string, string>();
+  const ruleWaiting = new Map(leave.filter((r) => r.status === 'PENDING' && r.ruleId).map((r) => [r.id, r.stepUserIds.map((u) => stepNames.get(u)).filter(Boolean).join(', ') || null]));
   const t = today();
   const rules = await rulesFor(e.orgId);
   const requestChains = Object.fromEntries(await Promise.all(KINDS.map(async (k) => [k, await chainOf(e.orgId, k, rules)])));
+  const askedShifts = [...new Set(corrections.map((r) => r.shiftId).filter(Boolean) as string[])];
+  const shiftNames = new Map(askedShifts.length ? (await peoplePrisma.shift.findMany({ where: { orgId: e.orgId, id: { in: askedShifts } }, select: { id: true, name: true } })).map((x) => [x.id, x.name]) : []);
   const rows = [
     /* A missed punch stays "correction" for the app as it is; the other kinds are "request" with their kind. */
     ...corrections.map((r) => ({
       id: r.id, kind: r.kind === 'MISSED_PUNCH' ? 'correction' : 'request', requestKind: r.kind, kindName: KIND_WORDS[r.kind as keyof typeof KIND_WORDS]?.name || r.kind,
       reasonCode: r.reasonCode, date: r.date, toDate: r.toDate, halfDay: r.halfDay, place: r.place, minutes: r.minutes,
+      shiftId: r.shiftId, shiftName: r.shiftId ? shiftNames.get(r.shiftId) || null : null,
       checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null,
       reason: r.reason, status: r.status, note: r.reviewNote, createdAt: r.createdAt, withHr: Boolean(r.managerApprovedAt),
       canChange: r.status === 'PENDING' && (r.kind !== 'MISSED_PUNCH' || !r.managerApprovedAt),
-      canCancel: r.status === 'PENDING' || (r.status === 'APPROVED' && (r.kind === 'WFH' || r.kind === 'ON_DUTY') && r.date > t),
+      canCancel: r.status === 'PENDING' || (r.status === 'APPROVED' && (r.kind === 'WFH' || r.kind === 'ON_DUTY' || r.kind === 'SHIFT_CHANGE') && r.date > t),
       ...timelineOf(r, requestChains[r.kind] || chains.correction, names),
     })),
     ...named.map((r: any) => ({
       id: r.id, kind: 'leave', leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null,
       createdAt: r.createdAt, canChange: r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > t),
-      ...timelineOf(r, chains.leave, names),
+      ...(r.ruleId ? ruleTimelineOf(r, ruleWaiting.get(r.id) || null) : timelineOf(r, chains.leave, names)),
     })),
     ...overtime.map((r) => ({
       id: r.id, kind: r.kind === 'COMP_OFF' ? 'compoff' : 'overtime', date: r.date, minutes: r.minutes, days: r.days, reason: r.reason, status: r.status, note: r.reviewNote,
@@ -564,7 +572,7 @@ portalRouter.get('/requests', async (req, res) => {
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const use = month ? await Promise.all(KINDS.map((k) => requestUsage(e.orgId, e.id, k, month, { rules }))) : null;
-  res.json({ requests: rows, reasons: REASON_CODES, ...(month ? { month, usage: Object.fromEntries(use!.map((u) => [u.kind, u])), rules } : {}) });
+  res.json({ requests: rows, reasons: REASON_CODES, ...(month ? { month, usage: Object.fromEntries(use!.map((u) => [u.kind, u])), rules, shifts: await shiftChoices(e.orgId, rules) } : {}) });
 });
 
 /** Ask for a day off-site or hours off: work from home, on duty (with a place), permission (from–to), or a missed punch. */
@@ -584,7 +592,7 @@ portalRouter.get('/request-rules', async (req, res) => {
   const month = monthParam(req.query.month);
   const rules = await rulesFor(e.orgId);
   const use = await Promise.all(KINDS.map((k) => requestUsage(e.orgId, e.id, k, month, { rules })));
-  res.json({ month, rules, kinds: KINDS.filter((k) => rules[k].on).map((k) => ({ kind: k, name: KIND_WORDS[k].name })), usage: Object.fromEntries(use.map((u) => [u.kind, u])), reasons: REASON_CODES });
+  res.json({ month, rules, shifts: await shiftChoices(e.orgId, rules), kinds: KINDS.filter((k) => rules[k].on).map((k) => ({ kind: k, name: KIND_WORDS[k].name })), usage: Object.fromEntries(use.map((u) => [u.kind, u])), reasons: REASON_CODES });
 });
 
 /** Used, waiting and left this month, per kind. */
@@ -813,7 +821,8 @@ portalRouter.post('/leave/:id/shorten', async (req, res) => {
     const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId, employeeId } });
     if (!r) return res.status(404).json({ error: 'No such request.' });
     const e = req.portal!.employee;
-    const request = await shortenLeave(accountId, orgId, r, String(req.body?.toDate || ''), e.userId || `portal:${e.id}`);
+    /* Their own leave: ended today or later, never on a day already taken (shortenLeave). */
+    const request = await shortenLeave(accountId, orgId, r, String(req.body?.toDate || ''), e.userId || `portal:${e.id}`, { self: true });
     await leaveAudit({ accountId, orgId, userId: e.userId || `portal:${e.id}` }, { entityId: r.id, action: 'SHORTEN', message: `${e.name} came back early: leave now ends ${request.toDate}`, metadata: { employeeId } });
     res.json({ request });
   } catch (err) {
@@ -887,6 +896,9 @@ portalRouter.get('/approvals', async (req, res) => {
   const decided = await teamDecidedBy(e.orgId, e.id);
   for (const d of decided) names.set(d.id, d);
   const decidedIds = decided.map((d) => d.id);
+  /* Leave under the company's leave rule waits on whoever its step names, team or not; my team's is mine only when its step names me. */
+  const me = [e.userId, portalOf(e.id)].filter(Boolean) as string[];
+  const ruleLeaves = await peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, status: 'PENDING', ruleId: { not: null }, stepUserIds: { hasSome: me } }, orderBy: { createdAt: 'asc' } });
   const [leaves, corrections, fieldPunches] = ids.length || decidedIds.length
     ? await Promise.all([
         decidedIds.length ? peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: decidedIds }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }) : [],
@@ -903,11 +915,11 @@ portalRouter.get('/approvals', async (req, res) => {
   ]);
   const overtimeChainNow = (await chainsFor(e.orgId)).overtime;
   res.json({
-    approver: ids.length > 0 || decidedIds.length > 0,
+    approver: ids.length > 0 || decidedIds.length > 0 || ruleLeaves.length > 0,
     team: team.length,
     chain: { leave: leaveChain, correction: correctionChain, overtime: overtimeChainNow },
     /* A manager plans cover from dates, not diagnoses: private leave reads "Private leave" with no reason. */
-    leaves: masked(await withTypes(e.orgId, leaves.filter((r) => !r.managerApprovedAt)), false).map((r: any) => ({ id: r.id, type: 'leave', ...who(r.employeeId), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, askedAt: r.createdAt })),
+    leaves: masked(await withTypes(e.orgId, [...leaves.filter((r) => !r.managerApprovedAt && !r.ruleId), ...ruleLeaves]), false).map((r: any) => ({ id: r.id, type: 'leave', ...who(r.employeeId), ...(names.has(r.employeeId) ? {} : { employeeName: r.employeeName, employeeCode: r.employeeCode ?? null }), ...(r.ruleStep ? { step: r.ruleStep } : {}), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, askedAt: r.createdAt })),
     corrections: corrections.filter((r) => !r.managerApprovedAt && r.kind === 'MISSED_PUNCH').map((r) => ({ id: r.id, type: 'correction', ...who(r.employeeId), date: r.date, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, askedAt: r.createdAt })),
     /* Work from home, on duty and permission from my team, waiting on me. */
     requests: corrections.filter((r) => !r.managerApprovedAt && r.kind !== 'MISSED_PUNCH').map((r) => ({ id: r.id, type: 'request', kind: r.kind, kindName: KIND_WORDS[r.kind as keyof typeof KIND_WORDS]?.name || r.kind, ...who(r.employeeId), date: r.date, toDate: r.toDate, halfDay: r.halfDay, place: r.place, minutes: r.minutes, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, askedAt: r.createdAt })),
@@ -960,6 +972,20 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
   const note = String(req.body?.note || '').trim().slice(0, 500) || null;
   const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
+  if (r.ruleId) {
+    /* Under the leave rule: whoever its step names, as their CLOR user or as themselves in the app. */
+    const by = [e.userId, portalOf(e.id)].find((u) => u && r.stepUserIds.includes(u));
+    if (!by) return res.status(403).json({ error: 'This request is not yours to decide.' });
+    if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${String(r.status).toLowerCase()}.` });
+    if (decision === 'reject' && !note) return res.status(400).json({ error: 'Say why. They see this with the decision.' });
+    try {
+      const out = await decideRuleLeave(e.accountId, e.orgId, r, by, note, decision === 'approve');
+      await leaveAudit({ accountId: e.accountId, orgId: e.orgId, userId: by }, { entityId: r.id, action: decision === 'approve' ? (out.stage ? 'STEP_APPROVE' : 'APPROVE') : 'REJECT', message: `${e.name} ${decision === 'approve' ? (out.stage ? `approved step ${r.ruleStep} of` : 'approved') : 'rejected'} leave, ${r.fromDate} to ${r.toDate}${note ? `: ${note}` : ''}`, metadata: { employeeId: r.employeeId, step: r.ruleStep } });
+      return res.json({ request: masked([out.request], false)[0], ...(out.stage ? { stage: out.stage } : {}) });
+    } catch (err) {
+      return sendError(res, err);
+    }
+  }
   /* The person's manager, or whoever stands in for them today, decides as the manager. */
   const asManager = await managerStepBy(e.orgId, e.id, r.employeeId);
   if (!asManager) return res.status(403).json({ error: 'This request is not yours to decide.' });

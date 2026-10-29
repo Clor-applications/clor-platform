@@ -1,0 +1,1885 @@
+@import '@fontsource-variable/bricolage-grotesque';
+/*
+ * People's own look (Sky palette and People-only classes), split out of index.css on 28 Oct 2026 so each
+ * element's People rule lives in one place. Loaded right after index.css (main.jsx), so it sits where these
+ * rules always sat in the cascade: after the platform's. Keep People rules here, never in index.css.
+ */
+
+
+/*
+ * The Sky palette: People's accent, on Accounting's layout.
+ *
+ * Owner, 24 Oct 2026 (docs/people/08-DECISIONS-AND-RISKS.md, D-01): People
+ * shares components with Accounting and wears one colour of its own. The
+ * People navigation, page heading and Home task surface now have their own
+ * spacing and icon treatment, following the 28 Oct frontend polish request.
+ *
+ * Colour roles (owner, 28 Oct 2026: "colours primary and all the colors need
+ * to be upgraded"; one unusual accent, Apple's system colours for status):
+ *   60%  ground #F5F5F7, white surfaces, neutral hairlines #E3E3E8
+ *   30%  ink #1D1D1F for text and selected choices; #4A4A4F and #6E6E73 for support
+ *   10%  lagoon teal #0E7C7B: the primary action, where you are, focus,
+ *        the emphasised data line. White on it 5.0:1; #0A6665 where it is
+ *        text (6.6:1). Not blue on purpose (owner, 28 Oct 2026: "every
+ *        software in this industry uses the same colours"); teal sits apart
+ *        from the blues and purples of other HR apps and from status green.
+ *   butter #FFF4C7 with #6B4E00 ink (7.0:1): warmth only. Celebrations,
+ *        Fun Friday, pinned news, "today" markers. Never an action.
+ *   companions, each a soft tint with its own dark ink (all over 5:1): mint
+ *        #E3F5E8/#1E7F37, lilac #F0EAFB/#6A3FB0, peach #FFEDE3/#A63F12. They
+ *        tell items apart; they carry no status meaning and never fill a button.
+ *   status: green #1E7F37 done/approve, orange #B25000 waiting/notice, red
+ *        #D70015 overdue/left, purple #8944AB information (off blue, so it
+ *        never reads as the action colour). Each 5:1 or more on white.
+ *   teams wear eight categorical hues, on people and charts only.
+ *   dark theme  near-black ground #0A0A0C, grey surfaces #1C1C1E/#2C2C2E;
+ *        teal #2DD4BF as fill and text (11:1), dark ink on it; status at
+ *        Apple's dark values (#30D158, #FF9F0A, #FF6961, #BF8CFF).
+ */
+:root[data-palette='sky'],
+[data-palette='sky'] {
+  --brand: 14 124 123;
+  --brand-deep: 10 102 101;
+  --brand-hover: 10 102 101;
+  --brand-pressed: 8 84 83;
+  --btn-primary-bg: 14 124 123;
+  --btn-primary-hover: 10 102 101;
+  --brand-soft: 225 243 242;
+  --brand-subtle: 240 249 248;
+  --brand-border: 157 212 209;
+  --brand-ink: 10 102 101;
+  --on-brand: 255 255 255;
+  --accent-soft: 225 243 242;
+  --ring: 14 124 123;
+  --link: 10 102 101;
+  --link-hover: 8 84 83;
+  --hero-hi: 14 124 123;
+  --app-bg: 245 245 247;
+  --fg: 29 29 31;
+  --col-party: 29 29 31;
+  --rail-graphite: 35 34 38;
+  --rail-graphite-top: 45 43 48;
+  --rail-graphite-hover: 52 50 56;
+  --rail-ink: 205 202 208;
+  --rail-ink-strong: 255 255 255;
+  --rail-accent: 45 212 191;
+  --butter: 242 201 76;
+  --butter-soft: 255 244 199;
+  --butter-ink: 107 78 0;
+  --sky-soft: 225 243 242;
+  --sky-ink: 10 102 101;
+  --mint-soft: 227 245 232;
+  --mint-ink: 30 127 55;
+  --lilac-soft: 240 234 251;
+  --lilac-ink: 106 63 176;
+  --peach-soft: 255 237 227;
+  --peach-ink: 166 63 18;
+  --pos: 30 127 55;
+  --pos-soft: 234 247 237;
+  --neg: 215 0 21;
+  --neg-hover: 178 0 17;
+  --neg-soft: 253 236 237;
+  --warn: 178 80 0;
+  --warn-ink: 160 72 0;
+  --warn-soft: 255 244 229;
+  --info: 137 68 171;
+  --info-soft: 246 239 250;
+  --page-heading-bg: 245 245 247;
+  --heading-bg: 240 240 243;
+  --heading-hover: 230 230 235;
+}
+:root[data-theme='dark'][data-palette='sky'],
+:root[data-theme='dark'] [data-palette='sky'] {
+  --brand: 45 212 191;
+  --brand-deep: 94 234 212;
+  --brand-hover: 94 234 212;
+  --brand-pressed: 20 184 166;
+  --btn-primary-bg: 45 212 191;
+  --btn-primary-hover: 94 234 212;
+  --brand-soft: 8 47 44;
+  --brand-subtle: 5 28 27;
+  --brand-border: 17 94 89;
+  --brand-ink: 94 234 212;
+  --on-brand: 0 0 0;
+  --accent-soft: 8 47 44;
+  --ring: 45 212 191;
+  --link: 94 234 212;
+  --link-hover: 153 246 228;
+  --hero-hi: 45 212 191;
+  --app-bg: 10 10 12;
+  --page-heading-bg: 10 10 12;
+  --surface: 28 28 30;
+  --surface-sunken: 36 36 38;
+  --surface-raised: 44 44 46;
+  --border: 56 56 58;
+  --border-strong: 72 72 74;
+  --border-field: 64 64 66;
+  --heading-bg: 36 36 38;
+  --heading-hover: 44 44 46;
+  --fg: 245 245 247;
+  --fg-muted: 174 174 178;
+  --fg-subtle: 152 152 157;
+  --col-party: 245 245 247;
+  --rail-graphite: 18 18 20;
+  --rail-graphite-top: 24 24 26;
+  --rail-graphite-hover: 36 36 38;
+  --butter: 242 201 76;
+  --butter-soft: 58 48 16;
+  --butter-ink: 245 215 122;
+  --sky-soft: 8 47 44;
+  --sky-ink: 94 234 212;
+  --mint-soft: 14 46 24;
+  --mint-ink: 48 209 88;
+  --lilac-soft: 42 30 66;
+  --lilac-ink: 191 140 255;
+  --peach-soft: 62 30 16;
+  --peach-ink: 255 159 10;
+  --pos: 48 209 88;
+  --pos-soft: 14 46 24;
+  --neg: 255 105 97;
+  --neg-hover: 255 140 133;
+  --neg-soft: 66 18 18;
+  --warn: 255 159 10;
+  --warn-ink: 255 179 64;
+  --warn-soft: 58 36 6;
+  --info: 191 140 255;
+  --info-soft: 42 30 66;
+}
+
+/* The work area sits on the warm canvas; cards, tables and forms stay white on it. */
+:root[data-palette='sky'] main.ui-content {
+  background-color: rgb(var(--app-bg));
+}
+
+/*
+ * The app rail in graphite (D-V4), as under Blaze: the module you are in gets a
+ * accent bar on the rail's edge, an accent icon and a tint behind it; hover
+ * lifts the icon a touch; "Me" sits apart at the foot.
+ */
+:root[data-palette='sky'] .ui-split-rail {
+  background: linear-gradient(to bottom, rgb(var(--rail-graphite-top)), rgb(var(--rail-graphite)) 14rem);
+  border-right-color: rgb(var(--rail-graphite));
+  box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.04);
+}
+:root[data-palette='sky'] .ui-split-mod {
+  position: relative;
+  color: rgb(var(--rail-ink));
+  transition: background-color var(--dur-surface) ease, color var(--dur-surface) ease;
+}
+:root[data-palette='sky'] .ui-split-mod:hover {
+  background: rgb(255 255 255 / 0.06);
+  color: rgb(var(--rail-ink-strong));
+}
+:root[data-palette='sky'] .ui-split-mod:hover > svg { transform: translateY(-1px); }
+:root[data-palette='sky'] .ui-split-mod[data-current] {
+  background: rgb(var(--rail-accent) / 0.18);
+  color: rgb(var(--rail-ink-strong));
+  box-shadow: inset 0 0 0 1px rgb(var(--rail-accent) / 0.3);
+}
+:root[data-palette='sky'] .ui-split-mod[data-current]::before {
+  content: '';
+  position: absolute;
+  left: -0.375rem; top: 22%; bottom: 22%;
+  width: 3px;
+  background: rgb(var(--rail-accent));
+}
+:root[data-palette='sky'] .ui-split-mod[aria-pressed='true']:not([data-current]) {
+  background: rgb(255 255 255 / 0.09);
+  color: rgb(var(--rail-ink-strong));
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+}
+:root[data-palette='sky'] .ui-split-mod:focus-visible {
+  outline-color: rgb(var(--rail-ink-strong));
+}
+:root[data-palette='sky'] .ui-split-rail > .ui-split-mod:last-child:not(:first-child) {
+  margin-top: auto;
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-palette='sky'] .ui-split-mod[data-current]::before { animation: ui-rail-mark 260ms cubic-bezier(.2,.8,.2,1) both; }
+  /* People (WORKFORCE-LAYOUT.md): rows arrive as they are, no fade; a list is read, not watched. */
+  :root[data-palette='sky'] .ui-rows > tr { animation: none; }
+}
+:root[data-palette='sky'] .ui-tabbar-item[aria-current='page'] {
+  box-shadow: inset 0 2px 0 rgb(var(--brand));
+}
+:root[data-palette='sky'] .ui-tabbar-item[aria-current='page'] > svg {
+  color: rgb(var(--brand-ink));
+}
+
+/*
+ * Primary actions, selected segments and the active tab. The graphite rules
+ * further up are !important literals, so these answer them the same way and
+ * come later; in both themes the tokens above carry the colour.
+ */
+:root[data-palette='sky'] :is(.ui-btn-primary, .ui-btn-brand) {
+  background-color: rgb(var(--btn-primary-bg)) !important;
+  border-color: rgb(var(--btn-primary-bg)) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:root[data-palette='sky'] :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
+  background-color: rgb(var(--btn-primary-hover)) !important;
+  border-color: rgb(var(--btn-primary-hover)) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:root[data-palette='sky'] :is(.ui-btn-primary, .ui-btn-brand):active:not(:disabled) {
+  background-color: rgb(var(--brand-pressed)) !important;
+  border-color: rgb(var(--brand-pressed)) !important;
+}
+:root[data-palette='sky'] :is(.ui-tab.is-active, [role='tab'][aria-selected='true']:not(.ui-segment)) {
+  color: rgb(var(--fg));
+}
+
+/*
+ * People: colour plan (owner, 28 Oct 2026). Bright neutral ground, white
+ * surfaces, ink for text and selection. Teal means one thing: the primary
+ * action and where you are in the navigation. Green, orange, red and purple
+ * keep their status meanings; team colours appear only on people and data.
+ * The rail is light in the light theme; the dark theme keeps its own.
+ */
+:root[data-palette='sky']:not([data-theme='dark']),
+:root:not([data-theme='dark']) [data-palette='sky'] {
+  --surface-sunken: 245 245 247;
+  --heading-bg: 242 242 245;
+  --heading-hover: 232 232 237;
+  --border: 229 229 234;
+  --border-strong: 210 210 215;
+  --border-field: 222 222 227;
+  --fg: 29 29 31;
+  --fg-muted: 74 74 79;
+  --fg-subtle: 110 110 115;
+  --rail-graphite: 255 255 255;
+  --rail-graphite-top: 255 255 255;
+  --rail-graphite-hover: 242 242 245;
+  --rail-ink: 74 74 79;
+  --rail-ink-strong: 29 29 31;
+  --rail-accent: 14 124 123;
+}
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail {
+  background: rgb(var(--surface));
+  border-right-color: rgb(var(--border));
+  box-shadow: none;
+}
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-mod:hover {
+  background: rgb(var(--surface-sunken));
+  color: rgb(var(--fg));
+}
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-mod[data-current] {
+  box-shadow: none;
+}
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-mod[aria-pressed='true']:not([data-current]) {
+  background: rgb(var(--surface-sunken));
+  color: rgb(var(--fg));
+  box-shadow: none;
+}
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-mod:focus-visible { outline-color: rgb(var(--ring)); }
+:root[data-palette='sky'] .ui-split-panel {
+  background: rgb(var(--surface));
+}
+:root[data-palette='sky'] .ui-split-panel-head {
+  color: rgb(var(--fg));
+  font-weight: 700;
+}
+:root[data-palette='sky'] .ui-split-item {
+  height: auto;
+}
+:root[data-palette='sky'] .ui-split-item:hover { color: rgb(var(--fg)); }
+/* Selected segments are a choice, not an action: ink, so sky stays the action colour. */
+:root[data-palette='sky'] :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
+  background-color: rgb(var(--fg)) !important;
+  border-color: rgb(var(--fg)) !important;
+  color: rgb(var(--surface)) !important;
+}
+:root[data-palette='sky'] .ui-segment[aria-selected='true'] .ui-segment-count { color: rgb(var(--surface)) !important; }
+:root[data-palette='sky'] .ui-tab.is-active::after { background-color: rgb(var(--fg)); }
+
+/* The heading sits on the ground: a title is not a document, so it earns no surface. */
+:root[data-palette='sky'] .ui-page-heading {
+  padding: 0.25rem 0 0;
+  margin-bottom: 0.25rem;
+  background: transparent !important;
+  border: 0;
+  box-shadow: none;
+  align-items: center;
+}
+:root[data-palette='sky'] .ui-page-heading .ui-entity-mark {
+  width: 2.5rem;
+  height: 2.5rem;
+  background: rgb(var(--surface-sunken)) !important;
+  color: rgb(var(--fg)) !important;
+  border-radius: var(--radius-btn);
+}
+:root[data-palette='sky'] .ui-btn-secondary {
+  border-color: rgb(var(--border-strong) / 0.45);
+  background: rgb(var(--surface));
+  color: rgb(var(--fg));
+  transition: border-color var(--dur-surface) ease, background-color var(--dur-surface) ease;
+}
+:root[data-palette='sky'] .ui-btn-secondary:hover:not(:disabled) {
+  border-color: rgb(var(--border-strong) / 0.8);
+  background: rgb(var(--surface-sunken));
+  color: rgb(var(--fg));
+}
+:root[data-palette='sky'] .ui-btn-primary {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14), 0 1px 2px rgb(var(--brand) / 0.25);
+}
+:root[data-palette='sky'] .ui-btn-primary:active:not(:disabled) { transform: translateY(1px); }
+:root[data-palette='sky'] .people-directory .ui-datatable > .ui-in {
+  min-height: 12rem;
+  padding-block: 1.25rem;
+}
+:root[data-palette='sky'] .people-directory .ui-datatable > .ui-in .ui-card {
+  box-shadow: none;
+  border-color: rgb(var(--border));
+}
+.people-home h2 { scroll-margin-top: 5rem; }
+.people-face {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 999px;
+  object-fit: cover;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  background: rgb(var(--dept) / 0.13);
+  color: rgb(var(--dept));
+}
+
+/* A panel: one surface, a head, rows split by hairlines. */
+.people-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 0.75rem;
+}
+.people-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(var(--fg-muted));
+  border-radius: var(--radius-btn);
+}
+.people-more:hover { color: rgb(var(--fg)); }
+.people-more:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+.people-empty { padding: 0 1.25rem 1.25rem; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+.people-list { border-top: 1px solid rgb(var(--border)); }
+.people-list > li + li { border-top: 1px solid rgb(var(--border)); }
+.people-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1.25rem;
+  text-align: left;
+}
+.people-row-action { transition: background-color var(--dur-surface) ease; }
+.people-row-action:hover { background: rgb(var(--surface-sunken) / 0.7); }
+.people-row-action:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: -2px; }
+.people-row-count {
+  display: grid;
+  place-items: center;
+  flex: none;
+  min-width: 2.75rem;
+  height: 2.25rem;
+  padding: 0 0.5rem;
+  border-radius: var(--radius-btn);
+  background: rgb(var(--surface-sunken));
+  color: rgb(var(--fg));
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.people-approval {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.875rem 1.25rem;
+}
+.people-name-link { font-weight: 600; color: rgb(var(--fg)); border-radius: 4px; }
+.people-name-link:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Meet the team. */
+.people-dot { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: rgb(var(--dept)); flex: none; }
+
+/* Celebrate. */
+.people-celebrate-face { position: relative; flex: none; }
+.people-celebrate-badge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  display: grid;
+  place-items: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px rgb(var(--surface));
+}
+.people-celebrate-badge { background: rgb(var(--butter)); color: rgb(var(--butter-ink)); }
+
+/* Teams: the company as one bar; a slice or a name picks the team above. */
+@media (max-width: 640px) {
+  .people-approval { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .people-member, .people-kpi, .people-row-action, .people-pulse-seg { transition: none; }
+}
+:root[data-theme='dark'][data-palette='sky'] .ui-segment[aria-selected='true'] .ui-segment-count {
+  background-color: rgb(0 0 0 / 0.16) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+
+.people-soft { display: flex; flex-direction: column; gap: 1.75rem; }
+
+/* The head: date as a small tag, the greeting large, actions as pills. */
+.soft-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+
+.soft-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.75rem;
+  padding: 0 1.125rem;
+  border-radius: 999px;
+  background: rgb(var(--surface));
+  box-shadow: 0 0 0 1px rgb(var(--soft-ring)), 0 1px 2px rgb(24 24 27 / 0.04);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(var(--fg));
+  transition: transform 500ms var(--soft-ease), box-shadow 500ms var(--soft-ease), background-color 300ms var(--soft-ease);
+}
+.soft-pill:hover { box-shadow: 0 0 0 1px rgb(var(--soft-ring)), var(--soft-ambient); }
+.soft-pill:active { transform: scale(0.98); }
+.soft-pill:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 3px; }
+.soft-pill-primary {
+  gap: 0.75rem;
+  padding: 0 0.375rem 0 1.25rem;
+  background: rgb(var(--brand));
+  color: rgb(var(--on-brand));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 8px 24px -10px rgb(var(--brand) / 0.7);
+  font-weight: 600;
+}
+.soft-pill-primary:hover { box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 12px 32px -10px rgb(var(--brand) / 0.8); }
+.soft-pill-orb {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.18);
+  transition: transform 500ms var(--soft-ease);
+}
+.soft-pill-primary:hover .soft-pill-orb { transform: translate(2px, -1px) scale(1.05); }
+
+/* Bento: a hero, four tiles, then lists of uneven width. */
+
+.soft-bezel {
+  padding: var(--soft-pad);
+  border-radius: var(--soft-r);
+  background: rgb(var(--soft-tray));
+  box-shadow: 0 0 0 1px rgb(var(--soft-ring));
+}
+.soft-core {
+  display: block;
+  width: 100%;
+  border-radius: calc(var(--soft-r) - var(--soft-pad));
+  background: rgb(var(--surface));
+  box-shadow: var(--soft-highlight), var(--soft-ambient);
+  overflow: hidden;
+  text-align: left;
+}
+.soft-core-action {
+  transition: transform 600ms var(--soft-ease), box-shadow 600ms var(--soft-ease);
+}
+.soft-core-action:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) {
+  .soft-core-action:hover { transform: translateY(-3px); box-shadow: var(--soft-highlight), var(--soft-ambient-hi); }
+}
+.soft-core-action:active { transform: scale(0.99); }
+
+.soft-label { font-size: 0.8125rem; font-weight: 500; color: rgb(var(--fg-muted)); }
+.soft-note { display: block; font-size: 0.8125rem; line-height: 1.125rem; color: rgb(var(--fg-muted)); }
+.people-soft .people-list { border-top: 1px solid rgb(var(--soft-ring)); }
+.people-soft .people-list > li + li { border-top: 1px solid rgb(var(--soft-ring)); }
+.people-soft .people-row, .people-soft .people-approval { padding-inline: 1.5rem; }
+.people-soft .people-row-count { border-radius: 0.75rem; }
+.soft-back {
+  flex: none;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  background: rgb(var(--surface-sunken));
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgb(var(--fg-muted));
+  white-space: nowrap;
+}
+.soft-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 2rem;
+  padding: 0 0.875rem;
+  border-radius: 999px;
+  background: rgb(var(--surface));
+  box-shadow: 0 0 0 1px rgb(var(--soft-ring));
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgb(var(--fg));
+  transition: transform 400ms var(--soft-ease), background-color 300ms var(--soft-ease), box-shadow 300ms var(--soft-ease);
+}
+.soft-chip:hover:not(:disabled) { background: rgb(var(--surface-sunken)); }
+.soft-chip:active:not(:disabled) { transform: scale(0.96); }
+.soft-chip:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+.soft-chip-pos { color: rgb(var(--pos)); box-shadow: 0 0 0 1px rgb(var(--pos) / 0.3); }
+.soft-chip-pos:hover:not(:disabled) { background: rgb(var(--pos-soft)); }
+.soft-chip:disabled { opacity: 0.6; }
+
+/*
+ * The band: no surface of its own (owner, 28 Oct 2026). The greeting sits on
+ * the ground; the day's four numbers are white tiles beneath it.
+ */
+.soft-band-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.25rem 2rem;
+}
+.soft-band-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  height: 1.625rem;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  background: rgb(var(--surface));
+  box-shadow: 0 0 0 1px rgb(var(--soft-ring));
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgb(var(--fg-muted));
+}
+.people-soft h1.soft-band-title {
+  margin-top: 0.875rem;
+  /* The shared h1 rule is !important; the greeting answers it here only. */
+  font-size: 1.875rem !important;
+  line-height: 1.2 !important;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  color: rgb(var(--fg));
+}
+.soft-band-sub { margin-top: 0.375rem; font-size: 0.9375rem; line-height: 1.5rem; color: rgb(var(--fg-muted)); }
+.soft-band-sub strong { color: rgb(var(--fg)); font-weight: 600; }
+.soft-band-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+.soft-band-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1.125rem 1.25rem;
+  text-align: left;
+  border-radius: 1.25rem;
+  background: rgb(var(--surface));
+  box-shadow: 0 0 0 1px rgb(var(--soft-ring)), var(--soft-ambient);
+  color: rgb(var(--fg));
+  transition: transform 600ms var(--soft-ease), box-shadow 600ms var(--soft-ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .soft-band-stat:hover { transform: translateY(-3px); box-shadow: 0 0 0 1px rgb(var(--soft-ring)), var(--soft-ambient-hi); }
+}
+.soft-band-stat:active { transform: scale(0.99); }
+.soft-band-stat:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 3px; }
+.soft-band-stat-label { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; font-weight: 500; color: rgb(var(--fg-muted)); }
+.soft-band-stat-label > svg { padding: 0.3rem; width: 1.75rem; height: 1.75rem; border-radius: 999px; background: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
+.soft-band-stat[data-tone='info'] .soft-band-stat-label > svg { background: rgb(var(--info-soft)); color: rgb(var(--info)); }
+.soft-band-stat[data-tone='warn'] .soft-band-stat-label > svg { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+.soft-band-stat[data-tone='pos'] .soft-band-stat-label > svg { background: rgb(var(--butter-soft)); color: rgb(var(--butter-ink)); }
+.soft-band-stat[data-tone='neg'] .soft-band-stat-label > svg { background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
+.soft-band-stat-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.375rem; }
+.soft-band-stat-value { font-size: 1.625rem; line-height: 2rem; font-weight: 700; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; }
+.soft-band-stat-note { font-size: 0.8125rem; line-height: 1.125rem; color: rgb(var(--fg-muted)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.soft-faces { display: flex; }
+.soft-faces > * { margin-left: -0.375rem; box-shadow: 0 0 0 2px rgb(var(--surface)); background-color: rgb(var(--surface)); }
+.soft-faces > *:first-child { margin-left: 0; }
+.soft-faces .people-face { background-image: linear-gradient(rgb(var(--dept) / 0.14), rgb(var(--dept) / 0.14)); }
+
+/* Growth: the headcount, the year as an area, and the teams. */
+.soft-chart { position: relative; display: flex; flex-direction: column; min-height: 12rem; margin: 0; }
+.soft-chart svg { flex: 1; width: 100%; min-height: 10rem; overflow: visible; }
+.soft-chart-line { stroke: rgb(var(--brand)); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: soft-draw 1600ms var(--soft-ease) 300ms forwards; }
+.soft-chart-dot {
+  position: absolute;
+  width: 0.875rem;
+  height: 0.875rem;
+  margin: -0.4375rem 0 0 -0.4375rem;
+  border-radius: 999px;
+  background: rgb(var(--brand));
+  box-shadow: 0 0 0 4px rgb(var(--surface)), 0 0 0 9px rgb(var(--brand) / 0.18);
+}
+.soft-chart-tip {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: rgb(var(--fg));
+  color: rgb(var(--surface));
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.soft-chart-axis { display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.6875rem; color: rgb(var(--fg-subtle)); }
+
+.people-soft .people-pill-today, .people-soft .ui-pill-info { background: rgb(var(--butter-soft)); color: rgb(var(--butter-ink)); }
+
+/* Company insights: four small readings of the directory, side by side. */
+.soft-insight { display: flex; flex-direction: column; gap: 0.75rem; padding: 1.125rem 1.5rem 1.375rem; min-width: 0; }
+.soft-insight + .soft-insight { border-left: 1px solid rgb(var(--soft-ring)); }
+.soft-split { display: flex; gap: 3px; height: 0.625rem; }
+.soft-split > span { flex-basis: 0; border-radius: 4px; background: rgb(var(--dept)); }
+.soft-insight-list { display: grid; gap: 0.375rem; font-size: 0.8125rem; }
+.soft-insight-list li { display: flex; align-items: center; gap: 0.5rem; color: rgb(var(--fg)); }
+.soft-insight-list b, .soft-bars b { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+.soft-bars { display: grid; gap: 0.5rem; font-size: 0.8125rem; }
+.soft-bars li { display: grid; grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr) 1.5rem; align-items: center; gap: 0.625rem; color: rgb(var(--fg)); }
+.soft-bars li > span:first-child { color: rgb(var(--fg-muted)); }
+.soft-bar { height: 0.375rem; border-radius: 999px; background: rgb(var(--surface-sunken)); overflow: hidden; }
+.soft-bar > span { display: block; height: 100%; border-radius: 999px; background: rgb(var(--fg) / 0.7); }
+
+/* Announcements: the newest pinned in butter, the rest quiet. */
+.soft-news { display: flex; align-items: flex-start; gap: 0.875rem; width: 100%; padding: 1rem 1.5rem; text-align: left; transition: background-color 300ms var(--soft-ease); }
+.soft-news:hover { background: rgb(var(--surface-sunken) / 0.7); }
+.soft-news:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: -2px; }
+.soft-news-icon { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: 0.75rem; background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); }
+.soft-news-icon[data-first] { background: rgb(var(--butter-soft)); color: rgb(var(--butter-ink)); }
+.soft-news-title { display: block; font-size: 0.875rem; font-weight: 600; color: rgb(var(--fg)); }
+.soft-news-body { display: -webkit-box; margin-top: 0.125rem; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.soft-news-meta { display: block; margin-top: 0.375rem; font-size: 0.75rem; color: rgb(var(--fg-subtle)); }
+
+/* Coming up: a date tile per event; Fun Friday wears butter. */
+.soft-events { display: grid; gap: 0.5rem; padding: 0 1rem 1rem; }
+.soft-event { display: flex; align-items: center; gap: 0.875rem; width: 100%; padding: 0.625rem; text-align: left; border-radius: 1rem; transition: background-color 300ms var(--soft-ease), transform 500ms var(--soft-ease); }
+.soft-event:hover { background: rgb(var(--surface-sunken) / 0.8); }
+.soft-event:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 0; }
+.soft-event[data-fun] { background: rgb(var(--butter-soft) / 0.55); }
+.soft-event[data-fun]:hover { background: rgb(var(--butter-soft)); }
+.soft-event-date { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; width: 3rem; height: 3.25rem; border-radius: 0.875rem; background: rgb(var(--surface)); box-shadow: 0 0 0 1px rgb(var(--soft-ring)); }
+.soft-event-date b { font-size: 1.125rem; line-height: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
+.soft-event-date span { font-size: 0.6875rem; font-weight: 600; color: rgb(var(--brand-ink)); }
+.soft-event[data-fun] .soft-event-date span { color: rgb(var(--butter-ink)); }
+.soft-fun { display: inline-flex; align-items: center; gap: 0.25rem; margin-bottom: 0.125rem; padding: 0 0.5rem; border-radius: 999px; background: rgb(var(--butter)); color: rgb(var(--butter-ink)); font-size: 0.6875rem; font-weight: 700; line-height: 1.125rem; }
+.soft-event-title { display: block; font-size: 0.875rem; font-weight: 600; color: rgb(var(--fg)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.soft-event-meta { display: block; font-size: 0.75rem; color: rgb(var(--fg-muted)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Entry: each block rises out of a soft blur once it scrolls into view. */
+.people-soft [data-reveal] {
+  opacity: 0;
+  transform: translateY(2rem);
+  filter: blur(6px);
+  transition: opacity 900ms var(--soft-ease), transform 900ms var(--soft-ease), filter 900ms var(--soft-ease);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+.people-soft [data-reveal][data-shown] { opacity: 1; transform: none; filter: none; }
+
+@media (max-width: 1279px) {
+  .soft-insight:nth-child(3) { border-left: 0; }
+  .soft-insight:nth-child(n + 3) { border-top: 1px solid rgb(var(--soft-ring)); }
+  .soft-band-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .people-soft h1.soft-band-title { font-size: 1.5rem !important; }
+  .soft-band-stats { grid-template-columns: minmax(0, 1fr); }
+  .soft-insight + .soft-insight { border-left: 0; border-top: 1px solid rgb(var(--soft-ring)); }
+  .people-soft .people-approval { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .people-soft [data-reveal] { opacity: 1; transform: none; filter: none; transition: none; }
+  .soft-chart-line { animation: none; stroke-dashoffset: 0; }
+  .soft-band-stat { transition: none; }
+  .soft-pill, .soft-pill-orb, .soft-core-action, .soft-orb-btn, .soft-chip, .people-soft .people-member { transition: none; }
+  .soft-core-action:hover, .soft-orb-btn:hover, .people-soft .people-member:hover { transform: none; }
+}
+.soft-news-icon[data-symbol] { font-size: 1.125rem; background: rgb(var(--butter-soft, 255 244 199)); }
+
+.soft-emoji { margin-right: 0.375rem; }
+.soft-band-stat[data-tint] {
+  background: linear-gradient(165deg, rgb(var(--tint)) 0%, rgb(var(--surface)) 72%);
+  box-shadow: 0 0 0 1px rgb(var(--tint-ink) / 0.12), var(--soft-ambient);
+}
+.soft-band-stat[data-tint] .soft-band-stat-label > svg { background: rgb(var(--surface)); color: rgb(var(--tint-ink)); box-shadow: 0 0 0 1px rgb(var(--tint-ink) / 0.14); }
+.soft-band-stat[data-tint] .soft-band-stat-value { color: rgb(var(--tint-ink)); }
+.soft-news-icon[data-tint] { background: rgb(var(--tint)); color: rgb(var(--tint-ink)); }
+.soft-event[data-tint]:not([data-fun]) .soft-event-date { background: rgb(var(--tint)); box-shadow: none; }
+.soft-event[data-tint] .soft-event-date span { color: rgb(var(--tint-ink)); }
+.soft-event[data-tint] .soft-event-date b { color: rgb(var(--tint-ink)); }
+.soft-bars[data-tint] .soft-bar { background: rgb(var(--tint)); }
+.soft-bars[data-tint] .soft-bar > span { background: rgb(var(--tint-ink) / 0.75); }
+.people-celebrate-badge[data-kind='anniversary'] { background: rgb(var(--peach-soft)); color: rgb(var(--peach-ink)); }
+
+/*
+ * People → Home, compact (28 Oct 2026): a main column and a news column that
+ * starts at the top, so announcements and events are seen without scrolling.
+ * Tighter rows and smaller figures keep the page close to one screen.
+ */
+.soft-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 24rem);
+  gap: 1.25rem;
+  align-items: start;
+}
+.soft-main, .soft-side { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
+.people-soft .soft-band-stats { gap: 0.875rem; }
+.people-soft .soft-band-stat { padding: 0.875rem 1rem; border-radius: 1.125rem; gap: 0.125rem; }
+.people-soft .soft-band-stat-value { font-size: 1.5rem; line-height: 1.875rem; }
+.people-soft .soft-band-stat-row { margin-top: 0.25rem; }
+.people-soft .soft-band-stat-label { font-size: 0.75rem; }
+.people-soft .soft-band-stat-label > svg { width: 1.5rem; height: 1.5rem; padding: 0.25rem; }
+.people-soft .soft-band-stat-note { font-size: 0.75rem; }
+
+/* Panel heads carry a tinted icon, so each block has its own colour. */
+.people-soft .people-panel-head { padding: 0.875rem 1.25rem 0.625rem; }
+.soft-panel-title { display: flex; align-items: center; gap: 0.625rem; font-size: 0.9375rem; line-height: 1.5rem; font-weight: 700; color: rgb(var(--fg)); }
+.soft-panel-icon { display: grid; place-items: center; flex: none; width: 1.75rem; height: 1.75rem; border-radius: 0.5rem; background: rgb(var(--tint)); color: rgb(var(--tint-ink)); }
+.people-soft .people-row { padding: 0.5625rem 1.25rem; gap: 0.75rem; }
+.people-soft .people-approval { padding: 0.625rem 1.25rem; gap: 0.75rem; }
+.people-soft .people-empty { padding: 0.25rem 1.25rem 1.125rem; font-size: 0.8125rem; }
+.people-soft .soft-news { padding: 0.75rem 1.25rem; gap: 0.75rem; }
+.people-soft .soft-news-icon { width: 2rem; height: 2rem; border-radius: 0.625rem; }
+.people-soft .soft-events { padding: 0 0.75rem 0.75rem; gap: 0.375rem; }
+.people-soft .soft-event { padding: 0.5rem; }
+.people-soft .soft-event-date { width: 2.625rem; height: 2.75rem; border-radius: 0.75rem; }
+.people-soft .soft-event-date b { font-size: 1rem; }
+.people-soft .people-pill-today { display: inline-flex; align-items: center; gap: 0.25rem; }
+.soft-pill[data-tint] > svg { color: rgb(var(--tint-ink)); }
+.people-soft .soft-pill { height: 2.5rem; padding: 0 1rem; }
+.people-soft .soft-pill-primary { padding: 0 0.3125rem 0 1.125rem; }
+.people-soft .soft-pill-orb { width: 1.875rem; height: 1.875rem; }
+
+/* Company snapshot: growth and teams on the left, three readings on the right. */
+.soft-snapshot { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); border-top: 1px solid rgb(var(--soft-ring)); }
+.soft-snap-growth { display: flex; flex-direction: column; gap: 0.625rem; padding: 1rem 1.25rem 1.125rem; min-width: 0; }
+.soft-snap-value { font-size: 2rem; line-height: 2.25rem; font-weight: 700; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
+.soft-snapshot .soft-chart { min-height: 6.5rem; }
+.soft-snapshot .soft-chart svg { min-height: 5rem; }
+.soft-snapshot .soft-chart-axis { margin-top: 0.25rem; }
+.soft-team-bar { display: flex; gap: 2px; height: 0.5rem; }
+.soft-team-bar > span { flex-basis: 0; min-width: 4px; border-radius: 3px; background: rgb(var(--dept)); }
+.soft-team-keys { display: flex; flex-wrap: wrap; gap: 0.25rem 0.875rem; font-size: 0.75rem; color: rgb(var(--fg-muted)); }
+.soft-team-keys li { display: inline-flex; align-items: center; gap: 0.375rem; }
+.soft-team-keys b { font-weight: 600; color: rgb(var(--fg)); font-variant-numeric: tabular-nums; }
+.soft-snap-side { display: flex; flex-direction: column; border-left: 1px solid rgb(var(--soft-ring)); }
+.soft-snap-side .soft-insight { padding: 0.875rem 1.25rem; gap: 0.5rem; }
+.soft-snap-side .soft-insight + .soft-insight { border-left: 0; border-top: 1px solid rgb(var(--soft-ring)); }
+.soft-snap-side .soft-bars { gap: 0.3125rem; font-size: 0.75rem; }
+.soft-snap-side .soft-bars li { grid-template-columns: minmax(0, 6.5rem) minmax(0, 1fr) 1.25rem; }
+.soft-insight-inline { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: 0.75rem; }
+.soft-insight-inline li b { margin-left: 0.375rem; }
+
+@media (max-width: 1279px) {
+  .soft-layout { grid-template-columns: minmax(0, 1fr); }
+  .soft-side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+@media (max-width: 900px) {
+  .soft-pair, .soft-snapshot, .soft-side { grid-template-columns: minmax(0, 1fr); }
+  .soft-snap-side { border-left: 0; border-top: 1px solid rgb(var(--soft-ring)); }
+}
+/* Rail module tiles keep their pastel when current; the rail button itself marks where you are. */
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-mod[data-current] { background: rgb(var(--surface-sunken)); color: rgb(var(--fg)); font-weight: 600; }
+
+/* The module panel: each screen's icon in its own pastel tile; the open screen lifts onto white. */
+:root[data-palette='sky'] .ui-split-item { font-weight: 500; color: rgb(var(--fg)); }
+:root[data-palette='sky'] .ui-split-item > svg[data-tint] {
+  flex: none;
+  background: rgb(var(--tint));
+  color: rgb(var(--tint-ink));
+}
+:root[data-palette='sky'] .ui-split-item:hover { background: rgb(var(--surface-sunken)); }
+:root[data-palette='sky'] .ui-split-item[aria-current='page'] > svg[data-tint] { box-shadow: 0 0 0 1.5px rgb(var(--tint-ink) / 0.5); }
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { background: rgb(var(--app-bg)); }
+
+/*
+ * People type (owner, 28 Oct 2026): Plus Jakarta Sans for what is read as a
+ * heading or a figure, Inter for running text and data. Jakarta's open,
+ * rounded forms suit a people product; Inter keeps tables dense and exact.
+ */
+:root[data-palette='sky'] {
+  --font-display: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+}
+:root[data-palette='sky'] :is(h1, .ui-t-page, .ui-t-sec, .soft-panel-title, .ui-split-panel-head, .ui-app-switch-name, .soft-band-stat-value, .soft-snap-value, .soft-chart-tip, .soft-event-date b, .people-row-count, .soft-news-title, .soft-event-title) {
+  font-family: var(--font-display);
+}
+:root[data-palette='sky'] .people-soft h1.soft-band-title { font-weight: 800; letter-spacing: -0.03em; }
+:root[data-palette='sky'] .soft-panel-title { font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; }
+:root[data-palette='sky'] .soft-band-stat-value, :root[data-palette='sky'] .soft-snap-value { font-weight: 800; letter-spacing: -0.02em; }
+:root[data-palette='sky'] .soft-band-eyebrow, :root[data-palette='sky'] .soft-band-stat-label { letter-spacing: 0.01em; }
+:root[data-palette='sky'] .ui-split-mod { font-family: var(--font-display); font-weight: 600; }
+:root[data-palette='sky'] .ui-split-panel :is(p.ui-caption) { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.06em; color: rgb(var(--fg-subtle)); }
+
+
+/* Out today: a strip of small cards, one per person away, so the block stays short. */
+.soft-out { display: grid; grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr)); gap: 0.625rem; padding: 0 1.25rem 1.125rem; }
+.soft-out-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.75rem;
+  text-align: left;
+  border-radius: 1rem;
+  background: rgb(var(--mint-soft) / 0.45);
+  box-shadow: inset 0 0 0 1px rgb(var(--mint-ink) / 0.1);
+  transition: transform 500ms var(--soft-ease), background-color 300ms var(--soft-ease);
+}
+.soft-out-card:hover { background: rgb(var(--mint-soft)); transform: translateY(-2px); }
+.soft-out-card:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+.soft-out-card .soft-back { display: inline-block; margin-top: 0.375rem; background: rgb(var(--surface)); }
+/* The snapshot chart takes whatever height its column leaves. */
+.soft-snap-growth .soft-chart { flex: 1; }
+@media (prefers-reduced-motion: reduce) { .soft-out-card { transition: none; } .soft-out-card:hover { transform: none; } }
+/* More apps closes the rail: Settings rises to sit just above it, both at the foot. */
+:root[data-palette='sky'] .ui-split-rail > .ui-split-mod[data-more] > svg { background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); }
+
+
+/*
+ * Every People page in Home's language (owner, 28 Oct 2026): pill buttons,
+ * tables on a soft white card, pill tabs, rounded fields, Jakarta headings.
+ * Scoped to the Sky palette's content area, so Accounting, Payroll and
+ * Attendance keep their own look.
+ */
+:root[data-palette='sky'] #main-content {
+  --soft-card-r: 1.25rem;
+}
+/* Buttons: pills. Primary keeps Sky with a soft glow; secondary is white on a hairline ring. */
+:root[data-palette='sky'] #main-content .ui-btn:not(.ui-icon-btn) { border-radius: 999px; padding-inline: 1.125rem; font-weight: 600; transition: transform 300ms var(--soft-ease), box-shadow 300ms var(--soft-ease), background-color 200ms ease; }
+:root[data-palette='sky'] #main-content .ui-btn:not(.ui-icon-btn):active:not(:disabled) { transform: scale(0.98); }
+:root[data-palette='sky'] #main-content .ui-btn-primary { box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 8px 20px -10px rgb(var(--brand) / 0.7); }
+:root[data-palette='sky'] #main-content .ui-btn-secondary { border-color: transparent; background: rgb(var(--surface)); box-shadow: 0 0 0 1px rgb(var(--soft-ring)), 0 1px 2px rgb(24 24 27 / 0.04); }
+:root[data-palette='sky'] #main-content .ui-btn-secondary:hover:not(:disabled) { background: rgb(var(--surface)); box-shadow: 0 0 0 1px rgb(var(--soft-ring)), var(--soft-ambient); }
+:root[data-palette='sky'] #main-content .ui-btn-primary > svg, :root[data-palette='sky'] #main-content .ui-btn-secondary > svg { flex: none; }
+:root[data-palette='sky'] #main-content .ui-btn-secondary > svg { color: rgb(var(--brand-deep)); }
+
+/* Fields: softer corners, a calm ring, a Sky focus. */
+:root[data-palette='sky'] #main-content :is(.ui-input, .ui-select, textarea.ui-input) { border-radius: 0.75rem; border-color: rgb(var(--border)); background: rgb(var(--surface)); }
+:root[data-palette='sky'] #main-content .ui-search-field .ui-input { border-radius: 999px; box-shadow: 0 1px 2px rgb(24 24 27 / 0.03); }
+:root[data-palette='sky'] #main-content :is(.ui-input, .ui-select):focus { border-color: rgb(var(--brand)); box-shadow: 0 0 0 3px rgb(var(--brand) / 0.15); }
+
+/* Headings and breadcrumbs. */
+:root[data-palette='sky'] #main-content .ui-page-heading .ui-t-page { font-weight: 800 !important; letter-spacing: -0.03em; }
+:root[data-palette='sky'] #main-content .ui-breadcrumb { color: rgb(var(--fg-muted)); }
+:root[data-palette='sky'] #main-content .ui-breadcrumb [aria-current='page'] { color: rgb(var(--brand-deep)); font-weight: 600; }
+
+/* Tabs: a row of pills on a soft tray instead of an underline. */
+:root[data-palette='sky'] #main-content .ui-record-tablist {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(var(--soft-tray));
+  box-shadow: 0 0 0 1px rgb(var(--soft-ring));
+}
+:root[data-palette='sky'] #main-content .ui-record-tablist::after { display: none; }
+:root[data-palette='sky'] #main-content .ui-record-tablist .ui-tab { padding: 0 1rem; border-radius: 999px; font-weight: 500; color: rgb(var(--fg-muted)); }
+:root[data-palette='sky'] #main-content .ui-record-tablist .ui-tab::after { display: none; }
+:root[data-palette='sky'] #main-content .ui-record-tablist .ui-tab.is-active,
+:root[data-palette='sky'] #main-content .ui-record-tablist [role='tab'][aria-selected='true'] { background: rgb(var(--surface)); color: rgb(var(--fg)); font-weight: 600; box-shadow: 0 1px 3px rgb(24 24 27 / 0.08), 0 0 0 1px rgb(var(--soft-ring)); }
+:root[data-palette='sky'] #main-content .ui-record-tablist .ui-tab-indicator { display: none; }
+
+/* Tables: the list sits on one soft white card with a tinted head row. */
+:root[data-palette='sky'] #main-content .ui-datatable-toolbar { margin-bottom: 0.75rem; }
+:root[data-palette='sky'] #main-content .ui-table thead th,
+:root[data-palette='sky'] #main-content .ui-table thead .ui-th {
+  background: rgb(var(--sky-soft) / 0.55) !important;
+  color: rgb(var(--fg-muted));
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid rgb(var(--soft-ring));
+}
+:root[data-palette='sky'] #main-content .ui-table tbody tr { transition: background-color 200ms ease; }
+:root[data-palette='sky'] #main-content .ui-table tbody td { border-color: rgb(var(--soft-ring)); }
+:root[data-palette='sky'] #main-content .ui-table tbody td:first-child, :root[data-palette='sky'] #main-content .ui-table tbody td:nth-child(2) { font-weight: 500; }
+
+/* Cards and panels: the soft white surface, no hard edge. */
+:root[data-palette='sky'] #main-content :is(.ui-card, .ui-stat, .ui-panel):not(.people-soft *) {
+  border-color: transparent;
+  border-radius: var(--soft-card-r);
+  box-shadow: 0 0 0 1px rgb(var(--soft-ring)), var(--soft-ambient);
+}
+
+/* Empty states: the picture sits in a soft sky circle. */
+:root[data-palette='sky'] .ui-split-mod > span { white-space: normal; text-align: center; line-height: 1.1; max-width: 4.5rem; }
+
+
+/* Metric strips on list pages: a soft card, each figure's icon in its own pastel tile, as on Home. */
+:root[data-palette='sky'] #main-content .ui-metric-strip { overflow: hidden; }
+:root[data-palette='sky'] #main-content .ui-metric-strip > * { --tint: var(--sky-soft); --tint-ink: var(--sky-ink); }
+:root[data-palette='sky'] #main-content .ui-metric-strip > :nth-child(5n + 2) { --tint: var(--mint-soft); --tint-ink: var(--mint-ink); }
+:root[data-palette='sky'] #main-content .ui-metric-strip > :nth-child(5n + 3) { --tint: var(--butter-soft); --tint-ink: var(--butter-ink); }
+:root[data-palette='sky'] #main-content .ui-metric-strip > :nth-child(5n + 4) { --tint: var(--peach-soft); --tint-ink: var(--peach-ink); }
+:root[data-palette='sky'] #main-content .ui-metric-strip > :nth-child(5n + 5) { --tint: var(--lilac-soft); --tint-ink: var(--lilac-ink); }
+:root[data-palette='sky'] #main-content .ui-metric-icon { flex: none; color: rgb(var(--tint-ink)); }
+:root[data-palette='sky'] #main-content .ui-metric:hover { background: rgb(var(--tint) / 0.35); }
+:root[data-palette='sky'] #main-content .ui-metric strong, :root[data-palette='sky'] #main-content .ui-metric-value { font-family: var(--font-display); font-weight: 800; }
+
+/*
+ * People, one rhythm on every page (owner, 28 Oct 2026): content starts high,
+ * blocks sit 16px apart, one button height, one compact figures strip, and no
+ * explanatory caption under a page title (the screen says what it is).
+ */
+:root[data-palette='sky'] #main-content { padding-top: 1rem; }
+:root[data-palette='sky'] #main-content .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+:root[data-palette='sky'] #main-content .ui-page-heading { margin-bottom: 0; padding-top: 0; min-height: 0; }
+:root[data-palette='sky'] #main-content .ui-page-heading .ui-t-page { font-size: 1.5rem !important; line-height: 2rem !important; }
+:root[data-palette='sky'] #main-content .ui-page-heading p.ui-muted { display: none; }
+:root[data-palette='sky'] #main-content .ui-breadcrumb { margin-bottom: 0.125rem; font-size: 0.75rem; }
+:root[data-palette='sky'] #main-content .ui-btn:not(.ui-icon-btn):not(.ui-btn-sm) { height: 2.25rem; min-height: 2.25rem; padding-inline: 1rem; font-size: 0.875rem; }
+:root[data-palette='sky'] #main-content .ui-btn-sm:not(.ui-icon-btn) { height: 1.875rem; min-height: 1.875rem; padding-inline: 0.75rem; font-size: 0.8125rem; }
+:root[data-palette='sky'] #main-content .ui-search-field .ui-input { height: 2.25rem; }
+:root[data-palette='sky'] #main-content .ui-record-tablist .ui-tab { height: 1.875rem; font-size: 0.8125rem; }
+:root[data-palette='sky'] #main-content .ui-metric { padding: 0.625rem 0.875rem; gap: 0.625rem; }
+:root[data-palette='sky'] #main-content .ui-metric-value { font-size: 1.25rem; }
+:root[data-palette='sky'] #main-content .ui-metric-label { font-size: 0.75rem; white-space: nowrap; }
+:root[data-palette='sky'] #main-content .ui-table tbody td { padding-block: 0.5rem; }
+
+/* Sidebar: smaller marks and type, so longer names fit without spilling. */
+:root[data-palette='sky'] .ui-split-mod { font-size: 0.6875rem; padding: 0.375rem 0.125rem; gap: 0.25rem; }
+:root[data-palette='sky'] .ui-split-mod > span { font-size: 0.6875rem; font-weight: 600; letter-spacing: -0.005em; }
+:root[data-palette='sky'] .ui-split-item { min-height: 2.125rem; padding: 0.3125rem 0.625rem; font-size: 0.8125rem; }
+:root[data-palette='sky'] .ui-split-item > svg[data-tint] { width: 1.5rem; height: 1.5rem; padding: 0.25rem; border-radius: 0.4375rem; }
+:root[data-palette='sky'] .ui-split-panel :is(p.ui-caption) { font-size: 0.6875rem; padding-top: 0.75rem; }
+:root[data-palette='sky'] .ui-split-panel-head { font-size: 0.9375rem; }
+
+/* Outline lists (Organisation overview and the like) sit on the same soft card as tables. */
+:root[data-palette='sky'] #main-content .ui-org-outline { border: 0; }
+:root[data-palette='sky'] #main-content section > .flex .ui-t-sec, :root[data-palette='sky'] #main-content section > h2.ui-t-sec { font-family: var(--font-display); font-size: 1rem; font-weight: 700; }
+:root[data-palette='sky'] #main-content .ui-attention { padding: 0.5rem 0.875rem; border: 0; }
+
+/* Settings: one icon tile size on every card, soft cards, no section captions. */
+:root[data-palette='sky'] #main-content .ui-settings-note { display: none; }
+:root[data-palette='sky'] #main-content button.ui-card > svg:first-child,
+:root[data-palette='sky'] #main-content a.ui-card > svg:first-child {
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0.5rem;
+  border-radius: 0.625rem;
+  background: rgb(var(--tint, var(--surface-sunken)));
+  color: rgb(var(--tint-ink, var(--fg)));
+}
+:root[data-palette='sky'] #main-content button.ui-card, :root[data-palette='sky'] #main-content a.ui-card { align-items: center; transition: transform 300ms var(--soft-ease), box-shadow 300ms var(--soft-ease); }
+:root[data-palette='sky'] #main-content button.ui-card:hover, :root[data-palette='sky'] #main-content a.ui-card:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgb(var(--soft-ring)), var(--soft-ambient-hi); }
+
+/*
+ * People lists, page-scrolled (owner, 28 Oct 2026): a table is as tall as its
+ * rows and the page scrolls, never a box inside the page; it fits the width,
+ * wrapping long text rather than scrolling sideways; its head row sticks under
+ * the bar. Tabs and the search/filter toolbar share one row, so rows start high.
+ */
+:root[data-palette='sky'] #main-content .ui-table-scroll {
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0;
+  overflow: visible;
+}
+:root[data-palette='sky'] #main-content .ui-table { width: 100%; table-layout: auto; }
+:root[data-palette='sky'] #main-content .ui-table :is(td, th) { white-space: normal; overflow-wrap: break-word; }
+:root[data-palette='sky'] #main-content .ui-table thead th { position: sticky; top: var(--platform-bar, 3.5rem); z-index: var(--z-sticky, 20); }
+:root[data-palette='sky'] #main-content .ui-table thead th:first-child { border-top-left-radius: var(--soft-card-r); }
+:root[data-palette='sky'] #main-content .ui-table thead th:last-child { border-top-right-radius: var(--soft-card-r); }
+:root[data-palette='sky'] #main-content .ui-table tbody tr:last-child td:first-child { border-bottom-left-radius: var(--soft-card-r); }
+:root[data-palette='sky'] #main-content .ui-table tbody tr:last-child td:last-child { border-bottom-right-radius: var(--soft-card-r); }
+
+/* One row for tabs and toolbar: the list's wrapper steps aside (display: contents) so both sit in the page grid. */
+:root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 1rem;
+  row-gap: 0.75rem;
+  align-items: center;
+}
+:root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > * { grid-column: 1 / -1; margin-top: 0 !important; }
+:root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-record-tablist { grid-column: 1; justify-self: start; }
+:root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-datatable { display: contents; }
+:root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-datatable > * { grid-column: 1 / -1; }
+:root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-datatable > .ui-datatable-toolbar { grid-column: 2; padding: 0; margin: 0; }
+:root[data-palette='sky'] #main-content .ui-datatable-toolbar { padding-block: 0; }
+:root[data-palette='sky'] #main-content .ui-table thead th { white-space: nowrap; }
+
+/* The module panel is a menu, not a page: narrower, so the work area gets the width (owner, 28 Oct 2026). */
+@media (min-width: 768px) {
+  :root[data-palette='sky'] .ui-split-panel { width: 13.25rem; padding-inline: 0.5rem; }
+  :root[data-palette='sky'] .ui-split-panel-head { padding-inline: 0.5rem; }
+}
+
+/*
+ * Attendance, read at a glance (28 Oct 2026): one bar for the whole day's
+ * statuses (each also a filter), each person's day as a line on a 7 am–9 pm
+ * axis with the usual shift shaded, and the month as a heatmap whose cells
+ * still carry their letter, so colour is never the only signal.
+ */
+.att-summary { display: flex; flex-direction: column; gap: 0.625rem; padding: 0.875rem 1rem; border-radius: var(--soft-card-r, 1rem); background: rgb(var(--surface)); box-shadow: 0 0 0 1px rgb(var(--soft-ring, 24 24 27 / 0.06)), var(--soft-ambient, none); }
+#main-content .att-summary ~ [role='tablist'], .att-summary ~ [role='tablist'] { display: none !important; }
+.att-summary-bar { display: flex; gap: 3px; height: 0.625rem; }
+.att-summary-bar > span { flex-basis: 0; min-width: 4px; border-radius: 4px; }
+.att-summary [data-tone='pos'] { --t: var(--pos); }
+.att-summary [data-tone='warn'] { --t: var(--warn); }
+.att-summary [data-tone='info'] { --t: var(--info); }
+.att-summary [data-tone='neg'] { --t: var(--neg); }
+.att-summary [data-tone='none'] { --t: var(--border-strong); }
+.att-summary-bar > span { background: rgb(var(--t)); }
+.att-summary-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; font-size: 0.8125rem; }
+.att-summary-keys button { display: inline-flex; align-items: center; gap: 0.4rem; height: 1.875rem; padding: 0 0.625rem; border-radius: 999px; color: rgb(var(--fg-muted)); transition: background-color 200ms ease, color 200ms ease; }
+.att-summary-keys button:hover { background: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
+.att-summary-keys button[aria-pressed='true'] { background: rgb(var(--t) / 0.12); color: rgb(var(--fg)); font-weight: 600; }
+.att-summary-keys button:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 1px; }
+.att-summary-keys i { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: rgb(var(--t)); }
+.att-summary-keys b { font-weight: 700; color: rgb(var(--fg)); font-variant-numeric: tabular-nums; }
+.att-summary-late { margin-left: auto; padding: 0.125rem 0.625rem; border-radius: 999px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); font-weight: 600; }
+
+.att-face { display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 999px; background: rgb(var(--brand-soft)); color: rgb(var(--brand-deep)); font-size: 0.6875rem; font-weight: 700; }
+.att-line { position: relative; display: block; min-width: 9rem; height: 0.625rem; border-radius: 999px; background: rgb(var(--surface-sunken)); overflow: hidden; }
+.att-line-shift { position: absolute; top: 0; bottom: 0; background: rgb(var(--border-strong) / 0.35); }
+.att-line-span { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: rgb(var(--pos)); }
+.att-line-span[data-late] { background: linear-gradient(90deg, rgb(var(--warn)) 0 18%, rgb(var(--pos)) 18% 100%); }
+.att-line-span[data-open] { background-image: repeating-linear-gradient(135deg, rgb(var(--pos)) 0 6px, rgb(var(--pos) / 0.55) 6px 12px); }
+.att-late { margin-left: 0.375rem; padding: 0 0.3rem; border-radius: 999px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); font-size: 0.6875rem; font-weight: 600; }
+.att-act-in { color: rgb(var(--pos)); }
+.att-mark { width: auto; min-width: 6.5rem; }
+
+.att-cell { display: inline-grid; place-items: center; width: 1.375rem; height: 1.375rem; border-radius: 0.3125rem; font-size: 0.6875rem; font-weight: 700; background: rgb(var(--surface-sunken) / 0.6); color: rgb(var(--fg-subtle)); }
+.att-cell[data-s='PRESENT'] { background: rgb(var(--pos) / 0.16); color: rgb(var(--pos)); }
+.att-cell[data-s='HALF_DAY'] { background: rgb(var(--warn) / 0.18); color: rgb(var(--warn-ink)); }
+.att-cell[data-s='ABSENT'] { background: rgb(var(--neg) / 0.15); color: rgb(var(--neg)); }
+.att-cell[data-s='ON_LEAVE'] { background: rgb(var(--info) / 0.15); color: rgb(var(--info)); }
+.att-cell[data-s='HOLIDAY'], .att-cell[data-s='WEEKLY_OFF'] { background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); }
+
+/* Structure lists: a coloured initial per row, the head's face, and each row's size as a bar against the largest. */
+.org-tile { display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 0.625rem; background: rgb(var(--tint, var(--sky-soft))); color: rgb(var(--tint-ink, var(--sky-ink))); font-family: var(--font-display, inherit); font-weight: 800; font-size: 0.8125rem; }
+
+/* Overview cards (Organisation): one per department or branch, size and share at a glance; the whole card opens its people. */
+.org-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr)); gap: 0.75rem; }
+.org-cards-sm { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
+.org-card {
+  display: flex; flex-direction: column; gap: 0.375rem; width: 100%; height: 100%;
+  padding: 0.875rem 1rem; text-align: left; border-radius: 1rem;
+  background: linear-gradient(170deg, rgb(var(--tint) / 0.55) 0%, rgb(var(--surface)) 55%);
+  box-shadow: 0 0 0 1px rgb(var(--tint-ink) / 0.1), var(--soft-ambient, none);
+  transition: transform 400ms var(--soft-ease, ease), box-shadow 400ms var(--soft-ease, ease);
+}
+@media (hover: hover) and (pointer: fine) { .org-card:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgb(var(--tint-ink) / 0.2), var(--soft-ambient-hi, none); } }
+.org-card:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+.org-card-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.org-card .org-tile { background: rgb(var(--surface)); color: rgb(var(--tint-ink)); box-shadow: 0 0 0 1px rgb(var(--tint-ink) / 0.15); }
+.org-card-n { font-family: var(--font-display, inherit); font-size: 1.5rem; line-height: 1.75rem; font-weight: 800; color: rgb(var(--tint-ink)); }
+.org-card-name { font-weight: 700; color: rgb(var(--fg)); }
+.org-card-head { font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.org-card-bar { height: 0.375rem; margin-top: 0.25rem; border-radius: 999px; background: rgb(var(--tint) / 0.8); overflow: hidden; }
+.org-card-bar > span { display: block; height: 100%; border-radius: 999px; background: rgb(var(--tint-ink) / 0.8); }
+@media (prefers-reduced-motion: reduce) { .org-card { transition: none; } .org-card:hover { transform: none; } }
+
+/*
+ * People working screens (owner, 28 Oct 2026). Everything below is keyed on
+ * the Sky palette, so it reaches People only: Payroll, Attendance and
+ * Accounting keep their own look.
+ *
+ * Density: less empty space, more rows. 6px row padding (a name over an
+ * email is 46px, was 55), a slimmer module panel, a 12px rhythm between the
+ * blocks a list page stacks, and a tighter frame round the page.
+ */
+:root[data-palette='sky'] { --row-pad-y: 0.375rem; }
+:root[data-palette='sky'][data-density='compact'] { --row-pad-y: 0.1875rem; }
+:root[data-palette='sky'] .ui-split-panel { width: 14rem; }
+@media (min-width: 768px) {
+  :root[data-palette='sky'] #main-content:not(.ui-content) { padding: 1rem 1.25rem 1.5rem; }
+}
+:root[data-palette='sky'] #main-content > .space-y-6 > :not([hidden]) ~ :not([hidden]),
+:root[data-palette='sky'] #main-content > div > .space-y-6:only-child > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.75rem;
+}
+
+/* One-line page description, its full text on hover (PageHeader sets the title). */
+:root[data-palette='sky'] .ui-page-heading .ui-entity-mark { display: none; }
+@media (min-width: 768px) {
+  :root[data-palette='sky'] .ui-page-heading .ui-t-body.ui-muted {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-width: 48rem;
+  }
+}
+
+/* Plain line icons (owner, 28 Oct 2026: the pastel tiles did not read as
+   icons). Muted in the panel, the accent on the open screen; the rail the
+   same, at a size a thumb finds. */
+:root[data-palette='sky'] .ui-split-item { gap: 0.625rem; border-radius: var(--radius-btn); }
+:root[data-palette='sky'] .ui-split-item > svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: rgb(var(--fg-muted));
+}
+:root[data-palette='sky'] .ui-split-item[aria-current='page'] {
+  background: rgb(var(--brand-subtle));
+  color: rgb(var(--brand-ink));
+  box-shadow: none;
+}
+:root[data-palette='sky'] .ui-split-item[aria-current='page'] > svg { color: rgb(var(--brand-ink)); box-shadow: none; }
+:root[data-palette='sky'] .ui-split-mod > svg {
+  width: 1.375rem;
+  height: 1.375rem;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: rgb(var(--fg-muted));
+}
+
+/* Figures: one compact strip. */
+:root[data-palette='sky'] .ui-metric { gap: 0.625rem; padding: 0.5rem 0.875rem; }
+:root[data-palette='sky'] .ui-metric-value { font-size: 1.125rem; line-height: 1.375rem; font-variant-numeric: tabular-nums; }
+:root[data-palette='sky'] .ui-metric-label { font-size: 0.75rem; line-height: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Phones: five or six figures in three columns, not three rows of two. */
+@media (max-width: 639px) {
+  :root[data-palette='sky'] .ui-metric-strip:has(> :nth-child(5)) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  :root[data-palette='sky'] .ui-metric-strip:has(> :nth-child(5)) > * { border-right: 1px solid rgb(var(--border)); border-bottom: 1px solid rgb(var(--border)); grid-column: auto; }
+  :root[data-palette='sky'] .ui-metric-strip:has(> :nth-child(5)) > :nth-child(3n) { border-right: 0; }
+  :root[data-palette='sky'] .ui-metric-strip:has(> :nth-child(5)) > :nth-last-child(-n + 3):nth-child(3n + 1),
+  :root[data-palette='sky'] .ui-metric-strip:has(> :nth-child(5)) > :nth-last-child(-n + 3):nth-child(3n + 1) ~ * { border-bottom: 0; }
+  :root[data-palette='sky'] .ui-metric-strip:has(> :nth-child(5)) .ui-metric { padding: 0.5rem 0.625rem; gap: 0.375rem; }
+  :root[data-palette='sky'] .ui-metric-strip:has(> :nth-child(5)) .ui-metric-icon { display: none; }
+}
+
+/*
+ * Full page lists (owner, 28 Oct 2026: "i don't want card type, i want full
+ * page"). A list sits on the page ground under one hairline, as DESIGN.md
+ * says: no rounded white box, no shadow, no card round the table or the
+ * figures. Drawers, forms and documents keep their surfaces.
+ */
+:root[data-palette='sky'] #main-content .ui-table-scroll {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  border-top: 1px solid rgb(var(--border));
+}
+:root[data-palette='sky'] #main-content .ui-table thead th:is(:first-child, :last-child),
+:root[data-palette='sky'] #main-content .ui-table tbody tr:last-child td:is(:first-child, :last-child) { border-radius: 0; }
+:root[data-palette='sky'] #main-content .ui-metric-strip {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  border-block: 1px solid rgb(var(--border));
+}
+:root[data-palette='sky'] #main-content .ui-attention {
+  border-radius: 0;
+  background: transparent;
+  padding-inline: 0;
+  border-bottom: 1px solid rgb(var(--border));
+}
+:root[data-palette='sky'] #main-content .ui-datatable-card { border-radius: 0; box-shadow: none; }
+:root[data-palette='sky'] #main-content .ui-metric-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* Shared list screens that People borrows (Salary Revisions and the like draw
+   with DocumentListShell): the same full page and the same pill tabs as
+   People's own lists, while Payroll keeps its own look. */
+:root[data-palette='sky'] #main-content .document-list-tight > .ui-card.overflow-hidden {
+  /* Not clipped: a clipping box made itself the sticky header's frame and
+     pushed the heading row 56px down into the table. */
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+:root[data-palette='sky'] #main-content .document-list-tight > section[aria-label='Summary'] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0;
+  border-block: 1px solid rgb(var(--border));
+}
+:root[data-palette='sky'] #main-content .document-list-tight > section[aria-label='Summary'] > .ui-card {
+  border: 0;
+  border-right: 1px solid rgb(var(--border));
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding-block: 0.5rem;
+}
+:root[data-palette='sky'] #main-content .document-list-tight > section[aria-label='Summary'] > .ui-card:last-child { border-right: 0; }
+:root[data-palette='sky'] #main-content .document-list-tight > section[aria-label='Summary'] > button.ui-card:hover { background: rgb(var(--surface-sunken)); }
+:root[data-palette='sky'] #main-content .ui-segmented {
+  gap: 0.25rem !important;
+  padding: 0.25rem !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: rgb(var(--soft-tray)) !important;
+  box-shadow: 0 0 0 1px rgb(var(--soft-ring)) !important;
+}
+:root[data-palette='sky'] #main-content .ui-segmented .ui-segment {
+  height: 2rem !important;
+  padding: 0 0.875rem !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: rgb(var(--fg-muted)) !important;
+  font-weight: 500 !important;
+}
+:root[data-palette='sky'] #main-content .ui-segmented .ui-segment[aria-selected='true'] {
+  background: rgb(var(--surface)) !important;
+  color: rgb(var(--fg)) !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 3px rgb(24 24 27 / 0.08), 0 0 0 1px rgb(var(--soft-ring)) !important;
+}
+:root[data-palette='sky'] #main-content .ui-segmented .ui-segment .ui-segment-count { background: rgb(var(--border) / 0.6) !important; color: rgb(var(--fg-muted)) !important; }
+
+/* Column widths (owner, 28 Oct 2026). Every cell stays on one line and the
+   table fills the page: the width left over is shared among the columns in
+   proportion to what each holds, so a wide screen spreads the row evenly
+   instead of leaving a dead band at its right ("gaps in right ... not looks
+   good"). The row menu is 48px at the right edge, the tick box as narrow. A
+   row too long for the screen scrolls sideways in its frame. */
+:root[data-palette='sky'] #main-content .ui-table th { white-space: nowrap; }
+/* Data cells: short columns stay on one line (data-fit, wideTables.js); a long text column may wrap rather than push the table off the page. */
+:root[data-palette='sky'] #main-content .ui-table td:not([data-fit]) { white-space: normal; }
+:root[data-palette='sky'] #main-content .ui-table td .whitespace-normal { white-space: nowrap; }
+:root[data-palette='sky'] #main-content .ui-table :is(th, td) { padding-right: 2rem; }
+:root[data-palette='sky'] #main-content .ui-table :is(th, td):is(.w-10, .w-12) { padding-right: 0.75rem; }
+:root[data-palette='sky'] #main-content .ui-table :is(th, td).w-12 { width: 3rem; min-width: 3rem; }
+:root[data-palette='sky'] #main-content .ui-table :is(th, td).w-10 { width: 2.5rem; }
+
+/* Phones (owner, 28 Oct 2026): the view tabs take their own row and the
+   search the full width under them, not a 70px box squeezed beside them; a
+   borrowed list's figures sit two to a row without their tinted squares. */
+@media (max-width: 639px) {
+  :root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-record-tablist { grid-column: 1 / -1; max-width: 100%; overflow-x: auto; }
+  :root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-datatable > .ui-datatable-toolbar { grid-column: 1 / -1; }
+  :root[data-palette='sky'] #main-content .document-list-tight > section[aria-label='Summary'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  :root[data-palette='sky'] #main-content .document-list-tight > section[aria-label='Summary'] > .ui-card { border-right: 0; min-width: 0; }
+  :root[data-palette='sky'] #main-content .document-list-tight > section[aria-label='Summary'] > .ui-card:nth-child(odd) { border-right: 1px solid rgb(var(--border)); }
+  :root[data-palette='sky'] #main-content .document-list-tight > section[aria-label='Summary'] > .ui-card > span:first-child { display: none; }
+  :root[data-palette='sky'] #main-content .ui-segmented { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+}
+@media (max-width: 639px) {
+  /* Two pickers share a row under the search, not a row each. */
+  :root[data-palette='sky'] #main-content .ui-datatable-toolbar > .flex-1 > div[class*='sm:w-']:not(.ui-search-field) { width: calc(50% - 0.25rem); }
+  :root[data-palette='sky'] #main-content .ui-datatable-toolbar > .flex-1 > div[class*='sm:w-']:not(.ui-search-field):only-of-type,
+  :root[data-palette='sky'] #main-content .ui-datatable-toolbar > .flex-1 > div[class*='sm:w-']:not(.ui-search-field):last-child:nth-child(even) { width: 100%; }
+}
+@media (min-width: 640px) {
+  /* Beside the tabs the search takes what the pickers leave, up to 18rem. */
+  :root[data-palette='sky'] #main-content .ui-datatable-toolbar:has(.ui-datatable-tabs) .ui-search-field { flex: 1 1 11rem; width: auto; max-width: 18rem; }
+  :root[data-palette='sky'] #main-content .ui-datatable-toolbar:has(.ui-datatable-tabs) > .flex-1 > div[class*='sm:w-']:not(.ui-search-field) { width: 9.5rem; flex: none; }
+}
+
+/*
+ * People detail and form screens (owner, 28 Oct 2026: "the same pass on the
+ * detail and form screens"). Same rule as the lists: the page ground, no
+ * white box round a record's tab or a form; hairlines between sections.
+ */
+:root[data-palette='sky'] #main-content .ui-record-tabpanel {
+  margin-top: 0.75rem;
+  padding: 1rem 0 0;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid rgb(var(--border));
+  border-radius: 0;
+  box-shadow: none;
+}
+@media (max-width: 639px) {
+  :root[data-palette='sky'] #main-content .ui-record-tabpanel { padding: 0.75rem 0 0; }
+}
+
+/* Add employee and the other wizards: the form on the page, at a width a
+   name or a phone number needs (two 27rem columns, not two 32rem ones), the
+   step marks round, the Continue bar on the page ground. */
+:root[data-palette='sky'] #main-content .ui-wizard-body {
+  padding: 1rem 0 0;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid rgb(var(--border));
+  border-radius: 0;
+  box-shadow: none;
+}
+:root[data-palette='sky'] #main-content .ui-wizard .ui-form-grid { max-width: 56rem; }
+:root[data-palette='sky'] #main-content .ui-wizard-actions {
+  /* Ends where the form ends, so Continue sits under the fields it sends. */
+  max-width: 56rem;
+  margin: 1.25rem 0 0;
+  padding: 0.75rem 0;
+  background: rgb(var(--app-bg, var(--surface)));
+}
+:root[data-palette='sky'] #main-content .ui-step-mark { border-radius: 999px; width: 1.625rem; height: 1.625rem; }
+:root[data-palette='sky'] #main-content .ui-stepper { gap: 0.5rem 1.25rem; }
+
+/* Drawers and dialogs sit outside the page, so they missed People's buttons
+   and fields (square 4px corners beside the page's round ones). Same look. */
+:root[data-palette='sky'] .ui-scrim .ui-btn:not(.ui-icon-btn) { border-radius: 999px; padding-inline: 1.125rem; font-weight: 600; }
+:root[data-palette='sky'] .ui-scrim .ui-btn-primary { box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 8px 20px -10px rgb(var(--brand) / 0.7); }
+:root[data-palette='sky'] .ui-scrim :is(.ui-input, .ui-select, textarea.ui-input) { border-radius: 0.75rem; border-color: rgb(var(--border)); background: rgb(var(--surface)); }
+:root[data-palette='sky'] .ui-scrim :is(.ui-input, .ui-select):focus { border-color: rgb(var(--brand)); box-shadow: 0 0 0 3px rgb(var(--brand) / 0.15); }
+:root[data-palette='sky'] .ui-scrim .ui-icon-btn { border-radius: var(--radius-btn); }
+/* A record's section edited in place: the same 56rem as Add employee, Save under its fields. */
+:root[data-palette='sky'] #main-content .ui-record-tabpanel form > .ui-form-grid,
+:root[data-palette='sky'] #main-content .ui-record-tabpanel form > .ui-form-grid ~ .flex.justify-end { max-width: 56rem; }
+@media (max-width: 767px) {
+  /* People's tab bar is 57px, not 62: the Continue bar sits on it, no strip of form showing between. */
+  :root[data-palette='sky'] #main-content .ui-wizard-actions { bottom: calc(57px + env(safe-area-inset-bottom)); border-top: 1px solid rgb(var(--border)); }
+}
+
+/*
+ * People colours (owner, 28 Oct 2026: "keep white only", and colours beside
+ * Sky for different purposes so the app looks premium).
+ *
+ * Ground: white. The module panel parts from the page by a hairline, not by
+ * a grey fill.
+ *
+ * One job per colour:
+ *   Teal #0E7C7B    the action: primary buttons, links, focus, where you are
+ *   Ink #1D1D1F     headings and body; weight, not a second colour, ranks them
+ *   Green #1E7F37   approved, active, present, done
+ *   Orange #B25000  waiting, due soon, needs a look (on a cream wash)
+ *   Red #D70015     rejected, overdue, left, a problem
+ *   Purple #8944AB  information, new, drafts and notes
+ * (values in the Sky palette block above; owner, 28 Oct 2026 upgrade)
+ *   Butter #F2C94C  a highlight only: today, a count that wants attention
+ * People (avatars) and categories take the soft washes in turn, so a list of
+ * names has some life without any colour meaning a status.
+ */
+:root[data-palette='sky']:not([data-theme='dark']),
+:root:not([data-theme='dark']) [data-palette='sky'] {
+  --app-bg: 255 255 255;
+  --page-heading-bg: 255 255 255;
+  --fg-heading: 29 29 31;
+}
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { border-right: 1px solid rgb(var(--border)); }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content :is(h1.ui-t-page, .ui-t-sec) { color: rgb(var(--fg-heading)); }
+:root[data-palette='sky'] #main-content .ui-table tbody tr:hover { background: rgb(var(--brand-subtle)); }
+
+/* Initials in one of five washes, picked from the name, the same person always the same colour. */
+:root[data-palette='sky'] .ui-avatar-initials[data-hue='0'] { background-color: rgb(var(--sky-soft)) !important; color: rgb(var(--sky-ink)) !important; }
+:root[data-palette='sky'] .ui-avatar-initials[data-hue='1'] { background-color: rgb(var(--mint-soft)) !important; color: rgb(var(--mint-ink)) !important; }
+:root[data-palette='sky'] .ui-avatar-initials[data-hue='2'] { background-color: rgb(var(--lilac-soft)) !important; color: rgb(var(--lilac-ink)) !important; }
+:root[data-palette='sky'] .ui-avatar-initials[data-hue='3'] { background-color: rgb(var(--peach-soft)) !important; color: rgb(var(--peach-ink)) !important; }
+:root[data-palette='sky'] .ui-avatar-initials[data-hue='4'] { background-color: rgb(var(--butter-soft)) !important; color: rgb(var(--butter-ink)) !important; }
+
+/*
+ * People: finishing states (owner, 28 Oct 2026).
+ * A screen still loading takes the page's shape (a title, then rows) rather
+ * than a boxed card the finished page never shows.
+ */
+:root[data-palette='sky'] [role='status'][aria-label='Loading'] { padding: 1rem 1.25rem; }
+:root[data-palette='sky'] [role='status'][aria-label='Loading'] > .ui-card { border: 0; border-radius: 0; box-shadow: none; background: transparent; padding: 0; }
+:root[data-palette='sky'] [role='status'][aria-label='Loading'] .ui-skel-title { width: 11rem; height: 1.5rem; }
+:root[data-palette='sky'] [role='status'][aria-label='Loading'] .ui-skel-title + div { margin-top: 1.75rem; }
+:root[data-palette='sky'] [role='status'][aria-label='Loading'] .ui-skel-text + .ui-skel-text { margin-top: 2rem; }
+/* An empty list: no header row over nothing, and the empty state's button steps down when the page already has its primary. */
+:root[data-palette='sky'] #main-content .ui-table-fit .ui-table:has(> tbody:empty) > thead { display: none; }
+:root[data-palette='sky'] #main-content:has(.ui-page-heading .ui-btn-primary) .ui-datatable > .ui-in .ui-btn-primary {
+  background-color: rgb(var(--surface)) !important;
+  border-color: rgb(var(--border-strong)) !important;
+  color: rgb(var(--fg)) !important;
+  box-shadow: none;
+}
+:root[data-palette='sky'] #main-content:has(.ui-page-heading .ui-btn-primary) .ui-datatable > .ui-in .ui-btn-primary:hover:not(:disabled) {
+  background-color: rgb(var(--surface-sunken)) !important;
+  border-color: rgb(var(--fg-subtle)) !important;
+  color: rgb(var(--fg)) !important;
+}
+/* A figure at nought steps back, so the ones that are not stand out. */
+:root[data-palette='sky'] #main-content .ui-metric[data-zero] .ui-metric-value { color: rgb(var(--fg-subtle)); font-weight: 600; }
+:root[data-palette='sky'] #main-content .ui-metric[data-zero] .ui-metric-icon { opacity: 0.55; }
+/* Running sentences break evenly, without a lone word on the last line. */
+:root[data-palette='sky'] #main-content :is(p, .ui-caption, .ui-side-sub, .ui-t-sec) { text-wrap-style: pretty; }
+/* Loading rows read as words waiting, not as a grid of filled cells. */
+:root[data-palette='sky'] #main-content .ui-table td > .ui-skel-text { display: block; width: 70%; max-width: 8rem; }
+
+/* Counts and a date's month: the teal wash, so a number reads as part of the page, not a status. */
+:root[data-palette='sky'] :is(.ui-tab-count, .ui-side-count),
+:root[data-palette='sky'] .ui-segment:not([aria-selected='true']) .ui-segment-count {
+  background: rgb(var(--brand-soft)) !important;
+  color: rgb(var(--brand-ink)) !important;
+}
+:root[data-palette='sky'] .ui-side-date > span:first-child {
+  background: rgb(var(--brand-soft));
+  color: rgb(var(--brand-ink));
+}
+@media (max-width: 639px) {
+  :root[data-palette='sky'] .ui-scrim > .ui-drawer-sheet.ui-out-edge { animation-name: ui-sheet-down !important; }
+  /* The grabber says it can be pulled; the header is where it is held (useSheetDrag). */
+  :root[data-palette='sky'] .ui-drawer-sheet .ui-sheet-head { touch-action: none; padding-top: 1.375rem; cursor: grab; }
+  :root[data-palette='sky'] .ui-drawer-sheet .ui-sheet-head:active { cursor: grabbing; }
+  :root[data-palette='sky'] .ui-drawer-sheet .ui-sheet-grabber { display: block; position: absolute; top: 0.5rem; left: 50%; width: 2.25rem; height: 0.3125rem; margin-left: -1.125rem; border-radius: 999px; background: rgb(var(--fg) / 0.2); }
+}
+
+/* 2. Pressed shows on the press, not after it: rows, tabs, the menus, the side panel, figures and chips. Release eases back. */
+:root[data-palette='sky'] :is(.ui-tab, .ui-segment, .ui-split-item, .ui-split-mod, button.ui-side-line, .ui-side-chip, button.ui-side-alert, .ui-side-more, button.ui-metric, .ui-choice-chip) {
+  transition: transform 140ms var(--ease-out), background-color var(--dur-state) ease, color var(--dur-state) ease, box-shadow var(--dur-state) ease;
+}
+:root[data-palette='sky'] :is(.ui-tab, .ui-segment, .ui-split-item, .ui-split-mod, button.ui-side-line, .ui-side-chip, button.ui-side-alert, .ui-side-more, button.ui-metric, .ui-choice-chip):active:not(:disabled) {
+  transform: scale(0.97);
+  transition-duration: 70ms;
+}
+:root[data-palette='sky'] #main-content .ui-table tbody tr.ui-row-click:active > td,
+:root[data-palette='sky'] #main-content .ui-table tbody tr.ui-row-click:active::after {
+  background-color: rgb(var(--brand-soft));
+}
+:root[data-palette='sky'] .ui-popover[data-side='top'] { animation-name: ui-popover-up; }
+:root[data-palette='sky'] .ui-popover.ui-popover-out { animation: ui-popover-out-down 100ms var(--ease-in) both; }
+:root[data-palette='sky'] .ui-popover.ui-popover-out[data-side='top'] { animation-name: ui-popover-out-up; }
+
+/* 4. The tab underline slides and stretches by transform alone (RecordTabs: data-scaled). */
+:root[data-palette='sky'] .ui-tab-indicator[data-scaled] { transition: transform var(--dur-surface) var(--ease-out); }
+
+/* 5. Less motion is not no motion: surfaces that slide or pop arrive and leave as a short fade instead. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-palette='sky'] .ui-scrim > .ui-surface:not(.ui-out-edge),
+  :root[data-palette='sky'] .ui-in-pop { animation: ui-fade 160ms ease-out both !important; }
+  :root[data-palette='sky'] .ui-scrim > .ui-surface.ui-out-edge,
+  :root[data-palette='sky'] .ui-scrim.ui-out-fade { animation: ui-out-fade 120ms linear both !important; }
+  :root[data-palette='sky'] .ui-scrim:not(.ui-out-fade) { animation: ui-fade 120ms linear both !important; }
+  :root[data-palette='sky'] .ui-popover { animation: ui-fade 120ms ease-out both !important; }
+  :root[data-palette='sky'] .ui-popover.ui-popover-out { animation: ui-out-fade 100ms linear both !important; }
+  :root[data-palette='sky'] :is(.ui-tab, .ui-segment, .ui-split-item, .ui-split-mod, button.ui-side-line, .ui-side-chip, button.ui-metric, .ui-choice-chip):active:not(:disabled) { transform: none; }
+}
+
+/*
+ * People icons (owner, 28 Oct 2026: "icons need to be upgraded"). One set,
+ * Phosphor, drawn as line icons; the open module and the open screen fill
+ * their icon's soft layer in the accent, the way a selected symbol fills on
+ * iOS, so where you are reads from the icon as well as the tint behind it.
+ */
+:root[data-palette='sky'] .ui-glyph [opacity='0.2'] {
+  transition: opacity var(--dur-state, 150ms) ease;
+}
+:root[data-palette='sky'] :is(.ui-split-mod[data-current], .ui-split-item[aria-current='page'], .ui-tabbar-item[aria-current='page']) .ui-glyph [opacity='0.2'] {
+  opacity: 0.24;
+}
+:root[data-theme='dark'][data-palette='sky'] :is(.ui-split-mod[data-current], .ui-split-item[aria-current='page'], .ui-tabbar-item[aria-current='page']) .ui-glyph [opacity='0.2'] {
+  opacity: 0.32;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-palette='sky'] .ui-glyph [opacity='0.2'] { transition: none; }
+}
+
+/*
+ * Organisation overview: departments and branches as full-width rows
+ * (owner, 28 Oct 2026: "empty space at right side"). A grid of cards left a
+ * last row with one card and the rest of the line empty; a list uses the
+ * whole width at any count and sits under one hairline like every other
+ * People list. Each row: mark, name, head, share of the company, people.
+ */
+:root[data-palette='sky'] .org-cards { display: block; border-top: 1px solid rgb(var(--border)); }
+:root[data-palette='sky'] .org-cards > li { border-bottom: 1px solid rgb(var(--border)); }
+:root[data-palette='sky'] .org-card {
+  display: grid;
+  grid-template-columns: 2rem minmax(9rem, 1.1fr) minmax(8rem, 1fr) minmax(6rem, 1.6fr) 8.5rem 3rem;
+  align-items: center;
+  gap: 0 1rem;
+  height: auto;
+  padding: 0.625rem 0.5rem;
+  border-radius: var(--radius-btn, 8px);
+  background: none;
+  box-shadow: none;
+  transition: background-color var(--dur-state, 150ms) ease;
+}
+:root[data-palette='sky'] .org-card-top { display: contents; }
+:root[data-palette='sky'] .org-card .org-tile { order: 1; width: 2rem; height: 2rem; border-radius: var(--radius-btn, 8px); background: rgb(var(--tint)); color: rgb(var(--tint-ink)); box-shadow: none; }
+:root[data-palette='sky'] .org-card-name { order: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+:root[data-palette='sky'] .org-card-head { order: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-palette='sky'] .org-card-bar { order: 4; margin: 0; height: 0.375rem; background: rgb(var(--surface-sunken)); box-shadow: inset 0 0 0 1px rgb(var(--border)); }
+:root[data-palette='sky'] .org-card-bar > span { background: rgb(var(--brand)); }
+:root[data-palette='sky'] .org-card > .ui-caption { order: 5; text-align: right; font-variant-numeric: tabular-nums; }
+:root[data-palette='sky'] .org-card-n { order: 6; text-align: right; font-family: inherit; font-size: 0.9375rem; line-height: 1.25rem; font-weight: 600; color: rgb(var(--fg)); }
+@media (hover: hover) and (pointer: fine) {
+  :root[data-palette='sky'] .org-card:hover { transform: none; background: rgb(var(--brand-subtle)); box-shadow: none; }
+}
+:root[data-palette='sky'] .org-card:focus-visible { outline-offset: -2px; }
+/* Branches: name, where it is, people. */
+:root[data-palette='sky'] .org-cards-sm .org-card { grid-template-columns: minmax(9rem, 1fr) minmax(8rem, 2fr) 3rem; }
+:root[data-palette='sky'] .org-cards-sm .org-card-name { order: 1; }
+:root[data-palette='sky'] .org-cards-sm .org-card > .ui-caption { order: 2; text-align: left; }
+:root[data-palette='sky'] .org-cards-sm .org-card-n { order: 3; }
+@media (max-width: 639px) {
+  :root[data-palette='sky'] .org-card { grid-template-columns: 2rem minmax(0, 1fr) 2.5rem; row-gap: 0.125rem; }
+  :root[data-palette='sky'] .org-card .org-tile { grid-row: span 2; }
+  :root[data-palette='sky'] .org-card-head { grid-column: 2; grid-row: 2; font-size: 0.8125rem; }
+  :root[data-palette='sky'] .org-card-n { grid-column: 3; grid-row: 1; }
+  :root[data-palette='sky'] :is(.org-card-bar, .org-card > .ui-caption) { display: none; }
+  :root[data-palette='sky'] .org-cards-sm .org-card { grid-template-columns: minmax(0, 1fr) 2.5rem; }
+  :root[data-palette='sky'] .org-cards-sm .org-card > .ui-caption { display: block; grid-column: 1; grid-row: 2; }
+  :root[data-palette='sky'] .org-cards-sm .org-card-n { grid-column: 2; }
+}
+/* The outline lists (Other lists, the structure tree) on the same ground and hairlines as the rows above, not in a box. */
+:root[data-palette='sky'] #main-content .ui-org-outline { border-radius: 0; background: none; box-shadow: none; border-top: 1px solid rgb(var(--border)); overflow: visible; }
+:root[data-palette='sky'] #main-content .ui-org-outline > li { padding-inline: 0.5rem; border-color: rgb(var(--border)); }
+:root[data-palette='sky'] #main-content .ui-org-outline > li:hover { background: rgb(var(--brand-subtle)); }
+
+/*
+ * People polish (owner, 28 Oct 2026: "border softened with white", "very
+ * dull", "icons flat", "fonts need to fix"). What users say about HR and
+ * business apps (NN/g on low contrast; Capterra on HiBob and Personio; the
+ * Linear and Attio write-ups): dull comes from grey on grey and edges that
+ * fade out, not from too little colour. So: crisp hairline edges instead of
+ * the white double bezel, a teal
+ * scale rather than one flat teal, one warm coral for "look here", icons
+ * with body on the open screen, and type with clearer weights.
+ */
+:root[data-palette='sky'] {
+  --border: 222 227 227;            /* #DEE3E3: a hairline that holds its edge on white */
+  --border-strong: 196 204 204;
+  --fg-muted: 64 70 75;             /* #40464B: 9.9:1 on white */
+  --fg-subtle: 92 99 104;           /* #5C6368: 6.1:1 on white, 5.7:1 on the ground */
+  --heading-bg: 238 245 244;
+  --heading-hover: 225 239 238;
+  --warm: 226 96 66;                /* coral #E26042: highlights only, never a button */
+  --warm-soft: 253 236 231;
+  --warm-ink: 168 56 30;            /* 6.3:1 on white */
+  --lift: 0 1px 2px rgb(16 48 47 / 0.05), 0 6px 20px -12px rgb(16 48 47 / 0.14);
+  --lift-hi: 0 2px 4px rgb(16 48 47 / 0.06), 0 14px 32px -14px rgb(16 48 47 / 0.22);
+  --soft-r: 0.75rem;
+  --soft-pad: 0px;
+  --soft-ring: 222 227 227;
+  --soft-highlight: 0 0 #0000;
+  --soft-ambient: var(--lift);
+  --soft-ambient-hi: var(--lift-hi);
+}
+:root[data-theme='dark'][data-palette='sky'] {
+  --border: 48 54 54;
+  --border-strong: 70 78 78;
+  --fg-muted: 190 196 198;
+  --fg-subtle: 160 167 170;
+  --heading-bg: 22 30 30;
+  --heading-hover: 30 40 40;
+  --warm: 255 138 110;
+  --warm-soft: 64 28 20;
+  --warm-ink: 255 160 138;
+  --lift: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --lift-hi: 0 2px 4px rgb(0 0 0 / 0.45), 0 16px 36px -14px rgb(0 0 0 / 0.7);
+  --soft-ring: 48 54 54;
+}
+
+/* Home blocks: one sheet with one crisp edge. The grey tray and the white top
+   highlight around each block read as a white-washed, blurry border. */
+:root[data-palette='sky'] .soft-bezel { padding: 0; background: none; box-shadow: none; }
+:root[data-palette='sky'] .soft-core { box-shadow: 0 0 0 1px rgb(var(--border)), var(--lift); }
+@media (hover: hover) and (pointer: fine) {
+  :root[data-palette='sky'] .soft-core-action:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgb(var(--brand-border)), var(--lift-hi); }
+}
+
+/* Type: Jakarta headings a step bolder and tighter; Inter running text at
+   450 so small grey lines stop looking thin; the open letterforms (cv11
+   single-storey a, ss03 round quotes) and tabular figures in data. */
+:root[data-palette='sky'] #main-content { font-weight: 450; font-feature-settings: 'cv11', 'ss03'; }
+:root[data-palette='sky'] #main-content :is(h1, .ui-t-page) { font-size: 1.625rem; line-height: 2rem; font-weight: 800; letter-spacing: -0.025em; }
+:root[data-palette='sky'] #main-content :is(h2, .ui-t-sec) { font-weight: 700; letter-spacing: -0.015em; }
+:root[data-palette='sky'] #main-content .ui-table td { font-feature-settings: 'cv11', 'ss03', 'tnum'; }
+:root[data-palette='sky'] #main-content .ui-table thead th { color: rgb(var(--fg-muted)); font-weight: 600; letter-spacing: 0.01em; background: rgb(var(--heading-bg)); }
+:root[data-palette='sky'] #main-content .ui-table tbody tr.ui-row-click:hover > td { background: rgb(var(--brand-subtle)); }
+
+/* The figure strip: each figure's icon in its own colour, drawn in the same
+   1.75 stroke as the rest of People, so the strip stops reading as grey. */
+:root[data-palette='sky'] #main-content .ui-metric-strip .ui-metric-icon { stroke-width: 1.75; }
+:root[data-palette='sky'] #main-content .ui-metric-strip > :nth-child(6n+1) .ui-metric-icon { color: rgb(var(--brand)); }
+:root[data-palette='sky'] #main-content .ui-metric-strip > :nth-child(6n+2) .ui-metric-icon { color: rgb(var(--mint-ink)); }
+:root[data-palette='sky'] #main-content .ui-metric-strip > :nth-child(6n+3) .ui-metric-icon { color: rgb(var(--lilac-ink)); }
+:root[data-palette='sky'] #main-content .ui-metric-strip > :nth-child(6n+4) .ui-metric-icon { color: rgb(var(--warm-ink)); }
+:root[data-palette='sky'] #main-content .ui-metric-strip > :nth-child(6n+5) .ui-metric-icon { color: rgb(var(--warn-ink)); }
+:root[data-palette='sky'] #main-content .ui-metric-strip > :nth-child(6n+6) .ui-metric-icon { color: rgb(var(--info)); }
+:root[data-palette='sky'] #main-content .ui-metric-strip .ui-metric-value { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.02em; }
+
+/* Icons with body. Every line icon shows a faint soft layer, so it reads as a
+   drawn symbol rather than a wire; the open module sits on a teal tile with
+   the icon in white, the clearest "you are here" a rail can give. */
+:root[data-palette='sky'] .ui-glyph [opacity='0.2'] { opacity: 0.12; }
+:root[data-palette='sky'] .ui-split-mod > svg { transition: background-color var(--dur-state, 150ms) ease, color var(--dur-state, 150ms) ease, transform 180ms var(--soft-ease); }
+:root[data-palette='sky'] .ui-split-mod[data-current] > svg {
+  box-sizing: content-box;
+  padding: 0.375rem;
+  margin: -0.375rem;
+  border-radius: 8px;
+  color: rgb(var(--on-brand));
+  background: linear-gradient(180deg, rgb(var(--brand) / 0.92), rgb(var(--brand)));
+  box-shadow: 0 4px 10px -4px rgb(var(--brand) / 0.6);
+}
+:root[data-palette='sky'] .ui-split-mod[data-current] > svg [opacity='0.2'] { opacity: 0.3; }
+:root[data-palette='sky'] .ui-split-mod[data-current] > span { color: rgb(var(--brand-ink)); font-weight: 700; }
+
+/* The primary button: a lit top edge and a teal glow, so it reads as a thing to press. */
+:root[data-palette='sky'] #main-content .ui-btn-primary,
+:root[data-palette='sky'] .ui-scrim .ui-btn-primary {
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 1px 2px rgb(var(--brand-pressed) / 0.3), 0 6px 16px -8px rgb(var(--brand) / 0.7);
+}
+
+/* Six figures fit one line from 900px of content: 10rem columns left the sixth alone on a second row. */
+@media (min-width: 1024px) {
+  :root[data-palette='sky'] #main-content .ui-metric-strip { grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); }
+}
+
+/* People tables draw row lines only (owner, 28 Oct 2026: "see border after 3 dots menu"). The shared column
+   lines stopped at the last cell with no frame beyond it, so every list looked cut open on the right; a
+   full-page list under one hairline reads cleanly without them, the way Linear and Attio draw theirs. */
+:root[data-palette='sky'] #main-content .ui-table :is(thead th + th, tbody td + td) { border-left: 0; }
+/* A table wider than the page scrolls sideways inside it (Shell marks it data-wide). A box that scrolls one way
+   scrolls both, so it gets its own height and scrolls down too; its head row then sticks to the top of the list
+   instead of being lost with the page's offset under the bar. */
+:root[data-palette='sky'] #main-content .ui-table-scroll[data-wide] { max-height: calc(100dvh - 14rem); overflow: auto; overscroll-behavior-x: contain; }
+:root[data-palette='sky'] #main-content .ui-table-scroll[data-wide] .ui-table thead th { position: sticky; top: 0; }
+:root[data-palette='sky'] .ui-balance-low { color: rgb(var(--warm-ink)); }
+
+/*
+ * People in Fluent Color (owner, 28 Oct 2026). A colour icon keeps its own colours, so "you are here" is a soft
+ * teal tile with a hairline ring behind it, not a solid teal tile (a full-colour mark on teal clashed) and not a
+ * recolour. Rail marks at 24px, menu marks at 18px: the colour sets need the size to read.
+ */
+:root[data-palette='sky'] .ui-split-mod > svg.ui-color-icon { width: 1.5rem; height: 1.5rem; font-size: 1.5rem; }
+:root[data-palette='sky'] .ui-split-mod[data-current] > svg.ui-color-icon {
+  color: inherit;
+  background: rgb(var(--brand-soft));
+  box-shadow: inset 0 0 0 1px rgb(var(--brand-border));
+}
+:root[data-palette='sky'] .ui-split-item > svg.ui-color-icon { width: 1.125rem; height: 1.125rem; font-size: 1.125rem; flex: none; }
+:root[data-palette='sky'] .ui-split-item[aria-current='page'] { font-weight: 600; }
+
+/*
+ * People: sizes a finger and an eye can use (owner, 28 Oct 2026 UI/UX audit, measured in the browser).
+ * On a phone: every control at least 44px tall (Apple's minimum; buttons and tabs were 30-36px), and field text
+ * at 16px, since Safari zooms the whole page into any field under 16px. Small marks (the row ⋮, checkboxes,
+ * the dismiss ✕) keep their look and get a larger hit area around them. Nothing smaller than 12px anywhere
+ * (DESIGN.md), and initials on a tinted circle a step darker, as they were 4.46:1 against the 4.5 minimum.
+ */
+@media (max-width: 767px) {
+  :root[data-palette='sky'] :is(#main-content, .ui-scrim) :is(.ui-btn, .ui-tab, .ui-input, .ui-select, .ui-search-field) { min-height: 2.75rem; }
+  :root[data-palette='sky'] :is(#main-content, .ui-scrim) .ui-btn-sm { min-height: 2.75rem; padding-block: 0; }
+  :root[data-palette='sky'] :is(#main-content, .ui-scrim) :is(input:not([type='checkbox']):not([type='radio']), select, textarea, .ui-input, .ui-select) { font-size: 1rem; }
+  :root[data-palette='sky'] :is(#main-content, .ui-scrim) .ui-icon-btn { min-width: 2.75rem; min-height: 2.75rem; }
+  :root[data-palette='sky'] .ui-topbar .ui-icon-btn, :root[data-palette='sky'] header .ui-icon-btn { min-width: 2.75rem; min-height: 2.75rem; }
+}
+/* Checkboxes: 18px to see and hit (Home's task boxes were 13px), 24px on a phone, where a label beside them takes the tap too. */
+:root[data-palette='sky'] #main-content input[type='checkbox'] { width: 1.125rem; height: 1.125rem; flex: none; }
+@media (max-width: 767px) {
+  :root[data-palette='sky'] #main-content input[type='checkbox'] { width: 1.5rem; height: 1.5rem; }
+}
+/* Nothing under 12px (faces and avatars floor their own size in JSX): the chart's year labels, the date tile's month, table and org-chart initials, org-chart counts. */
+:root[data-palette='sky'] :is(.soft-chart-axis span, .soft-event-date span, .oc-count, .oc-count span, .att-face) { font-size: 0.75rem; }
+/* The org chart's show/hide reports toggle: 28px tall to hit with a trackpad, 44px on a phone. */
+:root[data-palette='sky'] .oc-count { min-height: 1.75rem; min-width: 2.25rem; }
+@media (max-width: 767px) { :root[data-palette='sky'] .oc-count { min-height: 2.75rem; min-width: 2.75rem; } }
+/* Initials on a tinted circle: the same hue, a step deeper, so each passes 4.5:1 (dark mode already passed).
+   Each mark mixes its own ink variable (currentColor in `color` would read the parent's). */
+:root[data-palette='sky']:not([data-theme='dark']) .oc-avatar { color: color-mix(in srgb, rgb(var(--oc-ink)) 80%, #000); }
+:root[data-palette='sky']:not([data-theme='dark']) .people-face { color: color-mix(in srgb, rgb(var(--dept)) 80%, #000); }
+:root[data-palette='sky']:not([data-theme='dark']) .org-tile { color: color-mix(in srgb, rgb(var(--tint-ink, var(--sky-ink))) 80%, #000); }
+:root[data-palette='sky']:not([data-theme='dark']) .soft-event-date { color: color-mix(in srgb, rgb(var(--fg)) 92%, #000); }
+/* The base button rule fixes its height, so a minimum alone did nothing: on a phone the height itself is 44px. */
+@media (max-width: 767px) {
+  :root[data-palette='sky'] :is(#main-content, .ui-scrim) :is(.ui-btn, .ui-btn-sm, .ui-page-btn, .soft-pill) { height: auto; min-height: 2.75rem; }
+  :root[data-palette='sky'] #main-content .ui-page-btn { min-width: 2.75rem; }
+  :root[data-palette='sky'] #main-content .ui-row-open { min-height: 2.75rem; }
+  :root[data-palette='sky'] :is(.ui-app-switch, button:has(> img[alt='Clor'])) { min-height: 2.75rem; min-width: 2.75rem; }
+}
+/* Beats the desktop size rule (`#main-content .ui-btn:not(…):not(…)`, 1-5-0) without !important. */
+@media (max-width: 767px) {
+  html:root[data-palette='sky'] #main-content :is(.ui-btn.ui-btn.ui-btn, .ui-page-btn.ui-page-btn.ui-page-btn, .oc-zoom-btn.oc-zoom-btn.oc-zoom-btn, .ui-card-open.ui-card-open.ui-card-open),
+  html:root[data-palette='sky'] .ui-scrim .ui-btn.ui-btn.ui-btn { height: auto; min-height: 2.75rem; }
+  html:root[data-palette='sky'] #main-content .oc-zoom-btn.oc-zoom-btn { min-width: 2.75rem; }
+  html:root[data-palette='sky'] #main-content .att-summary li > button { min-height: 2.75rem; }
+  html:root[data-palette='sky'] #main-content :is(.soft-chip, .people-more) { min-height: 2.75rem; }
+}
+/*
+ * People brand D, "Done, daily" (owner, 29 Oct 2026; supersedes teal). Light theme only: the dark theme keeps
+ * its own values above. Indigo #232A66 is the ink and the action; Marigold #F5A623 is the one warm "look here"
+ * (a fill, with indigo on it; never text on white, where it reads at 2:1); Lilac #E9E5F4 tints what is chosen or
+ * done; Cotton #FAF6EE is the page, cards stay white on it. Contrast, on Cotton: indigo 13:1, muted 7.4:1,
+ * subtle 5.1:1; white on indigo 13.6:1; indigo on marigold 6.9:1.
+ */
+:root[data-palette='sky']:not([data-theme='dark']),
+:root:not([data-theme='dark']) [data-palette='sky'] {
+  --brand: 35 42 102;
+  --brand-deep: 27 33 82;
+  --brand-hover: 45 54 128;
+  --brand-pressed: 24 29 74;
+  --btn-primary-bg: 35 42 102;
+  --btn-primary-hover: 45 54 128;
+  --brand-soft: 233 229 244;
+  --brand-subtle: 245 243 250;
+  --brand-border: 201 195 229;
+  --brand-ink: 35 42 102;
+  --on-brand: 255 255 255;
+  --accent-soft: 233 229 244;
+  --ring: 35 42 102;
+  --link: 35 42 102;
+  --link-hover: 24 29 74;
+  --hero-hi: 35 42 102;
+  --app-bg: 250 246 238;
+  --page-heading-bg: 250 246 238;
+  --surface: 255 255 255;
+  --surface-sunken: 244 239 229;
+  --border: 232 226 214;
+  --border-strong: 214 206 190;
+  --border-field: 222 215 202;
+  --heading-bg: 243 241 250;
+  --heading-hover: 233 229 244;
+  --fg: 35 42 102;
+  --fg-heading: 35 42 102;
+  --col-party: 35 42 102;
+  --fg-muted: 72 77 120;
+  --fg-subtle: 98 102 140;
+  --rail-ink: 72 77 120;
+  --rail-ink-strong: 35 42 102;
+  --rail-accent: 35 42 102;
+  --rail-graphite-hover: 244 239 229;
+  --warm: 245 166 35;
+  --warm-soft: 254 241 214;
+  --warm-ink: 122 79 0;
+  --butter: 245 166 35;
+  --butter-soft: 254 241 214;
+  --butter-ink: 122 79 0;
+  --warn-soft: 252 223 168;
+  --warn-ink: 35 42 102;
+  --sky-soft: 233 229 244;
+  --sky-ink: 35 42 102;
+  --lift: 0 1px 2px rgb(35 42 102 / 0.05), 0 6px 20px -12px rgb(35 42 102 / 0.16);
+  --lift-hi: 0 2px 4px rgb(35 42 102 / 0.06), 0 14px 32px -14px rgb(35 42 102 / 0.24);
+  --soft-ring: 232 226 214;
+}
+/* The page is Cotton everywhere People draws a ground: the work area, the module panel and the rail. */
+:root[data-palette='sky']:not([data-theme='dark']) :is(body, main.ui-content, #main-content) { background-color: rgb(var(--app-bg)); }
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail { background: rgb(var(--app-bg)); }
+/* "Waiting on you": marigold with indigo on it, the brand's one call to act. */
+:root[data-palette='sky']:not([data-theme='dark']) .ui-pill-warn { background: rgb(var(--warm)); color: rgb(var(--brand)); }
+/* Brand D type: Bricolage Grotesque for what is read as a heading or a large figure; Inter stays for running text, tables and money. */
+:root[data-palette='sky']:not([data-theme='dark']),
+:root:not([data-theme='dark']) [data-palette='sky'] {
+  --font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+}
+/* Brand D has no green, peach or purple: "done" is lilac with an indigo tick, "look here" is marigold, red stays for
+   what went wrong. The decorative washes (mint, peach, lilac) collapse onto the brand's lilac and marigold. */
+:root[data-palette='sky']:not([data-theme='dark']),
+:root:not([data-theme='dark']) [data-palette='sky'] {
+  --pos: 35 42 102;
+  --pos-soft: 233 229 244;
+  --info: 35 42 102;
+  --info-soft: 245 243 250;
+  --mint-soft: 233 229 244;
+  --mint-ink: 35 42 102;
+  --lilac-soft: 233 229 244;
+  --lilac-ink: 35 42 102;
+  --peach-soft: 254 241 214;
+  --peach-ink: 122 79 0;
+}
+
+/*
+ * Brand D, each colour with its own job (owner, 29 Oct 2026: "primary colour is everywhere"). Indigo was the
+ * text colour too, so every word read as brand. Now:
+ *   Ink (near-black, a trace of indigo) — running text and table data.
+ *   Indigo — what you press or follow (buttons, links), headings, key figures, where you are.
+ *   Marigold — "look here": today, counts that want a look, progress, the mark beside where you are, the
+ *              arrow on the main action. Always a fill or a line, never text on white.
+ *   Lilac — chosen, hovered and done: selected rows and tabs, the head row, done chips.
+ *   Cotton — the page. White — cards and tables.
+ * Contrast on Cotton: ink 15:1, muted 6.7:1, subtle 4.9:1.
+ */
+:root[data-palette='sky']:not([data-theme='dark']),
+:root:not([data-theme='dark']) [data-palette='sky'] {
+  --fg: 31 33 48;
+  --col-party: 31 33 48;
+  --fg-muted: 86 89 107;
+  --fg-subtle: 104 107 124;
+  --rail-ink: 86 89 107;
+  --rail-ink-strong: 31 33 48;
+}
+/* Indigo: headings and the big figures. */
+:root[data-palette='sky']:not([data-theme='dark']) #main-content :is(h1, h2, .ui-t-page, .ui-t-sec, .soft-panel-title, .ui-metric-value, .soft-band-stat-value) { color: rgb(var(--brand)); }
+/* Marigold: the mark beside the open module, the line under the open tab, progress, tab counts and the main action's arrow. */
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-mod[data-current]::before { background: rgb(var(--warm)); }
+:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-tab-indicator, .ui-tab.is-active::after) { background: rgb(var(--warm)); }
+:root[data-palette='sky']:not([data-theme='dark']) .org-card-bar > span { background: rgb(var(--warm)); }
+:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-panel .ui-count, .ui-tab .ui-count) { background: rgb(var(--warm)); color: rgb(var(--brand)); }
+:root[data-palette='sky']:not([data-theme='dark']) .soft-pill-primary .soft-pill-orb { background: rgb(var(--warm)); color: rgb(var(--brand)); }
+/* Lilac: a row under the pointer, and the chosen row. */
+:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table tbody tr:is(.ui-row-click:hover, [aria-selected='true']) > td { background: rgb(var(--brand-subtle)); }
+
+/* Fitted columns (wideTables.js): measured on one line at the table's content width; a short column then keeps one line. */
+:root[data-palette='sky'] #main-content .ui-table-scroll > table.ui-measure { width: max-content !important; table-layout: auto; }
+:root[data-palette='sky'] #main-content .ui-table-scroll > table.ui-measure :is(th, td) { white-space: nowrap !important; width: auto !important; }
+html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)[data-fit] { white-space: nowrap; }
+
+/*
+ * Brand D icons, option C (owner, 29 Oct 2026): Phosphor two-tone, an indigo line over a lilac fill; the fill
+ * turns marigold on the open module, the open screen and the open phone tab, the one place an icon says
+ * "you are here". The rail's open module sits on a lilac tile, not a solid one, so the marigold can show.
+ */
+:root[data-palette='sky']:not([data-theme='dark']) .ui-glyph { color: rgb(var(--brand)); }
+:root[data-palette='sky']:not([data-theme='dark']) .ui-glyph [opacity='0.2'] { fill: rgb(var(--brand-border)); opacity: 1; }
+:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-mod[data-current], .ui-split-item[aria-current='page'], .ui-tabbar-item[aria-current='page']) .ui-glyph [opacity='0.2'] { fill: rgb(var(--warm)); opacity: 1; }
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-mod > svg.ui-glyph { width: 1.5rem; height: 1.5rem; }
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-mod[data-current] > svg.ui-glyph {
+  box-sizing: content-box; padding: 0.375rem; margin: -0.375rem; border-radius: 8px;
+  color: rgb(var(--brand)); background: rgb(var(--brand-soft)); box-shadow: inset 0 0 0 1px rgb(var(--brand-border));
+}
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-item > svg.ui-glyph { width: 1.125rem; height: 1.125rem; flex: none; }
+/* Figures: every mark in indigo, the same two-tone as the rail, not one colour per figure. */
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-strip .ui-metric-icon { color: rgb(var(--brand)); }
+/* The People tile in the bar is solid indigo: its mark stays white there, no fill layer. */
+:root[data-palette='sky']:not([data-theme='dark']) .ui-app-switch .ui-glyph { color: rgb(var(--on-brand)); }
+:root[data-palette='sky']:not([data-theme='dark']) .ui-app-switch .ui-glyph [opacity='0.2'] { opacity: 0; }
+
+/* White ground (owner, 29 Oct 2026: "keep it white"). Cotton read yellowish on screen, so the page, rail and panel are
+   white; hairlines and the sunken tone turn cool (a trace of lilac) so they still part rows and blocks on white. */
+:root[data-palette='sky']:not([data-theme='dark']),
+:root:not([data-theme='dark']) [data-palette='sky'] {
+  --app-bg: 255 255 255;
+  --page-heading-bg: 255 255 255;
+  --surface-sunken: 246 245 250;
+  --rail-graphite-hover: 246 245 250;
+  --border: 230 228 238;
+  --border-strong: 208 205 222;
+  --border-field: 220 218 232;
+  --soft-ring: 230 228 238;
+}
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail { border-right: 1px solid rgb(var(--border)); }
+/* Cotton on the two sidebars only (owner, 29 Oct 2026): the brand's warmth frames the page, the work area stays white
+   so tables and figures read clean. A selected item there keeps its lilac tile. */
+:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-rail, .ui-split-panel) { background: rgb(250 246 238); }
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { border-right: 1px solid rgb(var(--border)); }
+:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-rail, .ui-split-panel) :is(.ui-split-mod, .ui-split-item):hover:not([data-current]):not([aria-current='page']) { background: rgb(243 237 226); }
+
+/* The line between a list and its side panel runs the page's full height (owner, 29 Oct 2026: "closing border line
+   missing"): drawn by the row, not the panel, whose own edge stopped where its last block did. */
+:root[data-palette='sky'] #main-content .ui-with-panel[data-panel='on'] {
+  position: relative;
+  min-height: calc(100dvh - var(--platform-bar, 3.5rem) - 3rem);
+}
+:root[data-palette='sky'] #main-content .ui-with-panel[data-panel='on']::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  right: 16rem;
+  border-left: 1px solid rgb(var(--border));
+  pointer-events: none;
+}
+:root[data-palette='sky'] #main-content .ui-with-panel[data-panel='on'] > .ui-side-panel { border-left: 0; }
+/* Figure cards from shared list pages (Salary revisions, and any DocumentListShell): Payroll's amber, blue and green
+   tones become brand D here: a lilac tile with an indigo mark, the figure in indigo, the label in sentence case. */
+:root[data-palette='sky']:not([data-theme='dark']) #main-content section > button.ui-card > span:first-child { background: rgb(var(--brand-soft)) !important; color: rgb(var(--brand)) !important; }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content section > button.ui-card .tabular-nums { color: rgb(var(--brand)) !important; font-family: var(--font-display); font-weight: 700; font-size: 1.0625rem; }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content section > button.ui-card .ui-t-label { text-transform: none; letter-spacing: 0; font-size: 0.8125rem; }
+

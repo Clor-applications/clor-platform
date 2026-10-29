@@ -207,7 +207,11 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
     label: 'People',
     description: 'The staff directory: employee files, org structure and notes',
     resources: [
-      ...['Announcements', 'Events', 'Recruitment', 'Performance', 'Learning', 'HR Cases', 'Assets', 'Benefits'].map((key) => ({ key, label: key, description: `${key} register`, actions: MASTER })),
+      ...['Announcements', 'Events', 'HR Cases', 'Assets', 'Benefits'].map((key) => ({ key, label: key, description: `${key} register`, actions: MASTER })),
+      /* Talent (TALENT-DECISIONS.md): what each right now covers. Managers set goals, review and keep one-on-ones for their own team without Edit. */
+      { key: 'Recruitment', label: 'Recruitment', description: 'Job openings, candidates, interviews and hires (Create alone asks for an opening; Edit opens it)', actions: MASTER },
+      { key: 'Performance', label: 'Performance', description: 'Goals, review cycles, calibration and improvement plans (Edit is HR: cycles and final ratings)', actions: MASTER },
+      { key: 'Learning', label: 'Learning', description: 'Trainings, who attends, certificates and renewals', actions: MASTER },
       {
         key: 'Employees',
         label: 'Employees',

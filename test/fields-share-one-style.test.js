@@ -88,7 +88,7 @@ describe('every field wears the shared style', () => {
   });
 
   it('keeps the radius in one place, so changing it changes every field', () => {
-    const css = readFileSync('packages/ui/src/index.css', 'utf8');
+    const css = readFileSync('packages/ui/src/index.css', 'utf8') + readFileSync('packages/ui/src/people.css', 'utf8');
     const token = css.match(/--radius-input:\s*([^;]+);/);
     expect(token).toBeTruthy();
     /* The point of the token is that this is the only place it is written.

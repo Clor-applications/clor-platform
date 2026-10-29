@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight } from '@ui/components/ui/lineIcons';
 
 import AuthLayout from './AuthLayout';
 import { resetPassword } from '../platform/auth';

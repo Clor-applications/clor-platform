@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CalendarCheck, Plus } from 'lucide-react';
+import { CalendarCheck, Plus } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
@@ -116,8 +116,23 @@ export default function ComplianceCalendar() {
   const open = async (t) => {
     const ev = await getComplianceEvidence(t.id).catch(() => null);
     if (!ev) return notify.error('No evidence kept.');
+    /* Only a data: URL is shown, and it is set as the frame's src rather than written into HTML, so a
+       stored value with quotes or tags cannot add markup to the new window. A data: frame gets its own
+       opaque origin, so even an HTML file kept as evidence cannot reach this app. */
+    const src = String(ev.dataUrl || '');
+    if (!/^data:[\w.+-]+\/[\w.+-]+[;,]/i.test(src)) return notify.error('That evidence cannot be shown.');
     const w = window.open();
-    if (w) w.document.write(`<iframe src="${ev.dataUrl}" style="border:0;width:100%;height:100%"></iframe>`);
+    if (!w) return undefined;
+    w.opener = null;
+    const doc = w.document;
+    doc.title = t.title || 'Evidence';
+    doc.body.style.margin = '0';
+    const frame = doc.createElement('iframe');
+    frame.src = src;
+    frame.title = t.title || 'Evidence';
+    frame.style.cssText = 'border:0;width:100%;height:100vh;display:block';
+    doc.body.appendChild(frame);
+    return undefined;
   };
   const months = data ? [...new Set(data.tasks.map((t) => t.dueDate.slice(0, 7)))] : [];
   const applies = data?.applies;

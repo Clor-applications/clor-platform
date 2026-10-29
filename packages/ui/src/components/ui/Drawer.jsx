@@ -1,9 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { X } from '@ui/components/ui/lineIcons';
 
 import { OverlayLayerContext } from './overlayLayer';
 import { confirmDialog } from './notify';
+import useSheetDrag from './useSheetDrag';
+
+/* Safari shows :active on a touch only when the page listens for touches: the press feedback needs it. */
+if (typeof document !== 'undefined') document.addEventListener('touchstart', () => {}, { passive: true });
 
 /* An Escape that belongs to a popup inside the drawer (a date grid, a list of options, a menu) closes that popup, not the drawer. */
 const INNER_POPUP = '.ui-datepicker-pop, [role="listbox"], [role="menu"], [aria-expanded="true"]';
@@ -34,6 +38,7 @@ export default function Drawer({ open, onClose, title, description = '', actions
   /* Slid in over 200ms and vanished in one frame; it leaves the way it came,
      toward the edge it lives on. Same machinery as Modal. */
   const [closing, setClosing] = useState(false);
+  const panelRef = useRef(null);
   const dirtyRef = useRef(dirty);
   useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
   const beginClose = useCallback(async () => {
@@ -45,6 +50,9 @@ export default function Drawer({ open, onClose, title, description = '', actions
      cannot be dismissed is worse than one that closes a frame early. */
   useEffect(() => {
     if (!closing) return undefined;
+    /* A sheet that was dragged holds its own inline animation and place; closing hands it back to the exit animation. */
+    const panel = panelRef.current;
+    if (panel) { panel.style.animation = ''; panel.style.transform = ''; }
     const t = setTimeout(() => onClose?.(), 140);
     return () => clearTimeout(t);
   }, [closing, onClose]);
@@ -55,8 +63,10 @@ export default function Drawer({ open, onClose, title, description = '', actions
     setWasOpen(open);
     if (open && closing) setClosing(false);
   }
-  const panelRef = useRef(null);
+  const scrimRef = useRef(null);
   const returnFocusRef = useRef(null);
+  /* On a phone a sheet can be dragged down to put it away; it is already off screen when it closes, so no exit animation follows. */
+  const drag = useSheetDrag({ panelRef, scrimRef, dirtyRef, onDismiss: () => onClose?.(), onAskToClose: beginClose });
 
   useEffect(() => {
     if (!open) return undefined;
@@ -109,6 +119,7 @@ export default function Drawer({ open, onClose, title, description = '', actions
   return createPortal(
     <OverlayLayerContext.Provider value="drawer">
     <div
+      ref={scrimRef}
       className={`ui-scrim fixed inset-0 flex justify-end ${closing ? 'ui-out-fade' : ''}`}
       /* Starts under the platform bar, which outranks every app layer by
          design: from the very top, the drawer's title and Save sat under it. */
@@ -133,9 +144,11 @@ export default function Drawer({ open, onClose, title, description = '', actions
       >
         {/* At phone width the actions drop under the title instead of squeezing it to a word a line. */}
         <div
-          className="flex flex-wrap items-start justify-between gap-3 px-5 py-4 shrink-0"
+          className="ui-sheet-head relative flex flex-wrap items-start justify-between gap-3 px-5 py-4 shrink-0"
           style={{ borderBottom: '1px solid rgb(var(--border))' }}
+          {...drag}
         >
+          <span className="ui-sheet-grabber" aria-hidden="true" />
           <div className="min-w-0 flex-1 basis-48">
             <h2 className="ui-t-sec truncate">{title}</h2>
             {description ? <p className="text-sm ui-muted mt-0.5">{description}</p> : null}

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -89,7 +89,7 @@ export default function LeaveCalendar() {
     <div className="space-y-6">
       <PageHeader
         breadcrumb={homeCrumbs()}
-        title="Calendar"
+        title="Leave calendar"
         actions={<>
           <div className="inline-flex items-center gap-1" role="group" aria-label="Month">
             <button type="button" className="ui-icon-btn" aria-label="Previous month" onClick={() => setMonth(shift(month, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
@@ -139,6 +139,7 @@ export default function LeaveCalendar() {
                           {r ? (
                             <span
                               className={`block h-5 ${tone.className || ''}`}
+                              role="img"
                               style={{ ...(tone.style || {}), opacity: r.status === 'PENDING' ? 0.4 : 1 }}
                               title={`${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}${r.halfDay ? ', half day' : ''}`}
                               aria-label={`${d}: ${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}`}
@@ -146,6 +147,7 @@ export default function LeaveCalendar() {
                           ) : w ? (
                             <span
                               className="flex h-5 items-center justify-center text-[0.75rem] font-medium"
+                              role="img"
                               style={workingMark}
                               title={`${WORKING[w.kind]?.name || w.kind}${w.place ? `, ${w.place}` : ''}${w.halfDay ? ', half day' : ''}`}
                               aria-label={`${d}: ${WORKING[w.kind]?.name || w.kind}`}

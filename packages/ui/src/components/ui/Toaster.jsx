@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { X } from '@ui/components/ui/lineIcons';
 import { Toaster as SonnerToaster, toast as sonnerToast } from 'sonner';
 
 import { subscribeConfirms, subscribeToasts } from './notify';

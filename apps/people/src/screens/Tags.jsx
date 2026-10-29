@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';

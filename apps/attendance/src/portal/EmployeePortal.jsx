@@ -6,6 +6,8 @@ import { REASON_CODES, STATUS } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 import DayExplain from '../components/DayExplain';
 import LeaveExplain from '../components/LeaveExplain';
+import LeaveDocumentField from '@ui/timeOff/LeaveDocumentField';
+import HalfDayChoice, { halfDayBody, leaveSpan } from '@ui/timeOff/HalfDayChoice';
 import PhonePunch from '../components/PhonePunch';
 import { MyDetails, Policies } from './MyDetails';
 import AskHr from './AskHr';
@@ -461,10 +463,10 @@ const usageLine = (u) => (!u ? '' : `${u.quota == null ? `${u.used} used, no lim
 export const requestWords = (r) => {
   const when = !r.toDate || r.toDate === r.date ? fmtDay(r.date) : `${fmtDay(r.date)} – ${fmtDay(r.toDate)}`;
   const kind = r.requestKind || r.kind;
-  const extra = kind === 'ON_DUTY' ? r.place : kind === 'PERMISSION' ? `${r.checkIn || ''}–${r.checkOut || ''}, ${hoursText(r.minutes)}` : kind === 'MISSED_PUNCH' || r.kind === 'correction' ? `in ${r.checkIn || '—'}${r.checkOut ? `, out ${r.checkOut}` : ''}` : r.halfDay ? (r.halfDay === 'FIRST' ? 'first half' : 'second half') : '';
+  const extra = kind === 'SHIFT_CHANGE' ? (r.shiftName ? `to ${r.shiftName}` : '') : kind === 'ON_DUTY' ? r.place : kind === 'PERMISSION' ? `${r.checkIn || ''}–${r.checkOut || ''}, ${hoursText(r.minutes)}` : kind === 'MISSED_PUNCH' || r.kind === 'correction' ? `in ${r.checkIn || '—'}${r.checkOut ? `, out ${r.checkOut}` : ''}` : r.halfDay ? (r.halfDay === 'FIRST' ? 'first half' : 'second half') : '';
   return extra ? `${when} · ${extra}` : when;
 };
-const EMPTY_ASK = { kind: '', date: '', toDate: '', halfDay: '', place: '', checkIn: '', checkOut: '', reason: '', reasonCode: '' };
+const EMPTY_ASK = { kind: '', date: '', toDate: '', halfDay: '', place: '', shiftId: '', checkIn: '', checkOut: '', reason: '', reasonCode: '' };
 
 function Requests({ guard, month, onChanged }) {
   const [rules, setRules] = useState(null);
@@ -486,15 +488,15 @@ function Requests({ guard, month, onChanged }) {
 
   const kinds = rules?.kinds || [];
   const kind = form.kind || (editing ? editing.requestKind : kinds[0]?.kind) || '';
-  const spans = kind === 'WFH' || kind === 'ON_DUTY';
-  const oneDay = spans && form.date && (!form.toDate || form.toDate === form.date);
+  const spans = kind === 'WFH' || kind === 'ON_DUTY' || kind === 'SHIFT_CHANGE';
+  const oneDay = spans && kind !== 'SHIFT_CHANGE' && form.date && (!form.toDate || form.toDate === form.date);
   const usage = rules?.usage?.[kind];
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const pick = (k) => { setEditing(null); setForm({ ...EMPTY_ASK, kind: k }); setNote(null); };
   const startChange = (r) => {
     setEditing(r);
     setNote(null);
-    setForm({ kind: r.requestKind, date: r.date, toDate: r.toDate || r.date, halfDay: r.halfDay || '', place: r.place || '', checkIn: r.checkIn || '', checkOut: r.checkOut || '', reason: r.reason || '', reasonCode: r.reasonCode || '' });
+    setForm({ kind: r.requestKind, date: r.date, toDate: r.toDate || r.date, halfDay: r.halfDay || '', place: r.place || '', shiftId: r.shiftId || '', checkIn: r.checkIn || '', checkOut: r.checkOut || '', reason: r.reason || '', reasonCode: r.reasonCode || '' });
   };
 
   const send = async (e) => {
@@ -506,6 +508,7 @@ function Requests({ guard, month, onChanged }) {
       toDate: spans && form.toDate && form.toDate !== form.date ? form.toDate : null,
       halfDay: oneDay && form.halfDay ? form.halfDay : null,
       place: kind === 'ON_DUTY' ? form.place : null,
+      shiftId: kind === 'SHIFT_CHANGE' ? form.shiftId : null,
       checkIn: kind === 'MISSED_PUNCH' || kind === 'PERMISSION' ? form.checkIn : null,
       checkOut: kind === 'MISSED_PUNCH' || kind === 'PERMISSION' ? form.checkOut || null : null,
       reasonCode: kind === 'MISSED_PUNCH' ? form.reasonCode || null : null,
@@ -561,6 +564,14 @@ function Requests({ guard, month, onChanged }) {
               <label className="block"><span className="ui-label">Day</span>
                 <select className="ui-select w-full" value={form.halfDay} onChange={(e) => set({ halfDay: e.target.value })}>
                   <option value="">Whole day</option><option value="FIRST">First half</option><option value="SECOND">Second half</option>
+                </select>
+              </label>
+            ) : null}
+            {kind === 'SHIFT_CHANGE' ? (
+              <label className="block"><span className="ui-label">Shift to work</span>
+                <select className="ui-select w-full" required value={form.shiftId} onChange={(e) => set({ shiftId: e.target.value })}>
+                  <option value="">Choose…</option>
+                  {(rules?.shifts || []).map((x) => <option key={x.id} value={x.id}>{x.name}, {x.startTime}–{x.endTime}</option>)}
                 </select>
               </label>
             ) : null}
@@ -669,7 +680,7 @@ function MySchedule({ guard }) {
 // Leave
 // ---------------------------------------------------------------------------
 
-const BLANK_LEAVE = { leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', reason: '' };
+const BLANK_LEAVE = { leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', startHalf: false, endHalf: false, reason: '' };
 const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's'}`);
 const NUMBER_WORD = ['', 'one', 'two', 'three', 'four'];
 
@@ -679,9 +690,8 @@ const NUMBER_WORD = ['', 'one', 'two', 'three', 'four'];
  * newest answer for any dates; `preview` only the one for the dates on screen.
  */
 function useLeavePreview(run, form) {
-  const one = !form.toDate || form.toDate === form.fromDate;
   const key = form.leaveTypeId && form.fromDate
-    ? JSON.stringify({ leaveTypeId: form.leaveTypeId, fromDate: form.fromDate, toDate: form.toDate || form.fromDate, halfDay: one && form.halfDay ? form.halfDay : null })
+    ? JSON.stringify({ leaveTypeId: form.leaveTypeId, fromDate: form.fromDate, toDate: form.toDate || form.fromDate, ...halfDayBody(form, true) })
     : '';
   const [got, setGot] = useState(null);
   useEffect(() => {
@@ -751,12 +761,14 @@ function LeavePreview({ preview, checking }) {
 function MyLeave({ guard }) {
   const [data, setData] = useState(null);
   const [form, setForm] = useState(BLANK_LEAVE);
+  /* The document a long request of some types asks for (a certificate). A change keeps the one already sent, so it is not asked again. */
+  const [doc, setDoc] = useState(null);
   const [sending, setSending] = useState(false);
   const runPreview = useCallback((body) => guard(previewLeave(body)), [guard]);
   const { preview, last, checking } = useLeavePreview(runPreview, form);
   const type = last?.type && last.type.id === form.leaveTypeId ? last.type : null;
-  const oneDay = Boolean(form.fromDate) && (!form.toDate || form.toDate === form.fromDate);
-  const halfDayOffered = oneDay && Boolean(type?.allowHalfDay);
+  const listed = (data?.types || []).find((t) => t.id === form.leaveTypeId);
+  const halfAllowed = Boolean((type || listed)?.allowHalfDay);
   const reasonNeeded = !type?.isPrivate;
   const blocked = Boolean(preview?.problems?.length);
   const [note, setNote] = useState(null);
@@ -774,7 +786,7 @@ function MyLeave({ guard }) {
 
   const ask = async (e) => {
     e.preventDefault();
-    if (blocked || sending) return;
+    if (blocked || sending || (preview?.documentNeeded && !doc)) return;
     setNote(null);
     setSending(true);
     try {
@@ -782,13 +794,15 @@ function MyLeave({ guard }) {
         leaveTypeId: form.leaveTypeId,
         fromDate: form.fromDate,
         toDate: form.toDate || form.fromDate,
-        halfDay: halfDayOffered && form.halfDay ? form.halfDay : null,
+        ...halfDayBody(form, halfAllowed),
         reason: form.reason.trim(),
         ...(preview?.split ? { split: true } : {}),
+        ...(doc ? { attachment: doc } : {}),
       }));
+      setDoc(null);
       const sent = r.requests || [r.request];
       const days = Math.round(sent.reduce((a, x) => a + (Number(x.days) || 0), 0) * 100) / 100;
-      setNote({ ok: true, text: `Asked for ${daysText(days)} of ${r.request.leaveTypeName}${sent.length > 1 ? `, as ${NUMBER_WORD[sent.length] || sent.length} requests` : ''}.` });
+      setNote({ ok: true, text: `Asked for ${daysText(days)} of ${r.request.leaveTypeName}${preview?.split && sent.length > 1 ? `, as ${NUMBER_WORD[sent.length] || sent.length} requests` : ''}.` });
       setForm(BLANK_LEAVE);
       load();
     } catch (err) {
@@ -820,13 +834,13 @@ function MyLeave({ guard }) {
   const startChange = (r) => {
     setEditing(r);
     setNote(null);
-    setForm({ leaveTypeId: r.leaveTypeId || data.types.find((t) => t.name === r.leaveTypeName)?.id || '', fromDate: r.fromDate, toDate: r.toDate, halfDay: r.halfDay || '', reason: r.reason || '' });
+    setForm({ leaveTypeId: r.leaveTypeId || data.types.find((t) => t.name === r.leaveTypeName)?.id || '', ...leaveSpan(r, data.requests || []), reason: r.reason || '' });
     formRef.current?.scrollIntoView?.({ block: 'start' });
   };
   const stopChange = () => { setEditing(null); setForm(BLANK_LEAVE); };
   /* While changing, the preview still sees the request itself; its own overlap and its own days are not problems. */
   const shown = editing ? ownPreview(preview, editing) : preview;
-  const held = Boolean(shown?.problems?.length);
+  const held = Boolean(shown?.problems?.length) || (Boolean(shown?.documentNeeded) && !doc && !editing);
   const change = async (e) => {
     e.preventDefault();
     if (sending || !editing || held) return;
@@ -837,10 +851,12 @@ function MyLeave({ guard }) {
         leaveTypeId: form.leaveTypeId,
         fromDate: form.fromDate,
         toDate: form.toDate || form.fromDate,
-        halfDay: halfDayOffered && form.halfDay ? form.halfDay : null,
+        ...halfDayBody(form, halfAllowed),
         reason: form.reason.trim(),
         ...(preview?.split ? { split: true } : {}),
+        ...(doc ? { attachment: doc } : {}),
       }));
+      setDoc(null);
       setNote({ ok: true, text: 'Changed. It waits for a decision again.' });
       stopChange();
       load();
@@ -910,20 +926,12 @@ function MyLeave({ guard }) {
             <label className="block"><span className="ui-label">First day *</span><input type="date" className="ui-input w-full" required value={form.fromDate} onChange={(e) => setForm({ ...form, fromDate: e.target.value, toDate: form.toDate && form.toDate < e.target.value ? e.target.value : form.toDate })} /></label>
             <label className="block"><span className="ui-label">Last day</span><input type="date" className="ui-input w-full" min={form.fromDate} value={form.toDate} onChange={(e) => setForm({ ...form, toDate: e.target.value, halfDay: e.target.value && e.target.value !== form.fromDate ? '' : form.halfDay })} /></label>
           </div>
-          {halfDayOffered ? (
-            <label className="block">
-              <span className="ui-label">How much of the day</span>
-              <select className="ui-select w-full" value={form.halfDay} onChange={(e) => setForm({ ...form, halfDay: e.target.value })}>
-                <option value="">Whole day</option>
-                <option value="FIRST">First half</option>
-                <option value="SECOND">Second half</option>
-              </select>
-            </label>
-          ) : null}
+          <HalfDayChoice native form={form} allowed={halfAllowed} typeName={(type || listed)?.name} label="How much of the day" onChange={(patch) => setForm({ ...form, ...patch })} />
           <label className="block">
             <span className="ui-label">{reasonNeeded ? 'Reason *' : 'Reason'}</span>
             <input className="ui-input w-full" required={reasonNeeded} minLength={reasonNeeded ? 3 : undefined} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
           </label>
+          {shown?.documentNeeded || doc ? <LeaveDocumentField typeName={type?.name} afterDays={shown?.documentAfterDays} value={doc} onChange={setDoc} required={!editing} note={editing ? 'The one already sent stays unless you choose another.' : ''} /> : null}
           <LeavePreview preview={shown} checking={checking} />
           {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
           <button type="submit" className="ui-btn ui-btn-primary w-full" disabled={held || sending}>{sending ? (editing ? 'Saving…' : 'Sending…') : editing ? 'Save' : 'Send'}</button>

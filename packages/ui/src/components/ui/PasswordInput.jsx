@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from '@ui/components/ui/lineIcons';
 
 /**
  * A password field with a show / hide button.

@@ -129,14 +129,17 @@ export async function intake(who: Who & { employeeId?: string | null }, input: {
   const committee = await peoplePrisma.committeeSetup.findUnique({ where: { orgId_kind: { orgId: who.orgId, kind: COMMITTEE_OF[kind] } } });
   const named = (committee?.members as Member[]) || [];
   if (!named.length) throw new CaseError(kind === 'POSH' ? 'The Internal Committee is not set up yet. Ask HR to name it under Settings → Private cases.' : 'The grievance committee is not set up yet.', 409);
-  /* The conflict check: a member who is a respondent, or manages one, does not hear the case. */
+  /* The conflict check: a member who is a respondent, or manages one, or is the complainant, does not hear the case. */
   const respondentUsers = new Set(people.filter((p) => respondents.includes(p.id)).map((p) => p.userId).filter(Boolean));
   const managers = await peoplePrisma.employee.findMany({ where: { orgId: who.orgId, id: { in: people.filter((p) => respondents.includes(p.id)).map((p) => p.reportingManagerId).filter((x): x is string => Boolean(x)) } }, select: { userId: true } });
   const managerUsers = new Set(managers.map((m) => m.userId).filter(Boolean));
+  /* A committee member can file a complaint too; they cannot then sit in judgment on their own case. */
+  const complainantUser = complainantEmployeeId ? people.find((p) => p.id === complainantEmployeeId)?.userId || null : null;
   const excluded: Array<{ userId: string; why: string }> = [];
   const members = named.filter((m) => {
     if (respondentUsers.has(m.userId)) { excluded.push({ userId: m.userId, why: 'named as a respondent' }); return false; }
     if (managerUsers.has(m.userId)) { excluded.push({ userId: m.userId, why: 'manages a respondent' }); return false; }
+    if (complainantUser && m.userId === complainantUser) { excluded.push({ userId: m.userId, why: 'is the complainant' }); return false; }
     return true;
   });
   if (!members.length) throw new CaseError('Every committee member has a conflict with this case. Name an alternate on the committee first.', 409);

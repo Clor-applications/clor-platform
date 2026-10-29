@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from '@ui/components/ui/lineIcons';
 import { ClorLogo } from '@ui/components/brand';
 import { DOCUMENTS } from './documents';
 import { legalHref } from './useLegalRoute';

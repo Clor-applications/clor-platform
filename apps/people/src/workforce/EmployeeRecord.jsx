@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Briefcase, Building2, CalendarClock, Camera, ChevronDown, Clock, Hash, Hourglass, MapPin, Pencil, Plus, UserRound } from 'lucide-react';
+import { Briefcase, Building2, CalendarClock, Camera, ChevronDown, Clock, Hash, Hourglass, MapPin, Pencil, Plus, UserRound } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import RecordTabs from '@ui/components/ui/RecordTabs';
@@ -42,7 +42,7 @@ import AppAccessSend from './AppAccessSend';
  * the server answers 409: the edits stay in the form, the newer record is
  * shown, and the person decides (spec §8, WF-04 conflict).
  */
-const TABS = [['overview', 'Overview'], ['personal', 'Personal'], ['employment', 'Employment'], ['organization', 'Organization'], ['documents', 'Documents'], ['history', 'History'], ['activity', 'Activity']];
+const TABS = [['overview', 'Overview'], ['personal', 'Personal'], ['employment', 'Employment'], ['organization', 'Organisation'], ['documents', 'Documents'], ['history', 'History'], ['activity', 'Activity']];
 const LAST_DIRECTORY = 'people.workforce.lastDirectory';
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const shown = (v) => (v === null || v === undefined || v === '' ? null : v);
@@ -232,15 +232,18 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       ))}
       {rec.error ? <Alert tone="neg" title="Could not refresh this record" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={rec.reload}>Retry</button>}>Showing what was loaded before.</Alert> : null}
 
+      {/* Each section below is keyed by the person: moving from A's record to B's
+          in place (a link to their manager) must start B's sections fresh, so an
+          edit half-made on A can never be saved onto B. */}
       <FormDirty.Provider value={reportDirty}>
       <RecordTabs tabs={tabsAllowed} value={tab} onChange={(k) => leaveTo({ tab: k === 'overview' ? null : k, edit: null, action: null }, true)} label={`${person.name} sections`}>
-        {tab === 'overview' ? <Overview person={person} data={rec.data} lists={lists} allowed={allowed} goTo={(t) => set({ tab: t }, true)} go={(patch) => set(patch, true)} /> : null}
-        {tab === 'personal' ? <Personal person={person} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...emp } }))} reload={rec.reload} /> : null}
-        {tab === 'employment' ? <Employment person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} onLeave={() => setResigning(true)} /> : null}
-        {tab === 'organization' ? <Organization person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} /> : null}
-        {tab === 'documents' ? <EmployeeDocuments employeeId={person.id} /> : null}
-        {tab === 'history' ? <div className="space-y-6"><HistoryCompare person={person} lists={lists} /><Section title="Employment history"><EmploymentHistory employeeId={person.id} /></Section><Section title="Every change and why"><Journey employeeId={person.id} /></Section></div> : null}
-        {tab === 'activity' ? <Activity person={person} canComment={allowed('PEOPLE::Employee Notes::CREATE')} /> : null}
+        {tab === 'overview' ? <Overview key={person.id} person={person} data={rec.data} lists={lists} allowed={allowed} goTo={(t) => set({ tab: t }, true)} go={(patch) => set(patch, true)} /> : null}
+        {tab === 'personal' ? <Personal key={person.id} person={person} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...emp } }))} reload={rec.reload} /> : null}
+        {tab === 'employment' ? <Employment key={person.id} person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} onLeave={() => setResigning(true)} /> : null}
+        {tab === 'organization' ? <Organization key={person.id} person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} /> : null}
+        {tab === 'documents' ? <EmployeeDocuments key={person.id} employeeId={person.id} /> : null}
+        {tab === 'history' ? <div className="space-y-6"><HistoryCompare key={person.id} person={person} lists={lists} /><Section title="Employment history"><EmploymentHistory key={person.id} employeeId={person.id} /></Section><Section title="Every change and why"><Journey key={person.id} employeeId={person.id} /></Section></div> : null}
+        {tab === 'activity' ? <Activity key={person.id} person={person} canComment={allowed('PEOPLE::Employee Notes::CREATE')} /> : null}
       </RecordTabs>
       </FormDirty.Provider>
 
@@ -688,8 +691,8 @@ function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
       ))}
       {person.personalHidden ? <p className="ui-caption">Date of birth, home address and family details are kept with HR.</p> : null}
       {/* Statutory details: a section only for those with the grant (D-V2); masked, reveal needs an authenticator. */}
-      {allowed('PEOPLE::Statutory Details::VIEW') ? <Section title="IDs and statutory"><StatutoryDetails employeeId={person.id} embedded /></Section> : null}
-      <Section title="More details"><CustomFields employeeId={person.id} embedded /></Section>
+      {allowed('PEOPLE::Statutory Details::VIEW') ? <Section title="IDs and statutory"><StatutoryDetails key={person.id} employeeId={person.id} embedded /></Section> : null}
+      <Section title="More details"><CustomFields key={person.id} employeeId={person.id} embedded /></Section>
       {allowed('PEOPLE::Lifecycle::VIEW') ? <JoiningDetails person={person} onChecked={(p) => onSaved(p)} /> : null}
     </div>
   );
@@ -1113,7 +1116,10 @@ function HistoryCompare({ person, lists }) {
     }
     return () => { live = false; };
   }, [person.id, person.version, a, b]);
-  const value = (k, f) => (snap[k]?.employee ? f(snap[k].employee, lists) || '—' : null);
+  /* A snapshot counts only for the date it was read for: just after a date is
+     changed, the old day's values must not sit under the new day's heading. */
+  const current = (k) => (snap[k]?.date === (k === 'a' ? a : b) ? snap[k] : null);
+  const value = (k, f) => (current(k)?.employee ? f(current(k).employee, lists) || '—' : null);
   /* Before the first day there is nothing to compare. */
   if (!joined || joined > todayIst()) return null;
   return (
@@ -1122,7 +1128,7 @@ function HistoryCompare({ person, lists }) {
         <div><label className="ui-caption" htmlFor="cmp-a">As of</label><DatePicker id="cmp-a" value={a} max={todayIst()} onChange={(v) => setA(v || a)} /></div>
         <div><label className="ui-caption" htmlFor="cmp-b">and as of</label><DatePicker id="cmp-b" value={b} max={todayIst()} onChange={(v) => setB(v || b)} /></div>
       </div>
-      {snap.a?.error || snap.b?.error ? <p className="ui-caption mb-2">{[...new Set([snap.a?.error && `${formatDate(snap.a.date)}: ${snap.a.error}`, snap.b?.error && snap.b.date !== snap.a?.date && `${formatDate(snap.b.date)}: ${snap.b.error}`].filter(Boolean))].join(' ')}</p> : null}
+      {current('a')?.error || current('b')?.error ? <p className="ui-caption mb-2">{[...new Set([current('a')?.error && `${formatDate(a)}: ${current('a').error}`, current('b')?.error && b !== a && `${formatDate(b)}: ${current('b').error}`].filter(Boolean))].join(' ')}</p> : null}
       <div className="ui-table-scroll">
         <table className="ui-table ui-compare w-full">
           <thead><tr><th scope="col">Field</th><th scope="col">{formatDate(a)}</th><th scope="col">{formatDate(b)}</th></tr></thead>
@@ -1153,12 +1159,22 @@ function Activity({ person, canComment }) {
   const [next, setNext] = useState(null);
   const [error, setError] = useState(null);
   const [more, setMore] = useState(false);
-  const load = () => employeeActivity(person.id).then((r) => { setEvents(r.events); setNext(r.nextBefore); setError(null); }).catch(setError);
+  /* Only the newest read lands: a slow answer for an earlier load (or the
+     person before) must not replace a newer one, and a page of older events
+     fetched before a reload must not be stuck onto the fresh list. */
+  const seq = useRef(0);
+  const load = () => {
+    const mine = ++seq.current;
+    return employeeActivity(person.id)
+      .then((r) => { if (seq.current !== mine) return; setEvents(r.events); setNext(r.nextBefore); setError(null); })
+      .catch((e) => { if (seq.current === mine) setError(e); });
+  };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [person.id, person.version]);
   const older = async () => {
     setMore(true);
-    try { const r = await employeeActivity(person.id, next); setEvents((e) => [...e, ...r.events]); setNext(r.nextBefore); } catch (e) { notify.error(String(e?.message || 'Could not load older activity.')); } finally { setMore(false); }
+    const mine = seq.current;
+    try { const r = await employeeActivity(person.id, next); if (seq.current !== mine) return; setEvents((e) => [...e, ...r.events]); setNext(r.nextBefore); } catch (e) { notify.error(String(e?.message || 'Could not load older activity.')); } finally { setMore(false); }
   };
   if (error && !events) return <ErrorState error={error} onRetry={load} />;
   if (!events) return <SkeletonCard lines={5} />;

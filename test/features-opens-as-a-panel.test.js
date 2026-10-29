@@ -19,7 +19,7 @@ import { appSource } from '../apps/accounting/src/testing/appSource.js';
 
 const APP = appSource('apps/accounting/src/App.jsx');
 const PANEL = readFileSync('apps/accounting/src/features/features/FeaturesPanel.jsx', 'utf8');
-const CSS = readFileSync('packages/ui/src/index.css', 'utf8');
+const CSS = readFileSync('packages/ui/src/index.css', 'utf8') + readFileSync('packages/ui/src/people.css', 'utf8');
 
 describe('the rail', () => {
   it('treats Features as a destination from anywhere, like every other entry', () => {
