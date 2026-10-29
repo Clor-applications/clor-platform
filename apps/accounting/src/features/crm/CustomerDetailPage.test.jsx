@@ -87,7 +87,9 @@ describe('CustomerDetailPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'INV-1' }));
     const invoiceDialog = screen.getByRole('dialog');
     expect(invoiceDialog).toHaveTextContent('Invoice · INV-1');
-    expect(invoiceDialog).toHaveTextContent('Bill To');
+    /* The printed invoice writes "Bill to" and sets it in capitals with CSS
+       (InvoicePreview, since the import); the words, not the case, matter. */
+    expect(invoiceDialog).toHaveTextContent(/Bill to/i);
     expect(within(invoiceDialog).getByRole('button', { name: 'Print' })).toBeInTheDocument();
     expect(within(invoiceDialog).getByRole('button', { name: 'Close' })).toBeInTheDocument();
     expect(within(invoiceDialog).queryByLabelText('Close')).not.toBeInTheDocument();
