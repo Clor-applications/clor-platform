@@ -12,7 +12,7 @@ Role definitions live in `.claude/agents/`, and every agent reads this file firs
 | Researcher | `researcher` | Sourced report: what CLOR has, Indian rules, how 3–5 products do it, small-business fit | Edits anything |
 | Coder | `coder` | Server, screens and tests in its own worktree and branch; opens the PR | Merges its own PR, widens scope |
 | Code reviewer | `code-reviewer` | Findings on the PR: isolation, permissions, races, migrations, leaks, tests, DESIGN.md | Edits code |
-| QA | `qa-tester` | Tests every journey as each role, in a browser, at desktop and phone width, on local and staging; report with evidence | Writes feature code |
+| QA | `qa-tester`, one per person (employee, manager, HR, owner/admin, boundaries) running side by side | Runs that person's real tasks from the scenario library (`docs/people/qa/PERSONA-SCENARIOS.md`) in a browser, on their device first, on local and staging; report with evidence | Writes feature code |
 
 ## One module, start to finish
 
