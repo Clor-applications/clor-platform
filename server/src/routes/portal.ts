@@ -556,7 +556,7 @@ portalRouter.get('/requests', async (req, res) => {
       ...timelineOf(r, requestChains[r.kind] || chains.correction, names),
     })),
     ...named.map((r: any) => ({
-      id: r.id, kind: 'leave', leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null,
+      id: r.id, kind: 'leave', leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null,
       createdAt: r.createdAt, canChange: r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > t),
       ...(r.ruleId ? ruleTimelineOf(r, ruleWaiting.get(r.id) || null) : timelineOf(r, chains.leave, names)),
     })),
@@ -771,8 +771,8 @@ portalRouter.get('/leave', async (req, res) => {
   res.json({
     year,
     today: today(),
-    types: types.filter((t) => t.isActive && (eligibleFor(t as any, req.portal!.employee as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, ...mine.get(t.id) })),
-    requests: (await withTypes(orgId, requests)).map((r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null, groupId: r.groupId ?? null })),
+    types: types.filter((t) => t.isActive && (eligibleFor(t as any, req.portal!.employee as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, allowHalfDay: t.allowHalfDay, unit: t.unit, ...mine.get(t.id) })),
+    requests: (await withTypes(orgId, requests)).map((r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null, groupId: r.groupId ?? null })),
   });
 });
 
@@ -919,7 +919,7 @@ portalRouter.get('/approvals', async (req, res) => {
     team: team.length,
     chain: { leave: leaveChain, correction: correctionChain, overtime: overtimeChainNow },
     /* A manager plans cover from dates, not diagnoses: private leave reads "Private leave" with no reason. */
-    leaves: masked(await withTypes(e.orgId, [...leaves.filter((r) => !r.managerApprovedAt && !r.ruleId), ...ruleLeaves]), false).map((r: any) => ({ id: r.id, type: 'leave', ...who(r.employeeId), ...(names.has(r.employeeId) ? {} : { employeeName: r.employeeName, employeeCode: r.employeeCode ?? null }), ...(r.ruleStep ? { step: r.ruleStep } : {}), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, askedAt: r.createdAt })),
+    leaves: masked(await withTypes(e.orgId, [...leaves.filter((r) => !r.managerApprovedAt && !r.ruleId), ...ruleLeaves]), false).map((r: any) => ({ id: r.id, type: 'leave', ...who(r.employeeId), ...(names.has(r.employeeId) ? {} : { employeeName: r.employeeName, employeeCode: r.employeeCode ?? null }), ...(r.ruleStep ? { step: r.ruleStep } : {}), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, reason: r.reason, askedAt: r.createdAt })),
     corrections: corrections.filter((r) => !r.managerApprovedAt && r.kind === 'MISSED_PUNCH').map((r) => ({ id: r.id, type: 'correction', ...who(r.employeeId), date: r.date, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, askedAt: r.createdAt })),
     /* Work from home, on duty and permission from my team, waiting on me. */
     requests: corrections.filter((r) => !r.managerApprovedAt && r.kind !== 'MISSED_PUNCH').map((r) => ({ id: r.id, type: 'request', kind: r.kind, kindName: KIND_WORDS[r.kind as keyof typeof KIND_WORDS]?.name || r.kind, ...who(r.employeeId), date: r.date, toDate: r.toDate, halfDay: r.halfDay, place: r.place, minutes: r.minutes, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, askedAt: r.createdAt })),

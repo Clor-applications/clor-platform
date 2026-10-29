@@ -55,6 +55,8 @@ export const assignShift = (body) => send('/shift-assignments', 'POST', body);
 export const removeAssignment = (id) => send(`/shift-assignments/${encodeURIComponent(id)}`, 'DELETE');
 
 export const listHolidays = (year) => get(`/holidays${query({ year })}`).then((r) => r?.holidays || []);
+/** The year's holidays with each branch's state minimum checked (services/attendance/holidayMinimum.ts). */
+export const getHolidayYear = (year) => get(`/holidays${query({ year })}`).then((r) => ({ holidays: r?.holidays || [], stateMinimum: r?.stateMinimum || [] }));
 export const createHoliday = (body) => send('/holidays', 'POST', body);
 export const updateHoliday = (id, body) => send(`/holidays/${encodeURIComponent(id)}`, 'PUT', body);
 export const deleteHoliday = (id) => send(`/holidays/${encodeURIComponent(id)}`, 'DELETE');

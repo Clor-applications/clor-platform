@@ -44,7 +44,7 @@ const addDays = (date: string, n: number) => {
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 };
-const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
+export const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
 export function policyProblem(
   type: LeavePolicy,

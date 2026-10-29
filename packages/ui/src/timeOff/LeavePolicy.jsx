@@ -35,7 +35,12 @@ const BLANK = {
   negativeDays: 0, encashable: false, maxEncashDays: '',
   entitlements: [], probationRule: 'ACCRUE', approval: '', autoApproveUpToDays: '', handOnAfterDays: '',
   accrualBasis: 'CALENDAR', perDaysWorked: '', minDaysWorked: '', oshCarry: false, countsCalendarDays: false, availableAfterBasis: 'JOINING',
+  unit: 'DAY', overBalance: 'REFUSE', notWithTypeIds: [], onNotice: 'ALLOW',
+  sandwichMinDays: '', sandwichWeekOffs: true, sandwichHolidays: true, sandwichIgnoreHalf: false,
 };
+const UNITS = [{ value: 'DAY', label: 'Days and half days' }, { value: 'HOUR', label: 'Hours, on one day' }];
+const OVER_BALANCE = [{ value: 'REFUSE', label: 'Refused' }, { value: 'LOSS_OF_PAY', label: 'Taken as loss of pay' }];
+const ON_NOTICE = [{ value: 'ALLOW', label: 'Allowed' }, { value: 'WARN', label: 'Allowed, the approver is told' }, { value: 'BLOCK', label: 'Not allowed' }];
 /* One entitlement rule: days a year for an employee type, after years of service, or both. */
 const BLANK_RULE = { employeeTypeId: '', years: '', annualDays: '' };
 const PROBATION = [
@@ -125,8 +130,9 @@ const ruleText = (e, typeNames) => [e.annualDays, e.employeeTypeId ? `for ${type
 /** "carry up to 30, use within 90 days", or that unused days lapse. */
 const carryText = (t) => (t.carryForwardMax != null ? `carry up to ${t.carryForwardMax}${t.carryExpiresAfterDays ? `, use within ${t.carryExpiresAfterDays} days` : ''}` : 'lapses at year end');
 
-function rulesOf(t, typeNames = new Map()) {
+function rulesOf(t, typeNames = new Map(), leaveNames = new Map()) {
   const r = [];
+  if (t.unit === 'HOUR') r.push('in hours');
   if (t.isPaid && t.accrualBasis === 'PER_DAYS_WORKED') {
     r.push(`1 per ${t.perDaysWorked} worked last period${t.minDaysWorked ? `, after ${t.minDaysWorked} worked` : ''}`);
     r.push(carryText(t));
@@ -153,7 +159,11 @@ function rulesOf(t, typeNames = new Map()) {
   if (t.maxDaysPerRequest != null) r.push(`at most ${t.maxDaysPerRequest} at a time`);
   if (t.backdatedDays != null) r.push(t.backdatedDays ? `up to ${plural(t.backdatedDays, 'day')} late` : 'not after the day');
   if (t.allowHalfDay === false) r.push('whole days');
-  if (t.sandwich) r.push('sandwich rule');
+  if (t.sandwich) r.push(['sandwich rule', t.sandwichMinDays ? `from ${t.sandwichMinDays} days` : null, t.sandwichWeekOffs === false ? 'holidays only' : t.sandwichHolidays === false ? 'weekly offs only' : null, t.sandwichIgnoreHalf ? 'not from a half day' : null].filter(Boolean).join(', '));
+  if (t.overBalance === 'LOSS_OF_PAY') r.push('over the balance: loss of pay');
+  if (t.notWithTypeIds?.length) r.push(`not next to ${t.notWithTypeIds.map((i) => leaveNames.get(i) || 'a type').join(', ')}`);
+  if (t.onNotice === 'BLOCK') r.push('not during notice');
+  if (t.onNotice === 'WARN') r.push('notice: approver told');
   if (t.countsCalendarDays) r.push('calendar days');
   if (t.negativeDays) r.push(`${t.negativeDays} in advance`);
   if (t.encashable) r.push(t.maxEncashDays != null ? `pay out up to ${t.maxEncashDays}` : 'paid out');
@@ -172,6 +182,8 @@ const formOf = (t) => ({
   probationRule: t.probationRule || 'ACCRUE', approval: t.approval || '', autoApproveUpToDays: t.autoApproveUpToDays ?? '', handOnAfterDays: t.handOnAfterDays ?? '',
   accrualBasis: t.accrualBasis || 'CALENDAR', perDaysWorked: t.perDaysWorked ?? '', minDaysWorked: t.minDaysWorked ?? '',
   oshCarry: Boolean(t.oshCarry), countsCalendarDays: Boolean(t.countsCalendarDays), availableAfterBasis: t.availableAfterBasis || 'JOINING',
+  unit: t.unit || 'DAY', overBalance: t.overBalance || 'REFUSE', notWithTypeIds: t.notWithTypeIds || [], onNotice: t.onNotice || 'ALLOW',
+  sandwichMinDays: t.sandwichMinDays ?? '', sandwichWeekOffs: t.sandwichWeekOffs !== false, sandwichHolidays: t.sandwichHolidays !== false, sandwichIgnoreHalf: Boolean(t.sandwichIgnoreHalf),
 });
 
 /** What the server is sent, for a save and for the preview alike. */
@@ -205,6 +217,14 @@ function bodyOf(form) {
     maxDaysPerRequest: num(form.maxDaysPerRequest),
     backdatedDays: num(form.backdatedDays),
     sandwich: Boolean(form.sandwich),
+    sandwichMinDays: form.sandwich ? num(form.sandwichMinDays) : null,
+    sandwichWeekOffs: !form.sandwich || form.sandwichWeekOffs !== false,
+    sandwichHolidays: !form.sandwich || form.sandwichHolidays !== false,
+    sandwichIgnoreHalf: Boolean(form.sandwich && form.sandwichIgnoreHalf),
+    unit: form.unit === 'HOUR' ? 'HOUR' : 'DAY',
+    overBalance: paid && form.unit !== 'HOUR' && form.overBalance === 'LOSS_OF_PAY' ? 'LOSS_OF_PAY' : 'REFUSE',
+    notWithTypeIds: form.notWithTypeIds || [],
+    onNotice: ['WARN', 'BLOCK'].includes(form.onNotice) ? form.onNotice : 'ALLOW',
     negativeDays: paid ? Number(form.negativeDays) || 0 : 0,
     encashable: paid && Boolean(form.encashable),
     maxEncashDays: paid && form.encashable ? num(form.maxEncashDays) : null,
@@ -243,6 +263,7 @@ export default function LeavePolicy() {
 
   const all = useMemo(() => req.data || [], [req.data]);
   const typeNames = useMemo(() => new Map((empTypes.data || []).map((t) => [t.id, t.name])), [empTypes.data]);
+  const leaveNames = useMemo(() => new Map(all.map((t) => [t.id, t.name])), [all]);
   const counts = { active: all.filter((t) => t.isActive).length, inactive: all.filter((t) => !t.isActive).length };
   const shown = all
     .filter((t) => (tab === 'active' ? t.isActive : !t.isActive))
@@ -287,7 +308,7 @@ export default function LeavePolicy() {
       </span>
     ) },
     { key: 'code', label: 'Code', render: (t) => t.code || '—' },
-    { key: 'policy', label: 'Policy', render: (t) => <span className="whitespace-normal">{rulesOf(t, typeNames).join('; ')}</span> },
+    { key: 'policy', label: 'Policy', render: (t) => <span className="whitespace-normal">{rulesOf(t, typeNames, leaveNames).join('; ')}</span> },
     { key: 'requests', label: 'Requests', align: 'right', render: (t) => <span className="tabular-nums">{t.requests == null ? '—' : t.requests}</span> },
   ];
 
@@ -341,7 +362,7 @@ export default function LeavePolicy() {
           card={(t) => (
             <span className="min-w-0 flex-1">
               <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{t.name}</span>{t.isPrivate ? <span className="ui-pill ui-pill-neutral">Private</span> : null}</span>
-              <span className="block truncate ui-caption">{rulesOf(t, typeNames).join('; ')}</span>
+              <span className="block truncate ui-caption">{rulesOf(t, typeNames, leaveNames).join('; ')}</span>
             </span>
           )}
           empty={q
@@ -358,6 +379,7 @@ export default function LeavePolicy() {
           initial={editing.value}
           empTypes={empTypes.data || []}
           places={places.data || { departments: [], branches: [], grades: [] }}
+          leaveTypes={all.filter((t) => t.id !== editing.value.id && t.isActive)}
           taken={all.filter((t) => t.id !== editing.value.id).map((t) => t.name)}
           suggested={missing.map((x) => x.name)}
           canSave={editing.value.id ? canEdit : canCreate}
@@ -406,7 +428,7 @@ function Check({ label, hint, checked, onChange, disabled }) {
   );
 }
 
-function PolicyForm({ initial, empTypes, places = { departments: [], branches: [], grades: [] }, taken, suggested, canSave, canCreate, canDelete, onClose, onSaved, onFork }) {
+function PolicyForm({ initial, empTypes, places = { departments: [], branches: [], grades: [] }, leaveTypes = [], taken, suggested, canSave, canCreate, canDelete, onClose, onSaved, onFork }) {
   const start = useMemo(() => formOf(initial), [initial]);
   const [form, setForm] = useState(start);
   const [saving, setSaving] = useState(false);
@@ -597,8 +619,26 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
             <NumberField label="Longest request, days" value={form.maxDaysPerRequest} onChange={set('maxDaysPerRequest')} placeholder="No limit" step={0.5} hint="Up to 182 (26 weeks). Without it, one request spans at most 60 days." />
             <NumberField label="Asked for after the day, up to" value={form.backdatedDays} onChange={set('backdatedDays')} placeholder="No limit" hint="0: only before the day." />
             <NumberField label="Document needed when longer than, days" value={form.attachmentAfterDays} onChange={set('attachmentAfterDays')} placeholder="Never" step={0.5} hint="A medical certificate, for example. It is kept on the person’s file." />
-            <Check label="Half days allowed" checked={form.allowHalfDay} onChange={set('allowHalfDay')} />
+            <div><PopupSelect showValueSubtext={false} label="Taken in" value={form.unit || 'DAY'} onChange={(v) => set('unit')(v || 'DAY')} options={UNITS} /></div>
+            <div><PopupSelect showValueSubtext={false} label="While serving notice" value={form.onNotice || 'ALLOW'} onChange={(v) => set('onNotice')(v || 'ALLOW')} options={ON_NOTICE} /></div>
+            {form.unit !== 'HOUR' ? <Check label="Half days allowed" checked={form.allowHalfDay} onChange={set('allowHalfDay')} /> : null}
             <Check label="Sandwich rule" hint="Weekly offs and holidays between two leave days count as leave. Friday and Monday off makes four days." checked={form.sandwich} disabled={form.countsCalendarDays} onChange={set('sandwich')} />
+            {form.sandwich ? (
+              <>
+                <NumberField label="Sandwich only from, days" value={form.sandwichMinDays} onChange={set('sandwichMinDays')} placeholder="Any length" />
+                <Check label="Weekly offs count" checked={form.sandwichWeekOffs !== false} onChange={set('sandwichWeekOffs')} />
+                <Check label="Holidays count" checked={form.sandwichHolidays !== false} onChange={set('sandwichHolidays')} />
+                <Check label="Not from a half day" hint="Friday afternoon to Monday does not charge the weekend." checked={form.sandwichIgnoreHalf} onChange={set('sandwichIgnoreHalf')} />
+              </>
+            ) : null}
+            {leaveTypes.length ? (
+              <fieldset className="sm:col-span-2">
+                <legend className="ui-label">Not next to</legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {leaveTypes.map((t) => <button key={t.id} type="button" className="ui-choice-chip" aria-pressed={form.notWithTypeIds.includes(t.id)} onClick={() => toggleIn('notWithTypeIds', t.id)}>{t.name}</button>)}
+                </div>
+              </fieldset>
+            ) : null}
             <Check label="Counts calendar days" hint="Every date in a request is a leave day, weekly offs and holidays included, as maternity leave counts." checked={form.countsCalendarDays} onChange={set('countsCalendarDays')} />
             {form.countsCalendarDays && form.gender === 'FEMALE' ? <p className="ui-caption sm:col-span-2">For a woman insured under ESIC, maternity benefit is paid by ESIC, not by the employer through payroll. CLOR does not work it out.</p> : null}
           </Section>
@@ -617,6 +657,7 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
               {num(form.carryForwardMax) ? <NumberField label="Carried days to be used within, days" value={form.carryExpiresAfterDays} onChange={set('carryExpiresAfterDays')} placeholder="No limit: they last the year" hint="Counted from the start of the leave period. Carried days are used first; what is left of them then lapses." /> : null}
               <Check label="OSH Code carry-forward" hint="Days asked for and refused in the year carry on top of the limit (30 under the Code), and what is over the limit is paid out by the year end, encashment or not." checked={form.oshCarry} onChange={set('oshCarry')} />
               <NumberField label="Days allowed in advance" value={form.negativeDays} onChange={set('negativeDays')} hint="The balance may go this far below zero." step={0.5} />
+              {form.unit !== 'HOUR' ? <div><PopupSelect showValueSubtext={false} label="More than the balance" value={form.overBalance || 'REFUSE'} onChange={(v) => set('overBalance')(v || 'REFUSE')} options={OVER_BALANCE} /></div> : null}
               <Check label="Unused days can be paid out (encashment)" checked={form.encashable} onChange={set('encashable')} />
               {form.encashable ? <NumberField label="Paid out at most, days a year" value={form.maxEncashDays} onChange={set('maxEncashDays')} placeholder="No limit" step={0.5} /> : null}
             </Section>

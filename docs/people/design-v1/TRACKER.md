@@ -218,3 +218,18 @@ Hiring, goals and training moved from the workspace registers to Talent tables (
 ### Merged, 29 Oct 2026 17:20 IST
 
 PR #50 merged into `main` as `73ace60` with `verify`, `audit` and `secrets` green on the Mac runner; no deploy (`DEPLOY_VM_ENABLED` unset). From here, start from `origin/main`; the handover above stands, except that `claude/people-live` is now history. Next: batch 2.
+
+### Leave policy rules (PR #47, ported onto main 30 Oct 2026)
+
+Decisions: `TIME-LEAVE-DECISIONS.md`, "Leave policy rules". Three of #47's nine rules were already on main in main's own design. Main's versions are kept: half days at both ends (`startHalf`/`endHalf` as separate rows), a document over N days (`attachmentAfterDays`), and carried-day expiry (`carryExpiresAfterDays`). The other six are ported:
+
+| Rule | Where | Test | Browser |
+|---|---|---|---|
+| Hourly leave | `routes/leave.ts` planLeave and approveLeave; `days.ts` writeDay `leaveHours`; `leaveHalves.ts` | `leavePolicyRules.test.ts`, `leave-shape.test.jsx` | Enter leave at 1366: Short Leave 10:00–12:00 charges 0.25 day. The list shows the hours at 1366 and 375 |
+| Over the balance as loss of pay | planLeave `overBalance()`, createLeave, editLeave refusal, request detail | `leavePolicyRules.test.ts` (Mon–Thu, a half at the end, the edit refused, the cut at a weekend) | Earned Leave 16 Nov–4 Dec: 13 paid and 5 Loss of Pay from 30 Nov, saved as two parts. "Loss of Pay (over the balance)" in the detail, no Change, approved together at 375. Cancelled together |
+| Clubbing | `clubbingClash` | `leavePolicyRules.test.ts` | Leave policy "Not next to" chips; the list shows "not next to Casual Leave" |
+| Sandwich options | `dayPlan` | `leavePolicyRules.test.ts` | Options shown under the switch |
+| Serving notice | planLeave warnings | `leavePolicyRules.test.ts` | Leave policy "While serving notice" |
+| State holiday minimum | `holidayMinimum.ts`, holidays route, setup step | `leavePolicyRules.test.ts` | Holidays: "Head Office (Karnataka): the state asks for 10 … 2026 has 0" |
+
+Open: My leave and the employee app forms were not checked in the browser; the dev owner has no employee record. Their tests pass. The Android app and the CSV import take days and half days only.

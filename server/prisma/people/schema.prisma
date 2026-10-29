@@ -728,6 +728,25 @@ model LeaveType {
   /// A document (a medical certificate) is asked for with a request longer than
   /// this many days. Null = never.
   attachmentAfterDays Float?
+  /// Leave policy rules owners expect from Keka/Zoho (TIME-LEAVE-DECISIONS.md, "Leave policy rules"). Each default
+  /// keeps a type as it was.
+  /// DAY: asked in days and half days. HOUR: asked in hours on one day, 15-minute steps, counted against the
+  /// day's shift (2 hours of an 8-hour shift is 0.25 day); balances stay in days.
+  unit               String   @default("DAY")
+  /// More than the balance (and negativeDays): REFUSE, or LOSS_OF_PAY — the extra days are a linked unpaid
+  /// request of the company's loss-of-pay type, in the same group, decided with the paid part.
+  overBalance        String   @default("REFUSE")
+  /// Types that may not sit next to this one (weekly offs and holidays between still count as next to). The
+  /// rule works both ways.
+  notWithTypeIds     String[] @default([])
+  /// Sandwich options, read only when sandwich is on: the rule applies to requests of at least this many
+  /// working days (null = any), to weekly offs, to holidays, and a half day at either end can be left out of it.
+  sandwichMinDays    Int?
+  sandwichWeekOffs   Boolean  @default(true)
+  sandwichHolidays   Boolean  @default(true)
+  sandwichIgnoreHalf Boolean  @default(false)
+  /// While the person is serving notice: ALLOW, WARN (asked, and the approver is told), or BLOCK.
+  onNotice           String   @default("ALLOW")
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -831,6 +850,12 @@ model LeaveRequest {
   groupId             String?
   /// The document sent with the request (LeaveType.attachmentAfterDays), kept on the person's file.
   attachmentDocId     String?
+  /// Hourly leave (LeaveType.unit HOUR): HH:MM to HH:MM on the one day, and its length; days is the shift's share.
+  fromTime            String?
+  toTime              String?
+  minutes             Int?
+  /// The paid request this unpaid one carries the days over the balance of (LeaveType.overBalance LOSS_OF_PAY).
+  overflowOfId        String?
   /// Under the company's leave approval rule (ApprovalRule, requestType LEAVE):
   /// the rule version it was asked under, the step waiting now, who may take
   /// that step (users, or portal:<employeeId> for a manager in the employee
@@ -850,6 +875,7 @@ model LeaveRequest {
   @@index([orgId, fromDate, toDate])
   @@index([orgId, groupId])
   @@index([orgId, status, stepDueAt])
+  @@index([orgId, overflowOfId])
 }
 
 /// A biometric reader (ZKTeco / eSSL) that pushes punches to /iclock. The
