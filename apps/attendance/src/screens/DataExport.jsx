@@ -3,6 +3,8 @@ import { Download } from 'lucide-react';
 
 import { PageHeader } from '@ui/components/ui/Primitives';
 import { downloadCsv } from '@ui/utils/csv';
+import { usePermissions } from '@ui/permissions/usePermissions';
+import { can } from '@ui/timeOff/shared';
 import { listEmployees, listHolidays, listLeaveRequests, listRecords, listShifts, listTransactions, todayIst } from '../api/attendance';
 
 /**
@@ -22,36 +24,42 @@ const PRESETS = [
   { id: 'today', label: 'Today', range: () => [todayIst(), todayIst()] },
 ];
 
+/* `need`: the reads behind each dataset, any one of which the server takes. People's menu lists the same keys for Export data. */
 const DATASETS = [
-  { id: 'records', label: 'Attendance days', blurb: 'Each person’s day: in, out, worked, late, status.', period: true,
+  { id: 'records', label: 'Attendance days', blurb: 'Each person’s day: in, out, worked, late, status.', period: true, need: ['ATTENDANCE::Attendance Records::VIEW'],
     load: ({ from, to }) => listRecords({ from, to }).then((r) => r?.records || []),
     columns: [['date', 'Date'], ['employeeCode', 'Employee code'], ['employeeName', 'Name'], ['checkInTime', 'In'], ['checkOutTime', 'Out'], ['workedMinutes', 'Worked (min)'], ['lateMinutes', 'Late (min)'], ['earlyOutMinutes', 'Early out (min)'], ['overtimeMinutes', 'Overtime (min)'], ['status', 'Status'], ['validated', 'Validated']] },
-  { id: 'punches', label: 'Punches', blurb: 'Every punch as the readers and phones sent it.', period: true,
+  { id: 'punches', label: 'Punches', blurb: 'Every punch as the readers and phones sent it.', period: true, need: ['ATTENDANCE::Attendance Devices::VIEW'],
     load: ({ from, to }) => listTransactions({ from, to }).then((r) => r?.transactions || []),
     columns: [['localTime', 'Time'], ['employeeCode', 'Employee code'], ['employeeName', 'Name'], ['pin', 'Reader ID'], ['kind', 'Direction'], ['verify', 'Verified by'], ['workCode', 'Work code'], ['deviceName', 'Reader'], ['shiftDate', 'Counted on'], ['siteName', 'Site']] },
-  { id: 'employees', label: 'Employees', blurb: 'The staff list with codes, departments and positions.', period: false,
+  { id: 'employees', label: 'Employees', blurb: 'The staff list with codes, departments and positions.', period: false, need: ['ATTENDANCE::Attendance Records::VIEW', 'ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Attendance Requests::VIEW'],
     load: () => listEmployees(),
     columns: [['code', 'Code'], ['name', 'Name'], ['department', 'Department'], ['jobPosition', 'Position'], ['status', 'Status'], ['dateOfJoining', 'Joined'], ['workEmail', 'Work e-mail'], ['workPhone', 'Phone'], ['devicePin', 'Reader ID']] },
-  { id: 'holidays', label: 'Holidays', blurb: 'This year’s calendar.', period: false,
+  { id: 'holidays', label: 'Holidays', blurb: 'This year’s calendar.', period: false, need: ['ATTENDANCE::Holidays::VIEW'],
     load: () => listHolidays(Number(todayIst().slice(0, 4))),
     columns: [['date', 'Date'], ['name', 'Name'], ['isOptional', 'Optional'], ['areaName', 'Area']] },
-  { id: 'leave', label: 'Leave requests', blurb: 'Applications with their status.', period: false,
+  { id: 'leave', label: 'Leave requests', blurb: 'Applications with their status.', period: false, need: ['ATTENDANCE::Leave Requests::VIEW'],
     load: () => listLeaveRequests().then((r) => r?.requests || r || []),
     columns: [['employeeCode', 'Employee code'], ['employeeName', 'Name'], ['leaveTypeName', 'Type'], ['fromDate', 'From'], ['toDate', 'To'], ['days', 'Days'], ['status', 'Status'], ['reason', 'Reason']] },
-  { id: 'shifts', label: 'Shifts', blurb: 'The shift definitions.', period: false,
+  { id: 'shifts', label: 'Shifts', blurb: 'The shift definitions.', period: false, need: ['ATTENDANCE::Shifts::VIEW'],
     load: () => listShifts().then((r) => r?.shifts || r || []),
     columns: [['name', 'Name'], ['startTime', 'Start'], ['endTime', 'End'], ['graceMinutes', 'Grace (min)'], ['weeklyOffDays', 'Weekly off']] },
 ];
 
 export default function DataExport() {
-  const [datasetId, setDatasetId] = useState('records');
+  /* Only what this person's reads allow (People audit gap 5); unknown permissions show everything and the server decides. */
+  const perms = usePermissions();
+  const known = perms && !perms.loading && !perms.error;
+  const datasets = known ? DATASETS.filter((x) => x.need.some((k) => can(perms, k))) : DATASETS;
+  const [chosenId, setDatasetId] = useState('records');
+  const datasetId = datasets.some((x) => x.id === chosenId) ? chosenId : datasets[0]?.id;
   const [preset, setPreset] = useState('this-month');
   const [from, setFrom] = useState(PRESETS[0].range()[0]);
   const [to, setTo] = useState(PRESETS[0].range()[1]);
   const [format, setFormat] = useState('csv');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
-  const dataset = DATASETS.find((x) => x.id === datasetId);
+  const dataset = datasets.find((x) => x.id === datasetId) || DATASETS[0];
 
   const applyPreset = (id) => { setPreset(id); const p = PRESETS.find((x) => x.id === id); if (p) { const [a, b] = p.range(); setFrom(a); setTo(b); } };
   const go = async () => {
@@ -82,7 +90,7 @@ export default function DataExport() {
         <li className="ui-card p-4 space-y-3">
           <h2 className="ui-t-sec"><span className="ui-caption mr-2">1</span>What to export</h2>
           <div className="space-y-1">
-            {DATASETS.map((x) => (
+            {datasets.map((x) => (
               <label key={x.id} className="flex items-start gap-2 rounded-lg p-2 ui-hover-sunken cursor-pointer" style={datasetId === x.id ? { backgroundColor: 'rgb(var(--surface-sunken))' } : undefined}>
                 <input type="radio" name="dataset" className="mt-1" checked={datasetId === x.id} onChange={() => setDatasetId(x.id)} />
                 <span><span className="block text-sm font-medium">{x.label}</span><span className="ui-caption">{x.blurb}</span></span>

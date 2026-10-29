@@ -10,7 +10,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { DAY_LABEL, DAY_PILL, STATUS_LABEL, STATUS_PILL, cancelMyRequest, clock, getMyDays, myRequests, todayIst } from './api';
 import { EnterRequest, KINDS, KIND_NAME, WhenCell, detailsText, monthChoices } from './AttendanceRequests';
-import { homeCrumbs } from './shared';
+import { homeCrumbs, useCanActForSelf } from './shared';
 
 /**
  * The basic check-in in HR (founder, 22 Oct 2026): one button for someone
@@ -31,6 +31,7 @@ function useMyDays() {
 
 export function CheckInCard({ me, onChanged }) {
   const [busy, setBusy] = useState(false);
+  const canAct = useCanActForSelf();
   if (!me) return null;
   const t = me.todayRecord;
   const press = async () => {
@@ -55,7 +56,7 @@ export function CheckInCard({ me, onChanged }) {
           {t?.checkOutTime ? `, out ${t.checkOutTime}` : ''}
         </p>
       </div>
-      {closed ? null : (
+      {closed || !canAct ? null : (
         <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={press}>
           {me.clockedIn ? <LogOut size={16} aria-hidden="true" /> : <LogIn size={16} aria-hidden="true" />} {me.clockedIn ? 'Check out' : 'Check in'}
         </button>
@@ -81,12 +82,13 @@ export function MyRequests({ month, onMonth, asking, onAsk, onAsked }) {
   const d = req.data;
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState('');
+  const canAct = useCanActForSelf();
   const months = useMemo(() => monthChoices(), []);
   const rows = useMemo(() => (d?.requests || []).filter((r) => r.date.slice(0, 7) === month || (r.toDate || '').slice(0, 7) === month), [d, month]);
   const on = KINDS.filter((k) => d?.rules?.[k]?.on);
   const today = todayIst();
-  const canChange = (r) => r.status === 'PENDING';
-  const canCancel = (r) => r.status === 'PENDING' || (r.status === 'APPROVED' && ['WFH', 'ON_DUTY', 'SHIFT_CHANGE'].includes(r.kind) && r.date > today);
+  const canChange = (r) => canAct && r.status === 'PENDING';
+  const canCancel = (r) => canAct && (r.status === 'PENDING' || (r.status === 'APPROVED' && ['WFH', 'ON_DUTY', 'SHIFT_CHANGE'].includes(r.kind) && r.date > today));
   const cancel = async (r) => {
     const ok = await confirmDialog({ title: r.status === 'APPROVED' ? 'Cancel this request?' : 'Withdraw this request?', confirmLabel: r.status === 'APPROVED' ? 'Cancel request' : 'Withdraw' });
     if (!ok) return;
@@ -156,6 +158,7 @@ export default function MyDays() {
   const me = req.data;
   const [month, setMonth] = useState(() => todayIst().slice(0, 7));
   const [asking, setAsking] = useState(false);
+  const canAct = useCanActForSelf();
   /* No employee file behind this sign-in is a fact about the person, not a failure to retry. */
   const unlinked = req.error?.code === 'NO_EMPLOYEE_LINK' || req.error?.status === 404;
   const columns = [
@@ -170,7 +173,7 @@ export default function MyDays() {
         breadcrumb={homeCrumbs()}
         title="My attendance"
         /* Checking in is the day's action and keeps the primary button; asking is occasional. */
-        actions={me ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setAsking(true)}><Plus size={16} aria-hidden="true" /> Ask</button> : null}
+        actions={me && canAct ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setAsking(true)}><Plus size={16} aria-hidden="true" /> Ask</button> : null}
       />
       {unlinked ? (
         <EmptyState title="Your sign-in is not linked to an employee file" description="Ask HR to put your email on your employee file." />

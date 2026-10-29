@@ -119,6 +119,13 @@ export const companyGroups = (allTenants = [], accounts = []) => {
     .concat(tail);
 };
 
+/**
+ * Whether a nav item's `permission` is held: one key, or a list of which any one
+ * will do (what the screen's route accepts). `extra` holds the app's own access
+ * keys (`access()` in its manifest). Unknown grants hide nothing.
+ */
+export const holdsPermission = (permission, granted, extra) => !permission || !granted || [].concat(permission).some((k) => granted.has(k) || Boolean(extra?.has(k)));
+
 /** "SETTINGS::Users::VIEW" as a person reads it: "view Users (Settings)". */
 export const permissionWords = (key = '') => {
   const [module = '', sub = '', action = ''] = String(key).split('::');
@@ -229,6 +236,26 @@ export default function Shell() {
   const activeAppId = mine.some((a) => a.id === chosenAppId)
     ? chosenAppId
     : landingApp(subscriptions || [])?.id || null;
+  /*
+   * Access no role gives: an app may name keys its own server grants this
+   * person (`access()`, e.g. People's live auditor grant or a seat on a case
+   * committee), which its nav items list like permissions. Null until read.
+   */
+  const accessKey = tenantKey && activeAppId ? `${tenantKey}|${activeAppId}` : '';
+  const [appAccess, setAppAccess] = useState({ key: '', set: null });
+  const extraAccess = appAccess.key === accessKey ? appAccess.set : null;
+  useEffect(() => {
+    const load = accessKey ? appById(activeAppId)?.access : null;
+    if (!load) return undefined;
+    let off = false;
+    Promise.resolve()
+      .then(load)
+      .then((keys) => !off && setAppAccess({ key: accessKey, set: new Set(Array.isArray(keys) ? keys : []) }))
+      .catch(() => !off && setAppAccess({ key: accessKey, set: new Set() }));
+    return () => {
+      off = true;
+    };
+  }, [accessKey, activeAppId]);
   /* Arriving on an app's own host with ?open=<screen> (a notification followed across apps): land there. */
   const [screenKey, setScreenKey] = useState(() => {
     try {
@@ -720,7 +747,8 @@ export default function Shell() {
   const app = appById(activeAppId);
   /* Items whose `permission` this person lacks go, and those of a module the company switched off (`feature`), then a settings page left with nothing on it, then any section heading left with nothing under it. */
   const switchedOn = (item) => !item.feature || !tenant?.features || tenant.features[item.feature] !== false;
-  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || ((!item.permission || !granted || granted.has(item.permission)) && switchedOn(item))));
+  const holds = (p) => holdsPermission(p, granted, extraAccess);
+  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || (holds(item.permission) && switchedOn(item))));
   const nav = allowed.filter((item, i) => !item.section || (allowed[i + 1] && !allowed[i + 1].section));
   /* A screen the open app does not have is not a screen: the same company
      switch that changes the app leaves last app's screen key behind, and
@@ -734,7 +762,8 @@ export default function Shell() {
    * address the page opened with names a screen this app does not have.
    */
   const screenItem = (app?.nav || []).find((n) => n.key === screen);
-  const screenDenied = Boolean(screenItem?.permission && granted && !granted.has(screenItem.permission));
+  /* An app whose own access is still being read is not refused yet. */
+  const screenDenied = Boolean(screenItem?.permission && !holds(screenItem.permission) && (extraAccess || !app?.access));
   /* An app may draw its own navigation instead of handing the shell a list. */
   const Root = app?.Root || null;
   const screenMissing = Boolean(!Root && app && openedWith && screenKey === openedWith && !app.screens?.[openedWith]);
@@ -1283,7 +1312,7 @@ export default function Shell() {
             ) : screenDenied ? (
               <ScreenState
                 title={`You can’t open ${screenItem?.label || 'this page'}`}
-                text={`It needs the “${permissionWords(screenItem.permission)}” permission in ${tenant.name}, and none of your roles here gives it. An administrator of the company can give you a role that does.`}
+                text={`It needs the “${permissionWords([].concat(screenItem.permission)[0])}” permission in ${tenant.name}, and none of your roles here gives it. An administrator of the company can give you a role that does.`}
                 action={app?.home && app.home !== screen ? { label: `Go to ${app.name}`, run: () => goTo(app.home) } : null}
               />
             ) : Screen ? (
@@ -1293,8 +1322,8 @@ export default function Shell() {
                 {/* `openScreen(key)` lets a screen link to another of its app's screens (a "3 waiting" note opening the list). */}
                 {/* One permission set for every app's screens; a screen whose resource this person may not change is shown read-only (WriteGuard). */}
                 <PermissionProvider key={tenantKey} enabled>
-                  {/* `writeGuard: false`: the screen's server decides per person (a manager writes their own team's reviews without the resource's Edit right). */}
-                  <WriteGuard permission={(() => { const n = (app?.nav || []).find((x) => x.key === screen); return n?.writeGuard === false ? undefined : n?.permission; })()}>
+                  {/* A list of permissions (any one opens the screen) or `writeGuard: false` (PR #67): the screen's server decides per person. */}
+                  <WriteGuard permission={screenItem?.writeGuard === false || typeof screenItem?.permission !== 'string' ? undefined : screenItem.permission}>
                     {(() => {
                       /* A page under a hub (People → Settings → Departments) shows the way back to it. */
                       const parentKey = (app?.nav || []).find((n) => n.key === screen)?.parent;

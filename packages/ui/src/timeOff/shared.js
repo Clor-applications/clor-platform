@@ -1,4 +1,5 @@
 import { activeApp } from '@ui/utils/activeApp';
+import { usePermissions } from '@ui/permissions/usePermissions';
 
 /**
  * Time & Leave screens are shared by People and Attendance (TIME-LEAVE-DECISIONS.md,
@@ -8,6 +9,20 @@ import { activeApp } from '@ui/utils/activeApp';
 
 /** A grant the signed-in user holds (admins hold all). The server checks again; this only hides what would be refused. */
 export const can = (perms, key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
+
+/** What asking for leave, checking in and changing one's own requests need (server: `can(CREATE, R.self)`). */
+export const SELF_ACT = 'ATTENDANCE::My Attendance::CREATE';
+
+/**
+ * Whether the signed-in person may act on their own days, so nobody sees a
+ * button the server refuses (People audit, 30 Oct 2026, gap 3). Fails open
+ * while the permissions are loading or could not be read: the server decides.
+ */
+export const useCanActForSelf = () => {
+  const perms = usePermissions();
+  if (!perms || perms.loading || perms.error) return true;
+  return can(perms, SELF_ACT);
+};
 
 const APP_NAME = { people: 'People', attendance: 'Attendance' };
 

@@ -177,6 +177,17 @@ async function membership(orgId: string, caseId: string, userId: string | null) 
   return peoplePrisma.privateCaseMember.findFirst({ where: { orgId, caseId, userId } });
 }
 
+/**
+ * Whether this person is named on a case or sits on a committee: what puts
+ * Confidential cases on their menu without any People grant (PRIV-06). Says
+ * only yes or no, never which case.
+ */
+export async function onAnyCaseOrCommittee(orgId: string, userId: string) {
+  if (await peoplePrisma.privateCaseMember.findFirst({ where: { orgId, userId }, select: { id: true } })) return true;
+  const committees = await peoplePrisma.committeeSetup.findMany({ where: { orgId }, select: { members: true } });
+  return committees.some((c) => ((c.members as Member[]) || []).some((m) => m.userId === userId));
+}
+
 /** The cases this person is named on. Nobody else learns a case exists. */
 export async function myCases(orgId: string, userId: string) {
   const mine = await peoplePrisma.privateCaseMember.findMany({ where: { orgId, userId }, select: { caseId: true, role: true } });
