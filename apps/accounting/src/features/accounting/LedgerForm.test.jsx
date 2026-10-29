@@ -242,7 +242,17 @@ describe('what the form refuses', () => {
   });
 });
 
-describe('Save and New', () => {
+/*
+ * "Save and New" is "Save and add another" in the form's More options menu
+ * since the ledger form took the shared DocFormActions header (it shipped that
+ * way at the import, 00f6a61a). Same behaviour, checked the same way.
+ */
+const saveAndAddAnother = async (user) => {
+  await user.click(screen.getByRole('button', { name: 'More options' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Save and add another' }));
+};
+
+describe('Save and add another', () => {
   it('saves, keeps the group and clears the ledger for the next one', async () => {
     const user = userEvent.setup();
     const setDb = vi.fn();
@@ -251,7 +261,7 @@ describe('Save and New', () => {
     const name = screen.getByLabelText(/^Ledger Name \*$/);
     await user.type(name, 'Office Rent');
     await pickGroup(user, 'Indirect Expenses');
-    await user.click(screen.getByRole('button', { name: 'Save and New' }));
+    await saveAndAddAnother(user);
 
     expect(setDb).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText(/^Ledger Name \*$/)).toHaveValue('');
@@ -269,7 +279,8 @@ describe('Save and New', () => {
         initialData={{ id: 5, companyId: 1, name: 'Office Rent', groupId: 11 }}
       />
     );
-    expect(screen.queryByRole('button', { name: 'Save and New' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More options' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Save and add another' })).toBeNull();
   });
 });
 
@@ -440,10 +451,12 @@ describe('as a screen rather than a dialog', () => {
     expect(screen.getByLabelText(/^Ledger Name \*$/)).toBeInTheDocument();
     unmount();
 
-    /* And the dialog is unchanged: it keeps its own footer. */
+    /* And the dialog asks the same: one header (DocFormActions) for both,
+       with Save and the same More options. */
     renderForm();
-    expect(screen.queryByRole('heading', { name: 'New Ledger' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Save and New' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Ledger Name \*$/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More options' })).toBeInTheDocument();
   });
 });
 
