@@ -73,7 +73,7 @@ and `./svc.sh install && ./svc.sh start`.
 | Run workflow by hand | yes | yes |
 
 The web tests (`npm run test:web`, vitest at the repository root, ~1,800
-tests, about two and a half minutes, no database) joined `verify` on 30 Oct
+tests, about four minutes on the two threads CI gives it, no database) joined `verify` on 30 Oct
 2026, so every pull request runs them. Before that nothing ran them and 53 had
 failed unnoticed since the initial import.
 

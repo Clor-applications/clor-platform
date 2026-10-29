@@ -77,7 +77,7 @@ describe.each(PAGES)('$name, laid out like every other list', (page) => {
     expect(screen.getByRole('region', { name: /Summary/i }).children).toHaveLength(5);
   });
 
-  it('offers status filtering with counts', () => {
+  it('offers status filtering: a dropdown on bills, counted tabs elsewhere', () => {
     render(page.render());
     if (page.name === 'Purchase Invoices') {
       /* A compact dropdown, as on Sales Invoices: plain status names, no

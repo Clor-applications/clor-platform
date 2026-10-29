@@ -42,8 +42,11 @@ describe('Price Lists, laid out like every other list', () => {
    * the masters layout — status in the header, no figure row — like Customers
    * and the other masters lists, and has since the import (00f6a61a). The
    * "Pricing nothing" figure they read never shipped in this repository. The
-   * counts live in the status dropdown instead.
+   * counts live in the status dropdown instead. Whether the figure comes back
+   * is pending the owner (DESIGN.md decisions log, 2026-10-30).
    */
+  it.todo('counts a list that prices nothing, which is the one worth finding');
+
   it('counts each status in the dropdown, over what search left standing', () => {
     view();
     const options = [...screen.getByRole('combobox', { name: 'Price list status' }).querySelectorAll('option')].map((o) => o.textContent);

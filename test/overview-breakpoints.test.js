@@ -37,8 +37,9 @@ const read = (p) => readFileSync(resolve(root, p), 'utf8');
 /* The window width each breakpoint fires at. */
 const BREAKPOINT_PX = { sm: 640, md: 768, lg: 1024, xl: 1280, '2xl': 1536 };
 const RAIL_PX = 240;
-/* The page's own side padding, both sides. */
-const PAGE_PADDING_PX = 24;
+/* Taken off the window as well as the rail: the page's 24px padding on both
+   sides, and the overview's own `p-3` (12px) on both sides. */
+const PAGE_PADDING_PX = 24 * 2 + 12 * 2;
 const MIN_PANEL_PX = 240;
 const REM = 16;
 
@@ -112,7 +113,7 @@ describe('overview panel rows', () => {
 
   it('would catch the row that scrolled', () => {
     /* A wide chart and two unfloored panels at xl: the two side panels get
-       ~197px each of a 1280 window, too narrow for a list of names and
+       ~187px each of a 1280 window, too narrow for a list of names and
        amounts. The check has to fail on it, or it judges nothing. */
     const [row] = gridRows('<div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,1fr)_minmax(0,1fr)]">');
     expect(narrowestAt(row)).toBeLessThan(MIN_PANEL_PX);

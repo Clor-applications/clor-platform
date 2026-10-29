@@ -254,6 +254,11 @@ describe('a whole screen is not framed as a settings panel', () => {
       return entry.name.endsWith('.jsx') ? [path] : [];
     });
 
+  /* Every .jsx file and its text, read once for the whole describe: the
+     check runs for each framed setting and the tree does not change. */
+  let cached = null;
+  const sources = () => (cached ??= jsxFiles(SRC_DIR).map((f) => [f, readFileSync(f, 'utf8')]));
+
   /** The component App returns for a key, read from its case arm. */
   const componentFor = (key) => {
     const at = APP.indexOf(`case '${key}':`);
@@ -273,13 +278,9 @@ describe('a whole screen is not framed as a settings panel', () => {
    */
   const isDocumentList = (name) => {
     if (!name) return false;
-    const files = jsxFiles(SRC_DIR).filter((f) => {
-      const src = readFileSync(f, 'utf8');
-      return src.includes(`const ${name} =`) || src.includes(`function ${name}(`);
-    });
+    const files = sources().filter(([, src]) => src.includes(`const ${name} =`) || src.includes(`function ${name}(`));
 
-    return files.some((f) => {
-      const src = readFileSync(f, 'utf8');
+    return files.some(([, src]) => {
       const at = Math.max(src.indexOf(`const ${name} = `), src.indexOf(`function ${name}(`));
       if (at < 0) return false;
       /* To the next top-level declaration, which is where this one ends. */
@@ -302,14 +303,15 @@ describe('a whole screen is not framed as a settings panel', () => {
     expect(isSettingsKey('settingsTax')).toBe(true);
   });
 
-  it('keeps them out of the Settings catalogue, as the rail now owns them', () => {
-    /* They used to be listed and searched here. The platform category left
-       the catalogue (HIDDEN_FROM_SETTINGS in settingsRegistry.js): Recurring
-       Invoices is in the Sales rail, the templates in Masters. A key stays
-       routable so old links still land. */
-    expect(searchSettings('recurring', all).map((i) => i.key)).not.toContain('recurringInvoices');
+  /* Where these are listed is pending the owner (DESIGN.md decisions log,
+     2026-10-30): the platform category is out of the catalogue today
+     (HIDDEN_FROM_SETTINGS), and search could still find them with an "opens
+     in Sales" pointer. Not asserted either way until that is decided. */
+  it.todo('search finds a screen that left the catalogue and says where it opens');
+
+  it('keeps them reachable: routed, and in the rail', () => {
+    /* A key stays routable so old links still land, and the rail is the way in. */
     expect(visibleCategories(all).some((c) => c.id === 'business')).toBe(false);
-    expect(visibleCategories(all).some((c) => c.id === 'platform')).toBe(false);
     expect(APP).toContain("case 'recurringInvoices':");
     expect(APP).toContain("key: 'recurringInvoices'");
   });
