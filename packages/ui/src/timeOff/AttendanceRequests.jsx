@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Check, Plus, X } from 'lucide-react';
+import { Check, Plus, X } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -15,7 +15,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
 
-import { can, homeCrumbs } from './shared';
+import { can, homeCrumbs, istDay } from './shared';
 import { MONTH_CLOSED, MonthClosedNote } from './MonthClosed';
 import { useSuggestions } from './suggestions';
 import {
@@ -32,10 +32,12 @@ import {
  * for someone with the same form the employee app has.
  */
 const TABS = [['PENDING', 'Waiting'], ['APPROVED', 'Approved'], ['REJECTED', 'Rejected'], ['CANCELLED', 'Cancelled'], ['all', 'All']];
-export const KINDS = ['MISSED_PUNCH', 'WFH', 'ON_DUTY', 'PERMISSION'];
-export const KIND_NAME = { MISSED_PUNCH: 'Missed punch', WFH: 'Work from home', ON_DUTY: 'On duty', PERMISSION: 'Permission' };
+export const KINDS = ['MISSED_PUNCH', 'WFH', 'ON_DUTY', 'PERMISSION', 'SHIFT_CHANGE'];
+export const KIND_NAME = { MISSED_PUNCH: 'Missed punch', WFH: 'Work from home', ON_DUTY: 'On duty', PERMISSION: 'Permission', SHIFT_CHANGE: 'Shift change' };
 const KIND_OPTIONS = [{ value: '', label: 'Every kind' }, ...KINDS.map((k) => ({ value: k, label: KIND_NAME[k] }))];
-const SPANS = ['WFH', 'ON_DUTY'];
+const SPANS = ['WFH', 'ON_DUTY', 'SHIFT_CHANGE'];
+/* Kinds that may be half a day; a shift change is whole days. */
+const HALVES = ['WFH', 'ON_DUTY'];
 const half = (h) => (h === 'FIRST' ? 'First half' : h === 'SECOND' ? 'Second half' : '');
 const range = (from, to) => (!to || from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`);
 const waitedDays = (at) => Math.max(0, Math.floor((Date.now() - new Date(at).getTime()) / 86_400_000));
@@ -67,7 +69,7 @@ export const monthLabel = (month) => (month ? `${MONTH_NAMES[Number(month.slice(
 /** "2 of 4 work-from-home days used", "1 of 3 missed-punch requests used, 1 waiting", "2 hours used, no limit". */
 export function usageText(kind, u) {
   if (!u) return '';
-  const unit = u.unit === 'hours' ? 'permission hours' : u.unit === 'requests' ? 'missed-punch requests' : `${kind === 'WFH' ? 'work-from-home' : 'on-duty'} days`;
+  const unit = u.unit === 'hours' ? 'permission hours' : u.unit === 'requests' ? 'missed-punch requests' : `${kind === 'WFH' ? 'work-from-home' : kind === 'SHIFT_CHANGE' ? 'shift-change' : 'on-duty'} days`;
   const waiting = u.pending ? `, ${u.pending} waiting` : '';
   if (u.quota == null) return `${u.used} ${unit} used${waiting}, no limit`;
   return `${u.used} of ${u.quota} ${unit} used${waiting}`;
@@ -89,6 +91,7 @@ export const detailsText = (r) => {
   if (r.kind === 'ON_DUTY') return r.place || '';
   if (r.kind === 'MISSED_PUNCH') return inTime(r) ? `In ${inTime(r)}${outTime(r) ? `, out ${outTime(r)}` : ''}` : '';
   if (r.kind === 'PERMISSION') return hoursText(r.minutes);
+  if (r.kind === 'SHIFT_CHANGE') return r.shiftName ? `To ${r.shiftName}` : '';
   return '';
 };
 
@@ -101,7 +104,7 @@ export function StatusPill({ row }) {
   );
 }
 
-export default function AttendanceRequests({ params = {}, updateParams }) {
+export default function AttendanceRequests({ params = {}, updateParams, statusFromTab = false }) {
   const perms = usePermissions();
   const allowed = (k) => can(perms, k);
   const p = params || {};
@@ -163,9 +166,12 @@ export default function AttendanceRequests({ params = {}, updateParams }) {
     { key: 'when', label: 'When', render: (r) => <WhenCell row={r} /> },
     { key: 'details', label: 'Details', render: (r) => <span className="tabular-nums">{detailsText(r)}</span> },
     { key: 'reason', label: 'Reason', render: (r) => <span className="block max-w-xs truncate" title={r.reason || ''}>{r.reason}</span> },
-    { key: 'asked', label: tab === 'PENDING' ? 'Waiting since' : 'Asked', render: (r) => <span className={`whitespace-nowrap ${tab === 'PENDING' && waitedDays(r.createdAt) > 2 ? 'ui-text-warn' : ''}`}>{tab === 'PENDING' ? waitedText(r.createdAt) : formatDate(String(r.createdAt).slice(0, 10))}</span> },
+    { key: 'asked', label: tab === 'PENDING' ? 'Waiting since' : 'Asked', render: (r) => <span className={`whitespace-nowrap ${tab === 'PENDING' && waitedDays(r.createdAt) > 2 ? 'ui-text-warn' : ''}`}>{tab === 'PENDING' ? waitedText(r.createdAt) : formatDate(istDay(r.createdAt))}</span> },
     { key: 'status', label: 'Status', render: (r) => <StatusPill row={r} /> },
   ];
+  /* People: a tab that already names the one status every row shares drops the column that would only repeat it; a manager's step still shows it. */
+  const oneStatus = statusFromTab && tab !== 'all' && rows.length > 0 && rows.every((r) => r.status === rows[0].status && !(r.status === 'PENDING' && r.managerApprovedAt));
+  const shownColumns = oneStatus ? columns.filter((c) => c.key !== 'status') : columns;
 
   return (
     <div className="space-y-6">
@@ -174,15 +180,6 @@ export default function AttendanceRequests({ params = {}, updateParams }) {
         title="Attendance requests"
         actions={allowed('ATTENDANCE::Attendance Requests::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Enter request</button> : null}
       />
-
-      <div ref={tabsRef} role="tablist" aria-label="Attendance requests" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {TABS.map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => set({ tab: k === 'PENDING' ? null : k, page: null }, true)}>
-            {l}{counts[k] ? <span className="ui-tab-count tabular-nums">{counts[k]}</span> : null}
-          </button>
-        ))}
-        {tabIndicator}
-      </div>
 
       {chosen.length ? (
         <div className="ui-bulkbar" role="region" aria-label="Decide the chosen requests">
@@ -195,8 +192,18 @@ export default function AttendanceRequests({ params = {}, updateParams }) {
       ) : null}
 
       <DataTable
+        tabs={(
+          <div ref={tabsRef} role="tablist" aria-label="Attendance requests" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+            {TABS.map(([k, l]) => (
+              <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => set({ tab: k === 'PENDING' ? null : k, page: null }, true)}>
+                {l}{counts[k] ? <span className="ui-tab-count tabular-nums">{counts[k]}</span> : null}
+              </button>
+            ))}
+            {tabIndicator}
+          </div>
+        )}
         label="Attendance requests"
-        columns={columns}
+        columns={shownColumns}
         rows={rows}
         total={Number(list.data?.total || 0)}
         page={page}
@@ -327,7 +334,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <Fact label="When"><WhenCell row={r} /></Fact>
             <Fact label="Status"><StatusPill row={r} /></Fact>
-            {detailsText(r) ? <Fact label={r.kind === 'ON_DUTY' ? 'Place' : r.kind === 'PERMISSION' ? 'Hours' : 'Punches'}><span className="tabular-nums">{detailsText(r)}</span></Fact> : null}
+            {detailsText(r) ? <Fact label={r.kind === 'ON_DUTY' ? 'Place' : r.kind === 'PERMISSION' ? 'Hours' : r.kind === 'SHIFT_CHANGE' ? 'Shift' : 'Punches'}><span className="tabular-nums">{detailsText(r)}</span></Fact> : null}
             {d.chain ? <Fact label="Decided by">{{ HR: 'HR', MANAGER: 'The manager', MANAGER_THEN_HR: 'The manager, then HR' }[d.chain] || d.chain}</Fact> : null}
             <div className="col-span-2"><Fact label="Reason">{r.reason || <span className="ui-muted">None given</span>}</Fact></div>
             {r.reviewNote && r.status !== 'PENDING' ? <div className="col-span-2"><Fact label="Note">{r.reviewNote}</Fact></div> : null}
@@ -372,8 +379,8 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
   );
 }
 
-const blank = { employeeId: '', kind: '', date: '', toDate: '', halfDay: '', place: '', checkIn: '', checkOut: '', reason: '' };
-const fromRequest = (r) => ({ employeeId: r.employeeId, kind: r.kind, date: r.date, toDate: r.toDate || r.date, halfDay: r.halfDay || '', place: r.place || '', checkIn: inTime(r), checkOut: outTime(r), reason: r.reason || '' });
+const blank = { employeeId: '', kind: '', date: '', toDate: '', halfDay: '', place: '', shiftId: '', checkIn: '', checkOut: '', reason: '' };
+const fromRequest = (r) => ({ employeeId: r.employeeId, kind: r.kind, date: r.date, toDate: r.toDate || r.date, halfDay: r.halfDay || '', place: r.place || '', shiftId: r.shiftId || '', checkIn: inTime(r), checkOut: outTime(r), reason: r.reason || '' });
 
 /**
  * Enter a request for someone, change a waiting one (`request`), or — with
@@ -381,7 +388,7 @@ const fromRequest = (r) => ({ employeeId: r.employeeId, kind: r.kind, date: r.da
  * usage for the person and kind before saving, the server's plain words on
  * refusal. `rules` and `usage` may be given (own mode) instead of fetched.
  */
-export function EnterRequest({ onClose, onDone, request = null, own = false, rules: givenRules = null, usage: givenUsage = null, month: givenMonth = '' }) {
+export function EnterRequest({ onClose, onDone, request = null, own = false, rules: givenRules = null, shifts: givenShifts = null, usage: givenUsage = null, month: givenMonth = '' }) {
   const editing = Boolean(request);
   const start = useMemo(() => (request ? fromRequest(request) : blank), [request]);
   const [form, setForm] = useState(start);
@@ -391,12 +398,14 @@ export function EnterRequest({ onClose, onDone, request = null, own = false, rul
   const people = useRequest(() => (editing || own ? Promise.resolve([]) : listPeople()), [editing, own]);
   const rulesReq = useRequest(() => (givenRules ? Promise.resolve({ rules: givenRules }) : getRequestRules()), [givenRules]);
   const rules = rulesReq.data?.rules || givenRules || null;
+  /* The shifts one may change to, with their hours: "Late, 14:00–22:00". */
+  const shiftOptions = (givenShifts || rulesReq.data?.shifts || []).map((x) => ({ value: x.id, label: `${x.name}, ${x.startTime}–${x.endTime}` }));
   const reasons = useSuggestions('requestReason');
   const places = useSuggestions('place');
   const kind = form.kind;
   const spans = SPANS.includes(kind);
-  const oneDay = spans && form.date && (!form.toDate || form.toDate === form.date);
-  const set = (k, v) => { setClosed(null); setForm((f) => ({ ...f, [k]: v, ...(k === 'date' && v && (!f.toDate || f.toDate < v) ? { toDate: v } : {}), ...(k === 'kind' ? { halfDay: '', place: '', checkIn: '', checkOut: '' } : {}) })); };
+  const oneDay = HALVES.includes(kind) && form.date && (!form.toDate || form.toDate === form.date);
+  const set = (k, v) => { setClosed(null); setForm((f) => ({ ...f, [k]: v, ...(k === 'date' && v && (!f.toDate || f.toDate < v) ? { toDate: v } : {}), ...(k === 'kind' ? { halfDay: '', place: '', shiftId: '', checkIn: '', checkOut: '' } : {}) })); };
   /* A kind that is off cannot be asked for; a missed punch always can. */
   const kindOptions = KINDS.filter((k) => k === 'MISSED_PUNCH' || !rules || rules[k]?.on || k === request?.kind).map((k) => ({ value: k, label: KIND_NAME[k] }));
   const month = form.date ? form.date.slice(0, 7) : '';
@@ -407,7 +416,7 @@ export function EnterRequest({ onClose, onDone, request = null, own = false, rul
   const usage = usageReq.data?.usage?.[kind] || null;
   const dirty = JSON.stringify(form) !== JSON.stringify(start);
   const ready = Boolean((own || form.employeeId) && kind && form.date && form.reason.trim().length >= 3
-    && (kind !== 'ON_DUTY' || form.place.trim()) && (kind !== 'MISSED_PUNCH' || form.checkIn) && (kind !== 'PERMISSION' || (form.checkIn && form.checkOut)));
+    && (kind !== 'ON_DUTY' || form.place.trim()) && (kind !== 'SHIFT_CHANGE' || form.shiftId) && (kind !== 'MISSED_PUNCH' || form.checkIn) && (kind !== 'PERMISSION' || (form.checkIn && form.checkOut)));
 
   const save = async (e) => {
     e?.preventDefault();
@@ -420,6 +429,7 @@ export function EnterRequest({ onClose, onDone, request = null, own = false, rul
         toDate: spans && form.toDate && form.toDate !== form.date ? form.toDate : null,
         halfDay: oneDay && form.halfDay ? form.halfDay : null,
         place: kind === 'ON_DUTY' ? form.place.trim() : null,
+        shiftId: kind === 'SHIFT_CHANGE' ? form.shiftId : null,
         checkIn: kind === 'MISSED_PUNCH' || kind === 'PERMISSION' ? form.checkIn : null,
         checkOut: kind === 'MISSED_PUNCH' || kind === 'PERMISSION' ? form.checkOut || null : null,
       };
@@ -464,6 +474,11 @@ export function EnterRequest({ onClose, onDone, request = null, own = false, rul
             </div>
             {oneDay ? (
               <PopupSelect showValueSubtext={false} label="Day" value={form.halfDay || 'WHOLE'} onChange={(v) => set('halfDay', v === 'WHOLE' ? '' : v || '')} options={[{ value: 'WHOLE', label: 'Whole day' }, { value: 'FIRST', label: 'First half' }, { value: 'SECOND', label: 'Second half' }]} />
+            ) : null}
+            {kind === 'SHIFT_CHANGE' ? (
+              shiftOptions.length
+                ? <PopupSelect showValueSubtext={false} label="Shift to work *" value={form.shiftId} onChange={(v) => set('shiftId', v || '')} placeholder="Choose…" options={shiftOptions} />
+                : <p className="ui-caption">No shifts are set up yet; HR adds them under Shifts &amp; readers.</p>
             ) : null}
             {kind === 'ON_DUTY' ? (
               <label className="block">

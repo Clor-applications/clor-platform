@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, X } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -10,7 +10,7 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { notify } from '@ui/components/ui/notify';
-import { formatDateIn } from '@ui/utils/dates';
+import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar, SCHEDULED_LABELS } from '@ui/personnel/Employees';
 import { can } from '@ui/timeOff/shared';
@@ -43,7 +43,8 @@ const TABS = [['waiting', 'Waiting for me'], ['mine', 'Asked by me']];
 const INBOX_KIND = { LEAVE: 'Leave', ATTENDANCE: 'Attendance request', APPROVAL: 'People approval', HELPDESK: 'Help desk' };
 const KIND_ORDER = ['LEAVE', 'ATTENDANCE', 'APPROVAL', 'HELPDESK'];
 
-const day = (iso) => (iso ? formatDateIn(String(iso).slice(0, 10)) : '');
+/* "3 Nov 2026", as every other People list writes a day. */
+const day = (iso) => (iso ? formatDate(String(iso).slice(0, 10)) : '');
 const range = (from, to) => (!from ? '' : !to || from === to ? day(from) : `${day(from)} – ${day(to)}`);
 const waitedDays = (at) => Math.max(0, Math.floor((Date.now() - new Date(at).getTime()) / 86_400_000));
 const waitedText = (at) => { const d = waitedDays(at); return d === 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d} days ago`; };
@@ -114,6 +115,35 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     }
   };
 
+  /* Approve one request from its row, as on Home (owner, 28 Oct 2026 audit): one inbox, decided in place. Rejecting still opens it, for the reason. */
+  /* Busy per row, not one flag for the page: approving Asha's leave must not
+     block approving Ravi's while the first is still on its way. */
+  const [rowBusy, setRowBusy] = useState(() => new Set());
+  const rowBusyRef = useRef(new Set());
+  const approveOne = async (i) => {
+    const fn = { LEAVE: bulkReviewLeave, ATTENDANCE: bulkReviewRequests, APPROVAL: bulkDecideRequests }[i.kind];
+    if (!fn || rowBusyRef.current.has(i.key)) return;
+    rowBusyRef.current.add(i.key);
+    setRowBusy(new Set(rowBusyRef.current));
+    try {
+      const out = await fn([i.id], true);
+      const err = (out.results || [])[0]?.error;
+      if (err) notify.error(err);
+      else {
+        notify.success(out.handedOn ? 'Approved as the manager; now with HR.' : `Approved: ${i.employeeName || 'request'}.`);
+        /* Decided, so no longer a choice: left in the selection it would count
+           towards the bulk bar and be sent again with the next bulk decision. */
+        setSelected((s) => { if (!s.has(i.key)) return s; const n = new Set(s); n.delete(i.key); return n; });
+      }
+      inbox.reload();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not done.'));
+    } finally {
+      rowBusyRef.current.delete(i.key);
+      setRowBusy(new Set(rowBusyRef.current));
+    }
+  };
+
   const openItem = (i) => {
     if (i.kind === 'HELPDESK') { openScreen?.('helpdesk', { id: i.id }); return; }
     setOpen(i);
@@ -136,9 +166,15 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     { key: 'since', label: 'Waiting since', render: (i) => (
       <span className="inline-flex flex-col items-start gap-0.5 whitespace-nowrap">
         <span className={waitedDays(i.since) > 2 || i.overdue ? 'ui-text-warn' : ''}>{waitedText(i.since)}</span>
-        {i.overdue ? <span className="ui-pill ui-pill-neg">Overdue</span> : i.managerApproved ? <span className="ui-caption">Manager approved</span> : null}
+        {i.overdue ? <span className="ui-pill ui-pill-neg">Overdue</span> : i.managerApproved ? <span className="ui-caption">Manager approved</span> : i.step > 1 ? <span className="ui-caption">Step {i.step}</span> : null}
       </span>
     ) },
+    /* The header names the column for screen readers; sighted people read the buttons. */
+    { key: 'act', label: <span className="sr-only">Actions</span>, align: 'right', always: true, render: (i) => (i.bulk ? (
+      <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={rowBusy.has(i.key)} onClick={(e) => { e.stopPropagation(); approveOne(i); }}>
+        <Check size={14} aria-hidden="true" /> {rowBusy.has(i.key) ? 'Approving…' : 'Approve'}
+      </button>
+    ) : null) },
   ];
   const mineColumns = [
     { key: 'title', label: 'Request', always: true, render: (r) => <span className="font-medium">{r.title}</span> },
@@ -154,15 +190,6 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     <div className="space-y-6">
       <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Home' }]} title="Approvals" />
 
-      <div ref={tabsRef} role="tablist" aria-label="Approvals" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {TABS.map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => { setSelected(new Set()); set({ tab: k === 'waiting' ? null : k, page: null }, true); }}>
-            {l}{k === 'waiting' && counts.all ? <span className="ui-tab-count tabular-nums">{counts.all}</span> : null}
-          </button>
-        ))}
-        {tabIndicator}
-      </div>
-
       {tab === 'waiting' && chosen.length ? (
         <div className="ui-bulkbar" role="region" aria-label="Decide the chosen requests">
           <span className="text-sm"><strong className="tabular-nums">{chosen.length}</strong> chosen</span>
@@ -174,6 +201,16 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
       ) : null}
 
       <DataTable
+        tabs={(
+          <div ref={tabsRef} role="tablist" aria-label="Approvals" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+            {TABS.map(([k, l]) => (
+              <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => { setSelected(new Set()); set({ tab: k === 'waiting' ? null : k, page: null }, true); }}>
+                {l}{k === 'waiting' && counts.all ? <span className="ui-tab-count tabular-nums">{counts.all}</span> : null}
+              </button>
+            ))}
+            {tabIndicator}
+          </div>
+        )}
         label={tab === 'waiting' ? 'Waiting for me' : 'Asked by me'}
         columns={tab === 'waiting' ? waitingColumns : mineColumns}
         rows={pageRows}
@@ -236,6 +273,9 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
   const [busy, setBusy] = useState('');
   const open = request || [...(list.data?.waitingForMe || []), ...(list.data?.mine || [])].find((r) => r.id === id) || null;
   const deciding = open && open.status === 'WAITING' && !mine;
+  /* The list came back without it: someone else decided it, or it was
+     withdrawn, since the inbox was read. Say so rather than load forever. */
+  const gone = !open && Boolean(list.data) && !list.loading && !list.refreshing;
 
   const act = async (action) => {
     if (!open) return;
@@ -270,7 +310,9 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
         </>
       ) : null}
     >
-      {list.error && !open ? <ErrorState error={list.error} onRetry={list.reload} compact /> : !open ? <div className="ui-skel ui-skel-text" aria-busy="true" /> : (
+      {list.error && !open ? <ErrorState error={list.error} onRetry={list.reload} compact /> : gone ? (
+        <EmptyState title="No longer waiting" description="Someone decided this or it was withdrawn since your list was loaded." />
+      ) : !open ? <div className="ui-skel ui-skel-text" aria-busy="true" /> : (
         <div className="space-y-4 text-sm">
           <dl className="grid gap-3 sm:grid-cols-2">
             <div><dt className="ui-t-label">Kind</dt><dd>{TYPE[open.requestType] || open.requestType}</dd></div>

@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { refreshSuggestions, useSuggestions } from '../workforce/suggestions';
-import { Plus } from 'lucide-react';
+import { Plus } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -45,7 +45,7 @@ export default function Branches({ openScreen }) {
   const columns = [
     { key: 'name', label: 'Branch', always: true, render: (b) => <span className="min-w-0"><span className="block truncate font-medium">{b.branchName}</span><span className="block truncate ui-caption tabular-nums">{b.branchCode}</span></span> },
     { key: 'place', label: 'City, state', render: (b) => [b.city, b.state].filter(Boolean).join(', ') || '—' },
-    { key: 'people', label: 'People', align: 'right', render: (b) => <button type="button" className="ui-link tabular-nums" onClick={() => openScreen?.('employees', { branch: b.id })}>{b.people}</button> },
+    { key: 'people', label: 'People', align: 'right', render: (b) => <button type="button" className="ui-link tabular-nums" onClick={(e) => { e.stopPropagation(); openScreen?.('employees', { branch: b.id }); }}>{b.people}</button> },
   ];
   const rowActions = (b) => [
     canEdit ? { key: 'edit', label: 'Edit', onSelect: () => setEditing({ ...b }) } : null,
@@ -55,21 +55,23 @@ export default function Branches({ openScreen }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Organization', onClick: () => openScreen?.('organization') }, { label: 'Branches' }]}
+        breadcrumb={[{ label: 'People' }, { label: 'Organisation', onClick: () => openScreen?.('organization') }, { label: 'Branches' }]}
         title="Branches"
         actions={canCreate ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ branchName: '', branchCode: '', addressLine1: '', city: '', state: '', isActive: true })}><Plus size={16} aria-hidden="true" /> New branch</button> : null}
       />
-      <div ref={tabsRef} role="tablist" aria-label="Branches" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {[['active', 'In use', counts.active], ['retired', 'Retired', counts.retired]].map(([k, l, n]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
-        ))}
-        {tabIndicator}
-      </div>
       {req.data?.noBranch && counts.active > 1 ? (
         <ul className="ui-attention"><li><span className="ui-attention-dot" aria-hidden="true" />{req.data.noBranch} {req.data.noBranch === 1 ? 'person has' : 'people have'} no branch, so Attendance gives them only company-wide holidays. <button type="button" className="ui-link" onClick={() => openScreen?.('employees', { branch: 'none' })}>Show them</button></li></ul>
       ) : null}
       {req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
+          tabs={(
+            <div ref={tabsRef} role="tablist" aria-label="Branches" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+              {[['active', 'In use', counts.active], ['retired', 'Retired', counts.retired]].map(([k, l, n]) => (
+                <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
+              ))}
+              {tabIndicator}
+            </div>
+          )}
           label="Branches"
           columns={columns}
           rows={shown}

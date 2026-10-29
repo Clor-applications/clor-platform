@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, TrendingUp, Users, Zap } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Zap } from '@ui/components/ui/lineIcons';
 
 import { ClorLogo } from '@ui/components/brand';
 import LegalLinks from './legal/LegalLinks';

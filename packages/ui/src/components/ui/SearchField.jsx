@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X } from '@ui/components/ui/lineIcons';
 
 /**
  * SearchField (People design spec v1 §5): debounced, with a clear button.

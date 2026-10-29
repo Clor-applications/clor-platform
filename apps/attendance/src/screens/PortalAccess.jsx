@@ -7,6 +7,7 @@ import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { activeApp } from '@ui/utils/activeApp';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { getPortalAccess, issuePortalCodes, listGeofences, resetPortalPassword, setPortalAccess, signOutPortalEverywhere } from '../api/attendance';
@@ -144,7 +145,7 @@ export default function PortalAccess() {
   return (
     <DocumentListShell
       entity="employee"
-      title="Employee Portal Access"
+      title={activeApp() === 'people' ? 'Employee app' : 'Employee Portal Access'}
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);

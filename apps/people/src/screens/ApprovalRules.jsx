@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus } from '@ui/components/ui/lineIcons';
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
@@ -13,6 +13,7 @@ import { orgId } from '@platform/context';
 import { listRules, retireRule, saveRule } from '../api/approvals';
 import { orgUsers } from '../api/desk';
 import { listEmployees, structure } from '../workforce/api';
+import { listLeaveTypes } from '@ui/timeOff/api';
 
 /**
  * Approval rules (APR-01, APR-02, APR-03): who decides what, in which
@@ -31,6 +32,7 @@ const TYPE_WORDS = {
   LETTER_REQUEST: ['Letter requests', 'A person asks for a letter.'],
   DESK_ESCALATION: ['Help desk escalations', 'A help desk request handed up.'],
   SEAT_REQUEST: ['Position requests', 'A new position on a team.'],
+  LEAVE: ['Leave', 'Leave of every type set to “The approval rule” in Leave policy. A short request may still be approved on its own first.'],
 };
 const APPROVERS = [['MANAGER', 'Their manager'], ['MANAGER_OF_MANAGER', 'Their manager’s manager'], ['HR', 'HR (anyone who may edit people)'], ['USER', 'A named person'], ['ROLE', 'Anyone holding a role']];
 /* What a step can depend on; a field with a list says which list its value comes from. */
@@ -40,6 +42,15 @@ const FIELDS = [
   ['phone', 'Phone', null], ['addressLine', 'Address', null], ['dateOfBirth', 'Date of birth', null],
 ];
 const OPS = [['changed', 'changes'], ['eq', 'becomes'], ['ne', 'is not']];
+/*
+ * Leave is not a change to a record: its steps depend on how long it is and
+ * which type it is. The HR step is whoever approves leave for the whole
+ * company; a named person or role decides from Approvals even without the
+ * leave screens.
+ */
+const LEAVE_FIELDS = [['days', 'Days asked for', null], ['leaveTypeId', 'Leave type', 'leaveTypes']];
+const LEAVE_OPS = { days: [['gt', 'more than'], ['lt', 'fewer than']], leaveTypeId: [['eq', 'is'], ['ne', 'is not']] };
+const LEAVE_APPROVERS = [['MANAGER', 'Their manager'], ['MANAGER_OF_MANAGER', 'Their manager’s manager'], ['HR', 'HR (anyone who approves leave for the whole company)'], ['USER', 'A named person'], ['ROLE', 'Anyone holding a role']];
 const blankStep = (order) => ({ order, approver: { kind: 'MANAGER' }, condition: null, dueDays: 3, overdue: { action: 'REMIND' } });
 const typeName = (t) => TYPE_WORDS[t]?.[0] || t;
 
@@ -65,7 +76,10 @@ export default function ApprovalRules() {
     setEditing({ requestType: t, name: rule?.name || `${typeName(t)} rule`, steps: rule ? rule.steps.map((s, i) => ({ ...blankStep(i + 1), ...s, order: i + 1 })) : [blankStep(1)] });
   };
   const retire = async (type) => {
-    if (!(await confirmDialog({ title: `Switch off the rule for ${typeName(type).toLowerCase()}?`, message: 'Requests of this kind then apply at once with no approval; earlier versions stay readable.', confirmLabel: 'Switch off' }))) return;
+    const message = type === 'LEAVE'
+      ? 'New leave of a type set to “The approval rule” then goes to HR; leave already waiting keeps the steps it was asked under. Earlier versions stay readable.'
+      : 'Requests of this kind then apply at once with no approval; earlier versions stay readable.';
+    if (!(await confirmDialog({ title: `Switch off the rule for ${typeName(type).toLowerCase()}?`, message, confirmLabel: 'Switch off' }))) return;
     try {
       await retireRule(type);
       notify.success('Switched off.');
@@ -77,7 +91,7 @@ export default function ApprovalRules() {
   const steps = (rule) => (rule.steps || []).map((s) => `${approverWords(s.approver, users, roles)} (${s.dueDays} d)`).join(' → ');
   const columns = [
     { key: 'type', label: 'Kind of request', always: true, render: (t) => <span className="min-w-0"><span className="block font-medium">{typeName(t)}</span><span className="block ui-caption">{TYPE_WORDS[t]?.[1] || ''}</span></span> },
-    { key: 'steps', label: 'Who decides', render: (t) => { const rule = active(t); return rule ? steps(rule) : <span className="ui-muted">Nobody: applies at once</span>; } },
+    { key: 'steps', label: 'Who decides', render: (t) => { const rule = active(t); return rule ? steps(rule) : <span className="ui-muted">{t === 'LEAVE' ? 'Not set: Leave policy decides' : 'Nobody: applies at once'}</span>; } },
     { key: 'version', label: 'Version', render: (t) => { const rule = active(t); const all = versions(t); return rule ? <span className="tabular-nums">v{rule.version}</span> : all.length ? <span className="ui-muted tabular-nums">Off (v{all[0].version} last)</span> : '—'; } },
   ];
   const rowActions = (t) => [
@@ -105,19 +119,22 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
   const [error, setError] = useState(null);
   const dirty = JSON.stringify(form) !== JSON.stringify(rule);
   /* The values a condition can name: the company's own lists. */
+  const leave = form.requestType === 'LEAVE';
+  const fields = leave ? LEAVE_FIELDS : FIELDS;
   const lists = useRequest(async () => {
+    if (leave) return { leaveTypes: ((await listLeaveTypes().catch(() => [])) || []).filter((t) => t.isActive).map((t) => ({ value: t.id, label: t.name })) };
     const kinds = ['departments', 'job-positions', 'establishments', 'grades', 'employee-types'];
     const rows = await Promise.all(kinds.map((k) => structure(k).catch(() => [])));
     const people = await listEmployees({ limit: 500, status: 'CURRENT', sort: 'name' }).then((r) => r?.employees || []).catch(() => []);
     return { ...Object.fromEntries(kinds.map((k, i) => [k, rows[i].map((x) => ({ value: x.id, label: x.name }))])), people: people.map((p) => ({ value: p.id, label: p.code ? `${p.name} (${p.code})` : p.name })) };
-  }, []);
+  }, [leave]);
   const setStep = (i, patch) => setForm((f) => ({ ...f, steps: f.steps.map((s, j) => (j === i ? { ...s, ...patch } : s)) }));
   const save = async () => {
     if (!form.name.trim()) { setError({ message: 'Give the rule a name.' }); return; }
     const bad = form.steps.findIndex((s) => (s.approver.kind === 'USER' || s.approver.kind === 'ROLE') && !s.approver.id);
     if (bad >= 0) { setError({ message: `Step ${bad + 1}: choose the ${form.steps[bad].approver.kind === 'USER' ? 'person' : 'role'}.` }); return; }
-    const noValue = form.steps.findIndex((s) => s.condition?.field && s.condition.op !== 'changed' && !s.condition.value);
-    if (noValue >= 0) { setError({ message: `Step ${noValue + 1}: choose what it becomes.` }); return; }
+    const noValue = form.steps.findIndex((s) => s.condition?.field && s.condition.op !== 'changed' && !String(s.condition.value ?? '').trim());
+    if (noValue >= 0) { setError({ message: leave ? `Step ${noValue + 1}: say how many days, or which type.` : `Step ${noValue + 1}: choose what it becomes.` }); return; }
     setSaving(true);
     setError(null);
     try {
@@ -128,7 +145,7 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
   };
   const approverPicker = (value, onChange, label) => (
     <>
-      <div><PopupSelect showValueSubtext={false} label={label} value={value?.kind || 'MANAGER'} onChange={(v) => onChange({ kind: v || 'MANAGER' })} options={APPROVERS.map(([k, l]) => ({ value: k, label: l }))} /></div>
+      <div><PopupSelect showValueSubtext={false} label={label} value={value?.kind || 'MANAGER'} onChange={(v) => onChange({ kind: v || 'MANAGER' })} options={(leave ? LEAVE_APPROVERS : APPROVERS).map(([k, l]) => ({ value: k, label: l }))} /></div>
       {value?.kind === 'USER' ? <div><PopupSelect showValueSubtext={false} label="Person" value={value.id || ''} placeholder="Choose…" alwaysSearch onChange={(v) => onChange({ kind: 'USER', id: v || '' })} options={users.map((u) => ({ value: u.id, label: u.fullName || u.email }))} /></div> : null}
       {value?.kind === 'ROLE' ? <div><PopupSelect showValueSubtext={false} label="Role" value={value.id || ''} placeholder="Choose…" onChange={(v) => onChange({ kind: 'ROLE', id: v || '' })} options={roles.map((r) => ({ value: r.id, label: r.name }))} /></div> : null}
     </>
@@ -141,8 +158,9 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
         <label className="block"><span className="ui-label">Rule name *</span><input className="ui-input w-full" maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
         <ol className="divide-y border-t" aria-label="Steps">
           {form.steps.map((s, i) => {
-            const field = FIELDS.find(([k]) => k === s.condition?.field);
-            const ops = field?.[2] ? OPS : OPS.slice(0, 1);
+            const field = fields.find(([k]) => k === s.condition?.field);
+            const ops = leave ? LEAVE_OPS[field?.[0]] || [] : field?.[2] ? OPS : OPS.slice(0, 1);
+            const firstOp = (k) => (leave ? LEAVE_OPS[k][0][0] : 'changed');
             return (
               <li key={i} className="py-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
@@ -154,9 +172,10 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
                   <label className="block"><span className="ui-label">Within (working days)</span><input className="ui-input w-full tabular-nums" inputMode="numeric" value={s.dueDays} onChange={(e) => setStep(i, { dueDays: e.target.value.replace(/\D/g, '').slice(0, 2) })} /></label>
                 </div>
                 <div className="ui-form-grid">
-                  <div><PopupSelect showValueSubtext={false} label="Only when" value={s.condition?.field || ''} placeholder="Always" onChange={(v) => setStep(i, { condition: v ? { field: v, op: 'changed', value: null } : null })} options={[{ value: '', label: 'Always' }, ...FIELDS.map(([k, l]) => ({ value: k, label: `${l} changes` }))]} /></div>
-                  {field ? <div><PopupSelect showValueSubtext={false} label="How" value={s.condition.op} onChange={(v) => setStep(i, { condition: { ...s.condition, op: v || 'changed', value: v === 'changed' ? null : s.condition.value } })} options={ops.map(([k, l]) => ({ value: k, label: `${field[1]} ${l}` }))} /></div> : null}
-                  {field?.[2] && s.condition.op !== 'changed' ? <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label={s.condition.op === 'eq' ? 'Becomes' : 'Is not'} value={s.condition.value || ''} placeholder={lists.data ? 'Choose…' : 'Loading…'} alwaysSearch onChange={(v) => setStep(i, { condition: { ...s.condition, value: v || null } })} options={lists.data?.[field[2]] || []} /></div> : null}
+                  <div><PopupSelect showValueSubtext={false} label="Only when" value={s.condition?.field || ''} placeholder="Always" onChange={(v) => setStep(i, { condition: v ? { field: v, op: firstOp(v), value: null } : null })} options={[{ value: '', label: 'Always' }, ...fields.map(([k, l]) => ({ value: k, label: leave ? l : `${l} changes` }))]} /></div>
+                  {field ? <div><PopupSelect showValueSubtext={false} label="How" value={s.condition.op} onChange={(v) => setStep(i, { condition: { ...s.condition, op: v || ops[0][0], value: v === 'changed' ? null : s.condition.value } })} options={ops.map(([k, l]) => ({ value: k, label: `${field[1]} ${l}` }))} /></div> : null}
+                  {field && !field[2] && leave ? <label className="block"><span className="ui-label">Days</span><input className="ui-input w-full tabular-nums" inputMode="decimal" value={s.condition.value ?? ''} onChange={(e) => setStep(i, { condition: { ...s.condition, value: e.target.value.replace(/[^\d.]/g, '').slice(0, 5) } })} /></label> : null}
+                  {field?.[2] && s.condition.op !== 'changed' ? <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label={leave ? (s.condition.op === 'eq' ? 'Type' : 'Not this type') : s.condition.op === 'eq' ? 'Becomes' : 'Is not'} value={s.condition.value || ''} placeholder={lists.data ? 'Choose…' : 'Loading…'} alwaysSearch onChange={(v) => setStep(i, { condition: { ...s.condition, value: v || null } })} options={lists.data?.[field[2]] || []} /></div> : null}
                 </div>
                 <div className="ui-form-grid">
                   <div><PopupSelect showValueSubtext={false} label="If overdue" value={s.overdue?.action || 'REMIND'} onChange={(v) => setStep(i, { overdue: { action: v || 'REMIND', to: v === 'HAND_ON' ? s.overdue?.to || { kind: 'HR' } : undefined } })} options={[{ value: 'REMIND', label: 'Remind them' }, { value: 'HAND_ON', label: 'Hand it on' }]} /></div>

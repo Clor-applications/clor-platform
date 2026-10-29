@@ -113,6 +113,28 @@ describe('Attendance requests', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(api.createRequest).toHaveBeenCalledWith(expect.objectContaining({ employeeId: 'e1', kind: 'ON_DUTY', date: '2026-11-02', toDate: null, place: 'Client office, Whitefield', reason: 'Site visit' })));
   });
+
+  it('a shift change asks for the shift to work, with its hours, and no half day', async () => {
+    api.getRequestRules.mockResolvedValue({ rules: { ...RULES, SHIFT_CHANGE: { on: true, quotaPerMonth: null, hoursPerMonth: null, maxMinutes: 0, backDays: 0, approval: null } }, shifts: [{ id: 's2', name: 'Late', startTime: '14:00', endTime: '22:00' }] });
+    const user = userEvent.setup();
+    render(<AttendanceRequests params={{}} updateParams={() => {}} />);
+    await screen.findAllByText('Rekha Nair');
+    await user.click(screen.getByRole('button', { name: 'Enter request' }));
+    await user.click(await screen.findByRole('combobox', { name: 'Employee *' }));
+    await user.click(await screen.findByRole('option', { name: /Rekha Nair/ }));
+    await user.click(screen.getByRole('combobox', { name: 'Kind *' }));
+    await user.click(await screen.findByRole('option', { name: 'Shift change' }));
+    const first = screen.getByLabelText('First day');
+    fireEvent.change(first, { target: { value: '16/11/2026' } });
+    fireEvent.blur(first);
+    expect(screen.queryByRole('combobox', { name: 'Day' })).toBeNull();
+    await user.type(screen.getByLabelText('Reason *'), 'Covering the late counter');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await user.click(screen.getByRole('combobox', { name: 'Shift to work *' }));
+    await user.click(await screen.findByRole('option', { name: 'Late, 14:00–22:00' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.createRequest).toHaveBeenCalledWith(expect.objectContaining({ employeeId: 'e1', kind: 'SHIFT_CHANGE', date: '2026-11-16', shiftId: 's2', halfDay: null, place: null })));
+  });
 });
 
 describe('Request rules', () => {

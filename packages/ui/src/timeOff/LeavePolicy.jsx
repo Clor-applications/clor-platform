@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -13,7 +13,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
-import { listStructure } from '@ui/personnel/api';
+import { listBranches, listStructure } from '@ui/personnel/api';
 
 import { can } from './shared';
 import {
@@ -29,8 +29,8 @@ import {
  */
 const BLANK = {
   name: '', code: '', description: '', color: '', isPaid: true, isActive: true, isPrivate: false,
-  annualDays: 12, accrual: 'YEARLY', creditOn: 'START', creditDay: '', prorateForJoiners: true, carryForwardMax: '',
-  gender: '', employeeTypeIds: [], availableAfterDays: '',
+  annualDays: 12, accrual: 'YEARLY', creditOn: 'START', creditDay: '', prorateForJoiners: true, carryForwardMax: '', carryExpiresAfterDays: '',
+  gender: '', employeeTypeIds: [], departmentIds: [], branchIds: [], gradeIds: [], availableAfterDays: '', attachmentAfterDays: '',
   allowHalfDay: true, minNoticeDays: '', maxDaysPerRequest: '', backdatedDays: '', sandwich: false,
   negativeDays: 0, encashable: false, maxEncashDays: '',
   entitlements: [], probationRule: 'ACCRUE', approval: '', autoApproveUpToDays: '', handOnAfterDays: '',
@@ -48,8 +48,9 @@ const APPROVAL = [
   { value: 'HR', label: 'HR' },
   { value: 'MANAGER', label: 'Manager' },
   { value: 'MANAGER_THEN_HR', label: 'Manager, then HR' },
+  { value: 'RULE', label: 'The approval rule (steps set in Approval Rules)' },
 ];
-const APPROVAL_WORDS = { HR: 'HR decides', MANAGER: 'the manager decides', MANAGER_THEN_HR: 'the manager, then HR' };
+const APPROVAL_WORDS = { HR: 'HR decides', MANAGER: 'the manager decides', MANAGER_THEN_HR: 'the manager, then HR', RULE: 'the approval rule decides' };
 /**
  * State starting points (TIME-LEAVE-RESEARCH.md): the law's days as a set of
  * types, created once and edited by the owner. Never rules.
@@ -121,17 +122,20 @@ const yearsOf = (months) => (months == null ? '' : String(Math.round((months / 1
 const ruleText = (e, typeNames) => [e.annualDays, e.employeeTypeId ? `for ${typeNames.get(e.employeeTypeId) || 'a type'}` : null, e.minServiceMonths ? `after ${serviceText(e.minServiceMonths)}` : null].filter(Boolean).join(' ');
 
 /** One line per rule that is on, so the list reads as the policy. */
+/** "carry up to 30, use within 90 days", or that unused days lapse. */
+const carryText = (t) => (t.carryForwardMax != null ? `carry up to ${t.carryForwardMax}${t.carryExpiresAfterDays ? `, use within ${t.carryExpiresAfterDays} days` : ''}` : 'lapses at year end');
+
 function rulesOf(t, typeNames = new Map()) {
   const r = [];
   if (t.isPaid && t.accrualBasis === 'PER_DAYS_WORKED') {
     r.push(`1 per ${t.perDaysWorked} worked last period${t.minDaysWorked ? `, after ${t.minDaysWorked} worked` : ''}`);
-    r.push(t.carryForwardMax != null ? `carry up to ${t.carryForwardMax}` : 'lapses at year end');
+    r.push(carryText(t));
   } else if (t.isPaid) {
     r.push(`${t.annualDays} a year: ${creditText(t)}`);
     for (const e of t.entitlements || []) r.push(ruleText(e, typeNames));
     if (t.probationRule === 'HOLD') r.push('starts when confirmed');
     if (t.probationRule === 'LOCK') r.push('locked until confirmed');
-    r.push(t.carryForwardMax != null ? `carry up to ${t.carryForwardMax}` : 'lapses at year end');
+    r.push(carryText(t));
   } else if (!t.isPaid) r.push('unpaid: loss of pay');
   if (t.isPaid && t.oshCarry) r.push('refused days carry, the excess paid out');
   if (t.approval && APPROVAL_WORDS[t.approval]) r.push(APPROVAL_WORDS[t.approval]);
@@ -140,6 +144,10 @@ function rulesOf(t, typeNames = new Map()) {
   if (t.isPrivate) r.push('private');
   if (t.gender) r.push(t.gender === 'FEMALE' ? 'women' : 'men');
   if (t.employeeTypeIds?.length) r.push(t.employeeTypeIds.map((i) => typeNames.get(i) || 'a type').join(', '));
+  for (const [list, one, many] of [[t.departmentIds, 'department', 'departments'], [t.branchIds, 'branch', 'branches'], [t.gradeIds, 'grade', 'grades']]) {
+    if (list?.length) r.push(`${list.length} ${list.length === 1 ? one : many} only`);
+  }
+  if (t.attachmentAfterDays != null) r.push(`document after ${plural(t.attachmentAfterDays, 'day')}`);
   if (t.availableAfterDays) r.push(t.availableAfterBasis === 'DAYS_WORKED' ? `after ${plural(t.availableAfterDays, 'day')} worked in 12 months` : `after ${plural(t.availableAfterDays, 'day')} of joining`);
   if (t.minNoticeDays) r.push(`${plural(t.minNoticeDays, 'day')} notice`);
   if (t.maxDaysPerRequest != null) r.push(`at most ${t.maxDaysPerRequest} at a time`);
@@ -156,8 +164,9 @@ function rulesOf(t, typeNames = new Map()) {
 const formOf = (t) => ({
   ...BLANK, ...t,
   code: t.code || '', description: t.description || '', color: t.color || '', gender: t.gender || '', employeeTypeIds: t.employeeTypeIds || [],
+  departmentIds: t.departmentIds || [], branchIds: t.branchIds || [], gradeIds: t.gradeIds || [], attachmentAfterDays: t.attachmentAfterDays ?? '',
   isPrivate: Boolean(t.isPrivate), creditOn: t.creditOn || 'START', creditDay: t.creditDay ?? '',
-  carryForwardMax: t.carryForwardMax ?? '', minNoticeDays: t.minNoticeDays ?? '', maxDaysPerRequest: t.maxDaysPerRequest ?? '',
+  carryForwardMax: t.carryForwardMax ?? '', carryExpiresAfterDays: t.carryExpiresAfterDays ?? '', minNoticeDays: t.minNoticeDays ?? '', maxDaysPerRequest: t.maxDaysPerRequest ?? '',
   backdatedDays: t.backdatedDays ?? '', availableAfterDays: t.availableAfterDays ?? '', maxEncashDays: t.maxEncashDays ?? '',
   entitlements: (t.entitlements || []).map((e) => ({ employeeTypeId: e.employeeTypeId || '', years: yearsOf(e.minServiceMonths), annualDays: e.annualDays ?? '' })),
   probationRule: t.probationRule || 'ACCRUE', approval: t.approval || '', autoApproveUpToDays: t.autoApproveUpToDays ?? '', handOnAfterDays: t.handOnAfterDays ?? '',
@@ -183,8 +192,13 @@ function bodyOf(form) {
     creditDay: form.creditOn === 'DAY' ? num(form.creditDay) : null,
     prorateForJoiners: Boolean(form.prorateForJoiners),
     carryForwardMax: paid ? num(form.carryForwardMax) : null,
+    carryExpiresAfterDays: paid && num(form.carryForwardMax) ? num(form.carryExpiresAfterDays) : null,
     gender: form.gender || null,
     employeeTypeIds: form.employeeTypeIds || [],
+    departmentIds: form.departmentIds || [],
+    branchIds: form.branchIds || [],
+    gradeIds: form.gradeIds || [],
+    attachmentAfterDays: num(form.attachmentAfterDays),
     availableAfterDays: num(form.availableAfterDays),
     allowHalfDay: Boolean(form.allowHalfDay),
     minNoticeDays: num(form.minNoticeDays),
@@ -198,7 +212,7 @@ function bodyOf(form) {
     probationRule: paid ? form.probationRule || 'ACCRUE' : 'ACCRUE',
     approval: form.approval || null,
     autoApproveUpToDays: num(form.autoApproveUpToDays),
-    handOnAfterDays: num(form.handOnAfterDays),
+    handOnAfterDays: form.approval === 'RULE' ? null : num(form.handOnAfterDays),
     accrualBasis: byWorked ? 'PER_DAYS_WORKED' : 'CALENDAR',
     perDaysWorked: byWorked ? num(form.perDaysWorked) : null,
     minDaysWorked: byWorked ? num(form.minDaysWorked) : null,
@@ -215,6 +229,9 @@ export default function LeavePolicy() {
   const canDelete = can(perms, 'ATTENDANCE::Leave Types::DELETE');
   const req = useRequest(() => listLeaveTypes(), []);
   const empTypes = useRequest(() => listStructure('employee-types').catch(() => []), []);
+  /* Who a type can be narrowed to: the company's departments, branches and grades. */
+  const places = useRequest(() => Promise.all([listStructure('departments').catch(() => []), listBranches().catch(() => []), listStructure('grades').catch(() => [])])
+    .then(([departments, branches, grades]) => ({ departments, branches: branches.map((b) => ({ id: b.id, name: b.branchName || b.name })), grades })), []);
   const period = useRequest(() => getLeaveSettings().catch(() => null), []);
   const [tab, setTab] = useState('active');
   const [q, setQ] = useState('');
@@ -277,7 +294,7 @@ export default function LeavePolicy() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Leave Policy"
+        title="Leave policy"
         actions={canCreate ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => start({ ...BLANK })}><Plus size={16} aria-hidden="true" /> New leave type</button> : null}
       />
       {period.data?.current ? (
@@ -301,14 +318,16 @@ export default function LeavePolicy() {
           </div>
         </div>
       ) : null}
-      <div ref={tabsRef} role="tablist" aria-label="Leave types" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {[['active', 'In use', counts.active], ['inactive', 'Inactive', counts.inactive]].map(([k, l, n]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
-        ))}
-        {tabIndicator}
-      </div>
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
+          tabs={(
+            <div ref={tabsRef} role="tablist" aria-label="Leave types" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+              {[['active', 'In use', counts.active], ['inactive', 'Inactive', counts.inactive]].map(([k, l, n]) => (
+                <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
+              ))}
+              {tabIndicator}
+            </div>
+          )}
           label="Leave types"
           columns={columns}
           rows={shown}
@@ -338,6 +357,7 @@ export default function LeavePolicy() {
           key={editing.seq}
           initial={editing.value}
           empTypes={empTypes.data || []}
+          places={places.data || { departments: [], branches: [], grades: [] }}
           taken={all.filter((t) => t.id !== editing.value.id).map((t) => t.name)}
           suggested={missing.map((x) => x.name)}
           canSave={editing.value.id ? canEdit : canCreate}
@@ -386,7 +406,7 @@ function Check({ label, hint, checked, onChange, disabled }) {
   );
 }
 
-function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, canDelete, onClose, onSaved, onFork }) {
+function PolicyForm({ initial, empTypes, places = { departments: [], branches: [], grades: [] }, taken, suggested, canSave, canCreate, canDelete, onClose, onSaved, onFork }) {
   const start = useMemo(() => formOf(initial), [initial]);
   const [form, setForm] = useState(start);
   const [saving, setSaving] = useState(false);
@@ -447,6 +467,17 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
   };
 
   const toggleType = (typeId) => set('employeeTypeIds')(form.employeeTypeIds.includes(typeId) ? form.employeeTypeIds.filter((x) => x !== typeId) : [...form.employeeTypeIds, typeId]);
+  const toggleIn = (key, id) => set(key)((form[key] || []).includes(id) ? form[key].filter((x) => x !== id) : [...(form[key] || []), id]);
+  /* One chip list per place a type can be narrowed to; none chosen is everyone. */
+  const placeChips = (key, legend, items, noneWord) => (items.length ? (
+    <fieldset className="sm:col-span-2">
+      <legend className="ui-label">{legend}</legend>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((x) => <button key={x.id} type="button" className="ui-choice-chip" aria-pressed={(form[key] || []).includes(x.id)} onClick={() => toggleIn(key, x.id)}>{x.name}</button>)}
+      </div>
+      {!(form[key] || []).length ? <span className="ui-caption">None chosen: every {noneWord}.</span> : null}
+    </fieldset>
+  ) : null);
 
   return (
     <Drawer
@@ -556,13 +587,16 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
                 {!form.employeeTypeIds.length ? <span className="ui-caption">None chosen: every type.</span> : null}
               </fieldset>
             ) : null}
+            {placeChips('departmentIds', 'Departments', places.departments, 'department')}
+            {placeChips('branchIds', 'Branches', places.branches, 'branch')}
+            {placeChips('gradeIds', 'Grades', places.grades, 'grade')}
           </Section>
 
           <Section title="How it is asked for" note="Notice and lateness apply to people asking for themselves; HR can always enter leave.">
             <NumberField label="Notice, days ahead" value={form.minNoticeDays} onChange={set('minNoticeDays')} placeholder="Any time" />
             <NumberField label="Longest request, days" value={form.maxDaysPerRequest} onChange={set('maxDaysPerRequest')} placeholder="No limit" step={0.5} hint="Up to 182 (26 weeks). Without it, one request spans at most 60 days." />
             <NumberField label="Asked for after the day, up to" value={form.backdatedDays} onChange={set('backdatedDays')} placeholder="No limit" hint="0: only before the day." />
-            <div />
+            <NumberField label="Document needed when longer than, days" value={form.attachmentAfterDays} onChange={set('attachmentAfterDays')} placeholder="Never" step={0.5} hint="A medical certificate, for example. It is kept on the person’s file." />
             <Check label="Half days allowed" checked={form.allowHalfDay} onChange={set('allowHalfDay')} />
             <Check label="Sandwich rule" hint="Weekly offs and holidays between two leave days count as leave. Friday and Monday off makes four days." checked={form.sandwich} disabled={form.countsCalendarDays} onChange={set('sandwich')} />
             <Check label="Counts calendar days" hint="Every date in a request is a leave day, weekly offs and holidays included, as maternity leave counts." checked={form.countsCalendarDays} onChange={set('countsCalendarDays')} />
@@ -572,12 +606,15 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
           <Section title="Who approves">
             <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Decided by" value={form.approval || 'company'} onChange={(v) => set('approval')(v === 'company' ? '' : v || '')} options={APPROVAL} /></div>
             <NumberField label="Approved on its own up to, days" value={form.autoApproveUpToDays} onChange={set('autoApproveUpToDays')} placeholder="Never" step={0.5} hint="A person's own request, when the balance covers it." />
-            <NumberField label="Handed on to HR after, days waiting" value={form.handOnAfterDays} onChange={set('handOnAfterDays')} placeholder="Never" />
+            {form.approval === 'RULE'
+              ? <p className="ui-caption self-end">Each step’s own due time and hand-on are set in Settings → Approval Rules → Leave.</p>
+              : <NumberField label="Handed on to HR after, days waiting" value={form.handOnAfterDays} onChange={set('handOnAfterDays')} placeholder="Never" />}
           </Section>
 
           {paid ? (
             <Section title="What happens to the balance">
               <NumberField label="Carry into next year, up to" value={form.carryForwardMax} onChange={set('carryForwardMax')} placeholder="Nothing: unused days lapse" step={0.5} />
+              {num(form.carryForwardMax) ? <NumberField label="Carried days to be used within, days" value={form.carryExpiresAfterDays} onChange={set('carryExpiresAfterDays')} placeholder="No limit: they last the year" hint="Counted from the start of the leave period. Carried days are used first; what is left of them then lapses." /> : null}
               <Check label="OSH Code carry-forward" hint="Days asked for and refused in the year carry on top of the limit (30 under the Code), and what is over the limit is paid out by the year end, encashment or not." checked={form.oshCarry} onChange={set('oshCarry')} />
               <NumberField label="Days allowed in advance" value={form.negativeDays} onChange={set('negativeDays')} hint="The balance may go this far below zero." step={0.5} />
               <Check label="Unused days can be paid out (encashment)" checked={form.encashable} onChange={set('encashable')} />

@@ -10,11 +10,11 @@ const GROUPS = [
     items: [
       ['modules', 'Simple mode, HR modules on or off, and which apps the subscription carries'],
       ['companyDetails', 'Legal name, PAN, TAN, address and statutory registrations'],
-      ['legalEntities', 'The registered company its work sites belong to'],
+      ['legalEntities', 'Only when one group runs more than one registered company: which one each work site belongs to'],
     ],
   },
   {
-    title: 'Employees',
+    title: 'People',
     note: 'How people are classified, and what happens when they join or leave.',
     items: [
       ['employeeTypes', 'Permanent, fixed-term, trainee, intern, consultant: what each counts as, probation and notice'],
@@ -30,18 +30,19 @@ const GROUPS = [
     ],
   },
   {
-    title: 'Time & Leave',
+    title: 'Time',
     note: 'Leave rules and the company calendar; Attendance uses the same ones.',
     items: [
       ['leaveTypes', 'The leave period, and each kind of leave: credits and their dates, who it is for, notice, carry forward, pay-out'],
       ['holidays', 'Company and location holidays'],
+      ['leaveBlocks', 'Days nobody may ask for leave, such as the year-end close; for some departments or leave types'],
       ['workingWeek', 'Which days of the week are off, for everyone not on a shift'],
       ['requestRules', 'Work from home, on duty, missed punch and permission hours: what is on, monthly limits, who approves'],
       ['leaveYearEnd', 'What carries, lapses or is paid out when the leave period ends'],
     ],
   },
   {
-    title: 'Access & Security',
+    title: 'Access & security',
     note: 'How people sign in.',
     items: [
       ['sso', 'Users, sign-in and single sign-on, in Workspace'],
@@ -52,18 +53,24 @@ const GROUPS = [
     title: 'Integrations',
     note: 'Connect CLOR to your other systems.',
     items: [['integrations', 'Webhooks, API keys and HR tool sync']],
+  },
+  {
+    title: 'Connected apps',
+    note: 'The other CLOR apps that work from these people.',
+    items: [],
     apps: [
       ['payroll', 'Payroll', 'Salaries, statutory deductions and payslips for these people'],
       ['attendance', 'Attendance', 'Readers, shifts and days for these people'],
     ],
   },
   {
-    title: 'Data & Privacy',
+    title: 'Data & privacy',
     note: 'Bring data in, take it out, and keep it right.',
     items: [
       ['dataImport', 'Employees, leave balances and more from a spreadsheet'],
       ['dataExport', 'A copy of the company’s HR data'],
       ['dataHealth', 'Missing or wrong details before they cost a payroll'],
+      ['privacy', 'Who opened sensitive details, how long records are kept, and auditor access'],
       ['auditLogs', 'Who changed what, and when'],
       ['recycleBin', 'Bring back what was deleted in the last 30 days'],
       ['dataProtection', 'Privacy notice and consent (DPDP)'],

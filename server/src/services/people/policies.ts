@@ -166,7 +166,12 @@ async function cleanVersion(orgId: string, input: VersionInput, existing?: { bod
   const body = input.body !== undefined ? String(input.body || '').trim().slice(0, 100_000) || null : existing?.body ?? null;
   const documentId = input.documentId !== undefined ? String(input.documentId || '').trim() || null : existing?.documentId ?? null;
   if (!body && !documentId) throw new PolicyError('Write the policy, or point it at a document on file.');
-  if (documentId && !(await peoplePrisma.employeeDocument.findFirst({ where: { id: documentId, orgId }, select: { id: true } }))) throw new PolicyError('That document is not on file.');
+  if (documentId) {
+    const doc = await peoplePrisma.employeeDocument.findFirst({ where: { id: documentId, orgId }, select: { visibleToEmployee: true, classification: true } });
+    if (!doc) throw new PolicyError('That document is not on file.');
+    /* Everyone the policy applies to reads it, so an HR-only document cannot stand in for the text. */
+    if (!doc.visibleToEmployee || doc.classification !== 'EMPLOYEE_VISIBLE') throw new PolicyError('That document is for HR only. Pick one employees may read, or write the policy here.');
+  }
   const effectiveFrom = input.effectiveFrom !== undefined ? String(input.effectiveFrom || '').trim() : undefined;
   if (effectiveFrom !== undefined && !ISO_DATE.test(effectiveFrom)) throw new PolicyError('Say from which day it applies (YYYY-MM-DD).');
   const effectiveTo = input.effectiveTo !== undefined ? String(input.effectiveTo || '').trim() || null : undefined;

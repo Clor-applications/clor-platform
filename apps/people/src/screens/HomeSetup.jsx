@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check } from '@ui/components/ui/lineIcons';
 
 import { changePeopleSetup, getPeopleSetup } from '@ui/personnel/api';
 import { setFeature } from '@platform/auth';

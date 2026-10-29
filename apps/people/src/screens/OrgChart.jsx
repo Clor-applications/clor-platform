@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Printer } from 'lucide-react';
+import { ChevronDown, ChevronRight, Printer } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -11,10 +11,12 @@ import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { organization } from '../organization/api';
 import { useTreeKeys } from '@ui/components/ui/useTreeKeys';
 import { Avatar } from '@ui/personnel/Employees';
+import OrgTreeChart from './OrgTreeChart';
 
 /**
- * Who reports to whom, as an outline: easier to read than boxes and lines
- * once a company is past a dozen people, and it prints. A name opens the
+ * Who reports to whom. The Chart tab (the default) draws it as a tree of
+ * cards (OrgTreeChart); Reporting lines is the same data as an outline,
+ * which searches and prints well past a few hundred people. A name opens the
  * person's record; the employee ID tells apart two people with one name.
  * A search keeps each match with the chain of managers above it. Dotted-line
  * managers are named under the person; open seats (ORG-04) sit under their
@@ -26,8 +28,8 @@ export default function OrgChart({ openScreen, params = {}, updateParams }) {
   /* As of a past date (FND-03): who reported to whom then. Open positions are today's, so a past view leaves them out. */
   const asOfDay = params.view === 'departments' ? '' : params.asOf || '';
   const req = useRequest(() => getOrgChart({ asOf: asOfDay }), [asOfDay]);
-  /* Two views of one company: who reports to whom, and who sits in which department under which head. */
-  const view = params.view === 'departments' ? 'departments' : 'reporting';
+  /* Three views of one company: the chart as a picture (the default), the same lines as a searchable outline, and who sits in which department under which head. */
+  const view = params.view === 'departments' || params.view === 'reporting' ? params.view : 'chart';
   const tabsRef = useRef(null);
   const tabIndicator = useTabIndicator(tabsRef, view);
   /* null until someone opens or closes a row: then the chart's own starting shape applies. */
@@ -102,17 +104,48 @@ export default function OrgChart({ openScreen, params = {}, updateParams }) {
     requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
   };
 
+  const chartView = view === 'chart' && nodes.length > 0;
+  const viewTabs = (
+    <div ref={tabsRef} role="tablist" aria-label="Org chart view" className={`ui-record-tablist ui-no-print ${tabIndicator ? 'has-indicator' : ''}`}>
+      {[['chart', 'Chart'], ['reporting', 'Reporting lines'], ['departments', 'Departments']].map(([k, l]) => (
+        <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => updateParams?.({ view: k === 'chart' ? null : k }, { push: true })}>{l}</button>
+      ))}
+      {tabIndicator}
+    </div>
+  );
+  const asOfPicker = (
+    <div className="flex items-center gap-2 ui-no-print">
+      <label htmlFor="chart-as-of" className="text-sm ui-muted">As of</label>
+      <div className="w-40"><DatePicker id="chart-as-of" value={asOfDay || todayIst()} max={todayIst()} onChange={(v) => updateParams?.({ asOf: v && v < todayIst() ? v : null })} /></div>
+      {asOfDay ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => updateParams?.({ asOf: null })}>Today</button> : null}
+    </div>
+  );
+  const headcount = nodes.length ? (
+    <p className="ui-caption">
+      {nodes.length} {nodes.length === 1 ? 'person' : 'people'}{asOfDay ? ` on ${formatDate(asOfDay)}` : ''}
+      {req.data.openSeats?.length ? ` · ${req.data.openSeats.length} open ${req.data.openSeats.length === 1 ? 'position' : 'positions'}` : ''}
+    </p>
+  ) : null;
+
+  /* The chart takes the page (owner, 28 Oct 2026): one row of controls, then the chart down to the bottom of the window. */
+  if (chartView) {
+    return (
+      <div className="space-y-6 ui-print-area oc-page">
+        <PageHeader entity="people" breadcrumb={[{ label: 'People' }, { label: 'Organisation', onClick: () => openScreen?.('organization') }, { label: 'Org Chart' }]} title="Org Chart"
+          actions={<button type="button" className="ui-btn ui-btn-secondary ui-no-print" onClick={print}><Printer size={16} aria-hidden="true" />Print</button>}
+        />
+        <OrgTreeChart chart={chart} closed={closed} toggle={toggle} openScreen={openScreen} lead={<>{viewTabs}{asOfPicker}{headcount}</>}
+          onExpandAll={() => setClosed(new Set())} onCollapseAll={() => setClosed(new Set(chart.roots.filter((n) => chart.kids.has(n.id) || chart.seatsUnder.has(n.id)).flatMap((n) => (chart.kids.get(n.id) || []).map((k) => k.id))))} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 ui-print-area">
-      <PageHeader entity="people" breadcrumb={[{ label: 'People' }, { label: 'Organization', onClick: () => openScreen?.('organization') }, { label: 'Org Chart' }]} title="Org Chart"
+      <PageHeader entity="people" breadcrumb={[{ label: 'People' }, { label: 'Organisation', onClick: () => openScreen?.('organization') }, { label: 'Org Chart' }]} title="Org Chart"
         actions={nodes.length ? <button type="button" className="ui-btn ui-btn-secondary ui-no-print" onClick={print}><Printer size={16} aria-hidden="true" />Print</button> : null}
       />
-      <div ref={tabsRef} role="tablist" aria-label="Org chart view" className={`ui-record-tablist ui-no-print ${tabIndicator ? 'has-indicator' : ''}`}>
-        {[['reporting', 'Reporting lines'], ['departments', 'Departments']].map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => updateParams?.({ view: k === 'reporting' ? null : k }, { push: true })}>{l}</button>
-        ))}
-        {tabIndicator}
-      </div>
+      {viewTabs}
       {view === 'departments' ? <DepartmentView nodes={nodes} openScreen={openScreen} /> : nodes.length === 0 ? (
         asOfDay
           ? <EmptyState title={`Nobody here on ${formatDate(asOfDay)}`} description="Nobody had joined by then." action={<button type="button" className="ui-btn ui-btn-secondary" onClick={() => updateParams?.({ asOf: null })}>Show today</button>} />
@@ -120,22 +153,18 @@ export default function OrgChart({ openScreen, params = {}, updateParams }) {
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-3 ui-no-print">
-            <SearchField value={query} onSearch={setQuery} delay={150} placeholder="Search people" label="Find in the org chart" />
-            <div className="flex items-center gap-2">
-              <label htmlFor="chart-as-of" className="text-sm ui-muted">As of</label>
-              <div className="w-40"><DatePicker id="chart-as-of" value={asOfDay || todayIst()} max={todayIst()} onChange={(v) => updateParams?.({ asOf: v && v < todayIst() ? v : null })} /></div>
-              {asOfDay ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => updateParams?.({ asOf: null })}>Today</button> : null}
-            </div>
-            <span className="flex gap-3 ml-auto text-sm">
-              <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setClosed(new Set())}>Expand all</button>
-              <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setClosed(new Set(managers))}>Collapse all</button>
-            </span>
+            {view === 'reporting' ? <SearchField value={query} onSearch={setQuery} delay={150} placeholder="Search people" label="Find in the org chart" /> : null}
+            {asOfPicker}
+            {headcount}
+            {view === 'reporting' ? (
+              <span className="flex gap-3 ml-auto text-sm">
+                <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setClosed(new Set())}>Expand all</button>
+                <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setClosed(new Set(managers))}>Collapse all</button>
+              </span>
+            ) : null}
           </div>
-          <p className="ui-caption">
-            {nodes.length} {nodes.length === 1 ? 'person' : 'people'}{asOfDay ? ` on ${formatDate(asOfDay)}` : ''}
-            {req.data.openSeats?.length ? ` · ${req.data.openSeats.length} open ${req.data.openSeats.length === 1 ? 'position' : 'positions'}` : ''}
-          </p>
-          {visible && !visible.size ? <p className="ui-muted text-sm">Nobody matches “{query.trim()}”.</p> : null}
+          {view === 'reporting' && visible && !visible.size ? <p className="ui-muted text-sm">Nobody matches “{query.trim()}”.</p> : null}
+          {view === 'reporting' ? (<>
           <ul ref={treeRef} role="tree" aria-label="Reporting lines" className="border-t ui-tree" onKeyDown={treeKeys} onFocus={treeFocus}>
             {chart.roots.filter((n) => !visible || visible.has(n.id)).map((n) => (
               <Node key={n.id} n={n} depth={0} chart={chart} visible={visible} closed={closed} toggle={toggle} openScreen={openScreen} />
@@ -147,6 +176,7 @@ export default function OrgChart({ openScreen, params = {}, updateParams }) {
               <ul className="divide-y text-sm">{chart.loose.map((s) => <SeatRow key={s.id} s={s} />)}</ul>
             </section>
           ) : null}
+          </>) : null}
         </>
       )}
     </div>

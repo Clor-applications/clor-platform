@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight } from '@ui/components/ui/lineIcons';
 
 import AuthLayout from './AuthLayout';
 import { verifyEmail } from '../platform/auth';

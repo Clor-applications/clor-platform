@@ -95,9 +95,10 @@ describe('the change log', () => {
     const fromForm = (await people(hr).post('/employees', { name: 'Form Person', code: 'L-5', dateOfJoining: '2026-02-01' }).expect(201)).body.employee;
     const imported = await people(hr).post('/employees/import', { rows: [{ name: 'Import Person', code: 'L-6', dateOfJoining: '2026-02-01' }] }).expect(200);
     const fromImport = imported.body.results[0].id;
-    const job = (await people(hr).post('/workspace/recruitment', { title: 'Guard', status: 'OPEN', details: { department: 'Design', openings: 1 } }).expect(201)).body.record;
-    const candidate = (await people(hr).post('/workspace/candidates', { title: 'Hired Person', status: 'OFFERED', details: { jobId: job.id, email: 'h@example.com' } }).expect(201)).body.record;
-    const hired = (await request(app).post(`/api/orgs/${hr.orgId}/people/workspace/candidates/${candidate.id}/hire`).set(at(hr)).send({ code: 'L-7', dateOfJoining: '2026-02-01' }).expect(201)).body.employee;
+    const job = (await people(hr).post('/talent/openings', { title: 'Guard', status: 'OPEN' }).expect(201)).body.opening;
+    const candidate = (await people(hr).post('/talent/candidates', { openingId: job.id, name: 'Hired Person', email: 'h@example.com' }).expect(201)).body.candidate;
+    await people(hr).post(`/talent/candidates/${candidate.id}/stage`, { stage: 'OFFER' }).expect(200);
+    const hired = (await request(app).post(`/api/orgs/${hr.orgId}/people/talent/candidates/${candidate.id}/hire`).set(at(hr)).send({ code: 'L-7', dateOfJoining: '2026-02-01' }).expect(201)).body.employee;
     for (const [id, source] of [[fromForm.id, 'FORM'], [fromImport, 'IMPORT'], [hired.id, 'HIRE']] as const) {
       const lines = await logOf(hr, id);
       expect(lines, source).toEqual([expect.objectContaining({ field: 'record', after: 'created', source })]);

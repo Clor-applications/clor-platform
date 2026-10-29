@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ArrowUpRight, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, Download } from '@ui/components/ui/lineIcons';
 
 import { useListSearch } from '@ui/components/ListToolbar';
 import { usePaged, useResetPage } from '@ui/components/list/ListPageParts';
@@ -14,7 +14,7 @@ import { getPayableDays, listPeople } from './api';
 import { runListExport } from '@ui/components/list/exportMenu';
 import { notify } from '@ui/components/ui/notify';
 import { formatDate } from '@ui/components/ui/DatePicker';
-import { DAY_LABEL, DAY_PILL, attendanceIsOn, listRecords, todayIst } from './api';
+import { DAY_LABEL, DAY_PILL, attendanceIsOn, listRecords, markDay, todayIst } from './api';
 import { homeCrumbs } from './shared';
 
 /**
@@ -47,6 +47,34 @@ const monthTitle = (month) => new Date(`${month}-01T00:00:00Z`).toLocaleDateStri
 const LETTER = { PRESENT: 'P', HALF_DAY: '½', ABSENT: 'A', ON_LEAVE: 'L', HOLIDAY: 'H', WEEKLY_OFF: 'W' };
 const hours = (m) => (m ? `${Math.floor(m / 60)}h ${pad(m % 60)}m` : '—');
 const TABS = [['', 'All'], ['PRESENT', DAY_LABEL.PRESENT], ['ABSENT', DAY_LABEL.ABSENT], ['ON_LEAVE', DAY_LABEL.ON_LEAVE], ['NONE', 'Not marked']];
+/* The day as a line: 07:00 to 21:00, the usual shift shaded, the time actually in drawn over it. */
+const AXIS_FROM = 7 * 60;
+const AXIS_TO = 21 * 60;
+const SHIFT = [9 * 60, 18 * 60];
+const toMin = (hhmm) => {
+  const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || '');
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+};
+const pct = (min) => `${Math.max(0, Math.min(100, ((min - AXIS_FROM) / (AXIS_TO - AXIS_FROM)) * 100))}%`;
+const nowHHMM = () => {
+  const d = new Date(Date.now() + 330 * 60_000);
+  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+};
+const initialsOf = (name = '') => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase();
+function DayLine({ day, isToday }) {
+  const inMin = toMin(day?.checkInTime);
+  const outMin = toMin(day?.checkOutTime) ?? (isToday && inMin != null ? toMin(nowHHMM()) : null);
+  const open = inMin != null && !day?.checkOutTime;
+  return (
+    <span className="att-line" role="img" aria-label={inMin != null ? `In ${day.checkInTime}${day.checkOutTime ? `, out ${day.checkOutTime}` : ', still in'}` : 'No time recorded'}>
+      <span className="att-line-shift" style={{ left: pct(SHIFT[0]), right: `calc(100% - ${pct(SHIFT[1])})` }} />
+      {inMin != null && outMin != null ? (
+        <span className="att-line-span" data-late={day?.lateMinutes ? '' : undefined} data-open={open ? '' : undefined} style={{ left: pct(inMin), right: `calc(100% - ${pct(Math.max(outMin, inMin + 10))})` }} />
+      ) : null}
+    </span>
+  );
+}
+
 const noteOf = (day) => (day && !day.leaveRequestId && day.status !== 'ON_LEAVE' ? day.note || '' : '');
 
 export default function TeamAttendance() {
@@ -63,6 +91,7 @@ export default function TeamAttendance() {
   const records = useRequest(() => listRecords(range), [range.from, range.to]);
   const payable = useRequest(() => (view === 'month' ? getPayableDays(month) : Promise.resolve(null)), [view, month]);
   const payOf = useMemo(() => new Map((payable.data?.rows || []).map((r) => [r.employeeId, r])), [payable.data]);
+  const [busy, setBusy] = useState('');
   const tabsRef = useRef(null);
   const tabIndicator = useTabIndicator(tabsRef, status);
 
@@ -89,6 +118,19 @@ export default function TeamAttendance() {
   const { pageRows, safePage } = usePaged(search.filtered, size, page);
   const error = people.error || records.error;
   const loading = !people.data || !records.data;
+  const isToday = date === today;
+  const mark = async (p, body, done) => {
+    setBusy(p.id);
+    try {
+      await markDay({ employeeId: p.id, date, ...body });
+      notify.success(`${p.name}: ${done}.`);
+      records.reload();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not saved.'));
+    } finally {
+      setBusy('');
+    }
+  };
 
   const exportMonth = () => {
     try {
@@ -107,24 +149,49 @@ export default function TeamAttendance() {
 
   const columns = [
     { key: 'name', label: 'Employee', always: true, render: (p) => (
-      <span className="min-w-0"><span className="block truncate font-medium">{p.name}</span><span className="block truncate ui-caption">{[p.code, p.departmentName || p.department].filter(Boolean).join(' · ')}</span></span>
+      <span className="flex min-w-0 items-center gap-2.5">
+        <span className="att-face" aria-hidden="true">{initialsOf(p.name)}</span>
+        <span className="min-w-0"><span className="block truncate font-medium">{p.name}</span><span className="block truncate ui-caption">{[p.code, p.departmentName || p.department].filter(Boolean).join(' · ')}</span></span>
+      </span>
     ) },
-    { key: 'day', label: 'Day', render: (p) => (p.day ? <span className={`ui-pill ${DAY_PILL[p.day.status] || 'ui-pill-neutral'}`}>{DAY_LABEL[p.day.status] || p.day.status}</span> : <span className="ui-caption">Not marked</span>) },
-    { key: 'in', label: 'In', align: 'right', render: (p) => <span className="tabular-nums">{p.day?.checkInTime || '—'}</span> },
+    { key: 'day', label: 'Status', render: (p) => (p.day ? <span className={`ui-pill ${DAY_PILL[p.day.status] || 'ui-pill-neutral'}`}>{DAY_LABEL[p.day.status] || p.day.status}</span> : <span className="ui-pill ui-pill-neutral">Not marked</span>) },
+    /* The bar only where there is a time to draw; an empty grey track on every unmarked row repeated the Status column. */
+    { key: 'line', label: 'Day (7 am – 9 pm)', render: (p) => (p.day?.checkInTime ? <DayLine day={p.day} isToday={isToday} /> : <span className="ui-subtle" aria-label="No time recorded">—</span>) },
+    { key: 'in', label: 'In', align: 'right', render: (p) => <span className="tabular-nums">{p.day?.checkInTime || '—'}{p.day?.lateMinutes ? <span className="att-late">+{p.day.lateMinutes}m</span> : null}</span> },
     { key: 'out', label: 'Out', align: 'right', render: (p) => <span className="tabular-nums">{p.day?.checkOutTime || '—'}</span> },
     { key: 'worked', label: 'Worked', align: 'right', render: (p) => <span className="tabular-nums">{hours(p.day?.workedMinutes)}</span> },
-    { key: 'late', label: 'Late', align: 'right', render: (p) => <span className="tabular-nums">{p.day?.lateMinutes ? `${p.day.lateMinutes}m` : '—'}</span> },
+    { key: 'act', label: 'Mark', render: (p) => {
+      if (p.day?.status === 'ON_LEAVE' || p.day?.status === 'HOLIDAY') return <span className="ui-caption">—</span>;
+      const inNow = isToday && !p.day?.checkInTime;
+      const outNow = isToday && p.day?.checkInTime && !p.day?.checkOutTime;
+      return (
+        <span className="flex items-center justify-end gap-1.5">
+          {inNow ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm att-act-in" disabled={busy === p.id} onClick={() => mark(p, { checkIn: nowHHMM() }, `checked in at ${nowHHMM()}`)}>Check in</button> : null}
+          {outNow ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === p.id} onClick={() => mark(p, { checkIn: p.day.checkInTime, checkOut: nowHHMM() }, `checked out at ${nowHHMM()}`)}>Check out</button> : null}
+          <select className="ui-select ui-ctl-compact att-mark" aria-label={`Mark ${p.name}`} value="" disabled={busy === p.id} onChange={(e) => { const v = e.target.value; if (v) mark(p, { status: v, checkIn: p.day?.checkInTime || null, checkOut: p.day?.checkOutTime || null }, `marked ${DAY_LABEL[v].toLowerCase()}`); }}>
+            <option value="">Mark…</option>
+            <option value="PRESENT">Present</option>
+            <option value="HALF_DAY">Half day</option>
+            <option value="ABSENT">Absent</option>
+          </select>
+        </span>
+      );
+    } },
     { key: 'note', label: 'Note', render: (p) => <span className="ui-caption whitespace-normal">{noteOf(p.day)}</span> },
   ];
+
+  /* The day at a glance: one bar, each status its share of the company. */
+  const SUMMARY = [['PRESENT', 'Present', 'pos'], ['HALF_DAY', 'Half day', 'warn'], ['ON_LEAVE', 'On leave', 'info'], ['ABSENT', 'Absent', 'neg'], ['NONE', 'Not marked', 'none']];
+  const lateCount = rows.filter((r) => r.day?.lateMinutes).length;
 
   return (
     <div className="space-y-6">
       <PageHeader
         breadcrumb={homeCrumbs()}
-        title="Attendance"
+        title="Daily attendance"
         actions={<>
           {view === 'month' && !loading ? <button type="button" className="ui-btn ui-btn-secondary" onClick={exportMonth}><Download size={16} aria-hidden="true" /> Export</button> : null}
-          {hasAttendance.data ? <a className="ui-btn ui-btn-secondary" href="?app=attendance&open=records">Open in Attendance <ArrowUpRight size={16} aria-hidden="true" /></a> : null}
+          {hasAttendance.data ? <a className="ui-btn ui-btn-secondary" href="?app=attendance&open=records">Shifts & readers <ArrowUpRight size={16} aria-hidden="true" /></a> : null}
         </>}
       />
       {hasAttendance.data === false ? <p className="text-sm ui-muted">Days from leave, holidays and people’s own check-ins.</p> : null}
@@ -146,19 +213,32 @@ export default function TeamAttendance() {
         )}
       </div>
 
-      {view === 'day' ? (
-        <div ref={tabsRef} role="tablist" aria-label="Day" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-          {TABS.map(([k, l]) => (
-            <button key={k || 'all'} type="button" role="tab" aria-selected={status === k} className={`ui-tab ${status === k ? 'is-active' : ''}`} onClick={() => setStatus(k)}>
-              {l}{counts[k] ? <span className="ui-tab-count tabular-nums">{counts[k]}</span> : null}
-            </button>
-          ))}
-          {tabIndicator}
-        </div>
+      {view === 'day' && !loading ? (
+        <section className="att-summary" aria-label="The day at a glance">
+          <div className="att-summary-bar" role="img" aria-label={SUMMARY.map(([k, l]) => `${l} ${counts[k] || 0}`).join(', ')}>
+            {SUMMARY.map(([k, , tone]) => (counts[k] ? <span key={k} data-tone={tone} style={{ flexGrow: counts[k] }} /> : null))}
+          </div>
+          <ul className="att-summary-keys">
+            {SUMMARY.map(([k, l, tone]) => (
+              <li key={k}><button type="button" data-tone={tone} aria-pressed={status === k} onClick={() => setStatus(status === k ? '' : k)}><i aria-hidden="true" />{l}<b>{counts[k] || 0}</b></button></li>
+            ))}
+            {lateCount ? <li className="att-summary-late">{lateCount} late</li> : null}
+          </ul>
+        </section>
       ) : null}
 
       {error && loading ? <ErrorState error={error} onRetry={() => { people.reload(); records.reload(); }} /> : view === 'day' ? (
         <DataTable
+          tabs={(
+            <div ref={tabsRef} role="tablist" aria-label="Day" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+              {TABS.map(([k, l]) => (
+                <button key={k || 'all'} type="button" role="tab" aria-selected={status === k} className={`ui-tab ${status === k ? 'is-active' : ''}`} onClick={() => setStatus(k)}>
+                  {l}{counts[k] ? <span className="ui-tab-count tabular-nums">{counts[k]}</span> : null}
+                </button>
+              ))}
+              {tabIndicator}
+            </div>
+          )}
           label={`Attendance on ${date}`}
           columns={columns}
           rows={pageRows}
@@ -212,7 +292,7 @@ export default function TeamAttendance() {
                         <td className="p-2 text-right tabular-nums font-medium">{fig(payOf.get(p.id)?.payableDays)}</td>
                         {daysIn(month).map((d) => {
                           const r = mine.get(d);
-                          return <td key={d} className="p-0.5 text-center" title={r ? `${d}: ${DAY_LABEL[r.status] || r.status}` : undefined}>{r ? LETTER[r.status] || '·' : <span className="ui-muted">·</span>}</td>;
+                          return <td key={d} className="p-0.5 text-center" title={r ? `${d}: ${DAY_LABEL[r.status] || r.status}${r.checkInTime ? `, in ${r.checkInTime}` : ''}` : undefined}><span className="att-cell" data-s={r?.status || ''}>{r ? LETTER[r.status] || '·' : ''}</span></td>;
                         })}
                       </tr>
                     );

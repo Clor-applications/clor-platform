@@ -16,21 +16,17 @@ async function owner() {
   await request(app).put(`/api/orgs/${c.orgId}/features`).set(headers(c)).send({ features: { people: true } }).expect(200);
   return c;
 }
-let a: Ctx; let b: Ctx; let employeeId: string; let foreignId: string; let jobId: string;
+let a: Ctx; let b: Ctx; let employeeId: string; let foreignId: string;
 beforeAll(async () => {
   a = await owner(); b = await owner();
   employeeId = (await request(app).post(`/api/orgs/${a.orgId}/people/employees`).set(headers(a)).send({ name: 'Asha Test', code: 'QA1' }).expect(201)).body.employee.id;
   foreignId = (await request(app).post(`/api/orgs/${b.orgId}/people/employees`).set(headers(b)).send({ name: 'Other company' }).expect(201)).body.employee.id;
-  jobId = (await request(app).post(path(a, 'recruitment')).set(headers(a)).send({ title: 'Engineer', status: 'OPEN', details: { openings: 1 } }).expect(201)).body.record.id;
 });
 afterAll(async () => { await new Promise((done) => app.close(done)); await peoplePrisma.$disconnect(); await platformPrisma.$disconnect(); });
+/* Hiring, goals and training moved to their own tables (Talent: peopleTalent.test.ts); the registers left are these. */
 const samples = [
   ['announcements', 'DRAFT', 'PUBLISHED', 'ARCHIVED', { body: 'Company policy update', audience: 'All employees' }],
   ['events', 'DRAFT', 'SCHEDULED', 'CANCELLED', { startDate: '2026-11-05', endDate: '2026-11-06', location: 'Office', organiser: 'HR', description: '' }],
-  ['recruitment', 'DRAFT', 'OPEN', 'CLOSED', { openings: 2, department: 'Technology', location: 'Pune', description: '' }],
-  ['candidates', 'APPLIED', 'INTERVIEW', 'REJECTED', { email: 'candidate@example.com', phone: '', notes: '' }],
-  ['performance', 'DRAFT', 'IN_PROGRESS', 'CANCELLED', { measure: 'Complete 5 onboarding tasks', progress: 50, description: '', feedback: '' }],
-  ['learning', 'PLANNED', 'IN_PROGRESS', 'CANCELLED', { provider: 'Internal', description: '', certificateUrl: '', hours: 2 }],
   ['helpdesk', 'OPEN', 'IN_PROGRESS', 'CLOSED', { category: 'GENERAL', priority: 'HIGH', description: 'Need an employment letter', resolution: 'Letter issued' }],
   ['assets', 'AVAILABLE', 'ASSIGNED', 'RETIRED', { assetTag: 'LAP-01', serialNumber: 'TEST123', category: 'Laptop', issuedOn: '2026-10-22', condition: 'Good' }],
   ['benefits', 'DRAFT', 'ACTIVE', 'CANCELLED', { provider: 'Insurer', eligibility: 'All permanent staff', coverage: 'Medical insurance', startDate: '2026-10-01', endDate: '2027-09-30' }],
@@ -38,7 +34,7 @@ const samples = [
 describe('saved People registers', () => {
   for (const [kind, initial, next, terminal, details] of samples) {
     it(`${kind}: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes`, async () => {
-      const body = { title: `${kind} QA`, status: initial, employeeId, dueDate: '2026-12-01', details: { ...details, ...(kind === 'candidates' ? { jobId } : {}) } };
+      const body = { title: `${kind} QA`, status: initial, employeeId, dueDate: '2026-12-01', details };
       let record = (await request(app).post(path(a, kind)).set(headers(a)).send(body).expect(201)).body.record;
       const list = await request(app).get(path(a, kind)).set(headers(a)).expect(200);
       expect(list.body.records.find((r: any) => r.id === record.id)?.title).toBe(body.title);
@@ -97,18 +93,11 @@ describe('saved People registers', () => {
     await request(app).get(path(viewer, 'announcements')).set(headers(viewer)).expect(200);
     await request(app).post(path(viewer, 'announcements')).set(headers(viewer)).send({ title: 'Forbidden', status: 'DRAFT', details: { body: 'No' } }).expect(403);
   });
-  it('rejects deleting jobs with candidates and cross-company job references', async () => {
-    await request(app).post(path(b, 'candidates')).set(headers(b)).send({ title: 'Foreign job', status: 'APPLIED', details: { jobId } }).expect(400);
-    await request(app).post(path(a, 'candidates')).set(headers(a)).send({ title: 'Candidate', status: 'APPLIED', details: { jobId } }).expect(201);
-    await request(app).put(path(a, 'recruitment', jobId)).set(headers(a)).send({ title: 'Engineer', status: 'CLOSED', version: 1, details: { openings: 1 } }).expect(200);
-    await request(app).delete(path(a, 'recruitment', jobId)).set(headers(a)).expect(409);
+  it('no longer keeps hiring, goals or training here: those addresses are unknown', async () => {
+    for (const kind of ['recruitment', 'candidates', 'performance', 'learning']) await request(app).get(path(a, kind)).set(headers(a)).expect(404);
   });
 });
 describe('domain rules', () => {
-  it('requires a measurable goal with an employee and 100% to complete', () => {
-    expect(() => parseRecord('performance', { title: 'Goal', status: 'COMPLETED', employeeId: 'e', details: { measure: 'Deliver', progress: 50 } })).toThrow(/100%/);
-    expect(() => parseRecord('performance', { title: 'Goal', status: 'DRAFT', details: { measure: 'Deliver', progress: 0 } })).toThrow(/employee/);
-  });
   it('requires an employee for an assigned asset and a resolution for closed cases', () => {
     expect(() => parseRecord('assets', { title: 'Laptop', status: 'ASSIGNED', details: { assetTag: 'A1', issuedOn: '' } })).toThrow(/employee/);
     expect(() => parseRecord('helpdesk', { title: 'Case', status: 'CLOSED', employeeId: 'e', details: { category: 'GENERAL', priority: 'NORMAL', description: 'Issue', resolution: '' } })).toThrow(/resolution/);

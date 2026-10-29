@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowRight, BookOpen, ExternalLink, Mail, MessageCircle, Search } from 'lucide-react';
+import { ArrowRight, BookOpen, ExternalLink, Mail, MessageCircle, Search } from '@ui/components/ui/lineIcons';
 
 import { operator } from '@platform/operator';
 import { HELP_GROUPS, HELP_TOPICS, searchHelp } from './helpContent';

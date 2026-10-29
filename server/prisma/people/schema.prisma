@@ -41,22 +41,22 @@ model Employee {
   branchId  String?
 
   /// Human-facing identifier, unique within the org when set.
-  code        String?
-  name        String
+  code          String?
+  name          String
   /// What they like to be called (PRD CORE-02); the legal name stays in name/firstName/lastName.
   preferredName String?
   /// Bumped by every write through the one write path; an edit that names an older version is refused (409 STALE).
-  version     Int     @default(1)
-  email       String?
-  phone       String?
-  designation String?
-  department  String?
+  version       Int     @default(1)
+  email         String?
+  phone         String?
+  designation   String?
+  department    String?
 
   /// When the current stint began. Attendance and leave proration read this, so a
   /// rejoin moves it; the first stint's start stays in `firstJoiningDate` and
   /// every stint is an EmploymentEpisode (docs/people/02-PRD.md FND-06).
-  dateOfJoining String?
-  dateOfLeaving String?
+  dateOfJoining     String?
+  dateOfLeaving     String?
   /// The first day they ever joined this company; never moved by a rejoin.
   firstJoiningDate  String?
   /// Which stint they are on (EmploymentEpisode.seq): 1 until a rejoin.
@@ -66,7 +66,7 @@ model Employee {
   /// Where they work in law: the establishment (shop, factory, office, site) whose state's rules apply (FND-07).
   establishmentId   String?
   /// ACTIVE | ON_NOTICE | LEFT | SUSPENDED
-  status        String  @default("ACTIVE")
+  status            String  @default("ACTIVE")
 
   /// If this person also signs in, the account they sign in with.
   userId String?
@@ -109,66 +109,66 @@ model Employee {
   // Ids into the org-structure tables below. `department` and `designation`
   // above stay as the display strings every existing reader uses, and are
   // written alongside these.
-  departmentId        String?
+  departmentId            String?
   /// Company master data (People → Settings → Company): business unit, grade, cost centre.
-  businessUnitId      String?
-  gradeId             String?
-  costCenterId        String?
-  jobPositionId       String?
-  jobRoleId           String?
-  employeeTypeId      String?
-  workTypeId          String?
+  businessUnitId          String?
+  gradeId                 String?
+  costCenterId            String?
+  jobPositionId           String?
+  jobRoleId               String?
+  employeeTypeId          String?
+  workTypeId              String?
   /// FULL_TIME | PART_TIME; null means not said (read as full-time).
-  hours               String?
+  hours                   String?
   /// Another Employee in the same org; drives the org chart.
-  reportingManagerId  String?
+  reportingManagerId      String?
   /// A second, dotted-line manager (ORG-02): sees the person as a report, approves nothing by default.
-  dottedManagerId     String?
-  workEmail           String?
-  workPhone           String?
-  workLocation        String?
+  dottedManagerId         String?
+  workEmail               String?
+  workPhone               String?
+  workLocation            String?
   /// The person's user ID on the biometric readers, when it is not their
   /// employee code (readers drop leading zeros; old enrolments used prefixes).
-  devicePin           String?
+  devicePin               String?
   /// Attendance (ClorTime's personnel fields): the site they work at, the
   /// contractor that supplies them, and what the readers hold for them.
-  areaId              String?
-  contractorId        String?
+  areaId                  String?
+  contractorId            String?
   /// RFID card number on the readers.
-  cardNumber          String?
+  cardNumber              String?
   /// The PIN a person may type at a reader instead of a finger. Kept as the
   /// reader keeps it, so it can be copied to every reader.
-  devicePassword      String?
+  devicePassword          String?
   /// 0 user, 14 reader administrator.
-  devicePrivilege     Int       @default(0)
+  devicePrivilege         Int       @default(0)
   /// False for door-only staff (guards, drivers, a tenant's people): they open
   /// doors but are not expected at work, so are never marked absent.
-  attendanceRequired  Boolean   @default(true)
+  attendanceRequired      Boolean   @default(true)
   /// Father's or husband's name — the statutory muster roll asks for it.
-  guardianName        String?
+  guardianName            String?
   /// When they left: RESIGNED | TERMINATED | RETIRED | ABSCONDED | CONTRACT_ENDED | DECEASED
-  leavingType         String?
-  leavingReason       String?
+  leavingType             String?
+  leavingReason           String?
   /// When the resignation was received, and whether the notice owed was waived (Workforce final audit W15).
-  resignedOn      String?
-  noticeWaived    Boolean  @default(false)
+  resignedOn              String?
+  noticeWaived            Boolean   @default(false)
   /// Employee portal (ClorTime's self-service): the person chooses their own
   /// password with a one-time activation code from HR; only hashes are kept,
   /// so nobody else ever knows it.
-  portalEnabled       Boolean   @default(false)
-  portalPasswordHash  String?
-  portalPasswordSetAt DateTime?
-  portalSetupHash     String?
-  portalSetupExpires  DateTime?
+  portalEnabled           Boolean   @default(false)
+  portalPasswordHash      String?
+  portalPasswordSetAt     DateTime?
+  portalSetupHash         String?
+  portalSetupExpires      DateTime?
   /// When every portal sign-in was last ended (suspended, left, "sign out
   /// everywhere"): a token from before the session registry issued earlier is refused (A-33).
   portalSessionsRevokedAt DateTime?
   /// May punch from a phone (inside a geofence). Off unless HR allows it.
-  mobilePunch         Boolean   @default(false)
+  mobilePunch             Boolean   @default(false)
   /// Only this site counts for their phone punches; null = any active site.
-  geofenceId          String?
-  probationEndDate    String?
-  contractEndDate     String?
+  geofenceId              String?
+  probationEndDate        String?
+  contractEndDate         String?
 
   tags      EmployeeTagLink[]
   notesLog  EmployeeNote[]
@@ -176,13 +176,19 @@ model Employee {
   episodes  EmploymentEpisode[]
 
   createdByUserId String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  joinInvites     JoinInvite[]
+  /// Team and seat (ORG-01, ORG-04); a seat holds one person at a time.
+  teamId          String?
+  seatId          String?
+  deskRequests    DeskRequest[]
 
   @@unique([orgId, code])
   /// One login is one person in a company (team scope, self-service and manager approvals read it).
   @@unique([orgId, userId])
   @@unique([orgId, devicePin])
+  @@unique([orgId, seatId])
   @@index([accountId, orgId, areaId])
   @@index([accountId, orgId, contractorId])
   @@index([accountId, orgId, status])
@@ -190,13 +196,6 @@ model Employee {
   @@index([accountId, orgId, departmentId])
   @@index([accountId, orgId, establishmentId])
   @@index([accountId, orgId, reportingManagerId])
-  joinInvites JoinInvite[]
-  /// Team and seat (ORG-01, ORG-04); a seat holds one person at a time.
-  teamId String?
-  seatId String?
-  deskRequests DeskRequest[]
-
-  @@unique([orgId, seatId])
   /// Made by migration 20261025060000_teams_and_seats and missing here until the CI drift check found it.
   @@index([orgId, teamId])
 }
@@ -207,14 +206,14 @@ model Employee {
 // ============================================================================
 
 model Department {
-  id          String  @id @default(cuid())
-  accountId   String
-  orgId       String
-  name        String
+  id             String  @id @default(cuid())
+  accountId      String
+  orgId          String
+  name           String
   /// A sub-department points at its parent; null = top level.
-  parentId    String?
-  description String?
-  isActive    Boolean @default(true)
+  parentId       String?
+  description    String?
+  isActive       Boolean @default(true)
   /// Who runs it (Organization, D04): descriptive only, never a permission.
   headEmployeeId String?
 
@@ -262,19 +261,19 @@ model JobRole {
 
 /// Permanent, Probation, Contract, Intern, Consultant…
 model EmployeeType {
-  id        String  @id @default(cuid())
-  accountId String
-  orgId     String
-  name      String
+  id              String  @id @default(cuid())
+  accountId       String
+  orgId           String
+  name            String
   /// What CLOR understands the name to mean: PERMANENT | FIXED_TERM | TRAINEE | INTERN | CONSULTANT | AGENCY.
   /// The company keeps its own words ("Staff", "Retainer"); the kind decides which dates are asked and
   /// whether payroll expects them.
-  category  String  @default("PERMANENT")
+  category        String  @default("PERMANENT")
   /// How long probation runs for this type, in months; fills the date on a new hire. Blank: not assumed.
   probationMonths Int?
   /// Notice the person owes when they resign, in days; the leaving form works out any shortfall. Blank: not assumed.
   noticeDays      Int?
-  isActive  Boolean @default(true)
+  isActive        Boolean @default(true)
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -409,6 +408,29 @@ model ShiftAssignment {
   @@index([accountId, orgId, employeeId])
 }
 
+/// Days nobody may ask for leave (ERPNext's Leave Block List, owner 29 Oct 2026): a year-end close, a
+/// peak season, an audit. For the whole company or some departments, for every leave type or some; the
+/// people named may still ask. HR entering leave for someone is not held to it.
+model LeaveBlock {
+  id                 String   @id @default(cuid())
+  accountId          String
+  orgId              String
+  name               String
+  fromDate           String /// YYYY-MM-DD
+  toDate             String /// YYYY-MM-DD, inclusive
+  /// Empty: every department.
+  departmentIds      String[] @default([])
+  /// Empty: every leave type.
+  leaveTypeIds       String[] @default([])
+  /// Employees who may still ask for leave on these days.
+  allowedEmployeeIds String[] @default([])
+  createdByUserId    String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([orgId, fromDate])
+}
+
 model Holiday {
   id         String  @id @default(cuid())
   accountId  String
@@ -453,9 +475,9 @@ model AttendanceRecord {
   source String @default("MANUAL")
 
   /// The approved leave that wrote this day, if any (its type says paid or unpaid).
-  leaveRequestId String?
+  leaveRequestId      String?
   /// How the day was worked when not at the usual place: WFH | ON_DUTY; PERMISSION when hours were excused. From an approved attendance request.
-  dayKind        String?
+  dayKind             String?
   attendanceRequestId String?
 
   /// Checked by a manager (Horilla's "validate"). Payroll reads validated days.
@@ -466,9 +488,9 @@ model AttendanceRecord {
 
   /// Reader trust (feature attendanceReaderTrust; null while it is off): TRUSTED |
   /// CHECK | MANUAL, worked out each time the day is written (services/attendance/trust.ts).
-  trust             String?
+  trust        String?
   /// Why: [{ code, text, ... }] — each punch that needs a look, or who wrote the day by hand.
-  trustReasons      Json?
+  trustReasons Json?
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -526,7 +548,7 @@ model AttendanceRequest {
   beforeStatus        String?
   /// A category for the reason: FORGOT_PUNCH | READER_DOWN | ON_DUTY | WRONG_SHIFT | OTHER
   reasonCode          String?
-  /// What is asked for: MISSED_PUNCH (a correction, the default) | WFH | ON_DUTY | PERMISSION (hours off).
+  /// What is asked for: MISSED_PUNCH (a correction, the default) | WFH | ON_DUTY | PERMISSION (hours off) | SHIFT_CHANGE.
   kind                String    @default("MISSED_PUNCH")
   /// WFH and On duty may span days; null = the one date.
   toDate              String?
@@ -536,6 +558,9 @@ model AttendanceRequest {
   minutes             Int?
   /// A half day of WFH or On duty: FIRST or SECOND half.
   halfDay             String?
+  /// Shift change: the shift asked for, and the temporary schedule its approval wrote (removed again if it is cancelled).
+  shiftId             String?
+  temporaryScheduleId String?
   managerNote         String?
   history             Json      @default("[]")
 
@@ -583,15 +608,15 @@ model HolidayPick {
 /// One run of the leave year-end: what carried, lapsed and was paid out per
 /// person and type, so it can be read back and undone until payroll takes it.
 model LeaveYearEnd {
-  id            String    @id @default(cuid())
-  accountId     String
-  orgId         String
+  id             String    @id @default(cuid())
+  accountId      String
+  orgId          String
   /// The leave period that closed (named by the year it started in).
-  year          Int
-  summaryJson   String
-  ranByUserId   String
-  ranAt         DateTime  @default(now())
-  undoneAt      DateTime?
+  year           Int
+  summaryJson    String
+  ranByUserId    String
+  ranAt          DateTime  @default(now())
+  undoneAt       DateTime?
   undoneByUserId String?
 
   @@index([orgId, year])
@@ -619,84 +644,94 @@ model LeaveType {
   prorateForJoiners Boolean @default(false)
   /// Days of an unused balance taken into the next year; null lets it lapse.
   carryForwardMax   Float?
+  /// Carried-in days must be used within this many days of the period start; what is left of them then lapses (ERPNext's "expire carry-forwarded leaves"). Null: they last the period.
+  carryExpiresAfterDays Int?
 
   // The policy HR sets (founder, 22 Oct 2026: the full leave module in HR).
   // Each default keeps the type working the way it did before these existed.
-  description        String?
+  description         String?
   /// A colour for the leave calendar, #rrggbb.
-  color              String?
-  allowHalfDay       Boolean  @default(true)
+  color               String?
+  allowHalfDay        Boolean  @default(true)
   /// Days ahead someone must ask (their own request; HR entering it is not held to it). Null = any time.
-  minNoticeDays      Int?
+  minNoticeDays       Int?
   /// Longest single request, in days (up to 182, 26 weeks). Null = no limit beyond the 60-day span; above 60 it is also the span.
-  maxDaysPerRequest  Float?
+  maxDaysPerRequest   Float?
   /// How far back someone may ask for leave they already took. Null = no limit.
-  backdatedDays      Int?
+  backdatedDays       Int?
   /// Days the balance may go below zero (advance leave).
-  negativeDays       Float    @default(0)
+  negativeDays        Float    @default(0)
   /// FEMALE | MALE: maternity, paternity. Null = everyone.
-  gender             String?
+  gender              String?
   /// Only these employee types; empty = every type.
-  employeeTypeIds    String[] @default([])
+  employeeTypeIds     String[] @default([])
   /// Usable this many days after joining (probation). Null = from joining.
-  availableAfterDays Int?
+  availableAfterDays  Int?
   /// Sandwich rule: weekly offs and holidays inside a request count as leave.
-  sandwich           Boolean  @default(false)
+  sandwich            Boolean  @default(false)
   /// Private leave (sick, medical, maternity): the reason is optional and only
   /// those who decide leave read it; the calendar and the team see "Away".
-  isPrivate          Boolean  @default(false)
+  isPrivate           Boolean  @default(false)
   /// Days a year by who the person is, over the type's own annualDays:
   /// [{ employeeTypeId?: string, minServiceMonths?: number, annualDays: number }].
   /// The most specific rule that fits wins (employee type and service over
   /// service alone over employee type alone), read as of the period start or
   /// the joining date, whichever is later.
-  entitlements       Json     @default("[]")
+  entitlements        Json     @default("[]")
   /// Rules added to a type already in use apply from this period start (ISO date); earlier periods keep annualDays.
-  entitlementsFrom   String?
+  entitlementsFrom    String?
   /// During probation: ACCRUE as normal, HOLD (credits start at confirmation),
   /// or LOCK (credits build but cannot be taken until confirmation).
-  probationRule      String   @default("ACCRUE")
+  probationRule       String   @default("ACCRUE")
   /// This type's own approval chain (HR | MANAGER | MANAGER_THEN_HR); null = the company's.
-  approval           String?
+  approval            String?
   /// A person's own request of up to this many days, within their balance, is approved as it is sent.
   autoApproveUpToDays Float?
   /// A step that waits longer than this many days is handed on to HR. Null = never.
-  handOnAfterDays    Int?
+  handOnAfterDays     Int?
   /// Unused days may be paid out, up to this many a year.
-  encashable         Boolean  @default(false)
-  maxEncashDays      Float?
+  encashable          Boolean  @default(false)
+  maxEncashDays       Float?
   /// When each credit lands (accrual is YEARLY, HALF_YEARLY, QUARTERLY or MONTHLY):
   /// START of each part of the leave period, its END, or DAY — the first
   /// creditDay (1–28) on or after the part begins.
-  creditOn           String   @default("START")
-  creditDay          Int?
+  creditOn            String   @default("START")
+  creditDay           Int?
   /// Statutory leave (TIME-LEAVE-MARKET-RESEARCH.md, G1–G3). Each is opt-in; the defaults keep a type as it was.
   /// CALENDAR: annualDays, credited as above. PER_DAYS_WORKED: one day for every perDaysWorked days worked in the
   /// previous leave period, credited at this period's start, when that period's days worked reach minDaysWorked
   /// (OSH Code s.32: 1 per 20 after 180; Factories Act s.79: 1 per 20 after 240).
-  accrualBasis       String   @default("CALENDAR")
-  perDaysWorked      Float?
-  minDaysWorked      Float?
+  accrualBasis        String   @default("CALENDAR")
+  perDaysWorked       Float?
+  minDaysWorked       Float?
   /// OSH Code carry-forward: carry up to carryForwardMax, plus the days of this type asked for and refused in the
   /// period; what is over is paid out by the year end's run.
-  oshCarry           Boolean  @default(false)
+  oshCarry            Boolean  @default(false)
   /// Every date inside a request is a leave day, weekly offs and holidays included (maternity).
-  countsCalendarDays Boolean  @default(false)
+  countsCalendarDays  Boolean  @default(false)
   /// JOINING: availableAfterDays counts calendar days from joining. DAYS_WORKED: days worked in the 12 months
   /// before the leave starts (Code on Social Security, maternity: 80).
-  availableAfterBasis String  @default("JOINING")
+  availableAfterBasis String   @default("JOINING")
+  /// Who it is for, beyond gender and employee type (owner, 28 Oct 2026): these
+  /// departments, branches and grades only; an empty list means every one.
+  departmentIds       String[] @default([])
+  branchIds           String[] @default([])
+  gradeIds            String[] @default([])
+  /// A document (a medical certificate) is asked for with a request longer than
+  /// this many days. Null = never.
+  attachmentAfterDays Float?
 
   createdByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-
-  @@unique([orgId, name])
-  @@index([accountId, orgId])
   // One code per type in a company, ignoring case: a partial unique index on
   // ("orgId", lower("code")) WHERE "code" IS NOT NULL, which Prisma cannot
   // express. It lives in SQL only (migration 20261101090100_leave_type_code_unique,
   // replayed by src/__tests__/globalSetup.ts); a clash is a P2002 the leave
   // routes answer as LEAVE_TYPE_CODE_TAKEN.
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
 }
 
 /// One person's days of one leave type for one calendar year, when it
@@ -738,14 +773,14 @@ model LeaveAdjustment {
   /// Set when Payroll pays an encashment.
   paidInRunId String?
 
-  createdByUserId String
+  createdByUserId  String
   /// A comp-off grant names the date worked; a year-end pay-out names its run.
-  workedOn        String?
-  yearEndId       String?
+  workedOn         String?
+  yearEndId        String?
   /// Set when a year-end undo reverses this pay-out; every reader skips reversed rows.
   reversedAt       DateTime?
   reversedByUserId String?
-  createdAt       DateTime @default(now())
+  createdAt        DateTime  @default(now())
 
   @@index([accountId, orgId, year])
   @@index([orgId, employeeId, leaveTypeId])
@@ -755,7 +790,7 @@ model LeaveAdjustment {
 
 /// Time off someone asks for. Approving it marks each working day on leave.
 model LeaveRequest {
-  id          String @id @default(cuid())
+  id          String  @id @default(cuid())
   accountId   String
   orgId       String
   employeeId  String
@@ -768,7 +803,7 @@ model LeaveRequest {
   halfDay     String?
   reason      String
   /// PENDING | APPROVED | REJECTED | CANCELLED
-  status      String @default("PENDING")
+  status      String  @default("PENDING")
 
   requestedByUserId   String
   reviewedByUserId    String?
@@ -786,6 +821,18 @@ model LeaveRequest {
   /// Leave that crosses the leave-period end is saved as one request per
   /// period; the parts share this id so they read, and cancel, as one.
   groupId             String?
+  /// The document sent with the request (LeaveType.attachmentAfterDays), kept on the person's file.
+  attachmentDocId     String?
+  /// Under the company's leave approval rule (ApprovalRule, requestType LEAVE):
+  /// the rule version it was asked under, the step waiting now, who may take
+  /// that step (users, or portal:<employeeId> for a manager in the employee
+  /// app), when it is due and when it was last reminded. Null ruleId: the
+  /// request follows the simple chain (HR, manager, manager then HR).
+  ruleId              String?
+  ruleStep            Int?
+  stepUserIds         String[]  @default([])
+  stepDueAt           DateTime?
+  stepRemindedAt      DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -794,6 +841,7 @@ model LeaveRequest {
   @@index([accountId, orgId, employeeId, fromDate])
   @@index([orgId, fromDate, toDate])
   @@index([orgId, groupId])
+  @@index([orgId, status, stepDueAt])
 }
 
 /// A biometric reader (ZKTeco / eSSL) that pushes punches to /iclock. The
@@ -1116,25 +1164,25 @@ model ApiClient {
 
 /// Where CLOR sends events (punches, days) as they happen, signed with HMAC.
 model Webhook {
-  id              String    @id @default(cuid())
-  accountId       String
-  orgId           String
-  name            String
-  url             String
+  id                  String    @id @default(cuid())
+  accountId           String
+  orgId               String
+  name                String
+  url                 String
   /// Encrypted (encryptSecret); shown once when created.
-  secret          String
+  secret              String
   /// The secret before the last change, encrypted; still signed with until previousSecretUntil (A-34).
   previousSecret      String?
   previousSecretUntil DateTime?
   /// Comma separated: punch, day
-  events          String
-  isActive        Boolean   @default(true)
-  lastStatus      Int?
-  lastError       String?
-  lastDeliveredAt DateTime?
-  createdByUserId String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  events              String
+  isActive            Boolean   @default(true)
+  lastStatus          Int?
+  lastError           String?
+  lastDeliveredAt     DateTime?
+  createdByUserId     String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@index([accountId, orgId])
 }
@@ -1359,31 +1407,31 @@ model AttendanceSettings {
   /// DPDP (services/attendance/biometrics.ts): CLOR keeps and copies fingerprints and
   /// faces between readers only when the company switches this on, recording who
   /// confirmed that employees were told and agreed, and when. Off by default.
-  biometricCopy              Boolean   @default(false)
-  biometricCopyAt            DateTime?
-  biometricCopyBy            String?
+  biometricCopy         Boolean   @default(false)
+  biometricCopyAt       DateTime?
+  biometricCopyBy       String?
   /// The company's contact for personal-data questions and grievances (DPDP Rules:
   /// published business contact), shown in the employee privacy notice.
-  privacyContactName         String?
-  privacyContactEmail        String?
-  privacyContactPhone        String?
+  privacyContactName    String?
+  privacyContactEmail   String?
+  privacyContactPhone   String?
   /// When the company last published its employee privacy notice (its version is
   /// the notice version CLOR shows).
-  privacyNoticeAt            DateTime?
+  privacyNoticeAt       DateTime?
   /// Field punches (outside every work site) wait for a manager's or HR's approval before they count.
-  fieldPunchApproval         Boolean   @default(true)
+  fieldPunchApproval    Boolean   @default(true)
   /// Monthly confirmation: employees confirm (or dispute) their month by this day of the next month.
-  confirmCutoffDay           Int       @default(3)
+  confirmCutoffDay      Int       @default(3)
   /// Employees may ask for recorded overtime to be approved; and, when on, for comp-off
   /// (a day of the comp-off leave type for work on a weekly off or holiday).
-  overtimeRequests           Boolean   @default(true)
-  compOffEnabled             Boolean   @default(false)
-  compOffLeaveTypeId         String?
+  overtimeRequests      Boolean   @default(true)
+  compOffEnabled        Boolean   @default(false)
+  compOffLeaveTypeId    String?
   /// Who decides overtime and comp-off requests: HR | MANAGER | MANAGER_THEN_HR.
-  overtimeApproval           String    @default("HR")
+  overtimeApproval      String    @default("HR")
   /// Reader trust: a punch that reaches CLOR more than this many hours after it
   /// was made needs a look (feature attendanceReaderTrust).
-  readerLateUploadHours      Int       @default(24)
+  readerLateUploadHours Int       @default(24)
 
   updatedByUserId String
   updatedAt       DateTime @updatedAt
@@ -2159,30 +2207,30 @@ model DataRequest {
 /// Data Protection Board's first intimation (without delay) and full report
 /// (within 72 hours of becoming aware).
 model DataBreach {
-  id                 String    @id @default(cuid())
-  accountId          String
-  orgId              String
-  title              String
-  description        String
-  discoveredAt       DateTime
-  occurredFrom       DateTime?
-  occurredTo         DateTime?
+  id               String    @id @default(cuid())
+  accountId        String
+  orgId            String
+  title            String
+  description      String
+  discoveredAt     DateTime
+  occurredFrom     DateTime?
+  occurredTo       DateTime?
   /// What kind of data: comma-separated (identity, attendance, location, biometric, payroll, bank, contact).
-  categories         String
-  employeeIdsJson    String    @default("[]")
-  consequences       String
-  mitigation         String
-  stepsForPeople     String
+  categories       String
+  employeeIdsJson  String    @default("[]")
+  consequences     String
+  mitigation       String
+  stepsForPeople   String
   /// OPEN | CLOSED
-  status             String    @default("OPEN")
-  boardIntimatedAt   DateTime?
-  boardReportAt      DateTime?
-  boardReference     String?
-  peopleNotifiedAt   DateTime?
-  notifiedCount      Int       @default(0)
-  createdByUserId    String
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  status           String    @default("OPEN")
+  boardIntimatedAt DateTime?
+  boardReportAt    DateTime?
+  boardReference   String?
+  peopleNotifiedAt DateTime?
+  notifiedCount    Int       @default(0)
+  createdByUserId  String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([orgId, status])
 }
@@ -2688,18 +2736,18 @@ model OutboxEvent {
 /// The company in law (docs/people/02-PRD.md FND-07): the registered entity
 /// its establishments belong to. Identifiers are masked when shown.
 model LegalEntity {
-  id          String   @id @default(cuid())
-  accountId   String
-  orgId       String
-  name        String
-  description String?
-  pan         String?
-  cin         String?
-  address     String?
-  isActive    Boolean  @default(true)
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  name            String
+  description     String?
+  pan             String?
+  cin             String?
+  address         String?
+  isActive        Boolean  @default(true)
   createdByUserId String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   establishments Establishment[]
 
@@ -2710,25 +2758,25 @@ model LegalEntity {
 /// state. The state decides which rules apply to the people there; a person's
 /// work state is their establishment's, never their home address (review R-07).
 model Establishment {
-  id            String   @id @default(cuid())
-  accountId     String
-  orgId         String
-  legalEntityId String?
-  name          String
-  description   String?
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  legalEntityId   String?
+  name            String
+  description     String?
   /// SHOP | FACTORY | OFFICE | SITE | WAREHOUSE
-  kind          String   @default("OFFICE")
+  kind            String   @default("OFFICE")
   /// The state, as the company writes it: "Karnataka".
-  state         String?
-  address       String?
+  state           String?
+  address         String?
   /// Registrations as JSON: [{ type: "SE_REG", number, validTill }]
-  registrations Json?
+  registrations   Json?
   /// Whether the employer keeps employees' original documents here. Refused where the state forbids it (DOC-07: Karnataka).
-  holdsOriginals Boolean @default(false)
-  isActive      Boolean  @default(true)
+  holdsOriginals  Boolean  @default(false)
+  isActive        Boolean  @default(true)
   createdByUserId String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   legalEntity LegalEntity? @relation(fields: [legalEntityId], references: [id], onDelete: SetNull)
 
@@ -2739,27 +2787,27 @@ model Establishment {
 /// A change to someone's job dated in the future (FND-02): stored here, shown
 /// on the record as "Changes on <date>", applied on that day by a job, once.
 model ScheduledChange {
-  id            String   @id @default(cuid())
-  accountId     String
-  orgId         String
-  employeeId    String
-  field         String
-  fromValue     String?
-  toValue       String?
-  fromLabel     String?
-  toLabel       String?
-  effectiveOn   String
+  id                String    @id @default(cuid())
+  accountId         String
+  orgId             String
+  employeeId        String
+  field             String
+  fromValue         String?
+  toValue           String?
+  fromLabel         String?
+  toLabel           String?
+  effectiveOn       String
   /// PENDING | APPLIED | CANCELLED
-  status        String   @default("PENDING")
-  reason        String?
-  requestId     String?
+  status            String    @default("PENDING")
+  reason            String?
+  requestId         String?
   requestedByUserId String?
-  correlationId String
-  appliedAt     DateTime?
-  appliedRunId  String?
-  cancelledAt   DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  correlationId     String
+  appliedAt         DateTime?
+  appliedRunId      String?
+  cancelledAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([orgId, status, effectiveOn])
   @@index([orgId, employeeId, status])
@@ -2813,19 +2861,19 @@ model AccessLog {
 /// is overdue. Versioned: editing writes a new version and requests keep the
 /// one they were submitted under.
 model ApprovalRule {
-  id          String   @id @default(cuid())
-  accountId   String
-  orgId       String
-  name        String
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  name            String
   /// PROFILE_CHANGE | JOB_CHANGE | LEAVING | DOCUMENT_REQUEST | LETTER_REQUEST | POLICY_PUBLISH | DESK_ESCALATION | SEAT_REQUEST | PROBATION
-  requestType String
-  version     Int      @default(1)
-  active      Boolean  @default(true)
+  requestType     String
+  version         Int      @default(1)
+  active          Boolean  @default(true)
   /// [{ order, approver: { kind: MANAGER | MANAGER_OF_MANAGER | USER | ROLE | HR, id? }, condition?: { field, op: changed | eq | ne, value? }, dueDays, overdue: { action: REMIND | HAND_ON, to?: { kind, id? } } }]
-  steps       Json
+  steps           Json
   createdByUserId String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@unique([orgId, requestType, version])
   @@index([orgId, requestType, active])
@@ -2906,25 +2954,25 @@ model StandIn {
 /// A probation review (docs/people/02-PRD.md LIFE-03): the period, what was
 /// agreed and seen, the recommendation, and the outcome once decided.
 model ProbationReview {
-  id             String    @id @default(cuid())
-  accountId      String
-  orgId          String
-  employeeId     String
-  periodEnd      String
-  goals          String?
-  observations   String?
+  id               String    @id @default(cuid())
+  accountId        String
+  orgId            String
+  employeeId       String
+  periodEnd        String
+  goals            String?
+  observations     String?
   /// CONFIRM | EXTEND | END
-  recommendation String?
-  newEndDate     String?
-  note           String?
-  requestId      String?
+  recommendation   String?
+  newEndDate       String?
+  note             String?
+  requestId        String?
   /// CONFIRM | EXTEND | END, once decided
-  outcome        String?
-  decidedByUserId String?
-  decidedAt      DateTime?
+  outcome          String?
+  decidedByUserId  String?
+  decidedAt        DateTime?
   reviewedByUserId String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([orgId, employeeId, createdAt])
 }
@@ -3009,29 +3057,29 @@ model ChecklistTask {
 /// PF ECR for 2026-09, 24Q for 2026-Q2, a licence renewal… with who owns it,
 /// whether it is done, the challan or acknowledgement number, and evidence.
 model ComplianceTask {
-  id            String    @id @default(cuid())
-  accountId     String
-  orgId         String
+  id           String    @id @default(cuid())
+  accountId    String
+  orgId        String
   /// PF_ECR, ESIC, TDS_DEPOSIT, TDS_24Q, FORM16, PT, BONUS, POSH_REPORT, or CUSTOM
-  code          String
+  code         String
   /// YYYY-MM, YYYY-Qn (financial-year quarter) or YYYY; a cuid for CUSTOM
-  period        String
-  title         String
-  dueDate       String
+  period       String
+  title        String
+  dueDate      String
   /// OPEN, DONE, NOT_APPLICABLE
-  status        String    @default("OPEN")
-  owner         String?
-  reference     String?
-  note          String?
-  evidenceName  String?
-  evidenceMime  String?
-  evidenceData  Bytes?
+  status       String    @default("OPEN")
+  owner        String?
+  reference    String?
+  note         String?
+  evidenceName String?
+  evidenceMime String?
+  evidenceData Bytes?
   /// R2 plan: where the evidence is when it is not in `evidenceData` (then empty).
-  evidenceKey   String?
-  doneAt        DateTime?
-  doneByUserId  String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  evidenceKey  String?
+  doneAt       DateTime?
+  doneByUserId String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@unique([orgId, code, period])
   @@index([orgId, dueDate])
@@ -3040,20 +3088,20 @@ model ComplianceTask {
 /// HR operational registers. Each kind has a validated payload and status
 /// vocabulary in services/people/workspace.ts; no arbitrary client fields.
 model PeopleRecord {
-  id          String   @id @default(cuid())
-  accountId   String
-  orgId       String
-  kind        String
-  title       String
-  status      String
-  employeeId  String?
-  dueDate     String?
-  details     Json
-  version     Int      @default(1)
-  createdBy   String
-  updatedBy   String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  kind       String
+  title      String
+  status     String
+  employeeId String?
+  dueDate    String?
+  details    Json
+  version    Int      @default(1)
+  createdBy  String
+  updatedBy  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([accountId, orgId, kind, status])
 }
@@ -3195,4 +3243,317 @@ model Offer {
   @@index([orgId, status])
   @@index([orgId, employeeId])
   @@index([orgId, candidateId])
+}
+
+/// Talent → Hiring (docs/people/design-v1/TALENT-DECISIONS.md): a place the company is hiring for.
+/// Department, designation, branch and type come from the company's lists, so a hire lands in them.
+model JobOpening {
+  id                String   @id @default(cuid())
+  accountId         String
+  orgId             String
+  title             String
+  departmentId      String?
+  jobPositionId     String?
+  branchId          String?
+  employeeTypeId    String?
+  /// Where the work is, in words, when no branch fits (copied from the old register's "location").
+  location          String?
+  places            Int      @default(1)
+  /// The employee who leads hiring for it and becomes the hire's manager.
+  hiringManagerId   String?
+  description       String?
+  targetDate        String?
+  /// REQUESTED (a manager asked) | DRAFT | OPEN | ON_HOLD | FILLED | CLOSED
+  status            String   @default("DRAFT")
+  requestedByUserId String?
+  openedByUserId    String?
+  /// The public apply link: on or off, and the sha256 of its token.
+  applyOpen         Boolean  @default(false)
+  applyTokenHash    String?  @unique
+  closedReason      String?
+  createdByUserId   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([orgId, status])
+}
+
+/// Someone applying for an opening, on one pipeline. The id of a candidate moved from the old
+/// register is kept, so offers and links made before keep working.
+model Candidate {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  openingId       String
+  name            String
+  email           String?
+  phone           String?
+  /// REFERRAL | JOB_PORTAL | WALK_IN | AGENCY | WEBSITE | APPLY_LINK | OTHER
+  source          String    @default("OTHER")
+  /// Who referred them, the portal's name, the agency…
+  sourceDetail    String?
+  currentEmployer String?
+  /// APPLIED | SCREENING | INTERVIEW | OFFER | HIRED | REJECTED | WITHDRAWN
+  stage           String    @default("APPLIED")
+  stageAt         DateTime  @default(now())
+  closedReason    String?
+  resumeName      String?
+  resumeMime      String?
+  resumeSize      Int?
+  resumeData      Bytes?
+  /// A link to a résumé, from the apply page.
+  resumeUrl       String?
+  offerAcceptedOn String?
+  employeeId      String?
+  anonymisedAt    DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([orgId, openingId, stage])
+  @@index([orgId, stage, stageAt])
+}
+
+/// A candidate's story: stage moves, notes, interviews, offers, the hire.
+model CandidateEvent {
+  id          String   @id @default(cuid())
+  accountId   String
+  orgId       String
+  candidateId String
+  /// STAGE | NOTE | INTERVIEW | FEEDBACK | OFFER | HIRED | APPLIED
+  kind        String
+  fromStage   String?
+  toStage     String?
+  text        String?
+  byUserId    String?
+  createdAt   DateTime @default(now())
+
+  @@index([orgId, candidateId, createdAt])
+}
+
+model Interview {
+  id                 String   @id @default(cuid())
+  accountId          String
+  orgId              String
+  candidateId        String
+  at                 DateTime
+  minutes            Int      @default(45)
+  /// IN_PERSON | PHONE | VIDEO
+  mode               String   @default("IN_PERSON")
+  place              String?
+  interviewerUserIds Json
+  /// SCHEDULED | DONE | CANCELLED
+  status             String   @default("SCHEDULED")
+  createdByUserId    String?
+  createdAt          DateTime @default(now())
+
+  @@index([orgId, candidateId])
+  @@index([orgId, at])
+}
+
+model InterviewFeedback {
+  id             String   @id @default(cuid())
+  accountId      String
+  orgId          String
+  interviewId    String
+  candidateId    String
+  byUserId       String
+  /// STRONG_YES | YES | NO | STRONG_NO
+  recommendation String
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  @@unique([interviewId, byUserId])
+  @@index([orgId, candidateId])
+}
+
+/// Talent → Growth: what a person agreed to achieve, and its check-ins.
+model Goal {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  employeeId      String
+  title           String
+  measure         String?
+  dueDate         String?
+  weight          Int?
+  progress        Int      @default(0)
+  /// ON_TRACK | AT_RISK | BEHIND, from the last check-in
+  health          String   @default("ON_TRACK")
+  /// ACTIVE | DONE | DROPPED
+  status          String   @default("ACTIVE")
+  description     String?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([orgId, employeeId, status])
+}
+
+model GoalCheckIn {
+  id        String   @id @default(cuid())
+  accountId String
+  orgId     String
+  goalId    String
+  progress  Int
+  health    String
+  note      String?
+  byUserId  String?
+  /// SELF_SERVICE when the person checked in from the employee app.
+  source    String   @default("FORM")
+  createdAt DateTime @default(now())
+
+  @@index([orgId, goalId, createdAt])
+}
+
+model ReviewCycle {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  name            String
+  periodFrom      String
+  periodTo        String
+  selfDue         String?
+  managerDue      String?
+  /// Department ids; empty = everyone working.
+  departmentIds   Json
+  /// DRAFT | OPEN | CALIBRATING | SHARED | CLOSED
+  status          String   @default("DRAFT")
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([orgId, status])
+}
+
+model Review {
+  id                String    @id @default(cuid())
+  accountId         String
+  orgId             String
+  cycleId           String
+  employeeId        String
+  /// The manager when the cycle opened (an employee id); a later change moves it.
+  managerEmployeeId String?
+  selfRating        Int?
+  selfText          String?
+  selfAt            DateTime?
+  managerRating     Int?
+  managerText       String?
+  managerAt         DateTime?
+  managerByUserId   String?
+  finalRating       Int?
+  finalReason       String?
+  finalByUserId     String?
+  sharedAt          DateTime?
+  acknowledgedAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([cycleId, employeeId])
+  @@index([orgId, employeeId])
+}
+
+model ImprovementPlan {
+  id                String    @id @default(cuid())
+  accountId         String
+  orgId             String
+  employeeId        String
+  managerEmployeeId String?
+  reason            String
+  expectations      String
+  startDate         String
+  endDate           String
+  /// ACTIVE | COMPLETED | EXTENDED | NOT_MET | CANCELLED
+  status            String    @default("ACTIVE")
+  outcomeNote       String?
+  decidedByUserId   String?
+  decidedAt         DateTime?
+  createdByUserId   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([orgId, employeeId, status])
+}
+
+/// Notes on an improvement plan (and other talent records that keep a running log).
+model TalentNote {
+  id        String   @id @default(cuid())
+  accountId String
+  orgId     String
+  /// PLAN
+  subject   String
+  subjectId String
+  note      String
+  byUserId  String?
+  createdAt DateTime @default(now())
+
+  @@index([orgId, subject, subjectId])
+}
+
+/// A manager's notes with one report, seen only by those two.
+model OneOnOne {
+  id                String   @id @default(cuid())
+  accountId         String
+  orgId             String
+  managerEmployeeId String
+  employeeId        String
+  date              String
+  notes             String?
+  actions           String?
+  createdByUserId   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([orgId, managerEmployeeId, employeeId])
+}
+
+/// Talent → Training: one training, many people.
+model Training {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  title           String
+  provider        String?
+  /// INTERNAL | EXTERNAL | ONLINE
+  kind            String   @default("INTERNAL")
+  startDate       String?
+  endDate         String?
+  hours           Decimal? @db.Decimal(7, 2)
+  mandatory       Boolean  @default(false)
+  /// How long the certificate is good for, in months; null = does not lapse.
+  validMonths     Int?
+  description     String?
+  /// PLANNED | DONE | CANCELLED
+  status          String   @default("PLANNED")
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([orgId, status])
+}
+
+model TrainingSeat {
+  id            String   @id @default(cuid())
+  accountId     String
+  orgId         String
+  trainingId    String
+  employeeId    String
+  /// ASSIGNED | COMPLETED | MISSED
+  status        String   @default("ASSIGNED")
+  completedOn   String?
+  expiresOn     String?
+  certName      String?
+  certMime      String?
+  certSize      Int?
+  certData      Bytes?
+  /// A link to the certificate (moved from the old register).
+  certUrl       String?
+  /// The last reminder stage sent: 60, 30 or 0 days before expiry.
+  remindedStage Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([trainingId, employeeId])
+  @@index([orgId, employeeId])
+  @@index([orgId, expiresOn])
 }

@@ -381,6 +381,25 @@ export function timelineOf(r: { createdAt: Date; status: string; managerApproved
   return { steps, next: now ? now.who || now.label : null };
 }
 
+/**
+ * The same for leave under the company's leave rule (services/attendance/leaveRules.ts):
+ * each step someone approved, the step waiting now and who it waits for.
+ */
+export function ruleTimelineOf(r: { createdAt: Date; status: string; ruleStep?: number | null; reviewedAt?: Date | null; reviewNote?: string | null; history?: unknown }, waitingFor: string | null) {
+  const steps: Step[] = [{ label: 'Sent', state: 'DONE', at: r.createdAt }];
+  if (r.status === 'CANCELLED') {
+    steps.push({ label: 'Withdrawn', state: 'WITHDRAWN', at: r.reviewedAt ?? null });
+    return { steps, next: null as string | null };
+  }
+  const taken = ((Array.isArray(r.history) ? r.history : []) as Array<{ at?: string; what?: string; note?: string | null }>).filter((h) => h.what === 'STEP_APPROVED');
+  for (const h of taken) steps.push({ label: String(h.note || 'A step').split(':')[0], state: 'DONE', at: h.at ? new Date(h.at) : null });
+  if (r.status === 'PENDING' && r.ruleStep) steps.push({ label: `Step ${r.ruleStep}`, state: 'NOW', who: waitingFor });
+  const decided = r.status === 'APPROVED' || r.status === 'REJECTED';
+  steps.push({ label: r.status === 'REJECTED' ? `Declined${r.reviewNote ? `: ${r.reviewNote}` : ''}` : 'Approved', state: r.status === 'APPROVED' ? 'DONE' : r.status === 'REJECTED' ? 'REFUSED' : 'LATER', at: decided ? r.reviewedAt : null });
+  const now = steps.find((s) => s.state === 'NOW');
+  return { steps, next: now ? now.who || now.label : null };
+}
+
 export async function chainsFor(orgId: string) {
   const [leave, correction, overtime] = await Promise.all([chainFor(orgId, 'leave'), chainFor(orgId, 'correction'), overtimeChain(orgId)]);
   return { leave, correction, overtime } as Record<'leave' | 'correction' | 'overtime', 'HR' | 'MANAGER' | 'MANAGER_THEN_HR'>;

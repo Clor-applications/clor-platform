@@ -55,7 +55,7 @@ import {
   monthRows,
   periodRows,
 } from '../services/attendance/days.js';
-import { DEFAULT_RULES, KINDS, KIND_WORDS, askRequest, cancelRequest, decideRequest, editRequest, rulesFor, saveRules, story, usage, type Kind } from '../services/attendance/requests.js';
+import { DEFAULT_RULES, KINDS, KIND_WORDS, askRequest, cancelRequest, decideRequest, editRequest, rulesFor, saveRules, shiftChoices, story, usage, type Kind } from '../services/attendance/requests.js';
 import { CHAINS } from '../services/attendance/approvalChain.js';
 import { nightShiftsOn, timesOn } from '../services/attendance/nightShift.js';
 import { clockDateFor } from '../services/attendance/punches.js';
@@ -537,7 +537,7 @@ attendanceRouter.get('/orgs/:orgId/attendance/me/requests', can(PermissionAction
       peoplePrisma.attendanceRequest.findMany({ where: { orgId, employeeId: me.id }, orderBy: { createdAt: 'desc' }, take: 200 }),
       ...KINDS.map((k) => usage(orgId, me.id, k, month, { rules })),
     ]);
-    res.json({ month, requests: await withNames(orgId, rows), usage: Object.fromEntries(use.map((u) => [u.kind, u])), rules });
+    res.json({ month, requests: await withNames(orgId, rows), usage: Object.fromEntries(use.map((u) => [u.kind, u])), rules, shifts: await shiftChoices(orgId, rules) });
   } catch (e) {
     return sendError(res, e);
   }
@@ -641,7 +641,8 @@ attendanceRouter.get('/orgs/:orgId/attendance/requests/usage', can(PermissionAct
 /** The company's request rules (Settings → Request rules): what is on, quotas, back-date windows, who approves. */
 attendanceRouter.get('/orgs/:orgId/attendance/request-rules', can(PermissionAction.VIEW, R.requests), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
-  res.json({ rules: await rulesFor(req.tenant!.orgId), kinds: KINDS, chains: CHAINS, defaults: DEFAULT_RULES });
+  const rules = await rulesFor(req.tenant!.orgId);
+  res.json({ rules, kinds: KINDS, chains: CHAINS, defaults: DEFAULT_RULES, shifts: await shiftChoices(req.tenant!.orgId, rules) });
 });
 
 attendanceRouter.put('/orgs/:orgId/attendance/request-rules', can(PermissionAction.APPROVE, R.requests), async (req, res) => {

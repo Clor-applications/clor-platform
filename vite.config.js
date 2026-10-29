@@ -1,8 +1,8 @@
 import os from 'node:os'
-import { readFileSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 
-import { defineConfig } from 'vite'
+import { defineConfig, searchForWorkspaceRoot } from 'vite'
 import react from '@vitejs/plugin-react'
 
 /**
@@ -54,6 +54,9 @@ export default defineConfig({
     },
   },
   server: {
+    /* A worktree may link node_modules to the main checkout; its real path must be
+       servable too, or every font file under it answers 403 and text falls back. */
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), realpathSync(new URL('./node_modules', import.meta.url))] },
     // Quick tunnels get a fresh random hostname each time they start, so the
     // host cannot be listed literally. Vite rejects unknown Host headers by
     // default (CVE-2025-31486), which shows up as a bare 403 from the tunnel.

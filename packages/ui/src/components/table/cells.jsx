@@ -1,4 +1,4 @@
-import { Calendar } from 'lucide-react';
+import { Calendar } from '@ui/components/ui/lineIcons';
 
 import { formatDateIn } from '../../utils/dates';
 import { formatMoney } from '../../utils/money';

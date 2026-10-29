@@ -33,8 +33,8 @@ describe('People home', () => {
     const r = (await people('post', '/employees', { name: 'Ravi', code: 'H2', dateOfJoining: plus(-400) }).expect(201)).body.employee;
     await people('post', `/employees/${a.id}/documents`, { kind: 'ID_PROOF', title: 'Passport', expiresOn: plus(20), file: `data:application/pdf;base64,${Buffer.from('%PDF-1.4').toString('base64')}` });
     await people('post', '/desk', { employeeId: a.id, category: 'PAYROLL', subject: 'Salary not credited', description: 'October salary missing', urgency: 'URGENT' }).expect(201);
-    const job = (await people('post', '/workspace/recruitment', { title: 'Accountant', status: 'OPEN', details: { openings: 1 } }).expect(201)).body.record;
-    await people('post', '/workspace/candidates', { title: 'Meera K', status: 'APPLIED', details: { jobId: job.id, email: 'meera@example.com' } }).expect(201);
+    const job = (await people('post', '/talent/openings', { title: 'Accountant', status: 'OPEN' }).expect(201)).body.opening;
+    await people('post', '/talent/candidates', { openingId: job.id, name: 'Meera K', email: 'meera@example.com' }).expect(201);
     await people('post', '/workspace/assets', { title: 'Laptop', status: 'ASSIGNED', employeeId: r.id, details: { assetTag: 'LT-01' } }).expect(201);
     await people('post', `/employees/${r.id}/resign`, { lastDay: plus(-1), leavingType: 'RESIGNED' }).expect(200);
     /* Five days ahead, moved off a Sunday: leave on a weekly off has nothing to take. */

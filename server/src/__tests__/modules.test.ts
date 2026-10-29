@@ -34,19 +34,21 @@ const setFeatures = (c: Ctx, f: Record<string, boolean>) => request(app).put(`/a
 const subscribe = (c: Ctx, apps: Array<{ appCode: string; tier?: string }>) =>
   setSubscription((jwt.decode(c.token) as { accountId: string }).accountId, { apps });
 const workspace = (c: Ctx, kind: string) => request(app).get(`/api/orgs/${c.orgId}/people/workspace/${kind}`).set(at(c));
+/* Hiring is Talent's (routes/peopleTalent.ts), switched by the same Hiring module. */
+const talent = (c: Ctx, path: string) => request(app).get(`/api/orgs/${c.orgId}/people/talent/${path}`).set(at(c));
 
 describe('People modules', () => {
   it('are on by default, and a module switched off takes no work and leaves the rest', async () => {
     const c = await company();
     await setFeatures(c, { people: true }).expect(200);
     expect(await features(c)).toMatchObject({ people: true, peopleHiring: true, peoplePerformance: true, peopleEngage: true, peopleBenefits: true });
-    await workspace(c, 'recruitment').expect(200);
+    await talent(c, 'openings').expect(200);
 
     await setFeatures(c, { peopleHiring: false }).expect(200);
-    expect((await workspace(c, 'candidates').expect(403)).body.code).toBe('MODULE_OFF');
+    expect((await talent(c, 'candidates').expect(403)).body.code).toBe('MODULE_OFF');
     await workspace(c, 'announcements').expect(200);
     await setFeatures(c, { peopleHiring: true }).expect(200);
-    await workspace(c, 'recruitment').expect(200);
+    await talent(c, 'openings').expect(200);
   }, 60_000);
 });
 

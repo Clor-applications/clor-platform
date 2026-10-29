@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Check, FileDown, Upload } from 'lucide-react';
+import { Check, FileDown, Upload } from '@ui/components/ui/lineIcons';
 
 import { PageHeader } from '@ui/components/ui/Primitives';
 import Alert from '@ui/components/ui/Alert';

@@ -356,12 +356,17 @@ export const withNames = async (orgId: string, rows: any[]) => {
     : [];
   const byId = new Map(people.map((p) => [p.id, p]));
   const nights = await nightLabels(orgId, rows);
+  /* A shift change request names the shift asked for. */
+  const asked = [...new Set(rows.filter((r) => r.kind === 'SHIFT_CHANGE' && r.shiftId).map((r) => r.shiftId as string))];
+  const shiftNames = new Map(asked.length ? (await peoplePrisma.shift.findMany({ where: { orgId, id: { in: asked } }, select: { id: true, name: true } })).map((x) => [x.id, x.name]) : []);
   return rows.map((r) => {
     const p = byId.get(r.employeeId);
     const shiftLabel = r.shiftId ? nights.get(r.shiftId) : undefined;
+    const shiftName = r.kind === 'SHIFT_CHANGE' && r.shiftId ? shiftNames.get(r.shiftId) : undefined;
     return {
       ...r,
       ...(shiftLabel ? { shiftLabel } : {}),
+      ...(shiftName ? { shiftName } : {}),
       employeeName: p?.name || '—',
       employeeCode: p?.code || null,
       department: p?.department || null,

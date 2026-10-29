@@ -31,9 +31,18 @@ import { registerJob } from '../../jobRegistry.js';
 
 export const REQUEST_TYPES = ['PROFILE_CHANGE', 'JOB_CHANGE', 'LEAVING', 'DOCUMENT_REQUEST', 'LETTER_REQUEST', 'POLICY_PUBLISH', 'DESK_ESCALATION', 'SEAT_REQUEST', 'PROBATION'] as const;
 export type RequestType = (typeof REQUEST_TYPES)[number];
+/**
+ * The kinds a rule can be written for: every request type, and leave
+ * (owner, 28 Oct 2026). Leave keeps its own request and balance and walks the
+ * steps itself (services/attendance/leaveRules.ts); it is never submitted
+ * through this engine, so LEAVE is not a RequestType.
+ */
+export const RULE_TYPES = [...REQUEST_TYPES, 'LEAVE'] as const;
+export type RuleType = (typeof RULE_TYPES)[number];
 
 export type ApproverSpec = { kind: 'MANAGER' | 'MANAGER_OF_MANAGER' | 'USER' | 'ROLE' | 'HR'; id?: string };
-export type Condition = { field: string; op: 'changed' | 'eq' | 'ne'; value?: string | null };
+/** gt / lt compare numbers (a leave's days); the others compare text. */
+export type Condition = { field: string; op: 'changed' | 'eq' | 'ne' | 'gt' | 'lt'; value?: string | null };
 export type StepSpec = { order: number; approver: ApproverSpec; condition?: Condition | null; dueDays: number; overdue?: { action: 'REMIND' | 'HAND_ON'; to?: ApproverSpec } | null };
 
 export type Payload = { employeeId?: string | null; fields?: Record<string, { before: unknown; after: unknown }>; [k: string]: unknown };
@@ -94,7 +103,8 @@ export function cleanSteps(raw: unknown): StepSpec[] | string {
     let condition: Condition | null = null;
     if (s?.condition) {
       const op = String(s.condition.op || '');
-      if (!['changed', 'eq', 'ne'].includes(op) || !String(s.condition.field || '').trim()) return `Step ${i + 1}: a condition names a field and one of changed, eq, ne.`;
+      if (!['changed', 'eq', 'ne', 'gt', 'lt'].includes(op) || !String(s.condition.field || '').trim()) return `Step ${i + 1}: a condition names a field and one of changed, eq, ne, gt, lt.`;
+      if ((op === 'gt' || op === 'lt') && !Number.isFinite(Number(s.condition.value))) return `Step ${i + 1}: more or fewer than how many?`;
       condition = { field: String(s.condition.field).trim(), op: op as Condition['op'], value: s.condition.value == null ? null : String(s.condition.value) };
     }
     let overdue: StepSpec['overdue'] = null;
@@ -109,12 +119,12 @@ export function cleanSteps(raw: unknown): StepSpec[] | string {
   return out;
 }
 
-export async function activeRule(orgId: string, requestType: RequestType) {
+export async function activeRule(orgId: string, requestType: RuleType) {
   return peoplePrisma.approvalRule.findFirst({ where: { orgId, requestType, active: true }, orderBy: { version: 'desc' } });
 }
 
 /** A new version; the old one is kept and marked inactive. */
-export async function saveRule(who: { accountId: string; orgId: string; userId: string | null }, requestType: RequestType, name: string, steps: StepSpec[]) {
+export async function saveRule(who: { accountId: string; orgId: string; userId: string | null }, requestType: RuleType, name: string, steps: StepSpec[]) {
   return peoplePrisma.$transaction(async (tx) => {
     const latest = await tx.approvalRule.findFirst({ where: { orgId: who.orgId, requestType }, orderBy: { version: 'desc' }, select: { version: true } });
     await tx.approvalRule.updateMany({ where: { orgId: who.orgId, requestType, active: true }, data: { active: false } });
@@ -122,7 +132,7 @@ export async function saveRule(who: { accountId: string; orgId: string; userId: 
   });
 }
 
-export async function retireRule(orgId: string, requestType: RequestType) {
+export async function retireRule(orgId: string, requestType: RuleType) {
   const r = await peoplePrisma.approvalRule.updateMany({ where: { orgId, requestType, active: true }, data: { active: false } });
   return r.count;
 }
@@ -131,10 +141,16 @@ export async function retireRule(orgId: string, requestType: RequestType) {
 // Resolving who decides
 // ---------------------------------------------------------------------------
 
-function conditionHolds(c: Condition | null | undefined, payload: Payload): boolean {
+export function conditionHolds(c: Condition | null | undefined, payload: Payload): boolean {
   if (!c) return true;
   const f = payload.fields?.[c.field];
   if (c.op === 'changed') return Boolean(f) && String(f!.before ?? '') !== String(f!.after ?? '');
+  if (c.op === 'gt' || c.op === 'lt') {
+    const n = Number(f ? f.after : (payload as any)[c.field]);
+    const v = Number(c.value);
+    if (!Number.isFinite(n) || !Number.isFinite(v)) return false;
+    return c.op === 'gt' ? n > v : n < v;
+  }
   const after = f ? String(f.after ?? '') : String((payload as any)[c.field] ?? '');
   return c.op === 'eq' ? after === String(c.value ?? '') : after !== String(c.value ?? '');
 }
@@ -157,7 +173,7 @@ async function hrDeciders(accountId: string, orgId: string) {
 }
 
 /** When nobody but the requester could decide: the company's admins, else anyone who may approve requests. Never the requester. */
-async function lastResortDeciders(accountId: string, orgId: string, excluded: string[]) {
+export async function lastResortDeciders(accountId: string, orgId: string, excluded: string[]) {
   const adminRoles = await platformPrisma.role.findMany({ where: { accountId, orgId, roleType: 'ADMIN' }, select: { id: true } });
   const admins = (await usersHoldingRoles(accountId, orgId, adminRoles.map((r) => r.id))).filter((u) => !excluded.includes(u));
   if (admins.length) return admins;
@@ -304,27 +320,67 @@ async function notifyStep(request: RequestRow) {
   await notifyUsers(request.accountId, request.orgId, ids, { kind: 'people.approval', title: `Waiting for you: ${request.title}`, body: `Due ${step.dueAt.toISOString().slice(0, 10)}.`, link: { app: 'people', screen: 'approvals' } as any });
 }
 
-/** Everything approved: run the effect and close. */
+/**
+ * Everything approved: run the effect and close.
+ *
+ * The last step's decision commits first and this runs after it, because an
+ * effect belongs to the module that owns the request type and writes in its
+ * own transactions. So a request whose steps are all decided but which is
+ * still WAITING, with no step waiting, is one this did not finish (the
+ * process stopped, a write failed). That state is the mark: finishStalled
+ * runs this again from the read paths and the dues job. A lock per request,
+ * held until the status is written, and a fresh look under it, make the
+ * original run and a recovery never both apply the effect.
+ */
 async function approveFinal(actor: Actor, requestId: string) {
-  const request = await peoplePrisma.approvalRequest.findUniqueOrThrow({ where: { id: requestId }, include });
-  const effect = effects.get(request.requestType as RequestType);
-  /* TRACE-05: what the decision rested on is frozen before anything changes, and every change-log line carries it. */
-  const { recordDecision } = await import('../decisions.js');
-  const decision = await recordDecision(request);
-  let outcome: Record<string, unknown> | void = undefined;
-  try {
-    if (effect) outcome = await effect({ request, actor: { ...actor, source: 'APPROVAL', requestId: request.id, decisionId: decision.id } });
-  } catch (e) {
-    await closeUnapplied(actor, request, decision.id, e);
-    throw new ApprovalError(`Approved, but it could not be applied: ${reasonOf(e)} The request is closed; ask again once that is fixed.`, 409, 'NOT_APPLIED');
+  const done = await peoplePrisma.$transaction(async (lock) => {
+    await lock.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-final:${requestId}`}))`;
+    const request = await lock.approvalRequest.findUniqueOrThrow({ where: { id: requestId }, include });
+    /* Finished already (by the run this one waited for), or not finished deciding: nothing to apply. */
+    if (request.status !== 'WAITING' || request.steps.some((s) => s.status === 'WAITING')) return { request, outcome: undefined as Record<string, unknown> | void, applied: false };
+    const effect = effects.get(request.requestType as RequestType);
+    /* TRACE-05: what the decision rested on is frozen before anything changes, and every change-log line carries it. */
+    const { recordDecision } = await import('../decisions.js');
+    const decision = await recordDecision(request);
+    let outcome: Record<string, unknown> | void = undefined;
+    try {
+      if (effect) outcome = await effect({ request, actor: { ...actor, source: 'APPROVAL', requestId: request.id, decisionId: decision.id } });
+    } catch (e) {
+      await closeUnapplied(actor, request, decision.id, e);
+      throw new ApprovalError(`Approved, but it could not be applied: ${reasonOf(e)} The request is closed; ask again once that is fixed.`, 409, 'NOT_APPLIED');
+    }
+    const r = await lock.approvalRequest.update({ where: { id: requestId }, data: { status: 'APPROVED', decisionId: decision.id, outcome: (outcome || null) as Prisma.InputJsonValue }, include });
+    await writeChangeLog(lock, actor, { kind: 'ApprovalRequest', id: r.id, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: 'WAITING', after: 'APPROVED', redacted: false }]);
+    return { request: r, outcome, applied: true };
+  }, { timeout: 60_000 });
+  if (done.applied) await tellRequester(done.request, `Approved: ${done.request.title}`);
+  return { request: done.request, outcome: done.outcome };
+}
+
+/** Every step decided, the request still WAITING with none waiting: approveFinal did not finish. */
+const stalled = (r: RequestRow) => r.status === 'WAITING' && r.steps.length > 0 && !r.steps.some((s) => s.status === 'WAITING');
+
+/**
+ * Finish requests approveFinal left half done, as whoever approved the last
+ * step (the requester, when every step was skipped). Never fails a read: a
+ * request that still cannot be applied is closed by approveFinal itself, and
+ * anything else is logged and tried again on the next read or dues run.
+ * Answers the rows as they are now.
+ */
+export async function finishStalled(rows: RequestRow[]): Promise<RequestRow[]> {
+  if (!rows.some(stalled)) return rows;
+  const out: RequestRow[] = [];
+  for (const r of rows) {
+    if (!stalled(r)) { out.push(r); continue; }
+    const last = r.steps.filter((s) => s.status === 'APPROVED').sort((a, b) => (b.decidedAt?.getTime() || 0) - (a.decidedAt?.getTime() || 0))[0];
+    try {
+      await approveFinal({ accountId: r.accountId, orgId: r.orgId, userId: last?.decidedByUserId || r.requesterUserId, source: 'APPROVAL', correlationId: r.id, requestId: r.id }, r.id);
+    } catch (e) {
+      console.error(`[people-approvals] ${r.orgId}: request ${r.id} not finished:`, e instanceof Error ? e.message : e);
+    }
+    out.push(await peoplePrisma.approvalRequest.findUniqueOrThrow({ where: { id: r.id }, include }));
   }
-  const closed = await peoplePrisma.$transaction(async (tx) => {
-    const r = await tx.approvalRequest.update({ where: { id: requestId }, data: { status: 'APPROVED', decisionId: decision.id, outcome: (outcome || null) as Prisma.InputJsonValue }, include });
-    await writeChangeLog(tx, actor, { kind: 'ApprovalRequest', id: r.id, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: 'WAITING', after: 'APPROVED', redacted: false }]);
-    return r;
-  });
-  await tellRequester(closed, `Approved: ${closed.title}`);
-  return { request: closed, outcome };
+  return out;
 }
 
 const reasonOf = (e: unknown) => {
@@ -365,7 +421,11 @@ export async function decide(actor: Actor, requestId: string, decision: Decision
   if (!request) throw new ApprovalError('No such request.', 404, 'NOT_FOUND');
   if (request.status !== 'WAITING') throw new ApprovalError(`This request is ${request.status.toLowerCase().replace('_', ' ')}; nothing to decide.`, 409, 'NOT_WAITING');
   const step = request.steps.find((s) => s.order === request.currentStep && s.status === 'WAITING');
-  if (!step) throw new ApprovalError('No step is waiting.', 409, 'NOT_WAITING');
+  if (!step) {
+    /* Every step decided but never closed: finished now, and the decider is told it is done. */
+    if (stalled(request)) await finishStalled([request]);
+    throw new ApprovalError('No step is waiting.', 409, 'NOT_WAITING');
+  }
   if (!((step.candidateUserIds as string[]) || []).includes(userId)) throw new ApprovalError('This is not yours to decide.', 403, 'NOT_APPROVER');
   if (request.requesterUserId === userId) throw new ApprovalError('Nobody decides their own request.', 403, 'OWN_REQUEST');
   if ((await subjectUserOf(orgId, request.subjectEmployeeId)) === userId) throw new ApprovalError('Nobody decides a request about themselves.', 403, 'OWN_REQUEST');
@@ -406,6 +466,9 @@ export async function reply(actor: Actor, requestId: string, note: string) {
   const ruleSteps = ((await peoplePrisma.approvalRule.findUnique({ where: { id: request.ruleId } }))?.steps || []) as unknown as StepSpec[];
   const spec = ruleSteps.find((s) => s.order === request.currentStep)!;
   await peoplePrisma.$transaction(async (tx) => {
+    /* Claimed first, while it is still MORE_INFO: a double submit opens one waiting step, not two. */
+    const claimed = await tx.approvalRequest.updateMany({ where: { id: request.id, orgId: request.orgId, status: 'MORE_INFO' }, data: { status: 'WAITING' } });
+    if (!claimed.count) throw new ApprovalError('This was already answered.', 409, 'NOT_WAITING');
     await tx.approvalStep.create({ data: { accountId: request.accountId, orgId: request.orgId, requestId: request.id, order: request.currentStep, candidateUserIds: last.candidateUserIds as Prisma.InputJsonValue, approverUserId: last.approverUserId, standInForUserId: last.standInForUserId, dueAt: addWorkingDays(new Date(), spec?.dueDays || 2), status: 'WAITING' } });
     await tx.approvalRequest.update({ where: { id: request.id }, data: { status: 'WAITING', payload: { ...(request.payload as object), replies: [...(((request.payload as any)?.replies as unknown[]) || []), { at: new Date().toISOString(), note: note.slice(0, 1000) }] } as Prisma.InputJsonValue } });
   });
@@ -441,11 +504,11 @@ export async function waitingFor(orgId: string, userId: string) {
 const dueOf = (r: RequestRow) => r.steps.find((s) => s.order === r.currentStep && s.status === 'WAITING')?.dueAt || r.createdAt;
 
 export async function mine(orgId: string, userId: string, limit = 100) {
-  return peoplePrisma.approvalRequest.findMany({ where: { orgId, requesterUserId: userId }, include, orderBy: { createdAt: 'desc' }, take: limit });
+  return finishStalled(await peoplePrisma.approvalRequest.findMany({ where: { orgId, requesterUserId: userId }, include, orderBy: { createdAt: 'desc' }, take: limit }));
 }
 
 export async function requestsAbout(orgId: string, employeeId: string) {
-  return peoplePrisma.approvalRequest.findMany({ where: { orgId, subjectEmployeeId: employeeId }, include, orderBy: { createdAt: 'desc' } });
+  return finishStalled(await peoplePrisma.approvalRequest.findMany({ where: { orgId, subjectEmployeeId: employeeId }, include, orderBy: { createdAt: 'desc' } }));
 }
 
 /**
@@ -535,6 +598,9 @@ export async function runApprovalDues(now = new Date()) {
       console.error(`[people-approvals] dues: org ${step.orgId}, step ${step.id}:`, e instanceof Error ? e.message : e);
     }
   }
+  /* Requests approveFinal left half done (approved, never closed): finished here too, for those nobody opens again. */
+  const half = await outsideTenant('job: approvals left unfinished', () => peoplePrisma.approvalRequest.findMany({ where: { status: 'WAITING', steps: { some: {}, none: { status: 'WAITING' } } }, include, take: 200 }));
+  for (const r of half) await runInTenant(r.orgId, () => finishStalled([r]));
   return { due: due.length, reminded, handedOn, failed };
 }
 

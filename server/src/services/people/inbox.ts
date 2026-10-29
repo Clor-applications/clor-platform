@@ -45,6 +45,8 @@ export type InboxItem = {
   overdue: boolean;
   /** The manager has taken their step and it now waits for HR. */
   managerApproved: boolean;
+  /** Leave under the leave approval rule: the step waiting now. */
+  step?: number | null;
   /** Can be approved or rejected with others at once. Help desk cases need a written reply. */
   bulk: boolean;
 };
@@ -98,6 +100,9 @@ export async function inboxFor(req: Request): Promise<{ items: InboxItem[]; coun
     }
   }
 
+  /* A step of the leave rule that names this reader is theirs to decide, whatever else they may do with leave. */
+  const namedSteps = await peoplePrisma.leaveRequest.count({ where: { orgId, status: 'PENDING', ruleId: { not: null }, stepUserIds: { has: userId } } });
+  if (namedSteps && !rights.LEAVE.see) rights.LEAVE = { see: true, decide: true };
   if (rights.LEAVE.see) {
     const { waitingForReader, leaveScope, withTypes, masked, readsPrivateLeave } = await import('../../routes/leave.js');
     const rows = await waitingForReader(orgId, await leaveScope(req), userId);
@@ -113,7 +118,7 @@ export async function inboxFor(req: Request): Promise<{ items: InboxItem[]; coun
         key: `LEAVE:${r.id}`, kind: 'LEAVE', id: r.id, what: r.leaveTypeName || 'Leave', subKind: r.leaveTypeName || null,
         employeeId: r.employeeId, employeeName: r.employeeName, employeeCode: r.employeeCode, photoUrl: r.photoUrl,
         fromDate: r.fromDate, toDate: g?.to || r.toDate, days: g ? Math.round(g.days * 100) / 100 : r.days, halfDay: r.halfDay || null,
-        since: iso(r.createdAt)!, dueAt: null, overdue: false, managerApproved: Boolean(r.managerApprovedAt), bulk: rights.LEAVE.decide,
+        since: iso(r.createdAt)!, dueAt: r.ruleId ? iso(r.stepDueAt) : null, overdue: Boolean(r.ruleId && r.stepDueAt && new Date(r.stepDueAt).getTime() < now), managerApproved: Boolean(r.managerApprovedAt), step: r.ruleStep ?? null, bulk: rights.LEAVE.decide,
       });
     }
   }
@@ -134,7 +139,9 @@ export async function inboxFor(req: Request): Promise<{ items: InboxItem[]; coun
 
   if (rights.HELPDESK.see) {
     /* Waiting for HR's answer: open or reopened. A case waiting on the employee is not HR's to move. */
-    const rows = await peoplePrisma.deskRequest.findMany({ where: { accountId, orgId, status: { in: ['OPEN', 'REOPENED'] } }, include: { employee: { select: { name: true, code: true, photoUrl: true } } }, orderBy: { createdAt: 'asc' }, take: 500 });
+    /* A team lead sees only requests from their own people, as on the help desk itself. */
+    const scope = await teamScope(req);
+    const rows = await peoplePrisma.deskRequest.findMany({ where: { accountId, orgId, status: { in: ['OPEN', 'REOPENED'] }, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, include: { employee: { select: { name: true, code: true, photoUrl: true } } }, orderBy: { createdAt: 'asc' }, take: 500 });
     for (const r of rows) {
       const due = r.firstReplyAt ? r.resolveBy : r.replyBy;
       items.push({

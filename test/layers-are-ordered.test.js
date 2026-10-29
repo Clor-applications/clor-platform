@@ -17,7 +17,7 @@ import { resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const css = readFileSync(resolve(root, 'packages/ui/src/index.css'), 'utf8');
+const css = readFileSync(resolve(root, 'packages/ui/src/index.css'), 'utf8') + readFileSync(resolve(root, 'packages/ui/src/people.css'), 'utf8');
 
 const layer = (name) => {
   const m = css.match(new RegExp(`--z-${name}:\\s*(-?\\d+)`));

@@ -25,7 +25,7 @@ import { describe, expect, it } from 'vitest';
  * which is why they are checked here rather than trusted to memory.
  */
 
-const CSS = readFileSync(join(dirname(dirname(fileURLToPath(import.meta.url))), 'packages/ui/src/index.css'), 'utf8');
+const CSS = ['index.css', 'people.css'].map((f) => readFileSync(join(dirname(dirname(fileURLToPath(import.meta.url))), 'packages/ui/src', f), 'utf8')).join('');
 
 /** The declaration block for a selector, so a rule is read in isolation. */
 const block = (selector) => {

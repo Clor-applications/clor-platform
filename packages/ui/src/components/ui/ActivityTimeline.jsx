@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CheckCircle2, FileUp, MessageSquare, Pencil, Plus, Upload, Download, Archive, XCircle, Eye, Zap } from 'lucide-react';
+import { CheckCircle2, FileUp, MessageSquare, Pencil, Plus, Upload, Download, Archive, XCircle, Eye, Zap } from '@ui/components/ui/lineIcons';
 
 /**
  * ActivityTimeline (People design spec v1 §5, §7): ERPNext-style history of

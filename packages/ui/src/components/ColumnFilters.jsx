@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ChevronDown, Search as SearchIcon } from 'lucide-react';
+import { ChevronDown, Search as SearchIcon } from '@ui/components/ui/lineIcons';
 import { useDismissable } from './ui/useDismissable';
 
 /**

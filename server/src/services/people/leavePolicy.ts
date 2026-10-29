@@ -3,7 +3,7 @@
  * (People → Settings → Leave Policy). Null when it does; otherwise the reason,
  * in the words the person sees. The balance is checked separately.
  *
- * Who it is for (gender, employee type, time since joining) and the shape of
+ * Who it is for (gender, employee type, department, branch, grade, time since joining) and the shape of
  * the request (half day, longest request) apply to everyone. Notice and how
  * far back apply to people asking for themselves; HR entering leave on
  * someone's behalf — usually after the fact — is not held to them.
@@ -17,12 +17,27 @@ export type LeavePolicy = {
   backdatedDays: number | null;
   gender: string | null;
   employeeTypeIds: string[];
+  /** Only these departments, branches and grades; empty or left out = every one. */
+  departmentIds?: string[] | null;
+  branchIds?: string[] | null;
+  gradeIds?: string[] | null;
   availableAfterDays: number | null;
   /** JOINING (calendar days after joining, the default) or DAYS_WORKED (days worked in the 12 months before the leave). */
   availableAfterBasis?: string | null;
 };
 
-export type LeavePerson = { gender: string | null; employeeTypeId: string | null; dateOfJoining: string | null } | null;
+export type LeavePerson = { gender: string | null; employeeTypeId: string | null; dateOfJoining: string | null; departmentId?: string | null; branchId?: string | null; gradeId?: string | null } | null;
+
+/** A list that names some and does not name this one. */
+const outside = (only: string[] | null | undefined, value: string | null | undefined) => Boolean(only?.length) && !(value && only!.includes(value));
+
+/** The department, branch or grade a type is not open to, in words; null when it is open to this person. */
+export function placeProblem(type: Pick<LeavePolicy, 'name' | 'departmentIds' | 'branchIds' | 'gradeIds'>, person: { departmentId?: string | null; branchId?: string | null; gradeId?: string | null } | null) {
+  if (outside(type.departmentIds, person?.departmentId)) return `${type.name} is not open to this person’s department.`;
+  if (outside(type.branchIds, person?.branchId)) return `${type.name} is not open to this person’s branch.`;
+  if (outside(type.gradeIds, person?.gradeId)) return `${type.name} is not open to this person’s grade.`;
+  return null;
+}
 
 const addDays = (date: string, n: number) => {
   const d = new Date(`${date}T00:00:00Z`);
@@ -46,6 +61,8 @@ export function policyProblem(
   if (type.employeeTypeIds?.length && !(person?.employeeTypeId && type.employeeTypeIds.includes(person.employeeTypeId))) {
     return `${type.name} is not open to this person’s employee type.`;
   }
+  const place = placeProblem(type, person);
+  if (place) return place;
   if (type.availableAfterDays && type.availableAfterBasis === 'DAYS_WORKED') {
     /* Code on Social Security (maternity): 80 days worked in the 12 months before. Paid leave counts as worked. */
     if (ask.workedBefore != null && ask.workedBefore < type.availableAfterDays) {

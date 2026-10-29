@@ -97,8 +97,8 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
     }
   }
   if (hiring) {
-    const toReview = await peoplePrisma.peopleRecord.count({ where: { accountId, orgId, kind: 'candidates', status: { in: ['APPLIED', 'SHORTLISTED'] } } });
-    if (toReview) out.push({ key: 'candidates', title: 'Candidates to review', detail: `${plural(toReview, 'candidate')} applied or shortlisted`, count: toReview, tone: 'info', screen: 'candidates' });
+    const toReview = await peoplePrisma.candidate.count({ where: { accountId, orgId, anonymisedAt: null, stage: { in: ['APPLIED', 'SCREENING'] } } });
+    if (toReview) out.push({ key: 'candidates', title: 'Candidates to review', detail: `${plural(toReview, 'candidate')} applied or in screening`, count: toReview, tone: 'info', screen: 'candidates' });
   }
   const order = { urgent: 0, soon: 1, info: 2 };
   return out.sort((a, b) => order[a.tone] - order[b.tone] || b.count - a.count);

@@ -1,5 +1,5 @@
 import { createElement, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Lock } from 'lucide-react';
+import { ChevronDown, Lock } from '@ui/components/ui/lineIcons';
 import { fieldIconFor } from '../ui/entityIdentity';
 import { useFeatures } from '../../permissions/useFeatures';
 

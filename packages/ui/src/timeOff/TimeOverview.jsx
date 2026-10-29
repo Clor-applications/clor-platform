@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { CalendarClock, CalendarDays, Clock3, Hourglass, Plus } from 'lucide-react';
+import { CalendarClock, CalendarDays, Clock3, Hourglass, Plus } from '@ui/components/ui/lineIcons';
+import { useContentIcon } from '@ui/components/ui/colorSwap';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -8,7 +9,7 @@ import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
 
-import { can, homeCrumbs } from './shared';
+import { activeApp, can, homeCrumbs } from './shared';
 import { daysText, getTimeOverview } from './api';
 import { EnterLeave, TypeDot } from './LeaveRequests';
 
@@ -51,15 +52,21 @@ function Person({ r }) {
 }
 
 export default function TimeOverview({ openScreen }) {
+  const mark = useContentIcon();
   const perms = usePermissions();
   const req = useRequest(() => getTimeOverview(), []);
   const [adding, setAdding] = useState(false);
   const d = req.data;
   const open = (r) => openScreen?.('leaveRequests', { id: r.id, tab: r.status === 'PENDING' ? null : 'all' });
+  /* People decides everything in one Approvals inbox (owner, 28 Oct 2026 audit): this page says who is away and
+     sends decisions there, rather than keeping a second waiting list. Attendance has no inbox, so keeps its list. */
+  /* The inbox needs its own grant; someone without it keeps the list here and the leave requests screen. */
+  const inbox = activeApp() === 'people' && can(perms, 'PEOPLE::Requests::VIEW');
+  const toDecide = () => (inbox ? openScreen?.('approvals', { kind: 'LEAVE' }) : openScreen?.('leaveRequests'));
   const header = (
     <PageHeader
       breadcrumb={homeCrumbs()}
-      title="Time & Leave"
+      title="Who's away"
       actions={can(perms, 'ATTENDANCE::Leave Requests::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Enter leave</button> : null}
     />
   );
@@ -70,10 +77,10 @@ export default function TimeOverview({ openScreen }) {
   /* Working, but not at the office: approved work from home and on duty, their own mark, never leave. */
   const working = d.workingAwayToday || [];
   const strip = [
-    { k: 'away', label: 'Away today', value: d.awayToday.length + working.length, Icon: CalendarDays, onClick: () => openScreen?.('leaveCalendar') },
-    { k: 'waiting', label: 'Waiting for a decision', value: d.waiting.count, Icon: Clock3, onClick: () => openScreen?.('leaveRequests') },
-    { k: 'old', label: 'Waiting over 3 days', value: d.waiting.olderThan3Days, Icon: Hourglass, onClick: () => openScreen?.('leaveRequests') },
-    { k: 'soon', label: 'Away in the next 7 days', value: new Set(d.upcoming.map((r) => r.employeeId)).size, Icon: CalendarClock, onClick: () => openScreen?.('leaveCalendar') },
+    { k: 'away', label: 'Away today', value: d.awayToday.length + working.length, Icon: mark(CalendarDays), onClick: () => openScreen?.('leaveCalendar') },
+    { k: 'waiting', label: 'Waiting for a decision', value: d.waiting.count, Icon: mark(Clock3), onClick: toDecide },
+    { k: 'old', label: 'Waiting over 3 days', value: d.waiting.olderThan3Days, Icon: mark(Hourglass), onClick: toDecide },
+    { k: 'soon', label: 'Away in the next 7 days', value: new Set(d.upcoming.map((r) => r.employeeId)).size, Icon: mark(CalendarClock), onClick: () => openScreen?.('leaveCalendar') },
   ];
 
   return (
@@ -81,12 +88,13 @@ export default function TimeOverview({ openScreen }) {
       {header}
       <div className="ui-metric-strip" role="list" aria-label="Time and leave counts">
         {strip.map(({ k, label, value, Icon, onClick }) => (
-          <div key={k} role="listitem"><button type="button" className="ui-metric" onClick={onClick} aria-label={`${value} ${label}: open`}><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span><span className="ui-metric-label">{label}</span></span></button></div>
+          <div key={k} role="listitem"><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={onClick} aria-label={`${value} ${label}: open`}><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span><span className="ui-metric-label">{label}</span></span></button></div>
         ))}
       </div>
 
-      <div className="grid gap-6 2xl:grid-cols-2">
-        <Group title="Waiting for a decision" count={d.waiting.count} action={d.waiting.count > d.waiting.oldest.length ? <button type="button" className="ui-link text-sm" onClick={() => openScreen?.('leaveRequests')}>All {d.waiting.count}</button> : null}>
+      {/* Two columns only when both groups show; with the waiting list in Approvals, "Away today" takes the full width. */}
+      <div className={`grid gap-6 ${inbox ? '' : '2xl:grid-cols-2'}`}>
+        {inbox ? null : <Group title="Waiting for a decision" count={d.waiting.count} action={d.waiting.count > d.waiting.oldest.length ? <button type="button" className="ui-link text-sm" onClick={() => openScreen?.('leaveRequests')}>All {d.waiting.count}</button> : null}>
           {d.waiting.oldest.length ? d.waiting.oldest.map((r) => (
             <li key={r.id}>
               <button type="button" className="flex w-full flex-wrap items-center gap-3 py-2 text-left" onClick={() => open(r)}>
@@ -97,7 +105,7 @@ export default function TimeOverview({ openScreen }) {
               </button>
             </li>
           )) : <li className="py-3 text-sm ui-muted">Nothing waiting.</li>}
-        </Group>
+        </Group>}
 
         <Group title="Away today" count={d.awayToday.length + working.length}>
           {d.awayToday.length || working.length ? d.awayToday.map((r) => (

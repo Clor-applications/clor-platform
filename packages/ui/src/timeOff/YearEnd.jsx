@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Banknote } from 'lucide-react';
+import { Banknote } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -11,7 +11,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 
 import { can, homeCrumbs } from './shared';
-import { daysText, getLeaveSettings, getYearEnd, periodChoices, runYearEnd, undoYearEnd } from './api';
+import { daysText, getLeaveSettings, getYearEnd, periodChoices, runYearEnd, thisYear, undoYearEnd } from './api';
 
 /**
  * Settings → Year end (TIME-LEAVE-DECISIONS.md, advanced build). The engine
@@ -29,7 +29,8 @@ export default function YearEnd() {
   const canRun = can(perms, 'ATTENDANCE::Leave Requests::EDIT') && !perms?.ownDocumentsOnly;
   const settings = useRequest(() => getLeaveSettings().catch(() => null), []);
   const [picked, setPicked] = useState(null);
-  const year = picked ?? settings.data?.previous?.year ?? (settings.data?.current ? settings.data.current.year - 1 : null);
+  /* Settings that could not load fall back to last calendar year, as Balances does, rather than a spinner that never ends. */
+  const year = picked ?? settings.data?.previous?.year ?? (settings.data?.current ? settings.data.current.year - 1 : settings.loading ? null : thisYear() - 1);
   const req = useRequest(() => (year ? getYearEnd(year) : Promise.resolve(undefined)), [year]);
   const [busy, setBusy] = useState(false);
   const d = req.data;
@@ -81,7 +82,7 @@ export default function YearEnd() {
   const header = (
     <PageHeader
       breadcrumb={homeCrumbs()}
-      title="Year end"
+      title="Leave year end"
       actions={<>
         {choices.length > 1 ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave period" value={String(year || '')} onChange={(v) => v && setPicked(Number(v))} options={choices.map((c) => ({ value: String(c.year), label: c.label }))} /></div> : null}
         {canRun && d?.ended && !live && d.totals.payOut > 0 ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={run}><Banknote size={16} aria-hidden="true" /> Pay out lapsing days</button> : null}
