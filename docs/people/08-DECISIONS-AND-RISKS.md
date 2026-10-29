@@ -19,6 +19,7 @@ Version 1.0 · 24 Oct 2026.
 | OD-08 | 24 Oct 2026 | Rules first, AI assisting; no automated employment decisions; no attrition prediction; no hidden scoring. | owner's brief |
 | OD-09 | 24 Oct 2026 | Same Express, Prisma, PostgreSQL, shell, sign-in. No microservices, Kubernetes or second AI platform. | owner's brief |
 | OD-10 | 24 Oct 2026 | People accent is Burnished Rose with Fluent colour icons; chrome graphite; layout and type from Accounting (see D-01). Batch 1 starts; D-02..D-10 run on their recommendations until the owner says otherwise. | owner, this session |
+| OD-11 | 30 Oct 2026 | Simple mode hides organisation detail only (Legal entity). Year end, delegates, policies, compliance and privacy are always in the menu. Each menu entry shows to whoever its route lets in. **Confidential cases** shows to the case grant holders, and to anyone named on any case or sitting on a committee. A past case member (case closed, or since removed from the committee) keeps the menu entry and sees only the cases still naming them, often none. That is accepted: the route never shows a case they are not on. | People audit gaps 4 and 5, PR #68 |
 
 ---
 

@@ -210,7 +210,7 @@ export default function MyLeave() {
                 <span className="tabular-nums w-28 shrink-0">{formatDate(h.date)}</span>
                 <span className="min-w-0 flex-1 truncate">{h.name}</span>
                 {h.picked ? <span className="ui-pill ui-pill-pos">Picked</span> : null}
-                {h.past ? <span className="ui-caption">Past</span> : (
+                {h.past ? <span className="ui-caption">Past</span> : !canAct ? null : (
                   <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!h.picked && restricted.left <= 0} onClick={() => pick(h)}>{h.picked ? 'Drop' : 'Pick'}</button>
                 )}
               </li>

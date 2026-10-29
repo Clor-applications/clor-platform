@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Download } from 'lucide-react';
 
-import { PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import { downloadCsv } from '@ui/utils/csv';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { can } from '@ui/timeOff/shared';
@@ -59,7 +59,7 @@ export default function DataExport() {
   const [format, setFormat] = useState('csv');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
-  const dataset = datasets.find((x) => x.id === datasetId) || DATASETS[0];
+  const dataset = datasets.find((x) => x.id === datasetId) || null;
 
   const applyPreset = (id) => { setPreset(id); const p = PRESETS.find((x) => x.id === id); if (p) { const [a, b] = p.range(); setFrom(a); setTo(b); } };
   const go = async () => {
@@ -82,9 +82,20 @@ export default function DataExport() {
     }
   };
 
+  const header = <PageHeader entity="settings" title="Export data" description="Take data out: what, for when, as a spreadsheet or for another system." />;
+  /* Nothing this person may read: say so, rather than offer a list that would be refused. */
+  if (!dataset) {
+    return (
+      <div className="space-y-3">
+        {header}
+        <EmptyState title="Nothing here you can export" description="Exports need a right to read attendance, leave, holidays or shifts. Ask an administrator." />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
-      <PageHeader entity="settings" title="Export data" description="Take data out: what, for when, as a spreadsheet or for another system." />
+      {header}
       <div className="pb-8 space-y-6">
       <ol className="grid gap-4 lg:grid-cols-3">
         <li className="ui-card p-4 space-y-3">

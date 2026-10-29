@@ -107,45 +107,53 @@ describe('gap 3: People roles may act on their own leave and attendance', () => 
     expect(refused.body.permission).toMatchObject({ module: 'ATTENDANCE', subModule: 'My Attendance', action: 'CREATE' });
   });
 
-  it('the migration gives roles made from the templates before what the templates now carry (My attendance CREATE, Team Manager Performance VIEW), and leaves other roles and explicit refusals alone', async () => {
+  it('the migration gives what the templates now carry only to roles still exactly the old template', async () => {
     const other = await owner();
-    /* Stand up the old state: each company's role from the template has VIEW and no CREATE. */
-    await request(app).get(`/api/orgs/${other.orgId}/roles`).set(at(other)).expect(200);
+    const wide = await owner();
+    for (const c of [other, wide]) await request(app).get(`/api/orgs/${c.orgId}/roles`).set(at(c)).expect(200);
     const sql = fs.readFileSync(path.resolve('prisma/platform/migrations/20261102090000_people_role_template_grants/migration.sql'), 'utf8');
-    const statements = sql.split(/;\s*\n/).map((s) => s.replace(/^\s*--.*$/gm, '').trim()).filter(Boolean);
+    const statements = sql.split(/;\s*\n/).map((st) => st.replace(/^\s*--.*$/gm, '').trim()).filter(Boolean);
     const roleOf = (c: Ctx, name: string) => runInTenant(c.orgId, () => platformPrisma.role.findFirstOrThrow({ where: { orgId: c.orgId, name, branchId: null }, select: { id: true } }));
-    const create = await outsideTenant('test: permission row', () => platformPrisma.permission.findFirstOrThrow({ where: { module: 'ATTENDANCE', subModule: 'My Attendance', action: 'CREATE' } }));
-    const perf = await outsideTenant('test: permission row', () => platformPrisma.permission.findFirstOrThrow({ where: { module: 'PEOPLE', subModule: 'Performance', action: 'VIEW' } }));
+    const perm = (module: string, subModule: string, action: string) => outsideTenant('test: permission row', () => platformPrisma.permission.findFirstOrThrow({ where: { module, subModule, action } }));
+    const create = await perm('ATTENDANCE', 'My Attendance', 'CREATE');
+    const perf = await perm('PEOPLE', 'Performance', 'VIEW');
+    const empDelete = await perm('PEOPLE', 'Employees', 'DELETE');
     const hrUser = await roleOf(boss, 'HR User');
     const teamMgr = await roleOf(other, 'Team Manager');
     const hrMgr = await roleOf(other, 'HR Manager');
+    const wideMgr = await roleOf(wide, 'Team Manager');
     const viewer = await roleOf(boss, 'Viewer');
-    await outsideTenant('test: undo the grant, as roles made before the change hold it', async () => {
-      await platformPrisma.rolePermission.deleteMany({ where: { roleId: { in: [hrUser.id, teamMgr.id, hrMgr.id] }, permissionId: create.id } });
-      await platformPrisma.rolePermission.deleteMany({ where: { roleId: teamMgr.id, permissionId: perf.id } });
-      /* An administrator who refused it on purpose keeps the refusal. */
-      await platformPrisma.rolePermission.create({ data: { accountId: (await platformPrisma.role.findUniqueOrThrow({ where: { id: hrMgr.id } })).accountId, orgId: other.orgId, roleId: hrMgr.id, permissionId: create.id, allowed: false } });
+    const all = [hrUser.id, teamMgr.id, hrMgr.id, wideMgr.id];
+    await outsideTenant('test: roles as they were before the change, and as administrators changed some', async () => {
+      /* Made from the old templates: no My attendance CREATE, and Team Manager without Performance VIEW. */
+      await platformPrisma.rolePermission.deleteMany({ where: { roleId: { in: all }, permissionId: create.id } });
+      await platformPrisma.rolePermission.deleteMany({ where: { roleId: { in: [teamMgr.id, wideMgr.id] }, permissionId: perf.id } });
+      /* An administrator unticked something on this HR Manager: the roles screen deletes the row, no refusal is kept. */
+      await platformPrisma.rolePermission.deleteMany({ where: { roleId: hrMgr.id, permissionId: empDelete.id } });
+      /* Someone made this company's Team Manager company-wide: not the team-only template any more. */
+      await platformPrisma.role.update({ where: { id: wideMgr.id }, data: { ownDocumentsOnly: false } });
     });
-    const held = () => outsideTenant('test: read grants', () => platformPrisma.rolePermission.findMany({ where: { permissionId: create.id, roleId: { in: [hrUser.id, teamMgr.id, hrMgr.id, viewer.id] } }, select: { roleId: true, allowed: true } }));
-    expect((await held()).filter((r) => r.allowed)).toEqual([]);
+    const grants = (permissionId: string) => outsideTenant('test: read grants', async () => new Set((await platformPrisma.rolePermission.findMany({ where: { permissionId, allowed: true, roleId: { in: [...all, viewer.id] } }, select: { roleId: true } })).map((r) => r.roleId)));
+    expect((await grants(create.id)).size).toBe(0);
 
-    /* Run as the application role (not a superuser), as production runs it at start. */
-    await outsideTenant('test: the self-service migration', async () => {
-      for (const st of statements) await platformPrisma.$executeRawUnsafe(st);
-    });
-    const after = new Map((await held()).map((r) => [r.roleId, r.allowed]));
-    expect(after.get(hrUser.id)).toBe(true);
-    expect(after.get(teamMgr.id)).toBe(true);
-    expect(after.get(hrMgr.id)).toBe(false);
-    expect(after.has(viewer.id)).toBe(false);
-    /* Team Manager's Performance VIEW comes back; the Viewer's own row (it reads everything) is untouched. */
-    const perfRows = await outsideTenant('test: read perf grants', () => platformPrisma.rolePermission.findMany({ where: { permissionId: perf.id, roleId: teamMgr.id }, select: { allowed: true } }));
-    expect(perfRows).toEqual([{ allowed: true }]);
-    /* Run twice, nothing changes. */
-    await outsideTenant('test: the self-service migration again', async () => {
-      for (const st of statements) await platformPrisma.$executeRawUnsafe(st);
-    });
-    expect((await held()).length).toBe(3);
+    const run = () => outsideTenant('test: the role template migration', () => platformPrisma.$transaction(async (tx) => {
+      /* As the application role (not a superuser), as production runs it at start. */
+      for (const st of statements) await tx.$executeRawUnsafe(st);
+    }));
+    await run();
+    const created = await grants(create.id);
+    expect(created.has(hrUser.id)).toBe(true);
+    expect(created.has(teamMgr.id)).toBe(true);
+    expect(created.has(hrMgr.id)).toBe(false);
+    expect(created.has(wideMgr.id)).toBe(false);
+    const performance = await grants(perf.id);
+    expect(performance.has(teamMgr.id)).toBe(true);
+    /* A company-wide role named Team Manager would have opened everyone's goals: it is left alone. */
+    expect(performance.has(wideMgr.id)).toBe(false);
+    /* Run twice, nothing more changes. */
+    await run();
+    expect((await grants(create.id)).size).toBe(created.size);
+    expect((await grants(perf.id)).size).toBe(performance.size);
   });
 });
 
