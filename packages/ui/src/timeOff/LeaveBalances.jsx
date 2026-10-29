@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2 } from '@ui/components/ui/lineIcons';
 
 import { useListSearch } from '@ui/components/ListToolbar';
 import { usePaged, useResetPage } from '@ui/components/list/ListPageParts';
@@ -17,6 +17,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 
 import { can, homeCrumbs } from './shared';
 import { useSuggestions } from './suggestions';
+import BulkGrant from './BulkGrant';
 import { addLeaveAdjustment, colorOf, deleteLeaveAdjustment, getLeaveBalances, getLeaveLedger, getLeaveSettings, grantCompOff, periodChoices, thisYear, todayIst } from './api';
 
 /**
@@ -38,6 +39,7 @@ export default function LeaveBalances() {
   const data = req.data;
   const [open, setOpen] = useState(null);
   const [compOff, setCompOff] = useState(null);
+  const [granting, setGranting] = useState(false);
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(25);
 
@@ -60,9 +62,13 @@ export default function LeaveBalances() {
       width: '8.5rem',
       render: (r) => {
         const b = r.balances[t.id] || {};
+        /* One line a cell, so a screen holds twice the people (owner, 28 Oct 2026 audit). Running low (the side panel's rule:
+           15% or one day) reads in the warm colour, below zero in red; a locked balance keeps its reason on a second line. */
+        const low = !b.locked && b.allocated > 0 && b.available >= 0 && b.available <= Math.max(1, b.allocated * 0.15);
         return (
-          <span className={`tabular-nums whitespace-nowrap ${b.available < 0 ? 'ui-text-neg' : ''}`}>
-            {b.available ?? '—'}<span className="ui-caption block">{b.locked ? `locked until ${b.lockedUntil ? formatDate(b.lockedUntil) : 'confirmed'}` : `of ${b.allocated ?? '—'}`}</span>
+          <span className={`tabular-nums whitespace-nowrap ${b.available < 0 ? 'ui-text-neg' : low ? 'ui-balance-low' : ''}`}>
+            <span>{b.available ?? '—'}</span>
+            {b.locked ? <span className="ui-caption block">{`locked until ${b.lockedUntil ? formatDate(b.lockedUntil) : 'confirmed'}`}</span> : <span className="ui-caption"> of {b.allocated ?? '—'}</span>}
           </span>
         );
       },
@@ -71,9 +77,9 @@ export default function LeaveBalances() {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={homeCrumbs()} title="Balances" />
+      <PageHeader breadcrumb={homeCrumbs()} title="Leave balances" actions={canChange && types.length ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setGranting(true)}>Grant leave to many</button> : null} />
       {req.error && !data ? <ErrorState error={req.error} onRetry={req.reload} /> : !data ? <SkeletonCard lines={6} /> : !types.length ? (
-        <EmptyState title="No paid leave types yet" description="Add them in Settings → Leave Policy." />
+        <EmptyState title="No paid leave types yet" description="Add them in Settings → Leave policy." />
       ) : (
         <DataTable
           label="Leave balances"
@@ -107,6 +113,7 @@ export default function LeaveBalances() {
         />
       )}
       {open ? <Ledger person={open} year={year} label={label} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
+      {granting ? <BulkGrant types={types} year={year} label={label} onClose={() => setGranting(false)} onDone={() => { setGranting(false); req.reload(); }} /> : null}
       {compOff ? <CompOff person={compOff} onClose={() => setCompOff(null)} onDone={() => { setCompOff(null); req.reload(); }} /> : null}
     </div>
   );

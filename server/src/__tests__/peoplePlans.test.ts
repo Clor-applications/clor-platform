@@ -94,6 +94,9 @@ describe('a joining plan with named owners', () => {
     await people(itAdmin).patch(`/checklist-tasks/${ravis.id}`, { done: true }).expect(403);
     const after = (await people(itAdmin).patch(`/checklist-tasks/${mine[0].id}`, { done: true }).expect(200)).body.joining;
     expect(after.tasks.find((t: any) => t.title === 'Laptop ready')).toMatchObject({ done: true, doneBy: 'Imran' });
+    /* Ticking his own task does not show him the rest of Meera's plan. */
+    expect(after.tasks.map((t: any) => t.title)).toEqual(['Laptop ready']);
+    expect(after.total).toBe(1);
     const log = await runInTenant(hr.orgId, () => peoplePrisma.changeLog.findMany({ where: { entity: 'ChecklistTask', entityId: mine[0].id } }));
     expect(log).toEqual([expect.objectContaining({ field: 'done', before: 'no', after: 'yes', actorUserId: itAdmin.userId })]);
     /* Only HR may give it to someone else. */

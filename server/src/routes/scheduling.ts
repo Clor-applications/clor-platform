@@ -1,3 +1,4 @@
+import { activeLeaveRule } from '../services/attendance/leaveRules.js';
 import { Router } from 'express';
 import { z } from 'zod';
 
@@ -279,7 +280,7 @@ schedulingRouter.get(`${base}/rules`, can(PermissionAction.VIEW), async (req, re
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const s = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
-  res.json({ rules: { defaultShiftId: s?.defaultShiftId || null, lateAllowancePerMonth: s?.lateAllowancePerMonth ?? 0, latePenaltyEvery: s?.latePenaltyEvery ?? 0, photoRetentionDays: s?.photoRetentionDays ?? 90, readerUsersBecomeEmployees: s?.readerUsersBecomeEmployees ?? true, leaveApproval: s?.leaveApproval ?? 'HR', correctionApproval: s?.correctionApproval ?? 'HR', ...(await trustRules(accountId, orgId, s)) } });
+  res.json({ rules: { defaultShiftId: s?.defaultShiftId || null, lateAllowancePerMonth: s?.lateAllowancePerMonth ?? 0, latePenaltyEvery: s?.latePenaltyEvery ?? 0, photoRetentionDays: s?.photoRetentionDays ?? 90, readerUsersBecomeEmployees: s?.readerUsersBecomeEmployees ?? true, leaveApproval: s?.leaveApproval ?? 'HR', correctionApproval: s?.correctionApproval ?? 'HR', autoShiftByPunch: s?.autoShiftByPunch ?? false, ...(await trustRules(accountId, orgId, s)) } });
 });
 
 /** Reader trust (O-11): the company feature switch, kept beside the reader settings, and the late-upload window. */
@@ -298,15 +299,18 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
       latePenaltyEvery: z.coerce.number().int().min(0).max(31),
       photoRetentionDays: z.coerce.number().int().min(7, 'Keep punch photos at least 7 days.').max(365, 'Keep punch photos at most a year.').default(90),
       readerUsersBecomeEmployees: z.boolean().default(true),
-      leaveApproval: z.enum(['HR', 'MANAGER', 'MANAGER_THEN_HR']).default('HR'),
+      /* RULE: the company's leave approval rule (People → Settings → Approval Rules). */
+      leaveApproval: z.enum(['HR', 'MANAGER', 'MANAGER_THEN_HR', 'RULE']).default('HR'),
       correctionApproval: z.enum(['HR', 'MANAGER', 'MANAGER_THEN_HR']).default('HR'),
       /* Left out: unchanged. */
+      autoShiftByPunch: z.boolean().optional(),
       readerTrust: z.boolean().optional(),
       readerLateUploadHours: z.coerce.number().int().min(1, 'At least 1 hour.').max(24 * 31, 'At most 31 days.').optional(),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the rules.' });
   const { readerTrust, ...settings } = parsed.data;
+  if (settings.leaveApproval === 'RULE' && !(await activeLeaveRule(orgId))) return res.status(400).json({ error: 'Set up the leave approval rule first, in Settings → Approval Rules.' });
   try {
     if (parsed.data.defaultShiftId) await shiftIn(orgId, parsed.data.defaultShiftId);
     const previous = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
@@ -327,11 +331,11 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
       });
       await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'RULES', before: { readerTrust: !readerTrust }, after: { readerTrust } });
     }
-    const pick = (x: any) => (x ? { defaultShiftId: x.defaultShiftId, lateAllowancePerMonth: x.lateAllowancePerMonth, latePenaltyEvery: x.latePenaltyEvery, photoRetentionDays: x.photoRetentionDays, readerUsersBecomeEmployees: x.readerUsersBecomeEmployees, leaveApproval: x.leaveApproval, correctionApproval: x.correctionApproval, readerLateUploadHours: x.readerLateUploadHours } : null);
+    const pick = (x: any) => (x ? { defaultShiftId: x.defaultShiftId, lateAllowancePerMonth: x.lateAllowancePerMonth, latePenaltyEvery: x.latePenaltyEvery, photoRetentionDays: x.photoRetentionDays, readerUsersBecomeEmployees: x.readerUsersBecomeEmployees, leaveApproval: x.leaveApproval, correctionApproval: x.correctionApproval, readerLateUploadHours: x.readerLateUploadHours, autoShiftByPunch: x.autoShiftByPunch } : null);
     if (JSON.stringify(pick(previous)) !== JSON.stringify(pick(s))) {
       await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'RULES', before: pick(previous), after: pick(s) });
     }
-    res.json({ rules: { defaultShiftId: s.defaultShiftId, lateAllowancePerMonth: s.lateAllowancePerMonth, latePenaltyEvery: s.latePenaltyEvery, photoRetentionDays: s.photoRetentionDays, readerUsersBecomeEmployees: s.readerUsersBecomeEmployees, leaveApproval: s.leaveApproval, correctionApproval: s.correctionApproval, ...(await trustRules(accountId, orgId, s)) } });
+    res.json({ rules: { defaultShiftId: s.defaultShiftId, lateAllowancePerMonth: s.lateAllowancePerMonth, latePenaltyEvery: s.latePenaltyEvery, photoRetentionDays: s.photoRetentionDays, readerUsersBecomeEmployees: s.readerUsersBecomeEmployees, leaveApproval: s.leaveApproval, correctionApproval: s.correctionApproval, autoShiftByPunch: s.autoShiftByPunch, ...(await trustRules(accountId, orgId, s)) } });
   } catch (e) {
     return sendError(res, e);
   }

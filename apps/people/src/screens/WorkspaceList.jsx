@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Download, Plus } from 'lucide-react';
+import { Download, Plus } from '@ui/components/ui/lineIcons';
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
@@ -12,11 +12,14 @@ import useRequest from '@ui/components/ui/useRequest';
 import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { runListExport } from '@ui/components/list/exportMenu';
+import { usePermissions } from '@ui/permissions/usePermissions';
 import { listAllEmployees } from '@ui/personnel/api';
 import { deleteRecord, hireCandidate, listRecords, saveRecord } from '../api/workspace';
 import { nextEmployeeCode } from '../workforce/api';
 import OfferDrawer from '../workforce/OfferDrawer';
+import { can } from '../workforce/shared';
 import { WORKSPACE_CONFIG, statusLabel } from './workspaceConfig';
+import { SymbolPicker, symbolOf } from './symbols';
 
 /**
  * One register (assets, benefits, jobs, candidates, goals, training,
@@ -33,16 +36,27 @@ const NOBODY = { assets: 'Not assigned', benefits: 'Company plan' };
 const NO_SUGGEST = new Set(['assetTag', 'serialNumber', 'email', 'phone', 'certificateUrl']);
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
-export default function WorkspaceList({ kind, openScreen }) {
+export default function WorkspaceList({ kind, openScreen, params }) {
   const cfg = WORKSPACE_CONFIG[kind];
   const noun = cfg.noun || cfg.title.toLowerCase();
+  /* Offer only what the server will let this person do: the register's own
+     grant (PEOPLE::<resource>::CREATE/EDIT/DELETE, as the server checks it),
+     an offer letter needs Documents, and hiring makes an employee. */
+  const perms = usePermissions();
+  const allowed = (action) => can(perms, `PEOPLE::${cfg.resource}::${action}`);
+  const canCreate = allowed('CREATE');
+  const canEdit = allowed('EDIT');
+  const canDelete = allowed('DELETE');
+  const canOffer = can(perms, 'PEOPLE::Documents::CREATE');
+  const canHire = canCreate && can(perms, 'PEOPLE::Employees::CREATE');
   const req = useRequest(() => Promise.all([
     listRecords(kind),
     cfg.employee ? listAllEmployees().then((r) => r?.employees || []) : Promise.resolve([]),
     kind === 'candidates' ? listRecords('recruitment') : Promise.resolve([]),
   ]), [kind]);
   const [rows, employees, jobs] = req.data || [[], [], []];
-  const [status, setStatus] = useState('ALL');
+  /* A side-panel line can open the list on one status (?status=REPAIR). */
+  const [status, setStatus] = useState(() => params?.status || 'ALL');
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState(null);
   const [hiring, setHiring] = useState(null);
@@ -76,17 +90,18 @@ export default function WorkspaceList({ kind, openScreen }) {
     columns: [{ key: 'title', label: 'Name' }, { key: 'statusName', label: 'Status' }, ...(cfg.employee ? [{ key: 'employeeName', label: 'Employee' }] : []), { key: 'dueDate', label: 'Due date' }, ...cfg.fields.map((f) => ({ key: f.key, label: f.label }))],
   });
   const columns = [
-    { key: 'title', label: kind === 'candidates' ? 'Candidate' : 'Name', always: true, render: (r) => <span className="font-medium">{r.title}</span> },
+    { key: 'title', label: kind === 'candidates' ? 'Candidate' : 'Name', always: true, render: (r) => <span className="font-medium">{symbolOf(r.details?.symbol) ? <span className="mr-1.5" aria-hidden="true">{symbolOf(r.details.symbol).emoji}</span> : null}{r.title}</span> },
     ...(cfg.employee ? [{ key: 'employee', label: 'Employee', render: (r) => names.get(r.employeeId) || <span className="ui-muted">{NOBODY[kind] || 'Nobody'}</span> }] : []),
-    ...cfg.columns.map((key) => ({ key, label: cfg.fields.find((f) => f.key === key)?.label || key, render: (r) => <span className="block max-w-60 truncate" title={detailValue(r, key)}>{detailValue(r, key) || '—'}</span> })),
+    ...cfg.columns.map((key) => ({ key, label: cfg.fields.find((f) => f.key === key)?.label || key, render: (r) => <span className="block max-w-[28rem] line-clamp-2" title={detailValue(r, key)}>{detailValue(r, key) || '—'}</span> })),
     { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ${POSITIVE.includes(r.status) ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{statusLabel(r.status)}</span> },
-    { key: 'due', label: 'Due date', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.dueDate) || '—'}</span> },
+    /* A column of dashes is noise: Due date shows once any record in this list has one (owner, 29 Oct 2026). */
+    ...(rows.some((r) => r.dueDate) ? [{ key: 'due', label: 'Due date', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.dueDate) || '—'}</span> }] : []),
   ];
   const rowActions = (r) => [
-    { key: 'edit', label: 'Edit', onSelect: () => setEditing({ ...r, details: { ...r.details } }) },
-    kind === 'candidates' && !r.employeeId && ['APPLIED', 'SHORTLISTED', 'INTERVIEW', 'OFFERED'].includes(r.status) ? { key: 'offer', label: r.status === 'OFFERED' ? 'Send a new offer' : 'Send an offer', onSelect: () => setOffering(r) } : null,
-    kind === 'candidates' && !r.employeeId && ['OFFERED', 'HIRED'].includes(r.status) ? { key: 'hire', label: r.details?.offerAcceptedOn ? 'Hire (offer accepted)' : 'Hire', onSelect: () => setHiring(r) } : null,
-    { key: 'delete', label: 'Delete', onSelect: () => remove(r) },
+    canEdit ? { key: 'edit', label: 'Edit', onSelect: () => setEditing({ ...r, details: { ...r.details } }) } : null,
+    canOffer && kind === 'candidates' && !r.employeeId && ['APPLIED', 'SHORTLISTED', 'INTERVIEW', 'OFFERED'].includes(r.status) ? { key: 'offer', label: r.status === 'OFFERED' ? 'Send a new offer' : 'Send an offer', onSelect: () => setOffering(r) } : null,
+    canHire && kind === 'candidates' && !r.employeeId && ['OFFERED', 'HIRED'].includes(r.status) ? { key: 'hire', label: r.details?.offerAcceptedOn ? 'Hire (offer accepted)' : 'Hire', onSelect: () => setHiring(r) } : null,
+    canDelete ? { key: 'delete', label: 'Delete', onSelect: () => remove(r) } : null,
   ];
 
   return (
@@ -94,22 +109,25 @@ export default function WorkspaceList({ kind, openScreen }) {
       <PageHeader breadcrumb={[{ label: 'People' }, { label: cfg.title }]} title={cfg.title}
         actions={<>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={exportRows} disabled={!shown.length}><Download size={16} aria-hidden="true" /> Export</button>
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blank())} disabled={Boolean(req.error && !req.data)}><Plus size={16} aria-hidden="true" /> New {cfg.singular}</button>
+          {canCreate ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blank())} disabled={Boolean(req.error && !req.data)}><Plus size={16} aria-hidden="true" /> New {cfg.singular}</button> : null}
         </>} />
-      <div ref={tabsRef} role="tablist" aria-label={cfg.title} className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {[['ALL', 'All', rows.length], ...cfg.statuses.map((s) => [s, statusLabel(s), counts[s]])].map(([k, l, n]) => (
-          <button key={k} type="button" role="tab" aria-selected={status === k} className={`ui-tab ${status === k ? 'is-active' : ''}`} onClick={() => setStatus(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
-        ))}
-        {tabIndicator}
-      </div>
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
-        <DataTable label={cfg.title} columns={columns} rows={shown} loading={req.loading} refreshing={req.refreshing}
+        <DataTable
+          tabs={(
+            <div ref={tabsRef} role="tablist" aria-label={cfg.title} className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+              {[['ALL', 'All', rows.length], ...cfg.statuses.map((s) => [s, statusLabel(s), counts[s]])].map(([k, l, n]) => (
+                <button key={k} type="button" role="tab" aria-selected={status === k} className={`ui-tab ${status === k ? 'is-active' : ''}`} onClick={() => setStatus(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
+              ))}
+              {tabIndicator}
+            </div>
+          )}
+          label={cfg.title} columns={status === 'ALL' ? columns : columns.filter((c) => c.key !== 'status')} rows={shown} loading={req.loading} refreshing={req.refreshing}
           total={shown.length} pageSize={Math.max(25, shown.length)} noun={noun}
           onRowClick={(r) => setEditing({ ...r, details: { ...r.details } })} rowActions={rowActions}
-          card={(r) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span><span className={`ui-pill ${POSITIVE.includes(r.status) ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{statusLabel(r.status)}</span></span><span className="block truncate ui-caption">{[cfg.employee ? names.get(r.employeeId) || NOBODY[kind] || 'Nobody' : null, ...cfg.columns.map((k) => detailValue(r, k))].filter(Boolean).join(' · ')}</span></span>}
+          card={(r) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{symbolOf(r.details?.symbol) ? <span className="mr-1.5" aria-hidden="true">{symbolOf(r.details.symbol).emoji}</span> : null}{r.title}</span><span className={`ui-pill ${POSITIVE.includes(r.status) ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{statusLabel(r.status)}</span></span><span className="block truncate ui-caption">{[cfg.employee ? names.get(r.employeeId) || NOBODY[kind] || 'Nobody' : null, ...cfg.columns.map((k) => detailValue(r, k))].filter(Boolean).join(' · ')}</span></span>}
           empty={q || status !== 'ALL'
             ? <EmptyState kind="filtered" title={`No ${noun} match`} description="Nothing here matches the search or the tab." />
-            : <EmptyState title={`No ${noun} yet`} description={cfg.description} routes={[{ label: `New ${cfg.singular}`, onSelect: () => setEditing(blank()) }]} />}
+            : <EmptyState title={`No ${noun} yet`} description={cfg.description} routes={canCreate ? [{ label: `New ${cfg.singular}`, onSelect: () => setEditing(blank()) }] : undefined} />}
           toolbar={<SearchField value={q} onSearch={setQ} placeholder={`Search ${noun}`} label={`Search ${noun}`} className="w-full sm:w-80" />} />
       )}
       {editing ? <RecordDrawer kind={kind} cfg={cfg} rows={rows} value={editing} employees={employees} jobs={jobs} onClose={() => setEditing(null)} onDone={() => { setEditing(null); req.reload(); }} /> : null}
@@ -150,6 +168,7 @@ function RecordDrawer({ kind, cfg, rows, value, employees, jobs, onClose, onDone
     const v = form.details[f.key] ?? '';
     const id = `ws-${f.key}`;
     const label = `${f.label}${f.required ? ' *' : ''}`;
+    if (f.type === 'symbol') return <SymbolPicker key={f.key} id={id} label={label} value={v} onChange={(k) => setDetail(f.key, k)} />;
     if (f.type === 'textarea') return <label key={f.key} className="block sm:col-span-2"><span className="ui-label">{label}</span><textarea id={id} className="ui-input w-full" rows={4} maxLength={10000} value={v} onChange={(e) => setDetail(f.key, e.target.value)} /></label>;
     if (f.type === 'date') return <div key={f.key}><label className="ui-label" htmlFor={id}>{label}</label><DatePicker id={id} value={v} onChange={(d) => setDetail(f.key, d || '')} /></div>;
     if (f.type === 'select') return <div key={f.key}><PopupSelect showValueSubtext={false} label={label} value={v} onChange={(s) => setDetail(f.key, s || '')} options={f.options.map((s) => ({ value: s, label: statusLabel(s) }))} /></div>;

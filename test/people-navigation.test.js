@@ -15,27 +15,29 @@ describe('People navigation', () => {
 
   it('keeps the sidebar to the day’s work, Settings last', () => {
     /* Workforce package (owner, 26 Oct 2026): the visible module is Workforce; its key stays `employees`. */
-    /* Organization follows Workforce (ORGANIZATION-DECISIONS.md): the company's shape moved out of Settings. Joining & Leaving is its own module after Workforce (JOINING-LEAVING-DECISIONS.md). */
-    expect(modules.map((m) => m.label)).toEqual(['Home', 'Workforce', 'Joining & Leaving', 'Organization', 'Time & Leave', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
-    for (const k of ['lifecycle', 'joiners', 'lifecycleChanges', 'leavers', 'checklists']) expect(moduleForScreen(modules, k, peopleApp.nav)?.label, k).toBe('Joining & Leaving');
+    /* Organization follows Workforce (ORGANIZATION-DECISIONS.md): the company's shape moved out of Settings. */
+    expect(modules.map((m) => m.label)).toEqual(['Home', 'People', 'Organisation', 'Time', 'Talent', 'Workplace', 'Reports', 'Settings']);
+    /* Joining & leaving sits under People (JOINING-LEAVING-DECISIONS.md, placed in the 28 Oct menu). */
+    for (const k of ['lifecycle', 'joiners', 'lifecycleChanges', 'leavers', 'checklists']) expect(moduleForScreen(modules, k, peopleApp.nav)?.label, k).toBe('People');
     expect(modules.find((m) => m.label === 'Settings').single).toBe(true);
   });
 
   it('reaches every page from the sidebar or from Settings, and every page exists', () => {
     for (const item of peopleApp.nav.filter((i) => i.key)) {
-      const reachable = inModules.has(item.key) || (item.parent && inModules.has(item.parent));
+      /* Your own leave and days open from My profile (owner, 28 Oct 2026 audit), not from the admin menu. */
+      const reachable = inModules.has(item.key) || (item.parent && inModules.has(item.parent)) || peopleApp.profileLinks.includes(item.key);
       expect(reachable, item.key).toBe(true);
       expect(peopleApp.screens[item.key], item.key).toBeTruthy();
     }
   });
 
   it('shows Settings on the rail while a settings page is open', () => {
-    expect(moduleForScreen(modules, 'departments', peopleApp.nav)?.label).toBe('Organization');
-    expect(moduleForScreen(modules, 'branches', peopleApp.nav)?.label).toBe('Organization');
+    expect(moduleForScreen(modules, 'departments', peopleApp.nav)?.label).toBe('Organisation');
+    expect(moduleForScreen(modules, 'branches', peopleApp.nav)?.label).toBe('Organisation');
     expect(moduleForScreen(modules, 'companyDetails', peopleApp.nav)?.label).toBe('Settings');
-    expect(moduleForScreen(modules, 'employees', peopleApp.nav)?.label).toBe('Workforce');
-    /* The record, Add employee and Import keep Workforce selected (WF-01). */
-    for (const k of ['employee', 'employeeNew', 'employeeImport']) expect(moduleForScreen(modules, k, peopleApp.nav)?.label, k).toBe('Workforce');
+    expect(moduleForScreen(modules, 'employees', peopleApp.nav)?.label).toBe('People');
+    /* The record, Add employee and Import keep People selected (WF-01). */
+    for (const k of ['employee', 'employeeNew', 'employeeImport']) expect(moduleForScreen(modules, k, peopleApp.nav)?.label, k).toBe('People');
   });
 
   it('every Settings card points at a page in the nav', () => {
@@ -53,10 +55,13 @@ describe('People navigation', () => {
     for (const core of ['overview', 'employees', 'documents', 'checklists', 'leaveRequests', 'leaveBalances', 'attendance', 'settings', 'modules', 'helpdesk']) expect(featureOf[core], core).toBeUndefined();
   });
 
-  it('uses Title Case for every menu label', () => {
+  /* Sentence case, as Google and Microsoft write menus (owner, 28 Oct 2026 audit): only the first word, names and abbreviations start capital. */
+  it('uses sentence case for every menu label', () => {
+    const NAMES = new Set(['HR', 'PAN', 'TAN', 'DPDP', 'CLOR']);
     for (const item of peopleApp.nav.filter((i) => i.key)) {
-      const small = item.label.split(' ').filter((w) => /^[a-z]/.test(w) && !['and', 'of', 'to', 'in'].includes(w));
-      expect(small, item.label).toEqual([]);
+      const [first, ...rest] = item.label.split(' ');
+      expect(/^[A-Z]/.test(first), item.label).toBe(true);
+      expect(rest.filter((w) => /^[A-Z]/.test(w) && !NAMES.has(w)), item.label).toEqual([]);
     }
   });
 });
@@ -87,8 +92,8 @@ describe('People navigation in simple mode', () => {
 
   it('keeps every module that has a screen left, and the leave screens under one naming rule', () => {
     const modules = resolveModules(peopleApp, simple);
-    expect(modules.map((m) => m.label)).toEqual(['Home', 'Workforce', 'Joining & Leaving', 'Organization', 'Time & Leave', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
-    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(['Leave Overview', 'Leave Requests', 'Leave Calendar', 'Leave Balances', 'Leave Register', 'Attendance Requests', 'Attendance', 'My Leave', 'My Attendance']);
+    expect(modules.map((m) => m.label)).toEqual(['Home', 'People', 'Organisation', 'Time', 'Talent', 'Workplace', 'Reports', 'Settings']);
+    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Daily attendance', 'Attendance requests']);
   });
 
   it('shows everything when simple mode is off, or when the company’s switches are not known yet', () => {
@@ -97,20 +102,20 @@ describe('People navigation in simple mode', () => {
   });
 });
 
-/* One name for one screen, in both apps that show it (PRODUCT-VIEW §1). */
+/* One name for one screen, in both apps that show it (PRODUCT-VIEW §1); each app writes it in its own case (People: sentence case). */
 describe('Shared Time & Leave screens', () => {
   it('carry the same label in People and Attendance', async () => {
     const { attendanceApp } = await import('../apps/attendance/manifest.jsx');
     const label = (app, k) => app.nav.find((i) => i.key === k)?.label;
     for (const k of ['timeOverview', 'leaveRequests', 'leaveCalendar', 'leaveBalances', 'leaveRegister', 'standIns', 'leaveTypes', 'holidays', 'workingWeek', 'leaveYearEnd', 'requestRules', 'myLeave']) {
-      expect(label(peopleApp, k), k).toBe(label(attendanceApp, k));
+      expect(label(peopleApp, k)?.toLowerCase(), k).toBe(label(attendanceApp, k)?.toLowerCase());
     }
-    expect(label(peopleApp, 'attendanceRequests')).toBe(label(attendanceApp, 'requests'));
+    expect(label(peopleApp, 'attendanceRequests').toLowerCase()).toBe(label(attendanceApp, 'requests').toLowerCase());
   });
 
   it('do not call two different things Work Sites', async () => {
     const { attendanceApp } = await import('../apps/attendance/manifest.jsx');
-    expect(peopleApp.nav.find((i) => i.key === 'establishments').label).toBe('Work Sites');
+    expect(peopleApp.nav.find((i) => i.key === 'establishments').label).toBe('Work sites');
     expect(attendanceApp.nav.some((i) => i.label === 'Work Sites')).toBe(false);
     expect(attendanceApp.nav.find((i) => i.key === 'sites').label).toBe('Punch Areas');
   });

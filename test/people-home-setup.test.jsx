@@ -5,9 +5,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 vi.mock('@ui/components/ui/notify', () => ({ notify: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('@ui/timeOff/MyDays', () => ({ HomeCheckIn: () => null }));
 vi.mock('@ui/personnel/Employees', () => ({ Avatar: () => null }));
-vi.mock('@platform/context', () => ({ orgId: () => 'org1', branchId: () => 'br1' }));
+vi.mock('@platform/context', () => ({ orgId: () => 'org1', branchId: () => 'br1', platformContext: () => ({ user: null }) }));
 vi.mock('@platform/auth', () => ({ setFeature: vi.fn(async () => ({})) }));
 vi.mock('@ui/personnel/api', () => ({
+  listEmployees: vi.fn(async () => ({ employees: [], total: 0 })),
   getOverview: vi.fn(async () => ({ headcount: 0, byStatus: {}, joinedThisMonth: [], leftThisMonth: 0, byDepartment: [], upcomingBirthdays: [] })),
   getPeopleHome: vi.fn(async () => []),
   listMyTasks: vi.fn(async () => []),

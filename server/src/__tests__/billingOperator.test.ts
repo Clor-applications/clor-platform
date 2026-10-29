@@ -11,6 +11,7 @@ import jwt from 'jsonwebtoken';
  */
 const { buildApp } = await import('../app.js');
 const { codeAt, stepNow } = await import('../services/totp.js');
+const { clearOfStepEdge } = await import('./totpTiming.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 
 const app = buildApp().listen(0);
@@ -37,6 +38,7 @@ const subscription = async (c: Ctx) => (await request(app).get('/api/billing/sub
 async function stepUp(c: Ctx) {
   const sec = (p: string, b: unknown = {}) => request(app).post(`/api/orgs/${c.orgId}/security${p}`).set(at(c)).send(b as any);
   const { secret } = (await sec('/two-factor/setup').expect(200)).body;
+  await clearOfStepEdge();
   await sec('/two-factor/enable', { code: codeAt(secret, stepNow() - 1) }).expect(200);
   return (await sec('/step-up', { code: codeAt(secret, stepNow()) }).expect(200)).body.token as string;
 }

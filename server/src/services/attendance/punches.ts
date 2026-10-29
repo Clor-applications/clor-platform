@@ -9,6 +9,7 @@ import { driverOf, parserOf } from './drivers.js';
 import { istDate } from './compute.js';
 import { nightShiftsOn } from './nightShift.js';
 import { notePunchOnDecidedDay } from './trust.js';
+import { autoPickShift, withinWindow } from './autoShift.js';
 
 /**
  * Punches in: one path for every reader channel — parse, match the person, drop repeats, keep the evidence, store, then work the affected days out again.
@@ -100,15 +101,19 @@ export async function recomputeDeviceDay(accountId: string, orgId: string, emplo
     where: { orgId, employeeId: employee.id, source: 'CLOCK', at: { gte: from, lt: to } },
     select: { at: true, kind: true },
   });
+  /* With the switch on, the first punch may pick the day's shift before the day is worked out (autoShift.ts). */
+  const first = [...punches, ...clocks].reduce<Date | null>((m, p) => (!m || p.at < m ? p.at : m), null);
+  await autoPickShift(accountId, orgId, employee.id, date, first);
   const { rule } = await shiftFor(orgId, employee.id, date);
   /* With night shifts on, a clock belongs where a reader's punch at that moment would (shiftDayFor), so the two never split one night. */
   const night = clocks.length ? await nightShiftsOn(orgId, accountId) : false;
   const sameDay: typeof clocks = [];
   for (const c of clocks) if ((night ? await shiftDayFor(orgId, employee.id, istLocal(c.at)) : shiftDayOf(istLocal(c.at), isNight(rule))) === date) sameDay.push(c);
-  const points = [
+  /* Only punches inside the shift's punch window make the day; the rest stay stored (autoShift.ts withinWindow). */
+  const points = withinWindow(rule, date, [
     ...punches.map((p) => ({ at: p.at, kind: (p.kind as 'IN' | 'OUT' | null) ?? null })),
     ...sameDay.map((c) => ({ at: c.at, kind: c.kind === 'OUT' ? ('OUT' as const) : ('IN' as const) })),
-  ];
+  ]);
   const day = pairDay(points);
   if (!day) return null;
   /* An approved half-day leave on this day: the punches are the other half. */

@@ -2,11 +2,12 @@
 <html lang="en" data-theme="light" style="color-scheme: light">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/clor-icon-192.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="alternate icon" type="image/png" href="/clor-icon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/clor-icon-192.png" />
-    <meta name="theme-color" content="#FF6B00" />
+    <meta name="theme-color" content="#232A66" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -19,14 +20,16 @@
         var m = document.querySelector('link[rel="manifest"]');
         if (m) m.href = '/manifest-' + app + '.webmanifest';
         var a = document.querySelector('link[rel="apple-touch-icon"]');
-        /* People has no icon of its own yet: the CLOR mark until it does. */
-        if (a) a.href = app === 'people' ? '/clor-icon-192.png' : '/icons/' + app + '-192.png';
+        if (a) a.href = '/icons/' + app + '-192.png';
+        /* People wears the new mark in the browser tab too (brand kit, 28 Oct 2026); the other apps keep the CLOR icon there. */
+        var f = document.querySelector('link[rel="icon"]');
+        if (f && app === 'people') { f.type = 'image/svg+xml'; f.href = '/icons/people.svg'; }
         var t = document.querySelector('meta[name="theme-color"]');
         if (t) t.content = '#14152B';
         document.title = 'CLOR ' + app.charAt(0).toUpperCase() + app.slice(1);
       })();
     </script>
-    <meta name="description" content="Clor — GST accounting, invoicing, inventory and payroll for Indian businesses." />
+    <meta name="description" content="CLOR — GST accounting, invoicing, inventory and payroll for Indian businesses." />
     <title>CLOR</title>
   </head>
   <body>

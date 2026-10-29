@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from '@ui/components/ui/lineIcons';
 
 import AuthenticatorCard from '@ui/profile/AuthenticatorCard';
 import { useSession } from './session';

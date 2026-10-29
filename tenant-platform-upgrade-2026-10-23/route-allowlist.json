@@ -919,7 +919,7 @@
     {
       "method": "POST",
       "path": "/api/internal/jobs/tick",
-      "reason": "Cloud Scheduler wake call for background jobs; x-jobs-token compared in constant time with JOBS_TOKEN (Secret Manager), 404 when unset; behind the edge Worker like every route; runs only the registered jobs, each under its lease (closure audit, 28 Oct 2026)."
+      "reason": "Cloud Scheduler wake call for background jobs; x-jobs-token compared in constant time with JOBS_TOKEN (Secret Manager), 404 when unset; behind the edge Worker like every route; runs only the registered jobs, each under its lease (closure audit, 27 Oct 2026)."
     },
     {
       "method": "GET",
@@ -930,6 +930,36 @@
       "method": "GET",
       "path": "/api/internal/outbox/failed",
       "reason": "Lists People outbox events that used every retry (leave and request notices among them) for the operator: ids, company, event name, attempts and last error, no payload; same JOBS_TOKEN check, 404 when unset (closure audit O-07)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/people/apply/:token",
+      "reason": "Talent apply page (TALENT-DECISIONS.md): token kept only as sha256, works while the opening is open and its link is on; shows the job title, company and description only; outsideTenant lookup then enterTenant."
+    },
+    {
+      "method": "POST",
+      "path": "/api/people/apply/:token",
+      "reason": "Talent apply form: same token; applyLimiter (10 an hour per address); hidden trap field drops bots; name, e-mail or phone, https résumé link and a note only, no file upload; lands as a candidate at Applied; duplicates folded; HR told."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/me/growth",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; the person's own goals, reviews (outcome only once HR shares it), plan, one-on-ones and trainings (Talent)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/goals/:id/check-ins",
+      "reason": "Employee self-service (People): portal token + anyAppLive; a check-in on a goal of the person's own (growth.checkIn checks the goal is theirs), source SELF_SERVICE (Talent)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/reviews/:id/self",
+      "reason": "Employee self-service (People): portal token + anyAppLive; the person's own self-review while the cycle is open (growth.writeSelf checks it is theirs) (Talent)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/reviews/:id/acknowledge",
+      "reason": "Employee self-service (People): portal token + anyAppLive; the person acknowledges their own shared review (growth.acknowledge) (Talent)."
     }
   ]
 }

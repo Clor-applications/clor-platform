@@ -3,7 +3,7 @@
 - **Reader:** the person doing HR in a company of 1–50 staff. Usually the owner or an office manager, not an HR professional.
 - **Method:** read-only walk of `apps/people/manifest.jsx`, the screens it loads (`apps/people/src/screens.js`), the shared screens in `packages/ui/src/{timeOff,personnel}` and the server routes they call. No code was changed and no browser run was made. Click counts come from reading the code: count them again in the browser before quoting them.
 - **Not repeated here.** These are already written down, so this audit links to them instead:
-  - [TIME-LEAVE-CLOSURE-AUDIT-2026-10-28.md](../TIME-LEAVE-CLOSURE-AUDIT-2026-10-28.md): O-01..O-12
+  - [TIME-LEAVE-CLOSURE-AUDIT-2026-10-27.md](../TIME-LEAVE-CLOSURE-AUDIT-2026-10-27.md): O-01..O-12
   - [TIME-LEAVE-MARKET-RESEARCH.md](../TIME-LEAVE-MARKET-RESEARCH.md) §(b): G1..G21
   - [WORKFORCE-AUDIT-2026-10-26.md](../WORKFORCE-AUDIT-2026-10-26.md)
   - [ORGANIZATION-AUDIT-2026-10-26.md](../ORGANIZATION-AUDIT-2026-10-26.md)

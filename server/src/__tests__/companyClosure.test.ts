@@ -18,6 +18,7 @@ const { Prisma: PeoplePrisma } = await import('../generated/people/index.js');
 const { Prisma: PayrollPrisma } = await import('../generated/payroll/index.js');
 const { scheduleClosure, cancelClosure, purgeClosedCompanies, noticeDays } = await import('../services/companyClosure.js');
 const { codeAt, stepNow } = await import('../services/totp.js');
+const { clearOfStepEdge } = await import('./totpTiming.js');
 
 const app = buildApp().listen(0);
 afterAll(async () => {
@@ -46,6 +47,7 @@ async function stepUp(c: Ctx) {
   const sec = (p: string, b: unknown = {}) => request(app).post(`/api/orgs/${c.orgId}/security${p}`).set(at(c)).send(b as any);
   const { secret } = (await sec('/two-factor/setup').expect(200)).body;
   /* One time step for both codes: reading the clock twice failed when a 30-second boundary fell between the calls. */
+  await clearOfStepEdge();
   const s0 = stepNow();
   await sec('/two-factor/enable', { code: codeAt(secret, s0) }).expect(200);
   return (await sec('/step-up', { code: codeAt(secret, s0 + 1) }).expect(200)).body.token as string;

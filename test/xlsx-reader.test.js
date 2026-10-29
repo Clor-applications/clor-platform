@@ -46,7 +46,23 @@ const workbook = () => zip([
   </sheetData></worksheet>`],
 ]);
 
+/* A time sheet: In as a time of day (h:mm, built-in format 20) and a punch log's date-and-time cell (format 22). */
+const timeSheet = () => zip([
+  ['xl/workbook.xml', `<workbook ${NS}><sheets><sheet name="Days" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+  ['xl/_rels/workbook.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>', true],
+  ['xl/styles.xml', `<styleSheet ${NS}><numFmts count="1"><numFmt numFmtId="165" formatCode="hh:mm AM/PM"/></numFmts><cellXfs count="4"><xf numFmtId="0"/><xf numFmtId="20"/><xf numFmtId="22"/><xf numFmtId="165"/></cellXfs></styleSheet>`],
+  ['xl/worksheets/sheet1.xml', `<worksheet ${NS}><sheetData>
+    <row r="1"><c r="A1" t="inlineStr"><is><t>In</t></is></c><c r="B1" t="inlineStr"><is><t>Punch</t></is></c><c r="C1" t="inlineStr"><is><t>Out</t></is></c></row>
+    <row r="2"><c r="A2" s="1"><v>0.3784722</v></c><c r="B2" s="2"><v>46329.3784722</v></c><c r="C2" s="3"><v>0.7569444</v></c></row>
+  </sheetData></worksheet>`],
+]);
+
 describe('reading an Excel workbook', () => {
+  it('reads time cells as HH:MM and date-and-time cells as both, not as 30 December 1899', async () => {
+    const sheet = await readXlsx(timeSheet());
+    expect(sheet.rows).toEqual([['09:05', '2026-11-03 09:05', '18:10']]);
+  });
+
   it('turns Excel day numbers into dates', () => {
     expect(excelSerialToIso(46329)).toBe('2026-11-03');
     expect(excelSerialToIso(1)).toBe('1899-12-31');

@@ -27,7 +27,12 @@ export function useTabIndicator(listRef, activeKey) {
     ro?.observe(list);
     return () => ro?.disconnect();
   }, [listRef, activeKey]);
-  return box ? <span className="ui-tab-indicator" aria-hidden="true" style={{ transform: `translateX(${box.left}px)`, width: box.width }} /> : null;
+  if (!box) return null;
+  /* People (Sky): moved and stretched with transform alone, so the slide never asks for layout; a 100px line scaled to the tab's width. */
+  if (typeof document !== 'undefined' && document.documentElement.dataset.palette === 'sky') {
+    return <span className="ui-tab-indicator" data-scaled="" aria-hidden="true" style={{ width: 100, transformOrigin: '0 0', transform: `translateX(${box.left}px) scaleX(${box.width / 100})` }} />;
+  }
+  return <span className="ui-tab-indicator" aria-hidden="true" style={{ transform: `translateX(${box.left}px)`, width: box.width }} />;
 }
 
 export default function RecordTabs({ tabs, value, onChange, label = 'Sections', children }) {

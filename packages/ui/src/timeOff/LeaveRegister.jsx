@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Printer } from 'lucide-react';
+import { Printer } from '@ui/components/ui/lineIcons';
 
 import { useListSearch } from '@ui/components/ListToolbar';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
@@ -14,7 +14,10 @@ import Drawer from '@ui/components/ui/Drawer';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { printElement } from '@ui/utils/printElement';
 import { colorOf, getLeaveRegister, getLeaveRegisterBook, getLeaveSettings, listLeaveTypes, periodChoices } from './api';
-import { homeCrumbs } from './shared';
+import { activeApp, homeCrumbs } from './shared';
+
+/* People files the register under Reports, so its crumbs say so; Attendance keeps it under Time & Leave. */
+const reportCrumbs = () => (activeApp() === 'people' ? [{ label: 'People' }, { label: 'Reports' }] : homeCrumbs());
 
 /**
  * Time & Leave → Leave register (founder, 22 Oct 2026): for one leave
@@ -73,7 +76,7 @@ export default function LeaveRegister() {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={homeCrumbs()}
+        breadcrumb={reportCrumbs()}
         title="Leave register"
         actions={data?.rows?.length ? (
           <div className="flex items-center gap-2">

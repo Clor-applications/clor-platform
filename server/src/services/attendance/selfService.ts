@@ -291,7 +291,7 @@ export async function decideOvertime(orgId: string, id: string, approve: boolean
   const r = await peoplePrisma.overtimeRequest.findFirst({ where: { id, orgId } });
   if (!r) throw Object.assign(new Error('No such request.'), { status: 404 });
   if (r.status !== 'PENDING') throw Object.assign(new Error(`This request was already ${r.status.toLowerCase()}.`), { status: 409 });
-  /* Nobody decides their own overtime or comp-off (closure audit, 28 Oct 2026). */
+  /* Nobody decides their own overtime or comp-off (closure audit, 27 Oct 2026). */
   const subject = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { userId: true, reportingManagerId: true } });
   const ownByLogin = Boolean(subject?.userId && subject.userId === by.userId);
   if ((by.managerId && by.managerId === r.employeeId && !ownByLogin) || (ownByLogin && !(await selfDecisionAllowed(r.accountId, orgId, by.userId, 'ATTENDANCE::Attendance Records::EDIT')).allowed)) {
@@ -376,6 +376,25 @@ export function timelineOf(r: { createdAt: Date; status: string; managerApproved
     const who = managerStep && chain === 'MANAGER' ? `${names.manager} (manager)` : 'HR';
     steps.push({ label: who, state: decided ? (r.status === 'APPROVED' ? 'DONE' : 'REFUSED') : 'NOW', at: decided ? r.reviewedAt : null, who });
   }
+  steps.push({ label: r.status === 'REJECTED' ? `Declined${r.reviewNote ? `: ${r.reviewNote}` : ''}` : 'Approved', state: r.status === 'APPROVED' ? 'DONE' : r.status === 'REJECTED' ? 'REFUSED' : 'LATER', at: decided ? r.reviewedAt : null });
+  const now = steps.find((s) => s.state === 'NOW');
+  return { steps, next: now ? now.who || now.label : null };
+}
+
+/**
+ * The same for leave under the company's leave rule (services/attendance/leaveRules.ts):
+ * each step someone approved, the step waiting now and who it waits for.
+ */
+export function ruleTimelineOf(r: { createdAt: Date; status: string; ruleStep?: number | null; reviewedAt?: Date | null; reviewNote?: string | null; history?: unknown }, waitingFor: string | null) {
+  const steps: Step[] = [{ label: 'Sent', state: 'DONE', at: r.createdAt }];
+  if (r.status === 'CANCELLED') {
+    steps.push({ label: 'Withdrawn', state: 'WITHDRAWN', at: r.reviewedAt ?? null });
+    return { steps, next: null as string | null };
+  }
+  const taken = ((Array.isArray(r.history) ? r.history : []) as Array<{ at?: string; what?: string; note?: string | null }>).filter((h) => h.what === 'STEP_APPROVED');
+  for (const h of taken) steps.push({ label: String(h.note || 'A step').split(':')[0], state: 'DONE', at: h.at ? new Date(h.at) : null });
+  if (r.status === 'PENDING' && r.ruleStep) steps.push({ label: `Step ${r.ruleStep}`, state: 'NOW', who: waitingFor });
+  const decided = r.status === 'APPROVED' || r.status === 'REJECTED';
   steps.push({ label: r.status === 'REJECTED' ? `Declined${r.reviewNote ? `: ${r.reviewNote}` : ''}` : 'Approved', state: r.status === 'APPROVED' ? 'DONE' : r.status === 'REJECTED' ? 'REFUSED' : 'LATER', at: decided ? r.reviewedAt : null });
   const now = steps.find((s) => s.state === 'NOW');
   return { steps, next: now ? now.who || now.label : null };

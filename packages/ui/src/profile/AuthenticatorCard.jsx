@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { KeyRound } from 'lucide-react';
+import { KeyRound } from '@ui/components/ui/lineIcons';
 import QRCode from 'qrcode';
 
 import { apiFetch } from '@platform/http';

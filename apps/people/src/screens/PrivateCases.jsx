@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Lock, Plus, X } from 'lucide-react';
+import { Lock, Plus, X } from '@ui/components/ui/lineIcons';
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
@@ -53,7 +53,7 @@ export default function PrivateCases() {
   ];
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Private Cases' }]} title="Private Cases"
+      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Confidential cases' }]} title="Confidential cases"
         actions={<>
           {allowed('PEOPLE::Private Cases::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setCommittee(true)}>Committees</button> : null}
           {allowed('PEOPLE::Private Cases::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setIntake(true)}><Plus size={16} aria-hidden="true" /> Take in a case</button> : null}
@@ -76,10 +76,15 @@ function AskDrawer({ title, label, initial = '', multiline = false, submitLabel 
   const [text, setText] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [missing, setMissing] = useState(false);
+  /* A ref, not the busy state: Enter twice lands before React re-renders,
+     and a second submit would upload the same sealed evidence twice. */
+  const inFlight = useRef(false);
   const submit = async () => {
+    if (inFlight.current) return;
     if (!text.trim()) { setMissing(true); return; }
+    inFlight.current = true;
     setBusy(true);
-    try { await onSubmit(text.trim()); } finally { setBusy(false); }
+    try { await onSubmit(text.trim()); } finally { inFlight.current = false; setBusy(false); }
   };
   const Field = multiline ? 'textarea' : 'input';
   return (
@@ -100,7 +105,14 @@ function CaseDrawer({ id, onClose, onChanged }) {
   const c = req.data;
   const [ask, setAsk] = useState(null);
   const fileRef = useRef(null);
+  /* One step at a time: a double click on "Start the inquiry" must not
+     advance the case twice. */
+  const [moving, setMoving] = useState(false);
+  const stepping = useRef(false);
   const step = async (s, extra = {}) => {
+    if (stepping.current) return;
+    stepping.current = true;
+    setMoving(true);
     try {
       await apiFetch(`${base()}/${encodeURIComponent(id)}/advance`, { ...opts, method: 'POST', body: { step: s, ...extra } });
       req.reload();
@@ -108,6 +120,9 @@ function CaseDrawer({ id, onClose, onChanged }) {
       setAsk(null);
     } catch (e) {
       notify.error(String(e?.message || 'Not done.'));
+    } finally {
+      stepping.current = false;
+      setMoving(false);
     }
   };
   const openEvidence = async (ev) => {
@@ -138,7 +153,7 @@ function CaseDrawer({ id, onClose, onChanged }) {
   return (
     <Drawer open onClose={onClose} title={c ? `${c.reference} · ${c.kind === 'POSH' ? 'POSH complaint' : 'Grievance'}` : 'Private case'} widthClass="w-[min(44rem,96vw)] ui-drawer-sheet"
       footer={c && canMove && next ? (
-        <button type="button" className="ui-btn ui-btn-primary" onClick={() => (next[0] === 'CLOSE' ? setAsk({ kind: 'close' }) : step(next[0]))}>{next[1]}</button>
+        <button type="button" className="ui-btn ui-btn-primary" disabled={moving} onClick={() => (next[0] === 'CLOSE' ? setAsk({ kind: 'close' }) : step(next[0]))}>{next[1]}</button>
       ) : null}>
       {req.error ? <ErrorState error={req.error} compact onRetry={req.reload} /> : !c ? <SkeletonCard lines={6} /> : (
         <div className="space-y-5 text-sm">
@@ -272,8 +287,8 @@ function CommitteeDrawer({ onClose }) {
             {members.length ? (
               <ul className="divide-y border-t">
                 {members.map((m, i) => (
-                  <li key={i} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.3fr)_auto] sm:items-end">
-                    <div><PopupSelect showValueSubtext={false} label="Member" value={m.userId} alwaysSearch={list.length > 8} onChange={(v) => v && set(i, { userId: v })} options={list.map((u) => ({ value: u.id, label: u.fullName || u.email }))} /></div>
+                  <li key={m.userId} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.3fr)_auto] sm:items-end">
+                    <div><PopupSelect showValueSubtext={false} label="Member" value={m.userId} alwaysSearch={list.length > 8} onChange={(v) => v && set(i, { userId: v })} options={list.filter((u) => u.id === m.userId || !members.some((o) => o.userId === u.id)).map((u) => ({ value: u.id, label: u.fullName || u.email }))} /></div>
                     <div><PopupSelect showValueSubtext={false} label="Role" value={m.role} onChange={(v) => v && set(i, { role: v })} options={ROLES.map(([value, label]) => ({ value, label }))} /></div>
                     <div><PopupSelect showValueSubtext={false} label="Gender" value={m.gender || ''} placeholder="Not said" onChange={(v) => set(i, { gender: v || '' })} options={GENDERS.map(([value, label]) => ({ value, label }))} /></div>
                     <div><label className="ui-label" htmlFor={`term-${i}`}>Term ends</label><DatePicker id={`term-${i}`} value={m.termEnd || ''} onChange={(v) => set(i, { termEnd: v || '' })} /></div>
@@ -282,7 +297,9 @@ function CommitteeDrawer({ onClose }) {
                 ))}
               </ul>
             ) : <p className="ui-muted">No members yet.</p>}
-            {list.length ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setMembers((x) => [...x, { userId: list[0].id, role: 'MEMBER', gender: '' }])}><Plus size={16} aria-hidden="true" /> Add a member</button> : <p className="ui-muted">Listing users needs the Users grant.</p>}
+            {/* Rows are keyed by member, so a person sits on the committee once:
+                each picker offers only people not already on it. */}
+            {list.length ? (list.some((u) => !members.some((m) => m.userId === u.id)) ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setMembers((x) => [...x, { userId: list.find((u) => !x.some((m) => m.userId === u.id)).id, role: 'MEMBER', gender: '' }])}><Plus size={16} aria-hidden="true" /> Add a member</button> : null) : <p className="ui-muted">Listing users needs the Users grant.</p>}
           </>
         )}
       </div>

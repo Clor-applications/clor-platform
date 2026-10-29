@@ -30,7 +30,7 @@ export async function standingInFor(orgId: string, employeeId: string, date = to
  * manager it counts as, or null.
  */
 export async function managerStepBy(orgId: string, actorEmployeeId: string, employeeId: string, date = today()) {
-  /* Nobody takes the manager's step on their own request, even standing in for their own manager (closure audit, 28 Oct 2026). */
+  /* Nobody takes the manager's step on their own request, even standing in for their own manager (closure audit, 27 Oct 2026). */
   if (actorEmployeeId === employeeId) return null;
   const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { reportingManagerId: true } });
   if (!e?.reportingManagerId) return null;

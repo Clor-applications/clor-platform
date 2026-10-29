@@ -1,4 +1,4 @@
-import { BookOpen, Briefcase, CalendarClock, Wallet } from 'lucide-react';
+import { BookOpen, Briefcase, CalendarClock, Wallet } from '@ui/components/ui/lineIcons';
 
 import { accountingApp } from '../../apps/accounting/manifest.jsx';
 import { payrollApp } from '../../apps/payroll/manifest.jsx';

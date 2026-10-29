@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title id="title">CLOR People app icon</title>
+  <path fill="#0E7C7B" d="M57.6 0 H198.4 A57.6 57.6 0 0 1 256 57.6 V198.4 A57.6 57.6 0 0 1 198.4 256 H57.6 A57.6 57.6 0 0 1 0 198.4 V57.6 A57.6 57.6 0 0 1 57.6 0 Z"/>
+  <g transform="translate(128 128) scale(1.8) translate(-50 -50)">
+    <path d="M79.44 67 A34 34 0 1 1 79.44 33" fill="none" stroke="#FFFFFF" stroke-width="13"/>
+    <circle cx="84" cy="50" r="8" fill="#FFFFFF"/>
+  </g>
+</svg>

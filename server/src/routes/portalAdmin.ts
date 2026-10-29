@@ -104,6 +104,8 @@ portalAdminRouter.post(`${base}/portal-access/codes`, can(PermissionAction.EDIT)
     }
     codes.push({ employeeId: p.id, name: p.name, employeeCode: p.code, activationCode: formatted, emailedTo: emailed ? to : null });
   }
+  /* A code is a way into someone's account: who handed them out, to whom, and whether by e-mail. Never the code itself. */
+  for (const c of codes) await recordAudit(req, { entity: 'Employee', entityId: c.employeeId, action: 'PORTAL_CODE', message: `Issued an employee app activation code to ${c.name}${c.emailedTo ? ', by e-mail' : ''}`, metadata: { emailed: Boolean(c.emailedTo), expiresAt: expires.toISOString() } });
   res.json({ company: org, portalUrl: portalUrl(), expiresAt: expires, codes });
 });
 
@@ -135,6 +137,9 @@ portalAdminRouter.put(`${base}/portal-access`, can(PermissionAction.EDIT), async
   if (change.portalEnabled === false) {
     for (const id of employeeIds) await endPortalSessions({ id, accountId, orgId }, 'employee app switched off', actorFrom(req));
   }
+  /* Who switched the app or phone punching on or off, for whom, and to what. */
+  const changed = Object.entries(change).map(([k, v]) => `${k} ${v === null ? 'cleared' : String(v)}`).join(', ');
+  for (const id of employeeIds) await recordAudit(req, { entity: 'Employee', entityId: id, action: 'PORTAL_ACCESS', message: `Changed employee app access: ${changed || 'nothing'}`, metadata: { change, employees: employeeIds.length } });
   res.json({ updated: r.count });
 });
 
@@ -149,6 +154,7 @@ portalAdminRouter.post(`${base}/portal-access/:employeeId/reset`, can(Permission
   if (!r.count) return res.status(404).json({ error: 'No such employee.' });
   /* A-33: their devices are ended on record too, not only by the password check. */
   await endPortalSessions({ id: String(req.params.employeeId), accountId, orgId }, 'portal password reset by HR', actorFrom(req));
+  await recordAudit(req, { entity: 'Employee', entityId: String(req.params.employeeId), action: 'PORTAL_RESET', message: 'Reset the employee app password; a new activation code is needed to sign in' });
   res.json({ ok: true });
 });
 
@@ -214,6 +220,7 @@ portalAdminRouter.post(`${base}/geofences`, can(PermissionAction.CREATE), async 
   try {
     await areaOk(orgId, parsed.data.areaId);
     const row = await peoplePrisma.geofence.create({ data: { accountId, orgId, ...parsed.data, address: parsed.data.address || null, areaId: parsed.data.areaId || null, createdByUserId: req.auth!.userId } });
+    await recordAudit(req, { entity: 'Geofence', entityId: row.id, action: 'CREATE', message: `Added work site ${row.name}`, metadata: { latitude: row.latitude, longitude: row.longitude, radiusMeters: row.radiusMeters, areaId: row.areaId } });
     res.status(201).json({ geofence: (await fenceOut(orgId, [row]))[0] });
   } catch (e) {
     return sendError(res, e);
@@ -230,6 +237,10 @@ portalAdminRouter.put(`${base}/geofences/:id`, can(PermissionAction.EDIT), async
   try {
     await areaOk(orgId, parsed.data.areaId);
     const row = await peoplePrisma.geofence.update({ where: { id: existing.id }, data: { ...parsed.data, address: parsed.data.address === undefined ? undefined : parsed.data.address || null, areaId: parsed.data.areaId || null } });
+    /* What moved: a site's position or radius decides whose punches count, so the before and after are kept. */
+    const keys = ['name', 'latitude', 'longitude', 'address', 'radiusMeters', 'areaId', 'isActive'] as const;
+    const diff = Object.fromEntries(keys.filter((k) => (existing as any)[k] !== (row as any)[k]).map((k) => [k, { from: (existing as any)[k], to: (row as any)[k] }]));
+    await recordAudit(req, { entity: 'Geofence', entityId: row.id, action: 'UPDATE', message: `Changed work site ${row.name}${Object.keys(diff).length ? `: ${Object.keys(diff).join(', ')}` : ''}`, metadata: { changes: diff } });
     res.json({ geofence: (await fenceOut(orgId, [row]))[0] });
   } catch (e) {
     return sendError(res, e);
@@ -272,6 +283,7 @@ portalAdminRouter.delete(`${base}/geofences/:id`, can(PermissionAction.DELETE), 
   ]);
   if (people || punches) return res.status(409).json({ error: 'People are tied to this site or have punched at it. Switch it off instead, so their history keeps its name.' });
   await peoplePrisma.geofence.delete({ where: { id: existing.id } });
+  await recordAudit(req, { entity: 'Geofence', entityId: existing.id, action: 'DELETE', message: `Deleted work site ${existing.name}`, metadata: { latitude: existing.latitude, longitude: existing.longitude, radiusMeters: existing.radiusMeters } });
   res.json({ ok: true });
 });
 

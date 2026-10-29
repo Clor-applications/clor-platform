@@ -39,6 +39,8 @@ import { peopleRouter } from './routes/people.js';
 import { peopleLifecycleRouter } from './routes/peopleLifecycle.js';
 import { peopleApprovalsRouter } from './routes/peopleApprovals.js';
 import { peopleTaskLinksRouter } from './routes/peopleTaskLinks.js';
+import { peopleTalentRouter } from './routes/peopleTalent.js';
+import { peopleTalentApplyRouter } from './routes/peopleTalentApply.js';
 import { peopleJoinRouter } from './routes/peopleJoin.js';
 import { peopleInvitesRouter } from './routes/peopleInvites.js';
 import { peopleLettersRouter } from './routes/peopleLetters.js';
@@ -262,6 +264,10 @@ export function buildApp() {
   app.use('/api/portal/punch', express.json({ limit: '3mb' }));
   /* A document on an employee file (≤ 5 MB, base64). */
   app.use('/api/orgs/:orgId/people/employees/:id/documents', express.json({ limit: '7mb' }));
+  /* A résumé or a training certificate, up to 5 MB, sent as base64 (Talent). */
+  app.use(['/api/orgs/:orgId/people/talent/candidates/:id/resume', '/api/orgs/:orgId/people/talent/seats/:id'], express.json({ limit: '7mb' }));
+  /* Leave asked with its document (a certificate, ≤ 5 MB, base64): from People, from My Leave, and from the employee app. */
+  app.use(['/api/orgs/:orgId/attendance/leave/requests', '/api/orgs/:orgId/attendance/me/leave', '/api/portal/leave'], express.json({ limit: '7mb' }));
   /* The payment gateway's webhook: public, its exact path, the raw body a signature is made over — ahead of the JSON parser and of every router that demands a session (A-16). */
   app.post('/api/billing/webhook', ...billingWebhookLimiter, express.raw({ type: () => true, limit: '1mb' }), billingWebhook);
   app.use(express.json({ limit: '1mb' }));
@@ -357,6 +363,7 @@ export function buildApp() {
   app.use('/api', sharePublicRouter);
   /* The done link in a task e-mail: signed, no session; before the routers that demand one. */
   app.use('/api', peopleTaskLinksRouter);
+  app.use('/api', peopleTalentApplyRouter);
   app.use('/api', peopleJoinRouter);
 
   /* The employee portal: its own sign-in (company + employee code), no CLOR
@@ -404,6 +411,7 @@ export function buildApp() {
   app.use('/api', payrollSettlementsRouter);
   app.use('/api', payrollTaxDeclarationsRouter);
   app.use('/api', peopleLifecycleRouter);
+  app.use('/api', peopleTalentRouter);
   app.use('/api', peopleRouter);
   app.use('/api', peopleApprovalsRouter);
   app.use('/api', peopleInvitesRouter);

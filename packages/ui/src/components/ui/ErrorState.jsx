@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, Clock, Lock, SearchX, WifiOff, RefreshCw } from 'lucide-react';
+import { AlertCircle, Clock, Lock, SearchX, WifiOff, RefreshCw } from '@ui/components/ui/lineIcons';
 
 /**
  * ErrorState (People design spec v1 §8): one place that says what went wrong

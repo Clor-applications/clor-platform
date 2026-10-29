@@ -1,5 +1,5 @@
 import React from 'react';
-import { Banknote, CalendarArrowDown, CalendarArrowUp, Fingerprint, ListTodo } from 'lucide-react';
+import { Banknote, CircleArrowDown, CircleArrowUp, ClipboardCheck, Fingerprint } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -44,9 +44,9 @@ export default function LifecycleOverview({ openScreen }) {
   if (!d) return <div className="space-y-6" aria-busy="true">{header}<SkeletonCard lines={2} /><SkeletonCard lines={6} /></div>;
   const c = d.counts;
   const strip = [
-    { k: 'join', label: 'Starting this week', value: c.startingThisWeek, Icon: CalendarArrowUp, onClick: () => openScreen?.('joiners', { view: 'week' }) },
-    { k: 'leave', label: 'Last days this week', value: c.lastDaysThisWeek, Icon: CalendarArrowDown, onClick: () => openScreen?.('leavers') },
-    { k: 'late', label: 'Tasks late', value: c.lateTasks, Icon: ListTodo, onClick: () => openScreen?.('checklists', { view: 'late' }) },
+    { k: 'join', label: 'Starting this week', value: c.startingThisWeek, Icon: CircleArrowUp, onClick: () => openScreen?.('joiners', { view: 'week' }) },
+    { k: 'leave', label: 'Last days this week', value: c.lastDaysThisWeek, Icon: CircleArrowDown, onClick: () => openScreen?.('leavers') },
+    { k: 'late', label: 'Tasks late', value: c.lateTasks, Icon: ClipboardCheck, onClick: () => openScreen?.('checklists', { view: 'late' }) },
     { k: 'readers', label: c.readersFailed ? 'Readers not confirmed' : 'Waiting for readers', value: c.readersFailed || c.readersNotConfirmed, Icon: Fingerprint, tone: c.readersFailed ? 'neg' : null, onClick: () => openScreen?.('leavers', { view: 'clearing' }) },
     { k: 'wages', label: c.wagesLate ? 'Final wages late' : 'Final wages due', value: c.wagesLate || c.wagesDue, Icon: Banknote, tone: c.wagesLate ? 'neg' : null, onClick: () => openScreen?.('leavers', { view: 'clearing' }) },
   ];

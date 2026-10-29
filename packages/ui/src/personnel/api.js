@@ -58,6 +58,8 @@ export const getOrgChart = (params = {}) => apiFetch(`${base()}/org-chart${param
 
 /** kind: departments | job-positions | job-roles | employee-types | work-types */
 export const listStructure = (kind) => apiFetch(`${base()}/structure/${kind}`, opts).then((r) => r?.items || []);
+/** The company's branches (the platform's, not a People list). */
+export const listBranches = () => apiFetch(`/orgs/${encodeURIComponent(orgId())}/branches`, opts).then((r) => r?.branches || []);
 export const createStructure = (kind, body) => send(`/structure/${kind}`, 'POST', body);
 export const updateStructure = (kind, id, body) => send(`/structure/${kind}/${encodeURIComponent(id)}`, 'PUT', body);
 export const deleteStructure = (kind, id) => send(`/structure/${kind}/${encodeURIComponent(id)}`, 'DELETE');

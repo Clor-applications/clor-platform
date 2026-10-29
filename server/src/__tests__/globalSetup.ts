@@ -173,6 +173,8 @@ async function ensureAppRole(database: string) {
          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}') THEN
            EXECUTE format('CREATE ROLE %I LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD %L', '${role}', '${password}');
          END IF;
+       /* CI shards set up at the same moment: the one that loses the race to create the role finds it made. */
+       EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
        END $$;`
     );
   } finally {
@@ -331,6 +333,8 @@ export default async function setup() {
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024120500_portal_sessions_rls');
   /* O-12: one code per leave type, a partial expression index `db push` cannot build. */
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261101090100_leave_type_code_unique');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261105100000_leave_blocks');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261105120000_talent_rls_fail_closed');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018040100_scim_tokens_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018060100_notifications_rls');

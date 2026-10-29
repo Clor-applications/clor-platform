@@ -3,51 +3,46 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore: ['**/*.md', 'docs/**']
   pull_request:
+    # Text-only changes (notes, trackers, plans) build nothing and test nothing: no run.
+    paths-ignore: ['**/*.md', 'docs/**']
   workflow_dispatch:
+
+# A newer push to the same pull request replaces the run in progress: only
+# the latest commit's result matters.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # A Mac self-hosted runner (label clor-mac), not GitHub's
+    # machines: the organization is on GitHub's free plan, whose Actions
+    # minutes for a private repository ran out at ~75 minutes a run (Oct
+    # 2026). Setup: docs/CI-ON-MAC.md.
+    runs-on: [self-hosted, clor-mac]
+    timeout-minutes: 120
 
-    # The suite needs a PostgreSQL server.
-    #
-    # It used to need nothing: every test ran against a SQLite file the run
-    # created and threw away. Since the platform moved to PostgreSQL, the
-    # server tests create a database per run — `clor_test_<pid>`, three
-    # schemas, row-level security policies applied and granted — and a runner
-    # with no server to create it on fails at globalSetup before a single test
-    # is read. Which is exactly what it did.
-    #
-    # Same major version as production (16), so a query that passes here fails
-    # here rather than on the box.
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: clor_ci
-          POSTGRES_PASSWORD: clor_ci
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        # Steps start the moment the container does, which is several seconds
-        # before it will answer; without this the first connection is refused.
-        options: >-
-          --health-cmd "pg_isready -U clor_ci"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+    # The suite needs a PostgreSQL server: the server tests create a
+    # database per run (`clor_test_<pid>`, the schemas, row-level security
+    # policies applied and granted). On the Mac it is a PostgreSQL 16 of its
+    # own on port 5433 (Homebrew postgresql@16, max_connections 300), the
+    # same major version as production and apart from the developer's own
+    # server on 5432, so a test run never takes the connections a dev server
+    # needs. Its superuser is clor_ci / clor_ci, as the container was.
+    env:
+      PGHOST: localhost
+      PGPORT: 5433
 
     steps:
       - uses: actions/checkout@v4
 
+      # No npm cache: the runner keeps its files between runs, and saving the
+      # cache to GitHub after every run took ~8 minutes on the Mac.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            server/package-lock.json
 
       - name: Install frontend deps
         run: npm ci
@@ -73,11 +68,14 @@ jobs:
         working-directory: server
         env:
           PGPASSWORD: clor_ci
-          SHADOW_DATABASE_URL: postgresql://clor_ci:clor_ci@localhost:5432/clor_shadow_check
+          # One shadow database per run: several runners share this Postgres.
+          SHADOW_DB: clor_shadow_${{ github.run_id }}_${{ github.run_attempt }}
+        # A run cancelled halfway leaves the shadow database behind on a runner that persists.
         run: |
-          createdb -h localhost -U clor_ci clor_shadow_check
-          node scripts/checkMigrationDrift.mjs
-          dropdb -h localhost -U clor_ci clor_shadow_check
+          dropdb --if-exists -U clor_ci "$SHADOW_DB"
+          createdb -U clor_ci "$SHADOW_DB"
+          SHADOW_DATABASE_URL="postgresql://clor_ci:clor_ci@localhost:5433/$SHADOW_DB" node scripts/checkMigrationDrift.mjs
+          dropdb -U clor_ci "$SHADOW_DB"
 
       - name: Lint
         run: npm run lint
@@ -92,8 +90,44 @@ jobs:
       - name: Route manifest gate
         run: node tenant-platform-upgrade-2026-10-23/scripts/inventory-routes.mjs --check
 
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build server
+        run: npm run build
+        working-directory: server
+
+  # The server suite, split three ways across the Mac's runners (docs/CI-ON-MAC.md):
+  # ~32 minutes as one job, ~11 as three side by side.
+  server-tests:
+    runs-on: [self-hosted, clor-mac]
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    env:
+      PGHOST: localhost
+      PGPORT: 5433
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install server deps
+        run: npm ci
+        working-directory: server
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+        working-directory: server
+
       - name: Server tests
-        run: npm test
+        # Each shard still runs its files one at a time (see vitest.config.ts) against
+        # a database of its own (clor_test_<pid>), so the shards cannot disturb each other.
+        run: npx vitest run --shard=${{ matrix.shard }}/3
         working-directory: server
         env:
           JWT_SECRET: ci-test-secret
@@ -109,19 +143,13 @@ jobs:
           #
           # globalSetup creates clor_app with this password, NOSUPERUSER and
           # NOBYPASSRLS, which is the arrangement production runs.
-          PGADMIN_URL: postgresql://clor_ci:clor_ci@localhost:5432/postgres
-          DATABASE_URL: postgresql://clor_app:clor_ci_app@localhost:5432/postgres
+          PGADMIN_URL: postgresql://clor_ci:clor_ci@localhost:5433/postgres
+          DATABASE_URL: postgresql://clor_app:clor_ci_app@localhost:5433/postgres
           CLOR_APP_ROLE: clor_app
           CLOR_APP_PASSWORD: clor_ci_app
 
-      - name: Build frontend
-        run: npm run build
 
-      - name: Build server
-        run: npm run build
-        working-directory: server
-
-  # Deploy runs only after verify passes, only on main, and never on a pull
+  # Deploy runs only after verify and the server tests pass, only on main, and never on a pull
   # request from a fork. A green build is the entry condition: the point of
   # this pipeline is that nothing reaches the server that did not pass the
   # tests first.
@@ -130,7 +158,7 @@ jobs:
   # Run, so it stays off unless the repository variable DEPLOY_VM_ENABLED is
   # set to 'true' (and the DEPLOY_* secrets exist).
   deploy:
-    needs: verify
+    needs: [verify, server-tests]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOY_VM_ENABLED == 'true'
     runs-on: ubuntu-latest
     concurrency:

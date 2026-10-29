@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Download, Plus } from 'lucide-react';
+import { Download, Plus } from '@ui/components/ui/lineIcons';
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
@@ -42,7 +42,7 @@ export default function Privacy() {
   const [auditorsKey, setAuditorsKey] = useState(0);
   return (
     <div className="space-y-6">
-      <PageHeader title="Privacy"
+      <PageHeader title="Privacy controls"
         actions={view === 'auditors' && allowed('PEOPLE::Privacy::EDIT') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setGiving(true)}><Plus size={16} aria-hidden="true" /> Give auditor access</button> : null} />
       <div ref={tabsRef} role="tablist" aria-label="Privacy" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
         {VIEWS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => setView(k)}>{l}</button>)}

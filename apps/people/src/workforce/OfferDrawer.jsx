@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from '@ui/components/ui/lineIcons';
 import Drawer from '@ui/components/ui/Drawer';
 import DatePicker from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
@@ -21,7 +21,7 @@ const TYPED = '__typed';
 export default function OfferDrawer({ employee, candidate, onClose, onSent }) {
   const target = employee || candidate;
   const [setup, setSetup] = useState(null);
-  const [form, setForm] = useState(() => ({
+  const [initial, setInitial] = useState(() => ({
     email: employee ? employee.personalEmail || employee.email || employee.workEmail || '' : candidate?.details?.email || '',
     designation: employee?.designation || '',
     joiningDate: employee?.dateOfJoining ? String(employee.dateOfJoining).slice(0, 10) : '',
@@ -32,12 +32,21 @@ export default function OfferDrawer({ employee, candidate, onClose, onSent }) {
     signatory: '',
     message: '',
   }));
+  const [form, setForm] = useState(initial);
+  /* Closing with something typed asks first: an offer half-written (pay
+     lines, signatory) is a lot to lose to a stray Escape. */
+  const dirty = JSON.stringify(form) !== JSON.stringify(initial);
   const [annexure, setAnnexure] = useState(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     offerSetup().then((s) => {
       setSetup(s);
-      if (s?.payrollOn && s.structures?.length) setForm((f) => ({ ...f, structureId: s.structures[0].id }));
+      if (s?.payrollOn && s.structures?.length) {
+        /* The default structure is ours, not the user's: move the baseline
+           with it so it alone does not count as an unsaved change. */
+        setForm((f) => ({ ...f, structureId: s.structures[0].id }));
+        setInitial((f) => ({ ...f, structureId: s.structures[0].id }));
+      }
     }).catch(() => setSetup({ payrollOn: false, structures: [] }));
   }, []);
   const typed = form.structureId === TYPED;
@@ -73,7 +82,7 @@ export default function OfferDrawer({ employee, candidate, onClose, onSent }) {
   };
   const structureOptions = [...(setup?.structures || []).map((s) => ({ value: s.id, label: s.name })), { value: TYPED, label: 'Type the monthly lines' }];
   return (
-    <Drawer open onClose={onClose} widthClass="w-[min(40rem,96vw)]" title={`Send an offer to ${target.name || target.title}`}
+    <Drawer open onClose={onClose} widthClass="w-[min(40rem,96vw)]" title={`Send an offer to ${target.name || target.title}`} dirty={dirty}
       footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="offer-form" className="ui-btn ui-btn-primary" disabled={busy}>{busy ? 'Sending…' : 'Send offer'}</button></>}>
       <form id="offer-form" onSubmit={send} className="grid gap-4">
         <div className="ui-form-grid">

@@ -129,12 +129,13 @@ export async function createOffer(actor: Actor, input: CreateInput) {
     emailOnFile = e.personalEmail || e.email || e.workEmail;
     values = await mergeValues(orgId, e.id);
   } else {
-    const c = await peoplePrisma.peopleRecord.findFirst({ where: { id: String(input.candidateId), accountId, orgId, kind: 'candidates' } });
+    /* Talent → Hiring (services/people/talent/hiring.ts): the candidate's own table. */
+    const c = await peoplePrisma.candidate.findFirst({ where: { id: String(input.candidateId), accountId, orgId, anonymisedAt: null } });
     if (!c) throw new OfferError('No such candidate.', 404);
-    if (c.employeeId || c.status === 'HIRED') throw new OfferError('This candidate is already hired. Make the offer to their employee record.', 409);
-    if (c.status === 'REJECTED') throw new OfferError('This candidate was turned down.', 409);
-    name = c.title;
-    emailOnFile = String((c.details as any)?.email || '') || null;
+    if (c.employeeId || c.stage === 'HIRED') throw new OfferError('This candidate is already hired. Make the offer to their employee record.', 409);
+    if (c.stage === 'REJECTED' || c.stage === 'WITHDRAWN') throw new OfferError('This candidate is no longer in the running.', 409);
+    name = c.name;
+    emailOnFile = c.email || null;
     values = Object.fromEntries(MERGE_FIELDS.map((k) => [k, ''])) as Record<string, string>;
     Object.assign(values, { name, orgName: org?.name || '', today: words(todayIst()) });
   }
@@ -168,8 +169,10 @@ export async function createOffer(actor: Actor, input: CreateInput) {
       documentId = doc.id;
       await writeChangeLog(tx, actor, { kind: 'Employee', id: String(input.employeeId), employeeId: String(input.employeeId) }, [{ field: 'offer', before: null, after: `offer sent to ${email}: ${designation}, CTC ${rupees(annualCtc)}, open until ${acceptBy}`, redacted: false }]);
     } else {
-      /* Sending an offer is what makes a candidate "offered". */
-      await tx.peopleRecord.updateMany({ where: { id: String(input.candidateId), orgId, status: { in: ['APPLIED', 'SHORTLISTED', 'INTERVIEW'] } }, data: { status: 'OFFERED', version: { increment: 1 }, updatedBy: actor.userId || 'system' } });
+      /* Sending an offer is what moves a candidate to Offer, on their timeline. */
+      const c = await tx.candidate.findFirst({ where: { id: String(input.candidateId), orgId }, select: { stage: true } });
+      if (c && ['APPLIED', 'SCREENING', 'INTERVIEW'].includes(c.stage)) await tx.candidate.update({ where: { id: String(input.candidateId) }, data: { stage: 'OFFER', stageAt: new Date() } });
+      await tx.candidateEvent.create({ data: { accountId, orgId, candidateId: String(input.candidateId), kind: 'OFFER', fromStage: c?.stage ?? null, toStage: 'OFFER', text: `Offer sent to ${email}: ${designation}, CTC ${rupees(annualCtc)}, open until ${acceptBy}`, byUserId: actor.userId } });
     }
     return tx.offer.create({ data: { accountId, orgId, ...target, name, email, designation, joiningDate, acceptBy, annualCtc, lines: lines as any, linesFrom: from, structureId, letterText: text, documentId, tokenHash: sha256(token), expiresAt, sentByUserId: actor.userId } });
   });
@@ -205,10 +208,10 @@ export async function offerView(o: { orgId: string; name: string; designation: s
   return { orgName: org?.name || '', name: o.name, designation: o.designation, acceptBy: o.acceptBy, letter: o.letterText, status: o.status === 'SENT' && o.expiresAt < new Date() ? 'EXPIRED' : o.status, acceptedAt: o.acceptedAt };
 }
 
-async function tellHr(o: { accountId: string; orgId: string; employeeId: string | null; name: string }, title: string, body: string) {
+async function tellHr(o: { accountId: string; orgId: string; employeeId: string | null; candidateId?: string | null; name: string }, title: string, body: string) {
   try {
     const hr = await usersWithPermission(o.accountId, o.orgId, 'PEOPLE::Lifecycle::EDIT');
-    await notifyUsers(o.accountId, o.orgId, hr, { kind: 'people.offer', title, body, link: (o.employeeId ? { app: 'people', screen: 'employees', params: { id: o.employeeId } } : { app: 'people', screen: 'candidates' }) as any });
+    await notifyUsers(o.accountId, o.orgId, hr, { kind: 'people.offer', title, body, link: (o.employeeId ? { app: 'people', screen: 'employees', params: { id: o.employeeId } } : { app: 'people', screen: 'candidates', params: { id: o.candidateId } }) as any });
   } catch (e) {
     console.error('[offers] tell HR:', e instanceof Error ? e.message : e);
   }
@@ -236,9 +239,12 @@ export async function acceptOffer(o: any, ip: string | null) {
       }
     }
   } else if (o.candidateId) {
-    const c = await peoplePrisma.peopleRecord.findFirst({ where: { id: o.candidateId, orgId: o.orgId } });
+    const c = await peoplePrisma.candidate.findFirst({ where: { id: o.candidateId, orgId: o.orgId } });
     if (c) {
-      await peoplePrisma.peopleRecord.update({ where: { id: c.id }, data: { status: c.status === 'HIRED' ? c.status : 'OFFERED', details: { ...((c.details as object) || {}), offerAcceptedOn: now.toISOString().slice(0, 10), offerId: o.id } as any, version: { increment: 1 } } });
+      await peoplePrisma.$transaction([
+        peoplePrisma.candidate.update({ where: { id: c.id }, data: { stage: c.stage === 'HIRED' ? c.stage : 'OFFER', offerAcceptedOn: now.toISOString().slice(0, 10) } }),
+        peoplePrisma.candidateEvent.create({ data: { accountId: o.accountId, orgId: o.orgId, candidateId: c.id, kind: 'OFFER', text: `Offer accepted${ip ? ` from ${ip.slice(0, 64)}` : ''}` } }),
+      ]);
       next = 'READY_TO_HIRE';
     }
   }

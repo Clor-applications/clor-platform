@@ -10,11 +10,16 @@ export const STATUS = {
 
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
-/** The status in words, never colour alone (WF-02 StatusPill). */
-export function StatusBadge({ employee }) {
+/**
+ * The status in words, never colour alone (WF-02 StatusPill). `quiet`, in a
+ * list where nearly everyone is Active: Active is plain grey words, so the
+ * pills that remain are the people who need a look.
+ */
+export function StatusBadge({ employee, quiet = false }) {
   /* Joining soon only stands in for Active: a suspended or departed joiner shows that instead. */
   const joining = employee?.status === 'ACTIVE' && employee?.dateOfJoining && String(employee.dateOfJoining).slice(0, 10) > todayIst();
   const s = joining ? { label: 'Joining soon', pill: 'ui-pill-outline' } : STATUS[employee?.status] || { label: employee?.status || 'Unknown', pill: 'ui-pill-neutral' };
+  if (quiet && !joining && employee?.status === 'ACTIVE') return <span className="ui-muted">{s.label}</span>;
   return <span className={`ui-pill ${s.pill}`}>{s.label}</span>;
 }
 

@@ -11,6 +11,7 @@ const { buildApp } = await import('../app.js');
 const { payrollPrisma } = await import('../utils/payrollPrisma.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { base32Encode, codeAt, stepNow, verifyCode } = await import('../services/totp.js');
+const { clearOfStepEdge } = await import('./totpTiming.js');
 
 const app = buildApp().listen(0);
 afterAll(async () => {
@@ -90,6 +91,7 @@ describe('step-up for payroll', () => {
     const { secret, uri } = (await sec(c, '/two-factor/setup').expect(200)).body;
     expect(uri).toContain(`secret=${secret}`);
     await sec(c, '/two-factor/enable', { code: '000000' }).expect(400);
+    await clearOfStepEdge();
     const s0 = stepNow();
     const enabled = (await sec(c, '/two-factor/enable', { code: codeAt(secret, s0) }).expect(200)).body;
     expect(enabled.recoveryCodes).toHaveLength(8);
@@ -111,6 +113,7 @@ describe('step-up for payroll', () => {
     const c = await makeOwner();
     await policy(c, true);
     const { secret } = (await sec(c, '/two-factor/setup').expect(200)).body;
+    await clearOfStepEdge();
     const { recoveryCodes } = (await sec(c, '/two-factor/enable', { code: codeAt(secret, stepNow()) }).expect(200)).body;
     const { token } = (await sec(c, '/step-up', { code: recoveryCodes[0] }).expect(200)).body;
     await sec(c, '/step-up', { code: recoveryCodes[0] }).expect(400);
@@ -119,6 +122,7 @@ describe('step-up for payroll', () => {
     const other = await makeOwner();
     await policy(other, true);
     const s2 = (await sec(other, '/two-factor/setup').expect(200)).body.secret;
+    await clearOfStepEdge();
     await sec(other, '/two-factor/enable', { code: codeAt(s2, stepNow()) }).expect(200);
     const run = await runInReview(other);
     expect((await run.approve({ 'x-step-up': token }).expect(403)).body.code).toBe('STEP_UP_REQUIRED');

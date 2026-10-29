@@ -1,0 +1,192 @@
+/* Org chart: the visual tree (OrgTreeChart.jsx). Tokens only. */
+
+.oc {
+  --oc-line: rgb(var(--fg-muted) / 0.32);
+  --oc-gap-y: 26px;
+  --oc-card-w: 220px;
+  --oc-stack-indent: 28px;
+  --oc-shadow: 0 0 0 1px rgb(24 24 27 / 0.05), 0 12px 40px -16px rgb(24 24 27 / 0.12);
+  --oc-shadow-hover: 0 0 0 1px rgb(24 24 27 / 0.08), 0 16px 44px -14px rgb(24 24 27 / 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+/* Toolbar: department legend on the left, view controls on the right. */
+.oc-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.25rem; }
+.oc-legend { display: flex; flex-wrap: wrap; gap: 0.375rem 1rem; margin: 0; padding: 0; list-style: none; }
+.oc-legend li { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.oc-legend i { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: rgb(var(--oc-ink)); }
+.oc-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-inline-start: auto; }
+.oc-zoom {
+  display: inline-flex; align-items: center; gap: 0.125rem; padding: 0.1875rem;
+  border-radius: 0.625rem; background: rgb(var(--surface)); box-shadow: var(--oc-shadow);
+}
+.oc-zoom-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem;
+  min-width: 1.875rem; height: 1.875rem; padding: 0 0.5rem; border-radius: 0.5rem;
+  font-size: 0.8125rem; font-weight: 500; color: rgb(var(--fg));
+}
+.oc-zoom-btn:hover:not(:disabled) { background: rgb(var(--surface-sunken)); }
+.oc-zoom-btn:disabled { color: rgb(var(--fg-muted) / 0.45); cursor: default; }
+.oc-zoom-btn:focus-visible { outline: 2px solid rgb(var(--sky-ink)); outline-offset: 1px; }
+.oc-zoom-value { min-width: 3rem; text-align: center; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.oc-zoom-fit { border-inline-start: 1px solid rgb(var(--border)); border-radius: 0 0.5rem 0.5rem 0; margin-inline-start: 0.125rem; }
+
+/* The frame scrolls; the page never does. */
+.oc-frame {
+  position: relative;
+  max-width: 100%;
+  min-height: 420px;
+  max-height: var(--oc-frame-h, calc(100vh - 250px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: 1rem;
+  background-color: rgb(var(--surface-sunken));
+  background-image: radial-gradient(rgb(var(--fg-muted) / 0.14) 1px, transparent 1px);
+  background-size: 20px 20px;
+  box-shadow: inset 0 0 0 1px rgb(var(--border));
+  cursor: grab;
+  user-select: none;
+}
+.oc-frame.is-dragging { cursor: grabbing; }
+.oc-sizer { margin: 0 auto; }
+.oc-canvas { width: max-content; padding: 36px 44px 56px; transform-origin: 0 0; transition: transform 160ms ease-out; }
+
+/* ---- Tree: rows of people, joined from above ---- */
+.oc-level { position: relative; display: flex; justify-content: center; margin: 0; padding: var(--oc-gap-y) 0 0; list-style: none; }
+.oc-roots { padding-top: 0; gap: 1.5rem; }
+.oc-node { position: relative; display: flex; flex-direction: column; align-items: center; padding: var(--oc-gap-y) 7px 0; }
+.oc-roots > .oc-node { padding-top: 0; }
+
+/* Each child draws its half of the bar above the row, and its drop. */
+.oc-level > .oc-node::before,
+.oc-level > .oc-node::after {
+  content: ''; position: absolute; top: 0; width: 50%; height: var(--oc-gap-y);
+  border-top: 1px solid var(--oc-line);
+}
+.oc-level > .oc-node::before { right: 50%; }
+.oc-level > .oc-node::after { left: 50%; border-left: 1px solid var(--oc-line); }
+.oc-level > .oc-node:first-child::before,
+.oc-level > .oc-node:last-child::after { border: 0 none; }
+.oc-level > .oc-node:last-child::before { border-right: 1px solid var(--oc-line); border-top-right-radius: 10px; }
+.oc-level > .oc-node:first-child::after { border-top-left-radius: 10px; }
+.oc-level > .oc-node:only-child::before { display: none; }
+.oc-level > .oc-node:only-child::after { border-top: 0 none; border-radius: 0; }
+.oc-roots > .oc-node::before,
+.oc-roots > .oc-node::after { display: none; }
+/* The drop from a manager down to their row. */
+.oc-node > .oc-level::before {
+  content: ''; position: absolute; top: 0; left: 50%; height: var(--oc-gap-y);
+  border-left: 1px solid var(--oc-line);
+}
+
+/* People who manage nobody: a column on a rail under their manager. */
+.oc-node.has-stack { align-items: stretch; }
+.oc-stack {
+  display: flex; flex-direction: column; gap: 10px;
+  margin: 0; padding: calc(var(--oc-gap-y) - 6px) 0 0 var(--oc-stack-indent); list-style: none;
+}
+.oc-stack > li { position: relative; }
+.oc-stack > li::before {
+  content: ''; position: absolute; left: -12px; top: -10px; width: 12px; height: calc(50% + 10px);
+  border-left: 1px solid var(--oc-line); border-bottom: 1px solid var(--oc-line); border-bottom-left-radius: 8px;
+}
+.oc-stack > li:first-child::before { top: calc(6px - var(--oc-gap-y)); height: calc(50% + var(--oc-gap-y) - 6px); }
+.oc-group-label { font-family: var(--font-display); font-size: 0.875rem; font-weight: 600; color: rgb(var(--fg)); align-self: flex-start; }
+.oc-node:has(> .oc-group-label) { align-items: stretch; }
+
+/* ---- Cards ---- */
+.oc-card, .oc-legend li {
+  --oc-soft: var(--surface-sunken);
+  --oc-ink: var(--fg-muted);
+}
+.oc [data-tone='sky'] { --oc-soft: var(--sky-soft); --oc-ink: var(--sky-ink); }
+.oc [data-tone='mint'] { --oc-soft: var(--mint-soft); --oc-ink: var(--mint-ink); }
+.oc [data-tone='lilac'] { --oc-soft: var(--lilac-soft); --oc-ink: var(--lilac-ink); }
+.oc [data-tone='peach'] { --oc-soft: var(--peach-soft); --oc-ink: var(--peach-ink); }
+.oc [data-tone='butter'] { --oc-soft: var(--butter-soft); --oc-ink: var(--butter-ink); }
+
+.oc-card {
+  position: relative;
+  width: var(--oc-card-w);
+  border-radius: 1rem;
+  background: rgb(var(--surface));
+  box-shadow: var(--oc-shadow);
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+.oc-card:hover { box-shadow: var(--oc-shadow-hover); }
+.oc-card-main {
+  display: flex; align-items: center; gap: 0.75rem; width: 100%;
+  padding: 0.875rem 0.875rem 1.125rem; border-radius: inherit; text-align: start; cursor: pointer;
+}
+.oc-card-main:focus-visible { outline: 2px solid rgb(var(--sky-ink)); outline-offset: 2px; }
+.oc-avatar {
+  display: inline-grid; place-items: center; flex: none;
+  width: 2.5rem; height: 2.5rem; border-radius: 999px; object-fit: cover;
+  background: rgb(var(--oc-soft)); color: rgb(var(--oc-ink));
+  font-size: 0.875rem; font-weight: 600; letter-spacing: 0.01em;
+}
+.oc-text { display: flex; flex-direction: column; min-width: 0; gap: 0.0625rem; }
+.oc-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.875rem; font-weight: 600; color: rgb(var(--fg)); }
+.oc-role { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78125rem; color: rgb(var(--fg-muted)); }
+.oc-dept { display: inline-flex; align-items: center; gap: 0.375rem; margin-top: 0.3125rem; font-size: 0.71875rem; font-weight: 500; color: rgb(var(--oc-ink)); }
+.oc-dept i { width: 0.4375rem; height: 0.4375rem; border-radius: 999px; background: rgb(var(--oc-ink)); }
+.oc-dotted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 0.125rem; font-size: 0.71875rem; color: rgb(var(--fg-muted)); font-style: italic; }
+
+.oc-card.is-compact { width: calc(var(--oc-card-w) - var(--oc-stack-indent)); }
+.oc-card.is-compact .oc-card-main { padding: 0.625rem 0.75rem; gap: 0.625rem; }
+.oc-card.is-compact .oc-avatar { width: 2rem; height: 2rem; font-size: 0.75rem; }
+.oc-card.is-seat { background: transparent; box-shadow: none; border: 1px dashed rgb(var(--fg-muted) / 0.4); }
+.oc-card.is-seat .oc-card-main { cursor: default; }
+.oc-roots > .oc-node > .oc-stack .oc-card.is-seat { width: var(--oc-card-w); }
+
+/* Show or hide the people under a manager. */
+.oc-count {
+  position: absolute; left: 50%; bottom: 0; z-index: 1;
+  display: inline-flex; align-items: center; gap: 0.1875rem;
+  height: 1.375rem; padding: 0 0.5rem; border-radius: 999px;
+  transform: translate(-50%, 50%);
+  background: rgb(var(--surface)); color: rgb(var(--fg-muted));
+  box-shadow: 0 0 0 1px rgb(var(--fg-muted) / 0.28);
+  font-size: 0.71875rem; font-weight: 600;
+}
+.oc-count:hover { background: rgb(var(--oc-soft)); color: rgb(var(--oc-ink)); box-shadow: 0 0 0 1px rgb(var(--oc-ink) / 0.35); }
+.oc-count:focus-visible { outline: 2px solid rgb(var(--sky-ink)); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .oc-canvas, .oc-card { transition: none; }
+}
+
+@media print {
+  .oc-frame { max-height: none; overflow: visible; background: none; box-shadow: none; }
+  .oc-canvas { transform: none !important; }
+  .oc-count { display: none; }
+}
+
+/* On a dark ground the soft shadow disappears; a hairline keeps each card an object. */
+:root[data-theme='dark'] .oc {
+  --oc-shadow: 0 0 0 1px rgb(var(--border)), 0 12px 40px -16px rgb(0 0 0 / 0.5);
+  --oc-shadow-hover: 0 0 0 1px rgb(var(--fg-muted) / 0.45), 0 16px 44px -14px rgb(0 0 0 / 0.6);
+}
+
+/* The chart takes the page (owner, 28 Oct 2026): the header, one row of
+   controls, then the chart down to the bottom of the window, full width. */
+.oc-page { display: flex; flex-direction: column; height: calc(100dvh - var(--platform-bar, 3.5rem) - 2.5rem); min-height: 30rem; }
+.oc-page > .oc { flex: 1; min-height: 0; }
+.oc-page .oc-stage { flex: 1; min-height: 0; display: flex; }
+.oc-page .oc-frame { flex: 1; min-height: 0; max-height: none; }
+.oc-lead { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.25rem; min-width: 0; }
+.oc-lead .ui-caption { margin: 0; }
+.oc-stage { position: relative; min-width: 0; }
+/* The legend floats in the chart's lower left on a frosted chip, out of the way of the cards. */
+.oc-legend-float {
+  position: absolute; left: 0.75rem; bottom: 0.75rem; z-index: 2; max-width: calc(100% - 1.5rem);
+  padding: 0.375rem 0.75rem; border-radius: 0.75rem;
+  background: rgb(var(--surface) / 0.86); backdrop-filter: blur(8px) saturate(160%);
+  box-shadow: var(--oc-shadow); pointer-events: none;
+}
+@media (prefers-reduced-transparency: reduce) { .oc-legend-float { background: rgb(var(--surface)); backdrop-filter: none; } }
+@media (max-width: 767px) { .oc-page { height: auto; } .oc-page .oc-stage { flex-direction: column; } .oc-page .oc-frame { min-height: 60vh; } .oc-legend-float { position: static; margin-bottom: 0.5rem; } }
+@media print { .oc-page { height: auto; display: block; } }

@@ -1,7 +1,7 @@
 import { peoplePrisma, peopleWrite } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { exclusive, leaseFor } from '../jobLease.js';
-import { usersWithPermission } from '../notifications.js';
+import { notifyUsers, usersWithPermission } from '../notifications.js';
 import { queueNotice, type DirectNotice } from './notices.js';
 import { resolveAccess } from '../access.js';
 import { isFeatureEnabled } from '../features.js';
@@ -11,6 +11,8 @@ import { leavePeriodOf } from './leaveBalances.js';
 import { today } from './days.js';
 import { teamScope } from '../people/scope.js';
 import { registerJob } from '../jobRegistry.js';
+import { addWorkingDays, REMIND_EVERY_WORKING_DAYS } from '../people/approvals/engine.js';
+import { deciders, stepsOf } from './leaveRules.js';
 
 /**
  * Leave automation that runs on its own (TIME-LEAVE-DECISIONS.md, advanced
@@ -35,7 +37,8 @@ export async function runLeaveHandOns(now = new Date()) {
     const chain: Chain = t.approval && (CHAINS as string[]).includes(t.approval) ? (t.approval as Chain) : company;
     if (chain === 'HR') continue;
     const cutoff = now.getTime() - t.handOnAfterDays! * DAY;
-    const open = await peoplePrisma.leaveRequest.findMany({ where: { orgId: t.orgId, leaveTypeId: t.id, status: 'PENDING', managerApprovedAt: null, createdAt: { lt: new Date(cutoff) } } });
+    /* A request under the leave rule follows its own step's due time (runLeaveRuleDues), not the type's hand-on. */
+    const open = await peoplePrisma.leaveRequest.findMany({ where: { orgId: t.orgId, leaveTypeId: t.id, status: 'PENDING', managerApprovedAt: null, ruleId: null, createdAt: { lt: new Date(cutoff) } } });
     /* The wait starts when the manager last got it: a change starts it over. */
     const stepStart = (r: { createdAt: Date; history: unknown }) => {
       const h = (Array.isArray(r.history) ? r.history : []) as Array<{ at?: string; what?: string }>;
@@ -47,7 +50,7 @@ export async function runLeaveHandOns(now = new Date()) {
       if (!(await activeManagerOf(t.orgId, r.employeeId))) continue;
       const history = [...((Array.isArray(r.history) ? r.history : []) as any[]), { at: now.toISOString(), by: 'system', what: 'HANDED_ON', note: `No decision from the manager in ${t.handOnAfterDays} days` }];
       /* The manager's step counts as taken by nobody: HR decides, and the story says so. */
-      /* Only while it still waits for the manager: a decision taken meanwhile is never written over (closure audit, 28 Oct 2026). */
+      /* Only while it still waits for the manager: a decision taken meanwhile is never written over (closure audit, 27 Oct 2026). */
       /* The hand-on and the notice to HR commit together (closure audit O-07). */
       const { tellWaiting } = await import('../../routes/leave.js');
       const claimed = await peopleWrite(t.orgId, async () => {
@@ -162,10 +165,65 @@ export async function lapseFor(accountId: string, orgId: string, employeeId: str
   return { year, end, total: Math.round(lines.reduce((a, l) => a + l.days, 0) * 100) / 100, lines };
 }
 
+/**
+ * Steps of the leave rule that are late (services/attendance/leaveRules.ts),
+ * as the approval engine treats its own: a reminder to whoever the step names
+ * first; then, a day on, handed on if the rule says so, or reminded again
+ * every three working days. One leave split at the period end is one request:
+ * its parts move together. A step that fails is logged and the rest go on.
+ */
+export async function runLeaveRuleDues(now = new Date()) {
+  const due = await peoplePrisma.leaveRequest.findMany({ where: { status: 'PENDING', ruleId: { not: null }, ruleStep: { not: null }, stepDueAt: { lt: now } }, orderBy: { fromDate: 'asc' } });
+  const seen = new Set<string>();
+  let reminded = 0;
+  let handedOn = 0;
+  for (const r of due) {
+    const key = r.groupId || r.id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    try {
+      const parts = r.groupId ? due.filter((x) => x.groupId === r.groupId) : [r];
+      const steps = await stepsOf(r.ruleId!);
+      const spec = steps.find((x) => x.order === r.ruleStep);
+      const type = await peoplePrisma.leaveType.findFirst({ where: { id: r.leaveTypeId, orgId: r.orgId }, select: { name: true, isPrivate: true } });
+      const person = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId: r.orgId }, select: { name: true } });
+      const what = `${type?.isPrivate ? 'leave' : type?.name || 'leave'} for ${person?.name || 'someone'}, ${r.fromDate}${parts[parts.length - 1].toDate !== r.fromDate ? ` to ${parts[parts.length - 1].toDate}` : ''}`;
+      const link = { app: (await isFeatureEnabled(r.accountId, r.orgId, 'people')) ? 'people' : 'attendance', screen: 'leaveRequests', params: { id: r.id } } as any;
+      const remind = async () => {
+        await peoplePrisma.leaveRequest.updateMany({ where: { id: { in: parts.map((x) => x.id) }, status: 'PENDING', ruleStep: r.ruleStep }, data: { stepRemindedAt: now } });
+        const users = r.stepUserIds.filter((u) => !u.startsWith('portal:'));
+        if (users.length) await notifyUsers(r.accountId, r.orgId, users, { kind: 'attendance.leave_asked', title: `Overdue: ${what}`, body: `Step ${r.ruleStep} was due ${r.stepDueAt!.toISOString().slice(0, 10)}.`, link });
+        reminded += 1;
+      };
+      if (!r.stepRemindedAt) { await remind(); continue; }
+      if (spec?.overdue?.action === 'HAND_ON' && spec.overdue.to && now.getTime() - r.stepRemindedAt.getTime() >= DAY) {
+        const days = Math.round(parts.reduce((a, x) => a + x.days, 0) * 100) / 100;
+        const users = await deciders(r.accountId, r.orgId, spec.overdue.to, { employeeId: r.employeeId, requestedByUserId: r.requestedByUserId, leaveTypeId: r.leaveTypeId, days }, now.toISOString().slice(0, 10));
+        if (!users.length) continue;
+        const { withHistory, tellWaiting } = await import('../../routes/leave.js');
+        await peopleWrite(r.orgId, async () => {
+          for (const x of parts) {
+            const moved = await peoplePrisma.leaveRequest.updateMany({ where: { id: x.id, status: 'PENDING', ruleStep: r.ruleStep, updatedAt: x.updatedAt }, data: { stepUserIds: users, stepDueAt: addWorkingDays(now, spec.dueDays), stepRemindedAt: null, history: withHistory(x, { by: 'system', what: 'STEP_HANDED_ON', note: `Step ${r.ruleStep} handed on: it was due ${r.stepDueAt!.toISOString().slice(0, 10)}` }) as any } });
+            if (!moved.count) return;
+          }
+          await tellWaiting(r.orgId, r.id);
+        });
+        handedOn += 1;
+        continue;
+      }
+      if (spec?.overdue?.action !== 'HAND_ON' && addWorkingDays(r.stepRemindedAt, REMIND_EVERY_WORKING_DAYS).getTime() <= now.getTime()) await remind();
+    } catch (e) {
+      console.error(`[leave-rule-dues] ${r.orgId}: request ${r.id}:`, e instanceof Error ? e.message : e);
+    }
+  }
+  return { due: seen.size, reminded, handedOn };
+}
+
 export function startLeaveJobs({ intervalMs = 3_600_000, startupDelayMs = 180_000 } = {}) {
   const tick = () =>
     exclusive('leave.automation', leaseFor(intervalMs), async () => {
       await runLeaveHandOns();
+      await runLeaveRuleDues();
       /* The digest goes out once, in the morning (IST), not every hour. */
       const hour = (new Date(Date.now() + 330 * 60_000).getUTCHours());
       if (hour >= 9 && hour < 11) {

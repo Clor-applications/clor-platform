@@ -47,6 +47,8 @@ export const toRule = (s: any): ShiftRule => ({
   overtimeAfterMinutes: s.overtimeAfterMinutes,
   weeklyOffDays: s.weeklyOffDays,
   offSaturdays: s.offSaturdays || '',
+  checkInBeforeMinutes: s.checkInBeforeMinutes ?? null,
+  checkOutAfterMinutes: s.checkOutAfterMinutes ?? null,
 });
 
 const dayNumber = (date: string) => Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10))) / 86_400_000;

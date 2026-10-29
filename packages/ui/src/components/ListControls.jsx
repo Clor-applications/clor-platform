@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Download, FileText, Table2 } from 'lucide-react';
+import { Download, FileText, Table2 } from '@ui/components/ui/lineIcons';
 
 import Popover from './ui/Popover';
 import { exportRows as exportCsvRows } from './ListToolbar';

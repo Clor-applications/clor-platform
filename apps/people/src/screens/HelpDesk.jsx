@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus } from '@ui/components/ui/lineIcons';
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
@@ -59,19 +59,24 @@ export default function HelpDesk({ params = {} }) {
     { key: 'resolve', label: 'Resolve by', render: (r) => <span className={`tabular-nums whitespace-nowrap ${late(r.resolveOverdue)}`}>{day(r.resolveBy)}{r.resolveOverdue ? ' (late)' : ''}</span> },
     { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ${STATUS[r.status]?.[1] || ''}`}>{STATUS[r.status]?.[0] || r.status}</span> },
   ];
+  /* A tab whose rows all share one status already says it; Open keeps the column while a reopened case sits among them. */
+  const rowsShown = data?.requests || [];
+  const oneStatus = status !== 'ALL' && rowsShown.length > 0 && rowsShown.every((r) => r.status === rowsShown[0].status);
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Help Desk' }]} title="Help Desk"
+      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Help desk' }]} title="Help desk"
         actions={canEdit ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setRaising(true)}><Plus size={16} aria-hidden="true" /> New request</button> : null} />
-      <div ref={tabsRef} role="tablist" aria-label="Requests" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={status === k} className={`ui-tab ${status === k ? 'is-active' : ''}`} onClick={() => setStatus(k)}>{l}</button>)}
-        {tabIndicator}
-      </div>
       {req.error && !data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
+          tabs={(
+            <div ref={tabsRef} role="tablist" aria-label="Requests" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+              {TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={status === k} className={`ui-tab ${status === k ? 'is-active' : ''}`} onClick={() => setStatus(k)}>{l}</button>)}
+              {tabIndicator}
+            </div>
+          )}
           label="Requests"
-          columns={columns}
+          columns={oneStatus ? columns.filter((c) => c.key !== 'status') : columns}
           rows={data?.requests || []}
           loading={req.loading}
           refreshing={req.refreshing}
@@ -109,16 +114,21 @@ function RaiseForm({ categories, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const dirty = Boolean(form.employeeId || form.subject || form.description);
+  /* Enter in a text field submits the form; pressed twice it lands before
+     the disabled button re-renders, so a ref (not state) stops the second save. */
+  const inFlight = useRef(false);
   const save = async () => {
+    if (inFlight.current) return;
     const missing = !form.employeeId ? 'Choose who it is for.' : !form.subject.trim() ? 'Give it a subject.' : form.description.trim().length < 5 ? 'Say what happened.' : null;
     if (missing) { setError({ message: missing }); return; }
+    inFlight.current = true;
     setSaving(true);
     setError(null);
     try {
       const r = await raiseDeskRequest({ ...form, subject: form.subject.trim(), description: form.description.trim() });
       notify.success('Raised; it is in the queue.');
       onSaved(r.request);
-    } catch (err) { setError(err); } finally { setSaving(false); }
+    } catch (err) { setError(err); } finally { inFlight.current = false; setSaving(false); }
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title="New request for someone" dirty={dirty}
@@ -170,7 +180,7 @@ function RequestDrawer({ id, canEdit, categories, onClose, onChanged }) {
     }, internal ? 'Note added. The employee does not see it.' : 'Sent to the employee.');
   };
   const move = async () => {
-    if (await confirmDialog({ title: 'Move to Private Cases?', message: 'The subject, the details and the thread are wiped here; only the date it moved stays. Open Private Cases to carry the details across first.', confirmLabel: 'Move' })) act(() => deskMoveToCase(id), 'Moved. Only the date stays here.');
+    if (await confirmDialog({ title: 'Move to Confidential cases?', message: 'The subject, the details and the thread are wiped here; only the date it moved stays. Open Confidential cases to carry the details across first.', confirmLabel: 'Move' })) act(() => deskMoveToCase(id), 'Moved. Only the date stays here.');
   };
   const live = r ? ['OPEN', 'REOPENED', 'WAITING_EMPLOYEE'].includes(r.status) : false;
   const catLabel = r ? categories.find((c) => c.key === r.category)?.label || r.category : '';
@@ -178,7 +188,7 @@ function RequestDrawer({ id, canEdit, categories, onClose, onChanged }) {
     <Drawer open onClose={onClose} title={r?.subject || 'Request'} widthClass="w-[min(44rem,96vw)] ui-drawer-sheet" dirty={Boolean(body.trim())}
       footer={r && canEdit && r.status !== 'MOVED' ? (
         <>
-          {live ? <button type="button" className="ui-btn ui-btn-ghost mr-auto" disabled={busy} onClick={move}>Move to Private Cases</button> : null}
+          {live ? <button type="button" className="ui-btn ui-btn-ghost mr-auto" disabled={busy} onClick={move}>Move to Confidential cases</button> : null}
           {r.status === 'RESOLVED' ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => act(() => deskReopen(id), 'Reopened.')}>Reopen</button> : null}
           {live ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={() => setResolving(true)}>Resolve</button> : null}
         </>
@@ -200,7 +210,7 @@ function RequestDrawer({ id, canEdit, categories, onClose, onChanged }) {
                 options={[...new Set([...categories.map((c) => c.queue), r.queue])].map((x) => ({ value: x, label: x }))} /></div>
             </div>
           ) : null}
-          {r.status === 'MOVED' ? <p className="ui-muted text-sm">Moved to Private Cases on {day(r.movedToCaseAt)}. Nothing else is kept here.</p> : (
+          {r.status === 'MOVED' ? <p className="ui-muted text-sm">Moved to Confidential cases on {day(r.movedToCaseAt)}. Nothing else is kept here.</p> : (
             <>
               <section aria-label="What they said" className="text-sm space-y-1">
                 <p className="whitespace-pre-wrap">{r.description}</p>

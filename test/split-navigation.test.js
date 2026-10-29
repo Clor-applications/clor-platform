@@ -43,7 +43,7 @@ describe('Attendance navigation structure', () => {
       ['Daily Operations', ['Attendance Records', 'Punches', 'Exceptions', 'Attendance Requests']],
       ['Scheduling', ['Schedule Calendar', 'Shifts', 'Shift Assignments', 'Department Schedules', 'Temporary Schedules', 'Shift Rotations']],
       /* Time & Leave: the screens People shows, shared (TIME-LEAVE-DECISIONS.md). */
-      ['Leave', ['Leave Overview', 'Leave Requests', 'Leave Calendar', 'Leave Balances', 'Leave Register', 'Stand-Ins']],
+      ['Leave', ["Who's Away", 'Leave Requests', 'Leave Calendar', 'Leave Balances', 'Leave Register', 'Delegates']],
       ['Time Management', ['Overtime & Comp-Off']],
       ['Period Closing', ['Payroll Readiness', 'Employee Confirmations', 'Month Close']],
     ]);
@@ -57,7 +57,7 @@ describe('Attendance navigation structure', () => {
     ]);
     expect(s.Settings).toEqual([
       ['Organization', ['Attendance Setup', 'Punch Areas', 'Punch Area Check', 'Joining & Leaving Steps']],
-      ['Work Policy', ['Attendance Policy', 'Weekly Off Policy', 'Overtime Policy', 'Leave Policy', 'Working Week', 'Holidays', 'Leave Year End', 'Request Rules']],
+      ['Work Policy', ['Attendance Policy', 'Weekly Off Policy', 'Overtime Policy', 'Leave Policy', 'Working Week', 'Holidays', 'Leave Year End', 'Attendance Request Types']],
       ['Integrations', ['Integrations']],
       ['Access & Security', ['Users & Security', 'Roles & Access']],
       ['Data Management', ['Data Health', 'Import Data', 'Export Data', 'Close Company']],

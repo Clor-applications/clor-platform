@@ -59,6 +59,7 @@ export { default as LeaveRegister } from '@ui/timeOff/LeaveRegister';
 export { default as TeamAttendance } from '@ui/timeOff/TeamAttendance';
 export { default as LeaveYearEnd } from '@ui/timeOff/YearEnd';
 export { default as StandIns } from '@ui/timeOff/StandIns';
+export { default as LeaveBlocks } from '@ui/timeOff/LeaveBlocks';
 export { default as MyDays } from '@ui/timeOff/MyDays';
 /* Attendance requests of four kinds (missed punch, work from home, on duty, permission) and their rules. */
 export { default as AttendanceRequests } from '@ui/timeOff/AttendanceRequests';

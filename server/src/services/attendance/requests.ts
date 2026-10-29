@@ -4,6 +4,9 @@ import { peoplePrisma, peopleWrite, afterPeopleCommit } from '../../utils/people
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { ISO_DATE, closedMonthRefusal, daysBetween, employeeIn, fail, instants, isHoliday, shiftFor, today, withNames, writeDay } from './days.js';
 import { isHHMM, isOvernight, isWeeklyOff } from './compute.js';
+import { loadSchedule, resolveShift } from './schedule.js';
+import { assertScheduleOpen } from './scheduleGuard.js';
+import { recomputeDeviceDay } from './punches.js';
 import { nightShiftsOn, timesOn } from './nightShift.js';
 import { CHAINS, activeManagerOf, chainFor, type Chain } from './approvalChain.js';
 import { deciderFor, managerStepBy, standingInFor } from './standIns.js';
@@ -24,15 +27,18 @@ import { isFeatureEnabled } from '../features.js';
  * has a monthly quota and a back-date window in Settings → Request rules;
  * the employee app shows used and left. One queue for HR and for managers.
  */
-export const KINDS = ['MISSED_PUNCH', 'WFH', 'ON_DUTY', 'PERMISSION'] as const;
+export const KINDS = ['MISSED_PUNCH', 'WFH', 'ON_DUTY', 'PERMISSION', 'SHIFT_CHANGE'] as const;
 export type Kind = (typeof KINDS)[number];
 export const KIND_WORDS: Record<Kind, { name: string; unit: string }> = {
   MISSED_PUNCH: { name: 'Missed punch', unit: 'missed-punch requests' },
   WFH: { name: 'Work from home', unit: 'work-from-home days' },
   ON_DUTY: { name: 'On duty', unit: 'on-duty days' },
   PERMISSION: { name: 'Permission', unit: 'permission hours' },
+  SHIFT_CHANGE: { name: 'Shift change', unit: 'shift-change days' },
 };
 const MAX_SPAN_DAYS = 14;
+/* A shift change is often for a month (a night rotation, a project): up to 31 days in one request. */
+const MAX_SHIFT_DAYS = 31;
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export type Rule = { on: boolean; quotaPerMonth: number | null; hoursPerMonth: number | null; maxMinutes: number; backDays: number; approval: Chain | null };
@@ -42,6 +48,8 @@ export const DEFAULT_RULES: Record<Kind, Rule> = {
   WFH: { on: false, quotaPerMonth: 4, hoursPerMonth: null, maxMinutes: 0, backDays: 7, approval: null },
   ON_DUTY: { on: false, quotaPerMonth: null, hoursPerMonth: null, maxMinutes: 0, backDays: 7, approval: null },
   PERMISSION: { on: false, quotaPerMonth: null, hoursPerMonth: 4, maxMinutes: 120, backDays: 7, approval: null },
+  /* Days still to come: a shift is planned, not corrected after the fact (HR entering it may go back). */
+  SHIFT_CHANGE: { on: false, quotaPerMonth: null, hoursPerMonth: null, maxMinutes: 0, backDays: 0, approval: null },
 };
 
 const ruleSchema = z.object({
@@ -52,7 +60,7 @@ const ruleSchema = z.object({
   backDays: z.coerce.number().int().min(0).max(366).optional(),
   approval: z.enum(CHAINS as [Chain, ...Chain[]]).nullable().optional(),
 });
-export const rulesSchema = z.object({ MISSED_PUNCH: ruleSchema, WFH: ruleSchema, ON_DUTY: ruleSchema, PERMISSION: ruleSchema }).partial();
+export const rulesSchema = z.object({ MISSED_PUNCH: ruleSchema, WFH: ruleSchema, ON_DUTY: ruleSchema, PERMISSION: ruleSchema, SHIFT_CHANGE: ruleSchema }).partial();
 
 /** The company's request rules: what is saved over the defaults, kind by kind. */
 export async function rulesFor(orgId: string): Promise<Record<Kind, Rule>> {
@@ -68,6 +76,12 @@ export async function saveRules(accountId: string, orgId: string, userId: string
   const next = Object.fromEntries(KINDS.map((k) => [k, { ...current[k], ...(parsed.data[k] || {}) }])) as Record<Kind, Rule>;
   await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, requestRules: next, updatedByUserId: userId }, update: { requestRules: next, updatedByUserId: userId } });
   return next;
+}
+
+/** The shifts a person may ask to change to: every shift in use, with its hours (for the shift change form); none while shift changes are off. */
+export async function shiftChoices(orgId: string, rules?: Record<Kind, Rule>) {
+  if (!(rules || (await rulesFor(orgId))).SHIFT_CHANGE.on) return [];
+  return peoplePrisma.shift.findMany({ where: { orgId, isActive: true }, select: { id: true, name: true, startTime: true, endTime: true }, orderBy: { name: 'asc' } });
 }
 
 export const chainOf = async (orgId: string, kind: Kind, rules?: Record<Kind, Rule>): Promise<Chain> => (rules || (await rulesFor(orgId)))[kind].approval || chainFor(orgId, 'correction');
@@ -125,6 +139,8 @@ export async function requestAudit(who: { accountId: string; orgId: string; user
 async function amountOf(orgId: string, employee: Employee, r: { kind: string; date: string; toDate: string | null; halfDay: string | null; minutes: number | null }, month: string) {
   if (r.kind === 'MISSED_PUNCH') return 1;
   if (r.kind === 'PERMISSION') return (r.minutes || 0) / 60;
+  /* A shift change counts every day it covers: the new shift has its own days off. */
+  if (r.kind === 'SHIFT_CHANGE') return daysBetween(r.date, r.toDate || r.date).filter((d) => d.slice(0, 7) === month).length;
   if (r.halfDay) return 0.5;
   const dates = daysBetween(r.date, r.toDate || r.date).filter((d) => d.slice(0, 7) === month);
   return (await workingDates(orgId, employee, dates)).length;
@@ -164,6 +180,7 @@ const askSchema = z.object({
   toDate: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.').optional().nullable(),
   halfDay: z.enum(['FIRST', 'SECOND']).optional().nullable(),
   place: z.string().trim().max(120).optional().nullable(),
+  shiftId: z.string().trim().max(60).optional().nullable(),
   checkIn: z.string().refine(isHHMM, 'Times are HH:MM, 24-hour.').optional().nullable(),
   checkOut: z.string().refine(isHHMM, 'Times are HH:MM, 24-hour.').optional().nullable(),
   reason: z.string().trim().min(3, 'Say why.').max(500),
@@ -206,6 +223,20 @@ async function validate(who: Asker, employee: Employee, b: Ask, rules: Record<Ki
     if (b.halfDay && toDate !== b.date) throw fail(400, 'A half day is one day; give one date.');
     if (kind === 'ON_DUTY' && !b.place) throw fail(400, 'Where will you be? Give the place.');
   }
+  let shiftId: string | null = null;
+  if (kind === 'SHIFT_CHANGE') {
+    toDate = b.toDate || b.date;
+    if (toDate < b.date) throw fail(400, 'The end is before the start.');
+    if (daysBetween(b.date, toDate).length > MAX_SHIFT_DAYS) throw fail(400, `Up to ${MAX_SHIFT_DAYS} days in one request.`);
+    if (!b.shiftId) throw fail(400, 'Choose the shift you want to work.');
+    const shift = await peoplePrisma.shift.findFirst({ where: { id: b.shiftId, orgId: who.orgId, isActive: true }, select: { id: true, name: true } });
+    if (!shift) throw fail(400, 'That shift is not in use in this company.');
+    /* Asking for the shift already worked on every one of those days changes nothing. */
+    const schedule = await loadSchedule(who.orgId, [employee.id]);
+    const differs = daysBetween(b.date, toDate).some((d) => resolveShift(schedule, employee.id, d).shiftId !== shift.id);
+    if (!differs) throw fail(400, `${shift.name} is already the shift on those days.`, 'SAME_SHIFT');
+    shiftId = shift.id;
+  }
   if (kind === 'PERMISSION') {
     if (!b.checkIn || !b.checkOut) throw fail(400, 'Give the hours: from and to, HH:MM.');
     ({ checkIn, checkOut } = await at(b.checkIn, b.checkOut));
@@ -224,6 +255,9 @@ async function validate(who: Asker, employee: Employee, b: Ask, rules: Record<Ki
       where: { orgId: who.orgId, employeeId: employee.id, kind, status: { in: ['PENDING', 'APPROVED'] }, date: { lte: last }, ...(existing ? { id: { not: existing.id } } : {}), OR: [{ toDate: null, date: { gte: b.date } }, { toDate: { gte: b.date } }] },
     });
     if (open) throw fail(409, `You already have a ${name.toLowerCase()} request for ${spanWords(open)}.`, 'OVERLAP');
+  }
+  /* Leave on a day does not stop the shift changing around it; it stops work from home or on duty. */
+  if (kind !== 'MISSED_PUNCH' && kind !== 'SHIFT_CHANGE') {
     const leave = await peoplePrisma.leaveRequest.findFirst({ where: { orgId: who.orgId, employeeId: employee.id, status: 'APPROVED', fromDate: { lte: last }, toDate: { gte: b.date } }, select: { fromDate: true, toDate: true } });
     if (leave) throw fail(409, `There is approved leave on ${leave.fromDate === leave.toDate ? dayWords(leave.fromDate) : `${dayWords(leave.fromDate)} to ${dayWords(leave.toDate)}`}; cancel the leave first.`, 'ON_LEAVE');
   }
@@ -234,11 +268,12 @@ async function validate(who: Asker, employee: Employee, b: Ask, rules: Record<Ki
     need = b.halfDay ? 0.5 : working.length;
   }
   if (kind === 'PERMISSION') need = (minutes || 0) / 60;
+  if (kind === 'SHIFT_CHANGE') need = daysBetween(b.date, last).length;
   /* A span over a month end is checked against each month's quota, with the days that fall in it. */
-  const spanDays = kind === 'WFH' || kind === 'ON_DUTY' ? await workingDates(who.orgId, employee, daysBetween(b.date, last)) : [];
+  const spanDays = kind === 'WFH' || kind === 'ON_DUTY' ? await workingDates(who.orgId, employee, daysBetween(b.date, last)) : kind === 'SHIFT_CHANGE' ? daysBetween(b.date, last) : [];
   const months = [...new Set((spanDays.length ? spanDays : [b.date]).map((d) => d.slice(0, 7)))];
   for (const month of months) {
-    const needHere = kind === 'WFH' || kind === 'ON_DUTY' ? (b.halfDay ? 0.5 : spanDays.filter((d) => d.slice(0, 7) === month).length) : need;
+    const needHere = kind === 'WFH' || kind === 'ON_DUTY' || kind === 'SHIFT_CHANGE' ? (b.halfDay && kind !== 'SHIFT_CHANGE' ? 0.5 : spanDays.filter((d) => d.slice(0, 7) === month).length) : need;
     if (!needHere) continue;
     const u = await usage(who.orgId, employee.id, kind, month, { except: existing?.id, rules });
     if (u.quota == null) continue;
@@ -247,7 +282,8 @@ async function validate(who: Asker, employee: Employee, b: Ask, rules: Record<Ki
     if (needHere > u.left!) throw fail(409, `Only ${u.left} of your ${u.quota} ${unit} ${u.left === 1 ? 'is' : 'are'} left for ${monthWords(u.month)}.`, 'QUOTA');
   }
   return {
-    kind, date: b.date, toDate: kind === 'WFH' || kind === 'ON_DUTY' ? (toDate === b.date ? null : toDate) : null,
+    kind, date: b.date, toDate: kind === 'WFH' || kind === 'ON_DUTY' || kind === 'SHIFT_CHANGE' ? (toDate === b.date ? null : toDate) : null,
+    shiftId,
     halfDay: kind === 'WFH' || kind === 'ON_DUTY' ? b.halfDay || null : null,
     place: kind === 'ON_DUTY' ? b.place || null : null,
     minutes, checkIn, checkOut, reason: b.reason, reasonCode: kind === 'MISSED_PUNCH' ? b.reasonCode ?? null : null,
@@ -264,12 +300,18 @@ const parseAsk = (body: unknown, kind?: Kind) => {
 export async function askRequest(who: Asker, employee: Employee, body: unknown) {
   const b = parseAsk(body);
   const rules = await rulesFor(who.orgId);
-  const v = await validate(who, employee, b, rules, null);
-  /* The day as it stands now, so whoever reviews sees what would change. */
-  const current = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: employee.id, date: b.date } } });
-  const { span: _span, ...data } = v;
-  /* The request and its notice commit together (closure audit O-07). */
+  /*
+   * The request and its notice commit together (closure audit O-07), and the
+   * overlap and monthly-quota checks run under the same lock as the insert,
+   * as createLeave does: checked outside it, a double tap passed both checks
+   * twice and saved two requests, or went past the month's quota.
+   */
+  let v!: Awaited<ReturnType<typeof validate>>;
   const row = await peopleWrite(who.orgId, async () => {
+    v = await validate(who, employee, b, rules, null);
+    /* The day as it stands now, so whoever reviews sees what would change. */
+    const current = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: employee.id, date: b.date } } });
+    const { span: _span, ...data } = v;
     const created = await peoplePrisma.attendanceRequest.create({
       data: {
         accountId: who.accountId, orgId: who.orgId, employeeId: employee.id, ...data,
@@ -286,21 +328,28 @@ export async function askRequest(who: Asker, employee: Employee, body: unknown) 
 }
 
 /** Change a waiting request; the manager's step, if taken, is reset so they see the new dates. */
-export async function editRequest(who: Asker, r: any, body: unknown) {
-  if (r.status !== 'PENDING') throw fail(409, 'Only a waiting request can be changed.');
-  const employee = await employeeIn(who.orgId, who.accountId, r.employeeId);
-  const b = parseAsk({ ...(body && typeof body === 'object' ? body : {}), reasonCode: (body as any)?.reasonCode === undefined ? r.reasonCode : (body as any).reasonCode }, r.kind as Kind);
+export async function editRequest(who: Asker, asRead: any, body: unknown) {
+  if (asRead.status !== 'PENDING') throw fail(409, 'Only a waiting request can be changed.');
+  const employee = await employeeIn(who.orgId, who.accountId, asRead.employeeId);
+  const b = parseAsk({ ...(body && typeof body === 'object' ? body : {}), reasonCode: (body as any)?.reasonCode === undefined ? asRead.reasonCode : (body as any).reasonCode }, asRead.kind as Kind);
   const rules = await rulesFor(who.orgId);
-  const v = await validate(who, employee, b, rules, r);
-  const { span: _span, ...data } = v;
-  const fields = ['date', 'toDate', 'halfDay', 'place', 'minutes', 'checkIn', 'checkOut', 'reason', 'reasonCode'] as const;
-  const changed = fields.filter((k) => String((data as any)[k] instanceof Date ? (data as any)[k].getTime() : (data as any)[k] ?? '') !== String(r[k] instanceof Date ? r[k].getTime() : r[k] ?? ''));
-  if (!changed.length) return r;
-  const from = Object.fromEntries(changed.map((k) => [k, r[k]]));
-  const to = Object.fromEntries(changed.map((k) => [k, (data as any)[k]]));
-  /* Only the reason: nothing the approver decides on moved, so the manager's step stands and nobody is asked again (closure audit O-07). */
-  const reasonOnly = changed.every((k) => k === 'reason');
+  const fields = ['date', 'toDate', 'halfDay', 'place', 'shiftId', 'minutes', 'checkIn', 'checkOut', 'reason', 'reasonCode'] as const;
+  /* Checked under the lock with the write, as askRequest: two edits at once cannot both pass the overlap or quota check. */
+  let r: any = asRead;
+  let changed: Array<(typeof fields)[number]> = [];
+  let from: Record<string, unknown> = {};
+  let to: Record<string, unknown> = {};
   const row = await peopleWrite(who.orgId, async () => {
+    r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: asRead.id, orgId: who.orgId } });
+    if (!r || r.status !== 'PENDING') throw fail(409, 'Only a waiting request can be changed.');
+    const v = await validate(who, employee, b, rules, r);
+    const { span: _span, ...data } = v;
+    changed = fields.filter((k) => String((data as any)[k] instanceof Date ? (data as any)[k].getTime() : (data as any)[k] ?? '') !== String(r[k] instanceof Date ? r[k].getTime() : r[k] ?? ''));
+    if (!changed.length) return null;
+    from = Object.fromEntries(changed.map((k) => [k, r[k]]));
+    to = Object.fromEntries(changed.map((k) => [k, (data as any)[k]]));
+    /* Only the reason: nothing the approver decides on moved, so the manager's step stands and nobody is asked again (closure audit O-07). */
+    const reasonOnly = changed.every((k) => k === 'reason');
     const updated = await peoplePrisma.attendanceRequest.update({
       where: { id: r.id },
       data: reasonOnly
@@ -311,6 +360,7 @@ export async function editRequest(who: Asker, r: any, body: unknown) {
     if (!reasonOnly && r.managerApprovedAt) await queueRequestNotice(updated);
     return updated;
   });
+  if (!row) return r;
   await requestAudit(who, { entityId: r.id, action: 'UPDATE', message: `${KIND_WORDS[r.kind as Kind].name} request for ${employee.name} changed: ${changed.join(', ')}`, metadata: { employeeId: r.employeeId, from, to } });
   return row;
 }
@@ -329,7 +379,7 @@ export type Decider = { userId: string; /** The employee file of whoever decides
  */
 export async function decideRequest(accountId: string, orgId: string, r: any, approve: boolean, by: Decider, note: string | null): Promise<{ request: any; stage?: 'HR' }> {
   if (r.status !== 'PENDING') throw fail(409, `This request was already ${String(r.status).toLowerCase()}.`);
-  /* Nobody decides their own request: not HR, not the owner, not a manager or stand-in (closure audit, 28 Oct 2026). */
+  /* Nobody decides their own request: not HR, not the owner, not a manager or stand-in (closure audit, 27 Oct 2026). */
   const subject = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { userId: true } });
   const ownByLogin = Boolean(subject?.userId && subject.userId === by.userId);
   if ((by.managerId && by.managerId === r.employeeId && !ownByLogin) || (ownByLogin && !(await selfDecisionAllowed(accountId, orgId, by.userId, 'ATTENDANCE::Attendance Requests::APPROVE')).allowed)) {
@@ -364,6 +414,12 @@ export async function decideRequest(accountId: string, orgId: string, r: any, ap
     const samePerson = Boolean(firstBy && ((by.managerId && by.managerId === firstBy.id) || (firstBy.userId && firstBy.userId === by.userId)));
     if (samePerson || !by.scopeAll) throw fail(403, 'HR approves after the manager; the manager cannot take both steps.', 'HR_STEP');
   }
+  /* Once the manager has passed it to HR, it is HR's to decide either way: not the manager's again, nor a team-scoped approver's (as leave, routes/leave.ts reviewLeave). */
+  if (!approve && chain === 'MANAGER_THEN_HR' && r.managerApprovedAt) {
+    const firstBy = r.managerApprovedById ? await peoplePrisma.employee.findFirst({ where: { id: r.managerApprovedById, orgId }, select: { id: true, userId: true } }) : null;
+    const samePerson = Boolean(firstBy && ((by.managerId && by.managerId === firstBy.id) || (firstBy.userId && firstBy.userId === by.userId)));
+    if (samePerson || !by.scopeAll) throw fail(403, 'The manager has passed this to HR; HR decides it now.', 'HR_STEP');
+  }
   /* A refusal says why: the person reads it in the employee app. Corrections keep their old manners. */
   if (!approve && kind !== 'MISSED_PUNCH' && !note) throw fail(400, 'Say why. They see this with the decision.');
   const history = pushHistory(r.history, { by: by.userId, what: approve ? 'APPROVED' : 'REJECTED', note });
@@ -371,7 +427,7 @@ export async function decideRequest(accountId: string, orgId: string, r: any, ap
    * One transaction for every kind, claimed by status: the decision, the day
    * it writes and the history line commit together or not at all, and two
    * people deciding at once cannot both write the day (closure audit,
-   * 28 Oct 2026: a missed punch was three separate writes with no claim).
+   * 27 Oct 2026: a missed punch was three separate writes with no claim).
    */
   const row = await peopleWrite(orgId, async () => {
     const changed = await peoplePrisma.attendanceRequest.updateMany({ where: { id: r.id, status: 'PENDING' }, data: { status: approve ? 'APPROVED' : 'REJECTED', reviewedByUserId: by.userId, reviewedAt: new Date(), reviewNote: note, history } });
@@ -391,9 +447,38 @@ export async function decideRequest(accountId: string, orgId: string, r: any, ap
   return { request: row };
 }
 
-/** What an approved WFH, on duty or permission does to the days. */
+/**
+ * Days already gone, scored again on the schedule as it is now: those from
+ * readers and the clock; days someone decided by hand stay as they are (as
+ * Scheduling's recompute does). Days still to come are worked out as they come.
+ */
+async function rescoreDays(accountId: string, orgId: string, employeeId: string, from: string, to: string, userId: string) {
+  const until = to < today() ? to : today();
+  if (from > until) return;
+  const employee = await employeeIn(orgId, accountId, employeeId);
+  const records = await peoplePrisma.attendanceRecord.findMany({ where: { orgId, employeeId, date: { gte: from, lte: until }, source: { in: ['DEVICE', 'CLOCK'] } } });
+  for (const d of records) {
+    if (d.source === 'DEVICE') await recomputeDeviceDay(accountId, orgId, employee, d.date);
+    else await writeDay({ accountId, orgId, userId, employee, date: d.date, checkIn: d.checkIn, checkOut: d.checkOut, source: 'CLOCK' });
+  }
+}
+
+/** An approved shift change: a temporary schedule for its days, which wins over every other schedule, and the days already gone scored on it. */
+async function applyShiftChange(accountId: string, orgId: string, r: any, userId: string) {
+  const last = r.toDate || r.date;
+  const shift = r.shiftId ? await peoplePrisma.shift.findFirst({ where: { id: r.shiftId, orgId, isActive: true }, select: { id: true } }) : null;
+  if (!shift) throw fail(409, 'That shift is no longer in use; ask for another.', 'SHIFT_GONE');
+  /* Its days may not be in a closed month (O-05), as any schedule's. */
+  await assertScheduleOpen(orgId, [{ from: r.date, to: last }]);
+  const schedule = await peoplePrisma.temporarySchedule.create({ data: { accountId, orgId, employeeId: r.employeeId, shiftId: shift.id, fromDate: r.date, toDate: last, reason: `Shift change approved: ${r.reason}`.slice(0, 200), createdByUserId: userId } });
+  await peoplePrisma.attendanceRequest.update({ where: { id: r.id }, data: { temporaryScheduleId: schedule.id } });
+  await rescoreDays(accountId, orgId, r.employeeId, r.date, last, userId);
+}
+
+/** What an approved WFH, on duty, permission or shift change does to the days. */
 async function applyApproved(accountId: string, orgId: string, r: any, userId: string, note: string | null) {
   const kind = r.kind as Kind;
+  if (kind === 'SHIFT_CHANGE') return applyShiftChange(accountId, orgId, r, userId);
   const employee = await employeeIn(orgId, accountId, r.employeeId);
   const last = r.toDate || r.date;
   const leave = await peoplePrisma.leaveRequest.findFirst({ where: { orgId, employeeId: r.employeeId, status: 'APPROVED', fromDate: { lte: last }, toDate: { gte: r.date } }, select: { fromDate: true } });
@@ -435,7 +520,12 @@ export async function cancelRequest(accountId: string, orgId: string, r: any, by
       data: { status: 'CANCELLED', reviewedByUserId: by.userId, reviewedAt: new Date(), reviewNote: note || (own ? 'Withdrawn by the employee.' : 'Cancelled by HR.'), history: pushHistory(r.history, { by: by.userId, what: 'CANCELLED', note }) },
     });
     if (!changed.count) throw fail(409, 'This request was already decided.');
-    if (r.status === 'APPROVED') {
+    /* A cancelled shift change takes its schedule away; the days go back to the shift they had. */
+    if (r.status === 'APPROVED' && kind === 'SHIFT_CHANGE') {
+      await assertScheduleOpen(orgId, [{ from: r.date, to: r.toDate || r.date }]);
+      if (r.temporaryScheduleId) await peoplePrisma.temporarySchedule.deleteMany({ where: { id: r.temporaryScheduleId, orgId } });
+      await rescoreDays(accountId, orgId, r.employeeId, r.date, r.toDate || r.date, by.userId);
+    } else if (r.status === 'APPROVED') {
       const employee = await employeeIn(orgId, accountId, r.employeeId);
       const days = await peoplePrisma.attendanceRecord.findMany({ where: { orgId, employeeId: r.employeeId, attendanceRequestId: r.id } });
       for (const d of days) {
@@ -482,7 +572,7 @@ const linkFor = async (accountId: string, orgId: string, screen: string, params?
 /** What a request notice needs of the request, as it is now. */
 const requestSnapshot = (r: any) => ({
   id: r.id, accountId: r.accountId, employeeId: r.employeeId, kind: r.kind, status: r.status,
-  date: r.date, toDate: r.toDate ?? null, halfDay: r.halfDay ?? null, place: r.place ?? null, minutes: r.minutes ?? null,
+  date: r.date, toDate: r.toDate ?? null, halfDay: r.halfDay ?? null, place: r.place ?? null, minutes: r.minutes ?? null, shiftId: r.shiftId ?? null,
   managerApprovedAt: r.managerApprovedAt ?? null, managerApprovedById: r.managerApprovedById ?? null,
   requestedByUserId: r.requestedByUserId ?? null, reviewedByUserId: r.reviewedByUserId ?? null, reviewNote: r.reviewNote ?? null,
 });
@@ -508,7 +598,8 @@ async function tellAsked(orgId: string, r: any, rev: number) {
   const what = KIND_WORDS[kind].name.toLowerCase();
   const when = spanWords(r);
   const link = await linkFor(emp.accountId, orgId, 'attendanceRequests', { id: r.id });
-  const body = kind === 'PERMISSION' ? hoursWords(r.minutes || 0) : kind === 'ON_DUTY' ? r.place : r.halfDay ? 'Half a day' : null;
+  const shiftName = kind === 'SHIFT_CHANGE' && r.shiftId ? (await peoplePrisma.shift.findFirst({ where: { id: r.shiftId, orgId }, select: { name: true } }))?.name : null;
+  const body = kind === 'PERMISSION' ? hoursWords(r.minutes || 0) : kind === 'ON_DUTY' ? r.place : kind === 'SHIFT_CHANGE' ? (shiftName ? `To ${shiftName}` : null) : r.halfDay ? 'Half a day' : null;
   /* A retry has the same key; the manager's step, or a real change, does not. */
   const dedupeKey = `request-asked:${r.id}:${r.managerApprovedAt ? 'manager' : 'new'}:${rev}`;
   const chain = await chainOf(orgId, kind);

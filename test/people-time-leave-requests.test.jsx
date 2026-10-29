@@ -68,4 +68,16 @@ describe('Leave requests', () => {
     expect(await screen.findByText('Private: HR reads the reason.')).toBeInTheDocument();
     expect(screen.queryByText('Family wedding')).not.toBeInTheDocument();
   });
+
+  it('with no leave types yet, Enter leave says so and opens Leave Policy', async () => {
+    const { EnterLeave } = await import('../packages/ui/src/timeOff/LeaveRequests');
+    const user = userEvent.setup();
+    const openScreen = vi.fn();
+    const onClose = vi.fn();
+    render(<EnterLeave openScreen={openScreen} onClose={onClose} onDone={() => {}} />);
+    expect(await screen.findByText(/No leave types yet/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Set up leave types' }));
+    expect(onClose).toHaveBeenCalled();
+    expect(openScreen).toHaveBeenCalledWith('leaveTypes');
+  });
 });

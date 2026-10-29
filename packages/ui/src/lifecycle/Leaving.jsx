@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { UserMinus } from 'lucide-react';
+import { UserMinus } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';

@@ -13,6 +13,7 @@ import { startApprovalDues } from './services/people/approvals/engine.js';
 import { startDeskDues } from './services/people/desk.js';
 import { startSeparations } from './services/people/lifecycle/leaving.js';
 import { startLifecycle } from './services/people/lifecycle/jobs.js';
+import { startTalentJobs } from './services/people/talent/training.js';
 import { startObligationDues } from './services/people/complianceRules.js';
 import { startLeaveJobs } from './services/attendance/leaveJobs.js';
 import { registerPeopleEffects } from './services/people/approvals/effects.js';
@@ -96,6 +97,7 @@ startApprovalDues();
 startDeskDues();
 startSeparations();
 startLifecycle();
+startTalentJobs();
 startObligationDues();
 /* Leave: steps handed on to HR when a manager does not decide, and the morning digest of what waits. */
 startLeaveJobs();

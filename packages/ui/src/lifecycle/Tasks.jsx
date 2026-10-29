@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { CheckCheck } from 'lucide-react';
+import { CheckCheck } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';

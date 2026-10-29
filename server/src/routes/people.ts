@@ -1334,7 +1334,14 @@ peopleRouter.patch('/orgs/:orgId/people/checklist-tasks/:id', async (req, res) =
   });
   if (done !== undefined && Boolean(task.doneAt) !== done) await recordAudit(req, { entity: 'ChecklistTask', entityId: task.id, action: done ? 'TASK_DONE' : 'TASK_REOPENED', message: `${done ? 'Done' : 'Opened again'}: ${task.title}`, metadata: { employeeId: task.employeeId, kind: task.kind } });
   if (ownerUserId !== undefined && ownerUserId !== task.ownerUserId) await recordAudit(req, { entity: 'ChecklistTask', entityId: task.id, action: 'TASK_REASSIGNED', message: `Task handed on: ${task.title}`, metadata: { employeeId: task.employeeId, from: task.ownerUserId, to: ownerUserId || null } });
-  res.json(await checklistOf(orgId, task.employeeId));
+  const list = await checklistOf(orgId, task.employeeId);
+  if (hr) return res.json(list);
+  /* Someone ticking only their own task sees only their own tasks: the rest of the plan (leaving, letters, HR's notes) is not theirs to read. */
+  const mineOnly = (g: (typeof list)['joining']) => {
+    const tasks = g.tasks.filter((t) => t.ownerUserId === req.auth!.userId);
+    return { tasks, done: tasks.filter((t) => t.done).length, total: tasks.length };
+  };
+  res.json(Object.fromEntries(Object.entries(list).map(([k, g]) => [k, mineOnly(g)])));
 });
 
 /** Open checklist items across the company, overdue first. */

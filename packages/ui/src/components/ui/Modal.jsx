@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { OverlayLayerContext } from './overlayLayer';
-import { X } from 'lucide-react';
+import { X } from '@ui/components/ui/lineIcons';
 import { confirmDialog } from './notify';
 
 /**

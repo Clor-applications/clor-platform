@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowUpRight, Search } from 'lucide-react';
+import { ArrowUpRight, Search } from '@ui/components/ui/lineIcons';
 
 import { PageHeader } from '../components/ui/Primitives';
 
@@ -39,7 +39,7 @@ export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [],
         <section key={g.title} className="space-y-2" aria-labelledby={`set-${g.title}`}>
           <div>
             <h2 id={`set-${g.title}`} className="ui-t-sec">{g.title}</h2>
-            <p className="ui-caption">{g.note}</p>
+            <p className="ui-caption ui-settings-note">{g.note}</p>
           </div>
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {g.cards.map(({ key, note, item }) => {

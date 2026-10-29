@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { ArrowRightLeft } from 'lucide-react';
+import { ArrowRightLeft } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';

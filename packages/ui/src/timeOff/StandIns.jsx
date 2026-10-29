@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -15,7 +15,7 @@ import { can, homeCrumbs } from './shared';
 import { addStandIn, listStandIns, removeStandIn, listPeople } from './api';
 
 /**
- * Time & Leave → Stand-ins: who decides leave for a manager while they are
+ * Time → Delegates (was Stand-ins): who decides leave for a manager while they are
  * away, between two dates. HR names one for any manager; a manager names one
  * for themselves. Live ones first, then the ones to come, then the ones over.
  */
@@ -34,11 +34,11 @@ export default function StandIns() {
   const rows = [...(req.data?.standIns || [])].sort((a, b) => rank(a, today) - rank(b, today) || a.fromDate.localeCompare(b.fromDate));
 
   const remove = async (r) => {
-    const ok = await confirmDialog({ title: 'Remove this stand-in?', message: `${r.standInName} stops deciding for ${r.managerName}.`, confirmLabel: 'Remove' });
+    const ok = await confirmDialog({ title: 'Remove this delegate?', message: `${r.standInName} stops deciding for ${r.managerName}.`, confirmLabel: 'Remove' });
     if (!ok) return;
     try {
       await removeStandIn(r.id);
-      notify.success('Stand-in removed.');
+      notify.success('Delegate removed.');
       req.reload();
     } catch (err) {
       notify.error(String(err?.message || 'Not removed.'));
@@ -57,18 +57,18 @@ export default function StandIns() {
     <div className="space-y-6">
       <PageHeader
         breadcrumb={homeCrumbs()}
-        title="Stand-ins"
-        actions={canName ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Add stand-in</button> : null}
+        title="Delegates"
+        actions={canName ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Add delegate</button> : null}
       />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
-          label="Stand-ins"
+          label="Delegates"
           columns={columns}
           rows={rows}
           total={rows.length}
           page={1}
           pageSize={Math.max(25, rows.length)}
-          noun="stand-ins"
+          noun="delegates"
           loading={req.loading}
           refreshing={req.refreshing}
           rowActions={canName ? (r) => [{ key: 'remove', label: 'Remove', danger: true, onSelect: () => remove(r) }] : null}
@@ -81,7 +81,7 @@ export default function StandIns() {
               </span>
             );
           }}
-          empty={<EmptyState title="No stand-ins" description="While a manager is away, someone else can decide their team's leave." />}
+          empty={<EmptyState title="No delegates" description="While a manager is away, someone else can decide their team's leave." />}
         />
       )}
       {adding ? <AddStandIn wholeCompany={wholeCompany} onClose={() => setAdding(false)} onDone={() => { setAdding(false); req.reload(); }} /> : null}
@@ -120,7 +120,7 @@ function AddStandIn({ wholeCompany, onClose, onDone }) {
       onClose={onClose}
       widthClass="w-[min(36rem,96vw)]"
       dirty={dirty}
-      title="Add stand-in"
+      title="Add delegate"
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
         <button type="submit" form="add-stand-in" className="ui-btn ui-btn-primary" disabled={!ready || saving}>{saving ? 'Saving…' : 'Save'}</button>
