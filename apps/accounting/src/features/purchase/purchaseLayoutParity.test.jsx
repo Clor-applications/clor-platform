@@ -80,10 +80,13 @@ describe.each(PAGES)('$name, laid out like every other list', (page) => {
   it('offers status filtering with counts', () => {
     render(page.render());
     if (page.name === 'Purchase Invoices') {
+      /* A compact dropdown, as on Sales Invoices: plain status names, no
+         counts (InvoicesList and Bills both, since the import, 00f6a61a).
+         The tab lists below keep their counts. */
       const status = screen.getByRole('combobox', { name: /Bill status/i });
       const search = screen.getByLabelText(page.search);
       expect(status.querySelectorAll('option').length).toBeGreaterThanOrEqual(3);
-      for (const option of status.querySelectorAll('option')) expect(option.textContent).toMatch(/\d/);
+      expect(status.querySelector('option').textContent).toBe('All');
       expect(status.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       return;
     }
@@ -126,19 +129,27 @@ describe.each(PAGES)('$name, laid out like every other list', (page) => {
 /*
  * The overview shipped as a placeholder beside a Sales page with six figures
  * and two charts. It answers the mirror question now, off the same furniture.
+ *
+ * Updated 30 Oct 2026 to the overview as shipped (unchanged since the import,
+ * 00f6a61a, and the same shape as Sales Overview): a period picker, four
+ * figures, a trend and a category panel, and vendor payables by age. The
+ * "Compare: Previous Period" line, the six-figure row and the Performance /
+ * Breakdowns / Recent Bills panels it used to check are not on either
+ * overview. The payable guard is unchanged.
  */
 describe('the purchase overview', () => {
-  it('reads like the sales one: a period, six figures, panels', () => {
+  it('reads like the sales one: a period, four figures, panels', () => {
     render(<PurchaseOverview db={db} currentCompany={COMPANY} />);
 
     expect(screen.getByRole('heading', { name: /Purchase Overview/i })).toBeTruthy();
-    expect(screen.getByText(/Compare: Previous Period/i)).toBeTruthy();
-    for (const label of ['Total Purchases', 'Bills', 'Amount Paid', 'Payables', 'Overdue', 'Purchase Returns']) {
-      expect(screen.getByText(label)).toBeTruthy();
+    /* The period picker, which governs every figure below it. */
+    expect(screen.getAllByRole('button').some((b) => b.getAttribute('aria-haspopup') === 'listbox')).toBe(true);
+    for (const label of ['Total Purchases', 'Bills', 'Debit Notes', 'Active Vendors']) {
+      expect(screen.getByRole('article', { name: label })).toBeTruthy();
     }
-    expect(screen.getByRole('heading', { name: /Purchase Performance/i })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: /Purchase Breakdowns/i })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: /Recent Bills/i })).toBeTruthy();
+    for (const title of ['Purchase Trend', 'Purchases by Category', 'Vendor Payables (Outstanding)']) {
+      expect(screen.getByText(title)).toBeTruthy();
+    }
   });
 
   it('counts a payable as what is left on the bill', () => {
@@ -150,8 +161,9 @@ describe('the purchase overview', () => {
       // 23,600 billed less 10,000 paid. Counting the billed figure would say the
       // business owes money it has already sent.
       render(<PurchaseOverview db={db} currentCompany={COMPANY} />);
-      const payable = screen.getByText('Payables').closest('div').parentElement;
-      expect(payable.textContent).toMatch(/13,600/);
+      const insights = screen.getByRole('complementary', { name: 'Payables insights' });
+      const outstanding = within(insights).getByText('Total Outstanding').closest('div');
+      expect(outstanding.textContent).toMatch(/13,600/);
     } finally {
       vi.useRealTimers();
     }

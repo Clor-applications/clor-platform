@@ -120,12 +120,15 @@ describe.each(PAGES)('$name, laid out like Sales Invoices', (page) => {
     expect(summary.children).toHaveLength(5);
   });
 
-  it('puts a compact status dropdown with counts before search', () => {
+  /* Counts dropped from the assertion 30 Oct 2026: Sales Invoices, the list
+     these are held to, shows plain status names in its dropdown (since the
+     import, 00f6a61a), and so do all five siblings. */
+  it('puts a compact status dropdown before search', () => {
     render(page.render());
     const status = screen.getByRole('combobox', { name: page.status });
     const search = screen.getByLabelText(page.search);
     expect(status.querySelectorAll('option').length).toBeGreaterThanOrEqual(3);
-    for (const option of status.querySelectorAll('option')) expect(option.textContent).toMatch(/\d/);
+    expect(status.querySelector('option').textContent).toBe('All');
     expect(status.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
