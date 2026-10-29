@@ -11,7 +11,7 @@ minutes. The Android, iOS and VM-deploy jobs still name GitHub's machines.
 | Piece | Where | How it starts |
 |---|---|---|
 | Runner `suresh-mac`, label `clor-mac` | `~/actions-runner/clor-platform` | LaunchAgent `actions.runner.Clor-applications-clor-platform.suresh-mac`, at login |
-| PostgreSQL 16 for CI, port 5433, `max_connections = 300`, superuser `clor_ci` / `clor_ci` | Homebrew `postgresql@16`, data in `/opt/homebrew/var/postgresql@16` | `brew services` (`sh.brew.postgresql@16`), at login |
+| PostgreSQL 16 for CI, port 5434, `max_connections = 300`, superuser `clor_ci` / `clor_ci` | Homebrew `postgresql@16`, data in `/opt/homebrew/var/postgresql@16` | `brew services` (`sh.brew.postgresql@16`), at login |
 | gitleaks (secrets scan) | Homebrew | — |
 
 The developer's own PostgreSQL (port 5432) is untouched; CI never uses it.
@@ -52,7 +52,8 @@ One runner ran every job in turn: a pull request waited behind the others, and
 - **Server tests in three shards** (`server-tests`, `vitest --shard=N/3`). Each
   shard still runs its files one at a time against a database of its own
   (`clor_test_<pid>`); shadow databases are per run (`clor_shadow_<run>`).
-  Postgres on 5433 allows 300 connections, enough for three runs at once.
+  Postgres on 5434 allows 300 connections, enough for three runs at once.
+  It was on 5433 until 30 Oct 2026; another project's Docker database (Banty-AI `docker-pgvector-1`) also binds 5433 and kept taking it, so CI moved. The port is set in `/opt/homebrew/var/postgresql@16/postgresql.conf` (`port = 5434`).
 - **No npm cache upload**: the runner keeps its files; saving the cache to
   GitHub cost ~8 minutes a run.
 - **Text-only changes skip CI** (`**/*.md`, `docs/**`); Security still runs.
