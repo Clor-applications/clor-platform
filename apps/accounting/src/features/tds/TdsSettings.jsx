@@ -63,7 +63,7 @@ export default function TdsSettings({ db, setDb, currentCompany, sectionsOnly = 
   const tabs = [['defaults', 'Defaults & Mapping'], ['filing', 'E-Filing Details']];
 
   return <div className="tds-settings-page space-y-1">
-    <PageHeader entity="tds" title={sectionsOnly ? 'TDS Sections' : 'TDS'} actions={<>
+    <PageHeader entity="tds" title={sectionsOnly ? 'TDS Rates' : 'TDS'} actions={<>
       {!sectionsOnly ? <select className="ui-select ui-ctl-compact tds-view-select" value={tab} onChange={(event) => { setTab(event.target.value); setMenu(null); }} aria-label="TDS view">{tabs.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select> : null}
       {tab === 'sections' ? <div className="relative tds-header-search"><Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 z-10 -translate-y-1/2 text-[rgb(var(--fg-muted))]" /><input className="ui-input w-full pl-8" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search sections" aria-label="Search TDS sections" /></div> : null}
       {tab === 'sections' ? <select className="ui-select ui-ctl-compact tds-header-filter" value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Status"><option value="ALL">All statuses</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select> : null}

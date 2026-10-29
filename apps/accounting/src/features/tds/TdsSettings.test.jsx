@@ -121,3 +121,11 @@ describe('the configuration page', () => {
     expect(latest.db.companies[0].profile.taxCompliances.tds.tan).toBe('BLRN12345F');
   });
 });
+
+describe('the rates list under Masters', () => {
+  it('is called what the Masters menu calls it, beside GST Rates and TCS Rates', () => {
+    render(<TdsSettings db={db0} setDb={() => {}} currentCompany={COMPANY} sectionsOnly />);
+    expect(screen.getByRole('heading', { name: 'TDS Rates' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add Section/ })).toBeInTheDocument();
+  });
+});
