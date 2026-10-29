@@ -1,0 +1,5 @@
+## 2026-10-30 IST — CI / web tests — green and in CI
+- Did: brought the web suite (vitest at the repo root) from 53 failures in 19 files to 0, and added it to CI's quick `verify` job. Per file, either fixed code that had drifted from DESIGN.md or updated tests to match what has shipped since the initial import (00f6a61a). Two real bugs fixed: "Save and add another" / "Save & New" did nothing (menu submit portalled outside the form), and the Building2 colour twin broke after the Lucide 1.61 bump.
+- Evidence: branch `claude/web-tests-green-in-ci`. Full web suite 1825/1825 passed on origin/main 82fd3001 plus this branch. eslint on touched files: 0 errors. Browser check at 1440×900 and 390×844: Home, Sales and Purchase overviews, Settings search ("backup"), Masters › TDS Rates, Features, and New Ledger › Save and add another (saves, clears, keeps the group).
+- Next: nothing; waiting for review.
+- Blocked on: nothing. For the owner: should status dropdowns get their counts back, and should Price Lists get its "pricing nothing" figure back (see DESIGN.md decisions log, 2026-10-30).
