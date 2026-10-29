@@ -4,11 +4,11 @@ Indian GST accounting and business SaaS. React 19 + Vite + Tailwind SPA (`src/`)
 
 ## Where People work stands (read before touching People, Time or Attendance)
 
-The latest People code is on branch `claude/people-live` (the owner's live app runs from
-its worktree, `/private/tmp/clor-people-latest-20261028`, web 5186 / API 4002). Until it is
-merged into `main`, a session cut from `main` has old People code: base new People work on
-`claude/people-live`, not `main`. What is done, what is next and how to run the tests:
-`docs/people/design-v1/TRACKER.md` (latest section at the end).
+The People work of 28–29 Oct 2026 is merged into `main` (PR #50). Start new work from
+`origin/main` (fetch first); the local `main` checkout may be stale. What is done, what is
+next and how to run the tests: `docs/people/design-v1/TRACKER.md` (latest section at the
+end). The owner's live app runs from `/private/tmp/clor-people-latest-20261028` (web 5186 /
+API 4002); CI runs on the owner's Mac self-hosted runner (`docs/CI-ON-MAC.md`).
 
 ## Design System
 

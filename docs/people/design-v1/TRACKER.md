@@ -190,3 +190,7 @@ Hiring, goals and training moved from the workspace registers to Talent tables (
 - **After PR #50 merges:** change `CLAUDE.md` "Where People work stands" and memory note `people-latest-code` to say `main`, not `claude/people-live`; fast-forward local `main` only when its checkout's 59 edits are dealt with (they are saved on `claude/main-checkout-pending`).
 - **Then build:** batch 2 — import attendance from Excel (check before saving), punch window before/after a shift, auto-pick shift by first punch. Then items 7–13 in the ERPNext table above.
 - **Owner rules that apply:** People styling only under `data-palette='sky'`; plain words, sentence case; finish modules with tests and browser checks without asking; no employer names in commits or files; commit when asked, push only when asked (Auto-fix covers PR #50 fixes).
+
+### Merged, 29 Oct 2026 17:20 IST
+
+PR #50 merged into `main` as `73ace60` with `verify`, `audit` and `secrets` green on the Mac runner; no deploy (`DEPLOY_VM_ENABLED` unset). From here, start from `origin/main`; the handover above stands, except that `claude/people-live` is now history. Next: batch 2.
