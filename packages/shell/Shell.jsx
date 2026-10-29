@@ -9,6 +9,7 @@ import Toaster from '@ui/components/ui/Toaster';
 import { getMyPermissions } from '@ui/api/permissions';
 import { PermissionProvider } from '@ui/permissions/PermissionContext';
 import { WriteGuard } from '@ui/permissions/WriteGuard';
+import { paramsForOpen } from './openParams';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { IconSetContext, LineSetContext } from '@ui/components/ui/iconSet';
 
@@ -353,6 +354,8 @@ export default function Shell() {
     setChosenAppId(id);
     /* A shell app's screen named outright (a notification's link); Accounting reads the address itself. */
     setScreenKey(open && next?.screens?.[open] ? open : next?.home || null);
+    /* The link's params open that screen on its one thing (a notice about one candidate); otherwise none, never the last screen's. */
+    setScreenParams(paramsForOpen(next, open, params));
     setPlatformScreen(null);
     setSwitcherOpen(false);
     setShowMoreApps(false);
@@ -377,11 +380,12 @@ export default function Shell() {
     const from = screenKeyRef.current;
     setCameFrom((m) => ({ ...m, [next]: from ? { key: from, params: liveParamsRef.current || null } : null }));
   };
-  const goTo = (key) => { confirmLeave(askLeave).then((ok) => ok && goToNow(key)); };
-  const goToNow = (key) => {
+  const goTo = (key, params) => { confirmLeave(askLeave).then((ok) => ok && goToNow(key, params)); };
+  /* `params` open the screen on one thing (a notice about one candidate); a rail click passes none. */
+  const goToNow = (key, params = null) => {
     noteOrigin(key);
     setScreenKey(key);
-    setScreenParams(null);
+    setScreenParams(params && typeof params === 'object' ? params : null);
     setPlatformScreen(null);
     setShowMoreApps(false);
     setNavOpen(false);
@@ -1093,10 +1097,10 @@ export default function Shell() {
             onOpen={(link) => {
               if (!link?.app) return;
               if (link.app === activeAppId && !Root) {
-                if (link.screen && app?.screens?.[link.screen]) goTo(link.screen);
+                if (link.screen && app?.screens?.[link.screen]) goTo(link.screen, link.params);
                 return;
               }
-              openApp(link.app, link.screen || '');
+              openApp(link.app, link.screen || '', link.params || {});
             }}
           />
           {/* A phone's bar has no room for it (it pushed the bar past the screen); help is in the phone's Menu. */}
@@ -1289,7 +1293,8 @@ export default function Shell() {
                 {/* `openScreen(key)` lets a screen link to another of its app's screens (a "3 waiting" note opening the list). */}
                 {/* One permission set for every app's screens; a screen whose resource this person may not change is shown read-only (WriteGuard). */}
                 <PermissionProvider key={tenantKey} enabled>
-                  <WriteGuard permission={(app?.nav || []).find((n) => n.key === screen)?.permission}>
+                  {/* `writeGuard: false`: the screen's server decides per person (a manager writes their own team's reviews without the resource's Edit right). */}
+                  <WriteGuard permission={(() => { const n = (app?.nav || []).find((x) => x.key === screen); return n?.writeGuard === false ? undefined : n?.permission; })()}>
                     {(() => {
                       /* A page under a hub (People → Settings → Departments) shows the way back to it. */
                       const parentKey = (app?.nav || []).find((n) => n.key === screen)?.parent;

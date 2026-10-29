@@ -235,3 +235,9 @@ export const reopenDesk = (id) => call(`/people/desk/${encodeURIComponent(id)}/r
 
 /** A private complaint to the committee: { reference, receivedOn, inquiryDue } and nothing listed back. */
 export const raisePrivateCase = (body) => call('/people/private-cases', { method: 'POST', body });
+
+/* Growth (Talent, server routes/peoplePortal.ts): my goals and check-ins, my reviews (self-review, read and acknowledge), my plan, one-on-ones and trainings. */
+export const getGrowth = () => call('/people/me/growth');
+export const checkInGoal = (id, body) => call(`/people/me/goals/${encodeURIComponent(id)}/check-ins`, { method: 'POST', body });
+export const writeSelfReview = (id, body) => call(`/people/me/reviews/${encodeURIComponent(id)}/self`, { method: 'POST', body });
+export const acknowledgeReview = (id) => call(`/people/me/reviews/${encodeURIComponent(id)}/acknowledge`, { method: 'POST' });

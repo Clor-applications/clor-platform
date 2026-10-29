@@ -523,15 +523,11 @@ export function SalaryRevisionsPanel({ openScreen }) {
   );
 }
 
-/* The registers (benefits, announcements, events, jobs, candidates, goals, training): where each stands and what is due. */
+/* The registers (benefits, announcements, events): where each stands and what is due. */
 const REGISTER_LINKS = {
   benefits: [['Salary revisions', Scale, 'compensation'], ['Employees', Users, 'employees']],
   announcements: [['Events', CalendarDays, 'events'], ['Help desk', LifeBuoy, 'helpdesk']],
   events: [['Announcements', Inbox, 'announcements'], ['Holidays', CalendarRange, 'holidays']],
-  recruitment: [['Candidates', Users, 'candidates'], ['Designations', Building2, 'jobPositions']],
-  candidates: [['Job openings', ClipboardCheck, 'recruitment'], ['Onboarding & exit', ListChecks, 'checklists']],
-  performance: [['Training', ClipboardCheck, 'learning'], ['Employees', Users, 'employees']],
-  learning: [['Goals & feedback', ListChecks, 'performance'], ['Employees', Users, 'employees']],
 };
 export function registerPanel(kind) {
   const RegisterPanel = ({ openScreen }) => {
@@ -565,7 +561,3 @@ export function registerPanel(kind) {
 export const BenefitsPanel = registerPanel('benefits');
 export const AnnouncementsPanel = registerPanel('announcements');
 export const EventsPanel = registerPanel('events');
-export const RecruitmentPanel = registerPanel('recruitment');
-export const CandidatesPanel = registerPanel('candidates');
-export const PerformancePanel = registerPanel('performance');
-export const LearningPanel = registerPanel('learning');

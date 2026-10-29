@@ -173,6 +173,10 @@ peopleTalentRouter.post(`${base}/interviews/:id/cancel`, hiringOn, can(Permissio
   await audit(req, 'Interview', String(req.params.id), 'CANCEL', 'Interview cancelled');
   res.json({ ok: true });
 }));
+/* The people HR can put on an interview: names of the company's users, for the picker. */
+peopleTalentRouter.get(`${base}/interviewers`, hiringOn, can(PermissionAction.EDIT, R.recruitment), handle(async (req, res) => {
+  res.json({ users: await hiring.interviewerChoices(req.tenant!.orgId) });
+}));
 /* Interviews and feedback: open to every user; the service shows only the caller's own unless they hold Recruitment. */
 peopleTalentRouter.get(`${base}/interviews`, hiringOn, handle(async (req, res) => {
   const hr = await has(req, 'VIEW', R.recruitment);
@@ -187,7 +191,8 @@ peopleTalentRouter.post(`${base}/interviews/:id/feedback`, hiringOn, handle(asyn
 /* --------------------------------------------------------------------- goals */
 
 peopleTalentRouter.get(`${base}/goals`, growthOn, can(PermissionAction.VIEW, R.performance), handle(async (req, res) => {
-  res.json({ goals: await growth.listGoals(await viewer(req), { employeeId: req.query.employeeId ? String(req.query.employeeId) : undefined, status: String(req.query.status || ''), q: String(req.query.q || '') }) });
+  const v = await viewer(req);
+  res.json({ goals: await growth.listGoals(v, { employeeId: req.query.employeeId ? String(req.query.employeeId) : undefined, status: String(req.query.status || ''), q: String(req.query.q || '') }), ...(await growth.whoAmI(v)) });
 }));
 peopleTalentRouter.get(`${base}/goals/:id`, growthOn, can(PermissionAction.VIEW, R.performance), handle(async (req, res) => {
   res.json(await growth.goalOf(await viewer(req), String(req.params.id)));
@@ -248,7 +253,8 @@ peopleTalentRouter.post(`${base}/reviews/:id/final`, growthOn, can(PermissionAct
 /* ------------------------------------------------------- plans, one-on-ones */
 
 peopleTalentRouter.get(`${base}/plans`, growthOn, can(PermissionAction.VIEW, R.performance), handle(async (req, res) => {
-  res.json({ plans: await growth.listPlans(await viewer(req), { status: String(req.query.status || '') }) });
+  const v = await viewer(req);
+  res.json({ plans: await growth.listPlans(v, { status: String(req.query.status || '') }), ...(await growth.whoAmI(v)) });
 }));
 peopleTalentRouter.post(`${base}/plans`, growthOn, can(PermissionAction.VIEW, R.performance), handle(async (req, res) => {
   const p = await growth.createPlan(await viewer(req), req.body || {});
