@@ -21,6 +21,9 @@ const BLANK = {
   halfDayMinutes: 240,
   fullDayMinutes: 480,
   overtimeAfterMinutes: '',
+  checkInBeforeMinutes: '',
+  checkOutAfterMinutes: '',
+  autoPick: false,
   weeklyOffDays: '0',
   offSaturdays: '',
   code: '',
@@ -174,8 +177,11 @@ export default function Shifts({ openScreen }) {
   );
 }
 
+/* Blank, not null, in a number field: the punch window is optional. */
+const blankIfNone = (v) => (v == null ? '' : v);
+
 function ShiftForm({ initial, onClose, onSaved }) {
-  const [form, setForm] = useState(initial);
+  const [form, setForm] = useState(() => ({ ...initial, checkInBeforeMinutes: blankIfNone(initial.checkInBeforeMinutes), checkOutAfterMinutes: blankIfNone(initial.checkOutAfterMinutes) }));
   const [saving, setSaving] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const offSet = new Set(String(form.weeklyOffDays || '').split(',').filter(Boolean));
@@ -199,6 +205,9 @@ function ShiftForm({ initial, onClose, onSaved }) {
       halfDayMinutes: Number(form.halfDayMinutes),
       fullDayMinutes: Number(form.fullDayMinutes),
       overtimeAfterMinutes: form.overtimeAfterMinutes === '' ? null : Number(form.overtimeAfterMinutes),
+      checkInBeforeMinutes: form.checkInBeforeMinutes === '' ? null : Number(form.checkInBeforeMinutes),
+      checkOutAfterMinutes: form.checkOutAfterMinutes === '' ? null : Number(form.checkOutAfterMinutes),
+      autoPick: Boolean(form.autoPick),
       weeklyOffDays: form.weeklyOffDays,
       offSaturdays: form.offSaturdays || '',
       code: form.code || null,
@@ -264,6 +273,15 @@ function ShiftForm({ initial, onClose, onSaved }) {
         {num('halfDayMinutes', 'Half day (minutes worked)')}
         {num('fullDayMinutes', 'Full day (minutes worked)')}
         {num('overtimeAfterMinutes', 'Overtime after (minutes)', 'Blank = after a full day.')}
+        {num('checkInBeforeMinutes', 'Earliest check-in (minutes before start)', 'A punch earlier than this does not count. Blank = no limit.')}
+        {num('checkOutAfterMinutes', 'Latest check-out (minutes after end)', 'A punch later than this does not count. Blank = no limit.')}
+        <label className="flex items-start gap-2 text-sm sm:col-span-2">
+          <input type="checkbox" className="ui-checkbox mt-0.5" checked={Boolean(form.autoPick)} disabled={form.endTime <= form.startTime} onChange={(e) => setForm((f) => ({ ...f, autoPick: e.target.checked }))} />
+          <span>
+            Can be picked by the first punch
+            <span className="ui-caption block">{form.endTime <= form.startTime ? 'Night shifts are not picked automatically: assign them.' : 'When “Pick the shift from the first punch” is on in Attendance rules.'}</span>
+          </span>
+        </label>
         <fieldset className="sm:col-span-2">
           <legend className="ui-label">Weekly off</legend>
           <div className="flex flex-wrap gap-3">

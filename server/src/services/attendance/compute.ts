@@ -34,6 +34,9 @@ export type ShiftRule = {
   weeklyOffDays: string; // "0,6"
   /** Saturdays of the month that are off as well: "2,4" = second and fourth. */
   offSaturdays?: string;
+  /** The punch window: a reader punch this long before the start, or after the end, does not count. Null or absent = no limit. */
+  checkInBeforeMinutes?: number | null;
+  checkOutAfterMinutes?: number | null;
 };
 
 export type DayStatus = 'PRESENT' | 'HALF_DAY' | 'ABSENT' | 'ON_LEAVE' | 'HOLIDAY' | 'WEEKLY_OFF';

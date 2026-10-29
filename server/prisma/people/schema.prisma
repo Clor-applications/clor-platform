@@ -371,6 +371,14 @@ model Shift {
   fullDayMinutes       Int     @default(480)
   /// Worked minutes beyond this are overtime; null = the full day.
   overtimeAfterMinutes Int?
+  /// The punch window (ERPNext's "begin check-in before" / "allow check-out after"):
+  /// a reader punch earlier than this many minutes before the start, or later than
+  /// this many after the end, does not count for the day. Null = no limit.
+  checkInBeforeMinutes Int?
+  checkOutAfterMinutes Int?
+  /// With "pick the shift from the first punch" on (AttendanceSettings.autoShiftByPunch),
+  /// this shift is one the first punch may pick for someone with no schedule of their own.
+  autoPick             Boolean @default(false)
   /// Weekdays off, 0 = Sunday … 6 = Saturday, comma separated ("0" or "0,6").
   weeklyOffDays        String  @default("0")
   /// Which Saturdays of the month are off on top of weeklyOffDays, e.g. "2,4"
@@ -1287,6 +1295,9 @@ model TemporarySchedule {
   fromDate   String /// YYYY-MM-DD
   toDate     String /// YYYY-MM-DD, inclusive
   reason     String?
+  /// Written by "pick the shift from the first punch", not by a person: a later
+  /// punch may change it, and nothing a person wrote is ever replaced by it.
+  pickedByPunch Boolean @default(false)
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -1432,6 +1443,11 @@ model AttendanceSettings {
   /// Reader trust: a punch that reaches CLOR more than this many hours after it
   /// was made needs a look (feature attendanceReaderTrust).
   readerLateUploadHours Int       @default(24)
+  /// Pick the day's shift from the first punch (owner 29 Oct 2026, ERPNext gap 6): for
+  /// someone with no schedule of their own (no temporary, personal or rotation
+  /// schedule), the first punch of the day picks the shift marked autoPick whose
+  /// start is nearest, within its punch window. Saved as a one-day temporary schedule.
+  autoShiftByPunch      Boolean   @default(false)
 
   updatedByUserId String
   updatedAt       DateTime @updatedAt

@@ -115,6 +115,13 @@ export default function AttendanceRules() {
         <section className="ui-card space-y-3 p-4" aria-labelledby="rules-readers-h">
           <h2 id="rules-readers-h" className="ui-t-sec">Readers and phone punches</h2>
           <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" className="ui-checkbox mt-0.5" checked={rules.autoShiftByPunch === true} onChange={(e) => setRules({ ...rules, autoShiftByPunch: e.target.checked })} />
+            <span>
+              Pick the shift from the first punch
+              <span className="ui-caption block">For people with no schedule of their own: the day goes on the shift marked “can be picked” whose start is nearest their first punch. A schedule someone set always wins.</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" className="ui-checkbox mt-0.5" checked={rules.readerUsersBecomeEmployees !== false} onChange={(e) => setRules({ ...rules, readerUsersBecomeEmployees: e.target.checked })} />
             <span>
               Add people enrolled on a reader as employees
@@ -323,7 +330,7 @@ function RulePreview({ shifts }) {
   );
 }
 
-const RULE_LABEL = { lateAllowancePerMonth: 'Free late arrivals', latePenaltyEvery: 'Half day lost every', photoRetentionDays: 'Selfies kept (days)', defaultShiftId: 'Default shift', readerUsersBecomeEmployees: 'Reader people become employees', leaveApproval: 'Leave approval', correctionApproval: 'Correction approval', startTime: 'Start', endTime: 'End', breakMinutes: 'Break', graceMinutes: 'Grace', earlyOutGraceMinutes: 'Early-out grace', halfDayMinutes: 'Half day', fullDayMinutes: 'Full day', overtimeAfterMinutes: 'Overtime after', weeklyOffDays: 'Weekly offs', offSaturdays: 'Saturdays off', isActive: 'Active' };
+const RULE_LABEL = { lateAllowancePerMonth: 'Free late arrivals', latePenaltyEvery: 'Half day lost every', photoRetentionDays: 'Selfies kept (days)', defaultShiftId: 'Default shift', readerUsersBecomeEmployees: 'Reader people become employees', autoShiftByPunch: 'Shift from the first punch', checkInBeforeMinutes: 'Earliest check-in', checkOutAfterMinutes: 'Latest check-out', leaveApproval: 'Leave approval', correctionApproval: 'Correction approval', startTime: 'Start', endTime: 'End', breakMinutes: 'Break', graceMinutes: 'Grace', earlyOutGraceMinutes: 'Early-out grace', halfDayMinutes: 'Half day', fullDayMinutes: 'Full day', overtimeAfterMinutes: 'Overtime after', weeklyOffDays: 'Weekly offs', offSaturdays: 'Saturdays off', isActive: 'Active' };
 
 /** Every saved change to the rules and to shifts' scoring: when, who, and what moved. */
 function RuleHistory({ shifts, attempt }) {
