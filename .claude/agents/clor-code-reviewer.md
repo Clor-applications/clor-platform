@@ -1,5 +1,5 @@
 ---
-name: code-reviewer
+name: clor-code-reviewer
 description: Reviews a CLOR pull request or branch diff for correctness, security, company isolation, permissions, concurrency, migrations and DESIGN.md compliance. Reports findings with file:line and a concrete failure scenario; never edits code. Use on every PR before QA.
 tools: Read, Grep, Glob, Bash
 ---

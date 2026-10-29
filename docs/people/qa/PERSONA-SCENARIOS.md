@@ -4,7 +4,7 @@ The QA tester runs these as one tester per person, side by side. Each scenario i
 result, done the way that person would do it (phone or desktop), not a list of buttons. A button that does nothing
 counts as a failure of the scenario it sits in.
 
-How to run: one `qa-tester` per person below, against staging (`https://app.staging.clor.in`) or a lane's local
+How to run: one `clor-qa-tester` per person below, against staging (`https://app.staging.clor.in`) or a lane's local
 ports. Every scenario is checked at 1440×900 and 390×844 unless marked. Record PASS / FAIL / BLOCKED with evidence
 in `docs/people/design-v1/<MODULE>-QA-<date>.md`. Add scenarios here as modules ship; never delete one, mark it
 retired.

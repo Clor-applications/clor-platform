@@ -1,5 +1,5 @@
 ---
-name: researcher
+name: clor-researcher
 description: Research for a CLOR module. Studies how established products solve the problem (Zoho People, Keka, greytHR, Rippling, Personio, BambooHR, ERPNext, Tally, Zoho Books), Indian law and practice, and what the current CLOR code already does. Returns a sourced report for the product manager. Read-only; never edits code.
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 ---

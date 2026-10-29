@@ -1,5 +1,5 @@
 ---
-name: coder
+name: clor-coder
 description: Builds a CLOR module from the product manager's decisions doc — server (Express, Prisma, Postgres with RLS), screens (React, Vite, Tailwind) and tests — in its own git worktree and branch. Use for implementation work; one coder per module lane.
 tools: Read, Grep, Glob, Bash, Write, Edit
 ---

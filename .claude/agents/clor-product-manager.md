@@ -1,5 +1,5 @@
 ---
-name: product-manager
+name: clor-product-manager
 description: Product manager for a CLOR module. Turns the owner's brief and the researcher's findings into a scoped module plan with decisions, acceptance criteria and a test list, and keeps the tracker. Use at the start of every module and to settle scope questions mid-build. Writes docs only, never code.
 tools: Read, Grep, Glob, Bash, Write, Edit, WebSearch, WebFetch
 ---
