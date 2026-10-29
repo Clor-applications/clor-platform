@@ -227,7 +227,7 @@ export async function acceptOffer(o: any, ip: string | null) {
   const actor: Actor = { accountId: o.accountId, orgId: o.orgId, userId: null, source: 'SELF_SERVICE', correlationId: `offer_${o.id}`, reason: 'Offer accepted by the person' };
   let next = 'NOTHING';
   if (o.employeeId) {
-    await peoplePrisma.$transaction((tx) => writeChangeLog(tx, actor, { kind: 'Employee', id: o.employeeId, employeeId: o.employeeId }, [{ field: 'offer', before: 'sent', after: `accepted ${now.toISOString().slice(0, 10)}${ip ? ` from ${ip.slice(0, 64)}` : ''}`, redacted: false }]));
+    await peoplePrisma.$transaction((tx) => writeChangeLog(tx, actor, { kind: 'Employee', id: o.employeeId, employeeId: o.employeeId }, [{ field: 'offer', before: 'sent', after: `accepted ${todayIst()}${ip ? ` from ${ip.slice(0, 64)}` : ''}`, redacted: false }]));
     /* A draft hire who accepts is sent the joining form, unless one is already out. */
     const live = await peoplePrisma.joinInvite.count({ where: { orgId: o.orgId, employeeId: o.employeeId, status: { in: ['SENT', 'STARTED', 'RETURNED', 'CHECKED'] } } });
     if (!live) {
@@ -242,7 +242,7 @@ export async function acceptOffer(o: any, ip: string | null) {
     const c = await peoplePrisma.candidate.findFirst({ where: { id: o.candidateId, orgId: o.orgId } });
     if (c) {
       await peoplePrisma.$transaction([
-        peoplePrisma.candidate.update({ where: { id: c.id }, data: { stage: c.stage === 'HIRED' ? c.stage : 'OFFER', offerAcceptedOn: now.toISOString().slice(0, 10) } }),
+        peoplePrisma.candidate.update({ where: { id: c.id }, data: { stage: c.stage === 'HIRED' ? c.stage : 'OFFER', offerAcceptedOn: todayIst() } }),
         peoplePrisma.candidateEvent.create({ data: { accountId: o.accountId, orgId: o.orgId, candidateId: c.id, kind: 'OFFER', text: `Offer accepted${ip ? ` from ${ip.slice(0, 64)}` : ''}` } }),
       ]);
       next = 'READY_TO_HIRE';
