@@ -149,9 +149,14 @@ export const DocFormActions = ({
                             /* The menu is portalled to <body>, outside the
                                form, so a type="submit" here submitted
                                nothing: "Save and add another" did nothing
-                               at all. Submit the form the ⋮ sits in. */
+                               at all. Submit the form the ⋮ sits in.
+                               Checked first: a form the browser refuses
+                               (an empty required field) never submits, and
+                               onSelect's "add another" flag would then be
+                               left set for the next plain Save. */
                             const form = item.submit ? menuBtnRef.current?.closest('form') : null;
                             setOpen(false);
+                            if (form && !form.reportValidity()) return;
                             item.onSelect?.();
                             form?.requestSubmit();
                           }}

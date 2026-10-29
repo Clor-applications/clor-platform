@@ -269,6 +269,23 @@ describe('Save and add another', () => {
     expect(screen.getByRole('tab', { name: 'Statutory Details' })).toBeInTheDocument();
   });
 
+  it('leaves the next plain Save a plain Save after a refused one', async () => {
+    /* No name: the browser refuses the form, so nothing saves — and the
+       "add another" choice must not be left waiting for the next Save. */
+    const user = userEvent.setup();
+    const setDb = vi.fn();
+    const onClose = vi.fn();
+    render(<ChartAccountForm db={db} setDb={setDb} currentCompany={company} onClose={onClose} />);
+    await pickGroup(user, 'Indirect Expenses');
+    await saveAndAddAnother(user);
+    expect(setDb).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText(/^Ledger Name \*$/), 'Office Rent');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(setDb).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it('is not offered while editing an existing ledger', () => {
     render(
       <ChartAccountForm
