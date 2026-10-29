@@ -50,7 +50,7 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={crumbs()} title="Changes" />
+      <PageHeader breadcrumb={crumbs()} title="Job changes" />
       <div ref={tabsRef} role="tablist" aria-label="Changes" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
         {VIEWS.map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => set({ view: k === 'scheduled' ? null : k, page: null }, true)}>

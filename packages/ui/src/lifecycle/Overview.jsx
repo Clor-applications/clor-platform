@@ -37,7 +37,7 @@ export default function LifecycleOverview({ openScreen }) {
   const req = useRequest(() => lifecycleOverview(), []);
   const d = req.data;
   const header = (
-    <PageHeader breadcrumb={crumbs()} title="Joining & Leaving"
+    <PageHeader breadcrumb={crumbs()} title="Joining & leaving"
       actions={can(perms, 'PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => openScreen?.('employeeNew')}>Add employee</button> : null} />
   );
   if (req.error && !d) return <div className="space-y-6">{header}<ErrorState error={req.error} onRetry={req.reload} /></div>;

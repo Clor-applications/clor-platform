@@ -8,7 +8,8 @@ import useRequest from '@ui/components/ui/useRequest';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { DateTile, SideAlert, SideBlock, SideClear, SideLine, SideLinks, SideTimeline } from '@ui/components/list/SidePanel';
 import { Avatar } from '@ui/personnel/Employees';
-import { CHECKLIST_OWNER, listAllEmployees, listCompanyDocuments, listOpenChecklistTasks } from '@ui/personnel/api';
+import { listAllEmployees, listCompanyDocuments } from '@ui/personnel/api';
+import { OWNER_WORD, pageTasks } from '@ui/lifecycle/api';
 import { getLeaveBalances, getTimeOverview, listHolidays, listLeaveRequests, todayIst } from '@ui/timeOff/api';
 import { getInbox } from './api/approvals';
 import { listDesk } from './api/desk';
@@ -244,16 +245,18 @@ export function EmployeesPanel({ openScreen }) {
   );
 }
 
-/* Onboarding & Exit: who joins or leaves with items open, and whose items are late. */
+/* Tasks (Joining & leaving): who joins or leaves with tasks open, and whose tasks are late. */
 export function ChecklistsPanel({ openScreen }) {
-  const req = useRequest(() => quiet(listOpenChecklistTasks()), []);
-  const tasks = req.data || [];
+  /* Every open Joining & leaving task in the caller's reach (Tasks screen, `open` view). */
+  const req = useRequest(() => quiet(Promise.all([pageTasks({ view: 'open', limit: 100 }), pageTasks({ view: 'late', limit: 100 })])), []);
+  const tasks = req.data?.[0]?.rows || [];
+  const lateTasks = req.data?.[1]?.rows || [];
   const people = {};
   for (const t of tasks) (people[t.employee.id] ||= { e: t.employee, kind: t.kind, open: 0, late: 0 }).open += 1;
-  for (const t of tasks) if (t.overdue) people[t.employee.id].late += 1;
+  for (const t of tasks) if (t.late) people[t.employee.id].late += 1;
   const list = Object.values(people).sort((a, b) => b.late - a.late || b.open - a.open);
   const byOwner = {};
-  for (const t of tasks) if (t.overdue) byOwner[t.owner] = (byOwner[t.owner] || 0) + 1;
+  for (const t of lateTasks) byOwner[t.owner] = (byOwner[t.owner] || 0) + 1;
   const late = Object.values(byOwner).reduce((a, n) => a + n, 0);
   return (
     <>
@@ -266,7 +269,7 @@ export function ChecklistsPanel({ openScreen }) {
         {req.data && !list.length ? <SideClear>Nothing open</SideClear> : null}
       </SideBlock>
       <SideBlock title="Late, by owner" count={late}>
-        {Object.entries(byOwner).sort((a, b) => b[1] - a[1]).map(([o, n]) => <SideLine key={o} title={CHECKLIST_OWNER[o] || o} meta={n} tone="neg" bar={(n / Math.max(1, late)) * 100} />)}
+        {Object.entries(byOwner).sort((a, b) => b[1] - a[1]).map(([o, n]) => <SideLine key={o} title={OWNER_WORD[o] || o} meta={n} tone="neg" bar={(n / Math.max(1, late)) * 100} />)}
       </SideBlock>
       <SideLinks links={[
         { label: 'Employees', icon: Users, onClick: () => openScreen?.('employees') },

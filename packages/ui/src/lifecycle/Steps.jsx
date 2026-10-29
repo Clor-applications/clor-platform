@@ -108,7 +108,7 @@ export default function Steps() {
   const current = templates?.[kind.toLowerCase()];
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Settings' }]} title="Joining & Leaving Steps" />
+      <PageHeader title="Joining & leaving steps" />
       <div ref={tabsRef} role="tablist" aria-label="Steps" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
         {['JOINING', 'LEAVING'].map((k) => (
           <button key={k} type="button" role="tab" aria-selected={kind === k} className={`ui-tab ${kind === k ? 'is-active' : ''}`} onClick={() => setKind(k)}>{COPY[k].title}</button>

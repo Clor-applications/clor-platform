@@ -11,7 +11,7 @@ import { KIND_WORD, OWNER_WORD, orgUsers, updateTask } from './api';
 
 /** A grant the signed-in user holds (admins hold all). The server checks again; this only hides what would be refused. */
 export const can = (perms, key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
-export const crumbs = () => [{ label: 'People' }, { label: 'Joining & Leaving' }];
+export const crumbs = () => [{ label: 'People' }, { label: 'Joining & leaving' }];
 
 /** A person in a list row: avatar, name, then the line under it. */
 export function PersonCell({ person, line }) {
