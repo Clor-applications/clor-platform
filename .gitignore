@@ -11,6 +11,7 @@ server/dist
 .env
 .env.*
 !website/.env.production
+!.env.production
 !.env.example
 !.env.docker.example
 server/.env
