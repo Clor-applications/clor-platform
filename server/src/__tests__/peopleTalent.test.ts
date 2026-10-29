@@ -158,6 +158,28 @@ describe('hiring, from opening to employee record', () => {
     expect(row.anonymisedAt).not.toBeNull();
   }, 60_000);
 
+  it('interviewers to pick from: this company’s users by name, for HR only; the interviewer’s notice opens that interview', async () => {
+    const users = (await api(c).get('/talent/interviewers').expect(200)).body.users;
+    expect(users.map((u: any) => u.name)).toEqual(expect.arrayContaining(['Asha Owner', 'Ravi', 'Ira']));
+    /* Names only: nothing a picker does not need. */
+    for (const u of users) expect(Object.keys(u).sort()).toEqual(['id', 'name']);
+    /* A manager who may only ask for openings does not set interviews, so does not list users. */
+    await api(manager).get('/talent/interviewers').expect(403);
+    await api(interviewer).get('/talent/interviewers').expect(403);
+    /* Another company's HR sees their own users, never these. */
+    const other = await owner();
+    const theirs = (await api(other).get('/talent/interviewers').expect(200)).body.users;
+    expect(theirs.map((u: any) => u.id)).not.toContain(interviewer.userId);
+    await request(app).get(`/api/orgs/${c.orgId}/people/talent/interviewers`).set(at(other)).expect((r) => expect([401, 403, 404]).toContain(r.status));
+
+    /* The notice an interviewer gets names the interviews screen and the interview, so the bell opens it. */
+    const opening = (await api(c).post('/talent/openings', { title: 'Cashier', status: 'OPEN' }).expect(201)).body.opening;
+    const cand = (await api(c).post('/talent/candidates', { openingId: opening.id, name: 'Noor S', phone: '9822222222' }).expect(201)).body.candidate;
+    const iv = (await api(c).post(`/talent/candidates/${cand.id}/interviews`, { at: new Date(Date.now() + 86_400_000).toISOString(), interviewerUserIds: [interviewer.userId] }).expect(201)).body.interview;
+    const notice = await runInTenant(c.orgId, () => platformPrisma.notification.findFirst({ where: { orgId: c.orgId, userId: interviewer.userId, title: 'Interview: Noor S' } }));
+    expect(JSON.parse(String(notice?.linkJson))).toEqual({ app: 'people', screen: 'interviews', params: { id: iv.id } });
+  }, 90_000);
+
   it('the old register no longer takes hiring, goals or training', async () => {
     await api(c).post('/workspace/candidates', { title: 'X', status: 'APPLIED', details: {} }).expect(404);
     await api(c).post('/workspace/performance', { title: 'X', status: 'DRAFT', details: {} }).expect(404);

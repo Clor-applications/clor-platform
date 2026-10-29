@@ -7,6 +7,7 @@ import {
   CalendarDots,
   CalendarStar,
   ChartBar,
+  ChatsCircle,
   ChartPie,
   ChartPieSlice,
   CheckCircle,
@@ -25,6 +26,7 @@ import {
   Gift,
   GlobeSimple,
   GraduationCap,
+  Handshake,
   Headset,
   House,
   IdentificationCard,
@@ -38,6 +40,7 @@ import {
   NotePencil,
   Notebook,
   PiggyBank,
+  SealCheck,
   Shield,
   ShieldCheck,
   SquaresFour,
@@ -46,6 +49,7 @@ import {
   Tag,
   Textbox,
   TreeStructure,
+  TrendUp,
   Trophy,
   Umbrella,
   UserCheck,
@@ -103,9 +107,6 @@ const OrgBusinessUnits = screen('OrgBusinessUnits');
 const OrgGrades = screen('OrgGrades');
 const OrgCostCentres = screen('OrgCostCentres');
 const Tags = screen('Tags');
-const Departments = screen('Departments');
-const JobPositions = screen('JobPositions');
-const JobRoles = screen('JobRoles');
 const DataHealth = screen('DataHealth');
 const LifecycleTasks = screen('LifecycleTasks');
 const LifecycleOverview = screen('LifecycleOverview');
@@ -121,6 +122,15 @@ const Compliance = screen('Compliance');
 const Privacy = screen('Privacy');
 const AuditEvidence = screen('AuditEvidence');
 const WorkspaceList = screen('WorkspaceList');
+/* Talent (TALENT-DECISIONS.md): hiring and growth on their own records, /people/talent/*. */
+const TalentOpenings = screen('TalentOpenings');
+const TalentCandidates = screen('TalentCandidates');
+const TalentInterviews = screen('TalentInterviews');
+const TalentGoals = screen('TalentGoals');
+const TalentReviews = screen('TalentReviews');
+const TalentPlans = screen('TalentPlans');
+const TalentOneOnOnes = screen('TalentOneOnOnes');
+const TalentTrainings = screen('TalentTrainings');
 const PeopleReports = screen('PeopleReports');
 const Registers = screen('Registers');
 const LeaveSummaryReport = screen('LeaveSummaryReport');
@@ -148,13 +158,6 @@ const AuditLogs = screen('AuditLogs');
 const PeopleSettings = screen('PeopleSettings');
 const PeopleModules = screen('PeopleModules');
 const CompanyDetails = screen('CompanyDetails');
-const BusinessUnits = screen('BusinessUnits');
-const Establishments = screen('Establishments');
-const Teams = screen('Teams');
-const Seats = screen('Seats');
-const Grades = screen('Grades');
-const CostCentres = screen('CostCentres');
-const Locations = screen('Locations');
 const Integrations = screen('Integrations');
 const DataExport = screen('DataExport');
 const RecycleBin = screen('RecycleBin');
@@ -212,6 +215,10 @@ const I = {
   candidate: duo(UserPlus, 'UserPlus'),
   goal: duo(Trophy, 'Trophy'),
   training: duo(GraduationCap, 'GraduationCap'),
+  interview: duo(Handshake, 'Handshake'),
+  review: duo(SealCheck, 'SealCheck'),
+  plan: duo(TrendUp, 'TrendUp'),
+  oneOnOne: duo(ChatsCircle, 'ChatsCircle'),
   hrCase: duo(Headset, 'Headset'),
   asset: duo(Laptop, 'Laptop'),
   benefit: duo(Gift, 'Gift'),
@@ -323,8 +330,8 @@ export const peopleApp = {
     ] },
     /* Talent (owner, 28 Oct 2026): hiring and growing people, one module so the rail has room for what comes next. */
     { key: 'talent', label: 'Talent', icon: M.hiring, groups: [
-      { label: 'Hiring', items: ['recruitment', 'candidates'] },
-      { label: 'Growth', items: ['performance', 'learning'] },
+      { label: 'Hiring', items: ['recruitment', 'candidates', 'interviews'] },
+      { label: 'Growth', items: ['performance', 'reviews', 'oneOnOnes', 'plans', 'learning'] },
     ] },
     /* Workplace: what the company offers its staff, news to help. */
     { key: 'workplace', label: 'Workplace', icon: M.engage, groups: [
@@ -382,9 +389,17 @@ export const peopleApp = {
     { key: 'workingWeek', label: 'Working week', icon: I.calendar, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
     { key: 'leaveYearEnd', label: 'Leave year end', icon: I.register, permission: 'ATTENDANCE::Leave Requests::EDIT', parent: 'settings', feature: 'peopleDetailed' },
     { key: 'requestRules', label: 'Attendance request types', icon: I.policy, permission: 'ATTENDANCE::Attendance Requests::APPROVE', parent: 'settings', feature: 'peopleDetailed' },
+    /* Talent. Interviews and one-on-ones need no right of their own: anyone can sit on an interview or
+       manage someone, and the server shows each person only their own. Goals, reviews and plans are not
+       read-only without Performance Edit (`writeGuard: false`): a manager acts on their own team there, and
+       the server decides who may. Screen keys stay, so old links work. */
     { key: 'recruitment', label: 'Job openings', icon: I.job, permission: 'PEOPLE::Recruitment::VIEW', feature: 'peopleHiring' },
     { key: 'candidates', label: 'Candidates', icon: I.candidate, permission: 'PEOPLE::Recruitment::VIEW', feature: 'peopleHiring' },
-    { key: 'performance', label: 'Goals & feedback', icon: I.goal, permission: 'PEOPLE::Performance::VIEW', feature: 'peoplePerformance' },
+    { key: 'interviews', label: 'Interviews', icon: I.interview, feature: 'peopleHiring' },
+    { key: 'performance', label: 'Goals', icon: I.goal, permission: 'PEOPLE::Performance::VIEW', feature: 'peoplePerformance', writeGuard: false },
+    { key: 'reviews', label: 'Reviews', icon: I.review, permission: 'PEOPLE::Performance::VIEW', feature: 'peoplePerformance', writeGuard: false },
+    { key: 'oneOnOnes', label: 'One-on-ones', icon: I.oneOnOne, feature: 'peoplePerformance' },
+    { key: 'plans', label: 'Improvement plans', icon: I.plan, permission: 'PEOPLE::Performance::VIEW', feature: 'peoplePerformance', writeGuard: false },
     { key: 'learning', label: 'Training', icon: I.training, permission: 'PEOPLE::Learning::VIEW', feature: 'peoplePerformance' },
     { key: 'announcements', label: 'Announcements', icon: I.news, permission: 'PEOPLE::Announcements::VIEW', feature: 'peopleEngage' },
     { key: 'events', label: 'Events', icon: I.event, permission: 'PEOPLE::Events::VIEW', feature: 'peopleEngage' },
@@ -473,10 +488,14 @@ export const peopleApp = {
     leaveRegister: LeaveRegister,
     attendance: TeamAttendance,
     myDays: MyDays,
-    recruitment: withSidePanel(register('recruitment'), panel('RecruitmentPanel')),
-    candidates: withSidePanel(register('candidates'), panel('CandidatesPanel')),
-    performance: withSidePanel(register('performance'), panel('PerformancePanel')),
-    learning: withSidePanel(register('learning'), panel('LearningPanel')),
+    recruitment: TalentOpenings,
+    candidates: TalentCandidates,
+    interviews: TalentInterviews,
+    performance: TalentGoals,
+    reviews: TalentReviews,
+    oneOnOnes: TalentOneOnOnes,
+    plans: TalentPlans,
+    learning: TalentTrainings,
     announcements: withSidePanel(register('announcements'), panel('AnnouncementsPanel')),
     events: withSidePanel(register('events'), panel('EventsPanel')),
     helpdesk: withSidePanel(HelpDesk, panel('HelpDeskPanel')),

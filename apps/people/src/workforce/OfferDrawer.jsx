@@ -22,8 +22,9 @@ export default function OfferDrawer({ employee, candidate, onClose, onSent }) {
   const target = employee || candidate;
   const [setup, setSetup] = useState(null);
   const [initial, setInitial] = useState(() => ({
-    email: employee ? employee.personalEmail || employee.email || employee.workEmail || '' : candidate?.details?.email || '',
-    designation: employee?.designation || '',
+    /* A candidate (Talent): their e-mail, and the opening's designation as the position. */
+    email: employee ? employee.personalEmail || employee.email || employee.workEmail || '' : candidate?.email || candidate?.details?.email || '',
+    designation: employee?.designation || candidate?.designation || '',
     joiningDate: employee?.dateOfJoining ? String(employee.dateOfJoining).slice(0, 10) : '',
     acceptBy: plusDays(7),
     annualCtc: '',

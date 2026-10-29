@@ -173,6 +173,10 @@ peopleTalentRouter.post(`${base}/interviews/:id/cancel`, hiringOn, can(Permissio
   await audit(req, 'Interview', String(req.params.id), 'CANCEL', 'Interview cancelled');
   res.json({ ok: true });
 }));
+/* The people HR can put on an interview: names of the company's users, for the picker. */
+peopleTalentRouter.get(`${base}/interviewers`, hiringOn, can(PermissionAction.EDIT, R.recruitment), handle(async (req, res) => {
+  res.json({ users: await hiring.interviewerChoices(req.tenant!.orgId) });
+}));
 /* Interviews and feedback: open to every user; the service shows only the caller's own unless they hold Recruitment. */
 peopleTalentRouter.get(`${base}/interviews`, hiringOn, handle(async (req, res) => {
   const hr = await has(req, 'VIEW', R.recruitment);

@@ -24,6 +24,7 @@ const api = vi.hoisted(() => ({
   getLeaving: vi.fn(),
   /* Joining & Leaving: nothing of the person's own to do, so the card stays away. */
   getJourney: vi.fn(async () => ({ joining: [], leaving: [], handBack: [] })),
+  getGrowth: vi.fn(async () => ({ on: false, goals: [], reviews: [], plans: [], oneOnOnes: [], trainings: [] })),
   doneJourneyTask: vi.fn(async () => ({ done: true })),
   resign: vi.fn(async () => ({ request: { id: 'l1', status: 'WAITING' } })),
   getMyDetails: vi.fn(),

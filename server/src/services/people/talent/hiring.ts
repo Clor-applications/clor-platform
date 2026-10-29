@@ -332,6 +332,13 @@ export async function candidateOf(orgId: string, id: string, viewer: { userId: s
 
 /* ---------------------------------------------------------------- interviews */
 
+/** Who can sit on an interview: the company's active users, by name only (no e-mail, no role). */
+export async function interviewerChoices(orgId: string) {
+  const members = await platformPrisma.userOrgMembership.findMany({ where: { orgId }, select: { userId: true } });
+  const users = await platformPrisma.user.findMany({ where: { id: { in: members.map((m) => m.userId) }, isActive: true }, select: { id: true, fullName: true }, orderBy: { fullName: 'asc' } });
+  return users.map((u) => ({ id: u.id, name: u.fullName || 'Unnamed user' }));
+}
+
 async function companyUsers(orgId: string, ids: string[]) {
   const found = await platformPrisma.userOrgMembership.findMany({ where: { orgId, userId: { in: ids } }, select: { userId: true } });
   return new Set(found.map((f) => f.userId));
@@ -363,7 +370,7 @@ export async function scheduleInterview(who: Who, candidateId: string, raw: any,
     return r;
   });
   const others = ids.filter((u) => u !== who.userId);
-  await notifyUsers(who.accountId, who.orgId, others, { kind: 'people.hiring', title: `Interview: ${c.name}`, body: at.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }), link: { app: 'people', screen: 'interviews' } as any });
+  await notifyUsers(who.accountId, who.orgId, others, { kind: 'people.hiring', title: `Interview: ${c.name}`, body: at.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }), link: { app: 'people', screen: 'interviews', params: { id: row.id } } as any });
   return row;
 }
 
