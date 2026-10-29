@@ -1,7 +1,5 @@
 import React from 'react';
-import { BarChart3, TrendingUp, Users, Zap } from '@ui/components/ui/lineIcons';
-
-import { ClorLogo } from '@ui/components/brand';
+import { ClorLogo, ClorMark } from '@ui/components/brand';
 import LegalLinks from './legal/LegalLinks';
 
 /**
@@ -11,47 +9,43 @@ import LegalLinks from './legal/LegalLinks';
  * different form in it — and a sign-up that looked like a different product
  * would make somebody wonder whether they had followed the right link.
  *
- * The brand side is clor.in's own hero, so the step from the website into the
- * app does not change rooms: the warm ground and its orange glow, the same
- * headline, and the workspace illustration. It carries the platform claim, not
- * the accounting one — somebody signing in may be here for payroll alone.
+ * The brand side is the "Done, daily" panel of the brand board: the indigo
+ * ground, the promise, and a day's list ticked off with the mark itself — the
+ * tick is the product's done state. It carries the platform claim, not the
+ * accounting one — somebody signing in may be here for payroll alone.
  */
 
-const POINTS = [
-  { Icon: Users, text: 'Connect your teams' },
-  { Icon: Zap, text: 'Streamline operations' },
-  { Icon: BarChart3, text: 'Get real-time insights' },
-  { Icon: TrendingUp, text: 'Scale as your business grows' },
+/* What a day in CLOR looks like: two things done, one waiting on you. */
+const TODAY = [
+  { text: 'GSTR-1 filed', done: true },
+  { text: 'Salaries paid', done: true },
+  { text: '2 leave requests', done: false },
 ];
 
-/* The default brand side: clor.in's hero. A caller that is not the customer's door (the operator console) passes its own. */
+/* The default brand side. A caller that is not the customer's door (the operator console) passes its own. */
 function CustomerBrand() {
   return (
     <>
       <div className="ui-auth-copy">
-        <p className="ui-auth-eyebrow">Your business. One workspace.</p>
         <h2 className="ui-auth-title">
-          Every part of your business, working in <span className="ui-auth-accent">harmony.</span>
+          Done, <span className="ui-auth-accent">daily.</span>
         </h2>
-        <p className="ui-auth-lede">Connect your teams, streamline operations and grow — all in one place. Built for modern businesses.</p>
-        <ul className="ui-auth-points">
-          {POINTS.map(({ Icon, text }) => (
-            <li key={text}>
-              <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
-              {text}
+        <p className="ui-auth-lede">Books, GST, people and pay, ticked off before tea.</p>
+      </div>
+
+      <div className="ui-auth-today" aria-label="An example day">
+        <p className="ui-auth-today-title">Today</p>
+        <ul>
+          {TODAY.map(({ text, done }) => (
+            <li key={text} className={done ? undefined : 'is-waiting'}>
+              {done ? <ClorMark size={18} color="rgb(var(--indigo))" title="" /> : <span className="ui-auth-today-ring" aria-hidden="true" />}
+              <span>{text}</span>
+              <span className="sr-only">{done ? ', done' : ', waiting on you'}</span>
             </li>
           ))}
         </ul>
       </div>
-
-      <img
-        className="ui-auth-art"
-        src="/brand/auth-workspace.webp"
-        width="1000"
-        height="562"
-        alt="The Clor workspace on a laptop and a phone, with every app connected to it."
-        decoding="async"
-      />
+      <div className="ui-auth-halftone" aria-hidden="true" />
     </>
   );
 }
@@ -60,9 +54,9 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
   return (
     <div className="ui-auth min-h-dvh">
       <div className="ui-min-h-viewport flex">
-        <aside className="ui-auth-brand hidden lg:flex" aria-label="About Clor">
+        <aside className={`ui-auth-brand hidden lg:flex${brand ? '' : ' is-board'}`} aria-label="About CLOR">
           <div className="ui-auth-brand-inner">
-            <button type="button" onClick={onHome} className="text-left" aria-label="Clor, back to clor.in">
+            <button type="button" onClick={onHome} className="text-left" aria-label="CLOR, back to clor.in">
               <ClorLogo size={30} />
             </button>
 
@@ -75,7 +69,7 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
         <div className="relative flex-1 flex items-center justify-center px-6 py-10">
           <div className={`relative w-full ${wide ? 'max-w-3xl' : 'max-w-md'}`}>
             <div className="lg:hidden mb-8 text-center">
-              <button type="button" onClick={onHome} className="inline-flex items-center gap-2" aria-label="Clor, back to clor.in">
+              <button type="button" onClick={onHome} className="inline-flex items-center gap-2" aria-label="CLOR, back to clor.in">
                 <ClorLogo size={30} />
               </button>
             </div>

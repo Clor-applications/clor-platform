@@ -8,6 +8,13 @@ Preview (rendered): https://claude.ai/code/artifact/b5f06c26-a4de-4879-979f-fbb1
 - **Space:** Tally, Zoho Books, Vyapar, QuickBooks India. All either dated or generic.
 - **Project type:** dense data web application.
 - **Memorable thing:** *Serious software for serious work.* Calm, obviously accurate, never shouts. Trust is the product.
+- **Brand idea (Direction D, 2026-10-29):** *Done, daily.* Books, GST, people and pay, ticked off before tea. The tick is the system's done state.
+
+## Brand
+- **Mark:** one stroke, never lifted — it runs round the C and finishes as a tick. `ClorMark` (`packages/ui/src/components/brand`) draws it inline from one path; `public/brand/clor-mark.svg` is the same geometry. Indigo on light, marigold on the indigo ground (`--logo-mark`).
+- **Wordmark:** always **CLOR**, capitals, Bricolage Grotesque ExtraBold, tracking −.02em (`.ui-wordmark`, `--logo-word`). `ClorLogo` sets mark + wordmark; `public/brand/clor-light.svg` / `clor-dark.svg` are the outlined files.
+- **App icon:** marigold mark on an indigo tile (`public/icon.svg`, `clor-icon-192/512.png`), mark at 70% so it survives a maskable crop.
+- **Sign-in:** the board's "Done, daily." panel on a lilac ground (light only, indigo type, marigold underline) with a Today card ticked off by the mark and a marigold halftone. The operator console keeps its own light side.
 
 ## Aesthetic Direction
 - **Direction:** Instrument — industrial-utilitarian, refined.
@@ -65,39 +72,44 @@ component, read this one.
 - **Don't pick an icon size by eye.** Four roles: 12 / 14 / **16 default** / 18.
 
 ## Typography
-Loaded from Google Fonts in `src/index.css`. **One face: Inter** (2026-09-13, the
-Graphite type decision adopted ahead of the rest of that system). Fraunces and
-both Geists are out; rank comes from size and weight, never from switching
-family.
+Self-hosted (Fontsource) in `packages/ui/src/index.css`. **Inter for the work,
+Bricolage Grotesque for the brand** (2026-10-29, Direction D): warm display,
+plain Inter for figures. Bricolage is the wordmark and page titles (`h1`,
+`.ui-t-page`) and the sign-in display — nothing else. Rank inside a screen
+still comes from size and weight.
 
-- **Everything:** Inter — tabular figures, large x-height, wide weight range.
+- **Display:** Bricolage Grotesque Variable (optical size auto), 700–800.
+- **Everything else:** Inter — tabular figures, large x-height, wide weight range.
 - **Money:** Inter, `font-variant-numeric: tabular-nums` (inherited from `html`) — columns align to the digit, right-aligned.
 - **Code / voucher numbers:** Inter with ligatures off (`.ui-mono`); marked by alignment and context, not a second typeface.
 
 ### Scale
 | Role | Font | Size / line | Weight | Notes |
 |------|------|-------------|--------|-------|
-| Page title | Inter | 28 / 36 | 700 | `letter-spacing: -.025em` |
+| Page title | Bricolage Grotesque | 24 / 29 | 700 | `letter-spacing: -.025em` |
 | Section title | Inter | 16 / 24 | 600 | |
 | Body, UI | Inter | 14 / 20 | 400–500 | |
 | Table cell | Inter | 13 / 18 | 400 | |
 | Money | Inter | 13 / 18 | 400 | tabular-nums, right-aligned |
 | Label, caption | Inter | 12 / 16 | 500 | `.04em`, uppercase |
 
-All visible headings use weight 700. Table headings use the shared graphite
-header surface and step to the next grey on hover, so sortable and filterable
+All visible headings use weight 700. Table headings use the shared lilac
+header surface and step to the next tint on hover, so sortable and filterable
 columns provide a clear cursor response without introducing another colour.
 
 Nothing below 12px. Nothing between 16 and 24.
 
 ## Color
-- **Approach:** restrained. One accent, and it means one thing.
-- **Brand `#18181B`** (`--brand`): primary action and active navigation. The dark theme inverts it to off-white. This keeps controls strong without adding decorative colour.
+- **Approach:** restrained. Four brand colours, each with one job.
+- **Indigo `#232A66`** (`--indigo`, `--brand`): primary action, selected tab, focus ring, the logo. White on it is 13.2:1.
+- **Lilac `#E9E5F4`** (`--lilac`, `--brand-soft`): the selected and done state — the chosen rail item, header bands, Filed / Paid / Approved.
+- **Marigold `#F5A623`** (`--marigold`): the mark on dark, the dark theme's action (indigo ink, 6.5:1), and "waiting on you". On cotton or white it is a fill, never text (2.0:1).
+- **Cotton `#FAF6EE`** (`--cotton`, `--app-bg`): the page and the rail. Cards and documents stay white on it.
 - **Money semantics, never the accent:** in `#15803D`, out / late `#B91C1C`, attention `#A16207`.
-- **Product chrome:** graphite only. Module icons, navigation, buttons, filters, and neutral KPI cards use the zinc ramp.
-- **Per-app accent (2026-10-24):** an app may name one shared palette in its manifest (`palette`), and that palette may redefine only the colour tokens (`--brand*`, `--btn-primary-*`, `--on-brand`, `--accent-soft`, `--ring`) and answer the graphite control rules. It never restates type, radius, spacing or shadow, and nothing is scoped to an app id. Attendance wears Blaze; People wears Burnished Rose `#A45761` (5.1:1 on white; `#8A4652` where rose is text; `#D89FA8` in the dark theme). Accounting and Payroll keep graphite.
-- **Neutrals:** cool graphite, `#FAFAFA` → `#09090B`, with white document surfaces and a white navigation rail separated by a quiet grey rule.
-- **Dark mode:** redefine tokens only, never restyle components inside a theme block. Surfaces use true neutral blacks; money greens, ambers, and reds remain available for meaning.
+- **Product chrome:** indigo and lilac only. Module icons, navigation, buttons, filters and neutral KPI cards take indigo on lilac; text is indigo-black (`--fg` `#1A1D3D`), never zinc.
+- **Per-app accent (2026-10-24):** an app may name one shared palette in its manifest (`palette`), and that palette may redefine only the colour tokens (`--brand*`, `--btn-primary-*`, `--on-brand`, `--accent-soft`, `--ring`) and answer the graphite control rules. It never restates type, radius, spacing or shadow, and nothing is scoped to an app id. Attendance wears Blaze; People wears Burnished Rose `#A45761` (5.1:1 on white; `#8A4652` where rose is text; `#D89FA8` in the dark theme). Accounting, Payroll and the workspace wear the platform's indigo.
+- **Neutrals:** warm, biased to cotton — hairline `#E8E3D8`, strong `#BEB8AC`, sunken `#F7F4EE` — with white document surfaces.
+- **Dark mode:** redefine tokens only, never restyle components inside a theme block. Surfaces are the brand's night indigo (`#101228` ground, `#191C3A` card); money greens, ambers, and reds remain available for meaning.
 
 ## Spacing
 - **Base:** 8px.
@@ -500,6 +512,7 @@ because focus, portals and event order cannot be read off the source.
 | 2026-10-28 | People colours and icons upgraded; Organisation overview as rows | Owner: "colours primary and all the colors need to be upgraded, icons", then "i don't want blue as every software this industry used same colours". On the Sky palette only (People): the accent is lagoon teal #0E7C7B (white on it 5.0:1; #0A6665 as text, 6.6:1), apart from the blues and purples of other HR apps; dark theme #2DD4BF with dark ink on it, near-black ground #0A0A0C and neutral grey surfaces #1C1C1E/#2C2C2E. Ink #1D1D1F for text and headings (navy headings dropped); status at Apple's accessible system values: green #1E7F37, orange #B25000, red #D70015, purple #8944AB (dark: #30D158, #FF9F0A, #FF6961, #BF8CFF). The Mist trial (slate #5D6B6B, blush counts) is removed; counts and date tiles take the teal wash. Icons stay Phosphor line icons; the open module and the open screen fill their icon's soft layer in the accent, as a selected symbol does on iOS. Organisation overview: departments and branches as full-width rows under one hairline instead of a card grid that left the end of each row empty; Other lists on the same ground. Payroll, Attendance and Accounting unchanged |
 | 2026-10-26 | Text fields suggest what already exists | Owner rule, for every app: a field offers the company's own matching data so nothing is typed twice or spelled two ways. One shared `SuggestInput`; shared vocabulary only, never another person's private details |
 | 2026-10-24 | People wears a rose accent on Accounting's layout | The owner asked for People to keep the same layout and type as Accounting while having its own face. People's app-scoped CSS (59 selectors, 26 `!important`: 22px titles, 15px sections, 6px controls, a coral palette and a second-pass Blaze layer) is removed and replaced by one shared `[data-palette='rose']` block that sets colour tokens only. Colour icons stay (D-01, docs/people/08) |
+| 2026-10-29 | Direction D "Done, daily" brand shipped | C-tick mark and Bricolage wordmark replace the red mark and PNG wordmark; platform palette moves from graphite to indigo / marigold / lilac / cotton. Money semantics and the per-app palettes (Blaze, Rose) unchanged |
 | 2026-10-02 | Contrast floor re-measured against the page ground, not white | Compliance audit: Graphite `--fg-subtle` #71717A was 4.83:1 on white but 4.40:1 on the `--app-bg` it often sits on, under AA; now #6B6B73 (4.81:1). `--warn` #A66A00 measured 4.48:1, now #996200. Orange-theme tokens (primary fill, focus ring, orange text → `--brand-ink`) corrected too, though Graphite overrides them. Field borders (1.48:1, WCAG 1.4.11) left for a design decision — see docs/compliance |
 | 2026-10-02 | Inter served from the app, not Google Fonts | Loading it from fonts.googleapis.com sent every visitor's IP to Google before sign-in. Same face (`@fontsource-variable/inter`, OFL); the family is `'Inter Variable'` first in every stack |
 | 2026-09-18 | Icon scale, layer scale and content width governed | Ten icon sizes became four roles (15px and 16px were doing the same job one pixel apart); sixteen z-index values became eleven ordered tokens after a row menu at `z-[9999]` was measured painting over an open dialog; and measuring the pages showed the content-width "drift" was mostly inner measure rather than page width, so two behaviours were documented instead of four roles invented |

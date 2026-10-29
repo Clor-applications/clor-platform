@@ -1,11 +1,11 @@
 {
   "name": "CLOR",
   "short_name": "CLOR",
-  "description": "CLOR business accounting. Books that balance themselves.",
+  "description": "CLOR business accounting. Books, GST, people and pay, done daily.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FAFAFA",
-  "theme_color": "#FF6B00",
+  "background_color": "#FAF6EE",
+  "theme_color": "#232A66",
   "icons": [
     {
       "src": "/clor-icon-192.png",
