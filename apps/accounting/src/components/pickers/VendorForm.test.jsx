@@ -57,6 +57,21 @@ const fillMinimum = async (user, name = 'Umbrella Chemicals') => {
 
 beforeEach(() => vi.clearAllMocks());
 
+/*
+ * Updated 30 Oct 2026. The branch, MSME and price list choices are
+ * PopupSelects (a button that opens a searchable list), not native selects,
+ * as shipped since the import (00f6a61a). A PopupSelect cannot carry
+ * `required`; the form refuses the save instead, which these now check.
+ */
+const optionsOf = async (user, label) => {
+  await user.click(screen.getByLabelText(label));
+  return (await screen.findAllByRole('option')).map((o) => o.textContent);
+};
+const choose = async (user, label, text) => {
+  await user.click(screen.getByLabelText(label));
+  await user.click((await screen.findAllByRole('option')).find((o) => o.textContent.includes(text)));
+};
+
 describe('the vendor form is the customer form, re-labelled', () => {
   it('asks which branch carries a non-zero opening balance when multiple branches exist', async () => {
     const user = userEvent.setup();
@@ -67,7 +82,25 @@ describe('the vendor form is the customer form, re-labelled', () => {
       onClose={() => {}}
     />);
     await user.type(screen.getByLabelText('Opening Balance'), '750');
-    expect(screen.getByLabelText('Opening Balance Branch')).toBeRequired();
+    const labels = await optionsOf(user, 'Opening Balance Branch');
+    expect(labels.some((l) => l.includes('Head Office'))).toBe(true);
+    expect(labels.some((l) => l.includes('South Branch'))).toBe(true);
+  });
+
+  it('refuses to save a non-zero opening balance with no branch chosen', async () => {
+    const user = userEvent.setup();
+    const setDb = vi.fn();
+    render(<VendorForm
+      db={{ ...db, branches: [{ id: 10, companyId: 1, name: 'Head Office' }, { id: 20, companyId: 1, name: 'South Branch' }] }}
+      setDb={setDb}
+      currentCompany={company}
+      onClose={() => {}}
+    />);
+    await fillMinimum(user);
+    await user.type(screen.getByLabelText('Opening Balance'), '750');
+    await user.click(screen.getByRole('button', { name: /^Save$/ }));
+    expect(notify.error).toHaveBeenCalledWith('Select the branch that carries this opening balance.');
+    expect(setDb).not.toHaveBeenCalled();
   });
 
   it('carries the same tabs', () => {
@@ -132,8 +165,10 @@ describe('what is genuinely different', () => {
     renderVendor();
     expect(screen.getByRole('radio', { name: /Cr \(Default\)/ })).toBeChecked();
 
+    /* The customer's Dr / Cr sit inline beside the amount, without the
+       "(Default)" the vendor's Balance Type row spells out. */
     render(<CustomerForm db={db} setDb={() => {}} currentCompany={company} onClose={() => {}} />);
-    expect(screen.getAllByRole('radio', { name: /Dr \(Default\)/ }).at(-1)).toBeChecked();
+    expect(screen.getAllByRole('radio', { name: 'Dr' }).at(-1)).toBeChecked();
   });
 
   it('offers a purchase price list rather than a sales one', async () => {
@@ -151,19 +186,19 @@ describe('what is genuinely different', () => {
 
     expect(screen.getByLabelText('GSTIN')).toBeInTheDocument();
     expect(screen.getByLabelText('PAN')).toBeInTheDocument();
-    expect(screen.getByLabelText('MSME registered')).toHaveValue('no');
+    expect(screen.getByLabelText('MSME registered')).toHaveTextContent('No');
     expect(screen.queryByLabelText('MSME / Udyam number')).toBeNull();
     expect(screen.queryByLabelText('TDS applicable')).toBeNull();
     expect(screen.queryByLabelText('GST Registration / Treatment')).toBeNull();
     expect(screen.queryByLabelText('Others')).toBeNull();
 
-    await user.selectOptions(screen.getByLabelText('MSME registered'), 'yes');
+    await choose(user, 'MSME registered', 'Yes');
     expect(screen.getByLabelText('MSME / Udyam number')).toBeRequired();
 
     await user.type(screen.getByLabelText('MSME / Udyam number'), 'udyam-ka-01-1234567');
     expect(screen.getByLabelText('MSME / Udyam number')).toHaveValue('UDYAM-KA-01-1234567');
 
-    await user.selectOptions(screen.getByLabelText('MSME registered'), 'no');
+    await choose(user, 'MSME registered', 'No');
     expect(screen.queryByLabelText('MSME / Udyam number')).toBeNull();
   });
 
@@ -271,10 +306,9 @@ describe('the price list', () => {
     render(<VendorForm db={withLists} setDb={() => {}} currentCompany={company} onClose={() => {}} />);
     await user.click(screen.getByRole('tab', { name: 'Credit Details' }));
 
-    const select = screen.getByLabelText('Purchase Price List');
-    const labels = Array.from(select.options).map((o) => o.textContent);
-    expect(labels).toContain('Bulk purchase');
-    expect(labels).not.toContain('Retired card');
+    const labels = await optionsOf(user, 'Purchase Price List');
+    expect(labels.some((l) => l.includes('Bulk purchase'))).toBe(true);
+    expect(labels.some((l) => l.includes('Retired card'))).toBe(false);
   });
 
   it('stores the list id, which is what pricing reads', async () => {
@@ -284,7 +318,7 @@ describe('the price list', () => {
 
     await fillMinimum(user);
     await user.click(screen.getByRole('tab', { name: 'Credit Details' }));
-    await user.selectOptions(screen.getByLabelText('Purchase Price List'), '3');
+    await choose(user, 'Purchase Price List', 'Bulk purchase');
     await user.click(screen.getByRole('button', { name: /^Save$/ }));
 
     expect(setDb.mock.calls.at(-1)[0].vendors.at(-1).priceListId).toBe('3');
@@ -436,7 +470,8 @@ describe('the same drawer, wherever the form is opened from', () => {
     /* Picker lists stay anchored to their fields. Creation is a consistent
        side task and therefore uses the same content-width drawer everywhere. */
     for (const src of [vendorSrc, customerSrc]) {
-      expect(src).toMatch(/import Drawer from '..\/ui\/Drawer'/);
+      /* Imported through the package alias since the platform split. */
+      expect(src).toMatch(/import Drawer from '@ui\/components\/ui\/Drawer'/);
       expect(src).toMatch(/widthClass="ui-form-drawer"/);
       expect(src).toMatch(/className="customer-create-form flex min-h-0 flex-col"/);
     }
