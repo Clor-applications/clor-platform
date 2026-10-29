@@ -70,7 +70,7 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
 
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (o) => <PersonCell person={{ name: o.name }} line={[o.designation, o.email].filter(Boolean).join(' · ')} /> },
-    { key: 'ctc', label: 'Annual CTC', align: 'right', render: (o) => <span className="whitespace-nowrap">{rupees(o.annualCtc)}</span> },
+    { key: 'ctc', label: 'Annual CTC', align: 'right', render: (o) => <span className="whitespace-nowrap tabular-nums">{rupees(o.annualCtc)}</span> },
     { key: 'joins', label: 'Joins on', render: (o) => <span className="tabular-nums whitespace-nowrap">{o.joiningDate ? formatDate(o.joiningDate) : '—'}</span> },
     { key: 'sent', label: 'Sent', render: (o) => <span className="tabular-nums whitespace-nowrap">{sentOn(o)}</span> },
     { key: 'status', label: 'Status', render: (o) => <span className="block">{status(o)}<span className="block ui-caption tabular-nums mt-0.5">{when(o)}</span></span> },

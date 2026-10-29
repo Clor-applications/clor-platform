@@ -5,7 +5,7 @@ import { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { notify } from '@ui/components/ui/notify';
 import useRequest from '@ui/components/ui/useRequest';
-import { Avatar } from '@ui/personnel/Employees';
+import { Avatar, taskNote } from '@ui/personnel/Employees';
 
 import { KIND_WORD, OWNER_WORD, orgUsers, updateTask } from './api';
 
@@ -105,7 +105,7 @@ export function TaskDrawer({ task, canAssign, onClose, onSaved }) {
         </dl>
         {/* A failed removal's note names the reader and what to do; the general words would only repeat it. */}
         {readerWords(task) && task.systemState !== 'FAILED' ? <p className="text-sm">{readerWords(task)}.</p> : null}
-        {task.note ? <p className={`text-sm whitespace-pre-line ${task.systemState === 'FAILED' && !task.done ? 'ui-text-neg' : 'ui-muted'}`}>{task.note}</p> : null}
+        {taskNote(task.note) ? <p className={`text-sm whitespace-pre-line ${task.systemState === 'FAILED' && !task.done ? 'ui-text-neg' : 'ui-muted'}`}>{taskNote(task.note)}</p> : null}
         {task.ownPlan ? <p className="text-sm">This task is on your own plan: someone else closes it.</p> : !task.done && task.canClose === false ? <p className="text-sm">{task.ownerName || 'Its owner'} closes this one.</p> : null}
         {closable ? (
           <label className="block">

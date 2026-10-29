@@ -125,6 +125,12 @@ describe('a comment its author takes back (gap 22)', () => {
     await people(hr).del(`/notes/${hrs.id}`).expect(200);
   });
 
+  it('a role with Notes delete but not create may still delete anyone’s comment', async () => {
+    const remover = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Employee Notes::VIEW', 'PEOPLE::Employee Notes::DELETE']);
+    const n = (await people(hr).post(`/employees/${arjun.id}/notes`, { body: 'To remove' }).expect(201)).body.note;
+    await people(remover).del(`/notes/${n.id}`).expect(200);
+  });
+
   it('a reader without the comment grant cannot delete at all', async () => {
     const reader = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Employee Notes::VIEW']);
     const n = (await people(hr).post(`/employees/${arjun.id}/notes`, { body: 'Kept' }).expect(201)).body.note;
@@ -171,8 +177,16 @@ describe('People approval delegates (gap 9)', () => {
     expect(list.standIns[0]).toMatchObject({ standInEmployeeId: kavya.id, standInName: 'Kavya Iyer', live: true });
     /* Who may be chosen reaches past the manager's team: names and codes of everyone with a sign-in, nothing more. */
     const candidates = (await people(manager).get('/stand-ins/candidates').expect(200)).body.people;
-    expect(candidates.map((c: any) => c.name)).toEqual(expect.arrayContaining(['Kavya Iyer', 'Rahul Manager']));
+    expect(candidates.map((c: any) => c.name)).toEqual(expect.arrayContaining(['Kavya Iyer']));
     expect(candidates.map((c: any) => c.name)).not.toContain('Arjun Das');
+    /* Someone with a sign-in who may approve nothing is neither listed nor accepted. */
+    const viewer = await colleague(hr, ['PEOPLE::Employees::VIEW'], false, 'Only Viewer');
+    const viewerRec = (await people(hr).post('/employees', { name: 'Only Viewer', code: 'G-8' }).expect(201)).body.employee;
+    await link(hr, viewerRec.id, viewer.userId);
+    expect((await people(manager).get('/stand-ins/candidates').expect(200)).body.people.map((c: any) => c.name)).not.toContain('Only Viewer');
+    const notDecider = await people(manager).post('/stand-ins', { standInEmployeeId: viewerRec.id, fromDate: '2026-12-01', toDate: '2026-12-05' }).expect(400);
+    expect(notDecider.body.error).toMatch(/cannot approve/);
+    await people(manager).post('/stand-ins', { standInUserId: viewer.userId, fromDate: '2026-12-01', toDate: '2026-12-05' }).expect(400);
     expect(Object.keys(candidates[0]).sort()).toEqual(['code', 'id', 'name']);
     await crossed(other, hr).get('/stand-ins/candidates').expect(403);
     /* Each sees only their own. */
@@ -205,6 +219,13 @@ describe('offers and joining forms kept to a team (gaps 7, 22)', () => {
     await crossed(other, hr).get('/offers').expect(403);
 
     await people(manager).post(`/offers/${mine.id}/withdraw`, {}).expect(403);
+    /* A team-limited role that may write documents withdraws its own team's offers only; another's reads as absent, with no pay in the answer. */
+    const teamWriter = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW', 'PEOPLE::Documents::CREATE'], true, 'Team Writer');
+    await link(hr, rahul.id, teamWriter.userId);
+    const outsiderOffer = (await people(hr).get('/offers').expect(200)).body.offers.find((o: any) => o.name === 'Out Sider');
+    const refused = await people(teamWriter).post(`/offers/${outsiderOffer.id}/withdraw`, {}).expect(404);
+    expect(JSON.stringify(refused.body)).not.toContain('300000');
+    await link(hr, rahul.id, manager.userId);
     await people(other).post(`/offers/${mine.id}/withdraw`, {}).expect(409);
     const [a, b] = await Promise.all([people(hr).post(`/offers/${mine.id}/withdraw`, {}), people(hr).post(`/offers/${mine.id}/withdraw`, {})]);
     expect([a.status, b.status].sort()).toEqual([200, 409]);

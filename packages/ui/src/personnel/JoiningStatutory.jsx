@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 import { hasApp } from '@platform/context';
-import { approveJoiningStatutory, joiningStatutory, rejectJoiningStatutory, sendHeldToPayroll } from './api';
+import { approveJoiningStatutory, joiningStatutory, listEmployeeInvites, rejectJoiningStatutory, sendHeldToPayroll } from './api';
 
 /*
  * The statutory half of a joiner's form (HR-VIEW gap 2): PAN, UAN, ESIC,
@@ -17,6 +17,7 @@ const FIELDS = [
 const STATUS_WORDS = {
   SENT: 'Sent, not checked',
   HELD: 'Approved; kept in People until Payroll is switched on',
+  SENDING: 'Going to Payroll now',
   APPLIED: 'Approved and on the Payroll record',
   REJECTED: 'Not accepted',
 };
@@ -62,9 +63,11 @@ export default function JoiningStatutory({ invite, canView, canApprove, onDecide
     try {
       const r = await sendHeldToPayroll();
       notify.success(r?.sent ? `${r.sent === 1 ? 'One set' : `${r.sent} sets`} of details sent to Payroll.` : 'Nothing was waiting to go to Payroll.');
-      if (r?.sent) {
-        setSummary({ ...summary, status: 'APPLIED' });
-        onDecided?.({ ...summary, status: 'APPLIED' });
+      /* What the server now holds for this invite, not a guess: another send may have taken it, or skipped it. */
+      const fresh = (await listEmployeeInvites(invite.employeeId).catch(() => [])).find((i) => i.id === invite.id)?.statutory;
+      if (fresh) {
+        setSummary(fresh);
+        onDecided?.(fresh);
       }
     } catch (e) {
       notify.error(String(e?.message || 'Not sent.'));

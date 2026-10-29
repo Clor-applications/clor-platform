@@ -192,7 +192,7 @@ export function PersonAssets({ employeeId, openScreen }) {
     featuresFor(currentOrgId(), currentBranchId())
       .then((r) => {
         if (!r?.features?.peopleBenefits) { if (live) setState({ on: false, rows: [], error: null }); return null; }
-        return listAssets().then((rows) => live && setState({ on: true, rows: rows.filter((a) => a.employeeId === employeeId), error: null }));
+        return listAssets(employeeId).then((rows) => live && setState({ on: true, rows: rows.filter((a) => a.employeeId === employeeId), error: null }));
       })
       .catch((e) => live && setState({ on: true, rows: [], error: e }));
     return () => { live = false; };

@@ -117,12 +117,18 @@ peopleLettersRouter.get(`${base}/offers`, can(PermissionAction.VIEW, DOCUMENTS),
   if (!(await peopleRouteOk(req, res))) return;
   /* An offer carries the pay offered: a team-limited role sees offers to its own team only, never to candidates. */
   const scope = await teamScope(req);
-  const offers = await offersOf(req.tenant!.orgId, { employeeId: req.query.employeeId ? String(req.query.employeeId) : undefined, candidateId: req.query.candidateId ? String(req.query.candidateId) : undefined });
-  res.json({ offers: scope.all ? offers : offers.filter((o) => o.employeeId && inScope(scope, o.employeeId)) });
+  if (!scope.all && req.query.candidateId) return res.json({ offers: [] });
+  res.json({ offers: await offersOf(req.tenant!.orgId, { employeeId: req.query.employeeId ? String(req.query.employeeId) : undefined, candidateId: req.query.candidateId ? String(req.query.candidateId) : undefined, ...(scope.all ? {} : { employeeIds: scope.ids }) }) });
 });
 
 peopleLettersRouter.post(`${base}/offers/:id/withdraw`, can(PermissionAction.CREATE, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
+  /* An offer outside a team-limited role's team (or to a candidate) reads as absent, as on the list. */
+  const scope = await teamScope(req);
+  if (!scope.all) {
+    const offer = await peoplePrisma.offer.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId }, select: { employeeId: true } });
+    if (!offer?.employeeId || !inScope(scope, offer.employeeId)) return res.status(404).json({ error: 'No such offer.' });
+  }
   try {
     res.json({ offer: await withdrawOffer(actorOf(req), String(req.params.id)) });
   } catch (e) {

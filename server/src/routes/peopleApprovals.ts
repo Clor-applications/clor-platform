@@ -11,6 +11,8 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { correlationOf } from '../services/people/employees.js';
+import { todayIst } from '../services/people/lifecycle/board.js';
+import { usersWithPermission } from '../services/notifications.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
 import { ApprovalError, REQUEST_TYPES, RULE_TYPES, activeRule, cleanSteps, decide, mine, namesFor, reply, retireRule, saveRule, shape, submitRequest, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
 
@@ -26,8 +28,11 @@ const { approvals: APPROVALS, requests: REQUESTS } = PEOPLE_RESOURCE;
 const can = (action: string, resource: string) => requirePermission(PEOPLE_MODULE, action as any, resource);
 const base = '/orgs/:orgId/people';
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-/* India's date, as the approval engine counts a stand-in's days. */
-const today = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+/** Who may decide anything at all: a stand-in must be one of them (People requests or leave, approve). */
+async function deciders(accountId: string, orgId: string) {
+  const [people, leave] = await Promise.all([usersWithPermission(accountId, orgId, 'PEOPLE::Requests::APPROVE'), usersWithPermission(accountId, orgId, 'ATTENDANCE::Leave Requests::APPROVE')]);
+  return new Set([...people, ...leave]);
+}
 const actorOf = (req: Request, source: ChangeSource = 'FORM', reason: string | null = null): Actor => ({
   accountId: req.tenant!.accountId, orgId: req.tenant!.orgId, userId: req.auth?.userId || null, source, correlationId: correlationOf(req as any), reason,
 });
@@ -235,7 +240,7 @@ peopleApprovalsRouter.get(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUES
   /* The People record behind each login, so the Delegates screen can name people the way the leave list does. */
   const records = await peoplePrisma.employee.findMany({ where: { orgId, userId: { in: [req.auth!.userId, ...rows.map((r) => r.standInUserId)] } }, select: { id: true, userId: true, name: true } });
   const recordOf = new Map(records.map((e) => [e.userId, e]));
-  const day = today();
+  const day = todayIst();
   res.json({
     today: day,
     selfEmployeeId: recordOf.get(req.auth!.userId)?.id ?? null,
@@ -244,14 +249,17 @@ peopleApprovalsRouter.get(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUES
 });
 
 /**
- * Who can stand in: anyone here with a CLOR sign-in, by name and code only.
- * A team-limited manager's own lists stop at their team, but the person they
- * hand their decisions to is usually above or beside them (their own manager,
- * HR), so this list is the company's, and says nothing beyond the name.
+ * Who can stand in: the people here who may approve requests or leave, by
+ * name and code only. A team-limited manager's own lists stop at their team,
+ * but the person they hand their decisions to is usually above or beside
+ * them (their own manager, HR), so this list reaches past the team, and says
+ * nothing beyond the name. The POST below holds to the same rule.
  */
 peopleApprovalsRouter.get(`${base}/stand-ins/candidates`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  const rows = await peoplePrisma.employee.findMany({ where: { orgId: req.tenant!.orgId, status: { not: 'LEFT' }, userId: { not: null } }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' }, take: 1000 });
+  const { accountId, orgId } = req.tenant!;
+  const may = [...(await deciders(accountId, orgId))];
+  const rows = may.length ? await peoplePrisma.employee.findMany({ where: { orgId, status: { not: 'LEFT' }, userId: { in: may } }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' }, take: 1000 }) : [];
   res.json({ people: rows });
 });
 
@@ -277,6 +285,7 @@ peopleApprovalsRouter.post(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUE
   if (standInUserId === req.auth!.userId) return res.status(400).json({ error: 'Someone else has to stand in.' });
   const member = await platformPrisma.userOrgMembership.findFirst({ where: { orgId, userId: standInUserId }, select: { id: true } });
   if (!member) return res.status(400).json({ error: 'That person is not in this company.' });
+  if (!(await deciders(accountId, orgId)).has(standInUserId)) return res.status(400).json({ error: 'They cannot approve requests here, so they cannot decide in your place. Choose someone who can.' });
   const row = await peoplePrisma.standIn.create({ data: { accountId, orgId, userId: req.auth!.userId, standInUserId, fromDate: b.fromDate, toDate: b.toDate } });
   res.status(201).json({ standIn: row });
 });

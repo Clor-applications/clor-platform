@@ -178,8 +178,8 @@ function AddDelegate({ wholeCompany, namesLeave, namesApprovals, selfEmployeeId,
           {namesApprovals ? (
             <>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={approvalsOn} disabled={!forSelf || !selfEmployeeId} onChange={(e) => set('approvals', e.target.checked)} />Other approvals: job changes, detail changes, leaving, probation, letters</label>
-              {!selfEmployeeId ? <p className="ui-caption">Other approvals are handed on from your own employee record; your sign-in is not linked to one.</p>
-                : !forSelf ? <p className="ui-caption">Other approvals are handed on by the manager themselves, from their own sign-in.</p> : null}
+              {!selfEmployeeId ? <span className="block ui-caption">Other approvals are handed on from your own employee record; your sign-in is not linked to one.</span>
+                : !forSelf ? <span className="block ui-caption">Other approvals are handed on by the manager themselves, from their own sign-in.</span> : null}
             </>
           ) : null}
         </fieldset>

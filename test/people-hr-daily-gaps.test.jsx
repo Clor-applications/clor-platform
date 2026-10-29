@@ -28,6 +28,7 @@ const personnel = vi.hoisted(() => ({
   undoImport: vi.fn(async () => ({ removed: 2, restored: 0, kept: 0 })),
   listInvites: vi.fn(async () => []),
   sendHeldToPayroll: vi.fn(async () => ({ sent: 1 })),
+  listEmployeeInvites: vi.fn(async () => [{ id: 'i3', statutory: { status: 'APPLIED', values: { pan: 'AB*******F' } } }]),
 }));
 const life = vi.hoisted(() => ({ pageJoiners: vi.fn(async () => ({ rows: [], total: 0, counts: {} })) }));
 vi.mock('../packages/ui/src/lifecycle/api', async (orig) => ({ ...(await orig()), ...life }));
@@ -55,7 +56,7 @@ const appr = vi.hoisted(() => ({
 }));
 vi.mock('../apps/people/src/api/approvals', async (orig) => ({ ...(await orig()), ...appr }));
 
-import { EmployeeDocuments } from '../packages/ui/src/personnel/Employees';
+import { EmployeeDocuments, taskNote } from '../packages/ui/src/personnel/Employees';
 import Offers from '../apps/people/src/workforce/Offers';
 import { ProbationSection } from '../apps/people/src/workforce/RecordExtras';
 import Delegates from '../apps/people/src/screens/Delegates';
@@ -307,9 +308,19 @@ describe('Joining forms not back, and held details to Payroll (gaps 15, 22)', ()
 
   it('a held set on the record has its own Send to Payroll once Payroll is on', async () => {
     ctx.apps = ['people', 'payroll'];
-    render(<JoiningStatutory invite={{ id: 'i3', statutory: { status: 'HELD', values: { pan: 'ABCDE1234F' } } }} canView canApprove />);
+    render(<JoiningStatutory invite={{ id: 'i3', employeeId: 'e3', statutory: { status: 'HELD', values: { pan: 'ABCDE1234F' } } }} canView canApprove />);
     fireEvent.click(screen.getByRole('button', { name: 'Send to Payroll' }));
     await waitFor(() => expect(personnel.sendHeldToPayroll).toHaveBeenCalled());
+    /* The state shown is the server's, read back after the send, not assumed. */
+    await waitFor(() => expect(personnel.listEmployeeInvites).toHaveBeenCalledWith('e3'));
     expect(await screen.findByText('Approved and on the Payroll record')).toBeInTheDocument();
+  });
+});
+
+describe('Plain words where a key showed', () => {
+  it('a reminder task note drops its machine marker', () => {
+    expect(taskNote('probation:2026-11-04. Confirm, extend or end it on their Employment tab.')).toBe('Confirm, extend or end it on their Employment tab.');
+    expect(taskNote('Probation ends 4 Nov 2026. Confirm, extend or end it on their Employment tab.')).toBe('Probation ends 4 Nov 2026. Confirm, extend or end it on their Employment tab.');
+    expect(taskNote(null)).toBe('');
   });
 });

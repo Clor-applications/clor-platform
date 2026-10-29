@@ -106,6 +106,8 @@ const initials = (name) =>
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 /* A moment (accepted, asked) as India's calendar day: the UTC date would put a 2 a.m. IST ask on the day before. */
 const istDayOf = (t) => new Date(new Date(t).getTime() + 330 * 60_000).toISOString().slice(0, 10);
+/* Older reminder tasks start their note with a machine marker (`probation:2026-11-04.`); people read the words after it. */
+export const taskNote = (note) => String(note || '').replace(/^(probation|contract):\d{4}-\d{2}-\d{2}\.\s*/, '');
 const formatDateShort = (d) => { const [y, m, dd] = String(d).slice(0, 10).split('-'); return y && m && dd ? `${Number(dd)} ${MONTHS_SHORT[Number(m) - 1]} ${y}` : String(d); };
 
 export const Avatar = ({ person, size = 40 }) =>
@@ -1208,7 +1210,7 @@ export function EmployeeChecklist({ person }) {
                     {t.dueDate ? <span className={t.overdue ? 'ui-text-neg font-medium' : ''}> · {t.overdue ? 'was due' : 'due'} {formatDateShort(t.dueDate)}</span> : null}
                     {t.done && t.doneBy ? ` · done by ${t.doneBy}` : ''}
                   </p>
-                  {t.note ? <p className="ui-caption">{t.note}</p> : null}
+                  {taskNote(t.note) ? <p className="ui-caption">{taskNote(t.note)}</p> : null}
                   {t.needsNote && !t.done ? <p className="ui-caption">Closes with a note.</p> : null}
                 </div>
               </li>

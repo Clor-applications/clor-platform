@@ -81,4 +81,4 @@ export const saveProbationReview = (id, body) => send(`/employees/${encodeURICom
 export const policiesFor = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/policies`, opts).then((r) => r?.policies || []);
 export const deleteNote = (noteId) => send(`/notes/${encodeURIComponent(noteId)}`, 'DELETE');
 /* The assets register (Pay, benefits & assets), read for one person's record. */
-export const listAssets = () => apiFetch(`${base()}/workspace/assets`, opts).then((r) => r?.records || []);
+export const listAssets = (employeeId) => apiFetch(`${base()}/workspace/assets${qs({ employeeId })}`, opts).then((r) => r?.records || []);

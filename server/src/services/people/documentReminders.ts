@@ -232,8 +232,9 @@ export async function runEndDateReminders(now = new Date(), pageSize = PAGE) {
           link,
           dedupeKey: `contract:${e.id}:${contract}:${cStage}`,
         }, { ever: true });
-        const marker = `contract:${contract}`;
-        if (!(await peoplePrisma.checklistTask.count({ where: { orgId: e.orgId, employeeId: e.id, kind: 'RENEWAL', note: { contains: marker } } }))) {
+        /* The task's note says the date in words, and doubles as the marker that it was made; older tasks carry `contract:<date>`. */
+        const marker = `Contract ends ${words(contract)}`;
+        if (!(await peoplePrisma.checklistTask.count({ where: { orgId: e.orgId, employeeId: e.id, kind: 'RENEWAL', OR: [{ note: { contains: marker } }, { note: { contains: `contract:${contract}` } }] } }))) {
           await startChecklist({ accountId: e.accountId, orgId: e.orgId, userId: null }, { id: e.id }, 'RENEWAL', contract, { items: [{ title: `Renew or end ${e.name}’s contract (ends ${words(contract)})`, owner: 'HR', dueDays: -7, note: `${marker}. Renew on their Employment tab, or record leaving.` }] });
         }
       }
@@ -247,8 +248,9 @@ export async function runEndDateReminders(now = new Date(), pageSize = PAGE) {
           link,
           dedupeKey: `probation:${e.id}:${probation}:${pStage}`,
         }, { ever: true });
-        const marker = `probation:${probation}`;
-        if (!(await peoplePrisma.checklistTask.count({ where: { orgId: e.orgId, employeeId: e.id, kind: 'PROBATION', note: { contains: marker } } }))) {
+        /* The note says the date in words and doubles as the marker; older tasks carry `probation:<date>`. */
+        const marker = `Probation ends ${words(probation)}`;
+        if (!(await peoplePrisma.checklistTask.count({ where: { orgId: e.orgId, employeeId: e.id, kind: 'PROBATION', OR: [{ note: { contains: marker } }, { note: { contains: `probation:${probation}` } }] } }))) {
           await startChecklist({ accountId: e.accountId, orgId: e.orgId, userId: null }, { id: e.id }, 'PROBATION', probation, { items: [{ title: `Review ${e.name}’s probation (ends ${words(probation)})`, owner: 'MANAGER', dueDays: -3, note: `${marker}. Confirm, extend or end it on their Employment tab.` }] });
         }
       }

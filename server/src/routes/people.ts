@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { authorize, requirePermission } from '../middleware/rbac.js';
+import { authorize, requireAnyPermission, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction, type PermissionAction as PermissionActionType } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -2502,8 +2502,8 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/notes', can(PermissionActio
   res.status(201).json({ note });
 });
 
-/* Whoever wrote a comment may take it back; anyone else's needs the Notes delete grant. */
-peopleRouter.delete('/orgs/:orgId/people/notes/:noteId', can(PermissionAction.CREATE, NOTES), async (req, res) => {
+/* Whoever wrote a comment may take it back (Notes create); anyone else's needs the Notes delete grant. */
+peopleRouter.delete('/orgs/:orgId/people/notes/:noteId', requireAnyPermission([PEOPLE_MODULE, PermissionAction.CREATE, NOTES], [PEOPLE_MODULE, PermissionAction.DELETE, NOTES]), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const note = await peoplePrisma.employeeNote.findFirst({ where: { id: String(req.params.noteId), accountId, orgId } });

@@ -189,4 +189,17 @@ describe('statutory details at joining', () => {
     expect(await runInTenant(solo.orgId, () => payrollPrisma.pfNominee.count({ where: { employeeId: e.id } }))).toBe(1);
     expect((await people(solo).post('/joining-statutory/send-held', {}).expect(200)).body).toEqual({ sent: 0 });
   }, 60_000);
+
+  it('two sends at once apply a held set once: one payroll profile, one set of nominees', async () => {
+    const solo = await owner({ people: true, attendance: true, payroll: false });
+    const { e, invite } = await joinerSends(solo, 'RC-1', { pan: 'ABCDE1234F', nominees: [{ name: 'Lata', relation: 'MOTHER', sharePercent: 100 }] });
+    await people(solo).post(`/invites/${invite.id}/statutory/approve`, {}).expect(200);
+    await request(app).put(`/api/orgs/${solo.orgId}/features`).set(at(solo)).send({ features: { payroll: true } }).expect(200);
+    const both = await Promise.all([people(solo).post('/joining-statutory/send-held', {}), people(solo).post('/joining-statutory/send-held', {})]);
+    expect(both.map((r) => r.status)).toEqual([200, 200]);
+    expect(both.reduce((n, r) => n + r.body.sent, 0)).toBe(1);
+    expect(await runInTenant(solo.orgId, () => payrollPrisma.pfNominee.count({ where: { employeeId: e.id } }))).toBe(1);
+    expect(await runInTenant(solo.orgId, () => payrollPrisma.employeePayrollProfile.count({ where: { employeeId: e.id } }))).toBe(1);
+    expect((await runInTenant(solo.orgId, () => peoplePrisma.joinStatutory.findFirst({ where: { inviteId: invite.id } })))?.status).toBe('APPLIED');
+  }, 60_000);
 });
