@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { peopleApp } from '../apps/people/manifest.jsx';
-import { holdsPermission } from '../packages/shell/Shell.jsx';
+import { holdsPermission, writeGuardPermission } from '../packages/shell/Shell.jsx';
 import { PERMISSION_CATALOG, expandPreset } from '../server/src/constants/permissionCatalog.ts';
 import { AUDIT_GRANT, CASE_SEAT } from '../apps/people/src/api/access.js';
 
@@ -82,6 +82,19 @@ describe('People menu by person', () => {
         expect(known.has(k), `${item.key}: ${k}`).toBe(true);
       }
     }
+  });
+});
+
+describe('the screen-wide write guard', () => {
+  const item = (k) => peopleApp.nav.find((i) => i.key === k);
+  it('stays off the Talent screens the server decides per person (writeGuard: false, PR #67)', () => {
+    for (const k of ['performance', 'reviews', 'plans']) expect(writeGuardPermission(item(k)), k).toBeUndefined();
+  });
+  it('stays off screens opened by any one of several rights, and on for a single one', () => {
+    expect(writeGuardPermission(item('recycleBin'))).toBeUndefined();
+    expect(writeGuardPermission(item('privateCases'))).toBeUndefined();
+    expect(writeGuardPermission(item('myDays'))).toBe('ATTENDANCE::My Attendance::VIEW');
+    expect(writeGuardPermission(undefined)).toBeUndefined();
   });
 });
 

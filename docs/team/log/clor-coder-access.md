@@ -1,5 +1,11 @@
 # clor-coder-access — work log
 
+## 2026-10-30 IST — People / access and visibility — PR #68 review fixes and rebase
+- Did: the migration now changes only roles still exactly their old template (name, team-only setting, permission set), so a company-wide "Team Manager" or a role an admin edited is left alone. Restricted-holiday Pick/Drop is gated on CREATE. The Recycle bin menu is checked against BIN_KINDS. Export data shows an empty state when nothing is readable. Added decision OD-11. Rebased on main after #66 and #67; on the Shell WriteGuard line I kept this branch's version, extracted as `writeGuardPermission` and tested with the Talent items.
+- Evidence: server tests passed (`peopleAccessVisibility` 8, `peopleTalent` 11, roles/catalog/manifest 23); web 24 files / 140 tests plus the new helper tests passed; browser: manager on Talent → Goals, no read-only banner (`manager-goals-1440.png`).
+- Next: whatever review comes back.
+- Blocked on: nothing.
+
 ## 2026-10-30 IST — People / access and visibility — PR #68 follow-up
 - Did: People opens on the first screen a person may open when Home is not theirs (employee, outside auditor, committee member), not on "You can't open Home". The read-only banner names the thing in plain words ("your roles let you see My attendance (Attendance) but not change it") instead of a right the resource lacks. The Tasks panel's quick links show only screens the person may open.
 - Evidence: PR #68; web tests 66 passed in the touched suites (new `people-landing.test.js`, `SideLinks.test.jsx`, banner case in `write-guard.test.jsx`); screenshots `*-opens-people-*.png`, `viewer-myDays-*.png` in `docs/people/design-v1/evidence/access/`.

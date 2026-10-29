@@ -126,6 +126,13 @@ export const companyGroups = (allTenants = [], accounts = []) => {
  */
 export const holdsPermission = (permission, granted, extra) => !permission || !granted || [].concat(permission).some((k) => granted.has(k) || Boolean(extra?.has(k)));
 
+/**
+ * The permission the screen-wide WriteGuard reads for a nav item: none when
+ * the item lists several (any one opens it) or says `writeGuard: false` (the
+ * Talent screens, where the server decides per person).
+ */
+export const writeGuardPermission = (item) => (item?.writeGuard === false || typeof item?.permission !== 'string' ? undefined : item.permission);
+
 /** "SETTINGS::Users::VIEW" as a person reads it: "view Users (Settings)". */
 export const permissionWords = (key = '') => {
   const [module = '', sub = '', action = ''] = String(key).split('::');
@@ -1325,7 +1332,7 @@ export default function Shell() {
                 {/* One permission set for every app's screens; a screen whose resource this person may not change is shown read-only (WriteGuard). */}
                 <PermissionProvider key={tenantKey} enabled>
                   {/* A list of permissions (any one opens the screen) or `writeGuard: false` (PR #67): the screen's server decides per person. */}
-                  <WriteGuard permission={screenItem?.writeGuard === false || typeof screenItem?.permission !== 'string' ? undefined : screenItem.permission}>
+                  <WriteGuard permission={writeGuardPermission(screenItem)}>
                     {(() => {
                       /* A page under a hub (People → Settings → Departments) shows the way back to it. */
                       const parentKey = (app?.nav || []).find((n) => n.key === screen)?.parent;
