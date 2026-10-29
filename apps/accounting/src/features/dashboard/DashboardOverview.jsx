@@ -761,7 +761,7 @@ function HomeMetric({ label, value, company, Icon, tone, change, series }) {
       </div>
       <div className="mt-2 grid grid-cols-[minmax(0,1fr)_4.5rem] items-end gap-2">
         <div className="min-w-0">
-          <div className="ui-money truncate text-lg font-semibold" title={formatMoney(value, company)}>{formatMoney(value, company)}</div>
+          <div className="ui-money truncate text-lg font-medium" title={formatMoney(value, company)}>{formatMoney(value, company)}</div>
           <div className="mt-1 flex items-center gap-1 text-xs" style={{ color: change >= 0 ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>
             {change >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
             <span>{Math.abs(change || 0)}%</span>
@@ -843,7 +843,7 @@ function HomeDueList({ rows, company, empty }) {
     <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
       {rows.slice(0, 4).map((row, index) => (
         <li key={`${row.name || row.vendorName}-${index}`} className="flex items-center gap-2 py-2">
-          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--surface-sunken))] text-[10px] font-semibold">
+          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--surface-sunken))] text-[10px] font-medium">
             {String(row.name || row.vendorName || 'NA').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
           </span>
           <div className="min-w-0 flex-1">

@@ -81,7 +81,7 @@ export default function CurrencySettings() {
         <div className="grid md:grid-cols-2 xl:grid-cols-3">
           {shown.length ? shown.map((currency) => (
             <div key={currency.id} className="flex h-11 items-center gap-3 border-b px-3 md:border-r" style={{ borderColor: 'rgb(var(--border))' }}>
-              <span className="w-10 font-semibold">{currency.code}</span>
+              <span className="w-10 font-medium">{currency.code}</span>
               <span className="min-w-0 flex-1 truncate text-sm">{currency.name}</span>
               <span className="ui-muted">{currency.symbol || '—'}</span>
               <span className="ui-pill ui-pill-pos">Enabled</span>

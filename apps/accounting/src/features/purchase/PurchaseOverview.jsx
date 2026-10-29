@@ -79,7 +79,7 @@ function PurchaseMetricCard({ icon: Icon, label, value, delta, goodWhenUp = true
         {label}
       </div>
       <div className="mt-2 grid grid-cols-[minmax(0,1fr)_5rem] items-end gap-2">
-        <div className="min-w-0"><p className="ui-money truncate text-xl font-bold" title={String(value)}>{value}</p><div className="mt-1 text-[11px]"><span style={{ color: good ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>{rising ? '↑' : '↓'} {Math.abs(Number(delta || 0)).toFixed(1)}%</span> <span className="ui-subtle">vs previous period</span></div></div>
+        <div className="min-w-0"><p className="ui-money truncate text-xl font-medium" title={String(value)}>{value}</p><div className="mt-1 text-[11px]"><span style={{ color: good ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>{rising ? '↑' : '↓'} {Math.abs(Number(delta || 0)).toFixed(1)}%</span> <span className="ui-subtle">vs previous period</span></div></div>
         <svg viewBox="0 0 100 32" className="h-9 w-full" preserveAspectRatio="none" aria-hidden="true"><polyline points={points} fill="none" stroke={palette.ink} strokeWidth="2" vectorEffect="non-scaling-stroke" /><polyline points={`0,32 ${points} 100,32`} fill={palette.ink} fillOpacity=".08" stroke="none" /></svg>
       </div>
     </article>
@@ -99,7 +99,7 @@ function PurchaseEmptyState({ height, title, detail, action, icon: Icon = Packag
       >
         <Icon size={23} strokeWidth={1.7} />
       </span>
-      <p className="text-sm font-semibold">{title}</p>
+      <p className="text-sm font-medium">{title}</p>
       {detail ? <p className="mt-1 max-w-sm text-xs leading-5 ui-muted">{detail}</p> : null}
       {action ? (
         <button type="button" onClick={action.onClick} className="ui-btn ui-btn-secondary mt-3">
@@ -599,14 +599,14 @@ export default function PurchaseOverview({ db, currentCompany, onNavigate, onNew
 
       <Panel title="Vendor Payables (Outstanding)" bodyClass="justify-start" className="">
         <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
-          {payables.buckets.map((bucket, index) => <div key={bucket.key} className="rounded-lg border p-3" style={agingTone(index)}><div className="ui-money text-sm font-semibold">{money(bucket.amount)}</div><div className="ui-caption mt-1">{bucket.label}</div><div className="ui-caption">{payables.total ? Math.round(bucket.amount / payables.total * 100) : 0}% of dues</div></div>)}
+          {payables.buckets.map((bucket, index) => <div key={bucket.key} className="rounded-lg border p-3" style={agingTone(index)}><div className="ui-money text-sm">{money(bucket.amount)}</div><div className="ui-caption mt-1">{bucket.label}</div><div className="ui-caption">{payables.total ? Math.round(bucket.amount / payables.total * 100) : 0}% of dues</div></div>)}
         </div>
         <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_17rem]">
           <div className="min-w-0">
             <div className="mb-2 flex items-center justify-between"><h3 className="ui-t-sec">Top Outstanding Vendors</h3><PanelLink onClick={() => go('vendors')}>View vendors</PanelLink></div>
             {payables.rows.length ? <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'rgb(var(--border))' }}><table className="ui-table w-full text-xs"><thead><tr><th className="ui-th">Vendor</th><th className="ui-th text-end">Total Outstanding</th>{payables.buckets.map((bucket) => <th key={bucket.key} className="ui-th text-end whitespace-nowrap">{bucket.label}</th>)}<th className="ui-th">Action</th></tr></thead><tbody>{payables.rows.slice(0, 8).map((row) => <tr key={row.name} className="border-t"><td className="px-2 py-2 font-medium whitespace-nowrap">{row.name}</td><td className="ui-col-amount px-2 py-2">{money(row.total)}</td>{payables.buckets.map((bucket) => <td key={bucket.key} className="ui-col-amount px-2 py-2">{row.buckets[bucket.key] ? formatMoneyCompact(row.buckets[bucket.key], currentCompany) : '—'}</td>)}<td className="px-2 py-2"><button type="button" className="ui-link" onClick={() => go('vendors')}>Open</button></td></tr>)}</tbody></table></div> : <p className="ui-muted py-8 text-center text-sm">No vendor payables are outstanding.</p>}
           </div>
-          <aside className="rounded-lg border p-3" style={{ borderColor: 'rgb(var(--border))' }} aria-label="Payables insights"><h3 className="ui-t-sec">Payables Insights</h3><dl className="mt-3 space-y-3"><div className="flex justify-between gap-2"><dt className="ui-muted text-sm">Total Outstanding</dt><dd className="ui-money text-sm font-semibold">{money(payables.total)}</dd></div><div className="flex justify-between gap-2"><dt className="ui-muted text-sm">Overdue Amount</dt><dd className="ui-money text-sm font-semibold text-[rgb(var(--neg))]">{money(payables.overdue)}</dd></div><div className="flex justify-between gap-2"><dt className="ui-muted text-sm">Vendors Overdue</dt><dd className="text-sm font-semibold">{payables.rows.filter((row) => row.oldest > 0).length} / {payables.vendorCount}</dd></div><div className="flex justify-between gap-2"><dt className="ui-muted text-sm">Weighted Age</dt><dd className="text-sm font-semibold">{payables.averageDays} days</dd></div></dl><button type="button" className="ui-btn ui-btn-secondary mt-4 w-full" onClick={() => go('reports')}>View ageing report</button></aside>
+          <aside className="rounded-lg border p-3" style={{ borderColor: 'rgb(var(--border))' }} aria-label="Payables insights"><h3 className="ui-t-sec">Payables Insights</h3><dl className="mt-3 space-y-3"><div className="flex justify-between gap-2"><dt className="ui-muted text-sm">Total Outstanding</dt><dd className="ui-money text-sm">{money(payables.total)}</dd></div><div className="flex justify-between gap-2"><dt className="ui-muted text-sm">Overdue Amount</dt><dd className="ui-money text-sm text-[rgb(var(--neg))]">{money(payables.overdue)}</dd></div><div className="flex justify-between gap-2"><dt className="ui-muted text-sm">Vendors Overdue</dt><dd className="text-sm font-medium">{payables.rows.filter((row) => row.oldest > 0).length} / {payables.vendorCount}</dd></div><div className="flex justify-between gap-2"><dt className="ui-muted text-sm">Weighted Age</dt><dd className="text-sm font-medium">{payables.averageDays} days</dd></div></dl><button type="button" className="ui-btn ui-btn-secondary mt-4 w-full" onClick={() => go('reports')}>View ageing report</button></aside>
         </div>
       </Panel>
     </div>

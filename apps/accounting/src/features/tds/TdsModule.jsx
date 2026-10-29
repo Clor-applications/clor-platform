@@ -328,7 +328,7 @@ export default function TdsModule({ db, setDb = null, currentCompany, onBack = n
             <tbody>
               {sectionSummary.map((r) => (
                 <tr key={`${r.side}-${r.natureCode}`} className="cursor-pointer ui-hover-sunken" onClick={() => { setNatureCode(r.natureCode); setSelectedReport(r.side === 'RECEIVABLE' ? 'receivable' : 'payable'); setSide(r.side); setView('register'); }}>
-                  <td className="truncate"><span className="ui-link font-semibold">{r.natureName}</span></td>
+                  <td className="truncate"><span className="ui-link font-medium">{r.natureName}</span></td>
                   {/* Both sides of April 2026 legitimately appear together. */}
                   <td className="ui-mono truncate">{r.references.join(', ') || '—'}</td>
                   <td>{r.side === 'RECEIVABLE' ? 'Receivable' : 'Payable'}</td>

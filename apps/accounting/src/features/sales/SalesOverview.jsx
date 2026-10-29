@@ -80,7 +80,7 @@ function SalesMetricCard({ label, value, delta: movement, Icon, tone = 'blue', s
         {label}
       </div>
       <div className="mt-2 grid grid-cols-[minmax(0,1fr)_5rem] items-end gap-2">
-        <div className="min-w-0"><div className="ui-money truncate text-xl font-bold">{value}</div><div className="mt-1 flex items-center gap-1 text-[11px]"><span style={{ color: positive ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>{positive ? '↑' : '↓'} {Math.abs(Number(movement || 0)).toFixed(1)}%</span><span className="ui-subtle">vs previous period</span></div></div>
+        <div className="min-w-0"><div className="ui-money truncate text-xl font-medium">{value}</div><div className="mt-1 flex items-center gap-1 text-[11px]"><span style={{ color: positive ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>{positive ? '↑' : '↓'} {Math.abs(Number(movement || 0)).toFixed(1)}%</span><span className="ui-subtle">vs previous period</span></div></div>
         <svg viewBox="0 0 100 32" className="h-9 w-full" preserveAspectRatio="none" aria-hidden="true"><polyline points={points} fill="none" stroke={palette.ink} strokeWidth="2" vectorEffect="non-scaling-stroke" /><polyline points={`0,32 ${points} 100,32`} fill={palette.ink} fillOpacity=".08" stroke="none" /></svg>
       </div>
     </section>
@@ -696,7 +696,7 @@ const SalesOverview = ({
         <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
           {receivables.buckets.map((bucket, index) => (
             <div key={bucket.key} className="rounded-lg border p-3" style={agingTone(index)}>
-              <div className="ui-money text-sm font-semibold">{money(bucket.amount)}</div>
+              <div className="ui-money text-sm">{money(bucket.amount)}</div>
               <div className="ui-caption mt-1">{bucket.label}</div>
               <div className="ui-caption">{receivables.total ? Math.round(bucket.amount / receivables.total * 100) : 0}% of dues</div>
             </div>
@@ -719,10 +719,10 @@ const SalesOverview = ({
           <aside className="rounded-lg border p-3" style={{ borderColor: 'rgb(var(--border))' }} aria-label="Receivables insights">
             <h3 className="ui-t-sec">Receivables Insights</h3>
             <dl className="mt-3 space-y-3">
-              <div className="flex items-center justify-between gap-2"><dt className="ui-muted text-sm">Total Outstanding</dt><dd className="ui-money text-sm font-semibold">{money(receivables.total)}</dd></div>
-              <div className="flex items-center justify-between gap-2"><dt className="ui-muted text-sm">Overdue Amount</dt><dd className="ui-money text-sm font-semibold text-[rgb(var(--neg))]">{money(receivables.overdue)}</dd></div>
-              <div className="flex items-center justify-between gap-2"><dt className="ui-muted text-sm">Customers Overdue</dt><dd className="text-sm font-semibold">{receivables.rows.filter((row) => row.oldest > 0).length} / {receivables.customerCount}</dd></div>
-              <div className="flex items-center justify-between gap-2"><dt className="ui-muted text-sm">Weighted Age</dt><dd className="text-sm font-semibold">{receivables.averageDays} days</dd></div>
+              <div className="flex items-center justify-between gap-2"><dt className="ui-muted text-sm">Total Outstanding</dt><dd className="ui-money text-sm">{money(receivables.total)}</dd></div>
+              <div className="flex items-center justify-between gap-2"><dt className="ui-muted text-sm">Overdue Amount</dt><dd className="ui-money text-sm text-[rgb(var(--neg))]">{money(receivables.overdue)}</dd></div>
+              <div className="flex items-center justify-between gap-2"><dt className="ui-muted text-sm">Customers Overdue</dt><dd className="text-sm font-medium">{receivables.rows.filter((row) => row.oldest > 0).length} / {receivables.customerCount}</dd></div>
+              <div className="flex items-center justify-between gap-2"><dt className="ui-muted text-sm">Weighted Age</dt><dd className="text-sm font-medium">{receivables.averageDays} days</dd></div>
             </dl>
             <button type="button" className="ui-btn ui-btn-secondary mt-4 w-full" onClick={() => go('reports')}>View ageing report</button>
           </aside>
