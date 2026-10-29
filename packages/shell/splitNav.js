@@ -25,6 +25,21 @@ export function resolveModules(app, nav) {
 }
 
 /**
+ * Where an app opens for this person: its home when they may open it, else
+ * the first screen on their rail (People audit, 30 Oct 2026: an employee, an
+ * outside auditor or a committee member opened People onto "You can't open
+ * Home"). `nav` is the nav already filtered to what this person may open; while
+ * their permissions are unknown it holds everything, so home wins.
+ */
+export function landingScreen(app, nav) {
+  const home = app?.home || null;
+  const kept = new Set((nav || []).filter((i) => i.key).map((i) => i.key));
+  const homeGated = (app?.nav || []).some((i) => i.key === home);
+  if (!home || kept.has(home) || !homeGated) return home;
+  return resolveModules(app, nav)[0]?.home || (nav || []).find((i) => i.key && !i.hub && !i.section && app.screens?.[i.key])?.key || home;
+}
+
+/**
  * The module whose screens include this one, else null. A screen kept off the
  * sidebar (a page under a Settings hub) names its `parent` in the nav, and
  * belongs to the parent's module.

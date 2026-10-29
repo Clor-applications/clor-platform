@@ -246,7 +246,7 @@ export function EmployeesPanel({ openScreen }) {
 }
 
 /* Tasks (Joining & leaving): who joins or leaves with tasks open, and whose tasks are late. */
-export function ChecklistsPanel({ openScreen }) {
+export function ChecklistsPanel({ openScreen, navItems }) {
   /* Every open Joining & leaving task in the caller's reach (Tasks screen, `open` view). */
   const req = useRequest(() => quiet(Promise.all([pageTasks({ view: 'open', limit: 100 }), pageTasks({ view: 'late', limit: 100 })])), []);
   const tasks = req.data?.[0]?.rows || [];
@@ -271,11 +271,12 @@ export function ChecklistsPanel({ openScreen }) {
       <SideBlock title="Late, by owner" count={late}>
         {Object.entries(byOwner).sort((a, b) => b[1] - a[1]).map(([o, n]) => <SideLine key={o} title={OWNER_WORD[o] || o} meta={n} tone="neg" bar={(n / Math.max(1, late)) * 100} />)}
       </SideBlock>
-      <SideLinks links={[
-        { label: 'Employees', icon: Users, onClick: () => openScreen?.('employees') },
-        { label: 'Documents', icon: FileText, onClick: () => openScreen?.('documents') },
-        { label: 'Assets', icon: ClipboardCheck, onClick: () => openScreen?.('assets') },
-        { label: 'Letters', icon: FileText, onClick: () => openScreen?.('letterTemplates') },
+      {/* Tasks is where People opens for someone without Home (an employee, an auditor): only links they may follow. */}
+      <SideLinks navItems={navItems} links={[
+        { label: 'Employees', icon: Users, screen: 'employees', onClick: () => openScreen?.('employees') },
+        { label: 'Documents', icon: FileText, screen: 'documents', onClick: () => openScreen?.('documents') },
+        { label: 'Assets', icon: ClipboardCheck, screen: 'assets', onClick: () => openScreen?.('assets') },
+        { label: 'Letters', icon: FileText, screen: 'letterTemplates', onClick: () => openScreen?.('letterTemplates') },
       ]} />
     </>
   );

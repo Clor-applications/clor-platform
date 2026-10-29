@@ -35,6 +35,22 @@ export const writeKeysOf = (viewPermission) => {
   return WRITE_ACTIONS.map((a) => `${m[1]}::${m[2]}::${a}`);
 };
 
+/**
+ * The thing a VIEW permission is about, as a person reads it:
+ * "ATTENDANCE::My Attendance::VIEW" is "My attendance (Attendance)". Not an
+ * action: resources differ in which write rights they have (My attendance has
+ * Create and no Edit), and naming one it does not have sent people to ask for a
+ * right no administrator can give (People audit, 30 Oct 2026).
+ */
+export const resourceWords = (viewPermission) => {
+  const m = /^([^:]+)::([^:]*)::VIEW$/.exec(String(viewPermission || ''));
+  if (!m) return '';
+  const word = (w, i) => (i === 0 || /^[A-Z0-9&-]{2,}$/.test(w) ? w : w.toLowerCase());
+  const thing = m[2].split(' ').map(word).join(' ');
+  const app = m[1].charAt(0) + m[1].slice(1).toLowerCase();
+  return `${thing} (${app})`;
+};
+
 /** Whether this screen is read-only for the person, given what the shell knows. */
 export const readOnlyFor = (viewPermission, { permissions, loading, error, isAdmin }) => {
   const keys = writeKeysOf(viewPermission);
@@ -50,8 +66,8 @@ export const WriteGuard = ({ permission, children }) => {
   const known = !perms.loading && !perms.error && perms.permissions && perms.permissions.size > 0 && !perms.isAdmin;
   const approveKey = useMemo(() => writeKeysOf(permission).find((k) => k.endsWith('::APPROVE')) || null, [permission]);
   const reason = useMemo(() => {
-    const edit = writeKeysOf(permission)[0];
-    return edit ? `View only: you need ${describePermission(edit)} to change anything here. Ask an administrator.` : '';
+    const what = writeKeysOf(permission).length ? resourceWords(permission) : '';
+    return what ? `View only: your roles let you see ${what} but not change it. Ask an administrator for a role that can.` : '';
   }, [permission]);
 
   /* Capture phase, so the screen's own handler never runs. Links and plain navigation are untouched. */

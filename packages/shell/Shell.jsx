@@ -16,7 +16,7 @@ import { IconSetContext, LineSetContext } from '@ui/components/ui/iconSet';
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { ADMIN_APP_ID, appFromHost, hostForApp, isFrontDoor } from './appHosts';
 import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
-import { mergeParams, moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
+import { landingScreen, mergeParams, moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
 import { OPEN_APP_EVENT, OPEN_HELP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
 import { clearUnsaved, confirmLeave, hasUnsaved } from '@platform/unsaved';
@@ -753,7 +753,9 @@ export default function Shell() {
   /* A screen the open app does not have is not a screen: the same company
      switch that changes the app leaves last app's screen key behind, and
      honouring it shows "Nothing selected" instead of the new app's home. */
-  const screen = (screenKey && app?.screens?.[screenKey] ? screenKey : app?.home) || null;
+  /* Home, or the first screen this person may open when Home is not theirs (an employee, an outside auditor). */
+  const landing = landingScreen(app, nav);
+  const screen = (screenKey && app?.screens?.[screenKey] && screenKey !== app?.home ? screenKey : landing) || null;
   const Screen = app?.screens?.[screen] || null;
   /*
    * W-2.2: say why a screen is not shown instead of a blank or a wall of
@@ -1307,13 +1309,13 @@ export default function Shell() {
               <ScreenState
                 title="This page isn’t here"
                 text={`${app?.name || 'This app'} has no page at this address. It may have moved, or the link may be mistyped.`}
-                action={app?.home ? { label: `Go to ${app.name}`, run: () => goTo(app.home) } : null}
+                action={landing ? { label: `Go to ${app.name}`, run: () => goTo(landing) } : null}
               />
             ) : screenDenied ? (
               <ScreenState
                 title={`You can’t open ${screenItem?.label || 'this page'}`}
                 text={`It needs the “${permissionWords([].concat(screenItem.permission)[0])}” permission in ${tenant.name}, and none of your roles here gives it. An administrator of the company can give you a role that does.`}
-                action={app?.home && app.home !== screen ? { label: `Go to ${app.name}`, run: () => goTo(app.home) } : null}
+                action={landing && landing !== screen ? { label: `Go to ${app.name}`, run: () => goTo(landing) } : null}
               />
             ) : Screen ? (
               <ScreenBoundary appName={app?.name} resetKey={`${app?.id}:${screen}:${tenant.id}`}>
