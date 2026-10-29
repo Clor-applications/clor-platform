@@ -8,12 +8,16 @@ on:
     # Text-only changes (notes, trackers, plans) build nothing and test nothing: no run.
     paths-ignore: ['**/*.md', 'docs/**']
   workflow_dispatch:
+  # Nightly full run at 03:00 IST, whatever was merged that day.
+  schedule:
+    - cron: '30 21 * * *'
 
-# A newer push to the same pull request replaces the run in progress: only
-# the latest commit's result matters.
+# A newer push replaces the run in progress, on a pull request and on main
+# alike: only the latest commit's result matters (the nightly run covers any
+# commit a newer one replaced). The nightly run is never cancelled.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.ref }}-${{ github.event_name == 'schedule' && 'nightly' || 'push' }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
 
 jobs:
   verify:
@@ -99,7 +103,14 @@ jobs:
 
   # The server suite, split three ways across the Mac's runners (docs/CI-ON-MAC.md):
   # ~32 minutes as one job, ~11 as three side by side.
+  #
+  # Not on pull requests (30 Oct 2026): a pull request gets the quick checks
+  # in `verify` (lint, schema, typecheck, build, minutes); the server suite
+  # runs after merge on main, nightly, by hand, or on a pull request labelled
+  # `full-tests`. Three Mac runners could not keep up with a full suite per
+  # pull request.
   server-tests:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-tests')
     runs-on: [self-hosted, clor-mac]
     timeout-minutes: 90
     strategy:
