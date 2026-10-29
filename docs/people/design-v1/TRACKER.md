@@ -215,6 +215,10 @@ Hiring, goals and training moved from the workspace registers to Talent tables (
 - **Then build:** batch 2 — import attendance from Excel (check before saving), punch window before/after a shift, auto-pick shift by first punch. Then items 7–13 in the ERPNext table above.
 - **Owner rules that apply:** People styling only under `data-palette='sky'`; plain words, sentence case; finish modules with tests and browser checks without asking; no employer names in commits or files; commit when asked, push only when asked (Auto-fix covers PR #50 fixes).
 
+### Merged, 29 Oct 2026 17:20 IST
+
+PR #50 merged into `main` as `73ace60` with `verify`, `audit` and `secrets` green on the Mac runner; no deploy (`DEPLOY_VM_ENABLED` unset). From here, start from `origin/main`; the handover above stands, except that `claude/people-live` is now history. Next: batch 2.
+
 ## Joining & Leaving module (27 Oct 2026)
 
 Read first: `JOINING-LEAVING-DECISIONS.md` (why this module before Hiring, scope, what is left out), then `JOINING-LEAVING-AUDIT-2026-10-27.md`.
