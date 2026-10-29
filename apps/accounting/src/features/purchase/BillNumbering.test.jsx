@@ -20,6 +20,10 @@ import { BillForm } from './index';
  * document will be called. A bill had the same series underneath and no way
  * to touch it — the number that came up was the number you got, and the only
  * remedy was Settings, from a screen with half a bill typed into it.
+ *
+ * The panel's words follow DocNumberingPopover as shipped (since the import,
+ * 00f6a61a, when numbering moved to Master Data): the next number's field is
+ * "Starting Number", and the way out is "Open Master Data numbering".
  */
 
 const COMPANY = { id: 1, name: 'Neev Steels', gstin: '29ABCDE1234F1Z5', state: 'Karnataka' };
@@ -78,8 +82,8 @@ describe('the bill number carries its series', () => {
 
     await user.clear(within(panel()).getByLabelText('Prefix'));
     await user.type(within(panel()).getByLabelText('Prefix'), 'PB/25-26/');
-    await user.clear(within(panel()).getByLabelText('Next number'));
-    await user.type(within(panel()).getByLabelText('Next number'), '41');
+    await user.clear(within(panel()).getByLabelText('Starting Number'));
+    await user.type(within(panel()).getByLabelText('Starting Number'), '41');
 
     expect(within(panel()).getByText('PB/25-26/41')).toBeInTheDocument();
   });
@@ -92,8 +96,8 @@ describe('the bill number carries its series', () => {
 
     await user.clear(within(panel()).getByLabelText('Prefix'));
     await user.type(within(panel()).getByLabelText('Prefix'), 'PB-');
-    await user.clear(within(panel()).getByLabelText('Next number'));
-    await user.type(within(panel()).getByLabelText('Next number'), '7');
+    await user.clear(within(panel()).getByLabelText('Starting Number'));
+    await user.type(within(panel()).getByLabelText('Starting Number'), '7');
     await user.click(within(panel()).getByRole('button', { name: 'Save' }));
 
     expect(screen.getByLabelText('Bill Number')).toHaveValue('PB-7');
@@ -121,7 +125,7 @@ describe('the bill number carries its series', () => {
     const opened = vi.fn();
     render(<Host onOpenBillSettings={opened} />);
     await user.click(gear());
-    await user.click(within(panel()).getByRole('button', { name: 'All numbering' }));
+    await user.click(within(panel()).getByRole('button', { name: 'Open Master Data numbering' }));
 
     /* Nothing typed yet, so it goes straight there. */
     expect(opened).toHaveBeenCalledWith('docNumbering');
