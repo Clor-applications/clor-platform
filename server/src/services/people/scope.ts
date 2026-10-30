@@ -40,7 +40,8 @@ export async function teamScope(req: Request): Promise<TeamScope> {
  * Unlike `teamScope` it does not depend on the role: IT reads the whole company and is on nobody's line.
  */
 export async function inReportingLine(orgId: string, userId: string, employeeId: string) {
-  const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } });
+  /* Their current record: someone who has left is on nobody's line, and a rehire's latest stint is the one that counts. */
+  const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId, status: { not: 'LEFT' } }, orderBy: [{ dateOfJoining: 'desc' }, { id: 'asc' }], select: { id: true } });
   if (!me || me.id === employeeId) return false;
   const seen = new Set([employeeId]);
   let frontier = [employeeId];

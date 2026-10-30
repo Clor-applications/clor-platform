@@ -174,10 +174,26 @@ const runAgain = (orgId: string, key: RecipeKey, ranOn: string) => peoplePrisma.
  * message that failed is delivered again rather than written twice. SENT, FAILED, or SKIPPED (switched off
  * for the company, or already gone).
  */
+/** How long a queued message may be in someone's hands before it counts as left behind. */
+const MAIL_IN_FLIGHT_MS = 15 * 60_000;
+
 export async function mailOnce(opts: Parameters<typeof sendTemplate>[0], now = new Date()): Promise<'SENT' | 'FAILED' | 'SKIPPED'> {
   try {
-    const earlier = await platformPrisma.emailOutbox.findFirst({ where: { orgId: opts.orgId, templateKey: opts.templateKey, relatedType: opts.relatedType, relatedId: opts.relatedId, createdAt: { gte: new Date(now.getTime() - 86_400_000) } }, orderBy: { createdAt: 'desc' }, select: { id: true, status: true } });
+    const earlier = await platformPrisma.emailOutbox.findFirst({ where: { orgId: opts.orgId, templateKey: opts.templateKey, relatedType: opts.relatedType, relatedId: opts.relatedId, createdAt: { gte: new Date(now.getTime() - 86_400_000) } }, orderBy: { createdAt: 'desc' }, select: { id: true, status: true, updatedAt: true } });
     if (earlier && (earlier.status === 'SENT' || earlier.status === 'SUPPRESSED')) return 'SKIPPED';
+    if (earlier) {
+      /*
+       * Claimed before it is sent again: a FAILED row is taken back to QUEUED, which the mailer's own retry
+       * (retryFailed reads FAILED only) and a second run then leave alone. A QUEUED row is someone's send in
+       * flight, and is taken only once it has sat untouched long enough to be a crash's leftover.
+       */
+      const stale = new Date(now.getTime() - MAIL_IN_FLIGHT_MS);
+      const claim = await platformPrisma.emailOutbox.updateMany({
+        where: earlier.status === 'FAILED' ? { id: earlier.id, status: 'FAILED' } : { id: earlier.id, status: 'QUEUED', updatedAt: { lt: stale } },
+        data: { status: 'QUEUED' },
+      });
+      if (!claim.count) return 'SKIPPED';
+    }
     const row = earlier ? await deliver(earlier.id, opts.accountId, opts.orgId) : await sendTemplate(opts);
     return row?.status === 'SENT' ? 'SENT' : row?.status === 'SUPPRESSED' ? 'SKIPPED' : 'FAILED';
   } catch (e) {

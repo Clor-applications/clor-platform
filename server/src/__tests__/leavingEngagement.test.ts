@@ -17,6 +17,8 @@ const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
 const { runCompany, startEngagement } = await import('../services/people/engagement/index.js');
 const { eraseExpiredAnswers } = await import('../services/people/engagement/exitInterview.js');
+const { mailOnce } = await import('../services/people/engagement/automations.js');
+const { sendTemplate } = await import('../services/mailer.js');
 const { dayThisYear, sameTeam } = await import('../services/people/engagement/greetings.js');
 const { runEndDateReminders } = await import('../services/people/documentReminders.js');
 const { registeredJobs } = await import('../services/jobRegistry.js');
@@ -628,6 +630,33 @@ describe('who reads what on a leaving (review of #81)', () => {
     await ppl(outsider, 'patch', `/clearance-lines/${before.id}`, { sign: true }).expect(200);
   });
 
+  it('a dotted-line manager reads the interview as the line does; hidden, they get nothing of it either', async () => {
+    const dot = await withRole(c, 'Team Manager', 'Dina Dotted');
+    const dina = await person(c, { name: 'Dina Dotted', code: `DD-${rnd()}` });
+    await inTenant(c, () => peoplePrisma.employee.update({ where: { id: dina.id }, data: { userId: dot.userId } }));
+    for (const e of [open, leaver]) await inTenant(c, () => peoplePrisma.employee.update({ where: { id: e.id }, data: { dottedManagerId: dina.id } }));
+    const seen = (await ppl(dot, 'get', `/leaving/${open.id}`).expect(200)).body.interview;
+    expect(seen.answers.keptYou).toBe('A different manager');
+    expect(seen).toMatchObject({ reason: 'MANAGER', outcome: 'EXIT_CONFIRMED' });
+    for (const k of HR_FIELDS) expect(seen).not.toHaveProperty(k);
+    const hidden = (await ppl(dot, 'get', `/leaving/${leaver.id}`).expect(200)).body.interview;
+    expect(hidden).toMatchObject({ hiddenFromYou: true, answers: null });
+    for (const k of ['reason', 'reasonLabel', 'outcome', ...HR_FIELDS]) expect(hidden).not.toHaveProperty(k);
+  });
+
+  it('a manager who has left is on nobody’s line: their sign-in reads no answers', async () => {
+    const ex = await withRole(c, 'Team Manager', 'Esha Ex');
+    const esha = await person(c, { name: 'Esha Ex', code: `EE-${rnd()}` });
+    /* Above Lata Lead, so above Omar too, until she left. */
+    await inTenant(c, () => peoplePrisma.employee.update({ where: { id: esha.id }, data: { userId: ex.userId, status: 'LEFT', dateOfLeaving: plus(istToday(), -30), leavingType: 'RESIGNED' } }));
+    await inTenant(c, () => peoplePrisma.employee.update({ where: { id: lead.id }, data: { reportingManagerId: esha.id } }));
+    const res = await ppl(ex, 'get', `/leaving/${open.id}`);
+    if (res.status === 200) expect(res.body.interview).toBeNull();
+    else expect(res.status).toBe(404);
+    expect(JSON.stringify(res.body)).not.toMatch(/A different manager/);
+    await inTenant(c, () => peoplePrisma.employee.update({ where: { id: lead.id }, data: { reportingManagerId: null } }));
+  });
+
   it('who an automation told is HR’s to read: an Employees view holder gets no names', async () => {
     await inTenant(c, () => peoplePrisma.automationRun.create({ data: { accountId: c.accountId!, orgId: c.orgId, key: 'documentExpiry', ranOn: istToday(), count: 1, recipients: ['Hidden Hari: Passport'] } }));
     const hrRow = (await ppl(c, 'get', '/automations').expect(200)).body.automations.find((a: any) => a.key === 'documentExpiry');
@@ -674,6 +703,16 @@ describe('nobody clears their own dues (JCL-007)', () => {
     const i = (await ppl(hr, 'get', `/leaving/${me.id}`).expect(200)).body.interview;
     expect(i.canDecide).toBe(false);
     for (const k of ['couldKeep', 'outcomeNote', 'outcome']) expect(i).not.toHaveProperty(k);
+  });
+
+  it('nor withdraw their own leaving: that would decide the interview and close their own lines', async () => {
+    expect((await ppl(hr, 'post', `/employees/${me.id}/stay`, { reason: 'Changed my mind' }).expect(403)).body.code).toBe('OWN_PLAN');
+    const row = await inTenant(c, () => peoplePrisma.employee.findFirst({ where: { id: me.id }, select: { status: true } }));
+    expect(row!.status).toBe('ON_NOTICE');
+    expect(await inTenant(c, () => peoplePrisma.clearanceLine.count({ where: { orgId: c.orgId, employeeId: me.id, status: 'WITHDRAWN' } }))).toBe(0);
+    expect((await inTenant(c, () => peoplePrisma.exitInterview.findFirst({ where: { orgId: c.orgId, employeeId: me.id } })))!.outcome).toBeNull();
+    /* Someone else may. */
+    await ppl(c, 'post', `/employees/${me.id}/stay`, { reason: 'Kept on' }).expect(200);
   });
 
   it('in a company with nobody else to do it, the only HR person may', async () => {
@@ -831,6 +870,16 @@ describe('final pay: the plan’s step and the reminder', () => {
     expect((await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.finalPay).toMatchObject({ paid: true, paidOnPlan: true, overdue: false });
   });
 
+  it('an earlier stint’s ticked "Final wages paid" does not pay this leaving', async () => {
+    const e = await person(c, { name: 'Back Again', code: `BA-${rnd()}`, dateOfJoining: '2025-06-01' });
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), -1), leavingType: 'RESIGNED' }).expect(200);
+    const t = await tick(e.id);
+    /* The tick is from before this joining: the last stint's plan, paid then. */
+    await inTenant(c, () => peoplePrisma.checklistTask.update({ where: { id: t.id }, data: { doneAt: new Date('2025-03-01T00:00:00Z'), doneByUserId: 'u', createdAt: new Date('2025-02-01T00:00:00Z') } }));
+    expect((await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.finalPay).toMatchObject({ paid: false });
+    expect((await ppl(c, 'get', '/final-pay').expect(200)).body.rows.map((r: any) => r.employeeId)).toContain(e.id);
+  });
+
   it('a Payroll outage reads as unknown, never as "no settlement" or "no loans"', async () => {
     const e = await person(c, { name: 'Unknown Usha', code: `UU-${rnd()}` });
     await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), 3), leavingType: 'RESIGNED' }).expect(200);
@@ -885,6 +934,24 @@ describe('a failed run is not sent twice, and not counted as sent', () => {
     await inTenant(c, () => peoplePrisma.automationRun.deleteMany({ where: { orgId: c.orgId, key: 'firstDayPlan' } }));
     await inTenant(c, () => runCompany(c.accountId!, c.orgId));
     expect(await platformPrisma.emailOutbox.count({ where: { orgId: c.orgId, templateKey: 'people.automation', relatedId: j.id } })).toBe(1);
+  });
+
+  it('a failed e-mail sent again is claimed first: two at once send it once; one in flight is left alone', async () => {
+    const opts = (id: string) => ({ templateKey: 'people.automation', to: `claim.${rnd()}@example.com`, toName: 'Claim', accountId: c.accountId!, orgId: c.orgId, relatedType: 'Employee', relatedId: id, data: { name: 'Claim', orgName: 'Co', headline: 'Hello', body: 'Body' } });
+    const failed = opts(`claim-${rnd()}`);
+    const row = await sendTemplate(failed);
+    await platformPrisma.emailOutbox.update({ where: { id: row!.id }, data: { status: 'FAILED' } });
+    const before = (await platformPrisma.emailOutbox.findUnique({ where: { id: row!.id } }))!.attempts;
+    const both = await Promise.all([mailOnce(failed), mailOnce(failed)]);
+    expect([...both].sort()).toEqual(['SENT', 'SKIPPED']);
+    expect((await platformPrisma.emailOutbox.findUnique({ where: { id: row!.id } }))!.attempts).toBe(before + 1);
+    /* Queued a moment ago: someone is sending it. Queued and untouched for an hour: a crash's leftover, sent. */
+    const queued = opts(`queued-${rnd()}`);
+    const q = await sendTemplate(queued);
+    await platformPrisma.emailOutbox.update({ where: { id: q!.id }, data: { status: 'QUEUED' } });
+    expect(await mailOnce(queued)).toBe('SKIPPED');
+    await platformPrisma.emailOutbox.update({ where: { id: q!.id }, data: { updatedAt: new Date(Date.now() - 3_600_000) } });
+    expect(await mailOnce(queued)).toBe('SENT');
   });
 
   it('a recipe that throws keeps what it sent on record, and the next wake runs it', async () => {

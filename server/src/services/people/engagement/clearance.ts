@@ -311,9 +311,12 @@ function workingDaysTo(due: string, from: string, works: (d: string) => boolean)
  * settlement is paid, or the plan's "Final wages paid" step is ticked: a small company without Payroll pays
  * by hand and ticks that step, as the Leaving board reads it (lifecycle/board.ts).
  */
-export async function finalPayOf(orgId: string, e: { id: string; dateOfLeaving: string | null; areaId?: string | null; branchId?: string | null; leavingType?: string | null; status?: string }, t = today()) {
+export async function finalPayOf(orgId: string, e: { id: string; dateOfJoining?: string | null; dateOfLeaving: string | null; areaId?: string | null; branchId?: string | null; leavingType?: string | null; status?: string }, t = today()) {
   if (!e.dateOfLeaving || NO_SETTLEMENT.has(String(e.leavingType || ''))) return null;
   const lastDay = e.dateOfLeaving;
+  /* Only this stint's steps: a rehire's tick from an earlier leaving paid that leaving, not this one. */
+  const joined = e.dateOfJoining !== undefined ? e.dateOfJoining : (await peoplePrisma.employee.findFirst({ where: { id: e.id, orgId }, select: { dateOfJoining: true } }))?.dateOfJoining ?? null;
+  const since = joined ? new Date(`${joined}T00:00:00+05:30`) : null;
   let payrollUnknown = false;
   const [settlement, hold, works, steps] = await Promise.all([
     payrollPrisma.finalSettlement.findFirst({ where: { orgId, employeeId: e.id, status: { not: 'CANCELLED' } }, orderBy: { createdAt: 'desc' }, select: { id: true, status: true, dueDate: true, paidAt: true, leavingDate: true } }).catch((err) => {
@@ -323,7 +326,7 @@ export async function finalPayOf(orgId: string, e: { id: string; dateOfLeaving: 
     }),
     peoplePrisma.absenceCase.findFirst({ where: { orgId, employeeId: e.id, heldAt: { not: null }, holdReleasedAt: null }, select: { holdReason: true, heldAt: true } }),
     workingCalendar(orgId, e, lastDay),
-    peoplePrisma.checklistTask.findMany({ where: { orgId, employeeId: e.id, kind: 'LEAVING', OR: [{ title: { contains: 'final wages', mode: 'insensitive' } }, { title: { contains: 'final settlement', mode: 'insensitive' } }] }, orderBy: { createdAt: 'desc' }, select: { title: true, doneAt: true, note: true } }),
+    peoplePrisma.checklistTask.findMany({ where: { orgId, employeeId: e.id, kind: 'LEAVING', ...(since ? { createdAt: { gte: since } } : {}), OR: [{ title: { contains: 'final wages', mode: 'insensitive' } }, { title: { contains: 'final settlement', mode: 'insensitive' } }] }, orderBy: { createdAt: 'desc' }, select: { title: true, doneAt: true, note: true } }),
   ]);
   const current = settlement && settlement.leavingDate === lastDay ? settlement : null;
   const due = current?.dueDate || countFrom(lastDay, 2, works);
@@ -352,7 +355,7 @@ export async function finalPayBoard(orgId: string, opts: { scopeIds?: string[] |
   const since = new Date(Date.parse(`${t}T00:00:00Z`) - 45 * 86_400_000).toISOString().slice(0, 10);
   const people = await peoplePrisma.employee.findMany({
     where: { orgId, status: { in: ['ON_NOTICE', 'LEFT'] }, dateOfLeaving: { gte: since, lte: t }, ...(opts.scopeIds ? { id: { in: opts.scopeIds } } : {}) },
-    select: { id: true, name: true, dateOfLeaving: true, leavingType: true, areaId: true, branchId: true, status: true },
+    select: { id: true, name: true, dateOfJoining: true, dateOfLeaving: true, leavingType: true, areaId: true, branchId: true, status: true },
     /* The most recent first: the cap never drops someone whose clock is running in favour of an older leaver already paid. */
     orderBy: [{ dateOfLeaving: 'desc' }, { id: 'asc' }],
     take: 50,
