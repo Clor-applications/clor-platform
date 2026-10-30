@@ -687,7 +687,7 @@ attendanceRouter.get('/orgs/:orgId/attendance/requests/:id', can(PermissionActio
   if (!r || !inScope(await teamScope(req), r.employeeId)) return res.status(404).json({ error: 'No such request.' });
   try {
     const mine = await myFile(orgId, req.auth!.userId);
-    res.json({ ...(await story(accountId, orgId, r)), ownRequest: Boolean(mine && mine.id === r.employeeId) });
+    res.json({ ...(await story(accountId, orgId, r, mine?.id)), ownRequest: Boolean(mine && mine.id === r.employeeId) });
   } catch (e) {
     return sendError(res, e);
   }

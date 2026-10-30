@@ -11,6 +11,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { inScope, teamScope, type TeamScope } from '../services/people/scope.js';
+import { today } from '../services/attendance/days.js';
 
 /**
  * A record about one person follows the team scope like every other People
@@ -54,16 +55,23 @@ peopleWorkspaceRouter.get(path, async (req, res) => {
   const { accountId, orgId } = req.tenant!;
   /* `employeeId`: one person's records (their assets on the employee record), still inside the caller's team. */
   const one = typeof req.query.employeeId === 'string' && req.query.employeeId ? { employeeId: req.query.employeeId } : {};
-  const publishedOnly = res.locals.publishedOnly === true;
-  const status = publishedOnly ? { status: PUBLISHED_ONLY[req.params.kind as WorkspaceKind] } : {};
-  const rows = await peoplePrisma.peopleRecord.findMany({ where: { accountId, orgId, kind: req.params.kind, ...one, ...status, ...recordScope(await teamScope(req)) }, orderBy: { updatedAt: 'desc' } });
-  /* Someone who reads announcements but may not write them reads what is published for them, as in the employee app (time depth, gap 20). */
-  const readerOnly = req.params.kind === 'announcements' && (publishedOnly || ((await authorize(req, 'PEOPLE', PermissionAction.EDIT as any, WORKSPACE.announcements.resource)) && (await authorize(req, 'PEOPLE', PermissionAction.CREATE as any, WORKSPACE.announcements.resource))));
-  if (readerOnly) {
+  const where = { accountId, orgId, kind: req.params.kind, ...one, ...recordScope(await teamScope(req)) };
+  const reaching = async <T extends { details: unknown }>(records: T[]) => {
     const me = await peoplePrisma.employee.findFirst({ where: { accountId, orgId, userId: req.auth!.userId }, select: { id: true, branchId: true, areaId: true, departmentId: true, department: true } });
     const names = await departmentNames(orgId);
-    return res.json({ records: rows.filter((r) => r.status === 'PUBLISHED' && announcementReaches(r.details, me || { id: '' }, names)) });
+    return records.filter((r) => announcementReaches(r.details, me || { id: '' }, names));
+  };
+  if (res.locals.publishedOnly === true) {
+    /* As the employee app (portal.ts, /company-updates): no bookkeeping columns, only what reaches this reader, no past events. */
+    const records = await peoplePrisma.peopleRecord.findMany({ where: { ...where, status: PUBLISHED_ONLY[req.params.kind as WorkspaceKind] }, orderBy: { updatedAt: 'desc' }, select: { id: true, kind: true, title: true, status: true, details: true, updatedAt: true } });
+    if (req.params.kind === 'announcements') return res.json({ records: await reaching(records) });
+    const t = today();
+    return res.json({ records: records.filter((r) => String((r.details as any).endDate || (r.details as any).startDate) >= t) });
   }
+  const rows = await peoplePrisma.peopleRecord.findMany({ where, orderBy: { updatedAt: 'desc' } });
+  /* Someone who reads announcements but may not write them reads what is published for them, as in the employee app (time depth, gap 20). */
+  const readerOnly = req.params.kind === 'announcements' && (await authorize(req, 'PEOPLE', PermissionAction.EDIT as any, WORKSPACE.announcements.resource)) && (await authorize(req, 'PEOPLE', PermissionAction.CREATE as any, WORKSPACE.announcements.resource));
+  if (readerOnly) return res.json({ records: await reaching(rows.filter((r) => r.status === 'PUBLISHED')) });
   res.json({ records: rows });
 });
 async function related(accountId: string, orgId: string, kind: WorkspaceKind, body: ReturnType<typeof parseRecord>) {

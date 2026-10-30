@@ -71,6 +71,7 @@ the same account, plus a separate account, "Other Co", for boundary checks.
 | H6 | Documents expiring in 30 days | Listed; the reminder goes to the right person |
 | H7 | Import 20 employees from Excel with 2 bad rows | Good rows in; bad rows listed with the reason; undo works |
 | H8 | Change Priya's department and manager from next month | Effective-dated; history shows from and to; her waiting manager steps move |
+| H12 | Open Departments at 700px wide and scroll the page | The head row sits above the first row, never over it, and stays under the bar while the page scrolls |
 | H9 | Publish a policy needing acceptance | Employees see it; the acceptance count updates |
 | H10 | A confidential case visible only to named members | Others can't see it, even in search or history |
 | H11 | Edit the same employee in two tabs | The second save is refused with "someone else changed this"; nothing overwritten |

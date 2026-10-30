@@ -4,7 +4,7 @@
  *
  *   while the test runs   no console error, no uncaught exception or
  *                         unhandled rejection, no 5xx answer from the API
- *   on every screen       no horizontal scroll at phone width; axe finds no
+ *   on every screen       no horizontal scroll at phone width; no table head over its first row; axe finds no
  *   (app.open, and the    serious or critical problem that is not in the
  *    page the test ends    baseline; the page title is the menu label that
  *    on)                   is lit
@@ -100,6 +100,24 @@ export async function auditScreen(page: Page, testInfo: TestInfo, opts: { title?
     });
     if (wide.scroll > wide.client + 1) report(problems, key, 'sideways-scroll', `the page scrolls sideways at ${vw}px (${wide.scroll}px wide)`, device);
   }
+
+  /* A head row sticks to the nearest scrolling box. If a box scrolls by accident, the head keeps the page's offset under the bar and lands on the first row. */
+  const covered = await page.evaluate(() => {
+    if (window.scrollY > 1) return null;
+    for (const table of document.querySelectorAll('#main-content table')) {
+      const th = table.querySelector('thead th');
+      const td = table.querySelector('tbody tr td');
+      if (!th || !td) continue;
+      const box = th.getBoundingClientRect();
+      if (!box.height || !td.getBoundingClientRect().height) continue;
+      const scroller = table.closest('.ui-table-scroll');
+      if (scroller && scroller.scrollTop > 1) continue;
+      const over = box.bottom - td.getBoundingClientRect().top;
+      if (over > 1) return Math.round(over);
+    }
+    return null;
+  });
+  if (covered) report(problems, key, 'head-covers-row', `a table's head row covers ${covered}px of its first row`, device);
 
   /* 2. The page title is the menu label that is lit (where a menu is on screen). Not the breadcrumb (it names the
         group), and not the phone's bottom bar (it carries short labels on purpose: "Leave" for Leave requests). */

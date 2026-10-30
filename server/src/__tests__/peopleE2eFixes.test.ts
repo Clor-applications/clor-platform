@@ -174,3 +174,95 @@ describe('a one-person company decides its own leave from Approvals (7)', () => 
     expect(box.items.find((i: any) => i.id === r.id)).toBeUndefined();
   });
 });
+
+describe('review of #80: Approvals offers only what can be approved now', () => {
+  let boss: Ctx;
+  let lead: Ctx;
+  let casual: any;
+  let leadFile: any;
+  let mine: any;
+  const chain = (c: Ctx, leaveApproval: string) => runInTenant(c.orgId, async () => {
+    const { accountId } = await peoplePrisma.leaveType.findFirstOrThrow({ where: { orgId: c.orgId }, select: { accountId: true } });
+    await peoplePrisma.attendanceSettings.upsert({ where: { orgId: c.orgId }, create: { accountId, orgId: c.orgId, leaveApproval, updatedByUserId: c.userId }, update: { leaveApproval } });
+  });
+  beforeAll(async () => {
+    boss = await company();
+    casual = (await att(boss, 'post', '/leave/types', { name: 'Casual', annualDays: 12 }).expect(201)).body.type;
+    await chain(boss, 'MANAGER_THEN_HR');
+    /* The owner reports to a manager, who signs in with a team manager's rights. */
+    lead = await colleague(boss, [...TEAM_MANAGER, 'ATTENDANCE::Attendance Requests::VIEW']);
+    leadFile = await person(boss, { name: 'Rahul Lead', code: 'L1' });
+    await link(boss, leadFile.id, lead.userId);
+    const me = await person(boss, { name: 'Owner Self', code: 'O1', reportingManagerId: leadFile.id });
+    await link(boss, me.id, boss.userId);
+    const policy = (await request(app).get(`/api/orgs/${boss.orgId}/security/policy`).set(at(boss)).expect(200)).body.policy;
+    await request(app).put(`/api/orgs/${boss.orgId}/security/policy`).set(at(boss)).send({ ...policy, makerChecker: 'ALLOW' }).expect(200);
+    mine = (await att(boss, 'post', '/me/leave', { leaveTypeId: casual.id, fromDate: `${nextYear}-05-04`, toDate: `${nextYear}-05-04`, reason: 'Errand' }).expect(201)).body.request;
+  }, 120_000);
+
+  it('ALLOW: my own leave stays out of my inbox and my count while my manager has not approved it', async () => {
+    const box = (await ppl(boss, 'get', '/inbox').expect(200)).body;
+    expect(box.items.find((i: any) => i.id === mine.id)).toBeUndefined();
+    expect(box.counts.LEAVE || 0).toBe(0);
+  });
+
+  it("the manager's drawer does not call them late for their own step, and HR's still waits for them", async () => {
+    const asManager = (await att(lead, 'get', `/leave/requests/${mine.id}`).expect(200)).body;
+    expect(asManager.waitingForManager).toBeNull();
+    const asOther = (await att(boss, 'get', `/leave/requests/${mine.id}`).expect(200)).body;
+    expect(asOther.waitingForManager).toMatch(/has not approved this yet/);
+    const box = (await ppl(lead, 'get', '/inbox').expect(200)).body;
+    expect(box.items.find((i: any) => i.id === mine.id)).toMatchObject({ bulk: true, own: null });
+  });
+
+  it('the same for an attendance request: its drawer asks nobody to wait for themselves', async () => {
+    await att(boss, 'put', '/request-rules', { WFH: { on: true, approval: 'MANAGER_THEN_HR' } }).expect(200);
+    const staff = await person(boss, { name: 'Report', code: 'R1', reportingManagerId: leadFile.id });
+    const r = (await att(boss, 'post', '/requests', { employeeId: staff.id, kind: 'WFH', date: `${nextYear}-05-10`, reason: 'Home' }).expect(201)).body.request;
+    expect((await att(lead, 'get', `/requests/${r.id}`).expect(200)).body.waitingForManager).toBeNull();
+    expect((await att(boss, 'get', `/requests/${r.id}`).expect(200)).body.waitingForManager).toMatch(/has not approved this yet/);
+  });
+
+  it('once the manager has approved, it comes to me, marked, and I may decide it', async () => {
+    await att(lead, 'post', '/leave/requests/bulk-review', { ids: [mine.id], approve: true }).expect(200);
+    const box = (await ppl(boss, 'get', '/inbox').expect(200)).body;
+    expect(box.items.find((i: any) => i.id === mine.id)).toMatchObject({ own: 'ALLOWED', bulk: false });
+    const out = (await att(boss, 'post', '/leave/requests/bulk-review', { ids: [mine.id], approve: true }).expect(200)).body;
+    expect(out.done).toBe(1);
+  });
+
+  it('AUTO, nobody else can approve: still out of my inbox while a manager is on the file', async () => {
+    const solo = await company();
+    const type = (await att(solo, 'post', '/leave/types', { name: 'Casual', annualDays: 12 }).expect(201)).body.type;
+    await chain(solo, 'MANAGER_THEN_HR');
+    /* The manager has a file but no sign-in. */
+    const m = await person(solo, { name: 'No Sign-in', code: 'M1' });
+    const me = await person(solo, { name: 'Solo Owner', code: 'S1', reportingManagerId: m.id });
+    await link(solo, me.id, solo.userId);
+    const r = (await att(solo, 'post', '/me/leave', { leaveTypeId: type.id, fromDate: `${nextYear}-06-01`, toDate: `${nextYear}-06-01`, reason: 'Errand' }).expect(201)).body.request;
+    const box = (await ppl(solo, 'get', '/inbox').expect(200)).body;
+    expect(box.items.find((i: any) => i.id === r.id)).toBeUndefined();
+  });
+});
+
+describe('review of #80: what a People user without the module right reads of it', () => {
+  it('only what Home and the employee app show, and no past events', async () => {
+    const owner = await company();
+    await request(app).put(`/api/orgs/${owner.orgId}/features`).set(at(owner)).send({ features: { peopleEngage: true } }).expect(200);
+    const lead = await colleague(owner, TEAM_MANAGER);
+    const event = (title: string, startDate: string, status = 'SCHEDULED') => ppl(owner, 'post', '/workspace/events', { title, status, details: { startDate, endDate: '', location: 'Canteen' } }).expect(201);
+    await event('Long gone', '2020-01-06');
+    await event('Coming up', `${nextYear}-11-05`);
+    await ppl(owner, 'post', '/workspace/announcements', { title: 'News', status: 'PUBLISHED', details: { body: 'Hello' } }).expect(201);
+    const events = (await ppl(lead, 'get', '/workspace/events').expect(200)).body.records;
+    expect(events.map((r: any) => r.title)).toEqual(['Coming up']);
+    expect(events[0].details.location).toBe('Canteen');
+    const news = (await ppl(lead, 'get', '/workspace/announcements').expect(200)).body.records;
+    expect(news.map((r: any) => r.title)).toEqual(['News']);
+    for (const row of [events[0], news[0]]) expect(Object.keys(row).sort()).toEqual(['details', 'id', 'kind', 'status', 'title', 'updatedAt']);
+    /* HR keeps the whole row and the past. */
+    const all = (await ppl(owner, 'get', '/workspace/events').expect(200)).body.records;
+    expect(all.map((r: any) => r.title).sort()).toEqual(['Coming up', 'Long gone']);
+    expect(all[0].createdBy).toBeTruthy();
+  });
+});

@@ -1679,15 +1679,18 @@ export async function waitingForReader(orgId: string, scope: TeamScope, userId: 
   return rows.filter((r) => {
     if (r.ruleId) return true;
     const p = of.get(r.employeeId);
-    if (p?.userId && p.userId === userId) {
-      if (!self?.allowed) return false;
-      Object.assign(r, { ownDecision: self.mode === 'ALLOW' ? 'ALLOWED' : 'ONLY_APPROVER' });
-      return true;
-    }
+    const own = Boolean(p?.userId && p.userId === userId);
     const m = p?.reportingManagerId ? managers.get(p.reportingManagerId) : null;
     const activeManager = m && m.status !== 'LEFT' && m.status !== 'SUSPENDED' ? m : null;
-    /* The manager's own queue: still theirs while their step is open. */
-    if ((typeChains.get(r.leaveTypeId) || company) === 'MANAGER_THEN_HR' && !r.managerApprovedAt && activeManager) return activeManager.userId === userId || covers.has(activeManager.id);
+    /* The manager's own queue: still theirs while their step is open. Not even a stand-in takes it on their own request (managerStepBy), and my own waits on my manager before it can wait on me. */
+    if ((typeChains.get(r.leaveTypeId) || company) === 'MANAGER_THEN_HR' && !r.managerApprovedAt && activeManager) {
+      if (own) return false;
+      return activeManager.userId === userId || covers.has(activeManager.id);
+    }
+    if (own) {
+      if (!self?.allowed) return false;
+      Object.assign(r, { ownDecision: self.mode === 'ALLOW' ? 'ALLOWED' : 'ONLY_APPROVER' });
+    }
     return true;
   });
 }
@@ -2444,6 +2447,9 @@ leaveRouter.get(`${base}/requests/:id`, canOrStep(PermissionAction.VIEW, R.leave
     }
     const parts = r.groupId ? masked(await withTypes(orgId, await peoplePrisma.leaveRequest.findMany({ where: { orgId, groupId: r.groupId }, orderBy: { fromDate: 'asc' } })), reads) : [];
     const turn = r.status === 'PENDING' && !r.ruleId ? await hrMayDecide(orgId, 'leave', r, await leaveChainFor(orgId, r.leaveTypeId)) : { ok: true as const };
+    /* The manager (or their stand-in) reading it is not waiting on anyone: Approve takes their step, as it does on the Approvals row. */
+    const reader = turn.ok ? null : await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
+    const takesManagerStep = Boolean(reader && (await managerStepBy(orgId, reader.id, r.employeeId)));
     /* Leave that ran over the balance into loss of pay is changed by withdrawing it and asking again (editLeave refuses it). */
     const linkedLop = Boolean(r.overflowOfId) || (r.groupId ? Boolean(await peoplePrisma.leaveRequest.findFirst({ where: { orgId, groupId: r.groupId, overflowOfId: { not: null } }, select: { id: true } })) : false);
     const editable = r.status === 'PENDING' && !linkedLop && (await readsPrivateLeave(req) || !shaped.reasonHidden);
@@ -2456,7 +2462,7 @@ leaveRouter.get(`${base}/requests/:id`, canOrStep(PermissionAction.VIEW, R.leave
       canShorten: r.status === 'APPROVED' && !r.halfDay && r.fromDate <= today() && r.toDate > today(),
       parts: parts.map((p: any) => ({ id: p.id, fromDate: p.fromDate, toDate: p.toDate, days: p.days, halfDay: p.halfDay ?? null, status: p.status, leaveTypeName: p.leaveTypeName, overflowOfId: p.overflowOfId ?? null })),
       alsoAway: await alsoAway(req, orgId, r.employeeId, r.fromDate, r.toDate, reads),
-      waitingForManager: turn.ok ? null : turn.error,
+      waitingForManager: turn.ok || takesManagerStep ? null : turn.error,
       ownRequest: Boolean(employee?.userId && employee.userId === req.auth!.userId),
       step: await stepView(orgId, r, req.auth!.userId),
       document: r.attachmentDocId && reads ? await peoplePrisma.employeeDocument.findFirst({ where: { id: r.attachmentDocId, orgId }, select: { id: true, title: true, mime: true, size: true } }) : null,

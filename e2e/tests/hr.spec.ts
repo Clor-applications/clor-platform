@@ -1,7 +1,7 @@
 /**
- * HR scenarios (Kavya, desktop first): H1, H2, H4, H8, H11.
+ * HR scenarios (Kavya, desktop first): H1, H2, H4, H8, H11, H12.
  * Who each one changes: H1/H2 new people, H4 Meena, H8 Priya (from next
- * month), H11 Vikram.
+ * month), H11 Vikram; H12 changes nobody.
  */
 import type { Page } from '@playwright/test';
 
@@ -202,5 +202,26 @@ test.describe('Kavya runs HR', () => {
     await kavya.main.getByRole('tab', { name: 'Personal' }).click();
     await expect(kavya.main.getByRole('tabpanel')).toContainText('Vicky');
     await expect(kavya.main.getByRole('tabpanel')).not.toContainText(/\bVik\b/);
+  });
+
+  test('H12: a table\'s head row sits above its first row and sticks under the bar', { tag: ['@H12'] }, async ({ asHR: kavya }) => {
+    await kavya.goto();
+    /* A short window, so the page has room to scroll past the list's top with five departments. */
+    await kavya.page.setViewportSize({ width: 700, height: 300 });
+    await kavya.open('Departments');
+    const m = await kavya.page.evaluate(() => {
+      window.scrollTo(0, 0);
+      const th = document.querySelector('#main-content .ui-table thead th')!;
+      const td = document.querySelector('#main-content .ui-table tbody tr td')!;
+      const bar = document.querySelector('header')!.getBoundingClientRect().bottom;
+      const top = th.getBoundingClientRect().top;
+      const bottom = th.getBoundingClientRect().bottom;
+      const row = td.getBoundingClientRect().top;
+      window.scrollTo(0, top - bar + 8);
+      return { bottom, row, bar, stuck: th.getBoundingClientRect().top, wide: th.closest('.ui-table-scroll')!.hasAttribute('data-wide') };
+    });
+    expect(m.wide, 'Departments fits 700px, so the page does the scrolling').toBe(false);
+    expect(m.bottom, 'head row above the first row').toBeLessThanOrEqual(m.row + 1);
+    expect(Math.abs(m.stuck - m.bar), 'head row stays under the bar').toBeLessThanOrEqual(2);
   });
 });
