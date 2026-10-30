@@ -32,6 +32,8 @@ import { placeProblem, plural, policyProblem } from '../services/people/leavePol
 import { QUARTER_TIME, halfOn, minutesOf, partOfDay, weightOn } from '../services/attendance/leaveHalves.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
 import { OPEN, balancesFor, entitledDays, leavePeriodOf, leaveYearOf, probationOf, round } from '../services/attendance/leaveBalances.js';
+/** Hourly leave's share of a day, to four places. */
+const round4 = (n: number) => Math.round(n * 10_000) / 10_000;
 import { daysWorkedBefore, daysWorkedByPeriod } from '../services/attendance/daysWorked.js';
 import { deciderFor, managerStepBy, standingInFor, teamDecidedBy } from '../services/attendance/standIns.js';
 import { earlierWeeks, loadSchedule, resolveShift, weeksBefore, type EarlierWeek } from '../services/attendance/schedule.js';
@@ -989,8 +991,9 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
     const dates = plan.filter((d) => d.date >= part.from && d.date <= part.to);
     const rows = rowsOf({ ...part, dates }, b);
     /* An hour's leave is its share of the shift, never more than the day. */
-    if (hours) for (const x of rows) { x.days = round(Math.min(1, hours.minutes / hours.dayMinutes)); x.minutes = hours.minutes; }
-    const days = round(rows.reduce((a, x) => a + x.days, 0));
+    /* Kept to four places (review of PR #75): at two, an hour of a 7.5-hour day was 0.13 and the hours drifted as they added up. */
+    if (hours) for (const x of rows) { x.days = round4(Math.min(1, hours.minutes / hours.dayMinutes)); x.minutes = hours.minutes; }
+    const days = (hours ? round4 : round)(rows.reduce((a, x) => a + x.days, 0));
     let balance: { before: number | null; after: number | null; negativeDays: number; locked?: boolean; lockedUntil?: string | null } = { before: null, after: null, negativeDays: type.negativeDays };
     if (type.isPaid && days) {
       const { balances } = await balancesFor(accountId, orgId, [employee.id], part.year, part.from > t0 ? part.from : undefined);
@@ -1002,7 +1005,7 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
     }
     parts.push({ ...part, label: periodLabel(period, part.year), days, dates, balance, rows, overflow: null as Overflow | null });
   }
-  const total = round(parts.reduce((a, p) => a + p.days, 0));
+  const total = (hours ? round4 : round)(parts.reduce((a, p) => a + p.days, 0));
   const person = await peoplePrisma.employee.findFirst({ where: { id: employee.id, orgId }, select: { gender: true, employeeTypeId: true, dateOfJoining: true, dateOfLeaving: true, branchId: true, areaId: true, departmentId: true, gradeId: true, status: true } });
   /* Eligibility by days worked in the 12 months before (Code on Social Security, maternity: 80), when the type asks for it. */
   const workedBefore = type.availableAfterBasis === 'DAYS_WORKED' && type.availableAfterDays && person ? (await daysWorkedBefore(accountId, orgId, { id: employee.id, ...person }, b.fromDate)).eligible : null;
@@ -1062,7 +1065,7 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
   /* A long request asks for a document (a medical certificate) when the type says so; HR entering it is not held to it. */
   if (documentNeeded(type, total) && !onBehalf && !b.attachment?.data && !b.hasDocument) problems.push({ code: 'DOCUMENT', message: `${type.name} for more than ${type.attachmentAfterDays} ${type.attachmentAfterDays === 1 ? 'day' : 'days'} needs a document, such as a medical certificate. Attach it to ask.` });
   /* total: what this type is charged (days over the balance are the loss-of-pay part, not this type's); asked: the whole request. */
-  const charged = round(parts.reduce((a, p) => a + p.days, 0));
+  const charged = (hours ? round4 : round)(parts.reduce((a, p) => a + p.days, 0));
   return { type, parts, total: charged, asked: total, problems, warnings, clash, split: parts.length > 1, reason: reasonText, edges, hours, lossOfPay: parts.some((p) => p.overflow) } as const;
 }
 

@@ -114,11 +114,11 @@ describe('requests to HR in the employee app', () => {
     render(<MyForms guard={guard} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Salary certificate' }));
     fireEvent.change(screen.getByLabelText('Purpose *'), { target: { value: 'Visa' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send to HR' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     expect(await screen.findByText('Addressed to is needed.')).toBeTruthy();
     expect(api.askFormRequest).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('Addressed to *'), { target: { value: 'Consulate' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send to HR' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await waitFor(() => expect(api.askFormRequest).toHaveBeenCalledWith('f1', expect.objectContaining({ answers: { purpose: 'Visa', to: 'Consulate' }, files: {}, idempotencyKey: expect.any(String) })));
   });
 

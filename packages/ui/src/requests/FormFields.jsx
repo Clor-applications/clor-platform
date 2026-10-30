@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 
 import SuggestInput from '../components/ui/SuggestInput';
+import PopupSelect from '../components/pickers/PopupSelect';
+import DatePicker from '../components/ui/DatePicker';
 import { MAX_FILE_BYTES } from './formFiles';
 
 /*
@@ -11,6 +13,8 @@ import { MAX_FILE_BYTES } from './formFiles';
  * suggest nothing.
  *
  * `answers`: { [key]: value }; `files`: { [key]: { name, dataUrl } }.
+ * People's forms use the shared pickers; `native`: the employee app's plain
+ * select and date controls, as its other phone forms do.
  */
 function FileField({ value, onChange, id }) {
   const [error, setError] = useState('');
@@ -31,7 +35,7 @@ function FileField({ value, onChange, id }) {
   );
 }
 
-export default function FormFields({ fields, answers, files, onAnswer, onFile, idPrefix = 'rf' }) {
+export default function FormFields({ fields, answers, files, onAnswer, onFile, idPrefix = 'rf', native = false }) {
   return (
     <>
       {(fields || []).map((f) => {
@@ -40,11 +44,13 @@ export default function FormFields({ fields, answers, files, onAnswer, onFile, i
         const value = answers?.[f.key] ?? '';
         return (
           <div key={f.key} className="block">
-            <label className="ui-label" htmlFor={id}>{label}</label>
+            {f.type === "CHOICE" && !native ? <span className="ui-label">{label}</span> : <label className="ui-label" htmlFor={id}>{label}</label>}
             {f.type === 'TEXT' ? <SuggestInput id={id} maxLength={2000} value={value} onChange={(v) => onAnswer(f.key, v)} suggestions={[]} /> : null}
             {f.type === 'NUMBER' ? <input id={id} className="ui-input w-full tabular-nums" inputMode="decimal" value={value} onChange={(e) => onAnswer(f.key, e.target.value)} /> : null}
-            {f.type === 'DATE' ? <input id={id} type="date" className="ui-input w-full" value={value} onChange={(e) => onAnswer(f.key, e.target.value)} /> : null}
-            {f.type === 'CHOICE' ? (
+            {f.type === 'DATE' && native ? <input id={id} type="date" className="ui-input w-full" value={value} onChange={(e) => onAnswer(f.key, e.target.value)} /> : null}
+            {f.type === 'DATE' && !native ? <DatePicker id={id} label={f.label} value={value} onChange={(v) => onAnswer(f.key, v || '')} /> : null}
+            {f.type === 'CHOICE' && !native ? <PopupSelect showValueSubtext={false} ariaLabel={label} value={value} placeholder="Choose…" onChange={(v) => onAnswer(f.key, v || '')} options={(f.options || []).map((o) => ({ value: o, label: o }))} /> : null}
+            {f.type === 'CHOICE' && native ? (
               <select id={id} className="ui-select w-full" value={value} onChange={(e) => onAnswer(f.key, e.target.value)}>
                 <option value="">Choose…</option>
                 {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}

@@ -3674,6 +3674,9 @@ model ShiftSwap {
   approvalRequestId   String?
   /// The temporary schedules approval wrote; cancelling takes them away.
   scheduleIds         String[]  @default([])
+  /// Temporary schedules that covered the swapped days before approval, as they were, and the pieces left around
+  /// the swap ({ originals: [...], pieces: [ids] }): cancelling puts them back.
+  replacedSchedules   Json?
   /// Who asked: their CLOR sign-in, or `portal:<employeeId>` from the employee app.
   requestedByUserId   String
   closedNote          String?

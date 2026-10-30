@@ -91,10 +91,10 @@ function Ask({ form, guard, onCancel, onSent }) {
     <form onSubmit={send} className="space-y-3" aria-label={form.name}>
       <h3 className="font-semibold">{form.name}</h3>
       {form.description ? <p className="text-sm ui-muted">{form.description}</p> : null}
-      <FormFields fields={form.fields} answers={answers} files={files} onAnswer={(k, v) => setAnswers((a) => ({ ...a, [k]: v }))} onFile={(k, v) => setFiles((f) => ({ ...f, [k]: v }))} idPrefix="app-ask" />
+      <FormFields fields={form.fields} answers={answers} files={files} onAnswer={(k, v) => setAnswers((a) => ({ ...a, [k]: v }))} onFile={(k, v) => setFiles((f) => ({ ...f, [k]: v }))} idPrefix="app-ask" native />
       {error ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
       <div className="flex gap-2">
-        <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={busy}>{busy ? 'Sending…' : 'Send to HR'}</button>
+        <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={busy}>{busy ? 'Sending…' : 'Send'}</button>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel}>Cancel</button>
       </div>
     </form>

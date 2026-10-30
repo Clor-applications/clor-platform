@@ -28,6 +28,15 @@ export type Approver = (typeof APPROVERS)[number];
 export const MAX_FIELDS = 12;
 /** A file on a request: a photo, a quote, a scan. Sent as base64 in the request body. */
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
+/** Every file on one request together: as base64 it stays under the 7 MB the route's body may be (app.ts). */
+export const MAX_FILES_BYTES = 4 * 1024 * 1024;
+/** What a file's first bytes must be for its type: the type a browser says is not trusted. */
+const MAGIC: Record<string, (b: Buffer) => boolean> = {
+  'application/pdf': (b) => b.subarray(0, 5).toString('latin1') === '%PDF-',
+  'image/png': (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+  'image/jpeg': (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+  'image/webp': (b) => b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP',
+};
 const FILE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const DEFAULT_SLA_DAYS = 2;
 
@@ -205,9 +214,11 @@ const approverWords = (a: Approver) => (a === 'MANAGER' ? 'their manager' : a ==
  * fields and rule version they were asked under.
  */
 export async function updateForm(who: Who, id: string, body: FormBody) {
+  const { data, approver } = await cleanBody(who.orgId, body, true);
+  /* The form and its rule change together, under the company's write lock (review of PR #75). */
+  return peopleWrite(who.orgId, async () => {
   const f = await peoplePrisma.requestForm.findFirst({ where: { id, orgId: who.orgId } });
   if (!f) throw new FormError('No such request type.', 404, 'NOT_FOUND');
-  const { data, approver } = await cleanBody(who.orgId, body, true);
   let saved;
   try {
     saved = await peoplePrisma.requestForm.update({ where: { id: f.id }, data: data as Prisma.RequestFormUpdateInput });
@@ -224,6 +235,7 @@ export async function updateForm(who: Who, id: string, body: FormBody) {
     await saveRule(who, formType(f.id), `${saved.name} (${approverWords(a)})`, stepsFor(a, saved.slaDays));
   }
   return shapeForm(saved);
+  });
 }
 
 /** Switch on a ready-made form: made the first time, switched back on after that. */
@@ -273,7 +285,8 @@ function answerOf(f: Field, raw: unknown): { value: unknown; text: string } | nu
   }
   if (f.type === 'DATE') {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(Date.parse(`${s}T00:00:00Z`))) throw new FormError(`${f.label}: give a date.`);
-    return { value: s, text: s };
+    const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return { value: s, text: `${Number(s.slice(8, 10))} ${MON[Number(s.slice(5, 7)) - 1]} ${s.slice(0, 4)}` };
   }
   if (f.type === 'CHOICE') {
     if (!(f.options || []).includes(s)) throw new FormError(`${f.label}: choose one of the options.`);
@@ -290,6 +303,7 @@ function answerOf(f: Field, raw: unknown): { value: unknown; text: string } | nu
 export async function raise(who: { accountId: string; orgId: string; employeeId: string; userId: string | null; correlationId: string }, formId: string, body: { answers?: unknown; files?: unknown; idempotencyKey?: unknown }) {
   const p = await personIn(who.orgId, who.employeeId);
   if (p.status === 'LEFT') throw new FormError('You have left; ask HR directly.', 403, 'LEFT');
+  if (p.status === 'SUSPENDED') throw new FormError('Your employment is paused; ask HR directly.', 403, 'SUSPENDED');
   const form = await peoplePrisma.requestForm.findFirst({ where: { id: formId, orgId: who.orgId } });
   if (!form || !mayAsk(form, p)) throw new FormError('That request is not open to you.', 404, 'NOT_FOUND');
   const fields = form.fields as Field[];
@@ -310,6 +324,7 @@ export async function raise(who: { accountId: string; orgId: string; employeeId:
       const data = Buffer.from(m[2], 'base64');
       if (!data.length) throw new FormError(`${f.label}: the file is empty.`);
       if (data.length > MAX_FILE_BYTES) throw new FormError(`${f.label}: up to 2 MB.`);
+      if (!MAGIC[m[1]]?.(data)) throw new FormError(`${f.label}: that file is not the picture or PDF it says it is.`);
       toStore.push({ field: f, name: String(file.name || f.label).trim().slice(0, 120) || f.label, mime: m[1], data });
       continue;
     }
@@ -318,6 +333,7 @@ export async function raise(who: { accountId: string; orgId: string; employeeId:
     kept[f.key] = a.value;
     if (a.text) lines.push({ label: f.label, value: a.text });
   }
+  if (toStore.reduce((a, x) => a + x.data.length, 0) > MAX_FILES_BYTES) throw new FormError('The files come to more than 4 MB together; send smaller ones.');
   const key = typeof body.idempotencyKey === 'string' && body.idempotencyKey.trim() ? `form:${who.employeeId}:${body.idempotencyKey.trim().slice(0, 80)}` : null;
   if (key) {
     const existing = await peoplePrisma.approvalRequest.findFirst({ where: { orgId: who.orgId, idempotencyKey: key } });

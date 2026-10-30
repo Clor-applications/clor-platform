@@ -1,9 +1,9 @@
 import type { Prisma } from '../../generated/people/index.js';
-import { peoplePrisma, peopleWrite } from '../../utils/peoplePrisma.js';
+import { afterPeopleCommit, peoplePrisma, peopleWrite } from '../../utils/peoplePrisma.js';
 import { notifyUsers } from '../notifications.js';
 import { isOvernight, isWeeklyOff } from '../attendance/compute.js';
-import { loadHolidays, loadSchedule, resolveShift, type ScheduleData } from '../attendance/schedule.js';
-import { assertScheduleOpen } from '../attendance/scheduleGuard.js';
+import { loadHolidays, loadSchedule, resolveShift } from '../attendance/schedule.js';
+import { assertScheduleOpen, scheduleGuard } from '../attendance/scheduleGuard.js';
 import { daysBetween, today } from '../attendance/days.js';
 import { ApprovalError, PORTAL_PREFIX, activeRule, beforeApproving, onApproved, onClosed, saveRule, submitRequest, withdraw } from './approvals/engine.js';
 import type { Actor } from './changeLog.js';
@@ -70,26 +70,43 @@ const personSelect = { id: true, name: true, code: true, userId: true, branchId:
 /** What someone works on each day: a shift (id, hours), or why they are not working. */
 type Plan = Map<string, { shiftId: string | null; name: string; start: string; end: string; off: string | null }>;
 
-async function plansFor(orgId: string, people: Person[], from: string, to: string, schedule?: ScheduleData) {
+/**
+ * Everything checkSwap reads, loaded once for some people and days: their
+ * schedules, the holidays, their leave, the open swaps and the closed months.
+ * The colleague picker checks a whole company against it in memory instead of
+ * asking the database per person (review of PR #75, 4).
+ */
+export type SwapContext = { plans: Map<string, Plan>; open: Array<{ id: string; requesterEmployeeId: string; colleagueEmployeeId: string; fromDate: string; toDate: string }>; closed: string | null };
+
+export async function swapContext(orgId: string, people: Person[], from: string, to: string): Promise<SwapContext> {
   const ids = people.map((p) => p.id);
-  const [data, holidays, leave] = await Promise.all([
-    schedule ? Promise.resolve(schedule) : loadSchedule(orgId, ids),
-    loadHolidays(orgId, from, to),
-    peoplePrisma.leaveRequest.findMany({ where: { orgId, employeeId: { in: ids }, status: { in: ['PENDING', 'APPROVED'] }, fromDate: { lte: to }, toDate: { gte: from } }, select: { employeeId: true, fromDate: true, toDate: true, status: true } }),
+  /* The day before and after, too: the rest rule looks across the edges. */
+  const a = addDays(from, -1);
+  const b = addDays(to, 1);
+  const [data, holidays, leave, open, guard] = await Promise.all([
+    loadSchedule(orgId, ids),
+    loadHolidays(orgId, a, b),
+    peoplePrisma.leaveRequest.findMany({ where: { orgId, employeeId: { in: ids }, status: { in: ['PENDING', 'APPROVED'] }, fromDate: { lte: b }, toDate: { gte: a } }, select: { employeeId: true, fromDate: true, toDate: true, status: true } }),
+    peoplePrisma.shiftSwap.findMany({ where: { orgId, status: { in: OPEN }, fromDate: { lte: to }, toDate: { gte: from } }, select: { id: true, requesterEmployeeId: true, colleagueEmployeeId: true, fromDate: true, toDate: true, approvalRequestId: true } }),
+    scheduleGuard(orgId),
   ]);
-  const out = new Map<string, Plan>();
+  const plans = new Map<string, Plan>();
   for (const p of people) {
     const plan: Plan = new Map();
     const mine = holidays.forArea(p.areaId, p.branchId);
-    for (const date of daysBetween(from, to)) {
+    for (const date of daysBetween(a, b)) {
       const r = resolveShift(data, p.id, date);
       const onLeave = leave.find((l) => l.employeeId === p.id && l.fromDate <= date && l.toDate >= date);
       const off = onLeave ? (onLeave.status === 'PENDING' ? 'has leave waiting' : 'is on leave') : mine.has(date) ? 'has a holiday' : isWeeklyOff(r.rule, date) ? 'has a weekly off' : null;
       plan.set(date, { shiftId: r.shiftId, name: r.name, start: r.rule.startTime, end: r.rule.endTime, off });
     }
-    out.set(p.id, plan);
+    plans.set(p.id, plan);
   }
-  return out;
+  /* A swap whose approval closed without its record catching up is not open (squareUp says the same on reads). */
+  const reqIds = open.map((o) => o.approvalRequestId).filter(Boolean) as string[];
+  const closedReqs = reqIds.length ? new Set((await peoplePrisma.approvalRequest.findMany({ where: { orgId, id: { in: reqIds }, status: { in: ['REJECTED', 'WITHDRAWN'] } }, select: { id: true } })).map((r) => r.id)) : new Set<string>();
+  const refusal = guard.refusal([{ from, to }]);
+  return { plans, open: open.filter((o) => !o.approvalRequestId || !closedReqs.has(o.approvalRequestId)), closed: refusal ? refusal.message : null };
 }
 
 /** A shift on a date as minutes on one timeline: its start, and its end (the next morning for a night shift). */
@@ -129,7 +146,7 @@ function restBreak(plan: Plan, swapped: Map<string, { start: string; end: string
  * days, on the schedules as they are now. Returns the days, or throws a
  * SwapError saying what is wrong in plain words.
  */
-export async function checkSwap(orgId: string, requester: Person, colleague: Person, from: string, to: string, opts: { exceptSwapId?: string | null; schedule?: ScheduleData } = {}): Promise<Day[]> {
+export async function checkSwap(orgId: string, requester: Person, colleague: Person, from: string, to: string, opts: { exceptSwapId?: string | null; ctx?: SwapContext } = {}): Promise<Day[]> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) throw new SwapError('Give the days as YYYY-MM-DD.');
   if (to < from) throw new SwapError('The last day is before the first.');
   if (from <= today()) throw new SwapError('A swap is for days still to come; today and earlier are already planned.');
@@ -137,10 +154,9 @@ export async function checkSwap(orgId: string, requester: Person, colleague: Per
   if (dates.length > MAX_SWAP_DAYS) throw new SwapError(`Up to ${MAX_SWAP_DAYS} days in one swap.`);
   if (requester.id === colleague.id) throw new SwapError('Choose someone else to swap with.');
   if (ACTIVE.notIn.includes(colleague.status)) throw new SwapError(`${colleague.name} is not working here now.`);
-  /* The day before and after, too: the rest rule looks across the edges. */
-  const plans = await plansFor(orgId, [requester, colleague], addDays(from, -1), addDays(to, 1), opts.schedule);
-  const mine = plans.get(requester.id)!;
-  const theirs = plans.get(colleague.id)!;
+  const ctx = opts.ctx || (await swapContext(orgId, [requester, colleague], from, to));
+  const mine = ctx.plans.get(requester.id)!;
+  const theirs = ctx.plans.get(colleague.id)!;
   const days: Day[] = [];
   for (const date of dates) {
     const a = mine.get(date)!;
@@ -160,24 +176,14 @@ export async function checkSwap(orgId: string, requester: Person, colleague: Per
   const forThem = restBreak(theirs, after(days, 'colleague'), from, to);
   if (forThem) throw new SwapError(`The swap leaves ${colleague.name} ${forThem.hours} hours between shifts around ${dayWords(forThem.day)}; at least ${MIN_REST_HOURS} are needed.`, 409, 'REST_RULE');
   /* One open swap per person per day: a second would be decided on a schedule the first may change. */
-  const clash = await peoplePrisma.shiftSwap.findFirst({
-    where: {
-      orgId, status: { in: OPEN }, fromDate: { lte: to }, toDate: { gte: from },
-      ...(opts.exceptSwapId ? { id: { not: opts.exceptSwapId } } : {}),
-      OR: [{ requesterEmployeeId: { in: [requester.id, colleague.id] } }, { colleagueEmployeeId: { in: [requester.id, colleague.id] } }],
-    },
-    select: { requesterEmployeeId: true, colleagueEmployeeId: true, fromDate: true, toDate: true },
-  });
+  const both = [requester.id, colleague.id];
+  const clash = ctx.open.find((x) => x.id !== opts.exceptSwapId && x.fromDate <= to && x.toDate >= from && (both.includes(x.requesterEmployeeId) || both.includes(x.colleagueEmployeeId)));
   if (clash) {
     const who = [clash.requesterEmployeeId, clash.colleagueEmployeeId].includes(requester.id) ? 'You already have' : `${colleague.name} already has`;
     throw new SwapError(`${who} a swap waiting for ${spanWords(clash.fromDate, clash.toDate)}. Wait for it, or withdraw it, first.`, 409, 'SWAP_OPEN');
   }
   /* A closed attendance month cannot take a schedule (O-05). */
-  try {
-    await assertScheduleOpen(orgId, [{ from, to }]);
-  } catch (e) {
-    throw new SwapError(e instanceof Error ? e.message : 'That month is closed.', 409, 'MONTH_CLOSED');
-  }
+  if (ctx.closed) throw new SwapError(ctx.closed, 409, 'MONTH_CLOSED');
   return days;
 }
 
@@ -197,12 +203,13 @@ export async function colleaguesFor(orgId: string, requesterId: string, from: st
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || to < from || daysBetween(from, to).length > MAX_SWAP_DAYS || from <= today()) return [];
   const others = (await peoplePrisma.employee.findMany({ where: { orgId, id: { not: requester.id }, status: ACTIVE }, select: personSelect, orderBy: { name: 'asc' }, take: 500 })) as Person[];
   if (!others.length) return [];
-  const schedule = await loadSchedule(orgId, [requester.id, ...others.map((o) => o.id)]);
+  /* Read once for everyone; each colleague is then checked in memory. */
+  const ctx = await swapContext(orgId, [requester, ...others], from, to);
   const shifts = new Map((await peoplePrisma.shift.findMany({ where: { orgId }, select: { id: true, name: true, startTime: true, endTime: true } })).map((s) => [s.id, s]));
   const out: Array<{ employeeId: string; name: string; code: string | null; days: Array<{ date: string; shift: string; startTime: string; endTime: string }> }> = [];
   for (const o of others) {
     try {
-      const days = await checkSwap(orgId, requester, o, from, to, { schedule });
+      const days = await checkSwap(orgId, requester, o, from, to, { ctx });
       out.push({ employeeId: o.id, name: o.name, code: o.code, days: days.map((d) => { const s = shifts.get(d.colleagueShiftId)!; return { date: d.date, shift: s.name, startTime: s.startTime, endTime: s.endTime }; }) });
     } catch (e) {
       if (!(e instanceof SwapError)) throw e;
@@ -237,11 +244,21 @@ export async function askSwap(who: { accountId: string; orgId: string; employeeI
   return swap;
 }
 
-const RULE_NAME = 'Shift swaps (default: their manager)';
-/** The company's swap rule, written the first time a swap is accepted: the requester's manager (HR when there is none), two working days. */
+const OLD_RULE_NAME = 'Shift swaps (default: their manager)';
+const RULE_NAME = 'Shift swaps (default: both managers)';
+/**
+ * The company's swap rule, written the first time a swap is accepted: the
+ * requester's manager, then the colleague's manager when that is someone else
+ * (HR stands in for a missing manager), two working days each. The first
+ * default, one step, is moved on to this one; a rule HR wrote is left alone.
+ */
 async function ensureRule(accountId: string, orgId: string) {
-  if (await activeRule(orgId, 'SHIFT_SWAP')) return;
-  await saveRule({ accountId, orgId, userId: null }, 'SHIFT_SWAP', RULE_NAME, [{ order: 1, approver: { kind: 'MANAGER' }, dueDays: 2, overdue: { action: 'REMIND' } }]);
+  const rule = await activeRule(orgId, 'SHIFT_SWAP');
+  if (rule && rule.name !== OLD_RULE_NAME) return;
+  await saveRule({ accountId, orgId, userId: null }, 'SHIFT_SWAP', RULE_NAME, [
+    { order: 1, approver: { kind: 'MANAGER' }, dueDays: 2, overdue: { action: 'REMIND' } },
+    { order: 2, approver: { kind: 'COLLEAGUE_MANAGER' }, dueDays: 2, overdue: { action: 'REMIND' } },
+  ]);
 }
 
 async function linesOf(orgId: string, swap: { requesterEmployeeId: string; colleagueEmployeeId: string; days: unknown; reason: string | null }, names: { requester: string; colleague: string }) {
@@ -276,7 +293,8 @@ export async function answerSwap(who: { accountId: string; orgId: string; employ
     const r = await submitRequest(actor, {
       requestType: 'SHIFT_SWAP', subjectEmployeeId: requester.id,
       title: `Shift swap: ${requester.name} with ${colleague.name}, ${spanWords(swap.fromDate, swap.toDate)}`,
-      payload: { swapId: swap.id, employeeId: requester.id, colleagueEmployeeId: colleague.id, colleagueName: colleague.name, fromDate: swap.fromDate, toDate: swap.toDate, reason: swap.reason, colleagueNote: text, lines: await linesOf(who.orgId, swap, { requester: requester.name, colleague: colleague.name }) },
+      /* The colleague is a party: they never decide it (engine partyEmployeeIds). */
+      payload: { swapId: swap.id, employeeId: requester.id, colleagueEmployeeId: colleague.id, partyEmployeeIds: [colleague.id], colleagueName: colleague.name, fromDate: swap.fromDate, toDate: swap.toDate, reason: swap.reason, colleagueNote: text, lines: await linesOf(who.orgId, swap, { requester: requester.name, colleague: colleague.name }) },
       idempotencyKey: `shift-swap:${swap.id}`,
     });
     await peoplePrisma.shiftSwap.update({ where: { id: swap.id }, data: { approvalRequestId: r.request.id } });
@@ -341,6 +359,26 @@ async function applySwap(request: { id: string; orgId: string; accountId: string
     }
     if (!sameDays(days, swap.days)) throw new ApprovalError('The shifts on those days changed since the swap was asked.', 409, 'SCHEDULE_CHANGED');
     const reason = (name: string) => `Shift swap with ${name}`.slice(0, 200);
+    /*
+     * A temporary schedule already on those days (cover, a shift change) would
+     * sit beside the swap's and resolveShift would pick either. It is cut
+     * around the swapped days: kept as it was, the parts before and after
+     * written back, so cancelling the swap can put it back whole.
+     */
+    const originals: Array<Record<string, unknown>> = [];
+    const pieces: string[] = [];
+    for (const person of [requester, colleague]) {
+      const covering = await peoplePrisma.temporarySchedule.findMany({ where: { orgId: request.orgId, employeeId: person.id, fromDate: { lte: swap.toDate }, toDate: { gte: swap.fromDate } } });
+      for (const t of covering) {
+        originals.push({ employeeId: t.employeeId, shiftId: t.shiftId, fromDate: t.fromDate, toDate: t.toDate, reason: t.reason, pickedByPunch: t.pickedByPunch, createdByUserId: t.createdByUserId });
+        await peoplePrisma.temporarySchedule.delete({ where: { id: t.id } });
+        const keep = [t.fromDate < swap.fromDate ? { from: t.fromDate, to: addDays(swap.fromDate, -1) } : null, t.toDate > swap.toDate ? { from: addDays(swap.toDate, 1), to: t.toDate } : null].filter(Boolean) as Array<{ from: string; to: string }>;
+        for (const k of keep) {
+          const piece = await peoplePrisma.temporarySchedule.create({ data: { accountId: t.accountId, orgId: t.orgId, employeeId: t.employeeId, shiftId: t.shiftId, fromDate: k.from, toDate: k.to, reason: t.reason, pickedByPunch: t.pickedByPunch, createdByUserId: t.createdByUserId } });
+          pieces.push(piece.id);
+        }
+      }
+    }
     const created: string[] = [];
     for (const [person, other, pick] of [[requester, colleague, (d: Day) => d.colleagueShiftId], [colleague, requester, (d: Day) => d.requesterShiftId]] as const) {
       for (const r of runs(days.map((d) => ({ date: d.date, shiftId: pick(d) })))) {
@@ -348,9 +386,10 @@ async function applySwap(request: { id: string; orgId: string; accountId: string
         created.push(t.id);
       }
     }
-    const claimed = await peoplePrisma.shiftSwap.updateMany({ where: { id: swap.id, status: 'WAITING' }, data: { status: 'APPROVED', scheduleIds: created } });
+    const claimed = await peoplePrisma.shiftSwap.updateMany({ where: { id: swap.id, status: 'WAITING' }, data: { status: 'APPROVED', scheduleIds: created, replacedSchedules: originals.length ? ({ originals, pieces } as Prisma.InputJsonValue) : undefined } });
     if (!claimed.count) throw new ApprovalError('The swap changed a moment ago.', 409, 'NOT_WAITING');
-    await tell(swap, colleague, `Shift swap approved: ${spanWords(swap.fromDate, swap.toDate)}`, `You work ${requester.name}'s shift on those days.`);
+    /* Told once the schedules are written for good, not from inside the transaction. */
+    afterPeopleCommit(() => void tell(swap, colleague, `Shift swap approved: ${spanWords(swap.fromDate, swap.toDate)}`, `You work ${requester.name}'s shift on those days.`));
     return { swapId: swap.id, schedules: created.length };
   });
 }
@@ -370,6 +409,12 @@ export async function cancelSwap(who: { accountId: string; orgId: string; userId
     const claimed = await peoplePrisma.shiftSwap.updateMany({ where: { id: swap.id, status: 'APPROVED' }, data: { status: 'CANCELLED', closedNote: note || 'Cancelled by HR.' } });
     if (!claimed.count) throw new SwapError('This swap changed a moment ago.', 409, 'NOT_APPROVED');
     if (swap.scheduleIds.length) await peoplePrisma.temporarySchedule.deleteMany({ where: { orgId: who.orgId, id: { in: swap.scheduleIds } } });
+    /* The temporary schedules the swap cut around come back as they were. */
+    const replaced = (swap.replacedSchedules || null) as { originals?: Array<Record<string, any>>; pieces?: string[] } | null;
+    if (replaced?.pieces?.length) await peoplePrisma.temporarySchedule.deleteMany({ where: { orgId: who.orgId, id: { in: replaced.pieces } } });
+    for (const o of replaced?.originals || []) {
+      await peoplePrisma.temporarySchedule.create({ data: { accountId: who.accountId, orgId: who.orgId, employeeId: String(o.employeeId), shiftId: String(o.shiftId), fromDate: String(o.fromDate), toDate: String(o.toDate), reason: o.reason ?? null, pickedByPunch: Boolean(o.pickedByPunch), createdByUserId: String(o.createdByUserId || who.userId) } });
+    }
     return swap;
   });
   const [requester, colleague] = await Promise.all([personIn(who.orgId, out.requesterEmployeeId), personIn(who.orgId, out.colleagueEmployeeId)]);
@@ -380,19 +425,18 @@ export async function cancelSwap(who: { accountId: string; orgId: string; userId
 const WORDS: Record<string, string> = { ASKED: 'waiting for the colleague', DECLINED: 'declined', WAITING: 'waiting for approval', APPROVED: 'approved', REJECTED: 'not approved', WITHDRAWN: 'withdrawn', CANCELLED: 'cancelled' };
 const words = (s: string) => WORDS[s] || s.toLowerCase();
 
-/** A swap waiting for approval whose request closed without it (missed by the hook): squared up here, on every read. */
+/** A swap waiting for approval whose request closed without it (missed by the hook): shown as closed on every read. */
 async function squareUp(rows: SwapRow[]) {
   const waiting = rows.filter((r) => r.status === 'WAITING' && r.approvalRequestId);
   if (!waiting.length) return rows;
   const reqs = await peoplePrisma.approvalRequest.findMany({ where: { id: { in: waiting.map((r) => r.approvalRequestId!) } }, select: { id: true, status: true } });
   const closed = new Map(reqs.filter((r) => r.status === 'REJECTED' || r.status === 'WITHDRAWN').map((r) => [r.id, r.status]));
   if (!closed.size) return rows;
-  return Promise.all(rows.map(async (r) => {
+  /* Said as it is, never written from a read: the engine's onClosed hook writes the record. */
+  return rows.map((r) => {
     const s = r.approvalRequestId ? closed.get(r.approvalRequestId) : null;
-    if (r.status !== 'WAITING' || !s) return r;
-    await peoplePrisma.shiftSwap.updateMany({ where: { id: r.id, status: 'WAITING' }, data: { status: s } });
-    return { ...r, status: s };
-  }));
+    return r.status === 'WAITING' && s ? { ...r, status: s } : r;
+  });
 }
 
 /** Swaps for screens: with names, shifts, the approval's status and its current step. */

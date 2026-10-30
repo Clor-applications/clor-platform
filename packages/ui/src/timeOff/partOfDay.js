@@ -49,5 +49,7 @@ export const amountFigure = (days, type) => (days == null ? days : isHourly(type
 export function hoursBetween(fromTime, toTime) {
   if (!fromTime || !toTime) return null;
   const m = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-  return (m(toTime) - m(fromTime)) / 60;
+  /* A night shift's hours run past midnight: the end is the next morning. */
+  const d = m(toTime) - m(fromTime);
+  return (d <= 0 ? d + 1440 : d) / 60;
 }

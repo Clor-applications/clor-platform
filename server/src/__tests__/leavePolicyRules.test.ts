@@ -72,6 +72,25 @@ describe('hourly leave', () => {
   }, 60_000);
 });
 
+describe('hourly leave in hours (review of PR #75)', () => {
+  it('an hour is 1/hoursPerDay of a day, kept to four places, whatever the shift', async () => {
+    const t = await type(c, { name: `Hours ${rnd()}`, code: `Q${rnd().slice(0, 3)}`, unit: 'HOUR', hoursPerDay: 7.5, annualDays: 2 });
+    expect(t.hoursPerDay).toBe(7.5);
+    const p = await person(c, { name: 'Hours two' });
+    const preview = (await att(c, 'post', '/leave/requests/preview', { employeeId: p.id, leaveTypeId: t.id, fromDate: '2026-11-03', toDate: '2026-11-03', fromTime: '10:00', toTime: '11:00', reason: 'Bank' }).expect(200)).body;
+    expect(preview.total).toBe(0.1333);
+    expect(preview.type.hoursPerDay).toBe(7.5);
+    const r = (await ask(c, { employeeId: p.id, leaveTypeId: t.id, fromDate: '2026-11-03', toDate: '2026-11-03', fromTime: '10:00', toTime: '11:00' }).expect(201)).body.request;
+    expect(r.days).toBe(0.1333);
+    expect(r.minutes).toBe(60);
+    /* Unset, a day is eight hours: two hours are a quarter of one. */
+    const plain = await type(c, { name: `Hours ${rnd()}`, code: `R${rnd().slice(0, 3)}`, unit: 'HOUR', annualDays: 2 });
+    const r2 = (await ask(c, { employeeId: p.id, leaveTypeId: plain.id, fromDate: '2026-11-04', toDate: '2026-11-04', fromTime: '10:00', toTime: '12:00' }).expect(201)).body.request;
+    expect(r2.days).toBe(0.25);
+    expect((await att(c, 'post', '/leave/types', { name: `Bad ${rnd()}`, unit: 'HOUR', hoursPerDay: 30, annualDays: 1 }).expect(400)).body.error).toMatch(/24 hours/);
+  }, 60_000);
+});
+
 describe('days over the balance', () => {
   it('become a linked loss-of-pay request when the type says so, decided with the paid one', async () => {
     const lop = await type(c, { name: `Loss of Pay ${rnd()}`, code: 'LOP', isPaid: false, annualDays: 0 });

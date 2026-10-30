@@ -404,7 +404,7 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
             </div>
           ) : null}
           {/* What was asked, line by line: a shift swap's days, a request type's answers (gaps 24, 25). */}
-          {Array.isArray(open.payload?.lines) && open.payload.lines.length ? (
+          {(open.requestType === 'SHIFT_SWAP' || String(open.requestType).startsWith('FORM:')) && Array.isArray(open.payload?.lines) && open.payload.lines.length ? (
             <div>
               <h3 className="ui-t-label mb-1">What is asked</h3>
               <dl className="space-y-1">

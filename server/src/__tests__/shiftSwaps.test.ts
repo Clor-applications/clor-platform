@@ -210,6 +210,72 @@ describe('shift swaps', () => {
     }
   });
 
+  it('a temporary schedule already on those days is cut around the swap, and comes back whole when it is cancelled', async () => {
+    const day = plus(tuesday, 42);
+    /* Asha covers a week on a late-morning shift. */
+    const late = (await att(c, 'post', '/shifts', { name: `Late morning ${rnd()}`, startTime: '07:00', endTime: '15:00' }).expect(201)).body.shift;
+    await att(c, 'post', '/temporary-schedules', { employeeIds: [asha.id], shiftId: late.id, fromDate: plus(day, -2), toDate: plus(day, 2), reason: 'Cover week' }).expect(201);
+    const s = (await A.post('/swaps', { colleagueEmployeeId: ravi.id, fromDate: day }).expect(201)).body.swap;
+    expect(s.days[0].requesterShift.id).toBe(late.id);
+    await R.post(`/swaps/${s.id}/accept`).expect(200);
+    const reqId = (await A.get('/swaps').expect(200)).body.mine.find((x: any) => x.id === s.id).approvalRequestId;
+    await ppl(mgr, 'post', `/requests/${reqId}/approve`, {}).expect(200);
+    /* The swap takes the day; the cover stays on the days around it. */
+    expect(await shiftOn(c, asha.id, day)).toBe(evening.id);
+    expect(await shiftOn(c, ravi.id, day)).toBe(late.id);
+    expect(await shiftOn(c, asha.id, plus(day, -1))).toBe(late.id);
+    expect(await shiftOn(c, asha.id, plus(day, 2))).toBe(late.id);
+    expect(await runInTenant(c.orgId, () => peoplePrisma.temporarySchedule.count({ where: { orgId: c.orgId, employeeId: asha.id, fromDate: { lte: day }, toDate: { gte: day } } }))).toBe(1);
+    await ppl(c, 'post', `/shift-swaps/${s.id}/cancel`, {}).expect(200);
+    expect(await shiftOn(c, asha.id, day)).toBe(late.id);
+    expect(await shiftOn(c, ravi.id, day)).toBe(evening.id);
+    const back = await runInTenant(c.orgId, () => peoplePrisma.temporarySchedule.findMany({ where: { orgId: c.orgId, employeeId: asha.id, shiftId: late.id } }));
+    expect(back.map((t) => [t.fromDate, t.toDate])).toEqual([[plus(day, -2), plus(day, 2)]]);
+  });
+
+  it('when the colleague has another manager, that manager approves too; neither party decides', async () => {
+    const kiran = await withRole(c, 'Team Manager', 'Kiran Lead');
+    const kiranEmp = await person(c, { name: 'Kiran Lead', code: 'M2', workEmail: kiran.email });
+    await runInTenant(c.orgId, () => peoplePrisma.employee.update({ where: { id: kiranEmp.id }, data: { userId: kiran.userId } }));
+    const dev = await person(c, { name: 'Dev Shah', code: 'E5', reportingManagerId: kiranEmp.id });
+    await att(c, 'post', '/shift-assignments', { employeeIds: [dev.id], shiftId: evening.id, effectiveFrom: '2026-01-01' }).expect(200);
+    const D = await portalOf(c, dev);
+    const day = plus(tuesday, 49);
+    const s = (await A.post('/swaps', { colleagueEmployeeId: dev.id, fromDate: day }).expect(201)).body.swap;
+    await D.post(`/swaps/${s.id}/accept`).expect(200);
+    const reqId = (await A.get('/swaps').expect(200)).body.mine.find((x: any) => x.id === s.id).approvalRequestId;
+    /* Step 1 is Asha's manager; Kiran waits for it. */
+    await ppl(kiran, 'post', `/requests/${reqId}/approve`, {}).expect(403);
+    await ppl(mgr, 'post', `/requests/${reqId}/approve`, {}).expect(200);
+    expect(await shiftOn(c, asha.id, day)).toBe(morning.id);
+    expect((await ppl(kiran, 'get', '/inbox').expect(200)).body.items.map((i: any) => i.id)).toContain(reqId);
+    await ppl(kiran, 'post', `/requests/${reqId}/approve`, {}).expect(200);
+    expect(await shiftOn(c, asha.id, day)).toBe(evening.id);
+    expect(await shiftOn(c, dev.id, day)).toBe(morning.id);
+  });
+
+  it('a manager asked to swap with their own report does not approve it: HR does', async () => {
+    const lata = await withRole(c, 'Team Manager', 'Lata Lead');
+    const lataEmp = await person(c, { name: 'Lata Lead', code: 'M3', workEmail: lata.email });
+    await runInTenant(c.orgId, () => peoplePrisma.employee.update({ where: { id: lataEmp.id }, data: { userId: lata.userId } }));
+    await att(c, 'post', '/shift-assignments', { employeeIds: [lataEmp.id], shiftId: evening.id, effectiveFrom: '2026-01-01' }).expect(200);
+    const nina = await person(c, { name: 'Nina Iyer', code: 'E6', reportingManagerId: lataEmp.id });
+    await att(c, 'post', '/shift-assignments', { employeeIds: [nina.id], shiftId: morning.id, effectiveFrom: '2026-01-01' }).expect(200);
+    const N = await portalOf(c, nina);
+    const L = await portalOf(c, lataEmp);
+    const day = plus(tuesday, 56);
+    const s = (await N.post('/swaps', { colleagueEmployeeId: lataEmp.id, fromDate: day }).expect(201)).body.swap;
+    await L.post(`/swaps/${s.id}/accept`).expect(200);
+    const reqId = (await N.get('/swaps').expect(200)).body.mine.find((x: any) => x.id === s.id).approvalRequestId;
+    expect((await ppl(lata, 'get', '/inbox').expect(200)).body.items.map((i: any) => i.id)).not.toContain(reqId);
+    expect((await ppl(lata, 'post', `/requests/${reqId}/approve`, {})).status).toBe(403);
+    /* HR (the owner) decides once: the colleague's-manager step is not asked of them again. */
+    await ppl(c, 'post', `/requests/${reqId}/approve`, {}).expect(200);
+    expect(await shiftOn(c, nina.id, day)).toBe(evening.id);
+    const steps = await runInTenant(c.orgId, () => peoplePrisma.approvalStep.findMany({ where: { requestId: reqId }, orderBy: { order: 'asc' } }));
+    expect(steps.map((x) => x.status)).toEqual(['APPROVED', 'SKIPPED']);
+  });
+
   it('another company sees none of it', async () => {
     const other = await company();
     const stranger = await person(other, { name: 'Out Sider', code: 'X1' });

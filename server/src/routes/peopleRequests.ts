@@ -88,7 +88,7 @@ peopleRequestsRouter.get(`${base}/request-forms/report`, can(PermissionAction.VI
     const s = v == null ? '' : String(v);
     /* A cell starting with = + - @ is text, never a formula, in a spreadsheet. */
     const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
-    return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+    return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
   };
   const head = ['Request', 'Employee', 'Employee ID', 'Department', 'Asked', 'Status', 'Decided', 'Working days to decide', 'Overdue', 'Answers'];
   const lines = out.rows.map((r) => [r.formName, r.employeeName, r.employeeCode, r.department, r.askedAt.toISOString().slice(0, 10), r.status, r.decidedAt ? r.decidedAt.toISOString().slice(0, 10) : '', r.daysToDecide ?? '', r.overdue ? 'Yes' : '', r.lines.map((l) => `${l.label}: ${l.value}`).join('; ')].map(cell).join(','));

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import LoadFailed from '../components/LoadFailed';
+import SuggestInput from '@ui/components/ui/SuggestInput';
 import { SignedOut, answerSwap, askSwap, getSwaps, swapColleagues, todayIst, withdrawSwap } from './portalApi';
 
 /**
@@ -53,7 +54,7 @@ export default function ShiftSwaps({ guard, onChanged }) {
     <>
       {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'} style={note.ok ? undefined : { color: 'rgb(var(--neg))' }}>{note.text}</p> : null}
       {waitingOnMe.map((s) => <AskedOfMe key={s.id} swap={s} guard={guard} onDone={changed} />)}
-      <AskSwap guard={guard} rules={data.rules} onDone={changed} />
+      <AskSwap guard={guard} rules={data.rules} onDone={changed} reasons={[...new Set(data.mine.map((s) => s.reason).filter(Boolean))]} />
       <MySwaps swaps={[...data.mine.map((s) => ({ ...s, asker: true })), ...data.askedOfMe.filter((s) => s.status !== 'ASKED').map((s) => ({ ...s, asker: false }))].sort((x, y) => String(y.createdAt).localeCompare(String(x.createdAt)))} guard={guard} onDone={changed} />
     </>
   );
@@ -109,7 +110,7 @@ function AskedOfMe({ swap, guard, onDone }) {
 }
 
 /** Ask a colleague: the days first, then who works another shift on all of them, then why. */
-function AskSwap({ guard, rules, onDone }) {
+function AskSwap({ guard, rules, onDone, reasons = [] }) {
   const [open, setOpen] = useState(false);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -183,7 +184,7 @@ function AskSwap({ guard, rules, onDone }) {
               ) : <p className="text-sm ui-muted">Nobody works another shift on {last === from ? 'that day' : 'all those days'} with enough rest around it (at least {rules?.minRestHours || 8} hours between shifts). Try other days.</p>
             ) : null
           ) : <p className="ui-caption">Up to {rules?.maxDays || 7} days in a row, from tomorrow.</p>}
-          {pick ? <label className="block"><span className="ui-label">Why</span><input className="ui-input w-full" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Exam on Wednesday morning" /></label> : null}
+          {pick ? <label className="block"><span className="ui-label">Why</span><SuggestInput maxLength={300} value={reason} onChange={setReason} suggestions={reasons} placeholder="Exam on Wednesday morning" /></label> : null}
           {error ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
           <div className="flex gap-2">
             <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={!pick || busy}>{busy ? 'Sending…' : 'Ask'}</button>

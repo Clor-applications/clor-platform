@@ -146,6 +146,22 @@ describe('request types HR makes', () => {
     await R.get(`/forms/files/${fileId}`).expect(404);
   });
 
+  it('refuses a file that is not what it says, files over 4 MB together, and a suspended person', async () => {
+    const travel = (await A.get('/forms').expect(200)).body.forms.find((f: any) => f.name === 'Travel advance');
+    const base = { answers: { amount: 100, trip_date: '2026-12-02', mode: 'Bus' } };
+    const fake = `data:image/png;base64,${Buffer.from('not really a picture').toString('base64')}`;
+    expect((await A.post(`/forms/${travel.id}`, { ...base, files: { ticket: { name: 'x.png', dataUrl: fake } } }).expect(400)).body.error).toMatch(/not the picture or PDF/);
+    const pdf = `data:application/pdf;base64,${Buffer.from('%PDF-1.4 hello').toString('base64')}`;
+    expect((await A.post(`/forms/${travel.id}`, { ...base, files: { ticket: { name: 't.pdf', dataUrl: pdf } } }).expect(201)).body.request.status).toBe('WAITING');
+    await runInTenant(c.orgId, () => peoplePrisma.employee.update({ where: { id: asha.id }, data: { status: 'SUSPENDED' } }));
+    const staff = await withRole(c, 'Employee (self-service)', 'Paused Person');
+    const paused = await person(c, { name: 'Paused Person', code: 'E8', workEmail: staff.email, departmentId: sales.id });
+    await ppl(staff, 'get', '/my/request-forms').expect(200);
+    await runInTenant(c.orgId, () => peoplePrisma.employee.update({ where: { id: paused.id }, data: { status: 'SUSPENDED' } }));
+    expect((await ppl(staff, 'post', `/my/request-forms/${travel.id}`, base).expect(403)).body.code).toBe('SUSPENDED');
+    await runInTenant(c.orgId, () => peoplePrisma.employee.update({ where: { id: asha.id }, data: { status: 'ACTIVE' } }));
+  });
+
   it('withdrawn before it is decided; not after', async () => {
     const cert = (await A.get('/forms').expect(200)).body.forms.find((f: any) => f.name === 'Salary certificate');
     const keys = Object.fromEntries(cert.fields.map((f: any) => [f.label, f.key]));
@@ -177,7 +193,7 @@ describe('request types HR makes', () => {
   it('HR reports on them: rows with answers, a line per type, and a CSV', async () => {
     const out = (await ppl(c, 'get', '/request-forms/report').expect(200)).body;
     const travel = out.summary.find((s: any) => s.formName === 'Travel advance');
-    expect(travel).toMatchObject({ total: 1, approved: 1, waiting: 0 });
+    expect(travel).toMatchObject({ total: 2, approved: 1, waiting: 1 });
     const cert = out.summary.find((s: any) => s.formName === 'Salary certificate');
     expect(cert).toMatchObject({ withdrawn: 2 });
     expect(out.rows.find((r: any) => r.formName === 'Travel advance').lines.length).toBeGreaterThan(2);
