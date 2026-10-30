@@ -636,6 +636,13 @@ model PayrollRun {
   /// had a loan or advance instalment carried to the next run, and how much.
   deductionCap Json?
 
+  /// Who is working this run out right now (run.ts calculateRun): a lease,
+  /// taken and let go without holding a database connection, so a payroll
+  /// pool of one still calculates. Past calcLeaseUntil it may be taken over;
+  /// the calculation's write checks the token is still its own.
+  calcLeaseToken String?
+  calcLeaseUntil DateTime?
+
   createdByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

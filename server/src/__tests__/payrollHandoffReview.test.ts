@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, vi } from 'vitest';
 import request from 'supertest';
 
 /**
@@ -494,4 +494,201 @@ describe('small things (nits)', () => {
     const g = gratuityFor(30_000, '2025-01-01', '2026-03-15', { minimumYears: 5, cap: 2_000_000 } as any);
     expect(g.explanation).toContain('Served 1 year 2 months');
   });
+});
+
+/*
+ * Re-review of PR #82 at 644878d3: paying a full and final while the same
+ * person's payroll is being calculated, deductions past the limit when the
+ * statutory ones alone already pass it, a recovery People sends after the
+ * settlement was worked out, the person held lifting their own hold in
+ * People, and a recalculation between the check and the move to review.
+ */
+describe('re-review: paying a full and final while the payroll is being calculated (should-fix 2)', () => {
+  /** A leaver on a structure that can take recoveries, a settlement approved, and October's run validated. */
+  async function setUp(c: Ctx) {
+    const rails = await recoveryRails(c);
+    const basic = await api.post(c, '/components', { name: 'Basic', code: 'BASIC', type: 'EARNING', calculationMethod: 'PERCENTAGE', percentage: 100, calculationBase: 'MONTHLY_CTC', displayOrder: 1 }).expect(201);
+    const structure = await api.post(c, '/structures', { name: `Staff ${rnd()}`, frequency: 'MONTHLY', effectiveFrom: '2025-01-01', status: 'ACTIVE', components: [{ componentId: basic.body.component.id, displayOrder: 1 }, { componentId: rails.componentId, displayOrder: 85 }] }).expect(201);
+    const employeeId = await leaver(c);
+    await api.post(c, '/assignments', { employeeId, structureId: structure.body.structure.id, effectiveFrom: '2025-03-01', annualCtc: 600_000 }).expect(201);
+    return { ...rails, employeeId };
+  }
+  /** Calculate, with the settlement marked paid after the calculation has read what it takes and before it writes. */
+  async function calculateWhilePaying(c: Ctx, runId: string, settlementId: string) {
+    const slipDelegate = payrollPrisma.salarySlip as any;
+    const original = slipDelegate.findMany.bind(slipDelegate);
+    let paid: request.Response | null = null;
+    const spy = vi.spyOn(slipDelegate, 'findMany').mockImplementation(async (args: any) => {
+      /* The read of last month's payslips comes after every row the calculation takes has been read. */
+      if (!paid && args?.where?.periodId?.not) paid = await api.post(c, `/settlements/${settlementId}/paid`, {});
+      return original(args);
+    });
+    try {
+      const out = await api.post(c, `/runs/${runId}/calculate`);
+      return { out, paid: paid as request.Response | null };
+    } finally {
+      spy.mockRestore();
+    }
+  }
+
+  it('a recovery waiting in Payroll is taken once: by the settlement, not again by the payslip', async () => {
+    const c = await makeOwner();
+    const r = await setUp(c);
+    const a = await advance(c, r.employeeId, { recoveringAmount: 2000 });
+    const key = `advance-recover:${a.id}:${r.periodId}`;
+    await adjustment(c, { id: key, employeeId: r.employeeId, componentId: r.componentId, periodId: r.periodId, amount: 2000, status: 'APPROVED' });
+    await own(c, () => peoplePrisma.employeeAdvance.update({ where: { id: a.id }, data: { payrollAdjustmentId: key } }));
+    const s = (await api.post(c, '/settlements', { employeeId: r.employeeId }).expect(201)).body.settlement;
+    await api.post(c, `/settlements/${s.id}/approve`).expect(200);
+    const runId = (await api.post(c, '/runs', { periodId: r.periodId }).expect(201)).body.run.id;
+    await api.post(c, `/runs/${runId}/validate`).expect(200);
+
+    const { out, paid } = await calculateWhilePaying(c, runId, s.id);
+    expect(paid?.status).toBe(200);
+    expect(out.status).toBe(200);
+    /* The settlement took it; the payslip did not take it again. */
+    expect(await adjOf(c, key)).toMatchObject({ status: 'CONSUMED', consumedByRunId: `settlement:${s.id}` });
+    const slip = await own(c, () => payrollPrisma.salarySlip.findFirstOrThrow({ where: { orgId: c.orgId, runId }, include: { lines: true } }));
+    expect(slip.lines.filter((l) => l.componentCode === 'ADVREC' && Number(l.amount) > 0)).toEqual([]);
+    expect(JSON.parse(slip.adjustmentSnapshotJson).map((x: any) => x.id)).not.toContain(key);
+  }, 240_000);
+
+  it('a loan instalment is taken once: the settlement settles it and the payslip leaves it', async () => {
+    const c = await makeOwner();
+    const r = await setUp(c);
+    const loan = await own(c, async () => {
+      const row = await payrollPrisma.payrollLoan.create({ data: { accountId: c.accountId, orgId: c.orgId, number: `L-${rnd()}`, employeeId: r.employeeId, type: 'LOAN', principal: 3000, startDate: '2026-08-01', outstandingBalance: 3000, status: 'ACTIVE', recoveryComponentId: r.componentId, createdByUserId: 'test' } as any });
+      await payrollPrisma.payrollLoanInstallment.create({ data: { accountId: c.accountId, orgId: c.orgId, loanId: row.id, periodId: r.periodId, sequence: 1, dueAmount: 3000, principalAmount: 3000, interestAmount: 0, status: 'PENDING' } });
+      return row;
+    });
+    const s = (await api.post(c, '/settlements', { employeeId: r.employeeId }).expect(201)).body.settlement;
+    expect(s.lines.find((l: any) => l.source?.id === loan.id)?.amount).toBe(3000);
+    await api.post(c, `/settlements/${s.id}/approve`).expect(200);
+    const runId = (await api.post(c, '/runs', { periodId: r.periodId }).expect(201)).body.run.id;
+    await api.post(c, `/runs/${runId}/validate`).expect(200);
+
+    const { out, paid } = await calculateWhilePaying(c, runId, s.id);
+    expect(paid?.status).toBe(200);
+    expect(out.status).toBe(200);
+    const inst = await own(c, () => payrollPrisma.payrollLoanInstallment.findMany({ where: { orgId: c.orgId, loanId: loan.id } }));
+    expect(inst.map((i) => [i.status, i.slipId])).toEqual([['SETTLED', null]]);
+    const slip = await own(c, () => payrollPrisma.salarySlip.findFirstOrThrow({ where: { orgId: c.orgId, runId }, include: { lines: true } }));
+    expect(slip.lines.filter((l) => l.componentCode === 'ADVREC' && Number(l.amount) > 0)).toEqual([]);
+  }, 240_000);
+
+  it('the other way round: a calculation that took it first stops the payment', async () => {
+    const c = await makeOwner();
+    const r = await setUp(c);
+    const a = await advance(c, r.employeeId, { recoveringAmount: 2000 });
+    const key = `advance-recover:${a.id}:${r.periodId}`;
+    await adjustment(c, { id: key, employeeId: r.employeeId, componentId: r.componentId, periodId: r.periodId, amount: 2000, status: 'APPROVED' });
+    await own(c, () => peoplePrisma.employeeAdvance.update({ where: { id: a.id }, data: { payrollAdjustmentId: key } }));
+    const s = (await api.post(c, '/settlements', { employeeId: r.employeeId }).expect(201)).body.settlement;
+    await api.post(c, `/settlements/${s.id}/approve`).expect(200);
+    const runId = (await api.post(c, '/runs', { periodId: r.periodId }).expect(201)).body.run.id;
+    await api.post(c, `/runs/${runId}/validate`).expect(200);
+    await api.post(c, `/runs/${runId}/calculate`).expect(200);
+    expect((await api.post(c, `/settlements/${s.id}/paid`, {}).expect(409)).body.code).toBe('SOURCES_CHANGED');
+    expect(await adjOf(c, key)).toMatchObject({ status: 'CONSUMED', consumedByRunId: runId });
+  }, 240_000);
+});
+
+describe('re-review: statutory deductions alone past the limit, with a fine entered on top (should-fix 3)', () => {
+  it('the entered fine is gated like any other, and the warning does not say nothing else was taken', async () => {
+    const c = await makeOwner();
+    await api.put(c, '/settings/deduction-cap', { percent: 10, countsStatutory: true, countsPenalties: true }).expect(200);
+    await api.post(c, '/statutory/seed').expect(200);
+    const { body } = await api.get(c, '/statutory').expect(200);
+    await api.put(c, `/statutory/schemes/${body.schemes.find((x: any) => x.code === 'PF').id}`, { isEnabled: true }).expect(200);
+    const basic = await api.post(c, '/components', { name: 'Basic', code: 'BASIC', type: 'EARNING', calculationMethod: 'PERCENTAGE', percentage: 100, calculationBase: 'MONTHLY_CTC', includeInPfWage: true, displayOrder: 1 }).expect(201);
+    const pf = await api.post(c, '/components', { name: 'Employee PF', code: 'EPF', type: 'DEDUCTION', calculationMethod: 'STATUTORY', statutoryScheme: 'PF', includeInGross: false, isTaxable: false, displayOrder: 10 }).expect(201);
+    const fine = await api.post(c, '/components', { name: 'Damage recovery', code: 'DAMAGE', type: 'DEDUCTION', calculationMethod: 'FIXED', isVariable: true, displayOrder: 70 }).expect(201);
+    const structure = await api.post(c, '/structures', { name: `Staff ${rnd()}`, frequency: 'MONTHLY', effectiveFrom: '2026-01-01', status: 'ACTIVE', components: [{ componentId: basic.body.component.id, displayOrder: 1 }, { componentId: pf.body.component.id, displayOrder: 10 }, { componentId: fine.body.component.id, displayOrder: 70 }] }).expect(201);
+    const periodId = (await api.post(c, '/periods', { name: `June ${rnd()}`, startDate: '2026-06-01', endDate: '2026-06-30', paymentDate: '2026-06-30' }).expect(201)).body.period.id;
+    const person = await api.post(c, '/employees', { name: 'Tanmay', code: `E${rnd()}`, dateOfJoining: '2026-01-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW', pfApplicable: true } }).expect(201);
+    const employeeId = person.body.employee.id;
+    await api.post(c, '/assignments', { employeeId, structureId: structure.body.structure.id, effectiveFrom: '2026-01-01', annualCtc: 120_000 }).expect(201);
+    await adjustment(c, { id: `fine-${rnd()}`, employeeId, componentId: fine.body.component.id, periodId, amount: 500, status: 'APPROVED' });
+    const runId = (await api.post(c, '/runs', { periodId }).expect(201)).body.run.id;
+    await api.post(c, `/runs/${runId}/validate`).expect(200);
+    const out = await api.post(c, `/runs/${runId}/calculate`).expect(200);
+
+    const codes = out.body.issues.map((i: any) => i.code);
+    expect(codes).toContain('STATUTORY_OVER_LIMIT');
+    expect(codes).toContain('DEDUCTIONS_OVER_LIMIT');
+    const words = out.body.issues.filter((i: any) => i.code === 'STATUTORY_OVER_LIMIT').map((i: any) => i.message).join(' ');
+    expect(words).not.toContain('Nothing else was taken on top');
+    const run = (await api.get(c, `/runs/${runId}`).expect(200)).body.run;
+    expect(run.overLimit?.people).toEqual([expect.objectContaining({ employeeId, limit: 1000 })]);
+    expect((await api.post(c, `/runs/${runId}/submit-review`, {}).expect(409)).body.code).toBe('DEDUCTIONS_OVER_LIMIT');
+    await api.post(c, `/runs/${runId}/over-limit-reason`, { reason: 'Signed damage agreement, 12 Jun' }).expect(200);
+    await api.post(c, `/runs/${runId}/submit-review`, {}).expect(200);
+  }, 180_000);
+});
+
+describe('re-review: a recovery People sends after the full and final was worked out (should-fix 4)', () => {
+  it('blocks paying: the settlement did not know of the draft', async () => {
+    const c = await makeOwner();
+    const employeeId = await leaver(c);
+    const rails = await recoveryRails(c);
+    const a = await advance(c, employeeId);
+    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    expect(s.lines.find((l: any) => l.source?.id === a.id).amount).toBe(5000);
+    await api.post(c, `/settlements/${s.id}/approve`).expect(200);
+    /* People sends ₹2,000 of it to Payroll as a draft recovery. */
+    const key = `advance-recover:${a.id}:${rails.periodId}`;
+    await adjustment(c, { id: key, employeeId, ...rails, amount: 2000, status: 'DRAFT' });
+    await own(c, () => peoplePrisma.employeeAdvance.update({ where: { id: a.id }, data: { recoveringAmount: 2000, payrollAdjustmentId: key } }));
+    expect((await api.post(c, `/settlements/${s.id}/paid`, {}).expect(409)).body.code).toBe('SOURCES_CHANGED');
+    expect((await adjOf(c, key)).status).toBe('DRAFT');
+    expect(Number((await adv(c, a.id)).recoveredAmount)).toBe(0);
+  }, 120_000);
+});
+
+describe('re-review: the person held cannot lift their own hold in People (should-fix 5)', () => {
+  it('an HR user who is the person held is refused; the owner lifts it', async () => {
+    const c = await makeOwner();
+    const employeeId = await leaver(c);
+    const hr = await colleague(c, ['PEOPLE::Employees::VIEW', 'PEOPLE::Employees::EDIT']);
+    await own(c, () => peoplePrisma.employee.update({ where: { id: employeeId }, data: { userId: hr.userId } }));
+    const held = await own(c, () => peoplePrisma.absenceCase.create({ data: { accountId: c.accountId, orgId: c.orgId, employeeId, fromDate: '2026-10-01', lastAbsentDate: '2026-10-14', days: 14, status: 'ABSCONDED', holdReason: 'Absconded', heldAt: new Date(), heldByUserId: 'hr' } }));
+    const r = await peopleApi(hr, 'post', `/absences/${held.id}/release`, { note: 'Letting myself off' }).expect(403);
+    expect(r.body.code).toBe('OWN_RECORD');
+    expect((await own(c, () => peoplePrisma.absenceCase.findUniqueOrThrow({ where: { id: held.id } }))).holdReleasedAt).toBeNull();
+    await peopleApi(c, 'post', `/absences/${held.id}/release`, { note: 'Came in to settle, 4 Nov' }).expect(200);
+    expect((await own(c, () => peoplePrisma.absenceCase.findUniqueOrThrow({ where: { id: held.id } }))).holdReleasedAt).not.toBeNull();
+  }, 120_000);
+});
+
+describe('re-review: recalculated between the check and the move to review (nit 6)', () => {
+  it('is not sent for review on the reason given for the figures before', async () => {
+    const c = await makeOwner();
+    await api.put(c, '/settings/deduction-cap', { percent: 10, countsStatutory: true, countsPenalties: true }).expect(200);
+    const basic = await api.post(c, '/components', { name: 'Basic', code: 'BASIC', type: 'EARNING', calculationMethod: 'PERCENTAGE', percentage: 100, calculationBase: 'MONTHLY_CTC', displayOrder: 1 }).expect(201);
+    const fine = await api.post(c, '/components', { name: 'Damage recovery', code: 'DAMAGE', type: 'DEDUCTION', calculationMethod: 'FIXED', isVariable: true, displayOrder: 70 }).expect(201);
+    const structure = await api.post(c, '/structures', { name: `Staff ${rnd()}`, frequency: 'MONTHLY', effectiveFrom: '2026-01-01', status: 'ACTIVE', components: [{ componentId: basic.body.component.id, displayOrder: 1 }, { componentId: fine.body.component.id, displayOrder: 70 }] }).expect(201);
+    const periodId = (await api.post(c, '/periods', { name: `June ${rnd()}`, startDate: '2026-06-01', endDate: '2026-06-30', paymentDate: '2026-06-30' }).expect(201)).body.period.id;
+    const person = await api.post(c, '/employees', { name: 'Tanmay', code: `E${rnd()}`, dateOfJoining: '2026-01-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW' } }).expect(201);
+    await api.post(c, '/assignments', { employeeId: person.body.employee.id, structureId: structure.body.structure.id, effectiveFrom: '2026-01-01', annualCtc: 600_000 }).expect(201);
+    await adjustment(c, { id: `fine-${rnd()}`, employeeId: person.body.employee.id, componentId: fine.body.component.id, periodId, amount: 6000, status: 'APPROVED' });
+    const runId = (await api.post(c, '/runs', { periodId }).expect(201)).body.run.id;
+    await api.post(c, `/runs/${runId}/validate`).expect(200);
+    await api.post(c, `/runs/${runId}/calculate`).expect(200);
+    await api.post(c, `/runs/${runId}/over-limit-reason`, { reason: 'Signed damage agreement, 12 Jun' }).expect(200);
+    /* What the send-for-review check reads: the run with its reason, before the recalculation. */
+    const stale = await own(c, () => payrollPrisma.payrollRun.findFirstOrThrow({ where: { id: runId } }));
+    await new Promise((x) => setTimeout(x, 20));
+    await api.post(c, `/runs/${runId}/calculate`).expect(200);
+    const runDelegate = payrollPrisma.payrollRun as any;
+    const spy = vi.spyOn(runDelegate, 'findFirst').mockImplementationOnce(async () => stale);
+    try {
+      const r = await api.post(c, `/runs/${runId}/submit-review`, {});
+      expect(r.status).toBe(409);
+    } finally {
+      spy.mockRestore();
+    }
+    const after = (await api.get(c, `/runs/${runId}`).expect(200)).body.run;
+    expect(after.status).toBe('CALCULATED');
+    expect(after.overLimit.reason).toBeNull();
+  }, 180_000);
 });

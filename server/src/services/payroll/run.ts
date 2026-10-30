@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { Prisma } from '../../generated/payroll/index.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
@@ -891,7 +893,11 @@ export async function carriesTakenElsewhere(orgId: string, runId: string) {
 
 export async function undoCarries(tx: Prisma.TransactionClient, orgId: string, runId: string) {
   const inst = await tx.payrollLoanInstallment.findMany({ where: { orgId, carriedByRunId: runId } });
+  const taken = () => new CarryTakenError('A later payroll or a full and final has already taken a deduction this one carried forward. Cancel or recalculate that first.');
   for (const c of inst) {
+    /* Removed only while nothing has taken it: checked and removed in one statement, so a settlement paid a moment ago is seen. */
+    const gone = await tx.payrollLoanInstallment.deleteMany({ where: { id: c.id, status: 'PENDING' } });
+    if (!gone.count) throw taken();
     if (c.carriedFromId) {
       const from = await tx.payrollLoanInstallment.findFirst({ where: { orgId, id: c.carriedFromId } });
       if (from) {
@@ -905,15 +911,15 @@ export async function undoCarries(tx: Prisma.TransactionClient, orgId: string, r
         });
       }
     }
-    await tx.payrollLoanInstallment.delete({ where: { id: c.id } });
   }
   const adj = await tx.payrollAdjustment.findMany({ where: { orgId, carriedByRunId: runId } });
   for (const c of adj) {
+    const gone = await tx.payrollAdjustment.deleteMany({ where: { id: c.id, status: { in: ['APPROVED', 'DRAFT'] } } });
+    if (!gone.count) throw taken();
     if (c.carriedFromId) {
       const from = await tx.payrollAdjustment.findFirst({ where: { orgId, id: c.carriedFromId } });
       if (from) await tx.payrollAdjustment.update({ where: { id: from.id }, data: { amount: round2(Number(from.amount) + Number(c.amount)) } });
     }
-    await tx.payrollAdjustment.delete({ where: { id: c.id } });
   }
   return { installments: inst.length, adjustments: adj.length, loanIds: [...new Set(inst.map((i) => i.loanId))] };
 }
@@ -953,32 +959,71 @@ export class RunBusyError extends Error {
   code = 'RUN_BUSY';
 }
 
-/**
- * One calculation of a run at a time: two at once read the same carried rows
- * and wrote over each other's payslips (intermittent failures in review). The
- * whole calculation, the carry check and the reads included, runs under a
- * transaction lock on the run. A second click waits for the first and then
- * works it out again; waiting holds no database connection.
- */
-export async function calculateRun(orgId: string, runId: string, userId: string): Promise<{ slips: CalculatedSlip[]; issues: RunIssue[] }> {
-  const key = `payroll-run-calc:${runId}`;
-  const started = Date.now();
-  while (Date.now() - started < 180_000) {
-    const out = await payrollPrisma.$transaction(
-      async (tx) => {
-        const [row] = await tx.$queryRaw<Array<{ got: boolean }>>`SELECT pg_try_advisory_xact_lock(hashtext(${key})) AS got`;
-        if (!row?.got) return null;
-        return calculateRunLocked(orgId, runId, userId);
-      },
-      { timeout: 600_000, maxWait: 30_000 }
-    );
-    if (out) return out;
-    await new Promise((r) => setTimeout(r, 200 + Math.floor(Math.random() * 200)));
-  }
-  throw new RunBusyError('This payroll is being calculated by somebody else. Try again in a minute.');
+/** What a calculation read was taken by something else before it wrote (a full and final paid meanwhile): worked out again. */
+export class RunSourcesMovedError extends Error {
+  status = 409;
+  code = 'RUN_SOURCES_MOVED';
 }
 
-async function calculateRunLocked(orgId: string, runId: string, userId: string): Promise<{ slips: CalculatedSlip[]; issues: RunIssue[] }> {
+/** Changed while it was being worked out (cancelled, approved): the calculation is not written. */
+export class RunNotEditableError extends Error {
+  status = 409;
+  code = 'RUN_NOT_EDITABLE';
+}
+
+/** The statuses a calculation may write over (payrollRuns.ts EDITABLE). */
+const CALCULABLE = ['DRAFT', 'CALCULATED', 'REVIEW'];
+
+/** Long enough for the largest calculation; a lease left by a crashed instance frees itself after this. */
+export const CALC_LEASE_MS = 10 * 60_000;
+
+/** A run nobody is calculating, or whose calculation has gone quiet past its lease. */
+export const leaseFree = () => ({ OR: [{ calcLeaseToken: null }, { calcLeaseUntil: { lt: new Date() } }] });
+
+/**
+ * One calculation of a run at a time: two at once read the same carried rows
+ * and wrote over each other's payslips (intermittent failures in review).
+ *
+ * The lock is a lease on the run's own row, taken and let go with one
+ * statement each, so it holds no database connection while the calculation
+ * runs. (It used to be an advisory lock inside a transaction kept open for the
+ * whole calculation; production's payroll pool is one connection, so the
+ * calculation waited on itself and timed out. Re-review of PR #82.) A second
+ * click waits for the first, then works it out again. The write checks the
+ * lease is still this calculation's, so one that outlived its lease writes
+ * nothing.
+ *
+ * Something the calculation read and a full and final settled meanwhile
+ * stops the write (RunSourcesMovedError); the calculation is then worked out
+ * again from what is left, so nothing is taken twice.
+ */
+export async function calculateRun(orgId: string, runId: string, userId: string): Promise<{ slips: CalculatedSlip[]; issues: RunIssue[] }> {
+  const token = `${process.pid}:${randomUUID()}`;
+  const started = Date.now();
+  for (;;) {
+    const got = await payrollPrisma.payrollRun.updateMany({
+      where: { orgId, id: runId, ...leaseFree() },
+      data: { calcLeaseToken: token, calcLeaseUntil: new Date(Date.now() + CALC_LEASE_MS) },
+    });
+    if (got.count) break;
+    if (!(await payrollPrisma.payrollRun.count({ where: { orgId, id: runId } }))) throw new Error('No such payroll run.');
+    if (Date.now() - started > 180_000) throw new RunBusyError('This payroll is being calculated by somebody else. Try again in a minute.');
+    await new Promise((r) => setTimeout(r, 200 + Math.floor(Math.random() * 200)));
+  }
+  try {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await calculateRunLocked(orgId, runId, userId, token);
+      } catch (e) {
+        if (!(e instanceof RunSourcesMovedError) || attempt >= 3) throw e;
+      }
+    }
+  } finally {
+    await payrollPrisma.payrollRun.updateMany({ where: { orgId, id: runId, calcLeaseToken: token }, data: { calcLeaseToken: null, calcLeaseUntil: null } });
+  }
+}
+
+async function calculateRunLocked(orgId: string, runId: string, userId: string, token: string): Promise<{ slips: CalculatedSlip[]; issues: RunIssue[] }> {
   const { issues } = await validateRun(orgId, runId);
   const blocking = issues.filter((i) => i.severity === 'ERROR');
   if (blocking.length) {
@@ -1187,25 +1232,33 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string):
     if (deductionNote) capped.push({ employeeId: employee.id, carried: deductionNote.total });
     /*
      * Only instalments give way; nothing entered is altered here. Statutory
-     * deductions alone past the limit are the law's own and only warn.
-     * Otherwise the deductions someone entered pass it: saved on the run,
-     * and sending for review or approving waits until they are reduced or
-     * somebody records why they stand (payrollRuns.ts over-limit-reason).
+     * deductions alone past the limit are the law's own and only warn; no
+     * instalment is taken on top of them (the limit leaves no room). Whatever
+     * somebody entered (a fine, a damage recovery, a late-mark penalty) is
+     * still taken, so it passes the limit and is gated either way: saved on
+     * the run, and sending for review or approving waits until it is reduced
+     * or somebody records why it stands (payrollRuns.ts over-limit-reason).
      */
-    if (statutoryCounted > cap.limit + 0.005) {
+    const limitWords = `${ctx.capRule.percent}% of wages (₹${cap.limit.toLocaleString('en-IN')})`;
+    const statutoryAlone = statutoryCounted > cap.limit + 0.005;
+    const entered = round2(counted - statutoryCounted);
+    if (statutoryAlone) {
       issues.push({
         severity: 'WARNING',
         code: 'STATUTORY_OVER_LIMIT',
         employeeId: employee.id,
-        message: `${employee.name}: PF, ESI, professional tax and income tax alone pass ${ctx.capRule.percent}% of wages (₹${cap.limit.toLocaleString('en-IN')}). Nothing else was taken on top.`,
+        message: `${employee.name}: PF, ESI, professional tax and income tax alone pass ${limitWords}. No loan or advance instalment was taken on top.${entered > 0.005 ? ` ₹${entered.toLocaleString('en-IN')} of other deductions was still taken.` : ''}`,
       });
-    } else if (counted > cap.limit + 0.005) {
+    }
+    if (counted > cap.limit + 0.005 && (!statutoryAlone || entered > 0.005)) {
       overLimit.push({ employeeId: employee.id, name: employee.name, counted, limit: cap.limit, percent: ctx.capRule.percent });
       issues.push({
         severity: 'WARNING',
         code: 'DEDUCTIONS_OVER_LIMIT',
         employeeId: employee.id,
-        message: `${employee.name}: deductions of ₹${counted.toLocaleString('en-IN')} pass ${ctx.capRule.percent}% of wages (₹${cap.limit.toLocaleString('en-IN')}) before any instalment. Reduce them, or record why they stand before sending for review.`,
+        message: statutoryAlone
+          ? `${employee.name}: ₹${entered.toLocaleString('en-IN')} of deductions entered on top of PF, ESI, professional tax and income tax, which already pass ${limitWords}. Reduce them, or record why they stand before sending for review.`
+          : `${employee.name}: deductions of ₹${counted.toLocaleString('en-IN')} pass ${limitWords} before any instalment. Reduce them, or record why they stand before sending for review.`,
       });
     }
 
@@ -1360,7 +1413,24 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string):
   );
 
   const cappedTotal = round2(capped.reduce((t, c) => t + c.carried, 0));
+  /* Rows this calculation read as still owed: approved, or taken by this run before. Never one a full and final has taken since. */
+  const live = { OR: [{ status: 'APPROVED' }, { status: 'CONSUMED', consumedByRunId: runId }] };
   await payrollPrisma.$transaction(async (tx) => {
+    /*
+     * Still this calculation's, and still open: the lease is renewed and the
+     * run's row stays locked until this commits, so a cancel, an approval or
+     * a calculation that took over a lapsed lease waits or finds it moved.
+     */
+    const fence = await tx.payrollRun.updateMany({
+      where: { orgId, id: runId, calcLeaseToken: token, status: { in: CALCULABLE } },
+      data: { calcLeaseUntil: new Date(Date.now() + CALC_LEASE_MS) },
+    });
+    if (!fence.count) {
+      const now = await tx.payrollRun.findFirst({ where: { orgId, id: runId }, select: { status: true, calcLeaseToken: true } });
+      if (now && now.calcLeaseToken !== token) throw new RunBusyError('This payroll was being calculated by somebody else at the same time. Try again in a minute.');
+      throw new RunNotEditableError(`This payroll is ${String(now?.status || 'gone').toLowerCase()} now and was not calculated. Reload it.`);
+    }
+
     /* What a calculation before carried goes back on what it came from, then is carried again below as this one decides. */
     const undone = await undoCarries(tx, orgId, runId);
     loanIdsTouched.push(...undone.loanIds);
@@ -1390,10 +1460,12 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string):
          somebody asked about a recovery answer from the loan. */
       const taken = recoveredInstallments.filter((r) => r.employeeId === w.slip.employeeId && r.take >= r.due).map((r) => r.installmentId);
       if (taken.length) {
-        await tx.payrollLoanInstallment.updateMany({
-          where: { orgId, id: { in: taken } },
+        /* Only while still owed (or this run's own from before): one a full and final settled meanwhile is not taken again. */
+        const n = await tx.payrollLoanInstallment.updateMany({
+          where: { orgId, id: { in: taken }, OR: [{ status: 'PENDING' }, { status: 'RECOVERED', slipId: { in: oldIds } }] },
           data: { status: 'RECOVERED', slipId: slip.id, recoveredAt: new Date() },
         });
+        if (n.count !== taken.length) throw new RunSourcesMovedError('A loan instalment this payroll takes was settled meanwhile.');
       }
 
       /*
@@ -1407,10 +1479,11 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string):
           const share = r.dueAmount > 0 ? Math.min(1, Math.max(0, r.principalAmount / r.dueAmount)) : 1;
           const takePrincipal = round2(c.take * share);
           await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payroll-loan-schedule:${r.loanId}`}))`;
-          await tx.payrollLoanInstallment.update({
-            where: { id: r.installmentId },
+          const n = await tx.payrollLoanInstallment.updateMany({
+            where: { orgId, id: r.installmentId, OR: [{ status: 'PENDING' }, { status: 'RECOVERED', slipId: { in: oldIds } }] },
             data: { dueAmount: c.take, principalAmount: takePrincipal, interestAmount: round2(c.take - takePrincipal), status: 'RECOVERED', slipId: slip.id, recoveredAt: new Date() },
           });
+          if (!n.count) throw new RunSourcesMovedError('A loan instalment this payroll takes was settled meanwhile.');
           const last = await tx.payrollLoanInstallment.findFirst({ where: { loanId: r.loanId }, orderBy: { sequence: 'desc' }, select: { sequence: true } });
           const restPrincipal = round2(r.principalAmount - takePrincipal);
           await tx.payrollLoanInstallment.create({
@@ -1432,7 +1505,8 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string):
           loanIdsTouched.push(r.loanId);
         } else if (c.kind === 'ADJUSTMENT' && c.adjustment) {
           const a = c.adjustment;
-          await tx.payrollAdjustment.update({ where: { id: a.id }, data: { amount: c.take } });
+          const n = await tx.payrollAdjustment.updateMany({ where: { orgId, id: a.id, ...live }, data: { amount: c.take } });
+          if (!n.count) throw new RunSourcesMovedError('A deduction this payroll takes was taken by a full and final meanwhile.');
           await tx.payrollAdjustment.create({
             data: {
               accountId: a.accountId,
@@ -1493,10 +1567,13 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string):
      * same set: a rerun replaces the payslips wholesale, so the adjustments
      * belong to whichever calculation currently stands.
      */
-    await tx.payrollAdjustment.updateMany({
-      where: { orgId, id: { in: consumedAdjustmentIds } },
+    const toConsume = [...new Set(consumedAdjustmentIds)];
+    const consumed = await tx.payrollAdjustment.updateMany({
+      /* Only what is still owed: a row a full and final took meanwhile keeps its settlement, and the whole calculation is worked out again. */
+      where: { orgId, id: { in: toConsume }, ...live },
       data: { status: 'CONSUMED', consumedByRunId: runId },
     });
+    if (consumed.count !== toConsume.length) throw new RunSourcesMovedError('An adjustment this payroll takes was taken by a full and final meanwhile.');
     /* An adjustment this run consumed before, and no longer does — somebody
        was taken out of the payroll — goes back to being owed. */
     await tx.payrollAdjustment.updateMany({
@@ -1526,7 +1603,8 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string):
        decremented: a counter that drifts from its instalments is a counter
        nobody can trust. */
     await rederiveLoans(tx, orgId, loanIdsTouched);
-  });
+    /* A pool of one is shared with every other request: wait for it rather than fail, and give a large payroll time to write. */
+  }, { maxWait: 30_000, timeout: 120_000 });
 
   // The earning is canonical; this marker is reconciled after each committed calculation.
   const encashments = await payrollPrisma.payrollAdjustment.findMany({ where: { orgId, id: { startsWith: 'leave-encash:' } } });

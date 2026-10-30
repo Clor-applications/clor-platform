@@ -17,7 +17,7 @@ import { leaveLossOfPay } from '../services/attendance/payableDays.js';
 import { provisionalWarning, snapshotChange, snapshotRows, takenMonths } from '../services/payroll/attendanceSnapshots.js';
 import { runLopCheck } from '../services/payroll/readinessTower.js';
 import { catchUpLatePenalties, correctProvisionalDays, cutoffDateFor, lateMarkMonthsOwed, ordinal, provisionalMessage, provisionalPeriodRows, provisionalSetting } from '../services/payroll/provisionalDays.js';
-import { CarryTakenError, RunBusyError, carriesTakenElsewhere, rederiveLoans, undoCarries } from '../services/payroll/run.js';
+import { CarryTakenError, RunBusyError, RunNotEditableError, RunSourcesMovedError, carriesTakenElsewhere, leaseFree, rederiveLoans, undoCarries } from '../services/payroll/run.js';
 import { capMessage } from '../services/payroll/deductionCap.js';
 import { Prisma } from '../generated/payroll/index.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
@@ -688,7 +688,9 @@ payrollRunsRouter.post(
     try {
       calculated = await calculateRun(orgId, run.id, req.auth!.userId);
     } catch (e) {
-      if (e instanceof CarryTakenError || e instanceof RunBusyError) return res.status(409).json({ error: e.message, code: e.code });
+      if (e instanceof CarryTakenError || e instanceof RunBusyError || e instanceof RunNotEditableError) return res.status(409).json({ error: e.message, code: e.code });
+      /* Something it takes kept being settled while it was worked out (three tries). */
+      if (e instanceof RunSourcesMovedError) return res.status(409).json({ error: 'A full and final for somebody in this payroll was paid while it was being calculated. Calculate again.', code: e.code });
       throw e;
     }
     const { slips, issues } = calculated;
@@ -808,9 +810,14 @@ const transition = (
         if (refused) return res.status(refused.status).json(refused.body);
       }
 
-      /* Only from the state that was checked: two people acting at once cannot both move it. */
+      /*
+       * Only from the state that was checked: two people acting at once
+       * cannot both move it. Sent on or approved only on the calculation that
+       * was checked: one in between replaced the figures and cleared any
+       * over-limit reason, so it is checked again.
+       */
       const moved = await payrollPrisma.payrollRun.updateMany({
-        where: { id: run.id, status: { in: from } },
+        where: { id: run.id, status: { in: from }, ...(to === 'REVIEW' || to === 'APPROVED' ? { calculatedAt: run.calculatedAt } : {}) },
         data: { status: to, ...stamp(req.auth!.userId, req.body || {}) },
       });
       if (moved.count !== 1) return res.status(409).json({ error: 'Somebody else has just changed this payroll. Reload it.', code: 'RUN_WRONG_STATUS' });
@@ -889,28 +896,39 @@ payrollRunsRouter.post(
       orderBy: { number: 'asc' },
     });
 
-    const updated = await payrollPrisma.$transaction(async (tx) => {
-      /* Not while it is being calculated (run.ts calculateRun holds the same lock). */
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payroll-run-calc:${run.id}`}))`;
-      const slips = await tx.salarySlip.findMany({ where: { orgId, runId: run.id }, select: { id: true } });
-      const ids = slips.map((s) => s.id);
-      /*
-       * What the payslips took goes back to being owed: carried deductions
-       * back on what they came from, instalments to pending, one-off
-       * adjustments to approved, so the next payroll takes them.
-       */
-      const undone = await undoCarries(tx, orgId, run.id);
-      const instalments = ids.length ? await tx.payrollLoanInstallment.findMany({ where: { orgId, slipId: { in: ids } }, select: { loanId: true } }) : [];
-      if (ids.length) await tx.payrollLoanInstallment.updateMany({ where: { orgId, slipId: { in: ids }, status: 'RECOVERED' }, data: { status: 'PENDING', slipId: null, recoveredAt: null } });
-      await tx.payrollAdjustment.updateMany({ where: { orgId, consumedByRunId: run.id, status: 'CONSUMED' }, data: { status: 'APPROVED', consumedByRunId: null } });
-      await rederiveLoans(tx, orgId, [...undone.loanIds, ...instalments.map((i) => i.loanId)]);
-      if (ids.length) {
-        await tx.payrollCalculationTrace.deleteMany({ where: { slipId: { in: ids } } });
-        await tx.salarySlipLine.deleteMany({ where: { slipId: { in: ids } } });
-        await tx.salarySlip.deleteMany({ where: { id: { in: ids } } });
-      }
-      return tx.payrollRun.update({ where: { id: run.id }, data: { status: 'CANCELLED', deductionCap: Prisma.DbNull } });
-    });
+    let updated;
+    try {
+      updated = await payrollPrisma.$transaction(async (tx) => {
+        /*
+         * Not while it is being calculated (run.ts calculateRun's lease). The
+         * row stays locked until this commits, so a calculation starting now
+         * waits, then finds the run cancelled and writes nothing.
+         */
+        const free = await tx.payrollRun.updateMany({ where: { orgId, id: run.id, ...leaseFree() }, data: { calcLeaseToken: null, calcLeaseUntil: null } });
+        if (!free.count) throw new RunBusyError('This payroll is being calculated right now. Try again in a minute.');
+        const slips = await tx.salarySlip.findMany({ where: { orgId, runId: run.id }, select: { id: true } });
+        const ids = slips.map((s) => s.id);
+        /*
+         * What the payslips took goes back to being owed: carried deductions
+         * back on what they came from, instalments to pending, one-off
+         * adjustments to approved, so the next payroll takes them.
+         */
+        const undone = await undoCarries(tx, orgId, run.id);
+        const instalments = ids.length ? await tx.payrollLoanInstallment.findMany({ where: { orgId, slipId: { in: ids } }, select: { loanId: true } }) : [];
+        if (ids.length) await tx.payrollLoanInstallment.updateMany({ where: { orgId, slipId: { in: ids }, status: 'RECOVERED' }, data: { status: 'PENDING', slipId: null, recoveredAt: null } });
+        await tx.payrollAdjustment.updateMany({ where: { orgId, consumedByRunId: run.id, status: 'CONSUMED' }, data: { status: 'APPROVED', consumedByRunId: null } });
+        await rederiveLoans(tx, orgId, [...undone.loanIds, ...instalments.map((i) => i.loanId)]);
+        if (ids.length) {
+          await tx.payrollCalculationTrace.deleteMany({ where: { slipId: { in: ids } } });
+          await tx.salarySlipLine.deleteMany({ where: { slipId: { in: ids } } });
+          await tx.salarySlip.deleteMany({ where: { id: { in: ids } } });
+        }
+        return tx.payrollRun.update({ where: { id: run.id }, data: { status: 'CANCELLED', deductionCap: Prisma.DbNull } });
+      });
+    } catch (e) {
+      if (e instanceof RunBusyError || e instanceof CarryTakenError) return res.status(409).json({ error: e.message, code: e.code });
+      throw e;
+    }
     /* Leave paid out by these payslips is owed again (the earning is canonical; see calculateRun). */
     await peoplePrisma.leaveAdjustment.updateMany({ where: { orgId, paidInRunId: run.id }, data: { paidInRunId: null } });
     await recordAudit(req, {

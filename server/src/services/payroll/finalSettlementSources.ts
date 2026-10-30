@@ -209,7 +209,7 @@ export async function staleSources(orgId: string, lines: SettlementLine[]) {
     } else if (type === 'ADVANCE') {
       const a = await peoplePrisma.employeeAdvance.findFirst({ where: { orgId, id } });
       const now = a && a.status === 'PAID' ? await advanceOwed(orgId, a) : null;
-      if (!a || !now || now.owed + 0.005 < l.amount || grew(src, now.owed) || (src.draftId && now.draft?.id !== src.draftId)) out.push(`advance ${a?.number || ''}`.trim());
+      if (!a || !now || now.owed + 0.005 < l.amount || grew(src, now.owed) || (src.draftId || null) !== (now.draft?.id || null)) out.push(`advance ${a?.number || ''}`.trim());
     } else if (type === 'CLAIM') {
       const c = await peoplePrisma.expenseClaim.findFirst({ where: { orgId, id } });
       const now = c ? await claimOwed(orgId, c) : null;
@@ -258,13 +258,20 @@ export async function closePayrollSources(tx: any, orgId: string, settlementId: 
         settle.push(i.id);
         left = round2(left - due);
       }
-      if (settle.length) await tx.payrollLoanInstallment.updateMany({ where: { orgId, id: { in: settle }, status: 'PENDING' }, data: { status: 'SETTLED', recoveredAt: new Date() } });
+      /* Each still pending as it is settled: one a payslip took a moment ago refuses the whole payment, rather than recovering it twice. */
+      if (settle.length) {
+        const n = await tx.payrollLoanInstallment.updateMany({ where: { orgId, id: { in: settle }, status: 'PENDING' }, data: { status: 'SETTLED', recoveredAt: new Date() } });
+        if (n.count !== settle.length) throw new SourcesChangedError('A loan this settlement recovers was taken by a payroll meanwhile. Cancel the settlement and work it out again.');
+      }
       /* A line edited to part of an instalment: that much comes off the next one, so the balance stays what is really owed. */
       const part = pending[settle.length];
+      /* More on the line than the loan still has pending: a payslip took some since the check. */
+      if (!part && left > 0.005) throw new SourcesChangedError('A loan this settlement recovers was taken by a payroll meanwhile. Cancel the settlement and work it out again.');
       if (part && left > 0.005) {
         const due = round2(Number(part.dueAmount) - left);
         const principal = round2(Math.max(0, Number(part.principalAmount) - left));
-        await tx.payrollLoanInstallment.updateMany({ where: { orgId, id: part.id, status: 'PENDING' }, data: { dueAmount: due, principalAmount: principal, interestAmount: round2(due - principal) } });
+        const n = await tx.payrollLoanInstallment.updateMany({ where: { orgId, id: part.id, status: 'PENDING' }, data: { dueAmount: due, principalAmount: principal, interestAmount: round2(due - principal) } });
+        if (!n.count) throw new SourcesChangedError('A loan this settlement recovers was taken by a payroll meanwhile. Cancel the settlement and work it out again.');
       }
       const rest = await tx.payrollLoanInstallment.findMany({ where: { orgId, loanId: l.source.id, status: 'PENDING' }, select: { dueAmount: true } });
       const outstanding = round2(rest.reduce((t: number, i: any) => t + Number(i.dueAmount), 0));
