@@ -320,6 +320,17 @@ Open it in CLOR: {{appUrl}}/{{link}}
 You get this because you look after people at {{orgName}}. Your company can switch this e-mail off in its notification settings, and you can mute it from the bell.`,
     fields: ['name', 'orgName', 'headline', 'summary', 'link', 'appName', 'appUrl'],
   },
+  {
+    key: 'people.absence_notice',
+    label: 'Absence notice',
+    description: 'A notice to someone absent with no leave and no word, asking them to report back or explain by a date (People → Absences). The letter is also in their documents in the employee app.',
+    subject: '{{orgName}}: please report back or explain your absence by {{reportBy}}',
+    body: `{{letter}}
+
+This notice is also in your documents in the {{orgName}} employee app.`,
+    fields: ['name', 'orgName', 'letter', 'reportBy', 'appName', 'appUrl'],
+    transactional: true,
+  },
 ];
 
 export const TEMPLATE_BY_KEY = new Map(EMAIL_TEMPLATES.map((t) => [t.key, t]));

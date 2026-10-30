@@ -1105,6 +1105,26 @@
       "method": "GET",
       "path": "/api/portal/people/forms/files/:id",
       "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; a file on the person's own request only (requestForms.fileFor) (gap 25)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/time/marks",
+      "reason": "Employee self-service (attendance rules 4.4): portal token + anyAppLive; org and employee from the token; the person's own late marks and early exits this month, the next cost and the rule text (markRules.myMarks)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/time/fixes",
+      "reason": "Employee self-service (missing-punch nudge 4.5, absences 4.6): portal token + anyAppLive; the person's own days still to fix with what to fill in, a manager's own team list for today, and absence notices sent to the person."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/time/night-consent",
+      "reason": "Employee self-service (night-work consent B19): portal token + anyAppLive; only a woman sees her own consent, its history and how many night shifts she has in the next 30 days."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/time/night-consent",
+      "reason": "Employee self-service (night-work consent B19): portal token + anyAppLive; a woman gives or withdraws her own consent, dated today, as portal:<employeeId>; optional signed copy content-sniffed, 5 MB; HR told when withdrawn with night shifts ahead."
     }
   ]
 }

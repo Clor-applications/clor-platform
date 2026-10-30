@@ -73,6 +73,16 @@ export async function updateEmployee(
   data: Prisma.EmployeeUncheckedUpdateInput,
   opts: { effectiveDate?: string | null; expectedVersion?: number; afterWrite?: (tx: Prisma.TransactionClient, row: Row) => Promise<void> } = {},
 ): Promise<{ row: Row; changes: ReturnType<typeof diffEmployee> }> {
+  /* Moved into a department that works a night shift: a woman needs her consent to night work (people/nightConsent.ts). */
+  const toDept = (data as { departmentId?: unknown }).departmentId;
+  if (typeof toDept === 'string' && toDept && toDept !== existing.departmentId) {
+    const t = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    const sched = await peoplePrisma.departmentSchedule.findMany({ where: { orgId: actor.orgId, departmentId: toDept, OR: [{ effectiveTo: null }, { effectiveTo: { gte: t } }] }, select: { shiftId: true } });
+    if (sched.length) {
+      const { assertNightConsent } = await import('./nightConsent.js');
+      await assertNightConsent(actor.orgId, [{ employeeId: existing.id, shiftIds: sched.map((x) => x.shiftId) }]);
+    }
+  }
   const result = await peoplePrisma.$transaction(async (tx) => {
     /* Every write moves the version on, so an edit made against an older copy is refused (People design v1, 409 STALE). */
     /*

@@ -101,7 +101,7 @@ describe('People navigation in simple mode', () => {
   it('keeps every module that has a screen left, and the leave screens under one naming rule', () => {
     const modules = resolveModules(peopleApp, simple);
     expect(modules.map((m) => m.label)).toEqual(['Home', 'People', 'Organisation', 'Time', 'Talent', 'Workplace', 'Reports', 'Settings']);
-    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Delegates', 'Daily attendance', 'Attendance requests', 'Shift swaps']);
+    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Delegates', 'Daily attendance', 'Attendance requests', 'Shift swaps', 'Late marks', 'Absences', 'Night work']);
   });
 
   it('shows everything when simple mode is off, or when the company’s switches are not known yet', () => {

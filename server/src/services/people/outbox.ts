@@ -33,6 +33,8 @@ export const PEOPLE_EVENTS = [
   'people.policy.published.v1',
   'people.document.expiring.v1',
   'people.obligation.due.v1',
+  /* A final settlement held or released after an absconding (people/absconding.ts): Payroll should not pay one that is held. */
+  'people.settlement.hold.v1',
 ] as const;
 /**
  * Events for this server alone, not the catalogue other apps subscribe to:

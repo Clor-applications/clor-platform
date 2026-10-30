@@ -5,6 +5,7 @@ import { isOvernight, isWeeklyOff } from '../attendance/compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../attendance/schedule.js';
 import { assertScheduleOpen, scheduleGuard } from '../attendance/scheduleGuard.js';
 import { daysBetween, today } from '../attendance/days.js';
+import { nightRefusal } from './nightConsent.js';
 import { ApprovalError, PORTAL_PREFIX, activeRule, beforeApproving, onApproved, onClosed, saveRule, submitRequest, withdraw } from './approvals/engine.js';
 import type { Actor } from './changeLog.js';
 
@@ -187,6 +188,12 @@ export async function checkSwap(orgId: string, requester: Person, colleague: Per
   return days;
 }
 
+/** Each takes the other's shifts: a woman taking one into the night needs her consent on file (OSH Code s.43; nightConsent.ts). */
+async function nightCheck(orgId: string, requester: Person, colleague: Person, days: Day[], self = true) {
+  const refused = await nightRefusal(orgId, [{ employeeId: requester.id, shiftIds: days.map((d) => d.colleagueShiftId) }, { employeeId: colleague.id, shiftIds: days.map((d) => d.requesterShiftId) }], { self });
+  if (refused) throw new SwapError(refused.message, 409, 'NIGHT_CONSENT');
+}
+
 async function personIn(orgId: string, id: string) {
   const p = await peoplePrisma.employee.findFirst({ where: { id, orgId }, select: personSelect });
   if (!p) throw new SwapError('No such person.', 404, 'NOT_FOUND');
@@ -235,6 +242,7 @@ export async function askSwap(who: { accountId: string; orgId: string; employeeI
     const colleague = await peoplePrisma.employee.findFirst({ where: { id: colleagueId, orgId: who.orgId }, select: personSelect });
     if (!colleague) throw new SwapError('That person is not in this company.', 400, 'NOT_FOUND');
     const days = await checkSwap(who.orgId, requester, colleague as Person, from, to);
+    await nightCheck(who.orgId, requester, colleague as Person, days);
     return peoplePrisma.shiftSwap.create({
       data: { accountId: who.accountId, orgId: who.orgId, requesterEmployeeId: requester.id, colleagueEmployeeId: colleague.id, fromDate: from, toDate: to, days: days as unknown as Prisma.InputJsonValue, reason, status: 'ASKED', requestedByUserId: requesterOf(requester, who.userId) },
     });
@@ -353,6 +361,7 @@ async function applySwap(request: { id: string; orgId: string; accountId: string
     let days: Day[];
     try {
       days = await checkSwap(request.orgId, requester, colleague, swap.fromDate, swap.toDate, { exceptSwapId: swap.id });
+      await nightCheck(request.orgId, requester, colleague, days, false);
     } catch (e) {
       if (e instanceof SwapError) throw new ApprovalError(e.message, 409, e.code);
       throw e;

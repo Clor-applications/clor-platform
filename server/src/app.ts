@@ -44,6 +44,8 @@ import { peopleTalentRouter } from './routes/peopleTalent.js';
 import { peopleTalentApplyRouter } from './routes/peopleTalentApply.js';
 import { peopleReferralsRouter } from './routes/peopleReferrals.js';
 import { peopleReferralsPortalRouter } from './routes/peopleReferralsPortal.js';
+import { peopleTimeRulesRouter } from './routes/peopleTimeRules.js';
+import { peopleTimePortalRouter } from './routes/peopleTimePortal.js';
 import { peopleJoinRouter } from './routes/peopleJoin.js';
 import { peopleInvitesRouter } from './routes/peopleInvites.js';
 import { peopleLettersRouter } from './routes/peopleLetters.js';
@@ -385,6 +387,7 @@ export function buildApp() {
   /* People's own employee-facing routes first: the portal router answers every other /api/portal path itself. */
   app.use('/api/portal/people/referrals', peopleReferralsPortalRouter);
   app.use('/api/portal/people/money', peopleMoneyPortalRouter);
+  app.use('/api/portal/people/time', peopleTimePortalRouter);
   app.use('/api/portal/people', peoplePortalRouter);
   app.use('/api/portal', portalRouter);
 
@@ -432,6 +435,7 @@ export function buildApp() {
   app.use('/api', peopleApprovalsRouter);
   app.use('/api', peopleRequestsRouter);
   app.use('/api', peopleMoneyRouter);
+  app.use('/api', peopleTimeRulesRouter);
   app.use('/api', peopleInvitesRouter);
   app.use('/api', peopleLettersRouter);
   app.use('/api', peoplePoliciesRouter);

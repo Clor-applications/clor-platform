@@ -1480,6 +1480,11 @@ model AttendanceSettings {
   /// schedule), the first punch of the day picks the shift marked autoPick whose
   /// start is nearest, within its punch window. Saved as a one-day temporary schedule.
   autoShiftByPunch      Boolean   @default(false)
+  /// Attendance rules of People → Settings → Attendance rules (services/attendance/timeRules.ts):
+  /// { marks: late marks and early exits that cost part of a day (off by default), nudge: the
+  /// missing-punch notice (on), absence: the unexplained-absence check (on), night: women's night-work
+  /// consent check (on, 7 pm to 6 am) }. Each part is read over its defaults; versioned in AttendanceRuleVersion.
+  timeRules             Json      @default("{}")
 
   updatedByUserId String
   updatedAt       DateTime @updatedAt
@@ -3972,4 +3977,137 @@ model SalaryAdvanceAsk {
 
   @@index([orgId, employeeId, status])
   @@index([orgId, status])
+}
+
+/// A month's late-mark and early-exit penalty for one person, once someone decided it
+/// (services/attendance/markRules.ts, WORKFLOW-GAP-RESEARCH 4.4). Until then the penalty is worked out
+/// from the rules each time. WAIVED: a manager or HR let it go, with the reason. APPLIED: the days were
+/// taken, from leave in the order the rules name and the rest as loss of pay, under the rule version kept here.
+model AttendancePenalty {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  employeeId      String
+  month           String /// YYYY-MM
+  /// WAIVED | APPLIED
+  status          String
+  lateMarks       Int      @default(0)
+  earlyMarks      Int      @default(0)
+  /// What the rules gave, in days.
+  days            Float    @default(0)
+  /// APPLIED: [{ leaveTypeId, name, days, adjustmentId }], the days taken from leave.
+  fromLeave       Json     @default("[]")
+  /// APPLIED: the days that are loss of pay.
+  lossOfPayDays   Float    @default(0)
+  reason          String?
+  ruleVersion     Int      @default(0)
+  decidedByUserId String
+  decidedAt       DateTime @default(now())
+
+  @@unique([orgId, employeeId, month])
+  @@index([orgId, month])
+}
+
+/// One notice the attendance jobs sent a person on one day (services/attendance/punchNudge.ts): the
+/// unique key keeps it to once a day per person, however often the job runs. FIX: "no punch-out / no
+/// punch: fix it" to the person; TEAM: the manager's morning list of the team's unfixed days.
+model AttendanceNudge {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  /// The day the notice went (IST), YYYY-MM-DD.
+  sentOn     String
+  /// FIX | TEAM
+  kind       String
+  /// The days it named: [{ date, what: NO_OUT | NO_PUNCH, checkIn?, suggestedOut? }] (TEAM: with employeeId and name).
+  days       Json     @default("[]")
+  createdAt  DateTime @default(now())
+
+  @@unique([orgId, employeeId, sentOn, kind])
+  @@index([orgId, sentOn])
+}
+
+/// Someone absent working day after working day with no leave and no word (services/people/absconding.ts,
+/// WORKFLOW-GAP-RESEARCH 4.6). Found by the daily job; HR follows it with two recorded notices, then
+/// records the leaving as ABSCONDED and may hold the final settlement, or closes it when the person returns.
+model AbsenceCase {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  employeeId      String
+  /// The first and the latest working day of the run with no attendance and no leave.
+  fromDate        String
+  lastAbsentDate  String
+  days            Int
+  /// OPEN | NOTICE_1 | NOTICE_2 | ABSCONDED | RETURNED | EXPLAINED | IGNORED
+  status          String    @default("OPEN")
+  closedNote      String?
+  closedAt        DateTime?
+  closedByUserId  String?
+  /// ABSCONDED: the last working day recorded on the leaving.
+  lastWorkingDay  String?
+  /// The final settlement held: why, when, by whom, and when released. A hold only: earned wages are never zeroed.
+  holdReason      String?
+  heldAt          DateTime?
+  heldByUserId    String?
+  holdReleasedAt  DateTime?
+  holdReleaseNote String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([orgId, status])
+  @@index([orgId, employeeId])
+}
+
+/// A notice sent in an absence case: what was sent, to where, how and when (the proof of sending).
+model AbsenceNotice {
+  id            String   @id @default(cuid())
+  accountId     String
+  orgId         String
+  caseId        String
+  employeeId    String
+  /// 1 or 2.
+  seq           Int
+  /// The day the person is asked to report back or explain by.
+  reportBy      String
+  /// What carried it: EMAIL, APP (the letter in their documents and the employee app), POST.
+  channels      String[] @default([])
+  emailTo       String?
+  /// QUEUED | SENT | FAILED | SUPPRESSED, from the mail outbox when e-mailed.
+  emailStatus   String?
+  emailOutboxId String?
+  /// The letter as issued, in the person's documents.
+  documentId    String?
+  /// A registered post or courier reference, when HR also posted it.
+  postRef       String?
+  /// A copy of the text that was sent.
+  text          String
+  sentByUserId  String
+  sentAt        DateTime @default(now())
+
+  @@unique([caseId, seq])
+  @@index([orgId, employeeId])
+}
+
+/// A woman's consent to work at night (OSH Code 2020 s.43; WORKFLOW-GAP-RESEARCH B19): given or
+/// withdrawn, on a date, with the signed copy when HR keeps one. The latest row is the one in force.
+/// Checked before anyone gives her a shift that touches the night window (services/people/nightConsent.ts).
+model NightWorkConsent {
+  id               String   @id @default(cuid())
+  accountId        String
+  orgId            String
+  employeeId       String
+  /// GIVEN | WITHDRAWN
+  status           String
+  /// The day it was given or withdrawn, YYYY-MM-DD.
+  onDate           String
+  note             String?
+  /// The signed consent, kept in the person's documents.
+  documentId       String?
+  /// A CLOR user, or portal:<employeeId> when the person did it in the employee app.
+  recordedByUserId String
+  createdAt        DateTime @default(now())
+
+  @@index([orgId, employeeId, createdAt])
 }

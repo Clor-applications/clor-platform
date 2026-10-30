@@ -215,6 +215,12 @@ export function monthSummary(input: {
    */
   lateAllowance?: number;
   latePenaltyEvery?: number;
+  /**
+   * The late-mark penalty already worked out under the company's rules (services/attendance/markRules.ts):
+   * the days that are loss of pay after any taken from leave, or a waiver. Given, it replaces the
+   * two-number rule above.
+   */
+  penaltyDays?: number;
 }) {
   let present = 0;
   let halfDays = 0;
@@ -252,7 +258,7 @@ export function monthSummary(input: {
   }
   const unpaidLeave = Math.min(input.days.length, Math.max(0, input.unpaidLeaveDays || 0));
   const every = Math.max(0, input.latePenaltyEvery || 0);
-  const latePenaltyDays = every ? Math.floor(Math.max(0, late - Math.max(0, input.lateAllowance || 0)) / every) * 0.5 : 0;
+  const latePenaltyDays = input.penaltyDays !== undefined ? Math.max(0, input.penaltyDays) : every ? Math.floor(Math.max(0, late - Math.max(0, input.lateAllowance || 0)) / every) * 0.5 : 0;
   const lossOfPayDays = Math.min(input.days.length - notYet, absent + incomplete + halfDays * 0.5 + unpaidLeave + latePenaltyDays);
   return {
     totalDays: input.days.length,

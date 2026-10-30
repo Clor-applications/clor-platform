@@ -111,14 +111,16 @@ export async function monthReview(e: Who, month: string) {
     peoplePrisma.overtimeRequest.count({ where: { orgId: e.orgId, employeeId: e.id, status: 'PENDING', date: { gte: days[0], lte: days[days.length - 1] } } }),
   ]);
   const mine = holidays.forArea(e.areaId, e.branchId);
+  /* The late-mark penalty under the company's rules, as payroll will take it (markRules.ts). */
+  const { penaltiesOver } = await import('./markRules.js');
+  const penalty = (await penaltiesOver(e.accountId, e.orgId, days, { employeeIds: [e.id] })).get(e.id);
   const summary = monthSummary({
     days,
     records: new Map(records.map((r) => [r.date, { status: r.status as any, lateMinutes: r.lateMinutes, overtimeMinutes: r.overtimeMinutes, overtimeApproved: r.overtimeApproved, checkIn: r.checkIn, checkOut: r.checkOut }])),
     shift: (d) => resolveShift(schedule, e.id, d).rule,
     holidays: mine,
     today: t,
-    lateAllowance: settings?.lateAllowancePerMonth ?? 0,
-    latePenaltyEvery: settings?.latePenaltyEvery ?? 0,
+    penaltyDays: penalty?.lossOfPayDays ?? 0,
   });
   const unresolved = upTo.length ? await attentionFor(e, days[0], upTo[upTo.length - 1] < t ? upTo[upTo.length - 1] : plusDays(t, -1)) : [];
   const cutoff = cutoffOf(month, settings?.confirmCutoffDay ?? 3);

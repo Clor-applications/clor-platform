@@ -248,3 +248,9 @@ export const getReferrals = () => call('/people/referrals');
 export const referFriend = (body) => call('/people/referrals/refer', { method: 'POST', body });
 export const referralLink = (openingId) => call('/people/referrals/link', { method: 'POST', body: { openingId } });
 export const applyWithin = (body) => call('/people/referrals/apply', { method: 'POST', body });
+
+/* Attendance rules (People, server routes/peopleTimePortal.ts): days to fix, my late marks, absence notices, night-work consent. */
+export const getFixes = () => call('/people/time/fixes');
+export const getMyMarks = (month) => call(`/people/time/marks${month ? `?month=${encodeURIComponent(month)}` : ''}`);
+export const getNightConsent = () => call('/people/time/night-consent');
+export const setNightConsent = (body) => call('/people/time/night-consent', { method: 'POST', body });

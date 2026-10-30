@@ -22,6 +22,11 @@ export { default as RequestForms } from './screens/RequestForms';
 export { default as RequestsReport } from './screens/RequestsReport';
 export { default as ShiftSwaps } from './screens/ShiftSwaps';
 export { default as MyRequests } from './screens/MyRequests';
+/* Attendance rules: late marks, absences and night-work consent (WORKFLOW-GAP-RESEARCH 4.4, 4.6, B19). */
+export { default as AttendanceRulesSettings } from './time/AttendanceRules';
+export { default as LateMarks } from './time/LateMarks';
+export { default as Absences } from './time/Absences';
+export { default as NightWork } from './time/NightWork';
 export { default as HelpDesk } from './screens/HelpDesk';
 export { default as PrivateCases } from './screens/PrivateCases';
 export { default as HelpDeskSettings } from './screens/HelpDeskSettings';

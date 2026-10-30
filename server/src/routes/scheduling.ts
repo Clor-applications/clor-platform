@@ -17,6 +17,8 @@ import { deleteToBin } from '../services/recycleBin.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { DEFAULT_LATE_UPLOAD_HOURS, READER_TRUST, readerTrustOn } from '../services/attendance/trust.js';
 import { assertScheduleOpen, rotationRanges, scheduleGuard } from '../services/attendance/scheduleGuard.js';
+import { assertNightConsent, nightRefusal, onShiftAhead, rotationShiftIds } from '../services/people/nightConsent.js';
+import { marksFromLegacy, timeRulesFor } from '../services/attendance/timeRules.js';
 
 /**
  * Scheduling — ClorTime's Shift and Schedule modules: temporary schedules,
@@ -65,6 +67,8 @@ schedulingRouter.post(`${base}/temporary-schedules`, can(PermissionAction.EDIT),
     /* Its days may not be in a closed month (O-05). */
     await assertScheduleOpen(orgId, [{ from: b.fromDate, to: b.toDate }]);
     const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: b.employeeIds } }, select: { id: true } });
+    /* A woman on a shift into the night needs her consent on file (OSH Code s.43; people/nightConsent.ts). */
+    await assertNightConsent(orgId, people.map((p) => ({ employeeId: p.id, shiftIds: [b.shiftId] })));
     await peoplePrisma.temporarySchedule.createMany({
       data: people.map((p) => ({ accountId, orgId, employeeId: p.id, shiftId: b.shiftId, fromDate: b.fromDate, toDate: b.toDate, reason: b.reason || null, createdByUserId: req.auth!.userId })),
     });
@@ -115,6 +119,8 @@ schedulingRouter.post(`${base}/department-schedules`, can(PermissionAction.EDIT)
   try {
     await shiftIn(orgId, b.shiftId);
     if (!(await peoplePrisma.department.findFirst({ where: { id: b.departmentId, orgId }, select: { id: true } }))) return res.status(400).json({ error: 'That department is not in this organisation.' });
+    const inDept = await peoplePrisma.employee.findMany({ where: { orgId, departmentId: b.departmentId, status: { not: 'LEFT' } }, select: { id: true } });
+    await assertNightConsent(orgId, inDept.map((p) => ({ employeeId: p.id, shiftIds: [b.shiftId] })));
     /* The new range, and the range of a row it replaces (same department, same start), may not reach into a closed month (O-05). */
     const replaced = await peoplePrisma.departmentSchedule.findUnique({ where: { departmentId_effectiveFrom: { departmentId: b.departmentId, effectiveFrom: b.effectiveFrom } }, select: { effectiveTo: true } });
     await assertScheduleOpen(orgId, [{ from: b.effectiveFrom, to: b.effectiveTo || null }, ...(replaced ? [{ from: b.effectiveFrom, to: replaced.effectiveTo }] : [])]);
@@ -208,6 +214,9 @@ schedulingRouter.put(`${base}/rotations/:id`, can(PermissionAction.EDIT), async 
     const next = { sequence: parsed.data.sequence.join(','), periodDays: parsed.data.periodDays, anchorDate: parsed.data.anchorDate, isActive: parsed.data.isActive ?? existing.isActive };
     if (pattern(existing) !== pattern(next)) {
       await assertScheduleOpen(orgId, await rotationRanges(orgId, existing.id), (month) => `${month} is closed in Attendance and people on this rotation work it, so its pattern cannot change. Start a new rotation from a date instead.`);
+      /* A night step added to a rotation women are on needs their consent (people/nightConsent.ts). */
+      const on = await peoplePrisma.rotationAssignment.findMany({ where: { orgId, rotationId: existing.id, OR: [{ endsOn: null }, { endsOn: { gte: today() } }] }, select: { employeeId: true } });
+      await assertNightConsent(orgId, on.map((a) => ({ employeeId: a.employeeId, shiftIds: parsed.data.sequence })));
     }
     const r = await peoplePrisma.shiftRotation.update({ where: { id: existing.id }, data: { ...parsed.data, sequence: parsed.data.sequence.join(',') } });
     res.json({ rotation: { ...r, sequence: r.sequence.split(',') } });
@@ -251,6 +260,8 @@ schedulingRouter.post(`${base}/rotations/:id/assignments`, can(PermissionAction.
   const replaced = await peoplePrisma.rotationAssignment.findMany({ where: { orgId, rotationId: rotation.id, startsOn: b.startsOn, employeeId: { in: people.map((p) => p.id) } }, select: { endsOn: true } });
   const refused = (await scheduleGuard(orgId)).refusal([{ from: b.startsOn, to: b.endsOn || null }, ...replaced.map((r) => ({ from: b.startsOn, to: r.endsOn }))]);
   if (refused) return sendError(res, refused);
+  const noConsent = await nightRefusal(orgId, people.map((p) => ({ employeeId: p.id, shiftIds: rotationShiftIds(rotation.sequence) })));
+  if (noConsent) return sendError(res, noConsent);
   for (const p of people) {
     await peoplePrisma.rotationAssignment.upsert({
       where: { employeeId_rotationId_startsOn: { employeeId: p.id, rotationId: rotation.id, startsOn: b.startsOn } },
@@ -317,12 +328,22 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
     /* The default shift decides every date of anyone with no other schedule, closed months included (O-05). */
     if ((previous?.defaultShiftId || null) !== parsed.data.defaultShiftId) {
       await assertScheduleOpen(orgId, [{ from: null, to: null }], (month) => `${month} is closed in Attendance, and the default shift decides its days. Reopen the month to change the default shift, or assign the shift from a date instead.`);
+      /* A night default reaches every woman with no schedule of her own (people/nightConsent.ts). */
+      if (parsed.data.defaultShiftId) {
+        const on = await onShiftAhead(orgId, null);
+        await assertNightConsent(orgId, on.map((id) => ({ employeeId: id, shiftIds: [parsed.data.defaultShiftId!] })));
+      }
     }
     const s = await peoplePrisma.attendanceSettings.upsert({
       where: { orgId },
       create: { accountId, orgId, ...settings, updatedByUserId: req.auth!.userId },
       update: { ...settings, updatedByUserId: req.auth!.userId },
     });
+    /* People's Attendance rules keep the fuller late-mark rule; it follows these two numbers when they change here. */
+    if (previous && (previous.lateAllowancePerMonth !== s.lateAllowancePerMonth || previous.latePenaltyEvery !== s.latePenaltyEvery) && (previous.timeRules as any)?.marks) {
+      const next = marksFromLegacy(await timeRulesFor(orgId), s);
+      await peoplePrisma.attendanceSettings.update({ where: { orgId }, data: { timeRules: next as any } });
+    }
     if (readerTrust !== undefined && readerTrust !== (await readerTrustOn(accountId, orgId))) {
       await platformPrisma.featureSetting.upsert({
         where: { orgId_key: { orgId, key: READER_TRUST } },
