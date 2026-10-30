@@ -1,5 +1,11 @@
 # clor-coder-people — work log
 
+## 2026-10-31 02:00 IST — People / Leaving and engagement — #81 pre-merge nits
+- Did: a withdrawn exit interview's round is now max(round)+1 for that person and last day (lock per person in the withdrawal's transaction, one retry on a unique clash), not epoch seconds: no 500 on two withdrawals in one second, no 2038 overflow. Migration 20261114090400 edited in place (unmerged) to number existing withdrawn rows 1..n.
+- Evidence: leavingEngagement.test.ts 83 passed (new double-withdrawal test fails on the old code); migration run twice as clor_app on 5434, same result both times; drift check clean; 14 related suites 75 passed on 5434 (5432 was full; one earlier run had a file fail in setup, the rerun passed); tsc clean.
+- Next: merge by the coordinator.
+- Blocked on: nothing
+
 ## 2026-10-31 01:15 IST — People / Leaving and engagement — #81 retest fixes
 - Did: N1 a new leaving always gets a fresh exit interview: a withdrawn one takes its own round (ExitInterview.round, unique per person, last day and round; migration 20261114090400, safe to rerun, run as clor_app), so the same last day no longer brings old answers back and the withdrawn one is counted once; the exit reminder skips withdrawn rows. N2 signed, answered and outcome dates on the plan read as the India day. N3 the report lists months that have only people who stayed.
 - Evidence: leavingEngagement.test.ts 82 passed (2 new); 14 related server suites 75 passed; web 47 passed (2 new); tsc, eslint, drift check clean. Browser as HR at 1440 and 390 on 5191/4021: same-day re-record shows "Not answered yet"; a line signed at 01:00 IST reads 31 Oct; report lists Dec with Stayed 1.

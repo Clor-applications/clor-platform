@@ -1293,6 +1293,21 @@ describe('retest of #81: a new leaving is always asked afresh', () => {
     expect(m.retained).toBe(1);
   });
 
+  it('withdrawn twice on the same day in quick succession: both answer 200, rounds 1 and 2, the live one 0', async () => {
+    const e = await person(c, { name: 'Twice Tanu', code: `TW-${rnd()}` });
+    const day = plus(istToday(), 14);
+    for (let i = 0; i < 2; i += 1) {
+      await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: day, leavingType: 'RESIGNED' }).expect(200);
+      await ppl(c, 'get', `/leaving/${e.id}`).expect(200);
+      await ppl(c, 'post', `/employees/${e.id}/stay`, { reason: `Round ${i + 1}` }).expect(200);
+    }
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: day, leavingType: 'RESIGNED' }).expect(200);
+    await ppl(c, 'get', `/leaving/${e.id}`).expect(200);
+    const rows = await inTenant(c, () => peoplePrisma.exitInterview.findMany({ where: { orgId: c.orgId, employeeId: e.id }, orderBy: { round: 'asc' } }));
+    expect(rows.map((r) => r.round)).toEqual([0, 1, 2]);
+    expect(rows[0].withdrawnAt).toBeNull();
+  });
+
   it('withdrawn and recorded again on the same day at once: fresh, not the old answers', async () => {
     const e = await person(c, { name: 'Same Day Sam', code: `SD-${rnd()}` });
     const day = plus(istToday(), 12);

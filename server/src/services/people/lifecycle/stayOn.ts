@@ -21,7 +21,17 @@ export class StayOnError extends Error {
   }
 }
 
+/** Withdraws a leaving; a clash on the exit interview's round (two withdrawals at once) is tried once more. */
 export async function cancelLeaving(who: Who, employeeId: string, reason: string | null) {
+  try {
+    return await withdrawLeaving(who, employeeId, reason);
+  } catch (e: any) {
+    if (e?.code !== 'P2002') throw e;
+    return withdrawLeaving(who, employeeId, reason);
+  }
+}
+
+async function withdrawLeaving(who: Who, employeeId: string, reason: string | null) {
   const { accountId, orgId } = who;
   const existing = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId } });
   if (!existing) throw new StayOnError('No such employee.', 404);
@@ -37,8 +47,17 @@ export async function cancelLeaving(who: Who, employeeId: string, reason: string
       const thisStint = { orgId, employeeId: row.id, leavingDate: { gte: existing.dateOfJoining || '' } };
       await tx.clearanceLine.updateMany({ where: { ...thisStint, status: { not: 'WITHDRAWN' } }, data: { status: 'WITHDRAWN' } });
       await tx.exitInterview.updateMany({ where: { ...thisStint, withdrawnAt: null, outcome: null }, data: { outcome: 'RETAINED', outcomeByUserId: who.userId, outcomeAt: new Date() } });
-      /* Withdrawn, it leaves round 0 to whatever leaving comes next, on any day (exitInterview.ts ensureInterview). */
-      await tx.exitInterview.updateMany({ where: { ...thisStint, withdrawnAt: null }, data: { withdrawnAt: new Date(), round: Math.floor(Date.now() / 1000) } });
+      /*
+       * Withdrawn, it leaves round 0 to whatever leaving comes next, on any day (exitInterview.ts ensureInterview).
+       * It takes the next round for that person and last day: 1, 2, 3… A lock per person keeps two withdrawals
+       * from picking the same number; the unique index is the last word (see the retry below).
+       */
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`exit-round:${row.id}`}))`;
+      const live = await tx.exitInterview.findMany({ where: { ...thisStint, withdrawnAt: null }, select: { id: true, leavingDate: true } });
+      for (const iv of live) {
+        const top = await tx.exitInterview.aggregate({ where: { orgId, employeeId: row.id, leavingDate: iv.leavingDate }, _max: { round: true } });
+        await tx.exitInterview.update({ where: { id: iv.id }, data: { withdrawnAt: new Date(), round: (top._max.round ?? 0) + 1 } });
+      }
     },
   });
   await recordChanges({ accountId, orgId, userId: who.userId }, existing as any, employee as any, { source: 'FORM', effectiveDate: new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10), note: `Leaving withdrawn${reason ? `: ${reason}` : ''}` });
