@@ -325,7 +325,8 @@ export async function leavingReasons(orgId: string, months = 12) {
     peoplePrisma.employee.findMany({ where: { orgId, dateOfLeaving: { gte: from, lte: `${ahead}-31` }, status: { in: ['ON_NOTICE', 'LEFT'] } }, select: { id: true, dateOfLeaving: true, leavingType: true } }),
     exitSettings(orgId),
   ]);
-  const lastMonth = [t.slice(0, 7), ...leavers.map((l) => String(l.dateOfLeaving).slice(0, 7))].filter((m) => m <= ahead).sort().pop()!;
+  /* A month ahead with only someone who stayed still shows, so their "retained" is counted. */
+  const lastMonth = [t.slice(0, 7), ...leavers.map((l) => String(l.dateOfLeaving).slice(0, 7)), ...rows.map((r) => r.leavingDate.slice(0, 7))].filter((m) => m <= ahead).sort().pop()!;
   const labels = new Map<string, string>();
   for (const o of DEFAULT_REASONS) labels.set(o.code, o.label);
   for (const q of settings.questions) if (q.kind === 'REASON') for (const o of q.options || []) labels.set(o.code, o.label);
@@ -342,7 +343,8 @@ export async function leavingReasons(orgId: string, months = 12) {
   for (const r of rows) {
     const m = byMonth.get(r.leavingDate.slice(0, 7));
     if (!m) continue;
-    if (r.outcome === 'RETAINED') m.retained += 1;
+    /* Retained: decided so, or the leaving withdrawn some other way (even after "exit confirmed"). */
+    if (r.outcome === 'RETAINED' || r.withdrawnAt) m.retained += 1;
     /* Someone who stayed did not leave: their answers are no reason for leaving, and they are no one HR could have kept. */
     if (r.withdrawnAt || r.outcome === 'RETAINED') continue;
     if (r.status === 'SUBMITTED' && r.reason) {

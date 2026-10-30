@@ -80,7 +80,7 @@ async function scheduleLeaving(who: Who, existing: Existing, input: Input) {
   await recordChanges({ accountId, orgId, userId: who.userId }, existing, employee, { source: 'RESIGNATION', effectiveDate: input.lastDay, note: `On notice until ${input.lastDay}: ${input.reason || input.leavingType.replace(/_/g, ' ').toLowerCase()}${viaRequest(who)}` });
   await startChecklist({ accountId, orgId, userId: who.userId }, employee, 'LEAVING', input.lastDay);
   /* "Change leaving details" with a new day: the plan that is already running follows it. */
-  if (existing.status === 'ON_NOTICE') await lastDayMoved(orgId, employee.id, existing.dateOfLeaving as string | null, input.lastDay);
+  if (existing.status === 'ON_NOTICE') await lastDayMoved(orgId, employee.id, existing.dateOfLeaving as string | null, input.lastDay, { reopenPaid: true });
   await successorsFor(who, employee, input.lastDay);
   return { employee, readers: 0, scheduled: true as const };
 }
@@ -113,7 +113,8 @@ async function finishLeaving(who: Who, existing: Existing, input: Input) {
     return { employee, readers: removed.readers, scheduled: false as const };
   }
   await startChecklist({ accountId, orgId, userId: who.userId }, employee, 'LEAVING', input.lastDay);
-  if (existing.status === 'ON_NOTICE' || existing.status === 'LEFT') await lastDayMoved(orgId, employee.id, existing.dateOfLeaving as string | null, input.lastDay);
+  /* On notice and the day moved: paid steps open again. Already left (a past day corrected): dates move, a paid step stays paid. */
+  if (existing.status === 'ON_NOTICE' || existing.status === 'LEFT') await lastDayMoved(orgId, employee.id, existing.dateOfLeaving as string | null, input.lastDay, { reopenPaid: existing.status === 'ON_NOTICE' });
   await successorsFor(who, employee, input.lastDay);
   /* The removal is queued, not done: the reader task waits until every reader confirms (JCL-A02; lifecycle/readersDone.ts). */
   await settleReaderTask({ accountId, orgId, userId: who.userId }, employee, removed);

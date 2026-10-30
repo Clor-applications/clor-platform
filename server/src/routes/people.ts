@@ -1190,7 +1190,7 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
     else if (row.status !== 'LEFT' && existing.status === 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
     /* A moved joining day, or a moved last day while on notice, moves that plan's open tasks with it (JCL-A04). */
     if (row.dateOfJoining !== existing.dateOfJoining && row.status !== 'LEFT') await redatePlan(orgId, row.id, 'JOINING', row.dateOfJoining);
-    if (row.dateOfLeaving !== existing.dateOfLeaving && row.status === 'ON_NOTICE') await lastDayMoved(orgId, row.id, existing.dateOfLeaving, row.dateOfLeaving);
+    if (row.dateOfLeaving !== existing.dateOfLeaving && row.status === 'ON_NOTICE') await lastDayMoved(orgId, row.id, existing.dateOfLeaving, row.dateOfLeaving, { reopenPaid: true });
     /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted; the leaving task waits for the readers to confirm. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await settleReaderTask({ accountId, orgId, userId: req.auth!.userId }, row, await revokeFromReaders(orgId, existing, req.auth!.userId));
     /* Suspended means not at work: off the doors while suspended, back on when reactivated (W9). */

@@ -232,7 +232,7 @@ peopleEngagementRouter.get(`${base}/employees/:id/celebrations`, ppl(PermissionA
 }));
 
 /** HR records someone's wish not to be announced (or the wish taken back), as the person can in the app. */
-peopleEngagementRouter.put(`${base}/employees/:id/celebrations`, ppl(PermissionAction.EDIT, R.employees), handle(async (req, res) => {
+peopleEngagementRouter.put(`${base}/employees/:id/celebrations`, ppl(PermissionAction.EDIT, R.employees), hrOnly(async (req, res) => {
   const p = await personIn(req, res);
   if (!p) return;
   const out = Boolean(req.body?.optedOut);

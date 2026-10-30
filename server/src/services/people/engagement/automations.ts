@@ -239,16 +239,23 @@ export async function listAutomations(orgId: string, opts: { showRuns?: boolean;
       when: r.when,
       lastRun: last && opts.showRuns ? { on: last.ranOn, count: last.count, recipients: last.recipients as string[] } : null,
       lastChecked,
-      nextRun: !s.on ? null : r.job === 'people.automations' ? (doneToday.has(r.key) || istHour(now) >= SEND_UNTIL ? 'Tomorrow morning' : istHour(now) < SEND_FROM ? 'This morning' : 'Within the hour') : r.when,
+      nextRun: !s.on ? null : r.job === 'people.automations' ? (doneToday.has(r.key) || (GREETINGS.has(r.key) && istHour(now) >= GREET_UNTIL) ? 'Tomorrow morning' : istHour(now) < SEND_FROM ? 'This morning' : 'Within the hour') : r.when,
     };
   });
 }
 
 const istHour = (now: Date) => new Date(now.getTime() + 330 * 60_000).getUTCHours();
-/** The hours, India time, the daily job sends in: from 08:00, and nothing after 20:00 (a recipe switched on late in the evening waits for the morning). */
+/**
+ * The hours, India time, the daily job runs in: from 08:00. Greetings (a birthday, an anniversary, the wish
+ * nudge, the holiday heads-up) also stop at 20:00, so one switched on late in the evening waits for the
+ * morning. The time-critical ones (final pay, no-dues, the exit interview) run whenever the job wakes after
+ * 08:00, as before: a final-pay notice held overnight would cost a day of the two-working-day clock.
+ */
 export const SEND_FROM = 8;
-export const SEND_UNTIL = 20;
-export const inSendingHours = (now = new Date()) => istHour(now) >= SEND_FROM && istHour(now) < SEND_UNTIL;
+export const GREET_UNTIL = 20;
+export const GREETINGS: ReadonlySet<RecipeKey> = new Set<RecipeKey>(['birthdays', 'anniversaries', 'wishNudge', 'holidayHeadsUp']);
+export const inSendingHours = (now = new Date()) => istHour(now) >= SEND_FROM;
+export const mayRunNow = (key: RecipeKey, now = new Date()) => inSendingHours(now) && (!GREETINGS.has(key) || istHour(now) < GREET_UNTIL);
 
 // ---------------------------------------------------------------------------
 // The daily job
@@ -264,13 +271,15 @@ export function registerRecipe(key: RecipeKey, run: RecipeRun) {
 }
 
 /** One company's day: each recipe that is on and has a runner, claimed for the day first. */
-export async function runCompany(accountId: string, orgId: string, now = new Date()) {
+export async function runCompany(accountId: string, orgId: string, now = new Date(), opts: { respectHours?: boolean } = {}) {
   const today = todayIst(now);
   const settings = await automationsFor(orgId);
   const done: Record<string, number> = {};
   for (const [key, run] of runners) {
     const s = settings[key];
     if (!s?.on) continue;
+    /* Greetings are not posted at night; nothing is claimed, so the morning's run sends them. */
+    if (opts.respectHours && !mayRunNow(key, now)) continue;
     if (!(await claimDay(accountId, orgId, key, today))) continue;
     try {
       const out = await run({ accountId, orgId, today, n: s.n, now });
@@ -294,7 +303,7 @@ export async function runAutomations(now = new Date()) {
   for (const o of orgs) {
     try {
       if (!(await isFeatureEnabled(o.accountId, o.orgId, 'people'))) continue;
-      const done = await runInTenant(o.orgId, () => runCompany(o.accountId, o.orgId, now));
+      const done = await runInTenant(o.orgId, () => runCompany(o.accountId, o.orgId, now, { respectHours: true }));
       ran += Object.keys(done).length;
     } catch (e) {
       console.error(`[automations] ${o.orgId}:`, e instanceof Error ? e.message : e);

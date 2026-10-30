@@ -381,16 +381,20 @@ export async function finalPayBoard(orgId: string, opts: { scopeIds?: string[] |
  */
 registerRecipe('finalPayDue', async ({ accountId, orgId, today: t }) => {
   const board = await finalPayBoard(orgId, { today: t });
-  const due = board.filter((b) => (b.daysLeft === 1 || b.dueDate === t) && !b.held);
+  /*
+   * One working day left, due today, or already past: a run that missed its day (the day's run had gone before a
+   * resignation came in that evening) catches up on the next one. The dedupe keys keep it to one of each.
+   */
+  const due = board.filter((b) => (b.daysLeft <= 1 || b.dueDate <= t) && !b.held);
   if (!due.length) return { count: 0, recipients: [] };
   const to = await usersWithPermission(accountId, orgId, 'PEOPLE::Employees::EDIT');
   let count = 0;
   for (const b of due) {
-    const onTheDay = b.dueDate === t;
-    const when = onTheDay ? 'today' : addDays(t, 1) === b.dueDate ? 'tomorrow' : `on ${longDay(b.dueDate)}`;
+    const onTheDay = b.dueDate <= t;
+    const when = b.dueDate === t ? 'is due today' : b.dueDate < t ? `was due on ${longDay(b.dueDate)}` : addDays(t, 1) === b.dueDate ? 'is due tomorrow' : `is due on ${longDay(b.dueDate)}`;
     count += await sendNotice(accountId, orgId, to, {
       kind: 'people.final_pay',
-      title: `Final pay for ${b.name} is due ${when}`,
+      title: `Final pay for ${b.name} ${when}`,
       body: `Last day ${b.lastDay}. ${b.payrollUnknown ? 'Payroll could not be read just now.' : b.settlement ? `Payroll settlement: ${b.settlement.status.toLowerCase()}.` : 'Payroll has no settlement for them yet.'}`,
       link: { app: 'people', screen: 'leavers', params: { open: b.employeeId } },
     }, { dedupeKey: `final-pay:${b.employeeId}:${b.dueDate}:${onTheDay ? 'on-the-day' : 'day-before'}` });
