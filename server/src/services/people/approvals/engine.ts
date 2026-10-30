@@ -29,8 +29,17 @@ import { registerJob } from '../../jobRegistry.js';
  * request type names, registered by the module that owns it.
  */
 
-export const REQUEST_TYPES = ['PROFILE_CHANGE', 'JOB_CHANGE', 'LEAVING', 'DOCUMENT_REQUEST', 'LETTER_REQUEST', 'POLICY_PUBLISH', 'DESK_ESCALATION', 'SEAT_REQUEST', 'PROBATION'] as const;
-export type RequestType = (typeof REQUEST_TYPES)[number];
+export const REQUEST_TYPES = ['PROFILE_CHANGE', 'JOB_CHANGE', 'LEAVING', 'DOCUMENT_REQUEST', 'LETTER_REQUEST', 'POLICY_PUBLISH', 'DESK_ESCALATION', 'SEAT_REQUEST', 'PROBATION', 'SHIFT_SWAP'] as const;
+/**
+ * A request type HR defines with a short form (FEATURE-UI-AUDIT gap 25,
+ * services/people/requestForms.ts) is `FORM:<RequestForm id>`: its rule, its
+ * requests and its steps are the engine's like any other; approving it
+ * records the decision and nothing else.
+ */
+export type FormRequestType = `FORM:${string}`;
+export type RequestType = (typeof REQUEST_TYPES)[number] | FormRequestType;
+export const FORM_PREFIX = 'FORM:';
+export const isFormType = (t: unknown): t is FormRequestType => typeof t === 'string' && /^FORM:[a-z0-9]{8,40}$/.test(t);
 /**
  * The kinds a rule can be written for: every request type, and leave
  * (owner, 28 Oct 2026). Leave keeps its own request and balance and walks the
@@ -38,9 +47,14 @@ export type RequestType = (typeof REQUEST_TYPES)[number];
  * through this engine, so LEAVE is not a RequestType.
  */
 export const RULE_TYPES = [...REQUEST_TYPES, 'LEAVE'] as const;
-export type RuleType = (typeof RULE_TYPES)[number];
+export type RuleType = (typeof RULE_TYPES)[number] | FormRequestType;
 
-export type ApproverSpec = { kind: 'MANAGER' | 'MANAGER_OF_MANAGER' | 'USER' | 'ROLE' | 'HR'; id?: string };
+/**
+ * COLLEAGUE_MANAGER: the manager of the other person a request names (a shift
+ * swap's colleague, `payload.colleagueEmployeeId`). Skipped when that is the
+ * same manager as the requester's, who has already decided.
+ */
+export type ApproverSpec = { kind: 'MANAGER' | 'MANAGER_OF_MANAGER' | 'USER' | 'ROLE' | 'HR' | 'COLLEAGUE_MANAGER'; id?: string };
 /** gt / lt compare numbers (a leave's days); the others compare text. */
 export type Condition = { field: string; op: 'changed' | 'eq' | 'ne' | 'gt' | 'lt'; value?: string | null };
 export type StepSpec = { order: number; approver: ApproverSpec; condition?: Condition | null; dueDays: number; overdue?: { action: 'REMIND' | 'HAND_ON'; to?: ApproverSpec } | null };
@@ -58,6 +72,26 @@ type Check = (request: RequestRow) => Promise<void>;
 const checks = new Map<RequestType, Check>();
 export function beforeApproving(type: RequestType, check: Check) {
   checks.set(type, check);
+}
+/**
+ * What a request type's own record does when the request closes without
+ * approval: rejected, withdrawn, or approved but not applied. A shift swap
+ * keeps its own status in step this way. Never fails the decision: an error
+ * is logged, and the owner's read path squares it up again.
+ */
+type Closed = (request: RequestRow, status: 'REJECTED' | 'WITHDRAWN', note: string | null) => Promise<void>;
+const closers = new Map<string, Closed>();
+export function onClosed(type: RequestType, fn: Closed) {
+  closers.set(type, fn);
+}
+async function tellClosed(request: RequestRow, status: 'REJECTED' | 'WITHDRAWN', note: string | null) {
+  const fn = closers.get(request.requestType);
+  if (!fn) return;
+  try {
+    await fn(request, status, note);
+  } catch (e) {
+    console.error(`[people-approvals] ${request.orgId}: request ${request.id} closed, its own record not updated:`, e instanceof Error ? e.message : e);
+  }
 }
 
 /** Someone who asked from the employee app without a CLOR sign-in is the requester `portal:<employeeId>`. */
@@ -96,7 +130,7 @@ export function cleanSteps(raw: unknown): StepSpec[] | string {
   for (let i = 0; i < raw.length; i += 1) {
     const s = raw[i] as any;
     const kind = String(s?.approver?.kind || '');
-    if (!['MANAGER', 'MANAGER_OF_MANAGER', 'USER', 'ROLE', 'HR'].includes(kind)) return `Step ${i + 1}: who decides must be the manager, their manager, a named person, a role, or HR.`;
+    if (!['MANAGER', 'MANAGER_OF_MANAGER', 'USER', 'ROLE', 'HR', 'COLLEAGUE_MANAGER'].includes(kind)) return `Step ${i + 1}: who decides must be the manager, their manager, a named person, a role, or HR.`;
     if ((kind === 'USER' || kind === 'ROLE') && !String(s.approver.id || '').trim()) return `Step ${i + 1}: name the person or role.`;
     const dueDays = Number(s?.dueDays);
     if (!Number.isFinite(dueDays) || dueDays < 1 || dueDays > 60) return `Step ${i + 1}: due in 1 to 60 working days.`;
@@ -186,6 +220,17 @@ async function subjectUserOf(orgId: string, subjectEmployeeId: string | null) {
   return (await peoplePrisma.employee.findFirst({ where: { id: subjectEmployeeId, orgId }, select: { userId: true } }))?.userId || null;
 }
 
+/**
+ * The logins of the other people a request is about (`payload.partyEmployeeIds`:
+ * a shift swap's colleague). Like the subject, none of them decides it.
+ */
+async function partyUsersOf(orgId: string, payload: unknown) {
+  const ids = ((payload as { partyEmployeeIds?: unknown })?.partyEmployeeIds as unknown[]) || [];
+  const list = Array.isArray(ids) ? ids.map(String).filter(Boolean) : [];
+  if (!list.length) return [];
+  return (await peoplePrisma.employee.findMany({ where: { orgId, id: { in: list } }, select: { userId: true } })).map((e) => e.userId).filter(Boolean) as string[];
+}
+
 export async function resolveApprover(who: { accountId: string; orgId: string }, spec: ApproverSpec, subjectEmployeeId: string | null, day = todayIst()): Promise<{ primary: string[]; standIns: Array<{ for: string; user: string }> }> {
   const { accountId, orgId } = who;
   let primary: string[] = [];
@@ -218,11 +263,28 @@ export async function resolveApprover(who: { accountId: string; orgId: string },
 /* Within one order, a step asked again after more information sits after the one it replaced. */
 const include = { steps: { orderBy: [{ order: 'asc' as const }, { createdAt: 'asc' as const }, { id: 'asc' as const }] } };
 
-async function candidatesFor(who: { accountId: string; orgId: string }, spec: StepSpec, request: { requesterUserId: string; subjectEmployeeId: string | null }) {
-  const resolved = await resolveApprover(who, spec.approver, request.subjectEmployeeId);
-  /* Nobody approves their own request (APR-05), nor one about themselves. */
-  const subjectUser = await subjectUserOf(who.orgId, request.subjectEmployeeId);
-  const candidates = [...new Set([...resolved.primary, ...resolved.standIns.map((s) => s.user)])].filter((u) => u !== request.requesterUserId && u !== subjectUser);
+async function candidatesFor(who: { accountId: string; orgId: string }, spec: StepSpec, request: { requesterUserId: string; subjectEmployeeId: string | null; payload?: unknown }) {
+  let resolved: Awaited<ReturnType<typeof resolveApprover>>;
+  if (spec.approver.kind === 'COLLEAGUE_MANAGER') {
+    const other = String((request.payload as { colleagueEmployeeId?: unknown })?.colleagueEmployeeId || '') || null;
+    resolved = await resolveApprover(who, { kind: 'MANAGER' }, other);
+    /* The same manager as the requester's decided already: nothing more to ask. */
+    const mine = await resolveApprover(who, { kind: 'MANAGER' }, request.subjectEmployeeId);
+    const same = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
+    if (!other || same(resolved.primary, mine.primary)) return { resolved: { primary: [], standIns: [] }, candidates: [] as string[] };
+  } else {
+    resolved = await resolveApprover(who, spec.approver, request.subjectEmployeeId);
+  }
+  /* Nobody approves their own request (APR-05), nor one about themselves, nor one they are a party to. */
+  const parties = await partyUsersOf(who.orgId, request.payload);
+  const excluded = new Set([request.requesterUserId, (await subjectUserOf(who.orgId, request.subjectEmployeeId)) || '', ...parties]);
+  const all = [...new Set([...resolved.primary, ...resolved.standIns.map((s) => s.user)])];
+  let candidates = all.filter((u) => !excluded.has(u));
+  /* A manager step left empty only because its manager is a party to it (the colleague manages the requester): HR decides instead. */
+  if (!candidates.length && all.some((u) => parties.includes(u)) && ['MANAGER', 'MANAGER_OF_MANAGER', 'COLLEAGUE_MANAGER'].includes(spec.approver.kind)) {
+    resolved = await resolveApprover(who, { kind: 'HR' }, request.subjectEmployeeId);
+    candidates = [...new Set([...resolved.primary, ...resolved.standIns.map((s) => s.user)])].filter((u) => !excluded.has(u));
+  }
   return { resolved, candidates };
 }
 
@@ -235,6 +297,14 @@ async function openStep(tx: Prisma.TransactionClient, who: { accountId: string; 
       continue;
     }
     let { resolved, candidates } = await candidatesFor(who, spec, request);
+    /* The colleague's manager step is not asked of whoever already approved this request (one manager for both, or HR standing in twice). */
+    if (spec.approver.kind === 'COLLEAGUE_MANAGER' && candidates.length) {
+      const approvedBy = new Set((await tx.approvalStep.findMany({ where: { requestId: request.id, orgId: who.orgId, status: 'APPROVED' }, select: { decidedByUserId: true } })).map((x) => x.decidedByUserId));
+      if (approvedBy.size && candidates.some((u) => approvedBy.has(u))) {
+        await tx.approvalStep.create({ data: { accountId: who.accountId, orgId: who.orgId, requestId: request.id, order: spec.order, candidateUserIds: [], approverUserId: null, dueAt: new Date(), status: 'SKIPPED', comment: 'Already approved by them' } });
+        continue;
+      }
+    }
     let lastResort = false;
     if (!candidates.length) {
       /* Only the requester (or nobody) would decide this step. It is skipped only when somebody else decides the request: an earlier step, or a later one. */
@@ -249,7 +319,7 @@ async function openStep(tx: Prisma.TransactionClient, who: { accountId: string; 
         continue;
       }
       /* Otherwise it would approve itself (E11): the admins decide instead. */
-      candidates = await lastResortDeciders(who.accountId, who.orgId, [request.requesterUserId, (await subjectUserOf(who.orgId, request.subjectEmployeeId)) || '']);
+      candidates = await lastResortDeciders(who.accountId, who.orgId, [request.requesterUserId, (await subjectUserOf(who.orgId, request.subjectEmployeeId)) || '', ...(await partyUsersOf(who.orgId, request.payload))]);
       if (!candidates.length) throw new ApprovalError('Nobody else can approve this. Give someone else the right to approve requests, or change the approval rule.', 409, 'NO_APPROVER');
       resolved = { primary: candidates, standIns: [] };
       lastResort = true;
@@ -403,6 +473,7 @@ async function closeUnapplied(actor: Actor, request: RequestRow, decisionId: str
       await writeChangeLog(tx, actor, { kind: 'ApprovalRequest', id: r.id, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: 'WAITING', after: 'REJECTED', redacted: false }]);
       return r;
     });
+    await tellClosed(closed, 'REJECTED', `Could not apply: ${reason}`);
     await tellRequester(closed, `Approved but not applied: ${closed.title}`, `Could not apply: ${reason} Ask again once that is fixed.`);
     const hr = (await hrDeciders(closed.accountId, closed.orgId)).filter((u) => u !== closed.requesterUserId);
     await notifyUsers(closed.accountId, closed.orgId, hr, { kind: 'people.approval', title: `Approved but not applied: ${closed.title}`, body: `Could not apply: ${reason}`, link: { app: 'people', screen: 'approvals' } as any }, { except: actor.userId });
@@ -429,6 +500,7 @@ export async function decide(actor: Actor, requestId: string, decision: Decision
   if (!((step.candidateUserIds as string[]) || []).includes(userId)) throw new ApprovalError('This is not yours to decide.', 403, 'NOT_APPROVER');
   if (request.requesterUserId === userId) throw new ApprovalError('Nobody decides their own request.', 403, 'OWN_REQUEST');
   if ((await subjectUserOf(orgId, request.subjectEmployeeId)) === userId) throw new ApprovalError('Nobody decides a request about themselves.', 403, 'OWN_REQUEST');
+  if ((await partyUsersOf(orgId, request.payload)).includes(userId)) throw new ApprovalError('Nobody decides a request they are part of.', 403, 'OWN_REQUEST');
   if (decision === 'approve') await checks.get(request.requestType as RequestType)?.(request);
   const ruleSteps = ((await peoplePrisma.approvalRule.findUnique({ where: { id: request.ruleId } }))?.steps || []) as unknown as StepSpec[];
   const stepStatus = decision === 'approve' ? 'APPROVED' : decision === 'reject' ? 'REJECTED' : 'MORE_INFO';
@@ -451,6 +523,7 @@ export async function decide(actor: Actor, requestId: string, decision: Decision
   });
   if (result === 'DONE') return approveFinal(actor, request.id);
   const fresh = await peoplePrisma.approvalRequest.findUniqueOrThrow({ where: { id: request.id }, include });
+  if (result === 'REJECTED') await tellClosed(fresh, 'REJECTED', comment);
   if (result === 'OPENED') await notifyStep(fresh);
   else await tellRequester(fresh, `${result === 'REJECTED' ? 'Not approved' : 'More information asked for'}: ${fresh.title}`, comment);
   return { request: fresh };
@@ -482,12 +555,17 @@ export async function withdraw(actor: Actor, requestId: string) {
   if (!request) throw new ApprovalError('No such request.', 404, 'NOT_FOUND');
   if (request.requesterUserId !== actor.userId) throw new ApprovalError('Only the person who asked can withdraw it.', 403);
   if (!['WAITING', 'MORE_INFO'].includes(request.status)) throw new ApprovalError(`This request is ${request.status.toLowerCase()}.`, 409, 'NOT_WAITING');
-  return peoplePrisma.$transaction(async (tx) => {
+  const done = await peoplePrisma.$transaction(async (tx) => {
+    /* Claimed while still open: a withdraw racing a decision leaves one outcome. */
+    const claimed = await tx.approvalRequest.updateMany({ where: { id: request.id, orgId: actor.orgId, status: { in: ['WAITING', 'MORE_INFO'] } }, data: { status: 'WITHDRAWN' } });
+    if (!claimed.count) throw new ApprovalError('This was decided a moment ago.', 409, 'NOT_WAITING');
     await tx.approvalStep.updateMany({ where: { requestId: request.id, status: 'WAITING' }, data: { status: 'WITHDRAWN' } });
-    const r = await tx.approvalRequest.update({ where: { id: request.id }, data: { status: 'WITHDRAWN' }, include });
+    const r = await tx.approvalRequest.findUniqueOrThrow({ where: { id: request.id }, include });
     await writeChangeLog(tx, actor, { kind: 'ApprovalRequest', id: r.id, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: request.status, after: 'WITHDRAWN', redacted: false }]);
     return r;
   });
+  await tellClosed(done, 'WITHDRAWN', null);
+  return done;
 }
 
 // ---------------------------------------------------------------------------

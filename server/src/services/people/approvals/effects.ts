@@ -1,3 +1,4 @@
+import { registerShiftSwaps } from '../shiftSwaps.js';
 import { peoplePrisma } from '../../../utils/peoplePrisma.js';
 import { updateEmployee } from '../employees.js';
 import { scheduleChanges } from '../effectiveDating.js';
@@ -20,6 +21,8 @@ const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0
 let reviewTasksOn = false;
 export function registerPeopleEffects() {
   if (!reviewTasksOn) { registerChangeReviewTasks(); reviewTasksOn = true; }
+  /* Shift swaps (gap 24): approval writes both people's schedules. */
+  registerShiftSwaps();
   /* A job or profile change: dated in the future, it waits; otherwise it is applied now. */
   const applyChange = async ({ request, actor }: Parameters<Parameters<typeof onApproved>[1]>[0]) => {
     const p = (request.payload || {}) as Payload & { effectiveOn?: string | null; reason?: string | null; data?: Record<string, unknown> };

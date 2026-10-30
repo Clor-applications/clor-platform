@@ -737,6 +737,8 @@ model LeaveType {
   /// DAY: asked in days and half days. HOUR: asked in hours on one day, 15-minute steps, counted against the
   /// day's shift (2 hours of an 8-hour shift is 0.25 day); balances stay in days.
   unit               String   @default("DAY")
+  /// An hourly type's day, in hours (FEATURE-UI-AUDIT gap 23): its allowance and balance are said in hours, and an hour is this share of a day. Null = 8.
+  hoursPerDay        Float?
   /// More than the balance (and negativeDays): REFUSE, or LOSS_OF_PAY — the extra days are a linked unpaid
   /// request of the company's loss-of-pay type, in the same group, decided with the paid part.
   overBalance        String   @default("REFUSE")
@@ -3644,4 +3646,92 @@ model TrainingSeat {
   @@unique([trainingId, employeeId])
   @@index([orgId, employeeId])
   @@index([orgId, expiresOn])
+}
+
+/// A swap of shifts between two people, for a day or a few days in a row
+/// (FEATURE-UI-AUDIT gap 24). The person asks a named colleague who works a
+/// different shift those days; the colleague accepts or declines; then it goes
+/// through the approval engine (request type SHIFT_SWAP) to the requester's
+/// manager. Approved, each person gets a temporary schedule on the other's
+/// shift for those days, which wins over every other schedule, so attendance
+/// and payable days follow. `days` keeps what each worked when it was asked:
+/// approval is refused if either schedule changed since.
+model ShiftSwap {
+  id                  String    @id @default(cuid())
+  accountId           String
+  orgId               String
+  requesterEmployeeId String
+  colleagueEmployeeId String
+  fromDate            String /// YYYY-MM-DD
+  toDate              String /// YYYY-MM-DD, inclusive
+  /// [{ date, requesterShiftId, colleagueShiftId }]
+  days                Json
+  reason              String?
+  /// ASKED (waiting for the colleague) | DECLINED | WAITING (for approval) | APPROVED | REJECTED | WITHDRAWN | CANCELLED
+  status              String    @default("ASKED")
+  colleagueNote       String?
+  colleagueAnsweredAt DateTime?
+  approvalRequestId   String?
+  /// The temporary schedules approval wrote; cancelling takes them away.
+  scheduleIds         String[]  @default([])
+  /// Temporary schedules that covered the swapped days before approval, as they were, and the pieces left around
+  /// the swap ({ originals: [...], pieces: [ids] }): cancelling puts them back.
+  replacedSchedules   Json?
+  /// Who asked: their CLOR sign-in, or `portal:<employeeId>` from the employee app.
+  requestedByUserId   String
+  closedNote          String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([orgId, status])
+  @@index([orgId, requesterEmployeeId, fromDate])
+  @@index([orgId, colleagueEmployeeId, fromDate])
+  @@index([orgId, approvalRequestId])
+}
+
+/// A request type HR defines (FEATURE-UI-AUDIT gap 25): a name, a short form,
+/// who may raise it, and an approval rule in the approval engine under the
+/// request type `FORM:<id>`. Kept simple on purpose: a form for a small
+/// business, not a workflow designer. `template` marks one switched on from
+/// the ready-made list (ID_CARD, SALARY_CERTIFICATE, ASSET_REQUEST).
+model RequestForm {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  name            String
+  description     String?
+  /// [{ key, label, type: TEXT | NUMBER | DATE | CHOICE | FILE, required, options?: string[] }]
+  fields          Json
+  /// EVERYONE | DEPARTMENTS
+  audience        String   @default("EVERYONE")
+  departmentIds   String[] @default([])
+  /// Working days each approval step has before it is overdue; null = 2.
+  slaDays         Int?
+  template        String?
+  active          Boolean  @default(true)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([orgId, active])
+}
+
+/// A file attached to a custom request (a photo for an ID card, a quote for an asset).
+model RequestFormFile {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  formId     String
+  employeeId String
+  requestId  String?
+  fieldKey   String
+  fileName   String
+  mime       String
+  size       Int
+  data       Bytes
+  createdAt  DateTime @default(now())
+
+  @@index([orgId, requestId])
+  @@index([orgId, employeeId])
 }

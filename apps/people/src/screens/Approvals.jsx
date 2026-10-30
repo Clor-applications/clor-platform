@@ -16,8 +16,11 @@ import { Avatar, SCHEDULED_LABELS } from '@ui/personnel/Employees';
 import { can } from '@ui/timeOff/shared';
 import { bulkReviewLeave, bulkReviewOvertime, bulkReviewPunches, bulkReviewRequests } from '@ui/timeOff/api';
 import { RequestDrawer as LeaveDrawer } from '@ui/timeOff/LeaveRequests';
+import { hoursBetween, hoursWords } from '@ui/timeOff/partOfDay';
 import { RequestDrawer as AttendanceDrawer, KIND_NAME } from '@ui/timeOff/AttendanceRequests';
 import { bulkDecideRequests, decideRequest, getInbox, listRequests, replyRequest, withdrawRequest } from '../api/approvals';
+import { requestFile } from '../api/requests';
+import { openFile } from '@ui/requests/formFiles';
 
 /* The fields a request can name, in plain words (never "photoUrl" or "addressLine"). */
 const FIELD_WORDS = {
@@ -38,7 +41,9 @@ const FIELD_WORDS = {
 const STATUS = { WAITING: 'Waiting for approval', APPROVED: 'Approved', REJECTED: 'Rejected', WITHDRAWN: 'Withdrawn', MORE_INFO: 'Asked for more' };
 const STEP = { WAITING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Rejected', MORE_INFO: 'Asked for more', HANDED_ON: 'Handed on', SKIPPED: 'Skipped', WITHDRAWN: 'Withdrawn' };
 const TONE = { WAITING: 'warn', APPROVED: 'pos', REJECTED: 'neg', WITHDRAWN: 'neutral', MORE_INFO: 'warn', HANDED_ON: 'neutral', SKIPPED: 'neutral' };
-const TYPE = { PROFILE_CHANGE: 'Profile change', JOB_CHANGE: 'Job change', LEAVING: 'Leaving', DOCUMENT_REQUEST: 'Document', LETTER_REQUEST: 'Letter', POLICY_PUBLISH: 'Policy', DESK_ESCALATION: 'Help desk', SEAT_REQUEST: 'Seat', PROBATION: 'Probation' };
+const TYPE = { PROFILE_CHANGE: 'Profile change', JOB_CHANGE: 'Job change', LEAVING: 'Leaving', DOCUMENT_REQUEST: 'Document', LETTER_REQUEST: 'Letter', POLICY_PUBLISH: 'Policy', DESK_ESCALATION: 'Help desk', SEAT_REQUEST: 'Seat', PROBATION: 'Probation', SHIFT_SWAP: 'Shift swap' };
+/* A request type HR set up (FORM:<id>, gap 25) is named by its form; one asked before the name was read shows as a request. */
+const typeOf = (requestType, payload) => TYPE[requestType] || (String(requestType || '').startsWith('FORM:') ? payload?.formName || 'Request' : requestType);
 const TABS = [['waiting', 'Waiting for me'], ['mine', 'Asked by me']];
 const INBOX_KIND = { LEAVE: 'Leave', ATTENDANCE: 'Attendance request', PUNCH: 'Field punch', OVERTIME: 'Overtime', APPROVAL: 'People approval', HELPDESK: 'Help desk' };
 const KIND_ORDER = ['LEAVE', 'ATTENDANCE', 'PUNCH', 'OVERTIME', 'APPROVAL', 'HELPDESK'];
@@ -59,7 +64,7 @@ const whatOf = (i) => {
   if (i.kind === 'OVERTIME') return i.subKind === 'COMP_OFF' ? `${i.days} day${i.days === 1 ? '' : 's'} comp-off` : hoursText(i.minutes) || i.what;
   return i.what;
 };
-const kindText = (i) => (i.kind === 'APPROVAL' ? TYPE[i.subKind] || INBOX_KIND.APPROVAL : INBOX_KIND[i.kind]);
+const kindText = (i) => (i.kind === 'APPROVAL' ? TYPE[i.subKind] || (String(i.subKind || '').startsWith('FORM:') ? 'Request' : INBOX_KIND.APPROVAL) : INBOX_KIND[i.kind]);
 
 export default function Approvals({ params = {}, updateParams, openScreen }) {
   const perms = usePermissions();
@@ -84,7 +89,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
   const counts = inbox.data?.counts || {};
   const needle = q.trim().toLowerCase();
   const shown = useMemo(() => items.filter((i) => (!kind || i.kind === kind) && (!needle || [i.employeeName, i.employeeCode, i.what, kindText(i)].some((v) => String(v || '').toLowerCase().includes(needle)))), [items, kind, needle]);
-  const mineRows = useMemo(() => (mine.data?.mine || []).filter((r) => !needle || [r.title, TYPE[r.requestType]].some((v) => String(v || '').toLowerCase().includes(needle))), [mine.data, needle]);
+  const mineRows = useMemo(() => (mine.data?.mine || []).filter((r) => !needle || [r.title, typeOf(r.requestType, r.payload)].some((v) => String(v || '').toLowerCase().includes(needle))), [mine.data, needle]);
   const list = tab === 'waiting' ? shown : mineRows;
   const pageRows = list.slice((page - 1) * size, page * size);
   const chosen = shown.filter((i) => selected.has(i.key) && i.bulk);
@@ -170,8 +175,9 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     ) },
     { key: 'kind', label: 'Kind', render: (i) => <span className="whitespace-nowrap">{kindText(i)}</span> },
     { key: 'what', label: 'Request', render: (i) => <span className="block max-w-xs truncate" title={whatOf(i)}>{whatOf(i)}</span> },
-    { key: 'when', label: 'Dates', render: (i) => <span className="tabular-nums whitespace-nowrap">{range(i.fromDate, i.toDate)}{i.halfDay ? <span className="ui-caption block">Half day</span> : null}</span> },
-    { key: 'days', label: 'Days', align: 'right', render: (i) => <span className="tabular-nums">{i.days ?? ''}</span> },
+    { key: 'when', label: 'Dates', render: (i) => <span className="tabular-nums whitespace-nowrap">{range(i.fromDate, i.toDate)}{i.halfDay ? <span className="ui-caption block">Half day</span> : i.fromTime && i.toTime ? <span className="ui-caption block">{i.fromTime}–{i.toTime}</span> : null}</span> },
+    /* Hourly leave reads in hours (gap 23), not a fraction of a day. */
+    { key: 'days', label: 'Days', align: 'right', render: (i) => <span className="tabular-nums">{i.fromTime && i.toTime ? hoursWords(hoursBetween(i.fromTime, i.toTime)) : i.days ?? ''}</span> },
     { key: 'since', label: 'Waiting since', render: (i) => (
       <span className="inline-flex flex-col items-start gap-0.5 whitespace-nowrap">
         <span className={waitedDays(i.since) > 2 || i.overdue ? 'ui-text-warn' : ''}>{waitedText(i.since)}</span>
@@ -187,7 +193,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
   ];
   const mineColumns = [
     { key: 'title', label: 'Request', always: true, render: (r) => <span className="font-medium">{r.title}</span> },
-    { key: 'kind', label: 'Kind', render: (r) => TYPE[r.requestType] || r.requestType },
+    { key: 'kind', label: 'Kind', render: (r) => typeOf(r.requestType, r.payload) },
     { key: 'asked', label: 'Asked', render: (r) => <span className="tabular-nums">{day(r.createdAt)}</span> },
     { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ui-pill-${TONE[r.status] || 'neutral'}`}>{STATUS[r.status] || r.status}</span> },
   ];
@@ -243,13 +249,13 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
             <span className="min-w-0 flex-1">
               <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{i.employeeName || '—'}</span><span className="ui-caption whitespace-nowrap">{waitedText(i.since)}</span></span>
               <span className="block truncate ui-caption">{kindText(i)} · {whatOf(i)}</span>
-              {i.fromDate ? <span className="block truncate ui-caption tabular-nums">{range(i.fromDate, i.toDate)}</span> : null}
+              {i.fromDate ? <span className="block truncate ui-caption tabular-nums">{range(i.fromDate, i.toDate)}{i.fromTime && i.toTime ? `, ${i.fromTime}–${i.toTime}` : ''}</span> : null}
             </span>
           </span>
         ) : (r) => (
           <span className="min-w-0 flex-1">
             <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span><span className={`ui-pill ui-pill-${TONE[r.status] || 'neutral'}`}>{STATUS[r.status] || r.status}</span></span>
-            <span className="block truncate ui-caption">{TYPE[r.requestType] || r.requestType}</span>
+            <span className="block truncate ui-caption">{typeOf(r.requestType, r.payload)}</span>
           </span>
         )}
         toolbar={<>
@@ -377,7 +383,7 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
       ) : !open ? <div className="ui-skel ui-skel-text" aria-busy="true" /> : (
         <div className="space-y-4 text-sm">
           <dl className="grid gap-3 sm:grid-cols-2">
-            <div><dt className="ui-t-label">Kind</dt><dd>{TYPE[open.requestType] || open.requestType}</dd></div>
+            <div><dt className="ui-t-label">Kind</dt><dd>{typeOf(open.requestType, open.payload)}</dd></div>
             <div><dt className="ui-t-label">Asked by</dt><dd>{open.requesterName} · {day(open.createdAt)}</dd></div>
             <div><dt className="ui-t-label">Status</dt><dd><span className={`ui-pill ui-pill-${TONE[open.status] || 'neutral'}`}>{STATUS[open.status] || open.status}</span></dd></div>
             <div><dt className="ui-t-label">Due</dt><dd className="tabular-nums">{open.status === 'WAITING' ? day(open.dueAt) : '—'}{open.overdue ? <span className="ui-pill ui-pill-neg ml-2">Overdue</span> : null}</dd></div>
@@ -395,6 +401,22 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
               </ul>
               {open.payload.effectiveOn ? <p className="ui-caption mt-1">Takes effect {day(open.payload.effectiveOn)}</p> : null}
               {open.payload.reason ? <p className="mt-1">{open.payload.reason}</p> : null}
+            </div>
+          ) : null}
+          {/* What was asked, line by line: a shift swap's days, a request type's answers (gaps 24, 25). */}
+          {(open.requestType === 'SHIFT_SWAP' || String(open.requestType).startsWith('FORM:')) && Array.isArray(open.payload?.lines) && open.payload.lines.length ? (
+            <div>
+              <h3 className="ui-t-label mb-1">What is asked</h3>
+              <dl className="space-y-1">
+                {open.payload.lines.map((l, n) => <div key={`${l.label}-${n}`} className="grid grid-cols-[minmax(6rem,auto)_1fr] gap-3"><dt className="ui-muted">{l.label}</dt><dd>{l.value}</dd></div>)}
+              </dl>
+              {open.payload.colleagueNote ? <p className="mt-1"><span className="ui-muted">{open.payload.colleagueName || 'The colleague'} said:</span> {open.payload.colleagueNote}</p> : null}
+              {(open.payload.files || []).length ? (
+                <ul className="mt-2 space-y-1" aria-label="Files">
+                  {open.payload.files.map((f) => <li key={f.fileId}><button type="button" className="ui-link" onClick={() => requestFile(f.fileId).then(openFile).catch((e) => notify.error(String(e?.message || 'Could not open.')))}>{f.label}: {f.name}</button></li>)}
+                </ul>
+              ) : null}
+              {(open.payload.replies || []).map((x) => <p key={x.at} className="mt-1"><span className="ui-muted">Answer, {day(x.at)}:</span> {x.note}</p>)}
             </div>
           ) : null}
           <div>

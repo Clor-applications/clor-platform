@@ -39,6 +39,10 @@ const TABLES: Array<{ table: string; model: string; make: (c: Ctx, employeeId: s
   { table: 'ScheduledChange', model: 'scheduledChange', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, field: 'departmentId', effectiveOn: '2099-01-01', correlationId: `t-${rnd()}` }) },
   { table: 'EmployeeIdentity', model: 'employeeIdentity', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, aadhaarLast4: '1111' }) },
   { table: 'AccessLog', model: 'accessLog', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, what: 'STATUTORY', entityId: employeeId, employeeId, userId: 'u' }) },
+  /* Shift swaps and request types HR makes (FEATURE-UI-AUDIT gaps 24, 25). */
+  { table: 'ShiftSwap', model: 'shiftSwap', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, requesterEmployeeId: employeeId, colleagueEmployeeId: employeeId, fromDate: '2099-01-01', toDate: '2099-01-01', days: [], requestedByUserId: 'u' }) },
+  { table: 'RequestForm', model: 'requestForm', make: (c) => ({ accountId: c.accountId, orgId: c.orgId, name: `Form ${rnd()}`, fields: [] }) },
+  { table: 'RequestFormFile', model: 'requestFormFile', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, formId: 'f', employeeId, fieldKey: 'k', fileName: 'a.png', mime: 'image/png', size: 1, data: Buffer.from('x') }) },
 ];
 
 let a: Ctx;

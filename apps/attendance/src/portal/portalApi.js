@@ -230,3 +230,15 @@ export const getGrowth = () => call('/people/me/growth');
 export const checkInGoal = (id, body) => call(`/people/me/goals/${encodeURIComponent(id)}/check-ins`, { method: 'POST', body });
 export const writeSelfReview = (id, body) => call(`/people/me/reviews/${encodeURIComponent(id)}/self`, { method: 'POST', body });
 export const acknowledgeReview = (id) => call(`/people/me/reviews/${encodeURIComponent(id)}/acknowledge`, { method: 'POST' });
+/* Shift swaps (People, gap 24): mine and asked of me, who I may ask on some days, ask, answer, withdraw. */
+export const getSwaps = () => call('/people/swaps');
+export const swapColleagues = (from, to) => call(`/people/swaps/colleagues?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to || from)}`);
+export const askSwap = (body) => call('/people/swaps', { method: 'POST', body });
+export const answerSwap = (id, accept, note) => call(`/people/swaps/${encodeURIComponent(id)}/${accept ? 'accept' : 'decline'}`, { method: 'POST', body: note ? { note } : {} });
+export const withdrawSwap = (id) => call(`/people/swaps/${encodeURIComponent(id)}/withdraw`, { method: 'POST' });
+/* Requests HR set up (People, gap 25): the forms open to me and mine; ask (idempotencyKey makes a double tap one), answer, withdraw, my files. */
+export const getForms = () => call('/people/forms');
+export const askFormRequest = (id, body) => call(`/people/forms/${encodeURIComponent(id)}`, { method: 'POST', body });
+export const replyFormRequest = (id, note) => call(`/people/forms/requests/${encodeURIComponent(id)}/reply`, { method: 'POST', body: { note } });
+export const withdrawFormRequest = (id) => call(`/people/forms/requests/${encodeURIComponent(id)}/withdraw`, { method: 'POST' });
+export const getFormFile = (id) => call(`/people/forms/files/${encodeURIComponent(id)}`).then((r) => r.file);

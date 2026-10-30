@@ -9,7 +9,7 @@ import LeaveExplain from '../components/LeaveExplain';
 import LeaveDocumentField from '@ui/timeOff/LeaveDocumentField';
 import HalfDayChoice, { halfDayBody, leaveSpan } from '@ui/timeOff/HalfDayChoice';
 import { HoursChoice, PreviewNotes } from '@ui/timeOff/LeaveShape';
-import { hoursBody, hoursReady, hoursText as leaveHours, isHourly } from '@ui/timeOff/partOfDay';
+import { amountFigure, amountWords, hoursBetween, hoursBody, hoursReady, hoursText as leaveHours, hoursWords, isHourly } from '@ui/timeOff/partOfDay';
 import PhonePunch from '../components/PhonePunch';
 import { MyDetails, Policies } from './MyDetails';
 import AskHr from './AskHr';
@@ -17,6 +17,8 @@ import { LeavingCompany, MySteps, PayCard, Payslips, PrivateComplaint } from './
 import { HolidaysYear, WhatsNew } from './PortalFeeds';
 import MyGrowth from './MyGrowth';
 import { MonthReview, MyOvertime } from './MonthAndOvertime';
+import ShiftSwaps from './ShiftSwaps';
+import MyForms from './MyForms';
 import {
   SignedOut,
   acceptItem,
@@ -85,6 +87,8 @@ export default function EmployeePortal() {
   const presetUsed = useCallback(() => setAskPreset(null), []);
   const askBank = useCallback(() => setAskPreset({ category: 'PAYROLL', subject: 'Change my salary account', description: 'Please change the bank account my salary is paid into. Tell me how to give you the new account details.' }), []);
   const resigned = useCallback(() => setLeavingSent((n) => n + 1), []);
+  /* A swap answered or withdrawn reloads My schedule below it. */
+  const [scheduleKey, setScheduleKey] = useState(0);
 
   useEffect(() => {
     document.title = 'Employee portal · Clor';
@@ -152,7 +156,7 @@ export default function EmployeePortal() {
         {tab === 'today' ? <><WhatsNew guard={guard} /><Today me={me} reload={loadMe} guard={guard} /><CompanyUpdates guard={guard} /></> : null}
         {tab === 'days' ? <><MyDays guard={guard} /><MonthReview guard={guard} /><MyOvertime guard={guard} /></> : null}
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
-        {tab === 'schedule' ? <MySchedule guard={guard} /> : null}
+        {tab === 'schedule' ? <><ShiftSwaps guard={guard} onChanged={() => setScheduleKey((n) => n + 1)} /><MySchedule key={scheduleKey} guard={guard} /></> : null}
         {tab === 'leave' ? <MyLeave guard={guard} /> : null}
         {tab === 'me' ? (
           <>
@@ -161,6 +165,7 @@ export default function EmployeePortal() {
             <MyGrowth guard={guard} />
             <Payslips guard={guard} />
             <MyDetails guard={guard} refreshKey={leavingSent} />
+            <MyForms guard={guard} />
             <Policies guard={guard} />
             {deskOn ? <PayCard onAsk={askBank} /> : null}
             <AskHr guard={guard} preset={askPreset} onPresetUsed={presetUsed} onAvailability={setDeskOn} />
@@ -741,14 +746,16 @@ function LeavePreview({ preview, checking }) {
   const parts = preview.parts || [];
   const saved = parts.filter((p) => p.days > 0);
   const skipped = parts.flatMap((p) => p.dates || []).filter((d) => d.why);
+  /* An hourly type says hours (gap 23): asked, and left after. */
+  const amount = (n) => (isHourly(preview.type) ? amountWords(n, preview.type) : daysText(n));
   return (
     <div className="space-y-2 text-sm" role="status" aria-live="polite">
-      {preview.total ? <p className="font-medium tabular-nums">{daysText(preview.total)}</p> : null}
+      {preview.total ? <p className="font-medium tabular-nums">{amount(preview.total)}</p> : null}
       {preview.split && saved.length > 1 ? (
         <div>
           <p>This crosses the end of the leave period, so it is saved as {NUMBER_WORD[saved.length] || saved.length} requests, one per leave period.</p>
           <ul className="ui-caption">
-            {saved.map((p) => <li key={p.label} className="tabular-nums">{p.label}: {daysText(p.days)}</li>)}
+            {saved.map((p) => <li key={p.label} className="tabular-nums">{p.label}: {amount(p.days)}</li>)}
           </ul>
         </div>
       ) : null}
@@ -758,7 +765,7 @@ function LeavePreview({ preview, checking }) {
         </ul>
       ) : null}
       {saved.filter((p) => p.balance?.after != null).map((p) => (
-        <p key={p.label} className="tabular-nums">{saved.length > 1 ? `${p.label}: ` : ''}{p.balance.after} left after this</p>
+        <p key={p.label} className="tabular-nums">{saved.length > 1 ? `${p.label}: ` : ''}{isHourly(preview.type) ? amountWords(p.balance.after, preview.type) : p.balance.after} left after this</p>
       ))}
       {(preview.problems || []).map((x) => <p key={x.code + x.message} role="alert" style={{ color: 'rgb(var(--neg))' }}>{x.message}</p>)}
     </div>
@@ -811,7 +818,7 @@ function MyLeave({ guard }) {
       setDoc(null);
       const sent = r.requests || [r.request];
       const days = Math.round(sent.reduce((a, x) => a + (Number(x.days) || 0), 0) * 100) / 100;
-      setNote({ ok: true, text: `Asked for ${daysText(days)} of ${r.request.leaveTypeName}${preview?.split && sent.length > 1 ? `, as ${NUMBER_WORD[sent.length] || sent.length} requests` : ''}.` });
+      setNote({ ok: true, text: `Asked for ${isHourly(listed) ? amountWords(days, listed) : daysText(days)} of ${r.request.leaveTypeName}${preview?.split && sent.length > 1 ? `, as ${NUMBER_WORD[sent.length] || sent.length} requests` : ''}.` });
       setForm(BLANK_LEAVE);
       load();
     } catch (err) {
@@ -908,8 +915,9 @@ function MyLeave({ guard }) {
               <div className="text-sm font-medium">{t.name}</div>
               {t.isPaid ? (
                 <>
-                  <div className="text-2xl font-semibold tabular-nums">{t.available}</div>
-                  <div className="ui-caption">left of {t.allocated}{t.pending ? ` · ${t.pending} waiting` : ''}</div>
+                  <div className="text-2xl font-semibold tabular-nums">{amountFigure(t.available, t)}</div>
+                  {/* An hourly type's balance is in hours (gap 23). */}
+                  <div className="ui-caption">{isHourly(t) ? 'hours ' : ''}left of {amountFigure(t.allocated, t)}{t.pending ? ` · ${amountFigure(t.pending, t)} waiting` : ''}</div>
                   <button type="button" className="ui-link text-xs mt-1" onClick={() => setExplaining(t.id)}>How is this worked out?</button>
                 </>
               ) : (
@@ -959,7 +967,7 @@ function MyLeave({ guard }) {
             {data.requests.map((r) => (
               <li key={r.id} className="flex items-start justify-between gap-2">
                 <span>
-                  {r.leaveTypeName} · {r.days} day{r.days === 1 ? '' : 's'}
+                  {r.leaveTypeName} · {r.fromTime && r.toTime ? hoursWords(hoursBetween(r.fromTime, r.toTime)) : `${r.days} day${r.days === 1 ? '' : 's'}`}
                   <span className="ui-caption block">{r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`}{leaveHours(r) ? `, ${leaveHours(r)}` : r.overflowOfId ? ', over the balance: loss of pay' : ''}</span>
                   {r.note && r.status !== 'PENDING' ? <span className="ui-caption block">“{r.note}”</span> : null}
                 </span>

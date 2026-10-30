@@ -111,7 +111,8 @@ export async function inboxFor(req: Request): Promise<{ items: InboxItem[]; coun
       items.push({
         key: `APPROVAL:${r.id}`, kind: 'APPROVAL', id: r.id, what: s.title, subKind: s.requestType,
         employeeId: who?.id || null, employeeName: who?.name || s.requesterName || '', employeeCode: who?.code || null, photoUrl: who?.photoUrl || null,
-        fromDate: null, toDate: null, days: null, halfDay: null,
+        /* A shift swap is about days (gap 24): they show in the Dates column like leave's. */
+        fromDate: r.requestType === 'SHIFT_SWAP' ? String((r.payload as any)?.fromDate || '') || null : null, toDate: r.requestType === 'SHIFT_SWAP' ? String((r.payload as any)?.toDate || '') || null : null, days: null, halfDay: null,
         since: iso(r.createdAt)!, dueAt: iso(s.dueAt), overdue: Boolean(s.overdue), managerApproved: false, bulk: rights.APPROVAL.decide,
       });
     }

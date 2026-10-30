@@ -15,6 +15,11 @@ export { default as Offers } from './workforce/Offers';
 export { default as Approvals } from './screens/Approvals';
 export { default as Policies } from './screens/Policies';
 export { default as ApprovalRules } from './screens/ApprovalRules';
+/* Request types HR sets up, their report, shift swaps and My requests (FEATURE-UI-AUDIT gaps 24, 25). */
+export { default as RequestForms } from './screens/RequestForms';
+export { default as RequestsReport } from './screens/RequestsReport';
+export { default as ShiftSwaps } from './screens/ShiftSwaps';
+export { default as MyRequests } from './screens/MyRequests';
 export { default as HelpDesk } from './screens/HelpDesk';
 export { default as PrivateCases } from './screens/PrivateCases';
 export { default as HelpDeskSettings } from './screens/HelpDeskSettings';

@@ -38,6 +38,7 @@ import { payrollTaxDeclarationsRouter } from './routes/payrollTaxDeclarations.js
 import { peopleRouter } from './routes/people.js';
 import { peopleLifecycleRouter } from './routes/peopleLifecycle.js';
 import { peopleApprovalsRouter } from './routes/peopleApprovals.js';
+import { peopleRequestsRouter } from './routes/peopleRequests.js';
 import { peopleTaskLinksRouter } from './routes/peopleTaskLinks.js';
 import { peopleTalentRouter } from './routes/peopleTalent.js';
 import { peopleTalentApplyRouter } from './routes/peopleTalentApply.js';
@@ -270,6 +271,8 @@ export function buildApp() {
   app.use(['/api/orgs/:orgId/people/talent/candidates/:id/resume', '/api/orgs/:orgId/people/talent/seats/:id'], express.json({ limit: '7mb' }));
   /* Leave asked with its document (a certificate, ≤ 5 MB, base64): from People, from My Leave, and from the employee app. */
   app.use(['/api/orgs/:orgId/attendance/leave/requests', '/api/orgs/:orgId/attendance/me/leave', '/api/portal/leave'], express.json({ limit: '7mb' }));
+  /* A request HR defined may carry a file (≤ 2 MB each, base64): from People's My requests and from the employee app. */
+  app.use(['/api/orgs/:orgId/people/my/request-forms', '/api/portal/people/forms'], express.json({ limit: '7mb' }), (err: any, _req: any, res: any, next: any) => (err?.type === 'entity.too.large' ? res.status(413).json({ error: 'The files are too large together: up to 4 MB in one request.', code: 'TOO_LARGE' }) : next(err)));
   /* The payment gateway's webhook: public, its exact path, the raw body a signature is made over — ahead of the JSON parser and of every router that demands a session (A-16). */
   app.post('/api/billing/webhook', ...billingWebhookLimiter, express.raw({ type: () => true, limit: '1mb' }), billingWebhook);
   app.use(express.json({ limit: '1mb' }));
@@ -416,6 +419,7 @@ export function buildApp() {
   app.use('/api', peopleTalentRouter);
   app.use('/api', peopleRouter);
   app.use('/api', peopleApprovalsRouter);
+  app.use('/api', peopleRequestsRouter);
   app.use('/api', peopleInvitesRouter);
   app.use('/api', peopleLettersRouter);
   app.use('/api', peoplePoliciesRouter);

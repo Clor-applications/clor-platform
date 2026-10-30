@@ -33,7 +33,10 @@ const TYPE_WORDS = {
   DESK_ESCALATION: ['Help desk escalations', 'A help desk request handed up.'],
   SEAT_REQUEST: ['Position requests', 'A new position on a team.'],
   LEAVE: ['Leave', 'Leave of every type set to “The approval rule” in Leave policy. A short request may still be approved on its own first.'],
+  SHIFT_SWAP: ['Shift swaps', 'Two people swap shifts for a few days, once the colleague has accepted.'],
 };
+/* Request types HR set up (Settings → Request types), FORM:<id>, named by their form when the rules load. */
+const FORM_NAMES = new Map();
 const APPROVERS = [['MANAGER', 'Their manager'], ['MANAGER_OF_MANAGER', 'Their manager’s manager'], ['HR', 'HR (anyone who may edit people)'], ['USER', 'A named person'], ['ROLE', 'Anyone holding a role']];
 /* What a step can depend on; a field with a list says which list its value comes from. */
 const FIELDS = [
@@ -52,7 +55,9 @@ const LEAVE_FIELDS = [['days', 'Days asked for', null], ['leaveTypeId', 'Leave t
 const LEAVE_OPS = { days: [['gt', 'more than'], ['lt', 'fewer than']], leaveTypeId: [['eq', 'is'], ['ne', 'is not']] };
 const LEAVE_APPROVERS = [['MANAGER', 'Their manager'], ['MANAGER_OF_MANAGER', 'Their manager’s manager'], ['HR', 'HR (anyone who approves leave for the whole company)'], ['USER', 'A named person'], ['ROLE', 'Anyone holding a role']];
 const blankStep = (order) => ({ order, approver: { kind: 'MANAGER' }, condition: null, dueDays: 3, overdue: { action: 'REMIND' } });
-const typeName = (t) => TYPE_WORDS[t]?.[0] || t;
+const typeName = (t) => TYPE_WORDS[t]?.[0] || FORM_NAMES.get(t) || t;
+/* Neither a request type HR set up nor a swap changes a record: their steps have no field to depend on. */
+const noFields = (t) => String(t).startsWith('FORM:') || t === 'SHIFT_SWAP';
 
 const approverWords = (a, users, roles) => {
   if (!a) return '—';
@@ -68,6 +73,8 @@ export default function ApprovalRules() {
     apiFetch(`/orgs/${encodeURIComponent(orgId())}/roles`, { skipWarehouseHeader: true }).then((r) => r?.roles || []).catch(() => []),
   ]), []);
   const [data, users, roles] = req.data || [null, [], []];
+  for (const f of data?.forms || []) FORM_NAMES.set(f.requestType, f.name);
+  const kinds = [...(data?.requestTypes || []), ...(data?.forms || []).filter((f) => f.active).map((f) => f.requestType)];
   const [editing, setEditing] = useState(null);
   const active = (type) => data?.rules.find((r) => r.requestType === type && r.active) || null;
   const versions = (type) => (data?.rules || []).filter((r) => r.requestType === type);
@@ -90,7 +97,7 @@ export default function ApprovalRules() {
   };
   const steps = (rule) => (rule.steps || []).map((s) => `${approverWords(s.approver, users, roles)} (${s.dueDays} d)`).join(' → ');
   const columns = [
-    { key: 'type', label: 'Kind of request', always: true, render: (t) => <span className="min-w-0"><span className="block font-medium">{typeName(t)}</span><span className="block ui-caption">{TYPE_WORDS[t]?.[1] || ''}</span></span> },
+    { key: 'type', label: 'Kind of request', always: true, render: (t) => <span className="min-w-0"><span className="block font-medium">{typeName(t)}</span><span className="block ui-caption">{TYPE_WORDS[t]?.[1] || (FORM_NAMES.has(t) ? 'A request type from Settings → Request types.' : '')}</span></span> },
     { key: 'steps', label: 'Who decides', render: (t) => { const rule = active(t); return rule ? steps(rule) : <span className="ui-muted">{t === 'LEAVE' ? 'Not set: Leave policy decides' : 'Nobody: applies at once'}</span>; } },
     { key: 'version', label: 'Version', render: (t) => { const rule = active(t); const all = versions(t); return rule ? <span className="tabular-nums">v{rule.version}</span> : all.length ? <span className="ui-muted tabular-nums">Off (v{all[0].version} last)</span> : '—'; } },
   ];
@@ -102,8 +109,8 @@ export default function ApprovalRules() {
     <div className="space-y-6">
       <PageHeader title="Approval Rules" />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
-        <DataTable label="Approval rules" columns={columns} rows={data?.requestTypes || []} rowKey={(t) => t} loading={req.loading} refreshing={req.refreshing}
-          total={data?.requestTypes?.length || 0} pageSize={Math.max(25, data?.requestTypes?.length || 0)} noun="kinds of request"
+        <DataTable label="Approval rules" columns={columns} rows={kinds} rowKey={(t) => t} loading={req.loading} refreshing={req.refreshing}
+          total={kinds.length} pageSize={Math.max(25, kinds.length)} noun="kinds of request"
           onRowClick={open} rowActions={rowActions}
           card={(t) => { const rule = active(t); return <span className="min-w-0 flex-1"><span className="block truncate font-medium">{typeName(t)}</span><span className="block truncate ui-caption">{rule ? steps(rule) : 'Applies at once'}</span></span>; }}
           empty={<EmptyState title="No kinds of request" description="Reload; the kinds of request come with People." />} />
@@ -120,7 +127,7 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
   const dirty = JSON.stringify(form) !== JSON.stringify(rule);
   /* The values a condition can name: the company's own lists. */
   const leave = form.requestType === 'LEAVE';
-  const fields = leave ? LEAVE_FIELDS : FIELDS;
+  const fields = leave ? LEAVE_FIELDS : noFields(form.requestType) ? [] : FIELDS;
   const lists = useRequest(async () => {
     if (leave) return { leaveTypes: ((await listLeaveTypes().catch(() => [])) || []).filter((t) => t.isActive).map((t) => ({ value: t.id, label: t.name })) };
     const kinds = ['departments', 'job-positions', 'establishments', 'grades', 'employee-types'];

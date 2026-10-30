@@ -14,6 +14,8 @@ import { tickRefusal } from '../services/people/checklists.js';
 import { writeChangeLog } from '../services/people/changeLog.js';
 import * as growth from '../services/people/talent/growth.js';
 import { TalentError } from '../services/people/talent/hiring.js';
+import { MAX_SWAP_DAYS, MIN_REST_HOURS, SwapError, answerSwap, askSwap, colleaguesFor, shapeSwaps, swapsOf, withdrawSwap } from '../services/people/shiftSwaps.js';
+import { FormError, fileFor, formsFor, myFormRequests, raise, replyOwn, withdrawOwn } from '../services/people/requestForms.js';
 
 /**
  * People's own employee-facing routes, behind the employee app's sign-in
@@ -298,5 +300,114 @@ peoplePortalRouter.post('/private-cases', async (req, res) => {
     if (e instanceof CaseKeyMissing) return res.status(503).json({ error: e.message });
     console.error('[people-portal case]', e instanceof Error ? e.message : e);
     res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+/*
+ * Shift swaps (gap 24): ask a colleague on another shift to swap a day or a few, answer one asked of me,
+ * withdraw mine before it is decided. Approval is the manager's, in People's Approvals.
+ */
+const swapError = (res: any, e: unknown) => {
+  if (e instanceof SwapError) return res.status(e.status).json({ error: e.message, code: e.code });
+  console.error('[people-portal swap]', e instanceof Error ? e.message : e);
+  return res.status(500).json({ error: 'Something went wrong.' });
+};
+const swapper = (req: Request) => ({ ...me(req), userId: req.portal!.employee.userId || null, correlationId: correlationOf(req as any) });
+
+peoplePortalRouter.get('/swaps', async (req, res) => {
+  const { orgId, employeeId } = me(req);
+  res.json({ ...(await swapsOf(orgId, employeeId)), rules: { maxDays: MAX_SWAP_DAYS, minRestHours: MIN_REST_HOURS } });
+});
+
+/** Who I may ask for these days: working each of them on another shift, with the rest rule kept. Names and those shifts only. */
+peoplePortalRouter.get('/swaps/colleagues', async (req, res) => {
+  const { orgId, employeeId } = me(req);
+  const from = String(req.query.from || '');
+  const to = String(req.query.to || req.query.from || '');
+  res.json({ colleagues: await colleaguesFor(orgId, employeeId, from, to) });
+});
+
+peoplePortalRouter.post('/swaps', async (req, res) => {
+  try {
+    const swap = await askSwap(swapper(req), req.body || {});
+    res.status(201).json({ swap: (await shapeSwaps(swap.orgId, [swap]))[0] });
+  } catch (e) {
+    swapError(res, e);
+  }
+});
+
+/** The colleague's answer: accepted, it goes for approval; declined, it closes. */
+const answer = (accept: boolean) => async (req: Request, res: any) => {
+  try {
+    const swap = await answerSwap(swapper(req), String(req.params.id), accept, typeof req.body?.note === 'string' ? req.body.note : null);
+    res.json({ swap: (await shapeSwaps(swap.orgId, [swap]))[0] });
+  } catch (e) {
+    swapError(res, e);
+  }
+};
+peoplePortalRouter.post('/swaps/:id/accept', answer(true));
+peoplePortalRouter.post('/swaps/:id/decline', answer(false));
+
+peoplePortalRouter.post('/swaps/:id/withdraw', async (req, res) => {
+  try {
+    const swap = await withdrawSwap(swapper(req), String(req.params.id));
+    res.json({ swap: (await shapeSwaps(swap.orgId, [swap]))[0] });
+  } catch (e) {
+    swapError(res, e);
+  }
+});
+
+/*
+ * Requests HR set up (gap 25): the forms open to me, mine with what was said, filling one in (files
+ * as base64, ≤ 2 MB each), answering when HR asks for more, withdrawing, and my own files.
+ */
+const formError = (res: any, e: unknown) => {
+  if (e instanceof FormError) return res.status(e.status).json({ error: e.message, code: e.code });
+  console.error('[people-portal forms]', e instanceof Error ? e.message : e);
+  return res.status(500).json({ error: 'Something went wrong.' });
+};
+
+peoplePortalRouter.get('/forms', async (req, res) => {
+  const { orgId, employeeId } = me(req);
+  try {
+    const [forms, requests] = await Promise.all([formsFor(orgId, employeeId), myFormRequests(orgId, employeeId)]);
+    res.json({ forms, requests });
+  } catch (e) {
+    formError(res, e);
+  }
+});
+
+peoplePortalRouter.post('/forms/:id', async (req, res) => {
+  try {
+    const r = await raise(swapper(req), String(req.params.id), { ...(req.body || {}), idempotencyKey: req.headers['idempotency-key'] || req.body?.idempotencyKey });
+    res.status(r.existed ? 200 : 201).json({ request: r });
+  } catch (e) {
+    formError(res, e);
+  }
+});
+
+peoplePortalRouter.post('/forms/requests/:id/reply', async (req, res) => {
+  try {
+    res.json({ request: await replyOwn(swapper(req), String(req.params.id), String(req.body?.note || '')) });
+  } catch (e) {
+    formError(res, e);
+  }
+});
+
+peoplePortalRouter.post('/forms/requests/:id/withdraw', async (req, res) => {
+  try {
+    res.json({ request: await withdrawOwn(swapper(req), String(req.params.id)) });
+  } catch (e) {
+    formError(res, e);
+  }
+});
+
+peoplePortalRouter.get('/forms/files/:id', async (req, res) => {
+  const { orgId, employeeId } = me(req);
+  try {
+    const f = await fileFor(orgId, String(req.params.id), { employeeId });
+    res.json({ file: { id: f.id, name: f.fileName, mime: f.mime, size: f.size, dataUrl: `data:${f.mime};base64,${Buffer.from(f.data).toString('base64')}` } });
+  } catch (e) {
+    formError(res, e);
   }
 });

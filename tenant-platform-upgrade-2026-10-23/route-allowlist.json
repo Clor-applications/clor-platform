@@ -960,6 +960,61 @@
       "method": "POST",
       "path": "/api/portal/people/me/reviews/:id/acknowledge",
       "reason": "Employee self-service (People): portal token + anyAppLive; the person acknowledges their own shared review (growth.acknowledge) (Talent)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/swaps",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; the person's own shift swaps, asked and asked of them (gap 24)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/swaps/colleagues",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; colleagues the person may ask to swap with on those days: names, codes and those days' shifts only (gap 24)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/swaps",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; asks a colleague in the same company to swap shifts; checked under the company write lock (shiftSwaps.askSwap) (gap 24)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/swaps/:id/accept",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; only the colleague asked may accept; it then goes to the approval engine (shiftSwaps.answerSwap) (gap 24)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/swaps/:id/decline",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; only the colleague asked may decline (shiftSwaps.answerSwap) (gap 24)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/swaps/:id/withdraw",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; only the person who asked may withdraw, before it is decided (shiftSwaps.withdrawSwap) (gap 24)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/forms",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; the request types open to the person and their own requests of those types (gap 25)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/forms/:id",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; asks a request type open to the person (audience checked), as portal:<employeeId>; files ≤ 2 MB, images or PDF (requestForms.raise) (gap 25)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/forms/requests/:id/reply",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; answers HR's ask-for-more on the person's own request only (requestForms.replyOwn) (gap 25)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/forms/requests/:id/withdraw",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; withdraws the person's own open request only (requestForms.withdrawOwn) (gap 25)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/forms/files/:id",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; a file on the person's own request only (requestForms.fileFor) (gap 25)."
     }
   ]
 }
