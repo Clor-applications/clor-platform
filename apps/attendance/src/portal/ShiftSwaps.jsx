@@ -40,7 +40,7 @@ export default function ShiftSwaps({ guard, onChanged }) {
   const [note, setNote] = useState(null);
   const load = useCallback(() => {
     guard(getSwaps())
-      .then((d) => { setData(d); setFailed(''); })
+      .then((d) => { setData({ mine: d?.mine || [], askedOfMe: d?.askedOfMe || [], rules: d?.rules || null }); setFailed(''); })
       .catch((e) => setFailed(errText(e, 'Could not load your shift swaps.')));
   }, [guard]);
   useEffect(() => { load(); }, [load]);

@@ -45,7 +45,7 @@ const api = vi.hoisted(() => ({
   getDataRequests: vi.fn(async () => ({ requests: [] })),
 }));
 vi.mock('../apps/attendance/src/portal/portalApi', () => {
-  const rest = ['acceptItem', 'activate', 'askLeave', 'listRequests', 'askRequest', 'changeRequest', 'cancelRequest', 'requestRules', 'explainDay', 'explainLeave', 'editLeave', 'shortenLeave', 'getRestrictedHolidays', 'changePassword', 'endOtherSessions', 'endSession', 'decideApproval', 'askData', 'getApprovals', 'getMyData', 'getPrivacyNotice', 'readPrivacyNotice', 'withdrawConsent', 'getDocument', 'getAttendance', 'previewLeave', 'getSchedule', 'saveTax', 'punch', 'signIn', 'signOut', 'askDetailsChange', 'answerMyRequest', 'withdrawMyRequest', 'getPolicy', 'shrinkPhoto', 'locate'];
+  const rest = ['acceptItem', 'activate', 'askLeave', 'listRequests', 'askRequest', 'changeRequest', 'cancelRequest', 'requestRules', 'explainDay', 'explainLeave', 'editLeave', 'shortenLeave', 'getRestrictedHolidays', 'changePassword', 'endOtherSessions', 'endSession', 'decideApproval', 'askData', 'getApprovals', 'getMyData', 'getPrivacyNotice', 'readPrivacyNotice', 'withdrawConsent', 'getDocument', 'getAttendance', 'previewLeave', 'getSchedule', 'saveTax', 'punch', 'signIn', 'signOut', 'askDetailsChange', 'answerMyRequest', 'withdrawMyRequest', 'getPolicy', 'shrinkPhoto', 'locate', 'getForms', 'askFormRequest', 'replyFormRequest', 'withdrawFormRequest', 'getFormFile', 'getSwaps', 'swapColleagues', 'askSwap', 'answerSwap', 'withdrawSwap'];
   return { ...Object.fromEntries(rest.map((k) => [k, vi.fn(() => Promise.resolve({}))])), ...api };
 });
 vi.mock('@platform/http', () => ({ apiFetch: vi.fn(), API_BASE: '/api' }));

@@ -36,7 +36,7 @@ export default function MyForms({ guard }) {
   const [note, setNote] = useState(null);
   const load = useCallback(() => {
     guard(getForms())
-      .then((d) => { setData(d); setFailed(''); })
+      .then((d) => { setData({ forms: d?.forms || [], requests: d?.requests || [] }); setFailed(''); })
       .catch((e) => setFailed(errText(e, 'Could not load your requests.')));
   }, [guard]);
   useEffect(() => { load(); }, [load]);

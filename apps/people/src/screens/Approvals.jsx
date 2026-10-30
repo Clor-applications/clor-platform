@@ -16,6 +16,7 @@ import { Avatar, SCHEDULED_LABELS } from '@ui/personnel/Employees';
 import { can } from '@ui/timeOff/shared';
 import { bulkReviewLeave, bulkReviewOvertime, bulkReviewPunches, bulkReviewRequests } from '@ui/timeOff/api';
 import { RequestDrawer as LeaveDrawer } from '@ui/timeOff/LeaveRequests';
+import { hoursBetween, hoursWords } from '@ui/timeOff/partOfDay';
 import { RequestDrawer as AttendanceDrawer, KIND_NAME } from '@ui/timeOff/AttendanceRequests';
 import { bulkDecideRequests, decideRequest, getInbox, listRequests, replyRequest, withdrawRequest } from '../api/approvals';
 import { requestFile } from '../api/requests';
@@ -174,8 +175,9 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     ) },
     { key: 'kind', label: 'Kind', render: (i) => <span className="whitespace-nowrap">{kindText(i)}</span> },
     { key: 'what', label: 'Request', render: (i) => <span className="block max-w-xs truncate" title={whatOf(i)}>{whatOf(i)}</span> },
-    { key: 'when', label: 'Dates', render: (i) => <span className="tabular-nums whitespace-nowrap">{range(i.fromDate, i.toDate)}{i.halfDay ? <span className="ui-caption block">Half day</span> : null}</span> },
-    { key: 'days', label: 'Days', align: 'right', render: (i) => <span className="tabular-nums">{i.days ?? ''}</span> },
+    { key: 'when', label: 'Dates', render: (i) => <span className="tabular-nums whitespace-nowrap">{range(i.fromDate, i.toDate)}{i.halfDay ? <span className="ui-caption block">Half day</span> : i.fromTime && i.toTime ? <span className="ui-caption block">{i.fromTime}–{i.toTime}</span> : null}</span> },
+    /* Hourly leave reads in hours (gap 23), not a fraction of a day. */
+    { key: 'days', label: 'Days', align: 'right', render: (i) => <span className="tabular-nums">{i.fromTime && i.toTime ? hoursWords(hoursBetween(i.fromTime, i.toTime)) : i.days ?? ''}</span> },
     { key: 'since', label: 'Waiting since', render: (i) => (
       <span className="inline-flex flex-col items-start gap-0.5 whitespace-nowrap">
         <span className={waitedDays(i.since) > 2 || i.overdue ? 'ui-text-warn' : ''}>{waitedText(i.since)}</span>
@@ -247,7 +249,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
             <span className="min-w-0 flex-1">
               <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{i.employeeName || '—'}</span><span className="ui-caption whitespace-nowrap">{waitedText(i.since)}</span></span>
               <span className="block truncate ui-caption">{kindText(i)} · {whatOf(i)}</span>
-              {i.fromDate ? <span className="block truncate ui-caption tabular-nums">{range(i.fromDate, i.toDate)}</span> : null}
+              {i.fromDate ? <span className="block truncate ui-caption tabular-nums">{range(i.fromDate, i.toDate)}{i.fromTime && i.toTime ? `, ${i.fromTime}–${i.toTime}` : ''}</span> : null}
             </span>
           </span>
         ) : (r) => (

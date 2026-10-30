@@ -16,6 +16,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { listBranches, listStructure } from '@ui/personnel/api';
 
 import { can } from './shared';
+import { hoursPerDayOf, hoursWords } from './partOfDay';
 import {
   ACCRUAL_LABEL, MONTH_NAMES, PRIVATE_LABEL, colorOf, createLeaveType, creditText, deleteLeaveType, getLeaveSettings, listLeaveTypes,
   previewLeaveType, saveLeaveSettings, todayIst, updateLeaveType,
@@ -139,7 +140,7 @@ function rulesOf(t, typeNames = new Map(), leaveNames = new Map()) {
     r.push(`1 per ${t.perDaysWorked} worked last period${t.minDaysWorked ? `, after ${t.minDaysWorked} worked` : ''}`);
     r.push(carryText(t));
   } else if (t.isPaid) {
-    r.push(`${t.annualDays} a year: ${creditText(t)}`);
+    r.push(`${t.unit === 'HOUR' ? hoursWords(t.annualDays * hoursPerDayOf(t)) : t.annualDays} a year: ${creditText(t)}`);
     for (const e of t.entitlements || []) r.push(ruleText(e, typeNames));
     if (t.probationRule === 'HOLD') r.push('starts when confirmed');
     if (t.probationRule === 'LOCK') r.push('locked until confirmed');
@@ -184,7 +185,7 @@ const formOf = (t) => ({
   probationRule: t.probationRule || 'ACCRUE', approval: t.approval || '', autoApproveUpToDays: t.autoApproveUpToDays ?? '', handOnAfterDays: t.handOnAfterDays ?? '',
   accrualBasis: t.accrualBasis || 'CALENDAR', perDaysWorked: t.perDaysWorked ?? '', minDaysWorked: t.minDaysWorked ?? '',
   oshCarry: Boolean(t.oshCarry), countsCalendarDays: Boolean(t.countsCalendarDays), availableAfterBasis: t.availableAfterBasis || 'JOINING',
-  unit: t.unit || 'DAY', overBalance: t.overBalance || 'REFUSE', notWithTypeIds: t.notWithTypeIds || [], onNotice: t.onNotice || 'ALLOW',
+  unit: t.unit || 'DAY', hoursPerDay: t.hoursPerDay ?? '', overBalance: t.overBalance || 'REFUSE', notWithTypeIds: t.notWithTypeIds || [], onNotice: t.onNotice || 'ALLOW',
   sandwichMinDays: t.sandwichMinDays ?? '', sandwichWeekOffs: t.sandwichWeekOffs !== false, sandwichHolidays: t.sandwichHolidays !== false, sandwichIgnoreHalf: Boolean(t.sandwichIgnoreHalf),
 });
 
@@ -224,6 +225,7 @@ function bodyOf(form) {
     sandwichHolidays: !form.sandwich || form.sandwichHolidays !== false,
     sandwichIgnoreHalf: Boolean(form.sandwich && form.sandwichIgnoreHalf),
     unit: form.unit === 'HOUR' ? 'HOUR' : 'DAY',
+    hoursPerDay: form.unit === 'HOUR' ? num(form.hoursPerDay) : null,
     overBalance: paid && form.unit !== 'HOUR' && form.overBalance === 'LOSS_OF_PAY' ? 'LOSS_OF_PAY' : 'REFUSE',
     notWithTypeIds: form.notWithTypeIds || [],
     onNotice: ['WARN', 'BLOCK'].includes(form.onNotice) ? form.onNotice : 'ALLOW',
@@ -556,7 +558,10 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
 
           {paid && !byWorked ? (
             <Section title="How it is credited">
-              <NumberField label="Days a year" value={form.annualDays} onChange={set('annualDays')} step={0.5} />
+              {/* An hourly type's allowance is said in hours (gap 23) and kept in days: hours ÷ hours in its day. */}
+              {form.unit === 'HOUR'
+                ? <NumberField label="Hours a year" value={form.annualDays === '' ? '' : Math.round(Number(form.annualDays) * hoursPerDayOf(form) * 100) / 100} onChange={(v) => set('annualDays')(v === '' ? '' : Number(v) / hoursPerDayOf(form))} step={0.5} />
+                : <NumberField label="Days a year" value={form.annualDays} onChange={set('annualDays')} step={0.5} />}
               <div><PopupSelect showValueSubtext={false} label="Credited" value={form.accrual || 'YEARLY'} onChange={(v) => set('accrual')(v || 'YEARLY')} options={Object.entries(ACCRUAL_LABEL).map(([value, label]) => ({ value, label }))} /></div>
               <div><PopupSelect showValueSubtext={false} label="On" value={form.creditOn || 'START'} onChange={(v) => set('creditOn')(v || 'START')} options={CREDIT_ON} /></div>
               {form.creditOn === 'DAY' ? <NumberField label="Day of the month (1–28)" value={form.creditDay} onChange={set('creditDay')} placeholder="e.g. 10" /> : <div />}
@@ -568,7 +573,7 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
           {paid && !byWorked ? (
             <Section title="Who gets how much">
               <div className="sm:col-span-2 space-y-3">
-                <p className="text-sm">Everyone else: <span className="tabular-nums">{Number(form.annualDays) || 0}</span> a year.</p>
+                <p className="text-sm">Everyone else: <span className="tabular-nums">{form.unit === 'HOUR' ? hoursWords((Number(form.annualDays) || 0) * hoursPerDayOf(form)) : Number(form.annualDays) || 0}</span> a year.</p>
                 {form.entitlements.map((e, i) => (
                   <div key={i} className="grid grid-cols-[1fr_5.5rem_5.5rem_auto] items-end gap-2" role="group" aria-label={`Rule ${i + 1}`}>
                     <div>
@@ -625,6 +630,7 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
             <NumberField label="Document needed when longer than, days" value={form.attachmentAfterDays} onChange={set('attachmentAfterDays')} placeholder="Never" step={0.5} hint="A medical certificate, for example. It is kept on the person’s file." />
             <div><PopupSelect showValueSubtext={false} label="Taken in" value={form.unit || 'DAY'} onChange={(v) => set('unit')(v || 'DAY')} options={UNITS} /></div>
             <div><PopupSelect showValueSubtext={false} label="While serving notice" value={form.onNotice || 'ALLOW'} onChange={(v) => set('onNotice')(v || 'ALLOW')} options={ON_NOTICE} /></div>
+            {form.unit === 'HOUR' ? <NumberField label="Hours in a day" value={form.hoursPerDay} onChange={set('hoursPerDay')} placeholder="8" step={0.5} hint="Balances read in hours; an hour is this share of a day for pay." /> : null}
             {form.unit !== 'HOUR' ? <Check label="Half days allowed" checked={form.allowHalfDay} onChange={set('allowHalfDay')} /> : null}
             <Check label="Sandwich rule" hint="Weekly offs and holidays between two leave days count as leave. Friday and Monday off makes four days." checked={form.sandwich} disabled={form.countsCalendarDays} onChange={set('sandwich')} />
             {form.sandwich ? (

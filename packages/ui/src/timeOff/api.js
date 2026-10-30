@@ -115,7 +115,9 @@ const ordinal = (n) => `${n}${[11, 12, 13].includes(n % 100) ? 'th' : ['th', 'st
 export function creditText(t) {
   const part = { YEARLY: 'period', HALF_YEARLY: 'half-year', QUARTERLY: 'quarter', MONTHLY: 'month' }[t.accrual] || 'period';
   const n = Math.round(((Number(t.annualDays) || 0) * ({ YEARLY: 12, HALF_YEARLY: 6, QUARTERLY: 3, MONTHLY: 1 }[t.accrual] || 12)) / 12 * 100) / 100;
-  const days = `${n} day${n === 1 ? '' : 's'}`;
+  /* An hourly type's credit reads in hours (gap 23). */
+  const hrs = t.unit === 'HOUR' ? Math.round(n * (Number(t.hoursPerDay) || 8) * 100) / 100 : null;
+  const days = hrs != null ? `${hrs} hour${hrs === 1 ? '' : 's'}` : `${n} day${n === 1 ? '' : 's'}`;
   if (t.creditOn === 'END') return `${days} at the end of each ${part}`;
   if (t.creditOn === 'DAY' && t.creditDay) return part === 'month' ? `${days} on the ${ordinal(Number(t.creditDay))} of each month` : `${days} each ${part}, on the first ${ordinal(Number(t.creditDay))}`;
   return `${days} at the start of each ${part}`;

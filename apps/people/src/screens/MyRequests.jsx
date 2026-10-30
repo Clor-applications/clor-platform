@@ -67,7 +67,10 @@ export default function MyRequests() {
             <span className="block truncate ui-caption">{day(r.askedAt)} · {r.lines.map((l) => l.value).join(' · ')}</span>
           </span>
         )}
-        empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : (
+        empty={req.error?.code === 'NO_EMPLOYEE_LINK' ? (
+          /* An owner or HR user with no employee file of their own: said plainly, not "not found". */
+          <EmptyState title="No employee file for your sign-in" description="Ask HR to put your email on your employee file; your requests then show here." />
+        ) : req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : (
           <EmptyState title="You have not asked for anything yet" description={forms.length ? 'Choose a request above: HR sees it in Approvals.' : 'HR has not set up any requests yet.'} action={forms.length ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAsking(forms[0])}><Plus size={14} aria-hidden="true" /> {forms[0].name}</button> : null} />
         )}
       />

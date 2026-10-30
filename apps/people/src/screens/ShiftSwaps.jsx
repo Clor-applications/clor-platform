@@ -19,7 +19,7 @@ import { cancelSwap, listSwaps } from '../api/requests';
  */
 const SWAP_STATUS = { ASKED: 'Waiting for the colleague', DECLINED: 'Declined', WAITING: 'Waiting for approval', APPROVED: 'Approved', REJECTED: 'Not approved', WITHDRAWN: 'Withdrawn', CANCELLED: 'Cancelled' };
 const SWAP_TONE = { ASKED: 'warn', DECLINED: 'neutral', WAITING: 'warn', APPROVED: 'pos', REJECTED: 'neg', WITHDRAWN: 'neutral', CANCELLED: 'neutral' };
-const TABS = [['', 'All'], ['ASKED', 'With the colleague'], ['WAITING', 'For approval'], ['APPROVED', 'Approved']];
+const TABS = [['', 'All'], ['ASKED', 'Asked'], ['WAITING', 'To approve'], ['APPROVED', 'Approved']];
 const day = (iso) => (iso ? formatDate(String(iso).slice(0, 10)) : '');
 const range = (a, b) => (a === b ? day(a) : `${day(a)} – ${day(b)}`);
 const shiftText = (s) => (s ? `${s.name}${s.startTime ? ` ${s.startTime}–${s.endTime}` : ''}` : '—');

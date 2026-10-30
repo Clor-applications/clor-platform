@@ -15,7 +15,7 @@ import LeaveExplain from '../components/LeaveExplain';
 import LeaveDocumentField from '@ui/timeOff/LeaveDocumentField';
 import HalfDayChoice, { HalfDayNote, halfDayBody, leaveSpan } from '@ui/timeOff/HalfDayChoice';
 import { HoursChoice, PreviewNotes } from '@ui/timeOff/LeaveShape';
-import { hoursBody, hoursReady, hoursText, isHourly } from '@ui/timeOff/partOfDay';
+import { amountFigure, amountWords, hoursBetween, hoursBody, hoursReady, hoursText, hoursWords, isHourly } from '@ui/timeOff/partOfDay';
 import { useCanActForSelf } from '@ui/timeOff/shared';
 
 /**
@@ -137,7 +137,7 @@ export default function MyLeave() {
       <span className="tabular-nums whitespace-nowrap">{range(r.fromDate, r.toDate)}{hoursText(r) ? <span className="ui-caption block">{hoursText(r)}</span> : r.halfDay ? <span className="ui-caption block">{r.halfDay === 'FIRST' ? 'First half' : 'Second half'}</span> : r.overflowOfId ? <span className="ui-caption block">Over the balance: loss of pay</span> : null}</span>
     ) },
     { key: 'type', label: 'Leave', render: (r) => r.leaveTypeName },
-    { key: 'days', label: 'Days', align: 'right', render: (r) => <span className="tabular-nums">{r.days}</span> },
+    { key: 'days', label: 'Days', align: 'right', render: (r) => <span className="tabular-nums">{r.fromTime && r.toTime ? hoursWords(hoursBetween(r.fromTime, r.toTime)) : r.days}</span> },
     { key: 'reason', label: 'Reason', render: (r) => (r.reasonHidden || r.leaveTypeName === PRIVATE_LABEL ? '' : r.reason || '') },
     { key: 'status', label: 'Status', render: (r) => (
       <span className="inline-flex flex-col items-start gap-0.5">
@@ -157,11 +157,11 @@ export default function MyLeave() {
           {me.types.map((t) => (
             <div key={t.id} role="listitem">
               {t.isPaid ? (
-                <button type="button" className="ui-metric" onClick={() => setExplaining(t.id)} aria-label={`${t.name}: ${t.available} of ${t.allocated} left. How is this worked out?`}>
+                <button type="button" className="ui-metric" onClick={() => setExplaining(t.id)} aria-label={`${t.name}: ${amountFigure(t.available, t)} of ${amountFigure(t.allocated, t)}${isHourly(t) ? ' hours' : ''} left. How is this worked out?`}>
                   <span>
-                    <span className="ui-metric-value tabular-nums">{t.available}<span className="ui-caption"> of {t.allocated}</span></span>
-                    <span className="ui-metric-label">{t.name}{t.pending ? <span className="tabular-nums">, {t.pending} waiting</span> : null}</span>
-                    {t.projectedAvailable != null && t.projectedAvailable !== t.available ? <span className="ui-caption block tabular-nums">{t.available} left · {t.projectedAvailable} by period end</span> : null}
+                    <span className="ui-metric-value tabular-nums">{amountFigure(t.available, t)}<span className="ui-caption"> of {amountFigure(t.allocated, t)}{isHourly(t) ? ' hours' : ''}</span></span>
+                    <span className="ui-metric-label">{t.name}{t.pending ? <span className="tabular-nums">, {amountFigure(t.pending, t)} waiting</span> : null}</span>
+                    {t.projectedAvailable != null && t.projectedAvailable !== t.available ? <span className="ui-caption block tabular-nums">{amountFigure(t.available, t)} left · {amountFigure(t.projectedAvailable, t)} by period end</span> : null}
                   </span>
                 </button>
               ) : (
@@ -192,7 +192,7 @@ export default function MyLeave() {
         ] : null}
         card={(r) => (
           <span className="min-w-0">
-            <span className="flex items-center justify-between gap-2"><span className="truncate">{r.leaveTypeName} · {daysText(r.days)}</span><span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{STATUS_LABEL[r.status] || r.status}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{r.leaveTypeName} · {r.fromTime && r.toTime ? hoursWords(hoursBetween(r.fromTime, r.toTime)) : daysText(r.days)}</span><span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{STATUS_LABEL[r.status] || r.status}</span></span>
             <span className="block truncate ui-caption tabular-nums">{range(r.fromDate, r.toDate)}</span>
             {r.status === 'REJECTED' && r.reviewNote ? <span className="block ui-caption">{r.reviewNote}</span> : null}
           </span>
@@ -239,9 +239,10 @@ function LeavePreview({ preview, checking }) {
     <section className="space-y-2 text-sm" aria-live="polite">
       {preview.total ? (
         <p>
-          <span className="font-medium tabular-nums">{daysText(preview.total)}</span>
+          {/* An hourly type says hours (gap 23). */}
+          <span className="font-medium tabular-nums">{isHourly(preview.type) ? amountWords(preview.total, preview.type) : daysText(preview.total)}</span>
           {preview.type?.isPaid === false ? ', unpaid' : ''}
-          {saved.length === 1 && saved[0].balance?.after != null ? <> · <span className="tabular-nums">{saved[0].balance.after}</span> left after this</> : null}
+          {saved.length === 1 && saved[0].balance?.after != null ? <> · <span className="tabular-nums">{isHourly(preview.type) ? amountWords(saved[0].balance.after, preview.type) : saved[0].balance.after}</span> left after this</> : null}
         </p>
       ) : null}
       {preview.split && saved.length > 1 ? (
@@ -351,7 +352,7 @@ function AskLeave({ types, rows = [], onClose, onDone, request = null }) {
       <form id="ask-leave" onSubmit={save} className="space-y-4">
         <div>
           <PopupSelect showValueSubtext={false} label="Leave type *" value={form.leaveTypeId} onChange={(v) => set('leaveTypeId', v || '')} placeholder="Choose…"
-            options={types.map((t) => ({ value: t.id, label: t.isPaid ? `${t.name}, ${t.available} left` : `${t.name}, unpaid` }))} />
+            options={types.map((t) => ({ value: t.id, label: t.isPaid ? `${t.name}, ${isHourly(t) ? amountWords(t.available, t) : t.available} left` : `${t.name}, unpaid` }))} />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div><label className="ui-label" htmlFor="ml-from">{hourly ? 'Day *' : 'First day *'}</label><DatePicker id="ml-from" value={form.fromDate} onChange={(v) => set('fromDate', v || '')} /></div>

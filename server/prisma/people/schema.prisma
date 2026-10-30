@@ -737,6 +737,8 @@ model LeaveType {
   /// DAY: asked in days and half days. HOUR: asked in hours on one day, 15-minute steps, counted against the
   /// day's shift (2 hours of an 8-hour shift is 0.25 day); balances stay in days.
   unit               String   @default("DAY")
+  /// An hourly type's day, in hours (FEATURE-UI-AUDIT gap 23): its allowance and balance are said in hours, and an hour is this share of a day. Null = 8.
+  hoursPerDay        Float?
   /// More than the balance (and negativeDays): REFUSE, or LOSS_OF_PAY — the extra days are a linked unpaid
   /// request of the company's loss-of-pay type, in the same group, decided with the paid part.
   overBalance        String   @default("REFUSE")

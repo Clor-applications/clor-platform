@@ -335,6 +335,8 @@ const policySchema = z.object({
   availableAfterBasis: z.enum(['JOINING', 'DAYS_WORKED']).optional(),
   /** Leave policy rules (TIME-LEAVE-DECISIONS.md, "Leave policy rules"). */
   unit: z.enum(['DAY', 'HOUR']).optional(),
+  /** An hourly type's day in hours: its allowance and balance read in hours, and an hour is this share of a day (null = 8). */
+  hoursPerDay: z.coerce.number().min(1, 'A day is at least one hour.').max(24, 'A day is at most 24 hours.').nullable().optional(),
   overBalance: z.enum(['REFUSE', 'LOSS_OF_PAY']).optional(),
   notWithTypeIds: z.array(z.string().min(1)).max(30).optional(),
   sandwichMinDays: z.coerce.number().int().min(2, 'At least two days.').max(60).nullable().optional(),
@@ -500,7 +502,7 @@ leaveRouter.put(`${base}/types/:id`, can(PermissionAction.EDIT, R.leaveTypes), a
   if (clash) return res.status(409).json(codeTaken(parsed.data.code, clash));
   try {
     const type = await peopleWrite(orgId, async () => {
-      const financial = ['isPaid', 'annualDays', 'accrual', 'prorateForJoiners', 'carryForwardMax', 'carryExpiresAfterDays', 'creditOn', 'creditDay', 'sandwich', 'accrualBasis', 'perDaysWorked', 'minDaysWorked', 'oshCarry', 'countsCalendarDays', 'unit', 'sandwichMinDays', 'sandwichWeekOffs', 'sandwichHolidays', 'sandwichIgnoreHalf'] as const;
+      const financial = ['isPaid', 'annualDays', 'accrual', 'prorateForJoiners', 'carryForwardMax', 'carryExpiresAfterDays', 'creditOn', 'creditDay', 'sandwich', 'accrualBasis', 'perDaysWorked', 'minDaysWorked', 'oshCarry', 'countsCalendarDays', 'unit', 'hoursPerDay', 'sandwichMinDays', 'sandwichWeekOffs', 'sandwichHolidays', 'sandwichIgnoreHalf'] as const;
       const next: Record<string, unknown> = { ...parsed.data, ...policy.data };
       if (Array.isArray(next.notWithTypeIds)) next.notWithTypeIds = (next.notWithTypeIds as string[]).filter((id) => id !== existing.id);
       const changed = financial.some((key) => key in next && JSON.stringify((next as any)[key]) !== JSON.stringify(existing[key]));
@@ -956,8 +958,8 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
   if ((b.startHalf || b.endHalf) && b.fromDate === b.toDate) return { error: 'For one day, choose the first or second half.' } as const;
   const longer = b.fromDate !== b.toDate;
   const edges = { halfDay: b.halfDay ?? null, startHalf: longer && Boolean(b.startHalf), endHalf: longer && Boolean(b.endHalf) };
-  /* Hourly leave: one day, quarter-hour steps, the hours counted against that day's shift. */
-  let hours: { fromTime: string; toTime: string; minutes: number; shiftMinutes: number } | null = null;
+  /* Hourly leave: one day, quarter-hour steps inside that day's shift; each hour is 1/hoursPerDay of a day (gap 23), so the balance reads the same in hours whatever the shift. */
+  let hours: { fromTime: string; toTime: string; minutes: number; dayMinutes: number } | null = null;
   if (type.unit === 'HOUR') {
     if (longer) return { error: `${type.name} is taken in hours on one day.` } as const;
     if (b.halfDay) return { error: `${type.name} is taken in hours, not half days.` } as const;
@@ -968,8 +970,7 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
     const start = minutesOf(rule.startTime);
     const end = minutesOf(rule.endTime) <= start ? minutesOf(rule.endTime) + 1440 : minutesOf(rule.endTime);
     if (minutesOf(from) < start || minutesOf(to) > end) return { error: `Hourly leave is inside the shift, ${rule.startTime} to ${rule.endTime}.` } as const;
-    const shiftMinutes = Math.max(60, end - start - (rule.breakMinutes || 0));
-    hours = { fromTime: from, toTime: to, minutes: minutesOf(to) - minutesOf(from), shiftMinutes };
+    hours = { fromTime: from, toTime: to, minutes: minutesOf(to) - minutesOf(from), dayMinutes: Math.round((type.hoursPerDay || 8) * 60) };
   } else if (b.fromTime || b.toTime) {
     return { error: `${type.name} is taken in days; hours are for an hourly type.` } as const;
   }
@@ -988,7 +989,7 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
     const dates = plan.filter((d) => d.date >= part.from && d.date <= part.to);
     const rows = rowsOf({ ...part, dates }, b);
     /* An hour's leave is its share of the shift, never more than the day. */
-    if (hours) for (const x of rows) { x.days = round(Math.min(1, hours.minutes / hours.shiftMinutes)); x.minutes = hours.minutes; }
+    if (hours) for (const x of rows) { x.days = round(Math.min(1, hours.minutes / hours.dayMinutes)); x.minutes = hours.minutes; }
     const days = round(rows.reduce((a, x) => a + x.days, 0));
     let balance: { before: number | null; after: number | null; negativeDays: number; locked?: boolean; lockedUntil?: string | null } = { before: null, after: null, negativeDays: type.negativeDays };
     if (type.isPaid && days) {
@@ -2293,7 +2294,7 @@ export async function previewOut(req: any | null, accountId: string, orgId: stri
   }
   if ('error' in plan) return { status: 200, body: { ok: false, problems: [{ code: 'INPUT', message: plan.error }], parts: [], total: 0 } };
   /* The reason is the asker's to give; the preview does not hold a draft to it. */
-  const own = { ok: !plan.problems.some((p) => p.code !== 'REASON' && p.code !== 'DOCUMENT'), type: { id: plan.type.id, name: plan.type.name, isPaid: plan.type.isPaid, isPrivate: plan.type.isPrivate, allowHalfDay: plan.type.allowHalfDay, sandwich: plan.type.sandwich, negativeDays: plan.type.negativeDays, unit: plan.type.unit, overBalance: plan.type.overBalance }, total: plan.total, split: plan.split,
+  const own = { ok: !plan.problems.some((p) => p.code !== 'REASON' && p.code !== 'DOCUMENT'), type: { id: plan.type.id, name: plan.type.name, isPaid: plan.type.isPaid, isPrivate: plan.type.isPrivate, allowHalfDay: plan.type.allowHalfDay, sandwich: plan.type.sandwich, negativeDays: plan.type.negativeDays, unit: plan.type.unit, hoursPerDay: plan.type.hoursPerDay ?? null, overBalance: plan.type.overBalance }, total: plan.total, split: plan.split,
     parts: plan.parts.map((p) => ({ year: p.year, label: p.label, from: p.from, to: p.to, days: p.days, balance: p.balance, dates: p.dates, rows: p.rows, overflow: p.overflow ? { typeName: p.overflow.typeName, from: p.overflow.from, to: p.overflow.rows[p.overflow.rows.length - 1].to, days: p.overflow.days } : null })),
     problems: plan.problems.filter((p) => p.code !== 'REASON' && p.code !== 'DOCUMENT'),
     /* Not stopping it: serving notice (WARN), days over the balance as loss of pay. */
@@ -3190,7 +3191,7 @@ leaveRouter.get('/orgs/:orgId/attendance/me/leave', can(PermissionAction.VIEW, R
       employee: { id: me.id, name: me.name },
       year,
       today: today(),
-      types: types.filter((t) => t.isActive && (eligibleFor(t as any, me as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => { const b = mine.get(t.id)!; return { id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, isPrivate: t.isPrivate, allowHalfDay: t.allowHalfDay, unit: t.unit, ...b, projectedAvailable: t.isPaid && b.fullYear != null ? round(b.fullYear - b.used - b.pending) : null }; }),
+      types: types.filter((t) => t.isActive && (eligibleFor(t as any, me as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => { const b = mine.get(t.id)!; return { id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, isPrivate: t.isPrivate, allowHalfDay: t.allowHalfDay, unit: t.unit, hoursPerDay: t.hoursPerDay ?? null, ...b, projectedAvailable: t.isPaid && b.fullYear != null ? round(b.fullYear - b.used - b.pending) : null }; }),
       requests: await withTypes(orgId, requests),
     });
   } catch (e) {

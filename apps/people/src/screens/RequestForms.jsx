@@ -197,7 +197,7 @@ function FormDrawer({ start, departments, canEdit, taken, ideas, onClose, onSave
                 {x.type === 'CHOICE' ? (
                   <label className="block">
                     <span className="ui-label">Options, one a line *</span>
-                    <textarea className="ui-input w-full" rows={3} value={x.options} onChange={(e) => setField(i, { options: e.target.value })} />
+                    <textarea className="ui-input w-full" rows={Math.min(8, Math.max(3, x.options.split("\n").length + 1))} value={x.options} onChange={(e) => setField(i, { options: e.target.value })} />
                   </label>
                 ) : null}
                 <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={x.required} onChange={(e) => setField(i, { required: e.target.checked })} /> Must be filled in</label>
