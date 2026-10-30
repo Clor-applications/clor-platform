@@ -1,3 +1,4 @@
+import { dayThisYear } from '../services/people/engagement/greetings.js';
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 
@@ -479,7 +480,6 @@ peopleRouter.get('/orgs/:orgId/people/overview', can(PermissionAction.VIEW, EMPL
     where: { accountId, orgId, ...scopeWhere(await teamScope(req)) },
     select: { id: true, name: true, status: true, departmentId: true, department: true, dateOfJoining: true, dateOfLeaving: true, dateOfBirth: true, photoUrl: true, designation: true },
   });
-  const today = new Date();
   /* India's month, and today's headcount: someone joining next week is not working here yet. */
   const todayIn = todayIst();
   const ym = todayIn.slice(0, 7);
@@ -494,10 +494,11 @@ peopleRouter.get('/orgs/:orgId/people/overview', can(PermissionAction.VIEW, EMPL
   const soon = active
     .filter((r) => r.dateOfBirth && ISO_DATE.test(r.dateOfBirth) && !optedOut.has(r.id))
     .map((r) => {
-      const [, m, d] = r.dateOfBirth!.split('-').map(Number);
-      let next = new Date(today.getFullYear(), m - 1, d);
-      if (next < new Date(today.getFullYear(), today.getMonth(), today.getDate())) next = new Date(today.getFullYear() + 1, m - 1, d);
-      return { id: r.id, name: r.name, photoUrl: r.photoUrl, date: next.toISOString().slice(0, 10), days: Math.round((next.getTime() - today.getTime()) / 86_400_000) };
+      /* Worked in India's calendar days, as strings: a server clock in another zone shifted it by a day. */
+      const year = Number(todayIn.slice(0, 4));
+      let next = dayThisYear(r.dateOfBirth!, year);
+      if (next < todayIn) next = dayThisYear(r.dateOfBirth!, year + 1);
+      return { id: r.id, name: r.name, photoUrl: r.photoUrl, date: next, days: Math.round((Date.parse(`${next}T00:00:00Z`) - Date.parse(`${todayIn}T00:00:00Z`)) / 86_400_000) };
     })
     .filter((b) => b.days <= 30)
     .sort((a, b) => a.days - b.days)

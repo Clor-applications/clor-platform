@@ -126,6 +126,7 @@ export async function clearanceFor(orgId: string, employeeId: string, viewer: { 
     signedAt: r.signedAt,
     updatedAt: r.updatedAt,
     canSign: viewer.hr || (Boolean(r.ownerUserId) && r.ownerUserId === viewer.userId),
+    mine: Boolean(r.ownerUserId) && r.ownerUserId === viewer.userId,
   }));
   const sum = (d: string) => round2(lines.filter((l) => l.direction === d).reduce((t, l) => t + l.amount, 0));
   return {
@@ -207,7 +208,12 @@ export async function updateLine(who: Who, id: string, input: LineInput, can: { 
   const r = await peoplePrisma.clearanceLine.updateMany({ where: { id: line.id, orgId: who.orgId, updatedAt: line.updatedAt, ...(input.sign === false ? {} : { status: 'OPEN' }) }, data: data as any });
   if (!r.count) throw new ClearanceError('Someone changed this line at the same time. Open it again.', 409, 'STALE');
   if (returnedAssets.length) {
-    await peoplePrisma.peopleRecord.updateMany({ where: { orgId: who.orgId, id: { in: returnedAssets }, kind: 'assets', status: 'ASSIGNED', employeeId: line.employeeId }, data: { status: 'RETURNED' } });
+    const assets = await peoplePrisma.peopleRecord.findMany({ where: { orgId: who.orgId, id: { in: returnedAssets }, kind: 'assets', status: 'ASSIGNED', employeeId: line.employeeId }, select: { id: true, title: true } });
+    await peoplePrisma.peopleRecord.updateMany({ where: { orgId: who.orgId, id: { in: assets.map((a) => a.id) }, status: 'ASSIGNED' }, data: { status: 'RETURNED' } });
+    /* The plan's "Return <asset>" step is the same fact: ticked with it. */
+    for (const a of assets) {
+      await peoplePrisma.checklistTask.updateMany({ where: { orgId: who.orgId, employeeId: line.employeeId, kind: 'LEAVING', doneAt: null, title: { startsWith: `Return ${a.title}` } }, data: { doneAt: new Date(), doneByUserId: who.userId, note: 'Ticked back on the no-dues line.' } });
+    }
   }
   return lineIn(who.orgId, id);
 }

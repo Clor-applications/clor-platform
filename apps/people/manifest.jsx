@@ -176,6 +176,9 @@ const ShiftSwaps = screen('ShiftSwaps');
 const MyRequests = screen('MyRequests');
 /* Attendance rules: late marks, absences, night-work consent (WORKFLOW-GAP-RESEARCH 4.4, 4.6, B19). */
 const AttendanceRulesSettings = screen('AttendanceRulesSettings');
+/* Settings → Automations and Exit interview (WORKFLOW-GAP-RESEARCH 4.7, 4.9). */
+const Automations = screen('Automations');
+const ExitQuestions = screen('ExitQuestions');
 const LateMarks = screen('LateMarks');
 const Absences = screen('Absences');
 const NightWork = screen('NightWork');
@@ -402,6 +405,8 @@ export const peopleApp = {
     { key: 'absences', label: 'Absences', icon: I.leaver, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'nightWork', label: 'Night work', icon: I.policy, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'attendanceRules', label: 'Attendance rules', icon: I.policy, permission: 'ATTENDANCE::Attendance Requests::VIEW', parent: 'settings' },
+    { key: 'automations', label: 'Automations', icon: I.policy, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
+    { key: 'exitQuestions', label: 'Exit interview', icon: I.policy, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     { key: 'myRequests', label: 'My requests', icon: I.requests, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'timeOverview', label: "Who's away", icon: I.away, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRequests', label: 'Leave requests', short: 'Leave', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
@@ -519,6 +524,8 @@ export const peopleApp = {
     absences: Absences,
     nightWork: NightWork,
     attendanceRules: AttendanceRulesSettings,
+    automations: Automations,
+    exitQuestions: ExitQuestions,
     myRequests: MyRequests,
     selfService: PortalAccess,
     timeOverview: withSidePanel(TimeOverview, panel('TimeOverviewPanel')),

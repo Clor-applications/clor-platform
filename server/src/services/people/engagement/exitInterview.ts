@@ -138,7 +138,8 @@ function shape(r: Row, opts: { answers: boolean }) {
     id: r.id,
     employeeId: r.employeeId,
     lastDay: r.leavingDate,
-    dueBy: plusDays(r.leavingDate, -2),
+    /* Two days before the last day; once that has passed, the last day itself; nothing once they have gone. */
+    dueBy: plusDays(r.leavingDate, -2) >= today() ? plusDays(r.leavingDate, -2) : r.leavingDate >= today() ? r.leavingDate : null,
     status: r.status,
     questions,
     answers: opts.answers && !r.erasedAt ? (r.answers as Record<string, string>) : null,

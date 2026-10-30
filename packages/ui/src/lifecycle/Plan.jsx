@@ -9,8 +9,9 @@ import { notify } from '@ui/components/ui/notify';
 import { getChecklist } from '@ui/personnel/api';
 import { hasApp } from '@platform/context';
 
-import { OWNER_WORD, leavingPreview, startPlan } from './api';
+import { OWNER_WORD, leavingExtras, leavingPreview, startPlan } from './api';
 import { TaskDrawer, readerWords } from './shared';
+import LeavingSections, { FinalPayBanner } from './LeavingExtras';
 
 /**
  * One person's joining or leaving plan, from the Joining and Leaving lists:
@@ -22,6 +23,9 @@ import { TaskDrawer, readerWords } from './shared';
 export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, onClose, onChanged }) {
   const plan = useRequest(() => getChecklist(row.id), [row.id]);
   const preview = useRequest(() => (kind === 'LEAVING' ? leavingPreview(row.id) : Promise.resolve(null)), [row.id, kind]);
+  /* The final-pay clock, no-dues and exit interview (WORKFLOW-GAP-RESEARCH 4.3, 4.9); a refusal or failure just leaves them out. */
+  const extras = useRequest(() => (kind === 'LEAVING' ? leavingExtras(row.id).catch(() => null) : Promise.resolve(null)), [row.id, kind]);
+  const extrasChanged = () => { extras.reload(); onChanged?.(); };
   const [task, setTask] = useState(null);
   const [starting, setStarting] = useState(false);
   const list = plan.data?.[kind === 'JOINING' ? 'joining' : 'leaving'];
@@ -46,6 +50,7 @@ export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, 
         <button type="button" className="ui-btn ui-btn-primary" onClick={onClose}>Close</button>
       </>}>
       <div className="grid gap-6">
+        {kind === 'LEAVING' && extras.data?.finalPay ? <FinalPayBanner clock={extras.data.finalPay} /> : null}
         {kind === 'JOINING' && row.invite ? <p className="text-sm">Joining form: {{ SENT: 'sent, not opened yet', STARTED: 'opened, not sent back', RETURNED: 'sent back: check it on their record', CHECKED: 'checked', EXPIRED: 'the link ran out', CANCELLED: 'cancelled' }[row.invite.status] || row.invite.status.toLowerCase()}.</p> : null}
         {plan.error && !plan.data ? <ErrorState error={plan.error} onRetry={plan.reload} compact /> : !list ? <SkeletonCard lines={5} /> : list.total ? (
           <section aria-label="Steps" className="space-y-2">
@@ -85,8 +90,9 @@ export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, 
             {p.assets.length ? <p className="text-sm">They hold {p.assets.map((a) => `${a.title}${a.tag ? ` (${a.tag})` : ''}`).join(', ')}. Each is a step above; open items never hold up final wages.</p> : null}
           </section>
         ) : null}
-        {/* The money side of leaving is Payroll's: one link to its full and final settlement (gap 15). */}
-        {kind === 'LEAVING' && hasApp('payroll') ? (
+        {/* The final-pay clock, no-dues sign-off and exit interview (WORKFLOW-GAP-RESEARCH 4.3, 4.9); the money itself is Payroll's full and final (gap 15). */}
+        {kind === 'LEAVING' ? <LeavingSections data={extras.data} employeeId={row.id} name={row.name} onChanged={extrasChanged} /> : null}
+        {kind === 'LEAVING' && hasApp('payroll') && !extras.data?.finalPay ? (
           <section aria-label="Final pay" className="space-y-1">
             <h3 className="ui-t-sec">Final pay</h3>
             <p className="text-sm">Dues, recoveries and the final payslip are worked out in Payroll. <a className="ui-link" href="?app=payroll&open=settlements">Open full and final settlement</a></p>

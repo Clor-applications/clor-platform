@@ -22,6 +22,7 @@ import { MonthReview, MyOvertime } from './MonthAndOvertime';
 import ShiftSwaps from './ShiftSwaps';
 import MyForms from './MyForms';
 import { FixNotices, MyMarks, NightConsent } from './TimeRules';
+import { Celebrations, ExitInterview, TodayPosts } from './Engagement';
 import {
   SignedOut,
   acceptItem,
@@ -158,7 +159,7 @@ export default function EmployeePortal() {
 
       <main className="mx-auto max-w-md space-y-4 px-4 py-4">
         {error ? <div className="ui-card p-4 text-sm" role="alert">{error}</div> : null}
-        {tab === 'today' ? <><WhatsNew guard={guard} /><FixNotices guard={guard} onFix={(f) => { setFix(f); setTab('days'); }} /><Today me={me} reload={loadMe} guard={guard} /><CompanyUpdates guard={guard} /></> : null}
+        {tab === 'today' ? <><WhatsNew guard={guard} /><FixNotices guard={guard} onFix={(f) => { setFix(f); setTab('days'); }} /><Today me={me} reload={loadMe} guard={guard} /><TodayPosts guard={guard} /><CompanyUpdates guard={guard} /></> : null}
         {tab === 'days' ? <><MyDays guard={guard} fix={fix} onFixUsed={() => setFix(null)} /><MonthReview guard={guard} /><MyOvertime guard={guard} /></> : null}
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
         {tab === 'schedule' ? <><ShiftSwaps guard={guard} onChanged={() => setScheduleKey((n) => n + 1)} /><MySchedule key={scheduleKey} guard={guard} /></> : null}
@@ -167,6 +168,7 @@ export default function EmployeePortal() {
           <>
             {/* Steps that are mine while I join or leave come first: they have dates. */}
             <MySteps guard={guard} refreshKey={leavingSent} />
+            <ExitInterview guard={guard} refreshKey={leavingSent} />
             <MyJobs guard={guard} />
             <MyGrowth guard={guard} />
             <Payslips guard={guard} />
@@ -174,6 +176,7 @@ export default function EmployeePortal() {
             <MyDetails guard={guard} refreshKey={leavingSent} />
             <MyForms guard={guard} />
             <NightConsent guard={guard} />
+            <Celebrations guard={guard} />
             <Policies guard={guard} />
             {deskOn ? <PayCard onAsk={askBank} /> : null}
             <AskHr guard={guard} preset={askPreset} onPresetUsed={presetUsed} onAvailability={setDeskOn} />

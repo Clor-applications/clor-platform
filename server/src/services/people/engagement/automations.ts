@@ -167,18 +167,21 @@ async function finishDay(orgId: string, key: RecipeKey, ranOn: string, count: nu
 
 /** The screen: every recipe with its setting, last run (by this company), how many, to whom, and the next run. */
 export async function listAutomations(orgId: string, now = new Date()) {
-  const [settings, runs, attendance, jobRuns] = await Promise.all([
+  const today = todayIst(now);
+  const [settings, runs, attendance, jobRuns, ranToday] = await Promise.all([
     automationsFor(orgId),
     peoplePrisma.automationRun.findMany({ where: { orgId, count: { gt: 0 } }, orderBy: { ranOn: 'desc' }, take: 400 }),
     peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }),
     platformPrisma.jobRun.findMany({ where: { worker: { in: [...new Set(RECIPES.map((r) => r.job))] }, outcome: 'OK' }, orderBy: { startedAt: 'desc' }, take: 200, select: { worker: true, startedAt: true } }).catch(() => []),
+    /* Today's claims, sent or not: a recipe that ran this morning with nobody to tell runs again tomorrow. */
+    peoplePrisma.automationRun.findMany({ where: { orgId, ranOn: today }, select: { key: true } }),
   ]);
+  const doneToday = new Set(ranToday.map((r) => r.key));
   const time = rulesOf(attendance);
   const lastOf = new Map<string, (typeof runs)[number]>();
   for (const r of runs) if (!lastOf.has(r.key)) lastOf.set(r.key, r);
   const checked = new Map<string, Date>();
   for (const j of jobRuns) if (!checked.has(j.worker)) checked.set(j.worker, j.startedAt);
-  const today = todayIst(now);
   return RECIPES.map((r) => {
     const s = r.key === 'missingPunch' ? { on: Boolean(time.nudge.on), n: null } : r.key === 'absence' ? { on: Boolean(time.absence.on), n: null } : settings[r.key];
     const last = lastOf.get(r.key);
@@ -195,7 +198,7 @@ export async function listAutomations(orgId: string, now = new Date()) {
       when: r.when,
       lastRun: last ? { on: last.ranOn, count: last.count, recipients: last.recipients as string[] } : null,
       lastChecked,
-      nextRun: !s.on ? null : r.job === 'people.automations' ? (lastOf.get(r.key)?.ranOn === today || (lastChecked && istDate(lastChecked) === today && istHour(now) >= 8) ? 'Tomorrow morning' : 'This morning') : r.when,
+      nextRun: !s.on ? null : r.job === 'people.automations' ? (doneToday.has(r.key) ? 'Tomorrow morning' : istHour(now) < 8 ? 'This morning' : 'Within the hour') : r.when,
     };
   });
 }

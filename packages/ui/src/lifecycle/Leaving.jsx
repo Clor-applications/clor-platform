@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { UserMinus } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
@@ -39,6 +39,16 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
   const tabsRef = useRef(null);
   const tabIndicator = useTabIndicator(tabsRef, view);
   const counts = list.data?.counts || {};
+  /* Opened from a notice (final pay due, a line to sign, an exit interview answered): the plan of that person. */
+  useEffect(() => {
+    if (!p.open) return undefined;
+    let live = true;
+    const found = (list.data?.rows || []).find((r) => r.id === p.open);
+    const take = (r) => { if (live && r) { setOpen(r); updateParams?.({ open: null }, { push: false }); } };
+    if (found) take(found);
+    else if (list.data) pageLeavers({ view: 'all', limit: 100 }).then((d) => take((d?.rows || []).find((r) => r.id === p.open))).catch(() => {});
+    return () => { live = false; };
+  }, [p.open, list.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (r) => <PersonCell person={r} line={[r.code, r.leavingType ? TYPE_WORD[r.leavingType] || r.leavingType : r.designation].filter(Boolean).join(' · ')} /> },

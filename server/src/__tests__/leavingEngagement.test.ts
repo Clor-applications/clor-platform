@@ -164,6 +164,9 @@ describe('no-dues sign-off and the final-pay clock (4.3)', () => {
     await ppl(c, 'patch', `/clearance-lines/${it.id}`, { items: it.items.map((i: any) => ({ ...i, returned: true })), seenAt: it.updatedAt }).expect(200);
     const asset = await inTenant(c, () => peoplePrisma.peopleRecord.findFirst({ where: { orgId: c.orgId, kind: 'assets', employeeId: leaver.id } }));
     expect(asset!.status).toBe('RETURNED');
+    /* The plan's own "Return Laptop" step is the same fact, ticked with it. */
+    const step = await inTenant(c, () => peoplePrisma.checklistTask.findFirst({ where: { orgId: c.orgId, employeeId: leaver.id, kind: 'LEAVING', title: { startsWith: 'Return Laptop' } } }));
+    if (step) expect(step.doneAt).not.toBeNull();
     expect((await ppl(c, 'patch', `/clearance-lines/${it.id}`, { note: 'old view', seenAt: it.updatedAt }).expect(409)).body.code).toBe('STALE');
   });
 
@@ -251,6 +254,7 @@ describe('exit interviews (4.9)', () => {
     expect(i.purpose).toMatch(/kept for 24 months/);
     expect(i.status).toBe('OPEN');
     expect(i.dueBy).toBe(plus(istToday(), 12));
+    expect(i.lastDay).toBe(plus(istToday(), 14));
     expect((await app1.post('/people/engage/exit-interview', { answers: { ...answers, reason: '' } }).expect(400)).body.error).toMatch(/main reason/);
     await app1.post('/people/engage/exit-interview', { answers: { ...answers, reason: 'NOT_A_CODE' } }).expect(400);
   });
@@ -450,7 +454,8 @@ describe('ready-made automations (4.7)', () => {
     const r = (await ppl(c, 'put', '/automations', { automations: { probationEnds: { n: 15 }, policyAccept: { on: true, n: 5 }, taskDigest: { on: false } } }).expect(200)).body.automations;
     const of = (k: string) => r.find((a: any) => a.key === k);
     expect(of('probationEnds')).toMatchObject({ on: true, n: 15 });
-    expect(of('policyAccept')).toMatchObject({ on: true, n: 5, nextRun: 'This morning' });
+    expect(of('policyAccept')).toMatchObject({ on: true, n: 5 });
+    expect(['This morning', 'Within the hour']).toContain(of('policyAccept').nextRun);
     expect(of('taskDigest').on).toBe(false);
     /* Another company's are untouched. */
     const o = (await ppl(other, 'get', '/automations').expect(200)).body.automations;
