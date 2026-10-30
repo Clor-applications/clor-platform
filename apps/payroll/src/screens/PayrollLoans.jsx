@@ -45,6 +45,7 @@ const STATUS = {
 const INSTALLMENT = {
   PENDING: { label: 'Due', tone: 'ui-pill-neutral' },
   RECOVERED: { label: 'Taken', tone: 'ui-pill-pos' },
+  SETTLED: { label: 'Settled at exit', tone: 'ui-pill-pos' },
   SKIPPED: { label: 'Skipped', tone: 'ui-pill-warn' },
   WAIVED: { label: 'Written off', tone: 'ui-pill-warn' },
 };
@@ -577,7 +578,7 @@ const LoanDetail = ({ loanId, onBack }) => {
                 {loan.installments.map((i) => (
                   <tr key={i.id}>
                     <td className="ui-num">{i.sequence}</td>
-                    <td className="ui-col-meta">{i.periodName || 'A month not on the calendar yet'}</td>
+                    <td className="ui-col-meta">{i.carriedFromId ? `Next payroll, carried from ${i.carriedFromPeriodName || 'an earlier month'}` : i.periodName || 'A month not on the calendar yet'}</td>
                     <td className="ui-num">{money(i.dueAmount)}</td>
                     <td className="ui-num">{i.interestAmount ? money(i.interestAmount) : '—'}</td>
                     <td className="ui-col-h-center">

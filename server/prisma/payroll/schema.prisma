@@ -135,6 +135,10 @@ model FinalSettlement {
   approvedAt       DateTime?
   paidAt           DateTime?
   paidReference    String?
+  /// When the People records this settlement settles (expense advances
+  /// recovered, claims paid) were closed. Null until then; closing is
+  /// idempotent, so a retry closes nothing twice.
+  sourcesClosedAt  DateTime?
 
   @@index([accountId, orgId, status])
   @@index([orgId, employeeId])
@@ -552,6 +556,13 @@ model PayrollAdjustment {
   /// The run that consumed it, so it can be traced back from a payslip.
   consumedByRunId String?
 
+  /// A deduction a run could not take in full (the 50% limit, or net pay)
+  /// carries the rest to the next run as a new adjustment: this is the one it
+  /// came from, and the run that carried it. Undone when that run is
+  /// recalculated or cancelled.
+  carriedFromId  String?
+  carriedByRunId String?
+
   approvedByUserId String?
   approvedAt       DateTime?
 
@@ -561,6 +572,7 @@ model PayrollAdjustment {
 
   @@index([accountId, orgId, periodId, status])
   @@index([accountId, orgId, employeeId, periodId])
+  @@index([orgId, carriedByRunId])
 }
 
 /// One payroll, for one period and population.
@@ -618,6 +630,11 @@ model PayrollRun {
   /// days }. Null when the pull counted none. The next month's pull compares
   /// each one with what happened and adds a correction.
   provisionalDays Json?
+
+  /// Deductions held to the legal share of wages (PayrollSetting
+  /// deductionCapPercent): { percent, people, carried } — how many payslips
+  /// had a loan or advance instalment carried to the next run, and how much.
+  deductionCap Json?
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -751,6 +768,10 @@ model SalarySlip {
   adjustmentSnapshotJson String @default("[]")
   /// { PF: ruleId+version, ESI: …, PT: …, TDS: … }
   statutorySnapshotJson  String @default("{}")
+  /// Deductions held to the legal share of wages for this payslip:
+  /// { percent, wages, limit, counted, carried: [{ label, amount }] }. Null
+  /// when nothing was held back.
+  deductionNote Json?
 
   /// The engine that produced this, so the result can be reproduced exactly.
   engineVersion String?
@@ -904,12 +925,20 @@ model PayrollLoanInstallment {
   principalAmount Decimal @default(0)
   interestAmount  Decimal @default(0)
 
-  /// PENDING | RECOVERED | SKIPPED | WAIVED
+  /// PENDING | RECOVERED | SKIPPED | WAIVED | SETTLED (recovered in a full and final settlement)
   status String @default("PENDING")
 
   /// The slip that actually recovered it.
   slipId      String?
   recoveredAt DateTime?
+
+  /// What a payslip could not take of an earlier instalment (the 50% limit,
+  /// or net pay) is written as a new instalment carried to the next run:
+  /// the instalment it came from, the run that carried it and that run's
+  /// period. Its periodId stays null; any later run for the person takes it.
+  carriedFromId       String?
+  carriedByRunId      String?
+  carriedFromPeriodId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -918,6 +947,7 @@ model PayrollLoanInstallment {
 
   @@unique([loanId, sequence])
   @@index([accountId, orgId, loanId, status])
+  @@index([orgId, carriedByRunId])
 }
 
 /// A statutory regime payroll can compute: PF, ESI, PT, TDS.
@@ -1228,6 +1258,15 @@ model PayrollSetting {
   /// Day of the month after which a pay run counts the remaining days as
   /// present (payrollProvisionalDays). Read only while that feature is on.
   provisionalCutoffDay Int @default(25)
+
+  /// Total deductions authorised from wages may not pass this share of the
+  /// wages for the period (Code on Wages 2019 s.18(2); Payment of Wages Act
+  /// s.7(3) before it). Loan and advance instalments past it carry to the
+  /// next run.
+  deductionCapPercent         Int     @default(50)
+  /// Whether PF, ESI, professional tax and income tax count toward the
+  /// share. Read differently in practice; counted by default.
+  deductionCapCountsStatutory Boolean @default(true)
 
   updatedByUserId String
   createdAt       DateTime @default(now())

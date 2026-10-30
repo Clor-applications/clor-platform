@@ -64,6 +64,9 @@ const shapeInstallment = (i: any, extra: Record<string, unknown> = {}) => ({
   status: i.status,
   slipId: i.slipId || null,
   recoveredAt: i.recoveredAt || null,
+  /* The rest of an earlier instalment a payroll could not take (the 50% limit, or net pay), and the month it came from. */
+  carriedFromId: i.carriedFromId || null,
+  carriedFromPeriodId: i.carriedFromPeriodId || null,
   ...extra,
 });
 
@@ -136,6 +139,7 @@ payrollLoansRouter.get(
         installments: loan.installments.map((i) =>
           shapeInstallment(i, {
             periodName: i.periodId ? byPeriod.get(i.periodId) || '' : '',
+            carriedFromPeriodName: i.carriedFromPeriodId ? byPeriod.get(i.carriedFromPeriodId) || '' : '',
             slipNumber: i.slipId ? bySlip.get(i.slipId) || '' : '',
           })
         ),

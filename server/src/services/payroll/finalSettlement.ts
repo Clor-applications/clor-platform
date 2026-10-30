@@ -2,6 +2,7 @@ import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { round2 } from '../../utils/money.js';
 import { balancesFor, leaveYearOf } from '../attendance/leaveBalances.js';
+import { peopleMoneyLines } from './finalSettlementSources.js';
 
 /**
  * Full and final settlement: what is still owed to, or by, somebody who has
@@ -15,12 +16,23 @@ import { balancesFor, leaveYearOf } from '../attendance/leaveBalances.js';
  *   five years. The minimum and the cap are parameters, not facts this code
  *   keeps — check them against the law in force.
  * - Leave encashment: paid leave still available, at a day's wages (÷ 26).
- * - Loans and advances still outstanding: recovered.
+ * - Loans and salary advances still outstanding: recovered.
+ * - Expense advances not settled: recovered; expense claims approved and
+ *   unpaid: paid; deductions a payroll carried forward: recovered
+ *   (finalSettlementSources.ts). Each line names its record.
  * - The salary for the final month is paid by the pay run for that period
  *   (it prorates to the leaving date), so it is shown here, not added.
  */
 
-export type SettlementLine = { code: string; label: string; kind: 'EARNING' | 'DEDUCTION' | 'INFO'; amount: number; explanation: string };
+export type SettlementLine = {
+  code: string;
+  label: string;
+  kind: 'EARNING' | 'DEDUCTION' | 'INFO';
+  amount: number;
+  explanation: string;
+  /** The record the line comes from, closed when the settlement is paid (finalSettlementSources.ts). */
+  source?: { type: 'LOAN' | 'ADVANCE' | 'CLAIM' | 'CARRY'; id: string; ref?: string | null };
+};
 
 export const GRATUITY_DEFAULTS = { minimumYears: 5, cap: 2_000_000 };
 
@@ -136,11 +148,23 @@ export async function proposeSettlement(accountId: string, orgId: string, employ
     });
   }
 
-  const loans = await payrollPrisma.payrollLoan.findMany({ where: { orgId, employeeId, status: 'ACTIVE' }, select: { type: true, outstandingBalance: true } });
+  const loans = await payrollPrisma.payrollLoan.findMany({ where: { orgId, employeeId, status: 'ACTIVE' }, select: { id: true, number: true, type: true, principal: true, outstandingBalance: true }, orderBy: { createdAt: 'asc' } });
   for (const l of loans) {
     const owed = round2(Number(l.outstandingBalance));
-    if (owed > 0) lines.push({ code: 'LOAN_RECOVERY', label: l.type === 'SALARY_ADVANCE' ? 'Advance recovery' : 'Loan recovery', kind: 'DEDUCTION', amount: owed, explanation: 'Still outstanding.' });
+    if (owed > 0) {
+      lines.push({
+        code: `LOAN_${l.number}`.replace(/[^A-Z0-9_-]+/gi, '_').slice(0, 40),
+        label: `${l.type === 'SALARY_ADVANCE' ? 'Salary advance' : 'Loan'} ${l.number} recovery`,
+        kind: 'DEDUCTION',
+        amount: owed,
+        explanation: `${l.type === 'SALARY_ADVANCE' ? 'Salary advance' : 'Loan'} of ₹${Number(l.principal).toLocaleString('en-IN')}; ₹${owed.toLocaleString('en-IN')} still to recover, including any instalment a payroll carried forward.`,
+        source: { type: 'LOAN', id: l.id, ref: l.number },
+      });
+    }
   }
+
+  /* Expense advances and claims from People, and deductions a payroll carried forward. */
+  lines.push(...(await peopleMoneyLines(orgId, employeeId)));
 
   lines.push({ code: 'NOTICE', label: 'Notice pay', kind: 'EARNING', amount: 0, explanation: 'Owed to them, or enter it as a deduction if they did not serve their notice.' });
 

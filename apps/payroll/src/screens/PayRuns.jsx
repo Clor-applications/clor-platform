@@ -47,6 +47,7 @@ import {
 import LoadFailed from "../components/LoadFailed";
 import { LopCheckPanel, ProvisionalNotice } from "../components/RunGuards";
 import { ProvisionalDaysNotice } from "../components/ProvisionalDaysSetting";
+import { DeductionCapNotice } from "../components/DeductionCapSetting";
 import { openMonthsOf } from "../components/runGuardText";
 
 /**
@@ -443,6 +444,8 @@ const RunWorkflow = ({ runId, onBack }) => {
 
       {/* Days after the company's cut-off paid as present before they happened (O-11). */}
       <ProvisionalDaysNotice run={run} />
+      {/* Instalments the legal share of wages moved to next month. */}
+      <DeductionCapNotice run={run} />
 
       {errorCount > 0 || warningCount > 0 ? (
         <div className="flex flex-wrap items-center gap-3">
@@ -830,7 +833,9 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
           (out.provisionalMessage ? ` ${out.provisionalMessage}` : "") +
           ((out.corrections || []).length
             ? ` ${out.corrections.length} ${out.corrections.length === 1 ? "correction" : "corrections"} for last month’s counted days added to this payroll.`
-            : ""),
+            : "") +
+          /* Each in its own words: one with no payslip to price it on has to be added by hand, so it is never left unsaid. */
+          (out.latePenalties || []).map((p) => ` ${p.name}: ${p.reason}.`).join(""),
       );
       onSaved();
     } catch (e) {

@@ -16,7 +16,9 @@ import { daysBetween as datesBetween, periodRows } from '../services/attendance/
 import { leaveLossOfPay } from '../services/attendance/payableDays.js';
 import { provisionalWarning, snapshotChange, snapshotRows, takenMonths } from '../services/payroll/attendanceSnapshots.js';
 import { runLopCheck } from '../services/payroll/readinessTower.js';
-import { correctProvisionalDays, cutoffDateFor, ordinal, provisionalMessage, provisionalPeriodRows, provisionalSetting } from '../services/payroll/provisionalDays.js';
+import { catchUpLatePenalties, correctProvisionalDays, cutoffDateFor, lateMarkMonthsOwed, ordinal, provisionalMessage, provisionalPeriodRows, provisionalSetting } from '../services/payroll/provisionalDays.js';
+import { CarryTakenError, carriesTakenElsewhere, rederiveLoans, undoCarries } from '../services/payroll/run.js';
+import { capMessage } from '../services/payroll/deductionCap.js';
 import { Prisma } from '../generated/payroll/index.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
@@ -75,6 +77,9 @@ const shape = (row: any, extra: Record<string, unknown> = {}) => ({
   /* Days after the company's cut-off counted as present (payrollProvisionalDays): { cutoffDate, from, to, people, days }, and the sentence the run screen shows. */
   provisionalDays: row.provisionalDays ?? null,
   provisionalMessage: row.provisionalDays && (row.provisionalDays as any).people ? provisionalMessage(row.provisionalDays as any) : null,
+  /* Deductions held to the legal share of wages (deductionCap.ts): { percent, people, carried }, and the sentence. */
+  deductionCap: row.deductionCap ?? null,
+  deductionCapMessage: row.deductionCap ? capMessage(row.deductionCap as any) : null,
   createdAt: row.createdAt,
   ...extra,
 });
@@ -424,6 +429,11 @@ payrollRunsRouter.post(
       const { undecidedIn } = await import('../services/attendance/markRules.js');
       /* Paid before the month ends (cut-off): only months that have ended by the cut-off are decided now. */
       const undecided = await undecidedIn(accountId, orgId, datesBetween(period.startDate, cutoffDate && cutoffDate < period.endDate ? cutoffDate : period.endDate), [...inRun]);
+      /* And the months an earlier run's cut-off left uncharged, which this pull charges (catchUpLatePenalties). */
+      for (const owed of await lateMarkMonthsOwed(orgId, period, [...inRun])) {
+        const { daysOfMonth } = await import('../services/attendance/days.js');
+        undecided.push(...(await undecidedIn(accountId, orgId, daysOfMonth(owed.month), owed.employeeIds)));
+      }
       if (undecided.length) {
         const names = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: undecided.map((u) => u.employeeId) } }, select: { name: true } });
         const month = undecided[0].month;
@@ -488,6 +498,8 @@ payrollRunsRouter.post(
     await payrollPrisma.payrollRun.update({ where: { id: run.id }, data: { attendanceSnapshots: taken as any, provisionalDays: provisionalDays ?? Prisma.DbNull } });
     /* Last month's assumed days against what happened, booked as corrections in this period (nothing when no earlier run assumed any). */
     const corrections = await correctProvisionalDays({ accountId, orgId, run, period, employeeIds: [...inRun], userId: req.auth!.userId });
+    /* Late-mark penalties for a month whose last day fell after an earlier run's cut-off: charged here, once. */
+    const latePenalties = await catchUpLatePenalties({ accountId, orgId, run, period, employeeIds: [...inRun], userId: req.auth!.userId });
     const openMonths = taken.filter((t) => !t.closed).map((t) => t.month);
     res.json({
       attendanceSnapshots: taken.filter((t) => t.closed),
@@ -508,6 +520,8 @@ payrollRunsRouter.post(
       provisionalMessage: provisionalDays?.people ? provisionalMessage(provisionalDays) : null,
       /* Corrections booked for days an earlier run counted as present. */
       corrections: corrections.filter((c) => c.type),
+      /* Late-mark penalties caught up from a month an earlier cut-off left uncharged. */
+      latePenalties: latePenalties.filter((p) => p.amount > 0 || p.status === 'NONE'),
     });
   }
 );
@@ -659,7 +673,14 @@ payrollRunsRouter.post(
     if (!run) return;
     if (!editable(run, res)) return;
 
-    const { slips, issues } = await calculateRun(orgId, run.id, req.auth!.userId);
+    let calculated;
+    try {
+      calculated = await calculateRun(orgId, run.id, req.auth!.userId);
+    } catch (e) {
+      if (e instanceof CarryTakenError) return res.status(409).json({ error: e.message, code: e.code });
+      throw e;
+    }
+    const { slips, issues } = calculated;
     const errors = issues.filter((i) => i.severity === 'ERROR');
     if (errors.length) {
       return res.status(409).json({
@@ -802,6 +823,10 @@ payrollRunsRouter.post(
         return res.status(403).json({ error: 'Only somebody who can approve payroll can cancel an approved one.', code: 'APPROVE_REQUIRED' });
       }
     }
+    /* What this payroll carried forward, a later one has taken: that one stands on this. */
+    if (await carriesTakenElsewhere(orgId, run.id)) {
+      return res.status(409).json({ error: 'A later payroll has already taken a deduction this one carried forward. Cancel that payroll first.', code: 'CARRY_TAKEN' });
+    }
     /* What is about to be removed, kept in the audit log for good. */
     const gone = await payrollPrisma.salarySlip.findMany({
       where: { orgId, runId: run.id },
@@ -812,13 +837,25 @@ payrollRunsRouter.post(
     const updated = await payrollPrisma.$transaction(async (tx) => {
       const slips = await tx.salarySlip.findMany({ where: { orgId, runId: run.id }, select: { id: true } });
       const ids = slips.map((s) => s.id);
+      /*
+       * What the payslips took goes back to being owed: carried deductions
+       * back on what they came from, instalments to pending, one-off
+       * adjustments to approved, so the next payroll takes them.
+       */
+      const undone = await undoCarries(tx, orgId, run.id);
+      const instalments = ids.length ? await tx.payrollLoanInstallment.findMany({ where: { orgId, slipId: { in: ids } }, select: { loanId: true } }) : [];
+      if (ids.length) await tx.payrollLoanInstallment.updateMany({ where: { orgId, slipId: { in: ids }, status: 'RECOVERED' }, data: { status: 'PENDING', slipId: null, recoveredAt: null } });
+      await tx.payrollAdjustment.updateMany({ where: { orgId, consumedByRunId: run.id, status: 'CONSUMED' }, data: { status: 'APPROVED', consumedByRunId: null } });
+      await rederiveLoans(tx, orgId, [...undone.loanIds, ...instalments.map((i) => i.loanId)]);
       if (ids.length) {
         await tx.payrollCalculationTrace.deleteMany({ where: { slipId: { in: ids } } });
         await tx.salarySlipLine.deleteMany({ where: { slipId: { in: ids } } });
         await tx.salarySlip.deleteMany({ where: { id: { in: ids } } });
       }
-      return tx.payrollRun.update({ where: { id: run.id }, data: { status: 'CANCELLED' } });
+      return tx.payrollRun.update({ where: { id: run.id }, data: { status: 'CANCELLED', deductionCap: Prisma.DbNull } });
     });
+    /* Leave paid out by these payslips is owed again (the earning is canonical; see calculateRun). */
+    await peoplePrisma.leaveAdjustment.updateMany({ where: { orgId, paidInRunId: run.id }, data: { paidInRunId: null } });
     await recordAudit(req, {
       entity: 'PAYROLL_RUN',
       entityId: run.id,

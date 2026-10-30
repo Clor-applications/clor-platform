@@ -1,20 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, Handshake, Plus, RotateCcw, Trash2, UserMinus, Wallet } from 'lucide-react';
+import { AlertTriangle, Check, Handshake, PauseCircle, Plus, RotateCcw, Trash2, UserMinus, Wallet } from 'lucide-react';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import SuggestInput from '@ui/components/ui/SuggestInput';
 import Drawer from '@ui/components/ui/Drawer';
 import { formatDateIn } from '@ui/utils/dates';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import {
   approveSettlement,
   cancelSettlement,
+  closeSettlementSources,
   listSettlements,
   markSettlementPaid,
   recalculateSettlement,
+  releaseSettlementHold,
   startSettlement,
   updateSettlement,
 } from '../api/payrollSettlements';
@@ -31,7 +34,11 @@ const KINDS = [
   { id: 'INFO', label: 'Note' },
 ];
 
-const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+const money = (n) => `${Number(n) < 0 ? '− ' : ''}₹${Math.abs(Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+/* Where a line comes from, in words: the record paying it closes. */
+const SOURCE_WORDS = { LOAN: 'Payroll loan', ADVANCE: 'Expense advance in People', CLAIM: 'Expense claim in People', CARRY: 'Deduction carried by a payroll' };
+const sourceWords = (s) => (s ? `${SOURCE_WORDS[s.type] || 'Record'}${s.ref && s.type !== 'CARRY' ? ` ${s.ref}` : ''}` : '');
+const closedInPeople = (s) => s === 'ADVANCE' || s === 'CLAIM';
 const netOf = (lines) => lines.reduce((t, l) => t + (l.kind === 'EARNING' ? Number(l.amount) || 0 : l.kind === 'DEDUCTION' ? -(Number(l.amount) || 0) : 0), 0);
 
 /**
@@ -44,7 +51,9 @@ const TABS = [
   { value: 'DRAFT', label: 'Draft', tone: 'outstanding' },
   { value: 'APPROVED', label: 'Approved', tone: 'sent' },
   { value: 'PAID', label: 'Paid', tone: 'paid' },
+  { value: 'HELD', label: 'Held', tone: 'outstanding' },
 ];
+const inTabOf = (x, status) => !status || (status === 'HELD' ? Boolean(x.hold) : x.status === status);
 const COLUMNS = {
   employee: (s) => s.employeeName || '—',
 };
@@ -55,6 +64,7 @@ const EXPORT_COLUMNS = [
   { key: 'dueDate', label: 'Due' },
   { key: 'netPayable', label: 'Net', value: (s) => Number(s.netPayable || 0) },
   { key: 'status', label: 'Status', value: (s) => STATUS[s.status]?.label || s.status },
+  { key: 'held', label: 'Held', value: (s) => (s.hold ? 'Yes' : '') },
   { key: 'overdue', label: 'Overdue', value: (s) => (s.overdue ? 'Yes' : '') },
 ];
 
@@ -99,16 +109,16 @@ export default function FinalSettlements() {
   const waiting = data?.waiting || [];
   const counts = useMemo(() => {
     const n = (st) => settlements.filter((x) => x.status === st).length;
-    return { '': settlements.length, DRAFT: n('DRAFT'), APPROVED: n('APPROVED'), PAID: n('PAID') };
+    return { '': settlements.length, DRAFT: n('DRAFT'), APPROVED: n('APPROVED'), PAID: n('PAID'), HELD: settlements.filter((x) => x.hold).length };
   }, [settlements]);
   const figures = useMemo(
     () => ({
       overdue: settlements.filter((x) => x.overdue && x.status !== 'PAID').length,
-      toPay: settlements.filter((x) => x.status === 'APPROVED').reduce((a, x) => a + Number(x.netPayable || 0), 0),
+      toPay: settlements.filter((x) => x.status === 'APPROVED' && !x.hold).reduce((a, x) => a + Number(x.netPayable || 0), 0),
     }),
     [settlements]
   );
-  const inTab = useMemo(() => settlements.filter((x) => !status || x.status === status), [settlements, status]);
+  const inTab = useMemo(() => settlements.filter((x) => inTabOf(x, status)), [settlements, status]);
   const search = useListSearch(inTab, ['employeeName', 'employeeCode']);
   const filters = useColumnFilters();
   const rows = filters.applyFilters(search.filtered, COLUMNS);
@@ -162,6 +172,7 @@ export default function FinalSettlements() {
                       <td className="ui-col-date whitespace-nowrap">
                         {formatDateIn(p.dateOfLeaving)}
                         {p.status === 'ON_NOTICE' ? <span className="ui-caption block">on notice</span> : null}
+                        {p.held ? <span className="ui-pill ui-pill-info ms-2">Held</span> : null}
                       </td>
                       <td className="whitespace-nowrap text-end">
                         <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === p.id} onClick={() => start(p)}>
@@ -201,7 +212,7 @@ export default function FinalSettlements() {
                     ) : (
                       <EmptyState
                         icon={Handshake}
-                        title={status ? `No ${STATUS[status]?.label.toLowerCase()} settlements` : 'No settlements yet'}
+                        title={status === 'HELD' ? 'Nothing on hold' : status ? `No ${STATUS[status]?.label.toLowerCase()} settlements` : 'No settlements yet'}
                         description={waiting.length ? 'Start with somebody above.' : 'Set a date of leaving on an employee and they appear here.'}
                       />
                     )}
@@ -221,7 +232,7 @@ export default function FinalSettlements() {
                     </td>
                     <td className="ui-num">{money(x.netPayable)}</td>
                     <td className="ui-col-h-center">
-                      <span className={`ui-pill ${STATUS[x.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[x.status]?.label || x.status}</span>
+                      {x.hold ? <span className="ui-pill ui-pill-info">Held</span> : <span className={`ui-pill ${STATUS[x.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[x.status]?.label || x.status}</span>}
                     </td>
                   </tr>
                 ))
@@ -293,7 +304,13 @@ function Settlement({ settlement, onClose, onChanged }) {
         ) : settlement.status === 'APPROVED' ? (
           <>
             <button type="button" className="ui-btn ui-btn-ghost" disabled={busy} onClick={cancel}>Cancel settlement</button>
-            <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={() => run(() => markSettlementPaid(settlement.id, reference || null), 'Marked paid.')}>
+            <button
+              type="button"
+              className="ui-btn ui-btn-primary"
+              disabled={busy || Boolean(settlement.hold)}
+              title={settlement.hold ? 'Held: lift the hold first' : undefined}
+              onClick={() => run(() => markSettlementPaid(settlement.id, reference || null), 'Marked paid.')}
+            >
               Mark paid
             </button>
           </>
@@ -301,6 +318,7 @@ function Settlement({ settlement, onClose, onChanged }) {
       }
     >
       <div className="space-y-4">
+        {settlement.hold ? <HoldPanel settlement={settlement} busy={busy} run={run} /> : null}
         <div className="ui-table-scroll">
           <table className="ui-table ui-table-sticky w-full">
             <thead>
@@ -320,6 +338,7 @@ function Settlement({ settlement, onClose, onChanged }) {
                     ) : (
                       <span className="text-sm">{l.label}</span>
                     )}
+                    {l.source ? <span className="ui-caption block mt-1">From: {sourceWords(l.source)}</span> : null}
                     {l.explanation ? <span className="ui-caption block mt-1">{l.explanation}</span> : null}
                   </td>
                   <td className="whitespace-nowrap">
@@ -400,11 +419,56 @@ function Settlement({ settlement, onClose, onChanged }) {
             {settlement.paidReference ? ` · ${settlement.paidReference}` : ''}
           </p>
         ) : null}
+        {/* Paid, but People did not take the update: the advances and claims still read as open until this is finished. */}
+        {settlement.status === 'PAID' && !settlement.sourcesClosedAt && lines.some((l) => closedInPeople(l.source?.type)) ? (
+          <div className="flex flex-wrap items-center gap-3" role="status">
+            <p className="ui-caption min-w-0 flex-1">The advances and claims this settled are still open in People.</p>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => run(() => closeSettlementSources(settlement.id), 'Closed in People.')}>
+              Close them now
+            </button>
+          </div>
+        ) : null}
         <p className="ui-caption">
           Gratuity, encashment and recovery are proposals from the records. Check them against your policy and the law in force before approving; the salary for the last
           month is paid by that month's pay run.
         </p>
       </div>
     </Drawer>
+  );
+}
+
+/**
+ * An absconding case holds this settlement. Paying waits until the hold is
+ * lifted, with a reason; the same release HR makes in People, recorded there
+ * and here. A hold only pauses payment.
+ */
+function HoldPanel({ settlement, busy, run }) {
+  const [reason, setReason] = useState('');
+  const why = reason.trim();
+  return (
+    <section className="space-y-3" aria-labelledby="ff-hold-h">
+      <div className="flex items-start gap-2">
+        <PauseCircle size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--info))' }} />
+        <div className="min-w-0">
+          <h3 id="ff-hold-h" className="text-sm font-medium">
+            Held{settlement.hold.since ? ` since ${formatDateIn(String(settlement.hold.since).slice(0, 10))}` : ''}
+          </h3>
+          {settlement.hold.reason ? <p className="ui-caption">{settlement.hold.reason}</p> : null}
+        </div>
+      </div>
+      <p className="ui-caption max-w-[65ch]">
+        A hold only pauses payment while you try to reach them. Nothing is forfeited: earned wages, and any gratuity and leave encashment due, stay owed. The law gives no general right to
+        keep earned wages, and wages are due within two working days of leaving (Code on Wages 2019, s.17), so a long hold can be challenged. Take advice if it goes on.
+      </p>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="block min-w-[14rem] flex-1">
+          <span className="ui-label">Why is the hold lifted?</span>
+          <SuggestInput value={reason} onChange={setReason} maxLength={300} placeholder="e.g. Came in to settle, 4 Nov" suggestions={[]} />
+        </label>
+        <button type="button" className="ui-btn ui-btn-secondary" disabled={busy || why.length < 3} onClick={() => run(() => releaseSettlementHold(settlement.id, why), 'Hold lifted.')}>
+          Lift the hold
+        </button>
+      </div>
+    </section>
   );
 }

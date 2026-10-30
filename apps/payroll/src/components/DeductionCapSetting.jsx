@@ -1,0 +1,103 @@
+import React, { useEffect, useState } from "react";
+import { Info } from "lucide-react";
+
+import { notify } from "@ui/components/ui/notify";
+import { getDeductionCap, saveDeductionCap } from "../api/payrollSetup";
+
+/**
+ * How much of a payslip's wages deductions may take. Half is the law's limit;
+ * a company may hold them lower. Whether PF, ESI, professional tax and income
+ * tax count toward it is read differently, so it is the company's to set.
+ */
+export function DeductionCapSetting() {
+  const [saved, setSaved] = useState(null);
+  const [percent, setPercent] = useState("50");
+  const [countsStatutory, setCountsStatutory] = useState(true);
+  const [failed, setFailed] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    getDeductionCap()
+      .then((s) => {
+        setSaved(s);
+        setPercent(String(s.percent));
+        setCountsStatutory(Boolean(s.countsStatutory));
+      })
+      .catch((e) => setFailed(String(e?.message || "Could not read this setting.")));
+  }, []);
+
+  if (failed) return <p className="ui-caption" role="alert">{failed}</p>;
+  if (!saved) return null;
+
+  const share = Number(percent);
+  const shareOk = Number.isInteger(share) && share >= 10 && share <= 50;
+  const dirty = (shareOk && share !== saved.percent) || countsStatutory !== Boolean(saved.countsStatutory);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const next = await saveDeductionCap({ percent: share, countsStatutory });
+      setSaved(next);
+      setPercent(String(next.percent));
+      setCountsStatutory(Boolean(next.countsStatutory));
+      notify.success(`Deductions held to ${next.percent}% of wages.`);
+    } catch (e) {
+      notify.error(String(e?.message || "Could not save this setting."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="space-y-3" aria-labelledby="deduction-cap-title">
+      <div>
+        <h2 id="deduction-cap-title" className="ui-t-sec">Most that can come off wages</h2>
+        <p className="ui-caption max-w-[65ch]">
+          Total deductions may not pass half of the wages for the period (Code on Wages 2019, s.18). When a payslip reaches this, loan and advance instalments move to next month and the payslip says so. Nothing is dropped.
+        </p>
+      </div>
+      <label className="block max-w-[12rem]">
+        <span className="ui-label">Share of wages, in %</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          min={10}
+          max={50}
+          className="ui-input w-full"
+          value={percent}
+          onChange={(e) => setPercent(e.target.value)}
+          aria-invalid={!shareOk}
+        />
+        <span className="ui-caption block">{shareOk ? "50% is the most the law allows." : "A whole number from 10 to 50."}</span>
+      </label>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="ui-checkbox mt-0.5" checked={countsStatutory} onChange={(e) => setCountsStatutory(e.target.checked)} />
+        <span>
+          Count PF, ESI, professional tax and income tax toward the limit
+          <span className="ui-caption block max-w-[65ch]">
+            The Code lists them among deductions, so counting them is the careful reading and the default. Some employers read the limit as applying only to what the employer chooses to recover. If you switch this off, check with your adviser.
+          </span>
+        </span>
+      </label>
+      <div>
+        <button type="button" className="ui-btn ui-btn-secondary" disabled={!dirty || !shareOk || saving} onClick={save}>
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+const infoStyle = { background: "rgb(var(--info-soft))", color: "rgb(var(--info))" };
+
+/** The run screen's line, in the server's words. Nothing when no deduction was held back. */
+export function DeductionCapNotice({ run }) {
+  const text = run?.deductionCapMessage;
+  if (!text) return null;
+  return (
+    <div className="ui-card p-3 text-sm flex items-start gap-2" role="status" style={infoStyle}>
+      <Info size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+      <span>{text}</span>
+    </div>
+  );
+}

@@ -182,7 +182,7 @@ export default function SalarySlips() {
         onClose={() => setOpenId(null)}
         title="Payslip"
         description="As it was calculated, with the reasoning behind each figure."
-        widthClass="w-[min(46rem,52vw)]"
+        widthClass="w-[min(46rem,96vw)]"
       >
         {openId ? <SlipDocument slipId={openId} /> : null}
       </Drawer>
@@ -234,6 +234,7 @@ const SlipDocument = ({ slipId }) => {
       {slip.deductions.length ? (
         <Section title="Deductions" lines={slip.deductions} trace={trace} onExplain={setExplaining} />
       ) : null}
+      <DeductionNote note={slip.deductionNote} />
 
       <section className="space-y-1.5" style={{ borderTop: '1px solid rgb(var(--border))', paddingTop: '0.75rem' }}>
         <Row label="Gross" value={slip.grossEarnings} />
@@ -288,13 +289,31 @@ const SlipDocument = ({ slipId }) => {
   );
 };
 
+/** What this payslip could not take and moved to next month: nothing is dropped, and it says so. */
+export const DeductionNote = ({ note }) => {
+  if (!note?.carried?.length) return null;
+  return (
+    <section className="space-y-1.5" aria-label="Deductions moved to next month">
+      <div className="ui-sec-head">Moved to next month</div>
+      {note.carried.map((c) => (
+        <Row key={c.label} label={c.label} value={c.amount} muted />
+      ))}
+      <p className="ui-caption">
+        {note.reason === 'LIMIT'
+          ? `Deductions are held to ${note.percent}% of wages: ${money(note.limit)} of ${money(note.wages)} this month. The rest comes off next month's payslip.`
+          : 'This payslip had nothing left to take it from. The rest comes off next month’s payslip.'}
+      </p>
+    </section>
+  );
+};
+
 const Section = ({ title, lines, trace, onExplain }) => (
   <section className="space-y-1.5">
     <div className="ui-sec-head">{title}</div>
     {lines.map((l) => {
       const t = trace(l.code);
       return (
-        <div key={l.componentId} className="flex items-baseline justify-between gap-3">
+        <div key={`${l.componentId}:${l.name}`} className="flex items-baseline justify-between gap-3">
           <span className="min-w-0">
             {/* Every figure is a way in to how it was reached. */}
             <button

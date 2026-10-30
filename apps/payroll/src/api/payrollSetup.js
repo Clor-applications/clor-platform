@@ -34,3 +34,17 @@ export const saveProvisionalDays = ({ enabled, cutoffDay }) =>
     body: { enabled, cutoffDay },
     skipWarehouseHeader: true,
   });
+
+/**
+ * The share of wages deductions may take in a pay run, and whether statutory
+ * deductions count toward it. `{ percent, countsStatutory }`.
+ */
+export const getDeductionCap = () =>
+  apiFetch(`/orgs/${encodeURIComponent(orgId())}/payroll/settings/deduction-cap`, { skipWarehouseHeader: true });
+
+export const saveDeductionCap = ({ percent, countsStatutory }) =>
+  apiFetch(`/orgs/${encodeURIComponent(orgId())}/payroll/settings/deduction-cap`, {
+    method: 'PUT',
+    body: { percent, countsStatutory },
+    skipWarehouseHeader: true,
+  });

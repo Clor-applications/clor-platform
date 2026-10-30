@@ -20,3 +20,7 @@ export const recalculateSettlement = (id) => act(id, 'recalculate');
 export const approveSettlement = (id) => act(id, 'approve');
 export const markSettlementPaid = (id, reference) => act(id, 'paid', { reference });
 export const cancelSettlement = (id) => act(id, 'cancel');
+/** Lift an absconding case's hold, with a reason; recorded in People and here. */
+export const releaseSettlementHold = (id, reason) => act(id, 'release-hold', { reason });
+/** Finish closing People's advances and claims for a paid settlement, after a failure part-way. */
+export const closeSettlementSources = (id) => act(id, 'close-sources');

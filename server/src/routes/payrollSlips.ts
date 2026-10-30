@@ -206,6 +206,8 @@ payrollSlipsRouter.get(
         earnings: lines.filter((l) => l.type === 'EARNING'),
         deductions: lines.filter((l) => l.type === 'DEDUCTION'),
         employerContributions: lines.filter((l) => l.type === 'EMPLOYER_CONTRIBUTION'),
+        /* Deductions held to the legal share of wages and carried to the next run (deductionCap.ts). */
+        deductionNote: (slip as any).deductionNote ?? null,
         days: {
           workingDays: Number(inputSnapshot.workingDays ?? 0),
           payableDays: Number(inputSnapshot.payableDays ?? 0),

@@ -292,13 +292,16 @@ describe('a payroll that recovers one', () => {
     const slip = await slipOf(c, runId);
 
     expect(slip.netPay).toBeGreaterThanOrEqual(0);
-    expect(slip.totalDeductions).toBe(slip.grossEarnings);
-    expect(slip.netPay).toBe(0);
+    /* And never more than half the wages (Code on Wages s.18): ₹833.50 of ₹1,667. */
+    expect(slip.totalDeductions).toBe(Math.round(slip.grossEarnings * 50) / 100);
+    expect(slip.netPay).toBe(slip.grossEarnings - slip.totalDeductions);
 
-    /* Not written off: the instalment is still owed. */
+    /* Not written off: what was not taken is carried to the next run as an instalment of its own. */
     const { body } = await api.get(c, `/loans/${loanId}`).expect(200);
-    expect(body.loan.installments[0].status).toBe('PENDING');
-    expect(body.loan.outstanding).toBe(120_000);
+    expect(body.loan.installments[0]).toMatchObject({ status: 'RECOVERED', dueAmount: slip.totalDeductions });
+    const carried = body.loan.installments.find((i: any) => i.sequence === 4);
+    expect(carried).toMatchObject({ status: 'PENDING', dueAmount: 40_000 - slip.totalDeductions });
+    expect(body.loan.outstanding).toBe(120_000 - slip.totalDeductions);
   });
 
   it('completes the loan once the last instalment is taken', async () => {

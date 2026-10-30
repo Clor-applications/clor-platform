@@ -14,6 +14,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { entitlementFor } from '../services/entitlements.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { FEATURE as PROVISIONAL, ordinal, provisionalSetting } from '../services/payroll/provisionalDays.js';
+import { capSetting } from '../services/payroll/deductionCap.js';
 
 /**
  * Whether payroll is ready to run, and what is left to do.
@@ -252,5 +253,54 @@ payrollSetupRouter.put(
     });
     const after = await provisionalSetting(accountId, orgId);
     res.json({ ...after, attendance: await isFeatureEnabled(accountId, orgId, 'attendance') });
+  }
+);
+
+/**
+ * The share of wages deductions may take (Code on Wages 2019 s.18(2); Payment
+ * of Wages Act s.7(3) before it), applied when a pay run is worked out: loan
+ * and advance instalments past it carry to the next run (deductionCap.ts).
+ * Whether statutory deductions count toward it is read differently, so it is
+ * the company's to set.
+ */
+payrollSetupRouter.get(
+  '/orgs/:orgId/payroll/settings/deduction-cap',
+  requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, PAYROLL_RESOURCE.settings),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    res.json(await capSetting(req.tenant!.orgId));
+  }
+);
+
+const capBody = z.object({
+  /* Never above half: a company may hold deductions lower than the law does, not higher. */
+  percent: z.number().int('A whole percentage, such as 50.').min(10, 'Between 10% and 50%.').max(50, 'Between 10% and 50%: the law does not let deductions pass half of the wages.'),
+  countsStatutory: z.boolean(),
+});
+
+payrollSetupRouter.put(
+  '/orgs/:orgId/payroll/settings/deduction-cap',
+  requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, PAYROLL_RESOURCE.settings),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const parsed = capBody.safeParse(req.body || {});
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Give the share of wages, and whether statutory deductions count.' });
+    const before = await capSetting(orgId);
+    const { percent, countsStatutory } = parsed.data;
+    await payrollPrisma.payrollSetting.upsert({
+      where: { orgId },
+      update: { deductionCapPercent: percent, deductionCapCountsStatutory: countsStatutory, updatedByUserId: req.auth!.userId },
+      create: { accountId, orgId, deductionCapPercent: percent, deductionCapCountsStatutory: countsStatutory, updatedByUserId: req.auth!.userId },
+    });
+    if (req.res) req.res.locals.audited = true;
+    await recordAudit(req, {
+      entity: 'PAYROLL_SETTINGS',
+      entityId: orgId,
+      action: 'EDIT',
+      message: `Deductions held to ${percent}% of wages${countsStatutory ? ', statutory deductions counted' : ', statutory deductions not counted'}`,
+      metadata: { before, after: { percent, countsStatutory } },
+    });
+    res.json(await capSetting(orgId));
   }
 );
