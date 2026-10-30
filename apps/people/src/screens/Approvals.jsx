@@ -14,7 +14,7 @@ import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar, SCHEDULED_LABELS } from '@ui/personnel/Employees';
 import { can } from '@ui/timeOff/shared';
-import { bulkReviewLeave, bulkReviewRequests } from '@ui/timeOff/api';
+import { bulkReviewLeave, bulkReviewOvertime, bulkReviewPunches, bulkReviewRequests } from '@ui/timeOff/api';
 import { RequestDrawer as LeaveDrawer } from '@ui/timeOff/LeaveRequests';
 import { RequestDrawer as AttendanceDrawer, KIND_NAME } from '@ui/timeOff/AttendanceRequests';
 import { bulkDecideRequests, decideRequest, getInbox, listRequests, replyRequest, withdrawRequest } from '../api/approvals';
@@ -40,8 +40,11 @@ const STEP = { WAITING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Rejected', M
 const TONE = { WAITING: 'warn', APPROVED: 'pos', REJECTED: 'neg', WITHDRAWN: 'neutral', MORE_INFO: 'warn', HANDED_ON: 'neutral', SKIPPED: 'neutral' };
 const TYPE = { PROFILE_CHANGE: 'Profile change', JOB_CHANGE: 'Job change', LEAVING: 'Leaving', DOCUMENT_REQUEST: 'Document', LETTER_REQUEST: 'Letter', POLICY_PUBLISH: 'Policy', DESK_ESCALATION: 'Help desk', SEAT_REQUEST: 'Seat', PROBATION: 'Probation' };
 const TABS = [['waiting', 'Waiting for me'], ['mine', 'Asked by me']];
-const INBOX_KIND = { LEAVE: 'Leave', ATTENDANCE: 'Attendance request', APPROVAL: 'People approval', HELPDESK: 'Help desk' };
-const KIND_ORDER = ['LEAVE', 'ATTENDANCE', 'APPROVAL', 'HELPDESK'];
+const INBOX_KIND = { LEAVE: 'Leave', ATTENDANCE: 'Attendance request', PUNCH: 'Field punch', OVERTIME: 'Overtime', APPROVAL: 'People approval', HELPDESK: 'Help desk' };
+const KIND_ORDER = ['LEAVE', 'ATTENDANCE', 'PUNCH', 'OVERTIME', 'APPROVAL', 'HELPDESK'];
+/* Each kind's own bulk route: its checks hold per request (a field punch takes no note). */
+const BULK = { LEAVE: bulkReviewLeave, ATTENDANCE: bulkReviewRequests, PUNCH: bulkReviewPunches, OVERTIME: bulkReviewOvertime, APPROVAL: bulkDecideRequests };
+const hoursText = (m) => (m ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}` : '');
 
 /* "3 Nov 2026", as every other People list writes a day. */
 const day = (iso) => (iso ? formatDate(String(iso).slice(0, 10)) : '');
@@ -49,7 +52,13 @@ const range = (from, to) => (!from ? '' : !to || from === to ? day(from) : `${da
 const waitedDays = (at) => Math.max(0, Math.floor((Date.now() - new Date(at).getTime()) / 86_400_000));
 const waitedText = (at) => { const d = waitedDays(at); return d === 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d} days ago`; };
 /** The finer kind, in words: a leave type, "Work from home", "Job change", a desk category. */
-const whatOf = (i) => (i.kind === 'ATTENDANCE' ? KIND_NAME[i.subKind] || i.what : i.what);
+const whatOf = (i) => {
+  if (i.kind === 'ATTENDANCE') return KIND_NAME[i.subKind] || i.what;
+  /* The kind column already says "Field punch" or "Overtime": the request says what of it. */
+  if (i.kind === 'PUNCH') return `${i.subKind === 'OUT' ? 'Out' : 'In'}${i.fromTime ? ` at ${i.fromTime}` : ''}`;
+  if (i.kind === 'OVERTIME') return i.subKind === 'COMP_OFF' ? `${i.days} day${i.days === 1 ? '' : 's'} comp-off` : hoursText(i.minutes) || i.what;
+  return i.what;
+};
 const kindText = (i) => (i.kind === 'APPROVAL' ? TYPE[i.subKind] || INBOX_KIND.APPROVAL : INBOX_KIND[i.kind]);
 
 export default function Approvals({ params = {}, updateParams, openScreen }) {
@@ -92,7 +101,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     const ids = (k) => chosen.filter((i) => i.kind === k).map((i) => i.id);
     try {
       /* Each source's own bulk route: its checks hold per request, and one refused never stops the rest. */
-      for (const [k, fn] of [['LEAVE', bulkReviewLeave], ['ATTENDANCE', bulkReviewRequests], ['APPROVAL', bulkDecideRequests]]) {
+      for (const [k, fn] of Object.entries(BULK)) {
         if (!ids(k).length) continue;
         try {
           const out = await fn(ids(k), approve, note || undefined);
@@ -121,7 +130,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
   const [rowBusy, setRowBusy] = useState(() => new Set());
   const rowBusyRef = useRef(new Set());
   const approveOne = async (i) => {
-    const fn = { LEAVE: bulkReviewLeave, ATTENDANCE: bulkReviewRequests, APPROVAL: bulkDecideRequests }[i.kind];
+    const fn = BULK[i.kind];
     if (!fn || rowBusyRef.current.has(i.key)) return;
     rowBusyRef.current.add(i.key);
     setRowBusy(new Set(rowBusyRef.current));
@@ -260,8 +269,61 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
 
       {open?.kind === 'LEAVE' ? <LeaveDrawer id={open.id} allowed={allowed} onClose={() => setOpen(null)} onDone={() => { setOpen(null); inbox.reload(); }} /> : null}
       {open?.kind === 'ATTENDANCE' ? <AttendanceDrawer id={open.id} allowed={allowed} onClose={() => setOpen(null)} onDone={() => { setOpen(null); inbox.reload(); }} /> : null}
+      {open?.kind === 'PUNCH' || open?.kind === 'OVERTIME' ? <TimeDrawer item={open} onClose={() => setOpen(null)} onDone={() => { setOpen(null); inbox.reload(); }} /> : null}
       {open?.kind === 'APPROVAL' ? <ApprovalDrawer id={open.id} mine={Boolean(open.mine)} onClose={() => setOpen(null)} onDone={reload} /> : null}
     </div>
+  );
+}
+
+/**
+ * A field punch or an overtime request, from the inbox row: who, when, and
+ * what they said; approve, or reject (overtime needs a reason, which the
+ * person reads). A field punch approved counts like any punch; refused, it
+ * stays on record and never counts.
+ */
+function TimeDrawer({ item, onClose, onDone }) {
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState('');
+  const punch = item.kind === 'PUNCH';
+  const act = async (approve) => {
+    if (!approve && !punch && !note.trim()) { notify.error('Say why. They see this with the decision.'); return; }
+    setBusy(approve ? 'approve' : 'reject');
+    try {
+      const out = await BULK[item.kind]([item.id], approve, punch ? undefined : note.trim() || undefined);
+      const err = (out.results || [])[0]?.error;
+      if (err) { notify.error(err); return; }
+      notify.success(approve ? (out.handedOn ? 'Approved as the manager; now with HR.' : 'Approved.') : punch ? 'Refused; the punch does not count.' : 'Rejected.');
+      onDone();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not done.'));
+    } finally {
+      setBusy('');
+    }
+  };
+  return (
+    <Drawer open onClose={onClose} title={`${INBOX_KIND[item.kind]}: ${item.employeeName || '—'}`} widthClass="w-[min(32rem,96vw)]" dirty={Boolean(note.trim())}
+      actions={<>
+        <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => act(false)}>{busy === 'reject' ? 'Saving…' : punch ? 'Refuse' : 'Reject'}</button>
+        <button type="button" className="ui-btn ui-btn-primary" disabled={Boolean(busy)} onClick={() => act(true)}>{busy === 'approve' ? 'Approving…' : 'Approve'}</button>
+      </>}
+    >
+      <div className="space-y-4 text-sm">
+        <dl className="grid gap-3 sm:grid-cols-2">
+          <div><dt className="ui-t-label">Day</dt><dd className="tabular-nums">{day(item.fromDate)}</dd></div>
+          {punch ? <div><dt className="ui-t-label">Punch</dt><dd className="tabular-nums">{item.subKind === 'OUT' ? 'Out' : item.subKind === 'IN' ? 'In' : 'Punch'}{item.fromTime ? ` at ${item.fromTime}` : ''}</dd></div> : (
+            <div><dt className="ui-t-label">Asked for</dt><dd className="tabular-nums">{item.subKind === 'COMP_OFF' ? `${item.days} day${item.days === 1 ? '' : 's'} comp-off` : `${hoursText(item.minutes) || '—'} overtime`}</dd></div>
+          )}
+          {punch ? <div><dt className="ui-t-label">Where</dt><dd>{item.place || 'Not named by the phone'}{item.accuracy != null ? <span className="ui-caption block tabular-nums">Accurate to about {item.accuracy} m</span> : null}</dd></div> : null}
+          <div><dt className="ui-t-label">Waiting since</dt><dd>{waitedText(item.since)}</dd></div>
+          {item.managerApproved ? <div><dt className="ui-t-label">Manager</dt><dd>Approved</dd></div> : null}
+        </dl>
+        {punch ? <p className="ui-muted">Made outside every work site. Approved, it counts like any punch; refused, it stays on record and does not count.</p> : null}
+        {item.reason ? <p className="ui-muted">“{item.reason}”</p> : null}
+        {!punch ? (
+          <label className="block"><span className="ui-label">Note to them</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Needed to reject" /></label>
+        ) : null}
+      </div>
+    </Drawer>
   );
 }
 

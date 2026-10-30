@@ -86,6 +86,10 @@ export const getLeaveBalances = (year) => get(`/leave/balances${query({ year })}
 /** One person's ledger; `asOf` (YYYY-MM-DD) shows the balance as it stands on that day. */
 export const getLeaveLedger = (employeeId, year, asOf) => get(`/leave/ledger${query({ employeeId, year, asOf })}`);
 export const addLeaveAdjustment = (body) => send('/leave/adjustments', 'POST', body);
+/** One person's days of a type for a period, in place of the policy's; `days: null` puts them back on the policy (time depth, gap 22). */
+export const setAllocation = (body) => send('/leave/allocations', 'PUT', body);
+/** Who picked which restricted holiday in a year (HR's view, time depth, gap 22). */
+export const restrictedPicks = (year) => get(`/leave/holidays/restricted/picks${query({ year })}`);
 export const deleteLeaveAdjustment = (adjustmentId) => send(`/leave/adjustments/${id(adjustmentId)}`, 'DELETE');
 
 /** The company's leave period (e.g. April–March), with this, the last and the next period's bounds and names. */
@@ -122,6 +126,8 @@ export const listRecords = (params) => get(`/records${query(params)}`).then((r) 
 export const markDay = (body) => send('/records', 'PUT', body);
 export const getMyDays = () => get('/me');
 export const clock = (kind) => send('/clock', 'POST', kind ? { kind } : {});
+/** A punch from the phone with its position (and a selfie, if taken): the same checks as the employee app's. */
+export const phonePunch = (body) => send('/me/punch', 'POST', body);
 
 /** Whether the company has Attendance switched on (readers, shifts, automatic marking). */
 export const attendanceIsOn = () => featuresFor(orgId()).then((r) => Boolean((r?.features || r || {}).attendance)).catch(() => false);
@@ -159,6 +165,9 @@ export const updateRequest = (requestId, body) => send(`/requests/${id(requestId
 export const decideRequest = (requestId, approve, note) => send(`/requests/${id(requestId)}/${approve ? 'approve' : 'reject'}`, 'POST', { note });
 /** Decide several at once, each through the same checks as one: { done, failed, handedOn, results: [{ id, error }] }. */
 export const bulkReviewRequests = (ids, approve, note) => send('/requests/bulk-review', 'POST', { ids, approve, ...(note ? { note } : {}) });
+/* Field punches and overtime from the one Approvals inbox (time depth, gap 18). */
+export const bulkReviewPunches = (ids, approve) => send('/phone-punches/bulk-review', 'POST', { ids, approve });
+export const bulkReviewOvertime = (ids, approve, note) => send('/overtime/requests/bulk-review', 'POST', { ids, approve, ...(note ? { note } : {}) });
 export const cancelRequest = (requestId, note) => send(`/requests/${id(requestId)}/cancel`, 'POST', note ? { note } : {});
 /** Used, waiting and left this month: { month, usage: { [kind]: { unit, used, pending, quota, left } } }. */
 export const requestUsage = (employeeId, month, kind) => get(`/requests/usage${query({ employeeId, month, kind })}`);

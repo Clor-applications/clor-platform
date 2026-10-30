@@ -8,7 +8,8 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { DAY_LABEL, DAY_PILL, STATUS_LABEL, STATUS_PILL, cancelMyRequest, clock, getMyDays, myRequests, todayIst } from './api';
+import { DAY_LABEL, DAY_PILL, STATUS_LABEL, STATUS_PILL, cancelMyRequest, clock, getMyDays, myRequests, phonePunch, todayIst } from './api';
+import PhonePunch from './PhonePunch';
 import { EnterRequest, KINDS, KIND_NAME, WhenCell, detailsText, monthChoices } from './AttendanceRequests';
 import { homeCrumbs, useCanActForSelf } from './shared';
 
@@ -61,6 +62,32 @@ export function CheckInCard({ me, onChanged }) {
           {me.clockedIn ? <LogOut size={16} aria-hidden="true" /> : <LogIn size={16} aria-hidden="true" />} {me.clockedIn ? 'Check out' : 'Check in'}
         </button>
       )}
+    </section>
+  );
+}
+
+/**
+ * Punching from the phone (time depth, gap 18): when HR has switched it on for
+ * this person, My attendance punches with their position, as the employee app
+ * does, instead of the plain check-in. A punch outside every work site waits
+ * for approval while the company's switch says so, and the list says it waits.
+ */
+const REVIEW = { PENDING: ['ui-pill-warn', 'Waiting for approval'], REJECTED: ['ui-pill-neg', 'Not counted'], APPROVED: ['ui-pill-pos', 'Approved'] };
+export function TodayPunches({ punches = [] }) {
+  if (!punches.length) return null;
+  return (
+    <section className="ui-card p-4" aria-labelledby="today-punches-h">
+      <h2 id="today-punches-h" className="ui-t-sec mb-2">Punches today</h2>
+      <ul className="divide-y text-sm" style={{ borderColor: 'rgb(var(--border))' }}>
+        {punches.map((p, i) => (
+          <li key={i} className="flex flex-wrap items-center justify-between gap-2 py-2">
+            <span className="tabular-nums font-medium">{p.time}</span>
+            <span className="ui-caption min-w-0 flex-1 truncate">{p.phone ? `Phone${p.site ? ` · ${p.site}` : ''}` : 'Reader'}</span>
+            {p.review && REVIEW[p.review] ? <span className={`ui-pill ${REVIEW[p.review][0]}`}>{REVIEW[p.review][1]}</span> : null}
+            {p.kind ? <span className={`ui-pill ${p.kind === 'IN' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{p.kind === 'IN' ? 'In' : 'Out'}</span> : null}
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -183,7 +210,12 @@ export default function MyDays() {
         <SkeletonCard lines={5} />
       ) : (
         <>
-          <CheckInCard me={me} onChanged={req.reload} />
+          {me.phone?.allowed && canAct ? (
+            <>
+              <PhonePunch phone={me.phone} punches={me.punches} onPunch={phonePunch} onDone={req.reload} />
+              <TodayPunches punches={me.punches} />
+            </>
+          ) : <CheckInCard me={me} onChanged={req.reload} />}
           <DataTable
             label="My days"
             columns={columns}

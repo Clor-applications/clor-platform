@@ -19,8 +19,8 @@ import { teamScope } from './scope.js';
  * the two never disagree.
  */
 
-export type InboxKind = 'APPROVAL' | 'LEAVE' | 'ATTENDANCE' | 'HELPDESK';
-export const INBOX_KINDS: InboxKind[] = ['APPROVAL', 'LEAVE', 'ATTENDANCE', 'HELPDESK'];
+export type InboxKind = 'APPROVAL' | 'LEAVE' | 'ATTENDANCE' | 'HELPDESK' | 'PUNCH' | 'OVERTIME';
+export const INBOX_KINDS: InboxKind[] = ['APPROVAL', 'LEAVE', 'ATTENDANCE', 'HELPDESK', 'PUNCH', 'OVERTIME'];
 
 export type InboxItem = {
   key: string;
@@ -43,6 +43,12 @@ export type InboxItem = {
   fromTime?: string | null;
   toTime?: string | null;
   overflowOfId?: string | null;
+  /** Overtime asked for, in minutes, and the person's reason (OVERTIME). */
+  minutes?: number | null;
+  reason?: string | null;
+  /** Where a field punch was made, as the phone found it, and how close the fix was (PUNCH). */
+  place?: string | null;
+  accuracy?: number | null;
   /** When it started waiting: the oldest is on top. */
   since: string;
   dueAt: string | null;
@@ -72,7 +78,14 @@ export async function inboxRights(req: Request) {
     ok(ATTENDANCE_MODULE, PermissionAction.APPROVE, ATTENDANCE_RESOURCE.requests),
     ok(PEOPLE_MODULE, PermissionAction.VIEW, 'HR Cases'),
   ]);
+  /* Field punches and overtime (time depth, gap 18): HR decides them with the readers' and the records' edit rights. */
+  const [punches, overtime] = await Promise.all([
+    ok(ATTENDANCE_MODULE, PermissionAction.EDIT, ATTENDANCE_RESOURCE.devices),
+    ok(ATTENDANCE_MODULE, PermissionAction.EDIT, ATTENDANCE_RESOURCE.records),
+  ]);
   return {
+    PUNCH: { see: timeOn && punches, decide: timeOn && punches },
+    OVERTIME: { see: timeOn && overtime, decide: timeOn && overtime },
     APPROVAL: { see: people && approvals, decide: people && approvalsDecide },
     LEAVE: { see: timeOn && leave && leaveDecide, decide: timeOn && leaveDecide },
     ATTENDANCE: { see: timeOn && requests && requestsDecide, decide: timeOn && requestsDecide },
@@ -157,8 +170,62 @@ export async function inboxFor(req: Request): Promise<{ items: InboxItem[]; coun
     }
   }
 
+  if (rights.PUNCH.see || rights.OVERTIME.see) items.push(...(await timeItems(orgId, userId, await teamScope(req), rights)));
+
   items.sort((a, b) => a.since.localeCompare(b.since));
   const counts = { all: items.length } as Record<InboxKind | 'all', number>;
   for (const k of INBOX_KINDS) counts[k] = items.filter((i) => i.kind === k).length;
   return { items, counts, rights };
+}
+
+/**
+ * Field punches (made outside every work site, waiting while the company's
+ * approval switch is on) and overtime or comp-off asked for (time depth,
+ * gap 18). The reader's own never wait on them; under a manager-first chain
+ * an overtime request waits on the active manager (or whoever stands in for
+ * them today) before HR, as attendance requests do.
+ */
+async function timeItems(orgId: string, userId: string, scope: Awaited<ReturnType<typeof teamScope>>, rights: Record<InboxKind, { see: boolean; decide: boolean }>): Promise<InboxItem[]> {
+  const inTeam = scope.all ? {} : { employeeId: { in: scope.ids } };
+  const [punches, asks] = await Promise.all([
+    rights.PUNCH.see ? peoplePrisma.devicePunch.findMany({ where: { orgId, outsideSite: true, reviewStatus: 'PENDING', employeeId: { not: null }, ...inTeam }, orderBy: { at: 'asc' }, take: 500 }) : Promise.resolve([]),
+    rights.OVERTIME.see ? peoplePrisma.overtimeRequest.findMany({ where: { orgId, status: 'PENDING', ...inTeam }, orderBy: { createdAt: 'asc' }, take: 500 }) : Promise.resolve([]),
+  ]);
+  if (!punches.length && !asks.length) return [];
+  const ids = [...new Set([...punches.map((p) => p.employeeId!), ...asks.map((a) => a.employeeId)])];
+  const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true, code: true, photoUrl: true, userId: true, reportingManagerId: true } })).map((p) => [p.id, p]));
+  const out: InboxItem[] = [];
+  const who = (id: string) => { const p = people.get(id); return { employeeId: id, employeeName: p?.name || '', employeeCode: p?.code || null, photoUrl: p?.photoUrl || null }; };
+  const mine = (id: string) => Boolean(userId && people.get(id)?.userId === userId);
+  for (const p of punches) {
+    if (mine(p.employeeId!)) continue;
+    const date = p.shiftDate || p.localTime.slice(0, 10);
+    out.push({
+      key: `PUNCH:${p.id}`, kind: 'PUNCH', id: p.id, what: p.kind === 'OUT' ? 'Field punch out' : p.kind === 'IN' ? 'Field punch in' : 'Field punch', subKind: p.kind || null,
+      ...who(p.employeeId!), fromDate: date, toDate: date, days: null, halfDay: null, fromTime: p.localTime.slice(11, 16), toTime: null, place: p.address || null, accuracy: p.accuracyM != null ? Math.round(p.accuracyM) : null,
+      since: iso(p.createdAt || p.at)!, dueAt: null, overdue: false, managerApproved: false, bulk: rights.PUNCH.decide,
+    });
+  }
+  if (asks.length) {
+    const { overtimeChain } = await import('../attendance/selfService.js');
+    const { standingInFor } = await import('../attendance/standIns.js');
+    const chain = await overtimeChain(orgId);
+    const managerIds = [...new Set(asks.map((a) => people.get(a.employeeId)?.reportingManagerId).filter(Boolean) as string[])];
+    const managers = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, status: true, userId: true } })).map((m) => [m.id, m]));
+    const me = userId ? await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } }) : null;
+    const covers = new Set(me ? await standingInFor(orgId, me.id) : []);
+    for (const a of asks) {
+      if (mine(a.employeeId)) continue;
+      const m = managers.get(people.get(a.employeeId)?.reportingManagerId || '');
+      const manager = m && m.status !== 'LEFT' && m.status !== 'SUSPENDED' ? m : null;
+      /* Waiting on the manager first: theirs (or their stand-in's), not HR's yet. */
+      if (manager && chain !== 'HR' && !a.managerApprovedAt && !(manager.userId === userId || covers.has(manager.id))) continue;
+      out.push({
+        key: `OVERTIME:${a.id}`, kind: 'OVERTIME', id: a.id, what: a.kind === 'COMP_OFF' ? 'Comp-off' : 'Overtime', subKind: a.kind,
+        ...who(a.employeeId), fromDate: a.date, toDate: a.date, days: a.kind === 'COMP_OFF' ? a.days : null, halfDay: null, minutes: a.kind === 'OVERTIME' ? a.minutes : null, reason: a.reason,
+        since: iso(a.createdAt)!, dueAt: null, overdue: false, managerApproved: Boolean(a.managerApprovedAt), bulk: rights.OVERTIME.decide || Boolean(manager && (manager.userId === userId || covers.has(manager.id))),
+      });
+    }
+  }
+  return out;
 }

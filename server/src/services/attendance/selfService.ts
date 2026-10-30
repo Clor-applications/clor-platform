@@ -8,6 +8,7 @@ import { notifyPermission } from '../notifications.js';
 import { isWeeklyOff, istTime, monthSummary } from './compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from './schedule.js';
 import { activeManagerOf, chainFor } from './approvalChain.js';
+import { managerStepBy } from './standIns.js';
 
 /**
  * What an employee sees about their own attendance beyond the day itself:
@@ -303,7 +304,8 @@ export async function decideOvertime(orgId: string, id: string, approve: boolean
       .create({ data: { accountId: r.accountId, orgId, branchId: '', entity: 'OvertimeRequest', entityId: r.id, action, message: message.slice(0, 500), metadata: JSON.stringify({ employeeId: r.employeeId, kind: r.kind, date: r.date, days: r.days, note }), createdByUserId: by.userId } })
       .catch((e) => console.error('[audit] OvertimeRequest not recorded:', e instanceof Error ? e.message : e)); // eslint-disable-line no-console
   if (by.managerId) {
-    if (subject?.reportingManagerId !== by.managerId) throw Object.assign(new Error('This request is not yours to decide.'), { status: 403 });
+    /* Their manager, or whoever stands in for that manager today (time depth review). */
+    if (!(await managerStepBy(orgId, by.managerId, r.employeeId))) throw Object.assign(new Error('This request is not yours to decide.'), { status: 403 });
     if (chain === 'HR') throw Object.assign(new Error('HR decides overtime and comp-off at this company.'), { status: 403 });
     if (chain === 'MANAGER_THEN_HR' && r.managerApprovedAt) throw Object.assign(new Error('You have already approved this; it is with HR now.'), { status: 409 });
     if (approve && chain === 'MANAGER_THEN_HR') {
@@ -315,6 +317,9 @@ export async function decideOvertime(orgId: string, id: string, approve: boolean
   } else if (chain === 'MANAGER_THEN_HR' && !r.managerApprovedAt) {
     /* A manager who has left or is suspended is no manager: HR decides. */
     if (approve && (await activeManagerOf(orgId, r.employeeId))) throw Object.assign(new Error('The manager approves this first.'), { status: 409 });
+  } else if (chain === 'MANAGER') {
+    /* The manager alone decides at this company; HR only when there is no active manager. */
+    if (approve && (await activeManagerOf(orgId, r.employeeId))) throw Object.assign(new Error('The manager decides overtime at this company.'), { status: 409, code: 'MANAGER_DECIDES' });
   }
   /*
    * One transaction, claimed by status: two people deciding at once cannot

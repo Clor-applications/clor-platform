@@ -18,6 +18,7 @@ import { deleteRecord, listRecords, saveRecord } from '../api/workspace';
 import { can } from '../workforce/shared';
 import { WORKSPACE_CONFIG, statusLabel } from './workspaceConfig';
 import { SymbolPicker, symbolOf } from './symbols';
+import AudiencePicker from './AudiencePicker';
 
 /**
  * One register (assets, benefits, announcements, events): laid out as every Workforce list — header with the
@@ -59,6 +60,8 @@ export default function WorkspaceList({ kind, params }) {
     const v = row.details?.[key];
     if (f?.type === 'date') return day(v);
     if (f?.type === 'select') return v ? statusLabel(v) : '';
+    /* Written before the audience was a choice: words only, read by everyone. */
+    if (f?.type === 'audience') return !row.details?.audienceKind || row.details.audienceKind === 'ALL' ? 'Everyone' : String(v || '');
     return String(v ?? '');
   };
   const shown = useMemo(() => {
@@ -68,7 +71,7 @@ export default function WorkspaceList({ kind, params }) {
       .filter((r) => !needle || [r.title, names.get(r.employeeId), statusLabel(r.status), ...Object.values(r.details || {})].some((v) => String(v || '').toLowerCase().includes(needle)));
   }, [rows, status, q, names]);
   const counts = Object.fromEntries(cfg.statuses.map((s) => [s, rows.filter((r) => r.status === s).length]));
-  const blank = () => ({ title: '', status: cfg.statuses[0], employeeId: '', dueDate: '', details: Object.fromEntries(cfg.fields.map((f) => [f.key, f.type === 'number' ? '0' : f.type === 'select' ? f.options?.[0] || '' : ''])) });
+  const blank = () => ({ title: '', status: cfg.statuses[0], employeeId: '', dueDate: '', details: Object.fromEntries(cfg.fields.flatMap((f) => (f.type === 'audience' ? [[f.key, 'Everyone'], ['audienceKind', 'ALL'], ['audienceIds', []]] : [[f.key, f.type === 'number' ? '0' : f.type === 'select' ? f.options?.[0] || '' : '']]))) });
   const remove = async (row) => {
     if (!(await confirmDialog({ title: `Delete ${row.title}?`, message: 'Only closed, cancelled, archived or draft records can be deleted. Close an active one first.', confirmLabel: 'Delete' }))) return;
     try { await deleteRecord(kind, row.id); notify.success('Deleted.'); req.reload(); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
@@ -137,7 +140,9 @@ function RecordDrawer({ kind, cfg, rows, value, employees, onClose, onDone }) {
     setBusy(true);
     setError(null);
     try {
-      const details = Object.fromEntries(cfg.fields.map((f) => [f.key, f.type === 'number' ? Number(form.details[f.key] || 0) : form.details[f.key] ?? '']));
+      const details = Object.fromEntries(cfg.fields.flatMap((f) => (f.type === 'audience'
+        ? [[f.key, form.details[f.key] || 'Everyone'], ['audienceKind', form.details.audienceKind || 'ALL'], ['audienceIds', form.details.audienceKind && form.details.audienceKind !== 'ALL' ? form.details.audienceIds || [] : []]]
+        : [[f.key, f.type === 'number' ? Number(form.details[f.key] || 0) : form.details[f.key] ?? '']])));
       await saveRecord(kind, { ...form, title: form.title.trim(), details });
       notify.success(`${cfg.singular.replace(/^./, (c) => c.toUpperCase())} saved.`);
       onDone();
@@ -153,6 +158,7 @@ function RecordDrawer({ kind, cfg, rows, value, employees, onClose, onDone }) {
     const v = form.details[f.key] ?? '';
     const id = `ws-${f.key}`;
     const label = `${f.label}${f.required ? ' *' : ''}`;
+    if (f.type === 'audience') return <AudiencePicker key={f.key} kind={form.details.audienceKind || 'ALL'} ids={form.details.audienceIds || []} onChange={(patch) => setForm((x) => ({ ...x, details: { ...x.details, ...patch } }))} />;
     if (f.type === 'symbol') return <SymbolPicker key={f.key} id={id} label={label} value={v} onChange={(k) => setDetail(f.key, k)} />;
     if (f.type === 'textarea') return <label key={f.key} className="block sm:col-span-2"><span className="ui-label">{label}</span><textarea id={id} className="ui-input w-full" rows={4} maxLength={10000} value={v} onChange={(e) => setDetail(f.key, e.target.value)} /></label>;
     if (f.type === 'date') return <div key={f.key}><label className="ui-label" htmlFor={id}>{label}</label><DatePicker id={id} value={v} onChange={(d) => setDetail(f.key, d || '')} /></div>;

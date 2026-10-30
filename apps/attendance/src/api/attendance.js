@@ -60,6 +60,10 @@ export const getHolidayYear = (year) => get(`/holidays${query({ year })}`).then(
 export const createHoliday = (body) => send('/holidays', 'POST', body);
 export const updateHoliday = (id, body) => send(`/holidays/${encodeURIComponent(id)}`, 'PUT', body);
 export const deleteHoliday = (id) => send(`/holidays/${encodeURIComponent(id)}`, 'DELETE');
+/* Built-in calendars (national, a state's own days) for everyone or one branch, and who picked which restricted holiday (time depth, gaps 17 and 22). */
+export const getHolidayCalendars = (year) => get(`/holidays/calendars${query({ year })}`);
+export const importHolidayCalendar = (body) => send('/holidays/calendars/import', 'POST', body);
+export const getRestrictedPicks = (year) => get(`/leave/holidays/restricted/picks${query({ year })}`);
 
 export const getSummary = (month) => get(`/summary${query({ month })}`);
 /** Close a month (its days become final) or reopen it. */

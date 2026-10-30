@@ -977,7 +977,8 @@ export default function Shell() {
         ) : null}
         <header
           /* Tighter on a phone: the bar carries menu, logo, switcher, alerts, help, profile and sign-out in 360 px. */
-          className={`ui-topbar sticky top-0 flex h-14 items-center ${phone ? 'gap-1 px-1.5' : 'gap-3 px-4'}`}
+          /* Narrower than 390 px (owner’s coordinator, 30 Oct 2026, said under 375; 375 itself still ran 9 px over): the CLOR mark alone, the app as its mark alone, tighter gaps; search stays. */
+          className={`ui-topbar sticky top-0 flex h-14 items-center ${phone ? 'gap-1 px-1.5 max-[389px]:gap-0.5' : 'gap-3 px-4'}`}
           style={{
             backgroundColor: 'rgb(var(--surface))',
             borderBottom: '1px solid rgb(var(--border))',
@@ -1017,7 +1018,7 @@ export default function Shell() {
                 {/* The app you are in, as a mark in its own colour and its name in full weight: the first thing the bar answers. */}
                 <span className="ui-app-switch-mark"><app.icon size={16} aria-hidden="true" /></span>
                 {/* On a phone the name is cut short rather than pushing the bar past the screen; the full name is the button's label. */}
-                <span className={`ui-app-switch-name${phone ? ' truncate' : ''}`} style={phone ? { maxWidth: '3.75rem' } : undefined}>{app.name}</span>
+                <span className={`ui-app-switch-name${phone ? ' truncate max-[389px]:hidden' : ''}`} style={phone ? { maxWidth: '3.75rem' } : undefined}>{app.name}</span>
                 <ChevronDown size={14} aria-hidden="true" />
               </button>
 

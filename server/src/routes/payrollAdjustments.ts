@@ -9,6 +9,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma, peopleWrite } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
+import { valueEncashments } from '../services/attendance/leaveEncashment.js';
 import { forLiveEmployee } from '../services/payroll/employeeLock.js';
 
 /**
@@ -116,14 +117,17 @@ payrollAdjustmentsRouter.get(
   }
 );
 
-/** HR days awaiting an earning; valuation remains an explicit payroll decision. */
+/** HR days awaiting an earning, each valued on its leave policy's pay base; approving the earning remains Payroll's decision. */
 payrollAdjustmentsRouter.get('/orgs/:orgId/payroll/leave-encashments', requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE), async (req, res) => {
   if (!(await payrollRouteOk(req, res))) return;
   const { orgId, accountId } = req.tenant!;
   const rows = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, accountId, kind: 'ENCASH', reversedAt: null }, orderBy: { createdAt: 'asc' } });
   const linked = await payrollPrisma.payrollAdjustment.findMany({ where: { orgId, id: { in: rows.map((r) => `leave-encash:${r.id}`) }, status: { not: 'CANCELLED' } }, select: { id: true } });
   const used = new Set(linked.map((r) => r.id));
-  res.json({ encashments: rows.filter((r) => !used.has(`leave-encash:${r.id}`)).map((r) => ({ id: r.id, employeeId: r.employeeId, days: -r.days, reason: r.reason })) });
+  const waiting = rows.filter((r) => !used.has(`leave-encash:${r.id}`));
+  /* Each one's amount on its leave policy's pay base, for Payroll to check and enter (time depth, gap 19); Payroll still decides. */
+  const values = await valueEncashments(orgId, waiting);
+  res.json({ encashments: waiting.map((r) => ({ id: r.id, employeeId: r.employeeId, days: -r.days, reason: r.reason, leaveType: values.get(r.id)?.leaveType ?? null, amount: values.get(r.id)?.amount ?? null, explanation: values.get(r.id)?.explanation ?? null })) });
 });
 
 const body = z.object({

@@ -15,6 +15,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requireAnyPermission, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { logDayChange } from '../services/attendance/history.js';
+import { sendEncashmentToPayroll } from '../services/attendance/leaveEncashment.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma, peopleWrite, afterPeopleCommit } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from '../services/attendance/guards.js';
@@ -319,6 +320,9 @@ const policySchema = z.object({
   handOnAfterDays: z.coerce.number().int().min(1).max(90).nullable().optional(),
   encashable: z.boolean().optional(),
   maxEncashDays: z.coerce.number().min(0).max(366).nullable().optional(),
+  /** What a paid-out day is worth: these monthly wages from the last approved payslip ÷ the divisor (time depth, gap 19). */
+  encashBase: z.enum(['BASIC_DA', 'GROSS']).optional(),
+  encashDivisor: z.coerce.number().int().refine((n) => n === 26 || n === 30, 'A day is a month ÷ 26 or ÷ 30.').optional(),
   /** When each credit lands: START or END of each part of the leave period, or DAY (creditDay, 1–28). */
   creditOn: z.enum(['START', 'END', 'DAY']).optional(),
   creditDay: z.coerce.number().int().min(1, 'A day from 1 to 28.').max(28, 'A day from 1 to 28, so every month has it.').nullable().optional(),
@@ -1982,7 +1986,9 @@ leaveRouter.post(`${base}/adjustments`, can(PermissionAction.EDIT, R.leave), asy
       message: `${b.kind === 'ENCASH' ? 'Paid out' : days > 0 ? 'Added' : 'Took away'} ${Math.abs(days)} days of ${type.name} for ${employee.name} (${b.year}): ${b.reason}`,
       metadata: { employeeId: employee.id, leaveTypeId: type.id, year: b.year, days, kind: b.kind },
     });
-    res.status(201).json({ adjustment: (await withTypes(orgId, [row]))[0] });
+    /* Days paid out are valued on the policy's pay base and handed to Payroll as a draft earning (time depth, gap 19). */
+    const payout = b.kind === 'ENCASH' ? await sendEncashmentToPayroll(req, row, type) : undefined;
+    res.status(201).json({ adjustment: (await withTypes(orgId, [row]))[0], ...(payout ? { payout } : {}) });
   } catch (e) {
     return sendError(res, e);
   }
@@ -2950,6 +2956,36 @@ export async function pickRestrictedHoliday(accountId: string, orgId: string, em
     return { ok: true, picked: true };
   });
 }
+
+/**
+ * Who picked which restricted holiday in a year (time depth, gap 22): HR's
+ * view across the company (a team-scoped reader, their team), each optional
+ * holiday with the people who took it, and each person with how many of the
+ * quota they have used, so HR sees who is out on the day and who has not
+ * picked yet.
+ */
+leaveRouter.get(`${base}/holidays/restricted/picks`, can(PermissionAction.VIEW, R.leave), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const year = /^\d{4}$/.test(String(req.query.year || '')) ? Number(req.query.year) : Number(today().slice(0, 4));
+  const scope = await leaveScope(req);
+  const [settings, holidays, picks] = await Promise.all([
+    peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { restrictedHolidayQuota: true } }),
+    peoplePrisma.holiday.findMany({ where: { orgId, isOptional: true, date: { gte: `${year}-01-01`, lte: `${year}-12-31` } }, orderBy: { date: 'asc' }, select: { id: true, date: true, name: true, branchId: true, areaId: true } }),
+    peoplePrisma.holidayPick.findMany({ where: { orgId, year, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, select: { employeeId: true, holidayId: true } }),
+  ]);
+  const people = await peoplePrisma.employee.findMany({ where: { accountId, orgId, status: { not: 'LEFT' }, ...(scope.all ? {} : { id: { in: scope.ids } }) }, select: { id: true, name: true, code: true, department: true }, orderBy: { name: 'asc' } });
+  const who = new Map(people.map((p) => [p.id, p]));
+  const quota = settings?.restrictedHolidayQuota ?? 0;
+  const count = new Map<string, number>();
+  for (const p of picks) count.set(p.employeeId, (count.get(p.employeeId) || 0) + 1);
+  res.json({
+    year,
+    quota,
+    holidays: holidays.map((h) => ({ id: h.id, date: h.date, name: h.name, people: picks.filter((p) => p.holidayId === h.id && who.has(p.employeeId)).map((p) => ({ employeeId: p.employeeId, name: who.get(p.employeeId)!.name, code: who.get(p.employeeId)!.code })) })),
+    people: people.map((p) => ({ employeeId: p.id, name: p.name, code: p.code, department: p.department, picked: count.get(p.id) || 0, left: Math.max(0, quota - (count.get(p.id) || 0)) })),
+  });
+});
 
 leaveRouter.get(`${base}/holidays/restricted`, can(PermissionAction.VIEW, R.leave), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;

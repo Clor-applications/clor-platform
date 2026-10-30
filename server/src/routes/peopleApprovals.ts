@@ -95,6 +95,9 @@ const inboxRight = requireAnyPermission(
   [ATTENDANCE_MODULE, PermissionAction.APPROVE, ATTENDANCE_RESOURCE.leave],
   [ATTENDANCE_MODULE, PermissionAction.APPROVE, ATTENDANCE_RESOURCE.requests],
   [PEOPLE_MODULE, PermissionAction.VIEW, 'HR Cases'],
+  /* Field punches and overtime (time depth, gap 18). */
+  [ATTENDANCE_MODULE, PermissionAction.EDIT, ATTENDANCE_RESOURCE.devices],
+  [ATTENDANCE_MODULE, PermissionAction.EDIT, ATTENDANCE_RESOURCE.records],
 );
 peopleApprovalsRouter.get(
   `${base}/inbox`,

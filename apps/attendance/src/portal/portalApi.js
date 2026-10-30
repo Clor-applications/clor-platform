@@ -106,6 +106,13 @@ export const getMe = () => call('/me');
 export const punch = (body) => call('/punch', { method: 'POST', body });
 /* Approvals: what the people reporting to me are waiting on, and my decision on one. */
 export const getApprovals = () => call('/approvals');
+/* The month's review and overtime (time depth, gap 18): the routes the phone app uses. */
+export const getMonthReview = (month) => call(`/month-review${month ? `?month=${encodeURIComponent(month)}` : ''}`);
+export const confirmMonth = (month) => call(`/month-review/${encodeURIComponent(month)}/confirm`, { method: 'POST' });
+export const disputeMonth = (month, note) => call(`/month-review/${encodeURIComponent(month)}/dispute`, { method: 'POST', body: { note } });
+export const getOvertime = (month) => call(`/overtime${month ? `?month=${encodeURIComponent(month)}` : ''}`);
+export const askOvertime = (body) => call('/overtime', { method: 'POST', body });
+export const cancelOvertime = (id) => call(`/overtime/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
 /* My documents (what HR marked visible) and my data requests (DPDP). */
 export const getDocuments = () => call('/documents');
 export const getDocument = (id) => call(`/documents/${encodeURIComponent(id)}`);
@@ -164,25 +171,7 @@ export const locate = () =>
   });
 
 /** A selfie made small on the phone (640 px, JPEG) before it is sent. */
-export const shrinkPhoto = (file) =>
-  new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, 640 / Math.max(img.width, img.height));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL('image/jpeg', 0.75));
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('That photo could not be read.'));
-    };
-    img.src = url;
-  });
+export { shrinkPhoto } from '@ui/timeOff/shrinkPhoto';
 
 export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 export const hm = (minutes) => {

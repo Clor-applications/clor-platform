@@ -15,6 +15,7 @@ import { clearBiometricPolicy } from '../services/attendance/biometrics.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { DeclarationError, financialYearOf, saveDeclaration, shapeDeclaration } from '../services/payroll/taxDeclaration.js';
 import { isDevOrTest } from '../utils/devMode.js';
+import { announcementReaches, departmentNames } from '../services/people/workspace.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { portalLimiter } from '../middleware/rateLimit.js';
 import { isOvernight, isWeeklyOff, istDate, istTime, nightShiftLabel } from '../services/attendance/compute.js';
@@ -84,6 +85,8 @@ const PORTAL_FIELDS = {
   /* Which leave types the person may ask for (gender, employee type). */
   gender: true,
   employeeTypeId: true,
+  /* An announcement for a department reaches its people by id (time depth, gap 20). */
+  departmentId: true,
   branchId: true,
   areaId: true,
   devicePin: true,
@@ -431,8 +434,10 @@ portalRouter.get('/company-updates', async (req, res) => {
     select: { id: true, kind: true, title: true, details: true, updatedAt: true },
   });
   const t = today();
+  /* Only what is addressed to me: everyone, or my department, branch, location, or me by name (time depth, gap 20). */
+  const names = await departmentNames(e.orgId);
   res.json({
-    announcements: records.filter((r) => r.kind === 'announcements').slice(0, 20).map((r) => ({ id: r.id, title: r.title, body: (r.details as any).body, publishedAt: r.updatedAt })),
+    announcements: records.filter((r) => r.kind === 'announcements' && announcementReaches(r.details, e, names)).slice(0, 20).map((r) => ({ id: r.id, title: r.title, body: (r.details as any).body, publishedAt: r.updatedAt })),
     events: records.filter((r) => r.kind === 'events' && String((r.details as any).endDate || (r.details as any).startDate) >= t).map((r) => ({ id: r.id, title: r.title, startDate: (r.details as any).startDate, endDate: (r.details as any).endDate, location: (r.details as any).location, description: (r.details as any).description })),
   });
 });
@@ -911,7 +916,8 @@ portalRouter.get('/approvals', async (req, res) => {
   const [leaveChain, correctionChain, overtimeAsks] = await Promise.all([
     chainFor(e.orgId, 'leave'),
     chainFor(e.orgId, 'correction'),
-    ids.length ? peoplePrisma.overtimeRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: ids }, status: 'PENDING', managerApprovedAt: null }, orderBy: { createdAt: 'asc' } }) : [],
+    /* My team's and, standing in, the team I cover today (time depth review). */
+    decidedIds.length ? peoplePrisma.overtimeRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: decidedIds }, status: 'PENDING', managerApprovedAt: null }, orderBy: { createdAt: 'asc' } }) : [],
   ]);
   const overtimeChainNow = (await chainsFor(e.orgId)).overtime;
   res.json({

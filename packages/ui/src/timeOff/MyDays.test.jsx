@@ -2,7 +2,8 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 
-import MyDays, { CheckInCard } from './MyDays';
+import MyDays, { CheckInCard, TodayPunches } from './MyDays';
+import { getMyDays } from './api';
 import { PermissionContext } from '@ui/permissions/context';
 
 /*
@@ -13,7 +14,7 @@ import { PermissionContext } from '@ui/permissions/context';
  */
 vi.mock('./api', () => ({
   DAY_LABEL: {}, DAY_PILL: {}, STATUS_LABEL: {}, STATUS_PILL: {},
-  cancelMyRequest: vi.fn(), clock: vi.fn(),
+  cancelMyRequest: vi.fn(), clock: vi.fn(), phonePunch: vi.fn(),
   getMyDays: vi.fn().mockResolvedValue({ employee: { id: 'e1', name: 'Kavya', code: 'MF-1' }, clockedIn: false, todayRecord: null, records: [], requests: [], shift: { startTime: '09:30', endTime: '18:00' } }),
   myRequests: vi.fn().mockResolvedValue({ requests: [], rules: {}, usage: {} }),
   todayIst: () => '2026-10-30',
@@ -52,4 +53,21 @@ it('drops Ask from My attendance for view only, and keeps it for an administrato
   unmount();
   withPerms(perms([], { isAdmin: true }), <MyDays />);
   await waitFor(() => expect(screen.getByRole('button', { name: /^ask$/i })).toBeTruthy());
+});
+
+/* Time depth, gap 18: HR switched phone punching on for this person, so My attendance punches with the position instead of the plain check-in, and a field punch says it waits. */
+it('punches from the phone when HR allows it, instead of the plain check-in', async () => {
+  getMyDays.mockResolvedValueOnce({ employee: { id: 'e1', name: 'Kavya' }, clockedIn: false, todayRecord: null, records: [], requests: [], shift: {}, phone: { allowed: true, next: 'IN', sites: [{ id: 's1', name: 'Head office', latitude: 12.9, longitude: 77.6, radiusMeters: 100 }] }, punches: [{ time: '09:05', kind: 'IN', phone: true, site: 'Outside the work sites', outside: true, review: 'PENDING' }] });
+  withPerms(perms([], { isAdmin: true }), <MyDays />);
+  await waitFor(() => expect(screen.getByRole('region', { name: 'Punch from this phone' })).toBeTruthy());
+  expect(screen.queryByText('Not checked in today')).toBeNull();
+  expect(screen.getByText('Waiting for approval')).toBeTruthy();
+});
+
+it('lists nothing when there are no punches yet, and says a refused field punch does not count', () => {
+  const { container, unmount } = render(<TodayPunches punches={[]} />);
+  expect(container.textContent).toBe('');
+  unmount();
+  render(<TodayPunches punches={[{ time: '18:10', kind: 'OUT', phone: true, site: 'Client site', review: 'REJECTED' }]} />);
+  expect(screen.getByText('Not counted')).toBeTruthy();
 });
