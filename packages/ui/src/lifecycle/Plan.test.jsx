@@ -24,6 +24,10 @@ it('right after "They stay", the open plan says they are staying, not "On notice
   render(<PlanDrawer row={row} kind="LEAVING" canEdit onClose={() => {}} />);
   expect(await screen.findByText('Staying on: the leaving was withdrawn')).toBeTruthy();
   expect(screen.queryByText(/On notice/)).toBeNull();
+  /* And nothing of a leaving is offered: no "Start it now", no final pay. */
+  expect(screen.getByText(/They stay\. The leaving was withdrawn/)).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Start it now' })).toBeNull();
+  expect(screen.queryByText(/No leaving plan yet/)).toBeNull();
 });
 
 it('a moved last day shows the new day', async () => {

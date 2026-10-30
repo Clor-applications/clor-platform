@@ -50,7 +50,7 @@ export function FinalPayBanner({ clock, name, showRule = true, action = null }) 
       {action || (hasApp('payroll') && !clock.paid) ? (
         <span className="ui-alert-action flex flex-col items-end gap-1 text-sm">
           {action}
-          {hasApp('payroll') && !clock.paid ? <a className="ui-link whitespace-nowrap" href="?app=payroll&open=settlements">Full and final</a> : null}
+          {hasApp('payroll') && !clock.paid ? <a className="ui-link inline-flex min-h-11 items-center whitespace-nowrap sm:min-h-0" href="?app=payroll&open=settlements">Full and final</a> : null}
         </span>
       ) : null}
     </div>
