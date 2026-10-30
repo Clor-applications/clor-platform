@@ -83,3 +83,38 @@ cancelled. On a busy day merges keep replacing main's run, so the release check
 is a run by hand on the commit being released
 (`gh workflow run CI --ref main`), which finishes whatever merges after it.
 A server-test failure on main is fixed the same day, before the next release.
+
+## End-to-end tests (30 Oct 2026)
+
+Job `e2e` in `ci.yml` (Playwright, `e2e/README.md`), on the same Mac runners:
+
+| Event | Runs |
+|---|---|
+| Pull request | `e2e-smoke`: the `@smoke` scenarios, desktop and phone, after `verify` |
+| Nightly, run by hand | `e2e-full`: every scenario |
+| Push to main | nothing (the nightly run covers it) |
+
+Each run boots its own API and web app on ports taken from the run id
+(4400–4899, 5400–5899), builds a database of its own on the CI Postgres
+(`clor_e2e_<run>_<attempt>` on 5434, as `clor_ci`) and drops it at the end. The
+Chromium build Playwright needs stays in `~/Library/Caches/ms-playwright`.
+The HTML report, traces and videos of failures, JUnit XML and
+`E2E-RESULTS.md` are the run's `e2e-report-…` artifact, kept 14 days.
+
+### Staging nightly: off until the owner adds these
+
+The job `e2e-staging` runs the smoke set against staging at 03:00 IST once
+both of these exist. Nothing else is needed; nobody else should add them.
+
+| Kind | Name | Value |
+|---|---|---|
+| Secret | `E2E_STAGING_BASE_URL` | the staging web app, e.g. `https://app.staging.clor.in` |
+| Secret | `E2E_STAGING_API_URL` | the staging API including `/api` |
+| Secret | `E2E_STAGING_PASSWORD` | a password the run gives the accounts it signs up (any strong value; it is not a real person's) |
+| Variable | `E2E_STAGING_ENABLED` | `true` |
+
+Add them under the repository's Settings → Secrets and variables → Actions.
+Each staging run signs up two new accounts (`suresh.<run>@e2e.clor.test` and
+`zubin.<run>@e2e.clor.test`) with companies named `… <run>`, plus one for the
+sign-up scenario. Staging's sign-up limit is 5 an hour from one address, so
+keep it to one run at a time.
