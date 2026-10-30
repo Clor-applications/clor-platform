@@ -73,7 +73,7 @@ export default function HomeSetup({ openScreen, onState }) {
     <>
       {simpleMode?.suggest ? (
         <section className="ui-card p-4 flex flex-wrap items-start gap-3" aria-labelledby="simple-h" role="status">
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 basis-64">
             <h2 id="simple-h" className="font-medium">Your company has grown</h2>
             <p className="ui-caption">
               {simpleMode.reasons.join(', ').replace(/^./, (c) => c.toUpperCase())}. Simple mode keeps organisation detail, such as legal entities, out of the menu. You can switch it off now, or later in Settings → Modules &amp; Apps.

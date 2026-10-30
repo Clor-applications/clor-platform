@@ -80,8 +80,17 @@ test.describe('Suresh owns the account', () => {
     await expect(vels.main).toContainText(/not available|not found/i);
     await expect(vels.main).not.toContainText('Priya Sharma');
     await suresh.page.goBack();
-    await expect(suresh.page.getByRole('banner').getByRole('combobox', { name: 'Company' })).toHaveValue(/.+/);
+    expect((await suresh.companyInUse())?.trim()).toBe(w.vels.name);
     await expect(vels.main).not.toContainText('Priya Sharma');
+  });
+
+  test('A4b: on a phone the bar fits with two companies; the company is chosen in the app menu', { tag: ['@A4b'] }, async ({ asOwner: suresh, w }) => {
+    /* #80 QA: at 390px the Company picker ran under the bell and the profile button. */
+    await suresh.page.setViewportSize({ width: 390, height: 844 });
+    await suresh.goto();
+    const right = await suresh.page.getByRole('banner').evaluate((bar) => Math.max(...[...bar.querySelectorAll('button, select, label')].map((e) => e.getBoundingClientRect().right)));
+    expect(right, 'nothing in the bar past the screen').toBeLessThanOrEqual(390);
+    expect((await suresh.companyInUse())?.trim()).toBe(w.asha.name);
   });
 
   test('A7: a one-person business does everything alone', { tag: ['@A7'] }, async ({ guest: page, w }, testInfo) => {

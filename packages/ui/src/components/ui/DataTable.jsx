@@ -154,7 +154,10 @@ export default function DataTable({
   rowActions = null, onRowClick = null, card = null,
   loading = false, refreshing = false, empty = null,
   total = 0, page = 1, pageSize = 25, onPage, onPageSize, noun = 'results', toolbar = null, tabs = null, defaultPrefs = {},
+  rowLabel = null,
 }) {
+  /* What a row's menu and tick box are named after: its own words, never a database id (#80 QA: "Actions for cmv…" on Branches). */
+  const nameOf = (r, id) => (rowLabel && rowLabel(r)) || r.name || r.employeeName || r.branchName || r.managerName || r.title || r.label || r.code || id;
   const cols = visibleColumns(columns, prefs);
   const compact = prefs?.density === 'compact';
   const choosable = (r) => !canSelect || canSelect(r) !== false;
@@ -217,7 +220,7 @@ export default function DataTable({
               const id = rowKey(r);
               return (
                 <tr key={id} className={`${onRowClick ? 'ui-row-click' : ''} ${selected.has(id) ? 'is-selected' : ''}`} onClick={(e) => open(e, r)}>
-                  {selectable ? <td className="w-10">{choosable(r) ? <input type="checkbox" className="ui-checkbox" aria-label={`Choose ${r.name || r.employeeName || id}`} checked={selected.has(id)} onChange={() => toggle(id)} /> : null}</td> : null}
+                  {selectable ? <td className="w-10">{choosable(r) ? <input type="checkbox" className="ui-checkbox" aria-label={`Choose ${nameOf(r, id)}`} checked={selected.has(id)} onChange={() => toggle(id)} /> : null}</td> : null}
                   {cols.map((c, i) => (
                     <td key={c.key} className={c.align === 'right' ? 'text-right tabular-nums' : c.align === 'center' ? 'text-center' : ''}>
                       {i === 0 && onRowClick ? (
@@ -225,7 +228,7 @@ export default function DataTable({
                       ) : c.render ? c.render(r) : (r[c.key] ?? '—')}
                     </td>
                   ))}
-                  {rowActions ? <td className="w-12 text-right">{(() => { const items = rowActions(r).filter(Boolean); return items.length ? <RowMenu label={`Actions for ${r.name || id}`} items={items} /> : null; })()}</td> : null}
+                  {rowActions ? <td className="w-12 text-right">{(() => { const items = rowActions(r).filter(Boolean); return items.length ? <RowMenu label={`Actions for ${nameOf(r, id)}`} items={items} /> : null; })()}</td> : null}
                 </tr>
               );
             })}
@@ -238,10 +241,11 @@ export default function DataTable({
             const id = rowKey(r);
             return (
               <li key={id} className={`ui-datatable-card ${selected.has(id) ? 'is-selected' : ''}`}>
-                {selectable && choosable(r) ? <input type="checkbox" className="ui-checkbox ui-card-check" aria-label={`Choose ${r.name || r.employeeName || id}`} checked={selected.has(id)} onChange={() => toggle(id)} /> : null}
+                {/* A 44px tap target around the tick box (#80 QA: 24px on a phone), its footprint unchanged. */}
+                {selectable && choosable(r) ? <label className="ui-card-check-hit"><input type="checkbox" className="ui-checkbox ui-card-check" aria-label={`Choose ${nameOf(r, id)}`} checked={selected.has(id)} onChange={() => toggle(id)} /></label> : null}
                 {/* A card opens the record only when there is one to open; otherwise it is plain content, not a stop for Tab. */}
                 {onRowClick ? <button type="button" className="ui-card-open" onClick={() => onRowClick(r)}>{card(r)}</button> : <div className="w-full min-w-0">{card(r)}</div>}
-                {rowActions ? (() => { const items = rowActions(r).filter(Boolean); return items.length ? <RowMenu label={`Actions for ${r.name || id}`} items={items} /> : null; })() : null}
+                {rowActions ? (() => { const items = rowActions(r).filter(Boolean); return items.length ? <RowMenu label={`Actions for ${nameOf(r, id)}`} items={items} /> : null; })() : null}
               </li>
             );
           })}

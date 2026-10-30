@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Building2, CalendarDays, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, Building2, CalendarDays, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -1033,6 +1033,29 @@ export default function Shell() {
                     zIndex: 'var(--z-platform-menu)',
                   }}
                 >
+                  {phone && tenants.length > 1 ? (
+                    <div role="group" aria-label="Company">
+                      <div className="ui-caption px-2 pt-1">Company</div>
+                      {companyGroups(tenants, accounts).flatMap((g) => g.items).map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={t.id === tenant.id}
+                          className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken"
+                          onClick={() => {
+                            setSwitcherOpen(false);
+                            if (t.id !== tenant.id) confirmLeave(askLeave).then((ok) => ok && setTenantId(t.id));
+                          }}
+                        >
+                          <Building2 size={16} aria-hidden="true" className="shrink-0" />
+                          <span className="min-w-0 flex-1 truncate">{t.name}</span>
+                          {t.id === tenant.id ? <Check size={16} aria-hidden="true" /> : null}
+                        </button>
+                      ))}
+                      <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="my-1" />
+                    </div>
+                  ) : null}
                   {mine.filter((a) => !a.platform).map((a) => (
                     <button
                       key={a.id}
@@ -1097,12 +1120,14 @@ export default function Shell() {
 
           {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
           {/* The company in use. The Workspace shows it too: half its pages change only this company. */}
-          {!phone || tenants.length > 1 ? (
+          {/* On a phone the company is chosen in the app menu ("People ⌄"): two companies ran the picker under the bell and the
+              profile button at 390px (#80 QA). */}
+          {!phone ? (
             <label className="ui-company-pick">
-              {!phone ? <Building2 size={16} aria-hidden="true" className="ui-company-pick-icon" /> : null}
+              <Building2 size={16} aria-hidden="true" className="ui-company-pick-icon" />
             <select
               className="ui-select ui-select-sm min-w-0"
-              style={{ width: 'auto', minWidth: phone ? '4rem' : '10rem', maxWidth: phone ? '30vw' : undefined }}
+              style={{ width: 'auto', minWidth: '10rem' }}
               value={tenant.id}
               disabled={tenants.length < 2}
               onChange={(e) => { const next = e.target.value; confirmLeave(askLeave).then((ok) => ok && setTenantId(next)); }}

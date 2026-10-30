@@ -207,7 +207,24 @@ export class PeopleWeb {
   }
 
   /** The company switcher in the top bar. */
+  /** The company picker in the bar; on a phone it is in the app menu ("People ⌄"), the bar having no room for it. */
   async switchCompany(name: string) {
-    await this.page.getByRole('banner').getByRole('combobox', { name: 'Company' }).selectOption({ label: name });
+    const bar = this.page.getByRole('banner');
+    if (!this.isPhone) return bar.getByRole('combobox', { name: 'Company' }).selectOption({ label: name });
+    await bar.getByRole('button', { name: /: switch app$/ }).click();
+    await bar.getByRole('group', { name: 'Company' }).getByRole('menuitemradio', { name, exact: true }).click();
+  }
+
+  /** The company in use, as the bar (or a phone's app menu) shows it. */
+  async companyInUse() {
+    const bar = this.page.getByRole('banner');
+    if (!this.isPhone) {
+      const select = bar.getByRole('combobox', { name: 'Company' });
+      return select.locator('option:checked').textContent();
+    }
+    await bar.getByRole('button', { name: /: switch app$/ }).click();
+    const name = await bar.getByRole('group', { name: 'Company' }).getByRole('menuitemradio', { checked: true }).textContent();
+    await this.page.keyboard.press('Escape');
+    return name;
   }
 }

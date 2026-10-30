@@ -20,7 +20,7 @@ const AUDIENCE_KINDS = [
 ];
 
 /** The words for a choice: "Everyone", "Operations, Finance", "3 people". */
-function audienceWords(kind, ids, items) {
+export function audienceWords(kind, ids, items) {
   if (!kind || kind === 'ALL' || !ids?.length) return 'Everyone';
   const names = ids.map((id) => items.find((x) => x.id === id)?.name).filter(Boolean);
   if (kind === 'PEOPLE' && names.length > 2) return `${names.length} people`;
@@ -28,7 +28,7 @@ function audienceWords(kind, ids, items) {
   return text.length > 110 ? `${names.length} ${kind === 'BRANCH' ? 'branches' : kind === 'LOCATION' ? 'locations' : 'departments'}` : text;
 }
 
-function useAudienceLists() {
+export function useAudienceLists({ enabled = true } = {}) {
   return useRequest(() => Promise.all([
     listStructure('departments').catch(() => []),
     listBranches().catch(() => []),
@@ -39,7 +39,7 @@ function useAudienceLists() {
     BRANCH: branches.map((b) => ({ id: b.id, name: b.branchName || b.name })),
     LOCATION: areas.map((a) => ({ id: a.id, name: a.name })),
     PEOPLE: people.filter((p) => p.status !== 'LEFT').map((p) => ({ id: p.id, name: p.name, hint: p.code || p.department || '' })),
-  })), []);
+  })), [enabled], { enabled });
 }
 
 export default function AudiencePicker({ kind = 'ALL', ids = [], onChange }) {
