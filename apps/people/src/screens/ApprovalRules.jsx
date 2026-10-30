@@ -58,8 +58,9 @@ const LEAVE_FIELDS = [['days', 'Days asked for', null], ['leaveTypeId', 'Leave t
 const LEAVE_OPS = { days: [['gt', 'more than'], ['lt', 'fewer than']], leaveTypeId: [['eq', 'is'], ['ne', 'is not']] };
 /* Money asked from the employee app: a step can depend on the amount (e.g. HR only above ₹5,000). */
 const MONEY_RULES = ['EXPENSE_CLAIM', 'EMPLOYEE_ADVANCE', 'SALARY_ADVANCE'];
-const MONEY_FIELDS = [['amount', 'Amount asked', null]];
+const MONEY_FIELDS = [['monthTotal', 'Sent this month, this one included', null], ['amount', 'Amount asked', null]];
 const MONEY_OPS = [['gt', 'more than'], ['lt', 'less than']];
+/* Money rules compare amounts, so each field takes the same two. */
 const LEAVE_APPROVERS = [['MANAGER', 'Their manager'], ['MANAGER_OF_MANAGER', 'Their manager’s manager'], ['HR', 'HR (anyone who approves leave for the whole company)'], ['USER', 'A named person'], ['ROLE', 'Anyone holding a role']];
 const blankStep = (order) => ({ order, approver: { kind: 'MANAGER' }, condition: null, dueDays: 3, overdue: { action: 'REMIND' } });
 const typeName = (t) => TYPE_WORDS[t]?.[0] || FORM_NAMES.get(t) || t;

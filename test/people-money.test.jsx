@@ -106,6 +106,16 @@ describe('the employee app: spent for work', () => {
     await waitFor(() => expect(portal.sendClaim).toHaveBeenCalledWith('k1', { title: undefined, advanceId: 'a1' }));
   });
 
+  it('a claim paid with salary says it waits for Payroll until approved there', async () => {
+    portal.getMoney.mockResolvedValue(base({
+      claims: [{ id: 'k3', number: 'EXP-0003', title: 'Courier', status: 'WITH_SALARY', statusLabel: 'With salary, waiting for Payroll', payMode: 'SALARY', payrollPeriodName: 'October 2026', claimed: 300, approved: 300, toPay: 300, lines: [line({ amount: 300 })] }],
+    }));
+    render(<MyMoney guard={guard} />);
+    expect(await screen.findByText('With salary, waiting for Payroll')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Courier/ }));
+    expect(screen.getByText(/Goes with your salary for October 2026, once Payroll approves it/)).toBeTruthy();
+  });
+
   it('a sent claim shows what was allowed and why', async () => {
     portal.getMoney.mockResolvedValue(base({
       claims: [{ id: 'k2', number: 'EXP-0002', title: 'Mysuru visit', status: 'APPROVED', statusLabel: 'Approved, to be paid', claimed: 1650, approved: 1450, advanceSettled: 1000, advanceNumber: 'ADV-0001', toPay: 450, lines: [line({ amount: 1200, approvedAmount: 1000, cutReason: 'Meals up to ₹1,000 a day', merchant: 'Hotel Saravana' })] }],
@@ -141,17 +151,24 @@ describe('the employee app: salary advance', () => {
 
 describe('the approver in the inbox drawer', () => {
   it('sees each bill with its warnings, and allowing less needs the reason sent with it', async () => {
-    hr.moneyRequest.mockResolvedValue({ kind: 'EXPENSE_CLAIM', waitingOnMe: true, record: { id: 'k1', number: 'EXP-0001', claimed: 1650, lines: [line(), line({ id: 'l2', merchant: 'Hotel Saravana', amount: 1200, overLimit: 1000, companyGstin: true, supplierGstin: '29ABCDE1234F1Z5', taxAmount: 60, creditBlocked: true, possibleDuplicate: true })] }, advance: { number: 'ADV-0001', purpose: 'Mysuru visit', open: 1000, amount: 1000 } });
+    hr.moneyRequest.mockResolvedValue({ kind: 'EXPENSE_CLAIM', waitingOnMe: true, record: { id: 'k1', number: 'EXP-0001', claimed: 1650, lines: [line(), line({ id: 'l2', merchant: 'Hotel Saravana', amount: 1200, overLimit: 1000, companyGstin: true, supplierGstin: '29ABCDE1234F1ZW', taxAmount: 60, creditBlocked: true, possibleDuplicate: true })] }, advance: { number: 'ADV-0001', purpose: 'Mysuru visit', open: 1000, amount: 1000 } });
     render(<MoneyRequestDetail request={{ id: 'r1', requestType: 'EXPENSE_CLAIM' }} />);
     expect(await screen.findByText(/Over the ₹1,000 limit/)).toBeTruthy();
     expect(screen.getByText(/credit usually not available/)).toBeTruthy();
     expect(screen.getByText(/they say it is a different one/)).toBeTruthy();
     expect(screen.getByText(/Set against advance ADV-0001/)).toBeTruthy();
+    expect(screen.queryByText(/in claims this month/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Allow less on a bill' }));
     fireEvent.change(screen.getByLabelText('Allow for Hotel Saravana'), { target: { value: '1000' } });
     fireEvent.change(screen.getByLabelText('Why less for Hotel Saravana'), { target: { value: 'Meals up to ₹1,000 a day' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save allowed amounts' }));
     await waitFor(() => expect(hr.sanctionClaim).toHaveBeenCalledWith('k1', [{ id: 'l2', approvedAmount: 1000, reason: 'Meals up to ₹1,000 a day' }]));
+  });
+
+  it('shows the month\'s total when it is more than this claim, so split claims are seen', async () => {
+    hr.moneyRequest.mockResolvedValue({ kind: 'EXPENSE_CLAIM', waitingOnMe: false, monthTotal: 18000, record: { id: 'k9', number: 'EXP-0009', employeeName: 'Asha Nair', claimed: 4500, lines: [line({ amount: 4500 })] } });
+    render(<MoneyRequestDetail request={{ id: 'r9', requestType: 'EXPENSE_CLAIM' }} />);
+    expect(await screen.findByText(/Asha Nair sent ₹18,000 in claims this month, this one included/)).toBeTruthy();
   });
 
   it('a salary advance shows the cap and the perquisite warning', async () => {
@@ -172,12 +189,22 @@ describe('HR: Expenses', () => {
   const approved = { id: 'k1', number: 'EXP-0001', title: 'Mysuru visit', status: 'APPROVED', employeeName: 'Asha Nair', employeeCode: 'E-1', claimed: 1650, approved: 1450, toPay: 450, advanceSettled: 1000, advanceNumber: 'ADV-0001', lines: [line()] };
 
   it('pays an approved claim with salary after saying what that means', async () => {
-    hr.listClaims.mockResolvedValue([approved]);
+    hr.listClaims.mockResolvedValue(Object.assign([approved], { reimbursement: { name: 'Reimbursement', taxed: false } }));
     render(<Expenses params={{}} updateParams={() => {}} />);
     fireEvent.click((await screen.findAllByText('Asha Nair'))[0]);
     fireEvent.click(await screen.findByRole('button', { name: 'Pay with salary' }));
     await waitFor(() => expect(hr.payClaim).toHaveBeenCalledWith('k1', { mode: 'SALARY' }));
-    expect(dialogs.confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Pay ₹450 with Asha Nair’s salary?' }));
+    expect(dialogs.confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Pay ₹450 with Asha Nair’s salary?', message: expect.stringMatching(/not taxed\. It shows as paid once Payroll approves it/) }));
+  });
+
+  it('never says "not taxed" when Payroll taxes the reimbursement line', async () => {
+    hr.listClaims.mockResolvedValue(Object.assign([approved], { reimbursement: { name: 'Expense refund', taxed: true } }));
+    render(<Expenses params={{}} updateParams={() => {}} />);
+    fireEvent.click((await screen.findAllByText('Asha Nair'))[0]);
+    fireEvent.click(await screen.findByRole('button', { name: 'Pay with salary' }));
+    await waitFor(() => expect(dialogs.confirmDialog).toHaveBeenCalled());
+    expect(dialogs.confirmDialog.mock.calls[0][0].message).not.toMatch(/not taxed/);
+    expect(dialogs.confirmDialog.mock.calls[0][0].message).toMatch(/Expense refund, which Payroll taxes/);
   });
 
   it('records a claim paid now with how and when', async () => {

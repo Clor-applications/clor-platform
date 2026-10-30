@@ -47,7 +47,7 @@ export async function capFor(orgId: string, employeeId: string, ask?: { amount: 
     perquisite: ask ? owedNow + ask.amount > PERQUISITE_LIMIT : false,
     interestFreeOwed: owedNow,
     explain: cap
-      ? `By law, everything taken off your pay in a month stays within half your wages (${inr(cap.wages / 2)} of ${inr(cap.wages)}, from your ${cap.basis}). After PF, tax and what you already repay, up to ${inr(cap.room)} a month can go to this.`
+      ? `By law, everything taken off your pay in a month stays within half your wages (${inr(cap.wages / 2)} of ${inr(cap.wages)}, from your ${cap.basis}). After PF, tax and what you already repay this month, up to ${inr(cap.room)} a month can go to this.`
       : 'HR checks the amount against your pay before deciding.',
   };
 }
@@ -149,7 +149,7 @@ export async function toPayroll(ask: { id: string; orgId: string; accountId: str
     const e = await peoplePrisma.employee.findFirst({ where: { id: a.employeeId, orgId: a.orgId }, select: { name: true } });
     let made: Awaited<ReturnType<typeof makeSalaryAdvanceLoan>>;
     try {
-      made = await makeSalaryAdvanceLoan({ accountId: a.accountId, orgId: a.orgId, userId, employeeId: a.employeeId, amount: num(a.amount), months: a.months, notes: `Salary advance asked by ${e?.name || 'the employee'} in the employee app: ${a.reason}` });
+      made = await makeSalaryAdvanceLoan({ accountId: a.accountId, orgId: a.orgId, userId, employeeId: a.employeeId, askId: a.id, amount: num(a.amount), months: a.months, notes: `Salary advance asked by ${e?.name || 'the employee'} in the employee app: ${a.reason}` });
     } catch (err) {
       /* Approved stays approved: what did not reach Payroll is sent again from People › Expenses. */
       console.error('[people-money] salary advance not sent to payroll:', err instanceof Error ? err.message : err); // eslint-disable-line no-console
@@ -203,7 +203,8 @@ export async function askDetail(orgId: string, request: { id: string; idempotenc
   const loan = a.loanId ? await loanState(orgId, a.loanId) : null;
   return {
     record: { ...shape(a, loan), employeeName: employee?.name ?? null, employeeCode: employee?.code ?? null },
-    cap: { known: cap.known, monthlyRoom: cap.monthlyRoom, wages: cap.wages, basis: cap.basis, fits: cap.fits, explain: cap.explain },
+    /* Approvers see whether it fits and the room; never the person's wages or how they were worked out. */
+    cap: { known: cap.known, monthlyRoom: cap.monthlyRoom, fits: cap.fits },
     perquisite: cap.perquisite ? `Interest-free loans to this person would come to ${inr(cap.interestFreeOwed + num(a.amount))}. Above ₹2,00,000 in total, the interest saved can be a taxable perquisite (medical loans are exempt). Check with your accountant before approving; CLOR does not work it out.` : null,
   };
 }

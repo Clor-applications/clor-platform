@@ -112,6 +112,7 @@ CREATE TABLE IF NOT EXISTS "EmployeeAdvance" (
     "settledAmount" DECIMAL(12,2) NOT NULL DEFAULT 0,
     "returnedAmount" DECIMAL(12,2) NOT NULL DEFAULT 0,
     "recoveredAmount" DECIMAL(12,2) NOT NULL DEFAULT 0,
+    "recoveringAmount" DECIMAL(12,2) NOT NULL DEFAULT 0,
     "payrollAdjustmentId" TEXT,
     "closedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

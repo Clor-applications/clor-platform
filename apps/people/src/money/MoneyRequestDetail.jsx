@@ -28,7 +28,7 @@ function Detail({ requestId }) {
   const d = req.data;
   if (!d) return <div className="ui-skel ui-skel-text" aria-busy="true" />;
   if (!d.record) return <p className="ui-muted">Nothing was sent with this request from the employee app.</p>;
-  if (d.kind === 'EXPENSE_CLAIM') return <ClaimDetail claim={d.record} advance={d.advance} canCut={d.waitingOnMe} onSaved={req.reload} />;
+  if (d.kind === 'EXPENSE_CLAIM') return <ClaimDetail claim={d.record} advance={d.advance} monthTotal={d.monthTotal} canCut={d.waitingOnMe} onSaved={req.reload} />;
   if (d.kind === 'EMPLOYEE_ADVANCE') {
     const a = d.record;
     return (
@@ -50,7 +50,7 @@ function Detail({ requestId }) {
         <div><dt className="ui-t-label">Can come off their pay</dt><dd className="tabular-nums">{d.cap?.known ? `${money(d.cap.monthlyRoom)} a month` : 'Not known: no pay in Payroll'}</dd></div>
       </dl>
       {d.cap?.known && !d.cap.fits ? <p className="ui-text-warn">The monthly repayment is more than half their pay allows, after what already comes off it.</p> : null}
-      {d.cap?.known ? <p className="ui-caption">From their {d.cap.basis}: half of {money(d.cap.wages)} a month, less PF, tax and other repayments. Approved, it becomes a Payroll loan recovered from the next salary.</p> : null}
+      {d.cap?.known ? <p className="ui-caption">Half their pay, less PF, tax and what already comes off it this month. Approved, it becomes a Payroll loan recovered from the next salary.</p> : null}
       {d.perquisite ? <p className="ui-text-warn">{d.perquisite}</p> : null}
       {a.loan ? <p className="ui-caption tabular-nums">Payroll loan {a.loan.number}: {money(a.loan.outstanding)} left to repay.</p> : null}
       {a.payrollNote ? <p className="ui-text-warn">{a.payrollNote}</p> : null}
@@ -58,7 +58,7 @@ function Detail({ requestId }) {
   );
 }
 
-function ClaimDetail({ claim: c, advance, canCut, onSaved }) {
+function ClaimDetail({ claim: c, advance, monthTotal, canCut, onSaved }) {
   const [cutting, setCutting] = useState(false);
   const [cuts, setCuts] = useState({});
   const [busy, setBusy] = useState(false);
@@ -130,6 +130,7 @@ function ClaimDetail({ claim: c, advance, canCut, onSaved }) {
           <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => { setCutting(false); setCuts({}); }}>Cancel</button>
         </div>
       ) : null}
+      {monthTotal && monthTotal > c.claimed ? <p className="ui-caption tabular-nums">{c.employeeName || 'They'} sent {money(monthTotal)} in claims this month, this one included.</p> : null}
       {advance ? <p className="ui-caption tabular-nums">Set against advance {advance.number} ({advance.purpose}): {money(advance.open)} of {money(advance.amount)} left on it, used first.</p> : null}
     </div>
   );

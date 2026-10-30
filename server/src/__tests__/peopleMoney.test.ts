@@ -109,6 +109,11 @@ beforeAll(async () => {
 }, 180_000);
 
 const approve = (c: Ctx, requestId: string) => api(c).post(`/people/requests/${requestId}/approve`, {});
+/* The manager, then HR when the month's total asks for it. */
+const approveAll = async (requestId: string) => {
+  const r = await approve(manager, requestId).expect(200);
+  if (r.body.request.status === 'WAITING') await approve(hr, requestId).expect(200);
+};
 const requestOf = async (kind: 'claims' | 'advances', id: string) => {
   const body = (await me.get('/').expect(200)).body;
   const row = (kind === 'claims' ? body.claims : body.advances).find((r: any) => r.id === id);
@@ -133,14 +138,16 @@ describe('bills from the employee app', () => {
     expect(draft.lines.find((l: any) => l.id === kept.body.lineId).possibleDuplicate).toBe(true);
     await me.del(`/lines/${kept.body.lineId}`).expect(200);
     /* Food on a bill in the company's name: GSTIN and tax kept; food shows credit usually blocked. */
-    await me.post('/lines', { spentOn: daysAgo(1), categoryId: food, amount: 1200, merchant: 'Hotel Saravana', companyGstin: true, supplierGstin: '29ABCDE1234F1Z5', taxAmount: 60, bill: bill(2) }).expect(201);
+    await me.post('/lines', { spentOn: daysAgo(1), categoryId: food, amount: 1200, merchant: 'Hotel Saravana', companyGstin: true, supplierGstin: '29ABCDE1234F1ZW', taxAmount: 60, bill: bill(2) }).expect(201);
     await me.post('/lines', { spentOn: daysAgo(1), categoryId: food, amount: 100, merchant: 'Tea', supplierGstin: 'not-a-gstin' }).expect(400);
+    /* Right shape, wrong check character: refused. */
+    expect((await me.post('/lines', { spentOn: daysAgo(1), categoryId: food, amount: 100, merchant: 'Tea', supplierGstin: '29ABCDE1234F1Z5' }).expect(400)).body.error).toMatch(/does not check out/);
     await me.post('/lines', { spentOn: '2999-01-01', categoryId: food, amount: 100, merchant: 'Tea' }).expect(400);
     draft = (await me.get('/').expect(200)).body.draft;
     expect(draft.claimed).toBe(1650);
     expect(draft.lines).toHaveLength(2);
     const foodLine = draft.lines.find((l: any) => l.category === 'Food and meals');
-    expect(foodLine).toMatchObject({ companyGstin: true, supplierGstin: '29ABCDE1234F1Z5', taxAmount: 60, creditBlocked: true });
+    expect(foodLine).toMatchObject({ companyGstin: true, supplierGstin: '29ABCDE1234F1ZW', taxAmount: 60, creditBlocked: true });
     /* My bill opens for me; not for a colleague in the app. */
     const mine = await me.get(`/bills/${foodLine.billId}`).expect(200);
     expect(mine.headers['content-type']).toMatch(/image\/png/);
@@ -215,15 +222,30 @@ describe('an advance, a claim against it, the manager in the inbox, and paying w
     expect(adj).toHaveLength(1);
     expect(adj[0]).toMatchObject({ id: `expense-claim:${claimId}`, type: 'EARNING', status: 'DRAFT' });
     expect(Number(adj[0].amount)).toBe(450);
-    const claim = (await api(hr).get(`/people/money/claims/${claimId}`).expect(200)).body.claim;
-    expect(claim).toMatchObject({ status: 'PAID', payMode: 'SALARY' });
+    let claim = (await api(hr).get(`/people/money/claims/${claimId}`).expect(200)).body.claim;
+    /* Not paid until Payroll approves the line. */
+    expect(claim).toMatchObject({ status: 'WITH_SALARY', payMode: 'SALARY' });
     expect(claim.payrollPeriodName).toMatch(/This month/);
+    /* Payroll cancels it: the claim is to pay again; paying again revives the same line. */
+    await runInTenant(hr.orgId, () => payrollPrisma.payrollAdjustment.update({ where: { id: `expense-claim:${claimId}` }, data: { status: 'CANCELLED' } }));
+    expect((await api(hr).get(`/people/money/claims/${claimId}`).expect(200)).body.claim.status).toBe('APPROVED');
+    await api(hr).post(`/people/money/claims/${claimId}/pay`, { mode: 'SALARY' }).expect(200);
+    expect(await runInTenant(hr.orgId, () => payrollPrisma.payrollAdjustment.count({ where: { orgId: hr.orgId, employeeId: asha.id } }))).toBe(1);
+    /* Payroll approves it: paid. */
+    await runInTenant(hr.orgId, () => payrollPrisma.payrollAdjustment.update({ where: { id: `expense-claim:${claimId}` }, data: { status: 'APPROVED' } }));
+    claim = (await api(hr).get(`/people/money/claims/${claimId}`).expect(200)).body.claim;
+    expect(claim.status).toBe('PAID');
+    /* A claim left half-way (PAYING) is taken again after two minutes, and finds its line. */
+    await runInTenant(hr.orgId, () => peoplePrisma.expenseClaim.update({ where: { id: claimId }, data: { status: 'PAYING', updatedAt: new Date(Date.now() - 5 * 60_000) } }));
+    await api(hr).post(`/people/money/claims/${claimId}/pay`, { mode: 'SALARY' }).expect(200);
+    expect(await runInTenant(hr.orgId, () => payrollPrisma.payrollAdjustment.count({ where: { orgId: hr.orgId, employeeId: asha.id } }))).toBe(1);
+    expect((await api(hr).get(`/people/money/claims/${claimId}`).expect(200)).body.claim.status).toBe('PAID');
   });
 });
 
 describe('a second claim paid now, and the Books list', () => {
   it('is approved, paid by UPI, listed for Books with its GST, and marked entered', async () => {
-    await me.post('/lines', { spentOn: daysAgo(3), categoryId: courier, amount: 300, merchant: 'Blue Dart', companyGstin: true, supplierGstin: '27AAACB1234C1Z2', taxAmount: 45.76, bill: bill(3) }).expect(201);
+    await me.post('/lines', { spentOn: daysAgo(3), categoryId: courier, amount: 300, merchant: 'Blue Dart', companyGstin: true, supplierGstin: '27AAACB1234C1ZF', taxAmount: 45.76, bill: bill(3) }).expect(201);
     const draft = (await me.get('/').expect(200)).body.draft;
     await me.post(`/claims/${draft.id}/submit`, { title: 'Courier to client' }).expect(200);
     await approve(manager, await requestOf('claims', draft.id)).expect(200);
@@ -235,8 +257,12 @@ describe('a second claim paid now, and the Books list', () => {
     expect(books.map((c: any) => c.id)).toContain(draft.id);
     const csv = (await api(hr).get('/people/money/export.csv?kind=books').expect(200)).text;
     expect(csv).toContain('Blue Dart');
-    expect(csv).toContain('27AAACB1234C1Z2');
+    expect(csv).toContain('27AAACB1234C1ZF');
     expect(csv).toContain('45.76');
+    /* Every decided bill goes to Books, however it was paid: the lunch paid with salary, its GST and the advance it used, too. */
+    expect(csv).toContain('Hotel Saravana');
+    expect(csv).toContain('29ABCDE1234F1ZW');
+    expect(csv).toMatch(/ADV-\d{4},1000\.00/);
     await api(hr).post('/people/money/books-recorded', { claimIds: [draft.id] }).expect(200);
     expect((await api(hr).get('/people/money/claims?status=BOOKS').expect(200)).body.claims.map((c: any) => c.id)).not.toContain(draft.id);
     /* Reports: by person, category and month. */
@@ -280,7 +306,35 @@ describe('one advance, two claims approved at once', () => {
     expect(r).toMatchObject({ recovered: 1500, left: 0 });
     const ded = await runInTenant(hr.orgId, () => payrollPrisma.payrollAdjustment.findFirst({ where: { orgId: hr.orgId, employeeId: asha.id, type: 'DEDUCTION' } }));
     expect(Number(ded!.amount)).toBe(1500);
+    /* Recover twice in one month: refused while the first waits, and refused for the month once approved. */
+    expect((await api(hr).post(`/people/money/advances/${a.id}/recover`, {}).expect(409)).body.code).toBe('RECOVERY_WAITING');
+    let adv = (await api(hr).get('/people/money/advances').expect(200)).body.advances.find((x: any) => x.id === a.id);
+    expect(adv).toMatchObject({ status: 'PAID', recovering: 1500, recovered: 0, open: 0 });
+    await runInTenant(hr.orgId, () => payrollPrisma.payrollAdjustment.update({ where: { id: ded!.id }, data: { status: 'APPROVED' } }));
+    adv = (await api(hr).get('/people/money/advances').expect(200)).body.advances.find((x: any) => x.id === a.id);
+    expect(adv).toMatchObject({ status: 'CLOSED', recovering: 0, recovered: 1500 });
     await api(hr).post(`/people/money/advances/${a.id}/recover`, {}).expect(409);
+  });
+
+  it('the half-pay cap counts what already waits for this month: a second advance gets only what is left', async () => {
+    /* ₹50,000 a month: ₹25,000 can come off; ₹1,500 already does. */
+    const ask = async (amount: number) => {
+      const x = (await me.post('/advances', { purpose: `Stock purchase ${amount}`, amount }).expect(201)).body.advance;
+      await approveAll(await requestOf('advances', x.id));
+      await api(hr).post(`/people/money/advances/${x.id}/pay`, { method: 'CASH' }).expect(200);
+      return x.id;
+    };
+    const first = await ask(20000);
+    const second = await ask(20000);
+    expect((await api(hr).post(`/people/money/advances/${first}/recover`, {}).expect(200)).body).toMatchObject({ recovered: 20000 });
+    /* 25,000 − 1,500 − 20,000 = 3,500, not another 20,000. */
+    expect((await api(hr).post(`/people/money/advances/${second}/recover`, {}).expect(200)).body).toMatchObject({ recovered: 3500, capped: true, left: 16500 });
+    /* Nothing left for this month. */
+    const third = await ask(1000);
+    expect((await api(hr).post(`/people/money/advances/${third}/recover`, {}).expect(409)).body.code).toBe('OVER_CAP');
+    /* Cancel them in Payroll so the next tests start from the same pay. */
+    await runInTenant(hr.orgId, () => payrollPrisma.payrollAdjustment.updateMany({ where: { orgId: hr.orgId, employeeId: asha.id, type: 'DEDUCTION', status: 'DRAFT' }, data: { status: 'CANCELLED' } }));
+    await api(hr).get('/people/money/advances').expect(200);
   });
 });
 
@@ -289,10 +343,11 @@ describe('salary advance from the employee app', () => {
     const start = (await me.get('/').expect(200)).body.salaryAdvance;
     expect(start.available).toBe(true);
     /* ₹50,000 a month: up to half of it can come off. */
-    expect(start.cap).toMatchObject({ known: true, monthlyRoom: 25000 });
+    expect(start.cap.known).toBe(true);
+    expect(start.cap.monthlyRoom).toBe(23500);
     expect(start.cap.explain).toMatch(/half your wages/);
     const over = (await me.post('/salary-advance/preview', { amount: 30000, months: 1 }).expect(200)).body;
-    expect(over).toMatchObject({ fits: false, mostYouCanAsk: 25000 });
+    expect(over).toMatchObject({ fits: false, mostYouCanAsk: 23500 });
     expect((await me.post('/salary-advance', { amount: 30000, months: 1, reason: 'Rent deposit' }).expect(400)).body.code).toBe('OVER_CAP');
     await me.post('/salary-advance', { amount: 40000, months: 25, reason: 'Rent deposit' }).expect(400);
     const [x, y] = await Promise.all([
@@ -310,7 +365,9 @@ describe('salary advance from the employee app', () => {
     const inbox = (await api(manager).get('/people/inbox').expect(200)).body.items;
     expect(inbox.find((i: any) => i.id === ask.approvalRequestId)).toBeUndefined();
     const detail = (await api(hr).get(`/people/money/requests/${ask.approvalRequestId}`).expect(200)).body;
-    expect(detail.cap).toMatchObject({ fits: true, monthlyRoom: 25000 });
+    expect(detail.cap).toEqual({ known: true, fits: true, monthlyRoom: 23500 });
+    /* Approvers never get the person's wages. */
+    expect(JSON.stringify(detail)).not.toMatch(/wages|50000|50,000/);
     expect(detail.perquisite).toBeNull();
     await approve(hr, ask.approvalRequestId).expect(200);
 
@@ -323,7 +380,12 @@ describe('salary advance from the employee app', () => {
     expect(after.asks[0]).toMatchObject({ status: 'APPROVED', loan: { status: 'ACTIVE', outstanding: 40000 } });
     expect(after.loans[0]).toMatchObject({ kind: 'Salary advance', outstanding: 40000 });
     /* Now ₹10,000 a month already goes to it: the room is smaller. */
-    expect(after.cap.monthlyRoom).toBe(15000);
+    expect(after.cap.monthlyRoom).toBe(13500);
+    /* Sent to Payroll again (a retry after a lost answer): the same loan, never a second. */
+    await runInTenant(hr.orgId, () => peoplePrisma.salaryAdvanceAsk.update({ where: { id: ask.id }, data: { loanId: null } }));
+    const again = (await api(hr).post(`/people/money/salary-advances/${ask.id}/send-to-payroll`, {}).expect(200)).body;
+    expect(again.loanId).toBe(loans[0].id);
+    expect(await runInTenant(hr.orgId, () => payrollPrisma.payrollLoan.count({ where: { orgId: hr.orgId, employeeId: asha.id } }))).toBe(1);
   });
 
   it('warns about the perquisite above ₹2,00,000 interest free, without working it out', async () => {
@@ -334,6 +396,59 @@ describe('salary advance from the employee app', () => {
     /* Withdrawn from the app: closed, and nothing reaches Payroll. */
     await me.post(`/salary-advance/${ask.id}/withdraw`).expect(200);
     expect((await me.get('/').expect(200)).body.salaryAdvance.asks.find((a: any) => a.id === ask.id).status).toBe('WITHDRAWN');
+  });
+});
+
+describe('one draft, sending while adding, and the month\'s total', () => {
+  let raviApp: Awaited<ReturnType<typeof portalOf>>;
+  const draftOf = async () => (await raviApp.get('/').expect(200)).body.draft;
+  const claimsOf = async () => (await raviApp.get('/').expect(200)).body.claims;
+
+  it('a withdrawn claim joins the draft already open, with what the approver allowed cleared', async () => {
+    raviApp = await portalOf(hr, ravi);
+    await raviApp.post('/lines', { spentOn: daysAgo(2), categoryId: travel, amount: 3000, merchant: 'Train to Hubli', bill: bill(40) }).expect(201);
+    const first = await draftOf();
+    await raviApp.post(`/claims/${first.id}/submit`, { title: 'Hubli' }).expect(200);
+    const sent = (await claimsOf()).find((c: any) => c.id === first.id);
+    await api(manager).post(`/people/money/claims/${first.id}/sanction`, { lines: [{ id: sent.lines[0].id, approvedAmount: 2500, reason: 'Sleeper class only' }] }).expect(200);
+    /* A new bill opens a new draft while the claim waits. */
+    await raviApp.post('/lines', { spentOn: daysAgo(1), categoryId: travel, amount: 1500, merchant: 'Hotel in Hubli', bill: bill(41) }).expect(201);
+    await raviApp.post(`/claims/${first.id}/withdraw`).expect(200);
+    const all = (await raviApp.get('/').expect(200)).body;
+    expect(await runInTenant(hr.orgId, () => peoplePrisma.expenseClaim.count({ where: { orgId: hr.orgId, employeeId: ravi.id, status: 'DRAFT' } }))).toBe(1);
+    expect(all.draft.lines.map((l: any) => l.merchant).sort()).toEqual(['Hotel in Hubli', 'Train to Hubli']);
+    expect(all.draft.claimed).toBe(4500);
+    expect(all.draft.lines.every((l: any) => l.approvedAmount == null && l.cutReason == null)).toBe(true);
+    expect(all.claims.find((c: any) => c.id === first.id)).toBeUndefined();
+  });
+
+  it('a bill added while the claim is sent is either in it and counted, or in the next draft', async () => {
+    const draft = await draftOf();
+    const [sentRes, added] = await Promise.all([
+      raviApp.post(`/claims/${draft.id}/submit`, { title: 'Hubli trip' }),
+      raviApp.post('/lines', { spentOn: daysAgo(1), categoryId: travel, amount: 500, merchant: 'Auto in Hubli', bill: bill(42) }),
+    ]);
+    expect(sentRes.status).toBe(200);
+    expect(added.status).toBe(201);
+    const claim = await runInTenant(hr.orgId, () => peoplePrisma.expenseClaim.findFirstOrThrow({ where: { id: draft.id }, include: { lines: true } }));
+    expect(Number(claim.claimedTotal)).toBe(claim.lines.reduce((t, l) => t + Number(l.amount), 0));
+    const next = await draftOf();
+    expect(claim.lines.length + (next?.lines.length || 0)).toBe(3);
+    if (next) await raviApp.del(`/lines/${next.lines[0].id}`).expect(200);
+  });
+
+  it('the HR step goes by the month\'s total: a ₹4,000 claim after ₹4,500 this month reaches HR', async () => {
+    const waiting = (await claimsOf()).find((c: any) => c.title === 'Hubli trip');
+    await approve(manager, waiting.approvalRequestId).expect(200);
+    await raviApp.post('/lines', { spentOn: daysAgo(1), categoryId: travel, amount: 4000, merchant: 'Bus to Dharwad', bill: bill(43) }).expect(201);
+    const d = await draftOf();
+    await raviApp.post(`/claims/${d.id}/submit`, { title: 'Dharwad' }).expect(200);
+    const reqId = (await claimsOf()).find((c: any) => c.id === d.id).approvalRequestId;
+    const detail = (await api(manager).get(`/people/money/requests/${reqId}`).expect(200)).body;
+    expect(detail.monthTotal).toBeGreaterThan(5000);
+    const r = await approve(manager, reqId).expect(200);
+    expect(r.body.request.status).toBe('WAITING');
+    await approve(hr, reqId).expect(200);
   });
 });
 

@@ -24,7 +24,7 @@ const day = (iso) => {
   return y && m && d ? `${Number(d)} ${MONTHS[Number(m) - 1]}${y !== todayIst().slice(0, 4) ? ` ${y}` : ''}` : '';
 };
 const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
-const TONE = { DRAFT: 'neutral', SUBMITTED: 'warn', WAITING: 'warn', APPROVED: 'pos', PAYING: 'warn', PAID: 'pos', SETTLED: 'neutral', CLOSED: 'neutral', REJECTED: 'neg', WITHDRAWN: 'neutral' };
+const TONE = { WITH_SALARY: 'warn', DRAFT: 'neutral', SUBMITTED: 'warn', WAITING: 'warn', APPROVED: 'pos', PAYING: 'warn', PAID: 'pos', SETTLED: 'neutral', CLOSED: 'neutral', REJECTED: 'neg', WITHDRAWN: 'neutral' };
 const Pill = ({ row }) => <span className={`ui-pill ui-pill-${row.canReply ? 'warn' : TONE[row.status] || 'neutral'} shrink-0`}>{row.statusLabel}</span>;
 
 export default function MyMoney({ guard }) {
@@ -219,7 +219,7 @@ function BillForm({ data, guard, onDone, onCancel }) {
       {form.companyGstin ? (
         <div className="grid grid-cols-2 gap-3">
           <label className="block"><span className="ui-label">Their GSTIN</span>
-            <SuggestInput value={form.supplierGstin} onChange={(v) => set({ supplierGstin: v.toUpperCase() })} maxLength={15} placeholder="29ABCDE1234F1Z5" suggestions={[]} />
+            <SuggestInput value={form.supplierGstin} onChange={(v) => set({ supplierGstin: v.toUpperCase() })} maxLength={15} placeholder="29ABCDE1234F1ZW" suggestions={[]} />
           </label>
           <label className="block"><span className="ui-label">GST on the bill</span>
             <input className="ui-input w-full tabular-nums" inputMode="decimal" value={form.taxAmount} onChange={(e) => set({ taxAmount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
@@ -266,7 +266,7 @@ function ClaimRow({ claim: c, guard, reload }) {
       notify.error(errText(e, 'Could not open the bill.'));
     }
   };
-  const paid = c.status === 'PAID' ? (c.payMode === 'SALARY' ? `With your salary${c.payrollPeriodName ? ` for ${c.payrollPeriodName}` : ''}` : `Paid${c.paidOn ? ` on ${day(c.paidOn)}` : ''}${c.paidMethod ? ` by ${c.paidMethod === 'BANK' ? 'bank transfer' : c.paidMethod === 'UPI' ? 'UPI' : 'cash'}` : ''}`) : null;
+  const paid = c.status === 'WITH_SALARY' ? `Goes with your salary${c.payrollPeriodName ? ` for ${c.payrollPeriodName}` : ''}, once Payroll approves it` : c.status === 'PAID' ? (c.payMode === 'SALARY' ? `With your salary${c.payrollPeriodName ? ` for ${c.payrollPeriodName}` : ''}` : `Paid${c.paidOn ? ` on ${day(c.paidOn)}` : ''}${c.paidMethod ? ` by ${c.paidMethod === 'BANK' ? 'bank transfer' : c.paidMethod === 'UPI' ? 'UPI' : 'cash'}` : ''}`) : null;
   return (
     <li className="py-2.5 text-sm">
       <button type="button" className="flex w-full items-start gap-3 text-left" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
@@ -381,6 +381,7 @@ function Advances({ data, guard, reload }) {
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{a.purpose}</span>
                 <span className="ui-caption block">{a.number}{a.status === 'PAID' ? ` · ${money(a.open)} left${a.settleBy ? `, bills by ${day(a.settleBy)}` : ''}` : ''}</span>
+                {a.recovering ? <span className="ui-caption block tabular-nums">{money(a.recovering)} is being taken from your salary.</span> : null}
                 {a.overdue ? <span className="ui-caption block ui-text-warn">Bills were due {day(a.settleBy)}. Send them, or give back what is left.</span> : null}
                 {a.comment ? <span className="ui-muted block">“{a.comment}”</span> : null}
                 {a.canWithdraw ? <button type="button" className="ui-link text-xs" onClick={() => withdraw(a)}>Withdraw</button> : null}

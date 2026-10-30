@@ -37,40 +37,61 @@ export async function periodToPayIn(orgId: string, today = todayIst()) {
     || payrollPrisma.payrollPeriod.findFirst({ where: { ...open, startDate: { gt: today } }, orderBy: { startDate: 'asc' }, select: { id: true, name: true } });
 }
 
-/** An active component of this type whose code or name carries one of the words, the first word preferred. */
-async function componentFor(orgId: string, type: 'EARNING' | 'DEDUCTION', words: string[]) {
+/**
+ * The component to put it on: an active one of this type whose code is
+ * exactly one of the codes, else whose code or name carries one of the words,
+ * in that order of preference.
+ */
+async function componentFor(orgId: string, type: 'EARNING' | 'DEDUCTION', codes: string[], words: string[]) {
+  const select = { id: true, name: true, isTaxable: true };
+  for (const code of codes) {
+    const c = await payrollPrisma.salaryComponent.findFirst({ where: { orgId, type, isActive: true, code: { equals: code, mode: 'insensitive' } }, orderBy: { createdAt: 'asc' }, select });
+    if (c) return c;
+  }
   for (const w of words) {
     const c = await payrollPrisma.salaryComponent.findFirst({
       where: { orgId, type, isActive: true, OR: [{ code: { contains: w, mode: 'insensitive' } }, { name: { contains: w, mode: 'insensitive' } }] },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, name: true },
+      select,
     });
     if (c) return c;
   }
   return null;
 }
 
-export type Handed = { sent: true; adjustmentId: string; periodName: string; amount: number } | { sent: false; why: string };
+/** The reimbursement earning a claim paid with salary goes on (code REIMB first), and whether Payroll taxes it. */
+export async function reimbursementComponent(orgId: string) {
+  return componentFor(orgId, 'EARNING', ['REIMB', 'REIMBURSEMENT'], ['REIMB']);
+}
+
+export type Handed = { sent: true; adjustmentId: string; periodId: string; periodName: string; amount: number } | { sent: false; why: string };
+
+/** Where a keyed payroll adjustment stands: DRAFT | APPROVED | CONSUMED | CANCELLED, or GONE when it was deleted in Payroll. */
+export async function adjustmentState(orgId: string, id: string) {
+  const a = await payrollPrisma.payrollAdjustment.findFirst({ where: { orgId, id }, select: { status: true, amount: true } });
+  return a ? { status: a.status, amount: Number(a.amount) } : { status: 'GONE', amount: 0 };
+}
 
 /**
  * A draft payroll adjustment for one person, keyed so it is made once. An
  * earning pays a reimbursement with salary; a deduction recovers an advance.
+ * A key ending in `:<period>` gets the open month's id in its place, so one
+ * key is one month's line and a retry finds it.
  */
 export async function draftAdjustment(o: { accountId: string; orgId: string; userId: string; employeeId: string; key: string; type: 'EARNING' | 'DEDUCTION'; amount: number; reason: string }): Promise<Handed> {
   if (!(await payrollOn(o.accountId, o.orgId))) return { sent: false, why: 'This company does not run payroll in CLOR: pay it by hand and mark it paid now.' };
-  const words = o.type === 'EARNING' ? ['REIMB'] : ['ADVANCE', 'RECOVER'];
   const [component, period, person] = await Promise.all([
-    componentFor(o.orgId, o.type, words),
+    o.type === 'EARNING' ? reimbursementComponent(o.orgId) : componentFor(o.orgId, 'DEDUCTION', ['ADVREC', 'ADVANCE'], ['ADVANCE', 'RECOVER']),
     periodToPayIn(o.orgId),
     peoplePrisma.employee.findFirst({ where: { orgId: o.orgId, id: o.employeeId }, select: { branchId: true } }),
   ]);
   if (!component) {
     return { sent: false, why: o.type === 'EARNING'
-      ? 'Payroll has no reimbursement earning yet. Add one in Payroll → Salary components (an earning named "Reimbursement", not taxed), then pay again.'
+      ? 'Payroll has no reimbursement earning yet. Add one in Payroll → Salary components (an earning with the code REIMB, not taxed), then pay again.'
       : 'Payroll has no advance recovery deduction yet. Add one in Payroll → Salary components (a deduction named "Advance recovery"), then try again.' };
   }
   if (!period) return { sent: false, why: 'Payroll has no open month to put it in. Open the next month in Payroll, then try again.' };
-  const id = o.key;
+  const id = o.key.replace(/:<period>$/, `:${period.id}`);
   const made = await forLiveEmployee(o.orgId, o.employeeId, async (tx) => {
     const prior = await tx.payrollAdjustment.findUnique({ where: { id } });
     if (prior && prior.status !== 'CANCELLED') return prior;
@@ -78,42 +99,70 @@ export async function draftAdjustment(o: { accountId: string; orgId: string; use
     if (prior) return tx.payrollAdjustment.update({ where: { id }, data });
     return tx.payrollAdjustment.create({ data: { id, accountId: o.accountId, orgId: o.orgId, branchId: person?.branchId || null, employeeId: o.employeeId, createdByUserId: o.userId, ...data } });
   });
-  return { sent: true, adjustmentId: made.id, periodName: period.name, amount: Number(made.amount) };
+  return { sent: true, adjustmentId: made.id, periodId: period.id, periodName: period.name, amount: Number(made.amount) };
+}
+
+/** A month's pay on the person's salary structure, worked out by Payroll's own engine: the earnings, not the CTC. */
+async function structureGross(orgId: string, employeeId: string) {
+  const a = await payrollPrisma.salaryAssignment.findFirst({ where: { orgId, employeeId, status: 'ACTIVE', effectiveFrom: { lte: todayIst() } }, orderBy: { effectiveFrom: 'desc' }, select: { structureId: true, annualCtc: true, monthlyCtc: true } });
+  if (!a) return null;
+  const { offerBreakdown } = await import('../../payroll/offerBreakdown.js');
+  const b = await offerBreakdown(orgId, a.structureId, Number(a.annualCtc)).catch(() => null);
+  const gross = b?.monthlyGross && b.monthlyGross > 0 ? b.monthlyGross : Number(a.monthlyCtc);
+  return gross > 0 ? gross : null;
 }
 
 /**
- * What can come off this person's pay in a month: half their wages, less
- * the other deductions on their last final payslip and the loan instalments
- * they already repay (Code on Wages 2019 s.18; Payment of Wages Act s.7 before
- * it). Wages are that payslip's gross; with no payslip yet, the monthly pay
- * on their salary structure. Null when Payroll knows nothing of their pay.
+ * What more can come off this person's pay in the open month: half their
+ * wages (Code on Wages 2019 s.18; Payment of Wages Act s.7 before it), less
+ *  - the regular deductions on their last final payslip (PF, tax, …),
+ *  - every deduction already added for the open month and not cancelled (a
+ *    recovery waiting in Payroll counts as much as one approved),
+ *  - and the monthly instalment of every loan being recovered or still a draft.
+ * Wages are that payslip's gross; with no payslip yet, the monthly earnings of
+ * their salary structure, which is approximate. Null when Payroll knows
+ * nothing of their pay.
  */
 export async function payCap(orgId: string, employeeId: string) {
   const runs = await payrollPrisma.payrollRun.findMany({ where: { orgId, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] } }, select: { id: true }, orderBy: { payrollDate: 'desc' }, take: 24 });
   const slip = runs.length
-    ? await payrollPrisma.salarySlip.findFirst({ where: { orgId, employeeId, runId: { in: runs.map((r) => r.id) }, status: { not: 'CANCELLED' } }, orderBy: { payrollDate: 'desc' }, select: { id: true, number: true, grossEarnings: true, totalDeductions: true } })
+    ? await payrollPrisma.salarySlip.findFirst({ where: { orgId, employeeId, runId: { in: runs.map((r) => r.id) }, status: { not: 'CANCELLED' } }, orderBy: { payrollDate: 'desc' }, select: { id: true, number: true, grossEarnings: true, totalDeductions: true, adjustmentSnapshotJson: true } })
     : null;
   let wages = 0;
   let other = 0;
   let basis = '';
+  let approximate = false;
   if (slip) {
     const recovered = await payrollPrisma.payrollLoanInstallment.findMany({ where: { orgId, slipId: slip.id, status: 'RECOVERED' }, select: { dueAmount: true } });
+    /* That month's one-off deductions belonged to that month, not to every month. */
+    let oneOff = 0;
+    try {
+      const adj = JSON.parse(slip.adjustmentSnapshotJson || '[]');
+      if (Array.isArray(adj)) oneOff = adj.filter((x: any) => x?.type === 'DEDUCTION').reduce((t: number, x: any) => t + (Number(x.amount) || 0), 0);
+    } catch { /* an old payslip without the snapshot */ }
     wages = Number(slip.grossEarnings);
-    other = Math.max(0, Number(slip.totalDeductions) - recovered.reduce((t, i) => t + Number(i.dueAmount), 0));
+    other = Math.max(0, Number(slip.totalDeductions) - recovered.reduce((t, i) => t + Number(i.dueAmount), 0) - oneOff);
     basis = `payslip ${slip.number}`;
   } else {
-    const today = todayIst();
-    const a = await payrollPrisma.salaryAssignment.findFirst({ where: { orgId, employeeId, status: 'ACTIVE', effectiveFrom: { lte: today } }, orderBy: { effectiveFrom: 'desc' }, select: { monthlyCtc: true } });
-    if (!a || !Number(a.monthlyCtc)) return null;
-    wages = Number(a.monthlyCtc);
-    basis = 'salary structure';
+    const gross = await structureGross(orgId, employeeId);
+    if (!gross) return null;
+    wages = gross;
+    basis = 'salary structure, approximate';
+    approximate = true;
   }
   if (!(wages > 0)) return null;
-  const loans = await payrollPrisma.payrollLoan.findMany({ where: { orgId, employeeId, status: 'ACTIVE' }, select: { installmentAmount: true, interestRate: true, outstandingBalance: true } });
-  const loanInstalments = round2(loans.reduce((t, l) => t + Number(l.installmentAmount), 0));
-  const interestFreeOwed = round2(loans.filter((l) => Number(l.interestRate) === 0).reduce((t, l) => t + Number(l.outstandingBalance), 0));
-  const room = Math.max(0, round2(wages / 2 - other - loanInstalments));
-  return { wages: round2(wages), otherDeductions: round2(other), loanInstalments, room, basis, interestFreeOwed };
+  const period = await periodToPayIn(orgId);
+  const [loans, pending] = await Promise.all([
+    payrollPrisma.payrollLoan.findMany({ where: { orgId, employeeId, status: { in: ['ACTIVE', 'DRAFT', 'APPROVED'] } }, select: { status: true, principal: true, installmentCount: true, installmentAmount: true, interestRate: true, outstandingBalance: true } }),
+    period ? payrollPrisma.payrollAdjustment.findMany({ where: { orgId, employeeId, periodId: period.id, type: 'DEDUCTION', status: { not: 'CANCELLED' } }, select: { amount: true } }) : Promise.resolve([] as Array<{ amount: unknown }>),
+  ]);
+  /* A draft loan has no instalment written yet: its principal over its months. */
+  const instalmentOf = (l: (typeof loans)[number]) => (l.status === 'ACTIVE' ? Number(l.installmentAmount) : l.installmentCount > 0 ? Number(l.principal) / l.installmentCount : Number(l.principal));
+  const loanInstalments = round2(loans.reduce((t, l) => t + instalmentOf(l), 0));
+  const thisMonth = round2(pending.reduce((t, a) => t + Number(a.amount), 0));
+  const interestFreeOwed = round2(loans.filter((l) => Number(l.interestRate) === 0).reduce((t, l) => t + (l.status === 'ACTIVE' ? Number(l.outstandingBalance) : Number(l.principal)), 0));
+  const room = Math.max(0, round2(wages / 2 - other - loanInstalments - thisMonth));
+  return { wages: round2(wages), otherDeductions: round2(other + thisMonth), loanInstalments, room, basis, approximate, interestFreeOwed };
 }
 
 /** Interest-free or cheap loans above this in total are a taxable perquisite (Income-tax Rules, rule 3(7)(i)); medical loans are exempt. */
@@ -128,10 +177,15 @@ export type LoanMade = { made: true; loanId: string; number: string; status: str
  * then approved when the person deciding may approve Payroll loans;
  * otherwise it waits in Payroll → Loans for someone who may.
  */
-export async function makeSalaryAdvanceLoan(o: { accountId: string; orgId: string; userId: string; employeeId: string; amount: number; months: number; notes: string }): Promise<LoanMade> {
+export async function makeSalaryAdvanceLoan(o: { accountId: string; orgId: string; userId: string; employeeId: string; askId: string; amount: number; months: number; notes: string }): Promise<LoanMade> {
   if (!(await payrollOn(o.accountId, o.orgId))) return { made: false, why: 'This company does not run payroll in CLOR: pay the advance and take it back by hand.' };
+  /* One ask is one loan: its id is the ask's, so a retry finds the loan made before instead of making another. */
+  const id = `salary-advance:${o.askId}`;
+  const existing = await payrollPrisma.payrollLoan.findFirst({ where: { orgId: o.orgId, id }, select: { id: true, number: true, status: true } });
+  if (existing && existing.status !== 'CANCELLED') return { made: true, loanId: existing.id, number: existing.number, status: existing.status };
+  if (existing) return { made: false, why: `Payroll cancelled loan ${existing.number} for this advance. Ask the person to ask again.` };
   const [component, period, person] = await Promise.all([
-    componentFor(o.orgId, 'DEDUCTION', ['ADVANCE', 'LOAN']),
+    componentFor(o.orgId, 'DEDUCTION', ['SALADV', 'LOAN'], ['ADVANCE', 'LOAN']),
     periodToPayIn(o.orgId),
     peoplePrisma.employee.findFirst({ where: { orgId: o.orgId, id: o.employeeId }, select: { branchId: true } }),
   ]);
@@ -150,9 +204,11 @@ export async function makeSalaryAdvanceLoan(o: { accountId: string; orgId: strin
           n += 1;
           number = `LN-${year}-${String(n).padStart(4, '0')}`;
         }
+        const made = await tx.payrollLoan.findUnique({ where: { id }, select: { id: true, number: true, status: true } });
+        if (made) return made;
         return tx.payrollLoan.create({
           data: {
-            accountId: o.accountId, orgId: o.orgId, branchId: person?.branchId || null, number, employeeId: o.employeeId, type: 'SALARY_ADVANCE',
+            id, accountId: o.accountId, orgId: o.orgId, branchId: person?.branchId || null, number, employeeId: o.employeeId, type: 'SALARY_ADVANCE',
             principal: round2(o.amount), interestRate: 0, startDate: today, recoveryStartPeriodId: period.id, installmentCount: o.months,
             recoveryComponentId: component.id, outstandingBalance: 0, status: 'DRAFT', notes: o.notes.slice(0, 500) || null, createdByUserId: o.userId,
           },

@@ -7,7 +7,8 @@ import { verifiedMime } from '../../fileType.js';
 import { notifyPermission, notifyUsers } from '../../notifications.js';
 import type { Actor } from '../changeLog.js';
 import { ApprovalError, PORTAL_PREFIX, activeRule, reply, submitRequest, withdraw, type RequestType, type StepSpec } from '../approvals/engine.js';
-import { draftAdjustment, payCap, todayIst } from './payrollBridge.js';
+import { adjustmentState, draftAdjustment, payCap, periodToPayIn, todayIst } from './payrollBridge.js';
+import { isValidGstinChecksum } from '../../../utils/gstin.js';
 
 /**
  * Expense claims and advances (WORKFLOW-GAP-RESEARCH 30 Oct 2026, 4.1).
@@ -40,11 +41,10 @@ export type Me = { accountId: string; orgId: string; employeeId: string; correla
 export type Staff = { accountId: string; orgId: string; userId: string; correlationId: string };
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
-const GSTIN = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const MAX_AMOUNT = 1_000_000;
 export const BILL_MAX_BYTES = 5 * 1024 * 1024;
 const BILL_MIMES = /^(application\/pdf|image\/(jpeg|png|webp))$/;
-const OPEN_CLAIM = ['DRAFT', 'SUBMITTED', 'APPROVED', 'PAYING', 'PAID', 'SETTLED'];
+const OPEN_CLAIM = ['DRAFT', 'SUBMITTED', 'APPROVED', 'PAYING', 'WITH_SALARY', 'PAID', 'SETTLED'];
 const num = (v: unknown) => (v == null ? 0 : Number(v));
 export const inr = (n: number) => `₹${round2(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 const addDays = (iso: string, n: number) => {
@@ -120,13 +120,13 @@ const requesterIds = (e: { id: string; userId: string | null }) => [`${PORTAL_PR
 
 /** The default rule for a money request when the company has none: the one a small business would set. */
 const DEFAULT_RULES: Record<'EXPENSE_CLAIM' | 'EMPLOYEE_ADVANCE' | 'SALARY_ADVANCE', { name: string; steps: StepSpec[] }> = {
-  EXPENSE_CLAIM: { name: 'Expense claims (default: the manager, then HR above ₹5,000)', steps: [
+  EXPENSE_CLAIM: { name: 'Expense claims (default: the manager, then HR once the month passes ₹5,000)', steps: [
     { order: 1, approver: { kind: 'MANAGER' }, dueDays: 2, overdue: { action: 'REMIND' } },
-    { order: 2, approver: { kind: 'HR' }, condition: { field: 'amount', op: 'gt', value: '5000' }, dueDays: 2, overdue: { action: 'REMIND' } },
+    { order: 2, approver: { kind: 'HR' }, condition: { field: 'monthTotal', op: 'gt', value: '5000' }, dueDays: 2, overdue: { action: 'REMIND' } },
   ] },
-  EMPLOYEE_ADVANCE: { name: 'Advances (default: the manager, then HR above ₹5,000)', steps: [
+  EMPLOYEE_ADVANCE: { name: 'Advances (default: the manager, then HR once the month passes ₹5,000)', steps: [
     { order: 1, approver: { kind: 'MANAGER' }, dueDays: 2, overdue: { action: 'REMIND' } },
-    { order: 2, approver: { kind: 'HR' }, condition: { field: 'amount', op: 'gt', value: '5000' }, dueDays: 2, overdue: { action: 'REMIND' } },
+    { order: 2, approver: { kind: 'HR' }, condition: { field: 'monthTotal', op: 'gt', value: '5000' }, dueDays: 2, overdue: { action: 'REMIND' } },
   ] },
   SALARY_ADVANCE: { name: 'Salary advances (default: HR decides)', steps: [{ order: 1, approver: { kind: 'HR' }, dueDays: 3, overdue: { action: 'REMIND' } }] },
 };
@@ -172,13 +172,90 @@ async function catchUp(orgId: string, kind: 'claim' | 'advance' | 'ask', rows: A
     if (s !== 'REJECTED' && s !== 'WITHDRAWN') continue;
     const where = { id: r.id, orgId, status: r.status };
     if (kind === 'claim') {
-      /* Withdrawn: back to a draft the person can change and send again. Not approved: closed, with the approver's reason. */
-      await peoplePrisma.expenseClaim.updateMany({ where, data: s === 'WITHDRAWN' ? { status: 'DRAFT', approvalRequestId: null, submittedAt: null } : { status: 'REJECTED', decidedAt: new Date() } });
+      /* Withdrawn: the bills go back to the person's one draft to change and send again. Not approved: closed, with the approver's reason. */
+      if (s === 'WITHDRAWN') await backToDraft(orgId, r.id, 'SUBMITTED');
+      else await peoplePrisma.expenseClaim.updateMany({ where, data: { status: 'REJECTED', decidedAt: new Date() } });
     } else if (kind === 'advance') {
       await peoplePrisma.employeeAdvance.updateMany({ where, data: { status: s } });
     } else {
       await peoplePrisma.salaryAdvanceAsk.updateMany({ where, data: { status: s } });
     }
+    changed = true;
+  }
+  return changed;
+}
+
+/**
+ * A claim's bills go back to be changed and sent again. A person has one
+ * draft, always: when one is open already the bills join it and the old
+ * claim goes; otherwise the claim becomes the draft. Either way what an
+ * approver allowed is cleared, since it was allowed on the claim that is gone.
+ */
+async function backToDraft(orgId: string, claimId: string, from: 'SUBMITTED' | 'REJECTED') {
+  const claim = await peoplePrisma.expenseClaim.findFirst({ where: { id: claimId, orgId }, select: { employeeId: true } });
+  if (!claim) return;
+  await peoplePrisma.$transaction(async (tx) => {
+    await lock(tx, `people-money-draft:${claim.employeeId}`);
+    const c = await tx.expenseClaim.findFirst({ where: { id: claimId, orgId, status: from } });
+    if (!c) return;
+    await tx.expenseLine.updateMany({ where: { claimId: c.id, orgId }, data: { approvedAmount: null, cutReason: null } });
+    const draft = await tx.expenseClaim.findFirst({ where: { orgId, employeeId: c.employeeId, status: 'DRAFT', id: { not: c.id } }, orderBy: { createdAt: 'asc' } });
+    if (draft) {
+      await tx.expenseLine.updateMany({ where: { claimId: c.id, orgId }, data: { claimId: draft.id } });
+      const lines = await tx.expenseLine.findMany({ where: { claimId: draft.id, orgId }, select: { amount: true } });
+      await tx.expenseClaim.update({ where: { id: draft.id }, data: { claimedTotal: round2(lines.reduce((t, l) => t + num(l.amount), 0)) } });
+      await tx.expenseClaim.delete({ where: { id: c.id } });
+    } else {
+      await tx.expenseClaim.update({ where: { id: c.id }, data: { status: 'DRAFT', approvalRequestId: null, submittedAt: null, decidedAt: null, approvedTotal: null, advanceId: null } });
+    }
+  });
+}
+
+/** The person's one draft. Two left by an older build are folded into the first. */
+async function theDraft(tx: Prisma.TransactionClient, orgId: string, employeeId: string) {
+  const drafts = await tx.expenseClaim.findMany({ where: { orgId, employeeId, status: 'DRAFT' }, orderBy: { createdAt: 'asc' } });
+  if (drafts.length > 1) {
+    for (const d of drafts.slice(1)) {
+      await tx.expenseLine.updateMany({ where: { claimId: d.id, orgId }, data: { claimId: drafts[0].id } });
+      await tx.expenseClaim.delete({ where: { id: d.id } });
+    }
+    const lines = await tx.expenseLine.findMany({ where: { claimId: drafts[0].id, orgId }, select: { amount: true } });
+    return tx.expenseClaim.update({ where: { id: drafts[0].id }, data: { claimedTotal: round2(lines.reduce((t, l) => t + num(l.amount), 0)) } });
+  }
+  return drafts[0] || null;
+}
+
+/**
+ * Claims paid with salary wait for Payroll: approved there (or paid on a
+ * payslip), they are paid; cancelled or deleted there, they are to pay
+ * again. Advances being taken from salary count as recovered only once
+ * Payroll approves the deduction.
+ */
+async function syncPayroll(orgId: string, claims: Array<{ id: string; status: string; payrollAdjustmentId: string | null }>, advances: Array<{ id: string; recoveringAmount: unknown; payrollAdjustmentId: string | null }> = []) {
+  let changed = false;
+  for (const c of claims.filter((x) => x.status === 'WITH_SALARY' && x.payrollAdjustmentId)) {
+    const st = await adjustmentState(orgId, c.payrollAdjustmentId!);
+    if (st.status === 'APPROVED' || st.status === 'CONSUMED') {
+      changed = (await peoplePrisma.expenseClaim.updateMany({ where: { id: c.id, orgId, status: 'WITH_SALARY' }, data: { status: 'PAID' } })).count > 0 || changed;
+    } else if (st.status === 'CANCELLED' || st.status === 'GONE') {
+      changed = (await peoplePrisma.expenseClaim.updateMany({ where: { id: c.id, orgId, status: 'WITH_SALARY' }, data: { status: 'APPROVED', payMode: null, paidOn: null, paidByUserId: null, payrollAdjustmentId: null, payrollPeriodName: null } })).count > 0 || changed;
+    }
+  }
+  for (const a of advances.filter((x) => num(x.recoveringAmount) > 0 && x.payrollAdjustmentId)) {
+    const st = await adjustmentState(orgId, a.payrollAdjustmentId!);
+    if (st.status === 'DRAFT') continue;
+    await peoplePrisma.$transaction(async (tx) => {
+      await lock(tx, `people-money-advance-row:${a.id}`);
+      const row = await tx.employeeAdvance.findFirst({ where: { id: a.id, orgId } });
+      if (!row || num(row.recoveringAmount) <= 0) return;
+      if (st.status === 'APPROVED' || st.status === 'CONSUMED') {
+        const recovered = round2(num(row.recoveredAmount) + num(row.recoveringAmount));
+        const left = advanceOpen({ ...row, recoveredAmount: recovered, recoveringAmount: 0 });
+        await tx.employeeAdvance.update({ where: { id: row.id }, data: { recoveredAmount: recovered, recoveringAmount: 0, ...(left <= 0 && row.status === 'PAID' ? { status: 'CLOSED', closedAt: new Date() } : {}) } });
+      } else {
+        await tx.employeeAdvance.update({ where: { id: row.id }, data: { recoveringAmount: 0 } });
+      }
+    });
     changed = true;
   }
   return changed;
@@ -231,7 +308,7 @@ export async function addLine(me: Me, input: LineInput) {
   if (!category) throw new MoneyError('Choose what it was for.');
   const companyGstin = Boolean(input.companyGstin);
   const supplierGstin = String(input.supplierGstin ?? '').trim().toUpperCase() || null;
-  if (supplierGstin && !GSTIN.test(supplierGstin)) throw new MoneyError('The GSTIN on the bill is 15 characters, like 29ABCDE1234F1Z5.');
+  if (supplierGstin && !isValidGstinChecksum(supplierGstin)) throw new MoneyError('That GSTIN does not check out. It is 15 characters, like 29ABCDE1234F1Z5; check each one against the bill.');
   const tax = input.taxAmount === '' || input.taxAmount == null ? null : round2(Number(input.taxAmount));
   if (tax != null && (!Number.isFinite(tax) || tax < 0 || tax > amount)) throw new MoneyError('The GST on the bill is part of the amount, so it cannot be more.');
   let bill: { mime: string; data: Buffer; sha256: string } | null = null;
@@ -253,11 +330,14 @@ export async function addLine(me: Me, input: LineInput) {
         if (used) throw new MoneyError(used.employeeId === me.employeeId ? `This bill is already on ${used.claim.number}.` : 'This bill has already been claimed.', 409, 'DUPLICATE_BILL');
       }
     }
-    const twin = await tx.expenseLine.findFirst({ where: { orgId: me.orgId, employeeId: me.employeeId, spentOn, amount, merchant: { equals: merchant, mode: 'insensitive' }, claim: { status: { in: OPEN_CLAIM } } }, select: { id: true, claim: { select: { number: true } } } });
-    if (twin && !input.notDuplicate) {
-      throw new MoneyError(`You already have ${inr(amount)} at ${merchant} on that day (${twin.claim.number}). Is this a different bill?`, 409, 'POSSIBLE_DUPLICATE');
+    /* Same amount, day and place: the person's own is asked about; a colleague's (one meal, two claims) goes to the approver as a flag. */
+    const twins = await tx.expenseLine.findMany({ where: { orgId: me.orgId, spentOn, amount, merchant: { equals: merchant, mode: 'insensitive' }, claim: { status: { in: OPEN_CLAIM } } }, select: { id: true, employeeId: true, claim: { select: { number: true } } }, take: 5 });
+    const mine = twins.find((t) => t.employeeId === me.employeeId);
+    if (mine && !input.notDuplicate) {
+      throw new MoneyError(`You already have ${inr(amount)} at ${merchant} on that day (${mine.claim.number}). Is this a different bill?`, 409, 'POSSIBLE_DUPLICATE');
     }
-    let claim = await tx.expenseClaim.findFirst({ where: { orgId: me.orgId, employeeId: me.employeeId, status: 'DRAFT' }, orderBy: { createdAt: 'asc' } });
+    const twin = mine || twins[0] || null;
+    let claim = await theDraft(tx, me.orgId, me.employeeId);
     if (!claim) claim = await tx.expenseClaim.create({ data: { accountId: me.accountId, orgId: me.orgId, employeeId: me.employeeId, number: await nextNumber(tx, me.orgId, 'claim'), title: 'Spent for work' } });
     const billRow = bill ? await tx.expenseBill.create({ data: { accountId: me.accountId, orgId: me.orgId, employeeId: me.employeeId, name: String(input.billName || 'bill').trim().slice(0, 120) || 'bill', mime: bill.mime, size: bill.data.length, sha256: bill.sha256, data: bill.data } }) : null;
     const line = await tx.expenseLine.create({
@@ -285,29 +365,56 @@ export async function removeLine(me: Me, lineId: string) {
   });
 }
 
-/** What is left on an advance: paid, less what claims used, what was given back and what salary took. */
-export const advanceOpen = (a: { amount: unknown; settledAmount: unknown; returnedAmount: unknown; recoveredAmount: unknown }) => round2(num(a.amount) - num(a.settledAmount) - num(a.returnedAmount) - num(a.recoveredAmount));
+/** What is left on an advance: paid, less what claims used, what was given back, and what salary took or is taking. */
+export const advanceOpen = (a: { amount: unknown; settledAmount: unknown; returnedAmount: unknown; recoveredAmount: unknown; recoveringAmount?: unknown }) => round2(num(a.amount) - num(a.settledAmount) - num(a.returnedAmount) - num(a.recoveredAmount) - num(a.recoveringAmount));
+
+/** The first day of this month in India, as a moment. */
+const monthStart = () => new Date(`${todayIst().slice(0, 8)}01T00:00:00+05:30`);
+
+/**
+ * What the person has sent this month (this one included), so the approval
+ * rule can go by the month's total: five ₹4,000 claims are ₹20,000, not five
+ * claims under ₹5,000.
+ */
+async function sentThisMonth(tx: Prisma.TransactionClient, orgId: string, employeeId: string, kind: 'claim' | 'advance') {
+  const since = monthStart();
+  if (kind === 'claim') {
+    const rows = await tx.expenseClaim.findMany({ where: { orgId, employeeId, submittedAt: { gte: since }, status: { notIn: ['DRAFT', 'REJECTED'] } }, select: { claimedTotal: true } });
+    return round2(rows.reduce((t, r) => t + num(r.claimedTotal), 0));
+  }
+  const rows = await tx.employeeAdvance.findMany({ where: { orgId, employeeId, createdAt: { gte: since }, status: { notIn: ['REJECTED', 'WITHDRAWN'] } }, select: { amount: true } });
+  return round2(rows.reduce((t, r) => t + num(r.amount), 0));
+}
 
 export async function submitClaim(me: Me, claimId: string, input: { title?: unknown; advanceId?: unknown }) {
   const e = await personOf(me.orgId, me.employeeId);
-  const claim = await peoplePrisma.expenseClaim.findFirst({ where: { id: claimId, orgId: me.orgId, employeeId: me.employeeId }, include: { lines: true } });
-  if (!claim) throw new MoneyError('No such claim.', 404);
-  if (claim.status !== 'DRAFT') throw new MoneyError('This claim has already been sent.', 409, 'NOT_DRAFT');
-  if (!claim.lines.length) throw new MoneyError('Add a bill first.');
-  const title = String(input.title ?? '').trim().slice(0, 120) || claim.title;
   let advanceId: string | null = null;
   if (input.advanceId) {
     const adv = await peoplePrisma.employeeAdvance.findFirst({ where: { id: String(input.advanceId), orgId: me.orgId, employeeId: me.employeeId, status: 'PAID' } });
     if (!adv || advanceOpen(adv) <= 0) throw new MoneyError('That advance is not open any more.', 409);
     advanceId = adv.id;
   }
-  const total = round2(claim.lines.reduce((t, l) => t + num(l.amount), 0));
   const key = pendingLink();
-  /* Taken atomically: a double tap sends one claim. */
-  const taken = await peoplePrisma.expenseClaim.updateMany({ where: { id: claim.id, orgId: me.orgId, status: 'DRAFT' }, data: { status: 'SUBMITTED', title, advanceId, claimedTotal: total, submittedAt: new Date(), approvalRequestId: `${PENDING}${key}` } });
-  if (!taken.count) throw new MoneyError('This claim has already been sent.', 409, 'NOT_DRAFT');
+  /*
+   * Under the draft's lock, the bills are read and the claim is taken in one
+   * go: a bill added at the same moment either makes it in, counted, or waits
+   * for the next draft; never in the claim and out of its total. A double tap
+   * sends one claim.
+   */
+  const sent = await peoplePrisma.$transaction(async (tx) => {
+    await lock(tx, `people-money-draft:${me.employeeId}`);
+    const claim = await tx.expenseClaim.findFirst({ where: { id: claimId, orgId: me.orgId, employeeId: me.employeeId }, include: { lines: true } });
+    if (!claim) throw new MoneyError('No such claim.', 404);
+    if (claim.status !== 'DRAFT') throw new MoneyError('This claim has already been sent.', 409, 'NOT_DRAFT');
+    if (!claim.lines.length) throw new MoneyError('Add a bill first.');
+    const title = String(input.title ?? '').trim().slice(0, 120) || claim.title;
+    const total = round2(claim.lines.reduce((t, l) => t + num(l.amount), 0));
+    await tx.expenseClaim.update({ where: { id: claim.id }, data: { status: 'SUBMITTED', title, advanceId, claimedTotal: total, submittedAt: new Date(), approvalRequestId: `${PENDING}${key}` } });
+    return { claim, title, total, monthTotal: await sentThisMonth(tx, me.orgId, me.employeeId, 'claim') };
+  });
+  const { claim, title, total, monthTotal } = sent;
   try {
-    const r = await sendForApproval(e, me, 'EXPENSE_CLAIM', `${e.name}: ${title} · ${inr(total)} (${claim.number})`, { amount: total, claimId: claim.id, number: claim.number, bills: claim.lines.length }, `expense-claim:${key}`);
+    const r = await sendForApproval(e, me, 'EXPENSE_CLAIM', `${e.name}: ${title} · ${inr(total)} (${claim.number})`, { amount: total, monthTotal, claimId: claim.id, number: claim.number, bills: claim.lines.length }, `expense-claim:${key}`);
     await peoplePrisma.expenseClaim.updateMany({ where: { id: claim.id, orgId: me.orgId, approvalRequestId: `${PENDING}${key}` }, data: { approvalRequestId: r.request.id } });
   } catch (err) {
     await peoplePrisma.expenseClaim.updateMany({ where: { id: claim.id, orgId: me.orgId, approvalRequestId: `${PENDING}${key}` }, data: { status: 'DRAFT', submittedAt: null, approvalRequestId: null } });
@@ -363,15 +470,10 @@ export async function answerMine(me: Me, kind: 'claim' | 'advance' | 'ask', id: 
 
 /** A claim that was not approved, opened again as a draft to change and send again. */
 export async function reopenClaim(me: Me, claimId: string) {
-  return peoplePrisma.$transaction(async (tx) => {
-    await lock(tx, `people-money-draft:${me.employeeId}`);
-    const claim = await tx.expenseClaim.findFirst({ where: { id: claimId, orgId: me.orgId, employeeId: me.employeeId, status: 'REJECTED' } });
-    if (!claim) throw new MoneyError('Only a claim that was not approved can be opened again.', 409);
-    if (await tx.expenseClaim.findFirst({ where: { orgId: me.orgId, employeeId: me.employeeId, status: 'DRAFT' }, select: { id: true } })) throw new MoneyError('Send or clear the bills you are adding first.', 409);
-    await tx.expenseClaim.update({ where: { id: claim.id }, data: { status: 'DRAFT', approvalRequestId: null, submittedAt: null, decidedAt: null, approvedTotal: null } });
-    await tx.expenseLine.updateMany({ where: { claimId: claim.id }, data: { approvedAmount: null, cutReason: null } });
-    return { ok: true };
-  });
+  const claim = await peoplePrisma.expenseClaim.findFirst({ where: { id: claimId, orgId: me.orgId, employeeId: me.employeeId, status: 'REJECTED' }, select: { id: true } });
+  if (!claim) throw new MoneyError('Only a claim that was not approved can be opened again.', 409);
+  await backToDraft(me.orgId, claim.id, 'REJECTED');
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -393,13 +495,14 @@ export async function askAdvance(me: Me, input: { purpose?: unknown; amount?: un
     await lock(tx, `people-money-advance:${me.employeeId}`);
     /* A double tap: the same ask, a moment ago, is the one already made. */
     const twin = await tx.employeeAdvance.findFirst({ where: { orgId: me.orgId, employeeId: me.employeeId, status: 'WAITING', amount, purpose, createdAt: { gte: new Date(Date.now() - 2 * 60_000) } } });
-    if (twin) return { row: twin, fresh: false };
+    if (twin) return { row: twin, fresh: false, monthTotal: 0 };
     const settleBy = addDays(neededBy || todayIst(), 30);
-    return { row: await tx.employeeAdvance.create({ data: { accountId: me.accountId, orgId: me.orgId, employeeId: me.employeeId, number: await nextNumber(tx, me.orgId, 'advance'), purpose, amount, neededBy, settleBy, status: 'WAITING', approvalRequestId: `${PENDING}${key}` } }), fresh: true };
+    const created = await tx.employeeAdvance.create({ data: { accountId: me.accountId, orgId: me.orgId, employeeId: me.employeeId, number: await nextNumber(tx, me.orgId, 'advance'), purpose, amount, neededBy, settleBy, status: 'WAITING', approvalRequestId: `${PENDING}${key}` } });
+    return { row: created, fresh: true, monthTotal: await sentThisMonth(tx, me.orgId, me.employeeId, 'advance') };
   });
   if (!row.fresh) return row.row;
   try {
-    const r = await sendForApproval(e, me, 'EMPLOYEE_ADVANCE', `${e.name}: advance ${inr(amount)} for ${purpose} (${row.row.number})`, { amount, advanceId: row.row.id, number: row.row.number, purpose, neededBy }, `employee-advance:${key}`);
+    const r = await sendForApproval(e, me, 'EMPLOYEE_ADVANCE', `${e.name}: advance ${inr(amount)} for ${purpose} (${row.row.number})`, { amount, monthTotal: row.monthTotal ?? amount, advanceId: row.row.id, number: row.row.number, purpose, neededBy }, `employee-advance:${key}`);
     await peoplePrisma.employeeAdvance.updateMany({ where: { id: row.row.id, orgId: me.orgId, approvalRequestId: `${PENDING}${key}` }, data: { approvalRequestId: r.request.id } });
   } catch (err) {
     await peoplePrisma.employeeAdvance.deleteMany({ where: { id: row.row.id, orgId: me.orgId, approvalRequestId: `${PENDING}${key}` } });
@@ -412,7 +515,7 @@ export async function askAdvance(me: Me, input: { purpose?: unknown; amount?: un
 // Reading
 // ---------------------------------------------------------------------------
 
-const CLAIM_WORDS: Record<string, string> = { DRAFT: 'Not sent yet', SUBMITTED: 'Waiting for approval', APPROVED: 'Approved, to be paid', REJECTED: 'Not approved', PAYING: 'Being paid', PAID: 'Paid', SETTLED: 'Set against your advance' };
+const CLAIM_WORDS: Record<string, string> = { DRAFT: 'Not sent yet', SUBMITTED: 'Waiting for approval', APPROVED: 'Approved, to be paid', REJECTED: 'Not approved', PAYING: 'Being paid', WITH_SALARY: 'With salary, waiting for Payroll', PAID: 'Paid', SETTLED: 'Set against your advance' };
 const ADVANCE_WORDS: Record<string, string> = { WAITING: 'Waiting for approval', APPROVED: 'Approved, to be paid', REJECTED: 'Not approved', WITHDRAWN: 'Withdrawn', PAID: 'Paid to you', CLOSED: 'Settled' };
 
 type ClaimRow = Prisma.ExpenseClaimGetPayload<{ include: { lines: true } }>;
@@ -451,7 +554,7 @@ function shapeAdvance(a: Prisma.EmployeeAdvanceGetPayload<object>, extra: { word
     statusLabel: extra.words?.status === 'MORE_INFO' ? 'More information asked for' : ADVANCE_WORDS[a.status] || a.status,
     employeeId: a.employeeId, employeeName: extra.employee?.name ?? null, employeeCode: extra.employee?.code ?? null,
     paidOn: a.paidOn, paidMethod: a.paidMethod, paidReference: a.paidReference, booksStatus: a.booksStatus,
-    settled: num(a.settledAmount), returned: num(a.returnedAmount), recovered: num(a.recoveredAmount), open,
+    settled: num(a.settledAmount), returned: num(a.returnedAmount), recovered: num(a.recoveredAmount), recovering: num(a.recoveringAmount), open,
     overdue: a.status === 'PAID' && open > 0 && Boolean(a.settleBy) && a.settleBy! < todayIst(),
     comment: extra.words?.comment ?? null, canReply: Boolean(extra.words?.canReply), canWithdraw: a.status === 'WAITING', createdAt: a.createdAt,
     approvalRequestId: a.approvalRequestId && !a.approvalRequestId.startsWith(PENDING) ? a.approvalRequestId : null,
@@ -475,10 +578,14 @@ export async function myMoney(me: Me) {
     peoplePrisma.expenseClaim.findMany({ where: { orgId: me.orgId, employeeId: me.employeeId }, include: { lines: true }, orderBy: { createdAt: 'desc' }, take: 40 }),
     peoplePrisma.employeeAdvance.findMany({ where: { orgId: me.orgId, employeeId: me.employeeId }, orderBy: { createdAt: 'desc' }, take: 20 }),
   ]);
+  if ((await peoplePrisma.expenseClaim.count({ where: { orgId: me.orgId, employeeId: me.employeeId, status: 'DRAFT' } })) > 1) {
+    await peoplePrisma.$transaction(async (tx) => { await lock(tx, `people-money-draft:${me.employeeId}`); await theDraft(tx, me.orgId, me.employeeId); });
+  }
   let [claims, advances] = await read();
   const a = await catchUp(me.orgId, 'claim', claims);
   const b = await catchUp(me.orgId, 'advance', advances);
-  if (a || b) [claims, advances] = await read();
+  const c = await syncPayroll(me.orgId, claims, advances);
+  if (a || b || c) [claims, advances] = await read();
   const [cats, catMap, words, merchants] = await Promise.all([
     categories(me.accountId, me.orgId),
     categoryMap(me.orgId),
@@ -490,7 +597,7 @@ export async function myMoney(me: Me) {
   return {
     categories: cats,
     merchants: merchants.map((m) => m.merchant),
-    draft: claims.find((c) => c.status === 'DRAFT') ? shapeClaim(claims.find((c) => c.status === 'DRAFT')!, { categories: catMap }) : null,
+    draft: (() => { const d = claims.filter((x) => x.status === 'DRAFT').sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime())[0]; return d ? shapeClaim(d, { categories: catMap }) : null; })(),
     claims: claims.filter((c) => c.status !== 'DRAFT').map((c) => shapeClaim(c, { words: words.get(c.approvalRequestId || ''), categories: catMap, advanceNumber: c.advanceId ? advNumbers.get(c.advanceId) ?? null : null })),
     advances: advances.map((x) => shapeAdvance(x, { words: words.get(x.approvalRequestId || '') })),
   };
@@ -509,8 +616,10 @@ export async function involvedIn(orgId: string, requestId: string | null, userId
 
 /** The record behind a money request, for its approval drawer: the claim with its bills, the advance, or the salary advance with the pay cap. */
 export async function detailForRequest(orgId: string, requestId: string, userId: string, mayViewAll: boolean) {
-  const request = await peoplePrisma.approvalRequest.findFirst({ where: { id: requestId, orgId }, select: { id: true, requestType: true, subjectEmployeeId: true, status: true, currentStep: true, idempotencyKey: true, steps: { select: { candidateUserIds: true, status: true, order: true } } } });
+  const request = await peoplePrisma.approvalRequest.findFirst({ where: { id: requestId, orgId }, select: { id: true, requestType: true, subjectEmployeeId: true, status: true, currentStep: true, idempotencyKey: true, payload: true, steps: { select: { candidateUserIds: true, status: true, order: true } } } });
   if (!request) throw new MoneyError('No such request.', 404);
+  /* What the person had sent this month when this one was asked: five small claims show as the month they make. */
+  const monthTotal = Number((request.payload as any)?.monthTotal) || null;
   if (!mayViewAll && !(await involvedIn(orgId, requestId, userId))) throw new MoneyError('No such request.', 404);
   const employee = request.subjectEmployeeId ? await peoplePrisma.employee.findFirst({ where: { id: request.subjectEmployeeId, orgId }, select: { name: true, code: true } }) : null;
   const waitingOnMe = request.status === 'WAITING' && request.steps.some((s) => s.status === 'WAITING' && s.order === request.currentStep && ((s.candidateUserIds as string[]) || []).includes(userId));
@@ -519,7 +628,7 @@ export async function detailForRequest(orgId: string, requestId: string, userId:
     const c = await peoplePrisma.expenseClaim.findFirst({ where: { orgId, ...linkOr('expense-claim') }, include: { lines: true } });
     if (!c) return { kind: 'EXPENSE_CLAIM', record: null, waitingOnMe };
     const adv = c.advanceId ? await peoplePrisma.employeeAdvance.findFirst({ where: { id: c.advanceId, orgId } }) : null;
-    return { kind: 'EXPENSE_CLAIM', waitingOnMe, record: shapeClaim(c, { categories: await categoryMap(orgId), advanceNumber: adv?.number ?? null, employee: employee ?? undefined }), advance: adv ? shapeAdvance(adv) : null };
+    return { kind: 'EXPENSE_CLAIM', waitingOnMe, monthTotal, record: shapeClaim(c, { categories: await categoryMap(orgId), advanceNumber: adv?.number ?? null, employee: employee ?? undefined }), advance: adv ? shapeAdvance(adv) : null };
   }
   if (request.requestType === 'EMPLOYEE_ADVANCE') {
     const a = await peoplePrisma.employeeAdvance.findFirst({ where: { orgId, ...linkOr('employee-advance') } });
@@ -592,7 +701,7 @@ export async function approveClaim(request: { id: string; orgId: string; account
       }
     }
     const toPay = round2(approved - settled);
-    const r = await tx.expenseClaim.updateMany({ where: { id: claim.id, status: 'SUBMITTED' }, data: { status: toPay > 0 ? 'APPROVED' : 'SETTLED', approvedTotal: approved, advanceSettled: settled || null, decidedAt: new Date(), approvalRequestId: request.id } });
+    const r = await tx.expenseClaim.updateMany({ where: { id: claim.id, status: 'SUBMITTED' }, data: { status: toPay > 0 ? 'APPROVED' : 'SETTLED', approvedTotal: approved, advanceSettled: settled || null, decidedAt: new Date(), approvalRequestId: request.id, booksStatus: 'TO_RECORD' } });
     if (!r.count) return null;
     return { claim, approved, settled, toPay };
   });
@@ -619,7 +728,8 @@ export async function payClaim(staff: Staff, claimId: string, input: { mode?: un
   if (mode !== 'SALARY' && mode !== 'NOW') throw new MoneyError('Pay with salary, or paid now.');
   const claim = await peoplePrisma.expenseClaim.findFirst({ where: { id: claimId, orgId: staff.orgId }, include: { lines: true } });
   if (!claim) throw new MoneyError('No such claim.', 404);
-  if (claim.status !== 'APPROVED') throw new MoneyError(claim.status === 'PAID' || claim.status === 'PAYING' ? 'This claim has already been paid.' : 'Only an approved claim can be paid.', 409, 'NOT_PAYABLE');
+  const stuck = claim.status === 'PAYING' && claim.updatedAt.getTime() < Date.now() - 120_000 && mode === 'SALARY';
+  if (claim.status !== 'APPROVED' && !stuck) throw new MoneyError(['PAID', 'PAYING', 'WITH_SALARY'].includes(claim.status) ? 'This claim has already been paid.' : 'Only an approved claim can be paid.', 409, 'NOT_PAYABLE');
   const toPay = round2(num(claim.approvedTotal) - num(claim.advanceSettled));
   if (mode === 'NOW') {
     const paidOn = String(input.paidOn || todayIst()).slice(0, 10);
@@ -630,8 +740,8 @@ export async function payClaim(staff: Staff, claimId: string, input: { mode?: un
     const r = await peoplePrisma.expenseClaim.updateMany({ where: { id: claim.id, orgId: staff.orgId, status: 'APPROVED' }, data: { status: 'PAID', payMode: 'NOW', paidOn, paidMethod: method, paidReference: reference, paidByUserId: staff.userId, booksStatus: 'TO_RECORD' } });
     if (!r.count) throw new MoneyError('This claim has already been paid.', 409, 'NOT_PAYABLE');
   } else {
-    /* Taken first, so two clicks (or two people) make one payroll line. */
-    const taken = await peoplePrisma.expenseClaim.updateMany({ where: { id: claim.id, orgId: staff.orgId, status: 'APPROVED' }, data: { status: 'PAYING' } });
+    /* Taken first, so two clicks (or two people) make one payroll line. One left half-way (PAYING for over two minutes) may be taken again: the key finds the line already made. */
+    const taken = await peoplePrisma.expenseClaim.updateMany({ where: { id: claim.id, orgId: staff.orgId, OR: [{ status: 'APPROVED' }, { status: 'PAYING', updatedAt: { lt: new Date(Date.now() - 120_000) } }] }, data: { status: 'PAYING' } });
     if (!taken.count) throw new MoneyError('This claim has already been paid.', 409, 'NOT_PAYABLE');
     let handed;
     try {
@@ -644,7 +754,8 @@ export async function payClaim(staff: Staff, claimId: string, input: { mode?: un
       await peoplePrisma.expenseClaim.updateMany({ where: { id: claim.id, status: 'PAYING' }, data: { status: 'APPROVED' } });
       throw new MoneyError(handed.why, 409, 'PAYROLL_NOT_READY');
     }
-    await peoplePrisma.expenseClaim.updateMany({ where: { id: claim.id, status: 'PAYING' }, data: { status: 'PAID', payMode: 'SALARY', paidOn: todayIst(), paidByUserId: staff.userId, payrollAdjustmentId: handed.adjustmentId, payrollPeriodName: handed.periodName } });
+    /* Paid only once Payroll approves the line: until then it waits there (syncPayroll). */
+    await peoplePrisma.expenseClaim.updateMany({ where: { id: claim.id, status: 'PAYING' }, data: { status: 'WITH_SALARY', payMode: 'SALARY', paidOn: todayIst(), paidByUserId: staff.userId, payrollAdjustmentId: handed.adjustmentId, payrollPeriodName: handed.periodName } });
   }
   const e = await peoplePrisma.employee.findFirst({ where: { id: claim.employeeId, orgId: staff.orgId }, select: { userId: true } });
   if (e?.userId) await notifyUsers(staff.accountId, staff.orgId, [e.userId], { kind: 'people.expense', title: `Paid: ${claim.number} ${inr(toPay)}`, body: mode === 'SALARY' ? 'With your salary.' : null }).catch(() => undefined);
@@ -673,23 +784,30 @@ export async function closeAdvance(staff: Staff, advanceId: string, how: 'RETURN
     const a = await tx.employeeAdvance.findFirst({ where: { id: advanceId, orgId: staff.orgId } });
     if (!a) throw new MoneyError('No such advance.', 404);
     if (a.status !== 'PAID') throw new MoneyError('Only an advance that was paid and is still open can be settled.', 409, 'NOT_OPEN');
+    if (how === 'RECOVER' && num(a.recoveringAmount) > 0) throw new MoneyError(`${inr(num(a.recoveringAmount))} of this advance is already waiting in Payroll. Approve or cancel it there first.`, 409, 'RECOVERY_WAITING');
     const open = advanceOpen(a);
-    if (open <= 0) throw new MoneyError('Nothing is left on this advance.', 409, 'NOT_OPEN');
+    if (open <= 0) throw new MoneyError(num(a.recoveringAmount) > 0 ? 'The rest of this advance is already waiting in Payroll.' : 'Nothing is left on this advance.', 409, 'NOT_OPEN');
     if (how === 'RETURNED') {
       const amount = input.amount === undefined || input.amount === '' ? open : round2(Number(input.amount));
       if (!Number.isFinite(amount) || amount <= 0 || amount > open) throw new MoneyError(`Given back: between ₹1 and ${inr(open)}.`);
       const left = round2(open - amount);
-      await tx.employeeAdvance.update({ where: { id: a.id }, data: { returnedAmount: round2(num(a.returnedAmount) + amount), ...(left <= 0 ? { status: 'CLOSED', closedAt: new Date() } : {}) } });
+      await tx.employeeAdvance.update({ where: { id: a.id }, data: { returnedAmount: round2(num(a.returnedAmount) + amount), ...(left <= 0 && num(a.recoveringAmount) <= 0 ? { status: 'CLOSED', closedAt: new Date() } : {}) } });
       return { returned: amount, left };
     }
+    const period = await periodToPayIn(staff.orgId);
+    const already = period ? (await adjustmentState(staff.orgId, `advance-recover:${a.id}:${period.id}`)).status : 'GONE';
+    if (period && already !== 'GONE' && already !== 'CANCELLED') {
+      throw new MoneyError(`Some of this advance already comes off ${period.name}'s pay. Take the rest next month, or ask for it back.`, 409, 'RECOVERY_WAITING');
+    }
+    /* The room counts every deduction already added for the month, waiting or approved, and draft loans too. */
     const cap = await payCap(staff.orgId, a.employeeId);
     const amount = cap ? Math.min(open, cap.room) : open;
-    if (amount <= 0) throw new MoneyError(`Nothing more can come off this month's pay: deductions already reach half of it (${inr(cap!.wages / 2)}). Ask for it back, or try next month.`, 409, 'OVER_CAP');
-    const handed = await draftAdjustment({ accountId: staff.accountId, orgId: staff.orgId, userId: staff.userId, employeeId: a.employeeId, key: `advance-recover:${a.id}:${Math.round(num(a.recoveredAmount) * 100)}`, type: 'DEDUCTION', amount, reason: `Advance ${a.number} not used: ${a.purpose}` });
+    if (amount <= 0) throw new MoneyError("Nothing more can come off this month's pay: deductions already reach half of it. Ask for it back, or try next month.", 409, 'OVER_CAP');
+    const handed = await draftAdjustment({ accountId: staff.accountId, orgId: staff.orgId, userId: staff.userId, employeeId: a.employeeId, key: `advance-recover:${a.id}:<period>`, type: 'DEDUCTION', amount, reason: `Advance ${a.number} not used: ${a.purpose}` });
     if (!handed.sent) throw new MoneyError(handed.why, 409, 'PAYROLL_NOT_READY');
-    const left = round2(open - amount);
-    await tx.employeeAdvance.update({ where: { id: a.id }, data: { recoveredAmount: round2(num(a.recoveredAmount) + amount), payrollAdjustmentId: handed.adjustmentId, ...(left <= 0 ? { status: 'CLOSED', closedAt: new Date() } : {}) } });
-    return { recovered: amount, left, periodName: handed.periodName, capped: amount < open };
+    /* Counted as recovered once Payroll approves it (syncPayroll); until then it is "being taken from salary". */
+    await tx.employeeAdvance.update({ where: { id: a.id }, data: { recoveringAmount: amount, payrollAdjustmentId: handed.adjustmentId } });
+    return { recovered: amount, left: round2(open - amount), periodName: handed.periodName, capped: amount < open };
   }, { timeout: 30_000 });
   return { ...out, advance: shapeAdvance(await peoplePrisma.employeeAdvance.findFirstOrThrow({ where: { id: advanceId, orgId: staff.orgId } })) };
 }
@@ -699,10 +817,10 @@ export async function listClaims(orgId: string, filter: { status?: string; emplo
   const where: Prisma.ExpenseClaimWhereInput = { orgId, status: { not: 'DRAFT' }, ...(filter.employeeId ? { employeeId: filter.employeeId } : {}) };
   if (filter.status === 'TO_PAY') where.status = 'APPROVED';
   else if (filter.status === 'WAITING') where.status = 'SUBMITTED';
-  else if (filter.status === 'BOOKS') Object.assign(where, { status: 'PAID', payMode: 'NOW', booksStatus: 'TO_RECORD' });
-  else if (filter.status === 'DONE') where.status = { in: ['PAID', 'SETTLED'] };
+  else if (filter.status === 'BOOKS') Object.assign(where, { status: { in: DECIDED }, booksStatus: 'TO_RECORD' });
+  else if (filter.status === 'DONE') where.status = { in: ['PAID', 'SETTLED', 'WITH_SALARY'] };
   let rows = await peoplePrisma.expenseClaim.findMany({ where, include: { lines: true }, orderBy: { createdAt: 'desc' }, take: 500 });
-  if (await catchUp(orgId, 'claim', rows)) rows = await peoplePrisma.expenseClaim.findMany({ where, include: { lines: true }, orderBy: { createdAt: 'desc' }, take: 500 });
+  if ((await catchUp(orgId, 'claim', rows)) || (await syncPayroll(orgId, rows))) rows = await peoplePrisma.expenseClaim.findMany({ where, include: { lines: true }, orderBy: { createdAt: 'desc' }, take: 500 });
   const [people, catMap, advs] = await Promise.all([
     peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.employeeId))] } }, select: { id: true, name: true, code: true } }),
     categoryMap(orgId),
@@ -715,14 +833,15 @@ export async function listClaims(orgId: string, filter: { status?: string; emplo
 
 export async function listAdvances(orgId: string) {
   let rows = await peoplePrisma.employeeAdvance.findMany({ where: { orgId }, orderBy: { createdAt: 'desc' }, take: 500 });
-  if (await catchUp(orgId, 'advance', rows)) rows = await peoplePrisma.employeeAdvance.findMany({ where: { orgId }, orderBy: { createdAt: 'desc' }, take: 500 });
+  if ((await catchUp(orgId, 'advance', rows)) || (await syncPayroll(orgId, [], rows))) rows = await peoplePrisma.employeeAdvance.findMany({ where: { orgId }, orderBy: { createdAt: 'desc' }, take: 500 });
   const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.employeeId))] } }, select: { id: true, name: true, code: true } })).map((p) => [p.id, p]));
   return rows.map((a) => shapeAdvance(a, { employee: people.get(a.employeeId) }));
 }
 
 export async function claimForStaff(orgId: string, claimId: string) {
-  const c = await peoplePrisma.expenseClaim.findFirst({ where: { id: claimId, orgId, status: { not: 'DRAFT' } }, include: { lines: true } });
-  if (!c) throw new MoneyError('No such claim.', 404);
+  const first = await peoplePrisma.expenseClaim.findFirst({ where: { id: claimId, orgId, status: { not: 'DRAFT' } }, include: { lines: true } });
+  if (!first) throw new MoneyError('No such claim.', 404);
+  const c = (await syncPayroll(orgId, [first])) ? await peoplePrisma.expenseClaim.findFirstOrThrow({ where: { id: claimId, orgId }, include: { lines: true } }) : first;
   const e = await peoplePrisma.employee.findFirst({ where: { id: c.employeeId, orgId }, select: { name: true, code: true } });
   return shapeClaim(c, { categories: await categoryMap(orgId), employee: e ?? undefined });
 }
@@ -755,7 +874,7 @@ export async function billFile(orgId: string, billId: string, who: { employeeId?
 // Reports and the Books list
 // ---------------------------------------------------------------------------
 
-const DECIDED = ['APPROVED', 'PAYING', 'PAID', 'SETTLED'];
+const DECIDED = ['APPROVED', 'PAYING', 'WITH_SALARY', 'PAID', 'SETTLED'];
 
 /** Approved spend by person, category and month (by the day on the bill), and the advances still open. */
 export async function report(orgId: string, range: { from?: string; to?: string }) {
@@ -799,38 +918,45 @@ const csvCell = (v: unknown) => {
 const csv = (rows: unknown[][]) => rows.map((r) => r.map(csvCell).join(',')).join('\n') + '\n';
 
 /**
- * Line by line, for a spreadsheet or for entering in Books. `books`: what was
- * paid now and is not yet marked as entered there, with what Books needs for
- * input tax credit (the supplier's GSTIN, the GST on the bill, whether the
- * bill names the company, and whether credit is usually blocked).
+ * Line by line, for a spreadsheet or for entering in Books. `books`: every
+ * decided bill not yet marked as entered there, however it was paid (with
+ * salary, now, or set against an advance), with what Books needs for input
+ * tax credit (the supplier's GSTIN, the GST on the bill, whether the bill
+ * names the company, whether credit is usually blocked), the advance a claim
+ * used and how much of it, and the advances paid out.
  */
 export async function exportCsv(orgId: string, kind: 'claims' | 'books', range: { from?: string; to?: string }) {
   const from = range.from && ISO.test(range.from) ? range.from : addDays(todayIst(), -365);
   const to = range.to && ISO.test(range.to) ? range.to : todayIst();
-  const where: Prisma.ExpenseClaimWhereInput = kind === 'books' ? { orgId, status: 'PAID', payMode: 'NOW', booksStatus: 'TO_RECORD' } : { orgId, status: { in: DECIDED }, lines: { some: { spentOn: { gte: from, lte: to } } } };
+  const where: Prisma.ExpenseClaimWhereInput = kind === 'books' ? { orgId, status: { in: DECIDED }, booksStatus: 'TO_RECORD' } : { orgId, status: { in: DECIDED }, lines: { some: { spentOn: { gte: from, lte: to } } } };
   const claims = await peoplePrisma.expenseClaim.findMany({ where, include: { lines: true }, orderBy: { createdAt: 'asc' }, take: 5000 });
-  const [people, catMap] = await Promise.all([
+  const [people, catMap, advs] = await Promise.all([
     peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(claims.map((c) => c.employeeId))] } }, select: { id: true, name: true, code: true } }),
     categoryMap(orgId),
+    peoplePrisma.employeeAdvance.findMany({ where: { orgId, id: { in: claims.map((c) => c.advanceId).filter(Boolean) as string[] } }, select: { id: true, number: true } }),
   ]);
   const byId = new Map(people.map((p) => [p.id, p]));
-  const rows: unknown[][] = [['Claim', 'Employee', 'Employee ID', 'Bill date', 'Category', 'Spent at', 'Claimed', 'Approved', 'Bill in company GSTIN', 'Supplier GSTIN', 'GST on bill', 'GST credit usually blocked', 'Paid', 'Paid on', 'Paid by', 'Reference']];
+  const advNo = new Map(advs.map((a) => [a.id, a.number]));
+  const how = (c: (typeof claims)[number]) => (c.payMode === 'SALARY' ? `With salary${c.payrollPeriodName ? ` (${c.payrollPeriodName})` : ''}${c.status === 'WITH_SALARY' ? ', waiting for Payroll' : ''}` : c.payMode === 'NOW' ? 'Paid now' : c.status === 'SETTLED' ? 'Set against advance' : 'Not paid yet');
+  const rows: unknown[][] = [['Claim', 'Employee', 'Employee ID', 'Bill date', 'Category', 'Spent at', 'Claimed', 'Approved', 'Bill in company GSTIN', 'Supplier GSTIN', 'GST on bill', 'GST credit usually blocked', 'Advance used', 'Set against advance', 'Paid', 'Paid on', 'Paid by', 'Reference']];
   for (const c of claims) {
-    for (const l of [...c.lines].sort((a, b) => a.spentOn.localeCompare(b.spentOn))) {
-      if (kind === 'claims' && (l.spentOn < from || l.spentOn > to)) continue;
+    const lines = [...c.lines].sort((a, b) => a.spentOn.localeCompare(b.spentOn));
+    lines.forEach((l, i) => {
+      if (kind === 'claims' && (l.spentOn < from || l.spentOn > to)) return;
       rows.push([
         c.number, byId.get(c.employeeId)?.name || '', byId.get(c.employeeId)?.code || '', l.spentOn, l.categoryName, l.merchant, num(l.amount).toFixed(2),
         (l.approvedAmount == null ? num(l.amount) : num(l.approvedAmount)).toFixed(2), l.companyGstin ? 'Yes' : 'No', l.supplierGstin || '', l.taxAmount == null ? '' : num(l.taxAmount).toFixed(2),
         l.categoryId && catMap.get(l.categoryId)?.creditBlocked ? 'Yes' : 'No',
-        c.payMode === 'SALARY' ? `With salary${c.payrollPeriodName ? ` (${c.payrollPeriodName})` : ''}` : c.payMode === 'NOW' ? 'Paid now' : c.status === 'SETTLED' ? 'Set against advance' : 'Not yet',
-        c.paidOn || '', c.paidMethod || '', c.paidReference || '',
+        /* The set-off is the claim's, so it is written once, on its first bill. */
+        c.advanceId ? advNo.get(c.advanceId) || '' : '', i === 0 && num(c.advanceSettled) ? num(c.advanceSettled).toFixed(2) : '',
+        how(c), c.paidOn || '', c.paidMethod || '', c.paidReference || '',
       ]);
-    }
+    });
   }
   if (kind === 'books') {
     const advances = await peoplePrisma.employeeAdvance.findMany({ where: { orgId, status: { in: ['PAID', 'CLOSED'] }, booksStatus: 'TO_RECORD' }, orderBy: { createdAt: 'asc' } });
     const more = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: advances.map((a) => a.employeeId) } }, select: { id: true, name: true, code: true } })).map((p) => [p.id, p]));
-    for (const a of advances) rows.push([a.number, more.get(a.employeeId)?.name || '', more.get(a.employeeId)?.code || '', a.paidOn || '', 'Advance to employee', a.purpose, num(a.amount).toFixed(2), num(a.amount).toFixed(2), 'No', '', '', 'No', 'Paid now', a.paidOn || '', a.paidMethod || '', a.paidReference || '']);
+    for (const a of advances) rows.push([a.number, more.get(a.employeeId)?.name || '', more.get(a.employeeId)?.code || '', a.paidOn || '', 'Advance to employee', a.purpose, num(a.amount).toFixed(2), num(a.amount).toFixed(2), 'No', '', '', 'No', '', '', 'Paid now', a.paidOn || '', a.paidMethod || '', a.paidReference || '']);
   }
   return csv(rows);
 }

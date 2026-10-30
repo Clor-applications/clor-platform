@@ -31,8 +31,8 @@ const can = (perms, key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(
 const today = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const yearAgo = () => { const d = new Date(`${today()}T00:00:00Z`); d.setUTCFullYear(d.getUTCFullYear() - 1); return d.toISOString().slice(0, 10); };
 const day = (iso) => (iso ? formatDate(String(iso).slice(0, 10)) : '');
-const PILL = { SUBMITTED: 'warn', WAITING: 'warn', APPROVED: 'warn', PAYING: 'warn', PAID: 'pos', SETTLED: 'neutral', CLOSED: 'neutral', REJECTED: 'neg', WITHDRAWN: 'neutral' };
-const HR_WORDS = { APPROVED: 'To pay', SUBMITTED: 'Waiting for approval', PAID: 'Paid', SETTLED: 'Set against advance', REJECTED: 'Not approved', PAYING: 'Being paid', WAITING: 'Waiting for approval', CLOSED: 'Settled', WITHDRAWN: 'Withdrawn' };
+const PILL = { WITH_SALARY: 'warn', SUBMITTED: 'warn', WAITING: 'warn', APPROVED: 'warn', PAYING: 'warn', PAID: 'pos', SETTLED: 'neutral', CLOSED: 'neutral', REJECTED: 'neg', WITHDRAWN: 'neutral' };
+const HR_WORDS = { WITH_SALARY: 'Waiting for Payroll', APPROVED: 'To pay', SUBMITTED: 'Waiting for approval', PAID: 'Paid', SETTLED: 'Set against advance', REJECTED: 'Not approved', PAYING: 'Being paid', WAITING: 'Waiting for approval', CLOSED: 'Settled', WITHDRAWN: 'Withdrawn' };
 const Pill = ({ status, label }) => <span className={`ui-pill ui-pill-${PILL[status] || 'neutral'}`}>{label || HR_WORDS[status] || status}</span>;
 const METHOD = { CASH: 'Cash', BANK: 'Bank transfer', UPI: 'UPI' };
 
@@ -101,7 +101,7 @@ function ClaimList({ tab, params: p, set, mayPay, onPaid, preloaded }) {
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (c) => <PersonCell person={{ name: c.employeeName || '—' }} line={c.employeeCode || ''} /> },
     { key: 'claim', label: 'Claim', render: (c) => <span className="min-w-0"><span className="block truncate">{c.title}</span><span className="block ui-caption">{c.number} · {c.lines.length} bill{c.lines.length === 1 ? '' : 's'}</span></span> },
-    { key: 'status', label: 'Status', render: (c) => <span className="block"><Pill status={c.status} />{c.status === 'PAID' ? <span className="block ui-caption mt-0.5">{c.payMode === 'SALARY' ? `With salary${c.payrollPeriodName ? `, ${c.payrollPeriodName}` : ''}` : `${METHOD[c.paidMethod] || 'Paid now'} · ${day(c.paidOn)}`}</span> : null}</span> },
+    { key: 'status', label: 'Status', render: (c) => <span className="block"><Pill status={c.status} />{c.status === 'PAID' || c.status === 'WITH_SALARY' ? <span className="block ui-caption mt-0.5">{c.payMode === 'SALARY' ? `With salary${c.payrollPeriodName ? `, ${c.payrollPeriodName}` : ''}` : `${METHOD[c.paidMethod] || 'Paid now'} · ${day(c.paidOn)}`}</span> : null}</span> },
     { key: 'amount', label: tab === 'pay' ? 'To pay' : 'Amount', align: 'right', render: (c) => <span className="tabular-nums whitespace-nowrap">{money(amountOf(c))}</span> },
   ];
   const books = tab === 'books';
@@ -114,7 +114,7 @@ function ClaimList({ tab, params: p, set, mayPay, onPaid, preloaded }) {
           <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setSelected(new Set())}>Clear</button>
         </div>
       ) : null}
-      {books ? <p className="ui-caption">Books does not take these by itself yet. Enter each as an expense in Books (Download for Books has the GSTIN and tax), then mark it here.</p> : null}
+      {books ? <p className="ui-caption">Every approved bill, however it was paid. Books does not take these by itself yet: enter each in Books (Download for Books has the GSTIN, the GST and any advance used), then mark it here.</p> : null}
       <DataTable
         label={TABS.find(([k]) => k === tab)?.[1]}
         columns={columns}
@@ -142,18 +142,18 @@ function ClaimList({ tab, params: p, set, mayPay, onPaid, preloaded }) {
           : q ? <EmptyState kind="filtered" title="Nothing matches" onClearFilters={() => set({ q: null, page: null })} />
             : <EmptyState icon={Receipt} title={tab === 'pay' ? 'Nothing to pay' : books ? 'Nothing waiting to go into Books' : 'No claims yet'} description={tab === 'pay' ? 'Claims approved in Approvals wait here to be paid.' : tab === 'all' ? 'Staff add bills from the employee app, under Me.' : undefined} />}
       />
-      {open ? <ClaimDrawer claim={open} mayPay={mayPay} onClose={() => setOpen(null)} onDone={() => { setOpen(null); reload(); }} /> : null}
+      {open ? <ClaimDrawer claim={open} reimbursement={req.data?.reimbursement} mayPay={mayPay} onClose={() => setOpen(null)} onDone={() => { setOpen(null); reload(); }} /> : null}
     </>
   );
 }
 
-function ClaimDrawer({ claim: c, mayPay, onClose, onDone }) {
+function ClaimDrawer({ claim: c, reimbursement, mayPay, onClose, onDone }) {
   const [paying, setPaying] = useState(false);
   const [form, setForm] = useState({ paidOn: today(), method: 'UPI', reference: '' });
   const [busy, setBusy] = useState('');
   const pay = async (mode) => {
     if (busy) return;
-    if (mode === 'SALARY' && !(await confirmDialog({ title: `Pay ${money(c.toPay)} with ${c.employeeName}’s salary?`, message: 'It goes to Payroll as a reimbursement for this month, not taxed, and Payroll approves it before the payslip.', confirmLabel: 'Pay with salary' }))) return;
+    if (mode === 'SALARY' && !(await confirmDialog({ title: `Pay ${money(c.toPay)} with ${c.employeeName}’s salary?`, message: `It goes to Payroll as a reimbursement for this month${reimbursement?.taxed === false ? ', not taxed' : reimbursement?.taxed ? ` on ${reimbursement.name}, which Payroll taxes as it is set up` : ''}. It shows as paid once Payroll approves it.`, confirmLabel: 'Pay with salary' }))) return;
     setBusy(mode);
     try {
       await payClaim(c.id, mode === 'SALARY' ? { mode } : { mode, ...form });
@@ -222,7 +222,7 @@ function AdvanceList({ params: p, set, mayPay }) {
   const [open, setOpen] = useState(null);
   const q = String(p.q || '').trim().toLowerCase();
   const rows = (req.data || []).filter((a) => a.status !== 'WITHDRAWN' && (!q || `${a.employeeName} ${a.employeeCode} ${a.number} ${a.purpose}`.toLowerCase().includes(q)));
-  const label = (a) => (a.status === 'APPROVED' ? 'To pay' : a.status === 'PAID' ? (a.overdue ? 'Bills overdue' : 'Open') : HR_WORDS[a.status]);
+  const label = (a) => (a.status === 'APPROVED' ? 'To pay' : a.status === 'PAID' ? (a.recovering && !a.open ? 'Waiting for Payroll' : a.overdue ? 'Bills overdue' : 'Open') : HR_WORDS[a.status]);
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (a) => <PersonCell person={{ name: a.employeeName || '—' }} line={a.employeeCode || ''} /> },
     { key: 'for', label: 'For', render: (a) => <span className="min-w-0"><span className="block truncate">{a.purpose}</span><span className="block ui-caption">{a.number}{a.settleBy && a.status === 'PAID' ? ` · bills by ${day(a.settleBy)}` : ''}</span></span> },
@@ -273,7 +273,7 @@ function AdvanceDrawer({ advance: a, mayPay, onClose, onDone }) {
           <div><dt className="ui-t-label">Advance</dt><dd>{a.number}</dd></div>
           <div><dt className="ui-t-label">Given</dt><dd className="tabular-nums">{money(a.amount)}{a.paidOn ? ` on ${day(a.paidOn)}` : ''}</dd></div>
           <div><dt className="ui-t-label">Used on claims</dt><dd className="tabular-nums">{money(a.settled)}</dd></div>
-          <div><dt className="ui-t-label">Given back or taken from pay</dt><dd className="tabular-nums">{money(a.returned + a.recovered)}</dd></div>
+          <div><dt className="ui-t-label">Given back or taken from pay</dt><dd className="tabular-nums">{money(a.returned + a.recovered)}{a.recovering ? <span className="ui-caption block">{money(a.recovering)} waiting in Payroll</span> : null}</dd></div>
           <div><dt className="ui-t-label">Still open</dt><dd className="tabular-nums">{a.status === 'PAID' ? money(a.open) : '—'}</dd></div>
           <div><dt className="ui-t-label">Bills by</dt><dd>{a.settleBy ? day(a.settleBy) : '—'}{a.overdue ? <span className="ui-pill ui-pill-neg ml-2">Overdue</span> : null}</dd></div>
         </dl>

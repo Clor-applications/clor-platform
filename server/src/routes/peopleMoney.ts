@@ -11,6 +11,7 @@ import {
   MoneyError, billFile, categories, claimForStaff, closeAdvance, detailForRequest, exportCsv, listAdvances, listClaims, markRecorded, payAdvance, payClaim, report, sanction, saveCategory, type Staff,
 } from '../services/people/money/expenses.js';
 import { listAsks, sendAgain } from '../services/people/money/salaryAdvance.js';
+import { reimbursementComponent } from '../services/people/money/payrollBridge.js';
 
 /**
  * Expenses, advances and salary advances for HR, owners and approvers
@@ -61,7 +62,12 @@ peopleMoneyRouter.put(`${base}/categories/:id`, can(PermissionAction.EDIT, EXPEN
 // ---- Claims -----------------------------------------------------------------
 
 peopleMoneyRouter.get(`${base}/claims`, can(PermissionAction.VIEW, EXPENSES), run(async (req, res) => {
-  res.json({ claims: await listClaims(req.tenant!.orgId, { status: String(req.query.status || '') || undefined, employeeId: String(req.query.employeeId || '') || undefined }) });
+  const [claims, component] = await Promise.all([
+    listClaims(req.tenant!.orgId, { status: String(req.query.status || '') || undefined, employeeId: String(req.query.employeeId || '') || undefined }),
+    reimbursementComponent(req.tenant!.orgId).catch(() => null),
+  ]);
+  /* Whether Payroll taxes the reimbursement line, so "pay with salary" never says "not taxed" when it is. */
+  res.json({ claims, reimbursement: component ? { name: component.name, taxed: component.isTaxable } : null });
 }));
 
 peopleMoneyRouter.get(`${base}/claims/:id`, can(PermissionAction.VIEW, EXPENSES), run(async (req, res) => {

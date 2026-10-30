@@ -3941,6 +3941,8 @@ model EmployeeAdvance {
   settledAmount       Decimal   @default(0) @db.Decimal(12, 2)
   returnedAmount      Decimal   @default(0) @db.Decimal(12, 2)
   recoveredAmount     Decimal   @default(0) @db.Decimal(12, 2)
+  /// Sent to Payroll as a draft deduction and not yet approved there: counted as recovered only once Payroll approves it.
+  recoveringAmount    Decimal   @default(0) @db.Decimal(12, 2)
   payrollAdjustmentId String?
   closedAt            DateTime?
   createdAt           DateTime  @default(now())
