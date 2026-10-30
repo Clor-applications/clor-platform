@@ -36,8 +36,9 @@ export async function cancelLeaving(who: Who, employeeId: string, reason: string
       /* The no-dues lines and the exit interview of this stint end with it: nobody signs or is reminded for someone who stays. */
       const thisStint = { orgId, employeeId: row.id, leavingDate: { gte: existing.dateOfJoining || '' } };
       await tx.clearanceLine.updateMany({ where: { ...thisStint, status: { not: 'WITHDRAWN' } }, data: { status: 'WITHDRAWN' } });
-      await tx.exitInterview.updateMany({ where: { ...thisStint, outcome: null }, data: { outcome: 'RETAINED', outcomeByUserId: who.userId, outcomeAt: new Date() } });
-      await tx.exitInterview.updateMany({ where: { ...thisStint, withdrawnAt: null }, data: { withdrawnAt: new Date() } });
+      await tx.exitInterview.updateMany({ where: { ...thisStint, withdrawnAt: null, outcome: null }, data: { outcome: 'RETAINED', outcomeByUserId: who.userId, outcomeAt: new Date() } });
+      /* Withdrawn, it leaves round 0 to whatever leaving comes next, on any day (exitInterview.ts ensureInterview). */
+      await tx.exitInterview.updateMany({ where: { ...thisStint, withdrawnAt: null }, data: { withdrawnAt: new Date(), round: Math.floor(Date.now() / 1000) } });
     },
   });
   await recordChanges({ accountId, orgId, userId: who.userId }, existing as any, employee as any, { source: 'FORM', effectiveDate: new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10), note: `Leaving withdrawn${reason ? `: ${reason}` : ''}` });

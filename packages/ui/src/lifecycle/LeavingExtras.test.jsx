@@ -259,3 +259,10 @@ it('Home’s "Open plan" is a thumb’s height on a phone', () => {
   render(<FinalPayList rows={[{ ...clock(), employeeId: 'a', name: 'A' }, { ...clock(), employeeId: 'b', name: 'B' }]} onOpen={() => () => {}} onMore={() => {}} />);
   for (const b of screen.getAllByRole('button', { name: 'Open plan' })) expect(b.className).toMatch(/\bmin-h-11\b/);
 });
+
+it('signed just after midnight in India reads as that day, not the UTC day before', async () => {
+  const signed = line({ status: 'CLEAR', signedBy: 'Kavya Nair', signedAt: '2026-10-30T18:59:00.000Z', canSign: false });
+  render(<LeavingSections data={{ canEdit: false, interview: null, clearance: { leaving: true, lines: [signed], totals: null, open: 0, found: null } }} employeeId="e1" name="Vikram" />);
+  fireEvent.click(screen.getByRole('button', { name: /Manager: Handover/ }));
+  expect(await screen.findByText(/Signed off by Kavya Nair, 31 Oct 2026/)).toBeTruthy();
+});

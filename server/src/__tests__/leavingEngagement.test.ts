@@ -1260,3 +1260,48 @@ describe('re-review of #81: stints, evening notices, who may opt someone out', (
     expect(m).toMatchObject({ leavers: 0, retained: 2 });
   });
 });
+
+describe('retest of #81: a new leaving is always asked afresh', () => {
+  let c: Ctx;
+  beforeAll(async () => {
+    c = await company();
+  }, 60_000);
+
+  it('withdrawn, recorded again, moved onto the old day: a fresh interview, the old one stays withdrawn and counted once', async () => {
+    const e = await person(c, { name: 'Round Vikram', code: `RV-${rnd()}` });
+    const first = plus(istToday(), 10);
+    const second = plus(istToday(), 20);
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: first, leavingType: 'RESIGNED' }).expect(200);
+    await ppl(c, 'post', `/leaving/${e.id}/exit-interview`, { answers: { reason: 'PAY', comeBack: 'MAYBE' } }).expect(200);
+    await ppl(c, 'post', `/leaving/${e.id}/exit-interview/outcome`, { couldKeep: 'MAYBE' }).expect(200);
+    await ppl(c, 'post', `/employees/${e.id}/stay`, { reason: 'Stays' }).expect(200);
+    /* Recorded again on another day, then moved onto the first leaving's day. */
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: second, leavingType: 'RESIGNED' }).expect(200);
+    expect((await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.interview).toMatchObject({ status: 'OPEN', enteredBy: null });
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: first, leavingType: 'RESIGNED' }).expect(200);
+    const iv = (await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.interview;
+    expect(iv).toMatchObject({ status: 'OPEN', lastDay: first });
+    expect(iv.answers).toEqual({});
+    expect(iv.couldKeep ?? null).toBeNull();
+    /* Recorded again on the very same day as the withdrawn one, straight away: also fresh. */
+    const rows = await inTenant(c, () => peoplePrisma.exitInterview.findMany({ where: { orgId: c.orgId, employeeId: e.id }, orderBy: { createdAt: 'asc' } }));
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ leavingDate: first, status: 'SUBMITTED' });
+    expect(rows[0].withdrawnAt).not.toBeNull();
+    expect(rows[1]).toMatchObject({ leavingDate: first, status: 'OPEN', withdrawnAt: null, round: 0 });
+    const m = (await ppl(c, 'get', '/reports/leaving-reasons').expect(200)).body.months.find((x: any) => x.month === first.slice(0, 7));
+    expect(m.retained).toBe(1);
+  });
+
+  it('withdrawn and recorded again on the same day at once: fresh, not the old answers', async () => {
+    const e = await person(c, { name: 'Same Day Sam', code: `SD-${rnd()}` });
+    const day = plus(istToday(), 12);
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: day, leavingType: 'RESIGNED' }).expect(200);
+    await ppl(c, 'post', `/leaving/${e.id}/exit-interview`, { answers: { reason: 'PAY', comeBack: 'NO' } }).expect(200);
+    await ppl(c, 'post', `/employees/${e.id}/stay`, { reason: 'Stays' }).expect(200);
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: day, leavingType: 'RESIGNED' }).expect(200);
+    const iv = (await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.interview;
+    expect(iv).toMatchObject({ status: 'OPEN', enteredBy: null });
+    expect(iv.answers).toEqual({});
+  });
+});

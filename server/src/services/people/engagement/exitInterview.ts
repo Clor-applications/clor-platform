@@ -127,7 +127,7 @@ const asked = (e: Leaver) => Boolean(e.dateOfLeaving && (e.status === 'ON_NOTICE
  * along. Still unanswered, it is reminded afresh before the new day.
  */
 async function carryInterview(orgId: string, e: Leaver) {
-  const older = await peoplePrisma.exitInterview.findFirst({ where: { orgId, employeeId: e.id, leavingDate: { not: e.dateOfLeaving!, gte: e.dateOfJoining || '' }, withdrawnAt: null }, orderBy: { leavingDate: 'desc' } });
+  const older = await peoplePrisma.exitInterview.findFirst({ where: { orgId, employeeId: e.id, leavingDate: { not: e.dateOfLeaving!, gte: e.dateOfJoining || '' }, withdrawnAt: null, round: 0 }, orderBy: { leavingDate: 'desc' } });
   if (!older) return;
   const moved = Date.parse(`${e.dateOfLeaving}T00:00:00Z`) - Date.parse(`${older.leavingDate}T00:00:00Z`);
   await peoplePrisma.exitInterview.updateMany({
@@ -137,7 +137,10 @@ async function carryInterview(orgId: string, e: Leaver) {
       ...(older.keepUntil ? { keepUntil: new Date(Date.parse(`${older.keepUntil}T00:00:00Z`) + moved).toISOString().slice(0, 10) } : {}),
       ...(older.status === 'OPEN' ? { remindedOn: null } : {}),
     },
-  }).catch((err) => { if (err?.code !== 'P2002') throw err; });
+  }).catch((err) => {
+    /* Another read moved it a moment ago: it is where it should be. */
+    if (err?.code !== 'P2002') throw err;
+  });
 }
 
 /** Opens the interview for this leaving, once (the unique row per person and last day). Returns the row, or null when nobody is asked. */
@@ -145,16 +148,12 @@ export async function ensureInterview(orgId: string, employeeId: string) {
   const e = (await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: LEAVER })) as Leaver | null;
   if (!e || !asked(e)) return null;
   const leavingDate = e.dateOfLeaving!;
-  const key = { orgId_employeeId_leavingDate: { orgId, employeeId, leavingDate } };
+  /* Round 0 is the leaving in progress. A withdrawn interview has its own round and is never brought back, even when the new leaving has the same last day (QA on #81): a new leaving is asked afresh. */
+  const key = { orgId_employeeId_leavingDate_round: { orgId, employeeId, leavingDate, round: 0 } };
   let found = await peoplePrisma.exitInterview.findUnique({ where: key });
   if (!found) {
     await carryInterview(orgId, e);
     found = await peoplePrisma.exitInterview.findUnique({ where: key });
-  }
-  /* Stayed on, then leaving again on the very same day: this leaving's outcome is still to be decided. */
-  if (found?.withdrawnAt) {
-    await peoplePrisma.exitInterview.updateMany({ where: { id: found.id, orgId }, data: { withdrawnAt: null, outcome: null, outcomeByUserId: null, outcomeAt: null, outcomeNote: null, remindedOn: null } });
-    return peoplePrisma.exitInterview.findUnique({ where: key });
   }
   if (found) return found;
   const { questions, keepMonths } = await exitSettings(orgId);
@@ -374,7 +373,7 @@ registerRecipe('exitInterview', async ({ accountId, orgId, today: t, n, now }) =
   /* Interviews exist once a plan or the app has been opened; make sure every leaver in the window has one. */
   const leavers = await peoplePrisma.employee.findMany({ where: { orgId, status: 'ON_NOTICE', dateOfLeaving: { gte: t, lte: plusDays(t, days) } }, select: { id: true } });
   for (const l of leavers) await ensureInterview(orgId, l.id);
-  const open = await peoplePrisma.exitInterview.findMany({ where: { orgId, status: 'OPEN', remindedOn: null, leavingDate: { gte: t, lte: plusDays(t, days) } } });
+  const open = await peoplePrisma.exitInterview.findMany({ where: { orgId, status: 'OPEN', remindedOn: null, withdrawnAt: null, leavingDate: { gte: t, lte: plusDays(t, days) } } });
   const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: open.map((o) => o.employeeId) } }, select: LEAVER })).map((p) => [p.id, p as Leaver]));
   const org = await platformPrisma.org.findUnique({ where: { id: orgId }, select: { name: true } }).catch(() => null);
   const names: string[] = [];

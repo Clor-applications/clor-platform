@@ -8,6 +8,8 @@ import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { hasApp } from '@platform/context';
 
+/* A server timestamp's day in India: slicing the ISO string gives the UTC day (signed at 00:29 IST read as the day before). */
+import { istDay } from '../timeOff/shared';
 import { addClearanceLine, decideExitInterview, enterExitInterview, orgUsers, removeClearanceLine, updateClearanceLine, withOwner } from './api';
 
 /**
@@ -147,7 +149,7 @@ function LineDrawer({ line, canEdit, onClose, onSaved }) {
       <div className="grid gap-5" {...mayAct}>
         <dl className="grid gap-3 sm:grid-cols-2 text-sm">
           <div><dt className="ui-label">Owner</dt><dd className="mt-0.5">{line.ownerName || 'Nobody named: HR signs it'}</dd></div>
-          <div><dt className="ui-label">State</dt><dd className="mt-0.5">{signed ? `Signed off${line.signedBy ? ` by ${line.signedBy}` : ''}${line.signedAt ? `, ${formatDate(String(line.signedAt).slice(0, 10))}` : ''}` : 'Open'}</dd></div>
+          <div><dt className="ui-label">State</dt><dd className="mt-0.5">{signed ? `Signed off${line.signedBy ? ` by ${line.signedBy}` : ''}${line.signedAt ? `, ${formatDate(istDay(line.signedAt))}` : ''}` : 'Open'}</dd></div>
         </dl>
         {!line.canSign && !signed ? <p className="text-sm">{line.ownerName || 'Its owner'} or HR signs this line.</p> : null}
         {items.length && !open ? (
@@ -357,7 +359,7 @@ function ExitInterview({ interview: iv, employeeId, name, onChanged }) {
           ? `They have no employee app access, so they cannot answer it themselves.${iv.canEnter ? ' Enter the answers from a conversation.' : ' HR enters the answers from a conversation.'}`
           : `They can answer in the employee app, under Me${iv.dueBy ? `, until ${formatDate(iv.dueBy)}` : ''}.${iv.canEnter ? ' Or enter the answers from a conversation.' : ''}`}</p>
       ) : iv.hiddenFromYou ? (
-        <p className="text-sm">Answered{iv.submittedAt ? ` on ${formatDate(String(iv.submittedAt).slice(0, 10))}` : ''}. They asked to keep the answers from their managers; HR reads them.</p>
+        <p className="text-sm">Answered{iv.submittedAt ? ` on ${formatDate(istDay(iv.submittedAt))}` : ''}. They asked to keep the answers from their managers; HR reads them.</p>
       ) : iv.erased ? (
         <p className="text-sm">The answers were erased after the keeping period. Main reason: {iv.reasonLabel || 'not given'}.</p>
       ) : (
@@ -370,7 +372,7 @@ function ExitInterview({ interview: iv, employeeId, name, onChanged }) {
       {iv.canDecide ? (
         <div className="grid gap-3 pt-1">
           <div className="max-w-xs"><PopupSelect label="Could we have kept them?" placeholder="Not decided" showValueSubtext={false} value={iv.couldKeep || ''} onChange={(v) => decide({ couldKeep: v || null }, 'keep')} options={COULD_KEEP} /></div>
-          {iv.outcome ? <p className="text-sm">Outcome: {OUTCOME_WORD[iv.outcome]}{iv.outcomeAt ? `, ${formatDate(String(iv.outcomeAt).slice(0, 10))}` : ''}.</p> : (
+          {iv.outcome ? <p className="text-sm">Outcome: {OUTCOME_WORD[iv.outcome]}{iv.outcomeAt ? `, ${formatDate(istDay(iv.outcomeAt))}` : ''}.</p> : (
             <div className="flex flex-wrap gap-2">
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => decide({ outcome: 'EXIT_CONFIRMED' }, 'exit')}>{busy === 'exit' ? 'Saving…' : 'Exit confirmed'}</button>
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => decide({ outcome: 'RETAINED' }, 'stay')}>{busy === 'stay' ? 'Saving…' : 'They stay'}</button>

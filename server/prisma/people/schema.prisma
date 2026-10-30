@@ -4180,10 +4180,13 @@ model ExitInterview {
   erasedAt        DateTime?
   /// The leaving was withdrawn (lifecycle/stayOn.ts): a later leaving does not take this one over.
   withdrawnAt     DateTime?
+  /// 0 for the leaving in progress; a withdrawn one gets a number of its own, so a new leaving on the same
+  /// last day opens a fresh interview and the withdrawn one stays as it was.
+  round           Int       @default(0)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  @@unique([orgId, employeeId, leavingDate])
+  @@unique([orgId, employeeId, leavingDate, round])
   @@index([orgId, submittedAt])
 }
 

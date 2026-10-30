@@ -45,11 +45,12 @@ function periodsOf(today = todayIst()) {
  * with how many leavers answered, how many HR thinks could have been kept, and how many stayed.
  * Shown to whoever may read why someone leaves (Lifecycle); others simply do not get it.
  */
-function LeavingReasons() {
+export function LeavingReasons() {
   const req = useRequest(() => leavingReasons(12).catch(() => null), []);
   const d = req.data;
   if (!d || !Array.isArray(d.reasons) || !Array.isArray(d.months)) return null;
-  const months = d.months.filter((m) => m.leavers || m.answered);
+  /* A month with only someone who stayed still shows: its "Stayed" is the point (QA on #81). */
+  const months = d.months.filter((m) => m.leavers || m.answered || m.retained || m.couldKeep);
   const top = d.reasons.slice(0, 4);
   return (
     <section aria-labelledby="why-leave" className="mt-8 space-y-3">
