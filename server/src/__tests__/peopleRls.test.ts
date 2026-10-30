@@ -45,6 +45,13 @@ const TABLES: Array<{ table: string; model: string; make: (c: Ctx, employeeId: s
   { table: 'RequestFormFile', model: 'requestFormFile', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, formId: 'f', employeeId, fieldKey: 'k', fileName: 'a.png', mime: 'image/png', size: 1, data: Buffer.from('x') }) },
   { table: 'Referral', model: 'referral', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, openingId: `o-${rnd()}`, candidateId: `c-${rnd()}`, referrerEmployeeId: employeeId, phoneKey: '9800000000' }) },
   { table: 'ReferralLink', model: 'referralLink', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, openingId: `o-${rnd()}`, referrerEmployeeId: employeeId, tokenHash: `h-${rnd()}${rnd()}` }) },
+  /* Expense claims, advances and salary advances (WORKFLOW-GAP-RESEARCH 4.1, 4.2). */
+  { table: 'ExpenseCategory', model: 'expenseCategory', make: (c) => ({ accountId: c.accountId, orgId: c.orgId, name: `Cat ${rnd()}` }) },
+  { table: 'ExpenseBill', model: 'expenseBill', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, name: 'bill.png', mime: 'image/png', sha256: rnd(), data: Buffer.from('x') }) },
+  { table: 'ExpenseClaim', model: 'expenseClaim', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, number: `EXP-${rnd()}`, title: 'Trip' }) },
+  { table: 'ExpenseLine', model: 'expenseLine', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, spentOn: '2026-10-01', categoryName: 'Travel', merchant: 'Cab', amount: 100, claim: { create: { accountId: c.accountId, orgId: c.orgId, employeeId, number: `EXP-${rnd()}`, title: 'Trip' } } }) },
+  { table: 'EmployeeAdvance', model: 'employeeAdvance', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, number: `ADV-${rnd()}`, purpose: 'Trip', amount: 1000 }) },
+  { table: 'SalaryAdvanceAsk', model: 'salaryAdvanceAsk', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, amount: 1000, months: 2, reason: 'Rent' }) },
 ];
 
 let a: Ctx;

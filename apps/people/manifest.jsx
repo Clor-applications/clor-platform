@@ -36,6 +36,7 @@ import {
   LockKey,
   MapPin,
   Medal,
+  Receipt,
   Megaphone,
   NotePencil,
   Notebook,
@@ -84,6 +85,7 @@ const EmployeeRecord = screen('EmployeeRecord');
 const AddEmployee = screen('AddEmployee');
 const ImportEmployees = screen('ImportEmployees');
 const Offers = screen('Offers');
+const Expenses = screen('Expenses');
 const Approvals = screen('Approvals');
 const Policies = screen('Policies');
 const ApprovalRules = screen('ApprovalRules');
@@ -230,6 +232,7 @@ const I = {
   asset: duo(Laptop, 'Laptop'),
   benefit: duo(Gift, 'Gift'),
   salary: duo(Coins, 'Coins'),
+  expense: duo(Receipt, 'Receipt'),
   news: duo(Megaphone, 'Megaphone'),
   event: duo(CalendarStar, 'CalendarStar'),
   report: duo(ChartBar, 'ChartBar'),
@@ -324,7 +327,7 @@ export const peopleApp = {
       { label: 'People', items: ['employees', 'documents'] },
       /* Joining & leaving (JOINING-LEAVING-DECISIONS.md): who is joining or leaving, what is not done yet, and whose it is. `checklists` keeps its key (old links); it is now Tasks. */
       { label: 'Joining & leaving', items: ['lifecycle', 'joiners', 'offers', 'lifecycleChanges', 'leavers', 'checklists'] },
-      { label: 'Pay, benefits & assets', items: ['compensation', 'benefits', 'assets'] },
+      { label: 'Pay, benefits & assets', items: ['compensation', 'expenses', 'benefits', 'assets'] },
     ] },
     /* Organisation: one flat list; headings over one item each only made it longer. The detailed lists
        (Detailed structure switch) follow under one heading. */
@@ -431,6 +434,8 @@ export const peopleApp = {
     { key: 'assets', label: 'Assets', icon: I.asset, permission: 'PEOPLE::Assets::VIEW', feature: 'peopleBenefits' },
     { key: 'benefits', label: 'Benefits', icon: I.benefit, permission: 'PEOPLE::Benefits::VIEW', feature: 'peopleBenefits' },
     { key: 'compensation', label: 'Salary revisions', icon: I.salary, permission: 'PAYROLL::Salary Revisions::VIEW', feature: 'peopleBenefits' },
+    /* Claims approved in Approvals, paid here; advances and salary advances (WORKFLOW-GAP-RESEARCH 4.1, 4.2). */
+    { key: 'expenses', label: 'Expenses', icon: I.expense, permission: 'PEOPLE::Expenses::VIEW' },
     { key: 'reports', label: 'People report', icon: I.report, permission: 'PEOPLE::Employees::VIEW' },
     /* What an inspector asks for (HR view audit, gap 4), and leave taken by department and type (gap 9). */
     { key: 'registers', label: 'Statutory registers', icon: I.statutory, permission: 'PEOPLE::Employees::VIEW' },
@@ -537,6 +542,7 @@ export const peopleApp = {
     assets: withSidePanel(register('assets'), panel('AssetsPanel')),
     benefits: withSidePanel(register('benefits'), panel('BenefitsPanel')),
     compensation: withSidePanel(SalaryRevisions, panel('SalaryRevisionsPanel')),
+    expenses: Expenses,
     reports: PeopleReports,
     registers: Registers,
     leaveSummary: LeaveSummaryReport,

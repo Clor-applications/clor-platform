@@ -21,6 +21,8 @@ import { RequestDrawer as AttendanceDrawer, KIND_NAME } from '@ui/timeOff/Attend
 import { bulkDecideRequests, decideRequest, getInbox, listRequests, replyRequest, withdrawRequest } from '../api/approvals';
 import { requestFile } from '../api/requests';
 import { openFile } from '@ui/requests/formFiles';
+import MoneyRequestDetail from '../money/MoneyRequestDetail';
+import { MONEY_TYPES } from '../money/words';
 
 /* The fields a request can name, in plain words (never "photoUrl" or "addressLine"). */
 const FIELD_WORDS = {
@@ -41,7 +43,7 @@ const FIELD_WORDS = {
 const STATUS = { WAITING: 'Waiting for approval', APPROVED: 'Approved', REJECTED: 'Rejected', WITHDRAWN: 'Withdrawn', MORE_INFO: 'Asked for more' };
 const STEP = { WAITING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Rejected', MORE_INFO: 'Asked for more', HANDED_ON: 'Handed on', SKIPPED: 'Skipped', WITHDRAWN: 'Withdrawn' };
 const TONE = { WAITING: 'warn', APPROVED: 'pos', REJECTED: 'neg', WITHDRAWN: 'neutral', MORE_INFO: 'warn', HANDED_ON: 'neutral', SKIPPED: 'neutral' };
-const TYPE = { PROFILE_CHANGE: 'Profile change', JOB_CHANGE: 'Job change', LEAVING: 'Leaving', DOCUMENT_REQUEST: 'Document', LETTER_REQUEST: 'Letter', POLICY_PUBLISH: 'Policy', DESK_ESCALATION: 'Help desk', SEAT_REQUEST: 'Seat', PROBATION: 'Probation', SHIFT_SWAP: 'Shift swap' };
+const TYPE = { PROFILE_CHANGE: 'Profile change', JOB_CHANGE: 'Job change', LEAVING: 'Leaving', DOCUMENT_REQUEST: 'Document', LETTER_REQUEST: 'Letter', POLICY_PUBLISH: 'Policy', DESK_ESCALATION: 'Help desk', SEAT_REQUEST: 'Seat', PROBATION: 'Probation', SHIFT_SWAP: 'Shift swap', ...MONEY_TYPES };
 /* A request type HR set up (FORM:<id>, gap 25) is named by its form; one asked before the name was read shows as a request. */
 const typeOf = (requestType, payload) => TYPE[requestType] || (String(requestType || '').startsWith('FORM:') ? payload?.formName || 'Request' : requestType);
 const TABS = [['waiting', 'Waiting for me'], ['mine', 'Asked by me']];
@@ -419,6 +421,7 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
               {(open.payload.replies || []).map((x) => <p key={x.at} className="mt-1"><span className="ui-muted">Answer, {day(x.at)}:</span> {x.note}</p>)}
             </div>
           ) : null}
+          <MoneyRequestDetail request={open} />
           <div>
             <h3 className="ui-t-label mb-1">Steps</h3>
             <ol className="space-y-2" aria-label="Approval steps">

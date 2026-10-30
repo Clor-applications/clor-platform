@@ -15,7 +15,7 @@ import { createHash, createHmac } from 'node:crypto';
  * API routes that check company and person (GAP-012).
  */
 
-export type FileKind = 'employee-documents' | 'punch-photos' | 'compliance-evidence';
+export type FileKind = 'employee-documents' | 'punch-photos' | 'compliance-evidence' | 'expense-bills';
 
 export interface FileStore {
   readonly name: 'r2' | 'memory';

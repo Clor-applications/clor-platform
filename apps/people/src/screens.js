@@ -12,6 +12,8 @@ export { default as EmployeeRecord } from './workforce/EmployeeRecord';
 export { default as AddEmployee } from './workforce/AddEmployee';
 export { default as ImportEmployees } from './workforce/ImportEmployees';
 export { default as Offers } from './workforce/Offers';
+/* Expenses, advances and salary advances (WORKFLOW-GAP-RESEARCH 4.1, 4.2). */
+export { default as Expenses } from './money/Expenses';
 export { default as Approvals } from './screens/Approvals';
 export { default as Policies } from './screens/Policies';
 export { default as ApprovalRules } from './screens/ApprovalRules';

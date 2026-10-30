@@ -53,6 +53,8 @@ import { peopleComplianceRouter } from './routes/peopleCompliance.js';
 import { peoplePrivateCasesRouter } from './routes/peoplePrivateCases.js';
 import { peoplePrivacyRouter } from './routes/peoplePrivacy.js';
 import { peoplePortalRouter } from './routes/peoplePortal.js';
+import { peopleMoneyPortalRouter } from './routes/peopleMoneyPortal.js';
+import { peopleMoneyRouter } from './routes/peopleMoney.js';
 import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { peopleWorkspaceRouter } from './routes/peopleWorkspace.js';
 import { attendanceRouter } from './routes/attendance.js';
@@ -277,6 +279,8 @@ export function buildApp() {
   app.use(['/api/orgs/:orgId/people/my/request-forms', '/api/portal/people/forms'], express.json({ limit: '7mb' }), (err: any, _req: any, res: any, next: any) => (err?.type === 'entity.too.large' ? res.status(413).json({ error: 'The files are too large together: up to 4 MB in one request.', code: 'TOO_LARGE' }) : next(err)));
   /* A referral may carry the friend's résumé (≤ 2 MB, base64). */
   app.use(['/api/orgs/:orgId/people/referrals/me/refer', '/api/portal/people/referrals/refer'], express.json({ limit: '3mb' }));
+  /* A bill photo or PDF spent for work (≤ 5 MB, base64), from the employee app. */
+  app.use('/api/portal/people/money/lines', express.json({ limit: '7mb' }));
   /* The payment gateway's webhook: public, its exact path, the raw body a signature is made over — ahead of the JSON parser and of every router that demands a session (A-16). */
   app.post('/api/billing/webhook', ...billingWebhookLimiter, express.raw({ type: () => true, limit: '1mb' }), billingWebhook);
   app.use(express.json({ limit: '1mb' }));
@@ -380,6 +384,7 @@ export function buildApp() {
      that require both. */
   /* People's own employee-facing routes first: the portal router answers every other /api/portal path itself. */
   app.use('/api/portal/people/referrals', peopleReferralsPortalRouter);
+  app.use('/api/portal/people/money', peopleMoneyPortalRouter);
   app.use('/api/portal/people', peoplePortalRouter);
   app.use('/api/portal', portalRouter);
 
@@ -426,6 +431,7 @@ export function buildApp() {
   app.use('/api', peopleRouter);
   app.use('/api', peopleApprovalsRouter);
   app.use('/api', peopleRequestsRouter);
+  app.use('/api', peopleMoneyRouter);
   app.use('/api', peopleInvitesRouter);
   app.use('/api', peopleLettersRouter);
   app.use('/api', peoplePoliciesRouter);

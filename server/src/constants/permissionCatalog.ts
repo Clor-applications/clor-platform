@@ -279,6 +279,12 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
         actions: [A.VIEW, A.CREATE, A.EDIT, A.APPROVE],
       },
       {
+        key: 'Expenses',
+        label: 'Expenses and advances',
+        description: 'Everyone\'s expense claims, advances and salary advances: see them and the reports (View), pay and settle them and set the categories (Edit), export for Books (Export). People always see their own; approvers see what waits on them',
+        actions: [A.VIEW, A.EDIT, A.EXPORT],
+      },
+      {
         key: 'Statutory Details',
         label: 'Statutory details',
         description: 'Identifiers and statutory category: PAN, UAN, ESIC and bank from Payroll, Aadhaar (last four), passport, work permit. Shown masked; revealing one needs an authenticator code and is logged',
@@ -734,6 +740,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Approvals', ['*']],
       ['PEOPLE', 'Requests', ['*']],
       ['PEOPLE', 'Lifecycle', ['*']],
+      ['PEOPLE', 'Expenses', ['*']],
       ...['Announcements', 'Events', 'Recruitment', 'Performance', 'Learning', 'HR Cases', 'Assets', 'Benefits'].map((key) => ['PEOPLE', key, ['*']] as [string, string, string[]]),
       /* Leave, holidays and the employee app are HR's too (review R-12). */
       ['ATTENDANCE', 'Leave Requests', ['*']],

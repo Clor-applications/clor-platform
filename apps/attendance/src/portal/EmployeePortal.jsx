@@ -17,6 +17,7 @@ import { LeavingCompany, MySteps, PayCard, Payslips, PrivateComplaint } from './
 import { HolidaysYear, WhatsNew } from './PortalFeeds';
 import MyGrowth from './MyGrowth';
 import MyJobs from './MyJobs';
+import MyMoney from './MyMoney';
 import { MonthReview, MyOvertime } from './MonthAndOvertime';
 import ShiftSwaps from './ShiftSwaps';
 import MyForms from './MyForms';
@@ -166,6 +167,7 @@ export default function EmployeePortal() {
             <MyJobs guard={guard} />
             <MyGrowth guard={guard} />
             <Payslips guard={guard} />
+            <MyMoney guard={guard} />
             <MyDetails guard={guard} refreshKey={leavingSent} />
             <MyForms guard={guard} />
             <Policies guard={guard} />

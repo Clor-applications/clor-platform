@@ -3806,3 +3806,168 @@ model RequestFormFile {
   @@index([orgId, requestId])
   @@index([orgId, employeeId])
 }
+
+// ---------------------------------------------------------------------------
+// Money that starts in People (WORKFLOW-GAP-RESEARCH 30 Oct 2026, 4.1 and 4.2):
+// expense claims with their bills, advances set against them, and salary
+// advances asked from the employee app. Payroll and Books keep their own
+// records; these say what was asked, decided and handed on.
+// ---------------------------------------------------------------------------
+
+/// What an expense was for, with a simple limit per bill. `creditBlocked`: GST s.17(5) (food and the like) — input credit usually not available.
+model ExpenseCategory {
+  id            String   @id @default(cuid())
+  accountId     String
+  orgId         String
+  name          String
+  limitPerBill  Decimal? @db.Decimal(12, 2)
+  creditBlocked Boolean  @default(false)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([orgId, name])
+}
+
+/// A bill photo or PDF, kept apart from the line so the bytes can live in object storage.
+model ExpenseBill {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  name       String
+  mime       String
+  size       Int      @default(0)
+  /// sha256 of the file: the same bill sent twice is caught.
+  sha256     String
+  data       Bytes
+  /// R2 plan: where the bytes are when they are not in `data` (then empty). Set by utils/fileOffload.ts.
+  storageKey String?
+  createdAt  DateTime @default(now())
+
+  @@index([orgId, employeeId])
+  @@index([orgId, sha256])
+}
+
+/// One or more bills sent together for approval. DRAFT | SUBMITTED | APPROVED | REJECTED | PAYING | PAID | SETTLED
+model ExpenseClaim {
+  id                  String    @id @default(cuid())
+  accountId           String
+  orgId               String
+  employeeId          String
+  number              String
+  title               String
+  status              String    @default("DRAFT")
+  /// The open advance this claim is set against, if any.
+  advanceId           String?
+  approvalRequestId   String?
+  submittedAt         DateTime?
+  decidedAt           DateTime?
+  claimedTotal        Decimal   @default(0) @db.Decimal(12, 2)
+  approvedTotal       Decimal?  @db.Decimal(12, 2)
+  /// Taken off the advance when approved.
+  advanceSettled      Decimal?  @db.Decimal(12, 2)
+  /// SALARY | NOW
+  payMode             String?
+  paidOn              String?
+  /// CASH | BANK | UPI (paid now)
+  paidMethod          String?
+  paidReference       String?
+  paidByUserId        String?
+  payrollAdjustmentId String?
+  payrollPeriodName   String?
+  /// Paid now: TO_RECORD until someone marks it entered in Books, then RECORDED.
+  booksStatus         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  lines ExpenseLine[]
+
+  @@unique([orgId, number])
+  @@index([orgId, employeeId, status])
+  @@index([orgId, status])
+  @@index([orgId, approvalRequestId])
+}
+
+model ExpenseLine {
+  id             String   @id @default(cuid())
+  accountId      String
+  orgId          String
+  claimId        String
+  employeeId     String
+  spentOn        String
+  categoryId     String?
+  categoryName   String
+  merchant       String
+  amount         Decimal  @db.Decimal(12, 2)
+  /// Set by an approver who allows less, with the reason the person reads.
+  approvedAmount Decimal? @db.Decimal(12, 2)
+  cutReason      String?
+  note           String?
+  billId         String?
+  /// The bill names the company's GSTIN: kept for input tax credit in Books.
+  companyGstin   Boolean  @default(false)
+  supplierGstin  String?
+  taxAmount      Decimal? @db.Decimal(12, 2)
+  /// Same amount, day and shop as this earlier line; the person said it is a different bill. Shown to the approver.
+  duplicateOf    String?
+  createdAt      DateTime @default(now())
+
+  claim ExpenseClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, claimId])
+  @@index([orgId, employeeId, spentOn])
+}
+
+/// Money given before it is spent (a trip, a site purchase). WAITING | APPROVED | REJECTED | WITHDRAWN | PAID | CLOSED
+model EmployeeAdvance {
+  id                  String    @id @default(cuid())
+  accountId           String
+  orgId               String
+  employeeId          String
+  number              String
+  purpose             String
+  amount              Decimal   @db.Decimal(12, 2)
+  neededBy            String?
+  settleBy            String?
+  status              String    @default("WAITING")
+  approvalRequestId   String?
+  paidOn              String?
+  paidMethod          String?
+  paidReference       String?
+  paidByUserId        String?
+  booksStatus         String?
+  /// Set against approved claims, given back, and taken from salary.
+  settledAmount       Decimal   @default(0) @db.Decimal(12, 2)
+  returnedAmount      Decimal   @default(0) @db.Decimal(12, 2)
+  recoveredAmount     Decimal   @default(0) @db.Decimal(12, 2)
+  payrollAdjustmentId String?
+  closedAt            DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([orgId, number])
+  @@index([orgId, employeeId, status])
+  @@index([orgId, status])
+}
+
+/// A salary advance asked from the employee app; approved, it becomes a Payroll loan. WAITING | APPROVED | REJECTED | WITHDRAWN
+model SalaryAdvanceAsk {
+  id                String   @id @default(cuid())
+  accountId         String
+  orgId             String
+  employeeId        String
+  amount            Decimal  @db.Decimal(12, 2)
+  months            Int
+  reason            String
+  status            String   @default("WAITING")
+  approvalRequestId String?
+  /// The Payroll loan made from it, and why not when Payroll could not take it yet.
+  loanId            String?
+  payrollNote       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([orgId, employeeId, status])
+  @@index([orgId, status])
+}

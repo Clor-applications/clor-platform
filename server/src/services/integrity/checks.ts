@@ -67,14 +67,15 @@ export async function checkCompany({ accountId, orgId }: Company, opts: { repair
      */
     const store = fileStore();
     if (store) {
-      const [docs, photos, evidence, proofs, bin] = await Promise.all([
+      const [docs, photos, evidence, proofs, bills, bin] = await Promise.all([
         peoplePrisma.employeeDocument.findMany({ where: { ...where, storageKey: { not: null } }, select: { id: true, storageKey: true } }),
         peoplePrisma.punchPhoto.findMany({ where: { ...where, storageKey: { not: null } }, select: { id: true, storageKey: true } }),
         peoplePrisma.complianceTask.findMany({ where: { ...where, evidenceKey: { not: null } }, select: { id: true, evidenceKey: true } }),
         peoplePrisma.obligationProof.findMany({ where: { ...where, storageKey: { not: null } }, select: { id: true, storageKey: true } }),
+        peoplePrisma.expenseBill.findMany({ where: { ...where, storageKey: { not: null } }, select: { id: true, storageKey: true } }),
         peoplePrisma.deletedItem.findMany({ where: { orgId }, select: { snapshot: true } }),
       ]);
-      const rowKeys = new Map<string, string>([...docs.map((d) => [d.storageKey!, d.id] as const), ...photos.map((p) => [p.storageKey!, p.id] as const), ...evidence.map((e) => [e.evidenceKey!, e.id] as const), ...proofs.map((p) => [p.storageKey!, p.id] as const)]);
+      const rowKeys = new Map<string, string>([...docs.map((d) => [d.storageKey!, d.id] as const), ...photos.map((p) => [p.storageKey!, p.id] as const), ...evidence.map((e) => [e.evidenceKey!, e.id] as const), ...proofs.map((p) => [p.storageKey!, p.id] as const), ...bills.map((b) => [b.storageKey!, b.id] as const)]);
       const binKeys = new Set(bin.flatMap((b) => JSON.stringify(b.snapshot).match(new RegExp(`org/${orgId}/[a-z-]+/[A-Za-z0-9_-]+`, 'g')) || []));
       const objects = await store.list(orgId);
       const present = new Set(objects);
