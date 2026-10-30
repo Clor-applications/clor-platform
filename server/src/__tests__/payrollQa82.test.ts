@@ -200,3 +200,141 @@ describe('QA F4: a payslip reads plainly', () => {
     expect(cap).toMatchObject({ wages: 22_000, room: 10_500 });
   }, 180_000);
 });
+
+/* ---------------------------------------------------------------------------
+ * QA of PR #82 at 856428e3, owner and HR tester.
+ * ------------------------------------------------------------------------ */
+const { periodToPayIn } = await import('../services/people/money/payrollBridge.js');
+const adjOf = (c: Ctx, id: string) => own(c, () => payrollPrisma.payrollAdjustment.findUniqueOrThrow({ where: { id } }));
+const peopleAdvance = async (c: Ctx, id: string) => (await peopleApi(c, 'get', '/money/advances').expect(200)).body.advances.find((a: any) => a.id === id);
+
+/** Basic only, one person, a period: what most of these need. */
+async function onePerson(c: Ctx, o: { annualCtc?: number; periodId?: string } = {}) {
+  const basic = await api.post(c, '/components', { name: 'Basic', code: 'BASIC', type: 'EARNING', calculationMethod: 'PERCENTAGE', percentage: 100, calculationBase: 'MONTHLY_CTC', displayOrder: 1 }).expect(201);
+  const fine = await api.post(c, '/components', { name: 'Fine', code: 'FINE', type: 'DEDUCTION', calculationMethod: 'FIXED', isVariable: true, displayOrder: 70 }).expect(201);
+  const structure = await api.post(c, '/structures', { name: `Staff ${rnd()}`, frequency: 'MONTHLY', effectiveFrom: '2025-01-01', status: 'ACTIVE', components: [{ componentId: basic.body.component.id, displayOrder: 1 }, { componentId: fine.body.component.id, displayOrder: 70 }] }).expect(201);
+  const periodId = o.periodId || (await api.post(c, '/periods', { name: `June ${rnd()}`, startDate: '2026-06-01', endDate: '2026-06-30', paymentDate: '2026-06-30' }).expect(201)).body.period.id;
+  const person = await api.post(c, '/employees', { name: 'Imran Khan', code: `E${rnd()}`, dateOfJoining: '2025-01-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW', pfApplicable: true, ptApplicable: true } }).expect(201);
+  const employeeId = person.body.employee.id as string;
+  await api.post(c, '/assignments', { employeeId, structureId: structure.body.structure.id, effectiveFrom: '2025-01-01', annualCtc: o.annualCtc ?? 264_000 }).expect(201);
+  return { employeeId, periodId, fineId: fine.body.component.id as string };
+}
+const monthSpan = (add: number) => {
+  const now = new Date(Date.now() + 330 * 60_000);
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + add, 1));
+  const y = d.getUTCFullYear(); const m = d.getUTCMonth();
+  const end = new Date(Date.UTC(y, m + 1, 0)).toISOString().slice(0, 10);
+  return { startDate: `${y}-${String(m + 1).padStart(2, '0')}-01`, endDate: end, paymentDate: end };
+};
+
+describe('owner/HR QA F1: a recovery Payroll edited down', () => {
+  it('leaves the rest open, lists it on the full and final as its own line, and closes the advance only at what was taken', async () => {
+    const c = await makeOwner();
+    const employeeId = await leaver(c);
+    const rails = await recoveryRails(c);
+    const a = await advance(c, employeeId, { recoveringAmount: 5000 });
+    const key = `advance-recover:${a.id}:${rails.periodId}`;
+    await adjustment(c, { id: key, employeeId, ...rails, amount: 5000, status: 'APPROVED' });
+    await own(c, () => peoplePrisma.employeeAdvance.update({ where: { id: a.id }, data: { payrollAdjustmentId: key } }));
+    /* Payroll takes only ₹3,000 of it this month. */
+    await api.put(c, `/adjustments/${key}`, { employeeId, componentId: rails.componentId, periodId: rails.periodId, amount: 3000, reason: 'Only 3,000 this month' }).expect(200);
+    await api.post(c, `/adjustments/${key}/approve`).expect(200);
+    expect(await peopleAdvance(c, a.id)).toMatchObject({ status: 'PAID', recovered: 0, recovering: 3000, open: 2000 });
+
+    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const traced = s.lines.filter((l: any) => l.source && (l.source.id === a.id || l.source.id === key)).map((l: any) => [l.source.type, l.amount]).sort();
+    expect(traced).toEqual([['ADVANCE', 2000], ['CARRY', 3000]]);
+    await api.post(c, `/settlements/${s.id}/approve`).expect(200);
+    await api.post(c, `/settlements/${s.id}/paid`, {}).expect(200);
+    expect(await peopleAdvance(c, a.id)).toMatchObject({ status: 'CLOSED', recovered: 5000, recovering: 0, open: 0 });
+  }, 180_000);
+});
+
+describe('owner/HR QA F2: correcting a carried row', () => {
+  it('waits while the payroll that carried it is open, then takes a correction with a reason', async () => {
+    const c = await makeOwner();
+    const r = await onePerson(c);
+    const runId = (await api.post(c, '/runs', { periodId: r.periodId }).expect(201)).body.run.id;
+    await own(c, () => payrollPrisma.payrollRun.update({ where: { id: runId }, data: { status: 'CALCULATED' } }));
+    const id = `carry-${rnd()}`;
+    await adjustment(c, { id, employeeId: r.employeeId, componentId: r.fineId, periodId: r.periodId, amount: 5000, status: 'APPROVED', carriedByRunId: runId });
+    const body = { employeeId: r.employeeId, componentId: r.fineId, periodId: r.periodId, amount: 1000, reason: 'test' };
+    expect((await api.put(c, `/adjustments/${id}`, body).expect(409)).body.code).toBe('CARRIED');
+    await own(c, () => payrollPrisma.payrollRun.update({ where: { id: runId }, data: { status: 'APPROVED' } }));
+    expect((await api.put(c, `/adjustments/${id}`, body).expect(400)).body.code).toBe('REASON_NEEDED');
+    expect((await api.put(c, `/adjustments/${id}`, { ...body, employeeId: 'someone-else', correctionReason: 'Agreed with the owner, 2 Nov' }).expect(400)).body.code).toBe('CARRIED_FIXED');
+    await api.put(c, `/adjustments/${id}`, { ...body, correctionReason: 'Agreed with the owner, 2 Nov' }).expect(200);
+    const row = await adjOf(c, id);
+    expect([Number(row.amount), row.status]).toEqual([1000, 'DRAFT']);
+    expect(row.reason).toContain('Agreed with the owner, 2 Nov');
+    /* The list tells the screen which carried rows may be corrected. */
+    const listed = (await api.get(c, '/adjustments').expect(200)).body.adjustments.find((x: any) => x.id === id);
+    expect(listed.carried).toEqual({ final: true });
+  }, 120_000);
+});
+
+describe('owner/HR QA F4: figures that changed since the calculation', () => {
+  it('are flagged on the run, and it is not sent for review until calculated again', async () => {
+    const c = await makeOwner();
+    const r = await onePerson(c);
+    const runId = (await api.post(c, '/runs', { periodId: r.periodId }).expect(201)).body.run.id;
+    await api.post(c, `/runs/${runId}/validate`).expect(200);
+    await api.post(c, `/runs/${runId}/calculate`).expect(200);
+    expect((await api.get(c, `/runs/${runId}`).expect(200)).body.run.stale).toBeNull();
+    await new Promise((x) => setTimeout(x, 20));
+    await adjustment(c, { id: `fine-${rnd()}`, employeeId: r.employeeId, componentId: r.fineId, periodId: r.periodId, amount: 500, status: 'APPROVED' });
+    expect((await api.get(c, `/runs/${runId}`).expect(200)).body.run.stale).toMatch(/adjustment/i);
+    expect((await api.post(c, `/runs/${runId}/submit-review`, {}).expect(409)).body.code).toBe('RUN_STALE');
+    await api.post(c, `/runs/${runId}/calculate`).expect(200);
+    expect((await api.get(c, `/runs/${runId}`).expect(200)).body.run.stale).toBeNull();
+    await api.post(c, `/runs/${runId}/submit-review`, {}).expect(200);
+  }, 180_000);
+});
+
+describe('owner/HR QA F5: recoveries in a month already paid', () => {
+  it('People sends recoveries to the first month whose payroll is still open', async () => {
+    const c = await makeOwner();
+    const thisMonth = (await api.post(c, '/periods', { name: `This ${rnd()}`, ...monthSpan(0) }).expect(201)).body.period.id;
+    const next = (await api.post(c, '/periods', { name: `Next ${rnd()}`, ...monthSpan(1) }).expect(201)).body.period.id;
+    const runId = (await api.post(c, '/runs', { periodId: thisMonth }).expect(201)).body.run.id;
+    expect((await own(c, () => periodToPayIn(c.orgId)))?.id).toBe(thisMonth);
+    await own(c, () => payrollPrisma.payrollRun.update({ where: { id: runId }, data: { status: 'APPROVED' } }));
+    expect((await own(c, () => periodToPayIn(c.orgId)))?.id).toBe(next);
+  }, 120_000);
+
+  it('closing a month warns of an instalment nobody took, and closes when told to', async () => {
+    const c = await makeOwner();
+    const r = await onePerson(c);
+    await own(c, async () => {
+      const loan = await payrollPrisma.payrollLoan.create({ data: { accountId: c.accountId, orgId: c.orgId, number: `L-${rnd()}`, employeeId: r.employeeId, type: 'SALARY_ADVANCE', principal: 5000, startDate: '2026-06-01', outstandingBalance: 5000, status: 'ACTIVE', createdByUserId: 'test' } as any });
+      await payrollPrisma.payrollLoanInstallment.create({ data: { accountId: c.accountId, orgId: c.orgId, loanId: loan.id, periodId: r.periodId, sequence: 1, dueAmount: 5000, principalAmount: 5000, interestAmount: 0, status: 'PENDING' } });
+    });
+    const warned = await api.post(c, `/periods/${r.periodId}/lock`, { locked: true }).expect(409);
+    expect(warned.body.code).toBe('UNTAKEN_RECOVERIES');
+    expect(warned.body.untaken).toEqual([expect.objectContaining({ employeeName: 'Imran Khan', amount: 5000 })]);
+    await api.post(c, `/periods/${r.periodId}/lock`, { locked: true, acknowledge: true }).expect(200);
+  }, 120_000);
+});
+
+describe('owner/HR QA F9: PF and PT per person', () => {
+  it('saving the details without the switches keeps them; sending them changes them', async () => {
+    const c = await makeOwner();
+    const r = await onePerson(c);
+    const profile = () => own(c, () => payrollPrisma.employeePayrollProfile.findFirstOrThrow({ where: { orgId: c.orgId, employeeId: r.employeeId } }));
+    expect((await profile()).pfApplicable).toBe(true);
+    await api.put(c, `/employees/${r.employeeId}`, { name: 'Imran Khan', dateOfJoining: '2025-01-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW' } }).expect(200);
+    expect(await profile()).toMatchObject({ pfApplicable: true, ptApplicable: true });
+    await api.put(c, `/employees/${r.employeeId}`, { name: 'Imran Khan', dateOfJoining: '2025-01-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW', pfApplicable: false } }).expect(200);
+    expect(await profile()).toMatchObject({ pfApplicable: false, ptApplicable: true });
+  }, 120_000);
+});
+
+describe('reviewer nit: the advance headroom uses the company share', () => {
+  it('30% of wages, not half', async () => {
+    const c = await makeOwner();
+    await api.put(c, '/settings/deduction-cap', { percent: 30, countsStatutory: true, countsPenalties: true }).expect(200);
+    const r = await onePerson(c);
+    const cap = await own(c, () => payCap(c.orgId, r.employeeId));
+    expect(cap).toMatchObject({ wages: 22_000, room: 6600 });
+  }, 120_000);
+});

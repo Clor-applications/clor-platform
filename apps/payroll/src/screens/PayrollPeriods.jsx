@@ -118,7 +118,19 @@ export default function PayrollPeriods() {
     }
     setBusy(row.id);
     try {
-      await setPayrollPeriodLock(row.id, !row.isLocked);
+      try {
+        await setPayrollPeriodLock(row.id, !row.isLocked);
+      } catch (e) {
+        /* A recovery due this month that no payslip took (QA of #82, F5): said first, closed only when told to. */
+        if (e?.code !== 'UNTAKEN_RECOVERIES') throw e;
+        const ok = await confirmDialog({
+          title: `Close ${row.name} with recoveries not taken?`,
+          message: String(e.message || ''),
+          confirmLabel: 'Close anyway',
+        });
+        if (!ok) return;
+        await setPayrollPeriodLock(row.id, true, true);
+      }
       notify.success(row.isLocked ? `${row.name} reopened.` : `${row.name} closed.`);
       load();
     } catch (e) {

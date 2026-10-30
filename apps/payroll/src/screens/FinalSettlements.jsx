@@ -285,9 +285,13 @@ function Settlement({ settlement, you, onClose, onChanged }) {
     }
   };
   const save = () => run(() => updateSettlement(settlement.id, { lines: lines.map((l) => ({ ...l, amount: Number(l.amount) || 0 })), notes }), 'Saved.');
+  /* Owed to them, or owed by them: said in words, never as a minus sign (QA of #82, F7). */
+  const who = settlement.employeeName || 'They';
+  const net = Number(settlement.netPayable || 0);
+  const owesWords = net < 0 ? `${who} owes ${money(-net)}` : net > 0 ? `${money(net)} to pay ${who}` : `Nothing either way for ${who}`;
   const approve = async () => {
     const ok = await confirmDialog({
-      title: `Approve ${money(settlement.netPayable)} for ${settlement.employeeName || 'them'}?`,
+      title: `${owesWords}. Approve this settlement?`,
       message: 'Check each line against your policy and the law first. An approved settlement can no longer be changed.',
       confirmLabel: 'Approve',
       tone: 'default',
@@ -326,7 +330,16 @@ function Settlement({ settlement, you, onClose, onChanged }) {
               className="ui-btn ui-btn-primary"
               disabled={busy || Boolean(settlement.hold)}
               title={settlement.hold ? 'Held: lift the hold first' : undefined}
-              onClick={() => run(() => markSettlementPaid(settlement.id, reference || null), 'Marked paid.')}
+              onClick={async () => {
+                /* Money moves on this: asked first (DESIGN.md). */
+                const ok = await confirmDialog({
+                  title: net < 0 ? `Mark ${money(-net)} received from ${who}?` : `Mark ${money(net)} paid to ${who}?`,
+                  message: 'This closes the loans, advances and claims it settles. It cannot be undone here.',
+                  confirmLabel: net < 0 ? 'Mark received' : 'Mark paid',
+                  tone: 'default',
+                });
+                if (ok) run(() => markSettlementPaid(settlement.id, reference || null), 'Marked paid.');
+              }}
             >
               Mark paid
             </button>
@@ -336,7 +349,7 @@ function Settlement({ settlement, you, onClose, onChanged }) {
     >
       <div className="space-y-4">
         {own ? <p className="ui-caption" role="note">{OWN_WORDS}</p> : null}
-        {settlement.hold ? <HoldPanel settlement={settlement} busy={busy} run={run} canLift={!own && you?.liftHold !== false} whyNot={own ? 'This is your own hold. Another HR user or the owner lifts it.' : you?.liftHoldWhy} /> : null}
+        {settlement.hold ? <HoldPanel settlement={settlement} busy={busy} run={run} stepUp={Boolean(you?.stepUp)} canLift={!own && you?.liftHold !== false} whyNot={own ? 'This is your own hold. Another HR user or the owner lifts it.' : you?.liftHoldWhy} /> : null}
         <div className="ui-table-scroll">
           <table className="ui-table ui-table-sticky w-full">
             <thead>
@@ -465,7 +478,7 @@ function Settlement({ settlement, you, onClose, onChanged }) {
  * lifted, with a reason; the same release HR makes in People, recorded there
  * and here. A hold only pauses payment.
  */
-function HoldPanel({ settlement, busy, run, canLift = true, whyNot }) {
+function HoldPanel({ settlement, busy, run, canLift = true, whyNot, stepUp = false }) {
   const [reason, setReason] = useState('');
   const why = reason.trim();
   return (
@@ -481,6 +494,10 @@ function HoldPanel({ settlement, busy, run, canLift = true, whyNot }) {
       </div>
       <p className="ui-caption max-w-[65ch]">
         Nothing is forfeited. Earned wages stay owed, and the law gives no right to keep them back. Once you end their employment, wages are due within two working days (Code on Wages 2019, s.17(2)), so take advice before holding longer.
+      </p>
+      {/* Who may lift it, and what they will be asked (QA of #82, F8). */}
+      <p className="ui-caption max-w-[65ch]">
+        HR with People edit and Payroll approval, or the owner, lifts it with a reason; never the person held.{stepUp ? ' They are asked for their authenticator code.' : ''}
       </p>
       {!canLift ? (
         <p className="ui-caption" role="note">{whyNot || 'You cannot lift this hold.'}</p>

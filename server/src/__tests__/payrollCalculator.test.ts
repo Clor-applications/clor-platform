@@ -467,3 +467,13 @@ describe('a component with a ceiling', () => {
     expect(result.lines.find((l) => l.code === 'TRANSPORT')?.amount).toBe(1500);
   });
 });
+
+describe('a part month (QA of PR #82, F3)', () => {
+  it('takes PF once on the prorated wages, not prorated a second time', () => {
+    const pf = component({ code: 'EPF', name: 'Employee PF', type: 'DEDUCTION', calculationMethod: 'STATUTORY', statutoryScheme: 'PF', includeInGross: false, displayOrder: 10 });
+    /* 14 of 30 days: Basic ₹7,000 of ₹15,000; the PF scheme gives 12% of that, ₹840. */
+    const out = calculateStructure([BASIC, pf], input({ annualCtc: 360_000, payableDays: 14, statutoryAmounts: { EPF: 840 } }));
+    expect(out.lines.find((l) => l.code === 'BASIC')?.amount).toBe(7000);
+    expect(out.lines.find((l) => l.code === 'EPF')?.amount).toBe(840);
+  });
+});

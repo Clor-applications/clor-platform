@@ -32,7 +32,13 @@ export async function payrollOn(accountId: string, orgId: string) {
 
 /** The open month containing today, or else the next one to open. */
 export async function periodToPayIn(orgId: string, today = todayIst()) {
-  const open = { orgId, isLocked: false, status: 'OPEN' };
+  /*
+   * The month in progress, else the next. Never one whose payroll is already
+   * approved or paid: nothing would take what is sent there, and the money
+   * would wait, unseen, in a closed month (QA of #82, F5).
+   */
+  const done = await payrollPrisma.payrollRun.findMany({ where: { orgId, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] } }, select: { periodId: true } });
+  const open = { orgId, isLocked: false, status: 'OPEN', id: { notIn: [...new Set(done.map((r) => r.periodId))] } };
   return (await payrollPrisma.payrollPeriod.findFirst({ where: { ...open, startDate: { lte: today }, endDate: { gte: today } }, orderBy: { startDate: 'asc' }, select: { id: true, name: true } }))
     || payrollPrisma.payrollPeriod.findFirst({ where: { ...open, startDate: { gt: today } }, orderBy: { startDate: 'asc' }, select: { id: true, name: true } });
 }
@@ -171,8 +177,11 @@ export async function payCap(orgId: string, employeeId: string) {
   /* Those the open payslip already took are in `other` above; not counted twice. */
   const thisMonth = round2(pending.filter((a) => !(slipMonthOpen && a.periodId === slipMonthOpen && a.status === 'CONSUMED')).reduce((t, a) => t + Number(a.amount), 0));
   const interestFreeOwed = round2(loans.filter((l) => Number(l.interestRate) === 0).reduce((t, l) => t + (l.status === 'ACTIVE' ? Number(l.outstandingBalance) : Number(l.principal)), 0));
-  const room = Math.max(0, round2(wages / 2 - other - loanInstalments - thisMonth));
-  return { wages: round2(wages), otherDeductions: round2(other + thisMonth), loanInstalments, room, basis, approximate, interestFreeOwed };
+  /* The company's share of wages (Payroll setup), not a fixed half: the same limit the run holds deductions to. */
+  const { capSetting } = await import('../../payroll/deductionCap.js');
+  const share = (await capSetting(orgId)).percent / 100;
+  const room = Math.max(0, round2(wages * share - other - loanInstalments - thisMonth));
+  return { wages: round2(wages), percent: Math.round(share * 100), limit: round2(wages * share), otherDeductions: round2(other + thisMonth), loanInstalments, room, basis, approximate, interestFreeOwed };
 }
 
 /** Interest-free or cheap loans above this in total are a taxable perquisite (Income-tax Rules, rule 3(7)(i)); medical loans are exempt. */

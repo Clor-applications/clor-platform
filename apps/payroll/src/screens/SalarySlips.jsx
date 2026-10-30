@@ -299,9 +299,12 @@ export const DeductionNote = ({ note }) => {
         <Row key={c.label} label={c.label} value={c.amount} muted />
       ))}
       <p className="ui-caption">
-        {note.reason === 'LIMIT'
-          ? `Deductions are held to ${note.percent}% of wages: ${money(note.limit)} of ${money(note.wages)} this month. The rest comes off next month's payslip.`
-          : 'This payslip had nothing left to take it from. The rest comes off next month’s payslip.'}
+        {note.reason !== 'LIMIT'
+          ? 'This payslip had nothing left to take it from. The rest comes off next month’s payslip.'
+          : Number(note.counted) > Number(note.limit)
+            /* PF, tax and entered deductions are taken as they are and can pass the share alone; then no instalment fits (QA of #82, F6). */
+            ? `Instalments may take up to ${note.percent}% of wages (${money(note.limit)} of ${money(note.wages)}), and other deductions already came to ${money(note.counted)}, so none was taken this month. It comes off next month's payslip.`
+            : `Instalments may take up to ${note.percent}% of wages (${money(note.limit)} of ${money(note.wages)}), counting other deductions. The rest comes off next month's payslip.`}
       </p>
     </section>
   );

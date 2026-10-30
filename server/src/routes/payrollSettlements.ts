@@ -11,6 +11,7 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/pa
 import { recordAudit } from '../services/auditTrail.js';
 import { netOf, proposeSettlement, type SettlementLine } from '../services/payroll/finalSettlement.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
+import { getAuthPolicy } from '../services/policy.js';
 import { ownRecordRefusal, ownWorkRefusal, subjectUserIds } from '../services/makerChecker.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE } from '../services/people/guards.js';
 import { teamScope } from '../services/people/scope.js';
@@ -105,10 +106,10 @@ payrollSettlementsRouter.get('/orgs/:orgId/payroll/settlements', VIEW, async (re
     take: 300,
   });
   const holds = await settlementHolds(orgId, [...rows.map((r) => r.employeeId), ...leavers.map((p) => p.id)]);
-  const [lift, me] = await Promise.all([mayLiftHold(req), peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } })]);
+  const [lift, me, policy] = await Promise.all([mayLiftHold(req), peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } }), getAuthPolicy(accountId, orgId)]);
   res.json({
     /* What the person signed in may do here, so the screen offers only that; their own record is never theirs to work out. */
-    you: { liftHold: lift, liftHoldWhy: lift ? null : LIFT_NEEDS, selfEmployeeId: me?.id || null },
+    you: { liftHold: lift, liftHoldWhy: lift ? null : LIFT_NEEDS, selfEmployeeId: me?.id || null, stepUp: Boolean(policy.requirePayrollStepUp) },
     settlements: rows.map((r) => shape(r, people, holds.get(r.employeeId))),
     waiting: leavers.filter((p) => !settled.has(p.id)).map((p) => ({ ...p, held: holds.has(p.id) })),
   });

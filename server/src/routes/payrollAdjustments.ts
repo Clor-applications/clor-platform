@@ -59,6 +59,23 @@ const shape = (a: any, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
+/**
+ * Whether the payroll that carried a row is done with it: a full and final
+ * (`settlement:<id>`, paid or not, never recalculated), or a pay run approved
+ * or later. Until then the row is that run's to change by recalculating;
+ * after, it is corrected by hand, with a reason (QA of #82, F2).
+ */
+const FINAL_RUN = ['APPROVED', 'LOCKED', 'PAID', 'POSTED'];
+async function carriersFinal(orgId: string, carriers: string[]): Promise<Set<string>> {
+  const final = new Set(carriers.filter((c) => c.startsWith('settlement:')));
+  const runIds = carriers.filter((c) => !c.startsWith('settlement:'));
+  if (runIds.length) {
+    const runs = await payrollPrisma.payrollRun.findMany({ where: { orgId, id: { in: runIds } }, select: { id: true, status: true } });
+    for (const r of runs) if (FINAL_RUN.includes(r.status)) final.add(r.id);
+  }
+  return final;
+}
+
 payrollAdjustmentsRouter.get(
   '/orgs/:orgId/payroll/adjustments',
   requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE),
@@ -102,6 +119,7 @@ payrollAdjustmentsRouter.get(
     const byComponent = new Map(components.map((c) => [c.id, c]));
     const byPeriod = new Map(periods.map((p) => [p.id, p]));
     const byRun = new Map(runs.map((r) => [r.id, r.number]));
+    const final = await carriersFinal(orgId, [...new Set(rows.map((r) => r.carriedByRunId).filter(Boolean) as string[])]);
 
     res.json({
       adjustments: rows.map((r) =>
@@ -112,6 +130,8 @@ payrollAdjustmentsRouter.get(
           componentCode: byComponent.get(r.componentId)?.code || '',
           periodName: byPeriod.get(r.periodId)?.name || '',
           consumedByRunNumber: r.consumedByRunId ? byRun.get(r.consumedByRunId) || '' : '',
+          /* Carried forward by a payroll: cancelled only with a reason, corrected only once that payroll is final. */
+          carried: r.carriedByRunId ? { final: final.has(r.carriedByRunId) } : null,
         })
       ),
     });
@@ -151,7 +171,7 @@ const body = z.object({
 type CheckFailure = { ok: false; error: string; status: number; code?: string };
 type CheckPass = { ok: true; type: 'EARNING' | 'DEDUCTION' };
 
-async function check(orgId: string, payload: z.infer<typeof body>): Promise<CheckFailure | CheckPass> {
+async function check(orgId: string, payload: z.infer<typeof body>, o: { carried?: boolean } = {}): Promise<CheckFailure | CheckPass> {
   const [employee, component, period] = await Promise.all([
     peoplePrisma.employee.findFirst({ where: { orgId, id: payload.employeeId }, select: { id: true } }),
     payrollPrisma.salaryComponent.findFirst({ where: { orgId, id: payload.componentId }, select: { id: true, type: true, isActive: true, name: true } }),
@@ -169,7 +189,8 @@ async function check(orgId: string, payload: z.infer<typeof body>): Promise<Chec
     };
   }
   if (!period) return { ok: false, error: 'No such payroll period.', status: 404 };
-  if (period.isLocked) {
+  /* A carried row is taken by whichever run comes next, whatever its own month: its month being closed does not stop a correction. */
+  if (period.isLocked && !o.carried) {
     return { ok: false, error: `${period.name} is closed. Adjust an open period instead.`, status: 409, code: 'PERIOD_LOCKED' };
   }
 
@@ -243,15 +264,28 @@ payrollAdjustmentsRouter.put(
       });
     }
 
-    /* The rest of a deduction a payroll or a full and final carried: changed by recalculating what carried it, never by hand. */
-    if (existing.carriedByRunId) {
-      return res.status(409).json({ error: 'This is the rest of a deduction carried forward. Recalculate the payroll that carried it, or cancel it with a reason.', code: 'CARRIED' });
-    }
-
     const parsed = body.safeParse(req.body || {});
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid adjustment.' });
 
-    const checked = await check(orgId, parsed.data);
+    /*
+     * The rest of a deduction a payroll or a full and final carried. While
+     * that payroll is open, it is changed by recalculating it. Once it is
+     * final, only the amount is corrected, with a reason kept on the row and
+     * in the audit log, and the row goes back for approval.
+     */
+    let correction: string | null = null;
+    if (existing.carriedByRunId) {
+      if (!(await carriersFinal(orgId, [existing.carriedByRunId])).has(existing.carriedByRunId)) {
+        return res.status(409).json({ error: 'This is the rest of a deduction carried forward by a payroll that is still open. Calculate that payroll again, or cancel this with a reason.', code: 'CARRIED' });
+      }
+      correction = String(req.body?.correctionReason || '').trim().slice(0, 160);
+      if (correction.length < 5) return res.status(400).json({ error: 'This is money still owed, carried forward. Say why the amount is corrected.', code: 'REASON_NEEDED' });
+      if (parsed.data.employeeId !== existing.employeeId || parsed.data.componentId !== existing.componentId || parsed.data.periodId !== existing.periodId) {
+        return res.status(400).json({ error: 'Only the amount of a carried deduction can be corrected.', code: 'CARRIED_FIXED' });
+      }
+    }
+
+    const checked = await check(orgId, parsed.data, { carried: Boolean(correction) });
     if (!checked.ok) return res.status(checked.status).json({ error: checked.error, code: checked.code });
 
     if (existing.id.startsWith('leave-encash:') && (parsed.data.employeeId !== existing.employeeId || checked.type !== 'EARNING')) return res.status(400).json({ error: 'An encashment earning must stay with its employee and remain an earning.' });
@@ -263,7 +297,9 @@ payrollAdjustmentsRouter.put(
         periodId: parsed.data.periodId,
         type: checked.type,
         amount: parsed.data.amount,
-        reason: parsed.data.reason?.trim() || null,
+        reason: correction
+          ? `${existing.reason || 'Carried forward'}. Corrected from ₹${Number(existing.amount).toLocaleString('en-IN')} to ₹${parsed.data.amount.toLocaleString('en-IN')}: ${correction}`.slice(0, 240)
+          : parsed.data.reason?.trim() || null,
         reference: existing.id.startsWith('leave-encash:') ? existing.reference : parsed.data.reference?.trim() || null,
         /* Editing an approved adjustment sends it back for approval. The
            approval was of an amount, not of a row. */
@@ -273,6 +309,9 @@ payrollAdjustmentsRouter.put(
       },
     });
 
+    if (correction) {
+      await recordAudit(req, { entity: 'PAYROLL_ADJUSTMENT', entityId: existing.id, action: 'CORRECT_CARRIED', message: `Corrected a carried deduction from ₹${Number(existing.amount).toLocaleString('en-IN')} to ₹${parsed.data.amount.toLocaleString('en-IN')}: ${correction}`, metadata: { employeeId: existing.employeeId, from: Number(existing.amount), to: parsed.data.amount, reason: correction } });
+    }
     res.json({ adjustment: shape(row) });
   }
 );

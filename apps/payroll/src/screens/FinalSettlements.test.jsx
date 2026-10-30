@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 
 import FinalSettlements from './FinalSettlements';
-import { closeSettlementSources, listSettlements, markSettlementPaid, releaseSettlementHold } from '../api/payrollSettlements';
+import { approveSettlement, closeSettlementSources, listSettlements, markSettlementPaid, releaseSettlementHold } from '../api/payrollSettlements';
+import { confirmDialog } from '@ui/components/ui/notify';
 
 vi.mock('../api/payrollSettlements', () => ({
   approveSettlement: vi.fn(), cancelSettlement: vi.fn(), closeSettlementSources: vi.fn(), listSettlements: vi.fn(), markSettlementPaid: vi.fn(),
@@ -72,6 +73,12 @@ it('a settlement with no hold pays as before', async () => {
   render(<FinalSettlements />);
   await open(user);
   expect(screen.queryByText(/Nothing is forfeited/)).toBeNull();
+  /* Asked first (QA of #82, F7): she owes ₹3,000, so it is money received. */
+  vi.mocked(confirmDialog).mockResolvedValueOnce(false);
+  await user.click(screen.getByRole('button', { name: 'Mark paid' }));
+  expect(vi.mocked(confirmDialog).mock.calls.at(-1)[0].title).toMatch(/^Mark ₹3,000(\.00)? received from Ravi Kumar\?$/);
+  expect(markSettlementPaid).not.toHaveBeenCalled();
+  vi.mocked(confirmDialog).mockResolvedValueOnce(true);
   await user.click(screen.getByRole('button', { name: 'Mark paid' }));
   await waitFor(() => expect(markSettlementPaid).toHaveBeenCalledWith('s1', null));
 });
@@ -141,4 +148,28 @@ it('F6: held since the India day, not the UTC one', async () => {
   await open(user);
   const drawer = screen.getByRole('complementary', { name: 'drawer' });
   expect(within(drawer).getByRole('heading', { name: /Held since/ }).textContent).toMatch(/31/);
+});
+
+/* QA of #82 (owner and HR). */
+it('F7: approving a settlement the person owes says so in words', async () => {
+  load([{ ...base, status: 'DRAFT', hold: null, netPayable: -11200, employeeName: 'Meena Iyer' }]);
+  vi.mocked(confirmDialog).mockResolvedValueOnce(false);
+  const user = userEvent.setup();
+  render(<FinalSettlements />);
+  await user.click(await screen.findByText('Meena Iyer'));
+  await user.click(within(screen.getByRole('complementary', { name: 'drawer' })).getByRole('button', { name: 'Approve' }));
+  const title = vi.mocked(confirmDialog).mock.calls.at(-1)[0].title;
+  expect(title).toMatch(/^Meena Iyer owes ₹11,200(\.00)?\. Approve this settlement\?$/);
+  expect(title).not.toMatch(/−|-₹/);
+  expect(approveSettlement).not.toHaveBeenCalled();
+});
+
+it('F8: a held settlement says who may lift it, and that the authenticator is asked', async () => {
+  loadAs({ liftHold: true, liftHoldWhy: null, selfEmployeeId: null, stepUp: true }, [held]);
+  const user = userEvent.setup();
+  render(<FinalSettlements />);
+  await open(user);
+  const drawer = screen.getByRole('complementary', { name: 'drawer' });
+  expect(within(drawer).getByText(/HR with People edit and Payroll approval, or the owner, lifts it/)).toBeInTheDocument();
+  expect(within(drawer).getByText(/authenticator code/)).toBeInTheDocument();
 });

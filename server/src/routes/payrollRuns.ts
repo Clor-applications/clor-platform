@@ -17,7 +17,7 @@ import { leaveLossOfPay } from '../services/attendance/payableDays.js';
 import { provisionalWarning, snapshotChange, snapshotRows, takenMonths } from '../services/payroll/attendanceSnapshots.js';
 import { runLopCheck } from '../services/payroll/readinessTower.js';
 import { catchUpLatePenalties, correctProvisionalDays, cutoffDateFor, lateMarkMonthsOwed, ordinal, provisionalMessage, provisionalPeriodRows, provisionalSetting } from '../services/payroll/provisionalDays.js';
-import { CarryTakenError, RunBusyError, RunNotEditableError, RunSourcesMovedError, carriesTakenElsewhere, leaseFree, rederiveLoans, undoCarries } from '../services/payroll/run.js';
+import { CarryTakenError, RunBusyError, RunNotEditableError, RunSourcesMovedError, carriesTakenElsewhere, leaseFree, rederiveLoans, runStale, undoCarries } from '../services/payroll/run.js';
 import { capMessage } from '../services/payroll/deductionCap.js';
 import { Prisma } from '../generated/payroll/index.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
@@ -161,7 +161,7 @@ payrollRunsRouter.get(
     const inputByEmployee = new Map(inputs.map((i) => [i.employeeId, i]));
 
     res.json({
-      run: shape(run, { period }),
+      run: { ...shape(run, { period }), stale: await runStale(orgId, run) },
       employees: members.map((m) => ({
         employeeId: m.employeeId,
         inclusion: m.inclusion,
@@ -778,6 +778,12 @@ const transition = (
             overLimit: over,
           });
         }
+      }
+
+      /* Figures older than what they were worked out from (QA of #82, F4): calculated again first. */
+      if (to === 'REVIEW' || to === 'APPROVED') {
+        const stale = await runStale(run.orgId, run);
+        if (stale) return res.status(409).json({ error: stale, code: 'RUN_STALE' });
       }
 
       /* O-04: a closed Attendance month the days were taken from has been reopened, or closed again, since the pull. */

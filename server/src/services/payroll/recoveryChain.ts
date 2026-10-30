@@ -72,6 +72,12 @@ export function foldRecovery(row: { recoveredAmount: unknown; recoveringAmount: 
   /* Not approved yet: unchanged. */
   if (chain.root.status === 'DRAFT') return { recovered, recovering };
   const total = round2(chain.taken + chain.open + chain.cancelled);
-  const counted = round2(total - recovering);
+  /*
+   * What of the chain People already counted. Never below nothing: when
+   * Payroll edits a recovery down (₹5,000 sent, ₹3,000 kept), the chain holds
+   * less than was sent, and the ₹2,000 cut is not recovered. It goes back to
+   * open, owed by the person, and a full and final lists it (QA of #82, F1).
+   */
+  const counted = Math.max(0, round2(total - recovering));
   return { recovered: Math.max(0, round2(recovered + chain.taken - counted)), recovering: chain.open };
 }

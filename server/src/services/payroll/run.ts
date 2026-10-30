@@ -924,6 +924,42 @@ export async function undoCarries(tx: Prisma.TransactionClient, orgId: string, r
   return { installments: inst.length, adjustments: adj.length, loanIds: [...new Set(inst.map((i) => i.loanId))] };
 }
 
+/**
+ * What changed since a run was calculated, in words, or null (QA of #82, F4):
+ * an adjustment for somebody in it, the days or inputs, a salary, a payroll
+ * profile, who is in it, or the payroll settings. The calculation stamps
+ * calculatedAt after its own writes, so anything newer was changed by somebody.
+ * Sending for review or approving waits until it is calculated again.
+ */
+export async function runStale(orgId: string, run: { id: string; periodId: string; status: string; calculatedAt: Date | null }): Promise<string | null> {
+  if (!run.calculatedAt || !['CALCULATED', 'REVIEW'].includes(run.status)) return null;
+  const at = run.calculatedAt;
+  const [members, slips] = await Promise.all([
+    payrollPrisma.payrollRunEmployee.findMany({ where: { orgId, runId: run.id, inclusion: 'INCLUDED' }, select: { employeeId: true } }),
+    payrollPrisma.salarySlip.findMany({ where: { orgId, runId: run.id }, select: { employeeId: true } }),
+  ]);
+  const ids = members.map((m) => m.employeeId);
+  /* Somebody put in or taken out since: the payslips are not for the people in it. */
+  const slipFor = new Set(slips.map((x) => x.employeeId));
+  const peopleChanged = ids.length !== slipFor.size || ids.some((id) => !slipFor.has(id));
+  const [adjustments, inputs, assignments, profiles, settings] = await Promise.all([
+    payrollPrisma.payrollAdjustment.count({ where: { orgId, employeeId: { in: ids }, updatedAt: { gt: at }, OR: [{ periodId: run.periodId }, { carriedByRunId: { not: null } }] } }),
+    payrollPrisma.payrollInput.count({ where: { orgId, runId: run.id, updatedAt: { gt: at } } }),
+    payrollPrisma.salaryAssignment.count({ where: { orgId, employeeId: { in: ids }, updatedAt: { gt: at } } }),
+    payrollPrisma.employeePayrollProfile.count({ where: { orgId, employeeId: { in: ids }, updatedAt: { gt: at } } }),
+    payrollPrisma.payrollSetting.count({ where: { orgId, updatedAt: { gt: at } } }),
+  ]);
+  const what = [
+    adjustments ? 'adjustments' : '',
+    inputs ? 'days or inputs' : '',
+    peopleChanged ? 'who is in it' : '',
+    assignments ? 'salaries' : '',
+    profiles ? 'payroll details' : '',
+    settings ? 'payroll settings' : '',
+  ].filter(Boolean);
+  return what.length ? `Changed since it was calculated: ${what.join(', ')}. Calculate again before sending it on.` : null;
+}
+
 /** Each loan's outstanding is its schedule's, re-derived rather than decremented. */
 export async function rederiveLoans(tx: Prisma.TransactionClient, orgId: string, loanIds: string[]) {
   for (const loanId of [...new Set(loanIds)]) {
@@ -1532,28 +1568,6 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
       }
     }
 
-    await tx.payrollRun.update({
-      where: { id: runId },
-      data: {
-        status: 'CALCULATED',
-        calculatedAt: new Date(),
-        engineVersion: ENGINE_VERSION,
-        employeeCount: results.length,
-        grossTotal: round2(totals.gross),
-        deductionTotal: round2(totals.deductions),
-        employerContributionTotal: round2(totals.employer),
-        netTotal: round2(totals.net),
-        employerCostTotal: round2(totals.cost),
-        errorCount: 0,
-        warningCount: issues.filter((i) => i.severity === 'WARNING').length,
-        /* A recalculation starts the over-limit decision again: the figures it was about have been replaced. */
-        deductionCap: capped.length || overLimit.length
-          ? { percent: ctx.capRule.percent, people: capped.length, carried: cappedTotal, overLimit, overLimitReason: null }
-          : Prisma.DbNull,
-      },
-    });
-
-    await tx.payrollRunEmployee.updateMany({ where: { orgId, runId }, data: { state: 'CALCULATED' } });
 
     /*
      * A one-off is spent once.
@@ -1603,6 +1617,30 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
        decremented: a counter that drifts from its instalments is a counter
        nobody can trust. */
     await rederiveLoans(tx, orgId, loanIdsTouched);
+
+    await tx.payrollRunEmployee.updateMany({ where: { orgId, runId }, data: { state: 'CALCULATED' } });
+    /* Stamped last, so everything this calculation wrote is older than calculatedAt: anything newer changed since (runStale). */
+    await tx.payrollRun.update({
+      where: { id: runId },
+      data: {
+        status: 'CALCULATED',
+        calculatedAt: new Date(),
+        engineVersion: ENGINE_VERSION,
+        employeeCount: results.length,
+        grossTotal: round2(totals.gross),
+        deductionTotal: round2(totals.deductions),
+        employerContributionTotal: round2(totals.employer),
+        netTotal: round2(totals.net),
+        employerCostTotal: round2(totals.cost),
+        errorCount: 0,
+        warningCount: issues.filter((i) => i.severity === 'WARNING').length,
+        /* A recalculation starts the over-limit decision again: the figures it was about have been replaced. */
+        deductionCap: capped.length || overLimit.length
+          ? { percent: ctx.capRule.percent, people: capped.length, carried: cappedTotal, overLimit, overLimitReason: null }
+          : Prisma.DbNull,
+      },
+    });
+
     /* A pool of one is shared with every other request: wait for it rather than fail, and give a large payroll time to write. */
   }, { maxWait: 30_000, timeout: 120_000 });
 
