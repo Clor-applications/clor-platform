@@ -9,13 +9,14 @@ import Toaster from '@ui/components/ui/Toaster';
 import { getMyPermissions } from '@ui/api/permissions';
 import { PermissionProvider } from '@ui/permissions/PermissionContext';
 import { WriteGuard } from '@ui/permissions/WriteGuard';
+import { paramsForOpen } from './openParams';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { IconSetContext, LineSetContext } from '@ui/components/ui/iconSet';
 
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { ADMIN_APP_ID, appFromHost, hostForApp, isFrontDoor } from './appHosts';
 import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
-import { mergeParams, moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
+import { landingScreen, mergeParams, moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
 import { OPEN_APP_EVENT, OPEN_HELP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
 import { clearUnsaved, confirmLeave, hasUnsaved } from '@platform/unsaved';
@@ -117,6 +118,20 @@ export const companyGroups = (allTenants = [], accounts = []) => {
     })
     .concat(tail);
 };
+
+/**
+ * Whether a nav item's `permission` is held: one key, or a list of which any one
+ * will do (what the screen's route accepts). `extra` holds the app's own access
+ * keys (`access()` in its manifest). Unknown grants hide nothing.
+ */
+export const holdsPermission = (permission, granted, extra) => !permission || !granted || [].concat(permission).some((k) => granted.has(k) || Boolean(extra?.has(k)));
+
+/**
+ * The permission the screen-wide WriteGuard reads for a nav item: none when
+ * the item lists several (any one opens it) or says `writeGuard: false` (the
+ * Talent screens, where the server decides per person).
+ */
+export const writeGuardPermission = (item) => (item?.writeGuard === false || typeof item?.permission !== 'string' ? undefined : item.permission);
 
 /** "SETTINGS::Users::VIEW" as a person reads it: "view Users (Settings)". */
 export const permissionWords = (key = '') => {
@@ -228,6 +243,26 @@ export default function Shell() {
   const activeAppId = mine.some((a) => a.id === chosenAppId)
     ? chosenAppId
     : landingApp(subscriptions || [])?.id || null;
+  /*
+   * Access no role gives: an app may name keys its own server grants this
+   * person (`access()`, e.g. People's live auditor grant or a seat on a case
+   * committee), which its nav items list like permissions. Null until read.
+   */
+  const accessKey = tenantKey && activeAppId ? `${tenantKey}|${activeAppId}` : '';
+  const [appAccess, setAppAccess] = useState({ key: '', set: null });
+  const extraAccess = appAccess.key === accessKey ? appAccess.set : null;
+  useEffect(() => {
+    const load = accessKey ? appById(activeAppId)?.access : null;
+    if (!load) return undefined;
+    let off = false;
+    Promise.resolve()
+      .then(load)
+      .then((keys) => !off && setAppAccess({ key: accessKey, set: new Set(Array.isArray(keys) ? keys : []) }))
+      .catch(() => !off && setAppAccess({ key: accessKey, set: new Set() }));
+    return () => {
+      off = true;
+    };
+  }, [accessKey, activeAppId]);
   /* Arriving on an app's own host with ?open=<screen> (a notification followed across apps): land there. */
   const [screenKey, setScreenKey] = useState(() => {
     try {
@@ -353,6 +388,8 @@ export default function Shell() {
     setChosenAppId(id);
     /* A shell app's screen named outright (a notification's link); Accounting reads the address itself. */
     setScreenKey(open && next?.screens?.[open] ? open : next?.home || null);
+    /* The link's params open that screen on its one thing (a notice about one candidate); otherwise none, never the last screen's. */
+    setScreenParams(paramsForOpen(next, open, params));
     setPlatformScreen(null);
     setSwitcherOpen(false);
     setShowMoreApps(false);
@@ -377,11 +414,12 @@ export default function Shell() {
     const from = screenKeyRef.current;
     setCameFrom((m) => ({ ...m, [next]: from ? { key: from, params: liveParamsRef.current || null } : null }));
   };
-  const goTo = (key) => { confirmLeave(askLeave).then((ok) => ok && goToNow(key)); };
-  const goToNow = (key) => {
+  const goTo = (key, params) => { confirmLeave(askLeave).then((ok) => ok && goToNow(key, params)); };
+  /* `params` open the screen on one thing (a notice about one candidate); a rail click passes none. */
+  const goToNow = (key, params = null) => {
     noteOrigin(key);
     setScreenKey(key);
-    setScreenParams(null);
+    setScreenParams(params && typeof params === 'object' ? params : null);
     setPlatformScreen(null);
     setShowMoreApps(false);
     setNavOpen(false);
@@ -716,12 +754,15 @@ export default function Shell() {
   const app = appById(activeAppId);
   /* Items whose `permission` this person lacks go, and those of a module the company switched off (`feature`), then a settings page left with nothing on it, then any section heading left with nothing under it. */
   const switchedOn = (item) => !item.feature || !tenant?.features || tenant.features[item.feature] !== false;
-  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || ((!item.permission || !granted || granted.has(item.permission)) && switchedOn(item))));
+  const holds = (p) => holdsPermission(p, granted, extraAccess);
+  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || (holds(item.permission) && switchedOn(item))));
   const nav = allowed.filter((item, i) => !item.section || (allowed[i + 1] && !allowed[i + 1].section));
   /* A screen the open app does not have is not a screen: the same company
      switch that changes the app leaves last app's screen key behind, and
      honouring it shows "Nothing selected" instead of the new app's home. */
-  const screen = (screenKey && app?.screens?.[screenKey] ? screenKey : app?.home) || null;
+  /* Home, or the first screen this person may open when Home is not theirs (an employee, an outside auditor). */
+  const landing = landingScreen(app, nav);
+  const screen = (screenKey && app?.screens?.[screenKey] && screenKey !== app?.home ? screenKey : landing) || null;
   const Screen = app?.screens?.[screen] || null;
   /*
    * W-2.2: say why a screen is not shown instead of a blank or a wall of
@@ -730,7 +771,8 @@ export default function Shell() {
    * address the page opened with names a screen this app does not have.
    */
   const screenItem = (app?.nav || []).find((n) => n.key === screen);
-  const screenDenied = Boolean(screenItem?.permission && granted && !granted.has(screenItem.permission));
+  /* An app whose own access is still being read is not refused yet. */
+  const screenDenied = Boolean(screenItem?.permission && !holds(screenItem.permission) && (extraAccess || !app?.access));
   /* An app may draw its own navigation instead of handing the shell a list. */
   const Root = app?.Root || null;
   const screenMissing = Boolean(!Root && app && openedWith && screenKey === openedWith && !app.screens?.[openedWith]);
@@ -935,7 +977,7 @@ export default function Shell() {
         ) : null}
         <header
           /* Tighter on a phone: the bar carries menu, logo, switcher, alerts, help, profile and sign-out in 360 px. */
-          className={`ui-topbar sticky top-0 flex h-14 items-center ${phone ? 'gap-1.5 px-2.5' : 'gap-3 px-4'}`}
+          className={`ui-topbar sticky top-0 flex h-14 items-center ${phone ? 'gap-1 px-1.5' : 'gap-3 px-4'}`}
           style={{
             backgroundColor: 'rgb(var(--surface))',
             borderBottom: '1px solid rgb(var(--border))',
@@ -965,6 +1007,8 @@ export default function Shell() {
               <button
                 type="button"
                 className="ui-app-switch"
+                /* On a phone the bar's own gap spaces it; the desktop's 1.5rem lead pushed sign-out past a 390 px screen. */
+                style={phone ? { marginLeft: 0, gap: '0.25rem', paddingRight: '0.25rem' } : undefined}
                 onClick={() => setSwitcherOpen((v) => !v)}
                 aria-expanded={switcherOpen}
                 aria-haspopup="menu"
@@ -1047,7 +1091,8 @@ export default function Shell() {
             )
           ) : null}
 
-          <div className="flex-1" />
+          {/* A phone's search button already takes the free space (ml-auto); a second spacer only adds a gap. */}
+          {!phone ? <div className="flex-1" /> : null}
 
           {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
           {/* The company in use. The Workspace shows it too: half its pages change only this company. */}
@@ -1093,10 +1138,10 @@ export default function Shell() {
             onOpen={(link) => {
               if (!link?.app) return;
               if (link.app === activeAppId && !Root) {
-                if (link.screen && app?.screens?.[link.screen]) goTo(link.screen);
+                if (link.screen && app?.screens?.[link.screen]) goTo(link.screen, link.params);
                 return;
               }
-              openApp(link.app, link.screen || '');
+              openApp(link.app, link.screen || '', link.params || {});
             }}
           />
           {/* A phone's bar has no room for it (it pushed the bar past the screen); help is in the phone's Menu. */}
@@ -1274,13 +1319,13 @@ export default function Shell() {
               <ScreenState
                 title="This page isn’t here"
                 text={`${app?.name || 'This app'} has no page at this address. It may have moved, or the link may be mistyped.`}
-                action={app?.home ? { label: `Go to ${app.name}`, run: () => goTo(app.home) } : null}
+                action={landing ? { label: `Go to ${app.name}`, run: () => goTo(landing) } : null}
               />
             ) : screenDenied ? (
               <ScreenState
                 title={`You can’t open ${screenItem?.label || 'this page'}`}
-                text={`It needs the “${permissionWords(screenItem.permission)}” permission in ${tenant.name}, and none of your roles here gives it. An administrator of the company can give you a role that does.`}
-                action={app?.home && app.home !== screen ? { label: `Go to ${app.name}`, run: () => goTo(app.home) } : null}
+                text={`It needs the “${permissionWords([].concat(screenItem.permission)[0])}” permission in ${tenant.name}, and none of your roles here gives it. An administrator of the company can give you a role that does.`}
+                action={landing && landing !== screen ? { label: `Go to ${app.name}`, run: () => goTo(landing) } : null}
               />
             ) : Screen ? (
               <ScreenBoundary appName={app?.name} resetKey={`${app?.id}:${screen}:${tenant.id}`}>
@@ -1289,7 +1334,8 @@ export default function Shell() {
                 {/* `openScreen(key)` lets a screen link to another of its app's screens (a "3 waiting" note opening the list). */}
                 {/* One permission set for every app's screens; a screen whose resource this person may not change is shown read-only (WriteGuard). */}
                 <PermissionProvider key={tenantKey} enabled>
-                  <WriteGuard permission={(app?.nav || []).find((n) => n.key === screen)?.permission}>
+                  {/* A list of permissions (any one opens the screen) or `writeGuard: false` (PR #67): the screen's server decides per person. */}
+                  <WriteGuard permission={writeGuardPermission(screenItem)}>
                     {(() => {
                       /* A page under a hub (People → Settings → Departments) shows the way back to it. */
                       const parentKey = (app?.nav || []).find((n) => n.key === screen)?.parent;

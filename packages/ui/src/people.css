@@ -880,6 +880,8 @@
   border-radius: 999px;
   background: rgb(var(--soft-tray));
   box-shadow: 0 0 0 1px rgb(var(--soft-ring));
+  /* A phone-width row of tabs scrolls inside its tray instead of widening the page (seen at 390px, 30 Oct 2026). */
+  max-width: 100%;
 }
 :root[data-palette='sky'] #main-content .ui-record-tablist::after { display: none; }
 :root[data-palette='sky'] #main-content .ui-record-tablist .ui-tab { padding: 0 1rem; border-radius: 999px; font-weight: 500; color: rgb(var(--fg-muted)); }

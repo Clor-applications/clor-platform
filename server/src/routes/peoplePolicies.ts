@@ -10,6 +10,7 @@ import { correlationOf } from '../services/people/employees.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
 import { CATEGORY_LABEL, NOTICE_LANGUAGES, POLICY_CATEGORIES, PRIVACY_PURPOSES, PolicyError, noticeLanguages, saveNoticeLanguages, addVersion, conflicts, createPolicy, listPolicies, peopleInScope, cleanAppliesTo, policiesFor, policyDetail, retireVersion, submitVersion, updatePolicy, updateVersion } from '../services/people/policies.js';
 import { AckError, remind, report } from '../services/people/acknowledgements.js';
+import { inScope, teamScope } from '../services/people/scope.js';
 
 /**
  * Policies (docs/people/02-PRD.md POL-01..06): the library, versions, who
@@ -156,6 +157,8 @@ peoplePoliciesRouter.post(`${base}/policies/:id/versions/:v/remind`, can(Permiss
 /** What applies to one person on a day: HR's view of what the person sees. */
 peoplePoliciesRouter.get(`${base}/employees/:id/policies`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
+  /* Someone outside a team-limited role's team reads as absent, as on the record itself. */
+  if (!inScope(await teamScope(req), String(req.params.id))) return res.status(404).json({ error: 'No such employee.' });
   const asOf = typeof req.query.asOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.asOf) ? req.query.asOf : undefined;
   res.json({ policies: await policiesFor(req.tenant!.orgId, String(req.params.id), asOf) });
 });

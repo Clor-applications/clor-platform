@@ -207,7 +207,7 @@ Every rule is opt-in on a leave type; the migration only adds defaulted columns,
 
 ## Leave policy rules (27 Oct 2026, owner review of people.clor.in; ported onto main 30 Oct 2026)
 
-The owner found the leave module short of Keka, Zoho and greytHR. PR #47 built nine rules on an older engine. By the time it was ported, `main` already had three of them in its own design. Those three stay as main built them. The other six are built on main's engine: People and Attendance, the web screens and the employee app. Each is a field on the leave type, and its default keeps a type as it was. Migration `20261103100000_leave_policy_rules` only adds columns.
+The owner found the leave module short of Keka, Zoho and greytHR. PR #47 built nine rules on an older engine. By the time it was ported, `main` already had three of them in its own design. Those three stay as main built them. The other six are built on main's engine: People and Attendance, the web screens and the employee app. Each is a field on the leave type, and its default keeps a type as it was. Migration `20261108100000_leave_policy_rules` only adds columns.
 
 Kept from main, and #47's versions dropped:
 

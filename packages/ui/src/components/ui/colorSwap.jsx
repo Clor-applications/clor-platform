@@ -65,7 +65,8 @@ import { colorIcon, useIconSet } from './iconSet';
 const TWIN = Object.fromEntries(Object.entries({
   /* BarChart3 is an alias in Lucide 1: its displayName is ChartColumn, so that is the key that matches. */
   ChartColumn: DataBarVerticalAscendingColor,
-  Building2: BuildingColor,
+  /* Building2 likewise: since lucide-react 1.61 its displayName is BuildingComplex. */
+  BuildingComplex: BuildingColor,
   CalendarClock: CalendarClockColor,
   CalendarDays: CalendarColor,
   CalendarRange: CalendarDataBarColor,
@@ -105,7 +106,7 @@ const duo = (Icon, name) => {
 };
 const DUO = {
   ChartColumn: duo(PChartBar, 'ChartColumn'),
-  Building2: duo(PBuildings, 'Building2'),
+  BuildingComplex: duo(PBuildings, 'BuildingComplex'),
   CalendarClock: duo(PCalendarDots, 'CalendarClock'),
   CalendarDays: duo(PCalendarBlank, 'CalendarDays'),
   CalendarRange: duo(PCalendarDots, 'CalendarRange'),

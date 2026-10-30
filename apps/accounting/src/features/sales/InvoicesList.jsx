@@ -594,8 +594,8 @@ export const InvoicesList = ({
     openModal(
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
-          <div><div className="ui-label">Invoice</div><div className="mt-1 font-semibold">{invoice.number}</div></div>
-          <div><div className="ui-label">Customer</div><div className="mt-1 font-semibold">{invoice.customerName || '—'}</div></div>
+          <div><div className="ui-label">Invoice</div><div className="mt-1 font-medium">{invoice.number}</div></div>
+          <div><div className="ui-label">Customer</div><div className="mt-1 font-medium">{invoice.customerName || '—'}</div></div>
           <div><div className="ui-label">Outstanding</div><div className="ui-money mt-1">{formatMoney(balanceOf(invoice), currentCompany)}</div></div>
         </div>
         <div className="flex flex-wrap gap-2 border-t pt-4">

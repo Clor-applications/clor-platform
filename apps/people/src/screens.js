@@ -6,12 +6,12 @@ import OpenInCompanyAdmin from '@ui/company/OpenInCompanyAdmin';
  * them; nothing else should import from here.
  */
 export { default as PeopleOverview } from './screens/PeopleOverview';
-export { Employees } from './screens/EmployeesList';
 /* Workforce (People design v1, Module 01). */
 export { default as Workforce } from './workforce/Directory';
 export { default as EmployeeRecord } from './workforce/EmployeeRecord';
 export { default as AddEmployee } from './workforce/AddEmployee';
 export { default as ImportEmployees } from './workforce/ImportEmployees';
+export { default as Offers } from './workforce/Offers';
 export { default as Approvals } from './screens/Approvals';
 export { default as Policies } from './screens/Policies';
 export { default as ApprovalRules } from './screens/ApprovalRules';
@@ -35,13 +35,19 @@ export { default as JourneySteps } from '@ui/lifecycle/Steps';
 export { default as LetterTemplates } from '@ui/personnel/LetterTemplates';
 export { default as CustomFieldsSettings } from '@ui/personnel/CustomFieldsSettings';
 export { default as SelfServiceSettings } from '@ui/personnel/SelfServiceSettings';
-export { default as ComplianceCalendar } from '@ui/personnel/ComplianceCalendar';
 export { default as Compliance } from './screens/Compliance';
 export { default as Privacy } from './screens/Privacy';
 export { default as AuditEvidence } from './screens/AuditEvidence';
-export { Departments, EmployeeTypes, JobRoles, WorkTypes } from '@ui/personnel/StructureList';
-export { JobPositions } from './screens/Designations';
 export { default as WorkspaceList } from './screens/WorkspaceList';
+/* Talent (docs/people/design-v1/TALENT-DECISIONS.md): its own records on /people/talent/*, not the register. */
+export { default as TalentOpenings } from './talent/Openings';
+export { default as TalentCandidates } from './talent/Candidates';
+export { default as TalentInterviews } from './talent/Interviews';
+export { default as TalentGoals } from './talent/Goals';
+export { default as TalentReviews } from './talent/Reviews';
+export { default as TalentPlans } from './talent/Plans';
+export { default as TalentOneOnOnes } from './talent/OneOnOnes';
+export { default as TalentTrainings } from './talent/Trainings';
 export { default as PeopleReports } from './screens/PeopleReports';
 export { default as Registers, LeaveSummaryReport } from './screens/Registers';
 export { default as PeopleDocuments } from './screens/PeopleDocuments';
@@ -58,7 +64,8 @@ export { default as LeaveCalendar } from '@ui/timeOff/LeaveCalendar';
 export { default as LeaveRegister } from '@ui/timeOff/LeaveRegister';
 export { default as TeamAttendance } from '@ui/timeOff/TeamAttendance';
 export { default as LeaveYearEnd } from '@ui/timeOff/YearEnd';
-export { default as StandIns } from '@ui/timeOff/StandIns';
+/* Delegates: leave delegates and People approval stand-ins on one screen (FEATURE-UI-AUDIT gap 9); Attendance keeps the leave-only list. */
+export { default as StandIns } from './screens/Delegates';
 export { default as LeaveBlocks } from '@ui/timeOff/LeaveBlocks';
 export { default as MyDays } from '@ui/timeOff/MyDays';
 /* Attendance requests of four kinds (missed punch, work from home, on duty, permission) and their rules. */
@@ -72,8 +79,6 @@ export const AuditLogs = () => React.createElement(OpenInCompanyAdmin, { title: 
 export { default as PeopleSettings } from './screens/PeopleSettings';
 export { default as PeopleModules } from './screens/PeopleModules';
 export { default as CompanyDetails } from '@ui/company/CompanyDetails';
-export { BusinessUnits, Grades, CostCentres, LegalEntities, Establishments, Teams, Seats } from '@ui/personnel/StructureList';
-export { Areas as Locations } from '../../attendance/src/screens/OrgLists';
 export { default as Integrations } from '../../attendance/src/screens/Integrations';
 export { default as DataExport } from '../../attendance/src/screens/DataExport';
 export { default as RecycleBin } from '../../attendance/src/screens/RecycleBin';

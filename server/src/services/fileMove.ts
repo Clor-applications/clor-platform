@@ -18,6 +18,7 @@ export async function moveFilesToStore(opts: { batch?: number; only?: string[] }
     { name: 'employeeDocument', where: { ...scope, storageKey: null }, field: 'data' },
     { name: 'punchPhoto', where: { ...scope, storageKey: null }, field: 'data' },
     { name: 'complianceTask', where: { ...scope, evidenceKey: null, evidenceData: { not: null } }, field: 'evidenceData' },
+    { name: 'obligationProof', where: { ...scope, storageKey: null }, field: 'data' },
   ] as const;
   for (const m of models) {
     const delegate = (peoplePrisma as any)[m.name];
@@ -56,6 +57,7 @@ export async function moveFilesToDatabase(opts: { only?: string[] } = {}) {
     { table: 'EmployeeDocument', bytes: 'data', key: 'storageKey' },
     { table: 'PunchPhoto', bytes: 'data', key: 'storageKey' },
     { table: 'ComplianceTask', bytes: 'evidenceData', key: 'evidenceKey' },
+    { table: 'ObligationProof', bytes: 'data', key: 'storageKey' },
   ];
   let restored = 0;
   for (const t of tables) {

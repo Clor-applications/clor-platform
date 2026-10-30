@@ -1242,6 +1242,7 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
                   <label className="ui-label" htmlFor="bill-tds-rate">%</label>
                   <input
                     id="bill-tds-rate"
+                    aria-label="TDS rate (%)"
                     type="number"
                     step="0.01"
                     min="0"

@@ -867,7 +867,7 @@ export const Gstr1Report = ({ db, currentCompany, search = '', onSearchChange, o
 
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="ui-t-sec">GSTR-1 Return View</h3><p className="ui-helper">Statutory sections calculated from posted vouchers for the selected period.</p></div><div className="relative"><Search size={15} className="ui-muted absolute start-3 top-1/2 -translate-y-1/2" /><input aria-label="Search GST report" className="ui-input w-64 ps-9" placeholder="Search section or voucher…" value={search} onChange={(event) => onSearchChange?.(event.target.value)} /></div></div>
-    <div className="ui-table-shell overflow-auto" data-fill-viewport style={{ '--table-scroll-h': 'calc(100dvh - 15rem)' }}><table className="ui-table w-max min-w-full table-auto"><thead><tr><th className="whitespace-nowrap">Particulars</th><th className="whitespace-nowrap text-right">Vch Count</th><th className="whitespace-nowrap text-right">Taxable Amount</th><th className="whitespace-nowrap text-right">IGST</th><th className="whitespace-nowrap text-right">CGST</th><th className="whitespace-nowrap text-right">SGST/UTGST</th><th className="whitespace-nowrap text-right">Cess</th><th className="whitespace-nowrap text-right">Invoice Amount</th></tr></thead><tbody>{displaySections.map((section) => <tr key={section.key} className="cursor-pointer" onClick={() => setSelectedSectionKey(section.key)}><td className="whitespace-nowrap"><span className="ui-link font-semibold">{section.code} — {section.label}</span></td><td className="ui-num">{section.values.count}</td>{['taxable','igst','cgst','sgst','cess','total'].map((key) => <td key={key} className="ui-money ui-num whitespace-nowrap">{formatMoney(section.values[key], currentCompany)}</td>)}</tr>)}</tbody></table></div>
+    <div className="ui-table-shell overflow-auto" data-fill-viewport style={{ '--table-scroll-h': 'calc(100dvh - 15rem)' }}><table className="ui-table w-max min-w-full table-auto"><thead><tr><th className="whitespace-nowrap">Particulars</th><th className="whitespace-nowrap text-right">Vch Count</th><th className="whitespace-nowrap text-right">Taxable Amount</th><th className="whitespace-nowrap text-right">IGST</th><th className="whitespace-nowrap text-right">CGST</th><th className="whitespace-nowrap text-right">SGST/UTGST</th><th className="whitespace-nowrap text-right">Cess</th><th className="whitespace-nowrap text-right">Invoice Amount</th></tr></thead><tbody>{displaySections.map((section) => <tr key={section.key} className="cursor-pointer" onClick={() => setSelectedSectionKey(section.key)}><td className="whitespace-nowrap"><span className="ui-link font-medium">{section.code} — {section.label}</span></td><td className="ui-num">{section.values.count}</td>{['taxable','igst','cgst','sgst','cess','total'].map((key) => <td key={key} className="ui-money ui-num whitespace-nowrap">{formatMoney(section.values[key], currentCompany)}</td>)}</tr>)}</tbody></table></div>
   </div>;
 };
 
@@ -1120,7 +1120,7 @@ export const GstComplianceWorkspace = ({ db, currentCompany, branches = [], init
       <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-[rgb(var(--heading-bg))] px-3 py-2 ui-border-c">
         <div className="flex min-w-0 items-center gap-2"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => { if (report === 'gstr1' && gstr1DetailOpen) setGstr1ReportKey((value) => value + 1); else onBack?.(); }}><ArrowLeft size={15} /> Back</button><h1 className="ui-t-page">GST</h1></div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <select id="gst-report-select" aria-label="Select report" className="ui-select ui-ctl-compact w-64 font-semibold" value={report} onChange={(e) => { setGstr1DetailOpen(false); setReport(e.target.value); }}>{GST_REPORT_OPTIONS.map(([key, label]) => <option key={key} value={key}>{`Select report · ${label}`}</option>)}</select>
+          <select id="gst-report-select" aria-label="Select report" className="ui-select ui-ctl-compact w-64 font-medium" value={report} onChange={(e) => { setGstr1DetailOpen(false); setReport(e.target.value); }}>{GST_REPORT_OPTIONS.map(([key, label]) => <option key={key} value={key}>{`Select report · ${label}`}</option>)}</select>
           <select id="gst-period" aria-label="Period" className="ui-select ui-ctl-compact w-40" value={period} onChange={(e) => setPeriod(e.target.value)}>
             <option value="all">Period · All periods</option>
             {['April','May','June','July','August','September','October','November','December','January','February','March'].map((name, index) => {
@@ -1328,11 +1328,11 @@ export const MsmeComplianceWorkspace = ({ db, setDb, currentCompany }) => {
 
       {selectedVendor ? (
         <section className="ui-card grid grid-cols-2 gap-3 px-3 py-2 lg:grid-cols-5" aria-label="Selected MSME vendor details">
-          <div><div className="ui-t-label">Vendor</div><div className="ui-t-body font-semibold">{selectedVendor.displayName || selectedVendor.name}</div></div>
+          <div><div className="ui-t-label">Vendor</div><div className="ui-t-body font-medium">{selectedVendor.displayName || selectedVendor.name}</div></div>
           <div><div className="ui-t-label">Udyam number</div><div className="ui-t-body ui-mono">{selectedVendor.msmeNumber || 'Missing'}</div></div>
           <div><div className="ui-t-label">PAN</div><div className="ui-t-body ui-mono">{selectedVendor.pan || '—'}</div></div>
           <div><div className="ui-t-label">GSTIN</div><div className="ui-t-body ui-mono">{selectedVendor.gstin || '—'}</div></div>
-          <div><div className="ui-t-label">Invoices</div><div className="ui-t-body font-semibold">{scopedRows.length}</div></div>
+          <div><div className="ui-t-label">Invoices</div><div className="ui-t-body font-medium">{scopedRows.length}</div></div>
         </section>
       ) : null}
 

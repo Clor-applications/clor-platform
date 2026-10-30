@@ -7,10 +7,11 @@ import userEvent from '@testing-library/user-event';
  * Guards from the 28 Oct 2026 audit: a register offers only what the
  * viewer's grant lets them do, and a form submitted twice by Enter saves once.
  */
-const ws = vi.hoisted(() => ({ listRecords: vi.fn(), saveRecord: vi.fn(), deleteRecord: vi.fn(), hireCandidate: vi.fn() }));
+const ws = vi.hoisted(() => ({ listRecords: vi.fn(), saveRecord: vi.fn(), deleteRecord: vi.fn() }));
 const pol = vi.hoisted(() => ({ listPolicies: vi.fn(), policyConflicts: vi.fn(), createPolicy: vi.fn() }));
 vi.mock('../apps/people/src/api/workspace', async (orig) => ({ ...(await orig()), ...ws }));
 vi.mock('../apps/people/src/api/policies', async (orig) => ({ ...(await orig()), ...pol }));
+vi.mock('@ui/personnel/api', async (orig) => ({ ...(await orig()), listAllEmployees: vi.fn(async () => ({ employees: [] })) }));
 vi.mock('@ui/components/ui/notify', () => ({ confirmDialog: vi.fn(async () => true), notify: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
 import WorkspaceList from '../apps/people/src/screens/WorkspaceList';
@@ -25,22 +26,23 @@ afterEach(() => {
 });
 
 describe('A register shows only what the grant allows', () => {
-  const rows = [{ id: 'c1', title: 'Meera K', status: 'OFFERED', details: { email: 'meera@example.com', jobId: 'j1' } }];
-  ws.listRecords.mockImplementation(async (kind) => (kind === 'recruitment' ? [{ id: 'j1', title: 'Accountant' }] : rows));
+  /* Hiring moved to its own screens (test/people-talent.test.jsx); the register still keeps assets. */
+  const rows = [{ id: 'a1', title: 'Laptop 12', status: 'ASSIGNED', employeeId: null, details: { assetTag: 'LT-12' } }];
+  ws.listRecords.mockImplementation(async () => rows);
 
-  it('a viewer gets no New, no Edit, Delete, Offer or Hire', async () => {
-    render(withPerms(['PEOPLE::Recruitment::VIEW'], <WorkspaceList kind="candidates" />));
-    expect(await screen.findAllByText('Meera K')).not.toHaveLength(0);
-    expect(screen.queryByRole('button', { name: /New candidate/ })).not.toBeInTheDocument();
+  it('a viewer gets no New, no Edit or Delete', async () => {
+    render(withPerms(['PEOPLE::Assets::VIEW'], <WorkspaceList kind="assets" />));
+    expect(await screen.findAllByText('Laptop 12')).not.toHaveLength(0);
+    expect(screen.queryByRole('button', { name: /New asset/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Actions for/ })).not.toBeInTheDocument();
   });
 
   it('with the grants, New and each row action are there', async () => {
     const user = userEvent.setup();
-    render(withPerms(['PEOPLE::Recruitment::VIEW', 'PEOPLE::Recruitment::CREATE', 'PEOPLE::Recruitment::EDIT', 'PEOPLE::Recruitment::DELETE', 'PEOPLE::Documents::CREATE', 'PEOPLE::Employees::CREATE'], <WorkspaceList kind="candidates" />));
-    expect(await screen.findByRole('button', { name: /New candidate/ })).toBeInTheDocument();
+    render(withPerms(['PEOPLE::Assets::VIEW', 'PEOPLE::Assets::CREATE', 'PEOPLE::Assets::EDIT', 'PEOPLE::Assets::DELETE'], <WorkspaceList kind="assets" />));
+    expect(await screen.findByRole('button', { name: /New asset/ })).toBeInTheDocument();
     await user.click(screen.getAllByRole('button', { name: /Actions for/ })[0]);
-    for (const name of ['Edit', 'Send a new offer', 'Hire', 'Delete']) expect(screen.getByRole('menuitem', { name })).toBeInTheDocument();
+    for (const name of ['Edit', 'Delete']) expect(screen.getByRole('menuitem', { name })).toBeInTheDocument();
   });
 });
 

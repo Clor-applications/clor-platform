@@ -335,6 +335,7 @@ export default async function setup() {
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261101090100_leave_type_code_unique');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261105100000_leave_blocks');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261105120000_talent_rls_fail_closed');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261107090100_compliance_depth_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018040100_scim_tokens_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018060100_notifications_rls');

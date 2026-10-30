@@ -6,10 +6,11 @@ import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { AnonymiseError } from '../services/anonymiseEmployee.js';
+import { onAnyCaseOrCommittee } from '../services/people/privateCases.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import {
   ACCESS_KINDS, PrivacyError, accessReport, auditorEvidence, createAuditorGrant, decideDeletion, deletionReview,
-  openAuditorDocument, retentionSchedule, revokeAuditorGrant, saveRetention,
+  hasLiveAuditorGrant, openAuditorDocument, retentionSchedule, revokeAuditorGrant, saveRetention,
 } from '../services/people/privacy.js';
 
 /**
@@ -92,6 +93,19 @@ peoplePrivacyRouter.post(`${base}/auditor-grants`, can(PermissionAction.EDIT), r
 
 peoplePrivacyRouter.post(`${base}/auditor-grants/:id/revoke`, can(PermissionAction.EDIT), run(async (req, res) => {
   res.json({ grant: await revokeAuditorGrant(req.tenant!.orgId, String(req.params.id)) });
+}));
+
+/**
+ * Access that comes from a grant or a membership rather than a role (People
+ * audit, 30 Oct 2026, gap 5): the menu shows Audit evidence to a live auditor
+ * grant and Confidential cases to a case or committee member, exactly as the
+ * routes below and in peoplePrivateCases.ts let them in. Yes or no only.
+ */
+peoplePrivacyRouter.get('/orgs/:orgId/people/my-access', run(async (req, res) => {
+  const { orgId } = req.tenant!;
+  const userId = req.auth!.userId;
+  const [auditEvidence, privateCases] = await Promise.all([hasLiveAuditorGrant(orgId, userId), onAnyCaseOrCommittee(orgId, userId)]);
+  res.set('Cache-Control', 'private, no-store').json({ auditEvidence, privateCases });
 }));
 
 /** The auditor's view: only what a live grant names, and every open is logged. */

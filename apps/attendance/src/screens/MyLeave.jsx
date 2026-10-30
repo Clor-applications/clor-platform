@@ -16,6 +16,7 @@ import LeaveDocumentField from '@ui/timeOff/LeaveDocumentField';
 import HalfDayChoice, { HalfDayNote, halfDayBody, leaveSpan } from '@ui/timeOff/HalfDayChoice';
 import { HoursChoice, PreviewNotes } from '@ui/timeOff/LeaveShape';
 import { hoursBody, hoursReady, hoursText, isHourly } from '@ui/timeOff/partOfDay';
+import { useCanActForSelf } from '@ui/timeOff/shared';
 
 /**
  * My leave (People → Time & Leave → My leave, and Attendance's own): one's
@@ -62,6 +63,8 @@ export default function MyLeave() {
   /* The waiting request being changed; the approved one I came back early from. */
   const [editing, setEditing] = useState(null);
   const [shortening, setShortening] = useState(null);
+  /* No asking, changing or cancelling for a sign-in the server would refuse (People audit gap 3). */
+  const canAct = useCanActForSelf();
   const [explaining, setExplaining] = useState(null);
   /* Restricted holidays go by the calendar year of today, not the leave period. */
   const [restricted, setRestricted] = useState(null);
@@ -120,7 +123,7 @@ export default function MyLeave() {
           <span className="min-w-[4ch] text-center tabular-nums">{shownYear}</span>
           <button type="button" className="ui-icon-btn" onClick={() => setYear(shownYear + 1)} aria-label="Next leave period"><ChevronRight size={16} aria-hidden="true" /></button>
         </div>
-        {me.types.length ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAsking(true)}><Plus size={16} aria-hidden="true" /> Ask for leave</button> : null}
+        {me.types.length && canAct ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAsking(true)}><Plus size={16} aria-hidden="true" /> Ask for leave</button> : null}
       </> : null}
     />
   );
@@ -182,11 +185,11 @@ export default function MyLeave() {
         rows={me.requests}
         total={me.requests.length}
         noun="requests"
-        rowActions={(r) => [
+        rowActions={canAct ? (r) => [
           r.status === 'PENDING' ? { key: 'change', label: 'Change', onSelect: () => setEditing(r) } : null,
           shortenable(r) ? { key: 'shorten', label: 'Came back early', onSelect: () => setShortening(r) } : null,
           cancellable(r) ? { key: 'cancel', label: 'Cancel', danger: true, onSelect: () => cancel(r) } : null,
-        ]}
+        ] : null}
         card={(r) => (
           <span className="min-w-0">
             <span className="flex items-center justify-between gap-2"><span className="truncate">{r.leaveTypeName} · {daysText(r.days)}</span><span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{STATUS_LABEL[r.status] || r.status}</span></span>
@@ -209,7 +212,7 @@ export default function MyLeave() {
                 <span className="tabular-nums w-28 shrink-0">{formatDate(h.date)}</span>
                 <span className="min-w-0 flex-1 truncate">{h.name}</span>
                 {h.picked ? <span className="ui-pill ui-pill-pos">Picked</span> : null}
-                {h.past ? <span className="ui-caption">Past</span> : (
+                {h.past ? <span className="ui-caption">Past</span> : !canAct ? null : (
                   <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!h.picked && restricted.left <= 0} onClick={() => pick(h)}>{h.picked ? 'Drop' : 'Pick'}</button>
                 )}
               </li>

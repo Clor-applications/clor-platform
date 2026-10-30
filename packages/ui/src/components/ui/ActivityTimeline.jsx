@@ -29,7 +29,8 @@ const GROUP = { create: 'changes', update: 'changes', archive: 'changes', import
 const dayOf = (iso) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 const timeOf = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 
-export default function ActivityTimeline({ events, onLoadMore = null, loadingMore = false, empty = 'Nothing has happened on this record yet.', filter: controlled, onFilterChange, filters = true }) {
+/* `eventAction(e)`: a control for one event, such as Delete on a comment its author may take back; the server says which (`canDelete`). */
+export default function ActivityTimeline({ events, onLoadMore = null, loadingMore = false, empty = 'Nothing has happened on this record yet.', filter: controlled, onFilterChange, filters = true, eventAction = null }) {
   const [own, setOwn] = useState('');
   const filter = controlled ?? own;
   const setFilter = onFilterChange || setOwn;
@@ -80,7 +81,8 @@ export default function ActivityTimeline({ events, onLoadMore = null, loadingMor
                     ) : null}
                     {e.body ? <p className="text-sm mt-0.5 whitespace-pre-wrap">{e.body}</p> : null}
                     <p className="ui-caption mt-0.5">
-                      {e.actor ? `by ${e.actor}` : 'by Clor'}{e.role ? ` · ${e.role}` : ''}{e.reason ? ` · ${e.reason}` : ''}{e.batch ? ` · part of a batch of ${e.batch.size}` : ''}
+                      {e.actor ? `by ${e.actor}` : 'by CLOR'}{e.role ? ` · ${e.role}` : ''}{e.reason ? ` · ${e.reason}` : ''}{e.batch ? ` · part of a batch of ${e.batch.size}` : ''}
+                      {eventAction ? eventAction(e) : null}
                     </p>
                   </div>
                 </li>

@@ -160,6 +160,11 @@ export async function revokeAuditorGrant(orgId: string, id: string) {
 const liveGrants = (orgId: string, userId: string, now = new Date()) =>
   peoplePrisma.auditorGrant.findMany({ where: { orgId, userId, revokedAt: null, fromAt: { lte: now }, untilAt: { gt: now } } });
 
+/** Whether this person holds an auditor grant that is live now: what puts Audit evidence on their menu. */
+export async function hasLiveAuditorGrant(orgId: string, userId: string, now = new Date()) {
+  return (await peoplePrisma.auditorGrant.count({ where: { orgId, userId, revokedAt: null, fromAt: { lte: now }, untilAt: { gt: now } } })) > 0;
+}
+
 /** What the auditor may open now: title, kind and date only, no person behind it. */
 export async function auditorEvidence(orgId: string, userId: string, now = new Date()) {
   const grants = await liveGrants(orgId, userId, now);

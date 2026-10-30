@@ -103,8 +103,8 @@ describe('the purchase return asks what the bill asks', () => {
     const panel = screen.getByRole('dialog');
     await user.clear(within(panel).getByLabelText('Prefix'));
     await user.type(within(panel).getByLabelText('Prefix'), 'PR-');
-    await user.clear(within(panel).getByLabelText('Next number'));
-    await user.type(within(panel).getByLabelText('Next number'), '4');
+    await user.clear(within(panel).getByLabelText('Starting Number'));
+    await user.type(within(panel).getByLabelText('Starting Number'), '4');
     await user.click(within(panel).getByRole('button', { name: 'Save' }));
 
     /* The purchase return's own series, not the invoice's. */

@@ -23,5 +23,9 @@ export const retireRule = (requestType) => send(`/approval-rules/${encodeURIComp
 export const activeRule = (requestType) => apiFetch(`${base()}/approval-rules/active/${encodeURIComponent(requestType)}`, opts).then((r) => r?.rule || null);
 
 export const listStandIns = () => apiFetch(`${base()}/stand-ins`, opts).then((r) => r?.standIns || []);
+/** My own stand-ins with the day and my People record: { today, selfEmployeeId, standIns: [{ id, standInEmployeeId, standInName, fromDate, toDate, live }] }. */
+export const listStandInsFull = () => apiFetch(`${base()}/stand-ins`, opts);
+/** Anyone here with a CLOR sign-in, by name: who can be chosen to decide in my place. */
+export const standInCandidates = () => apiFetch(`${base()}/stand-ins/candidates`, opts).then((r) => r?.people || []).catch(() => []);
 export const addStandIn = (body) => send('/stand-ins', 'POST', body);
 export const removeStandIn = (id) => send(`/stand-ins/${encodeURIComponent(id)}`, 'DELETE');

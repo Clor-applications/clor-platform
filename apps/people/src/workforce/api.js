@@ -74,3 +74,11 @@ export const createOffer = (body) => send('/offers', 'POST', body);
 export const listOffers = (params) => apiFetch(`${base()}/offers${qs(params)}`, opts).then((r) => r?.offers || []);
 export const withdrawOffer = (id) => send(`/offers/${encodeURIComponent(id)}/withdraw`, 'POST', {});
 export const employeeAsOf =(id, date) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}${qs({ asOf: date })}`, opts);
+/* Probation review (LIFE-03): the manager's view, feeding confirm, extend or end. */
+export const getProbation = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/probation`, opts).then((r) => r?.reviews || []);
+export const saveProbationReview = (id, body) => send(`/employees/${encodeURIComponent(id)}/probation/review`, 'POST', body);
+/* What applies to this one person (POL-03), and the comment its author takes back. */
+export const policiesFor = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/policies`, opts).then((r) => r?.policies || []);
+export const deleteNote = (noteId) => send(`/notes/${encodeURIComponent(noteId)}`, 'DELETE');
+/* The assets register (Pay, benefits & assets), read for one person's record. */
+export const listAssets = (employeeId) => apiFetch(`${base()}/workspace/assets${qs({ employeeId })}`, opts).then((r) => r?.records || []);

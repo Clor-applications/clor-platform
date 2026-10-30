@@ -101,6 +101,13 @@ describe('health check', () => {
     /* Their last day is 30 June: they still count on it, as "as of" does; July starts without them. */
     expect(m('2026-06')).toMatchObject({ leavers: 1, headcountAtEnd: 3 });
     expect(m('2026-07')).toMatchObject({ transfers: 1, transfersIn: { 'Pune shop (Maharashtra)': 1 }, transfersOut: { 'Bengaluru office (Karnataka)': 1 }, headcountAtEnd: 2 });
+    /* Attrition (gap 21): leavers over the month's average headcount; the range's over the mean of the months. */
+    expect(m('2026-03')).toMatchObject({ headcountAtStart: 0, averageHeadcount: 1, attritionPct: 0 });
+    expect(m('2026-06')).toMatchObject({ headcountAtStart: 3, headcountAtEnd: 3, attritionPct: 33.3, leaversByReason: { RESIGNED: 1 } });
+    expect(m('2026-07')).toMatchObject({ headcountAtStart: 2, leavers: 0, attritionPct: 0 });
+    expect(r.totals).toMatchObject({ joiners: 3, leavers: 1, transfers: 1, headcountAtStart: 0, headcountAtEnd: 2, averageHeadcount: 2.1, attritionPct: 47.6 });
+    /* Before anyone joined there is nothing to measure against: no figure, not 0%. */
+    expect((await people(c).get('/headcount?from=2026-01-01&to=2026-02-28').expect(200)).body.months[0]).toMatchObject({ headcountAtStart: 0, headcountAtEnd: 0, attritionPct: null });
     /* As of after the transfer, Two counts in Pune. */
     const later = (await people(c).get('/headcount?asOf=2026-07-15').expect(200)).body;
     expect(later.byEstablishment).toEqual({ 'Bengaluru office (Karnataka)': 1, 'Pune shop (Maharashtra)': 1 });

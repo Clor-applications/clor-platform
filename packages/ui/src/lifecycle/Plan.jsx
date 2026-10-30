@@ -7,6 +7,7 @@ import { formatDate } from '@ui/components/ui/DatePicker';
 import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 import { getChecklist } from '@ui/personnel/api';
+import { hasApp } from '@platform/context';
 
 import { OWNER_WORD, leavingPreview, startPlan } from './api';
 import { TaskDrawer, readerWords } from './shared';
@@ -82,6 +83,13 @@ export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, 
               <p className="text-sm">{p.reports.length === 1 ? `${p.reports[0].name} reports` : `${p.reports.length} people report`} to {row.name}. They will report to {p.nextManager ? p.nextManager.name : 'nobody (no manager above)'}; move them on their records before the day to choose someone else.</p>
             ) : <p className="text-sm ui-muted">Nobody reports to them.</p>}
             {p.assets.length ? <p className="text-sm">They hold {p.assets.map((a) => `${a.title}${a.tag ? ` (${a.tag})` : ''}`).join(', ')}. Each is a step above; open items never hold up final wages.</p> : null}
+          </section>
+        ) : null}
+        {/* The money side of leaving is Payroll's: one link to its full and final settlement (gap 15). */}
+        {kind === 'LEAVING' && hasApp('payroll') ? (
+          <section aria-label="Final pay" className="space-y-1">
+            <h3 className="ui-t-sec">Final pay</h3>
+            <p className="text-sm">Dues, recoveries and the final payslip are worked out in Payroll. <a className="ui-link" href="?app=payroll&open=settlements">Open full and final settlement</a></p>
           </section>
         ) : null}
       </div>

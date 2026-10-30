@@ -264,6 +264,8 @@ export function buildApp() {
   app.use('/api/portal/punch', express.json({ limit: '3mb' }));
   /* A document on an employee file (≤ 5 MB, base64). */
   app.use('/api/orgs/:orgId/people/employees/:id/documents', express.json({ limit: '7mb' }));
+  /* A compliance proof (a challan, a receipt, a certificate; ≤ 5 MB, base64). */
+  app.use('/api/orgs/:orgId/people/compliance/obligations/:id/proofs', express.json({ limit: '7mb' }));
   /* A résumé or a training certificate, up to 5 MB, sent as base64 (Talent). */
   app.use(['/api/orgs/:orgId/people/talent/candidates/:id/resume', '/api/orgs/:orgId/people/talent/seats/:id'], express.json({ limit: '7mb' }));
   /* Leave asked with its document (a certificate, ≤ 5 MB, base64): from People, from My Leave, and from the employee app. */

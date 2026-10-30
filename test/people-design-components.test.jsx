@@ -126,7 +126,7 @@ describe('ActivityTimeline', () => {
     expect(screen.getByText('Senior analyst')).toBeInTheDocument();
     const redacted = screen.getByText('Passport').closest('li');
     expect(redacted).toHaveTextContent('Passport changed');
-    expect(screen.getByText(/by Clor · part of a batch of 40/)).toBeInTheDocument();
+    expect(screen.getByText(/by CLOR · part of a batch of 40/)).toBeInTheDocument();
   });
   it('filters comments, approvals and changes as separate kinds', async () => {
     const user = userEvent.setup();

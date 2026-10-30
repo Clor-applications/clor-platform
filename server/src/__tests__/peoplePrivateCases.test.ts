@@ -160,6 +160,16 @@ describe('private cases', () => {
     const report = (await people(hr).get(`/private-cases/report/${plus(0).slice(0, 4)}`).expect(200)).body.report;
     expect(report).toMatchObject({ received: 2, disposed: 1 });
     expect(JSON.stringify(report)).not.toMatch(/Sana|Imran|Kavya|PC-\d/);
-    await people(member).get(`/private-cases/report/${plus(0).slice(0, 4)}`).expect(403);
+    /* The committee files it (gap 12): a member without the grant reads it and is told so on the list; someone off the committee is refused. */
+    const asMember = (await people(member).get(`/private-cases/report/${plus(0).slice(0, 4)}`).expect(200)).body.report;
+    expect(asMember).toMatchObject({ received: 2, disposed: 1, committee: { presiding: 'Meera Iyer', members: 4, external: 1, women: 2 }, dueOn: `${Number(plus(0).slice(0, 4)) + 1}-01-31` });
+    expect(asMember.company).toMatch(/^Case Co /);
+    expect((await people(member).get('/private-cases').expect(200)).body.annualReport).toBe(true);
+    const outsider = await colleague(boss, 'Nobody Else', ['PEOPLE::Employees::VIEW']);
+    await people(outsider).get(`/private-cases/report/${plus(0).slice(0, 4)}`).expect(403);
+    expect((await people(outsider).get('/private-cases').expect(200)).body.annualReport).toBe(false);
+    /* Another company's owner reads their own (empty) year, never this one. */
+    const elsewhere = await owner();
+    expect((await people(elsewhere).get(`/private-cases/report/${plus(0).slice(0, 4)}`).expect(200)).body.report).toMatchObject({ received: 0, disposed: 0, committee: { members: 0 } });
   });
 });

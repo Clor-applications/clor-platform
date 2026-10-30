@@ -673,7 +673,7 @@ function PosMetric({ label, value, note }) {
   return (
     <div className="ui-card min-w-0 px-4 py-3">
       <div className="ui-caption">{label}</div>
-      <div className="ui-money mt-1 truncate text-lg font-semibold">{value}</div>
+      <div className="ui-money mt-1 truncate text-lg font-medium">{value}</div>
       {note ? <div className="ui-helper mt-0.5">{note}</div> : null}
     </div>
   );

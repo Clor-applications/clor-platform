@@ -2,7 +2,8 @@ import React, { useMemo, useRef, useState } from 'react';
 import { KIND_WORDS } from '@ui/personnel/employmentKinds';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { useSuggestions } from '../workforce/suggestions';
-import { Plus } from '@ui/components/ui/lineIcons';
+import { Plus, X } from '@ui/components/ui/lineIcons';
+import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -79,8 +80,13 @@ export const KINDS = {
       { key: 'kind', label: 'Kind', type: 'select', options: [['OFFICE', 'Office'], ['SHOP', 'Shop'], ['FACTORY', 'Factory'], ['SITE', 'Site'], ['WAREHOUSE', 'Warehouse']] },
       { key: 'address', label: 'Address', type: 'text', wide: true, suggest: 'branchAddress', max: 500 },
       { key: 'holdsOriginals', label: 'The company keeps employees’ original documents here', type: 'checkbox', wide: true },
+      /* Statutory registrations (People audit gap 16): Compliance reads them, and one running out becomes a renewal there. */
+      { key: 'registrations', label: 'Registrations', type: 'registrations', wide: true },
     ],
-    columns: [{ key: 'state', label: 'State', render: (r) => r.state || '—' }],
+    columns: [
+      { key: 'state', label: 'State', render: (r) => r.state || '—' },
+      { key: 'registrations', label: 'Registrations', render: (r) => registrationSummary(r.registrations) },
+    ],
   },
   /* Settings lists: a person's terms and the company in law, laid out like every other list. */
   'employee-types': {
@@ -110,6 +116,29 @@ export const KINDS = {
   grades: { title: 'Grades', singular: 'grade', screen: 'grades', fields: [], columns: [] },
   'cost-centres': { title: 'Cost Centres', singular: 'cost centre', screen: 'costCentres', fields: [], columns: [] },
 };
+
+/* The registrations a work site holds; the same list Compliance names (services/people/complianceRules.ts). */
+const REGISTRATION_TYPES = [
+  ['SE_REG', 'Shops & Establishments'], ['PF', 'PF code (EPFO)'], ['ESI', 'ESI code (ESIC)'], ['PT', 'Professional Tax'], ['LWF', 'Labour Welfare Fund'],
+  ['CLRA', 'Contract labour licence'], ['FACTORY', 'Factory licence'], ['TRADE', 'Trade licence'], ['FIRE', 'Fire safety certificate'], ['OTHER', 'Other'],
+];
+const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+const plusDays = (n) => new Date(Date.now() + 330 * 60_000 + n * 86_400_000).toISOString().slice(0, 10);
+/** "3 · 1 runs out soon" for the list: how many, and what needs renewing. */
+function registrationSummary(list) {
+  const regs = Array.isArray(list) ? list : [];
+  if (!regs.length) return <span className="ui-muted">None</span>;
+  const lapsed = regs.filter((r) => r.validTill && r.validTill < todayIst()).length;
+  const soon = regs.filter((r) => r.validTill && r.validTill >= todayIst() && r.validTill <= plusDays(30)).length;
+  return (
+    <span className="whitespace-nowrap">
+      <span className="tabular-nums">{regs.length}</span>
+      {lapsed ? <span className="ui-pill ui-pill-neg ml-2">{lapsed} lapsed</span> : soon ? <span className="ui-pill ui-pill-warn ml-2">{soon} to renew</span> : null}
+    </span>
+  );
+}
+/** Rows worth saving: a type, and a number or a date. */
+const cleanRegistrations = (list) => (Array.isArray(list) ? list : []).map((r) => ({ type: r.type || 'OTHER', number: String(r.number || '').trim(), validTill: r.validTill || null })).filter((r) => r.number || r.validTill);
 
 /* Kinds without a description column on the server (EmployeeType, WorkType) are not listed here; the rest carry one. */
 const DESCRIBED = new Set(['departments', 'job-positions', 'job-roles', 'teams', 'seats', 'areas', 'establishments', 'business-units', 'grades', 'cost-centres', 'legal-entities']);
@@ -264,6 +293,7 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
 
 const field = (f, form, set, ctx) => {
   const id = `org-${f.key}`;
+  if (f.type === 'registrations') return <RegistrationsField key={f.key} value={form[f.key]} onChange={(v) => set(f.key, v)} sites={ctx.refs?.establishments || []} siteId={form.id} />;
   if (f.type === 'checkbox') {
     return <label key={f.key} className={`flex items-center gap-2 text-sm ${f.wide ? 'sm:col-span-2' : ''}`}><input id={id} type="checkbox" className="ui-checkbox" checked={Boolean(form[f.key])} onChange={(e) => set(f.key, e.target.checked)} />{f.label}</label>;
   }
@@ -290,6 +320,30 @@ const field = (f, form, set, ctx) => {
     </div>
   );
 };
+
+/** A work site's registrations: type, number, valid till; added and removed in place. */
+function RegistrationsField({ value, onChange, sites = [], siteId }) {
+  const rows = Array.isArray(value) ? value : [];
+  /* Numbers the company's other sites hold for the same kind: a PF or ESI code is often one for the whole company. */
+  const numbersFor = (type) => [...new Set(sites.filter((s) => s.id !== siteId).flatMap((s) => (Array.isArray(s.registrations) ? s.registrations : [])).filter((r) => r.type === type && r.number).map((r) => r.number))];
+  const put = (i, patch) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  return (
+    <fieldset className="grid gap-3 sm:col-span-2 border-t pt-3">
+      <legend className="ui-label">Registrations</legend>
+      {rows.map((r, i) => (
+        <div key={i} className="grid gap-2 sm:grid-cols-3" role="group" aria-label={`Registration ${i + 1}`}>
+          <div><PopupSelect showValueSubtext={false} label="Type" value={r.type || ''} onChange={(v) => put(i, { type: v || 'OTHER' })} placeholder="Choose…" options={REGISTRATION_TYPES.map(([v, l]) => ({ value: v, label: l }))} /></div>
+          <label className="block"><span className="ui-label">Number</span><SuggestInput maxLength={80} value={r.number || ''} onChange={(v) => put(i, { number: v })} suggestions={numbersFor(r.type)} aria-label={`Registration ${i + 1} number`} /></label>
+          <div><span className="ui-label" id={`reg-till-${i}`}>Valid till</span><DatePicker label="Valid till" describedBy={`reg-till-${i}`} value={r.validTill || ''} onChange={(v) => put(i, { validTill: v || '' })} /></div>
+          <span className="sm:col-span-3"><button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove registration ${i + 1}`} onClick={() => onChange(rows.filter((_, j) => j !== i))}><X size={16} aria-hidden="true" /> Remove</button></span>
+        </div>
+      ))}
+      {!rows.length ? <p className="ui-caption">PF, ESI, Shops & Establishments and the rest: Compliance reminds you before one runs out.</p> : null}
+      <span><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => onChange([...rows, { type: rows.some((r) => r.type === 'SE_REG') ? 'PF' : 'SE_REG', number: '', validTill: '' }])}><Plus size={16} aria-hidden="true" /> Add a registration</button></span>
+      {rows.some((r) => r.validTill) ? <p className="ui-caption">{rows.filter((r) => r.validTill).map((r) => `${(REGISTRATION_TYPES.find(([v]) => v === r.type) || ['', 'Registration'])[1]} till ${formatDate(r.validTill)}`).join(' · ')}</p> : null}
+    </fieldset>
+  );
+}
 
 /* A text field that offers what the company already has. */
 function SuggestText({ f, id, value, onChange }) {
@@ -339,7 +393,7 @@ function EditDrawer({ kind, cfg, value, items, refs, staff, onClose, onDone, onR
     setBusy(true);
     setError(null);
     try {
-      const body = { ...(move && moveReason.trim() ? { reason: moveReason.trim() } : {}), name: form.name.trim(), ...(DESCRIBED.has(kind) ? { description: form.description || null } : {}), ...Object.fromEntries(cfg.fields.map((f) => [f.key, f.type === 'checkbox' ? Boolean(form[f.key]) : (form[f.key] ?? '') === '' ? null : form[f.key]])) };
+      const body = { ...(move && moveReason.trim() ? { reason: moveReason.trim() } : {}), name: form.name.trim(), ...(DESCRIBED.has(kind) ? { description: form.description || null } : {}), ...Object.fromEntries(cfg.fields.map((f) => [f.key, f.type === 'checkbox' ? Boolean(form[f.key]) : f.type === 'registrations' ? cleanRegistrations(form[f.key]) : (form[f.key] ?? '') === '' ? null : form[f.key]])) };
       if (isNew) await createItem(kind, body); else await updateItem(kind, form.id, body);
       notify.success(`${body.name} saved.`);
       onDone();

@@ -27,6 +27,8 @@ const SPECS: Record<string, Spec> = {
   employeeDocument: { kind: 'employee-documents', bytes: 'data', key: 'storageKey' },
   punchPhoto: { kind: 'punch-photos', bytes: 'data', key: 'storageKey' },
   complianceTask: { kind: 'compliance-evidence', bytes: 'evidenceData', key: 'evidenceKey' },
+  /* An obligation's proof files (Compliance): filed with the calendar's evidence they replace. */
+  obligationProof: { kind: 'compliance-evidence', bytes: 'data', key: 'storageKey' },
 };
 export const OFFLOADED_MODELS = Object.keys(SPECS);
 

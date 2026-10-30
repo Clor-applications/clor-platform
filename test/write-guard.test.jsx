@@ -5,7 +5,7 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 vi.mock('../packages/ui/src/components/ui/notify', () => ({ notify: { error: vi.fn(), success: vi.fn() } }));
 
 import { PermissionContext } from '../packages/ui/src/permissions/context';
-import { WriteGuard, readOnlyFor, writeKeysOf } from '../packages/ui/src/permissions/WriteGuard';
+import { WriteGuard, readOnlyFor, resourceWords, writeKeysOf } from '../packages/ui/src/permissions/WriteGuard';
 import { notify } from '../packages/ui/src/components/ui/notify';
 
 /**
@@ -51,6 +51,21 @@ describe('WriteGuard', () => {
     expect(readOnlyFor(VIEW, ctx([VIEW, 'ATTENDANCE::Attendance Requests::EDIT']))).toBe(false);
     expect(readOnlyFor(VIEW, ctx([VIEW], { isAdmin: true }))).toBe(false);
     expect(readOnlyFor(VIEW, ctx([], { loading: true }))).toBe(false);
+  });
+
+  /* People audit, 30 Oct 2026: the banner said "you need My Attendance · Edit", a right that resource does not have. */
+  it('names what the screen is about in plain words, never a write right the resource may not have', () => {
+    expect(resourceWords('ATTENDANCE::My Attendance::VIEW')).toBe('My attendance (Attendance)');
+    expect(resourceWords('PEOPLE::HR Cases::VIEW')).toBe('HR cases (People)');
+    expect(resourceWords('nonsense')).toBe('');
+    render(
+      <PermissionContext.Provider value={ctx(['ATTENDANCE::My Attendance::VIEW'])}>
+        <WriteGuard permission="ATTENDANCE::My Attendance::VIEW"><p>days</p></WriteGuard>
+      </PermissionContext.Provider>,
+    );
+    const banner = screen.getByRole('status').textContent;
+    expect(banner).toBe('View only: your roles let you see My attendance (Attendance) but not change it. Ask an administrator for a role that can.');
+    expect(banner).not.toMatch(/Edit/);
   });
 
   it('view only: banner, and Save and Approve refused; plain controls still work', () => {

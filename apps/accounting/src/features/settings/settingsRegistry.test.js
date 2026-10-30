@@ -1,5 +1,4 @@
-import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -172,8 +171,10 @@ describe('local navigation', () => {
     const groups = groupedForCategory('tax', all);
     expect(groups).toHaveLength(1);
     expect(groups[0].name).toBe('');
-    /* TDS joined the Taxation category with its configuration page. */
-    expect(groups[0].items.map((i) => i.key)).toEqual(['settingsTax', 'settingsTds', 'gstRates']);
+    /* TDS joined the Taxation category with its configuration page. Tax Rates
+       left the catalogue for Masters, which owns the rate list
+       (HIDDEN_FROM_SETTINGS in settingsRegistry.js). */
+    expect(groups[0].items.map((i) => i.key)).toEqual(['settingsTax', 'settingsTds']);
   });
 });
 
@@ -195,16 +196,18 @@ describe('search finds what people type', () => {
 
   it('finds the backup by the words somebody would reach for', () => {
     /* It was written, wired to a screen, and in no list — so no search could
-       have found it either. */
+       have found it either. Data export now lives in Workspace with the rest
+       of the company's administration (ADR-010; settingsDataBackup redirects
+       there), so the words lead to the one entry that opens Workspace. */
     for (const word of ['backup', 'export', 'download', 'copy']) {
-      expect(searchSettings(word, all).map((i) => i.key)).toContain('settingsDataBackup');
+      expect(searchSettings(word, all).map((i) => i.key)).toContain('companyAdmin');
     }
   });
 
-  it('finds every invoice-related page from one word', () => {
-    const keys = searchSettings('invoice', all).map((i) => i.key);
-    expect(keys).toEqual(expect.arrayContaining(['settingsInvoiceFields', 'invoiceTemplates', 'recurringInvoices']));
-  });
+  /* "finds every invoice-related page from one word" is retired: Invoice
+     Settings, Invoice Templates and Recurring Invoices left the Settings
+     catalogue with the rest of the platform category and are reached from
+     Sales and Masters (HIDDEN_FROM_SETTINGS in settingsRegistry.js). */
 
   it('never offers what the person cannot open', () => {
     const can = (p) => p !== 'SETTINGS::Users::VIEW';
@@ -242,6 +245,20 @@ describe('a whole screen is not framed as a settings panel', () => {
    */
   const SRC_DIR = SRC;
 
+  /* Every .jsx file under a folder. Read with Node, not ripgrep: the test must
+     not depend on a tool the CI machine may not have. */
+  const jsxFiles = (dir) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) return entry.name === 'node_modules' ? [] : jsxFiles(path);
+      return entry.name.endsWith('.jsx') ? [path] : [];
+    });
+
+  /* Every .jsx file and its text, read once for the whole describe: the
+     check runs for each framed setting and the tree does not change. */
+  let cached = null;
+  const sources = () => (cached ??= jsxFiles(SRC_DIR).map((f) => [f, readFileSync(f, 'utf8')]));
+
   /** The component App returns for a key, read from its case arm. */
   const componentFor = (key) => {
     const at = APP.indexOf(`case '${key}':`);
@@ -261,19 +278,9 @@ describe('a whole screen is not framed as a settings panel', () => {
    */
   const isDocumentList = (name) => {
     if (!name) return false;
-    let output = '';
-    try {
-      output = execSync(
-        `rg -l --glob "*.jsx" "const ${name} =|function ${name}\\(" ${JSON.stringify(SRC_DIR)}`,
-        { encoding: 'utf8' }
-      );
-    } catch (error) {
-      if (error?.status !== 1) throw error;
-    }
-    const files = output.split(/\r?\n/).filter(Boolean);
+    const files = sources().filter(([, src]) => src.includes(`const ${name} =`) || src.includes(`function ${name}(`));
 
-    return files.some((f) => {
-      const src = readFileSync(f, 'utf8');
+    return files.some(([, src]) => {
       const at = Math.max(src.indexOf(`const ${name} = `), src.indexOf(`function ${name}(`));
       if (at < 0) return false;
       /* To the next top-level declaration, which is where this one ends. */
@@ -296,12 +303,16 @@ describe('a whole screen is not framed as a settings panel', () => {
     expect(isSettingsKey('settingsTax')).toBe(true);
   });
 
-  it('still lists and finds them in Settings', () => {
-    /* Leaving the frame must not mean leaving Settings — this is where people
-       look for them. */
-    expect(searchSettings('recurring', all).map((i) => i.key)).toContain('recurringInvoices');
+  /* Where these are listed is pending the owner (DESIGN.md decisions log,
+     2026-10-30): the platform category is out of the catalogue today
+     (HIDDEN_FROM_SETTINGS), and search could still find them with an "opens
+     in Sales" pointer. Not asserted either way until that is decided. */
+  it.todo('search finds a screen that left the catalogue and says where it opens');
+
+  it('keeps them reachable: routed, and in the rail', () => {
+    /* A key stays routable so old links still land, and the rail is the way in. */
     expect(visibleCategories(all).some((c) => c.id === 'business')).toBe(false);
-    const platform = visibleCategories(all).find((c) => c.id === 'platform');
-    expect(platform.items.map((i) => i.key)).toContain('recurringInvoices');
+    expect(APP).toContain("case 'recurringInvoices':");
+    expect(APP).toContain("key: 'recurringInvoices'");
   });
 });

@@ -437,9 +437,10 @@ export const FEATURE_CATALOG: FeatureDef[] = [
 
   /*
    * Simple mode (PRODUCT-VIEW §6): for a company of up to 10 people and up to
-   * 2 users, People hides the screens a larger HR team needs (stand-ins,
-   * request rules, year-end internals, compliance and privacy lists, custom
-   * fields and similar). Nothing a person needs for their own data is hidden,
+   * 2 users, People hides organisation detail a larger company needs (legal
+   * entities). Since the People audit of 30 Oct 2026 (gap 4) it no longer hides
+   * year end, delegates, policies, compliance or privacy: a small business
+   * needs those too. Nothing a person needs for their own data is hidden,
    * and every hidden screen still opens from a link. On for a company when it
    * is created (routes/auth.ts); never switched off on its own — Home suggests
    * it once when the company outgrows it (services/people/setup.ts).
@@ -450,7 +451,7 @@ export const FEATURE_CATALOG: FeatureDef[] = [
   {
     key: 'peopleSimpleMode',
     label: 'Simple mode',
-    description: 'A shorter People menu for a small company: the detailed HR screens are hidden until you need them.',
+    description: 'A shorter People menu for a small company: organisation detail such as legal entities stays out of the menu until you need it.',
     defaultEnabled: false,
     category: 'People',
     dependsOn: 'people',

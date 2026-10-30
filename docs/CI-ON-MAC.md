@@ -65,13 +65,21 @@ and `./svc.sh install && ./svc.sh start`.
 
 ## What runs when (30 Oct 2026)
 
-| Event | `verify` (lint, schema, typecheck, build) | `server-tests` (3 shards) |
+| Event | `verify` (lint, schema, typecheck, web tests, build) | `server-tests` (3 shards) |
 |---|---|---|
 | Pull request | yes | only with the `full-tests` label |
 | Push to main (a merge) | yes | yes |
 | Nightly, 03:00 IST | yes | yes |
 | Run workflow by hand | yes | yes |
 
+The web tests (`npm run test:web`, vitest at the repository root, ~1,800
+tests, about four minutes on the two threads CI gives it, no database) joined `verify` on 30 Oct
+2026, so every pull request runs them. Before that nothing ran them and 53 had
+failed unnoticed since the initial import.
+
 Docs-only changes run nothing. A newer push cancels an older run on the same
-branch (main included); the nightly run is never cancelled. A server-test
-failure on main is fixed the same day, before the next release.
+branch (main included); the nightly run and a run started by hand are never
+cancelled. On a busy day merges keep replacing main's run, so the release check
+is a run by hand on the commit being released
+(`gh workflow run CI --ref main`), which finishes whatever merges after it.
+A server-test failure on main is fixed the same day, before the next release.

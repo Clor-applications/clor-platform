@@ -235,6 +235,14 @@ describe('choosing what to deduct against', () => {
   });
 });
 
+/*
+ * The deduction is shown in the TDS row's own Amount box, beside the section
+ * and the rate, with Net payable under the total — not as a "− ₹…" line there
+ * (the bill form as shipped since the import, 00f6a61a). The figures checked
+ * are the same.
+ */
+const tdsAmount = () => screen.getByRole('status', { name: 'TDS amount' });
+
 describe('the figure the ledger produces', () => {
   beforeEach(() => localStorage.clear());
 
@@ -245,8 +253,8 @@ describe('the figure the ledger produces', () => {
     await chooseNature(user, CONTRACTOR);
 
     /* 194C at 2% on the taxable value, not on the GST-inclusive total. */
+    expect(tdsAmount()).toHaveTextContent('₹1,000.00');
     expect(screen.getByText('Net payable:')).toBeInTheDocument();
-    expect(screen.getByText(/− ₹1,000\.00/)).toBeInTheDocument();
     expect(screen.getByText(/₹58,000\.00/)).toBeInTheDocument();
   });
 
@@ -259,7 +267,7 @@ describe('the figure the ledger produces', () => {
     await chooseNature(user, PROFESSIONAL);
 
     /* Professional services, 10%. */
-    expect(screen.getByText(/− ₹6,000\.00/)).toBeInTheDocument();
+    expect(tdsAmount()).toHaveTextContent('₹6,000.00');
   });
 
   /* Nothing is due below the threshold, and a figure that simply failed to
@@ -280,12 +288,12 @@ describe('the figure the ledger produces', () => {
     await fillBill(user, 50000);
     await chooseNature(user, CONTRACTOR);
 
-    const rate = screen.getByLabelText('Rate (%)');
+    const rate = screen.getByLabelText('TDS rate (%)');
     fireEvent.change(rate, { target: { value: '20' } });
 
     /* A certificate under section 197, or a vendor with no PAN, is a fact
        about this bill rather than about the ledger. */
-    expect(await screen.findByText(/− ₹10,000\.00/)).toBeInTheDocument();
+    await waitFor(() => expect(tdsAmount()).toHaveTextContent('₹10,000.00'));
   });
 });
 

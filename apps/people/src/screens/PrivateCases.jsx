@@ -13,6 +13,8 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { apiFetch } from '@platform/http';
 import { orgId } from '@platform/context';
 import { listEmployees } from '@ui/personnel/api';
+import SuggestInput from '@ui/components/ui/SuggestInput';
+import { runListExport } from '@ui/components/list/exportMenu';
 import { orgUsers } from '../api/desk';
 
 /**
@@ -38,11 +40,12 @@ const nextDate = (c) => c.overdue || (c.status === 'REPORT_DUE' ? `Report by ${d
 export default function PrivateCases() {
   const perms = usePermissions();
   const allowed = (key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
-  const req = useRequest(() => apiFetch(base(), opts).then((r) => r?.cases || []), []);
+  const req = useRequest(() => apiFetch(base(), opts).then((r) => ({ cases: r?.cases || [], annualReport: Boolean(r?.annualReport) })), []);
   const [open, setOpen] = useState(null);
   const [intake, setIntake] = useState(false);
   const [committee, setCommittee] = useState(false);
-  const cases = req.data || [];
+  const [report, setReport] = useState(false);
+  const cases = req.data?.cases || [];
   const columns = [
     { key: 'reference', label: 'Case', always: true, render: (c) => <span className="font-medium tabular-nums">{c.reference}</span> },
     { key: 'kind', label: 'Kind', render: (c) => (c.kind === 'POSH' ? 'POSH' : 'Grievance') },
@@ -55,6 +58,7 @@ export default function PrivateCases() {
     <div className="space-y-6">
       <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Confidential cases' }]} title="Confidential cases"
         actions={<>
+          {req.data?.annualReport ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setReport(true)}>POSH annual report</button> : null}
           {allowed('PEOPLE::Private Cases::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setCommittee(true)}>Committees</button> : null}
           {allowed('PEOPLE::Private Cases::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setIntake(true)}><Plus size={16} aria-hidden="true" /> Take in a case</button> : null}
         </>} />
@@ -67,6 +71,7 @@ export default function PrivateCases() {
       {open ? <CaseDrawer id={open} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
       {intake ? <IntakeDrawer onClose={() => setIntake(false)} onDone={() => { setIntake(false); req.reload(); }} /> : null}
       {committee ? <CommitteeDrawer onClose={() => setCommittee(false)} /> : null}
+      {report ? <AnnualReportDrawer onClose={() => setReport(false)} /> : null}
     </div>
   );
 }
@@ -300,6 +305,60 @@ function CommitteeDrawer({ onClose }) {
             {/* Rows are keyed by member, so a person sits on the committee once:
                 each picker offers only people not already on it. */}
             {list.length ? (list.some((u) => !members.some((m) => m.userId === u.id)) ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setMembers((x) => [...x, { userId: list.find((u) => !x.some((m) => m.userId === u.id)).id, role: 'MEMBER', gender: '' }])}><Plus size={16} aria-hidden="true" /> Add a member</button> : null) : <p className="ui-muted">Listing users needs the Users grant.</p>}
+          </>
+        )}
+      </div>
+    </Drawer>
+  );
+}
+
+/**
+ * The POSH annual report (Act s.21, Rule 14; People audit gap 12): the
+ * counts for a calendar year from the cases, never a name or a reference;
+ * the presiding officer adds the workshops held and the action taken, then
+ * downloads it to sign and file with the District Officer by 31 January.
+ */
+const yearIst = () => Number(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 4));
+function AnnualReportDrawer({ onClose }) {
+  const [thisYear] = useState(yearIst);
+  const [year, setYear] = useState(String(thisYear - 1));
+  const [workshops, setWorkshops] = useState('');
+  const [action, setAction] = useState('');
+  const req = useRequest(() => apiFetch(`${base()}/report/${year}`, opts).then((r) => r?.report), [year]);
+  const r = req.data;
+  const rows = r ? [
+    ['Complaints pending at the start of the year', r.pendingAtStart],
+    ['Complaints received in the year', r.received],
+    ['Complaints disposed of in the year', r.disposed],
+    ['Complaints pending at the end of the year', r.pendingAtEnd],
+    ['Pending for more than 90 days', r.pendingOver90Days],
+    ['Workshops and awareness programmes held', workshops.trim() || 'To be filled in'],
+    ['Nature of action taken', action.trim() || 'To be filled in'],
+    ['Internal Committee', `${r.committee.members} member${r.committee.members === 1 ? '' : 's'}, ${r.committee.women} women, ${r.committee.external} external${r.committee.presiding ? `; presiding: ${r.committee.presiding}` : ''}`],
+  ] : [];
+  const download = (format) => runListExport({
+    format, title: `POSH annual report ${year}`, subtitle: [r?.company, 'Internal Committee, under the Sexual Harassment of Women at Workplace Act 2013, s.21'].filter(Boolean).join(' · '),
+    fileName: `posh-annual-report-${year}`, label: 'lines', columns: [{ key: 'item', label: 'Item' }, { key: 'value', label: 'For the year' }],
+    rows: rows.map(([item, value]) => ({ item, value: String(value) })),
+    footNote: `For the District Officer by ${day(r?.dueOn)}. Signed by the presiding officer.`,
+  });
+  return (
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title="POSH annual report"
+      footer={<>
+        <button type="button" className="ui-btn ui-btn-secondary" disabled={!r} onClick={() => download('xlsx')}>Excel</button>
+        <button type="button" className="ui-btn ui-btn-primary" disabled={!r} onClick={() => download('pdf')}>Download PDF</button>
+      </>}>
+      <div className="grid gap-4">
+        <div className="w-full sm:w-72"><PopupSelect showValueSubtext={false} label="Year" value={year} onChange={(v) => v && setYear(v)} options={[thisYear, thisYear - 1, thisYear - 2, thisYear - 3].map((y) => ({ value: String(y), label: `January–December ${y}` }))} /></div>
+        {req.error && !r ? <ErrorState error={req.error} compact body={req.error?.message} /> : !r ? <SkeletonCard lines={6} /> : (
+          <>
+            <dl className="divide-y border-y text-sm">
+              {rows.slice(0, 5).map(([label, n]) => <div key={label} className="flex items-center justify-between gap-3 py-2"><dt>{label}</dt><dd className="tabular-nums">{n}</dd></div>)}
+              <div className="flex items-start justify-between gap-3 py-2"><dt>Internal Committee</dt><dd className="text-right">{rows[7][1]}</dd></div>
+            </dl>
+            <label className="block"><span className="ui-label">Workshops and awareness programmes held</span><SuggestInput maxLength={300} placeholder="2 sessions: March and September" value={workshops} onChange={setWorkshops} suggestions={[]} /></label>
+            <label className="block"><span className="ui-label">Nature of action taken</span><textarea className="ui-input w-full" rows={3} maxLength={1000} value={action} onChange={(e) => setAction(e.target.value)} /></label>
+            <p className="ui-caption">Counts only: no names or case numbers. File it with the District Officer by {day(r.dueOn)}.</p>
           </>
         )}
       </div>

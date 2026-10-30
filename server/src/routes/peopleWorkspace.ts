@@ -34,7 +34,9 @@ peopleWorkspaceRouter.use(path, async (req, res, next) => {
 });
 peopleWorkspaceRouter.get(path, async (req, res) => {
   const { accountId, orgId } = req.tenant!;
-  const rows = await peoplePrisma.peopleRecord.findMany({ where: { accountId, orgId, kind: req.params.kind, ...recordScope(await teamScope(req)) }, orderBy: { updatedAt: 'desc' } });
+  /* `employeeId`: one person's records (their assets on the employee record), still inside the caller's team. */
+  const one = typeof req.query.employeeId === 'string' && req.query.employeeId ? { employeeId: req.query.employeeId } : {};
+  const rows = await peoplePrisma.peopleRecord.findMany({ where: { accountId, orgId, kind: req.params.kind, ...one, ...recordScope(await teamScope(req)) }, orderBy: { updatedAt: 'desc' } });
   res.json({ records: rows });
 });
 async function related(accountId: string, orgId: string, kind: WorkspaceKind, body: ReturnType<typeof parseRecord>) {

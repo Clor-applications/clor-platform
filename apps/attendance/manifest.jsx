@@ -92,7 +92,8 @@ const DataHealth = screen('DataHealth');
 const PayrollReadiness = screen('PayrollReadiness');
 const LifecycleTasks = screen('LifecycleTasks');
 const JourneySteps = screen('JourneySteps');
-const ComplianceCalendar = screen('ComplianceCalendar');
+/* The old calendar retired into People's Compliance (People audit gap 10): one place for deadlines, owners and proof. */
+const ComplianceCalendar = lazy(() => import('../people/src/screens/Compliance'));
 const RecycleBin = screen('RecycleBin');
 const DeviceLogs = screen('DeviceLogs');
 const AttendanceReports = screen('AttendanceReports');
@@ -322,8 +323,8 @@ export const attendanceApp = {
     { key: 'leaveCalendar', label: 'Leave Calendar', icon: CalendarDays, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveBalances', label: 'Leave Balances', icon: Scale, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRegister', label: 'Leave Register', icon: Grid3x3, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    /* People's simple mode hides the same three Time & Leave screens here (services/features.ts peopleDetailed). */
-    { key: 'standIns', label: 'Delegates', icon: Users, permission: 'ATTENDANCE::Leave Requests::VIEW', feature: 'peopleDetailed' },
+    /* Delegates, Leave Year End and Request Types show in simple mode too, as in People (People audit 30 Oct 2026, gap 4). */
+    { key: 'standIns', label: 'Delegates', icon: Users, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'overtime', label: 'Overtime & Comp-Off', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'confirmations', label: 'Employee Confirmations', icon: BadgeCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'monthClose', label: 'Month Close', icon: Lock, permission: 'ATTENDANCE::Attendance Records::VIEW' },
@@ -353,8 +354,8 @@ export const attendanceApp = {
     /* Days off for anyone with no shift; with shifts, the shift decides (TIME-LEAVE-DECISIONS.md M2). */
     { key: 'workingWeek', label: 'Working Week', icon: CalendarOff, permission: 'ATTENDANCE::Leave Types::VIEW' },
     { key: 'holidays', label: 'Holidays', icon: CalendarDays, permission: 'ATTENDANCE::Holidays::VIEW' },
-    { key: 'leaveYearEnd', label: 'Leave Year End', icon: ClipboardCheck, permission: 'ATTENDANCE::Leave Requests::EDIT', feature: 'peopleDetailed' },
-    { key: 'requestRules', label: 'Attendance Request Types', icon: Gavel, permission: 'ATTENDANCE::Attendance Requests::APPROVE', feature: 'peopleDetailed' },
+    { key: 'leaveYearEnd', label: 'Leave Year End', icon: ClipboardCheck, permission: 'ATTENDANCE::Leave Requests::EDIT' },
+    { key: 'requestRules', label: 'Attendance Request Types', icon: Gavel, permission: 'ATTENDANCE::Attendance Requests::APPROVE' },
     { key: 'integrations', label: 'Integrations', icon: Plug, permission: 'ATTENDANCE::Attendance Integrations::VIEW' },
     /* The same SSO set-up as Accounting's Settings → Single Sign-On: one per company, for every CLOR app. */
     { key: 'sso', label: 'Users & Security', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },
@@ -364,7 +365,7 @@ export const attendanceApp = {
     /* LX-07: shared screen; the server lets only the company's owner ask or cancel. */
     { key: 'closeCompany', label: 'Close Company', icon: Lock, permission: 'SETTINGS::Company data::VIEW' },
     /* HR research Phase 2: statutory and company deadlines with owners and evidence. */
-    { key: 'complianceCalendar', label: 'Compliance Calendar', icon: CalendarCheck, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'complianceCalendar', label: 'Compliance', icon: CalendarCheck, permission: 'PEOPLE::Employees::VIEW' },
     /* HR research: joining and leaving checklists. */
     /* Joining & Leaving tasks and steps: the same screens People shows (JOINING-LEAVING-DECISIONS.md). */
     { key: 'checklists', label: 'Joining & Leaving Tasks', icon: ClipboardCheck, permission: 'PEOPLE::Employees::VIEW' },

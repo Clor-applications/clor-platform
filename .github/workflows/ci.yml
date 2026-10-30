@@ -14,10 +14,11 @@ on:
 
 # A newer push replaces the run in progress, on a pull request and on main
 # alike: only the latest commit's result matters (the nightly run covers any
-# commit a newer one replaced). The nightly run is never cancelled.
+# commit a newer one replaced). The nightly run and a run started by hand
+# (the release check on a chosen commit) are never cancelled.
 concurrency:
-  group: ci-${{ github.ref }}-${{ github.event_name == 'schedule' && 'nightly' || 'push' }}
-  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+  group: ci-${{ github.ref }}-${{ github.event_name == 'schedule' && 'nightly' || github.event_name == 'workflow_dispatch' && format('manual-{0}', github.run_id) || 'push' }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
 
 jobs:
   verify:
@@ -94,6 +95,15 @@ jobs:
       - name: Route manifest gate
         run: node tenant-platform-upgrade-2026-10-23/scripts/inventory-routes.mjs --check
 
+      # The web suite (vitest at the repository root: Accounting, People,
+      # Payroll and the shared packages, ~1,800 tests in jsdom). About four minutes
+      # on two threads and no database, so it runs on every pull request. It
+      # ran nowhere before 30 Oct 2026 and 53 tests had rotted unseen.
+      # Two threads, not the config's four: the runners share the Mac with
+      # the server shards. No retries — a flaky test is fixed, not re-run.
+      - name: Web tests
+        run: npm run test:web -- --poolOptions.threads.maxThreads=2
+
       - name: Build frontend
         run: npm run build
 
@@ -105,7 +115,7 @@ jobs:
   # ~32 minutes as one job, ~11 as three side by side.
   #
   # Not on pull requests (30 Oct 2026): a pull request gets the quick checks
-  # in `verify` (lint, schema, typecheck, build, minutes); the server suite
+  # in `verify` (lint, schema, typecheck, web tests, build, minutes); the server suite
   # runs after merge on main, nightly, by hand, or on a pull request labelled
   # `full-tests`. Three Mac runners could not keep up with a full suite per
   # pull request.

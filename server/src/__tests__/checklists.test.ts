@@ -30,7 +30,7 @@ beforeAll(async () => {
 
 
 /* Leaving takes effect once the last day has passed: dates relative to today keep these tests true on any day (two days back clears the IST/UTC boundary). */
-const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+const day = (n: number) => new Date(Date.now() + 330 * 60_000 + n * 86_400_000).toISOString().slice(0, 10); // India's date, as the server counts it
 const LAST_DAY = day(-2);
 const REJOIN = day(1);
 const plusDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);

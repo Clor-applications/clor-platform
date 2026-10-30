@@ -1952,10 +1952,18 @@ model Obligation {
   title           String
   dueOn           String
   ownerUserId     String?
-  /// UPCOMING | DUE | OVERDUE | DONE | CHECKED
+  /// UPCOMING | DUE | OVERDUE | DONE | CHECKED | NOT_APPLICABLE
   status          String    @default("UPCOMING")
   proofDocIds     Json
   note            String?
+  /// Where it came from: RULE (the library), STATUTORY (PF, ESIC, TDS, PT… from Payroll's settings),
+  /// REGISTRATION (a work site's registration running out) or OWN (a deadline the company added).
+  source          String    @default("RULE")
+  /// An owner outside CLOR ("Our CA, Mehta & Co"), when there is no user to name.
+  ownerName       String?
+  /// The challan, acknowledgement or receipt number.
+  reference       String?
+  createdByUserId String?
   dueToldAt       DateTime?
   doneAt          DateTime?
   doneByUserId    String?
@@ -1966,6 +1974,28 @@ model Obligation {
 
   @@unique([orgId, ruleId, establishmentId, period])
   @@index([orgId, status, dueOn])
+}
+
+/// A file that proves an obligation was met: the challan, the filing receipt, the certificate.
+/// Several per obligation; the bytes move to object storage like every other People file.
+model ObligationProof {
+  id               String   @id @default(cuid())
+  accountId        String
+  orgId            String
+  obligationId     String
+  name             String
+  mime             String
+  size             Int      @default(0)
+  data             Bytes
+  /// R2 plan: where the bytes are when they are not in `data` (then empty). Set by utils/peoplePrisma.ts.
+  storageKey       String?
+  uploadedByUserId String?
+  createdAt        DateTime @default(now())
+  /// Taken off the obligation (never erased): when and by whom.
+  removedAt        DateTime?
+  removedByUserId  String?
+
+  @@index([orgId, obligationId])
 }
 
 /// A Health check item put aside until a date, with the reason (HLTH-03). It comes back on its date; the history stays.

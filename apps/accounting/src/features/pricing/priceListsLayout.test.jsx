@@ -37,18 +37,21 @@ describe('Price Lists, laid out like every other list', () => {
     expect(screen.getByLabelText(/Search price lists/i)).toBeTruthy();
   });
 
-  it('carries five figures across the top', () => {
-    view();
-    expect(screen.getByRole('region', { name: /Summary/i }).children).toHaveLength(5);
-  });
+  /*
+   * The two figure-row tests are retired (30 Oct 2026): Price Lists sits on
+   * the masters layout — status in the header, no figure row — like Customers
+   * and the other masters lists, and has since the import (00f6a61a). The
+   * "Pricing nothing" figure they read never shipped in this repository. The
+   * counts live in the status dropdown instead. Whether the figure comes back
+   * is pending the owner (DESIGN.md decisions log, 2026-10-30).
+   */
+  it.todo('counts a list that prices nothing, which is the one worth finding');
 
-  it('counts a list that prices nothing, which is the one worth finding', () => {
-    // Wholesale has no rates: every invoice quietly falls back to the item's
-    // own price and says nothing about it.
+  it('counts each status in the dropdown, over what search left standing', () => {
     view();
-    const summary = screen.getByRole('region', { name: /Summary/i });
-    const card = [...summary.children].find((c) => c.textContent.includes('Pricing nothing'));
-    expect(card.textContent).toMatch(/1/);
+    const options = [...screen.getByRole('combobox', { name: 'Price list status' }).querySelectorAll('option')].map((o) => o.textContent);
+    /* Wholesale ran to 31 March, so it is expired whatever today is after that. */
+    expect(options).toEqual(['All (2)', 'Active (1)', 'Inactive (0)', 'Expired (1)']);
   });
 
   it('keeps the status filter in the header and export behind More', () => {
