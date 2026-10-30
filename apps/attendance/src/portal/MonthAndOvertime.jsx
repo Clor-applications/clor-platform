@@ -69,7 +69,7 @@ export function MonthReview({ guard }) {
         <input type="month" className="ui-input !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => { setMonth(e.target.value || lastMonth()); setMessage(null); setDisputing(false); setAllShown(false); }} aria-label="Month to check" />
       </div>
       <LoadFailed message={error} onRetry={load} />
-      {!data ? (error ? null : <p className="ui-caption">Loading…</p>) : (
+      {!data ? (error ? null : <p className="ui-caption">Loading…</p>) : !s ? <p className="ui-caption">Nothing recorded for this month yet.</p> : (
         <>
           <dl className="grid grid-cols-3 gap-2 text-center">
             {[['Payable days', s.payableDays], ['Loss of pay', s.lossOfPayDays], ['Present', s.present], ['Leave', s.leave], ['Absent', s.absent], ['Overtime', hm(s.approvedOvertimeMinutes)]].map(([k, v]) => (
