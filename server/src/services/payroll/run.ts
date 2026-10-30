@@ -942,12 +942,29 @@ export async function runStale(orgId: string, run: { id: string; periodId: strin
   /* Somebody put in or taken out since: the payslips are not for the people in it. */
   const slipFor = new Set(slips.map((x) => x.employeeId));
   const peopleChanged = ids.length !== slipFor.size || ids.some((id) => !slipFor.has(id));
-  const [adjustments, inputs, assignments, profiles, settings] = await Promise.all([
-    payrollPrisma.payrollAdjustment.count({ where: { orgId, employeeId: { in: ids }, updatedAt: { gt: at }, OR: [{ periodId: run.periodId }, { carriedByRunId: { not: null } }] } }),
-    payrollPrisma.payrollInput.count({ where: { orgId, runId: run.id, updatedAt: { gt: at } } }),
-    payrollPrisma.salaryAssignment.count({ where: { orgId, employeeId: { in: ids }, updatedAt: { gt: at } } }),
-    payrollPrisma.employeePayrollProfile.count({ where: { orgId, employeeId: { in: ids }, updatedAt: { gt: at } } }),
-    payrollPrisma.payrollSetting.count({ where: { orgId, updatedAt: { gt: at } } }),
+  const structureIds = (await payrollPrisma.salaryAssignment.findMany({ where: { orgId, employeeId: { in: ids }, status: { not: 'CANCELLED' } }, select: { structureId: true } })).map((a) => a.structureId);
+  const componentIds = (await payrollPrisma.salaryStructureComponent.findMany({ where: { structureId: { in: structureIds } }, select: { componentId: true } })).map((x) => x.componentId);
+  const since = { updatedAt: { gt: at } };
+  const [adjustments, inputs, assignments, profiles, settings, loans, instalments, declarations, statutory, structures] = await Promise.all([
+    /* A draft is not taken by a calculation, so changing one changes nothing here. */
+    payrollPrisma.payrollAdjustment.count({ where: { orgId, employeeId: { in: ids }, status: { not: 'DRAFT' }, ...since, OR: [{ periodId: run.periodId }, { carriedByRunId: { not: null } }] } }),
+    payrollPrisma.payrollInput.count({ where: { orgId, runId: run.id, ...since } }),
+    payrollPrisma.salaryAssignment.count({ where: { orgId, employeeId: { in: ids }, ...since } }),
+    payrollPrisma.employeePayrollProfile.count({ where: { orgId, employeeId: { in: ids }, ...since } }),
+    payrollPrisma.payrollSetting.count({ where: { orgId, ...since } }),
+    payrollPrisma.payrollLoan.count({ where: { orgId, employeeId: { in: ids }, ...since } }),
+    payrollPrisma.payrollLoanInstallment.count({ where: { orgId, loan: { employeeId: { in: ids } }, ...since } }),
+    payrollPrisma.taxDeclaration.count({ where: { orgId, employeeId: { in: ids }, ...since } }),
+    Promise.all([
+      payrollPrisma.statutoryScheme.count({ where: { orgId, ...since } }),
+      payrollPrisma.statutoryRule.count({ where: { orgId, ...since } }),
+      payrollPrisma.employeeStatutoryConfig.count({ where: { orgId, employeeId: { in: ids }, ...since } }),
+    ]).then((n) => n.reduce((t, x) => t + x, 0)),
+    Promise.all([
+      payrollPrisma.salaryStructure.count({ where: { orgId, id: { in: structureIds }, ...since } }),
+      payrollPrisma.salaryStructureComponent.count({ where: { structureId: { in: structureIds }, ...since } }),
+      payrollPrisma.salaryComponent.count({ where: { orgId, id: { in: componentIds }, ...since } }),
+    ]).then((n) => n.reduce((t, x) => t + x, 0)),
   ]);
   const what = [
     adjustments ? 'adjustments' : '',
@@ -956,6 +973,10 @@ export async function runStale(orgId: string, run: { id: string; periodId: strin
     assignments ? 'salaries' : '',
     profiles ? 'payroll details' : '',
     settings ? 'payroll settings' : '',
+    loans || instalments ? 'loans' : '',
+    declarations ? 'tax declarations' : '',
+    statutory ? 'PF, ESI, tax or PT rules' : '',
+    structures ? 'salary structure or components' : '',
   ].filter(Boolean);
   return what.length ? `Changed since it was calculated: ${what.join(', ')}. Calculate again before sending it on.` : null;
 }

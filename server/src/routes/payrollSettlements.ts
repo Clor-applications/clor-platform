@@ -15,7 +15,7 @@ import { getAuthPolicy } from '../services/policy.js';
 import { ownRecordRefusal, ownWorkRefusal, subjectUserIds } from '../services/makerChecker.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE } from '../services/people/guards.js';
 import { teamScope } from '../services/people/scope.js';
-import { SourcesChangedError, closePayrollSources, closePeopleSources, keepSources, settlementHold, settlementHolds, staleSources } from '../services/payroll/finalSettlementSources.js';
+import { SourcesChangedError, closePayrollSources, closePeopleSources, keepSources, settlementHold, settlementHolds, staleSources, withChainRoots } from '../services/payroll/finalSettlementSources.js';
 import { releaseHold, AbsenceError } from '../services/people/absconding.js';
 
 /**
@@ -252,11 +252,13 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/paid', APPRO
   const reference = req.body?.reference ? String(req.body.reference).trim().slice(0, 120) : null;
   /* Paid once: the move from approved and Payroll's own records (loans, carried deductions) together. */
   let closed: string[] | null;
+  /* Advance lines name the recovery they join, whose starting figure takes the line in the same transaction (recoveryChain.ts). */
+  const payLines = await withChainRoots(row.orgId, lines);
   try {
     closed = await payrollPrisma.$transaction(async (tx) => {
       const moved = await tx.finalSettlement.updateMany({ where: { id: row.id, status: 'APPROVED' }, data: { status: 'PAID', paidAt: new Date(), paidReference: reference } });
       if (!moved.count) return null;
-      return closePayrollSources(tx, row.orgId, row.id, lines);
+      return closePayrollSources(tx, row.orgId, row.id, payLines);
     });
   } catch (e) {
     /* Moved between the check and the payment: nothing was paid or closed. */

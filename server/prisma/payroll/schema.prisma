@@ -563,6 +563,14 @@ model PayrollAdjustment {
   carriedFromId  String?
   carriedByRunId String?
 
+  /// For a recovery People sends (`advance-recover:`), on its first row:
+  /// what the advance had already recovered when it was sent, plus what a
+  /// full and final took of it since. People's recovered is this plus what
+  /// the chain has taken, its "being recovered" what the chain still holds
+  /// open; whatever is cut or cancelled is open again. Null on rows made
+  /// before 31 Oct 2026, worked out once before their first change.
+  recoveryBase Decimal?
+
   approvedByUserId String?
   approvedAt       DateTime?
 

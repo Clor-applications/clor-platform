@@ -31,13 +31,15 @@ export async function payrollOn(accountId: string, orgId: string) {
 }
 
 /** The open month containing today, or else the next one to open. */
-export async function periodToPayIn(orgId: string, today = todayIst()) {
+export async function periodToPayIn(orgId: string, today = todayIst(), employeeId?: string) {
   /*
    * The month in progress, else the next. Never one whose payroll is already
    * approved or paid: nothing would take what is sent there, and the money
    * would wait, unseen, in a closed month (QA of #82, F5).
    */
-  const done = await payrollPrisma.payrollRun.findMany({ where: { orgId, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] } }, select: { periodId: true } });
+  /* Only the person's own payroll counts: a run for the company as a whole, or for their pay group, not another group's (re-review of #82). */
+  const group = employeeId ? (await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId }, select: { payGroupId: true } }))?.payGroupId ?? null : null;
+  const done = await payrollPrisma.payrollRun.findMany({ where: { orgId, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] }, OR: [{ payGroupId: null }, ...(group ? [{ payGroupId: group }] : [])] }, select: { periodId: true } });
   const open = { orgId, isLocked: false, status: 'OPEN', id: { notIn: [...new Set(done.map((r) => r.periodId))] } };
   return (await payrollPrisma.payrollPeriod.findFirst({ where: { ...open, startDate: { lte: today }, endDate: { gte: today } }, orderBy: { startDate: 'asc' }, select: { id: true, name: true } }))
     || payrollPrisma.payrollPeriod.findFirst({ where: { ...open, startDate: { gt: today } }, orderBy: { startDate: 'asc' }, select: { id: true, name: true } });
@@ -84,11 +86,11 @@ export async function adjustmentState(orgId: string, id: string) {
  * A key ending in `:<period>` gets the open month's id in its place, so one
  * key is one month's line and a retry finds it.
  */
-export async function draftAdjustment(o: { accountId: string; orgId: string; userId: string; employeeId: string; key: string; type: 'EARNING' | 'DEDUCTION'; amount: number; reason: string }): Promise<Handed> {
+export async function draftAdjustment(o: { accountId: string; orgId: string; userId: string; employeeId: string; key: string; type: 'EARNING' | 'DEDUCTION'; amount: number; reason: string; recoveryBase?: number }): Promise<Handed> {
   if (!(await payrollOn(o.accountId, o.orgId))) return { sent: false, why: 'This company does not run payroll in CLOR: pay it by hand and mark it paid now.' };
   const [component, period, person] = await Promise.all([
     o.type === 'EARNING' ? reimbursementComponent(o.orgId) : componentFor(o.orgId, 'DEDUCTION', ['ADVREC', 'ADVANCE'], ['ADVANCE', 'RECOVER']),
-    periodToPayIn(o.orgId),
+    periodToPayIn(o.orgId, undefined, o.employeeId),
     peoplePrisma.employee.findFirst({ where: { orgId: o.orgId, id: o.employeeId }, select: { branchId: true } }),
   ]);
   if (!component) {
@@ -101,7 +103,8 @@ export async function draftAdjustment(o: { accountId: string; orgId: string; use
   const made = await forLiveEmployee(o.orgId, o.employeeId, async (tx) => {
     const prior = await tx.payrollAdjustment.findUnique({ where: { id } });
     if (prior && prior.status !== 'CANCELLED') return prior;
-    const data = { componentId: component.id, periodId: period.id, type: o.type, amount: round2(o.amount), reason: o.reason.slice(0, 240), reference: id, status: 'DRAFT', approvedAt: null, approvedByUserId: null, consumedByRunId: null };
+    /* A recovery records what the advance had already recovered (recoveryChain.ts), so People's figures come from the rows alone. */
+    const data = { componentId: component.id, periodId: period.id, type: o.type, amount: round2(o.amount), reason: o.reason.slice(0, 240), reference: id, status: 'DRAFT', approvedAt: null, approvedByUserId: null, consumedByRunId: null, ...(o.recoveryBase !== undefined ? { recoveryBase: round2(o.recoveryBase) } : {}) };
     if (prior) return tx.payrollAdjustment.update({ where: { id }, data });
     return tx.payrollAdjustment.create({ data: { id, accountId: o.accountId, orgId: o.orgId, branchId: person?.branchId || null, employeeId: o.employeeId, createdByUserId: o.userId, ...data } });
   });
@@ -162,7 +165,7 @@ export async function payCap(orgId: string, employeeId: string) {
     approximate = true;
   }
   if (!(wages > 0)) return null;
-  const period = await periodToPayIn(orgId);
+  const period = await periodToPayIn(orgId, undefined, employeeId);
   const [loans, pending] = await Promise.all([
     payrollPrisma.payrollLoan.findMany({ where: { orgId, employeeId, status: { in: ['ACTIVE', 'DRAFT', 'APPROVED'] } }, select: { status: true, principal: true, installmentCount: true, installmentAmount: true, interestRate: true, outstandingBalance: true } }),
     /* This month's deductions, and what earlier runs carried and nobody has taken yet: the next payslip takes those first. */
@@ -205,7 +208,7 @@ export async function makeSalaryAdvanceLoan(o: { accountId: string; orgId: strin
   if (existing) return { made: false, why: `Payroll cancelled loan ${existing.number} for this advance. Ask the person to ask again.` };
   const [component, period, person] = await Promise.all([
     componentFor(o.orgId, 'DEDUCTION', ['SALADV', 'LOAN'], ['ADVANCE', 'LOAN']),
-    periodToPayIn(o.orgId),
+    periodToPayIn(o.orgId, undefined, o.employeeId),
     peoplePrisma.employee.findFirst({ where: { orgId: o.orgId, id: o.employeeId }, select: { branchId: true } }),
   ]);
   if (!component) return { made: false, why: 'Payroll has no deduction to recover it on. Add one in Payroll → Salary components (a deduction named "Salary advance"), then send it again.' };

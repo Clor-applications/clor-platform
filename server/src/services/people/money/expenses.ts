@@ -242,7 +242,7 @@ async function syncPayroll(orgId: string, claims: Array<{ id: string; status: st
       changed = (await peoplePrisma.expenseClaim.updateMany({ where: { id: c.id, orgId, status: 'WITH_SALARY' }, data: { status: 'APPROVED', payMode: null, paidOn: null, paidByUserId: null, payrollAdjustmentId: null, payrollPeriodName: null } })).count > 0 || changed;
     }
   }
-  for (const a of advances.filter((x) => num(x.recoveringAmount) > 0 && liveLink(x.payrollAdjustmentId))) {
+  for (const a of advances.filter((x) => liveLink(x.payrollAdjustmentId) && (num(x.recoveringAmount) > 0 || (x as any).status === 'PAID'))) {
     /*
      * Counted as recovered only as Payroll takes it (a payslip or a full and
      * final), never on approval alone; a recovery the share of wages split
@@ -253,8 +253,11 @@ async function syncPayroll(orgId: string, claims: Array<{ id: string; status: st
       await lock(tx, `people-money-advance-row:${a.id}`);
       const row = await tx.employeeAdvance.findFirst({ where: { id: a.id, orgId } });
       const link = liveLink(row?.payrollAdjustmentId);
-      if (!row || num(row.recoveringAmount) <= 0 || !link) return false;
-      const next = foldRecovery(row, await recoveryChain(orgId, link));
+      if (!row || !link) return false;
+      const chain = await recoveryChain(orgId, link);
+      /* An older chain is read only while something is being taken; one with its starting figure can be read any time (a run cancelled after it was counted). */
+      if (num(row.recoveringAmount) <= 0 && (chain?.base == null || row.status !== 'PAID')) return false;
+      const next = foldRecovery(row, chain);
       if (next.recovered === round2(num(row.recoveredAmount)) && next.recovering === round2(num(row.recoveringAmount))) return false;
       const left = advanceOpen({ ...row, recoveredAmount: next.recovered, recoveringAmount: next.recovering });
       await tx.employeeAdvance.update({ where: { id: row.id }, data: { recoveredAmount: next.recovered, recoveringAmount: next.recovering, ...(left <= 0 && next.recovering <= 0 && row.status === 'PAID' ? { status: 'CLOSED', closedAt: new Date() } : {}) } });
@@ -798,7 +801,7 @@ export async function closeAdvance(staff: Staff, advanceId: string, how: 'RETURN
       await tx.employeeAdvance.update({ where: { id: a.id }, data: { returnedAmount: round2(num(a.returnedAmount) + amount), ...(left <= 0 && num(a.recoveringAmount) <= 0 ? { status: 'CLOSED', closedAt: new Date() } : {}) } });
       return { returned: amount, left };
     }
-    const period = await periodToPayIn(staff.orgId);
+    const period = await periodToPayIn(staff.orgId, undefined, a.employeeId);
     const already = period ? (await adjustmentState(staff.orgId, `advance-recover:${a.id}:${period.id}`)).status : 'GONE';
     if (period && already !== 'GONE' && already !== 'CANCELLED') {
       throw new MoneyError(`Some of this advance already comes off ${period.name}'s pay. Take the rest next month, or ask for it back.`, 409, 'RECOVERY_WAITING');
@@ -807,7 +810,7 @@ export async function closeAdvance(staff: Staff, advanceId: string, how: 'RETURN
     const cap = await payCap(staff.orgId, a.employeeId);
     const amount = cap ? Math.min(open, cap.room) : open;
     if (amount <= 0) throw new MoneyError("Nothing more can come off this month's pay: deductions already reach half of it. Ask for it back, or try next month.", 409, 'OVER_CAP');
-    const handed = await draftAdjustment({ accountId: staff.accountId, orgId: staff.orgId, userId: staff.userId, employeeId: a.employeeId, key: `advance-recover:${a.id}:<period>`, type: 'DEDUCTION', amount, reason: `Advance ${a.number} not used: ${a.purpose}` });
+    const handed = await draftAdjustment({ accountId: staff.accountId, orgId: staff.orgId, userId: staff.userId, employeeId: a.employeeId, key: `advance-recover:${a.id}:<period>`, type: 'DEDUCTION', amount, reason: `Advance ${a.number} not used: ${a.purpose}`, recoveryBase: num(a.recoveredAmount) });
     if (!handed.sent) throw new MoneyError(handed.why, 409, 'PAYROLL_NOT_READY');
     /* Counted as recovered as Payroll takes it (syncPayroll); until then it is "being taken from salary". */
     await tx.employeeAdvance.update({ where: { id: a.id }, data: { recoveringAmount: amount, payrollAdjustmentId: handed.adjustmentId } });

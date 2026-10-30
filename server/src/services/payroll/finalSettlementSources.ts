@@ -2,7 +2,7 @@ import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { round2 } from '../../utils/money.js';
 import { advanceOpen } from '../people/money/expenses.js';
-import { foldRecovery, liveLink, recoveryChain } from './recoveryChain.js';
+import { ensureRecoveryBase, foldRecovery, liveLink, recoveryChain } from './recoveryChain.js';
 import type { SettlementLine } from './finalSettlement.js';
 
 /**
@@ -57,8 +57,10 @@ export async function settlementHolds(orgId: string, employeeIds: string[]) {
 /** What an advance owes now, as a full and final line would say: what is open, plus a recovery still a draft in Payroll (which settling cancels). */
 export async function advanceOwed(orgId: string, a: any): Promise<{ owed: number; draft: { id: string; amount: number } | null }> {
   const link = liveLink(a.payrollAdjustmentId);
-  if (!(Number(a.recoveringAmount) > 0) || !link) return { owed: advanceOpen(a), draft: null };
+  if (!link) return { owed: advanceOpen(a), draft: null };
   const chain = await recoveryChain(orgId, link);
+  /* An older chain counts only while something is being taken; one with its starting figure always reads true. */
+  if (!(Number(a.recoveringAmount) > 0) && chain?.base == null) return { owed: advanceOpen(a), draft: null };
   if (chain?.root.status === 'DRAFT') return { owed: round2(advanceOpen(a) + Number(a.recoveringAmount)), draft: { id: link, amount: round2(Number(a.recoveringAmount)) } };
   /* What Payroll took is recovered; what it still holds open is its own line (below). */
   const f = foldRecovery(a, chain);
@@ -222,6 +224,28 @@ export async function staleSources(orgId: string, lines: SettlementLine[]) {
   return out;
 }
 
+/**
+ * Before paying: each advance line names the recovery live in Payroll it
+ * joins (`source.chainRoot`), whose starting figure is recorded first if it
+ * is an older one. Read from People, outside the payment's transaction.
+ */
+export async function withChainRoots(orgId: string, lines: SettlementLine[]): Promise<SettlementLine[]> {
+  const out: SettlementLine[] = [];
+  for (const l of lines) {
+    if (l.source?.type === 'ADVANCE' && l.kind === 'DEDUCTION') {
+      const a = await peoplePrisma.employeeAdvance.findFirst({ where: { orgId, id: l.source.id }, select: { payrollAdjustmentId: true } });
+      const link = liveLink(a?.payrollAdjustmentId);
+      if (link) {
+        await ensureRecoveryBase(orgId, link);
+        const root = await payrollPrisma.payrollAdjustment.findFirst({ where: { orgId, id: link }, select: { recoveryBase: true, status: true } });
+        if (root?.recoveryBase != null && root.status !== 'DRAFT') { out.push({ ...l, source: { ...l.source, chainRoot: link } } as SettlementLine); continue; }
+      }
+    }
+    out.push(l);
+  }
+  return out;
+}
+
 export class SourcesChangedError extends Error {
   status = 409;
   code = 'SOURCES_CHANGED';
@@ -247,6 +271,16 @@ export async function closePayrollSources(tx: any, orgId: string, settlementId: 
       const n = await tx.payrollAdjustment.updateMany({ where: { orgId, id: l.source.draftId, status: 'DRAFT' }, data: { status: 'CANCELLED', reason: `Replaced by full and final settlement ${settlementId}`.slice(0, 240) } });
       if (!n.count) throw new SourcesChangedError('A draft in Payroll this settlement replaces has changed since. Cancel the settlement and work it out again.');
       done.push(`DRAFT:${l.source.draftId}`);
+    }
+    /*
+     * An advance whose recovery is live in Payroll with its starting figure:
+     * the settlement's line is recovered from final pay, so it joins that
+     * figure here, in the transaction that marks the settlement paid, once.
+     * People then reads the chain (closePeopleSources) and adds nothing twice.
+     */
+    if (l.source.type === 'ADVANCE' && l.kind === 'DEDUCTION' && l.source.chainRoot) {
+      await tx.payrollAdjustment.updateMany({ where: { orgId, id: l.source.chainRoot, recoveryBase: { not: null } }, data: { recoveryBase: { increment: round2(l.amount) } } });
+      done.push(`ADVANCE_BASE:${l.source.chainRoot}`);
     }
     if (l.source.type === 'LOAN' && l.kind === 'DEDUCTION') {
       const pending = await tx.payrollLoanInstallment.findMany({ where: { orgId, loanId: l.source.id, status: 'PENDING' }, orderBy: { sequence: 'asc' } });
@@ -359,17 +393,21 @@ export async function closePeopleSources(o: { orgId: string; userId: string; set
       let recovered = round2(Number(a.recoveredAmount));
       let recovering = round2(Number(a.recoveringAmount));
       const link = liveLink(a.payrollAdjustmentId);
-      if (recovering > 0 && link) {
+      /* With the chain's starting figure, the settlement's line is already in it (closePayrollSources): People's figures are the chain's. */
+      let based = false;
+      if (link) {
         let chain = await recoveryChain(o.orgId, link);
+        if (!(recovering > 0) && chain?.base == null) chain = null;
         /* A draft an older settlement's line folded in without naming it: replaced by the settlement, as before. */
         if (chain?.root.status === 'DRAFT' && line) {
           await payrollPrisma.payrollAdjustment.updateMany({ where: { orgId: o.orgId, id: link, status: 'DRAFT' }, data: { status: 'CANCELLED' } });
           chain = await recoveryChain(o.orgId, link);
         }
-        ({ recovered, recovering } = foldRecovery(a, chain));
+        if (chain) ({ recovered, recovering } = foldRecovery(a, chain));
+        based = chain?.base != null && chain.root.status !== 'DRAFT';
       }
       const apply = Boolean(line) && !isMine(a.payrollAdjustmentId);
-      if (apply) recovered = round2(recovered + Math.min(line!, Math.max(0, advanceOpen({ ...a, recoveredAmount: recovered, recoveringAmount: recovering }))));
+      if (apply && !based) recovered = round2(recovered + Math.min(line!, Math.max(0, advanceOpen({ ...a, recoveredAmount: recovered, recoveringAmount: recovering }))));
       /* Never overwrite a recovery still live in Payroll: it is kept after the marker. */
       const nextLink = apply ? (recovering > 0 && link ? `${marker}|${link}` : marker) : a.payrollAdjustmentId;
       const left = advanceOpen({ ...a, recoveredAmount: recovered, recoveringAmount: recovering });

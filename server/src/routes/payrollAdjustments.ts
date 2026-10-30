@@ -12,6 +12,7 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/pa
 import { valueEncashments } from '../services/attendance/leaveEncashment.js';
 import { forLiveEmployee } from '../services/payroll/employeeLock.js';
 import { recordAudit } from '../services/auditTrail.js';
+import { ensureRecoveryBase } from '../services/payroll/recoveryChain.js';
 
 /**
  * One-off earnings and deductions: a bonus, an arrear, a fine, a recovery.
@@ -285,6 +286,9 @@ payrollAdjustmentsRouter.put(
       }
     }
 
+    /* A recovery People sent, or the rest a payroll carried of one: its starting figure is recorded before its amount changes (recoveryChain.ts). */
+    const chainRow = existing.id.startsWith('advance-recover:') || Boolean(existing.carriedFromId) || Boolean(existing.reference?.startsWith('advance-recover:'));
+    if (chainRow) await ensureRecoveryBase(orgId, existing.id);
     const checked = await check(orgId, parsed.data, { carried: Boolean(correction) });
     if (!checked.ok) return res.status(checked.status).json({ error: checked.error, code: checked.code });
 
@@ -300,7 +304,12 @@ payrollAdjustmentsRouter.put(
         reason: correction
           ? `${existing.reason || 'Carried forward'}. Corrected from ₹${Number(existing.amount).toLocaleString('en-IN')} to ₹${parsed.data.amount.toLocaleString('en-IN')}: ${correction}`.slice(0, 240)
           : parsed.data.reason?.trim() || null,
-        reference: existing.id.startsWith('leave-encash:') ? existing.reference : parsed.data.reference?.trim() || null,
+        /*
+         * The reference ties a recovery's rows together (recoveryChain.ts):
+         * kept on encashments, People's recoveries and carried rows, and
+         * never cleared by a request that simply leaves it out.
+         */
+        reference: existing.id.startsWith('leave-encash:') || chainRow || parsed.data.reference === undefined ? existing.reference : parsed.data.reference?.trim() || null,
         /* Editing an approved adjustment sends it back for approval. The
            approval was of an amount, not of a row. */
         status: 'DRAFT',
@@ -370,6 +379,9 @@ payrollAdjustmentsRouter.post(
         code: 'ADJUSTMENT_CONSUMED',
       });
     }
+
+    /* Cancelling part of a recovery People sent: its starting figure first, so the cancelled amount is open again in People, once. */
+    if (existing.id.startsWith('advance-recover:') || existing.carriedFromId || existing.reference?.startsWith('advance-recover:')) await ensureRecoveryBase(orgId, existing.id);
 
     /* Money still owed by the person, carried forward: let go only with a reason, kept on the row and in the audit log. */
     if (existing.carriedByRunId) {

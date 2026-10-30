@@ -41,6 +41,8 @@ export type SettlementLine = {
     draftId?: string;
     /** The People advance a recovery row belongs to, closed with it. */
     advanceId?: string;
+    /** At payment only: the recovery live in Payroll an advance line joins (finalSettlementSources withChainRoots). */
+    chainRoot?: string;
   };
 };
 

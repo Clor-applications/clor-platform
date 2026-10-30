@@ -15,6 +15,8 @@ import { round2 } from '../../utils/money.js';
 
 export type Chain = {
   root: { id: string; status: string };
+  /** What the advance had recovered when this was sent (plus a full and final's line since); null on a chain made before 31 Oct 2026. */
+  base: number | null;
   taken: number;
   open: number;
   cancelled: number;
@@ -32,22 +34,33 @@ export function liveLink(link: string | null | undefined): string | null {
   return link;
 }
 
+const SELECT = { id: true, status: true, amount: true, reference: true, carriedFromId: true, recoveryBase: true } as const;
+
+/**
+ * Every row of a recovery, from its first: by the shared reference, and by
+ * `carriedFromId` from row to row, so a row whose reference was lost is
+ * still found.
+ */
 export async function recoveryChain(orgId: string, rootId: string, db: any = payrollPrisma): Promise<Chain | null> {
-  const root = await db.payrollAdjustment.findFirst({ where: { orgId, id: rootId }, select: { id: true, status: true, amount: true, reference: true, carriedFromId: true } });
+  const root = await db.payrollAdjustment.findFirst({ where: { orgId, id: rootId }, select: SELECT });
   if (!root) return null;
-  const all = root.reference
-    ? await db.payrollAdjustment.findMany({ where: { orgId, OR: [{ id: rootId }, { reference: root.reference }] }, select: { id: true, status: true, amount: true, carriedFromId: true } })
+  const byRef = root.reference
+    ? await db.payrollAdjustment.findMany({ where: { orgId, OR: [{ id: rootId }, { reference: root.reference }] }, select: SELECT })
     : [root];
-  const children = new Map<string, any[]>();
-  for (const r of all) if (r.carriedFromId) children.set(r.carriedFromId, [...(children.get(r.carriedFromId) || []), r]);
-  const seen = new Set<string>([root.id]);
-  const rows = [root];
-  for (let i = 0; i < rows.length; i += 1) {
-    for (const k of children.get(rows[i].id) || []) if (!seen.has(k.id)) { seen.add(k.id); rows.push(k); }
+  const seen = new Set<string>();
+  const rows: any[] = [];
+  const add = (r: any) => { if (!seen.has(r.id)) { seen.add(r.id); rows.push(r); } };
+  add(root);
+  const known = new Map<string, any[]>();
+  for (const r of byRef) if (r.carriedFromId) known.set(r.carriedFromId, [...(known.get(r.carriedFromId) || []), r]);
+  for (let i = 0; i < rows.length && i < 200; i += 1) {
+    const kids = known.get(rows[i].id) ?? (await db.payrollAdjustment.findMany({ where: { orgId, carriedFromId: rows[i].id }, select: SELECT }));
+    for (const k of kids) add(k);
   }
-  const sum = (s: string) => round2(rows.filter((r) => r.status === s).reduce((t, r) => t + Number(r.amount), 0));
+  const sum = (st: string) => round2(rows.filter((r) => r.status === st).reduce((t, r) => t + Number(r.amount), 0));
   return {
     root: { id: root.id, status: root.status },
+    base: root.recoveryBase == null ? null : round2(Number(root.recoveryBase)),
     taken: sum('CONSUMED'),
     open: sum('APPROVED'),
     cancelled: sum('CANCELLED'),
@@ -57,12 +70,19 @@ export async function recoveryChain(orgId: string, rootId: string, db: any = pay
 }
 
 /**
- * Where an advance stands against its chain. People's `recoveringAmount` is
- * what it sent and has not yet counted; what the chain has taken beyond what
- * was counted is now recovered, and what is still open in Payroll is still
- * "being taken from salary". Derived from the chain each time, so a
- * recalculation, a cancelled run or a second read moves nothing twice: a run
- * cancelled after its payslip was counted gives the amount back to open.
+ * Where an advance stands against its chain.
+ *
+ * With the chain's starting figure (every recovery sent since 31 Oct 2026):
+ * recovered is that figure plus what the chain has taken (a payslip, a full
+ * and final), and "being taken from salary" is what it still holds, approved
+ * or back for approval. Whatever was cut (edited down, corrected, cancelled)
+ * is in neither, so it is open again, owed by the person, and a full and
+ * final lists it. Worked out from the rows alone, so reading it twice, or a
+ * correction after a split, moves nothing twice (re-review of #82).
+ *
+ * Without it (an older chain), the figure is inferred from what People still
+ * shows as being taken: right only while the chain holds what was sent, which
+ * is why ensureRecoveryBase records it before the first change.
  */
 export function foldRecovery(row: { recoveredAmount: unknown; recoveringAmount: unknown }, chain: Chain | null) {
   const recovered = round2(Number(row.recoveredAmount) || 0);
@@ -71,13 +91,43 @@ export function foldRecovery(row: { recoveredAmount: unknown; recoveringAmount: 
   if (!chain) return { recovered, recovering: 0 };
   /* Not approved yet: unchanged. */
   if (chain.root.status === 'DRAFT') return { recovered, recovering };
-  const total = round2(chain.taken + chain.open + chain.cancelled);
-  /*
-   * What of the chain People already counted. Never below nothing: when
-   * Payroll edits a recovery down (₹5,000 sent, ₹3,000 kept), the chain holds
-   * less than was sent, and the ₹2,000 cut is not recovered. It goes back to
-   * open, owed by the person, and a full and final lists it (QA of #82, F1).
-   */
+  const holding = round2(chain.open + chain.draft);
+  if (chain.base != null) return { recovered: round2(chain.base + chain.taken), recovering: holding };
+  const total = round2(chain.taken + chain.open + chain.cancelled + chain.draft);
+  /* Never below nothing: a chain edited down holds less than was sent, and the cut is not recovered. */
   const counted = Math.max(0, round2(total - recovering));
-  return { recovered: Math.max(0, round2(recovered + chain.taken - counted)), recovering: chain.open };
+  return { recovered: Math.max(0, round2(recovered + chain.taken - counted)), recovering: holding };
+}
+
+/** The first row of the recovery a row belongs to, when it is one People sent. */
+export async function recoveryRootOf(orgId: string, rowId: string, db: any = payrollPrisma): Promise<string | null> {
+  let id: string | null = rowId;
+  for (let i = 0; id && i < 50; i += 1) {
+    const r: { id: string; carriedFromId: string | null; reference: string | null } | null = await db.payrollAdjustment.findFirst({ where: { orgId, id }, select: { id: true, carriedFromId: true, reference: true } });
+    if (!r) return null;
+    if (!r.carriedFromId) return r.id.startsWith('advance-recover:') ? r.id : r.reference?.startsWith('advance-recover:') ? r.reference : null;
+    id = r.carriedFromId;
+  }
+  return null;
+}
+
+/**
+ * Before a recovery's amounts change by hand (edited, corrected, cancelled):
+ * its starting figure, worked out once from People's advance while the chain
+ * still holds what was sent, and kept on its first row. A no-op when it is
+ * there already or the row is not a recovery People sent.
+ */
+export async function ensureRecoveryBase(orgId: string, rowId: string): Promise<void> {
+  const rootId = await recoveryRootOf(orgId, rowId);
+  if (!rootId) return;
+  const root = await payrollPrisma.payrollAdjustment.findFirst({ where: { orgId, id: rootId }, select: { recoveryBase: true, status: true } });
+  if (!root || root.recoveryBase != null || root.status === 'DRAFT') return;
+  const { peoplePrisma } = await import('../../utils/peoplePrisma.js');
+  const advances = await peoplePrisma.employeeAdvance.findMany({ where: { orgId, payrollAdjustmentId: { endsWith: rootId } }, select: { recoveredAmount: true, recoveringAmount: true, payrollAdjustmentId: true } });
+  const a = advances.find((x) => liveLink(x.payrollAdjustmentId) === rootId);
+  if (!a) return;
+  const chain = await recoveryChain(orgId, rootId);
+  if (!chain) return;
+  const f = foldRecovery(a, chain);
+  await payrollPrisma.payrollAdjustment.updateMany({ where: { orgId, id: rootId, recoveryBase: null }, data: { recoveryBase: Math.max(0, round2(f.recovered - chain.taken)) } });
 }
