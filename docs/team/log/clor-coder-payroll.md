@@ -1,5 +1,11 @@
 # clor-coder-payroll
 
+## 2026-10-31 10:40 IST — Payroll — re-review fixes for #82 (42b52a6e)
+- Did: editing or cancelling an adjustment writes only if its status and amount are still as read; one a payroll or a full and final took meanwhile is refused (409 ADJUSTMENT_CHANGED), never turned back to draft or cancelled. Sending a recovery from People re-reads Payroll's rows first, so a run cancelled since leaves the first recovery waiting and no second one goes out.
+- Evidence: 3 new tests in payrollQa82.test.ts (edit racing a consume, cancel racing a consume, second recovery after a cancelled run), each failed first. Server on 5434: 48 files, 607 passed. tsc clean.
+- Next: QA re-test.
+- Blocked on: nothing.
+
 ## 2026-10-31 10:05 IST — Payroll — re-review fixes for #82 (5a7645e6)
 - Did: a recovery's figures no longer depend on what People still shows: its first row keeps what the advance had recovered when it was sent (`recoveryBase`, migration 20261103100300_recovery_base), set by People's send, raised by a full and final's advance line in the payment transaction, and worked out once for older chains before their first change. People's recovered is that plus what the chain took; "being taken" is approved plus draft rows; anything cut is open again and on the F&F. The chain is also followed by carriedFromId, and a PUT never clears a reference. runStale now counts loans and instalments, tax declarations, statutory schemes/rules/configs, structures and components, and not draft adjustments. The month to pay in is skipped only for the person's own pay group.
 - Evidence: 5 new tests in payrollQa82.test.ts, each failed first (the reviewer's chain: 5,000/3,000 → corrected 5,000/1,000 open 2,000 → approved same → F&F 2,000 + 1,000 → paid 8,000 closed, retry unchanged). Server on 5434: 48 files, 604 passed. tsc clean. Browser at 1440 on 5211/4031: Ravi's split recovery corrected in Adjustments; People showed ₹5,000 taken, ₹1,000 waiting, ₹2,000 open; F&F lines ₹2,000 + ₹1,000; after Paid, ₹8,000 settled.

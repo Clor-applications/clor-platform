@@ -788,9 +788,23 @@ export async function payAdvance(staff: Staff, advanceId: string, input: { paidO
 export async function closeAdvance(staff: Staff, advanceId: string, how: 'RETURNED' | 'RECOVER', input: { amount?: unknown } = {}) {
   const out = await peoplePrisma.$transaction(async (tx) => {
     await lock(tx, `people-money-advance-row:${advanceId}`);
-    const a = await tx.employeeAdvance.findFirst({ where: { id: advanceId, orgId: staff.orgId } });
-    if (!a) throw new MoneyError('No such advance.', 404);
-    if (a.status !== 'PAID') throw new MoneyError('Only an advance that was paid and is still open can be settled.', 409, 'NOT_OPEN');
+    const stored = await tx.employeeAdvance.findFirst({ where: { id: advanceId, orgId: staff.orgId } });
+    if (!stored) throw new MoneyError('No such advance.', 404);
+    if (stored.status !== 'PAID') throw new MoneyError('Only an advance that was paid and is still open can be settled.', 409, 'NOT_OPEN');
+    /*
+     * Payroll's own rows first, not only what People last stored: a run
+     * cancelled since it was counted puts its recovery back to waiting, and
+     * a second one sent now would leave the first untracked (re-review of #82).
+     */
+    let a: typeof stored & { recoveredAmount: any; recoveringAmount: any } = stored;
+    const link = liveLink(stored.payrollAdjustmentId);
+    if (link) {
+      const chain = await recoveryChain(staff.orgId, link);
+      if (chain && (num(stored.recoveringAmount) > 0 || chain.base != null || chain.open + chain.draft > 0)) {
+        const f = foldRecovery(stored, chain);
+        a = { ...stored, recoveredAmount: f.recovered as any, recoveringAmount: f.recovering as any };
+      }
+    }
     if (how === 'RECOVER' && num(a.recoveringAmount) > 0) throw new MoneyError(`${inr(num(a.recoveringAmount))} of this advance is already waiting in Payroll. Approve or cancel it there first.`, 409, 'RECOVERY_WAITING');
     const open = advanceOpen(a);
     if (open <= 0) throw new MoneyError(num(a.recoveringAmount) > 0 ? 'The rest of this advance is already waiting in Payroll.' : 'Nothing is left on this advance.', 409, 'NOT_OPEN');

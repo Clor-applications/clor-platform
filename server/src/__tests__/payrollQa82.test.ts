@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, vi } from 'vitest';
 import request from 'supertest';
 
 /**
@@ -441,5 +441,72 @@ describe('re-review 5a7645e6: the month to pay in, by pay group', () => {
     await own(c, () => payrollPrisma.payrollRun.update({ where: { id: runA }, data: { status: 'APPROVED' } }));
     expect((await own(c, () => periodToPayIn(c.orgId, undefined, inA)))?.id).toBe(next);
     expect((await own(c, () => periodToPayIn(c.orgId, undefined, inB)))?.id).toBe(thisMonth);
+  }, 120_000);
+});
+
+/* Re-review of 42b52a6e: an edit or a cancel racing a payslip or a full and final that takes the row. */
+describe('re-review 42b52a6e: edit and cancel racing a consume', () => {
+  /** Taken by a payroll after the route read the row and before it writes. */
+  async function racing<T>(c: Ctx, id: string, delegate: any, method: string, fn: () => Promise<T>) {
+    const original = delegate[method].bind(delegate);
+    let done = false;
+    const spy = vi.spyOn(delegate, method).mockImplementation(async (args: any) => {
+      if (!done) {
+        done = true;
+        await own(c, () => payrollPrisma.payrollAdjustment.update({ where: { id }, data: { status: 'CONSUMED', consumedByRunId: 'run-elsewhere' } }));
+      }
+      return original(args);
+    });
+    try { return await fn(); } finally { spy.mockRestore(); }
+  }
+
+  it('an edit refuses, and the row stays taken', async () => {
+    const c = await makeOwner();
+    const r = await onePerson(c);
+    const id = `fine-${rnd()}`;
+    await adjustment(c, { id, employeeId: r.employeeId, componentId: r.fineId, periodId: r.periodId, amount: 500, status: 'APPROVED' });
+    /* check() reads the period after the row: the payroll takes it in between. */
+    const out = await racing(c, id, payrollPrisma.payrollPeriod, 'findFirst', () => api.put(c, `/adjustments/${id}`, { employeeId: r.employeeId, componentId: r.fineId, periodId: r.periodId, amount: 300, reason: 'Less' }));
+    expect(out.status).toBe(409);
+    expect(out.body.code).toBe('ADJUSTMENT_CHANGED');
+    expect(await adjOf(c, id)).toMatchObject({ status: 'CONSUMED', consumedByRunId: 'run-elsewhere' });
+    expect(Number((await adjOf(c, id)).amount)).toBe(500);
+  }, 120_000);
+
+  it('a cancel refuses, and the row stays taken', async () => {
+    const c = await makeOwner();
+    const employeeId = await leaver(c);
+    const rails = await recoveryRails(c);
+    const a = await advance(c, employeeId, { recoveringAmount: 2000 });
+    const key = `advance-recover:${a.id}:${rails.periodId}`;
+    await adjustment(c, { id: key, employeeId, ...rails, amount: 2000, status: 'APPROVED' });
+    await own(c, () => peoplePrisma.employeeAdvance.update({ where: { id: a.id }, data: { payrollAdjustmentId: key } }));
+    /* The starting figure is read from People after the row: the payroll takes it in between. */
+    const out = await racing(c, key, peoplePrisma.employeeAdvance, 'findMany', () => api.post(c, `/adjustments/${key}/cancel`, {}));
+    expect(out.status).toBe(409);
+    expect(out.body.code).toBe('ADJUSTMENT_CHANGED');
+    expect((await adjOf(c, key)).status).toBe('CONSUMED');
+  }, 120_000);
+});
+
+describe('re-review 42b52a6e: sending a second recovery', () => {
+  it('reads the first one again: a run cancelled since leaves it waiting, so nothing new is sent', async () => {
+    const c = await makeOwner();
+    const r = await onePerson(c, { periodId: (await api.post(c, '/periods', { name: `Now ${rnd()}`, ...monthSpan(0) }).expect(201)).body.period.id });
+    await api.post(c, '/components', { name: 'Advance recovery', code: 'ADVREC', type: 'DEDUCTION', calculationMethod: 'FIXED', isVariable: true, displayOrder: 85 }).expect(201);
+    const a = await advance(c, r.employeeId, { amount: 6000 });
+    await peopleApi(c, 'post', `/money/advances/${a.id}/recover`).expect(200);
+    const link = (await adv(c, a.id)).payrollAdjustmentId!;
+    /* Taken by a run and counted in People; then that run is cancelled, and People has not read the chain since. */
+    await own(c, async () => {
+      await payrollPrisma.payrollAdjustment.update({ where: { id: link }, data: { status: 'CONSUMED', consumedByRunId: 'run-x' } });
+      const amount = Number((await adjOf(c, link)).amount);
+      await peoplePrisma.employeeAdvance.update({ where: { id: a.id }, data: { recoveredAmount: amount, recoveringAmount: 0 } });
+      await payrollPrisma.payrollAdjustment.update({ where: { id: link }, data: { status: 'APPROVED', consumedByRunId: null } });
+    });
+    const again = await peopleApi(c, 'post', `/money/advances/${a.id}/recover`);
+    expect(again.status).toBe(409);
+    expect(again.body.code).toBe('RECOVERY_WAITING');
+    expect((await adv(c, a.id)).payrollAdjustmentId).toBe(link);
   }, 120_000);
 });

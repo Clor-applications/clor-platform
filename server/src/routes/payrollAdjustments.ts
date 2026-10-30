@@ -293,8 +293,14 @@ payrollAdjustmentsRouter.put(
     if (!checked.ok) return res.status(checked.status).json({ error: checked.error, code: checked.code });
 
     if (existing.id.startsWith('leave-encash:') && (parsed.data.employeeId !== existing.employeeId || checked.type !== 'EARNING')) return res.status(400).json({ error: 'An encashment earning must stay with its employee and remain an earning.' });
-    const row = await payrollPrisma.payrollAdjustment.update({
-      where: { id: existing.id },
+    /*
+     * Only the row as it was read: a payslip or a full and final that took it
+     * meanwhile (CONSUMED) is never turned back into a draft, which would
+     * take it twice. Its status and amount must still match (the starting figure written just before may touch the row, so not its last change).
+     */
+    const unchanged = { id: existing.id, status: existing.status, amount: existing.amount };
+    const moved = await payrollPrisma.payrollAdjustment.updateMany({
+      where: unchanged,
       data: {
         employeeId: parsed.data.employeeId,
         componentId: parsed.data.componentId,
@@ -317,6 +323,8 @@ payrollAdjustmentsRouter.put(
         approvedAt: null,
       },
     });
+    if (!moved.count) return res.status(409).json({ error: 'This adjustment changed while you were editing it (a payroll or a full and final may have taken it). Reload it.', code: 'ADJUSTMENT_CHANGED' });
+    const row = await payrollPrisma.payrollAdjustment.findUniqueOrThrow({ where: { id: existing.id } });
 
     if (correction) {
       await recordAudit(req, { entity: 'PAYROLL_ADJUSTMENT', entityId: existing.id, action: 'CORRECT_CARRIED', message: `Corrected a carried deduction from ₹${Number(existing.amount).toLocaleString('en-IN')} to ₹${parsed.data.amount.toLocaleString('en-IN')}: ${correction}`, metadata: { employeeId: existing.employeeId, from: Number(existing.amount), to: parsed.data.amount, reason: correction } });
@@ -387,14 +395,16 @@ payrollAdjustmentsRouter.post(
     if (existing.carriedByRunId) {
       const reason = String(req.body?.reason || '').trim().slice(0, 200);
       if (reason.length < 5) return res.status(400).json({ error: 'This is money still owed, carried forward. Say why it is cancelled.', code: 'REASON_NEEDED' });
-      const n = await payrollPrisma.payrollAdjustment.updateMany({ where: { id: existing.id, status: { notIn: ['CONSUMED', 'CANCELLED'] } }, data: { status: 'CANCELLED', reason: `${existing.reason || 'Carried forward'}. Cancelled: ${reason}`.slice(0, 240) } });
+      const n = await payrollPrisma.payrollAdjustment.updateMany({ where: { id: existing.id, status: existing.status, amount: existing.amount }, data: { status: 'CANCELLED', reason: `${existing.reason || 'Carried forward'}. Cancelled: ${reason}`.slice(0, 240) } });
       if (!n.count) return res.status(409).json({ error: 'Somebody else has just changed this adjustment. Reload it.', code: 'ADJUSTMENT_CHANGED' });
       await recordAudit(req, { entity: 'PAYROLL_ADJUSTMENT', entityId: existing.id, action: 'CANCEL_CARRIED', message: `Cancelled a carried deduction of ₹${Number(existing.amount).toLocaleString('en-IN')}: ${reason}`, metadata: { employeeId: existing.employeeId, amount: Number(existing.amount), reason } });
       return res.json({ adjustment: shape(await payrollPrisma.payrollAdjustment.findUniqueOrThrow({ where: { id: existing.id } })) });
     }
 
-    const row = await payrollPrisma.payrollAdjustment.update({ where: { id: existing.id }, data: { status: 'CANCELLED' } });
-    res.json({ adjustment: shape(row) });
+    /* Only the row as it was read: one a payroll took meanwhile stays taken, and People does not see it owed again. */
+    const n = await payrollPrisma.payrollAdjustment.updateMany({ where: { id: existing.id, status: existing.status, amount: existing.amount }, data: { status: 'CANCELLED' } });
+    if (!n.count) return res.status(409).json({ error: 'This adjustment changed while you were cancelling it (a payroll or a full and final may have taken it). Reload it.', code: 'ADJUSTMENT_CHANGED' });
+    res.json({ adjustment: shape(await payrollPrisma.payrollAdjustment.findUniqueOrThrow({ where: { id: existing.id } })) });
   }
 );
 
