@@ -250,3 +250,7 @@ Source: the owner's `Clor_People_Joining_Changes_Leaving_Repo_Research_2026-10-2
 | J.6 Audit and fixes | DONE | `JOINING-LEAVING-AUDIT-2026-10-27.md`: 11 browser findings, 18 role findings, 6 workflow checks; parked: H5 (close old joiners' plans in one go), E2 (default employee steps) |
 
 Open after this module: identity-provider connectors and e-signature (only if customers have them), a legal rules catalogue reviewed by counsel, Payroll acknowledging a separation. Hiring is next on the rail.
+
+## Leaving and engagement (research 4.3, 4.7, 4.8, 4.9; 30 Oct 2026)
+
+No-dues sign-off per department on a leaving, final-pay clock (two working days from the last day, or Payroll's due date once drafted), exit interview (five editable questions, employee app or HR, hidden from the manager on request, retained withdraws the leaving, reasons in the People report), birthdays and anniversaries with opt-out and no birth year, holiday heads-up, and 17 plain-sentence automations with last run, count and recipients. `services/people/engagement/`, `routes/peopleEngagement*.ts`, screens `Automations`, `ExitQuestions`, `LeavingExtras`, employee app `Engagement`. Tests `leavingEngagement.test.ts`, `Engagement.test.jsx` (2), `LeavingExtras.test.jsx`. Screens: `evidence/leaving-engagement/`.
