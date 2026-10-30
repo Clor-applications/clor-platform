@@ -120,6 +120,40 @@ export const companyGroups = (allTenants = [], accounts = []) => {
 };
 
 /**
+ * A phone's company choice, as menu items (#80 QA: the bar has no room for the picker). Each account's companies
+ * sit under its name, as the desktop picker's groups do, so same-named companies in two accounts can be told apart.
+ */
+export function CompanyMenuItems({ groups, currentId, onPick }) {
+  return (
+    <div role="group" aria-label="Company">
+      <div className="ui-caption px-2 pt-1">Company</div>
+      {groups.map((g) => {
+        const items = g.items.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="menuitemradio"
+            aria-checked={t.id === currentId}
+            className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken"
+            onClick={() => onPick(t)}
+          >
+            <Building2 size={16} aria-hidden="true" className="shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{t.name}</span>
+            {t.id === currentId ? <Check size={16} aria-hidden="true" /> : null}
+          </button>
+        ));
+        return g.label ? (
+          <div key={g.id} role="group" aria-label={g.label}>
+            <div className="ui-caption px-2 pt-2 font-medium" aria-hidden="true">{g.label}</div>
+            {items}
+          </div>
+        ) : <React.Fragment key={g.id}>{items}</React.Fragment>;
+      })}
+    </div>
+  );
+}
+
+/**
  * Whether a nav item's `permission` is held: one key, or a list of which any one
  * will do (what the screen's route accepts). `extra` holds the app's own access
  * keys (`access()` in its manifest). Unknown grants hide nothing.
@@ -362,10 +396,14 @@ export default function Shell() {
      way out of the app switcher was to click the app switcher again. */
   const switcherRef = useDismissable(switcherOpen, () => setSwitcherOpen(false));
   const [showMoreApps, setShowMoreApps] = useState(false);
+  /* A phone with no app menu in the bar (the Workspace, a screen outside any app) chooses its company here. */
+  const [companyOpen, setCompanyOpen] = useState(false);
+  const companyRef = useDismissable(companyOpen, () => setCompanyOpen(false));
 
   /* `open` names a screen inside the app (Accounting's settings): carried in the address so it survives the hop to the app's own host. */
   /* `params` travel with it in the address too (Workspace's permissions opened for one app: ?for=payroll). */
   const openApp = (...args) => { confirmLeave(askLeave).then((ok) => ok && openAppNow(...args)); };
+  const pickCompany = (id) => { if (id !== tenant.id) confirmLeave(askLeave).then((ok) => ok && setTenantId(id)); };
   const openAppNow = (id, open = '', params = {}) => {
     const next = appById(id);
     const query = new URLSearchParams();
@@ -1034,27 +1072,10 @@ export default function Shell() {
                   }}
                 >
                   {phone && tenants.length > 1 ? (
-                    <div role="group" aria-label="Company">
-                      <div className="ui-caption px-2 pt-1">Company</div>
-                      {companyGroups(tenants, accounts).flatMap((g) => g.items).map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={t.id === tenant.id}
-                          className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken"
-                          onClick={() => {
-                            setSwitcherOpen(false);
-                            if (t.id !== tenant.id) confirmLeave(askLeave).then((ok) => ok && setTenantId(t.id));
-                          }}
-                        >
-                          <Building2 size={16} aria-hidden="true" className="shrink-0" />
-                          <span className="min-w-0 flex-1 truncate">{t.name}</span>
-                          {t.id === tenant.id ? <Check size={16} aria-hidden="true" /> : null}
-                        </button>
-                      ))}
+                    <>
+                      <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => { setSwitcherOpen(false); pickCompany(t.id); }} />
                       <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="my-1" />
-                    </div>
+                    </>
                   ) : null}
                   {mine.filter((a) => !a.platform).map((a) => (
                     <button
@@ -1120,8 +1141,8 @@ export default function Shell() {
 
           {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
           {/* The company in use. The Workspace shows it too: half its pages change only this company. */}
-          {/* On a phone the company is chosen in the app menu ("People ⌄"): two companies ran the picker under the bell and the
-              profile button at 390px (#80 QA). */}
+          {/* On a phone the company is chosen in the app menu ("People ⌄"), or, where the bar has no app menu (the Workspace),
+              from a building button: two companies ran the picker under the bell and the profile button at 390px (#80 QA). */}
           {!phone ? (
             <label className="ui-company-pick">
               <Building2 size={16} aria-hidden="true" className="ui-company-pick-icon" />
@@ -1148,6 +1169,21 @@ export default function Shell() {
               )}
             </select>
             </label>
+          ) : tenants.length > 1 && !(app && !inWorkspace) ? (
+            <div className="relative" ref={companyRef}>
+              <button type="button" className="ui-icon-btn" aria-label={`Company: ${tenant.name}`} aria-haspopup="menu" aria-expanded={companyOpen} onClick={() => setCompanyOpen((v) => !v)}>
+                <Building2 size={18} aria-hidden="true" />
+              </button>
+              {companyOpen ? (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl p-1"
+                  style={{ backgroundColor: 'rgb(var(--surface))', border: '1px solid rgb(var(--border))', boxShadow: 'var(--shadow-lift)', zIndex: 'var(--z-platform-menu)' }}
+                >
+                  <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => { setCompanyOpen(false); pickCompany(t.id); }} />
+                </div>
+              ) : null}
+            </div>
           ) : null}
 
           {/* The Workspace's date, once, in the bar: the browser's own locale and timezone. */}

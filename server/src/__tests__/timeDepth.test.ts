@@ -378,11 +378,17 @@ describe('an announcement reaches its audience only', () => {
   it('a reader in People sees only what is published for them; the author sees every one', async () => {
     const reader = await colleague(hr, ['PEOPLE::Announcements::VIEW']);
     await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: finPerson.id }, data: { userId: reader.userId } }));
-    const seen = (await ppl(reader, 'get', '/workspace/announcements').expect(200)).body.records.map((r: any) => r.title);
+    const records = (await ppl(reader, 'get', '/workspace/announcements').expect(200)).body.records;
+    const seen = records.map((r: any) => r.title);
     expect(seen).toContain('For all');
     expect(seen).not.toContain('For operations');
-    const all = (await ppl(hr, 'get', '/workspace/announcements').expect(200)).body.records.map((r: any) => r.title);
-    expect(all).toContain('For operations');
+    /* A reader's copy carries no audience: its ids name departments and people (#80 re-review). */
+    const finance = records.find((r: any) => r.title === 'For finance');
+    expect(finance.details).toEqual({ body: 'Read me' });
+    expect(JSON.stringify(records)).not.toContain(fin.id);
+    const all = (await ppl(hr, 'get', '/workspace/announcements').expect(200)).body.records;
+    expect(all.map((r: any) => r.title)).toContain('For operations');
+    expect(all.find((r: any) => r.title === 'For finance').details.audienceIds).toEqual([fin.id]);
   }, 60_000);
 
   it('refuses an audience with nobody in it, or someone of another company', async () => {

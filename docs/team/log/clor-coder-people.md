@@ -3,7 +3,7 @@
 ## 2026-10-30 23:30 IST — People — PR #80 re-review and QA fixes
 - Did: Candidates board scrolls sideways on phones (watcher measures any content in .ui-table-scroll), new e2e clipped-list check and T1b; __dirname lint error; published-only readers get only employee-app fields. Manager QA: bell panel inside the screen on phones, Approvals and the bell name the half, Leave calendar draws half days as half a cell. HR/owner QA: grown card width, phone company choice moved into the app menu (A4b), row menus named by row name not id, 44px phone tick box, Announcements "For" from audience ids, empty Gender mix label.
 - Evidence: web tests (test/ folder), server peopleE2eFixes + timeLeave, e2e T1b/H12/A4/A4b both widths on 4019/5199, browser checks at 390/700/1440. Each new test failed before its fix.
-- Next: code review of #80.
+- Next: QA retest of #80. Re-review fixes: Workspace phone company button (A4c), grouped phone company menu, reader-only details stripped, 16px bell gutter.
 - Blocked on: Salary revisions "New revision" reason is in apps/payroll (not People's to edit).
 
 ## 2026-10-30 06:15 IST — People / Time & Leave — land #46 and #47

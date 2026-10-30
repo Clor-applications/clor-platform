@@ -227,7 +227,7 @@ describe('#80 manager QA: half days say which half; the bell stays on a phone sc
     fireEvent.click(await screen.findByRole('button', { name: /Notifications/ }));
     const panel = await screen.findByRole('dialog', { name: 'Notifications' });
     expect(panel.className).toMatch(/max-sm:fixed/);
-    expect(panel.className).toMatch(/max-sm:inset-x-2/);
+    expect(panel.className).toMatch(/max-sm:inset-x-4/);
     expect(panel.className).toMatch(/max-sm:w-auto/);
     expect(panel.textContent).toContain('Half a day, first half');
   });

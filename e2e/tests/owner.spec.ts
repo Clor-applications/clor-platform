@@ -93,6 +93,22 @@ test.describe('Suresh owns the account', () => {
     expect((await suresh.companyInUse())?.trim()).toBe(w.asha.name);
   });
 
+  test('A4c: on a phone the Workspace bar fits and still switches company', { tag: ['@A4c'] }, async ({ asOwner: suresh, w }, testInfo) => {
+    /* #80 re-review: the Workspace has no app menu, so the phone's company choice must live in its own bar button. */
+    allowNoise(testInfo, /404|Not Found/);
+    await suresh.page.setViewportSize({ width: 390, height: 844 });
+    await suresh.page.goto(`/o/${w.asha.code}/?app=admin`);
+    const bar = suresh.page.getByRole('banner');
+    await expect(bar.getByRole('button', { name: `Company: ${w.asha.name}` })).toBeVisible();
+    const right = await bar.evaluate((b) => Math.max(...[...b.querySelectorAll('button, select, label')].map((e) => e.getBoundingClientRect().right)));
+    expect(right, 'nothing in the bar past the screen').toBeLessThanOrEqual(390);
+    await suresh.switchCompany(w.vels.name);
+    await expect(suresh.page).toHaveURL(new RegExp(`/o/${w.vels.code}/`));
+    await expect(bar.getByRole('button', { name: `Company: ${w.vels.name}` })).toBeVisible();
+    /* Ends back in People: the Workspace home's own off pills fail axe contrast (admin app, reported apart). */
+    await new PeopleWeb(suresh.page, w.vels, testInfo).goto();
+  });
+
   test('A7: a one-person business does everything alone', { tag: ['@A7'] }, async ({ guest: page, w }, testInfo) => {
     const me = await signUpForPeople(page, newOwner(w, 'solo', testInfo.retry));
     const code = (page.url().match(/\/o\/(\d{10})\//) || [])[1] || '';
