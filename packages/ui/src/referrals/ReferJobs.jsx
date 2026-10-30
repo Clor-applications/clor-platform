@@ -47,7 +47,7 @@ export default function ReferJobs({ api, run = asIs, wrap: Wrap = Plain, heading
   const [mode, setMode] = useState(null);
   const [said, setSaid] = useState(null);
   const load = useCallback(() => {
-    run(api.load()).then((d) => { setData(d); setFailed(''); }).catch((e) => setFailed(errText(e, 'Could not load the jobs.')));
+    run(api.load()).then((d) => { setData({ ...d, jobs: d?.jobs || [], referrals: d?.referrals || [], applications: d?.applications || [] }); setFailed(''); }).catch((e) => setFailed(errText(e, 'Could not load the jobs.')));
   }, [api, run]);
   useEffect(() => { load(); }, [load]);
   const H = `h${headingLevel}`;
