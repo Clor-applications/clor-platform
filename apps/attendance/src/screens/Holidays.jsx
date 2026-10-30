@@ -7,7 +7,7 @@ import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { createHoliday, dayLabel, deleteHoliday, listHolidays, todayIst, updateHoliday } from '../api/attendance';
+import { createHoliday, dayLabel, deleteHoliday, getHolidayYear, todayIst, updateHoliday } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 import { listStructure } from '@ui/personnel/api';
 
@@ -34,9 +34,27 @@ const EXPORT_COLUMNS = [
   { key: 'isOptional', label: 'Optional', value: (h) => (h.isOptional ? 'Yes' : 'No') },
 ];
 
+/**
+ * Each branch in a state whose law sets a minimum of national and festival
+ * holidays (Karnataka 10, Maharashtra 8): said when the year's list is short.
+ * A state whose figure is not confirmed says so instead of a number.
+ */
+function StateMinimum({ rows, year }) {
+  const short = rows.filter((r) => r.short);
+  const unknown = rows.filter((r) => r.minimum == null);
+  if (!short.length && !unknown.length) return null;
+  return (
+    <div className="space-y-1 text-sm" role="status">
+      {short.map((r) => <p key={r.branchId} className="ui-text-warn">{r.branchName} ({r.state}): the state asks for {r.minimum} national and festival holidays a year; {year} has {r.holidays}. Optional holidays do not count.</p>)}
+      {unknown.map((r) => <p key={r.branchId} className="ui-muted">{r.branchName} ({r.state}): {r.law}.</p>)}
+    </div>
+  );
+}
+
 export default function Holidays({ openScreen } = {}) {
   const [year, setYear] = useState(Number(todayIst().slice(0, 4)));
   const [all, setAll] = useState(null);
+  const [minimum, setMinimum] = useState([]);
   const [kind, setKind] = useState('');
   const [loadError, setLoadError] = useState('');
   const [form, setForm] = useState({ date: '', name: '', isOptional: false, areaId: '' });
@@ -46,7 +64,7 @@ export default function Holidays({ openScreen } = {}) {
   }, []);
 
   const load = useCallback(() => {
-    listHolidays(year).then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load holidays.')));
+    getHolidayYear(year).then((v) => { setAll(v.holidays); setMinimum(v.stateMinimum); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load holidays.')));
   }, [year]);
   useEffect(() => {
     load();
@@ -129,6 +147,8 @@ export default function Holidays({ openScreen } = {}) {
         </div>
       }
       above={
+        <>
+        <StateMinimum rows={minimum} year={year} />
         <form onSubmit={add} className="ui-card flex flex-wrap items-end gap-3 p-4" aria-label="Add a holiday">
           <label className="block"><span className="ui-label">Date</span><input type="date" className="ui-input" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>
           <label className="block min-w-[14rem] flex-1"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Diwali" /></label>
@@ -144,6 +164,7 @@ export default function Holidays({ openScreen } = {}) {
           <label className="flex items-center gap-1.5 pb-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={form.isOptional} onChange={(e) => setForm({ ...form, isOptional: e.target.checked })} /> Optional</label>
           <button type="submit" className="ui-btn ui-btn-primary"><Plus size={16} aria-hidden="true" /> Add holiday</button>
         </form>
+        </>
       }
     >
       <LoadFailed message={loadError} onRetry={load} />

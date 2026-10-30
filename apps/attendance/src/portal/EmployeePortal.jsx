@@ -8,6 +8,8 @@ import DayExplain from '../components/DayExplain';
 import LeaveExplain from '../components/LeaveExplain';
 import LeaveDocumentField from '@ui/timeOff/LeaveDocumentField';
 import HalfDayChoice, { halfDayBody, leaveSpan } from '@ui/timeOff/HalfDayChoice';
+import { HoursChoice, PreviewNotes } from '@ui/timeOff/LeaveShape';
+import { hoursBody, hoursReady, hoursText as leaveHours, isHourly } from '@ui/timeOff/partOfDay';
 import PhonePunch from '../components/PhonePunch';
 import { MyDetails, Policies } from './MyDetails';
 import AskHr from './AskHr';
@@ -684,7 +686,7 @@ function MySchedule({ guard }) {
 // Leave
 // ---------------------------------------------------------------------------
 
-const BLANK_LEAVE = { leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', startHalf: false, endHalf: false, reason: '' };
+const BLANK_LEAVE = { leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', startHalf: false, endHalf: false, fromTime: '', toTime: '', reason: '' };
 const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's'}`);
 const NUMBER_WORD = ['', 'one', 'two', 'three', 'four'];
 
@@ -693,9 +695,9 @@ const NUMBER_WORD = ['', 'one', 'two', 'three', 'four'];
  * (AUT-05), so what the person sees is what the save does. `last` is the
  * newest answer for any dates; `preview` only the one for the dates on screen.
  */
-function useLeavePreview(run, form) {
-  const key = form.leaveTypeId && form.fromDate
-    ? JSON.stringify({ leaveTypeId: form.leaveTypeId, fromDate: form.fromDate, toDate: form.toDate || form.fromDate, ...halfDayBody(form, true) })
+function useLeavePreview(run, form, type) {
+  const key = form.leaveTypeId && form.fromDate && hoursReady(form, type)
+    ? JSON.stringify({ leaveTypeId: form.leaveTypeId, fromDate: form.fromDate, toDate: form.toDate || form.fromDate, ...halfDayBody(form, !isHourly(type)), ...hoursBody(form, type) })
     : '';
   const [got, setGot] = useState(null);
   useEffect(() => {
@@ -769,10 +771,11 @@ function MyLeave({ guard }) {
   const [doc, setDoc] = useState(null);
   const [sending, setSending] = useState(false);
   const runPreview = useCallback((body) => guard(previewLeave(body)), [guard]);
-  const { preview, last, checking } = useLeavePreview(runPreview, form);
-  const type = last?.type && last.type.id === form.leaveTypeId ? last.type : null;
   const listed = (data?.types || []).find((t) => t.id === form.leaveTypeId);
-  const halfAllowed = Boolean((type || listed)?.allowHalfDay);
+  const hourly = isHourly(listed);
+  const { preview, last, checking } = useLeavePreview(runPreview, form, listed);
+  const type = last?.type && last.type.id === form.leaveTypeId ? last.type : null;
+  const halfAllowed = Boolean((type || listed)?.allowHalfDay) && !hourly;
   const reasonNeeded = !type?.isPrivate;
   const blocked = Boolean(preview?.problems?.length);
   const [note, setNote] = useState(null);
@@ -799,6 +802,7 @@ function MyLeave({ guard }) {
         fromDate: form.fromDate,
         toDate: form.toDate || form.fromDate,
         ...halfDayBody(form, halfAllowed),
+        ...hoursBody(form, listed),
         reason: form.reason.trim(),
         ...(preview?.split ? { split: true } : {}),
         ...(doc ? { attachment: doc } : {}),
@@ -838,7 +842,7 @@ function MyLeave({ guard }) {
   const startChange = (r) => {
     setEditing(r);
     setNote(null);
-    setForm({ leaveTypeId: r.leaveTypeId || data.types.find((t) => t.name === r.leaveTypeName)?.id || '', ...leaveSpan(r, data.requests || []), reason: r.reason || '' });
+    setForm({ leaveTypeId: r.leaveTypeId || data.types.find((t) => t.name === r.leaveTypeName)?.id || '', ...leaveSpan(r, data.requests || []), fromTime: r.fromTime || '', toTime: r.toTime || '', reason: r.reason || '' });
     formRef.current?.scrollIntoView?.({ block: 'start' });
   };
   const stopChange = () => { setEditing(null); setForm(BLANK_LEAVE); };
@@ -856,6 +860,7 @@ function MyLeave({ guard }) {
         fromDate: form.fromDate,
         toDate: form.toDate || form.fromDate,
         ...halfDayBody(form, halfAllowed),
+        ...hoursBody(form, listed),
         reason: form.reason.trim(),
         ...(preview?.split ? { split: true } : {}),
         ...(doc ? { attachment: doc } : {}),
@@ -889,7 +894,7 @@ function MyLeave({ guard }) {
       setSending(false);
     }
   };
-  const shortenable = (r) => r.status === 'APPROVED' && !r.halfDay && r.fromDate <= data?.today && r.toDate > data?.today;
+  const shortenable = (r) => r.status === 'APPROVED' && !r.halfDay && !r.fromTime && r.fromDate <= data?.today && r.toDate > data?.today;
   const dayBefore = (iso) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
   if (!data) return error ? <LoadFailed message={error} onRetry={load} /> : <div className="ui-card p-6 ui-caption">Loading…</div>;
   return (
@@ -921,22 +926,25 @@ function MyLeave({ guard }) {
           <h2 id="ask-leave-h" className="ui-t-sec">{editing ? 'Change leave' : 'Ask for leave'}</h2>
           <label className="block">
             <span className="ui-label">Leave type *</span>
-            <select className="ui-select w-full" required value={form.leaveTypeId} onChange={(e) => setForm({ ...form, leaveTypeId: e.target.value, halfDay: '' })}>
+            <select className="ui-select w-full" required value={form.leaveTypeId} onChange={(e) => setForm({ ...form, leaveTypeId: e.target.value, halfDay: '', fromTime: '', toTime: '' })}>
               <option value="">Choose…</option>
               {data.types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </label>
           <div className="grid grid-cols-2 gap-3">
-            <label className="block"><span className="ui-label">First day *</span><input type="date" className="ui-input w-full" required value={form.fromDate} onChange={(e) => setForm({ ...form, fromDate: e.target.value, toDate: form.toDate && form.toDate < e.target.value ? e.target.value : form.toDate })} /></label>
-            <label className="block"><span className="ui-label">Last day</span><input type="date" className="ui-input w-full" min={form.fromDate} value={form.toDate} onChange={(e) => setForm({ ...form, toDate: e.target.value, halfDay: e.target.value && e.target.value !== form.fromDate ? '' : form.halfDay })} /></label>
+            <label className="block"><span className="ui-label">{hourly ? 'Day *' : 'First day *'}</span><input type="date" className="ui-input w-full" required value={form.fromDate} onChange={(e) => setForm({ ...form, fromDate: e.target.value, toDate: form.toDate && form.toDate < e.target.value ? e.target.value : form.toDate })} /></label>
+            {hourly ? null : <label className="block"><span className="ui-label">Last day</span><input type="date" className="ui-input w-full" min={form.fromDate} value={form.toDate} onChange={(e) => setForm({ ...form, toDate: e.target.value, halfDay: e.target.value && e.target.value !== form.fromDate ? '' : form.halfDay })} /></label>}
           </div>
-          <HalfDayChoice native form={form} allowed={halfAllowed} typeName={(type || listed)?.name} label="How much of the day" onChange={(patch) => setForm({ ...form, ...patch })} />
+          {hourly
+            ? <HoursChoice native form={form} onChange={(patch) => setForm({ ...form, ...patch })} />
+            : <HalfDayChoice native form={form} allowed={halfAllowed} typeName={(type || listed)?.name} label="How much of the day" onChange={(patch) => setForm({ ...form, ...patch })} />}
           <label className="block">
             <span className="ui-label">{reasonNeeded ? 'Reason *' : 'Reason'}</span>
             <input className="ui-input w-full" required={reasonNeeded} minLength={reasonNeeded ? 3 : undefined} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
           </label>
           {shown?.documentNeeded || doc ? <LeaveDocumentField typeName={type?.name} afterDays={shown?.documentAfterDays} value={doc} onChange={setDoc} required={!editing} note={editing ? 'The one already sent stays unless you choose another.' : ''} /> : null}
           <LeavePreview preview={shown} checking={checking} />
+          <PreviewNotes preview={shown} />
           {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
           <button type="submit" className="ui-btn ui-btn-primary w-full" disabled={held || sending}>{sending ? (editing ? 'Saving…' : 'Sending…') : editing ? 'Save' : 'Send'}</button>
           {editing ? <button type="button" className="ui-btn ui-btn-secondary w-full" onClick={stopChange}>Keep it as it was</button> : null}
@@ -951,7 +959,7 @@ function MyLeave({ guard }) {
               <li key={r.id} className="flex items-start justify-between gap-2">
                 <span>
                   {r.leaveTypeName} · {r.days} day{r.days === 1 ? '' : 's'}
-                  <span className="ui-caption block">{r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`}</span>
+                  <span className="ui-caption block">{r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`}{leaveHours(r) ? `, ${leaveHours(r)}` : r.overflowOfId ? ', over the balance: loss of pay' : ''}</span>
                   {r.note && r.status !== 'PENDING' ? <span className="ui-caption block">“{r.note}”</span> : null}
                 </span>
                 <span className="flex flex-col items-end gap-1">

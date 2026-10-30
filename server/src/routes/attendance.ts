@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { holidayMinimum } from '../services/attendance/holidayMinimum.js';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
@@ -925,7 +926,8 @@ attendanceRouter.get('/orgs/:orgId/attendance/holidays', can(PermissionAction.VI
     orderBy: { date: 'asc' },
   });
   const areas = new Map((await peoplePrisma.area.findMany({ where: { orgId }, select: { id: true, name: true } })).map((x) => [x.id, x.name]));
-  res.json({ holidays: holidays.map((h) => ({ ...h, areaName: h.areaId ? areas.get(h.areaId) || null : null })), year });
+  /* State law's minimum of national and festival holidays, per branch in a state that has one (holidayMinimum.ts). */
+  res.json({ holidays: holidays.map((h) => ({ ...h, areaName: h.areaId ? areas.get(h.areaId) || null : null })), year, stateMinimum: await holidayMinimum(orgId, year) });
 });
 
 /**

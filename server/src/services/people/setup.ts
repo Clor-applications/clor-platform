@@ -1,3 +1,4 @@
+import { holidayMinimum } from '../attendance/holidayMinimum.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { getFeatures } from '../features.js';
@@ -75,7 +76,9 @@ async function facts(accountId: string, orgId: string, now: Date) {
     peoplePrisma.employee.count({ where: { orgId, status: { not: 'LEFT' }, portalPasswordSetAt: { not: null } } }),
     getFeatures(accountId, orgId),
   ]);
-  return { year, employees, weekSet: Boolean(settings), holidays, leaveTypes, appUsers, payroll: Boolean(features.payroll), features };
+  /* A branch short of its state's national and festival holidays (holidayMinimum.ts), once some holidays are set. */
+  const short = holidays ? (await holidayMinimum(orgId, year)).filter((b) => b.short) : [];
+  return { year, employees, weekSet: Boolean(settings), holidays, leaveTypes, appUsers, payroll: Boolean(features.payroll), features, short };
 }
 
 export function buildSteps(f: Awaited<ReturnType<typeof facts>>, state: SetupState): SetupStep[] {
@@ -84,7 +87,7 @@ export function buildSteps(f: Awaited<ReturnType<typeof facts>>, state: SetupSta
   const weekDone = f.weekSet && f.holidays > 0;
   return [
     step({ key: 'people', title: 'Add your people', blurb: 'Everyone who works here, with a joining date. Add them one by one, or import a spreadsheet.', detail: f.employees ? plural(f.employees, 'person', 'people') : 'Nobody yet', done: f.employees > 0, optional: false, screen: 'employeeNew', alt: { label: 'Import', screen: 'employeeImport' } }),
-    step({ key: 'week', title: 'Set the working week and holidays', blurb: 'Which days are off, and this year’s holidays, so leave counts only working days.', detail: [f.weekSet ? 'Working week set' : 'Working week not set', `${plural(f.holidays, 'holiday')} in ${f.year}`].join(' · '), done: weekDone, optional: false, screen: f.weekSet ? 'holidays' : 'workingWeek' }),
+    step({ key: 'week', title: 'Set the working week and holidays', blurb: 'Which days are off, and this year’s holidays, so leave counts only working days.', detail: [f.weekSet ? 'Working week set' : 'Working week not set', `${plural(f.holidays, 'holiday')} in ${f.year}`, ...(f.short || []).slice(0, 2).map((b) => `${b.branchName}: ${b.state} asks for ${b.minimum}, ${b.holidays} set`)].join(' · '), done: weekDone, optional: false, screen: f.weekSet ? 'holidays' : 'workingWeek' }),
     step({ key: 'leave', title: 'Pick your leave types', blurb: 'Start from your state’s rules (Karnataka, Maharashtra, Tamil Nadu, Delhi, Factories) and change what you need.', detail: f.leaveTypes ? plural(f.leaveTypes, 'leave type') : 'None yet', done: f.leaveTypes > 0, optional: false, screen: 'leaveTypes' }),
     step({ key: 'app', title: 'Give your staff the employee app', blurb: 'They ask for leave, see their balance and holidays, and check in from their phone.', detail: f.appUsers ? `${plural(f.appUsers, 'person', 'people')} signed in` : 'Nobody signed in yet', done: f.appUsers > 0, optional: false, screen: 'selfService' }),
     step({ key: 'payroll', title: 'Connect Payroll (optional)', blurb: 'Pay salaries from the same people and leave: unpaid leave becomes loss of pay on its own.', detail: f.payroll ? 'Payroll is on' : 'Not connected', done: f.payroll, optional: true, screen: 'modules', app: 'payroll' }),

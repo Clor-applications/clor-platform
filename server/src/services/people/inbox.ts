@@ -39,6 +39,10 @@ export type InboxItem = {
   toDate: string | null;
   days: number | null;
   halfDay: string | null;
+  /** Hourly leave's hours; a loss-of-pay row over a balance (overflowOfId). */
+  fromTime?: string | null;
+  toTime?: string | null;
+  overflowOfId?: string | null;
   /** When it started waiting: the oldest is on top. */
   since: string;
   dueAt: string | null;
@@ -117,7 +121,7 @@ export async function inboxFor(req: Request): Promise<{ items: InboxItem[]; coun
       items.push({
         key: `LEAVE:${r.id}`, kind: 'LEAVE', id: r.id, what: r.leaveTypeName || 'Leave', subKind: r.leaveTypeName || null,
         employeeId: r.employeeId, employeeName: r.employeeName, employeeCode: r.employeeCode, photoUrl: r.photoUrl,
-        fromDate: r.fromDate, toDate: g?.to || r.toDate, days: g ? Math.round(g.days * 100) / 100 : r.days, halfDay: r.halfDay || null,
+        fromDate: r.fromDate, toDate: g?.to || r.toDate, days: g ? Math.round(g.days * 100) / 100 : r.days, halfDay: r.halfDay || null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null,
         since: iso(r.createdAt)!, dueAt: r.ruleId ? iso(r.stepDueAt) : null, overdue: Boolean(r.ruleId && r.stepDueAt && new Date(r.stepDueAt).getTime() < now), managerApproved: Boolean(r.managerApprovedAt), step: r.ruleStep ?? null, bulk: rights.LEAVE.decide,
       });
     }

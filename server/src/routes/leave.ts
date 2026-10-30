@@ -27,7 +27,8 @@ import { ISO_DATE, MonthClosedError, PayrollTakenError, closedMonthRefusal, clos
 import { deleteToBin } from '../services/recycleBin.js';
 import { blockFor, blockSchema, checkBlockIds } from '../services/attendance/leaveBlocks.js';
 import { recordAudit } from '../services/auditTrail.js';
-import { placeProblem, policyProblem } from '../services/people/leavePolicy.js';
+import { placeProblem, plural, policyProblem } from '../services/people/leavePolicy.js';
+import { QUARTER_TIME, halfOn, minutesOf, partOfDay, weightOn } from '../services/attendance/leaveHalves.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
 import { OPEN, balancesFor, entitledDays, leavePeriodOf, leaveYearOf, probationOf, round } from '../services/attendance/leaveBalances.js';
 import { daysWorkedBefore, daysWorkedByPeriod } from '../services/attendance/daysWorked.js';
@@ -102,6 +103,8 @@ export type PlannedDay = {
   date: string;
   counted: boolean;
   why: string | null;
+  /** Why a date is not a working day, for the sandwich options. */
+  off?: 'HOLIDAY' | 'WEEKLY_OFF';
   /** With night shifts on, a date whose shift ends the next morning: the shift, and the hours this leave covers (the day record says the same). */
   night?: { label: string; covers: string };
 };
@@ -114,8 +117,18 @@ export type PlannedDay = {
  * Loaded once for the range, not once a day.
  */
 /** How a type charges dates: the sandwich rule, or every calendar date (maternity). A boolean is the sandwich rule alone. */
-export type CountRule = boolean | { sandwich?: boolean | null; countsCalendarDays?: boolean | null };
-export async function dayPlan(orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, from: string, to: string, rule: CountRule): Promise<PlannedDay[]> {
+export type CountRule = boolean | {
+  sandwich?: boolean | null;
+  countsCalendarDays?: boolean | null;
+  /* Sandwich options (LeaveType): at least this many working days; weekly offs; holidays; leave half days at the ends out. */
+  sandwichMinDays?: number | null;
+  sandwichWeekOffs?: boolean | null;
+  sandwichHolidays?: boolean | null;
+  sandwichIgnoreHalf?: boolean | null;
+};
+/** The request's own shape, where it changes what a day counts as: a half on one day, or after lunch on the first and to lunch on the last. */
+export type PlanEdges = { halfDay?: string | null; startHalf?: boolean | null; endHalf?: boolean | null };
+export async function dayPlan(orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, from: string, to: string, rule: CountRule, edges: PlanEdges = {}): Promise<PlannedDay[]> {
   const sandwich = typeof rule === 'boolean' ? rule : Boolean(rule?.sandwich);
   const calendar = typeof rule === 'boolean' ? false : Boolean(rule?.countsCalendarDays);
   const [schedule, holidays] = await Promise.all([
@@ -142,8 +155,8 @@ export async function dayPlan(orgId: string, employee: { id: string; branchId: s
     const rule = resolveShift(schedule, employee.id, d).rule;
     rules.set(d, rule);
     const name = holidayOn.get(d);
-    if (name !== undefined) out.push({ date: d, counted: false, why: `Holiday: ${name}` });
-    else if (isWeeklyOff(rule, d)) out.push({ date: d, counted: false, why: 'Weekly off' });
+    if (name !== undefined) out.push({ date: d, counted: false, why: `Holiday: ${name}`, off: 'HOLIDAY' });
+    else if (isWeeklyOff(rule, d)) out.push({ date: d, counted: false, why: 'Weekly off', off: 'WEEKLY_OFF' });
     else out.push({ date: d, counted: true, why: null });
   }
   /* Leave on a date covers the night shift that starts on it (feature attendanceNightShifts). */
@@ -158,11 +171,21 @@ export async function dayPlan(orgId: string, employee: { id: string; branchId: s
     for (const x of out) if (!x.counted) { x.counted = true; x.why = `${x.why}, counted (calendar days)`; }
     return out;
   }
-  const working = out.filter((x) => x.counted);
-  if (sandwich && working.length >= 2) {
+  const opts = typeof rule === 'boolean' ? {} : rule || {};
+  /* A half day at either end is not an end of the sandwich when the type says so: only whole working days hold the offs between. */
+  const half = (d: string) => Boolean((edges.halfDay && d === from) || (from !== to && ((d === from && edges.startHalf) || (d === to && edges.endHalf))));
+  const working = out.filter((x) => x.counted && !(opts.sandwichIgnoreHalf && half(x.date)));
+  const longEnough = opts.sandwichMinDays == null || out.filter((x) => x.counted).length >= opts.sandwichMinDays;
+  if (sandwich && working.length >= 2 && longEnough) {
     const first = working[0].date;
     const last = working[working.length - 1].date;
-    for (const x of out) if (!x.counted && x.date > first && x.date < last) { x.counted = true; x.why = `${x.why}, counted (sandwich rule)`; }
+    for (const x of out) {
+      if (x.counted || x.date <= first || x.date >= last) continue;
+      if (x.off === 'WEEKLY_OFF' && opts.sandwichWeekOffs === false) continue;
+      if (x.off === 'HOLIDAY' && opts.sandwichHolidays === false) continue;
+      x.counted = true;
+      x.why = `${x.why}, counted (sandwich rule)`;
+    }
   }
   return out;
 }
@@ -306,6 +329,15 @@ const policySchema = z.object({
   oshCarry: z.boolean().optional(),
   countsCalendarDays: z.boolean().optional(),
   availableAfterBasis: z.enum(['JOINING', 'DAYS_WORKED']).optional(),
+  /** Leave policy rules (TIME-LEAVE-DECISIONS.md, "Leave policy rules"). */
+  unit: z.enum(['DAY', 'HOUR']).optional(),
+  overBalance: z.enum(['REFUSE', 'LOSS_OF_PAY']).optional(),
+  notWithTypeIds: z.array(z.string().min(1)).max(30).optional(),
+  sandwichMinDays: z.coerce.number().int().min(2, 'At least two days.').max(60).nullable().optional(),
+  sandwichWeekOffs: z.boolean().optional(),
+  sandwichHolidays: z.boolean().optional(),
+  sandwichIgnoreHalf: z.boolean().optional(),
+  onNotice: z.enum(['ALLOW', 'WARN', 'BLOCK']).optional(),
 });
 
 async function policyOf(orgId: string, body: unknown): Promise<{ data: Record<string, unknown> } | { error: string }> {
@@ -324,6 +356,8 @@ async function policyOf(orgId: string, body: unknown): Promise<{ data: Record<st
   if (!(await exist(parsed.data.branchIds, (ids) => platformPrisma.branch.count({ where: { orgId, id: { in: ids } } })))) return { error: 'One of those branches is not in this company.' };
   if (!(await exist(parsed.data.gradeIds, (ids) => peoplePrisma.grade.count({ where: { orgId, id: { in: ids } } })))) return { error: 'One of those grades is not in this company.' };
   if (parsed.data.approval === 'RULE' && !(await activeLeaveRule(orgId))) return { error: 'Set up the leave approval rule first, in Settings → Approval Rules.' };
+  if (!(await exist(parsed.data.notWithTypeIds, (ids) => peoplePrisma.leaveType.count({ where: { orgId, id: { in: ids } } })))) return { error: 'One of the types it may not sit next to is not in this company.' };
+  if (parsed.data.unit === 'HOUR' && parsed.data.countsCalendarDays) return { error: 'Hourly leave counts hours on a working day, not calendar days.' };
   return { data: parsed.data };
 }
 
@@ -462,8 +496,9 @@ leaveRouter.put(`${base}/types/:id`, can(PermissionAction.EDIT, R.leaveTypes), a
   if (clash) return res.status(409).json(codeTaken(parsed.data.code, clash));
   try {
     const type = await peopleWrite(orgId, async () => {
-      const financial = ['isPaid', 'annualDays', 'accrual', 'prorateForJoiners', 'carryForwardMax', 'carryExpiresAfterDays', 'creditOn', 'creditDay', 'sandwich', 'accrualBasis', 'perDaysWorked', 'minDaysWorked', 'oshCarry', 'countsCalendarDays'] as const;
+      const financial = ['isPaid', 'annualDays', 'accrual', 'prorateForJoiners', 'carryForwardMax', 'carryExpiresAfterDays', 'creditOn', 'creditDay', 'sandwich', 'accrualBasis', 'perDaysWorked', 'minDaysWorked', 'oshCarry', 'countsCalendarDays', 'unit', 'sandwichMinDays', 'sandwichWeekOffs', 'sandwichHolidays', 'sandwichIgnoreHalf'] as const;
       const next: Record<string, unknown> = { ...parsed.data, ...policy.data };
+      if (Array.isArray(next.notWithTypeIds)) next.notWithTypeIds = (next.notWithTypeIds as string[]).filter((id) => id !== existing.id);
       const changed = financial.some((key) => key in next && JSON.stringify((next as any)[key]) !== JSON.stringify(existing[key]));
       /*
        * Entitlement rules (and the probation rule) may change on a type in use:
@@ -719,6 +754,9 @@ const requestSchema = z.object({
   /** A longer leave that starts after lunch on its first day, or ends at lunch on its last (ERPNext's half-day date, at either end). */
   startHalf: z.boolean().optional(),
   endHalf: z.boolean().optional(),
+  /** Hourly leave (a type whose unit is HOUR): HH:MM on the one day. */
+  fromTime: z.string().trim().nullable().optional(),
+  toTime: z.string().trim().nullable().optional(),
   /** Leave crossing the leave-period end is saved as one linked request per period. */
   split: z.boolean().optional(),
 });
@@ -864,8 +902,10 @@ function partsOf(period: LeavePeriod, from: string, to: string) {
 }
 
 type Asker = { id: string; branchId: string | null; areaId?: string | null; status?: string | null };
-type Ask = { leaveTypeId: string; fromDate: string; toDate: string; halfDay?: 'FIRST' | 'SECOND' | null; startHalf?: boolean; endHalf?: boolean; reason?: string; attachment?: { data?: string } | null; hasDocument?: boolean };
-type Row = { from: string; to: string; halfDay: 'FIRST' | 'SECOND' | null; days: number };
+type Ask = { leaveTypeId: string; fromDate: string; toDate: string; halfDay?: 'FIRST' | 'SECOND' | null; startHalf?: boolean; endHalf?: boolean; fromTime?: string | null; toTime?: string | null; reason?: string; attachment?: { data?: string } | null; hasDocument?: boolean };
+type Row = { from: string; to: string; halfDay: 'FIRST' | 'SECOND' | null; days: number; minutes?: number | null };
+/** Days over the balance (overBalance LOSS_OF_PAY): saved as rows of the unpaid type, in the same group. */
+type Overflow = { typeId: string; typeName: string; days: number; from: string; rows: Row[] };
 
 /**
  * The rows one part of a request is saved as. A longer leave that starts after
@@ -910,8 +950,27 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
   if (addDays(b.fromDate, span - 1) < b.toDate) return { error: `One request for ${type.name} covers at most ${span} days.` } as const;
   if (b.halfDay && b.fromDate !== b.toDate) return { error: 'A half-day leave is for one day.' } as const;
   if ((b.startHalf || b.endHalf) && b.fromDate === b.toDate) return { error: 'For one day, choose the first or second half.' } as const;
+  const longer = b.fromDate !== b.toDate;
+  const edges = { halfDay: b.halfDay ?? null, startHalf: longer && Boolean(b.startHalf), endHalf: longer && Boolean(b.endHalf) };
+  /* Hourly leave: one day, quarter-hour steps, the hours counted against that day's shift. */
+  let hours: { fromTime: string; toTime: string; minutes: number; shiftMinutes: number } | null = null;
+  if (type.unit === 'HOUR') {
+    if (longer) return { error: `${type.name} is taken in hours on one day.` } as const;
+    if (b.halfDay) return { error: `${type.name} is taken in hours, not half days.` } as const;
+    const from = String(b.fromTime || ''), to = String(b.toTime || '');
+    if (!QUARTER_TIME.test(from) || !QUARTER_TIME.test(to)) return { error: 'Give the hours as from and to, in steps of 15 minutes (09:00, 09:15…).' } as const;
+    if (minutesOf(to) <= minutesOf(from)) return { error: 'The end is before the start.' } as const;
+    const rule = (await shiftFor(orgId, employee.id, b.fromDate)).rule;
+    const start = minutesOf(rule.startTime);
+    const end = minutesOf(rule.endTime) <= start ? minutesOf(rule.endTime) + 1440 : minutesOf(rule.endTime);
+    if (minutesOf(from) < start || minutesOf(to) > end) return { error: `Hourly leave is inside the shift, ${rule.startTime} to ${rule.endTime}.` } as const;
+    const shiftMinutes = Math.max(60, end - start - (rule.breakMinutes || 0));
+    hours = { fromTime: from, toTime: to, minutes: minutesOf(to) - minutesOf(from), shiftMinutes };
+  } else if (b.fromTime || b.toTime) {
+    return { error: `${type.name} is taken in days; hours are for an hourly type.` } as const;
+  }
   const period = await leavePeriodOf(orgId);
-  const plan = await dayPlan(orgId, employee, b.fromDate, b.toDate, type);
+  const plan = await dayPlan(orgId, employee, b.fromDate, b.toDate, type, edges);
   /* A half day on a night shift is the first or second half of that night. */
   if (b.halfDay && plan.length === 1 && plan[0].night) {
     const cover = nightCover((await shiftFor(orgId, employee.id, b.fromDate)).rule, b.fromDate, b.halfDay);
@@ -924,6 +983,8 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
   for (const part of partsOf(period, b.fromDate, b.toDate)) {
     const dates = plan.filter((d) => d.date >= part.from && d.date <= part.to);
     const rows = rowsOf({ ...part, dates }, b);
+    /* An hour's leave is its share of the shift, never more than the day. */
+    if (hours) for (const x of rows) { x.days = round(Math.min(1, hours.minutes / hours.shiftMinutes)); x.minutes = hours.minutes; }
     const days = round(rows.reduce((a, x) => a + x.days, 0));
     let balance: { before: number | null; after: number | null; negativeDays: number; locked?: boolean; lockedUntil?: string | null } = { before: null, after: null, negativeDays: type.negativeDays };
     if (type.isPaid && days) {
@@ -934,15 +995,19 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
       /* Locked by probation: nothing can be taken yet, so no days in advance either (the advance would undo the lock). */
       balance = { before, after: before == null ? null : round(before - days), negativeDays: bal.locked ? 0 : type.negativeDays, locked: Boolean(bal.locked), lockedUntil: bal.lockedUntil ?? null };
     }
-    parts.push({ ...part, label: periodLabel(period, part.year), days, dates, balance, rows });
+    parts.push({ ...part, label: periodLabel(period, part.year), days, dates, balance, rows, overflow: null as Overflow | null });
   }
   const total = round(parts.reduce((a, p) => a + p.days, 0));
-  const person = await peoplePrisma.employee.findFirst({ where: { id: employee.id, orgId }, select: { gender: true, employeeTypeId: true, dateOfJoining: true, dateOfLeaving: true, branchId: true, areaId: true, departmentId: true, gradeId: true } });
+  const person = await peoplePrisma.employee.findFirst({ where: { id: employee.id, orgId }, select: { gender: true, employeeTypeId: true, dateOfJoining: true, dateOfLeaving: true, branchId: true, areaId: true, departmentId: true, gradeId: true, status: true } });
   /* Eligibility by days worked in the 12 months before (Code on Social Security, maternity: 80), when the type asks for it. */
   const workedBefore = type.availableAfterBasis === 'DAYS_WORKED' && type.availableAfterDays && person ? (await daysWorkedBefore(accountId, orgId, { id: employee.id, ...person }, b.fromDate)).eligible : null;
   const clash = await peoplePrisma.leaveRequest.findFirst({ where: { orgId, employeeId: employee.id, status: { in: OPEN }, fromDate: { lte: b.toDate }, toDate: { gte: b.fromDate }, ...(ignoreIds.length ? { id: { notIn: ignoreIds } } : {}) } });
+  /* Hourly leave and half days share a day with other leave only when they do not cover the same part of it. */
+  const sameDay = clash && (hours || edges.halfDay) && clash.fromDate === clash.toDate && clash.fromDate === b.fromDate && ((clash.minutes && hours) || (clash.halfDay && edges.halfDay && clash.halfDay !== edges.halfDay)) ? clash : null;
   const reasonText = String(b.reason || '').trim();
   const problems: Array<{ code: string; message: string; month?: string; months?: string[] }> = [];
+  /* What does not stop the request but the asker and the approver should know. */
+  const warnings: Array<{ code: string; message: string }> = [];
   /* A closed Attendance month: refused now, not left waiting for an approval that can never happen (O-09). */
   const counted = plan.filter((d) => d.counted).map((d) => d.date);
   const shut = await closedMonthRefusal(orgId, counted.length ? counted : [b.fromDate, b.toDate], 'leave');
@@ -954,10 +1019,35 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
   /* Leave block dates hold the person asking; HR entering leave for someone is not held to them. */
   const block = !onBehalf && person ? await blockFor(orgId, { id: employee.id, departmentId: person.departmentId }, type.id, counted) : null;
   if (block) problems.push({ code: 'LEAVE_BLOCKED', message: block.message });
-  if (clash) problems.push({ code: 'OVERLAP', message: `This overlaps leave already asked for (${clash.fromDate} to ${clash.toDate}).` });
+  if (clash && !sameDay) problems.push({ code: 'OVERLAP', message: `This overlaps leave already asked for (${clash.fromDate} to ${clash.toDate}).` });
+  /* Serving notice (Keka): the type says whether leave is taken then. HR entering it is told, not stopped. */
+  if (person?.status === 'ON_NOTICE' && type.onNotice !== 'ALLOW') {
+    const leaving = person.dateOfLeaving ? ` (last day ${dayWords(person.dateOfLeaving)})` : '';
+    if (type.onNotice === 'BLOCK' && !onBehalf) problems.push({ code: 'ON_NOTICE', message: `${type.name} is not taken while serving notice${leaving}. Ask HR if it must be.` });
+    else warnings.push({ code: 'ON_NOTICE', message: `Serving notice${leaving}: the approver sees this.` });
+  }
+  /* Clubbing: types that may not sit next to each other, weekly offs and holidays between still counting as next to. */
+  const club = await clubbingClash(orgId, employee, type, b.fromDate, b.toDate, ignoreIds);
+  if (club) problems.push({ code: 'CLUBBING', message: club });
+  /* More than the balance: refused, or (LOSS_OF_PAY) the extra days become linked unpaid rows. Not while locked by probation: nothing is taken then. */
+  const lop = type.overBalance === 'LOSS_OF_PAY' && type.isPaid && !hours ? await lossOfPayType(orgId) : null;
   for (const p of parts) {
     if (p.balance.locked && p.days > 0) {
       problems.push({ code: 'NO_BALANCE', message: `${type.name} cannot be taken until confirmed${p.balance.lockedUntil ? ` (${dayWords(p.balance.lockedUntil)})` : ''}.` });
+    } else if (p.balance.after != null && p.balance.after < -p.balance.negativeDays && type.overBalance === 'LOSS_OF_PAY' && !hours) {
+      if (!lop) {
+        problems.push({ code: 'NO_BALANCE', message: `Only ${p.balance.before} ${p.balance.before === 1 ? 'day' : 'days'} of ${type.name} ${p.balance.before === 1 ? 'is' : 'are'} left. The rest would be loss of pay, but there is no unpaid leave type: add Loss of Pay in Leave Policy.` });
+        continue;
+      }
+      const cut = overBalance(p.rows, p.dates, round((p.balance.before ?? 0) + p.balance.negativeDays));
+      const unpaid = round(cut.unpaid.reduce((a, x) => a + x.days, 0));
+      const paidDays = round(p.days - unpaid);
+      p.overflow = { typeId: lop.id, typeName: lop.name, days: unpaid, from: cut.unpaid[0].from, rows: cut.unpaid };
+      p.rows = cut.paid;
+      p.days = paidDays;
+      if (cut.paid.length) p.to = cut.paid[cut.paid.length - 1].to;
+      p.balance = { ...p.balance, after: round((p.balance.before ?? 0) - paidDays) };
+      warnings.push({ code: 'LOSS_OF_PAY', message: `${plural(unpaid, 'day')} over the balance ${unpaid === 1 ? 'is' : 'are'} loss of pay (${lop.name}), from ${dayWords(p.overflow.from)}.` });
     } else if (p.balance.after != null && p.balance.after < -p.balance.negativeDays) {
       const extra = p.balance.negativeDays ? ` (and ${p.balance.negativeDays} in advance)` : '';
       problems.push({ code: 'NO_BALANCE', message: `Only ${p.balance.before} ${p.balance.before === 1 ? 'day' : 'days'} of ${type.name} ${p.balance.before === 1 ? 'is' : 'are'} left${parts.length > 1 ? ` in ${p.label}` : ' this year'}${extra}; this is ${p.days}.` });
@@ -966,7 +1056,71 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
   if (!type.isPrivate && reasonText.length < 3) problems.push({ code: 'REASON', message: 'Say why.' });
   /* A long request asks for a document (a medical certificate) when the type says so; HR entering it is not held to it. */
   if (documentNeeded(type, total) && !onBehalf && !b.attachment?.data && !b.hasDocument) problems.push({ code: 'DOCUMENT', message: `${type.name} for more than ${type.attachmentAfterDays} ${type.attachmentAfterDays === 1 ? 'day' : 'days'} needs a document, such as a medical certificate. Attach it to ask.` });
-  return { type, parts, total, problems, clash, split: parts.length > 1, reason: reasonText } as const;
+  /* total: what this type is charged (days over the balance are the loss-of-pay part, not this type's); asked: the whole request. */
+  const charged = round(parts.reduce((a, p) => a + p.days, 0));
+  return { type, parts, total: charged, asked: total, problems, warnings, clash, split: parts.length > 1, reason: reasonText, edges, hours, lossOfPay: parts.some((p) => p.overflow) } as const;
+}
+
+/**
+ * Splits a part's rows where the balance runs out: whole days and halves in
+ * date order are paid while the room lasts, the rest is loss of pay. Each
+ * part ends and starts on a working day: weekly offs and holidays between
+ * the last paid day and the first unpaid one are neither, so each request
+ * counts the same again when it is approved. A row that straddles the cut
+ * becomes two.
+ */
+export function overBalance(rows: Row[], dates: Array<{ date: string; counted: boolean; off?: string }>, room: number) {
+  const weightOf = (d: string) => { const x = rows.find((r) => d >= r.from && d <= r.to); return x ? (x.halfDay ? 0.5 : 1) : 0; };
+  let left = room;
+  let short = false;
+  let lastPaid: string | null = null;
+  for (const d of dates) {
+    if (!d.counted) continue;
+    const w = weightOf(d.date);
+    if (w > left + 1e-9) { short = true; break; }
+    left = round(left - w);
+    if (!d.off) lastPaid = d.date;
+  }
+  if (!short) return { paid: rows, unpaid: [] as Row[] };
+  const paidEnd = lastPaid ?? '';
+  const firstUnpaid = lastPaid ? dates.find((d) => d.counted && !d.off && d.date > paidEnd)?.date ?? addDays(paidEnd, 1) : rows[0].from;
+  const count = (from: string, to: string, half: Row['halfDay']) => { const n = dates.filter((d) => d.counted && d.date >= from && d.date <= to).length; return half ? (n ? 0.5 : 0) : n; };
+  const paid: Row[] = [], unpaid: Row[] = [];
+  for (const r of rows) {
+    if (lastPaid && r.from <= paidEnd) { const to = r.to < paidEnd ? r.to : paidEnd; paid.push({ ...r, to, days: count(r.from, to, r.halfDay) }); }
+    if (r.to >= firstUnpaid) { const from = r.from > firstUnpaid ? r.from : firstUnpaid; unpaid.push({ ...r, from, days: count(from, r.to, r.halfDay) }); }
+  }
+  return { paid: paid.filter((r) => r.days > 0), unpaid: unpaid.filter((r) => r.days > 0) };
+}
+
+/** The company's unpaid type that takes days over a balance: the one coded LOP, else the first unpaid type in use. */
+async function lossOfPayType(orgId: string) {
+  const unpaid = await peoplePrisma.leaveType.findMany({ where: { orgId, isActive: true, isPaid: false, unit: 'DAY' }, orderBy: { name: 'asc' }, select: { id: true, name: true, code: true } });
+  return unpaid.find((t) => String(t.code || '').toUpperCase() === 'LOP') || unpaid[0] || null;
+}
+
+/**
+ * Clubbing (Keka, Zoho): a type may name types that cannot sit next to it, and
+ * the rule works both ways. "Next to" skips the weekly offs and holidays
+ * between, so Casual on Friday and Earned on Monday are next to each other.
+ */
+async function clubbingClash(orgId: string, employee: Asker, type: { id: string; name: string; notWithTypeIds: string[] }, from: string, to: string, ignoreIds: string[]) {
+  const others = await peoplePrisma.leaveType.findMany({ where: { orgId, OR: [{ id: { in: type.notWithTypeIds } }, { notWithTypeIds: { has: type.id } }] }, select: { id: true, name: true } });
+  if (!others.length) return null;
+  /* The working day before the first and after the last (two weeks either way is plenty). */
+  const before = (await dayPlan(orgId, employee, addDays(from, -14), addDays(from, -1), false)).filter((d) => d.counted).at(-1)?.date || addDays(from, -1);
+  const after = (await dayPlan(orgId, employee, addDays(to, 1), addDays(to, 14), false)).find((d) => d.counted)?.date || addDays(to, 1);
+  const near = await peoplePrisma.leaveRequest.findFirst({
+    where: {
+      orgId, employeeId: employee.id, status: { in: OPEN }, leaveTypeId: { in: others.map((t) => t.id) },
+      ...(ignoreIds.length ? { id: { notIn: ignoreIds } } : {}),
+      OR: [{ toDate: { gte: before, lt: from } }, { fromDate: { gt: to, lte: after } }],
+    },
+    select: { leaveTypeId: true, fromDate: true, toDate: true },
+  });
+  if (!near) return null;
+  const name = others.find((t) => t.id === near.leaveTypeId)!.name;
+  return `${type.name} cannot be taken next to ${name} (${near.fromDate === near.toDate ? dayWords(near.fromDate) : `${dayWords(near.fromDate)} to ${dayWords(near.toDate)}`}).`;
 }
 
 /**
@@ -1007,7 +1161,7 @@ export async function createLeave(
     return res.status(400).json({ error: `Leave stays inside one leave period (${first.parts[0].label}). Split it at ${end}.`, code: 'CROSSES_PERIOD', splitAt: end });
   }
   /* Reason, policy and "nothing to take" are the person's to fix; overlap and balance are checked again under the lock. */
-  const early = first.problems.find((p) => ['REASON', 'NO_WORKING_DAYS', 'LEAVE_POLICY', 'LEAVE_BLOCKED', 'DOCUMENT'].includes(p.code));
+  const early = first.problems.find((p) => ['REASON', 'NO_WORKING_DAYS', 'LEAVE_POLICY', 'LEAVE_BLOCKED', 'DOCUMENT', 'ON_NOTICE', 'CLUBBING'].includes(p.code));
   if (early) return res.status(400).json({ error: early.message, code: early.code === 'REASON' ? undefined : early.code });
   const file = b.attachment?.data ? decodeDocument(b.attachment.data, b.attachment.mime) : null;
   if (file && 'error' in file) return res.status(400).json({ error: file.error, code: 'DOCUMENT' });
@@ -1035,14 +1189,23 @@ export async function createLeave(
     if (overlap) return { status: 409, body: { error: overlap.message } };
     const short = plan.problems.find((p) => p.code === 'NO_BALANCE');
     if (short) return { status: 400, body: { error: short.message, code: 'NO_BALANCE' } };
-    const saved = plan.parts.flatMap((p) => p.rows);
+    const saved = plan.parts.flatMap((p) => [...p.rows, ...(p.overflow?.rows || [])]);
     const groupId = saved.length > 1 ? `lg_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}` : null;
     const asker = by?.userId || req.auth!.userId;
+    const story = { at: new Date().toISOString(), by: asker, what: opts.onBehalf ? 'ENTERED' : 'ASKED' };
+    const common = { accountId, orgId, employeeId: employee.id, reason: plan.reason, groupId, requestedByUserId: asker, fromTime: plan.hours?.fromTime ?? null, toTime: plan.hours?.toTime ?? null };
     let rows = [];
-    for (const part of saved) {
-      rows.push(await tx.leaveRequest.create({
-        data: { accountId, orgId, employeeId: employee.id, leaveTypeId: plan.type.id, fromDate: part.from, toDate: part.to, days: part.days, halfDay: part.halfDay, reason: plan.reason, groupId, requestedByUserId: asker, history: [{ at: new Date().toISOString(), by: asker, what: opts.onBehalf ? 'ENTERED' : 'ASKED' }] },
-      }));
+    for (const part of plan.parts) {
+      let paidId: string | null = null;
+      for (const x of part.rows) {
+        const row = await tx.leaveRequest.create({ data: { ...common, leaveTypeId: plan.type.id, fromDate: x.from, toDate: x.to, days: x.days, halfDay: x.halfDay, minutes: x.minutes ?? null, history: [story] } });
+        paidId ??= row.id;
+        rows.push(row);
+      }
+      /* Days over the balance (overBalance LOSS_OF_PAY): the unpaid rows, decided with the paid ones (same group). */
+      for (const x of part.overflow?.rows || []) {
+        rows.push(await tx.leaveRequest.create({ data: { ...common, leaveTypeId: part.overflow!.typeId, fromDate: x.from, toDate: x.to, days: x.days, halfDay: x.halfDay, overflowOfId: paidId, history: [{ ...story, note: `Over the ${plan.type.name} balance: loss of pay` }] } }));
+      }
     }
     if (file) {
       const docId = await keepLeaveDocument(accountId, orgId, employee.id, plan.type, rows[0], file, b.attachment?.name, asker);
@@ -1054,7 +1217,7 @@ export async function createLeave(
      * two-day casual leave. HR entering leave for someone still goes through
      * the chain, and so does anything longer than the rule allows.
      */
-    const withinBalance = plan.parts.every((p) => p.balance.after == null || p.balance.after >= 0);
+    const withinBalance = plan.parts.every((p) => p.balance.after == null || p.balance.after >= 0) && !plan.lossOfPay;
     if (autoAllowed && plan.type.autoApproveUpToDays != null && plan.total <= plan.type.autoApproveUpToDays && withinBalance) {
       /* The rule could not approve it (a clock-in that day, a closed month, something approved on it): it waits for a person instead, and the story says why. */
       rows = await approveByRule(accountId, orgId, rows, 'Approved by the leave rule', 'Not approved by the leave rule');
@@ -1209,17 +1372,18 @@ async function approvable(accountId: string, orgId: string, r: any, opts: { chai
     /* Holidays or shifts may have changed since it was asked for: count again. */
     const days = await leaveDays(orgId, employee, r.fromDate, r.toDate, type);
     if (!days.length) throw fail(409, 'Nothing in this range is a working day any more. Reject it instead.');
-    /* A half-day leave sits beside the other half's punches; a whole day must have none. */
-    const worked = r.halfDay
+    /* A half day or hours sit beside the punches of the rest of the day; a whole day must have none. */
+    const part = r.halfDay || r.minutes;
+    const worked = part
       ? null
       : await peoplePrisma.attendanceRecord.findFirst({ where: { orgId, employeeId: r.employeeId, date: { in: days }, checkIn: { not: null } }, select: { date: true } });
     if (worked) throw fail(409, `${worked.date} has a clock-in. Correct that day first, or reject this request.`);
     /* Approved WFH or on duty on one of the days: the same rule as the other way round (requests.ts refuses WFH over approved leave). */
-    const onDuty = r.halfDay
+    const onDuty = part
       ? null
       : await peoplePrisma.attendanceRequest.findFirst({ where: { orgId, employeeId: r.employeeId, kind: { in: ['WFH', 'ON_DUTY'] }, status: 'APPROVED', date: { lte: days[days.length - 1] }, OR: [{ toDate: null, date: { in: days } }, { toDate: { gte: days[0] } }] }, select: { kind: true, date: true, toDate: true } });
     if (onDuty) throw fail(409, `${onDuty.kind === 'WFH' ? 'Work from home' : 'On duty'} is approved for ${onDuty.toDate && onDuty.toDate !== onDuty.date ? `${dayWords(onDuty.date)} to ${dayWords(onDuty.toDate)}` : dayWords(onDuty.date)}. Cancel it first, or reject this request.`, 'ON_DUTY');
-    const count = r.halfDay ? 0.5 : days.length;
+    const count = round(days.reduce((a, d) => a + weightOn(r, d), 0));
     if (type.isPaid) {
       const { balances } = await balancesFor(accountId, orgId, [r.employeeId], await leaveYearOf(orgId, r.fromDate), r.fromDate > today() ? r.fromDate : undefined);
       const bal = balances.get(r.employeeId)!.get(type.id)!;
@@ -1252,17 +1416,19 @@ export async function approveLeave(accountId: string, orgId: string, r: any, use
     const checked = await approvable(accountId, orgId, r, opts);
     r = checked.r;
     const { employee, type, days, count } = checked;
-    if (r.halfDay) {
-      /* The day keeps its punches; it is worked out with half of it as leave (writeDay's halfDayLeave rule). */
+    if (partOfDay(r, r.fromDate)) {
+      /* The day keeps its punches; it is worked out with half of it, or the hours, as leave (writeDay's halfDayLeave and leaveHours rules). */
       const day = days[0];
+      const half = halfOn(r, day);
+      const what = half ? `${half === 'FIRST' ? 'first' : 'second'} half` : `${r.fromTime} to ${r.toTime}`;
       const existing = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: r.employeeId, date: day } } });
       await writeDay({
         accountId, orgId, userId, employee, date: day,
         checkIn: existing?.checkIn ?? null, checkOut: existing?.checkOut ?? null,
         source: existing?.source && existing.source !== 'LEAVE' ? existing.source : 'DEVICE',
-        leaveRequestId: r.id, halfDayLeave: r.halfDay as 'FIRST' | 'SECOND',
+        leaveRequestId: r.id, halfDayLeave: half, leaveHours: !half && r.minutes ? { fromTime: r.fromTime, toTime: r.toTime, minutes: r.minutes } : null,
         /* A private type's name and reason stay off the day record, which attendance staff read. */
-        note: type.isPrivate ? `${PRIVATE_LABEL}, ${r.halfDay === 'FIRST' ? 'first' : 'second'} half` : `${type.name}, ${r.halfDay === 'FIRST' ? 'first' : 'second'} half: ${r.reason}`.slice(0, 500),
+        note: type.isPrivate ? `${PRIVATE_LABEL}, ${what}` : `${type.name}, ${what}: ${r.reason}`.slice(0, 500),
       });
     } else {
       for (const date of days) {
@@ -2121,7 +2287,13 @@ export async function previewOut(req: any | null, accountId: string, orgId: stri
   }
   if ('error' in plan) return { status: 200, body: { ok: false, problems: [{ code: 'INPUT', message: plan.error }], parts: [], total: 0 } };
   /* The reason is the asker's to give; the preview does not hold a draft to it. */
-  const own = { ok: !plan.problems.some((p) => p.code !== 'REASON' && p.code !== 'DOCUMENT'), type: { id: plan.type.id, name: plan.type.name, isPaid: plan.type.isPaid, isPrivate: plan.type.isPrivate, allowHalfDay: plan.type.allowHalfDay, sandwich: plan.type.sandwich, negativeDays: plan.type.negativeDays }, total: plan.total, split: plan.split, parts: plan.parts.map((p) => ({ year: p.year, label: p.label, from: p.from, to: p.to, days: p.days, balance: p.balance, dates: p.dates, rows: p.rows })), problems: plan.problems.filter((p) => p.code !== 'REASON' && p.code !== 'DOCUMENT'), reasonNeeded: !plan.type.isPrivate, documentNeeded: documentNeeded(plan.type, plan.total), documentAfterDays: plan.type.attachmentAfterDays ?? null };
+  const own = { ok: !plan.problems.some((p) => p.code !== 'REASON' && p.code !== 'DOCUMENT'), type: { id: plan.type.id, name: plan.type.name, isPaid: plan.type.isPaid, isPrivate: plan.type.isPrivate, allowHalfDay: plan.type.allowHalfDay, sandwich: plan.type.sandwich, negativeDays: plan.type.negativeDays, unit: plan.type.unit, overBalance: plan.type.overBalance }, total: plan.total, split: plan.split,
+    parts: plan.parts.map((p) => ({ year: p.year, label: p.label, from: p.from, to: p.to, days: p.days, balance: p.balance, dates: p.dates, rows: p.rows, overflow: p.overflow ? { typeName: p.overflow.typeName, from: p.overflow.from, to: p.overflow.rows[p.overflow.rows.length - 1].to, days: p.overflow.days } : null })),
+    problems: plan.problems.filter((p) => p.code !== 'REASON' && p.code !== 'DOCUMENT'),
+    /* Not stopping it: serving notice (WARN), days over the balance as loss of pay. */
+    warnings: plan.warnings,
+    hours: plan.hours ? { fromTime: plan.hours.fromTime, toTime: plan.hours.toTime, minutes: plan.hours.minutes } : null,
+    reasonNeeded: !plan.type.isPrivate, documentNeeded: documentNeeded(plan.type, plan.asked), documentAfterDays: plan.type.attachmentAfterDays ?? null };
   if (!req) return { status: 200, body: own };
   const reads = await readsPrivateLeave(req);
   const away = await alsoAway(req, orgId, employee.id, parsed.data.fromDate, parsed.data.toDate, reads);
@@ -2233,7 +2405,7 @@ leaveRouter.get(`${base}/requests/:id`, canOrStep(PermissionAction.VIEW, R.leave
       : [{ at: r.createdAt, what: own ? 'Asked' : `Entered for ${employee?.name || 'them'}`, by: names.get(r.requestedByUserId) || null }];
     if (!stored.length && r.managerApprovedAt) history.push({ at: r.managerApprovedAt, what: r.managerApprovedById ? 'Approved by the manager' : 'Handed on to HR', by: manager?.name || null, note: shaped.reasonHidden ? null : r.managerNote });
     if (!stored.length && r.reviewedAt && r.status !== 'PENDING') history.push({ at: r.reviewedAt, what: ({ APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled' } as Record<string, string>)[r.status] || r.status, by: names.get(r.reviewedByUserId || '') || null, note: shaped.reviewNote });
-    const dates = employee && type ? await dayPlan(orgId, employee, r.fromDate, r.toDate, type) : [];
+    const dates = employee && type ? await dayPlan(orgId, employee, r.fromDate, r.toDate, type, r) : [];
     let balance = null;
     if (type?.isPaid && !shaped.reasonHidden) {
       const year = await leaveYearOf(orgId, r.fromDate);
@@ -2245,7 +2417,9 @@ leaveRouter.get(`${base}/requests/:id`, canOrStep(PermissionAction.VIEW, R.leave
     }
     const parts = r.groupId ? masked(await withTypes(orgId, await peoplePrisma.leaveRequest.findMany({ where: { orgId, groupId: r.groupId }, orderBy: { fromDate: 'asc' } })), reads) : [];
     const turn = r.status === 'PENDING' && !r.ruleId ? await hrMayDecide(orgId, 'leave', r, await leaveChainFor(orgId, r.leaveTypeId)) : { ok: true as const };
-    const editable = r.status === 'PENDING' && (await readsPrivateLeave(req) || !shaped.reasonHidden);
+    /* Leave that ran over the balance into loss of pay is changed by withdrawing it and asking again (editLeave refuses it). */
+    const linkedLop = Boolean(r.overflowOfId) || (r.groupId ? Boolean(await peoplePrisma.leaveRequest.findFirst({ where: { orgId, groupId: r.groupId, overflowOfId: { not: null } }, select: { id: true } })) : false);
+    const editable = r.status === 'PENDING' && !linkedLop && (await readsPrivateLeave(req) || !shaped.reasonHidden);
     res.json({
       request: shaped,
       history,
@@ -2253,7 +2427,7 @@ leaveRouter.get(`${base}/requests/:id`, canOrStep(PermissionAction.VIEW, R.leave
       balance,
       canEdit: editable,
       canShorten: r.status === 'APPROVED' && !r.halfDay && r.fromDate <= today() && r.toDate > today(),
-      parts: parts.map((p: any) => ({ id: p.id, fromDate: p.fromDate, toDate: p.toDate, days: p.days, halfDay: p.halfDay ?? null, status: p.status })),
+      parts: parts.map((p: any) => ({ id: p.id, fromDate: p.fromDate, toDate: p.toDate, days: p.days, halfDay: p.halfDay ?? null, status: p.status, leaveTypeName: p.leaveTypeName, overflowOfId: p.overflowOfId ?? null })),
       alsoAway: await alsoAway(req, orgId, r.employeeId, r.fromDate, r.toDate, reads),
       waitingForManager: turn.ok ? null : turn.error,
       ownRequest: Boolean(employee?.userId && employee.userId === req.auth!.userId),
@@ -2331,7 +2505,7 @@ leaveRouter.get(`${base}/overview`, can(PermissionAction.VIEW, R.leave), async (
   const waitingRows = waitingAll.slice(0, 8);
   const waitingCount = waitingAll.length;
   const oldWaiting = waitingAll.filter((r) => r.createdAt.getTime() < Date.now() - 3 * 86_400_000).length;
-  const shape = async (rows: any[]) => masked(await withTypes(orgId, rows), reads).map((r: any) => ({ id: r.id, employeeId: r.employeeId, employeeName: r.employeeName, employeeCode: r.employeeCode, department: r.department, photoUrl: r.photoUrl, leaveTypeName: r.leaveTypeName, leaveTypeColor: r.leaveTypeColor, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay, status: r.status, createdAt: r.createdAt, managerApprovedAt: r.managerApprovedAt }));
+  const shape = async (rows: any[]) => masked(await withTypes(orgId, rows), reads).map((r: any) => ({ id: r.id, employeeId: r.employeeId, employeeName: r.employeeName, employeeCode: r.employeeCode, department: r.department, photoUrl: r.photoUrl, leaveTypeName: r.leaveTypeName, leaveTypeColor: r.leaveTypeColor, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, status: r.status, createdAt: r.createdAt, managerApprovedAt: r.managerApprovedAt }));
   /* Days that lapse: within 60 days of the period end, what is left above what the type carries forward. */
   const period = await leavePeriodOf(orgId);
   const year = periodOf(period, t0);
@@ -2522,12 +2696,20 @@ export async function editLeave(accountId: string, orgId: string, r: any, body: 
     if (closedNow) throw new MonthClosedError(closedNow.month!, closedNow.message, closedNow.months);
     if (blocking.length) throw fail(blocking[0].code === 'OVERLAP' ? 409 : 400, blocking[0].message, blocking[0].code);
     /* The balance check counted this request's own waiting days; they come back before the new ones are charged. */
+    /* Leave that ran over the balance into loss of pay is paid and unpaid rows together; changing them would leave the split wrong. */
+    if (group.some((x) => x.overflowOfId)) throw fail(409, 'This leave runs over the balance into loss of pay. Withdraw it and ask again with the new dates.', 'LOSS_OF_PAY_EDIT');
     for (const part of plan.parts) {
       const ownDays = ownDaysFor(part);
-      if (part.balance.after != null && part.balance.after + ownDays < -plan.type.negativeDays) throw fail(400, `Only ${round((part.balance.before ?? 0) + ownDays)} days of ${plan.type.name} are left; this is ${part.days}.`, 'NO_BALANCE');
+      const asked = round(part.days + (part.overflow?.days || 0));
+      if (part.balance.before != null && part.balance.before - asked + ownDays < -plan.type.negativeDays) {
+        if (part.overflow) throw fail(409, 'The new dates run over the balance into loss of pay. Withdraw this request and ask again.', 'LOSS_OF_PAY_EDIT');
+        throw fail(400, `Only ${round((part.balance.before ?? 0) + ownDays)} days of ${plan.type.name} are left; this is ${part.days}.`, 'NO_BALANCE');
+      }
     }
     if (plan.split && !b.split) throw fail(400, `Leave stays inside one leave period. Split it at ${plan.parts[0].to}.`, 'CROSSES_PERIOD');
-    const parts = plan.parts.flatMap((x) => x.rows);
+    /* Its own days came back, so what the plan put over the balance fits: all of it is this type's. */
+    const parts = plan.parts.flatMap((x) => [...x.rows, ...(x.overflow?.rows || [])]);
+    const hours = { fromTime: plan.hours?.fromTime ?? null, toTime: plan.hours?.toTime ?? null };
     /*
      * Only the reason changed: the same type, days and half. Nothing the
      * approver decides on moved, so the manager's step stands and nobody is
@@ -2536,7 +2718,8 @@ export async function editLeave(accountId: string, orgId: string, r: any, body: 
     const spanFrom = group.reduce((a, x) => (x.fromDate < a ? x.fromDate : a), current.fromDate);
     const spanTo = group.reduce((a, x) => (x.toDate > a ? x.toDate : a), current.toDate);
     const halvesOf = (rows: Array<{ fromDate?: string; from?: string; halfDay: string | null }>) => rows.map((x) => `${x.fromDate ?? x.from}:${x.halfDay ?? ''}`).sort().join(',');
-    if (plan.type.id === current.leaveTypeId && b.fromDate === spanFrom && b.toDate === spanTo && halvesOf(group) === halvesOf(parts)) {
+    const sameHours = (current.fromTime ?? null) === hours.fromTime && (current.toTime ?? null) === hours.toTime;
+    if (plan.type.id === current.leaveTypeId && b.fromDate === spanFrom && b.toDate === spanTo && halvesOf(group) === halvesOf(parts) && sameHours) {
       if (plan.reason !== current.reason) {
         for (const x of group) await peoplePrisma.leaveRequest.update({ where: { id: x.id }, data: { reason: plan.reason, history: withHistory(x, { by, what: 'REASON_EDITED', note: null }) } });
       }
@@ -2552,11 +2735,11 @@ export async function editLeave(accountId: string, orgId: string, r: any, body: 
     const entry = { by, what: 'EDITED', note: null, ...change };
     const first = await peoplePrisma.leaveRequest.update({
       where: { id: current.id },
-      data: { leaveTypeId: plan.type.id, fromDate: parts[0].from, toDate: parts[0].to, days: parts[0].days, halfDay: parts[0].halfDay, reason: plan.reason, groupId, managerApprovedAt: null, managerApprovedById: null, managerNote: null, history: withHistory(current, entry) },
+      data: { leaveTypeId: plan.type.id, fromDate: parts[0].from, toDate: parts[0].to, days: parts[0].days, halfDay: parts[0].halfDay, ...hours, minutes: parts[0].minutes ?? null, reason: plan.reason, groupId, managerApprovedAt: null, managerApprovedById: null, managerNote: null, history: withHistory(current, entry) },
     });
     await peoplePrisma.leaveRequest.deleteMany({ where: { orgId, id: { in: group.map((x) => x.id).filter((id) => id !== current.id) } } });
     for (const part of parts.slice(1)) {
-      await peoplePrisma.leaveRequest.create({ data: { accountId, orgId, employeeId: current.employeeId, leaveTypeId: plan.type.id, fromDate: part.from, toDate: part.to, days: part.days, halfDay: part.halfDay, reason: plan.reason, groupId, requestedByUserId: current.requestedByUserId, createdAt: current.createdAt, attachmentDocId: current.attachmentDocId, history: withHistory(current, entry) } });
+      await peoplePrisma.leaveRequest.create({ data: { accountId, orgId, employeeId: current.employeeId, leaveTypeId: plan.type.id, fromDate: part.from, toDate: part.to, days: part.days, halfDay: part.halfDay, ...hours, minutes: part.minutes ?? null, reason: plan.reason, groupId, requestedByUserId: current.requestedByUserId, createdAt: current.createdAt, attachmentDocId: current.attachmentDocId, history: withHistory(current, entry) } });
     }
     /* A changed request starts the approval again: under the rule, from its first step. */
     const edited = groupId ? await peoplePrisma.leaveRequest.findMany({ where: { orgId, groupId }, orderBy: { fromDate: 'asc' } }) : [first];
@@ -2582,7 +2765,7 @@ export async function shortenLeave(accountId: string, orgId: string, r: any, toD
   return peopleWrite(orgId, async () => {
     const current = await peoplePrisma.leaveRequest.findFirst({ where: { id: r.id, accountId, orgId } });
     if (!current || current.status !== 'APPROVED') throw fail(409, 'Only approved leave can be shortened.');
-    if (current.halfDay) throw fail(400, 'A half day cannot be shortened; cancel it instead.');
+    if (current.halfDay || current.minutes) throw fail(400, `${current.minutes ? 'Hourly leave' : 'A half day'} cannot be shortened; cancel it instead.`);
     const earliest = opts.self && today() > current.fromDate ? today() : current.fromDate;
     if (earliest >= current.toDate) throw fail(400, 'This leave ends today or has ended; there is nothing left to shorten. Ask HR to correct it.');
     if (toDate < earliest || toDate >= current.toDate) throw fail(400, `Choose a day from ${dayWords(earliest)} to ${dayWords(addDays(current.toDate, -1))}.`);
@@ -2971,7 +3154,7 @@ leaveRouter.get('/orgs/:orgId/attendance/me/leave', can(PermissionAction.VIEW, R
       employee: { id: me.id, name: me.name },
       year,
       today: today(),
-      types: types.filter((t) => t.isActive && (eligibleFor(t as any, me as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => { const b = mine.get(t.id)!; return { id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, isPrivate: t.isPrivate, allowHalfDay: t.allowHalfDay, ...b, projectedAvailable: t.isPaid && b.fullYear != null ? round(b.fullYear - b.used - b.pending) : null }; }),
+      types: types.filter((t) => t.isActive && (eligibleFor(t as any, me as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => { const b = mine.get(t.id)!; return { id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, isPrivate: t.isPrivate, allowHalfDay: t.allowHalfDay, unit: t.unit, ...b, projectedAvailable: t.isPaid && b.fullYear != null ? round(b.fullYear - b.used - b.pending) : null }; }),
       requests: await withTypes(orgId, requests),
     });
   } catch (e) {

@@ -204,3 +204,31 @@ Every rule is opt-in on a leave type; the migration only adds defaulted columns,
 | Maternity as one request | The 60-day span is per type: `maxDaysPerRequest` above 60 (up to 182) is the span. `countsCalendarDays` charges every date. `availableAfterBasis: DAYS_WORKED` checks `availableAfterDays` (80) against days worked in the 12 months before the leave starts, paid leave included | Code on Social Security ch. VI. The Code counts to the expected delivery date; we count to the leave's first day. ESIC payment is a note in the form, not modelled |
 | State sets | Numbers unchanged; the confirm dialog names the figure to check (KA/DL/TN carry limit, MH and Factories/OSH flat earned leave). New starting points: Earned Leave (OSH Code) 1/20 after 180, carry 30, OSH carry on; Earned Leave (Factories Act) 1/20 after 240, carry 30 | "Do not change the existing defaults silently" |
 | Register in the prescribed form (G2) | Leave register → Print register: one worker a page, days worked, per type opening, earned, changed, availed with dates, refused with dates, paid out, lapsed, closing, signature lines, "format based on OSH Form XX / Factories Form 15" | The forms' own columns were not read (the research is secondary), so the page says "based on" |
+
+## Leave policy rules (27 Oct 2026, owner review of people.clor.in; ported onto main 30 Oct 2026)
+
+The owner found the leave module short of Keka, Zoho and greytHR. PR #47 built nine rules on an older engine. By the time it was ported, `main` already had three of them in its own design. Those three stay as main built them. The other six are built on main's engine: People and Attendance, the web screens and the employee app. Each is a field on the leave type, and its default keeps a type as it was. Migration `20261108100000_leave_policy_rules` only adds columns.
+
+Kept from main, and #47's versions dropped:
+
+- **Half days at both ends.** Main has `startHalf`/`endHalf`, and `rowsOf()` saves the half day as its own linked row. #47 had `fromHalf`/`toHalf` on one row. Balances, approval, the calendar and payroll already read half days row by row, so a second model would only add ways for them to disagree.
+- **A document above N days.** Main has `attachmentAfterDays`/`attachmentDocId`, sent with the request and kept on the person's file. People asking for themselves attach it to ask; HR entering leave may add it later. #47's `documentAfterDays` held approval instead (`DOCUMENT_NEEDED`). One rule is enough, and main's is already in use.
+- **Carried days that expire.** Main has `carryExpiresAfterDays`, counted in days from the period start. #47 had `carryExpiryMonths`. Main's version is in the balances and the jobs already.
+
+Ported:
+
+| Rule | Decision | Why |
+|---|---|---|
+| Hourly leave | `unit` HOUR covers one day, in quarter-hour steps, inside the shift. It is charged as the hours' share of that day's shift: 2 of 8 hours is 0.25 day. Balances stay in days. On the day record, writeDay's `leaveHours` excuses the hours from lateness and early leaving and counts them towards the day | One ledger unit keeps balances, year end and payroll unchanged. Permission, which is not taken from a balance, stays as it is |
+| Over the balance | `overBalance` REFUSE (as before) or LOSS_OF_PAY. The days the balance does not cover (after `negativeDays`) become rows of the company's unpaid type: the one coded LOP, else the first unpaid type. They sit in the same group as the paid rows, with `overflowOfId`, so they are decided together and cancelled together. Days are taken in date order, half-day rows included. The paid part ends on its last working day and the unpaid part starts on the next one. A weekly off between them is in neither, so each part counts the same again when it is approved. A person's own request with loss of pay is never approved automatically | The owner books one request, not two. Payroll reads the unpaid rows as it reads any unpaid leave |
+| Clubbing | `notWithTypeIds` works either way round. "Next to" skips the weekly offs and holidays between. Waiting and approved leave both count | The rule as Keka and Zoho apply it. Setting it on one type is enough |
+| Sandwich options | Read only when `sandwich` is on: `sandwichMinDays`, `sandwichWeekOffs`, `sandwichHolidays`, `sandwichIgnoreHalf`. With `sandwichIgnoreHalf`, a `startHalf`/`endHalf` day does not hold the offs between | The single switch charged a long weekend for a Friday afternoon off |
+| Leave while serving notice | `onNotice` ALLOW, WARN or BLOCK. WARN lets the person ask, and the preview tells them the approver sees it. BLOCK stops the person asking. HR entering leave for them is warned, not stopped | Keka blocks; HR keeps the last word |
+| State holiday minimum | The holidays screen and the setup step say when a branch's year has fewer national and festival holidays than its state's law asks: Karnataka 10, Maharashtra 8. Tamil Nadu's figure is not confirmed, so the screen says that instead of giving a number. Optional holidays do not count | The research (G4) verified two states. Guessing a third would be wrong advice |
+
+Left out, with the reason:
+
+- **Changing a request that ran into loss of pay.** It is paid and unpaid rows together. Changing one part would leave the split wrong, so it is withdrawn and asked again (`LOSS_OF_PAY_EDIT`), and Change is not offered.
+- **Hours and the sandwich options on a type in use.** They change what a request charges, so they follow the existing rule: make a new type.
+- **The leave import (CSV) and the Android app.** They take whole days and half days only. An hourly type asked from Android is refused with "Give the hours".
+- **A balance in hours.** Hours are charged as a share of a day. A balance kept in hours, as Zoho offers, is not.

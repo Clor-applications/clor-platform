@@ -8,6 +8,7 @@ import { logDayChange } from './history.js';
 import { permissionCovers } from './permissionWindow.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { asJson, decidedMarker, readerTrustOn, trustForDay } from './trust.js';
+import { halfOn, partOfDay } from './leaveHalves.js';
 
 /**
  * Attendance days: the one path a day is written by, and the reads every
@@ -202,6 +203,8 @@ export async function writeDay(opts: {
    * leaving on a second-half one.
    */
   halfDayLeave?: 'FIRST' | 'SECOND' | null;
+  /** Hourly leave on the day: those hours are excused and count towards the day, like permission hours. */
+  leaveHours?: { fromTime: string | null; toTime: string | null; minutes: number } | null;
   /**
    * An approved attendance request on this day (WFH | ON_DUTY | PERMISSION)
    * and its id. Left out: the day keeps what it had, so a reader's punch does
@@ -223,9 +226,12 @@ export async function writeDay(opts: {
       orgId: opts.orgId, employeeId: opts.employee.id, status: 'APPROVED',
       fromDate: { lte: opts.date }, toDate: { gte: opts.date },
     } });
-    if (approved && (approved.halfDay || before?.leaveRequestId === approved.id || (!holiday && !isWeeklyOff(rule, opts.date))) && opts.leaveRequestId === undefined) {
-      opts = { ...opts, leaveRequestId: approved.id, halfDayLeave: approved.halfDay as 'FIRST' | 'SECOND' | null };
-      if (!approved.halfDay) {
+    /* Part of the day as leave (a half, or hours) keeps the day's punches. */
+    const part = approved ? partOfDay(approved, opts.date) : false;
+    if (approved && (part || before?.leaveRequestId === approved.id || (!holiday && !isWeeklyOff(rule, opts.date))) && opts.leaveRequestId === undefined) {
+      const halfToday = halfOn(approved, opts.date);
+      opts = { ...opts, leaveRequestId: approved.id, halfDayLeave: halfToday, leaveHours: !halfToday && approved.minutes ? { fromTime: approved.fromTime, toTime: approved.toTime, minutes: approved.minutes } : null };
+      if (!part) {
         if (opts.checkIn) throw fail(409, 'Cancel the approved leave before recording work on this day.', 'LEAVE_CONFLICT');
         opts.statusOverride = 'ON_LEAVE';
       }
@@ -242,11 +248,21 @@ export async function writeDay(opts: {
       onLeave: opts.statusOverride === 'ON_LEAVE',
     });
     const half = opts.halfDayLeave || null;
+    const hours = !half ? opts.leaveHours || null : null;
+    /* Hourly leave: the hours count towards the day, and lateness or leaving early inside them is excused. */
+    const withHours = (computed.workedMinutes || 0) + (hours?.minutes || 0);
     const status = half
       ? (computed.workedMinutes || 0) >= rule.halfDayMinutes ? 'PRESENT' : 'HALF_DAY'
-      : opts.statusOverride && !opts.checkIn ? opts.statusOverride : computed.status;
+      : hours
+        ? withHours >= rule.fullDayMinutes ? 'PRESENT' : withHours >= rule.halfDayMinutes ? 'HALF_DAY' : computed.status
+        : opts.statusOverride && !opts.checkIn ? opts.statusOverride : computed.status;
     if (half === 'FIRST') computed.lateMinutes = 0;
     if (half === 'SECOND') computed.earlyOutMinutes = 0;
+    if (hours?.fromTime && hours.toTime) {
+      const covers = permissionCovers(opts.date, rule, { checkIn: istInstant(opts.date, hours.fromTime), checkOut: istInstant(opts.date, hours.toTime) });
+      if (covers.start) computed.lateMinutes = 0;
+      if (covers.end) computed.earlyOutMinutes = 0;
+    }
     /* Permission hours stay excused on every rewrite of the day, not only the one that approved them. */
     const permissionId = opts.dayKind === 'PERMISSION' ? opts.attendanceRequestId : opts.dayKind === undefined && before?.dayKind === 'PERMISSION' ? before.attendanceRequestId : null;
     if (permissionId) {
@@ -461,12 +477,12 @@ export async function periodContext(accountId: string, orgId: string, from: stri
      unpaid type, including half-day fractions alongside worked time. */
   const leaveIds = [...new Set(records.filter((r) => r.leaveRequestId).map((r) => r.leaveRequestId!))];
   const leaveReqs = leaveIds.length
-    ? await peoplePrisma.leaveRequest.findMany({ where: { orgId, id: { in: leaveIds } }, select: { id: true, leaveTypeId: true, halfDay: true, status: true } })
+    ? await peoplePrisma.leaveRequest.findMany({ where: { orgId, id: { in: leaveIds } }, select: { id: true, leaveTypeId: true, halfDay: true, minutes: true, days: true, status: true } })
     : [];
   const unpaidTypes = new Set(
     (await peoplePrisma.leaveType.findMany({ where: { orgId, isPaid: false }, select: { id: true } })).map((x) => x.id)
   );
-  const unpaidRequest = new Map(leaveReqs.filter((r) => r.status === 'APPROVED' && unpaidTypes.has(r.leaveTypeId)).map((r) => [r.id, r.halfDay ? 0.5 : 1]));
+  const unpaidRequest = new Map(leaveReqs.filter((r) => r.status === 'APPROVED' && unpaidTypes.has(r.leaveTypeId)).map((r) => [r.id, r.minutes ? r.days : r.halfDay ? 0.5 : 1]));
   const shiftOn = (employeeId: string, date: string) => resolveShift(schedule, employeeId, date);
   const recordsOf = new Map<string, Map<string, (typeof records)[number]>>();
   for (const r of records) {
