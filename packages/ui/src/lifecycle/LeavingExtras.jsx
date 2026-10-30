@@ -295,7 +295,7 @@ function EnterDrawer({ interview, employeeId, name, onClose, onSaved }) {
       <form id="exit-enter" onSubmit={send} className="space-y-4">
         <p className="ui-caption">From your conversation with them. They will not be asked in the app once this is saved.</p>
         <ExitQuestionsForm questions={interview.questions} answers={answers} onChange={(a) => { setAnswers(a); setError(''); }} idPrefix="hr-exit" />
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={hide} onChange={(e) => setHide(e.target.checked)} />They asked to keep this from their manager</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={hide} onChange={(e) => setHide(e.target.checked)} />They asked to keep this from their managers</label>
         {error ? <p className="ui-field-error" role="alert">{error}</p> : null}
       </form>
     </Drawer>
@@ -335,13 +335,13 @@ function ExitInterview({ interview: iv, employeeId, name, onChanged }) {
       {iv.status !== 'SUBMITTED' ? (
         <p className="text-sm">They can answer in the employee app, under Me{iv.dueBy ? `, until ${formatDate(iv.dueBy)}` : ''}.{iv.canEnter ? ' Or enter the answers from a conversation.' : ''}</p>
       ) : iv.hiddenFromYou ? (
-        <p className="text-sm">Answered{iv.submittedAt ? ` on ${formatDate(String(iv.submittedAt).slice(0, 10))}` : ''}. They asked to keep the answers from their manager; HR reads them.</p>
+        <p className="text-sm">Answered{iv.submittedAt ? ` on ${formatDate(String(iv.submittedAt).slice(0, 10))}` : ''}. They asked to keep the answers from their managers; HR reads them.</p>
       ) : iv.erased ? (
         <p className="text-sm">The answers were erased after the keeping period. Main reason: {iv.reasonLabel || 'not given'}.</p>
       ) : (
         <dl className="space-y-2 text-sm">
           {answered.map((x) => <div key={x.q}><dt className="ui-caption">{x.q}</dt><dd className="whitespace-pre-line">{x.a}</dd></div>)}
-          {iv.hideFromManager ? <p className="ui-caption">Kept from their manager, as they asked.</p> : null}
+          {iv.hideFromManager ? <p className="ui-caption">Kept from their managers, as they asked.</p> : null}
         </dl>
       )}
       {iv.canEnter ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEntering(true)}>Enter answers</button> : null}

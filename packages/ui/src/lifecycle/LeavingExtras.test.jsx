@@ -99,7 +99,7 @@ const iv = (over) => ({ status: 'SUBMITTED', questions: QUESTIONS, answers: { re
 
 it('exit interview: a manager kept from the answers sees only that it was answered', () => {
   render(<LeavingSections data={data({ clearance: null, interview: iv({ answers: null, hiddenFromYou: true, hideFromManager: true }) })} employeeId="e1" name="Ravi Kumar" />);
-  expect(screen.getByText(/asked to keep the answers from their manager/)).toBeTruthy();
+  expect(screen.getByText(/asked to keep the answers from their managers/)).toBeTruthy();
   expect(screen.queryByText('Career growth')).toBeNull();
   expect(screen.queryByRole('button', { name: 'They stay' })).toBeNull();
 });
