@@ -174,7 +174,7 @@ function CompleteForm({ seat, validMonths, onClose, onSaved }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={`${seat.employee?.name}: completed`} dirty={Boolean(file)}
-      footer={<Footer onCancel={onClose} onSave={save} busy={busy} busyLabel="Saving…" label="Save" />}>
+      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label="Save" />}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         <FormError error={error} />
         <div><label className="ui-label" htmlFor="seat-done">Completed on *</label><DatePicker id="seat-done" max={todayIst()} value={completedOn} onChange={(d) => setDate(d || '')} /></div>
@@ -211,7 +211,7 @@ function TrainingForm({ value, rows, onClose, onSaved }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={dirty} title={value.id ? `Edit ${value.title}` : 'New training'}
-      footer={<Footer onCancel={onClose} onSave={save} busy={busy} busyLabel="Saving…" label="Save" disabled={Boolean(value.id) && !dirty} />}>
+      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label="Save" disabled={Boolean(value.id) && !dirty} />}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         <FormError error={error} />
         <label className="block sm:col-span-2"><span className="ui-label">Training *</span><SuggestInput autoFocus maxLength={200} value={form.title} onChange={(v) => set({ title: v })} suggestions={[...usedValues(rows, (r) => r.title), 'Fire safety', 'First aid', 'POSH awareness', 'Forklift operation']} /></label>

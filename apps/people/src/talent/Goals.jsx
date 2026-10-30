@@ -172,7 +172,7 @@ function GoalForm({ value, staff, rows, onClose, onSaved }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={dirty} title={value.id ? 'Edit goal' : 'New goal'}
-      footer={<Footer onCancel={onClose} onSave={save} busy={busy} busyLabel="Saving…" label="Save" disabled={Boolean(value.id) && !dirty} />}>
+      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label="Save" disabled={Boolean(value.id) && !dirty} />}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         <FormError error={error} />
         {!value.id ? <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Person *" value={form.employeeId} placeholder="Choose…" alwaysSearch onChange={(v) => set({ employeeId: v || '' })} options={staffOptions(staff)} /></div> : null}

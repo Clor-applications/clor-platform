@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import Drawer from '@ui/components/ui/Drawer';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import ErrorState from '@ui/components/ui/ErrorState';
+import { Button } from '@ui/components/ui/Primitives';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import useRequest from '@ui/components/ui/useRequest';
@@ -101,10 +102,11 @@ export const FormError = ({ error }) => (error ? (
 ) : null);
 
 /** A drawer's footer: Cancel and the one action. */
-export const Footer = ({ onCancel, onSave, busy, label, busyLabel, disabled = false }) => (
+/* Save keeps its label while it works: the shared loading state shows a spinner and refuses a second click (DESIGN.md, Buttons). */
+export const Footer = ({ onCancel, onSave, busy, label, disabled = false }) => (
   <>
     <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel}>Cancel</button>
-    <button type="button" className="ui-btn ui-btn-primary" disabled={busy || disabled} onClick={onSave}>{busy ? busyLabel : label}</button>
+    <Button variant="primary" loading={Boolean(busy)} disabled={disabled} onClick={onSave}>{label}</Button>
   </>
 );
 
@@ -138,7 +140,7 @@ export function ReasonDrawer({ title, label, help, action, suggestions = [], onC
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={title} dirty={Boolean(text.trim())}
-      footer={<Footer onCancel={onClose} onSave={go} busy={busy} label={action} busyLabel="Saving…" />}>
+      footer={<Footer onCancel={onClose} onSave={go} busy={busy} label={action} />}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); go(); }}>
         <FormError error={error} />
         <label className="block sm:col-span-2"><span className="ui-label">{label} *</span>

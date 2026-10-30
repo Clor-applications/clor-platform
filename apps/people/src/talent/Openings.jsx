@@ -217,7 +217,7 @@ function OpeningForm({ value, rows, canEdit, onClose, onSaved }) {
   );
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={dirty} title={value.id ? `Edit ${value.title}` : canEdit ? 'New opening' : 'Ask for an opening'}
-      footer={<Footer onCancel={onClose} onSave={save} busy={busy} busyLabel="Saving…" label={value.id ? 'Save' : !canEdit ? 'Ask HR' : form.openNow ? 'Open' : 'Save draft'} disabled={value.id && !dirty} />}>
+      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label={value.id ? 'Save' : !canEdit ? 'Ask HR' : form.openNow ? 'Open' : 'Save draft'} disabled={value.id && !dirty} />}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         <FormError error={error} />
         <label className="block sm:col-span-2"><span className="ui-label">Job *</span><SuggestInput autoFocus maxLength={120} value={form.title} onChange={(v) => set({ title: v })} suggestions={[...usedValues(rows, (r) => r.title), ...designations.map((d) => d.name)]} /></label>

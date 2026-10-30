@@ -121,7 +121,7 @@ function OutcomeForm({ plan, onClose, onSaved }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={Boolean(form.outcome || form.note)} title="Record the outcome"
-      footer={<Footer onCancel={onClose} onSave={save} busy={busy} busyLabel="Saving…" label="Save" />}>
+      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label="Save" />}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         <FormError error={error} />
         <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Outcome *" value={form.outcome} placeholder="Choose…" onChange={(v) => setForm({ ...form, outcome: v || '' })} options={OUTCOMES.map(([v, l]) => ({ value: v, label: l }))} /></div>
@@ -150,7 +150,7 @@ function PlanForm({ hr, reports, onClose, onSaved }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={JSON.stringify(form) !== JSON.stringify(initial)} title="New improvement plan"
-      footer={<Footer onCancel={onClose} onSave={save} busy={busy} busyLabel="Saving…" label="Start plan" />}>
+      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label="Start plan" />}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         <FormError error={error} />
         <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Person *" value={form.employeeId} placeholder="Choose…" alwaysSearch onChange={(v) => set({ employeeId: v || '' })} options={staffOptions(people)} /></div>

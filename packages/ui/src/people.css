@@ -1885,3 +1885,32 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
 :root[data-palette='sky']:not([data-theme='dark']) #main-content section > button.ui-card .tabular-nums { color: rgb(var(--brand)) !important; font-family: var(--font-display); font-weight: 700; font-size: 1.0625rem; }
 :root[data-palette='sky']:not([data-theme='dark']) #main-content section > button.ui-card .ui-t-label { text-transform: none; letter-spacing: 0; font-size: 0.8125rem; }
 
+
+/*
+ * Icons in buttons are marigold (owner, 31 Oct 2026: "in buttons symbols use yellow"). Measured, and followed:
+ *   on the indigo primary 6.5:1 (hover 5.3:1), so the icon reads on its own;
+ *   on white secondary, soft and ghost buttons 2.0:1, under the 3:1 a meaningful graphic needs (WCAG 1.4.11). It is
+ *   allowed there only because the label beside it carries the meaning; the icon is aria-hidden decoration.
+ *   Icon-only buttons (.ui-icon-btn, or a .ui-btn marked .ui-btn-icon-only / data-icon-only) have no label to lean on,
+ *   so they keep their ink. Their icons are Fluent line glyphs with no fill layer to take the marigold, so there is
+ *   no two-tone way to do both.
+ *   Danger keeps its own white; a disabled button's icon drops to its label's colour and fades with it; the loading
+ *   spinner and the done tick take the same colour as the icon would.
+ * Dark theme: marigold on the dark surfaces is 7.6 to 9.8:1, so secondary, soft and ghost keep it; the dark primary is
+ * a light teal fill (marigold on it 1.1:1), so its icon keeps the dark ink. Payroll, Attendance and Accounting are
+ * unchanged: none of this applies outside the sky palette.
+ */
+:root[data-palette='sky'],
+[data-palette='sky'] {
+  --btn-icon: 245 166 35;
+}
+:root[data-palette='sky'] :is(#main-content, body) .ui-btn:is(.ui-btn-primary, .ui-btn-brand, .ui-btn-secondary, .ui-btn-soft, .ui-btn-ghost):not(.ui-btn-icon-only, [data-icon-only]) {
+  --btn-icon-color: rgb(var(--btn-icon));
+}
+:root[data-palette='sky'] :is(#main-content, body) .ui-btn:is(.ui-btn-primary, .ui-btn-brand, .ui-btn-secondary, .ui-btn-soft, .ui-btn-ghost):not(.ui-btn-icon-only, [data-icon-only]) > svg {
+  color: var(--btn-icon-color);
+}
+:root[data-theme='dark'][data-palette='sky'] :is(#main-content, body) .ui-btn:is(.ui-btn-primary, .ui-btn-brand):not(.ui-btn-icon-only, [data-icon-only]),
+:root[data-palette='sky'] :is(#main-content, body) .ui-btn:is(.ui-btn-primary, .ui-btn-brand, .ui-btn-secondary, .ui-btn-soft, .ui-btn-ghost):not(.ui-btn-icon-only, [data-icon-only]):disabled {
+  --btn-icon-color: currentColor;
+}

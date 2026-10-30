@@ -68,7 +68,7 @@ function OneOnOneForm({ value, reports, onClose, onSaved }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={dirty} title={value.id ? `One-on-one with ${value.employee?.name || ''}` : 'New one-on-one'}
-      footer={<Footer onCancel={onClose} onSave={save} busy={busy} busyLabel="Saving…" label="Save" disabled={Boolean(value.id) && !dirty} />}>
+      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label="Save" disabled={Boolean(value.id) && !dirty} />}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         <FormError error={error} />
         {!value.id ? <div><PopupSelect showValueSubtext={false} label="With *" value={form.employeeId} placeholder="Choose…" alwaysSearch={reports.length > 8} onChange={(v) => set({ employeeId: v || '' })} options={reports.map((p) => ({ value: p.id, label: p.code ? `${p.name} (${p.code})` : p.name }))} /></div> : null}

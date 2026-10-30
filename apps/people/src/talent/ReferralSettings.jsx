@@ -85,7 +85,7 @@ export default function ReferralSettings({ opening, value, onClose, onSaved }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={dirty} title={`Referrals for ${opening.title}`}
-      footer={<Footer onCancel={onClose} onSave={save} busy={busy} busyLabel="Saving…" label="Save" disabled={!dirty} />}>
+      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label="Save" disabled={!dirty} />}>
       {lists.loading && !lists.data ? <SkeletonCard lines={5} /> : (
         <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
           <FormError error={error} />

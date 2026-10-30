@@ -235,7 +235,7 @@ function CycleForm({ cycles, onClose, onSaved }) {
   const toggle = (did) => set({ departmentIds: form.departmentIds.includes(did) ? form.departmentIds.filter((x) => x !== did) : [...form.departmentIds, did] });
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={JSON.stringify(form) !== JSON.stringify(initial)} title="New review cycle"
-      footer={<Footer onCancel={onClose} onSave={save} busy={busy} busyLabel="Saving…" label="Save" />}>
+      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label="Save" />}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         <FormError error={error} />
         <label className="block sm:col-span-2"><span className="ui-label">Name *</span><SuggestInput autoFocus maxLength={120} value={form.name} onChange={(v) => set({ name: v })} suggestions={usedValues(cycles, (c) => c.name)} /></label>
