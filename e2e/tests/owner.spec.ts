@@ -88,7 +88,7 @@ test.describe('Suresh owns the account', () => {
     /* #80 QA: at 390px the Company picker ran under the bell and the profile button. */
     await suresh.page.setViewportSize({ width: 390, height: 844 });
     await suresh.goto();
-    const right = await suresh.page.getByRole('banner').evaluate((bar) => Math.max(...[...bar.querySelectorAll('button, select, label')].map((e) => e.getBoundingClientRect().right)));
+    const right = await suresh.page.getByRole('banner').evaluate((bar) => Math.max(...Array.from(bar.querySelectorAll('button, select, label')).map((e) => e.getBoundingClientRect().right)));
     expect(right, 'nothing in the bar past the screen').toBeLessThanOrEqual(390);
     expect((await suresh.companyInUse())?.trim()).toBe(w.asha.name);
   });
@@ -100,10 +100,10 @@ test.describe('Suresh owns the account', () => {
     await suresh.page.goto(`/o/${w.asha.code}/?app=admin`);
     const bar = suresh.page.getByRole('banner');
     await expect(bar.getByRole('button', { name: `Company: ${w.asha.name}` })).toBeVisible();
-    const right = await bar.evaluate((b) => Math.max(...[...b.querySelectorAll('button, select, label')].map((e) => e.getBoundingClientRect().right)));
+    const right = await bar.evaluate((b) => Math.max(...Array.from(b.querySelectorAll('button, select, label')).map((e) => e.getBoundingClientRect().right)));
     expect(right, 'nothing in the bar past the screen').toBeLessThanOrEqual(390);
     /* DESIGN.md's touch size: the bar's buttons and the menu's companies at least 44px. */
-    const small = await bar.evaluate((b) => [...b.querySelectorAll('.ui-icon-btn')].map((e) => e.getBoundingClientRect()).filter((r) => r.width && (r.width < 44 || r.height < 44)).length);
+    const small = await bar.evaluate((b) => Array.from(b.querySelectorAll('.ui-icon-btn')).map((e) => e.getBoundingClientRect()).filter((r) => r.width && (r.width < 44 || r.height < 44)).length);
     expect(small, 'bar buttons under 44px').toBe(0);
     await bar.getByRole('button', { name: /^Company: / }).click();
     const menu = await bar.getByRole('menu').boundingBox();

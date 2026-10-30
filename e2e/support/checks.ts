@@ -106,7 +106,7 @@ export async function auditScreen(page: Page, testInfo: TestInfo, opts: { title?
          The watcher marks a wide box a beat after its content arrives, so give it that beat. */
   const clipped = await page
     .waitForFunction(() => {
-      for (const box of document.querySelectorAll<HTMLElement>('#main-content .ui-table-scroll')) {
+      for (const box of Array.from(document.querySelectorAll<HTMLElement>('#main-content .ui-table-scroll'))) {
         if (!box.clientWidth) continue;
         const x = getComputedStyle(box).overflowX;
         if (x !== 'clip' && x !== 'hidden') continue;
@@ -118,7 +118,7 @@ export async function auditScreen(page: Page, testInfo: TestInfo, opts: { title?
     }, null, { timeout: 1_500 })
     .then(() => null)
     .catch(() => page.evaluate(() => {
-      for (const box of document.querySelectorAll<HTMLElement>('#main-content .ui-table-scroll')) {
+      for (const box of Array.from(document.querySelectorAll<HTMLElement>('#main-content .ui-table-scroll'))) {
         const inner = (box.firstElementChild as HTMLElement | null)?.scrollWidth || 0;
         const over = Math.max(box.scrollWidth, inner) - box.clientWidth;
         if (over > 1) return { over: Math.round(over), label: box.getAttribute('aria-label') || box.firstElementChild?.tagName.toLowerCase() || 'a list' };
@@ -130,7 +130,7 @@ export async function auditScreen(page: Page, testInfo: TestInfo, opts: { title?
   /* A head row sticks to the nearest scrolling box. If a box scrolls by accident, the head keeps the page's offset under the bar and lands on the first row. */
   const covered = await page.evaluate(() => {
     if (window.scrollY > 1) return null;
-    for (const table of document.querySelectorAll('#main-content table')) {
+    for (const table of Array.from(document.querySelectorAll('#main-content table'))) {
       const th = table.querySelector('thead th');
       const td = table.querySelector('tbody tr td');
       if (!th || !td) continue;
