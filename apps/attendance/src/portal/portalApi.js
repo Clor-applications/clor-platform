@@ -242,3 +242,9 @@ export const askFormRequest = (id, body) => call(`/people/forms/${encodeURICompo
 export const replyFormRequest = (id, note) => call(`/people/forms/requests/${encodeURIComponent(id)}/reply`, { method: 'POST', body: { note } });
 export const withdrawFormRequest = (id) => call(`/people/forms/requests/${encodeURIComponent(id)}/withdraw`, { method: 'POST' });
 export const getFormFile = (id) => call(`/people/forms/files/${encodeURIComponent(id)}`).then((r) => r.file);
+
+/* Jobs and referrals (People, server routes/peopleReferralsPortal.ts): jobs open to me, refer a friend, my link, apply myself, my referrals. */
+export const getReferrals = () => call('/people/referrals');
+export const referFriend = (body) => call('/people/referrals/refer', { method: 'POST', body });
+export const referralLink = (openingId) => call('/people/referrals/link', { method: 'POST', body: { openingId } });
+export const applyWithin = (body) => call('/people/referrals/apply', { method: 'POST', body });

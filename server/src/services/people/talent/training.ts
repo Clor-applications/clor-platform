@@ -5,6 +5,7 @@ import { registerJob } from '../../jobRegistry.js';
 import { notifyUsers, sendNotice, usersWithPermission } from '../../notifications.js';
 import type { TeamScope } from '../scope.js';
 import { TalentError, anonymiseOldCandidates } from './hiring.js';
+import { runReferralBonuses } from './referrals.js';
 
 /**
  * Talent → Training (docs/people/design-v1/TALENT-DECISIONS.md): one training, many people.
@@ -194,7 +195,7 @@ export async function runCandidateRetention(now = new Date()) {
 
 export function startTalentJobs({ intervalMs = 6 * 3_600_000, startupDelayMs = 200_000 } = {}) {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
-  const tick = () => exclusive('people.talent', leaseFor(intervalMs), async () => ({ certificates: await runCertificateReminders(), candidates: await runCandidateRetention() })).catch((e) => console.error('[talent] failed:', e instanceof Error ? e.message : e));
+  const tick = () => exclusive('people.talent', leaseFor(intervalMs), async () => ({ certificates: await runCertificateReminders(), candidates: await runCandidateRetention(), referralBonuses: await runReferralBonuses() })).catch((e) => console.error('[talent] failed:', e instanceof Error ? e.message : e));
   registerJob('startTalentJobs', tick, intervalMs);
   const t = setTimeout(() => {
     tick();

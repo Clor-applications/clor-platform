@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 
 import { explainFor, leaveExplain, reviewFieldPunch } from './attendanceInsights.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { portalUpdates as referralUpdates } from '../services/people/talent/referrals.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { notifyPermission } from '../services/notifications.js';
 import { privacyNoticeFor } from '../services/attendance/privacyNotice.js';
@@ -452,7 +453,7 @@ portalRouter.get('/company-updates', async (req, res) => {
  * myself is not news and is left out. `key` is stable per event, so a phone
  * or a browser marks an item seen once.
  */
-type Update = { key: string; kind: 'leave' | 'request' | 'punch' | 'people' | 'lapse'; status: string; text: string; note: string | null; at: string };
+type Update = { key: string; kind: 'leave' | 'request' | 'punch' | 'people' | 'lapse' | 'referral'; status: string; text: string; note: string | null; at: string };
 const quoted = (n?: string | null) => (n && n.trim() ? ` “${n.trim()}”` : '');
 portalRouter.get('/updates', async (req, res) => {
   const e = req.portal!.employee;
@@ -502,6 +503,8 @@ portalRouter.get('/updates', async (req, res) => {
   }
   for (const p of punches) items.push({ key: `punch:${p.id}:${p.reviewStatus}`, kind: 'punch', status: String(p.reviewStatus), text: `Your field punch at ${p.localTime.slice(11, 16)} on ${dayWords(p.localTime.slice(0, 10))} was ${p.reviewStatus === 'APPROVED' ? 'approved and counts' : 'refused'}.`, note: null, at: p.at.toISOString() });
   if (lapse) items.push({ key: `lapse:${lapse.year}`, kind: 'lapse', status: 'LAPSE', text: `${lapse.total} ${lapse.total === 1 ? 'day' : 'days'} of leave will lapse on ${dayWords(lapse.end)} unless you take them: ${lapse.lines.map((x) => `${x.leaveType} ${x.days}`).join(', ')}.`, note: null, at: new Date().toISOString() });
+  /* Jobs open to me for referrals, and my referrals that joined or were not taken forward. */
+  items.push(...(await referralUpdates(e.accountId, e.orgId, e.id, since).catch(() => [])));
   items.sort((a, b) => b.at.localeCompare(a.at));
   res.json({ decided: items, waitingForMe: (waitLeave as number) + (waitCorr as number) + (waitPunch as number) });
 });

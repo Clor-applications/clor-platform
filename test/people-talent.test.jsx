@@ -63,9 +63,12 @@ describe('Talent runs on its own routes, and the register is retired for it', ()
 
   it('Talent sits on the rail as Hiring and Growth, gated by the module switches', () => {
     const talentModule = peopleApp.modules.find((m) => m.key === 'talent');
-    expect(talentModule.groups.map((g) => g.items)).toEqual([['recruitment', 'candidates', 'interviews'], ['performance', 'reviews', 'oneOnOnes', 'plans', 'learning']]);
+    expect(talentModule.groups.map((g) => g.items)).toEqual([['recruitment', 'candidates', 'interviews', 'referrals', 'referMe'], ['performance', 'reviews', 'oneOnOnes', 'plans', 'learning']]);
     const nav = Object.fromEntries(peopleApp.nav.map((i) => [i.key, i]));
-    for (const k of ['recruitment', 'candidates', 'interviews']) expect(nav[k].feature, k).toBe('peopleHiring');
+    for (const k of ['recruitment', 'candidates', 'interviews', 'referrals', 'referMe']) expect(nav[k].feature, k).toBe('peopleHiring');
+    /* Referrals: HR's list needs Recruitment; anyone who works here may refer (the server finds their record). */
+    expect(nav.referrals.permission).toBe('PEOPLE::Recruitment::VIEW');
+    expect(nav.referMe.permission).toBeUndefined();
     for (const k of ['performance', 'reviews', 'oneOnOnes', 'plans', 'learning']) expect(nav[k].feature, k).toBe('peoplePerformance');
     /* Anyone can be asked to interview or manage someone: these two need no right of their own. */
     expect(nav.interviews.permission).toBeUndefined();

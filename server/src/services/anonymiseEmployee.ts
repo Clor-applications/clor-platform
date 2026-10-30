@@ -106,6 +106,8 @@ export async function anonymiseEmployee(args: { accountId: string; orgId: string
       await tx.candidateEvent.updateMany({ where: { orgId, candidateId: { in: ids } }, data: { text: null } });
       await tx.interviewFeedback.updateMany({ where: { orgId, candidateId: { in: ids } }, data: { notes: null } });
     }
+    /* Referrals about them (as the friend referred) and by them: the contact keys and the free text go; who referred whom and the bonus stay. */
+    await tx.referral.updateMany({ where: { orgId, OR: [{ referrerEmployeeId: employeeId }, ...(asCandidate.length ? [{ candidateId: { in: asCandidate.map((c) => c.id) } }] : [])] }, data: { phoneKey: null, emailKey: null, note: null, relation: null } });
     const goalIds = (await tx.goal.findMany({ where, select: { id: true } })).map((g) => g.id);
     await tx.goal.updateMany({ where, data: { description: null } });
     if (goalIds.length) await tx.goalCheckIn.updateMany({ where: { orgId, goalId: { in: goalIds } }, data: { note: null } });

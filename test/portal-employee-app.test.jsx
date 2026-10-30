@@ -25,6 +25,11 @@ const api = vi.hoisted(() => ({
   /* Joining & Leaving: nothing of the person's own to do, so the card stays away. */
   getJourney: vi.fn(async () => ({ joining: [], leaving: [], handBack: [] })),
   getGrowth: vi.fn(async () => ({ on: false, goals: [], reviews: [], plans: [], oneOnOnes: [], trainings: [] })),
+  /* Jobs and referrals: the company has Hiring off, so the block stays away. */
+  getReferrals: vi.fn(async () => ({ on: false, jobs: [], referrals: [], applications: [] })),
+  referFriend: vi.fn(),
+  referralLink: vi.fn(),
+  applyWithin: vi.fn(),
   doneJourneyTask: vi.fn(async () => ({ done: true })),
   resign: vi.fn(async () => ({ request: { id: 'l1', status: 'WAITING' } })),
   getMyDetails: vi.fn(),

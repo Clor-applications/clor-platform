@@ -114,3 +114,19 @@ export const readFile = (file) => new Promise((resolve, reject) => {
   r.onerror = () => reject(new Error('Could not read the file.'));
   r.readAsDataURL(file);
 });
+
+/* Referrals (server routes/peopleReferrals.ts): an opening's settings, HR's list and report, the bonus by hand; and my own. */
+export const getReferralSettings = (openingId) => get(`/openings/${id(openingId)}/referrals`).then((r) => r?.settings);
+export const saveReferralSettings = (openingId, body) => send(`/openings/${id(openingId)}/referrals`, 'PUT', body).then((r) => r?.settings);
+export const listReferrals = (params) => get(`/referrals${qs(params)}`);
+export const referralReport = () => get('/referrals/report');
+export const getReferrerRule = () => get('/referrals/rule');
+export const saveReferrerRule = (body) => send('/referrals/rule', 'PUT', body);
+export const sendBonus = (referralId) => send(`/referrals/${id(referralId)}/bonus/send`, 'POST', {});
+export const bonusPaid = (referralId) => send(`/referrals/${id(referralId)}/bonus/paid`, 'POST', {});
+export const bonusForfeit = (referralId, reason) => send(`/referrals/${id(referralId)}/bonus/forfeit`, 'POST', { reason });
+const mine = (path = '') => `/orgs/${encodeURIComponent(orgId())}/people/referrals/me${path}`;
+export const myReferrals = () => apiFetch(mine(), opts);
+export const referSomeone = (body) => apiFetch(mine('/refer'), { ...opts, method: 'POST', body });
+export const myReferralLink = (openingId) => apiFetch(mine('/link'), { ...opts, method: 'POST', body: { openingId } });
+export const applyMyself = (body) => apiFetch(mine('/apply'), { ...opts, method: 'POST', body });

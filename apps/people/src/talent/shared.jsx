@@ -28,7 +28,7 @@ export const OPENING_STATUS = {
   FILLED: ['Filled', 'ui-pill-pos'],
   CLOSED: ['Closed', 'ui-pill-neutral'],
 };
-export const SOURCES = [['REFERRAL', 'Referral'], ['JOB_PORTAL', 'Job portal'], ['WALK_IN', 'Walk-in'], ['AGENCY', 'Agency'], ['WEBSITE', 'Website'], ['APPLY_LINK', 'Apply link'], ['OTHER', 'Other']];
+export const SOURCES = [['REFERRAL', 'Referral'], ['JOB_PORTAL', 'Job portal'], ['WALK_IN', 'Walk-in'], ['AGENCY', 'Agency'], ['WEBSITE', 'Website'], ['APPLY_LINK', 'Apply link'], ['INTERNAL', 'Works here'], ['OTHER', 'Other']];
 export const RECOMMENDATIONS = [['STRONG_YES', 'Strong yes'], ['YES', 'Yes'], ['NO', 'No'], ['STRONG_NO', 'Strong no']];
 export const MODES = [['IN_PERSON', 'In person'], ['PHONE', 'Phone'], ['VIDEO', 'Video']];
 export const HEALTH = { ON_TRACK: ['On track', 'ui-pill-pos'], AT_RISK: ['At risk', 'ui-pill-warn'], BEHIND: ['Behind', 'ui-pill-neg'] };

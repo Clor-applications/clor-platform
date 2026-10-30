@@ -43,6 +43,8 @@ const TABLES: Array<{ table: string; model: string; make: (c: Ctx, employeeId: s
   { table: 'ShiftSwap', model: 'shiftSwap', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, requesterEmployeeId: employeeId, colleagueEmployeeId: employeeId, fromDate: '2099-01-01', toDate: '2099-01-01', days: [], requestedByUserId: 'u' }) },
   { table: 'RequestForm', model: 'requestForm', make: (c) => ({ accountId: c.accountId, orgId: c.orgId, name: `Form ${rnd()}`, fields: [] }) },
   { table: 'RequestFormFile', model: 'requestFormFile', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, formId: 'f', employeeId, fieldKey: 'k', fileName: 'a.png', mime: 'image/png', size: 1, data: Buffer.from('x') }) },
+  { table: 'Referral', model: 'referral', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, openingId: `o-${rnd()}`, candidateId: `c-${rnd()}`, referrerEmployeeId: employeeId, phoneKey: '9800000000' }) },
+  { table: 'ReferralLink', model: 'referralLink', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, openingId: `o-${rnd()}`, referrerEmployeeId: employeeId, tokenHash: `h-${rnd()}${rnd()}` }) },
 ];
 
 let a: Ctx;

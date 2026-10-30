@@ -36,6 +36,10 @@ const PILL = {
   SHORTENED: ['Changed', 'ui-pill-neutral'],
   MORE_INFO: ['Needs you', 'ui-pill-warn'],
   LAPSE: ['Use it or lose it', 'ui-pill-warn'],
+  /* Referrals (server: services/people/talent/referrals.ts portalUpdates). */
+  JOB: ['New job', 'ui-pill-info'],
+  JOINED: ['Joined', 'ui-pill-pos'],
+  NOT_TAKEN: ['Referral', 'ui-pill-neutral'],
 };
 const EVERY = 5 * 60_000;
 

@@ -16,6 +16,7 @@ import AskHr from './AskHr';
 import { LeavingCompany, MySteps, PayCard, Payslips, PrivateComplaint } from './MeExtras';
 import { HolidaysYear, WhatsNew } from './PortalFeeds';
 import MyGrowth from './MyGrowth';
+import MyJobs from './MyJobs';
 import { MonthReview, MyOvertime } from './MonthAndOvertime';
 import ShiftSwaps from './ShiftSwaps';
 import MyForms from './MyForms';
@@ -162,6 +163,7 @@ export default function EmployeePortal() {
           <>
             {/* Steps that are mine while I join or leave come first: they have dates. */}
             <MySteps guard={guard} refreshKey={leavingSent} />
+            <MyJobs guard={guard} />
             <MyGrowth guard={guard} />
             <Payslips guard={guard} />
             <MyDetails guard={guard} refreshKey={leavingSent} />

@@ -42,6 +42,8 @@ import { peopleRequestsRouter } from './routes/peopleRequests.js';
 import { peopleTaskLinksRouter } from './routes/peopleTaskLinks.js';
 import { peopleTalentRouter } from './routes/peopleTalent.js';
 import { peopleTalentApplyRouter } from './routes/peopleTalentApply.js';
+import { peopleReferralsRouter } from './routes/peopleReferrals.js';
+import { peopleReferralsPortalRouter } from './routes/peopleReferralsPortal.js';
 import { peopleJoinRouter } from './routes/peopleJoin.js';
 import { peopleInvitesRouter } from './routes/peopleInvites.js';
 import { peopleLettersRouter } from './routes/peopleLetters.js';
@@ -273,6 +275,8 @@ export function buildApp() {
   app.use(['/api/orgs/:orgId/attendance/leave/requests', '/api/orgs/:orgId/attendance/me/leave', '/api/portal/leave'], express.json({ limit: '7mb' }));
   /* A request HR defined may carry a file (≤ 2 MB each, base64): from People's My requests and from the employee app. */
   app.use(['/api/orgs/:orgId/people/my/request-forms', '/api/portal/people/forms'], express.json({ limit: '7mb' }), (err: any, _req: any, res: any, next: any) => (err?.type === 'entity.too.large' ? res.status(413).json({ error: 'The files are too large together: up to 4 MB in one request.', code: 'TOO_LARGE' }) : next(err)));
+  /* A referral may carry the friend's résumé (≤ 2 MB, base64). */
+  app.use(['/api/orgs/:orgId/people/referrals/me/refer', '/api/portal/people/referrals/refer'], express.json({ limit: '3mb' }));
   /* The payment gateway's webhook: public, its exact path, the raw body a signature is made over — ahead of the JSON parser and of every router that demands a session (A-16). */
   app.post('/api/billing/webhook', ...billingWebhookLimiter, express.raw({ type: () => true, limit: '1mb' }), billingWebhook);
   app.use(express.json({ limit: '1mb' }));
@@ -375,6 +379,7 @@ export function buildApp() {
      user and no tenant headers — so, like the two above, before the routers
      that require both. */
   /* People's own employee-facing routes first: the portal router answers every other /api/portal path itself. */
+  app.use('/api/portal/people/referrals', peopleReferralsPortalRouter);
   app.use('/api/portal/people', peoplePortalRouter);
   app.use('/api/portal', portalRouter);
 
@@ -417,6 +422,7 @@ export function buildApp() {
   app.use('/api', payrollTaxDeclarationsRouter);
   app.use('/api', peopleLifecycleRouter);
   app.use('/api', peopleTalentRouter);
+  app.use('/api', peopleReferralsRouter);
   app.use('/api', peopleRouter);
   app.use('/api', peopleApprovalsRouter);
   app.use('/api', peopleRequestsRouter);

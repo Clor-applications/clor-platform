@@ -13,6 +13,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { structure } from '../workforce/api';
 import { listBranches } from '../organization/api';
 import { createOpening, deleteOpening, getOpening, listOpenings, setApplyLink, setOpeningStatus, updateOpening } from '../api/talent';
+import { ReferralBlock } from './ReferralSettings';
 import { FormError, Footer, OPENING_STATUS, Pill, ReasonDrawer, SHEET, Tabs, day, staffOptions, useParamState, usePerm, useStaff, usedValues } from './shared';
 
 /**
@@ -62,7 +63,7 @@ export default function Openings({ params = {}, openScreen }) {
     { key: 'hired', label: 'Hired', render: (r) => <span className={`tabular-nums ${r.hired ? '' : 'ui-muted'}`}>{r.hired}</span> },
     { key: 'manager', label: 'Hiring manager', render: (r) => r.hiringManagerName || <span className="ui-muted">—</span> },
     { key: 'target', label: 'Fill by', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.targetDate) || '—'}</span> },
-    { key: 'status', label: 'Status', render: (r) => <span className="inline-flex flex-wrap items-center gap-1.5"><Pill map={OPENING_STATUS} value={r.status} />{r.applyOpen ? <span className="ui-pill ui-pill-info">Apply link on</span> : null}</span> },
+    { key: 'status', label: 'Status', render: (r) => <span className="inline-flex flex-wrap items-center gap-1.5"><Pill map={OPENING_STATUS} value={r.status} />{r.applyOpen ? <span className="ui-pill ui-pill-info">Apply link on</span> : null}{r.referralOpen ? <span className="ui-pill ui-pill-info">Referrals on</span> : null}</span> },
   ];
   const rowActions = (r) => [
     { key: 'candidates', label: 'See candidates', onSelect: () => openScreen?.('candidates', { opening: r.id }) },
@@ -175,6 +176,7 @@ function OpeningDrawer({ id, canEdit, moves, onMove, onEdit, openScreen, onClose
               ) : null}
             </section>
           ) : null}
+          {canEdit ? <ReferralBlock opening={o} onChanged={() => { req.reload(); onChanged(); }} /> : null}
         </div>
       )}
     </Drawer>

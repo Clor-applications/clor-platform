@@ -5,6 +5,7 @@ import { platformPrisma } from '../../../utils/platformPrisma.js';
 import { notifyUsers, usersWithPermission } from '../../notifications.js';
 import { createEmployee } from '../employees.js';
 import { startChecklist } from '../checklists.js';
+import { scheduleChanges } from '../effectiveDating.js';
 import type { Actor } from '../changeLog.js';
 
 /**
@@ -23,7 +24,7 @@ export class TalentError extends Error {
 export const OPENING_STATUSES = ['REQUESTED', 'DRAFT', 'OPEN', 'ON_HOLD', 'FILLED', 'CLOSED'] as const;
 export const STAGES = ['APPLIED', 'SCREENING', 'INTERVIEW', 'OFFER', 'HIRED', 'REJECTED', 'WITHDRAWN'] as const;
 export const OPEN_STAGES = ['APPLIED', 'SCREENING', 'INTERVIEW', 'OFFER'];
-export const SOURCES = ['REFERRAL', 'JOB_PORTAL', 'WALK_IN', 'AGENCY', 'WEBSITE', 'APPLY_LINK', 'OTHER'] as const;
+export const SOURCES = ['REFERRAL', 'JOB_PORTAL', 'WALK_IN', 'AGENCY', 'WEBSITE', 'APPLY_LINK', 'INTERNAL', 'OTHER'] as const;
 export const RECOMMENDATIONS = ['STRONG_YES', 'YES', 'NO', 'STRONG_NO'] as const;
 const STAGE_WORD: Record<string, string> = { APPLIED: 'Applied', SCREENING: 'Screening', INTERVIEW: 'Interview', OFFER: 'Offer', HIRED: 'Hired', REJECTED: 'Not taken forward', WITHDRAWN: 'Withdrew' };
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -159,7 +160,7 @@ const shapeOpening = (r: any, n: Awaited<ReturnType<typeof labels>>) => ({
   branchId: r.branchId, branchName: r.branchId ? n.b.get(r.branchId) || null : null,
   employeeTypeId: r.employeeTypeId, employeeTypeName: r.employeeTypeId ? n.t.get(r.employeeTypeId) || null : null,
   hiringManagerId: r.hiringManagerId, hiringManagerName: r.hiringManagerId ? n.m.get(r.hiringManagerId) || null : null,
-  applyOpen: r.applyOpen, closedReason: r.closedReason, requestedByUserId: r.requestedByUserId, createdAt: r.createdAt, updatedAt: r.updatedAt,
+  applyOpen: r.applyOpen, referralOpen: r.referralOpen, internalApply: r.internalApply, closedReason: r.closedReason, requestedByUserId: r.requestedByUserId, createdAt: r.createdAt, updatedAt: r.updatedAt,
 });
 
 export async function openingOf(orgId: string, id: string) {
@@ -312,7 +313,7 @@ export async function candidateOf(orgId: string, id: string, viewer: { userId: s
   if (!viewer.hr) Object.assign(shaped, { email: null, phone: null, closedReason: null, sourceDetail: null });
   return {
     candidate: shaped,
-    timeline: viewer.hr ? events.map((e) => ({ id: e.id, kind: e.kind, fromStage: e.fromStage, toStage: e.toStage, fromWord: e.fromStage ? STAGE_WORD[e.fromStage] : null, toWord: e.toStage ? STAGE_WORD[e.toStage] : null, text: e.text, by: e.byUserId ? users.get(e.byUserId) || '' : 'Apply link', at: e.createdAt })) : [],
+    timeline: viewer.hr ? events.map((e) => ({ id: e.id, kind: e.kind, fromStage: e.fromStage, toStage: e.toStage, fromWord: e.fromStage ? STAGE_WORD[e.fromStage] : null, toWord: e.toStage ? STAGE_WORD[e.toStage] : null, text: e.text, by: e.byUserId?.startsWith('portal:') ? 'Employee app' : e.byUserId ? users.get(e.byUserId) || '' : 'Apply link', at: e.createdAt })) : [],
     interviews: interviews.map((i) => {
       const mine = gave.has(i.id);
       const ids = (i.interviewerUserIds as string[]) || [];
@@ -433,6 +434,7 @@ export async function hireCandidate(who: Who, id: string, raw: any) {
   if (!c) throw new TalentError('No such candidate.', 404);
   if (c.employeeId || c.stage === 'HIRED') throw new TalentError('Already hired.', 409);
   if (c.stage !== 'OFFER') throw new TalentError('Move them to Offer first: only someone offered the job is hired.', 409);
+  if (c.internalEmployeeId) return moveFromWithin(who, c, raw);
   const offer = await peoplePrisma.offer.findFirst({ where: { orgId: who.orgId, candidateId: id, status: 'ACCEPTED' }, orderBy: { createdAt: 'desc' } });
   const joining = dateOrNull(raw?.dateOfJoining) || offer?.joiningDate || null;
   if (!joining) throw new TalentError('Choose the joining date.');
@@ -469,6 +471,42 @@ export async function hireCandidate(who: Who, id: string, raw: any) {
   );
   await startChecklist({ accountId: who.accountId, orgId: who.orgId, userId: who.userId }, employee, 'JOINING', joining);
   return employee;
+}
+
+/**
+ * Someone who works here, taken for the job they applied to (an internal application): no second
+ * employee record. The candidate is marked hired against their own record, and the move is booked
+ * as a scheduled job change on that record (department, designation, branch, type and manager
+ * from the opening), effective on the joining date: pending until then, so HR can change or
+ * cancel it on the record. Pay is Payroll's: the offer's pay is noted for a salary revision there.
+ * Someone suspended or gone is not moved.
+ */
+async function moveFromWithin(who: Who, c: { id: string; name: string; openingId: string; internalEmployeeId: string | null }, raw: any) {
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: c.internalEmployeeId!, orgId: who.orgId } });
+  if (!employee || employee.status === 'LEFT') throw new TalentError('They no longer work here, so they cannot move to this job.', 409);
+  if (employee.status === 'SUSPENDED') throw new TalentError('They are suspended: settle that before moving them to a new job.', 409);
+  const opening = await peoplePrisma.jobOpening.findFirst({ where: { id: c.openingId, orgId: who.orgId } });
+  const offer = await peoplePrisma.offer.findFirst({ where: { orgId: who.orgId, candidateId: c.id, status: 'ACCEPTED' }, orderBy: { createdAt: 'desc' } });
+  const tomorrow = new Date(Date.now() + 330 * 60_000 + 86_400_000).toISOString().slice(0, 10);
+  const effectiveOn = dateOrNull(raw?.dateOfJoining) || offer?.joiningDate || tomorrow;
+  const fields: Record<string, string | null> = {};
+  if (opening?.departmentId) fields.departmentId = opening.departmentId;
+  if (opening?.jobPositionId) fields.jobPositionId = opening.jobPositionId;
+  if (opening?.branchId) fields.branchId = opening.branchId;
+  if (opening?.employeeTypeId) fields.employeeTypeId = opening.employeeTypeId;
+  if (opening?.hiringManagerId && opening.hiringManagerId !== employee.id) fields.reportingManagerId = opening.hiringManagerId;
+  const pay = offer ? ` Pay in the offer: ₹${Number(offer.annualCtc).toLocaleString('en-IN')} a year; record the salary revision in Payroll.` : '';
+  await peoplePrisma.$transaction(async (tx) => {
+    const r = await tx.candidate.updateMany({ where: { id: c.id, orgId: who.orgId, employeeId: null, stage: 'OFFER' }, data: { stage: 'HIRED', stageAt: new Date(), employeeId: employee.id } });
+    if (!r.count) throw new TalentError('Already hired.', 409);
+    await event(tx, who, c.id, { kind: 'HIRED', fromStage: 'OFFER', toStage: 'HIRED', text: `Moves from within on ${effectiveOn}: the job change waits on their record until then.${pay}` });
+    if (opening) {
+      const hired = await tx.candidate.count({ where: { orgId: who.orgId, openingId: opening.id, stage: 'HIRED' } });
+      if (hired >= opening.places && ['OPEN', 'ON_HOLD', 'DRAFT'].includes(opening.status)) await tx.jobOpening.update({ where: { id: opening.id }, data: { status: 'FILLED', applyOpen: false } });
+    }
+  });
+  const scheduled = await scheduleChanges({ ...who, reason: `Moves to ${opening?.title || 'a new job'} (internal application).${pay}`.slice(0, 500) } as any, employee as any, fields, effectiveOn);
+  return Object.assign(employee, { movedFromWithin: true as const, scheduledChanges: scheduled.length, effectiveOn });
 }
 
 /* ---------------------------------------------------------------- apply link */
@@ -513,6 +551,8 @@ export async function anonymiseOldCandidates(orgId: string, days = 365, now = ne
     peoplePrisma.candidate.updateMany({ where: { orgId, id: { in: ids } }, data: { name: 'Former candidate', email: null, phone: null, sourceDetail: null, currentEmployer: null, resumeName: null, resumeMime: null, resumeSize: null, resumeData: null, resumeUrl: null, closedReason: null, anonymisedAt: now } }),
     peoplePrisma.candidateEvent.updateMany({ where: { orgId, candidateId: { in: ids }, text: { not: null } }, data: { text: null } }),
     peoplePrisma.interviewFeedback.updateMany({ where: { orgId, candidateId: { in: ids }, notes: { not: null } }, data: { notes: null } }),
+    /* The referral keeps who referred and the bonus; how they knew them and the contacts go. */
+    peoplePrisma.referral.updateMany({ where: { orgId, candidateId: { in: ids } }, data: { relation: null, note: null, phoneKey: null, emailKey: null } }),
   ]);
   return ids.length;
 }
