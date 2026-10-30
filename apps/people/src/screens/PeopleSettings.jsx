@@ -39,6 +39,7 @@ const GROUPS = [
       ['leaveBlocks', 'Days nobody may ask for leave, such as the year-end close; for some departments or leave types'],
       ['workingWeek', 'Which days of the week are off, for everyone not on a shift'],
       ['requestRules', 'Work from home, on duty, missed punch and permission hours: what is on, monthly limits, who approves'],
+      ['attendanceRules', 'Late marks that cost part of a day, missing-punch reminders, unexplained absence and night work for women'],
       ['leaveYearEnd', 'What carries, lapses or is paid out when the leave period ends'],
     ],
   },

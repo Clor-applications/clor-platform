@@ -33,6 +33,7 @@ import { logDayChange } from '../services/attendance/history.js';
 import { recordRuleVersion } from '../services/attendance/ruleVersions.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { MONTH_DAYS, scheduleGuard, shiftRanges, type DateRange } from '../services/attendance/scheduleGuard.js';
+import { nightRefusal } from '../services/people/nightConsent.js';
 import {
   ISO_DATE,
   STATUSES,
@@ -317,6 +318,8 @@ attendanceRouter.post('/orgs/:orgId/attendance/shift-assignments/import', can(Pe
     const replaced = guard.months.length ? await peoplePrisma.shiftAssignment.findUnique({ where: { employeeId_effectiveFrom: { employeeId: emp.id, effectiveFrom: from } }, select: { effectiveTo: true } }) : null;
     const refused = guard.refusal(assignmentRanges(from, to, replaced));
     if (refused) { results.push({ row: i + 1, ok: false, error: refused.message }); continue; }
+    const noConsent = await nightRefusal(orgId, [{ employeeId: emp.id, shiftIds: [shiftId] }]);
+    if (noConsent) { results.push({ row: i + 1, ok: false, error: noConsent.message }); continue; }
     if (!dryRun) await peoplePrisma.shiftAssignment.upsert({
       where: { employeeId_effectiveFrom: { employeeId: emp.id, effectiveFrom: from } },
       create: { accountId, orgId, employeeId: emp.id, shiftId, effectiveFrom: from, effectiveTo: to, createdByUserId: req.auth!.userId },
@@ -882,6 +885,9 @@ attendanceRouter.post('/orgs/:orgId/attendance/shift-assignments', can(Permissio
   const replaced = await peoplePrisma.shiftAssignment.findMany({ where: { orgId, employeeId: { in: people.map((p) => p.id) }, effectiveFrom }, select: { effectiveTo: true } });
   const refused = (await scheduleGuard(orgId)).refusal([{ from: effectiveFrom, to: effectiveTo }, ...replaced.map((r) => ({ from: effectiveFrom, to: r.effectiveTo }))]);
   if (refused) return sendError(res, refused);
+  /* A woman on a shift into the night needs her consent on file (OSH Code s.43; people/nightConsent.ts). */
+  const noConsent = await nightRefusal(orgId, people.map((p) => ({ employeeId: p.id, shiftIds: [shiftId] })));
+  if (noConsent) return sendError(res, noConsent);
   for (const p of people) {
     await peoplePrisma.shiftAssignment.upsert({
       where: { employeeId_effectiveFrom: { employeeId: p.id, effectiveFrom } },

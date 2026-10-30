@@ -174,6 +174,11 @@ const RequestForms = screen('RequestForms');
 const RequestsReport = screen('RequestsReport');
 const ShiftSwaps = screen('ShiftSwaps');
 const MyRequests = screen('MyRequests');
+/* Attendance rules: late marks, absences, night-work consent (WORKFLOW-GAP-RESEARCH 4.4, 4.6, B19). */
+const AttendanceRulesSettings = screen('AttendanceRulesSettings');
+const LateMarks = screen('LateMarks');
+const Absences = screen('Absences');
+const NightWork = screen('NightWork');
 
 /* A Phosphor line mark, for the app's own tile in the bar (white on teal), where a full-colour icon would clash. */
 const line = (Icon, name, tint) => {
@@ -339,7 +344,7 @@ export const peopleApp = {
        days live under My profile, not in the admin menu. Leave register is a statutory form: Reports. */
     { key: 'leave', label: 'Time', icon: M.time, groups: [
       { label: 'Leave', items: ['timeOverview', 'leaveRequests', 'leaveCalendar', 'leaveBalances', 'standIns'] },
-      { label: 'Attendance', items: ['attendance', 'attendanceRequests', 'shiftSwaps'] },
+      { label: 'Attendance', items: ['attendance', 'attendanceRequests', 'shiftSwaps', 'lateMarks', 'absences', 'nightWork'] },
     ] },
     /* Talent (owner, 28 Oct 2026): hiring and growing people, one module so the rail has room for what comes next. */
     { key: 'talent', label: 'Talent', icon: M.hiring, groups: [
@@ -393,6 +398,10 @@ export const peopleApp = {
     { key: 'requestsReport', label: 'Requests report', icon: I.report, permission: 'PEOPLE::Approvals::VIEW' },
     /* Swaps asked in the employee app; HR sees all, a manager their team (the server decides). */
     { key: 'shiftSwaps', label: 'Shift swaps', icon: I.change, permission: 'PEOPLE::Requests::VIEW' },
+    { key: 'lateMarks', label: 'Late marks', icon: I.myDays, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
+    { key: 'absences', label: 'Absences', icon: I.leaver, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'nightWork', label: 'Night work', icon: I.policy, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'attendanceRules', label: 'Attendance rules', icon: I.policy, permission: 'ATTENDANCE::Attendance Requests::VIEW', parent: 'settings' },
     { key: 'myRequests', label: 'My requests', icon: I.requests, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'timeOverview', label: "Who's away", icon: I.away, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRequests', label: 'Leave requests', short: 'Leave', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
@@ -506,6 +515,10 @@ export const peopleApp = {
     requestForms: RequestForms,
     requestsReport: RequestsReport,
     shiftSwaps: ShiftSwaps,
+    lateMarks: LateMarks,
+    absences: Absences,
+    nightWork: NightWork,
+    attendanceRules: AttendanceRulesSettings,
     myRequests: MyRequests,
     selfService: PortalAccess,
     timeOverview: withSidePanel(TimeOverview, panel('TimeOverviewPanel')),

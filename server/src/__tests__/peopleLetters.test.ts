@@ -49,7 +49,7 @@ describe('letters', () => {
 
   it('a template is versioned and refuses unknown fields; an issued letter is a PDF on the record naming the version', async () => {
     const list = (await people(hr).get('/letter-templates').expect(200)).body;
-    expect(list.templates.map((t: any) => t.kind)).toEqual(['OFFER', 'APPOINTMENT', 'CONFIRMATION', 'INCREMENT', 'RELIEVING', 'EXPERIENCE', 'SERVICE_CERT']);
+    expect(list.templates.map((t: any) => t.kind)).toEqual(['OFFER', 'APPOINTMENT', 'CONFIRMATION', 'INCREMENT', 'RELIEVING', 'EXPERIENCE', 'SERVICE_CERT', 'ABSENCE_NOTICE_1', 'ABSENCE_NOTICE_2']);
     expect(list.templates.find((t: any) => t.kind === 'APPOINTMENT')).toMatchObject({ builtIn: true, version: 0, extra: ['signatory'] });
     const bad = await people(hr).post('/letter-templates', { kind: 'APPOINTMENT', body: 'Dear {{name}}, your salary is {{salary}}.' }).expect(400);
     expect(bad.body.error).toContain('{{salary}}');

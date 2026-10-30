@@ -388,9 +388,10 @@ const fromRequest = (r) => ({ employeeId: r.employeeId, kind: r.kind, date: r.da
  * usage for the person and kind before saving, the server's plain words on
  * refusal. `rules` and `usage` may be given (own mode) instead of fetched.
  */
-export function EnterRequest({ onClose, onDone, request = null, own = false, rules: givenRules = null, shifts: givenShifts = null, usage: givenUsage = null, month: givenMonth = '' }) {
+export function EnterRequest({ onClose, onDone, request = null, own = false, rules: givenRules = null, shifts: givenShifts = null, usage: givenUsage = null, month: givenMonth = '', preset = null }) {
   const editing = Boolean(request);
-  const start = useMemo(() => (request ? fromRequest(request) : blank), [request]);
+  /* `preset`: a new request already filled in, from the missing-punch notice (date, times, kind). */
+  const start = useMemo(() => (request ? fromRequest(request) : preset ? { ...blank, ...preset } : blank), [request, preset]);
   const [form, setForm] = useState(start);
   const [saving, setSaving] = useState(false);
   /* A closed Attendance month is said in the form, with the way to Month close (O-09). */

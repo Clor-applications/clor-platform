@@ -52,6 +52,12 @@ const TABLES: Array<{ table: string; model: string; make: (c: Ctx, employeeId: s
   { table: 'ExpenseLine', model: 'expenseLine', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, spentOn: '2026-10-01', categoryName: 'Travel', merchant: 'Cab', amount: 100, claim: { create: { accountId: c.accountId, orgId: c.orgId, employeeId, number: `EXP-${rnd()}`, title: 'Trip' } } }) },
   { table: 'EmployeeAdvance', model: 'employeeAdvance', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, number: `ADV-${rnd()}`, purpose: 'Trip', amount: 1000 }) },
   { table: 'SalaryAdvanceAsk', model: 'salaryAdvanceAsk', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, amount: 1000, months: 2, reason: 'Rent' }) },
+  /* Attendance rules (WORKFLOW-GAP-RESEARCH 4.4, 4.5, 4.6, B19). */
+  { table: 'AttendancePenalty', model: 'attendancePenalty', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, month: `2099-${String(1 + Math.floor(Math.random() * 12)).padStart(2, '0')}`, status: 'WAIVED', decidedByUserId: 'u' }) },
+  { table: 'AttendanceNudge', model: 'attendanceNudge', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, sentOn: `2099-01-${rnd()}`, kind: 'FIX' }) },
+  { table: 'AbsenceCase', model: 'absenceCase', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, fromDate: '2099-01-01', lastAbsentDate: '2099-01-05', days: 5 }) },
+  { table: 'AbsenceNotice', model: 'absenceNotice', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, caseId: `case-${rnd()}`, employeeId, seq: 1, reportBy: '2099-01-10', text: 'x', sentByUserId: 'u' }) },
+  { table: 'NightWorkConsent', model: 'nightWorkConsent', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, status: 'GIVEN', onDate: '2099-01-01', recordedByUserId: 'u' }) },
 ];
 
 let a: Ctx;

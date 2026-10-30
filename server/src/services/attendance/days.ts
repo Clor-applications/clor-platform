@@ -504,6 +504,9 @@ export async function monthRows(accountId: string, orgId: string, month: string)
 /** The same figures for any run of days — a pay period need not be a calendar month. */
 export async function periodRows(accountId: string, orgId: string, days: string[]) {
   const ctx = await periodContext(accountId, orgId, days[0], days[days.length - 1]);
+  /* Late marks and early exits under the company's rules: the part leave does not cover is loss of pay, never silently (markRules.ts). */
+  const { penaltiesOver } = await import('./markRules.js');
+  const penalties = await penaltiesOver(accountId, orgId, days, { ctx });
   return ctx.people.map((p) => {
     const span = ctx.spanOf(p);
     const spanSet = new Set(span);
@@ -511,6 +514,7 @@ export async function periodRows(accountId: string, orgId: string, days: string[
     const unpaidLeaveDays = [...recs.values()].filter(
       (r) => spanSet.has(r.date) && r.leaveRequestId && ctx.unpaidRequest.has(r.leaveRequestId)
     ).reduce((sum, r) => sum + (ctx.unpaidRequest.get(r.leaveRequestId!) || 0), 0);
+    const pen = penalties.get(p.id);
     return {
       employeeId: p.id,
       name: p.name,
@@ -524,9 +528,10 @@ export async function periodRows(accountId: string, orgId: string, days: string[
         holidays: ctx.holidaysFor(p),
         today: ctx.today,
         unpaidLeaveDays,
-        lateAllowance: ctx.settings?.lateAllowancePerMonth ?? 0,
-        latePenaltyEvery: ctx.settings?.latePenaltyEvery ?? 0,
+        penaltyDays: pen?.lossOfPayDays ?? 0,
       }),
+      earlyCount: pen?.earlyMarks ?? 0,
+      penalty: pen && pen.status !== 'NONE' ? { status: pen.status, days: pen.days, lateMarks: pen.lateMarks, earlyMarks: pen.earlyMarks, fromLeaveDays: Math.round(pen.fromLeave.reduce((s, x) => s + x.days, 0) * 100) / 100 } : null,
     };
   });
 }

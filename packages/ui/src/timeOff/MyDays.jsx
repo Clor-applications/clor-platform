@@ -10,6 +10,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { DAY_LABEL, DAY_PILL, STATUS_LABEL, STATUS_PILL, cancelMyRequest, clock, getMyDays, myRequests, phonePunch, todayIst } from './api';
 import PhonePunch from './PhonePunch';
+import MarksLine from './MarksLine';
 import { EnterRequest, KINDS, KIND_NAME, WhenCell, detailsText, monthChoices } from './AttendanceRequests';
 import { homeCrumbs, useCanActForSelf } from './shared';
 
@@ -104,7 +105,7 @@ export function HomeCheckIn() {
  * with how much of each quota is used, Change and Cancel while they can be,
  * and Ask for a new one. The same engine the employee app uses.
  */
-export function MyRequests({ month, onMonth, asking, onAsk, onAsked }) {
+export function MyRequests({ month, onMonth, asking, onAsk, onAsked, preset = null }) {
   const req = useRequest(() => myRequests(month), [month]);
   const d = req.data;
   const [editing, setEditing] = useState(null);
@@ -175,16 +176,19 @@ export function MyRequests({ month, onMonth, asking, onAsk, onAsked }) {
         empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} compact /> : <EmptyState title="Nothing asked for this month" />}
       />
       {editing ? <EnterRequest own request={editing} rules={d?.rules} shifts={d?.shifts} usage={d?.usage} month={month} onClose={() => setEditing(null)} onDone={() => { setEditing(null); req.reload(); }} /> : null}
-      {asking ? <EnterRequest own rules={d?.rules} shifts={d?.shifts} usage={d?.usage} month={month} onClose={onAsk} onDone={() => { onAsked(); req.reload(); }} /> : null}
+      {asking ? <EnterRequest own preset={preset} rules={d?.rules} shifts={d?.shifts} usage={d?.usage} month={month} onClose={onAsk} onDone={() => { onAsked(); req.reload(); }} /> : null}
     </section>
   );
 }
 
-export default function MyDays() {
+export default function MyDays({ params = {} } = {}) {
   const req = useRequest(() => getMyDays(), []);
   const me = req.data;
-  const [month, setMonth] = useState(() => todayIst().slice(0, 7));
-  const [asking, setAsking] = useState(false);
+  /* Opened from the missing-punch notice (?fix=date&in=&out=): the request is open and filled in. */
+  const fixDate = /^\d{4}-\d{2}-\d{2}$/.test(String(params?.fix || '')) ? params.fix : '';
+  const fix = useMemo(() => (fixDate ? { kind: 'MISSED_PUNCH', date: fixDate, checkIn: params?.in || '', checkOut: params?.out || '', reason: 'Forgot to punch' } : null), [fixDate, params?.in, params?.out]);
+  const [month, setMonth] = useState(() => (fix ? fix.date.slice(0, 7) : todayIst().slice(0, 7)));
+  const [asking, setAsking] = useState(Boolean(fix));
   const canAct = useCanActForSelf();
   /* No employee file behind this sign-in is a fact about the person, not a failure to retry. */
   const unlinked = req.error?.code === 'NO_EMPLOYEE_LINK' || req.error?.status === 404;
@@ -225,7 +229,8 @@ export default function MyDays() {
             refreshing={req.refreshing}
             empty={<EmptyState title="No days in the last month" />}
           />
-          <MyRequests month={month} onMonth={setMonth} asking={asking} onAsk={() => setAsking(false)} onAsked={() => { setAsking(false); req.reload(); }} />
+          <MarksLine month={month} />
+          <MyRequests month={month} onMonth={setMonth} asking={asking} preset={fix} onAsk={() => setAsking(false)} onAsked={() => { setAsking(false); req.reload(); }} />
         </>
       )}
     </div>

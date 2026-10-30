@@ -6,6 +6,7 @@ import { ISO_DATE, closedMonthRefusal, daysBetween, employeeIn, fail, instants, 
 import { isHHMM, isOvernight, isWeeklyOff } from './compute.js';
 import { loadSchedule, resolveShift } from './schedule.js';
 import { assertScheduleOpen } from './scheduleGuard.js';
+import { assertNightConsent } from '../people/nightConsent.js';
 import { recomputeDeviceDay } from './punches.js';
 import { nightShiftsOn, timesOn } from './nightShift.js';
 import { CHAINS, activeManagerOf, chainFor, type Chain } from './approvalChain.js';
@@ -235,6 +236,8 @@ async function validate(who: Asker, employee: Employee, b: Ask, rules: Record<Ki
     const schedule = await loadSchedule(who.orgId, [employee.id]);
     const differs = daysBetween(b.date, toDate).some((d) => resolveShift(schedule, employee.id, d).shiftId !== shift.id);
     if (!differs) throw fail(400, `${shift.name} is already the shift on those days.`, 'SAME_SHIFT');
+    /* A woman asking for a shift into the night needs her consent on file (OSH Code s.43). */
+    await assertNightConsent(who.orgId, [{ employeeId: employee.id, shiftIds: [shift.id] }], { self: !who.onBehalf });
     shiftId = shift.id;
   }
   if (kind === 'PERMISSION') {
@@ -275,6 +278,8 @@ async function validate(who: Asker, employee: Employee, b: Ask, rules: Record<Ki
   for (const month of months) {
     const needHere = kind === 'WFH' || kind === 'ON_DUTY' || kind === 'SHIFT_CHANGE' ? (b.halfDay && kind !== 'SHIFT_CHANGE' ? 0.5 : spanDays.filter((d) => d.slice(0, 7) === month).length) : need;
     if (!needHere) continue;
+    /* The month's limit on missed punches holds the person, not HR entering one for them (WORKFLOW-GAP-RESEARCH 4.4.5). */
+    if (who.onBehalf && kind === 'MISSED_PUNCH') continue;
     const u = await usage(who.orgId, employee.id, kind, month, { except: existing?.id, rules });
     if (u.quota == null) continue;
     const unit = KIND_WORDS[kind].unit;
@@ -470,6 +475,8 @@ async function applyShiftChange(accountId: string, orgId: string, r: any, userId
   if (!shift) throw fail(409, 'That shift is no longer in use; ask for another.', 'SHIFT_GONE');
   /* Its days may not be in a closed month (O-05), as any schedule's. */
   await assertScheduleOpen(orgId, [{ from: r.date, to: last }]);
+  /* Consent may have been withdrawn since she asked (people/nightConsent.ts). */
+  await assertNightConsent(orgId, [{ employeeId: r.employeeId, shiftIds: [shift.id] }]);
   const schedule = await peoplePrisma.temporarySchedule.create({ data: { accountId, orgId, employeeId: r.employeeId, shiftId: shift.id, fromDate: r.date, toDate: last, reason: `Shift change approved: ${r.reason}`.slice(0, 200), createdByUserId: userId } });
   await peoplePrisma.attendanceRequest.update({ where: { id: r.id }, data: { temporaryScheduleId: schedule.id } });
   await rescoreDays(accountId, orgId, r.employeeId, r.date, last, userId);

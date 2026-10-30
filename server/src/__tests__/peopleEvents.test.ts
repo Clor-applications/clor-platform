@@ -126,8 +126,8 @@ describe('every People event comes from its write path', () => {
     expect(line).toMatchObject({ source: 'HIRE', before: 'LEFT' });
   });
 
-  it('the catalogue is covered: every listed event has a test, here or in peopleCompliance (obligation.due)', () => {
-    const tested = ['people.employee.created.v1', 'people.employee.updated.v1', 'people.employment.changed.v1', 'people.employee.transferred.v1', 'people.employee.probation_confirmed.v1', 'people.employee.separation_scheduled.v1', 'people.employee.separated.v1', 'people.employee.rejoined.v1', 'people.policy.published.v1', 'people.document.expiring.v1', 'people.invite.sent.v1', 'people.invite.returned.v1', 'people.letter.issued.v1', 'people.obligation.due.v1'];
+  it('the catalogue is covered: every listed event has a test, here, in peopleCompliance (obligation.due) or attendanceRules (settlement.hold)', () => {
+    const tested = ['people.employee.created.v1', 'people.employee.updated.v1', 'people.employment.changed.v1', 'people.employee.transferred.v1', 'people.employee.probation_confirmed.v1', 'people.employee.separation_scheduled.v1', 'people.employee.separated.v1', 'people.employee.rejoined.v1', 'people.policy.published.v1', 'people.document.expiring.v1', 'people.invite.sent.v1', 'people.invite.returned.v1', 'people.letter.issued.v1', 'people.obligation.due.v1', 'people.settlement.hold.v1'];
     expect([...PEOPLE_EVENTS].filter((n) => !tested.includes(n))).toEqual([]);
   });
 });

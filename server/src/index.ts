@@ -16,6 +16,8 @@ import { startLifecycle } from './services/people/lifecycle/jobs.js';
 import { startTalentJobs } from './services/people/talent/training.js';
 import { startObligationDues } from './services/people/complianceRules.js';
 import { startLeaveJobs } from './services/attendance/leaveJobs.js';
+import { startPunchNudges } from './services/attendance/punchNudge.js';
+import { startAbsenceChecks } from './services/people/absconding.js';
 import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
@@ -101,6 +103,9 @@ startTalentJobs();
 startObligationDues();
 /* Leave: steps handed on to HR when a manager does not decide, and the morning digest of what waits. */
 startLeaveJobs();
+/* The missing-punch notice and the unexplained-absence check (WORKFLOW-GAP-RESEARCH 4.5, 4.6). */
+startPunchNudges();
+startAbsenceChecks();
 startNotificationPruning();
 startBooksDigest();
 startWeeklySummary();

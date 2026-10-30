@@ -14,11 +14,13 @@ import { startChecklist } from './checklists.js';
  * company has no template of its own for a kind, a built-in one is used.
  */
 
-export const LETTER_KINDS = ['OFFER', 'APPOINTMENT', 'CONFIRMATION', 'INCREMENT', 'RELIEVING', 'EXPERIENCE', 'SERVICE_CERT'] as const;
+export const LETTER_KINDS = ['OFFER', 'APPOINTMENT', 'CONFIRMATION', 'INCREMENT', 'RELIEVING', 'EXPERIENCE', 'SERVICE_CERT', 'ABSENCE_NOTICE_1', 'ABSENCE_NOTICE_2'] as const;
 export type LetterKind = (typeof LETTER_KINDS)[number];
 export const LETTER_LABEL: Record<LetterKind, string> = {
   OFFER: 'Offer letter', APPOINTMENT: 'Appointment letter', CONFIRMATION: 'Confirmation letter', INCREMENT: 'Increment notice',
   RELIEVING: 'Relieving letter', EXPERIENCE: 'Experience letter', SERVICE_CERT: 'Service certificate',
+  /* Unexplained absence (people/absconding.ts): asked to report back or explain, twice, before any leaving is recorded. */
+  ABSENCE_NOTICE_1: 'Absence notice', ABSENCE_NOTICE_2: 'Second absence notice',
 };
 
 /** What a template may merge from the record. Nothing about pay: that is Payroll's. */
@@ -130,6 +132,36 @@ This is to certify that {{name}} (employee ID {{code}}) was employed with {{orgN
 During this period we found {{extra.pronoun}} work and conduct to be {{extra.conduct}}.
 
 We wish {{extra.pronounObject}} success in the future.
+
+For {{orgName}}
+
+{{extra.signatory}}`,
+  },
+  ABSENCE_NOTICE_1: {
+    name: 'Absence notice',
+    body: `{{today}}
+
+Dear {{name}},
+
+You have been absent from work since {{extra.absentFrom}} without leave and without telling us why. We have tried to reach you and are concerned.
+
+Please report back to work, or write to us explaining your absence, by {{extra.reportBy}}. If you are unwell or something has happened, tell us and we will help.
+
+If we do not hear from you by then, we will send a second notice.
+
+For {{orgName}}
+
+{{extra.signatory}}`,
+  },
+  ABSENCE_NOTICE_2: {
+    name: 'Second absence notice',
+    body: `{{today}}
+
+Dear {{name}},
+
+We wrote to you on {{extra.firstNoticeOn}} because you have been absent since {{extra.absentFrom}} without leave or explanation. We have not heard from you.
+
+Please report back to work, or explain your absence in writing, by {{extra.reportBy}}. If we do not hear from you by then, we will treat you as having left the company of your own accord, on the terms of the company's standing orders and policies. Wages you have earned will be settled as the law requires.
 
 For {{orgName}}
 

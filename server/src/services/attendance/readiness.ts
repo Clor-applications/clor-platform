@@ -85,6 +85,10 @@ export async function monthReadiness(accountId: string, orgId: string, month: st
   ]);
   /* Reader trust (O-11): days whose punches need a look. Worth a look, never a blocker. */
   const trustCheck = trustOn ? await peoplePrisma.attendanceRecord.count({ where: { accountId, orgId, date: { gte: from, lte: to }, trust: 'CHECK' } }) : 0;
+  /* Late-mark penalties nobody decided (markRules.ts): a part to come from leave must be applied before payroll takes the month. */
+  const { penaltiesOver } = await import('./markRules.js');
+  const due = [...(await penaltiesOver(accountId, orgId, days)).values()].filter((p) => p.status === 'DUE');
+  const dueFromLeave = due.some((p) => p.fromLeave.length > 0);
   const sum = (f: (p: PersonIssues) => number) => people.reduce((s, p) => s + f(p), 0);
   const checks = [
     { key: 'missingOut', label: 'Days with a check-in and no check-out', severity: 'block', count: sum((p) => p.missingOut.length), screen: 'records', hint: 'Not paid until corrected.' },
@@ -95,6 +99,7 @@ export async function monthReadiness(accountId: string, orgId: string, month: st
     { key: 'overtime', label: 'Overtime not yet approved', severity: 'check', count: sum((p) => p.unapprovedOvertime.length), screen: 'records', hint: 'Unapproved overtime is not paid.' },
     { key: 'unvalidated', label: 'Days not validated', severity: 'check', count: sum((p) => p.unvalidated.length), screen: 'records', hint: 'Payable days are worked out from validated and unvalidated days alike.' },
     { key: 'readers', label: 'Reader problems open now', severity: 'check', count: queues.alerts.length, screen: 'readerHealth', hint: 'Punches may be missing from these readers.' },
+    ...(due.length ? [{ key: 'penalties', label: 'Late-mark penalties not applied or waived', severity: dueFromLeave ? 'block' : 'check', count: due.length, screen: 'lateMarks', hint: dueFromLeave ? 'Part comes from leave: apply them so the leave is taken before payroll.' : 'They count as loss of pay; apply or waive them in People, Late marks.' }] : []),
     ...(trustOn ? [{ key: 'trustCheck', label: 'Days whose punches need a look', severity: 'check', count: trustCheck, screen: 'records', hint: 'A punch arrived late, a reader was offline or its clock was out, a phone punch was outside the work sites, or a reader is not registered.' }] : []),
   ];
   const perPerson = people

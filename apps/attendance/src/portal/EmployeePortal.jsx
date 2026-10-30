@@ -21,6 +21,7 @@ import MyMoney from './MyMoney';
 import { MonthReview, MyOvertime } from './MonthAndOvertime';
 import ShiftSwaps from './ShiftSwaps';
 import MyForms from './MyForms';
+import { FixNotices, MyMarks, NightConsent } from './TimeRules';
 import {
   SignedOut,
   acceptItem,
@@ -91,6 +92,8 @@ export default function EmployeePortal() {
   const resigned = useCallback(() => setLeavingSent((n) => n + 1), []);
   /* A swap answered or withdrawn reloads My schedule below it. */
   const [scheduleKey, setScheduleKey] = useState(0);
+  /* A day to fix, tapped on Today: My days opens with the missed-punch request filled in. */
+  const [fix, setFix] = useState(null);
 
   useEffect(() => {
     document.title = 'Employee portal · Clor';
@@ -155,8 +158,8 @@ export default function EmployeePortal() {
 
       <main className="mx-auto max-w-md space-y-4 px-4 py-4">
         {error ? <div className="ui-card p-4 text-sm" role="alert">{error}</div> : null}
-        {tab === 'today' ? <><WhatsNew guard={guard} /><Today me={me} reload={loadMe} guard={guard} /><CompanyUpdates guard={guard} /></> : null}
-        {tab === 'days' ? <><MyDays guard={guard} /><MonthReview guard={guard} /><MyOvertime guard={guard} /></> : null}
+        {tab === 'today' ? <><WhatsNew guard={guard} /><FixNotices guard={guard} onFix={(f) => { setFix(f); setTab('days'); }} /><Today me={me} reload={loadMe} guard={guard} /><CompanyUpdates guard={guard} /></> : null}
+        {tab === 'days' ? <><MyDays guard={guard} fix={fix} onFixUsed={() => setFix(null)} /><MonthReview guard={guard} /><MyOvertime guard={guard} /></> : null}
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
         {tab === 'schedule' ? <><ShiftSwaps guard={guard} onChanged={() => setScheduleKey((n) => n + 1)} /><MySchedule key={scheduleKey} guard={guard} /></> : null}
         {tab === 'leave' ? <MyLeave guard={guard} /> : null}
@@ -170,6 +173,7 @@ export default function EmployeePortal() {
             <MyMoney guard={guard} />
             <MyDetails guard={guard} refreshKey={leavingSent} />
             <MyForms guard={guard} />
+            <NightConsent guard={guard} />
             <Policies guard={guard} />
             {deskOn ? <PayCard onAsk={askBank} /> : null}
             <AskHr guard={guard} preset={askPreset} onPresetUsed={presetUsed} onAvailability={setDeskOn} />
@@ -362,8 +366,8 @@ function Today({ me, reload, guard }) {
 
 const dayLabel = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 
-function MyDays({ guard }) {
-  const [month, setMonth] = useState(todayIst().slice(0, 7));
+function MyDays({ guard, fix = null, onFixUsed }) {
+  const [month, setMonth] = useState(() => (fix ? fix.date.slice(0, 7) : todayIst().slice(0, 7)));
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [explaining, setExplaining] = useState(null);
@@ -450,7 +454,8 @@ function MyDays({ guard }) {
         </>
       )}
 
-      <Requests guard={guard} month={month} onChanged={load} />
+      <MyMarks guard={guard} month={month} />
+      <Requests guard={guard} month={month} onChanged={load} preset={fix} onPresetUsed={onFixUsed} />
       <DayExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} title="Why my day says this" />
     </>
   );
@@ -484,7 +489,7 @@ export const requestWords = (r) => {
 };
 const EMPTY_ASK = { kind: '', date: '', toDate: '', halfDay: '', place: '', shiftId: '', checkIn: '', checkOut: '', reason: '', reasonCode: '' };
 
-function Requests({ guard, month, onChanged }) {
+function Requests({ guard, month, onChanged, preset = null, onPresetUsed }) {
   const [rules, setRules] = useState(null);
   const [list, setList] = useState(null);
   const [error, setError] = useState('');
@@ -501,6 +506,14 @@ function Requests({ guard, month, onChanged }) {
       .catch((e) => n === latest.current && !(e instanceof SignedOut) && setError(String(e?.message || 'Could not load your requests.')));
   }, [month, guard]);
   useEffect(() => { load(); }, [load]);
+  const formRef = useRef(null);
+  useEffect(() => {
+    if (!preset) return;
+    setEditing(null);
+    setForm({ ...EMPTY_ASK, kind: 'MISSED_PUNCH', date: preset.date, checkIn: preset.checkIn || preset.suggestedIn || '', checkOut: preset.suggestedOut || '', reasonCode: 'FORGOT_PUNCH', reason: preset.what === 'NO_OUT' ? 'Forgot to punch out' : 'Forgot to punch' });
+    formRef.current?.scrollIntoView?.({ block: 'start' });
+    onPresetUsed?.();
+  }, [preset, onPresetUsed]);
 
   const kinds = rules?.kinds || [];
   const kind = form.kind || (editing ? editing.requestKind : kinds[0]?.kind) || '';
@@ -561,7 +574,7 @@ function Requests({ guard, month, onChanged }) {
   const mine = (list?.requests || []).filter((r) => r.kind === 'correction' || r.kind === 'request');
   return (
     <>
-      <form onSubmit={send} className="ui-card space-y-3 p-5" aria-labelledby="ask-h">
+      <form ref={formRef} onSubmit={send} className="ui-card space-y-3 p-5" aria-labelledby="ask-h">
         <h2 id="ask-h" className="ui-t-sec">{editing ? `Change: ${editing.kindName}` : 'Ask'}</h2>
         <LoadFailed message={error} onRetry={load} />
         {!editing && kinds.length > 1 ? (
