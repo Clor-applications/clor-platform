@@ -42,6 +42,11 @@ vi.mock('../apps/attendance/src/portal/portalApi', () => {
   const rest = ['acceptItem', 'getToAccept', 'askLeave', 'cancelLeave', 'editLeave', 'shortenLeave', 'getRestrictedHolidays', 'pickRestrictedHoliday', 'changePassword', 'endOtherSessions', 'endSession', 'getSessions', 'askData', 'getDataRequests', 'getMyData', 'getPrivacyNotice', 'readPrivacyNotice', 'withdrawConsent', 'getDocument', 'getDocuments', 'getLeave', 'previewLeave', 'getHrCases', 'askHr', 'getSchedule', 'getTax', 'saveTax', 'getMyDetails', 'askDetailsChange', 'answerMyRequest', 'withdrawMyRequest', 'getPolicies', 'getPolicy', 'shrinkPhoto', 'locate', 'getUpdates', 'getHolidays', 'getPayslips', 'getPayslip', 'getLeaving', 'resign', 'getDesk', 'raiseDesk', 'getDeskCase', 'replyDesk', 'reopenDesk', 'raisePrivateCase', 'getForms', 'askFormRequest', 'replyFormRequest', 'withdrawFormRequest', 'getFormFile', 'getSwaps', 'swapColleagues', 'askSwap', 'answerSwap', 'withdrawSwap', 'getReferrals', 'referFriend', 'referralLink', 'applyWithin'];
   return { ...Object.fromEntries(rest.map((k) => [k, vi.fn(() => Promise.resolve({}))])), ...api };
 });
+/* The Me tab's money cards (MyMoney.jsx) call their own transport: nothing spent, no salary advance here. */
+vi.mock('../apps/attendance/src/portal/moneyApi', () => {
+  const calls = ['addBill', 'removeBill', 'sendClaim', 'reopenClaim', 'askAdvance', 'previewSalaryAdvance', 'askSalaryAdvance', 'withdrawMoney', 'answerMoney', 'billUrl', 'billData'];
+  return { ...Object.fromEntries(calls.map((k) => [k, vi.fn(() => Promise.resolve({}))])), getMoney: vi.fn(() => Promise.resolve({ categories: [], merchants: [], draft: null, claims: [], advances: [], salaryAdvance: { available: false, asks: [], loans: [], cap: null } })) };
+});
 vi.mock('@platform/http', () => ({ apiFetch: vi.fn(), API_BASE: '/api' }));
 vi.mock('@platform/context', () => ({ orgId: () => 'org1', currentUser: () => null }));
 vi.mock('@ui/components/ui/notify', () => ({ confirmDialog: vi.fn(async () => true), notify: { error: vi.fn(), success: vi.fn() } }));

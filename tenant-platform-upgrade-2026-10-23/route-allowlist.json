@@ -482,6 +482,66 @@
       "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; reopens their own resolved request within seven days (DESK-04)."
     },
     {
+      "method": "GET",
+      "path": "/api/portal/people/money",
+      "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; reads only their own bills, claims, advances and salary advances, and the pay cap on their own pay."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/money/lines",
+      "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; adds a bill to their own draft claim; the file is content-sniffed and capped at 5 MB; duplicates refused under a lock."
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/portal/people/money/lines/:id",
+      "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; removes a bill from their own draft only (404 for anyone else's)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/money/claims/:id",
+      "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; reads one of their own claims (404 otherwise)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/money/claims/:id/submit",
+      "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; sends their own draft through the approval engine; taken atomically so a double tap sends one."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/money/claims/:id/reopen",
+      "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; opens their own not-approved claim again as a draft."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/money/advances",
+      "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; asks an advance for themselves through the approval engine."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/money/salary-advance/preview",
+      "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; works out the monthly repayment against the cap on their own pay; writes nothing."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/money/salary-advance",
+      "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; asks a salary advance for themselves within half their pay, through the approval engine; one waiting at a time, under a lock."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/money/:kind/:id/withdraw",
+      "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; withdraws their own waiting request only (404 otherwise)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/money/:kind/:id/reply",
+      "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; answers a question on their own request only (404 otherwise)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/money/bills/:id",
+      "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; serves their own bill only, as the type its bytes proved, nosniff and sandboxed."
+    },
+    {
       "method": "POST",
       "path": "/api/portal/people/me/change-request",
       "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; changes their own details: contact details save at once as SELF_SERVICE, the rest becomes a PROFILE_CHANGE request HR decides (D-02)."

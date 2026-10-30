@@ -45,6 +45,7 @@ export const PEOPLE_RESOURCE = {
   policies: 'Policies',
   privateCases: 'Private Cases',
   privacy: 'Privacy',
+  expenses: 'Expenses',
 } as const;
 
 /**
