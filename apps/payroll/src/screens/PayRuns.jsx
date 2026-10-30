@@ -407,7 +407,7 @@ const RunWorkflow = ({ runId, onBack }) => {
   const warningCount = issues ? issues.warnings : run.warningCount;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 ui-touch-44">
       <PageHeader
         entity="payRun"
         title={`${run.number} — ${run.period?.name || "payroll"}`}

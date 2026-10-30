@@ -128,6 +128,7 @@ export default function FinalSettlements() {
   const rows = filters.applyFilters(search.filtered, COLUMNS);
 
   return (
+    <div className="ui-touch-44">
     <DocumentListShell
       entity="settlement"
       title="Full & final"
@@ -179,9 +180,13 @@ export default function FinalSettlements() {
                         {p.held ? <span className="ui-pill ui-pill-info ms-2">Held</span> : null}
                       </td>
                       <td className="whitespace-nowrap text-end">
-                        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === p.id} onClick={() => start(p)}>
-                          <Plus size={14} aria-hidden="true" /> Work it out
-                        </button>
+                        {data?.you?.selfEmployeeId === p.id ? (
+                          <span className="ui-caption">Yours: another approver works it out</span>
+                        ) : (
+                          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === p.id} onClick={() => start(p)}>
+                            <Plus size={14} aria-hidden="true" /> Work it out
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -245,17 +250,25 @@ export default function FinalSettlements() {
           </table>
         </div>
       )}
-      {open ? <Settlement key={`${open.id}:${open.updatedAt}`} settlement={open} onClose={() => setOpen(null)} onChanged={changed} /> : null}
+      {open ? <Settlement key={`${open.id}:${open.updatedAt}`} settlement={open} you={data?.you} onClose={() => setOpen(null)} onChanged={changed} /> : null}
     </DocumentListShell>
+    </div>
   );
 }
 
-function Settlement({ settlement, onClose, onChanged }) {
+/** The India day of a moment: a hold made at 01:50 IST on 31 Oct is held since 31 Oct, not the UTC 30th. */
+const indiaDay = (iso) => new Date(Date.parse(iso) + 330 * 60_000).toISOString().slice(0, 10);
+
+const OWN_WORDS = 'This is your own full and final. Another HR or payroll approver, or the owner, works it out, approves and pays it.';
+
+function Settlement({ settlement, you, onClose, onChanged }) {
   const [lines, setLines] = useState(settlement.lines);
   const [notes, setNotes] = useState(settlement.notes || '');
   const [reference, setReference] = useState('');
   const [busy, setBusy] = useState(false);
-  const draft = settlement.status === 'DRAFT';
+  /* Your own: shown, never worked out, approved or paid by you (the server refuses too). */
+  const own = Boolean(you?.selfEmployeeId) && settlement.employeeId === you.selfEmployeeId;
+  const draft = settlement.status === 'DRAFT' && !own;
   const dirty = JSON.stringify(lines) !== JSON.stringify(settlement.lines) || notes !== (settlement.notes || '');
 
   const setLine = (i, patch) => setLines((all) => all.map((l, j) => (j === i ? { ...l, ...patch } : l)));
@@ -290,11 +303,11 @@ function Settlement({ settlement, onClose, onChanged }) {
     <Drawer
       open
       onClose={onClose}
-      widthClass="w-[min(48rem,96vw)]"
+      widthClass="w-[min(48rem,96vw)] ui-touch-44"
       title={`Full & final · ${settlement.employeeName || ''}`}
       description={`Last day ${formatDateIn(settlement.leavingDate)} · due ${formatDateIn(settlement.dueDate)}${settlement.overdue ? ' · overdue' : ''}`}
       actions={
-        draft ? (
+        own ? null : draft ? (
           <>
             <button type="button" className="ui-btn ui-btn-ghost" disabled={busy} onClick={cancel}>Cancel settlement</button>
             {dirty ? (
@@ -322,7 +335,8 @@ function Settlement({ settlement, onClose, onChanged }) {
       }
     >
       <div className="space-y-4">
-        {settlement.hold ? <HoldPanel settlement={settlement} busy={busy} run={run} /> : null}
+        {own ? <p className="ui-caption" role="note">{OWN_WORDS}</p> : null}
+        {settlement.hold ? <HoldPanel settlement={settlement} busy={busy} run={run} canLift={!own && you?.liftHold !== false} whyNot={own ? 'This is your own hold. Another HR user or the owner lifts it.' : you?.liftHoldWhy} /> : null}
         <div className="ui-table-scroll">
           <table className="ui-table ui-table-sticky w-full">
             <thead>
@@ -424,7 +438,7 @@ function Settlement({ settlement, onClose, onChanged }) {
         ) : null}
         {settlement.status === 'PAID' ? (
           <p className="ui-caption">
-            Paid {formatDateIn(String(settlement.paidAt).slice(0, 10))}
+            Paid {formatDateIn(indiaDay(settlement.paidAt))}
             {settlement.paidReference ? ` · ${settlement.paidReference}` : ''}
           </p>
         ) : null}
@@ -451,7 +465,7 @@ function Settlement({ settlement, onClose, onChanged }) {
  * lifted, with a reason; the same release HR makes in People, recorded there
  * and here. A hold only pauses payment.
  */
-function HoldPanel({ settlement, busy, run }) {
+function HoldPanel({ settlement, busy, run, canLift = true, whyNot }) {
   const [reason, setReason] = useState('');
   const why = reason.trim();
   return (
@@ -460,7 +474,7 @@ function HoldPanel({ settlement, busy, run }) {
         <PauseCircle size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--info))' }} />
         <div className="min-w-0">
           <h3 id="ff-hold-h" className="text-sm font-medium">
-            Held{settlement.hold.since ? ` since ${formatDateIn(String(settlement.hold.since).slice(0, 10))}` : ''}
+            Held{settlement.hold.since ? ` since ${formatDateIn(indiaDay(settlement.hold.since))}` : ''}
           </h3>
           {settlement.hold.reason ? <p className="ui-caption">{settlement.hold.reason}</p> : null}
         </div>
@@ -468,6 +482,9 @@ function HoldPanel({ settlement, busy, run }) {
       <p className="ui-caption max-w-[65ch]">
         Nothing is forfeited. Earned wages stay owed, and the law gives no right to keep them back. Once you end their employment, wages are due within two working days (Code on Wages 2019, s.17(2)), so take advice before holding longer.
       </p>
+      {!canLift ? (
+        <p className="ui-caption" role="note">{whyNot || 'You cannot lift this hold.'}</p>
+      ) : (
       <div className="flex flex-wrap items-end gap-2">
         <label className="block min-w-[14rem] flex-1">
           <span className="ui-label">Why is the hold lifted?</span>
@@ -477,6 +494,7 @@ function HoldPanel({ settlement, busy, run }) {
           Lift the hold
         </button>
       </div>
+      )}
     </section>
   );
 }

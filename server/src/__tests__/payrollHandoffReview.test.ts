@@ -255,9 +255,10 @@ describe('settlement guards (blockers 6, 9, 10)', () => {
   it('the person held cannot lift their own hold, approve or pay their own settlement', async () => {
     const c = await makeOwner();
     const employeeId = await leaver(c);
-    await own(c, () => peoplePrisma.employee.update({ where: { id: employeeId }, data: { userId: c.userId } }));
     await own(c, () => peoplePrisma.absenceCase.create({ data: { accountId: c.accountId, orgId: c.orgId, employeeId, fromDate: '2026-10-01', lastAbsentDate: '2026-10-14', days: 14, status: 'ABSCONDED', holdReason: 'Absconded', heldAt: new Date(), heldByUserId: 'hr' } }));
+    /* Worked out while the record was not yet theirs: since QA of #82 (F2) nobody starts their own. */
     const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    await own(c, () => peoplePrisma.employee.update({ where: { id: employeeId }, data: { userId: c.userId } }));
     expect((await api.post(c, `/settlements/${s.id}/release-hold`, { reason: 'Letting myself off' }).expect(403)).body.code).toBe('OWN_RECORD');
     expect((await api.post(c, `/settlements/${s.id}/approve`).expect(403)).body.code).toBe('OWN_RECORD');
     await own(c, () => payrollPrisma.finalSettlement.update({ where: { id: s.id }, data: { status: 'APPROVED' } }));

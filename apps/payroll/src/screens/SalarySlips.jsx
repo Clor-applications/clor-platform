@@ -182,7 +182,7 @@ export default function SalarySlips() {
         onClose={() => setOpenId(null)}
         title="Payslip"
         description="As it was calculated, with the reasoning behind each figure."
-        widthClass="w-[min(46rem,96vw)]"
+        widthClass="w-[min(46rem,96vw)] ui-touch-44"
       >
         {openId ? <SlipDocument slipId={openId} /> : null}
       </Drawer>

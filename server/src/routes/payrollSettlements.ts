@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
@@ -11,7 +11,7 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/pa
 import { recordAudit } from '../services/auditTrail.js';
 import { netOf, proposeSettlement, type SettlementLine } from '../services/payroll/finalSettlement.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
-import { ownRecordRefusal, ownWorkRefusal } from '../services/makerChecker.js';
+import { ownRecordRefusal, ownWorkRefusal, subjectUserIds } from '../services/makerChecker.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE } from '../services/people/guards.js';
 import { teamScope } from '../services/people/scope.js';
 import { SourcesChangedError, closePayrollSources, closePeopleSources, keepSources, settlementHold, settlementHolds, staleSources } from '../services/payroll/finalSettlementSources.js';
@@ -105,7 +105,10 @@ payrollSettlementsRouter.get('/orgs/:orgId/payroll/settlements', VIEW, async (re
     take: 300,
   });
   const holds = await settlementHolds(orgId, [...rows.map((r) => r.employeeId), ...leavers.map((p) => p.id)]);
+  const [lift, me] = await Promise.all([mayLiftHold(req), peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } })]);
   res.json({
+    /* What the person signed in may do here, so the screen offers only that; their own record is never theirs to work out. */
+    you: { liftHold: lift, liftHoldWhy: lift ? null : LIFT_NEEDS, selfEmployeeId: me?.id || null },
     settlements: rows.map((r) => shape(r, people, holds.get(r.employeeId))),
     waiting: leavers.filter((p) => !settled.has(p.id)).map((p) => ({ ...p, held: holds.has(p.id) })),
   });
@@ -116,6 +119,8 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements', EDIT, async (r
   const { accountId, orgId } = req.tenant!;
   const employeeId = String(req.body?.employeeId || '');
   if (!employeeId) return res.status(400).json({ error: 'Choose who is leaving.' });
+  const mineNew = await notOwnDraft(req, employeeId);
+  if (mineNew) return res.status(mineNew.status).json(mineNew.body);
   const existing = await payrollPrisma.finalSettlement.findFirst({ where: { orgId, employeeId, status: { not: 'CANCELLED' } } });
   if (existing) return res.status(409).json({ error: 'They already have a settlement. Open it, or cancel it first.', code: 'SETTLEMENT_EXISTS', id: existing.id });
   try {
@@ -149,6 +154,8 @@ payrollSettlementsRouter.put('/orgs/:orgId/payroll/settlements/:id', EDIT, async
   const row = await findOwn(req, res);
   if (!row) return;
   if (row.status !== 'DRAFT') return res.status(409).json({ error: 'Only a draft can be changed.', code: 'NOT_DRAFT' });
+  const mineEdit = await notOwnDraft(req, row.employeeId);
+  if (mineEdit) return res.status(mineEdit.status).json(mineEdit.body);
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the lines.' });
   const lines = parsed.data.lines ? (keepSources(parsed.data.lines as SettlementLine[], JSON.parse(row.linesJson || '[]')) as SettlementLine[]) : undefined;
@@ -162,12 +169,31 @@ payrollSettlementsRouter.put('/orgs/:orgId/payroll/settlements/:id', EDIT, async
   res.json({ settlement: await shapeOne(updated) });
 });
 
+/**
+ * Whether the person signed in may lift a hold: People edit, as HR (every
+ * employee in scope), and Payroll approval, which the route asks first.
+ * The screen shows the button only when they may, and says why not.
+ */
+const LIFT_NEEDS = 'Lifting a hold needs People edit for all employees (HR) as well as Payroll approval. Ask HR or the owner.';
+async function mayLiftHold(req: any): Promise<boolean> {
+  if (await authorize(req, PAYROLL_MODULE, PermissionAction.APPROVE, RESOURCE)) return false;
+  if (await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, PEOPLE_RESOURCE.employees)) return false;
+  return (await teamScope(req)).all;
+}
+
+/** Who else may act on a settlement, for the refusals' words. */
+const OTHERS = 'another HR or payroll approver, or the owner';
+/* Nobody works out, edits or cancels their own full and final (QA of #82, F2). */
+const notOwnDraft = (req: any, employeeId: string) => ownRecordRefusal(req, employeeId, 'full and final settlement', { who: OTHERS, does: 'work it out' });
+
 /* Worked out again from today's records — after a late payslip or leave correction. */
 payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/recalculate', EDIT, async (req, res) => {
   if (!(await payrollRouteOk(req, res))) return;
   const row = await findOwn(req, res);
   if (!row) return;
   if (row.status !== 'DRAFT') return res.status(409).json({ error: 'Only a draft can be worked out again.', code: 'NOT_DRAFT' });
+  const mineAgain = await notOwnDraft(req, row.employeeId);
+  if (mineAgain) return res.status(mineAgain.status).json(mineAgain.body);
   try {
     const p = await proposeSettlement(row.accountId, row.orgId, row.employeeId);
     const updated = await payrollPrisma.finalSettlement.update({
@@ -186,7 +212,7 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/approve', AP
   if (!row) return;
   if (row.status !== 'DRAFT') return res.status(409).json({ error: 'Only a draft can be approved.', code: 'NOT_DRAFT' });
   /* Never your own; whoever worked it out approves it only as the company's maker-checker setting allows (makerChecker.ts). */
-  const refused = (await ownRecordRefusal(req, row.employeeId, 'full and final settlement')) || await ownWorkRefusal(req, { makers: [row.createdByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SETTLEMENT', entityId: row.id, what: 'settlement' });
+  const refused = (await ownRecordRefusal(req, row.employeeId, 'full and final settlement', { who: OTHERS })) || await ownWorkRefusal(req, { makers: [row.createdByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SETTLEMENT', entityId: row.id, what: 'settlement', who: OTHERS, subjects: await subjectUserIds(row.orgId, row.employeeId) });
   if (refused) return res.status(refused.status).json(refused.body);
   const moved = await payrollPrisma.finalSettlement.updateMany({
     where: { id: row.id, status: 'DRAFT' },
@@ -209,7 +235,7 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/paid', APPRO
   const row = await findOwn(req, res);
   if (!row) return;
   if (row.status !== 'APPROVED') return res.status(409).json({ error: 'Approve it before marking it paid.', code: 'NOT_APPROVED' });
-  const mine = await ownRecordRefusal(req, row.employeeId, 'full and final settlement');
+  const mine = await ownRecordRefusal(req, row.employeeId, 'full and final settlement', { who: OTHERS, does: 'mark it paid' });
   if (mine) return res.status(mine.status).json(mine.body);
   /* Held by an absconding case: not paid until the hold is lifted, with a reason. Never forfeited. */
   const hold = await settlementHold(row.orgId, row.employeeId);
@@ -283,12 +309,14 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/close-source
  * Payroll approval on top, a fresh authenticator code where the company asks
  * for one, and never by the person held.
  */
-payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/release-hold', APPROVE, requirePermission(PEOPLE_MODULE, PermissionAction.EDIT, PEOPLE_RESOURCE.employees), requirePayrollStepUp, async (req, res) => {
+payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/release-hold', APPROVE, requirePayrollStepUp, async (req, res) => {
   if (!(await payrollRouteOk(req, res))) return;
   const row = await findOwn(req, res);
   if (!row) return;
-  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'HR lifts a hold on a settlement.', code: 'HR_ONLY' });
-  const mine = await ownRecordRefusal(req, row.employeeId, 'settlement hold');
+  /* Said plainly, not "Permission denied" (QA of #82, F3). */
+  if (await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, PEOPLE_RESOURCE.employees)) return res.status(403).json({ error: LIFT_NEEDS, code: 'PEOPLE_EDIT_NEEDED' });
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: LIFT_NEEDS, code: 'HR_ONLY' });
+  const mine = await ownRecordRefusal(req, row.employeeId, 'settlement hold', { who: 'another HR user or the owner', does: 'lift it' });
   if (mine) return res.status(mine.status).json(mine.body);
   const reason = String(req.body?.reason || '').trim();
   if (reason.length < 3) return res.status(400).json({ error: 'Say why the hold is lifted, e.g. "Came in to settle, 4 Nov".', code: 'REASON_NEEDED' });
@@ -309,6 +337,8 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/cancel', APP
   const row = await findOwn(req, res);
   if (!row) return;
   if (row.status === 'PAID') return res.status(409).json({ error: 'A paid settlement stays on the record.', code: 'PAID' });
+  const mineCancel = await ownRecordRefusal(req, row.employeeId, 'full and final settlement', { who: OTHERS, does: 'cancel it' });
+  if (mineCancel) return res.status(mineCancel.status).json(mineCancel.body);
   const updated = await payrollPrisma.finalSettlement.update({ where: { id: row.id }, data: { status: 'CANCELLED' } });
   await recordAudit(req, { entity: 'PAYROLL_SETTLEMENT', entityId: row.id, action: 'CANCEL', message: 'Cancelled a full and final settlement', metadata: { employeeId: row.employeeId, was: row.status } });
   res.json({ settlement: await shapeOne(updated) });

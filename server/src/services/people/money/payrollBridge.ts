@@ -127,13 +127,17 @@ async function structureGross(orgId: string, employeeId: string) {
 export async function payCap(orgId: string, employeeId: string) {
   const runs = await payrollPrisma.payrollRun.findMany({ where: { orgId, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] } }, select: { id: true }, orderBy: { payrollDate: 'desc' }, take: 24 });
   const slip = runs.length
-    ? await payrollPrisma.salarySlip.findFirst({ where: { orgId, employeeId, runId: { in: runs.map((r) => r.id) }, status: { not: 'CANCELLED' } }, orderBy: { payrollDate: 'desc' }, select: { id: true, number: true, grossEarnings: true, totalDeductions: true, adjustmentSnapshotJson: true } })
+    ? await payrollPrisma.salarySlip.findFirst({ where: { orgId, employeeId, runId: { in: runs.map((r) => r.id) }, status: { not: 'CANCELLED' } }, orderBy: { payrollDate: 'desc' }, select: { id: true, number: true, periodId: true, grossEarnings: true, totalDeductions: true, adjustmentSnapshotJson: true } })
     : null;
   let wages = 0;
   let other = 0;
   let basis = '';
   let approximate = false;
+  /* The payslip's own month not yet over (QA of #82, F4): its fines and other one-offs are still this month's, and count. */
+  let slipMonthOpen: string | null = null;
   if (slip) {
+    const p = await payrollPrisma.payrollPeriod.findFirst({ where: { orgId, id: slip.periodId }, select: { endDate: true } });
+    if (p && p.endDate >= todayIst()) slipMonthOpen = slip.periodId;
     const recovered = await payrollPrisma.payrollLoanInstallment.findMany({ where: { orgId, slipId: slip.id, status: 'RECOVERED' }, select: { dueAmount: true } });
     /* That month's one-off deductions belonged to that month, not to every month. */
     let oneOff = 0;
@@ -142,7 +146,7 @@ export async function payCap(orgId: string, employeeId: string) {
       if (Array.isArray(adj)) oneOff = adj.filter((x: any) => x?.type === 'DEDUCTION').reduce((t: number, x: any) => t + (Number(x.amount) || 0), 0);
     } catch { /* an old payslip without the snapshot */ }
     wages = Number(slip.grossEarnings);
-    other = Math.max(0, Number(slip.totalDeductions) - recovered.reduce((t, i) => t + Number(i.dueAmount), 0) - oneOff);
+    other = Math.max(0, Number(slip.totalDeductions) - recovered.reduce((t, i) => t + Number(i.dueAmount), 0) - (slipMonthOpen ? 0 : oneOff));
     basis = `payslip ${slip.number}`;
   } else {
     const gross = await structureGross(orgId, employeeId);
@@ -158,13 +162,14 @@ export async function payCap(orgId: string, employeeId: string) {
     /* This month's deductions, and what earlier runs carried and nobody has taken yet: the next payslip takes those first. */
     payrollPrisma.payrollAdjustment.findMany({
       where: { orgId, employeeId, type: 'DEDUCTION', OR: [...(period ? [{ periodId: period.id, status: { not: 'CANCELLED' } }] : []), { carriedByRunId: { not: null }, status: 'APPROVED', ...(period ? { periodId: { not: period.id } } : {}) }] },
-      select: { amount: true },
+      select: { amount: true, periodId: true, status: true },
     }),
   ]);
   /* A draft loan has no instalment written yet: its principal over its months. */
   const instalmentOf = (l: (typeof loans)[number]) => (l.status === 'ACTIVE' ? Number(l.installmentAmount) : l.installmentCount > 0 ? Number(l.principal) / l.installmentCount : Number(l.principal));
   const loanInstalments = round2(loans.reduce((t, l) => t + instalmentOf(l), 0));
-  const thisMonth = round2(pending.reduce((t, a) => t + Number(a.amount), 0));
+  /* Those the open payslip already took are in `other` above; not counted twice. */
+  const thisMonth = round2(pending.filter((a) => !(slipMonthOpen && a.periodId === slipMonthOpen && a.status === 'CONSUMED')).reduce((t, a) => t + Number(a.amount), 0));
   const interestFreeOwed = round2(loans.filter((l) => Number(l.interestRate) === 0).reduce((t, l) => t + (l.status === 'ACTIVE' ? Number(l.outstandingBalance) : Number(l.principal)), 0));
   const room = Math.max(0, round2(wages / 2 - other - loanInstalments - thisMonth));
   return { wages: round2(wages), otherDeductions: round2(other + thisMonth), loanInstalments, room, basis, approximate, interestFreeOwed };

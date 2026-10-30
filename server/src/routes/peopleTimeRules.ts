@@ -198,7 +198,7 @@ peopleTimeRulesRouter.post(`${base}/absences/:id/release`, ppl(PermissionAction.
   if (!(await hrOnly(req, res))) return;
   /* Never by the person held: somebody else in HR, or the owner, lifts it (as Payroll's release-hold does). */
   const held = await peoplePrisma.absenceCase.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId }, select: { employeeId: true } });
-  const mine = held ? await ownRecordRefusal(req, held.employeeId, 'settlement hold') : null;
+  const mine = held ? await ownRecordRefusal(req, held.employeeId, 'settlement hold', { who: 'another HR user or the owner', does: 'lift it' }) : null;
   if (mine) return void res.status(mine.status).json(mine.body);
   res.json({ case: await absence.releaseHold(whoC(req), String(req.params.id), String(req.body?.note || '')) });
 }));

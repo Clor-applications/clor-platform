@@ -107,3 +107,38 @@ it('offers to finish when People did not take the update, and only then', async 
   await waitFor(() => expect(closeSettlementSources).toHaveBeenCalledWith('s1'));
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Close them now' })).toBeNull());
 });
+
+/* QA of #82 (employee and boundaries). */
+const loadAs = (you, settlements, waiting = []) => vi.mocked(listSettlements).mockResolvedValue({ settlements, waiting, you });
+
+it('F3: somebody who may not lift a hold is told why, with no button to press', async () => {
+  loadAs({ liftHold: false, liftHoldWhy: 'Lifting a hold needs People edit for all employees (HR) as well as Payroll approval. Ask HR or the owner.', selfEmployeeId: null }, [held]);
+  const user = userEvent.setup();
+  render(<FinalSettlements />);
+  await open(user);
+  const drawer = screen.getByRole('complementary', { name: 'drawer' });
+  expect(within(drawer).queryByRole('button', { name: 'Lift the hold' })).toBeNull();
+  expect(within(drawer).getByText(/needs People edit/)).toBeInTheDocument();
+});
+
+it('F2: your own full and final is shown, never editable or approvable by you', async () => {
+  loadAs({ liftHold: true, liftHoldWhy: null, selfEmployeeId: 'me' }, [{ ...base, employeeId: 'me', status: 'DRAFT', hold: null }], [{ id: 'me', name: 'Kavya', dateOfLeaving: '2026-11-20' }]);
+  const user = userEvent.setup();
+  render(<FinalSettlements />);
+  await open(user);
+  const drawer = screen.getByRole('complementary', { name: 'drawer' });
+  expect(within(drawer).queryByRole('button', { name: /Approve/ })).toBeNull();
+  expect(within(drawer).queryByRole('button', { name: 'Add a line' })).toBeNull();
+  expect(within(drawer).queryAllByRole('textbox', { name: 'Item' })).toEqual([]);
+  expect(within(drawer).getByText(/This is your own full and final/)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Work it out/ })).toBeNull();
+});
+
+it('F6: held since the India day, not the UTC one', async () => {
+  load([{ ...held, hold: { ...held.hold, since: '2026-10-30T20:20:00Z' } }]);
+  const user = userEvent.setup();
+  render(<FinalSettlements />);
+  await open(user);
+  const drawer = screen.getByRole('complementary', { name: 'drawer' });
+  expect(within(drawer).getByRole('heading', { name: /Held since/ }).textContent).toMatch(/31/);
+});

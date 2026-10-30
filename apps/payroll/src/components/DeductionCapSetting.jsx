@@ -54,7 +54,7 @@ export function DeductionCapSetting() {
   };
 
   return (
-    <section className="space-y-3" aria-labelledby="deduction-cap-title">
+    <section className="space-y-3 ui-touch-44" aria-labelledby="deduction-cap-title">
       <div>
         <h2 id="deduction-cap-title" className="ui-t-sec">Most that can come off wages</h2>
         <p className="ui-caption max-w-[65ch]">
