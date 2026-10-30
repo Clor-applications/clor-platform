@@ -129,10 +129,8 @@ peopleTimeRulesRouter.post(`${base}/late-marks/:employeeId/undo`, att(Permission
   const scope = await teamScope(req);
   if (!inScope(scope, employeeId)) return res.status(404).json({ error: 'No such person in your team.' });
   const month = String(req.body?.month || '');
-  /* Undoing an apply gives leave back: HR's, as applying is. */
-  const decided = await peoplePrisma.attendancePenalty.findUnique({ where: { orgId_employeeId_month: { orgId: req.tenant!.orgId, employeeId, month } } });
-  if (decided?.status === 'APPLIED' && !scope.all) return res.status(403).json({ error: 'HR undoes an applied penalty.' });
-  res.json(await marks.undo(who(req), employeeId, month));
+  /* Undoing an apply gives leave back: HR's, as applying is. A waiver is taken back by whoever gave it, or HR. */
+  res.json(await marks.undo(who(req), employeeId, month, { hr: scope.all }));
 }));
 
 peopleTimeRulesRouter.post(`${base}/late-marks/apply`, att(PermissionAction.APPROVE, R.requests), handle(async (req, res) => {
@@ -211,13 +209,13 @@ peopleTimeRulesRouter.get(`${base}/absences/holds`, ppl(PermissionAction.VIEW, P
 
 peopleTimeRulesRouter.get(`${base}/night-work`, ppl(PermissionAction.VIEW, PEOPLE_RESOURCE.employees), handle(async (req, res) => {
   const scope = await teamScope(req);
-  res.json({ ...(await night.nightReport(req.tenant!.orgId, scope.all ? null : scope.ids)), canEdit: scope.all });
+  res.json({ ...(await night.nightReport(req.tenant!.orgId, scope.all ? null : scope.ids, { hr: scope.all })), canEdit: scope.all });
 }));
 
 peopleTimeRulesRouter.get(`${base}/night-work/:employeeId`, ppl(PermissionAction.VIEW, PEOPLE_RESOURCE.employees), handle(async (req, res) => {
-  const id = String(req.params.employeeId);
-  if (!inScope(await teamScope(req), id)) return res.status(404).json({ error: 'No such employee.' });
-  res.json({ history: await night.consentHistory(req.tenant!.orgId, id) });
+  /* Consent notes and history are HR's: a manager sees the status in the report, nothing more. */
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Consent history is kept by HR.' });
+  res.json({ history: await night.consentHistory(req.tenant!.orgId, String(req.params.employeeId)) });
 }));
 
 peopleTimeRulesRouter.post(`${base}/night-work/:employeeId`, ppl(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), handle(async (req, res) => {

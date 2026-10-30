@@ -24,14 +24,16 @@ export type MarkKind = { on: boolean; graceMinutes: number | null; every: number
 export type MarkRules = { on: boolean; late: MarkKind; early: MarkKind; cost: 0.5 | 1; takeFrom: string[] };
 export type NudgeRules = { on: boolean; afterHours: number; managerDigest: boolean };
 export type AbsenceRules = { on: boolean; days: number; noticeGapDays: number; replyDays: number };
-export type NightRules = { on: boolean; from: string; to: string };
+/** ENFORCE: a night shift is refused without consent. WARN: it is saved, and who lacks consent is listed (People Home, Night work). */
+export type NightRules = { on: boolean; from: string; to: string; mode: 'ENFORCE' | 'WARN' };
 export type TimeRules = { marks: MarkRules; nudge: NudgeRules; absence: AbsenceRules; night: NightRules };
 
 export const DEFAULT_TIME_RULES: TimeRules = {
   marks: { on: false, late: { on: true, graceMinutes: null, every: 3, free: 0 }, early: { on: false, graceMinutes: null, every: 3, free: 0 }, cost: 0.5, takeFrom: [] },
   nudge: { on: true, afterHours: 2, managerDigest: true },
   absence: { on: true, days: 5, noticeGapDays: 7, replyDays: 7 },
-  night: { on: true, from: '19:00', to: '06:00' },
+  /* New companies ENFORCE; companies already on CLOR when the check arrived were set to WARN (migration 20261111090200). */
+  night: { on: true, from: '19:00', to: '06:00', mode: 'ENFORCE' },
 };
 
 const kindSchema = z.object({
@@ -59,6 +61,7 @@ export const timeRulesSchema = z.object({
     on: z.boolean().optional(),
     from: z.string().refine(isHHMM, 'Times are HH:MM, 24-hour.').optional(),
     to: z.string().refine(isHHMM, 'Times are HH:MM, 24-hour.').optional(),
+    mode: z.enum(['ENFORCE', 'WARN']).optional(),
   }).optional(),
 });
 

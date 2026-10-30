@@ -1,6 +1,7 @@
 import { peoplePrisma, peopleWrite } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { assertMonthOpen, daysOfMonth, payrollTaken, periodContext, today } from './days.js';
+import { istInstant } from './compute.js';
 import { balancesFor, leaveYearOf } from './leaveBalances.js';
 import { currentRuleVersion, rulesOf, timeRulesFor, type MarkRules } from './timeRules.js';
 
@@ -35,14 +36,18 @@ export class MarksError extends Error {
   }
 }
 
-/** The days of a month whose arrival or leaving counts as a mark under these rules. */
+/**
+ * The days of a month whose arrival or leaving counts as a mark under these rules: only whole present
+ * days. A half day already costs half a day, and a day with no punch-out is unpaid until it is
+ * corrected, so neither counts again as a mark.
+ */
 export function marksOf(rules: MarkRules, records: Iterable<Rec>, inSpan: (date: string) => boolean) {
   const late: string[] = [];
   const early: string[] = [];
   for (const r of records) {
-    if (!inSpan(r.date) || (r.status !== 'PRESENT' && r.status !== 'HALF_DAY')) continue;
+    if (!inSpan(r.date) || r.status !== 'PRESENT' || !r.checkIn || !r.checkOut) continue;
     if (rules.late.on && r.lateMinutes > 0 && r.lateMinutes > (rules.late.graceMinutes ?? 0)) late.push(r.date);
-    if (rules.early.on && r.checkOut && r.earlyOutMinutes > 0 && r.earlyOutMinutes > (rules.early.graceMinutes ?? 0)) early.push(r.date);
+    if (rules.early.on && r.earlyOutMinutes > 0 && r.earlyOutMinutes > (rules.early.graceMinutes ?? 0)) early.push(r.date);
   }
   return { late: late.sort(), early: early.sort() };
 }
@@ -65,6 +70,8 @@ export function nextCost(k: MarkRules['late'], count: number) {
 export type LeavePart = { leaveTypeId: string; name: string; days: number; adjustmentId?: string };
 export type PenaltyRow = {
   employeeId: string;
+  /** The calendar month the penalty belongs to (the last one, when a run ends more than one). */
+  month: string;
   lateMarks: number;
   earlyMarks: number;
   lateDates: string[];
@@ -78,27 +85,73 @@ export type PenaltyRow = {
   /** The days that are loss of pay: what payable days take off. */
   lossOfPayDays: number;
   decision: { by: string; at: Date; reason: string | null; ruleVersion: number } | null;
+  /** The rule version the month is worked out under: the one in force on its last day. */
+  ruleVersion: number;
 };
 
-/** Split penalty days over the rule's leave types, in order, in half days, by what each person has left. */
+const nextDay = (iso: string) => new Date(Date.parse(`${iso}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+const lastOf = (month: string) => daysOfMonth(month).at(-1)!;
+
+/**
+ * The late-mark rule in force at the end of a day (IST): the latest saved version of the attendance
+ * rules made before the next day began; before any, what the first save replaced; with no saves, the
+ * rules as they stand. A month is worked out under the rule of its last day, so changing the rule in
+ * November does not rework October.
+ */
+export async function marksRulesOn(orgId: string, date: string): Promise<{ marks: MarkRules; version: number }> {
+  const cutoff = istInstant(nextDay(date), '00:00');
+  const rows = await peoplePrisma.attendanceRuleVersion.findMany({ where: { orgId, rulesJson: { contains: '"name":"Attendance rules"' } }, orderBy: { version: 'asc' }, select: { version: true, rulesJson: true, createdAt: true } });
+  const before = rows.filter((r) => r.createdAt < cutoff);
+  const pick = (r: { rulesJson: string }, side: 'before' | 'after') => {
+    try {
+      const x = JSON.parse(r.rulesJson)?.[side];
+      return x?.marks ? rulesOf({ timeRules: { marks: x.marks } }).marks : null;
+    } catch {
+      return null;
+    }
+  };
+  if (before.length) {
+    const last = before[before.length - 1];
+    const m = pick(last, 'after');
+    if (m) return { marks: m, version: last.version };
+  }
+  const later = rows.find((r) => r.createdAt >= cutoff);
+  if (later) {
+    const m = pick(later, 'before');
+    if (m) return { marks: m, version: 0 };
+  }
+  return { marks: (await timeRulesFor(orgId)).marks, version: await currentRuleVersion(orgId) };
+}
+
+/**
+ * Split penalty days over the rule's leave types, in order, in half days, by what each person has
+ * left: the smaller of the balance at the month's end and today (leave taken since is not counted
+ * twice), never below nothing. A leave year already closed by its year end gives no more: the
+ * penalty is unpaid instead.
+ */
 async function splitOverLeave(accountId: string, orgId: string, rules: MarkRules, month: string, owed: Map<string, number>) {
   const out = new Map<string, LeavePart[]>();
   const ids = [...owed.entries()].filter(([, d]) => d > 0).map(([id]) => id);
   if (!rules.takeFrom.length || !ids.length) return out;
-  const last = daysOfMonth(month).at(-1)!;
+  const last = lastOf(month);
   const year = await leaveYearOf(orgId, last);
-  const [{ balances }, types] = await Promise.all([
+  if (await peoplePrisma.leaveYearEnd.findFirst({ where: { orgId, year, undoneAt: null }, select: { id: true } })) return out;
+  const t = today();
+  const [atEnd, now, types] = await Promise.all([
     balancesFor(accountId, orgId, ids, year, last),
+    t > last ? balancesFor(accountId, orgId, ids, year, t) : Promise.resolve(null),
     peoplePrisma.leaveType.findMany({ where: { orgId, id: { in: rules.takeFrom }, isPaid: true }, select: { id: true, name: true } }),
   ]);
-  const nameOf = new Map(types.map((t) => [t.id, t.name]));
+  const nameOf = new Map(types.map((x) => [x.id, x.name]));
   for (const id of ids) {
     let left = owed.get(id)!;
     const parts: LeavePart[] = [];
     for (const typeId of rules.takeFrom) {
       if (left <= 0 || !nameOf.has(typeId)) continue;
-      const available = balances.get(id)?.get(typeId)?.available ?? 0;
-      const take = Math.min(left, Math.floor(Math.max(0, available) * 2) / 2);
+      const a = atEnd.balances.get(id)?.get(typeId)?.available ?? 0;
+      const b = now ? now.balances.get(id)?.get(typeId)?.available ?? 0 : a;
+      const available = Math.max(0, Math.min(a, b));
+      const take = Math.min(left, Math.floor(available * 2) / 2);
       if (take <= 0) continue;
       parts.push({ leaveTypeId: typeId, name: nameOf.get(typeId)!, days: round(take) });
       left = round(left - take);
@@ -108,34 +161,33 @@ async function splitOverLeave(accountId: string, orgId: string, rules: MarkRules
   return out;
 }
 
-/**
- * Each person's penalty over these days. A whole calendar month uses the decisions taken for it;
- * any other run of days (a pay period from the 26th) is worked out from the rules alone. `draft`
- * works the month out under rules not yet saved, for the preview.
- */
-export async function penaltiesOver(accountId: string, orgId: string, days: string[], opts: { ctx?: Awaited<ReturnType<typeof periodContext>>; employeeIds?: string[]; draft?: MarkRules } = {}): Promise<Map<string, PenaltyRow>> {
+type Ctx = Awaited<ReturnType<typeof periodContext>>;
+
+/** One calendar month's penalties, with the decisions taken for it, under the rule of its last day (or a draft). */
+async function monthRows(accountId: string, orgId: string, month: string, opts: { ctx?: Ctx; employeeIds?: string[]; draft?: MarkRules } = {}): Promise<Map<string, PenaltyRow>> {
+  const days = daysOfMonth(month);
   const ctx = opts.ctx || (await periodContext(accountId, orgId, days[0], days[days.length - 1]));
-  const rules = opts.draft || rulesOf(ctx.settings).marks;
-  const month = days[0].slice(0, 7);
-  const wholeMonth = days.length === daysOfMonth(month).length && days[0] === `${month}-01`;
+  const inForce = opts.draft ? { marks: opts.draft, version: 0 } : await marksRulesOn(orgId, days[days.length - 1]);
+  const rules = inForce.marks;
   const keep = opts.employeeIds ? new Set(opts.employeeIds) : null;
-  const decided = wholeMonth && !opts.draft ? await peoplePrisma.attendancePenalty.findMany({ where: { orgId, month, ...(keep ? { employeeId: { in: [...keep] } } : {}) } }) : [];
+  const decided = !opts.draft ? await peoplePrisma.attendancePenalty.findMany({ where: { orgId, month, ...(keep ? { employeeId: { in: [...keep] } } : {}) } }) : [];
   const decisionOf = new Map(decided.map((d) => [d.employeeId, d]));
   const out = new Map<string, PenaltyRow>();
   const owed = new Map<string, number>();
+  const inMonth = new Set(days);
   for (const p of ctx.people) {
     if (keep && !keep.has(p.id)) continue;
-    const span = new Set(ctx.spanOf(p).filter((d) => days.includes(d)));
+    const span = new Set(ctx.spanOf(p).filter((d) => inMonth.has(d)));
     const recs = ctx.recordsOf.get(p.id) || new Map();
     const marks = rules.on ? marksOf(rules, recs.values() as Iterable<Rec>, (d) => span.has(d)) : { late: [], early: [] };
     const d = decisionOf.get(p.id);
     const cost = costOf(rules, marks.late.length, marks.early.length);
-    const row: PenaltyRow = { employeeId: p.id, lateMarks: marks.late.length, earlyMarks: marks.early.length, lateDates: marks.late, earlyDates: marks.early, days: cost, status: cost > 0 ? 'DUE' : 'NONE', fromLeave: [], lossOfPayDays: cost, decision: null };
+    const row: PenaltyRow = { employeeId: p.id, month, lateMarks: marks.late.length, earlyMarks: marks.early.length, lateDates: marks.late, earlyDates: marks.early, days: cost, status: cost > 0 ? 'DUE' : 'NONE', fromLeave: [], lossOfPayDays: cost, decision: null, ruleVersion: inForce.version };
     if (d) {
       row.decision = { by: d.decidedByUserId, at: d.decidedAt, reason: d.reason, ruleVersion: d.ruleVersion };
       if (d.status === 'WAIVED') Object.assign(row, { status: 'WAIVED', fromLeave: [], lossOfPayDays: 0 });
       /* Applied: what was taken then, under the rules of then, whatever the rules say now. */
-      if (d.status === 'APPLIED') Object.assign(row, { status: 'APPLIED', days: d.days, lateMarks: d.lateMarks, earlyMarks: d.earlyMarks, fromLeave: (Array.isArray(d.fromLeave) ? d.fromLeave : []) as LeavePart[], lossOfPayDays: d.lossOfPayDays });
+      if (d.status === 'APPLIED') Object.assign(row, { status: 'APPLIED', days: d.days, lateMarks: d.lateMarks, earlyMarks: d.earlyMarks, fromLeave: (Array.isArray(d.fromLeave) ? d.fromLeave : []) as LeavePart[], lossOfPayDays: d.lossOfPayDays, ruleVersion: d.ruleVersion });
     } else if (cost > 0) owed.set(p.id, cost);
     out.set(p.id, row);
   }
@@ -148,11 +200,48 @@ export async function penaltiesOver(accountId: string, orgId: string, days: stri
   return out;
 }
 
+/**
+ * Each person's penalty charged in a run of days. A penalty belongs to its calendar month and is
+ * charged in the run that holds the month's last day: a calendar month charges its own; a pay period
+ * from 26 September to 25 October charges September's, worked out over the whole of September with
+ * the decisions taken for it. So no month is charged twice or skipped, whatever the period, and a
+ * waiver or an apply counts wherever the month is paid. `draft` works it out under rules not yet saved.
+ */
+export async function penaltiesOver(accountId: string, orgId: string, days: string[], opts: { ctx?: Ctx; employeeIds?: string[]; draft?: MarkRules } = {}): Promise<Map<string, PenaltyRow>> {
+  const inRun = new Set(days);
+  const months = [...new Set(days.map((d) => d.slice(0, 7)))].filter((m) => inRun.has(lastOf(m)));
+  const out = new Map<string, PenaltyRow>();
+  for (const month of months) {
+    const whole = daysOfMonth(month);
+    const ctx = opts.ctx && days.length === whole.length && days[0] === whole[0] ? opts.ctx : undefined;
+    const rows = await monthRows(accountId, orgId, month, { ...opts, ctx });
+    for (const [id, r] of rows) {
+      const had = out.get(id);
+      if (!had) { out.set(id, r); continue; }
+      /* A run ending two months (rare): the two are added; DUE wins, so nothing undecided hides. */
+      out.set(id, {
+        ...r,
+        lateMarks: had.lateMarks + r.lateMarks, earlyMarks: had.earlyMarks + r.earlyMarks,
+        lateDates: [...had.lateDates, ...r.lateDates], earlyDates: [...had.earlyDates, ...r.earlyDates],
+        days: round(had.days + r.days), fromLeave: [...had.fromLeave, ...r.fromLeave], lossOfPayDays: round(had.lossOfPayDays + r.lossOfPayDays),
+        status: had.status === 'DUE' || r.status === 'DUE' ? 'DUE' : r.status === 'NONE' ? had.status : r.status,
+      });
+    }
+  }
+  return out;
+}
+
+/** Penalties charged in these days that nobody has applied or waived: Payroll waits for them. */
+export async function undecidedIn(accountId: string, orgId: string, days: string[], employeeIds?: string[]) {
+  const rows = await penaltiesOver(accountId, orgId, days, { employeeIds });
+  return [...rows.values()].filter((r) => r.status === 'DUE' && r.days > 0);
+}
+
 /** The month's penalties for a screen: people with marks or a decision, with names, newest problems first. */
 export async function monthPenalties(accountId: string, orgId: string, month: string, opts: { employeeIds?: string[]; draft?: MarkRules } = {}) {
   const days = daysOfMonth(month);
   const ctx = await periodContext(accountId, orgId, days[0], days[days.length - 1]);
-  const rules = opts.draft || rulesOf(ctx.settings).marks;
+  const rules = opts.draft || (await marksRulesOn(orgId, days[days.length - 1])).marks;
   const rows = await penaltiesOver(accountId, orgId, days, { ctx, ...opts });
   const names = new Map(ctx.people.map((p) => [p.id, p]));
   const deciders = [...new Set([...rows.values()].map((r) => r.decision?.by).filter(Boolean) as string[])];
@@ -165,7 +254,7 @@ export async function monthPenalties(accountId: string, orgId: string, month: st
   return {
     month,
     rules,
-    ended: last < today(),
+    ended: last <= today(),
     totals: {
       people: list.filter((r) => r.days > 0).length,
       due: list.filter((r) => r.status === 'DUE').length,
@@ -205,19 +294,21 @@ export async function waive(who: Actor, employeeId: string, month: string, reaso
     if (row.status === 'APPLIED') throw new MarksError('This penalty was applied. Undo the apply first, then waive it.', 409, 'APPLIED');
     if (row.status === 'WAIVED') throw new MarksError('Already waived.', 409, 'DECIDED');
     if (row.days <= 0) throw new MarksError('There is no penalty to waive this month.', 409, 'NOTHING');
-    const made = await peoplePrisma.attendancePenalty.create({ data: { accountId: who.accountId, orgId: who.orgId, employeeId, month, status: 'WAIVED', lateMarks: row.lateMarks, earlyMarks: row.earlyMarks, days: row.days, reason: why.slice(0, 500), ruleVersion: await currentRuleVersion(who.orgId), decidedByUserId: who.userId } });
+    const made = await peoplePrisma.attendancePenalty.create({ data: { accountId: who.accountId, orgId: who.orgId, employeeId, month, status: 'WAIVED', lateMarks: row.lateMarks, earlyMarks: row.earlyMarks, days: row.days, reason: why.slice(0, 500), ruleVersion: row.ruleVersion, decidedByUserId: who.userId } });
     await audit(who, made.id, 'WAIVE', `Waived ${row.days} day late-mark penalty for ${monthWords(month)}: ${why}`, { employeeId, month, days: row.days, lateMarks: row.lateMarks, earlyMarks: row.earlyMarks });
     return made;
   });
 }
 
 /** Take back a waiver or an apply: the month is worked out from the rules again; leave taken goes back. */
-export async function undo(who: Actor, employeeId: string, month: string) {
+export async function undo(who: Actor, employeeId: string, month: string, opts: { hr: boolean } = { hr: true }) {
   if (!isMonth(month)) throw new MarksError('Month must be YYYY-MM.');
   await assertMonthOpen(who.orgId, daysOfMonth(month).at(-1)!, employeeId);
   return peopleWrite(who.orgId, async () => {
     const row = await peoplePrisma.attendancePenalty.findUnique({ where: { orgId_employeeId_month: { orgId: who.orgId, employeeId, month } } });
     if (!row) throw new MarksError('Nothing was decided for this month.', 404);
+    /* Taken back by whoever decided it, or by HR; an applied month only by HR (it gives leave back). */
+    if (!opts.hr && (row.status === 'APPLIED' || row.decidedByUserId !== who.userId)) throw new MarksError(row.status === 'APPLIED' ? 'HR undoes an applied penalty.' : 'Only whoever waived it, or HR, can take a waiver back.', 403, 'NOT_YOURS');
     const parts = (Array.isArray(row.fromLeave) ? row.fromLeave : []) as LeavePart[];
     const ids = parts.map((p) => p.adjustmentId).filter(Boolean) as string[];
     if (ids.length) await peoplePrisma.leaveAdjustment.updateMany({ where: { orgId: who.orgId, id: { in: ids }, reversedAt: null }, data: { reversedAt: new Date(), reversedByUserId: who.userId } });
@@ -237,11 +328,12 @@ export async function apply(who: Actor, month: string, employeeIds?: string[] | 
   if (!isMonth(month)) throw new MarksError('Month must be YYYY-MM.');
   const days = daysOfMonth(month);
   const last = days[days.length - 1];
-  if (last >= today()) throw new MarksError(`Apply once ${monthWords(month)} has ended.`, 409, 'NOT_ENDED');
+  /* From the month's last day: payroll is often run on it. */
+  if (last > today()) throw new MarksError(`Apply from the last day of ${monthWords(month)}.`, 409, 'NOT_ENDED');
   await assertMonthOpen(who.orgId, last);
-  const rules = (await timeRulesFor(who.orgId)).marks;
-  if (!rules.on) throw new MarksError('Late-mark penalties are switched off.', 409, 'OFF');
-  const version = await currentRuleVersion(who.orgId);
+  /* The rule in force on the month's last day decides it, and its version is kept with the month. */
+  const { marks: rules, version } = await marksRulesOn(who.orgId, last);
+  if (!rules.on) throw new MarksError('Late-mark penalties were switched off that month.', 409, 'OFF');
   const year = await leaveYearOf(who.orgId, last);
   const skipped: Array<{ employeeId: string; why: string }> = [];
   let applied = 0;
@@ -287,7 +379,7 @@ export function policyText(rules: MarkRules, leaveNames: string[]) {
 
 /** One person's month: counts, how far to the next cost, what it costs so far and whether anyone decided it. */
 export async function myMarks(e: { id: string; accountId: string; orgId: string }, month: string) {
-  const rules = (await timeRulesFor(e.orgId)).marks;
+  const rules = (await marksRulesOn(e.orgId, daysOfMonth(month).at(-1)!)).marks;
   const names = rules.takeFrom.length ? await peoplePrisma.leaveType.findMany({ where: { orgId: e.orgId, id: { in: rules.takeFrom } }, select: { id: true, name: true } }) : [];
   const ordered = rules.takeFrom.map((id) => names.find((n) => n.id === id)?.name).filter(Boolean) as string[];
   if (!rules.on) return { on: false as const, month };

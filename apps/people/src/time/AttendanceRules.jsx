@@ -24,7 +24,7 @@ const toForm = (r) => ({
   cost: String(r.marks.cost), takeFrom: r.marks.takeFrom || [],
   nudgeOn: Boolean(r.nudge.on), afterHours: num(r.nudge.afterHours), managerDigest: Boolean(r.nudge.managerDigest),
   absenceOn: Boolean(r.absence.on), absenceDays: num(r.absence.days), noticeGapDays: num(r.absence.noticeGapDays), replyDays: num(r.absence.replyDays),
-  nightOn: Boolean(r.night.on), nightFrom: r.night.from, nightTo: r.night.to,
+  nightOn: Boolean(r.night.on), nightFrom: r.night.from, nightTo: r.night.to, nightMode: r.night.mode || 'ENFORCE',
 });
 const int = (v, lo, hi, dflt) => Math.max(lo, Math.min(hi, Number.isFinite(Number(v)) && v !== '' ? Math.round(Number(v)) : dflt));
 const marksBody = (f) => ({
@@ -38,7 +38,7 @@ const toBody = (f) => ({
   marks: marksBody(f),
   nudge: { on: f.nudgeOn, afterHours: int(f.afterHours, 0, 24, 2), managerDigest: f.managerDigest },
   absence: { on: f.absenceOn, days: int(f.absenceDays, 2, 30, 5), noticeGapDays: int(f.noticeGapDays, 1, 30, 7), replyDays: int(f.replyDays, 1, 30, 7) },
-  night: { on: f.nightOn, from: f.nightFrom, to: f.nightTo },
+  night: { on: f.nightOn, from: f.nightFrom, to: f.nightTo, mode: f.nightMode },
 });
 
 function Num({ label, value, onChange, min = 0, max = 31, placeholder, suffix }) {
@@ -198,8 +198,15 @@ export default function AttendanceRules({ openScreen }) {
               <div className="grid gap-4 sm:grid-cols-3">
                 <label className="block"><span className="ui-label">Night from</span><input type="time" className="ui-input w-full tabular-nums" value={form.nightFrom} onChange={(e) => set({ nightFrom: e.target.value })} /></label>
                 <label className="block"><span className="ui-label">Until</span><input type="time" className="ui-input w-full tabular-nums" value={form.nightTo} onChange={(e) => set({ nightTo: e.target.value })} /></label>
+                <label className="block">
+                  <span className="ui-label">Without consent</span>
+                  <select className="ui-select w-full" value={form.nightMode} onChange={(e) => set({ nightMode: e.target.value })}>
+                    <option value="ENFORCE">Refuse the shift</option>
+                    <option value="WARN">Save it and warn</option>
+                  </select>
+                </label>
               </div>
-              <p className="ui-caption">A woman needs her written consent on file before a shift touching these hours is given to her (OSH Code 2020, s.43: before 6 am or after 7 pm). Some states set other hours.</p>
+              <p className="ui-caption">A woman needs her written consent on file to work these hours (OSH Code 2020, s.43: before 6 am or after 7 pm; some states set other hours). With a warning, the shift is saved and she is listed on Home and under Night work until consent is recorded.</p>
             </Block>
         </fieldset>
 

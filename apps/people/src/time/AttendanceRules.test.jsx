@@ -142,3 +142,38 @@ it('night work: who works nights without consent comes first; HR records consent
   fireEvent.click(within(dialog).getByRole('button', { name: 'Record consent' }));
   await waitFor(() => expect(api.recordNightConsent).toHaveBeenCalledWith('w1', expect.objectContaining({ status: 'GIVEN' })));
 });
+
+it('night work: people on nights with no gender are named, and a manager gets no history', async () => {
+  api.getNightWork.mockResolvedValue({
+    night: { on: true, words: '7 pm to 6 am', mode: 'WARN' }, canEdit: false,
+    totals: { women: 1, given: 0, withdrawn: 0, problems: 1, noGender: 1, unknownOnNights: 1 },
+    rows: [{ employeeId: 'w1', name: 'Priya Nair', consent: { status: 'GIVEN', onDate: '2026-10-01', note: null, documentId: null }, nightDays: 2, firstNightDay: '2026-11-03', problem: false }],
+    unknownGender: [{ employeeId: 'u1', name: 'Kim Lee', nightDays: 3, firstNightDay: '2026-11-04' }],
+  });
+  render(<NightWork />);
+  expect(await screen.findByText(/Kim Lee works 3 night shifts/)).toBeTruthy();
+  expect(screen.getByText(/shifts are saved with a warning/)).toBeTruthy();
+  fireEvent.click(screen.getAllByText('Priya Nair')[0]);
+  await screen.findByRole('dialog');
+  expect(api.getConsentHistory).not.toHaveBeenCalled();
+  expect(screen.queryByRole('button', { name: 'Record consent' })).toBeNull();
+});
+
+it('absences: someone back at work needs a reason to be recorded as absconded', async () => {
+  api.getAbsences.mockResolvedValue({
+    rules: { days: 5, replyDays: 7 }, counts: { open: 1 }, canAct: true,
+    rows: [{ id: 'c2', employeeId: 'e8', name: 'Back Again', fromDate: '2026-10-01', lastAbsentDate: '2026-10-20', days: 12, status: 'NOTICE_2', next: { step: 'RECORD', from: '2026-10-25' }, backSince: '2026-10-28', notices: [], email: null, createdAt: '2026-10-08T03:00:00Z', hold: null }],
+  });
+  api.recordAbsconded.mockResolvedValue({ case: {} });
+  render(<Absences />);
+  expect((await screen.findAllByText(/Back since/)).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getAllByText('Back Again')[0]);
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Record the leaving' }));
+  const record = within(dialog).getByRole('button', { name: 'Record' });
+  expect(record.disabled).toBe(true);
+  fireEvent.click(within(dialog).getByLabelText('Record it all the same'));
+  fireEvent.change(within(dialog).getAllByRole('combobox').at(-1), { target: { value: 'Came only to collect belongings' } });
+  fireEvent.click(record);
+  await waitFor(() => expect(api.recordAbsconded).toHaveBeenCalledWith('c2', expect.objectContaining({ confirmBack: true, reason: 'Came only to collect belongings' })));
+});

@@ -6,7 +6,7 @@ import { registerJob } from '../jobRegistry.js';
 import { notifyPermission } from '../notifications.js';
 import { isFeatureEnabled } from '../features.js';
 import { sendTemplate } from '../mailer.js';
-import { isWeeklyOff } from '../attendance/compute.js';
+import { isWeeklyOff, istDate } from '../attendance/compute.js';
 import { daysBetween, periodContext, today } from '../attendance/days.js';
 import { rulesOf, timeRulesFor } from '../attendance/timeRules.js';
 import { issueLetter, LetterError } from './letters.js';
@@ -219,7 +219,7 @@ export async function sendAbsenceNotice(who: Who, caseId: string, input: { repor
     const seq = c.status === 'OPEN' ? 1 : 2;
     if (seq === 2) {
       const first = await peoplePrisma.absenceNotice.findFirst({ where: { caseId, seq: 1 } });
-      const from = first ? plusDays(first.sentAt.toISOString().slice(0, 10), rules.noticeGapDays) : t;
+      const from = first ? plusDays(istDate(first.sentAt), rules.noticeGapDays) : t;
       if (from > t) throw new AbsenceError(`The second notice can go from ${longDay(from)}, ${rules.noticeGapDays} days after the first.`, 409, 'TOO_SOON');
     }
     try {
@@ -237,7 +237,7 @@ export async function sendAbsenceNotice(who: Who, caseId: string, input: { repor
   try {
     letter = await issueLetter({ accountId: who.accountId, orgId: who.orgId, userId: who.userId, source: 'FORM', correlationId: who.correlationId }, c.employeeId, {
       kind: seq === 1 ? 'ABSENCE_NOTICE_1' : 'ABSENCE_NOTICE_2',
-      extra: { absentFrom: longDay(c.fromDate), reportBy: longDay(reportBy), signatory, ...(first ? { firstNoticeOn: longDay(first.sentAt.toISOString().slice(0, 10)) } : {}) },
+      extra: { absentFrom: longDay(c.fromDate), reportBy: longDay(reportBy), signatory, ...(first ? { firstNoticeOn: longDay(istDate(first.sentAt)) } : {}) },
     });
   } catch (e) {
     /* Nothing went out: the claim is taken back so it can be sent again. */
@@ -269,6 +269,12 @@ export async function sendAbsenceNotice(who: Who, caseId: string, input: { repor
   return saved;
 }
 
+/** The first day at work after the absence, if they came back: a present or half day with a punch. */
+export async function backSince(orgId: string, employeeId: string, after: string) {
+  const r = await peoplePrisma.attendanceRecord.findFirst({ where: { orgId, employeeId, date: { gt: after }, status: { in: ['PRESENT', 'HALF_DAY'] }, checkIn: { not: null } }, orderBy: { date: 'asc' }, select: { date: true } });
+  return r?.date ?? null;
+}
+
 /** Close a case with a note: they came back (RETURNED), or there is a reason to let it be (IGNORED). Nothing is recorded against them. */
 export async function closeCase(who: Who, caseId: string, input: { outcome?: string; note?: string | null }) {
   const outcome = String(input.outcome || '').toUpperCase();
@@ -288,12 +294,17 @@ export async function closeCase(who: Who, caseId: string, input: { outcome?: str
  * theirs to set (default: the day before the absence began), the notices go with it as evidence, and
  * the final settlement can be held at the same time.
  */
-export async function recordAbsconded(who: Who, caseId: string, input: { lastWorkingDay?: string | null; reason?: string | null; hold?: boolean; holdReason?: string | null }) {
+export async function recordAbsconded(who: Who, caseId: string, input: { lastWorkingDay?: string | null; reason?: string | null; hold?: boolean; holdReason?: string | null; confirmBack?: boolean }) {
   const c = await caseIn(who.orgId, caseId);
   if (c.status === 'ABSCONDED') throw new AbsenceError('Already recorded.', 409, 'ABSCONDED');
   if (c.status !== 'NOTICE_2') throw new AbsenceError('Send both notices first, so they had the chance to explain.', 409, 'NOTICES_FIRST');
   const second = await peoplePrisma.absenceNotice.findFirst({ where: { caseId, seq: 2 } });
   if (second && second.reportBy >= today()) throw new AbsenceError(`The second notice gave them until ${longDay(second.reportBy)}. Record the leaving after that.`, 409, 'WAIT');
+  /* Back at work since: they did not abscond. Only with an explicit confirmation and a reason. */
+  const back = await backSince(who.orgId, c.employeeId, c.lastAbsentDate);
+  if (back && !(input.confirmBack && String(input.reason || '').trim().length >= 3)) {
+    throw new AbsenceError(`They have been at work since ${longDay(back)}. Close the case instead; to record the leaving all the same, confirm it and give the reason.`, 409, 'CAME_BACK');
+  }
   const lastDay = String(input.lastWorkingDay || '').trim() || plusDays(c.fromDate, -1);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(lastDay)) throw new AbsenceError('Dates are YYYY-MM-DD.');
   if (lastDay >= today()) throw new AbsenceError('The last working day is a day already past.');
@@ -302,7 +313,7 @@ export async function recordAbsconded(who: Who, caseId: string, input: { lastWor
   if (!existing) throw new AbsenceError('No such employee.', 404);
   if (existing.status === 'LEFT') throw new AbsenceError(`${existing.name} has already left.`, 409, 'LEFT');
   const notices = await peoplePrisma.absenceNotice.findMany({ where: { caseId }, orderBy: { seq: 'asc' }, select: { seq: true, sentAt: true, reportBy: true, channels: true, documentId: true } });
-  const reason = String(input.reason || '').trim().slice(0, 400) || `Absent from ${longDay(c.fromDate)}; notices sent ${notices.map((n) => longDay(n.sentAt.toISOString().slice(0, 10))).join(' and ')} with no reply.`;
+  const reason = String(input.reason || '').trim().slice(0, 400) || `Absent from ${longDay(c.fromDate)}; notices sent ${notices.map((n) => longDay(istDate(n.sentAt))).join(' and ')} with no reply.`;
   /* The case is claimed first, so two clicks record one leaving. */
   const claimed = await peoplePrisma.absenceCase.updateMany({ where: { id: c.id, status: 'NOTICE_2' }, data: { status: 'ABSCONDED', lastWorkingDay: lastDay, closedAt: new Date(), closedByUserId: who.userId, closedNote: reason } });
   if (!claimed.count) throw new AbsenceError('This case changed a moment ago.', 409, 'CHANGED');
@@ -366,6 +377,8 @@ export async function listCases(orgId: string, opts: { status?: string; scopeIds
   ]);
   const personOf = new Map(people.map((p) => [p.id, p]));
   const t = today();
+  const backOf = new Map<string, string | null>();
+  for (const c of cases) if (OPEN.includes(c.status)) backOf.set(c.id, await backSince(orgId, c.employeeId, c.lastAbsentDate));
   const rows = cases.map((c) => {
     const mine = notices.filter((n) => n.caseId === c.id);
     const p = personOf.get(c.employeeId);
@@ -373,13 +386,14 @@ export async function listCases(orgId: string, opts: { status?: string; scopeIds
     const n2 = mine.find((n) => n.seq === 2);
     let next: { step: string; from: string | null } | null = null;
     if (c.status === 'OPEN') next = { step: 'NOTICE_1', from: t };
-    else if (c.status === 'NOTICE_1') next = { step: 'NOTICE_2', from: n1 ? plusDays(n1.sentAt.toISOString().slice(0, 10), rules.noticeGapDays) : t };
+    else if (c.status === 'NOTICE_1') next = { step: 'NOTICE_2', from: n1 ? plusDays(istDate(n1.sentAt), rules.noticeGapDays) : t };
     else if (c.status === 'NOTICE_2') next = { step: 'RECORD', from: n2 ? plusDays(n2.reportBy, 1) : t };
     return {
       id: c.id, employeeId: c.employeeId, name: p?.name || '—', code: p?.code || null, department: p?.department || null, phone: p?.phone || null,
       email: p?.personalEmail || p?.email || p?.workEmail || null,
       fromDate: c.fromDate, lastAbsentDate: c.lastAbsentDate, days: c.days, status: c.status,
       next, closedNote: c.closedNote, closedAt: c.closedAt, lastWorkingDay: c.lastWorkingDay,
+      backSince: backOf.get(c.id) ?? null,
       hold: c.heldAt ? { reason: c.holdReason, at: c.heldAt, releasedAt: c.holdReleasedAt, releaseNote: c.holdReleaseNote } : null,
       notices: mine.map((n) => ({ id: n.id, seq: n.seq, sentAt: n.sentAt, reportBy: n.reportBy, channels: n.channels, emailTo: n.emailTo, emailStatus: n.emailStatus, postRef: n.postRef, documentId: n.documentId })),
       createdAt: c.createdAt,

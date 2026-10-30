@@ -17,7 +17,7 @@ import { deleteToBin } from '../services/recycleBin.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { DEFAULT_LATE_UPLOAD_HOURS, READER_TRUST, readerTrustOn } from '../services/attendance/trust.js';
 import { assertScheduleOpen, rotationRanges, scheduleGuard } from '../services/attendance/scheduleGuard.js';
-import { assertNightConsent, nightRefusal, rotationShiftIds } from '../services/people/nightConsent.js';
+import { assertNightConsent, nightRefusal, onShiftAhead, rotationShiftIds } from '../services/people/nightConsent.js';
 import { marksFromLegacy, timeRulesFor } from '../services/attendance/timeRules.js';
 
 /**
@@ -328,6 +328,11 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
     /* The default shift decides every date of anyone with no other schedule, closed months included (O-05). */
     if ((previous?.defaultShiftId || null) !== parsed.data.defaultShiftId) {
       await assertScheduleOpen(orgId, [{ from: null, to: null }], (month) => `${month} is closed in Attendance, and the default shift decides its days. Reopen the month to change the default shift, or assign the shift from a date instead.`);
+      /* A night default reaches every woman with no schedule of her own (people/nightConsent.ts). */
+      if (parsed.data.defaultShiftId) {
+        const on = await onShiftAhead(orgId, null);
+        await assertNightConsent(orgId, on.map((id) => ({ employeeId: id, shiftIds: [parsed.data.defaultShiftId!] })));
+      }
     }
     const s = await peoplePrisma.attendanceSettings.upsert({
       where: { orgId },

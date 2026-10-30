@@ -33,7 +33,7 @@ import { logDayChange } from '../services/attendance/history.js';
 import { recordRuleVersion } from '../services/attendance/ruleVersions.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { MONTH_DAYS, scheduleGuard, shiftRanges, type DateRange } from '../services/attendance/scheduleGuard.js';
-import { nightRefusal } from '../services/people/nightConsent.js';
+import { nightRefusal, onShiftAhead } from '../services/people/nightConsent.js';
 import {
   ISO_DATE,
   STATUSES,
@@ -828,6 +828,12 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
      */
     const next = { ...existing, ...Object.fromEntries(Object.entries(parsed.data).filter(([, v]) => v !== undefined)) };
     if (JSON.stringify(scoring(existing)) !== JSON.stringify(scoring(next))) await shiftOpen(orgId, existing.id);
+    /* New times that run into the night reach every woman on this shift (people/nightConsent.ts). */
+    if (next.startTime !== existing.startTime || next.endTime !== existing.endTime) {
+      const on = await onShiftAhead(orgId, existing.id);
+      const noConsent = await nightRefusal(orgId, on.map((id) => ({ employeeId: id, shiftIds: [existing.id] })), { shifts: [{ id: existing.id, name: next.name, startTime: next.startTime, endTime: next.endTime }] });
+      if (noConsent) return sendError(res, noConsent);
+    }
     const shift = await peoplePrisma.shift.update({ where: { id: existing.id }, data: { ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null } as any });
     if (JSON.stringify(scoring(existing)) !== JSON.stringify(scoring(shift))) {
       await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'SHIFT', ref: shift.id, name: shift.name, before: scoring(existing), after: scoring(shift) });

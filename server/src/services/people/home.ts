@@ -7,6 +7,7 @@ import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from '../attendance/guards.js'
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../payroll/guards.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE } from './guards.js';
 import { openTasks } from './checklists.js';
+import { teamScope } from './scope.js';
 import { dataHealth } from './dataHealth.js';
 import { buildObligations } from './complianceRules.js';
 
@@ -98,6 +99,15 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
       const urgent = open.filter((c) => c.urgency === 'URGENT' || c.resolveBy < now || (!c.firstReplyAt && c.replyBy < now)).length;
       out.push({ key: 'helpdesk', title: 'Help desk requests open', detail: urgent ? `${urgent} urgent or late, ${open.length} open in all` : `${plural(open.length, 'request')} open`, count: open.length, tone: urgent ? 'urgent' : 'info', screen: 'helpdesk' });
     }
+  }
+  /* Attendance rules (review of PR #78): night shifts without consent or with no gender on file, people missing, settlements held. HR only. */
+  if (employees && (await teamScope(req)).all) {
+    const [{ nightReport }, { listCases }] = await Promise.all([import('./nightConsent.js'), import('./absconding.js')]);
+    const [night, cases] = await Promise.all([nightReport(orgId, null).catch(() => null), listCases(orgId, { status: 'open' }).catch(() => null)]);
+    if (night?.totals.problems) out.push({ key: 'nightConsent', title: 'Night shifts without consent', detail: `${plural(night.totals.problems, 'woman', 'women')} on night shifts in the next 30 days with no consent on file`, count: night.totals.problems, tone: night.night.mode === 'WARN' ? 'urgent' : 'soon', screen: 'nightWork' });
+    if (night?.totals.unknownOnNights) out.push({ key: 'nightGender', title: 'Record gender for people on night shifts', detail: `${plural(night.totals.unknownOnNights, 'person', 'people')} on night shifts with no gender recorded, so consent cannot be checked`, count: night.totals.unknownOnNights, tone: 'soon', screen: 'nightWork' });
+    if (cases?.counts.open) out.push({ key: 'absences', title: 'People absent with no word', detail: `${plural(cases.counts.open, 'person', 'people')} to follow up`, count: cases.counts.open, tone: 'soon', screen: 'absences' });
+    if (cases?.counts.held) out.push({ key: 'settlementHolds', title: 'Final settlements on hold', detail: `${plural(cases.counts.held, 'settlement')} held until released`, count: cases.counts.held, tone: 'info', screen: 'absences', params: { status: 'absconded' } });
   }
   if (hiring) {
     const toReview = await peoplePrisma.candidate.count({ where: { accountId, orgId, anonymisedAt: null, stage: { in: ['APPLIED', 'SCREENING'] } } });

@@ -61,7 +61,7 @@ export default function Absences({ params = {}, updateParams }) {
     { key: 'name', label: 'Employee', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></span> },
     { key: 'since', label: 'Absent since', render: (r) => <span className="tabular-nums whitespace-nowrap">{dayText(r.fromDate)}</span> },
     { key: 'days', label: 'Working days', align: 'right', render: (r) => <span className="tabular-nums">{r.days}</span> },
-    { key: 'status', label: 'Status', render: (r) => <span className="inline-flex flex-wrap gap-1"><span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0] || r.status}</span>{r.hold && !r.hold.releasedAt ? <span className="ui-pill ui-pill-warn">Settlement held</span> : null}</span> },
+    { key: 'status', label: 'Status', render: (r) => <span className="inline-flex flex-wrap gap-1"><span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0] || r.status}</span>{r.backSince ? <span className="ui-pill ui-pill-pos">Back since {dayText(r.backSince)}</span> : null}{r.hold && !r.hold.releasedAt ? <span className="ui-pill ui-pill-warn">Settlement held</span> : null}</span> },
     { key: 'next', label: 'Next', render: (r) => (r.next ? <span className="whitespace-nowrap">{NEXT[r.next.step]}{r.next.from && r.next.from > istToday() ? <span className="ui-caption block tabular-nums">from {dayText(r.next.from)}</span> : null}</span> : <span className="ui-caption">—</span>) },
   ];
 
@@ -139,6 +139,7 @@ function CaseDrawer({ row, rules, canAct, onClose, onChanged }) {
         <dl className="grid gap-3 grid-cols-2">
           <div><dt className="ui-t-label">Absent since</dt><dd className="tabular-nums">{dayText(row.fromDate)}</dd></div>
           <div><dt className="ui-t-label">Working days</dt><dd className="tabular-nums">{row.days}</dd></div>
+          {row.backSince ? <div className="col-span-2"><dt className="ui-t-label">Back at work since</dt><dd className="tabular-nums">{dayText(row.backSince)}</dd></div> : null}
           {row.phone ? <div><dt className="ui-t-label">Phone</dt><dd><a className="ui-link tabular-nums" href={`tel:${row.phone}`}>{row.phone}</a></dd></div> : null}
           <div><dt className="ui-t-label">E-mail</dt><dd className="truncate">{row.email || 'None on file'}</dd></div>
         </dl>
@@ -162,7 +163,7 @@ function CaseDrawer({ row, rules, canAct, onClose, onChanged }) {
         {copy ? (
           <section className="space-y-2" aria-label={`Notice ${copy.seq} as sent`}>
             <div className="flex items-center justify-between gap-2"><h3 className="ui-t-label">Notice {copy.seq} as sent</h3><button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setCopy(null)}>Hide</button></div>
-            <p className="whitespace-pre-wrap rounded-lg border p-3 text-sm" style={{ borderColor: 'rgb(var(--border))' }}>{copy.text}</p>
+            <p className="whitespace-pre-wrap rounded-xl border p-3 text-sm" style={{ borderColor: 'rgb(var(--border))' }}>{copy.text}</p>
           </section>
         ) : null}
       </div>
@@ -234,9 +235,19 @@ function RecordForm({ row, onCancel, onDone }) {
   const [lastDay, setLastDay] = useState(plus(row.fromDate, -1));
   const [hold, setHold] = useState(false);
   const [holdReason, setHoldReason] = useState('');
-  const [busy, run] = useAct(() => recordAbsconded(row.id, { lastWorkingDay: lastDay, hold, holdReason }), onDone, 'Recorded.');
+  /* Back at work since the absence: recorded only on purpose, with the reason. */
+  const [confirmBack, setConfirmBack] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, run] = useAct(() => recordAbsconded(row.id, { lastWorkingDay: lastDay, hold, holdReason, ...(row.backSince ? { confirmBack, reason } : {}) }), onDone, 'Recorded.');
   return (
-    <FormShell title="Record the leaving as absconded" busy={busy} ready={Boolean(lastDay) && (!hold || holdReason.trim().length > 2)} label="Record" onCancel={onCancel} onSubmit={run}>
+    <FormShell title="Record the leaving as absconded" busy={busy} ready={Boolean(lastDay) && (!hold || holdReason.trim().length > 2) && (!row.backSince || (confirmBack && reason.trim().length > 2))} label="Record" onCancel={onCancel} onSubmit={run}>
+      {row.backSince ? (
+        <div className="space-y-2">
+          <p className="text-sm" role="alert">{row.name} has been at work since {dayText(row.backSince)}. Close the case instead, unless there is a reason to record the leaving.</p>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={confirmBack} onChange={(e) => setConfirmBack(e.target.checked)} />Record it all the same</label>
+          {confirmBack ? <label className="block"><span className="ui-label">Reason</span><SuggestInput value={reason} onChange={setReason} suggestions={['Came only to collect belongings, then left again']} maxLength={400} /></label> : null}
+        </div>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
         <DateField label="Last working day" value={lastDay} max={plus(istToday(), -1)} onChange={(v) => setLastDay(v || '')} />
       </div>

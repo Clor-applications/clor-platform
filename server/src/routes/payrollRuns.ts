@@ -419,6 +419,18 @@ payrollRunsRouter.post(
     const cutoffDate = setting?.enabled ? cutoffDateFor(period, setting.cutoffDay) : null;
     const provisional = cutoffDate ? await provisionalPeriodRows(accountId, orgId, period.startDate, period.endDate, cutoffDate) : null;
     const rows = (fromSnapshot ? fromSnapshot.rows : provisional ? provisional.rows : await periodRows(accountId, orgId, datesBetween(period.startDate, period.endDate))).filter((r: any) => inRun.has(r.employeeId));
+    /* Late-mark penalties (People, attendance/markRules.ts): taken only once HR applied or waived them, never guessed. */
+    if (!fromSnapshot) {
+      const { undecidedIn } = await import('../services/attendance/markRules.js');
+      /* Paid before the month ends (cut-off): only months that have ended by the cut-off are decided now. */
+      const undecided = await undecidedIn(accountId, orgId, datesBetween(period.startDate, cutoffDate && cutoffDate < period.endDate ? cutoffDate : period.endDate), [...inRun]);
+      if (undecided.length) {
+        const names = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: undecided.map((u) => u.employeeId) } }, select: { name: true } });
+        const month = undecided[0].month;
+        const label = new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+        return res.status(409).json({ error: `Late-mark penalties for ${label} are not applied or waived for ${names[0]?.name || 'someone'}${names.length > 1 ? ` and ${names.length - 1} more` : ''}. Apply or waive them in People, Time, Late marks, then take attendance again.`, code: 'PENALTIES_UNDECIDED', month, link: { app: 'people', screen: 'lateMarks', params: { month } } });
+      }
+    }
     const existing = new Map(
       (await payrollPrisma.payrollInput.findMany({ where: { orgId, runId: run.id } })).map((i) => [i.employeeId, i])
     );

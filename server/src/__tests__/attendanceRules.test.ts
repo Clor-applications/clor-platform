@@ -73,6 +73,9 @@ const day = async (c: Ctx, employeeId: string, date: string, f: { inAt?: string;
     update: { lateMinutes: f.late || 0, earlyOutMinutes: f.early || 0, status: f.status || 'PRESENT' },
   }));
 
+/** The saved rule versions as if made long ago, so they govern last month. */
+const backdateRules = (c: Ctx) => runInTenant(c.orgId, () => peoplePrisma.attendanceRuleVersion.updateMany({ where: { orgId: c.orgId }, data: { createdAt: new Date('2020-01-01T00:00:00Z') } }));
+
 async function portalOf(c: Ctx, employee: { id: string; code: string }) {
   const code = (await att(c, 'get', '/portal-access').expect(200)).body.company.code;
   const issued = (await att(c, 'post', '/portal-access/codes', { employeeIds: [employee.id] }).expect(200)).body.codes[0].activationCode;
@@ -176,6 +179,8 @@ describe('late marks: preview, waive, apply, payable days', () => {
     for (const d of workdays.slice(0, 4)) await day(c, ravi.id, d, { late: 25 });
     for (const d of workdays.slice(0, 3)) await day(c, outsider.id, d, { late: 25 });
     await ppl(c, 'put', '/attendance-rules', { marks: { on: true, late: { on: true, every: 3, free: 0, graceMinutes: 10 }, cost: 0.5, takeFrom: [casual.id] } }).expect(200);
+    /* The rule was in force all of last month (a month is worked out under the rule of its last day). */
+    await backdateRules(c);
   }, 180_000);
 
   it('works the month out: leave first, else loss of pay, and payable days take only the unpaid part', async () => {
@@ -486,5 +491,211 @@ describe("women's consent to night work", () => {
     const report = (await ppl(c, 'get', '/night-work').expect(200)).body;
     expect(report.rows[0]).toMatchObject({ employeeId: priya.id, problem: true });
     expect(report.totals.problems).toBe(1);
+  });
+});
+
+/* ------------------------------------------------------------------ review of PR #78 */
+
+describe('late marks: pay periods, half days, the rule of the month, leave and payroll (review of #78)', () => {
+  let c: Ctx;
+  let mgr: Ctx;
+  let lead: any, kavya: any, arjun: any;
+  let casual: any;
+  const year = Number(lastMonth.slice(0, 4));
+  const thisMonth = istToday().slice(0, 7);
+
+  beforeAll(async () => {
+    c = await company();
+    mgr = await withRole(c, 'Team Manager', 'Lata Lead');
+    lead = await person(c, { name: 'Lata Lead', code: 'PR0', workEmail: mgr.email });
+    await runInTenant(c.orgId, () => peoplePrisma.employee.update({ where: { id: lead.id }, data: { userId: mgr.userId } }));
+    kavya = await person(c, { name: 'Kavya Shetty', code: 'PR1', reportingManagerId: lead.id });
+    arjun = await person(c, { name: 'Arjun Pai', code: 'PR2', reportingManagerId: lead.id });
+    casual = (await att(c, 'post', '/leave/types', { name: 'Casual', annualDays: 0 }).expect(201)).body.type;
+    await att(c, 'post', '/leave/adjustments', { employeeId: kavya.id, leaveTypeId: casual.id, year, days: 1, reason: 'Opening balance' }).expect(201);
+    for (const d of workdays.slice(0, 3)) await day(c, kavya.id, d, { late: 20 });
+    for (const d of workdays.slice(0, 3)) await day(c, arjun.id, d, { late: 20 });
+    /* Arjun's fourth late day was a half day, and his fifth has no punch-out: neither is a mark. */
+    await day(c, arjun.id, workdays[3], { late: 20, status: 'HALF_DAY' });
+    await day(c, arjun.id, workdays[4], { late: 20, outAt: null });
+    await ppl(c, 'put', '/attendance-rules', { marks: { on: true, late: { on: true, every: 3, free: 0 }, cost: 0.5, takeFrom: [casual.id] } }).expect(200);
+    await backdateRules(c);
+  }, 180_000);
+
+  it('counts whole present days only', async () => {
+    const m = (await ppl(c, 'get', `/late-marks?month=${lastMonth}`).expect(200)).body;
+    expect(m.rows.find((r: any) => r.employeeId === arjun.id)).toMatchObject({ lateMarks: 3, days: 0.5 });
+  });
+
+  it('works a month out under the rule in force on its last day', async () => {
+    /* A stricter rule saved today does not reach last month. */
+    await ppl(c, 'put', '/attendance-rules', { marks: { late: { every: 1 } } }).expect(200);
+    expect((await ppl(c, 'get', `/late-marks?month=${lastMonth}`).expect(200)).body.rows.find((r: any) => r.employeeId === kavya.id).days).toBe(0.5);
+    await ppl(c, 'put', '/attendance-rules', { marks: { late: { every: 3 } } }).expect(200);
+  });
+
+  it('blocks the readiness checklist, and a 26th-to-25th pay period charges the month once, with its waiver or apply', async () => {
+    const { monthReadiness } = await import('../services/attendance/readiness.js');
+    const ready = await runInTenant(c.orgId, () => monthReadiness(c.accountId!, c.orgId, lastMonth));
+    expect(ready.checks.find((x: any) => x.key === 'penalties')).toMatchObject({ severity: 'block', count: 2 });
+    const { undecidedIn } = await import('../services/attendance/markRules.js');
+    const { periodRows, daysBetween } = await import('../services/attendance/days.js');
+    const period = daysBetween(`${lastMonth}-26`, `${thisMonth}-25`);
+    expect((await runInTenant(c.orgId, () => undecidedIn(c.accountId!, c.orgId, period))).map((u) => u.employeeId).sort()).toEqual([arjun.id, kavya.id].sort());
+    await ppl(c, 'post', `/late-marks/${arjun.id}/waive`, { month: lastMonth, reason: 'Road works all week' }).expect(201);
+    await ppl(c, 'post', '/late-marks/apply', { month: lastMonth }).expect(200);
+    const rows = await runInTenant(c.orgId, () => periodRows(c.accountId!, c.orgId, period));
+    const k = rows.find((r: any) => r.employeeId === kavya.id) as any;
+    const a = rows.find((r: any) => r.employeeId === arjun.id) as any;
+    expect(a.penalty).toMatchObject({ status: 'WAIVED' });
+    expect(a.latePenaltyDays).toBe(0);
+    expect(k.penalty).toMatchObject({ status: 'APPLIED', fromLeaveDays: 0.5 });
+    expect(k.latePenaltyDays).toBe(0);
+    /* The next period does not charge last month again. */
+    const next = await runInTenant(c.orgId, () => periodRows(c.accountId!, c.orgId, daysBetween(`${thisMonth}-26`, plus(`${thisMonth}-25`, 31))));
+    expect((next.find((r: any) => r.employeeId === kavya.id) as any).penalty).toBeNull();
+    expect(await runInTenant(c.orgId, () => undecidedIn(c.accountId!, c.orgId, period))).toEqual([]);
+  });
+
+  it('a waiver is taken back by whoever gave it or HR, an apply only by HR', async () => {
+    await ppl(c, 'post', `/late-marks/${kavya.id}/undo`, { month: lastMonth }).expect(200);
+    await ppl(c, 'post', `/late-marks/${kavya.id}/waive`, { month: lastMonth, reason: 'HR agreed' }).expect(201);
+    expect((await ppl(mgr, 'post', `/late-marks/${kavya.id}/undo`, { month: lastMonth })).status).toBe(403);
+    await ppl(c, 'post', `/late-marks/${kavya.id}/undo`, { month: lastMonth }).expect(200);
+  });
+
+  it('takes nothing from a leave year already closed, and never more than is left', async () => {
+    await runInTenant(c.orgId, () => peoplePrisma.leaveYearEnd.create({ data: { accountId: c.accountId!, orgId: c.orgId, year, summaryJson: '{}', ranByUserId: 'test' } }));
+    const r = (await ppl(c, 'get', `/late-marks?month=${lastMonth}`).expect(200)).body.rows.find((x: any) => x.employeeId === kavya.id);
+    expect(r).toMatchObject({ status: 'DUE', fromLeave: [], lossOfPayDays: 0.5 });
+    await runInTenant(c.orgId, () => peoplePrisma.leaveYearEnd.deleteMany({ where: { orgId: c.orgId } }));
+    await att(c, 'post', '/leave/adjustments', { employeeId: kavya.id, leaveTypeId: casual.id, year, days: -5, reason: 'Corrected' }).expect(201);
+    const after = (await ppl(c, 'get', `/late-marks?month=${lastMonth}`).expect(200)).body.rows.find((x: any) => x.employeeId === kavya.id);
+    expect(after).toMatchObject({ fromLeave: [], lossOfPayDays: 0.5 });
+  });
+});
+
+describe('payroll waits for undecided late marks (review of #78)', () => {
+  it('refuses to take attendance for a 26th-to-25th period with a penalty nobody decided, then takes it once waived', async () => {
+    const c = await company();
+    await request(app).put(`/api/orgs/${c.orgId}/features`).set(at(c)).send({ features: { payroll: true, people: true, attendance: true } }).expect(200);
+    const pay = (p: string, b?: unknown) => request(app).post(`/api/orgs/${c.orgId}/payroll${p}`).set(at(c)).send(b as any);
+    const basic = await pay('/components', { name: 'Basic', code: 'BASIC', type: 'EARNING', calculationMethod: 'PERCENTAGE', percentage: 100, calculationBase: 'MONTHLY_CTC', displayOrder: 1 }).expect(201);
+    const structure = await pay('/structures', { name: `Staff ${rnd()}`, frequency: 'MONTHLY', effectiveFrom: '2025-01-01', status: 'ACTIVE', components: [{ componentId: basic.body.component.id, displayOrder: 1 }] }).expect(201);
+    const emp = await pay('/employees', { name: 'Neel Rao', code: `PY${rnd().toUpperCase()}`, dateOfJoining: '2025-01-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW' } }).expect(201);
+    const employeeId = emp.body.employee.id;
+    await pay('/assignments', { employeeId, structureId: structure.body.structure.id, effectiveFrom: '2025-01-01', annualCtc: 360_000 }).expect(201);
+    const thisMonth = istToday().slice(0, 7);
+    const period = await pay('/periods', { name: `P ${rnd()}`, startDate: `${lastMonth}-26`, endDate: `${thisMonth}-25`, paymentDate: `${thisMonth}-25` }).expect(201);
+    const run = await pay('/runs', { periodId: period.body.period.id }).expect(201);
+    for (const d of workdays.slice(0, 3)) await day(c, employeeId, d, { late: 30 });
+    await ppl(c, 'put', '/attendance-rules', { marks: { on: true, late: { on: true, every: 3 }, cost: 0.5 } }).expect(200);
+    await backdateRules(c);
+    const refused = await pay(`/runs/${run.body.run.id}/inputs/from-attendance`).expect(409);
+    expect(refused.body).toMatchObject({ code: 'PENALTIES_UNDECIDED', month: lastMonth, link: { app: 'people', screen: 'lateMarks' } });
+    expect(refused.body.error).toMatch(/Neel Rao.*Apply or waive them in People, Time, Late marks/);
+    await ppl(c, 'post', `/late-marks/${employeeId}/waive`, { month: lastMonth, reason: 'First month on the rule' }).expect(201);
+    await pay(`/runs/${run.body.run.id}/inputs/from-attendance`).expect(200);
+  });
+});
+
+describe('night work: warn or enforce, and every way a night shift arrives (review of #78)', () => {
+  let c: Ctx;
+  let dev: any, mira: any, noGender: any, sunil: any, uma: any;
+  let night: any, day9: any, dept: any;
+  const future = plus(istToday(), 20);
+
+  beforeAll(async () => {
+    c = await company();
+    dept = (await ppl(c, 'post', '/structure/departments', { name: `Packing ${rnd()}` })).body.item;
+    mira = await person(c, { name: 'Mira Das', code: 'NW1', gender: 'FEMALE', departmentId: dept.id });
+    uma = await person(c, { name: 'Uma Rao', code: 'NW2', gender: 'FEMALE', departmentId: dept.id });
+    dev = await person(c, { name: 'Dev Shah', code: 'NW3', gender: 'MALE', departmentId: dept.id });
+    noGender = await person(c, { name: 'Kim Lee', code: 'NW4' });
+    sunil = await person(c, { name: 'Sunil Joshi', code: 'NW5', gender: 'MALE' });
+    night = (await att(c, 'post', '/shifts', { name: `Night ${rnd()}`, startTime: '22:00', endTime: '06:00' }).expect(201)).body.shift;
+    day9 = (await att(c, 'post', '/shifts', { name: `Day ${rnd()}`, startTime: '09:00', endTime: '17:00' }).expect(201)).body.shift;
+  }, 120_000);
+
+  it('ENFORCE names every woman a department schedule would reach; no gender is warned, never blocked', async () => {
+    const refused = await att(c, 'post', '/department-schedules', { departmentId: dept.id, shiftId: night.id, effectiveFrom: future }).expect(409);
+    expect(refused.body.error).toMatch(/Mira Das and Uma Rao have no consent to night work on file/);
+    expect(refused.body.error).not.toMatch(/Dev Shah/);
+    await att(c, 'post', '/shift-assignments', { employeeIds: [noGender.id], shiftId: night.id, effectiveFrom: future }).expect(200);
+    const report = (await ppl(c, 'get', '/night-work').expect(200)).body;
+    expect(report.unknownGender).toEqual([expect.objectContaining({ employeeId: noGender.id })]);
+    const home = (await ppl(c, 'get', '/home').expect(200)).body;
+    expect(JSON.stringify(home)).toMatch(/Record gender for people on night shifts/);
+  });
+
+  it('editing a shift into the night, a night default shift and a move into a night department are checked too', async () => {
+    await att(c, 'post', '/shift-assignments', { employeeIds: [mira.id], shiftId: day9.id, effectiveFrom: istToday() }).expect(200);
+    const edit = await att(c, 'put', `/shifts/${day9.id}`, { ...day9, startTime: '15:00', endTime: '23:00' }).expect(409);
+    expect(edit.body.error).toMatch(/Mira Das has no consent/);
+    const rules = (await att(c, 'get', '/rules').expect(200)).body.rules;
+    expect((await att(c, 'put', '/rules', { ...rules, defaultShiftId: night.id }).expect(409)).body.error).toMatch(/Uma Rao/);
+    const other = (await ppl(c, 'post', '/structure/departments', { name: `Night crew ${rnd()}` })).body.item;
+    await att(c, 'post', '/department-schedules', { departmentId: other.id, shiftId: night.id, effectiveFrom: future }).expect(201);
+    const moved = await ppl(c, 'put', `/employees/${uma.id}`, { departmentId: other.id });
+    expect(moved.status).toBe(409);
+    expect(moved.body.error).toMatch(/Uma Rao has no consent/);
+    await ppl(c, 'put', `/employees/${dev.id}`, { departmentId: other.id }).expect(200);
+  });
+
+  it('a swap refused for the colleague says nothing about her', async () => {
+    await att(c, 'post', '/shift-assignments', { employeeIds: [uma.id], shiftId: day9.id, effectiveFrom: future }).expect(200);
+    const evening = (await att(c, 'post', '/shifts', { name: `Evening ${rnd()}`, startTime: '14:00', endTime: '22:00' }).expect(201)).body.shift;
+    await att(c, 'post', '/shift-assignments', { employeeIds: [sunil.id], shiftId: evening.id, effectiveFrom: future }).expect(200);
+    const S = await portalOf(c, sunil);
+    let sat = plus(future, 7);
+    while (dow(sat) !== 6) sat = plus(sat, 1);
+    const swap = await S.post('/people/swaps', { colleagueEmployeeId: uma.id, fromDate: sat }).expect(409);
+    expect(swap.body).toMatchObject({ code: 'NIGHT_CONSENT', error: "That colleague can't take this shift." });
+  });
+
+  it('WARN saves the shift and lists who lacks consent on the report and Home', async () => {
+    await ppl(c, 'put', '/attendance-rules', { night: { mode: 'WARN' } }).expect(200);
+    await att(c, 'post', '/shift-assignments', { employeeIds: [mira.id], shiftId: night.id, effectiveFrom: future }).expect(200);
+    const report = (await ppl(c, 'get', '/night-work').expect(200)).body;
+    expect(report.rows.find((r: any) => r.employeeId === mira.id)).toMatchObject({ problem: true });
+    expect(report.night.mode).toBe('WARN');
+    const home = (await ppl(c, 'get', '/home').expect(200)).body;
+    expect(JSON.stringify(home)).toMatch(/Night shifts without consent/);
+  });
+
+  it('HR copies are HR-only; a manager sees no notes or history', async () => {
+    const pdf = `data:application/pdf;base64,${Buffer.from('%PDF-1.4\n% consent\n').toString('base64')}`;
+    const made = (await ppl(c, 'post', `/night-work/${mira.id}`, { status: 'GIVEN', note: 'Signed in front of HR', file: { name: 'c.pdf', mime: 'application/pdf', data: pdf } }).expect(201)).body.consent;
+    const doc = await runInTenant(c.orgId, () => peoplePrisma.employeeDocument.findFirst({ where: { id: made.documentId } }));
+    expect(doc).toMatchObject({ classification: 'HR_ONLY', visibleToEmployee: false });
+    const mgr = await withRole(c, 'Team Manager', 'Nita Lead');
+    const lead = await person(c, { name: 'Nita Lead', code: 'NW9', workEmail: mgr.email });
+    await runInTenant(c.orgId, () => peoplePrisma.employee.update({ where: { id: lead.id }, data: { userId: mgr.userId } }));
+    await ppl(c, 'put', `/employees/${mira.id}`, { reportingManagerId: lead.id }).expect(200);
+    const seen = (await ppl(mgr, 'get', '/night-work').expect(200)).body.rows.find((r: any) => r.employeeId === mira.id);
+    expect(seen.consent).toMatchObject({ status: 'GIVEN', note: null, documentId: null });
+    expect((await ppl(mgr, 'get', `/night-work/${mira.id}`)).status).toBe(403);
+  });
+});
+
+describe('absconding: someone who came back (review of #78)', () => {
+  it('refuses ABSCONDED once they are back at work unless confirmed with a reason, and shows since when', async () => {
+    const c = await company();
+    const p = await person(c, { name: 'Back Again', code: 'BA1' });
+    await day(c, p.id, plus(istToday(), -21), {});
+    await runInTenant(c.orgId, () => checkCompany(c.accountId!, c.orgId));
+    const row = (await ppl(c, 'get', '/absences').expect(200)).body.rows[0];
+    await ppl(c, 'post', `/absences/${row.id}/notice`, { signatory: 'HR' }).expect(201);
+    await runInTenant(c.orgId, () => peoplePrisma.absenceNotice.updateMany({ where: { caseId: row.id }, data: { sentAt: new Date(Date.now() - 8 * 86_400_000) } }));
+    await ppl(c, 'post', `/absences/${row.id}/notice`, { signatory: 'HR' }).expect(201);
+    await runInTenant(c.orgId, () => peoplePrisma.absenceNotice.updateMany({ where: { caseId: row.id, seq: 2 }, data: { reportBy: plus(istToday(), -1) } }));
+    /* Back at work today, after the last absent day the morning check saw. */
+    const back = istToday();
+    await day(c, p.id, back, {});
+    const listed = (await ppl(c, 'get', '/absences').expect(200)).body.rows[0];
+    expect(listed.backSince).toBe(back);
+    expect((await ppl(c, 'post', `/absences/${row.id}/absconded`, {}).expect(409)).body.code).toBe('CAME_BACK');
+    expect((await ppl(c, 'post', `/absences/${row.id}/absconded`, { confirmBack: true }).expect(409)).body.code).toBe('CAME_BACK');
+    await ppl(c, 'post', `/absences/${row.id}/absconded`, { confirmBack: true, reason: 'Came for one day to collect things, then left again' }).expect(200);
   });
 });
