@@ -1181,7 +1181,7 @@ export const ChartOfAccounts = ({ db, setDb, openModal, currentCompany, onOpenLe
                         <td className="ui-col-entity">
                           <button
                             type="button"
-                            className="font-semibold text-left text-[rgb(var(--brand))] hover:underline"
+                            className="font-medium text-left text-[rgb(var(--brand))] hover:underline"
                             onClick={() => {
                               setOpenMenu(null);
                               setSelectedGroupId(String(g.id));

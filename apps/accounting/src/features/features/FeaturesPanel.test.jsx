@@ -112,7 +112,9 @@ describe('FeaturesPanel', () => {
     await openPanel();
     fireEvent.keyDown(window, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(document.activeElement).toBe(trigger);
+    /* Waited for, not read once: under a full parallel run (CI) the focus
+       move can land a tick after the dialog leaves the tree. */
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
   it('lets Escape clear a search with text before it closes the panel', async () => {

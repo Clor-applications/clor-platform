@@ -17,7 +17,7 @@ const GROUPS = [
     items: [
       { key: 'bankCash', label: 'Chart of Accounts', icon: Building2, perm: 'ACCOUNTING::Chart of Accounts::VIEW' },
       { key: 'gstRates', label: 'GST Rates', icon: BadgePercent, perm: 'MASTERS::GST Rates::VIEW', feature: 'gst' },
-      { key: 'tdsRates', label: 'TDS', icon: BadgePercent, perm: 'MASTERS::GST Rates::VIEW', feature: 'tds' },
+      { key: 'tdsRates', label: 'TDS Rates', icon: BadgePercent, perm: 'MASTERS::GST Rates::VIEW', feature: 'tds' },
       { key: 'tcsRates', label: 'TCS Rates', icon: BadgePercent, perm: 'MASTERS::GST Rates::VIEW', feature: 'tcs' },
     ],
   },

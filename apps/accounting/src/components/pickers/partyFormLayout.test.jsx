@@ -40,6 +40,13 @@ const db = {
 };
 const company = { id: 1, name: 'Test Co', state: 'Karnataka' };
 
+/* The FormRow a control sits in: the nearest ancestor placed on the card's grid. */
+const rowCell = (el) => {
+  let node = el;
+  while (node && !/lg:row-start-/.test(node.className || '')) node = node.parentElement;
+  return node;
+};
+
 const renderCustomer = () =>
   render(<CustomerForm db={db} setDb={() => {}} currentCompany={company} onClose={() => {}} />);
 
@@ -67,25 +74,35 @@ describe('the form is three cards, not one', () => {
   });
 });
 
+/*
+ * Updated 30 Oct 2026. The party masters draw their addresses as one table,
+ * a row per place (AddressTab variant "customer-table", as shipped since the
+ * import, 00f6a61a), not as the two cards these tests first described. The
+ * contract that carries over: billing and shipping are always there and named,
+ * a place's fields stay on its own row, and every picker says which row it is.
+ * The card-only tests (tone per card, card title weight, the purpose line
+ * under each card) are retired with the cards.
+ */
 describe('an address reads as an address', () => {
-  it('names the two built-in places and what each is for', () => {
+  it('names the two built-in places, and keeps them', () => {
     renderCustomer();
-    expect(screen.getByText('Primary address for invoices and accounting.')).toBeInTheDocument();
-    expect(screen.getByText('Used for delivery and correspondence.')).toBeInTheDocument();
-    /* Which one a document is addressed to, said on the card rather than
-       inferred from its position in a table. */
-    expect(screen.getByText('Primary')).toBeInTheDocument();
+    expect(screen.getByLabelText('Location name, address 1')).toHaveValue('Billing');
+    expect(screen.getByLabelText('Location name, address 2')).toHaveValue('Shipping');
+    /* A document is always addressed to one of them, so neither can go. */
+    expect(screen.getByRole('button', { name: 'Delete Billing' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Delete Shipping' })).toBeDisabled();
   });
 
   it('keeps the fields of a place together', () => {
     renderCustomer();
-    for (const label of ['Address Line 1', 'Address Line 2', 'City', 'Pincode']) {
+    for (const label of ['Address Line 1', 'Address Line 2', 'Pincode']) {
       expect(screen.getAllByLabelText(label).length).toBeGreaterThanOrEqual(2);
     }
-    /* The two pickers say which card they belong to, so a screen reader does
-       not hear "Country" twice with nothing to tell them apart. */
+    /* The pickers say which row they belong to, so a screen reader does not
+       hear "Country" twice with nothing to tell them apart. */
     expect(screen.getByLabelText('Country, address 1')).toBeInTheDocument();
     expect(screen.getByLabelText('State, address 2')).toBeInTheDocument();
+    expect(screen.getByLabelText('City, address 2')).toBeInTheDocument();
   });
 });
 
@@ -119,11 +136,12 @@ describe('the two columns of Basic Details', () => {
    * three columns away from the balance it says Dr or Cr about.
    */
   it('keeps the balance and its side together', () => {
+    /* On the customer, Dr and Cr now sit inline beside the amount, in the
+       same row; the vendor keeps a Balance Type row under it. */
     renderCustomer();
-    const balance = screen.getByLabelText('Opening Balance');
-    const row = balance.closest('div.grid');
-    /* The same column, not the same card: both are FormRows in the left half. */
-    expect(row.parentElement.textContent).toContain('Balance Type');
+    const balanceRow = rowCell(screen.getByLabelText('Opening Balance'));
+    expect(within(balanceRow).getByRole('radio', { name: 'Dr' })).toBeInTheDocument();
+    expect(within(balanceRow).getByRole('radio', { name: 'Cr' })).toBeInTheDocument();
   });
 
   it('keeps the right column on the left column\'s rows', () => {
@@ -184,7 +202,9 @@ describe('the GSTIN sits beside the question that asks for it', () => {
 
   it('puts it in the right half of the first row, beside the registration type', () => {
     renderCustomer();
-    const gstin = screen.getByPlaceholderText('Enter 15 digit GSTIN').closest('div.grid');
+    /* The field sits in a grid of its own (field and Fetch button), so the
+       row is the nearest cell that is placed on the card's grid. */
+    const gstin = rowCell(screen.getByPlaceholderText('Enter 15 digit GSTIN'));
     expect(rowOf(gstin)).toBe('1');
     expect(gstin.className).toMatch(/lg:col-start-2\b/);
     expect(rowOf(screen.getByLabelText(/^Customer Name/).closest('div.grid'))).toBe('2');
@@ -213,12 +233,13 @@ describe('a delete looks like a delete', () => {
     expect(icon.getAttribute('class')).toContain('--neg');
   });
 
-  it('carries it on an address card too', async () => {
+  it('carries it on an address row too', async () => {
     const user = userEvent.setup();
     renderCustomer();
     await user.click(screen.getByRole('button', { name: /Add Address/i }));
-    const icon = screen.getByRole('button', { name: /Remove Shipping 2/i }).querySelector('svg');
-    expect(icon.getAttribute('class')).toContain('--neg');
+    const remove = screen.getAllByRole('button', { name: /^Delete / }).at(-1);
+    expect(remove).toBeEnabled();
+    expect(remove.className).toContain('--neg');
   });
 });
 
@@ -234,7 +255,7 @@ describe('the statutory tab', () => {
   });
 });
 
-describe('the address cards', () => {
+describe('the address rows', () => {
   /*
    * A row of four controls read as two pairs: Country and State were a
    * picker's own padding and inherited 16px type, two pixels taller and a size
@@ -243,25 +264,9 @@ describe('the address cards', () => {
   it('gives the pickers the metrics of the fields they stand with', () => {
     renderCustomer();
     const country = screen.getByLabelText('Country, address 1');
-    const city = screen.getAllByLabelText('City')[0];
+    const city = screen.getByLabelText('City, address 1');
     expect(country.className).toContain('ui-input');
     expect(city.className).toContain('ui-input');
-  });
-
-  it('marks the two built-in places apart by colour', () => {
-    renderCustomer();
-    const [billing, shipping] = screen
-      .getAllByText(/^(Billing|Shipping) Address$/)
-      .map((el) => el.parentElement.parentElement.querySelector('span'));
-    expect(billing.getAttribute('style')).toContain('--brand');
-    /* Blue on the one goods go to — a token, so it holds in dark mode too. */
-    expect(shipping.getAttribute('style')).toContain('--ov-blue');
-  });
-
-  it('names each card a shade heavier than the fields under it', () => {
-    renderCustomer();
-    expect(screen.getByText('Billing Address').className).toContain('font-semibold');
-    expect(screen.getByText('Shipping Address').className).toContain('font-semibold');
   });
 });
 

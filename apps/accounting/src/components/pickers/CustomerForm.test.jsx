@@ -64,9 +64,14 @@ describe('basic details', () => {
     />);
     expect(screen.queryByLabelText('Opening Balance Branch')).toBeNull();
     await user.type(screen.getByLabelText('Opening Balance'), '500');
+    /* A PopupSelect, not a native select (since the import, 00f6a61a): it
+       opens a list of the branches, and the save is refused without one. */
     const branch = screen.getByLabelText('Opening Balance Branch');
-    expect(branch).toBeRequired();
-    expect(Array.from(branch.options).map((option) => option.textContent)).toEqual(['Select branch', 'Head Office', 'South Branch']);
+    expect(branch).toHaveTextContent('Select branch');
+    await user.click(branch);
+    const labels = (await screen.findAllByRole('option')).map((o) => o.textContent);
+    expect(labels.some((l) => l.includes('Head Office'))).toBe(true);
+    expect(labels.some((l) => l.includes('South Branch'))).toBe(true);
   });
 
   it('asks the six things every customer needs, in order', () => {

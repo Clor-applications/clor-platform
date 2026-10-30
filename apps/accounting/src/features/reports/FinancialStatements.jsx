@@ -520,7 +520,7 @@ export const LedgerView = ({
     <div className="ledger-statement-page space-y-3 px-3 py-2">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b ui-border-c pb-2">
         <div>
-          <div className="text-sm font-semibold">{companyProfile.legalName || currentCompany?.name || 'Company'}</div>
+          <div className="text-sm font-medium">{companyProfile.legalName || currentCompany?.name || 'Company'}</div>
           {companyAddressForLedger ? <div className="mt-0.5 text-xs ui-muted">{companyAddressForLedger}</div> : null}
           <h3 className="ui-t-sec mt-2">Ledger Statement of {account.name}</h3>
           <div className="mt-0.5 text-xs ui-muted">Period: {ledgerPeriodFrom ? formatDateIn(ledgerPeriodFrom) : 'Beginning'} to {ledgerPeriodTo ? formatDateIn(ledgerPeriodTo) : formatDateIn(localDateIso())}</div>

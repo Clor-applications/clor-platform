@@ -871,6 +871,10 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    /* Read and cleared before any check can return: a refused "Save & New"
+       must not turn the next plain Save into another one. */
+    const keepGoing = saveAndNewRef.current;
+    saveAndNewRef.current = false;
 
     if (isCancelled) {
       notify.error('This invoice is cancelled. Its number is spent — raise a new invoice instead.');
@@ -1268,9 +1272,6 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
         branchId: branchIdForNumbering,
       }),
     });
-
-    const keepGoing = saveAndNewRef.current;
-    saveAndNewRef.current = false;
 
     if (keepGoing) {
       // Same customer, same warehouse, everything else blank — the next

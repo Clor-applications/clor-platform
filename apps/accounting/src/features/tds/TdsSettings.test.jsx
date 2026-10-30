@@ -6,9 +6,17 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import TdsSettings from './TdsSettings';
 
 /**
- * Configuration → Taxation → TDS: everything an administrator decides, in
- * one place — and the Rule Master's figures shown read-only, because a
- * settings page that let somebody retype a rate would be a second answer.
+ * Configuration → Taxation → TDS: the deductor's profile and the defaults a
+ * transaction starts from, with the e-filing details one view away.
+ *
+ * Rewritten 30 Oct 2026. The old version described a five-section page
+ * (Enable TDS, Profile, Natures / Rules, Ledger Mapping, Party Defaults) that
+ * this repository never shipped: the screen arrived at the initial import
+ * (00f6a61a) as a header with a view picker — Defaults & Mapping, E-Filing
+ * Details — and the sections table under Masters (`sectionsOnly`). The
+ * guards that still mean something are kept: the profile fields, the two
+ * ledger sides kept apart, Save writing onto the company, and no TDS
+ * without a real TAN.
  */
 
 const COMPANY = {
@@ -58,48 +66,33 @@ describe('the configuration page', () => {
     latest.db = db0;
   });
 
-  it('carries the five sections', () => {
+  it('opens on the profile and the defaults', () => {
     render(<Host />);
-    for (const title of ['Enable TDS', 'TDS Profile', 'TDS Natures / Rules', 'Ledger Mapping', 'Party Defaults']) {
-      expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();
-    }
+    expect(screen.getByRole('heading', { name: 'TDS Profile' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Defaults & Mapping' })).toBeInTheDocument();
+    expect(screen.getByLabelText('TAN')).toHaveValue('BLRN12345F');
+    expect(screen.getByLabelText('Deductor Name')).toHaveValue('Neev Steels');
+    expect(screen.getByLabelText('Deductor Type')).toBeInTheDocument();
+    expect(screen.getByText('Financial Year')).toBeInTheDocument();
+    expect(screen.getByLabelText('Default Nature')).toBeInTheDocument();
   });
 
-  it('the profile asks the specified fields, and hides the compliance rest under Advanced', async () => {
+  it('offers each default ledger from its own side only', () => {
+    render(<Host />);
+    const names = (label) => within(screen.getByLabelText(label)).getAllByRole('option').map((o) => o.textContent);
+    expect(names('Default Payable Ledger')).toContain('TDS Payable - Contractor');
+    expect(names('Default Payable Ledger')).not.toContain('TDS Receivable - Contractor');
+    expect(names('Default Receivable Ledger')).toContain('TDS Receivable - Contractor');
+    expect(names('Default Receivable Ledger')).not.toContain('TDS Payable - Contractor');
+  });
+
+  it('keeps the e-filing details one view away', async () => {
     const user = userEvent.setup();
     render(<Host />);
-    expect(screen.getByLabelText('TAN')).toHaveValue('BLRN12345F');
-    expect(screen.getByLabelText('Deductor Name')).toBeInTheDocument();
-    expect(screen.getByLabelText('Deductor Type')).toBeInTheDocument();
-    expect(screen.getByText('Financial Year Context')).toBeInTheDocument();
-    expect(screen.getByLabelText('Default Nature')).toBeInTheDocument();
-    expect(screen.getByLabelText('Default Payable Ledger')).toBeInTheDocument();
-    expect(screen.getByLabelText('Default Receivable Ledger')).toBeInTheDocument();
-
-    /* Advanced holds the rest, folded. */
-    expect(screen.queryByLabelText('Deductor State')).toBeNull();
-    await user.click(screen.getByRole('button', { name: /Advanced/ }));
-    expect(screen.getByLabelText('Deductor State')).toBeInTheDocument();
-  });
-
-  it('the rules section states the master, with nothing to type', () => {
-    render(<Host />);
-    const section = screen.getByRole('heading', { name: 'TDS Natures / Rules' }).closest('section');
-    expect(within(section).getByText('Reference in force')).toBeInTheDocument();
-    /* Read-only: the section renders no input at all. */
-    expect(within(section).queryAllByRole('textbox')).toHaveLength(0);
-    expect(within(section).queryAllByRole('spinbutton')).toHaveLength(0);
-  });
-
-  it('ledger mapping lists both sides; party defaults flag the missing PAN', () => {
-    render(<Host />);
-    const mapping = screen.getByRole('heading', { name: 'Ledger Mapping' }).closest('section');
-    expect(within(mapping).getByText('TDS Payable - Contractor')).toBeInTheDocument();
-    expect(within(mapping).getByText('TDS Receivable - Contractor')).toBeInTheDocument();
-
-    const parties = screen.getByRole('heading', { name: 'Party Defaults' }).closest('section');
-    expect(within(parties).getByText('Steel Supply Co')).toBeInTheDocument();
-    expect(within(parties).getByText(/no PAN/)).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'E-Filing Details' })).toBeNull();
+    await user.selectOptions(screen.getByLabelText('TDS view'), 'filing');
+    expect(screen.getByRole('heading', { name: 'E-Filing Details' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'TDS Profile' })).toBeNull();
   });
 
   it('saves the profile onto the company, defaults included', async () => {
@@ -107,7 +100,7 @@ describe('the configuration page', () => {
     render(<Host />);
     await user.selectOptions(screen.getByLabelText('Default Payable Ledger'), '201');
     await user.selectOptions(screen.getByLabelText('Default Nature'), 'CONTRACTOR_SUB_CONTRACTOR');
-    await user.click(screen.getByRole('button', { name: 'Save configuration' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
 
     const tds = latest.db.companies[0].profile.taxCompliances.tds;
     expect(tds).toMatchObject({
@@ -124,7 +117,15 @@ describe('the configuration page', () => {
     const tan = screen.getByLabelText('TAN');
     await user.clear(tan);
     await user.type(tan, 'NOT-A-TAN');
-    await user.click(screen.getByRole('button', { name: 'Save configuration' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(latest.db.companies[0].profile.taxCompliances.tds.tan).toBe('BLRN12345F');
+  });
+});
+
+describe('the rates list under Masters', () => {
+  it('is called what the Masters menu calls it, beside GST Rates and TCS Rates', () => {
+    render(<TdsSettings db={db0} setDb={() => {}} currentCompany={COMPANY} sectionsOnly />);
+    expect(screen.getByRole('heading', { name: 'TDS Rates' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add Section/ })).toBeInTheDocument();
   });
 });

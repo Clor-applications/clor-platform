@@ -56,19 +56,27 @@ const LANDINGS = [
 ];
 
 describe('the landing band is one component', () => {
-  it('is used by Home and by the module overviews', () => {
-    for (const file of LANDINGS) {
-      const source = read(file);
-      expect(source).toMatch(/import HeroBand from/);
-      expect(source).toMatch(/<HeroBand/);
-    }
+  /*
+   * Updated 30 Oct 2026. Home keeps HeroBand for the first hour (a new book,
+   * with the drawing and the greeting); once the book is running it opens with
+   * a plain header — title, one muted line, the period on the right — and the
+   * Sales and Purchase overviews open with that same header. The rule is
+   * unchanged: moving from Home into a module does not change the shape at the
+   * top of the page. What carries it is one markup, checked below, rather than
+   * the band component, which the overviews have not used since the import
+   * (00f6a61a). "None of them prints its own heading" is retired with it.
+   */
+  const HEADER = /<header className="flex flex-wrap items-start justify-between gap-3 px-0\.5">\s*<div>\s*<h1 className="ui-t-page">/;
+
+  it('opens Home\'s first hour with the band', () => {
+    const home = read('features/dashboard/DashboardOverview.jsx');
+    expect(home).toMatch(/import HeroBand from/);
+    expect(home).toMatch(/<HeroBand/);
   });
 
-  it('none of them prints its own heading instead', () => {
-    /* A landing that still writes <h1 className="ui-t-page"> by hand is one
-       that has drifted back out of the band. */
-    for (const file of LANDINGS.slice(1)) {
-      expect(read(file)).not.toMatch(/<h1 className="ui-t-page">/);
+  it('opens a running Home and every module overview with the same header', () => {
+    for (const file of LANDINGS) {
+      expect(read(file), file).toMatch(HEADER);
     }
   });
 
