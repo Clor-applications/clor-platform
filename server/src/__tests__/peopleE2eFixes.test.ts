@@ -281,3 +281,13 @@ describe('review of #80: what a People user without the module right reads of it
     expect(all[0].createdBy).toBeTruthy();
   });
 });
+
+describe("#80 manager QA: a half day's notice says which half", () => {
+  it('names the first or second half, and keeps whole days as a count', async () => {
+    const { leaveNoticeBody } = await import('../routes/leave.js');
+    expect(leaveNoticeBody({ halfDay: 'FIRST' }, 0.5)).toBe('Half a day, first half');
+    expect(leaveNoticeBody({ halfDay: 'SECOND' }, 0.5)).toBe('Half a day, second half');
+    expect(leaveNoticeBody({ halfDay: null }, 1)).toBe('1 day');
+    expect(leaveNoticeBody({ halfDay: null }, 2.5)).toBe('2.5 days');
+  });
+});

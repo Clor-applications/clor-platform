@@ -45,6 +45,9 @@ const offTest = (week) => {
   };
 };
 
+/* Which half of a half day, said in the label too: a hover title is no help on a phone or to a screen reader (#80 QA). */
+const halfWords = (h) => (h === 'FIRST' ? ', first half' : h === 'SECOND' ? ', second half' : h ? ', half day' : '');
+
 export default function LeaveCalendar() {
   const today = todayIst();
   const [month, setMonth] = useState(today.slice(0, 7));
@@ -155,19 +158,20 @@ export default function LeaveCalendar() {
                         <td key={d} className={`p-0.5 text-center ${shaded(d) ? 'bg-[rgb(var(--border)/0.45)]' : ''}`}>
                           {r ? (
                             <span
-                              className={`block h-5 ${tone.className || ''}`}
+                              className={`block h-5 ${r.halfDay ? `w-1/2 ${r.halfDay === 'SECOND' ? 'ml-auto' : ''}` : ''} ${tone.className || ''}`}
                               role="img"
+                              data-half={r.halfDay || undefined}
                               style={{ ...(tone.style || {}), opacity: r.status === 'PENDING' ? 0.4 : 1 }}
-                              title={`${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}${r.halfDay ? ', half day' : ''}`}
-                              aria-label={`${d}: ${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}`}
+                              title={`${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}${halfWords(r.halfDay)}`}
+                              aria-label={`${d}: ${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}${halfWords(r.halfDay)}`}
                             />
                           ) : w ? (
                             <span
                               className="flex h-5 items-center justify-center text-[0.75rem] font-medium"
                               role="img"
                               style={workingMark}
-                              title={`${WORKING[w.kind]?.name || w.kind}${w.place ? `, ${w.place}` : ''}${w.halfDay ? ', half day' : ''}`}
-                              aria-label={`${d}: ${WORKING[w.kind]?.name || w.kind}`}
+                              title={`${WORKING[w.kind]?.name || w.kind}${w.place ? `, ${w.place}` : ''}${halfWords(w.halfDay)}`}
+                              aria-label={`${d}: ${WORKING[w.kind]?.name || w.kind}${halfWords(w.halfDay)}`}
                             >{WORKING[w.kind]?.letter || ''}</span>
                           ) : null}
                         </td>
@@ -190,6 +194,7 @@ export default function LeaveCalendar() {
               return <li key={t.key} className="inline-flex items-center gap-1.5"><span className={`inline-block h-2.5 w-2.5 rounded-full ${tone.className || ''}`} style={tone.style} aria-hidden="true" />{t.name}</li>;
             })}
             <li className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full ui-dot-quiet" style={{ opacity: 0.4 }} aria-hidden="true" />Waiting</li>
+            {people.some((p) => p.leave.some((x) => x.halfDay)) ? <li className="inline-flex items-center gap-1.5"><span className="inline-flex h-2.5 w-5 border" style={{ borderColor: 'rgb(var(--border))' }} aria-hidden="true"><span className="h-full w-1/2 ui-dot-quiet" /></span>Half day: left half first, right half second</li> : null}
             {workingKinds.map((k) => <li key={k} className="inline-flex items-center gap-1.5"><span className="inline-flex h-4 w-4 items-center justify-center text-[0.75rem]" style={workingMark} aria-hidden="true">{WORKING[k].letter}</span>{WORKING[k].name}, working</li>)}
             {[...holidayOn.entries()].map(([d, n]) => <li key={d} className="ui-muted tabular-nums">{Number(d.slice(8))}: {n}</li>)}
           </ul>

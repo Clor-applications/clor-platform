@@ -37,12 +37,18 @@ vi.mock('../apps/people/src/api/approvals', () => approvalsApi);
 vi.mock('@ui/timeOff/LeaveRequests', () => ({ RequestDrawer: () => null, EnterLeave: () => null, TypeDot: () => null }));
 vi.mock('../packages/ui/src/timeOff/LeaveRequests', () => ({ RequestDrawer: () => null, EnterLeave: () => null, TypeDot: () => null }));
 vi.mock('@ui/timeOff/AttendanceRequests', () => ({ RequestDrawer: () => null, KIND_NAME: {} }));
+const bellApi = vi.hoisted(() => ({
+  getInbox: vi.fn(async () => ({ unread: 1, notifications: [{ id: 'n1', kind: 'attendance.leave_asked', title: 'Priya Sharma (AT-004) asks for Casual leave, 8 Dec 2026', body: 'Half a day, first half', createdAt: new Date().toISOString() }] })),
+  getMutes: vi.fn(async () => []), markAllRead: vi.fn(async () => ({})), markRead: vi.fn(async () => ({})), setMute: vi.fn(async () => []),
+}));
+vi.mock('@ui/api/notifications', () => bellApi);
 vi.mock('@ui/personnel/Employees', () => ({ Avatar: () => null, SCHEDULED_LABELS: {} }));
 
 import { clashDays } from '../packages/ui/src/timeOff/clashes';
 import { KIND, kindLabel } from '../packages/shell/notificationKinds';
 import TimeOverview from '../packages/ui/src/timeOff/TimeOverview';
 import LeaveCalendar from '../packages/ui/src/timeOff/LeaveCalendar';
+import NotificationBell from '../packages/shell/NotificationBell';
 import Changes from '../packages/ui/src/lifecycle/Changes';
 import Approvals from '../apps/people/src/screens/Approvals';
 import { PermissionContext } from '../packages/ui/src/permissions/context';
@@ -177,5 +183,52 @@ describe('Approvals: the only approver decides her own leave (A7)', () => {
     expect(within(row).queryByRole('checkbox')).toBeNull();
     fireEvent.click(within(row).getByRole('button', { name: /approve/i }));
     await waitFor(() => expect(leaveApi.bulkReviewLeave).toHaveBeenCalledWith(['l1'], true));
+  });
+});
+
+describe('#80 manager QA: half days say which half; the bell stays on a phone screen', () => {
+  const wednesday = (month) => `${month}-${[...Array(28).keys()].map((i) => String(i + 1).padStart(2, '0')).find((d) => new Date(`${month}-${d}T00:00:00Z`).getUTCDay() === 3)}`;
+
+  it('Leave calendar: a half day fills half its cell, on the side of its half, and its label names the half', async () => {
+    const day = wednesday('2026-11');
+    leaveApi.listLeaveRequests.mockResolvedValue([
+      away({ employeeId: 'i', employeeName: 'Imran Khan', fromDate: day, toDate: day, halfDay: 'FIRST' }),
+      away({ employeeId: 'p', employeeName: 'Priya Sharma', fromDate: day, toDate: day, halfDay: 'SECOND' }),
+      away({ employeeId: 'l', employeeName: 'Lakshmi Patil', fromDate: day, toDate: day }),
+    ]);
+    render(<LeaveCalendar />);
+    const first = await screen.findByRole('img', { name: `${day}: Casual leave, approved, first half` });
+    const second = screen.getByRole('img', { name: `${day}: Casual leave, approved, second half` });
+    const whole = screen.getByRole('img', { name: `${day}: Casual leave, approved` });
+    expect(first.className).toContain('w-1/2');
+    expect(first.className).not.toContain('ml-auto');
+    expect(second.className).toContain('w-1/2');
+    expect(second.className).toContain('ml-auto');
+    expect(whole.className).not.toContain('w-1/2');
+    expect(screen.getByRole('list', { name: 'Key' }).textContent).toContain('Half day');
+  });
+
+  it('Approvals: the row and the phone card name the half', async () => {
+    approvalsApi.getInbox.mockResolvedValue({
+      counts: { all: 1, LEAVE: 1 },
+      rights: { LEAVE: { see: true, decide: true }, ATTENDANCE: { see: false }, APPROVAL: { see: false }, HELPDESK: { see: false }, PUNCH: { see: false }, OVERTIME: { see: false } },
+      items: [{ key: 'LEAVE:l2', kind: 'LEAVE', id: 'l2', what: 'Casual Leave', subKind: 'Casual Leave', employeeId: 'e2', employeeName: 'Priya Sharma', employeeCode: 'AT-004', fromDate: '2026-12-08', toDate: '2026-12-08', days: 0.5, halfDay: 'SECOND', since: new Date().toISOString(), bulk: true }],
+    });
+    render(withPerms(<Approvals params={{}} updateParams={() => {}} />));
+    const row = (await screen.findAllByText('Priya Sharma')).map((n) => n.closest('tr')).find(Boolean);
+    expect(row.textContent).toContain('Second half');
+    expect(row.textContent).not.toContain('Half day');
+    const card = document.querySelector('.ui-datatable-card');
+    expect(card.textContent).toContain('8 Dec 2026, second half');
+  });
+
+  it('the bell panel is pinned inside the screen on a phone, not hung off the bell', async () => {
+    render(<NotificationBell tenantKey="t1" onOpen={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Notifications/ }));
+    const panel = await screen.findByRole('dialog', { name: 'Notifications' });
+    expect(panel.className).toMatch(/max-sm:fixed/);
+    expect(panel.className).toMatch(/max-sm:inset-x-2/);
+    expect(panel.className).toMatch(/max-sm:w-auto/);
+    expect(panel.textContent).toContain('Half a day, first half');
   });
 });

@@ -56,6 +56,8 @@ const hoursText = (m) => (m ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : 
 /* "3 Nov 2026", as every other People list writes a day. */
 const day = (iso) => (iso ? formatDate(String(iso).slice(0, 10)) : '');
 const range = (from, to) => (!from ? '' : !to || from === to ? day(from) : `${day(from)} – ${day(to)}`);
+/* Which half of a half day, as the leave drawer writes it (#80 QA: "Half day" alone did not say which). */
+const halfText = (h) => (h === 'FIRST' ? 'First half' : h === 'SECOND' ? 'Second half' : h ? 'Half day' : '');
 const waitedDays = (at) => Math.max(0, Math.floor((Date.now() - new Date(at).getTime()) / 86_400_000));
 const waitedText = (at) => { const d = waitedDays(at); return d === 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d} days ago`; };
 /** The finer kind, in words: a leave type, "Work from home", "Job change", a desk category. */
@@ -184,7 +186,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
         {OWN_NOTE[i.own] ? <span className="block ui-caption whitespace-normal">{OWN_NOTE[i.own]}</span> : null}
       </span>
     ) },
-    { key: 'when', label: 'Dates', render: (i) => <span className="tabular-nums whitespace-nowrap">{range(i.fromDate, i.toDate)}{i.halfDay ? <span className="ui-caption block">Half day</span> : i.fromTime && i.toTime ? <span className="ui-caption block">{i.fromTime}–{i.toTime}</span> : null}</span> },
+    { key: 'when', label: 'Dates', render: (i) => <span className="tabular-nums whitespace-nowrap">{range(i.fromDate, i.toDate)}{i.halfDay ? <span className="ui-caption block">{halfText(i.halfDay)}</span> : i.fromTime && i.toTime ? <span className="ui-caption block">{i.fromTime}–{i.toTime}</span> : null}</span> },
     /* Hourly leave reads in hours (gap 23), not a fraction of a day. */
     { key: 'days', label: 'Days', align: 'right', render: (i) => <span className="tabular-nums">{i.fromTime && i.toTime ? hoursWords(hoursBetween(i.fromTime, i.toTime)) : i.days ?? ''}</span> },
     { key: 'since', label: 'Waiting since', render: (i) => (
@@ -258,7 +260,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
             <span className="min-w-0 flex-1">
               <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{i.employeeName || '—'}</span><span className="ui-caption whitespace-nowrap">{waitedText(i.since)}</span></span>
               <span className="block truncate ui-caption">{kindText(i)} · {whatOf(i)}</span>
-              {i.fromDate ? <span className="block truncate ui-caption tabular-nums">{range(i.fromDate, i.toDate)}{i.fromTime && i.toTime ? `, ${i.fromTime}–${i.toTime}` : ''}</span> : null}
+              {i.fromDate ? <span className="block truncate ui-caption tabular-nums">{range(i.fromDate, i.toDate)}{i.halfDay ? `, ${halfText(i.halfDay).toLowerCase()}` : i.fromTime && i.toTime ? `, ${i.fromTime}–${i.toTime}` : ''}</span> : null}
               {OWN_NOTE[i.own] ? <span className="block ui-caption">{OWN_NOTE[i.own]}</span> : null}
             </span>
           </span>

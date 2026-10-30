@@ -67,7 +67,7 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell 
         ) : null}
       </button>
       {open ? (
-        <div className="ui-card absolute end-0 z-40 mt-2 w-[min(24rem,92vw)] p-2 shadow-lg" role="dialog" aria-label="Notifications">
+        <div className="ui-card absolute end-0 z-40 mt-2 w-[min(24rem,92vw)] p-2 shadow-lg max-sm:fixed max-sm:inset-x-2 max-sm:top-14 max-sm:w-auto" role="dialog" aria-label="Notifications">
           <div className="flex items-center justify-between px-2 py-1">
             <span className="ui-t-sec">Notifications</span>
             {unread ? (

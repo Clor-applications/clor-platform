@@ -1546,7 +1546,7 @@ async function announce(orgId: string, row: any, extra: { approvedBy?: string | 
 /** What a leave notice needs of the request, as it is now. */
 const leaveSnapshot = (r: any) => ({
   id: r.id, accountId: r.accountId, employeeId: r.employeeId, groupId: r.groupId ?? null, status: r.status,
-  fromDate: r.fromDate, toDate: r.toDate, days: r.days, leaveTypeId: r.leaveTypeId, leaveTypeName: r.leaveTypeName, isPrivate: Boolean(r.isPrivate),
+  fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, leaveTypeId: r.leaveTypeId, leaveTypeName: r.leaveTypeName, isPrivate: Boolean(r.isPrivate),
   managerApprovedAt: r.managerApprovedAt ?? null, managerApprovedById: r.managerApprovedById ?? null,
   requestedByUserId: r.requestedByUserId ?? null, reviewedByUserId: r.reviewedByUserId ?? null, reviewNote: r.reviewNote ?? null,
   ruleId: r.ruleId ?? null, ruleStep: r.ruleStep ?? null, stepUserIds: r.stepUserIds ?? [],
@@ -1569,6 +1569,10 @@ async function approversOf(accountId: string, orgId: string, employeeId: string)
   }
   return out;
 }
+
+/** A notice's second line: how much leave, naming the half of a half day (#80 QA: the bell said only "0.5 days"). */
+export const leaveNoticeBody = (r: { halfDay?: string | null }, days: number) =>
+  days === 0.5 && (r.halfDay === 'FIRST' || r.halfDay === 'SECOND') ? `Half a day, ${r.halfDay === 'FIRST' ? 'first' : 'second'} half` : `${days} ${days === 1 ? 'day' : 'days'}`;
 
 /**
  * One notice per leave, never per part of a leave split at the period end
@@ -1607,7 +1611,7 @@ export async function tellAboutLeave(orgId: string, r: any, ctx: { approvedBy?: 
       const title = r.ruleStep > 1 ? `${who}'s ${what}, ${when}, waits for you (step ${r.ruleStep})` : `${who} asks for ${what}, ${when}`;
       /* People's Approvals: where a named person or a role decides, with or without the leave screens. */
       const stepLink = app === 'people' ? { app, screen: 'approvals' } : link;
-      if (to.length) await sendNotice(emp.accountId, orgId, to, { kind: 'attendance.leave_asked', title, body: `${days} ${days === 1 ? 'day' : 'days'}`, link: stepLink }, { except: r.requestedByUserId, dedupeKey: `leave-asked:${r.id}:step${r.ruleStep}:${ctx.rev ?? 0}` });
+      if (to.length) await sendNotice(emp.accountId, orgId, to, { kind: 'attendance.leave_asked', title, body: leaveNoticeBody(r, days), link: stepLink }, { except: r.requestedByUserId, dedupeKey: `leave-asked:${r.id}:step${r.ruleStep}:${ctx.rev ?? 0}` });
       return;
     }
     const stage = r.managerApprovedAt ? (r.managerApprovedById ? 'manager' : 'handed') : 'new';
@@ -1617,11 +1621,11 @@ export async function tellAboutLeave(orgId: string, r: any, ctx: { approvedBy?: 
     if (manager) {
       /* The manager acts first — or their stand-in while they are away: in People with a sign-in, else in the employee app's queue (no notice there). */
       const managerUser = (await peoplePrisma.employee.findFirst({ where: { id: await deciderFor(orgId, manager.id), orgId }, select: { userId: true } }))?.userId;
-      if (managerUser) await sendNotice(emp.accountId, orgId, [managerUser], { kind: 'attendance.leave_asked', title: `${who} asks for ${what}, ${when}`, body: `${days} ${days === 1 ? 'day' : 'days'}`, link }, { except: r.requestedByUserId, dedupeKey });
+      if (managerUser) await sendNotice(emp.accountId, orgId, [managerUser], { kind: 'attendance.leave_asked', title: `${who} asks for ${what}, ${when}`, body: leaveNoticeBody(r, days), link }, { except: r.requestedByUserId, dedupeKey });
       return;
     }
     const title = r.managerApprovedAt ? (r.managerApprovedById ? `${who}'s ${what}, ${when}, is approved by the manager and waits for you` : `${who}'s ${what}, ${when}, waited too long for the manager and now waits for you`) : `${who} asks for ${what}, ${when}`;
-    await sendNotice(emp.accountId, orgId, await approversOf(emp.accountId, orgId, r.employeeId), { kind: 'attendance.leave_asked', title, body: `${days} ${days === 1 ? 'day' : 'days'}`, link }, { except: r.requestedByUserId, dedupeKey });
+    await sendNotice(emp.accountId, orgId, await approversOf(emp.accountId, orgId, r.employeeId), { kind: 'attendance.leave_asked', title, body: leaveNoticeBody(r, days), link }, { except: r.requestedByUserId, dedupeKey });
     return;
   }
   if (!['APPROVED', 'REJECTED', 'CANCELLED'].includes(r.status)) return;

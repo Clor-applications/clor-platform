@@ -202,6 +202,15 @@ describe('preview, split, privacy, scope, story, overview', () => {
     for (const n of asked) expect(n.title).not.toContain('Sick');
   });
 
+  it("a half day's notice says which half (#80 manager QA: the bell said only 0.5 days)", async () => {
+    const before = new Date();
+    await att(hr, 'post', '/leave/requests', { employeeId: report.id, leaveTypeId: casual.id, fromDate: '2026-12-16', toDate: '2026-12-16', halfDay: 'SECOND', reason: 'School annual day' }).expect(201);
+    await deliverOutbox(new Date(), 5000);
+    const asked = await platformPrisma.notification.findMany({ where: { orgId: hr.orgId, createdAt: { gte: before }, kind: 'attendance.leave_asked' } });
+    expect(asked.length).toBeGreaterThan(0);
+    for (const n of asked) expect(n.body).toBe('Half a day, second half');
+  });
+
   it('the paged list counts every tab under the same search', async () => {
     const page = (await att(hr, 'get', '/leave/requests?limit=1&offset=0&q=Report').expect(200)).body;
     expect(page.requests).toHaveLength(1);
