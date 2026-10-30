@@ -11,6 +11,10 @@ export default defineConfig([
   // findings in src/.
   globalIgnores([
     'dist',
+    // The end-to-end run's own build (e2e/scripts/start-web.mjs).
+    'dist-e2e',
+    'e2e/report',
+    'e2e/test-results',
     'server/dist',
     // Prisma's generated clients. Gitignored, so they were never linted on a
     // fresh clone — but CI generates all three before linting, and `eslint .`

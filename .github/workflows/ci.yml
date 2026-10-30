@@ -170,6 +170,135 @@ jobs:
           CLOR_APP_PASSWORD: clor_ci_app
 
 
+  # End-to-end (e2e/README.md): Playwright drives the real web app and the
+  # employee app, desktop 1440×900 and phone 390×844, through the scenarios of
+  # docs/people/qa/PERSONA-SCENARIOS.md. It boots its own API and web app on
+  # ports of its own and builds a database of its own on the CI Postgres (5434),
+  # dropped at the end. A pull request runs the @smoke set (e2e-smoke); the
+  # nightly run and a run by hand run every scenario (e2e-full). One retry in
+  # CI; a test that needed it shows as flaky in the report.
+  e2e:
+    needs: verify
+    if: github.event_name != 'push'
+    name: ${{ github.event_name == 'pull_request' && 'e2e-smoke' || 'e2e-full' }}
+    runs-on: [self-hosted, clor-mac]
+    timeout-minutes: 45
+    env:
+      PGHOST: localhost
+      PGPORT: 5434
+      PGPASSWORD: clor_ci
+      E2E_PGADMIN_URL: postgresql://clor_ci:clor_ci@localhost:5434/postgres
+      E2E_DB_NAME: clor_e2e_${{ github.run_id }}_${{ github.run_attempt }}
+      E2E_WORKERS: 2
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Install server deps
+        run: npm ci
+        working-directory: server
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+        working-directory: server
+
+      # Kept by the runner between runs; a download only when Playwright moves on.
+      - name: Chromium for Playwright
+        run: npx playwright install chromium
+
+      - name: Typecheck the end-to-end tests
+        run: npx tsc -p e2e
+
+      # Three runners share the Mac: each run takes ports of its own.
+      - name: Ports for this run
+        run: |
+          echo "E2E_API_PORT=$((4400 + ${{ github.run_id }} % 500))" >> "$GITHUB_ENV"
+          echo "E2E_WEB_PORT=$((5400 + ${{ github.run_id }} % 500))" >> "$GITHUB_ENV"
+
+      - name: End-to-end, smoke set
+        if: github.event_name == 'pull_request'
+        run: npm run e2e:smoke
+        env:
+          E2E_SKIP_GENERATE: '1'
+
+      - name: End-to-end, every scenario
+        if: github.event_name != 'pull_request'
+        run: npm run e2e
+        env:
+          E2E_SKIP_GENERATE: '1'
+
+      - name: Results by scenario
+        if: always()
+        run: node e2e/scripts/results.mjs || true
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            e2e/report/
+            e2e/test-results/
+            docs/people/qa/E2E-RESULTS.md
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Drop this run's database
+        if: always()
+        run: dropdb --if-exists -U clor_ci --force "$E2E_DB_NAME"
+
+  # The same scenarios against staging, nightly. Off until the owner adds the
+  # secrets and sets the repository variable E2E_STAGING_ENABLED to 'true'
+  # (docs/CI-ON-MAC.md, "End-to-end tests"). Smoke set, desktop, one worker:
+  # staging keeps its sign-up and sign-in rate limits.
+  e2e-staging:
+    if: github.event_name == 'schedule' && vars.E2E_STAGING_ENABLED == 'true'
+    runs-on: [self-hosted, clor-mac]
+    timeout-minutes: 45
+    env:
+      E2E_TARGET: staging
+      E2E_BASE_URL: ${{ secrets.E2E_STAGING_BASE_URL }}
+      E2E_API_URL: ${{ secrets.E2E_STAGING_API_URL }}
+      E2E_PASSWORD: ${{ secrets.E2E_STAGING_PASSWORD }}
+      E2E_WORKERS: 1
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Chromium for Playwright
+        run: npx playwright install chromium
+
+      - name: End-to-end against staging
+        run: npm run e2e:smoke -- --project=desktop
+
+      - name: Results by scenario
+        if: always()
+        run: node e2e/scripts/results.mjs || true
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-staging-report-${{ github.run_id }}
+          path: |
+            e2e/report/
+            e2e/test-results/
+            docs/people/qa/E2E-RESULTS.md
+          retention-days: 14
+          if-no-files-found: ignore
+
   # Deploy runs only after verify and the server tests pass, only on main, and never on a pull
   # request from a fork. A green build is the entry condition: the point of
   # this pipeline is that nothing reaches the server that did not pass the

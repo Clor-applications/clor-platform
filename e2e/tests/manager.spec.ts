@@ -1,0 +1,168 @@
+/**
+ * Manager scenarios (Rahul, team-limited): M1–M4, M6–M8.
+ * Requests come from Rahul's other reports, so Priya's balance stays the
+ * employee scenarios' own: Imran (M1, M4), Lakshmi (M2, M4), Deepak (M3).
+ */
+import { appLeave, decideLeave } from '../support/seed';
+import { appDay, dmy, webSpan, weekday, workdayFromNow } from '../support/dates';
+import { readBalance } from '../support/leave';
+import { allowNoise, expect, test } from '../support/fixtures';
+import { choose } from '../support/ui';
+
+
+test.describe('Rahul manages his team', () => {
+  test('M1: approve a team member’s leave from Approvals', { tag: ['@M1', '@smoke'] }, async ({ asManager: rahul, app, w }, testInfo) => {
+    const day = workdayFromNow(2 + testInfo.retry);
+    await appLeave(w, 'imran', day, day, 'Doctor’s appointment');
+    const imran = await app('imran');
+    await imran.goto('Leave');
+    const before = await readBalance(imran.balance('Casual leave'));
+
+    await rahul.goto();
+    await rahul.open('Approvals');
+    await (await rahul.approve(webSpan(day), 'Imran Khan')).click();
+    await expect(rahul.row(webSpan(day), 'Imran Khan')).toHaveCount(0);
+
+    /* Imran sees it approved and his balance moved from waiting to taken. */
+    await imran.goto('Leave');
+    await expect(imran.request(appDay(day))).toContainText('Approved');
+    const after = await readBalance(imran.balance('Casual leave'));
+    expect(after.left).toBe(before.left);
+    expect(after.waiting).toBe(before.waiting - 1);
+
+    /* Who's away shows him. */
+    await rahul.open("Who's away");
+    await expect(rahul.main.getByRole('region', { name: /Next 7 days|Away today/ }).filter({ hasText: 'Imran Khan' }).first()).toBeVisible();
+  });
+
+  test('M2: reject with a reason', { tag: ['@M2', '@smoke'] }, async ({ asManager: rahul, app, w }, testInfo) => {
+    const from = weekday(1 + testInfo.retry * 6, 2);
+    const to = weekday(1 + testInfo.retry * 6, 3);
+    await appLeave(w, 'lakshmi', from, to, 'Trip to Hampi');
+    const lakshmi = await app('lakshmi');
+    await lakshmi.goto('Leave');
+    const before = await readBalance(lakshmi.balance('Casual leave'));
+
+    await rahul.goto();
+    await rahul.open('Approvals');
+    const item = rahul.row(webSpan(from, to), 'Lakshmi Patil');
+    /* The name opens the request (a button on a desktop row; the whole item on a phone). */
+    const opener = item.getByRole('button', { name: /Lakshmi Patil/ });
+    await ((await opener.count()) ? opener.first() : item).click();
+    const panel = rahul.drawerNamed('Lakshmi Patil: Casual leave');
+    await panel.getByLabel('Note to them').fill('Dyeing batch due that week; please pick the week after.');
+    await panel.getByRole('button', { name: 'Reject' }).click();
+    await expect(rahul.row(webSpan(from, to))).toHaveCount(0);
+
+    await lakshmi.goto('Leave');
+    const mine = lakshmi.request(appDay(from));
+    await expect(mine).toContainText(/Rejected|Not approved|Declined/);
+    await expect(mine, 'she sees the reason').toContainText('Dyeing batch due that week');
+    const after = await readBalance(lakshmi.balance('Casual leave'));
+    expect(after.left, 'nothing taken: the two days are back').toBe(before.left + 2);
+    expect(after.waiting).toBe(before.waiting - 2);
+  });
+
+  test('M3: two waiting items, approved once each even on a double tap', { tag: ['@M3'] }, async ({ asManager: rahul, app, w }, testInfo) => {
+    const wk = 1 + testInfo.retry * 6;
+    const a = weekday(wk, 4);
+    const b = weekday(wk + 1, 0);
+    await appLeave(w, 'deepak', a, a, 'Festival at home');
+    await appLeave(w, 'deepak', b, b, 'Travel back');
+    const deepak = await app('deepak');
+    await deepak.goto('Leave');
+    const before = await readBalance(deepak.balance('Casual leave'));
+
+    await rahul.goto();
+    await rahul.open('Approvals');
+    for (const day of [a, b]) {
+      await (await rahul.approve(webSpan(day), 'Deepak Verma')).dblclick();
+      await expect(rahul.row(webSpan(day), 'Deepak Verma')).toHaveCount(0);
+    }
+
+    await deepak.goto('Leave');
+    await expect(deepak.request(appDay(a))).toContainText('Approved');
+    await expect(deepak.request(appDay(b))).toContainText('Approved');
+    const after = await readBalance(deepak.balance('Casual leave'));
+    expect(after.waiting).toBe(before.waiting - 2);
+    expect(after.left, 'two days taken once each: nothing more comes off').toBe(before.left);
+  });
+
+  test('M4: who is away this week, only my team, clashes flagged', { tag: ['@M4'] }, async ({ asManager: rahul, w }, testInfo) => {
+    test.fail(true, "APP BUG: Who's away (and the Leave calendar) list two of Rahul's team away on the same day but flag no clash; only the approval panel's \"Also away then\" shows it");
+    const day = workdayFromNow(4 + testInfo.retry);
+    const one = await appLeave(w, 'imran', day, day, 'Wedding');
+    const two = await appLeave(w, 'lakshmi', day, day, 'Wedding');
+    const outside = await appLeave(w, 'arjun', day, day, 'Wedding');
+    await decideLeave(w, w.users.manager.email, one.id, 'approve');
+    await decideLeave(w, w.users.manager.email, two.id, 'approve');
+    await decideLeave(w, w.users.owner.email, outside.id, 'approve');
+
+    await rahul.goto();
+    await rahul.open("Who's away");
+    const soon = rahul.main.getByRole('region', { name: /Next 7 days/ });
+    await expect(soon).toContainText('Imran Khan');
+    await expect(soon).toContainText('Lakshmi Patil');
+    await expect(rahul.main, 'only my team').not.toContainText('Arjun Das');
+    await expect(rahul.main, 'two of the team away the same day is flagged').toContainText(/clash|overlap|2 (people )?away|both away|at the same time/i);
+  });
+
+  test('M6: a team member’s profile shows work, not pay or private details', { tag: ['@M6', '@smoke'] }, async ({ asManager: rahul, w }) => {
+    await rahul.goto();
+    await rahul.openEmployee(w.people.priya.name);
+    await expect(rahul.title).toContainText('Priya Sharma');
+    await expect(rahul.main).toContainText('Weaver');
+    await expect(rahul.main).toContainText('Production');
+    await expect(rahul.main).toContainText('Rahul Menon');
+    const tabs = rahul.main.getByRole('tablist', { name: 'Priya Sharma sections' });
+    for (const tab of await tabs.getByRole('tab').all()) {
+      const name = (await tab.textContent())?.trim();
+      await tab.click();
+      const panel = rahul.main.getByRole('tabpanel');
+      await expect(panel).toBeVisible();
+      await rahul.settle();
+      /* No field for pay, bank, PAN or health, and none of her private details (seeded: address, birthday, emergency contact). */
+      const labels = (await panel.locator('dt').allTextContents()).join(' | ');
+      expect(labels, `${name} tab: field labels`).not.toMatch(/\bPAN\b|Bank|IFSC|Salary|CTC|Blood|Medical|Health|Date of birth|Address|Emergency/i);
+      const text = await panel.innerText();
+      expect(text, `${name} tab`).not.toMatch(/Temple Road|Chamundipuram|Anita Sharma|9845011122|14 May 1996/);
+    }
+  });
+
+  test('M7: someone outside my team is not listed and not reachable by address', { tag: ['@M7', '@smoke'] }, async ({ asManager: rahul, w }, testInfo) => {
+    allowNoise(testInfo, /404|Not Found|No such employee/i);
+    await rahul.goto();
+    await rahul.open('Employees');
+    await rahul.main.getByRole('searchbox', { name: 'Search employees' }).fill('Arjun');
+    await expect(rahul.main.getByRole('button', { name: /^Arjun Das/ })).toHaveCount(0);
+
+    await rahul.page.goto(`/o/${w.asha.code}/?app=people&open=employee&s.id=${w.people.arjun.id}`);
+    await expect(rahul.main).not.toContainText('Arjun Das', { timeout: 5_000 });
+    await expect(rahul.main).not.toContainText(w.people.arjun.code);
+    await expect(rahul.main).toContainText(/not available|not found|no access/i);
+  });
+
+  test('M8: my own leave goes to my manager, never to me', { tag: ['@M8', '@smoke'] }, async ({ asManager: rahul, asOwner: suresh, w }, testInfo) => {
+    const wk = 2 + testInfo.retry * 6;
+    const from = weekday(wk, 0);
+    const to = weekday(wk, 1);
+    await rahul.goto();
+    await rahul.openMine('My leave');
+    await rahul.main.getByRole('button', { name: 'Ask for leave' }).click();
+    const ask = rahul.drawerNamed('Ask for leave');
+    await choose(ask.getByLabel('Leave type'), 'Casual leave');
+    await ask.getByLabel('First day').fill(dmy(from));
+    await ask.getByLabel('Last day').fill(dmy(to));
+    await ask.getByLabel('Reason').fill('School admission for my son');
+    await ask.getByRole('button', { name: 'Send' }).click();
+    await expect(ask).toBeHidden();
+    await expect(rahul.row('School admission for my son').or(rahul.row(webSpan(from, to)))).toContainText(/Waiting/);
+
+    await rahul.open('Approvals');
+    await expect(rahul.row(webSpan(from, to)), 'not in my own Approvals').toHaveCount(0);
+
+    await suresh.goto();
+    await suresh.open('Approvals');
+    await expect(suresh.row(webSpan(from, to))).toContainText('Rahul Menon');
+  });
+});
