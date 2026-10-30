@@ -257,8 +257,9 @@ payrollSetupRouter.put(
 );
 
 /**
- * The share of wages deductions may take (Code on Wages 2019 s.18(2); Payment
- * of Wages Act s.7(3) before it), applied when a pay run is worked out: loan
+ * The share of wages deductions may take (Code on Wages 2019 s.18(3), excess
+ * carried under s.18(4); Payment of Wages Act 1936 s.7(3) (repealed 21 Nov
+ * 2025) before it), applied when a pay run is worked out: loan
  * and advance instalments past it carry to the next run (deductionCap.ts).
  * Whether statutory deductions count toward it is read differently, so it is
  * the company's to set.
@@ -276,6 +277,8 @@ const capBody = z.object({
   /* Never above half: a company may hold deductions lower than the law does, not higher. */
   percent: z.number().int('A whole percentage, such as 50.').min(10, 'Between 10% and 50%.').max(50, 'Between 10% and 50%: the law does not let deductions pass half of the wages.'),
   countsStatutory: z.boolean(),
+  /* Not decided by the owner yet: counted unless a company turns it off. Older screens leave it as it was. */
+  countsPenalties: z.boolean().optional(),
 });
 
 payrollSetupRouter.put(
@@ -288,18 +291,19 @@ payrollSetupRouter.put(
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Give the share of wages, and whether statutory deductions count.' });
     const before = await capSetting(orgId);
     const { percent, countsStatutory } = parsed.data;
+    const countsPenalties = parsed.data.countsPenalties ?? before.countsPenalties;
     await payrollPrisma.payrollSetting.upsert({
       where: { orgId },
-      update: { deductionCapPercent: percent, deductionCapCountsStatutory: countsStatutory, updatedByUserId: req.auth!.userId },
-      create: { accountId, orgId, deductionCapPercent: percent, deductionCapCountsStatutory: countsStatutory, updatedByUserId: req.auth!.userId },
+      update: { deductionCapPercent: percent, deductionCapCountsStatutory: countsStatutory, deductionCapCountsPenalties: countsPenalties, updatedByUserId: req.auth!.userId },
+      create: { accountId, orgId, deductionCapPercent: percent, deductionCapCountsStatutory: countsStatutory, deductionCapCountsPenalties: countsPenalties, updatedByUserId: req.auth!.userId },
     });
     if (req.res) req.res.locals.audited = true;
     await recordAudit(req, {
       entity: 'PAYROLL_SETTINGS',
       entityId: orgId,
       action: 'EDIT',
-      message: `Deductions held to ${percent}% of wages${countsStatutory ? ', statutory deductions counted' : ', statutory deductions not counted'}`,
-      metadata: { before, after: { percent, countsStatutory } },
+      message: `Deductions held to ${percent}% of wages${countsStatutory ? ', statutory deductions counted' : ', statutory deductions not counted'}${countsPenalties ? ', late-mark penalties counted' : ', late-mark penalties not counted'}`,
+      metadata: { before, after: { percent, countsStatutory, countsPenalties } },
     });
     res.json(await capSetting(orgId));
   }

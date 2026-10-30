@@ -11,8 +11,10 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/pa
 import { recordAudit } from '../services/auditTrail.js';
 import { netOf, proposeSettlement, type SettlementLine } from '../services/payroll/finalSettlement.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
-import { ownWorkRefusal } from '../services/makerChecker.js';
-import { closePayrollSources, closePeopleSources, keepSources, settlementHold, settlementHolds, staleSources } from '../services/payroll/finalSettlementSources.js';
+import { ownRecordRefusal, ownWorkRefusal } from '../services/makerChecker.js';
+import { PEOPLE_MODULE, PEOPLE_RESOURCE } from '../services/people/guards.js';
+import { teamScope } from '../services/people/scope.js';
+import { SourcesChangedError, closePayrollSources, closePeopleSources, keepSources, settlementHold, settlementHolds, staleSources } from '../services/payroll/finalSettlementSources.js';
 import { releaseHold, AbsenceError } from '../services/people/absconding.js';
 
 /**
@@ -36,7 +38,7 @@ const lineSchema = z.object({
   amount: z.coerce.number().min(0, 'Enter amounts as positive numbers; a deduction is taken off.').max(100_000_000),
   explanation: z.string().trim().max(500).default(''),
   /* Checked against the lines the settlement already had (keepSources): never taken on trust. */
-  source: z.object({ type: z.enum(['LOAN', 'ADVANCE', 'CLAIM', 'CARRY']), id: z.string().max(64), ref: z.string().max(80).nullable().optional() }).optional(),
+  source: z.object({ type: z.enum(['LOAN', 'ADVANCE', 'CLAIM', 'CARRY']), id: z.string().max(160), ref: z.string().max(160).nullable().optional() }).optional(),
 });
 const updateSchema = z.object({
   lines: z.array(lineSchema).max(60).optional(),
@@ -183,8 +185,8 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/approve', AP
   const row = await findOwn(req, res);
   if (!row) return;
   if (row.status !== 'DRAFT') return res.status(409).json({ error: 'Only a draft can be approved.', code: 'NOT_DRAFT' });
-  /* Whoever worked it out approves it only as the company's maker-checker setting allows (makerChecker.ts). */
-  const refused = await ownWorkRefusal(req, { makers: [row.createdByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SETTLEMENT', entityId: row.id, what: 'settlement' });
+  /* Never your own; whoever worked it out approves it only as the company's maker-checker setting allows (makerChecker.ts). */
+  const refused = (await ownRecordRefusal(req, row.employeeId, 'full and final settlement')) || await ownWorkRefusal(req, { makers: [row.createdByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SETTLEMENT', entityId: row.id, what: 'settlement' });
   if (refused) return res.status(refused.status).json(refused.body);
   const moved = await payrollPrisma.finalSettlement.updateMany({
     where: { id: row.id, status: 'DRAFT' },
@@ -207,6 +209,8 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/paid', APPRO
   const row = await findOwn(req, res);
   if (!row) return;
   if (row.status !== 'APPROVED') return res.status(409).json({ error: 'Approve it before marking it paid.', code: 'NOT_APPROVED' });
+  const mine = await ownRecordRefusal(req, row.employeeId, 'full and final settlement');
+  if (mine) return res.status(mine.status).json(mine.body);
   /* Held by an absconding case: not paid until the hold is lifted, with a reason. Never forfeited. */
   const hold = await settlementHold(row.orgId, row.employeeId);
   if (hold) {
@@ -220,11 +224,18 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/paid', APPRO
   }
   const reference = req.body?.reference ? String(req.body.reference).trim().slice(0, 120) : null;
   /* Paid once: the move from approved and Payroll's own records (loans, carried deductions) together. */
-  const closed = await payrollPrisma.$transaction(async (tx) => {
-    const moved = await tx.finalSettlement.updateMany({ where: { id: row.id, status: 'APPROVED' }, data: { status: 'PAID', paidAt: new Date(), paidReference: reference } });
-    if (!moved.count) return null;
-    return closePayrollSources(tx, row.orgId, row.id, lines);
-  });
+  let closed: string[] | null;
+  try {
+    closed = await payrollPrisma.$transaction(async (tx) => {
+      const moved = await tx.finalSettlement.updateMany({ where: { id: row.id, status: 'APPROVED' }, data: { status: 'PAID', paidAt: new Date(), paidReference: reference } });
+      if (!moved.count) return null;
+      return closePayrollSources(tx, row.orgId, row.id, lines);
+    });
+  } catch (e) {
+    /* Moved between the check and the payment: nothing was paid or closed. */
+    if (e instanceof SourcesChangedError) return res.status(409).json({ error: e.message, code: e.code });
+    throw e;
+  }
   if (!closed) return res.status(409).json({ error: 'Somebody else has just marked this paid. Reload it.', code: 'NOT_APPROVED' });
   const peopleClosed = await closeInPeople(req, row, lines);
   await recordAudit(req, {
@@ -257,6 +268,8 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/close-source
   const row = await findOwn(req, res);
   if (!row) return;
   if (row.status !== 'PAID') return res.status(409).json({ error: 'Only a paid settlement closes its records.', code: 'NOT_PAID' });
+  /* Closed already: a second close would meet records that have moved on since. */
+  if (row.sourcesClosedAt) return res.json({ settlement: await shapeOne(row), closed: [] });
   const closed = await closeInPeople(req, row, JSON.parse(row.linesJson || '[]'));
   if (!closed) return res.status(502).json({ error: 'People did not take the update. Try again in a moment.', code: 'PEOPLE_UNAVAILABLE' });
   if (closed.length) await recordAudit(req, { entity: 'PAYROLL_SETTLEMENT', entityId: row.id, action: 'CLOSE_SOURCES', message: 'Closed the advances and claims a full and final settlement settled', metadata: { closed } });
@@ -264,14 +277,19 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/close-source
 });
 
 /*
- * Lift an absconding case's hold from Payroll, for someone who may approve
- * pay runs, with a reason: the same release HR makes in People, recorded
- * there (the case, its event) and here.
+ * Lift an absconding case's hold from Payroll, with a reason: the same
+ * release HR makes in People, recorded there (the case, its event) and here.
+ * As strict as People's own (peopleTimeRules.ts: People edit, as HR) and
+ * Payroll approval on top, a fresh authenticator code where the company asks
+ * for one, and never by the person held.
  */
-payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/release-hold', APPROVE, async (req, res) => {
+payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/release-hold', APPROVE, requirePermission(PEOPLE_MODULE, PermissionAction.EDIT, PEOPLE_RESOURCE.employees), requirePayrollStepUp, async (req, res) => {
   if (!(await payrollRouteOk(req, res))) return;
   const row = await findOwn(req, res);
   if (!row) return;
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'HR lifts a hold on a settlement.', code: 'HR_ONLY' });
+  const mine = await ownRecordRefusal(req, row.employeeId, 'settlement hold');
+  if (mine) return res.status(mine.status).json(mine.body);
   const reason = String(req.body?.reason || '').trim();
   if (reason.length < 3) return res.status(400).json({ error: 'Say why the hold is lifted, e.g. "Came in to settle, 4 Nov".', code: 'REASON_NEEDED' });
   const hold = await settlementHold(row.orgId, row.employeeId);

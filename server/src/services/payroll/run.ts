@@ -189,7 +189,8 @@ async function loadRunContext(orgId: string, runId: string) {
     payrollPrisma.employeePayrollProfile.findMany({ where: { orgId, employeeId: { in: employeeIds } } }),
     payrollPrisma.payrollInput.findMany({ where: { orgId, runId } }),
     payrollPrisma.payrollAdjustment.findMany({
-      where: { orgId, periodId: run.periodId, employeeId: { in: employeeIds }, status: { in: ['APPROVED', 'CONSUMED'] } },
+      /* Approved, or taken by this run before: never one another run or a full and final (`settlement:<id>`) has taken. */
+      where: { orgId, periodId: run.periodId, employeeId: { in: employeeIds }, OR: [{ status: 'APPROVED' }, { status: 'CONSUMED', consumedByRunId: runId }] },
     }),
     /* Carried by an earlier run (the rest of a deduction it could not take), not yet taken by another. */
     earlierPeriods.length
@@ -238,15 +239,20 @@ async function loadRunContext(orgId: string, runId: string) {
     payrollPrisma.payrollAdjustment.findMany({ where: { orgId, carriedByRunId: runId } }),
   ]);
   const backOnInstallment = new Map<string, number>();
-  for (const c of ownCarriedInstallments) if (c.carriedFromId) backOnInstallment.set(c.carriedFromId, round2((backOnInstallment.get(c.carriedFromId) || 0) + Number(c.dueAmount)));
+  const backPrincipal = new Map<string, number>();
+  for (const c of ownCarriedInstallments) {
+    if (!c.carriedFromId) continue;
+    backOnInstallment.set(c.carriedFromId, round2((backOnInstallment.get(c.carriedFromId) || 0) + Number(c.dueAmount)));
+    backPrincipal.set(c.carriedFromId, round2((backPrincipal.get(c.carriedFromId) || 0) + Number(c.principalAmount)));
+  }
   const backOnAdjustment = new Map<string, number>();
   for (const c of ownCarriedAdjustments) if (c.carriedFromId) backOnAdjustment.set(c.carriedFromId, round2((backOnAdjustment.get(c.carriedFromId) || 0) + Number(c.amount)));
   const recoveries = loanDue.map((r) => {
     const back = backOnInstallment.get(r.installmentId) || 0;
     if (!back) return r;
     const due = round2(r.dueAmount + back);
-    const share = r.dueAmount > 0 ? r.principalAmount / r.dueAmount : 1;
-    const principal = round2(due * Math.min(1, Math.max(0, share)));
+    /* Principal and interest put back as they were carried: a ₹0 take left no split on the row itself to go by. */
+    const principal = round2(Math.min(due, r.principalAmount + (backPrincipal.get(r.installmentId) || 0)));
     return { ...r, dueAmount: due, principalAmount: principal, interestAmount: round2(due - principal) };
   });
   const adjustments = [...ownAdjustments, ...carriedAdjustments]
@@ -942,7 +948,37 @@ export type CalculatedSlip = {
  * do while a run is still open, and a half-replaced set of payslips is worse
  * than either version.
  */
+export class RunBusyError extends Error {
+  status = 409;
+  code = 'RUN_BUSY';
+}
+
+/**
+ * One calculation of a run at a time: two at once read the same carried rows
+ * and wrote over each other's payslips (intermittent failures in review). The
+ * whole calculation, the carry check and the reads included, runs under a
+ * transaction lock on the run. A second click waits for the first and then
+ * works it out again; waiting holds no database connection.
+ */
 export async function calculateRun(orgId: string, runId: string, userId: string): Promise<{ slips: CalculatedSlip[]; issues: RunIssue[] }> {
+  const key = `payroll-run-calc:${runId}`;
+  const started = Date.now();
+  while (Date.now() - started < 180_000) {
+    const out = await payrollPrisma.$transaction(
+      async (tx) => {
+        const [row] = await tx.$queryRaw<Array<{ got: boolean }>>`SELECT pg_try_advisory_xact_lock(hashtext(${key})) AS got`;
+        if (!row?.got) return null;
+        return calculateRunLocked(orgId, runId, userId);
+      },
+      { timeout: 600_000, maxWait: 30_000 }
+    );
+    if (out) return out;
+    await new Promise((r) => setTimeout(r, 200 + Math.floor(Math.random() * 200)));
+  }
+  throw new RunBusyError('This payroll is being calculated by somebody else. Try again in a minute.');
+}
+
+async function calculateRunLocked(orgId: string, runId: string, userId: string): Promise<{ slips: CalculatedSlip[]; issues: RunIssue[] }> {
   const { issues } = await validateRun(orgId, runId);
   const blocking = issues.filter((i) => i.severity === 'ERROR');
   if (blocking.length) {
@@ -985,6 +1021,8 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
   const carries: Carry[] = [];
   /* Payslips that held deductions back, for the run's sentence. */
   const capped: { employeeId: string; carried: number }[] = [];
+  /* People whose entered deductions pass the share of wages on their own. */
+  const overLimit: { employeeId: string; name: string; counted: number; limit: number; percent: number }[] = [];
   /* Every loan this run touched, whether it recovered from it or not — a loan
      whose instalment was skipped still needs its outstanding re-derived. */
   const loanIdsTouched: string[] = [];
@@ -1021,6 +1059,8 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
     let adjustmentDeductions = 0;
     /* Loss of pay booked as a deduction (a cut-off correction, a late-mark penalty caught up): not a deduction from wages earned. */
     let lossOfPayDeductions = 0;
+    /* Late-mark penalties: count toward the share of wages unless the company's setting says otherwise. */
+    let latePenaltyDeductions = 0;
     let reimbursements = 0;
     const adjustmentLines: any[] = [];
     /* Instalments and advance recoveries: taken last, within the share of wages the law allows (deductionCap.ts). */
@@ -1048,7 +1088,8 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
       consumedAdjustmentIds.push(adj.id);
       if (isDeduction) adjustmentDeductions += amount;
       else adjustmentEarnings += amount;
-      if (isDeduction && (isCorrection(adj) || isLatePenalty(adj))) lossOfPayDeductions += amount;
+      if (isDeduction && isCorrection(adj)) lossOfPayDeductions += amount;
+      if (isDeduction && isLatePenalty(adj)) latePenaltyDeductions += amount;
       if (!isDeduction && String(adj.id).startsWith('expense-claim:')) reimbursements += amount;
       adjustmentLines.push({
         componentId: adj.componentId,
@@ -1099,11 +1140,15 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
       .filter((l) => l.type === 'DEDUCTION' && engine.find((c) => c.componentId === l.componentId)?.statutoryScheme)
       .reduce((t, l) => t + l.amount, 0);
     const wages = round2(grossEarnings - reimbursements);
-    const counted = round2(totalDeductions - lossOfPayDeductions - (ctx.capRule.countsStatutory ? 0 : statutoryDeductions));
+    const statutoryCounted = ctx.capRule.countsStatutory ? round2(statutoryDeductions) : 0;
+    const counted = round2(totalDeductions - lossOfPayDeductions - (ctx.capRule.countsPenalties ? 0 : latePenaltyDeductions) - (ctx.capRule.countsStatutory ? 0 : statutoryDeductions));
     const cap = capDeductions({ percent: ctx.capRule.percent, wages, counted, netPay, items: deferrable.map((d) => ({ key: d.key, due: d.due })) });
     const carriedHere: { label: string; amount: number }[] = [];
+    /* What each recovery actually took, for the payslip's record. */
+    const takenOf = new Map<string, number>();
     for (const d of deferrable) {
       const take = cap.taken.get(d.key) || 0;
+      if (d.kind === 'ADJUSTMENT') takenOf.set(d.id, take);
       const rest = round2(d.due - take);
       if (d.kind === 'ADJUSTMENT') consumedAdjustmentIds.push(d.id);
       if (take > 0) {
@@ -1140,13 +1185,27 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
         }
       : null;
     if (deductionNote) capped.push({ employeeId: employee.id, carried: deductionNote.total });
-    /* Only instalments give way. Deductions someone entered can still pass the limit on their own: said out loud, for a person to fix. */
-    if (counted > cap.limit) {
+    /*
+     * Only instalments give way; nothing entered is altered here. Statutory
+     * deductions alone past the limit are the law's own and only warn.
+     * Otherwise the deductions someone entered pass it: saved on the run,
+     * and sending for review or approving waits until they are reduced or
+     * somebody records why they stand (payrollRuns.ts over-limit-reason).
+     */
+    if (statutoryCounted > cap.limit + 0.005) {
+      issues.push({
+        severity: 'WARNING',
+        code: 'STATUTORY_OVER_LIMIT',
+        employeeId: employee.id,
+        message: `${employee.name}: PF, ESI, professional tax and income tax alone pass ${ctx.capRule.percent}% of wages (₹${cap.limit.toLocaleString('en-IN')}). Nothing else was taken on top.`,
+      });
+    } else if (counted > cap.limit + 0.005) {
+      overLimit.push({ employeeId: employee.id, name: employee.name, counted, limit: cap.limit, percent: ctx.capRule.percent });
       issues.push({
         severity: 'WARNING',
         code: 'DEDUCTIONS_OVER_LIMIT',
         employeeId: employee.id,
-        message: `${employee.name}: deductions of ₹${counted.toLocaleString('en-IN')} pass ${ctx.capRule.percent}% of wages (₹${cap.limit.toLocaleString('en-IN')}) before any instalment. Reduce them, or check they are allowed.`,
+        message: `${employee.name}: deductions of ₹${counted.toLocaleString('en-IN')} pass ${ctx.capRule.percent}% of wages (₹${cap.limit.toLocaleString('en-IN')}) before any instalment. Reduce them, or record why they stand before sending for review.`,
       });
     }
 
@@ -1202,7 +1261,7 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
         }),
         inputSnapshotJson: JSON.stringify({ ...input, periodDays: daysBetween(ctx.period.startDate, ctx.period.endDate) }),
         adjustmentSnapshotJson: JSON.stringify(
-          adjustments.map((a) => ({ id: a.id, componentId: a.componentId, amount: Number(a.amount), type: a.type, reason: a.reason }))
+          adjustments.map((a) => ({ id: a.id, componentId: a.componentId, amount: takenOf.has(a.id) ? takenOf.get(a.id)! : Number(a.amount), type: a.type, reason: a.reason }))
         ),
         /* Which rule version produced each statutory figure. A rate published
            in October must not change what this payslip says. */
@@ -1413,7 +1472,10 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
         employerCostTotal: round2(totals.cost),
         errorCount: 0,
         warningCount: issues.filter((i) => i.severity === 'WARNING').length,
-        deductionCap: capped.length ? { percent: ctx.capRule.percent, people: capped.length, carried: cappedTotal } : Prisma.DbNull,
+        /* A recalculation starts the over-limit decision again: the figures it was about have been replaced. */
+        deductionCap: capped.length || overLimit.length
+          ? { percent: ctx.capRule.percent, people: capped.length, carried: cappedTotal, overLimit, overLimitReason: null }
+          : Prisma.DbNull,
       },
     });
 

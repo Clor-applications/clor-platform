@@ -47,7 +47,7 @@ import {
 import LoadFailed from "../components/LoadFailed";
 import { LopCheckPanel, ProvisionalNotice } from "../components/RunGuards";
 import { ProvisionalDaysNotice } from "../components/ProvisionalDaysSetting";
-import { DeductionCapNotice } from "../components/DeductionCapSetting";
+import { DeductionCapNotice, OverLimitPanel } from "../components/DeductionCapSetting";
 import { openMonthsOf } from "../components/runGuardText";
 
 /**
@@ -446,6 +446,8 @@ const RunWorkflow = ({ runId, onBack }) => {
       <ProvisionalDaysNotice run={run} />
       {/* Instalments the legal share of wages moved to next month. */}
       <DeductionCapNotice run={run} />
+      {/* Entered deductions past the limit: the payroll waits for them to be reduced or a reason. */}
+      <OverLimitPanel run={run} onSaved={load} />
 
       {errorCount > 0 || warningCount > 0 ? (
         <div className="flex flex-wrap items-center gap-3">
@@ -575,12 +577,14 @@ const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismatch }) =
       </button>
     );
   }
+  const waitsForReason = Boolean(run.overLimit?.people?.length && !run.overLimit.reason);
   if (run.status === "CALCULATED") {
     return (
       <button
         type="button"
         className="ui-btn ui-btn-primary"
-        disabled={Boolean(busy)}
+        disabled={Boolean(busy) || waitsForReason}
+        title={waitsForReason ? "Deductions pass the limit: reduce them or record why they stand" : undefined}
         onClick={() =>
           act(
             "send for review",
@@ -660,7 +664,8 @@ const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismatch }) =
         <button
           type="button"
           className="ui-btn ui-btn-primary"
-          disabled={Boolean(busy)}
+          disabled={Boolean(busy) || waitsForReason}
+          title={waitsForReason ? "Deductions pass the limit: reduce them or record why they stand" : undefined}
           onClick={async () => {
             const ok = await confirmDialog({
               title: `Approve ${run.number}?`,

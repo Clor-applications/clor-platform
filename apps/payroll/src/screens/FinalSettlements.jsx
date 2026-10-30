@@ -36,8 +36,12 @@ const KINDS = [
 
 const money = (n) => `${Number(n) < 0 ? '− ' : ''}₹${Math.abs(Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 /* Where a line comes from, in words: the record paying it closes. */
-const SOURCE_WORDS = { LOAN: 'Payroll loan', ADVANCE: 'Expense advance in People', CLAIM: 'Expense claim in People', CARRY: 'Deduction carried by a payroll' };
-const sourceWords = (s) => (s ? `${SOURCE_WORDS[s.type] || 'Record'}${s.ref && s.type !== 'CARRY' ? ` ${s.ref}` : ''}` : '');
+const SOURCE_WORDS = { LOAN: 'Payroll loan', ADVANCE: 'Expense advance in People', CLAIM: 'Expense claim in People', CARRY: 'Waiting in Payroll' };
+const sourceWords = (s) => {
+  if (!s) return '';
+  if (s.type === 'CARRY') return s.advanceId && s.ref ? `Advance ${s.ref}, waiting in Payroll` : SOURCE_WORDS.CARRY;
+  return `${SOURCE_WORDS[s.type] || 'Record'}${s.ref ? ` ${s.ref}` : ''}`;
+};
 const closedInPeople = (s) => s === 'ADVANCE' || s === 'CLAIM';
 const netOf = (lines) => lines.reduce((t, l) => t + (l.kind === 'EARNING' ? Number(l.amount) || 0 : l.kind === 'DEDUCTION' ? -(Number(l.amount) || 0) : 0), 0);
 
@@ -386,6 +390,11 @@ function Settlement({ settlement, onClose, onChanged }) {
             </tbody>
           </table>
         </div>
+        {lines.some((l) => l.kind === 'DEDUCTION' && ['LOAN', 'ADVANCE', 'CARRY'].includes(l.source?.type)) ? (
+          <p className="ui-caption max-w-[65ch]">
+            Loan and advance balances can come off the final pay, up to half of it (Code on Wages 2019, s.18(3)). Anything left stays owed by the employee and is collected separately.
+          </p>
+        ) : null}
 
         {draft ? (
           <div className="flex flex-wrap gap-2">
@@ -457,8 +466,7 @@ function HoldPanel({ settlement, busy, run }) {
         </div>
       </div>
       <p className="ui-caption max-w-[65ch]">
-        A hold only pauses payment while you try to reach them. Nothing is forfeited: earned wages, and any gratuity and leave encashment due, stay owed. The law gives no general right to
-        keep earned wages, and wages are due within two working days of leaving (Code on Wages 2019, s.17), so a long hold can be challenged. Take advice if it goes on.
+        Nothing is forfeited. Earned wages stay owed, and the law gives no right to keep them back. Once you end their employment, wages are due within two working days (Code on Wages 2019, s.17(2)), so take advice before holding longer.
       </p>
       <div className="flex flex-wrap items-end gap-2">
         <label className="block min-w-[14rem] flex-1">

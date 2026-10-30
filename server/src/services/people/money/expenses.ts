@@ -8,6 +8,7 @@ import { notifyPermission, notifyUsers } from '../../notifications.js';
 import type { Actor } from '../changeLog.js';
 import { ApprovalError, PORTAL_PREFIX, activeRule, reply, submitRequest, withdraw, type RequestType, type StepSpec } from '../approvals/engine.js';
 import { adjustmentState, draftAdjustment, payCap, periodToPayIn, todayIst } from './payrollBridge.js';
+import { foldRecovery, liveLink, recoveryChain } from '../../payroll/recoveryChain.js';
 import { isValidGstinChecksum } from '../../../utils/gstin.js';
 
 /**
@@ -228,8 +229,8 @@ async function theDraft(tx: Prisma.TransactionClient, orgId: string, employeeId:
 /**
  * Claims paid with salary wait for Payroll: approved there (or paid on a
  * payslip), they are paid; cancelled or deleted there, they are to pay
- * again. Advances being taken from salary count as recovered only once
- * Payroll approves the deduction.
+ * again. Advances being taken from salary count as recovered only as
+ * Payroll takes the deduction.
  */
 async function syncPayroll(orgId: string, claims: Array<{ id: string; status: string; payrollAdjustmentId: string | null }>, advances: Array<{ id: string; recoveringAmount: unknown; payrollAdjustmentId: string | null }> = []) {
   let changed = false;
@@ -241,22 +242,25 @@ async function syncPayroll(orgId: string, claims: Array<{ id: string; status: st
       changed = (await peoplePrisma.expenseClaim.updateMany({ where: { id: c.id, orgId, status: 'WITH_SALARY' }, data: { status: 'APPROVED', payMode: null, paidOn: null, paidByUserId: null, payrollAdjustmentId: null, payrollPeriodName: null } })).count > 0 || changed;
     }
   }
-  for (const a of advances.filter((x) => num(x.recoveringAmount) > 0 && x.payrollAdjustmentId)) {
-    const st = await adjustmentState(orgId, a.payrollAdjustmentId!);
-    if (st.status === 'DRAFT') continue;
-    await peoplePrisma.$transaction(async (tx) => {
+  for (const a of advances.filter((x) => num(x.recoveringAmount) > 0 && liveLink(x.payrollAdjustmentId))) {
+    /*
+     * Counted as recovered only as Payroll takes it (a payslip or a full and
+     * final), never on approval alone; a recovery the share of wages split
+     * across months closes only when the last part is taken. Worked out from
+     * the whole chain each time (payroll/recoveryChain.ts), so nothing counts twice.
+     */
+    const did = await peoplePrisma.$transaction(async (tx) => {
       await lock(tx, `people-money-advance-row:${a.id}`);
       const row = await tx.employeeAdvance.findFirst({ where: { id: a.id, orgId } });
-      if (!row || num(row.recoveringAmount) <= 0) return;
-      if (st.status === 'APPROVED' || st.status === 'CONSUMED') {
-        const recovered = round2(num(row.recoveredAmount) + num(row.recoveringAmount));
-        const left = advanceOpen({ ...row, recoveredAmount: recovered, recoveringAmount: 0 });
-        await tx.employeeAdvance.update({ where: { id: row.id }, data: { recoveredAmount: recovered, recoveringAmount: 0, ...(left <= 0 && row.status === 'PAID' ? { status: 'CLOSED', closedAt: new Date() } : {}) } });
-      } else {
-        await tx.employeeAdvance.update({ where: { id: row.id }, data: { recoveringAmount: 0 } });
-      }
+      const link = liveLink(row?.payrollAdjustmentId);
+      if (!row || num(row.recoveringAmount) <= 0 || !link) return false;
+      const next = foldRecovery(row, await recoveryChain(orgId, link));
+      if (next.recovered === round2(num(row.recoveredAmount)) && next.recovering === round2(num(row.recoveringAmount))) return false;
+      const left = advanceOpen({ ...row, recoveredAmount: next.recovered, recoveringAmount: next.recovering });
+      await tx.employeeAdvance.update({ where: { id: row.id }, data: { recoveredAmount: next.recovered, recoveringAmount: next.recovering, ...(left <= 0 && next.recovering <= 0 && row.status === 'PAID' ? { status: 'CLOSED', closedAt: new Date() } : {}) } });
+      return true;
     });
-    changed = true;
+    changed = did || changed;
   }
   return changed;
 }
@@ -805,7 +809,7 @@ export async function closeAdvance(staff: Staff, advanceId: string, how: 'RETURN
     if (amount <= 0) throw new MoneyError("Nothing more can come off this month's pay: deductions already reach half of it. Ask for it back, or try next month.", 409, 'OVER_CAP');
     const handed = await draftAdjustment({ accountId: staff.accountId, orgId: staff.orgId, userId: staff.userId, employeeId: a.employeeId, key: `advance-recover:${a.id}:<period>`, type: 'DEDUCTION', amount, reason: `Advance ${a.number} not used: ${a.purpose}` });
     if (!handed.sent) throw new MoneyError(handed.why, 409, 'PAYROLL_NOT_READY');
-    /* Counted as recovered once Payroll approves it (syncPayroll); until then it is "being taken from salary". */
+    /* Counted as recovered as Payroll takes it (syncPayroll); until then it is "being taken from salary". */
     await tx.employeeAdvance.update({ where: { id: a.id }, data: { recoveringAmount: amount, payrollAdjustmentId: handed.adjustmentId } });
     return { recovered: amount, left: round2(open - amount), periodName: handed.periodName, capped: amount < open };
   }, { timeout: 30_000 });

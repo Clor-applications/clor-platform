@@ -379,6 +379,8 @@ export async function correctProvisionalDays(opts: { accountId: string; orgId: s
 /** The id prefix of a late-mark penalty caught up after a cut-off: `late-penalty:<month>:<employeeId>`. */
 export const LATE_PENALTY_PREFIX = 'late-penalty:';
 export const isLatePenalty = (adj: { id?: string | null }) => String(adj.id || '').startsWith(LATE_PENALTY_PREFIX);
+/** The reference a catch-up penalty gets when the pull itself cancels it (waived, taken from leave): unlike a person's cancel, a later pull may revive it. */
+const LATE_PENALTY_OFF = 'late-penalty-off:';
 
 const MONTH_WORDS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const monthWords = (month: string) => `${MONTH_WORDS[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
@@ -451,6 +453,10 @@ export async function catchUpLatePenalties(opts: { accountId: string; orgId: str
         const consumer = await payrollPrisma.payrollRun.findFirst({ where: { orgId, id: existing.consumedByRunId }, select: { status: true } });
         if (consumer && consumer.status !== 'CANCELLED') continue;
       }
+      /* A person decided it in Payroll: cancelled there, or the amount edited (back to draft, approved by somebody). Theirs stands. */
+      if (existing && ((existing.status === 'CANCELLED' && !String(existing.reference || '').startsWith(LATE_PENALTY_OFF)) || existing.status === 'DRAFT' || existing.approvedByUserId)) {
+        continue;
+      }
       const row = rows.get(employeeId);
       const days = Math.round((row?.lossOfPayDays || 0) * 100) / 100;
       const slip = slipOf.get(employeeId);
@@ -459,7 +465,8 @@ export async function catchUpLatePenalties(opts: { accountId: string; orgId: str
       const reason = `Late-mark penalty for ${monthWords(o.month)}: ${dayWord(days)} (paid before the month ended)`.slice(0, 240);
       if (!amount) {
         /* Waived, taken from leave, or nothing to price it on: a charge from an earlier pull goes. */
-        if (existing && existing.status !== 'CONSUMED' && existing.status !== 'CANCELLED') await payrollPrisma.payrollAdjustment.update({ where: { id }, data: { status: 'CANCELLED' } });
+        /* This run's own charge (CONSUMED by this run included) goes, marked as ours so a later pull may charge it again if the waiver is undone. */
+        if (existing && existing.status !== 'CANCELLED') await payrollPrisma.payrollAdjustment.update({ where: { id }, data: { status: 'CANCELLED', consumedByRunId: null, reference: `${LATE_PENALTY_OFF}${o.runId}` } });
         if (days > 0) out.push({ employeeId, name, month: o.month, days, amount: 0, reason: `${reason} (no payslip to price it on; add it by hand)`, status: 'NONE' });
         continue;
       }

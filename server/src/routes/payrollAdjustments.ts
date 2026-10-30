@@ -11,6 +11,7 @@ import { peoplePrisma, peopleWrite } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { valueEncashments } from '../services/attendance/leaveEncashment.js';
 import { forLiveEmployee } from '../services/payroll/employeeLock.js';
+import { recordAudit } from '../services/auditTrail.js';
 
 /**
  * One-off earnings and deductions: a bonus, an arrear, a fine, a recovery.
@@ -242,6 +243,11 @@ payrollAdjustmentsRouter.put(
       });
     }
 
+    /* The rest of a deduction a payroll or a full and final carried: changed by recalculating what carried it, never by hand. */
+    if (existing.carriedByRunId) {
+      return res.status(409).json({ error: 'This is the rest of a deduction carried forward. Recalculate the payroll that carried it, or cancel it with a reason.', code: 'CARRIED' });
+    }
+
     const parsed = body.safeParse(req.body || {});
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid adjustment.' });
 
@@ -324,6 +330,16 @@ payrollAdjustmentsRouter.post(
         error: 'This has already been paid on a payslip. Add a correcting adjustment rather than cancelling this one.',
         code: 'ADJUSTMENT_CONSUMED',
       });
+    }
+
+    /* Money still owed by the person, carried forward: let go only with a reason, kept on the row and in the audit log. */
+    if (existing.carriedByRunId) {
+      const reason = String(req.body?.reason || '').trim().slice(0, 200);
+      if (reason.length < 5) return res.status(400).json({ error: 'This is money still owed, carried forward. Say why it is cancelled.', code: 'REASON_NEEDED' });
+      const n = await payrollPrisma.payrollAdjustment.updateMany({ where: { id: existing.id, status: { notIn: ['CONSUMED', 'CANCELLED'] } }, data: { status: 'CANCELLED', reason: `${existing.reason || 'Carried forward'}. Cancelled: ${reason}`.slice(0, 240) } });
+      if (!n.count) return res.status(409).json({ error: 'Somebody else has just changed this adjustment. Reload it.', code: 'ADJUSTMENT_CHANGED' });
+      await recordAudit(req, { entity: 'PAYROLL_ADJUSTMENT', entityId: existing.id, action: 'CANCEL_CARRIED', message: `Cancelled a carried deduction of ₹${Number(existing.amount).toLocaleString('en-IN')}: ${reason}`, metadata: { employeeId: existing.employeeId, amount: Number(existing.amount), reason } });
+      return res.json({ adjustment: shape(await payrollPrisma.payrollAdjustment.findUniqueOrThrow({ where: { id: existing.id } })) });
     }
 
     const row = await payrollPrisma.payrollAdjustment.update({ where: { id: existing.id }, data: { status: 'CANCELLED' } });

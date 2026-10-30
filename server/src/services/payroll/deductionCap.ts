@@ -2,9 +2,10 @@ import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { round2 } from '../../utils/money.js';
 
 /**
- * The share of wages a payslip may deduct (Code on Wages 2019 s.18(2);
- * Payment of Wages Act 1936 s.7(3) before it): the total of the deductions
- * the law authorises from a wage period's wages may not pass half of them.
+ * The share of wages a payslip may deduct (Code on Wages 2019 s.18(3), excess
+ * carried under s.18(4); Payment of Wages Act 1936 s.7(3) (repealed 21 Nov
+ * 2025) before it): the total of the deductions the law authorises from a
+ * wage period's wages may not pass half of them.
  *
  * What CLOR counts, and why:
  *
@@ -16,21 +17,28 @@ import { round2 } from '../../utils/money.js';
  *   ones included (PF, ESI, professional tax, income tax are heads the law
  *   lists), unless the company's setting leaves statutory ones out — read
  *   differently in practice, so it is a setting with a caption.
- * - **Not counted:** loss of pay. Days not worked are not paid, so they are
- *   never a deduction from wages earned. That covers late-mark penalties
- *   (they are loss of pay, attendance/markRules.ts) and the corrections for
- *   days paid ahead of a cut-off (provisionalDays.ts).
+ * - **Late-mark penalties** count: a late-mark cut on days worked is a
+ *   deduction (s.18(2)). It is a setting with a caption, counted by default,
+ *   because the owner has not decided yet. A cut may only match the time
+ *   actually missed (s.20); a bigger one is a fine (s.19).
+ * - **Not counted:** the corrections for days paid ahead of a cut-off
+ *   (provisionalDays.ts). Days not worked are not paid, so they are never a
+ *   deduction from wages earned.
  * - **What gives way:** only loan and salary-advance instalments and the
  *   recovery of an expense advance. Statutory and other deductions are taken
  *   as they are. Whatever cannot be taken is carried to the next run, in full,
  *   and the payslip says so. Nothing is dropped.
  */
 
-export const DEFAULT_CAP = { percent: 50, countsStatutory: true };
+export const DEFAULT_CAP = { percent: 50, countsStatutory: true, countsPenalties: true };
 
 export async function capSetting(orgId: string) {
-  const row = await payrollPrisma.payrollSetting.findUnique({ where: { orgId }, select: { deductionCapPercent: true, deductionCapCountsStatutory: true } });
-  return { percent: row?.deductionCapPercent ?? DEFAULT_CAP.percent, countsStatutory: row?.deductionCapCountsStatutory ?? DEFAULT_CAP.countsStatutory };
+  const row = await payrollPrisma.payrollSetting.findUnique({ where: { orgId }, select: { deductionCapPercent: true, deductionCapCountsStatutory: true, deductionCapCountsPenalties: true } });
+  return {
+    percent: row?.deductionCapPercent ?? DEFAULT_CAP.percent,
+    countsStatutory: row?.deductionCapCountsStatutory ?? DEFAULT_CAP.countsStatutory,
+    countsPenalties: row?.deductionCapCountsPenalties ?? DEFAULT_CAP.countsPenalties,
+  };
 }
 
 export type CapItem = { key: string; due: number };
@@ -66,6 +74,6 @@ export const inr = (n: number) => `₹${round2(n).toLocaleString('en-IN', { maxi
 
 /** The run screen's sentence: "Deductions held to 50% of wages for 2 people: ₹8,000 carried to next month." */
 export function capMessage(c: { percent: number; people: number; carried: number }) {
-  if (!c?.people) return null;
+  if (!c?.people || !(c.carried > 0)) return null;
   return `Deductions held to ${c.percent}% of wages for ${c.people} ${c.people === 1 ? 'person' : 'people'}: ${inr(c.carried)} carried to next month.`;
 }

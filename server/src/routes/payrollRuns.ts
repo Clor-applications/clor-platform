@@ -17,7 +17,7 @@ import { leaveLossOfPay } from '../services/attendance/payableDays.js';
 import { provisionalWarning, snapshotChange, snapshotRows, takenMonths } from '../services/payroll/attendanceSnapshots.js';
 import { runLopCheck } from '../services/payroll/readinessTower.js';
 import { catchUpLatePenalties, correctProvisionalDays, cutoffDateFor, lateMarkMonthsOwed, ordinal, provisionalMessage, provisionalPeriodRows, provisionalSetting } from '../services/payroll/provisionalDays.js';
-import { CarryTakenError, carriesTakenElsewhere, rederiveLoans, undoCarries } from '../services/payroll/run.js';
+import { CarryTakenError, RunBusyError, carriesTakenElsewhere, rederiveLoans, undoCarries } from '../services/payroll/run.js';
 import { capMessage } from '../services/payroll/deductionCap.js';
 import { Prisma } from '../generated/payroll/index.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
@@ -80,9 +80,19 @@ const shape = (row: any, extra: Record<string, unknown> = {}) => ({
   /* Deductions held to the legal share of wages (deductionCap.ts): { percent, people, carried }, and the sentence. */
   deductionCap: row.deductionCap ?? null,
   deductionCapMessage: row.deductionCap ? capMessage(row.deductionCap as any) : null,
+  /* People whose entered deductions pass the share of wages on their own, and the recorded reason they stand (null until given). */
+  overLimit: overLimitOf(row),
   createdAt: row.createdAt,
   ...extra,
 });
+
+/** The over-limit decision a calculation saved on the run: { people, reason, by, at }, or null when nobody passes the limit. */
+function overLimitOf(row: any) {
+  const c = row?.deductionCap as any;
+  const people = Array.isArray(c?.overLimit) ? c.overLimit : [];
+  if (!people.length) return null;
+  return { people, reason: c.overLimitReason?.reason ?? null, by: c.overLimitReason?.userId ?? null, at: c.overLimitReason?.at ?? null };
+}
 
 /** Loads a run, or answers for it. */
 async function runOr404(req: any, res: any) {
@@ -656,7 +666,8 @@ payrollRunsRouter.post(
     });
 
     const errors = issues.filter((i) => i.severity === 'ERROR').length;
-    const warnings = issues.filter((i) => i.severity === 'WARNING').length;
+    /* The over-limit warnings come from the calculation, not from validating: kept in the count until it is worked out again. */
+    const warnings = issues.filter((i) => i.severity === 'WARNING').length + (overLimitOf(run)?.people.length || 0);
     await payrollPrisma.payrollRun.update({ where: { id: run.id }, data: { errorCount: errors, warningCount: warnings } });
 
     res.json({ issues, errors, warnings, canCalculate: errors === 0 });
@@ -677,7 +688,7 @@ payrollRunsRouter.post(
     try {
       calculated = await calculateRun(orgId, run.id, req.auth!.userId);
     } catch (e) {
-      if (e instanceof CarryTakenError) return res.status(409).json({ error: e.message, code: e.code });
+      if (e instanceof CarryTakenError || e instanceof RunBusyError) return res.status(409).json({ error: e.message, code: e.code });
       throw e;
     }
     const { slips, issues } = calculated;
@@ -690,6 +701,38 @@ payrollRunsRouter.post(
       });
     }
     res.json({ calculated: slips.length, issues });
+  }
+);
+
+/*
+ * Why entered deductions past the share of wages stand (a signed agreement,
+ * an order): recorded on the run and in the audit log, and then the payroll
+ * can be sent for review and approved. Calculating again asks again.
+ */
+payrollRunsRouter.post(
+  '/orgs/:orgId/payroll/runs/:id/over-limit-reason',
+  requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const run = await runOr404(req, res);
+    if (!run) return;
+    if (!['CALCULATED', 'REVIEW'].includes(run.status)) return res.status(409).json({ error: 'Only a calculated payroll takes a reason.', code: 'RUN_WRONG_STATUS' });
+    const over = overLimitOf(run);
+    if (!over) return res.status(409).json({ error: 'No deductions pass the limit on this payroll.', code: 'NOT_OVER_LIMIT' });
+    const reason = String(req.body?.reason || '').trim().slice(0, 300);
+    if (reason.length < 5) return res.status(400).json({ error: 'Say why these deductions stand, e.g. "Signed damage agreement, 12 Jun".', code: 'REASON_NEEDED' });
+    const cap = { ...(run.deductionCap as any), overLimitReason: { reason, userId: req.auth!.userId, at: new Date().toISOString() } };
+    /* Against the calculation it was given for: a recalculation in between replaces the figures, and this reason with them. */
+    const moved = await payrollPrisma.payrollRun.updateMany({ where: { id: run.id, calculatedAt: run.calculatedAt, status: run.status }, data: { deductionCap: cap } });
+    if (!moved.count) return res.status(409).json({ error: 'This payroll has just been worked out again. Reload it.', code: 'RUN_CHANGED' });
+    await recordAudit(req, {
+      entity: 'PAYROLL_RUN',
+      entityId: run.id,
+      action: 'OVER_LIMIT_REASON',
+      message: `Payroll ${run.number || run.id}: deductions past the share of wages stand for ${over.people.length}: ${reason}`,
+      metadata: { reason, people: over.people },
+    });
+    res.json({ run: shape(await payrollPrisma.payrollRun.findUniqueOrThrow({ where: { id: run.id } })) });
   }
 );
 
@@ -721,6 +764,18 @@ const transition = (
           error: `This payroll still has ${run.errorCount} problem${run.errorCount === 1 ? '' : 's'} to resolve.`,
           code: 'RUN_HAS_ERRORS',
         });
+      }
+
+      /* Entered deductions past the share of wages: not sent on or approved until reduced, or until somebody records why they stand. */
+      if (to === 'REVIEW' || to === 'APPROVED') {
+        const over = overLimitOf(run);
+        if (over && !over.reason) {
+          return res.status(409).json({
+            error: `Deductions pass ${over.people[0].percent}% of wages for ${over.people.length} ${over.people.length === 1 ? 'person' : 'people'}: ${over.people.map((p: any) => p.name).join(', ')}. Reduce them and calculate again, or record why they stand.`,
+            code: 'DEDUCTIONS_OVER_LIMIT',
+            overLimit: over,
+          });
+        }
       }
 
       /* O-04: a closed Attendance month the days were taken from has been reopened, or closed again, since the pull. */
@@ -835,6 +890,8 @@ payrollRunsRouter.post(
     });
 
     const updated = await payrollPrisma.$transaction(async (tx) => {
+      /* Not while it is being calculated (run.ts calculateRun holds the same lock). */
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payroll-run-calc:${run.id}`}))`;
       const slips = await tx.salarySlip.findMany({ where: { orgId, runId: run.id }, select: { id: true } });
       const ids = slips.map((s) => s.id);
       /*

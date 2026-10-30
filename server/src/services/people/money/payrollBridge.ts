@@ -117,7 +117,8 @@ async function structureGross(orgId: string, employeeId: string) {
  * wages (Code on Wages 2019 s.18; Payment of Wages Act s.7 before it), less
  *  - the regular deductions on their last final payslip (PF, tax, …),
  *  - every deduction already added for the open month and not cancelled (a
- *    recovery waiting in Payroll counts as much as one approved),
+ *    recovery waiting in Payroll counts as much as one approved), and what
+ *    earlier runs carried forward and no payslip has taken yet,
  *  - and the monthly instalment of every loan being recovered or still a draft.
  * Wages are that payslip's gross; with no payslip yet, the monthly earnings of
  * their salary structure, which is approximate. Null when Payroll knows
@@ -154,7 +155,11 @@ export async function payCap(orgId: string, employeeId: string) {
   const period = await periodToPayIn(orgId);
   const [loans, pending] = await Promise.all([
     payrollPrisma.payrollLoan.findMany({ where: { orgId, employeeId, status: { in: ['ACTIVE', 'DRAFT', 'APPROVED'] } }, select: { status: true, principal: true, installmentCount: true, installmentAmount: true, interestRate: true, outstandingBalance: true } }),
-    period ? payrollPrisma.payrollAdjustment.findMany({ where: { orgId, employeeId, periodId: period.id, type: 'DEDUCTION', status: { not: 'CANCELLED' } }, select: { amount: true } }) : Promise.resolve([] as Array<{ amount: unknown }>),
+    /* This month's deductions, and what earlier runs carried and nobody has taken yet: the next payslip takes those first. */
+    payrollPrisma.payrollAdjustment.findMany({
+      where: { orgId, employeeId, type: 'DEDUCTION', OR: [...(period ? [{ periodId: period.id, status: { not: 'CANCELLED' } }] : []), { carriedByRunId: { not: null }, status: 'APPROVED', ...(period ? { periodId: { not: period.id } } : {}) }] },
+      select: { amount: true },
+    }),
   ]);
   /* A draft loan has no instalment written yet: its principal over its months. */
   const instalmentOf = (l: (typeof loans)[number]) => (l.status === 'ACTIVE' ? Number(l.installmentAmount) : l.installmentCount > 0 ? Number(l.principal) / l.installmentCount : Number(l.principal));

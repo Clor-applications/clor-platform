@@ -241,9 +241,9 @@ describe('the share of wages', () => {
 
   it('is a setting, 50 by default, never above 50, for those allowed', async () => {
     const c = await makeOwner();
-    expect((await api.get(c, '/settings/deduction-cap').expect(200)).body).toEqual({ percent: 50, countsStatutory: true });
+    expect((await api.get(c, '/settings/deduction-cap').expect(200)).body).toEqual({ percent: 50, countsStatutory: true, countsPenalties: true });
     expect((await api.put(c, '/settings/deduction-cap', { percent: 75, countsStatutory: true }).expect(400)).body.error).toMatch(/10% and 50%/);
-    expect((await api.put(c, '/settings/deduction-cap', { percent: 40, countsStatutory: false }).expect(200)).body).toEqual({ percent: 40, countsStatutory: false });
+    expect((await api.put(c, '/settings/deduction-cap', { percent: 40, countsStatutory: false }).expect(200)).body).toEqual({ percent: 40, countsStatutory: false, countsPenalties: true });
     const viewer = await employeeLogin(c);
     expect((await api.put(viewer, '/settings/deduction-cap', { percent: 20, countsStatutory: true })).status).toBe(403);
     const other = await makeOwner();

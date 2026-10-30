@@ -1260,13 +1260,17 @@ model PayrollSetting {
   provisionalCutoffDay Int @default(25)
 
   /// Total deductions authorised from wages may not pass this share of the
-  /// wages for the period (Code on Wages 2019 s.18(2); Payment of Wages Act
-  /// s.7(3) before it). Loan and advance instalments past it carry to the
-  /// next run.
+  /// wages for the period (Code on Wages 2019 s.18(3), excess carried under
+  /// s.18(4); Payment of Wages Act 1936 s.7(3) (repealed 21 Nov 2025) before
+  /// it). Loan and advance instalments past it carry to the next run.
   deductionCapPercent         Int     @default(50)
   /// Whether PF, ESI, professional tax and income tax count toward the
   /// share. Read differently in practice; counted by default.
   deductionCapCountsStatutory Boolean @default(true)
+  /// Whether late-mark penalties count toward the share. A late-mark cut on
+  /// days worked is a deduction (Code on Wages 2019 s.18(2)), so counted by
+  /// default; the owner may still decide otherwise.
+  deductionCapCountsPenalties Boolean @default(true)
 
   updatedByUserId String
   createdAt       DateTime @default(now())

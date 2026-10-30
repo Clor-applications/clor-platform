@@ -42,9 +42,9 @@ export const saveProvisionalDays = ({ enabled, cutoffDay }) =>
 export const getDeductionCap = () =>
   apiFetch(`/orgs/${encodeURIComponent(orgId())}/payroll/settings/deduction-cap`, { skipWarehouseHeader: true });
 
-export const saveDeductionCap = ({ percent, countsStatutory }) =>
+export const saveDeductionCap = ({ percent, countsStatutory, countsPenalties }) =>
   apiFetch(`/orgs/${encodeURIComponent(orgId())}/payroll/settings/deduction-cap`, {
     method: 'PUT',
-    body: { percent, countsStatutory },
+    body: { percent, countsStatutory, countsPenalties },
     skipWarehouseHeader: true,
   });
