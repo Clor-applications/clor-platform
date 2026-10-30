@@ -1,6 +1,7 @@
 import React from 'react';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
@@ -149,7 +150,7 @@ describe("the bell's stop-showing button", () => {
       for (const m of readFileSync(p, 'utf8').matchAll(/kind: '([a-z]+\.[a-z_]+)'/g)) kinds.add(m[1]);
     }
   };
-  walk(join(__dirname, '../server/src'));
+  walk(join(dirname(fileURLToPath(import.meta.url)), '../server/src'));
 
   it('has words for every kind the server sends', () => {
     expect(kinds.size).toBeGreaterThan(20);

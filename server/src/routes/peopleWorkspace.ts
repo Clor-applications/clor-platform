@@ -64,9 +64,14 @@ peopleWorkspaceRouter.get(path, async (req, res) => {
   if (res.locals.publishedOnly === true) {
     /* As the employee app (portal.ts, /company-updates): no bookkeeping columns, only what reaches this reader, no past events. */
     const records = await peoplePrisma.peopleRecord.findMany({ where: { ...where, status: PUBLISHED_ONLY[req.params.kind as WorkspaceKind] }, orderBy: { updatedAt: 'desc' }, select: { id: true, kind: true, title: true, status: true, details: true, updatedAt: true } });
-    if (req.params.kind === 'announcements') return res.json({ records: await reaching(records) });
+    /* And only the fields the employee app sends (plus the symbol Home draws): never the audience, whose ids name other employees. */
+    const only = (r: (typeof records)[number], keys: string[]) => {
+      const d = (r.details || {}) as Record<string, unknown>;
+      return { ...r, details: Object.fromEntries(keys.filter((k) => d[k] !== undefined).map((k) => [k, d[k]])) };
+    };
+    if (req.params.kind === 'announcements') return res.json({ records: (await reaching(records)).map((r) => only(r, ['body', 'symbol'])) });
     const t = today();
-    return res.json({ records: records.filter((r) => String((r.details as any).endDate || (r.details as any).startDate) >= t) });
+    return res.json({ records: records.filter((r) => String((r.details as any).endDate || (r.details as any).startDate) >= t).map((r) => only(r, ['startDate', 'endDate', 'location', 'description', 'symbol'])) });
   }
   const rows = await peoplePrisma.peopleRecord.findMany({ where, orderBy: { updatedAt: 'desc' } });
   /* Someone who reads announcements but may not write them reads what is published for them, as in the employee app (time depth, gap 20). */

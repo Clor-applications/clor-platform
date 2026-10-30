@@ -5,6 +5,7 @@
  * (Expense claims are not on main yet: PR #77.)
  */
 import { as, auth } from '../support/api';
+import { auditScreen } from '../support/checks';
 import { appDay, workdayFromNow } from '../support/dates';
 import { expect, test } from '../support/fixtures';
 import type { World } from '../support/world';
@@ -29,6 +30,29 @@ test.describe('Hiring, referrals, swaps and requests', () => {
     await expect(sheet).toBeHidden();
     await expect(kavya.row(job)).toBeVisible();
     await expect(kavya.row(job)).toContainText(/Open/);
+  });
+
+  test('T1b: on a phone the Candidates board scrolls sideways to its last stage', { tag: ['@T1b', '@hiring'] }, async ({ asHR: kavya }, testInfo) => {
+    /* 390px, the phone width the #80 review measured: only Applied and part of Screening showed, the rest clipped.
+       Set before the page loads: the top bar lays itself out for the width it loads at. */
+    await kavya.page.setViewportSize({ width: 390, height: 844 });
+    await kavya.goto();
+    await kavya.open('Candidates');
+    await kavya.main.getByRole('button', { name: 'Board', exact: true }).click();
+    const board = kavya.main.getByRole('region', { name: 'Candidates by stage' });
+    /* The screen checks again, on the board: a box that clips what it holds is reported (clipped-list). */
+    await auditScreen(kavya.page, testInfo);
+    await expect(board).toHaveAttribute('data-wide', '');
+    const hired = board.getByRole('region', { name: 'Hired', exact: true });
+    await hired.scrollIntoViewIfNeeded();
+    const m = await board.evaluate((box) => {
+      const last = box.querySelector('section[aria-label="Hired"]')!.getBoundingClientRect();
+      const frame = box.getBoundingClientRect();
+      return { scrolled: box.scrollLeft, left: last.left, right: last.right, frameLeft: frame.left, frameRight: frame.right };
+    });
+    expect(m.scrolled, 'the board scrolled itself, not the page').toBeGreaterThan(0);
+    expect(m.left, 'Hired shows inside the board').toBeGreaterThanOrEqual(m.frameLeft - 1);
+    expect(m.right, 'Hired shows inside the board').toBeLessThanOrEqual(m.frameRight + 1);
   });
 
   test('T2: Priya refers a friend for an open job; Kavya sees the referral', { tag: ['@T2', '@referrals'] }, async ({ asEmployee: priya, asHR: kavya, w }, testInfo) => {

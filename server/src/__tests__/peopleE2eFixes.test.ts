@@ -57,6 +57,7 @@ describe("a team manager's Home and Who's away read what they need, and no more 
   let lead: Ctx;
   let stranger: Ctx;
   let other: Ctx;
+  let audience: string[] = [];
   beforeAll(async () => {
     owner = await company();
     other = await company();
@@ -65,7 +66,8 @@ describe("a team manager's Home and Who's away read what they need, and no more 
     stranger = await colleague(owner, ['ATTENDANCE::My Attendance::VIEW']);
     const leadEmp = await person(owner, { name: 'Rahul Lead', code: 'TM1' });
     await link(owner, leadEmp.id, lead.userId);
-    await person(owner, { name: 'Imran Report', code: 'TM2', reportingManagerId: leadEmp.id });
+    const report = await person(owner, { name: 'Imran Report', code: 'TM2', reportingManagerId: leadEmp.id });
+    audience = [leadEmp.id, report.id];
     await att(owner, 'post', '/holidays', { date: `${nextYear}-01-26`, name: 'Republic Day' }).expect(201);
     await att(other, 'post', '/holidays', { date: `${nextYear}-08-15`, name: 'Other Co holiday' }).expect(201);
     for (const [title, status] of [['Canteen opens', 'PUBLISHED'], ['Pay rise draft', 'DRAFT']]) {
@@ -102,6 +104,19 @@ describe("a team manager's Home and Who's away read what they need, and no more 
     /* HR (the owner) still reads everything, drafts too. */
     const all = (await ppl(owner, 'get', '/workspace/events').expect(200)).body.records;
     expect(all.map((r: any) => r.title).sort()).toEqual(['Diwali lunch', 'Offsite idea']);
+  });
+
+  it('reads a published announcement as the employee app does: no audience, so no other employee ids (#80 re-review)', async () => {
+    await ppl(owner, 'post', '/workspace/announcements', { title: 'Team lunch', status: 'PUBLISHED', details: { body: 'Friday', symbol: 'party', audienceKind: 'PEOPLE', audienceIds: audience, audience: 'Rahul Lead and Imran Report' } }).expect(201);
+    const news = (await ppl(lead, 'get', '/workspace/announcements').expect(200)).body.records;
+    const lunch = news.find((r: any) => r.title === 'Team lunch');
+    expect(lunch.details).toEqual({ body: 'Friday', symbol: 'party' });
+    expect(JSON.stringify(news)).not.toContain(audience[1]);
+    const events = (await ppl(lead, 'get', '/workspace/events').expect(200)).body.records;
+    expect(Object.keys(events[0].details).sort()).toEqual(['description', 'endDate', 'location', 'startDate']);
+    /* HR still reads the whole record, audience included. */
+    const all = (await ppl(owner, 'get', '/workspace/announcements').expect(200)).body.records;
+    expect(all.find((r: any) => r.title === 'Team lunch').details.audienceIds).toEqual(audience);
   });
 
   it('cannot read the company set-up list (Home asks only those who can)', async () => {
