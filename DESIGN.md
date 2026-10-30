@@ -448,30 +448,42 @@ There is no sixth. **Icon-only is a size of ghost, not a type**
 tap area on phones even when the glyph is smaller.
 
 Sizes: **36px** baseline, **28px** compact (`.ui-btn-sm`, in tables and
-toolbars where 36 will not fit), and **44px on phones** for every button a
-thumb has to hit. Radius **8px**. People's brand D draws its buttons as pills
+toolbars where 36 will not fit), and **44px on phones** as the target for
+every button a thumb has to hit. Where it is enforced today: in People (sky
+palette, under 768px) every `.ui-btn`, `.ui-btn-sm` and page button in the work
+area and in drawers and dialogs (`people.css`, "The base button rule fixes its
+height"); in the other apps only the stepped-form actions
+(`.ui-wizard-actions`, under 640px). Elsewhere it is a target, not yet a
+rule. Radius **8px**. People's brand D draws its buttons as pills
 (2026-10-28); that is the one exception and it stays inside the sky palette.
 
 ### Icons in buttons (People)
 
-Icons inside People's buttons are **marigold** (`--btn-icon`, #F5A623; owner,
-2026-10-31). Measured, and the rule follows the numbers:
+Icons inside People's buttons are **marigold** (owner, 2026-10-31). Measured,
+and the rule follows the numbers:
 
-- **Primary** (indigo fill): marigold on indigo is 6.5:1 (5.3:1 on hover).
-- **Secondary, soft, ghost with a label**: marigold on white is 2.0:1, under
-  the 3:1 a meaningful graphic needs (WCAG 1.4.11). It is allowed only because
-  the label carries the meaning; the icon is `aria-hidden` decoration.
+- **Primary** (indigo fill): marigold `--btn-icon` #F5A623 on indigo is 6.5:1
+  (5.3:1 on hover).
+- **Secondary, soft, ghost with a label** (white surfaces): the bright marigold
+  was 2.0:1 and read washed out, so these take a deeper marigold,
+  `--btn-icon-on-white` **#C98200**: 3.2:1 on white, 2.9:1 on the hover tint,
+  2.7:1 on the soft tint. That clears the 3:1 a meaningful graphic needs (WCAG
+  1.4.11) on white; below it, it is allowed only because the label carries the
+  meaning and the icon is `aria-hidden` decoration.
 - **Icon-only** buttons have no label to lean on, so they keep their ink
   (indigo, 13:1). People's action icons are Fluent line glyphs with no second
   layer, so there is no two-tone marigold-and-indigo version to use instead.
   A `.ui-btn` drawn icon-only is marked `.ui-btn-icon-only` (or
   `data-icon-only`) so it keeps its ink too.
 - **Danger** keeps its own white. A **disabled** button's icon drops to its
-  label's colour and fades with it. The **loading spinner** and the **done
-  tick** take the colour the icon would have.
-- **Dark theme**: marigold on the dark surfaces is 7.6–9.8:1, so secondary,
-  soft and ghost keep it; the dark primary is a light teal fill (marigold on
-  it 1.1:1), so its icon keeps the dark ink.
+  label's colour and fades with it. The **done tick** takes the icon's colour.
+  The **loading spinner** is ink on secondary, soft and ghost (a thin amber
+  ring on white was hard to see) and marigold on the primary.
+- **Legacy dark theme** (brand D is light only; People's dark keeps its earlier
+  teal values until a dark brand D is designed): bright marigold on the dark
+  surfaces is 7.6–9.8:1, so secondary, soft and ghost keep it; the legacy dark
+  primary is a light teal fill (marigold on it 1.1:1), so its icon keeps the
+  dark ink.
 
 Payroll, Attendance and Accounting do not change: the rule lives in
 `people.css` under the sky palette.
@@ -624,7 +636,7 @@ because focus, portals and event order cannot be read off the source.
 | 2026-10-28 | People navigation renamed and regrouped | Owner, as a user, was "not satisfied". Rail: Home · People · Organisation · Time · Talent · Workplace · Reports · Settings. Sentence case for every People label (tested); page titles equal menu labels; one Approvals inbox with Approve on each row; My leave and My attendance under My profile; Reports holds reports only (Data check and Privacy controls moved to Settings) |
 | 2026-10-30 | Web tests run on every pull request; drifted code fixed to this file | Nothing ran the web suite and 53 tests had failed since the initial import (00f6a61a). Where the code had drifted from a rule already here, the code was fixed: 36 bold or semibold data values (weight marks structure, money at 400), and the Masters "TDS" entry renamed TDS Rates beside GST Rates and TCS Rates |
 | 2026-10-30 | **Pending owner approval:** what shipped differs from what the old tests asked | The updated tests describe the screens as shipped, not a decision taken. Each is the owner's to accept or reverse: a three-up overview row at `xl` when each panel keeps 15rem (was "wait for `2xl`"); document lists' status dropdowns without counts; Price Lists without a figure row or its "pricing nothing" figure; the Settings catalogue leaving out the platform category and Tax Rates (reached from Sales and Masters instead). Also as shipped and unremarkable: the overviews share a running Home's plain header (HeroBand stays for Home's first hour); party masters draw addresses as one table and the customer's Dr / Cr sit inline beside the amount |
-| 2026-10-31 | Buttons: five appearances, loading and success states, no FAB; marigold icons in People | Owner reviewed a nine-type button list. CLOR keeps five appearances (primary, secondary, soft, ghost, danger); icon-only is a size of ghost; priority and appearance are separate ideas. Adds a shared loading state (`aria-busy`, spinner in the icon's place, width kept, clicks refused, label still read out, breathing under reduced motion) and a brief success state (`data-state="done"`, tick and "Saved" for 1.5s, only where no toast fires), via `Button` / `useDoneFlash` in `Primitives.jsx`. No floating action button. Owner, same day: "in buttons symbols use yellow": in People (sky palette) icons in primary, secondary, soft and ghost buttons are marigold #F5A623 (6.5:1 on indigo; 2.0:1 on white, allowed only beside a label); icon-only buttons keep their ink (no 3:1-safe two-tone in Fluent line icons); danger keeps white; disabled follows the label; dark primary keeps its ink (1.1:1 on teal). Payroll, Attendance and Accounting unchanged |
+| 2026-10-31 | Buttons: five appearances, loading and success states, no FAB; marigold icons in People | Owner reviewed a nine-type button list. CLOR keeps five appearances (primary, secondary, soft, ghost, danger); icon-only is a size of ghost; priority and appearance are separate ideas. Adds a shared loading state (`aria-busy`, spinner in the icon's place, width kept, clicks refused, label still read out, breathing under reduced motion) and a brief success state (`data-state="done"`, tick and "Saved" for 1.5s, only where no toast fires), via `Button` / `useDoneFlash` in `Primitives.jsx`. No floating action button. Owner, same day: "in buttons symbols use yellow": in People (sky palette) icons in buttons are marigold: #F5A623 on the indigo primary (6.5:1), a deeper #C98200 on white secondary, soft and ghost (3.2:1 on white; the bright one was 2.0:1 and read washed out), spinner in ink there; icon-only buttons keep their ink (no 3:1-safe two-tone in Fluent line icons); danger keeps white; disabled follows the label; legacy dark primary keeps its ink (1.1:1 on teal). Payroll, Attendance and Accounting unchanged |
 | 2026-10-29 | Direction D "Done, daily" brand shipped | C-tick mark and Bricolage wordmark replace the red mark and PNG wordmark; platform palette moves from graphite to indigo / marigold / lilac / cotton. Money semantics and the per-app palettes (Blaze, Rose) unchanged |
 | 2026-10-02 | Contrast floor re-measured against the page ground, not white | Compliance audit: Graphite `--fg-subtle` #71717A was 4.83:1 on white but 4.40:1 on the `--app-bg` it often sits on, under AA; now #6B6B73 (4.81:1). `--warn` #A66A00 measured 4.48:1, now #996200. Orange-theme tokens (primary fill, focus ring, orange text → `--brand-ink`) corrected too, though Graphite overrides them. Field borders (1.48:1, WCAG 1.4.11) left for a design decision — see docs/compliance |
 | 2026-10-02 | Inter served from the app, not Google Fonts | Loading it from fonts.googleapis.com sent every visitor's IP to Google before sign-in. Same face (`@fontsource-variable/inter`, OFL); the family is `'Inter Variable'` first in every stack |

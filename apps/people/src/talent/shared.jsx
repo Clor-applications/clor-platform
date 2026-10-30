@@ -141,7 +141,7 @@ export function ReasonDrawer({ title, label, help, action, suggestions = [], onC
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={title} dirty={Boolean(text.trim())}
       footer={<Footer onCancel={onClose} onSave={go} busy={busy} label={action} />}>
-      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); go(); }}>
+      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (busy) return; go(); }}>
         <FormError error={error} />
         <label className="block sm:col-span-2"><span className="ui-label">{label} *</span>
           <SuggestInput value={text} autoFocus maxLength={500} aria-invalid={missing || undefined} onChange={(v) => { setText(v); setMissing(false); }} suggestions={suggestions} />

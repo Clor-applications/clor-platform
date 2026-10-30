@@ -226,7 +226,7 @@ export function CandidateForm({ value, openings = [], known = [], onClose, onSav
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={dirty} title={value.id ? `Edit ${value.name}` : 'Add a candidate'}
       footer={<Footer onCancel={onClose} onSave={save} busy={busy} label={value.id ? 'Save' : 'Add'} disabled={Boolean(value.id) && !dirty} />}>
-      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
+      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (busy) return; save(); }}>
         <FormError error={error} />
         {!value.id ? <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Opening *" value={form.openingId} placeholder={openings.length ? 'Choose…' : 'No open job yet'} alwaysSearch={openings.length > 8} onChange={(v) => set({ openingId: v || '' })} options={openings.map((o) => ({ value: o.id, label: o.title }))} /></div> : null}
         {/* A candidate's own name, e-mail and phone are theirs: never offered to another record. */}
@@ -270,7 +270,7 @@ function InterviewForm({ candidate, interview, onClose, onSaved }) {
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={dirty} title={`${interview ? 'Move the interview' : 'Interview'} with ${candidate.name}`}
       footer={<Footer onCancel={onClose} onSave={save} busy={busy} label={interview ? 'Move' : 'Set'} />}>
-      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
+      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (busy) return; save(); }}>
         <FormError error={error} />
         <label className="block"><span className="ui-label">When *</span><input className="ui-input w-full tabular-nums" type="datetime-local" value={form.at} min={`${todayIst()}T00:00`} onChange={(e) => set({ at: e.target.value })} /></label>
         <div><PopupSelect showValueSubtext={false} label="How long" value={form.minutes} onChange={(v) => set({ minutes: v || '45' })} options={['30', '45', '60', '90', '120'].map((m) => ({ value: m, label: `${m} minutes` }))} /></div>
@@ -305,7 +305,7 @@ export function FeedbackForm({ interview, name, onClose, onSaved }) {
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={Boolean(recommendation || notes.trim())} title={`Feedback on ${name}`}
       footer={<Footer onCancel={onClose} onSave={save} busy={busy} label="Give feedback" />}>
-      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
+      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (busy) return; save(); }}>
         <FormError error={error} />
         <fieldset className="sm:col-span-2">
           <legend className="ui-label">Would you take them on? *</legend>
@@ -344,7 +344,7 @@ function HireDrawer({ candidate, acceptedJoining, onClose, onDone }) {
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={`Hire ${candidate.name}`}
       footer={<Footer onCancel={onClose} onSave={hire} busy={busy} label="Hire" />}>
-      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); hire(); }}>
+      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (busy) return; hire(); }}>
         <FormError error={error} />
         <div><label className="ui-label" htmlFor="hire-date">Joining date *</label><DatePicker id="hire-date" value={dateOfJoining} onChange={(v) => setDate(v || '')} /></div>
         <label className="block"><span className="ui-label">Employee ID</span><SuggestInput maxLength={40} value={code} onChange={setCode} suggestions={next.data ? [{ value: next.data, hint: 'Next ID' }] : []} /></label>

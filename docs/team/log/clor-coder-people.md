@@ -1,5 +1,11 @@
 # clor-coder-people — work log
 
+## 2026-10-31 02:00 IST — Design system / buttons — PR #84 review fixes
+- Did: the done live region now stays mounted, empty, and only its text changes. Talent drawer forms ignore Enter while busy (22 forms). On white, secondary, soft and ghost icons use a deeper marigold #C98200 (3.2:1 on white), and the spinner on those buttons is ink. DESIGN.md says where 44px on phones is enforced (People already does it under 768px). Legacy dark theme labelled. Added a comment explaining `:is(#main-content, body)`.
+- Evidence: web suite 276 files, 1969 passed (2 todo). New talent/shared.test.jsx fails with the guard removed and passes with it. At 390: Employees and drawer buttons all measured 44px, no sideways scroll. test/people-color-twins.test.js passes on this branch, and origin/main has not moved.
+- Next: hand back to review.
+- Blocked on: nothing
+
 ## 2026-10-31 01:45 IST — Design system / buttons — loading and success states, marigold icons
 - Did: shared button loading state (`aria-busy`, spinner in the icon's place, width kept, clicks refused, label still read, breathing under reduced motion) and brief success state (`data-state="done"`); `Button` + `useDoneFlash` in Primitives.jsx. Converted Profile (3 hand-rolled spinners), the Talent drawer footer (about 20 drawers), Attendance rules Save, Tags Add (loading + "Added"; no toast fires there). People icons in buttons marigold per the owner, icon-only keeps ink, danger keeps white. DESIGN.md Buttons section and 2026-10-31 decision row.
 - Evidence: branch claude/button-states. Web suite 275 files, 1968 passed (2 todo); new buttonStates.test.jsx (9) and Tags.test.jsx (1). eslint on touched files: 0 errors. Browser: 1440 and 390, light and dark, screenshots in the session scratchpad team/buttons-evidence/. Measured: Add stays 102.5px wide in default, loading and done.

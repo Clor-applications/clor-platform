@@ -183,7 +183,7 @@ function RuleDrawer({ onClose }) {
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title="Referral bonus rule" dirty={value !== null && value !== req.data?.forfeitIfReferrerLeaves}
       footer={<Footer onCancel={onClose} onSave={save} busy={busy} label="Save" disabled={!req.data} />}>
-      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
+      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (busy) return; save(); }}>
         <FormError error={error} />
         <fieldset className="block sm:col-span-2">
           <legend className="ui-label">When the referrer leaves before the bonus date</legend>

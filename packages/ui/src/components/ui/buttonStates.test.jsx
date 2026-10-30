@@ -56,15 +56,20 @@ describe('Button done', () => {
     vi.useFakeTimers();
     try {
       render(<Saver />);
+      /* The live region is there, empty, before anything is said, so the change is announced. */
+      const status = screen.getByRole('status');
+      expect(status).toHaveTextContent('');
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
       const b = screen.getByRole('button', { name: 'Saved' });
       expect(b).toHaveAttribute('data-state', 'done');
-      expect(screen.getByRole('status')).toHaveTextContent('Saved');
+      expect(screen.getByRole('status')).toBe(status);
+      expect(status).toHaveTextContent('Saved');
       act(() => { vi.advanceTimersByTime(1499); });
       expect(screen.getByRole('button', { name: 'Saved' })).toBeInTheDocument();
       act(() => { vi.advanceTimersByTime(2); });
       expect(screen.getByRole('button', { name: 'Save' })).not.toHaveAttribute('data-state');
-      expect(screen.queryByRole('status')).toBeNull();
+      expect(screen.getByRole('status')).toBe(status);
+      expect(status).toHaveTextContent('');
     } finally {
       vi.useRealTimers();
     }

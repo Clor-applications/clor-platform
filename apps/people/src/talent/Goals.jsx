@@ -120,7 +120,7 @@ function GoalDrawer({ id, onEdit, onClose, onChanged }) {
           </dl>
           {g.description ? <p className="text-sm whitespace-pre-wrap">{g.description}</p> : null}
           {active ? (
-            <form className="ui-form-grid border-t pt-4" style={{ borderColor: 'rgb(var(--border))' }} onSubmit={(e) => { e.preventDefault(); save(); }} aria-label="Check in">
+            <form className="ui-form-grid border-t pt-4" style={{ borderColor: 'rgb(var(--border))' }} onSubmit={(e) => { e.preventDefault(); if (busy) return; save(); }} aria-label="Check in">
               <p className="ui-label sm:col-span-2">Check in</p>
               <FormError error={error} />
               <label className="block"><span className="ui-label">Progress (%)</span><input className="ui-input w-full tabular-nums" inputMode="numeric" value={form.progress} onChange={(e) => setForm({ ...form, progress: e.target.value.replace(/\D/g, '').slice(0, 3) })} /></label>
@@ -173,7 +173,7 @@ function GoalForm({ value, staff, rows, onClose, onSaved }) {
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={dirty} title={value.id ? 'Edit goal' : 'New goal'}
       footer={<Footer onCancel={onClose} onSave={save} busy={busy} label="Save" disabled={Boolean(value.id) && !dirty} />}>
-      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
+      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (busy) return; save(); }}>
         <FormError error={error} />
         {!value.id ? <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Person *" value={form.employeeId} placeholder="Choose…" alwaysSearch onChange={(v) => set({ employeeId: v || '' })} options={staffOptions(staff)} /></div> : null}
         <label className="block sm:col-span-2"><span className="ui-label">Goal *</span><SuggestInput autoFocus maxLength={200} value={form.title} onChange={(v) => set({ title: v })} suggestions={usedValues(rows, (r) => r.title)} /></label>

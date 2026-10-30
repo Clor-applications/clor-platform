@@ -87,7 +87,7 @@ export default function ReferralSettings({ opening, value, onClose, onSaved }) {
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={dirty} title={`Referrals for ${opening.title}`}
       footer={<Footer onCancel={onClose} onSave={save} busy={busy} label="Save" disabled={!dirty} />}>
       {lists.loading && !lists.data ? <SkeletonCard lines={5} /> : (
-        <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
+        <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (busy) return; save(); }}>
           <FormError error={error} />
           <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" className="ui-checkbox" checked={form.referralOpen} onChange={(e) => set({ referralOpen: e.target.checked })} />Staff may refer people for this job</label>
           {form.referralOpen ? (

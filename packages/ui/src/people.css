@@ -1888,21 +1888,28 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
 
 /*
  * Icons in buttons are marigold (owner, 31 Oct 2026: "in buttons symbols use yellow"). Measured, and followed:
- *   on the indigo primary 6.5:1 (hover 5.3:1), so the icon reads on its own;
- *   on white secondary, soft and ghost buttons 2.0:1, under the 3:1 a meaningful graphic needs (WCAG 1.4.11). It is
- *   allowed there only because the label beside it carries the meaning; the icon is aria-hidden decoration.
+ *   Primary (indigo fill): marigold #F5A623, 6.5:1 (5.3:1 on hover), so the icon reads on its own.
+ *   Secondary, soft and ghost (white surfaces): the bright marigold was 2.0:1 and read washed out, so these take a
+ *   deeper marigold, #C98200: 3.2:1 on white, 2.9:1 on the hover tint, 2.7:1 on the soft tint. It clears the 3:1 a
+ *   meaningful graphic needs (WCAG 1.4.11) on white; it is allowed below that only because the label carries the
+ *   meaning and the icon is aria-hidden.
  *   Icon-only buttons (.ui-icon-btn, or a .ui-btn marked .ui-btn-icon-only / data-icon-only) have no label to lean on,
- *   so they keep their ink. Their icons are Fluent line glyphs with no fill layer to take the marigold, so there is
- *   no two-tone way to do both.
- *   Danger keeps its own white; a disabled button's icon drops to its label's colour and fades with it; the loading
- *   spinner and the done tick take the same colour as the icon would.
- * Dark theme: marigold on the dark surfaces is 7.6 to 9.8:1, so secondary, soft and ghost keep it; the dark primary is
- * a light teal fill (marigold on it 1.1:1), so its icon keeps the dark ink. Payroll, Attendance and Accounting are
- * unchanged: none of this applies outside the sky palette.
+ *   so they keep their ink (indigo, 13:1). Their icons are Fluent line glyphs with no fill layer to take marigold.
+ *   Danger keeps its own white; a disabled button's icon drops to its label's colour and fades with it; the done tick
+ *   takes the icon's colour; the loading spinner is ink on secondary, soft and ghost (a thin amber ring on white was
+ *   hard to see) and marigold on the primary.
+ * Legacy dark theme (brand D is light only; People's dark keeps its earlier teal values): bright marigold on the dark
+ * surfaces is 7.6 to 9.8:1; the dark primary is a light teal fill (marigold on it 1.1:1), so its icon keeps the ink.
+ * Payroll, Attendance and Accounting are unchanged: none of this applies outside the sky palette.
+ *
+ * Why `:is(#main-content, body)`: an :is() takes its most specific argument, so this counts as an id selector even
+ * where it matches on body (drawers and dialogs portal outside #main-content). It has to beat the older
+ * `#main-content .ui-btn-secondary > svg` colour rule above without an !important.
  */
 :root[data-palette='sky'],
 [data-palette='sky'] {
   --btn-icon: 245 166 35;
+  --btn-icon-on-white: 201 130 0;
 }
 :root[data-palette='sky'] :is(#main-content, body) .ui-btn:is(.ui-btn-primary, .ui-btn-brand, .ui-btn-secondary, .ui-btn-soft, .ui-btn-ghost):not(.ui-btn-icon-only, [data-icon-only]) {
   --btn-icon-color: rgb(var(--btn-icon));
@@ -1910,6 +1917,13 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
 :root[data-palette='sky'] :is(#main-content, body) .ui-btn:is(.ui-btn-primary, .ui-btn-brand, .ui-btn-secondary, .ui-btn-soft, .ui-btn-ghost):not(.ui-btn-icon-only, [data-icon-only]) > svg {
   color: var(--btn-icon-color);
 }
+:root[data-palette='sky'] :is(#main-content, body) .ui-btn:is(.ui-btn-secondary, .ui-btn-soft, .ui-btn-ghost) {
+  --btn-spinner-color: currentColor;
+}
+:root[data-palette='sky']:not([data-theme='dark']) :is(#main-content, body) .ui-btn:is(.ui-btn-secondary, .ui-btn-soft, .ui-btn-ghost):not(.ui-btn-icon-only, [data-icon-only]) {
+  --btn-icon-color: rgb(var(--btn-icon-on-white));
+}
+/* Legacy dark theme: the teal primary keeps its ink. Then disabled, last, so it wins over both rules above. */
 :root[data-theme='dark'][data-palette='sky'] :is(#main-content, body) .ui-btn:is(.ui-btn-primary, .ui-btn-brand):not(.ui-btn-icon-only, [data-icon-only]),
 :root[data-palette='sky'] :is(#main-content, body) .ui-btn:is(.ui-btn-primary, .ui-btn-brand, .ui-btn-secondary, .ui-btn-soft, .ui-btn-ghost):not(.ui-btn-icon-only, [data-icon-only]):disabled {
   --btn-icon-color: currentColor;

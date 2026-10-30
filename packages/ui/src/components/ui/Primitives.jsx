@@ -478,7 +478,8 @@ export const Button = ({
           {Icon ? null : <span className="ui-btn-spinner" aria-hidden="true" />}
         </span>
       </button>
-      {done ? <span className="sr-only" role="status">{doneLabel}</span> : null}
+      {/* Mounted empty from the start: a live region that appears already holding its words is often not read out. */}
+      <span className="sr-only" role="status">{done ? doneLabel : ''}</span>
     </>
   );
 };

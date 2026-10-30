@@ -1021,8 +1021,8 @@
      same look from the fallback below.
      Done: `data-state="done"` swaps the label for a tick and a short word
      ("Saved") for about 1.5s. The toast stays the main success signal.
-     The spinner and the tick take the icon's colour (`--btn-icon-color`),
-     so they follow whatever an app says about icons in buttons. */
+     The tick takes the icon's colour (`--btn-icon-color`) and the spinner
+     takes `--btn-spinner-color` when an app sets one, else the icon's. */
   .ui-btn[aria-busy='true'],
   .ui-btn[data-state='loading'] {
     pointer-events: none;
@@ -1057,7 +1057,7 @@
     width: 0.875rem;
     height: 0.875rem;
     border-radius: 999px;
-    border: 2px solid var(--btn-icon-color, currentColor);
+    border: 2px solid var(--btn-spinner-color, var(--btn-icon-color, currentColor));
     border-right-color: transparent;
     animation: ui-spin 700ms linear infinite;
   }
@@ -1085,7 +1085,7 @@
     height: 0.875rem;
     margin: 0.0625rem;
     border-radius: 999px;
-    border: 2px solid var(--btn-icon-color, currentColor);
+    border: 2px solid var(--btn-spinner-color, var(--btn-icon-color, currentColor));
     border-right-color: transparent;
     animation: ui-spin 700ms linear infinite;
   }
@@ -1094,7 +1094,7 @@
   @media (prefers-reduced-motion: reduce) {
     .ui-btn .ui-btn-spinner,
     .ui-btn:is([aria-busy='true'], [data-state='loading']):not(:has(.ui-btn-label))::before {
-      border-right-color: var(--btn-icon-color, currentColor);
+      border-right-color: var(--btn-spinner-color, var(--btn-icon-color, currentColor));
       animation: ui-btn-pulse 1.2s ease-in-out infinite !important;
       animation-duration: 1.2s !important;
       animation-iteration-count: infinite !important;
