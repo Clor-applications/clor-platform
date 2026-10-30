@@ -164,6 +164,9 @@ export async function ensureInterview(orgId: string, employeeId: string) {
 
 const purposeOf = (keepMonths: number) => `Your answers help the company understand why people leave and what to change. HR and the owner read them; your managers too, unless you hide them. They are kept for ${keepMonths} months, then erased.`;
 
+/** The same promise, said to whoever reads it on the plan: HR, the owner or a manager, not the leaver. */
+const readerPurposeOf = (keepMonths: number) => `The answers help the company understand why people leave and what to change. HR and the owner read them; their managers too, unless they hide them. They are kept for ${keepMonths} months, then erased.`;
+
 type Row = NonNullable<Awaited<ReturnType<typeof ensureInterview>>>;
 /** HR: everything. LINE: a manager above them. HIDDEN: that manager, kept out by the leaver. SELF: the leaver, with nothing of HR's. */
 type View = 'HR' | 'LINE' | 'HIDDEN' | 'SELF';
@@ -214,7 +217,7 @@ export async function interviewFor(orgId: string, employeeId: string, viewer: { 
   const hidden = !viewer.hr && !viewer.self && r.hideFromManager;
   const view: View = viewer.hr ? 'HR' : viewer.self ? 'SELF' : hidden ? 'HIDDEN' : 'LINE';
   const { keepMonths } = await exitSettings(orgId);
-  return { ...shape(r, view), hiddenFromYou: hidden, purpose: purposeOf(keepMonths), canEnter: viewer.hr && r.status === 'OPEN', canDecide: viewer.hr };
+  return { ...shape(r, view), hiddenFromYou: hidden, purpose: view === 'SELF' ? purposeOf(keepMonths) : readerPurposeOf(keepMonths), canEnter: viewer.hr && r.status === 'OPEN', canDecide: viewer.hr };
 }
 
 const answerSchema = z.object({

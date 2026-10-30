@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 
-import LeavingSections, { FinalPayBanner, FinalPayList } from './LeavingExtras';
+import LeavingSections, { ExitQuestionsForm, FinalPayBanner, FinalPayList } from './LeavingExtras';
 
 /*
  * The leaving plan's final-pay clock, no-dues sign-off and exit interview (WORKFLOW-GAP-RESEARCH 4.3,
@@ -170,4 +170,50 @@ it('Home with several leavers: one alert with a row each, the rest behind a link
   expect(screen.queryByText('Person D')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '2 more' }));
   expect(more).toHaveBeenCalled();
+});
+
+/* QA on #81 (manager): the Leaving screen is view only for a Team Manager, and its write guard read "Sign off" as an approval. */
+const perms = vi.hoisted(() => ({ current: { loading: false, error: null, isAdmin: false, permissions: new Set(['PEOPLE::Employees::VIEW']) } }));
+vi.mock('../permissions/usePermissions', () => ({ usePermissions: () => perms.current, default: () => perms.current }));
+const { WriteGuard } = await import('../permissions/WriteGuard');
+
+it('on a view-only screen, the owner of a line still ticks, notes, saves and signs it off', async () => {
+  api.updateClearanceLine.mockResolvedValue({ line: {} });
+  const own = line({ items: [{ title: 'Work handed over', returned: false }] });
+  render(<WriteGuard permission="PEOPLE::Employees::VIEW"><LeavingSections data={{ canEdit: false, interview: null, clearance: { leaving: true, lines: [own], totals: { owes: 0, owed: 0 }, open: 1, found: null } }} employeeId="e1" name="Lakshmi" /></WriteGuard>);
+  expect(screen.getByText(/View only/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: /Manager: Handover/ }));
+  fireEvent.click(await screen.findByLabelText('Work handed over'));
+  fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'Files on the shared drive' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(api.updateClearanceLine).toHaveBeenCalledWith('l1', expect.objectContaining({ items: [{ title: 'Work handed over', returned: true }], note: 'Files on the shared drive' })));
+  api.updateClearanceLine.mockClear();
+  /* Saved, the drawer closed; opened again, signed. */
+  fireEvent.click(await screen.findByRole('button', { name: /Manager: Handover/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign off' }));
+  await waitFor(() => expect(api.updateClearanceLine).toHaveBeenCalledWith('l1', expect.objectContaining({ sign: true })));
+  expect(dialogs.notify.error).not.toHaveBeenCalled();
+});
+
+it('on the same screen, nothing else is let through: an HR-only button is still stopped', () => {
+  render(<WriteGuard permission="PEOPLE::Employees::VIEW"><div><button type="button" className="ui-btn ui-btn-primary" onClick={api.addClearanceLine}>Add</button></div><LeavingSections data={{ canEdit: false, interview: null, clearance: { leaving: true, lines: [line()], totals: null, open: 1, found: null } }} employeeId="e1" name="Lakshmi" /></WriteGuard>);
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+  expect(api.addClearanceLine).not.toHaveBeenCalled();
+  expect(dialogs.notify.error).toHaveBeenCalled();
+});
+
+it('a line that is not yours reads as words, with no boxes that look tickable', async () => {
+  const theirs = line({ id: 'a', dept: 'ADMIN', deptWord: 'Admin', label: 'ID card, keys and access', ownerName: 'Kavya Nair', canSign: false, mine: false, items: [{ title: 'ID card', returned: true }, { title: 'Keys', returned: false }] });
+  render(<LeavingSections data={{ canEdit: false, interview: null, clearance: { leaving: true, lines: [theirs], totals: null, open: 1, found: null } }} employeeId="e1" name="Lakshmi" />);
+  fireEvent.click(screen.getByRole('button', { name: /Admin: ID card/ }));
+  const list = await screen.findByRole('list', { name: 'To hand back' });
+  expect(within(list).getByText('Back')).toBeTruthy();
+  expect(within(list).getByText('Not back yet')).toBeTruthy();
+  expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+  expect(screen.queryByRole('button', { name: 'Sign off' })).toBeNull();
+});
+
+it('exit form choices are a thumb’s width on a phone', () => {
+  render(<ExitQuestionsForm questions={[{ key: 'reason', kind: 'REASON', text: 'Main reason?', options: [{ code: 'PAY', label: 'Pay' }] }]} answers={{}} onChange={() => {}} />);
+  expect(screen.getByRole('button', { name: 'Pay' }).className).toMatch(/\bmin-h-11\b/);
 });

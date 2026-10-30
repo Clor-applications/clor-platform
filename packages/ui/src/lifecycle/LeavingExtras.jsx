@@ -129,22 +129,41 @@ function LineDrawer({ line, canEdit, onClose, onSaved }) {
     }
   };
   const open = !signed && line.canSign;
+  /*
+   * The line's owner may sign and save it whatever the screen's own rights (the server checks: Employees view
+   * and being the owner). The screen-wide write guard would read "Sign off" as an approval and the screen as
+   * view only, so the drawer says this line is theirs to act on; nothing else on the screen is widened.
+   */
+  const mayAct = line.canSign ? { 'data-write-allowed': 'true' } : {};
   return (
     <Drawer open onClose={onClose} dirty={dirty && !busy} widthClass="w-[min(34rem,96vw)]" title={`${line.deptWord}: ${line.label}`}
-      footer={<>
+      footer={<div className="contents" {...mayAct}>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>{open ? 'Cancel' : 'Close'}</button>
         {signed && canEdit ? <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => run('reopen')}>{busy === 'reopen' ? 'Opening…' : 'Open again'}</button> : null}
         {open && dirty ? <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => run('save')}>{busy === 'save' ? 'Saving…' : 'Save'}</button> : null}
         {open ? <button type="button" className="ui-btn ui-btn-primary" disabled={Boolean(busy)} onClick={() => run('sign')}>{busy === 'sign' ? 'Signing…' : 'Sign off'}</button> : null}
-      </>}>
-      <div className="grid gap-5">
+      </div>}>
+      <div className="grid gap-5" {...mayAct}>
         <dl className="grid gap-3 sm:grid-cols-2 text-sm">
           <div><dt className="ui-label">Owner</dt><dd className="mt-0.5">{line.ownerName || 'Nobody named: HR signs it'}</dd></div>
           <div><dt className="ui-label">State</dt><dd className="mt-0.5">{signed ? `Signed off${line.signedBy ? ` by ${line.signedBy}` : ''}${line.signedAt ? `, ${formatDate(String(line.signedAt).slice(0, 10))}` : ''}` : 'Open'}</dd></div>
         </dl>
         {!line.canSign && !signed ? <p className="text-sm">{line.ownerName || 'Its owner'} or HR signs this line.</p> : null}
-        {items.length ? (
-          <fieldset className="space-y-2" disabled={!open}>
+        {items.length && !open ? (
+          /* Not theirs to change, or already signed: what came back, as words, not boxes that look tickable. */
+          <div className="space-y-1">
+            <p className="ui-label">{line.dept === 'MANAGER' ? 'To do' : 'To hand back'}</p>
+            <ul className="divide-y border-t text-sm" aria-label={line.dept === 'MANAGER' ? 'To do' : 'To hand back'}>
+              {items.map((it, i) => (
+                <li key={`${it.title}-${i}`} className="flex items-baseline justify-between gap-3 py-1.5">
+                  <span>{it.title}{it.tag ? <span className="ui-caption"> · {it.tag}</span> : null}</span>
+                  <span className="ui-caption shrink-0">{it.returned ? (line.dept === 'MANAGER' ? 'Done' : 'Back') : (line.dept === 'MANAGER' ? 'Not yet' : 'Not back yet')}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : items.length ? (
+          <fieldset className="space-y-2">
             <legend className="ui-label">{line.dept === 'MANAGER' ? 'To do' : 'To hand back'}</legend>
             {items.map((it, i) => (
               <label key={`${it.title}-${i}`} className="flex items-center gap-2 text-sm">
@@ -256,7 +275,7 @@ export function ExitQuestionsForm({ questions, answers, onChange, idPrefix = 'ex
           ) : (
             <div className="flex flex-wrap gap-2" role="group" aria-label={q.text}>
               {(q.options || []).map((o) => (
-                <button key={o.code} type="button" aria-pressed={answers[q.key] === o.code} className="ui-choice-chip" onClick={() => onChange({ ...answers, [q.key]: o.code })}>{o.label}</button>
+                <button key={o.code} type="button" aria-pressed={answers[q.key] === o.code} className="ui-choice-chip min-h-11 sm:min-h-0" onClick={() => onChange({ ...answers, [q.key]: o.code })}>{o.label}</button>
               ))}
             </div>
           )}

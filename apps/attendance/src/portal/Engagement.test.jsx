@@ -91,3 +91,11 @@ it('celebrations: announced by default; switched off, the team is not told', asy
   expect(await screen.findByText('Done. Your team will not be told.')).toBeTruthy();
   await waitFor(() => expect(screen.getByRole('switch').checked).toBe(false));
 });
+
+it('exit form on a phone: Send, Later and the hide row are at least 44px tall to tap', async () => {
+  api.getExitInterview.mockResolvedValueOnce({ interview: IV });
+  render(<ExitInterview guard={guard} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Answer now' }));
+  for (const name of ['Send answers', 'Later']) expect(screen.getByRole('button', { name }).className).toMatch(/\bmin-h-11\b/);
+  expect(screen.getByLabelText('Keep my answers from my managers').closest('label').className).toMatch(/\bmin-h-11\b/);
+});

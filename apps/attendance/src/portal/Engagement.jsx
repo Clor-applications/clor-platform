@@ -88,11 +88,12 @@ export function ExitInterview({ guard, refreshKey }) {
       ) : open ? (
         <form onSubmit={send} className="space-y-4">
           <ExitQuestionsForm questions={iv.questions} answers={answers} onChange={(a) => { setAnswers(a); setNote(null); }} idPrefix="app-exit" />
-          <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="ui-checkbox mt-0.5" checked={hide} onChange={(e) => setHide(e.target.checked)} />Keep my answers from my managers</label>
+          {/* The whole row is the target on a phone: 44px tall, the box larger than the default 16px. */}
+          <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" className="ui-checkbox h-5 w-5 shrink-0" checked={hide} onChange={(e) => setHide(e.target.checked)} />Keep my answers from my managers</label>
           <p className="ui-caption">{iv.purpose}</p>
           <div className="flex gap-2">
-            <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={busy}>{busy ? 'Sending…' : 'Send answers'}</button>
-            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setOpen(false)}>Later</button>
+            <button type="submit" className="ui-btn ui-btn-primary min-h-11 flex-1" disabled={busy}>{busy ? 'Sending…' : 'Send answers'}</button>
+            <button type="button" className="ui-btn ui-btn-secondary min-h-11" onClick={() => setOpen(false)}>Later</button>
           </div>
         </form>
       ) : (

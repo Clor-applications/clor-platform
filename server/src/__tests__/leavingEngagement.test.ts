@@ -568,6 +568,15 @@ describe('who reads what on a leaving (review of #81)', () => {
     expect((await ppl(c, 'get', `/leaving/${open.id}`).expect(200)).body.interview).toMatchObject({ couldKeep: 'MAYBE', outcomeNote: 'HR only note' });
   });
 
+  it('the plan says who reads the answers to its reader; only the leaver is told "your answers"', async () => {
+    for (const who of [mgr, c]) {
+      const p = (await ppl(who, 'get', `/leaving/${open.id}`).expect(200)).body.interview.purpose;
+      expect(p).toMatch(/^The answers help .*their managers too, unless they hide them/);
+      expect(p).not.toMatch(/\byour\b/i);
+    }
+    expect((await (await portalOf(c, open)).get('/people/engage/exit-interview').expect(200)).body.interview.purpose).toMatch(/^Your answers help .*your managers too, unless you hide them/);
+  });
+
   it('the leaver’s own app response carries nothing of HR’s', async () => {
     const res = await (await portalOf(c, open)).get('/people/engage/exit-interview').expect(200);
     const i = res.body.interview;
