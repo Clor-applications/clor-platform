@@ -1644,6 +1644,10 @@
    instead of being lost with the page's offset under the bar. */
 :root[data-palette='sky'] #main-content .ui-table-scroll[data-wide] { max-height: calc(100dvh - 14rem); overflow: auto; overscroll-behavior-x: contain; }
 :root[data-palette='sky'] #main-content .ui-table-scroll[data-wide] .ui-table thead th { position: sticky; top: 0; }
+/* On a phone a table scrolls inside its box from the first paint: until the watcher marks it data-wide (a beat after the rows arrive) a wide one pushed the whole page sideways (Leave calendar at 390px measured 912px, e2e). */
+@media (max-width: 767px) {
+  :root[data-palette='sky'] #main-content .ui-table-scroll { overflow-x: auto; }
+}
 :root[data-palette='sky'] .ui-balance-low { color: rgb(var(--warm-ink)); }
 
 /*
