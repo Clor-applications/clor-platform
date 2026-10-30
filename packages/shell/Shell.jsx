@@ -1176,10 +1176,11 @@ export default function Shell() {
               <button type="button" className="ui-icon-btn" aria-label={`Company: ${tenant.name}`} aria-haspopup="menu" aria-expanded={companyOpen} onClick={() => setCompanyOpen((v) => !v)}>
                 <Building2 size={18} aria-hidden="true" />
               </button>
+              {/* Pinned to the screen with the 16px gutter, not to the button: hung off a 44px button it ran 16px off the left (#80 retest). */}
               {companyOpen ? (
                 <div
                   role="menu"
-                  className="absolute right-0 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl p-1"
+                  className="fixed inset-x-4 top-14 mt-1 rounded-xl p-1"
                   style={{ backgroundColor: 'rgb(var(--surface))', border: '1px solid rgb(var(--border))', boxShadow: 'var(--shadow-lift)', zIndex: 'var(--z-platform-menu)' }}
                 >
                   <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => { setCompanyOpen(false); pickCompany(t.id); }} />
