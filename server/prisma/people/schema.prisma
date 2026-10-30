@@ -700,7 +700,7 @@ model LeaveType {
   /// Unused days may be paid out, up to this many a year.
   encashable          Boolean  @default(false)
   maxEncashDays       Float?
-  /// What a paid-out day is worth (time depth, gap 19): BASIC, BASIC_DA (basic and dearness allowance) or GROSS
+  /// What a paid-out day is worth (time depth, gap 19): BASIC_DA (components counted for gratuity) or GROSS
   /// monthly wages from the last approved payslip, divided by encashDivisor (26 working days, or 30).
   encashBase          String   @default("BASIC_DA")
   encashDivisor       Int      @default(26)

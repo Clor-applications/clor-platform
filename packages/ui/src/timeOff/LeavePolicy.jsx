@@ -60,7 +60,7 @@ const APPROVAL_WORDS = { HR: 'HR decides', MANAGER: 'the manager decides', MANAG
  * State starting points (TIME-LEAVE-RESEARCH.md): the law's days as a set of
  * types, created once and edited by the owner. Never rules.
  */
-const ENCASH_BASE = [{ value: 'BASIC_DA', label: 'Basic and DA' }, { value: 'BASIC', label: 'Basic' }, { value: 'GROSS', label: 'Gross wages' }];
+const ENCASH_BASE = [{ value: 'BASIC_DA', label: 'Basic and DA (the gratuity wage)' }, { value: 'GROSS', label: 'Gross: the salary structure, no bonus or arrears' }];
 const ENCASH_DIVISOR = [{ value: '26', label: '26 working days' }, { value: '30', label: '30 days' }];
 const EARNED = { name: 'Earned Leave', code: 'EL', accrual: 'MONTHLY', encashable: true, minNoticeDays: 7, color: '#d97706' };
 const CASUAL = { name: 'Casual Leave', code: 'CL', accrual: 'MONTHLY', creditOn: 'START', minNoticeDays: 1, maxDaysPerRequest: 3, color: '#2563eb' };
@@ -230,7 +230,7 @@ function bodyOf(form) {
     negativeDays: paid ? Number(form.negativeDays) || 0 : 0,
     encashable: paid && Boolean(form.encashable),
     maxEncashDays: paid && form.encashable ? num(form.maxEncashDays) : null,
-    encashBase: ['BASIC', 'BASIC_DA', 'GROSS'].includes(form.encashBase) ? form.encashBase : 'BASIC_DA',
+    encashBase: form.encashBase === 'GROSS' ? 'GROSS' : 'BASIC_DA',
     encashDivisor: Number(form.encashDivisor) === 30 ? 30 : 26,
     entitlements: paid && !byWorked ? (form.entitlements || []).map((e) => ({ employeeTypeId: e.employeeTypeId || null, minServiceMonths: monthsOf(e.years) || null, annualDays: Number(e.annualDays) || 0 })) : [],
     probationRule: paid ? form.probationRule || 'ACCRUE' : 'ACCRUE',

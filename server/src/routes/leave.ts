@@ -321,7 +321,7 @@ const policySchema = z.object({
   encashable: z.boolean().optional(),
   maxEncashDays: z.coerce.number().min(0).max(366).nullable().optional(),
   /** What a paid-out day is worth: these monthly wages from the last approved payslip ÷ the divisor (time depth, gap 19). */
-  encashBase: z.enum(['BASIC', 'BASIC_DA', 'GROSS']).optional(),
+  encashBase: z.enum(['BASIC_DA', 'GROSS']).optional(),
   encashDivisor: z.coerce.number().int().refine((n) => n === 26 || n === 30, 'A day is a month ÷ 26 or ÷ 30.').optional(),
   /** When each credit lands: START or END of each part of the leave period, or DAY (creditDay, 1–28). */
   creditOn: z.enum(['START', 'END', 'DAY']).optional(),

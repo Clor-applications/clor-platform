@@ -72,8 +72,8 @@ export function CalendarImport({ year, onClose, onDone }) {
         ) : null}
         {cal ? (
           <>
-            <PopupSelect showValueSubtext={false} label="For" value={branchId} onChange={(v) => setBranchId(v || '')}
-              options={[{ value: '', label: 'Everyone' }, ...branches.map((b) => ({ value: b.id, label: `${b.name} only${b.state ? ` (${b.state})` : ''}` }))]} />
+            <PopupSelect showValueSubtext={false} label="For" value={branchId || 'ALL'} onChange={(v) => setBranchId(!v || v === 'ALL' ? '' : v)}
+              options={[{ value: 'ALL', label: 'Everyone' }, ...branches.map((b) => ({ value: b.id, label: `${b.name} only${b.state ? ` (${b.state})` : ''}` }))]} />
             <p className="ui-caption">From: {cal.source}.{cal.note ? ` ${cal.note}` : ''}</p>
             {cal.state && !branchId ? <p className="ui-text-warn">{cal.state}’s own days usually belong to the branch in {cal.state}. Choose it, or they are holidays for everyone.</p> : null}
             {preview?.error ? <p className="ui-text-neg" role="alert">{preview.error}</p> : !preview ? <div className="ui-skel ui-skel-text" aria-busy="true" /> : (

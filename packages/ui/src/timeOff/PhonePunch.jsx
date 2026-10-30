@@ -186,7 +186,7 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
       </p>
 
       {!sites.length ? (
-        <p className="text-sm rounded-lg p-3" style={{ backgroundColor: 'rgb(var(--warn) / 0.08)', color: 'rgb(var(--warn))' }}>
+        <p className="text-sm rounded-xl p-3" style={{ backgroundColor: 'rgb(var(--warn) / 0.08)', color: 'rgb(var(--warn))' }}>
           No work site is set up for phone punches yet. Ask HR — until then punching from a phone is not possible.
         </p>
       ) : null}
@@ -200,7 +200,7 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
         <p className="ui-caption flex items-center gap-2" role="status"><Clock3 size={14} aria-hidden="true" className="animate-spin" /> Finding your location…</p>
       ) : null}
       {locationError ? (
-        <p className="text-sm rounded-lg p-3" role="alert" style={{ backgroundColor: 'rgb(var(--neg) / 0.08)', color: 'rgb(var(--neg))' }}>{locationError}</p>
+        <p className="text-sm rounded-xl p-3" role="alert" style={{ backgroundColor: 'rgb(var(--neg) / 0.08)', color: 'rgb(var(--neg))' }}>{locationError}</p>
       ) : null}
       {position ? (
         <p className="text-sm flex items-start gap-2" role="status">
@@ -219,14 +219,14 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
       {/* The selfie: quieter than the punch itself. */}
       {photo ? (
         <div className="relative inline-block">
-          <img src={photo} alt="Your selfie for this punch" className="h-28 w-28 rounded-lg object-cover" />
+          <img src={photo} alt="Your selfie for this punch" className="h-28 w-28 rounded-xl object-cover" />
           <button type="button" className="absolute -right-2 -top-2 rounded-full p-0.5 text-white" style={{ backgroundColor: 'rgb(0 0 0 / 0.6)' }} aria-label="Remove the selfie" onClick={() => setPhoto(null)}>
             <X size={14} aria-hidden="true" />
           </button>
         </div>
       ) : cameraOn ? (
         <div className="space-y-2">
-          <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-lg" style={{ transform: 'scaleX(-1)', maxHeight: '18rem', objectFit: 'cover', backgroundColor: 'rgb(0 0 0)' }} />
+          <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-xl" style={{ transform: 'scaleX(-1)', maxHeight: '18rem', objectFit: 'cover', backgroundColor: 'rgb(0 0 0)' }} />
           <div className="flex gap-2">
             <button type="button" className="ui-btn ui-btn-primary flex-1" onClick={capture}><Camera size={16} aria-hidden="true" /> Take photo</button>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={closeCamera}>Cancel</button>

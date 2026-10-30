@@ -1181,8 +1181,8 @@ attendanceInsightsRouter.post(`${base}/overtime/requests/bulk-review`, can(Permi
   for (const id of ids) {
     const r = found.get(id);
     if (!r || !inScope(scope, r.employeeId)) { results.push({ id, ok: false, error: 'No such request.' }); continue; }
-    /* Their own manager takes the manager's step where the chain has one; anyone else decides as HR. */
-    const asManager = Boolean(me && chain !== 'HR' && !r.managerApprovedAt && subjects.get(r.employeeId)?.reportingManagerId === me.id);
+    /* Their manager, or whoever stands in for that manager today, takes the manager's step where the chain has one; anyone else decides as HR. */
+    const asManager = Boolean(me && chain !== 'HR' && !r.managerApprovedAt && (subjects.get(r.employeeId)?.reportingManagerId === me.id || (await managerStepBy(orgId, me.id, r.employeeId))));
     try {
       const out = await decideOvertime(orgId, id, approve, { userId: req.auth!.userId, ...(asManager ? { managerId: me!.id } : {}) }, note);
       if (out.status === 'PENDING') handedOn += 1;

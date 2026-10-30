@@ -1045,6 +1045,8 @@ attendanceRouter.post('/orgs/:orgId/attendance/holidays/calendars/import', can(P
     if (!dryRun && added.length) await recordAudit(req, { entity: 'Holiday', entityId: cal.key, action: 'CREATE', message: `Imported ${added.length} holidays from ${cal.name}${branch ? ` for ${branch.branchName}` : ' for everyone'}`, metadata: { key: cal.key, branchId, added: added.length, skipped: skipped.length, source: cal.source } });
     res.status(dryRun ? 200 : 201).json({ added, skipped, source: cal.source, dryRun });
   } catch (e) {
+    /* Two imports at the same moment: the second meets the first's rows (orgId, date, name is unique). */
+    if ((e as { code?: string })?.code === 'P2002') return res.status(409).json({ error: 'Someone added these holidays a moment ago. Look at the list before adding them again.', code: 'HOLIDAYS_JUST_ADDED' });
     return sendError(res, e);
   }
 });

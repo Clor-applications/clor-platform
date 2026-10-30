@@ -46,6 +46,8 @@ it('offers nothing to add when everything is already there', async () => {
   fireEvent.click(await screen.findByText('Choose…'));
   fireEvent.click(await screen.findByRole('option', { name: /National/ }));
   expect(await screen.findByText('Nothing new to add')).toBeTruthy();
+  /* A list for everyone reads "Everyone", not an empty picker. */
+  expect(screen.getByText('Everyone')).toBeTruthy();
   expect(screen.getByText(/already a holiday for everyone/)).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Add' }).disabled).toBe(true);
 });

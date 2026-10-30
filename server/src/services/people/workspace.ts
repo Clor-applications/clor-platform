@@ -55,8 +55,8 @@ export const MODULE_OF_KIND: Record<string, { feature: string; label: string }> 
 /**
  * Whether a published announcement reaches this person (time depth, gap 20).
  * One written before the audience was a choice (free words only) reached
- * everyone, and still does. A department matches by its id or, for a file that
- * names its department only in words, by that name.
+ * everyone, and still does. A department matches by its id; only a file with
+ * no department id (it names its department in words) is matched by name.
  */
 export function announcementReaches(details: any, person: { id: string; branchId?: string | null; areaId?: string | null; departmentId?: string | null; department?: string | null }, departmentNames: Map<string, string> = new Map()) {
   const kind = String(details?.audienceKind || 'ALL') as AudienceKind;
@@ -65,7 +65,8 @@ export function announcementReaches(details: any, person: { id: string; branchId
   if (kind === 'PEOPLE') return ids.includes(person.id);
   if (kind === 'BRANCH') return Boolean(person.branchId && ids.includes(person.branchId));
   if (kind === 'LOCATION') return Boolean(person.areaId && ids.includes(person.areaId));
-  if (person.departmentId && ids.includes(person.departmentId)) return true;
+  /* By id; a file with no department id (older imports) is matched by its department's name. */
+  if (person.departmentId) return ids.includes(person.departmentId);
   const named = String(person.department || '').trim().toLowerCase();
   return Boolean(named && ids.some((id) => String(departmentNames.get(id) || '').trim().toLowerCase() === named));
 }

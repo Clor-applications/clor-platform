@@ -115,6 +115,30 @@ describe('field punches and overtime in the one Approvals inbox', () => {
     await chain('HR');
   }, 60_000);
 
+  it('whoever stands in for the manager today decides overtime as the manager; under a manager-only chain HR may not approve', async () => {
+    const chain = (v: string) => runInTenant(hr.orgId, async () => { const e = await peoplePrisma.employee.findUniqueOrThrow({ where: { id: boss.id } }); await peoplePrisma.attendanceSettings.upsert({ where: { orgId: hr.orgId }, create: { accountId: e.accountId, orgId: hr.orgId, overtimeApproval: v, updatedByUserId: 'u' }, update: { overtimeApproval: v } }); });
+    const deputy = await colleague(hr, ['PEOPLE::Employees::VIEW', 'ATTENDANCE::Attendance Records::VIEW', 'ATTENDANCE::Attendance Records::EDIT']);
+    const deputyEmp = await person(hr, { name: 'Deputy', code: 'D9' });
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: deputyEmp.id }, data: { userId: deputy.userId } }));
+    const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    await att(hr, 'post', '/leave/stand-ins', { managerEmployeeId: boss.id, standInEmployeeId: deputyEmp.id, fromDate: today, toDate: today }).expect(201);
+    await chain('MANAGER_THEN_HR');
+    const r = await overtimeAsk(hr, ravi.id);
+    expect((await ppl(deputy, 'get', '/inbox').expect(200)).body.items.find((i: any) => i.id === r.id)).toMatchObject({ bulk: true });
+    expect((await att(deputy, 'post', '/overtime/requests/bulk-review', { ids: [r.id], approve: true }).expect(200)).body).toMatchObject({ done: 1, handedOn: 1 });
+    const after = await runInTenant(hr.orgId, () => peoplePrisma.overtimeRequest.findUniqueOrThrow({ where: { id: r.id } }));
+    expect(after).toMatchObject({ status: 'PENDING', managerApprovedById: deputyEmp.id });
+    /* A manager-only chain: HR's approval is refused while there is an active manager. */
+    await chain('MANAGER');
+    const s2 = await overtimeAsk(hr, ravi.id, '2026-10-20');
+    const refused = (await att(hr, 'post', '/overtime/requests/bulk-review', { ids: [s2.id], approve: true }).expect(200)).body;
+    expect(refused).toMatchObject({ done: 0, failed: 1 });
+    expect(refused.results[0].error).toMatch(/manager decides/i);
+    /* The stand-in closes it. */
+    expect((await att(deputy, 'post', '/overtime/requests/bulk-review', { ids: [s2.id], approve: true }).expect(200)).body).toMatchObject({ done: 1, handedOn: 0 });
+    await chain('HR');
+  }, 120_000);
+
   it('another company’s punch or overtime is not there; a role without the rights is refused', async () => {
     const other = await company();
     const theirs = await person(other, { name: 'Elsewhere', code: 'E1' });
@@ -152,8 +176,12 @@ describe('holidays per branch, and built-in calendars', () => {
 
   it('lists the national and state calendars with where they came from, and each branch with its state', async () => {
     const out = (await att(hr, 'get', '/holidays/calendars?year=2027').expect(200)).body;
-    expect(out.calendars.find((c: any) => c.key === 'IN-2027')).toMatchObject({ complete: true, days: 17 });
+    /* Delhi's 17 (Annexure I), and the 14 compulsory everywhere else (para 2): the other 3 are a state capital's choice. */
+    expect(out.calendars.find((c: any) => c.key === 'IN-DL-2027')).toMatchObject({ name: 'Central government, Delhi 2027', state: 'Delhi', complete: true, days: 17 });
+    expect(out.calendars.find((c: any) => c.key === 'IN-2027')).toMatchObject({ complete: false, days: 14 });
     expect(out.calendars.find((c: any) => c.key === 'IN-2027').source).toMatch(/12\/2\/2023-JCA/);
+    expect(out.calendars.find((c: any) => c.key === 'IN-2027').note).toMatch(/3 more days are chosen/);
+    expect(out.calendars.find((c: any) => c.key === 'IN-DL-2027').note).toMatch(/Six fall on a Saturday or Sunday/);
     expect(out.calendars.some((c: any) => c.state === 'Maharashtra')).toBe(true);
     expect(out.branches.find((b: any) => b.id === pune)).toMatchObject({ name: 'Pune', state: 'Maharashtra' });
     expect((await att(hr, 'get', '/holidays/calendars?year=2031').expect(200)).body.calendars).toEqual([]);
@@ -165,7 +193,10 @@ describe('holidays per branch, and built-in calendars', () => {
     expect(dry.added.map((h: any) => h.date)).toEqual(['2027-05-01']);
     expect(await runInTenant(hr.orgId, () => peoplePrisma.holiday.count({ where: { orgId: hr.orgId, date: '2027-05-01' } }))).toBe(0);
     const both = await Promise.all([att(hr, 'post', '/holidays/calendars/import', { key, branchId: pune }), att(hr, 'post', '/holidays/calendars/import', { key, branchId: pune })]);
-    expect(both.map((r) => r.body.added?.length).sort()).toEqual([0, 1]);
+    /* Two at once: one adds the day; the other finds it there, or is told plainly that it was just added. */
+    const outcomes = both.map((r) => (r.status === 409 ? 'JUST_ADDED' : r.body.added.length)).sort();
+    expect([[0, 1], [1, 'JUST_ADDED']]).toContainEqual(outcomes);
+    for (const r of both) if (r.status === 409) expect(r.body).toMatchObject({ code: 'HOLIDAYS_JUST_ADDED' });
     const rows = await runInTenant(hr.orgId, () => peoplePrisma.holiday.findMany({ where: { orgId: hr.orgId, date: '2027-05-01' } }));
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ branchId: pune, isOptional: false });
@@ -177,7 +208,8 @@ describe('holidays per branch, and built-in calendars', () => {
     await att(hr, 'post', '/holidays', { date: '2027-01-26', name: 'Republic Day' }).expect(201);
     const out = (await att(hr, 'post', '/holidays/calendars/import', { key: 'IN-2027', branchId: null }).expect(201)).body;
     expect(out.skipped.map((h: any) => h.name)).toEqual(['Republic Day']);
-    expect(out.added).toHaveLength(16);
+    expect(out.added).toHaveLength(13);
+    expect(out.added.map((h: any) => h.name)).not.toContain('Ram Navami');
   }, 60_000);
 
   it('a branch holiday is off for that branch’s people only when leave is counted', async () => {
@@ -220,6 +252,7 @@ describe('leave paid out, valued on the policy and sent to Payroll', () => {
   beforeAll(async () => {
     hr = await company({ people: true, attendance: true, payroll: true });
     asha = await person(hr, { name: 'Asha', code: 'P1' });
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: asha.id }, data: { branchId: hr.branchId } }));
     el = (await att(hr, 'post', '/leave/types', { name: 'Earned', annualDays: 18, encashable: true, maxEncashDays: 10, encashBase: 'BASIC_DA', encashDivisor: 26 }).expect(201)).body.type;
     expect(el).toMatchObject({ encashBase: 'BASIC_DA', encashDivisor: 26 });
     year = (await att(hr, 'get', '/leave/balances').expect(200)).body.year;
@@ -234,15 +267,29 @@ describe('leave paid out, valued on the policy and sent to Payroll', () => {
     expect(list.find((x: any) => x.id === out.adjustment.id)).toMatchObject({ days: 2, amount: null, leaveType: 'Earned' });
   }, 60_000);
 
-  it('with a payslip, basic and DA ÷ 26 per day becomes a draft earning in the next open month', async () => {
+  it('with a payslip, basic and DA ÷ 26 becomes a draft earning in the open month of today, in the person’s branch', async () => {
     const accountId = (await platformPrisma.org.findUniqueOrThrow({ where: { id: hr.orgId }, select: { accountId: true } })).accountId;
+    const t = new Date(Date.now() + 330 * 60_000);
+    const ym = (d: Date) => d.toISOString().slice(0, 7);
+    const monthOf = (k: number) => { const d = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + k, 1)); const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)); return { start: `${ym(d)}-01`, end: end.toISOString().slice(0, 10) }; };
+    let current = '';
     await runInTenant(hr.orgId, async () => {
-      const comp = async (code: string, name: string) => (await payrollPrisma.salaryComponent.create({ data: { accountId, orgId: hr.orgId, code, name, type: 'EARNING', createdByUserId: 'u' } })).id;
-      const basic = await comp('BASIC', 'Basic');
-      const da = await comp('DA', 'Dearness allowance');
+      /* Counted by Payroll's "counts for gratuity" mark, not by a name: "Basic Wage" coded BAS, and DA. */
+      const comp = async (code: string, name: string, extra: Record<string, unknown> = {}) => (await payrollPrisma.salaryComponent.create({ data: { accountId, orgId: hr.orgId, code, name, type: 'EARNING', createdByUserId: 'u', ...extra } })).id;
+      const basic = await comp('BAS', 'Basic Wage', { includeInGratuityWage: true });
+      const da = await comp('DA', 'Dearness allowance', { includeInGratuityWage: true });
       const hra = await comp('HRA', 'House rent allowance');
+      const bonus = await comp('FEST', 'Festival bonus', { isVariable: true });
       await comp('LEAVE_ENCASH', 'Leave encashment');
-      await payrollPrisma.payrollPeriod.create({ data: { accountId, orgId: hr.orgId, name: `Open ${rnd()}`, startDate: '2026-11-01', endDate: '2026-11-30', createdByUserId: 'u' } });
+      /* A stale month left open two months back, and the month of today: it goes to today's. */
+      const stale = monthOf(-2);
+      await payrollPrisma.payrollPeriod.create({ data: { accountId, orgId: hr.orgId, name: `Stale ${rnd()}`, startDate: stale.start, endDate: stale.end, createdByUserId: 'u' } });
+      const now = monthOf(0);
+      current = (await payrollPrisma.payrollPeriod.create({ data: { accountId, orgId: hr.orgId, name: `Now ${rnd()}`, startDate: now.start, endDate: now.end, createdByUserId: 'u' } })).id;
+      /* The structure Asha is on: basic, DA and HRA, not the bonus. */
+      const structure = await payrollPrisma.salaryStructure.create({ data: { accountId, orgId: hr.orgId, name: `Staff ${rnd()}`, effectiveFrom: '2026-01-01', status: 'ACTIVE', createdByUserId: 'u' } });
+      for (const componentId of [basic, da, hra]) await payrollPrisma.salaryStructureComponent.create({ data: { accountId, orgId: hr.orgId, structureId: structure.id, componentId } });
+      await payrollPrisma.salaryAssignment.create({ data: { accountId, orgId: hr.orgId, employeeId: asha.id, structureId: structure.id, effectiveFrom: '2026-01-01', annualCtc: 408000, monthlyCtc: 34000, createdByUserId: 'u' } });
       const run = await payrollPrisma.payrollRun.create({ data: { accountId, orgId: hr.orgId, number: `RUN-${rnd()}`, periodId: 'p', payrollDate: '2026-10-31', status: 'APPROVED', createdByUserId: 'u' } });
       const slip = await payrollPrisma.salarySlip.create({ data: { accountId, orgId: hr.orgId, number: 'SLIP-OCT', runId: run.id, employeeId: asha.id, periodId: 'p', payrollDate: '2026-10-31', createdByUserId: 'u' } });
       const line = (componentId: string, code: string, amount: number, fullAmount: number) => payrollPrisma.salarySlipLine.create({ data: { accountId, orgId: hr.orgId, slipId: slip.id, componentId, componentCode: code, componentName: code, type: 'EARNING', amount, fullAmount } });
@@ -250,24 +297,41 @@ describe('leave paid out, valued on the policy and sent to Payroll', () => {
       await line(basic, 'BASIC', 18000, 20000);
       await line(da, 'DA', 5200, 6000);
       await line(hra, 'HRA', 8000, 8000);
+      /* A bonus month: the bonus is not a month's wage on either base. */
+      await line(bonus, 'FEST', 15000, 15000);
     });
     const out = (await att(hr, 'post', '/leave/adjustments', { employeeId: asha.id, leaveTypeId: el.id, year, kind: 'ENCASH', days: 3, reason: 'Paid out on request' }).expect(201)).body;
     expect(out.payout).toMatchObject({ sent: true, amount: 3000 });
-    expect(out.payout.explanation).toMatch(/₹1,000 a day/);
+    expect(out.payout.explanation).toMatch(/₹26,000 ÷ 26/);
     const earning = await runInTenant(hr.orgId, () => payrollPrisma.payrollAdjustment.findUniqueOrThrow({ where: { id: `leave-encash:${out.adjustment.id}` } }));
-    expect(earning).toMatchObject({ status: 'DRAFT', type: 'EARNING', employeeId: asha.id });
+    expect(earning).toMatchObject({ status: 'DRAFT', type: 'EARNING', employeeId: asha.id, periodId: current, branchId: hr.branchId });
     expect(Number(earning.amount)).toBe(3000);
     /* Linked: the leave line cannot be removed while Payroll holds its earning. */
     await att(hr, 'delete' as any, `/leave/adjustments/${out.adjustment.id}`).expect(409);
   }, 60_000);
 
-  it('someone who may not add payroll adjustments reserves the days; Payroll gets the amount to check', async () => {
+  it('gross is the salary structure’s fixed pay: no bonus, rounded once', async () => {
+    const gross = (await att(hr, 'post', '/leave/types', { name: 'Privilege', annualDays: 10, encashable: true, encashBase: 'GROSS', encashDivisor: 26 }).expect(201)).body.type;
+    await att(hr, 'put', '/leave/allocations', { employeeId: asha.id, leaveTypeId: gross.id, year, days: 10 }).expect(200);
+    const out = (await att(hr, 'post', '/leave/adjustments', { employeeId: asha.id, leaveTypeId: gross.id, year, kind: 'ENCASH', days: 1, reason: 'Paid out on request' }).expect(201)).body;
+    /* 20,000 + 6,000 + 8,000 = 34,000 ÷ 26; the 15,000 bonus is left out. */
+    expect(out.payout).toMatchObject({ sent: true, amount: 1307.69 });
+    await att(hr, 'post', '/leave/types', { name: 'Basic only', annualDays: 5, encashable: true, encashBase: 'BASIC' }).expect(400);
+  }, 60_000);
+
+  it('someone who may change leave but not see payroll is never told what the person earns', async () => {
     const clerk = await colleague(hr, ['ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::EDIT', 'PEOPLE::Employees::VIEW']);
     const out = (await att(clerk, 'post', '/leave/adjustments', { employeeId: asha.id, leaveTypeId: el.id, year, kind: 'ENCASH', days: 1, reason: 'Paid out on request' }).expect(201)).body;
-    expect(out.payout).toMatchObject({ sent: false, amount: 1000 });
+    expect(out.payout).toEqual({ sent: false, amount: null, explanation: null, why: expect.stringMatching(/Payroll values/) });
+    expect(JSON.stringify(out)).not.toMatch(/26,000|SLIP-OCT/);
+    /* Payroll sees the amount to check in its own list. */
     const list = (await request(app).get(`/api/orgs/${hr.orgId}/payroll/leave-encashments`).set(at(hr)).expect(200)).body.encashments;
     expect(list.find((x: any) => x.id === out.adjustment.id)).toMatchObject({ amount: 1000 });
-  }, 60_000);
+    /* One who may read payroll adjustments but not add them sees the amount, and Payroll adds it. */
+    const reader = await colleague(hr, ['ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::EDIT', 'PEOPLE::Employees::VIEW', 'PAYROLL::Payroll Adjustments::VIEW']);
+    const seen = (await att(reader, 'post', '/leave/adjustments', { employeeId: asha.id, leaveTypeId: el.id, year, kind: 'ENCASH', days: 1, reason: 'Paid out on request' }).expect(201)).body;
+    expect(seen.payout).toMatchObject({ sent: false, amount: 1000 });
+  }, 90_000);
 
   it('refuses a divisor other than 26 or 30', async () => {
     await att(hr, 'post', '/leave/types', { name: 'Odd', annualDays: 5, encashable: true, encashDivisor: 31 }).expect(400);
@@ -301,11 +365,14 @@ describe('an announcement reaches its audience only', () => {
     await post(hr, 'For all', { audience: 'Everyone', audienceKind: 'ALL' }).expect(201);
     /* Written before the audience was a choice: words only, read by everyone. */
     await post(hr, 'Old style', { audience: 'Whole team' }).expect(201);
+    /* A file whose department words say Finance but whose department is Operations: the id decides. */
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: opsPerson.id }, data: { department: 'Finance' } }));
+    await post(hr, 'For finance', { audience: 'Finance', audienceKind: 'DEPARTMENT', audienceIds: [fin.id] }).expect(201);
     const a = await portal(opsPerson.id, 'D1');
     const b = await portal(finPerson.id, 'D2');
     const titles = async (p: any) => (await p.get('/company-updates').expect(200)).body.announcements.map((x: any) => x.title).sort();
     expect(await titles(a)).toEqual(['For all', 'For operations', 'Old style']);
-    expect(await titles(b)).toEqual(['For all', 'Old style']);
+    expect(await titles(b)).toEqual(['For all', 'For finance', 'Old style']);
   }, 60_000);
 
   it('a reader in People sees only what is published for them; the author sees every one', async () => {

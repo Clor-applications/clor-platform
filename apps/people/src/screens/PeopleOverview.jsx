@@ -311,6 +311,10 @@ export default function PeopleOverview({ openScreen }) {
   const firstName = rawFirst ? rawFirst.charAt(0).toUpperCase() + rawFirst.slice(1) : '';
   const today = isoToday();
   const pending = (leave || []).filter((r) => r.status === 'PENDING').sort((a, b) => a.fromDate.localeCompare(b.fromDate));
+  /* Everything waiting in the one Approvals inbox (leave, attendance requests, field punches, overtime, People approvals):
+     Home's to-dos that open it carry its counts. Leave stays the detail line. Until they load, leave alone. */
+  const inboxTodos = (todos || []).filter((t) => t.screen === 'approvals');
+  const waiting = todos ? inboxTodos.reduce((n, t) => n + (Number(t.count) || 0), 0) : pending.length;
   const outToday = (leave || []).filter((r) => r.status === 'APPROVED' && r.fromDate <= today && r.toDate >= today);
   const onNotice = data.byStatus.ON_NOTICE || 0;
   const tenure = averageTenure(people || []);
@@ -333,7 +337,7 @@ export default function PeopleOverview({ openScreen }) {
           <span className="soft-band-eyebrow">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
           <h1 className="soft-band-title">{firstName ? `${greeting()}, ${firstName}` : greeting()}</h1>
           <p className="soft-band-sub">
-            {pending.length ? <>You have <strong>{plural(pending.length, 'request')}</strong> to answer</> : <>Nothing waits for your answer</>}
+            {waiting ? <>You have <strong>{plural(waiting, 'request')}</strong> to answer</> : <>Nothing waits for your answer</>}
             {leave ? <> and <strong>{plural(outToday.length, 'person', 'people')}</strong> {outToday.length === 1 ? 'is' : 'are'} out today.</> : '.'}
           </p>
         </div>
@@ -370,10 +374,10 @@ export default function PeopleOverview({ openScreen }) {
               </span>
               <span className="soft-band-stat-note">{leave ? `${data.headcount - outToday.length} of ${data.headcount} at work` : 'Loading leave'}</span>
             </button>
-            <button type="button" className="soft-band-stat" data-tint="peach" onClick={go('leaveRequests')}>
+            <button type="button" className="soft-band-stat" data-tint="peach" onClick={go('approvals')}>
               <span className="soft-band-stat-label"><SealCheck size={16} aria-hidden="true" /> To approve</span>
-              <span className="soft-band-stat-value">{leave ? pending.length : '–'}</span>
-              <span className="soft-band-stat-note">{pending.length ? `Next starts ${dayDate(pending[0].fromDate)}` : 'Nothing to approve'}</span>
+              <span className="soft-band-stat-value">{todos || leave ? waiting : '–'}</span>
+              <span className="soft-band-stat-note">{pending.length ? `${plural(pending.length, 'leave request')}, next starts ${dayDate(pending[0].fromDate)}` : waiting ? 'No leave among them' : 'Nothing to approve'}</span>
             </button>
             <button type="button" className="soft-band-stat" data-tint="lilac" onClick={go('employees')}>
               <span className="soft-band-stat-label"><SignOut size={16} aria-hidden="true" /> On notice</span>

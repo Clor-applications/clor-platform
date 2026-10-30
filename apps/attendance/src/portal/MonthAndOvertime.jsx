@@ -73,7 +73,7 @@ export function MonthReview({ guard }) {
         <>
           <dl className="grid grid-cols-3 gap-2 text-center">
             {[['Payable days', s.payableDays], ['Loss of pay', s.lossOfPayDays], ['Present', s.present], ['Leave', s.leave], ['Absent', s.absent], ['Overtime', hm(s.approvedOvertimeMinutes)]].map(([k, v]) => (
-              <div key={k} className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
+              <div key={k} className="rounded-xl p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
                 <dt className="ui-caption">{k}</dt>
                 <dd className="text-base font-semibold tabular-nums">{v}</dd>
               </div>

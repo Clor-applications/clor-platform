@@ -85,6 +85,8 @@ const PORTAL_FIELDS = {
   /* Which leave types the person may ask for (gender, employee type). */
   gender: true,
   employeeTypeId: true,
+  /* An announcement for a department reaches its people by id (time depth, gap 20). */
+  departmentId: true,
   branchId: true,
   areaId: true,
   devicePin: true,
@@ -914,7 +916,8 @@ portalRouter.get('/approvals', async (req, res) => {
   const [leaveChain, correctionChain, overtimeAsks] = await Promise.all([
     chainFor(e.orgId, 'leave'),
     chainFor(e.orgId, 'correction'),
-    ids.length ? peoplePrisma.overtimeRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: ids }, status: 'PENDING', managerApprovedAt: null }, orderBy: { createdAt: 'asc' } }) : [],
+    /* My team's and, standing in, the team I cover today (time depth review). */
+    decidedIds.length ? peoplePrisma.overtimeRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: decidedIds }, status: 'PENDING', managerApprovedAt: null }, orderBy: { createdAt: 'asc' } }) : [],
   ]);
   const overtimeChainNow = (await chainsFor(e.orgId)).overtime;
   res.json({
