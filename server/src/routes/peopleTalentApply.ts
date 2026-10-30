@@ -4,6 +4,7 @@ import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { applyLimiter } from '../middleware/rateLimit.js';
 import { TalentError, applyFromLink, openingByToken } from '../services/people/talent/hiring.js';
+import { applyThroughLink, byLinkToken } from '../services/people/talent/referrals.js';
 
 /**
  * A job opening's public apply page (Talent, TALENT-DECISIONS.md): the link HR shares on
@@ -27,8 +28,8 @@ async function findOpening(token: string) {
   return { o, orgName: org?.name || '' };
 }
 
-const form = (title: string, orgName: string, description: string | null, error = '', values: Record<string, string> = {}) => page(`${title} at ${orgName}`, `
-  <h1 style="font-size:1.35rem;margin:0">${esc(title)}</h1><p class="muted">${esc(orgName)}</p>
+const form = (title: string, orgName: string, description: string | null, error = '', values: Record<string, string> = {}, referredBy = '') => page(`${title} at ${orgName}`, `
+  <h1 style="font-size:1.35rem;margin:0">${esc(title)}</h1><p class="muted">${esc(orgName)}${referredBy ? ` · referred by ${esc(referredBy)}` : ''}</p>
   ${description ? `<p style="white-space:pre-line">${esc(description)}</p>` : ''}
   ${error ? `<p role="alert" style="color:#b91c1c">${esc(error)}</p>` : ''}
   <form method="post">
@@ -62,6 +63,39 @@ peopleTalentApplyRouter.post('/people/apply/:token', ...applyLimiter, urlencoded
   } catch (e) {
     if (e instanceof TalentError) return res.status(e.status === 410 ? 410 : 400).type('html').send(form(found.o.title, found.orgName, found.o.description, e.message, b));
     console.error('[apply]', e instanceof Error ? e.message : e);
+    res.status(500).type('html').send(page('Not sent', '<p>Something went wrong. Try again in a little while.</p>'));
+  }
+});
+
+/*
+ * An employee's referral link (services/people/talent/referrals.ts): the same page, tagged to the
+ * employee who shared it, while the job is open to referrals and they still work here. The
+ * friend lands as a candidate with source Referral and that employee as the referrer. Someone
+ * already put forward is thanked the same way, so the page tells a stranger nothing.
+ */
+const firstName = (n: string | undefined) => String(n || '').trim().split(/\s+/)[0] || '';
+const closedPage = (res: any) => res.status(410).type('html').send(page('Not taking applications', '<h1 style="font-size:1.25rem">This job is not taking applications</h1><p class="muted">It may have been filled or closed.</p>'));
+
+peopleTalentApplyRouter.get('/people/refer/:token', async (req, res) => {
+  const found = await byLinkToken(String(req.params.token || ''));
+  if (!found?.live) return closedPage(res);
+  res.type('html').send(form(found.opening.title, found.orgName, found.opening.description, '', {}, firstName(found.referrer?.name)));
+});
+
+peopleTalentApplyRouter.post('/people/refer/:token', ...applyLimiter, urlencoded({ extended: false, limit: '16kb' }), async (req, res) => {
+  const found = await byLinkToken(String(req.params.token || ''));
+  if (!found?.live) return closedPage(res);
+  const b = (req.body || {}) as Record<string, string>;
+  const thanks = page('Application sent', `<h1 style="font-size:1.25rem">Thank you</h1><p>${esc(found.orgName)} has your application for ${esc(found.opening.title)} and will contact you.</p>`);
+  /* A bot filled the hidden field: say thanks and keep nothing. */
+  if (String(b.website || '').trim()) return res.type('html').send(thanks);
+  try {
+    /* Held in the link's company for the write: the lookup ran its own tenant scope. */
+    await runInTenant(found.opening.orgId, () => applyThroughLink(found, b));
+    res.type('html').send(thanks);
+  } catch (e) {
+    if (e instanceof TalentError) return res.status(e.status === 410 ? 410 : 400).type('html').send(form(found.opening.title, found.orgName, found.opening.description, e.message, b, firstName(found.referrer?.name)));
+    console.error('[refer]', e instanceof Error ? e.message : e);
     res.status(500).type('html').send(page('Not sent', '<p>Something went wrong. Try again in a little while.</p>'));
   }
 });

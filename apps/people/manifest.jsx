@@ -131,6 +131,8 @@ const TalentReviews = screen('TalentReviews');
 const TalentPlans = screen('TalentPlans');
 const TalentOneOnOnes = screen('TalentOneOnOnes');
 const TalentTrainings = screen('TalentTrainings');
+const TalentReferrals = screen('TalentReferrals');
+const TalentReferSomeone = screen('TalentReferSomeone');
 const PeopleReports = screen('PeopleReports');
 const Registers = screen('Registers');
 const LeaveSummaryReport = screen('LeaveSummaryReport');
@@ -338,7 +340,7 @@ export const peopleApp = {
     ] },
     /* Talent (owner, 28 Oct 2026): hiring and growing people, one module so the rail has room for what comes next. */
     { key: 'talent', label: 'Talent', icon: M.hiring, groups: [
-      { label: 'Hiring', items: ['recruitment', 'candidates', 'interviews'] },
+      { label: 'Hiring', items: ['recruitment', 'candidates', 'interviews', 'referrals', 'referMe'] },
       { label: 'Growth', items: ['performance', 'reviews', 'oneOnOnes', 'plans', 'learning'] },
     ] },
     /* Workplace: what the company offers its staff, news to help. */
@@ -412,6 +414,9 @@ export const peopleApp = {
     { key: 'recruitment', label: 'Job openings', icon: I.job, permission: 'PEOPLE::Recruitment::VIEW', feature: 'peopleHiring' },
     { key: 'candidates', label: 'Candidates', icon: I.candidate, permission: 'PEOPLE::Recruitment::VIEW', feature: 'peopleHiring' },
     { key: 'interviews', label: 'Interviews', icon: I.interview, feature: 'peopleHiring' },
+    /* Referrals (A20): HR's list and report with Recruitment; Refer someone for anyone who works here (the server finds their record from the session). */
+    { key: 'referrals', label: 'Referrals', icon: I.candidate, permission: 'PEOPLE::Recruitment::VIEW', feature: 'peopleHiring' },
+    { key: 'referMe', label: 'Refer someone', icon: I.job, feature: 'peopleHiring', writeGuard: false },
     { key: 'performance', label: 'Goals', icon: I.goal, permission: 'PEOPLE::Performance::VIEW', feature: 'peoplePerformance', writeGuard: false },
     { key: 'reviews', label: 'Reviews', icon: I.review, permission: 'PEOPLE::Performance::VIEW', feature: 'peoplePerformance', writeGuard: false },
     { key: 'oneOnOnes', label: 'One-on-ones', icon: I.oneOnOne, feature: 'peoplePerformance' },
@@ -522,6 +527,8 @@ export const peopleApp = {
     oneOnOnes: TalentOneOnOnes,
     plans: TalentPlans,
     learning: TalentTrainings,
+    referrals: TalentReferrals,
+    referMe: TalentReferSomeone,
     announcements: withSidePanel(register('announcements'), panel('AnnouncementsPanel')),
     events: withSidePanel(register('events'), panel('EventsPanel')),
     helpdesk: withSidePanel(HelpDesk, panel('HelpDeskPanel')),

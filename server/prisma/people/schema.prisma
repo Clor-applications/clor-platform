@@ -3360,6 +3360,17 @@ model JobOpening {
   /// The public apply link: on or off, and the sha256 of its token.
   applyOpen         Boolean  @default(false)
   applyTokenHash    String?  @unique
+  /// Employee referrals (A20): open to referrals, the bonus promised (whole rupees, paid after
+  /// the hire completes `referralBonusDays`, or their probation when blank), who may refer
+  /// (ALL | DEPARTMENTS | BRANCHES with the ids), and whether staff may apply themselves.
+  referralOpen       Boolean   @default(false)
+  referralOpenedAt   DateTime?
+  referralBonus      Decimal?  @db.Decimal(12, 2)
+  referralBonusDays  Int?
+  referAudience      String    @default("ALL")
+  referDepartmentIds String[]  @default([])
+  referBranchIds     String[]  @default([])
+  internalApply      Boolean   @default(false)
   closedReason      String?
   createdByUserId   String?
   createdAt         DateTime @default(now())
@@ -3395,6 +3406,9 @@ model Candidate {
   resumeUrl       String?
   offerAcceptedOn String?
   employeeId      String?
+  /// Someone who works here applying themselves (an internal application): hiring them moves
+  /// them, it does not make a second employee record.
+  internalEmployeeId String?
   anonymisedAt    DateTime?
   createdByUserId String?
   createdAt       DateTime  @default(now())
@@ -3402,6 +3416,60 @@ model Candidate {
 
   @@index([orgId, openingId, stage])
   @@index([orgId, stage, stageAt])
+}
+
+/// An employee's referral (A20): the candidate it made, who referred them and how they know
+/// them, and the bonus promised when the hire stays to the bonus date. The phone and e-mail keys
+/// find a person referred twice (six months, first referrer keeps the credit).
+model Referral {
+  id                 String    @id @default(cuid())
+  accountId          String
+  orgId              String
+  openingId          String
+  candidateId        String    @unique
+  referrerEmployeeId String
+  /// FORM (the employee filled it in) | LINK (the friend applied through the employee's link)
+  via                String    @default("FORM")
+  relation           String?
+  note               String?
+  phoneKey           String?
+  emailKey           String?
+  /// The bonus as promised on the day of the referral; a later change to the opening does not move it.
+  bonusAmount        Decimal?  @db.Decimal(12, 2)
+  bonusDays          Int?
+  /// NONE | WAITING (hired, before the date) | DUE (to pay) | SENT (draft earning in Payroll) | PAID | FORFEITED
+  bonusStatus        String    @default("NONE")
+  bonusDueOn         String?
+  bonusNote          String?
+  bonusAdjustmentId  String?
+  bonusPaidAt        DateTime?
+  bonusPaidByUserId  String?
+  /// JOINED | NOT_TAKEN, once the candidate's story ends; the referrer is told once.
+  outcome            String?
+  outcomeAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([orgId, referrerEmployeeId])
+  @@index([orgId, openingId])
+  @@index([orgId, phoneKey])
+  @@index([orgId, emailKey])
+  @@index([orgId, bonusStatus])
+}
+
+/// An employee's own link for one opening: the public apply page, tagged to them. The token is
+/// derived from the row (shown again whenever they share it); only its sha256 is looked up.
+model ReferralLink {
+  id                 String   @id @default(cuid())
+  accountId          String
+  orgId              String
+  openingId          String
+  referrerEmployeeId String
+  tokenHash          String   @unique
+  createdAt          DateTime @default(now())
+
+  @@unique([openingId, referrerEmployeeId])
+  @@index([orgId, referrerEmployeeId])
 }
 
 /// A candidate's story: stage moves, notes, interviews, offers, the hire.

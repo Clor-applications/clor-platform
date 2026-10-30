@@ -53,6 +53,8 @@ export { default as TalentReviews } from './talent/Reviews';
 export { default as TalentPlans } from './talent/Plans';
 export { default as TalentOneOnOnes } from './talent/OneOnOnes';
 export { default as TalentTrainings } from './talent/Trainings';
+export { default as TalentReferrals } from './talent/Referrals';
+export { default as TalentReferSomeone } from './talent/ReferSomeone';
 export { default as PeopleReports } from './screens/PeopleReports';
 export { default as Registers, LeaveSummaryReport } from './screens/Registers';
 export { default as PeopleDocuments } from './screens/PeopleDocuments';

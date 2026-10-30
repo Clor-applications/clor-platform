@@ -17,6 +17,7 @@ import { afterPeopleCommit } from '../utils/peoplePrisma.js';
 import * as hiring from '../services/people/talent/hiring.js';
 import * as growth from '../services/people/talent/growth.js';
 import * as training from '../services/people/talent/training.js';
+import * as referrals from '../services/people/talent/referrals.js';
 
 /**
  * Talent (docs/people/design-v1/TALENT-DECISIONS.md): hiring, growth and training.
@@ -82,7 +83,10 @@ peopleTalentRouter.put(`${base}/openings/:id`, hiringOn, can(PermissionAction.ED
   res.json({ opening: await hiring.openingOf(req.tenant!.orgId, row.id) });
 }));
 peopleTalentRouter.post(`${base}/openings/:id/status`, hiringOn, can(PermissionAction.EDIT, R.recruitment), handle(async (req, res) => {
+  const before = await peoplePrisma.jobOpening.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId }, select: { status: true } });
   const row = await hiring.setOpeningStatus(who(req), String(req.params.id), String(req.body?.status || ''), req.body?.reason);
+  /* Opened (or opened again) with referrals on: the staff who may refer are told. */
+  if (row.status === 'OPEN' && before?.status !== 'OPEN') await referrals.announce(who(req), row).catch((e) => console.error('[referrals]', e instanceof Error ? e.message : e));
   await audit(req, 'JobOpening', row.id, `STATUS_${row.status}`, `Opening ${row.status.toLowerCase().replace('_', ' ')}: ${row.title}`, { reason: row.closedReason });
   res.json({ opening: await hiring.openingOf(req.tenant!.orgId, row.id) });
 }));
@@ -104,7 +108,10 @@ peopleTalentRouter.get(`${base}/candidates`, hiringOn, can(PermissionAction.VIEW
 }));
 /* A candidate: HR with Recruitment sees all; an interviewer on one of their interviews sees the brief and their part. */
 peopleTalentRouter.get(`${base}/candidates/:id`, hiringOn, handle(async (req, res) => {
-  res.json(await hiring.candidateOf(req.tenant!.orgId, String(req.params.id), { userId: req.auth!.userId, hr: await has(req, 'VIEW', R.recruitment) }));
+  const hr = await has(req, 'VIEW', R.recruitment);
+  const out = await hiring.candidateOf(req.tenant!.orgId, String(req.params.id), { userId: req.auth!.userId, hr });
+  /* Who referred them, for HR; an interviewer gets the brief without it. */
+  res.json({ ...out, referral: hr ? await referrals.referralOfCandidate(req.tenant!.orgId, String(req.params.id)) : null });
 }));
 peopleTalentRouter.post(`${base}/candidates`, hiringOn, can(PermissionAction.CREATE, R.recruitment), handle(async (req, res) => {
   const c = await hiring.addCandidate(who(req), req.body || {});
@@ -119,6 +126,7 @@ peopleTalentRouter.put(`${base}/candidates/:id`, hiringOn, can(PermissionAction.
 peopleTalentRouter.post(`${base}/candidates/:id/stage`, hiringOn, can(PermissionAction.EDIT, R.recruitment), handle(async (req, res) => {
   const c = await hiring.moveCandidate(who(req), String(req.params.id), String(req.body?.stage || ''), req.body?.reason);
   await audit(req, 'Candidate', c.id, `STAGE_${c.stage}`, `${c.name}: ${c.stage.toLowerCase()}`, { reason: c.closedReason });
+  await referrals.afterCandidateMoved(req.tenant!.accountId, req.tenant!.orgId, c.id).catch((e) => console.error('[referrals]', e instanceof Error ? e.message : e));
   res.json({ ok: true, stage: c.stage });
 }));
 peopleTalentRouter.post(`${base}/candidates/:id/notes`, hiringOn, can(PermissionAction.EDIT, R.recruitment), handle(async (req, res) => {
@@ -148,10 +156,14 @@ peopleTalentRouter.post(`${base}/candidates/:id/hire`, hiringOn, can(PermissionA
   if (!(await has(req, 'CREATE', 'Employees'))) return res.status(403).json({ error: 'Hiring makes an employee record: you need the right to add employees.' });
   const { orgId } = req.tenant!;
   const employee = await hiring.hireCandidate(who(req), String(req.params.id), req.body || {});
-  afterPeopleCommit(() => { void pushEmployeeToReaders(orgId, employee, req.auth!.userId).catch(() => undefined); });
-  afterPeopleCommit(() => emitWebhook(orgId, 'employee.created', employeeEvent(employee)));
-  await audit(req, 'Employee', employee.id, 'HIRED', `Hired ${employee.name}`, { candidateId: String(req.params.id) });
-  res.status(201).json({ employee: { id: employee.id, name: employee.name, code: employee.code } });
+  const within = 'movedFromWithin' in employee;
+  if (!within) {
+    afterPeopleCommit(() => { void pushEmployeeToReaders(orgId, employee, req.auth!.userId).catch(() => undefined); });
+    afterPeopleCommit(() => emitWebhook(orgId, 'employee.created', employeeEvent(employee)));
+  }
+  await audit(req, 'Employee', employee.id, within ? 'MOVED_WITHIN' : 'HIRED', `${within ? 'Moved from within' : 'Hired'} ${employee.name}`, { candidateId: String(req.params.id) });
+  await referrals.afterCandidateMoved(req.tenant!.accountId, orgId, String(req.params.id)).catch((e) => console.error('[referrals]', e instanceof Error ? e.message : e));
+  res.status(201).json({ employee: { id: employee.id, name: employee.name, code: employee.code }, movedFromWithin: within });
 }));
 
 /* ---------------------------------------------------------------- interviews */

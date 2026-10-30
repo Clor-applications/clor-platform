@@ -943,6 +943,36 @@
     },
     {
       "method": "GET",
+      "path": "/api/people/refer/:token",
+      "reason": "Employee referral link (A20, talent/referrals.ts): HMAC token looked up only by its sha256; works while the opening is open with referrals on and the referrer still works here; shows job title, company, description and the referrer's first name only; outsideTenant lookup then runInTenant."
+    },
+    {
+      "method": "POST",
+      "path": "/api/people/refer/:token",
+      "reason": "Referral link form: same token and checks; applyLimiter; hidden trap field drops bots; name, e-mail or phone, https résumé link and a note, no file upload; lands as a Referral candidate tagged to the link's employee; duplicates (opening, six months, staff) thanked the same way so nothing leaks; HR told."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/referrals",
+      "reason": "Employee self-service (People referrals): portal token + anyAppLive; org and employee from the token; jobs open to this person's department/branch, and their own referrals with the stage in plain words and their own bonus, never feedback, notes or offer."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/referrals/refer",
+      "reason": "Employee self-service (People referrals): portal token + anyAppLive; the token's employee refers a friend for a job open to them; résumé content-sniffed, PDF/Word up to 5 MB; duplicates refused under advisory locks; Hiring module must be on."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/referrals/link",
+      "reason": "Employee self-service (People referrals): portal token + anyAppLive; the token's employee gets their own referral link for a job open to them (one per job, made once)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/referrals/apply",
+      "reason": "Employee self-service (People referrals): portal token + anyAppLive; the token's employee applies themselves to a job HR opened to staff applications; once per job under an advisory lock."
+    },
+    {
+      "method": "GET",
       "path": "/api/portal/people/me/growth",
       "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; the person's own goals, reviews (outcome only once HR shares it), plan, one-on-ones and trainings (Talent)."
     },

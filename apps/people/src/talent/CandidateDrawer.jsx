@@ -78,6 +78,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
             <Pill map={STAGES} value={c.stage} />
             <span>{[c.openingTitle, hr ? word(SOURCES, c.source) + (c.sourceDetail ? ` (${c.sourceDetail})` : '') : null, `since ${day(c.stageAt)}`].filter(Boolean).join(' · ')}</span>
           </p>
+          {d.referral ? <p className="text-sm">Referred by <span className="font-medium">{d.referral.referrer}</span>{d.referral.via === 'LINK' ? ', through their link' : ''} on <span className="tabular-nums">{day(d.referral.referredAt)}</span>{d.referral.relation ? `. How they know them: ${d.referral.relation}` : ''}.{d.referral.note ? <span className="block whitespace-pre-wrap ui-muted">{d.referral.note}</span> : null}</p> : null}
           {c.closedReason ? <p className="text-sm"><span className="ui-label">Why</span> {c.closedReason}</p> : null}
           {c.offerAcceptedOn ? <p className="text-sm">Offer accepted on <span className="tabular-nums">{day(c.offerAcceptedOn)}</span>.</p> : null}
           <dl className="ui-field-grid">
@@ -232,7 +233,7 @@ export function CandidateForm({ value, openings = [], known = [], onClose, onSav
         <label className="block sm:col-span-2"><span className="ui-label">Name *</span><input className="ui-input w-full" autoFocus maxLength={120} value={form.name} onChange={(e) => set({ name: e.target.value })} /></label>
         <label className="block"><span className="ui-label">E-mail</span><input className="ui-input w-full" type="email" inputMode="email" maxLength={200} value={form.email} onChange={(e) => set({ email: e.target.value })} /></label>
         <label className="block"><span className="ui-label">Phone</span><input className="ui-input w-full" type="tel" inputMode="tel" maxLength={40} value={form.phone} onChange={(e) => set({ phone: e.target.value })} /></label>
-        <div><PopupSelect showValueSubtext={false} label="Came through" value={form.source} onChange={(v) => set({ source: v || 'OTHER' })} options={SOURCES.filter(([k]) => k !== 'APPLY_LINK' || form.source === 'APPLY_LINK').map(([v, l]) => ({ value: v, label: l }))} /></div>
+        <div><PopupSelect showValueSubtext={false} label="Came through" value={form.source} onChange={(v) => set({ source: v || 'OTHER' })} options={SOURCES.filter(([k]) => !['APPLY_LINK', 'INTERNAL'].includes(k) || form.source === k).map(([v, l]) => ({ value: v, label: l }))} /></div>
         <label className="block"><span className="ui-label">{detailLabel}</span><SuggestInput maxLength={120} value={form.sourceDetail} onChange={(v) => set({ sourceDetail: v })} suggestions={form.source === 'JOB_PORTAL' ? ['Naukri', 'LinkedIn', 'Indeed', 'Apna', 'WorkIndia'] : []} /></label>
         <label className="block sm:col-span-2"><span className="ui-label">Works at now</span><SuggestInput maxLength={120} value={form.currentEmployer} onChange={(v) => set({ currentEmployer: v })} suggestions={usedValues(known, (r) => r.currentEmployer)} /></label>
       </form>
