@@ -1663,10 +1663,27 @@ export async function waitingForReader(orgId: string, scope: TeamScope, userId: 
   /* While a manager is away, their stand-in holds their queue. */
   const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } });
   const covers = new Set(me ? await standingInFor(orgId, me.id) : []);
+  /*
+   * The reader's own leave is somebody else's to decide, unless the company's
+   * maker-checker lets them decide it (makerChecker.ts): AUTO when nobody else
+   * can approve leave (a one-person company), or ALLOW. Then it waits on them
+   * like any other, marked so the inbox says why, and the decision is audited
+   * as SELF_APPROVED by reviewLeave's ownWorkRefusal.
+   */
+  const ownRow = rows.find((r) => !r.ruleId && of.get(r.employeeId)?.userId === userId);
+  const self = ownRow ? await selfDecisionAllowed(ownRow.accountId, orgId, userId, permKey(ATTENDANCE_MODULE, R.leave, 'APPROVE')) : null;
+  if (self?.allowed) {
+    const access = await resolveAccess(ownRow!.accountId, orgId, userId);
+    if (!access.isAdmin && !access.permissions.has(permKey(ATTENDANCE_MODULE, R.leave, 'APPROVE'))) self.allowed = false;
+  }
   return rows.filter((r) => {
     if (r.ruleId) return true;
     const p = of.get(r.employeeId);
-    if (p?.userId && p.userId === userId) return false;
+    if (p?.userId && p.userId === userId) {
+      if (!self?.allowed) return false;
+      Object.assign(r, { ownDecision: self.mode === 'ALLOW' ? 'ALLOWED' : 'ONLY_APPROVER' });
+      return true;
+    }
     const m = p?.reportingManagerId ? managers.get(p.reportingManagerId) : null;
     const activeManager = m && m.status !== 'LEFT' && m.status !== 'SUSPENDED' ? m : null;
     /* The manager's own queue: still theirs while their step is open. */
@@ -2535,6 +2552,8 @@ leaveRouter.get(`${base}/overview`, can(PermissionAction.VIEW, R.leave), async (
   }
   res.json({
     today: t0,
+    /* A reader who sees a team, not the company: two of the team away the same day is a clash, whatever their departments (M4). */
+    team: !scope.all,
     awayToday: await shape(awayRows),
     /* Working, but not at the office: approved work from home and on duty, their own mark, never leave (HR view audit 3.3). */
     workingAwayToday: await workingAway(orgId, scope, t0, t0),

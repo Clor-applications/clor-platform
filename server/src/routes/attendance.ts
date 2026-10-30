@@ -938,7 +938,13 @@ const holidaySchema = z.object({
   areaId: z.string().trim().optional().nullable(),
 });
 
-attendanceRouter.get('/orgs/:orgId/attendance/holidays', can(PermissionAction.VIEW, R.holidays), async (req, res) => {
+/*
+ * The holiday list is no secret (every employee sees it in the employee app):
+ * whoever reads leave reads it too, so a team manager's Who's away and Leave
+ * calendar shade the holidays instead of meeting a 403. Changing it stays
+ * with Holidays' own rights.
+ */
+attendanceRouter.get('/orgs/:orgId/attendance/holidays', requireAnyPermission([ATTENDANCE_MODULE, PermissionAction.VIEW, R.holidays], [ATTENDANCE_MODULE, PermissionAction.VIEW, R.leave]), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const year = String(req.query.year || today().slice(0, 4)).slice(0, 4);

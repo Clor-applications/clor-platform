@@ -56,14 +56,15 @@ test.describe('Hiring, referrals, swaps and requests', () => {
   });
 
   test('T3: Priya swaps a shift with Imran; Imran accepts; Rahul approves', { tag: ['@T3', '@swaps'] }, async ({ asEmployee: priya, app, asManager: rahul, w }, testInfo) => {
-    /* Setup (the owner: shifts are Attendance's): Imran on the evening shift, so there is someone to swap with. */
+    /* Setup (the owner: shifts are Attendance's): Imran on a later shift, so there is someone to swap with. */
     const api = await apiAs(w, 'owner');
     const day = workdayFromNow(8 + testInfo.retry * 2);
     const shifts = (await api.get(`/orgs/${w.asha.orgId}/attendance/shifts`)).shifts as Array<{ id: string; name: string }>;
     const shift = async (name: string, startTime: string, endTime: string) => shifts.find((s) => s.name === name) || (await api.post(`/orgs/${w.asha.orgId}/attendance/shifts`, { name, startTime, endTime })).shift;
-    /* Only shifts set up in Attendance can be swapped: Priya on Day, Imran on Evening. */
+    /* Only shifts set up in Attendance can be swapped: Priya on Day, Imran on a later one that still ends before 7 pm
+       (a shift into 7 pm–6 am needs a woman's night-work consent on file, which Priya has not given: #78). */
     const dayShift = await shift('Day', '09:00', '18:00');
-    const evening = await shift('Evening', '14:00', '22:00');
+    const evening = await shift('Late day', '10:00', '18:30');
     await api.post(`/orgs/${w.asha.orgId}/attendance/shift-assignments`, { employeeIds: [w.people.priya.id], shiftId: dayShift.id, effectiveFrom: workdayFromNow(1) });
     await api.post(`/orgs/${w.asha.orgId}/attendance/shift-assignments`, { employeeIds: [w.people.imran.id], shiftId: evening.id, effectiveFrom: workdayFromNow(1) });
 

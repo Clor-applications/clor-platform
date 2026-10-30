@@ -7,6 +7,9 @@ vi.mock('@ui/timeOff/MyDays', () => ({ HomeCheckIn: () => null }));
 vi.mock('@ui/personnel/Employees', () => ({ Avatar: () => null }));
 vi.mock('@platform/context', () => ({ orgId: () => 'org1', branchId: () => 'br1', platformContext: () => ({ user: null }) }));
 vi.mock('@platform/auth', () => ({ setFeature: vi.fn(async () => ({})) }));
+/* The owner by default; a test may sign in as a team manager, who cannot set the company up. */
+const who = vi.hoisted(() => ({ perms: { loading: false, error: '', isAdmin: true, permissions: new Set() } }));
+vi.mock('@ui/permissions/usePermissions', () => ({ usePermissions: () => who.perms }));
 vi.mock('@ui/personnel/api', () => ({
   listEmployees: vi.fn(async () => ({ employees: [], total: 0 })),
   getOverview: vi.fn(async () => ({ headcount: 0, byStatus: {}, joinedThisMonth: [], leftThisMonth: 0, byDepartment: [], upcomingBirthdays: [] })),
@@ -43,6 +46,7 @@ const setup = (over = {}) => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  who.perms = { loading: false, error: '', isAdmin: true, permissions: new Set() };
 });
 
 /* PRODUCT-VIEW §2: a new company's Home is a setup list, not "All caught up". */
@@ -110,5 +114,13 @@ describe('People Home setup list', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Keep it simple' }));
     await waitFor(() => expect(api.changePeopleSetup).toHaveBeenCalledWith({ action: 'simpleAdviceSeen' }));
     expect(setFeature).not.toHaveBeenCalled();
+  });
+
+  it('is not asked for by someone who cannot set the company up (a team manager met a 403 on every Home)', async () => {
+    who.perms = { loading: false, error: '', isAdmin: false, permissions: new Set(['PEOPLE::Employees::VIEW']) };
+    render(<PeopleOverview openScreen={vi.fn()} />);
+    await waitFor(() => expect(api.getOverview).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(api.getPeopleSetup).not.toHaveBeenCalled();
   });
 });

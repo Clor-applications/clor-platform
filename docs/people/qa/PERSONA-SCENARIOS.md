@@ -57,6 +57,7 @@ the same account, plus a separate account, "Other Co", for boundary checks.
 | M8 | My own leave request | Goes to my manager, never to me; I can't approve my own |
 | M9 | Write Priya's probation review: goals, what I saw, recommend extending | Saved with my name; HR sees it with Extend recommended and the date filled in; I cannot decide it myself |
 | M10 | Before my leave, name Kavya to decide my leave and other approvals (Time → Delegates) | Both show as live for the dates; Kavya can be chosen though she is outside my team |
+| M11 | Open Home, Who's away, the Leave calendar and Approvals as a team manager | Every screen loads what it shows (holidays, published announcements and events) without a refusal behind it; nothing he may not read is asked for |
 
 ## HR (Kavya, desktop)
 
@@ -90,6 +91,21 @@ the same account, plus a separate account, "Other Co", for boundary checks.
 | A5 | Reports: headcount, joiners and leavers this month | Figures match the records; export works and is logged |
 | A6 | Data check and privacy controls in Settings | Issues listed with a fix link each |
 | A7 | Do everything as the only person in the company (one-person business) | No step needs a second user or a manager to exist |
+
+## Money (expense claims)
+
+| # | Scenario | Expected |
+|---|---|---|
+| X1 | Priya adds a ₹450 cab bill without a photo in the employee app (Me → Spent for work) and sends it; Rahul approves it in Approvals | The claim waits for approval with "no bill" shown; it reaches Rahul as an expense claim; once approved Priya sees "Approved, to be paid" (under ₹5,000: no HR step) |
+| X2 | Kavya pays Deepak's approved ₹780 claim from People → Expenses (Paid now, UPI) | Listed under To pay with the amount; marked paid it leaves To pay; Deepak sees it Paid in the app |
+
+## Attendance rules
+
+| # | Scenario | Expected |
+|---|---|---|
+| R1 | Suresh turns on late marks in Settings → Attendance rules and asks who it hits last month (Imran was late three days) | The preview lists Imran with 3 late marks and ½ day, says nothing is saved until Save; Undo leaves the rule off |
+| R2 | Lakshmi came in and never punched out on the last working day; the missing-punch notice reaches her app | Today shows "To fix" with Fix for that day; Fix opens the missed-punch request filled in; once sent it waits for approval and the notice goes |
+| R3 | The company sets night work for women to "save it and warn"; Farah, with no consent on file, is given an evening shift to 22:00 | The shift is saved, not refused; Time → Night work says shifts are saved with a warning and lists Farah with no consent and her night shifts |
 
 ## Boundaries, for every person
 

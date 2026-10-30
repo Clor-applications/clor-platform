@@ -1156,7 +1156,6 @@ export default function Shell() {
                 setPlatformScreen('profile');
                 setShowMoreApps(false);
               }}
-              aria-label="My profile"
               title="My profile"
               style={user?.avatarUrl || user?.fullName ? { width: 38, height: 38, padding: 2, borderRadius: 999 } : undefined}
             >
@@ -1169,8 +1168,9 @@ export default function Shell() {
               ) : app?.iconSet === 'color' ? (
                 <ProfileColor size={20} />
               ) : (
-                <UserRound size={18} />
+                <UserRound size={18} aria-hidden="true" />
               )}
+              <span className="sr-only">My profile</span>
             </button>
           ) : null}
 

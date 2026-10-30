@@ -5,8 +5,10 @@ import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitiv
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
+import { formatDate } from '@ui/components/ui/DatePicker';
 import { PRIVATE_LABEL, STATUS_LABEL, colorOf, getWorkingAway, getWorkingWeek, listHolidays, listLeaveRequests, todayIst } from './api';
 import { homeCrumbs } from './shared';
+import { clashDays, clashWords } from './clashes';
 
 /**
  * Time & Leave → Calendar: who is away in a month, one line a person, with
@@ -84,6 +86,9 @@ export default function LeaveCalendar() {
     return [...m.values()].sort((a, b) => (a.key === PRIVATE_LABEL) - (b.key === PRIVATE_LABEL) || a.name.localeCompare(b.name));
   }, [requests]);
   const shaded = (d) => isOffDay(d) || holidayOn.has(d);
+  /* Two or more of one department away on the same working day (M4), approved or waiting: flagged before approving a third. */
+  const clashes = clashDays((requests || []).filter((r) => !dept || r.department === dept), days[0], days[days.length - 1]).filter((c) => c.date !== c.to || !shaded(c.date));
+  const clashOn = new Set(days.filter((d) => !shaded(d) && clashes.some((c) => c.date <= d && d <= c.to)));
 
   return (
     <div className="space-y-6">
@@ -111,7 +116,19 @@ export default function LeaveCalendar() {
         <EmptyState title={`Nobody is away or working elsewhere in ${title(month)}${dept ? ` in ${dept}` : ''}`} />
       ) : (
         <section className="space-y-3" aria-label={`Leave in ${title(month)}`}>
-          <div className="ui-table-scroll border-t" style={{ borderColor: 'rgb(var(--border))' }}>
+          {clashes.length ? (
+            <ul className="space-y-1 text-sm" aria-label="Away the same day">
+              {clashes.map((c) => (
+                <li key={`${c.date}:${c.group || ''}`} className="flex flex-wrap items-center gap-2">
+                  <span className="ui-pill ui-pill-warn whitespace-nowrap">{clashWords(c.count)}</span>
+                  <span className="tabular-nums font-medium">{c.date === c.to ? formatDate(c.date) : `${formatDate(c.date)} – ${formatDate(c.to)}`}</span>
+                  <span>{c.group ? `${c.group}: ` : ''}{c.names.join(', ')}{c.waiting ? <span className="ui-caption"> ({c.waiting} waiting)</span> : null}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {/* Scrolls sideways on a phone: reachable by keyboard, so the days past the edge can be read (axe scrollable-region-focusable). */}
+          <div className="ui-table-scroll border-t" style={{ borderColor: 'rgb(var(--border))' }} tabIndex={0} role="group" aria-label={`Days of ${title(month)}`}>
             <table className="w-full border-collapse text-xs" aria-label={`Leave in ${title(month)}`}>
               <thead>
                 <tr>
@@ -160,7 +177,9 @@ export default function LeaveCalendar() {
                 ))}
                 <tr className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
                   <th scope="row" className="sticky left-0 z-10 bg-[rgb(var(--app-bg))] p-2 text-left text-sm font-medium">Away</th>
-                  {days.map((d) => <td key={d} className="p-1 text-center ui-muted tabular-nums">{awayOn(d) || ''}</td>)}
+                  {days.map((d) => (clashOn.has(d)
+                    ? <td key={d} className="p-0.5 text-center" title="Two or more of one department away"><span className="ui-pill ui-pill-warn tabular-nums px-1">{awayOn(d) || '!'}</span></td>
+                    : <td key={d} className="p-1 text-center ui-muted tabular-nums">{awayOn(d) || ''}</td>))}
                 </tr>
               </tbody>
             </table>

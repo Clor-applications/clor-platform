@@ -8197,3 +8197,15 @@ button.ui-side-alert { cursor: pointer; }
 @keyframes ui-popover-out-up { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(2px); } }
 /* A leave balance running low (15% or one day left): the warm highlight, never the error red (that is below zero). */
 .ui-balance-low { color: rgb(var(--warn-ink)); }
+
+/*
+ * Sonner on a phone: its stack is `width: 100%` with a left offset, so it ran
+ * 16px past the right edge and the page scrolled sideways under a toast
+ * (Approvals at 390px measured 410px wide, e2e). Unlayered, as Sonner's own
+ * sheet is, and one attribute stronger: the stack sits between the offsets
+ * and each toast fills it.
+ */
+@media (max-width: 600px) {
+  [data-sonner-toaster][data-sonner-toaster] { width: auto; }
+  [data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] { width: 100%; }
+}

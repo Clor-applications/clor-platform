@@ -23,6 +23,7 @@ export const MENU: Record<string, string> = {
   'Salary revisions': 'People',
   Benefits: 'People',
   Assets: 'People',
+  Expenses: 'People',
   Overview: 'Organisation',
   Departments: 'Organisation',
   Designations: 'Organisation',
@@ -37,6 +38,9 @@ export const MENU: Record<string, string> = {
   'Daily attendance': 'Time',
   'Attendance requests': 'Time',
   'Shift swaps': 'Time',
+  'Late marks': 'Time',
+  Absences: 'Time',
+  'Night work': 'Time',
   'Job openings': 'Talent',
   Candidates: 'Talent',
   Interviews: 'Talent',
@@ -181,10 +185,10 @@ export class PeopleWeb {
   async approve(...texts: Array<string | RegExp>) {
     const item = this.row(...texts);
     await expect(item).toBeVisible();
-    const inline = item.getByRole('button', { name: 'Approve' });
+    const inline = item.getByRole('button', { name: 'Approve', exact: true });
     if (await inline.count()) return inline.first();
     await item.click();
-    return this.page.getByRole('dialog').getByRole('button', { name: 'Approve' }).first();
+    return this.page.getByRole('dialog').getByRole('button', { name: 'Approve', exact: true }).first();
   }
 
   /** Employees → a person's record, found the way HR finds one: by searching the name. */

@@ -151,7 +151,6 @@ test.describe('Kavya runs HR', () => {
   });
 
   test('H8: change Priya’s department and manager from next month', { tag: ['@H8'] }, async ({ asHR: kavya, w }, testInfo) => {
-    test.fail(testInfo.project.name === 'phone', 'APP BUG: on a phone, Job changes shows "Department → Sales" with no "from" value (the desktop table shows "Production → Sales")');
     const from = firstOfNextMonth();
     await kavya.goto();
     await kavya.openEmployee(w.people.priya.name);

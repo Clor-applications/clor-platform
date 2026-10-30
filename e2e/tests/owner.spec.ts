@@ -116,14 +116,9 @@ test.describe('Suresh owns the account', () => {
     /* Her own leave: asked, and decided, with nobody else in the company. */
     const from = weekday(2 + testInfo.retry, 1);
     await people.openMine('My leave');
-    /* Seen on some runs: My leave still says no file is linked right after she added herself, until the page reloads. Noted, not hidden. */
-    const ask0 = people.main.getByRole('button', { name: 'Ask for leave' });
-    const unlinked = people.main.getByText('No employee file is linked to your sign-in');
-    await expect(ask0.or(unlinked).first()).toBeVisible();
-    if (await unlinked.isVisible()) {
-      testInfo.annotations.push({ type: 'app-note', description: 'My leave said "No employee file is linked" right after she added herself with her sign-in email; a reload fixed it.' });
-      await people.page.reload();
-    }
+    /* Her file links on this first visit: My leave shows her leave at once, never "no employee file" until a reload. */
+    await expect(people.main.getByRole('button', { name: 'Ask for leave' })).toBeVisible();
+    await expect(people.main.getByText('No employee file is linked to your sign-in')).toHaveCount(0);
     await people.main.getByRole('button', { name: 'Ask for leave' }).click();
     const ask = people.drawerNamed('Ask for leave');
     await choose(ask.getByLabel('Leave type'), 'Casual Leave');
@@ -134,26 +129,17 @@ test.describe('Suresh owns the account', () => {
 
     /* (A phone's list shows the date, not the reason.) */
     const mine = people.row(people.isPhone ? shortDate(from) : 'Supplier visit in Surat');
-    await expect(mine).toContainText(/Waiting|Approved/);
-    if (!/Approved/.test((await mine.textContent()) || '')) {
-      /* Nobody above her: she decides it herself, from Approvals or from Leave requests. */
-      await people.open('Approvals');
-      const inbox = people.row('Lalitha Rao', /Casual Leave/);
-      if (await inbox.isVisible()) {
-        await (await people.approve('Lalitha Rao', /Casual Leave/)).click();
-      } else {
-        await people.open('Leave requests');
-        /* Her request's row (Casual Leave, capitalised as the type is), not the "Recent activity" line beside the list. */
-        const row = people.row('Lalitha Rao', /Casual Leave/);
-        const opener = row.getByRole('button', { name: /Lalitha Rao/ });
-        await ((await opener.count()) ? opener.first() : row).click();
-        await people.page.getByRole('dialog').getByRole('button', { name: 'Approve' }).click();
-      }
-      /* Decided before moving on: the panel closes and the request leaves the waiting list. */
-      await expect(people.page.getByRole('dialog')).toHaveCount(0);
-      await people.settle();
-      await people.openMine('My leave');
-    }
+    await expect(mine).toContainText('Waiting');
+
+    /* Nobody above her and nobody else to approve: it waits in her own Approvals, saying why she may decide it. */
+    await people.open('Approvals');
+    const own = people.row('Lalitha Rao', /Casual Leave/);
+    await expect(own).toContainText(/only approver/i);
+    await expect(own).toContainText(/logged/i);
+    await (await people.approve('Lalitha Rao', /Casual Leave/)).click();
+    await expect(people.row('Lalitha Rao', /Casual Leave/)).toHaveCount(0);
+    await expect(people.main).toContainText('Nothing waiting for you');
+    await people.openMine('My leave');
     await expect(mine).toContainText('Approved');
   });
 });
