@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 
 import { authenticate } from './portal.js';
+import { referLimiter } from '../middleware/rateLimit.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
 import { RESUME_TYPES, TalentError } from '../services/people/talent/hiring.js';
@@ -37,7 +38,7 @@ peopleReferralsPortalRouter.get('/', async (req, res) => {
   }
 });
 
-peopleReferralsPortalRouter.post('/refer', async (req, res) => {
+peopleReferralsPortalRouter.post('/refer', ...referLimiter, async (req, res) => {
   try {
     const e = await me(req);
     if (!e) return off(res);

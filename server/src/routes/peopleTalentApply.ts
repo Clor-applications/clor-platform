@@ -2,7 +2,7 @@ import { Router, urlencoded } from 'express';
 
 import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
-import { applyLimiter } from '../middleware/rateLimit.js';
+import { applyLimiter, referViewLimiter } from '../middleware/rateLimit.js';
 import { TalentError, applyFromLink, openingByToken } from '../services/people/talent/hiring.js';
 import { applyThroughLink, byLinkToken } from '../services/people/talent/referrals.js';
 
@@ -30,6 +30,7 @@ async function findOpening(token: string) {
 
 const form = (title: string, orgName: string, description: string | null, error = '', values: Record<string, string> = {}, referredBy = '') => page(`${title} at ${orgName}`, `
   <h1 style="font-size:1.35rem;margin:0">${esc(title)}</h1><p class="muted">${esc(orgName)}${referredBy ? ` · referred by ${esc(referredBy)}` : ''}</p>
+  ${referredBy ? `<p class="muted" style="font-size:.875rem">${esc(referredBy)} will see your name and whether you joined, never anything else.</p>` : ''}
   ${description ? `<p style="white-space:pre-line">${esc(description)}</p>` : ''}
   ${error ? `<p role="alert" style="color:#b91c1c">${esc(error)}</p>` : ''}
   <form method="post">
@@ -76,7 +77,7 @@ peopleTalentApplyRouter.post('/people/apply/:token', ...applyLimiter, urlencoded
 const firstName = (n: string | undefined) => String(n || '').trim().split(/\s+/)[0] || '';
 const closedPage = (res: any) => res.status(410).type('html').send(page('Not taking applications', '<h1 style="font-size:1.25rem">This job is not taking applications</h1><p class="muted">It may have been filled or closed.</p>'));
 
-peopleTalentApplyRouter.get('/people/refer/:token', async (req, res) => {
+peopleTalentApplyRouter.get('/people/refer/:token', ...referViewLimiter, async (req, res) => {
   const found = await byLinkToken(String(req.params.token || ''));
   if (!found?.live) return closedPage(res);
   res.type('html').send(form(found.opening.title, found.orgName, found.opening.description, '', {}, firstName(found.referrer?.name)));

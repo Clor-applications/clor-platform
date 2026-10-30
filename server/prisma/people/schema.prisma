@@ -1856,6 +1856,9 @@ model PeopleSetting {
   noticeLanguages    Json?
   /// People Home's setup list (services/people/setup.ts): { skipped: [step], hidden: ISO, recorded: [step], simpleAdvice: ISO }.
   setupState         Json?
+  /// Referrals (A20): a bonus is not paid when the referrer has left before the bonus date
+  /// (serving notice counts as still here). Off: it is paid anyway, in their final settlement or by hand.
+  referralForfeitIfReferrerLeaves Boolean @default(true)
   updatedByUserId    String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

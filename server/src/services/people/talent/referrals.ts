@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { createHash, createHmac, hkdfSync, randomBytes } from 'node:crypto';
 
 import { peoplePrisma } from '../../../utils/peoplePrisma.js';
 import { payrollPrisma } from '../../../utils/payrollPrisma.js';
@@ -10,7 +10,7 @@ import { isFeatureEnabled } from '../../features.js';
 import { isAppEntitled } from '../../subscriptions.js';
 import { forLiveEmployee } from '../../payroll/employeeLock.js';
 import type { TeamScope } from '../scope.js';
-import { RESUME_MAX, RESUME_TYPES, TalentError, candidateEvent } from './hiring.js';
+import { RESUME_TYPES, TalentError, candidateEvent } from './hiring.js';
 
 /**
  * Employee referrals (A20, WORKFLOW-GAP-RESEARCH-2026-10-30), made for a 1–20 person business
@@ -40,6 +40,8 @@ import { RESUME_MAX, RESUME_TYPES, TalentError, candidateEvent } from './hiring.
 const DAY = 86_400_000;
 export const REPEAT_DAYS = 183;
 const DEFAULT_BONUS_DAYS = 90;
+/** A résumé sent with a referral: smaller than HR's own upload, as it comes from anyone's phone. */
+export const REFERRAL_RESUME_MAX = 2 * 1024 * 1024;
 const BONUS_PREFIX = 'referral-bonus:';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE = /^\+?[\d\s\-()]{7,20}$/;
@@ -140,6 +142,8 @@ export async function announce(who: Who, o: Opening) {
 
 /** The jobs this person may refer for or apply to, newest first; the bonus each one offers. */
 export async function jobsFor(e: Referrer) {
+  const rule = await referrerRuleOf(e.orgId);
+  const stillHere = rule.forfeitIfReferrerLeaves ? ' and you still work here then' : '';
   const rows = await peoplePrisma.jobOpening.findMany({ where: { orgId: e.orgId, status: 'OPEN', OR: [{ referralOpen: true }, { internalApply: true }] }, orderBy: [{ referralOpenedAt: 'desc' }, { updatedAt: 'desc' }], take: 200 });
   const mine = rows.filter((o) => mayRefer(o, e));
   const [depts, branches, applied] = await Promise.all([
@@ -155,7 +159,7 @@ export async function jobsFor(e: Referrer) {
     department: o.departmentId ? d.get(o.departmentId) || null : null, where: (o.branchId ? b.get(o.branchId) : null) || o.location || null,
     canRefer: o.referralOpen, canApply: o.internalApply && !done.has(o.id), applied: done.has(o.id),
     bonus: o.referralOpen && o.referralBonus && Number(o.referralBonus) > 0 ? Number(o.referralBonus) : null,
-    bonusAfter: o.referralBonusDays ? `${o.referralBonusDays} days after they join` : 'once they finish probation',
+    bonusAfter: `${o.referralBonusDays ? `${o.referralBonusDays} days after they join` : `once they finish probation (${DEFAULT_BONUS_DAYS} days if no probation is set)`}, if they are still here${stillHere}`,
     postedAt: o.referralOpenedAt || o.updatedAt,
   }));
 }
@@ -187,11 +191,14 @@ async function refusedAsDuplicate(tx: any, orgId: string, openingId: string, key
   if (staff.some((s: any) => (keys.email && emailKeyOf(s.email) === keys.email) || (keys.phone && phoneKeyOf(s.phone) === keys.phone))) return 'WORKS_HERE';
   return null;
 }
-const DUPLICATE_WORDS: Record<string, string> = {
-  ON_OPENING: 'This person is already being considered for this job. Thank you for thinking of them.',
-  REFERRED: 'Someone already referred this person in the last six months, so the first referral stands. Thank you for thinking of them.',
-  WORKS_HERE: 'This person already works here.',
-};
+/* One answer for every refusal, so a referrer learns nothing about whether the person applied or works here; the reason is in the audit log for HR. */
+export const DUPLICATE_WORDS = 'We can’t take this referral. HR already has this person’s details. Thank you for thinking of them.';
+const REFUSAL_REASON: Record<string, string> = { ON_OPENING: 'already a candidate for this opening', REFERRED: 'referred by someone in the last six months', WORKS_HERE: 'already works here' };
+async function auditRefusal(e: Referrer, o: Opening, reason: string, via: string) {
+  await platformPrisma.auditLog.create({
+    data: { accountId: o.accountId, orgId: o.orgId, branchId: '', entity: 'Referral', entityId: o.id, action: 'REFUSED_DUPLICATE', message: `Referral for ${o.title} by ${e.name} refused: ${REFUSAL_REASON[reason] || reason}`.slice(0, 500), metadata: JSON.stringify({ reason, referrerEmployeeId: e.id, via }), createdByUserId: e.userId || `portal:${e.id}`, correlationId: null },
+  }).catch((err) => console.error('[referrals] refusal not audited:', err instanceof Error ? err.message : err)); // eslint-disable-line no-console
+}
 
 type Friend = { name: string; email: string | null; phone: string | null; relation: string | null; note: string | null; resumeUrl?: string | null };
 function friendInput(raw: any, needContact = true): Friend {
@@ -220,7 +227,7 @@ export async function refer(e: Referrer, raw: any, file: { name: string; mime: s
   const f = friendInput(raw);
   if (file) {
     if (!RESUME_TYPES.has(file.mime)) throw new TalentError('A résumé is a PDF or Word file.');
-    if (!file.data.length || file.data.length > RESUME_MAX) throw new TalentError('A résumé is up to 5 MB.');
+    if (!file.data.length || file.data.length > REFERRAL_RESUME_MAX) throw new TalentError('A résumé sent with a referral is up to 2 MB.');
   }
   const keys = { phone: phoneKeyOf(f.phone), email: emailKeyOf(f.email) };
   if ((keys.phone && keys.phone === phoneKeyOf(e.phone)) || (keys.email && keys.email === emailKeyOf(e.email))) throw new TalentError('That is you. To apply yourself, use Apply on the job.', 400, 'SELF');
@@ -232,7 +239,7 @@ async function createReferral(e: Referrer, o: Opening, f: Friend, keys: { phone:
   const who = { accountId: o.accountId, orgId: o.orgId, userId: via === 'LINK' ? null : e.userId || `portal:${e.id}` };
   const made = await peoplePrisma.$transaction(async (tx) => {
     const dup = await refusedAsDuplicate(tx, o.orgId, o.id, keys, now);
-    if (dup) throw new TalentError(DUPLICATE_WORDS[dup], 409, 'DUPLICATE_REFERRAL');
+    if (dup) throw Object.assign(new TalentError(DUPLICATE_WORDS, 409, 'DUPLICATE_REFERRAL'), { reason: dup });
     const c = await tx.candidate.create({
       data: {
         accountId: o.accountId, orgId: o.orgId, openingId: o.id, stage: 'APPLIED', name: f.name, email: f.email, phone: f.phone, source: 'REFERRAL', sourceDetail: e.name.slice(0, 120), createdByUserId: e.userId,
@@ -244,14 +251,26 @@ async function createReferral(e: Referrer, o: Opening, f: Friend, keys: { phone:
     await candidateEvent(tx, who, c.id, { kind: 'APPLIED', toStage: 'APPLIED', text: how });
     const r = await tx.referral.create({ data: { accountId: o.accountId, orgId: o.orgId, openingId: o.id, candidateId: c.id, referrerEmployeeId: e.id, via, relation: f.relation, note: f.note, phoneKey: keys.phone, emailKey: keys.email, bonusAmount: o.referralBonus, bonusDays: o.referralBonusDays } });
     return { candidateId: c.id, referralId: r.id };
+  }).catch(async (err) => {
+    if (err instanceof TalentError && err.code === 'DUPLICATE_REFERRAL') await auditRefusal(e, o, (err as any).reason, via);
+    throw err;
   });
   await tellHr(o, `New referral: ${f.name}`, `${o.title} · referred by ${e.name}`);
   return made;
 }
 
 /* The referrer's own link: the token is an HMAC of the row, so it can be shown again; only its sha256 is stored. */
-const linkSecret = () => process.env.REFERRAL_LINK_SECRET || process.env.JWT_SECRET || 'clor-referral-links';
-const tokenOf = (id: string) => createHmac('sha256', linkSecret()).update(`referral-link:${id}`).digest('hex').slice(0, 48);
+/* No fixed-text fallback: without a secret, production makes no links; a developer's machine uses one for this process only. */
+const devKey = randomBytes(32);
+const linkKey = () => {
+  const ikm = process.env.REFERRAL_LINK_SECRET || process.env.JWT_SECRET;
+  if (!ikm) {
+    if (process.env.NODE_ENV === 'production') throw new TalentError('Referral links are not set up on this server yet. Ask HR to tell CLOR support.', 503, 'NO_LINK_SECRET');
+    return devKey;
+  }
+  return Buffer.from(hkdfSync('sha256', ikm, '', 'clor/referral-link/v1', 32));
+};
+const tokenOf = (id: string) => createHmac('sha256', linkKey()).update(`referral-link:${id}`).digest('hex').slice(0, 48);
 const appUrl = () => process.env.APP_URL || 'http://localhost:5173';
 
 /** My link for one job, made the first time I ask, and the words to send with it on WhatsApp. */
@@ -267,6 +286,9 @@ export async function linkFor(e: Referrer, openingId: string) {
       row = await peoplePrisma.referralLink.findUniqueOrThrow({ where: { openingId_referrerEmployeeId: { openingId: o.id, referrerEmployeeId: e.id } } });
     }
   }
+  /* The secret was rotated since the link was made: the link shown now is the one that works. */
+  const hash = sha256(tokenOf(row.id));
+  if (row.tokenHash !== hash) row = await peoplePrisma.referralLink.update({ where: { id: row.id }, data: { tokenHash: hash } });
   const org = await platformPrisma.org.findUnique({ where: { id: o.orgId }, select: { name: true } });
   const link = `${appUrl()}/api/people/refer/${tokenOf(row.id)}`;
   const shareText = `${org?.name || 'We'} ${org?.name ? 'is' : 'are'} hiring: ${o.title}. I think you would be good for it. Apply here: ${link}`;
@@ -345,8 +367,19 @@ export async function mine(e: Referrer) {
 const BONUS_WORDS: Record<string, string> = { WAITING: 'Due on', DUE: 'Due now', SENT: 'With Payroll', PAID: 'Paid', FORFEITED: 'Not payable' };
 const bonusForReferrer = (r: { bonusAmount: unknown; bonusStatus: string; bonusDueOn: string | null; bonusNote: string | null }) => {
   if (r.bonusAmount == null || !Number(r.bonusAmount)) return null;
-  return { amount: Number(r.bonusAmount), status: r.bonusStatus, words: r.bonusStatus === 'NONE' ? 'If they join and stay' : BONUS_WORDS[r.bonusStatus] || '', dueOn: r.bonusDueOn, note: r.bonusStatus === 'FORFEITED' ? r.bonusNote : null };
+  return { amount: Number(r.bonusAmount), status: r.bonusStatus, words: r.bonusStatus === 'NONE' ? 'If they join and stay' : BONUS_WORDS[r.bonusStatus] || '', dueOn: r.bonusDueOn, note: ['FORFEITED', 'WAITING'].includes(r.bonusStatus) ? r.bonusNote : null };
 };
+
+/**
+ * When a bonus is due, from the hire's record as it is now: N days after joining, or the end of
+ * their probation, or 90 days after joining when the record has no probation date (said so).
+ */
+export function bonusDateOf(r: { bonusDays: number | null }, hire: { dateOfJoining: string | null; probationEndDate: string | null } | null | undefined) {
+  const joined = hire?.dateOfJoining || todayIst();
+  if (r.bonusDays) return { dueOn: plusDays(joined, r.bonusDays), note: `Due ${r.bonusDays} days after they joined.` };
+  if (hire?.probationEndDate && hire.probationEndDate > joined) return { dueOn: hire.probationEndDate, note: 'Due when their probation ends.' };
+  return { dueOn: plusDays(joined, DEFAULT_BONUS_DAYS), note: `Due ${DEFAULT_BONUS_DAYS} days after they joined: their record has no probation end date.` };
+}
 
 /* ------------------------------------------------------- the candidate moves */
 
@@ -368,9 +401,10 @@ export async function afterCandidateMoved(accountId: string, orgId: string, cand
   const data: Record<string, unknown> = { outcome, outcomeAt: new Date() };
   if (outcome === 'JOINED' && r.bonusStatus === 'NONE' && r.bonusAmount != null && Number(r.bonusAmount) > 0 && c.employeeId) {
     const hire = await peoplePrisma.employee.findFirst({ where: { id: c.employeeId, orgId }, select: { dateOfJoining: true, probationEndDate: true } });
-    const joined = hire?.dateOfJoining || todayIst();
+    const when = bonusDateOf(r, hire);
     data.bonusStatus = 'WAITING';
-    data.bonusDueOn = r.bonusDays ? plusDays(joined, r.bonusDays) : hire?.probationEndDate && hire.probationEndDate > joined ? hire.probationEndDate : plusDays(joined, DEFAULT_BONUS_DAYS);
+    data.bonusDueOn = when.dueOn;
+    data.bonusNote = when.note;
   }
   const moved = await peoplePrisma.referral.updateMany({ where: { id: r.id, outcome: null }, data });
   if (!moved.count) return;
@@ -473,10 +507,8 @@ async function periodToPayIn(orgId: string, today: string) {
     || payrollPrisma.payrollPeriod.findFirst({ where: { ...open, startDate: { gt: today } }, orderBy: { startDate: 'asc' }, select: { id: true, name: true } });
 }
 
-/** The company's referral bonus earning: one marked as such, else made the first time it is needed. */
+/** The company's referral bonus earning, by its code only (a component merely named like it is not taken), made the first time it is needed. */
 async function bonusComponent(accountId: string, orgId: string, userId: string) {
-  const had = await payrollPrisma.salaryComponent.findFirst({ where: { orgId, type: 'EARNING', isActive: true, OR: [{ code: 'REFERRAL_BONUS' }, { name: { contains: 'referral', mode: 'insensitive' } }] }, orderBy: { createdAt: 'asc' }, select: { id: true } });
-  if (had) return had.id;
   const made = await payrollPrisma.salaryComponent.upsert({
     where: { orgId_code: { orgId, code: 'REFERRAL_BONUS' } },
     update: {},
@@ -488,105 +520,182 @@ async function bonusComponent(accountId: string, orgId: string, userId: string) 
 
 export const payrollOn = async (accountId: string, orgId: string) => (await isAppEntitled(accountId, 'payroll').catch(() => false)) && (await isFeatureEnabled(accountId, orgId, 'payroll'));
 
+/** The referral row, locked for the rest of the transaction: send, forfeit and paid take turns on one bonus. */
+const lockReferral = async (tx: any, orgId: string, id: string) => {
+  const rows = await tx.$queryRaw`SELECT id FROM "Referral" WHERE id = ${id} AND "orgId" = ${orgId} FOR UPDATE`;
+  if (!(rows as unknown[]).length) throw new TalentError('No such referral.', 404);
+  return tx.referral.findFirstOrThrow({ where: { id, orgId } });
+};
+const LOCKED = { timeout: 30_000, maxWait: 15_000 };
+export const SETTLEMENT_WORDS = 'They have left: pay it in their final settlement or by hand, then mark it paid.';
+
 /**
- * One due bonus to Payroll as a draft earning on the referrer, keyed `referral-bonus:<id>`: a
- * second call (the job and HR's button at once) finds the first one's row. Never throws for a
- * reason Payroll gives; the bonus stays Due with that reason, for HR to send again or pay by hand.
+ * One due bonus to Payroll as a draft earning on the referrer, keyed `referral-bonus:<id>`, under
+ * the referral's row lock: a second send (the job and HR's button at once) waits and finds it
+ * sent, and a forfeit waits until the draft exists and then voids it. Never throws for a reason
+ * Payroll gives; the bonus stays Due with that reason. A referrer who has left is paid in their
+ * final settlement, never as a draft on a payslip that will not be run.
  */
 export async function sendBonusToPayroll(orgId: string, referralId: string, today = todayIst()) {
-  const r = await peoplePrisma.referral.findFirst({ where: { id: referralId, orgId } });
-  if (!r) throw new TalentError('No such referral.', 404);
-  if (r.bonusStatus === 'SENT') return { sent: true, why: null as string | null };
-  if (r.bonusStatus !== 'DUE') throw new TalentError('This bonus is not due.', 409);
-  const stay = async (why: string) => {
-    await peoplePrisma.referral.updateMany({ where: { id: r.id, bonusStatus: 'DUE' }, data: { bonusNote: why } });
-    return { sent: false, why };
-  };
-  if (!(await payrollOn(r.accountId, orgId))) return stay('This company does not run payroll in CLOR: pay it by hand and mark it paid.');
-  const amount = Number(r.bonusAmount || 0);
-  if (!(amount > 0)) return stay('No amount was promised.');
-  const period = await periodToPayIn(orgId, today);
-  if (!period) return stay('Payroll has no open month to pay it in. Open one, then send it again.');
-  const [opening, cand, person] = await Promise.all([
-    peoplePrisma.jobOpening.findFirst({ where: { id: r.openingId, orgId }, select: { title: true, openedByUserId: true, createdByUserId: true } }),
-    peoplePrisma.candidate.findFirst({ where: { id: r.candidateId, orgId }, select: { name: true } }),
-    peoplePrisma.employee.findFirst({ where: { id: r.referrerEmployeeId, orgId }, select: { branchId: true } }),
-  ]);
-  /* Made by the system, not by HR: the HR person who set the bonus may still approve it in Payroll. */
-  const maker = 'system:referral-bonus';
-  const id = `${BONUS_PREFIX}${r.id}`;
-  try {
-    const componentId = await bonusComponent(r.accountId, orgId, opening?.openedByUserId || opening?.createdByUserId || maker);
-    const made = await forLiveEmployee(orgId, r.referrerEmployeeId, async (tx) => {
-      const prior = await tx.payrollAdjustment.findUnique({ where: { id } });
-      if (prior) return prior;
-      return tx.payrollAdjustment.create({ data: { id, accountId: r.accountId, orgId, branchId: person?.branchId || null, employeeId: r.referrerEmployeeId, componentId, periodId: period.id, type: 'EARNING', amount, reason: `Referral bonus: ${cand?.name || 'a referral'} joined as ${opening?.title || 'a hire'}`.slice(0, 240), reference: id, status: 'DRAFT', createdByUserId: maker } });
-    });
-    await peoplePrisma.referral.updateMany({ where: { id: r.id, bonusStatus: 'DUE' }, data: { bonusStatus: 'SENT', bonusAdjustmentId: made.id, bonusNote: `Draft earning in ${period.name}, for Payroll to approve.` } });
-    return { sent: true, why: null };
-  } catch (e) {
-    console.error('[referrals] bonus not sent to payroll:', e instanceof Error ? e.message : e); // eslint-disable-line no-console
-    return stay('It could not reach Payroll just now. Send it again.');
-  }
+  return peoplePrisma.$transaction(async (tx) => {
+    const r = await lockReferral(tx, orgId, referralId);
+    if (r.bonusStatus === 'SENT') return { sent: true, why: null as string | null };
+    if (r.bonusStatus !== 'DUE') throw new TalentError('This bonus is not due.', 409);
+    const stay = async (why: string) => {
+      await tx.referral.update({ where: { id: r.id }, data: { bonusNote: why } });
+      return { sent: false, why };
+    };
+    const referrer = await tx.employee.findFirst({ where: { id: r.referrerEmployeeId, orgId }, select: { status: true, branchId: true } });
+    if (!referrer || referrer.status === 'LEFT') return stay(SETTLEMENT_WORDS);
+    if (!(await payrollOn(r.accountId, orgId))) return stay('This company does not run payroll in CLOR: pay it by hand and mark it paid.');
+    const amount = Number(r.bonusAmount || 0);
+    if (!(amount > 0)) return stay('No amount was promised.');
+    const period = await periodToPayIn(orgId, today);
+    if (!period) return stay('Payroll has no open month to pay it in. Open one, then send it again.');
+    const [opening, cand] = await Promise.all([
+      tx.jobOpening.findFirst({ where: { id: r.openingId, orgId }, select: { title: true, openedByUserId: true, createdByUserId: true } }),
+      tx.candidate.findFirst({ where: { id: r.candidateId, orgId }, select: { name: true } }),
+    ]);
+    /* Made by the system, not by HR: the HR person who set the bonus may still approve it in Payroll. */
+    const maker = 'system:referral-bonus';
+    const id = `${BONUS_PREFIX}${r.id}`;
+    try {
+      const componentId = await bonusComponent(r.accountId, orgId, opening?.openedByUserId || opening?.createdByUserId || maker);
+      const made = await forLiveEmployee(orgId, r.referrerEmployeeId, async (ptx) => {
+        const prior = await ptx.payrollAdjustment.findUnique({ where: { id } });
+        if (prior && prior.status !== 'CANCELLED') return prior;
+        const data = { componentId, periodId: period.id, type: 'EARNING', amount, reason: `Referral bonus: ${cand?.name || 'a referral'} joined as ${opening?.title || 'a hire'}`.slice(0, 240), reference: id, status: 'DRAFT', approvedAt: null, approvedByUserId: null, consumedByRunId: null };
+        if (prior) return ptx.payrollAdjustment.update({ where: { id }, data });
+        return ptx.payrollAdjustment.create({ data: { id, accountId: r.accountId, orgId, branchId: referrer.branchId || null, employeeId: r.referrerEmployeeId, createdByUserId: maker, ...data } });
+      });
+      await tx.referral.update({ where: { id: r.id }, data: { bonusStatus: 'SENT', bonusAdjustmentId: made.id, bonusNote: `Draft earning in ${period.name}, for Payroll to approve.` } });
+      return { sent: true, why: null };
+    } catch (e) {
+      console.error('[referrals] bonus not sent to payroll:', e instanceof Error ? e.message : e); // eslint-disable-line no-console
+      return stay('It could not reach Payroll just now. Send it again.');
+    }
+  }, LOCKED);
 }
 
-/** HR paid it by hand (no Payroll in CLOR, or paid outside it): Due becomes Paid, once. */
+/** HR paid it by hand (no Payroll in CLOR, a referrer who has left, or paid outside it): Due becomes Paid, once. */
 export async function markBonusPaid(who: Who, referralId: string) {
-  const r = await peoplePrisma.referral.updateMany({ where: { id: referralId, orgId: who.orgId, bonusStatus: 'DUE' }, data: { bonusStatus: 'PAID', bonusPaidAt: new Date(), bonusPaidByUserId: who.userId, bonusNote: 'Paid by hand.' } });
-  if (!r.count) throw new TalentError('Only a bonus that is due can be marked paid. One with Payroll is paid on the payslip.', 409);
+  await peoplePrisma.$transaction(async (tx) => {
+    const r = await lockReferral(tx, who.orgId, referralId);
+    if (r.bonusStatus !== 'DUE') throw new TalentError('Only a bonus that is due can be marked paid. One with Payroll is paid on the payslip.', 409);
+    await tx.referral.update({ where: { id: r.id }, data: { bonusStatus: 'PAID', bonusPaidAt: new Date(), bonusPaidByUserId: who.userId, bonusNote: 'Paid by hand.' } });
+  }, LOCKED);
 }
 
-/** HR decides a bonus is not payable (for example the hire was let go in probation), with the reason. */
+/**
+ * HR decides a bonus is not payable (for example the hire was let go in probation), with the
+ * reason. Under the row lock; a draft earning already with Payroll is voided (deleted while a
+ * draft, cancelled once approved); one a payslip has used cannot be taken back here.
+ */
 export async function forfeitBonus(who: Who, referralId: string, reason: unknown) {
   const why = text(reason, 300);
   if (!why) throw new TalentError('Say why the bonus is not payable.');
-  const r = await peoplePrisma.referral.updateMany({ where: { id: referralId, orgId: who.orgId, bonusStatus: { in: ['WAITING', 'DUE'] } }, data: { bonusStatus: 'FORFEITED', bonusNote: why } });
-  if (!r.count) throw new TalentError('Only a bonus that is waiting or due can be set as not payable.', 409);
+  await forfeitLocked(who.orgId, referralId, why, ['WAITING', 'DUE', 'SENT']);
 }
 
+async function forfeitLocked(orgId: string, referralId: string, why: string, from: string[]) {
+  return peoplePrisma.$transaction(async (tx) => {
+    const r = await lockReferral(tx, orgId, referralId);
+    if (!from.includes(r.bonusStatus)) {
+      if (from.length === 1) return false;
+      throw new TalentError('Only a bonus that is waiting, due or with Payroll can be set as not payable.', 409);
+    }
+    const id = `${BONUS_PREFIX}${r.id}`;
+    const adj = await payrollPrisma.payrollAdjustment.findUnique({ where: { id } });
+    if (adj?.status === 'CONSUMED') throw new TalentError('This bonus is already on a payslip: recover it in Payroll instead.', 409);
+    if (adj?.status === 'DRAFT') await payrollPrisma.payrollAdjustment.deleteMany({ where: { id, orgId, status: 'DRAFT' } });
+    else if (adj && adj.status !== 'CANCELLED') await payrollPrisma.payrollAdjustment.updateMany({ where: { id, orgId, status: { not: 'CONSUMED' } }, data: { status: 'CANCELLED' } });
+    await tx.referral.update({ where: { id: r.id }, data: { bonusStatus: 'FORFEITED', bonusNote: why, bonusAdjustmentId: null } });
+    return true;
+  }, LOCKED);
+}
+
+/* The company's rule for a referrer who leaves before the date (PeopleSetting; default: not paid). */
+export async function referrerRuleOf(orgId: string) {
+  const row = await peoplePrisma.peopleSetting.findUnique({ where: { orgId }, select: { referralForfeitIfReferrerLeaves: true } });
+  return { forfeitIfReferrerLeaves: row?.referralForfeitIfReferrerLeaves ?? true };
+}
+export async function setReferrerRule(who: Who, raw: any) {
+  const v = raw?.forfeitIfReferrerLeaves !== false;
+  await peoplePrisma.peopleSetting.upsert({ where: { orgId: who.orgId }, create: { accountId: who.accountId, orgId: who.orgId, referralForfeitIfReferrerLeaves: v, updatedByUserId: who.userId }, update: { referralForfeitIfReferrerLeaves: v, updatedByUserId: who.userId } });
+  return { forfeitIfReferrerLeaves: v };
+}
+
+/** Still here on a day: not left, or left after it (serving notice counts as here). */
+const hereOn = (p: { status: string; dateOfLeaving: string | null } | null | undefined, day: string) => Boolean(p && (p.status !== 'LEFT' || (p.dateOfLeaving && p.dateOfLeaving >= day)));
+
 /**
- * The bonus clock, run by the talent job every few hours and on HR's list: a hire who left
- * before the date forfeits the bonus; one still here on the date makes it due, and it goes to
- * Payroll when the company runs it. The status moves with a guarded update, so the job and a
- * second instance never both claim one bonus.
+ * The bonus clock, run by the talent job every few hours. The date is worked out again on each
+ * run from the hire's record as it is now (a moved joining date or an extended probation counts).
+ * A hire who left before the date forfeits the bonus; so does a referrer, under the company's
+ * rule. One still here on the date makes it due, and it goes to Payroll when the company runs it.
+ * The status moves with a guarded update, so the job and a second instance never both claim one.
  */
 export async function settleBonuses(orgId: string, today = todayIst()) {
   const waiting = await peoplePrisma.referral.findMany({ where: { orgId, bonusStatus: 'WAITING' }, take: 500 });
   if (!waiting.length) return { due: 0, forfeited: 0 };
+  const rule = await referrerRuleOf(orgId);
   const cands = new Map((await peoplePrisma.candidate.findMany({ where: { orgId, id: { in: waiting.map((w) => w.candidateId) } }, select: { id: true, employeeId: true, name: true } })).map((c) => [c.id, c]));
-  const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...waiting.map((w) => w.referrerEmployeeId), ...[...cands.values()].map((c) => c.employeeId).filter(Boolean) as string[]] } }, select: { id: true, status: true, dateOfLeaving: true, userId: true } })).map((p) => [p.id, p]));
+  const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...waiting.map((w) => w.referrerEmployeeId), ...[...cands.values()].map((c) => c.employeeId).filter(Boolean) as string[]] } }, select: { id: true, status: true, dateOfLeaving: true, dateOfJoining: true, probationEndDate: true, userId: true } })).map((p) => [p.id, p]));
   let due = 0;
   let forfeited = 0;
   for (const w of waiting) {
-    const hire = cands.get(w.candidateId)?.employeeId ? people.get(cands.get(w.candidateId)!.employeeId!) : null;
+    const cand = cands.get(w.candidateId);
+    const hire = cand?.employeeId ? people.get(cand.employeeId) : null;
     const referrer = people.get(w.referrerEmployeeId);
-    const leftBefore = (p: typeof hire) => Boolean(p && p.status === 'LEFT' && (!p.dateOfLeaving || !w.bonusDueOn || p.dateOfLeaving < w.bonusDueOn));
-    if (!hire || leftBefore(hire) || leftBefore(referrer)) {
-      const why = !hire || leftBefore(hire) ? 'The hire left before the bonus date.' : 'The referrer left before the bonus date.';
-      const r = await peoplePrisma.referral.updateMany({ where: { id: w.id, bonusStatus: 'WAITING' }, data: { bonusStatus: 'FORFEITED', bonusNote: why } });
-      forfeited += r.count;
+    const when = bonusDateOf(w, hire);
+    if (when.dueOn !== w.bonusDueOn || when.note !== w.bonusNote) await peoplePrisma.referral.updateMany({ where: { id: w.id, bonusStatus: 'WAITING' }, data: { bonusDueOn: when.dueOn, bonusNote: when.note } });
+    const hireGone = !hire || (hire.status === 'LEFT' && !hereOn(hire, when.dueOn));
+    const referrerGone = rule.forfeitIfReferrerLeaves && referrer?.status === 'LEFT' && !hereOn(referrer, when.dueOn);
+    if (hireGone || referrerGone) {
+      if (await forfeitLocked(orgId, w.id, hireGone ? 'The hire left before the bonus date.' : 'The referrer left before the bonus date.', ['WAITING'])) forfeited += 1;
       continue;
     }
-    if (!w.bonusDueOn || w.bonusDueOn > today) continue;
+    if (when.dueOn > today) continue;
     const claimed = await peoplePrisma.referral.updateMany({ where: { id: w.id, bonusStatus: 'WAITING' }, data: { bonusStatus: 'DUE', bonusNote: null } });
     if (!claimed.count) continue;
     due += 1;
     const sent = await sendBonusToPayroll(orgId, w.id, today);
-    const name = cands.get(w.candidateId)?.name || 'Your referral';
+    const name = cand?.name || 'Your referral';
     const hr = await usersWithPermission(w.accountId, orgId, 'PEOPLE::Recruitment::EDIT').catch(() => [] as string[]);
-    await notifyUsers(w.accountId, orgId, hr, { kind: 'people.referral', title: sent.sent ? `Referral bonus with Payroll: ${name}` : `Referral bonus due: ${name}`, body: sent.sent ? 'A draft earning waits for approval in Payroll → Adjustments.' : sent.why, link: { app: 'people', screen: 'referrals', params: { status: 'bonusDue' } } });
-    if (referrer?.userId) await notifyUsers(w.accountId, orgId, [referrer.userId], { kind: 'people.referral', title: `Your referral bonus for ${name} is due`, body: sent.sent ? 'It goes on your payslip once Payroll approves it.' : 'HR pays it.', link: { app: 'people', screen: 'referMe' } });
+    const settlement = sent.why === SETTLEMENT_WORDS;
+    await notifyUsers(w.accountId, orgId, hr, {
+      kind: 'people.referral',
+      title: sent.sent ? `Referral bonus with Payroll: ${name}` : `Referral bonus due: ${name}`,
+      body: sent.sent ? 'A draft earning waits for approval in Payroll → Adjustments.' : sent.why,
+      link: settlement ? { app: 'payroll', screen: 'settlements' } : { app: 'people', screen: 'referrals', params: { status: 'bonusDue' } },
+    });
+    if (referrer?.userId && referrer.status !== 'LEFT') await notifyUsers(w.accountId, orgId, [referrer.userId], { kind: 'people.referral', title: `Your referral bonus for ${name} is due`, body: sent.sent ? 'It goes on your payslip once Payroll approves it.' : 'HR pays it.', link: { app: 'people', screen: 'referMe' } });
   }
   return { due, forfeited };
 }
 
-/** The job: every company with a bonus waiting, and referrals whose story ended without a notice. */
+/**
+ * Referrals whose candidate's story ended but the referral did not hear of it (the call after a
+ * move failed): told now, and a hire's bonus clock started.
+ */
+export async function sweepOutcomes(accountId: string, orgId: string) {
+  const open = await peoplePrisma.referral.findMany({ where: { orgId, outcome: null }, select: { candidateId: true }, take: 1000 });
+  if (!open.length) return 0;
+  const ended = await peoplePrisma.candidate.findMany({ where: { orgId, id: { in: open.map((o) => o.candidateId) }, stage: { in: ENDED } }, select: { id: true } });
+  for (const c of ended) await afterCandidateMoved(accountId, orgId, c.id);
+  return ended.length;
+}
+
+/** The job: every company with a referral to finish or a bonus waiting. */
 export async function runReferralBonuses(now = new Date()) {
-  const orgs = await outsideTenant('job: referral bonuses', () => peoplePrisma.referral.findMany({ where: { bonusStatus: 'WAITING' }, select: { orgId: true }, distinct: ['orgId'], take: 1000 }));
+  const orgs = await outsideTenant('job: referral bonuses', () => peoplePrisma.referral.findMany({ where: { OR: [{ bonusStatus: 'WAITING' }, { outcome: null }] }, select: { orgId: true, accountId: true }, distinct: ['orgId'], take: 1000 }));
   let due = 0;
   for (const o of orgs) {
     try {
-      due += (await runInTenant(o.orgId, () => settleBonuses(o.orgId, todayIst(now)))).due;
+      due += await runInTenant(o.orgId, async () => {
+        await sweepOutcomes(o.accountId, o.orgId);
+        return (await settleBonuses(o.orgId, todayIst(now))).due;
+      });
     } catch (err) {
       console.error(`[referrals] bonuses ${o.orgId}:`, err instanceof Error ? err.message : err); // eslint-disable-line no-console
     }

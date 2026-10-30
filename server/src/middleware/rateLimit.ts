@@ -75,6 +75,9 @@ export const billingWebhookLimiter = [bucket(60 * 1000, 300, 'webhook calls', (r
 /** Authenticator codes: ten tries in fifteen minutes per signed-in user, so six digits cannot be walked. */
 /* A job opening's public apply page (Talent): a few applications an hour from one address, per link and overall. */
 export const applyLimiter = [guard(60 * 60 * 1000, 10, 'applications', (req) => `apply:${ipOf(req)}`)];
+/* Referrals (A20): the public referral page by address, and referrals made by one person (CLOR user or employee-app employee). */
+export const referViewLimiter = [guard(60 * 1000, 30, 'page views', (req) => `refer-view:${ipOf(req)}`)];
+export const referLimiter = [guard(60 * 60 * 1000, 20, 'referrals', (req) => `refer:${req.auth?.userId || req.portal?.employeeId || ipOf(req)}`)];
 
 export const codeLimiter = [guard(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 

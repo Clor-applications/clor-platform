@@ -22,6 +22,8 @@ const api = vi.hoisted(() => ({
   sendBonus: vi.fn(),
   bonusPaid: vi.fn(),
   bonusForfeit: vi.fn(),
+  getReferrerRule: vi.fn(),
+  saveReferrerRule: vi.fn(),
 }));
 vi.mock('../api/talent', () => api);
 
@@ -57,4 +59,21 @@ it('filters to bonuses due from a notice, and shows the report by employee', asy
   const table = await screen.findByRole('table', { name: 'Referrals by employee' });
   expect(table.textContent).toContain('Ravi Kumar');
   expect(screen.getByText('Bonus due', { selector: 'dt' }).nextSibling.textContent).toBe('₹5,000');
+});
+
+it('a bonus for a referrer who left points to the final settlement', async () => {
+  api.listReferrals.mockResolvedValue({ rows: [{ ...rows[0], bonusNote: 'They have left: pay it in their final settlement or by hand, then mark it paid.' }], counts: {}, money: true });
+  render(<Referrals />);
+  const link = await screen.findByRole('link', { name: 'final settlement' });
+  expect(link.getAttribute('href')).toBe('?app=payroll&open=settlements');
+});
+
+it('HR sets the bonus rule for a referrer who leaves', async () => {
+  api.getReferrerRule.mockResolvedValue({ forfeitIfReferrerLeaves: true });
+  api.saveReferrerRule.mockResolvedValue({ forfeitIfReferrerLeaves: false });
+  render(<Referrals />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Bonus rule' }));
+  fireEvent.click(await screen.findByLabelText('The bonus is still paid, in their final settlement'));
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(api.saveReferrerRule).toHaveBeenCalledWith({ forfeitIfReferrerLeaves: false }));
 });

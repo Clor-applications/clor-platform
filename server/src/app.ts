@@ -275,8 +275,8 @@ export function buildApp() {
   app.use(['/api/orgs/:orgId/attendance/leave/requests', '/api/orgs/:orgId/attendance/me/leave', '/api/portal/leave'], express.json({ limit: '7mb' }));
   /* A request HR defined may carry a file (≤ 2 MB each, base64): from People's My requests and from the employee app. */
   app.use(['/api/orgs/:orgId/people/my/request-forms', '/api/portal/people/forms'], express.json({ limit: '7mb' }), (err: any, _req: any, res: any, next: any) => (err?.type === 'entity.too.large' ? res.status(413).json({ error: 'The files are too large together: up to 4 MB in one request.', code: 'TOO_LARGE' }) : next(err)));
-  /* A referral may carry the friend's résumé (≤ 5 MB, base64). */
-  app.use(['/api/orgs/:orgId/people/referrals/me/refer', '/api/portal/people/referrals/refer'], express.json({ limit: '7mb' }));
+  /* A referral may carry the friend's résumé (≤ 2 MB, base64). */
+  app.use(['/api/orgs/:orgId/people/referrals/me/refer', '/api/portal/people/referrals/refer'], express.json({ limit: '3mb' }));
   /* The payment gateway's webhook: public, its exact path, the raw body a signature is made over — ahead of the JSON parser and of every router that demands a session (A-16). */
   app.post('/api/billing/webhook', ...billingWebhookLimiter, express.raw({ type: () => true, limit: '1mb' }), billingWebhook);
   app.use(express.json({ limit: '1mb' }));

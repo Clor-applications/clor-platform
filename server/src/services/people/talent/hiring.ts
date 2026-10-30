@@ -5,6 +5,7 @@ import { platformPrisma } from '../../../utils/platformPrisma.js';
 import { notifyUsers, usersWithPermission } from '../../notifications.js';
 import { createEmployee } from '../employees.js';
 import { startChecklist } from '../checklists.js';
+import { scheduleChanges } from '../effectiveDating.js';
 import type { Actor } from '../changeLog.js';
 
 /**
@@ -433,7 +434,7 @@ export async function hireCandidate(who: Who, id: string, raw: any) {
   if (!c) throw new TalentError('No such candidate.', 404);
   if (c.employeeId || c.stage === 'HIRED') throw new TalentError('Already hired.', 409);
   if (c.stage !== 'OFFER') throw new TalentError('Move them to Offer first: only someone offered the job is hired.', 409);
-  if (c.internalEmployeeId) return moveFromWithin(who, c);
+  if (c.internalEmployeeId) return moveFromWithin(who, c, raw);
   const offer = await peoplePrisma.offer.findFirst({ where: { orgId: who.orgId, candidateId: id, status: 'ACCEPTED' }, orderBy: { createdAt: 'desc' } });
   const joining = dateOrNull(raw?.dateOfJoining) || offer?.joiningDate || null;
   if (!joining) throw new TalentError('Choose the joining date.');
@@ -474,23 +475,38 @@ export async function hireCandidate(who: Who, id: string, raw: any) {
 
 /**
  * Someone who works here, taken for the job they applied to (an internal application): no second
- * employee record. The candidate is marked hired against their own record and HR is pointed to
- * the job change on it, which carries the new department, designation and pay from a date.
+ * employee record. The candidate is marked hired against their own record, and the move is booked
+ * as a scheduled job change on that record (department, designation, branch, type and manager
+ * from the opening), effective on the joining date: pending until then, so HR can change or
+ * cancel it on the record. Pay is Payroll's: the offer's pay is noted for a salary revision there.
+ * Someone suspended or gone is not moved.
  */
-async function moveFromWithin(who: Who, c: { id: string; name: string; openingId: string; internalEmployeeId: string | null }) {
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: c.internalEmployeeId!, orgId: who.orgId, status: { not: 'LEFT' } } });
-  if (!employee) throw new TalentError('They no longer work here, so they cannot move to this job.', 409);
+async function moveFromWithin(who: Who, c: { id: string; name: string; openingId: string; internalEmployeeId: string | null }, raw: any) {
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: c.internalEmployeeId!, orgId: who.orgId } });
+  if (!employee || employee.status === 'LEFT') throw new TalentError('They no longer work here, so they cannot move to this job.', 409);
+  if (employee.status === 'SUSPENDED') throw new TalentError('They are suspended: settle that before moving them to a new job.', 409);
   const opening = await peoplePrisma.jobOpening.findFirst({ where: { id: c.openingId, orgId: who.orgId } });
+  const offer = await peoplePrisma.offer.findFirst({ where: { orgId: who.orgId, candidateId: c.id, status: 'ACCEPTED' }, orderBy: { createdAt: 'desc' } });
+  const tomorrow = new Date(Date.now() + 330 * 60_000 + 86_400_000).toISOString().slice(0, 10);
+  const effectiveOn = dateOrNull(raw?.dateOfJoining) || offer?.joiningDate || tomorrow;
+  const fields: Record<string, string | null> = {};
+  if (opening?.departmentId) fields.departmentId = opening.departmentId;
+  if (opening?.jobPositionId) fields.jobPositionId = opening.jobPositionId;
+  if (opening?.branchId) fields.branchId = opening.branchId;
+  if (opening?.employeeTypeId) fields.employeeTypeId = opening.employeeTypeId;
+  if (opening?.hiringManagerId && opening.hiringManagerId !== employee.id) fields.reportingManagerId = opening.hiringManagerId;
+  const pay = offer ? ` Pay in the offer: ₹${Number(offer.annualCtc).toLocaleString('en-IN')} a year; record the salary revision in Payroll.` : '';
   await peoplePrisma.$transaction(async (tx) => {
     const r = await tx.candidate.updateMany({ where: { id: c.id, orgId: who.orgId, employeeId: null, stage: 'OFFER' }, data: { stage: 'HIRED', stageAt: new Date(), employeeId: employee.id } });
     if (!r.count) throw new TalentError('Already hired.', 409);
-    await event(tx, who, c.id, { kind: 'HIRED', fromStage: 'OFFER', toStage: 'HIRED', text: 'Moves from within. Record the job change on their employee record.' });
+    await event(tx, who, c.id, { kind: 'HIRED', fromStage: 'OFFER', toStage: 'HIRED', text: `Moves from within on ${effectiveOn}: the job change waits on their record until then.${pay}` });
     if (opening) {
       const hired = await tx.candidate.count({ where: { orgId: who.orgId, openingId: opening.id, stage: 'HIRED' } });
       if (hired >= opening.places && ['OPEN', 'ON_HOLD', 'DRAFT'].includes(opening.status)) await tx.jobOpening.update({ where: { id: opening.id }, data: { status: 'FILLED', applyOpen: false } });
     }
   });
-  return Object.assign(employee, { movedFromWithin: true as const });
+  const scheduled = await scheduleChanges({ ...who, reason: `Moves to ${opening?.title || 'a new job'} (internal application).${pay}`.slice(0, 500) } as any, employee as any, fields, effectiveOn);
+  return Object.assign(employee, { movedFromWithin: true as const, scheduledChanges: scheduled.length, effectiveOn });
 }
 
 /* ---------------------------------------------------------------- apply link */

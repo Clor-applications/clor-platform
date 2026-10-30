@@ -102,11 +102,13 @@ export default function ReferJobs({ api, run = asIs, wrap: Wrap = Plain, heading
                     <span className={`ui-pill ${STATUS_PILL[r.status] || 'ui-pill-neutral'} shrink-0`}>{r.status}</span>
                   </div>
                   {r.bonus ? (
-                    <p className="flex flex-wrap items-center gap-x-2 text-sm">
-                      <span className="tabular-nums">Bonus {rupees(r.bonus.amount)}</span>
-                      <span className={`ui-pill ${BONUS_PILL[r.bonus.status] || 'ui-pill-neutral'}`}>{r.bonus.words}{r.bonus.status === 'WAITING' && r.bonus.dueOn ? ` ${dayWords(r.bonus.dueOn)}` : ''}</span>
-                      {r.bonus.note ? <span className="ui-caption">{r.bonus.note}</span> : null}
-                    </p>
+                    <div className="flex items-start justify-between gap-3 text-sm">
+                      <span className="min-w-0">
+                        <span className={`ui-pill ${BONUS_PILL[r.bonus.status] || 'ui-pill-neutral'}`}>{r.bonus.words}{r.bonus.status === 'WAITING' && r.bonus.dueOn ? ` ${dayWords(r.bonus.dueOn)}` : ''}</span>
+                        {r.bonus.note ? <span className="block ui-caption">{r.bonus.note}</span> : null}
+                      </span>
+                      <span className="shrink-0 text-right tabular-nums">Bonus {rupees(r.bonus.amount)}</span>
+                    </div>
                   ) : null}
                 </li>
               ))}
@@ -136,7 +138,7 @@ export default function ReferJobs({ api, run = asIs, wrap: Wrap = Plain, heading
 function JobDetail({ job, mode, setMode, api, run, onDone }) {
   return (
     <div className="mt-3 space-y-3">
-      {job.bonus ? <p className="text-sm">Referral bonus <span className="tabular-nums">{rupees(job.bonus)}</span>, paid {job.bonusAfter} and are still here.</p> : null}
+      {job.bonus ? <p className="text-sm">Referral bonus <span className="tabular-nums">{rupees(job.bonus)}</span>, paid {job.bonusAfter}.</p> : null}
       {job.description ? <p className="whitespace-pre-wrap text-sm ui-muted">{job.description}</p> : null}
       {mode === 'refer' ? <ReferForm job={job} api={api} run={run} onCancel={() => setMode(null)} onDone={onDone} /> : null}
       {mode === 'apply' ? <ApplyForm job={job} api={api} run={run} onCancel={() => setMode(null)} onDone={onDone} /> : null}
@@ -163,7 +165,7 @@ function ReferForm({ job, api, run, onCancel, onDone }) {
     const f = e.target.files?.[0];
     e.target.value = '';
     if (!f) return;
-    if (f.size > 5 * 1024 * 1024) { setError('A résumé is up to 5 MB.'); return; }
+    if (f.size > 2 * 1024 * 1024) { setError('A résumé sent with a referral is up to 2 MB.'); return; }
     setError('');
     setFile(f);
   };
@@ -196,7 +198,7 @@ function ReferForm({ job, api, run, onCancel, onDone }) {
       <div className="flex flex-wrap items-center gap-2">
         <input ref={fileRef} type="file" className="sr-only" accept={RESUME_ACCEPT} onChange={pickFile} aria-label="Résumé file" />
         <button type="button" className="ui-btn ui-btn-secondary" onClick={() => fileRef.current?.click()}>{file ? 'Change résumé' : 'Add résumé'}</button>
-        <span className="ui-caption truncate">{file ? file.name : 'PDF or Word, up to 5 MB'}</span>
+        <span className="ui-caption truncate">{file ? file.name : 'PDF or Word, up to 2 MB'}</span>
       </div>
       <div className="flex flex-wrap justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel}>Cancel</button>

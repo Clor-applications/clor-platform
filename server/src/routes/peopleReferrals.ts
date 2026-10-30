@@ -9,6 +9,7 @@ import { PEOPLE_MODULE, peopleRouteOk } from '../services/people/guards.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { teamScope } from '../services/people/scope.js';
 import { recordAudit } from '../services/auditTrail.js';
+import { referLimiter } from '../middleware/rateLimit.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
 import { RESUME_TYPES, TalentError } from '../services/people/talent/hiring.js';
@@ -71,10 +72,17 @@ peopleReferralsRouter.put(`${hrBase}/openings/:id/referrals`, hiringOn, can(Perm
 
 peopleReferralsRouter.get(`${hrBase}/referrals`, hiringOn, can(PermissionAction.VIEW), handle(async (req, res) => {
   const v = await view(req);
-  /* The bonus clock is also wound here, so HR's list is right even before the job's next run. */
-  await referrals.settleBonuses(req.tenant!.orgId).catch((e) => console.error('[referrals] settle', e instanceof Error ? e.message : e));
   const q = { status: String(req.query.status || 'all'), openingId: req.query.openingId ? String(req.query.openingId) : undefined, referrerId: req.query.referrerId ? String(req.query.referrerId) : undefined, q: String(req.query.q || '').slice(0, 100) };
   res.json({ ...(await referrals.listReferrals(req.tenant!.orgId, q, v)), money: v.money });
+}));
+/* The company's rule for a referrer who leaves before the bonus date (default: not paid; notice counts as still here). */
+peopleReferralsRouter.get(`${hrBase}/referrals/rule`, hiringOn, can(PermissionAction.VIEW), handle(async (req, res) => {
+  res.json(await referrals.referrerRuleOf(req.tenant!.orgId));
+}));
+peopleReferralsRouter.put(`${hrBase}/referrals/rule`, hiringOn, can(PermissionAction.EDIT), handle(async (req, res) => {
+  const r = await referrals.setReferrerRule(who(req), req.body || {});
+  await audit(req, req.tenant!.orgId, 'RULE', r.forfeitIfReferrerLeaves ? 'Referral bonus: not paid when the referrer has left' : 'Referral bonus: paid even when the referrer has left');
+  res.json(r);
 }));
 peopleReferralsRouter.get(`${hrBase}/referrals/report`, hiringOn, can(PermissionAction.VIEW), handle(async (req, res) => {
   const v = await view(req);
@@ -118,7 +126,7 @@ peopleReferralsRouter.get(meBase, hiringOn, handle(async (req, res) => {
   if (!e) return res.json({ employee: false, jobs: [], referrals: [], applications: [] });
   res.json({ employee: true, jobs: await referrals.jobsFor(e), ...(await referrals.mine(e)) });
 }));
-peopleReferralsRouter.post(`${meBase}/refer`, hiringOn, handle(async (req, res) => {
+peopleReferralsRouter.post(`${meBase}/refer`, hiringOn, ...referLimiter, handle(async (req, res) => {
   const e = await referrer(req, res);
   if (!e) return;
   const made = await referrals.refer(e, req.body || {}, resumeOf(req.body?.resume));

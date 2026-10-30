@@ -7,9 +7,10 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 import { rupees } from '@ui/referrals/words';
-import { bonusForfeit, bonusPaid, listOpenings, listReferrals, referralReport, sendBonus } from '../api/talent';
+import { bonusForfeit, bonusPaid, getReferrerRule, listOpenings, listReferrals, referralReport, saveReferrerRule, sendBonus } from '../api/talent';
 import CandidateDrawer from './CandidateDrawer';
-import { Pill, ReasonDrawer, STAGES, Tabs, day, useParamState, usePerm } from './shared';
+import Drawer from '@ui/components/ui/Drawer';
+import { Footer, FormError, Pill, ReasonDrawer, STAGES, Tabs, day, useParamState, usePerm } from './shared';
 
 /**
  * Referrals (A20): every referral with who made it, where the candidate is and the bonus; and
@@ -37,6 +38,7 @@ export default function Referrals({ params = {}, openScreen }) {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(null);
   const [forfeiting, setForfeiting] = useState(null);
+  const [rule, setRule] = useState(false);
   const report = status === 'report';
   const openings = useRequest(() => listOpenings({ status: 'all' }).catch(() => []), []);
   const req = useRequest(() => (report ? referralReport() : listReferrals({ status, openingId: opening, q })), [status, opening, q, report]);
@@ -58,18 +60,19 @@ export default function Referrals({ params = {}, openScreen }) {
     { key: 'referrer', label: 'Referred by', render: (r) => <span className="min-w-0"><span className="block truncate">{r.referrer}{r.referrerLeft ? <span className="ui-muted"> (left)</span> : null}</span><span className="block truncate ui-caption">{r.via === 'LINK' ? 'Through their link' : r.relation || 'Referred in the app'}</span></span> },
     { key: 'stage', label: 'Stage', render: (r) => <Pill map={STAGES} value={r.stage} /> },
     { key: 'when', label: 'Referred', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.referredAt)}</span> },
-    { key: 'bonus', label: 'Bonus', align: 'right', render: (r) => <span className="block text-right">{bonusCell(r)}{r.bonusStatus === 'WAITING' && r.bonusDueOn ? <span className="block ui-caption tabular-nums">due {day(r.bonusDueOn)}</span> : null}</span> },
+    { key: 'bonus', label: 'Bonus', align: 'right', render: (r) => <span className="block text-right">{bonusCell(r)}{r.bonusStatus === 'WAITING' && r.bonusDueOn ? <span className="block ui-caption tabular-nums">due {day(r.bonusDueOn)}</span> : null}<BonusNote r={r} /></span> },
   ];
   const rowActions = (r) => [
     { key: 'open', label: 'Open candidate', onSelect: () => setOpen(r.candidateId) },
     canEdit && canPayroll && r.bonusStatus === 'DUE' ? { key: 'send', label: 'Send to Payroll', onSelect: () => act(() => sendBonus(r.id), (x) => (x?.sent ? 'With Payroll as a draft earning.' : x?.why || 'Not sent.')) } : null,
     canEdit && r.bonusStatus === 'DUE' ? { key: 'paid', label: 'Mark paid', onSelect: () => act(() => bonusPaid(r.id), 'Marked paid.') } : null,
-    canEdit && ['WAITING', 'DUE'].includes(r.bonusStatus) ? { key: 'forfeit', label: 'Not payable', onSelect: () => setForfeiting(r) } : null,
+    canEdit && ['WAITING', 'DUE', 'SENT'].includes(r.bonusStatus) ? { key: 'forfeit', label: 'Not payable', onSelect: () => setForfeiting(r) } : null,
   ];
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Referrals' }]} title="Referrals" />
+      <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Referrals' }]} title="Referrals"
+        actions={canEdit ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setRule(true)}>Bonus rule</button> : null} />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : report ? (
         <>
           <Tabs label="Referrals" tabs={TABS.map(([k, l]) => [k, l, k !== 'report' ? counts[k] : undefined])} value={status} onChange={setStatus} />
@@ -98,6 +101,7 @@ export default function Referrals({ params = {}, openScreen }) {
           )} />
       )}
       {open ? <CandidateDrawer id={open} hr known={[]} canEdit={canEdit} canHire={canEdit && allowed('PEOPLE::Employees::CREATE')} canOffer={canEdit && allowed('PEOPLE::Documents::CREATE')} onClose={() => setOpen(null)} onChanged={req.reload} onHired={() => req.reload()} /> : null}
+      {rule ? <RuleDrawer onClose={() => setRule(false)} /> : null}
       {forfeiting ? (
         <ReasonDrawer title={`Bonus for ${forfeiting.candidate} not payable`} label="Why" help="Say why, for example let go during probation." action="Not payable"
           suggestions={['Let go during probation', 'Referrer left', 'Rehire of a former employee']}
@@ -153,5 +157,43 @@ function Report({ data, loading, money }) {
         </div>
       )}
     </div>
+  );
+}
+
+/* Why a bonus waits or is due, as the server says it; a referrer who has left is paid in their final settlement (Payroll → Full & final). */
+const SETTLEMENT = 'They have left: pay it in their final settlement or by hand, then mark it paid.';
+function BonusNote({ r }) {
+  if (!r.bonusNote || !['DUE', 'WAITING'].includes(r.bonusStatus)) return null;
+  if (r.bonusNote === SETTLEMENT) return <span className="block ui-caption">They have left: pay it in their <a className="ui-link" href="?app=payroll&open=settlements" onClick={(e) => e.stopPropagation()}>final settlement</a> or by hand.</span>;
+  return <span className="block ui-caption">{r.bonusNote}</span>;
+}
+
+/** The company's rule for a referrer who has left before the bonus date (serving notice counts as still here). */
+function RuleDrawer({ onClose }) {
+  const req = useRequest(() => getReferrerRule(), []);
+  const [value, setValue] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const current = value ?? req.data?.forfeitIfReferrerLeaves ?? true;
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    try { await saveReferrerRule({ forfeitIfReferrerLeaves: current }); notify.success('Saved.'); onClose(); } catch (e) { setError(e); setBusy(false); }
+  };
+  return (
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title="Referral bonus rule" dirty={value !== null && value !== req.data?.forfeitIfReferrerLeaves}
+      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label="Save" busyLabel="Saving…" disabled={!req.data} />}>
+      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
+        <FormError error={error} />
+        <fieldset className="block sm:col-span-2">
+          <legend className="ui-label">When the referrer leaves before the bonus date</legend>
+          <div className="space-y-2 text-sm">
+            <label className="flex items-center gap-2"><input type="radio" name="referrer-rule" checked={current === true} onChange={() => setValue(true)} />The bonus is not paid</label>
+            <label className="flex items-center gap-2"><input type="radio" name="referrer-rule" checked={current === false} onChange={() => setValue(false)} />The bonus is still paid, in their final settlement</label>
+          </div>
+          <p className="mt-2 text-sm ui-muted">Serving notice counts as still working here. Staff see this rule on each job.</p>
+        </fieldset>
+      </form>
+    </Drawer>
   );
 }
