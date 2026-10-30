@@ -1,5 +1,11 @@
 # clor-coder-people — work log
 
+## 2026-10-31 — People — PR #80 CI server-tests
+- Did: selfService "confirm or dispute last month" failed in CI at 01:21 IST on 31 Oct: the server counts a month's last day as ended (confirmable that evening, since c0687aaa), so this month's canConfirm is true on the last IST day; the test expected false. Not caused by #80 (selfService untouched). Test now expects that on the month's last day. agent.test timeout: flaky, #80 touches no connector code; 3 reruns pass.
+- Evidence: reproduced with a fake clock at 2026-10-30T19:51Z (old test fails, new passes; also passes at 1 Nov 01:30 IST and 15 Nov). selfService + attendance suites 127 passed on 5434; agent.test 8/8 three times.
+- Next: CI rerun on #80.
+- Blocked on: nothing.
+
 ## 2026-10-31 00:30 IST — People — PR #80 retest fixes
 - Did: F4, the attendance drawer's "Decided by" now comes from the server for this reader: "HR, or you as their manager" when the person's manager (or stand-in) may approve it under an HR chain; the manager's name for manager chains. Drawer facts no longer nest divs in the <dl> (axe dlitem). Phone company menu rows and the Workspace phone bar buttons are 44px.
 - Evidence: server peopleE2eFixes/attendanceRequests/timeDepth 55 passed on CI Postgres 5434 (5432 was full); web suite 1979 passed; e2e A4/A4b/A4c both widths; Rahul's drawer checked at 390 and 1440. The F4 tests failed before the fix.
