@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { calendarOf, calendarsFor } from '../services/attendance/holidayCalendars.js';
 import { holidayMinimum } from '../services/attendance/holidayMinimum.js';
 import { z } from 'zod';
 
@@ -908,6 +909,14 @@ const areaOrNull = async (orgId: string, areaId: string | null | undefined) => {
   return areaId;
 };
 
+/** A holiday kept by one branch names a branch of this company (time depth, gap 17). */
+const branchOrNull = async (orgId: string, branchId: unknown) => {
+  const id = typeof branchId === 'string' ? branchId.trim() : '';
+  if (!id) return null;
+  if (!(await platformPrisma.branch.findFirst({ where: { id, orgId }, select: { id: true } }))) throw fail(400, 'That branch is not in this company.');
+  return id;
+};
+
 const holidaySchema = z.object({
   date: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.'),
   name: z.string().trim().min(1, 'Name the holiday.').max(80),
@@ -926,8 +935,9 @@ attendanceRouter.get('/orgs/:orgId/attendance/holidays', can(PermissionAction.VI
     orderBy: { date: 'asc' },
   });
   const areas = new Map((await peoplePrisma.area.findMany({ where: { orgId }, select: { id: true, name: true } })).map((x) => [x.id, x.name]));
+  const branches = new Map((await platformPrisma.branch.findMany({ where: { orgId }, select: { id: true, branchName: true } })).map((x) => [x.id, x.branchName]));
   /* State law's minimum of national and festival holidays, per branch in a state that has one (holidayMinimum.ts). */
-  res.json({ holidays: holidays.map((h) => ({ ...h, areaName: h.areaId ? areas.get(h.areaId) || null : null })), year, stateMinimum: await holidayMinimum(orgId, year) });
+  res.json({ holidays: holidays.map((h) => ({ ...h, areaName: h.areaId ? areas.get(h.areaId) || null : null, branchName: h.branchId ? branches.get(h.branchId) || null : null })), year, stateMinimum: await holidayMinimum(orgId, year) });
 });
 
 /**
@@ -949,7 +959,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/holidays', can(PermissionAction.C
   try {
     await holidayMonthsOpen(orgId, [parsed.data.date]);
     const holiday = await peoplePrisma.holiday.create({
-      data: { accountId, orgId, ...parsed.data, branchId: parsed.data.branchId || null, areaId: await areaOrNull(orgId, parsed.data.areaId), isOptional: Boolean(parsed.data.isOptional), createdByUserId: req.auth!.userId },
+      data: { accountId, orgId, ...parsed.data, branchId: await branchOrNull(orgId, parsed.data.branchId), areaId: await areaOrNull(orgId, parsed.data.areaId), isOptional: Boolean(parsed.data.isOptional), createdByUserId: req.auth!.userId },
     });
     res.status(201).json({ holiday });
   } catch (e) {
@@ -968,7 +978,7 @@ attendanceRouter.put('/orgs/:orgId/attendance/holidays/:id', can(PermissionActio
     await holidayMonthsOpen(orgId, [existing.date, parsed.data.date]);
     const holiday = await peoplePrisma.holiday.update({
       where: { id: existing.id },
-      data: { ...parsed.data, branchId: parsed.data.branchId || null, areaId: await areaOrNull(orgId, parsed.data.areaId), isOptional: Boolean(parsed.data.isOptional) },
+      data: { ...parsed.data, branchId: await branchOrNull(orgId, parsed.data.branchId), areaId: await areaOrNull(orgId, parsed.data.areaId), isOptional: Boolean(parsed.data.isOptional) },
     });
     res.json({ holiday });
   } catch (e) {
@@ -988,6 +998,55 @@ attendanceRouter.delete('/orgs/:orgId/attendance/holidays/:id', can(PermissionAc
   }
   await deleteToBin(req, 'holiday', existing);
   res.json({ ok: true });
+});
+
+/*
+ * Built-in holiday calendars (time depth, gap 17): the national list and each
+ * state's own days, imported for everyone or for one branch. A branch's
+ * holidays reach its people in leave day counting, payable days and the
+ * employee app (schedule.ts loadHolidays.forArea, leave.ts dayPlan).
+ */
+attendanceRouter.get('/orgs/:orgId/attendance/holidays/calendars', can(PermissionAction.VIEW, R.holidays), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const year = /^\d{4}$/.test(String(req.query.year || '')) ? Number(req.query.year) : Number(today().slice(0, 4)) + 1;
+  const branches = await platformPrisma.branch.findMany({ where: { orgId, isActive: true }, select: { id: true, branchName: true, state: true }, orderBy: { branchName: 'asc' } });
+  res.json({ year, calendars: calendarsFor(year), branches: branches.map((b) => ({ id: b.id, name: b.branchName, state: b.state || null })) });
+});
+
+attendanceRouter.post('/orgs/:orgId/attendance/holidays/calendars/import', can(PermissionAction.CREATE, R.holidays), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const cal = calendarOf(String(req.body?.key || ''));
+  if (!cal) return res.status(400).json({ error: 'Choose a calendar.' });
+  const dryRun = req.body?.dryRun === true;
+  try {
+    const branchId = await branchOrNull(orgId, req.body?.branchId);
+    const branch = branchId ? await platformPrisma.branch.findFirst({ where: { id: branchId, orgId }, select: { branchName: true, state: true } }) : null;
+    const closed = await closedMonths(orgId, [...new Set(cal.holidays.map((h) => h.date.slice(0, 7)))]);
+    const added: Array<{ date: string; name: string }> = [];
+    const skipped: Array<{ date: string; name: string; why: string }> = [];
+    /* One write, so two people importing at once cannot both add a day: the second finds it there. */
+    await peopleWrite(orgId, async () => {
+      const existing = await peoplePrisma.holiday.findMany({ where: { orgId, date: { in: cal.holidays.map((h) => h.date) } }, select: { date: true, name: true, branchId: true, areaId: true } });
+      for (const h of cal.holidays) {
+        if (closed.has(h.date.slice(0, 7))) { skipped.push({ ...h, why: 'its month is closed' }); continue; }
+        const same = existing.filter((x) => x.date === h.date && x.name.toLowerCase() === h.name.toLowerCase());
+        if (same.some((x) => !x.branchId && !x.areaId)) { skipped.push({ ...h, why: 'already a holiday for everyone' }); continue; }
+        if (same.some((x) => (x.branchId || null) === branchId)) { skipped.push({ ...h, why: 'already on the calendar' }); continue; }
+        /* The same day already kept by another branch: a name of its own, since one company has one holiday of a name on a date. */
+        const name = same.length ? `${h.name} (${branch?.state || branch?.branchName || 'everyone'})`.slice(0, 80) : h.name;
+        if (existing.some((x) => x.date === h.date && x.name.toLowerCase() === name.toLowerCase())) { skipped.push({ ...h, why: 'already on the calendar' }); continue; }
+        if (!dryRun) await peoplePrisma.holiday.create({ data: { accountId, orgId, date: h.date, name, isOptional: false, branchId, areaId: null, createdByUserId: req.auth!.userId } });
+        existing.push({ date: h.date, name, branchId, areaId: null });
+        added.push({ date: h.date, name });
+      }
+    });
+    if (!dryRun && added.length) await recordAudit(req, { entity: 'Holiday', entityId: cal.key, action: 'CREATE', message: `Imported ${added.length} holidays from ${cal.name}${branch ? ` for ${branch.branchName}` : ' for everyone'}`, metadata: { key: cal.key, branchId, added: added.length, skipped: skipped.length, source: cal.source } });
+    res.status(dryRun ? 200 : 201).json({ added, skipped, source: cal.source, dryRun });
+  } catch (e) {
+    return sendError(res, e);
+  }
 });
 
 // ---------------------------------------------------------------------------

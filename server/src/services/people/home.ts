@@ -84,6 +84,8 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
     const { counts, items } = await inboxFor(req);
     if (counts.LEAVE) out.push({ key: 'leave', title: 'Leave waiting for a decision', detail: `${plural(counts.LEAVE, 'request')} to approve or reject`, count: counts.LEAVE, tone: 'soon', screen: 'approvals', params: { kind: 'LEAVE' } });
     if (counts.ATTENDANCE) out.push({ key: 'attendanceRequests', title: 'Attendance requests waiting', detail: `${plural(counts.ATTENDANCE, 'request')}: work from home, on duty, permission or missed punch`, count: counts.ATTENDANCE, tone: 'soon', screen: 'approvals', params: { kind: 'ATTENDANCE' } });
+    if (counts.PUNCH) out.push({ key: 'fieldPunches', title: 'Field punches waiting', detail: `${plural(counts.PUNCH, 'punch', 'punches')} made outside the work sites`, count: counts.PUNCH, tone: 'soon', screen: 'approvals', params: { kind: 'PUNCH' } });
+    if (counts.OVERTIME) out.push({ key: 'overtime', title: 'Overtime waiting', detail: `${plural(counts.OVERTIME, 'request')}: overtime or comp-off`, count: counts.OVERTIME, tone: 'soon', screen: 'approvals', params: { kind: 'OVERTIME' } });
     if (counts.APPROVAL) {
       const overdue = items.filter((i) => i.kind === 'APPROVAL' && i.overdue).length;
       out.push({ key: 'peopleApprovals', title: 'Approvals waiting for you', detail: `${plural(counts.APPROVAL, 'request')}: profile, job, leaving, letters${overdue ? ` · ${overdue} overdue` : ''}`, count: counts.APPROVAL, tone: overdue ? 'urgent' : 'soon', screen: 'approvals', params: { kind: 'APPROVAL' } });

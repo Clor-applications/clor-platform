@@ -32,7 +32,7 @@ const BLANK = {
   annualDays: 12, accrual: 'YEARLY', creditOn: 'START', creditDay: '', prorateForJoiners: true, carryForwardMax: '', carryExpiresAfterDays: '',
   gender: '', employeeTypeIds: [], departmentIds: [], branchIds: [], gradeIds: [], availableAfterDays: '', attachmentAfterDays: '',
   allowHalfDay: true, minNoticeDays: '', maxDaysPerRequest: '', backdatedDays: '', sandwich: false,
-  negativeDays: 0, encashable: false, maxEncashDays: '',
+  negativeDays: 0, encashable: false, maxEncashDays: '', encashBase: 'BASIC_DA', encashDivisor: 26,
   entitlements: [], probationRule: 'ACCRUE', approval: '', autoApproveUpToDays: '', handOnAfterDays: '',
   accrualBasis: 'CALENDAR', perDaysWorked: '', minDaysWorked: '', oshCarry: false, countsCalendarDays: false, availableAfterBasis: 'JOINING',
   unit: 'DAY', overBalance: 'REFUSE', notWithTypeIds: [], onNotice: 'ALLOW',
@@ -60,6 +60,8 @@ const APPROVAL_WORDS = { HR: 'HR decides', MANAGER: 'the manager decides', MANAG
  * State starting points (TIME-LEAVE-RESEARCH.md): the law's days as a set of
  * types, created once and edited by the owner. Never rules.
  */
+const ENCASH_BASE = [{ value: 'BASIC_DA', label: 'Basic and DA' }, { value: 'BASIC', label: 'Basic' }, { value: 'GROSS', label: 'Gross wages' }];
+const ENCASH_DIVISOR = [{ value: '26', label: '26 working days' }, { value: '30', label: '30 days' }];
 const EARNED = { name: 'Earned Leave', code: 'EL', accrual: 'MONTHLY', encashable: true, minNoticeDays: 7, color: '#d97706' };
 const CASUAL = { name: 'Casual Leave', code: 'CL', accrual: 'MONTHLY', creditOn: 'START', minNoticeDays: 1, maxDaysPerRequest: 3, color: '#2563eb' };
 const SICK = { name: 'Sick Leave', code: 'SL', backdatedDays: 7, isPrivate: true, color: '#16a34a' };
@@ -177,7 +179,7 @@ const formOf = (t) => ({
   departmentIds: t.departmentIds || [], branchIds: t.branchIds || [], gradeIds: t.gradeIds || [], attachmentAfterDays: t.attachmentAfterDays ?? '',
   isPrivate: Boolean(t.isPrivate), creditOn: t.creditOn || 'START', creditDay: t.creditDay ?? '',
   carryForwardMax: t.carryForwardMax ?? '', carryExpiresAfterDays: t.carryExpiresAfterDays ?? '', minNoticeDays: t.minNoticeDays ?? '', maxDaysPerRequest: t.maxDaysPerRequest ?? '',
-  backdatedDays: t.backdatedDays ?? '', availableAfterDays: t.availableAfterDays ?? '', maxEncashDays: t.maxEncashDays ?? '',
+  backdatedDays: t.backdatedDays ?? '', availableAfterDays: t.availableAfterDays ?? '', maxEncashDays: t.maxEncashDays ?? '', encashBase: t.encashBase || 'BASIC_DA', encashDivisor: t.encashDivisor === 30 ? 30 : 26,
   entitlements: (t.entitlements || []).map((e) => ({ employeeTypeId: e.employeeTypeId || '', years: yearsOf(e.minServiceMonths), annualDays: e.annualDays ?? '' })),
   probationRule: t.probationRule || 'ACCRUE', approval: t.approval || '', autoApproveUpToDays: t.autoApproveUpToDays ?? '', handOnAfterDays: t.handOnAfterDays ?? '',
   accrualBasis: t.accrualBasis || 'CALENDAR', perDaysWorked: t.perDaysWorked ?? '', minDaysWorked: t.minDaysWorked ?? '',
@@ -228,6 +230,8 @@ function bodyOf(form) {
     negativeDays: paid ? Number(form.negativeDays) || 0 : 0,
     encashable: paid && Boolean(form.encashable),
     maxEncashDays: paid && form.encashable ? num(form.maxEncashDays) : null,
+    encashBase: ['BASIC', 'BASIC_DA', 'GROSS'].includes(form.encashBase) ? form.encashBase : 'BASIC_DA',
+    encashDivisor: Number(form.encashDivisor) === 30 ? 30 : 26,
     entitlements: paid && !byWorked ? (form.entitlements || []).map((e) => ({ employeeTypeId: e.employeeTypeId || null, minServiceMonths: monthsOf(e.years) || null, annualDays: Number(e.annualDays) || 0 })) : [],
     probationRule: paid ? form.probationRule || 'ACCRUE' : 'ACCRUE',
     approval: form.approval || null,
@@ -660,6 +664,10 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
               {form.unit !== 'HOUR' ? <div><PopupSelect showValueSubtext={false} label="More than the balance" value={form.overBalance || 'REFUSE'} onChange={(v) => set('overBalance')(v || 'REFUSE')} options={OVER_BALANCE} /></div> : null}
               <Check label="Unused days can be paid out (encashment)" checked={form.encashable} onChange={set('encashable')} />
               {form.encashable ? <NumberField label="Paid out at most, days a year" value={form.maxEncashDays} onChange={set('maxEncashDays')} placeholder="No limit" step={0.5} /> : null}
+              {/* What a paid-out day is worth (time depth, gap 19): Payroll gets the amount, not just the days. */}
+              {form.encashable ? <div><PopupSelect showValueSubtext={false} label="A day paid out is worth" value={form.encashBase || 'BASIC_DA'} onChange={(v) => set('encashBase')(v || 'BASIC_DA')} options={ENCASH_BASE} /></div> : null}
+              {form.encashable ? <div><PopupSelect showValueSubtext={false} label="Month divided by" value={String(form.encashDivisor || 26)} onChange={(v) => set('encashDivisor')(Number(v) || 26)} options={ENCASH_DIVISOR} /></div> : null}
+              {form.encashable ? <p className="ui-caption sm:col-span-2">From the person’s last approved payslip, at the full month’s rate. Days paid out go to Payroll as a draft earning for its next open month, to be approved there.</p> : null}
             </Section>
           ) : null}
 

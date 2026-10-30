@@ -542,7 +542,7 @@ export default function PeopleOverview({ openScreen }) {
                         <span className="min-w-0 flex-1">
                           <span className="soft-news-title">{n.title}</span>
                           <span className="soft-news-body">{n.details?.body}</span>
-                          <span className="soft-news-meta">{ago(n.updatedAt)}{n.details?.audience ? ` · For ${n.details.audience.toLowerCase()}` : ''}</span>
+                          <span className="soft-news-meta">{ago(n.updatedAt)}{n.details?.audienceKind && n.details.audienceKind !== 'ALL' ? ` · For ${n.details.audience}` : n.details?.audience ? ` · For ${n.details.audience.toLowerCase()}` : ''}</span>
                         </span>
                       </button>
                     </li>

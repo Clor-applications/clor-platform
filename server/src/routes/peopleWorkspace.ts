@@ -5,7 +5,10 @@ import { requirePermission } from '../middleware/rbac.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { peopleRouteOk } from '../services/people/guards.js';
 import { recordAudit } from '../services/auditTrail.js';
-import { MODULE_OF_KIND, WORKSPACE, parseRecord, type WorkspaceKind } from '../services/people/workspace.js';
+import { MODULE_OF_KIND, WORKSPACE, announcementReaches, departmentNames, parseRecord, type WorkspaceKind } from '../services/people/workspace.js';
+import { authorize } from '../middleware/rbac.js';
+import { PermissionAction } from '../constants/enums.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { inScope, teamScope, type TeamScope } from '../services/people/scope.js';
 
@@ -37,10 +40,27 @@ peopleWorkspaceRouter.get(path, async (req, res) => {
   /* `employeeId`: one person's records (their assets on the employee record), still inside the caller's team. */
   const one = typeof req.query.employeeId === 'string' && req.query.employeeId ? { employeeId: req.query.employeeId } : {};
   const rows = await peoplePrisma.peopleRecord.findMany({ where: { accountId, orgId, kind: req.params.kind, ...one, ...recordScope(await teamScope(req)) }, orderBy: { updatedAt: 'desc' } });
+  /* Someone who reads announcements but may not write them reads what is published for them, as in the employee app (time depth, gap 20). */
+  if (req.params.kind === 'announcements' && (await authorize(req, 'PEOPLE', PermissionAction.EDIT as any, WORKSPACE.announcements.resource)) && (await authorize(req, 'PEOPLE', PermissionAction.CREATE as any, WORKSPACE.announcements.resource))) {
+    const me = await peoplePrisma.employee.findFirst({ where: { accountId, orgId, userId: req.auth!.userId }, select: { id: true, branchId: true, areaId: true, departmentId: true, department: true } });
+    const names = await departmentNames(orgId);
+    return res.json({ records: rows.filter((r) => r.status === 'PUBLISHED' && announcementReaches(r.details, me || { id: '' }, names)) });
+  }
   res.json({ records: rows });
 });
 async function related(accountId: string, orgId: string, kind: WorkspaceKind, body: ReturnType<typeof parseRecord>) {
   if (body.employeeId && !(await peoplePrisma.employee.findFirst({ where: { id: body.employeeId, accountId, orgId, anonymisedAt: null }, select: { id: true } }))) throw Object.assign(new Error('That employee is not in this company.'), { status: 400 });
+  /* An announcement's audience names this company's own departments, branches, locations or people, nothing else. */
+  const d = body.details as { audienceKind?: string; audienceIds?: string[] };
+  if (kind === 'announcements' && d.audienceKind && d.audienceKind !== 'ALL' && d.audienceIds?.length) {
+    const ids = [...new Set(d.audienceIds)];
+    const where = { id: { in: ids }, orgId };
+    const found = d.audienceKind === 'DEPARTMENT' ? await peoplePrisma.department.count({ where })
+      : d.audienceKind === 'LOCATION' ? await peoplePrisma.area.count({ where })
+        : d.audienceKind === 'PEOPLE' ? await peoplePrisma.employee.count({ where: { ...where, accountId, anonymisedAt: null } })
+          : await platformPrisma.branch.count({ where });
+    if (found !== ids.length) throw Object.assign(new Error('Someone or something in the audience is not in this company.'), { status: 400 });
+  }
 }
 peopleWorkspaceRouter.post(path, async (req, res) => {
   const { accountId, orgId } = req.tenant!;

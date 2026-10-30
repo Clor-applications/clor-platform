@@ -376,7 +376,7 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
 
   return (
     <form onSubmit={save} className="space-y-4">
-      {!row.id && encashments.some((r) => r.employeeId === form.employeeId) ? <label className="block"><span className="ui-label">Leave encashment</span><select className="ui-select w-full" value={form.leaveEncashmentId} onChange={(e) => set({ leaveEncashmentId: e.target.value })}><option value="">Not a leave payout</option>{encashments.filter((r) => r.employeeId === form.employeeId).map((r) => <option key={r.id} value={r.id}>{r.days} days · {r.reason}</option>)}</select><span className="ui-caption">Choose an earning component and enter the approved payout amount below. This links the leave debit to its payslip.</span></label> : null}
+      {!row.id && encashments.some((r) => r.employeeId === form.employeeId) ? <label className="block"><span className="ui-label">Leave encashment</span><select className="ui-select w-full" value={form.leaveEncashmentId} onChange={(e) => { const picked = encashments.find((r) => r.id === e.target.value); set({ leaveEncashmentId: e.target.value, ...(picked?.amount ? { amount: String(picked.amount) } : {}) }); }}><option value="">Not a leave payout</option>{encashments.filter((r) => r.employeeId === form.employeeId).map((r) => <option key={r.id} value={r.id}>{r.days} days · {r.reason}</option>)}</select><span className="ui-caption">{encashments.find((r) => r.id === form.leaveEncashmentId)?.explanation || 'Choose an earning component and enter the approved payout amount below. This links the leave debit to its payslip.'}</span></label> : null}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">

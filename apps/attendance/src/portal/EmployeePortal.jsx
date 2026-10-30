@@ -16,6 +16,7 @@ import AskHr from './AskHr';
 import { LeavingCompany, MySteps, PayCard, Payslips, PrivateComplaint } from './MeExtras';
 import { HolidaysYear, WhatsNew } from './PortalFeeds';
 import MyGrowth from './MyGrowth';
+import { MonthReview, MyOvertime } from './MonthAndOvertime';
 import {
   SignedOut,
   acceptItem,
@@ -149,7 +150,7 @@ export default function EmployeePortal() {
       <main className="mx-auto max-w-md space-y-4 px-4 py-4">
         {error ? <div className="ui-card p-4 text-sm" role="alert">{error}</div> : null}
         {tab === 'today' ? <><WhatsNew guard={guard} /><Today me={me} reload={loadMe} guard={guard} /><CompanyUpdates guard={guard} /></> : null}
-        {tab === 'days' ? <MyDays guard={guard} /> : null}
+        {tab === 'days' ? <><MyDays guard={guard} /><MonthReview guard={guard} /><MyOvertime guard={guard} /></> : null}
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
         {tab === 'schedule' ? <MySchedule guard={guard} /> : null}
         {tab === 'leave' ? <MyLeave guard={guard} /> : null}
@@ -1234,6 +1235,7 @@ function MyTax({ guard }) {
 // Approvals — what my reportees are waiting on
 // ---------------------------------------------------------------------------
 
+const APPROVAL_PILL = { leave: 'Leave', punch: 'Field punch', overtime: 'Overtime', correction: 'Correction' };
 function Approvals({ guard }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -1267,7 +1269,8 @@ function Approvals({ guard }) {
 
   if (error && !data) return <LoadFailed message={error} onRetry={load} />;
   if (!data) return <div className="ui-card p-6 ui-caption">Loading…</div>;
-  const items = [...data.leaves, ...data.corrections, ...(data.requests || [])].sort((a, b) => String(a.askedAt).localeCompare(String(b.askedAt)));
+  /* Field punches and overtime wait here too (time depth, gap 18): the phone app always showed them. */
+  const items = [...data.leaves, ...data.corrections, ...(data.requests || []), ...(data.punches || []), ...(data.overtime || [])].sort((a, b) => String(a.askedAt).localeCompare(String(b.askedAt)));
   const fmt = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
   return (
@@ -1278,7 +1281,7 @@ function Approvals({ guard }) {
           <span className="ui-caption">{data.team} report{data.team === 1 ? 's' : ''} to you</span>
         </div>
         {error ? <p className="mt-2 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
-        {!items.length ? <p className="ui-caption mt-2">Nothing waiting. Leave and attendance requests from your team appear here.</p> : null}
+        {!items.length ? <p className="ui-caption mt-2">Nothing waiting. Leave, attendance requests, field punches and overtime from your team appear here.</p> : null}
       </section>
       {items.map((item) => {
         const key = `${item.type}:${item.id}`;
@@ -1292,13 +1295,17 @@ function Approvals({ guard }) {
                     ? <>{item.leaveTypeName} · {fmt(item.fromDate)}{item.toDate !== item.fromDate ? ` – ${fmt(item.toDate)}` : ''} · {item.days} day{item.days === 1 ? '' : 's'}</>
                     : item.type === 'request'
                       ? <span className="tabular-nums">{item.kindName} · {requestWords(item)}</span>
-                      : <>Correction · {fmt(item.date)} · in {item.checkIn || '—'}{item.checkOut ? `, out ${item.checkOut}` : ''}</>}
+                      : item.type === 'punch'
+                        ? <span className="tabular-nums">{item.kind === 'OUT' ? 'Out' : 'In'} at {item.checkIn} · {fmt(item.date)}{item.accuracy != null ? ` · within ${item.accuracy}\u00a0m` : ''}</span>
+                        : item.type === 'overtime'
+                          ? <span className="tabular-nums">{fmt(item.date)} · {item.kind === 'COMP_OFF' ? `${item.days} day${item.days === 1 ? '' : 's'} comp-off` : `${hm(item.minutes)} overtime`}</span>
+                          : <>Correction · {fmt(item.date)} · in {item.checkIn || '—'}{item.checkOut ? `, out ${item.checkOut}` : ''}</>}
                 </div>
               </div>
-              <span className={`ui-pill ${item.type === 'leave' ? 'ui-pill-neutral' : 'ui-pill-warn'}`}>{item.type === 'leave' ? 'Leave' : item.type === 'request' ? item.kindName : 'Correction'}</span>
+              <span className={`ui-pill ${item.type === 'leave' ? 'ui-pill-neutral' : 'ui-pill-warn'}`}>{item.type === 'overtime' && item.kind === 'COMP_OFF' ? 'Comp-off' : APPROVAL_PILL[item.type] || item.kindName || 'Correction'}</span>
             </div>
             {/* Private leave comes masked ("Private leave", no reason): a manager plans cover from the dates. */}
-            {item.reason && !item.reasonHidden ? <p className="text-sm ui-muted">“{item.reason}”</p> : null}
+            {item.type === 'punch' ? <p className="text-sm ui-muted">Made outside the work sites{item.reason && item.reason !== 'Outside the work sites' ? `, near ${item.reason}` : ''}. Approved, it counts; refused, it does not.</p> : item.reason && !item.reasonHidden ? <p className="text-sm ui-muted">“{item.reason}”</p> : null}
             {rejecting === key ? (
               <div className="space-y-2">
                 {/* A rejected leave or request needs a reason; the person sees it. */}

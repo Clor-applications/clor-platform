@@ -1120,3 +1120,76 @@ attendanceInsightsRouter.post(`${base}/overtime/requests/:id/:decision`, can(Per
     res.status(err?.status || 500).json({ error: err?.message || 'Not done.' });
   }
 });
+
+/*
+ * Field punches and overtime from the one Approvals inbox (time depth, gap 18):
+ * several at once, each through the same decision as one (reviewFieldPunch,
+ * decideOvertime), so nobody decides their own, two deciders cannot both
+ * write the day, and a manager-first overtime chain is kept. Open for a
+ * People-only company too: a phone punch from People's My attendance waits
+ * here when the company's approval switch is on. A team-scoped reader decides
+ * their own team only. One refused never stops the rest.
+ */
+type BulkResult = { id: string; ok: boolean; error?: string; code?: string };
+const bulkIds = (req: any): string[] => (Array.isArray(req.body?.ids) ? [...new Set<string>(req.body.ids.map(String))].slice(0, 200) : []);
+const bulkReply = (results: BulkResult[], handedOn = 0) => ({ done: results.filter((x) => x.ok).length, failed: results.filter((x) => !x.ok).length, handedOn, results: results.filter((x) => !x.ok) });
+const bulkFailure = (id: string, e: any): BulkResult => {
+  /* A refusal the rules give is said as it is; anything else is logged, never shown raw. */
+  if (!e?.status || e.status >= 500) console.error('[attendance] bulk decision failed:', e instanceof Error ? e.message : e);
+  return { id, ok: false, error: e?.status && e.status < 500 ? e.message : 'Not done.', ...(e?.code ? { code: e.code } : {}) };
+};
+
+attendanceInsightsRouter.post(`${base}/phone-punches/bulk-review`, can(PermissionAction.EDIT, R.devices), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const ids = bulkIds(req);
+  if (!ids.length) return res.status(400).json({ error: 'Choose the punches.' });
+  const approve = req.body?.approve !== false;
+  const scope = await teamScope(req);
+  const rows = await peoplePrisma.devicePunch.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, employeeId: true } });
+  const found = new Map(rows.map((r) => [r.id, r]));
+  const results: BulkResult[] = [];
+  for (const id of ids) {
+    const p = found.get(id);
+    if (!p || !p.employeeId || !inScope(scope, p.employeeId)) { results.push({ id, ok: false, error: 'No such field punch.' }); continue; }
+    try {
+      await reviewFieldPunch(orgId, id, approve, { userId: req.auth!.userId });
+      results.push({ id, ok: true });
+    } catch (e) {
+      results.push(bulkFailure(id, e));
+    }
+  }
+  res.json(bulkReply(results));
+});
+
+attendanceInsightsRouter.post(`${base}/overtime/requests/bulk-review`, can(PermissionAction.EDIT, R.records), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const ids = bulkIds(req);
+  if (!ids.length) return res.status(400).json({ error: 'Choose the requests.' });
+  const approve = req.body?.approve !== false;
+  const note = String(req.body?.note || '').trim().slice(0, 500) || null;
+  if (!approve && !note) return res.status(400).json({ error: 'Say why. They see this with the decision.' });
+  const scope = await teamScope(req);
+  const rows = await peoplePrisma.overtimeRequest.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, employeeId: true, managerApprovedAt: true } });
+  const found = new Map(rows.map((r) => [r.id, r]));
+  const subjects = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: rows.map((r) => r.employeeId) } }, select: { id: true, reportingManagerId: true } })).map((p) => [p.id, p]));
+  const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
+  const chain = await overtimeChain(orgId);
+  const results: BulkResult[] = [];
+  let handedOn = 0;
+  for (const id of ids) {
+    const r = found.get(id);
+    if (!r || !inScope(scope, r.employeeId)) { results.push({ id, ok: false, error: 'No such request.' }); continue; }
+    /* Their own manager takes the manager's step where the chain has one; anyone else decides as HR. */
+    const asManager = Boolean(me && chain !== 'HR' && !r.managerApprovedAt && subjects.get(r.employeeId)?.reportingManagerId === me.id);
+    try {
+      const out = await decideOvertime(orgId, id, approve, { userId: req.auth!.userId, ...(asManager ? { managerId: me!.id } : {}) }, note);
+      if (out.status === 'PENDING') handedOn += 1;
+      results.push({ id, ok: true });
+    } catch (e) {
+      results.push(bulkFailure(id, e));
+    }
+  }
+  res.json(bulkReply(results, handedOn));
+});

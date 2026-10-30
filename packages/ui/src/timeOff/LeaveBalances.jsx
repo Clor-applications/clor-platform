@@ -18,7 +18,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { can, homeCrumbs } from './shared';
 import { useSuggestions } from './suggestions';
 import BulkGrant from './BulkGrant';
-import { addLeaveAdjustment, colorOf, deleteLeaveAdjustment, getLeaveBalances, getLeaveLedger, getLeaveSettings, grantCompOff, periodChoices, thisYear, todayIst } from './api';
+import { addLeaveAdjustment, colorOf, deleteLeaveAdjustment, getLeaveBalances, getLeaveLedger, getLeaveSettings, grantCompOff, periodChoices, setAllocation, thisYear, todayIst } from './api';
 
 /**
  * Time & Leave → Balances. Everyone's days for the leave period; open a
@@ -181,10 +181,12 @@ function Ledger({ person, year, label, onClose, onChanged }) {
   const data = req.data;
   const [form, setForm] = useState(BLANK);
   const [saving, setSaving] = useState(false);
+  const reasons = useSuggestions('leaveReason');
   const paid = (data?.types || []).filter((t) => t.type.isPaid);
   const chosen = paid.find((t) => t.type.id === form.leaveTypeId);
   const days = Number(form.days);
-  const ready = Boolean(form.leaveTypeId) && days > 0 && days <= 366 && Math.round(days * 2) === days * 2 && form.reason.trim().length >= 3;
+  /* Setting a person's days may set them to nothing (a type they are not given this period). */
+  const ready = Boolean(form.leaveTypeId) && (form.how === 'SET' ? form.days !== '' && days >= 0 : days > 0) && days <= 366 && Math.round(days * 2) === days * 2 && form.reason.trim().length >= 3;
   const dirty = Boolean(form.days || form.reason);
 
   const save = async (e) => {
@@ -192,7 +194,15 @@ function Ledger({ person, year, label, onClose, onChanged }) {
     if (!ready || saving) return;
     setSaving(true);
     try {
-      await addLeaveAdjustment({
+      if (form.how === 'SET') {
+        await setAllocation({ employeeId: person.employeeId, leaveTypeId: form.leaveTypeId, year, days, note: form.reason.trim() });
+        notify.success(`${chosen?.type.name || 'Leave'} set to ${days} days for ${label}.`);
+        setForm({ ...BLANK, leaveTypeId: form.leaveTypeId });
+        req.reload();
+        onChanged();
+        return;
+      }
+      const out = await addLeaveAdjustment({
         employeeId: person.employeeId,
         leaveTypeId: form.leaveTypeId,
         year,
@@ -200,7 +210,11 @@ function Ledger({ person, year, label, onClose, onChanged }) {
         days: form.how === 'TAKE' ? -days : days,
         reason: form.reason.trim(),
       });
-      notify.success(form.how === 'ENCASH' ? 'Days reserved. In Payroll → Adjustments, select this leave encashment and enter its payout amount.' : 'Balance changed.');
+      const p = out?.payout;
+      const money = (n) => `₹${Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+      notify.success(form.how !== 'ENCASH' ? 'Balance changed.'
+        : p?.sent ? `Paid out: ${money(p.amount)} sent to Payroll for ${p.periodName}, to be approved there.`
+          : `Days reserved${p?.amount ? ` (${money(p.amount)})` : ''}. ${p?.why || 'Payroll adds the earning.'}`);
       setForm({ ...BLANK, leaveTypeId: form.leaveTypeId });
       req.reload();
       onChanged();
@@ -208,6 +222,17 @@ function Ledger({ person, year, label, onClose, onChanged }) {
       notify.error(String(err?.message || 'Not saved.'));
     } finally {
       setSaving(false);
+    }
+  };
+  const backOnPolicy = async (type) => {
+    const ok = await confirmDialog({ title: `Back on the policy's days?`, message: `${person.name}'s ${type.name} for ${label} goes back to what the policy gives.`, confirmLabel: 'Yes, put it back' });
+    if (!ok) return;
+    try {
+      await setAllocation({ employeeId: person.employeeId, leaveTypeId: type.id, year, days: null });
+      req.reload();
+      onChanged();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not changed.'));
     }
   };
   const remove = async (entry) => {
@@ -265,6 +290,7 @@ function Ledger({ person, year, label, onClose, onChanged }) {
                         <td className="ui-num w-20 tabular-nums">{signed(e.days)}</td>
                         <td className="w-10">
                           {['ADJUST', 'ENCASH'].includes(e.kind) ? <button type="button" className="ui-icon-btn" aria-label="Remove this line" onClick={() => remove(e)}><Trash2 size={14} aria-hidden="true" /></button> : null}
+                          {e.kind === 'ALLOCATED' ? <button type="button" className="ui-icon-btn" aria-label={`Put ${type.name} back on the policy's days`} title="Back on the policy's days" onClick={() => backOnPolicy(type)}><Trash2 size={14} aria-hidden="true" /></button> : null}
                         </td>
                       </tr>
                     ))}
@@ -290,16 +316,17 @@ function Ledger({ person, year, label, onClose, onChanged }) {
               </div>
               <div>
                 <PopupSelect showValueSubtext={false} label="What" value={form.how} onChange={(v) => setForm({ ...form, how: v || 'ADD' })}
-                  options={[{ value: 'ADD', label: 'Add days' }, { value: 'TAKE', label: 'Take days away' }, ...(chosen?.type.encashable ? [{ value: 'ENCASH', label: 'Pay out days' }] : [])]} />
+                  options={[{ value: 'ADD', label: 'Add days' }, { value: 'TAKE', label: 'Take days away' }, { value: 'SET', label: 'Set their days for the period' }, ...(chosen?.type.encashable ? [{ value: 'ENCASH', label: 'Pay out days' }] : [])]} />
               </div>
               <label className="block">
-                <span className="ui-label">Days *</span>
+                <span className="ui-label">{form.how === 'SET' ? 'Days for the period *' : 'Days *'}</span>
                 <input type="number" inputMode="decimal" min={0.5} max={366} step={0.5} className="ui-input w-full tabular-nums" value={form.days} onChange={(e) => setForm({ ...form, days: e.target.value })} />
               </label>
               <label className="block">
                 <span className="ui-label">Reason *</span>
-                <input className="ui-input w-full" minLength={3} maxLength={300} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+                <SuggestInput minLength={3} maxLength={form.how === 'SET' ? 200 : 300} value={form.reason} onChange={(v) => setForm({ ...form, reason: v })} suggestions={reasons} />
               </label>
+              {form.how === 'SET' ? <p className="ui-caption sm:col-span-2">In place of what the policy gives{chosen ? ` (${chosen.balance.allocated} now)` : ''}: this period only. Remove the “Set for this person” line to put them back on the policy.</p> : null}
             </form>
           ) : null}
         </div>

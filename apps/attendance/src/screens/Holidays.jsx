@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, CalendarClock, CalendarDays, CalendarMinus, Plus, Trash2, Upload } from 'lucide-react';
+import { CalendarCheck, CalendarClock, CalendarDays, CalendarMinus, CalendarPlus, Plus, Trash2, Upload, Users } from 'lucide-react';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -9,7 +9,8 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createHoliday, dayLabel, deleteHoliday, getHolidayYear, todayIst, updateHoliday } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
-import { listStructure } from '@ui/personnel/api';
+import { listBranches, listStructure } from '@ui/personnel/api';
+import { CalendarImport, RestrictedPicks } from './HolidayDrawers';
 
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const weekday = (iso) => WEEKDAY[new Date(`${iso}T00:00:00Z`).getUTCDay()];
@@ -22,15 +23,17 @@ const TABS = [
 const COLUMNS = {
   date: (h) => h.date,
   name: (h) => h.name,
-  area: (h) => h.areaName || 'Everyone',
+  area: (h) => forWords(h),
 };
+/* Who a holiday is for: one branch, one area, or everyone (time depth, gap 17). */
+const forWords = (h) => h.branchName || h.areaName || 'Everyone';
 
 /** The year's holidays. A day worked on a holiday is all overtime. */
 /* What Export writes (AT-01). */
 const EXPORT_COLUMNS = [
   { key: 'date', label: 'Date' },
   { key: 'name', label: 'Holiday' },
-  { key: 'areaName', label: 'For', value: (h) => h.areaName || 'Everyone' },
+  { key: 'areaName', label: 'For', value: (h) => forWords(h) },
   { key: 'isOptional', label: 'Optional', value: (h) => (h.isOptional ? 'Yes' : 'No') },
 ];
 
@@ -57,10 +60,14 @@ export default function Holidays({ openScreen } = {}) {
   const [minimum, setMinimum] = useState([]);
   const [kind, setKind] = useState('');
   const [loadError, setLoadError] = useState('');
-  const [form, setForm] = useState({ date: '', name: '', isOptional: false, areaId: '' });
+  /* `scope`: '' everyone, 'b:<id>' one branch, 'a:<id>' one area's people. */
+  const [form, setForm] = useState({ date: '', name: '', isOptional: false, scope: '' });
   const [areas, setAreas] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [drawer, setDrawer] = useState('');
   useEffect(() => {
     listStructure('areas').then(setAreas).catch(() => setAreas([]));
+    listBranches().then((b) => setBranches(b.map((x) => ({ id: x.id, name: x.branchName || x.name, state: x.state || '' })))).catch(() => setBranches([]));
   }, []);
 
   const load = useCallback(() => {
@@ -84,9 +91,10 @@ export default function Holidays({ openScreen } = {}) {
   const add = async (e) => {
     e.preventDefault();
     try {
-      await createHoliday({ ...form, areaId: form.areaId || null });
+      const { scope, ...rest } = form;
+      await createHoliday({ ...rest, branchId: scope.startsWith('b:') ? scope.slice(2) : null, areaId: scope.startsWith('a:') ? scope.slice(2) : null });
       notify.success('Holiday added.');
-      setForm({ date: '', name: '', isOptional: false, areaId: '' });
+      setForm({ date: '', name: '', isOptional: false, scope: '' });
       load();
     } catch (err) {
       notify.error(String(err?.message || 'Not added.'));
@@ -117,13 +125,14 @@ export default function Holidays({ openScreen } = {}) {
     <DocumentListShell
       entity="holiday"
       title="Holidays"
-      moreItems={[exportMenuItem('Export'), ...(openScreen ? [{ key: 'import', label: 'Import from a spreadsheet', Icon: Upload }] : [])]}
+      moreItems={[{ key: 'calendar', label: 'Add a national or state calendar', Icon: CalendarPlus }, { key: 'picks', label: 'Who picked restricted holidays', Icon: Users }, exportMenuItem('Export'), ...(openScreen ? [{ key: 'import', label: 'Import from a spreadsheet', Icon: Upload }] : [])]}
       onMoreSelect={(k) => {
         if (k === 'import') return openScreen('dataImport', { kind: 'holidays' });
+        if (k === 'calendar' || k === 'picks') return setDrawer(k);
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Holidays', fileName: 'Holidays', label: 'holiday/holidays', columns: EXPORT_COLUMNS, rows });
       }}
-      description="Paid days off — for everyone, or only one area’s people (a plant in another state keeps its own). Optional holidays do not change anyone's attendance."
+      description="Paid days off — for everyone, or only one branch’s or area’s people (a branch in another state keeps its own). Optional holidays do not change anyone's attendance."
       compact
       tight
       denseCards
@@ -152,12 +161,13 @@ export default function Holidays({ openScreen } = {}) {
         <form onSubmit={add} className="ui-card flex flex-wrap items-end gap-3 p-4" aria-label="Add a holiday">
           <label className="block"><span className="ui-label">Date</span><input type="date" className="ui-input" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>
           <label className="block min-w-[14rem] flex-1"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Diwali" /></label>
-          {areas.length ? (
+          {areas.length || branches.length > 1 ? (
             <label className="block">
               <span className="ui-label">For</span>
-              <select className="ui-select" value={form.areaId} onChange={(e) => setForm({ ...form, areaId: e.target.value })}>
+              <select className="ui-select" value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value })}>
                 <option value="">Everyone</option>
-                {areas.map((a) => <option key={a.id} value={a.id}>{a.name} only</option>)}
+                {branches.length > 1 ? <optgroup label="Branch">{branches.map((b) => <option key={b.id} value={`b:${b.id}`}>{b.name} only{b.state ? ` (${b.state})` : ''}</option>)}</optgroup> : null}
+                {areas.length ? <optgroup label="Area">{areas.map((a) => <option key={a.id} value={`a:${a.id}`}>{a.name} only</option>)}</optgroup> : null}
               </select>
             </label>
           ) : null}
@@ -204,7 +214,7 @@ export default function Holidays({ openScreen } = {}) {
                     <td className="ui-col-date whitespace-nowrap">{dayLabel(h.date)}</td>
                     <td className="ui-col-meta">{weekday(h.date)}</td>
                     <td className="ui-col-entity">{h.name}</td>
-                    <td className="ui-col-meta">{h.areaName || 'Everyone'}</td>
+                    <td className="ui-col-meta">{forWords(h)}</td>
                     <td className="ui-col-h-center">
                       <input type="checkbox" className="ui-checkbox" aria-label={`${h.name} is optional`} checked={h.isOptional} onChange={() => toggleOptional(h)} />
                     </td>
@@ -222,6 +232,8 @@ export default function Holidays({ openScreen } = {}) {
           </table>
         </div>
       )}
+      {drawer === 'calendar' ? <CalendarImport year={year + (year === Number(todayIst().slice(0, 4)) ? 1 : 0)} onClose={() => setDrawer('')} onDone={(y) => { setDrawer(''); if (y && y !== year) setYear(y); else load(); }} /> : null}
+      {drawer === 'picks' ? <RestrictedPicks year={year} onClose={() => setDrawer('')} /> : null}
     </DocumentListShell>
   );
 }
