@@ -9,6 +9,9 @@ ports. Every scenario is checked at 1440×900 and 390×844 unless marked. Record
 in `docs/people/design-v1/<MODULE>-QA-<date>.md`. Add scenarios here as modules ship; never delete one, mark it
 retired.
 
+Automated: most scenarios also run as Playwright tests (`e2e/`, one test per scenario ID, `npm run e2e`); the
+latest result per ID is in [E2E-RESULTS.md](E2E-RESULTS.md). A new scenario added here gets a test there.
+
 ## The company used for testing
 
 One test company, "Asha Textiles" (Karnataka, 12 people), with a second company, "Vels Traders" (Tamil Nadu), in

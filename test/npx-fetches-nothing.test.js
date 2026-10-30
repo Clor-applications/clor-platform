@@ -47,6 +47,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BIN_PACKAGE = {
   depcruise: 'dependency-cruiser',
   eslint: 'eslint',
+  /* The end-to-end runner (e2e/README.md); the `playwright` package alone also publishes this bin. */
+  playwright: '@playwright/test',
   prisma: 'prisma',
   tsc: 'typescript',
   tsx: 'tsx',
