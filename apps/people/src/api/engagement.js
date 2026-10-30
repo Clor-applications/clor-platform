@@ -13,3 +13,6 @@ export const saveExitQuestions = (body) => send('/exit-questions', 'PUT', body);
 export const resetExitQuestions = () => send('/exit-questions', 'DELETE');
 export const leavingReasons = (months = 12) => apiFetch(`${base()}/reports/leaving-reasons?months=${months}`, opts);
 export const finalPayList = () => apiFetch(`${base()}/final-pay`, opts).then((r) => r?.rows || []);
+/* Whether a person is announced on birthdays and work anniversaries; HR records their wish (QA on #81). */
+export const getCelebrationsFor = (employeeId) => apiFetch(`${base()}/employees/${encodeURIComponent(employeeId)}/celebrations`, opts);
+export const setCelebrationsFor = (employeeId, optedOut) => send(`/employees/${encodeURIComponent(employeeId)}/celebrations`, 'PUT', { optedOut });

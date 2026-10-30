@@ -318,16 +318,20 @@ export async function decideInterview(who: { accountId: string; orgId: string; u
 export async function leavingReasons(orgId: string, months = 12) {
   const t = today();
   const from = plusMonths(`${t.slice(0, 7)}-01`, -(months - 1));
+  /* People on notice already count, in the month they leave: up to three months ahead (QA on #81: answered interviews read "No leavers"). */
+  const ahead = plusMonths(`${t.slice(0, 7)}-01`, 3).slice(0, 7);
   const [rows, leavers, settings] = await Promise.all([
-    peoplePrisma.exitInterview.findMany({ where: { orgId, leavingDate: { gte: from } }, select: { employeeId: true, leavingDate: true, status: true, reason: true, couldKeep: true, outcome: true, questions: true } }),
-    peoplePrisma.employee.findMany({ where: { orgId, dateOfLeaving: { gte: from, lte: `${t.slice(0, 7)}-31` }, status: { in: ['ON_NOTICE', 'LEFT'] } }, select: { id: true, dateOfLeaving: true, leavingType: true } }),
+    peoplePrisma.exitInterview.findMany({ where: { orgId, leavingDate: { gte: from, lte: `${ahead}-31` } }, select: { employeeId: true, leavingDate: true, status: true, reason: true, couldKeep: true, outcome: true, withdrawnAt: true, questions: true } }),
+    peoplePrisma.employee.findMany({ where: { orgId, dateOfLeaving: { gte: from, lte: `${ahead}-31` }, status: { in: ['ON_NOTICE', 'LEFT'] } }, select: { id: true, dateOfLeaving: true, leavingType: true } }),
     exitSettings(orgId),
   ]);
+  const lastMonth = [t.slice(0, 7), ...leavers.map((l) => String(l.dateOfLeaving).slice(0, 7))].filter((m) => m <= ahead).sort().pop()!;
   const labels = new Map<string, string>();
   for (const o of DEFAULT_REASONS) labels.set(o.code, o.label);
   for (const q of settings.questions) if (q.kind === 'REASON') for (const o of q.options || []) labels.set(o.code, o.label);
   const monthsList: string[] = [];
   for (let i = months - 1; i >= 0; i -= 1) monthsList.push(plusMonths(`${t.slice(0, 7)}-01`, -i).slice(0, 7));
+  for (let m = plusMonths(`${t.slice(0, 7)}-01`, 1).slice(0, 7); m <= lastMonth; m = plusMonths(`${m}-01`, 1).slice(0, 7)) monthsList.push(m);
   const byMonth = new Map(monthsList.map((m) => [m, { month: m, leavers: 0, answered: 0, reasons: {} as Record<string, number>, couldKeep: 0, retained: 0 }]));
   const real = leavers.filter((l) => !NO_SETTLEMENT.has(String(l.leavingType || '')));
   for (const l of real) {
@@ -338,13 +342,15 @@ export async function leavingReasons(orgId: string, months = 12) {
   for (const r of rows) {
     const m = byMonth.get(r.leavingDate.slice(0, 7));
     if (!m) continue;
+    if (r.outcome === 'RETAINED') m.retained += 1;
+    /* Someone who stayed did not leave: their answers are no reason for leaving, and they are no one HR could have kept. */
+    if (r.withdrawnAt || r.outcome === 'RETAINED') continue;
     if (r.status === 'SUBMITTED' && r.reason) {
       m.answered += 1;
       m.reasons[r.reason] = (m.reasons[r.reason] || 0) + 1;
       totals[r.reason] = (totals[r.reason] || 0) + 1;
     }
     if (r.couldKeep === 'YES' || r.couldKeep === 'MAYBE') m.couldKeep += 1;
-    if (r.outcome === 'RETAINED') m.retained += 1;
   }
   const reasons = Object.entries(totals).sort((a, b) => b[1] - a[1]).map(([code, count]) => ({ code, label: labels.get(code) || code, count }));
   return { months: [...byMonth.values()], reasons, labels: Object.fromEntries(labels) };

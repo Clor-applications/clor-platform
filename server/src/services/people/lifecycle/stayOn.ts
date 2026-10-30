@@ -12,6 +12,8 @@ type Who = { accountId: string; orgId: string; userId: string | null };
 
 /** How a step closed by a withdrawal is told from one really done (a "Final wages paid" step closed this way paid nothing). */
 export const LEAVING_WITHDRAWN_NOTE = 'Not needed: leaving withdrawn.';
+/** The kind a withdrawn leaving's steps move to: out of every leaving plan, board and clock, still on the record. */
+export const LEAVING_WITHDRAWN_KIND = 'LEAVING_WITHDRAWN';
 
 export class StayOnError extends Error {
   constructor(message: string, public status = 400) {
@@ -29,6 +31,8 @@ export async function cancelLeaving(who: Who, employeeId: string, reason: string
   const { row: employee } = await updateEmployee(actor, existing as any, { status: 'ACTIVE', dateOfLeaving: null, leavingType: null, leavingReason: null, resignedOn: null, noticeWaived: false } as any, {
     afterWrite: async (tx, row) => {
       await tx.checklistTask.updateMany({ where: { orgId, employeeId: row.id, kind: 'LEAVING', doneAt: null }, data: { doneAt: new Date(), doneByUserId: who.userId, note: LEAVING_WITHDRAWN_NOTE } });
+      /* This leaving's steps, done or not, are kept on the record under their own kind: a later leaving starts a fresh plan, not "8 of 16 done". */
+      await tx.checklistTask.updateMany({ where: { orgId, employeeId: row.id, kind: 'LEAVING', ...(existing.dateOfJoining ? { createdAt: { gte: new Date(`${existing.dateOfJoining}T00:00:00+05:30`) } } : {}) }, data: { kind: LEAVING_WITHDRAWN_KIND } });
       /* The no-dues lines and the exit interview of this stint end with it: nobody signs or is reminded for someone who stays. */
       const thisStint = { orgId, employeeId: row.id, leavingDate: { gte: existing.dateOfJoining || '' } };
       await tx.clearanceLine.updateMany({ where: { ...thisStint, status: { not: 'WITHDRAWN' } }, data: { status: 'WITHDRAWN' } });

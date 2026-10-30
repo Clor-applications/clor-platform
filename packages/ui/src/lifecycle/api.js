@@ -23,8 +23,16 @@ export const getSteps = () => apiFetch(`${base()}/checklist-templates`, opts);
 export const saveSteps = (kind, items) => send(`/checklist-templates/${kind}`, 'PUT', { items });
 export const resetSteps = (kind) => send(`/checklist-templates/${kind}`, 'DELETE');
 export const employeeTypes = () => apiFetch(`${base()}/structure/employee-types`, opts).then((r) => r?.items || []).catch(() => []);
-/* People a task can go to: the company's users, when the caller may list them. */
-export const orgUsers = () => apiFetch(`${org()}/users`, opts).then((r) => r?.users || []).catch(() => []);
+/*
+ * People a task or a no-dues line can go to: the company's people with a sign-in, by name. HR reads them from
+ * People (the users screen is the administrator's and refuses HR); an administrator without People edit falls
+ * back to the users list.
+ */
+export const orgUsers = () => apiFetch(`${base()}/assignees`, opts)
+  .then((r) => r?.users || [])
+  .catch(() => apiFetch(`${org()}/users`, opts).then((r) => r?.users || []).catch(() => []));
+/** The owner's name stays in the list even when the list cannot be read, so a picker never shows an id. */
+export const withOwner = (users, id, name) => (id && !users.some((u) => u.id === id) ? [...users, { id, fullName: name || 'Someone no longer listed' }] : users);
 
 export const OWNER_WORD = { HR: 'HR', MANAGER: 'Manager', PAYROLL: 'Payroll', IT: 'IT / admin', EMPLOYEE: 'Employee' };
 export const KIND_WORD = { JOINING: 'Joining', LEAVING: 'Leaving', CHANGE: 'Change', PROBATION: 'Probation', RENEWAL: 'Renewal', LETTER: 'Letter' };

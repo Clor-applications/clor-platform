@@ -308,6 +308,21 @@ export function tickRefusal(task: { doneAt: Date | null; needsNote: boolean; sys
  * A joining day or last day moved (JCL-A04, JCL-025): the open tasks of that
  * plan move with it, each by its own offset. Done tasks keep their dates.
  */
+/**
+ * The last day moved (QA on #81): the open steps move with it, and a ticked "Final wages paid" (or final
+ * settlement) step is opened again, as the wages it marked were for the old day. Steps already done
+ * otherwise stay done. Returns how many steps were opened again.
+ */
+export async function lastDayMoved(orgId: string, employeeId: string, from: string | null | undefined, to: string | null | undefined) {
+  if (!from || !to || from === to || !ISO.test(to)) return 0;
+  const reopened = await peoplePrisma.checklistTask.updateMany({
+    where: { orgId, employeeId, kind: 'LEAVING', doneAt: { not: null }, OR: [{ title: { contains: 'final wages', mode: 'insensitive' } }, { title: { contains: 'final settlement', mode: 'insensitive' } }] },
+    data: { doneAt: null, doneByUserId: null, note: `Opened again: the last day moved from ${from} to ${to}.` },
+  });
+  await redatePlan(orgId, employeeId, 'LEAVING', to);
+  return reopened.count;
+}
+
 export async function redatePlan(orgId: string, employeeId: string, kind: 'JOINING' | 'LEAVING', base: string | null) {
   if (!base || !ISO.test(base)) return 0;
   const tasks = await peoplePrisma.checklistTask.findMany({ where: { orgId, employeeId, kind, doneAt: null, offsetDays: { not: null } } });

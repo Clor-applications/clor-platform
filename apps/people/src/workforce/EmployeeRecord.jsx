@@ -30,7 +30,7 @@ import { refreshSuggestions, useEmailSuggestions, useSuggestions } from './sugge
 import { StatusBadge, can } from './shared';
 import OfferDrawer from './OfferDrawer';
 import AppAccessSend from './AppAccessSend';
-import { AppAccessHistory, PersonAssets, PersonPolicies, ProbationSection } from './RecordExtras';
+import { AppAccessHistory, PersonAssets, PersonCelebrations, PersonPolicies, ProbationSection } from './RecordExtras';
 
 /**
  * Workforce → Employee (People design spec v1 EMP-03..09; Workforce package
@@ -829,6 +829,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
       ) : null}
       <Section title="Joining & leaving"><EmployeeChecklist person={person} /></Section>
       {allowed('PEOPLE::Assets::VIEW') ? <PersonAssets employeeId={person.id} openScreen={openScreen} /> : null}
+      {person.status !== 'LEFT' ? <PersonCelebrations key={`c-${person.id}`} employeeId={person.id} /> : null}
     </div>
   );
 }

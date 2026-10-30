@@ -93,11 +93,12 @@ export default function Automations({ openScreen }) {
     <div className="space-y-6 max-w-3xl">
       <PageHeader title={title} />
       {!canEdit ? <p className="ui-caption">HR changes these.</p> : null}
-      <div className="ui-record-section space-y-6">
+      {/* A list on the page ground under one hairline, not in a card (DESIGN.md: no card-in-card). */}
+      <div className="space-y-6">
         {groups.map((g) => (
           <section key={g} aria-labelledby={`auto-${g}`}>
             <h2 id={`auto-${g}`} className="ui-t-sec">{g}</h2>
-            <ul className="divide-y">
+            <ul className="divide-y border-t">
               {automations.filter((a) => a.group === g).map((a) => <Row key={`${a.key}-${a.n}`} a={a} canEdit={canEdit} busy={busy === a.key} onSave={save} openScreen={openScreen} />)}
             </ul>
           </section>

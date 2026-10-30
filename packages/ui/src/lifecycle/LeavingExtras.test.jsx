@@ -13,6 +13,7 @@ const api = vi.hoisted(() => ({
   addClearanceLine: vi.fn(),
   decideExitInterview: vi.fn(),
   enterExitInterview: vi.fn(),
+  withOwner: (users, id, name) => (id && !users.some((u) => u.id === id) ? [...users, { id, fullName: name }] : users),
   orgUsers: vi.fn(async () => []),
   removeClearanceLine: vi.fn(),
   updateClearanceLine: vi.fn(),
@@ -216,4 +217,45 @@ it('a line that is not yours reads as words, with no boxes that look tickable', 
 it('exit form choices are a thumb’s width on a phone', () => {
   render(<ExitQuestionsForm questions={[{ key: 'reason', kind: 'REASON', text: 'Main reason?', options: [{ code: 'PAY', label: 'Pay' }] }]} answers={{}} onChange={() => {}} />);
   expect(screen.getByRole('button', { name: 'Pay' }).className).toMatch(/\bmin-h-11\b/);
+});
+
+/* QA on #81 (HR and owner). */
+it('HR, who may edit but not approve, signs a line: the screen guard does not stop "Sign off"', async () => {
+  perms.current = { loading: false, error: null, isAdmin: false, permissions: new Set(['PEOPLE::Employees::VIEW', 'PEOPLE::Employees::EDIT']) };
+  api.updateClearanceLine.mockResolvedValue({ line: {} });
+  render(<WriteGuard permission="PEOPLE::Employees::VIEW"><LeavingSections data={{ canEdit: true, interview: null, clearance: { leaving: true, lines: [line({ ownerUserId: null, ownerName: null, mine: false })], totals: null, open: 1, found: null } }} employeeId="e1" name="Vikram" /></WriteGuard>);
+  fireEvent.click(screen.getByRole('button', { name: /Manager: Handover/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign off' }));
+  await waitFor(() => expect(api.updateClearanceLine).toHaveBeenCalledWith('l1', expect.objectContaining({ sign: true })));
+  expect(dialogs.notify.error).not.toHaveBeenCalled();
+  perms.current = { loading: false, error: null, isAdmin: false, permissions: new Set(['PEOPLE::Employees::VIEW']) };
+});
+
+it('HR picks a line’s owner by name; one the list cannot name still shows a name, never an id', async () => {
+  api.orgUsers.mockResolvedValue([{ id: 'u2', fullName: 'Tanvi Shah' }]);
+  render(<LeavingSections data={{ canEdit: true, interview: null, clearance: { leaving: true, lines: [line({ ownerUserId: 'cmvv8lxyz', ownerName: 'Kavya Nair' })], totals: null, open: 1, found: null } }} employeeId="e1" name="Vikram" />);
+  fireEvent.click(screen.getByRole('button', { name: /Manager: Handover/ }));
+  const pick = await screen.findByRole('combobox', { name: 'Whose line' });
+  await waitFor(() => expect(pick.textContent).toMatch(/Kavya Nair/));
+  expect(document.body.textContent).not.toMatch(/cmvv8lxyz/);
+  fireEvent.click(pick);
+  expect(await screen.findByRole('option', { name: 'Tanvi Shah' })).toBeTruthy();
+});
+
+it('money reads ₹1,250.50, and a total shown alone starts with a capital', () => {
+  render(<LeavingSections data={{ canEdit: true, interview: null, clearance: { leaving: true, lines: [line({ direction: 'OWED', amount: 1250.5 })], totals: { owes: 0, owed: 1250.5 }, open: 1, found: null } }} employeeId="e1" name="Vikram" />);
+  expect(screen.getByText('Owed to them ₹1,250.50')).toBeTruthy();
+  expect(screen.queryByText(/1,250\.5(?!0)/)).toBeNull();
+});
+
+it('someone with no employee app access is not said to answer it there', () => {
+  const iv = { status: 'OPEN', questions: [], answers: null, canEnter: true, canDecide: true, appAccess: false, purpose: 'The answers help…', dueBy: '2026-11-10' };
+  render(<LeavingSections data={{ canEdit: true, interview: iv, clearance: { leaving: true, lines: [], totals: null, open: 0, found: null } }} employeeId="e1" name="Vikram" />);
+  expect(screen.getByText(/no employee app access.*Enter the answers from a conversation/)).toBeTruthy();
+  expect(screen.queryByText(/answer in the employee app/)).toBeNull();
+});
+
+it('Home’s "Open plan" is a thumb’s height on a phone', () => {
+  render(<FinalPayList rows={[{ ...clock(), employeeId: 'a', name: 'A' }, { ...clock(), employeeId: 'b', name: 'B' }]} onOpen={() => () => {}} onMore={() => {}} />);
+  for (const b of screen.getAllByRole('button', { name: 'Open plan' })) expect(b.className).toMatch(/\bmin-h-11\b/);
 });

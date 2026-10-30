@@ -17,7 +17,7 @@ const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
 const { runCompany, startEngagement } = await import('../services/people/engagement/index.js');
 const { eraseExpiredAnswers } = await import('../services/people/engagement/exitInterview.js');
-const { mailOnce } = await import('../services/people/engagement/automations.js');
+const { mailOnce, listAutomations, inSendingHours } = await import('../services/people/engagement/automations.js');
 const { sendTemplate } = await import('../services/mailer.js');
 const { dayThisYear, sameTeam } = await import('../services/people/engagement/greetings.js');
 const { runEndDateReminders } = await import('../services/people/documentReminders.js');
@@ -312,7 +312,9 @@ describe('exit interviews (4.9)', () => {
 
   it('the People report counts leavers by month and reason', async () => {
     const r = (await ppl(c, 'get', '/reports/leaving-reasons').expect(200)).body;
-    expect(r.months).toHaveLength(12);
+    /* Twelve months back, and up to three ahead for people already on notice. */
+    expect(r.months.length).toBeGreaterThanOrEqual(12);
+    expect(r.months.length).toBeLessThanOrEqual(15);
     const total = r.months.reduce((t: number, m: any) => t + m.answered, 0);
     expect(total).toBeGreaterThanOrEqual(1);
     expect(r.reasons.find((x: any) => x.code === 'PAY')).toMatchObject({ label: 'Better pay elsewhere', count: 1 });
@@ -457,7 +459,8 @@ describe('ready-made automations (4.7)', () => {
     const of = (k: string) => r.find((a: any) => a.key === k);
     expect(of('probationEnds')).toMatchObject({ on: true, n: 15 });
     expect(of('policyAccept')).toMatchObject({ on: true, n: 5 });
-    expect(['This morning', 'Within the hour']).toContain(of('policyAccept').nextRun);
+    /* After 20:00 IST it waits for the morning (nothing is sent at night). */
+    expect(['This morning', 'Within the hour', 'Tomorrow morning']).toContain(of('policyAccept').nextRun);
     expect(of('taskDigest').on).toBe(false);
     /* Another company's are untouched. */
     const o = (await ppl(other, 'get', '/automations').expect(200)).body.automations;
@@ -589,9 +592,9 @@ describe('who reads what on a leaving (review of #81)', () => {
     const m = await ppl(mgr, 'get', '/reports/leaving-reasons').expect(403);
     expect(JSON.stringify(m.body)).not.toMatch(/MANAGER|My manager/);
     await ppl(itAdmin, 'get', '/reports/leaving-reasons').expect(403);
-    /* This month's leaver, hidden from the manager: HR counts it (the two above leave next month). */
+    /* This month's leaver, hidden from the manager: HR counts it, and the two above on notice for next month too. */
     await inTenant(c, () => peoplePrisma.exitInterview.create({ data: { accountId: c.accountId!, orgId: c.orgId, employeeId: leaver.id, leavingDate: `${istToday().slice(0, 7)}-01`, status: 'SUBMITTED', reason: 'MANAGER', hideFromManager: true } }));
-    expect((await ppl(c, 'get', '/reports/leaving-reasons').expect(200)).body.reasons).toEqual([expect.objectContaining({ code: 'MANAGER', count: 1 })]);
+    expect((await ppl(c, 'get', '/reports/leaving-reasons').expect(200)).body.reasons).toEqual([expect.objectContaining({ code: 'MANAGER', count: 3 })]);
   });
 
   it('IT Administrator reads no answers and no money, though the role reads the whole company', async () => {
@@ -1049,5 +1052,112 @@ describe('smaller rules on a line', () => {
     await inTenant(c, () => runCompany(c.accountId!, c.orgId));
     const mail = await platformPrisma.emailOutbox.findFirst({ where: { orgId: c.orgId, templateKey: 'people.automation', toName: 'Eight Questions' } });
     expect(mail!.bodyText).toMatch(/answer 8 short questions/);
+  });
+});
+
+describe('QA on #81: HR and the owner', () => {
+  let c: Ctx;
+  let mgr: Ctx;
+  const steps = async (id: string) => (await ppl(c, 'get', `/employees/${id}/checklist`).expect(200)).body.leaving;
+  const wagesStep = (id: string) => inTenant(c, () => peoplePrisma.checklistTask.findFirst({ where: { orgId: c.orgId, employeeId: id, kind: 'LEAVING', title: 'Final wages paid' } }));
+  beforeAll(async () => {
+    c = await company();
+    mgr = await withRole(c, 'Team Manager', 'Manu Manager');
+  }, 60_000);
+
+  it('HR gets the company’s people with a sign-in by name, to hand a line or step to; nothing private, and a manager may not', async () => {
+    const res = await ppl(c, 'get', '/assignees').expect(200);
+    expect(res.body.users.map((u: any) => u.fullName)).toEqual(expect.arrayContaining(['Manu Manager']));
+    for (const u of res.body.users) expect(Object.keys(u).sort()).toEqual(['fullName', 'id']);
+    expect(JSON.stringify(res.body)).not.toMatch(/@example\.com/);
+    await ppl(mgr, 'get', '/assignees').expect(403);
+  });
+
+  it('a later last day opens "Final wages paid" again and moves the steps; the clock warns for the new day', async () => {
+    const e = await person(c, { name: 'Moved Mohan', code: `MM-${rnd()}` });
+    const t = istToday();
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: t, leavingType: 'RESIGNED' }).expect(200);
+    const w = await wagesStep(e.id);
+    await inTenant(c, () => peoplePrisma.checklistTask.update({ where: { id: w!.id }, data: { doneAt: new Date(), doneByUserId: c.userId!, note: 'Paid' } }));
+    expect((await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.finalPay.paid).toBe(true);
+    const before = (await steps(e.id)).tasks.find((s: any) => s.title === 'Final wages paid').dueDate;
+    /* "Change leaving details": the same form, a new day. */
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(t, 14), leavingType: 'RESIGNED' }).expect(200);
+    const after = (await steps(e.id)).tasks.find((s: any) => s.title === 'Final wages paid');
+    expect(after.done).toBe(false);
+    expect(after.note).toMatch(/last day moved/);
+    expect(after.dueDate > before).toBe(true);
+    expect((await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.finalPay).toMatchObject({ paid: false, lastDay: plus(t, 14) });
+  });
+
+  it('withdrawn, then leaving again: a fresh plan, with none of the withdrawn steps as done', async () => {
+    const e = await person(c, { name: 'Again Anil', code: `AA-${rnd()}` });
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), 10), leavingType: 'RESIGNED' }).expect(200);
+    const fresh = await steps(e.id);
+    await ppl(c, 'post', `/employees/${e.id}/stay`, { reason: 'Stays' }).expect(200);
+    expect((await steps(e.id)).total).toBe(0);
+    /* Kept on the record. */
+    expect(await inTenant(c, () => peoplePrisma.checklistTask.count({ where: { orgId: c.orgId, employeeId: e.id, kind: 'LEAVING_WITHDRAWN' } }))).toBe(fresh.total);
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), 20), leavingType: 'RESIGNED' }).expect(200);
+    const again = await steps(e.id);
+    expect(again).toMatchObject({ total: fresh.total, done: 0 });
+    expect(again.tasks.some((s: any) => s.done)).toBe(false);
+  });
+
+  it('right after "They stay", the plan’s read says so: active, no last day', async () => {
+    const e = await person(c, { name: 'Staying Sita', code: `SS-${rnd()}` });
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), 10), leavingType: 'RESIGNED' }).expect(200);
+    await ppl(c, 'post', `/leaving/${e.id}/exit-interview/outcome`, { outcome: 'RETAINED' }).expect(200);
+    expect((await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.person).toMatchObject({ status: 'ACTIVE', dateOfLeaving: null });
+  });
+
+  it('the interview says whether they can answer it in the app themselves', async () => {
+    const e = await person(c, { name: 'No App Naveen', code: `NA-${rnd()}` });
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), 10), leavingType: 'RESIGNED' }).expect(200);
+    expect((await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.interview.appAccess).toBe(false);
+    await portalOf(c, e);
+    expect((await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.interview.appAccess).toBe(true);
+  });
+
+  it('HR reads and changes whether someone is announced, on their record; a manager reads it only', async () => {
+    const e = await person(c, { name: 'Quiet Qadir', code: `QQ-${rnd()}` });
+    expect((await ppl(c, 'get', `/employees/${e.id}/celebrations`).expect(200)).body).toEqual({ optedOut: false, canEdit: true });
+    await ppl(c, 'put', `/employees/${e.id}/celebrations`, { optedOut: true }).expect(200);
+    expect((await ppl(c, 'get', `/employees/${e.id}/celebrations`).expect(200)).body.optedOut).toBe(true);
+    await ppl(mgr, 'put', `/employees/${e.id}/celebrations`, { optedOut: false }).expect(403);
+  });
+
+  it('why people leave counts those on notice in their month, and leaves out anyone who stayed', async () => {
+    const solo = await company();
+    const next = `${plus(`${istToday().slice(0, 7)}-01`, 40).slice(0, 7)}-10`;
+    const go = await person(solo, { name: 'Going Gita', code: `GG-${rnd()}` });
+    const stay = await person(solo, { name: 'Kept Kiran', code: `KK-${rnd()}` });
+    for (const e of [go, stay]) {
+      await ppl(solo, 'post', `/employees/${e.id}/resign`, { lastDay: next, leavingType: 'RESIGNED' }).expect(200);
+      await ppl(solo, 'post', `/leaving/${e.id}/exit-interview`, { answers: { reason: 'PAY', comeBack: 'NO' } }).expect(200);
+    }
+    await ppl(solo, 'post', `/leaving/${stay.id}/exit-interview/outcome`, { outcome: 'RETAINED' }).expect(200);
+    const r = (await ppl(solo, 'get', '/reports/leaving-reasons').expect(200)).body;
+    const m = r.months.find((x: any) => x.month === next.slice(0, 7));
+    expect(m).toMatchObject({ leavers: 1, answered: 1, retained: 1 });
+    expect(r.reasons).toEqual([expect.objectContaining({ code: 'PAY', count: 1 })]);
+  });
+
+  it('switched on late in the evening, a morning recipe waits for the morning, and nothing is sent at night', async () => {
+    const at2316 = new Date('2026-10-30T17:46:00Z');
+    await ppl(c, 'put', '/automations', { automations: { birthdays: { on: true } } }).expect(200);
+    const list = await inTenant(c, () => listAutomations(c.orgId, { now: at2316 }));
+    expect(list.find((a: any) => a.key === 'birthdays').nextRun).toBe('Tomorrow morning');
+    expect(inSendingHours(at2316)).toBe(false);
+    expect(inSendingHours(new Date('2026-10-30T04:30:00Z'))).toBe(true);
+    expect(inSendingHours(new Date('2026-10-30T01:00:00Z'))).toBe(false);
+  });
+
+  it('paise read as two figures on the line’s note: ₹1,250.50', async () => {
+    const e = await person(c, { name: 'Paise Priya', code: `PP-${rnd()}` });
+    await inTenant(c, () => peoplePrisma.employeeAdvance.create({ data: { accountId: c.accountId!, orgId: c.orgId, employeeId: e.id, number: `ADV-${rnd()}`, purpose: 'Travel', amount: 1250.5, status: 'PAID' } }));
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), 10), leavingType: 'RESIGNED' }).expect(200);
+    const fin = (await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.clearance.lines.find((l: any) => l.dept === 'FINANCE');
+    expect(fin.note).toMatch(/₹1,250\.50\b/);
   });
 });

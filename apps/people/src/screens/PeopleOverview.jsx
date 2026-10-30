@@ -362,7 +362,7 @@ export default function PeopleOverview({ openScreen }) {
       {finalPay.length ? (
         <section aria-label="Final pay due" className="space-y-2" data-reveal style={{ '--i': 1 }}>
           {finalPay.length === 1 ? (
-            <FinalPayBanner clock={finalPay[0]} name={finalPay[0].name} showRule={false} action={<button type="button" className="ui-link whitespace-nowrap" onClick={go('leavers', { open: finalPay[0].employeeId })}>Open plan</button>} />
+            <FinalPayBanner clock={finalPay[0]} name={finalPay[0].name} showRule={false} action={<button type="button" className="ui-link inline-flex min-h-11 items-center whitespace-nowrap sm:min-h-0" onClick={go('leavers', { open: finalPay[0].employeeId })}>Open plan</button>} />
           ) : <FinalPayList rows={finalPay} onOpen={(id) => go('leavers', { open: id })} onMore={go('leavers', { view: 'clearing' })} />}
           <p className="ui-caption">Code on Wages 2019 s.17(2): wages within two working days of the last day. Clearance does not hold them up.</p>
         </section>

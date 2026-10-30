@@ -133,3 +133,11 @@ it('a role that may only read sees no last-run line, and is not told "nothing se
   expect(screen.queryByText(/Last sent/)).toBeNull();
   expect(screen.getByRole('switch').disabled).toBe(true);
 });
+
+it('automations sit on the page ground, not in a card; each switch is a 44px target', async () => {
+  api.getAutomations.mockResolvedValue({ canEdit: true, automations: [row({ key: 'birthdays', group: 'Celebrations', sentence: 'Tell the team on someone’s birthday', on: true, lastRun: null, when: 'Every morning' })] });
+  const { container } = render(<Automations />);
+  await screen.findByText('Tell the team on someone’s birthday');
+  expect(container.querySelector('.ui-record-section, .ui-card')).toBeNull();
+  expect(screen.getByRole('switch').className).toMatch(/\bh-11\b/);
+});

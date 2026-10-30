@@ -21,12 +21,23 @@ import LeavingSections, { FinalPayBanner } from './LeavingExtras';
  * shows who their team reports to after the last day and what they hold.
  * `row.lineOnly`: someone outside the person's team who owns a no-dues line sees that line, not the plan.
  */
+/*
+ * The leaving's header from the latest read, not the list row it was opened from: right after "They stay" it
+ * says so, and a moved last day shows the new one.
+ */
+const leavingWords = (row, now) => {
+  if (now && !now.dateOfLeaving) return 'Staying on: the leaving was withdrawn';
+  const day = now?.dateOfLeaving || row.dateOfLeaving;
+  const stage = now && now.dateOfLeaving !== row.dateOfLeaving ? null : row.stageLabel;
+  return `Last day ${formatDate(day)}${stage ? ` · ${stage}` : ''}`;
+};
+
 export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, onClose, onChanged }) {
   const plan = useRequest(() => (row.lineOnly ? Promise.resolve(null) : getChecklist(row.id)), [row.id, row.lineOnly]);
   const preview = useRequest(() => (kind === 'LEAVING' && !row.lineOnly ? leavingPreview(row.id) : Promise.resolve(null)), [row.id, kind, row.lineOnly]);
   /* The final-pay clock, no-dues and exit interview (WORKFLOW-GAP-RESEARCH 4.3, 4.9); a refusal or failure just leaves them out. */
   const extras = useRequest(() => (kind === 'LEAVING' ? leavingExtras(row.id).catch(() => null) : Promise.resolve(null)), [row.id, kind]);
-  const extrasChanged = () => { extras.reload(); onChanged?.(); };
+  const extrasChanged = () => { extras.reload(); if (!row.lineOnly) plan.reload(); onChanged?.(); };
   const [task, setTask] = useState(null);
   const [starting, setStarting] = useState(false);
   const list = plan.data?.[kind === 'JOINING' ? 'joining' : 'leaving'];
@@ -45,7 +56,7 @@ export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, 
   };
   const p = preview.data;
   return (
-    <Drawer open onClose={onClose} widthClass="w-[min(38rem,96vw)]" title={row.name} description={kind === 'JOINING' ? `Joins ${formatDate(row.dateOfJoining)} · ${row.stageLabel}` : `Last day ${formatDate(row.dateOfLeaving)}${row.stageLabel ? ` · ${row.stageLabel}` : ''}`}
+    <Drawer open onClose={onClose} widthClass="w-[min(38rem,96vw)]" title={row.name} description={kind === 'JOINING' ? `Joins ${formatDate(row.dateOfJoining)} · ${row.stageLabel}` : leavingWords(row, extras.data?.person)}
       footer={<>
         {openScreen && !row.lineOnly ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('employee', { id: row.id })}>Open their record</button> : null}
         <button type="button" className="ui-btn ui-btn-primary" onClick={onClose}>Close</button>

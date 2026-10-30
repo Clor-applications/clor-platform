@@ -239,12 +239,16 @@ export async function listAutomations(orgId: string, opts: { showRuns?: boolean;
       when: r.when,
       lastRun: last && opts.showRuns ? { on: last.ranOn, count: last.count, recipients: last.recipients as string[] } : null,
       lastChecked,
-      nextRun: !s.on ? null : r.job === 'people.automations' ? (doneToday.has(r.key) ? 'Tomorrow morning' : istHour(now) < 8 ? 'This morning' : 'Within the hour') : r.when,
+      nextRun: !s.on ? null : r.job === 'people.automations' ? (doneToday.has(r.key) || istHour(now) >= SEND_UNTIL ? 'Tomorrow morning' : istHour(now) < SEND_FROM ? 'This morning' : 'Within the hour') : r.when,
     };
   });
 }
 
 const istHour = (now: Date) => new Date(now.getTime() + 330 * 60_000).getUTCHours();
+/** The hours, India time, the daily job sends in: from 08:00, and nothing after 20:00 (a recipe switched on late in the evening waits for the morning). */
+export const SEND_FROM = 8;
+export const SEND_UNTIL = 20;
+export const inSendingHours = (now = new Date()) => istHour(now) >= SEND_FROM && istHour(now) < SEND_UNTIL;
 
 // ---------------------------------------------------------------------------
 // The daily job
@@ -303,7 +307,7 @@ export async function runAutomations(now = new Date()) {
 export function startPeopleAutomations({ intervalMs = 3_600_000, startupDelayMs = 200_000 } = {}) {
   const tick = () =>
     exclusive('people.automations', leaseFor(intervalMs), async () => {
-      if (istHour(new Date()) >= 8) return runAutomations();
+      if (inSendingHours()) return runAutomations();
       return 0;
     }).catch((e) => {
       console.error('[automations] failed:', e instanceof Error ? e.message : e);

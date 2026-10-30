@@ -3120,7 +3120,7 @@ model ChecklistTask {
   accountId    String
   orgId        String
   employeeId   String
-  /// JOINING | LEAVING | CHANGE | PROBATION
+  /// JOINING | LEAVING | CHANGE | PROBATION | LEAVING_WITHDRAWN (a withdrawn leaving's steps, kept on the record)
   kind         String
   title        String
   /// The role: HR, MANAGER, PAYROLL, IT, EMPLOYEE

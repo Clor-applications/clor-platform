@@ -50,7 +50,7 @@ import { ask as askToRead, remind as ackRemind, report as ackReport } from '../s
 import { dataHealth, readinessOf } from '../services/people/dataHealth.js';
 import { KIND_LABEL, MERGEABLE, OrgError, STRUCTURE_KINDS, actionOf, ensureOrgDetail, headFields, headsOf, inUseRefusal, logStructure, mergeInto, movePeople, organizationOverview, peopleIn, retireBranch, structureChanges, structureHistory, targetFor, type Kind } from '../services/people/organization.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
-import { KINDS, checklistOf, cleanItems, itemsFor, myTasks, openTasks, ownPlanRefusal, redatePlan, startChecklist, tickRefusal, type Kind as ChecklistKind } from '../services/people/checklists.js';
+import { KINDS, checklistOf, cleanItems, itemsFor, myTasks, openTasks, ownPlanRefusal, lastDayMoved, redatePlan, startChecklist, tickRefusal, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { settleReaderTask } from '../services/people/lifecycle/readersDone.js';
 import { calendar, evidenceOf } from '../services/people/compliance.js';
 import { homeTodos } from '../services/people/home.js';
@@ -1190,7 +1190,7 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
     else if (row.status !== 'LEFT' && existing.status === 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
     /* A moved joining day, or a moved last day while on notice, moves that plan's open tasks with it (JCL-A04). */
     if (row.dateOfJoining !== existing.dateOfJoining && row.status !== 'LEFT') await redatePlan(orgId, row.id, 'JOINING', row.dateOfJoining);
-    if (row.dateOfLeaving !== existing.dateOfLeaving && row.status === 'ON_NOTICE') await redatePlan(orgId, row.id, 'LEAVING', row.dateOfLeaving);
+    if (row.dateOfLeaving !== existing.dateOfLeaving && row.status === 'ON_NOTICE') await lastDayMoved(orgId, row.id, existing.dateOfLeaving, row.dateOfLeaving);
     /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted; the leaving task waits for the readers to confirm. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await settleReaderTask({ accountId, orgId, userId: req.auth!.userId }, row, await revokeFromReaders(orgId, existing, req.auth!.userId));
     /* Suspended means not at work: off the doors while suspended, back on when reactivated (W9). */

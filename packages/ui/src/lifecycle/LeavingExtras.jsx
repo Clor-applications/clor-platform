@@ -8,7 +8,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { hasApp } from '@platform/context';
 
-import { addClearanceLine, decideExitInterview, enterExitInterview, orgUsers, removeClearanceLine, updateClearanceLine } from './api';
+import { addClearanceLine, decideExitInterview, enterExitInterview, orgUsers, removeClearanceLine, updateClearanceLine, withOwner } from './api';
 
 /**
  * The leaving plan's money and goodbye (WORKFLOW-GAP-RESEARCH-2026-10-30 4.3, 4.9): the final-pay clock,
@@ -16,7 +16,8 @@ import { addClearanceLine, decideExitInterview, enterExitInterview, orgUsers, re
  * Clearance never holds up final wages: an open line is a warning, the clock runs regardless.
  */
 
-const rupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+/* Paise as two figures, or none: ₹1,250.50, not ₹1,250.5. */
+const rupees = (n) => { const v = Number(n || 0); return `₹${v.toLocaleString('en-IN', Number.isInteger(v) ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; };
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** The clock in words: tone, headline and the line under it. */
@@ -67,7 +68,7 @@ export function FinalPayList({ rows, onOpen, onMore, limit = 3 }) {
           {rows.slice(0, limit).map((r) => (
             <li key={r.employeeId} className="flex items-baseline justify-between gap-3 text-sm">
               <span className="min-w-0"><span className="font-medium">{r.name}</span> <span className="ui-alert-body">{finalPayWords(r).title.charAt(0).toLowerCase()}{finalPayWords(r).title.slice(1)}</span></span>
-              <button type="button" className="ui-link shrink-0 whitespace-nowrap" onClick={onOpen(r.employeeId)}>Open plan</button>
+              <button type="button" className="ui-link inline-flex min-h-11 shrink-0 items-center whitespace-nowrap sm:min-h-0" onClick={onOpen(r.employeeId)}>Open plan</button>
             </li>
           ))}
         </ul>
@@ -187,7 +188,7 @@ function LineDrawer({ line, canEdit, onClose, onSaved }) {
           <span className="ui-label">Note</span>
           <textarea className="ui-input w-full" rows={2} maxLength={500} value={note} disabled={!open} onChange={(e) => setNote(e.target.value)} />
         </label> : null}
-        {canEdit && !signed ? <div><PopupSelect label="Whose line" showValueSubtext={false} value={owner} onChange={(v) => setOwner(v || '')} options={[{ value: '', label: 'Nobody yet' }, ...(users.data || []).map((u) => ({ value: u.id, label: u.fullName || u.name || u.email }))]} /></div> : null}
+        {canEdit && !signed ? <div><PopupSelect label="Whose line" showValueSubtext={false} value={owner} onChange={(v) => setOwner(v || '')} options={[{ value: '', label: 'Nobody yet' }, ...withOwner(users.data || [], line.ownerUserId, line.ownerName).map((u) => ({ value: u.id, label: u.fullName || u.name || u.email }))]} /></div> : null}
         {error ? <p className="ui-field-error" role="alert">{error}</p> : null}
         {canEdit && !signed && line.dept === 'CUSTOM' ? <div><button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={remove}>Remove this line</button></div> : null}
       </div>
@@ -253,7 +254,7 @@ function Clearance({ data, employeeId, canEdit, onChanged }) {
         ))}
       </ul>
       {totals?.owes || totals?.owed ? (
-        <p className="flex justify-between gap-3 text-sm"><span className="ui-muted">For the full and final</span><span className="tabular-nums text-right">{[totals.owes ? `They owe ${rupees(totals.owes)}` : null, totals.owed ? `owed to them ${rupees(totals.owed)}` : null].filter(Boolean).join(' · ')}</span></p>
+        <p className="flex justify-between gap-3 text-sm"><span className="ui-muted">For the full and final</span><span className="tabular-nums text-right">{[totals.owes ? `They owe ${rupees(totals.owes)}` : null, totals.owed ? `${totals.owes ? 'owed' : 'Owed'} to them ${rupees(totals.owed)}` : null].filter(Boolean).join(' · ')}</span></p>
       ) : null}
       {data.found?.loansUnknown ? <p className="ui-caption" role="status">Payroll could not be read, so loans are not checked here. Look in Payroll before signing off.</p> : null}
       {data.open ? <p className="ui-caption">Open lines are a reminder only: they never hold up final wages.</p> : null}
@@ -352,7 +353,9 @@ function ExitInterview({ interview: iv, employeeId, name, onChanged }) {
         <span className={`ui-pill ${iv.status === 'SUBMITTED' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{iv.status === 'SUBMITTED' ? (iv.enteredBy === 'HR' ? 'Entered by HR' : 'Answered') : 'Not answered yet'}</span>
       </div>
       {iv.status !== 'SUBMITTED' ? (
-        <p className="text-sm">They can answer in the employee app, under Me{iv.dueBy ? `, until ${formatDate(iv.dueBy)}` : ''}.{iv.canEnter ? ' Or enter the answers from a conversation.' : ''}</p>
+        <p className="text-sm">{iv.appAccess === false
+          ? `They have no employee app access, so they cannot answer it themselves.${iv.canEnter ? ' Enter the answers from a conversation.' : ' HR enters the answers from a conversation.'}`
+          : `They can answer in the employee app, under Me${iv.dueBy ? `, until ${formatDate(iv.dueBy)}` : ''}.${iv.canEnter ? ' Or enter the answers from a conversation.' : ''}`}</p>
       ) : iv.hiddenFromYou ? (
         <p className="text-sm">Answered{iv.submittedAt ? ` on ${formatDate(String(iv.submittedAt).slice(0, 10))}` : ''}. They asked to keep the answers from their managers; HR reads them.</p>
       ) : iv.erased ? (

@@ -5,6 +5,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { inReportingLine, inScope, teamScope } from '../services/people/scope.js';
@@ -31,7 +32,7 @@ import { istDate } from '../services/attendance/compute.js';
  */
 export const peopleEngagementRouter = Router();
 const base = '/orgs/:orgId/people';
-for (const p of ['leaving', 'clearance-lines', 'final-pay', 'exit-questions', 'automations', 'celebrations', 'reports/leaving-reasons']) peopleEngagementRouter.use(`${base}/${p}`, requireAuth, requireTenantContext);
+for (const p of ['leaving', 'clearance-lines', 'final-pay', 'exit-questions', 'automations', 'celebrations', 'reports/leaving-reasons', 'assignees']) peopleEngagementRouter.use(`${base}/${p}`, requireAuth, requireTenantContext);
 peopleEngagementRouter.use(`${base}/employees/:id/celebrations`, requireAuth, requireTenantContext);
 
 const R = PEOPLE_RESOURCE;
@@ -77,10 +78,11 @@ peopleEngagementRouter.get(`${base}/leaving/:employeeId`, ppl(PermissionAction.V
   const orgId = req.tenant!.orgId;
   const userId = req.auth!.userId;
   const id = String(req.params.employeeId);
-  const p = await peoplePrisma.employee.findFirst({ where: { id, orgId }, select: { id: true, name: true, status: true, dateOfLeaving: true, leavingType: true, areaId: true, branchId: true, userId: true } });
+  const p = await peoplePrisma.employee.findFirst({ where: { id, orgId }, select: { id: true, name: true, status: true, dateOfJoining: true, dateOfLeaving: true, leavingType: true, areaId: true, branchId: true, userId: true, portalEnabled: true, portalPasswordHash: true } });
   const none = () => res.status(404).json({ error: 'No such employee.' });
   if (!p) return none();
-  const person = { id: p.id, name: p.name, dateOfLeaving: p.dateOfLeaving };
+  /* The status too: right after "They stay" the open plan reads it, not the list row it was opened from. */
+  const person = { id: p.id, name: p.name, status: p.status, dateOfLeaving: p.dateOfLeaving };
   if (!inScope(await teamScope(req), p.id)) {
     /* HR gave them a line on someone outside their team: they see that line, and nothing else about the person. */
     if (!(await peoplePrisma.clearanceLine.count({ where: { orgId, employeeId: p.id, ownerUserId: userId, status: { not: 'WITHDRAWN' } } }))) return none();
@@ -100,7 +102,9 @@ peopleEngagementRouter.get(`${base}/leaving/:employeeId`, ppl(PermissionAction.V
     /* Why someone leaves is HR's and the line's to read (JCL-009): Lifecycle view, and being one of them. */
     (await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, R.lifecycle)) ? null : interviewFor(orgId, p.id, { hr, line, self }),
   ]);
-  res.json({ person, clearance, finalPay, interview, canEdit: hr });
+  /* Whether they can answer it themselves: the employee app needs access switched on and a password they set. */
+  const appAccess = Boolean(p.portalEnabled && p.portalPasswordHash);
+  res.json({ person, clearance, finalPay, interview: interview ? { ...interview, appAccess } : null, canEdit: hr });
 }));
 
 peopleEngagementRouter.post(`${base}/leaving/:employeeId/clearance-lines`, ppl(PermissionAction.EDIT, R.employees), hrOnly(async (req, res) => {
@@ -152,7 +156,8 @@ peopleEngagementRouter.post(`${base}/leaving/:employeeId/exit-interview/outcome`
   if (!p) return;
   const row = await decideInterview(who(req), p.id, req.body);
   await recordAudit(req, { entity: 'ExitInterview', entityId: row!.id, action: row!.outcome === 'RETAINED' ? 'RETAINED' : 'DECIDED', message: `Exit interview outcome for ${p.name}: ${row!.outcome || 'not decided'}${row!.couldKeep ? `, could have kept: ${row!.couldKeep.toLowerCase()}` : ''}`, metadata: { employeeId: p.id, outcome: row!.outcome, couldKeep: row!.couldKeep } });
-  res.json({ interview: await interviewFor(req.tenant!.orgId, p.id, { hr: true }) });
+  /* Retained: they are no longer leaving, so there is no interview to show; the answer still says what was decided. */
+  res.json({ interview: (await interviewFor(req.tenant!.orgId, p.id, { hr: true })) ?? { id: row!.id, status: row!.status, outcome: row!.outcome, outcomeAt: row!.outcomeAt, withdrawn: true } });
 }));
 
 peopleEngagementRouter.get(`${base}/exit-questions`, ppl(PermissionAction.VIEW, R.employees), handle(async (req, res) => {
@@ -176,6 +181,19 @@ peopleEngagementRouter.delete(`${base}/exit-questions`, ppl(PermissionAction.EDI
 peopleEngagementRouter.get(`${base}/reports/leaving-reasons`, ppl(PermissionAction.VIEW, R.lifecycle), hrOnly(async (req, res) => {
   const months = Math.max(3, Math.min(24, Number(req.query.months) || 12));
   res.json(await leavingReasons(req.tenant!.orgId, months));
+}));
+
+/* ----------------------------------------------------------------- assignees */
+
+/**
+ * Who HR may hand a no-dues line or a plan step to: the company's people with a CLOR sign-in, by name. The
+ * users screen is the administrator's (it refuses HR); this is just the names, nothing private (QA on #81).
+ */
+peopleEngagementRouter.get(`${base}/assignees`, ppl(PermissionAction.EDIT, R.employees), hrOnly(async (req, res) => {
+  const orgId = req.tenant!.orgId;
+  const members = await platformPrisma.userOrgMembership.findMany({ where: { orgId }, select: { userId: true } });
+  const users = members.length ? await platformPrisma.user.findMany({ where: { id: { in: members.map((m) => m.userId) }, isActive: true }, select: { id: true, fullName: true }, orderBy: [{ fullName: 'asc' }, { id: 'asc' }] }) : [];
+  res.json({ users: users.map((u) => ({ id: u.id, fullName: u.fullName })) });
 }));
 
 /* --------------------------------------------------------------- automations */
@@ -204,6 +222,13 @@ peopleEngagementRouter.get(`${base}/celebrations`, ppl(PermissionAction.VIEW, R.
   const posts = await peoplePrisma.greetingPost.findMany({ where: { orgId, onDate: today, kind: { in: ['BIRTHDAY', 'ANNIVERSARY'] }, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: { createdAt: 'asc' } });
   const out = await optedOut(orgId);
   res.json({ today: posts.filter((p) => !out.has(String(p.employeeId))).map((p) => ({ id: p.id, kind: p.kind, employeeId: p.employeeId, text: p.text, years: p.years })), optedOut: [...out].filter((id) => inScope(scope, id)) });
+}));
+
+/** Whether this person is announced on birthdays and work anniversaries: their record, for whoever sees them; HR changes it. */
+peopleEngagementRouter.get(`${base}/employees/:id/celebrations`, ppl(PermissionAction.VIEW, R.employees), handle(async (req, res) => {
+  const p = await personIn(req, res);
+  if (!p) return;
+  res.json({ optedOut: (await optedOut(req.tenant!.orgId)).has(p.id), canEdit: await isHr(req) });
 }));
 
 /** HR records someone's wish not to be announced (or the wish taken back), as the person can in the app. */
