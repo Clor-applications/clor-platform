@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 
 /**
@@ -518,5 +518,460 @@ describe('ready-made automations (4.7)', () => {
     expect(out.finalPayDue).toBeGreaterThan(0);
     const bell = await inTenant(c, () => platformPrisma.notification.findMany({ where: { orgId: c.orgId, kind: 'people.final_pay' } }));
     expect(bell[0].title).toBe('Final pay for Paid Soon is due tomorrow');
+  });
+});
+
+describe('who reads what on a leaving (review of #81)', () => {
+  let c: Ctx;
+  let mgr: Ctx;
+  let itAdmin: Ctx;
+  let lead: any;
+  let leaver: any;
+  let open: any;
+  const answers = { reason: 'MANAGER', comeBack: 'NO', keptYou: 'A different manager', liked: 'The work', toOwner: 'Private' };
+  const HR_FIELDS = ['couldKeep', 'outcomeNote'];
+  beforeAll(async () => {
+    c = await company();
+    mgr = await withRole(c, 'Team Manager', 'Lata Lead');
+    itAdmin = await withRole(c, 'IT Administrator', 'Imran IT');
+    lead = await person(c, { name: 'Lata Lead', code: `LL-${rnd()}` });
+    await inTenant(c, () => peoplePrisma.employee.update({ where: { id: lead.id }, data: { userId: mgr.userId } }));
+    leaver = await person(c, { name: 'Hidden Hari', code: `HH-${rnd()}` });
+    open = await person(c, { name: 'Open Omar', code: `OO-${rnd()}` });
+    for (const e of [leaver, open]) {
+      await inTenant(c, () => peoplePrisma.employee.update({ where: { id: e.id }, data: { reportingManagerId: lead.id } }));
+      await inTenant(c, () => peoplePrisma.employeeAdvance.create({ data: { accountId: c.accountId!, orgId: c.orgId, employeeId: e.id, number: `ADV-${rnd()}`, purpose: 'Site visit', amount: 900, status: 'PAID' } }));
+      await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), 20), leavingType: 'RESIGNED' }).expect(200);
+    }
+    await (await portalOf(c, leaver)).post('/people/engage/exit-interview', { answers, hideFromManager: true }).expect(200);
+    await ppl(c, 'post', `/leaving/${leaver.id}/exit-interview/outcome`, { couldKeep: 'YES', note: 'HR only note', outcome: 'EXIT_CONFIRMED' }).expect(200);
+    await (await portalOf(c, open)).post('/people/engage/exit-interview', { answers }).expect(200);
+    await ppl(c, 'post', `/leaving/${open.id}/exit-interview/outcome`, { couldKeep: 'MAYBE', note: 'HR only note', outcome: 'EXIT_CONFIRMED' }).expect(200);
+  }, 180_000);
+
+  it('a hidden interview gives the manager no reason, could-keep, outcome or note, in any field', async () => {
+    const res = await ppl(mgr, 'get', `/leaving/${leaver.id}`).expect(200);
+    const i = res.body.interview;
+    expect(i).toMatchObject({ status: 'SUBMITTED', hiddenFromYou: true, answers: null });
+    for (const k of ['reason', 'reasonLabel', 'couldKeep', 'outcome', 'outcomeAt', 'outcomeNote']) expect(i).not.toHaveProperty(k);
+    expect(JSON.stringify(res.body.interview)).not.toMatch(/A different manager|"reason":|"MANAGER"[^,]*,"reasonLabel|HR only note/);
+  });
+
+  it('a manager reading an unhidden interview still gets none of HR’s own view', async () => {
+    const i = (await ppl(mgr, 'get', `/leaving/${open.id}`).expect(200)).body.interview;
+    expect(i.answers.keptYou).toBe('A different manager');
+    expect(i).toMatchObject({ reason: 'MANAGER', outcome: 'EXIT_CONFIRMED' });
+    for (const k of HR_FIELDS) expect(i).not.toHaveProperty(k);
+    /* HR does get them. */
+    expect((await ppl(c, 'get', `/leaving/${open.id}`).expect(200)).body.interview).toMatchObject({ couldKeep: 'MAYBE', outcomeNote: 'HR only note' });
+  });
+
+  it('the leaver’s own app response carries nothing of HR’s', async () => {
+    const res = await (await portalOf(c, open)).get('/people/engage/exit-interview').expect(200);
+    const i = res.body.interview;
+    expect(i.answers.reason).toBe('MANAGER');
+    for (const k of [...HR_FIELDS, 'outcome', 'outcomeAt', 'outcomeByUserId']) expect(i).not.toHaveProperty(k);
+    expect(JSON.stringify(res.body)).not.toMatch(/HR only note/);
+  });
+
+  it('why people leave is HR’s: a manager gets nothing, hidden or not; HR still counts every row', async () => {
+    const m = await ppl(mgr, 'get', '/reports/leaving-reasons').expect(403);
+    expect(JSON.stringify(m.body)).not.toMatch(/MANAGER|My manager/);
+    await ppl(itAdmin, 'get', '/reports/leaving-reasons').expect(403);
+    /* This month's leaver, hidden from the manager: HR counts it (the two above leave next month). */
+    await inTenant(c, () => peoplePrisma.exitInterview.create({ data: { accountId: c.accountId!, orgId: c.orgId, employeeId: leaver.id, leavingDate: `${istToday().slice(0, 7)}-01`, status: 'SUBMITTED', reason: 'MANAGER', hideFromManager: true } }));
+    expect((await ppl(c, 'get', '/reports/leaving-reasons').expect(200)).body.reasons).toEqual([expect.objectContaining({ code: 'MANAGER', count: 1 })]);
+  });
+
+  it('IT Administrator reads no answers and no money, though the role reads the whole company', async () => {
+    const res = await ppl(itAdmin, 'get', `/leaving/${open.id}`).expect(200);
+    expect(res.body.interview).toBeNull();
+    expect(res.body.canEdit).toBe(false);
+    const { clearance } = res.body;
+    expect(clearance.found).toBeNull();
+    const fin = clearance.lines.find((l: any) => l.dept === 'FINANCE');
+    expect(fin).toMatchObject({ moneyHidden: true, canSign: false });
+    for (const k of ['direction', 'amount', 'note']) expect(fin).not.toHaveProperty(k);
+    /* Their own line, the IT one, is theirs; the totals hold only what they may see. */
+    expect(clearance.lines.find((l: any) => l.dept === 'IT')).toMatchObject({ mine: true, direction: 'NONE' });
+    expect(clearance.totals).toEqual({ owes: 0, owed: 0 });
+    expect(JSON.stringify(res.body)).not.toMatch(/Advance |900/);
+  });
+
+  it('a manager gets no money on lines that are not theirs, and no totals at all if none are', async () => {
+    const r = (await ppl(mgr, 'get', `/leaving/${open.id}`).expect(200)).body.clearance;
+    expect(r.lines.find((l: any) => l.dept === 'MANAGER')).toMatchObject({ mine: true, direction: 'NONE' });
+    expect(r.lines.find((l: any) => l.dept === 'FINANCE')).toMatchObject({ moneyHidden: true });
+    expect(r.totals).toEqual({ owes: 0, owed: 0 });
+    /* HR reads it; so does the owner it is handed to. */
+    const fin = (await ppl(c, 'get', `/leaving/${open.id}`).expect(200)).body.clearance.lines.find((l: any) => l.dept === 'FINANCE');
+    expect(fin).toMatchObject({ direction: 'OWES', amount: 900 });
+    await ppl(c, 'patch', `/clearance-lines/${fin.id}`, { ownerUserId: itAdmin.userId }).expect(200);
+    expect((await ppl(itAdmin, 'get', `/leaving/${open.id}`).expect(200)).body.clearance.lines.find((l: any) => l.dept === 'FINANCE')).toMatchObject({ mine: true, direction: 'OWES', amount: 900 });
+    expect((await ppl(itAdmin, 'get', `/leaving/${open.id}`).expect(200)).body.clearance.totals).toEqual({ owes: 900, owed: 0 });
+  });
+
+  it('a line’s owner outside the person’s team sees that line and nothing else; others outside get 404', async () => {
+    const outsider = await withRole(c, 'Team Manager', 'Far Manager');
+    const far = await person(c, { name: 'Far Manager', code: `FM-${rnd()}` });
+    await inTenant(c, () => peoplePrisma.employee.update({ where: { id: far.id }, data: { userId: outsider.userId } }));
+    await ppl(outsider, 'get', `/leaving/${open.id}`).expect(404);
+    const before = (await ppl(c, 'get', `/leaving/${open.id}`).expect(200)).body.clearance.lines.find((l: any) => l.dept === 'ADMIN');
+    await ppl(c, 'patch', `/clearance-lines/${before.id}`, { ownerUserId: outsider.userId }).expect(200);
+    const res = (await ppl(outsider, 'get', `/leaving/${open.id}`).expect(200)).body;
+    expect(res.lineOnly).toBe(true);
+    expect(res.person).toMatchObject({ id: open.id, name: 'Open Omar' });
+    expect(res.clearance.lines.map((l: any) => l.id)).toEqual([before.id]);
+    expect(res.clearance.lines[0].canSign).toBe(true);
+    expect(res.interview).toBeNull();
+    expect(res.finalPay).toBeNull();
+    await ppl(outsider, 'patch', `/clearance-lines/${before.id}`, { sign: true }).expect(200);
+  });
+
+  it('who an automation told is HR’s to read: an Employees view holder gets no names', async () => {
+    await inTenant(c, () => peoplePrisma.automationRun.create({ data: { accountId: c.accountId!, orgId: c.orgId, key: 'documentExpiry', ranOn: istToday(), count: 1, recipients: ['Hidden Hari: Passport'] } }));
+    const hrRow = (await ppl(c, 'get', '/automations').expect(200)).body.automations.find((a: any) => a.key === 'documentExpiry');
+    expect(hrRow.lastRun.recipients).toEqual(['Hidden Hari: Passport']);
+    const res = await ppl(itAdmin, 'get', '/automations').expect(200);
+    expect(res.body.automations.find((a: any) => a.key === 'documentExpiry').lastRun).toBeNull();
+    expect(JSON.stringify(res.body)).not.toMatch(/Hidden Hari/);
+  });
+});
+
+describe('nobody clears their own dues (JCL-007)', () => {
+  let c: Ctx;
+  let hr: Ctx;
+  let me: any;
+  let lines: any[];
+  const answers = { reason: 'PAY', comeBack: 'NO' };
+  beforeAll(async () => {
+    c = await company();
+    hr = await withRole(c, 'Team Manager', 'Placeholder');
+    const roles = (await request(app).get(`/api/orgs/${c.orgId}/roles`).set(at(c)).expect(200)).body;
+    const hrRole = (roles.roles || roles).find((r: any) => /^HR /.test(r.name) || r.name === 'HR');
+    hr = await withRole(c, hrRole.name, 'Harini HR');
+    me = await person(c, { name: 'Harini HR', code: `HH-${rnd()}` });
+    await inTenant(c, () => peoplePrisma.employee.update({ where: { id: me.id }, data: { userId: hr.userId } }));
+    await ppl(c, 'post', `/employees/${me.id}/resign`, { lastDay: plus(istToday(), 9), leavingType: 'RESIGNED' }).expect(200);
+    lines = (await ppl(c, 'get', `/leaving/${me.id}`).expect(200)).body.clearance.lines;
+  }, 120_000);
+
+  it('a leaving HR person cannot sign or change a line, add or remove one; someone else can', async () => {
+    const res = (await ppl(hr, 'get', `/leaving/${me.id}`).expect(200)).body;
+    expect(res.canEdit).toBe(false);
+    expect(res.clearance.lines.every((l: any) => l.canSign === false)).toBe(true);
+    const line = lines.find((l: any) => l.dept === 'FINANCE');
+    expect((await ppl(hr, 'patch', `/clearance-lines/${line.id}`, { sign: true }).expect(403)).body.code).toBe('OWN_PLAN');
+    expect((await ppl(hr, 'patch', `/clearance-lines/${line.id}`, { direction: 'OWED', amount: 500 }).expect(403)).body.code).toBe('OWN_PLAN');
+    expect((await ppl(hr, 'post', `/leaving/${me.id}/clearance-lines`, { label: 'Uniform' }).expect(403)).body.code).toBe('OWN_PLAN');
+    await ppl(c, 'patch', `/clearance-lines/${line.id}`, { sign: true }).expect(200);
+  });
+
+  it('nor enter or decide their own exit interview, nor read HR’s view of it', async () => {
+    expect((await ppl(hr, 'post', `/leaving/${me.id}/exit-interview`, { answers }).expect(403)).body.code).toBe('OWN_PLAN');
+    expect((await ppl(hr, 'post', `/leaving/${me.id}/exit-interview/outcome`, { outcome: 'RETAINED' }).expect(403)).body.code).toBe('OWN_PLAN');
+    await ppl(c, 'post', `/leaving/${me.id}/exit-interview/outcome`, { couldKeep: 'NO', note: 'About them' }).expect(200);
+    const i = (await ppl(hr, 'get', `/leaving/${me.id}`).expect(200)).body.interview;
+    expect(i.canDecide).toBe(false);
+    for (const k of ['couldKeep', 'outcomeNote', 'outcome']) expect(i).not.toHaveProperty(k);
+  });
+
+  it('in a company with nobody else to do it, the only HR person may', async () => {
+    const solo = await company();
+    const self = await person(solo, { name: 'Sole Owner', code: `SO-${rnd()}` });
+    await inTenant(solo, () => peoplePrisma.employee.update({ where: { id: self.id }, data: { userId: solo.userId } }));
+    await ppl(solo, 'post', `/employees/${self.id}/resign`, { lastDay: plus(istToday(), 5), leavingType: 'RESIGNED' }).expect(200);
+    const line = (await ppl(solo, 'get', `/leaving/${self.id}`).expect(200)).body.clearance.lines[0];
+    expect(line.canSign).toBe(true);
+    await ppl(solo, 'patch', `/clearance-lines/${line.id}`, { sign: true }).expect(200);
+  }, 60_000);
+});
+
+describe('a last day that moves, and a leaving withdrawn', () => {
+  let c: Ctx;
+  let mgr: Ctx;
+  let lead: any;
+  const newcomer = async (name: string, lastDay: string) => {
+    const e = await person(c, { name, code: `X-${rnd()}`, email: `${rnd()}@example.com` });
+    await inTenant(c, () => peoplePrisma.employee.update({ where: { id: e.id }, data: { reportingManagerId: lead.id } }));
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay, leavingType: 'RESIGNED' }).expect(200);
+    return e;
+  };
+  const claimsGone = (key: string) => inTenant(c, () => peoplePrisma.automationRun.deleteMany({ where: { orgId: c.orgId, key } }));
+  const notices = (kind: string, userId?: string) => inTenant(c, () => platformPrisma.notification.findMany({ where: { orgId: c.orgId, kind, ...(userId ? { userId } : {}) } }));
+  beforeAll(async () => {
+    c = await company();
+    mgr = await withRole(c, 'Team Manager', 'Moti Lead');
+    lead = await person(c, { name: 'Moti Lead', code: `ML-${rnd()}` });
+    await inTenant(c, () => peoplePrisma.employee.update({ where: { id: lead.id }, data: { userId: mgr.userId } }));
+    await ppl(c, 'put', '/automations', { automations: { exitInterview: { on: true, n: 3 }, clearanceDue: { on: true } } }).expect(200);
+  }, 120_000);
+
+  it('extended notice keeps the signed lines and the answers, and does not ask again', async () => {
+    const first = plus(istToday(), 10);
+    const later = plus(istToday(), 40);
+    const e = await newcomer('Extended Esha', first);
+    const before = (await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.clearance.lines;
+    const mine = before.find((l: any) => l.dept === 'MANAGER');
+    await ppl(mgr, 'patch', `/clearance-lines/${mine.id}`, { sign: true }).expect(200);
+    const added = (await ppl(c, 'post', `/leaving/${e.id}/clearance-lines`, { label: 'Library books' }).expect(201)).body.line;
+    const phone = await portalOf(c, e);
+    await phone.post('/people/engage/exit-interview', { answers: { reason: 'PAY', comeBack: 'NO', liked: 'Tea' } }).expect(200);
+    const row = await inTenant(c, () => peoplePrisma.exitInterview.findFirst({ where: { orgId: c.orgId, employeeId: e.id } }));
+
+    await ppl(c, 'put', `/employees/${e.id}`, { dateOfLeaving: later }).expect(200);
+
+    const after = (await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body;
+    expect(after.clearance.lastDay).toBe(later);
+    expect(after.clearance.lines.map((l: any) => l.id).sort()).toEqual([...before.map((l: any) => l.id), added.id].sort());
+    expect(after.clearance.lines.find((l: any) => l.id === mine.id)).toMatchObject({ status: 'CLEAR', signedBy: 'Moti Lead' });
+    expect(after.interview).toMatchObject({ id: row!.id, status: 'SUBMITTED', lastDay: later });
+    expect(after.interview.answers.liked).toBe('Tea');
+    const i = (await phone.get('/people/engage/exit-interview').expect(200)).body.interview;
+    expect(i).toMatchObject({ id: row!.id, status: 'SUBMITTED' });
+    await phone.post('/people/engage/exit-interview', { answers: { reason: 'PAY', comeBack: 'NO' } }).expect(409);
+    /* The rows moved: nothing is left under the old day, and the keeping period moved with them. */
+    expect(await inTenant(c, () => peoplePrisma.clearanceLine.count({ where: { orgId: c.orgId, employeeId: e.id, leavingDate: first } }))).toBe(0);
+    expect((await inTenant(c, () => peoplePrisma.exitInterview.findUnique({ where: { id: row!.id } })))!.keepUntil! > row!.keepUntil!).toBe(true);
+  });
+
+  it('the exit reminder goes for the day they really leave: not for a day that moved, and again before the new one', async () => {
+    const soon = plus(istToday(), 2);
+    const e = await newcomer('Moved Mohan', soon);
+    await claimsGone('exitInterview');
+    expect((await inTenant(c, () => runCompany(c.accountId!, c.orgId))).exitInterview).toBe(1);
+    const row = await inTenant(c, () => peoplePrisma.exitInterview.findFirst({ where: { orgId: c.orgId, employeeId: e.id } }));
+    expect(row!.remindedOn).toBe(istToday());
+
+    /* Moved on the day: the old row is not reminded and nobody hears before the window. */
+    const later = plus(istToday(), 30);
+    await ppl(c, 'put', `/employees/${e.id}`, { dateOfLeaving: later }).expect(200);
+    await inTenant(c, () => peoplePrisma.exitInterview.update({ where: { id: row!.id }, data: { remindedOn: null } }));
+    await claimsGone('exitInterview');
+    expect((await inTenant(c, () => runCompany(c.accountId!, c.orgId))).exitInterview).toBe(0);
+
+    /* Three days before the new day, the same row is reminded, under its new date. */
+    const near = new Date(Date.parse(`${plus(later, -3)}T06:00:00Z`));
+    expect((await inTenant(c, () => runCompany(c.accountId!, c.orgId, near))).exitInterview).toBe(1);
+    const moved = await inTenant(c, () => peoplePrisma.exitInterview.findUnique({ where: { id: row!.id } }));
+    expect(moved).toMatchObject({ leavingDate: later, remindedOn: plus(later, -3) });
+    expect(await inTenant(c, () => peoplePrisma.exitInterview.count({ where: { orgId: c.orgId, employeeId: e.id } }))).toBe(1);
+  });
+
+  it('the last-day reminder makes lines that were never read, and goes to their owners once', async () => {
+    const e = await newcomer('Unread Uma', istToday());
+    expect(await inTenant(c, () => peoplePrisma.clearanceLine.count({ where: { orgId: c.orgId, employeeId: e.id } }))).toBe(0);
+    await claimsGone('clearanceDue');
+    const out = await inTenant(c, () => runCompany(c.accountId!, c.orgId));
+    expect(out.clearanceDue).toBeGreaterThan(0);
+    expect(await inTenant(c, () => peoplePrisma.clearanceLine.count({ where: { orgId: c.orgId, employeeId: e.id } }))).toBe(4);
+    expect((await notices('people.clearance', mgr.userId)).some((n) => /Unread Uma/.test(`${n.title} ${n.body}`))).toBe(true);
+  });
+
+  it('a day that moved away: no last-day reminder for the old date', async () => {
+    const e = await newcomer('Later Lila', istToday());
+    await ppl(c, 'get', `/leaving/${e.id}`).expect(200);
+    await ppl(c, 'put', `/employees/${e.id}`, { dateOfLeaving: plus(istToday(), 15) }).expect(200);
+    await claimsGone('clearanceDue');
+    await inTenant(c, () => platformPrisma.notification.deleteMany({ where: { orgId: c.orgId, kind: 'people.clearance' } }));
+    await inTenant(c, () => runCompany(c.accountId!, c.orgId));
+    expect((await notices('people.clearance')).some((n) => /Later Lila/.test(`${n.title} ${n.body}`))).toBe(false);
+  });
+
+  it('retained: their lines close, owners are not reminded, the exit reminder stops, and the outcome stands', async () => {
+    const e = await newcomer('Stays Sita', istToday());
+    const lines = (await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.clearance.lines;
+    await ppl(c, 'post', `/leaving/${e.id}/exit-interview/outcome`, { outcome: 'RETAINED' }).expect(200);
+    expect((await inTenant(c, () => peoplePrisma.employee.findUnique({ where: { id: e.id } })))!.status).toBe('ACTIVE');
+    expect(await inTenant(c, () => peoplePrisma.clearanceLine.count({ where: { orgId: c.orgId, employeeId: e.id, status: { not: 'WITHDRAWN' } } }))).toBe(0);
+    expect((await ppl(mgr, 'patch', `/clearance-lines/${lines[0].id}`, { sign: true }).expect(409)).body.code).toBe('WITHDRAWN');
+    await claimsGone('clearanceDue');
+    await claimsGone('exitInterview');
+    await inTenant(c, () => platformPrisma.notification.deleteMany({ where: { orgId: c.orgId, kind: 'people.clearance' } }));
+    await inTenant(c, () => peoplePrisma.exitInterview.updateMany({ where: { orgId: c.orgId, employeeId: e.id }, data: { remindedOn: null } }));
+    await inTenant(c, () => runCompany(c.accountId!, c.orgId));
+    expect((await notices('people.clearance')).some((n) => /Stays Sita/.test(`${n.title} ${n.body}`))).toBe(false);
+    expect((await inTenant(c, () => peoplePrisma.exitInterview.findFirst({ where: { orgId: c.orgId, employeeId: e.id } })))!.remindedOn).toBeNull();
+  });
+
+  it('withdrawn by hand, then resigning again: a fresh set of lines, a fresh decision, no old signatures', async () => {
+    const day = plus(istToday(), 25);
+    const e = await newcomer('Back Bala', day);
+    const line = (await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.clearance.lines.find((l: any) => l.dept === 'MANAGER');
+    await ppl(mgr, 'patch', `/clearance-lines/${line.id}`, { sign: true }).expect(200);
+    await ppl(c, 'post', `/employees/${e.id}/stay`, { reason: 'Changed their mind' }).expect(200);
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: day, leavingType: 'RESIGNED' }).expect(200);
+    const again = (await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body;
+    expect(again.clearance.lines).toHaveLength(4);
+    expect(again.clearance.lines.every((l: any) => l.status === 'OPEN')).toBe(true);
+    expect(again.interview.outcome).toBeNull();
+    /* And the "Final wages paid" closed by the withdrawal does not read as paid. */
+    expect(again.finalPay.paid).toBe(false);
+  });
+});
+
+describe('final pay: the plan’s step and the reminder', () => {
+  let c: Ctx;
+  const tick = async (id: string) => {
+    const t = await inTenant(c, () => peoplePrisma.checklistTask.findFirst({ where: { orgId: c.orgId, employeeId: id, kind: 'LEAVING', title: 'Final wages paid' } }));
+    expect(t).not.toBeNull();
+    return t!;
+  };
+  beforeAll(async () => {
+    c = await company();
+  }, 60_000);
+
+  it('a ticked "Final wages paid" clears the Home banner and the clock, with no Payroll settlement at all', async () => {
+    const e = await person(c, { name: 'Hand Paid', code: `HP-${rnd()}` });
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), -1), leavingType: 'RESIGNED' }).expect(200);
+    expect((await ppl(c, 'get', '/final-pay').expect(200)).body.rows.map((r: any) => r.employeeId)).toContain(e.id);
+    const t = await tick(e.id);
+    await inTenant(c, () => peoplePrisma.checklistTask.update({ where: { id: t.id }, data: { doneAt: new Date(), doneByUserId: 'u' } }));
+    expect((await ppl(c, 'get', '/final-pay').expect(200)).body.rows.map((r: any) => r.employeeId)).not.toContain(e.id);
+    expect((await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.finalPay).toMatchObject({ paid: true, paidOnPlan: true, overdue: false });
+  });
+
+  it('a Payroll outage reads as unknown, never as "no settlement" or "no loans"', async () => {
+    const e = await person(c, { name: 'Unknown Usha', code: `UU-${rnd()}` });
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), 3), leavingType: 'RESIGNED' }).expect(200);
+    const down = new Error('payroll down');
+    const a = vi.spyOn(payrollPrisma.finalSettlement, 'findFirst').mockRejectedValue(down);
+    const b = vi.spyOn(payrollPrisma.payrollLoan, 'findMany').mockRejectedValue(down);
+    try {
+      const r = (await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body;
+      expect(r.finalPay.payrollUnknown).toBe(true);
+      expect(r.clearance.found.loansUnknown).toBe(true);
+      expect(r.clearance.lines.find((l: any) => l.dept === 'FINANCE').note).toMatch(/not checked/);
+    } finally {
+      a.mockRestore();
+      b.mockRestore();
+    }
+    expect((await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.finalPay.payrollUnknown).toBe(false);
+  });
+
+  it('due on a Monday: one notice before it, however many days the weekend adds, and one on the day', async () => {
+    await ppl(c, 'put', '/automations', { automations: { finalPayDue: { on: true } } }).expect(200);
+    const e = await person(c, { name: 'Monday Mani', code: `MM-${rnd()}` });
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), -1), leavingType: 'RESIGNED' }).expect(200);
+    /* The next Monday at least four days off; the company's working week decides which day first has one left. */
+    let monday = plus(istToday(), 4);
+    while (new Date(`${monday}T00:00:00Z`).getUTCDay() !== 1) monday = plus(monday, 1);
+    await inTenant(c, () => payrollPrisma.finalSettlement.create({ data: { accountId: c.accountId!, orgId: c.orgId, employeeId: e.id, leavingDate: plus(istToday(), -1), dueDate: monday, createdByUserId: 'u' } }));
+    for (const d of [-3, -2, -1, 0]) await inTenant(c, () => runCompany(c.accountId!, c.orgId, new Date(`${plus(monday, d)}T06:00:00Z`)));
+    const bell = await inTenant(c, () => platformPrisma.notification.findMany({ where: { orgId: c.orgId, kind: 'people.final_pay', title: { contains: 'Monday Mani' } }, orderBy: { createdAt: 'asc' } }));
+    expect(bell.map((n) => n.title).filter((t) => /today/.test(t))).toHaveLength(1);
+    expect(bell.map((n) => n.title).filter((t) => !/today/.test(t))).toHaveLength(1);
+    /* The two reminders are one each, to each person: not one a day. */
+    expect(new Set(bell.map((n) => n.title)).size).toBe(2);
+  }, 60_000);
+});
+
+describe('a failed run is not sent twice, and not counted as sent', () => {
+  let c: Ctx;
+  let sam: Ctx;
+  beforeAll(async () => {
+    c = await company();
+    sam = await withRole(c, 'Team Manager', 'Sam Staff');
+  }, 60_000);
+  afterEach(() => vi.restoreAllMocks());
+
+  it('a first-day e-mail goes once even when the run is taken again the same day', async () => {
+    await ppl(c, 'put', '/automations', { automations: { firstDayPlan: { on: true } } }).expect(200);
+    const j = await person(c, { name: 'New Nita', code: `NN-${rnd()}`, email: `nita.${rnd()}@example.com`, dateOfJoining: plus(istToday(), 1) });
+    expect((await inTenant(c, () => runCompany(c.accountId!, c.orgId))).firstDayPlan).toBe(1);
+    /* What a throw further on did: gave the claim back, so the next wake sends again. */
+    await inTenant(c, () => peoplePrisma.automationRun.updateMany({ where: { orgId: c.orgId, key: 'firstDayPlan' }, data: { retry: true } }));
+    expect((await inTenant(c, () => runCompany(c.accountId!, c.orgId))).firstDayPlan).toBe(0);
+    await inTenant(c, () => peoplePrisma.automationRun.deleteMany({ where: { orgId: c.orgId, key: 'firstDayPlan' } }));
+    await inTenant(c, () => runCompany(c.accountId!, c.orgId));
+    expect(await platformPrisma.emailOutbox.count({ where: { orgId: c.orgId, templateKey: 'people.automation', relatedId: j.id } })).toBe(1);
+  });
+
+  it('a recipe that throws keeps what it sent on record, and the next wake runs it', async () => {
+    await ppl(c, 'put', '/automations', { automations: { finalPayDue: { on: true } } }).expect(200);
+    const spy = vi.spyOn(peoplePrisma.employee, 'findMany').mockRejectedValueOnce(new Error('database away'));
+    const first = await inTenant(c, () => runCompany(c.accountId!, c.orgId));
+    spy.mockRestore();
+    expect(Object.keys(first)).not.toContain('finalPayDue');
+    const row = await inTenant(c, () => peoplePrisma.automationRun.findFirst({ where: { orgId: c.orgId, key: 'finalPayDue', ranOn: istToday() } }));
+    expect(row!.retry).toBe(true);
+    const again = await inTenant(c, () => runCompany(c.accountId!, c.orgId));
+    expect(Object.keys(again)).toContain('finalPayDue');
+    expect((await inTenant(c, () => peoplePrisma.automationRun.findFirst({ where: { orgId: c.orgId, key: 'finalPayDue', ranOn: istToday() } })))!.retry).toBe(false);
+  });
+
+  it('an exit reminder that could not go is not marked or counted, and goes on the retry', async () => {
+    await ppl(c, 'put', '/automations', { automations: { exitInterview: { on: true, n: 3 } } }).expect(200);
+    const e = await person(c, { name: 'Failed Farah', code: `FF-${rnd()}`, email: `farah.${rnd()}@example.com` });
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), 2), leavingType: 'RESIGNED' }).expect(200);
+    const spy = vi.spyOn(platformPrisma.emailOutbox, 'create').mockRejectedValueOnce(new Error('mail table away'));
+    expect((await inTenant(c, () => runCompany(c.accountId!, c.orgId))).exitInterview).toBe(0);
+    spy.mockRestore();
+    const row = await inTenant(c, () => peoplePrisma.exitInterview.findFirst({ where: { orgId: c.orgId, employeeId: e.id } }));
+    expect(row!.remindedOn).toBeNull();
+    expect((await inTenant(c, () => runCompany(c.accountId!, c.orgId))).exitInterview).toBe(1);
+    expect((await inTenant(c, () => peoplePrisma.exitInterview.findUnique({ where: { id: row!.id } })))!.remindedOn).toBe(istToday());
+    expect(await platformPrisma.emailOutbox.count({ where: { orgId: c.orgId, relatedId: row!.id, status: 'SENT' } })).toBe(1);
+  });
+
+  it('a policy reminder that could not go is not marked or counted, and goes on the retry; someone with no sign-in is not counted', async () => {
+    await ppl(c, 'put', '/automations', { automations: { policyAccept: { on: true, n: 3 } } }).expect(200);
+    const e = await person(c, { name: 'Late Reader', code: `LR-${rnd()}` });
+    const noSignIn = await person(c, { name: 'No Sign In', code: `NS-${rnd()}` });
+    await inTenant(c, () => peoplePrisma.employee.update({ where: { id: e.id }, data: { userId: sam.userId } }));
+    const pol = await inTenant(c, () => peoplePrisma.policy.create({ data: { accountId: c.accountId!, orgId: c.orgId, title: 'Leave policy', category: 'LEAVE', ownerUserId: 'u' } }));
+    const ver = await inTenant(c, () => peoplePrisma.policyVersion.create({ data: { accountId: c.accountId!, orgId: c.orgId, policyId: pol.id, version: 1, body: 'x', effectiveFrom: istToday(), appliesTo: {}, status: 'PUBLISHED' } }));
+    const ask = (id: string) => inTenant(c, () => peoplePrisma.acknowledgement.create({ data: { accountId: c.accountId!, orgId: c.orgId, targetType: 'POLICY_VERSION', targetId: ver.id, employeeId: id, askedAt: new Date(Date.now() - 6 * 86_400_000) } }));
+    const row = await ask(e.id);
+    await ask(noSignIn.id);
+    const spy = vi.spyOn(platformPrisma.notification, 'createMany').mockRejectedValue(new Error('bell away'));
+    expect((await inTenant(c, () => runCompany(c.accountId!, c.orgId))).policyAccept).toBe(0);
+    spy.mockRestore();
+    expect((await inTenant(c, () => peoplePrisma.acknowledgement.findUnique({ where: { id: row.id } })))!.remindedAt).toBeNull();
+    expect((await inTenant(c, () => runCompany(c.accountId!, c.orgId))).policyAccept).toBe(1);
+    expect((await inTenant(c, () => peoplePrisma.acknowledgement.findUnique({ where: { id: row.id } })))!.remindCount).toBe(1);
+  });
+});
+
+describe('smaller rules on a line', () => {
+  let c: Ctx;
+  let other: Ctx;
+  beforeAll(async () => {
+    c = await company();
+    other = await company();
+  }, 60_000);
+
+  it('returning "Laptop" ticks its own step, not the charger’s', async () => {
+    const e = await person(c, { name: 'Two Things', code: `TT-${rnd()}` });
+    await ppl(c, 'post', '/workspace/assets', { title: 'Laptop', status: 'ASSIGNED', employeeId: e.id, details: { assetTag: `T-${rnd()}` } }).expect(201);
+    await ppl(c, 'post', '/workspace/assets', { title: 'Laptop charger', status: 'ASSIGNED', employeeId: e.id, details: { assetTag: `T-${rnd()}` } }).expect(201);
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), 10), leavingType: 'RESIGNED' }).expect(200);
+    const line = (await ppl(c, 'get', `/leaving/${e.id}`).expect(200)).body.clearance.lines.find((l: any) => l.dept === 'IT');
+    await ppl(c, 'patch', `/clearance-lines/${line.id}`, { items: line.items.map((i: any) => ({ ...i, returned: i.title === 'Laptop' })) }).expect(200);
+    const steps = await inTenant(c, () => peoplePrisma.checklistTask.findMany({ where: { orgId: c.orgId, employeeId: e.id, kind: 'LEAVING', title: { startsWith: 'Return ' } } }));
+    expect(steps).toHaveLength(2);
+    expect(steps.find((s) => /^Return Laptop \(/.test(s.title))!.doneAt).not.toBeNull();
+    expect(steps.find((s) => /^Return Laptop charger/.test(s.title))!.doneAt).toBeNull();
+  });
+
+  it('a new line’s owner must be in this company; removing one leaves an audit row', async () => {
+    const e = await person(c, { name: 'Line Adder', code: `LA-${rnd()}` });
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), 10), leavingType: 'RESIGNED' }).expect(200);
+    await ppl(c, 'post', `/leaving/${e.id}/clearance-lines`, { label: 'Uniform', ownerUserId: other.userId }).expect(400);
+    const line = (await ppl(c, 'post', `/leaving/${e.id}/clearance-lines`, { label: 'Uniform', ownerUserId: c.userId }).expect(201)).body.line;
+    await ppl(c, 'delete', `/clearance-lines/${line.id}`).expect(200);
+    const log = await request(app).get(`/api/orgs/${c.orgId}/audit`).set(at(c));
+    expect(JSON.stringify(log.body)).toMatch(/No-dues line removed: Uniform/);
+  });
+
+  it('the exit reminder counts the company’s questions, not five', async () => {
+    const q = (await ppl(c, 'get', '/exit-questions').expect(200)).body;
+    await ppl(c, 'put', '/exit-questions', { questions: [...q.questions, { key: 'notice', text: 'Was your notice period fair?', kind: 'TEXT' }, { key: 'tools', text: 'Did you have what you needed?', kind: 'TEXT' }, { key: 'pay', text: 'Was your pay fair?', kind: 'TEXT' }], keepMonths: 12 }).expect(200);
+    await ppl(c, 'put', '/automations', { automations: { exitInterview: { on: true, n: 3 } } }).expect(200);
+    const e = await person(c, { name: 'Eight Questions', code: `EQ-${rnd()}`, email: `eight.${rnd()}@example.com` });
+    await ppl(c, 'post', `/employees/${e.id}/resign`, { lastDay: plus(istToday(), 2), leavingType: 'RESIGNED' }).expect(200);
+    await inTenant(c, () => runCompany(c.accountId!, c.orgId));
+    const mail = await platformPrisma.emailOutbox.findFirst({ where: { orgId: c.orgId, templateKey: 'people.automation', toName: 'Eight Questions' } });
+    expect(mail!.bodyText).toMatch(/answer 8 short questions/);
   });
 });

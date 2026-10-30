@@ -30,7 +30,7 @@ import { notify } from '@ui/components/ui/notify';
 import { formatDateIn } from '@ui/utils/dates';
 import { platformContext } from '@platform/context';
 import { HomeCheckIn } from '@ui/timeOff/MyDays';
-import { FinalPayBanner } from '@ui/lifecycle/LeavingExtras';
+import { FinalPayBanner, FinalPayList } from '@ui/lifecycle/LeavingExtras';
 import { finalPayList } from '../api/engagement';
 import HomeSetup from './HomeSetup';
 
@@ -361,10 +361,9 @@ export default function PeopleOverview({ openScreen }) {
       <HomeCheckIn />
       {finalPay.length ? (
         <section aria-label="Final pay due" className="space-y-2" data-reveal style={{ '--i': 1 }}>
-          {finalPay.slice(0, 3).map((f) => (
-            <FinalPayBanner key={f.employeeId} clock={f} name={f.name} showRule={false} action={<button type="button" className="ui-link whitespace-nowrap" onClick={go('leavers', { open: f.employeeId })}>Open plan</button>} />
-          ))}
-          {finalPay.length > 3 ? <button type="button" className="ui-link text-sm" onClick={go('leavers', { view: 'clearing' })}>{finalPay.length - 3} more leavers waiting for final pay</button> : null}
+          {finalPay.length === 1 ? (
+            <FinalPayBanner clock={finalPay[0]} name={finalPay[0].name} showRule={false} action={<button type="button" className="ui-link whitespace-nowrap" onClick={go('leavers', { open: finalPay[0].employeeId })}>Open plan</button>} />
+          ) : <FinalPayList rows={finalPay} onOpen={(id) => go('leavers', { open: id })} onMore={go('leavers', { view: 'clearing' })} />}
           <p className="ui-caption">Code on Wages 2019 s.17(2): wages within two working days of the last day. Clearance does not hold them up.</p>
         </section>
       ) : null}

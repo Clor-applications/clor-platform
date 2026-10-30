@@ -65,13 +65,14 @@ export default function HomeSetup({ openScreen, onState }) {
     <>
       {simpleMode?.suggest ? (
         <section className="ui-card p-4 flex flex-wrap items-start gap-3" aria-labelledby="simple-h" role="status">
-          <div className="min-w-0 flex-1">
+          {/* Wide enough to read, or it wraps under the buttons: squeezed beside them on a phone it was one word a line. */}
+          <div className="min-w-0 flex-[1_1_16rem]">
             <h2 id="simple-h" className="font-medium">Your company has grown</h2>
             <p className="ui-caption">
               {simpleMode.reasons.join(', ').replace(/^./, (c) => c.toUpperCase())}. Simple mode keeps organisation detail, such as legal entities, out of the menu. You can switch it off now, or later in Settings → Modules &amp; Apps.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button type="button" className="ui-btn ui-btn-secondary" disabled={busy === 'simple'} onClick={turnOffSimple}>Show every screen</button>
             <button type="button" className="ui-btn ui-btn-ghost" disabled={busy === 'simple'} onClick={() => change({ action: 'simpleAdviceSeen' }, 'simple')}>Keep it simple</button>
           </div>

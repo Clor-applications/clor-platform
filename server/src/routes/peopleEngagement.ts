@@ -7,7 +7,8 @@ import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
-import { inScope, teamScope } from '../services/people/scope.js';
+import { inReportingLine, inScope, teamScope } from '../services/people/scope.js';
+import { ownPlanRefusal } from '../services/people/checklists.js';
 import { StayOnError } from '../services/people/lifecycle/stayOn.js';
 import '../services/people/engagement/index.js';
 import { AutomationError, listAutomations, saveAutomations } from '../services/people/engagement/automations.js';
@@ -19,12 +20,14 @@ import { istDate } from '../services/attendance/compute.js';
 /**
  * Leaving and engagement, HR's and the manager's side (WORKFLOW-GAP-RESEARCH-2026-10-30 4.3, 4.7, 4.8, 4.9).
  *
- *  - A leaving plan's no-dues lines, final-pay clock and exit interview: read by whoever sees the person
- *    (team scope); a line signed off by its owner or HR; lines added, interviews entered and outcomes
- *    recorded by HR (Employees edit, whole company).
+ *  - A leaving plan's no-dues lines and final-pay clock: read by whoever sees the person (team scope), and a
+ *    line's owner outside it sees that line. Money on a line: HR and its owner. A line signed off by its owner
+ *    or HR; lines added, interviews entered and outcomes recorded by HR (Employees edit, whole company).
+ *  - The exit interview: HR, those above them on the reporting line, and the person (Lifecycle view).
  *  - Home's final-pay banner and today's celebrations.
- *  - Settings → Exit interview questions and Settings → Automations: read by anyone in People, changed by HR.
- *  - The People report's reasons for leaving (Lifecycle view, as why someone leaves is: JCL-009).
+ *  - Settings → Exit interview questions and Settings → Automations: read by anyone in People, changed by HR;
+ *    who an automation last told is HR's to read.
+ *  - The People report's reasons for leaving: HR only. Even without names, a small team's counts name the person.
  */
 export const peopleEngagementRouter = Router();
 const base = '/orgs/:orgId/people';
@@ -66,19 +69,38 @@ async function personIn(req: Request, res: Response) {
 
 /* ---------------------------------------------------------- the leaving plan */
 
-/** The plan's Clearance, Final pay and Exit interview sections in one read. */
+/**
+ * The plan's Clearance, Final pay and Exit interview sections in one read. Someone on their own leaving reads
+ * it as themself, not as HR (JCL-007), unless they are the only one who can do HR's part.
+ */
 peopleEngagementRouter.get(`${base}/leaving/:employeeId`, ppl(PermissionAction.VIEW, R.employees), handle(async (req, res) => {
-  const p = await personIn(req, res);
-  if (!p) return;
-  const hr = await isHr(req);
+  const orgId = req.tenant!.orgId;
+  const userId = req.auth!.userId;
+  const id = String(req.params.employeeId);
+  const p = await peoplePrisma.employee.findFirst({ where: { id, orgId }, select: { id: true, name: true, status: true, dateOfLeaving: true, leavingType: true, areaId: true, branchId: true, userId: true } });
+  const none = () => res.status(404).json({ error: 'No such employee.' });
+  if (!p) return none();
+  const person = { id: p.id, name: p.name, dateOfLeaving: p.dateOfLeaving };
+  if (!inScope(await teamScope(req), p.id)) {
+    /* HR gave them a line on someone outside their team: they see that line, and nothing else about the person. */
+    if (!(await peoplePrisma.clearanceLine.count({ where: { orgId, employeeId: p.id, ownerUserId: userId, status: { not: 'WITHDRAWN' } } }))) return none();
+    await ensureClearance(who(req), p.id);
+    const clearance = await clearanceFor(orgId, p.id, { userId, hr: false, onlyMine: true });
+    if (!clearance.lines.length) return none();
+    return res.json({ person, clearance, finalPay: null, interview: null, canEdit: false, lineOnly: true });
+  }
+  const ownPlan = Boolean(await ownPlanRefusal(who(req), { employeeId: p.id, owner: 'HR' }));
+  const hr = !ownPlan && (await isHr(req));
+  const self = Boolean(p.userId) && p.userId === userId;
+  const line = !hr && !self && (await inReportingLine(orgId, userId, p.id));
   await ensureClearance(who(req), p.id);
   const [clearance, finalPay, interview] = await Promise.all([
-    clearanceFor(req.tenant!.orgId, p.id, { userId: req.auth!.userId, hr }),
-    finalPayOf(req.tenant!.orgId, p),
-    /* Why someone leaves is HR's and the line's to read (JCL-009): Lifecycle view. */
-    (await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, R.lifecycle)) ? null : interviewFor(req.tenant!.orgId, p.id, { hr }),
+    clearanceFor(orgId, p.id, { userId, hr, ownPlan }),
+    finalPayOf(orgId, p),
+    /* Why someone leaves is HR's and the line's to read (JCL-009): Lifecycle view, and being one of them. */
+    (await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, R.lifecycle)) ? null : interviewFor(orgId, p.id, { hr, line, self }),
   ]);
-  res.json({ clearance, finalPay, interview, canEdit: hr });
+  res.json({ person, clearance, finalPay, interview, canEdit: hr });
 }));
 
 peopleEngagementRouter.post(`${base}/leaving/:employeeId/clearance-lines`, ppl(PermissionAction.EDIT, R.employees), hrOnly(async (req, res) => {
@@ -104,7 +126,8 @@ peopleEngagementRouter.patch(`${base}/clearance-lines/:id`, ppl(PermissionAction
 }));
 
 peopleEngagementRouter.delete(`${base}/clearance-lines/:id`, ppl(PermissionAction.EDIT, R.employees), hrOnly(async (req, res) => {
-  await removeLine(who(req), String(req.params.id));
+  const line = await removeLine(who(req), String(req.params.id));
+  await recordAudit(req, { entity: 'ClearanceLine', entityId: line.id, action: 'DELETE', message: `No-dues line removed: ${line.label}`, metadata: { employeeId: line.employeeId } });
   res.json({ ok: true });
 }));
 
@@ -149,23 +172,23 @@ peopleEngagementRouter.delete(`${base}/exit-questions`, ppl(PermissionAction.EDI
   res.json({ ...out, canEdit: true });
 }));
 
-/** Leavers by month and reason, for the People report. */
-peopleEngagementRouter.get(`${base}/reports/leaving-reasons`, ppl(PermissionAction.VIEW, R.lifecycle), handle(async (req, res) => {
-  const scope = await teamScope(req);
+/** Leavers by month and reason, for the People report: HR only, as a team's counts would name the person. */
+peopleEngagementRouter.get(`${base}/reports/leaving-reasons`, ppl(PermissionAction.VIEW, R.lifecycle), hrOnly(async (req, res) => {
   const months = Math.max(3, Math.min(24, Number(req.query.months) || 12));
-  res.json(await leavingReasons(req.tenant!.orgId, months, { scopeIds: scope.all ? null : scope.ids }));
+  res.json(await leavingReasons(req.tenant!.orgId, months));
 }));
 
 /* --------------------------------------------------------------- automations */
 
 peopleEngagementRouter.get(`${base}/automations`, ppl(PermissionAction.VIEW, R.employees), handle(async (req, res) => {
-  res.json({ automations: await listAutomations(req.tenant!.orgId), canEdit: await isHr(req) });
+  const canEdit = await isHr(req);
+  res.json({ automations: await listAutomations(req.tenant!.orgId, { showRuns: canEdit }), canEdit });
 }));
 
 peopleEngagementRouter.put(`${base}/automations`, ppl(PermissionAction.EDIT, R.employees), hrOnly(async (req, res) => {
-  const before = await listAutomations(req.tenant!.orgId);
+  const before = await listAutomations(req.tenant!.orgId, { showRuns: true });
   await saveAutomations(who(req), req.body);
-  const after = await listAutomations(req.tenant!.orgId);
+  const after = await listAutomations(req.tenant!.orgId, { showRuns: true });
   const changed = after.filter((a) => { const b = before.find((x) => x.key === a.key); return b && (b.on !== a.on || b.n !== a.n); });
   if (changed.length) await recordAudit(req, { entity: 'EngagementSettings', entityId: req.tenant!.orgId, action: 'UPDATE', message: `Automations changed: ${changed.map((c) => `${c.key} ${c.on ? 'on' : 'off'}${c.n != null ? ` (${c.n})` : ''}`).join(', ')}`.slice(0, 480), metadata: { changed: changed.map((c) => ({ key: c.key, on: c.on, n: c.n })) } });
   res.json({ automations: after, canEdit: true });

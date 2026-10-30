@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 
-import LeavingSections, { FinalPayBanner } from './LeavingExtras';
+import LeavingSections, { FinalPayBanner, FinalPayList } from './LeavingExtras';
 
 /*
  * The leaving plan's final-pay clock, no-dues sign-off and exit interview (WORKFLOW-GAP-RESEARCH 4.3,
@@ -125,4 +125,49 @@ it('exit interview: not answered yet, HR enters it; a choice must be picked', as
   fireEvent.click(within(drawer).getByRole('button', { name: 'Better pay elsewhere', pressed: false }));
   fireEvent.click(within(drawer).getByRole('button', { name: 'Save answers' }));
   await waitFor(() => expect(api.enterExitInterview).toHaveBeenCalledWith('e1', { answers: { reason: 'PAY' }, hideFromManager: false }));
+});
+
+it('a line whose money is not yours shows none of it, and the form sends none of it', async () => {
+  const line = { id: 'f', dept: 'FINANCE', deptWord: 'Accounts', label: 'Advances, loans and claims', ownerName: 'Priya', items: [], status: 'OPEN', canSign: false, mine: false, moneyHidden: true };
+  render(<LeavingSections data={{ canEdit: false, interview: null, clearance: { leaving: true, lines: [line], totals: null, open: 1, found: null } }} employeeId="e1" name="Ravi" />);
+  fireEvent.click(screen.getByRole('button', { name: /Accounts: Advances/ }));
+  await screen.findByText(/Priya or HR signs this line/);
+  expect(screen.queryByText('Money')).toBeNull();
+  expect(screen.queryByLabelText(/Note/)).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Sign off' })).toBeNull();
+  expect(screen.queryByText(/For the full and final/)).toBeNull();
+});
+
+it('the amount is right-aligned, in tabular figures', async () => {
+  const line = { id: 'f', dept: 'FINANCE', deptWord: 'Accounts', label: 'Advances', ownerName: 'Priya', items: [], direction: 'OWES', amount: 4000, note: null, status: 'OPEN', canSign: true, mine: true };
+  render(<LeavingSections data={{ canEdit: false, interview: null, clearance: { leaving: true, lines: [line], totals: { owes: 4000, owed: 0 }, open: 1, found: null } }} employeeId="e1" name="Ravi" />);
+  fireEvent.click(screen.getByRole('button', { name: /Accounts: Advances/ }));
+  expect((await screen.findByLabelText(/Amount/)).className).toMatch(/tabular-nums.*text-right/);
+});
+
+it('Payroll down: the clock and the loans say so, not "no settlement"', () => {
+  render(<><FinalPayBanner clock={clock({ payrollUnknown: true })} /><LeavingSections data={{ canEdit: true, interview: null, clearance: { leaving: true, lines: [{ id: 'a', dept: 'ADMIN', deptWord: 'Admin', label: 'Keys', items: [], direction: 'NONE', amount: 0, status: 'OPEN', canSign: true }], totals: { owes: 0, owed: 0 }, open: 1, found: { loansUnknown: true } } }} employeeId="e1" name="Ravi" /></>);
+  expect(screen.getByText(/Payroll could not be read just now/)).toBeTruthy();
+  expect(screen.queryByText(/No settlement in Payroll/)).toBeNull();
+  expect(screen.getByText(/loans are not checked/)).toBeTruthy();
+});
+
+it('paid by hand on the plan: the banner says so', () => {
+  render(<FinalPayBanner clock={clock({ paid: true, paidOnPlan: true })} />);
+  expect(screen.getByText('Final pay paid')).toBeTruthy();
+  expect(screen.getByText(/Marked paid on the plan/)).toBeTruthy();
+});
+
+it('Home with several leavers: one alert with a row each, the rest behind a link', () => {
+  const open = vi.fn((id) => () => id);
+  const more = vi.fn();
+  const rows = ['A', 'B', 'C', 'D', 'E'].map((n, i) => ({ ...clock({ overdue: i === 0 }), employeeId: n, name: `Person ${n}` }));
+  const { container } = render(<FinalPayList rows={rows} onOpen={open} onMore={more} />);
+  expect(container.querySelectorAll('.ui-alert')).toHaveLength(1);
+  expect(container.querySelector('.ui-alert-neg')).toBeTruthy();
+  expect(screen.getByText('Final pay is waiting for 5 leavers')).toBeTruthy();
+  expect(screen.getByText('Person C')).toBeTruthy();
+  expect(screen.queryByText('Person D')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '2 more' }));
+  expect(more).toHaveBeenCalled();
 });

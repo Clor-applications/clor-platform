@@ -6,6 +6,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 import { formatDate } from '@ui/components/ui/DatePicker';
 
+import Toggle from '../components/Toggle';
 import { getAutomations, saveAutomations } from '../api/engagement';
 
 /**
@@ -14,16 +15,6 @@ import { getAutomations, saveAutomations } from '../api/engagement';
  * screen starts on; everything new starts off. Two attendance reminders have their own settings and link
  * there. Each shows when it runs, when it last sent, how many and to whom. A change saves at once.
  */
-
-function Switch({ checked, disabled, onChange, label }) {
-  return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => onChange(!checked)}
-      className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50"
-      style={{ backgroundColor: checked ? 'rgb(var(--accent))' : 'rgb(var(--border-strong))' }}>
-      <span className="inline-block h-5 w-5 rounded-full transition-transform" style={{ backgroundColor: 'rgb(var(--surface))', transform: checked ? 'translateX(1.25rem)' : 'translateX(0.125rem)' }} />
-    </button>
-  );
-}
 
 /** The sentence with its number in place: "Remind managers of leave waiting [2] days". */
 function Sentence({ a, editing, value, onValue, onCommit }) {
@@ -41,8 +32,10 @@ function Sentence({ a, editing, value, onValue, onCommit }) {
   );
 }
 
-function lastLine(a) {
+function lastLine(a, canEdit) {
   if (a.managedIn) return null;
+  /* Who it last told is HR's to read: the server sends it to nobody else, and that is not "nothing sent". */
+  if (!canEdit) return null;
   if (!a.lastRun) return a.on ? 'Nothing sent yet' : null;
   const names = a.lastRun.recipients || [];
   const who = names.length ? `: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''}` : '';
@@ -58,7 +51,7 @@ function Row({ a, canEdit, busy, onSave, openScreen }) {
     if (v < a.range.min || v > a.range.max) { notify.error(`Choose ${a.range.min} to ${a.range.max} days.`); setN(String(a.n)); return; }
     onSave(a.key, { n: v });
   };
-  const last = lastLine(a);
+  const last = lastLine(a, canEdit);
   return (
     <li className="flex items-start gap-4 py-3">
       <div className="min-w-0 flex-1">
@@ -69,7 +62,7 @@ function Row({ a, canEdit, busy, onSave, openScreen }) {
           ) : [a.when, a.on && a.nextRun && a.nextRun !== a.when ? `next: ${a.nextRun.toLowerCase()}` : null, last].filter(Boolean).join(' · ')}
         </p>
       </div>
-      <Switch checked={a.on} disabled={!editable || busy} label={a.sentence.replace('{n}', String(a.n ?? ''))} onChange={(on) => onSave(a.key, { on })} />
+      <Toggle checked={a.on} disabled={!editable || busy} label={a.sentence.replace('{n}', String(a.n ?? ''))} onChange={(on) => onSave(a.key, { on })} />
     </li>
   );
 }

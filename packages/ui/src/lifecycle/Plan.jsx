@@ -19,10 +19,11 @@ import LeavingSections, { FinalPayBanner } from './LeavingExtras';
  * handed on (the server refuses closing one's own plan, and the drawer says
  * so). A plan that never started has a Start button. Leaving also
  * shows who their team reports to after the last day and what they hold.
+ * `row.lineOnly`: someone outside the person's team who owns a no-dues line sees that line, not the plan.
  */
 export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, onClose, onChanged }) {
-  const plan = useRequest(() => getChecklist(row.id), [row.id]);
-  const preview = useRequest(() => (kind === 'LEAVING' ? leavingPreview(row.id) : Promise.resolve(null)), [row.id, kind]);
+  const plan = useRequest(() => (row.lineOnly ? Promise.resolve(null) : getChecklist(row.id)), [row.id, row.lineOnly]);
+  const preview = useRequest(() => (kind === 'LEAVING' && !row.lineOnly ? leavingPreview(row.id) : Promise.resolve(null)), [row.id, kind, row.lineOnly]);
   /* The final-pay clock, no-dues and exit interview (WORKFLOW-GAP-RESEARCH 4.3, 4.9); a refusal or failure just leaves them out. */
   const extras = useRequest(() => (kind === 'LEAVING' ? leavingExtras(row.id).catch(() => null) : Promise.resolve(null)), [row.id, kind]);
   const extrasChanged = () => { extras.reload(); onChanged?.(); };
@@ -44,15 +45,15 @@ export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, 
   };
   const p = preview.data;
   return (
-    <Drawer open onClose={onClose} widthClass="w-[min(38rem,96vw)]" title={row.name} description={kind === 'JOINING' ? `Joins ${formatDate(row.dateOfJoining)} · ${row.stageLabel}` : `Last day ${formatDate(row.dateOfLeaving)} · ${row.stageLabel}`}
+    <Drawer open onClose={onClose} widthClass="w-[min(38rem,96vw)]" title={row.name} description={kind === 'JOINING' ? `Joins ${formatDate(row.dateOfJoining)} · ${row.stageLabel}` : `Last day ${formatDate(row.dateOfLeaving)}${row.stageLabel ? ` · ${row.stageLabel}` : ''}`}
       footer={<>
-        {openScreen ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('employee', { id: row.id })}>Open their record</button> : null}
+        {openScreen && !row.lineOnly ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('employee', { id: row.id })}>Open their record</button> : null}
         <button type="button" className="ui-btn ui-btn-primary" onClick={onClose}>Close</button>
       </>}>
       <div className="grid gap-6">
         {kind === 'LEAVING' && extras.data?.finalPay ? <FinalPayBanner clock={extras.data.finalPay} /> : null}
         {kind === 'JOINING' && row.invite ? <p className="text-sm">Joining form: {{ SENT: 'sent, not opened yet', STARTED: 'opened, not sent back', RETURNED: 'sent back: check it on their record', CHECKED: 'checked', EXPIRED: 'the link ran out', CANCELLED: 'cancelled' }[row.invite.status] || row.invite.status.toLowerCase()}.</p> : null}
-        {plan.error && !plan.data ? <ErrorState error={plan.error} onRetry={plan.reload} compact /> : !list ? <SkeletonCard lines={5} /> : list.total ? (
+        {row.lineOnly ? null : plan.error && !plan.data ? <ErrorState error={plan.error} onRetry={plan.reload} compact /> : !list ? <SkeletonCard lines={5} /> : list.total ? (
           <section aria-label="Steps" className="space-y-2">
             <div className="flex items-center justify-between gap-2"><h3 className="ui-t-sec">Steps</h3><span className="ui-caption tabular-nums">{list.done} of {list.total} done</span></div>
             <ul className="divide-y border-t">
@@ -92,14 +93,14 @@ export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, 
         ) : null}
         {/* The final-pay clock, no-dues sign-off and exit interview (WORKFLOW-GAP-RESEARCH 4.3, 4.9); the money itself is Payroll's full and final (gap 15). */}
         {kind === 'LEAVING' ? <LeavingSections data={extras.data} employeeId={row.id} name={row.name} onChanged={extrasChanged} /> : null}
-        {kind === 'LEAVING' && hasApp('payroll') && !extras.data?.finalPay ? (
+        {kind === 'LEAVING' && hasApp('payroll') && !extras.data?.finalPay && !row.lineOnly ? (
           <section aria-label="Final pay" className="space-y-1">
             <h3 className="ui-t-sec">Final pay</h3>
             <p className="text-sm">Dues, recoveries and the final payslip are worked out in Payroll. <a className="ui-link" href="?app=payroll&open=settlements">Open full and final settlement</a></p>
           </section>
         ) : null}
       </div>
-      {task ? <TaskDrawer task={task} canAssign={canAssign} onClose={() => setTask(null)} onSaved={() => { setTask(null); plan.reload(); onChanged?.(); }} /> : null}
+      {task ? <TaskDrawer task={task} canAssign={canAssign} onClose={() => setTask(null)} onSaved={() => { setTask(null); plan.reload(); extrasChanged(); }} /> : null}
     </Drawer>
   );
 }

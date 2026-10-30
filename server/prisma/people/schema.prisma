@@ -4133,7 +4133,7 @@ model ClearanceLine {
   direction      String    @default("NONE")
   amount         Decimal   @default(0) @db.Decimal(14, 2)
   note           String?
-  /// OPEN | CLEAR
+  /// OPEN | CLEAR | WITHDRAWN (the leaving was withdrawn: kept on the record, out of everything else)
   status         String    @default("OPEN")
   signedByUserId String?
   signedAt       DateTime?
@@ -4178,6 +4178,8 @@ model ExitInterview {
   /// After this day the answers are erased (the reason and outcome stay for the report).
   keepUntil       String?
   erasedAt        DateTime?
+  /// The leaving was withdrawn (lifecycle/stayOn.ts): a later leaving does not take this one over.
+  withdrawnAt     DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -4208,6 +4210,8 @@ model AutomationRun {
   count      Int      @default(0)
   /// Names of who got it (at most 20).
   recipients Json     @default("[]")
+  /// The run failed part way: the next wake today takes the claim and runs it again.
+  retry      Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

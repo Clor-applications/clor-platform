@@ -22,7 +22,7 @@ const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 /** The clock in words: tone, headline and the line under it. */
 function finalPayWords(c) {
   if (!c) return null;
-  if (c.paid) return { tone: 'pos', title: 'Final pay paid', detail: `Last day ${formatDate(c.lastDay)}.` };
+  if (c.paid) return { tone: 'pos', title: 'Final pay paid', detail: `${c.paidOnPlan ? 'Marked paid on the plan. ' : ''}Last day ${formatDate(c.lastDay)}.` };
   if (c.held) return { tone: 'info', title: 'Final pay held', detail: `${c.held.reason || 'Held'}. What they earned stays owed; release the hold under Absences.` };
   if (c.overdue) return { tone: 'neg', title: `Final pay was due ${formatDate(c.dueDate)}`, detail: `${plural(Math.abs(c.daysLeft), 'working day')} late. Last day ${formatDate(c.lastDay)}.` };
   if (!c.started) return { tone: 'info', title: `Final pay due ${formatDate(c.dueDate)}`, detail: `Two working days after the last day, ${formatDate(c.lastDay)}.` };
@@ -42,7 +42,7 @@ export function FinalPayBanner({ clock, name, showRule = true, action = null }) 
         <p className="ui-alert-title">{name ? `${name}: ${w.title.charAt(0).toLowerCase()}${w.title.slice(1)}` : w.title}</p>
         <p className="ui-alert-body">
           {w.detail}
-          {clock.settlement && !clock.paid ? ` Settlement ${SETTLEMENT_WORD[clock.settlement.status] || clock.settlement.status.toLowerCase()}.` : !clock.paid ? ' No settlement in Payroll yet.' : ''}
+          {clock.paid ? '' : clock.payrollUnknown ? ' Payroll could not be read just now.' : clock.settlement ? ` Settlement ${SETTLEMENT_WORD[clock.settlement.status] || clock.settlement.status.toLowerCase()}.` : hasApp('payroll') ? ' No settlement in Payroll yet.' : ' Tick “Final wages paid” on the plan once it is paid.'}
         </p>
         {showRule && !clock.paid ? <p className="ui-caption mt-1">{clock.rule}</p> : null}
       </div>
@@ -52,6 +52,27 @@ export function FinalPayBanner({ clock, name, showRule = true, action = null }) 
           {hasApp('payroll') && !clock.paid ? <a className="ui-link whitespace-nowrap" href="?app=payroll&open=settlements">Full and final</a> : null}
         </span>
       ) : null}
+    </div>
+  );
+}
+
+/** Home with several leavers waiting: one alert with a row each, not a stack of alerts pushing the page down a phone. */
+export function FinalPayList({ rows, onOpen, onMore, limit = 3 }) {
+  const worst = rows.some((r) => r.overdue && !r.held) ? 'neg' : 'warn';
+  return (
+    <div className={`ui-alert ui-alert-${worst} rounded-xl`} role="status">
+      <div className="min-w-0 flex-1">
+        <p className="ui-alert-title">Final pay is waiting for {rows.length} leavers</p>
+        <ul className="mt-1 space-y-1">
+          {rows.slice(0, limit).map((r) => (
+            <li key={r.employeeId} className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="min-w-0"><span className="font-medium">{r.name}</span> <span className="ui-alert-body">{finalPayWords(r).title.charAt(0).toLowerCase()}{finalPayWords(r).title.slice(1)}</span></span>
+              <button type="button" className="ui-link shrink-0 whitespace-nowrap" onClick={onOpen(r.employeeId)}>Open plan</button>
+            </li>
+          ))}
+        </ul>
+        {rows.length > limit ? <button type="button" className="ui-link mt-1 text-sm" onClick={onMore}>{rows.length - limit} more</button> : null}
+      </div>
     </div>
   );
 }
@@ -67,7 +88,9 @@ const moneyLine = (l) => (l.direction === 'OWES' ? `Owes ${rupees(l.amount)}` : 
 function LineDrawer({ line, canEdit, onClose, onSaved }) {
   const signed = line.status === 'CLEAR';
   const [items, setItems] = useState(line.items);
-  const [direction, setDirection] = useState(line.direction);
+  /* Money is HR's and the line owner's: for anyone else the server sends none of it. */
+  const money = !line.moneyHidden;
+  const [direction, setDirection] = useState(line.direction || 'NONE');
   const [amount, setAmount] = useState(line.amount ? String(line.amount) : '');
   const [note, setNote] = useState(line.note || '');
   const [owner, setOwner] = useState(line.ownerUserId || '');
@@ -76,13 +99,11 @@ function LineDrawer({ line, canEdit, onClose, onSaved }) {
   const users = useRequest(() => (canEdit ? orgUsers() : Promise.resolve([])), [canEdit]);
   const body = () => ({
     items,
-    direction,
-    ...(direction === 'NONE' ? {} : { amount: Number(amount) }),
-    note: note.trim() || null,
+    ...(money ? { direction, ...(direction === 'NONE' ? {} : { amount: Number(amount) }), note: note.trim() || null } : {}),
     ...(canEdit && owner !== (line.ownerUserId || '') ? { ownerUserId: owner || null } : {}),
     seenAt: line.updatedAt,
   });
-  const dirty = JSON.stringify(items) !== JSON.stringify(line.items) || direction !== line.direction || (direction !== 'NONE' && Number(amount) !== Number(line.amount)) || note.trim() !== (line.note || '') || (canEdit && owner !== (line.ownerUserId || ''));
+  const dirty = JSON.stringify(items) !== JSON.stringify(line.items) || (money && (direction !== line.direction || (direction !== 'NONE' && Number(amount) !== Number(line.amount)) || note.trim() !== (line.note || ''))) || (canEdit && owner !== (line.ownerUserId || ''));
   const run = async (kind) => {
     if (direction !== 'NONE' && !(Number(amount) > 0)) { setError('Enter how much is owed.'); return; }
     setBusy(kind);
@@ -134,19 +155,19 @@ function LineDrawer({ line, canEdit, onClose, onSaved }) {
             {items.some((i) => i.assetId) ? <p className="ui-caption">An asset ticked here is marked Returned in the asset register too.</p> : null}
           </fieldset>
         ) : null}
-        <fieldset className="grid gap-3 sm:grid-cols-2" disabled={!open}>
+        {money ? <fieldset className="grid gap-3 sm:grid-cols-2" disabled={!open}>
           <div><PopupSelect label="Money" showValueSubtext={false} value={direction} onChange={(v) => { setDirection(v || 'NONE'); setError(''); }} options={DIRECTION} /></div>
           {direction !== 'NONE' ? (
             <label className="block">
               <span className="ui-label">Amount (₹) *</span>
-              <input type="number" min="0" step="0.01" inputMode="decimal" className="ui-input w-full tabular-nums" value={amount} onChange={(e) => { setAmount(e.target.value); setError(''); }} aria-invalid={Boolean(error) || undefined} />
+              <input type="number" min="0" step="0.01" inputMode="decimal" className="ui-input w-full tabular-nums text-right" value={amount} onChange={(e) => { setAmount(e.target.value); setError(''); }} aria-invalid={Boolean(error) || undefined} />
             </label>
           ) : null}
-        </fieldset>
-        <label className="block">
+        </fieldset> : null}
+        {money ? <label className="block">
           <span className="ui-label">Note</span>
           <textarea className="ui-input w-full" rows={2} maxLength={500} value={note} disabled={!open} onChange={(e) => setNote(e.target.value)} />
-        </label>
+        </label> : null}
         {canEdit && !signed ? <div><PopupSelect label="Whose line" showValueSubtext={false} value={owner} onChange={(v) => setOwner(v || '')} options={[{ value: '', label: 'Nobody yet' }, ...(users.data || []).map((u) => ({ value: u.id, label: u.fullName || u.name || u.email }))]} /></div> : null}
         {error ? <p className="ui-field-error" role="alert">{error}</p> : null}
         {canEdit && !signed && line.dept === 'CUSTOM' ? <div><button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={remove}>Remove this line</button></div> : null}
@@ -212,9 +233,10 @@ function Clearance({ data, employeeId, canEdit, onChanged }) {
           </li>
         ))}
       </ul>
-      {totals.owes || totals.owed ? (
+      {totals?.owes || totals?.owed ? (
         <p className="flex justify-between gap-3 text-sm"><span className="ui-muted">For the full and final</span><span className="tabular-nums text-right">{[totals.owes ? `They owe ${rupees(totals.owes)}` : null, totals.owed ? `owed to them ${rupees(totals.owed)}` : null].filter(Boolean).join(' · ')}</span></p>
       ) : null}
+      {data.found?.loansUnknown ? <p className="ui-caption" role="status">Payroll could not be read, so loans are not checked here. Look in Payroll before signing off.</p> : null}
       {data.open ? <p className="ui-caption">Open lines are a reminder only: they never hold up final wages.</p> : null}
       {canEdit && data.leaving ? <AddLine employeeId={employeeId} existing={lines.map((l) => l.label)} onAdded={onChanged} /> : null}
       {open ? <LineDrawer line={open} canEdit={canEdit} onClose={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged?.(); }} /> : null}

@@ -4,6 +4,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 
 import Automations from './Automations';
 import ExitQuestions from './ExitQuestions';
+import { codeOf } from './exitAnswerCode';
 
 /*
  * Settings → Automations and Settings → Exit interview (WORKFLOW-GAP-RESEARCH 4.7, 4.9): switches that
@@ -111,4 +112,24 @@ it('exit questions: a refusal from the server is shown; read only without the ri
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   expect(await screen.findByRole('alert')).toBeTruthy();
   expect(screen.getByRole('alert').textContent).toMatch(/main reason/);
+});
+
+it('answers in another script each get their own code; a label already saved keeps its code', () => {
+  const a = codeOf('बेहतर वेतन');
+  const b = codeOf('करियर में बढ़त');
+  expect(a).not.toBe(b);
+  expect(a).toMatch(/^[A-Z0-9_]{1,24}$/);
+  expect(a).not.toBe('OTHER');
+  expect(codeOf('बेहतर वेतन')).toBe(a);
+  expect(codeOf('Better pay')).toBe('BETTER_PAY');
+  expect(codeOf('बेहतर वेतन', [{ code: 'PAY', label: 'बेहतर वेतन' }])).toBe('PAY');
+});
+
+it('a role that may only read sees no last-run line, and is not told "nothing sent"', async () => {
+  api.getAutomations.mockResolvedValue({ canEdit: false, automations: [row({ key: 'birthdays', group: 'Celebrations', sentence: 'Tell the team on someone’s birthday', on: true, lastRun: null, when: 'Every morning' })] });
+  render(<Automations />);
+  await screen.findByText('Tell the team on someone’s birthday');
+  expect(screen.queryByText(/Nothing sent yet/)).toBeNull();
+  expect(screen.queryByText(/Last sent/)).toBeNull();
+  expect(screen.getByRole('switch').disabled).toBe(true);
 });

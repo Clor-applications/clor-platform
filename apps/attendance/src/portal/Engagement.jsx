@@ -65,7 +65,7 @@ export function ExitInterview({ guard, refreshKey }) {
     e.preventDefault();
     const miss = iv.questions.find((q) => q.kind !== 'TEXT' && !answers[q.key]);
     if (miss) { setNote({ ok: false, text: `Answer “${miss.text}”.` }); return; }
-    if (!(await confirmDialog({ title: 'Send your answers?', message: hide ? 'HR and the owner read them; your manager does not.' : 'HR, the owner and your manager read them.', confirmLabel: 'Send', tone: 'primary' }))) return;
+    if (!(await confirmDialog({ title: 'Send your answers?', message: hide ? 'HR and the owner read them; your managers do not.' : 'HR, the owner and your managers read them.', confirmLabel: 'Send', tone: 'primary' }))) return;
     setBusy(true);
     setNote(null);
     try {
@@ -88,7 +88,7 @@ export function ExitInterview({ guard, refreshKey }) {
       ) : open ? (
         <form onSubmit={send} className="space-y-4">
           <ExitQuestionsForm questions={iv.questions} answers={answers} onChange={(a) => { setAnswers(a); setNote(null); }} idPrefix="app-exit" />
-          <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="ui-checkbox mt-0.5" checked={hide} onChange={(e) => setHide(e.target.checked)} />Keep my answers from my manager</label>
+          <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="ui-checkbox mt-0.5" checked={hide} onChange={(e) => setHide(e.target.checked)} />Keep my answers from my managers</label>
           <p className="ui-caption">{iv.purpose}</p>
           <div className="flex gap-2">
             <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={busy}>{busy ? 'Sending…' : 'Send answers'}</button>

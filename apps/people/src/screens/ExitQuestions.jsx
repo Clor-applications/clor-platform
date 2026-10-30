@@ -8,6 +8,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 
+import { codeOf } from './exitAnswerCode';
 import { getExitQuestions, resetExitQuestions, saveExitQuestions } from '../api/engagement';
 
 /**
@@ -18,7 +19,6 @@ import { getExitQuestions, resetExitQuestions, saveExitQuestions } from '../api/
  */
 
 const SUGGESTED = ['What is the main reason you are leaving?', 'Would you come back to work here?', 'What would have made you stay?', 'What did you like about working here?', 'Anything you want the owner to know?', 'Was your notice period fair?', 'How was your manager?', 'Would you recommend us to a friend?'];
-const codeOf = (label, before = []) => before.find((o) => o.label === label)?.code || label.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 24) || 'OTHER';
 const toForm = (d) => ({ keepMonths: String(d.keepMonths), questions: d.questions.map((q) => ({ ...q, optionsText: (q.options || []).map((o) => o.label).join('\n') })) });
 
 export default function ExitQuestions() {

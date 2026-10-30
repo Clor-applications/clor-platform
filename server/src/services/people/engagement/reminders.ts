@@ -1,10 +1,9 @@
 import { peoplePrisma } from '../../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../../utils/platformPrisma.js';
 import { resolveAccess } from '../../access.js';
-import { sendTemplate } from '../../mailer.js';
 import { sendNotice, usersWithPermission } from '../../notifications.js';
 import { teamScope } from '../scope.js';
-import { registerRecipe } from './automations.js';
+import { mailOnce, registerRecipe } from './automations.js';
 
 /**
  * The ready-made automations that remind (WORKFLOW-GAP-RESEARCH-2026-10-30 4.7), each reusing what CLOR
@@ -48,30 +47,40 @@ registerRecipe('policyAccept', async ({ accountId, orgId, today, n, now }) => {
   const days = n ?? 3;
   const rows = await peoplePrisma.acknowledgement.findMany({ where: { orgId, targetType: 'POLICY_VERSION', acceptedAt: null, remindedAt: null, askedAt: { lte: new Date(now.getTime() - days * 86_400_000) } }, select: { id: true, employeeId: true, targetId: true } });
   if (!rows.length) return { count: 0, recipients: [] };
-  /* Claimed first: a reminder sent by HR by hand, or a second run, finds remindedAt set. */
-  const claimed = await peoplePrisma.acknowledgement.updateMany({ where: { id: { in: rows.map((r) => r.id) }, remindedAt: null }, data: { remindedAt: now, remindCount: { increment: 1 } } });
-  if (!claimed.count) return { count: 0, recipients: [] };
   const [people, versions] = await Promise.all([
     peoplePrisma.employee.findMany({ where: { orgId, id: { in: rows.map((r) => r.employeeId) }, status: { not: 'LEFT' } }, select: { id: true, name: true, userId: true } }),
     peoplePrisma.policyVersion.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.targetId))] } }, select: { id: true, policy: { select: { title: true } } } }),
   ]);
   const title = new Map(versions.map((v) => [v.id, v.policy.title]));
   const of = new Map(people.map((p) => [p.id, p]));
+  const told: string[] = [];
+  let failed = 0;
   for (const r of rows) {
     const p = of.get(r.employeeId);
+    /* People without a CLOR sign-in see it waiting in the employee app, where it already shows. */
     if (!p?.userId) continue;
-    await sendNotice(accountId, orgId, [p.userId], { kind: 'people.acknowledge', title: `Reminder: please read and accept ${title.get(r.targetId) || 'a policy'}`, body: 'Open it in the employee app, under Me, and accept.', link: { app: 'people', screen: 'overview' } }, { dedupeKey: `policy-accept:${r.id}` }).catch(() => 0);
+    /* Claimed first: a reminder sent by HR by hand, or a second run, finds remindedAt set. Given back if it did not go. */
+    const claim = await peoplePrisma.acknowledgement.updateMany({ where: { id: r.id, orgId, remindedAt: null }, data: { remindedAt: now, remindCount: { increment: 1 } } });
+    if (!claim.count) continue;
+    try {
+      const n = await sendNotice(accountId, orgId, [p.userId], { kind: 'people.acknowledge', title: `Reminder: please read and accept ${title.get(r.targetId) || 'a policy'}`, body: 'Open it in the employee app, under Me, and accept.', link: { app: 'people', screen: 'overview' } }, { dedupeKey: `policy-accept:${r.id}` });
+      if (n) told.push(p.name);
+    } catch (e) {
+      console.error('[automations] policy reminder not sent:', e instanceof Error ? e.message : e);
+      await peoplePrisma.acknowledgement.updateMany({ where: { id: r.id, orgId }, data: { remindedAt: null, remindCount: { decrement: 1 } } });
+      failed += 1;
+    }
   }
-  /* People without a CLOR sign-in see it waiting in the employee app, where it already shows. */
-  return { count: people.length, recipients: people.map((p) => p.name) };
+  return { count: told.length, recipients: told, failed };
 });
 
-registerRecipe('firstDayPlan', async ({ accountId, orgId, today }) => {
+registerRecipe('firstDayPlan', async ({ accountId, orgId, today, now }) => {
   const tomorrow = plusDays(today, 1);
   const joiners = await peoplePrisma.employee.findMany({ where: { orgId, dateOfJoining: tomorrow, status: { not: 'LEFT' } }, select: { id: true, name: true, email: true, personalEmail: true, userId: true, reportingManagerId: true, designation: true } });
   if (!joiners.length) return { count: 0, recipients: [] };
   const org = await platformPrisma.org.findUnique({ where: { id: orgId }, select: { name: true } }).catch(() => null);
   let count = 0;
+  let failed = 0;
   const told: string[] = [];
   for (const j of joiners) {
     const [steps, manager] = await Promise.all([
@@ -86,7 +95,10 @@ registerRecipe('firstDayPlan', async ({ accountId, orgId, today }) => {
     const to = j.email || j.personalEmail;
     let sent = 0;
     if (to) {
-      await sendTemplate({ templateKey: 'people.automation', to, toName: j.name, accountId, orgId, relatedType: 'Employee', relatedId: j.id, data: { name: j.name, orgName: org?.name || 'Your company', headline: 'Your first day tomorrow', body: lines } }).then(() => { sent = 1; }).catch(() => undefined);
+      /* A run that failed further on is run again: this one goes out only once. */
+      const mail = await mailOnce({ templateKey: 'people.automation', to, toName: j.name, accountId, orgId, relatedType: 'Employee', relatedId: j.id, data: { name: j.name, orgName: org?.name || 'Your company', headline: 'Your first day tomorrow', body: lines } }, now);
+      if (mail === 'SENT') sent = 1;
+      if (mail === 'FAILED') failed += 1;
     }
     if (j.userId) sent += await sendNotice(accountId, orgId, [j.userId], { kind: 'people.first_day', title: 'Your first day is tomorrow', body: lines, link: null }, { dedupeKey: `first-day:${j.id}:${tomorrow}` }).catch(() => 0);
     /* The manager hears too, so someone is ready for them. */
@@ -96,5 +108,5 @@ registerRecipe('firstDayPlan', async ({ accountId, orgId, today }) => {
       told.push(j.name);
     }
   }
-  return { count, recipients: told };
+  return { count, recipients: told, failed };
 });

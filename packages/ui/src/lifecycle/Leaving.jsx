@@ -10,7 +10,7 @@ import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
 
-import { READER_PILL, pageLeavers } from './api';
+import { READER_PILL, leavingExtras, pageLeavers } from './api';
 import { PersonCell, Progress, can, crumbs } from './shared';
 import { STAGE_PILL } from './Joining';
 import PlanDrawer from './Plan';
@@ -46,7 +46,18 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
     const found = (list.data?.rows || []).find((r) => r.id === p.open);
     const take = (r) => { if (live && r) { setOpen(r); updateParams?.({ open: null }, { push: false }); } };
     if (found) take(found);
-    else if (list.data) pageLeavers({ view: 'all', limit: 100 }).then((d) => take((d?.rows || []).find((r) => r.id === p.open))).catch(() => {});
+    else if (list.data) {
+      pageLeavers({ view: 'all', limit: 100 })
+        .then(async (d) => {
+          const row = (d?.rows || []).find((r) => r.id === p.open);
+          if (row) return take(row);
+          /* Not in their team, but a no-dues line of theirs: that line opens. */
+          const x = await leavingExtras(p.open);
+          if (x?.lineOnly) take({ ...x.person, lineOnly: true });
+          return undefined;
+        })
+        .catch(() => {});
+    }
     return () => { live = false; };
   }, [p.open, list.data]); // eslint-disable-line react-hooks/exhaustive-deps
 

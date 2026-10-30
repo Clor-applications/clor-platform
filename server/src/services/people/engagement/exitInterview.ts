@@ -4,18 +4,22 @@ import { peoplePrisma } from '../../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../../utils/platformPrisma.js';
 import { outsideTenant } from '../../../utils/tenantScope.js';
 import { istDate } from '../../attendance/compute.js';
-import { sendTemplate } from '../../mailer.js';
 import { notifyPermission, sendNotice } from '../../notifications.js';
+import { ownPlanRefusal } from '../checklists.js';
 import { NO_SETTLEMENT } from '../lifecycle/leaving.js';
 import { cancelLeaving } from '../lifecycle/stayOn.js';
-import { registerRecipe } from './automations.js';
+import { mailOnce, registerRecipe } from './automations.js';
 
 /**
  * Exit interviews (WORKFLOW-GAP-RESEARCH-2026-10-30 A8, 4.9). When someone is leaving, an interview is
  * opened with the company's questions (five by default, HR edits them): the main reason from a list,
  * whether they would come back, what would have kept them, what they liked, and a note to the owner.
  * The leaver fills it in the employee app, about two minutes on a phone, or HR enters it from a
- * conversation. The leaver may hide it from their manager; HR and the owner always read it.
+ * conversation.
+ *
+ * Who reads what (`shape`): HR and the owner read everything; those above them on the reporting line read
+ * the answers and the outcome unless the leaver hid them; nobody else reads it, however widely their role
+ * reads people. Could-we-have-kept-them and HR's note on the outcome are HR's alone, never the leaver's.
  *
  * HR records "could we have kept them" and the outcome: exit confirmed, or retained, which withdraws the
  * leaving through the existing stay-on (lifecycle/stayOn.ts). Submitting ticks the plan's "Exit
@@ -112,26 +116,58 @@ export async function resetExitSettings(orgId: string) {
   return exitSettings(orgId);
 }
 
-type Leaver = { id: string; accountId: string; name: string; status: string; dateOfLeaving: string | null; leavingType: string | null; reportingManagerId: string | null; userId: string | null; email: string | null; personalEmail: string | null };
-const LEAVER = { id: true, accountId: true, name: true, status: true, dateOfLeaving: true, leavingType: true, reportingManagerId: true, userId: true, email: true, personalEmail: true } as const;
+type Leaver = { id: string; accountId: string; name: string; status: string; dateOfJoining: string | null; dateOfLeaving: string | null; leavingType: string | null; reportingManagerId: string | null; userId: string | null; email: string | null; personalEmail: string | null };
+const LEAVER = { id: true, accountId: true, name: true, status: true, dateOfJoining: true, dateOfLeaving: true, leavingType: true, reportingManagerId: true, userId: true, email: true, personalEmail: true } as const;
+const OWN_PLAN = 'This is your own leaving: someone else records it.';
 const asked = (e: Leaver) => Boolean(e.dateOfLeaving && (e.status === 'ON_NOTICE' || e.status === 'LEFT') && !NOT_ASKED.has(String(e.leavingType || '')));
+
+/**
+ * The interview of this stint whose leaving was not withdrawn: the last day may have moved since it was opened
+ * (the date is editable), and the leaver is not asked again. It takes the new day and its keeping period
+ * along. Still unanswered, it is reminded afresh before the new day.
+ */
+async function carryInterview(orgId: string, e: Leaver) {
+  const older = await peoplePrisma.exitInterview.findFirst({ where: { orgId, employeeId: e.id, leavingDate: { not: e.dateOfLeaving!, gte: e.dateOfJoining || '' }, withdrawnAt: null }, orderBy: { leavingDate: 'desc' } });
+  if (!older) return;
+  const moved = Date.parse(`${e.dateOfLeaving}T00:00:00Z`) - Date.parse(`${older.leavingDate}T00:00:00Z`);
+  await peoplePrisma.exitInterview.updateMany({
+    where: { id: older.id, orgId },
+    data: {
+      leavingDate: e.dateOfLeaving!,
+      ...(older.keepUntil ? { keepUntil: new Date(Date.parse(`${older.keepUntil}T00:00:00Z`) + moved).toISOString().slice(0, 10) } : {}),
+      ...(older.status === 'OPEN' ? { remindedOn: null } : {}),
+    },
+  }).catch((err) => { if (err?.code !== 'P2002') throw err; });
+}
 
 /** Opens the interview for this leaving, once (the unique row per person and last day). Returns the row, or null when nobody is asked. */
 export async function ensureInterview(orgId: string, employeeId: string) {
   const e = (await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: LEAVER })) as Leaver | null;
   if (!e || !asked(e)) return null;
   const leavingDate = e.dateOfLeaving!;
-  const found = await peoplePrisma.exitInterview.findUnique({ where: { orgId_employeeId_leavingDate: { orgId, employeeId, leavingDate } } });
+  const key = { orgId_employeeId_leavingDate: { orgId, employeeId, leavingDate } };
+  let found = await peoplePrisma.exitInterview.findUnique({ where: key });
+  if (!found) {
+    await carryInterview(orgId, e);
+    found = await peoplePrisma.exitInterview.findUnique({ where: key });
+  }
+  /* Stayed on, then leaving again on the very same day: this leaving's outcome is still to be decided. */
+  if (found?.withdrawnAt) {
+    await peoplePrisma.exitInterview.updateMany({ where: { id: found.id, orgId }, data: { withdrawnAt: null, outcome: null, outcomeByUserId: null, outcomeAt: null, outcomeNote: null, remindedOn: null } });
+    return peoplePrisma.exitInterview.findUnique({ where: key });
+  }
   if (found) return found;
   const { questions, keepMonths } = await exitSettings(orgId);
   await peoplePrisma.exitInterview.createMany({ data: [{ accountId: e.accountId, orgId, employeeId, leavingDate, questions: questions as any, keepUntil: plusMonths(leavingDate, keepMonths) }], skipDuplicates: true });
-  return peoplePrisma.exitInterview.findUnique({ where: { orgId_employeeId_leavingDate: { orgId, employeeId, leavingDate } } });
+  return peoplePrisma.exitInterview.findUnique({ where: key });
 }
 
-const purposeOf = (keepMonths: number) => `Your answers help the company understand why people leave and what to change. HR and the owner read them; your manager too, unless you hide them. They are kept for ${keepMonths} months, then erased.`;
+const purposeOf = (keepMonths: number) => `Your answers help the company understand why people leave and what to change. HR and the owner read them; your managers too, unless you hide them. They are kept for ${keepMonths} months, then erased.`;
 
 type Row = NonNullable<Awaited<ReturnType<typeof ensureInterview>>>;
-function shape(r: Row, opts: { answers: boolean }) {
+/** HR: everything. LINE: a manager above them. HIDDEN: that manager, kept out by the leaver. SELF: the leaver, with nothing of HR's. */
+type View = 'HR' | 'LINE' | 'HIDDEN' | 'SELF';
+function shape(r: Row, view: View) {
   const questions = (r.questions as unknown as Question[]) || [];
   const reasonQ = questions.find((q) => q.kind === 'REASON');
   return {
@@ -142,40 +178,43 @@ function shape(r: Row, opts: { answers: boolean }) {
     dueBy: plusDays(r.leavingDate, -2) >= today() ? plusDays(r.leavingDate, -2) : r.leavingDate >= today() ? r.leavingDate : null,
     status: r.status,
     questions,
-    answers: opts.answers && !r.erasedAt ? (r.answers as Record<string, string>) : null,
-    reason: r.reason,
-    reasonLabel: reasonQ?.options?.find((o) => o.code === r.reason)?.label || (r.reason ? DEFAULT_REASONS.find((o) => o.code === r.reason)?.label || r.reason : null),
+    answers: view !== 'HIDDEN' && !r.erasedAt ? (r.answers as Record<string, string>) : null,
+    /* The reason and the outcome are the answers by another name: a hidden interview carries neither. */
+    ...(view === 'HIDDEN' ? {} : {
+      reason: r.reason,
+      reasonLabel: reasonQ?.options?.find((o) => o.code === r.reason)?.label || (r.reason ? DEFAULT_REASONS.find((o) => o.code === r.reason)?.label || r.reason : null),
+    }),
     hideFromManager: r.hideFromManager,
     enteredBy: r.enteredBy,
     submittedAt: r.submittedAt,
-    couldKeep: r.couldKeep,
-    outcome: r.outcome,
-    outcomeNote: opts.answers ? r.outcomeNote : null,
-    outcomeAt: r.outcomeAt,
+    ...(view === 'HR' || view === 'LINE' ? { outcome: r.outcome, outcomeAt: r.outcomeAt } : {}),
+    ...(view === 'HR' ? { couldKeep: r.couldKeep, outcomeNote: r.outcomeNote } : {}),
     keepUntil: r.keepUntil,
     erased: Boolean(r.erasedAt),
     updatedAt: r.updatedAt,
   };
 }
 
-/** The leaver's own, in the employee app. */
+/** The leaver's own, in the employee app: what they said, nothing of what HR made of it. */
 export async function myInterview(orgId: string, employeeId: string) {
   const r = await ensureInterview(orgId, employeeId);
   if (!r) return null;
   const { keepMonths } = await exitSettings(orgId);
-  return { ...shape(r, { answers: true }), purpose: purposeOf(keepMonths) };
+  return { ...shape(r, 'SELF'), purpose: purposeOf(keepMonths) };
 }
 
 /**
- * HR's and the manager's view on the leaving plan. HR (and the owner) read the answers; a manager in
- * scope reads them unless the leaver hid them, and never HR's note on the outcome.
+ * The view on the leaving plan: HR and the owner, the managers above them, or the person themself. Anyone
+ * else with a company-wide role (IT) gets nothing: the form promises "HR, the owner and your managers".
  */
-export async function interviewFor(orgId: string, employeeId: string, viewer: { hr: boolean }) {
+export async function interviewFor(orgId: string, employeeId: string, viewer: { hr: boolean; line?: boolean; self?: boolean }) {
+  if (!viewer.hr && !viewer.line && !viewer.self) return null;
   const r = await ensureInterview(orgId, employeeId);
   if (!r) return null;
-  const hidden = !viewer.hr && r.hideFromManager;
+  const hidden = !viewer.hr && !viewer.self && r.hideFromManager;
+  const view: View = viewer.hr ? 'HR' : viewer.self ? 'SELF' : hidden ? 'HIDDEN' : 'LINE';
   const { keepMonths } = await exitSettings(orgId);
-  return { ...shape(r, { answers: viewer.hr || !r.hideFromManager }), hiddenFromYou: hidden, purpose: purposeOf(keepMonths), canEnter: viewer.hr && r.status === 'OPEN', canDecide: viewer.hr };
+  return { ...shape(r, view), hiddenFromYou: hidden, purpose: purposeOf(keepMonths), canEnter: viewer.hr && r.status === 'OPEN', canDecide: viewer.hr };
 }
 
 const answerSchema = z.object({
@@ -191,6 +230,7 @@ const answerSchema = z.object({
 export async function submitInterview(orgId: string, employeeId: string, by: { kind: 'EMPLOYEE' | 'HR'; userId: string | null; accountId: string }, body: unknown) {
   const parsed = answerSchema.safeParse(body);
   if (!parsed.success) throw new ExitError('Those answers could not be read.');
+  if (by.kind === 'HR' && by.userId && (await ownPlanRefusal({ accountId: by.accountId, orgId, userId: by.userId }, { employeeId, owner: 'HR' }))) throw new ExitError(OWN_PLAN, 403, 'OWN_PLAN');
   const r = await ensureInterview(orgId, employeeId);
   if (!r) throw new ExitError('There is no exit interview for this person.', 404);
   if (r.status !== 'OPEN') throw new ExitError('The exit interview has already been sent.', 409, 'SENT');
@@ -236,8 +276,13 @@ const decideSchema = z.object({
 export async function decideInterview(who: { accountId: string; orgId: string; userId: string }, employeeId: string, body: unknown) {
   const parsed = decideSchema.safeParse(body);
   if (!parsed.success) throw new ExitError('That outcome could not be read.');
+  if (await ownPlanRefusal(who, { employeeId, owner: 'HR' })) throw new ExitError(OWN_PLAN, 403, 'OWN_PLAN');
   const r = await ensureInterview(who.orgId, employeeId);
-  if (!r) throw new ExitError('There is no exit interview for this person.', 404);
+  if (!r) {
+    /* Retained a moment ago, so no longer asked: a second decision is told that, not "no such interview". */
+    if (await peoplePrisma.exitInterview.count({ where: { orgId: who.orgId, employeeId, outcome: { not: null } } })) throw new ExitError('The outcome is already recorded.', 409, 'DECIDED');
+    throw new ExitError('There is no exit interview for this person.', 404);
+  }
   const { couldKeep, outcome, note } = parsed.data;
   if (outcome && r.outcome) throw new ExitError('The outcome is already recorded.', 409, 'DECIDED');
   if (outcome === 'RETAINED') {
@@ -264,15 +309,15 @@ export async function decideInterview(who: { accountId: string; orgId: string; u
 
 /**
  * The People report's "Why people leave": leavers by month (from the last day) and reason, with how many
- * did not answer, how many HR thinks could have been kept, and how many were retained.
+ * did not answer, how many HR thinks could have been kept, and how many were retained. HR's and the owner's
+ * only (the route): in a team of three, a count of one is the person, flag or no flag.
  */
-export async function leavingReasons(orgId: string, months = 12, opts: { scopeIds?: string[] | null } = {}) {
+export async function leavingReasons(orgId: string, months = 12) {
   const t = today();
   const from = plusMonths(`${t.slice(0, 7)}-01`, -(months - 1));
-  const scope = opts.scopeIds ? { employeeId: { in: opts.scopeIds } } : {};
   const [rows, leavers, settings] = await Promise.all([
-    peoplePrisma.exitInterview.findMany({ where: { orgId, leavingDate: { gte: from }, ...scope }, select: { employeeId: true, leavingDate: true, status: true, reason: true, couldKeep: true, outcome: true, questions: true } }),
-    peoplePrisma.employee.findMany({ where: { orgId, dateOfLeaving: { gte: from, lte: `${t.slice(0, 7)}-31` }, status: { in: ['ON_NOTICE', 'LEFT'] }, ...(opts.scopeIds ? { id: { in: opts.scopeIds } } : {}) }, select: { id: true, dateOfLeaving: true, leavingType: true } }),
+    peoplePrisma.exitInterview.findMany({ where: { orgId, leavingDate: { gte: from } }, select: { employeeId: true, leavingDate: true, status: true, reason: true, couldKeep: true, outcome: true, questions: true } }),
+    peoplePrisma.employee.findMany({ where: { orgId, dateOfLeaving: { gte: from, lte: `${t.slice(0, 7)}-31` }, status: { in: ['ON_NOTICE', 'LEFT'] } }, select: { id: true, dateOfLeaving: true, leavingType: true } }),
     exitSettings(orgId),
   ]);
   const labels = new Map<string, string>();
@@ -313,7 +358,7 @@ export async function eraseExpiredAnswers(now = new Date()) {
 // ---------------------------------------------------------------------------
 
 /** N days before the last day, a leaver who has not filled it hears once: e-mail, the bell if they sign in to CLOR, and the app. */
-registerRecipe('exitInterview', async ({ accountId, orgId, today: t, n }) => {
+registerRecipe('exitInterview', async ({ accountId, orgId, today: t, n, now }) => {
   const days = n ?? 2;
   /* Interviews exist once a plan or the app has been opened; make sure every leaver in the window has one. */
   const leavers = await peoplePrisma.employee.findMany({ where: { orgId, status: 'ON_NOTICE', dateOfLeaving: { gte: t, lte: plusDays(t, days) } }, select: { id: true } });
@@ -322,18 +367,26 @@ registerRecipe('exitInterview', async ({ accountId, orgId, today: t, n }) => {
   const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: open.map((o) => o.employeeId) } }, select: LEAVER })).map((p) => [p.id, p as Leaver]));
   const org = await platformPrisma.org.findUnique({ where: { id: orgId }, select: { name: true } }).catch(() => null);
   const names: string[] = [];
+  let failed = 0;
   for (const o of open) {
     const p = people.get(o.employeeId);
-    if (!p || !asked(p)) continue;
-    /* Claimed first: a second run the same day finds it reminded. */
+    /* The row must be for the day they really leave now: one whose day moved is reminded before the new day. */
+    if (!p || !asked(p) || p.dateOfLeaving !== o.leavingDate) continue;
+    const to = p.email || p.personalEmail;
+    if (!to && !p.userId) continue;
+    /* Claimed first: a second run the same day finds it reminded. Given back if nothing reached them. */
     const claim = await peoplePrisma.exitInterview.updateMany({ where: { id: o.id, remindedOn: null, status: 'OPEN' }, data: { remindedOn: t } });
     if (!claim.count) continue;
     const headline = 'Your exit interview';
-    const body = `Before your last day (${o.leavingDate}), please answer five short questions about working here. It takes about two minutes in the employee app, under Me.`;
-    const to = p.email || p.personalEmail;
-    if (to) await sendTemplate({ templateKey: 'people.automation', to, toName: p.name, accountId, orgId, relatedType: 'ExitInterview', relatedId: o.id, data: { name: p.name, orgName: org?.name || 'Your company', headline, body } }).catch(() => undefined);
-    if (p.userId) await sendNotice(accountId, orgId, [p.userId], { kind: 'people.exit_interview', title: headline, body, link: null }, { dedupeKey: `exit-interview:${o.id}` }).catch(() => 0);
-    names.push(p.name);
+    const asks = ((o.questions as unknown as Question[]) || []).length;
+    const body = `Before your last day (${o.leavingDate}), please answer ${asks === 1 ? 'a short question' : `${asks} short questions`} about working here. It takes about two minutes in the employee app, under Me.`;
+    const mail = to ? await mailOnce({ templateKey: 'people.automation', to, toName: p.name, accountId, orgId, relatedType: 'ExitInterview', relatedId: o.id, data: { name: p.name, orgName: org?.name || 'Your company', headline, body } }, now) : null;
+    const bell = p.userId ? await sendNotice(accountId, orgId, [p.userId], { kind: 'people.exit_interview', title: headline, body, link: null }, { dedupeKey: `exit-interview:${o.id}:${o.leavingDate}` }).catch(() => null) : 0;
+    if (mail === 'SENT' || (bell && bell > 0)) names.push(p.name);
+    else if (mail === 'FAILED' || bell === null) {
+      await peoplePrisma.exitInterview.updateMany({ where: { id: o.id, orgId }, data: { remindedOn: null } });
+      failed += 1;
+    }
   }
-  return { count: names.length, recipients: names };
+  return { count: names.length, recipients: names, failed };
 });

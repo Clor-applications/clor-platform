@@ -62,10 +62,10 @@ it('exit interview: answered on the phone, the reason first, hidden from the man
   expect(api.sendExitInterview).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Career growth', pressed: false }));
   fireEvent.change(screen.getByLabelText('What would have made you stay?'), { target: { value: 'A lead role' } });
-  fireEvent.click(screen.getByLabelText('Keep my answers from my manager'));
+  fireEvent.click(screen.getByLabelText('Keep my answers from my managers'));
   fireEvent.click(screen.getByRole('button', { name: 'Send answers' }));
   await waitFor(() => expect(api.sendExitInterview).toHaveBeenCalledWith({ answers: { reason: 'GROWTH', keptYou: 'A lead role' }, hideFromManager: true }));
-  expect(dialogs.confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ message: 'HR and the owner read them; your manager does not.' }));
+  expect(dialogs.confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ message: 'HR and the owner read them; your managers do not.' }));
   expect(await screen.findByText(/You sent your answers on .*Thank you/)).toBeTruthy();
 });
 

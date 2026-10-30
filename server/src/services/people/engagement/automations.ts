@@ -6,6 +6,7 @@ import { outsideTenant, runInTenant } from '../../../utils/tenantScope.js';
 import { exclusive, leaseFor } from '../../jobLease.js';
 import { registerJob } from '../../jobRegistry.js';
 import { isFeatureEnabled } from '../../features.js';
+import { deliver, sendTemplate } from '../../mailer.js';
 import { istDate } from '../../attendance/compute.js';
 import { rulesOf } from '../../attendance/timeRules.js';
 
@@ -22,7 +23,9 @@ import { rulesOf } from '../../attendance/timeRules.js';
  *
  * Every recipe records what it sent per company and day (AutomationRun), so the screen shows the last
  * run, how many and to whom. The daily job claims each (company, recipe, day) with a unique row before
- * it sends anything, so two instances, or a wake call on top of the timer, send once.
+ * it sends anything, so two instances, or a wake call on top of the timer, send once. A run that failed
+ * part way is run again on the next wake (`retry`); notices carry dedupe keys and mail goes through
+ * `mailOnce`, so only what did not go the first time goes then.
  */
 
 export type RecipeKey =
@@ -158,15 +161,37 @@ export async function recordRun(accountId: string, orgId: string, key: RecipeKey
  */
 export async function claimDay(accountId: string, orgId: string, key: RecipeKey, ranOn: string) {
   const made = await peoplePrisma.automationRun.createMany({ data: [{ accountId, orgId, key, ranOn, count: 0, recipients: [] }], skipDuplicates: true });
-  return made.count === 1;
+  if (made.count === 1) return true;
+  /* Already run today: only a run that failed part way is taken again, and by one caller. */
+  const again = await peoplePrisma.automationRun.updateMany({ where: { orgId, key, ranOn, retry: true }, data: { retry: false } });
+  return again.count === 1;
 }
 
-async function finishDay(orgId: string, key: RecipeKey, ranOn: string, count: number, recipients: string[]) {
-  await peoplePrisma.automationRun.updateMany({ where: { orgId, key, ranOn }, data: { count, recipients: [...new Set(recipients)].slice(0, 20) } });
+const runAgain = (orgId: string, key: RecipeKey, ranOn: string) => peoplePrisma.automationRun.updateMany({ where: { orgId, key, ranOn }, data: { retry: true } }).catch(() => undefined);
+
+/**
+ * Mail has no dedupe of its own: sent once per template and subject record in a day, whichever run asks. A
+ * message that failed is delivered again rather than written twice. SENT, FAILED, or SKIPPED (switched off
+ * for the company, or already gone).
+ */
+export async function mailOnce(opts: Parameters<typeof sendTemplate>[0], now = new Date()): Promise<'SENT' | 'FAILED' | 'SKIPPED'> {
+  try {
+    const earlier = await platformPrisma.emailOutbox.findFirst({ where: { orgId: opts.orgId, templateKey: opts.templateKey, relatedType: opts.relatedType, relatedId: opts.relatedId, createdAt: { gte: new Date(now.getTime() - 86_400_000) } }, orderBy: { createdAt: 'desc' }, select: { id: true, status: true } });
+    if (earlier && (earlier.status === 'SENT' || earlier.status === 'SUPPRESSED')) return 'SKIPPED';
+    const row = earlier ? await deliver(earlier.id, opts.accountId, opts.orgId) : await sendTemplate(opts);
+    return row?.status === 'SENT' ? 'SENT' : row?.status === 'SUPPRESSED' ? 'SKIPPED' : 'FAILED';
+  } catch (e) {
+    console.error('[automations] mail not sent:', e instanceof Error ? e.message : e);
+    return 'FAILED';
+  }
 }
 
-/** The screen: every recipe with its setting, last run (by this company), how many, to whom, and the next run. */
-export async function listAutomations(orgId: string, now = new Date()) {
+/**
+ * The screen: every recipe with its setting, last run (by this company), how many, to whom, and the next run.
+ * Who got it names people and the documents they hold, so `showRuns` is HR's alone.
+ */
+export async function listAutomations(orgId: string, opts: { showRuns?: boolean; now?: Date } = {}) {
+  const now = opts.now || new Date();
   const today = todayIst(now);
   const [settings, runs, attendance, jobRuns, ranToday] = await Promise.all([
     automationsFor(orgId),
@@ -196,7 +221,7 @@ export async function listAutomations(orgId: string, now = new Date()) {
       defaultOn: r.defaultOn,
       managedIn: r.managedIn || null,
       when: r.when,
-      lastRun: last ? { on: last.ranOn, count: last.count, recipients: last.recipients as string[] } : null,
+      lastRun: last && opts.showRuns ? { on: last.ranOn, count: last.count, recipients: last.recipients as string[] } : null,
       lastChecked,
       nextRun: !s.on ? null : r.job === 'people.automations' ? (doneToday.has(r.key) ? 'Tomorrow morning' : istHour(now) < 8 ? 'This morning' : 'Within the hour') : r.when,
     };
@@ -209,7 +234,8 @@ const istHour = (now: Date) => new Date(now.getTime() + 330 * 60_000).getUTCHour
 // The daily job
 // ---------------------------------------------------------------------------
 
-export type RecipeRun = (ctx: { accountId: string; orgId: string; today: string; n: number | null; now: Date }) => Promise<{ count: number; recipients: string[] }>;
+/** `failed`: how many could not be sent, so the next wake runs the recipe again for those. */
+export type RecipeRun = (ctx: { accountId: string; orgId: string; today: string; n: number | null; now: Date }) => Promise<{ count: number; recipients: string[]; failed?: number }>;
 
 /** The recipes this job runs, filled in by the modules that own them (clearance, exit interviews, greetings, reminders). */
 const runners = new Map<RecipeKey, RecipeRun>();
@@ -228,11 +254,13 @@ export async function runCompany(accountId: string, orgId: string, now = new Dat
     if (!(await claimDay(accountId, orgId, key, today))) continue;
     try {
       const out = await run({ accountId, orgId, today, n: s.n, now });
-      await finishDay(orgId, key, today, out.count, out.recipients);
+      /* Added to what an earlier try today sent: what the screen says went, went. */
+      await recordRun(accountId, orgId, key, out.count, out.recipients, now);
+      if (out.failed) await runAgain(orgId, key, today);
       done[key] = out.count;
     } catch (e) {
-      /* A failed recipe gives its claim back, so the next wake today tries it again. */
-      await peoplePrisma.automationRun.deleteMany({ where: { orgId, key, ranOn: today, count: 0 } }).catch(() => undefined);
+      /* The next wake today tries again; what already went is not sent twice (see above). */
+      await runAgain(orgId, key, today);
       console.error(`[automations] ${orgId} ${key}:`, e instanceof Error ? e.message : e);
     }
   }
