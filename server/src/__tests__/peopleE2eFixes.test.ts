@@ -291,3 +291,24 @@ describe("#80 manager QA: a half day's notice says which half", () => {
     expect(leaveNoticeBody({ halfDay: null }, 2.5)).toBe('2.5 days');
   });
 });
+
+describe('#80 QA F4: the attendance drawer names who decides, as the reader can', () => {
+  it('says HR alone to HR, and "HR, or you as their manager" to the manager who can approve it', async () => {
+    const owner = await company();
+    const lead = await colleague(owner, [...TEAM_MANAGER, 'ATTENDANCE::Attendance Requests::VIEW', 'ATTENDANCE::Attendance Requests::APPROVE'], true);
+    const leadEmp = await person(owner, { name: 'Rahul Lead', code: 'F41' });
+    await link(owner, leadEmp.id, lead.userId);
+    const imran = await person(owner, { name: 'Imran Khan', code: 'F42', reportingManagerId: leadEmp.id });
+    const d = new Date(Date.now() - 3 * 86_400_000);
+    while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
+    const date = d.toISOString().slice(0, 10);
+    const r = (await att(owner, 'post', '/requests', { employeeId: imran.id, kind: 'MISSED_PUNCH', date, checkIn: '09:00', checkOut: '18:00', reason: 'Forgot to punch' }).expect(201)).body.request;
+    const asLead = (await att(lead, 'get', `/requests/${r.id}`).expect(200)).body;
+    expect(asLead.chain).toBe('HR');
+    expect(asLead.decidedBy).toBe('HR, or you as their manager');
+    const asHr = (await att(owner, 'get', `/requests/${r.id}`).expect(200)).body;
+    expect(asHr.decidedBy).toBe('HR');
+    /* And what the words promise holds: the manager's Approve decides it. */
+    await att(lead, 'post', `/requests/${r.id}/approve`, {}).expect(200);
+  }, 120_000);
+});

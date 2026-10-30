@@ -134,7 +134,7 @@ export function CompanyMenuItems({ groups, currentId, onPick }) {
             type="button"
             role="menuitemradio"
             aria-checked={t.id === currentId}
-            className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken"
+            className="w-full flex min-h-11 items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken"
             onClick={() => onPick(t)}
           >
             <Building2 size={16} aria-hidden="true" className="shrink-0" />
@@ -1017,6 +1017,8 @@ export default function Shell() {
           /* Tighter on a phone: the bar carries menu, logo, switcher, alerts, help, profile and sign-out in 360 px. */
           /* Narrower than 390 px (owner’s coordinator, 30 Oct 2026, said under 375; 375 itself still ran 9 px over): the CLOR mark alone, the app as its mark alone, tighter gaps; search stays. */
           className={`ui-topbar sticky top-0 flex h-14 items-center ${phone ? 'gap-1 px-1.5 max-[389px]:gap-0.5' : 'gap-3 px-4'}`}
+          /* A phone bar without an app menu (the Workspace) has room for 44px buttons, DESIGN.md's touch size (#80 QA). */
+          data-touch={phone && !(app && !inWorkspace) ? '' : undefined}
           style={{
             backgroundColor: 'rgb(var(--surface))',
             borderBottom: '1px solid rgb(var(--border))',

@@ -102,6 +102,13 @@ test.describe('Suresh owns the account', () => {
     await expect(bar.getByRole('button', { name: `Company: ${w.asha.name}` })).toBeVisible();
     const right = await bar.evaluate((b) => Math.max(...[...b.querySelectorAll('button, select, label')].map((e) => e.getBoundingClientRect().right)));
     expect(right, 'nothing in the bar past the screen').toBeLessThanOrEqual(390);
+    /* DESIGN.md's touch size: the bar's buttons and the menu's companies at least 44px. */
+    const small = await bar.evaluate((b) => [...b.querySelectorAll('.ui-icon-btn')].map((e) => e.getBoundingClientRect()).filter((r) => r.width && (r.width < 44 || r.height < 44)).length);
+    expect(small, 'bar buttons under 44px').toBe(0);
+    await bar.getByRole('button', { name: /^Company: / }).click();
+    const rows = await bar.getByRole('menuitemradio').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+    expect(Math.min(...rows), 'company rows under 44px').toBeGreaterThanOrEqual(44);
+    await suresh.page.keyboard.press('Escape');
     await suresh.switchCompany(w.vels.name);
     await expect(suresh.page).toHaveURL(new RegExp(`/o/${w.vels.code}/`));
     await expect(bar.getByRole('button', { name: `Company: ${w.vels.name}` })).toBeVisible();

@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requireAnyPermission, requirePermission } from '../middleware/rbac.js';
+import { authorize, requireAnyPermission, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { phoneStatus, recordPhonePunch } from '../services/attendance/phonePunch.js';
 import { hrMayDecide } from '../services/attendance/approvalChain.js';
@@ -687,7 +687,8 @@ attendanceRouter.get('/orgs/:orgId/attendance/requests/:id', can(PermissionActio
   if (!r || !inScope(await teamScope(req), r.employeeId)) return res.status(404).json({ error: 'No such request.' });
   try {
     const mine = await myFile(orgId, req.auth!.userId);
-    res.json({ ...(await story(accountId, orgId, r, mine?.id)), ownRequest: Boolean(mine && mine.id === r.employeeId) });
+    const reader = { canDecide: !(await authorize(req, ATTENDANCE_MODULE, PermissionAction.APPROVE as any, R.requests)), scopeAll: (await teamScope(req)).all };
+    res.json({ ...(await story(accountId, orgId, r, mine?.id, reader)), ownRequest: Boolean(mine && mine.id === r.employeeId) });
   } catch (e) {
     return sendError(res, e);
   }

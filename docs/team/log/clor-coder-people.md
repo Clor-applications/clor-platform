@@ -1,5 +1,11 @@
 # clor-coder-people — work log
 
+## 2026-10-31 00:30 IST — People — PR #80 retest fixes
+- Did: F4, the attendance drawer's "Decided by" now comes from the server for this reader: "HR, or you as their manager" when the person's manager (or stand-in) may approve it under an HR chain; the manager's name for manager chains. Drawer facts no longer nest divs in the <dl> (axe dlitem). Phone company menu rows and the Workspace phone bar buttons are 44px.
+- Evidence: server peopleE2eFixes/attendanceRequests/timeDepth 55 passed on CI Postgres 5434 (5432 was full); web suite 1979 passed; e2e A4/A4b/A4c both widths; Rahul's drawer checked at 390 and 1440. The F4 tests failed before the fix.
+- Next: QA retest of #80.
+- Blocked on: nothing.
+
 ## 2026-10-30 23:30 IST — People — PR #80 re-review and QA fixes
 - Did: Candidates board scrolls sideways on phones (watcher measures any content in .ui-table-scroll), new e2e clipped-list check and T1b; __dirname lint error; published-only readers get only employee-app fields. Manager QA: bell panel inside the screen on phones, Approvals and the bell name the half, Leave calendar draws half days as half a cell. HR/owner QA: grown card width, phone company choice moved into the app menu (A4b), row menus named by row name not id, 44px phone tick box, Announcements "For" from audience ids, empty Gender mix label.
 - Evidence: web tests (test/ folder), server peopleE2eFixes + timeLeave, e2e T1b/H12/A4/A4b both widths on 4019/5199, browser checks at 390/700/1440. Each new test failed before its fix.
