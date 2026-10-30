@@ -489,9 +489,10 @@ peopleRouter.get('/orgs/:orgId/people/overview', can(PermissionAction.VIEW, EMPL
     const k = r.department || 'Unassigned';
     byDepartment.set(k, (byDepartment.get(k) || 0) + 1);
   }
-  /* Birthdays in the next 30 days, by month-day, whatever the year. */
+  /* Birthdays in the next 30 days, by month-day, whatever the year; never someone who asked not to be announced (WORKFLOW-GAP-RESEARCH 4.8). */
+  const optedOut = new Set((await peoplePrisma.celebrationOptOut.findMany({ where: { orgId }, select: { employeeId: true } })).map((o) => o.employeeId));
   const soon = active
-    .filter((r) => r.dateOfBirth && ISO_DATE.test(r.dateOfBirth))
+    .filter((r) => r.dateOfBirth && ISO_DATE.test(r.dateOfBirth) && !optedOut.has(r.id))
     .map((r) => {
       const [, m, d] = r.dateOfBirth!.split('-').map(Number);
       let next = new Date(today.getFullYear(), m - 1, d);
@@ -511,6 +512,8 @@ peopleRouter.get('/orgs/:orgId/people/overview', can(PermissionAction.VIEW, EMPL
       .map((r) => ({ id: r.id, name: r.name, designation: r.designation, date: r.dateOfJoining })),
     leftThisMonth: rows.filter((r) => r.status === 'LEFT' && String(r.dateOfLeaving || '').startsWith(ym)).length,
     upcomingBirthdays: soon,
+    /* Left out of the anniversaries Home works out from the list, too. */
+    celebrationOptOuts: [...optedOut].filter((id) => active.some((r) => r.id === id)),
   });
 });
 

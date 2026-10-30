@@ -13,6 +13,7 @@ import { teamScope } from '../people/scope.js';
 import { registerJob } from '../jobRegistry.js';
 import { addWorkingDays, REMIND_EVERY_WORKING_DAYS } from '../people/approvals/engine.js';
 import { deciders, stepsOf } from './leaveRules.js';
+import { automation, recordRun } from '../people/engagement/automations.js';
 
 /**
  * Leave automation that runs on its own (TIME-LEAVE-DECISIONS.md, advanced
@@ -90,6 +91,9 @@ export async function runLeaveDigest(now = new Date()) {
   const orgs = await peoplePrisma.leaveRequest.groupBy({ by: ['accountId', 'orgId'], where: { status: 'PENDING' } });
   let sent = 0;
   for (const { accountId, orgId } of orgs) {
+    /* People → Settings → Automations (WORKFLOW-GAP-RESEARCH 4.7): a company may switch the digest off. */
+    if (!(await automation(orgId, 'leaveDigest')).on) continue;
+    let told = 0;
     const app = (await isFeatureEnabled(accountId, orgId, 'people')) ? 'people' : 'attendance';
     const { waitingForReader } = await import('../../routes/leave.js');
     for (const userId of await usersWithPermission(accountId, orgId, 'ATTENDANCE::Leave Requests::APPROVE')) {
@@ -102,7 +106,9 @@ export async function runLeaveDigest(now = new Date()) {
       const oldest = Math.floor((now.getTime() - waiting[0].createdAt.getTime()) / DAY);
       await queueDirect(accountId, orgId, { userIds: [userId], dedupeKey: key, notice: { kind: 'attendance.leave_digest', title: `${waiting.length} leave ${waiting.length === 1 ? 'request waits' : 'requests wait'} for you${oldest >= 3 ? `; the oldest for ${oldest} days` : ''}`, link: { app, screen: 'leaveRequests' } } });
       sent += 1;
+      told += 1;
     }
+    await recordRun(accountId, orgId, 'leaveDigest', told);
   }
   return sent;
 }

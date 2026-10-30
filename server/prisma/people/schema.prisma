@@ -646,12 +646,12 @@ model LeaveType {
 
   /// YEARLY: the year's days are there from 1 January. MONTHLY: a twelfth is
   /// credited at the start of each month.
-  accrual           String  @default("YEARLY")
+  accrual               String  @default("YEARLY")
   /// Someone joining during the year gets the months left (joining after the
   /// 15th counts from the next month).
-  prorateForJoiners Boolean @default(false)
+  prorateForJoiners     Boolean @default(false)
   /// Days of an unused balance taken into the next year; null lets it lapse.
-  carryForwardMax   Float?
+  carryForwardMax       Float?
   /// Carried-in days must be used within this many days of the period start; what is left of them then lapses (ERPNext's "expire carry-forwarded leaves"). Null: they last the period.
   carryExpiresAfterDays Int?
 
@@ -736,23 +736,23 @@ model LeaveType {
   /// keeps a type as it was.
   /// DAY: asked in days and half days. HOUR: asked in hours on one day, 15-minute steps, counted against the
   /// day's shift (2 hours of an 8-hour shift is 0.25 day); balances stay in days.
-  unit               String   @default("DAY")
+  unit                String   @default("DAY")
   /// An hourly type's day, in hours (FEATURE-UI-AUDIT gap 23): its allowance and balance are said in hours, and an hour is this share of a day. Null = 8.
-  hoursPerDay        Float?
+  hoursPerDay         Float?
   /// More than the balance (and negativeDays): REFUSE, or LOSS_OF_PAY — the extra days are a linked unpaid
   /// request of the company's loss-of-pay type, in the same group, decided with the paid part.
-  overBalance        String   @default("REFUSE")
+  overBalance         String   @default("REFUSE")
   /// Types that may not sit next to this one (weekly offs and holidays between still count as next to). The
   /// rule works both ways.
-  notWithTypeIds     String[] @default([])
+  notWithTypeIds      String[] @default([])
   /// Sandwich options, read only when sandwich is on: the rule applies to requests of at least this many
   /// working days (null = any), to weekly offs, to holidays, and a half day at either end can be left out of it.
-  sandwichMinDays    Int?
-  sandwichWeekOffs   Boolean  @default(true)
-  sandwichHolidays   Boolean  @default(true)
-  sandwichIgnoreHalf Boolean  @default(false)
+  sandwichMinDays     Int?
+  sandwichWeekOffs    Boolean  @default(true)
+  sandwichHolidays    Boolean  @default(true)
+  sandwichIgnoreHalf  Boolean  @default(false)
   /// While the person is serving notice: ALLOW, WARN (asked, and the approver is told), or BLOCK.
-  onNotice           String   @default("ALLOW")
+  onNotice            String   @default("ALLOW")
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -1319,14 +1319,14 @@ model Contractor {
 /// A different shift for a few days — cover, a training week, a night swap.
 /// Wins over every other schedule for those days (ClorTime's temporary schedule).
 model TemporarySchedule {
-  id         String  @id @default(cuid())
-  accountId  String
-  orgId      String
-  employeeId String
-  shiftId    String
-  fromDate   String /// YYYY-MM-DD
-  toDate     String /// YYYY-MM-DD, inclusive
-  reason     String?
+  id            String  @id @default(cuid())
+  accountId     String
+  orgId         String
+  employeeId    String
+  shiftId       String
+  fromDate      String /// YYYY-MM-DD
+  toDate        String /// YYYY-MM-DD, inclusive
+  reason        String?
   /// Written by "pick the shift from the first punch", not by a person: a later
   /// punch may change it, and nothing a person wrote is ever replaced by it.
   pickedByPunch Boolean @default(false)
@@ -1852,21 +1852,21 @@ model ImportBatch {
 
 /// Company-wide People settings (docs/people/02-PRD.md CORE-03; decision D-02): one row per company.
 model PeopleSetting {
-  id                 String   @id @default(cuid())
-  accountId          String
-  orgId              String   @unique
+  id                              String   @id @default(cuid())
+  accountId                       String
+  orgId                           String   @unique
   /// CONTACT_DIRECT (contact details save at once, the rest needs HR approval) | ALL (everything needs approval) | NONE (saves at once, HR told)
-  selfServiceChanges String   @default("CONTACT_DIRECT")
+  selfServiceChanges              String   @default("CONTACT_DIRECT")
   /// Languages privacy notices are offered in besides English (PRV-01), e.g. ["hi","ta"].
-  noticeLanguages    Json?
+  noticeLanguages                 Json?
   /// People Home's setup list (services/people/setup.ts): { skipped: [step], hidden: ISO, recorded: [step], simpleAdvice: ISO }.
-  setupState         Json?
+  setupState                      Json?
   /// Referrals (A20): a bonus is not paid when the referrer has left before the bonus date
   /// (serving notice counts as still here). Off: it is paid anyway, in their final settlement or by hand.
-  referralForfeitIfReferrerLeaves Boolean @default(true)
-  updatedByUserId    String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  referralForfeitIfReferrerLeaves Boolean  @default(true)
+  updatedByUserId                 String?
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
 }
 
 /// A team under a department, with a lead (docs/people/02-PRD.md ORG-01).
@@ -1993,18 +1993,18 @@ model Obligation {
 /// A file that proves an obligation was met: the challan, the filing receipt, the certificate.
 /// Several per obligation; the bytes move to object storage like every other People file.
 model ObligationProof {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   accountId        String
   orgId            String
   obligationId     String
   name             String
   mime             String
-  size             Int      @default(0)
+  size             Int       @default(0)
   data             Bytes
   /// R2 plan: where the bytes are when they are not in `data` (then empty). Set by utils/peoplePrisma.ts.
   storageKey       String?
   uploadedByUserId String?
-  createdAt        DateTime @default(now())
+  createdAt        DateTime  @default(now())
   /// Taken off the obligation (never erased): when and by whom.
   removedAt        DateTime?
   removedByUserId  String?
@@ -3346,28 +3346,28 @@ model Offer {
 /// Talent → Hiring (docs/people/design-v1/TALENT-DECISIONS.md): a place the company is hiring for.
 /// Department, designation, branch and type come from the company's lists, so a hire lands in them.
 model JobOpening {
-  id                String   @id @default(cuid())
-  accountId         String
-  orgId             String
-  title             String
-  departmentId      String?
-  jobPositionId     String?
-  branchId          String?
-  employeeTypeId    String?
+  id                 String    @id @default(cuid())
+  accountId          String
+  orgId              String
+  title              String
+  departmentId       String?
+  jobPositionId      String?
+  branchId           String?
+  employeeTypeId     String?
   /// Where the work is, in words, when no branch fits (copied from the old register's "location").
-  location          String?
-  places            Int      @default(1)
+  location           String?
+  places             Int       @default(1)
   /// The employee who leads hiring for it and becomes the hire's manager.
-  hiringManagerId   String?
-  description       String?
-  targetDate        String?
+  hiringManagerId    String?
+  description        String?
+  targetDate         String?
   /// REQUESTED (a manager asked) | DRAFT | OPEN | ON_HOLD | FILLED | CLOSED
-  status            String   @default("DRAFT")
-  requestedByUserId String?
-  openedByUserId    String?
+  status             String    @default("DRAFT")
+  requestedByUserId  String?
+  openedByUserId     String?
   /// The public apply link: on or off, and the sha256 of its token.
-  applyOpen         Boolean  @default(false)
-  applyTokenHash    String?  @unique
+  applyOpen          Boolean   @default(false)
+  applyTokenHash     String?   @unique
   /// Employee referrals (A20): open to referrals, the bonus promised (whole rupees, paid after
   /// the hire completes `referralBonusDays`, or their probation when blank), who may refer
   /// (ALL | DEPARTMENTS | BRANCHES with the ids), and whether staff may apply themselves.
@@ -3379,10 +3379,10 @@ model JobOpening {
   referDepartmentIds String[]  @default([])
   referBranchIds     String[]  @default([])
   internalApply      Boolean   @default(false)
-  closedReason      String?
-  createdByUserId   String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  closedReason       String?
+  createdByUserId    String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([orgId, status])
 }
@@ -3390,37 +3390,37 @@ model JobOpening {
 /// Someone applying for an opening, on one pipeline. The id of a candidate moved from the old
 /// register is kept, so offers and links made before keep working.
 model Candidate {
-  id              String    @id @default(cuid())
-  accountId       String
-  orgId           String
-  openingId       String
-  name            String
-  email           String?
-  phone           String?
+  id                 String    @id @default(cuid())
+  accountId          String
+  orgId              String
+  openingId          String
+  name               String
+  email              String?
+  phone              String?
   /// REFERRAL | JOB_PORTAL | WALK_IN | AGENCY | WEBSITE | APPLY_LINK | OTHER
-  source          String    @default("OTHER")
+  source             String    @default("OTHER")
   /// Who referred them, the portal's name, the agency…
-  sourceDetail    String?
-  currentEmployer String?
+  sourceDetail       String?
+  currentEmployer    String?
   /// APPLIED | SCREENING | INTERVIEW | OFFER | HIRED | REJECTED | WITHDRAWN
-  stage           String    @default("APPLIED")
-  stageAt         DateTime  @default(now())
-  closedReason    String?
-  resumeName      String?
-  resumeMime      String?
-  resumeSize      Int?
-  resumeData      Bytes?
+  stage              String    @default("APPLIED")
+  stageAt            DateTime  @default(now())
+  closedReason       String?
+  resumeName         String?
+  resumeMime         String?
+  resumeSize         Int?
+  resumeData         Bytes?
   /// A link to a résumé, from the apply page.
-  resumeUrl       String?
-  offerAcceptedOn String?
-  employeeId      String?
+  resumeUrl          String?
+  offerAcceptedOn    String?
+  employeeId         String?
   /// Someone who works here applying themselves (an internal application): hiring them moves
   /// them, it does not make a second employee record.
   internalEmployeeId String?
-  anonymisedAt    DateTime?
-  createdByUserId String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  anonymisedAt       DateTime?
+  createdByUserId    String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([orgId, openingId, stage])
   @@index([orgId, stage, stageAt])
@@ -4110,4 +4110,144 @@ model NightWorkConsent {
   createdAt        DateTime @default(now())
 
   @@index([orgId, employeeId, createdAt])
+}
+
+/// No-dues sign-off on a leaving (WORKFLOW-GAP-RESEARCH-2026-10-30 A9/A10, 4.3): one line per department
+/// (manager, IT, admin, finance, or the company's own), each with its owner, the things to hand back (held
+/// assets from the register), money owed either way, and a sign-off. Tied to the stint by the leaving date,
+/// so a rehire starts clean. Never holds up the statutory final wages: an open line is a warning only.
+model ClearanceLine {
+  id             String    @id @default(cuid())
+  accountId      String
+  orgId          String
+  employeeId     String
+  /// The last working day this line belongs to (YYYY-MM-DD).
+  leavingDate    String
+  /// MANAGER | IT | ADMIN | FINANCE | CUSTOM
+  dept           String
+  label          String
+  ownerUserId    String?
+  /// [{ title, assetId?, tag?, returned }]: what to hand back; asset lines come from the register.
+  items          Json      @default("[]")
+  /// NONE | OWES (the leaver owes the company) | OWED (the company owes the leaver)
+  direction      String    @default("NONE")
+  amount         Decimal   @default(0) @db.Decimal(14, 2)
+  note           String?
+  /// OPEN | CLEAR
+  status         String    @default("OPEN")
+  signedByUserId String?
+  signedAt       DateTime?
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([orgId, employeeId, leavingDate, dept, label])
+  @@index([orgId, employeeId])
+}
+
+/// An exit interview (WORKFLOW-GAP-RESEARCH 4.9): the company's short questionnaire, filled by the leaver
+/// in the employee app or entered by HR; optionally hidden from their manager. HR records whether they
+/// could have been kept and the outcome. Answers are erased after `keepUntil` (DPDP: kept no longer than needed).
+model ExitInterview {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  employeeId      String
+  leavingDate     String
+  /// OPEN | SUBMITTED
+  status          String    @default("OPEN")
+  /// The questions as asked: [{ key, text, kind: REASON | CHOICE | TEXT, options? }]
+  questions       Json      @default("[]")
+  /// { [key]: answer }
+  answers         Json      @default("{}")
+  /// The main reason (a REASON option's code), for the report.
+  reason          String?
+  hideFromManager Boolean   @default(false)
+  /// EMPLOYEE | HR
+  enteredBy       String?
+  enteredByUserId String?
+  submittedAt     DateTime?
+  /// YES | NO | MAYBE: HR's view of "could we have kept them".
+  couldKeep       String?
+  /// EXIT_CONFIRMED | RETAINED
+  outcome         String?
+  outcomeNote     String?
+  outcomeByUserId String?
+  outcomeAt       DateTime?
+  remindedOn      String?
+  /// After this day the answers are erased (the reason and outcome stay for the report).
+  keepUntil       String?
+  erasedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([orgId, employeeId, leavingDate])
+  @@index([orgId, submittedAt])
+}
+
+/// A company's exit questions and its ready-made automations (WORKFLOW-GAP-RESEARCH 4.7, 4.9).
+model EngagementSettings {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String   @unique
+  /// { questions: [...], keepMonths }; [] = CLOR's five default questions, answers kept 24 months.
+  exitQuestions   Json     @default("[]")
+  /// { [recipeKey]: { on, n } }; a recipe not named keeps its default.
+  automations     Json     @default("{}")
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+}
+
+/// What a recipe sent on a day, for "last ran, how many, to whom" (WORKFLOW-GAP-RESEARCH 4.7).
+model AutomationRun {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  key        String
+  ranOn      String
+  count      Int      @default(0)
+  /// Names of who got it (at most 20).
+  recipients Json     @default("[]")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([orgId, key, ranOn])
+}
+
+/// Someone who asked not to be announced on their birthday or work anniversary (WORKFLOW-GAP-RESEARCH 4.8).
+model CelebrationOptOut {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  /// A CLOR user, or portal:<employeeId> from the employee app.
+  byUserId   String
+  createdAt  DateTime @default(now())
+
+  @@unique([orgId, employeeId])
+}
+
+/// The day's greetings and holiday heads-ups, written once by the daily job, read by the employee app's
+/// feed and People Home (WORKFLOW-GAP-RESEARCH 4.8). Never carries a birth year.
+model GreetingPost {
+  id          String   @id @default(cuid())
+  accountId   String
+  orgId       String
+  onDate      String
+  /// BIRTHDAY | ANNIVERSARY | HOLIDAY
+  kind        String
+  /// BIRTHDAY:<employeeId>, ANNIVERSARY:<employeeId>, HOLIDAY:<holidayId>
+  key         String
+  employeeId  String?
+  years       Int?
+  holidayId   String?
+  holidayDate String?
+  /// A holiday for one area or branch only goes to the people there.
+  areaId      String?
+  branchId    String?
+  text        String
+  createdAt   DateTime @default(now())
+
+  @@unique([orgId, onDate, key])
+  @@index([orgId, onDate])
 }
