@@ -61,17 +61,33 @@ export async function headcount(orgId: string, input: { asOf?: string; from?: st
     const moved = transfers.filter((t) => monthOf(t.effectiveDate) === m);
     const lastDay = new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).toISOString().slice(0, 10);
     const end = lastDay > to ? to : lastDay;
+    const first = `${m}-01` < from ? from : `${m}-01`;
+    /* Working here when the month (or the range) opened: joined before it, not gone before it. */
+    const headcountAtStart = episodes.filter((e) => e.startDate < first && (!e.endDate || e.endDate >= first)).length;
+    const headcountAtEnd = episodes.filter((e) => e.startDate <= end && (!e.endDate || e.endDate >= end)).length;
+    /* Attrition: leavers over the month's average headcount, as a percentage; none to measure against is no figure, not zero. */
+    const average = (headcountAtStart + headcountAtEnd) / 2;
     return {
       month: m,
       joiners: joined.length, leavers: left.length, transfers: moved.length,
-      headcountAtEnd: episodes.filter((e) => e.startDate <= end && (!e.endDate || e.endDate >= end)).length,
+      headcountAtStart, headcountAtEnd, averageHeadcount: average,
+      attritionPct: average ? Math.round((left.length / average) * 1000) / 10 : null,
+      leaversByReason: tally(left.map((e) => e.endType || 'NOT_SAID')),
       joinersByEstablishment: tally(joined.map((e) => label(placeNow.get(e.employeeId) ?? null))),
       leaversByEstablishment: tally(left.map((e) => label(placeNow.get(e.employeeId) ?? null))),
       transfersIn: tally(moved.map((t) => label(t.toId))),
       transfersOut: tally(moved.map((t) => label(t.fromId))),
     };
   });
-  return { asOf, from, to, headcount: open.length, byEstablishment: Object.fromEntries([...byEst.entries()].sort()), months: rows };
+  /* Over the range: every leaver against the average of the months' average headcounts. */
+  const meanHeadcount = rows.length ? rows.reduce((n, r) => n + r.averageHeadcount, 0) / rows.length : 0;
+  const leavers = rows.reduce((n, r) => n + r.leavers, 0);
+  const totals = {
+    joiners: rows.reduce((n, r) => n + r.joiners, 0), leavers, transfers: rows.reduce((n, r) => n + r.transfers, 0),
+    headcountAtStart: rows[0]?.headcountAtStart ?? 0, headcountAtEnd: rows[rows.length - 1]?.headcountAtEnd ?? 0,
+    averageHeadcount: Math.round(meanHeadcount * 10) / 10, attritionPct: meanHeadcount ? Math.round((leavers / meanHeadcount) * 1000) / 10 : null,
+  };
+  return { asOf, from, to, headcount: open.length, byEstablishment: Object.fromEntries([...byEst.entries()].sort()), months: rows, totals };
 }
 
 const tally = (xs: string[]) => xs.reduce<Record<string, number>>((m, x) => ((m[x] = (m[x] || 0) + 1), m), {});

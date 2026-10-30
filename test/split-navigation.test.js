@@ -61,7 +61,7 @@ describe('Attendance navigation structure', () => {
       ['Integrations', ['Integrations']],
       ['Access & Security', ['Users & Security', 'Roles & Access']],
       ['Data Management', ['Data Health', 'Import Data', 'Export Data', 'Close Company']],
-      ['Compliance', ['Compliance Calendar']],
+      ['Compliance', ['Compliance']],
       ['Privacy', ['Data Protection', 'Data Requests']],
       ['Audit & Recovery', ['Audit Logs', 'Recycle Bin']],
     ]);

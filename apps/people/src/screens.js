@@ -35,7 +35,6 @@ export { default as JourneySteps } from '@ui/lifecycle/Steps';
 export { default as LetterTemplates } from '@ui/personnel/LetterTemplates';
 export { default as CustomFieldsSettings } from '@ui/personnel/CustomFieldsSettings';
 export { default as SelfServiceSettings } from '@ui/personnel/SelfServiceSettings';
-export { default as ComplianceCalendar } from '@ui/personnel/ComplianceCalendar';
 export { default as Compliance } from './screens/Compliance';
 export { default as Privacy } from './screens/Privacy';
 export { default as AuditEvidence } from './screens/AuditEvidence';

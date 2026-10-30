@@ -118,7 +118,6 @@ const JourneySteps = screen('JourneySteps');
 const LetterTemplates = screen('LetterTemplates');
 const CustomFieldsSettings = screen('CustomFieldsSettings');
 const SelfServiceSettings = screen('SelfServiceSettings');
-const ComplianceCalendar = screen('ComplianceCalendar');
 const Compliance = screen('Compliance');
 const Privacy = screen('Privacy');
 const AuditEvidence = screen('AuditEvidence');
@@ -343,7 +342,7 @@ export const peopleApp = {
       { label: 'Help', items: ['helpdesk', 'policies', 'privateCases'] },
     ] },
     /* Reports holds reports only (and the outside auditor's evidence); data checks, privacy and audit logs live once, in Settings. */
-    { key: 'reports', label: 'Reports', icon: M.insights, items: ['reports', 'leaveSummary', 'leaveRegister', 'registers', 'compliance', 'complianceCalendar', 'auditEvidence'] },
+    { key: 'reports', label: 'Reports', icon: M.insights, items: ['reports', 'leaveSummary', 'leaveRegister', 'registers', 'compliance', 'auditEvidence'] },
     { key: 'settings', label: 'Settings', icon: M.settings, items: ['settings'] },
   ],
 
@@ -423,7 +422,8 @@ export const peopleApp = {
     { key: 'leaveSummary', label: 'Leave summary', icon: I.summary, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'dataHealth', label: 'Data check', icon: I.dataCheck, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     { key: 'compliance', label: 'Compliance', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'complianceCalendar', label: 'Compliance calendar', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
+    /* The old compliance calendar, retired into Compliance (gap 10): a link or notice that still names it opens Compliance. */
+    { key: 'complianceCalendar', label: 'Compliance', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW', parent: 'compliance' },
     { key: 'privacy', label: 'Privacy controls', icon: I.privacy, permission: 'PEOPLE::Privacy::VIEW', parent: 'settings' },
     /* The external auditor's own list: what a live grant names (PRV-06). */
     { key: 'auditEvidence', label: 'Audit evidence', icon: I.evidence, permission: ['PEOPLE::Audit grant::VIEW'] },
@@ -521,7 +521,7 @@ export const peopleApp = {
     leaveSummary: LeaveSummaryReport,
     dataHealth: DataHealth,
     compliance: Compliance,
-    complianceCalendar: ComplianceCalendar,
+    complianceCalendar: Compliance,
     privacy: Privacy,
     auditEvidence: AuditEvidence,
     departments: withSidePanel(OrgDepartments, panel('DepartmentsPanel')),

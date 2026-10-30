@@ -2,11 +2,11 @@ import { Router, type Request } from 'express';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { CaseKeyMissing } from '../services/people/caseBox.js';
-import { CaseError, addEvidence, advance, annualReport, committeeOf, intake, myCases, openCase, openEvidence, saveCommittee } from '../services/people/privateCases.js';
+import { CaseError, addEvidence, advance, annualReport, committeeOf, intake, myCases, onPoshCommittee, openCase, openEvidence, saveCommittee } from '../services/people/privateCases.js';
 
 /**
  * Private cases (docs/people/02-PRD.md PRIV-01..06). The grant lets someone
@@ -27,11 +27,17 @@ const sendError = (res: any, e: unknown) => {
   return res.status(500).json({ error: 'Something went wrong.' });
 };
 
-/** The cases I am named on; nobody else learns a case exists. */
+/** The cases I am named on; nobody else learns a case exists. `annualReport`: whether I may open the POSH annual report. */
 peoplePrivateCasesRouter.get(base, async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  res.json({ cases: await myCases(req.tenant!.orgId, req.auth!.userId) });
+  res.json({ cases: await myCases(req.tenant!.orgId, req.auth!.userId), annualReport: await mayReadReport(req) });
 });
+
+/** The POSH annual report is the Internal Committee's to file: its members read it, as do those holding the Private Cases grant. Counts only. */
+async function mayReadReport(req: Request) {
+  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, CASES))) return true;
+  return onPoshCommittee(req.tenant!.orgId, req.auth?.userId || '');
+}
 
 peoplePrivateCasesRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
@@ -56,12 +62,13 @@ peoplePrivateCasesRouter.put(`${base}/committee/:kind`, can(PermissionAction.EDI
   }
 });
 
-/** The POSH annual report: counts only (PRIV-05). */
-peoplePrivateCasesRouter.get(`${base}/report/:year`, can(PermissionAction.VIEW), async (req, res) => {
+/** The POSH annual report: counts only (PRIV-05), for the committee and the grant (gap 12). */
+peoplePrivateCasesRouter.get(`${base}/report/:year`, async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
+  if (!(await mayReadReport(req))) return res.status(403).json({ error: 'The annual report is for the Internal Committee and those who keep confidential cases.' });
   const year = Number(req.params.year);
   if (!Number.isInteger(year) || year < 2013 || year > 2100) return res.status(400).json({ error: 'Give a year.' });
-  res.json({ report: await annualReport(req.tenant!.orgId, year) });
+  res.json({ report: await annualReport(req.tenant!.orgId, year, req.tenant!.accountId) });
 });
 
 peoplePrivateCasesRouter.get(`${base}/:id`, async (req, res) => {

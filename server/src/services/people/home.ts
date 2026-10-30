@@ -8,7 +8,7 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../payroll/guards.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE } from './guards.js';
 import { openTasks } from './checklists.js';
 import { dataHealth } from './dataHealth.js';
-import { calendar } from './compliance.js';
+import { buildObligations } from './complianceRules.js';
 
 /**
  * People → Home: what needs someone today, not a wall of charts (founder,
@@ -47,7 +47,8 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
     const [tasks, health, compliance, docs, people, assetsOut] = await Promise.all([
       openTasks(orgId, 500),
       dataHealth(accountId, orgId, { payroll: payrollProfiles }),
-      calendar({ accountId, orgId, userId }),
+      /* Compliance deadlines (rules, Payroll's statutory dates, registrations, the company's own): late, and due this week. A standing duty is not a deadline, so it waits on the Compliance screen. */
+      buildObligations(accountId, orgId).then(() => peoplePrisma.obligation.findMany({ where: { orgId, status: { in: ['DUE', 'OVERDUE'] }, period: { not: 'STANDING' } }, select: { status: true, dueOn: true } })),
       peoplePrisma.employeeDocument.count({ where: { accountId, orgId, expiresOn: { gte: today, lte: month } } }),
       peoplePrisma.employee.findMany({ where: { accountId, orgId, status: { not: 'LEFT' } }, select: { probationEndDate: true, confirmedOn: true, contractEndDate: true } }),
       /* Company property still with someone who has left: the exit checklist's question, asked of the asset register. */
@@ -57,9 +58,9 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
     const dueSoon = tasks.filter((t) => !t.overdue && t.dueDate && t.dueDate <= week).length;
     if (late || dueSoon) out.push({ key: 'checklists', title: 'Joining and leaving tasks', detail: [late && `${late} late`, dueSoon && `${dueSoon} due this week`].filter(Boolean).join(' · '), count: late + dueSoon, tone: late ? 'urgent' : 'soon', screen: 'checklists' });
     if (health.blocking) out.push({ key: 'dataHealth', title: 'Details that would stop payroll', detail: `${plural(health.blocking, 'person', 'people')} to fix: missing PAN, UAN, bank, joining date…`, count: health.blocking, tone: 'urgent', screen: 'dataHealth' });
-    const cLate = compliance.summary.overdue;
-    const cSoon = compliance.summary.dueSoon;
-    if (cLate || cSoon) out.push({ key: 'compliance', title: 'Statutory deadlines', detail: [cLate && `${cLate} late`, cSoon && `${cSoon} due this week`].filter(Boolean).join(' · '), count: cLate + cSoon, tone: cLate ? 'urgent' : 'soon', screen: 'complianceCalendar' });
+    const cLate = compliance.filter((o) => o.status === 'OVERDUE').length;
+    const cSoon = compliance.filter((o) => o.status === 'DUE' && o.dueOn <= week).length;
+    if (cLate || cSoon) out.push({ key: 'compliance', title: 'Compliance deadlines', detail: [cLate && `${cLate} late`, cSoon && `${cSoon} due this week`].filter(Boolean).join(' · '), count: cLate + cSoon, tone: cLate ? 'urgent' : 'soon', screen: 'compliance', params: cLate ? { status: 'OVERDUE' } : { status: 'DUE' } });
     if (docs) out.push({ key: 'documents', title: 'Documents expiring', detail: `${plural(docs, 'document')} expire in the next 30 days`, count: docs, tone: 'soon', screen: 'documents' });
     /* Ending soon, or already over and not yet decided: a passed date is the more urgent one, not a reason to drop it. */
     const unconfirmed = people.filter((p) => p.probationEndDate && !p.confirmedOn && p.probationEndDate <= month);
