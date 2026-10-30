@@ -165,6 +165,11 @@ const DataProtection = screen('DataProtection');
 const DataRequests = screen('DataRequests');
 const SsoSettings = screen('SsoSettings');
 const RolesAccess = screen('RolesAccess');
+/* Request types HR sets up, their report, shift swaps and a person's own requests (FEATURE-UI-AUDIT gaps 24, 25). */
+const RequestForms = screen('RequestForms');
+const RequestsReport = screen('RequestsReport');
+const ShiftSwaps = screen('ShiftSwaps');
+const MyRequests = screen('MyRequests');
 
 /* A Phosphor line mark, for the app's own tile in the bar (white on teal), where a full-colour icon would clash. */
 const line = (Icon, name, tint) => {
@@ -304,7 +309,7 @@ export const peopleApp = {
   /* The phone's tab bar (spec v1 §6): what employees and managers reach for; the rest is behind Menu. */
   mobileTabs: ['overview', 'employees', 'approvals', 'leaveRequests'],
   /* A person's own pages, opened from My profile rather than the admin menu (owner, 28 Oct 2026 audit). */
-  profileLinks: ['myLeave', 'myDays'],
+  profileLinks: ['myLeave', 'myDays', 'myRequests'],
   /* Grant- and membership-based access the shell merges with the person's permissions (src/api/access.js). */
   access: () => import('./src/api/access.js').then((m) => m.myPeopleAccess()),
 
@@ -329,7 +334,7 @@ export const peopleApp = {
        days live under My profile, not in the admin menu. Leave register is a statutory form: Reports. */
     { key: 'leave', label: 'Time', icon: M.time, groups: [
       { label: 'Leave', items: ['timeOverview', 'leaveRequests', 'leaveCalendar', 'leaveBalances', 'standIns'] },
-      { label: 'Attendance', items: ['attendance', 'attendanceRequests'] },
+      { label: 'Attendance', items: ['attendance', 'attendanceRequests', 'shiftSwaps'] },
     ] },
     /* Talent (owner, 28 Oct 2026): hiring and growing people, one module so the rail has room for what comes next. */
     { key: 'talent', label: 'Talent', icon: M.hiring, groups: [
@@ -342,7 +347,7 @@ export const peopleApp = {
       { label: 'Help', items: ['helpdesk', 'policies', 'privateCases'] },
     ] },
     /* Reports holds reports only (and the outside auditor's evidence); data checks, privacy and audit logs live once, in Settings. */
-    { key: 'reports', label: 'Reports', icon: M.insights, items: ['reports', 'leaveSummary', 'leaveRegister', 'registers', 'compliance', 'auditEvidence'] },
+    { key: 'reports', label: 'Reports', icon: M.insights, items: ['reports', 'leaveSummary', 'leaveRegister', 'requestsReport', 'registers', 'compliance', 'auditEvidence'] },
     { key: 'settings', label: 'Settings', icon: M.settings, items: ['settings'] },
   ],
 
@@ -379,6 +384,11 @@ export const peopleApp = {
     { key: 'customFields', label: 'Custom fields', icon: I.field, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
     { key: 'selfServiceChanges', label: 'Self-service edits', icon: I.key, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
     { key: 'approvalRules', label: 'Approval rules', icon: I.checklist, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
+    { key: 'requestForms', label: 'Request types', icon: I.policy, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
+    { key: 'requestsReport', label: 'Requests report', icon: I.report, permission: 'PEOPLE::Approvals::VIEW' },
+    /* Swaps asked in the employee app; HR sees all, a manager their team (the server decides). */
+    { key: 'shiftSwaps', label: 'Shift swaps', icon: I.change, permission: 'PEOPLE::Requests::VIEW' },
+    { key: 'myRequests', label: 'My requests', icon: I.requests, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'timeOverview', label: "Who's away", icon: I.away, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRequests', label: 'Leave requests', short: 'Leave', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveBalances', label: 'Leave balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
@@ -483,6 +493,10 @@ export const peopleApp = {
     customFields: CustomFieldsSettings,
     selfServiceChanges: SelfServiceSettings,
     approvalRules: ApprovalRules,
+    requestForms: RequestForms,
+    requestsReport: RequestsReport,
+    shiftSwaps: ShiftSwaps,
+    myRequests: MyRequests,
     selfService: PortalAccess,
     timeOverview: withSidePanel(TimeOverview, panel('TimeOverviewPanel')),
     workingWeek: WorkingWeek,

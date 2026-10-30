@@ -25,6 +25,7 @@ const GROUPS = [
       ['letterTemplates', 'Offer, appointment, relieving and other letters the company issues'],
       ['helpDeskSettings', 'Help desk categories, reply and resolve times, and answer templates'],
       ['approvalRules', 'Who decides job changes, resignations, probation, policies: steps, due days, overdue'],
+      ['requestForms', 'Requests people can make, such as an ID card or a salary certificate: the form, who may ask, who approves'],
       ['selfService', 'Who can sign in to the employee app'],
       ['selfServiceChanges', 'Which of their own details employees may change without waiting for HR'],
     ],

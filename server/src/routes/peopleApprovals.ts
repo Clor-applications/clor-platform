@@ -14,7 +14,7 @@ import { correlationOf } from '../services/people/employees.js';
 import { todayIst } from '../services/people/lifecycle/board.js';
 import { usersWithPermission } from '../services/notifications.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
-import { ApprovalError, REQUEST_TYPES, RULE_TYPES, activeRule, cleanSteps, decide, mine, namesFor, reply, retireRule, saveRule, shape, submitRequest, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
+import { ApprovalError, REQUEST_TYPES, RULE_TYPES, isFormType, activeRule, cleanSteps, decide, mine, namesFor, reply, retireRule, saveRule, shape, submitRequest, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
 
 /**
  * Approvals (docs/people/02-PRD.md APR-01..07): rules, requests, decisions,
@@ -47,10 +47,14 @@ peopleApprovalsRouter.get(`${base}/approval-rules`, can(PermissionAction.VIEW, A
   if (!(await peopleRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const rows = await peoplePrisma.approvalRule.findMany({ where: { orgId }, orderBy: [{ requestType: 'asc' }, { version: 'desc' }] });
-  res.json({ rules: rows, requestTypes: RULE_TYPES });
+  /* Request types HR made (gap 25): each has its own rule, written FORM:<id>, and is named here so the screen can say which. */
+  const forms = await peoplePrisma.requestForm.findMany({ where: { orgId }, select: { id: true, name: true, active: true }, orderBy: { name: 'asc' } });
+  res.json({ rules: rows, requestTypes: RULE_TYPES, forms: forms.map((f) => ({ requestType: `FORM:${f.id}`, name: f.name, active: f.active })) });
 });
 
-const ruleSchema = z.object({ requestType: z.enum(RULE_TYPES), name: z.string().trim().min(1, 'Name the rule.').max(120), steps: z.array(z.any()).min(1) });
+/** A fixed type, or one of this company's own request types (FORM:<id>). */
+const ruleTypeOk = async (orgId: string, type: string) => (RULE_TYPES as readonly string[]).includes(type) || (isFormType(type) && Boolean(await peoplePrisma.requestForm.findFirst({ where: { id: type.slice(5), orgId }, select: { id: true } })));
+const ruleSchema = z.object({ requestType: z.string().trim().max(60), name: z.string().trim().min(1, 'Name the rule.').max(120), steps: z.array(z.any()).min(1) });
 
 /** Saving writes a new version of the rule for that request type. */
 peopleApprovalsRouter.post(`${base}/approval-rules`, can(PermissionAction.EDIT, APPROVALS), async (req, res) => {
@@ -60,14 +64,15 @@ peopleApprovalsRouter.post(`${base}/approval-rules`, can(PermissionAction.EDIT, 
   const steps = cleanSteps(parsed.data.steps);
   if (typeof steps === 'string') return res.status(400).json({ error: steps });
   const { accountId, orgId } = req.tenant!;
-  const rule = await saveRule({ accountId, orgId, userId: req.auth!.userId }, parsed.data.requestType, parsed.data.name, steps);
+  if (!(await ruleTypeOk(orgId, parsed.data.requestType))) return res.status(400).json({ error: 'Unknown request type.' });
+  const rule = await saveRule({ accountId, orgId, userId: req.auth!.userId }, parsed.data.requestType as RuleType, parsed.data.name, steps);
   res.status(201).json({ rule });
 });
 
 peopleApprovalsRouter.delete(`${base}/approval-rules/:requestType`, can(PermissionAction.DELETE, APPROVALS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const type = String(req.params.requestType) as RuleType;
-  if (!(RULE_TYPES as readonly string[]).includes(type)) return res.status(404).json({ error: 'Unknown request type.' });
+  if (!(await ruleTypeOk(req.tenant!.orgId, type))) return res.status(404).json({ error: 'Unknown request type.' });
   const retired = await retireRule(req.tenant!.orgId, type);
   res.json({ ok: true, retired });
 });
@@ -131,7 +136,8 @@ async function requirePermissionCheck(req: Request, resource: string) {
 }
 
 const submitSchema = z.object({
-  requestType: z.enum(REQUEST_TYPES),
+  /* A shift swap is asked from the employee app, colleague first (services/people/shiftSwaps.ts), and a form request through its form: neither from here. */
+  requestType: z.enum(REQUEST_TYPES).refine((t) => t !== 'SHIFT_SWAP', 'A shift swap is asked from the employee app.'),
   subjectEmployeeId: z.string().trim().max(60).optional().nullable(),
   title: z.string().trim().min(1, 'Say what is asked.').max(200),
   payload: z.record(z.string(), z.any()).default({}),
@@ -304,7 +310,7 @@ peopleApprovalsRouter.delete(`${base}/stand-ins/:id`, can(PermissionAction.VIEW,
 peopleApprovalsRouter.get(`${base}/approval-rules/active/:requestType`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const type = String(req.params.requestType) as RuleType;
-  if (!(RULE_TYPES as readonly string[]).includes(type)) return res.status(404).json({ error: 'Unknown request type.' });
+  if (!(await ruleTypeOk(req.tenant!.orgId, type))) return res.status(404).json({ error: 'Unknown request type.' });
   const rule = await activeRule(req.tenant!.orgId, type);
   res.json({ rule: rule ? { id: rule.id, name: rule.name, version: rule.version, steps: rule.steps } : null });
 });

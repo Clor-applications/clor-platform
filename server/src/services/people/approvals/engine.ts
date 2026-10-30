@@ -29,8 +29,17 @@ import { registerJob } from '../../jobRegistry.js';
  * request type names, registered by the module that owns it.
  */
 
-export const REQUEST_TYPES = ['PROFILE_CHANGE', 'JOB_CHANGE', 'LEAVING', 'DOCUMENT_REQUEST', 'LETTER_REQUEST', 'POLICY_PUBLISH', 'DESK_ESCALATION', 'SEAT_REQUEST', 'PROBATION'] as const;
-export type RequestType = (typeof REQUEST_TYPES)[number];
+export const REQUEST_TYPES = ['PROFILE_CHANGE', 'JOB_CHANGE', 'LEAVING', 'DOCUMENT_REQUEST', 'LETTER_REQUEST', 'POLICY_PUBLISH', 'DESK_ESCALATION', 'SEAT_REQUEST', 'PROBATION', 'SHIFT_SWAP'] as const;
+/**
+ * A request type HR defines with a short form (FEATURE-UI-AUDIT gap 25,
+ * services/people/requestForms.ts) is `FORM:<RequestForm id>`: its rule, its
+ * requests and its steps are the engine's like any other; approving it
+ * records the decision and nothing else.
+ */
+export type FormRequestType = `FORM:${string}`;
+export type RequestType = (typeof REQUEST_TYPES)[number] | FormRequestType;
+export const FORM_PREFIX = 'FORM:';
+export const isFormType = (t: unknown): t is FormRequestType => typeof t === 'string' && /^FORM:[a-z0-9]{8,40}$/.test(t);
 /**
  * The kinds a rule can be written for: every request type, and leave
  * (owner, 28 Oct 2026). Leave keeps its own request and balance and walks the
@@ -38,7 +47,7 @@ export type RequestType = (typeof REQUEST_TYPES)[number];
  * through this engine, so LEAVE is not a RequestType.
  */
 export const RULE_TYPES = [...REQUEST_TYPES, 'LEAVE'] as const;
-export type RuleType = (typeof RULE_TYPES)[number];
+export type RuleType = (typeof RULE_TYPES)[number] | FormRequestType;
 
 export type ApproverSpec = { kind: 'MANAGER' | 'MANAGER_OF_MANAGER' | 'USER' | 'ROLE' | 'HR'; id?: string };
 /** gt / lt compare numbers (a leave's days); the others compare text. */
@@ -58,6 +67,26 @@ type Check = (request: RequestRow) => Promise<void>;
 const checks = new Map<RequestType, Check>();
 export function beforeApproving(type: RequestType, check: Check) {
   checks.set(type, check);
+}
+/**
+ * What a request type's own record does when the request closes without
+ * approval: rejected, withdrawn, or approved but not applied. A shift swap
+ * keeps its own status in step this way. Never fails the decision: an error
+ * is logged, and the owner's read path squares it up again.
+ */
+type Closed = (request: RequestRow, status: 'REJECTED' | 'WITHDRAWN', note: string | null) => Promise<void>;
+const closers = new Map<string, Closed>();
+export function onClosed(type: RequestType, fn: Closed) {
+  closers.set(type, fn);
+}
+async function tellClosed(request: RequestRow, status: 'REJECTED' | 'WITHDRAWN', note: string | null) {
+  const fn = closers.get(request.requestType);
+  if (!fn) return;
+  try {
+    await fn(request, status, note);
+  } catch (e) {
+    console.error(`[people-approvals] ${request.orgId}: request ${request.id} closed, its own record not updated:`, e instanceof Error ? e.message : e);
+  }
 }
 
 /** Someone who asked from the employee app without a CLOR sign-in is the requester `portal:<employeeId>`. */
@@ -403,6 +432,7 @@ async function closeUnapplied(actor: Actor, request: RequestRow, decisionId: str
       await writeChangeLog(tx, actor, { kind: 'ApprovalRequest', id: r.id, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: 'WAITING', after: 'REJECTED', redacted: false }]);
       return r;
     });
+    await tellClosed(closed, 'REJECTED', `Could not apply: ${reason}`);
     await tellRequester(closed, `Approved but not applied: ${closed.title}`, `Could not apply: ${reason} Ask again once that is fixed.`);
     const hr = (await hrDeciders(closed.accountId, closed.orgId)).filter((u) => u !== closed.requesterUserId);
     await notifyUsers(closed.accountId, closed.orgId, hr, { kind: 'people.approval', title: `Approved but not applied: ${closed.title}`, body: `Could not apply: ${reason}`, link: { app: 'people', screen: 'approvals' } as any }, { except: actor.userId });
@@ -451,6 +481,7 @@ export async function decide(actor: Actor, requestId: string, decision: Decision
   });
   if (result === 'DONE') return approveFinal(actor, request.id);
   const fresh = await peoplePrisma.approvalRequest.findUniqueOrThrow({ where: { id: request.id }, include });
+  if (result === 'REJECTED') await tellClosed(fresh, 'REJECTED', comment);
   if (result === 'OPENED') await notifyStep(fresh);
   else await tellRequester(fresh, `${result === 'REJECTED' ? 'Not approved' : 'More information asked for'}: ${fresh.title}`, comment);
   return { request: fresh };
@@ -482,12 +513,17 @@ export async function withdraw(actor: Actor, requestId: string) {
   if (!request) throw new ApprovalError('No such request.', 404, 'NOT_FOUND');
   if (request.requesterUserId !== actor.userId) throw new ApprovalError('Only the person who asked can withdraw it.', 403);
   if (!['WAITING', 'MORE_INFO'].includes(request.status)) throw new ApprovalError(`This request is ${request.status.toLowerCase()}.`, 409, 'NOT_WAITING');
-  return peoplePrisma.$transaction(async (tx) => {
+  const done = await peoplePrisma.$transaction(async (tx) => {
+    /* Claimed while still open: a withdraw racing a decision leaves one outcome. */
+    const claimed = await tx.approvalRequest.updateMany({ where: { id: request.id, orgId: actor.orgId, status: { in: ['WAITING', 'MORE_INFO'] } }, data: { status: 'WITHDRAWN' } });
+    if (!claimed.count) throw new ApprovalError('This was decided a moment ago.', 409, 'NOT_WAITING');
     await tx.approvalStep.updateMany({ where: { requestId: request.id, status: 'WAITING' }, data: { status: 'WITHDRAWN' } });
-    const r = await tx.approvalRequest.update({ where: { id: request.id }, data: { status: 'WITHDRAWN' }, include });
+    const r = await tx.approvalRequest.findUniqueOrThrow({ where: { id: request.id }, include });
     await writeChangeLog(tx, actor, { kind: 'ApprovalRequest', id: r.id, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: request.status, after: 'WITHDRAWN', redacted: false }]);
     return r;
   });
+  await tellClosed(done, 'WITHDRAWN', null);
+  return done;
 }
 
 // ---------------------------------------------------------------------------

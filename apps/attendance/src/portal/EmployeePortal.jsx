@@ -17,6 +17,8 @@ import { LeavingCompany, MySteps, PayCard, Payslips, PrivateComplaint } from './
 import { HolidaysYear, WhatsNew } from './PortalFeeds';
 import MyGrowth from './MyGrowth';
 import { MonthReview, MyOvertime } from './MonthAndOvertime';
+import ShiftSwaps from './ShiftSwaps';
+import MyForms from './MyForms';
 import {
   SignedOut,
   acceptItem,
@@ -85,6 +87,8 @@ export default function EmployeePortal() {
   const presetUsed = useCallback(() => setAskPreset(null), []);
   const askBank = useCallback(() => setAskPreset({ category: 'PAYROLL', subject: 'Change my salary account', description: 'Please change the bank account my salary is paid into. Tell me how to give you the new account details.' }), []);
   const resigned = useCallback(() => setLeavingSent((n) => n + 1), []);
+  /* A swap answered or withdrawn reloads My schedule below it. */
+  const [scheduleKey, setScheduleKey] = useState(0);
 
   useEffect(() => {
     document.title = 'Employee portal · Clor';
@@ -152,7 +156,7 @@ export default function EmployeePortal() {
         {tab === 'today' ? <><WhatsNew guard={guard} /><Today me={me} reload={loadMe} guard={guard} /><CompanyUpdates guard={guard} /></> : null}
         {tab === 'days' ? <><MyDays guard={guard} /><MonthReview guard={guard} /><MyOvertime guard={guard} /></> : null}
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
-        {tab === 'schedule' ? <MySchedule guard={guard} /> : null}
+        {tab === 'schedule' ? <><ShiftSwaps guard={guard} onChanged={() => setScheduleKey((n) => n + 1)} /><MySchedule key={scheduleKey} guard={guard} /></> : null}
         {tab === 'leave' ? <MyLeave guard={guard} /> : null}
         {tab === 'me' ? (
           <>
@@ -161,6 +165,7 @@ export default function EmployeePortal() {
             <MyGrowth guard={guard} />
             <Payslips guard={guard} />
             <MyDetails guard={guard} refreshKey={leavingSent} />
+            <MyForms guard={guard} />
             <Policies guard={guard} />
             {deskOn ? <PayCard onAsk={askBank} /> : null}
             <AskHr guard={guard} preset={askPreset} onPresetUsed={presetUsed} onAvailability={setDeskOn} />
