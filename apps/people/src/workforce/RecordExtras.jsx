@@ -10,6 +10,8 @@ import { currentUser, orgId as currentOrgId, branchId as currentBranchId } from 
 import { featuresFor } from '@platform/auth';
 
 import { appAccessSends, decideProbation, getProbation, listAssets, policiesFor, saveProbationReview } from './api';
+import { getCelebrationsFor, setCelebrationsFor } from '../api/engagement';
+import Toggle from '../components/Toggle';
 
 /*
  * Parts of the employee record that each read one more thing the server
@@ -240,6 +242,39 @@ export function AppAccessHistory({ employeeId, canSend, onSend }) {
             </li>
           ))}
         </ul>
+      )}
+    </Part>
+  );
+}
+
+/**
+ * Birthdays and work anniversaries (WORKFLOW-GAP-RESEARCH 4.8): whether the team is told. The person turns it
+ * off in the employee app; HR records it here for someone who asked in person. The year of birth is never shown.
+ */
+export function PersonCelebrations({ employeeId }) {
+  const req = useRequest(() => getCelebrationsFor(employeeId), [employeeId]);
+  const [busy, setBusy] = useState(false);
+  if (req.error) return null;
+  const d = req.data;
+  const change = async (on) => {
+    setBusy(true);
+    try {
+      await setCelebrationsFor(employeeId, !on);
+      notify.success(on ? 'They will be announced again.' : 'They will not be announced.');
+      req.reload();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not saved.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Part title="Birthdays and anniversaries">
+      {!d ? <span className="ui-skel ui-skel-text" /> : (
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm">{d.optedOut ? 'Not announced: they asked not to be.' : 'Announced to their team on their birthday and work anniversary.'}{d.canEdit ? '' : ' HR changes this.'}</p>
+          <Toggle checked={!d.optedOut} disabled={!d.canEdit || busy} label="Announce their birthday and work anniversary" onChange={change} />
+        </div>
       )}
     </Part>
   );

@@ -1125,6 +1125,31 @@
       "method": "POST",
       "path": "/api/portal/people/time/night-consent",
       "reason": "Employee self-service (night-work consent B19): portal token + anyAppLive; a woman gives or withdraws her own consent, dated today, as portal:<employeeId>; optional signed copy content-sniffed, 5 MB; HR told when withdrawn with night shifts ahead."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/engage/today",
+      "reason": "Employee self-service (greetings 4.8): portal token + anyAppLive; today's birthdays and anniversaries in the person's own team (opted-out people left out, never a birth year) and tomorrow's holiday on their own list (greetings.feedFor)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/engage/exit-interview",
+      "reason": "Employee self-service (exit interview 4.9): portal token + anyAppLive; the person's own exit interview while they are leaving, with its questions and purpose (exitInterview.myInterview)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/engage/exit-interview",
+      "reason": "Employee self-service (exit interview 4.9): portal token + anyAppLive; the person sends their own answers once (the write checks it is still open), optionally hidden from their manager; HR told."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/engage/celebrations",
+      "reason": "Employee self-service (greetings 4.8): portal token + anyAppLive; whether the person is announced on their own birthday and work anniversary."
+    },
+    {
+      "method": "PUT",
+      "path": "/api/portal/people/engage/celebrations",
+      "reason": "Employee self-service (greetings 4.8): portal token + anyAppLive; the person opts themselves out of being announced, or back in (CelebrationOptOut, idempotent)."
     }
   ]
 }

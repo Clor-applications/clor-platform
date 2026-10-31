@@ -27,6 +27,9 @@ export { default as AttendanceRulesSettings } from './time/AttendanceRules';
 export { default as LateMarks } from './time/LateMarks';
 export { default as Absences } from './time/Absences';
 export { default as NightWork } from './time/NightWork';
+/* Ready-made automations and the exit interview's questions (WORKFLOW-GAP-RESEARCH 4.7, 4.9). */
+export { default as Automations } from './screens/Automations';
+export { default as ExitQuestions } from './screens/ExitQuestions';
 export { default as HelpDesk } from './screens/HelpDesk';
 export { default as PrivateCases } from './screens/PrivateCases';
 export { default as HelpDeskSettings } from './screens/HelpDeskSettings';

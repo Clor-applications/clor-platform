@@ -35,6 +35,26 @@ export async function teamScope(req: Request): Promise<TeamScope> {
   return { all: false, ids: [...ids], selfId: me.id };
 }
 
+/**
+ * Whether this user sits above the person on the reporting line (solid or dotted, any number of steps up).
+ * Unlike `teamScope` it does not depend on the role: IT reads the whole company and is on nobody's line.
+ */
+export async function inReportingLine(orgId: string, userId: string, employeeId: string) {
+  /* Their current record: someone who has left is on nobody's line, and a rehire's latest stint is the one that counts. */
+  const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId, status: { not: 'LEFT' } }, orderBy: [{ dateOfJoining: 'desc' }, { id: 'asc' }], select: { id: true } });
+  if (!me || me.id === employeeId) return false;
+  const seen = new Set([employeeId]);
+  let frontier = [employeeId];
+  for (let depth = 0; depth < 20 && frontier.length; depth += 1) {
+    const up = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: frontier } }, select: { reportingManagerId: true, dottedManagerId: true } });
+    const next = up.flatMap((r) => [r.reportingManagerId, r.dottedManagerId]).filter((id): id is string => Boolean(id) && !seen.has(id as string));
+    if (next.includes(me.id)) return true;
+    for (const id of next) seen.add(id);
+    frontier = [...new Set(next)];
+  }
+  return false;
+}
+
 /** The `where` fragment for an employee query under this scope. */
 export const scopeWhere = (scope: TeamScope): Record<string, unknown> => (scope.all ? {} : { id: { in: scope.ids } });
 

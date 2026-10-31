@@ -3120,7 +3120,7 @@ model ChecklistTask {
   accountId    String
   orgId        String
   employeeId   String
-  /// JOINING | LEAVING | CHANGE | PROBATION
+  /// JOINING | LEAVING | CHANGE | PROBATION | LEAVING_WITHDRAWN (a withdrawn leaving's steps, kept on the record)
   kind         String
   title        String
   /// The role: HR, MANAGER, PAYROLL, IT, EMPLOYEE
@@ -4110,4 +4110,151 @@ model NightWorkConsent {
   createdAt        DateTime @default(now())
 
   @@index([orgId, employeeId, createdAt])
+}
+
+/// No-dues sign-off on a leaving (WORKFLOW-GAP-RESEARCH-2026-10-30 A9/A10, 4.3): one line per department
+/// (manager, IT, admin, finance, or the company's own), each with its owner, the things to hand back (held
+/// assets from the register), money owed either way, and a sign-off. Tied to the stint by the leaving date,
+/// so a rehire starts clean. Never holds up the statutory final wages: an open line is a warning only.
+model ClearanceLine {
+  id             String    @id @default(cuid())
+  accountId      String
+  orgId          String
+  employeeId     String
+  /// The last working day this line belongs to (YYYY-MM-DD).
+  leavingDate    String
+  /// MANAGER | IT | ADMIN | FINANCE | CUSTOM
+  dept           String
+  label          String
+  ownerUserId    String?
+  /// [{ title, assetId?, tag?, returned }]: what to hand back; asset lines come from the register.
+  items          Json      @default("[]")
+  /// NONE | OWES (the leaver owes the company) | OWED (the company owes the leaver)
+  direction      String    @default("NONE")
+  amount         Decimal   @default(0) @db.Decimal(14, 2)
+  note           String?
+  /// OPEN | CLEAR | WITHDRAWN (the leaving was withdrawn: kept on the record, out of everything else)
+  status         String    @default("OPEN")
+  signedByUserId String?
+  signedAt       DateTime?
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([orgId, employeeId, leavingDate, dept, label])
+  @@index([orgId, employeeId])
+}
+
+/// An exit interview (WORKFLOW-GAP-RESEARCH 4.9): the company's short questionnaire, filled by the leaver
+/// in the employee app or entered by HR; optionally hidden from their manager. HR records whether they
+/// could have been kept and the outcome. Answers are erased after `keepUntil` (DPDP: kept no longer than needed).
+model ExitInterview {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  employeeId      String
+  leavingDate     String
+  /// OPEN | SUBMITTED
+  status          String    @default("OPEN")
+  /// The questions as asked: [{ key, text, kind: REASON | CHOICE | TEXT, options? }]
+  questions       Json      @default("[]")
+  /// { [key]: answer }
+  answers         Json      @default("{}")
+  /// The main reason (a REASON option's code), for the report.
+  reason          String?
+  hideFromManager Boolean   @default(false)
+  /// EMPLOYEE | HR
+  enteredBy       String?
+  enteredByUserId String?
+  submittedAt     DateTime?
+  /// YES | NO | MAYBE: HR's view of "could we have kept them".
+  couldKeep       String?
+  /// EXIT_CONFIRMED | RETAINED
+  outcome         String?
+  outcomeNote     String?
+  outcomeByUserId String?
+  outcomeAt       DateTime?
+  remindedOn      String?
+  /// After this day the answers are erased (the reason and outcome stay for the report).
+  keepUntil       String?
+  erasedAt        DateTime?
+  /// The leaving was withdrawn (lifecycle/stayOn.ts): a later leaving does not take this one over.
+  withdrawnAt     DateTime?
+  /// 0 for the leaving in progress; a withdrawn one gets a number of its own, so a new leaving on the same
+  /// last day opens a fresh interview and the withdrawn one stays as it was.
+  round           Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([orgId, employeeId, leavingDate, round])
+  @@index([orgId, submittedAt])
+}
+
+/// A company's exit questions and its ready-made automations (WORKFLOW-GAP-RESEARCH 4.7, 4.9).
+model EngagementSettings {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String   @unique
+  /// { questions: [...], keepMonths }; [] = CLOR's five default questions, answers kept 24 months.
+  exitQuestions   Json     @default("[]")
+  /// { [recipeKey]: { on, n } }; a recipe not named keeps its default.
+  automations     Json     @default("{}")
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+}
+
+/// What a recipe sent on a day, for "last ran, how many, to whom" (WORKFLOW-GAP-RESEARCH 4.7).
+model AutomationRun {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  key        String
+  ranOn      String
+  count      Int      @default(0)
+  /// Names of who got it (at most 20).
+  recipients Json     @default("[]")
+  /// The run failed part way: the next wake today takes the claim and runs it again.
+  retry      Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([orgId, key, ranOn])
+}
+
+/// Someone who asked not to be announced on their birthday or work anniversary (WORKFLOW-GAP-RESEARCH 4.8).
+model CelebrationOptOut {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  /// A CLOR user, or portal:<employeeId> from the employee app.
+  byUserId   String
+  createdAt  DateTime @default(now())
+
+  @@unique([orgId, employeeId])
+}
+
+/// The day's greetings and holiday heads-ups, written once by the daily job, read by the employee app's
+/// feed and People Home (WORKFLOW-GAP-RESEARCH 4.8). Never carries a birth year.
+model GreetingPost {
+  id          String   @id @default(cuid())
+  accountId   String
+  orgId       String
+  onDate      String
+  /// BIRTHDAY | ANNIVERSARY | HOLIDAY
+  kind        String
+  /// BIRTHDAY:<employeeId>, ANNIVERSARY:<employeeId>, HOLIDAY:<holidayId>
+  key         String
+  employeeId  String?
+  years       Int?
+  holidayId   String?
+  holidayDate String?
+  /// A holiday for one area or branch only goes to the people there.
+  areaId      String?
+  branchId    String?
+  text        String
+  createdAt   DateTime @default(now())
+
+  @@unique([orgId, onDate, key])
+  @@index([orgId, onDate])
 }

@@ -8,6 +8,7 @@ import { sendNotice, usersWithPermission } from '../../notifications.js';
 import { startChecklist } from '../checklists.js';
 import { NO_SETTLEMENT } from './leaving.js';
 import { checkReaderTasks } from './readersDone.js';
+import { automation, recordRun } from '../engagement/automations.js';
 
 /**
  * The Joining & Leaving job (every 15 minutes, woken by Cloud Scheduler on
@@ -65,6 +66,8 @@ type DueTask = { id: string; accountId: string; orgId: string; employeeId: strin
 
 /** One company's digest for the day. */
 async function digestFor(accountId: string, orgId: string, today: string) {
+  /* Settings → Automations (WORKFLOW-GAP-RESEARCH 4.7): a company that switched the digest off gets none; the tasks still show on Home and Tasks. */
+  if (!(await automation(orgId, 'taskDigest')).on) return 0;
   const due = (await peoplePrisma.checklistTask.findMany({ where: { orgId, doneAt: null, dueDate: { lte: today }, OR: [{ remindedOn: null }, { remindedOn: { lt: today } }] }, orderBy: { dueDate: 'asc' }, take: 1000 })) as DueTask[];
   if (!due.length) return 0;
   const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(due.map((t) => t.employeeId))] } }, select: { id: true, name: true } })).map((p) => [p.id, p.name]));
@@ -79,6 +82,7 @@ async function digestFor(accountId: string, orgId: string, today: string) {
   if (!recipients.size) return 0;
   const users = new Map((await platformPrisma.user.findMany({ where: { id: { in: [...recipients] } }, select: { id: true, email: true, fullName: true } })).map((u) => [u.id, u]));
   let sent = 0;
+  const told: string[] = [];
   for (const userId of recipients) {
     const mine = byOwner.get(userId) || [];
     const others = hr.includes(userId) ? stuck.filter((t) => t.ownerUserId !== userId) : [];
@@ -93,6 +97,7 @@ async function digestFor(accountId: string, orgId: string, today: string) {
     if (!n) continue;
     sent += 1;
     const u = users.get(userId);
+    if (u?.fullName) told.push(u.fullName);
     if (u?.email) {
       await sendTemplate({
         templateKey: 'people.task_digest', to: u.email, toName: u.fullName, accountId, orgId, relatedType: 'ChecklistTask', relatedId: (mine[0] || others[0]).id,
@@ -101,6 +106,7 @@ async function digestFor(accountId: string, orgId: string, today: string) {
     }
   }
   await peoplePrisma.checklistTask.updateMany({ where: { id: { in: due.map((t) => t.id) } }, data: { remindedOn: today } });
+  await recordRun(accountId, orgId, 'taskDigest', sent, told);
   return sent;
 }
 

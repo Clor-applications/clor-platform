@@ -22,6 +22,8 @@ const GROUPS = [
       ['tags', 'Labels to group people any way you like'],
       ['customFields', 'Your own fields on every person: who sees them, who edits them'],
       ['journeySteps', 'The steps when someone joins or leaves: whose, when, for whom, and which need a note'],
+      ['exitQuestions', 'The questions a leaver answers in the employee app, and how long answers are kept'],
+      ['automations', 'Reminders CLOR sends on its own: probation ending, final pay due, birthdays, leave waiting'],
       ['letterTemplates', 'Offer, appointment, relieving and other letters the company issues'],
       ['helpDeskSettings', 'Help desk categories, reply and resolve times, and answer templates'],
       ['approvalRules', 'Who decides job changes, resignations, probation, policies: steps, due days, overdue'],

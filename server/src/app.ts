@@ -46,6 +46,8 @@ import { peopleReferralsRouter } from './routes/peopleReferrals.js';
 import { peopleReferralsPortalRouter } from './routes/peopleReferralsPortal.js';
 import { peopleTimeRulesRouter } from './routes/peopleTimeRules.js';
 import { peopleTimePortalRouter } from './routes/peopleTimePortal.js';
+import { peopleEngagementRouter } from './routes/peopleEngagement.js';
+import { peopleEngagementPortalRouter } from './routes/peopleEngagementPortal.js';
 import { peopleJoinRouter } from './routes/peopleJoin.js';
 import { peopleInvitesRouter } from './routes/peopleInvites.js';
 import { peopleLettersRouter } from './routes/peopleLetters.js';
@@ -388,6 +390,7 @@ export function buildApp() {
   app.use('/api/portal/people/referrals', peopleReferralsPortalRouter);
   app.use('/api/portal/people/money', peopleMoneyPortalRouter);
   app.use('/api/portal/people/time', peopleTimePortalRouter);
+  app.use('/api/portal/people/engage', peopleEngagementPortalRouter);
   app.use('/api/portal/people', peoplePortalRouter);
   app.use('/api/portal', portalRouter);
 
@@ -436,6 +439,7 @@ export function buildApp() {
   app.use('/api', peopleRequestsRouter);
   app.use('/api', peopleMoneyRouter);
   app.use('/api', peopleTimeRulesRouter);
+  app.use('/api', peopleEngagementRouter);
   app.use('/api', peopleInvitesRouter);
   app.use('/api', peopleLettersRouter);
   app.use('/api', peoplePoliciesRouter);

@@ -58,6 +58,13 @@ const TABLES: Array<{ table: string; model: string; make: (c: Ctx, employeeId: s
   { table: 'AbsenceCase', model: 'absenceCase', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, fromDate: '2099-01-01', lastAbsentDate: '2099-01-05', days: 5 }) },
   { table: 'AbsenceNotice', model: 'absenceNotice', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, caseId: `case-${rnd()}`, employeeId, seq: 1, reportBy: '2099-01-10', text: 'x', sentByUserId: 'u' }) },
   { table: 'NightWorkConsent', model: 'nightWorkConsent', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, status: 'GIVEN', onDate: '2099-01-01', recordedByUserId: 'u' }) },
+  /* Leaving and engagement (WORKFLOW-GAP-RESEARCH 4.3, 4.7, 4.8, 4.9). */
+  { table: 'ClearanceLine', model: 'clearanceLine', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, leavingDate: '2099-01-31', dept: 'CUSTOM', label: `Line ${rnd()}` }) },
+  { table: 'ExitInterview', model: 'exitInterview', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, leavingDate: `2099-02-${rnd()}` }) },
+  { table: 'EngagementSettings', model: 'engagementSettings', make: (c) => ({ accountId: c.accountId, orgId: c.orgId }) },
+  { table: 'AutomationRun', model: 'automationRun', make: (c) => ({ accountId: c.accountId, orgId: c.orgId, key: 'birthdays', ranOn: `2099-03-${rnd()}` }) },
+  { table: 'CelebrationOptOut', model: 'celebrationOptOut', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, byUserId: 'u' }) },
+  { table: 'GreetingPost', model: 'greetingPost', make: (c) => ({ accountId: c.accountId, orgId: c.orgId, onDate: '2099-01-01', kind: 'HOLIDAY', key: `HOLIDAY:${rnd()}`, text: 'x' }) },
 ];
 
 let a: Ctx;

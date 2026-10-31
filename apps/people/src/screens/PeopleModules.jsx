@@ -6,6 +6,7 @@ import { billingFor, setFeature } from '@platform/auth';
 import { branchId, orgId } from '@platform/context';
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
+import Toggle from '../components/Toggle';
 
 /**
  * People → Settings → Modules & Apps (founder, 22 Oct 2026). A company
@@ -19,22 +20,6 @@ const APPS = [
   { key: 'payroll', name: 'Payroll', note: 'Salaries, PF, ESI, PT and TDS, and payslips; unpaid leave from HR is loss of pay.' },
 ];
 const CORE = 'Always on: Workforce, Organization, Time & Leave, Insights and Settings.';
-
-function Toggle({ checked, disabled, onChange, label }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${checked ? 'bg-[rgb(var(--brand))]' : 'bg-[rgb(var(--border-strong))]'}`}
-    >
-      <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`} />
-    </button>
-  );
-}
 
 export default function PeopleModules() {
   const [catalog, setCatalog] = useState(null);
