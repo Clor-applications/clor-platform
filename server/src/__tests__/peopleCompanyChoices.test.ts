@@ -717,3 +717,38 @@ describe('the public API and webhook employee fields', () => {
     expect(pub).toMatchObject({ status: 'LEFT', dateOfLeaving: '2026-10-01' });
   });
 });
+
+/* Rows written before the log stopped storing the reason: the log is append-only, so they are masked on read. */
+describe('older audit rows that hold a leaving reason', () => {
+  it('Viewer and External Auditor read them masked; the owner and HR with the audit trail read them as written', async () => {
+    const OLD = 'Old reason: burnout';
+    const c = await company();
+    const viewer = await withRole(c, 'Viewer', 'Varsha Viewer');
+    const auditor = await withRole(c, 'External Auditor', 'Arun Auditor');
+    const hrAudit = await colleague(c, 'Hari Records', ['PEOPLE::Employees::VIEW', 'PEOPLE::Employees::EDIT', 'SETTINGS::Audit trail::VIEW']);
+    const e = await person(c, { name: 'Omkar Old', code: 'O1' });
+    const raw = (entity: string, action: string, metadata: unknown, message: string) => ({ accountId: c.accountId, orgId: c.orgId, branchId: c.branchId, entity, entityId: e.id, action, message, metadata: JSON.stringify(metadata), createdByUserId: c.userId });
+    await runInTenant(c.orgId, () => platformPrisma.auditLog.createMany({ data: [
+      raw('PEOPLE_EMPLOYEE', 'RESIGN', { path: 'people/employees/:id/resign', ids: [e.id], body: { lastDay: '2026-11-30', leavingType: 'RESIGNED', reason: OLD } }, 'POST people/employees/:id/resign'),
+      raw('PEOPLE_EMPLOYEE', 'STAY', { path: 'people/employees/:id/stay', ids: [e.id], body: { reason: OLD } }, 'POST people/employees/:id/stay'),
+      raw('PEOPLE_EMPLOYEE', 'UPDATE', { path: 'people/employees/:id', ids: [e.id], body: { leavingReason: OLD, department: 'Sales' } }, 'PUT people/employees/:id'),
+      raw('ExitInterview', 'SUBMITTED', { employeeId: e.id, reason: 'BURNOUT' }, `Exit interview entered for ${e.name}`),
+      raw('PEOPLE_REQUEST', 'CREATE', { path: 'people/requests', ids: [], body: { requestType: 'LEAVING', subjectEmployeeId: e.id, payload: { employeeId: e.id, reason: OLD } } }, 'POST people/requests'),
+    ] }));
+    const trail = async (who: Ctx) => JSON.stringify((await call(who, 'get', '/audit?limit=50').expect(200)).body);
+    for (const who of [viewer, auditor]) {
+      const body = await trail(who);
+      expect(body).not.toContain(OLD);
+      expect(body).not.toContain('BURNOUT');
+      expect(body).toContain('[hidden]');
+      /* What else the rows say stays readable. */
+      expect(body).toContain('Sales');
+      expect(body).toContain('2026-11-30');
+    }
+    for (const who of [c, hrAudit]) {
+      const body = await trail(who);
+      expect(body).toContain(OLD);
+      expect(body).toContain('BURNOUT');
+    }
+  }, 60_000);
+});
