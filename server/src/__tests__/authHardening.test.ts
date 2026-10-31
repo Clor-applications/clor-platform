@@ -3,6 +3,7 @@ import request from 'supertest';
 import { buildApp } from '../app.js';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { revokeAllSessions } from '../services/auth.js';
 
 /**
  * One listening server for the whole file, not one per request.
@@ -125,6 +126,10 @@ describe('sessions', () => {
 
     // And the legitimate holder is signed out too, deliberately.
     await request(app).post('/api/auth/refresh').send({ refreshToken: refreshCookieValue(rotated) }).expect(401);
+
+    // The audit log says so.
+    const events = await platformPrisma.authEvent.findMany({ where: { userId: owner.id, eventType: 'SESSION_REVOKED' } });
+    expect(events.map((e) => e.detail).join(' ')).toMatch(/reuse detected/i);
   });
 
   /*
@@ -175,6 +180,103 @@ describe('sessions', () => {
 
     await request(app).post('/api/auth/logout').send({ refreshToken: u.refreshToken }).expect(200);
     await request(app).post('/api/auth/refresh').send({ refreshToken: u.refreshToken }).expect(401);
+  });
+
+  /*
+   * Signing out while the page still has requests out: they come back 401 and
+   * the browser tries a refresh with the cookie the sign-out has not cleared
+   * yet. That is the same browser, not a thief; the person's other devices
+   * stay signed in.
+   */
+  it('refuses a signed-out token without ending the person’s other sessions', async () => {
+    const u = await makeUser();
+    const other = await request(app).post('/api/auth/login').send({ emailOrUsername: u.email, password: u.password }).expect(200);
+
+    await request(app).post('/api/auth/logout').set('Cookie', `neev_rt=${encodeURIComponent(u.refreshToken)}`).expect(200);
+    await request(app).post('/api/auth/refresh').set('Cookie', `neev_rt=${encodeURIComponent(u.refreshToken)}`).expect(401);
+
+    expect(await platformPrisma.session.count({ where: { userId: u.id, revokedReason: 'REUSE_DETECTED' } })).toBe(0);
+    await request(app).get('/api/auth/me').set('Authorization', `Bearer ${other.body.token}`).expect(200);
+    await request(app).post('/api/auth/refresh').set('Cookie', `neev_rt=${encodeURIComponent(refreshCookieValue(other))}`).expect(200);
+  });
+
+  const cookie = (rt: string) => `neev_rt=${encodeURIComponent(rt)}`;
+  const reuse = (userId: string) => platformPrisma.session.count({ where: { userId, revokedReason: 'REUSE_DETECTED' } });
+
+  /* A session ended on purpose is refused, logged with why, and the session kept on purpose stays. */
+  it('refuses a token ended by a password change, logs it, and keeps the device that changed it', async () => {
+    const u = await makeUser();
+    const other = await request(app).post('/api/auth/login').send({ emailOrUsername: u.email, password: u.password }).expect(200);
+    const kept = await platformPrisma.session.findFirstOrThrow({ where: { userId: u.id, revokedAt: null }, orderBy: { createdAt: 'desc' } });
+    await revokeAllSessions(u.id, 'PASSWORD_CHANGED', kept.id);
+
+    await request(app).post('/api/auth/refresh').set('Cookie', cookie(u.refreshToken)).expect(401);
+    expect(await reuse(u.id)).toBe(0);
+    const refused = await platformPrisma.authEvent.findMany({ where: { userId: u.id, eventType: 'REFRESH_REFUSED' } });
+    expect(refused.map((e) => e.detail)).toEqual(['PASSWORD_CHANGED']);
+    await request(app).post('/api/auth/refresh').set('Cookie', cookie(refreshCookieValue(other))).expect(200);
+  });
+
+  it('refuses a token ended by "sign out everywhere else", logs it, and keeps the device that asked', async () => {
+    const u = await makeUser();
+    const other = await request(app).post('/api/auth/login').send({ emailOrUsername: u.email, password: u.password }).expect(200);
+    await request(app).post('/api/auth/sessions/revoke-all').set('Authorization', `Bearer ${other.body.token}`).expect(200);
+
+    await request(app).post('/api/auth/refresh').set('Cookie', cookie(u.refreshToken)).expect(401);
+    expect(await reuse(u.id)).toBe(0);
+    const refused = await platformPrisma.authEvent.findMany({ where: { userId: u.id, eventType: 'REFRESH_REFUSED' } });
+    expect(refused.map((e) => e.detail)).toEqual(['USER_REVOKED_ALL']);
+    await request(app).get('/api/auth/me').set('Authorization', `Bearer ${other.body.token}`).expect(200);
+    await request(app).post('/api/auth/refresh').set('Cookie', cookie(refreshCookieValue(other))).expect(200);
+  });
+
+  it('does not log the stragglers of an ordinary sign-out', async () => {
+    const u = await makeUser();
+    await request(app).post('/api/auth/logout').set('Cookie', cookie(u.refreshToken)).expect(200);
+    await request(app).post('/api/auth/refresh').set('Cookie', cookie(u.refreshToken)).expect(401);
+    expect(await platformPrisma.authEvent.count({ where: { userId: u.id, eventType: 'REFRESH_REFUSED' } })).toBe(0);
+  });
+
+  /* The CI case: a page signs out while its other requests are refreshing with the same cookie. */
+  it('signs out and refreshes at the same moment without ending anyone else', async () => {
+    for (let i = 0; i < 5; i += 1) {
+      const u = await makeUser();
+      const other = await request(app).post('/api/auth/login').send({ emailOrUsername: u.email, password: u.password }).expect(200);
+      const [out, ...refreshes] = await Promise.all([
+        request(app).post('/api/auth/logout').set('Cookie', cookie(u.refreshToken)),
+        request(app).post('/api/auth/refresh').set('Cookie', cookie(u.refreshToken)),
+        request(app).post('/api/auth/refresh').set('Cookie', cookie(u.refreshToken)),
+      ]);
+      expect(out.status).toBe(200);
+      for (const r of refreshes) expect([200, 401, 409]).toContain(r.status);
+      expect(await reuse(u.id)).toBe(0);
+      await request(app).post('/api/auth/refresh').set('Cookie', cookie(refreshCookieValue(other))).expect(200);
+    }
+  });
+
+  /*
+   * A thief rotated a stolen token; the real person's browser still has the old
+   * one and signs out with it. That old token is the reuse signal, same as on a
+   * refresh: every session ends, the thief's included.
+   */
+  it('treats signing out with an already-rotated token as reuse, past the grace', async () => {
+    const u = await makeUser();
+    const thief = await request(app).post('/api/auth/refresh').set('Cookie', cookie(u.refreshToken)).expect(200);
+    await platformPrisma.session.updateMany({ where: { userId: u.id, revokedReason: 'ROTATED' }, data: { revokedAt: new Date(Date.now() - 60_000) } });
+
+    await request(app).post('/api/auth/logout').set('Cookie', cookie(u.refreshToken)).expect(200);
+    expect(await reuse(u.id)).toBeGreaterThan(0);
+    await request(app).post('/api/auth/refresh').set('Cookie', cookie(refreshCookieValue(thief))).expect(401);
+    expect(await platformPrisma.authEvent.count({ where: { userId: u.id, eventType: 'SESSION_REVOKED' } })).toBe(1);
+  });
+
+  it('signing out right after this browser refreshed ends the session it was rotated into', async () => {
+    const u = await makeUser();
+    const fresh = await request(app).post('/api/auth/refresh').set('Cookie', cookie(u.refreshToken)).expect(200);
+    /* The sign-out still carries the cookie from before the refresh. */
+    await request(app).post('/api/auth/logout').set('Cookie', cookie(u.refreshToken)).expect(200);
+    await request(app).post('/api/auth/refresh').set('Cookie', cookie(refreshCookieValue(fresh))).expect(401);
+    expect(await reuse(u.id)).toBe(0);
   });
 
   it('lists active sessions and ends every one but the caller’s', async () => {

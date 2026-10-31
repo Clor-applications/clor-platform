@@ -384,7 +384,7 @@ authRouter.post('/logout', async (req: Request, res: Response) => {
   clearRefreshCookie(res);
 
   if (refreshToken) {
-    const revoked = await revokeSession(refreshToken, 'LOGOUT');
+    const revoked = await revokeSession(refreshToken, 'LOGOUT', { ip: clientIp(req), userAgent: req.headers['user-agent'] as string | undefined });
     if (revoked) {
       await recordAuthEvent({
         accountId: revoked.accountId,

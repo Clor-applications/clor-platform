@@ -101,6 +101,32 @@ Chromium build Playwright needs stays in `~/Library/Caches/ms-playwright`.
 The HTML report, traces and videos of failures, JUnit XML and
 `E2E-RESULTS.md` are the run's `e2e-report-…` artifact, kept 14 days.
 
+### One end-to-end run at a time (31 Oct 2026)
+
+`e2e-smoke` failed at random on pull requests: different tests each time,
+mostly at phone width, often green on a re-run. Every red run of 30–31 Oct
+shared the Mac with another e2e run, a `verify` or the server shards; the runs
+that had the Mac to themselves passed in 3–4 minutes. Under that load a People
+screen took 10–20 seconds to answer, past the tests' waits.
+
+- **One e2e run on the Mac at a time.** The test step runs under
+  `scripts/ci/one-at-a-time.sh ~/.clor-e2e.lock …`, a `lockf` lock all three
+  runners share. A second run waits (its log says so) instead of halving the
+  first one's speed. **A waiting run holds its runner**: with two e2e runs
+  waiting, only one runner is free for verify and the server shards until the
+  lock frees. Each smoke run holds the lock about 5 minutes. The kernel drops the lock when the job ends, is cancelled
+  or dies; there is nothing to clean up.
+- **In one workflow run, e2e waits for the server shards** (`needs: [verify,
+  server-tests]`), when they run at all (main, nightly, `full-tests`).
+- **Bigger database pool on CI** (`E2E_DB_POOL=10` per schema; locally 5 on the
+  shared 5432).
+- **One Playwright install at a time**: the runners share
+  `~/Library/Caches/ms-playwright`; two installs at once broke Playwright's own
+  directory lock (run 41099681328).
+- **Retries**: one in CI, none locally. A test that needed it is listed under
+  "Flaky" in `E2E-RESULTS.md`, in the run's summary and as a warning on the
+  run. Fix it; a retry is not a pass.
+
 ### Staging nightly: off until the owner adds these
 
 The job `e2e-staging` runs the smoke set against staging at 03:00 IST once

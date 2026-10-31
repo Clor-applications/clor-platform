@@ -23,12 +23,20 @@ export const apiPort = Number(env.E2E_API_PORT || 4016);
 export const dbName = env.E2E_DB_NAME || 'clor_e2e';
 export const pgAdminUrl = env.E2E_PGADMIN_URL || `postgresql://${encodeURIComponent(userInfo().username)}@localhost:5432/postgres`;
 
+/** Connections per schema for the API this run boots (4 schemas). */
+export const dbPool = Number(env.E2E_DB_POOL || 5);
+
 export const dbUrl = (schema) => {
   const u = new URL(pgAdminUrl);
   u.pathname = `/${dbName}`;
   u.search = '';
-  /* Several coders and CI shards share one Postgres: keep this run's pool small. */
-  return `${u.toString()}?schema=${schema}&connection_limit=5&pool_timeout=20`;
+  /*
+   * Several coders and CI shards share one Postgres: keep this run's pool small
+   * (5 per schema, the local default). CI's own Postgres (5434, 300 connections)
+   * gives a run 10: one People screen sends ~20 requests at once, and with 5 they
+   * queued behind each other until a busy runner timed the screen out.
+   */
+  return `${u.toString()}?schema=${schema}&connection_limit=${dbPool}&pool_timeout=20`;
 };
 
 export const baseURL = target === 'staging' ? required('E2E_BASE_URL') : `http://127.0.0.1:${webPort}`;
