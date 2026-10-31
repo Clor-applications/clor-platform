@@ -99,6 +99,8 @@ describe('letters', () => {
     expect(asked).toMatchObject({ dueOn: '2026-10-31', dueDays: 7 });
     const plan = (await people(hr).get(`/employees/${ka.id}/checklist`).expect(200)).body;
     expect(plan.letters.tasks).toEqual([expect.objectContaining({ title: 'Issue service certificate (asked 2026-10-24)', owner: 'HR', dueDate: '2026-10-31', done: false })]);
+    /* Asked on a past day, it falls due seven days from the asking, not from when it was typed in, and shows late once that has passed. */
+    expect(plan.letters.tasks[0].overdue).toBe(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10) > '2026-10-31');
     /* Issuing it ticks the task. The default template needs the leaving date; this person is still here, so it is refused until that is set. */
     /* A leaving letter is for someone leaving or gone (Workforce final audit W17); leaving is recorded through its own step. */
     await people(hr).post(`/employees/${ka.id}/letters`, { kind: 'SERVICE_CERT', extra: { signatory: 'HR' } }).expect(409);

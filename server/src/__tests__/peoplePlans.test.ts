@@ -19,6 +19,8 @@ afterAll(async () => {
 });
 
 const rnd = () => Math.random().toString(36).slice(2, 8);
+/* A joining two weeks from today in India's time: a due date before today is moved up to today (it was a fixed 2 Nov 2026). */
+const day = (n: number) => new Date(Date.now() + 330 * 60_000 + n * 86_400_000).toISOString().slice(0, 10);
 type Ctx = { token: string; orgId: string; branchId: string; userId: string; email: string };
 const at = (c: Ctx) => ({ Authorization: `Bearer ${c.token}`, 'x-org-id': c.orgId, 'x-branch-id': c.branchId });
 async function owner(): Promise<Ctx> {
@@ -67,12 +69,12 @@ beforeAll(async () => {
 
 describe('a joining plan with named owners', () => {
   it('each task lands on the named person for its role, with its due date from the joining date', async () => {
-    joiner = (await people(hr).post('/employees', { name: 'Meera Shah', code: 'P-2', dateOfJoining: '2026-11-02', reportingManagerId: managerEmp.id }).expect(201)).body.employee;
+    joiner = (await people(hr).post('/employees', { name: 'Meera Shah', code: 'P-2', dateOfJoining: day(14), reportingManagerId: managerEmp.id }).expect(201)).body.employee;
     const plan = (await people(hr).get(`/employees/${joiner.id}/checklist`).expect(200)).body.joining;
     const byTitle = Object.fromEntries(plan.tasks.map((t: any) => [t.title, t]));
-    expect(byTitle['Laptop ready']).toMatchObject({ owner: 'IT', ownerName: 'Imran', dueDate: '2026-11-01' });
-    expect(byTitle['Welcome and desk']).toMatchObject({ owner: 'MANAGER', ownerName: 'Ravi', dueDate: '2026-11-02' });
-    expect(byTitle['Collect ID proof']).toMatchObject({ owner: 'HR', ownerName: 'Asha HR', dueDate: '2026-11-02' });
+    expect(byTitle['Laptop ready']).toMatchObject({ owner: 'IT', ownerName: 'Imran', dueDate: day(13) });
+    expect(byTitle['Welcome and desk']).toMatchObject({ owner: 'MANAGER', ownerName: 'Ravi', dueDate: day(14) });
+    expect(byTitle['Collect ID proof']).toMatchObject({ owner: 'HR', ownerName: 'Asha HR', dueDate: day(14) });
     /* Told: a bell for each owner, and an e-mail with the done link. */
     const bells = await platformPrisma.notification.findMany({ where: { orgId: hr.orgId, kind: 'people.task' } });
     expect(bells.map((b) => b.userId).sort()).toEqual([itAdmin.userId, manager.userId].sort());

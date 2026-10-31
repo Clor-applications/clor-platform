@@ -41,6 +41,9 @@ const people = (c: Ctx) => ({
   post: (path: string, body: unknown) => request(app).post(`/api/orgs/${c.orgId}/people${path}`).set(at(c)).send(body as any),
 });
 
+/* Three months from today in India's time: a last day still ahead puts the person on notice (it was a fixed 31 Jan 2027). */
+const LATER = new Date(Date.now() + 330 * 60_000 + 90 * 86_400_000).toISOString().slice(0, 10);
+
 let hr: Ctx;
 beforeAll(async () => {
   hr = await owner();
@@ -68,15 +71,15 @@ describe('probation', () => {
     const e = (await people(hr).post('/employees', { name: 'Ravi Kumar', code: 'PR-2', dateOfJoining: '2026-08-01', probationEndDate: '2026-11-01' }).expect(201)).body.employee;
     await people(hr).post(`/employees/${e.id}/probation/decide`, { outcome: 'EXTEND' }).expect(400);
     await people(hr).post(`/employees/${e.id}/probation/decide`, { outcome: 'EXTEND', newEndDate: '2026-10-01' }).expect(400);
-    const ext = (await people(hr).post(`/employees/${e.id}/probation/decide`, { outcome: 'EXTEND', newEndDate: '2027-01-31', note: 'Three more months' }).expect(200)).body;
-    expect(ext.applied).toEqual({ probationEndDate: '2027-01-31' });
+    const ext = (await people(hr).post(`/employees/${e.id}/probation/decide`, { outcome: 'EXTEND', newEndDate: LATER, note: 'Three more months' }).expect(200)).body;
+    expect(ext.applied).toEqual({ probationEndDate: LATER });
     const lines = await runInTenant(hr.orgId, () => peoplePrisma.changeLog.findMany({ where: { employeeId: e.id, field: 'probationEndDate' } }));
-    expect(lines).toEqual([expect.objectContaining({ before: '2026-11-01', after: '2027-01-31', reason: 'Three more months' })]);
-    const end = (await people(hr).post(`/employees/${e.id}/probation/decide`, { outcome: 'END', lastDay: '2027-01-31', note: 'Not confirmed' }).expect(200)).body;
+    expect(lines).toEqual([expect.objectContaining({ before: '2026-11-01', after: LATER, reason: 'Three more months' })]);
+    const end = (await people(hr).post(`/employees/${e.id}/probation/decide`, { outcome: 'END', lastDay: LATER, note: 'Not confirmed' }).expect(200)).body;
     /* A last day still ahead puts the person on notice (LIFE-05); the separations job makes them Left on the day. */
-    expect(end.applied).toMatchObject({ left: true, scheduled: true, lastDay: '2027-01-31' });
+    expect(end.applied).toMatchObject({ left: true, scheduled: true, lastDay: LATER });
     const row = await runInTenant(hr.orgId, () => peoplePrisma.employee.findUniqueOrThrow({ where: { id: e.id } }));
-    expect(row).toMatchObject({ status: 'ON_NOTICE', leavingType: 'TERMINATED', dateOfLeaving: '2027-01-31' });
+    expect(row).toMatchObject({ status: 'ON_NOTICE', leavingType: 'TERMINATED', dateOfLeaving: LATER });
   });
 
   it('with a rule, the decision is a request; approving it applies the outcome with the request on the log', async () => {

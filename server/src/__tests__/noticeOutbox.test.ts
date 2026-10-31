@@ -57,6 +57,18 @@ async function colleague(boss: Ctx, permissions: string[]): Promise<Ctx> {
 const att = (c: Ctx, m: 'get' | 'post' | 'put', p: string, b?: unknown) => (request(app) as any)[m](`/api/orgs/${c.orgId}/attendance${p}`).set(at(c)).send(b as any);
 const person = async (c: Ctx, body: Record<string, unknown>) =>
   (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ dateOfJoining: '2026-01-01', ...body }).expect(201)).body.employee;
+/*
+ * Leave days still to come, whatever today is: a Monday some six weeks on in India's time, and days counted from it
+ * (weekdays only). They were fixed days in February and March 2027, and an employee cannot withdraw leave that is past.
+ */
+const MONDAY = (() => {
+  let t = Date.parse(`${new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10)}T00:00:00Z`) + 40 * 86_400_000;
+  while (new Date(t).getUTCDay() !== 1) t += 86_400_000;
+  return t;
+})();
+const on = (n: number) => new Date(MONDAY + n * 86_400_000).toISOString().slice(0, 10);
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const words = (d: string) => `${Number(d.slice(8, 10))} ${MON[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}`;
 const link = (c: Ctx, employeeId: string, userId: string) => runInTenant(c.orgId, () => peoplePrisma.employee.update({ where: { id: employeeId }, data: { userId } }));
 const bell = (c: Ctx, where: Record<string, unknown> = {}) => runInTenant(c.orgId, () => platformPrisma.notification.findMany({ where: { orgId: c.orgId, ...where }, orderBy: { createdAt: 'asc' } }));
 const noticeEvents = (c: Ctx, correlationId: string) => runInTenant(c.orgId, () => peoplePrisma.outboxEvent.findMany({ where: { orgId: c.orgId, name: NOTICE_EVENT, correlationId }, orderBy: { occurredAt: 'asc' } }));
@@ -85,7 +97,7 @@ beforeAll(async () => {
 describe('leave and request notices go through the outbox (O-07)', () => {
   it('a notice is written with the change and delivered by the outbox, not before', async () => {
     const emp = await person(hr, { name: 'Outbox Asha', code: 'NB1' });
-    const r = (await att(hr, 'post', '/leave/requests', { employeeId: emp.id, leaveTypeId: casual.id, fromDate: '2027-02-10', toDate: '2027-02-10', reason: 'Bank work' }).expect(201)).body.request;
+    const r = (await att(hr, 'post', '/leave/requests', { employeeId: emp.id, leaveTypeId: casual.id, fromDate: on(2), toDate: on(2), reason: 'Bank work' }).expect(201)).body.request;
     const events = await noticeEvents(hr, `leave_request_${r.id}`);
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ deliveredAt: null, attempts: 0, employeeId: emp.id });
@@ -94,7 +106,7 @@ describe('leave and request notices go through the outbox (O-07)', () => {
 
     await drain();
     const asked = await bell(hr, { userId: approver.userId, kind: 'attendance.leave_asked' });
-    expect(asked).toEqual([expect.objectContaining({ title: 'Outbox Asha (NB1) asks for Casual, 10 Feb 2027', dedupeKey: `leave-asked:${r.id}:new:0` })]);
+    expect(asked).toEqual([expect.objectContaining({ title: `Outbox Asha (NB1) asks for Casual, ${words(on(2))}`, dedupeKey: `leave-asked:${r.id}:new:0` })]);
     const after = await runInTenant(hr.orgId, () => peoplePrisma.outboxEvent.findUniqueOrThrow({ where: { id: events[0].id } }));
     expect(after.deliveredAt).toBeTruthy();
     /* HR entered it: HR is not told of their own entry. */
@@ -103,7 +115,7 @@ describe('leave and request notices go through the outbox (O-07)', () => {
 
   it('a delivery that fails is tried again on the backoff, and after the last try is marked failed for an operator', async () => {
     const emp = await person(hr, { name: 'Retry Ravi', code: 'NB2' });
-    const r = (await att(hr, 'post', '/leave/requests', { employeeId: emp.id, leaveTypeId: casual.id, fromDate: '2027-02-11', toDate: '2027-02-11', reason: 'Family' }).expect(201)).body.request;
+    const r = (await att(hr, 'post', '/leave/requests', { employeeId: emp.id, leaveTypeId: casual.id, fromDate: on(3), toDate: on(3), reason: 'Family' }).expect(201)).body.request;
     const [ev] = await noticeEvents(hr, `leave_request_${r.id}`);
     flaky.orgId = hr.orgId;
     const now = new Date();
@@ -126,7 +138,7 @@ describe('leave and request notices go through the outbox (O-07)', () => {
     expect(await bell(hr, { userId: approver.userId, dedupeKey: `leave-asked:${r.id}:new:0` })).toHaveLength(1);
 
     /* Another notice, failing on its last try: marked failed, kept, listed for an operator. */
-    const r2 = (await att(hr, 'post', '/leave/requests', { employeeId: emp.id, leaveTypeId: casual.id, fromDate: '2027-02-12', toDate: '2027-02-12', reason: 'Family' }).expect(201)).body.request;
+    const r2 = (await att(hr, 'post', '/leave/requests', { employeeId: emp.id, leaveTypeId: casual.id, fromDate: on(4), toDate: on(4), reason: 'Family' }).expect(201)).body.request;
     const [ev2] = await noticeEvents(hr, `leave_request_${r2.id}`);
     await runInTenant(hr.orgId, () => peoplePrisma.outboxEvent.update({ where: { id: ev2.id }, data: { attempts: RETRY_MINUTES.length, nextAttemptAt: null } }));
     flaky.orgId = hr.orgId;
@@ -154,7 +166,7 @@ describe('leave and request notices go through the outbox (O-07)', () => {
     /* The same event delivered again (a crash after sending, before it was marked delivered): nobody hears twice. */
     const emp = await person(hr, { name: 'Twice Tara', code: 'NB3' });
     await link(hr, emp.id, (await colleague(hr, MY)).userId);
-    const r = (await att(hr, 'post', '/leave/requests', { employeeId: emp.id, leaveTypeId: casual.id, fromDate: '2027-02-15', toDate: '2027-02-15', reason: 'Errand' }).expect(201)).body.request;
+    const r = (await att(hr, 'post', '/leave/requests', { employeeId: emp.id, leaveTypeId: casual.id, fromDate: on(7), toDate: on(7), reason: 'Errand' }).expect(201)).body.request;
     await att(hr, 'post', `/leave/requests/${r.id}/approve`, { note: 'Fine' }).expect(200);
     await drain();
     const events = await noticeEvents(hr, `leave_request_${r.id}`);
@@ -170,12 +182,12 @@ describe('leave and request notices go through the outbox (O-07)', () => {
 
   it('a change to the reason alone asks nobody again; a change of dates does', async () => {
     const emp = await person(hr, { name: 'Edit Esha', code: 'NB4' });
-    const r = (await att(hr, 'post', '/leave/requests', { employeeId: emp.id, leaveTypeId: casual.id, fromDate: '2027-02-17', toDate: '2027-02-17', reason: 'Dentist' }).expect(201)).body.request;
+    const r = (await att(hr, 'post', '/leave/requests', { employeeId: emp.id, leaveTypeId: casual.id, fromDate: on(9), toDate: on(9), reason: 'Dentist' }).expect(201)).body.request;
     await drain();
     const asked = () => bell(hr, { userId: approver.userId, kind: 'attendance.leave_asked', linkJson: { contains: r.id } });
     expect(await asked()).toHaveLength(1);
 
-    const edited = (await att(hr, 'put', `/leave/requests/${r.id}`, { employeeId: emp.id, leaveTypeId: casual.id, fromDate: '2027-02-17', toDate: '2027-02-17', reason: 'Dentist, then the bank' }).expect(200)).body.request;
+    const edited = (await att(hr, 'put', `/leave/requests/${r.id}`, { employeeId: emp.id, leaveTypeId: casual.id, fromDate: on(9), toDate: on(9), reason: 'Dentist, then the bank' }).expect(200)).body.request;
     expect(edited.reason).toBe('Dentist, then the bank');
     expect(await noticeEvents(hr, `leave_request_${r.id}`)).toHaveLength(1);
     await drain();
@@ -183,7 +195,7 @@ describe('leave and request notices go through the outbox (O-07)', () => {
     const story = (await att(hr, 'get', `/leave/requests/${r.id}`).expect(200)).body;
     expect(story.history.map((h: any) => h.what)).toContain('Changed the reason');
 
-    await att(hr, 'put', `/leave/requests/${r.id}`, { employeeId: emp.id, leaveTypeId: casual.id, fromDate: '2027-02-18', toDate: '2027-02-18', reason: 'Dentist, then the bank' }).expect(200);
+    await att(hr, 'put', `/leave/requests/${r.id}`, { employeeId: emp.id, leaveTypeId: casual.id, fromDate: on(10), toDate: on(10), reason: 'Dentist, then the bank' }).expect(200);
     await drain();
     expect((await asked()).map((n) => n.dedupeKey)).toEqual([`leave-asked:${r.id}:new:0`, `leave-asked:${r.id}:new:1`]);
   });
@@ -234,19 +246,19 @@ describe('leave and request notices go through the outbox (O-07)', () => {
     await link(hr, emp.id, meUser.userId);
 
     /* Approved by the leave rule: nobody approved it by hand, so those who approve leave for him are told. */
-    const auto = (await att(meUser, 'post', '/me/leave', { leaveTypeId: quick.id, fromDate: '2027-03-03', toDate: '2027-03-03', reason: 'Errand' }).expect(201)).body.request;
+    const auto = (await att(meUser, 'post', '/me/leave', { leaveTypeId: quick.id, fromDate: on(23), toDate: on(23), reason: 'Errand' }).expect(201)).body.request;
     expect(auto.status).toBe('APPROVED');
     await att(meUser, 'post', `/me/leave/${auto.id}/cancel`).expect(200);
     await drain();
     const toApprovers = await bell(hr, { dedupeKey: `leave-withdrawn:${auto.id}` });
     expect(toApprovers.map((n) => n.userId).sort()).toEqual([hr.userId, approver.userId].sort());
-    expect(toApprovers[0].title).toBe('Withdraw Wasim (NB8) cancelled Quick, 3 Mar 2027');
+    expect(toApprovers[0].title).toBe(`Withdraw Wasim (NB8) cancelled Quick, ${words(on(23))}`);
 
     /* Approved by a manager in the employee app (portal:<their employee id>): reaches the manager's own sign-in. */
     const managerUser = await colleague(hr, MY);
     const manager = await person(hr, { name: 'Portal Manager', code: 'NB9' });
     await link(hr, manager.id, managerUser.userId);
-    const byHand = (await att(meUser, 'post', '/me/leave', { leaveTypeId: casual.id, fromDate: '2027-03-10', toDate: '2027-03-10', reason: 'Wedding' }).expect(201)).body.request;
+    const byHand = (await att(meUser, 'post', '/me/leave', { leaveTypeId: casual.id, fromDate: on(30), toDate: on(30), reason: 'Wedding' }).expect(201)).body.request;
     await att(hr, 'post', `/leave/requests/${byHand.id}/approve`).expect(200);
     await runInTenant(hr.orgId, () => peoplePrisma.leaveRequest.update({ where: { id: byHand.id }, data: { reviewedByUserId: `portal:${manager.id}` } }));
     await att(meUser, 'post', `/me/leave/${byHand.id}/cancel`).expect(200);

@@ -228,9 +228,11 @@ describe('raising what is due', () => {
     expect(runs.body.runs.every((r: any) => r.invoiceId)).toBe(true);
   });
 
+  /* Started two months back, not on 1 Jan 2026: one press catches up at most 12 periods, so from 2027 a second press still raised one. */
+  const monthsBack = (n: number) => { const d = new Date(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - n, 1)).toISOString().slice(0, 10); };
   it('can be triggered from the app and is safe to press twice', async () => {
     const org = await makeOwner('button');
-    await request(app).post(`/api/orgs/${org.orgId}/recurring`).set(auth(org)).send(schedule()).expect(201);
+    await request(app).post(`/api/orgs/${org.orgId}/recurring`).set(auth(org)).send(schedule({ nextRunDate: monthsBack(2) })).expect(201);
     const first = await request(app).post(`/api/orgs/${org.orgId}/recurring/run`).set(auth(org)).expect(200);
     expect(first.body.raised).toBeGreaterThan(0);
     const second = await request(app).post(`/api/orgs/${org.orgId}/recurring/run`).set(auth(org)).expect(200);

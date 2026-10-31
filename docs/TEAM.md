@@ -94,3 +94,4 @@ Tracker rule: each module has its own section in `TRACKER.md`, and a lane edits 
 - Every free-text field suggests existing data through `SuggestInput`, and never another person's private details.
 - Company isolation is fail-closed, every write route is guarded, and allotted numbers are race-safe.
 - Finished means tested and seen in a browser, at desktop and phone width.
+- **Tests never hard-code a date that is compared against today** ("this month", "upcoming", "due in N days", "away today", the leave year). Work it out from today in India's time (`new Date(Date.now() + 330 * 60_000)`, the server's `todayIst`), never `new Date().toISOString()` (UTC, a day behind before 05:30 IST), and allow for today being a weekly off or a holiday. A test about one particular date fixes the clock instead (`vi.setSystemTime`). Prove it with `TEST_TODAY=2026-12-31T23:30:00+05:30` on the web or server suite, which runs it as of that moment. Main went red on 1 Nov 2026 for this.
