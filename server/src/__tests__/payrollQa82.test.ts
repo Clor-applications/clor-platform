@@ -32,6 +32,16 @@ const api = {
 const peopleApi = (c: Ctx, m: 'get' | 'put' | 'post', p: string, b?: unknown) => (request(app) as any)[m](`/api/orgs/${c.orgId}/people${p}`).set(at(c)).send(b as any);
 const own = <T,>(c: Ctx, fn: () => Promise<T>) => runInTenant(c.orgId, fn);
 
+/*
+ * Final wages large enough that the recovery limit (setting 4, fnfRecoveryCap.ts)
+ * never binds: these tests are about each source closing once, not the limit
+ * (payrollFnfRecoveryCap.test.ts covers that).
+ */
+const roomy = async (c: Ctx, s: any) =>
+  (await api.put(c, `/settlements/${s.id}`, { lines: [...s.lines.filter((l: any) => l.code !== 'NOTICE'), { code: 'NOTICE', label: 'Notice pay', kind: 'EARNING', amount: 1_000_000, explanation: '' }] }).expect(200)).body.settlement;
+const startRoomy = async (c: Ctx, employeeId: string) => roomy(c, (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement);
+
+
 async function makeOwner(): Promise<Ctx> {
   const email = `review82.${Date.now()}.${rnd()}@example.com`;
   const signup = await request(app).post('/api/auth/signup').send({ email, password: 'Passw0rd!23', name: 'Owner' }).expect(200);
@@ -243,7 +253,7 @@ describe('owner/HR QA F1: a recovery Payroll edited down', () => {
     await api.post(c, `/adjustments/${key}/approve`).expect(200);
     expect(await peopleAdvance(c, a.id)).toMatchObject({ status: 'PAID', recovered: 0, recovering: 3000, open: 2000 });
 
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     const traced = s.lines.filter((l: any) => l.source && (l.source.id === a.id || l.source.id === key)).map((l: any) => [l.source.type, l.amount]).sort();
     expect(traced).toEqual([['ADVANCE', 2000], ['CARRY', 3000]]);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);
@@ -373,7 +383,7 @@ describe('re-review 5a7645e6: a recovery split by a payroll, then corrected', ()
     expect(await at()).toEqual(['PAID', 5000, 1000, 2000]);
     expect(await at()).toEqual(['PAID', 5000, 1000, 2000]);
 
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     const traced = s.lines.filter((l: any) => l.source && (l.source.id === a.id || l.source.id === carry)).map((l: any) => [l.source.type, l.amount]).sort();
     expect(traced).toEqual([['ADVANCE', 2000], ['CARRY', 1000]]);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);
@@ -579,7 +589,7 @@ describe("retest 03f92a08: the owner is not told the owner has to approve", () =
     const c = await makeOwner();
     const employeeId = await leaver(c);
     await colleague(c, ['PAYROLL::Payroll Runs::VIEW', 'PAYROLL::Payroll Runs::APPROVE']);
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     const r = await api.post(c, `/settlements/${s.id}/approve`).expect(403);
     expect(r.body.code).toBe('MAKER_CHECKER');
     expect(r.body.error).toContain('another HR or payroll approver has to approve it');
@@ -636,7 +646,7 @@ describe('re-review 343ee91a: a carried recovery corrected and not yet approved,
     });
     await api.put(c, `/adjustments/${carry}`, { employeeId, componentId: rails.componentId, periodId: rails.periodId, amount: 1000, correctionReason: 'Agreed with the owner, 2 Nov' }).expect(200);
     expect((await adjOf(c, carry)).status).toBe('DRAFT');
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     const traced = s.lines.filter((l: any) => l.source && (l.source.id === a.id || l.source.id === carry)).map((l: any) => [l.source.type, l.amount]).sort();
     expect(traced).toEqual([['ADVANCE', 2000], ['CARRY', 1000]]);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);

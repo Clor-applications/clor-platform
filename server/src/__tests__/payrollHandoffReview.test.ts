@@ -36,6 +36,16 @@ const api = {
 const peopleApi = (c: Ctx, m: 'get' | 'put' | 'post', p: string, b?: unknown) => (request(app) as any)[m](`/api/orgs/${c.orgId}/people${p}`).set(at(c)).send(b as any);
 const own = <T,>(c: Ctx, fn: () => Promise<T>) => runInTenant(c.orgId, fn);
 
+/*
+ * Final wages large enough that the recovery limit (setting 4, fnfRecoveryCap.ts)
+ * never binds: these tests are about each source closing once, not the limit
+ * (payrollFnfRecoveryCap.test.ts covers that).
+ */
+const roomy = async (c: Ctx, s: any) =>
+  (await api.put(c, `/settlements/${s.id}`, { lines: [...s.lines.filter((l: any) => l.code !== 'NOTICE'), { code: 'NOTICE', label: 'Notice pay', kind: 'EARNING', amount: 1_000_000, explanation: '' }] }).expect(200)).body.settlement;
+const startRoomy = async (c: Ctx, employeeId: string) => roomy(c, (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement);
+
+
 async function makeOwner(): Promise<Ctx> {
   const email = `review82.${Date.now()}.${rnd()}@example.com`;
   const signup = await request(app).post('/api/auth/signup').send({ email, password: 'Passw0rd!23', name: 'Owner' }).expect(200);
@@ -87,7 +97,7 @@ describe('a full and final pays only what is owed when it is paid (blockers 1, 1
     const c = await makeOwner();
     const employeeId = await leaver(c);
     const a = await advance(c, employeeId);
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     expect(s.lines.find((l: any) => l.source?.id === a.id).amount).toBe(5000);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);
     await own(c, () => peoplePrisma.employeeAdvance.update({ where: { id: a.id }, data: { returnedAmount: 4000 } }));
@@ -104,7 +114,7 @@ describe('a full and final pays only what is owed when it is paid (blockers 1, 1
     const key = `advance-recover:${a.id}:${rails.periodId}`;
     await adjustment(c, { id: key, employeeId, ...rails, amount: 2000, status: 'DRAFT' });
     await own(c, () => peoplePrisma.employeeAdvance.update({ where: { id: a.id }, data: { payrollAdjustmentId: key } }));
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     expect(s.lines.find((l: any) => l.source?.id === a.id).amount).toBe(5000);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);
     await own(c, () => payrollPrisma.payrollAdjustment.update({ where: { id: key }, data: { status: 'APPROVED', approvedAt: new Date() } }));
@@ -120,7 +130,7 @@ describe('a full and final pays only what is owed when it is paid (blockers 1, 1
       await payrollPrisma.payrollLoanInstallment.create({ data: { accountId: c.accountId, orgId: c.orgId, loanId: row.id, sequence: 2, dueAmount: 3000, principalAmount: 3000, interestAmount: 0, status: 'PENDING' } });
       return row;
     });
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);
     await own(c, async () => {
       await payrollPrisma.payrollLoanInstallment.create({ data: { accountId: c.accountId, orgId: c.orgId, loanId: loan.id, sequence: 1, dueAmount: 3000, principalAmount: 3000, interestAmount: 0, status: 'PENDING' } });
@@ -143,7 +153,7 @@ describe('a recovery approved in Payroll and not yet taken (blocker 2)', () => {
     /* Approved in Payroll is not taken: People still says "being taken from salary". */
     expect(await peopleAdvance(c, a.id)).toMatchObject({ status: 'PAID', recovering: 2000, recovered: 0 });
 
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     const traced = s.lines.filter((l: any) => l.source && (l.source.id === a.id || l.source.id === key));
     expect(traced.map((l: any) => [l.source.type, l.amount]).sort()).toEqual([['ADVANCE', 3000], ['CARRY', 2000]]);
 
@@ -166,7 +176,7 @@ describe('a recovery approved in Payroll and not yet taken (blocker 2)', () => {
     const key = `advance-recover:${a.id}:${rails.periodId}`;
     await adjustment(c, { id: key, employeeId, ...rails, amount: 2000, status: 'APPROVED' });
     await own(c, () => peoplePrisma.employeeAdvance.update({ where: { id: a.id }, data: { payrollAdjustmentId: key } }));
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     const edited = s.lines.map((l: any) => (l.source?.id === key ? { ...l, amount: 500 } : l));
     await api.put(c, `/settlements/${s.id}`, { lines: edited }).expect(200);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);
@@ -224,7 +234,7 @@ describe('carried deductions (blocker 4)', () => {
     const rails = await recoveryRails(c);
     const id = `carry-${rnd()}`;
     await adjustment(c, { id, employeeId, ...rails, amount: 5000, status: 'APPROVED', carriedByRunId: 'run-earlier' });
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     const edited = s.lines.map((l: any) => (l.source?.id === id ? { ...l, amount: 1000 } : l));
     await api.put(c, `/settlements/${s.id}`, { lines: edited }).expect(200);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);
@@ -257,7 +267,7 @@ describe('settlement guards (blockers 6, 9, 10)', () => {
     const employeeId = await leaver(c);
     await own(c, () => peoplePrisma.absenceCase.create({ data: { accountId: c.accountId, orgId: c.orgId, employeeId, fromDate: '2026-10-01', lastAbsentDate: '2026-10-14', days: 14, status: 'ABSCONDED', holdReason: 'Absconded', heldAt: new Date(), heldByUserId: 'hr' } }));
     /* Worked out while the record was not yet theirs: since QA of #82 (F2) nobody starts their own. */
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     await own(c, () => peoplePrisma.employee.update({ where: { id: employeeId }, data: { userId: c.userId } }));
     expect((await api.post(c, `/settlements/${s.id}/release-hold`, { reason: 'Letting myself off' }).expect(403)).body.code).toBe('OWN_RECORD');
     expect((await api.post(c, `/settlements/${s.id}/approve`).expect(403)).body.code).toBe('OWN_RECORD');
@@ -269,7 +279,7 @@ describe('settlement guards (blockers 6, 9, 10)', () => {
     const c = await makeOwner();
     const employeeId = await leaver(c);
     await own(c, () => peoplePrisma.absenceCase.create({ data: { accountId: c.accountId, orgId: c.orgId, employeeId, fromDate: '2026-10-01', lastAbsentDate: '2026-10-14', days: 14, status: 'ABSCONDED', holdReason: 'Absconded', heldAt: new Date(), heldByUserId: 'hr' } }));
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     const payrollOnly = await colleague(c, ['PAYROLL::Payroll Runs::VIEW', 'PAYROLL::Payroll Runs::APPROVE']);
     expect((await api.post(payrollOnly, `/settlements/${s.id}/release-hold`, { reason: 'Came in to settle' })).status).toBe(403);
     const policy = (await request(app).get(`/api/orgs/${c.orgId}/security/policy`).set(at(c)).expect(200)).body.policy;
@@ -286,7 +296,7 @@ describe('settlement guards (blockers 6, 9, 10)', () => {
     const key = `expense-claim:${claim.id}`;
     await adjustment(c, { id: key, employeeId, componentId: rails.reimbId, periodId: rails.periodId, amount: 2000, status: 'DRAFT', type: 'EARNING' });
     await own(c, () => peoplePrisma.expenseClaim.update({ where: { id: claim.id }, data: { payrollAdjustmentId: key } }));
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     expect(s.lines.find((l: any) => l.source?.id === claim.id)).toMatchObject({ kind: 'EARNING', amount: 2000 });
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);
     await api.post(c, `/settlements/${s.id}/paid`, {}).expect(200);
@@ -298,7 +308,7 @@ describe('settlement guards (blockers 6, 9, 10)', () => {
     const c = await makeOwner();
     const employeeId = await leaver(c);
     const a = await advance(c, employeeId);
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     const edited = s.lines.map((l: any) => (l.source?.id === a.id ? { ...l, amount: 3000 } : l));
     await api.put(c, `/settlements/${s.id}`, { lines: edited }).expect(200);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);
@@ -539,7 +549,7 @@ describe('re-review: paying a full and final while the payroll is being calculat
     const key = `advance-recover:${a.id}:${r.periodId}`;
     await adjustment(c, { id: key, employeeId: r.employeeId, componentId: r.componentId, periodId: r.periodId, amount: 2000, status: 'APPROVED' });
     await own(c, () => peoplePrisma.employeeAdvance.update({ where: { id: a.id }, data: { payrollAdjustmentId: key } }));
-    const s = (await api.post(c, '/settlements', { employeeId: r.employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, r.employeeId);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);
     const runId = (await api.post(c, '/runs', { periodId: r.periodId }).expect(201)).body.run.id;
     await api.post(c, `/runs/${runId}/validate`).expect(200);
@@ -562,7 +572,7 @@ describe('re-review: paying a full and final while the payroll is being calculat
       await payrollPrisma.payrollLoanInstallment.create({ data: { accountId: c.accountId, orgId: c.orgId, loanId: row.id, periodId: r.periodId, sequence: 1, dueAmount: 3000, principalAmount: 3000, interestAmount: 0, status: 'PENDING' } });
       return row;
     });
-    const s = (await api.post(c, '/settlements', { employeeId: r.employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, r.employeeId);
     expect(s.lines.find((l: any) => l.source?.id === loan.id)?.amount).toBe(3000);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);
     const runId = (await api.post(c, '/runs', { periodId: r.periodId }).expect(201)).body.run.id;
@@ -584,7 +594,7 @@ describe('re-review: paying a full and final while the payroll is being calculat
     const key = `advance-recover:${a.id}:${r.periodId}`;
     await adjustment(c, { id: key, employeeId: r.employeeId, componentId: r.componentId, periodId: r.periodId, amount: 2000, status: 'APPROVED' });
     await own(c, () => peoplePrisma.employeeAdvance.update({ where: { id: a.id }, data: { payrollAdjustmentId: key } }));
-    const s = (await api.post(c, '/settlements', { employeeId: r.employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, r.employeeId);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);
     const runId = (await api.post(c, '/runs', { periodId: r.periodId }).expect(201)).body.run.id;
     await api.post(c, `/runs/${runId}/validate`).expect(200);
@@ -633,7 +643,7 @@ describe('re-review: a recovery People sends after the full and final was worked
     const employeeId = await leaver(c);
     const rails = await recoveryRails(c);
     const a = await advance(c, employeeId);
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     expect(s.lines.find((l: any) => l.source?.id === a.id).amount).toBe(5000);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);
     /* People sends ₹2,000 of it to Payroll as a draft recovery. */

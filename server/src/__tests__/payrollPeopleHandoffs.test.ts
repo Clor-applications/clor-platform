@@ -34,6 +34,16 @@ const api = {
 };
 const own = <T,>(c: Ctx, fn: () => Promise<T>) => runInTenant(c.orgId, fn);
 
+/*
+ * Final wages large enough that the recovery limit (setting 4, fnfRecoveryCap.ts)
+ * never binds: these tests are about each source closing once, not the limit
+ * (payrollFnfRecoveryCap.test.ts covers that).
+ */
+const roomy = async (c: Ctx, s: any) =>
+  (await api.put(c, `/settlements/${s.id}`, { lines: [...s.lines.filter((l: any) => l.code !== 'NOTICE'), { code: 'NOTICE', label: 'Notice pay', kind: 'EARNING', amount: 1_000_000, explanation: '' }] }).expect(200)).body.settlement;
+const startRoomy = async (c: Ctx, employeeId: string) => roomy(c, (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement);
+
+
 async function makeOwner(): Promise<Ctx> {
   const email = `handoff.${Date.now()}.${rnd()}@example.com`;
   const signup = await request(app).post('/api/auth/signup').send({ email, password: 'Passw0rd!23', name: 'Owner' }).expect(200);
@@ -145,7 +155,7 @@ describe('advances and loans in the full and final', () => {
     const sal = await loan(c, employeeId, 'SALARY_ADVANCE', [3000]);
     const other = await loan(c, employeeId, 'LOAN', [2000, 2000]);
 
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     const of = (id: string) => s.lines.find((l: any) => l.source?.id === id);
     expect(of(adv.id)).toMatchObject({ kind: 'DEDUCTION', amount: 4000, source: { type: 'ADVANCE', ref: adv.number } });
     expect(of(exp.id)).toMatchObject({ kind: 'EARNING', amount: 2000, source: { type: 'CLAIM', ref: exp.number } });
@@ -201,7 +211,7 @@ describe('advances and loans in the full and final', () => {
     const c = await makeOwner();
     const employeeId = await leaver(c);
     const adv = await advance(c, employeeId);
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);
     await own(c, () => peoplePrisma.employeeAdvance.update({ where: { id: adv.id }, data: { status: 'CLOSED' } }));
     const r = await api.post(c, `/settlements/${s.id}/paid`, {}).expect(409);
@@ -214,7 +224,7 @@ describe('advances and loans in the full and final', () => {
     const employeeId = await leaver(c);
     const adv = await advance(c, employeeId);
     const lent = await loan(c, employeeId, 'LOAN', [2000, 2000]);
-    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const s = await startRoomy(c, employeeId);
     const edited = s.lines.map((l: any) => (l.source?.id === adv.id ? { ...l, amount: 3000 } : l.source?.id === lent.id ? { ...l, amount: 2500 } : l));
     await api.put(c, `/settlements/${s.id}`, { lines: edited }).expect(200);
     await api.post(c, `/settlements/${s.id}/approve`).expect(200);

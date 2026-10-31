@@ -1369,7 +1369,12 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
           effectiveFrom: structure.effectiveFrom,
           components: engine,
         }),
-        inputSnapshotJson: JSON.stringify({ ...input, periodDays: daysBetween(ctx.period.startDate, ctx.period.endDate) }),
+        inputSnapshotJson: JSON.stringify({
+          ...input,
+          periodDays: daysBetween(ctx.period.startDate, ctx.period.endDate),
+          /* The wages and what counted toward their share, for a leaver's full and final in the same period (fnfRecoveryCap.ts). */
+          capBasis: { wages, deducted: round2(counted + [...cap.taken.values()].reduce((t, v) => t + v, 0)) },
+        }),
         adjustmentSnapshotJson: JSON.stringify(
           adjustments.map((a) => ({ id: a.id, componentId: a.componentId, amount: takenOf.has(a.id) ? takenOf.get(a.id)! : Number(a.amount), type: a.type, reason: a.reason }))
         ),

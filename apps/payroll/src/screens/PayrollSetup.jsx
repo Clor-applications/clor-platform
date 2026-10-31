@@ -6,6 +6,7 @@ import { notify } from '@ui/components/ui/notify';
 import { getPayrollSetup } from '../api/payrollSetup';
 import { ProvisionalDaysSetting } from '../components/ProvisionalDaysSetting';
 import { DeductionCapSetting } from '../components/DeductionCapSetting';
+import { FnfRecoverySetting } from '../components/FnfRecoverySetting';
 /*
  * Switching payroll on goes through the platform, not through a module of this
  * app's own. There is one record of what a company has bought — the feature
@@ -189,6 +190,9 @@ export default function PayrollSetup({ onOpen = () => {} }) {
 
       {/* How much of a payslip's wages deductions may take. */}
       <DeductionCapSetting />
+
+      {/* How much of a leaver's final wages loans and advances may take. */}
+      <FnfRecoverySetting />
 
       </div>
     </div>

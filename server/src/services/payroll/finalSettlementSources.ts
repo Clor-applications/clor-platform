@@ -252,6 +252,12 @@ export async function withChainRoots(orgId: string, lines: SettlementLine[]): Pr
         if (root?.recoveryBase != null && root.status !== 'DRAFT') { out.push({ ...l, source: { ...l.source, chainRoot: link } } as SettlementLine); continue; }
       }
     }
+    /*
+     * A recovery waiting in Payroll that the share of final wages holds back
+     * in part: the part held back leaves the chain and is open again on the
+     * advance (closePayrollSources), which needs the chain's starting figure.
+     */
+    if (l.source?.type === 'CARRY' && l.source.advanceId && (l.recover?.capped || 0) > 0.005) await ensureRecoveryBase(orgId, l.source.id);
     out.push(l);
   }
   return out;
@@ -329,11 +335,20 @@ export async function closePayrollSources(tx: any, orgId: string, settlementId: 
       const row = await tx.payrollAdjustment.findFirst({ where: { orgId, id: l.source.id } });
       const take = round2(l.amount);
       const rest = row ? round2(Number(row.amount) - take) : 0;
+      /*
+       * The part the share of final wages held back (fnfRecoveryCap.ts) stays
+       * owed by the person, outside payroll: for an advance's recovery it
+       * leaves the chain and is open on the advance in People again; any
+       * other deduction stays waiting in Payroll, as a part HR left does.
+       */
+      const heldBack = l.source.advanceId ? round2(Math.min(Math.max(0, rest), l.recover?.capped || 0)) : 0;
+      const carried = round2(rest - heldBack);
       const n = row && rest > -0.005
         ? await tx.payrollAdjustment.updateMany({ where: { orgId, id: row.id, status: { in: ['APPROVED', 'DRAFT'] }, amount: row.amount }, data: { status: 'CONSUMED', consumedByRunId: by, amount: take } })
         : { count: 0 };
       if (!n.count) throw new SourcesChangedError('Something waiting in Payroll this settlement takes has changed since. Cancel the settlement and work it out again.');
-      if (rest > 0.005) {
+      if (heldBack > 0.005) done.push(`OWED:${l.source.id}:${heldBack}`);
+      if (carried > 0.005) {
         await tx.payrollAdjustment.create({
           data: {
             accountId: row.accountId,
@@ -343,7 +358,7 @@ export async function closePayrollSources(tx: any, orgId: string, settlementId: 
             componentId: row.componentId,
             periodId: row.periodId,
             type: row.type,
-            amount: rest,
+            amount: carried,
             reason: `Left after full and final settlement: ${String(row.reason || '').replace(/^Left after full and final settlement: /, '')}`.slice(0, 240),
             reference: row.reference || row.id,
             status: 'APPROVED',
