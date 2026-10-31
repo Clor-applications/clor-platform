@@ -290,7 +290,8 @@ export function LeavingCompany({ guard, refreshKey, onSent }) {
           <label className="block">
             <span className="ui-label">Reason</span>
             <textarea className="ui-input w-full" rows={3} maxLength={1000} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
-            <span className="ui-caption block">Optional. Your manager and HR read it.</span>
+            {/* Company choices, SPEC 3.5: the manager decides the last day; the reason is HR's unless HR shares it. */}
+            <span className="ui-caption block">Optional. Seen by HR.</span>
           </label>
           <div className="flex gap-2">
             <button type="submit" className="ui-btn ui-btn-danger flex-1" disabled={busy || !form.lastDay}>{busy ? 'Sending…' : 'Resign'}</button>

@@ -92,6 +92,15 @@ peopleEngagementRouter.get(`${base}/leaving/:employeeId`, ppl(PermissionAction.V
     if (!clearance.lines.length) return none();
     return res.json({ person, clearance, finalPay: null, interview: null, canEdit: false, lineOnly: true });
   }
+  /*
+   * Leavings kept from this reader (Viewer, IT administrator; SPEC 3.5): the plan does not open, and the person reads
+   * as anyone else. A clearance line HR gave them is still theirs to close, and only that.
+   */
+  if (!(p.userId && p.userId === userId) && !(await seesLeavings(req))) {
+    const clearance = await clearanceFor(orgId, p.id, { userId, hr: false, onlyMine: true });
+    if (!clearance.lines.length) return none();
+    return res.json({ person: { id: p.id, name: p.name, status: p.status === 'ON_NOTICE' ? 'ACTIVE' : p.status, dateOfLeaving: null }, clearance, finalPay: null, interview: null, canEdit: false, lineOnly: true });
+  }
   const ownPlan = Boolean(await ownPlanRefusal(who(req), { employeeId: p.id, owner: 'HR' }));
   const hr = !ownPlan && (await isHr(req));
   const self = Boolean(p.userId) && p.userId === userId;
@@ -150,7 +159,7 @@ peopleEngagementRouter.post(`${base}/leaving/:employeeId/exit-interview`, ppl(Pe
   const p = await personIn(req, res);
   if (!p) return;
   const row = await submitInterview(req.tenant!.orgId, p.id, { kind: 'HR', userId: req.auth!.userId, accountId: req.tenant!.accountId }, req.body);
-  await recordAudit(req, { entity: 'ExitInterview', entityId: row!.id, action: 'SUBMITTED', message: `Exit interview entered for ${p.name}`, metadata: { employeeId: p.id, reason: row!.reason } });
+  await recordAudit(req, { entity: 'ExitInterview', entityId: row!.id, action: 'SUBMITTED', message: `Exit interview entered for ${p.name}`, /* Not the reason code: the audit trail is read by roles the reason is kept from (SPEC 3.5). */ metadata: { employeeId: p.id } });
   res.json({ interview: await interviewFor(req.tenant!.orgId, p.id, { hr: true }) });
 }));
 

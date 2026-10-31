@@ -610,3 +610,104 @@ describe('the once-a-day read line under a race', () => {
     expect(await runInTenant(c.orgId, () => platformPrisma.auditLog.count({ where: { orgId: c.orgId, action: 'SALARY_REVISION_VIEWED', createdByUserId: hr.userId } }))).toBe(1);
   }, 60_000);
 });
+
+/*
+ * Re-review of #87 (probe on 5434): the reason typed for leaving also travelled through the audit trail, a
+ * resignation request's payload and the workforce pending list, and the leaving plan ignored "leavings: no".
+ */
+describe('probe: the reason and the leaving on the remaining surfaces', () => {
+  const SECRET = 'Caring for my father';
+  let c: Ctx;
+  let hr: Ctx;
+  let viewer: Ctx;
+  let itAdmin: Ctx;
+  let auditor: Ctx;
+  let lead: Ctx;
+  let resigner: any;
+  let stayer: any;
+  let requestId = '';
+  beforeAll(async () => {
+    c = await company();
+    hr = await withRole(c, 'HR Manager', 'Hridya HR');
+    viewer = await withRole(c, 'Viewer', 'Vasu Viewer');
+    itAdmin = await withRole(c, 'IT Administrator', 'Ira IT');
+    auditor = await withRole(c, 'External Auditor', 'Aditi Auditor');
+    lead = await withRole(c, 'Team Manager', 'Lalitha Lead');
+    const leadEmp = await person(c, { name: 'Lalitha Lead', code: 'P0' });
+    await link(c, leadEmp.id, lead.userId);
+    resigner = await person(c, { name: 'Prakash Portal', code: 'P1', reportingManagerId: leadEmp.id });
+    stayer = await person(c, { name: 'Sita Stays', code: 'P2', reportingManagerId: leadEmp.id });
+    /* HR records a leaving, the person stays on, HR records it again and enters an exit interview. Each body carries the reason. */
+    await ppl(hr, 'post', `/employees/${stayer.id}/resign`, { lastDay: plus(istToday(), 25), leavingType: 'RESIGNED', reason: SECRET }).expect(200);
+    await ppl(hr, 'post', `/employees/${stayer.id}/stay`, { reason: `${SECRET}, sorted` }).expect(200);
+    await ppl(hr, 'post', `/employees/${stayer.id}/resign`, { lastDay: plus(istToday(), 30), leavingType: 'RESIGNED', reason: SECRET }).expect(200);
+    await ppl(hr, 'get', `/leaving/${stayer.id}`).expect(200);
+    await ppl(hr, 'post', `/leaving/${stayer.id}/exit-interview`, { answers: { reason: 'PAY', comeBack: 'MAYBE', keptYou: SECRET } }).expect(200);
+    /* The person resigns from the employee app: a LEAVING request with the reason, to the manager first. */
+    const companyCode = (await att(c, 'get', '/portal-access').expect(200)).body.company.code;
+    const act = (await att(c, 'post', '/portal-access/codes', { employeeIds: [resigner.id] }).expect(200)).body.codes[0].activationCode;
+    const token = (await request(app).post('/api/portal/activate').send({ company: companyCode, employeeCode: 'P1', activationCode: act, password: 'mine pass 1' }).expect(200)).body.token;
+    requestId = (await request(app).post('/api/portal/people/me/resign').set({ Authorization: `Bearer ${token}` }).send({ lastDay: plus(istToday(), 40), reason: SECRET }).expect(202)).body.request.id;
+  }, 180_000);
+
+  it('the audit trail never holds the reason, for Viewer and External Auditor or anyone', async () => {
+    for (const who of [viewer, auditor]) {
+      const res = await call(who, 'get', '/audit?limit=200');
+      expect(res.status).toBe(200);
+      expect(res.body.entries.length).toBeGreaterThan(0);
+      expect(JSON.stringify(res.body)).not.toContain(SECRET);
+    }
+    const rows = await runInTenant(c.orgId, () => platformPrisma.auditLog.findMany({ where: { orgId: c.orgId } }));
+    expect(rows.some((r) => /resign/.test(r.metadata || ''))).toBe(true);
+    expect(JSON.stringify(rows)).not.toContain(SECRET);
+    /* The exit interview's own line keeps no reason code either. */
+    const iv = rows.find((r) => r.entity === 'ExitInterview' && r.action === 'SUBMITTED');
+    expect(iv).toBeTruthy();
+    expect(JSON.parse(iv!.metadata || '{}').reason).toBeUndefined();
+  });
+
+  it('a resignation request’s reason: HR reads it; Viewer, IT and the deciding manager do not', async () => {
+    const read = async (who: Ctx) => ppl(who, 'get', `/requests/${requestId}`);
+    expect((await read(hr)).body.request.payload.reason).toBe(SECRET);
+    for (const who of [viewer, itAdmin]) {
+      const res = await read(who);
+      expect([200, 403, 404]).toContain(res.status);
+      expect(JSON.stringify(res.body)).not.toContain(SECRET);
+    }
+    /* The manager decides the last day: the request is theirs, the reason is not (until HR allows it for that leaving). */
+    const waiting = (await ppl(lead, 'get', '/requests').expect(200)).body.waitingForMe.find((r: any) => r.id === requestId);
+    expect(waiting).toBeTruthy();
+    expect(waiting.payload).toMatchObject({ reason: null, reasonHidden: true, lastDay: plus(istToday(), 40) });
+    expect(JSON.stringify((await read(lead)).body)).not.toContain(SECRET);
+  });
+
+  it('"leavings: no" keeps resignations out of pending actions and the leaving plan shut for Viewer and IT', async () => {
+    const pending = async (who: Ctx) => (await ppl(who, 'get', '/workforce/pending').expect(200)).body.requests.map((r: any) => r.id);
+    expect(await pending(viewer)).toContain(requestId);
+    await setChoice(c, 'people.leavingsForReadOnly', false).expect(200);
+    for (const who of [viewer, itAdmin]) {
+      expect(await pending(who)).not.toContain(requestId);
+      await ppl(who, 'get', `/leaving/${stayer.id}`).expect(404);
+    }
+    expect(await pending(hr)).toContain(requestId);
+    expect(await pending(lead)).toContain(requestId);
+    expect((await ppl(hr, 'get', `/leaving/${stayer.id}`).expect(200)).body.person).toMatchObject({ status: 'ON_NOTICE', dateOfLeaving: plus(istToday(), 30) });
+    expect((await ppl(lead, 'get', `/leaving/${stayer.id}`).expect(200)).body.person.status).toBe('ON_NOTICE');
+    await setChoice(c, 'people.leavingsForReadOnly', true).expect(200);
+    expect((await ppl(viewer, 'get', `/leaving/${stayer.id}`).expect(200)).body.person.status).toBe('ON_NOTICE');
+  });
+});
+
+/* What integrations read of a person: pinned, so the reason typed for leaving can never be added by accident. */
+describe('the public API and webhook employee fields', () => {
+  it('carry status and the last day, never the reason', async () => {
+    const { EMPLOYEE_FIELDS, publicEmployee } = await import('../routes/publicApi.js');
+    const { employeeEvent } = await import('../services/attendance/webhooks.js');
+    expect(Object.keys(EMPLOYEE_FIELDS).sort()).toEqual(['code', 'dateOfJoining', 'dateOfLeaving', 'department', 'designation', 'devicePin', 'id', 'name', 'status', 'updatedAt', 'workEmail']);
+    const row = { id: 'e1', code: 'E1', name: 'A', status: 'LEFT', department: null, designation: null, dateOfJoining: '2025-01-01', dateOfLeaving: '2026-10-01', devicePin: '7', workEmail: null, updatedAt: new Date(), leavingReason: 'Family health', leavingType: 'RESIGNED' };
+    expect(Object.keys(employeeEvent(row)).sort()).toEqual(['code', 'dateOfJoining', 'dateOfLeaving', 'department', 'designation', 'id', 'name', 'readerId', 'status', 'updatedAt']);
+    const pub = publicEmployee(Object.fromEntries(Object.keys(EMPLOYEE_FIELDS).map((k) => [k, (row as any)[k]])));
+    expect(JSON.stringify(pub)).not.toContain('Family health');
+    expect(pub).toMatchObject({ status: 'LEFT', dateOfLeaving: '2026-10-01' });
+  });
+});

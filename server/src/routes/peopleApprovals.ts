@@ -12,6 +12,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { correlationOf } from '../services/people/employees.js';
 import { todayIst } from '../services/people/lifecycle/board.js';
+import { leavingReasonFilter } from '../services/people/companyChoices.js';
 import { usersWithPermission } from '../services/notifications.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
 import { ApprovalError, REQUEST_TYPES, RULE_TYPES, isFormType, activeRule, cleanSteps, decide, mine, namesFor, reply, retireRule, saveRule, shape, submitRequest, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
@@ -79,13 +80,36 @@ peopleApprovalsRouter.delete(`${base}/approval-rules/:requestType`, can(Permissi
 
 // ---- Requests --------------------------------------------------------------
 
+/**
+ * A resignation's reason is the reason typed for leaving (SPEC 3.5): the same rule as everywhere, by the leaving's
+ * last day. HR, the owner and admins read it, and the person resigning; Viewer and IT Administrator when the
+ * company says so; the manager who decides the last day only when HR allows it for that leaving.
+ */
+type Shaped = Awaited<ReturnType<typeof shape>>;
+async function readable(req: Request, rows: Shaped[]): Promise<Shaped[]> {
+  const leaving = rows.filter((r) => r.requestType === 'LEAVING' && r.subjectEmployeeId && (r.payload as any)?.reason);
+  if (!leaving.length) return rows;
+  const subjects = await peoplePrisma.employee.findMany({ where: { orgId: req.tenant!.orgId, id: { in: [...new Set(leaving.map((r) => r.subjectEmployeeId!))] } }, select: { id: true, userId: true, dateOfLeaving: true } });
+  const byId = new Map(subjects.map((e) => [e.id, e]));
+  const shows = await leavingReasonFilter(req, subjects);
+  return rows.map((r) => {
+    if (!leaving.includes(r)) return r;
+    const s = byId.get(r.subjectEmployeeId!);
+    const payload = r.payload as Record<string, unknown>;
+    /* The person resigning reads their own: shows() answers yes when the reader is them. */
+    if (s && shows(s, String(payload.lastDay || s.dateOfLeaving || ''))) return r;
+    return { ...r, payload: { ...payload, reason: null, reasonHidden: true } as any };
+  });
+}
+const shapeFor = async (req: Request, r: Parameters<typeof shape>[0], names?: Parameters<typeof shape>[1]) => (await readable(req, [await shape(r, names)]))[0];
+
 peopleApprovalsRouter.get(`${base}/requests`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const userId = req.auth!.userId;
   const [waiting, asked] = await Promise.all([waitingFor(orgId, userId), mine(orgId, userId)]);
   const names = await namesFor([...waiting, ...asked].flatMap((r) => [r.requesterUserId, ...r.steps.flatMap((s) => [s.approverUserId, s.decidedByUserId, s.standInForUserId, ...((s.candidateUserIds as string[]) || [])].filter(Boolean) as string[])]), orgId);
-  res.json({ waitingForMe: await Promise.all(waiting.map((r) => shape(r, names))), mine: await Promise.all(asked.map((r) => shape(r, names))) });
+  res.json({ waitingForMe: await readable(req, await Promise.all(waiting.map((r) => shape(r, names)))), mine: await readable(req, await Promise.all(asked.map((r) => shape(r, names)))) });
 });
 
 /**
@@ -127,7 +151,7 @@ peopleApprovalsRouter.get(`${base}/requests/:id`, can(PermissionAction.VIEW, REQ
   const userId = req.auth!.userId;
   const involved = r.requesterUserId === userId || r.steps.some((s) => ((s.candidateUserIds as string[]) || []).includes(userId) || s.decidedByUserId === userId);
   if (!involved && (await requirePermissionCheck(req, APPROVALS))) return res.status(404).json({ error: 'No such request.' });
-  res.json({ request: await shape(r) });
+  res.json({ request: await shapeFor(req, r) });
 });
 /** True when the caller lacks the grant (used where a 404 is the right answer). */
 async function requirePermissionCheck(req: Request, resource: string) {
@@ -153,7 +177,7 @@ peopleApprovalsRouter.post(`${base}/requests`, can(PermissionAction.CREATE, REQU
   const key = String(req.headers['idempotency-key'] || req.body?.idempotencyKey || '').trim().slice(0, 120) || null;
   try {
     const r = await submitRequest(actorOf(req, 'FORM', typeof parsed.data.payload?.reason === 'string' ? parsed.data.payload.reason : null), { ...parsed.data, idempotencyKey: key });
-    res.status(r.existed ? 200 : 201).json({ request: await shape(r.request), outcome: r.outcome ?? null, existed: Boolean(r.existed) });
+    res.status(r.existed ? 200 : 201).json({ request: await shapeFor(req, r.request), outcome: r.outcome ?? null, existed: Boolean(r.existed) });
   } catch (e) {
     return sendError(res, e);
   }
@@ -176,7 +200,7 @@ for (const action of DECIDE_ACTIONS) {
     if (missing) return res.status(400).json({ error: missing });
     try {
       const r = await decide(actorOf(req, 'APPROVAL', comment), String(req.params.id), action, comment);
-      res.json({ request: await shape(r.request), outcome: (r as any).outcome ?? null });
+      res.json({ request: await shapeFor(req, r.request), outcome: (r as any).outcome ?? null });
     } catch (e) {
       return sendError(res, e);
     }
@@ -224,7 +248,7 @@ peopleApprovalsRouter.post(`${base}/requests/:id/reply`, can(PermissionAction.VI
   const note = typeof req.body?.note === 'string' ? req.body.note.trim() : '';
   if (!note) return res.status(400).json({ error: 'Write the answer.' });
   try {
-    res.json({ request: await shape(await reply(actorOf(req), String(req.params.id), note)) });
+    res.json({ request: await shapeFor(req, await reply(actorOf(req), String(req.params.id), note)) });
   } catch (e) {
     return sendError(res, e);
   }
@@ -233,7 +257,7 @@ peopleApprovalsRouter.post(`${base}/requests/:id/reply`, can(PermissionAction.VI
 peopleApprovalsRouter.post(`${base}/requests/:id/withdraw`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
-    res.json({ request: await shape(await withdraw(actorOf(req), String(req.params.id))) });
+    res.json({ request: await shapeFor(req, await withdraw(actorOf(req), String(req.params.id))) });
   } catch (e) {
     return sendError(res, e);
   }
