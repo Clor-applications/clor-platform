@@ -1305,7 +1305,7 @@ async function runAwayHandUps(now: Date) {
         });
         if (!moved) return;
         handedUp += 1;
-        await notifyUsers(step.accountId, step.orgId, up, { kind: 'people.approval', title: `Waiting for you: ${step.request.title}`, body: note, link: { app: 'people', screen: 'approvals' } as any });
+        await notifyUsers(step.accountId, step.orgId, up, { kind: 'people.approval', title: `Waiting for you: ${step.request.title}`, body: note, link: { app: 'people', screen: 'approvals' } as any }, { subjectKey: `approval:${step.requestId}` });
       });
     } catch (e) {
       failed += 1;
