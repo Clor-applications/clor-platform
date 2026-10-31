@@ -144,7 +144,14 @@ export const DAY_PILL = { PRESENT: 'ui-pill-pos', HALF_DAY: 'ui-pill-warn', ABSE
 export const dates = (from, to) => (from === to ? from : `${from} to ${to}`);
 /** A type's colour, or a steady one from its name so the calendar stays readable without set-up. */
 const PALETTE = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#dc2626', '#0891b2', '#db2777', '#64748b'];
-export const colorOf = (t) => t?.color || PALETTE[[...String(t?.name || t?.leaveTypeName || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length];
+const slotOf = (t) => [...String(t?.name || t?.leaveTypeName || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length;
+/** A hex for the colour picker (it takes nothing else). */
+export const colorOf = (t) => t?.color || PALETTE[slotOf(t)];
+/**
+ * What a swatch draws: the type's own colour, or its slot in the leave series (`--leave-0..7`, the same
+ * hexes as PALETTE by default; People's brand D redefines them, so a type nobody coloured wears the brand).
+ */
+export const swatchOf = (t) => t?.color || `rgb(var(--leave-${slotOf(t)}))`;
 export const thisYear = () => new Date().getFullYear();
 /** Today in India, as the server counts days (not the browser's UTC date). */
 export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);

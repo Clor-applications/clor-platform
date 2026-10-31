@@ -71,7 +71,7 @@ export function LeaveRequestsPanel({ openScreen }) {
   return (
     <>
       <SideBlock title="Away this week" count={away.length} action={{ label: 'Calendar', onClick: () => openScreen?.('leaveCalendar') }}>
-        {clashes.map((c) => <SideAlert key={`c-${c.dept}`} title={`${c.dept} is short on ${day(c.d)}`} sub={`${c.n} people off the same day`} />)}
+        {clashes.map((c) => <SideAlert key={`c-${c.dept}`} tone="warn" title={`${c.dept} is short on ${day(c.d)}`} sub={`${c.n} people off the same day`} />)}
         {away.slice(0, 5).map((r) => (
           <SideLine key={r.id} lead={face(r.employeeName, r.photoUrl)} title={r.employeeName} sub={`${r.leaveTypeName} · ${span(r.fromDate, r.toDate)}`}
             meta={r.status === 'PENDING' ? 'Waiting' : 'Off'} tone={r.status === 'PENDING' ? 'warn' : 'info'} />
@@ -109,7 +109,7 @@ export function ApprovalsPanel({ openScreen }) {
   const stale = items.filter((i) => i.overdue || daysSince(i.since) >= 3).length;
   return (
     <>
-      <SideBlock title="Waiting longest" count={items.length}>
+      <SideBlock title="Waiting longest" count={items.length} tone="warn">
         {stale ? <SideAlert title={`${stale} waiting 3 days or more`} sub="Oldest first in the list" tone="warn" /> : null}
         {oldest.map((i) => (
           <SideLine key={i.key} lead={face(i.employeeName, i.photoUrl)} title={i.employeeName} sub={i.what} meta={waited(i.since)}
@@ -225,7 +225,7 @@ export function EmployeesPanel({ openScreen }) {
         {probation.map((p) => <SideLine key={`p-${p.id}`} lead={face(p.name, p.photoUrl)} title={p.name} sub={`Probation ends ${day(p.probationEndDate)}`} meta="Review" tone="warn" onClick={open(p)} />)}
         {req.data && !events ? <SideClear>No joiners, leavers or birthdays</SideClear> : null}
       </SideBlock>
-      <SideBlock title="Needs setting up" count={noManager + noEmail}>
+      <SideBlock title="Needs setting up" count={noManager + noEmail} tone="warn">
         {noManager ? <SideAlert title={`${noManager} without a manager`} sub="Their leave has nobody to approve it" tone="warn" onClick={() => openScreen?.('dataHealth')} /> : null}
         {noEmail ? <SideAlert title={`${noEmail} without an email`} sub="They get no payslips or notices" tone="warn" onClick={() => openScreen?.('dataHealth')} /> : null}
       </SideBlock>
@@ -268,7 +268,7 @@ export function ChecklistsPanel({ openScreen, navItems }) {
         {list.length > 6 ? <SideLine title={`${list.length - 6} more people`} /> : null}
         {req.data && !list.length ? <SideClear>Nothing open</SideClear> : null}
       </SideBlock>
-      <SideBlock title="Late, by owner" count={late}>
+      <SideBlock title="Late, by owner" count={late} tone="warn">
         {Object.entries(byOwner).sort((a, b) => b[1] - a[1]).map(([o, n]) => <SideLine key={o} title={OWNER_WORD[o] || o} meta={n} tone="neg" bar={(n / Math.max(1, late)) * 100} />)}
       </SideBlock>
       {/* Tasks is where People opens for someone without Home (an employee, an auditor): only links they may follow. */}
@@ -509,7 +509,7 @@ export function SalaryRevisionsPanel({ openScreen }) {
   const soon = rows.filter((r) => r.status === 'APPROVED' && r.effectiveFrom && daysTo(r.effectiveFrom) >= 0 && daysTo(r.effectiveFrom) <= 60).sort((a, b) => String(a.effectiveFrom).localeCompare(String(b.effectiveFrom)));
   return (
     <>
-      <SideBlock title="Waiting for a decision" count={waiting.length}>
+      <SideBlock title="Waiting for a decision" count={waiting.length} tone="warn">
         {waiting.slice(0, 4).map((r) => <SideLine key={r.id} title={r.employeeName || 'Employee'} sub={r.reason || words(r.status)} tone="warn" />)}
       </SideBlock>
       <SideBlock title="Taking effect soon" count={soon.length}>

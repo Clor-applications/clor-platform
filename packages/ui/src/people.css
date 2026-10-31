@@ -1813,12 +1813,13 @@
   --rail-ink-strong: 31 33 48;
 }
 /* Indigo: headings and the big figures. */
-:root[data-palette='sky']:not([data-theme='dark']) #main-content :is(h1, h2, .ui-t-page, .ui-t-sec, .soft-panel-title, .ui-metric-value, .soft-band-stat-value) { color: rgb(var(--brand)); }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content :is(h1, h2, .ui-t-page, .ui-t-sec, .soft-panel-title, .ui-metric:not([data-zero]) .ui-metric-value, .soft-band-stat-value) { color: rgb(var(--brand)); }
 /* Marigold: the mark beside the open module, the line under the open tab, progress, tab counts and the main action's arrow. */
 :root[data-palette='sky']:not([data-theme='dark']) .ui-split-mod[data-current]::before { background: rgb(var(--warm)); }
 :root[data-palette='sky']:not([data-theme='dark']) :is(.ui-tab-indicator, .ui-tab.is-active::after) { background: rgb(var(--warm)); }
 :root[data-palette='sky']:not([data-theme='dark']) .org-card-bar > span { background: rgb(var(--warm)); }
-:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-panel .ui-count, .ui-tab .ui-count) { background: rgb(var(--warm)); color: rgb(var(--brand)); }
+/* A count that waits on you (`data-tone="warn"` on a tab's or a side block's count) is marigold; every other count keeps the lilac wash (31 Oct 2026: the rule named .ui-count, which no component renders). */
+:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-tab-count, .ui-side-count)[data-tone='warn'] { background: rgb(var(--warm)) !important; color: rgb(var(--brand)) !important; font-weight: 700; }
 :root[data-palette='sky']:not([data-theme='dark']) .soft-pill-primary .soft-pill-orb { background: rgb(var(--warm)); color: rgb(var(--brand)); }
 /* Lilac: a row under the pointer, and the chosen row. */
 :root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table tbody tr:is(.ui-row-click:hover, [aria-selected='true']) > td { background: rgb(var(--brand-subtle)); }
@@ -1890,9 +1891,9 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
 :root[data-palette='sky'] #main-content .ui-with-panel[data-panel='on'] > .ui-side-panel { border-left: 0; }
 /* Figure cards from shared list pages (Salary revisions, and any DocumentListShell): Payroll's amber, blue and green
    tones become brand D here: a lilac tile with an indigo mark, the figure in indigo, the label in sentence case. */
-:root[data-palette='sky']:not([data-theme='dark']) #main-content section > button.ui-card > span:first-child { background: rgb(var(--brand-soft)) !important; color: rgb(var(--brand)) !important; }
-:root[data-palette='sky']:not([data-theme='dark']) #main-content section > button.ui-card .tabular-nums { color: rgb(var(--brand)) !important; font-family: var(--font-display); font-weight: 700; font-size: 1.0625rem; }
-:root[data-palette='sky']:not([data-theme='dark']) #main-content section > button.ui-card .ui-t-label { text-transform: none; letter-spacing: 0; font-size: 0.8125rem; }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content section > :is(button, div).ui-card > span:first-child { background: rgb(var(--brand-soft)) !important; color: rgb(var(--brand)) !important; }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content section > :is(button, div).ui-card .tabular-nums { color: rgb(var(--brand)) !important; font-family: var(--font-display); font-weight: 700; font-size: 1.0625rem; }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content section > :is(button, div).ui-card .ui-t-label { text-transform: none; letter-spacing: 0; font-size: 0.8125rem; }
 
 
 /*
@@ -1937,3 +1938,85 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
 :root[data-palette='sky'] :is(#main-content, body) .ui-btn:is(.ui-btn-primary, .ui-btn-brand, .ui-btn-secondary, .ui-btn-soft, .ui-btn-ghost):not(.ui-btn-icon-only, [data-icon-only]):disabled {
   --btn-icon-color: currentColor;
 }
+
+/*
+ * Brand colours where they belong (owner, 31 Oct 2026: "yellow and other colors not utilised properly", then "Yes,
+ * all ten"). The audit is docs/people/design-v1/COLOUR-AUDIT-2026-10-31.md. Light theme only; People's dark theme
+ * keeps its earlier values. Measured on white unless said:
+ *   indigo on marigold 6.5:1 · indigo on marigold-soft #FEF1D6 11.8:1 · #7A4F00 (marigold as text) 7.1:1
+ *   deep marigold #C98200 as a line 3.2:1 · away #8D84C6 as a mark 3.4:1 (3.9:1 against indigo) · red #B91C1C 6.5:1
+ *   quiet grey #686B7C 5.3:1. Marigold #F5A623 is never text (2.0:1).
+ */
+:root[data-palette='sky']:not([data-theme='dark']),
+:root:not([data-theme='dark']) [data-palette='sky'] {
+  /* Warnings: words in marigold's text form, marks in marigold itself (was the teal-era orange #B25000 for both). */
+  --warn: 122 79 0;
+  --warn-mark: 245 166 35;
+  --warn-soft: 254 241 214;
+  --warn-ink: 35 42 102;
+  /* Red is for what went wrong (DESIGN's #B91C1C; was #D70015). */
+  --neg: 185 28 28;
+  --neg-soft: 253 236 236;
+  /* Away: on leave, out today. A mark, never text. */
+  --away: 141 132 198;
+  /* One series for charts, teams and leave types: indigo, marigold, away, deep marigold, indigo-60, slate indigo, greys;
+     every mark but marigold (a fill by rule) at least 3:1 on white.
+     --dept-0 stays "no team" grey. */
+  --dept-0: 104 107 124;
+  --dept-1: 35 42 102;
+  --dept-2: 245 166 35;
+  --dept-3: 141 132 198;
+  --dept-4: 201 130 0;
+  --dept-5: 90 97 168;
+  --dept-6: 74 79 122;
+  --dept-7: 138 140 163;
+  --dept-8: 104 107 124;
+  /* Leave slots: the same family, no warning brown; slot 6 (where "Casual leave" lands) wears the away mark. */
+  --leave-0: 74 79 122;
+  --leave-1: 245 166 35;
+  --leave-2: 35 42 102;
+  --leave-3: 201 130 0;
+  --leave-4: 90 97 168;
+  --leave-5: 138 140 163;
+  --leave-6: 141 132 198;
+  --leave-7: 104 107 124;
+}
+/* Marks that say "warning" take marigold; the words stay readable. */
+:root[data-palette='sky']:not([data-theme='dark']) .ui-attention-dot.is-warn { background: rgb(var(--warn-mark)); }
+:root[data-palette='sky']:not([data-theme='dark']) .att-summary [data-tone='warn'] { --t: var(--warn-mark); }
+:root[data-palette='sky']:not([data-theme='dark']) .att-line-span[data-late] { background: linear-gradient(90deg, rgb(var(--warn-mark)) 0 18%, rgb(var(--pos)) 18% 100%); }
+:root[data-palette='sky']:not([data-theme='dark']) .att-cell[data-s='HALF_DAY'] { background: rgb(var(--warn-mark) / 0.22); color: rgb(var(--brand)); }
+:root[data-palette='sky']:not([data-theme='dark']) .ui-cell-date[data-urgency='today'] svg { color: rgb(var(--btn-icon-on-white)); }
+/* Away has its own mark, apart from Present's indigo; its words stay indigo on lilac (10.7:1). */
+:root[data-palette='sky']:not([data-theme='dark']) .att-summary [data-tone='info'] { --t: var(--away); }
+:root[data-palette='sky']:not([data-theme='dark']) .att-cell[data-s='ON_LEAVE'] { background: rgb(var(--away) / 0.22); color: rgb(var(--brand)); }
+/* One "waiting" look: solid marigold with indigo on it, in the side panel as on the page. */
+:root[data-palette='sky']:not([data-theme='dark']) .ui-side-pill[data-tone='warn'] { background: rgb(var(--warm)); color: rgb(var(--brand)); }
+/* A look-here line (a clash, a gap in the data): marigold-soft, indigo words, a marigold edge, the mark in deep marigold. */
+:root[data-palette='sky']:not([data-theme='dark']) .ui-side-alert[data-tone='warn'] { box-shadow: inset 3px 0 0 rgb(var(--warm)); }
+:root[data-palette='sky']:not([data-theme='dark']) .ui-side-alert[data-tone='warn'] > svg { color: rgb(var(--btn-icon-on-white)); }
+/* A figure that waits on you, above nought: a marigold bar along its top. */
+:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric[data-attention] { box-shadow: inset 0 3px 0 rgb(var(--warm)); }
+/* Home's count tiles for work that waits on you. */
+:root[data-palette='sky']:not([data-theme='dark']) .people-row-count[data-tone='warn'] { background: rgb(var(--warm)); color: rgb(var(--brand)); }
+/* Faces: initials in indigo on their team's wash (the series colour as text would be 2:1 for marigold). */
+:root[data-palette='sky']:not([data-theme='dark']) .people-face { color: rgb(var(--brand)); background: rgb(var(--dept) / 0.16); }
+/* The module panel's open screen: a lilac tile with a line, so it reads on the pale lilac panel (was 1.02:1). */
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] {
+  background: rgb(var(--brand-soft)); box-shadow: inset 0 0 0 1px rgb(var(--brand-border));
+}
+/* Place icons on Settings cards sit on the lilac tile, the rail's two-tone. */
+:root[data-palette='sky']:not([data-theme='dark']) #main-content li > button.ui-card > svg.ui-glyph:first-child {
+  box-sizing: content-box; width: 1.25rem; height: 1.25rem; padding: 0.5rem; border-radius: 8px; background: rgb(var(--brand-soft)); color: rgb(var(--brand));
+}
+/* The bell: things waiting on you, so marigold with indigo, and a marigold dot on each unread line. */
+:root[data-palette='sky']:not([data-theme='dark']) .ui-bell-count { background: rgb(var(--warm)); color: rgb(var(--brand)); }
+:root[data-palette='sky']:not([data-theme='dark']) .ui-bell-unread { display: inline-block; background: rgb(var(--warm)); }
+
+/*
+ * The employee app (shared with Attendance, 31 Oct 2026). It wears brand D's "waiting" and the open tab's marigold
+ * line through its own `data-brand="d"`, not the sky palette, so Attendance's web screens keep Blaze and the app keeps
+ * its layout. Light theme only.
+ */
+:root:not([data-theme='dark']) .ui-portal[data-brand='d'] .ui-pill-warn { background: rgb(var(--marigold)); color: rgb(var(--indigo)); }
+:root:not([data-theme='dark']) .ui-portal[data-brand='d'] nav[aria-label='Portal'] button[aria-current='page'] { box-shadow: inset 0 3px 0 rgb(var(--marigold)); }

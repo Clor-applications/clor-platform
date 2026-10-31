@@ -24,9 +24,9 @@ import { can, homeCrumbs, istDay } from './shared';
 import { MONTH_CLOSED, MonthClosedNote } from './MonthClosed';
 import { useSuggestions } from './suggestions';
 import {
-  PRIVATE_LABEL, STATUS_LABEL, STATUS_PILL, approveLeave, cancelLeave, colorOf, createLeaveRequest, daysText,
+  PRIVATE_LABEL, STATUS_LABEL, STATUS_PILL, approveLeave, cancelLeave, createLeaveRequest, daysText,
   getLeaveDocument, getLeaveRequest, getLeaveSettings, listLeaveRequests, listLeaveTypes, pageLeaveRequests, periodChoices, previewLeave, rejectLeave,
-  shortenLeave, updateLeaveRequest, listPeople,
+  shortenLeave, swatchOf, updateLeaveRequest, listPeople,
 } from './api';
 
 /**
@@ -46,7 +46,7 @@ const waitedText = (at) => { const d = waitedDays(at); return d === 0 ? 'Today' 
 
 export function TypeDot({ row }) {
   const masked = row.reasonHidden || row.leaveTypeName === PRIVATE_LABEL;
-  return <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${masked ? 'ui-dot-quiet' : ''}`} style={masked ? undefined : { background: colorOf({ color: row.leaveTypeColor, name: row.leaveTypeName }) }} aria-hidden="true" />;
+  return <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${masked ? 'ui-dot-quiet' : ''}`} style={masked ? undefined : { background: swatchOf({ color: row.leaveTypeColor, name: row.leaveTypeName }) }} aria-hidden="true" />;
 }
 
 export function StatusPill({ row }) {
@@ -132,7 +132,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
           <div ref={tabsRef} role="tablist" aria-label="Leave requests" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
             {TABS.map(([k, l]) => (
               <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => set({ tab: k === 'PENDING' ? null : k, page: null }, true)}>
-                {l}{counts[k] ? <span className="ui-tab-count tabular-nums">{counts[k]}</span> : null}
+                {l}{counts[k] ? <span className="ui-tab-count tabular-nums" data-tone={k === 'PENDING' ? 'warn' : undefined}>{counts[k]}</span> : null}
               </button>
             ))}
             {tabIndicator}

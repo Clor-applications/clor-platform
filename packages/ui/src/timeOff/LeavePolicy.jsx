@@ -19,7 +19,7 @@ import { can } from './shared';
 import { hoursPerDayOf, hoursWords } from './partOfDay';
 import {
   ACCRUAL_LABEL, MONTH_NAMES, PRIVATE_LABEL, colorOf, createLeaveType, creditText, deleteLeaveType, getLeaveSettings, listLeaveTypes,
-  previewLeaveType, saveLeaveSettings, todayIst, updateLeaveType,
+  previewLeaveType, saveLeaveSettings, swatchOf, todayIst, updateLeaveType,
 } from './api';
 
 /**
@@ -308,7 +308,7 @@ export default function LeavePolicy() {
   const columns = [
     { key: 'name', label: 'Leave type', always: true, render: (t) => (
       <span className="inline-flex items-center gap-2 min-w-0">
-        <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: colorOf(t) }} aria-hidden="true" />
+        <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: swatchOf(t) }} aria-hidden="true" />
         <span className="truncate font-medium">{t.name}</span>
         {t.isPrivate ? <span className="ui-pill ui-pill-neutral">Private</span> : null}
       </span>

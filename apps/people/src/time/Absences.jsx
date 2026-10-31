@@ -75,7 +75,7 @@ export default function Absences({ params = {}, updateParams }) {
           <div ref={tabsRef} role="tablist" aria-label="Absences" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
             {TABS.map(([k, l]) => (
               <button key={k} type="button" role="tab" aria-selected={status === k} data-key={k} className={`ui-tab ${status === k ? 'is-active' : ''}`} onClick={() => updateParams?.({ status: k === 'open' ? null : k }, { push: true })}>
-                {l}{k === 'open' && req.data?.counts?.open ? <span className="ui-tab-count tabular-nums">{req.data.counts.open}</span> : null}
+                {l}{k === 'open' && req.data?.counts?.open ? <span className="ui-tab-count tabular-nums" data-tone="warn">{req.data.counts.open}</span> : null}
               </button>
             ))}
             {tabIndicator}
