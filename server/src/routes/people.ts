@@ -1314,9 +1314,12 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/checklist', can(PermissionAc
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   void accountId;
-  const employee = await scopedEmployee(req, String(req.params.id), { id: true });
+  const employee = await scopedEmployee(req, String(req.params.id), { id: true, userId: true });
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
-  res.json(await checklistOf(orgId, employee.id));
+  const lists = await checklistOf(orgId, employee.id);
+  /* Leavings kept from this reader (SPEC 3.5): the leaving plan is not shown, except to the person. */
+  if (!(employee.userId && employee.userId === req.auth!.userId) && !(await seesLeavings(req))) return res.json({ ...lists, leaving: { tasks: [], done: 0, total: 0 } });
+  res.json(lists);
 });
 
 /** Start a checklist by hand (someone added before checklists existed). */
@@ -1637,6 +1640,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/activity', can(PermissionAct
     canPersonal: await seesPersonal(req),
     /* The reason typed for leaving, and the note that came with it (SPEC 3.5). */
     canLeavingReason: await seesLeavingReason(req, employee),
+    canLeavings: Boolean(employee.userId && employee.userId === req.auth!.userId) || (await seesLeavings(req)),
     docClasses: await readableClassifications(req),
     allows,
   }, employee.id, { before: req.query.before ? new Date(String(req.query.before)) : null, limit: Number(req.query.limit || 50) });

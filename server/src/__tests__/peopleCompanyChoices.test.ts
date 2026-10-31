@@ -688,7 +688,13 @@ describe('probe: the reason and the leaving on the remaining surfaces', () => {
     for (const who of [viewer, itAdmin]) {
       expect(await pending(who)).not.toContain(requestId);
       await ppl(who, 'get', `/leaving/${stayer.id}`).expect(404);
+      /* Nor the record's Activity ("resign", "stay") or its open leaving tasks. */
+      const activity = JSON.stringify((await ppl(who, 'get', `/employees/${stayer.id}/activity`).expect(200)).body);
+      expect(activity).not.toMatch(/resign|\/stay|exit interview|on notice/i);
+      expect((await ppl(who, 'get', `/employees/${stayer.id}/checklist`).expect(200)).body.leaving.total).toBe(0);
     }
+    expect((await ppl(hr, 'get', `/employees/${stayer.id}/checklist`).expect(200)).body.leaving.total).toBeGreaterThan(0);
+    expect(JSON.stringify((await ppl(hr, 'get', `/employees/${stayer.id}/activity`).expect(200)).body)).toMatch(/resign/i);
     expect(await pending(hr)).toContain(requestId);
     expect(await pending(lead)).toContain(requestId);
     expect((await ppl(hr, 'get', `/leaving/${stayer.id}`).expect(200)).body.person).toMatchObject({ status: 'ON_NOTICE', dateOfLeaving: plus(istToday(), 30) });
