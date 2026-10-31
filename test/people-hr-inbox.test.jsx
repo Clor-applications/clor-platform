@@ -193,9 +193,11 @@ describe('Time & Leave', () => {
 
   it('the calendar marks work from home apart from leave, and does not count it as away', async () => {
     const month = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 7);
-    timeApi.getWorkingAway.mockResolvedValue([{ id: 'w1', employeeId: 'e2', employeeName: 'Ravi Kumar', department: 'Sales', kind: 'WFH', fromDate: `${month}-15`, toDate: `${month}-15`, halfDay: null, place: null }]);
+    /* The 15th, or the 16th when the 15th is a Sunday: a weekly off is shaded and holds no work-from-home mark (1 Nov 2026 red main). */
+    const day = new Date(`${month}-15T00:00:00Z`).getUTCDay() === 0 ? `${month}-16` : `${month}-15`;
+    timeApi.getWorkingAway.mockResolvedValue([{ id: 'w1', employeeId: 'e2', employeeName: 'Ravi Kumar', department: 'Sales', kind: 'WFH', fromDate: day, toDate: day, halfDay: null, place: null }]);
     render(<LeaveCalendar />);
-    const mark = await screen.findByLabelText(`${month}-15: Work from home`);
+    const mark = await screen.findByLabelText(`${day}: Work from home`);
     expect(mark).toHaveTextContent('H');
     expect(screen.getByText('Work from home, working')).toBeInTheDocument();
     const away = screen.getByRole('row', { name: /^Away/ });

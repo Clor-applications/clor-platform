@@ -72,7 +72,8 @@ describe('People Home setup list', () => {
     expect(r.setup.steps.find((s: any) => s.key === 'people').done).toBe(true);
     /* The week needs holidays too; the step now opens Holidays. */
     expect(r.setup.steps.find((s: any) => s.key === 'week')).toMatchObject({ done: false, screen: 'holidays' });
-    await att(c, 'post', '/holidays', { date: `${isoWeekOf(new Date()).key.slice(0, 4)}-12-25`, name: 'Christmas' }).expect(201);
+    /* A holiday in this calendar year in India, as the step counts them (an ISO week's year is still 2026 on 1-3 Jan 2027). */
+    await att(c, 'post', '/holidays', { date: `${new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 4)}-12-25`, name: 'Christmas' }).expect(201);
     await att(c, 'post', '/leave/types', { name: 'Casual', annualDays: 12 }).expect(201);
     r = (await people(c).get('/setup').expect(200)).body;
     expect(r.setup).toMatchObject({ done: 3, total: 4, show: true });

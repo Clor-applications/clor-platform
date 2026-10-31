@@ -278,7 +278,7 @@ describe('leave, explained', () => {
     const c = await makeOwner();
     const p = await person(c, '515');
     const type = (await att(c).post('/leave/types', { name: 'Casual', isPaid: true, annualDays: 12, accrual: 'MONTHLY' }).expect(201)).body.type;
-    const year = Number(new Date().toISOString().slice(0, 4));
+    const year = Number(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 4)); // this year in India
     const x = await att(c).get(`/leave/explain?employeeId=${p.id}&leaveTypeId=${type.id}&year=${year}`).expect(200);
     expect(x.body.type.name).toBe('Casual');
     expect(x.body.lines.some((l: any) => l.kind === 'earned')).toBe(true);

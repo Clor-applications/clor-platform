@@ -155,7 +155,7 @@ describe('import, notes and the overview', () => {
     const res = await api(owner)
       .post('/employees/import', {
         rows: [
-          { name: 'Imported One', department: 'Warehouse', jobPosition: 'Picker', dateOfJoining: new Date().toISOString().slice(0, 10) },
+          { name: 'Imported One', department: 'Warehouse', jobPosition: 'Picker', dateOfJoining: new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10) /* today in India, as the overview counts it */ },
           { name: '', department: 'Warehouse' },
           { name: 'Imported Two', department: 'warehouse' },
         ],

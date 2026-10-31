@@ -24,7 +24,7 @@ export type Owner = 'HR' | 'MANAGER' | 'PAYROLL' | 'IT' | 'EMPLOYEE';
  * `system`: work CLOR does itself and closes when it is confirmed (READERS);
  * its state: WAITING, CONFIRMED, FAILED, MANUAL (failed, then done by hand), NONE.
  */
-export type Item = { title: string; owner: Owner; dueDays: number; note?: string; workingDays?: boolean; needsNote?: boolean; types?: string[]; system?: 'READERS' };
+export type Item = { title: string; owner: Owner; dueDays: number; note?: string; workingDays?: boolean; needsNote?: boolean; /** Due from a real past day (a letter asked for on a date): never moved up to today. */ fixedDue?: boolean; types?: string[]; system?: 'READERS' };
 type Who = { accountId: string; orgId: string; userId: string | null };
 
 export const OWNERS: Owner[] = ['HR', 'MANAGER', 'PAYROLL', 'IT', 'EMPLOYEE'];
@@ -168,11 +168,12 @@ export async function startChecklist(who: Who, employee: { id: string }, kind: K
     /*
      * A joiner entered after they started is not late on day one: nothing falls due before the day the plan is made.
      * Except a step counted in working days (final wages): that is a legal clock, and a leaving recorded late does
-     * not restart it; it shows late from the day it really fell due.
+     * not restart it; it shows late from the day it really fell due. So too a letter asked for on a past day (fixedDue):
+     * the statutory days run from the asking, not from when HR typed it in.
      */
     const today = todayIst();
     const works = items.some((it) => it.workingDays) ? await workingCalendar(who.orgId, person, base) : null;
-    const due = (it: Item) => { const d = countFrom(base, Math.round(Number(it.dueDays) || 0), it.workingDays ? works : null); return d < today && !it.workingDays ? today : d; };
+    const due = (it: Item) => { const d = countFrom(base, Math.round(Number(it.dueDays) || 0), it.workingDays ? works : null); return d < today && !it.workingDays && !it.fixedDue ? today : d; };
     /* Two saves at once (a create and a rehire, two clicks) must not both start one: checked again under a lock per person and kind. */
     const made = await peoplePrisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`checklist:${employee.id}:${kind}`}))`;

@@ -59,8 +59,10 @@ async function nightShift(c: Ctx, employeeIds: string[]) {
   return shift;
 }
 
-const LEAVE_WORDS = 'September is closed. Ask HR to reopen it if this leave must count.';
-const REQUEST_WORDS = 'September is closed. Ask HR to reopen it if this request must count.';
+/* A month of this year is named alone, one of another year with its year: from 2027 it reads "September 2026". */
+const SEPTEMBER = new Date(Date.now() + 330 * 60_000).toISOString().startsWith('2026') ? 'September' : 'September 2026';
+const LEAVE_WORDS = `${SEPTEMBER} is closed. Ask HR to reopen it if this leave must count.`;
+const REQUEST_WORDS = `${SEPTEMBER} is closed. Ask HR to reopen it if this request must count.`;
 
 describe('night-shift times, worked out on their own', () => {
   const night = { startTime: '22:00', endTime: '06:00' };

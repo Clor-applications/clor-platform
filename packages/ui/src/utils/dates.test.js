@@ -1,6 +1,6 @@
 import { describe, expect, it, afterEach, vi } from 'vitest';
 
-import { formatDateIn, localDateIso, parseDateIn, todayIso } from './dates';
+import { formatDateIn, localDateIso, parseDateIn, plusDaysIso, todayIso } from './dates';
 
 /**
  * A date that means the same thing on every machine.
@@ -82,11 +82,26 @@ describe('localDateIso', () => {
   });
 });
 
-describe('todayIso stays UTC', () => {
-  it('is not quietly turned into the local date', () => {
-    /* The two helpers answer different questions and both are needed:
-       `todayIso` matches what the server stores for a form default,
-       `localDateIso` matches the wall the reader is looking at. */
-    expect(todayIso()).toBe(new Date().toISOString().slice(0, 10));
+describe("todayIso is India's date, as the server's todayIst", () => {
+  afterEach(() => vi.useRealTimers());
+  const at = (moment) => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(moment)); };
+
+  it('at 01:00 IST is already the new day (UTC is still on yesterday)', () => {
+    at('2026-11-01T01:00:00+05:30');
+    expect(new Date().toISOString().slice(0, 10)).toBe('2026-10-31');
+    expect(todayIso()).toBe('2026-11-01');
+    expect(plusDaysIso(30)).toBe('2026-12-01');
+  });
+
+  it('at 23:30 IST on 31 December is still that year, and the next day is the new one', () => {
+    at('2026-12-31T23:30:00+05:30');
+    expect(todayIso()).toBe('2026-12-31');
+    expect(plusDaysIso(1)).toBe('2027-01-01');
+  });
+
+  it('does not follow the machine’s own time zone', () => {
+    /* `localDateIso` answers "the wall the reader is looking at"; `todayIso` is the business day in India, wherever the browser is. */
+    at('2026-11-01T01:00:00+05:30');
+    expect(todayIso()).toBe(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10));
   });
 });

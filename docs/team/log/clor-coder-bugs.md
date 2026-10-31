@@ -1,5 +1,11 @@
 # clor-coder-bugs
 
+## 2026-11-01 05:00 IST — Tests not date-bound (red main of 1 Nov 2026)
+- Did: fixed the five tests that broke on 1 Nov (UTC vs IST today, today a Sunday, 15th a Sunday, letter due date clamped). Two app bugs: a letter asked for on a past day keeps its statutory due date; attendance import refuses an impossible date. todayIso()/plusDaysIso() now India's date. TEST_TODAY moves the clock in both suites; swept web and server with it and fixed every hard-coded date that breaks before May 2028. Rule added to TEAM.md.
+- Evidence: branch claude/tests-not-date-bound. Web 2122 passed now and at 6 shifted moments. Server full suite on 5434: 2759/2760 now (one Prisma transaction timeout under load, passes alone); 21 changed files 334/334 now. Shifted server runs leave only TEST_TODAY artifacts (DB now() is not moved).
+- Next: review.
+- Blocked on: nothing.
+
 ## 2026-10-30 19:00 IST — People / e2e bug fixes — review of PR #80
 - Did: phone tables use overflow-x: clip until data-wide (auto made the box the sticky frame; the head row sat 56px over the first row). Own leave still with an active manager under MANAGER_THEN_HR stays out of its owner's Approvals, count and digest. A manager's or stand-in's drawer no longer disables Approve as "has not approved yet" (leave and attendance requests). publishedOnly readers get id, kind, title, status, details, updatedAt and no past events. Every screen audit now checks the head row against the first row; new scenario H12. Corrected the Approvals sideways-scroll cause below.
 - Evidence: commit f838c617; e2e 84 passed, both widths; H12 and the audit fail on the old CSS (56px); server 8 files, 123 passed; web 7 files, 49 passed; server tsc clean; eslint ignores the touched server and e2e files, so it checked nothing; browser at 390 and 700px on Departments and six other screens.

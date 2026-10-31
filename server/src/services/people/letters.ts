@@ -345,7 +345,7 @@ export async function recordLetterRequest(actor: Actor, employeeId: string, inpu
   const dueDays = due?.dueDays ?? 7;
   const label = LETTER_LABEL[kind].toLowerCase();
   await startChecklist({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, { id: employeeId }, 'LETTER', askedOn, {
-    items: [{ title: `Issue ${label} (asked ${askedOn})`, owner: 'HR', dueDays, note: due?.source ? `${due.note} Source: ${due.source}.` : `Due within the company's set days (${dueDays}).` }],
+    items: [{ title: `Issue ${label} (asked ${askedOn})`, owner: 'HR', dueDays, fixedDue: true, note: due?.source ? `${due.note} Source: ${due.source}.` : `Due within the company's set days (${dueDays}).` }],
   });
   return { kind, askedOn, dueOn: due?.dueOn ?? addDays(askedOn, dueDays), dueDays, source: due?.source ?? null };
 }
