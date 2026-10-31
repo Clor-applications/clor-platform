@@ -1012,6 +1012,96 @@
     border-color: rgb(var(--neg-hover, 168 52 46));
   }
 
+  /* --- button states: loading and done (DESIGN.md, Buttons) ---
+     Loading: `aria-busy="true"` (or `data-state="loading"`) on any .ui-btn.
+     The button keeps its width and its look, ignores clicks, and keeps its
+     label in the accessible name. It is not the disabled look: nothing is
+     wrong, the request is on its way. The shared <Button loading> sets it
+     and also refuses a second submit; a plain <button aria-busy> gets the
+     same look from the fallback below.
+     Done: `data-state="done"` swaps the label for a tick and a short word
+     ("Saved") for about 1.5s. The toast stays the main success signal.
+     The tick takes the icon's colour (`--btn-icon-color`) and the spinner
+     takes `--btn-spinner-color` when an app sets one, else the icon's. */
+  .ui-btn[aria-busy='true'],
+  .ui-btn[data-state='loading'] {
+    pointer-events: none;
+  }
+  .ui-btn-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 1rem;
+    height: 1rem;
+    flex: none;
+    color: var(--btn-icon-color, currentColor);
+  }
+  .ui-btn-icon > svg { width: 1rem; height: 1rem; }
+  .ui-btn-sm .ui-btn-icon,
+  .ui-btn-sm .ui-btn-icon > svg { width: 0.875rem; height: 0.875rem; }
+  /* Label, done word and spinner share one cell: the button is as wide as
+     the widest of them, so nothing beside it moves when the state changes. */
+  .ui-btn-label {
+    display: inline-grid;
+    align-items: center;
+    justify-items: center;
+  }
+  .ui-btn-label > * { grid-area: 1 / 1; }
+  .ui-btn-done {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    visibility: hidden;
+  }
+  .ui-btn-done > svg { width: 0.875rem; height: 0.875rem; color: var(--btn-icon-color, currentColor); }
+  .ui-btn-spinner {
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 999px;
+    border: 2px solid var(--btn-spinner-color, var(--btn-icon-color, currentColor));
+    border-right-color: transparent;
+    animation: ui-spin 700ms linear infinite;
+  }
+  .ui-btn-sm .ui-btn-spinner { width: 0.75rem; height: 0.75rem; }
+  .ui-btn-label > .ui-btn-spinner { visibility: hidden; }
+  /* Loading, no icon: the label goes quiet (still read out) and the spinner sits where it was. */
+  .ui-btn:is([aria-busy='true'], [data-state='loading']) .ui-btn-label:has(> .ui-btn-spinner) > .ui-btn-text { opacity: 0; }
+  .ui-btn:is([aria-busy='true'], [data-state='loading']) .ui-btn-label > .ui-btn-spinner { visibility: visible; }
+  /* Done: the word replaces the label for a moment. */
+  .ui-btn[data-state='done'] .ui-btn-label > .ui-btn-text { visibility: hidden; }
+  .ui-btn[data-state='done'] .ui-btn-done {
+    visibility: visible;
+    animation: ui-btn-done-in var(--dur-state, 120ms) var(--ease-out, ease-out) both;
+  }
+  .ui-btn[data-state='done'] .ui-btn-icon > svg { animation: ui-btn-done-in var(--dur-state, 120ms) var(--ease-out, ease-out) both; }
+  /* A plain <button aria-busy> without the shared helper: a spinner takes the
+     leading icon's place (same 16px box, so the width holds). Without an icon
+     it sits before the label and the button grows by it; use <Button> there. */
+  .ui-btn:is([aria-busy='true'], [data-state='loading']):not(:has(.ui-btn-label)) > svg:first-child { display: none; }
+  .ui-btn:is([aria-busy='true'], [data-state='loading']):not(:has(.ui-btn-label))::before {
+    content: '';
+    flex: none;
+    box-sizing: border-box;
+    width: 0.875rem;
+    height: 0.875rem;
+    margin: 0.0625rem;
+    border-radius: 999px;
+    border: 2px solid var(--btn-spinner-color, var(--btn-icon-color, currentColor));
+    border-right-color: transparent;
+    animation: ui-spin 700ms linear infinite;
+  }
+  /* Less motion: the ring stops turning and breathes instead. Beats the
+     global reduced-motion block, which would otherwise freeze it mid-turn. */
+  @media (prefers-reduced-motion: reduce) {
+    .ui-btn .ui-btn-spinner,
+    .ui-btn:is([aria-busy='true'], [data-state='loading']):not(:has(.ui-btn-label))::before {
+      border-right-color: var(--btn-spinner-color, var(--btn-icon-color, currentColor));
+      animation: ui-btn-pulse 1.2s ease-in-out infinite !important;
+      animation-duration: 1.2s !important;
+      animation-iteration-count: infinite !important;
+    }
+    .ui-btn[data-state='done'] :is(.ui-btn-done, .ui-btn-icon > svg) { animation: none !important; }
+  }
+
   /* --- inputs --- */
   .ui-input,
   .ui-select {
@@ -1624,6 +1714,15 @@
 }
 @keyframes ui-spin {
   to { transform: rotate(360deg); }
+}
+/* Button states: the done word arrives; under reduced motion the spinner breathes. */
+@keyframes ui-btn-done-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ui-btn-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 /* Ambient drift: two soft orbs of brand light wandering very slowly. The
    travel is small and the cycle long, so it reads as atmosphere, not motion. */

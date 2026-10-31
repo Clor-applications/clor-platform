@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { Button, SkeletonCard, EmptyState, useDoneFlash } from '@ui/components/ui/Primitives';
 import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createTag, deleteTag, listTags } from '@ui/personnel/api';
@@ -13,6 +13,9 @@ export default function Tags() {
   const [tags, setTags] = useState(null);
   const [name, setName] = useState('');
   const [color, setColor] = useState(SWATCHES[0]);
+  const [adding, setAdding] = useState(false);
+  /* No toast here: the new tag appearing below is the answer, and "Added" on the button says it happened. */
+  const [added, flashAdded] = useDoneFlash();
 
   const load = useCallback(() => listTags().then(setTags).catch((e) => notify.error(String(e?.message || 'Could not load tags.'))), []);
   useEffect(() => {
@@ -21,12 +24,17 @@ export default function Tags() {
 
   const add = async (e) => {
     e.preventDefault();
+    if (adding || !name.trim()) return;
+    setAdding(true);
     try {
       await createTag({ name: name.trim(), color });
       setName('');
+      flashAdded();
       load();
     } catch (err) {
       notify.error(String(err?.message || 'Tag not saved.'));
+    } finally {
+      setAdding(false);
     }
   };
 
@@ -60,9 +68,9 @@ export default function Tags() {
             />
           ))}
         </div>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={!name.trim()}>
-          <Plus size={16} aria-hidden="true" /> Add
-        </button>
+        <Button type="submit" variant="primary" icon={Plus} loading={adding} done={added} doneLabel="Added" disabled={!name.trim() && !adding && !added}>
+          Add
+        </Button>
       </form>
       {tags.length ? (
         <ul className="flex flex-wrap gap-2">

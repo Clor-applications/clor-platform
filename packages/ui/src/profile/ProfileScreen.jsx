@@ -18,7 +18,7 @@ import {
 
 import { changePassword, exportMyData, forgotPassword, getProfile, resendVerification, updateProfile } from '@platform/auth';
 import { operator } from '@platform/operator';
-import { PageHeader, Spinner, SkeletonCard } from '@ui/components/ui/Primitives';
+import { Button, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import AuthenticatorCard from './AuthenticatorCard';
 
 /**
@@ -299,9 +299,9 @@ export const ProfileScreen = ({ Header = PageHeader, links = [] }) => {
                 <button type="button" className="ui-btn ui-btn-secondary" onClick={cancel} disabled={busy === 'save'}>
                   <X size={16} aria-hidden="true" /> Cancel
                 </button>
-                <button type="button" className="ui-btn ui-btn-primary" onClick={save} disabled={!dirty || busy === 'save'}>
-                  {busy === 'save' ? <Spinner /> : <Save size={16} aria-hidden="true" />} Save changes
-                </button>
+                <Button variant="primary" icon={Save} onClick={save} loading={busy === 'save'} disabled={!dirty}>
+                  Save changes
+                </Button>
               </>
             ) : (
               <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(true)}>
@@ -381,14 +381,9 @@ export const ProfileScreen = ({ Header = PageHeader, links = [] }) => {
             </div>
           </div>
           {!verified && user.email ? (
-            <button
-              type="button"
-              className="ui-btn ui-btn-secondary"
-              disabled={busy === 'verify'}
-              onClick={() => run('verify', resendVerification, 'Verification link sent')}
-            >
-              {busy === 'verify' ? <Spinner /> : <Mail size={16} aria-hidden="true" />} Send the confirmation link
-            </button>
+            <Button icon={Mail} loading={busy === 'verify'} onClick={() => run('verify', resendVerification, 'Verification link sent')}>
+              Send the confirmation link
+            </Button>
           ) : null}
         </div>
       </section>
@@ -559,14 +554,9 @@ function PasswordCard({ email }) {
           {field('next', 'New password', 'new-password')}
           {field('confirm', 'Confirm new password', 'new-password')}
           <div className="sm:col-span-3 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="ui-btn ui-btn-primary"
-              disabled={!pw.current || !pw.next || !pw.confirm || busy === 'save'}
-              onClick={save}
-            >
-              {busy === 'save' ? <Spinner /> : <Save size={16} aria-hidden="true" />} Save new password
-            </button>
+            <Button variant="primary" icon={Save} loading={busy === 'save'} disabled={!pw.current || !pw.next || !pw.confirm} onClick={save}>
+              Save new password
+            </Button>
             <button
               type="button"
               className="ui-btn ui-btn-secondary"

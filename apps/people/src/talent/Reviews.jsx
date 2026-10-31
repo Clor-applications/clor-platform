@@ -184,7 +184,7 @@ function ReviewDrawer({ review: r, cycle, hr, onClose, onSaved }) {
       <div className="space-y-5">
         <FormError error={error} />
         {canSelf ? (
-          <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); run('self', () => writeSelf(r.id, { selfRating: form.selfRating, selfText: form.selfText }), 'Self-review saved.'); }}>
+          <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (busy) return; run('self', () => writeSelf(r.id, { selfRating: form.selfRating, selfText: form.selfText }), 'Self-review saved.'); }}>
             <p className="ui-label sm:col-span-2">Your self-review</p>
             <RatingPick label="How did the period go? *" value={form.selfRating} onChange={(v) => set({ selfRating: v })} />
             <label className="block sm:col-span-2"><span className="ui-label">What you did and what you want to work on *</span><textarea className="ui-input w-full" rows={5} maxLength={8000} value={form.selfText} onChange={(e) => set({ selfText: e.target.value })} /></label>
@@ -192,7 +192,7 @@ function ReviewDrawer({ review: r, cycle, hr, onClose, onSaved }) {
           </form>
         ) : block('Self-review', r.selfRating, r.selfText, r.selfAt)}
         {canManager ? (
-          <form className="ui-form-grid border-t pt-4" style={{ borderColor: 'rgb(var(--border))' }} onSubmit={(e) => { e.preventDefault(); run('manager', () => writeManager(r.id, { managerRating: form.managerRating, managerText: form.managerText }), 'Manager review saved.'); }}>
+          <form className="ui-form-grid border-t pt-4" style={{ borderColor: 'rgb(var(--border))' }} onSubmit={(e) => { e.preventDefault(); if (busy) return; run('manager', () => writeManager(r.id, { managerRating: form.managerRating, managerText: form.managerText }), 'Manager review saved.'); }}>
             <p className="ui-label sm:col-span-2">{r.manager ? 'Your review as their manager' : 'Manager review (they have no manager)'}</p>
             <RatingPick label="Rating *" value={form.managerRating} onChange={(v) => set({ managerRating: v })} />
             <label className="block sm:col-span-2"><span className="ui-label">What went well and what to work on *</span><textarea className="ui-input w-full" rows={5} maxLength={8000} value={form.managerText} onChange={(e) => set({ managerText: e.target.value })} /></label>
@@ -200,7 +200,7 @@ function ReviewDrawer({ review: r, cycle, hr, onClose, onSaved }) {
           </form>
         ) : block(`Manager review${r.manager ? ` by ${r.manager.name}` : ''}`, r.managerRating, r.managerText, r.managerAt)}
         {canFinal ? (
-          <form className="ui-form-grid border-t pt-4" style={{ borderColor: 'rgb(var(--border))' }} onSubmit={(e) => { e.preventDefault(); run('final', () => setFinal(r.id, { finalRating: form.finalRating, finalReason: form.finalReason.trim() || null }), 'Final rating set.'); }}>
+          <form className="ui-form-grid border-t pt-4" style={{ borderColor: 'rgb(var(--border))' }} onSubmit={(e) => { e.preventDefault(); if (busy) return; run('final', () => setFinal(r.id, { finalRating: form.finalRating, finalReason: form.finalReason.trim() || null }), 'Final rating set.'); }}>
             <p className="ui-label sm:col-span-2">Final rating</p>
             <RatingPick label="Final rating *" value={form.finalRating} onChange={(v) => set({ finalRating: v })} />
             {r.managerRating && form.finalRating && Number(form.finalRating) !== r.managerRating ? (
@@ -235,8 +235,8 @@ function CycleForm({ cycles, onClose, onSaved }) {
   const toggle = (did) => set({ departmentIds: form.departmentIds.includes(did) ? form.departmentIds.filter((x) => x !== did) : [...form.departmentIds, did] });
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={JSON.stringify(form) !== JSON.stringify(initial)} title="New review cycle"
-      footer={<Footer onCancel={onClose} onSave={save} busy={busy} busyLabel="Saving…" label="Save" />}>
-      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
+      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label="Save" />}>
+      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (busy) return; save(); }}>
         <FormError error={error} />
         <label className="block sm:col-span-2"><span className="ui-label">Name *</span><SuggestInput autoFocus maxLength={120} value={form.name} onChange={(v) => set({ name: v })} suggestions={usedValues(cycles, (c) => c.name)} /></label>
         <div><label className="ui-label" htmlFor="cycle-from">Period from *</label><DatePicker id="cycle-from" value={form.periodFrom} onChange={(d) => set({ periodFrom: d || '' })} /></div>

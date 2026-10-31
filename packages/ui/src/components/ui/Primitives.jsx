@@ -437,8 +437,65 @@ export const LoadingRegion = ({ label = 'Loading', children }) => (
   </div>
 );
 
-/** Inline busy indicator for buttons mid-request. */
+/** Inline busy indicator (not for buttons: a button uses <Button loading>). */
 export const Spinner = () => <span className="ui-spinner" aria-hidden="true" />;
+
+/**
+ * A `.ui-btn` with the shared loading and done states (DESIGN.md, Buttons).
+ *
+ * `loading`: aria-busy, a spinner in the icon's place (or over the label when
+ * there is no icon), clicks and a second submit refused, width and label kept.
+ * Not `disabled`: nothing is wrong, the request is on its way.
+ * `done`: a tick and `doneLabel` for a moment, from useDoneFlash. Sparingly;
+ * the toast is the main success signal.
+ * `icon`: a component, drawn at 16px (14px on `size="sm"`), aria-hidden.
+ */
+export const Button = ({
+  variant = 'secondary', size, icon: Icon = null, loading = false, done = false, doneLabel = 'Saved',
+  className = '', type = 'button', onClick, children, ...rest
+}) => {
+  const state = loading ? 'loading' : done ? 'done' : undefined;
+  const guard = (e) => {
+    if (loading) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    onClick?.(e);
+  };
+  const cls = ['ui-btn', `ui-btn-${variant}`, size === 'sm' ? 'ui-btn-sm' : '', className].filter(Boolean).join(' ');
+  return (
+    <>
+      <button type={type} className={cls} aria-busy={loading || undefined} aria-disabled={loading || undefined} data-state={state} onClick={guard} {...rest}>
+        {Icon ? (
+          <span className="ui-btn-icon" aria-hidden="true">
+            {loading ? <span className="ui-btn-spinner" /> : done ? <Check size={16} /> : <Icon size={16} />}
+          </span>
+        ) : null}
+        <span className="ui-btn-label">
+          <span className="ui-btn-text" aria-hidden={done ? 'true' : undefined}>{children}</span>
+          <span className="ui-btn-done" aria-hidden={done ? undefined : 'true'}>{Icon ? null : <Check size={14} aria-hidden="true" />}{doneLabel}</span>
+          {Icon ? null : <span className="ui-btn-spinner" aria-hidden="true" />}
+        </span>
+      </button>
+      {/* Mounted empty from the start: a live region that appears already holding its words is often not read out. */}
+      <span className="sr-only" role="status">{done ? doneLabel : ''}</span>
+    </>
+  );
+};
+
+/** The done state's clock: `flash()` after a save shows it for `ms`, then it goes. */
+export const useDoneFlash = (ms = 1500) => {
+  const [done, setDone] = React.useState(false);
+  const timer = React.useRef(0);
+  React.useEffect(() => () => clearTimeout(timer.current), []);
+  const flash = React.useCallback(() => {
+    clearTimeout(timer.current);
+    setDone(true);
+    timer.current = setTimeout(() => setDone(false), ms);
+  }, [ms]);
+  return [done, flash];
+};
 
 /** Small inline confirmation used after save actions. */
 export const SavedHint = ({ show, label = 'Saved' }) =>
