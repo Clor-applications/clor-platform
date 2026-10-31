@@ -21,36 +21,57 @@ vi.mock('@ui/components/ui/notify', () => ({ confirmDialog: vi.fn(async () => tr
 
 beforeEach(() => vi.clearAllMocks());
 
-it('reads each kind’s main rule in words, says Custom steps for one it cannot show, and ignores variants', async () => {
+/* A rule the old shape cannot say: two people (all of them), approved on its own when late and in some cases, HR may step in, own requests go up. */
+const seats = (over = {}) => rule({
+  requestType: 'SEAT_REQUEST', name: 'Seats', editableHere: false,
+  spec: [
+    { order: 1, approvers: [{ kind: 'DEPARTMENT_HEAD' }, { kind: 'HR' }], mode: 'ALL', when: [], due: { hours: 8 }, overdue: { action: 'AUTO_APPROVE', afterHours: 4 }, stepIn: 'HR', ifRequester: 'NEXT_UP' },
+    { order: 2, approvers: [{ kind: 'OWNER' }], mode: 'ANY', when: [{ field: 'gradeId', op: 'eq', value: 'g-1' }], due: { workingDays: 2 } },
+  ],
+  autoApprove: [{ when: [{ field: 'departmentId', op: 'eq', value: 'd-1' }] }],
+  ...over,
+});
+
+it('reads each kind’s main rule in words, naming auto-approve, step-in, own requests and variants (review of PR #93)', async () => {
   api.listRules.mockResolvedValue({
     requestTypes: ['JOB_CHANGE', 'SEAT_REQUEST', 'LETTER_REQUEST'],
     forms: [],
     rules: [
       rule({}),
-      rule({ requestType: 'SEAT_REQUEST', name: 'Seats', editableHere: false }),
+      seats(),
+      rule({ requestType: 'SEAT_REQUEST', name: 'Pune seats', variantKey: 'pune', appliesWhen: [{ field: 'branchId', op: 'eq', value: 'b-1' }], spec: [{ order: 1, approvers: [{ kind: 'HR' }], mode: 'ANY', when: [], due: { workingDays: 1 } }] }),
       rule({ requestType: 'LETTER_REQUEST', name: 'Pune letters', variantKey: 'pune', steps: [{ order: 1, approver: { kind: 'HR' }, dueDays: 1 }] }),
     ],
   });
   render(<ApprovalRules />);
   expect(await screen.findByRole('heading', { name: 'Approval rules' })).toBeTruthy();
   expect((await screen.findAllByText('Their manager (2 d)')).length).toBeGreaterThan(0);
-  expect(screen.getAllByText('Custom steps').length).toBeGreaterThan(0);
-  /* The variant is not the letters' rule: letters read as having none. */
+  const line = screen.getAllByText(/Their department head and HR \(anyone who may edit people\), all \(8 h\) → The owner \(2 d\)/)[0].textContent;
+  expect(line).toContain('approves some on its own');
+  expect(line).toContain('approves on its own when late');
+  expect(line).toContain('others can step in');
+  expect(line).toContain('own requests go up');
+  expect(line).toContain('1 variant: Pune seats');
+  expect(screen.queryByText('Custom steps')).toBeNull();
+  /* A variant is not the letters' main rule: letters read as having none. */
   expect(screen.getAllByText('Nobody: applies at once').length).toBeGreaterThan(0);
 });
 
-it('opens a rule it cannot say in full read only: the note, no save', async () => {
-  api.listRules.mockResolvedValue({ requestTypes: ['SEAT_REQUEST'], forms: [], rules: [rule({ requestType: 'SEAT_REQUEST', name: 'Seats', editableHere: false, spec: [{ order: 1, approvers: [{ kind: 'DEPARTMENT_HEAD' }, { kind: 'HR' }], mode: 'ALL', when: [], due: { hours: 8 } }] })] });
+it('opens a rule it cannot edit read only, saying everything it does: the note, the steps in words, no save', async () => {
+  api.listRules.mockResolvedValue({ requestTypes: ['SEAT_REQUEST'], forms: [], rules: [seats(), rule({ requestType: 'SEAT_REQUEST', name: 'Pune seats', variantKey: 'pune', appliesWhen: [{ field: 'branchId', op: 'eq', value: 'b-1' }], spec: [{ order: 1, approvers: [{ kind: 'HR' }], mode: 'ANY', when: [], due: { workingDays: 1 } }] })] });
   render(<ApprovalRules />);
   fireEvent.click((await screen.findAllByText('Position requests'))[0]);
   const drawer = await screen.findByRole('dialog');
-  expect(within(drawer).getByRole('note').textContent).toMatch(/cannot edit yet/);
-  expect(within(drawer).getByText(/Their department head and HR \(anyone who may edit people\), all of them\. Due in 8 hours\./)).toBeTruthy();
+  expect(within(drawer).getByRole('note').textContent).toMatch(/does more than this screen can edit yet/);
+  const text = drawer.textContent;
+  expect(text).toContain('Their department head and HR (anyone who may edit people), all of them. Due in 8 hours. If late, approved on its own 4 hours after the reminder. HR can step in. If it is their own, it goes to their manager, then HR, then the owner.');
+  expect(text).toContain('The owner, only when their grade is the one chosen. Due in 2 working days.');
+  expect(text).toContain('Approved on its own when their department is the one chosen.');
+  expect(text).toContain('Pune seats, when their branch is the one chosen: HR (anyone who may edit people). Due in 1 working day.');
   expect(within(drawer).queryByRole('button', { name: /Add a step/ })).toBeNull();
   expect(within(drawer).queryByRole('button', { name: 'Save as new version' })).toBeNull();
   expect(within(drawer).getAllByRole('button', { name: 'Close' }).length).toBeGreaterThan(0);
 });
-
 it('an editable rule still saves in the shape it was shown in', async () => {
   api.listRules.mockResolvedValue({ requestTypes: ['JOB_CHANGE'], forms: [], rules: [rule({})] });
   api.saveRule.mockResolvedValue({ rule: { name: 'Job changes, two', version: 3 } });

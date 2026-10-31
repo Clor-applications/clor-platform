@@ -76,13 +76,44 @@ const approverWords = (a, users, roles) => {
 /* Who decides in a version 2 rule (SPEC 5.3), named when this screen shows one it cannot edit. */
 const MORE_APPROVERS = { DEPARTMENT_HEAD: 'Their department head', PAYROLL: 'Payroll', OWNER: 'The owner', COLLEAGUE_MANAGER: 'The colleague’s manager' };
 const dueWords = (due) => (due?.hours ? `${due.hours} ${due.hours === 1 ? 'hour' : 'hours'}` : `${due?.workingDays || 2} working ${due?.workingDays === 1 ? 'day' : 'days'}`);
-/* One line per step of a version 2 rule: who decides, any one or all of them, when, and by when. */
-const specLine = (s, users, roles) => {
+/* What a version 2 condition reads, in words: the person's own record, or what the request carries. */
+const FIELD_WORDS = { departmentId: 'their department', branchId: 'their branch', establishmentId: 'their work site', employeeTypeId: 'their employment type', gradeId: 'their grade', amount: 'the amount', monthTotal: 'the month’s total', days: 'the days asked for', leaveTypeId: 'the leave type' };
+const OP_WORDS = { eq: 'is', ne: 'is not', in: 'is one of', gt: 'is more than', gte: 'is at least', lt: 'is less than', lte: 'is at most', changed: 'changes' };
+const MONEY_FIELDS_SET = new Set(['amount', 'monthTotal']);
+/* `names` maps an id to its name (departments, grades, ...), when the screen has the lists. */
+const conditionWords = (c, names) => {
+  const field = c.from === 'request' && c.field !== 'days' && c.field !== 'amount' && c.field !== 'monthTotal' && c.field !== 'leaveTypeId' ? `the new ${String(FIELD_WORDS[c.field] || c.field).replace(/^their /, '')}` : FIELD_WORDS[c.field] || c.field;
+  if (c.op === 'changed') return `${field} changes`;
+  const one = (v) => (MONEY_FIELDS_SET.has(c.field) ? `₹${Number(v).toLocaleString('en-IN')}` : names?.get(String(v)) || (FIELD_WORDS[c.field] ? 'the one chosen' : String(v)));
+  const values = Array.isArray(c.value) ? c.value.map(one).join(', ') : one(c.value);
+  return `${field} ${OP_WORDS[c.op] || c.op} ${values}`;
+};
+const andWords = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0] || '');
+/* One step of a version 2 rule in words: who decides, any one or all of them, when, by when, if late, who may step in, and their own requests. */
+const specLine = (s, users, roles, names) => {
   const who = (s.approvers || []).map((a) => approverWords(a, users, roles));
-  const people = who.length > 1 ? `${who.slice(0, -1).join(', ')} and ${who[who.length - 1]}` : who[0] || 'someone';
   const how = who.length > 1 ? (s.mode === 'ALL' ? ', all of them' : ', any one of them') : '';
-  const when = s.when?.length ? `, only when ${s.when.length} ${s.when.length === 1 ? 'condition holds' : 'conditions hold'}` : '';
-  return `${people}${how}${when}. Due in ${dueWords(s.due)}.`;
+  const when = s.when?.length ? `, only when ${andWords(s.when.map((c) => conditionWords(c, names)))}` : '';
+  const late = s.overdue?.action === 'AUTO_APPROVE' ? ` If late, approved on its own ${s.overdue.afterHours || 24} hours after the reminder.` : s.overdue?.action === 'HAND_ON' ? ` If late, handed on to ${approverWords(s.overdue.to, users, roles).toLowerCase()}.` : '';
+  const stepIn = s.stepIn ? ` ${s.stepIn === 'HR' ? 'HR' : 'The owner'} can step in.` : '';
+  const own = s.ifRequester === 'NEXT_UP' ? ' If it is their own, it goes to their manager, then HR, then the owner.' : '';
+  return `${andWords(who) || 'Someone'}${how}${when}. Due in ${dueWords(s.due)}.${late}${stepIn}${own}`;
+};
+/* The rest of a rule that is not its steps: when it is approved with nobody asked. */
+const autoWords = (rule, names) => (rule.autoApprove || []).map((a) => `Approved on its own when ${andWords(a.when.map((c) => conditionWords(c, names)))}.`);
+/* A short line for the list: the steps, then anything else the rule does, said plainly. */
+const ruleLine = (rule, variants, users, roles) => {
+  const steps = rule.editableHere === false
+    ? (rule.spec || []).map((s) => `${andWords((s.approvers || []).map((a) => approverWords(a, users, roles)))}${(s.approvers || []).length > 1 ? (s.mode === 'ALL' ? ', all' : ', any one') : ''} (${s.due?.hours ? `${s.due.hours} h` : `${s.due?.workingDays || 2} d`})`).join(' → ')
+    : (rule.steps || []).map((s) => `${approverWords(s.approver, users, roles)} (${s.dueDays} d)`).join(' → ');
+  const extra = [
+    (rule.autoApprove || []).length ? 'approves some on its own' : null,
+    (rule.spec || []).some((s) => s.overdue?.action === 'AUTO_APPROVE') ? 'approves on its own when late' : null,
+    (rule.spec || []).some((s) => s.stepIn) ? 'others can step in' : null,
+    (rule.spec || []).some((s) => s.ifRequester === 'NEXT_UP') ? 'own requests go up' : null,
+    variants.length ? `${variants.length} ${variants.length === 1 ? 'variant' : 'variants'}: ${variants.map((v) => v.name).join(', ')}` : null,
+  ].filter(Boolean);
+  return extra.length ? `${steps}; ${extra.join('; ')}` : steps;
 };
 
 export default function ApprovalRules() {
@@ -98,10 +129,12 @@ export default function ApprovalRules() {
   /* The type's main rule (a variant for a branch or department is set up elsewhere until the rules builder, SPEC 8.2). */
   const active = (type) => data?.rules.find((r) => r.requestType === type && r.active && !r.variantKey) || null;
   const versions = (type) => (data?.rules || []).filter((r) => r.requestType === type && !r.variantKey);
+  /* A branch's or department's own rule for the type (set up through the API until the rules builder). */
+  const variantsOf = (type) => (data?.rules || []).filter((r) => r.requestType === type && r.active && r.variantKey);
   const open = (t) => {
     const rule = active(t);
     /* `steps` is the rule in the shape this screen edits; `editableHere` is false when the rule says more than that shape can (several people in a step, all of them, hours). */
-    setEditing({ requestType: t, name: rule?.name || `${typeName(t)} rule`, readOnly: rule ? rule.editableHere === false : false, spec: rule?.spec || null, steps: rule ? rule.steps.map((s, i) => ({ ...blankStep(i + 1), ...s, order: i + 1 })) : [blankStep(1)] });
+    setEditing({ requestType: t, name: rule?.name || `${typeName(t)} rule`, readOnly: rule ? rule.editableHere === false : false, spec: rule?.spec || null, autoApprove: rule?.autoApprove || [], variants: variantsOf(t), steps: rule ? rule.steps.map((s, i) => ({ ...blankStep(i + 1), ...s, order: i + 1 })) : [blankStep(1)] });
   };
   const retire = async (type) => {
     const message = MONEY_RULES.includes(type)
@@ -118,7 +151,7 @@ export default function ApprovalRules() {
       notify.error(String(e?.message || 'Not changed.'));
     }
   };
-  const steps = (rule) => (rule.editableHere === false ? 'Custom steps' : (rule.steps || []).map((s) => `${approverWords(s.approver, users, roles)} (${s.dueDays} d)`).join(' → '));
+  const steps = (rule) => ruleLine(rule, variantsOf(rule.requestType), users, roles);
   const columns = [
     { key: 'type', label: 'Kind of request', always: true, render: (t) => <span className="min-w-0"><span className="block font-medium">{typeName(t)}</span><span className="block ui-caption">{TYPE_WORDS[t]?.[1] || (FORM_NAMES.has(t) ? 'A request type from Settings → Request types.' : '')}</span></span> },
     { key: 'steps', label: 'Who decides', render: (t) => { const rule = active(t); return rule ? steps(rule) : <span className="ui-muted">{t === 'LEAVE' ? 'Not set: Leave policy decides' : MONEY_RULES.includes(t) ? (versions(t).length ? 'Off: cannot be asked' : 'Not set: the default applies when first asked') : 'Nobody: applies at once'}</span>; } },
@@ -160,6 +193,8 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
     const people = await listEmployees({ limit: 500, status: 'CURRENT', sort: 'name' }).then((r) => r?.employees || []).catch(() => []);
     return { ...Object.fromEntries(kinds.map((k, i) => [k, rows[i].map((x) => ({ value: x.id, label: x.name }))])), people: people.map((p) => ({ value: p.id, label: p.code ? `${p.name} (${p.code})` : p.name })) };
   }, [leave, money]);
+  /* Names for the ids a condition names (departments, grades, work sites, people, leave types), from the lists loaded above. */
+  const names = new Map(Object.values(lists.data || {}).flat().map((o) => [o.value, o.label]));
   const setStep = (i, patch) => setForm((f) => ({ ...f, steps: f.steps.map((s, j) => (j === i ? { ...s, ...patch } : s)) }));
   const save = async () => {
     if (!form.name.trim()) { setError({ message: 'Give the rule a name.' }); return; }
@@ -186,12 +221,13 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
     <Drawer open onClose={onClose} title={`${typeName(form.requestType)}: who decides`} widthClass="w-[min(44rem,96vw)] ui-drawer-sheet" dirty={dirty}
       footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>{rule.readOnly ? 'Close' : 'Cancel'}</button>{rule.readOnly ? null : <button type="button" className="ui-btn ui-btn-primary" disabled={saving || !dirty} onClick={save}>{saving ? 'Saving…' : 'Save as new version'}</button>}</>}>
       <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); if (!rule.readOnly) save(); }}>
-        {rule.readOnly ? <p className="ui-caption" role="note">This rule has steps this screen cannot edit yet: several people in one step, a due time in hours, or more than one condition. It stays as it is.</p> : null}
+        {rule.readOnly ? <p className="ui-caption" role="note">This rule does more than this screen can edit yet. It stays as it is; here is what it does.</p> : null}
         {error ? <ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /> : null}
         <label className="block"><span className="ui-label">Rule name *</span><input className="ui-input w-full" maxLength={120} readOnly={rule.readOnly} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
         {rule.readOnly ? (
           <ol className="divide-y border-t" aria-label="Steps">
-            {(rule.spec || []).map((s) => <li key={s.order} className="py-3"><span className="font-medium">Step {s.order}: </span>{specLine(s, users, roles)}</li>)}
+            {(rule.spec || []).map((s) => <li key={s.order} className="py-3"><span className="font-medium">Step {s.order}: </span>{specLine(s, users, roles, names)}</li>)}
+            {autoWords(rule, names).map((w) => <li key={w} className="py-3">{w}</li>)}
           </ol>
         ) : <>
         <ol className="divide-y border-t" aria-label="Steps">
@@ -225,6 +261,12 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
         </ol>
         {form.steps.length < 8 ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setForm((f) => ({ ...f, steps: [...f.steps, blankStep(f.steps.length + 1)] }))}><Plus size={16} aria-hidden="true" /> Add a step</button> : null}
         </>}
+        {rule.variants?.length ? (
+          <section className="space-y-2">
+            <h3 className="ui-t-sec">Variants</h3>
+            <ul className="divide-y border-t text-sm">{rule.variants.map((v) => <li key={v.id} className="py-2"><span className="font-medium">{v.name}</span>, when {andWords((v.appliesWhen || []).map((c) => conditionWords(c, names)))}: {(v.spec || []).map((st) => (v.spec.length > 1 ? `Step ${st.order}: ` : '') + specLine(st, users, roles, names)).join(' ')}</li>)}</ul>
+          </section>
+        ) : null}
         {versions.length ? (
           <section className="space-y-2">
             <h3 className="ui-t-sec">Versions</h3>

@@ -102,7 +102,14 @@ describe('Workforce and Organization review fixes', () => {
     await people(hr).post('/approval-rules', { requestType: 'JOB_CHANGE', name: 'Priya decides', steps: [{ approver: { kind: 'USER', id: priya.userId }, dueDays: 2 }] }).expect(201);
     const req = (await people(hr).post('/requests', { requestType: 'JOB_CHANGE', subjectEmployeeId: priyaEmp.id, title: 'Department for Priya', payload: { employeeId: priyaEmp.id, fields: { departmentId: { before: null, after: ops.id } }, reason: 'Move' } }).expect(201)).body.request;
     expect(JSON.stringify(req.steps)).not.toContain(priya.userId);
-    await people(priya).post(`/requests/${req.id}/approve`, {}).expect(403);
+    /*
+     * Workflow engine 2a, review of PR #93 (c): the team-scoped Team Lead no longer takes this as the last resort
+     * (Priya is outside their team), so nobody else could decide and the maker-checker setting closes it at once
+     * (SPEC 5.6). Priya is refused either way: 403 while it waits, 409 once it is closed.
+     */
+    const refused = await people(priya).post(`/requests/${req.id}/approve`, {});
+    expect([403, 409]).toContain(refused.status);
+    expect(JSON.stringify((await people(hr).get(`/requests/${req.id}`).expect(200)).body.request.steps.map((s: any) => s.decidedBy))).not.toContain('Priya');
   });
 
   it('a branch people are filed at cannot be deleted', async () => {

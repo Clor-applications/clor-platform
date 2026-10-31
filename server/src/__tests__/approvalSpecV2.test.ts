@@ -125,9 +125,31 @@ describe('conditions, version 2', () => {
     expect(holds({ field: 'departmentId', op: 'in', value: ['d-1', 'd-2'] }, facts)).toBe(true);
     expect(holds({ field: 'branchId', op: 'eq', value: 'pune', from: 'request' }, facts)).toBe(false);
   });
+  it('the person’s department, branch, grade, work site and type come from their record, never from what the request says (review of PR #93)', () => {
+    const faked = { payload: { departmentId: 'd-design', gradeId: 'g9', fields: { departmentId: { before: null, after: 'd-design' } } }, person: { departmentId: null, gradeId: 'g1' } };
+    expect(holds({ field: 'departmentId', op: 'eq', value: 'd-design' }, faked)).toBe(false);
+    expect(holds({ field: 'gradeId', op: 'eq', value: 'g9' }, faked)).toBe(false);
+    expect(holds({ field: 'gradeId', op: 'eq', value: 'g1' }, faked)).toBe(true);
+    /* Said explicitly: a job change's new department. */
+    expect(holds({ field: 'departmentId', op: 'eq', value: 'd-design', from: 'request' }, faked)).toBe(true);
+  });
+  it('a condition may only read what the request type carries (review of PR #93)', () => {
+    const ok = (requestType: string, c: any) => !isRuleProblem(cleanRule({ requestType, name: 'x', steps: [{ approvers: [{ kind: 'HR' }], due: { workingDays: 1 }, when: [c] }] }));
+    expect(ok('DESK_ESCALATION', { field: 'departmentId', op: 'eq', value: 'd' })).toBe(true);
+    expect(ok('DESK_ESCALATION', { field: 'kind', op: 'eq', value: 'x' })).toBe(false);
+    expect(ok('DESK_ESCALATION', { field: 'departmentId', op: 'eq', value: 'd', from: 'request' })).toBe(false);
+    expect(ok('JOB_CHANGE', { field: 'departmentId', op: 'eq', value: 'd', from: 'request' })).toBe(true);
+    expect(ok('JOB_CHANGE', { field: 'gradeId', op: 'changed' })).toBe(true);
+    expect(ok('SEAT_REQUEST', { field: 'gradeId', op: 'changed' })).toBe(false);
+    expect(ok('EXPENSE_CLAIM', { field: 'amount', op: 'gt', value: 1 })).toBe(true);
+    expect(ok('EXPENSE_CLAIM', { field: 'days', op: 'gt', value: 1 })).toBe(false);
+    expect(ok('LEAVE', { field: 'days', op: 'gt', value: 1 })).toBe(true);
+  });
   it('a record change reads the new value; changed needs a change', () => {
     const f = { payload: { fields: { gradeId: { before: 'g2', after: 'g3' } } }, person: { gradeId: 'g2' } };
-    expect(holds({ field: 'gradeId', op: 'eq', value: 'g3' }, f)).toBe(true);
+    expect(holds({ field: 'gradeId', op: 'eq', value: 'g3', from: 'request' }, f)).toBe(true);
+    /* Without from: 'request', the grade is the person's own. */
+    expect(holds({ field: 'gradeId', op: 'eq', value: 'g2' }, f)).toBe(true);
     expect(holds({ field: 'gradeId', op: 'changed' }, f)).toBe(true);
     expect(holds({ field: 'phone', op: 'changed' }, f)).toBe(false);
   });
@@ -157,7 +179,7 @@ describe('cleanRule refuses what the spec refuses, naming the step and field', (
   it('auto-approve rules: never for money, never for leave yet', () => {
     expect(refuse({ requestType: 'SALARY_ADVANCE', steps: [step()], autoApprove: [{ when: [{ field: 'amount', op: 'lt', value: 100 }] }] })).toMatchObject({ field: 'autoApprove' });
     expect(refuse({ requestType: 'LEAVE', steps: [step()], autoApprove: [{ when: [{ field: 'days', op: 'lte', value: 1 }] }] })).toMatchObject({ field: 'autoApprove' });
-    expect(isRuleProblem(cleanRule({ requestType: 'DOCUMENT_REQUEST', name: 'x', steps: [step()], autoApprove: [{ when: [{ field: 'kind', op: 'eq', value: 'PAYSLIP' }] }] }))).toBe(false);
+    expect(isRuleProblem(cleanRule({ requestType: 'DOCUMENT_REQUEST', name: 'x', steps: [step()], autoApprove: [{ when: [{ field: 'departmentId', op: 'eq', value: 'd-1' }] }] }))).toBe(false);
   });
   it('leave keeps to what its own step walker reads until it moves (phase 2c)', () => {
     expect(refuse({ requestType: 'LEAVE', steps: [step({ approvers: [{ kind: 'HR' }, { kind: 'MANAGER' }] })] })).toMatchObject({ step: 1 });

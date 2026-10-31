@@ -12,7 +12,7 @@ import { getAuthPolicy } from '../../policy.js';
 import { resolveAccess } from '../../access.js';
 import { inReportingLine } from '../scope.js';
 import {
-  MONEY_TYPES, NEVER_SELF_TYPES, SPEC_VERSION, allHold, dueAtFrom, normaliseAutoApprove, normaliseConditions, normaliseStep, normaliseSteps,
+  MONEY_TYPES, NEVER_SELF_TYPES, SPEC_VERSION, TWO_PERSON_TYPES, allHold, dueAtFrom, normaliseAutoApprove, normaliseConditions, normaliseStep, normaliseSteps,
   type Approver, type ApproverSpec, type AutoApprove, type Condition, type ConditionV2, type Facts, type RuleSpecV2, type StepSpec, type StepV2,
 } from './spec.js';
 
@@ -111,14 +111,17 @@ const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0
 
 /** Working days: Monday to Saturday, as most Indian companies count them. */
 export function addWorkingDays(from: Date, days: number) {
-  const d = new Date(from);
+  /* Counted on Indian days, whatever the server's own time zone (Cloud Run runs in UTC): a Sunday is a Sunday in IST. */
+  const IST = 330 * 60_000;
+  const d = new Date(from.getTime() + IST);
   let left = Math.max(0, days);
   while (left > 0) {
-    d.setDate(d.getDate() + 1);
-    if (d.getDay() !== 0) left -= 1;
+    d.setUTCDate(d.getUTCDate() + 1);
+    if (d.getUTCDay() !== 0) left -= 1;
   }
-  return d;
+  return new Date(d.getTime() - IST);
 }
+const istDay = (d: Date) => new Date(d.getTime() + 330 * 60_000).toISOString().slice(0, 10);
 
 // ---------------------------------------------------------------------------
 // Rules
@@ -251,12 +254,17 @@ const PAYROLL_RIGHT: Record<string, string> = {
 };
 const payrollRightOf = (requestType: string | undefined) => PAYROLL_RIGHT[String(requestType || '')] || 'PAYROLL::Payroll Runs::APPROVE';
 
-/** When nobody but the requester could decide: the company's admins, else anyone who may approve requests. Never the requester. */
-export async function lastResortDeciders(accountId: string, orgId: string, excluded: string[]) {
+/**
+ * When nobody but the requester could decide: the company's admins, else anyone who may approve requests.
+ * Never the requester. With the person it is about named, a team-scoped approver only counts inside their
+ * team (review of PR #93); leave's own walker passes no person and is unchanged.
+ */
+export async function lastResortDeciders(accountId: string, orgId: string, excluded: string[], subjectEmployeeId?: string | null) {
   const adminRoles = await platformPrisma.role.findMany({ where: { accountId, orgId, roleType: 'ADMIN' }, select: { id: true } });
   const admins = (await usersHoldingRoles(accountId, orgId, adminRoles.map((r) => r.id))).filter((u) => !excluded.includes(u));
   if (admins.length) return admins;
-  return (await usersWithPermission(accountId, orgId, APPROVE_GRANT)).filter((u) => !excluded.includes(u));
+  const approvers = (await usersWithPermission(accountId, orgId, APPROVE_GRANT)).filter((u) => !excluded.includes(u));
+  return subjectEmployeeId ? inScopeOnly({ accountId, orgId }, approvers, subjectEmployeeId) : approvers;
 }
 
 /** The login of the person a request is about: they never decide it either (their own promotion, grade or pay). */
@@ -569,7 +577,7 @@ async function planStep(
   if (approvedBefore || laterDecides) return { order: spec.order, kind: 'SKIPPED', comment: 'Would have been the requester, or nobody to decide' };
   /* Otherwise it would approve itself (E11): the admins decide instead. */
   const { excluded } = await excludedOf(who.orgId, request);
-  const admins = await lastResortDeciders(who.accountId, who.orgId, [...excluded]);
+  const admins = await lastResortDeciders(who.accountId, who.orgId, [...excluded], request.subjectEmployeeId);
   if (admins.length) return { order: spec.order, kind: 'OPEN', mode: 'ANY', dueAt, slots: [{ slot: 0, candidates: admins, approverUserId: admins[0], standInForUserId: null, how: 'LAST_RESORT', comment: 'Sent to the admins: nobody else could decide it' }] };
   /*
    * Nobody else in the company can decide it at all (5.6): the company's
@@ -826,6 +834,10 @@ export async function decide(actor: Actor, requestId: string, decision: Decision
   const ruleSteps = stepsOfRule(await peoplePrisma.approvalRule.findUnique({ where: { id: request.ruleId } }));
   const spec = ruleSteps.find((s) => s.order === waiting[0].order);
   let mine = waiting.filter((s) => ((s.candidateUserIds as string[]) || []).includes(userId));
+  /* ALL mode: whoever approved one part of this step does not take another, by step-in or otherwise (review of PR #93). */
+  const all = waiting[0].mode === 'ALL';
+  const decidedPart = new Set(request.steps.filter((s) => s.order === waiting[0].order && s.status === 'APPROVED' && s.decidedByUserId).map((s) => s.decidedByUserId as string));
+  if (all && decidedPart.has(userId)) throw new ApprovalError('You approved part of this step already; someone else decides the rest.', 403, 'ALREADY_DECIDED_PART');
   /* Step-in (5.5): someone in the step's step-in group decides in the approver's place, and it is logged as such. */
   let steppingIn: 'HR' | 'OWNER' | null = null;
   if (!mine.length && spec?.stepIn && (await stepInGroup({ accountId: actor.accountId, orgId }, spec.stepIn, request.subjectEmployeeId)).includes(userId)) {
@@ -836,22 +848,51 @@ export async function decide(actor: Actor, requestId: string, decision: Decision
   if (request.requesterUserId === userId) throw new ApprovalError('Nobody decides their own request.', 403, 'OWN_REQUEST');
   if ((await subjectUserOf(orgId, request.subjectEmployeeId)) === userId) throw new ApprovalError('Nobody decides a request about themselves.', 403, 'OWN_REQUEST');
   if ((await partyUsersOf(orgId, request.payload)).includes(userId)) throw new ApprovalError('Nobody decides a request they are part of.', 403, 'OWN_REQUEST');
+  /*
+   * One decision takes one part of an ALL step (review of PR #93): the part fewest others could take. A
+   * further part this person is named on, that nobody else could take, is theirs too (written SAME_PERSON
+   * and audited) — except money, where it goes to someone else: two different people, always.
+   */
+  const othersFor = (s: (typeof waiting)[number]) => ((s.candidateUserIds as string[]) || []).filter((u) => u !== userId && !decidedPart.has(u));
+  const ordered = [...mine].sort((a, b) => othersFor(a).length - othersFor(b).length);
+  let targets = [ordered[0]];
+  const samePerson: string[] = [];
+  const widen: Array<{ id: string; to: string[] }> = [];
+  if (decision === 'approve' && all && !steppingIn) {
+    const twoPeople = TWO_PERSON_TYPES.has(request.requestType);
+    for (const s of ordered.slice(1)) {
+      if (othersFor(s).length) continue;
+      if (!twoPeople) { samePerson.push(s.id); continue; }
+      const { excluded } = await excludedOf(orgId, request);
+      const to = await lastResortDeciders(actor.accountId, orgId, [...excluded, userId, ...decidedPart], request.subjectEmployeeId);
+      if (!to.length) throw new ApprovalError('Two different people must approve this, and nobody else can. Give someone else the right to approve it.', 409, 'TWO_PEOPLE');
+      widen.push({ id: s.id, to });
+    }
+    targets = [ordered[0], ...ordered.filter((s) => samePerson.includes(s.id))];
+  }
   if (decision === 'approve') await checks.get(request.requestType as RequestType)?.(request);
   const stepStatus = decision === 'approve' ? 'APPROVED' : decision === 'reject' ? 'REJECTED' : 'MORE_INFO';
-  /* Approving takes every slot this person is named on (one person named twice in ALL mode approves once); rejecting or asking for more takes one. */
-  const targets = decision === 'approve' ? mine : [mine[0]];
   const order = targets[0].order;
   const audits: Audit[] = [];
   const forUser = targets[0].approverUserId || '';
   const forName = steppingIn && forUser ? (await namesFor([forUser], orgId)).get(forUser) || '' : '';
+  if (samePerson.length) {
+    const me = (await namesFor([userId], orgId)).get(userId) || 'Someone';
+    audits.push({ action: 'SAME_PERSON_APPROVED', userId, message: `${me} approved both parts of step ${order}: nobody else could`, metadata: { requestType: request.requestType, step: order, parts: targets.length } });
+  }
   const result = await peoplePrisma.$transaction(async (tx) => {
     /* One decision on a request at a time: two slots of an ALL step approved at once still open the next step exactly once. */
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-decide:${request.id}`}))`;
+    if (all && (await tx.approvalStep.count({ where: { requestId: request.id, order, status: 'APPROVED', decidedByUserId: userId } }))) throw new ApprovalError('You approved part of this step already; someone else decides the rest.', 403, 'ALREADY_DECIDED_PART');
     for (const step of targets) {
       const standInFor = steppingIn ? step.approverUserId : step.standInForUserId && userId !== step.standInForUserId ? step.standInForUserId : null;
+      const how = steppingIn ? { resolvedHow: 'STEP_IN' } : samePerson.includes(step.id) ? { resolvedHow: 'SAME_PERSON' } : {};
       /* Claimed atomically: two approvers deciding at once leave one decision. */
-      const claimed = await tx.approvalStep.updateMany({ where: { id: step.id, status: 'WAITING' }, data: { status: stepStatus, decidedByUserId: userId, decidedAt: new Date(), comment: comment ? comment.slice(0, 1000) : null, approverUserId: userId, standInForUserId: standInFor, ...(steppingIn ? { resolvedHow: 'STEP_IN' } : {}) } });
+      const claimed = await tx.approvalStep.updateMany({ where: { id: step.id, status: 'WAITING' }, data: { status: stepStatus, decidedByUserId: userId, decidedAt: new Date(), comment: comment ? comment.slice(0, 1000) : null, approverUserId: userId, standInForUserId: standInFor, ...how } });
       if (!claimed.count) throw new ApprovalError('Someone else just decided this.', 409, 'ALREADY_DECIDED');
+    }
+    for (const w of widen) {
+      await tx.approvalStep.updateMany({ where: { id: w.id, status: 'WAITING' }, data: { candidateUserIds: w.to, approverUserId: w.to[0], standInForUserId: null, resolvedHow: 'LAST_RESORT', comment: 'Sent to the admins: money needs a second person' } });
     }
     await writeChangeLog(tx, actor, { kind: 'ApprovalRequest', id: request.id, employeeId: request.subjectEmployeeId }, [
       { field: `step ${order}`, before: 'WAITING', after: stepStatus, redacted: false },
@@ -1104,13 +1145,13 @@ export async function runApprovalDues(now = new Date()) {
           return;
         }
         if (spec?.overdue?.action === 'HAND_ON' && spec.overdue.to && now.getTime() - step.remindedAt.getTime() >= afterMs) {
-          const resolved = await resolveApprover({ accountId: step.accountId, orgId: step.orgId }, spec.overdue.to, step.request.subjectEmployeeId, now.toISOString().slice(0, 10), step.request.requestType);
+          const resolved = await resolveApprover({ accountId: step.accountId, orgId: step.orgId }, spec.overdue.to, step.request.subjectEmployeeId, istDay(now), step.request.requestType);
           const candidates = [...new Set([...resolved.primary, ...resolved.standIns.map((s) => s.user)])].filter((u) => u !== step.request.requesterUserId);
           if (!candidates.length) return;
           await peoplePrisma.$transaction(async (tx) => {
             const moved = await tx.approvalStep.updateMany({ where: { id: step.id, status: 'WAITING' }, data: { status: 'HANDED_ON', comment: 'Handed on: overdue', decidedAt: now } });
             if (!moved.count) return;
-            await tx.approvalStep.create({ data: { accountId: step.accountId, orgId: step.orgId, requestId: step.requestId, order: step.order, slot: step.slot, mode: step.mode, candidateUserIds: candidates, approverUserId: candidates[0], dueAt: dueAtFrom(now, spec.due, addWorkingDays), status: 'WAITING' } });
+            await tx.approvalStep.create({ data: { accountId: step.accountId, orgId: step.orgId, requestId: step.requestId, order: step.order, slot: step.slot, mode: step.mode, candidateUserIds: candidates, approverUserId: candidates[0], dueAt: dueAtFrom(now, spec.due, addWorkingDays), status: 'WAITING', resolvedHow: 'HANDED_ON' } });
           });
           await notifyUsers(step.accountId, step.orgId, candidates, { kind: 'people.approval', title: `Handed on to you: ${step.request.title}`, link: { app: 'people', screen: 'approvals' } as any }, { subjectKey: `approval:${step.requestId}` });
           handedOn += 1;
@@ -1142,6 +1183,8 @@ export async function runApprovalDues(now = new Date()) {
           const audits: Audit[] = [];
           const state = await peoplePrisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-decide:${step.requestId}`}))`;
+            /* Looked at again under the lock: asked for more information, withdrawn or decided meanwhile, it is left alone. */
+            if ((await tx.approvalRequest.findUnique({ where: { id: step.requestId }, select: { status: true } }))?.status !== 'WAITING') return 'NONE' as const;
             const moved = await tx.approvalStep.updateMany({ where: { requestId: step.requestId, order: step.order, status: 'WAITING' }, data: { status: 'APPROVED', decidedAt: now, comment: 'Approved on its own: overdue', resolvedHow: 'AUTO_APPROVED' } });
             if (!moved.count) return 'NONE' as const;
             await writeChangeLog(tx, { accountId: step.accountId, orgId: step.orgId, userId: null, source: 'APPROVAL', correlationId: step.requestId, reason: 'Approved on its own: overdue' }, { kind: 'ApprovalRequest', id: step.requestId, employeeId: step.request.subjectEmployeeId }, [{ field: `step ${step.order}`, before: 'WAITING', after: 'APPROVED', redacted: false }]);
@@ -1175,6 +1218,8 @@ export async function runApprovalDues(now = new Date()) {
  * to the next one up (their manager, then HR, then the owner) and says so on
  * the step. Runs inside the dues job's lease; a step handed up this way is
  * not handed up again, and the claim on WAITING makes a second run a no-op.
+ * Only steps this engine opened (resolvedHow set) are looked at: a step left
+ * waiting from before this release keeps its people (review of PR #93).
  */
 async function runAwayHandUps(now: Date) {
   const day = new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
@@ -1184,7 +1229,7 @@ async function runAwayHandUps(now: Date) {
   const onLeave = await outsideTenant('job: approvers away today', () => peoplePrisma.leaveRequest.findMany({ where: { status: 'APPROVED', fromDate: { lte: day }, toDate: { gte: day }, halfDay: null, fromTime: null }, select: { orgId: true }, distinct: ['orgId'], take: 5000 }));
   if (!onLeave.length) return { handedUp, failed };
   const steps = await outsideTenant('job: steps waiting on someone away', () =>
-    peoplePrisma.approvalStep.findMany({ where: { orgId: { in: onLeave.map((o) => o.orgId) }, status: 'WAITING', request: { status: 'WAITING' }, OR: [{ resolvedHow: null }, { resolvedHow: { not: 'AWAY_HANDED_UP' } }] }, include: { request: true }, take: 2000 }),
+    peoplePrisma.approvalStep.findMany({ where: { orgId: { in: onLeave.map((o) => o.orgId) }, status: 'WAITING', request: { status: 'WAITING' }, AND: [{ resolvedHow: { not: null } }, { resolvedHow: { not: 'AWAY_HANDED_UP' } }] }, include: { request: true }, take: 2000 }),
   );
   for (const step of steps) {
     try {

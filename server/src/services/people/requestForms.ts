@@ -1,7 +1,7 @@
 import type { Prisma } from '../../generated/people/index.js';
 import { peoplePrisma, peopleWrite } from '../../utils/peoplePrisma.js';
 import { ApprovalError, PORTAL_PREFIX, activeRule, addWorkingDays, reply, saveRule, submitRequest, withdraw, type FormRequestType, type StepSpec } from './approvals/engine.js';
-import { normaliseSteps } from './approvals/spec.js';
+import { normaliseAutoApprove, normaliseSteps } from './approvals/spec.js';
 import type { Actor } from './changeLog.js';
 
 /**
@@ -235,7 +235,8 @@ export async function updateForm(who: Who, id: string, body: FormBody) {
   const next = approver || (current && current !== 'CUSTOM' ? current : null);
   if (!rule || (approver && approver !== current) || (slaChanged && next)) {
     const a = next || 'HR';
-    await saveRule(who, formType(f.id), `${saved.name} (${approverWords(a)})`, stepsFor(a, saved.slaDays));
+    /* The rule's auto-approve (set on Approval rules) stays with it when the approver changes here (review of PR #93). */
+    await saveRule(who, formType(f.id), `${saved.name} (${approverWords(a)})`, stepsFor(a, saved.slaDays), { autoApprove: normaliseAutoApprove(rule?.autoApprove) });
   }
   return shapeForm(saved);
   });

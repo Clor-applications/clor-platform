@@ -18,6 +18,7 @@ import type { Actor, ChangeSource } from '../services/people/changeLog.js';
 import { ApprovalError, REQUEST_TYPES, RULE_TYPES, isFormType, activeRule, decide, mine, namesFor, previewRule, reply, retireRule, saveRuleSpec, shape, stepsOfRule, submitRequest, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
 import { cleanRule, isRuleProblem, legacySteps, normaliseAutoApprove, normaliseConditions, v1Exact } from '../services/people/approvals/spec.js';
 import { recordAudit } from '../services/auditTrail.js';
+import { inScope, teamScope } from '../services/people/scope.js';
 
 /**
  * Approvals (docs/people/02-PRD.md APR-01..07): rules, requests, decisions,
@@ -128,6 +129,8 @@ peopleApprovalsRouter.post(`${base}/approval-rules/preview`, can(PermissionActio
     if (isRuleProblem(spec)) return ruleInvalid(res, spec);
     draft = spec;
   }
+  /* A team-scoped editor tries it only with people in their team (review of PR #93): outside it reads as absent. */
+  if (b.sample.employeeId && !inScope(await teamScope(req), b.sample.employeeId)) return res.status(404).json({ error: 'No such person.' });
   /* A named requester must be someone in this company. */
   if (b.sample.requesterUserId && !(await platformPrisma.userOrgMembership.findFirst({ where: { orgId, userId: b.sample.requesterUserId }, select: { id: true } }))) {
     return res.status(400).json({ error: 'That person is not in this company.', code: 'RULE_INVALID', field: 'sample' });
@@ -143,9 +146,17 @@ peopleApprovalsRouter.delete(`${base}/approval-rules/:requestType`, can(Permissi
   if (!(await peopleRouteOk(req, res))) return;
   const type = String(req.params.requestType) as RuleType;
   if (!(await ruleTypeOk(req.tenant!.orgId, type))) return res.status(404).json({ error: 'Unknown request type.' });
+  const was = await activeRule(req.tenant!.orgId, type);
   const retired = await retireRule(req.tenant!.orgId, type);
+  if (was && retired) await auditRetired(req, was);
   res.json({ ok: true, retired });
 });
+
+/** Switching a rule off is audited by name, like saving one (review of PR #93). */
+async function auditRetired(req: Request, rule: { id: string; name: string; requestType: string; variantKey: string; version: number }) {
+  const by = (await namesFor([req.auth!.userId], req.tenant!.orgId)).get(req.auth!.userId) || 'Someone';
+  await recordAudit(req, { entity: 'APPROVAL_RULE', entityId: rule.id, action: 'RETIRED', message: `${by} switched off the approval rule "${rule.name}"${rule.variantKey ? ` (variant ${rule.variantKey})` : ''}`, metadata: { requestType: rule.requestType, variantKey: rule.variantKey, version: rule.version } });
+}
 
 /** Retire one variant of a type's rule; requests already waiting under it keep their steps. */
 peopleApprovalsRouter.delete(`${base}/approval-rules/:requestType/:variant`, can(PermissionAction.DELETE, APPROVALS), async (req, res) => {
@@ -154,8 +165,10 @@ peopleApprovalsRouter.delete(`${base}/approval-rules/:requestType/:variant`, can
   const variant = String(req.params.variant);
   if (!(await ruleTypeOk(req.tenant!.orgId, type))) return res.status(404).json({ error: 'Unknown request type.' });
   if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(variant)) return res.status(404).json({ error: 'No such variant.' });
+  const was = await peoplePrisma.approvalRule.findFirst({ where: { orgId: req.tenant!.orgId, requestType: type, variantKey: variant, active: true }, orderBy: { version: 'desc' } });
   const retired = await retireRule(req.tenant!.orgId, type, variant);
   if (!retired) return res.status(404).json({ error: 'No such variant.' });
+  if (was) await auditRetired(req, was);
   res.json({ ok: true, retired });
 });
 

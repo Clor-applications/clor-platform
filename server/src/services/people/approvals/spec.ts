@@ -80,6 +80,8 @@ export const SPEC_VERSION = 2;
  * (phase 3a); SALARY_ADVANCE is People's.
  */
 export const MONEY_TYPES = new Set(['LOAN', 'SALARY_REVISION', 'FINAL_SETTLEMENT', 'SALARY_ADVANCE']);
+/** Money: always two different people when a step needs several (review of PR #93): advances, claims, and Payroll's types later. */
+export const TWO_PERSON_TYPES = new Set([...MONEY_TYPES, 'EMPLOYEE_ADVANCE', 'EXPENSE_CLAIM']);
 /** Something about yourself that is never self-approved, whatever the maker-checker setting (SPEC 5.6). Payroll's, phase 3a. */
 export const NEVER_SELF_TYPES = new Set(['LOAN', 'SALARY_REVISION', 'FINAL_SETTLEMENT']);
 
@@ -178,6 +180,21 @@ export function v1Exact(raw: unknown): boolean {
 
 /* ---- Conditions ------------------------------------------------------------ */
 
+/** Read from the person's record (5.2 fields offered per type), whatever the request carries. */
+export const PERSON_FIELDS = new Set(['departmentId', 'branchId', 'establishmentId', 'employeeTypeId', 'gradeId']);
+
+/**
+ * What a request of this type carries that the server, not the asker, sets (5.2): a money request's
+ * amount and month total, leave's days and type; a record change (job, profile) or a request type HR made
+ * carries its own fields. Anything else has nothing a condition may read from the request.
+ */
+export function requestFieldsOf(requestType: string): Set<string> | 'ANY' {
+  if (requestType === 'JOB_CHANGE' || requestType === 'PROFILE_CHANGE' || requestType.startsWith('FORM:')) return 'ANY';
+  if (TWO_PERSON_TYPES.has(requestType)) return new Set(['amount', 'monthTotal']);
+  if (requestType === 'LEAVE') return new Set(['days', 'leaveTypeId']);
+  return new Set();
+}
+
 export type Facts = {
   /** The request's own values: `fields` for a record change ({ before, after }), and top-level values (amount, days, ...). */
   payload: { fields?: Record<string, { before: unknown; after: unknown }>; [k: string]: unknown };
@@ -195,8 +212,13 @@ export function holds(c: ConditionV2, facts: Facts): boolean {
   const payload = facts.payload || {};
   const f = payload.fields?.[c.field];
   if (c.op === 'changed') return Boolean(f) && String(f!.before ?? '') !== String(f!.after ?? '');
-  let raw: unknown = f ? f.after : (payload as any)[c.field];
-  if (!f && raw === undefined && c.from !== 'request' && facts.person) raw = facts.person[c.field];
+  /*
+   * The person's own department, branch, grade, work site and type come from their record, never from the
+   * request: whoever asks writes the payload, and could otherwise pick a variant or an auto-approval
+   * (review of PR #93). Only a condition that says `from: 'request'` (a job change's new department; every
+   * version 1 condition) reads the request.
+   */
+  const raw: unknown = c.from !== 'request' && PERSON_FIELDS.has(c.field) ? facts.person?.[c.field] ?? null : f ? f.after : (payload as any)[c.field];
   if (NUMERIC_OPS.has(c.op)) {
     const n = Number(raw);
     const v = Number(c.value);
@@ -236,11 +258,17 @@ function cleanApprover(raw: any, requestType: string, at: number, field: string,
   return { kind: kind as ApproverKind, ...(kind === 'USER' || kind === 'ROLE' ? { id: String(raw.id).trim() } : {}) };
 }
 
-function cleanCondition(raw: any, at: number | undefined, field: string, ops: readonly string[]): ConditionV2 | RuleProblem {
+function cleanCondition(raw: any, at: number | undefined, field: string, ops: readonly string[], requestType: string, legacy = false): ConditionV2 | RuleProblem {
   const op = String(raw?.op || '');
   const name = String(raw?.field || '').trim();
   const where = at ? `Step ${at}: ` : '';
   if (!ops.includes(op) || !name || name.length > 60) return problem(`${where}a condition names a field and one of ${ops.join(', ')}.`, at, field);
+  /* A version 2 condition reads the person's record, or only what this type of request carries (review of PR #93). Version 1 steps keep what they could always say. */
+  const fromRequest = raw.from === 'request' || op === 'changed' || !PERSON_FIELDS.has(name);
+  const allowed = requestFieldsOf(requestType);
+  if (!legacy && fromRequest && allowed !== 'ANY' && !allowed.has(name)) {
+    return problem(`${where}this kind of request does not carry "${name}". Conditions read the person's department, branch, grade, work site or employment type${allowed.size ? `, or ${[...allowed].join(', ')}` : ''}.`, at, field);
+  }
   if (NUMERIC_OPS.has(op) && !Number.isFinite(Number(raw.value))) return problem(`${where}more or fewer than how many?`, at, field);
   if (op === 'in') {
     const list = Array.isArray(raw.value) ? raw.value.map((v: unknown) => String(v ?? '').trim()).filter(Boolean) : [];
@@ -279,7 +307,7 @@ function cleanStep(raw: any, i: number, requestType: string, isLast: boolean): S
   const when: ConditionV2[] = [];
   for (const c of whenRaw) {
     /* A v1 condition takes the v1 operators and is read from the request, as before. */
-    const x = cleanCondition(c, at, v2 ? 'when' : 'condition', v2 ? CONDITION_OPS : ['changed', 'eq', 'ne', 'gt', 'lt']);
+    const x = cleanCondition(c, at, v2 ? 'when' : 'condition', v2 ? CONDITION_OPS : ['changed', 'eq', 'ne', 'gt', 'lt'], requestType, !v2);
     if (isProblem(x)) return x;
     when.push(v2 ? x : { ...x, value: x.value == null ? null : String(x.value), from: 'request' });
   }
@@ -362,7 +390,7 @@ export function cleanRule(input: { requestType: string; name: string; steps: unk
   if (input.appliesWhen != null) {
     if (!Array.isArray(input.appliesWhen) || input.appliesWhen.length > MAX_CONDITIONS) return problem('Six conditions at most pick a variant.', undefined, 'appliesWhen');
     for (const c of input.appliesWhen) {
-      const x = cleanCondition(c, undefined, 'appliesWhen', CONDITION_OPS);
+      const x = cleanCondition(c, undefined, 'appliesWhen', CONDITION_OPS, requestType);
       if (isProblem(x)) return x;
       appliesWhen.push(x);
     }
@@ -381,7 +409,7 @@ export function cleanRule(input: { requestType: string; name: string; steps: unk
       const when: ConditionV2[] = [];
       if (!Array.isArray(a?.when) || !a.when.length || a.when.length > MAX_CONDITIONS) return problem('An auto-approve rule names one to six conditions.', undefined, 'autoApprove');
       for (const c of a.when) {
-        const x = cleanCondition(c, undefined, 'autoApprove', CONDITION_OPS);
+        const x = cleanCondition(c, undefined, 'autoApprove', CONDITION_OPS, requestType);
         if (isProblem(x)) return x;
         when.push(x);
       }

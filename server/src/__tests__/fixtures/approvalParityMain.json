@@ -1,0 +1,1415 @@
+{
+ "recordedOn": "56b90139",
+ "results": {
+  "HR / with a manager": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Kiran",
+       "Meena",
+       "Priya",
+       "Ravi"
+      ],
+      "comment": "Sent to the admins: nobody else could decide it",
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Kiran",
+       "Meena",
+       "Priya",
+       "Ravi"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Ravi"
+     }
+    ]
+   }
+  },
+  "HR / no manager": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     }
+    ]
+   }
+  },
+  "HR / manager left": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     }
+    ]
+   }
+  },
+  "HR / stand-in": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     }
+    ]
+   }
+  },
+  "HR / own request": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     }
+    ]
+   }
+  },
+  "HR / requester is the approver": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     }
+    ]
+   }
+  },
+  "MANAGER / with a manager": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Ravi"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Ravi"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Ravi"
+     }
+    ]
+   }
+  },
+  "MANAGER / no manager": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     }
+    ]
+   }
+  },
+  "MANAGER / manager left": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     }
+    ]
+   }
+  },
+  "MANAGER / stand-in": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Meena",
+       "Ravi"
+      ],
+      "comment": null,
+      "standInFor": "Ravi",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Meena",
+       "Ravi"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Ravi"
+     }
+    ]
+   }
+  },
+  "MANAGER / own request": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Meena"
+     }
+    ]
+   }
+  },
+  "MANAGER / requester is the approver": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": "Sent to the admins: nobody else could decide it",
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     }
+    ]
+   }
+  },
+  "MANAGER_THEN_HR / with a manager": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Ravi"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Ravi"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Ravi"
+     },
+     {
+      "order": 2,
+      "status": "SKIPPED",
+      "candidates": [],
+      "comment": "Would have been the requester, or nobody to decide",
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "MANAGER_THEN_HR / no manager": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "MANAGER_THEN_HR / manager left": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "MANAGER_THEN_HR / stand-in": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Meena",
+       "Ravi"
+      ],
+      "comment": null,
+      "standInFor": "Ravi",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Meena",
+       "Ravi"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Ravi"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "MANAGER_THEN_HR / own request": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Meena"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "MANAGER_THEN_HR / requester is the approver": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "SKIPPED",
+      "candidates": [],
+      "comment": "Would have been the requester, or nobody to decide",
+      "standInFor": "",
+      "decidedBy": ""
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "SKIPPED",
+      "candidates": [],
+      "comment": "Would have been the requester, or nobody to decide",
+      "standInFor": "",
+      "decidedBy": ""
+     },
+     {
+      "order": 2,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     }
+    ]
+   }
+  },
+  "MONEY / with a manager": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Ravi"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Ravi"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Ravi"
+     },
+     {
+      "order": 2,
+      "status": "SKIPPED",
+      "candidates": [],
+      "comment": "Would have been the requester, or nobody to decide",
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "MONEY / no manager": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "MONEY / manager left": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "MONEY / stand-in": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Meena",
+       "Ravi"
+      ],
+      "comment": null,
+      "standInFor": "Ravi",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Meena",
+       "Ravi"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Ravi"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "MONEY / own request": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Meena"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "MONEY / requester is the approver": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "SKIPPED",
+      "candidates": [],
+      "comment": "Would have been the requester, or nobody to decide",
+      "standInFor": "",
+      "decidedBy": ""
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "SKIPPED",
+      "candidates": [],
+      "comment": "Would have been the requester, or nobody to decide",
+      "standInFor": "",
+      "decidedBy": ""
+     },
+     {
+      "order": 2,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     }
+    ]
+   }
+  },
+  "GRADE / with a manager": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Meena"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Priya"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "GRADE / no manager": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Priya"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "GRADE / manager left": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Priya"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "GRADE / stand-in": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "APPROVED",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Meena"
+     },
+     {
+      "order": 2,
+      "status": "SKIPPED",
+      "candidates": [],
+      "comment": "Would have been the requester, or nobody to decide",
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "GRADE / own request": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Asha HR"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Asha HR"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Priya"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "GRADE / requester is the approver": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Meena"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Priya"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "ROLE / with a manager": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Kiran"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Kiran"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Kiran"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "ROLE / no manager": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Kiran"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Kiran"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Kiran"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "ROLE / manager left": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Kiran"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Kiran"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Kiran"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "ROLE / stand-in": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Kiran"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Kiran"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Kiran"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "ROLE / own request": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Kiran"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Kiran"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Kiran"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  },
+  "ROLE / requester is the approver": {
+   "opened": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "WAITING",
+      "candidates": [
+       "Kiran"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   },
+   "after": {
+    "status": "WAITING",
+    "steps": [
+     {
+      "order": 1,
+      "status": "APPROVED",
+      "candidates": [
+       "Kiran"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": "Kiran"
+     },
+     {
+      "order": 2,
+      "status": "WAITING",
+      "candidates": [
+       "Meena"
+      ],
+      "comment": null,
+      "standInFor": "",
+      "decidedBy": ""
+     }
+    ]
+   }
+  }
+ }
+}

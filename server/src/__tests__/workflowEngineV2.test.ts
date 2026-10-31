@@ -15,7 +15,8 @@ const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
-const { runApprovalDues } = await import('../services/people/approvals/engine.js');
+const engineFns = await import('../services/people/approvals/engine.js');
+const { runApprovalDues } = engineFns;
 const { normaliseSteps } = await import('../services/people/approvals/spec.js');
 
 const app = buildApp().listen(0);
@@ -150,7 +151,12 @@ describe('parity: a version 1 rule and its version 2 normalisation decide identi
           }
         };
         const v1 = await runOnce(() => storeV1(hr, 'SEAT_REQUEST', steps));
-        const v2 = await runOnce(() => saveV2(hr, { requestType: 'SEAT_REQUEST', steps: normaliseSteps(steps) }));
+        /* Saved through the API as the rules screen saves it (the first shape), written as version 2. */
+        const v2 = await runOnce(async () => {
+          const saved = await saveV2(hr, { requestType: 'SEAT_REQUEST', steps });
+          expect(saved.specVersion).toBe(2);
+          expect(saved.spec).toEqual(normaliseSteps(steps));
+        });
         expect(v2, `${preset} / ${sc.name}`).toEqual(v1);
         compared += 1;
       }
@@ -222,32 +228,47 @@ describe('who decides: new kinds, ALL slots, conditions, variants, auto-approve'
   });
 
   it('conditions in version 2 read amounts and the person; a variant for a department wins, the most specific first; retiring it falls back', async () => {
-    await saveV2(hr, { requestType: 'LETTER_REQUEST', steps: [{ approvers: [{ kind: 'HR' }], due: { workingDays: 2 } }, { approvers: [{ kind: 'USER', id: meena.userId }], when: [{ field: 'amount', op: 'gte', value: 5000 }, { field: 'kind', op: 'in', value: ['VISA', 'LOAN'] }], due: { workingDays: 2 } }] });
+    await saveV2(hr, { requestType: 'LETTER_REQUEST', steps: [{ approvers: [{ kind: 'HR' }], due: { workingDays: 2 } }, { approvers: [{ kind: 'USER', id: meena.userId }], when: [{ field: 'departmentId', op: 'in', value: [design.id, 'other'] }], due: { workingDays: 2 } }] });
     await saveV2(hr, { requestType: 'LETTER_REQUEST', variantKey: 'design', appliesWhen: [{ field: 'departmentId', op: 'eq', value: design.id }], steps: [{ approvers: [{ kind: 'USER', id: priya.userId }], due: { workingDays: 2 } }] });
     await saveV2(hr, { requestType: 'LETTER_REQUEST', variantKey: 'design-g2', appliesWhen: [{ field: 'departmentId', op: 'eq', value: design.id }, { field: 'gradeId', op: 'eq', value: g2.id }], steps: [{ approvers: [{ kind: 'USER', id: meena.userId }], due: { workingDays: 2 } }] });
     const forTara = await ask(ravi, 'LETTER_REQUEST', tara);
     expect(forTara.ruleVariant).toBe('design-g2');
     expect(forTara.steps[0].candidates).toEqual(['Meena']);
-    const big = await ask(ravi, 'LETTER_REQUEST', lone, { amount: 6000, kind: 'VISA' });
-    expect(big.ruleVariant).toBe('');
-    await people(hr).post(`/requests/${big.id}/approve`, {}).expect(200);
-    expect((await view(big.id)).steps.map((s: any) => [s.order, s.status])).toEqual([[1, 'APPROVED'], [2, 'WAITING']]);
-    const small = await ask(ravi, 'LETTER_REQUEST', lone, { amount: 6000, kind: 'EXPERIENCE' });
-    expect((await people(hr).post(`/requests/${small.id}/approve`, {}).expect(200)).body.request.status).toBe('APPROVED');
+    /* Amounts: a money type's own figure (set by the money module), tried through the preview. */
+    const tryAmount = async (amount: number) => (await people(hr).post('/approval-rules/preview', { requestType: 'EXPENSE_CLAIM', rule: { steps: [{ approvers: [{ kind: 'HR' }], when: [{ field: 'amount', op: 'gte', value: 5000 }], due: { workingDays: 2 } }, { approvers: [{ kind: 'OWNER' }], due: { workingDays: 2 } }] }, sample: { employeeId: tara.id, requesterUserId: ravi.userId, payload: { amount } } }).expect(200)).body.steps[0].outcome;
+    expect(await tryAmount(6000)).toBe('DECIDES');
+    expect(await tryAmount(100)).toBe('SKIPPED');
     await people(ravi).del('/approval-rules/LETTER_REQUEST/design-g2').expect(403);
     await people(hr).del('/approval-rules/LETTER_REQUEST/design-g2').expect(200);
     await people(hr).del('/approval-rules/LETTER_REQUEST/design-g2').expect(404);
     expect((await ask(ravi, 'LETTER_REQUEST', tara)).steps[0].candidates).toEqual(['Priya']);
   });
 
-  it('auto-approve: a matching request is approved with nobody asked; never for money', async () => {
-    await saveV2(hr, { requestType: 'DESK_ESCALATION', steps: [{ approvers: [{ kind: 'HR' }], due: { workingDays: 2 } }], autoApprove: [{ when: [{ field: 'kind', op: 'eq', value: 'PAYSLIP' }] }] });
-    const auto = await ask(ravi, 'DESK_ESCALATION', tara, { kind: 'PAYSLIP' });
+  it('a requester cannot pick a variant or skip a step by putting the person’s department or grade in the request', async () => {
+    /* Lone is in no department: a faked departmentId and gradeId in the payload are ignored. */
+    const faked = await ask(ravi, 'LETTER_REQUEST', lone, { departmentId: design.id, gradeId: g2.id, fields: { departmentId: { before: null, after: design.id } } });
+    expect(faked.ruleVariant).toBe('');
+    await people(hr).post(`/requests/${faked.id}/approve`, {}).expect(200);
+    expect((await view(faked.id)).steps.map((s: any) => [s.order, s.status])).toEqual([[1, 'APPROVED'], [2, 'SKIPPED']]);
+    const p = (await people(hr).post('/approval-rules/preview', { requestType: 'LETTER_REQUEST', sample: { employeeId: lone.id, requesterUserId: ravi.userId, payload: { departmentId: design.id } } }).expect(200)).body;
+    expect(p.rule.variantKey).toBe('');
+  });
+
+  it('auto-approve: a matching request is approved with nobody asked; a faked payload does not match; never for money; only fields the type has', async () => {
+    await saveV2(hr, { requestType: 'DESK_ESCALATION', steps: [{ approvers: [{ kind: 'HR' }], due: { workingDays: 2 } }], autoApprove: [{ when: [{ field: 'departmentId', op: 'eq', value: design.id }] }] });
+    const auto = await ask(ravi, 'DESK_ESCALATION', tara);
     expect(auto.status).toBe('APPROVED');
     expect(auto.steps).toEqual([expect.objectContaining({ status: 'APPROVED', how: 'AUTO_APPROVED', candidates: [] })]);
-    expect((await ask(ravi, 'DESK_ESCALATION', tara, { kind: 'OTHER' })).status).toBe('WAITING');
+    expect((await ask(ravi, 'DESK_ESCALATION', lone, { departmentId: design.id })).status).toBe('WAITING');
+    /* Ravi's own request, with Design written into it: not approved on its own. */
+    expect((await ask(ravi, 'DESK_ESCALATION', raviEmp, { departmentId: design.id, fields: { departmentId: { before: null, after: design.id } } })).status).toBe('WAITING');
     const money = await people(hr).post('/approval-rules', { requestType: 'SALARY_ADVANCE', name: 'x', steps: [{ approver: { kind: 'HR' }, dueDays: 2 }], autoApprove: [{ when: [{ field: 'amount', op: 'lt', value: 1000 }] }] }).expect(400);
     expect(money.body).toMatchObject({ code: 'RULE_INVALID', field: 'autoApprove' });
+    /* A help-desk escalation carries no "kind" or amount the server sets: refused, as is reading the department from the request. */
+    const kind = await people(hr).post('/approval-rules', { requestType: 'DESK_ESCALATION', name: 'x', steps: [{ approvers: [{ kind: 'HR' }], due: { workingDays: 2 } }], autoApprove: [{ when: [{ field: 'kind', op: 'eq', value: 'PAYSLIP' }] }] }).expect(400);
+    expect(kind.body).toMatchObject({ code: 'RULE_INVALID', field: 'autoApprove' });
+    await people(hr).post('/approval-rules', { requestType: 'DESK_ESCALATION', name: 'x', steps: [{ approvers: [{ kind: 'HR' }], due: { workingDays: 2 }, when: [{ field: 'departmentId', op: 'eq', value: design.id, from: 'request' }] }] }).expect(400);
+    await people(hr).post('/approval-rules', { requestType: 'JOB_CHANGE', name: 'x', steps: [{ approvers: [{ kind: 'HR' }], due: { workingDays: 2 }, when: [{ field: 'departmentId', op: 'eq', value: design.id, from: 'request' }] }] }).expect(201);
   });
 });
 
@@ -398,5 +419,97 @@ describe('the preview and variants stay inside the company and need the right', 
     await people(other).del('/approval-rules/LETTER_REQUEST/design').expect(404);
     const theirs = (await people(other).get('/approval-rules').expect(200)).body.rules;
     expect(theirs.some((r: any) => r.orgId === hr.orgId)).toBe(false);
+  });
+});
+
+describe('review of PR #93', () => {
+  const { beforeApproving, lastResortDeciders } = engineFns;
+  it('ALL: a step-in takes one slot, and whoever decided a slot cannot take another', async () => {
+    await saveV2(hr, { requestType: 'SEAT_REQUEST', steps: [{ approvers: [{ kind: 'USER', id: meena.userId }, { kind: 'USER', id: priya.userId }], mode: 'ALL', due: { workingDays: 2 }, stepIn: 'HR' }] });
+    const r = await ask(ravi, 'SEAT_REQUEST', tara);
+    await people(hr).post(`/requests/${r.id}/approve`, {}).expect(200);
+    const again = await people(hr).post(`/requests/${r.id}/approve`, {}).expect(403);
+    expect(again.body.code).toBe('ALREADY_DECIDED_PART');
+    expect((await view(r.id)).status).toBe('WAITING');
+  });
+
+  it('ALL: one person on two slots takes one while someone else could take the other; both only when nobody else could, audited', async () => {
+    const shared = (await request(app).post(`/api/orgs/${hr.orgId}/roles`).set(at(hr)).send({ name: `Shared ${rnd()}`, roleType: 'CUSTOM', permissions: [] }).expect(201)).body.role;
+    /* A person holds one role here, so the shared role carries the same rights. */
+    await request(app).put(`/api/orgs/${hr.orgId}/roles/${shared.id}/permissions`).set(at(hr)).send({ permissions: APPROVER }).expect(200);
+    for (const c of [meena, priya]) await request(app).post(`/api/orgs/${hr.orgId}/users/${c.userId}/roles`).set(at(hr)).send({ roleId: shared.id, branchId: null }).expect(201);
+    await saveV2(hr, { requestType: 'SEAT_REQUEST', steps: [{ approvers: [{ kind: 'USER', id: meena.userId }, { kind: 'ROLE', id: shared.id }], mode: 'ALL', due: { workingDays: 2 } }] });
+    const r = await ask(ravi, 'SEAT_REQUEST', tara);
+    expect((await people(meena).post(`/requests/${r.id}/approve`, {}).expect(200)).body.request.status).toBe('WAITING');
+    await people(meena).post(`/requests/${r.id}/approve`, {}).expect(403);
+    expect((await people(priya).post(`/requests/${r.id}/approve`, {}).expect(200)).body.request.status).toBe('APPROVED');
+
+    await saveV2(hr, { requestType: 'SEAT_REQUEST', steps: [{ approvers: [{ kind: 'USER', id: meena.userId }, { kind: 'USER', id: meena.userId }], mode: 'ALL', due: { workingDays: 2 } }] });
+    const alone = await ask(ravi, 'SEAT_REQUEST', tara);
+    const done = (await people(meena).post(`/requests/${alone.id}/approve`, {}).expect(200)).body.request;
+    expect(done.status).toBe('APPROVED');
+    expect(done.steps.map((s: any) => s.how).sort()).toEqual(['SAME_PERSON', 'USER']);
+    const audit = await platformPrisma.auditLog.findFirst({ where: { orgId: hr.orgId, entityId: alone.id, action: 'SAME_PERSON_APPROVED' } });
+    expect(audit?.message).toContain('Meena approved both parts of step 1: nobody else could');
+  });
+
+  it('ALL on money: always two different people; the second part goes to someone else', async () => {
+    beforeApproving('SALARY_ADVANCE', async () => {});
+    await saveV2(hr, { requestType: 'SALARY_ADVANCE', steps: [{ approvers: [{ kind: 'USER', id: meena.userId }, { kind: 'USER', id: meena.userId }], mode: 'ALL', due: { workingDays: 2 } }] });
+    const r = await ask(ravi, 'SALARY_ADVANCE', tara, { amount: 5000 });
+    const after = (await people(meena).post(`/requests/${r.id}/approve`, {}).expect(200)).body.request;
+    expect(after.status).toBe('WAITING');
+    const open = after.steps.filter((s: any) => s.status === 'WAITING');
+    expect(open).toHaveLength(1);
+    expect(open[0].candidates).toEqual(['Asha HR']);
+    await people(meena).post(`/requests/${r.id}/approve`, {}).expect(403);
+  });
+
+  it('the dues job never hands up a step opened before this release (no resolvedHow)', async () => {
+    await saveV2(hr, { requestType: 'DESK_ESCALATION', steps: [{ approver: { kind: 'MANAGER' }, dueDays: 2 }] });
+    const r = await ask(priya, 'DESK_ESCALATION', tara);
+    await runInTenant(hr.orgId, () => peoplePrisma.approvalStep.updateMany({ where: { requestId: r.id }, data: { resolvedHow: null } }));
+    const leave = await leaveToday(hr, raviEmp.id);
+    try {
+      await runApprovalDues(new Date());
+      const after = await view(r.id);
+      expect(after.steps.map((s: any) => [s.status, s.candidates])).toEqual([['WAITING', ['Ravi']]]);
+    } finally {
+      await runInTenant(hr.orgId, () => peoplePrisma.leaveRequest.delete({ where: { id: leave.id } }));
+    }
+  });
+
+  it('the last resort keeps a team-scoped approver to their team', async () => {
+    const c = await owner('Scope Owner');
+    const k = await colleague(c, 'Kumar', APPROVER, true);
+    const n = await colleague(c, 'Nisha', APPROVER);
+    const subject = (await people(c).post('/employees', { name: 'Sub Ject', code: 'S-1' }).expect(201)).body.employee;
+    const admin = await platformPrisma.role.findMany({ where: { orgId: c.orgId, roleType: 'ADMIN' }, select: { id: true } });
+    await platformPrisma.userRoleAssignment.deleteMany({ where: { orgId: c.orgId, roleId: { in: admin.map((a) => a.id) } } });
+    const who = await runInTenant(c.orgId, () => (lastResortDeciders as any)(c.accountId, c.orgId, [], subject.id));
+    expect(who).toContain(n.userId);
+    expect(who).not.toContain(k.userId);
+  });
+
+  it('retiring a rule or a variant is audited by name', async () => {
+    await saveV2(hr, { requestType: 'LETTER_REQUEST', variantKey: 'audit-me', appliesWhen: [{ field: 'branchId', op: 'eq', value: 'nowhere' }], steps: [{ approvers: [{ kind: 'HR' }], due: { workingDays: 2 } }] });
+    await people(hr).del('/approval-rules/LETTER_REQUEST/audit-me').expect(200);
+    await people(hr).del('/approval-rules/DESK_ESCALATION').expect(200);
+    const lines = (await platformPrisma.auditLog.findMany({ where: { orgId: hr.orgId, entity: 'APPROVAL_RULE', action: 'RETIRED' } })).map((l) => l.message);
+    expect(lines).toEqual(expect.arrayContaining(['Asha HR switched off the approval rule "v2" (variant audit-me)', 'Asha HR switched off the approval rule "v2"']));
+  });
+
+  it('a team-scoped rules editor previews only people in their team', async () => {
+    const tam = await colleague(hr, 'Tam', [...APPROVER, 'PEOPLE::Approvals::VIEW', 'PEOPLE::Approvals::EDIT'], true);
+    await people(tam).post('/approval-rules/preview', { requestType: 'SEAT_REQUEST', sample: { employeeId: tara.id } }).expect(404);
+  });
+
+  it('changing a request type’s approver keeps its rule’s auto-approve', async () => {
+    const form = (await people(hr).post('/request-forms', { name: `Gate pass ${rnd()}`, approver: 'HR', fields: [{ label: 'Why', type: 'TEXT' }] }).expect(201)).body.form;
+    await saveV2(hr, { requestType: form.requestType, steps: [{ approvers: [{ kind: 'HR' }], due: { workingDays: 2 } }], autoApprove: [{ when: [{ field: 'departmentId', op: 'eq', value: design.id }] }] });
+    await request(app).put(`/api/orgs/${hr.orgId}/people/request-forms/${form.id}`).set(at(hr)).send({ approver: 'MANAGER' }).expect(200);
+    const rule = (await people(hr).get('/approval-rules').expect(200)).body.rules.find((x: any) => x.requestType === form.requestType && x.active && !x.variantKey);
+    expect(rule.spec[0].approvers).toEqual([{ kind: 'MANAGER' }]);
+    expect(rule.autoApprove).toEqual([{ when: [{ field: 'departmentId', op: 'eq', value: design.id }] }]);
   });
 });
