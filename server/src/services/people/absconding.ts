@@ -25,7 +25,7 @@ import { writeEvent } from './outbox.js';
  *  2. sends notice 2, offered [7] days after the first;
  *  3. once the second notice's date has passed with no word, records the leaving as ABSCONDED with a
  *     last working day, and may hold the final settlement (shown on Home until released). A hold is a
- *     hold: wages earned are never zeroed (Code on Wages), Payroll still works the settlement out.
+ *     hold: wages earned are never zeroed (Code on Wages 2019, s.17(2), s.18(1)), Payroll still works the settlement out.
  * Or closes the case at any point: they came back, or there was a reason (with a note), and nothing is
  * recorded against them. A case nobody acted on closes itself when the person is back at work.
  *

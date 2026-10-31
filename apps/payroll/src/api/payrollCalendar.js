@@ -68,11 +68,11 @@ export async function updatePayrollPeriod(id, payload) {
 }
 
 /** Closing a month is a decision, not an edit, so it has its own call. */
-export async function setPayrollPeriodLock(id, locked) {
+export async function setPayrollPeriodLock(id, locked, acknowledge = false) {
   const { period } = await apiFetch(`${base()}/periods/${encodeURIComponent(id)}/lock`, {
     ...opts,
     method: 'POST',
-    body: { locked },
+    body: { locked, ...(acknowledge ? { acknowledge: true } : {}) },
   });
   return period;
 }

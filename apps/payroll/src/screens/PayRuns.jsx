@@ -47,6 +47,7 @@ import {
 import LoadFailed from "../components/LoadFailed";
 import { LopCheckPanel, ProvisionalNotice } from "../components/RunGuards";
 import { ProvisionalDaysNotice } from "../components/ProvisionalDaysSetting";
+import { DeductionCapNotice, OverLimitPanel } from "../components/DeductionCapSetting";
 import { openMonthsOf } from "../components/runGuardText";
 
 /**
@@ -189,6 +190,7 @@ export default function PayRuns() {
   const begin = () => setStarting(true);
 
   return (
+    <div className="ui-touch-44">
     <DocumentListShell
       entity="payRun"
       title="Pay runs"
@@ -282,6 +284,7 @@ export default function PayRuns() {
         </div>
       )}
     </DocumentListShell>
+    </div>
   );
 }
 
@@ -406,7 +409,7 @@ const RunWorkflow = ({ runId, onBack }) => {
   const warningCount = issues ? issues.warnings : run.warningCount;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 ui-touch-44">
       <PageHeader
         entity="payRun"
         title={`${run.number} — ${run.period?.name || "payroll"}`}
@@ -443,6 +446,11 @@ const RunWorkflow = ({ runId, onBack }) => {
 
       {/* Days after the company's cut-off paid as present before they happened (O-11). */}
       <ProvisionalDaysNotice run={run} />
+      {/* Instalments the legal share of wages moved to next month. */}
+      <DeductionCapNotice run={run} />
+      {/* Entered deductions past the limit: the payroll waits for them to be reduced or a reason. */}
+      <OverLimitPanel run={run} onSaved={load} />
+      {run.stale && run.status === "CALCULATED" ? <p role="status" className="ui-caption ui-text-warn">{run.stale}</p> : null}
 
       {errorCount > 0 || warningCount > 0 ? (
         <div className="flex flex-wrap items-center gap-3">
@@ -542,7 +550,7 @@ const RunWorkflow = ({ runId, onBack }) => {
  * The status is the server's, so the button follows it rather than the screen
  * keeping its own idea of where the run has got to.
  */
-const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismatch }) => {
+export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismatch }) => {
   if (
     run.status === "DRAFT" ||
     (run.status === "CALCULATED" && run.errorCount > 0)
@@ -572,22 +580,48 @@ const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismatch }) =
       </button>
     );
   }
+  const waitsForReason = Boolean(run.overLimit?.people?.length && !run.overLimit.reason);
   if (run.status === "CALCULATED") {
+    /* Figures older than what they came from are not sent on (QA of #82, F4): calculated again first, from here. */
+    const stale = run.stale || "";
     return (
-      <button
-        type="button"
-        className="ui-btn ui-btn-primary"
-        disabled={Boolean(busy)}
-        onClick={() =>
-          act(
-            "send for review",
-            () => submitRunForReview(runId),
-            () => notify.success("Sent for review."),
-          )
-        }
-      >
-        Send for review
-      </button>
+      <>
+        <button
+          type="button"
+          className="ui-btn ui-btn-secondary"
+          disabled={Boolean(busy)}
+          onClick={() =>
+            act("calculate again", async () => {
+              const out = await validatePayrollRun(runId);
+              setIssues(out);
+              if (!out.canCalculate) {
+                notify.error(`${out.errors} thing${out.errors === 1 ? "" : "s"} to resolve first.`);
+                return out;
+              }
+              await calculatePayrollRun(runId);
+              notify.success("Calculated again.");
+              return out;
+            })
+          }
+        >
+          Calculate again
+        </button>
+        <button
+          type="button"
+          className="ui-btn ui-btn-primary"
+          disabled={Boolean(busy) || waitsForReason || Boolean(stale)}
+          title={stale || (waitsForReason ? "Deductions pass the limit: reduce them or record why they stand" : undefined)}
+          onClick={() =>
+            act(
+              "send for review",
+              () => submitRunForReview(runId),
+              () => notify.success("Sent for review."),
+            )
+          }
+        >
+          Send for review
+        </button>
+      </>
     );
   }
   if (run.status === "APPROVED") {
@@ -657,7 +691,8 @@ const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismatch }) =
         <button
           type="button"
           className="ui-btn ui-btn-primary"
-          disabled={Boolean(busy)}
+          disabled={Boolean(busy) || waitsForReason}
+          title={waitsForReason ? "Deductions pass the limit: reduce them or record why they stand" : undefined}
           onClick={async () => {
             const ok = await confirmDialog({
               title: `Approve ${run.number}?`,
@@ -830,7 +865,9 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
           (out.provisionalMessage ? ` ${out.provisionalMessage}` : "") +
           ((out.corrections || []).length
             ? ` ${out.corrections.length} ${out.corrections.length === 1 ? "correction" : "corrections"} for last month’s counted days added to this payroll.`
-            : ""),
+            : "") +
+          /* Each in its own words: one with no payslip to price it on has to be added by hand, so it is never left unsaid. */
+          (out.latePenalties || []).map((p) => ` ${p.name}: ${p.reason}.`).join(""),
       );
       onSaved();
     } catch (e) {

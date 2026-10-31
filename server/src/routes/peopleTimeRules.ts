@@ -6,6 +6,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { recordAudit } from '../services/auditTrail.js';
+import { ownRecordRefusal } from '../services/makerChecker.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from '../services/attendance/guards.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, hrOrAttendanceRouteOk } from '../services/people/guards.js';
 import { inScope, teamScope } from '../services/people/scope.js';
@@ -195,6 +196,10 @@ peopleTimeRulesRouter.post(`${base}/absences/:id/hold`, ppl(PermissionAction.EDI
 
 peopleTimeRulesRouter.post(`${base}/absences/:id/release`, ppl(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), handle(async (req, res) => {
   if (!(await hrOnly(req, res))) return;
+  /* Never by the person held: somebody else in HR, or the owner, lifts it (as Payroll's release-hold does). */
+  const held = await peoplePrisma.absenceCase.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId }, select: { employeeId: true } });
+  const mine = held ? await ownRecordRefusal(req, held.employeeId, 'settlement hold', { who: 'another HR user or the owner', does: 'lift it' }) : null;
+  if (mine) return void res.status(mine.status).json(mine.body);
   res.json({ case: await absence.releaseHold(whoC(req), String(req.params.id), String(req.body?.note || '')) });
 }));
 

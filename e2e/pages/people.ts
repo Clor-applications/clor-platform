@@ -23,6 +23,7 @@ export const MENU: Record<string, string> = {
   'Salary revisions': 'People',
   Benefits: 'People',
   Assets: 'People',
+  Expenses: 'People',
   Overview: 'Organisation',
   Departments: 'Organisation',
   Designations: 'Organisation',
@@ -37,6 +38,9 @@ export const MENU: Record<string, string> = {
   'Daily attendance': 'Time',
   'Attendance requests': 'Time',
   'Shift swaps': 'Time',
+  'Late marks': 'Time',
+  Absences: 'Time',
+  'Night work': 'Time',
   'Job openings': 'Talent',
   Candidates: 'Talent',
   Interviews: 'Talent',
@@ -181,10 +185,10 @@ export class PeopleWeb {
   async approve(...texts: Array<string | RegExp>) {
     const item = this.row(...texts);
     await expect(item).toBeVisible();
-    const inline = item.getByRole('button', { name: 'Approve' });
+    const inline = item.getByRole('button', { name: 'Approve', exact: true });
     if (await inline.count()) return inline.first();
     await item.click();
-    return this.page.getByRole('dialog').getByRole('button', { name: 'Approve' }).first();
+    return this.page.getByRole('dialog').getByRole('button', { name: 'Approve', exact: true }).first();
   }
 
   /** Employees → a person's record, found the way HR finds one: by searching the name. */
@@ -203,7 +207,29 @@ export class PeopleWeb {
   }
 
   /** The company switcher in the top bar. */
+  /** The company picker in the bar; on a phone it is in the app menu ("People ⌄"), the bar having no room for it. */
   async switchCompany(name: string) {
-    await this.page.getByRole('banner').getByRole('combobox', { name: 'Company' }).selectOption({ label: name });
+    const bar = this.page.getByRole('banner');
+    if (!this.isPhone) return bar.getByRole('combobox', { name: 'Company' }).selectOption({ label: name });
+    await this.companyMenuOpener().click();
+    await bar.getByRole('group', { name: 'Company' }).getByRole('menuitemradio', { name, exact: true }).click();
+  }
+
+  /** On a phone: the app menu ("People ⌄"), or where the bar has none (the Workspace) the "Company: …" button. */
+  private companyMenuOpener() {
+    return this.page.getByRole('banner').getByRole('button', { name: /: switch app$|^Company: / }).first();
+  }
+
+  /** The company in use, as the bar (or a phone's app menu) shows it. */
+  async companyInUse() {
+    const bar = this.page.getByRole('banner');
+    if (!this.isPhone) {
+      const select = bar.getByRole('combobox', { name: 'Company' });
+      return select.locator('option:checked').textContent();
+    }
+    await this.companyMenuOpener().click();
+    const name = await bar.getByRole('group', { name: 'Company' }).getByRole('menuitemradio', { checked: true }).textContent();
+    await this.page.keyboard.press('Escape');
+    return name;
   }
 }

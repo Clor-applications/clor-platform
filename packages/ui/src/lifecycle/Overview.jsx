@@ -57,9 +57,9 @@ export default function LifecycleOverview({ openScreen }) {
       <div className="ui-metric-strip" role="list" aria-label="Joining and leaving counts">
         {strip.map(({ k, label, value, Icon, tone, onClick }) => (
           <div key={k} role="listitem">
-            <button type="button" className="ui-metric" onClick={onClick} aria-label={`${value} ${label}: open`}>
+            <button type="button" className="ui-metric" onClick={onClick}>
               <Icon size={18} aria-hidden="true" className="ui-metric-icon" />
-              <span><span className={`ui-metric-value tabular-nums ${tone === 'neg' && value ? 'ui-text-neg' : ''}`}>{value}</span><span className="ui-metric-label">{label}</span></span>
+              <span><span className={`ui-metric-value tabular-nums ${tone === 'neg' && value ? 'ui-text-neg' : ''}`}>{value}</span> <span className="ui-metric-label">{label}</span><span className="sr-only">: open</span></span>
             </button>
           </div>
         ))}

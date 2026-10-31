@@ -4,28 +4,13 @@ import { Bell, BellOff, Check } from '@ui/components/ui/lineIcons';
 import { useDismissable } from '@ui/components/ui/useDismissable';
 import { getInbox, getMutes, markAllRead, markRead, setMute } from '@ui/api/notifications';
 
+import { kindLabel } from './notificationKinds';
+
 /**
  * The bell every app shares. One inbox per person per company, read every
  * minute and when the dropdown opens; a notification opens the screen it is
  * about through `onOpen(link)`, which the shell resolves across apps.
  */
-/** What each kind is, in the words of the mute list. */
-const KIND = {
-  'approval.requested': 'Approvals waiting',
-  'reader.alert': 'Reader alerts',
-  'connector.alert': 'Connector alerts',
-  'payroll.bank_change': 'Bank account changes',
-  'scim.user': 'People added by directory sync',
-  'people.data_request': 'Data requests',
-  'people.joined': 'Joiners',
-  'people.left': 'Leavers',
-  'people.document_expiring': 'Documents expiring',
-  'people.contractor_licence': 'Contractor licences',
-  'payment.claimed': 'UPI payments to confirm',
-  'books.overdue': 'Overdue invoices',
-  'books.payables': 'Payables due this week',
-};
-const kindLabel = (k) => KIND[k] || k;
 
 const ago = (iso) => {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
@@ -82,7 +67,7 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell 
         ) : null}
       </button>
       {open ? (
-        <div className="ui-card absolute end-0 z-40 mt-2 w-[min(24rem,92vw)] p-2 shadow-lg" role="dialog" aria-label="Notifications">
+        <div className="ui-card absolute end-0 z-40 mt-2 w-[min(24rem,92vw)] p-2 shadow-lg max-sm:fixed max-sm:inset-x-4 max-sm:top-14 max-sm:w-auto" role="dialog" aria-label="Notifications">
           <div className="flex items-center justify-between px-2 py-1">
             <span className="ui-t-sec">Notifications</span>
             {unread ? (

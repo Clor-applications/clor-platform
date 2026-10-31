@@ -59,6 +59,12 @@ export type InboxItem = {
   step?: number | null;
   /** Can be approved or rejected with others at once. Help desk cases need a written reply. */
   bulk: boolean;
+  /**
+   * The reader's own leave, theirs to decide under maker-checker (makerChecker.ts):
+   * ONLY_APPROVER when nobody else in the company can approve it (AUTO), ALLOWED
+   * when the company lets one person do both. Decided one at a time, and audited.
+   */
+  own?: 'ONLY_APPROVER' | 'ALLOWED' | null;
 };
 
 const iso = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString() : null);
@@ -136,7 +142,7 @@ export async function inboxFor(req: Request): Promise<{ items: InboxItem[]; coun
         key: `LEAVE:${r.id}`, kind: 'LEAVE', id: r.id, what: r.leaveTypeName || 'Leave', subKind: r.leaveTypeName || null,
         employeeId: r.employeeId, employeeName: r.employeeName, employeeCode: r.employeeCode, photoUrl: r.photoUrl,
         fromDate: r.fromDate, toDate: g?.to || r.toDate, days: g ? Math.round(g.days * 100) / 100 : r.days, halfDay: r.halfDay || null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null,
-        since: iso(r.createdAt)!, dueAt: r.ruleId ? iso(r.stepDueAt) : null, overdue: Boolean(r.ruleId && r.stepDueAt && new Date(r.stepDueAt).getTime() < now), managerApproved: Boolean(r.managerApprovedAt), step: r.ruleStep ?? null, bulk: rights.LEAVE.decide,
+        since: iso(r.createdAt)!, dueAt: r.ruleId ? iso(r.stepDueAt) : null, overdue: Boolean(r.ruleId && r.stepDueAt && new Date(r.stepDueAt).getTime() < now), managerApproved: Boolean(r.managerApprovedAt), step: r.ruleStep ?? null, bulk: rights.LEAVE.decide && !r.ownDecision, own: r.ownDecision ?? null,
       });
     }
   }

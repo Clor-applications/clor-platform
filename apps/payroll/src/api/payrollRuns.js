@@ -93,3 +93,5 @@ export const lockPayrollRun = stage('lock');
 /* Idempotent: pressing it twice replays rather than posting twice. */
 export const postPayrollRun = stage('post');
 export const cancelPayrollRun = stage('cancel');
+/** Why entered deductions past the share of wages stand: recorded on the run, and then it can be sent for review. */
+export const recordOverLimitReason = (id, reason) => stage('over-limit-reason')(id, { reason });

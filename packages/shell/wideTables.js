@@ -109,7 +109,10 @@ export function watchWideTables(root) {
   const check = (box) => {
     const table = box.querySelector(':scope > table');
     if (table) fitColumns(table);
-    const wide = !!table && table.scrollWidth > box.clientWidth + 1;
+    /* Not only tables: the Candidates board is a grid of stage columns in the same box. On a phone the box clips
+       until it is marked, so whatever it holds is measured, or the later stages could never be reached (e2e, #80). */
+    const content = table || box.firstElementChild;
+    const wide = !!content && Math.max(content.scrollWidth, box.scrollWidth) > box.clientWidth + 1;
     if (wide !== box.hasAttribute('data-wide')) box.toggleAttribute('data-wide', wide);
   };
   const ro = new ResizeObserver((entries) => entries.forEach((e) => {
@@ -124,7 +127,7 @@ export function watchWideTables(root) {
     watched.forEach((el) => { if (!use || !el.isConnected) forget(el); });
     if (!use) return;
     root.querySelectorAll('#main-content .ui-table-scroll').forEach((box) => {
-      for (const el of [box, box.querySelector(':scope > table')]) {
+      for (const el of [box, box.querySelector(':scope > table') || box.firstElementChild]) {
         if (el && !watched.has(el)) { watched.add(el); ro.observe(el); }
       }
       check(box);

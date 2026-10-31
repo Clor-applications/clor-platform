@@ -2,6 +2,7 @@ import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { round2 } from '../../utils/money.js';
 import { balancesFor, leaveYearOf } from '../attendance/leaveBalances.js';
+import { peopleMoneyLines } from './finalSettlementSources.js';
 
 /**
  * Full and final settlement: what is still owed to, or by, somebody who has
@@ -15,12 +16,35 @@ import { balancesFor, leaveYearOf } from '../attendance/leaveBalances.js';
  *   five years. The minimum and the cap are parameters, not facts this code
  *   keeps — check them against the law in force.
  * - Leave encashment: paid leave still available, at a day's wages (÷ 26).
- * - Loans and advances still outstanding: recovered.
+ * - Loans and salary advances still outstanding: recovered.
+ * - Expense advances not settled: recovered; expense claims approved and
+ *   unpaid: paid; deductions a payroll carried forward: recovered
+ *   (finalSettlementSources.ts). Each line names its record.
  * - The salary for the final month is paid by the pay run for that period
  *   (it prorates to the leaving date), so it is shown here, not added.
  */
 
-export type SettlementLine = { code: string; label: string; kind: 'EARNING' | 'DEDUCTION' | 'INFO'; amount: number; explanation: string };
+export type SettlementLine = {
+  code: string;
+  label: string;
+  kind: 'EARNING' | 'DEDUCTION' | 'INFO';
+  amount: number;
+  explanation: string;
+  /** The record the line comes from, closed when the settlement is paid (finalSettlementSources.ts). */
+  source?: {
+    type: 'LOAN' | 'ADVANCE' | 'CLAIM' | 'CARRY';
+    id: string;
+    ref?: string | null;
+    /** What the source owed when the line was worked out: paying is refused if it owes more or less since (staleSources). */
+    owed?: number;
+    /** A draft Payroll adjustment the line folds in, cancelled when the settlement is paid; paying is refused once it is not a draft. */
+    draftId?: string;
+    /** The People advance a recovery row belongs to, closed with it. */
+    advanceId?: string;
+    /** At payment only: the recovery live in Payroll an advance line joins (finalSettlementSources withChainRoots). */
+    chainRoot?: string;
+  };
+};
 
 export const GRATUITY_DEFAULTS = { minimumYears: 5, cap: 2_000_000 };
 
@@ -48,7 +72,8 @@ export function serviceYears(joined: string, left: string) {
 
 export function gratuityFor(lastWage: number, joined: string, left: string, opts = GRATUITY_DEFAULTS) {
   const { years, months } = serviceYears(joined, left);
-  const served = `${Math.floor(months / 12)} years ${months % 12} months`;
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const served = `${plural(Math.floor(months / 12), 'year')} ${plural(months % 12, 'month')}`;
   if (Math.floor(months / 12) < opts.minimumYears && years < opts.minimumYears) {
     return { amount: 0, explanation: `Served ${served}; gratuity is owed after ${opts.minimumYears} years.` };
   }
@@ -56,7 +81,7 @@ export function gratuityFor(lastWage: number, joined: string, left: string, opts
   const amount = Math.min(raw, opts.cap);
   return {
     amount,
-    explanation: `15/26 × last drawn wages ₹${lastWage.toLocaleString('en-IN')} × ${years} years (served ${served})${amount < raw ? `, capped at ₹${opts.cap.toLocaleString('en-IN')}` : ''}.`,
+    explanation: `15/26 × last drawn wages ₹${lastWage.toLocaleString('en-IN')} × ${plural(years, 'year')} (served ${served})${amount < raw ? `, capped at ₹${opts.cap.toLocaleString('en-IN')}` : ''}.`,
   };
 }
 
@@ -105,7 +130,7 @@ export async function proposeSettlement(accountId: string, orgId: string, employ
     const g = gratuityFor(wage, person.dateOfJoining, leaving);
     const explanation = from || (!g.amount && /owed after/.test(g.explanation))
       ? `${g.explanation}${from ? ` Wages ${wageNote}.` : ''}`
-      : `${serviceYears(person.dateOfJoining, leaving).years} years counted; no approved payslip yet, so enter 15/26 × monthly wages × years.`;
+      : `${serviceYears(person.dateOfJoining, leaving).years === 1 ? '1 year' : `${serviceYears(person.dateOfJoining, leaving).years} years`} counted; no approved payslip yet, so enter 15/26 × monthly wages × years.`;
     lines.push({ code: 'GRATUITY', label: 'Gratuity', kind: 'EARNING', amount: g.amount, explanation });
   } else {
     lines.push({ code: 'GRATUITY', label: 'Gratuity', kind: 'EARNING', amount: 0, explanation: 'No date of joining on file, so service cannot be worked out.' });
@@ -136,11 +161,23 @@ export async function proposeSettlement(accountId: string, orgId: string, employ
     });
   }
 
-  const loans = await payrollPrisma.payrollLoan.findMany({ where: { orgId, employeeId, status: 'ACTIVE' }, select: { type: true, outstandingBalance: true } });
+  const loans = await payrollPrisma.payrollLoan.findMany({ where: { orgId, employeeId, status: 'ACTIVE' }, select: { id: true, number: true, type: true, principal: true, outstandingBalance: true }, orderBy: { createdAt: 'asc' } });
   for (const l of loans) {
     const owed = round2(Number(l.outstandingBalance));
-    if (owed > 0) lines.push({ code: 'LOAN_RECOVERY', label: l.type === 'SALARY_ADVANCE' ? 'Advance recovery' : 'Loan recovery', kind: 'DEDUCTION', amount: owed, explanation: 'Still outstanding.' });
+    if (owed > 0) {
+      lines.push({
+        code: `LOAN_${l.number}`.replace(/[^A-Z0-9_-]+/gi, '_').slice(0, 40),
+        label: `${l.type === 'SALARY_ADVANCE' ? 'Salary advance' : 'Loan'} ${l.number} recovery`,
+        kind: 'DEDUCTION',
+        amount: owed,
+        explanation: `${l.type === 'SALARY_ADVANCE' ? 'Salary advance' : 'Loan'} of ₹${Number(l.principal).toLocaleString('en-IN')}; ₹${owed.toLocaleString('en-IN')} still to recover, including any instalment a payroll carried forward.`,
+        source: { type: 'LOAN', id: l.id, ref: l.number, owed },
+      });
+    }
   }
+
+  /* Expense advances and claims from People, and deductions a payroll carried forward. */
+  lines.push(...(await peopleMoneyLines(orgId, employeeId)));
 
   lines.push({ code: 'NOTICE', label: 'Notice pay', kind: 'EARNING', amount: 0, explanation: 'Owed to them, or enter it as a deduction if they did not serve their notice.' });
 

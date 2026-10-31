@@ -1,21 +1,4 @@
 {
   "about": "Known screen problems (axe serious/critical, sideways scroll on a phone, page title not the menu label), by screen and check, so they do not fail the run on day one. Each line is a debt: fix the screen, then delete the line. Rebuild: E2E_KNOWN_UPDATE=1 npm run e2e, then node e2e/scripts/known-issues.mjs.",
-  "entries": {
-    "admin:users::color-contrast": "accessibility (serious) color-contrast — Elements must meet minimum color contrast ratio thresholds",
-    "admin:users::label-content-name-mismatch": "accessibility (serious) label-content-name-mismatch — Elements must have their visible text as part of their accessible name",
-    "people:approvals::label-content-name-mismatch": "accessibility (serious) label-content-name-mismatch — Elements must have their visible text as part of their accessible name",
-    "people:approvals::sideways-scroll@phone": "the page scrolls sideways",
-    "people:employee::label-content-name-mismatch": "accessibility (serious) label-content-name-mismatch — Elements must have their visible text as part of their accessible name",
-    "people:employeeNew::label-content-name-mismatch": "accessibility (serious) label-content-name-mismatch — Elements must have their visible text as part of their accessible name",
-    "people:employees::label-content-name-mismatch": "accessibility (serious) label-content-name-mismatch — Elements must have their visible text as part of their accessible name",
-    "people:leaveRequests::label-content-name-mismatch": "accessibility (serious) label-content-name-mismatch — Elements must have their visible text as part of their accessible name",
-    "people:leavers::label-content-name-mismatch": "accessibility (serious) label-content-name-mismatch — Elements must have their visible text as part of their accessible name",
-    "people:lifecycleChanges::label-content-name-mismatch": "accessibility (serious) label-content-name-mismatch — Elements must have their visible text as part of their accessible name",
-    "people:myLeave::label-content-name-mismatch": "accessibility (serious) label-content-name-mismatch — Elements must have their visible text as part of their accessible name",
-    "people:recruitment::label-content-name-mismatch": "accessibility (serious) label-content-name-mismatch — Elements must have their visible text as part of their accessible name",
-    "people:referrals::label-content-name-mismatch": "accessibility (serious) label-content-name-mismatch — Elements must have their visible text as part of their accessible name",
-    "people:settings::label-content-name-mismatch": "accessibility (serious) label-content-name-mismatch — Elements must have their visible text as part of their accessible name",
-    "people:timeOverview::color-contrast": "accessibility (serious) color-contrast — Elements must meet minimum color contrast ratio thresholds",
-    "people:timeOverview::label-content-name-mismatch": "accessibility (serious) label-content-name-mismatch — Elements must have their visible text as part of their accessible name"
-  }
+  "entries": {}
 }

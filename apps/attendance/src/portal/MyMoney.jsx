@@ -349,7 +349,7 @@ function Advances({ data, guard, reload }) {
   };
   const shown = data.advances.filter((a) => !['WITHDRAWN'].includes(a.status)).slice(0, 8);
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="adv-h">
+    <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="adv-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="adv-h" className="ui-t-sec">Advances</h2>
         {!asking ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAsking(true)}>Ask for an advance</button> : null}
@@ -441,7 +441,7 @@ function SalaryAdvance({ info, guard, reload }) {
   };
   const waiting = info.asks.some((a) => a.status === 'WAITING');
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="saladv-h">
+    <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="saladv-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="saladv-h" className="ui-t-sec">Salary advance</h2>
         {!asking && !waiting ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAsking(true)}>Ask for one</button> : null}

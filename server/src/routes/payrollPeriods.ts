@@ -7,6 +7,7 @@ import { authorize, requirePermission } from '../middleware/rbac.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
+import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { PAY_FREQUENCIES } from './payrollPayGroups.js';
 
@@ -257,6 +258,28 @@ payrollPeriodsRouter.post(
       }
     }
 
+    /*
+     * Recoveries due in this month that no payslip took (an instalment
+     * scheduled into a month already paid, an approved deduction nobody ran):
+     * said before the month closes, and closed only when told to, on the
+     * record (QA of #82, F5).
+     */
+    if (locked && !existing.isLocked) {
+      const untaken = await untakenIn(orgId, existing.id);
+      if (untaken.length && req.body?.acknowledge !== true) {
+        const total = untaken.reduce((t, u) => t + u.amount, 0);
+        const drafts = untaken.filter((u) => u.kind === 'DRAFT').length;
+        return res.status(409).json({
+          error: `${untaken.length} ${untaken.length === 1 ? 'item' : 'items'} in ${existing.name} ${untaken.length === 1 ? 'was' : 'were'} not taken by any payslip (₹${total.toLocaleString('en-IN')})${drafts ? `, ${drafts} still a draft` : ''}. Once the month closes ${untaken.length === 1 ? 'it' : 'they'} will never be taken unless moved to an open month. Move ${untaken.length === 1 ? 'it' : 'them'}, or close anyway.`,
+          code: 'UNTAKEN_RECOVERIES',
+          untaken,
+        });
+      }
+      if (untaken.length) {
+        await recordAudit(req, { entity: 'PAYROLL_PERIOD', entityId: existing.id, action: 'LOCK_WITH_UNTAKEN', message: `Payroll period ${existing.name} closed with ${untaken.length} recoveries not taken`, metadata: { untaken } });
+      }
+    }
+
     const row = await payrollPrisma.payrollPeriod.update({
       where: { id: existing.id },
       data: { isLocked: locked, status: locked ? 'CLOSED' : 'OPEN' },
@@ -272,6 +295,22 @@ payrollPeriodsRouter.post(
     res.json({ period: { ...shape(row), usage: await usage(orgId, row.id) } });
   }
 );
+
+/** Loan instalments and approved deductions due in a period that no payslip took. */
+async function untakenIn(orgId: string, periodId: string) {
+  const [instalments, adjustments] = await Promise.all([
+    payrollPrisma.payrollLoanInstallment.findMany({ where: { orgId, periodId, status: 'PENDING', loan: { status: 'ACTIVE' } }, select: { id: true, dueAmount: true, loan: { select: { number: true, employeeId: true } } } }),
+    /* Approved deductions nobody ran, and drafts of anything: a draft in a closed month is never taken unless it is moved (QA retest of #82). */
+    payrollPrisma.payrollAdjustment.findMany({ where: { orgId, periodId, OR: [{ status: 'APPROVED', type: 'DEDUCTION' }, { status: 'DRAFT' }] }, select: { id: true, amount: true, employeeId: true, status: true, type: true } }),
+  ]);
+  const ids = [...new Set([...instalments.map((i) => i.loan.employeeId), ...adjustments.map((a) => a.employeeId)])];
+  const people = ids.length ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true } }) : [];
+  const name = new Map(people.map((p) => [p.id, p.name]));
+  return [
+    ...instalments.map((i) => ({ kind: 'LOAN', id: i.id, employeeName: name.get(i.loan.employeeId) || '', what: `Loan ${i.loan.number}`, amount: Number(i.dueAmount) })),
+    ...adjustments.map((a) => ({ kind: a.status === 'DRAFT' ? 'DRAFT' : 'ADJUSTMENT', id: a.id, employeeName: name.get(a.employeeId) || '', what: a.status === 'DRAFT' ? `Draft ${a.type === 'EARNING' ? 'earning' : 'deduction'}` : 'Deduction', amount: Number(a.amount) })),
+  ];
+}
 
 payrollPeriodsRouter.delete(
   '/orgs/:orgId/payroll/periods/:id',

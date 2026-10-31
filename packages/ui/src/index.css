@@ -7815,6 +7815,8 @@ th.ui-th {
 .ui-th-sort { display: inline-flex; align-items: center; gap: 0.25rem; font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .ui-th-sort:focus-visible, .ui-row-open:focus-visible, .ui-card-open:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
 .ui-row-open, .ui-card-open { font: inherit; color: inherit; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; width: 100%; }
+/* A card's button sits beside a checkbox in a flex row: without this, a long caption keeps it at its content's width and the page scrolls sideways on a phone (Approvals at 390px measured 410px, e2e). */
+.ui-card-open { flex: 1 1 0; min-width: 0; }
 .ui-datatable tbody tr.is-selected { background: rgb(var(--brand-subtle)); }
 .ui-datatable.is-compact .ui-table td, .ui-datatable.is-compact .ui-table th { padding-top: 0.375rem; padding-bottom: 0.375rem; }
 .ui-table-pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.75rem 0; border-top: 1px solid rgb(var(--border)); }
@@ -7831,6 +7833,8 @@ th.ui-th {
 .ui-datatable-card { position: relative; display: flex; align-items: center; gap: 0.75rem; min-height: 44px; padding: 0.75rem 0; border-bottom: 1px solid rgb(var(--border)); }
 .ui-datatable-card.is-selected { background: rgb(var(--brand-subtle)); }
 .ui-card-check { flex: none; width: 1.25rem; height: 1.25rem; }
+.ui-topbar[data-touch] .ui-icon-btn { min-width: 44px; min-height: 44px; }
+.ui-card-check-hit { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: -0.75rem; cursor: pointer; }
 @keyframes ui-spin { to { transform: rotate(360deg); } }
 .ui-spin { animation: ui-spin 1s linear infinite; }
 @media (max-width: 639px) {
@@ -8296,3 +8300,23 @@ button.ui-side-alert { cursor: pointer; }
 @keyframes ui-popover-out-up { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(2px); } }
 /* A leave balance running low (15% or one day left): the warm highlight, never the error red (that is below zero). */
 .ui-balance-low { color: rgb(var(--warn-ink)); }
+
+/*
+ * Touch targets on a phone, opted into by a screen (QA of PR #82, F5:
+ * Payroll and the employee app measured 28-36px at 390). Every control in a
+ * `.ui-touch-44` subtree is at least 44px tall under 768px wide (Apple's
+ * minimum), and field text is 16px so Safari does not zoom into a field.
+ * Outside any layer, so it wins over the component sizes without !important.
+ */
+@media (max-width: 767px) {
+  .ui-touch-44 :is(.ui-btn, .ui-btn-sm, .ui-tab, .ui-page-btn, .ui-input, .ui-select),
+  .ui-touch-44 :is(input:not([type='checkbox']):not([type='radio']), select, textarea, [role='tab'], button) {
+    height: auto;
+    min-height: 2.75rem;
+  }
+  .ui-touch-44 .ui-btn-sm { padding-block: 0; }
+  .ui-touch-44 :is(input:not([type='checkbox']):not([type='radio']), select, textarea) { font-size: 1rem; }
+  .ui-touch-44 .ui-icon-btn { min-width: 2.75rem; min-height: 2.75rem; }
+  /* As People's: a checkbox is 24px to see and hit, and the row or label beside it takes the tap too. */
+  .ui-touch-44 input[type='checkbox'] { width: 1.5rem; height: 1.5rem; flex: none; }
+}

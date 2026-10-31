@@ -12,6 +12,7 @@ import { Avatar } from '@ui/personnel/Employees';
 import { activeApp, can, homeCrumbs } from './shared';
 import { daysText, getTimeOverview } from './api';
 import { EnterLeave, TypeDot } from './LeaveRequests';
+import { clashDays, clashWords } from './clashes';
 
 /**
  * Time & Leave → Overview: the owner's morning question — who is away, what
@@ -83,12 +84,16 @@ export default function TimeOverview({ openScreen }) {
     { k: 'soon', label: 'Away in the next 7 days', value: new Set(d.upcoming.map((r) => r.employeeId)).size, Icon: mark(CalendarClock), onClick: () => openScreen?.('leaveCalendar') },
   ];
 
+  /* Two or more of a department (of a manager's team, all of it) away on one day, today and the next seven (M4). */
+  const today = d.today || new Date().toISOString().slice(0, 10);
+  const clashes = clashDays([...d.awayToday, ...d.upcoming], today, addDays(today, 7), { oneGroup: Boolean(d.team) });
+
   return (
     <div className="space-y-6">
       {header}
       <div className="ui-metric-strip" role="list" aria-label="Time and leave counts">
         {strip.map(({ k, label, value, Icon, onClick }) => (
-          <div key={k} role="listitem"><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={onClick} aria-label={`${value} ${label}: open`}><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span><span className="ui-metric-label">{label}</span></span></button></div>
+          <div key={k} role="listitem"><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={onClick}><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span> <span className="ui-metric-label">{label}</span><span className="sr-only">: open</span></span></button></div>
         ))}
       </div>
 
@@ -131,6 +136,18 @@ export default function TimeOverview({ openScreen }) {
           ))) : <li className="py-3 text-sm ui-muted">Everyone is in.</li>}
         </Group>
       </div>
+
+      {clashes.length ? (
+        <Group title="Away the same day" count={clashes.length}>
+          {clashes.map((c) => (
+            <li key={`${c.date}:${c.group || ''}`} className="flex flex-wrap items-center gap-3 py-2">
+              <span className="ui-pill ui-pill-warn whitespace-nowrap">{clashWords(c.count)}</span>
+              <span className="tabular-nums whitespace-nowrap font-medium">{range(c.date, c.to)}</span>
+              <span className="min-w-0 flex-1">{c.group ? `${c.group}: ` : ''}{c.names.join(', ')}{c.waiting ? <span className="ui-caption"> ({c.waiting} waiting)</span> : null}</span>
+            </li>
+          ))}
+        </Group>
+      ) : null}
 
       <Group title="Next 7 days" count={d.upcoming.length || null}>
         {d.upcoming.length ? d.upcoming.map((r) => (

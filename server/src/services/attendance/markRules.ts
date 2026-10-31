@@ -19,7 +19,7 @@ import { currentRuleVersion, rulesOf, timeRulesFor, type MarkRules } from './tim
  *    leave adjustments, the rest stays loss of pay, and the rule version is kept with the month.
  * Either can be undone while the Attendance month is open and payroll has not taken it.
  *
- * Not a fine: a deduction for time not worked, in proportion (Code on Wages s.18, s.19), under
+ * Not a fine: a deduction for time not worked, in proportion (Code on Wages 2019 s.20(2); s.19 is fines), under
  * rules the employee can read (the policy text is in the employee app). Fines for lateness need a
  * notified list of acts; CLOR does not do fines.
  */

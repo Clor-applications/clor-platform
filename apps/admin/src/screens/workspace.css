@@ -123,13 +123,18 @@
   outline: 2px solid rgb(var(--ws-accent));
   outline-offset: 2px;
 }
+/*
+ * The one primary action wears the platform's primary button (DESIGN.md: the
+ * workspace wears the platform's indigo), as .ui-btn-primary does: white on
+ * Blaze measured 3.6:1, under AA (axe color-contrast, e2e on Users).
+ */
 .ws-btn--primary {
-  background: rgb(var(--ws-accent));
-  color: rgb(var(--ws-surface));
-  box-shadow: 0 1px 0 rgb(var(--ws-ink) / 0.06), 0 6px 16px -8px rgb(var(--ws-accent) / 0.7);
+  background: rgb(var(--btn-primary-bg, var(--brand-pressed)));
+  color: rgb(var(--on-brand));
+  box-shadow: 0 1px 0 rgb(var(--ws-ink) / 0.06), 0 6px 16px -8px rgb(var(--btn-primary-bg, var(--brand-pressed)) / 0.7);
 }
 .ws-btn--primary:hover {
-  background: rgb(var(--ws-accent-hover));
+  background: rgb(var(--btn-primary-hover, var(--brand-pressed)));
 }
 .ws-btn--quiet {
   background: rgb(var(--ws-surface));
@@ -745,7 +750,8 @@ button.ws-item:hover {
   text-align: left;
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgb(var(--ws-muted));
+  /* Ink, not muted: muted grey on the stone header measured under 4.5:1 (axe color-contrast). */
+  color: rgb(var(--ws-ink));
   padding: 10px 14px;
   background: rgb(var(--ws-stone));
   border-bottom: 1px solid rgb(var(--ws-line));

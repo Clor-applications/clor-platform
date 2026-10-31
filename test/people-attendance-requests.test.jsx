@@ -93,6 +93,16 @@ describe('Attendance requests', () => {
     await waitFor(() => expect(api.decideRequest).toHaveBeenCalledWith('r1', false, 'The month is full'));
   });
 
+  it('says who decides as the server names it for this reader, not the company chain alone (#80 QA F4)', async () => {
+    api.getRequest.mockResolvedValue({
+      request: row, history: [], usage: { kind: 'WFH', unit: 'days', used: 2, pending: 2, quota: 4, left: 0 },
+      rule: RULES.WFH, chain: 'HR', decidedBy: 'HR, or you as their manager', days: [], waitingForManager: null, ownRequest: false,
+    });
+    render(<AttendanceRequests params={{ id: 'r1' }} updateParams={() => {}} />);
+    expect(await screen.findByText('HR, or you as their manager')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Approve/ })).toBeEnabled();
+  });
+
   it('Enter request offers only the kinds that are on, and sends the kind and the place', async () => {
     const user = userEvent.setup();
     render(<AttendanceRequests params={{}} updateParams={() => {}} />);

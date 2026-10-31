@@ -43,10 +43,15 @@ test.describe('Priya asks for leave in the employee app', () => {
       await rahul.page.getByRole('banner').getByRole('button', { name: /Notifications/ }).click();
       await expect(rahul.page.getByRole('dialog', { name: 'Notifications' })).toContainText(`Priya Sharma (AT-004) asks for Casual leave, ${shortDate(from)} to ${shortDate(to)}`, { timeout: 3_000 });
     }).toPass({ timeout: 90_000 });
+    /* The note's "stop showing" button says what it stops in plain words, not the notice's key (attendance.leave_asked). */
+    const bell = rahul.page.getByRole('dialog', { name: 'Notifications' });
+    await expect(bell.getByRole('button', { name: 'Stop showing leave requests' }).first()).toBeVisible();
+    for (const name of await bell.getByRole('button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') || e.textContent || ''))) {
+      expect(name, 'no raw notice key in a button name').not.toMatch(/\b[a-z]+\.[a-z_]+\b/);
+    }
   });
 
   test('E2: half a day, the afternoon only', { tag: ['@E2'] }, async ({ asEmployee: priya }, testInfo) => {
-    test.fail(true, 'APP BUG: My requests shows "0.5 days" but not which half of the day was asked for');
     const day = weekday(week(2, testInfo.retry), 2);
     await priya.goto('Leave');
     const before = await readBalance(priya.balance('Casual leave'));
