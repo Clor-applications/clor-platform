@@ -15,7 +15,7 @@ import { todayIst } from '../services/people/lifecycle/board.js';
 import { leavingReasonFilter } from '../services/people/companyChoices.js';
 import { usersWithPermission } from '../services/notifications.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
-import { ApprovalError, REQUEST_TYPES, RULE_TYPES, isFormType, activeRule, decide, mine, namesFor, previewRule, reply, retireRule, saveRuleSpec, shape, stepsOfRule, submitRequest, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
+import { ApprovalError, REQUEST_TYPES, RULE_TYPES, isFormType, activeRule, decide, mine, namesFor, previewRule, reply, retireRule, saveRuleSpec, shape, stepsOfRule, submitRequest, twoPersonProblem, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
 import { cleanRule, isRuleProblem, legacySteps, normaliseAutoApprove, normaliseConditions, v1Exact } from '../services/people/approvals/spec.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { inScope, teamScope } from '../services/people/scope.js';
@@ -89,6 +89,9 @@ peopleApprovalsRouter.post(`${base}/approval-rules`, can(PermissionAction.EDIT, 
   const { accountId, orgId } = req.tenant!;
   const spec = cleanRule({ requestType: parsed.data.requestType, name: parsed.data.name, steps: parsed.data.steps, variantKey: parsed.data.variantKey ?? '', appliesWhen: parsed.data.appliesWhen ?? undefined, priority: parsed.data.priority ?? undefined, autoApprove: parsed.data.autoApprove ?? undefined });
   if (isRuleProblem(spec)) return ruleInvalid(res, spec);
+  /* Money, all of them: only where this company has two different people to approve it (re-review of PR #93). */
+  const twoPeople = await twoPersonProblem({ accountId, orgId }, spec);
+  if (twoPeople) return ruleInvalid(res, twoPeople);
   if (!(await ruleTypeOk(orgId, parsed.data.requestType))) return res.status(400).json({ error: 'Unknown request type.', code: 'RULE_INVALID', field: 'requestType' });
   const before = await peoplePrisma.approvalRule.findFirst({ where: { orgId, requestType: spec.requestType, variantKey: spec.variantKey, active: true }, orderBy: { version: 'desc' } });
   const rule = await saveRuleSpec({ accountId, orgId, userId: req.auth!.userId }, spec);

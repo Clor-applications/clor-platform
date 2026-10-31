@@ -133,6 +133,15 @@ describe('conditions, version 2', () => {
     /* Said explicitly: a job change's new department. */
     expect(holds({ field: 'departmentId', op: 'eq', value: 'd-design', from: 'request' }, faked)).toBe(true);
   });
+  it('a new save in the first shape is checked too; a stored first-shape row reads the person from their record where the type does not carry the field (re-review of PR #93)', () => {
+    const v1 = [{ order: 1, approver: { kind: 'HR' }, dueDays: 2, condition: { field: 'departmentId', op: 'ne', value: 'zzz' } }];
+    expect(cleanRule({ requestType: 'DESK_ESCALATION', name: 'x', steps: v1 })).toMatchObject({ step: 1, field: 'condition' });
+    const read = normaliseSteps(v1, 'DESK_ESCALATION')[0].when[0];
+    expect(read.from).toBeUndefined();
+    expect(holds(read, { payload: { departmentId: 'zzz' }, person: { departmentId: null } })).toBe(true);
+    /* A job change carries its fields: the new department, from the request, as before. */
+    expect(normaliseSteps(v1, 'JOB_CHANGE')[0].when[0].from).toBe('request');
+  });
   it('a condition may only read what the request type carries (review of PR #93)', () => {
     const ok = (requestType: string, c: any) => !isRuleProblem(cleanRule({ requestType, name: 'x', steps: [{ approvers: [{ kind: 'HR' }], due: { workingDays: 1 }, when: [c] }] }));
     expect(ok('DESK_ESCALATION', { field: 'departmentId', op: 'eq', value: 'd' })).toBe(true);

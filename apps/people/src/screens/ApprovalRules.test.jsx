@@ -82,3 +82,11 @@ it('an editable rule still saves in the shape it was shown in', async () => {
   fireEvent.click(within(drawer).getByRole('button', { name: 'Save as new version' }));
   await vi.waitFor(() => expect(api.saveRule).toHaveBeenCalledWith({ requestType: 'JOB_CHANGE', name: 'Job changes, two', steps: [{ order: 1, approver: { kind: 'MANAGER' }, condition: null, dueDays: 2, overdue: { action: 'REMIND' } }] }));
 });
+
+it('offers conditions only where the request carries them: none for a help desk escalation (re-review of PR #93)', async () => {
+  api.listRules.mockResolvedValue({ requestTypes: ['DESK_ESCALATION', 'JOB_CHANGE'], forms: [], rules: [] });
+  render(<ApprovalRules />);
+  fireEvent.click((await screen.findAllByText('Help desk escalations'))[0]);
+  const drawer = await screen.findByRole('dialog');
+  expect(within(drawer).queryByText('Only when')).toBeNull();
+});

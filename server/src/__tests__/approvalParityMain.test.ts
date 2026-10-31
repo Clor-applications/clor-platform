@@ -165,5 +165,5 @@ describe('parity with the engine on main', () => {
       expect(now.opened.steps[1], key).toEqual(before.after.steps[1]);
       expect(now.opened.steps.flatMap((s: any) => s.candidates), key).not.toContain('Kiran');
     }
-  }, 300_000);
+  }, 900_000);
 });

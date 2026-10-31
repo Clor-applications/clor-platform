@@ -65,7 +65,8 @@ const LEAVE_APPROVERS = [['MANAGER', 'Their manager'], ['MANAGER_OF_MANAGER', 'T
 const blankStep = (order) => ({ order, approver: { kind: 'MANAGER' }, condition: null, dueDays: 3, overdue: { action: 'REMIND' } });
 const typeName = (t) => TYPE_WORDS[t]?.[0] || FORM_NAMES.get(t) || t;
 /* Neither a request type HR set up nor a swap changes a record: their steps have no field to depend on. */
-const noFields = (t) => String(t).startsWith('FORM:') || t === 'SHIFT_SWAP';
+/* The kinds whose request carries record fields a step can depend on. */
+const RECORD_CHANGES = ['JOB_CHANGE', 'PROFILE_CHANGE'];
 
 const approverWords = (a, users, roles) => {
   if (!a) return '—';
@@ -184,7 +185,8 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
   /* The values a condition can name: the company's own lists. */
   const leave = form.requestType === 'LEAVE';
   const money = MONEY_RULES.includes(form.requestType);
-  const fields = leave ? LEAVE_FIELDS : money ? MONEY_FIELDS : noFields(form.requestType) ? [] : FIELDS;
+  /* A condition reads only what the request carries (the server refuses the rest): a job or profile change's fields, money's amounts, leave's days and type. */
+  const fields = leave ? LEAVE_FIELDS : money ? MONEY_FIELDS : RECORD_CHANGES.includes(form.requestType) ? FIELDS : [];
   const lists = useRequest(async () => {
     if (money) return {};
     if (leave) return { leaveTypes: ((await listLeaveTypes().catch(() => [])) || []).filter((t) => t.isActive).map((t) => ({ value: t.id, label: t.name })) };
@@ -246,7 +248,7 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
                   <label className="block"><span className="ui-label">Within (working days)</span><input className="ui-input w-full tabular-nums" inputMode="numeric" value={s.dueDays} onChange={(e) => setStep(i, { dueDays: e.target.value.replace(/\D/g, '').slice(0, 2) })} /></label>
                 </div>
                 <div className="ui-form-grid">
-                  <div><PopupSelect showValueSubtext={false} label="Only when" value={s.condition?.field || ''} placeholder="Always" onChange={(v) => setStep(i, { condition: v ? { field: v, op: firstOp(v), value: null } : null })} options={[{ value: '', label: 'Always' }, ...fields.map(([k, l]) => ({ value: k, label: leave || money ? l : `${l} changes` }))]} /></div>
+                  {fields.length ? <div><PopupSelect showValueSubtext={false} label="Only when" value={s.condition?.field || ''} placeholder="Always" onChange={(v) => setStep(i, { condition: v ? { field: v, op: firstOp(v), value: null } : null })} options={[{ value: '', label: 'Always' }, ...fields.map(([k, l]) => ({ value: k, label: leave || money ? l : `${l} changes` }))]} /></div> : null}
                   {field ? <div><PopupSelect showValueSubtext={false} label="How" value={s.condition.op} onChange={(v) => setStep(i, { condition: { ...s.condition, op: v || ops[0][0], value: v === 'changed' ? null : s.condition.value } })} options={ops.map(([k, l]) => ({ value: k, label: `${field[1]} ${l}` }))} /></div> : null}
                   {field && !field[2] && (leave || money) ? <label className="block"><span className="ui-label">{money ? 'Amount (₹)' : 'Days'}</span><input className="ui-input w-full tabular-nums" inputMode="decimal" value={s.condition.value ?? ''} onChange={(e) => setStep(i, { condition: { ...s.condition, value: e.target.value.replace(/[^\d.]/g, '').slice(0, money ? 9 : 5) } })} /></label> : null}
                   {field?.[2] && s.condition.op !== 'changed' ? <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label={leave ? (s.condition.op === 'eq' ? 'Type' : 'Not this type') : s.condition.op === 'eq' ? 'Becomes' : 'Is not'} value={s.condition.value || ''} placeholder={lists.data ? 'Choose…' : 'Loading…'} alwaysSearch onChange={(v) => setStep(i, { condition: { ...s.condition, value: v || null } })} options={lists.data?.[field[2]] || []} /></div> : null}

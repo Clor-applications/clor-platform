@@ -135,7 +135,7 @@ export async function activeRule(orgId: string, requestType: RuleType) {
 type RuleRow = NonNullable<Awaited<ReturnType<typeof activeRule>>>;
 
 /** A rule's steps as version 2, whichever version it was saved in. */
-export const stepsOfRule = (rule: { steps: unknown } | null | undefined): StepV2[] => normaliseSteps(rule?.steps);
+export const stepsOfRule = (rule: { steps: unknown; requestType?: string } | null | undefined): StepV2[] => normaliseSteps(rule?.steps, rule?.requestType);
 
 /**
  * The rule a request follows: the most specific active variant whose
@@ -563,6 +563,25 @@ async function planStep(
       if (up.length) slots.push(slotFrom(s, r, up, 'NEXT_UP', note(r, 'Sent up: it would have been their own')));
     }
   }
+  /*
+   * Money, all of them (re-review of PR #93): a part nobody else can take goes to the admins, never just left
+   * out, so two different people approve. When the company cannot supply two, the step still opens, and says
+   * so in plain words to whoever can see it; they can reject it.
+   */
+  if (slots.length && spec.mode === 'ALL' && spec.approvers.length > 1 && TWO_PERSON_TYPES.has(String(request.requestType))) {
+    const used = new Set(slots.flatMap((x) => x.candidates));
+    for (let k = 0; k < resolved.length; k += 1) {
+      if (slots.some((x) => x.slot === k)) continue;
+      const { excluded } = await excludedOf(who.orgId, request);
+      const to = await lastResortDeciders(who.accountId, who.orgId, [...excluded, ...used], request.subjectEmployeeId);
+      if (to.length) { slots.push({ slot: k, candidates: to, approverUserId: to[0], standInForUserId: null, how: 'LAST_RESORT', comment: 'Sent to the admins: money needs a second person' }); to.forEach((u) => used.add(u)); }
+    }
+    slots.sort((a, b) => a.slot - b.slot);
+    /* Blocked only when no second person exists at all: the same person on two parts is handled when they decide (the other part goes to the admins). */
+    const { excluded } = await excludedOf(who.orgId, request);
+    const blocked = slots.length < 2 || (used.size < 2 && !(await lastResortDeciders(who.accountId, who.orgId, [...excluded, ...used], request.subjectEmployeeId)).length);
+    if (blocked) slots = slots.map((x) => ({ ...x, comment: TWO_PEOPLE_WORDS }));
+  }
   /* ALL mode: a slot nobody else can take is left out while another slot has someone. */
   if (slots.length) {
     slots = slots.map((x, k) => ({ ...x, slot: spec.mode === 'ALL' ? k : 0 }));
@@ -589,6 +608,35 @@ async function planStep(
   const mode = (await getAuthPolicy(who.accountId, who.orgId)).makerChecker;
   if (mode === 'STRICT') throw new ApprovalError('Nobody else can approve this. Give someone else the right to approve requests, or change the approval rule.', 409, 'NO_APPROVER');
   return { order: spec.order, kind: 'SELF', makerChecker: mode, comment: mode === 'ALLOW' ? 'Nobody else in the company can decide this; the company allows one person to do both' : 'Nobody else in the company can decide this' };
+}
+
+/** Said to approvers when money needs two different people and the company has only one left who could. */
+export const TWO_PEOPLE_WORDS = 'This needs two different people to approve; nobody else can. Reject it or add an approver.';
+
+/**
+ * Saving a money rule with an ALL step (re-review of PR #93): refused when this company cannot supply two
+ * different people for it at all, so such a rule never leaves a request waiting on a second person who
+ * does not exist. Counts everyone who could be named by the step's approvers, and the admins who take a
+ * part nobody else can.
+ */
+export async function twoPersonProblem(who: { accountId: string; orgId: string }, spec: Pick<RuleSpecV2, 'requestType' | 'steps'>): Promise<{ error: string; step: number; field: string } | null> {
+  if (!TWO_PERSON_TYPES.has(spec.requestType)) return null;
+  const { accountId, orgId } = who;
+  for (const step of spec.steps) {
+    if (step.mode !== 'ALL' || step.approvers.length < 2) continue;
+    const people = new Set<string>(await ownerDeciders(accountId, orgId));
+    for (const a of step.approvers) {
+      const found = a.kind === 'USER' && a.id ? [a.id]
+        : a.kind === 'ROLE' && a.id ? await usersHoldingRoles(accountId, orgId, [a.id])
+        : a.kind === 'HR' ? await hrDeciders(accountId, orgId)
+        : a.kind === 'OWNER' ? []
+        : a.kind === 'PAYROLL' ? await usersWithPermission(accountId, orgId, payrollRightOf(spec.requestType))
+        : [...(await usersWithPermission(accountId, orgId, APPROVE_GRANT)), ...(await hrDeciders(accountId, orgId))];
+      found.forEach((u) => people.add(u));
+    }
+    if (people.size < 2) return { step: step.order, field: 'mode', error: `Step ${step.order}: money needs two different people to approve, and this company has only one who can. Choose “any one of them”, or give a second person the right to approve.` };
+  }
+  return null;
 }
 
 type Audit = { action: string; message: string; metadata: Record<string, unknown>; userId: string | null };
@@ -865,10 +913,12 @@ export async function decide(actor: Actor, requestId: string, decision: Decision
       if (!twoPeople) { samePerson.push(s.id); continue; }
       const { excluded } = await excludedOf(orgId, request);
       const to = await lastResortDeciders(actor.accountId, orgId, [...excluded, userId, ...decidedPart], request.subjectEmployeeId);
-      if (!to.length) throw new ApprovalError('Two different people must approve this, and nobody else can. Give someone else the right to approve it.', 409, 'TWO_PEOPLE');
+      if (!to.length) throw new ApprovalError(TWO_PEOPLE_WORDS, 409, 'TWO_PEOPLE');
       widen.push({ id: s.id, to });
     }
     targets = [ordered[0], ...ordered.filter((s) => samePerson.includes(s.id))];
+    /* Money: this would close the step with one person's approval (nobody else could take another part). */
+    if (twoPeople && (spec?.approvers.length || 0) > 1 && !decidedPart.size && waiting.every((w) => targets.some((t) => t.id === w.id)) && !widen.length) throw new ApprovalError(TWO_PEOPLE_WORDS, 409, 'TWO_PEOPLE');
   }
   if (decision === 'approve') await checks.get(request.requestType as RequestType)?.(request);
   const stepStatus = decision === 'approve' ? 'APPROVED' : decision === 'reject' ? 'REJECTED' : 'MORE_INFO';

@@ -105,11 +105,13 @@ describe('Workforce and Organization review fixes', () => {
     /*
      * Workflow engine 2a, review of PR #93 (c): the team-scoped Team Lead no longer takes this as the last resort
      * (Priya is outside their team), so nobody else could decide and the maker-checker setting closes it at once
-     * (SPEC 5.6). Priya is refused either way: 403 while it waits, 409 once it is closed.
+     * (SPEC 5.6): HR, who raised it, is recorded as self-approved. Priya is refused: it is closed (409).
      */
-    const refused = await people(priya).post(`/requests/${req.id}/approve`, {});
-    expect([403, 409]).toContain(refused.status);
-    expect(JSON.stringify((await people(hr).get(`/requests/${req.id}`).expect(200)).body.request.steps.map((s: any) => s.decidedBy))).not.toContain('Priya');
+    await people(priya).post(`/requests/${req.id}/approve`, {}).expect(409);
+    const closed = (await people(hr).get(`/requests/${req.id}`).expect(200)).body.request;
+    expect(closed.status).toBe('APPROVED');
+    expect(closed.steps).toEqual([expect.objectContaining({ status: 'APPROVED', how: 'SELF_APPROVED' })]);
+    expect(JSON.stringify(closed.steps.map((s: any) => s.decidedBy))).not.toContain('Priya');
   });
 
   it('a branch people are filed at cannot be deleted', async () => {

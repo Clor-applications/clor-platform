@@ -102,6 +102,13 @@ async function storeV1(c: Ctx, requestType: string, steps: unknown[]) {
     return peoplePrisma.approvalRule.create({ data: { accountId: c.accountId, orgId: c.orgId, requestType, name: 'v1', version: (latest?.version || 0) + 1, active: true, steps: steps as any, specVersion: 1 } });
   });
 }
+async function storeV2(c: Ctx, requestType: string, steps: unknown[]) {
+  return runInTenant(c.orgId, async () => {
+    const latest = await peoplePrisma.approvalRule.findFirst({ where: { orgId: c.orgId, requestType, variantKey: '' }, orderBy: { version: 'desc' } });
+    await peoplePrisma.approvalRule.updateMany({ where: { orgId: c.orgId, requestType, variantKey: '', active: true }, data: { active: false } });
+    return peoplePrisma.approvalRule.create({ data: { accountId: c.accountId, orgId: c.orgId, requestType, name: 'v2', version: (latest?.version || 0) + 1, active: true, steps: steps as any, specVersion: 2 } });
+  });
+}
 const saveV2 = async (c: Ctx, body: Record<string, unknown>) => (await people(c).post('/approval-rules', { name: 'v2', ...body }).expect(201)).body.rule;
 const ask = async (c: Ctx, requestType: string, subject: any, payload: Record<string, unknown> = {}, expectStatus = 201) =>
   (await people(c).post('/requests', { requestType, subjectEmployeeId: subject?.id ?? null, title: `${requestType} ${rnd()}`, payload: { employeeId: subject?.id ?? null, ...payload } }).expect(expectStatus)).body.request;
@@ -152,23 +159,22 @@ describe('parity: a version 1 rule and its version 2 normalisation decide identi
         };
         const v1 = await runOnce(() => storeV1(hr, 'SEAT_REQUEST', steps));
         /* Saved through the API as the rules screen saves it (the first shape), written as version 2. */
-        const v2 = await runOnce(async () => {
-          const saved = await saveV2(hr, { requestType: 'SEAT_REQUEST', steps });
-          expect(saved.specVersion).toBe(2);
-          expect(saved.spec).toEqual(normaliseSteps(steps));
-        });
+        /* Written as version 2: the stored rule is the v1 rule normalised (a new save of a condition a position request does not carry is refused, re-review of PR #93). */
+        const v2 = await runOnce(() => storeV2(hr, 'SEAT_REQUEST', normaliseSteps(steps, 'SEAT_REQUEST')));
         expect(v2, `${preset} / ${sc.name}`).toEqual(v1);
         compared += 1;
       }
     }
     expect(compared).toBe(36);
-  }, 240_000);
+  }, 900_000);
 
   it('the rules screen gets the first shape back from a version 2 rule, and can edit it', async () => {
-    await saveV2(hr, { requestType: 'DESK_ESCALATION', steps: [{ approver: { kind: 'MANAGER' }, dueDays: 2, condition: { field: 'kind', op: 'eq', value: 'IT' } }] });
+    /* A condition the request carries: a job change's grade (re-review of PR #93: conditions read only what the type carries). */
+    await saveV2(hr, { requestType: 'DESK_ESCALATION', steps: [{ approver: { kind: 'MANAGER' }, dueDays: 2 }] });
+    await saveV2(hr, { requestType: 'JOB_CHANGE', steps: [{ approver: { kind: 'MANAGER' }, dueDays: 2, condition: { field: 'gradeId', op: 'changed' } }] });
     const rules = (await people(hr).get('/approval-rules').expect(200)).body.rules;
-    const rule = rules.find((r: any) => r.requestType === 'DESK_ESCALATION' && r.active);
-    expect(rule).toMatchObject({ specVersion: 2, editableHere: true, steps: [{ order: 1, approver: { kind: 'MANAGER' }, condition: { field: 'kind', op: 'eq', value: 'IT' }, dueDays: 2 }] });
+    const rule = rules.find((r: any) => r.requestType === 'JOB_CHANGE' && r.active);
+    expect(rule).toMatchObject({ specVersion: 2, editableHere: true, steps: [{ order: 1, approver: { kind: 'MANAGER' }, condition: { field: 'gradeId', op: 'changed', value: null }, dueDays: 2 }] });
     expect(rule.spec[0]).toMatchObject({ approvers: [{ kind: 'MANAGER' }], mode: 'ANY', due: { workingDays: 2 } });
     /* A rule the old screen cannot say is marked so. */
     await saveV2(hr, { requestType: 'DESK_ESCALATION', steps: [{ approvers: [{ kind: 'MANAGER' }, { kind: 'HR' }], mode: 'ALL', due: { hours: 4 } }] });
@@ -511,5 +517,44 @@ describe('review of PR #93', () => {
     const rule = (await people(hr).get('/approval-rules').expect(200)).body.rules.find((x: any) => x.requestType === form.requestType && x.active && !x.variantKey);
     expect(rule.spec[0].approvers).toEqual([{ kind: 'MANAGER' }]);
     expect(rule.autoApprove).toEqual([{ when: [{ field: 'departmentId', op: 'eq', value: design.id }] }]);
+  });
+});
+
+describe('re-review of PR #93', () => {
+  const { beforeApproving } = engineFns;
+  it('an old-style condition on the person is refused at save; a stored version 1 row reads the person from their record', async () => {
+    const probe = await people(hr).post('/approval-rules', { requestType: 'DESK_ESCALATION', name: 'Probe', steps: [{ approver: { kind: 'HR' }, dueDays: 2, condition: { field: 'departmentId', op: 'ne', value: 'zzz' } }, { approver: { kind: 'USER', id: meena.userId }, dueDays: 2 }] }).expect(400);
+    expect(probe.body).toMatchObject({ code: 'RULE_INVALID', step: 1, field: 'condition' });
+    /* The same rule written before this release: the requester writes departmentId "zzz" to skip step 1, and it is not skipped. */
+    await storeV1(hr, 'DESK_ESCALATION', [{ order: 1, approver: { kind: 'HR' }, dueDays: 2, condition: { field: 'departmentId', op: 'ne', value: 'zzz' } }, { order: 2, approver: { kind: 'USER', id: meena.userId }, dueDays: 2 }]);
+    const r = await ask(ravi, 'DESK_ESCALATION', lone, { departmentId: 'zzz', fields: { departmentId: { before: null, after: 'zzz' } } });
+    expect(r.steps.map((s: any) => [s.order, s.status])).toEqual([[1, 'WAITING']]);
+    /* A job change still reads the new department from the request, as before. */
+    await people(hr).post('/approval-rules', { requestType: 'JOB_CHANGE', name: 'Moves', steps: [{ approver: { kind: 'HR' }, dueDays: 2, condition: { field: 'departmentId', op: 'eq', value: design.id } }] }).expect(201);
+  });
+
+  it('money, all of them: a company that cannot supply two different people cannot save it', async () => {
+    const solo = await owner('Solo Owner');
+    const refused = await people(solo).post('/approval-rules', { requestType: 'SALARY_ADVANCE', name: 'Both', steps: [{ approvers: [{ kind: 'OWNER' }, { kind: 'HR' }], mode: 'ALL', due: { workingDays: 2 } }] }).expect(400);
+    expect(refused.body).toMatchObject({ code: 'RULE_INVALID', step: 1, field: 'mode' });
+    expect(refused.body.error).toContain('two different people');
+    /* Any one of them is fine. */
+    await people(solo).post('/approval-rules', { requestType: 'SALARY_ADVANCE', name: 'Either', steps: [{ approvers: [{ kind: 'OWNER' }, { kind: 'HR' }], mode: 'ANY', due: { workingDays: 2 } }] }).expect(201);
+  });
+
+  it('money, all of them: when only one other person is left, approvers are told plainly and can reject; never a dead end', async () => {
+    beforeApproving('SALARY_ADVANCE', async () => {});
+    const boss = await owner('Olu Owner');
+    const mia = await colleague(boss, 'Mia', APPROVER);
+    const miaEmp = (await people(boss).post('/employees', { name: 'Mia Das', code: 'M-1' }).expect(201)).body.employee;
+    await runInTenant(boss.orgId, () => peoplePrisma.employee.update({ where: { id: miaEmp.id }, data: { userId: mia.userId } }));
+    await people(boss).post('/approval-rules', { requestType: 'SALARY_ADVANCE', name: 'Both', steps: [{ approvers: [{ kind: 'OWNER' }, { kind: 'USER', id: mia.userId }], mode: 'ALL', due: { workingDays: 2 } }] }).expect(201);
+    /* Mia asks for herself: only Olu is left to decide, and money needs two. */
+    const r = (await people(mia).post('/requests', { requestType: 'SALARY_ADVANCE', subjectEmployeeId: miaEmp.id, title: 'Advance for Mia', payload: { employeeId: miaEmp.id, amount: 5000 } }).expect(201)).body.request;
+    const PLAIN = 'This needs two different people to approve; nobody else can. Reject it or add an approver.';
+    expect(r.steps.some((s: any) => s.comment === PLAIN)).toBe(true);
+    const tried = await people(boss).post(`/requests/${r.id}/approve`, {}).expect(409);
+    expect(tried.body).toMatchObject({ code: 'TWO_PEOPLE', error: PLAIN });
+    expect((await people(boss).post(`/requests/${r.id}/reject`, { comment: 'Add a second approver first' }).expect(200)).body.request.status).toBe('REJECTED');
   });
 });

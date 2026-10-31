@@ -95,7 +95,7 @@ const isV2Step = (s: unknown) => Boolean(s && typeof s === 'object' && Array.isA
 const approverOf = (a: any): Approver => ({ kind: String(a?.kind || '') as ApproverKind, ...(a?.id ? { id: String(a.id) } : {}) });
 
 /** One stored step, of either version, as version 2. */
-export function normaliseStep(raw: unknown, index = 0): StepV2 {
+export function normaliseStep(raw: unknown, index = 0, requestType?: string): StepV2 {
   const s = (raw || {}) as any;
   if (isV2Step(s)) {
     const workingDays = Number(s.due?.workingDays);
@@ -117,7 +117,7 @@ export function normaliseStep(raw: unknown, index = 0): StepV2 {
     order: Number(s.order) || index + 1,
     approvers: [approverOf(s.approver)],
     mode: 'ANY',
-    when: s.condition ? [{ field: String(s.condition.field), op: s.condition.op, value: s.condition.value ?? null, from: 'request' }] : [],
+    when: s.condition ? [legacyCondition(s.condition, requestType)] : [],
     /* A v1 step always had dueDays; the engine used it as given (reply used 2 when it was missing). */
     due: { workingDays: Number.isFinite(dueDays) ? dueDays : DEFAULT_DUE_DAYS },
     overdue: s.overdue?.action ? { action: s.overdue.action, ...(s.overdue.to?.kind ? { to: approverOf(s.overdue.to) } : {}) } : null,
@@ -127,9 +127,22 @@ export function normaliseStep(raw: unknown, index = 0): StepV2 {
 }
 
 /** A rule's stored steps, of either version (or a mix), as version 2. */
-export function normaliseSteps(raw: unknown): StepV2[] {
+/**
+ * A stored version 1 condition. It read the request; it still does for a field the request type carries
+ * (a job change's new department, a leave's days). The person's own department, branch, grade, work site
+ * or type on a type that does not carry it is read from their record, so a requester cannot write it into
+ * the request to skip a step (re-review of PR #93). Without a type (pure tests) it reads as before.
+ */
+function legacyCondition(c: any, requestType?: string): ConditionV2 {
+  const field = String(c.field);
+  const allowed = requestType ? requestFieldsOf(requestType) : 'ANY';
+  const fromRecord = c.op !== 'changed' && PERSON_FIELDS.has(field) && allowed !== 'ANY' && !allowed.has(field);
+  return { field, op: c.op, value: c.value ?? null, ...(fromRecord ? {} : { from: 'request' as const }) };
+}
+
+export function normaliseSteps(raw: unknown, requestType?: string): StepV2[] {
   if (!Array.isArray(raw)) return [];
-  return raw.map((s, i) => normaliseStep(s, i));
+  return raw.map((s, i) => normaliseStep(s, i, requestType));
 }
 
 /** Conditions stored on a rule (appliesWhen, autoApprove[].when). */
@@ -307,7 +320,8 @@ function cleanStep(raw: any, i: number, requestType: string, isLast: boolean): S
   const when: ConditionV2[] = [];
   for (const c of whenRaw) {
     /* A v1 condition takes the v1 operators and is read from the request, as before. */
-    const x = cleanCondition(c, at, v2 ? 'when' : 'condition', v2 ? CONDITION_OPS : ['changed', 'eq', 'ne', 'gt', 'lt'], requestType, !v2);
+    /* A first-shape condition always read the request: a new save says so, so the check below applies to it too (re-review of PR #93). */
+    const x = cleanCondition(v2 ? c : { ...(c as object), from: 'request' }, at, v2 ? 'when' : 'condition', v2 ? CONDITION_OPS : ['changed', 'eq', 'ne', 'gt', 'lt'], requestType);
     if (isProblem(x)) return x;
     when.push(v2 ? x : { ...x, value: x.value == null ? null : String(x.value), from: 'request' });
   }
