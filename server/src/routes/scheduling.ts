@@ -18,7 +18,9 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { DEFAULT_LATE_UPLOAD_HOURS, READER_TRUST, readerTrustOn } from '../services/attendance/trust.js';
 import { assertScheduleOpen, rotationRanges, scheduleGuard } from '../services/attendance/scheduleGuard.js';
 import { assertNightConsent, nightRefusal, onShiftAhead, rotationShiftIds } from '../services/people/nightConsent.js';
-import { marksFromLegacy, timeRulesFor } from '../services/attendance/timeRules.js';
+import { marksFromLegacy, nextMonthStart, rulesOf, timeRulesFor } from '../services/attendance/timeRules.js';
+import { recordAudit } from '../services/auditTrail.js';
+import { teamScope } from '../services/people/scope.js';
 
 /**
  * Scheduling — ClorTime's Shift and Schedule modules: temporary schedules,
@@ -291,8 +293,19 @@ schedulingRouter.get(`${base}/rules`, can(PermissionAction.VIEW), async (req, re
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const s = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
-  res.json({ rules: { defaultShiftId: s?.defaultShiftId || null, lateAllowancePerMonth: s?.lateAllowancePerMonth ?? 0, latePenaltyEvery: s?.latePenaltyEvery ?? 0, photoRetentionDays: s?.photoRetentionDays ?? 90, readerUsersBecomeEmployees: s?.readerUsersBecomeEmployees ?? true, leaveApproval: s?.leaveApproval ?? 'HR', correctionApproval: s?.correctionApproval ?? 'HR', autoShiftByPunch: s?.autoShiftByPunch ?? false, ...(await trustRules(accountId, orgId, s)) } });
+  res.json({ rules: { defaultShiftId: s?.defaultShiftId || null, lateAllowancePerMonth: s?.lateAllowancePerMonth ?? 0, latePenaltyEvery: s?.latePenaltyEvery ?? 0, photoRetentionDays: s?.photoRetentionDays ?? 90, readerUsersBecomeEmployees: s?.readerUsersBecomeEmployees ?? true, leaveApproval: s?.leaveApproval ?? 'HR', correctionApproval: s?.correctionApproval ?? 'HR', autoShiftByPunch: s?.autoShiftByPunch ?? false, ...(await lateRule(orgId, s)), ...(await trustRules(accountId, orgId, s)) } });
 });
+
+/**
+ * The late rule as People's Attendance rules hold it, for the Attendance app: its cut, what the step costs, and whether the
+ * two numbers here still set it. They do while People has never saved late marks (the numbers are the rule) or holds the
+ * every-N rule; under a minute cut they mean nothing, so they are shown, not set, here (review of #89).
+ */
+const lateRule = async (orgId: string, s: { timeRules?: unknown } | null) => {
+  const m = (await timeRulesFor(orgId)).marks;
+  const saved = Boolean((s?.timeRules as any)?.marks);
+  return { lateOn: m.on && m.late.on, lateFree: m.late.free, lateCutMode: m.cutMode, lateCost: m.cost, lateRoundToMinutes: m.roundToMinutes, lateRuleInPeople: saved, lateNumbersHere: !saved || m.cutMode === 'HALF_DAY_PER_N' };
+};
 
 /** Reader trust (O-11): the company feature switch, kept beside the reader settings, and the late-upload window. */
 const trustRules = async (accountId: string, orgId: string, s: { readerLateUploadHours?: number } | null) => ({
@@ -334,15 +347,36 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
         await assertNightConsent(orgId, on.map((id) => ({ employeeId: id, shiftIds: [parsed.data.defaultShiftId!] })));
       }
     }
+    /* The two late numbers cost pay: set for the whole company only (as People's Attendance rules are). */
+    /* Checked with no settings row too: a first save from 0 to 3 costs pay as much as any. */
+    const numbersChange = (previous?.lateAllowancePerMonth ?? 0) !== parsed.data.lateAllowancePerMonth || (previous?.latePenaltyEvery ?? 0) !== parsed.data.latePenaltyEvery;
+    const rulesBefore = rulesOf(previous);
+    if (numbersChange && !(await teamScope(req)).all) return res.status(403).json({ error: 'Late-mark rules are set by someone who decides for the whole company.' });
+    /* The cut is People's choice: these numbers never switch it, and under a minute cut they are not the rule. */
+    if (numbersChange && !(await lateRule(orgId, previous)).lateNumbersHere) return res.status(409).json({ code: 'LATE_RULE_IN_PEOPLE', error: 'Late marks are cut by the time missed, set in People under Attendance rules. Change them there.' });
     const s = await peoplePrisma.attendanceSettings.upsert({
       where: { orgId },
       create: { accountId, orgId, ...settings, updatedByUserId: req.auth!.userId },
       update: { ...settings, updatedByUserId: req.auth!.userId },
     });
-    /* People's Attendance rules keep the fuller late-mark rule; it follows these two numbers when they change here. */
-    if (previous && (previous.lateAllowancePerMonth !== s.lateAllowancePerMonth || previous.latePenaltyEvery !== s.latePenaltyEvery) && (previous.timeRules as any)?.marks) {
-      const next = marksFromLegacy(await timeRulesFor(orgId), s);
-      await peoplePrisma.attendanceSettings.update({ where: { orgId }, data: { timeRules: next as any } });
+    /*
+     * The late rule follows these two numbers, the numbers only, never the cut (timeRules.ts marksFromLegacy), versioned
+     * like a save in People and counting from next month. When People has never saved late marks the numbers are the rule
+     * (rulesOf reads them), so the version is the baseline too: this month and any undecided earlier month keep the rule
+     * they had (markRules.ts marksRulesOn takes the first change's `before`).
+     */
+    if (numbersChange) {
+      const inPeople = Boolean((previous?.timeRules as any)?.marks);
+      const next = inPeople ? marksFromLegacy(rulesBefore, s) : rulesOf(s);
+      if (inPeople) await peoplePrisma.attendanceSettings.update({ where: { orgId }, data: { timeRules: next as any } });
+      const from = nextMonthStart(today());
+      if (JSON.stringify(rulesBefore.marks) !== JSON.stringify(next.marks)) {
+        await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'RULES', name: 'Attendance rules', before: rulesBefore, after: next, from });
+      }
+      const nums = (x: { lateAllowancePerMonth: number; latePenaltyEvery: number }) => ({ lateAllowancePerMonth: x.lateAllowancePerMonth, latePenaltyEvery: x.latePenaltyEvery });
+      const was = nums({ lateAllowancePerMonth: previous?.lateAllowancePerMonth ?? 0, latePenaltyEvery: previous?.latePenaltyEvery ?? 0 });
+      const words = (x: ReturnType<typeof nums>) => (x.latePenaltyEvery ? `${x.lateAllowancePerMonth} free, then every ${x.latePenaltyEvery}` : 'no penalty');
+      await recordAudit(req, { entity: 'AttendanceSettings', entityId: orgId, action: 'UPDATE', message: `Late arrivals: ${words(was)} → ${words(nums(s))}, from ${from}`, metadata: { before: was, after: nums(s), from } });
     }
     if (readerTrust !== undefined && readerTrust !== (await readerTrustOn(accountId, orgId))) {
       await platformPrisma.featureSetting.upsert({
@@ -356,7 +390,7 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
     if (JSON.stringify(pick(previous)) !== JSON.stringify(pick(s))) {
       await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'RULES', before: pick(previous), after: pick(s) });
     }
-    res.json({ rules: { defaultShiftId: s.defaultShiftId, lateAllowancePerMonth: s.lateAllowancePerMonth, latePenaltyEvery: s.latePenaltyEvery, photoRetentionDays: s.photoRetentionDays, readerUsersBecomeEmployees: s.readerUsersBecomeEmployees, leaveApproval: s.leaveApproval, correctionApproval: s.correctionApproval, autoShiftByPunch: s.autoShiftByPunch, ...(await trustRules(accountId, orgId, s)) } });
+    res.json({ rules: { defaultShiftId: s.defaultShiftId, lateAllowancePerMonth: s.lateAllowancePerMonth, latePenaltyEvery: s.latePenaltyEvery, photoRetentionDays: s.photoRetentionDays, readerUsersBecomeEmployees: s.readerUsersBecomeEmployees, leaveApproval: s.leaveApproval, correctionApproval: s.correctionApproval, autoShiftByPunch: s.autoShiftByPunch, ...(await lateRule(orgId, s)), ...(await trustRules(accountId, orgId, s)) } });
   } catch (e) {
     return sendError(res, e);
   }

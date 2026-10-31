@@ -177,3 +177,89 @@ it('absences: someone back at work needs a reason to be recorded as absconded', 
   fireEvent.click(record);
   await waitFor(() => expect(api.recordAbsconded).toHaveBeenCalledWith('c2', expect.objectContaining({ confirmBack: true, reason: 'Came only to collect belongings' })));
 });
+
+it('settings: a mark cuts the time missed by default; rounding asks how far; the step rule shows its numbers and the warning', async () => {
+  api.saveAttendanceRules.mockImplementation(async (body) => ({ rules: { ...RULES, marks: { ...RULES.marks, ...body.marks } }, version: 2 }));
+  render(<AttendanceRules />);
+  const block = await screen.findByRole('group', { name: 'Late marks and early exits' });
+  fireEvent.click(within(block).getByLabelText('On'));
+  const cut = within(block).getByLabelText('Each mark cuts');
+  expect(cut.value).toBe('TIME_MISSED');
+  expect(within(block).queryByText('Every')).toBeNull();
+  expect(within(block).getByText(/A mark cuts the minutes the person was late or left early/)).toBeTruthy();
+  fireEvent.change(cut, { target: { value: 'TIME_MISSED_ROUNDED_DOWN' } });
+  expect(within(block).getByText(/rounded down to 15 minutes.*20 minutes late cuts 15, 10 minutes cuts nothing\. It never cuts more than the time missed/)).toBeTruthy();
+  fireEvent.change(within(block).getByLabelText('Round each down to'), { target: { value: '30' } });
+  expect(within(block).getByText(/rounded down to 30 minutes.*35 minutes late cuts 30, 25 minutes cuts nothing/)).toBeTruthy();
+  fireEvent.change(cut, { target: { value: 'HALF_DAY_PER_N' } });
+  expect(within(block).getAllByText('Every').length).toBeGreaterThan(0);
+  expect(within(block).getByLabelText('Costs')).toBeTruthy();
+  expect(within(block).getByRole('note').textContent).toMatch(/can cut more than the time missed.*s\.20/);
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(api.saveAttendanceRules).toHaveBeenCalled());
+  expect(api.saveAttendanceRules.mock.calls[0][0].marks).toMatchObject({ on: true, cutMode: 'HALF_DAY_PER_N', roundToMinutes: 30 });
+});
+
+it('late marks: minute cuts read in two places; under the step rule each person’s time missed sits beside the cut', async () => {
+  const rows = [{ ...MARKS.rows[0], days: 0.14, lossOfPayDays: 0.14, fromLeave: [], timeMissedMinutes: 65, timeMissedDays: 0.14 }];
+  api.getLateMarks.mockResolvedValue({ ...MARKS, rules: { ...MARKS.rules, cutMode: 'TIME_MISSED' }, rows });
+  const { unmount } = render(<LateMarks params={{ month: '2026-09' }} />);
+  expect((await screen.findAllByText('0.14 day')).length).toBeGreaterThan(0);
+  expect(screen.queryByText('Time missed')).toBeNull();
+  unmount();
+  api.getLateMarks.mockResolvedValue({ ...MARKS, rules: { ...MARKS.rules, cutMode: 'HALF_DAY_PER_N' }, rows: [{ ...MARKS.rows[0], timeMissedMinutes: 65, timeMissedDays: 0.14 }] });
+  render(<LateMarks params={{ month: '2026-09' }} />);
+  expect((await screen.findAllByText('Time missed')).length).toBeGreaterThan(0);
+  expect(screen.getAllByText('1 h 5 min · 0.14 day').length).toBeGreaterThan(0);
+});
+
+it('settings: a late-mark change counts from next month unless this month is chosen, which warns; leave is taken in whole half days', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-31T06:00:00Z'));
+  try {
+    api.saveAttendanceRules.mockResolvedValue({ rules: { ...RULES, marks: { ...RULES.marks, on: true } }, version: 2, marksFrom: '2026-11-01' });
+    render(<AttendanceRules />);
+    const block = await screen.findByRole('group', { name: 'Late marks and early exits' });
+    expect(screen.queryByLabelText('Late-mark change counts')).toBeNull();
+    fireEvent.click(within(block).getByLabelText('On'));
+    fireEvent.click(within(block).getByLabelText('Casual leave'));
+    expect(within(block).getByText(/In whole half days, in the order ticked\. Anything under half a day.*is unpaid\./)).toBeTruthy();
+    const when = within(block).getByLabelText('Late-mark change counts');
+    expect(when.value).toBe('NEXT_MONTH');
+    expect(within(when).getByRole('option', { name: 'From November 2026' })).toBeTruthy();
+    expect(screen.getByText('October 2026 stays under the rule it started with.')).toBeTruthy();
+    fireEvent.change(when, { target: { value: 'THIS_MONTH' } });
+    expect(within(block).getByRole('alert').textContent).toMatch(/Every late mark in October 2026 so far is worked out again/);
+    /* Switching late marks off is a change too: the choice stays, in the same section. */
+    fireEvent.click(within(block).getAllByLabelText('On')[0]);
+    expect(within(block).getByLabelText('Late-mark change counts')).toBeTruthy();
+    fireEvent.click(within(block).getAllByLabelText('On')[0]);
+    fireEvent.change(when, { target: { value: 'NEXT_MONTH' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.saveAttendanceRules).toHaveBeenCalled());
+    expect(api.saveAttendanceRules.mock.calls[0][0]).toMatchObject({ marksFrom: 'NEXT_MONTH', marks: { on: true } });
+    await waitFor(() => expect(dialogs.notify.success).toHaveBeenCalledWith(expect.stringMatching(/counts from November 2026/)));
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('settings: "from this month" is sent when chosen; a save that does not touch late marks sends no choice', async () => {
+  api.saveAttendanceRules.mockImplementation(async (body) => ({ rules: { ...RULES, marks: { ...RULES.marks, ...body.marks } }, version: 2, marksFrom: null }));
+  const { unmount } = render(<AttendanceRules />);
+  const block = await screen.findByRole('group', { name: 'Late marks and early exits' });
+  fireEvent.click(within(block).getByLabelText('On'));
+  fireEvent.change(screen.getByLabelText('Late-mark change counts'), { target: { value: 'THIS_MONTH' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(api.saveAttendanceRules).toHaveBeenCalled());
+  expect(api.saveAttendanceRules.mock.calls[0][0].marksFrom).toBe('THIS_MONTH');
+  unmount();
+  api.saveAttendanceRules.mockClear();
+  render(<AttendanceRules />);
+  const nudge = await screen.findByRole('group', { name: 'Missing punches' });
+  fireEvent.click(within(nudge).getByLabelText(/morning list/));
+  expect(screen.queryByLabelText('Late-mark change counts')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(api.saveAttendanceRules).toHaveBeenCalled());
+  expect(api.saveAttendanceRules.mock.calls[0][0].marksFrom).toBeUndefined();
+});

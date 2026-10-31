@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { recordAudit } from '../services/auditTrail.js';
@@ -38,6 +38,7 @@ const att = (action: string, resource: string) => requirePermission(ATTENDANCE_M
 const ppl = (action: string, resource: string) => requirePermission(PEOPLE_MODULE, action as any, resource);
 const who = (req: Request) => ({ accountId: req.tenant!.accountId, orgId: req.tenant!.orgId, userId: req.auth!.userId });
 const whoC = (req: Request) => ({ ...who(req), correlationId: correlationOf(req as any) });
+const CUT_WORDS: Record<string, string> = { TIME_MISSED: 'the time actually missed', TIME_MISSED_ROUNDED_DOWN: 'the time missed, rounded down', HALF_DAY_PER_N: 'every N marks, ½ or 1 day' };
 const isMonth = (m: unknown) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(m || ''));
 const lastMonth = () => {
   const [y, m] = today().slice(0, 7).split('-').map(Number);
@@ -66,16 +67,26 @@ peopleTimeRulesRouter.get(`${base}/attendance-rules`, att(PermissionAction.VIEW,
     peoplePrisma.leaveType.findMany({ where: { orgId, isPaid: true, isActive: true }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
     currentRuleVersion(orgId),
   ]);
-  res.json({ rules, leaveTypes: types, version, canEdit: (await teamScope(req)).all });
+  res.json({ rules, leaveTypes: types, version, canEdit: (await teamScope(req)).all && !(await authorize(req, ATTENDANCE_MODULE, PermissionAction.APPROVE, R.requests)) });
 }));
 
+/*
+ * The rules cost pay (late marks), so they are HR's for the whole company, or the owner's (SPEC 3.1). The right is the
+ * one that decides attendance requests, which the Team Manager preset holds too, for its own team: so a role limited
+ * to its team (ownDocumentsOnly) is refused here, whatever rights it holds (attendanceRules.test, lateMarkCut.test).
+ */
 peopleTimeRulesRouter.put(`${base}/attendance-rules`, att(PermissionAction.APPROVE, R.requests), handle(async (req, res) => {
   if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Attendance rules are set by someone who decides for the whole company.' });
   const { accountId, orgId } = req.tenant!;
   const before = await timeRulesFor(orgId);
   const out = await saveTimeRules(accountId, orgId, req.auth!.userId, req.body);
   if (JSON.stringify(before) !== JSON.stringify(out.rules)) {
-    await recordAudit(req, { entity: 'AttendanceSettings', entityId: orgId, action: 'UPDATE', message: `Attendance rules changed (version ${out.version})`, metadata: { before, after: out.rules } });
+    await recordAudit(req, { entity: 'AttendanceSettings', entityId: orgId, action: 'UPDATE', message: `Attendance rules changed (version ${out.version})${out.marksFrom ? `; late marks from ${out.marksFrom}` : ''}`, metadata: { before, after: out.rules, from: out.marksFrom } });
+  }
+  /* The late-mark cut is one of the company's choices (SPEC 3, DECISIONS.md 1): its own line, as the others have. */
+  const cutOf = (m: typeof before.marks) => ({ cutMode: m.cutMode, roundToMinutes: m.roundToMinutes });
+  if (JSON.stringify(cutOf(before.marks)) !== JSON.stringify(cutOf(out.rules.marks))) {
+    await recordAudit(req, { entity: 'COMPANY_SETTING', entityId: 'attendance.lateMarkCut', action: 'CHANGED', message: `Late marks cut: ${CUT_WORDS[before.marks.cutMode]} → ${CUT_WORDS[out.rules.marks.cutMode]}${out.marksFrom ? `, from ${out.marksFrom}` : ', from this month'}`, metadata: { before: cutOf(before.marks), after: cutOf(out.rules.marks), from: out.marksFrom } });
   }
   res.json(out);
 }));
@@ -108,7 +119,7 @@ peopleTimeRulesRouter.post(`${base}/late-marks/preview`, att(PermissionAction.VI
   const rows = ids.map((id) => {
     const a = nowOf.get(id);
     const b = thenOf.get(id);
-    return { employeeId: id, name: (b || a)!.name, code: (b || a)!.code, lateMarks: (b || a)!.lateMarks, earlyMarks: (b || a)!.earlyMarks, now: a?.days ?? 0, then: b?.days ?? 0, fromLeave: b?.fromLeave ?? [], lossOfPayDays: b?.lossOfPayDays ?? 0 };
+    return { employeeId: id, name: (b || a)!.name, code: (b || a)!.code, lateMarks: (b || a)!.lateMarks, earlyMarks: (b || a)!.earlyMarks, now: a?.days ?? 0, then: b?.days ?? 0, timeMissedDays: b?.timeMissedDays ?? 0, timeMissedMinutes: b?.timeMissedMinutes ?? 0, fromLeave: b?.fromLeave ?? [], lossOfPayDays: b?.lossOfPayDays ?? 0 };
   }).filter((r) => r.now || r.then).sort((x, y) => y.then - x.then || x.name.localeCompare(y.name));
   res.json({ month, rules: draft, rows, totals: { now: now.totals.days, then: then.totals.days, people: rows.filter((r) => r.then > 0).length } });
 }));

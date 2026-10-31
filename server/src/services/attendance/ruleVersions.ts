@@ -6,7 +6,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
  * like "why did March count late from 5 minutes and April from 10" has an
  * answer. A failure to record never blocks the save.
  */
-export async function recordRuleVersion(accountId: string, orgId: string, userId: string, entry: { kind: 'RULES' | 'SHIFT'; ref?: string | null; name?: string | null; before: unknown; after: unknown }) {
+export async function recordRuleVersion(accountId: string, orgId: string, userId: string, entry: { kind: 'RULES' | 'SHIFT'; ref?: string | null; name?: string | null; before: unknown; after: unknown; /** First day it counts for (late marks: from next month). */ from?: string | null }) {
   try {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const last = await peoplePrisma.attendanceRuleVersion.findFirst({ where: { orgId }, orderBy: { version: 'desc' }, select: { version: true } });

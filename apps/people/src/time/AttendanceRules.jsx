@@ -8,7 +8,7 @@ import { notify } from '@ui/components/ui/notify';
 import { getRequestRules } from '@ui/timeOff/api';
 
 import { getAttendanceRules, previewLateMarks, saveAttendanceRules } from './api';
-import { half, lastMonth, monthTitle } from './shared';
+import { dayAmount, istToday, lastMonth, minutesText, monthTitle, shiftMonth } from './shared';
 
 /**
  * Settings → Attendance rules (WORKFLOW-GAP-RESEARCH-2026-10-30 4.4, 4.5, 4.6, B19): one sheet, a
@@ -22,6 +22,7 @@ const toForm = (r) => ({
   lateOn: Boolean(r.marks.late.on), lateEvery: num(r.marks.late.every), lateFree: num(r.marks.late.free), lateGrace: num(r.marks.late.graceMinutes),
   earlyOn: Boolean(r.marks.early.on), earlyEvery: num(r.marks.early.every), earlyFree: num(r.marks.early.free), earlyGrace: num(r.marks.early.graceMinutes),
   cost: String(r.marks.cost), takeFrom: r.marks.takeFrom || [],
+  cutMode: r.marks.cutMode || 'TIME_MISSED', roundTo: String(r.marks.roundToMinutes || 15),
   nudgeOn: Boolean(r.nudge.on), afterHours: num(r.nudge.afterHours), managerDigest: Boolean(r.nudge.managerDigest),
   absenceOn: Boolean(r.absence.on), absenceDays: num(r.absence.days), noticeGapDays: num(r.absence.noticeGapDays), replyDays: num(r.absence.replyDays),
   nightOn: Boolean(r.night.on), nightFrom: r.night.from, nightTo: r.night.to, nightMode: r.night.mode || 'ENFORCE',
@@ -33,7 +34,23 @@ const marksBody = (f) => ({
   early: { on: f.earlyOn, every: int(f.earlyEvery, 1, 31, 3), free: int(f.earlyFree, 0, 31, 0), graceMinutes: f.earlyGrace === '' ? null : int(f.earlyGrace, 0, 240, 0) },
   cost: f.cost === '1' ? 1 : 0.5,
   takeFrom: f.takeFrom,
+  cutMode: f.cutMode,
+  roundToMinutes: Number(f.roundTo) === 30 ? 30 : Number(f.roundTo) === 60 ? 60 : 15,
 });
+/* How much a mark cuts (DECISIONS.md 1): the time missed is what the law allows (Code on Wages 2019, s.20). */
+const CUTS = [
+  ['TIME_MISSED', 'The time actually missed'],
+  ['TIME_MISSED_ROUNDED_DOWN', 'The time missed, rounded down'],
+  ['HALF_DAY_PER_N', 'Every few marks, half or a full day'],
+];
+/* What a minute cut takes, in the words of the mode chosen (never more than the time missed). */
+const cutCaption = (f) => {
+  const tail = 'The free ones and the minutes allowed above apply first.';
+  if (f.cutMode !== 'TIME_MISSED_ROUNDED_DOWN') return `A mark cuts the minutes the person was late or left early, as a part of the day on their shift. ${tail}`;
+  const step = Number(f.roundTo) || 15;
+  const unit = step === 60 ? 'whole hours' : `${step} minutes`;
+  return `A mark cuts its minutes rounded down to ${unit}, as a part of the day on their shift: ${step + 5} minutes late cuts ${step}, ${step - 5} minutes cuts nothing. It never cuts more than the time missed. ${tail}`;
+};
 const toBody = (f) => ({
   marks: marksBody(f),
   nudge: { on: f.nudgeOn, afterHours: int(f.afterHours, 0, 24, 2), managerDigest: f.managerDigest },
@@ -53,7 +70,7 @@ function Num({ label, value, onChange, min = 0, max = 31, placeholder, suffix })
   );
 }
 
-function Block({ id, title, on, onToggle, children }) {
+function Block({ id, title, on, onToggle, children, footer = null }) {
   return (
     <fieldset className="py-6 first:pt-0 last:pb-0 space-y-4" aria-labelledby={`${id}-h`}>
       <div className="flex items-center justify-between gap-4">
@@ -61,6 +78,7 @@ function Block({ id, title, on, onToggle, children }) {
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={on} onChange={(e) => onToggle(e.target.checked)} />On</label>
       </div>
       {on ? children : null}
+      {footer}
     </fieldset>
   );
 }
@@ -74,12 +92,16 @@ export default function AttendanceRules({ openScreen }) {
   const [error, setError] = useState(null);
   const [preview, setPreview] = useState(null);
   const [previewing, setPreviewing] = useState(false);
+  /* A late-mark change counts from next month unless HR says this month (a month is worked out under the rule of its last day). */
+  const [marksFrom, setMarksFrom] = useState('NEXT_MONTH');
   const form = draft || saved;
   const dirty = Boolean(form && saved && JSON.stringify(form) !== JSON.stringify(saved));
   useUnsavedChanges(dirty);
   const canEdit = Boolean(req.data?.canEdit);
   const leaveTypes = req.data?.leaveTypes || [];
   const month = lastMonth();
+  const thisMonth = istToday().slice(0, 7);
+  const marksChanged = Boolean(form && saved && JSON.stringify(marksBody(form)) !== JSON.stringify(marksBody(saved)));
 
   if (req.error && !req.data) return <div className="space-y-6 max-w-2xl"><PageHeader title="Attendance rules" /><ErrorState error={req.error} onRetry={req.reload} /></div>;
   if (!form) return <div className="space-y-6 max-w-2xl"><PageHeader title="Attendance rules" /><SkeletonCard lines={8} /></div>;
@@ -94,10 +116,11 @@ export default function AttendanceRules({ openScreen }) {
     setSaving(true);
     setError(null);
     try {
-      const out = await saveAttendanceRules(toBody(form));
+      const out = await saveAttendanceRules({ ...toBody(form), ...(marksChanged ? { marksFrom } : {}) });
       req.setData((d) => ({ ...d, rules: out.rules, version: out.version }));
       setDraft(null);
-      notify.success('Attendance rules saved.');
+      setMarksFrom('NEXT_MONTH');
+      notify.success(out.marksFrom ? `Attendance rules saved. The late-mark change counts from ${monthTitle(out.marksFrom.slice(0, 7))}.` : 'Attendance rules saved.');
     } catch (err) {
       setError(err);
       notify.error(String(err?.message || 'Not saved.'));
@@ -116,6 +139,24 @@ export default function AttendanceRules({ openScreen }) {
     }
   };
   const order = (typeId) => form.takeFrom.indexOf(typeId);
+  /* When a late-mark change counts: in the late-marks section, shown even when the change is switching them off. */
+  const marksWhen = canEdit && marksChanged ? (
+    <div className="space-y-3">
+      <label className="block max-w-sm">
+        <span className="ui-label">Late-mark change counts</span>
+        <select className="ui-select w-full" value={marksFrom} onChange={(e) => setMarksFrom(e.target.value)}>
+          <option value="NEXT_MONTH">From {monthTitle(shiftMonth(thisMonth, 1))}</option>
+          <option value="THIS_MONTH">From this month, {monthTitle(thisMonth)}</option>
+        </select>
+      </label>
+      {marksFrom === 'THIS_MONTH' ? (
+        <p className="ui-alert ui-alert-warn text-sm" role="alert">Every late mark in {monthTitle(thisMonth)} so far is worked out again under the new rule, so what people lose this month changes.</p>
+      ) : (
+        <p className="ui-caption">{monthTitle(thisMonth)} stays under the rule it started with.</p>
+      )}
+    </div>
+  ) : null;
+
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -123,13 +164,13 @@ export default function AttendanceRules({ openScreen }) {
       <form className="ui-record-section ui-wizard-body" aria-label="Attendance rules" onSubmit={save}>
         {error ? <ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /> : null}
         <fieldset disabled={!canEdit} className="divide-y min-w-0" style={{ borderColor: 'rgb(var(--border))' }}>
-            <Block id="ar-marks" title="Late marks and early exits" on={form.marksOn} onToggle={(v) => set({ marksOn: v, ...(v && !form.lateOn && !form.earlyOn ? { lateOn: true } : {}) })}>
+            <Block id="ar-marks" title="Late marks and early exits" footer={marksWhen} on={form.marksOn} onToggle={(v) => set({ marksOn: v, ...(v && !form.lateOn && !form.earlyOn ? { lateOn: true } : {}) })}>
               <div className="space-y-3">
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={form.lateOn} onChange={(e) => set({ lateOn: e.target.checked })} />Count late arrivals</label>
                 {form.lateOn ? (
                   <div className="grid gap-4 sm:grid-cols-3">
                     <Num label="Late by more than" value={form.lateGrace} onChange={(v) => set({ lateGrace: v })} max={240} placeholder="Shift grace" suffix="min" />
-                    <Num label="Every" value={form.lateEvery} onChange={(v) => set({ lateEvery: v })} min={1} suffix="late marks" />
+                    {form.cutMode === 'HALF_DAY_PER_N' ? <Num label="Every" value={form.lateEvery} onChange={(v) => set({ lateEvery: v })} min={1} suffix="late marks" /> : null}
                     <Num label="Free each month" value={form.lateFree} onChange={(v) => set({ lateFree: v })} />
                   </div>
                 ) : null}
@@ -137,20 +178,43 @@ export default function AttendanceRules({ openScreen }) {
                 {form.earlyOn ? (
                   <div className="grid gap-4 sm:grid-cols-3">
                     <Num label="Early by more than" value={form.earlyGrace} onChange={(v) => set({ earlyGrace: v })} max={240} placeholder="Shift grace" suffix="min" />
-                    <Num label="Every" value={form.earlyEvery} onChange={(v) => set({ earlyEvery: v })} min={1} suffix="early exits" />
+                    {form.cutMode === 'HALF_DAY_PER_N' ? <Num label="Every" value={form.earlyEvery} onChange={(v) => set({ earlyEvery: v })} min={1} suffix="early exits" /> : null}
                     <Num label="Free each month" value={form.earlyFree} onChange={(v) => set({ earlyFree: v })} />
                   </div>
                 ) : null}
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
-                <label className="block">
-                  <span className="ui-label">Costs</span>
-                  <select className="ui-select w-full" value={form.cost} onChange={(e) => set({ cost: e.target.value })}>
-                    <option value="0.5">Half a day</option>
-                    <option value="1">A full day</option>
+                <label className="block sm:col-span-2">
+                  <span className="ui-label">Each mark cuts</span>
+                  <select className="ui-select w-full" value={form.cutMode} onChange={(e) => set({ cutMode: e.target.value })}>
+                    {CUTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                 </label>
+                {form.cutMode === 'TIME_MISSED_ROUNDED_DOWN' ? (
+                  <label className="block">
+                    <span className="ui-label">Round each down to</span>
+                    <select className="ui-select w-full" value={form.roundTo} onChange={(e) => set({ roundTo: e.target.value })}>
+                      <option value="15">15 minutes</option>
+                      <option value="30">30 minutes</option>
+                      <option value="60">1 hour</option>
+                    </select>
+                  </label>
+                ) : null}
+                {form.cutMode === 'HALF_DAY_PER_N' ? (
+                  <label className="block">
+                    <span className="ui-label">Costs</span>
+                    <select className="ui-select w-full" value={form.cost} onChange={(e) => set({ cost: e.target.value })}>
+                      <option value="0.5">Half a day</option>
+                      <option value="1">A full day</option>
+                    </select>
+                  </label>
+                ) : null}
               </div>
+              {form.cutMode === 'HALF_DAY_PER_N' ? (
+                <p className="ui-alert ui-alert-warn text-sm" role="note">This can cut more than the time missed. The law allows a cut only for the time missed (Code on Wages 2019, s.20). Late marks shows each person’s cut beside their time missed.</p>
+              ) : (
+                <p className="ui-caption">{cutCaption(form)}</p>
+              )}
               <div className="space-y-2">
                 <span className="ui-label">Take it from</span>
                 {leaveTypes.length ? (
@@ -166,7 +230,7 @@ export default function AttendanceRules({ openScreen }) {
                     ))}
                   </ul>
                 ) : null}
-                <p className="ui-caption">{form.takeFrom.length ? 'In the order ticked; unpaid when there is none left.' : 'Unpaid (loss of pay).'}</p>
+                <p className="ui-caption">{form.takeFrom.length ? 'In whole half days, in the order ticked. Anything under half a day, and what there is no leave left for, is unpaid.' : 'Unpaid (loss of pay).'}</p>
               </div>
               <p className="text-sm">
                 Missed-punch requests a month: <span className="tabular-nums font-medium">{missedLimit == null ? 'no limit' : missedLimit}</span>.{' '}
@@ -213,7 +277,7 @@ export default function AttendanceRules({ openScreen }) {
         {canEdit ? (
           <div className="ui-wizard-actions">
             <span className="flex flex-wrap gap-2 ml-auto">
-              {dirty ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setDraft(null); setError(null); setPreview(null); }}>Undo changes</button> : null}
+              {dirty ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setDraft(null); setError(null); setPreview(null); setMarksFrom('NEXT_MONTH'); }}>Undo changes</button> : null}
               <Button type="submit" variant="primary" loading={saving} disabled={!dirty && !saving}>Save</Button>
             </span>
           </div>
@@ -235,7 +299,8 @@ function PreviewTable({ preview }) {
             <th scope="col" className="py-2 pr-3 text-right font-medium">Late</th>
             <th scope="col" className="py-2 pr-3 text-right font-medium">Early</th>
             <th scope="col" className="py-2 pr-3 text-right font-medium">Now</th>
-            <th scope="col" className="py-2 text-right font-medium">With this</th>
+            <th scope="col" className="py-2 pr-3 text-right font-medium">With this</th>
+            <th scope="col" className="py-2 text-right font-medium">Time missed</th>
           </tr>
         </thead>
         <tbody>
@@ -244,13 +309,14 @@ function PreviewTable({ preview }) {
               <td className="py-2 pr-3">{r.name}</td>
               <td className="py-2 pr-3 text-right tabular-nums">{r.lateMarks}</td>
               <td className="py-2 pr-3 text-right tabular-nums">{r.earlyMarks}</td>
-              <td className="py-2 pr-3 text-right tabular-nums">{half(r.now)}</td>
-              <td className="py-2 text-right tabular-nums font-medium">{half(r.then)}</td>
+              <td className="py-2 pr-3 text-right tabular-nums">{dayAmount(r.now)}</td>
+              <td className="py-2 pr-3 text-right tabular-nums font-medium">{dayAmount(r.then)}</td>
+              <td className="py-2 text-right tabular-nums">{r.timeMissedMinutes ? minutesText(r.timeMissedMinutes) : '—'}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="ui-caption pt-2">{preview.totals.people} {preview.totals.people === 1 ? 'person' : 'people'}, {half(preview.totals.then)} in all. Nothing is saved until you press Save.</p>
+      <p className="ui-caption pt-2">{preview.totals.people} {preview.totals.people === 1 ? 'person' : 'people'}, {dayAmount(preview.totals.then)} in all. Nothing is saved until you press Save.</p>
     </div>
   );
 }
