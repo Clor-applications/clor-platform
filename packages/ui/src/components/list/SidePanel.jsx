@@ -77,7 +77,8 @@ export function withSidePanel(Screen, Panel) {
 }
 
 /** One block: a heading with its count, the lines, and an optional link on the right. Nothing to say, nothing drawn. */
-export function SideBlock({ title, count, action, children }) {
+/** `tone="warn"`: the count is work that waits on you (marigold in People). */
+export function SideBlock({ title, count, tone, action, children }) {
   const items = React.Children.toArray(children).filter(Boolean);
   if (!items.length) return null;
   return (
@@ -85,7 +86,7 @@ export function SideBlock({ title, count, action, children }) {
       <div className="ui-side-head">
         <h2 className="ui-side-title">
           {title}
-          {count ? <span className="ui-side-count">{count}</span> : null}
+          {count ? <span className="ui-side-count" data-tone={tone}>{count}</span> : null}
         </h2>
         {action ? <button type="button" className="ui-side-more" onClick={action.onClick}>{action.label}</button> : null}
       </div>

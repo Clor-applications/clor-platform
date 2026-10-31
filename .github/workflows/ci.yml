@@ -177,12 +177,20 @@ jobs:
   # dropped at the end. A pull request runs the @smoke set (e2e-smoke); the
   # nightly run and a run by hand run every scenario (e2e-full). One retry in
   # CI; a test that needed it shows as flaky in the report.
+  #
+  # One end-to-end run on the Mac at a time (31 Oct 2026). Every red e2e-smoke
+  # in the two days before shared the Mac with another e2e run, a verify or the
+  # server shards; the runs that had it to themselves passed in 3-4 minutes.
+  # So: in a run, e2e waits for the server shards (when they run at all); across
+  # runs, the test step takes a machine-wide lock (lockf on a file in the
+  # runners' home, released by the kernel if the job dies or is cancelled). A
+  # run waiting for the lock says so in its log.
   e2e:
-    needs: verify
-    if: github.event_name != 'push'
+    needs: [verify, server-tests]
+    if: ${{ !cancelled() && needs.verify.result == 'success' && github.event_name != 'push' }}
     name: ${{ github.event_name == 'pull_request' && 'e2e-smoke' || 'e2e-full' }}
     runs-on: [self-hosted, clor-mac]
-    timeout-minutes: 45
+    timeout-minutes: 75
     env:
       PGHOST: localhost
       PGPORT: 5434
@@ -190,6 +198,8 @@ jobs:
       E2E_PGADMIN_URL: postgresql://clor_ci:clor_ci@localhost:5434/postgres
       E2E_DB_NAME: clor_e2e_${{ github.run_id }}_${{ github.run_attempt }}
       E2E_WORKERS: 2
+      # Connections per schema for the run's API: 5434 has 300; a People screen sends ~20 requests at once.
+      E2E_DB_POOL: 10
     steps:
       - uses: actions/checkout@v7
 
@@ -209,8 +219,10 @@ jobs:
         working-directory: server
 
       # Kept by the runner between runs; a download only when Playwright moves on.
+      # The three runners share ~/Library/Caches/ms-playwright: one install at a
+      # time (two at once failed run 41099681328 on Playwright's own directory lock).
       - name: Chromium for Playwright
-        run: npx playwright install chromium
+        run: /usr/bin/lockf -k "$HOME/Library/Caches/.clor-playwright-install.lock" npx playwright install chromium
 
       - name: Typecheck the end-to-end tests
         run: npx tsc -p e2e
@@ -223,13 +235,13 @@ jobs:
 
       - name: End-to-end, smoke set
         if: github.event_name == 'pull_request'
-        run: npm run e2e:smoke
+        run: scripts/ci/one-at-a-time.sh "$HOME/.clor-e2e.lock" npm run e2e:smoke
         env:
           E2E_SKIP_GENERATE: '1'
 
       - name: End-to-end, every scenario
         if: github.event_name != 'pull_request'
-        run: npm run e2e
+        run: scripts/ci/one-at-a-time.sh "$HOME/.clor-e2e.lock" npm run e2e
         env:
           E2E_SKIP_GENERATE: '1'
 

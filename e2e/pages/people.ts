@@ -152,10 +152,19 @@ export class PeopleWeb {
     await auditScreen(this.page, this.testInfo);
   }
 
-  /** Loading placeholders gone. */
+  /**
+   * Loading placeholders gone: the screen marks what is still loading aria-busy.
+   * Not "network idle": it says nothing about this screen, and on a busy
+   * runner a People screen's ~20 requests outlast its 10 s, so open() waited
+   * the 10 s and then went on regardless.
+   */
   async settle() {
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => null);
-    await expect(this.main.locator('[aria-busy="true"]')).toHaveCount(0, { timeout: 10_000 }).catch(() => null);
+    /*
+     * A screen that never finishes loading is a failure to look at, not something to step past.
+     * 30 s, not 20: under heavy local load (load average 48 on 12 cores) Employees took over 20 s
+     * and was still finishing (2 parts loading, then 1).
+     */
+    await expect(this.main.locator('[aria-busy="true"]'), 'the screen finished loading').toHaveCount(0, { timeout: 30_000 });
   }
 
   /** The last toast the app showed. */

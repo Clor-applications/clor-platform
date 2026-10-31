@@ -6,7 +6,7 @@ import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { formatDate } from '@ui/components/ui/DatePicker';
-import { PRIVATE_LABEL, STATUS_LABEL, colorOf, getWorkingAway, getWorkingWeek, listHolidays, listLeaveRequests, todayIst } from './api';
+import { PRIVATE_LABEL, STATUS_LABEL, getWorkingAway, getWorkingWeek, listHolidays, listLeaveRequests, swatchOf, todayIst } from './api';
 import { homeCrumbs } from './shared';
 import { clashDays, clashWords } from './clashes';
 
@@ -34,7 +34,7 @@ const daysIn = (month) => {
 const weekday = (date) => new Date(`${date}T00:00:00Z`).getUTCDay();
 const title = (month) => new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const isPrivate = (r) => r.reasonHidden || r.leaveTypeName === PRIVATE_LABEL;
-const toneOf = (r) => (isPrivate(r) ? { className: 'ui-dot-quiet' } : { style: { background: colorOf({ color: r.leaveTypeColor, name: r.leaveTypeName }) } });
+const toneOf = (r) => (isPrivate(r) ? { className: 'ui-dot-quiet' } : { style: { background: swatchOf({ color: r.leaveTypeColor, name: r.leaveTypeName }) } });
 /** The company's working week (Settings → Working week); Sunday alone when it cannot be read. */
 const offTest = (week) => {
   const offs = new Set(String(week?.weeklyOffDays ?? '0').split(',').filter(Boolean).map(Number));

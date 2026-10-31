@@ -46,18 +46,18 @@ export default function LifecycleOverview({ openScreen }) {
   const strip = [
     { k: 'join', label: 'Starting this week', value: c.startingThisWeek, Icon: CircleArrowUp, onClick: () => openScreen?.('joiners', { view: 'week' }) },
     { k: 'leave', label: 'Last days this week', value: c.lastDaysThisWeek, Icon: CircleArrowDown, onClick: () => openScreen?.('leavers') },
-    { k: 'late', label: 'Tasks late', value: c.lateTasks, Icon: ClipboardCheck, onClick: () => openScreen?.('checklists', { view: 'late' }) },
+    { k: 'late', label: 'Tasks late', attention: true, value: c.lateTasks, Icon: ClipboardCheck, onClick: () => openScreen?.('checklists', { view: 'late' }) },
     { k: 'readers', label: c.readersFailed ? 'Readers not confirmed' : 'Waiting for readers', value: c.readersFailed || c.readersNotConfirmed, Icon: Fingerprint, tone: c.readersFailed ? 'neg' : null, onClick: () => openScreen?.('leavers', { view: 'clearing' }) },
-    { k: 'wages', label: c.wagesLate ? 'Final wages late' : 'Final wages due', value: c.wagesLate || c.wagesDue, Icon: Banknote, tone: c.wagesLate ? 'neg' : null, onClick: () => openScreen?.('leavers', { view: 'clearing' }) },
+    { k: 'wages', label: c.wagesLate ? 'Final wages late' : 'Final wages due', value: c.wagesLate || c.wagesDue, Icon: Banknote, tone: c.wagesLate ? 'neg' : null, attention: true, onClick: () => openScreen?.('leavers', { view: 'clearing' }) },
   ];
   const openPerson = (e, kind) => (kind === 'JOINING' ? openScreen?.('joiners', { view: 'preparing' }) : kind === 'LEAVING' ? openScreen?.('leavers') : kind === 'CHANGE' || kind === 'PROBATION' || kind === 'CONTRACT' ? openScreen?.('lifecycleChanges', { view: kind === 'CHANGE' ? null : kind === 'PROBATION' ? 'probation' : 'contracts' }) : openScreen?.('employee', { id: e.id }));
   return (
     <div className="space-y-6">
       {header}
       <div className="ui-metric-strip" role="list" aria-label="Joining and leaving counts">
-        {strip.map(({ k, label, value, Icon, tone, onClick }) => (
+        {strip.map(({ k, label, value, Icon, tone, onClick, attention }) => (
           <div key={k} role="listitem">
-            <button type="button" className="ui-metric" onClick={onClick}>
+            <button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} data-attention={(attention && tone !== 'neg' && Number(value) > 0) || undefined} onClick={onClick}>
               <Icon size={18} aria-hidden="true" className="ui-metric-icon" />
               <span><span className={`ui-metric-value tabular-nums ${tone === 'neg' && value ? 'ui-text-neg' : ''}`}>{value}</span> <span className="ui-metric-label">{label}</span><span className="sr-only">: open</span></span>
             </button>

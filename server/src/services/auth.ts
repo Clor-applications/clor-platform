@@ -106,18 +106,18 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
     if (session.revokedReason === 'ROTATED' && Date.now() - session.revokedAt.getTime() < ROTATION_GRACE_MS) {
       throw new AuthError('This session was just refreshed in another tab.', 409, 'refresh_raced');
     }
-    await platformPrisma.session.updateMany({
-      where: { userId: session.userId, revokedAt: null },
-      data: { revokedAt: new Date(), revokedReason: 'REUSE_DETECTED' },
-    });
-    await recordAuthEvent({
-      accountId: session.accountId,
-      userId: session.userId,
-      eventType: 'SESSION_REVOKED',
-      detail: 'Refresh token reuse detected; all sessions revoked',
-      ip: ctx.ip,
-      userAgent: ctx.userAgent,
-    });
+    /*
+     * Only a token that was rotated says someone else holds a copy. A session
+     * ended for any other reason (signed out, password changed, left) is over
+     * already, and its own browser still sends the cookie for a moment: a page
+     * that signs out while other requests are in flight gets 401s back, and
+     * each one tries a refresh with the cookie the sign-out has not cleared
+     * yet. Treating that as theft signed the person out on every other device
+     * (seen in CI: Kavya's other sessions all ended a second after B3 signed
+     * out one of hers).
+     */
+    if (session.revokedReason !== 'ROTATED') await refuseEnded(session, session.revokedReason, ctx);
+    await revokeFamily(session, ctx);
     throw new AuthError('Session is no longer valid. Please sign in again.');
   }
 
@@ -147,10 +147,9 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
     if (now?.revokedReason === 'ROTATED' && now.revokedAt && Date.now() - now.revokedAt.getTime() < ROTATION_GRACE_MS) {
       throw new AuthError('This session was just refreshed in another tab.', 409, 'refresh_raced');
     }
-    await platformPrisma.session.updateMany({
-      where: { userId: session.userId, revokedAt: null },
-      data: { revokedAt: new Date(), revokedReason: 'REUSE_DETECTED' },
-    });
+    /* Signed out (or ended otherwise) between the read and the claim: refused, nothing else ended (see above). */
+    if (now?.revokedReason !== 'ROTATED') await refuseEnded(session, now?.revokedReason ?? null, ctx);
+    await revokeFamily(session, ctx);
     throw new AuthError('Session is no longer valid. Please sign in again.');
   }
 
@@ -169,10 +168,77 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
   };
 }
 
-export async function revokeSession(refreshToken: string, reason = 'LOGOUT') {
+type SessionRow = { id: string; accountId: string; userId: string };
+
+/**
+ * A rotated token presented again, past the tab-race grace: someone else holds
+ * a copy (or the real person's copy was taken). Every session the person has
+ * ends, and the audit log says why.
+ */
+async function revokeFamily(session: SessionRow, ctx: { ip?: string; userAgent?: string }) {
+  const ended = await platformPrisma.session.updateMany({
+    where: { userId: session.userId, revokedAt: null },
+    data: { revokedAt: new Date(), revokedReason: 'REUSE_DETECTED' },
+  });
+  await recordAuthEvent({
+    accountId: session.accountId,
+    userId: session.userId,
+    eventType: 'SESSION_REVOKED',
+    detail: `Refresh token reuse detected; all sessions revoked (${ended.count})`,
+    ip: ctx.ip,
+    userAgent: ctx.userAgent,
+  });
+}
+
+/**
+ * A token from a session that ended for a reason other than rotation:
+ * refused, nothing else ended. A sign-out's own stragglers are normal and not
+ * logged; anything else (password changed, signed out everywhere, left) is,
+ * with the reason, so a token turning up after its session was ended on
+ * purpose can be seen.
+ */
+async function refuseEnded(session: SessionRow, reason: string | null, ctx: { ip?: string; userAgent?: string }): Promise<never> {
+  if (reason !== 'LOGOUT') {
+    await recordAuthEvent({
+      accountId: session.accountId,
+      userId: session.userId,
+      eventType: 'REFRESH_REFUSED',
+      detail: reason || 'ended',
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
+    });
+  }
+  throw new AuthError('Session is no longer valid. Please sign in again.');
+}
+
+export async function revokeSession(refreshToken: string, reason = 'LOGOUT', ctx: { ip?: string; userAgent?: string } = {}) {
   const hash = sha256(String(refreshToken || ''));
   const session = await platformPrisma.session.findUnique({ where: { refreshTokenHash: hash } });
-  if (!session || session.revokedAt) return null;
+  if (!session) return null;
+  if (session.revokedAt) {
+    if (session.revokedReason !== 'ROTATED') return null;
+    /*
+     * Signing out with a token that was already rotated. Within the grace this
+     * is the same browser racing its own refresh: end the session it was
+     * rotated into, so the sign-out still signs this browser out. Past it, the
+     * rotated copy is in someone else's hands (the same signal as a refresh):
+     * every session ends.
+     */
+    if (Date.now() - session.revokedAt.getTime() >= ROTATION_GRACE_MS) {
+      await revokeFamily(session, ctx);
+      return null;
+    }
+    let nextId = session.replacedBySessionId;
+    for (let hops = 0; nextId && hops < 5; hops += 1) {
+      const next = await platformPrisma.session.findUnique({ where: { id: nextId } });
+      if (!next) return null;
+      if (!next.revokedAt) {
+        return platformPrisma.session.update({ where: { id: next.id }, data: { revokedAt: new Date(), revokedReason: reason } });
+      }
+      nextId = next.replacedBySessionId;
+    }
+    return null;
+  }
   return platformPrisma.session.update({
     where: { id: session.id },
     data: { revokedAt: new Date(), revokedReason: reason },

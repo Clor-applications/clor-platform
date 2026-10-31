@@ -34,7 +34,7 @@ import { FinalPayBanner, FinalPayList } from '@ui/lifecycle/LeavingExtras';
 import { finalPayList } from '../api/engagement';
 import HomeSetup from './HomeSetup';
 
-const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'warn' }, info: { label: 'When you can', pill: 'neutral' } };
+const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'neutral' }, info: { label: 'When you can', pill: 'neutral' } };
 const DEPT_COLOURS = 8;
 const greeting = () => {
   const h = new Date().getHours();
@@ -430,7 +430,7 @@ export default function PeopleOverview({ openScreen }) {
                   {otherTodos.map((t) => (
                     <li key={t.key}>
                       <button type="button" onClick={go(t.screen, t.params)} className="people-row people-row-action">
-                        <span className="people-row-count">{t.count}</span>
+                        <span className="people-row-count" data-tone={t.tone === 'info' ? undefined : 'warn'}>{t.count}</span>
                         <span className="min-w-0 flex-1">
                           <span className="flex flex-wrap items-center gap-2">
                             <span className="font-medium text-sm">{t.title}</span>
@@ -516,11 +516,11 @@ export default function PeopleOverview({ openScreen }) {
                   <div className="soft-insight">
                     <span className="soft-label">Gender mix</span>
                     <div className="soft-split" role="img" aria-label={insight.gender.map(([k, v]) => `${k} ${v}`).join(', ') || 'Gender mix: none recorded yet'}>
-                      {insight.gender.map(([k, v], i) => <span key={k} style={{ flexGrow: v, '--dept': `var(--dept-${[6, 3, 5][i] || 8})` }} />)}
+                      {insight.gender.map(([k, v], i) => <span key={k} style={{ flexGrow: v, '--dept': `var(--dept-${[1, 2, 3][i] ?? 8})` }} />)}
                     </div>
                     <ul className="soft-insight-list soft-insight-inline">
                       {insight.gender.map(([k, v], i) => (
-                        <li key={k} style={{ '--dept': `var(--dept-${[6, 3, 5][i] || 8})` }}><span className="people-dot" aria-hidden="true" />{k}<b>{Math.round((v / insight.n) * 100)}%</b></li>
+                        <li key={k} style={{ '--dept': `var(--dept-${[1, 2, 3][i] ?? 8})` }}><span className="people-dot" aria-hidden="true" />{k}<b>{Math.round((v / insight.n) * 100)}%</b></li>
                       ))}
                     </ul>
                   </div>

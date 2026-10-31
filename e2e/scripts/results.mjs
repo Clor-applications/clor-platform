@@ -12,7 +12,7 @@
  *
  *   npm run e2e:report        (after npm run e2e or e2e:smoke)
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const reportFile = fileURLToPath(new URL('../report/results.json', import.meta.url));
@@ -20,6 +20,9 @@ const out = fileURLToPath(new URL('../../docs/people/qa/E2E-RESULTS.md', import.
 const report = JSON.parse(readFileSync(reportFile, 'utf8'));
 
 const rows = new Map();
+/* Every test that needed its retry, with what went wrong the first time: the flaky report. */
+const flaky = [];
+const firstLine = (r) => String(r?.error?.message || '').replace(/\u001b\[[0-9;]*m/g, '').split('\n').find((l) => l.trim())?.trim().slice(0, 160) || '';
 const walk = (suite) => {
   for (const spec of suite.specs || []) {
     for (const t of spec.tests || []) {
@@ -33,6 +36,7 @@ const walk = (suite) => {
         if (t.expectedStatus === 'failed') result = last.status === 'failed' ? 'KNOWN BUG' : 'FIXED?';
         else if (last.status === 'passed') result = t.results.length > 1 ? 'FLAKY' : 'PASS';
         else result = 'FAIL';
+        if (result === 'FLAKY') flaky.push({ id, project: t.projectName, title: spec.title, file: `${spec.file}:${spec.line}`, first: firstLine(t.results[0]) });
       }
       const key = `${id}|${spec.title}`;
       const row = rows.get(key) || { id, title: spec.title.replace(/^[A-Z]+\d+:\s*/, ''), desktop: '–', phone: '–', notes: new Set() };
@@ -77,5 +81,30 @@ const lines = [
   ...sorted.map((r) => `| ${r.id} | ${r.title.replace(/\|/g, '/')} | ${r.desktop} | ${r.phone} | ${[...r.notes].join(' ').replace(/\|/g, '/')} |`),
   '',
 ];
+
+/*
+ * The flaky report. CI retries once so one bad moment on a busy runner does not
+ * block a pull request, but a test that needed it is a test to fix: it is
+ * listed here, in the run's summary on GitHub, and as a warning on the run.
+ */
+const flakyLines = flaky.length
+  ? [
+      `## Flaky: ${flaky.length} passed only on the retry`,
+      '',
+      '| Scenario | Width | Where | First attempt |',
+      '|---|---|---|---|',
+      ...flaky.map((f) => `| ${f.id} | ${f.project} | ${f.file} | ${f.first.replace(/\|/g, '/')} |`),
+      '',
+    ]
+  : ['## Flaky: none', '', 'Every test passed or failed on its first attempt.', ''];
+lines.push(...flakyLines);
 writeFileSync(out, lines.join('\n'));
-console.log(`Wrote docs/people/qa/E2E-RESULTS.md: ${sorted.length} scenarios.`);
+console.log(`Wrote docs/people/qa/E2E-RESULTS.md: ${sorted.length} scenarios, ${flaky.length} flaky.`);
+for (const f of flaky) {
+  console.log(`FLAKY ${f.id} [${f.project}] ${f.file}: ${f.first}`);
+  if (process.env.GITHUB_ACTIONS) console.log(`::warning title=Flaky end-to-end test ${f.id} (${f.project})::${f.title} passed only on the retry. First attempt: ${f.first}`);
+}
+if (process.env.GITHUB_STEP_SUMMARY) {
+  const tally = `PASS ${count('PASS')} · KNOWN BUG ${count('KNOWN BUG')} · FLAKY ${count('FLAKY')} · FIXED? ${count('FIXED?')} · FAIL ${count('FAIL')}, ${minutes} minutes`;
+  appendFileSync(process.env.GITHUB_STEP_SUMMARY, ['# End-to-end', '', tally, '', ...flakyLines].join('\n') + '\n');
+}

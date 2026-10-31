@@ -66,7 +66,7 @@ export default function Tasks({ params = {}, updateParams, openScreen }) {
       <div ref={tabsRef} role="tablist" aria-label="Tasks" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
         {views.map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => set({ view: k === 'mine' ? null : k, page: null }, true)}>
-            {l}{counts[k] && k !== 'done' ? <span className="ui-tab-count tabular-nums">{counts[k]}</span> : null}
+            {l}{counts[k] && k !== 'done' ? <span className="ui-tab-count tabular-nums" data-tone={k === 'late' ? 'warn' : undefined}>{counts[k]}</span> : null}
           </button>
         ))}
         {tabIndicator}

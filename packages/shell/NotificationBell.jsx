@@ -61,7 +61,7 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell 
       <button type="button" className="ui-icon-btn relative" aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         <Icon size={Icon === Bell ? 16 : 20} />
         {unread ? (
-          <span className="absolute -top-1 -end-1 min-w-[1.1rem] rounded-full px-1 text-center text-[10px] font-semibold leading-4 text-white" style={{ background: 'rgb(var(--neg))' }}>
+          <span className="ui-bell-count">
             {unread > 99 ? '99+' : unread}
           </span>
         ) : null}
@@ -82,7 +82,7 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell 
                 <li key={n.id}>
                   <div className="flex items-start gap-1">
                     <button type="button" className="min-w-0 flex-1 rounded-lg px-2 py-2 text-left ui-hover-sunken" onClick={() => openOne(n)}>
-                      <div className={`text-sm ${n.readAt ? '' : 'font-semibold'}`}>{n.title}</div>
+                      <div className={`text-sm ${n.readAt ? '' : 'font-semibold'}`}>{n.readAt ? null : <span className="ui-bell-unread" aria-hidden="true" />}{n.title}</div>
                       {n.body ? <div className="ui-caption">{n.body}</div> : null}
                       <div className="ui-caption">{ago(n.createdAt)}</div>
                     </button>

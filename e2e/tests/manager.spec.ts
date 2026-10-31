@@ -5,7 +5,7 @@
  */
 import { appLeave, decideLeave } from '../support/seed';
 import { appDay, dmy, iso, todayIST, webSpan, weekday, workdayFromNow } from '../support/dates';
-import { readBalance } from '../support/leave';
+import { expectBalance, readBalance } from '../support/leave';
 import { allowNoise, expect, test } from '../support/fixtures';
 import { choose } from '../support/ui';
 
@@ -23,14 +23,18 @@ test.describe('Rahul manages his team', () => {
     await rahul.goto();
     await rahul.open('Approvals');
     await (await rahul.approve(webSpan(day), 'Imran Khan')).click();
+    /*
+     * The app saying it is done, then the row gone. The row alone was not enough: on a busy
+     * runner the list refreshed and dropped it ~0.2 s after the click, while the approval was
+     * still on its way (0.7 s), and Imran's page was read too soon and said Waiting.
+     */
+    await expect(rahul.toast(/Approved/)).toBeVisible();
     await expect(rahul.row(webSpan(day), 'Imran Khan')).toHaveCount(0);
 
     /* Imran sees it approved and his balance moved from waiting to taken. */
     await imran.goto('Leave');
     await expect(imran.request(appDay(day))).toContainText('Approved');
-    const after = await readBalance(imran.balance('Casual leave'));
-    expect(after.left).toBe(before.left);
-    expect(after.waiting).toBe(before.waiting - 1);
+    await expectBalance(imran.balance('Casual leave'), { left: before.left, waiting: before.waiting - 1 });
 
     /* Who's away shows him. */
     await rahul.open("Who's away");
@@ -48,21 +52,26 @@ test.describe('Rahul manages his team', () => {
     await rahul.goto();
     await rahul.open('Approvals');
     const item = rahul.row(webSpan(from, to), 'Lakshmi Patil');
-    /* The name opens the request (a button on a desktop row; the whole item on a phone). */
+    /*
+     * The name opens the request (a button on a desktop row; the whole item on a phone).
+     * The row first: count() does not wait, so on a slow list it said "no button" and the
+     * row itself was clicked, which opens nothing on a desktop (CI run 41181371877).
+     */
+    await expect(item).toBeVisible();
     const opener = item.getByRole('button', { name: /Lakshmi Patil/ });
     await ((await opener.count()) ? opener.first() : item).click();
     const panel = rahul.drawerNamed('Lakshmi Patil: Casual leave');
     await panel.getByLabel('Note to them').fill('Dyeing batch due that week; please pick the week after.');
     await panel.getByRole('button', { name: 'Reject' }).click();
+    /* Done when the app says so (see M1), not when the row first goes. */
+    await expect(rahul.toast(/Rejected|Not approved/)).toBeVisible();
     await expect(rahul.row(webSpan(from, to))).toHaveCount(0);
 
     await lakshmi.goto('Leave');
     const mine = lakshmi.request(appDay(from));
     await expect(mine).toContainText(/Rejected|Not approved|Declined/);
     await expect(mine, 'she sees the reason').toContainText('Dyeing batch due that week');
-    const after = await readBalance(lakshmi.balance('Casual leave'));
-    expect(after.left, 'nothing taken: the two days are back').toBe(before.left + 2);
-    expect(after.waiting).toBe(before.waiting - 2);
+    await expectBalance(lakshmi.balance('Casual leave'), { left: before.left + 2, waiting: before.waiting - 2 }, 'nothing taken: the two days are back');
   });
 
   test('M3: two waiting items, approved once each even on a double tap', { tag: ['@M3'] }, async ({ asManager: rahul, app, w }, testInfo) => {

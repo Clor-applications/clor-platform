@@ -59,7 +59,7 @@ export default function Expenses({ params = {}, updateParams }) {
       <div ref={tabsRef} role="tablist" aria-label="Expenses" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
         {TABS.map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => set({ tab: k === 'pay' ? null : k, page: null, q: null }, true)}>
-            {l}{k === 'pay' && toPay.data?.length ? <span className="ui-tab-count tabular-nums">{toPay.data.length}</span> : null}
+            {l}{k === 'pay' && toPay.data?.length ? <span className="ui-tab-count tabular-nums" data-tone="warn">{toPay.data.length}</span> : null}
           </button>
         ))}
         {tabIndicator}

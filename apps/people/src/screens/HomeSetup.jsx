@@ -102,7 +102,7 @@ export default function HomeSetup({ openScreen, onState }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium">{s.title}</span>
-                    <span className={`ui-pill ${s.done ? 'ui-pill-pos' : s.skipped ? 'ui-pill-outline' : 'ui-pill-neutral'}`}>{s.done ? 'Done' : s.skipped ? 'Skipped' : s.optional ? 'Optional' : 'To do'}</span>
+                    <span className={`ui-pill ${s.done ? 'ui-pill-pos' : s.skipped ? 'ui-pill-outline' : s.optional ? 'ui-pill-neutral' : 'ui-pill-warn'}`}>{s.done ? 'Done' : s.skipped ? 'Skipped' : s.optional ? 'Optional' : 'To do'}</span>
                   </div>
                   <p className="ui-caption">{s.blurb}</p>
                   <p className="ui-caption">{s.detail}</p>
