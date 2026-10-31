@@ -13,5 +13,8 @@ asked=$(date +%s)
 if ! /usr/bin/lockf -s -k -t 0 "$lock" /usr/bin/true; then
   echo "Another end-to-end run is using this Mac ($lock); waiting for it to finish."
 fi
+# caffeinate: the Mac does not idle-sleep while the tests run (run 41174749316
+# froze for ten minutes in a sleep and its tests "took" 25 minutes). It cannot
+# stop a sleep from closing the lid; that is for whoever has the Mac.
 # shellcheck disable=SC2016
-exec /usr/bin/lockf -k "$lock" /bin/bash -c 'echo "Got the end-to-end lock after $(( $(date +%s) - $0 ))s."; exec "$@"' "$asked" "$@"
+exec /usr/bin/lockf -k "$lock" /usr/bin/caffeinate -i -s /bin/bash -c 'echo "Got the end-to-end lock after $(( $(date +%s) - $0 ))s."; exec "$@"' "$asked" "$@"
