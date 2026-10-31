@@ -106,6 +106,17 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
     if (session.revokedReason === 'ROTATED' && Date.now() - session.revokedAt.getTime() < ROTATION_GRACE_MS) {
       throw new AuthError('This session was just refreshed in another tab.', 409, 'refresh_raced');
     }
+    /*
+     * Only a token that was rotated says someone else holds a copy. A session
+     * ended for any other reason (signed out, password changed, left) is over
+     * already, and its own browser still sends the cookie for a moment: a page
+     * that signs out while other requests are in flight gets 401s back, and
+     * each one tries a refresh with the cookie the sign-out has not cleared
+     * yet. Treating that as theft signed the person out on every other device
+     * (seen in CI: Kavya's other sessions all ended a second after B3 signed
+     * out one of hers).
+     */
+    if (session.revokedReason !== 'ROTATED') throw new AuthError('Session is no longer valid. Please sign in again.');
     await platformPrisma.session.updateMany({
       where: { userId: session.userId, revokedAt: null },
       data: { revokedAt: new Date(), revokedReason: 'REUSE_DETECTED' },
@@ -147,6 +158,8 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
     if (now?.revokedReason === 'ROTATED' && now.revokedAt && Date.now() - now.revokedAt.getTime() < ROTATION_GRACE_MS) {
       throw new AuthError('This session was just refreshed in another tab.', 409, 'refresh_raced');
     }
+    /* Signed out (or ended otherwise) between the read and the claim: refused, nothing else ended (see above). */
+    if (now?.revokedReason !== 'ROTATED') throw new AuthError('Session is no longer valid. Please sign in again.');
     await platformPrisma.session.updateMany({
       where: { userId: session.userId, revokedAt: null },
       data: { revokedAt: new Date(), revokedReason: 'REUSE_DETECTED' },

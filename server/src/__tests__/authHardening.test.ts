@@ -177,6 +177,24 @@ describe('sessions', () => {
     await request(app).post('/api/auth/refresh').send({ refreshToken: u.refreshToken }).expect(401);
   });
 
+  /*
+   * Signing out while the page still has requests out: they come back 401 and
+   * the browser tries a refresh with the cookie the sign-out has not cleared
+   * yet. That is the same browser, not a thief; the person's other devices
+   * stay signed in.
+   */
+  it('refuses a signed-out token without ending the person’s other sessions', async () => {
+    const u = await makeUser();
+    const other = await request(app).post('/api/auth/login').send({ emailOrUsername: u.email, password: u.password }).expect(200);
+
+    await request(app).post('/api/auth/logout').set('Cookie', `neev_rt=${encodeURIComponent(u.refreshToken)}`).expect(200);
+    await request(app).post('/api/auth/refresh').set('Cookie', `neev_rt=${encodeURIComponent(u.refreshToken)}`).expect(401);
+
+    expect(await platformPrisma.session.count({ where: { userId: u.id, revokedReason: 'REUSE_DETECTED' } })).toBe(0);
+    await request(app).get('/api/auth/me').set('Authorization', `Bearer ${other.body.token}`).expect(200);
+    await request(app).post('/api/auth/refresh').set('Cookie', `neev_rt=${encodeURIComponent(refreshCookieValue(other))}`).expect(200);
+  });
+
   it('lists active sessions and ends every one but the caller’s', async () => {
     const u = await makeUser();
     await request(app).post('/api/auth/login').send({ emailOrUsername: u.email, password: u.password }).expect(200);

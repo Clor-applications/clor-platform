@@ -129,6 +129,13 @@ artifact for 14 days.
 `.github/workflows/ci.yml`, job `e2e` on the Mac runners: `e2e-smoke` on every
 pull request after `verify`, `e2e-full` nightly and on a run by hand, each on a
 database of its own on the CI Postgres (5434), dropped at the end. One retry in
-CI (a test that needed it is reported as flaky), none locally. The staging
+CI (a test that needed it is reported as flaky, with its first error, in
+E2E-RESULTS.md, the run's summary and a warning on the run), none locally. One
+e2e run uses the Mac at a time (`scripts/ci/one-at-a-time.sh`); a second waits.
+
+**Waiting**: wait on the result a person would see (the saved value, the row,
+the message), never on a moment in between (a button's label while it saves,
+network idle) and never on a fixed sleep. A busy CI Mac makes every in-between
+moment shorter or longer than it was on your machine. The staging
 nightly (`e2e-staging`) is wired but off until its secrets exist:
 docs/CI-ON-MAC.md, "End-to-end tests".

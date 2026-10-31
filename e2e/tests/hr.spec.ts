@@ -191,7 +191,13 @@ test.describe('Kavya runs HR', () => {
     }
     await kavya.main.getByLabel('Preferred name').fill('Vicky');
     await kavya.main.getByRole('button', { name: 'Save' }).click();
-    await expect(kavya.main.getByRole('button', { name: 'Save' })).toBeHidden();
+    /*
+     * The first save has landed: the form is gone and the record shows the new name.
+     * Not "Save is hidden": the button reads "Saving…" while the request is out, so that
+     * passed at once and the second tab's save raced the first (CI run 41184412669).
+     */
+    await expect(kavya.main.getByLabel('Preferred name')).toBeHidden();
+    await expect(kavya.main.getByRole('tabpanel')).toContainText('Vicky');
 
     const other = second.getByRole('main');
     await other.getByLabel('Preferred name').fill('Vik');
