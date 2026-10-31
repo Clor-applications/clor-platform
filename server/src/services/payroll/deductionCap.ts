@@ -67,8 +67,9 @@ export function capDeductions(opts: { percent: number; wages: number; counted: n
 }
 
 /** The payslip's line words for a deduction it took only part of: "Loan recovery (₹4,000 of ₹10,000; ₹6,000 next month)". */
-export const partWords = (name: string, taken: number, due: number) =>
-  `${name} (${inr(taken)} of ${inr(due)}; ${inr(round2(due - taken))} next month)`.slice(0, 120);
+export const partWords = (name: string, taken: number, due: number, leaving = false) =>
+  /* Somebody leaving has no next month: the rest goes to their full and final (QA of #82). */
+  `${name} (${inr(taken)} of ${inr(due)}; ${inr(round2(due - taken))} ${leaving ? 'to the full and final' : 'next month'})`.slice(0, 120);
 
 export const inr = (n: number) => `₹${round2(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 

@@ -1,5 +1,11 @@
 # clor-coder-payroll
 
+## 2026-10-31 12:20 IST — Payroll — re-review fixes for #82 (343ee91a)
+- Did: an earlier month counts as done for an instalment only for the person's own pay group (or a company-wide run, or a closed month), on the run and on the loan screen; this month's instalments match RECOVERED only on this run's own payslips. A carried recovery row corrected and back for approval is listed on the full and final as its own traced line and taken by it on Paid (CONSUMED by the settlement, so People counts it once; cancelling it would have shown it owed again). A leaver's part-taken recovery line reads "… to the full and final".
+- Evidence: 3 new tests in payrollQa82.test.ts (two pay groups; split, unapproved correction, F&F paid, People 8,000 closed; leaver line), each failed first. Server on 5434: 48 files, 614 passed. tsc clean.
+- Next: QA spot-check.
+- Blocked on: nothing.
+
 ## 2026-10-31 11:40 IST — Payroll — QA retest fixes for #82 (03f92a08)
 - Did: closing a month warns of drafts too (never taken unless moved), same confirm and audit; an instalment left due in a month whose payroll is done is taken by the next run, named "carried from" that month, and the loan says so; touch scope on the Pay runs and Salary slips lists; People Absences hold and release dates in the India day; an edited recovery waiting for approval shows its new figure in People (and the F&F folds that figure); the carried-row form hint; a leaver's payslip note sends the rest to the full and final; the hold always mentions the authenticator code; the owner is not told the owner has to approve.
 - Evidence: 4 new server tests in payrollQa82.test.ts, each failed first, plus the loan screen assertion; 3 new web tests (SalarySlips, PayrollAdjustments, FinalSettlements) written for the new behaviour, not run against the old code. Server on 5434: 48 files, 611 passed. Web apps/payroll, apps/attendance, apps/people time: 61 passed. tsc clean. Browser 5211/4031: December close warned of the ₹3,500 draft (1440); loan LN-2026-0009 shows "October 2026's payroll is done, so the next one takes it" (1440); Pay runs and Salary slips lists at 390: no control under 44px, no sideways scroll.

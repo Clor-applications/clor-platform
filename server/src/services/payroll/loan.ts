@@ -207,9 +207,16 @@ export async function recoveriesDue(
    * instalment scheduled into October after October was approved).
    */
   const doneRuns = earlier.length
-    ? await payrollPrisma.payrollRun.findMany({ where: { orgId, periodId: { in: earlier.map((p) => p.id) }, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] } }, select: { periodId: true } })
+    ? await payrollPrisma.payrollRun.findMany({ where: { orgId, periodId: { in: earlier.map((p) => p.id) }, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] } }, select: { periodId: true, payGroupId: true } })
     : [];
-  const done = new Set([...earlier.filter((p) => p.isLocked).map((p) => p.id), ...doneRuns.map((r) => r.periodId)]);
+  /* Done for whom: a closed month for everybody; a run for the company as a whole, or for the person's own pay group, not another group's (re-review of #82). */
+  const locked = new Set(earlier.filter((p) => p.isLocked).map((p) => p.id));
+  const groupOf = new Map(
+    (doneRuns.some((r) => r.payGroupId) ? await payrollPrisma.employeePayrollProfile.findMany({ where: { orgId, employeeId: { in: employeeIds } }, select: { employeeId: true, payGroupId: true } }) : []).map((x) => [x.employeeId, x.payGroupId]),
+  );
+  const doneFor = (employeeId: string, period: string | null) =>
+    Boolean(period) && (locked.has(period!) || doneRuns.some((r) => r.periodId === period && (!r.payGroupId || r.payGroupId === groupOf.get(employeeId))));
+  const done = new Set([...locked, ...doneRuns.map((r) => r.periodId)]);
 
   const loans = await payrollPrisma.payrollLoan.findMany({
     where: { orgId, employeeId: { in: employeeIds }, status: { in: ['ACTIVE', 'COMPLETED'] } },
@@ -217,7 +224,8 @@ export async function recoveriesDue(
       installments: {
         where: {
           OR: [
-            { periodId, carriedByRunId: null, status: { in: ['PENDING', 'RECOVERED'] } },
+            /* This month's own: still due, or taken by this run's own payslips, never another run's. */
+            { periodId, carriedByRunId: null, OR: [{ status: 'PENDING' }, ...takenHere] },
             ...(done.size
               ? [{ periodId: { in: [...done] }, carriedByRunId: null, OR: [{ status: 'PENDING' }, ...takenHere] }]
               : []),
@@ -245,6 +253,9 @@ export async function recoveriesDue(
       /* This period's own, already taken by another run's payslip, is not this run's. */
       if (installment.status === 'RECOVERED' && installment.slipId && own.length && !own.includes(installment.slipId)) continue;
       if (installment.status === 'RECOVERED' && !own.length) continue;
+      /* An earlier month's, only where that month is done for this person's own payroll. */
+      const stuck = installment.periodId && installment.periodId !== periodId && done.has(installment.periodId);
+      if (stuck && !doneFor(loan.employeeId, installment.periodId)) continue;
       due.push({
         loanId: loan.id,
         installmentId: installment.id,
@@ -256,8 +267,8 @@ export async function recoveriesDue(
         loanNumber: loan.number,
         loanType: loan.type,
         /* Left in a month that is done: named and ordered as carried from it. */
-        carriedFromPeriodId: installment.carriedFromPeriodId || (installment.periodId && done.has(installment.periodId) ? installment.periodId : null),
-        carriedFromStart: (() => { const from = installment.carriedFromPeriodId || (installment.periodId && done.has(installment.periodId) ? installment.periodId : null); return from ? startOf.get(from) || null : null; })(),
+        carriedFromPeriodId: installment.carriedFromPeriodId || (stuck ? installment.periodId : null),
+        carriedFromStart: (() => { const from = installment.carriedFromPeriodId || (stuck ? installment.periodId : null); return from ? startOf.get(from) || null : null; })(),
       });
     }
   }

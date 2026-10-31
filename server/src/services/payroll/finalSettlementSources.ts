@@ -90,11 +90,16 @@ const waitingInPayroll = (orgId: string, employeeId: string) =>
     where: {
       orgId,
       employeeId,
-      status: 'APPROVED',
       OR: [
-        { type: 'DEDUCTION', carriedByRunId: { not: null } },
-        { type: 'DEDUCTION', id: { startsWith: 'advance-recover:' } },
-        { type: 'EARNING', id: { startsWith: 'expense-claim:' } },
+        { status: 'APPROVED', type: 'DEDUCTION', carriedByRunId: { not: null } },
+        { status: 'APPROVED', type: 'DEDUCTION', id: { startsWith: 'advance-recover:' } },
+        { status: 'APPROVED', type: 'EARNING', id: { startsWith: 'expense-claim:' } },
+        /*
+         * A carried row corrected and back for approval: still owed, and no
+         * payroll will run for a leaver to take it, so the settlement takes it
+         * (re-review of #82; left out, it was orphaned when the F&F was paid).
+         */
+        { status: 'DRAFT', type: 'DEDUCTION', carriedByRunId: { not: null } },
       ],
     },
     orderBy: { createdAt: 'asc' },
@@ -165,7 +170,7 @@ export async function peopleMoneyLines(orgId: string, employeeId: string): Promi
         kind: 'DEDUCTION',
         amount,
         explanation: (d.carriedByRunId
-          ? `${d.reason || 'Carried from an earlier payroll'}. Held back by the share of wages and not taken by a payroll since.`
+          ? `${d.reason || 'Carried from an earlier payroll'}. Held back by the share of wages and not taken by a payroll since.${d.status === 'DRAFT' ? ' Back for approval in Payroll; paying this settlement takes it.' : ''}`
           : `${inr(amount)} approved in Payroll to come off salary and not taken by a payroll yet.`).slice(0, 500),
         source: { type: 'CARRY', id: d.id, ref: number || d.reference, owed: amount, ...(advanceId ? { advanceId } : {}) },
       });
@@ -222,7 +227,8 @@ export async function staleSources(orgId: string, lines: SettlementLine[]) {
       if (!c || !now || now.owed + 0.005 < l.amount || grew(src, now.owed) || (src.draftId || null) !== now.draftId) out.push(`claim ${c?.number || ''}`.trim());
     } else if (type === 'CARRY') {
       const d = await payrollPrisma.payrollAdjustment.findFirst({ where: { orgId, id }, select: { status: true, amount: true } });
-      if (!d || d.status !== 'APPROVED' || Number(d.amount) + 0.005 < l.amount || grew(src, Number(d.amount))) out.push(src.advanceId ? `the recovery of advance ${src.ref || ''}`.trim() : 'a deduction waiting in Payroll');
+      /* Approved, or a carried row back for approval (taken all the same): anything else has moved. */
+      if (!d || !['APPROVED', 'DRAFT'].includes(d.status) || Number(d.amount) + 0.005 < l.amount || grew(src, Number(d.amount))) out.push(src.advanceId ? `the recovery of advance ${src.ref || ''}`.trim() : 'a deduction waiting in Payroll');
     }
   }
   return out;
@@ -324,7 +330,7 @@ export async function closePayrollSources(tx: any, orgId: string, settlementId: 
       const take = round2(l.amount);
       const rest = row ? round2(Number(row.amount) - take) : 0;
       const n = row && rest > -0.005
-        ? await tx.payrollAdjustment.updateMany({ where: { orgId, id: row.id, status: 'APPROVED', amount: row.amount }, data: { status: 'CONSUMED', consumedByRunId: by, amount: take } })
+        ? await tx.payrollAdjustment.updateMany({ where: { orgId, id: row.id, status: { in: ['APPROVED', 'DRAFT'] }, amount: row.amount }, data: { status: 'CONSUMED', consumedByRunId: by, amount: take } })
         : { count: 0 };
       if (!n.count) throw new SourcesChangedError('Something waiting in Payroll this settlement takes has changed since. Cancel the settlement and work it out again.');
       if (rest > 0.005) {

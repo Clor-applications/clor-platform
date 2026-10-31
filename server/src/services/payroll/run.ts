@@ -1259,7 +1259,7 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
         adjustmentLines.push({
           componentId: d.componentId,
           componentCode: d.code,
-          componentName: rest > 0 ? partWords(d.name, take, d.due) : d.name,
+          componentName: rest > 0 ? partWords(d.name, take, d.due, Boolean(employee.dateOfLeaving && String(employee.dateOfLeaving).slice(0, 10) <= ctx.period.endDate)) : d.name,
           type: 'DEDUCTION',
           amount: take,
           isTaxable: false,

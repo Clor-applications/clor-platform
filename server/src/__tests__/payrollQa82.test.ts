@@ -586,3 +586,83 @@ describe("retest 03f92a08: the owner is not told the owner has to approve", () =
     expect(r.body.error).not.toContain('the owner');
   }, 120_000);
 });
+
+/* Re-review of 343ee91a. */
+describe('re-review 343ee91a: an instalment and two pay groups', () => {
+  it("another group's approved month is not this person's: their own run takes it, and calculates", async () => {
+    const c = await makeOwner();
+    const oct = (await api.post(c, '/periods', { name: `October ${rnd()}`, startDate: '2026-10-01', endDate: '2026-10-31', paymentDate: '2026-10-31' }).expect(201)).body.period.id;
+    const nov = (await api.post(c, '/periods', { name: `November ${rnd()}`, startDate: '2026-11-01', endDate: '2026-11-30', paymentDate: '2026-11-30' }).expect(201)).body.period.id;
+    const groupA = (await api.post(c, '/pay-groups', { name: `Weavers ${rnd()}`, frequency: 'MONTHLY' }).expect(201)).body.payGroup.id;
+    const groupB = (await api.post(c, '/pay-groups', { name: `Office ${rnd()}`, frequency: 'MONTHLY' }).expect(201)).body.payGroup.id;
+    const r = await onePerson(c, { periodId: oct });
+    const profile = await own(c, () => payrollPrisma.employeePayrollProfile.findFirstOrThrow({ where: { orgId: c.orgId, employeeId: r.employeeId } }));
+    await own(c, () => payrollPrisma.employeePayrollProfile.update({ where: { id: profile.id }, data: { payGroupId: groupB } }));
+    const comp = await api.post(c, '/components', { name: 'Salary advance', code: 'SALADV', type: 'DEDUCTION', calculationMethod: 'FIXED', isVariable: true, displayOrder: 90 }).expect(201);
+    await own(c, async () => {
+      const loan = await payrollPrisma.payrollLoan.create({ data: { accountId: c.accountId, orgId: c.orgId, number: `L-${rnd()}`, employeeId: r.employeeId, type: 'SALARY_ADVANCE', principal: 2000, startDate: '2026-10-01', outstandingBalance: 2000, status: 'ACTIVE', recoveryComponentId: comp.body.component.id, createdByUserId: 'test' } as any });
+      await payrollPrisma.payrollLoanInstallment.create({ data: { accountId: c.accountId, orgId: c.orgId, loanId: loan.id, periodId: oct, sequence: 1, dueAmount: 2000, principalAmount: 2000, interestAmount: 0, status: 'PENDING' } });
+    });
+    const runA = (await api.post(c, '/runs', { periodId: oct, payGroupId: groupA }).expect(201)).body.run.id;
+    await own(c, () => payrollPrisma.payrollRun.update({ where: { id: runA }, data: { status: 'APPROVED' } }));
+    const taken = async (runId: string) => {
+      await api.post(c, `/runs/${runId}/validate`).expect(200);
+      const out = await api.post(c, `/runs/${runId}/calculate`);
+      expect(out.status).toBe(200);
+      const slip = await own(c, () => payrollPrisma.salarySlip.findFirst({ where: { orgId: c.orgId, runId, employeeId: r.employeeId }, include: { lines: true } }));
+      return slip?.lines.filter((l) => l.componentCode === 'SALADV' && Number(l.amount) > 0).length ?? 0;
+    };
+    /* November for group B does not take October's: October is still open for group B. */
+    expect(await taken((await api.post(c, '/runs', { periodId: nov, payGroupId: groupB }).expect(201)).body.run.id)).toBe(0);
+    /* Group B's own October run takes it, and calculates. */
+    expect(await taken((await api.post(c, '/runs', { periodId: oct, payGroupId: groupB }).expect(201)).body.run.id)).toBe(1);
+  }, 240_000);
+});
+
+describe('re-review 343ee91a: a carried recovery corrected and not yet approved, then the full and final', () => {
+  it('is its own traced line, taken by the settlement once, and People closes exact', async () => {
+    const c = await makeOwner();
+    const employeeId = await leaver(c);
+    const rails = await recoveryRails(c);
+    const runId = (await api.post(c, '/runs', { periodId: rails.periodId }).expect(201)).body.run.id;
+    await own(c, () => payrollPrisma.payrollRun.update({ where: { id: runId }, data: { status: 'APPROVED' } }));
+    const a = await advance(c, employeeId, { amount: 8000, recoveredAmount: 5000, recoveringAmount: 3000 });
+    const root = `advance-recover:${a.id}:${rails.periodId}`;
+    const carry = `carry-${rnd()}`;
+    await own(c, async () => {
+      await payrollPrisma.payrollAdjustment.create({ data: { id: root, accountId: c.accountId, orgId: c.orgId, employeeId, componentId: rails.componentId, periodId: rails.periodId, type: 'DEDUCTION', amount: 5000, reason: 'Advance recovery', reference: root, status: 'CONSUMED', consumedByRunId: runId, approvedAt: new Date(), createdByUserId: 'test' } });
+      await payrollPrisma.payrollAdjustment.create({ data: { id: carry, accountId: c.accountId, orgId: c.orgId, employeeId, componentId: rails.componentId, periodId: rails.periodId, type: 'DEDUCTION', amount: 3000, reason: 'Carried from October: Advance recovery', reference: root, status: 'APPROVED', approvedAt: new Date(), carriedFromId: root, carriedByRunId: runId, createdByUserId: 'test' } });
+      await peoplePrisma.employeeAdvance.update({ where: { id: a.id }, data: { payrollAdjustmentId: root } });
+    });
+    await api.put(c, `/adjustments/${carry}`, { employeeId, componentId: rails.componentId, periodId: rails.periodId, amount: 1000, correctionReason: 'Agreed with the owner, 2 Nov' }).expect(200);
+    expect((await adjOf(c, carry)).status).toBe('DRAFT');
+    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const traced = s.lines.filter((l: any) => l.source && (l.source.id === a.id || l.source.id === carry)).map((l: any) => [l.source.type, l.amount]).sort();
+    expect(traced).toEqual([['ADVANCE', 2000], ['CARRY', 1000]]);
+    await api.post(c, `/settlements/${s.id}/approve`).expect(200);
+    await api.post(c, `/settlements/${s.id}/paid`, {}).expect(200);
+    expect(await adjOf(c, carry)).toMatchObject({ status: 'CONSUMED', consumedByRunId: `settlement:${s.id}` });
+    const x = await peopleAdvance(c, a.id);
+    expect([x.status, x.recovered, x.recovering, x.open]).toEqual(['CLOSED', 8000, 0, 0]);
+  }, 240_000);
+});
+
+describe("re-review 343ee91a: a leaver's part-taken recovery", () => {
+  it('points the rest to the full and final, not next month', async () => {
+    const c = await makeOwner();
+    await api.put(c, '/settings/deduction-cap', { percent: 10, countsStatutory: true, countsPenalties: true }).expect(200);
+    const rails = await recoveryRails(c);
+    const basic = await api.post(c, '/components', { name: 'Basic', code: 'BASIC', type: 'EARNING', calculationMethod: 'PERCENTAGE', percentage: 100, calculationBase: 'MONTHLY_CTC', displayOrder: 1 }).expect(201);
+    const structure = await api.post(c, '/structures', { name: `Staff ${rnd()}`, frequency: 'MONTHLY', effectiveFrom: '2025-01-01', status: 'ACTIVE', components: [{ componentId: basic.body.component.id, displayOrder: 1 }, { componentId: rails.componentId, displayOrder: 85 }] }).expect(201);
+    const employeeId = await leaver(c);
+    await api.post(c, '/assignments', { employeeId, structureId: structure.body.structure.id, effectiveFrom: '2025-03-01', annualCtc: 600_000 }).expect(201);
+    await adjustment(c, { id: `advance-recover:x${rnd()}:${rails.periodId}`, employeeId, componentId: rails.componentId, periodId: rails.periodId, amount: 8000, status: 'APPROVED' });
+    const runId = (await api.post(c, '/runs', { periodId: rails.periodId }).expect(201)).body.run.id;
+    await api.post(c, `/runs/${runId}/validate`).expect(200);
+    await api.post(c, `/runs/${runId}/calculate`).expect(200);
+    const slip = await own(c, () => payrollPrisma.salarySlip.findFirstOrThrow({ where: { orgId: c.orgId, runId }, include: { lines: true } }));
+    const line = slip.lines.find((l) => l.componentCode === 'ADVREC' && Number(l.amount) > 0)!;
+    expect(line.componentName).toMatch(/to the full and final\)$/);
+    expect(line.componentName).not.toMatch(/next month/);
+  }, 180_000);
+});
