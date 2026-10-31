@@ -40,11 +40,6 @@ export async function createSalaryRevision(payload) {
   return revision;
 }
 
-export async function updateSalaryRevision(id, payload) {
-  const { revision } = await apiFetch(`${base()}/${encodeURIComponent(id)}`, { ...opts, method: 'PUT', body: payload });
-  return revision;
-}
-
 const act = (id, path) => apiFetch(`${base()}/${encodeURIComponent(id)}/${path}`, { ...opts, method: 'POST' });
 
 export const submitRevisionForReview = (id) => act(id, 'submit-review');

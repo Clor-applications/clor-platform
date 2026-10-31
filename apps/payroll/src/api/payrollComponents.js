@@ -105,20 +105,3 @@ export async function setComponentConditions(id, conditions) {
   });
   return component;
 }
-
-/** Naming one person in or out, which beats whatever the conditions say. */
-export async function setComponentEmployee(id, { employeeId, mode }) {
-  const { target } = await apiFetch(`${base()}/${encodeURIComponent(id)}/employees`, {
-    ...opts,
-    method: 'POST',
-    body: { employeeId, mode },
-  });
-  return target;
-}
-
-export async function removeComponentEmployee(id, employeeId) {
-  return apiFetch(`${base()}/${encodeURIComponent(id)}/employees/${encodeURIComponent(employeeId)}`, {
-    ...opts,
-    method: 'DELETE',
-  });
-}

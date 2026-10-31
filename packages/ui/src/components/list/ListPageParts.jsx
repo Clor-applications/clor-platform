@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ChevronDown, Download, FileText, MoreVertical, Search, SlidersHorizontal, Table2, X } from '@ui/components/ui/lineIcons';
+import { ChevronDown, Download, FileText, MoreVertical, Search, SlidersHorizontal, Table2 } from '@ui/components/ui/lineIcons';
 
 import Popover from '../ui/Popover';
 import { formatMoney } from '../../utils/money';
@@ -116,53 +116,6 @@ export function StatCards({ cards, company, dense = false }) {
         </Tile>
       ))}
     </section>
-  );
-}
-
-/**
- * Status as tabs with counts.
- *
- * The counts are the point: "Overdue 17" says there is something to do before
- * anything has been clicked. A tab showing 0 stays — one that appears and
- * disappears is a tab people stop trusting, and its absence is indistinguishable
- * from a bug.
- */
-export function StatusTabs({ tabs, value, counts, onChange, children }) {
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <div className="flex items-center gap-1.5 flex-wrap" role="tablist" aria-label="Status">
-        {tabs.map((t) => {
-          const on = value === t.value;
-          return (
-            <button
-              key={t.value || 'all'}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => onChange(t.value)}
-              className="ui-btn ui-btn-sm"
-              style={
-                on
-                  ? { borderColor: 'rgb(var(--brand))', color: 'rgb(var(--brand-ink))', backgroundColor: 'rgb(var(--accent-soft))' }
-                  : { borderColor: 'rgb(var(--border))', color: 'rgb(var(--fg-muted))' }
-              }
-            >
-              {t.label}
-              <span
-                className="ui-mono text-xs rounded-full px-1.5"
-                style={{
-                  backgroundColor: on ? 'rgb(var(--brand) / 0.10)' : 'rgb(var(--surface-sunken))',
-                  color: on ? 'rgb(var(--brand-ink))' : 'rgb(var(--fg))',
-                }}
-              >
-                {counts[t.value] ?? 0}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      <div className="ms-auto flex items-center gap-2">{children}</div>
-    </div>
   );
 }
 
@@ -343,55 +296,6 @@ export function MoreButton({ items, onSelect }) {
   );
 }
 
-/**
- * A split primary: the face does the common thing in one click, the caret
- * offers the less common ways in. When there is nothing else to offer it
- * renders as an ordinary button rather than a caret onto an empty menu.
- */
-export function SplitPrimary({ label, options = [], onSelect, children }) {
-  const ref = useRef(null);
-  const [open, setOpen] = useState(false);
-  if (!options.length) return children;
-  return (
-    <span className="inline-flex">
-      {children}
-      <button
-        type="button"
-        ref={ref}
-        onClick={() => setOpen((v) => !v)}
-        className="ui-btn ui-btn-primary !rounded-s-none !px-2"
-        style={{ borderInlineStart: '1px solid rgb(255 255 255 / 0.28)' }}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={`More ways to create ${label}`}
-      >
-        <ChevronDown size={16} aria-hidden="true" />
-      </button>
-      {open ? (
-        <Popover anchorRef={ref} onClose={() => setOpen(false)} minWidth={236}>
-          <div className="py-1" role="menu">
-            {options.map((o) => (
-              <button
-                key={o.key}
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onSelect(o.key);
-                }}
-                className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm hover:bg-[rgb(var(--surface-sunken))]"
-              >
-                {o.Icon ? <o.Icon size={16} aria-hidden="true" /> : null} {o.label}
-              </button>
-            ))}
-            {options.hint ? <p className="ui-caption px-3 pt-1 pb-2">{options.hint}</p> : null}
-          </div>
-        </Popover>
-      ) : null}
-    </span>
-  );
-}
-
 /** PDF, Excel or CSV, over exactly the rows and columns on screen. */
 export function ExportButton({ title, fileName, sheetName, columns, rows, subtitleParts = {}, label = '', metaLines = [], footerRows = [], reportStyle = 'default' }) {
   const ref = useRef(null);
@@ -494,46 +398,6 @@ export function Pagination({ total, page, perPage, pageCount, onPage, onPerPage,
   );
 }
 
-/** One tip, under the table, dismissed for good. */
-export function ListTip({ storageKey, text, actionLabel, onAction, Icon }) {
-  const [dismissed, setDismissed] = useState(() => localStorage.getItem(storageKey) === 'dismissed');
-  if (dismissed) return null;
-  return (
-    <div
-      className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
-      style={{ backgroundColor: 'rgb(var(--info-soft))', color: 'rgb(var(--fg))' }}
-      role="note"
-    >
-      {Icon ? (
-        <Icon size={14} aria-hidden="true" className="shrink-0" style={{ color: 'rgb(var(--info))' }} />
-      ) : null}
-      <span className="min-w-0 truncate" title={text}>{text}</span>
-      {actionLabel && onAction ? (
-        <button
-          type="button"
-          onClick={onAction}
-          className="ui-btn ui-btn-sm"
-          style={{ borderColor: 'currentColor', color: 'inherit', backgroundColor: 'transparent' }}
-        >
-          {actionLabel}
-        </button>
-      ) : null}
-      <button
-        type="button"
-        onClick={() => {
-          localStorage.setItem(storageKey, 'dismissed');
-          setDismissed(true);
-        }}
-        className="ui-btn ui-btn-ghost ui-btn-sm ms-auto"
-        style={{ color: 'inherit' }}
-        aria-label="Dismiss this tip"
-      >
-        <X size={14} aria-hidden="true" />
-      </button>
-    </div>
-  );
-}
-
 /** Page slice plus a clamped page number, the arithmetic every list repeats. */
 export function usePaged(rows, perPage, page) {
   const pageCount = Math.max(1, Math.ceil(rows.length / perPage));
@@ -556,22 +420,3 @@ export function useResetPage(setPage, deps) {
   }
 }
 
-
-/**
- * The strip of filters at the head of a list's table.
- *
- * Search and status live in the page header and the tabs; what is left is what
- * those two cannot say — a customer, a frequency, a date window. Written by
- * hand on the one list that needed it, it was the only list whose filters sat
- * at a different height and inside a different rule from everybody else's.
- */
-export function ListFilterBand({ children }) {
-  return (
-    <div
-      className="flex flex-wrap items-center gap-2 px-4 py-3"
-      style={{ borderBottom: '1px solid rgb(var(--border))' }}
-    >
-      {children}
-    </div>
-  );
-}

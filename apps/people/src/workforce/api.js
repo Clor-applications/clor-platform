@@ -33,7 +33,6 @@ export const listViews = () => apiFetch(`${base()}/saved-views?screen=employees`
 export const saveView = (body) => send('/saved-views', 'POST', body).then((r) => r?.view);
 export const deleteView = (id) => send(`/saved-views/${encodeURIComponent(id)}`, 'DELETE');
 
-export const listDrafts = () => apiFetch(`${base()}/employee-drafts`, opts).then((r) => r?.drafts || []);
 export const getDraft = (id) => apiFetch(`${base()}/employee-drafts/${encodeURIComponent(id)}`, opts).then((r) => r?.draft);
 export const saveDraft = (id, body) => send(`/employee-drafts${id ? `/${encodeURIComponent(id)}` : ''}`, 'PUT', body).then((r) => r?.draft);
 export const deleteDraft = (id) => send(`/employee-drafts/${encodeURIComponent(id)}`, 'DELETE');

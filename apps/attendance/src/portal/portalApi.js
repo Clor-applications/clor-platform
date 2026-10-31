@@ -127,7 +127,6 @@ export const decideApproval = (type, id, body) => call(`/approvals/${encodeURICo
 export const getAttendance = (month) => call(`/attendance${month ? `?month=${encodeURIComponent(month)}` : ''}`);
 export const explainDay = (date) => call(`/attendance/explain?date=${encodeURIComponent(date)}`);
 export const explainLeave = (leaveTypeId, year) => call(`/leave/explain?leaveTypeId=${encodeURIComponent(leaveTypeId)}${year ? `&year=${year}` : ''}`);
-export const askCorrection = (body) => call('/corrections', { method: 'POST', body });
 export const getSchedule = (month) => call(`/schedule${month ? `?month=${encodeURIComponent(month)}` : ''}`);
 export const getLeave = () => call('/leave');
 export const askLeave = (body) => call('/leave', { method: 'POST', body });
@@ -138,36 +137,13 @@ export const cancelLeave = (id) => call(`/leave/${encodeURIComponent(id)}/cancel
 export const editLeave = (id, body) => call(`/leave/${encodeURIComponent(id)}`, { method: 'PUT', body });
 /** Came back early: approved leave that has started now ends on `toDate`. */
 export const shortenLeave = (id, toDate) => call(`/leave/${encodeURIComponent(id)}/shorten`, { method: 'POST', body: { toDate } });
-/** Restricted holidays for a calendar year: { quota, picked, left, holidays: [{ id, date, name, picked, past }] }. */
-export const getRestrictedHolidays = (year) => call(`/holidays/restricted${year ? `?year=${year}` : ''}`);
 export const pickRestrictedHoliday = (holidayId, picked) => call(`/holidays/restricted/${encodeURIComponent(holidayId)}`, { method: 'POST', body: { picked } });
 export const getTax = () => call('/tax');
-/* Ask HR: my HR cases, and a new one (server: portal /hr-cases). */
-export const getHrCases = () => call('/hr-cases');
-export const askHr = (body) => call('/hr-cases', { method: 'POST', body });
 export const saveTax = (body) => call('/tax', { method: 'PUT', body });
 export const changePassword = (current, next) =>
   call('/password', { method: 'POST', body: { current, next } }).then((r) => {
     setPortalToken(r.token);
     return r;
-  });
-
-/** Where the phone is, as precisely as it will say (15 s at most). */
-export const locate = () =>
-  new Promise((resolve, reject) => {
-    if (!navigator.geolocation) return reject(new Error('This browser cannot give your location.'));
-    navigator.geolocation.getCurrentPosition(
-      (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: Math.round(p.coords.accuracy) }),
-      (e) =>
-        reject(
-          new Error(
-            e.code === 1
-              ? 'Location is blocked for this site. Allow it in the browser’s site settings, then try again.'
-              : 'Your location could not be found. Turn on location (GPS) and try again.'
-          )
-        ),
-      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 }
-    );
   });
 
 /** A selfie made small on the phone (640 px, JPEG) before it is sent. */

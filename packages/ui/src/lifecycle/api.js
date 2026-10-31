@@ -45,4 +45,3 @@ export const addClearanceLine = (employeeId, body) => send(`/leaving/${encodeURI
 export const removeClearanceLine = (id) => send(`/clearance-lines/${encodeURIComponent(id)}`, 'DELETE');
 export const enterExitInterview = (employeeId, body) => send(`/leaving/${encodeURIComponent(employeeId)}/exit-interview`, 'POST', body);
 export const decideExitInterview = (employeeId, body) => send(`/leaving/${encodeURIComponent(employeeId)}/exit-interview/outcome`, 'POST', body);
-export const finalPayBoard = () => apiFetch(`${base()}/final-pay`, opts);

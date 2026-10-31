@@ -39,11 +39,6 @@ export async function createPayrollLoan(payload) {
   return loan;
 }
 
-export async function updatePayrollLoan(id, payload) {
-  const { loan } = await apiFetch(`${base()}/${encodeURIComponent(id)}`, { ...opts, method: 'PUT', body: payload });
-  return loan;
-}
-
 export async function approvePayrollLoan(id) {
   const { loan } = await apiFetch(`${base()}/${encodeURIComponent(id)}/approve`, { ...opts, method: 'POST' });
   return loan;

@@ -18,8 +18,6 @@ export const previewLateMarks = (month, marks) => send('/late-marks/preview', 'P
 export const waivePenalty = (employeeId, month, reason) => send(`/late-marks/${id(employeeId)}/waive`, 'POST', { month, reason });
 export const undoPenalty = (employeeId, month) => send(`/late-marks/${id(employeeId)}/undo`, 'POST', { month });
 export const applyPenalties = (month) => send('/late-marks/apply', 'POST', { month });
-/** The signed-in person's own month: { on, policy, late: { count, line }, early, days, status }. */
-export const getMyLateMarks = (month) => get(`/my/late-marks${month ? `?month=${id(month)}` : ''}`);
 
 /** { rules, rows, counts: { open, held }, canAct } */
 export const getAbsences = (status) => get(`/absences?status=${id(status || 'open')}`);
@@ -30,7 +28,6 @@ export const closeAbsence = (caseId, body) => send(`/absences/${id(caseId)}/clos
 export const recordAbsconded = (caseId, body) => send(`/absences/${id(caseId)}/absconded`, 'POST', body);
 export const holdSettlement = (caseId, reason) => send(`/absences/${id(caseId)}/hold`, 'POST', { reason });
 export const releaseSettlement = (caseId, note) => send(`/absences/${id(caseId)}/release`, 'POST', { note });
-export const getSettlementHolds = () => get('/absences/holds').then((r) => r?.holds || []);
 
 /** { night: { from, to, words }, rows: [{ employeeId, name, consent, nightDays, firstNightDay, problem }], totals, canEdit } */
 export const getNightWork = () => get('/night-work');

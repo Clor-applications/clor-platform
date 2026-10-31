@@ -27,9 +27,6 @@ export const updateSchedule = (id, patch) =>
 export const deleteSchedule = (id) =>
   apiFetch(`${base()}/recurring/${encodeURIComponent(id)}`, { method: 'DELETE', ...opts });
 
-export const listScheduleRuns = (id) =>
-  apiFetch(`${base()}/recurring/${encodeURIComponent(id)}/runs`, opts);
-
 /**
  * Raise whatever is due now.
  *
