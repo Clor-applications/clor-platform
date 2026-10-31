@@ -79,7 +79,7 @@ export default function HomeSetup({ openScreen, onState }) {
               {simpleMode.reasons.join(', ').replace(/^./, (c) => c.toUpperCase())}. Simple mode keeps organisation detail, such as legal entities, out of the menu. You can switch it off now, or later in Settings → Modules &amp; Apps.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button type="button" className="ui-btn ui-btn-secondary" disabled={busy === 'simple'} onClick={turnOffSimple}>Show every screen</button>
             <button type="button" className="ui-btn ui-btn-ghost" disabled={busy === 'simple'} onClick={() => change({ action: 'simpleAdviceSeen' }, 'simple')}>Keep it simple</button>
           </div>

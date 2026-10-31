@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { UserMinus } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
@@ -10,7 +10,7 @@ import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
 
-import { READER_PILL, pageLeavers } from './api';
+import { READER_PILL, leavingExtras, pageLeavers } from './api';
 import { PersonCell, Progress, can, crumbs } from './shared';
 import { STAGE_PILL } from './Joining';
 import PlanDrawer from './Plan';
@@ -39,6 +39,27 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
   const tabsRef = useRef(null);
   const tabIndicator = useTabIndicator(tabsRef, view);
   const counts = list.data?.counts || {};
+  /* Opened from a notice (final pay due, a line to sign, an exit interview answered): the plan of that person. */
+  useEffect(() => {
+    if (!p.open) return undefined;
+    let live = true;
+    const found = (list.data?.rows || []).find((r) => r.id === p.open);
+    const take = (r) => { if (live && r) { setOpen(r); updateParams?.({ open: null }, { push: false }); } };
+    if (found) take(found);
+    else if (list.data) {
+      pageLeavers({ view: 'all', limit: 100 })
+        .then(async (d) => {
+          const row = (d?.rows || []).find((r) => r.id === p.open);
+          if (row) return take(row);
+          /* Not in their team, but a no-dues line of theirs: that line opens. */
+          const x = await leavingExtras(p.open);
+          if (x?.lineOnly) take({ ...x.person, lineOnly: true });
+          return undefined;
+        })
+        .catch(() => {});
+    }
+    return () => { live = false; };
+  }, [p.open, list.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (r) => <PersonCell person={r} line={[r.code, r.leavingType ? TYPE_WORD[r.leavingType] || r.leavingType : r.designation].filter(Boolean).join(' · ')} /> },

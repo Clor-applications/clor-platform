@@ -8,6 +8,7 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { apiFetch } from '@platform/http';
 import { orgId } from '@platform/context';
+import { leavingReasons } from '../api/engagement';
 
 /**
  * People report (People audit gap 21): headcount, joiners, leavers and
@@ -37,6 +38,52 @@ function periodsOf(today = todayIst()) {
     { value: 'lastFy', label: `Last financial year (${fy - 1}–${String(fy % 100).padStart(2, '0')})`, from: `${fy - 1}-04-01`, to: lastOf(fy, 3) },
     { value: 'thisYear', label: `This calendar year (${y})`, from: `${y}-01-01`, to: today },
   ];
+}
+
+/**
+ * Why people leave (WORKFLOW-GAP-RESEARCH 4.9): the main reason from exit interviews, month by month,
+ * with how many leavers answered, how many HR thinks could have been kept, and how many stayed.
+ * Shown to whoever may read why someone leaves (Lifecycle); others simply do not get it.
+ */
+export function LeavingReasons() {
+  const req = useRequest(() => leavingReasons(12).catch(() => null), []);
+  const d = req.data;
+  if (!d || !Array.isArray(d.reasons) || !Array.isArray(d.months)) return null;
+  /* A month with only someone who stayed still shows: its "Stayed" is the point (QA on #81). */
+  const months = d.months.filter((m) => m.leavers || m.answered || m.retained || m.couldKeep);
+  const top = d.reasons.slice(0, 4);
+  return (
+    <section aria-labelledby="why-leave" className="mt-8 space-y-3">
+      <h2 id="why-leave" className="ui-t-sec">Why people leave</h2>
+      {!months.length ? <p className="text-sm ui-muted">No leavers in the last 12 months.</p> : (
+        <>
+          {d.reasons.length ? (
+            <ul className="flex flex-wrap gap-2" aria-label="Main reasons, last 12 months">
+              {d.reasons.map((r) => <li key={r.code} className="ui-pill ui-pill-neutral"><span>{r.label}</span> <span className="tabular-nums">{r.count}</span></li>)}
+            </ul>
+          ) : <p className="text-sm ui-muted">No exit interviews answered yet.</p>}
+          <div className="ui-table-scroll">
+            <table className="ui-table w-full">
+              <thead><tr><th scope="col">Month</th><th scope="col" className="text-right">Leavers</th><th scope="col" className="text-right">Answered</th>{top.map((r) => <th key={r.code} scope="col" className="text-right">{r.label}</th>)}<th scope="col" className="text-right">Could have kept</th><th scope="col" className="text-right">Stayed</th></tr></thead>
+              <tbody>
+                {months.map((m) => (
+                  <tr key={m.month}>
+                    <th scope="row" className="font-normal text-left whitespace-nowrap">{monthWord(m.month)}</th>
+                    <td className="text-right tabular-nums">{m.leavers || '—'}</td>
+                    <td className="text-right tabular-nums">{m.answered || '—'}</td>
+                    {top.map((r) => <td key={r.code} className="text-right tabular-nums">{m.reasons?.[r.code] || '—'}</td>)}
+                    <td className="text-right tabular-nums">{m.couldKeep || '—'}</td>
+                    <td className="text-right tabular-nums">{m.retained || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="ui-caption">From exit interviews. Could have kept: HR’s view after the interview.</p>
+        </>
+      )}
+    </section>
+  );
 }
 
 const headcount = (from, to) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/people/headcount?from=${from}&to=${to}`, { skipWarehouseHeader: true });
@@ -79,6 +126,7 @@ export default function PeopleReports({ params = {}, updateParams }) {
           {t ? <p className="ui-caption">{[`Attrition: leavers over the average headcount of the months (${t.averageHeadcount})`, reasons.length ? `Left: ${reasons.map(([k, n]) => `${REASONS[k] || k} ${n}`).join(', ')}` : null].filter(Boolean).join(' · ')}</p> : null}
         </div>
       )}>
+      <>
       {req.error && !d ? <div className="p-4"><ErrorState error={req.error} onRetry={req.reload} body={req.error?.status === 403 ? 'The people report covers the whole company; your role covers your own team.' : undefined} /></div>
         : !d ? <SkeletonCard lines={8} />
           : !months.length || (!t.headcountAtEnd && !t.joiners && !t.leavers) ? <EmptyState title="Nobody in this period" description="Add employees with their joining dates; their months show here." />
@@ -111,6 +159,8 @@ export default function PeopleReports({ params = {}, updateParams }) {
                 </table>
               </div>
             )}
+      {d ? <LeavingReasons /> : null}
+      </>
     </DocumentListShell>
   );
 }

@@ -331,6 +331,19 @@ This notice is also in your documents in the {{orgName}} employee app.`,
     fields: ['name', 'orgName', 'letter', 'reportBy', 'appName', 'appUrl'],
     transactional: true,
   },
+  {
+    key: 'people.automation',
+    label: 'Automation reminder',
+    description: 'A ready-made automation the company switched on (People → Settings → Automations): the joiner’s first-day plan, the exit interview reminder.',
+    subject: '{{orgName}}: {{headline}}',
+    body: `Hello {{name}},
+
+{{body}}
+
+Open the {{orgName}} employee app to see it there too.`,
+    fields: ['name', 'orgName', 'headline', 'body', 'appName', 'appUrl'],
+    transactional: true,
+  },
 ];
 
 export const TEMPLATE_BY_KEY = new Map(EMAIL_TEMPLATES.map((t) => [t.key, t]));

@@ -1,3 +1,4 @@
+import { dayThisYear } from '../services/people/engagement/greetings.js';
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 
@@ -49,7 +50,7 @@ import { ask as askToRead, remind as ackRemind, report as ackReport } from '../s
 import { dataHealth, readinessOf } from '../services/people/dataHealth.js';
 import { KIND_LABEL, MERGEABLE, OrgError, STRUCTURE_KINDS, actionOf, ensureOrgDetail, headFields, headsOf, inUseRefusal, logStructure, mergeInto, movePeople, organizationOverview, peopleIn, retireBranch, structureChanges, structureHistory, targetFor, type Kind } from '../services/people/organization.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
-import { KINDS, checklistOf, cleanItems, itemsFor, myTasks, openTasks, ownPlanRefusal, redatePlan, startChecklist, tickRefusal, type Kind as ChecklistKind } from '../services/people/checklists.js';
+import { KINDS, checklistOf, cleanItems, itemsFor, myTasks, openTasks, ownPlanRefusal, lastDayMoved, redatePlan, startChecklist, tickRefusal, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { settleReaderTask } from '../services/people/lifecycle/readersDone.js';
 import { calendar, evidenceOf } from '../services/people/compliance.js';
 import { homeTodos } from '../services/people/home.js';
@@ -479,7 +480,6 @@ peopleRouter.get('/orgs/:orgId/people/overview', can(PermissionAction.VIEW, EMPL
     where: { accountId, orgId, ...scopeWhere(await teamScope(req)) },
     select: { id: true, name: true, status: true, departmentId: true, department: true, dateOfJoining: true, dateOfLeaving: true, dateOfBirth: true, photoUrl: true, designation: true },
   });
-  const today = new Date();
   /* India's month, and today's headcount: someone joining next week is not working here yet. */
   const todayIn = todayIst();
   const ym = todayIn.slice(0, 7);
@@ -489,14 +489,16 @@ peopleRouter.get('/orgs/:orgId/people/overview', can(PermissionAction.VIEW, EMPL
     const k = r.department || 'Unassigned';
     byDepartment.set(k, (byDepartment.get(k) || 0) + 1);
   }
-  /* Birthdays in the next 30 days, by month-day, whatever the year. */
+  /* Birthdays in the next 30 days, by month-day, whatever the year; never someone who asked not to be announced (WORKFLOW-GAP-RESEARCH 4.8). */
+  const optedOut = new Set((await peoplePrisma.celebrationOptOut.findMany({ where: { orgId }, select: { employeeId: true } })).map((o) => o.employeeId));
   const soon = active
-    .filter((r) => r.dateOfBirth && ISO_DATE.test(r.dateOfBirth))
+    .filter((r) => r.dateOfBirth && ISO_DATE.test(r.dateOfBirth) && !optedOut.has(r.id))
     .map((r) => {
-      const [, m, d] = r.dateOfBirth!.split('-').map(Number);
-      let next = new Date(today.getFullYear(), m - 1, d);
-      if (next < new Date(today.getFullYear(), today.getMonth(), today.getDate())) next = new Date(today.getFullYear() + 1, m - 1, d);
-      return { id: r.id, name: r.name, photoUrl: r.photoUrl, date: next.toISOString().slice(0, 10), days: Math.round((next.getTime() - today.getTime()) / 86_400_000) };
+      /* Worked in India's calendar days, as strings: a server clock in another zone shifted it by a day. */
+      const year = Number(todayIn.slice(0, 4));
+      let next = dayThisYear(r.dateOfBirth!, year);
+      if (next < todayIn) next = dayThisYear(r.dateOfBirth!, year + 1);
+      return { id: r.id, name: r.name, photoUrl: r.photoUrl, date: next, days: Math.round((Date.parse(`${next}T00:00:00Z`) - Date.parse(`${todayIn}T00:00:00Z`)) / 86_400_000) };
     })
     .filter((b) => b.days <= 30)
     .sort((a, b) => a.days - b.days)
@@ -511,6 +513,8 @@ peopleRouter.get('/orgs/:orgId/people/overview', can(PermissionAction.VIEW, EMPL
       .map((r) => ({ id: r.id, name: r.name, designation: r.designation, date: r.dateOfJoining })),
     leftThisMonth: rows.filter((r) => r.status === 'LEFT' && String(r.dateOfLeaving || '').startsWith(ym)).length,
     upcomingBirthdays: soon,
+    /* Left out of the anniversaries Home works out from the list, too. */
+    celebrationOptOuts: [...optedOut].filter((id) => active.some((r) => r.id === id)),
   });
 });
 
@@ -1186,7 +1190,7 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
     else if (row.status !== 'LEFT' && existing.status === 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
     /* A moved joining day, or a moved last day while on notice, moves that plan's open tasks with it (JCL-A04). */
     if (row.dateOfJoining !== existing.dateOfJoining && row.status !== 'LEFT') await redatePlan(orgId, row.id, 'JOINING', row.dateOfJoining);
-    if (row.dateOfLeaving !== existing.dateOfLeaving && row.status === 'ON_NOTICE') await redatePlan(orgId, row.id, 'LEAVING', row.dateOfLeaving);
+    if (row.dateOfLeaving !== existing.dateOfLeaving && row.status === 'ON_NOTICE') await lastDayMoved(orgId, row.id, existing.dateOfLeaving, row.dateOfLeaving, { reopenPaid: true });
     /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted; the leaving task waits for the readers to confirm. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await settleReaderTask({ accountId, orgId, userId: req.auth!.userId }, row, await revokeFromReaders(orgId, existing, req.auth!.userId));
     /* Suspended means not at work: off the doors while suspended, back on when reactivated (W9). */

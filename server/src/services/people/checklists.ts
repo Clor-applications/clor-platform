@@ -305,6 +305,31 @@ export function tickRefusal(task: { doneAt: Date | null; needsNote: boolean; sys
 }
 
 /**
+ * The last day moved (QA on #81): the open steps move with it. While they are still on notice, a ticked
+ * "Final wages paid" (or final settlement) step of this stint is opened again, as the wages it marked were for
+ * the old day. Once they have left (a past day corrected), a paid step stays paid: only dates move. An earlier
+ * stint's steps (a rehire) are never touched. Returns how many steps were opened again.
+ */
+export async function lastDayMoved(orgId: string, employeeId: string, from: string | null | undefined, to: string | null | undefined, opts: { reopenPaid: boolean }) {
+  if (!from || !to || from === to || !ISO.test(to)) return 0;
+  let reopened = 0;
+  if (opts.reopenPaid) {
+    const joined = (await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { dateOfJoining: true } }))?.dateOfJoining;
+    const r = await peoplePrisma.checklistTask.updateMany({
+      where: {
+        orgId, employeeId, kind: 'LEAVING', doneAt: { not: null },
+        ...(joined ? { createdAt: { gte: new Date(`${joined}T00:00:00+05:30`) } } : {}),
+        OR: [{ title: { contains: 'final wages', mode: 'insensitive' } }, { title: { contains: 'final settlement', mode: 'insensitive' } }],
+      },
+      data: { doneAt: null, doneByUserId: null, note: `Opened again: the last day moved from ${from} to ${to}.` },
+    });
+    reopened = r.count;
+  }
+  await redatePlan(orgId, employeeId, 'LEAVING', to);
+  return reopened;
+}
+
+/**
  * A joining day or last day moved (JCL-A04, JCL-025): the open tasks of that
  * plan move with it, each by its own offset. Done tasks keep their dates.
  */

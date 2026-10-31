@@ -30,6 +30,8 @@ import { notify } from '@ui/components/ui/notify';
 import { formatDateIn } from '@ui/utils/dates';
 import { platformContext } from '@platform/context';
 import { HomeCheckIn } from '@ui/timeOff/MyDays';
+import { FinalPayBanner, FinalPayList } from '@ui/lifecycle/LeavingExtras';
+import { finalPayList } from '../api/engagement';
 import HomeSetup from './HomeSetup';
 
 const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'warn' }, info: { label: 'When you can', pill: 'neutral' } };
@@ -238,6 +240,8 @@ export default function PeopleOverview({ openScreen }) {
   const [leave, setLeave] = useState(null);
   const [news, setNews] = useState(null);
   const [events, setEvents] = useState(null);
+  /* Final pay due for leavers whose last day has come (WORKFLOW-GAP-RESEARCH 4.3). */
+  const [finalPay, setFinalPay] = useState([]);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const revealRoot = useReveal();
@@ -283,6 +287,7 @@ export default function PeopleOverview({ openScreen }) {
     /* Engage may be switched off for the company: then both lists are simply empty. */
     listRecords('announcements').then(setNews).catch(() => setNews([]));
     listRecords('events').then(setEvents).catch(() => setEvents([]));
+    finalPayList().then(setFinalPay).catch(() => setFinalPay([]));
     loadTasks();
     /* Opened from the Monday summary's e-mail: counted once (PRODUCT-VIEW §7). */
     try {
@@ -300,7 +305,9 @@ export default function PeopleOverview({ openScreen }) {
   const growth = useMemo(() => growthOf(people || []), [people]);
   const celebrations = useMemo(() => {
     const bdays = (data?.upcomingBirthdays || []).map((b) => ({ ...b, kind: 'birthday' }));
-    const annivs = anniversariesOf(people || []).map((a) => ({ ...a, kind: 'anniversary' }));
+    /* Someone who asked not to be announced is left out (WORKFLOW-GAP-RESEARCH 4.8); the server already drops their birthday. */
+    const quiet = new Set(data?.celebrationOptOuts || []);
+    const annivs = anniversariesOf((people || []).filter((p) => !quiet.has(p.id))).map((a) => ({ ...a, kind: 'anniversary' }));
     return [...bdays, ...annivs].sort((a, b) => a.days - b.days || a.name.localeCompare(b.name));
   }, [data, people]);
 
@@ -352,6 +359,14 @@ export default function PeopleOverview({ openScreen }) {
         </div>
       </header>
       <HomeCheckIn />
+      {finalPay.length ? (
+        <section aria-label="Final pay due" className="space-y-2" data-reveal style={{ '--i': 1 }}>
+          {finalPay.length === 1 ? (
+            <FinalPayBanner clock={finalPay[0]} name={finalPay[0].name} showRule={false} action={<button type="button" className="ui-link inline-flex min-h-11 items-center whitespace-nowrap sm:min-h-0" onClick={go('leavers', { open: finalPay[0].employeeId })}>Open plan</button>} />
+          ) : <FinalPayList rows={finalPay} onOpen={(id) => go('leavers', { open: id })} onMore={go('leavers', { view: 'clearing' })} />}
+          <p className="ui-caption">Code on Wages 2019 s.17(2): wages within two working days of the last day. Clearance does not hold them up.</p>
+        </section>
+      ) : null}
       <HomeSetup openScreen={openScreen} onState={onSetup} />
 
       <div className="soft-layout">

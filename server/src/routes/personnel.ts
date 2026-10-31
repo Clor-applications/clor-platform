@@ -18,7 +18,7 @@ import { correlationOf, employeeSummary } from '../services/people/employees.js'
 import { diffEmployee, writeChangeLog } from '../services/people/changeLog.js';
 import { writeEvent } from '../services/people/outbox.js';
 import { recordChanges } from '../services/people/employmentHistory.js';
-import { startChecklist } from '../services/people/checklists.js';
+import { ownPlanRefusal, startChecklist } from '../services/people/checklists.js';
 
 /**
  * Personnel operations from ClorTime (routes/personnel_expansion.js,
@@ -224,6 +224,8 @@ personnelRouter.post(`${base}/employees/:id/stay`, can(PermissionAction.EDIT, R.
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
   if (!existing || !inScope(await teamScope(req), existing.id)) return res.status(404).json({ error: 'No such employee.' });
+  /* Withdrawing a leaving decides its exit interview and closes its no-dues lines: never on your own (JCL-007), unless nobody else can. */
+  if (await ownPlanRefusal({ accountId, orgId, userId: req.auth!.userId }, { employeeId: existing.id, owner: 'HR' })) return res.status(403).json({ error: 'This is your own leaving: someone else withdraws it.', code: 'OWN_PLAN' });
   try {
     const employee = await cancelLeaving({ accountId, orgId, userId: req.auth!.userId }, existing.id, typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 500) || null : null);
     res.json({ employee });

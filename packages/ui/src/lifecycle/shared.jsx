@@ -7,7 +7,7 @@ import { notify } from '@ui/components/ui/notify';
 import useRequest from '@ui/components/ui/useRequest';
 import { Avatar, taskNote } from '@ui/personnel/Employees';
 
-import { KIND_WORD, OWNER_WORD, orgUsers, updateTask } from './api';
+import { KIND_WORD, OWNER_WORD, orgUsers, updateTask, withOwner } from './api';
 
 /** A grant the signed-in user holds (admins hold all). The server checks again; this only hides what would be refused. */
 export const can = (perms, key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
@@ -89,7 +89,7 @@ export function TaskDrawer({ task, canAssign, onClose, onSaved }) {
       setBusy(false);
     }
   };
-  const userOptions = [{ value: '', label: 'Nobody yet' }, ...(users.data || []).map((u) => ({ value: u.id, label: u.fullName || u.name || u.email }))];
+  const userOptions = [{ value: '', label: 'Nobody yet' }, ...withOwner(users.data || [], task.ownerUserId, task.ownerName).map((u) => ({ value: u.id, label: u.fullName || u.name || u.email }))];
   const primary = handing ? 'Hand on' : 'Mark done';
   return (
     <Drawer open onClose={onClose} dirty={dirty} widthClass="w-[min(34rem,96vw)]" title={task.title} description={`${KIND_WORD[task.kind] || task.kind} · ${task.employee?.name || ''}`}

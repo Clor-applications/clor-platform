@@ -18,6 +18,7 @@ import { startObligationDues } from './services/people/complianceRules.js';
 import { startLeaveJobs } from './services/attendance/leaveJobs.js';
 import { startPunchNudges } from './services/attendance/punchNudge.js';
 import { startAbsenceChecks } from './services/people/absconding.js';
+import { startEngagement } from './services/people/engagement/index.js';
 import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
@@ -106,6 +107,8 @@ startLeaveJobs();
 /* The missing-punch notice and the unexplained-absence check (WORKFLOW-GAP-RESEARCH 4.5, 4.6). */
 startPunchNudges();
 startAbsenceChecks();
+/* Ready-made automations, greetings and exit-interview answers past keeping (WORKFLOW-GAP-RESEARCH 4.7, 4.8, 4.9). */
+startEngagement();
 startNotificationPruning();
 startBooksDigest();
 startWeeklySummary();

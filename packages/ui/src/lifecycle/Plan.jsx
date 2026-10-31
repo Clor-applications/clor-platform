@@ -9,8 +9,9 @@ import { notify } from '@ui/components/ui/notify';
 import { getChecklist } from '@ui/personnel/api';
 import { hasApp } from '@platform/context';
 
-import { OWNER_WORD, leavingPreview, startPlan } from './api';
+import { OWNER_WORD, leavingExtras, leavingPreview, startPlan } from './api';
 import { TaskDrawer, readerWords } from './shared';
+import LeavingSections, { FinalPayBanner } from './LeavingExtras';
 
 /**
  * One person's joining or leaving plan, from the Joining and Leaving lists:
@@ -18,10 +19,25 @@ import { TaskDrawer, readerWords } from './shared';
  * handed on (the server refuses closing one's own plan, and the drawer says
  * so). A plan that never started has a Start button. Leaving also
  * shows who their team reports to after the last day and what they hold.
+ * `row.lineOnly`: someone outside the person's team who owns a no-dues line sees that line, not the plan.
  */
+/*
+ * The leaving's header from the latest read, not the list row it was opened from: right after "They stay" it
+ * says so, and a moved last day shows the new one.
+ */
+const leavingWords = (row, now) => {
+  if (now && !now.dateOfLeaving) return 'Staying on: the leaving was withdrawn';
+  const day = now?.dateOfLeaving || row.dateOfLeaving;
+  const stage = now && now.dateOfLeaving !== row.dateOfLeaving ? null : row.stageLabel;
+  return `Last day ${formatDate(day)}${stage ? ` · ${stage}` : ''}`;
+};
+
 export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, onClose, onChanged }) {
-  const plan = useRequest(() => getChecklist(row.id), [row.id]);
-  const preview = useRequest(() => (kind === 'LEAVING' ? leavingPreview(row.id) : Promise.resolve(null)), [row.id, kind]);
+  const plan = useRequest(() => (row.lineOnly ? Promise.resolve(null) : getChecklist(row.id)), [row.id, row.lineOnly]);
+  const preview = useRequest(() => (kind === 'LEAVING' && !row.lineOnly ? leavingPreview(row.id) : Promise.resolve(null)), [row.id, kind, row.lineOnly]);
+  /* The final-pay clock, no-dues and exit interview (WORKFLOW-GAP-RESEARCH 4.3, 4.9); a refusal or failure just leaves them out. */
+  const extras = useRequest(() => (kind === 'LEAVING' ? leavingExtras(row.id).catch(() => null) : Promise.resolve(null)), [row.id, kind]);
+  const extrasChanged = () => { extras.reload(); if (!row.lineOnly) plan.reload(); onChanged?.(); };
   const [task, setTask] = useState(null);
   const [starting, setStarting] = useState(false);
   const list = plan.data?.[kind === 'JOINING' ? 'joining' : 'leaving'];
@@ -39,15 +55,19 @@ export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, 
     }
   };
   const p = preview.data;
+  /* Withdrawn while the plan was open ("They stay"): nothing of a leaving is left to do, so none of it is offered. */
+  const staying = kind === 'LEAVING' && Boolean(extras.data?.person) && !extras.data.person.dateOfLeaving;
   return (
-    <Drawer open onClose={onClose} widthClass="w-[min(38rem,96vw)]" title={row.name} description={kind === 'JOINING' ? `Joins ${formatDate(row.dateOfJoining)} · ${row.stageLabel}` : `Last day ${formatDate(row.dateOfLeaving)} · ${row.stageLabel}`}
+    <Drawer open onClose={onClose} widthClass="w-[min(38rem,96vw)]" title={row.name} description={kind === 'JOINING' ? `Joins ${formatDate(row.dateOfJoining)} · ${row.stageLabel}` : leavingWords(row, extras.data?.person)}
       footer={<>
-        {openScreen ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('employee', { id: row.id })}>Open their record</button> : null}
+        {openScreen && !row.lineOnly ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('employee', { id: row.id })}>Open their record</button> : null}
         <button type="button" className="ui-btn ui-btn-primary" onClick={onClose}>Close</button>
       </>}>
       <div className="grid gap-6">
+        {kind === 'LEAVING' && extras.data?.finalPay ? <FinalPayBanner clock={extras.data.finalPay} /> : null}
         {kind === 'JOINING' && row.invite ? <p className="text-sm">Joining form: {{ SENT: 'sent, not opened yet', STARTED: 'opened, not sent back', RETURNED: 'sent back: check it on their record', CHECKED: 'checked', EXPIRED: 'the link ran out', CANCELLED: 'cancelled' }[row.invite.status] || row.invite.status.toLowerCase()}.</p> : null}
-        {plan.error && !plan.data ? <ErrorState error={plan.error} onRetry={plan.reload} compact /> : !list ? <SkeletonCard lines={5} /> : list.total ? (
+        {staying ? <p className="text-sm">They stay. The leaving was withdrawn: its steps, no-dues lines and exit interview are kept on their record, and nothing more is asked.</p> : null}
+        {row.lineOnly || staying ? null : plan.error && !plan.data ? <ErrorState error={plan.error} onRetry={plan.reload} compact /> : !list ? <SkeletonCard lines={5} /> : list.total ? (
           <section aria-label="Steps" className="space-y-2">
             <div className="flex items-center justify-between gap-2"><h3 className="ui-t-sec">Steps</h3><span className="ui-caption tabular-nums">{list.done} of {list.total} done</span></div>
             <ul className="divide-y border-t">
@@ -76,7 +96,7 @@ export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, 
           </div>
         )}
 
-        {kind === 'LEAVING' && p ? (
+        {kind === 'LEAVING' && p && !staying ? (
           <section aria-label="After the last day" className="space-y-2">
             <h3 className="ui-t-sec">After the last day</h3>
             {p.reports.length ? (
@@ -85,15 +105,16 @@ export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, 
             {p.assets.length ? <p className="text-sm">They hold {p.assets.map((a) => `${a.title}${a.tag ? ` (${a.tag})` : ''}`).join(', ')}. Each is a step above; open items never hold up final wages.</p> : null}
           </section>
         ) : null}
-        {/* The money side of leaving is Payroll's: one link to its full and final settlement (gap 15). */}
-        {kind === 'LEAVING' && hasApp('payroll') ? (
+        {/* The final-pay clock, no-dues sign-off and exit interview (WORKFLOW-GAP-RESEARCH 4.3, 4.9); the money itself is Payroll's full and final (gap 15). */}
+        {kind === 'LEAVING' && !staying ? <LeavingSections data={extras.data} employeeId={row.id} name={row.name} onChanged={extrasChanged} /> : null}
+        {kind === 'LEAVING' && hasApp('payroll') && !extras.data?.finalPay && !row.lineOnly && !staying ? (
           <section aria-label="Final pay" className="space-y-1">
             <h3 className="ui-t-sec">Final pay</h3>
             <p className="text-sm">Dues, recoveries and the final payslip are worked out in Payroll. <a className="ui-link" href="?app=payroll&open=settlements">Open full and final settlement</a></p>
           </section>
         ) : null}
       </div>
-      {task ? <TaskDrawer task={task} canAssign={canAssign} onClose={() => setTask(null)} onSaved={() => { setTask(null); plan.reload(); onChanged?.(); }} /> : null}
+      {task ? <TaskDrawer task={task} canAssign={canAssign} onClose={() => setTask(null)} onSaved={() => { setTask(null); plan.reload(); extrasChanged(); }} /> : null}
     </Drawer>
   );
 }

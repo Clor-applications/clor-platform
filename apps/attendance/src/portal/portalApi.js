@@ -213,6 +213,12 @@ export const resign = (body) => call('/people/me/resign', { method: 'POST', body
 export const getLeaving = () => call('/people/me/leaving');
 /* My joining and leaving steps (server: peoplePortal /me/journey): the ones that are mine to tick, and what I hand back. */
 export const getJourney = () => call('/people/me/journey');
+/* Today's greetings, my exit interview, and whether I am announced (server: peopleEngagementPortal; WORKFLOW-GAP-RESEARCH 4.8, 4.9). */
+export const getTodayPosts = () => call('/people/engage/today');
+export const getExitInterview = () => call('/people/engage/exit-interview');
+export const sendExitInterview = (body) => call('/people/engage/exit-interview', { method: 'POST', body });
+export const getCelebrations = () => call('/people/engage/celebrations');
+export const setCelebrations = (optedOut) => call('/people/engage/celebrations', { method: 'PUT', body: { optedOut } });
 export const doneJourneyTask = (id, note) => call(`/people/me/journey/tasks/${encodeURIComponent(id)}/done`, { method: 'POST', body: note ? { note } : {} });
 
 /* Ask HR as a conversation (server: peoplePortal /desk): my requests with who wrote last, one with its thread (no internal notes), a reply, a reopen. */
