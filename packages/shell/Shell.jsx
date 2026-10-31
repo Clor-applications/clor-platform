@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Building2, CalendarDays, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, Building2, CalendarDays, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -118,6 +118,40 @@ export const companyGroups = (allTenants = [], accounts = []) => {
     })
     .concat(tail);
 };
+
+/**
+ * A phone's company choice, as menu items (#80 QA: the bar has no room for the picker). Each account's companies
+ * sit under its name, as the desktop picker's groups do, so same-named companies in two accounts can be told apart.
+ */
+export function CompanyMenuItems({ groups, currentId, onPick }) {
+  return (
+    <div role="group" aria-label="Company">
+      <div className="ui-caption px-2 pt-1">Company</div>
+      {groups.map((g) => {
+        const items = g.items.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="menuitemradio"
+            aria-checked={t.id === currentId}
+            className="w-full flex min-h-11 items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken"
+            onClick={() => onPick(t)}
+          >
+            <Building2 size={16} aria-hidden="true" className="shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{t.name}</span>
+            {t.id === currentId ? <Check size={16} aria-hidden="true" /> : null}
+          </button>
+        ));
+        return g.label ? (
+          <div key={g.id} role="group" aria-label={g.label}>
+            <div className="ui-caption px-2 pt-2 font-medium" aria-hidden="true">{g.label}</div>
+            {items}
+          </div>
+        ) : <React.Fragment key={g.id}>{items}</React.Fragment>;
+      })}
+    </div>
+  );
+}
 
 /**
  * Whether a nav item's `permission` is held: one key, or a list of which any one
@@ -362,10 +396,14 @@ export default function Shell() {
      way out of the app switcher was to click the app switcher again. */
   const switcherRef = useDismissable(switcherOpen, () => setSwitcherOpen(false));
   const [showMoreApps, setShowMoreApps] = useState(false);
+  /* A phone with no app menu in the bar (the Workspace, a screen outside any app) chooses its company here. */
+  const [companyOpen, setCompanyOpen] = useState(false);
+  const companyRef = useDismissable(companyOpen, () => setCompanyOpen(false));
 
   /* `open` names a screen inside the app (Accounting's settings): carried in the address so it survives the hop to the app's own host. */
   /* `params` travel with it in the address too (Workspace's permissions opened for one app: ?for=payroll). */
   const openApp = (...args) => { confirmLeave(askLeave).then((ok) => ok && openAppNow(...args)); };
+  const pickCompany = (id) => { if (id !== tenant.id) confirmLeave(askLeave).then((ok) => ok && setTenantId(id)); };
   const openAppNow = (id, open = '', params = {}) => {
     const next = appById(id);
     const query = new URLSearchParams();
@@ -979,6 +1017,8 @@ export default function Shell() {
           /* Tighter on a phone: the bar carries menu, logo, switcher, alerts, help, profile and sign-out in 360 px. */
           /* Narrower than 390 px (owner’s coordinator, 30 Oct 2026, said under 375; 375 itself still ran 9 px over): the CLOR mark alone, the app as its mark alone, tighter gaps; search stays. */
           className={`ui-topbar sticky top-0 flex h-14 items-center ${phone ? 'gap-1 px-1.5 max-[389px]:gap-0.5' : 'gap-3 px-4'}`}
+          /* A phone bar without an app menu (the Workspace) has room for 44px buttons, DESIGN.md's touch size (#80 QA). */
+          data-touch={phone && !(app && !inWorkspace) ? '' : undefined}
           style={{
             backgroundColor: 'rgb(var(--surface))',
             borderBottom: '1px solid rgb(var(--border))',
@@ -1033,6 +1073,12 @@ export default function Shell() {
                     zIndex: 'var(--z-platform-menu)',
                   }}
                 >
+                  {phone && tenants.length > 1 ? (
+                    <>
+                      <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => { setSwitcherOpen(false); pickCompany(t.id); }} />
+                      <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="my-1" />
+                    </>
+                  ) : null}
                   {mine.filter((a) => !a.platform).map((a) => (
                     <button
                       key={a.id}
@@ -1097,12 +1143,14 @@ export default function Shell() {
 
           {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
           {/* The company in use. The Workspace shows it too: half its pages change only this company. */}
-          {!phone || tenants.length > 1 ? (
+          {/* On a phone the company is chosen in the app menu ("People ⌄"), or, where the bar has no app menu (the Workspace),
+              from a building button: two companies ran the picker under the bell and the profile button at 390px (#80 QA). */}
+          {!phone ? (
             <label className="ui-company-pick">
-              {!phone ? <Building2 size={16} aria-hidden="true" className="ui-company-pick-icon" /> : null}
+              <Building2 size={16} aria-hidden="true" className="ui-company-pick-icon" />
             <select
               className="ui-select ui-select-sm min-w-0"
-              style={{ width: 'auto', minWidth: phone ? '4rem' : '10rem', maxWidth: phone ? '30vw' : undefined }}
+              style={{ width: 'auto', minWidth: '10rem' }}
               value={tenant.id}
               disabled={tenants.length < 2}
               onChange={(e) => { const next = e.target.value; confirmLeave(askLeave).then((ok) => ok && setTenantId(next)); }}
@@ -1123,6 +1171,22 @@ export default function Shell() {
               )}
             </select>
             </label>
+          ) : tenants.length > 1 && !(app && !inWorkspace) ? (
+            <div className="relative" ref={companyRef}>
+              <button type="button" className="ui-icon-btn" aria-label={`Company: ${tenant.name}`} aria-haspopup="menu" aria-expanded={companyOpen} onClick={() => setCompanyOpen((v) => !v)}>
+                <Building2 size={18} aria-hidden="true" />
+              </button>
+              {/* Pinned to the screen with the 16px gutter, not to the button: hung off a 44px button it ran 16px off the left (#80 retest). */}
+              {companyOpen ? (
+                <div
+                  role="menu"
+                  className="fixed inset-x-4 top-14 mt-1 rounded-xl p-1"
+                  style={{ backgroundColor: 'rgb(var(--surface))', border: '1px solid rgb(var(--border))', boxShadow: 'var(--shadow-lift)', zIndex: 'var(--z-platform-menu)' }}
+                >
+                  <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => { setCompanyOpen(false); pickCompany(t.id); }} />
+                </div>
+              ) : null}
+            </div>
           ) : null}
 
           {/* The Workspace's date, once, in the bar: the browser's own locale and timezone. */}
@@ -1156,7 +1220,6 @@ export default function Shell() {
                 setPlatformScreen('profile');
                 setShowMoreApps(false);
               }}
-              aria-label="My profile"
               title="My profile"
               style={user?.avatarUrl || user?.fullName ? { width: 38, height: 38, padding: 2, borderRadius: 999 } : undefined}
             >
@@ -1169,8 +1232,9 @@ export default function Shell() {
               ) : app?.iconSet === 'color' ? (
                 <ProfileColor size={20} />
               ) : (
-                <UserRound size={18} />
+                <UserRound size={18} aria-hidden="true" />
               )}
+              <span className="sr-only">My profile</span>
             </button>
           ) : null}
 

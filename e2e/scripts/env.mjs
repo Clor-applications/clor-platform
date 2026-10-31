@@ -40,6 +40,13 @@ if (target === 'staging' && !/staging/.test(baseURL) && env.E2E_ALLOW_HOST !== n
 /** The API, for test-data setup only (TEAM.md: never to check a result). */
 export const apiURL = target === 'staging' ? required('E2E_API_URL') : `http://127.0.0.1:${apiPort}/api`;
 
+/**
+ * The wake call for background jobs (POST /internal/jobs/tick), so a scenario that
+ * waits on an hourly job (the missing-punch notice, R2) runs it now. A local run sets
+ * its own throwaway value on the API it boots; staging only with E2E_JOBS_TOKEN.
+ */
+export const jobsToken = env.E2E_JOBS_TOKEN || (target === 'local' ? 'e2e-local-jobs-token-not-for-any-real-use' : '');
+
 function required(name) {
   const v = env[name];
   if (!v) throw new Error(`${name} must be set for E2E_TARGET=staging (see e2e/README.md).`);

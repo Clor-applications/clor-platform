@@ -18,7 +18,7 @@ import { deleteRecord, listRecords, saveRecord } from '../api/workspace';
 import { can } from '../workforce/shared';
 import { WORKSPACE_CONFIG, statusLabel } from './workspaceConfig';
 import { SymbolPicker, symbolOf } from './symbols';
-import AudiencePicker from './AudiencePicker';
+import AudiencePicker, { audienceWords, useAudienceLists } from './AudiencePicker';
 
 /**
  * One register (assets, benefits, announcements, events): laid out as every Workforce list — header with the
@@ -55,13 +55,20 @@ export default function WorkspaceList({ kind, params }) {
   const tabsRef = useRef(null);
   const tabIndicator = useTabIndicator(tabsRef, status);
   const names = useMemo(() => new Map(employees.map((e) => [e.id, e.name])), [employees]);
+  /* An audience saved without its words (made through the API, or before the lists loaded) is named from its ids (#80 QA: "—" for Sales). */
+  const hasAudience = cfg.fields.some((f) => f.type === 'audience');
+  const audienceLists = useAudienceLists({ enabled: hasAudience });
   const detailValue = (row, key) => {
     const f = cfg.fields.find((x) => x.key === key);
     const v = row.details?.[key];
     if (f?.type === 'date') return day(v);
     if (f?.type === 'select') return v ? statusLabel(v) : '';
     /* Written before the audience was a choice: words only, read by everyone. */
-    if (f?.type === 'audience') return !row.details?.audienceKind || row.details.audienceKind === 'ALL' ? 'Everyone' : String(v || '');
+    if (f?.type === 'audience') {
+      const kind = row.details?.audienceKind;
+      if (!kind || kind === 'ALL') return 'Everyone';
+      return String(v || '') || audienceWords(kind, row.details.audienceIds || [], audienceLists.data?.[kind] || []).replace(/^Everyone$/, '');
+    }
     return String(v ?? '');
   };
   const shown = useMemo(() => {

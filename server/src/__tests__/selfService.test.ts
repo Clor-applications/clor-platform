@@ -118,8 +118,11 @@ describe('employee self-service', () => {
       await me.post(`/month-review/${last}/confirm`).expect(409);
     }
     const thisMonth = (await me.get(`/month-review?month=${ist().slice(0, 7)}`).expect(200)).body;
-    expect(thisMonth.canConfirm).toBe(false);
-    expect(thisMonth.why).toMatch(/ended/);
+    /* The month's own last day counts as ended (it can be confirmed that evening): this ran at 01:21 IST on 31 Oct in CI. */
+    if (ist(1).slice(0, 7) === ist().slice(0, 7)) {
+      expect(thisMonth.canConfirm).toBe(false);
+      expect(thisMonth.why).toMatch(/ended/);
+    } else expect(thisMonth.canConfirm).toBe(true);
 
     await otRules(c, { confirmCutoffDay: 28 }).expect(200);
     const r = (await me.get(`/month-review?month=${last}`).expect(200)).body;

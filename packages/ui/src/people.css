@@ -1644,6 +1644,10 @@
    instead of being lost with the page's offset under the bar. */
 :root[data-palette='sky'] #main-content .ui-table-scroll[data-wide] { max-height: calc(100dvh - 14rem); overflow: auto; overscroll-behavior-x: contain; }
 :root[data-palette='sky'] #main-content .ui-table-scroll[data-wide] .ui-table thead th { position: sticky; top: 0; }
+/* On a phone a wide table is clipped until the watcher marks it data-wide (a beat after the rows arrive), or it pushes the whole page sideways (Leave calendar at 390px measured 912px, e2e). Clip, not auto: a scrolling box would become the sticky header's frame and push the head row a bar's height down over the first row. */
+@media (max-width: 767px) {
+  :root[data-palette='sky'] #main-content .ui-table-scroll:not([data-wide]) { overflow-x: clip; }
+}
 :root[data-palette='sky'] .ui-balance-low { color: rgb(var(--warm-ink)); }
 
 /*

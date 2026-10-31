@@ -75,7 +75,8 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
         card={(r) => (
           <span className="min-w-0 flex-1">
             <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.employee.name}</span><span className={`ui-caption tabular-nums whitespace-nowrap ${r.late ? 'ui-text-neg' : ''}`}>{formatDate(r.date)}</span></span>
-            <span className="block truncate ui-caption">{r.what}{r.to ? ` → ${r.to}` : ''}</span>
+            {/* The phone's card says what it was as well as what it becomes, as the desktop table does (H8). */}
+            <span className="block ui-caption">{r.what}{r.from || r.to ? `: ${r.from || 'None'} → ${r.to || 'None'}` : ''}</span>
           </span>
         )}
         toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or change" label="Search changes" className="w-full sm:w-72" />}

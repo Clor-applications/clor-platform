@@ -272,6 +272,23 @@ describe('The Me tab and Leave in the app', () => {
     expect(screen.getByText('Leaving the company')).toBeInTheDocument();
   });
 
+  it('a half-day request says which half of the day (E2)', async () => {
+    api.getMe.mockResolvedValue(ME);
+    api.getUpdates.mockResolvedValue({ decided: [] });
+    api.getHolidays.mockResolvedValue({ year: 2026, quota: 0, picked: 0, left: 0, holidays: [] });
+    api.getLeave.mockResolvedValue({ year: 2026, today: '2026-10-27', types: [{ id: 't1', name: 'Casual', isPaid: true, available: 5, allocated: 12 }], requests: [
+      { id: 'h2', leaveTypeId: 't1', leaveTypeName: 'Casual', fromDate: '2026-11-11', toDate: '2026-11-11', days: 0.5, halfDay: 'SECOND', status: 'PENDING' },
+      { id: 'h1', leaveTypeId: 't1', leaveTypeName: 'Casual', fromDate: '2026-11-12', toDate: '2026-11-12', days: 0.5, halfDay: 'FIRST', status: 'PENDING' },
+    ] });
+    render(<EmployeePortal />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Leave' }));
+    const list = await screen.findByRole('region', { name: 'My requests' });
+    const [afternoon, morning] = within(list).getAllByRole('listitem');
+    expect(afternoon.textContent).toContain('half a day');
+    expect(afternoon.textContent).toContain('second half (afternoon)');
+    expect(morning.textContent).toContain('first half (morning)');
+  });
+
   it('asks before cancelling approved leave', async () => {
     api.getMe.mockResolvedValue(ME);
     api.getUpdates.mockResolvedValue({ decided: [] });

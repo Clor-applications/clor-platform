@@ -386,11 +386,11 @@ function MetricStrip({ counts, onPick }) {
     <div className="ui-metric-strip" role="list" aria-label="Workforce counts">
       {items.map(({ k, label, value, Icon: LineIcon, patch }) => {
         const Icon = mark(LineIcon);
-        const body = <><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span><span className="ui-metric-label">{label}</span></span></>;
+        const body = (tail) => <><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span> <span className="ui-metric-label">{label}</span>{tail ? <span className="sr-only">{tail}</span> : null}</span></>;
         /* The list item holds the button, so it is still announced as a button. */
         return patch ? (
-          <div key={k} role="listitem"><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={() => onPick(patch === 'joining' ? { from: tomorrowIst() } : patch === 'joinedMonth' ? { status: 'ALL', from: counts.monthStart, to: todayIst() } : patch === 'leftMonth' ? { status: 'LEFT', lfrom: counts.monthStart, lto: todayIst() } : patch)} aria-label={`${value} ${label}: show them`}>{body}</button></div>
-        ) : <div key={k} role="listitem" className="ui-metric" data-zero={Number(value) === 0 || undefined}>{body}</div>;
+          <div key={k} role="listitem"><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={() => onPick(patch === 'joining' ? { from: tomorrowIst() } : patch === 'joinedMonth' ? { status: 'ALL', from: counts.monthStart, to: todayIst() } : patch === 'leftMonth' ? { status: 'LEFT', lfrom: counts.monthStart, lto: todayIst() } : patch)}>{body(': show them')}</button></div>
+        ) : <div key={k} role="listitem" className="ui-metric" data-zero={Number(value) === 0 || undefined}>{body()}</div>;
       })}
     </div>
   );

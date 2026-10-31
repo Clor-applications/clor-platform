@@ -19,7 +19,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 import { as, auth, portal, type Session } from './api';
-import { HOLIDAY_DAY, HOLIDAY_WEEK, weekday } from './dates';
+import { HOLIDAY_DAY, HOLIDAY_WEEK, iso, todayIST, weekday } from './dates';
 import { stateDir, worldFile, type Company, type Device, type Person, type World } from './world';
 
 /* Local runs use a fixed test value for a throwaway database; staging must be given one. */
@@ -131,6 +131,9 @@ export async function seed(device: Device): Promise<World> {
   const earned = (await api.post(`${lv}/types`, { name: 'Earned leave', code: 'EL', isPaid: true, annualDays: 15, accrual: 'YEARLY', allowHalfDay: false })).type;
   const holiday = { date: weekday(HOLIDAY_WEEK, HOLIDAY_DAY), name: `Founders day ${run}` };
   await api.post(`/orgs/${asha.s.orgId}/attendance/holidays`, { date: holiday.date, name: holiday.name });
+  /* Lakshmi came in on the last working day and never punched out (R2): set at setup, so the first wake of the missing-punch job finds it. */
+  /* (Never fails the world: R2 fails on its own if this did not take.) */
+  await markMissedPunch(asha.s, people.lakshmi.id).catch((e) => console.warn(`[e2e seed] missed punch for R2 not set: ${String(e?.message || e).slice(0, 200)}`));
 
   /* Web users with their roles (A3 is checked in the browser by the A-scenarios). */
   await webUser(asha.s, users.hr.email, users.hr.name, 'HR Manager');
@@ -195,4 +198,57 @@ export async function decideLeave(w: World, email: string, requestId: string, de
   const { token } = await auth.login(email, w.password);
   const s = { token, orgId: w.asha.orgId, branchId: w.asha.branchId };
   return as(s).post(`/orgs/${w.asha.orgId}/attendance/leave/requests/${requestId}/${decision}`, note ? { note } : {});
+}
+
+/* ------------------------------------------------------------------ money and attendance rules (X1–X2, R1–R3) */
+
+/** The last working day before today (Sunday is the seeded weekly off): the day of R2's missing punch-out. */
+export function missedPunchDay() {
+  const d = todayIST();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - 1);
+  if (d.getDay() === 0) d.setDate(d.getDate() - 1);
+  return iso(d);
+}
+
+/** A day marked by hand with a check-in and no check-out: what the missing-punch notice is about. */
+export async function markMissedPunch(s: Session, employeeId: string) {
+  await as(s).put(`/orgs/${s.orgId}/attendance/records`, { employeeId, date: missedPunchDay(), checkIn: '09:20', status: 'PRESENT', note: 'No punch-out' });
+}
+
+/** The owner's session in Asha Textiles, for setup. */
+export async function ownerSession(w: World): Promise<Session> {
+  const { token } = await auth.login(w.users.owner.email, w.password);
+  return { token, orgId: w.asha.orgId, branchId: w.asha.branchId };
+}
+
+/** Days marked by hand with a check-in and a check-out (a check-in after 09:10 is late on the default 09:00 shift). */
+export async function markDays(w: World, who: string, days: string[], checkIn: string, checkOut = '18:30') {
+  const s = await ownerSession(w);
+  for (const date of days) await as(s).put(`/orgs/${s.orgId}/attendance/records`, { employeeId: w.people[who].id, date, checkIn, checkOut });
+}
+
+/** An expense claim sent from the employee app and approved by the manager through the API (setup for X2). */
+export async function approvedClaim(w: World, who: string, title: string, amount: number, merchant: string) {
+  const u = w.appUsers[who];
+  const { token } = await portal.login(u.company, u.code, w.password);
+  const me = portal.as(token);
+  const money = await me.get('/portal/people/money');
+  const category = money.categories.find((c: any) => c.name === 'Courier and postage') || money.categories[0];
+  await me.post('/portal/people/money/lines', { amount, spentOn: iso(todayIST()), categoryId: category.id, merchant, notDuplicate: true });
+  const draft = (await me.get('/portal/people/money')).draft;
+  await me.post(`/portal/people/money/claims/${draft.id}/submit`, { title });
+  const { token: mt } = await auth.login(w.users.manager.email, w.password);
+  const ms = { token: mt, orgId: w.asha.orgId, branchId: w.asha.branchId };
+  const box = await as(ms).get(`/orgs/${w.asha.orgId}/people/inbox`);
+  const item = (box.items || []).find((i: any) => i.kind === 'APPROVAL' && String(i.what).includes(title));
+  if (!item) throw new Error(`The claim "${title}" is not waiting for ${w.users.manager.name}`);
+  await as(ms).post(`/orgs/${w.asha.orgId}/people/requests/${item.id}/approve`, {});
+}
+
+/** A shift, and one person on it from a day on (setup for R3). */
+export async function giveShift(w: World, who: string, shift: { name: string; startTime: string; endTime: string }, from: string) {
+  const s = await ownerSession(w);
+  const made = (await as(s).post(`/orgs/${s.orgId}/attendance/shifts`, { ...shift, breakMinutes: 30 })).shift;
+  await as(s).post(`/orgs/${s.orgId}/attendance/shift-assignments`, { employeeIds: [w.people[who].id], shiftId: made.id, effectiveFrom: from });
 }

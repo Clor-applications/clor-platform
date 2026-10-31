@@ -347,8 +347,19 @@ export async function myEmployee(accountId: string, orgId: string, userId: strin
         OR: [{ email: { equals: email, mode: 'insensitive' } }, { workEmail: { equals: email, mode: 'insensitive' } }],
       },
     });
-    if (matches.length === 1) return peoplePrisma.employee.update({ where: { id: matches[0].id }, data: { userId } });
+    if (matches.length === 1) {
+      /* Linked only while still unlinked: two first requests at once both find the file, and only one writes. */
+      await peoplePrisma.employee.updateMany({ where: { id: matches[0].id, orgId, userId: null }, data: { userId } });
+    }
   }
+  /*
+   * Read again: this request, or one running beside it, may just have linked
+   * the file. My leave asks for the leave and the restricted holidays at once
+   * on its first open; the slower one found the file already linked by the
+   * other (so no longer unlinked) and said "No employee file" until a reload.
+   */
+  const now = await peoplePrisma.employee.findFirst({ where: { orgId, accountId, userId } });
+  if (now) return now;
   throw fail(404, 'Your sign-in is not linked to an employee file yet. Ask HR to set your email on your employee file.', 'NO_EMPLOYEE_LINK');
 }
 

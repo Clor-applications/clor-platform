@@ -249,8 +249,9 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
   );
 }
 
-function Fact({ label, children }) {
-  return <div><dt className="ui-label">{label}</dt><dd className="mt-0.5">{children}</dd></div>;
+/* One term and its value; `className` widens it in the grid (a <dl> holds only these divs directly: axe dlitem). */
+function Fact({ label, children, className }) {
+  return <div className={className}><dt className="ui-label">{label}</dt><dd className="mt-0.5">{children}</dd></div>;
 }
 
 const istDate = (at) => formatDate(new Date(new Date(at).getTime() + 330 * 60_000).toISOString().slice(0, 10));
@@ -335,9 +336,10 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
             <Fact label="When"><WhenCell row={r} /></Fact>
             <Fact label="Status"><StatusPill row={r} /></Fact>
             {detailsText(r) ? <Fact label={r.kind === 'ON_DUTY' ? 'Place' : r.kind === 'PERMISSION' ? 'Hours' : r.kind === 'SHIFT_CHANGE' ? 'Shift' : 'Punches'}><span className="tabular-nums">{detailsText(r)}</span></Fact> : null}
-            {d.chain ? <Fact label="Decided by">{{ HR: 'HR', MANAGER: 'The manager', MANAGER_THEN_HR: 'The manager, then HR' }[d.chain] || d.chain}</Fact> : null}
-            <div className="col-span-2"><Fact label="Reason">{r.reason || <span className="ui-muted">None given</span>}</Fact></div>
-            {r.reviewNote && r.status !== 'PENDING' ? <div className="col-span-2"><Fact label="Note">{r.reviewNote}</Fact></div> : null}
+            {/* Who decides, as the server worked it out for this reader: "HR, or you as their manager" when the manager may approve it (#80 QA F4). */}
+            {d.decidedBy || d.chain ? <Fact label="Decided by">{d.decidedBy || { HR: 'HR', MANAGER: 'The manager', MANAGER_THEN_HR: 'The manager, then HR' }[d.chain] || d.chain}</Fact> : null}
+            <Fact className="col-span-2" label="Reason">{r.reason || <span className="ui-muted">None given</span>}</Fact>
+            {r.reviewNote && r.status !== 'PENDING' ? <Fact className="col-span-2" label="Note">{r.reviewNote}</Fact> : null}
           </dl>
 
           {d.waitingForManager ? <p className="text-sm ui-text-warn">{d.waitingForManager}</p> : null}

@@ -5,8 +5,10 @@ import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitiv
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
+import { formatDate } from '@ui/components/ui/DatePicker';
 import { PRIVATE_LABEL, STATUS_LABEL, colorOf, getWorkingAway, getWorkingWeek, listHolidays, listLeaveRequests, todayIst } from './api';
 import { homeCrumbs } from './shared';
+import { clashDays, clashWords } from './clashes';
 
 /**
  * Time & Leave → Calendar: who is away in a month, one line a person, with
@@ -42,6 +44,9 @@ const offTest = (week) => {
     return offs.has(w) || (w === 6 && sats.has(Math.ceil(Number(date.slice(8)) / 7)));
   };
 };
+
+/* Which half of a half day, said in the label too: a hover title is no help on a phone or to a screen reader (#80 QA). */
+const halfWords = (h) => (h === 'FIRST' ? ', first half' : h === 'SECOND' ? ', second half' : h ? ', half day' : '');
 
 export default function LeaveCalendar() {
   const today = todayIst();
@@ -84,6 +89,9 @@ export default function LeaveCalendar() {
     return [...m.values()].sort((a, b) => (a.key === PRIVATE_LABEL) - (b.key === PRIVATE_LABEL) || a.name.localeCompare(b.name));
   }, [requests]);
   const shaded = (d) => isOffDay(d) || holidayOn.has(d);
+  /* Two or more of one department away on the same working day (M4), approved or waiting: flagged before approving a third. */
+  const clashes = clashDays((requests || []).filter((r) => !dept || r.department === dept), days[0], days[days.length - 1]).filter((c) => c.date !== c.to || !shaded(c.date));
+  const clashOn = new Set(days.filter((d) => !shaded(d) && clashes.some((c) => c.date <= d && d <= c.to)));
 
   return (
     <div className="space-y-6">
@@ -111,7 +119,19 @@ export default function LeaveCalendar() {
         <EmptyState title={`Nobody is away or working elsewhere in ${title(month)}${dept ? ` in ${dept}` : ''}`} />
       ) : (
         <section className="space-y-3" aria-label={`Leave in ${title(month)}`}>
-          <div className="ui-table-scroll border-t" style={{ borderColor: 'rgb(var(--border))' }}>
+          {clashes.length ? (
+            <ul className="space-y-1 text-sm" aria-label="Away the same day">
+              {clashes.map((c) => (
+                <li key={`${c.date}:${c.group || ''}`} className="flex flex-wrap items-center gap-2">
+                  <span className="ui-pill ui-pill-warn whitespace-nowrap">{clashWords(c.count)}</span>
+                  <span className="tabular-nums font-medium">{c.date === c.to ? formatDate(c.date) : `${formatDate(c.date)} – ${formatDate(c.to)}`}</span>
+                  <span>{c.group ? `${c.group}: ` : ''}{c.names.join(', ')}{c.waiting ? <span className="ui-caption"> ({c.waiting} waiting)</span> : null}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {/* Scrolls sideways on a phone: reachable by keyboard, so the days past the edge can be read (axe scrollable-region-focusable). */}
+          <div className="ui-table-scroll border-t" style={{ borderColor: 'rgb(var(--border))' }} tabIndex={0} role="group" aria-label={`Days of ${title(month)}`}>
             <table className="w-full border-collapse text-xs" aria-label={`Leave in ${title(month)}`}>
               <thead>
                 <tr>
@@ -138,19 +158,20 @@ export default function LeaveCalendar() {
                         <td key={d} className={`p-0.5 text-center ${shaded(d) ? 'bg-[rgb(var(--border)/0.45)]' : ''}`}>
                           {r ? (
                             <span
-                              className={`block h-5 ${tone.className || ''}`}
+                              className={`block h-5 ${r.halfDay ? `w-1/2 ${r.halfDay === 'SECOND' ? 'ml-auto' : ''}` : ''} ${tone.className || ''}`}
                               role="img"
+                              data-half={r.halfDay || undefined}
                               style={{ ...(tone.style || {}), opacity: r.status === 'PENDING' ? 0.4 : 1 }}
-                              title={`${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}${r.halfDay ? ', half day' : ''}`}
-                              aria-label={`${d}: ${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}`}
+                              title={`${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}${halfWords(r.halfDay)}`}
+                              aria-label={`${d}: ${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}${halfWords(r.halfDay)}`}
                             />
                           ) : w ? (
                             <span
                               className="flex h-5 items-center justify-center text-[0.75rem] font-medium"
                               role="img"
                               style={workingMark}
-                              title={`${WORKING[w.kind]?.name || w.kind}${w.place ? `, ${w.place}` : ''}${w.halfDay ? ', half day' : ''}`}
-                              aria-label={`${d}: ${WORKING[w.kind]?.name || w.kind}`}
+                              title={`${WORKING[w.kind]?.name || w.kind}${w.place ? `, ${w.place}` : ''}${halfWords(w.halfDay)}`}
+                              aria-label={`${d}: ${WORKING[w.kind]?.name || w.kind}${halfWords(w.halfDay)}`}
                             >{WORKING[w.kind]?.letter || ''}</span>
                           ) : null}
                         </td>
@@ -160,7 +181,9 @@ export default function LeaveCalendar() {
                 ))}
                 <tr className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
                   <th scope="row" className="sticky left-0 z-10 bg-[rgb(var(--app-bg))] p-2 text-left text-sm font-medium">Away</th>
-                  {days.map((d) => <td key={d} className="p-1 text-center ui-muted tabular-nums">{awayOn(d) || ''}</td>)}
+                  {days.map((d) => (clashOn.has(d)
+                    ? <td key={d} className="p-0.5 text-center" title="Two or more of one department away"><span className="ui-pill ui-pill-warn tabular-nums px-1">{awayOn(d) || '!'}</span></td>
+                    : <td key={d} className="p-1 text-center ui-muted tabular-nums">{awayOn(d) || ''}</td>))}
                 </tr>
               </tbody>
             </table>
@@ -171,6 +194,7 @@ export default function LeaveCalendar() {
               return <li key={t.key} className="inline-flex items-center gap-1.5"><span className={`inline-block h-2.5 w-2.5 rounded-full ${tone.className || ''}`} style={tone.style} aria-hidden="true" />{t.name}</li>;
             })}
             <li className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full ui-dot-quiet" style={{ opacity: 0.4 }} aria-hidden="true" />Waiting</li>
+            {people.some((p) => p.leave.some((x) => x.halfDay)) ? <li className="inline-flex items-center gap-1.5"><span className="inline-flex h-2.5 w-5 border" style={{ borderColor: 'rgb(var(--border))' }} aria-hidden="true"><span className="h-full w-1/2 ui-dot-quiet" /></span>Half day: left half first, right half second</li> : null}
             {workingKinds.map((k) => <li key={k} className="inline-flex items-center gap-1.5"><span className="inline-flex h-4 w-4 items-center justify-center text-[0.75rem]" style={workingMark} aria-hidden="true">{WORKING[k].letter}</span>{WORKING[k].name}, working</li>)}
             {[...holidayOn.entries()].map(([d, n]) => <li key={d} className="ui-muted tabular-nums">{Number(d.slice(8))}: {n}</li>)}
           </ul>

@@ -12,7 +12,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { apiPort, baseURL, dbName, dbUrl, pgAdminUrl } from './env.mjs';
+import { apiPort, baseURL, dbName, dbUrl, jobsToken, pgAdminUrl } from './env.mjs';
 
 const server = fileURLToPath(new URL('../../server/', import.meta.url));
 
@@ -38,6 +38,8 @@ const env = {
   JWT_EXPIRES_IN: '12h',
   PRISMA_HIDE_UPDATE_MESSAGE: '1',
   RECURRING_SCHEDULER: 'off',
+  /* Lets a scenario wake a background job now (e2e/tests/money-and-rules.spec.ts, R2). */
+  JOBS_TOKEN: jobsToken,
 };
 
 const run = (cmd, args, opts = {}) => {

@@ -41,3 +41,40 @@ describe('wide table watcher', () => {
     stop();
   });
 });
+
+describe('wide content that is not a table (#80: the Candidates board at 390px)', () => {
+  const size = (el, scroll, client) => {
+    Object.defineProperty(el, 'scrollWidth', { configurable: true, get: () => scroll });
+    Object.defineProperty(el, 'clientWidth', { configurable: true, get: () => client });
+  };
+  beforeEach(() => {
+    globalThis.ResizeObserver = FakeRO;
+    document.documentElement.setAttribute('data-palette', 'sky');
+  });
+  afterEach(() => {
+    delete globalThis.ResizeObserver;
+    document.documentElement.removeAttribute('data-palette');
+    document.body.innerHTML = '';
+  });
+
+  it('marks a box wide when its board of stage columns runs past it, so it scrolls instead of clipping', () => {
+    document.body.innerHTML = '<main id="main-content"><div class="ui-table-scroll"><div class="grid"></div></div></main>';
+    const box = document.querySelector('.ui-table-scroll');
+    size(box, 1344, 358);
+    size(box.firstElementChild, 1344, 358);
+    const stop = watchWideTables(document.body);
+    expect(box.hasAttribute('data-wide')).toBe(true);
+    expect(FakeRO.last.els.has(box.firstElementChild)).toBe(true);
+    stop();
+  });
+
+  it('leaves a board that fits unmarked', () => {
+    document.body.innerHTML = '<main id="main-content"><div class="ui-table-scroll"><div class="grid"></div></div></main>';
+    const box = document.querySelector('.ui-table-scroll');
+    size(box, 900, 900);
+    size(box.firstElementChild, 900, 900);
+    const stop = watchWideTables(document.body);
+    expect(box.hasAttribute('data-wide')).toBe(false);
+    stop();
+  });
+});
