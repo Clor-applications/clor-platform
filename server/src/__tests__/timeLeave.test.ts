@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, onTestFinished } from 'vitest';
 import request from 'supertest';
 
 /**
@@ -40,9 +40,17 @@ async function colleague(boss: Ctx, permissions: string[], ownOnly = false): Pro
   const login = await request(app).post('/api/auth/login').send({ email, password: 'Passw0rd!23' }).expect(200);
   return { token: login.body.token, orgId: boss.orgId, branchId: boss.branchId, userId: user.body.user.id };
 }
-const att = (c: Ctx, m: 'get' | 'post' | 'put', p: string, b?: unknown) => (request(app) as any)[m](`/api/orgs/${c.orgId}/attendance${p}`).set(at(c)).send(b as any);
+const att = (c: Ctx, m: 'get' | 'post' | 'put' | 'delete', p: string, b?: unknown) => (request(app) as any)[m](`/api/orgs/${c.orgId}/attendance${p}`).set(at(c)).send(b as any);
 const person = async (c: Ctx, body: Record<string, unknown>) =>
   (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ dateOfJoining: '2026-01-01', ...body }).expect(201)).body.employee;
+/* Dates from today in India, so no test is tied to the day it was written (main went red on 1 Nov 2026). */
+const istToday = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+const plusDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+const weekday = (iso: string) => new Date(`${iso}T00:00:00Z`).getUTCDay();
+/** The first day on or after today + n that is not a Sunday (the default weekly off). */
+const ahead = (n: number) => { let d = plusDays(istToday(), n); while (weekday(d) === 0) d = plusDays(d, 1); return d; };
+/** The first Monday on or after today + n whose week, Monday to Saturday, is inside one calendar (leave) year. */
+const mondayAhead = (n: number) => { let d = plusDays(istToday(), n); while (weekday(d) !== 1 || plusDays(d, 5).slice(0, 4) !== d.slice(0, 4)) d = plusDays(d, 1); return d; };
 const LEAVE_HR = ['ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::CREATE', 'ATTENDANCE::Leave Requests::EDIT', 'ATTENDANCE::Leave Requests::APPROVE', 'ATTENDANCE::Leave Types::VIEW', 'PEOPLE::Employees::VIEW'];
 
 describe('People only: its own roles, its own working week', () => {
@@ -101,7 +109,9 @@ describe('preview, split, privacy, scope, story, overview', () => {
   }, 90_000);
 
   it('the preview names every date, a holiday by its name, and the sandwich rule', async () => {
-    await att(hr, 'post', '/holidays', { date: '2026-12-08', name: 'Test Day' }).expect(201);
+    const testDay = (await att(hr, 'post', '/holidays', { date: '2026-12-08', name: 'Test Day' }).expect(201)).body.holiday;
+    /* Gone again after this test, so a run on 8 Dec 2026 can still take leave "today" in the overview test below. */
+    onTestFinished(async () => { await att(hr, 'delete', `/holidays/${testDay.id}`).expect(200); });
     const p = (await att(hr, 'post', '/leave/requests/preview', { employeeId: report.id, leaveTypeId: casual.id, fromDate: '2026-12-07', toDate: '2026-12-09' }).expect(200)).body;
     expect(p.total).toBe(2);
     expect(p.parts[0].dates.map((d: any) => [d.date, d.counted, d.why])).toEqual([['2026-12-07', true, null], ['2026-12-08', false, 'Holiday: Test Day'], ['2026-12-09', true, null]]);
@@ -221,10 +231,18 @@ describe('preview, split, privacy, scope, story, overview', () => {
 
   it('the overview: away today, waiting oldest first, a policy tried on real people', async () => {
     const t = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
-    const r = (await att(hr, 'post', '/leave/requests', { employeeId: leadEmp.id, leaveTypeId: casual.id, fromDate: t, toDate: t, reason: 'Today off' }).expect(201)).body.request;
-    if (r.days) await att(hr, 'post', `/leave/requests/${r.id}/approve`).expect(200);
-    const o = (await att(hr, 'get', '/leave/overview').expect(200)).body;
-    if (r.days) expect(o.awayToday.map((x: any) => x.employeeId)).toContain(leadEmp.id);
+    /* Today may be a Sunday, and leave on a weekly off is nothing to ask for: this company works every day while the test runs. */
+    await att(hr, 'put', '/leave/working-week', { weeklyOffDays: '' }).expect(200);
+    let o: any;
+    try {
+      const r = (await att(hr, 'post', '/leave/requests', { employeeId: leadEmp.id, leaveTypeId: casual.id, fromDate: t, toDate: t, reason: 'Today off' }).expect(201)).body.request;
+      expect(r.days).toBe(1);
+      await att(hr, 'post', `/leave/requests/${r.id}/approve`).expect(200);
+      o = (await att(hr, 'get', '/leave/overview').expect(200)).body;
+    } finally {
+      await att(hr, 'put', '/leave/working-week', { weeklyOffDays: '0' }).expect(200);
+    }
+    expect(o.awayToday.map((x: any) => x.employeeId)).toContain(leadEmp.id);
     expect(o.waiting.count).toBeGreaterThan(0);
     const times = o.waiting.oldest.map((x: any) => String(x.createdAt));
     expect([...times].sort()).toEqual(times);
@@ -384,20 +402,23 @@ describe('advanced build: entitlements, probation, workflow per type, stand-ins,
 
   it('a waiting request can be changed, and approved leave that has started can end early', async () => {
     const t = (await att(hr, 'post', '/leave/types', { name: 'Plain', annualDays: 20 }).expect(201)).body.type;
-    const r = (await att(hr, 'post', '/leave/requests', { employeeId: intern.id, leaveTypeId: t.id, fromDate: '2026-12-01', toDate: '2026-12-02', reason: 'First' }).expect(201)).body.request;
-    const edited = (await att(hr, 'put', `/leave/requests/${r.id}`, { leaveTypeId: t.id, fromDate: '2026-12-02', toDate: '2026-12-04', reason: 'Changed plan' }).expect(200)).body.request;
-    expect(edited).toMatchObject({ id: r.id, fromDate: '2026-12-02', toDate: '2026-12-04', days: 3, reason: 'Changed plan' });
+    /* A Monday a fortnight or more ahead, Monday to Thursday inside one leave year: clear of today's leave below. */
+    const mon = mondayAhead(14);
+    const r = (await att(hr, 'post', '/leave/requests', { employeeId: intern.id, leaveTypeId: t.id, fromDate: mon, toDate: plusDays(mon, 1), reason: 'First' }).expect(201)).body.request;
+    const edited = (await att(hr, 'put', `/leave/requests/${r.id}`, { leaveTypeId: t.id, fromDate: plusDays(mon, 1), toDate: plusDays(mon, 3), reason: 'Changed plan' }).expect(200)).body.request;
+    expect(edited).toMatchObject({ id: r.id, fromDate: plusDays(mon, 1), toDate: plusDays(mon, 3), days: 3, reason: 'Changed plan' });
     expect((await att(hr, 'get', `/leave/requests/${r.id}`).expect(200)).body.history.map((h: any) => h.what)).toEqual(['Entered for Intern', 'Changed']);
     /* Came back early: approved leave over today, shortened to its first day. */
     const today_ = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
-    const d = new Date(`${today_}T00:00:00Z`);
-    const from = new Date(d.getTime() - 2 * 86_400_000).toISOString().slice(0, 10);
-    const to = new Date(d.getTime() + 2 * 86_400_000).toISOString().slice(0, 10);
+    /* Two days either side of today, kept inside this leave year: leave across the year end is refused whole (it broke on 30 Dec–1 Jan). */
+    const yearOf = today_.slice(0, 4);
+    const from = plusDays(today_, -2) < `${yearOf}-01-01` ? `${yearOf}-01-01` : plusDays(today_, -2);
+    const to = plusDays(today_, 2) > `${yearOf}-12-31` ? `${yearOf}-12-31` : plusDays(today_, 2);
     const long = (await att(hr, 'post', '/leave/requests', { employeeId: intern.id, leaveTypeId: t.id, fromDate: from, toDate: to, reason: 'Long' }).expect(201)).body.request;
     await att(hr, 'post', `/leave/requests/${long.id}/approve`).expect(200);
     const before = (await att(hr, 'get', `/leave/ledger?employeeId=${intern.id}&year=${today_.slice(0, 4)}`).expect(200)).body.types.find((x: any) => x.type.id === t.id).balance;
     /* Back on the first working day of the leave (the default week has Sunday off). */
-    const backOn = new Date(`${from}T00:00:00Z`).getUTCDay() === 0 ? new Date(d.getTime() - 86_400_000).toISOString().slice(0, 10) : from;
+    const backOn = weekday(from) === 0 ? plusDays(from, 1) : from;
     const short = (await att(hr, 'post', `/leave/requests/${long.id}/shorten`, { toDate: backOn }).expect(200)).body.request;
     expect(short.toDate).toBe(backOn);
     expect(short.days).toBeLessThan(long.days);
@@ -417,18 +438,21 @@ describe('advanced build: entitlements, probation, workflow per type, stand-ins,
     const bal = (await att(hr, 'get', `/leave/ledger?employeeId=${staff.id}&year=2026`).expect(200)).body.types.find((x: any) => x.type.id === comp.id).balance;
     expect(bal.available).toBe(1);
 
-    await att(hr, 'post', '/holidays', { date: '2026-12-21', name: 'Optional One', isOptional: true }).expect(201);
-    const h2 = (await att(hr, 'post', '/holidays', { date: '2026-12-22', name: 'Optional Two', isOptional: true }).expect(201)).body.holiday;
+    /* Restricted holidays still to come (a past one cannot be picked; this said 21 and 22 Dec 2026): a Monday and Tuesday weeks ahead. */
+    const opt1 = mondayAhead(21);
+    const opt2 = plusDays(opt1, 1);
+    await att(hr, 'post', '/holidays', { date: opt1, name: 'Optional One', isOptional: true }).expect(201);
+    const h2 = (await att(hr, 'post', '/holidays', { date: opt2, name: 'Optional Two', isOptional: true }).expect(201)).body.holiday;
     await att(hr, 'put', '/leave/working-week', { weeklyOffDays: '0', restrictedHolidayQuota: 1 }).expect(200);
     const staffUser = (await runInTenant(hr.orgId, () => peoplePrisma.employee.findUniqueOrThrow({ where: { id: staff.id } }))).userId!;
     const me = { token: (await request(app).post('/api/auth/login').send({ email: (await platformPrisma.user.findUniqueOrThrow({ where: { id: staffUser } })).email, password: 'Passw0rd!23' }).expect(200)).body.token, orgId: hr.orgId, branchId: hr.branchId };
-    const list = (await att(me, 'get', '/me/holidays/restricted?year=2026').expect(200)).body;
+    const list = (await att(me, 'get', `/me/holidays/restricted?year=${opt1.slice(0, 4)}`).expect(200)).body;
     expect(list).toMatchObject({ quota: 1, left: 1 });
     const one = list.holidays.find((h: any) => h.name === 'Optional One');
     await att(me, 'post', `/me/holidays/restricted/${one.id}`, {}).expect(200);
     expect((await att(me, 'post', `/me/holidays/restricted/${h2.id}`, {}).expect(409)).body.error).toContain('picked your 1');
-    const p = (await att(hr, 'post', '/leave/requests/preview', { employeeId: staff.id, leaveTypeId: comp.id, fromDate: '2026-12-21', toDate: '2026-12-22' }).expect(200)).body;
-    expect(p.parts[0].dates.map((x: any) => [x.date, x.counted])).toEqual([['2026-12-21', false], ['2026-12-22', true]]);
+    const p = (await att(hr, 'post', '/leave/requests/preview', { employeeId: staff.id, leaveTypeId: comp.id, fromDate: opt1, toDate: opt2 }).expect(200)).body;
+    expect(p.parts[0].dates.map((x: any) => [x.date, x.counted])).toEqual([[opt1, false], [opt2, true]]);
   });
 
   it('year end: previewed per person, run once with pay-outs for encashable types, undone until payroll takes it', async () => {
@@ -456,7 +480,8 @@ describe('advanced build: entitlements, probation, workflow per type, stand-ins,
   it('hand-on: a manager step that waited too long goes to HR; the digest tells an approver once a day', async () => {
     const { runLeaveHandOns, runLeaveDigest } = await import('../services/attendance/leaveJobs.js');
     const slow = (await att(hr, 'post', '/leave/types', { name: 'Slow', annualDays: 10, approval: 'MANAGER_THEN_HR', handOnAfterDays: 2 }).expect(201)).body.type;
-    const r = (await att(hr, 'post', '/leave/requests', { employeeId: staff.id, leaveTypeId: slow.id, fromDate: '2027-01-11', toDate: '2027-01-11', reason: 'Later' }).expect(201)).body.request;
+    const later = ahead(60);
+    const r = (await att(hr, 'post', '/leave/requests', { employeeId: staff.id, leaveTypeId: slow.id, fromDate: later, toDate: later, reason: 'Later' }).expect(201)).body.request;
     expect(await runLeaveHandOns()).toBe(0);
     await runInTenant(hr.orgId, () => peoplePrisma.leaveRequest.update({ where: { id: r.id }, data: { createdAt: new Date(Date.now() - 3 * 86_400_000) } }));
     expect(await runLeaveHandOns()).toBe(1);
@@ -531,12 +556,14 @@ describe('second audit (27 Oct 2026): slabs by period, rules on a type in use, e
     const t = (await att(hr, 'post', '/leave/types', { name: 'Casual', annualDays: 12, carryForwardMax: 100 }).expect(201)).body.type;
     await back(t.id, hr.orgId, '2024-01-01');
     const p = await person(hr, { name: 'Second year', code: 'S2', dateOfJoining: '2024-01-01' });
-    await att(hr, 'post', '/leave/requests', { employeeId: p.id, leaveTypeId: t.id, fromDate: '2026-12-01', toDate: '2026-12-01', reason: 'In use' }).expect(201);
+    /* "This leave period" is this year's: the rules start on its 1 January, and every full year since 2024 carries in at 12 (it said 2026). */
+    const year = Number(istToday().slice(0, 4));
+    await att(hr, 'post', '/leave/requests', { employeeId: p.id, leaveTypeId: t.id, fromDate: ahead(7), toDate: ahead(7), reason: 'In use' }).expect(201);
     const saved = (await att(hr, 'put', `/leave/types/${t.id}`, { name: 'Casual', annualDays: 12, carryForwardMax: 100, entitlements: [{ minServiceMonths: 24, annualDays: 15 }] }).expect(200)).body.type;
-    expect(saved.entitlementsFrom).toBe('2026-01-01');
-    const b = await balance(hr, p.id, t.id);
+    expect(saved.entitlementsFrom).toBe(`${year}-01-01`);
+    const b = await balance(hr, p.id, t.id, year);
     expect(b.entitled).toBe(15);
-    expect(b.carriedIn).toBe(24);
+    expect(b.carriedIn).toBe(12 * (year - 2024));
     /* The days a year still cannot change under balances and requests. */
     expect((await att(hr, 'put', `/leave/types/${t.id}`, { name: 'Casual', annualDays: 10, carryForwardMax: 100 }).expect(409)).body.code).toBe('LEAVE_POLICY_IN_USE');
   });
@@ -623,21 +650,23 @@ describe('closure audit (27 Oct 2026): nobody decides their own, team roles keep
   }, 90_000);
 
   it('the owner alone may decide their own request, and the audit log says so; once somebody else can, they may not', async () => {
-    const mine = (await att(hr, 'post', '/requests', { employeeId: ownerEmp.id, kind: 'WFH', date: '2027-02-01', reason: 'Home' }).expect(201)).body.request;
+    /* Days still to come, Monday and Tuesday (this said 1 and 2 Feb 2027). */
+    const homeDay = mondayAhead(7);
+    const mine = (await att(hr, 'post', '/requests', { employeeId: ownerEmp.id, kind: 'WFH', date: homeDay, reason: 'Home' }).expect(201)).body.request;
     await att(hr, 'post', `/requests/${mine.id}/approve`).expect(200);
     const lines = await platformPrisma.auditLog.findMany({ where: { orgId: hr.orgId, entityId: mine.id } });
     expect(lines.map((l) => l.action)).toEqual(expect.arrayContaining(['SELF_APPROVED', 'APPROVE']));
     const deputy = await colleague(hr, ['ATTENDANCE::Attendance Requests::VIEW', 'ATTENDANCE::Attendance Requests::APPROVE', 'ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::EDIT', 'ATTENDANCE::Leave Requests::APPROVE', 'PEOPLE::Employees::VIEW']);
-    const next = (await att(hr, 'post', '/requests', { employeeId: ownerEmp.id, kind: 'WFH', date: '2027-02-02', reason: 'Home again' }).expect(201)).body.request;
+    const next = (await att(hr, 'post', '/requests', { employeeId: ownerEmp.id, kind: 'WFH', date: plusDays(homeDay, 1), reason: 'Home again' }).expect(201)).body.request;
     expect((await att(hr, 'post', `/requests/${next.id}/approve`).expect(403)).body.code).toBe('OWN_RECORD');
     /* Several at once: the same rule, per request. */
     const bulk = (await att(hr, 'post', '/requests/bulk-review', { ids: [next.id], approve: true }).expect(200)).body;
     expect(bulk).toMatchObject({ done: 0, failed: 1 });
     await att(deputy, 'post', `/requests/${next.id}/approve`).expect(200);
     /* A balance of one's own, or a pay-out: the same. */
-    expect((await att(hr, 'post', '/leave/adjustments', { employeeId: ownerEmp.id, leaveTypeId: casual.id, year: 2026, days: 5, reason: 'Gift to myself' }).expect(403)).body.code).toBe('MAKER_CHECKER');
-    expect((await att(hr, 'put', '/leave/allocations', { employeeId: ownerEmp.id, leaveTypeId: casual.id, year: 2026, days: 40 }).expect(403)).body.code).toBe('MAKER_CHECKER');
-    await att(deputy, 'post', '/leave/adjustments', { employeeId: ownerEmp.id, leaveTypeId: casual.id, year: 2026, days: 1, reason: 'Worked a holiday' }).expect(201);
+    expect((await att(hr, 'post', '/leave/adjustments', { employeeId: ownerEmp.id, leaveTypeId: casual.id, year: Number(istToday().slice(0, 4)), days: 5, reason: 'Gift to myself' }).expect(403)).body.code).toBe('MAKER_CHECKER');
+    expect((await att(hr, 'put', '/leave/allocations', { employeeId: ownerEmp.id, leaveTypeId: casual.id, year: Number(istToday().slice(0, 4)), days: 40 }).expect(403)).body.code).toBe('MAKER_CHECKER');
+    await att(deputy, 'post', '/leave/adjustments', { employeeId: ownerEmp.id, leaveTypeId: casual.id, year: Number(istToday().slice(0, 4)), days: 1, reason: 'Worked a holiday' }).expect(201);
   }, 60_000);
 
   it('a team role does not change leave types, and does not see how a private type was used', async () => {

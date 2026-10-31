@@ -80,30 +80,43 @@ describe('an April–March company', () => {
 
     await att(c, 'put', '/leave/settings', { startMonth: 4, startDay: 29 }).expect(400);
     const set = (await att(c, 'put', '/leave/settings', { startMonth: 4, startDay: 1 }).expect(200)).body;
-    expect(set.current).toMatchObject({ year: 2026, from: '2026-04-01', to: '2027-03-31', label: 'Apr 2026 – Mar 2027' });
+    /* The April–March period today is in, in India (a fixed 2026 one stopped being current on 1 Apr 2027). */
+    const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    const P = Number(today.slice(0, 4)) - (Number(today.slice(5, 7)) < 4 ? 1 : 0);
+    const label = `Apr ${P} – Mar ${P + 1}`;
+    expect(set.current).toMatchObject({ year: P, from: `${P}-04-01`, to: `${P + 1}-03-31`, label });
+    /* Two working days in a row in September, by when six monthly credits are in (Sunday is off). */
+    const dayAt = (n: number) => new Date(Date.parse(`${P}-09-01T00:00:00Z`) + n * 86_400_000);
+    let n = 0;
+    while (dayAt(n).getUTCDay() === 0 || dayAt(n + 1).getUTCDay() === 0) n += 1;
+    const [d1, d2] = [dayAt(n), dayAt(n + 1)].map((d) => d.toISOString().slice(0, 10));
 
     const t = (await att(c, 'post', '/leave/types', { name: 'Casual', annualDays: 12, accrual: 'MONTHLY', creditOn: 'DAY', creditDay: 10 }).expect(201)).body.type;
     await att(c, 'post', '/leave/types', { name: 'Odd', annualDays: 12, creditOn: 'DAY' }).expect(400);
     const p = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Period Person', code: 'P1', dateOfJoining: '2024-01-01' }).expect(201)).body.employee;
 
-    /* Today is in the 2026 period, which runs to 31 March 2027; leave across that day is refused. */
-    const sep = (await att(c, 'post', '/leave/requests', { employeeId: p.id, leaveTypeId: t.id, fromDate: '2026-09-01', toDate: '2026-09-02', reason: 'Family' }).expect(201)).body.request;
+    /* Today is in period P, which runs to 31 March of the next year; leave across that day is refused. */
+    const sep = (await att(c, 'post', '/leave/requests', { employeeId: p.id, leaveTypeId: t.id, fromDate: d1, toDate: d2, reason: 'Family' }).expect(201)).body.request;
     await att(c, 'post', `/leave/requests/${sep.id}/approve`).expect(200);
-    expect((await att(c, 'post', '/leave/requests', { employeeId: p.id, leaveTypeId: t.id, fromDate: '2027-03-31', toDate: '2027-04-01', reason: 'Across' }).expect(400)).body.error).toMatch(/2027-03-31/);
+    expect((await att(c, 'post', '/leave/requests', { employeeId: p.id, leaveTypeId: t.id, fromDate: `${P + 1}-03-31`, toDate: `${P + 1}-04-01`, reason: 'Across' }).expect(400)).body.error).toMatch(new RegExp(`${P + 1}-03-31`));
 
     const ledger = (await att(c, 'get', `/leave/ledger?employeeId=${p.id}`).expect(200)).body;
-    expect(ledger.period).toMatchObject({ year: 2026, label: 'Apr 2026 – Mar 2027' });
+    expect(ledger.period).toMatchObject({ year: P, label });
     const lines = ledger.types.find((x: any) => x.type.id === t.id).entries;
-    expect(lines.filter((e: any) => e.kind === 'CREDIT').map((e: any) => e.date)[0]).toBe('2026-04-10');
-    expect(lines.some((e: any) => e.kind === 'UPCOMING' && e.date === '2027-03-10')).toBe(true);
+    /* The period's first credit, on the 10th of April: credited, or still to come in its first days. */
+    const first = `${P}-04-10`;
+    expect(lines.filter((e: any) => e.kind === 'CREDIT' || e.kind === 'UPCOMING')[0]).toMatchObject({ date: first, kind: today >= first ? 'CREDIT' : 'UPCOMING' });
+    /* The period's last credit: still to come, unless today is past it. */
+    const last = `${P + 1}-03-10`;
+    expect(lines.some((e: any) => e.kind === (today >= last ? 'CREDIT' : 'UPCOMING') && e.date === last)).toBe(true);
 
-    const reg = (await att(c, 'get', '/leave/register?year=2026').expect(200)).body;
+    const reg = (await att(c, 'get', `/leave/register?year=${P}`).expect(200)).body;
     const row = reg.rows.find((r: any) => r.employeeId === p.id && r.leaveTypeId === t.id);
     expect(row).toMatchObject({ taken: 2, pending: 0, opening: 0, lapsed: null });
     expect(row.closing).toBe(row.credited - 2);
 
     /* Applications of a period, for its register. */
-    expect((await att(c, 'get', '/leave/requests?year=2026').expect(200)).body.requests.map((r: any) => r.id)).toEqual([sep.id]);
-    expect((await att(c, 'get', '/leave/requests?year=2025').expect(200)).body.requests).toHaveLength(0);
+    expect((await att(c, 'get', `/leave/requests?year=${P}`).expect(200)).body.requests.map((r: any) => r.id)).toEqual([sep.id]);
+    expect((await att(c, 'get', `/leave/requests?year=${P - 1}`).expect(200)).body.requests).toHaveLength(0);
   }, 60_000);
 });

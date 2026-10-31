@@ -103,16 +103,21 @@ describe('balances on the API', () => {
     const person = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Ravi', code: 'L1', dateOfJoining: '2024-01-01' }).expect(201)).body.employee;
     const t = (await api(c).post('/leave/types', { name: 'Earned', annualDays: 12, accrual: 'MONTHLY', carryForwardMax: 6 }).expect(201)).body.type;
     expect(t).toMatchObject({ accrual: 'MONTHLY', carryForwardMax: 6 });
-    // The type existed last year, and 2025's balance was 12 with none taken: 6 carry.
-    await peoplePrisma.leaveType.update({ where: { id: t.id }, data: { createdAt: new Date('2025-01-01T00:00:00Z') } });
+    /* Next year, seen from before it starts, whatever today is (a fixed 2027 started earning on 1 Jan 2027). */
+    const next = Number(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 4)) + 1;
+    // The type existed the year before this one, whose balance was 12 with none taken: 6 carry into this year.
+    await peoplePrisma.leaveType.update({ where: { id: t.id }, data: { createdAt: new Date(`${next - 2}-01-01T00:00:00Z`) } });
 
-    const b = (await api(c).get('/leave/balances?year=2027').expect(200)).body.rows.find((r: any) => r.employeeId === person.id).balances[t.id];
-    /* 2027 seen from its first day: January's credit (1) and 2026's 12 + 6 carried = 18, capped to 6 carried in. */
+    const b = (await api(c).get(`/leave/balances?year=${next}`).expect(200)).body.rows.find((r: any) => r.employeeId === person.id).balances[t.id];
+    /* Next year seen from its first day: January's credit (1) and this year's 12 + 6 carried = 18, capped to 6 carried in. */
     expect(b).toMatchObject({ carriedIn: 6, earned: 1, allocated: 7, fullYear: 18 });
 
-    /* A request in March 2027 is checked against January–March (3 days) plus the 6 carried. */
+    /* A request in March next year is checked against January–March (3 days) plus the 6 carried. From its first Monday (Sunday is off): */
+    let monday = Date.parse(`${next}-03-01T00:00:00Z`);
+    while (new Date(monday).getUTCDay() !== 1) monday += 86_400_000;
+    const on = (n: number) => new Date(monday + n * 86_400_000).toISOString().slice(0, 10);
     const ask = (from: string, to: string) => api(c).post('/leave/requests', { employeeId: person.id, leaveTypeId: t.id, fromDate: from, toDate: to, reason: 'Family visit' });
-    expect((await ask('2027-03-01', '2027-03-12').expect(400)).body.code).toBe('NO_BALANCE'); // 11 working days
-    await ask('2027-03-01', '2027-03-09').expect(201); // 8 working days
+    expect((await ask(on(0), on(11)).expect(400)).body.code).toBe('NO_BALANCE'); // 11 working days
+    await ask(on(0), on(8)).expect(201); // 8 working days
   });
 });

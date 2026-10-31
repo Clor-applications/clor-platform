@@ -71,27 +71,45 @@ describe('leave', () => {
   }, 120_000);
 
   it('the person shortening their own leave ends it today or later; HR may end it on a past day', async () => {
-    const long = (await att(hr, 'post', '/leave/requests', { employeeId: emp.id, leaveTypeId: plain.id, fromDate: plus(today, -4), toDate: plus(today, 3), reason: 'Long trip' }).expect(201)).body.request;
-    await att(hr, 'post', `/leave/requests/${long.id}/approve`).expect(200);
+    /*
+     * Four days back to three ahead must sit inside one leave period, or it has to be split. From 29 Dec to
+     * 4 Jan a January period cannot hold it (red on 1 Jan 2027), so then it runs in a company whose period
+     * starts in July. 'Other Om' (F2) is in this company either way: the import test below uses him.
+     */
+    const md = today.slice(5);
+    const nearTurn = md >= '12-29' || md <= '01-04';
+    let [co, asker, who, type] = [hr, me, emp, plain];
+    if (nearTurn) {
+      co = await company();
+      await att(co, 'put', '/leave/settings', { startMonth: 7, startDay: 1 }).expect(200);
+      asker = await colleague(co, MY);
+      who = await person(co, { name: 'Asker Anil', code: 'F1' });
+      await link(co, who.id, asker.userId!);
+      type = (await att(co, 'post', '/leave/types', { name: 'Plain', annualDays: 20 }).expect(201)).body.type;
+    }
+    const long = (await att(co, 'post', '/leave/requests', { employeeId: who.id, leaveTypeId: type.id, fromDate: plus(today, -4), toDate: plus(today, 3), reason: 'Long trip' }).expect(201)).body.request;
+    await att(co, 'post', `/leave/requests/${long.id}/approve`).expect(200);
     /* Handing back days already taken, with nobody approving it: refused. */
-    const past = await att(me, 'post', `/me/leave/${long.id}/shorten`, { toDate: plus(today, -2) }).expect(400);
+    const past = await att(asker, 'post', `/me/leave/${long.id}/shorten`, { toDate: plus(today, -2) }).expect(400);
     expect(past.body.error).toMatch(/Choose a day from/);
-    expect((await row(hr, long.id)).toDate).toBe(plus(today, 3));
-    const ok = (await att(me, 'post', `/me/leave/${long.id}/shorten`, { toDate: today }).expect(200)).body.request;
+    expect((await row(co, long.id)).toDate).toBe(plus(today, 3));
+    const ok = (await att(asker, 'post', `/me/leave/${long.id}/shorten`, { toDate: today }).expect(200)).body.request;
     expect(ok.toDate).toBe(today);
     /* HR correcting the record may still go back. */
     const other = await person(hr, { name: 'Other Om', code: 'F2' });
-    const hrs = (await att(hr, 'post', '/leave/requests', { employeeId: other.id, leaveTypeId: plain.id, fromDate: plus(today, -4), toDate: plus(today, 3), reason: 'Long trip' }).expect(201)).body.request;
-    await att(hr, 'post', `/leave/requests/${hrs.id}/approve`).expect(200);
+    const otherHere = nearTurn ? await person(co, { name: 'Other Om', code: 'F2' }) : other;
+    const hrs = (await att(co, 'post', '/leave/requests', { employeeId: otherHere.id, leaveTypeId: type.id, fromDate: plus(today, -4), toDate: plus(today, 3), reason: 'Long trip' }).expect(201)).body.request;
+    await att(co, 'post', `/leave/requests/${hrs.id}/approve`).expect(200);
     const back = plus(today, -3);
-    const shortened = await att(hr, 'post', `/leave/requests/${hrs.id}/shorten`, { toDate: back });
+    const shortened = await att(co, 'post', `/leave/requests/${hrs.id}/shorten`, { toDate: back });
     /* Unless the days up to `back` are all weekly offs, which leaves no working day. */
     if (shortened.status === 200) expect(shortened.body.request.toDate).toBe(back);
     else expect(shortened.body.error).toMatch(/no working day/);
   });
 
   it('a type locked by probation cannot be taken in advance, and the lock is checked again at approval', async () => {
-    const probationer = await person(hr, { name: 'New Nita', code: 'F3', probationEndDate: '2027-06-30' });
+    /* Still on probation when the leave falls (a fixed 2027-06-30 ended before laterMonday from late May 2027). */
+    const probationer = await person(hr, { name: 'New Nita', code: 'F3', probationEndDate: plus(laterMonday, 90) });
     const locked = (await att(hr, 'post', '/leave/types', { name: 'Locked', annualDays: 12, negativeDays: 5, probationRule: 'LOCK' }).expect(201)).body.type;
     const refused = await att(hr, 'post', '/leave/requests', { employeeId: probationer.id, leaveTypeId: locked.id, fromDate: laterMonday, toDate: laterMonday, reason: 'Errand' }).expect(400);
     expect(refused.body.code).toBe('NO_BALANCE');

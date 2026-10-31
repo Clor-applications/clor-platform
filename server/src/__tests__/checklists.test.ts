@@ -37,12 +37,14 @@ const plusDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:0
 
 describe('joining and leaving checklists', () => {
   it('starts the defaults on joining, dated from the joining day, and ticks by person', async () => {
-    const e = (await api('post', '/employees', { name: 'Asha', code: 'C1', dateOfJoining: '2026-11-02' }).expect(201)).body.employee;
+    /* Joining in a few days: a step due before today would be moved up to today (a joiner entered late), which a fixed 2026-11-02 met on 6 Nov 2026. */
+    const joins = day(3);
+    const e = (await api('post', '/employees', { name: 'Asha', code: 'C1', dateOfJoining: joins }).expect(201)).body.employee;
     const list = (await api('get', `/employees/${e.id}/checklist`).expect(200)).body;
     expect(list.joining.total).toBe(8);
     expect(list.leaving.total).toBe(0);
     const salary = list.joining.tasks.find((t: any) => t.title === 'Assign the salary structure');
-    expect(salary).toMatchObject({ owner: 'PAYROLL', dueDate: '2026-11-05', done: false });
+    expect(salary).toMatchObject({ owner: 'PAYROLL', dueDate: plusDays(joins, 3), done: false });
 
     const after = (await api('patch', `/checklist-tasks/${salary.id}`, { done: true, note: 'Structure A' }).expect(200)).body;
     expect(after.joining.done).toBe(1);
