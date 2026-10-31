@@ -16,6 +16,7 @@ vi.mock('./api', () => ({
   MONTH_NAMES: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
   PRIVATE_LABEL: 'Private leave',
   colorOf: () => '#000000',
+  swatchOf: () => '#000000',
   creditText: () => 'at the start of the period',
   listLeaveTypes: vi.fn().mockResolvedValue([]),
   getLeaveSettings: vi.fn().mockResolvedValue(null),

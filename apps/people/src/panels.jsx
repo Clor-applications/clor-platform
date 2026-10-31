@@ -71,7 +71,7 @@ export function LeaveRequestsPanel({ openScreen }) {
   return (
     <>
       <SideBlock title="Away this week" count={away.length} action={{ label: 'Calendar', onClick: () => openScreen?.('leaveCalendar') }}>
-        {clashes.map((c) => <SideAlert key={`c-${c.dept}`} title={`${c.dept} is short on ${day(c.d)}`} sub={`${c.n} people off the same day`} />)}
+        {clashes.map((c) => <SideAlert key={`c-${c.dept}`} tone="warn" title={`${c.dept} is short on ${day(c.d)}`} sub={`${c.n} people off the same day`} />)}
         {away.slice(0, 5).map((r) => (
           <SideLine key={r.id} lead={face(r.employeeName, r.photoUrl)} title={r.employeeName} sub={`${r.leaveTypeName} · ${span(r.fromDate, r.toDate)}`}
             meta={r.status === 'PENDING' ? 'Waiting' : 'Off'} tone={r.status === 'PENDING' ? 'warn' : 'info'} />

@@ -146,7 +146,7 @@ export default function EmployeePortal() {
   ];
 
   return (
-    <div className="min-h-dvh pb-20" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
+    <div className="ui-portal min-h-dvh pb-20" data-brand="d" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
       <header className="sticky top-0 z-10 border-b px-4 py-3" style={{ backgroundColor: 'rgb(var(--surface))', borderColor: 'rgb(var(--border))' }}>
         <div className="mx-auto flex max-w-md items-center gap-2">
           <Fingerprint size={20} aria-hidden="true" style={{ color: 'rgb(var(--accent))' }} />

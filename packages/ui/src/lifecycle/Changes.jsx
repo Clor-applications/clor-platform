@@ -54,7 +54,7 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
       <div ref={tabsRef} role="tablist" aria-label="Changes" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
         {VIEWS.map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => set({ view: k === 'scheduled' ? null : k, page: null }, true)}>
-            {l}{counts[k] && k !== 'applied' ? <span className="ui-tab-count tabular-nums">{counts[k]}</span> : null}
+            {l}{counts[k] && k !== 'applied' ? <span className="ui-tab-count tabular-nums" data-tone={k === 'approval' ? 'warn' : undefined}>{counts[k]}</span> : null}
           </button>
         ))}
         {tabIndicator}

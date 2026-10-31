@@ -231,7 +231,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
           <div ref={tabsRef} role="tablist" aria-label="Approvals" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
             {TABS.map(([k, l]) => (
               <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => { setSelected(new Set()); set({ tab: k === 'waiting' ? null : k, page: null }, true); }}>
-                {l}{k === 'waiting' && counts.all ? <span className="ui-tab-count tabular-nums">{counts.all}</span> : null}
+                {l}{k === 'waiting' && counts.all ? <span className="ui-tab-count tabular-nums" data-tone="warn">{counts.all}</span> : null}
               </button>
             ))}
             {tabIndicator}

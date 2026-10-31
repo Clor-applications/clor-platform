@@ -196,7 +196,7 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
           <div ref={tabsRef} role="tablist" aria-label="Attendance requests" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
             {TABS.map(([k, l]) => (
               <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => set({ tab: k === 'PENDING' ? null : k, page: null }, true)}>
-                {l}{counts[k] ? <span className="ui-tab-count tabular-nums">{counts[k]}</span> : null}
+                {l}{counts[k] ? <span className="ui-tab-count tabular-nums" data-tone={k === 'PENDING' ? 'warn' : undefined}>{counts[k]}</span> : null}
               </button>
             ))}
             {tabIndicator}

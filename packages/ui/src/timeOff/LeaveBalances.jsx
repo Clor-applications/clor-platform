@@ -18,7 +18,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { can, homeCrumbs } from './shared';
 import { useSuggestions } from './suggestions';
 import BulkGrant from './BulkGrant';
-import { addLeaveAdjustment, colorOf, deleteLeaveAdjustment, getLeaveBalances, getLeaveLedger, getLeaveSettings, grantCompOff, periodChoices, setAllocation, thisYear, todayIst } from './api';
+import { addLeaveAdjustment, deleteLeaveAdjustment, getLeaveBalances, getLeaveLedger, getLeaveSettings, grantCompOff, periodChoices, setAllocation, swatchOf, thisYear, todayIst } from './api';
 
 /**
  * Time & Leave → Balances. Everyone's days for the leave period; open a
@@ -271,7 +271,7 @@ function Ledger({ person, year, label, onClose, onChanged }) {
           {data.types.map(({ type, balance, projected, entries, explain }) => (
             <section key={type.id} aria-label={type.name} className="space-y-1">
               <div className="flex items-baseline justify-between gap-3">
-                <h3 className="ui-t-sec inline-flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: colorOf(type) }} aria-hidden="true" />{type.name}</h3>
+                <h3 className="ui-t-sec inline-flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: swatchOf(type) }} aria-hidden="true" />{type.name}</h3>
                 {type.isPaid ? (
                   <span className="text-sm text-right">
                     <span className="block"><span className="tabular-nums font-medium">{balance.available}</span> available{asOf ? <span className="ui-muted tabular-nums"> on {formatDate(asOf)}</span> : null}</span>

@@ -13,7 +13,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import Drawer from '@ui/components/ui/Drawer';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { printElement } from '@ui/utils/printElement';
-import { colorOf, getLeaveRegister, getLeaveRegisterBook, getLeaveSettings, listLeaveTypes, periodChoices } from './api';
+import { getLeaveRegister, getLeaveRegisterBook, getLeaveSettings, listLeaveTypes, periodChoices, swatchOf } from './api';
 import { activeApp, homeCrumbs } from './shared';
 
 /* People files the register under Reports, so its crumbs say so; Attendance keeps it under Time & Leave. */
@@ -58,7 +58,7 @@ export default function LeaveRegister() {
   useResetPage(setPage, [search.query, size, year, typeId]);
   const { pageRows, safePage } = usePaged(search.filtered, size, page);
   const totals = useMemo(() => Object.fromEntries(cols.map(([k]) => [k, Math.round(search.filtered.reduce((a, r) => a + (Number(r[k]) || 0), 0) * 100) / 100])), [cols, search.filtered]);
-  const typeColor = useMemo(() => new Map((data?.types || []).map((t) => [t.id, colorOf(t)])), [data]);
+  const typeColor = useMemo(() => new Map((data?.types || []).map((t) => [t.id, swatchOf(t)])), [data]);
   const label = data?.period?.label || '';
   const periodOptions = settings.data ? periodChoices(settings.data).map((c) => ({ value: String(c.year), label: c.label })) : [];
   const typeOptions = [{ value: '', label: 'Every type' }, ...(allTypes.data || []).map((t) => ({ value: t.id, label: t.name }))];

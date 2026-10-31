@@ -233,7 +233,7 @@ export default function TeamAttendance() {
             <div ref={tabsRef} role="tablist" aria-label="Day" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
               {TABS.map(([k, l]) => (
                 <button key={k || 'all'} type="button" role="tab" aria-selected={status === k} className={`ui-tab ${status === k ? 'is-active' : ''}`} onClick={() => setStatus(k)}>
-                  {l}{counts[k] ? <span className="ui-tab-count tabular-nums">{counts[k]}</span> : null}
+                  {l}{counts[k] ? <span className="ui-tab-count tabular-nums" data-tone={k === 'NONE' ? 'warn' : undefined}>{counts[k]}</span> : null}
                 </button>
               ))}
               {tabIndicator}
