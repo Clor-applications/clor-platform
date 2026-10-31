@@ -94,13 +94,24 @@ export const WriteGuard = ({ permission, children }) => {
     [readOnly, reason, known, approveKey, perms.permissions],
   );
 
-  if (!readOnly) return known && approveKey ? <div style={{ display: 'contents' }} onClickCapture={stop}>{children}</div> : children;
+  /*
+   * One wrapper, always, with the screen in the same place inside it. It used
+   * to be the bare screen while permissions loaded and the screen inside a
+   * wrapper once they came: a different element there, so React threw the
+   * screen away and built it again. Every screen mounted twice, loading all
+   * its data twice, and on a slow answer the second mount came after the
+   * person had started: a half-filled form in a drawer (My leave → Ask for
+   * leave) closed and lost what they had typed. The banner takes a slot of
+   * its own before the screen, empty when not read-only.
+   */
   return (
-    <div data-readonly="true" onClickCapture={stop} onSubmitCapture={stop}>
-      <div className="ui-card mb-4 flex items-start gap-3 p-3 text-sm" role="status" style={{ borderColor: 'rgb(var(--warn, 234 88 12))' }}>
-        <Lock size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
-        <span>{reason}</span>
-      </div>
+    <div style={{ display: 'contents' }} data-readonly={readOnly ? 'true' : undefined} onClickCapture={stop} onSubmitCapture={stop}>
+      {readOnly ? (
+        <div className="ui-card mb-4 flex items-start gap-3 p-3 text-sm" role="status" style={{ borderColor: 'rgb(var(--warn, 234 88 12))' }}>
+          <Lock size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+          <span>{reason}</span>
+        </div>
+      ) : null}
       {children}
     </div>
   );
