@@ -51,8 +51,18 @@ describe('counts that wait on you are marigold', () => {
     expect(block).toMatch(/\.ui-bell-count \{ background: rgb\(var\(--warm\)\); color: rgb\(var\(--brand\)\); \}/);
   });
 
-  it("Home's waiting rows and an unfinished setup step take marigold", () => {
-    expect(read('apps/people/src/screens/PeopleOverview.jsx')).toContain("data-tone={t.tone === 'info' ? undefined : 'warn'}");
+  it('side blocks whose count waits on you mark it, and the timeline warning dot is a marigold mark', () => {
+    expect(read('packages/ui/src/components/list/SidePanel.jsx')).toContain('<span className="ui-side-count" data-tone={tone}>');
+    const panels = read('apps/people/src/panels.jsx');
+    for (const t of ['Waiting longest', 'Needs setting up', 'Late, by owner', 'Waiting for a decision']) expect(panels, t).toMatch(new RegExp(`title="${t}"[^>]*tone="warn"`));
+    expect(index).toMatch(/\.ui-side-timeline > li\[data-tone='warn'\] \.ui-side-dot \{ background: rgb\(var\(--warn-mark, var\(--warn\)\)\);/);
+  });
+
+  it("Home's waiting rows and an unfinished setup step take marigold, once per row", () => {
+    const home = read('apps/people/src/screens/PeopleOverview.jsx');
+    expect(home).toContain("data-tone={t.tone === 'info' ? undefined : 'warn'}");
+    /* The count tile carries the marigold; "This week" beside it is quiet, so the row does not shout twice. */
+    expect(home).toContain("soon: { label: 'This week', pill: 'neutral' }");
     expect(read('apps/people/src/screens/HomeSetup.jsx')).toContain("s.optional ? 'ui-pill-neutral' : 'ui-pill-warn'");
     expect(block).toMatch(/\.people-row-count\[data-tone='warn'\] \{ background: rgb\(var\(--warm\)\)/);
   });
@@ -70,6 +80,17 @@ describe('figures', () => {
     expect(indigo).toContain('.ui-metric:not([data-zero]) .ui-metric-value');
     expect(indigo).not.toMatch(/, \.ui-metric-value,/);
     expect(people).toMatch(/\.ui-metric\[data-zero\] \.ui-metric-value \{ color: rgb\(var\(--fg-subtle\)\)/);
+  });
+
+  it.each([
+    ['apps/people/src/workforce/Directory.jsx', 5],
+    ['apps/people/src/workforce/ImportEmployees.jsx', 3],
+    ['packages/ui/src/lifecycle/Overview.jsx', 1],
+    ['packages/ui/src/timeOff/TimeOverview.jsx', 1],
+  ])('%s marks a nought on its figures', (file, n) => {
+    const src = read(file);
+    expect((src.match(/className="ui-metric"[^>]*data-zero=/g) || []).length).toBeGreaterThanOrEqual(n);
+    expect(src).not.toMatch(/<div className="ui-metric"><span><dd className="ui-metric-value/);
   });
 
   it('figure cards that are not buttons (the People report) wear brand D too', () => {
@@ -119,6 +140,19 @@ describe('one brand series for charts, teams and leave types', () => {
     expect(token(block, 'dept-2')).toBe(MARIGOLD);
     expect(token(block, 'dept-3')).toBe('141 132 198');
     expect(token(block, 'dept-0')).toBe('104 107 124');
+  });
+
+  it('every team mark but marigold reads at least 3:1 on white', () => {
+    for (let i = 0; i <= 8; i += 1) {
+      const slot = token(block, `dept-${i}`);
+      if (slot !== MARIGOLD) expect(contrast(slot, WHITE), `dept-${i}`).toBeGreaterThan(3);
+    }
+  });
+
+  it('the most common leave type wears the away mark, and the warning brown is never a leave colour', () => {
+    expect(swatchOf({ name: 'Casual leave' })).toBe('rgb(var(--leave-6))');
+    expect(token(block, 'leave-6')).toBe(token(block, 'away'));
+    for (let i = 0; i < 8; i += 1) expect(token(block, `leave-${i}`), `leave-${i}`).not.toBe(token(block, 'warn'));
   });
 
   it('the gender bar takes the first two of the series, not blue and crimson', () => {

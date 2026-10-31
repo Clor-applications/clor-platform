@@ -209,9 +209,9 @@ export default function ImportEmployees({ openScreen }) {
         {step === 'validate' && preview ? (
           <div className="space-y-3">
             <dl className="ui-metric-strip">
-              <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{preview.imported}</dd><dt className="ui-metric-label">Ready{preview.results.some((r) => r.action === 'UPDATE') ? ` (${preview.results.filter((r) => r.action === 'UPDATE').length} updates)` : ''}</dt></span></div>
-              <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{preview.failed}</dd><dt className="ui-metric-label">With a problem</dt></span></div>
-              <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{preview.results.filter((r) => r.warning).length}</dd><dt className="ui-metric-label">May be someone already here</dt></span></div>
+              <div className="ui-metric" data-zero={Number(preview.imported) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{preview.imported}</dd><dt className="ui-metric-label">Ready{preview.results.some((r) => r.action === 'UPDATE') ? ` (${preview.results.filter((r) => r.action === 'UPDATE').length} updates)` : ''}</dt></span></div>
+              <div className="ui-metric" data-zero={Number(preview.failed) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{preview.failed}</dd><dt className="ui-metric-label">With a problem</dt></span></div>
+              <div className="ui-metric" data-zero={!preview.results.some((r) => r.warning) || undefined}><span><dd className="ui-metric-value tabular-nums">{preview.results.filter((r) => r.warning).length}</dd><dt className="ui-metric-label">May be someone already here</dt></span></div>
             </dl>
             <p className="ui-caption">{mode === 'update' ? 'People already here are updated with the columns given.' : 'Rows with an employee ID already here are skipped.'} An import can be undone for 24 hours.</p>
             {step === 'validate' ? (

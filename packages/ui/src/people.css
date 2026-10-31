@@ -1943,7 +1943,7 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
  * Brand colours where they belong (owner, 31 Oct 2026: "yellow and other colors not utilised properly", then "Yes,
  * all ten"). The audit is docs/people/design-v1/COLOUR-AUDIT-2026-10-31.md. Light theme only; People's dark theme
  * keeps its earlier values. Measured on white unless said:
- *   indigo on marigold 6.5:1 · indigo on marigold-soft #FEF1D6 11.8:1 · #7A4F00 (marigold as text) 7.6:1
+ *   indigo on marigold 6.5:1 · indigo on marigold-soft #FEF1D6 11.8:1 · #7A4F00 (marigold as text) 7.1:1
  *   deep marigold #C98200 as a line 3.2:1 · away #8D84C6 as a mark 3.4:1 (3.9:1 against indigo) · red #B91C1C 6.5:1
  *   quiet grey #686B7C 5.3:1. Marigold #F5A623 is never text (2.0:1).
  */
@@ -1959,7 +1959,8 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
   --neg-soft: 253 236 236;
   /* Away: on leave, out today. A mark, never text. */
   --away: 141 132 198;
-  /* One series for charts, teams and leave types: indigo, marigold, away, deep marigold, indigo-60, lilac line, greys.
+  /* One series for charts, teams and leave types: indigo, marigold, away, deep marigold, indigo-60, slate indigo, greys;
+     every mark but marigold (a fill by rule) at least 3:1 on white.
      --dept-0 stays "no team" grey. */
   --dept-0: 104 107 124;
   --dept-1: 35 42 102;
@@ -1967,16 +1968,17 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
   --dept-3: 141 132 198;
   --dept-4: 201 130 0;
   --dept-5: 90 97 168;
-  --dept-6: 201 195 229;
-  --dept-7: 154 156 176;
+  --dept-6: 74 79 122;
+  --dept-7: 138 140 163;
   --dept-8: 104 107 124;
-  --leave-0: 35 42 102;
+  /* Leave slots: the same family, no warning brown; slot 6 (where "Casual leave" lands) wears the away mark. */
+  --leave-0: 74 79 122;
   --leave-1: 245 166 35;
-  --leave-2: 141 132 198;
+  --leave-2: 35 42 102;
   --leave-3: 201 130 0;
   --leave-4: 90 97 168;
-  --leave-5: 74 79 122;
-  --leave-6: 122 79 0;
+  --leave-5: 138 140 163;
+  --leave-6: 141 132 198;
   --leave-7: 104 107 124;
 }
 /* Marks that say "warning" take marigold; the words stay readable. */

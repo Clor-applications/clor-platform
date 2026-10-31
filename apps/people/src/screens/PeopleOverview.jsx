@@ -34,7 +34,7 @@ import { FinalPayBanner, FinalPayList } from '@ui/lifecycle/LeavingExtras';
 import { finalPayList } from '../api/engagement';
 import HomeSetup from './HomeSetup';
 
-const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'warn' }, info: { label: 'When you can', pill: 'neutral' } };
+const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'neutral' }, info: { label: 'When you can', pill: 'neutral' } };
 const DEPT_COLOURS = 8;
 const greeting = () => {
   const h = new Date().getHours();
