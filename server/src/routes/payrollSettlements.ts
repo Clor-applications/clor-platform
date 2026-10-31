@@ -83,21 +83,41 @@ function shape(row: any, people: Map<string, { name: string; code: string | null
 }
 
 /**
- * A settlement made before the recovery limit (31 Oct 2026) is held to it
- * before it is approved or paid: when the limit would leave its lines as
- * they are, it is recorded and goes ahead; when it would recover less, the
- * request is refused, so nothing is recovered past the share (owner, Q2).
- * Paid settlements are never touched.
+ * The limit worked out again, from today's records, just before a
+ * settlement is approved or paid (review of #86). The leaving month's
+ * payslip it counted can still change: an approved payroll can be cancelled
+ * and redone lower, or without the person. Then the final wages fall (or
+ * what the payslip took grows) and the share allows less than the lines
+ * recover: refused, so nothing is recovered past it. A share that allows
+ * more changes nothing; working it out again picks that up.
+ *
+ * A settlement made before the limit (31 Oct 2026, no `recoveryCap`) is held
+ * to it here too, at today's share: its lines stand as they are if the
+ * limit allows them, and the limit is recorded with it. Paid settlements are
+ * never touched.
  */
-async function capForOlder(row: any): Promise<{ cap: RecoveryCap } | { refused: string }> {
-  const lines = JSON.parse(row.linesJson || '[]') as SettlementLine[];
-  const held = applyRecoveryCap(lines, { percent: await fnfCapPercent(row.orgId), slip: await leavingSlipBasis(row.orgId, row.employeeId, row.leavingDate) });
+async function recheckCap(row: any): Promise<{ cap: RecoveryCap; older: boolean } | { refused: string; code: string }> {
+  const saved = row.recoveryCap as RecoveryCap | null;
+  const lines = (JSON.parse(row.linesJson || '[]') as SettlementLine[]).map((l) =>
+    /* Older lines carry no wish: what they recover now is what was asked for. */
+    isRecovery(l) && !l.recover ? { ...l, recover: { due: Number(l.source?.owed ?? l.amount), wanted: Number(l.amount), capped: 0 } } : l
+  );
+  const percent = saved ? saved.percent : await fnfCapPercent(row.orgId);
+  const held = applyRecoveryCap(lines, { percent, slip: await leavingSlipBasis(row.orgId, row.employeeId, row.leavingDate) });
   const before = lines.filter(isRecovery);
   const after = held.lines.filter(isRecovery);
-  if (before.some((l, i) => Math.abs(Number(l.amount) - Number(after[i]?.amount ?? 0)) > 0.005)) {
-    return { refused: `Worked out before loans and advances were held to ${held.cap.percent}% of the final wages, and it recovers more than that allows.` };
+  const dropped = before.some((l, i) => Number(after[i]?.amount ?? 0) + 0.005 < Number(l.amount));
+  if (dropped && !saved) {
+    return { code: 'RECOVERY_CAP_NOT_APPLIED', refused: `Worked out before loans and advances were held to ${percent}% of the final wages, and it recovers more than that allows.` };
   }
-  return { cap: held.cap };
+  if (dropped) {
+    const was = saved!.slip ? `₹${saved!.slip.wages.toLocaleString('en-IN')}` : 'nothing';
+    return {
+      code: 'RECOVERY_CAP_CHANGED',
+      refused: `The leaving month's payroll changed since this was worked out (days worked counted ${was}, now ${held.cap.slip ? `₹${held.cap.slip.wages.toLocaleString('en-IN')}` : 'nothing'}), so it recovers more than ${percent}% of the final wages allows.`,
+    };
+  }
+  return { cap: saved ?? held.cap, older: !saved };
 }
 
 const shapeOne = async (row: any) => shape(row, await peopleFor(row.orgId, [row.employeeId]), await settlementHold(row.orgId, row.employeeId));
@@ -253,11 +273,12 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/approve', AP
   /* Never your own; whoever worked it out approves it only as the company's maker-checker setting allows (makerChecker.ts). */
   const refused = (await ownRecordRefusal(req, row.employeeId, 'full and final settlement', { who: await othersFor(req) })) || await ownWorkRefusal(req, { makers: [row.createdByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SETTLEMENT', entityId: row.id, what: 'settlement', who: await othersFor(req), subjects: await subjectUserIds(row.orgId, row.employeeId) });
   if (refused) return res.status(refused.status).json(refused.body);
-  const older = row.recoveryCap ? null : await capForOlder(row);
-  if (older && 'refused' in older) return res.status(409).json({ error: `${older.refused} Work it out again before approving.`, code: 'RECOVERY_CAP_NOT_APPLIED' });
+  /* The limit from today's records: the leaving month's payroll may have changed since this was worked out. */
+  const capNow = await recheckCap(row);
+  if ('refused' in capNow) return res.status(409).json({ error: `${capNow.refused} Work it out again before approving.`, code: capNow.code });
   const moved = await payrollPrisma.finalSettlement.updateMany({
     where: { id: row.id, status: 'DRAFT' },
-    data: { status: 'APPROVED', approvedByUserId: req.auth!.userId, approvedAt: new Date(), ...(older ? { recoveryCap: older.cap } : {}) },
+    data: { status: 'APPROVED', approvedByUserId: req.auth!.userId, approvedAt: new Date(), ...(capNow.older ? { recoveryCap: capNow.cap } : {}) },
   });
   if (!moved.count) return res.status(409).json({ error: 'Somebody else has just changed this settlement. Reload it.', code: 'NOT_DRAFT' });
   const updated = await payrollPrisma.finalSettlement.findUniqueOrThrow({ where: { id: row.id } });
@@ -283,9 +304,9 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/paid', APPRO
   if (hold) {
     return res.status(409).json({ error: `Held — absconding case: ${hold.reason}. Lift the hold, with a reason, before paying.`, code: 'SETTLEMENT_HELD', hold });
   }
-  /* Approved before the recovery limit: paid only if it recovers no more than the limit allows. */
-  const older = row.recoveryCap ? null : await capForOlder(row);
-  if (older && 'refused' in older) return res.status(409).json({ error: `${older.refused} Cancel it and work it out again.`, code: 'RECOVERY_CAP_NOT_APPLIED' });
+  /* Paid only if the limit, worked out from today's records, still allows what it recovers (a payroll cancelled since, an older settlement). */
+  const capNow = await recheckCap(row);
+  if ('refused' in capNow) return res.status(409).json({ error: `${capNow.refused} Cancel it and work it out again.`, code: capNow.code });
   const lines = JSON.parse(row.linesJson || '[]') as SettlementLine[];
   /* A loan taken by a payroll since, an advance given back: these lines would recover or pay twice. */
   const stale = await staleSources(row.orgId, lines);
@@ -299,7 +320,7 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/paid', APPRO
   const payLines = await withChainRoots(row.orgId, lines);
   try {
     closed = await payrollPrisma.$transaction(async (tx) => {
-      const moved = await tx.finalSettlement.updateMany({ where: { id: row.id, status: 'APPROVED' }, data: { status: 'PAID', paidAt: new Date(), paidReference: reference, ...(older ? { recoveryCap: older.cap } : {}) } });
+      const moved = await tx.finalSettlement.updateMany({ where: { id: row.id, status: 'APPROVED' }, data: { status: 'PAID', paidAt: new Date(), paidReference: reference, ...(capNow.older ? { recoveryCap: capNow.cap } : {}) } });
       if (!moved.count) return null;
       return closePayrollSources(tx, row.orgId, row.id, payLines);
     });

@@ -523,7 +523,8 @@ function RecoveryCap({ settlement, who, unsaved }) {
         <p className="ui-caption max-w-[65ch]">Salary for days worked counts once the leaving month's payroll is approved. Work it out again then.</p>
       ) : null}
       <p className="ui-caption max-w-[65ch]">
-        Loans and advances come off the final pay up to {cap.percent}% of the final wages (Code on Wages 2019, s.18(3)); gratuity and reimbursements never count.{' '}
+        Loans and advances come off the final pay up to {cap.percent}% of the final wages (Code on Wages 2019, s.18(3)); gratuity and reimbursements never count.
+        A deduction entered here, such as notice not served, is taken in full first: notice recovery isn't limited, so check it with your adviser.{' '}
         {cap.owed > 0
           ? `The ${money(cap.owed)} left is not written off: it stays on the loan or advance, shown in People, and HR collects it outside payroll.`
           : 'Nothing is left owed.'}

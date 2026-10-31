@@ -207,6 +207,8 @@ describe('the limit on recovering loans and advances (setting 4)', () => {
     expect(within(drawer).getByText(/₹0 of ₹4,000 recovered here; ₹4,000 stays owed/)).toBeInTheDocument();
     expect(within(drawer).getByText(/not written off: it stays on the loan or advance, shown in People/)).toBeInTheDocument();
     expect(within(drawer).getByText(/gratuity and reimbursements never count/)).toBeInTheDocument();
+    /* Review of #86: entered deductions stand in full, and the screen says so. */
+    expect(within(drawer).getByText(/notice recovery isn't limited/)).toBeInTheDocument();
     /* No payslip for the leaving month yet: said, with what to do. */
     expect(within(drawer).getByText(/days worked counts once the leaving month's payroll is approved/)).toBeInTheDocument();
   });
