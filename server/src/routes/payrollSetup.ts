@@ -15,6 +15,8 @@ import { entitlementFor } from '../services/entitlements.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { FEATURE as PROVISIONAL, ordinal, provisionalSetting } from '../services/payroll/provisionalDays.js';
 import { capSetting } from '../services/payroll/deductionCap.js';
+import { fnfCapPercent } from '../services/payroll/fnfRecoveryCap.js';
+import { resolveAccess } from '../services/access.js';
 
 /**
  * Whether payroll is ready to run, and what is left to do.
@@ -308,3 +310,57 @@ payrollSetupRouter.put(
     res.json(await capSetting(orgId));
   }
 );
+
+/**
+ * How much of a leaver's final wages loans and advances may take in a full
+ * and final settlement (fnfRecoveryCap.ts; owner, 31 Oct 2026). Half is the
+ * law's limit (Code on Wages 2019 s.18(3)); a company may hold it lower. The
+ * rest stays owed by the person. Changed by the owner or an admin only, and
+ * audited with what it was and what it became. A settlement keeps the share
+ * it was worked out with.
+ */
+const fnfView = requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, PAYROLL_RESOURCE.settings);
+const fnfEdit = requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, PAYROLL_RESOURCE.settings);
+const fnfShape = async (req: any) => ({
+  percent: await fnfCapPercent(req.tenant!.orgId),
+  /* Who may change it, so the screen offers the field only to them. */
+  canEdit: (await resolveAccess(req.tenant!.accountId, req.tenant!.orgId, req.auth!.userId)).isAdmin,
+});
+
+payrollSetupRouter.get('/orgs/:orgId/payroll/settings/fnf-recovery', fnfView, async (req, res) => {
+  if (!(await payrollRouteOk(req, res))) return;
+  res.json(await fnfShape(req));
+});
+
+const fnfBody = z.object({
+  /* 0 to 50: stricter than the law, never looser. */
+  percent: z.number().int('A whole percentage, such as 50.').min(0, 'Between 0% and 50%.').max(50, 'Between 0% and 50%: the law does not let deductions pass half of the wages.'),
+});
+
+payrollSetupRouter.put('/orgs/:orgId/payroll/settings/fnf-recovery', fnfEdit, async (req, res) => {
+  if (!(await payrollRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  if (!(await resolveAccess(accountId, orgId, req.auth!.userId)).isAdmin) {
+    return res.status(403).json({ error: 'Only the owner or an admin changes how much a full and final recovers. Ask them.', code: 'OWNER_OR_ADMIN' });
+  }
+  const parsed = fnfBody.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Give the share of final wages, from 0 to 50.' });
+  const before = await fnfCapPercent(orgId);
+  const { percent } = parsed.data;
+  await payrollPrisma.payrollSetting.upsert({
+    where: { orgId },
+    update: { fnfRecoveryCapPercent: percent, updatedByUserId: req.auth!.userId },
+    create: { accountId, orgId, fnfRecoveryCapPercent: percent, updatedByUserId: req.auth!.userId },
+  });
+  if (req.res) req.res.locals.audited = true;
+  if (before !== percent) {
+    await recordAudit(req, {
+      entity: 'COMPANY_SETTING',
+      entityId: 'payroll.fnfRecovery',
+      action: 'CHANGED',
+      message: `Full and final settlements recover loans and advances up to ${percent}% of the final wages (was ${before}%)`,
+      metadata: { before: { percent: before }, after: { percent } },
+    });
+  }
+  res.json(await fnfShape(req));
+});

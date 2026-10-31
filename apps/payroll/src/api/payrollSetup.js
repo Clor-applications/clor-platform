@@ -48,3 +48,14 @@ export const saveDeductionCap = ({ percent, countsStatutory, countsPenalties }) 
     body: { percent, countsStatutory, countsPenalties },
     skipWarehouseHeader: true,
   });
+
+/** How much of a leaver's final wages loans and advances may take in a full and final: `{ percent, canEdit }`. Owner or admin changes it. */
+export const getFnfRecoveryCap = () =>
+  apiFetch(`/orgs/${encodeURIComponent(orgId())}/payroll/settings/fnf-recovery`, { skipWarehouseHeader: true });
+
+export const saveFnfRecoveryCap = ({ percent }) =>
+  apiFetch(`/orgs/${encodeURIComponent(orgId())}/payroll/settings/fnf-recovery`, {
+    method: 'PUT',
+    body: { percent },
+    skipWarehouseHeader: true,
+  });

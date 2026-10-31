@@ -3,6 +3,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { round2 } from '../../utils/money.js';
 import { balancesFor, leaveYearOf } from '../attendance/leaveBalances.js';
 import { peopleMoneyLines } from './finalSettlementSources.js';
+import { applyRecoveryCap, fnfCapPercent, leavingSlipBasis } from './fnfRecoveryCap.js';
 
 /**
  * Full and final settlement: what is still owed to, or by, somebody who has
@@ -16,7 +17,9 @@ import { peopleMoneyLines } from './finalSettlementSources.js';
  *   five years. The minimum and the cap are parameters, not facts this code
  *   keeps — check them against the law in force.
  * - Leave encashment: paid leave still available, at a day's wages (÷ 26).
- * - Loans and salary advances still outstanding: recovered.
+ * - Loans and salary advances still outstanding: recovered, with expense
+ *   advances and recoveries waiting in Payroll, up to the company's share of
+ *   the final wages (fnfRecoveryCap.ts); the rest stays owed by the person.
  * - Expense advances not settled: recovered; expense claims approved and
  *   unpaid: paid; deductions a payroll carried forward: recovered
  *   (finalSettlementSources.ts). Each line names its record.
@@ -44,6 +47,8 @@ export type SettlementLine = {
     /** At payment only: the recovery live in Payroll an advance line joins (finalSettlementSources withChainRoots). */
     chainRoot?: string;
   };
+  /** A loan or advance recovery held to the share of final wages (fnfRecoveryCap.ts): owed, asked for, held back. */
+  recover?: { due: number; wanted: number; capped: number };
 };
 
 export const GRATUITY_DEFAULTS = { minimumYears: 5, cap: 2_000_000 };
@@ -120,7 +125,7 @@ export async function proposeSettlement(accountId: string, orgId: string, employ
     label: 'Salary up to the leaving date',
     kind: 'INFO',
     amount: 0,
-    explanation: 'Paid in the pay run for the leaving month, which prorates to the leaving date.',
+    explanation: 'Paid in the pay run for the leaving month, which prorates to the leaving date. Once that payroll is approved, it counts toward the final wages loans and advances are recovered from.',
   });
 
   const { wage, from } = await lastDrawnWages(orgId, employeeId);
@@ -181,7 +186,9 @@ export async function proposeSettlement(accountId: string, orgId: string, employ
 
   lines.push({ code: 'NOTICE', label: 'Notice pay', kind: 'EARNING', amount: 0, explanation: 'Owed to them, or enter it as a deduction if they did not serve their notice.' });
 
-  return { leavingDate: leaving, dueDate: settlementDueDate(leaving), lines };
+  /* Loans and advances come off the final pay only up to the company's share of the final wages; the rest stays owed (fnfRecoveryCap.ts). */
+  const capped = applyRecoveryCap(lines, { percent: await fnfCapPercent(orgId), slip: await leavingSlipBasis(orgId, employeeId, leaving) });
+  return { leavingDate: leaving, dueDate: settlementDueDate(leaving), lines: capped.lines, cap: capped.cap };
 }
 
 export const netOf = (lines: SettlementLine[]) =>

@@ -139,6 +139,11 @@ model FinalSettlement {
   /// recovered, claims paid) were closed. Null until then; closing is
   /// idempotent, so a retry closes nothing twice.
   sourcesClosedAt  DateTime?
+  /// The recovery limit this settlement was worked out under
+  /// (fnfRecoveryCap.ts): the share, the final wages and what it allowed.
+  /// Kept with the settlement, so a later change of the setting does not
+  /// move it. Null on settlements made before 31 Oct 2026.
+  recoveryCap      Json?
 
   @@index([accountId, orgId, status])
   @@index([orgId, employeeId])
@@ -1286,6 +1291,12 @@ model PayrollSetting {
   /// days worked is a deduction (Code on Wages 2019 s.18(2)), so counted by
   /// default; the owner may still decide otherwise.
   deductionCapCountsPenalties Boolean @default(true)
+  /// The most a full and final settlement may recover of loans and advances,
+  /// as a share of the final wages (Code on Wages 2019 s.18(3)): days worked,
+  /// notice pay owed, leave encashment and other earnings, never gratuity or
+  /// reimbursements. The rest stays owed by the person (owner, 31 Oct 2026).
+  /// 0 to 50: a company may be stricter than the law, never looser.
+  fnfRecoveryCapPercent Int @default(50)
 
   updatedByUserId String
   createdAt       DateTime @default(now())

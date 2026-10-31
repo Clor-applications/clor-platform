@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import FinalSettlements from './FinalSettlements';
 import { approveSettlement, closeSettlementSources, listSettlements, markSettlementPaid, releaseSettlementHold } from '../api/payrollSettlements';
@@ -180,4 +180,70 @@ it('QA retest: the hold mentions the authenticator code even where the company h
   render(<FinalSettlements />);
   await open(user);
   expect(within(screen.getByRole('complementary', { name: 'drawer' })).getByText(/Where the company asks for authenticator codes on payroll, they enter one/)).toBeInTheDocument();
+});
+
+describe('the limit on recovering loans and advances (setting 4)', () => {
+  const capLines = [
+    { code: 'LOAN_L1', label: 'Loan L-1 recovery', kind: 'DEDUCTION', amount: 4000, explanation: '', source: { type: 'LOAN', id: 'l', ref: 'L-1', owed: 6000 }, recover: { due: 6000, wanted: 6000, capped: 2000 } },
+    { code: 'ADVANCE_A1', label: 'Advance A-1 not settled', kind: 'DEDUCTION', amount: 0, explanation: '', source: { type: 'ADVANCE', id: 'a', ref: 'A-1', owed: 4000 }, recover: { due: 4000, wanted: 4000, capped: 4000 } },
+    { code: 'GRATUITY', label: 'Gratuity', kind: 'EARNING', amount: 50000, explanation: '' },
+    { code: 'NOTICE', label: 'Notice pay', kind: 'EARNING', amount: 8000, explanation: '' },
+  ];
+  const cap = { percent: 50, finalWages: 8000, settlementWages: 8000, slip: null, otherDeductions: 0, limit: 4000, room: 4000, due: 10000, recovered: 4000, heldBack: 6000, owed: 6000 };
+  const capped = { ...base, status: 'DRAFT', hold: null, lines: capLines, netPayable: 54000, recoveryCap: cap };
+  const row = (drawer, name) => within(drawer).getByText(name).closest('div');
+
+  it('when it binds, shows the limit, what was recovered and what stays owed, in words', async () => {
+    load([capped]);
+    const user = userEvent.setup();
+    render(<FinalSettlements />);
+    await open(user);
+    const drawer = screen.getByRole('complementary', { name: 'drawer' });
+    expect(within(row(drawer, 'Final wages')).getByText('₹8,000')).toBeInTheDocument();
+    expect(within(row(drawer, 'Most that can be recovered (50%)')).getByText('₹4,000')).toBeInTheDocument();
+    expect(within(row(drawer, 'Recovered here')).getByText('₹4,000')).toBeInTheDocument();
+    expect(within(row(drawer, 'Stays owed by Ravi Kumar')).getByText('₹6,000')).toBeInTheDocument();
+    expect(within(drawer).getByText(/₹4,000 of ₹6,000 recovered here; ₹2,000 stays owed\. The limit on recovery holds it back\./)).toBeInTheDocument();
+    expect(within(drawer).getByText(/₹0 of ₹4,000 recovered here; ₹4,000 stays owed/)).toBeInTheDocument();
+    expect(within(drawer).getByText(/not written off: it stays on the loan or advance, shown in People/)).toBeInTheDocument();
+    expect(within(drawer).getByText(/gratuity and reimbursements never count/)).toBeInTheDocument();
+    /* No payslip for the leaving month yet: said, with what to do. */
+    expect(within(drawer).getByText(/days worked counts once the leaving month's payroll is approved/)).toBeInTheDocument();
+  });
+
+  it('when it does not bind, says nothing is left owed and names the payslip counted', async () => {
+    const full = capLines.map((l) => (l.recover ? { ...l, amount: l.recover.due, recover: { ...l.recover, capped: 0 } } : l));
+    load([{ ...capped, lines: full, recoveryCap: { ...cap, slip: { wages: 14000, deducted: 0, ref: 'PS-10', periodName: 'October' }, finalWages: 22000, limit: 11000, recovered: 10000, heldBack: 0, owed: 0 } }]);
+    const user = userEvent.setup();
+    render(<FinalSettlements />);
+    await open(user);
+    const drawer = screen.getByRole('complementary', { name: 'drawer' });
+    expect(within(drawer).getByText(/Nothing is left owed/)).toBeInTheDocument();
+    expect(within(drawer).getByText(/Days worked ₹14,000 \(payslip PS-10\)/)).toBeInTheDocument();
+    expect(within(drawer).queryByText(/stays owed\./)).not.toBeInTheDocument();
+    expect(within(drawer).queryByText(/payroll is approved/)).not.toBeInTheDocument();
+  });
+
+  it('once paid, it still shows what stays owed, without asking to work it out again', async () => {
+    load([{ ...capped, status: 'PAID', paidAt: '2026-10-20T00:00:00Z', sourcesClosedAt: 't' }]);
+    const user = userEvent.setup();
+    render(<FinalSettlements />);
+    await open(user);
+    const drawer = screen.getByRole('complementary', { name: 'drawer' });
+    expect(within(row(drawer, 'Stays owed by Ravi Kumar')).getByText('₹6,000')).toBeInTheDocument();
+    expect(within(drawer).queryByText(/Work it out again then/)).not.toBeInTheDocument();
+  });
+
+  it('a draft made before the limit says how to apply it; a paid one says nothing', async () => {
+    load([{ ...capped, recoveryCap: null }]);
+    const user = userEvent.setup();
+    const { unmount } = render(<FinalSettlements />);
+    await open(user);
+    expect(screen.getByText(/Save it or work it out again to apply the limit/)).toBeInTheDocument();
+    unmount();
+    load([{ ...capped, status: 'PAID', paidAt: '2026-10-20T00:00:00Z', sourcesClosedAt: 't', recoveryCap: null }]);
+    render(<FinalSettlements />);
+    await open(user);
+    expect(screen.queryByText(/Worked out before loans and advances/)).not.toBeInTheDocument();
+  });
 });

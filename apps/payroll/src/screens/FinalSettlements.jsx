@@ -43,6 +43,15 @@ const sourceWords = (s) => {
   return `${SOURCE_WORDS[s.type] || 'Record'}${s.ref ? ` ${s.ref}` : ''}`;
 };
 const closedInPeople = (s) => s === 'ADVANCE' || s === 'CLAIM';
+/* A loan, an expense advance or a recovery waiting in Payroll, coming off the final pay (held to the share of final wages). */
+const isRecovery = (l) => l.kind === 'DEDUCTION' && ['LOAN', 'ADVANCE', 'CARRY'].includes(l.source?.type);
+/* "₹4,000 of ₹6,000 recovered here; ₹2,000 stays owed." on a recovery the limit or HR left part of. */
+const heldWords = (l) => {
+  const due = Number(l.recover?.due);
+  if (!isRecovery(l) || !(due > 0) || due - Number(l.amount) < 0.005) return null;
+  const why = Number(l.recover.capped) > 0.005 ? ' The limit on recovery holds it back.' : '';
+  return `${money(l.amount)} of ${money(due)} recovered here; ${money(due - Number(l.amount))} stays owed.${why}`;
+};
 const netOf = (lines) => lines.reduce((t, l) => t + (l.kind === 'EARNING' ? Number(l.amount) || 0 : l.kind === 'DEDUCTION' ? -(Number(l.amount) || 0) : 0), 0);
 
 /**
@@ -370,6 +379,7 @@ function Settlement({ settlement, you, onClose, onChanged }) {
                       <span className="text-sm">{l.label}</span>
                     )}
                     {l.source ? <span className="ui-caption block mt-1">From: {sourceWords(l.source)}</span> : null}
+                    {heldWords(l) ? <span className="ui-caption block mt-1">{heldWords(l)}</span> : null}
                     {l.explanation ? <span className="ui-caption block mt-1">{l.explanation}</span> : null}
                   </td>
                   <td className="whitespace-nowrap">
@@ -417,11 +427,7 @@ function Settlement({ settlement, you, onClose, onChanged }) {
             </tbody>
           </table>
         </div>
-        {lines.some((l) => l.kind === 'DEDUCTION' && ['LOAN', 'ADVANCE', 'CARRY'].includes(l.source?.type)) ? (
-          <p className="ui-caption max-w-[65ch]">
-            Loan and advance balances can come off the final pay, up to half of it (Code on Wages 2019, s.18(3)). Anything left stays owed by the employee and is collected separately.
-          </p>
-        ) : null}
+        {lines.some(isRecovery) ? <RecoveryCap settlement={settlement} who={who} unsaved={dirty} /> : null}
 
         {draft ? (
           <div className="flex flex-wrap gap-2">
@@ -470,6 +476,59 @@ function Settlement({ settlement, you, onClose, onChanged }) {
         </p>
       </div>
     </Drawer>
+  );
+}
+
+/**
+ * Loans and advances held to the company's share of the final wages (Code on
+ * Wages 2019 s.18(3); owner, 31 Oct 2026), in figures and words: what could
+ * come off, what did, and what stays owed by the person. A settlement made
+ * before the limit says how to apply it.
+ */
+function RecoveryCap({ settlement, who, unsaved }) {
+  const cap = settlement.recoveryCap;
+  if (!cap) {
+    if (settlement.status === 'PAID') return null;
+    return (
+      <p className="ui-caption max-w-[65ch]" role="note">
+        Worked out before loans and advances were held to a share of the final wages.{' '}
+        {settlement.status === 'DRAFT' ? 'Save it or work it out again to apply the limit.' : 'If it recovers more than the limit allows, cancel it and work it out again.'}
+      </p>
+    );
+  }
+  const rows = [
+    { label: 'Final wages', value: cap.finalWages, note: cap.slip ? `Days worked ${money(cap.slip.wages)}${cap.slip.ref ? ` (payslip ${cap.slip.ref})` : ''}, with notice pay, leave encashment and other earnings here` : 'Notice pay, leave encashment and other earnings here' },
+    { label: `Most that can be recovered (${cap.percent}%)`, value: cap.limit },
+    ...(cap.otherDeductions > 0 ? [{ label: 'Other deductions, taken first', value: -cap.otherDeductions, note: cap.slip?.deducted > 0 ? `Includes ${money(cap.slip.deducted)} already taken on the payslip` : null }] : []),
+    { label: 'Loans and advances owed', value: cap.due },
+    { label: 'Recovered here', value: cap.recovered, strong: true },
+    { label: `Stays owed by ${who}`, value: cap.owed, strong: true },
+  ];
+  return (
+    <section className="space-y-2" aria-labelledby="ff-cap-h">
+      <h3 id="ff-cap-h" className="text-sm font-medium">Loans and advances</h3>
+      <dl className="max-w-[32rem] text-sm divide-y">
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-start justify-between gap-4 py-1.5">
+            <dt className={r.strong ? 'font-medium' : undefined}>
+              {r.label}
+              {r.note ? <span className="ui-caption block">{r.note}</span> : null}
+            </dt>
+            <dd className={`ui-num tabular-nums text-right whitespace-nowrap${r.strong ? ' font-medium' : ''}`}>{money(r.value)}</dd>
+          </div>
+        ))}
+      </dl>
+      {unsaved ? <p className="ui-caption" role="status">Save to see the limit worked out on your changes.</p> : null}
+      {!cap.slip && settlement.status === 'DRAFT' ? (
+        <p className="ui-caption max-w-[65ch]">Salary for days worked counts once the leaving month's payroll is approved. Work it out again then.</p>
+      ) : null}
+      <p className="ui-caption max-w-[65ch]">
+        Loans and advances come off the final pay up to {cap.percent}% of the final wages (Code on Wages 2019, s.18(3)); gratuity and reimbursements never count.{' '}
+        {cap.owed > 0
+          ? `The ${money(cap.owed)} left is not written off: it stays on the loan or advance, shown in People, and HR collects it outside payroll.`
+          : 'Nothing is left owed.'}
+      </p>
+    </section>
   );
 }
 
