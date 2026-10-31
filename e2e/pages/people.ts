@@ -159,7 +159,12 @@ export class PeopleWeb {
    * the 10 s and then went on regardless.
    */
   async settle() {
-    await expect(this.main.locator('[aria-busy="true"]')).toHaveCount(0, { timeout: 20_000 }).catch(() => null);
+    /*
+     * A screen that never finishes loading is a failure to look at, not something to step past.
+     * 30 s, not 20: under heavy local load (load average 48 on 12 cores) Employees took over 20 s
+     * and was still finishing (2 parts loading, then 1).
+     */
+    await expect(this.main.locator('[aria-busy="true"]'), 'the screen finished loading').toHaveCount(0, { timeout: 30_000 });
   }
 
   /** The last toast the app showed. */

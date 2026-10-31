@@ -22,9 +22,12 @@ export async function choose(field: Locator, label: string | RegExp) {
     }
     return;
   }
-  const option = field.page().getByRole('option', { name: label }).first();
+  const page = field.page();
+  const option = page.getByRole('option', { name: label }).first();
+  /* Pressed again only when its list is shut: pressing an open list closes it. */
+  const isOpen = async () => (await field.getAttribute('aria-expanded')) === 'true' || (await page.getByRole('listbox').first().isVisible());
   await expect(async () => {
-    if (!(await option.isVisible())) await field.click();
+    if (!(await option.isVisible()) && !(await isOpen())) await field.click();
     await expect(option).toBeVisible({ timeout: 3_000 });
   }).toPass({ timeout: 20_000 });
   await option.click();

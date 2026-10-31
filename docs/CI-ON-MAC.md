@@ -112,7 +112,9 @@ screen took 10–20 seconds to answer, past the tests' waits.
 - **One e2e run on the Mac at a time.** The test step runs under
   `scripts/ci/one-at-a-time.sh ~/.clor-e2e.lock …`, a `lockf` lock all three
   runners share. A second run waits (its log says so) instead of halving the
-  first one's speed. The kernel drops the lock when the job ends, is cancelled
+  first one's speed. **A waiting run holds its runner**: with two e2e runs
+  waiting, only one runner is free for verify and the server shards until the
+  lock frees. Each smoke run holds the lock about 5 minutes. The kernel drops the lock when the job ends, is cancelled
   or dies; there is nothing to clean up.
 - **In one workflow run, e2e waits for the server shards** (`needs: [verify,
   server-tests]`), when they run at all (main, nightly, `full-tests`).
