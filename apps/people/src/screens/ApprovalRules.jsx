@@ -71,7 +71,18 @@ const approverWords = (a, users, roles) => {
   if (!a) return '—';
   if (a.kind === 'USER') return users.find((u) => u.id === a.id)?.fullName || 'a named person';
   if (a.kind === 'ROLE') return `role ${roles.find((r) => r.id === a.id)?.name || ''}`.trim();
-  return APPROVERS.find(([k]) => k === a.kind)?.[1] || a.kind;
+  return APPROVERS.find(([k]) => k === a.kind)?.[1] || MORE_APPROVERS[a.kind] || 'someone';
+};
+/* Who decides in a version 2 rule (SPEC 5.3), named when this screen shows one it cannot edit. */
+const MORE_APPROVERS = { DEPARTMENT_HEAD: 'Their department head', PAYROLL: 'Payroll', OWNER: 'The owner', COLLEAGUE_MANAGER: 'The colleague’s manager' };
+const dueWords = (due) => (due?.hours ? `${due.hours} ${due.hours === 1 ? 'hour' : 'hours'}` : `${due?.workingDays || 2} working ${due?.workingDays === 1 ? 'day' : 'days'}`);
+/* One line per step of a version 2 rule: who decides, any one or all of them, when, and by when. */
+const specLine = (s, users, roles) => {
+  const who = (s.approvers || []).map((a) => approverWords(a, users, roles));
+  const people = who.length > 1 ? `${who.slice(0, -1).join(', ')} and ${who[who.length - 1]}` : who[0] || 'someone';
+  const how = who.length > 1 ? (s.mode === 'ALL' ? ', all of them' : ', any one of them') : '';
+  const when = s.when?.length ? `, only when ${s.when.length} ${s.when.length === 1 ? 'condition holds' : 'conditions hold'}` : '';
+  return `${people}${how}${when}. Due in ${dueWords(s.due)}.`;
 };
 
 export default function ApprovalRules() {
@@ -84,11 +95,13 @@ export default function ApprovalRules() {
   for (const f of data?.forms || []) FORM_NAMES.set(f.requestType, f.name);
   const kinds = [...(data?.requestTypes || []), ...(data?.forms || []).filter((f) => f.active).map((f) => f.requestType)];
   const [editing, setEditing] = useState(null);
-  const active = (type) => data?.rules.find((r) => r.requestType === type && r.active) || null;
-  const versions = (type) => (data?.rules || []).filter((r) => r.requestType === type);
+  /* The type's main rule (a variant for a branch or department is set up elsewhere until the rules builder, SPEC 8.2). */
+  const active = (type) => data?.rules.find((r) => r.requestType === type && r.active && !r.variantKey) || null;
+  const versions = (type) => (data?.rules || []).filter((r) => r.requestType === type && !r.variantKey);
   const open = (t) => {
     const rule = active(t);
-    setEditing({ requestType: t, name: rule?.name || `${typeName(t)} rule`, steps: rule ? rule.steps.map((s, i) => ({ ...blankStep(i + 1), ...s, order: i + 1 })) : [blankStep(1)] });
+    /* `steps` is the rule in the shape this screen edits; `editableHere` is false when the rule says more than that shape can (several people in a step, all of them, hours). */
+    setEditing({ requestType: t, name: rule?.name || `${typeName(t)} rule`, readOnly: rule ? rule.editableHere === false : false, spec: rule?.spec || null, steps: rule ? rule.steps.map((s, i) => ({ ...blankStep(i + 1), ...s, order: i + 1 })) : [blankStep(1)] });
   };
   const retire = async (type) => {
     const message = MONEY_RULES.includes(type)
@@ -105,7 +118,7 @@ export default function ApprovalRules() {
       notify.error(String(e?.message || 'Not changed.'));
     }
   };
-  const steps = (rule) => (rule.steps || []).map((s) => `${approverWords(s.approver, users, roles)} (${s.dueDays} d)`).join(' → ');
+  const steps = (rule) => (rule.editableHere === false ? 'Custom steps' : (rule.steps || []).map((s) => `${approverWords(s.approver, users, roles)} (${s.dueDays} d)`).join(' → '));
   const columns = [
     { key: 'type', label: 'Kind of request', always: true, render: (t) => <span className="min-w-0"><span className="block font-medium">{typeName(t)}</span><span className="block ui-caption">{TYPE_WORDS[t]?.[1] || (FORM_NAMES.has(t) ? 'A request type from Settings → Request types.' : '')}</span></span> },
     { key: 'steps', label: 'Who decides', render: (t) => { const rule = active(t); return rule ? steps(rule) : <span className="ui-muted">{t === 'LEAVE' ? 'Not set: Leave policy decides' : MONEY_RULES.includes(t) ? (versions(t).length ? 'Off: cannot be asked' : 'Not set: the default applies when first asked') : 'Nobody: applies at once'}</span>; } },
@@ -117,7 +130,7 @@ export default function ApprovalRules() {
   ];
   return (
     <div className="space-y-6">
-      <PageHeader title="Approval Rules" />
+      <PageHeader title="Approval rules" />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable label="Approval rules" columns={columns} rows={kinds} rowKey={(t) => t} loading={req.loading} refreshing={req.refreshing}
           total={kinds.length} pageSize={Math.max(25, kinds.length)} noun="kinds of request"
@@ -171,10 +184,16 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
   );
   return (
     <Drawer open onClose={onClose} title={`${typeName(form.requestType)}: who decides`} widthClass="w-[min(44rem,96vw)] ui-drawer-sheet" dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={saving || !dirty} onClick={save}>{saving ? 'Saving…' : 'Save as new version'}</button></>}>
-      <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); save(); }}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>{rule.readOnly ? 'Close' : 'Cancel'}</button>{rule.readOnly ? null : <button type="button" className="ui-btn ui-btn-primary" disabled={saving || !dirty} onClick={save}>{saving ? 'Saving…' : 'Save as new version'}</button>}</>}>
+      <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); if (!rule.readOnly) save(); }}>
+        {rule.readOnly ? <p className="ui-caption" role="note">This rule has steps this screen cannot edit yet: several people in one step, a due time in hours, or more than one condition. It stays as it is.</p> : null}
         {error ? <ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /> : null}
-        <label className="block"><span className="ui-label">Rule name *</span><input className="ui-input w-full" maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+        <label className="block"><span className="ui-label">Rule name *</span><input className="ui-input w-full" maxLength={120} readOnly={rule.readOnly} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+        {rule.readOnly ? (
+          <ol className="divide-y border-t" aria-label="Steps">
+            {(rule.spec || []).map((s) => <li key={s.order} className="py-3"><span className="font-medium">Step {s.order}: </span>{specLine(s, users, roles)}</li>)}
+          </ol>
+        ) : <>
         <ol className="divide-y border-t" aria-label="Steps">
           {form.steps.map((s, i) => {
             const field = fields.find(([k]) => k === s.condition?.field);
@@ -205,6 +224,7 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
           })}
         </ol>
         {form.steps.length < 8 ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setForm((f) => ({ ...f, steps: [...f.steps, blankStep(f.steps.length + 1)] }))}><Plus size={16} aria-hidden="true" /> Add a step</button> : null}
+        </>}
         {versions.length ? (
           <section className="space-y-2">
             <h3 className="ui-t-sec">Versions</h3>

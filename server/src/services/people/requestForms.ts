@@ -1,6 +1,7 @@
 import type { Prisma } from '../../generated/people/index.js';
 import { peoplePrisma, peopleWrite } from '../../utils/peoplePrisma.js';
 import { ApprovalError, PORTAL_PREFIX, activeRule, addWorkingDays, reply, saveRule, submitRequest, withdraw, type FormRequestType, type StepSpec } from './approvals/engine.js';
+import { normaliseSteps } from './approvals/spec.js';
 import type { Actor } from './changeLog.js';
 
 /**
@@ -124,9 +125,11 @@ const stepsFor = (approver: Approver, slaDays: number | null): StepSpec[] => {
 };
 
 /** Which of the three ways a rule reads as, or CUSTOM when HR changed it on Approval rules. */
-export function approverOf(steps: StepSpec[] | null | undefined): Approver | 'CUSTOM' | null {
-  if (!steps?.length) return null;
-  const kinds = steps.map((s) => (s.condition ? 'X' : s.approver.kind)).join(',');
+export function approverOf(raw: unknown): Approver | 'CUSTOM' | null {
+  /* Either step shape (approvals/spec.ts): a step with a condition, several approvers or ALL mode reads as custom. */
+  const steps = normaliseSteps(raw);
+  if (!steps.length) return null;
+  const kinds = steps.map((s) => (s.when.length || s.approvers.length !== 1 || s.mode !== 'ANY' ? 'X' : s.approvers[0].kind)).join(',');
   return kinds === 'MANAGER' ? 'MANAGER' : kinds === 'HR' ? 'HR' : kinds === 'MANAGER,HR' ? 'MANAGER_HR' : 'CUSTOM';
 }
 
@@ -134,7 +137,7 @@ type Who = { accountId: string; orgId: string; userId: string | null };
 
 async function shapeForm(f: Prisma.RequestFormGetPayload<object>) {
   const rule = await activeRule(f.orgId, formType(f.id));
-  const steps = (rule?.steps || null) as StepSpec[] | null;
+  const steps = rule ? normaliseSteps(rule.steps) : null;
   return { id: f.id, requestType: formType(f.id), name: f.name, description: f.description, fields: f.fields as Field[], audience: f.audience, departmentIds: f.departmentIds, slaDays: f.slaDays, template: f.template, active: f.active, approver: approverOf(steps), steps: steps?.length || 0, createdAt: f.createdAt, updatedAt: f.updatedAt };
 }
 
@@ -227,7 +230,7 @@ export async function updateForm(who: Who, id: string, body: FormBody) {
     throw e;
   }
   const rule = await activeRule(who.orgId, formType(f.id));
-  const current = approverOf((rule?.steps || null) as StepSpec[] | null);
+  const current = approverOf(rule?.steps);
   const slaChanged = data.slaDays !== undefined && data.slaDays !== f.slaDays;
   const next = approver || (current && current !== 'CUSTOM' ? current : null);
   if (!rule || (approver && approver !== current) || (slaChanged && next)) {
