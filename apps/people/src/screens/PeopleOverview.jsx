@@ -394,11 +394,14 @@ export default function PeopleOverview({ openScreen }) {
               <span className="soft-band-stat-value">{todos || leave ? waiting : '–'}</span>
               <span className="soft-band-stat-note">{pending.length ? `${plural(pending.length, 'leave request')}, next starts ${dayDate(pending[0].fromDate)}` : waiting ? 'No leave among them' : 'Nothing to approve'}</span>
             </button>
-            <button type="button" className="soft-band-stat" data-tint="lilac" onClick={go('employees')}>
-              <span className="soft-band-stat-label"><SignOut size={16} aria-hidden="true" /> On notice</span>
-              <span className="soft-band-stat-value">{onNotice}</span>
-              <span className="soft-band-stat-note">{data.leftThisMonth ? `${plural(data.leftThisMonth, 'person', 'people')} left in ${monthName()}` : `Nobody left in ${monthName()}`}</span>
-            </button>
+            {/* The company keeps who is leaving from this reader (Company choices): no leaving figures. */}
+            {data.leavingsHidden ? null : (
+              <button type="button" className="soft-band-stat" data-tint="lilac" onClick={go('employees')}>
+                <span className="soft-band-stat-label"><SignOut size={16} aria-hidden="true" /> On notice</span>
+                <span className="soft-band-stat-value">{onNotice}</span>
+                <span className="soft-band-stat-note">{data.leftThisMonth ? `${plural(data.leftThisMonth, 'person', 'people')} left in ${monthName()}` : `Nobody left in ${monthName()}`}</span>
+              </button>
+            )}
           </div>
 
           <Bezel i={2}>

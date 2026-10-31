@@ -3,6 +3,7 @@ import { platformPrisma } from '../../../utils/platformPrisma.js';
 import type { TeamScope } from '../scope.js';
 import { NO_SETTLEMENT } from './leaving.js';
 import { TRACKED } from '../employmentHistory.js';
+import { leavingsOpenToManagers, type ReasonAccess } from '../companyChoices.js';
 
 /**
  * Joining & Leaving lists (docs/people/design-v1/JOINING-LEAVING-DECISIONS.md).
@@ -24,8 +25,12 @@ const plus = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`)
 const RECENT_DAYS = 60;
 const CAP = 2000;
 
-/** privateOk: reads the reason typed for leaving. leavingsOk: false when the company keeps the Leaving list from read-only users (companyChoices.ts). */
-type Ctx = { orgId: string; scope: TeamScope; privateOk: boolean; leavingsOk?: boolean; now?: Date };
+/**
+ * privateOk: who reads the reason typed for leaving (companyChoices.ts leavingReasonAccess): everyone listed, a team
+ * manager per leaving, or nobody but the person. leavingsOk: false when the company keeps the Leaving list from
+ * read-only users.
+ */
+type Ctx = { orgId: string; scope: TeamScope; privateOk: boolean | ReasonAccess; leavingsOk?: boolean; userId?: string; now?: Date };
 const scoped = (scope: TeamScope) => (scope.all ? {} : { id: { in: scope.ids } });
 const scopedEmployee = (scope: TeamScope) => (scope.all ? {} : { employeeId: { in: scope.ids } });
 
@@ -145,6 +150,8 @@ export async function leavers(ctx: Ctx, q: { view?: string; q?: string } & Pagin
   });
   const ids = people.map((p) => p.id);
   const tasks = (await peoplePrisma.checklistTask.findMany({ where: { orgId: ctx.orgId, kind: 'LEAVING', employeeId: { in: ids } } })) as Task[];
+  const openToManagers = ctx.privateOk === 'PER_LEAVING' ? await leavingsOpenToManagers(ctx.orgId, ids) : null;
+  const reasonOk = (p: { id: string; userId: string | null; dateOfLeaving: string | null }) => ctx.privateOk === true || ctx.privateOk === 'ALL' || Boolean(p.userId && p.userId === ctx.userId) || Boolean(openToManagers?.has(`${p.id}|${p.dateOfLeaving}`));
   const names = await namesOf(tasks.filter((t) => !t.doneAt).map((t) => t.ownerUserId));
   const all = people.map((p) => {
     const mine = tasks.filter((t) => t.employeeId === p.id);
@@ -157,7 +164,7 @@ export async function leavers(ctx: Ctx, q: { view?: string; q?: string } & Pagin
     return {
       id: p.id, name: p.name, code: p.code, designation: p.designation, department: p.department, dateOfLeaving: last, status: p.status,
       /* Private: why someone leaves is HR's to read (JCL-009). */
-      ...(ctx.privateOk ? { leavingType: p.leavingType, leavingReason: p.leavingReason } : {}),
+      ...(reasonOk(p) ? { leavingType: p.leavingType, leavingReason: p.leavingReason } : {}),
       stage, stageLabel: LEAVE_STAGE[stage],
       readers: readers ? (() => { const state = readers.doneAt && (!readers.systemState || readers.systemState === 'WAITING' || readers.systemState === 'FAILED') ? 'MANUAL' : readers.systemState || 'PENDING'; return { state, word: READER_WORD[state], taskId: readers.id }; })() : null,
       wages: wages ? { taskId: wages.id, title: wages.title, dueDate: wages.dueDate, paid: Boolean(wages.doneAt), late: !wages.doneAt && Boolean(wages.dueDate && wages.dueDate < today) } : null,
@@ -220,7 +227,11 @@ export async function taskQueue(ctx: Ctx & { userId: string; mineOnly: boolean; 
   const today = todayIst(ctx.now);
   const view = (TASK_VIEWS as readonly string[]).includes(String(q.view)) ? String(q.view) : 'mine';
   const kind = (TASK_KINDS as readonly string[]).includes(String(q.kind)) ? String(q.kind) : null;
-  const base = { orgId: ctx.orgId, ...(ctx.mineOnly ? { ownerUserId: ctx.userId } : scopedEmployee(ctx.scope)), ...(kind ? { kind } : {}), ...(q.employeeId ? { employeeId: String(q.employeeId) } : {}) };
+  const base = {
+    orgId: ctx.orgId, ...(ctx.mineOnly ? { ownerUserId: ctx.userId } : scopedEmployee(ctx.scope)), ...(kind ? { kind } : {}), ...(q.employeeId ? { employeeId: String(q.employeeId) } : {}),
+    /* Leavings kept from this reader (SPEC 3.5): leaving tasks are not listed, except one handed to them. */
+    ...(ctx.leavingsOk === false ? { OR: [{ kind: { not: 'LEAVING' } }, { ownerUserId: ctx.userId }] } : {}),
+  };
   const doneSince = new Date(Date.now() - 90 * DAY);
   const where: Record<string, Record<string, unknown>> = {
     mine: { ...base, ownerUserId: ctx.userId, doneAt: null },

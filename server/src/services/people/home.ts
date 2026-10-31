@@ -55,8 +55,12 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
       /* Company property still with someone who has left: the exit checklist's question, asked of the asset register. */
       peoplePrisma.peopleRecord.findMany({ where: { accountId, orgId, kind: 'assets', status: 'ASSIGNED', employeeId: { not: null } }, select: { employeeId: true } }),
     ]);
-    const late = tasks.filter((t) => t.overdue).length;
-    const dueSoon = tasks.filter((t) => !t.overdue && t.dueDate && t.dueDate <= week).length;
+    /* Leavings kept from this reader (SPEC 3.5): leaving tasks not counted, except their own. */
+    const { seesLeavings } = await import('./companyChoices.js');
+    const leavingsOk = await seesLeavings(req);
+    const counted = leavingsOk ? tasks : tasks.filter((t) => t.kind !== 'LEAVING' || t.ownerUserId === userId);
+    const late = counted.filter((t) => t.overdue).length;
+    const dueSoon = counted.filter((t) => !t.overdue && t.dueDate && t.dueDate <= week).length;
     if (late || dueSoon) out.push({ key: 'checklists', title: 'Joining and leaving tasks', detail: [late && `${late} late`, dueSoon && `${dueSoon} due this week`].filter(Boolean).join(' · '), count: late + dueSoon, tone: late ? 'urgent' : 'soon', screen: 'checklists' });
     if (health.blocking) out.push({ key: 'dataHealth', title: 'Details that would stop payroll', detail: `${plural(health.blocking, 'person', 'people')} to fix: missing PAN, UAN, bank, joining date…`, count: health.blocking, tone: 'urgent', screen: 'dataHealth' });
     const cLate = compliance.filter((o) => o.status === 'OVERDUE').length;

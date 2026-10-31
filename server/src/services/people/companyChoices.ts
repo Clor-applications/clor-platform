@@ -139,7 +139,7 @@ const LABELS: Record<ChoiceKey, string> = {
   'attendance.correctionApproval': 'Who decides attendance requests',
   'people.hrSeesSalaryRevisions': 'HR without Payroll access sees salary revisions',
   'people.leavingsForReadOnly': 'Read-only users and IT administrators see the Leaving list',
-  'people.leavingReasonForReadOnly': 'Read-only users, IT administrators and managers see the reason for leaving',
+  'people.leavingReasonForReadOnly': 'Read-only users and IT administrators see the reason for leaving',
   'notifications.withdrawn': 'A withdrawn request’s notice',
 };
 
@@ -177,15 +177,50 @@ async function keepsRecords(req: Request) {
 }
 
 /**
- * Who reads the reason typed for leaving (3.5): HR (Employees edit), the owner and admins always; anyone else with
- * the Lifecycle right (Viewer, IT administrator, a team manager) only when the company says so. The person reads
- * their own.
+ * Who reads the reason typed for leaving (3.5), for people other than themselves:
+ *   ALL          HR (Employees edit), the owner and admins; and Viewer / IT administrator (whole-company readers
+ *                with the Lifecycle right) when the company says so.
+ *   PER_LEAVING  a team manager: only a leaving whose exit interview was sent and not kept from managers (the
+ *                per-leaving switch from #81, exitInterview.ts hideFromManager). The company switch never opens it.
+ *   NONE         everyone else.
+ * The person always reads their own.
  */
-export async function seesLeavingReason(req: Request, subjectUserId?: string | null) {
-  if (subjectUserId && subjectUserId === req.auth?.userId) return true;
-  if (await keepsRecords(req)) return true;
-  if (await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, PEOPLE_RESOURCE.lifecycle)) return false;
-  return (await choicesFor(req.tenant!.orgId)).leavingReasonForReadOnly;
+export type ReasonAccess = 'ALL' | 'PER_LEAVING' | 'NONE';
+export async function leavingReasonAccess(req: Request): Promise<ReasonAccess> {
+  if (await keepsRecords(req)) return 'ALL';
+  if (await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, PEOPLE_RESOURCE.lifecycle)) return 'NONE';
+  if (!(await teamScope(req)).all) return 'PER_LEAVING';
+  return (await choicesFor(req.tenant!.orgId)).leavingReasonForReadOnly ? 'ALL' : 'NONE';
+}
+
+/** Leavings whose reason the leaver's managers may read: the exit interview was sent, not withdrawn, and not kept from them. Keys `employeeId|leavingDate`. */
+export async function leavingsOpenToManagers(orgId: string, employeeIds: string[]): Promise<Set<string>> {
+  const ids = [...new Set(employeeIds.filter(Boolean))];
+  if (!ids.length) return new Set();
+  const rows = await peoplePrisma.exitInterview.findMany({ where: { orgId, employeeId: { in: ids }, status: 'SUBMITTED', hideFromManager: false, withdrawnAt: null }, select: { employeeId: true, leavingDate: true } });
+  return new Set(rows.map((r) => `${r.employeeId}|${r.leavingDate}`));
+}
+
+export type ReasonSubject = { id: string; userId?: string | null; dateOfLeaving?: string | null };
+/**
+ * One check for many people: whether this reader sees the reason for a person's leaving (by default their current
+ * one, dateOfLeaving; or the leaving that ended on `leavingDate`, for a past stint).
+ */
+export async function leavingReasonFilter(req: Request, subjects: ReasonSubject[]) {
+  const me = req.auth?.userId;
+  const access = await leavingReasonAccess(req);
+  const open = access === 'PER_LEAVING' ? await leavingsOpenToManagers(req.tenant!.orgId, subjects.map((s) => s.id)) : new Set<string>();
+  return (s: ReasonSubject, leavingDate: string | null | undefined = s.dateOfLeaving) => {
+    if (s.userId && s.userId === me) return true;
+    if (access === 'ALL') return true;
+    if (access === 'PER_LEAVING') return Boolean(leavingDate) && open.has(`${s.id}|${String(leavingDate).slice(0, 10)}`);
+    return false;
+  };
+}
+
+/** One person: whether this reader sees the reason for their current leaving. */
+export async function seesLeavingReason(req: Request, subject: ReasonSubject) {
+  return (await leavingReasonFilter(req, [subject]))(subject);
 }
 
 /**

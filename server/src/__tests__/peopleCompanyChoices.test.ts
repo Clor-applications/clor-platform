@@ -327,3 +327,286 @@ describe('a withdrawn request in the bell', () => {
     expect(l.every((n) => n.title.startsWith('Withdrawn: ') && n.readAt)).toBe(true);
   }, 60_000);
 });
+
+/*
+ * Review of #87, blockers 1 and 2, should-fix 3: a leaver who has LEFT (not on notice) carries the reason on every
+ * surface that tells their story: the stint's end, the history notes, the journey and its Why, the Activity tab's
+ * change line and the reason it came with, the record, the list, the Leaving list. None of them may show it to a
+ * Viewer, an IT administrator or a team manager, unless the company or the leaving says so.
+ */
+describe('a leaver who has left: the reason on every surface', () => {
+  const REASON = 'Family health';
+  const lastDay = plus(istToday(), -5);
+  let c: Ctx;
+  let hr: Ctx;
+  let viewer: Ctx;
+  let itAdmin: Ctx;
+  let lead: Ctx;
+  let leaver: any;
+  /* An approved LEAVING request records the leaving with its request id and reason: the change log's leavingReason line. */
+  const leaveByRequest = async (e: any, reason: string) => {
+    const { leaveEmployee } = await import('../services/people/lifecycle/leaving.js');
+    const existing = await runInTenant(c.orgId, () => peoplePrisma.employee.findFirstOrThrow({ where: { id: e.id } }));
+    const requestId = `req_${rnd()}`;
+    await runInTenant(c.orgId, () => leaveEmployee({ accountId: c.accountId, orgId: c.orgId, userId: c.userId, source: 'APPROVAL', correlationId: requestId, requestId, reason }, existing as any, { lastDay, leavingType: 'RESIGNED', reason }));
+  };
+  beforeAll(async () => {
+    c = await company();
+    hr = await withRole(c, 'HR Manager', 'Hamsa HR');
+    viewer = await withRole(c, 'Viewer', 'Vinay Viewer');
+    itAdmin = await withRole(c, 'IT Administrator', 'Indu IT');
+    lead = await withRole(c, 'Team Manager', 'Latha Lead');
+    const leadEmp = await person(c, { name: 'Latha Lead', code: 'G0' });
+    await link(c, leadEmp.id, lead.userId);
+    leaver = await person(c, { name: 'Gopal Gone', code: 'G1', reportingManagerId: leadEmp.id });
+    await leaveByRequest(leaver, REASON);
+  }, 120_000);
+
+  /* Everything a reader can open about the leaver. */
+  const everything = async (who: Ctx) => {
+    const id = leaver.id;
+    const journey = (await ppl(who, 'get', `/employees/${id}/journey`).expect(200)).body;
+    const whys = await Promise.all(journey.entries.map(async (e: any) => (await ppl(who, 'get', `/employees/${id}/why/${e.key}`)).body));
+    return {
+      record: (await ppl(who, 'get', `/employees/${id}`).expect(200)).body,
+      list: (await ppl(who, 'get', '/employees?status=ALL&limit=50').expect(200)).body.employees.find((r: any) => r.id === id),
+      history: (await ppl(who, 'get', `/employees/${id}/history`).expect(200)).body,
+      journey,
+      whys,
+      activity: (await ppl(who, 'get', `/employees/${id}/activity`).expect(200)).body,
+      leavers: (await ppl(who, 'get', '/lifecycle/leavers?view=all').expect(200)).body.rows.find((r: any) => r.id === id) || null,
+    };
+  };
+
+  it('the leaving really left the reason on each surface, and HR reads all of it', async () => {
+    const all = await everything(hr);
+    expect(all.record.employee).toMatchObject({ status: 'LEFT', leavingReason: REASON });
+    expect(all.history.episodes[0]).toMatchObject({ endType: 'RESIGNED', endReason: REASON });
+    expect(JSON.stringify(all.history.events)).toContain(REASON);
+    expect(all.journey.episodes[0].endReason).toBe(REASON);
+    const line = all.activity.events.flatMap((e: any) => e.changes || []).find((x: any) => x.field === 'leavingReason');
+    expect(line).toMatchObject({ after: REASON, redacted: false });
+    expect(all.activity.events.some((e: any) => e.reason === REASON)).toBe(true);
+  });
+
+  it('Viewer, IT administrator and the team manager read none of it by default (blockers 1 and 2)', async () => {
+    for (const who of [viewer, itAdmin, lead]) {
+      const all = await everything(who);
+      expect(all.record.employee.status).toBe('LEFT');
+      for (const [where, body] of Object.entries(all)) expect(JSON.stringify(body), `${where} for ${who.email}`).not.toContain(REASON);
+      expect(all.history.episodes[0]).toMatchObject({ endType: 'RESIGNED', endReason: null });
+      const line = all.activity.events.flatMap((e: any) => e.changes || []).find((x: any) => x.field === 'leavingReason');
+      expect(line).toMatchObject({ before: null, after: null, redacted: true });
+    }
+  });
+
+  it('the company switch opens it to Viewer and IT administrator, never to a team manager (should-fix 3)', async () => {
+    await setChoice(c, 'people.leavingReasonForReadOnly', true).expect(200);
+    for (const who of [viewer, itAdmin]) {
+      const all = await everything(who);
+      expect(all.history.episodes[0].endReason).toBe(REASON);
+      expect(all.record.employee.leavingReason).toBe(REASON);
+    }
+    expect(JSON.stringify(await everything(lead))).not.toContain(REASON);
+    await setChoice(c, 'people.leavingReasonForReadOnly', false).expect(200);
+  });
+
+  it('a team manager reads it only when the leaving’s exit interview is not kept from managers', async () => {
+    const iv = await runInTenant(c.orgId, () => peoplePrisma.exitInterview.create({ data: { accountId: c.accountId, orgId: c.orgId, employeeId: leaver.id, leavingDate: lastDay, status: 'SUBMITTED', submittedAt: new Date(), hideFromManager: true, enteredBy: 'EMPLOYEE' } }));
+    expect(JSON.stringify(await everything(lead))).not.toContain(REASON);
+    await runInTenant(c.orgId, () => peoplePrisma.exitInterview.update({ where: { id: iv.id }, data: { hideFromManager: false } }));
+    const all = await everything(lead);
+    expect(all.record.employee.leavingReason).toBe(REASON);
+    expect(all.history.episodes[0].endReason).toBe(REASON);
+    expect(all.leavers).toMatchObject({ leavingReason: REASON });
+    /* Viewer and IT are not the managers: the leaving's switch does not open it to them. */
+    for (const who of [viewer, itAdmin]) expect(JSON.stringify(await everything(who))).not.toContain(REASON);
+    await runInTenant(c.orgId, () => peoplePrisma.exitInterview.delete({ where: { id: iv.id } }));
+  });
+
+  it('a reason typed for two leavings is never offered as a suggestion', async () => {
+    const second = await person(c, { name: 'Gita Gone', code: 'G2' });
+    await leaveByRequest(second, REASON);
+    const values = (await ppl(hr, 'get', '/suggestions?field=reason').expect(200)).body.values || [];
+    expect(JSON.stringify(values)).not.toContain(REASON);
+  });
+});
+
+/* Should-fix 6: "leavings: no" keeps who is leaving off the employee list, the record, the counts and the export too. */
+describe('leavings kept from Viewer and IT administrator on the list and record', () => {
+  let c: Ctx;
+  let hr: Ctx;
+  let viewer: Ctx;
+  let lead: Ctx;
+  let going: any;
+  let staying: any;
+  beforeAll(async () => {
+    c = await company();
+    hr = await withRole(c, 'HR Manager', 'Hasan HR');
+    viewer = await withRole(c, 'Viewer', 'Vimal Viewer');
+    lead = await withRole(c, 'Team Manager', 'Lohit Lead');
+    const leadEmp = await person(c, { name: 'Lohit Lead', code: 'N0' });
+    await link(c, leadEmp.id, lead.userId);
+    going = await person(c, { name: 'Neha Notice', code: 'N1', reportingManagerId: leadEmp.id });
+    staying = await person(c, { name: 'Sunil Stays', code: 'N2' });
+    await ppl(c, 'post', `/employees/${going.id}/resign`, { lastDay: plus(istToday(), 20), leavingType: 'RESIGNED', reason: 'Moving' }).expect(200);
+    await setChoice(c, 'people.leavingsForReadOnly', false).expect(200);
+  }, 120_000);
+
+  it('the viewer sees someone on notice as active, with no last day, filter or count to give it away', async () => {
+    const list = (await ppl(viewer, 'get', '/employees?limit=50').expect(200)).body.employees;
+    expect(list.find((r: any) => r.id === going.id)).toMatchObject({ status: 'ACTIVE', dateOfLeaving: null, leavingType: null, leavingReason: null, leavingsHidden: true });
+    const ids = async (q: string) => (await ppl(viewer, 'get', `/employees?limit=50${q}`).expect(200)).body.employees.map((r: any) => r.id).sort();
+    /* On notice and active are one group to them; the left-between filter is ignored. */
+    expect(await ids('&status=ON_NOTICE')).toEqual(await ids('&status=ACTIVE'));
+    expect(await ids('&status=ON_NOTICE')).toEqual(expect.arrayContaining([going.id, staying.id]));
+    expect(await ids(`&status=ALL&leftFrom=${istToday()}&leftTo=${plus(istToday(), 60)}`)).toEqual(await ids('&status=ALL'));
+    const rec = (await ppl(viewer, 'get', `/employees/${going.id}`).expect(200)).body.employee;
+    expect(rec).toMatchObject({ status: 'ACTIVE', dateOfLeaving: null, resignedOn: null, leavingsHidden: true });
+    expect(rec.leavingReasonHidden).toBeUndefined();
+    const counts = (await ppl(viewer, 'get', '/employees/counts').expect(200)).body;
+    expect(counts).toMatchObject({ onNotice: null, leftThisMonth: null, leavingsHidden: true });
+    expect(counts.active).toBeGreaterThanOrEqual(3);
+    const overview = (await ppl(viewer, 'get', '/overview').expect(200)).body;
+    expect(overview).toMatchObject({ leftThisMonth: null, leavingsHidden: true });
+    expect(overview.byStatus.ON_NOTICE).toBe(0);
+    /* Nor through the leaving plan's tasks or Home's final-pay banner. */
+    const tasks = (await ppl(viewer, 'get', '/lifecycle/tasks?view=open').expect(200)).body.rows;
+    const leavingTask = (t: any) => t.employee.id === going.id && t.kind === 'LEAVING';
+    expect(tasks.some(leavingTask)).toBe(false);
+    expect((await ppl(hr, 'get', '/lifecycle/tasks?view=open').expect(200)).body.rows.some(leavingTask)).toBe(true);
+    expect((await ppl(viewer, 'get', '/final-pay').expect(200)).body.rows).toEqual([]);
+  });
+
+  it('an export by someone the leavings are kept from says active too', async () => {
+    const exporter = await colleague(c, 'Esha Export', ['PEOPLE::Employees::VIEW', 'PEOPLE::Employees::EXPORT']);
+    const csv = await request(app).get(`/api/orgs/${c.orgId}/people/employees/export?columns=name,status`).set(at(exporter)).expect(200);
+    expect(csv.text).toMatch(/Neha Notice,Active/);
+    expect(csv.text).not.toMatch(/On notice/);
+    const hrCsv = await request(app).get(`/api/orgs/${c.orgId}/people/employees/export?columns=name,status`).set(at(hr)).expect(200);
+    expect(hrCsv.text).toMatch(/Neha Notice,On notice/);
+  });
+
+  it('HR, the owner and the team manager still see the notice; the owner turns it back on', async () => {
+    for (const who of [hr, c, lead]) {
+      const rec = (await ppl(who, 'get', `/employees/${going.id}`).expect(200)).body.employee;
+      expect(rec).toMatchObject({ status: 'ON_NOTICE', dateOfLeaving: plus(istToday(), 20) });
+      expect(rec.leavingsHidden).toBeUndefined();
+    }
+    expect((await ppl(hr, 'get', '/employees/counts').expect(200)).body.onNotice).toBe(1);
+    await setChoice(c, 'people.leavingsForReadOnly', true).expect(200);
+    expect((await ppl(viewer, 'get', `/employees/${going.id}`).expect(200)).body.employee).toMatchObject({ status: 'ON_NOTICE', dateOfLeaving: plus(istToday(), 20) });
+  });
+});
+
+/* Review item 4: under "HR only" the manager's queues in the employee app and in People hold nothing to decide, and only whole-company approvers hear of it. */
+describe('"HR only" across the manager’s queues and the notices', () => {
+  it('the employee-app queue, the People inbox and the notices leave the team manager out', async () => {
+    const c = await company();
+    const companyCode = (await att(c, 'get', '/portal-access').expect(200)).body.company.code;
+    const lead = await colleague(c, 'Lead Lakshmi', REQUESTS_APPROVER, true);
+    /* A whole-company approver who did not raise the requests (the owner raises them and is never told of their own). */
+    const boss = await colleague(c, 'Bina Boss', REQUESTS_APPROVER);
+    const leadEmp = await person(c, { name: 'Lead Lakshmi', code: 'H0' });
+    await link(c, leadEmp.id, lead.userId);
+    const report = await person(c, { name: 'Ravi Report', code: 'H1', reportingManagerId: leadEmp.id });
+    const act = (await att(c, 'post', '/portal-access/codes', { employeeIds: [leadEmp.id] }).expect(200)).body.codes[0].activationCode;
+    const token = (await request(app).post('/api/portal/activate').send({ company: companyCode, employeeCode: 'H0', activationCode: act, password: 'mine pass 1' }).expect(200)).body.token;
+    const portal = { Authorization: `Bearer ${token}` };
+    const ask = async (date: string) => (await att(c, 'post', '/requests', { employeeId: report.id, kind: 'MISSED_PUNCH', date, checkIn: '09:00', checkOut: '18:00', reason: 'Reader down' }).expect(201)).body.request;
+    const queue = async () => (await request(app).get('/api/portal/approvals').set(portal).expect(200)).body;
+    const inbox = async (who: Ctx) => (await ppl(who, 'get', '/inbox').expect(200)).body.items.filter((i: any) => i.kind === 'ATTENDANCE').map((i: any) => i.id);
+
+    /* By default the manager decides: in their app queue and their People inbox. */
+    const first = await ask(plus(istToday(), -3));
+    await drain();
+    expect((await queue()).corrections.map((r: any) => r.id)).toContain(first.id);
+    expect(await inbox(lead)).toContain(first.id);
+    expect(await bell(c, { userId: lead.userId, subjectKey: `attendance:${first.id}` })).toHaveLength(1);
+    await att(c, 'post', `/requests/${first.id}/approve`).expect(200);
+
+    await setChoice(c, 'attendance.correctionApproval', 'HR').expect(200);
+    const second = await ask(plus(istToday(), -4));
+    await drain();
+    const q = await queue();
+    expect(q.chain.correction).toBe('HR');
+    expect(q.corrections.map((r: any) => r.id)).not.toContain(second.id);
+    expect(await inbox(lead)).not.toContain(second.id);
+    expect(await inbox(c)).toContain(second.id);
+    /* The notice goes to whole-company approvers only. */
+    expect(await bell(c, { userId: lead.userId, subjectKey: `attendance:${second.id}` })).toHaveLength(0);
+    expect(await bell(c, { userId: boss.userId, subjectKey: `attendance:${second.id}` })).toHaveLength(1);
+  }, 90_000);
+});
+
+/* Review item 5 and the leave.ts nit: "is removed" for attendance and leave withdrawals; HR cancelling a waiting request retires the notice too. */
+describe('withdrawn and cancelled attendance and leave requests in the bell', () => {
+  let c: Ctx;
+  let asker: Ctx;
+  let emp: any;
+  let typeId = '';
+  beforeAll(async () => {
+    c = await company();
+    asker = await colleague(c, 'Asha Asker', ['PEOPLE::Employees::VIEW', 'ATTENDANCE::Attendance Requests::VIEW', 'ATTENDANCE::Attendance Requests::CREATE', 'ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::CREATE']);
+    emp = await person(c, { name: 'Asha Asker', code: 'R1' });
+    await link(c, emp.id, asker.userId);
+    typeId = (await att(c, 'post', '/leave/types', { name: `Casual ${rnd()}`, annualDays: 12 }).expect(201)).body.type.id;
+  }, 120_000);
+  const wfh = async (date: string) => {
+    const { tellAboutRequest } = await import('../services/attendance/requests.js');
+    const r = await runInTenant(c.orgId, () => peoplePrisma.attendanceRequest.create({ data: { accountId: c.accountId, orgId: c.orgId, employeeId: emp.id, kind: 'WFH', date, reason: 'Home', status: 'PENDING', requestedByUserId: asker.userId, history: [{ by: asker.userId, what: 'ASKED', at: new Date().toISOString() }] } as any }));
+    await runInTenant(c.orgId, () => tellAboutRequest(c.orgId, r));
+    expect(await bell(c, { userId: c.userId, subjectKey: `attendance:${r.id}` })).toHaveLength(1);
+    return r;
+  };
+  const leave = async (date: string) => {
+    const l = (await att(asker, 'post', '/leave/requests', { employeeId: emp.id, leaveTypeId: typeId, fromDate: date, toDate: date, reason: 'Errand' })).body.request;
+    expect(l?.id).toBeTruthy();
+    await drain();
+    expect((await bell(c, { subjectKey: `leave:${l.id}` })).length).toBeGreaterThan(0);
+    return l;
+  };
+  const monday = (weeks: number) => plus(futureMonday, weeks * 7);
+
+  it('under "is removed" a withdrawn attendance request’s and leave request’s notices go', async () => {
+    await setChoice(c, 'notifications.withdrawn', 'REMOVE').expect(200);
+    const r = await wfh(monday(1));
+    await runInTenant(c.orgId, () => cancelRequest(c.accountId, c.orgId, r, { userId: asker.userId, employeeId: emp.id, hr: false }));
+    await drain();
+    expect(await bell(c, { subjectKey: `attendance:${r.id}` })).toHaveLength(0);
+    const l = await leave(monday(2));
+    await runInTenant(c.orgId, () => cancelLeaveRequest(c.accountId, c.orgId, l.id, asker.userId));
+    await drain();
+    expect(await bell(c, { subjectKey: `leave:${l.id}` })).toHaveLength(0);
+    await setChoice(c, 'notifications.withdrawn', 'SHOW_WITHDRAWN').expect(200);
+  }, 60_000);
+
+  it('HR cancelling a waiting leave or attendance request marks the approvers’ notice cancelled, and still tells the person', async () => {
+    const l = await leave(monday(3));
+    await att(c, 'post', `/leave/requests/${l.id}/cancel`, {}).expect(200);
+    await drain();
+    const notices = await bell(c, { subjectKey: `leave:${l.id}` });
+    expect(notices.length).toBeGreaterThan(0);
+    expect(notices.every((n) => n.title.startsWith('Cancelled: ') && n.readAt)).toBe(true);
+    expect(await bell(c, { userId: asker.userId, dedupeKey: `leave-decided:${l.id}:CANCELLED` })).toHaveLength(1);
+
+    const r = await wfh(monday(4));
+    await runInTenant(c.orgId, () => cancelRequest(c.accountId, c.orgId, r, { userId: c.userId, employeeId: null, hr: true } as any));
+    await drain();
+    const a = await bell(c, { subjectKey: `attendance:${r.id}` });
+    expect(a).toHaveLength(1);
+    expect(a[0].title).toMatch(/^Cancelled: /);
+    expect(await bell(c, { userId: asker.userId, dedupeKey: `request-decided:${r.id}:CANCELLED` })).toHaveLength(1);
+  }, 60_000);
+});
+
+/* The salary-revisions read line: two pages loading at once still write one line for the day (review nit). */
+describe('the once-a-day read line under a race', () => {
+  it('ten reads at once write one audit line', async () => {
+    const c = await company();
+    const hr = await withRole(c, 'HR Manager', 'Harsha HR');
+    await setChoice(c, 'people.hrSeesSalaryRevisions', true).expect(200);
+    await Promise.all(Array.from({ length: 10 }, () => ppl(hr, 'get', '/salary-revisions').expect(200)));
+    expect(await runInTenant(c.orgId, () => platformPrisma.auditLog.count({ where: { orgId: c.orgId, action: 'SALARY_REVISION_VIEWED', createdByUserId: hr.userId } }))).toBe(1);
+  }, 60_000);
+});

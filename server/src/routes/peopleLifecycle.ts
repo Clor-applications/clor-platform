@@ -8,7 +8,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { inScope, teamScope } from '../services/people/scope.js';
 import { changes, joiners, leavers, overview, taskQueue } from '../services/people/lifecycle/board.js';
-import { seesLeavingReason, seesLeavings } from '../services/people/companyChoices.js';
+import { leavingReasonAccess, seesLeavings } from '../services/people/companyChoices.js';
 
 /**
  * Joining & Leaving (docs/people/design-v1/JOINING-LEAVING-DECISIONS.md):
@@ -32,7 +32,7 @@ async function ctxOf(req: Request) {
     orgId: req.tenant!.orgId,
     scope: await teamScope(req),
     /* Why someone leaves is HR's to read (JCL-009); others with the Lifecycle right only when the company says so (SPEC 3.5). */
-    privateOk: await seesLeavingReason(req),
+    privateOk: await leavingReasonAccess(req),
     leavingsOk: await seesLeavings(req),
     userId: req.auth!.userId,
     mineOnly: Boolean(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, EMPLOYEES)),

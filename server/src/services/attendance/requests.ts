@@ -600,6 +600,8 @@ export async function tellAboutRequest(orgId: string, r: any, ctx: { approvedBy?
   /* Withdrawn while waiting (no approver to tell): the "waiting for you" notices say so, or go (Company choices, SPEC 3.6). */
   if (ctx.own && r.status === 'CANCELLED' && !ctx.approvedBy) return retireAsked(orgId, r);
   if (ctx.own && r.status === 'CANCELLED') return tellOwnCancel(orgId, r, ctx.approvedBy ?? null);
+  /* HR cancelled it: any "waiting for you" notice still standing says so, or goes; the person is told as before. */
+  if (r.status === 'CANCELLED') await retireAsked(orgId, r, 'Cancelled');
   return tellDecided(orgId, r);
 }
 
@@ -628,9 +630,9 @@ async function tellAsked(orgId: string, r: any, rev: number) {
   await sendNotice(emp.accountId, orgId, await approversOf(emp.accountId, orgId, r.employeeId, { wholeCompanyOnly: chain === 'HR_ONLY' }), { kind: 'attendance.request_asked', title, body, link }, { except: r.requestedByUserId, dedupeKey, subjectKey: `attendance:${r.id}` });
 }
 
-async function retireAsked(orgId: string, r: any) {
+async function retireAsked(orgId: string, r: any, word: 'Withdrawn' | 'Cancelled' = 'Withdrawn') {
   const link = await linkFor(r.accountId, orgId, 'attendanceRequests', { id: r.id });
-  await retireNotices(orgId, `attendance:${r.id}`, (await choicesFor(orgId)).withdrawnNotices, link);
+  await retireNotices(orgId, `attendance:${r.id}`, (await choicesFor(orgId)).withdrawnNotices, link, word);
 }
 
 /** A decision goes to the person, once, unless they made it themselves. */

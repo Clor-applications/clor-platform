@@ -30,7 +30,7 @@ const GROUPS = [
     items: [
       { key: 'people.hrSeesSalaryRevisions', sentence: 'HR without Payroll access can see salary revisions', caption: 'Read only: the list with the old and new pay. They cannot raise, review or approve one.' },
       { key: 'people.leavingsForReadOnly', sentence: 'Read-only users and IT administrators see who is leaving and their last day' },
-      { key: 'people.leavingReasonForReadOnly', sentence: 'They, and team managers, also see the reason typed for leaving', caption: 'HR, the owner and admins always see it.' },
+      { key: 'people.leavingReasonForReadOnly', sentence: 'They also see the reason typed for leaving', caption: 'HR, the owner and admins always see it. A manager sees it only when the exit interview is not kept from them.' },
     ],
   },
 ];

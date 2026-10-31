@@ -92,12 +92,19 @@ function groupLines(lines: Line[]) {
 const PERSONAL_LINES = new Set(['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber']);
 const maskPersonal = <T extends { field: string; redacted: boolean }>(rows: T[], hide: boolean, hideReason = false) => (hide || hideReason ? rows.map((l) => ((hide && PERSONAL_LINES.has(l.field)) || (hideReason && l.field === 'leavingReason') ? { ...l, redacted: true } : l)) : rows);
 
-export async function journeyOf(orgId: string, employee: { id: string; currentEpisodeSeq?: number | null; status?: string | null } & Record<string, unknown>, opts: { hidePersonal?: boolean; hideLeavingReason?: boolean } = {}) {
-  const [rawLines, episodes, history] = await Promise.all([
+/**
+ * hideLeavingReason: the reader may not see the reason for the current leaving (change-log lines and the reason on
+ * them). reasonShownFor: for a past leaving, by its last day (a stint's end, a history note); defaults to the same.
+ */
+export async function journeyOf(orgId: string, employee: { id: string; currentEpisodeSeq?: number | null; status?: string | null } & Record<string, unknown>, opts: { hidePersonal?: boolean; hideLeavingReason?: boolean; reasonShownFor?: (leavingDate: string | null) => boolean } = {}) {
+  const shownFor = opts.reasonShownFor || (() => !opts.hideLeavingReason);
+  const [rawLines, rawEpisodes, history] = await Promise.all([
     peoplePrisma.changeLog.findMany({ where: { orgId, employeeId: employee.id }, orderBy: { at: 'asc' } }),
     episodesOf(orgId, employee),
     timelineOf(orgId, employee as any),
   ]);
+  /* Each stint's end carries the reason typed for that leaving (leaving.ts closeEpisode). */
+  const episodes = rawEpisodes.map((ep) => (ep.endReason && !shownFor(ep.endDate) ? { ...ep, endReason: null } : ep));
   const lines = maskPersonal(rawLines as Line[], Boolean(opts.hidePersonal), Boolean(opts.hideLeavingReason));
   /* The person's own lines: a request's status lines carry the employee id too, but they are the request's story, told on the Why panel. */
   const groups = groupLines((lines as Line[]).filter((l) => l.entity === 'Employee'));
@@ -124,7 +131,7 @@ export async function journeyOf(orgId: string, employee: { id: string; currentEp
   /* History from before the change log started has no lines of its own: it is shown with that said, not left out. */
   const older = history.filter((e: any) => !firstLogAt || new Date(e.at) < firstLogAt).filter((e: any) => e.kind !== 'JOINED' || !lines.length);
   const legacy = older.map((e: any) => ({
-    key: `history_${e.id}`, at: new Date(`${e.effectiveDate}T00:00:00+05:30`), stint: stintAt(episodes, new Date(`${e.effectiveDate}T00:00:00+05:30`)), kind: 'HISTORY', summary: e.title, source: e.source, how: 'recorded in employment history', by: e.by || '', reason: opts.hideLeavingReason && e.kind === 'LEFT' ? null : e.note, requestId: null,
+    key: `history_${e.id}`, at: new Date(`${e.effectiveDate}T00:00:00+05:30`), stint: stintAt(episodes, new Date(`${e.effectiveDate}T00:00:00+05:30`)), kind: 'HISTORY', summary: e.title, source: e.source, how: 'recorded in employment history', by: e.by || '', reason: (e.kind === 'LEFT' || e.source === 'RESIGNATION') && !shownFor(e.effectiveDate) ? null : e.note, requestId: null,
     changes: e.field ? [{ field: fieldWord(e.field), key: e.field, before: e.from, after: e.to, redacted: false }] : [],
   }));
   const all = [...entries, ...legacy].sort((a, b) => b.at.getTime() - a.at.getTime());
@@ -140,7 +147,8 @@ export async function whyOf(orgId: string, employeeId: string, key: string, opts
     return {
       key, what: ev.field ? [{ field: fieldWord(ev.field), before: ev.fromLabel, after: ev.toLabel }] : [], when: ev.effectiveDate, recordedAt: ev.createdAt, askedBy: by || null, approvedBy: null, rule: null, evidence: [], downstream: { events: [], tasks: [] },
       unknown: ['No approval recorded: changed before the change log started.', 'No evidence attached: recorded in employment history only.'],
-      reason: ev.note, impact: ev.payrollImpact,
+      /* A leaving's note is the reason typed for it (SPEC 3.5). */
+      reason: opts.hideLeavingReason && (ev.kind === 'LEFT' || ev.source === 'RESIGNATION') ? null : ev.note, impact: ev.payrollImpact,
     };
   }
   const lines = maskPersonal((await peoplePrisma.changeLog.findMany({ where: { orgId, employeeId, correlationId: key, entity: 'Employee' }, orderBy: { at: 'asc' } })) as Line[], Boolean(opts.hidePersonal), Boolean(opts.hideLeavingReason));

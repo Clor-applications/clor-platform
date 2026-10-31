@@ -1630,10 +1630,14 @@ export async function tellAboutLeave(orgId: string, r: any, ctx: { approvedBy?: 
     return;
   }
   if (!['APPROVED', 'REJECTED', 'CANCELLED'].includes(r.status)) return;
-  /* Withdrawn while waiting: the approvers' "waiting for you" notices say so, or go (Company choices, SPEC 3.6). */
-  if (r.status === 'CANCELLED' && byPerson(r.reviewedByUserId) && !ctx.approvedBy) {
-    await retireNotices(orgId, `leave:${r.id}`, (await choicesFor(orgId)).withdrawnNotices, link);
-    return;
+  /*
+   * Withdrawn while waiting, or HR cancelled it while it waited: the approvers' "waiting for you" notices say so, or
+   * go (Company choices, SPEC 3.6). The person withdrawing needs nothing more; HR cancelling still tells the person.
+   */
+  if (r.status === 'CANCELLED' && !ctx.approvedBy) {
+    const own = byPerson(r.reviewedByUserId);
+    await retireNotices(orgId, `leave:${r.id}`, (await choicesFor(orgId)).withdrawnNotices, link, own ? 'Withdrawn' : 'Cancelled');
+    if (own) return;
   }
   const word = ({ APPROVED: 'approved', REJECTED: 'not approved', CANCELLED: 'cancelled' } as Record<string, string>)[r.status];
   if (emp.userId && !byPerson(r.reviewedByUserId)) {

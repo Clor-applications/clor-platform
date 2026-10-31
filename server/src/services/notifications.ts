@@ -81,20 +81,20 @@ export async function notifyUsers(accountId: string, orgId: string, userIds: str
 const WAITING_WORDS = /^(Waiting for you|Overdue|Handed on to you):\s*/;
 
 /**
- * A request was withdrawn (docs/people/workflow-engine/SPEC.md 3.6): its "waiting for you" notices, found by the
- * key they were sent with, either say so (SHOW_WITHDRAWN: "Withdrawn: …", marked read, opening the closed
- * request) or go (REMOVE). Notices sent before keys existed are left as they are. Never throws: the withdrawal
- * has already happened. Returns how many notices changed.
+ * A request was withdrawn (docs/people/workflow-engine/SPEC.md 3.6), or HR cancelled it while it waited: its
+ * "waiting for you" notices, found by the key they were sent with, either say so (SHOW_WITHDRAWN: "Withdrawn: …"
+ * or "Cancelled: …", marked read, opening the closed request) or go (REMOVE). Notices sent before keys existed are
+ * left as they are. Never throws: the withdrawal has already happened. Returns how many notices changed.
  */
-export async function retireNotices(orgId: string, subjectKey: string, mode: 'SHOW_WITHDRAWN' | 'REMOVE', link?: NotificationLink | null) {
+export async function retireNotices(orgId: string, subjectKey: string, mode: 'SHOW_WITHDRAWN' | 'REMOVE', link?: NotificationLink | null, word: 'Withdrawn' | 'Cancelled' = 'Withdrawn') {
   try {
     if (mode === 'REMOVE') return (await platformPrisma.notification.deleteMany({ where: { orgId, subjectKey } })).count;
-    const rows = await platformPrisma.notification.findMany({ where: { orgId, subjectKey, NOT: { title: { startsWith: 'Withdrawn: ' } } }, select: { id: true, title: true, readAt: true } });
+    const rows = await platformPrisma.notification.findMany({ where: { orgId, subjectKey, NOT: [{ title: { startsWith: 'Withdrawn: ' } }, { title: { startsWith: 'Cancelled: ' } }] }, select: { id: true, title: true, readAt: true } });
     const now = new Date();
     for (const r of rows) {
       await platformPrisma.notification.updateMany({
         where: { id: r.id, orgId },
-        data: { title: `Withdrawn: ${r.title.replace(WAITING_WORDS, '')}`.slice(0, 200), body: null, readAt: r.readAt ?? now, ...(link ? { linkJson: JSON.stringify(link) } : {}) },
+        data: { title: `${word}: ${r.title.replace(WAITING_WORDS, '')}`.slice(0, 200), body: null, readAt: r.readAt ?? now, ...(link ? { linkJson: JSON.stringify(link) } : {}) },
       });
     }
     return rows.length;

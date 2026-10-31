@@ -27,7 +27,7 @@ import { nomineesOf } from '../services/payroll/statutoryWrite.js';
 import { heldFor } from '../services/people/lifecycle/joiningStatutory.js';
 import { stepUpRefusal } from '../services/stepUp.js';
 import { inScope, scopeWhere, seesPersonal, teamScope } from '../services/people/scope.js';
-import { seesLeavingReason } from '../services/people/companyChoices.js';
+import { leavingReasonFilter, seesLeavingReason, seesLeavings } from '../services/people/companyChoices.js';
 import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/attendance/suggestions.js';
 import { activeRule, shape as shapeRequest, submitRequest } from '../services/people/approvals/engine.js';
 import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
@@ -111,6 +111,16 @@ const withoutPersonal = (row: any, me: string) => {
 
 /* The reason typed for leaving, for whoever the company's choice keeps it from (companyChoices.ts, SPEC 3.5). */
 const withoutLeavingReason = (row: any) => ({ ...row, leavingReason: null, ...(row?.leavingReason ? { leavingReasonHidden: true } : {}) });
+/*
+ * Who is leaving, for whoever the company keeps the Leaving list from (SPEC 3.5, "leavings: no"): someone on notice
+ * reads as active, with no last day, leaving type or reason. A person who has left still reads as left, without the
+ * day. The person themself sees their own.
+ */
+const withoutLeaving = (row: any, me: string) => {
+  if (row?.userId && row.userId === me) return row;
+  const { leavingReasonHidden: _h, ...rest } = row || {};
+  return { ...rest, status: row?.status === 'ON_NOTICE' ? 'ACTIVE' : row?.status, dateOfLeaving: null, leavingType: null, leavingReason: null, resignedOn: null, noticeWaived: false, leavingsHidden: true };
+};
 
 /** One person by id in this company and inside the caller's team scope (scope.ts); outside it reads as absent. */
 async function scopedEmployee<S extends Record<string, boolean>>(req: Request, id: string, select?: S) {
@@ -507,15 +517,19 @@ peopleRouter.get('/orgs/:orgId/people/overview', can(PermissionAction.VIEW, EMPL
     .filter((b) => b.days <= 30)
     .sort((a, b) => a.days - b.days)
     .slice(0, 10);
+  /* Leavings kept from this reader (SPEC 3.5): on notice counts as active, and who left this month is not told. */
+  const leavingsOk = await seesLeavings(req);
+  const statusOf = (r: { status: string }) => (!leavingsOk && r.status === 'ON_NOTICE' ? 'ACTIVE' : r.status);
   res.json({
     headcount: active.length,
-    byStatus: Object.fromEntries(EMPLOYEE_STATUSES.map((s) => [s, rows.filter((r) => r.status === s).length])),
+    byStatus: Object.fromEntries(EMPLOYEE_STATUSES.map((s) => [s, rows.filter((r) => statusOf(r) === s).length])),
     byDepartment: [...byDepartment.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count),
     joinedThisMonth: rows
       /* This month so far: a joiner later this month is under Joining, not joined (W14). */
       .filter((r) => String(r.dateOfJoining || '').startsWith(ym) && String(r.dateOfJoining).slice(0, 10) <= todayIn)
       .map((r) => ({ id: r.id, name: r.name, designation: r.designation, date: r.dateOfJoining })),
-    leftThisMonth: rows.filter((r) => r.status === 'LEFT' && String(r.dateOfLeaving || '').startsWith(ym)).length,
+    leftThisMonth: leavingsOk ? rows.filter((r) => r.status === 'LEFT' && String(r.dateOfLeaving || '').startsWith(ym)).length : null,
+    ...(leavingsOk ? {} : { leavingsHidden: true }),
     upcomingBirthdays: soon,
     /* Left out of the anniversaries Home works out from the list, too. */
     celebrationOptOuts: [...optedOut].filter((id) => active.some((r) => r.id === id)),
@@ -537,12 +551,14 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
   /* Workforce "My team" (WF-01): the caller's own reports, solid or dotted line. */
   const mine = req.query.team === 'mine' ? await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } }) : null;
   if (req.query.team === 'mine' && !mine) return res.json({ employees: [], total: 0 });
+  /* The company keeps who is leaving from read-only users and IT administrators: no left-between filter, no on-notice status (SPEC 3.5). */
+  const leavingsOk = await seesLeavings(req);
   const where: any = {
     accountId,
     orgId,
     ...scopeWhere(scope),
     ...(mine ? { AND: [{ OR: [{ reportingManagerId: mine.id }, { dottedManagerId: mine.id }] }] } : {}),
-    ...statusWhere(pick('status')),
+    ...statusWhere(pick('status'), !leavingsOk),
     /* "none": people in no department / no branch (the Organization overview's counts open these). */
     ...(pick('departmentId') ? { departmentId: pick('departmentId') === 'none' ? null : pick('departmentId') } : {}),
     ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
@@ -560,7 +576,7 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     ...(pick('establishmentId') ? { establishmentId: pick('establishmentId') } : {}),
     ...(pick('branchId') ? { branchId: pick('branchId') === 'none' ? null : pick('branchId') } : {}),
     ...(pick('joinedFrom') || pick('joinedTo') ? { dateOfJoining: { ...(pick('joinedFrom') ? { gte: pick('joinedFrom') } : {}), ...(pick('joinedTo') ? { lte: pick('joinedTo') } : {}) } } : {}),
-    ...(pick('leftFrom') || pick('leftTo') ? { dateOfLeaving: { not: null, ...(pick('leftFrom') ? { gte: pick('leftFrom') } : {}), ...(pick('leftTo') ? { lte: pick('leftTo') } : {}) } } : {}),
+    ...(leavingsOk && (pick('leftFrom') || pick('leftTo')) ? { dateOfLeaving: { not: null, ...(pick('leftFrom') ? { gte: pick('leftFrom') } : {}), ...(pick('leftTo') ? { lte: pick('leftTo') } : {}) } } : {}),
     ...(tagId ? { tags: { some: { tagId } } } : {}),
     ...(q
       ? {
@@ -596,7 +612,7 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     peoplePrisma.employee.findMany({
       where,
       include: { tags: { include: { tag: true } } },
-      orderBy: directoryOrder(String(req.query.sort || ''), String(req.query.dir || '')),
+      orderBy: directoryOrder(String(req.query.sort || ''), String(req.query.dir || ''), !leavingsOk),
       take,
       skip,
     }),
@@ -606,22 +622,28 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
   const viewed = asOfDate ? await asOf(orgId, rows as any[], asOfDate) : rows;
   const personal = await seesPersonal(req);
   const shapedRows = await withMeta(orgId, viewed);
-  const reasonOk = await seesLeavingReason(req);
-  const listed = (personal ? shapedRows : shapedRows.map((r: any) => withoutPersonal(r, req.auth!.userId))).map((r: any) => (reasonOk || r.userId === req.auth!.userId ? r : withoutLeavingReason(r)));
+  const reasonOk = await leavingReasonFilter(req, shapedRows as any[]);
+  const me = req.auth!.userId;
+  const listed = (personal ? shapedRows : shapedRows.map((r: any) => withoutPersonal(r, me)))
+    .map((r: any) => (reasonOk(r) ? r : withoutLeavingReason(r)))
+    .map((r: any) => (leavingsOk ? r : withoutLeaving(r, me)));
   res.json({ employees: listed, total: asOfDate ? viewed.length : total, asOf: asOfDate || undefined });
 });
 
 /* Sortable directory columns (People design v1 EMP-01); name breaks ties so a page never reshuffles. */
 /* CURRENT is everyone still with the company (the directory's default); ALL includes those who left; otherwise one status. */
-const statusWhere = (v?: string) => {
+const statusWhere = (v?: string, noticeHidden = false) => {
   const s = String(v || '').toUpperCase();
   if (!s || s === 'ALL') return {};
   if (s === 'CURRENT') return { status: { not: 'LEFT' as const } };
+  /* Notice kept from this reader: on notice is active to them, both ways. */
+  if (noticeHidden && (s === 'ACTIVE' || s === 'ON_NOTICE')) return { status: { in: ['ACTIVE', 'ON_NOTICE'] as any[] } };
   return { status: s as any };
 };
 const SORTABLE: Record<string, string> = { name: 'name', code: 'code', department: 'department', designation: 'designation', dateOfJoining: 'dateOfJoining', status: 'status', location: 'workLocation' };
-function directoryOrder(sort: string, dir: string): any[] {
-  const field = SORTABLE[sort];
+function directoryOrder(sort: string, dir: string, noticeHidden = false): any[] {
+  /* Sorting by status would group the people on notice together for a reader they are kept from. */
+  const field = noticeHidden && (!sort || sort === 'status') ? 'name' : SORTABLE[sort];
   const d = dir === 'desc' ? 'desc' : 'asc';
   if (!field) return [{ status: 'asc' }, { name: 'asc' }, { id: 'asc' }];
   /* Prisma takes nulls-last only on optional columns; name and status are always set. */
@@ -654,6 +676,8 @@ peopleRouter.get('/orgs/:orgId/people/employees/counts', can(PermissionAction.VI
   const of = (s: string) => byStatus.find((x) => x.status === s)?._count._all || 0;
   const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
   const myTeam = me ? await peoplePrisma.employee.count({ where: { ...base, status: { not: 'LEFT' }, OR: [{ reportingManagerId: me.id }, { dottedManagerId: me.id }] } }) : 0;
+  /* Leavings kept from this reader (SPEC 3.5): on notice counts as active, and who left this month is not told. */
+  if (!(await seesLeavings(req))) return res.json({ total: working, active: of('ACTIVE') + of('ON_NOTICE'), onNotice: null, suspended: of('SUSPENDED'), left: of('LEFT'), joining, onLeave: onLeave.length, myTeam, joinedThisMonth, leftThisMonth: null, monthStart, leavingsHidden: true });
   res.json({ total: working, active: of('ACTIVE'), onNotice: of('ON_NOTICE'), suspended: of('SUSPENDED'), left: of('LEFT'), joining, onLeave: onLeave.length, myTeam, joinedThisMonth, leftThisMonth, monthStart });
 });
 
@@ -709,8 +733,11 @@ peopleRouter.get('/orgs/:orgId/people/suggestions', can(PermissionAction.VIEW, E
     /* Reasons on job changes, used at least twice: shared phrases, not one person's story. */
     /* One change writes a line per field: count changes (by correlation), not lines. */
     const rows = await peoplePrisma.changeLog.findMany({ where: { orgId, entity: 'Employee', reason: { not: null }, source: { in: ['FORM', 'TRANSFER', 'APPROVAL', 'SCHEDULED'] } }, select: { reason: true, correlationId: true }, orderBy: { at: 'desc' }, take: 3000 });
+    /* A leaving's reason is the reason typed for leaving (SPEC 3.5): one person's story, never offered. */
+    const leavings = new Set((await peoplePrisma.changeLog.findMany({ where: { orgId, entity: 'Employee', field: { in: ['leavingReason', 'leavingType', 'dateOfLeaving'] }, correlationId: { in: [...new Set(rows.map((r) => r.correlationId))] } }, select: { correlationId: true }, distinct: ['correlationId'] })).map((r) => r.correlationId));
     const changes = new Map<string, Set<string>>();
     for (const r of rows) {
+      if (leavings.has(r.correlationId)) continue;
       const text = r.reason!.trim();
       if (!text || text.length > 80) continue;
       if (!changes.has(text)) changes.set(text, new Set());
@@ -881,9 +908,10 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
   const q = String(req.query.q || '').trim();
   const pick = (k: string) => String(req.query[k] || '').trim() || undefined;
   const scope = await teamScope(req);
+  const leavingsOk = await seesLeavings(req);
   const where: any = {
     accountId, orgId, ...scopeWhere(scope),
-    ...statusWhere(pick('status')),
+    ...statusWhere(pick('status'), !leavingsOk),
     /* "none": people in no department / no branch (the Organization overview's counts open these). */
     ...(pick('departmentId') ? { departmentId: pick('departmentId') === 'none' ? null : pick('departmentId') } : {}),
     ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
@@ -901,7 +929,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
     ...(pick('costCenterId') ? { costCenterId: pick('costCenterId') } : {}),
     ...(pick('tagId') ? { tags: { some: { tagId: pick('tagId') } } } : {}),
     ...(pick('joinedFrom') || pick('joinedTo') ? { dateOfJoining: { ...(pick('joinedFrom') ? { gte: pick('joinedFrom') } : {}), ...(pick('joinedTo') ? { lte: pick('joinedTo') } : {}) } } : {}),
-    ...(pick('leftFrom') || pick('leftTo') ? { dateOfLeaving: { not: null, ...(pick('leftFrom') ? { gte: pick('leftFrom') } : {}), ...(pick('leftTo') ? { lte: pick('leftTo') } : {}) } } : {}),
+    ...(leavingsOk && (pick('leftFrom') || pick('leftTo')) ? { dateOfLeaving: { not: null, ...(pick('leftFrom') ? { gte: pick('leftFrom') } : {}), ...(pick('leftTo') ? { lte: pick('leftTo') } : {}) } } : {}),
     ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { code: { contains: q, mode: 'insensitive' } }, { email: { contains: q, mode: 'insensitive' } }, { workEmail: { contains: q, mode: 'insensitive' } }, { phone: { contains: q } }, { designation: { contains: q, mode: 'insensitive' } }, { department: { contains: q, mode: 'insensitive' } }] } : {}),
   };
   if (req.query.team === 'mine') {
@@ -920,14 +948,14 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
   const asked = String(req.query.columns || '').split(',').map((x) => x.trim()).filter(Boolean);
   const chosen = EXPORT_COLUMNS.filter(([, k]) => (asked.length ? asked.includes(k) : DEFAULT_EXPORT.includes(k)));
   if (!chosen.length) return res.status(400).json({ error: 'Choose at least one column.' });
-  const rows = await peoplePrisma.employee.findMany({ where, include: { tags: { include: { tag: true } } }, orderBy: directoryOrder(String(req.query.sort || ''), String(req.query.dir || '')), take: 10_000 });
+  const rows = await peoplePrisma.employee.findMany({ where, include: { tags: { include: { tag: true } } }, orderBy: directoryOrder(String(req.query.sort || ''), String(req.query.dir || ''), !leavingsOk), take: 10_000 });
   const [types, workTypes] = await Promise.all([
     peoplePrisma.employeeType.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.workType.findMany({ where: { orgId }, select: { id: true, name: true } }),
   ]);
   const typeName = new Map(types.map((t) => [t.id, t.name]));
   const workTypeName = new Map(workTypes.map((t) => [t.id, t.name]));
-  const shaped = (await withMeta(orgId, rows)).map((e: any) => ({ ...e, employeeTypeName: typeName.get(e.employeeTypeId) || null, workTypeName: workTypeName.get(e.workTypeId) || null }));
+  const shaped = (await withMeta(orgId, rows)).map((e: any) => ({ ...(leavingsOk ? e : withoutLeaving(e, req.auth!.userId)), employeeTypeName: typeName.get(e.employeeTypeId) || null, workTypeName: workTypeName.get(e.workTypeId) || null }));
   const lines = [chosen.map(([h]) => h), ...shaped.map((e: any) => chosen.map(([, , f]) => f(e)))];
   await recordAudit(req, { entity: 'PEOPLE_EMPLOYEES', entityId: 'export', action: 'EXPORT', message: `Exported ${rows.length} ${rows.length === 1 ? 'employee' : 'employees'}`, metadata: { count: rows.length, columns: chosen.map(([, k]) => k), filters: Object.keys(req.query).filter((k) => k !== 'q' && k !== 'ids'), searched: Boolean(req.query.q), ticked: String(req.query.ids || '').split(',').filter(Boolean).length } });
   res.set('Content-Type', 'text/csv; charset=utf-8').set('Content-Disposition', `attachment; filename="employees-${new Date().toISOString().slice(0, 10)}.csv"`).set('Cache-Control', 'no-store');
@@ -971,8 +999,10 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW,
   const [full] = await withMeta(orgId, [viewed]);
   const viewScope = await teamScope(req);
   /* The manager's name is shown either way; whether their record opens depends on the viewer's scope (E20). */
-  const reasonShown = await seesLeavingReason(req, row.userId);
-  const shaped = { ...((await seesPersonal(req)) ? full : withoutPersonal(full, req.auth!.userId)), ...(reasonShown ? {} : { leavingReason: null, leavingReasonHidden: Boolean((full as any).leavingReason) }), managerOpens: !row.reportingManagerId || inScope(viewScope, row.reportingManagerId), ownRecordLocked: !viewScope.all && Boolean(row.userId) && row.userId === req.auth!.userId };
+  const reasonShown = await seesLeavingReason(req, row as any);
+  const leavingsShown = await seesLeavings(req);
+  const read = { ...((await seesPersonal(req)) ? full : withoutPersonal(full, req.auth!.userId)), ...(reasonShown ? {} : { leavingReason: null, leavingReasonHidden: Boolean((full as any).leavingReason) }) };
+  const shaped = { ...(leavingsShown ? read : withoutLeaving(read, req.auth!.userId)), managerOpens: !row.reportingManagerId || inScope(viewScope, row.reportingManagerId), ownRecordLocked: !viewScope.all && Boolean(row.userId) && row.userId === req.auth!.userId };
   const linked = row.userId ? await platformPrisma.user.findFirst({ where: { id: row.userId }, select: { fullName: true, email: true } }) : null;
   res.json({ scheduledChanges, permits: await permitsOf(orgId, row.id), employee: { ...shaped, directReports: reports, linkedUser: linked ? { name: linked.fullName || linked.email, email: linked.email } : null } });
 });
@@ -1436,9 +1466,11 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/history', can(PermissionActi
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   /* A leaving's note is the reason typed for it: hidden as the company's choice says (SPEC 3.5). */
-  const reasonOk = await seesLeavingReason(req, employee.userId);
-  const events = (await timelineOf(orgId, employee)).map((e: any) => (reasonOk || e.kind !== 'LEFT' ? e : { ...e, note: null }));
-  res.json({ events, episodes: await episodesOf(orgId, employee) });
+  const shows = await leavingReasonFilter(req, [employee]);
+  /* A leaving's notes carry the reason typed for it ("On notice until …: Family health"), and so does each stint's end. */
+  const events = (await timelineOf(orgId, employee)).map((e: any) => ((e.kind === 'LEFT' || e.source === 'RESIGNATION') && !shows(employee, e.effectiveDate) ? { ...e, note: null } : e));
+  const episodes = (await episodesOf(orgId, employee)).map((ep) => (ep.endReason && !shows(employee, ep.endDate) ? { ...ep, endReason: null } : ep));
+  res.json({ events, episodes });
 });
 
 /** Company-wide People settings (CORE-03, D-02): what employees may change about themselves without waiting. */
@@ -1587,7 +1619,7 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id/user', can(PermissionAction.
 peopleRouter.get('/orgs/:orgId/people/employees/:id/activity', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, userId: true, dateOfLeaving: true } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   const allows = async (permission: string) => {
     const [m, sub, action] = permission.split('::');
@@ -1601,6 +1633,8 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/activity', can(PermissionAct
     canWriteNotes: !(await authorize(req, PEOPLE_MODULE, PermissionAction.CREATE, NOTES)),
     canDeleteNotes: !(await authorize(req, PEOPLE_MODULE, PermissionAction.DELETE, NOTES)),
     canPersonal: await seesPersonal(req),
+    /* The reason typed for leaving, and the note that came with it (SPEC 3.5). */
+    canLeavingReason: await seesLeavingReason(req, employee),
     docClasses: await readableClassifications(req),
     allows,
   }, employee.id, { before: req.query.before ? new Date(String(req.query.before)) : null, limit: Number(req.query.limit || 50) });
@@ -1613,16 +1647,17 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/journey', can(PermissionActi
   const { accountId, orgId } = req.tenant!;
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
-  res.json(await journeyOf(orgId, employee as any, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !(await seesLeavingReason(req, employee.userId)) }));
+  const shows = await leavingReasonFilter(req, [employee]);
+  res.json(await journeyOf(orgId, employee as any, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !shows(employee), reasonShownFor: (day) => shows(employee, day) }));
 });
 
 /** Why (TRACE-01, 02): what changed, when, who asked, who approved, the rule version, the evidence, what it set off — or plain words for what is not known. */
 peopleRouter.get('/orgs/:orgId/people/employees/:id/why/:key', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, userId: true } });
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, userId: true, dateOfLeaving: true } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
-  const why = await whyOf(orgId, employee.id, String(req.params.key), { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !(await seesLeavingReason(req, employee.userId)) });
+  const why = await whyOf(orgId, employee.id, String(req.params.key), { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !(await seesLeavingReason(req, employee)) });
   if (!why) return res.status(404).json({ error: 'No such change.' });
   res.json({ why });
 });
@@ -1635,10 +1670,10 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/why/:key', can(PermissionAct
 peopleRouter.post('/orgs/:orgId/people/employees/:id/why/:key/raise', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, name: true, userId: true } });
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, name: true, userId: true, dateOfLeaving: true } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   const key = String(req.params.key);
-  const why = await whyOf(orgId, employee.id, key, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !(await seesLeavingReason(req, employee.userId)) });
+  const why = await whyOf(orgId, employee.id, key, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !(await seesLeavingReason(req, employee)) });
   if (!why) return res.status(404).json({ error: 'No such change.' });
   const kind = String(req.body?.kind || 'CORRECTION').toUpperCase() === 'QUESTION' ? 'QUESTION' : 'CORRECTION';
   const what = (why.what as Array<{ field: string; before: string | null; after: string | null }>).map((w) => `${w.field}: ${w.before ?? 'blank'} to ${w.after ?? 'blank'}`).join('; ') || 'the change';

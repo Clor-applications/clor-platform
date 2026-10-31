@@ -9,6 +9,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { inReportingLine, inScope, teamScope } from '../services/people/scope.js';
+import { seesLeavings } from '../services/people/companyChoices.js';
 import { ownPlanRefusal } from '../services/people/checklists.js';
 import { StayOnError } from '../services/people/lifecycle/stayOn.js';
 import '../services/people/engagement/index.js';
@@ -137,6 +138,8 @@ peopleEngagementRouter.delete(`${base}/clearance-lines/:id`, ppl(PermissionActio
 
 /** Home's banner: final pay due for leavers whose last day has come, not yet marked paid. */
 peopleEngagementRouter.get(`${base}/final-pay`, ppl(PermissionAction.VIEW, R.employees), handle(async (req, res) => {
+  /* Final pay is about who left and when: not for a reader the company keeps leavings from (SPEC 3.5). */
+  if (!(await seesLeavings(req))) return res.json({ rows: [] });
   const scope = await teamScope(req);
   res.json({ rows: await finalPayBoard(req.tenant!.orgId, { scopeIds: scope.all ? null : scope.ids }) });
 }));

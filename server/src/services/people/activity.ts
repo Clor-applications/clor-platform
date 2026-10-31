@@ -25,6 +25,8 @@ export type ActivityViewer = {
   canDeleteNotes?: boolean;
   /** Personal details (date of birth, address, family, emergency contact): only for who keeps the records (routes/people.ts seesPersonal). */
   canPersonal?: boolean;
+  /** The reason typed for leaving (companyChoices.ts seesLeavingReason, SPEC 3.5): false hides the line's before and after, and the reason the change came with. */
+  canLeavingReason?: boolean;
   docClasses: string[];
   /** Whether the viewer holds a grant like PEOPLE::Statutory Details::VIEW (the route answers with authorize()). */
   allows: (permission: string) => Promise<boolean>;
@@ -89,6 +91,7 @@ export async function activityOf(viewer: ActivityViewer, employeeId: string, opt
     if (l.entity === 'EmployeeIdentity') return !viewer.canStatutory;
     if (l.entity === 'CustomFieldValue') return defOf.has(l.field) ? !seeable.has(l.field) : false;
     if (l.entity === 'Employee' && viewer.canPersonal === false && PERSONAL_LINES.has(l.field)) return true;
+    if (l.entity === 'Employee' && viewer.canLeavingReason === false && l.field === 'leavingReason') return true;
     return false;
   };
 
@@ -126,6 +129,8 @@ export async function activityOf(viewer: ActivityViewer, employeeId: string, opt
       return { field: c.key, label: shown[i].entity === 'CustomFieldValue' ? (defOf.get(shown[i].field)?.label || fieldWord(shown[i].field)) : c.field, before: redacted ? null : c.before, after: redacted ? null : c.after, redacted };
     });
     const status = shown.find((l) => l.field === 'status');
+    /* A leaving approved from a request carries the request's reason, which is the reason typed for leaving. */
+    const reason = viewer.canLeavingReason === false && g.some((l) => l.field === 'leavingReason') ? null : first.reason;
     const type = created ? (first.source === 'IMPORT' ? 'import' : 'create')
       : status?.after === 'LEFT' ? 'archive'
       : first.source === 'IMPORT' ? 'import'
@@ -145,7 +150,7 @@ export async function activityOf(viewer: ActivityViewer, employeeId: string, opt
       : moveTitle(shown) || SOURCE_TITLE[first.source] || (changes.length === 1 ? `${changes[0].label} changed` : `${changes.length} details changed`);
     events.push({
       id: `log_${k}`, type, at: first.at.toISOString(), actorId: first.actorUserId, actor: null, role: null, title: what,
-      changes, reason: first.reason, source: first.source, correlationId: first.correlationId, requestId: first.requestId,
+      changes, reason, source: first.source, correlationId: first.correlationId, requestId: first.requestId,
       batch: batchSize.get(first.correlationId) && (batchSize.get(first.correlationId) || 0) > 1 ? { id: first.correlationId, size: batchSize.get(first.correlationId)! } : null,
     });
   }
