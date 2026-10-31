@@ -578,7 +578,7 @@ const LoanDetail = ({ loanId, onBack }) => {
                 {loan.installments.map((i) => (
                   <tr key={i.id}>
                     <td className="ui-num">{i.sequence}</td>
-                    <td className="ui-col-meta">{i.carriedFromId ? `Next payroll, carried from ${i.carriedFromPeriodName || 'an earlier month'}` : i.periodName || 'A month not on the calendar yet'}</td>
+                    <td className="ui-col-meta">{i.carriedFromId ? `Next payroll, carried from ${i.carriedFromPeriodName || 'an earlier month'}` : i.periodDone ? `Next payroll: ${i.periodName || 'its month'}'s payroll is done, so the next one takes it` : i.periodName || 'A month not on the calendar yet'}</td>
                     <td className="ui-num">{money(i.dueAmount)}</td>
                     <td className="ui-num">{i.interestAmount ? money(i.interestAmount) : '—'}</td>
                     <td className="ui-col-h-center">

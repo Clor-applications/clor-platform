@@ -197,6 +197,7 @@ payrollSlipsRouter.get(
           designation: employeeSnapshot.designation || '',
           department: employeeSnapshot.department || '',
           dateOfJoining: employeeSnapshot.dateOfJoining || null,
+          dateOfLeaving: employeeSnapshot.dateOfLeaving || null,
           taxRegime: employeeSnapshot.taxRegime || null,
           /* Masked for everybody but a caller holding the level. A payslip is
              the document most likely to be forwarded by email. */

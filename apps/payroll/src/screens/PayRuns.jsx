@@ -190,6 +190,7 @@ export default function PayRuns() {
   const begin = () => setStarting(true);
 
   return (
+    <div className="ui-touch-44">
     <DocumentListShell
       entity="payRun"
       title="Pay runs"
@@ -283,6 +284,7 @@ export default function PayRuns() {
         </div>
       )}
     </DocumentListShell>
+    </div>
   );
 }
 

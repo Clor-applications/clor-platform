@@ -109,7 +109,8 @@ describe('QA F1: two people, one of them leaving', () => {
     const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
     const r = await api.post(c, `/settlements/${s.id}/approve`).expect(403);
     expect(r.body.code).toBe('MAKER_CHECKER');
-    expect(r.body.error).toContain(OTHERS);
+    /* Said to the owner: the others, not the owner (QA retest). */
+    expect(r.body.error).toContain('another HR or payroll approver has to approve it');
   }, 120_000);
 });
 
@@ -508,5 +509,80 @@ describe('re-review 42b52a6e: sending a second recovery', () => {
     expect(again.status).toBe(409);
     expect(again.body.code).toBe('RECOVERY_WAITING');
     expect((await adv(c, a.id)).payrollAdjustmentId).toBe(link);
+  }, 120_000);
+});
+
+/* QA retest at 03f92a08 (last batch). */
+describe('retest 03f92a08: closing a month, and what is stuck in a closed one', () => {
+  it('a draft deduction in the month warns too: it will never be taken unless moved', async () => {
+    const c = await makeOwner();
+    const r = await onePerson(c);
+    await adjustment(c, { id: `fine-${rnd()}`, employeeId: r.employeeId, componentId: r.fineId, periodId: r.periodId, amount: 3500, status: 'DRAFT' });
+    const warned = await api.post(c, `/periods/${r.periodId}/lock`, { locked: true }).expect(409);
+    expect(warned.body.code).toBe('UNTAKEN_RECOVERIES');
+    expect(warned.body.untaken).toEqual([expect.objectContaining({ kind: 'DRAFT', amount: 3500 })]);
+    expect(warned.body.error).toMatch(/never be taken unless/);
+    await api.post(c, `/periods/${r.periodId}/lock`, { locked: true, acknowledge: true }).expect(200);
+  }, 120_000);
+
+  it("an instalment left due in a month whose payroll is done is taken by the next run, from that month", async () => {
+    const c = await makeOwner();
+    const oct = (await api.post(c, '/periods', { name: `October ${rnd()}`, startDate: '2026-10-01', endDate: '2026-10-31', paymentDate: '2026-10-31' }).expect(201)).body.period.id;
+    const nov = (await api.post(c, '/periods', { name: `November ${rnd()}`, startDate: '2026-11-01', endDate: '2026-11-30', paymentDate: '2026-11-30' }).expect(201)).body.period.id;
+    const r = await onePerson(c, { periodId: nov });
+    const loanComp = await api.post(c, '/components', { name: 'Salary advance', code: 'SALADV', type: 'DEDUCTION', calculationMethod: 'FIXED', isVariable: true, displayOrder: 90 }).expect(201);
+    const loan = await own(c, async () => {
+      const row = await payrollPrisma.payrollLoan.create({ data: { accountId: c.accountId, orgId: c.orgId, number: `L-${rnd()}`, employeeId: r.employeeId, type: 'SALARY_ADVANCE', principal: 5000, startDate: '2026-10-01', outstandingBalance: 5000, status: 'ACTIVE', recoveryComponentId: loanComp.body.component.id, createdByUserId: 'test' } as any });
+      await payrollPrisma.payrollLoanInstallment.create({ data: { accountId: c.accountId, orgId: c.orgId, loanId: row.id, periodId: oct, sequence: 1, dueAmount: 5000, principalAmount: 5000, interestAmount: 0, status: 'PENDING' } });
+      return row;
+    });
+    /* October's payroll was approved before the loan: nothing took it. */
+    const octRun = (await api.post(c, '/runs', { periodId: oct }).expect(201)).body.run.id;
+    await own(c, () => payrollPrisma.payrollRun.update({ where: { id: octRun }, data: { status: 'APPROVED' } }));
+    /* The loan says so. */
+    expect((await api.get(c, `/loans/${loan.id}`).expect(200)).body.loan.installments[0]).toMatchObject({ status: 'PENDING', periodDone: true });
+    const runId = (await api.post(c, '/runs', { periodId: nov }).expect(201)).body.run.id;
+    await api.post(c, `/runs/${runId}/validate`).expect(200);
+    await api.post(c, `/runs/${runId}/calculate`).expect(200);
+    const slip = await own(c, () => payrollPrisma.salarySlip.findFirstOrThrow({ where: { orgId: c.orgId, runId }, include: { lines: true } }));
+    const line = slip.lines.find((l) => l.componentCode === 'SALADV' && Number(l.amount) > 0);
+    expect(line).toBeTruthy();
+    expect(line!.componentName).toMatch(/from October/);
+    const inst = await own(c, () => payrollPrisma.payrollLoanInstallment.findFirstOrThrow({ where: { loanId: loan.id } }));
+    expect([inst.status, inst.slipId]).toEqual(['RECOVERED', slip.id]);
+    /* Recalculating takes it once, not twice. */
+    await api.post(c, `/runs/${runId}/calculate`).expect(200);
+    const again = await own(c, () => payrollPrisma.salarySlip.findFirstOrThrow({ where: { orgId: c.orgId, runId }, include: { lines: true } }));
+    expect(again.lines.filter((l) => l.componentCode === 'SALADV' && Number(l.amount) > 0)).toHaveLength(1);
+  }, 180_000);
+});
+
+describe('retest 03f92a08: a recovery edited down and not yet approved', () => {
+  it('People shows the new figure while it waits for approval', async () => {
+    const c = await makeOwner();
+    const employeeId = await leaver(c);
+    const rails = await recoveryRails(c);
+    const a = await advance(c, employeeId, { recoveringAmount: 5000 });
+    const key = `advance-recover:${a.id}:${rails.periodId}`;
+    await own(c, async () => {
+      await payrollPrisma.payrollAdjustment.create({ data: { id: key, accountId: c.accountId, orgId: c.orgId, employeeId, componentId: rails.componentId, periodId: rails.periodId, type: 'DEDUCTION', amount: 5000, reason: 'Advance recovery', reference: key, status: 'APPROVED', recoveryBase: 0, createdByUserId: 'test' } as any });
+      await peoplePrisma.employeeAdvance.update({ where: { id: a.id }, data: { payrollAdjustmentId: key } });
+    });
+    await api.put(c, `/adjustments/${key}`, { employeeId, componentId: rails.componentId, periodId: rails.periodId, amount: 3000, reason: 'Less this month' }).expect(200);
+    expect((await adjOf(c, key)).status).toBe('DRAFT');
+    expect(await peopleAdvance(c, a.id)).toMatchObject({ recovered: 0, recovering: 3000, open: 2000 });
+  }, 120_000);
+});
+
+describe("retest 03f92a08: the owner is not told the owner has to approve", () => {
+  it('a refusal to the owner names only the other approvers', async () => {
+    const c = await makeOwner();
+    const employeeId = await leaver(c);
+    await colleague(c, ['PAYROLL::Payroll Runs::VIEW', 'PAYROLL::Payroll Runs::APPROVE']);
+    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const r = await api.post(c, `/settlements/${s.id}/approve`).expect(403);
+    expect(r.body.code).toBe('MAKER_CHECKER');
+    expect(r.body.error).toContain('another HR or payroll approver has to approve it');
+    expect(r.body.error).not.toContain('the owner');
   }, 120_000);
 });

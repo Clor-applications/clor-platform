@@ -65,3 +65,12 @@ it('once that payroll is final, the amount is corrected with a reason', async ()
   await user.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(updatePayrollAdjustment).toHaveBeenCalledWith('carry-1', expect.objectContaining({ amount: 1000, correctionReason: 'Agreed with the owner, 2 Nov' })));
 });
+
+it('QA retest: correcting a carried row does not say it stays in its month', async () => {
+  vi.mocked(listPayrollAdjustments).mockResolvedValue([carriedRow(true)]);
+  const user = userEvent.setup();
+  render(<PayrollAdjustments />);
+  await user.click(await screen.findByRole('button', { name: 'Edit the Advance recovery for Meena Iyer' }));
+  expect(screen.queryByText('Only this month. It does not carry into the next.')).toBeNull();
+  expect(screen.getByText(/Taken by the next payroll for this person/)).toBeInTheDocument();
+});

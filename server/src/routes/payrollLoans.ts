@@ -118,7 +118,7 @@ payrollLoansRouter.get(
 
     const [person, periods, component, slips] = await Promise.all([
       peoplePrisma.employee.findFirst({ where: { orgId, id: loan.employeeId }, select: { name: true, code: true } }),
-      payrollPrisma.payrollPeriod.findMany({ where: { orgId }, select: { id: true, name: true } }),
+      payrollPrisma.payrollPeriod.findMany({ where: { orgId }, select: { id: true, name: true, isLocked: true } }),
       loan.recoveryComponentId
         ? payrollPrisma.salaryComponent.findFirst({ where: { orgId, id: loan.recoveryComponentId }, select: { name: true } })
         : Promise.resolve(null),
@@ -129,6 +129,9 @@ payrollLoansRouter.get(
     ]);
     const byPeriod = new Map(periods.map((p) => [p.id, p.name]));
     const bySlip = new Map(slips.map((s) => [s.id, s.number]));
+    /* Months whose payroll is done: an instalment still due in one is taken by the next payroll (loan.ts recoveriesDue). */
+    const doneRuns = await payrollPrisma.payrollRun.findMany({ where: { orgId, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] } }, select: { periodId: true } });
+    const done = new Set([...periods.filter((p) => p.isLocked).map((p) => p.id), ...doneRuns.map((r) => r.periodId)]);
 
     res.json({
       loan: shape(loan, {
@@ -141,6 +144,7 @@ payrollLoansRouter.get(
             periodName: i.periodId ? byPeriod.get(i.periodId) || '' : '',
             carriedFromPeriodName: i.carriedFromPeriodId ? byPeriod.get(i.carriedFromPeriodId) || '' : '',
             slipNumber: i.slipId ? bySlip.get(i.slipId) || '' : '',
+            periodDone: Boolean(i.status === 'PENDING' && i.periodId && done.has(i.periodId)),
           })
         ),
       }),

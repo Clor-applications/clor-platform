@@ -1,5 +1,11 @@
 # clor-coder-payroll
 
+## 2026-10-31 11:40 IST — Payroll — QA retest fixes for #82 (03f92a08)
+- Did: closing a month warns of drafts too (never taken unless moved), same confirm and audit; an instalment left due in a month whose payroll is done is taken by the next run, named "carried from" that month, and the loan says so; touch scope on the Pay runs and Salary slips lists; People Absences hold and release dates in the India day; an edited recovery waiting for approval shows its new figure in People (and the F&F folds that figure); the carried-row form hint; a leaver's payslip note sends the rest to the full and final; the hold always mentions the authenticator code; the owner is not told the owner has to approve.
+- Evidence: 4 new server tests in payrollQa82.test.ts, each failed first, plus the loan screen assertion; 3 new web tests (SalarySlips, PayrollAdjustments, FinalSettlements) written for the new behaviour, not run against the old code. Server on 5434: 48 files, 611 passed. Web apps/payroll, apps/attendance, apps/people time: 61 passed. tsc clean. Browser 5211/4031: December close warned of the ₹3,500 draft (1440); loan LN-2026-0009 shows "October 2026's payroll is done, so the next one takes it" (1440); Pay runs and Salary slips lists at 390: no control under 44px, no sideways scroll.
+- Next: QA spot-check.
+- Blocked on: nothing. People lane: the employee app's Me-tab buttons (Add a bill, Change details, Sign out) are still 28px.
+
 ## 2026-10-31 10:40 IST — Payroll — re-review fixes for #82 (42b52a6e)
 - Did: editing or cancelling an adjustment writes only if its status and amount are still as read; one a payroll or a full and final took meanwhile is refused (409 ADJUSTMENT_CHANGED), never turned back to draft or cancelled. Sending a recovery from People re-reads Payroll's rows first, so a run cancelled since leaves the first recovery waiting and no second one goes out.
 - Evidence: 3 new tests in payrollQa82.test.ts (edit racing a consume, cancel racing a consume, second recovery after a cancelled run), each failed first. Server on 5434: 48 files, 607 passed. tsc clean.

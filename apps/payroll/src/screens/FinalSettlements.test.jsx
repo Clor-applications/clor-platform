@@ -173,3 +173,11 @@ it('F8: a held settlement says who may lift it, and that the authenticator is as
   expect(within(drawer).getByText(/HR with People edit and Payroll approval, or the owner, lifts it/)).toBeInTheDocument();
   expect(within(drawer).getByText(/authenticator code/)).toBeInTheDocument();
 });
+
+it('QA retest: the hold mentions the authenticator code even where the company has not asked for one yet', async () => {
+  loadAs({ liftHold: true, liftHoldWhy: null, selfEmployeeId: null, stepUp: false }, [held]);
+  const user = userEvent.setup();
+  render(<FinalSettlements />);
+  await open(user);
+  expect(within(screen.getByRole('complementary', { name: 'drawer' })).getByText(/Where the company asks for authenticator codes on payroll, they enter one/)).toBeInTheDocument();
+});

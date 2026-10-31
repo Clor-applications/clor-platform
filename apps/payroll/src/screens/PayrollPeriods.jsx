@@ -124,7 +124,7 @@ export default function PayrollPeriods() {
         /* A recovery due this month that no payslip took (QA of #82, F5): said first, closed only when told to. */
         if (e?.code !== 'UNTAKEN_RECOVERIES') throw e;
         const ok = await confirmDialog({
-          title: `Close ${row.name} with recoveries not taken?`,
+          title: `Close ${row.name} with items not taken?`,
           message: String(e.message || ''),
           confirmLabel: 'Close anyway',
         });

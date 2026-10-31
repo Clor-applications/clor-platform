@@ -96,6 +96,7 @@ export default function SalarySlips() {
   const rows = filters.applyFilters(searched, COLUMNS);
 
   return (
+    <div className="ui-touch-44">
     <DocumentListShell
       entity="payslip"
       title="Salary slips"
@@ -187,6 +188,7 @@ export default function SalarySlips() {
         {openId ? <SlipDocument slipId={openId} /> : null}
       </Drawer>
     </DocumentListShell>
+    </div>
   );
 }
 
@@ -234,7 +236,7 @@ const SlipDocument = ({ slipId }) => {
       {slip.deductions.length ? (
         <Section title="Deductions" lines={slip.deductions} trace={trace} onExplain={setExplaining} />
       ) : null}
-      <DeductionNote note={slip.deductionNote} />
+      <DeductionNote note={slip.deductionNote} leaving={Boolean(slip.employee?.dateOfLeaving && slip.period?.endDate && String(slip.employee.dateOfLeaving).slice(0, 10) <= slip.period.endDate)} />
 
       <section className="space-y-1.5" style={{ borderTop: '1px solid rgb(var(--border))', paddingTop: '0.75rem' }}>
         <Row label="Gross" value={slip.grossEarnings} />
@@ -290,21 +292,23 @@ const SlipDocument = ({ slipId }) => {
 };
 
 /** What this payslip could not take and moved to next month: nothing is dropped, and it says so. */
-export const DeductionNote = ({ note }) => {
+export const DeductionNote = ({ note, leaving = false }) => {
+  /* Somebody leaving has no next payslip: what is left goes to their full and final (QA retest of #82). */
+  const rest = leaving ? 'The rest goes to their full and final settlement.' : "The rest comes off next month's payslip.";
   if (!note?.carried?.length) return null;
   return (
-    <section className="space-y-1.5" aria-label="Deductions moved to next month">
-      <div className="ui-sec-head">Moved to next month</div>
+    <section className="space-y-1.5" aria-label={leaving ? 'Deductions left for the full and final' : 'Deductions moved to next month'}>
+      <div className="ui-sec-head">{leaving ? 'Left for the full and final' : 'Moved to next month'}</div>
       {note.carried.map((c) => (
         <Row key={c.label} label={c.label} value={c.amount} muted />
       ))}
       <p className="ui-caption">
         {note.reason !== 'LIMIT'
-          ? 'This payslip had nothing left to take it from. The rest comes off next month’s payslip.'
+          ? `This payslip had nothing left to take it from. ${rest}`
           : Number(note.counted) > Number(note.limit)
             /* PF, tax and entered deductions are taken as they are and can pass the share alone; then no instalment fits (QA of #82, F6). */
-            ? `Instalments may take up to ${note.percent}% of wages (${money(note.limit)} of ${money(note.wages)}), and other deductions already came to ${money(note.counted)}, so none was taken this month. It comes off next month's payslip.`
-            : `Instalments may take up to ${note.percent}% of wages (${money(note.limit)} of ${money(note.wages)}), counting other deductions. The rest comes off next month's payslip.`}
+            ? `Instalments may take up to ${note.percent}% of wages (${money(note.limit)} of ${money(note.wages)}), and other deductions already came to ${money(note.counted)}, so none was taken this month. ${leaving ? 'It goes to their full and final settlement.' : "It comes off next month's payslip."}`
+            : `Instalments may take up to ${note.percent}% of wages (${money(note.limit)} of ${money(note.wages)}), counting other deductions. ${rest}`}
       </p>
     </section>
   );

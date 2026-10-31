@@ -197,9 +197,19 @@ export async function recoveriesDue(
   const takenHere = own.length ? [{ status: 'RECOVERED', slipId: { in: own } }] : [];
   /* Earlier periods, for instalments carried out of them. */
   const earlier = opts.periodStart
-    ? await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lt: opts.periodStart } }, select: { id: true, startDate: true } })
+    ? await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lt: opts.periodStart } }, select: { id: true, startDate: true, isLocked: true } })
     : [];
   const startOf = new Map(earlier.map((p) => [p.id, p.startDate]));
+  /*
+   * An earlier month whose payroll is done (closed, or a run approved or
+   * later) and still holding an instalment due: nothing will ever take it
+   * there, so this run takes it, as from that month (QA retest of #82: an
+   * instalment scheduled into October after October was approved).
+   */
+  const doneRuns = earlier.length
+    ? await payrollPrisma.payrollRun.findMany({ where: { orgId, periodId: { in: earlier.map((p) => p.id) }, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] } }, select: { periodId: true } })
+    : [];
+  const done = new Set([...earlier.filter((p) => p.isLocked).map((p) => p.id), ...doneRuns.map((r) => r.periodId)]);
 
   const loans = await payrollPrisma.payrollLoan.findMany({
     where: { orgId, employeeId: { in: employeeIds }, status: { in: ['ACTIVE', 'COMPLETED'] } },
@@ -208,6 +218,9 @@ export async function recoveriesDue(
         where: {
           OR: [
             { periodId, carriedByRunId: null, status: { in: ['PENDING', 'RECOVERED'] } },
+            ...(done.size
+              ? [{ periodId: { in: [...done] }, carriedByRunId: null, OR: [{ status: 'PENDING' }, ...takenHere] }]
+              : []),
             ...(earlier.length
               ? [{
                   periodId: null,
@@ -242,8 +255,9 @@ export async function recoveriesDue(
         interestAmount: Number(installment.interestAmount) || 0,
         loanNumber: loan.number,
         loanType: loan.type,
-        carriedFromPeriodId: installment.carriedFromPeriodId,
-        carriedFromStart: installment.carriedFromPeriodId ? startOf.get(installment.carriedFromPeriodId) || null : null,
+        /* Left in a month that is done: named and ordered as carried from it. */
+        carriedFromPeriodId: installment.carriedFromPeriodId || (installment.periodId && done.has(installment.periodId) ? installment.periodId : null),
+        carriedFromStart: (() => { const from = installment.carriedFromPeriodId || (installment.periodId && done.has(installment.periodId) ? installment.periodId : null); return from ? startOf.get(from) || null : null; })(),
       });
     }
   }

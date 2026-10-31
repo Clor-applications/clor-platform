@@ -12,6 +12,7 @@ import { recordAudit } from '../services/auditTrail.js';
 import { netOf, proposeSettlement, type SettlementLine } from '../services/payroll/finalSettlement.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
 import { getAuthPolicy } from '../services/policy.js';
+import { resolveAccess } from '../services/access.js';
 import { ownRecordRefusal, ownWorkRefusal, subjectUserIds } from '../services/makerChecker.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE } from '../services/people/guards.js';
 import { teamScope } from '../services/people/scope.js';
@@ -183,9 +184,10 @@ async function mayLiftHold(req: any): Promise<boolean> {
 }
 
 /** Who else may act on a settlement, for the refusals' words. */
-const OTHERS = 'another HR or payroll approver, or the owner';
+/* Who else may act, as the reader should hear it: the owner is not told the owner has to (QA retest of #82). */
+const othersFor = async (req: any) => ((await resolveAccess(req.tenant.accountId, req.tenant.orgId, req.auth.userId)).isAdmin ? 'another HR or payroll approver' : 'another HR or payroll approver, or the owner');
 /* Nobody works out, edits or cancels their own full and final (QA of #82, F2). */
-const notOwnDraft = (req: any, employeeId: string) => ownRecordRefusal(req, employeeId, 'full and final settlement', { who: OTHERS, does: 'work it out' });
+const notOwnDraft = async (req: any, employeeId: string) => ownRecordRefusal(req, employeeId, 'full and final settlement', { who: await othersFor(req), does: 'work it out' });
 
 /* Worked out again from today's records — after a late payslip or leave correction. */
 payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/recalculate', EDIT, async (req, res) => {
@@ -213,7 +215,7 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/approve', AP
   if (!row) return;
   if (row.status !== 'DRAFT') return res.status(409).json({ error: 'Only a draft can be approved.', code: 'NOT_DRAFT' });
   /* Never your own; whoever worked it out approves it only as the company's maker-checker setting allows (makerChecker.ts). */
-  const refused = (await ownRecordRefusal(req, row.employeeId, 'full and final settlement', { who: OTHERS })) || await ownWorkRefusal(req, { makers: [row.createdByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SETTLEMENT', entityId: row.id, what: 'settlement', who: OTHERS, subjects: await subjectUserIds(row.orgId, row.employeeId) });
+  const refused = (await ownRecordRefusal(req, row.employeeId, 'full and final settlement', { who: await othersFor(req) })) || await ownWorkRefusal(req, { makers: [row.createdByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SETTLEMENT', entityId: row.id, what: 'settlement', who: await othersFor(req), subjects: await subjectUserIds(row.orgId, row.employeeId) });
   if (refused) return res.status(refused.status).json(refused.body);
   const moved = await payrollPrisma.finalSettlement.updateMany({
     where: { id: row.id, status: 'DRAFT' },
@@ -236,7 +238,7 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/paid', APPRO
   const row = await findOwn(req, res);
   if (!row) return;
   if (row.status !== 'APPROVED') return res.status(409).json({ error: 'Approve it before marking it paid.', code: 'NOT_APPROVED' });
-  const mine = await ownRecordRefusal(req, row.employeeId, 'full and final settlement', { who: OTHERS, does: 'mark it paid' });
+  const mine = await ownRecordRefusal(req, row.employeeId, 'full and final settlement', { who: await othersFor(req), does: 'mark it paid' });
   if (mine) return res.status(mine.status).json(mine.body);
   /* Held by an absconding case: not paid until the hold is lifted, with a reason. Never forfeited. */
   const hold = await settlementHold(row.orgId, row.employeeId);
@@ -340,7 +342,7 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/cancel', APP
   const row = await findOwn(req, res);
   if (!row) return;
   if (row.status === 'PAID') return res.status(409).json({ error: 'A paid settlement stays on the record.', code: 'PAID' });
-  const mineCancel = await ownRecordRefusal(req, row.employeeId, 'full and final settlement', { who: OTHERS, does: 'cancel it' });
+  const mineCancel = await ownRecordRefusal(req, row.employeeId, 'full and final settlement', { who: await othersFor(req), does: 'cancel it' });
   if (mineCancel) return res.status(mineCancel.status).json(mineCancel.body);
   const updated = await payrollPrisma.finalSettlement.update({ where: { id: row.id }, data: { status: 'CANCELLED' } });
   await recordAudit(req, { entity: 'PAYROLL_SETTLEMENT', entityId: row.id, action: 'CANCEL', message: 'Cancelled a full and final settlement', metadata: { employeeId: row.employeeId, was: row.status } });

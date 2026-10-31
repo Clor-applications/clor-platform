@@ -89,10 +89,15 @@ export function foldRecovery(row: { recoveredAmount: unknown; recoveringAmount: 
   const recovering = round2(Number(row.recoveringAmount) || 0);
   /* Deleted in Payroll: nothing was taken through it. */
   if (!chain) return { recovered, recovering: 0 };
-  /* Not approved yet: unchanged. */
-  if (chain.root.status === 'DRAFT') return { recovered, recovering };
   const holding = round2(chain.open + chain.draft);
+  /*
+   * With its starting figure, a draft (just sent, or edited and back for
+   * approval) is read like any other row: People shows the amount waiting,
+   * the new one after an edit, and the cut as open (QA retest of #82).
+   */
   if (chain.base != null) return { recovered: round2(chain.base + chain.taken), recovering: holding };
+  /* An older chain not approved yet: unchanged. */
+  if (chain.root.status === 'DRAFT') return { recovered, recovering };
   const total = round2(chain.taken + chain.open + chain.cancelled + chain.draft);
   /* Never below nothing: a chain edited down holds less than was sent, and the cut is not recovered. */
   const counted = Math.max(0, round2(total - recovering));

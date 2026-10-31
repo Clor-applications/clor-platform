@@ -26,3 +26,9 @@ it('F6: when other deductions alone pass the share, it says so rather than namin
   expect(screen.getByText(/other deductions already came to ₹7,800(\.00)?, so none was taken this month/)).toBeInTheDocument();
   expect(screen.queryByText(/held to/)).toBeNull();
 });
+
+it('QA retest: a leaver has no next payslip, so the rest goes to the full and final', () => {
+  render(<DeductionNote leaving note={{ percent: 50, wages: 20000, limit: 10000, counted: 2000, reason: 'LIMIT', total: 4000, carried: [{ label: 'Loan Recovery', amount: 4000 }] }} />);
+  expect(screen.getByText(/The rest goes to their full and final settlement\./)).toBeInTheDocument();
+  expect(screen.queryByText(/next month/)).toBeNull();
+});

@@ -61,7 +61,11 @@ export async function advanceOwed(orgId: string, a: any): Promise<{ owed: number
   const chain = await recoveryChain(orgId, link);
   /* An older chain counts only while something is being taken; one with its starting figure always reads true. */
   if (!(Number(a.recoveringAmount) > 0) && chain?.base == null) return { owed: advanceOpen(a), draft: null };
-  if (chain?.root.status === 'DRAFT') return { owed: round2(advanceOpen(a) + Number(a.recoveringAmount)), draft: { id: link, amount: round2(Number(a.recoveringAmount)) } };
+  if (chain?.root.status === 'DRAFT') {
+    /* Waiting for approval in Payroll (just sent, or edited): folded into the advance's line, at the amount waiting now, and cancelled with the payment. */
+    const w = foldRecovery(a, chain);
+    return { owed: round2(advanceOpen({ ...a, recoveredAmount: w.recovered, recoveringAmount: w.recovering }) + w.recovering), draft: { id: link, amount: round2(w.recovering) } };
+  }
   /* What Payroll took is recovered; what it still holds open is its own line (below). */
   const f = foldRecovery(a, chain);
   return { owed: advanceOpen({ ...a, recoveredAmount: f.recovered, recoveringAmount: f.recovering }), draft: null };
@@ -232,7 +236,8 @@ export async function staleSources(orgId: string, lines: SettlementLine[]) {
 export async function withChainRoots(orgId: string, lines: SettlementLine[]): Promise<SettlementLine[]> {
   const out: SettlementLine[] = [];
   for (const l of lines) {
-    if (l.source?.type === 'ADVANCE' && l.kind === 'DEDUCTION') {
+    /* A line that folds in a draft recovery replaces it (the draft is cancelled with the payment): it joins nothing. */
+    if (l.source?.type === 'ADVANCE' && l.kind === 'DEDUCTION' && !l.source.draftId) {
       const a = await peoplePrisma.employeeAdvance.findFirst({ where: { orgId, id: l.source.id }, select: { payrollAdjustmentId: true } });
       const link = liveLink(a?.payrollAdjustmentId);
       if (link) {
@@ -369,6 +374,8 @@ export async function closePeopleSources(o: { orgId: string; userId: string; set
   const closed: string[] = [];
   const advanceLines = new Map<string, number>();
   const advanceIds = new Set<string>();
+  /* Advance lines that folded in a draft: their line was not added to the chain's starting figure (withChainRoots). */
+  const foldedDraft = new Set<string>();
   for (const l of o.lines) {
     if (!l.source || !(l.amount > 0)) continue;
     if (l.source.type === 'CLAIM' && l.kind === 'EARNING') {
@@ -380,6 +387,7 @@ export async function closePeopleSources(o: { orgId: string; userId: string; set
     } else if (l.source.type === 'ADVANCE' && l.kind === 'DEDUCTION') {
       advanceLines.set(l.source.id, round2((advanceLines.get(l.source.id) || 0) + l.amount));
       advanceIds.add(l.source.id);
+      if (l.source.draftId) foldedDraft.add(l.source.id);
     } else if (l.source.type === 'CARRY' && l.source.advanceId) {
       advanceIds.add(l.source.advanceId);
     }
@@ -404,7 +412,9 @@ export async function closePeopleSources(o: { orgId: string; userId: string; set
           chain = await recoveryChain(o.orgId, link);
         }
         if (chain) ({ recovered, recovering } = foldRecovery(a, chain));
-        based = chain?.base != null && chain.root.status !== 'DRAFT';
+        based = chain?.base != null && !foldedDraft.has(id) && chain.root.status !== 'DRAFT';
+        /* A folded draft was cancelled with the payment: what the chain took is counted, the line is added below as before. */
+        if (chain?.base != null && foldedDraft.has(id)) ({ recovered, recovering } = { recovered: round2(chain.base + chain.taken), recovering: round2(chain.open + chain.draft) });
       }
       const apply = Boolean(line) && !isMine(a.payrollAdjustmentId);
       if (apply && !based) recovered = round2(recovered + Math.min(line!, Math.max(0, advanceOpen({ ...a, recoveredAmount: recovered, recoveringAmount: recovering }))));

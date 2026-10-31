@@ -497,7 +497,7 @@ function HoldPanel({ settlement, busy, run, canLift = true, whyNot, stepUp = fal
       </p>
       {/* Who may lift it, and what they will be asked (QA of #82, F8). */}
       <p className="ui-caption max-w-[65ch]">
-        HR with People edit and Payroll approval, or the owner, lifts it with a reason; never the person held.{stepUp ? ' They are asked for their authenticator code.' : ''}
+        HR with People edit and Payroll approval, or the owner, lifts it with a reason; never the person held. {stepUp ? 'They are asked for their authenticator code.' : 'Where the company asks for authenticator codes on payroll, they enter one.'}
       </p>
       {!canLift ? (
         <p className="ui-caption" role="note">{whyNot || 'You cannot lift this hold.'}</p>

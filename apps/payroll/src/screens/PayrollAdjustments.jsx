@@ -463,7 +463,7 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <span className="ui-caption">Only this month. It does not carry into the next.</span>
+          <span className="ui-caption">{carried ? 'Taken by the next payroll for this person, whichever month that is.' : 'Only this month. It does not carry into the next.'}</span>
         </div>
 
         <div>

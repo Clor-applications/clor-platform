@@ -31,6 +31,8 @@ const STATUS = {
 const TABS = [['open', 'Open'], ['absconded', 'Absconded'], ['closed', 'Closed']];
 const NEXT = { NOTICE_1: 'Send notice 1', NOTICE_2: 'Send notice 2', RECORD: 'Record the leaving' };
 const CHANNEL = { APP: 'employee app', EMAIL: 'e-mail', POST: 'post' };
+/* The India day of a moment: a hold at 05:15 IST on 31 Oct is the 31st, not the UTC 30th (QA retest of #82). */
+const indiaDay = (iso) => (iso ? new Date(Date.parse(iso) + 330 * 60_000).toISOString().slice(0, 10) : '');
 const plus = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 export default function Absences({ params = {}, updateParams }) {
@@ -152,7 +154,7 @@ function CaseDrawer({ row, rules, canAct, onClose, onChanged }) {
             {n2 ? <NoticeLine n={n2} onRead={() => read(n2)} /> : row.status === 'NOTICE_1' && row.next?.from ? <span className="ui-caption block">Can go from {dayText(row.next.from)}</span> : null}
           </Step>
           {row.status === 'ABSCONDED' ? <Step done title={`Recorded as absconded; last working day ${dayText(row.lastWorkingDay)}`} /> : null}
-          {row.hold ? <Step done title={row.hold.releasedAt ? `Settlement released ${dayText(row.hold.releasedAt)}` : `Settlement held since ${dayText(row.hold.at)}`}><span className="ui-caption block">{row.hold.releasedAt ? row.hold.releaseNote : row.hold.reason}</span></Step> : null}
+          {row.hold ? <Step done title={row.hold.releasedAt ? `Settlement released ${dayText(indiaDay(row.hold.releasedAt))}` : `Settlement held since ${dayText(indiaDay(row.hold.at))}`}><span className="ui-caption block">{row.hold.releasedAt ? row.hold.releaseNote : row.hold.reason}</span></Step> : null}
           {['RETURNED', 'EXPLAINED', 'IGNORED'].includes(row.status) ? <Step done title={`${STATUS[row.status][0]} ${dayText(row.closedAt)}`}><span className="ui-caption block">{row.closedNote}</span></Step> : null}
         </ol>
         {row.status === 'NOTICE_2' && row.next?.from > t ? <p className="ui-caption">The leaving can be recorded from {dayText(row.next.from)}, after the date notice 2 gave.</p> : null}
