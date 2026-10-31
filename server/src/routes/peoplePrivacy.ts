@@ -7,6 +7,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { AnonymiseError } from '../services/anonymiseEmployee.js';
 import { onAnyCaseOrCommittee } from '../services/people/privateCases.js';
+import { readsRevisionsAsHr } from '../services/people/companyChoices.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import {
   ACCESS_KINDS, PrivacyError, accessReport, auditorEvidence, createAuditorGrant, decideDeletion, deletionReview,
@@ -105,7 +106,9 @@ peoplePrivacyRouter.get('/orgs/:orgId/people/my-access', run(async (req, res) =>
   const { orgId } = req.tenant!;
   const userId = req.auth!.userId;
   const [auditEvidence, privateCases] = await Promise.all([hasLiveAuditorGrant(orgId, userId), onAnyCaseOrCommittee(orgId, userId)]);
-  res.set('Cache-Control', 'private, no-store').json({ auditEvidence, privateCases });
+  /* HR without Payroll access, when the company lets HR read salary revisions (companyChoices.ts, SPEC 3.3). */
+  const salaryRevisions = await readsRevisionsAsHr(req).catch(() => false);
+  res.set('Cache-Control', 'private, no-store').json({ auditEvidence, privateCases, salaryRevisions });
 }));
 
 /** The auditor's view: only what a live grant names, and every open is logged. */

@@ -21,6 +21,7 @@ vi.mock('../api/approvals', () => ({
   }),
   listRequests: vi.fn().mockResolvedValue({ mine: [], waitingForMe: [] }),
   bulkDecideRequests: vi.fn(), decideRequest: vi.fn(), replyRequest: vi.fn(), withdrawRequest: vi.fn(),
+  getRequest: vi.fn().mockResolvedValue({ id: 'a9', requestType: 'JOB_CHANGE', title: 'Designation for Anu', status: 'WITHDRAWN', requesterName: 'Anu Asker', createdAt: '2026-10-31T06:00:00Z', payload: { fields: { designation: { before: null, after: 'Lead' } } }, steps: [] }),
 }));
 vi.mock('@ui/timeOff/api', () => ({ bulkReviewLeave: vi.fn(), bulkReviewRequests: vi.fn(), bulkReviewPunches: vi.fn(), bulkReviewOvertime: vi.fn() }));
 vi.mock('@ui/timeOff/LeaveRequests', () => ({ RequestDrawer: () => null }));
@@ -59,4 +60,12 @@ it('a field punch opened says where it was made', async () => {
   const drawer = await screen.findByRole('dialog');
   expect(within(drawer).getByText('Client site, Koramangala')).toBeTruthy();
   expect(within(drawer).getByRole('button', { name: 'Refuse' })).toBeTruthy();
+});
+
+it('a notice about a withdrawn request opens it, closed, with nothing to decide (Company choices, SPEC 3.6)', async () => {
+  render(<PermissionContext.Provider value={{ loading: false, error: '', isAdmin: true, permissions: new Set() }}><Approvals params={{ open: 'APPROVAL', id: 'a9' }} updateParams={() => {}} /></PermissionContext.Provider>);
+  const drawer = await screen.findByRole('dialog');
+  expect(await within(drawer).findByText('Anu Asker', { exact: false })).toBeTruthy();
+  expect(within(drawer).getByText(/Withdrawn/)).toBeTruthy();
+  expect(within(drawer).queryByRole('button', { name: 'Approve' })).toBeNull();
 });

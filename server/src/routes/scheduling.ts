@@ -359,6 +359,10 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
       create: { accountId, orgId, ...settings, updatedByUserId: req.auth!.userId },
       update: { ...settings, updatedByUserId: req.auth!.userId },
     });
+    /* A new choice here wins over People's Company choices, which only mirror the old words back (companyChoices.ts). */
+    if ((previous?.correctionApproval || 'HR') !== s.correctionApproval) {
+      await peoplePrisma.peopleSetting.updateMany({ where: { orgId }, data: { correctionApproval: null, updatedByUserId: req.auth!.userId } });
+    }
     /*
      * The late rule follows these two numbers, the numbers only, never the cut (timeRules.ts marksFromLegacy), versioned
      * like a save in People and counting from next month. When People has never saved late marks the numbers are the rule

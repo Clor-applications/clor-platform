@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { peopleApp } from '../apps/people/manifest.jsx';
 import { holdsPermission, writeGuardPermission } from '../packages/shell/Shell.jsx';
 import { PERMISSION_CATALOG, expandPreset } from '../server/src/constants/permissionCatalog.ts';
-import { AUDIT_GRANT, CASE_SEAT } from '../apps/people/src/api/access.js';
+import { AUDIT_GRANT, CASE_SEAT, SALARY_READ } from '../apps/people/src/api/access.js';
 
 /*
  * People audit, 30 Oct 2026, gaps 3 and 5: every People menu entry shows to
@@ -25,9 +25,16 @@ const PERSONS = {
   auditor: menu(keysOf('EXTERNAL_AUDITOR'), [AUDIT_GRANT]),
   auditorNoGrant: menu(keysOf('EXTERNAL_AUDITOR')),
   committee: menu(keysOf('EMPLOYEE_SELF_SERVICE'), [CASE_SEAT]),
+  hrReadsPay: menu(keysOf('HR_MANAGER'), [SALARY_READ]),
 };
 
 describe('People menu by person', () => {
+  it('shows Salary revisions to HR without Payroll only when the owner lets HR read them (Company choices)', () => {
+    expect(PERSONS.hrManager.has('compensation')).toBe(false);
+    expect(PERSONS.hrReadsPay.has('compensation')).toBe(true);
+    expect(PERSONS.owner.has('companyChoices')).toBe(true);
+  });
+
   it('gives everyone with their own days My leave and My attendance, and nothing that would refuse them', () => {
     for (const p of ['owner', 'hr', 'hrManager', 'manager', 'employee', 'committee']) {
       expect(PERSONS[p].has('myLeave'), p).toBe(true);
@@ -75,7 +82,7 @@ describe('People menu by person', () => {
   });
 
   it('lists only keys the catalog or the access route knows, so no entry is hidden by a typo', () => {
-    const known = new Set([...OWNER, AUDIT_GRANT, CASE_SEAT]);
+    const known = new Set([...OWNER, AUDIT_GRANT, CASE_SEAT, SALARY_READ]);
     for (const item of peopleApp.nav.filter((i) => i.permission)) {
       for (const k of [].concat(item.permission)) {
         /* Payroll's and Settings' keys live in their own catalogs' modules, all in PERMISSION_CATALOG. */

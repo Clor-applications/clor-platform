@@ -106,6 +106,8 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
         )}
         toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or designation" label="Search leavers" className="w-full sm:w-72" />}
         empty={list.error ? <ErrorState error={list.error} onRetry={list.reload} />
+          /* The company keeps who is leaving from read-only users and IT administrators (People → Settings → Company choices). */
+          : list.data?.hidden ? <EmptyState icon={UserMinus} title="Not shown to your role" description="The company shows who is leaving to HR and managers only." />
           : p.q ? <EmptyState kind="filtered" title="Nobody matches" onClearFilters={() => set({ q: null, page: null })} />
             : <EmptyState icon={UserMinus} title={view === 'notice' ? 'Nobody is on notice' : view === 'clearing' ? 'No leaver has steps open' : 'Nobody here'} description={view === 'notice' ? 'Record a leaving on the person’s record, or approve a resignation, and it shows here.' : undefined} />}
       />

@@ -90,15 +90,15 @@ function groupLines(lines: Line[]) {
 /** The whole journey, newest first, each change with enough to show and a key for its Why. */
 /* Personal details a read-only viewer may not see: the line says changed, never the values (Workforce audit E4). */
 const PERSONAL_LINES = new Set(['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber']);
-const maskPersonal = <T extends { field: string; redacted: boolean }>(rows: T[], hide: boolean) => (hide ? rows.map((l) => (PERSONAL_LINES.has(l.field) ? { ...l, redacted: true } : l)) : rows);
+const maskPersonal = <T extends { field: string; redacted: boolean }>(rows: T[], hide: boolean, hideReason = false) => (hide || hideReason ? rows.map((l) => ((hide && PERSONAL_LINES.has(l.field)) || (hideReason && l.field === 'leavingReason') ? { ...l, redacted: true } : l)) : rows);
 
-export async function journeyOf(orgId: string, employee: { id: string; currentEpisodeSeq?: number | null; status?: string | null } & Record<string, unknown>, opts: { hidePersonal?: boolean } = {}) {
+export async function journeyOf(orgId: string, employee: { id: string; currentEpisodeSeq?: number | null; status?: string | null } & Record<string, unknown>, opts: { hidePersonal?: boolean; hideLeavingReason?: boolean } = {}) {
   const [rawLines, episodes, history] = await Promise.all([
     peoplePrisma.changeLog.findMany({ where: { orgId, employeeId: employee.id }, orderBy: { at: 'asc' } }),
     episodesOf(orgId, employee),
     timelineOf(orgId, employee as any),
   ]);
-  const lines = maskPersonal(rawLines as Line[], Boolean(opts.hidePersonal));
+  const lines = maskPersonal(rawLines as Line[], Boolean(opts.hidePersonal), Boolean(opts.hideLeavingReason));
   /* The person's own lines: a request's status lines carry the employee id too, but they are the request's story, told on the Why panel. */
   const groups = groupLines((lines as Line[]).filter((l) => l.entity === 'Employee'));
   const names = await namesFor([...new Set(lines.map((l) => l.actorUserId).filter((x): x is string => Boolean(x)))]);
@@ -117,14 +117,14 @@ export async function journeyOf(orgId: string, employee: { id: string; currentEp
     const summary = first.field === 'record' && first.after === 'created' ? 'Joined the record' : fields.length === 1 ? `${fieldWord(fields[0].field)} changed` : `${fields.length} details changed`;
     return {
       key: first.correlationId, at: first.at, stint: stintAt(episodes, first.at), kind: first.requestId ? 'APPROVED' : first.source === 'SCHEDULED' ? 'SCHEDULED' : first.source === 'SELF_SERVICE' ? 'SELF' : 'CHANGE',
-      summary, source: first.source, how: SOURCE_WORDS[first.source] || first.source.toLowerCase(), by: first.actorUserId ? names.get(first.actorUserId) || '' : 'CLOR', reason: first.reason, requestId: first.requestId,
+      summary, source: first.source, how: SOURCE_WORDS[first.source] || first.source.toLowerCase(), by: first.actorUserId ? names.get(first.actorUserId) || '' : 'CLOR', reason: opts.hideLeavingReason && all.some((l) => l.field === 'leavingReason') ? null : first.reason, requestId: first.requestId,
       changes: await changesOf(orgId, g),
     };
   }));
   /* History from before the change log started has no lines of its own: it is shown with that said, not left out. */
   const older = history.filter((e: any) => !firstLogAt || new Date(e.at) < firstLogAt).filter((e: any) => e.kind !== 'JOINED' || !lines.length);
   const legacy = older.map((e: any) => ({
-    key: `history_${e.id}`, at: new Date(`${e.effectiveDate}T00:00:00+05:30`), stint: stintAt(episodes, new Date(`${e.effectiveDate}T00:00:00+05:30`)), kind: 'HISTORY', summary: e.title, source: e.source, how: 'recorded in employment history', by: e.by || '', reason: e.note, requestId: null,
+    key: `history_${e.id}`, at: new Date(`${e.effectiveDate}T00:00:00+05:30`), stint: stintAt(episodes, new Date(`${e.effectiveDate}T00:00:00+05:30`)), kind: 'HISTORY', summary: e.title, source: e.source, how: 'recorded in employment history', by: e.by || '', reason: opts.hideLeavingReason && e.kind === 'LEFT' ? null : e.note, requestId: null,
     changes: e.field ? [{ field: fieldWord(e.field), key: e.field, before: e.from, after: e.to, redacted: false }] : [],
   }));
   const all = [...entries, ...legacy].sort((a, b) => b.at.getTime() - a.at.getTime());
@@ -132,7 +132,7 @@ export async function journeyOf(orgId: string, employee: { id: string; currentEp
 }
 
 /** Why: the seven things a reader asks about one change, and plain words for each one that is not known. */
-export async function whyOf(orgId: string, employeeId: string, key: string, opts: { hidePersonal?: boolean } = {}) {
+export async function whyOf(orgId: string, employeeId: string, key: string, opts: { hidePersonal?: boolean; hideLeavingReason?: boolean } = {}) {
   if (key.startsWith('history_')) {
     const ev = await peoplePrisma.employmentEvent.findFirst({ where: { orgId, employeeId, id: key.slice('history_'.length) } });
     if (!ev) return null;
@@ -143,7 +143,7 @@ export async function whyOf(orgId: string, employeeId: string, key: string, opts
       reason: ev.note, impact: ev.payrollImpact,
     };
   }
-  const lines = maskPersonal((await peoplePrisma.changeLog.findMany({ where: { orgId, employeeId, correlationId: key, entity: 'Employee' }, orderBy: { at: 'asc' } })) as Line[], Boolean(opts.hidePersonal));
+  const lines = maskPersonal((await peoplePrisma.changeLog.findMany({ where: { orgId, employeeId, correlationId: key, entity: 'Employee' }, orderBy: { at: 'asc' } })) as Line[], Boolean(opts.hidePersonal), Boolean(opts.hideLeavingReason));
   if (!lines.length) return null;
   const first = lines[0];
   const [events, request, actorNames] = await Promise.all([
@@ -180,7 +180,7 @@ export async function whyOf(orgId: string, employeeId: string, key: string, opts
     approvedBy: decided.length ? decided.map((s) => `${s.decidedBy}${s.standInFor ? ` (for ${s.standInFor})` : ''}${s.comment ? `: ${s.comment}` : ''}`) : null,
     request: shaped ? { id: shaped.id, title: shaped.title, status: shaped.status, type: shaped.requestType, createdAt: shaped.createdAt } : null,
     rule: rule ? { name: rule.name, version: request!.ruleVersion, type: rule.requestType } : null,
-    reason: first.reason,
+    reason: opts.hideLeavingReason && (lines as Line[]).some((l) => l.field === 'leavingReason') ? null : first.reason,
     evidence,
     decision: record ? { id: record.id, decidedAt: record.decidedAt, policies: record.policyVersions, ruleVersion: record.ruleVersion } : null,
     downstream: { events: events.map((e) => ({ id: e.id, name: e.name, at: e.occurredAt, delivered: Boolean(e.deliveredAt) })), tasks },

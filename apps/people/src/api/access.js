@@ -9,8 +9,10 @@ import { orgId } from '@platform/context';
  */
 export const AUDIT_GRANT = 'PEOPLE::Audit grant::VIEW';
 export const CASE_SEAT = 'PEOPLE::Case committee::VIEW';
+/* HR without Payroll access, when the owner lets HR read salary revisions (Settings → Company choices). */
+export const SALARY_READ = 'PEOPLE::Salary revisions read::VIEW';
 
 export const myPeopleAccess = async () => {
   const r = await apiFetch(`/orgs/${encodeURIComponent(orgId())}/people/my-access`, { skipWarehouseHeader: true });
-  return [r?.auditEvidence ? AUDIT_GRANT : null, r?.privateCases ? CASE_SEAT : null].filter(Boolean);
+  return [r?.auditEvidence ? AUDIT_GRANT : null, r?.privateCases ? CASE_SEAT : null, r?.salaryRevisions ? SALARY_READ : null].filter(Boolean);
 };

@@ -18,7 +18,7 @@ import { bulkReviewLeave, bulkReviewOvertime, bulkReviewPunches, bulkReviewReque
 import { RequestDrawer as LeaveDrawer } from '@ui/timeOff/LeaveRequests';
 import { hoursBetween, hoursWords } from '@ui/timeOff/partOfDay';
 import { RequestDrawer as AttendanceDrawer, KIND_NAME } from '@ui/timeOff/AttendanceRequests';
-import { bulkDecideRequests, decideRequest, getInbox, listRequests, replyRequest, withdrawRequest } from '../api/approvals';
+import { bulkDecideRequests, decideRequest, getInbox, getRequest, listRequests, replyRequest, withdrawRequest } from '../api/approvals';
 import { requestFile } from '../api/requests';
 import { openFile } from '@ui/requests/formFiles';
 import MoneyRequestDetail from '../money/MoneyRequestDetail';
@@ -84,7 +84,8 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
   const inbox = useRequest(() => getInbox(), []);
   const mine = useRequest(() => (tab === 'mine' ? listRequests() : Promise.resolve(null)), [tab]);
   const [q, setQ] = useState('');
-  const [open, setOpen] = useState(null);
+  /* A notice about a request (a withdrawn one says "Withdrawn") opens it here: ?open=APPROVAL&id=… */
+  const [open, setOpen] = useState(() => (p.open === 'APPROVAL' && p.id ? { kind: 'APPROVAL', id: String(p.id) } : null));
   const [selected, setSelected] = useState(() => new Set());
   const [bulkNote, setBulkNote] = useState('');
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -351,11 +352,13 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
   const [request, setRequest] = useState(null);
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState('');
-  const open = request || [...(list.data?.waitingForMe || []), ...(list.data?.mine || [])].find((r) => r.id === id) || null;
+  const listed = [...(list.data?.waitingForMe || []), ...(list.data?.mine || [])].find((r) => r.id === id) || null;
+  /* Not in the open lists (withdrawn or decided since, opened from a notice): read it by id, as it now stands. */
+  const byId = useRequest(() => (list.data && !listed ? getRequest(id).catch(() => null) : Promise.resolve(null)), [id, Boolean(list.data), Boolean(listed)]);
+  const open = request || listed || byId.data || null;
   const deciding = open && open.status === 'WAITING' && !mine;
-  /* The list came back without it: someone else decided it, or it was
-     withdrawn, since the inbox was read. Say so rather than load forever. */
-  const gone = !open && Boolean(list.data) && !list.loading && !list.refreshing;
+  /* Neither the lists nor a read by id have it: say so rather than load forever. */
+  const gone = !open && Boolean(list.data) && !list.loading && !list.refreshing && !byId.loading && !byId.refreshing && !listed;
 
   const act = async (action) => {
     if (!open) return;

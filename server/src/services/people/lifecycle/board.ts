@@ -24,7 +24,8 @@ const plus = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`)
 const RECENT_DAYS = 60;
 const CAP = 2000;
 
-type Ctx = { orgId: string; scope: TeamScope; privateOk: boolean; now?: Date };
+/** privateOk: reads the reason typed for leaving. leavingsOk: false when the company keeps the Leaving list from read-only users (companyChoices.ts). */
+type Ctx = { orgId: string; scope: TeamScope; privateOk: boolean; leavingsOk?: boolean; now?: Date };
 const scoped = (scope: TeamScope) => (scope.all ? {} : { id: { in: scope.ids } });
 const scopedEmployee = (scope: TeamScope) => (scope.all ? {} : { employeeId: { in: scope.ids } });
 
@@ -126,6 +127,11 @@ const READER_WORD: Record<string, string> = { WAITING: 'Waiting for readers', CO
 
 export async function leavers(ctx: Ctx, q: { view?: string; q?: string } & Paging = {}) {
   const today = todayIst(ctx.now);
+  /* The company keeps who is leaving from read-only users and IT administrators (SPEC 3.5). */
+  if (ctx.leavingsOk === false) {
+    const view = (LEAVE_VIEWS as readonly string[]).includes(String(q.view)) ? String(q.view) : 'notice';
+    return { ...page([] as Array<any>, q), counts: Object.fromEntries(LEAVE_VIEWS.map((v) => [v, 0])), view, hidden: true };
+  }
   const since = plus(today, -RECENT_DAYS);
   const withOpen = await peoplePrisma.checklistTask.findMany({ where: { orgId: ctx.orgId, kind: 'LEAVING', doneAt: null, ...scopedEmployee(ctx.scope) }, select: { employeeId: true }, distinct: ['employeeId'], take: CAP });
   const people = await peoplePrisma.employee.findMany({

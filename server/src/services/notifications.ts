@@ -51,7 +51,7 @@ export async function usersHoldingRoles(accountId: string, orgId: string, roleId
  * another (the unique key on Notification), so a retry, or the same notice
  * queued twice, is one notice. Returns how many rows were written.
  */
-export async function sendNotice(accountId: string, orgId: string, userIds: string[], notice: Notice, opts: { except?: string | null; dedupeKey?: string | null } = {}) {
+export async function sendNotice(accountId: string, orgId: string, userIds: string[], notice: Notice, opts: { except?: string | null; dedupeKey?: string | null; subjectKey?: string | null } = {}) {
   let ids = [...new Set(userIds)].filter((id) => id && !id.startsWith('portal:') && id !== 'system' && id !== opts.except);
   if (!ids.length) return 0;
   /* People who muted this kind for this company are skipped. */
@@ -61,18 +61,45 @@ export async function sendNotice(accountId: string, orgId: string, userIds: stri
   if (!ids.length) return 0;
   const dedupeKey = opts.dedupeKey ? String(opts.dedupeKey).slice(0, 300) : null;
   const r = await platformPrisma.notification.createMany({
-    data: ids.map((userId) => ({ accountId, orgId, userId, kind: notice.kind, title: notice.title.slice(0, 200), body: notice.body ? String(notice.body).slice(0, 1000) : null, linkJson: notice.link ? JSON.stringify(notice.link) : null, dedupeKey })),
+    data: ids.map((userId) => ({ accountId, orgId, userId, kind: notice.kind, title: notice.title.slice(0, 200), body: notice.body ? String(notice.body).slice(0, 1000) : null, linkJson: notice.link ? JSON.stringify(notice.link) : null, dedupeKey, subjectKey: opts.subjectKey ? String(opts.subjectKey).slice(0, 200) : null })),
     ...(dedupeKey ? { skipDuplicates: true } : {}),
   });
   return r.count;
 }
 
 /** One row per person. Never throws: a notification must not break the thing it is about. Leave and request notices go through the outbox instead (sendNotice). */
-export async function notifyUsers(accountId: string, orgId: string, userIds: string[], notice: Notice, opts: { except?: string | null } = {}) {
+export async function notifyUsers(accountId: string, orgId: string, userIds: string[], notice: Notice, opts: { except?: string | null; subjectKey?: string | null } = {}) {
   try {
     return await sendNotice(accountId, orgId, userIds, notice, opts);
   } catch (e) {
     console.error('[notifications]', e instanceof Error ? e.message : e);
+    return 0;
+  }
+}
+
+/** Words a "waiting for you" title starts with that stop being true once the request is withdrawn. */
+const WAITING_WORDS = /^(Waiting for you|Overdue|Handed on to you):\s*/;
+
+/**
+ * A request was withdrawn (docs/people/workflow-engine/SPEC.md 3.6): its "waiting for you" notices, found by the
+ * key they were sent with, either say so (SHOW_WITHDRAWN: "Withdrawn: …", marked read, opening the closed
+ * request) or go (REMOVE). Notices sent before keys existed are left as they are. Never throws: the withdrawal
+ * has already happened. Returns how many notices changed.
+ */
+export async function retireNotices(orgId: string, subjectKey: string, mode: 'SHOW_WITHDRAWN' | 'REMOVE', link?: NotificationLink | null) {
+  try {
+    if (mode === 'REMOVE') return (await platformPrisma.notification.deleteMany({ where: { orgId, subjectKey } })).count;
+    const rows = await platformPrisma.notification.findMany({ where: { orgId, subjectKey, NOT: { title: { startsWith: 'Withdrawn: ' } } }, select: { id: true, title: true, readAt: true } });
+    const now = new Date();
+    for (const r of rows) {
+      await platformPrisma.notification.updateMany({
+        where: { id: r.id, orgId },
+        data: { title: `Withdrawn: ${r.title.replace(WAITING_WORDS, '')}`.slice(0, 200), body: null, readAt: r.readAt ?? now, ...(link ? { linkJson: JSON.stringify(link) } : {}) },
+      });
+    }
+    return rows.length;
+  } catch (e) {
+    console.error('[notifications] withdrawn notices not updated:', e instanceof Error ? e.message : e);
     return 0;
   }
 }
