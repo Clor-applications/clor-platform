@@ -32,7 +32,6 @@ const SPECS: Record<string, Spec> = {
   /* A bill photo or PDF on an expense claim (People money). */
   expenseBill: { kind: 'expense-bills', bytes: 'data', key: 'storageKey' },
 };
-export const OFFLOADED_MODELS = Object.keys(SPECS);
 
 const hasBytes = (v: unknown) => (Buffer.isBuffer(v) || v instanceof Uint8Array) && (v as Uint8Array).length > 0;
 const READS = new Set(['findFirst', 'findFirstOrThrow', 'findUnique', 'findUniqueOrThrow', 'findMany']);

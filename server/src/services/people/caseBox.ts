@@ -39,15 +39,6 @@ function candidates(): string[] {
   return out;
 }
 
-export function caseKeyReady() {
-  try {
-    current();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** Seal text or bytes for one case: "pc1.<fp>.<iv>.<tag>.<data>", all base64url. */
 export function seal(caseId: string, value: string | Buffer): string {
   const secret = current();

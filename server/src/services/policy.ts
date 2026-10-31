@@ -128,14 +128,3 @@ export function describePasswordRules(policy: Policy) {
   if (policy.passwordRequireSymbol) rules.push('a symbol');
   return rules;
 }
-
-/** Whether an address may be invited, given the org's domain restriction. */
-export function emailAllowed(email: string, policy: Policy) {
-  const list = String(policy.allowedEmailDomains || '')
-    .split(',')
-    .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
-    .filter(Boolean);
-  if (!list.length) return true;
-  const domain = String(email || '').split('@')[1]?.toLowerCase() || '';
-  return list.includes(domain);
-}

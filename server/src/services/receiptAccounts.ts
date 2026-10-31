@@ -1,4 +1,3 @@
-import { prisma } from '../utils/prisma.js';
 import type { DbClient } from '../utils/dbClient.js';
 import { SETUP_CASH_BANK_CODES } from './ledger.js';
 
@@ -127,7 +126,3 @@ export async function assertAccountUsableForTender(
   const { isActive, ...usable } = account;
   return usable;
 }
-
-/** `/payment-modes` and anything else wanting the plain list. */
-export const listReceiptAccounts = (opts: { orgId: string; branchId: string }) =>
-  receiptAccountsFor(prisma, opts);

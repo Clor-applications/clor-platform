@@ -92,10 +92,6 @@ export const SOURCES: Source[] = [
   },
 ];
 
-export function addBackfillSource(s: Source) {
-  if (!SOURCES.some((x) => x.kind === s.kind)) SOURCES.push(s);
-}
-
 /** Register everything; returns how many rows each kind added or confirmed. */
 export async function backfillCredentials(sources: Source[] = SOURCES) {
   const counts: Record<string, number> = {};

@@ -32,8 +32,6 @@ const SCHEMA_LIST = 'urn:ietf:params:scim:api:messages:2.0:ListResponse';
 const SCHEMA_ERROR = 'urn:ietf:params:scim:api:messages:2.0:Error';
 const SCHEMA_PATCH = 'urn:ietf:params:scim:api:messages:2.0:PatchOp';
 
-export { newScimToken } from '../services/scimTokens.js';
-
 const scim = (res: Response, status: number, body: unknown) => res.status(status).type('application/scim+json').send(JSON.stringify(body));
 const fail = (res: Response, status: number, detail: string, scimType?: string) => scim(res, status, { schemas: [SCHEMA_ERROR], status: String(status), detail, ...(scimType ? { scimType } : {}) });
 

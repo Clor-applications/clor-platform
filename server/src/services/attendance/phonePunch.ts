@@ -41,8 +41,6 @@ export type PunchingEmployee = {
 };
 
 const isField = (e: PunchingEmployee) => e.phonePunchMode === 'FIELD';
-/** Punches that count towards a day: not a field punch still waiting, nor one refused. */
-export const countedPunch = { OR: [{ reviewStatus: null }, { reviewStatus: 'APPROVED' }] };
 
 /** Phone punching for this person: switched on by HR, and never for someone under 18. */
 const phoneAllowed = (e: PunchingEmployee) => Boolean(e.mobilePunch) && !isMinor(e.dateOfBirth);

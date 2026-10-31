@@ -277,20 +277,6 @@ export async function recoveriesDue(
 }
 
 /**
- * How much of an instalment this payslip can actually take.
- *
- * Capped at what is left, because a recovery that drives net pay below zero
- * hands somebody a payslip saying they owe the company for having worked. The
- * shortfall is not written off — the instalment stays owed and is taken next
- * month.
- */
-export function recoverable(dueAmount: number, netPayBefore: number) {
-  if (dueAmount <= 0) return 0;
-  if (netPayBefore <= 0) return 0;
-  return round2(Math.min(dueAmount, netPayBefore));
-}
-
-/**
  * What a loan looks like now: what has been taken, what is left, what is next.
  *
  * Derived from the schedule rather than a stored counter, so it cannot drift

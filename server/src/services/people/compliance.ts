@@ -2,7 +2,6 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { isFeatureEnabled } from '../features.js';
-import { verifiedMime } from '../fileType.js';
 
 /**
  * Compliance calendar (HR research, Phase 2: "compliance calendar,
@@ -171,49 +170,6 @@ export async function calendar(who: Who) {
     },
     tasks,
   };
-}
-
-const MAX_EVIDENCE = 5 * 1024 * 1024;
-const EVIDENCE_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
-
-/** Owner, status, reference, note, due date (custom only) and evidence. */
-export async function updateTask(who: Who, id: string, body: any) {
-  const task = await peoplePrisma.complianceTask.findFirst({ where: { id, orgId: who.orgId } });
-  if (!task) throw Object.assign(new Error('No such deadline.'), { status: 404 });
-  const data: Record<string, unknown> = {};
-  if (body.status !== undefined) {
-    if (!['OPEN', 'DONE', 'NOT_APPLICABLE'].includes(body.status)) throw Object.assign(new Error('Status is OPEN, DONE or NOT_APPLICABLE.'), { status: 400 });
-    data.status = body.status;
-    data.doneAt = body.status === 'DONE' ? task.doneAt || new Date() : null;
-    data.doneByUserId = body.status === 'DONE' ? task.doneByUserId || who.userId : null;
-  }
-  for (const k of ['owner', 'reference', 'note'] as const) if (body[k] !== undefined) data[k] = body[k] ? String(body[k]).trim().slice(0, k === 'note' ? 1000 : 200) : null;
-  if (body.dueDate !== undefined) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(body.dueDate))) throw Object.assign(new Error('Dates are YYYY-MM-DD.'), { status: 400 });
-    data.dueDate = body.dueDate;
-  }
-  if (body.evidence) {
-    const { name, mime, dataUrl } = body.evidence;
-    if (!EVIDENCE_TYPES.includes(mime)) throw Object.assign(new Error('Evidence is a PDF, PNG or JPEG.'), { status: 400 });
-    const bytes = Buffer.from(String(dataUrl || '').replace(/^data:[^,]+,/, ''), 'base64');
-    if (!bytes.length || bytes.length > MAX_EVIDENCE) throw Object.assign(new Error('Evidence is up to 5 MB.'), { status: 400 });
-    /* A-42: the file's own bytes have to agree with what it says it is. */
-    if (!verifiedMime(bytes, mime, (t) => EVIDENCE_TYPES.includes(t))) throw Object.assign(new Error('That file is not what its name says. Upload the PDF or picture itself.'), { status: 400 });
-    Object.assign(data, { evidenceName: String(name || 'evidence').slice(0, 200), evidenceMime: mime, evidenceData: bytes });
-  }
-  await peoplePrisma.complianceTask.update({ where: { id: task.id }, data: data as any });
-}
-
-/** A company's own deadline (licence renewal, inspection…). */
-export async function addCustom(who: Who, body: any) {
-  const title = String(body?.title || '').trim();
-  const dueDate = String(body?.dueDate || '');
-  if (!title) throw Object.assign(new Error('Name the deadline.'), { status: 400 });
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) throw Object.assign(new Error('Choose the due date.'), { status: 400 });
-  const period = `custom-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-  return peoplePrisma.complianceTask.create({
-    data: { accountId: who.accountId, orgId: who.orgId, code: 'CUSTOM', period, title: title.slice(0, 200), dueDate, owner: body?.owner ? String(body.owner).slice(0, 200) : null, note: body?.note ? String(body.note).slice(0, 1000) : null },
-  });
 }
 
 export async function evidenceOf(orgId: string, id: string) {

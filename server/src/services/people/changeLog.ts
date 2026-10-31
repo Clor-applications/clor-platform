@@ -90,8 +90,3 @@ export async function writeChangeLog(tx: Tx, actor: Actor, entity: { kind: strin
   });
   return r.count;
 }
-
-/** The log for one person, newest first. */
-export async function changeLogOf(orgId: string, employeeId: string, limit = 200) {
-  return peoplePrisma.changeLog.findMany({ where: { orgId, employeeId }, orderBy: { at: 'desc' }, take: limit });
-}
