@@ -7,6 +7,7 @@ import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
+import SuggestInput from '@ui/components/ui/SuggestInput';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listPayrollPeriods } from '../api/payrollCalendar';
 import { listSalaryComponents } from '../api/payrollComponents';
@@ -132,7 +133,13 @@ export default function PayrollAdjustments() {
     act(() => deletePayrollAdjustment(row.id), 'Deleted.', row.id);
   };
 
+  /* Money still owed, carried forward by a payroll: cancelled only with a reason (QA of #82, F2). */
+  const [letGo, setLetGo] = useState(null);
   const cancel = async (row) => {
+    if (row.carried) {
+      setLetGo(row);
+      return;
+    }
     const ok = await confirmDialog({
       title: 'Cancel this adjustment?',
       message: 'It stays in the list, marked cancelled, so the decision not to pay it is visible.',
@@ -276,7 +283,7 @@ export default function PayrollAdjustments() {
                             <Check size={16} aria-hidden="true" />
                           </button>
                         ) : null}
-                        {['DRAFT', 'APPROVED'].includes(r.status) ? (
+                        {['DRAFT', 'APPROVED'].includes(r.status) && (!r.carried || r.carried.final) ? (
                           <button type="button" className="ui-icon-btn" aria-label={`Edit the ${r.componentName} for ${r.employeeName}`} onClick={() => setEditing(r)}>
                             <Pencil size={16} aria-hidden="true" />
                           </button>
@@ -304,9 +311,11 @@ export default function PayrollAdjustments() {
       <Drawer
         open={Boolean(editing)}
         onClose={() => setEditing(null)}
-        title={editing?.id ? 'Edit adjustment' : 'New adjustment'}
+        title={editing?.carried ? 'Correct a carried deduction' : editing?.id ? 'Edit adjustment' : 'New adjustment'}
         description={
-          editing?.status === 'APPROVED'
+          editing?.carried
+            ? 'The rest of a deduction a payroll carried forward. Only the amount changes, with a reason, and it goes back for approval.'
+            : editing?.status === 'APPROVED'
             ? 'Changing this sends it back for approval — the approval was of an amount, not of a row.'
             : 'One person, one month, one amount.'
         }
@@ -326,9 +335,41 @@ export default function PayrollAdjustments() {
           />
         ) : null}
       </Drawer>
+      <Drawer open={Boolean(letGo)} onClose={() => setLetGo(null)} title="Cancel a carried deduction" description="This is money still owed, carried forward from an earlier payslip. Say why it is let go; the reason stays on the row and in the audit log.">
+        {letGo ? (
+          <CancelCarried
+            row={letGo}
+            busy={busy === letGo.id}
+            onCancel={() => setLetGo(null)}
+            onConfirm={(reason) => {
+              const row = letGo;
+              setLetGo(null);
+              act(() => cancelPayrollAdjustment(row.id, reason), 'Cancelled.', row.id);
+            }}
+          />
+        ) : null}
+      </Drawer>
     </DocumentListShell>
   );
 }
+
+const CancelCarried = ({ row, busy, onCancel, onConfirm }) => {
+  const [reason, setReason] = useState('');
+  const why = reason.trim();
+  return (
+    <div className="space-y-4">
+      <p className="text-sm">{row.componentName} for {row.employeeName}: <span className="ui-num tabular-nums">₹{Number(row.amount).toLocaleString('en-IN')}</span></p>
+      <label className="block">
+        <span className="ui-label">Why is it cancelled?</span>
+        <SuggestInput value={reason} onChange={setReason} maxLength={200} placeholder="e.g. Waived by the owner, 2 Nov" suggestions={[]} aria-label="Why is it cancelled?" />
+      </label>
+      <div className="flex items-center justify-end gap-2">
+        <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel}>Keep it</button>
+        <button type="button" className="ui-btn ui-btn-primary" disabled={busy || why.length < 5} onClick={() => onConfirm(why)}>Cancel it</button>
+      </div>
+    </div>
+  );
+};
 
 const AdjustmentForm = ({ row, people, components, periods, encashments, onCancel, onSaved }) => {
   const [form, setForm] = useState({
@@ -339,7 +380,10 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
     amount: row.amount ?? '',
     reason: row.reason || '',
     reference: row.reference || '',
+    correctionReason: '',
   });
+  /* A carried row: only its amount, with a reason (QA of #82, F2). */
+  const carried = Boolean(row.carried);
   const [saving, setSaving] = useState(false);
   const set = (patch) => setForm((p) => ({ ...p, ...patch }));
 
@@ -352,6 +396,10 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
       notify.error('An adjustment of nothing changes nothing.');
       return;
     }
+    if (carried && form.correctionReason.trim().length < 5) {
+      notify.error('Say why the amount is corrected.');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -362,6 +410,7 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
         amount,
         reason: form.reason.trim() || null,
         reference: form.reference.trim() || null,
+        ...(carried ? { correctionReason: form.correctionReason.trim() } : {}),
       };
       if (row.id) await updatePayrollAdjustment(row.id, payload);
       else await createPayrollAdjustment(payload);
@@ -381,7 +430,11 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
           <label className="ui-label" htmlFor="adj-employee">Who</label>
-          <select id="adj-employee" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value, leaveEncashmentId: '' })} required>
+          <select id="adj-employee" className="ui-select w-full" disabled={carried} value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value, leaveEncashmentId: '' })} required>
+            {/* A row's own person stays choosable after they leave: a leaver's recovery is still corrected here. */}
+            {row.employeeId && !people.some((p) => p.id === row.employeeId) ? (
+              <option value={row.employeeId}>{row.employeeName || 'This person'}{row.employeeCode ? ` · ${row.employeeCode}` : ''}</option>
+            ) : null}
             {people.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}{p.code ? ` · ${p.code}` : ''}
@@ -392,7 +445,7 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
 
         <div>
           <label className="ui-label" htmlFor="adj-component">What</label>
-          <select id="adj-component" className="ui-select w-full" value={form.componentId} onChange={(e) => set({ componentId: e.target.value })} required>
+          <select id="adj-component" className="ui-select w-full" disabled={carried} value={form.componentId} onChange={(e) => set({ componentId: e.target.value })} required>
             {components.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
@@ -404,12 +457,13 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
 
         <div>
           <label className="ui-label" htmlFor="adj-period">Month</label>
-          <select id="adj-period" className="ui-select w-full" value={form.periodId} onChange={(e) => set({ periodId: e.target.value })} required>
+          <select id="adj-period" className="ui-select w-full" disabled={carried} value={form.periodId} onChange={(e) => set({ periodId: e.target.value })} required>
+            {row.periodId && !periods.some((p) => p.id === row.periodId) ? <option value={row.periodId}>{row.periodName || 'Its month'}</option> : null}
             {periods.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <span className="ui-caption">Only this month. It does not carry into the next.</span>
+          <span className="ui-caption">{carried ? 'Taken by the next payroll for this person, whichever month that is.' : 'Only this month. It does not carry into the next.'}</span>
         </div>
 
         <div>
@@ -430,6 +484,14 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
           <label className="ui-label" htmlFor="adj-reference">Reference</label>
           <input id="adj-reference" className="ui-input w-full" value={form.reference} onChange={(e) => set({ reference: e.target.value })} />
         </div>
+
+        {carried ? (
+          <div className="sm:col-span-2">
+            <label className="ui-label" htmlFor="adj-correction">Why is the amount corrected?</label>
+            <SuggestInput id="adj-correction" value={form.correctionReason} onChange={(v) => set({ correctionReason: v })} maxLength={160} placeholder="e.g. Agreed with the owner, 2 Nov" suggestions={[]} aria-label="Why is the amount corrected?" />
+            <span className="ui-caption">Kept on the row and in the audit log.</span>
+          </div>
+        ) : null}
 
         <div className="sm:col-span-2">
           <label className="ui-label" htmlFor="adj-reason">Why</label>

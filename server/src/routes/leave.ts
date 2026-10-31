@@ -1546,7 +1546,7 @@ async function announce(orgId: string, row: any, extra: { approvedBy?: string | 
 /** What a leave notice needs of the request, as it is now. */
 const leaveSnapshot = (r: any) => ({
   id: r.id, accountId: r.accountId, employeeId: r.employeeId, groupId: r.groupId ?? null, status: r.status,
-  fromDate: r.fromDate, toDate: r.toDate, days: r.days, leaveTypeId: r.leaveTypeId, leaveTypeName: r.leaveTypeName, isPrivate: Boolean(r.isPrivate),
+  fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, leaveTypeId: r.leaveTypeId, leaveTypeName: r.leaveTypeName, isPrivate: Boolean(r.isPrivate),
   managerApprovedAt: r.managerApprovedAt ?? null, managerApprovedById: r.managerApprovedById ?? null,
   requestedByUserId: r.requestedByUserId ?? null, reviewedByUserId: r.reviewedByUserId ?? null, reviewNote: r.reviewNote ?? null,
   ruleId: r.ruleId ?? null, ruleStep: r.ruleStep ?? null, stepUserIds: r.stepUserIds ?? [],
@@ -1569,6 +1569,10 @@ async function approversOf(accountId: string, orgId: string, employeeId: string)
   }
   return out;
 }
+
+/** A notice's second line: how much leave, naming the half of a half day (#80 QA: the bell said only "0.5 days"). */
+export const leaveNoticeBody = (r: { halfDay?: string | null }, days: number) =>
+  days === 0.5 && (r.halfDay === 'FIRST' || r.halfDay === 'SECOND') ? `Half a day, ${r.halfDay === 'FIRST' ? 'first' : 'second'} half` : `${days} ${days === 1 ? 'day' : 'days'}`;
 
 /**
  * One notice per leave, never per part of a leave split at the period end
@@ -1607,7 +1611,7 @@ export async function tellAboutLeave(orgId: string, r: any, ctx: { approvedBy?: 
       const title = r.ruleStep > 1 ? `${who}'s ${what}, ${when}, waits for you (step ${r.ruleStep})` : `${who} asks for ${what}, ${when}`;
       /* People's Approvals: where a named person or a role decides, with or without the leave screens. */
       const stepLink = app === 'people' ? { app, screen: 'approvals' } : link;
-      if (to.length) await sendNotice(emp.accountId, orgId, to, { kind: 'attendance.leave_asked', title, body: `${days} ${days === 1 ? 'day' : 'days'}`, link: stepLink }, { except: r.requestedByUserId, dedupeKey: `leave-asked:${r.id}:step${r.ruleStep}:${ctx.rev ?? 0}` });
+      if (to.length) await sendNotice(emp.accountId, orgId, to, { kind: 'attendance.leave_asked', title, body: leaveNoticeBody(r, days), link: stepLink }, { except: r.requestedByUserId, dedupeKey: `leave-asked:${r.id}:step${r.ruleStep}:${ctx.rev ?? 0}` });
       return;
     }
     const stage = r.managerApprovedAt ? (r.managerApprovedById ? 'manager' : 'handed') : 'new';
@@ -1617,11 +1621,11 @@ export async function tellAboutLeave(orgId: string, r: any, ctx: { approvedBy?: 
     if (manager) {
       /* The manager acts first — or their stand-in while they are away: in People with a sign-in, else in the employee app's queue (no notice there). */
       const managerUser = (await peoplePrisma.employee.findFirst({ where: { id: await deciderFor(orgId, manager.id), orgId }, select: { userId: true } }))?.userId;
-      if (managerUser) await sendNotice(emp.accountId, orgId, [managerUser], { kind: 'attendance.leave_asked', title: `${who} asks for ${what}, ${when}`, body: `${days} ${days === 1 ? 'day' : 'days'}`, link }, { except: r.requestedByUserId, dedupeKey });
+      if (managerUser) await sendNotice(emp.accountId, orgId, [managerUser], { kind: 'attendance.leave_asked', title: `${who} asks for ${what}, ${when}`, body: leaveNoticeBody(r, days), link }, { except: r.requestedByUserId, dedupeKey });
       return;
     }
     const title = r.managerApprovedAt ? (r.managerApprovedById ? `${who}'s ${what}, ${when}, is approved by the manager and waits for you` : `${who}'s ${what}, ${when}, waited too long for the manager and now waits for you`) : `${who} asks for ${what}, ${when}`;
-    await sendNotice(emp.accountId, orgId, await approversOf(emp.accountId, orgId, r.employeeId), { kind: 'attendance.leave_asked', title, body: `${days} ${days === 1 ? 'day' : 'days'}`, link }, { except: r.requestedByUserId, dedupeKey });
+    await sendNotice(emp.accountId, orgId, await approversOf(emp.accountId, orgId, r.employeeId), { kind: 'attendance.leave_asked', title, body: leaveNoticeBody(r, days), link }, { except: r.requestedByUserId, dedupeKey });
     return;
   }
   if (!['APPROVED', 'REJECTED', 'CANCELLED'].includes(r.status)) return;
@@ -1663,14 +1667,34 @@ export async function waitingForReader(orgId: string, scope: TeamScope, userId: 
   /* While a manager is away, their stand-in holds their queue. */
   const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } });
   const covers = new Set(me ? await standingInFor(orgId, me.id) : []);
+  /*
+   * The reader's own leave is somebody else's to decide, unless the company's
+   * maker-checker lets them decide it (makerChecker.ts): AUTO when nobody else
+   * can approve leave (a one-person company), or ALLOW. Then it waits on them
+   * like any other, marked so the inbox says why, and the decision is audited
+   * as SELF_APPROVED by reviewLeave's ownWorkRefusal.
+   */
+  const ownRow = rows.find((r) => !r.ruleId && of.get(r.employeeId)?.userId === userId);
+  const self = ownRow ? await selfDecisionAllowed(ownRow.accountId, orgId, userId, permKey(ATTENDANCE_MODULE, R.leave, 'APPROVE')) : null;
+  if (self?.allowed) {
+    const access = await resolveAccess(ownRow!.accountId, orgId, userId);
+    if (!access.isAdmin && !access.permissions.has(permKey(ATTENDANCE_MODULE, R.leave, 'APPROVE'))) self.allowed = false;
+  }
   return rows.filter((r) => {
     if (r.ruleId) return true;
     const p = of.get(r.employeeId);
-    if (p?.userId && p.userId === userId) return false;
+    const own = Boolean(p?.userId && p.userId === userId);
     const m = p?.reportingManagerId ? managers.get(p.reportingManagerId) : null;
     const activeManager = m && m.status !== 'LEFT' && m.status !== 'SUSPENDED' ? m : null;
-    /* The manager's own queue: still theirs while their step is open. */
-    if ((typeChains.get(r.leaveTypeId) || company) === 'MANAGER_THEN_HR' && !r.managerApprovedAt && activeManager) return activeManager.userId === userId || covers.has(activeManager.id);
+    /* The manager's own queue: still theirs while their step is open. Not even a stand-in takes it on their own request (managerStepBy), and my own waits on my manager before it can wait on me. */
+    if ((typeChains.get(r.leaveTypeId) || company) === 'MANAGER_THEN_HR' && !r.managerApprovedAt && activeManager) {
+      if (own) return false;
+      return activeManager.userId === userId || covers.has(activeManager.id);
+    }
+    if (own) {
+      if (!self?.allowed) return false;
+      Object.assign(r, { ownDecision: self.mode === 'ALLOW' ? 'ALLOWED' : 'ONLY_APPROVER' });
+    }
     return true;
   });
 }
@@ -2427,6 +2451,9 @@ leaveRouter.get(`${base}/requests/:id`, canOrStep(PermissionAction.VIEW, R.leave
     }
     const parts = r.groupId ? masked(await withTypes(orgId, await peoplePrisma.leaveRequest.findMany({ where: { orgId, groupId: r.groupId }, orderBy: { fromDate: 'asc' } })), reads) : [];
     const turn = r.status === 'PENDING' && !r.ruleId ? await hrMayDecide(orgId, 'leave', r, await leaveChainFor(orgId, r.leaveTypeId)) : { ok: true as const };
+    /* The manager (or their stand-in) reading it is not waiting on anyone: Approve takes their step, as it does on the Approvals row. */
+    const reader = turn.ok ? null : await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
+    const takesManagerStep = Boolean(reader && (await managerStepBy(orgId, reader.id, r.employeeId)));
     /* Leave that ran over the balance into loss of pay is changed by withdrawing it and asking again (editLeave refuses it). */
     const linkedLop = Boolean(r.overflowOfId) || (r.groupId ? Boolean(await peoplePrisma.leaveRequest.findFirst({ where: { orgId, groupId: r.groupId, overflowOfId: { not: null } }, select: { id: true } })) : false);
     const editable = r.status === 'PENDING' && !linkedLop && (await readsPrivateLeave(req) || !shaped.reasonHidden);
@@ -2439,7 +2466,7 @@ leaveRouter.get(`${base}/requests/:id`, canOrStep(PermissionAction.VIEW, R.leave
       canShorten: r.status === 'APPROVED' && !r.halfDay && r.fromDate <= today() && r.toDate > today(),
       parts: parts.map((p: any) => ({ id: p.id, fromDate: p.fromDate, toDate: p.toDate, days: p.days, halfDay: p.halfDay ?? null, status: p.status, leaveTypeName: p.leaveTypeName, overflowOfId: p.overflowOfId ?? null })),
       alsoAway: await alsoAway(req, orgId, r.employeeId, r.fromDate, r.toDate, reads),
-      waitingForManager: turn.ok ? null : turn.error,
+      waitingForManager: turn.ok || takesManagerStep ? null : turn.error,
       ownRequest: Boolean(employee?.userId && employee.userId === req.auth!.userId),
       step: await stepView(orgId, r, req.auth!.userId),
       document: r.attachmentDocId && reads ? await peoplePrisma.employeeDocument.findFirst({ where: { id: r.attachmentDocId, orgId }, select: { id: true, title: true, mime: true, size: true } }) : null,
@@ -2535,6 +2562,8 @@ leaveRouter.get(`${base}/overview`, can(PermissionAction.VIEW, R.leave), async (
   }
   res.json({
     today: t0,
+    /* A reader who sees a team, not the company: two of the team away the same day is a clash, whatever their departments (M4). */
+    team: !scope.all,
     awayToday: await shape(awayRows),
     /* Working, but not at the office: approved work from home and on duty, their own mark, never leave (HR view audit 3.3). */
     workingAwayToday: await workingAway(orgId, scope, t0, t0),

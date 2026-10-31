@@ -39,6 +39,12 @@ export const shortDate = (isoDate: string) =>
  *   M3     Deepak  weeks 1 and 2
  *   M4     Imran+Lakshmi week 4 (a clash)
  *   M8     Rahul   week 2
+ * Not leave, but days and money (money-and-rules.spec.ts):
+ *   X1     Priya   an expense claim (today)
+ *   X2     Deepak  an expense claim (today), paid by HR
+ *   R1     Imran   three late days last month (Tue–Thu of its second week)
+ *   R2     Lakshmi the last working day, no punch-out (marked at setup)
+ *   R3     Farah   an evening shift from tomorrow; the company's night mode set to warn
  */
 export const HOLIDAY_WEEK = 3;
 export const HOLIDAY_DAY = 2;

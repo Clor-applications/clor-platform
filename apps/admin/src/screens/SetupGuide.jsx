@@ -93,13 +93,14 @@ export default function SetupGuide({ tenant, goTo, screen }) {
 
   return (
     <>
-      <button type="button" className="ui-split-mod ws-setup-ring" onClick={() => setOpen(true)} title="Set up your workspace" aria-label={`Setup: ${done} of ${steps.length} done`}>
+      <button type="button" className="ui-split-mod ws-setup-ring" onClick={() => setOpen(true)} title="Set up your workspace">
         <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
           <circle cx="18" cy="18" r="15" className="ws-setup-ring-track" />
           <circle cx="18" cy="18" r="15" className="ws-setup-ring-fill" strokeDasharray={`${C * pct} ${C}`} transform="rotate(-90 18 18)" />
           <text x="18" y="22" textAnchor="middle" className="ws-setup-ring-text">{done}/{steps.length}</text>
         </svg>
-        <span>Setup</span>
+        {/* Named by its visible word, then the count for a screen reader (axe label-content-name-mismatch). */}
+        <span>Setup</span><span className="sr-only">: {done} of {steps.length} done</span>
       </button>
 
       <WsDrawer open={open} onClose={() => setOpen(false)} title="Set up your workspace" description={`${done} of ${steps.length} done`}>

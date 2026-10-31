@@ -73,9 +73,10 @@ const blankEmployee = () => ({
     pfNumber: '',
     esiNumber: '',
     professionalTaxState: '',
-    pfApplicable: false,
-    esiApplicable: false,
-    ptApplicable: false,
+    /* Not sent unless set: a blank here must never switch PF or PT off for somebody who has them. */
+    pfApplicable: undefined,
+    esiApplicable: undefined,
+    ptApplicable: undefined,
   },
 });
 
@@ -716,6 +717,22 @@ const EmployeeForm = ({ initial, sensitiveVisible, onClose, onSaved }) => {
               <option value="OLD">Old</option>
             </select>
           </div>
+          {/* Which statutory deductions apply to this person (QA of #82, F9). Left untouched, they stay as they are. */}
+          <fieldset className="sm:col-span-2">
+            <legend className="ui-label">Deducted from their pay</legend>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {[
+                ['pfApplicable', 'Provident fund (PF)'],
+                ['esiApplicable', 'ESI'],
+                ['ptApplicable', 'Professional tax'],
+              ].map(([key, label]) => (
+                <label key={key} className="inline-flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={Boolean(form.payroll[key])} onChange={(e) => setPay({ [key]: e.target.checked })} />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
         </div>
       </section>
 

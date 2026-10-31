@@ -79,7 +79,7 @@ export default function OrganizationOverview({ openScreen }) {
       <Header openScreen={openScreen} perms={perms} />
       <div className="ui-metric-strip" role="list" aria-label="Organisation counts">
         {strip.map(({ k, label, value, Icon, onClick }) => (
-          <div key={k} role="listitem"><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={onClick} aria-label={`${value} ${label}: open`}><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span><span className="ui-metric-label">{label}</span></span></button></div>
+          <div key={k} role="listitem"><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={onClick}><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span> <span className="ui-metric-label">{label}</span><span className="sr-only">: open</span></span></button></div>
         ))}
       </div>
       {d.checks?.length ? (

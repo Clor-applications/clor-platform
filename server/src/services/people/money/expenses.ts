@@ -8,6 +8,7 @@ import { notifyPermission, notifyUsers } from '../../notifications.js';
 import type { Actor } from '../changeLog.js';
 import { ApprovalError, PORTAL_PREFIX, activeRule, reply, submitRequest, withdraw, type RequestType, type StepSpec } from '../approvals/engine.js';
 import { adjustmentState, draftAdjustment, payCap, periodToPayIn, todayIst } from './payrollBridge.js';
+import { foldRecovery, liveLink, recoveryChain } from '../../payroll/recoveryChain.js';
 import { isValidGstinChecksum } from '../../../utils/gstin.js';
 
 /**
@@ -228,8 +229,8 @@ async function theDraft(tx: Prisma.TransactionClient, orgId: string, employeeId:
 /**
  * Claims paid with salary wait for Payroll: approved there (or paid on a
  * payslip), they are paid; cancelled or deleted there, they are to pay
- * again. Advances being taken from salary count as recovered only once
- * Payroll approves the deduction.
+ * again. Advances being taken from salary count as recovered only as
+ * Payroll takes the deduction.
  */
 async function syncPayroll(orgId: string, claims: Array<{ id: string; status: string; payrollAdjustmentId: string | null }>, advances: Array<{ id: string; recoveringAmount: unknown; payrollAdjustmentId: string | null }> = []) {
   let changed = false;
@@ -241,22 +242,28 @@ async function syncPayroll(orgId: string, claims: Array<{ id: string; status: st
       changed = (await peoplePrisma.expenseClaim.updateMany({ where: { id: c.id, orgId, status: 'WITH_SALARY' }, data: { status: 'APPROVED', payMode: null, paidOn: null, paidByUserId: null, payrollAdjustmentId: null, payrollPeriodName: null } })).count > 0 || changed;
     }
   }
-  for (const a of advances.filter((x) => num(x.recoveringAmount) > 0 && x.payrollAdjustmentId)) {
-    const st = await adjustmentState(orgId, a.payrollAdjustmentId!);
-    if (st.status === 'DRAFT') continue;
-    await peoplePrisma.$transaction(async (tx) => {
+  for (const a of advances.filter((x) => liveLink(x.payrollAdjustmentId) && (num(x.recoveringAmount) > 0 || (x as any).status === 'PAID'))) {
+    /*
+     * Counted as recovered only as Payroll takes it (a payslip or a full and
+     * final), never on approval alone; a recovery the share of wages split
+     * across months closes only when the last part is taken. Worked out from
+     * the whole chain each time (payroll/recoveryChain.ts), so nothing counts twice.
+     */
+    const did = await peoplePrisma.$transaction(async (tx) => {
       await lock(tx, `people-money-advance-row:${a.id}`);
       const row = await tx.employeeAdvance.findFirst({ where: { id: a.id, orgId } });
-      if (!row || num(row.recoveringAmount) <= 0) return;
-      if (st.status === 'APPROVED' || st.status === 'CONSUMED') {
-        const recovered = round2(num(row.recoveredAmount) + num(row.recoveringAmount));
-        const left = advanceOpen({ ...row, recoveredAmount: recovered, recoveringAmount: 0 });
-        await tx.employeeAdvance.update({ where: { id: row.id }, data: { recoveredAmount: recovered, recoveringAmount: 0, ...(left <= 0 && row.status === 'PAID' ? { status: 'CLOSED', closedAt: new Date() } : {}) } });
-      } else {
-        await tx.employeeAdvance.update({ where: { id: row.id }, data: { recoveringAmount: 0 } });
-      }
+      const link = liveLink(row?.payrollAdjustmentId);
+      if (!row || !link) return false;
+      const chain = await recoveryChain(orgId, link);
+      /* An older chain is read only while something is being taken; one with its starting figure can be read any time (a run cancelled after it was counted). */
+      if (num(row.recoveringAmount) <= 0 && (chain?.base == null || row.status !== 'PAID')) return false;
+      const next = foldRecovery(row, chain);
+      if (next.recovered === round2(num(row.recoveredAmount)) && next.recovering === round2(num(row.recoveringAmount))) return false;
+      const left = advanceOpen({ ...row, recoveredAmount: next.recovered, recoveringAmount: next.recovering });
+      await tx.employeeAdvance.update({ where: { id: row.id }, data: { recoveredAmount: next.recovered, recoveringAmount: next.recovering, ...(left <= 0 && next.recovering <= 0 && row.status === 'PAID' ? { status: 'CLOSED', closedAt: new Date() } : {}) } });
+      return true;
     });
-    changed = true;
+    changed = did || changed;
   }
   return changed;
 }
@@ -781,9 +788,23 @@ export async function payAdvance(staff: Staff, advanceId: string, input: { paidO
 export async function closeAdvance(staff: Staff, advanceId: string, how: 'RETURNED' | 'RECOVER', input: { amount?: unknown } = {}) {
   const out = await peoplePrisma.$transaction(async (tx) => {
     await lock(tx, `people-money-advance-row:${advanceId}`);
-    const a = await tx.employeeAdvance.findFirst({ where: { id: advanceId, orgId: staff.orgId } });
-    if (!a) throw new MoneyError('No such advance.', 404);
-    if (a.status !== 'PAID') throw new MoneyError('Only an advance that was paid and is still open can be settled.', 409, 'NOT_OPEN');
+    const stored = await tx.employeeAdvance.findFirst({ where: { id: advanceId, orgId: staff.orgId } });
+    if (!stored) throw new MoneyError('No such advance.', 404);
+    if (stored.status !== 'PAID') throw new MoneyError('Only an advance that was paid and is still open can be settled.', 409, 'NOT_OPEN');
+    /*
+     * Payroll's own rows first, not only what People last stored: a run
+     * cancelled since it was counted puts its recovery back to waiting, and
+     * a second one sent now would leave the first untracked (re-review of #82).
+     */
+    let a: typeof stored & { recoveredAmount: any; recoveringAmount: any } = stored;
+    const link = liveLink(stored.payrollAdjustmentId);
+    if (link) {
+      const chain = await recoveryChain(staff.orgId, link);
+      if (chain && (num(stored.recoveringAmount) > 0 || chain.base != null || chain.open + chain.draft > 0)) {
+        const f = foldRecovery(stored, chain);
+        a = { ...stored, recoveredAmount: f.recovered as any, recoveringAmount: f.recovering as any };
+      }
+    }
     if (how === 'RECOVER' && num(a.recoveringAmount) > 0) throw new MoneyError(`${inr(num(a.recoveringAmount))} of this advance is already waiting in Payroll. Approve or cancel it there first.`, 409, 'RECOVERY_WAITING');
     const open = advanceOpen(a);
     if (open <= 0) throw new MoneyError(num(a.recoveringAmount) > 0 ? 'The rest of this advance is already waiting in Payroll.' : 'Nothing is left on this advance.', 409, 'NOT_OPEN');
@@ -794,7 +815,7 @@ export async function closeAdvance(staff: Staff, advanceId: string, how: 'RETURN
       await tx.employeeAdvance.update({ where: { id: a.id }, data: { returnedAmount: round2(num(a.returnedAmount) + amount), ...(left <= 0 && num(a.recoveringAmount) <= 0 ? { status: 'CLOSED', closedAt: new Date() } : {}) } });
       return { returned: amount, left };
     }
-    const period = await periodToPayIn(staff.orgId);
+    const period = await periodToPayIn(staff.orgId, undefined, a.employeeId);
     const already = period ? (await adjustmentState(staff.orgId, `advance-recover:${a.id}:${period.id}`)).status : 'GONE';
     if (period && already !== 'GONE' && already !== 'CANCELLED') {
       throw new MoneyError(`Some of this advance already comes off ${period.name}'s pay. Take the rest next month, or ask for it back.`, 409, 'RECOVERY_WAITING');
@@ -803,9 +824,9 @@ export async function closeAdvance(staff: Staff, advanceId: string, how: 'RETURN
     const cap = await payCap(staff.orgId, a.employeeId);
     const amount = cap ? Math.min(open, cap.room) : open;
     if (amount <= 0) throw new MoneyError("Nothing more can come off this month's pay: deductions already reach half of it. Ask for it back, or try next month.", 409, 'OVER_CAP');
-    const handed = await draftAdjustment({ accountId: staff.accountId, orgId: staff.orgId, userId: staff.userId, employeeId: a.employeeId, key: `advance-recover:${a.id}:<period>`, type: 'DEDUCTION', amount, reason: `Advance ${a.number} not used: ${a.purpose}` });
+    const handed = await draftAdjustment({ accountId: staff.accountId, orgId: staff.orgId, userId: staff.userId, employeeId: a.employeeId, key: `advance-recover:${a.id}:<period>`, type: 'DEDUCTION', amount, reason: `Advance ${a.number} not used: ${a.purpose}`, recoveryBase: num(a.recoveredAmount) });
     if (!handed.sent) throw new MoneyError(handed.why, 409, 'PAYROLL_NOT_READY');
-    /* Counted as recovered once Payroll approves it (syncPayroll); until then it is "being taken from salary". */
+    /* Counted as recovered as Payroll takes it (syncPayroll); until then it is "being taken from salary". */
     await tx.employeeAdvance.update({ where: { id: a.id }, data: { recoveringAmount: amount, payrollAdjustmentId: handed.adjustmentId } });
     return { recovered: amount, left: round2(open - amount), periodName: handed.periodName, capped: amount < open };
   }, { timeout: 30_000 });

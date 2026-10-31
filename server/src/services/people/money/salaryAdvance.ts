@@ -47,7 +47,7 @@ export async function capFor(orgId: string, employeeId: string, ask?: { amount: 
     perquisite: ask ? owedNow + ask.amount > PERQUISITE_LIMIT : false,
     interestFreeOwed: owedNow,
     explain: cap
-      ? `By law, everything taken off your pay in a month stays within half your wages (${inr(cap.wages / 2)} of ${inr(cap.wages)}, from your ${cap.basis}). After PF, tax and what you already repay this month, up to ${inr(cap.room)} a month can go to this.`
+      ? `${cap.percent === 50 ? 'By law, everything taken off your pay in a month stays within half your wages' : `Your company keeps everything taken off your pay in a month within ${cap.percent}% of your wages`} (${inr(cap.limit)} of ${inr(cap.wages)}, from your ${cap.basis}). After PF, tax and what you already repay this month, up to ${inr(cap.room)} a month can go to this.`
       : 'HR checks the amount against your pay before deciding.',
   };
 }

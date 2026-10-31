@@ -1,7 +1,7 @@
 import { Prisma } from '../../generated/payroll/index.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
-import { daysBetween, periodContext, periodRows } from '../attendance/days.js';
+import { daysBetween, daysOfMonth, periodContext, periodRows } from '../attendance/days.js';
 import { isWeeklyOff } from '../attendance/compute.js';
 import { isFeatureEnabled } from '../features.js';
 
@@ -372,6 +372,110 @@ export async function correctProvisionalDays(opts: { accountId: string; orgId: s
     else await payrollPrisma.payrollAdjustment.create({ data: { id, accountId, orgId, employeeId: c.employeeId, createdByUserId: userId, ...data } });
     await payrollPrisma.payrollInput.update({ where: { id: c.id }, data: { provisionalSettledByRunId: run.id } });
     out.push({ employeeId: c.employeeId, name, fromRunId: c.runId, days: delta, type, amount, reason, status: 'APPROVED' });
+  }
+  return out;
+}
+
+/** The id prefix of a late-mark penalty caught up after a cut-off: `late-penalty:<month>:<employeeId>`. */
+export const LATE_PENALTY_PREFIX = 'late-penalty:';
+export const isLatePenalty = (adj: { id?: string | null }) => String(adj.id || '').startsWith(LATE_PENALTY_PREFIX);
+/** The reference a catch-up penalty gets when the pull itself cancels it (waived, taken from leave): unlike a person's cancel, a later pull may revive it. */
+const LATE_PENALTY_OFF = 'late-penalty-off:';
+
+const MONTH_WORDS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const monthWords = (month: string) => `${MONTH_WORDS[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
+
+/**
+ * Months whose late-mark penalty an earlier run never charged, for the people
+ * in this run.
+ *
+ * People charges a month's late-mark penalty in the run holding the month's
+ * last day (attendance/markRules.ts penaltiesOver). A run paid before the
+ * month ends reads Attendance only up to its cut-off, so when the month's last
+ * day fell after the cut-off, that month's penalty was charged by nobody:
+ * this run's days begin after it. Each such month, per person whose days that
+ * run took from Attendance, is owed once, here.
+ */
+export async function lateMarkMonthsOwed(orgId: string, period: { startDate: string }, employeeIds: string[]) {
+  if (!employeeIds.length) return [] as Array<{ month: string; runId: string; employeeIds: string[] }>;
+  const runs = await payrollPrisma.payrollRun.findMany({
+    where: { orgId, status: { in: SETTLED_RUN }, provisionalDays: { not: Prisma.DbNull } },
+    select: { id: true, periodId: true, provisionalDays: true },
+  });
+  if (!runs.length) return [];
+  const periods = new Map((await payrollPrisma.payrollPeriod.findMany({ where: { orgId, id: { in: runs.map((r) => r.periodId) } }, select: { id: true, endDate: true } })).map((p) => [p.id, p]));
+  const out: Array<{ month: string; runId: string; employeeIds: string[] }> = [];
+  for (const r of runs) {
+    const end = periods.get(r.periodId)?.endDate;
+    if (!end || end >= period.startDate) continue;
+    const w = r.provisionalDays as { from?: string; to?: string } | null;
+    if (!w?.from || !w.to) continue;
+    const months = [...new Set(daysBetween(w.from, w.to).map((d) => d.slice(0, 7)))].filter((m) => {
+      const last = daysOfMonth(m).at(-1)!;
+      return last >= w.from! && last <= w.to!;
+    });
+    if (!months.length) continue;
+    const inputs = await payrollPrisma.payrollInput.findMany({ where: { orgId, runId: r.id, employeeId: { in: employeeIds }, source: 'ATTENDANCE' }, select: { employeeId: true } });
+    if (!inputs.length) continue;
+    for (const month of months) out.push({ month, runId: r.id, employeeIds: inputs.map((i) => i.employeeId) });
+  }
+  return out;
+}
+
+export type LatePenaltyCatchUp = { employeeId: string; name: string; month: string; days: number; amount: number; reason: string; status: string };
+
+/**
+ * Charge the late-mark penalties an earlier run's cut-off left uncharged
+ * (lateMarkMonthsOwed), as a deduction in this run's period priced at that
+ * run's day rate, the way a provisional correction is. Once only: keyed by
+ * month and person, and left alone once a live run has paid it. Called by the
+ * from-attendance pull after it has refused undecided months.
+ */
+export async function catchUpLatePenalties(opts: { accountId: string; orgId: string; run: { id: string; periodId: string }; period: { startDate: string }; employeeIds: string[]; userId: string }): Promise<LatePenaltyCatchUp[]> {
+  const { accountId, orgId, run, period, employeeIds, userId } = opts;
+  const owed = await lateMarkMonthsOwed(orgId, period, employeeIds);
+  if (!owed.length) return [];
+  const { penaltiesOver } = await import('../attendance/markRules.js');
+  const names = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: employeeIds } }, select: { id: true, name: true } })).map((e) => [e.id, e.name]));
+  const out: LatePenaltyCatchUp[] = [];
+  for (const o of owed) {
+    const rows = await penaltiesOver(accountId, orgId, daysOfMonth(o.month), { employeeIds: o.employeeIds });
+    const slips = await payrollPrisma.salarySlip.findMany({
+      where: { orgId, runId: o.runId, employeeId: { in: o.employeeIds } },
+      select: { employeeId: true, inputSnapshotJson: true, structureSnapshotJson: true, lines: { select: { type: true, componentCode: true, amount: true, fullAmount: true, displayOrder: true } } },
+    });
+    const slipOf = new Map(slips.map((x) => [x.employeeId, x]));
+    for (const employeeId of o.employeeIds) {
+      const id = `${LATE_PENALTY_PREFIX}${o.month}:${employeeId}`;
+      const existing = await payrollPrisma.payrollAdjustment.findUnique({ where: { id } });
+      /* Paid once: a live run that consumed it keeps it. */
+      if (existing?.status === 'CONSUMED' && existing.consumedByRunId && existing.consumedByRunId !== run.id) {
+        const consumer = await payrollPrisma.payrollRun.findFirst({ where: { orgId, id: existing.consumedByRunId }, select: { status: true } });
+        if (consumer && consumer.status !== 'CANCELLED') continue;
+      }
+      /* A person decided it in Payroll: cancelled there, or the amount edited (back to draft, approved by somebody). Theirs stands. */
+      if (existing && ((existing.status === 'CANCELLED' && !String(existing.reference || '').startsWith(LATE_PENALTY_OFF)) || existing.status === 'DRAFT' || existing.approvedByUserId)) {
+        continue;
+      }
+      const row = rows.get(employeeId);
+      const days = Math.round((row?.lossOfPayDays || 0) * 100) / 100;
+      const slip = slipOf.get(employeeId);
+      const amount = slip && days > 0 ? Math.round(days * dayRateOf(slip)) : 0;
+      const name = names.get(employeeId) || '';
+      const reason = `Late-mark penalty for ${monthWords(o.month)}: ${dayWord(days)} (paid before the month ended)`.slice(0, 240);
+      if (!amount) {
+        /* Waived, taken from leave, or nothing to price it on: a charge from an earlier pull goes. */
+        /* This run's own charge (CONSUMED by this run included) goes, marked as ours so a later pull may charge it again if the waiver is undone. */
+        if (existing && existing.status !== 'CANCELLED') await payrollPrisma.payrollAdjustment.update({ where: { id }, data: { status: 'CANCELLED', consumedByRunId: null, reference: `${LATE_PENALTY_OFF}${o.runId}` } });
+        if (days > 0) out.push({ employeeId, name, month: o.month, days, amount: 0, reason: `${reason} (no payslip to price it on; add it by hand)`, status: 'NONE' });
+        continue;
+      }
+      const componentId = await correctionComponent(accountId, orgId, 'DEDUCTION', userId);
+      const data = { componentId, periodId: run.periodId, type: 'DEDUCTION', amount, reason, reference: `${LATE_PENALTY_PREFIX}${o.runId}`, status: 'APPROVED', approvedAt: new Date(), approvedByUserId: null, consumedByRunId: null };
+      if (existing) await payrollPrisma.payrollAdjustment.update({ where: { id }, data });
+      else await payrollPrisma.payrollAdjustment.create({ data: { id, accountId, orgId, employeeId, createdByUserId: userId, ...data } });
+      out.push({ employeeId, name, month: o.month, days, amount, reason, status: 'APPROVED' });
+    }
   }
   return out;
 }

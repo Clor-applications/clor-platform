@@ -1644,6 +1644,10 @@
    instead of being lost with the page's offset under the bar. */
 :root[data-palette='sky'] #main-content .ui-table-scroll[data-wide] { max-height: calc(100dvh - 14rem); overflow: auto; overscroll-behavior-x: contain; }
 :root[data-palette='sky'] #main-content .ui-table-scroll[data-wide] .ui-table thead th { position: sticky; top: 0; }
+/* On a phone a wide table is clipped until the watcher marks it data-wide (a beat after the rows arrive), or it pushes the whole page sideways (Leave calendar at 390px measured 912px, e2e). Clip, not auto: a scrolling box would become the sticky header's frame and push the head row a bar's height down over the first row. */
+@media (max-width: 767px) {
+  :root[data-palette='sky'] #main-content .ui-table-scroll:not([data-wide]) { overflow-x: clip; }
+}
 :root[data-palette='sky'] .ui-balance-low { color: rgb(var(--warm-ink)); }
 
 /*
@@ -1863,6 +1867,11 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
 :root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-rail, .ui-split-panel) { background: rgb(250 246 238); }
 :root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { border-right: 1px solid rgb(var(--border)); }
 :root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-rail, .ui-split-panel) :is(.ui-split-mod, .ui-split-item):hover:not([data-current]):not([aria-current='page']) { background: rgb(243 237 226); }
+/* The module panel a shade of lilac, not Cotton (owner, 31 Oct 2026: "sidebars both same yellowish background, need
+   to differentiate"): the rail keeps Cotton, the work area stays white, and the panel between them reads as its own
+   column. Its selected item keeps the lilac tile, a step darker than the panel. */
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { background: rgb(247 245 252); }
+:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item:hover:not([aria-current='page']) { background: rgb(239 236 248); }
 
 /* The line between a list and its side panel runs the page's full height (owner, 29 Oct 2026: "closing border line
    missing"): drawn by the row, not the panel, whose own edge stopped where its last block did. */

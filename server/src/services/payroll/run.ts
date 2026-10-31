@@ -1,12 +1,16 @@
+import { randomUUID } from 'node:crypto';
+
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
+import { Prisma } from '../../generated/payroll/index.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { calculateStructure, ENGINE_VERSION, type EngineComponent } from './engine/calculator.js';
 import { loadRules, applyStatutory } from './statutory/resolve.js';
-import { recoveriesDue, recoverable, type DueRecovery } from './loan.js';
+import { recoveriesDue, type DueRecovery } from './loan.js';
+import { capDeductions, capSetting, partWords } from './deductionCap.js';
 import { financialYearOf, deductionsFor } from './taxDeclaration.js';
 import { round2 } from '../../utils/money.js';
 import { componentApplies, monthsOfService, type EligibilityFacts } from './eligibility.js';
-import { isCorrection } from './provisionalDays.js';
+import { isCorrection, isLatePenalty } from './provisionalDays.js';
 
 /**
  * A payroll run: turning a population and a period into payslips.
@@ -177,13 +181,31 @@ async function loadRunContext(orgId: string, runId: string) {
   });
   const employeeIds = members.map((m) => m.employeeId);
 
-  const [employees, profiles, inputs, adjustments, assignments] = await Promise.all([
+  /* This run's own payslips, from a calculation before: what they took is still this run's to take. */
+  const ownSlipIds = (await payrollPrisma.salarySlip.findMany({ where: { orgId, runId }, select: { id: true } })).map((s) => s.id);
+  /* Earlier periods, for deductions an earlier run carried on (deductionCap.ts). */
+  const earlierPeriods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lt: period.startDate } }, select: { id: true, name: true, startDate: true } });
+
+  const [employees, profiles, inputs, ownAdjustments, carriedAdjustments, assignments] = await Promise.all([
     peoplePrisma.employee.findMany({ where: { orgId, id: { in: employeeIds } } }),
     payrollPrisma.employeePayrollProfile.findMany({ where: { orgId, employeeId: { in: employeeIds } } }),
     payrollPrisma.payrollInput.findMany({ where: { orgId, runId } }),
     payrollPrisma.payrollAdjustment.findMany({
-      where: { orgId, periodId: run.periodId, employeeId: { in: employeeIds }, status: { in: ['APPROVED', 'CONSUMED'] } },
+      /* Approved, or taken by this run before: never one another run or a full and final (`settlement:<id>`) has taken. */
+      where: { orgId, periodId: run.periodId, employeeId: { in: employeeIds }, OR: [{ status: 'APPROVED' }, { status: 'CONSUMED', consumedByRunId: runId }] },
     }),
+    /* Carried by an earlier run (the rest of a deduction it could not take), not yet taken by another. */
+    earlierPeriods.length
+      ? payrollPrisma.payrollAdjustment.findMany({
+          where: {
+            orgId,
+            employeeId: { in: employeeIds },
+            periodId: { in: earlierPeriods.map((p) => p.id) },
+            carriedByRunId: { not: runId },
+            OR: [{ status: 'APPROVED' }, { status: 'CONSUMED', consumedByRunId: runId }],
+          },
+        })
+      : Promise.resolve([]),
     /* Every assignment for these people that could cover the period end; the
        right one per person is picked in memory. */
     payrollPrisma.salaryAssignment.findMany({
@@ -205,9 +227,42 @@ async function loadRunContext(orgId: string, runId: string) {
   /* Four rules for four hundred people: read once, applied per employee. */
   const statutoryRules = await loadRules(orgId);
 
-  /* Loan instalments falling due this period, read in one query for the same
-     reason. */
-  const recoveries = await recoveriesDue(orgId, run.periodId, employeeIds);
+  /* Loan instalments falling due this period, and those carried from earlier
+     runs, read in one query for the same reason. */
+  const loanDue = await recoveriesDue(orgId, run.periodId, employeeIds, { runId, periodStart: period.startDate, ownSlipIds });
+
+  /*
+   * What this run carried itself, from a calculation before, is undone here
+   * in memory: the rest goes back on what it came from, so recalculating sees
+   * the deduction whole again. The rows go when the payslips are written.
+   */
+  const [ownCarriedInstallments, ownCarriedAdjustments] = await Promise.all([
+    payrollPrisma.payrollLoanInstallment.findMany({ where: { orgId, carriedByRunId: runId } }),
+    payrollPrisma.payrollAdjustment.findMany({ where: { orgId, carriedByRunId: runId } }),
+  ]);
+  const backOnInstallment = new Map<string, number>();
+  const backPrincipal = new Map<string, number>();
+  for (const c of ownCarriedInstallments) {
+    if (!c.carriedFromId) continue;
+    backOnInstallment.set(c.carriedFromId, round2((backOnInstallment.get(c.carriedFromId) || 0) + Number(c.dueAmount)));
+    backPrincipal.set(c.carriedFromId, round2((backPrincipal.get(c.carriedFromId) || 0) + Number(c.principalAmount)));
+  }
+  const backOnAdjustment = new Map<string, number>();
+  for (const c of ownCarriedAdjustments) if (c.carriedFromId) backOnAdjustment.set(c.carriedFromId, round2((backOnAdjustment.get(c.carriedFromId) || 0) + Number(c.amount)));
+  const recoveries = loanDue.map((r) => {
+    const back = backOnInstallment.get(r.installmentId) || 0;
+    if (!back) return r;
+    const due = round2(r.dueAmount + back);
+    /* Principal and interest put back as they were carried: a ₹0 take left no split on the row itself to go by. */
+    const principal = round2(Math.min(due, r.principalAmount + (backPrincipal.get(r.installmentId) || 0)));
+    return { ...r, dueAmount: due, principalAmount: principal, interestAmount: round2(due - principal) };
+  });
+  const adjustments = [...ownAdjustments, ...carriedAdjustments]
+    /* Holders of what this run carried sit in its own period: not deductions of their own. */
+    .filter((a) => a.carriedByRunId !== runId)
+    .map((a) => (backOnAdjustment.has(a.id) ? { ...a, amount: new Prisma.Decimal(round2(Number(a.amount) + backOnAdjustment.get(a.id)!)) } : a));
+  const periodName = new Map([...earlierPeriods.map((p) => [p.id, p.name] as const), [period.id, period.name] as const]);
+  const periodStart = new Map(earlierPeriods.map((p) => [p.id, p.startDate]));
 
   /*
    * Components a payslip can name.
@@ -266,6 +321,10 @@ async function loadRunContext(orgId: string, runId: string) {
   );
 
   return {
+    ownSlipIds,
+    periodName,
+    periodStart,
+    capRule: await capSetting(orgId),
     statutoryRules,
     taxDeclarations,
     taxSoFar,
@@ -793,6 +852,147 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
   return { issues, byEmployee };
 }
 
+/** A deduction that gives way to the share of wages the law allows: a loan instalment, or an advance recovery. */
+type Deferrable = {
+  key: string;
+  kind: 'INSTALLMENT' | 'ADJUSTMENT';
+  id: string;
+  due: number;
+  componentId: string;
+  name: string;
+  code: string;
+  /** Sort key: the period it was carried from, oldest first; this period's own last. */
+  order: string;
+  component: any;
+  recovery?: DueRecovery;
+  adjustment?: any;
+};
+type Carry = { employeeId: string; kind: 'INSTALLMENT' | 'ADJUSTMENT'; id: string; take: number; rest: number; recovery?: DueRecovery; adjustment?: any };
+
+/** Advance recoveries from People (payrollBridge.ts `advance-recover:`), and anything already carried: these give way to the limit. */
+export const isDeferrableAdjustment = (a: { id: string; carriedByRunId?: string | null }) => String(a.id).startsWith('advance-recover:') || Boolean(a.carriedByRunId);
+
+export class CarryTakenError extends Error {
+  status = 409;
+  code = 'CARRY_TAKEN';
+}
+
+/**
+ * What a run carried on is undone when its payslips go (recalculated or
+ * cancelled): the rest goes back on the deduction it came from, and the
+ * carried row is removed. Refused when a later run has already taken it, as
+ * that run's payslip stands on it.
+ */
+export async function carriesTakenElsewhere(orgId: string, runId: string) {
+  const [inst, adj] = await Promise.all([
+    payrollPrisma.payrollLoanInstallment.count({ where: { orgId, carriedByRunId: runId, status: { not: 'PENDING' } } }),
+    payrollPrisma.payrollAdjustment.count({ where: { orgId, carriedByRunId: runId, status: { notIn: ['APPROVED', 'DRAFT'] } } }),
+  ]);
+  return inst + adj;
+}
+
+export async function undoCarries(tx: Prisma.TransactionClient, orgId: string, runId: string) {
+  const inst = await tx.payrollLoanInstallment.findMany({ where: { orgId, carriedByRunId: runId } });
+  const taken = () => new CarryTakenError('A later payroll or a full and final has already taken a deduction this one carried forward. Cancel or recalculate that first.');
+  for (const c of inst) {
+    /* Removed only while nothing has taken it: checked and removed in one statement, so a settlement paid a moment ago is seen. */
+    const gone = await tx.payrollLoanInstallment.deleteMany({ where: { id: c.id, status: 'PENDING' } });
+    if (!gone.count) throw taken();
+    if (c.carriedFromId) {
+      const from = await tx.payrollLoanInstallment.findFirst({ where: { orgId, id: c.carriedFromId } });
+      if (from) {
+        await tx.payrollLoanInstallment.update({
+          where: { id: from.id },
+          data: {
+            dueAmount: round2(Number(from.dueAmount) + Number(c.dueAmount)),
+            principalAmount: round2(Number(from.principalAmount) + Number(c.principalAmount)),
+            interestAmount: round2(Number(from.interestAmount) + Number(c.interestAmount)),
+          },
+        });
+      }
+    }
+  }
+  const adj = await tx.payrollAdjustment.findMany({ where: { orgId, carriedByRunId: runId } });
+  for (const c of adj) {
+    const gone = await tx.payrollAdjustment.deleteMany({ where: { id: c.id, status: { in: ['APPROVED', 'DRAFT'] } } });
+    if (!gone.count) throw taken();
+    if (c.carriedFromId) {
+      const from = await tx.payrollAdjustment.findFirst({ where: { orgId, id: c.carriedFromId } });
+      if (from) await tx.payrollAdjustment.update({ where: { id: from.id }, data: { amount: round2(Number(from.amount) + Number(c.amount)) } });
+    }
+  }
+  return { installments: inst.length, adjustments: adj.length, loanIds: [...new Set(inst.map((i) => i.loanId))] };
+}
+
+/**
+ * What changed since a run was calculated, in words, or null (QA of #82, F4):
+ * an adjustment for somebody in it, the days or inputs, a salary, a payroll
+ * profile, who is in it, or the payroll settings. The calculation stamps
+ * calculatedAt after its own writes, so anything newer was changed by somebody.
+ * Sending for review or approving waits until it is calculated again.
+ */
+export async function runStale(orgId: string, run: { id: string; periodId: string; status: string; calculatedAt: Date | null }): Promise<string | null> {
+  if (!run.calculatedAt || !['CALCULATED', 'REVIEW'].includes(run.status)) return null;
+  const at = run.calculatedAt;
+  const [members, slips] = await Promise.all([
+    payrollPrisma.payrollRunEmployee.findMany({ where: { orgId, runId: run.id, inclusion: 'INCLUDED' }, select: { employeeId: true } }),
+    payrollPrisma.salarySlip.findMany({ where: { orgId, runId: run.id }, select: { employeeId: true } }),
+  ]);
+  const ids = members.map((m) => m.employeeId);
+  /* Somebody put in or taken out since: the payslips are not for the people in it. */
+  const slipFor = new Set(slips.map((x) => x.employeeId));
+  const peopleChanged = ids.length !== slipFor.size || ids.some((id) => !slipFor.has(id));
+  const structureIds = (await payrollPrisma.salaryAssignment.findMany({ where: { orgId, employeeId: { in: ids }, status: { not: 'CANCELLED' } }, select: { structureId: true } })).map((a) => a.structureId);
+  const componentIds = (await payrollPrisma.salaryStructureComponent.findMany({ where: { structureId: { in: structureIds } }, select: { componentId: true } })).map((x) => x.componentId);
+  const since = { updatedAt: { gt: at } };
+  const [adjustments, inputs, assignments, profiles, settings, loans, instalments, declarations, statutory, structures] = await Promise.all([
+    /* A draft is not taken by a calculation, so changing one changes nothing here. */
+    payrollPrisma.payrollAdjustment.count({ where: { orgId, employeeId: { in: ids }, status: { not: 'DRAFT' }, ...since, OR: [{ periodId: run.periodId }, { carriedByRunId: { not: null } }] } }),
+    payrollPrisma.payrollInput.count({ where: { orgId, runId: run.id, ...since } }),
+    payrollPrisma.salaryAssignment.count({ where: { orgId, employeeId: { in: ids }, ...since } }),
+    payrollPrisma.employeePayrollProfile.count({ where: { orgId, employeeId: { in: ids }, ...since } }),
+    payrollPrisma.payrollSetting.count({ where: { orgId, ...since } }),
+    payrollPrisma.payrollLoan.count({ where: { orgId, employeeId: { in: ids }, ...since } }),
+    payrollPrisma.payrollLoanInstallment.count({ where: { orgId, loan: { employeeId: { in: ids } }, ...since } }),
+    payrollPrisma.taxDeclaration.count({ where: { orgId, employeeId: { in: ids }, ...since } }),
+    Promise.all([
+      payrollPrisma.statutoryScheme.count({ where: { orgId, ...since } }),
+      payrollPrisma.statutoryRule.count({ where: { orgId, ...since } }),
+      payrollPrisma.employeeStatutoryConfig.count({ where: { orgId, employeeId: { in: ids }, ...since } }),
+    ]).then((n) => n.reduce((t, x) => t + x, 0)),
+    Promise.all([
+      payrollPrisma.salaryStructure.count({ where: { orgId, id: { in: structureIds }, ...since } }),
+      payrollPrisma.salaryStructureComponent.count({ where: { structureId: { in: structureIds }, ...since } }),
+      payrollPrisma.salaryComponent.count({ where: { orgId, id: { in: componentIds }, ...since } }),
+    ]).then((n) => n.reduce((t, x) => t + x, 0)),
+  ]);
+  const what = [
+    adjustments ? 'adjustments' : '',
+    inputs ? 'days or inputs' : '',
+    peopleChanged ? 'who is in it' : '',
+    assignments ? 'salaries' : '',
+    profiles ? 'payroll details' : '',
+    settings ? 'payroll settings' : '',
+    loans || instalments ? 'loans' : '',
+    declarations ? 'tax declarations' : '',
+    statutory ? 'PF, ESI, tax or PT rules' : '',
+    structures ? 'salary structure or components' : '',
+  ].filter(Boolean);
+  return what.length ? `Changed since it was calculated: ${what.join(', ')}. Calculate again before sending it on.` : null;
+}
+
+/** Each loan's outstanding is its schedule's, re-derived rather than decremented. */
+export async function rederiveLoans(tx: Prisma.TransactionClient, orgId: string, loanIds: string[]) {
+  for (const loanId of [...new Set(loanIds)]) {
+    const installments = await tx.payrollLoanInstallment.findMany({ where: { orgId, loanId } });
+    const left = installments.filter((i) => i.status === 'PENDING');
+    const outstanding = round2(left.reduce((t, i) => t + Number(i.dueAmount), 0));
+    const loan = await tx.payrollLoan.findFirst({ where: { orgId, id: loanId }, select: { status: true } });
+    if (!loan || !['ACTIVE', 'COMPLETED'].includes(loan.status)) continue;
+    await tx.payrollLoan.update({ where: { id: loanId }, data: { outstandingBalance: outstanding, status: left.length ? 'ACTIVE' : 'COMPLETED' } });
+  }
+}
+
 export type CalculatedSlip = {
   employeeId: string;
   grossEarnings: number;
@@ -811,11 +1011,85 @@ export type CalculatedSlip = {
  * do while a run is still open, and a half-replaced set of payslips is worse
  * than either version.
  */
+export class RunBusyError extends Error {
+  status = 409;
+  code = 'RUN_BUSY';
+}
+
+/** What a calculation read was taken by something else before it wrote (a full and final paid meanwhile): worked out again. */
+export class RunSourcesMovedError extends Error {
+  status = 409;
+  code = 'RUN_SOURCES_MOVED';
+}
+
+/** Changed while it was being worked out (cancelled, approved): the calculation is not written. */
+export class RunNotEditableError extends Error {
+  status = 409;
+  code = 'RUN_NOT_EDITABLE';
+}
+
+/** The statuses a calculation may write over (payrollRuns.ts EDITABLE). */
+const CALCULABLE = ['DRAFT', 'CALCULATED', 'REVIEW'];
+
+/** Long enough for the largest calculation; a lease left by a crashed instance frees itself after this. */
+export const CALC_LEASE_MS = 10 * 60_000;
+
+/** A run nobody is calculating, or whose calculation has gone quiet past its lease. */
+export const leaseFree = () => ({ OR: [{ calcLeaseToken: null }, { calcLeaseUntil: { lt: new Date() } }] });
+
+/**
+ * One calculation of a run at a time: two at once read the same carried rows
+ * and wrote over each other's payslips (intermittent failures in review).
+ *
+ * The lock is a lease on the run's own row, taken and let go with one
+ * statement each, so it holds no database connection while the calculation
+ * runs. (It used to be an advisory lock inside a transaction kept open for the
+ * whole calculation; production's payroll pool is one connection, so the
+ * calculation waited on itself and timed out. Re-review of PR #82.) A second
+ * click waits for the first, then works it out again. The write checks the
+ * lease is still this calculation's, so one that outlived its lease writes
+ * nothing.
+ *
+ * Something the calculation read and a full and final settled meanwhile
+ * stops the write (RunSourcesMovedError); the calculation is then worked out
+ * again from what is left, so nothing is taken twice.
+ */
 export async function calculateRun(orgId: string, runId: string, userId: string): Promise<{ slips: CalculatedSlip[]; issues: RunIssue[] }> {
+  const token = `${process.pid}:${randomUUID()}`;
+  const started = Date.now();
+  for (;;) {
+    const got = await payrollPrisma.payrollRun.updateMany({
+      where: { orgId, id: runId, ...leaseFree() },
+      data: { calcLeaseToken: token, calcLeaseUntil: new Date(Date.now() + CALC_LEASE_MS) },
+    });
+    if (got.count) break;
+    if (!(await payrollPrisma.payrollRun.count({ where: { orgId, id: runId } }))) throw new Error('No such payroll run.');
+    if (Date.now() - started > 180_000) throw new RunBusyError('This payroll is being calculated by somebody else. Try again in a minute.');
+    await new Promise((r) => setTimeout(r, 200 + Math.floor(Math.random() * 200)));
+  }
+  try {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await calculateRunLocked(orgId, runId, userId, token);
+      } catch (e) {
+        if (!(e instanceof RunSourcesMovedError) || attempt >= 3) throw e;
+      }
+    }
+  } finally {
+    await payrollPrisma.payrollRun.updateMany({ where: { orgId, id: runId, calcLeaseToken: token }, data: { calcLeaseToken: null, calcLeaseUntil: null } });
+  }
+}
+
+async function calculateRunLocked(orgId: string, runId: string, userId: string, token: string): Promise<{ slips: CalculatedSlip[]; issues: RunIssue[] }> {
   const { issues } = await validateRun(orgId, runId);
   const blocking = issues.filter((i) => i.severity === 'ERROR');
   if (blocking.length) {
     return { slips: [], issues };
+  }
+
+  /* A later run already took what this one carried: its payslip stands on this one's. */
+  if (await carriesTakenElsewhere(orgId, runId)) {
+    throw new CarryTakenError('A later payroll has already taken a deduction this one carried forward. Cancel or recalculate that payroll first.');
   }
 
   const ctx = await loadRunContext(orgId, runId);
@@ -844,7 +1118,13 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
   /* Loan instalments this calculation took in full, marked once the payslips
      are written rather than while they are being worked out — the instalment
      records the payslip that recovered it, so it needs the slip to exist. */
-  const recoveredInstallments: { employeeId: string; installmentId: string }[] = [];
+  const recoveredInstallments: { employeeId: string; installmentId: string; take: number; due: number; recovery: DueRecovery }[] = [];
+  /* What a payslip could not take, carried to the next run (deductionCap.ts). */
+  const carries: Carry[] = [];
+  /* Payslips that held deductions back, for the run's sentence. */
+  const capped: { employeeId: string; carried: number }[] = [];
+  /* People whose entered deductions pass the share of wages on their own. */
+  const overLimit: { employeeId: string; name: string; counted: number; limit: number; percent: number }[] = [];
   /* Every loan this run touched, whether it recovered from it or not — a loan
      whose instalment was skipped still needs its outstanding re-derived. */
   const loanIdsTouched: string[] = [];
@@ -879,19 +1159,45 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
      */
     let adjustmentEarnings = 0;
     let adjustmentDeductions = 0;
+    /* Loss of pay booked as a deduction (a cut-off correction, a late-mark penalty caught up): not a deduction from wages earned. */
+    let lossOfPayDeductions = 0;
+    /* Late-mark penalties: count toward the share of wages unless the company's setting says otherwise. */
+    let latePenaltyDeductions = 0;
+    let reimbursements = 0;
     const adjustmentLines: any[] = [];
+    /* Instalments and advance recoveries: taken last, within the share of wages the law allows (deductionCap.ts). */
+    const deferrable: Deferrable[] = [];
     for (const adj of adjustments) {
-      consumedAdjustmentIds.push(adj.id);
       const component = ctx.components.get(adj.componentId);
       const amount = Number(adj.amount) || 0;
       const isDeduction = adj.type === 'DEDUCTION' || component?.type === 'DEDUCTION';
+      if (isDeduction && isDeferrableAdjustment(adj)) {
+        const fromPeriod = adj.carriedByRunId ? adj.periodId : null;
+        deferrable.push({
+          key: `adj:${adj.id}`,
+          kind: 'ADJUSTMENT',
+          id: adj.id,
+          due: amount,
+          componentId: adj.componentId,
+          name: fromPeriod ? `${component?.name || 'Advance recovery'} (carried from ${ctx.periodName.get(fromPeriod) || 'an earlier month'})` : component?.name || 'Advance recovery',
+          code: component?.code || 'ADJUSTMENT',
+          order: fromPeriod ? ctx.periodStart.get(fromPeriod) || '0000' : '9999',
+          component,
+          adjustment: adj,
+        });
+        continue;
+      }
+      consumedAdjustmentIds.push(adj.id);
       if (isDeduction) adjustmentDeductions += amount;
       else adjustmentEarnings += amount;
+      if (isDeduction && isCorrection(adj)) lossOfPayDeductions += amount;
+      if (isDeduction && isLatePenalty(adj)) latePenaltyDeductions += amount;
+      if (!isDeduction && String(adj.id).startsWith('expense-claim:')) reimbursements += amount;
       adjustmentLines.push({
         componentId: adj.componentId,
         componentCode: component?.code || 'ADJUSTMENT',
         /* A correction for days an earlier run counted as present says what it corrects: "Correction for 26–30 Sep: 2 days absent". */
-        componentName: isCorrection(adj) && adj.reason ? adj.reason : component?.name || 'Adjustment',
+        componentName: (isCorrection(adj) || isLatePenalty(adj)) && adj.reason ? adj.reason : component?.name || 'Adjustment',
         type: isDeduction ? 'DEDUCTION' : 'EARNING',
         amount,
         isTaxable: component?.isTaxable ?? true,
@@ -906,36 +1212,111 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
     let netPay = round2(result.netPay + adjustmentEarnings - adjustmentDeductions);
     const employerCost = round2(result.employerCost + adjustmentEarnings);
 
-    /*
-     * Loan recovery comes last, against what is actually left.
-     *
-     * Last because it is the only deduction that has to know the answer to
-     * everything before it: an instalment is capped at what remains, so that a
-     * month where somebody earned less than they owe produces a small recovery
-     * rather than a negative payslip. What is not taken stays owed.
-     */
     for (const recovery of ctx.recoveriesByEmployee.get(employee.id) || []) {
       loanIdsTouched.push(recovery.loanId);
-      const amount = recoverable(recovery.dueAmount, netPay);
-      if (amount <= 0) continue;
-
       const component = ctx.components.get(recovery.componentId);
-      totalDeductions = round2(totalDeductions + amount);
-      netPay = round2(netPay - amount);
-      adjustmentLines.push({
+      const name = component?.name || 'Loan recovery';
+      deferrable.push({
+        key: `inst:${recovery.installmentId}`,
+        kind: 'INSTALLMENT',
+        id: recovery.installmentId,
+        due: recovery.dueAmount,
         componentId: recovery.componentId,
-        componentCode: component?.code || 'LOAN',
-        componentName: component?.name || 'Loan recovery',
-        type: 'DEDUCTION',
-        amount,
-        isTaxable: false,
-        displayOrder: 950,
-        expenseLedgerId: component?.expenseLedgerId ?? null,
-        liabilityLedgerId: component?.liabilityLedgerId ?? null,
+        name: recovery.carriedFromPeriodId ? `${name} (carried from ${ctx.periodName.get(recovery.carriedFromPeriodId) || 'an earlier month'})` : name,
+        code: component?.code || 'LOAN',
+        order: recovery.carriedFromPeriodId ? recovery.carriedFromStart || '0000' : '9999',
+        component,
+        recovery,
       });
-      /* Only a full instalment closes. A part recovery leaves the instalment
-         owed, and next month takes the rest. */
-      if (amount >= recovery.dueAmount) recoveredInstallments.push({ employeeId: employee.id, installmentId: recovery.installmentId });
+    }
+
+    /*
+     * Loan instalments and advance recoveries come last, against what is
+     * actually left and within the share of wages the law allows: the least
+     * of what is due, what the limit leaves and what net pay leaves. What is
+     * not taken is not written off: it is carried to the next run, and the
+     * payslip says so. Oldest first.
+     */
+    deferrable.sort((a, b) => a.order.localeCompare(b.order));
+    const statutoryDeductions = result.lines
+      .filter((l) => l.type === 'DEDUCTION' && engine.find((c) => c.componentId === l.componentId)?.statutoryScheme)
+      .reduce((t, l) => t + l.amount, 0);
+    const wages = round2(grossEarnings - reimbursements);
+    const statutoryCounted = ctx.capRule.countsStatutory ? round2(statutoryDeductions) : 0;
+    const counted = round2(totalDeductions - lossOfPayDeductions - (ctx.capRule.countsPenalties ? 0 : latePenaltyDeductions) - (ctx.capRule.countsStatutory ? 0 : statutoryDeductions));
+    const cap = capDeductions({ percent: ctx.capRule.percent, wages, counted, netPay, items: deferrable.map((d) => ({ key: d.key, due: d.due })) });
+    const carriedHere: { label: string; amount: number }[] = [];
+    /* What each recovery actually took, for the payslip's record. */
+    const takenOf = new Map<string, number>();
+    for (const d of deferrable) {
+      const take = cap.taken.get(d.key) || 0;
+      if (d.kind === 'ADJUSTMENT') takenOf.set(d.id, take);
+      const rest = round2(d.due - take);
+      if (d.kind === 'ADJUSTMENT') consumedAdjustmentIds.push(d.id);
+      if (take > 0) {
+        totalDeductions = round2(totalDeductions + take);
+        netPay = round2(netPay - take);
+        adjustmentLines.push({
+          componentId: d.componentId,
+          componentCode: d.code,
+          componentName: rest > 0 ? partWords(d.name, take, d.due, Boolean(employee.dateOfLeaving && String(employee.dateOfLeaving).slice(0, 10) <= ctx.period.endDate)) : d.name,
+          type: 'DEDUCTION',
+          amount: take,
+          isTaxable: false,
+          displayOrder: d.kind === 'INSTALLMENT' ? 950 : 940,
+          expenseLedgerId: d.component?.expenseLedgerId ?? null,
+          liabilityLedgerId: d.component?.liabilityLedgerId ?? null,
+        });
+      }
+      if (rest > 0) {
+        carriedHere.push({ label: d.name.replace(/ \(carried from [^)]*\)$/, ''), amount: rest });
+        carries.push({ employeeId: employee.id, kind: d.kind, id: d.id, take, rest, recovery: d.recovery, adjustment: d.adjustment });
+      }
+      if (d.kind === 'INSTALLMENT') recoveredInstallments.push({ employeeId: employee.id, installmentId: d.id, take, due: d.due, recovery: d.recovery! });
+    }
+    const deductionNote = carriedHere.length
+      ? {
+          percent: ctx.capRule.percent,
+          wages,
+          limit: cap.limit,
+          counted,
+          carried: carriedHere,
+          total: round2(carriedHere.reduce((t, c) => t + c.amount, 0)),
+          /* Why: the limit was reached, or the payslip had nothing left to take from. */
+          reason: cap.room <= 0 ? 'LIMIT' : 'NET_PAY',
+        }
+      : null;
+    if (deductionNote) capped.push({ employeeId: employee.id, carried: deductionNote.total });
+    /*
+     * Only instalments give way; nothing entered is altered here. Statutory
+     * deductions alone past the limit are the law's own and only warn; no
+     * instalment is taken on top of them (the limit leaves no room). Whatever
+     * somebody entered (a fine, a damage recovery, a late-mark penalty) is
+     * still taken, so it passes the limit and is gated either way: saved on
+     * the run, and sending for review or approving waits until it is reduced
+     * or somebody records why it stands (payrollRuns.ts over-limit-reason).
+     */
+    const limitWords = `${ctx.capRule.percent}% of wages (₹${cap.limit.toLocaleString('en-IN')})`;
+    const statutoryAlone = statutoryCounted > cap.limit + 0.005;
+    const entered = round2(counted - statutoryCounted);
+    if (statutoryAlone) {
+      issues.push({
+        severity: 'WARNING',
+        code: 'STATUTORY_OVER_LIMIT',
+        employeeId: employee.id,
+        message: `${employee.name}: PF, ESI, professional tax and income tax alone pass ${limitWords}. No loan or advance instalment was taken on top.${entered > 0.005 ? ` ₹${entered.toLocaleString('en-IN')} of other deductions was still taken.` : ''}`,
+      });
+    }
+    if (counted > cap.limit + 0.005 && (!statutoryAlone || entered > 0.005)) {
+      overLimit.push({ employeeId: employee.id, name: employee.name, counted, limit: cap.limit, percent: ctx.capRule.percent });
+      issues.push({
+        severity: 'WARNING',
+        code: 'DEDUCTIONS_OVER_LIMIT',
+        employeeId: employee.id,
+        message: statutoryAlone
+          ? `${employee.name}: ₹${entered.toLocaleString('en-IN')} of deductions entered on top of PF, ESI, professional tax and income tax, which already pass ${limitWords}. Reduce them, or record why they stand before sending for review.`
+          : `${employee.name}: deductions of ₹${counted.toLocaleString('en-IN')} pass ${limitWords} before any instalment. Reduce them, or record why they stand before sending for review.`,
+      });
     }
 
     const previousNetPay = previousByEmployee.has(employee.id) ? previousByEmployee.get(employee.id)! : null;
@@ -990,7 +1371,7 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
         }),
         inputSnapshotJson: JSON.stringify({ ...input, periodDays: daysBetween(ctx.period.startDate, ctx.period.endDate) }),
         adjustmentSnapshotJson: JSON.stringify(
-          adjustments.map((a) => ({ id: a.id, componentId: a.componentId, amount: Number(a.amount), type: a.type, reason: a.reason }))
+          adjustments.map((a) => ({ id: a.id, componentId: a.componentId, amount: takenOf.has(a.id) ? takenOf.get(a.id)! : Number(a.amount), type: a.type, reason: a.reason }))
         ),
         /* Which rule version produced each statutory figure. A rate published
            in October must not change what this payslip says. */
@@ -1009,6 +1390,8 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
             ruleVersion: r.ruleVersion,
           })),
         }),
+        /* Deductions held to the legal share of wages, and what was carried (deductionCap.ts). */
+        deductionNote: deductionNote ?? Prisma.DbNull,
         createdByUserId: userId,
       },
       lines: [
@@ -1086,7 +1469,29 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
     { gross: 0, deductions: 0, employer: 0, net: 0, cost: 0 }
   );
 
+  const cappedTotal = round2(capped.reduce((t, c) => t + c.carried, 0));
+  /* Rows this calculation read as still owed: approved, or taken by this run before. Never one a full and final has taken since. */
+  const live = { OR: [{ status: 'APPROVED' }, { status: 'CONSUMED', consumedByRunId: runId }] };
   await payrollPrisma.$transaction(async (tx) => {
+    /*
+     * Still this calculation's, and still open: the lease is renewed and the
+     * run's row stays locked until this commits, so a cancel, an approval or
+     * a calculation that took over a lapsed lease waits or finds it moved.
+     */
+    const fence = await tx.payrollRun.updateMany({
+      where: { orgId, id: runId, calcLeaseToken: token, status: { in: CALCULABLE } },
+      data: { calcLeaseUntil: new Date(Date.now() + CALC_LEASE_MS) },
+    });
+    if (!fence.count) {
+      const now = await tx.payrollRun.findFirst({ where: { orgId, id: runId }, select: { status: true, calcLeaseToken: true } });
+      if (now && now.calcLeaseToken !== token) throw new RunBusyError('This payroll was being calculated by somebody else at the same time. Try again in a minute.');
+      throw new RunNotEditableError(`This payroll is ${String(now?.status || 'gone').toLowerCase()} now and was not calculated. Reload it.`);
+    }
+
+    /* What a calculation before carried goes back on what it came from, then is carried again below as this one decides. */
+    const undone = await undoCarries(tx, orgId, runId);
+    loanIdsTouched.push(...undone.loanIds);
+
     /* Replaced wholesale: recalculating is ordinary while a run is open, and a
        half-replaced set of payslips is worse than either version. */
     const old = await tx.salarySlip.findMany({ where: { orgId, runId }, select: { id: true } });
@@ -1110,33 +1515,80 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
 
       /* The instalment records which payslip took it, which is what lets
          somebody asked about a recovery answer from the loan. */
-      const taken = recoveredInstallments.filter((r) => r.employeeId === w.slip.employeeId).map((r) => r.installmentId);
+      const taken = recoveredInstallments.filter((r) => r.employeeId === w.slip.employeeId && r.take >= r.due).map((r) => r.installmentId);
       if (taken.length) {
-        await tx.payrollLoanInstallment.updateMany({
-          where: { orgId, id: { in: taken } },
+        /* Only while still owed (or this run's own from before): one a full and final settled meanwhile is not taken again. */
+        const n = await tx.payrollLoanInstallment.updateMany({
+          where: { orgId, id: { in: taken }, OR: [{ status: 'PENDING' }, { status: 'RECOVERED', slipId: { in: oldIds } }] },
           data: { status: 'RECOVERED', slipId: slip.id, recoveredAt: new Date() },
         });
+        if (n.count !== taken.length) throw new RunSourcesMovedError('A loan instalment this payroll takes was settled meanwhile.');
+      }
+
+      /*
+       * Part taken (or none): the instalment becomes what this payslip took,
+       * and the rest a new instalment carried to the next run. The schedule
+       * still adds up to what was lent, and "which month was short" is a row.
+       */
+      for (const c of carries.filter((x) => x.employeeId === w.slip.employeeId)) {
+        if (c.kind === 'INSTALLMENT' && c.recovery) {
+          const r = c.recovery;
+          const share = r.dueAmount > 0 ? Math.min(1, Math.max(0, r.principalAmount / r.dueAmount)) : 1;
+          const takePrincipal = round2(c.take * share);
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payroll-loan-schedule:${r.loanId}`}))`;
+          const n = await tx.payrollLoanInstallment.updateMany({
+            where: { orgId, id: r.installmentId, OR: [{ status: 'PENDING' }, { status: 'RECOVERED', slipId: { in: oldIds } }] },
+            data: { dueAmount: c.take, principalAmount: takePrincipal, interestAmount: round2(c.take - takePrincipal), status: 'RECOVERED', slipId: slip.id, recoveredAt: new Date() },
+          });
+          if (!n.count) throw new RunSourcesMovedError('A loan instalment this payroll takes was settled meanwhile.');
+          const last = await tx.payrollLoanInstallment.findFirst({ where: { loanId: r.loanId }, orderBy: { sequence: 'desc' }, select: { sequence: true } });
+          const restPrincipal = round2(r.principalAmount - takePrincipal);
+          await tx.payrollLoanInstallment.create({
+            data: {
+              accountId: ctx.run.accountId,
+              orgId,
+              loanId: r.loanId,
+              periodId: null,
+              sequence: (last?.sequence || 0) + 1,
+              dueAmount: c.rest,
+              principalAmount: restPrincipal,
+              interestAmount: round2(c.rest - restPrincipal),
+              status: 'PENDING',
+              carriedFromId: r.installmentId,
+              carriedByRunId: runId,
+              carriedFromPeriodId: ctx.run.periodId,
+            },
+          });
+          loanIdsTouched.push(r.loanId);
+        } else if (c.kind === 'ADJUSTMENT' && c.adjustment) {
+          const a = c.adjustment;
+          const n = await tx.payrollAdjustment.updateMany({ where: { orgId, id: a.id, ...live }, data: { amount: c.take } });
+          if (!n.count) throw new RunSourcesMovedError('A deduction this payroll takes was taken by a full and final meanwhile.');
+          await tx.payrollAdjustment.create({
+            data: {
+              accountId: a.accountId,
+              orgId,
+              branchId: a.branchId,
+              employeeId: a.employeeId,
+              componentId: a.componentId,
+              /* Held in this run's period; the next run for the person takes it (loadRunContext). */
+              periodId: ctx.run.periodId,
+              type: 'DEDUCTION',
+              amount: c.rest,
+              reason: `Carried from ${ctx.period.name}: ${String(a.reason || 'advance recovery').replace(/^Carried from [^:]*: /, '')}`.slice(0, 240),
+              reference: a.reference,
+              status: 'APPROVED',
+              approvedAt: new Date(),
+              approvedByUserId: a.approvedByUserId,
+              carriedFromId: a.id,
+              carriedByRunId: runId,
+              createdByUserId: userId,
+            },
+          });
+        }
       }
     }
 
-    await tx.payrollRun.update({
-      where: { id: runId },
-      data: {
-        status: 'CALCULATED',
-        calculatedAt: new Date(),
-        engineVersion: ENGINE_VERSION,
-        employeeCount: results.length,
-        grossTotal: round2(totals.gross),
-        deductionTotal: round2(totals.deductions),
-        employerContributionTotal: round2(totals.employer),
-        netTotal: round2(totals.net),
-        employerCostTotal: round2(totals.cost),
-        errorCount: 0,
-        warningCount: issues.filter((i) => i.severity === 'WARNING').length,
-      },
-    });
-
-    await tx.payrollRunEmployee.updateMany({ where: { orgId, runId }, data: { state: 'CALCULATED' } });
 
     /*
      * A one-off is spent once.
@@ -1150,10 +1602,13 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
      * same set: a rerun replaces the payslips wholesale, so the adjustments
      * belong to whichever calculation currently stands.
      */
-    await tx.payrollAdjustment.updateMany({
-      where: { orgId, id: { in: consumedAdjustmentIds } },
+    const toConsume = [...new Set(consumedAdjustmentIds)];
+    const consumed = await tx.payrollAdjustment.updateMany({
+      /* Only what is still owed: a row a full and final took meanwhile keeps its settlement, and the whole calculation is worked out again. */
+      where: { orgId, id: { in: toConsume }, ...live },
       data: { status: 'CONSUMED', consumedByRunId: runId },
     });
+    if (consumed.count !== toConsume.length) throw new RunSourcesMovedError('An adjustment this payroll takes was taken by a full and final meanwhile.');
     /* An adjustment this run consumed before, and no longer does — somebody
        was taken out of the payroll — goes back to being owed. */
     await tx.payrollAdjustment.updateMany({
@@ -1169,25 +1624,46 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
      * after somebody was taken out of it leaves their loan looking repaid by a
      * payslip that no longer exists.
      */
+    const unrecovered = await tx.payrollLoanInstallment.findMany({
+      where: { orgId, slipId: { in: oldIds }, status: 'RECOVERED', id: { notIn: recoveredInstallments.map((r) => r.installmentId) } },
+      select: { loanId: true },
+    });
     await tx.payrollLoanInstallment.updateMany({
       where: { orgId, slipId: { in: oldIds }, status: 'RECOVERED', id: { notIn: recoveredInstallments.map((r) => r.installmentId) } },
       data: { status: 'PENDING', slipId: null, recoveredAt: null },
     });
+    loanIdsTouched.push(...unrecovered.map((u) => u.loanId));
 
     /* Each loan's outstanding is the schedule's, re-derived rather than
        decremented: a counter that drifts from its instalments is a counter
        nobody can trust. */
-    const touched = [...new Set(loanIdsTouched)];
-    for (const loanId of touched) {
-      const installments = await tx.payrollLoanInstallment.findMany({ where: { orgId, loanId } });
-      const left = installments.filter((i) => i.status === 'PENDING');
-      const outstanding = round2(left.reduce((t, i) => t + Number(i.dueAmount), 0));
-      await tx.payrollLoan.update({
-        where: { id: loanId },
-        data: { outstandingBalance: outstanding, status: left.length ? 'ACTIVE' : 'COMPLETED' },
-      });
-    }
-  });
+    await rederiveLoans(tx, orgId, loanIdsTouched);
+
+    await tx.payrollRunEmployee.updateMany({ where: { orgId, runId }, data: { state: 'CALCULATED' } });
+    /* Stamped last, so everything this calculation wrote is older than calculatedAt: anything newer changed since (runStale). */
+    await tx.payrollRun.update({
+      where: { id: runId },
+      data: {
+        status: 'CALCULATED',
+        calculatedAt: new Date(),
+        engineVersion: ENGINE_VERSION,
+        employeeCount: results.length,
+        grossTotal: round2(totals.gross),
+        deductionTotal: round2(totals.deductions),
+        employerContributionTotal: round2(totals.employer),
+        netTotal: round2(totals.net),
+        employerCostTotal: round2(totals.cost),
+        errorCount: 0,
+        warningCount: issues.filter((i) => i.severity === 'WARNING').length,
+        /* A recalculation starts the over-limit decision again: the figures it was about have been replaced. */
+        deductionCap: capped.length || overLimit.length
+          ? { percent: ctx.capRule.percent, people: capped.length, carried: cappedTotal, overLimit, overLimitReason: null }
+          : Prisma.DbNull,
+      },
+    });
+
+    /* A pool of one is shared with every other request: wait for it rather than fail, and give a large payroll time to write. */
+  }, { maxWait: 30_000, timeout: 120_000 });
 
   // The earning is canonical; this marker is reconciled after each committed calculation.
   const encashments = await payrollPrisma.payrollAdjustment.findMany({ where: { orgId, id: { startsWith: 'leave-encash:' } } });

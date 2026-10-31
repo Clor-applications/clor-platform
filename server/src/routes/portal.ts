@@ -39,6 +39,7 @@ import { lapseFor } from '../services/attendance/leaveJobs.js';
 import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
 import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { DeskError, listRequests as listDeskRequests, raiseRequest as raiseDeskRequest } from '../services/people/desk.js';
+import { readableLines } from '../services/payroll/slipLines.js';
 
 /**
  * The employee portal (ClorTime's /portal): staff without a CLOR user sign in
@@ -1444,8 +1445,8 @@ portalRouter.get('/payslips/:id', async (req, res) => {
         account: maskEnd(profile?.bankAccountNumber),
       },
       days: { working: Number(input.workingDays ?? 0), payable: Number(input.payableDays ?? 0), lossOfPay: Number(input.lwpDays ?? 0) },
-      earnings: slip.lines.filter((l: any) => l.type === 'EARNING').map(line),
-      deductions: slip.lines.filter((l: any) => l.type === 'DEDUCTION').map(line),
+      earnings: readableLines(slip.lines.filter((l: any) => l.type === 'EARNING'), slip.adjustmentSnapshotJson).map(line),
+      deductions: readableLines(slip.lines.filter((l: any) => l.type === 'DEDUCTION'), slip.adjustmentSnapshotJson).map(line),
       gross: Number(slip.grossEarnings),
       totalDeductions: Number(slip.totalDeductions),
       net: Number(slip.netPay),

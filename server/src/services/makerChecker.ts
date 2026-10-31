@@ -31,10 +31,10 @@ import { recordAudit } from './auditTrail.js';
 export type Refusal = { status: number; body: { error: string; code: string } };
 
 /** Does anybody besides `actorId` hold `permission` (or administer) in this company? */
-export async function anotherApproverExists(accountId: string, orgId: string, actorId: string, permission: string): Promise<boolean> {
+export async function anotherApproverExists(accountId: string, orgId: string, actorId: string, permission: string, notCounting: string[] = []): Promise<boolean> {
   const members = await outsideTenant('maker-checker: who else in this company can approve', () =>
     platformPrisma.userOrgMembership.findMany({
-      where: { orgId, NOT: { userId: actorId }, user: { isActive: true } },
+      where: { orgId, userId: { notIn: [actorId, ...notCounting] }, user: { isActive: true } },
       select: { userId: true },
       take: 500,
     }),
@@ -53,7 +53,8 @@ export async function anotherApproverExists(accountId: string, orgId: string, ac
  */
 export async function ownWorkRefusal(
   req: Request,
-  opts: { makers: Array<string | null | undefined>; module: string; resource: string; entity: string; entityId: string; what: string },
+  /* `subjects`: whoever the thing is about. They may never approve it (ownRecordRefusal), so they are not "somebody else who could". */
+  opts: { makers: Array<string | null | undefined>; module: string; resource: string; entity: string; entityId: string; what: string; subjects?: string[]; who?: string },
 ): Promise<Refusal | null> {
   const actorId = req.auth!.userId;
   if (!opts.makers.some((m) => m && m === actorId)) return null;
@@ -61,18 +62,21 @@ export async function ownWorkRefusal(
   const mode = (await getAuthPolicy(accountId, orgId)).makerChecker;
   const refuse: Refusal = {
     status: 403,
-    body: { error: `You prepared this ${opts.what}; somebody else has to approve it.`, code: 'MAKER_CHECKER' },
+    body: { error: `You prepared this ${opts.what}; ${opts.who || 'somebody else'} has to approve it.`, code: 'MAKER_CHECKER' },
   };
   if (mode === 'STRICT') return refuse;
-  if (mode !== 'ALLOW' && (await anotherApproverExists(accountId, orgId, actorId, permKey(opts.module, opts.resource, 'APPROVE')))) return refuse;
+  if (mode !== 'ALLOW' && (await anotherApproverExists(accountId, orgId, actorId, permKey(opts.module, opts.resource, 'APPROVE'), opts.subjects || []))) return refuse;
+  const subjectApprover = mode !== 'ALLOW' && (opts.subjects || []).length > 0 && (await anotherApproverExists(accountId, orgId, actorId, permKey(opts.module, opts.resource, 'APPROVE')));
   await recordAudit(req, {
     entity: opts.entity,
     entityId: opts.entityId,
     action: 'SELF_APPROVED',
     message: mode === 'ALLOW'
       ? `Approved by the person who prepared this ${opts.what} (the company allows one person to do both)`
-      : `Approved by the person who prepared this ${opts.what}: nobody else in the company can approve it`,
-    metadata: { makerChecker: mode },
+      : subjectApprover
+        ? `Approved by the person who prepared this ${opts.what}: the only other approver is the person it is about`
+        : `Approved by the person who prepared this ${opts.what}: nobody else in the company can approve it`,
+    metadata: { makerChecker: mode, ...(subjectApprover ? { subjects: opts.subjects } : {}) },
   });
   return null;
 }
@@ -91,10 +95,16 @@ export async function selfDecisionAllowed(accountId: string, orgId: string, user
 }
 
 /** Refused when the employee concerned is the person signed in. Never overridable. */
-export async function ownRecordRefusal(req: Request, employeeId: string, what: string): Promise<Refusal | null> {
+export async function ownRecordRefusal(req: Request, employeeId: string, what: string, says?: { who?: string; does?: string }): Promise<Refusal | null> {
   const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId: req.tenant!.orgId }, select: { userId: true } });
   if (e?.userId && e.userId === req.auth!.userId) {
-    return { status: 403, body: { error: `This is your own ${what}; somebody else has to approve it.`, code: 'OWN_RECORD' } };
+    return { status: 403, body: { error: `This is your own ${what}; ${says?.who || 'somebody else'} has to ${says?.does || 'approve it'}.`, code: 'OWN_RECORD' } };
   }
   return null;
+}
+
+/** The people a settlement is about: the employee's own sign-in, never counted as "somebody else who could approve". */
+export async function subjectUserIds(orgId: string, employeeId: string): Promise<string[]> {
+  const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { userId: true } });
+  return e?.userId ? [e.userId] : [];
 }

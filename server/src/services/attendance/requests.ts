@@ -657,8 +657,24 @@ async function actorNames(orgId: string, ids: Array<string | null | undefined>) 
 
 const HISTORY_WORDS: Record<string, string> = { ASKED: 'Asked', EDITED: 'Changed', REASON_EDITED: 'Changed the reason', MANAGER_APPROVED: 'Approved by the manager', APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled' };
 
+/**
+ * Who decides this request, in words that match what the reader can do (#80 QA F4: "Decided by: HR" while the
+ * manager's Approve closed it). The company's chain names the steps; a team-scoped reader who may approve it and
+ * is the person's manager, or stands in for them, decides it too, and is told so.
+ */
+async function deciderWords(orgId: string, r: any, chain: Chain, readerEmployeeId: string | null | undefined, reader: { canDecide?: boolean; scopeAll?: boolean }) {
+  const manager = await activeManagerOf(orgId, r.employeeId);
+  const step = manager && readerEmployeeId ? await managerStepBy(orgId, readerEmployeeId, r.employeeId) : null;
+  const me = step ? (step === readerEmployeeId ? 'you as their manager' : 'you, standing in for their manager') : null;
+  const You = me ? me.charAt(0).toUpperCase() + me.slice(1) : null;
+  if (chain === 'HR') return me && reader.canDecide && !reader.scopeAll ? `HR, or ${me}` : 'HR';
+  if (!manager) return 'HR';
+  if (chain === 'MANAGER') return You || manager.name || 'Their manager';
+  return `${You || manager.name || 'Their manager'}, then HR`;
+}
+
 /** The request's story for its drawer: the row with names, what happened and who did it, the month's usage, and the days as they stand. */
-export async function story(accountId: string, orgId: string, r: any) {
+export async function story(accountId: string, orgId: string, r: any, readerEmployeeId?: string | null, reader: { canDecide?: boolean; scopeAll?: boolean } = {}) {
   const [shaped] = await withNames(orgId, [r]);
   const history = Array.isArray(r.history) ? (r.history as HistoryEntry[]) : [];
   const names = await actorNames(orgId, [r.requestedByUserId, r.reviewedByUserId, ...history.map((h) => h.by)]);
@@ -670,14 +686,18 @@ export async function story(accountId: string, orgId: string, r: any) {
     chainOf(orgId, kind, rules),
   ]);
   const manager = chain !== 'HR' && r.status === 'PENDING' && !r.managerApprovedAt ? await activeManagerOf(orgId, r.employeeId) : null;
+  /* The manager (or their stand-in) reading it is not waiting on anyone: Approve takes their step, as it does on the Approvals row. */
+  const takesManagerStep = Boolean(manager && readerEmployeeId && (await managerStepBy(orgId, readerEmployeeId, r.employeeId)));
+  const decidedBy = await deciderWords(orgId, r, chain, readerEmployeeId, reader);
   return {
     request: shaped,
     history: history.map((h) => ({ ...h, byName: names.get(h.by) || null, what: HISTORY_WORDS[h.what] || h.what })),
     usage: use,
     rule: rules[kind],
     chain,
+    decidedBy,
     days: await withNames(orgId, days),
-    waitingForManager: chain === 'MANAGER_THEN_HR' && manager ? `${manager.name || 'Their manager'} has not approved this yet; the company asks for the manager first.` : null,
+    waitingForManager: chain === 'MANAGER_THEN_HR' && manager && !takesManagerStep ? `${manager.name || 'Their manager'} has not approved this yet; the company asks for the manager first.` : null,
   };
 }
 

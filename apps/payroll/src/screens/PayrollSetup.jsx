@@ -5,6 +5,7 @@ import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { getPayrollSetup } from '../api/payrollSetup';
 import { ProvisionalDaysSetting } from '../components/ProvisionalDaysSetting';
+import { DeductionCapSetting } from '../components/DeductionCapSetting';
 /*
  * Switching payroll on goes through the platform, not through a module of this
  * app's own. There is one record of what a company has bought — the feature
@@ -185,6 +186,9 @@ export default function PayrollSetup({ onOpen = () => {} }) {
 
       {/* How a run treats the days of the month that have not happened yet (O-11). */}
       <ProvisionalDaysSetting />
+
+      {/* How much of a payslip's wages deductions may take. */}
+      <DeductionCapSetting />
 
       </div>
     </div>

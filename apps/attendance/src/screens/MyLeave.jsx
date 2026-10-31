@@ -76,6 +76,7 @@ export default function MyLeave() {
       .then((d) => {
         setMe(d);
         setError('');
+        setUnlinked(false);
       })
       .catch((e) => {
         if (e?.status === 404) { setUnlinked(true); return; }
@@ -157,11 +158,12 @@ export default function MyLeave() {
           {me.types.map((t) => (
             <div key={t.id} role="listitem">
               {t.isPaid ? (
-                <button type="button" className="ui-metric" onClick={() => setExplaining(t.id)} aria-label={`${t.name}: ${amountFigure(t.available, t)} of ${amountFigure(t.allocated, t)}${isHourly(t) ? ' hours' : ''} left. How is this worked out?`}>
+                <button type="button" className="ui-metric" onClick={() => setExplaining(t.id)}>
                   <span>
                     <span className="ui-metric-value tabular-nums">{amountFigure(t.available, t)}<span className="ui-caption"> of {amountFigure(t.allocated, t)}{isHourly(t) ? ' hours' : ''}</span></span>
                     <span className="ui-metric-label">{t.name}{t.pending ? <span className="tabular-nums">, {amountFigure(t.pending, t)} waiting</span> : null}</span>
                     {t.projectedAvailable != null && t.projectedAvailable !== t.available ? <span className="ui-caption block tabular-nums">{amountFigure(t.available, t)} left · {amountFigure(t.projectedAvailable, t)} by period end</span> : null}
+                    <span className="sr-only">. How is this worked out?</span>
                   </span>
                 </button>
               ) : (

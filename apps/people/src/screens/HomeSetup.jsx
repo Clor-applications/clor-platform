@@ -5,6 +5,8 @@ import { changePeopleSetup, getPeopleSetup } from '@ui/personnel/api';
 import { setFeature } from '@platform/auth';
 import { branchId, orgId } from '@platform/context';
 import { notify } from '@ui/components/ui/notify';
+import { usePermissions } from '@ui/permissions/usePermissions';
+import { can } from '@ui/timeOff/shared';
 
 /**
  * People → Home, for a company still setting up (PRODUCT-VIEW §2): a short
@@ -25,9 +27,15 @@ export default function HomeSetup({ openScreen, onState }) {
     onState?.(d);
   }, [onState]);
 
+  /* Only someone who may set the company up asks for the list (the server refuses everyone else): a team manager's Home made a 403 on every visit. */
+  const perms = usePermissions();
+  const settled = Boolean(perms && !perms.loading);
+  const mayAsk = settled && (Boolean(perms.error) || can(perms, 'PEOPLE::Employees::CREATE'));
   useEffect(() => {
+    if (!settled) return;
+    if (!mayAsk) { apply(null); return; }
     getPeopleSetup().then(apply).catch(() => apply(null));
-  }, [apply]);
+  }, [apply, settled, mayAsk]);
 
   const change = async (body, key) => {
     setBusy(key);
@@ -65,8 +73,7 @@ export default function HomeSetup({ openScreen, onState }) {
     <>
       {simpleMode?.suggest ? (
         <section className="ui-card p-4 flex flex-wrap items-start gap-3" aria-labelledby="simple-h" role="status">
-          {/* Wide enough to read, or it wraps under the buttons: squeezed beside them on a phone it was one word a line. */}
-          <div className="min-w-0 flex-[1_1_16rem]">
+          <div className="min-w-0 flex-1 basis-64">
             <h2 id="simple-h" className="font-medium">Your company has grown</h2>
             <p className="ui-caption">
               {simpleMode.reasons.join(', ').replace(/^./, (c) => c.toUpperCase())}. Simple mode keeps organisation detail, such as legal entities, out of the menu. You can switch it off now, or later in Settings → Modules &amp; Apps.

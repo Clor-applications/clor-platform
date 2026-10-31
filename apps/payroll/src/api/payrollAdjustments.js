@@ -42,8 +42,9 @@ export async function approvePayrollAdjustment(id) {
   return adjustment;
 }
 
-export async function cancelPayrollAdjustment(id) {
-  const { adjustment } = await apiFetch(`${base()}/${encodeURIComponent(id)}/cancel`, { ...opts, method: 'POST' });
+/** A carried deduction (money still owed) is cancelled only with a reason. */
+export async function cancelPayrollAdjustment(id, reason) {
+  const { adjustment } = await apiFetch(`${base()}/${encodeURIComponent(id)}/cancel`, { ...opts, method: 'POST', ...(reason ? { body: { reason } } : {}) });
   return adjustment;
 }
 

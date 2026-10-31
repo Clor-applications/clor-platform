@@ -712,6 +712,8 @@ function MySchedule({ guard }) {
 // Leave
 // ---------------------------------------------------------------------------
 
+/** Which half of a one-day request, in the words the form used (E2: the row said "0.5 days" and not which half). */
+const halfWords = (half) => (half === 'FIRST' ? 'first half (morning)' : half === 'SECOND' ? 'second half (afternoon)' : '');
 const BLANK_LEAVE = { leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', startHalf: false, endHalf: false, fromTime: '', toTime: '', reason: '' };
 const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's'}`);
 const NUMBER_WORD = ['', 'one', 'two', 'three', 'four'];
@@ -987,8 +989,8 @@ function MyLeave({ guard }) {
             {data.requests.map((r) => (
               <li key={r.id} className="flex items-start justify-between gap-2">
                 <span>
-                  {r.leaveTypeName} · {r.fromTime && r.toTime ? hoursWords(hoursBetween(r.fromTime, r.toTime)) : `${r.days} day${r.days === 1 ? '' : 's'}`}
-                  <span className="ui-caption block">{r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`}{leaveHours(r) ? `, ${leaveHours(r)}` : r.overflowOfId ? ', over the balance: loss of pay' : ''}</span>
+                  {r.leaveTypeName} · {r.fromTime && r.toTime ? hoursWords(hoursBetween(r.fromTime, r.toTime)) : r.days === 0.5 ? 'half a day' : `${r.days} day${r.days === 1 ? '' : 's'}`}
+                  <span className="ui-caption block">{r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`}{leaveHours(r) ? `, ${leaveHours(r)}` : halfWords(r.halfDay) ? `, ${halfWords(r.halfDay)}` : ''}{!leaveHours(r) && r.overflowOfId ? ', over the balance: loss of pay' : ''}</span>
                   {r.note && r.status !== 'PENDING' ? <span className="ui-caption block">“{r.note}”</span> : null}
                 </span>
                 <span className="flex flex-col items-end gap-1">

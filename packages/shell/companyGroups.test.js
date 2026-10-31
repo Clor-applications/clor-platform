@@ -48,3 +48,23 @@ describe('permission words', async () => {
     expect(g[1].items.map((t) => t.id)).toEqual(['x']);
   });
 });
+
+describe("a phone's company menu keeps each account's name (#80 re-review)", () => {
+  it('lists same-named companies under their own account, the one in use ticked', async () => {
+    const React = (await import('react')).default;
+    const { render, screen, within, cleanup } = await import('@testing-library/react');
+    const { CompanyMenuItems, companyGroups } = await import('./Shell.jsx');
+    const tenants = [
+      { id: 'c1', name: 'Asha Textiles', accountId: 'a1' },
+      { id: 'c2', name: 'Asha Textiles', accountId: 'a2' },
+    ];
+    const accounts = [{ id: 'a1', name: 'Suresh', home: true, role: 'OWNER' }, { id: 'a2', name: 'Kumar & Co', home: false }];
+    const picked = [];
+    render(React.createElement(CompanyMenuItems, { groups: companyGroups(tenants, accounts), currentId: 'c1', onPick: (t) => picked.push(t.id) }));
+    const other = screen.getByRole('group', { name: 'Kumar & Co (outside access)' });
+    within(other).getByRole('menuitemradio', { name: 'Asha Textiles' }).click();
+    expect(picked).toEqual(['c2']);
+    expect(screen.getAllByRole('menuitemradio', { checked: true })).toHaveLength(1);
+    cleanup();
+  });
+});

@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requireAnyPermission, requirePermission } from '../middleware/rbac.js';
+import { authorize, requireAnyPermission, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { phoneStatus, recordPhonePunch } from '../services/attendance/phonePunch.js';
 import { hrMayDecide } from '../services/attendance/approvalChain.js';
@@ -687,7 +687,8 @@ attendanceRouter.get('/orgs/:orgId/attendance/requests/:id', can(PermissionActio
   if (!r || !inScope(await teamScope(req), r.employeeId)) return res.status(404).json({ error: 'No such request.' });
   try {
     const mine = await myFile(orgId, req.auth!.userId);
-    res.json({ ...(await story(accountId, orgId, r)), ownRequest: Boolean(mine && mine.id === r.employeeId) });
+    const reader = { canDecide: !(await authorize(req, ATTENDANCE_MODULE, PermissionAction.APPROVE as any, R.requests)), scopeAll: (await teamScope(req)).all };
+    res.json({ ...(await story(accountId, orgId, r, mine?.id, reader)), ownRequest: Boolean(mine && mine.id === r.employeeId) });
   } catch (e) {
     return sendError(res, e);
   }
@@ -938,7 +939,13 @@ const holidaySchema = z.object({
   areaId: z.string().trim().optional().nullable(),
 });
 
-attendanceRouter.get('/orgs/:orgId/attendance/holidays', can(PermissionAction.VIEW, R.holidays), async (req, res) => {
+/*
+ * The holiday list is no secret (every employee sees it in the employee app):
+ * whoever reads leave reads it too, so a team manager's Who's away and Leave
+ * calendar shade the holidays instead of meeting a 403. Changing it stays
+ * with Holidays' own rights.
+ */
+attendanceRouter.get('/orgs/:orgId/attendance/holidays', requireAnyPermission([ATTENDANCE_MODULE, PermissionAction.VIEW, R.holidays], [ATTENDANCE_MODULE, PermissionAction.VIEW, R.leave]), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const year = String(req.query.year || today().slice(0, 4)).slice(0, 4);

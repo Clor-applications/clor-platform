@@ -1,13 +1,15 @@
 /**
- * Manager scenarios (Rahul, team-limited): M1–M4, M6–M8.
+ * Manager scenarios (Rahul, team-limited): M1–M4, M6–M8, M11.
  * Requests come from Rahul's other reports, so Priya's balance stays the
  * employee scenarios' own: Imran (M1, M4), Lakshmi (M2, M4), Deepak (M3).
  */
 import { appLeave, decideLeave } from '../support/seed';
-import { appDay, dmy, webSpan, weekday, workdayFromNow } from '../support/dates';
+import { appDay, dmy, iso, todayIST, webSpan, weekday, workdayFromNow } from '../support/dates';
 import { readBalance } from '../support/leave';
 import { allowNoise, expect, test } from '../support/fixtures';
 import { choose } from '../support/ui';
+
+const todayMonth = () => iso(todayIST()).slice(0, 7);
 
 
 test.describe('Rahul manages his team', () => {
@@ -89,7 +91,6 @@ test.describe('Rahul manages his team', () => {
   });
 
   test('M4: who is away this week, only my team, clashes flagged', { tag: ['@M4'] }, async ({ asManager: rahul, w }, testInfo) => {
-    test.fail(true, "APP BUG: Who's away (and the Leave calendar) list two of Rahul's team away on the same day but flag no clash; only the approval panel's \"Also away then\" shows it");
     const day = workdayFromNow(4 + testInfo.retry);
     const one = await appLeave(w, 'imran', day, day, 'Wedding');
     const two = await appLeave(w, 'lakshmi', day, day, 'Wedding');
@@ -105,6 +106,30 @@ test.describe('Rahul manages his team', () => {
     await expect(soon).toContainText('Lakshmi Patil');
     await expect(rahul.main, 'only my team').not.toContainText('Arjun Das');
     await expect(rahul.main, 'two of the team away the same day is flagged').toContainText(/clash|overlap|2 (people )?away|both away|at the same time/i);
+    const together = rahul.main.getByRole('region', { name: 'Away the same day' });
+    await expect(together).toContainText('Imran Khan');
+    await expect(together).toContainText('Lakshmi Patil');
+    await expect(together).not.toContainText('Arjun Das');
+
+    /* The Leave calendar flags the same day, in that day's month. */
+    await rahul.open('Leave calendar');
+    if (day.slice(0, 7) !== todayMonth()) await rahul.main.getByRole('button', { name: 'Next month' }).click();
+    const flagged = rahul.main.getByRole('list', { name: 'Away the same day' });
+    await expect(flagged).toContainText(/2 people away the same day/);
+    await expect(flagged).toContainText(/Imran Khan, Lakshmi Patil/);
+  });
+
+  test('M11: Home, Who’s away and the Leave calendar open without a refusal', { tag: ['@M11', '@smoke'] }, async ({ asManager: rahul }) => {
+    /* What a manager's screens ask for is what a manager may read: no 403 behind the screens (holidays, announcements, events, the set-up list). */
+    const refused: string[] = [];
+    rahul.page.on('response', (r) => { if (r.status() === 403 && r.url().includes('/api/')) refused.push(`${r.request().method()} ${r.url().replace(/^https?:\/\/[^/]+/, '')}`); });
+    await rahul.goto();
+    await expect(rahul.title).toBeVisible();
+    await rahul.settle();
+    await rahul.open("Who's away");
+    await rahul.open('Leave calendar');
+    await rahul.open('Approvals');
+    expect(refused, 'API calls refused while a manager used his own screens').toEqual([]);
   });
 
   test('M6: a team member’s profile shows work, not pay or private details', { tag: ['@M6', '@smoke'] }, async ({ asManager: rahul, w }) => {

@@ -515,7 +515,7 @@ export default function PeopleOverview({ openScreen }) {
                 <div className="soft-snap-side">
                   <div className="soft-insight">
                     <span className="soft-label">Gender mix</span>
-                    <div className="soft-split" role="img" aria-label={insight.gender.map(([k, v]) => `${k} ${v}`).join(', ')}>
+                    <div className="soft-split" role="img" aria-label={insight.gender.map(([k, v]) => `${k} ${v}`).join(', ') || 'Gender mix: none recorded yet'}>
                       {insight.gender.map(([k, v], i) => <span key={k} style={{ flexGrow: v, '--dept': `var(--dept-${[6, 3, 5][i] || 8})` }} />)}
                     </div>
                     <ul className="soft-insight-list soft-insight-inline">
