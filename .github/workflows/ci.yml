@@ -227,11 +227,13 @@ jobs:
       - name: Typecheck the end-to-end tests
         run: npx tsc -p e2e
 
-      # Three runners share the Mac: each run takes ports of its own.
+      # Three runners share the Mac: each run takes ports of its own, from a
+      # range nothing else on the Mac uses (5400-5899 once picked 5432, the
+      # PostgreSQL port, and the web server could not start).
       - name: Ports for this run
         run: |
           echo "E2E_API_PORT=$((4400 + ${{ github.run_id }} % 500))" >> "$GITHUB_ENV"
-          echo "E2E_WEB_PORT=$((5400 + ${{ github.run_id }} % 500))" >> "$GITHUB_ENV"
+          echo "E2E_WEB_PORT=$((6400 + ${{ github.run_id }} % 500))" >> "$GITHUB_ENV"
 
       - name: End-to-end, smoke set
         if: github.event_name == 'pull_request'

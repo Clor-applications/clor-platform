@@ -95,7 +95,7 @@ Job `e2e` in `ci.yml` (Playwright, `e2e/README.md`), on the same Mac runners:
 | Push to main | nothing (the nightly run covers it) |
 
 Each run boots its own API and web app on ports taken from the run id
-(4400–4899, 5400–5899), builds a database of its own on the CI Postgres
+(4400–4899, 6400–6899), builds a database of its own on the CI Postgres
 (`clor_e2e_<run>_<attempt>` on 5434, as `clor_ci`) and drops it at the end. The
 Chromium build Playwright needs stays in `~/Library/Caches/ms-playwright`.
 The HTML report, traces and videos of failures, JUnit XML and
