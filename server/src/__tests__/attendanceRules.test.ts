@@ -138,7 +138,7 @@ describe('settings, versions and who may change them', () => {
 
   it('HR saves a change as a new version; a team role and another company may not', async () => {
     const v0 = (await ppl(c, 'get', '/attendance-rules').expect(200)).body.version;
-    const saved = (await ppl(c, 'put', '/attendance-rules', { marks: { on: true, late: { every: 3, graceMinutes: 15 } }, night: { from: '20:00' } }).expect(200)).body;
+    const saved = (await ppl(c, 'put', '/attendance-rules', { marks: { on: true, cutMode: 'HALF_DAY_PER_N', late: { every: 3, graceMinutes: 15 } }, night: { from: '20:00' } }).expect(200)).body;
     expect(saved.rules.marks).toMatchObject({ on: true, late: { every: 3, graceMinutes: 15 } });
     expect(saved.rules.night.from).toBe('20:00');
     expect(saved.version).toBeGreaterThan(v0);
@@ -178,7 +178,7 @@ describe('late marks: preview, waive, apply, payable days', () => {
     await day(c, asha.id, workdays[3], { late: 5 });
     for (const d of workdays.slice(0, 4)) await day(c, ravi.id, d, { late: 25 });
     for (const d of workdays.slice(0, 3)) await day(c, outsider.id, d, { late: 25 });
-    await ppl(c, 'put', '/attendance-rules', { marks: { on: true, late: { on: true, every: 3, free: 0, graceMinutes: 10 }, cost: 0.5, takeFrom: [casual.id] } }).expect(200);
+    await ppl(c, 'put', '/attendance-rules', { marks: { on: true, cutMode: 'HALF_DAY_PER_N', late: { on: true, every: 3, free: 0, graceMinutes: 10 }, cost: 0.5, takeFrom: [casual.id] } }).expect(200);
     /* The rule was in force all of last month (a month is worked out under the rule of its last day). */
     await backdateRules(c);
   }, 180_000);
@@ -518,7 +518,7 @@ describe('late marks: pay periods, half days, the rule of the month, leave and p
     /* Arjun's fourth late day was a half day, and his fifth has no punch-out: neither is a mark. */
     await day(c, arjun.id, workdays[3], { late: 20, status: 'HALF_DAY' });
     await day(c, arjun.id, workdays[4], { late: 20, outAt: null });
-    await ppl(c, 'put', '/attendance-rules', { marks: { on: true, late: { on: true, every: 3, free: 0 }, cost: 0.5, takeFrom: [casual.id] } }).expect(200);
+    await ppl(c, 'put', '/attendance-rules', { marks: { on: true, cutMode: 'HALF_DAY_PER_N', late: { on: true, every: 3, free: 0 }, cost: 0.5, takeFrom: [casual.id] } }).expect(200);
     await backdateRules(c);
   }, 180_000);
 
@@ -589,7 +589,7 @@ describe('payroll waits for undecided late marks (review of #78)', () => {
     const period = await pay('/periods', { name: `P ${rnd()}`, startDate: `${lastMonth}-26`, endDate: `${thisMonth}-25`, paymentDate: `${thisMonth}-25` }).expect(201);
     const run = await pay('/runs', { periodId: period.body.period.id }).expect(201);
     for (const d of workdays.slice(0, 3)) await day(c, employeeId, d, { late: 30 });
-    await ppl(c, 'put', '/attendance-rules', { marks: { on: true, late: { on: true, every: 3 }, cost: 0.5 } }).expect(200);
+    await ppl(c, 'put', '/attendance-rules', { marks: { on: true, cutMode: 'HALF_DAY_PER_N', late: { on: true, every: 3 }, cost: 0.5 } }).expect(200);
     await backdateRules(c);
     const refused = await pay(`/runs/${run.body.run.id}/inputs/from-attendance`).expect(409);
     expect(refused.body).toMatchObject({ code: 'PENALTIES_UNDECIDED', month: lastMonth, link: { app: 'people', screen: 'lateMarks' } });

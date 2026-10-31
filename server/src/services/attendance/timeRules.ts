@@ -21,7 +21,19 @@ import { isHHMM } from './compute.js';
  */
 
 export type MarkKind = { on: boolean; graceMinutes: number | null; every: number; free: number };
-export type MarkRules = { on: boolean; late: MarkKind; early: MarkKind; cost: 0.5 | 1; takeFrom: string[] };
+/**
+ * How much a mark cuts (docs/people/workflow-engine/SPEC.md 3.1, DECISIONS.md 1):
+ *  - TIME_MISSED: the time actually missed (each counted mark's whole late or early minutes), as a part of the
+ *    day: minutes ÷ the shift's full-day minutes. Code on Wages 2019 s.20 allows a cut in proportion to the time
+ *    missed, so this is the default for a company not yet using late marks.
+ *  - TIME_MISSED_ROUNDED: the same, each mark rounded up to 15, 30 or 60 minutes (`roundToMinutes`).
+ *  - HALF_DAY_PER_N: every N marks cost ½ or 1 day (`every`, `cost`). It can cut more than the time missed; a
+ *    company already using late marks keeps it, with its numbers, so its pay does not change.
+ * The first `free` marks of a month cost nothing in every mode.
+ */
+export type CutMode = 'TIME_MISSED' | 'TIME_MISSED_ROUNDED' | 'HALF_DAY_PER_N';
+export const CUT_MODES: CutMode[] = ['TIME_MISSED', 'TIME_MISSED_ROUNDED', 'HALF_DAY_PER_N'];
+export type MarkRules = { on: boolean; late: MarkKind; early: MarkKind; cost: 0.5 | 1; takeFrom: string[]; cutMode: CutMode; roundToMinutes: 15 | 30 | 60 };
 export type NudgeRules = { on: boolean; afterHours: number; managerDigest: boolean };
 export type AbsenceRules = { on: boolean; days: number; noticeGapDays: number; replyDays: number };
 /** ENFORCE: a night shift is refused without consent. WARN: it is saved, and who lacks consent is listed (People Home, Night work). */
@@ -29,7 +41,7 @@ export type NightRules = { on: boolean; from: string; to: string; mode: 'ENFORCE
 export type TimeRules = { marks: MarkRules; nudge: NudgeRules; absence: AbsenceRules; night: NightRules };
 
 export const DEFAULT_TIME_RULES: TimeRules = {
-  marks: { on: false, late: { on: true, graceMinutes: null, every: 3, free: 0 }, early: { on: false, graceMinutes: null, every: 3, free: 0 }, cost: 0.5, takeFrom: [] },
+  marks: { on: false, late: { on: true, graceMinutes: null, every: 3, free: 0 }, early: { on: false, graceMinutes: null, every: 3, free: 0 }, cost: 0.5, takeFrom: [], cutMode: 'TIME_MISSED', roundToMinutes: 15 },
   nudge: { on: true, afterHours: 2, managerDigest: true },
   absence: { on: true, days: 5, noticeGapDays: 7, replyDays: 7 },
   /* New companies ENFORCE; companies already on CLOR when the check arrived were set to WARN (migration 20261111090200). */
@@ -49,6 +61,8 @@ export const timeRulesSchema = z.object({
     early: kindSchema.optional(),
     cost: z.union([z.literal(0.5), z.literal(1)]).optional(),
     takeFrom: z.array(z.string().min(1).max(60)).max(10).optional(),
+    cutMode: z.enum(CUT_MODES as [CutMode, ...CutMode[]]).optional(),
+    roundToMinutes: z.union([z.literal(15), z.literal(30), z.literal(60)]).optional(),
   }).optional(),
   nudge: z.object({ on: z.boolean().optional(), afterHours: z.coerce.number().int().min(0).max(24).optional(), managerDigest: z.boolean().optional() }).optional(),
   absence: z.object({
@@ -70,8 +84,10 @@ type Saved = Partial<{ marks: Partial<MarkRules> & { late?: Partial<MarkKind>; e
 /** The old two-number rule, as marks rules: the first `lateAllowancePerMonth` late days free, then half a day of loss of pay every `latePenaltyEvery`. */
 export const legacyMarks = (s: { lateAllowancePerMonth?: number | null; latePenaltyEvery?: number | null } | null | undefined): MarkRules => {
   const every = Math.max(0, s?.latePenaltyEvery || 0);
-  return { ...DEFAULT_TIME_RULES.marks, on: every > 0, late: { on: true, graceMinutes: null, every: every || 3, free: Math.max(0, s?.lateAllowancePerMonth || 0) } };
+  /* A company on the old rule keeps it: half a day every N (SPEC 3.1, "existing companies keep their numbers"). */
+  return { ...DEFAULT_TIME_RULES.marks, on: every > 0, late: { on: true, graceMinutes: null, every: every || 3, free: Math.max(0, s?.lateAllowancePerMonth || 0) }, cutMode: every > 0 ? 'HALF_DAY_PER_N' : 'TIME_MISSED' };
 };
+const isCutMode = (v: unknown): v is CutMode => CUT_MODES.includes(v as CutMode);
 
 /** The rules as they stand, from the settings row (or null when none). */
 export function rulesOf(s: { timeRules?: unknown; lateAllowancePerMonth?: number | null; latePenaltyEvery?: number | null } | null | undefined): TimeRules {
@@ -86,6 +102,9 @@ export function rulesOf(s: { timeRules?: unknown; lateAllowancePerMonth?: number
       late: { ...marksBase.late, ...(m.late || {}) },
       early: { ...marksBase.early, ...(m.early || {}) },
       takeFrom: Array.isArray(m.takeFrom) ? m.takeFrom : marksBase.takeFrom,
+      /* Saved before the choice existed: a company using late marks was on every N = ½ or 1 day, and stays there. */
+      cutMode: isCutMode(m.cutMode) ? m.cutMode : saved.marks ? ((m.on ?? marksBase.on) ? 'HALF_DAY_PER_N' : 'TIME_MISSED') : marksBase.cutMode,
+      roundToMinutes: m.roundToMinutes === 30 || m.roundToMinutes === 60 ? m.roundToMinutes : 15,
     },
     nudge: { ...d.nudge, ...(saved.nudge || {}) },
     absence: { ...d.absence, ...(saved.absence || {}) },
@@ -106,6 +125,8 @@ export function mergeRules(current: TimeRules, change: z.infer<typeof timeRulesS
       ...(m.on !== undefined ? { on: m.on } : {}),
       ...(m.cost !== undefined ? { cost: m.cost } : {}),
       ...(m.takeFrom !== undefined ? { takeFrom: [...new Set(m.takeFrom)] } : {}),
+      ...(m.cutMode !== undefined ? { cutMode: m.cutMode } : {}),
+      ...(m.roundToMinutes !== undefined ? { roundToMinutes: m.roundToMinutes } : {}),
       late: { ...current.marks.late, ...stripUndefined(m.late || {}) },
       early: { ...current.marks.early, ...stripUndefined(m.early || {}) },
     },
@@ -139,7 +160,8 @@ export async function saveTimeRules(accountId: string, orgId: string, userId: st
   }
   if (next.night.from === next.night.to) throw new RulesError('The night window needs a start and an end that differ.');
   /* The Attendance app's two numbers follow the late part of the rule (it knows only half a day of loss of pay). */
-  const legacy = next.marks.on && next.marks.late.on ? { latePenaltyEvery: next.marks.late.every, lateAllowancePerMonth: next.marks.late.free } : { latePenaltyEvery: 0, lateAllowancePerMonth: before?.lateAllowancePerMonth ?? 0 };
+  /* It knows only "half a day every N": under a time-missed cut it reads 0 (no step rule), so it never shows a rule that is not in force. */
+  const legacy = next.marks.on && next.marks.late.on && next.marks.cutMode === 'HALF_DAY_PER_N' ? { latePenaltyEvery: next.marks.late.every, lateAllowancePerMonth: next.marks.late.free } : { latePenaltyEvery: 0, lateAllowancePerMonth: before?.lateAllowancePerMonth ?? 0 };
   await peoplePrisma.attendanceSettings.upsert({
     where: { orgId },
     create: { accountId, orgId, timeRules: next as any, ...legacy, updatedByUserId: userId },
@@ -161,7 +183,8 @@ export function marksFromLegacy(current: TimeRules, legacy: { lateAllowancePerMo
   const m = current.marks;
   /* 0 = no late penalty: late marks stop costing anything; early exits keep their own switch. */
   if (!every) return { ...current, marks: { ...m, on: m.on && m.early.on, late: { ...m.late, on: false } } };
-  return { ...current, marks: { ...m, on: true, late: { ...m.late, on: true, every, free: Math.max(0, legacy.lateAllowancePerMonth || 0) } } };
+  /* The Attendance app's numbers are "half a day every N": switching late marks on there means that rule. */
+  return { ...current, marks: { ...m, on: true, late: { ...m.late, on: true, every, free: Math.max(0, legacy.lateAllowancePerMonth || 0) }, cutMode: m.on && m.late.on ? m.cutMode : 'HALF_DAY_PER_N' } };
 }
 
 // ---------------------------------------------------------------------------

@@ -11,7 +11,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { useSuggestions } from '@ui/timeOff/suggestions';
 
 import { applyPenalties, getLateMarks, undoPenalty, waivePenalty } from './api';
-import { half, istToday, lastMonth, monthTitle, shiftMonth, shortDay } from './shared';
+import { dayAmount, istToday, lastMonth, minutesText, monthTitle, shiftMonth, shortDay } from './shared';
 
 /**
  * Time → Late marks (WORKFLOW-GAP-RESEARCH-2026-10-30 4.4): who the company's late-mark rule hits in a
@@ -22,7 +22,7 @@ import { half, istToday, lastMonth, monthTitle, shiftMonth, shortDay } from './s
  */
 const STATUS = { DUE: ['To apply', 'warn'], WAIVED: ['Waived', 'neutral'], APPLIED: ['Applied', 'pos'], NONE: ['No penalty', 'neutral'] };
 const REASONS = ['Bus or train was late', 'Power cut at home', 'Medical appointment, told the manager', 'Reader was not working', 'Agreed with the manager beforehand'];
-const leaveText = (parts) => (parts?.length ? parts.map((p) => `${half(p.days)} ${p.name}`).join(', ') : '—');
+const leaveText = (parts) => (parts?.length ? parts.map((p) => `${dayAmount(p.days)} ${p.name}`).join(', ') : '—');
 
 export default function LateMarks({ params = {}, updateParams }) {
   const month = /^\d{4}-\d{2}$/.test(String(params?.month || '')) ? params.month : lastMonth();
@@ -39,7 +39,7 @@ export default function LateMarks({ params = {}, updateParams }) {
     const due = rows.filter((r) => r.status === 'DUE');
     const ok = await confirmDialog({
       title: `Apply late marks for ${monthTitle(month)}?`,
-      message: `${due.length} ${due.length === 1 ? 'person' : 'people'}: ${half(due.reduce((s, r) => s + r.fromLeave.reduce((x, p) => x + p.days, 0), 0))} from leave and ${half(due.reduce((s, r) => s + r.lossOfPayDays, 0))} unpaid. Each person can still be undone while the month is open.`,
+      message: `${due.length} ${due.length === 1 ? 'person' : 'people'}: ${dayAmount(due.reduce((s, r) => s + r.fromLeave.reduce((x, p) => x + p.days, 0), 0))} from leave and ${dayAmount(due.reduce((s, r) => s + r.lossOfPayDays, 0))} unpaid. Each person can still be undone while the month is open.`,
       confirmLabel: 'Apply',
     });
     if (!ok) return;
@@ -71,13 +71,16 @@ export default function LateMarks({ params = {}, updateParams }) {
   };
 
   const due = rows.filter((r) => r.status === 'DUE').length;
+  const stepRule = d?.rules?.cutMode === 'HALF_DAY_PER_N';
   const columns = [
     { key: 'name', label: 'Employee', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></span> },
     { key: 'late', label: 'Late', align: 'right', render: (r) => <span className="tabular-nums">{r.lateMarks}</span> },
     ...(d?.rules?.early?.on ? [{ key: 'early', label: 'Early', align: 'right', render: (r) => <span className="tabular-nums">{r.earlyMarks}</span> }] : []),
-    { key: 'days', label: 'Penalty', align: 'right', render: (r) => <span className="tabular-nums">{half(r.days)}</span> },
+    { key: 'days', label: 'Penalty', align: 'right', render: (r) => <span className="tabular-nums">{dayAmount(r.days)}</span> },
+    /* Every N marks can cut more than the time missed (Code on Wages s.20): each person's two figures side by side. */
+    ...(stepRule ? [{ key: 'missed', label: 'Time missed', align: 'right', render: (r) => <span className={`tabular-nums ${r.days > r.timeMissedDays ? 'font-medium' : ''}`}>{r.timeMissedMinutes ? `${minutesText(r.timeMissedMinutes)} · ${dayAmount(r.timeMissedDays)}` : '—'}</span> }] : []),
     { key: 'leave', label: 'From leave', render: (r) => <span className="tabular-nums">{r.status === 'WAIVED' ? '—' : leaveText(r.fromLeave)}</span> },
-    { key: 'lop', label: 'Unpaid', align: 'right', render: (r) => <span className="tabular-nums font-medium">{half(r.lossOfPayDays)}</span> },
+    { key: 'lop', label: 'Unpaid', align: 'right', render: (r) => <span className="tabular-nums font-medium">{dayAmount(r.lossOfPayDays)}</span> },
     { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0] || r.status}</span> },
     { key: 'act', label: '', align: 'right', render: (r) => (
       <span className="inline-flex gap-1 whitespace-nowrap">
@@ -100,7 +103,7 @@ export default function LateMarks({ params = {}, updateParams }) {
           <span className="min-w-36 text-center font-medium" aria-live="polite">{monthTitle(month)}</span>
           <button type="button" className="ui-icon-btn" aria-label="Next month" disabled={month >= thisMonth} onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
         </div>
-        {d && d.rules?.on ? <p className="text-sm tabular-nums">{d.totals.people} {d.totals.people === 1 ? 'person' : 'people'} · {half(d.totals.fromLeaveDays)} from leave · {half(d.totals.lossOfPayDays)} unpaid{d.totals.waived ? ` · ${d.totals.waived} waived` : ''}</p> : null}
+        {d && d.rules?.on ? <p className="text-sm tabular-nums">{d.totals.people} {d.totals.people === 1 ? 'person' : 'people'} · {dayAmount(d.totals.fromLeaveDays)} from leave · {dayAmount(d.totals.lossOfPayDays)} unpaid{d.totals.waived ? ` · ${d.totals.waived} waived` : ''}</p> : null}
       </div>
       {d && !d.rules?.on && !rows.length ? (
         <EmptyState title="Late marks cost nothing now" description="Switch the rule on in Settings, Attendance rules." />
@@ -118,7 +121,7 @@ export default function LateMarks({ params = {}, updateParams }) {
           card={(r) => (
             <span className="block min-w-0 flex-1">
               <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.name}</span><span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0]}</span></span>
-              <span className="block ui-caption tabular-nums">{r.lateMarks} late{d?.rules?.early?.on ? `, ${r.earlyMarks} early` : ''}{r.days ? ` · ${half(r.days)}` : ''}{r.lossOfPayDays ? `, ${half(r.lossOfPayDays)} unpaid` : ''}</span>            </span>
+              <span className="block ui-caption tabular-nums">{r.lateMarks} late{d?.rules?.early?.on ? `, ${r.earlyMarks} early` : ''}{r.days ? ` · ${dayAmount(r.days)}` : ''}{r.lossOfPayDays ? `, ${dayAmount(r.lossOfPayDays)} unpaid` : ''}</span>            </span>
           )}
           empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : <EmptyState title={`No late marks in ${monthTitle(month)}`} />}
         />
@@ -140,8 +143,9 @@ function MarksDrawer({ row, month, early, onClose, onWaive, onUndo, canUndo }) {
     >
       <div className="space-y-4 text-sm">
         <dl className="grid gap-3 grid-cols-2">
-          <div><dt className="ui-t-label">Penalty</dt><dd className="tabular-nums">{half(row.days)}</dd></div>
-          <div><dt className="ui-t-label">Unpaid</dt><dd className="tabular-nums">{half(row.lossOfPayDays)}</dd></div>
+          <div><dt className="ui-t-label">Penalty</dt><dd className="tabular-nums">{dayAmount(row.days)}</dd></div>
+          <div><dt className="ui-t-label">Unpaid</dt><dd className="tabular-nums">{dayAmount(row.lossOfPayDays)}</dd></div>
+          {row.timeMissedMinutes ? <div className="col-span-2"><dt className="ui-t-label">Time missed</dt><dd className="tabular-nums">{minutesText(row.timeMissedMinutes)} · {dayAmount(row.timeMissedDays)}</dd></div> : null}
           <div className="col-span-2"><dt className="ui-t-label">From leave</dt><dd>{row.status === 'WAIVED' ? '—' : leaveText(row.fromLeave)}</dd></div>
           {row.decision?.reason ? <div className="col-span-2"><dt className="ui-t-label">Waived because</dt><dd>{row.decision.reason}{row.decidedBy ? ` (${row.decidedBy})` : ''}</dd></div> : null}
         </dl>
@@ -178,7 +182,7 @@ function WaiveDrawer({ row, month, onClose, onDone }) {
     }
   };
   return (
-    <Drawer open onClose={onClose} dirty={Boolean(reason)} title={`Waive ${half(row.days)} for ${row.name}`} widthClass="w-[min(32rem,96vw)]"
+    <Drawer open onClose={onClose} dirty={Boolean(reason)} title={`Waive ${dayAmount(row.days)} for ${row.name}`} widthClass="w-[min(32rem,96vw)]"
       footer={<div className="flex justify-end gap-2"><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="waive-form" className="ui-btn ui-btn-primary" disabled={busy || reason.trim().length < 3}>{busy ? 'Waiving…' : 'Waive'}</button></div>}
     >
       <form id="waive-form" onSubmit={save} className="space-y-3">

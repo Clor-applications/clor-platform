@@ -405,7 +405,7 @@ describe('late-mark penalties after an early cut-off', () => {
     const person = await api.post(c, '/employees', { name: 'Asha', code: `E${rnd()}`, dateOfJoining: '2026-01-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW' } }).expect(201);
     const employeeId = person.body.employee.id as string;
     await api.post(c, '/assignments', { employeeId, structureId: structure.body.structure.id, effectiveFrom: '2026-01-01', annualCtc: 360_000 }).expect(201);
-    await peopleApi(c, 'put', '/attendance-rules', { marks: { on: true, late: { on: true, every: 4, free: 0, graceMinutes: 0 }, cost: 1, takeFrom: [] } }).expect(200);
+    await peopleApi(c, 'put', '/attendance-rules', { marks: { on: true, cutMode: 'HALF_DAY_PER_N', late: { on: true, every: 4, free: 0, graceMinutes: 0 }, cost: 1, takeFrom: [] } }).expect(200);
     await own(c, () => peoplePrisma.attendanceRuleVersion.updateMany({ where: { orgId: c.orgId }, data: { createdAt: new Date('2020-01-01T00:00:00Z') } }));
     return employeeId;
   }

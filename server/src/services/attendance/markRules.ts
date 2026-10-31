@@ -41,22 +41,50 @@ export class MarksError extends Error {
  * days. A half day already costs half a day, and a day with no punch-out is unpaid until it is
  * corrected, so neither counts again as a mark.
  */
-export function marksOf(rules: MarkRules, records: Iterable<Rec>, inSpan: (date: string) => boolean) {
-  const late: string[] = [];
-  const early: string[] = [];
+/** One mark: its day, the minutes missed, and the minutes of a full day on that day's shift. */
+export type Mark = { date: string; minutes: number; dayMinutes: number };
+const FULL_DAY = 480;
+
+export function marksOf(rules: MarkRules, records: Iterable<Rec>, inSpan: (date: string) => boolean, dayMinutesOn: (date: string) => number = () => FULL_DAY) {
+  const late: Mark[] = [];
+  const early: Mark[] = [];
   for (const r of records) {
     if (!inSpan(r.date) || r.status !== 'PRESENT' || !r.checkIn || !r.checkOut) continue;
-    if (rules.late.on && r.lateMinutes > 0 && r.lateMinutes > (rules.late.graceMinutes ?? 0)) late.push(r.date);
-    if (rules.early.on && r.earlyOutMinutes > 0 && r.earlyOutMinutes > (rules.early.graceMinutes ?? 0)) early.push(r.date);
+    const day = Math.max(1, dayMinutesOn(r.date) || FULL_DAY);
+    if (rules.late.on && r.lateMinutes > 0 && r.lateMinutes > (rules.late.graceMinutes ?? 0)) late.push({ date: r.date, minutes: r.lateMinutes, dayMinutes: day });
+    if (rules.early.on && r.earlyOutMinutes > 0 && r.earlyOutMinutes > (rules.early.graceMinutes ?? 0)) early.push({ date: r.date, minutes: r.earlyOutMinutes, dayMinutes: day });
   }
-  return { late: late.sort(), early: early.sort() };
+  const byDate = (a: Mark, b: Mark) => a.date.localeCompare(b.date);
+  return { late: late.sort(byDate), early: early.sort(byDate) };
 }
 
-/** Days the marks cost: each kind on its own count, at the rule's cost per step. */
-export function costOf(rules: MarkRules, lateCount: number, earlyCount: number) {
+/** The marks that cost: after the month's first `free` ones, in date order. */
+const counted = (k: MarkRules['late'], marks: Mark[]) => (k.on ? [...marks].sort((a, b) => a.date.localeCompare(b.date)).slice(Math.max(0, k.free)) : []);
+const asMarks = (n: number | Mark[]): Mark[] => (Array.isArray(n) ? n : Array.from({ length: Math.max(0, n) }, (_, i) => ({ date: String(i).padStart(4, '0'), minutes: 0, dayMinutes: FULL_DAY })));
+const upTo = (m: number, step: number) => Math.ceil(m / step) * step;
+
+/** The time actually missed by the marks that cost, in minutes and as a part of the day (after the free ones). */
+export function timeMissedOf(rules: MarkRules, late: Mark[], early: Mark[]) {
+  const marks = [...counted(rules.late, late), ...counted(rules.early, early)];
+  return { minutes: marks.reduce((s, m) => s + m.minutes, 0), days: round(marks.reduce((s, m) => s + m.minutes / m.dayMinutes, 0)) };
+}
+
+/**
+ * Days the marks cost, by the rule's cut (timeRules.ts CutMode): the time missed (each counted mark's minutes over
+ * its day's full-day minutes), the same rounded up per mark, or every N counted marks at ½ or 1 day. Counts work
+ * for the step rule; the minute cuts need the marks.
+ */
+export function costOf(rules: MarkRules, late: number | Mark[], early: number | Mark[]) {
   if (!rules.on) return 0;
+  const L = asMarks(late);
+  const E = asMarks(early);
+  if (rules.cutMode === 'TIME_MISSED' || rules.cutMode === 'TIME_MISSED_ROUNDED') {
+    const step = rules.cutMode === 'TIME_MISSED_ROUNDED' ? rules.roundToMinutes || 15 : 0;
+    const marks = [...counted(rules.late, L), ...counted(rules.early, E)];
+    return round(marks.reduce((s, m) => s + Math.min(m.dayMinutes, step ? upTo(m.minutes, step) : m.minutes) / m.dayMinutes, 0));
+  }
   const steps = (k: MarkRules['late'], n: number) => (k.on && k.every > 0 ? Math.floor(Math.max(0, n - k.free) / k.every) : 0);
-  return round((steps(rules.late, lateCount) + steps(rules.early, earlyCount)) * rules.cost);
+  return round((steps(rules.late, L.length) + steps(rules.early, E.length)) * rules.cost);
 }
 
 /** How far to the next cost, for the employee's line: "2 of 3 late marks; the next one costs ½ day". */
@@ -78,6 +106,9 @@ export type PenaltyRow = {
   earlyDates: string[];
   /** What the rules give. */
   days: number;
+  /** The time actually missed by the marks that cost (after the free ones): set beside the cut when the rule is every N marks. */
+  timeMissedMinutes: number;
+  timeMissedDays: number;
   /** DUE (worked out, nobody decided) | WAIVED | APPLIED | NONE (nothing to pay). */
   status: 'DUE' | 'WAIVED' | 'APPLIED' | 'NONE';
   /** From leave: taken (APPLIED) or as it would be taken now (DUE). */
@@ -179,10 +210,11 @@ async function monthRows(accountId: string, orgId: string, month: string, opts: 
     if (keep && !keep.has(p.id)) continue;
     const span = new Set(ctx.spanOf(p).filter((d) => inMonth.has(d)));
     const recs = ctx.recordsOf.get(p.id) || new Map();
-    const marks = rules.on ? marksOf(rules, recs.values() as Iterable<Rec>, (d) => span.has(d)) : { late: [], early: [] };
+    const marks = rules.on ? marksOf(rules, recs.values() as Iterable<Rec>, (d) => span.has(d), (d) => ctx.shiftOn(p.id, d).rule.fullDayMinutes) : { late: [] as Mark[], early: [] as Mark[] };
     const d = decisionOf.get(p.id);
-    const cost = costOf(rules, marks.late.length, marks.early.length);
-    const row: PenaltyRow = { employeeId: p.id, month, lateMarks: marks.late.length, earlyMarks: marks.early.length, lateDates: marks.late, earlyDates: marks.early, days: cost, status: cost > 0 ? 'DUE' : 'NONE', fromLeave: [], lossOfPayDays: cost, decision: null, ruleVersion: inForce.version };
+    const cost = costOf(rules, marks.late, marks.early);
+    const missed = timeMissedOf(rules, marks.late, marks.early);
+    const row: PenaltyRow = { employeeId: p.id, month, lateMarks: marks.late.length, earlyMarks: marks.early.length, lateDates: marks.late.map((m) => m.date), earlyDates: marks.early.map((m) => m.date), days: cost, timeMissedMinutes: missed.minutes, timeMissedDays: missed.days, status: cost > 0 ? 'DUE' : 'NONE', fromLeave: [], lossOfPayDays: cost, decision: null, ruleVersion: inForce.version };
     if (d) {
       row.decision = { by: d.decidedByUserId, at: d.decidedAt, reason: d.reason, ruleVersion: d.ruleVersion };
       if (d.status === 'WAIVED') Object.assign(row, { status: 'WAIVED', fromLeave: [], lossOfPayDays: 0 });
@@ -223,7 +255,7 @@ export async function penaltiesOver(accountId: string, orgId: string, days: stri
         ...r,
         lateMarks: had.lateMarks + r.lateMarks, earlyMarks: had.earlyMarks + r.earlyMarks,
         lateDates: [...had.lateDates, ...r.lateDates], earlyDates: [...had.earlyDates, ...r.earlyDates],
-        days: round(had.days + r.days), fromLeave: [...had.fromLeave, ...r.fromLeave], lossOfPayDays: round(had.lossOfPayDays + r.lossOfPayDays),
+        days: round(had.days + r.days), timeMissedMinutes: had.timeMissedMinutes + r.timeMissedMinutes, timeMissedDays: round(had.timeMissedDays + r.timeMissedDays), fromLeave: [...had.fromLeave, ...r.fromLeave], lossOfPayDays: round(had.lossOfPayDays + r.lossOfPayDays),
         status: had.status === 'DUE' || r.status === 'DUE' ? 'DUE' : r.status === 'NONE' ? had.status : r.status,
       });
     }
@@ -366,9 +398,12 @@ const half = (d: number) => (d === 0.5 ? '½ day' : d === 1 ? '1 day' : `${d} da
 export function policyText(rules: MarkRules, leaveNames: string[]) {
   if (!rules.on) return null;
   const from = leaveNames.length ? `taken from ${leaveNames.join(', then ')}, or unpaid when there is none left` : 'unpaid';
+  const minutes = rules.cutMode === 'TIME_MISSED' || rules.cutMode === 'TIME_MISSED_ROUNDED';
+  const cut = rules.cutMode === 'TIME_MISSED_ROUNDED' ? `the time missed, each rounded up to ${rules.roundToMinutes} minutes, is cut` : 'the time missed is cut';
   const part = (k: MarkRules['late'], what: string) => {
     if (!k.on) return null;
     const grace = k.graceMinutes ? ` by more than ${k.graceMinutes} minutes` : '';
+    if (minutes) return k.free ? `The first ${k.free} ${what}${grace} in a month are free; after that ${cut}` : `For ${what}${grace}, ${cut}`;
     const free = k.free ? `The first ${k.free} ${what}${grace} in a month are free; after that, every ${k.every}` : `Every ${k.every} ${what}${grace} in a month`;
     return `${free} ${k.every === 1 ? 'costs' : 'cost'} ${half(rules.cost)}`;
   };
@@ -384,7 +419,13 @@ export async function myMarks(e: { id: string; accountId: string; orgId: string 
   const ordered = rules.takeFrom.map((id) => names.find((n) => n.id === id)?.name).filter(Boolean) as string[];
   if (!rules.on) return { on: false as const, month };
   const row = (await penaltiesOver(e.accountId, e.orgId, daysOfMonth(month), { employeeIds: [e.id] })).get(e.id);
+  const minuteCut = rules.cutMode === 'TIME_MISSED' || rules.cutMode === 'TIME_MISSED_ROUNDED';
   const line = (k: MarkRules['late'], count: number, what: string) => {
+    if (minuteCut) {
+      if (!k.on) return null;
+      const free = Math.max(0, k.free - count);
+      return free > 0 ? `${count} ${what} so far; ${free} more ${free === 1 ? 'is' : 'are'} free this month.` : `${count} ${what} so far; the time missed is cut.`;
+    }
     const n = nextCost(k, count);
     if (!n) return null;
     if (n.free > 0) return `${count} ${what} so far; ${n.free} more ${n.free === 1 ? 'is' : 'are'} free this month.`;

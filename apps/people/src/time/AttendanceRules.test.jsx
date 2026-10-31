@@ -177,3 +177,36 @@ it('absences: someone back at work needs a reason to be recorded as absconded', 
   fireEvent.click(record);
   await waitFor(() => expect(api.recordAbsconded).toHaveBeenCalledWith('c2', expect.objectContaining({ confirmBack: true, reason: 'Came only to collect belongings' })));
 });
+
+it('settings: a mark cuts the time missed by default; rounding asks how far; the step rule shows its numbers and the warning', async () => {
+  api.saveAttendanceRules.mockImplementation(async (body) => ({ rules: { ...RULES, marks: { ...RULES.marks, ...body.marks } }, version: 2 }));
+  render(<AttendanceRules />);
+  const block = await screen.findByRole('group', { name: 'Late marks and early exits' });
+  fireEvent.click(within(block).getByLabelText('On'));
+  const cut = within(block).getByLabelText('Each mark cuts');
+  expect(cut.value).toBe('TIME_MISSED');
+  expect(within(block).queryByText('Every')).toBeNull();
+  expect(within(block).getByText(/A mark cuts the whole time/)).toBeTruthy();
+  fireEvent.change(cut, { target: { value: 'TIME_MISSED_ROUNDED' } });
+  fireEvent.change(within(block).getByLabelText('Round each up to'), { target: { value: '30' } });
+  fireEvent.change(cut, { target: { value: 'HALF_DAY_PER_N' } });
+  expect(within(block).getAllByText('Every').length).toBeGreaterThan(0);
+  expect(within(block).getByLabelText('Costs')).toBeTruthy();
+  expect(within(block).getByRole('note').textContent).toMatch(/can cut more than the time missed.*s\.20/);
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(api.saveAttendanceRules).toHaveBeenCalled());
+  expect(api.saveAttendanceRules.mock.calls[0][0].marks).toMatchObject({ on: true, cutMode: 'HALF_DAY_PER_N', roundToMinutes: 30 });
+});
+
+it('late marks: minute cuts read in two places; under the step rule each person’s time missed sits beside the cut', async () => {
+  const rows = [{ ...MARKS.rows[0], days: 0.14, lossOfPayDays: 0.14, fromLeave: [], timeMissedMinutes: 65, timeMissedDays: 0.14 }];
+  api.getLateMarks.mockResolvedValue({ ...MARKS, rules: { ...MARKS.rules, cutMode: 'TIME_MISSED' }, rows });
+  const { unmount } = render(<LateMarks params={{ month: '2026-09' }} />);
+  expect((await screen.findAllByText('0.14 day')).length).toBeGreaterThan(0);
+  expect(screen.queryByText('Time missed')).toBeNull();
+  unmount();
+  api.getLateMarks.mockResolvedValue({ ...MARKS, rules: { ...MARKS.rules, cutMode: 'HALF_DAY_PER_N' }, rows: [{ ...MARKS.rows[0], timeMissedMinutes: 65, timeMissedDays: 0.14 }] });
+  render(<LateMarks params={{ month: '2026-09' }} />);
+  expect((await screen.findAllByText('Time missed')).length).toBeGreaterThan(0);
+  expect(screen.getAllByText('1 h 5 min · 0.14 day').length).toBeGreaterThan(0);
+});
