@@ -44,6 +44,8 @@ const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0
 const FIELD_STEP = { firstName: 'personal', workEmail: 'personal', email: 'personal', phone: 'personal', dateOfBirth: 'personal', emergencyContactPhone: 'personal', code: 'employment', dateOfJoining: 'employment', probationEndDate: 'employment', contractEndDate: 'employment', seatId: 'organization' };
 const SHOWN_INLINE = new Set(['firstName', 'workEmail', 'email', 'phone', 'dateOfBirth', 'emergencyContactPhone', 'code', 'dateOfJoining', 'probationEndDate', 'contractEndDate']);
 
+const CODE_MISSING = 'Enter an employee ID.';
+
 function check(step, f) {
   const e = {};
   if (step === 'personal') {
@@ -55,7 +57,7 @@ function check(step, f) {
     if (f.emergencyContactPhone && f.emergencyContactPhone.replace(/\D/g, '').length < 10) e.emergencyContactPhone = 'Enter at least 10 digits.';
   }
   if (step === 'employment') {
-    if (!f.code.trim()) e.code = 'Enter an employee ID.';
+    if (!f.code.trim()) e.code = CODE_MISSING;
     if (!f.dateOfJoining) e.dateOfJoining = 'Enter the joining date.';
     if (f.probationEndDate && f.dateOfJoining && f.probationEndDate < f.dateOfJoining) e.probationEndDate = 'Probation cannot end before the joining date.';
     if (f.contractEndDate && f.dateOfJoining && f.contractEndDate < f.dateOfJoining) e.contractEndDate = 'The contract cannot end before the joining date.';
@@ -91,6 +93,11 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   const stepKey = STEPS.some(([k]) => k === params.step) ? params.step : 'personal';
   const stepIndex = STEPS.findIndex(([k]) => k === stepKey);
   const bodyRef = useRef(null);
+  /* The suggested employee ID while it is on its way, and a Continue waiting for it (one at a time). */
+  const suggestedCode = useRef(null);
+  const continuing = useRef(false);
+  /* What is on screen now, read after that wait: the person may have typed or moved meanwhile. */
+  const latest = useRef({ form: BLANK, stepKey });
   /* A field to put the caret in once its step is drawn (a server answer about it, after Create). */
   const [focusField, setFocusField] = useState(null);
   useEffect(() => {
@@ -113,11 +120,15 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
       getDraft(params.draft).then((d) => { if (!live) return; const next = { ...BLANK, ...d.data }; setForm(next); setSaved(next); setDraftId(d.id); }).catch((e) => live && setFailure(e)).finally(() => live && setLoading(false));
     } else {
       /* The suggestion is not an edit: the baseline takes it too, so an untouched wizard leaves without a warning. */
-      nextEmployeeCode().then((code) => {
-        if (!live || !code) return;
+      const pending = nextEmployeeCode().then((code) => {
+        if (!live || !code) return null;
         setForm((f) => (f.code ? f : { ...f, code }));
         setSaved((f) => (f.code ? f : { ...f, code }));
-      }).catch(() => {});
+        /* A Continue pressed before it came asked for an ID the field now holds: that message is out of date. */
+        setErrors((e) => (e.code === CODE_MISSING ? (({ code: _gone, ...rest }) => rest)(e) : e));
+        return code;
+      }).catch(() => null).finally(() => { if (suggestedCode.current === pending) suggestedCode.current = null; });
+      suggestedCode.current = pending;
     }
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -128,8 +139,24 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   const emailHints = useEmailSuggestions(form.workEmail, form.firstName, form.lastName);
   const relationHints = useSuggestions('relation');
   const field = (k) => ({ value: form[k], onChange: (v) => { setForm((f) => ({ ...f, [k]: v })); if (errors[k]) setErrors((e) => { const n = { ...e }; delete n[k]; return n; }); } });
-  const next = () => {
-    const e = check(stepKey, form);
+  latest.current = { form, stepKey };
+  const next = async () => {
+    if (continuing.current) return;
+    let f = form;
+    /* On a slow line the suggested employee ID can still be on its way when Continue is pressed on Employment:
+       wait for it rather than ask for an ID that is about to appear (H1 on a phone, 31 Oct 2026). */
+    if (stepKey === 'employment' && !f.code.trim() && suggestedCode.current) {
+      continuing.current = true;
+      try {
+        const code = await suggestedCode.current;
+        if (latest.current.stepKey !== stepKey) return;
+        f = latest.current.form;
+        if (!f.code.trim() && code) f = { ...f, code };
+      } finally {
+        continuing.current = false;
+      }
+    }
+    const e = check(stepKey, f);
     setErrors(e);
     if (Object.keys(e).length) {
       setTimeout(() => bodyRef.current?.querySelector('[aria-invalid="true"]')?.focus(), 0);
@@ -222,7 +249,9 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
         ))}
       </ol>
 
-      <form ref={bodyRef} tabIndex={-1} className="ui-record-section ui-wizard-body" aria-label={STEPS[stepIndex][1]}
+      {/* noValidate: `check` asks for each field in plain words. The browser's own "fill in this field" stopped Continue
+          before `next` ran, so an employee ID still on its way kept the wizard on Employment (H1 on a phone). */}
+      <form ref={bodyRef} tabIndex={-1} noValidate className="ui-record-section ui-wizard-body" aria-label={STEPS[stepIndex][1]}
         onSubmit={(e) => { e.preventDefault(); if (stepKey === 'review') create(); else next(); }}
         onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT' && !e.nativeEvent.isComposing) e.preventDefault(); }}>
         {summarise ? (

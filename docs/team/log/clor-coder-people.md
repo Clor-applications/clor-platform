@@ -1,5 +1,11 @@
 # clor-coder-people — work log
 
+## 2026-10-31 18:45 IST — People / Add employee — Continue before the suggested ID arrives
+- Did: the Employment step's Continue now waits for the suggested employee ID if it is still on its way (one Continue at a time; uses what is on screen after the wait; does nothing if the person went Back meanwhile), and the stale "Enter an employee ID." goes when the ID arrives. Form is `noValidate`: the browser's own required-field popup stopped Continue before our check ran. A failed suggestion still asks for an ID.
+- Evidence: new AddEmployee.test.jsx (4): the wait and the failed-suggestion tests fail on the old code, all pass on the new. Web suite 290 files, 2092 passed (2 todo). eslint clean. e2e H1 passes at desktop and phone (ports 5200/4020, DB clor_e2e_addemp). Old code also passed H1 phone twice locally, so the race is timing-dependent here; the unit test pins it.
+- Next: review.
+- Blocked on: nothing
+
 ## 2026-10-31 02:00 IST — Design system / buttons — PR #84 review fixes
 - Did: the done live region now stays mounted, empty, and only its text changes. Talent drawer forms ignore Enter while busy (22 forms). On white, secondary, soft and ghost icons use a deeper marigold #C98200 (3.2:1 on white), and the spinner on those buttons is ink. DESIGN.md says where 44px on phones is enforced (People already does it under 768px). Legacy dark theme labelled. Added a comment explaining `:is(#main-content, body)`.
 - Evidence: web suite 276 files, 1969 passed (2 todo). New talent/shared.test.jsx fails with the guard removed and passes with it. At 390: Employees and drawer buttons all measured 44px, no sideways scroll. test/people-color-twins.test.js passes on this branch, and origin/main has not moved.
