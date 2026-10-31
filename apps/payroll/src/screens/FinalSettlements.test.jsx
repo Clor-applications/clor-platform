@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import FinalSettlements from './FinalSettlements';
-import { approveSettlement, closeSettlementSources, listSettlements, markSettlementPaid, releaseSettlementHold } from '../api/payrollSettlements';
+import { approveSettlement, closeSettlementSources, listSettlements, markSettlementPaid, recalculateSettlement, releaseSettlementHold } from '../api/payrollSettlements';
 import { confirmDialog } from '@ui/components/ui/notify';
 
 vi.mock('../api/payrollSettlements', () => ({
@@ -234,6 +234,37 @@ describe('the limit on recovering loans and advances (setting 4)', () => {
     const drawer = screen.getByRole('complementary', { name: 'drawer' });
     expect(within(row(drawer, 'Stays owed by Ravi Kumar')).getByText('₹6,000')).toBeInTheDocument();
     expect(within(drawer).queryByText(/Work it out again then/)).not.toBeInTheDocument();
+  });
+
+  it('review of #86: when the payslip changed and the share now allows more, says the figures are from the earlier payslip and offers to work it out again', async () => {
+    const slip = { wages: 14000, deducted: 0, ref: 'PS-10', periodName: 'October' };
+    load([{ ...capped, recoveryCap: { ...cap, slip }, recoveryCapNewer: { slip: { ...slip, wages: 20000 }, recovered: 7000 } }]);
+    vi.mocked(recalculateSettlement).mockResolvedValue({ ...capped, recoveryCapNewer: null });
+    const user = userEvent.setup();
+    const { unmount } = render(<FinalSettlements />);
+    await open(user);
+    const drawer = screen.getByRole('complementary', { name: 'drawer' });
+    const note = within(drawer).getByText(/These figures are from the earlier payslip/);
+    expect(note).toHaveTextContent("These figures are from the earlier payslip (PS-10). The leaving month's payroll has changed since, and the limit now allows ₹7,000 to be recovered.");
+    await user.click(within(drawer).getByRole('button', { name: 'Work it out again' }));
+    expect(recalculateSettlement).toHaveBeenCalledWith('s1');
+    unmount();
+
+    /* Approved: no working out again in place; it says how. */
+    load([{ ...capped, status: 'APPROVED', recoveryCap: { ...cap, slip }, recoveryCapNewer: { slip: { ...slip, wages: 20000 }, recovered: 7000 } }]);
+    render(<FinalSettlements />);
+    await open(user);
+    const d2 = screen.getByRole('complementary', { name: 'drawer' });
+    expect(within(d2).getByText(/These figures are from the earlier payslip/)).toHaveTextContent('To recover it, cancel this settlement and work it out again.');
+    expect(within(d2).queryByRole('button', { name: 'Work it out again' })).not.toBeInTheDocument();
+  });
+
+  it('says nothing about an earlier payslip when the figures are current', async () => {
+    load([{ ...capped, recoveryCapNewer: null }]);
+    const user = userEvent.setup();
+    render(<FinalSettlements />);
+    await open(user);
+    expect(screen.queryByText(/from the earlier payslip/)).not.toBeInTheDocument();
   });
 
   it('a draft made before the limit says how to apply it; a paid one says nothing', async () => {

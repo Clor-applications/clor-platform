@@ -427,7 +427,7 @@ function Settlement({ settlement, you, onClose, onChanged }) {
             </tbody>
           </table>
         </div>
-        {lines.some(isRecovery) ? <RecoveryCap settlement={settlement} who={who} unsaved={dirty} /> : null}
+        {lines.some(isRecovery) ? <RecoveryCap settlement={settlement} who={who} unsaved={dirty} busy={busy} run={run} /> : null}
 
         {draft ? (
           <div className="flex flex-wrap gap-2">
@@ -485,7 +485,7 @@ function Settlement({ settlement, you, onClose, onChanged }) {
  * come off, what did, and what stays owed by the person. A settlement made
  * before the limit says how to apply it.
  */
-function RecoveryCap({ settlement, who, unsaved }) {
+function RecoveryCap({ settlement, who, unsaved, busy, run }) {
   const cap = settlement.recoveryCap;
   if (!cap) {
     if (settlement.status === 'PAID') return null;
@@ -496,6 +496,7 @@ function RecoveryCap({ settlement, who, unsaved }) {
       </p>
     );
   }
+  const newer = settlement.recoveryCapNewer;
   const rows = [
     { label: 'Final wages', value: cap.finalWages, note: cap.slip ? `Days worked ${money(cap.slip.wages)}${cap.slip.ref ? ` (payslip ${cap.slip.ref})` : ''}, with notice pay, leave encashment and other earnings here` : 'Notice pay, leave encashment and other earnings here' },
     { label: `Most that can be recovered (${cap.percent}%)`, value: cap.limit },
@@ -519,6 +520,20 @@ function RecoveryCap({ settlement, who, unsaved }) {
         ))}
       </dl>
       {unsaved ? <p className="ui-caption" role="status">Save to see the limit worked out on your changes.</p> : null}
+      {newer ? (
+        <div className="flex flex-wrap items-center gap-3" role="status">
+          <p className="ui-caption min-w-0 flex-1 max-w-[65ch]">
+            These figures are from the earlier payslip{cap.slip?.ref ? ` (${cap.slip.ref})` : ''}. The leaving month's payroll has changed since, and the limit now allows{' '}
+            <span className="ui-num tabular-nums">{money(newer.recovered)}</span> to be recovered.
+            {settlement.status === 'APPROVED' ? ' To recover it, cancel this settlement and work it out again.' : ''}
+          </p>
+          {settlement.status === 'DRAFT' && !unsaved ? (
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => run(() => recalculateSettlement(settlement.id), 'Worked out again from the records.')}>
+              Work it out again
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {!cap.slip && settlement.status === 'DRAFT' ? (
         <p className="ui-caption max-w-[65ch]">Salary for days worked counts once the leaving month's payroll is approved. Work it out again then.</p>
       ) : null}

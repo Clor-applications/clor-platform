@@ -1,5 +1,24 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, vi } from 'vitest';
 import request from 'supertest';
+
+/*
+ * A seam for the race in review of #86: whatever is set here runs as the Paid
+ * route reaches its stale-sources check, which is after the route's first
+ * check of the limit and before the payment's transaction.
+ */
+const between = vi.hoisted(() => ({ fn: null as null | (() => Promise<void>) }));
+vi.mock('../services/payroll/finalSettlementSources.js', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../services/payroll/finalSettlementSources.js')>();
+  return {
+    ...real,
+    staleSources: async (...a: Parameters<typeof real.staleSources>) => {
+      const fn = between.fn;
+      between.fn = null;
+      if (fn) await fn();
+      return real.staleSources(...a);
+    },
+  };
+});
 
 /**
  * Setting 4 (owner, 31 Oct 2026): a full and final recovers loans and
@@ -14,7 +33,7 @@ const { payrollPrisma } = await import('../utils/payrollPrisma.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
-const { applyRecoveryCap, withRecoverWishes } = await import('../services/payroll/fnfRecoveryCap.js');
+const { applyRecoveryCap, withRecoverWishes, leavingSlipBasis } = await import('../services/payroll/fnfRecoveryCap.js');
 const { financeFound } = await import('../services/people/engagement/clearance.js');
 
 const app = buildApp().listen(0);
@@ -262,6 +281,74 @@ describe('a settlement held to the limit', () => {
     const again = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
     expect(again.recoveryCap.slip).toBeNull();
     expect(bySource(again, l.id).amount).toBe(0);
+  }, 240_000);
+
+  it('review of #86: the payroll cancelled after Paid checked the limit, before it pays: refused inside the payment, nothing closed', async () => {
+    const c = await makeOwner();
+    const { employeeId, run } = await paidInOctober(c);
+    const l = await loan(c, employeeId, [50000]);
+    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    const wages = s.recoveryCap.slip.wages;
+    await api.post(c, `/settlements/${s.id}/approve`).expect(200);
+
+    /* The first check passes on the approved payslip; the cancel lands just after it. */
+    between.fn = async () => {
+      await api.post(c, `/runs/${run}/cancel`, { reason: 'Redone' }).expect(200);
+    };
+    const refused = await api.post(c, `/settlements/${s.id}/paid`, {}).expect(409);
+    expect(between.fn).toBeNull();
+    expect(refused.body.code).toBe('RECOVERY_CAP_CHANGED');
+    /* It says what limits the recovery now, not just that something changed. */
+    expect(refused.body.error).toContain(`its payslip no longer counts, so the ₹${wages.toLocaleString('en-IN')} of days worked is gone`);
+    expect(refused.body.error).toMatch(/is left for loans and advances, and this recovers ₹/);
+    const ln = await own(c, () => payrollPrisma.payrollLoan.findUniqueOrThrow({ where: { id: l.id } }));
+    expect(Number(ln.outstandingBalance)).toBe(50000);
+    expect((await own(c, () => payrollPrisma.finalSettlement.findUniqueOrThrow({ where: { id: s.id } }))).status).toBe('APPROVED');
+  }, 240_000);
+
+  it('review of #86: while a settlement is checked, the leaving month’s payroll cannot be cancelled until it is done', async () => {
+    const c = await makeOwner();
+    const { employeeId, run } = await paidInOctober(c);
+    let cancelled: Promise<request.Response> | null = null;
+    const statusOf = () => own(c, () => payrollPrisma.payrollRun.findUniqueOrThrow({ where: { id: run } })).then((r) => r.status);
+    await own(c, () =>
+      payrollPrisma.$transaction(async (tx) => {
+        const basis = await leavingSlipBasis(c.orgId, employeeId, '2026-10-14', tx, { lock: true });
+        expect(basis?.wages).toBeGreaterThan(0);
+        cancelled = api.post(c, `/runs/${run}/cancel`, { reason: 'Redone' }).then((r) => r);
+        await new Promise((r) => setTimeout(r, 1500));
+        /* The cancel waits on the run's row this transaction holds. */
+        expect(await statusOf()).toBe('APPROVED');
+      }, { timeout: 30_000 })
+    );
+    expect((await cancelled!).status).toBe(200);
+    expect(await statusOf()).toBe('CANCELLED');
+  }, 240_000);
+
+  it('review of #86: a payslip redone higher lets it recover more: the screen is told the saved figures are from the earlier payslip', async () => {
+    const c = await makeOwner();
+    const { employeeId, run } = await paidInOctober(c);
+    const l = await loan(c, employeeId, [500000]);
+    const s = (await api.post(c, '/settlements', { employeeId }).expect(201)).body.settlement;
+    expect(s.recoveryCap.heldBack).toBeGreaterThan(0);
+    expect(s.recoveryCapNewer).toBeNull();
+    const was = bySource(s, l.id).amount;
+
+    /* The payslip counted more days worked now (as a redone, higher payroll would). */
+    await own(c, async () => {
+      const slip = await payrollPrisma.salarySlip.findFirstOrThrow({ where: { runId: run, employeeId } });
+      const snap = JSON.parse(slip.inputSnapshotJson || '{}');
+      snap.capBasis = { wages: snap.capBasis.wages + 10000, deducted: snap.capBasis.deducted };
+      await payrollPrisma.salarySlip.update({ where: { id: slip.id }, data: { inputSnapshotJson: JSON.stringify(snap) } });
+    });
+    const listed = (await api.get(c, '/settlements').expect(200)).body.settlements.find((x: any) => x.id === s.id);
+    expect(listed.recoveryCapNewer.recovered).toBeCloseTo(s.recoveryCap.recovered + 5000, 2);
+    expect(listed.recoveryCapNewer.slip.wages).toBeCloseTo(s.recoveryCap.slip.wages + 10000, 2);
+    /* The saved figures stand until it is worked out again; approving is still allowed (it recovers less, never more). */
+    expect(bySource(listed, l.id).amount).toBe(was);
+    const again = (await api.post(c, `/settlements/${s.id}/recalculate`).expect(200)).body.settlement;
+    expect(bySource(again, l.id).amount).toBeCloseTo(was + 5000, 2);
+    expect(again.recoveryCapNewer).toBeNull();
   }, 240_000);
 
   it('review of #86: a draft is not approved once its payroll is cancelled', async () => {

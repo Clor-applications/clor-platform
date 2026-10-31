@@ -1,4 +1,5 @@
-import { payrollPrisma } from '../../utils/payrollPrisma.js';
+import { payrollPrisma, type PayrollDb } from '../../utils/payrollPrisma.js';
+import { Prisma } from '../../generated/payroll/index.js';
 import { round2 } from '../../utils/money.js';
 import type { SettlementLine } from './finalSettlement.js';
 
@@ -32,8 +33,8 @@ import type { SettlementLine } from './finalSettlement.js';
 
 export const FNF_CAP_DEFAULT = 50;
 
-export async function fnfCapPercent(orgId: string): Promise<number> {
-  const row = await payrollPrisma.payrollSetting.findUnique({ where: { orgId }, select: { fnfRecoveryCapPercent: true } });
+export async function fnfCapPercent(orgId: string, db: PayrollDb = payrollPrisma): Promise<number> {
+  const row = await (db as any).payrollSetting.findUnique({ where: { orgId }, select: { fnfRecoveryCapPercent: true } });
   return row?.fnfRecoveryCapPercent ?? FNF_CAP_DEFAULT;
 }
 
@@ -143,14 +144,25 @@ export function withRecoverWishes(next: SettlementLine[], before: SettlementLine
  * wages and what it already took toward their share (recorded on the
  * payslip when it was worked out, run.ts `capBasis`). Null while that
  * payroll is not approved, so days worked count only once they are paid.
+ *
+ * With `lock`, inside a transaction, the leaving month's payroll runs are
+ * locked first (their rows, FOR UPDATE) and read after: a cancel or an
+ * approval of one of them waits until that transaction ends, and one that
+ * landed just before is what this reads. So a settlement approved or paid
+ * on this basis cannot meet a payroll cancelled and redone in between
+ * (review of #86).
  */
-export async function leavingSlipBasis(orgId: string, employeeId: string, leaving: string): Promise<SlipBasis | null> {
-  const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lte: leaving }, endDate: { gte: leaving } }, select: { id: true, name: true } });
+export async function leavingSlipBasis(orgId: string, employeeId: string, leaving: string, db: PayrollDb = payrollPrisma, o: { lock?: boolean } = {}): Promise<SlipBasis | null> {
+  const d = db as any;
+  const periods = await d.payrollPeriod.findMany({ where: { orgId, startDate: { lte: leaving }, endDate: { gte: leaving } }, select: { id: true, name: true } });
   if (!periods.length) return null;
-  const runs = await payrollPrisma.payrollRun.findMany({ where: { orgId, periodId: { in: periods.map((p) => p.id) }, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] } }, select: { id: true, periodId: true } });
+  if (o.lock) {
+    await d.$queryRaw`SELECT "id" FROM "PayrollRun" WHERE "orgId" = ${orgId} AND "periodId" IN (${Prisma.join(periods.map((p: { id: string }) => p.id))}) ORDER BY "id" FOR UPDATE`;
+  }
+  const runs = await d.payrollRun.findMany({ where: { orgId, periodId: { in: periods.map((p: { id: string }) => p.id) }, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] } }, select: { id: true, periodId: true } });
   if (!runs.length) return null;
-  const slips = await payrollPrisma.salarySlip.findMany({
-    where: { orgId, employeeId, runId: { in: runs.map((r) => r.id) } },
+  const slips = await d.salarySlip.findMany({
+    where: { orgId, employeeId, runId: { in: runs.map((r: { id: string }) => r.id) } },
     select: { number: true, periodId: true, grossEarnings: true, totalDeductions: true, inputSnapshotJson: true },
     orderBy: { createdAt: 'asc' },
   });
@@ -164,6 +176,6 @@ export async function leavingSlipBasis(orgId: string, employeeId: string, leavin
     wages = round2(wages + Number(basis?.wages ?? s.grossEarnings));
     deducted = round2(deducted + Number(basis?.deducted ?? s.totalDeductions));
   }
-  const period = periods.find((p) => p.id === slips[0].periodId);
-  return { wages, deducted, ref: slips.map((s) => s.number).filter(Boolean).join(', ') || null, periodName: period?.name || null };
+  const period = periods.find((p: { id: string; name: string }) => p.id === slips[0].periodId);
+  return { wages, deducted, ref: slips.map((s: { number: string | null }) => s.number).filter(Boolean).join(', ') || null, periodName: period?.name || null };
 }
