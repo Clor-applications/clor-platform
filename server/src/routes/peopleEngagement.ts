@@ -9,6 +9,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { inReportingLine, inScope, teamScope } from '../services/people/scope.js';
+import { seesLeavings } from '../services/people/companyChoices.js';
 import { ownPlanRefusal } from '../services/people/checklists.js';
 import { StayOnError } from '../services/people/lifecycle/stayOn.js';
 import '../services/people/engagement/index.js';
@@ -91,6 +92,15 @@ peopleEngagementRouter.get(`${base}/leaving/:employeeId`, ppl(PermissionAction.V
     if (!clearance.lines.length) return none();
     return res.json({ person, clearance, finalPay: null, interview: null, canEdit: false, lineOnly: true });
   }
+  /*
+   * Leavings kept from this reader (Viewer, IT administrator; SPEC 3.5): the plan does not open, and the person reads
+   * as anyone else. A clearance line HR gave them is still theirs to close, and only that.
+   */
+  if (!(p.userId && p.userId === userId) && !(await seesLeavings(req))) {
+    const clearance = await clearanceFor(orgId, p.id, { userId, hr: false, onlyMine: true });
+    if (!clearance.lines.length) return none();
+    return res.json({ person: { id: p.id, name: p.name, status: p.status === 'ON_NOTICE' ? 'ACTIVE' : p.status, dateOfLeaving: null }, clearance, finalPay: null, interview: null, canEdit: false, lineOnly: true });
+  }
   const ownPlan = Boolean(await ownPlanRefusal(who(req), { employeeId: p.id, owner: 'HR' }));
   const hr = !ownPlan && (await isHr(req));
   const self = Boolean(p.userId) && p.userId === userId;
@@ -137,6 +147,8 @@ peopleEngagementRouter.delete(`${base}/clearance-lines/:id`, ppl(PermissionActio
 
 /** Home's banner: final pay due for leavers whose last day has come, not yet marked paid. */
 peopleEngagementRouter.get(`${base}/final-pay`, ppl(PermissionAction.VIEW, R.employees), handle(async (req, res) => {
+  /* Final pay is about who left and when: not for a reader the company keeps leavings from (SPEC 3.5). */
+  if (!(await seesLeavings(req))) return res.json({ rows: [] });
   const scope = await teamScope(req);
   res.json({ rows: await finalPayBoard(req.tenant!.orgId, { scopeIds: scope.all ? null : scope.ids }) });
 }));
@@ -147,7 +159,7 @@ peopleEngagementRouter.post(`${base}/leaving/:employeeId/exit-interview`, ppl(Pe
   const p = await personIn(req, res);
   if (!p) return;
   const row = await submitInterview(req.tenant!.orgId, p.id, { kind: 'HR', userId: req.auth!.userId, accountId: req.tenant!.accountId }, req.body);
-  await recordAudit(req, { entity: 'ExitInterview', entityId: row!.id, action: 'SUBMITTED', message: `Exit interview entered for ${p.name}`, metadata: { employeeId: p.id, reason: row!.reason } });
+  await recordAudit(req, { entity: 'ExitInterview', entityId: row!.id, action: 'SUBMITTED', message: `Exit interview entered for ${p.name}`, /* Not the reason code: the audit trail is read by roles the reason is kept from (SPEC 3.5). */ metadata: { employeeId: p.id } });
   res.json({ interview: await interviewFor(req.tenant!.orgId, p.id, { hr: true }) });
 }));
 

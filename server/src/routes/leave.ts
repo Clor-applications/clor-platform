@@ -4,7 +4,8 @@ import { ownWorkRefusal, selfDecisionAllowed } from '../services/makerChecker.js
 import { permKey } from '../constants/permissionCatalog.js';
 import { CHAINS, activeManagerOf, chainFor, hrMayDecide, type Chain } from '../services/attendance/approvalChain.js';
 import { activeLeaveRule, configuredLeaveApproval, LEAVE_CHAINS, nextLeaveStep, skippedLines, stepsOf, takesStep, type LeaveChain } from '../services/attendance/leaveRules.js';
-import { sendNotice, usersWithPermission } from '../services/notifications.js';
+import { retireNotices, sendNotice, usersWithPermission } from '../services/notifications.js';
+import { choicesFor } from '../services/people/companyChoices.js';
 import { approverUsers, queueNotice, revisionOf } from '../services/attendance/notices.js';
 import { resolveAccess } from '../services/access.js';
 import { isFeatureEnabled } from '../services/features.js';
@@ -1611,7 +1612,7 @@ export async function tellAboutLeave(orgId: string, r: any, ctx: { approvedBy?: 
       const title = r.ruleStep > 1 ? `${who}'s ${what}, ${when}, waits for you (step ${r.ruleStep})` : `${who} asks for ${what}, ${when}`;
       /* People's Approvals: where a named person or a role decides, with or without the leave screens. */
       const stepLink = app === 'people' ? { app, screen: 'approvals' } : link;
-      if (to.length) await sendNotice(emp.accountId, orgId, to, { kind: 'attendance.leave_asked', title, body: leaveNoticeBody(r, days), link: stepLink }, { except: r.requestedByUserId, dedupeKey: `leave-asked:${r.id}:step${r.ruleStep}:${ctx.rev ?? 0}` });
+      if (to.length) await sendNotice(emp.accountId, orgId, to, { kind: 'attendance.leave_asked', title, body: leaveNoticeBody(r, days), link: stepLink }, { except: r.requestedByUserId, dedupeKey: `leave-asked:${r.id}:step${r.ruleStep}:${ctx.rev ?? 0}`, subjectKey: `leave:${r.id}` });
       return;
     }
     const stage = r.managerApprovedAt ? (r.managerApprovedById ? 'manager' : 'handed') : 'new';
@@ -1621,14 +1622,23 @@ export async function tellAboutLeave(orgId: string, r: any, ctx: { approvedBy?: 
     if (manager) {
       /* The manager acts first — or their stand-in while they are away: in People with a sign-in, else in the employee app's queue (no notice there). */
       const managerUser = (await peoplePrisma.employee.findFirst({ where: { id: await deciderFor(orgId, manager.id), orgId }, select: { userId: true } }))?.userId;
-      if (managerUser) await sendNotice(emp.accountId, orgId, [managerUser], { kind: 'attendance.leave_asked', title: `${who} asks for ${what}, ${when}`, body: leaveNoticeBody(r, days), link }, { except: r.requestedByUserId, dedupeKey });
+      if (managerUser) await sendNotice(emp.accountId, orgId, [managerUser], { kind: 'attendance.leave_asked', title: `${who} asks for ${what}, ${when}`, body: leaveNoticeBody(r, days), link }, { except: r.requestedByUserId, dedupeKey, subjectKey: `leave:${r.id}` });
       return;
     }
     const title = r.managerApprovedAt ? (r.managerApprovedById ? `${who}'s ${what}, ${when}, is approved by the manager and waits for you` : `${who}'s ${what}, ${when}, waited too long for the manager and now waits for you`) : `${who} asks for ${what}, ${when}`;
-    await sendNotice(emp.accountId, orgId, await approversOf(emp.accountId, orgId, r.employeeId), { kind: 'attendance.leave_asked', title, body: leaveNoticeBody(r, days), link }, { except: r.requestedByUserId, dedupeKey });
+    await sendNotice(emp.accountId, orgId, await approversOf(emp.accountId, orgId, r.employeeId), { kind: 'attendance.leave_asked', title, body: leaveNoticeBody(r, days), link }, { except: r.requestedByUserId, dedupeKey, subjectKey: `leave:${r.id}` });
     return;
   }
   if (!['APPROVED', 'REJECTED', 'CANCELLED'].includes(r.status)) return;
+  /*
+   * Withdrawn while waiting, or HR cancelled it while it waited: the approvers' "waiting for you" notices say so, or
+   * go (Company choices, SPEC 3.6). The person withdrawing needs nothing more; HR cancelling still tells the person.
+   */
+  if (r.status === 'CANCELLED' && !ctx.approvedBy) {
+    const own = byPerson(r.reviewedByUserId);
+    await retireNotices(orgId, `leave:${r.id}`, (await choicesFor(orgId)).withdrawnNotices, link, own ? 'Withdrawn' : 'Cancelled');
+    if (own) return;
+  }
   const word = ({ APPROVED: 'approved', REJECTED: 'not approved', CANCELLED: 'cancelled' } as Record<string, string>)[r.status];
   if (emp.userId && !byPerson(r.reviewedByUserId)) {
     await sendNotice(emp.accountId, orgId, [emp.userId], { kind: 'attendance.leave_decided', title: `Your ${r.leaveTypeName}, ${when}, is ${word}`, body: r.reviewNote || null, link: { app, screen: 'myLeave' } }, { except: r.reviewedByUserId, dedupeKey: `leave-decided:${r.id}:${r.status}` });

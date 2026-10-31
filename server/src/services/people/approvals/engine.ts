@@ -3,7 +3,8 @@ import { peoplePrisma } from '../../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../../utils/platformPrisma.js';
 import { outsideTenant, runInTenant } from '../../../utils/tenantScope.js';
 import { exclusive, leaseFor } from '../../jobLease.js';
-import { notifyUsers, usersHoldingRoles, usersWithPermission } from '../../notifications.js';
+import { notifyUsers, retireNotices, usersHoldingRoles, usersWithPermission } from '../../notifications.js';
+import { choicesFor } from '../companyChoices.js';
 import type { Actor } from '../changeLog.js';
 import { writeChangeLog } from '../changeLog.js';
 import { registerJob } from '../../jobRegistry.js';
@@ -388,7 +389,7 @@ async function notifyStep(request: RequestRow) {
   const step = request.steps.find((s) => s.order === request.currentStep && s.status === 'WAITING');
   if (!step) return;
   const ids = (step.candidateUserIds as string[]) || [];
-  await notifyUsers(request.accountId, request.orgId, ids, { kind: 'people.approval', title: `Waiting for you: ${request.title}`, body: `Due ${step.dueAt.toISOString().slice(0, 10)}.`, link: { app: 'people', screen: 'approvals' } as any });
+  await notifyUsers(request.accountId, request.orgId, ids, { kind: 'people.approval', title: `Waiting for you: ${request.title}`, body: `Due ${step.dueAt.toISOString().slice(0, 10)}.`, link: { app: 'people', screen: 'approvals' } as any }, { subjectKey: `approval:${request.id}` });
 }
 
 /**
@@ -566,6 +567,9 @@ export async function withdraw(actor: Actor, requestId: string) {
     return r;
   });
   await tellClosed(done, 'WITHDRAWN', null);
+  /* The approvers' "waiting for you" notices say it was withdrawn, or go, as the company chose (SPEC 3.6). */
+  const { withdrawnNotices } = await choicesFor(actor.orgId);
+  await retireNotices(actor.orgId, `approval:${done.id}`, withdrawnNotices, { app: 'people', screen: 'approvals', params: { open: 'APPROVAL', id: done.id } });
   return done;
 }
 
@@ -645,7 +649,7 @@ export async function runApprovalDues(now = new Date()) {
   let failed = 0;
   const remind = async (step: (typeof due)[number]) => {
     await peoplePrisma.approvalStep.update({ where: { id: step.id }, data: { remindedAt: now } });
-    await notifyUsers(step.accountId, step.orgId, (step.candidateUserIds as string[]) || [], { kind: 'people.approval', title: `Overdue: ${step.request.title}`, body: `Was due ${step.dueAt.toISOString().slice(0, 10)}.`, link: { app: 'people', screen: 'approvals' } as any });
+    await notifyUsers(step.accountId, step.orgId, (step.candidateUserIds as string[]) || [], { kind: 'people.approval', title: `Overdue: ${step.request.title}`, body: `Was due ${step.dueAt.toISOString().slice(0, 10)}.`, link: { app: 'people', screen: 'approvals' } as any }, { subjectKey: `approval:${step.requestId}` });
     reminded += 1;
   };
   for (const step of due) {
@@ -667,7 +671,7 @@ export async function runApprovalDues(now = new Date()) {
             if (!moved.count) return;
             await tx.approvalStep.create({ data: { accountId: step.accountId, orgId: step.orgId, requestId: step.requestId, order: step.order, candidateUserIds: candidates, approverUserId: candidates[0], dueAt: addWorkingDays(now, spec.dueDays), status: 'WAITING' } });
           });
-          await notifyUsers(step.accountId, step.orgId, candidates, { kind: 'people.approval', title: `Handed on to you: ${step.request.title}`, link: { app: 'people', screen: 'approvals' } as any });
+          await notifyUsers(step.accountId, step.orgId, candidates, { kind: 'people.approval', title: `Handed on to you: ${step.request.title}`, link: { app: 'people', screen: 'approvals' } as any }, { subjectKey: `approval:${step.requestId}` });
           handedOn += 1;
         }
       });

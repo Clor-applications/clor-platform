@@ -1864,6 +1864,18 @@ model PeopleSetting {
   /// Referrals (A20): a bonus is not paid when the referrer has left before the bonus date
   /// (serving notice counts as still here). Off: it is paid anyway, in their final settlement or by hand.
   referralForfeitIfReferrerLeaves Boolean @default(true)
+  /// Company choices (docs/people/workflow-engine/SPEC.md 3.2, services/people/companyChoices.ts). Who decides missed punch,
+  /// work from home, on duty, permission and shift change requests: HR_OR_MANAGER | MANAGER | HR | MANAGER_THEN_HR.
+  /// Null: not chosen here yet, so AttendanceSettings.correctionApproval is read (its HR means HR_OR_MANAGER).
+  correctionApproval String?
+  /// 3.3: HR without Payroll access may read salary revisions (list, old and new pay). Owner or admin only.
+  hrSeesSalaryRevisions Boolean @default(false)
+  /// 3.5: read-only users and IT administrators see the Leaving list (who is leaving, the last day).
+  leavingsForReadOnly Boolean @default(true)
+  /// 3.5: ...and the reason typed for leaving. HR, the owner and admins always see it.
+  leavingReasonForReadOnly Boolean @default(false)
+  /// 3.6: a withdrawn request's "waiting for you" notice: SHOW_WITHDRAWN (marked read, says so, links to it) | REMOVE.
+  withdrawnNotices String @default("SHOW_WITHDRAWN")
   updatedByUserId    String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

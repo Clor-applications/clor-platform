@@ -8,6 +8,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { inScope, teamScope } from '../services/people/scope.js';
 import { changes, joiners, leavers, overview, taskQueue } from '../services/people/lifecycle/board.js';
+import { leavingReasonAccess, seesLeavings } from '../services/people/companyChoices.js';
 
 /**
  * Joining & Leaving (docs/people/design-v1/JOINING-LEAVING-DECISIONS.md):
@@ -22,7 +23,7 @@ import { changes, joiners, leavers, overview, taskQueue } from '../services/peop
 export const peopleLifecycleRouter = Router();
 peopleLifecycleRouter.use('/orgs/:orgId/people/lifecycle', requireAuth, requireTenantContext);
 
-const { employees: EMPLOYEES, lifecycle: LIFECYCLE } = PEOPLE_RESOURCE;
+const { employees: EMPLOYEES } = PEOPLE_RESOURCE;
 const can = (action: string, resource: string) => requirePermission(PEOPLE_MODULE, action as any, resource);
 const base = '/orgs/:orgId/people/lifecycle';
 
@@ -30,8 +31,9 @@ async function ctxOf(req: Request) {
   return {
     orgId: req.tenant!.orgId,
     scope: await teamScope(req),
-    /* Why someone leaves is HR's to read (JCL-009). */
-    privateOk: !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, LIFECYCLE)),
+    /* Why someone leaves is HR's to read (JCL-009); others with the Lifecycle right only when the company says so (SPEC 3.5). */
+    privateOk: await leavingReasonAccess(req),
+    leavingsOk: await seesLeavings(req),
     userId: req.auth!.userId,
     mineOnly: Boolean(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, EMPLOYEES)),
     /* Closes and hands on anyone's task in scope (the PATCH route checks the same). */

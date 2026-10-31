@@ -142,6 +142,7 @@ const PeopleDocuments = screen('PeopleDocuments');
 const Holidays = screen('Holidays');
 const PortalAccess = screen('PortalAccess');
 const SalaryRevisions = screen('SalaryRevisions');
+const CompanyChoices = screen('CompanyChoices');
 const LeaveRequests = screen('LeaveRequests');
 const TimeOverview = screen('TimeOverview');
 const WorkingWeek = screen('WorkingWeek');
@@ -397,6 +398,8 @@ export const peopleApp = {
     { key: 'customFields', label: 'Custom fields', icon: I.field, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
     { key: 'selfServiceChanges', label: 'Self-service edits', icon: I.key, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
     { key: 'approvalRules', label: 'Approval rules', icon: I.checklist, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
+    /* The decisions HR and the owner make for the company (docs/people/workflow-engine/SPEC.md 3). */
+    { key: 'companyChoices', label: 'Company choices', icon: I.policy, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     { key: 'requestForms', label: 'Request types', icon: I.policy, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
     { key: 'requestsReport', label: 'Requests report', icon: I.report, permission: 'PEOPLE::Approvals::VIEW' },
     /* Swaps asked in the employee app; HR sees all, a manager their team (the server decides). */
@@ -447,7 +450,7 @@ export const peopleApp = {
     { key: 'helpDeskSettings', label: 'Help desk settings', icon: I.hrCase, permission: 'PEOPLE::HR Cases::EDIT', parent: 'settings' },
     { key: 'assets', label: 'Assets', icon: I.asset, permission: 'PEOPLE::Assets::VIEW', feature: 'peopleBenefits' },
     { key: 'benefits', label: 'Benefits', icon: I.benefit, permission: 'PEOPLE::Benefits::VIEW', feature: 'peopleBenefits' },
-    { key: 'compensation', label: 'Salary revisions', icon: I.salary, permission: 'PAYROLL::Salary Revisions::VIEW', feature: 'peopleBenefits' },
+    { key: 'compensation', label: 'Salary revisions', icon: I.salary, permission: ['PAYROLL::Salary Revisions::VIEW', 'PEOPLE::Salary revisions read::VIEW'], feature: 'peopleBenefits' },
     /* Claims approved in Approvals, paid here; advances and salary advances (WORKFLOW-GAP-RESEARCH 4.1, 4.2). */
     { key: 'expenses', label: 'Expenses', icon: I.expense, permission: 'PEOPLE::Expenses::VIEW' },
     { key: 'reports', label: 'People report', icon: I.report, permission: 'PEOPLE::Employees::VIEW' },
@@ -524,6 +527,7 @@ export const peopleApp = {
     absences: Absences,
     nightWork: NightWork,
     attendanceRules: AttendanceRulesSettings,
+    companyChoices: CompanyChoices,
     automations: Automations,
     exitQuestions: ExitQuestions,
     myRequests: MyRequests,

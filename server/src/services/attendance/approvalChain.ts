@@ -12,10 +12,24 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
  *                    whose manager has left or is suspended, goes
  *                    straight to HR.
  */
-export type Chain = 'HR' | 'MANAGER' | 'MANAGER_THEN_HR';
+export type Chain = 'HR' | 'MANAGER' | 'MANAGER_THEN_HR' | 'HR_ONLY';
+/** The three shapes the Attendance app and the per-kind and leave settings store. */
 export const CHAINS: Chain[] = ['HR', 'MANAGER', 'MANAGER_THEN_HR'];
+/**
+ * HR_ONLY (People → Settings → Company choices, "HR only"; SPEC 3.2): HR alone decides, and a manager sees the
+ * request but cannot decide it. Only the company's correction choice can be HR_ONLY; the old HR, as before,
+ * also lets a manager or approver whose scope holds the person decide ("HR or the manager, whoever is first").
+ */
+export const hrChain = (c: Chain) => c === 'HR' || c === 'HR_ONLY';
+
+/** People's company choice for attendance requests, in chain words; null when not chosen there (companyChoices.ts). */
+const PEOPLE_CHOICE: Record<string, Chain> = { HR_OR_MANAGER: 'HR', HR: 'HR_ONLY', MANAGER: 'MANAGER', MANAGER_THEN_HR: 'MANAGER_THEN_HR' };
 
 export async function chainFor(orgId: string, kind: 'leave' | 'correction'): Promise<Chain> {
+  if (kind === 'correction') {
+    const chosen = (await peoplePrisma.peopleSetting.findUnique({ where: { orgId }, select: { correctionApproval: true } }))?.correctionApproval;
+    if (chosen && PEOPLE_CHOICE[chosen]) return PEOPLE_CHOICE[chosen];
+  }
   const s = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { leaveApproval: true, correctionApproval: true } });
   const v = (kind === 'leave' ? s?.leaveApproval : s?.correctionApproval) as Chain | undefined;
   return v && CHAINS.includes(v) ? v : 'HR';

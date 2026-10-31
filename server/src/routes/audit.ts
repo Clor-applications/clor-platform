@@ -8,6 +8,8 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { leavingInAudit } from '../middleware/auditMutations.js';
+import { leavingReasonFilter } from '../services/people/companyChoices.js';
 
 /**
  * Reading the audit trail.
@@ -119,16 +121,30 @@ auditRouter.get('/orgs/:orgId/audit', AUDIT_VIEW, async (req, res) => {
   };
 
   const page = rows.slice(0, limit);
+  const parsed = page.map((r) => {
+    try {
+      return r.metadata ? JSON.parse(r.metadata) : null;
+    } catch {
+      // A row whose metadata will not parse still says who did what and when,
+      // and those are the parts an auditor asks about.
+      return null;
+    }
+  });
+  /*
+   * The reason typed for leaving (SPEC 3.5): rows written before the log stopped storing it are masked here, for
+   * anyone the reason is kept from (the log is append-only, so they are never changed). HR, the owner and admins
+   * read them as written; others by the same rule as everywhere (companyChoices.ts leavingReasonFilter).
+   */
+  const leavings = page.map((r, i) => leavingInAudit({ entity: r.entity, entityId: r.entityId, metadata: parsed[i] }));
+  const subjectIds = [...new Set(leavings.map((l) => l?.employeeId).filter(Boolean) as string[])];
+  const subjects = new Map(subjectIds.length ? (await peoplePrisma.employee.findMany({ where: { orgId, id: { in: subjectIds } }, select: { id: true, userId: true, dateOfLeaving: true } })).map((e) => [e.id, e]) : []);
+  const shows = leavings.some(Boolean) ? await leavingReasonFilter(req, [...subjects.values()]) : () => true;
   res.json({
-    entries: page.map((r) => {
-      let metadata: unknown = null;
-      try {
-        metadata = r.metadata ? JSON.parse(r.metadata) : null;
-      } catch {
-        // A row whose metadata will not parse still says who did what and when,
-        // and those are the parts an auditor asks about.
-        metadata = null;
-      }
+    entries: page.map((r, i) => {
+      const leaving = leavings[i];
+      const subject = leaving?.employeeId ? subjects.get(leaving.employeeId) : undefined;
+      /* A person no longer on file (anonymised): only a reader who sees every reason reads it as written. */
+      const metadata = leaving && !shows(subject ?? { id: leaving.employeeId || '' }) ? leaving.masked : parsed[i];
       return {
         id: r.id,
         entity: r.entity,

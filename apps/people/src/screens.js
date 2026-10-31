@@ -70,7 +70,9 @@ export { default as Registers, LeaveSummaryReport } from './screens/Registers';
 export { default as PeopleDocuments } from './screens/PeopleDocuments';
 export { default as Holidays } from '../../attendance/src/screens/Holidays';
 export { default as PortalAccess } from '../../attendance/src/screens/PortalAccess';
-export { default as SalaryRevisions } from '../../payroll/src/screens/SalaryRevisions';
+/* Payroll's screen for Payroll's people; HR reads a read-only list when the owner allows it (Company choices). */
+export { default as SalaryRevisions } from './money/SalaryRevisionsRead';
+export { default as CompanyChoices } from './screens/CompanyChoices';
 /* Leave is HR's (founder, 22 Oct 2026): People's own screens over the same records Attendance reads. */
 export { default as LeaveRequests } from '@ui/timeOff/LeaveRequests';
 export { default as TimeOverview } from '@ui/timeOff/TimeOverview';

@@ -38,3 +38,15 @@ it('counts the whole inbox in the headline and the To approve figure, with leave
   fireEvent.click(screen.getByText('To approve').closest('button'));
   expect(openScreen).toHaveBeenCalledWith('approvals', undefined);
 });
+
+/* Company choices, "leavings: no" (SPEC 3.5): a reader the leavings are kept from gets no On notice figure. */
+it('shows On notice by default, and leaves it out when the company keeps leavings from this reader', async () => {
+  const api = await import('@ui/personnel/api');
+  const { unmount } = render(<PeopleOverview openScreen={vi.fn()} />);
+  expect(await screen.findByText('On notice')).toBeTruthy();
+  unmount();
+  api.getOverview.mockResolvedValueOnce({ headcount: 10, byDepartment: [], byStatus: { ACTIVE: 10 }, joinedThisMonth: [], leftThisMonth: null, leavingsHidden: true });
+  render(<PeopleOverview openScreen={vi.fn()} />);
+  expect(await screen.findByText('To approve')).toBeTruthy();
+  expect(screen.queryByText('On notice')).toBeNull();
+});

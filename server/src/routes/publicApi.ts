@@ -141,8 +141,9 @@ const limitOf = (q: any, dflt: number, max: number) => Math.min(max, Math.max(1,
 const changedSince = (since: Date | null, cursor: { at: Date; id: string } | null) =>
   cursor ? { OR: [{ updatedAt: { gt: cursor.at } }, { updatedAt: cursor.at, id: { gt: cursor.id } }] } : since ? { updatedAt: { gt: since } } : {};
 
-const EMPLOYEE_FIELDS = { id: true, code: true, name: true, department: true, designation: true, status: true, dateOfJoining: true, dateOfLeaving: true, devicePin: true, workEmail: true, updatedAt: true } as const;
-const publicEmployee = ({ devicePin, ...e }: any) => ({ ...e, readerId: devicePin || e.code || null });
+/** What an integration reads of a person. Never the reason typed for leaving (SPEC 3.5; pinned by a test). */
+export const EMPLOYEE_FIELDS = { id: true, code: true, name: true, department: true, designation: true, status: true, dateOfJoining: true, dateOfLeaving: true, devicePin: true, workEmail: true, updatedAt: true } as const;
+export const publicEmployee = ({ devicePin, ...e }: any) => ({ ...e, readerId: devicePin || e.code || null });
 
 publicApiRouter.get('/employees', scope('employees:read'), async (req, res) => {
   const { accountId, orgId } = req.apiClient!;

@@ -9,12 +9,13 @@ import { assertScheduleOpen } from './scheduleGuard.js';
 import { assertNightConsent } from '../people/nightConsent.js';
 import { recomputeDeviceDay } from './punches.js';
 import { nightShiftsOn, timesOn } from './nightShift.js';
-import { CHAINS, activeManagerOf, chainFor, type Chain } from './approvalChain.js';
+import { CHAINS, activeManagerOf, chainFor, hrChain, type Chain } from './approvalChain.js';
 import { deciderFor, managerStepBy, standingInFor } from './standIns.js';
 import { REASON_CODES } from './corrections.js';
 import { selfDecisionAllowed } from '../makerChecker.js';
 import { emit as emitWebhook } from './webhooks.js';
-import { sendNotice, usersWithPermission } from '../notifications.js';
+import { retireNotices, sendNotice, usersWithPermission } from '../notifications.js';
+import { choicesFor } from '../people/companyChoices.js';
 import { approverUsers, queueNotice, revisionOf } from './notices.js';
 import { resolveAccess } from '../access.js';
 import { inScope, teamScope, type TeamScope } from '../people/scope.js';
@@ -395,7 +396,9 @@ export async function decideRequest(accountId: string, orgId: string, r: any, ap
   const kind = r.kind as Kind;
   const name = KIND_WORDS[kind].name;
   const chain = await chainOf(orgId, kind);
-  const manager = chain === 'HR' ? null : await activeManagerOf(orgId, r.employeeId);
+  /* HR only (the company's choice): a manager or team-scoped approver sees it but does not decide it. */
+  if (chain === 'HR_ONLY' && !by.scopeAll) throw fail(403, 'HR decides these requests in this company; you can see it, not decide it.', 'HR_ONLY');
+  const manager = hrChain(chain) ? null : await activeManagerOf(orgId, r.employeeId);
   const asManager = by.managerId && manager ? await managerStepBy(orgId, by.managerId, r.employeeId) : null;
   const who = { accountId, orgId, userId: by.userId };
   if (approve && chain === 'MANAGER_THEN_HR' && manager) {
@@ -547,6 +550,7 @@ export async function cancelRequest(accountId: string, orgId: string, r: any, by
      */
     if (!own) await queueRequestNotice(cancelled);
     else if (r.status === 'APPROVED') await queueRequestNotice(cancelled, { own: true, approvedBy: r.reviewedByUserId || 'system' });
+    else await queueRequestNotice(cancelled, { own: true, approvedBy: null });
     return cancelled;
   });
   await requestAudit(who, { entityId: r.id, action: 'CANCEL', message: `${own ? 'Withdrew' : 'Cancelled'} ${KIND_WORDS[kind].name.toLowerCase()} request, ${spanWords(r)}`, metadata: { employeeId: r.employeeId, kind, wasApproved: r.status === 'APPROVED' } });
@@ -558,11 +562,12 @@ export async function cancelRequest(accountId: string, orgId: string, r: any, by
 // ---------------------------------------------------------------------------
 
 /** Who may act on a waiting request: those who approve attendance requests, narrowed to whoever's scope holds the person. */
-async function approversOf(accountId: string, orgId: string, employeeId: string) {
+async function approversOf(accountId: string, orgId: string, employeeId: string, opts: { wholeCompanyOnly?: boolean } = {}) {
   const users = await usersWithPermission(accountId, orgId, 'ATTENDANCE::Attendance Requests::APPROVE');
   const out: string[] = [];
   for (const userId of users) {
     const access = await resolveAccess(accountId, orgId, userId);
+    if (opts.wholeCompanyOnly && access.ownDocumentsOnly) continue;
     if (!access.ownDocumentsOnly || inScope(await teamScope({ ownDocumentsOnly: true, tenant: { orgId }, auth: { userId } } as any), employeeId)) out.push(userId);
   }
   return out;
@@ -592,7 +597,11 @@ async function queueRequestNotice(r: any, extra: { own?: boolean; approvedBy?: s
 /** Delivered from the outbox (services/attendance/notices.ts): who hears of this request, and what. Throws when it cannot send, so the outbox tries again. */
 export async function tellAboutRequest(orgId: string, r: any, ctx: { approvedBy?: string | null; rev?: number; own?: boolean } = {}) {
   if (r.status === 'PENDING') return tellAsked(orgId, r, ctx.rev ?? 0);
+  /* Withdrawn while waiting (no approver to tell): the "waiting for you" notices say so, or go (Company choices, SPEC 3.6). */
+  if (ctx.own && r.status === 'CANCELLED' && !ctx.approvedBy) return retireAsked(orgId, r);
   if (ctx.own && r.status === 'CANCELLED') return tellOwnCancel(orgId, r, ctx.approvedBy ?? null);
+  /* HR cancelled it: any "waiting for you" notice still standing says so, or goes; the person is told as before. */
+  if (r.status === 'CANCELLED') await retireAsked(orgId, r, 'Cancelled');
   return tellDecided(orgId, r);
 }
 
@@ -610,15 +619,20 @@ async function tellAsked(orgId: string, r: any, rev: number) {
   /* A retry has the same key; the manager's step, or a real change, does not. */
   const dedupeKey = `request-asked:${r.id}:${r.managerApprovedAt ? 'manager' : 'new'}:${rev}`;
   const chain = await chainOf(orgId, kind);
-  const manager = chain !== 'HR' && !r.managerApprovedAt ? await activeManagerOf(orgId, r.employeeId) : null;
+  const manager = !hrChain(chain) && !r.managerApprovedAt ? await activeManagerOf(orgId, r.employeeId) : null;
   if (manager) {
     const decider = await deciderFor(orgId, manager.id);
     const user = (await peoplePrisma.employee.findFirst({ where: { id: decider, orgId }, select: { userId: true } }))?.userId;
-    if (user) await sendNotice(emp.accountId, orgId, [user], { kind: 'attendance.request_asked', title: `${who} asks for ${what}, ${when}`, body, link }, { except: r.requestedByUserId, dedupeKey });
+    if (user) await sendNotice(emp.accountId, orgId, [user], { kind: 'attendance.request_asked', title: `${who} asks for ${what}, ${when}`, body, link }, { except: r.requestedByUserId, dedupeKey, subjectKey: `attendance:${r.id}` });
     return;
   }
   const title = r.managerApprovedAt ? `${who}'s ${what}, ${when}, is approved by the manager and waits for you` : `${who} asks for ${what}, ${when}`;
-  await sendNotice(emp.accountId, orgId, await approversOf(emp.accountId, orgId, r.employeeId), { kind: 'attendance.request_asked', title, body, link }, { except: r.requestedByUserId, dedupeKey });
+  await sendNotice(emp.accountId, orgId, await approversOf(emp.accountId, orgId, r.employeeId, { wholeCompanyOnly: chain === 'HR_ONLY' }), { kind: 'attendance.request_asked', title, body, link }, { except: r.requestedByUserId, dedupeKey, subjectKey: `attendance:${r.id}` });
+}
+
+async function retireAsked(orgId: string, r: any, word: 'Withdrawn' | 'Cancelled' = 'Withdrawn') {
+  const link = await linkFor(r.accountId, orgId, 'attendanceRequests', { id: r.id });
+  await retireNotices(orgId, `attendance:${r.id}`, (await choicesFor(orgId)).withdrawnNotices, link, word);
 }
 
 /** A decision goes to the person, once, unless they made it themselves. */
@@ -667,6 +681,7 @@ async function deciderWords(orgId: string, r: any, chain: Chain, readerEmployeeI
   const step = manager && readerEmployeeId ? await managerStepBy(orgId, readerEmployeeId, r.employeeId) : null;
   const me = step ? (step === readerEmployeeId ? 'you as their manager' : 'you, standing in for their manager') : null;
   const You = me ? me.charAt(0).toUpperCase() + me.slice(1) : null;
+  if (chain === 'HR_ONLY') return 'HR';
   if (chain === 'HR') return me && reader.canDecide && !reader.scopeAll ? `HR, or ${me}` : 'HR';
   if (!manager) return 'HR';
   if (chain === 'MANAGER') return You || manager.name || 'Their manager';
@@ -685,7 +700,7 @@ export async function story(accountId: string, orgId: string, r: any, readerEmpl
     peoplePrisma.attendanceRecord.findMany({ where: { orgId, employeeId: r.employeeId, date: { gte: r.date, lte: r.toDate || r.date } }, orderBy: { date: 'asc' } }),
     chainOf(orgId, kind, rules),
   ]);
-  const manager = chain !== 'HR' && r.status === 'PENDING' && !r.managerApprovedAt ? await activeManagerOf(orgId, r.employeeId) : null;
+  const manager = !hrChain(chain) && r.status === 'PENDING' && !r.managerApprovedAt ? await activeManagerOf(orgId, r.employeeId) : null;
   /* The manager (or their stand-in) reading it is not waiting on anyone: Approve takes their step, as it does on the Approvals row. */
   const takesManagerStep = Boolean(manager && readerEmployeeId && (await managerStepBy(orgId, readerEmployeeId, r.employeeId)));
   const decidedBy = await deciderWords(orgId, r, chain, readerEmployeeId, reader);
@@ -723,6 +738,8 @@ export async function requestsWaitingForReader(orgId: string, scope: TeamScope, 
   return rows.filter((r) => {
     const p = of.get(r.employeeId);
     if (p?.userId && p.userId === userId) return false;
+    /* HR only: waiting on HR, not on a team-scoped reader. */
+    if (chains.get(r.kind) === 'HR_ONLY' && !scope.all) return false;
     const m = p?.reportingManagerId ? managers.get(p.reportingManagerId) : null;
     const activeManager = m && m.status !== 'LEFT' && m.status !== 'SUSPENDED' ? m : null;
     if (chains.get(r.kind) === 'MANAGER_THEN_HR' && !r.managerApprovedAt && activeManager) return activeManager.userId === userId || covers.has(activeManager.id);

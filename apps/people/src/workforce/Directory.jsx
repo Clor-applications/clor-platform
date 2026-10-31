@@ -297,7 +297,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
         </div>
       ) : null}
 
-      {filtersOpen ? <FiltersDrawer params={p} lists={lists} managers={managers} onClose={() => setFiltersOpen(false)} onApply={(f) => { set({ ...f, page: null }, true); setFiltersOpen(false); }} /> : null}
+      {filtersOpen ? <FiltersDrawer params={p} lists={lists} managers={managers} noticeHidden={Boolean(counts.data?.leavingsHidden)} onClose={() => setFiltersOpen(false)} onApply={(f) => { set({ ...f, page: null }, true); setFiltersOpen(false); }} /> : null}
       {exportOpen ? <ExportDrawer counts={{ view: total, all: counts.data ? counts.data.total : null, selected: selected.size }} filtered={Boolean(p.q || filtersOn || tab === 'team')} onClose={() => setExportOpen(false)} onExport={doExport} /> : null}
       {bulk ? <BulkDrawer count={selected.size} ids={[...selected]} lists={lists} managers={managers} value={bulk} onChange={setBulk} onClose={() => setBulk(null)}
         onSend={async () => {
@@ -381,7 +381,8 @@ function MetricStrip({ counts, onPick }) {
     { k: 'leftMonth', label: 'Left this month', value: counts.leftThisMonth ?? 0, Icon: UserMinus, patch: 'leftMonth' },
     { k: 'onNotice', label: 'On notice', value: counts.onNotice, Icon: UserMinus, patch: { status: 'ON_NOTICE' } },
     { k: 'onLeave', label: 'On leave today', value: counts.onLeave, Icon: TreePalm, patch: null },
-  ];
+  /* The company keeps who is leaving from this reader (Company choices): no leaving counts. */
+  ].filter((m) => !counts.leavingsHidden || (m.k !== 'leftMonth' && m.k !== 'onNotice'));
   return (
     <div className="ui-metric-strip" role="list" aria-label="Workforce counts">
       {items.map(({ k, label, value, Icon: LineIcon, patch }) => {
@@ -427,7 +428,7 @@ function Banners({ openScreen }) {
 }
 
 /* Draft vs applied (WF-03 filter contract): nothing changes until Apply; closing with a changed draft asks first. */
-function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
+function FiltersDrawer({ params, lists, managers, noticeHidden = false, onClose, onApply }) {
   const initial = Object.fromEntries(FILTER_KEYS.map((k) => [k, params[k] || '']));
   const [draft, setDraft] = useState(initial);
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
@@ -449,7 +450,7 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
         <section aria-label="Job">
           <h3 className="ui-filter-group-title">Job</h3>
           <div className="ui-form-grid">
-            {field('status', 'Status', [{ value: '', label: 'Current employees' }, ...Object.entries(STATUS).map(([value, s]) => ({ value, label: s.label })), { value: 'ALL', label: 'Everyone, including left' }], 'Current employees')}
+            {field('status', 'Status', [{ value: '', label: 'Current employees' }, ...Object.entries(STATUS).filter(([value]) => !noticeHidden || value !== 'ON_NOTICE').map(([value, s]) => ({ value, label: s.label })), { value: 'ALL', label: 'Everyone, including left' }], 'Current employees')}
             {field('pos', 'Designation', opt(lists.positions))}
             {field('type', 'Employment type', opt(lists.types))}
             {lists.workTypes.length ? field('wtype', 'Work mode', opt(lists.workTypes)) : null}

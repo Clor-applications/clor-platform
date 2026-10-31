@@ -178,8 +178,8 @@ describe('Talent: a team manager acts on their own team’s goals', () => {
 describe('gap 5: access that comes from a grant or a seat', () => {
   it('says no to someone with neither, whatever their role', async () => {
     const hr = await withRole(boss, 'HR Manager', 'Plain HR');
-    expect((await people(hr).get('/my-access').expect(200)).body).toEqual({ auditEvidence: false, privateCases: false });
-    expect((await people(boss).get('/my-access').expect(200)).body).toEqual({ auditEvidence: false, privateCases: false });
+    expect((await people(hr).get('/my-access').expect(200)).body).toEqual({ auditEvidence: false, privateCases: false, salaryRevisions: false });
+    expect((await people(boss).get('/my-access').expect(200)).body).toEqual({ auditEvidence: false, privateCases: false, salaryRevisions: false });
   });
 
   it('an auditor with a live grant gets Audit evidence; revoked or another company’s grant does not count', async () => {
@@ -188,7 +188,7 @@ describe('gap 5: access that comes from a grant or a seat', () => {
     const auditor = await withRole(boss, 'External Auditor', 'Outside Auditor');
     expect((await people(auditor).get('/my-access').expect(200)).body.auditEvidence).toBe(false);
     const grant = (await people(boss).post('/privacy/auditor-grants', { userId: auditor.userId, purpose: 'Statutory audit', documentIds: [doc.id], untilAt: new Date(Date.now() + 86_400_000).toISOString() }).expect(201)).body.grant;
-    expect((await people(auditor).get('/my-access').expect(200)).body).toEqual({ auditEvidence: true, privateCases: false });
+    expect((await people(auditor).get('/my-access').expect(200)).body).toEqual({ auditEvidence: true, privateCases: false, salaryRevisions: false });
 
     /* The same user signed into another company sees nothing from this one's grant. */
     const elsewhere = await owner();
@@ -211,7 +211,7 @@ describe('gap 5: access that comes from a grant or a seat', () => {
     const outsider = await withRole(boss, 'Employee (self-service)', 'Not On It');
     expect((await people(member).get('/my-access').expect(200)).body.privateCases).toBe(false);
     await people(hr).put('/private-cases/committee/GRIEVANCE', { members: [{ userId: member.userId, role: 'PRESIDING', gender: 'FEMALE' }] }).expect(200);
-    expect((await people(member).get('/my-access').expect(200)).body).toEqual({ auditEvidence: false, privateCases: true });
+    expect((await people(member).get('/my-access').expect(200)).body).toEqual({ auditEvidence: false, privateCases: true, salaryRevisions: false });
     /* The committee route itself still needs the grant; the list is theirs. */
     await people(member).get('/private-cases/committee/GRIEVANCE').expect(403);
     await people(member).get('/private-cases').expect(200);

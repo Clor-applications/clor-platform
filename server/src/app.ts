@@ -45,6 +45,7 @@ import { peopleTalentApplyRouter } from './routes/peopleTalentApply.js';
 import { peopleReferralsRouter } from './routes/peopleReferrals.js';
 import { peopleReferralsPortalRouter } from './routes/peopleReferralsPortal.js';
 import { peopleTimeRulesRouter } from './routes/peopleTimeRules.js';
+import { peopleCompanyChoicesRouter } from './routes/peopleCompanyChoices.js';
 import { peopleTimePortalRouter } from './routes/peopleTimePortal.js';
 import { peopleEngagementRouter } from './routes/peopleEngagement.js';
 import { peopleEngagementPortalRouter } from './routes/peopleEngagementPortal.js';
@@ -439,6 +440,7 @@ export function buildApp() {
   app.use('/api', peopleRequestsRouter);
   app.use('/api', peopleMoneyRouter);
   app.use('/api', peopleTimeRulesRouter);
+  app.use('/api', peopleCompanyChoicesRouter);
   app.use('/api', peopleEngagementRouter);
   app.use('/api', peopleInvitesRouter);
   app.use('/api', peopleLettersRouter);

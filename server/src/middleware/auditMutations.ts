@@ -148,14 +148,52 @@ function accountingPhrase(method: string, parts: string[]) {
   return `${bare[0].toUpperCase()}${bare.slice(1)}: ${action.replace(/-/g, ' ')}`;
 }
 
-/** Request fields never written to the log. */
-const HIDDEN = /password|secret|token|bankaccountnumber|^pan$|aadhaar|photo|selfie|template|tmp$|activationcode|apikey|signature|^code$|otp/i;
+/** Request fields never written to the log. The reason typed for leaving is one, wherever it is sent (SPEC 3.5). */
+const HIDDEN = /password|secret|token|bankaccountnumber|^pan$|aadhaar|photo|selfie|template|tmp$|activationcode|apikey|signature|^code$|otp|^leavingreason$|^endreason$/i;
+/**
+ * A leaving's routes carry the reason typed for it under plain names (reason, answers): the resignation and its
+ * change, staying on, rejoining, the exit interview, and a LEAVING request. The audit trail is read by roles the
+ * reason is kept from (Viewer, External Auditor), so those fields are never written.
+ */
+const LEAVING_HIDDEN = /^(reason|answers|note|comment)$/i;
+const LEAVING_PATH = /^people\/(employees\/:id\/(resign|stay|rehire)|leaving\/:id\/exit-interview)$/;
+const leavingBody = (shape: string, body: any) => LEAVING_PATH.test(shape) || (/^people\/requests$/.test(shape) && String(body?.requestType || '').toUpperCase() === 'LEAVING');
 
-function redact(value: unknown, depth = 0): unknown {
+/**
+ * The same masking on read (rows written before the fields were hidden: the log is append-only, so they are masked
+ * where they are shown, not changed). Returns the metadata with a leaving's reason fields as "[hidden]", and the
+ * employee whose leaving it is, so the caller can apply the reader's rule (companyChoices.ts leavingReasonFilter).
+ */
+const GLOBAL_LEAVING = /^(leavingreason|endreason)$/i;
+function hideKeys(value: unknown, keys: RegExp, depth = 0): unknown {
+  if (depth > 6) return value;
+  if (Array.isArray(value)) return value.map((v) => hideKeys(v, keys, depth + 1));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, keys.test(k) && v != null ? '[hidden]' : hideKeys(v, keys, depth + 1)]));
+  return value;
+}
+export function leavingInAudit(entry: { entity: string; entityId: string; metadata: unknown }): { employeeId: string | null; masked: unknown } | null {
+  const m = entry.metadata as any;
+  if (!m || typeof m !== 'object') return null;
+  /* The exit interview's own line kept the reason code, before it stopped. */
+  if (entry.entity === 'ExitInterview' && 'reason' in m) {
+    const { reason: _r, ...rest } = m;
+    return { employeeId: typeof m.employeeId === 'string' ? m.employeeId : null, masked: { ...rest, reason: '[hidden]' } };
+  }
+  const shape = typeof m.path === 'string' ? m.path : '';
+  const body = m.body;
+  const own = body && leavingBody(shape, body);
+  const masked = hideKeys(own ? hideKeys(m, GLOBAL_LEAVING) : m, GLOBAL_LEAVING);
+  const final = own ? { ...(masked as any), body: hideKeys((masked as any).body, LEAVING_HIDDEN) } : masked;
+  if (JSON.stringify(final) === JSON.stringify(m)) return null;
+  const employeeId = (Array.isArray(m.ids) && typeof m.ids[0] === 'string' ? m.ids[0] : null) || body?.subjectEmployeeId || body?.payload?.employeeId || entry.entityId || null;
+  return { employeeId, masked: final };
+}
+
+function redact(value: unknown, depth = 0, extra: RegExp | null = null): unknown {
   if (depth > 4) return '…';
-  if (Array.isArray(value)) return value.slice(0, 20).map((v) => redact(v, depth + 1));
+  if (Array.isArray(value)) return value.slice(0, 20).map((v) => redact(v, depth + 1, extra));
   if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, HIDDEN.test(k) ? '[hidden]' : redact(v, depth + 1)]));
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, HIDDEN.test(k) || extra?.test(k) ? '[hidden]' : redact(v, depth + 1, extra)]));
   }
   return typeof value === 'string' && value.length > 200 ? `${value.slice(0, 200)}…` : value;
 }
@@ -197,7 +235,7 @@ export function auditMutations(req: Request, res: Response, next: NextFunction) 
           entityId: (ids[0] || '').slice(0, 60),
           action: verb.slice(0, 40),
           message: (phrase || `${req.method} ${shape}`).slice(0, 500),
-          metadata: JSON.stringify({ path: shape, ids, body: redact(req.body) }).slice(0, 8_000),
+          metadata: JSON.stringify({ path: shape, ids, body: redact(req.body, 0, leavingBody(shape, req.body) ? LEAVING_HIDDEN : null) }).slice(0, 8_000),
           createdByUserId: req.auth.userId,
           correlationId: typeof (req as any).id === 'string' ? String((req as any).id).slice(0, 80) : null,
         },

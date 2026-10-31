@@ -409,5 +409,6 @@ export function ruleTimelineOf(r: { createdAt: Date; status: string; ruleStep?: 
 
 export async function chainsFor(orgId: string) {
   const [leave, correction, overtime] = await Promise.all([chainFor(orgId, 'leave'), chainFor(orgId, 'correction'), overtimeChain(orgId)]);
-  return { leave, correction, overtime } as Record<'leave' | 'correction' | 'overtime', 'HR' | 'MANAGER' | 'MANAGER_THEN_HR'>;
+  /* The employee app knows three shapes; "HR only" reads as HR there (the manager has no step in either). */
+  return { leave, correction: correction === 'HR_ONLY' ? 'HR' : correction, overtime } as Record<'leave' | 'correction' | 'overtime', 'HR' | 'MANAGER' | 'MANAGER_THEN_HR'>;
 }

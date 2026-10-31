@@ -1025,12 +1025,16 @@ model Notification {
   linkJson  String?
   /// One notice about one thing, per person: a retry or a second run never sends it twice (services/notifications.ts sendNotice). Null on rows that need no such guard.
   dedupeKey String?
+  /// What the notice is about, for retiring it when that thing closes (services/notifications.ts retireNotices):
+  /// approval:<requestId> | attendance:<requestId> | leave:<requestId>. Null on notices about nothing that can be withdrawn.
+  subjectKey String?
   readAt    DateTime?
   createdAt DateTime  @default(now())
 
   @@unique([orgId, userId, dedupeKey])
   @@index([userId, orgId, readAt])
   @@index([orgId, createdAt])
+  @@index([orgId, subjectKey])
 }
 
 /// Kinds of notification a person does not want in their bell, per company.
