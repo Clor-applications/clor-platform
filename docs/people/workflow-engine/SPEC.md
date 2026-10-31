@@ -111,7 +111,7 @@ Today's marks rule becomes one sentence with a "how much" choice:
 - **Free allowance:** `late.free` exists already. It applies before any mode.
 - **Default:** `TIME_MISSED` for companies that have not switched late marks on. A company that has `marks.on = true` or a legacy `latePenaltyEvery > 0` keeps `HALF_DAY_PER_N` with its numbers, so its pay does not change.
 - **Why `TIME_MISSED`:** Code on Wages 2019 s.20 allows a deduction for absence only in proportion to the working time missed in the wage period ([s.20 text](https://www.advocatekhoj.com/library/bareacts/codeonwages/20.php)). A half day for three 15-minute lates goes past that, and `markRules.ts` already notes that a bigger cut is a fine under s.19, which needs a notified list of acts.
-- **Guard rail for `HALF_DAY_PER_N`:** the setting shows "This can cut more than the time missed. The law allows only the time missed." The readiness view shows, per person, the cut against the time missed. CLOR does not cap it silently; see owner question Q1.
+- **Guard rail for `HALF_DAY_PER_N`:** the setting shows "This can cut more than the time missed. The law allows only the time missed." The readiness view shows, per person, the cut against the time missed. CLOR does not cap it silently. **Decided (owner, 31 Oct 2026, Q1):** the half-day mode stays, with this warning and the per-person comparison.
 - **Who may change it:** HR with company-wide scope, and the owner. Today `PUT /attendance-rules` (`routes/peopleTimeRules.ts:72`) is guarded by `ATTENDANCE::Attendance Requests::APPROVE`, a right the Team Manager preset also holds. The coder confirms whether the handler refuses team-scoped users. If it does not, this setting adds that refusal (`ownDocumentsOnly` → 403), because a pay rule is not a team decision. Payroll is told by notice when it changes mid-month.
 - **Audit and versions:** `recordRuleVersion` (`attendance/ruleVersions.ts`) already versions marks rules. `cutMode` and `roundToMinutes` join that snapshot, and a month already applied keeps its version.
 - **Where the code changes:** `timeRules.ts` (types, schema, defaults, `legacyMarks` gives `HALF_DAY_PER_N`) and `markRules.ts costOf`. Minute modes give days as `minutes ÷ shift minutes`, rounded to 2 places. `compute.ts` takes `penaltyDays` as now.
@@ -144,7 +144,7 @@ Today's marks rule becomes one sentence with a "how much" choice:
 
 ### 3.4 Final settlement: loan and advance recovery (Payroll → Settings → Final settlement)
 
-> In a final settlement, loans and advances are recovered up to **[50]%** of the final wages. The rest **[stays owed by the person ▾ / is recovered from the rest of the settlement when they have agreed in writing]**.
+> In a final settlement, loans and advances are recovered up to **[50]%** of the final wages. The rest stays owed by the person.
 > Final wages are: **[✓ salary for days worked] [✓ notice pay the company owes] [✓ leave encashment] [✓ other earnings this period] [ ] gratuity [ ] reimbursements**.
 
 **Research (sources, uncertain points marked):**
@@ -155,7 +155,7 @@ Today's marks rule becomes one sentence with a "how much" choice:
   - what s.18(4)'s prescribed manner is for a person who has left, since there is no next wage period. The central rules for it are not checked here.
 - **Practice:** Indian payroll guides recover outstanding loans from the final settlement as a matter of course ([Zoho Payroll academy](https://www.zoho.com/in/payroll/academy/payroll-administration/fnf.html), [Razorpay](https://razorpay.com/payroll/learn/full-and-final-settlement-fnf/)). None of them deals with the 50% cap. Recovering in full from wages alone would break s.18(3).
 - **Gratuity** is protected in law. Recovering a loan from it is a lawyer's question; CLOR keeps it **out** of final wages and out of recovery by default.
-- **Leave encashment:** s.2(y) does not list it among the exclusions, so CLOR counts it as wages by default (**uncertain**; it is a setting).
+- **Leave encashment:** s.2(y) does not list it among the exclusions. **Decided (owner, 31 Oct 2026, Q3):** it counts as final wages; it stays ticked by default and can be unticked.
 - **Payment due:** Code on Wages s.17(2), within two working days of leaving (already shown by #81's final-pay clock).
 
 **Setting fields** (`PayrollSetting`, payroll schema):
@@ -163,12 +163,12 @@ Today's marks rule becomes one sentence with a "how much" choice:
 | Field | Default |
 |---|---|
 | `fnfRecoveryCapPercent Int` | 50, range 0–50. A company may be stricter, never looser. |
-| `fnfExcessRecovery String` | `OWED`. The rest becomes an amount owed by the person, shown on the settlement and on People → leaving, for HR to collect outside payroll. The other value, `CONSENT`, recovers the rest from the non-wage part of the settlement (gratuity never) **only when** a signed consent document is attached to the settlement. |
+| (no field) | The rest always becomes an amount owed by the person, shown on the settlement and on People → leaving, for HR to collect outside payroll. **Decided (owner, 31 Oct 2026, Q2):** there is no consent option, so CLOR never recovers past the cap. |
 | `fnfFinalWages Json` | `{ daysWorked: true, noticePayOwed: true, leaveEncashment: true, otherEarnings: true, gratuity: false, reimbursements: false }`. Gratuity and reimbursements cannot be ticked in phase 1; the switch is shown disabled with "Not wages in law". |
 
-**What changes in `finalSettlement.ts`:** recovery lines are capped at `percent × final wages`, less the other deductions in the period (statutory ones counted as `deductionCapCountsStatutory` says). The capped part goes on as before. The rest is an `OWED` line, or a consent-backed line. A settlement saves the setting it used.
+**What changes in `finalSettlement.ts`:** recovery lines are capped at `percent × final wages`, less the other deductions in the period (statutory ones counted as `deductionCapCountsStatutory` says). The capped part goes on as before. The rest is an `OWED` line. A settlement saves the setting it used.
 
-- **Behaviour change:** today recovers in full. Draft settlements made before the switch keep their figures; new drafts use the cap. This changes money, so it is owner question Q2 before phase 1 ships. **Recommendation:** ship the cap at 50% with `OWED`.
+- **Behaviour change:** today recovers in full. Draft settlements made before the switch keep their figures; new drafts use the cap. **Decided (owner, 31 Oct 2026, Q2):** ship the 50% cap with the rest left owed.
 - **Who may change it:** `PAYROLL::Payroll Settings::EDIT`, and the owner.
 - **Audit:** `COMPANY_SETTING / payroll.fnfRecovery`.
 
@@ -378,7 +378,7 @@ model PeopleSetting {           // existing, add (section 3):
 }
 ```
 
-- **Payroll schema, `PayrollSetting`:** `fnfRecoveryCapPercent Int @default(50)`, `fnfExcessRecovery String @default("OWED")`, `fnfFinalWages Json?`. `FinalSettlement` gets `recoveryRule Json?`, the snapshot of the setting it used.
+- **Payroll schema, `PayrollSetting`:** `fnfRecoveryCapPercent Int @default(50)`, `fnfFinalWages Json?`. `FinalSettlement` gets `recoveryRule Json?`, the snapshot of the setting it used.
 - **Platform schema, `Notification`:** `subjectKey String?` with `@@index([orgId, subjectKey])`.
 - **Cross-schema links** (`sourceId` pointing into the payroll schema) are id strings, as `payrollBridge.ts` does today. No foreign keys across schemas.
 
@@ -434,7 +434,7 @@ Follows `DESIGN.md`: People brand D (indigo ink, lilac selected, marigold only f
 
 ### 8.4 Tests (server unless named)
 
-- **Settings:** each of the six has a default, a save, a refusal for the wrong role (403) and an audit row. Decision 1 gives cut amounts for every mode (free marks, rounding, grace) and keeps the legacy ½ day. Decision 4 tests the cap at 50%, consent, owed, and a pre-switch draft unchanged. Decision 5 hides the reason from Viewer and IT admin and shows it to HR. Decision 6 tests a notice shown as withdrawn or removed.
+- **Settings:** each of the six has a default, a save, a refusal for the wrong role (403) and an audit row. Decision 1 gives cut amounts for every mode (free marks, rounding, grace) and keeps the legacy ½ day. Decision 4 tests the cap at 50%, the rest left owed (never recovered past the cap), leave encashment counted in final wages, and a pre-switch draft unchanged. Decision 5 hides the reason from Viewer and IT admin and shows it to HR. Decision 6 tests a notice shown as withdrawn or removed.
 - **Engine:** v1 rules normalise to v2; ANY/ALL; conditions (amount, days, branch, department, employee type); variants (most specific wins); auto-approve (refused for money); stand-in; away hand-up; escalation by hours; AUTO_APPROVE refused on the last step; the own-record rule with SKIP and NEXT_UP; maker-checker AUTO/STRICT/ALLOW; ALL-mode claim race (two deciders at once leave one decision per slot).
 - **One-person company:** every request type submits and closes for a company with one user (the owner); none returns 409.
 - **Parity table** (section 7.3), for leave, attendance and overtime.
@@ -461,7 +461,7 @@ Follows `DESIGN.md`: People brand D (indigo ink, lilac selected, marigold only f
 |---|---|---|---|
 | **1. The six settings** | 1a | `companyChoices.ts`, `PeopleSetting` columns, Company choices screen, decisions 2 (wording and new strict `HR`), 3, 5, 6 (`Notification.subjectKey`, `retireNotices`) | M |
 | | 1b | Decision 1: `cutMode`, `roundToMinutes` in marks rules, readiness view "cut vs time missed" | S |
-| | 1c | Decision 4: Payroll final-settlement recovery cap, final wages, consent document, snapshot (Payroll lane, after Q2) | M |
+| | 1c | Decision 4: Payroll final-settlement recovery cap, final wages, the rest left owed, snapshot (Payroll lane) | M |
 | **2. Engine core + leave and attendance** | 2a | v2 spec, `normaliseSteps`, new approver kinds (DEPARTMENT_HEAD, PAYROLL, OWNER), ALL slots, conditions, variants, auto-approve, escalation hours, away hand-up, maker-checker fall-through (no dead ends), preview API. People types only. | L |
 | | 2b | Stand-in merge (one table, read both) | S |
 | | 2c | `seedPresets`, leave on the engine (`sourceKind LEAVE`), parity tests, old path kept for pending rows | M |
@@ -474,10 +474,10 @@ Each PR runs its affected server and web tests locally and lists them (TEAM.md, 
 
 ---
 
-## 10. Questions only the owner can answer (money or law)
+## 10. Owner answers (31 Oct 2026, in chat)
 
-- **Q1. Late marks, half-day mode.** Keep offering "every N marks cost ½ day" (common practice, but it can go past the time missed, which s.20 allows)? Or cap it at the time actually missed? Recommendation: keep it with the warning and per-person comparison; new companies default to time missed.
-- **Q2. Final settlement recovery.** Ship the 50% cap on final wages with the rest left owed (a change from today's full recovery)? And should the consent route be offered at all, given the unverified s.18(4) prescribed manner and the protection of gratuity? Recommendation: cap and owed now; consent route only after a labour lawyer's note. Gratuity is never used.
-- **Q3. Leave encashment as final wages.** Counted by default (it is not in s.2(y)'s exclusions); a lawyer should confirm.
+- **Q1. Late marks, half-day mode:** keep it, with the warning and the per-person comparison of cut against time missed (3.1). New companies still default to the time missed.
+- **Q2. Final settlement recovery:** a 50% cap on final wages, with the rest left owed by the person. There is no consent option (3.4).
+- **Q3. Leave encashment:** it counts as final wages (3.4).
 
-Everything else in this spec is decided above with reasons, as the owner prefers.
+No open questions remain. Everything else in this spec is decided above with reasons.
