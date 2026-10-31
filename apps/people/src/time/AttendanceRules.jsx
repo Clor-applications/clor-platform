@@ -8,7 +8,7 @@ import { notify } from '@ui/components/ui/notify';
 import { getRequestRules } from '@ui/timeOff/api';
 
 import { getAttendanceRules, previewLateMarks, saveAttendanceRules } from './api';
-import { dayAmount, lastMonth, minutesText, monthTitle } from './shared';
+import { dayAmount, istToday, lastMonth, minutesText, monthTitle, shiftMonth } from './shared';
 
 /**
  * Settings → Attendance rules (WORKFLOW-GAP-RESEARCH-2026-10-30 4.4, 4.5, 4.6, B19): one sheet, a
@@ -83,12 +83,16 @@ export default function AttendanceRules({ openScreen }) {
   const [error, setError] = useState(null);
   const [preview, setPreview] = useState(null);
   const [previewing, setPreviewing] = useState(false);
+  /* A late-mark change counts from next month unless HR says this month (a month is worked out under the rule of its last day). */
+  const [marksFrom, setMarksFrom] = useState('NEXT_MONTH');
   const form = draft || saved;
   const dirty = Boolean(form && saved && JSON.stringify(form) !== JSON.stringify(saved));
   useUnsavedChanges(dirty);
   const canEdit = Boolean(req.data?.canEdit);
   const leaveTypes = req.data?.leaveTypes || [];
   const month = lastMonth();
+  const thisMonth = istToday().slice(0, 7);
+  const marksChanged = Boolean(form && saved && JSON.stringify(marksBody(form)) !== JSON.stringify(marksBody(saved)));
 
   if (req.error && !req.data) return <div className="space-y-6 max-w-2xl"><PageHeader title="Attendance rules" /><ErrorState error={req.error} onRetry={req.reload} /></div>;
   if (!form) return <div className="space-y-6 max-w-2xl"><PageHeader title="Attendance rules" /><SkeletonCard lines={8} /></div>;
@@ -103,10 +107,11 @@ export default function AttendanceRules({ openScreen }) {
     setSaving(true);
     setError(null);
     try {
-      const out = await saveAttendanceRules(toBody(form));
+      const out = await saveAttendanceRules({ ...toBody(form), ...(marksChanged ? { marksFrom } : {}) });
       req.setData((d) => ({ ...d, rules: out.rules, version: out.version }));
       setDraft(null);
-      notify.success('Attendance rules saved.');
+      setMarksFrom('NEXT_MONTH');
+      notify.success(out.marksFrom ? `Attendance rules saved. The late-mark change counts from ${monthTitle(out.marksFrom.slice(0, 7))}.` : 'Attendance rules saved.');
     } catch (err) {
       setError(err);
       notify.error(String(err?.message || 'Not saved.'));
@@ -198,7 +203,7 @@ export default function AttendanceRules({ openScreen }) {
                     ))}
                   </ul>
                 ) : null}
-                <p className="ui-caption">{form.takeFrom.length ? 'In the order ticked; unpaid when there is none left.' : 'Unpaid (loss of pay).'}</p>
+                <p className="ui-caption">{form.takeFrom.length ? 'In whole half days, in the order ticked. Anything under half a day, and what there is no leave left for, is unpaid.' : 'Unpaid (loss of pay).'}</p>
               </div>
               <p className="text-sm">
                 Missed-punch requests a month: <span className="tabular-nums font-medium">{missedLimit == null ? 'no limit' : missedLimit}</span>.{' '}
@@ -242,10 +247,27 @@ export default function AttendanceRules({ openScreen }) {
             </Block>
         </fieldset>
 
+        {canEdit && marksChanged ? (
+          <div className="space-y-3 pt-6">
+            <label className="block max-w-sm">
+              <span className="ui-label">Late-mark change counts</span>
+              <select className="ui-select w-full" value={marksFrom} onChange={(e) => setMarksFrom(e.target.value)}>
+                <option value="NEXT_MONTH">From {monthTitle(shiftMonth(thisMonth, 1))}</option>
+                <option value="THIS_MONTH">From this month, {monthTitle(thisMonth)}</option>
+              </select>
+            </label>
+            {marksFrom === 'THIS_MONTH' ? (
+              <p className="ui-alert ui-alert-warn text-sm" role="alert">Every late mark in {monthTitle(thisMonth)} so far is worked out again under the new rule, so what people lose this month changes.</p>
+            ) : (
+              <p className="ui-caption">{monthTitle(thisMonth)} stays under the rule it started with.</p>
+            )}
+          </div>
+        ) : null}
+
         {canEdit ? (
           <div className="ui-wizard-actions">
             <span className="flex flex-wrap gap-2 ml-auto">
-              {dirty ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setDraft(null); setError(null); setPreview(null); }}>Undo changes</button> : null}
+              {dirty ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setDraft(null); setError(null); setPreview(null); setMarksFrom('NEXT_MONTH'); }}>Undo changes</button> : null}
               <Button type="submit" variant="primary" loading={saving} disabled={!dirty && !saving}>Save</Button>
             </span>
           </div>

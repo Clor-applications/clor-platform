@@ -86,7 +86,7 @@ peopleTimeRulesRouter.put(`${base}/attendance-rules`, att(PermissionAction.APPRO
   /* The late-mark cut is one of the company's choices (SPEC 3, DECISIONS.md 1): its own line, as the others have. */
   const cutOf = (m: typeof before.marks) => ({ cutMode: m.cutMode, roundToMinutes: m.roundToMinutes });
   if (JSON.stringify(cutOf(before.marks)) !== JSON.stringify(cutOf(out.rules.marks))) {
-    await recordAudit(req, { entity: 'COMPANY_SETTING', entityId: 'attendance.lateMarkCut', action: 'CHANGED', message: `Late marks cut: ${CUT_WORDS[before.marks.cutMode]} → ${CUT_WORDS[out.rules.marks.cutMode]}`, metadata: { before: cutOf(before.marks), after: cutOf(out.rules.marks) } });
+    await recordAudit(req, { entity: 'COMPANY_SETTING', entityId: 'attendance.lateMarkCut', action: 'CHANGED', message: `Late marks cut: ${CUT_WORDS[before.marks.cutMode]} → ${CUT_WORDS[out.rules.marks.cutMode]}${out.marksFrom ? `, from ${out.marksFrom}` : ', from this month'}`, metadata: { before: cutOf(before.marks), after: cutOf(out.rules.marks), from: out.marksFrom } });
   }
   res.json(out);
 }));

@@ -25,6 +25,8 @@ import { currentRuleVersion, rulesOf, timeRulesFor, type MarkRules } from './tim
  */
 
 const round = (n: number) => Math.round(n * 100) / 100;
+/* A minute cut is rounded DOWN to the 0.01 day: it may never take more than the time missed (Code on Wages s.20). */
+const down = (n: number) => Math.floor(n * 100 + 1e-9) / 100;
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 export const monthWords = (month: string) => `${MONTHS[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
 
@@ -66,7 +68,7 @@ const upTo = (m: number, step: number) => Math.ceil(m / step) * step;
 /** The time actually missed by the marks that cost, in minutes and as a part of the day (after the free ones). */
 export function timeMissedOf(rules: MarkRules, late: Mark[], early: Mark[]) {
   const marks = [...counted(rules.late, late), ...counted(rules.early, early)];
-  return { minutes: marks.reduce((s, m) => s + m.minutes, 0), days: round(marks.reduce((s, m) => s + m.minutes / m.dayMinutes, 0)) };
+  return { minutes: marks.reduce((s, m) => s + m.minutes, 0), days: down(marks.reduce((s, m) => s + m.minutes / m.dayMinutes, 0)) };
 }
 
 /**
@@ -80,8 +82,13 @@ export function costOf(rules: MarkRules, late: number | Mark[], early: number | 
   const E = asMarks(early);
   if (rules.cutMode === 'TIME_MISSED' || rules.cutMode === 'TIME_MISSED_ROUNDED') {
     const step = rules.cutMode === 'TIME_MISSED_ROUNDED' ? rules.roundToMinutes || 15 : 0;
-    const marks = [...counted(rules.late, L), ...counted(rules.early, E)];
-    return round(marks.reduce((s, m) => s + Math.min(m.dayMinutes, step ? upTo(m.minutes, step) : m.minutes) / m.dayMinutes, 0));
+    /* Per day: a late arrival and an early exit together cut at most that day. Then the month, rounded down. */
+    const perDay = new Map<string, number>();
+    for (const m of [...counted(rules.late, L), ...counted(rules.early, E)]) {
+      const part = Math.min(m.dayMinutes, step ? upTo(m.minutes, step) : m.minutes) / m.dayMinutes;
+      perDay.set(m.date, Math.min(1, (perDay.get(m.date) || 0) + part));
+    }
+    return down([...perDay.values()].reduce((s, x) => s + x, 0));
   }
   const steps = (k: MarkRules['late'], n: number) => (k.on && k.every > 0 ? Math.floor(Math.max(0, n - k.free) / k.every) : 0);
   return round((steps(rules.late, L.length) + steps(rules.early, E.length)) * rules.cost);
@@ -131,8 +138,26 @@ const lastOf = (month: string) => daysOfMonth(month).at(-1)!;
  */
 export async function marksRulesOn(orgId: string, date: string): Promise<{ marks: MarkRules; version: number }> {
   const cutoff = istInstant(nextDay(date), '00:00');
-  const rows = await peoplePrisma.attendanceRuleVersion.findMany({ where: { orgId, rulesJson: { contains: '"name":"Attendance rules"' } }, orderBy: { version: 'asc' }, select: { version: true, rulesJson: true, createdAt: true } });
-  const before = rows.filter((r) => r.createdAt < cutoff);
+  const all = await peoplePrisma.attendanceRuleVersion.findMany({ where: { orgId, rulesJson: { contains: '"name":"Attendance rules"' } }, orderBy: { version: 'asc' }, select: { version: true, rulesJson: true, createdAt: true } });
+  /* Only saves that changed late marks: a later save of the night window must not carry a change meant for next month into this one. */
+  const rows = all.filter((r) => {
+    try {
+      const x = JSON.parse(r.rulesJson);
+      return JSON.stringify(x?.before?.marks ?? null) !== JSON.stringify(x?.after?.marks ?? null);
+    } catch {
+      return false;
+    }
+  });
+  /* A version saved "from next month" (timeRules.ts saveTimeRules) counts only for a month from that day on. */
+  const fromOf = (r: { rulesJson: string }) => {
+    try {
+      const f = JSON.parse(r.rulesJson)?.from;
+      return typeof f === 'string' ? f : null;
+    } catch {
+      return null;
+    }
+  };
+  const before = rows.filter((r) => r.createdAt < cutoff && (!fromOf(r) || fromOf(r)! <= date));
   const pick = (r: { rulesJson: string }, side: 'before' | 'after') => {
     try {
       const x = JSON.parse(r.rulesJson)?.[side];
@@ -146,7 +171,7 @@ export async function marksRulesOn(orgId: string, date: string): Promise<{ marks
     const m = pick(last, 'after');
     if (m) return { marks: m, version: last.version };
   }
-  const later = rows.find((r) => r.createdAt >= cutoff);
+  const later = rows.find((r) => !before.includes(r));
   if (later) {
     const m = pick(later, 'before');
     if (m) return { marks: m, version: 0 };
@@ -182,7 +207,8 @@ async function splitOverLeave(accountId: string, orgId: string, rules: MarkRules
       const a = atEnd.balances.get(id)?.get(typeId)?.available ?? 0;
       const b = now ? now.balances.get(id)?.get(typeId)?.available ?? 0 : a;
       const available = Math.max(0, Math.min(a, b));
-      const take = Math.min(left, Math.floor(available * 2) / 2);
+      /* Whole half days only: leave is never left at 7.86 days. What is under half a day stays unpaid. */
+      const take = Math.floor(Math.min(left, available) * 2 + 1e-9) / 2;
       if (take <= 0) continue;
       parts.push({ leaveTypeId: typeId, name: nameOf.get(typeId)!, days: round(take) });
       left = round(left - take);

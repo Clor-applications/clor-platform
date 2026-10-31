@@ -210,3 +210,50 @@ it('late marks: minute cuts read in two places; under the step rule each personâ
   expect((await screen.findAllByText('Time missed')).length).toBeGreaterThan(0);
   expect(screen.getAllByText('1 h 5 min Â· 0.14 day').length).toBeGreaterThan(0);
 });
+
+it('settings: a late-mark change counts from next month unless this month is chosen, which warns; leave is taken in whole half days', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-31T06:00:00Z'));
+  try {
+    api.saveAttendanceRules.mockResolvedValue({ rules: { ...RULES, marks: { ...RULES.marks, on: true } }, version: 2, marksFrom: '2026-11-01' });
+    render(<AttendanceRules />);
+    const block = await screen.findByRole('group', { name: 'Late marks and early exits' });
+    expect(screen.queryByLabelText('Late-mark change counts')).toBeNull();
+    fireEvent.click(within(block).getByLabelText('On'));
+    fireEvent.click(within(block).getByLabelText('Casual leave'));
+    expect(within(block).getByText(/In whole half days, in the order ticked\. Anything under half a day.*is unpaid\./)).toBeTruthy();
+    const when = screen.getByLabelText('Late-mark change counts');
+    expect(when.value).toBe('NEXT_MONTH');
+    expect(within(when).getByRole('option', { name: 'From November 2026' })).toBeTruthy();
+    expect(screen.getByText('October 2026 stays under the rule it started with.')).toBeTruthy();
+    fireEvent.change(when, { target: { value: 'THIS_MONTH' } });
+    expect(screen.getByRole('alert').textContent).toMatch(/Every late mark in October 2026 so far is worked out again/);
+    fireEvent.change(when, { target: { value: 'NEXT_MONTH' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.saveAttendanceRules).toHaveBeenCalled());
+    expect(api.saveAttendanceRules.mock.calls[0][0]).toMatchObject({ marksFrom: 'NEXT_MONTH', marks: { on: true } });
+    await waitFor(() => expect(dialogs.notify.success).toHaveBeenCalledWith(expect.stringMatching(/counts from November 2026/)));
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('settings: "from this month" is sent when chosen; a save that does not touch late marks sends no choice', async () => {
+  api.saveAttendanceRules.mockImplementation(async (body) => ({ rules: { ...RULES, marks: { ...RULES.marks, ...body.marks } }, version: 2, marksFrom: null }));
+  const { unmount } = render(<AttendanceRules />);
+  const block = await screen.findByRole('group', { name: 'Late marks and early exits' });
+  fireEvent.click(within(block).getByLabelText('On'));
+  fireEvent.change(screen.getByLabelText('Late-mark change counts'), { target: { value: 'THIS_MONTH' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(api.saveAttendanceRules).toHaveBeenCalled());
+  expect(api.saveAttendanceRules.mock.calls[0][0].marksFrom).toBe('THIS_MONTH');
+  unmount();
+  api.saveAttendanceRules.mockClear();
+  render(<AttendanceRules />);
+  const nudge = await screen.findByRole('group', { name: 'Missing punches' });
+  fireEvent.click(within(nudge).getByLabelText(/morning list/));
+  expect(screen.queryByLabelText('Late-mark change counts')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(api.saveAttendanceRules).toHaveBeenCalled());
+  expect(api.saveAttendanceRules.mock.calls[0][0].marksFrom).toBeUndefined();
+});

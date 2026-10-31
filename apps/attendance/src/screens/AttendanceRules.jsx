@@ -9,6 +9,16 @@ import LoadFailed from '../components/LoadFailed';
 
 const monthStart = () => `${todayIst().slice(0, 7)}-01`;
 
+/* People's late rule in one sentence, when it cuts by the minute (server: scheduling.ts lateRule). */
+const lateRuleWords = (r) => {
+  if (!r.lateOn) return 'Late arrivals cost nothing.';
+  const free = Number(r.lateFree) || 0;
+  const after = free ? `After ${free} free a month, each` : 'Each';
+  return r.lateCutMode === 'TIME_MISSED_ROUNDED'
+    ? `${after} late arrival cuts the time missed, rounded up to ${r.lateRoundToMinutes === 60 ? 'the hour' : `${r.lateRoundToMinutes || 15} minutes`}.`
+    : `${after} late arrival cuts the time missed.`;
+};
+
 /**
  * Company-wide attendance rules (ClorTime's Attendance Rules): the shift for
  * anyone with no schedule at all, the late-arrival penalty, and how long
@@ -92,24 +102,34 @@ export default function AttendanceRules() {
 
         <section className="ui-card space-y-3 p-4" aria-labelledby="rules-late-h">
           <h2 id="rules-late-h" className="ui-t-sec">Late arrivals</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="ui-label">Free late arrivals a month</span>
-              <input type="number" inputMode="numeric" min={0} max={31} className="ui-input w-full" value={rules.lateAllowancePerMonth} onChange={num('lateAllowancePerMonth')} />
-            </label>
-            <label className="block">
-              <span className="ui-label">Then half a day’s pay lost every</span>
-              <div className="flex items-center gap-2">
-                <input type="number" inputMode="numeric" min={0} max={31} className="ui-input w-24" value={rules.latePenaltyEvery} onChange={num('latePenaltyEvery')} aria-describedby="late-every-hint" />
-                <span className="text-sm">late arrivals</span>
+          {rules.lateNumbersHere === false ? (
+            /* People's Attendance rules cut by the minute: the two numbers below would not be the rule, so it is shown, not set. */
+            <p className="text-sm" role="status">
+              {lateRuleWords(rules)} Set in People, under Attendance rules.
+            </p>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="ui-label">Free late arrivals a month</span>
+                  <input type="number" inputMode="numeric" min={0} max={31} className="ui-input w-full" value={rules.lateAllowancePerMonth} onChange={num('lateAllowancePerMonth')} />
+                </label>
+                <label className="block">
+                  <span className="ui-label">Then {rules.lateCost === 1 ? 'a day’s' : 'half a day’s'} pay lost every</span>
+                  <div className="flex items-center gap-2">
+                    <input type="number" inputMode="numeric" min={0} max={31} className="ui-input w-24" value={rules.latePenaltyEvery} onChange={num('latePenaltyEvery')} aria-describedby="late-every-hint" />
+                    <span className="text-sm">late arrivals</span>
+                  </div>
+                </label>
               </div>
-            </label>
-          </div>
-          <p id="late-every-hint" className="ui-caption">
-            {Number(rules.latePenaltyEvery) > 0
-              ? `After ${Number(rules.lateAllowancePerMonth) || 0} free, every ${rules.latePenaltyEvery} late arrivals cost half a day.`
-              : 'No penalty: set a number above 0 to turn it on.'}
-          </p>
+              <p id="late-every-hint" className="ui-caption">
+                {Number(rules.latePenaltyEvery) > 0
+                  ? `After ${Number(rules.lateAllowancePerMonth) || 0} free, every ${rules.latePenaltyEvery} late arrivals cost ${rules.lateCost === 1 ? 'a full day' : 'half a day'}.`
+                  : 'No penalty: set a number above 0 to turn it on.'}
+                {rules.lateRuleInPeople ? ' A change counts from next month.' : ''}
+              </p>
+            </>
+          )}
         </section>
 
         <section className="ui-card space-y-3 p-4" aria-labelledby="rules-readers-h">

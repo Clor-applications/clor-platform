@@ -148,7 +148,27 @@ export class RulesError extends Error {
  * rules screen shows it), and a version recorded so a month can say which rules it was worked under.
  * Returns the rules and the version number.
  */
+/** The first day of the month after this IST day. */
+export const nextMonthStart = (day: string) => {
+  const [y, m] = day.slice(0, 7).split('-').map(Number);
+  return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
+};
+const istDay = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+
+/**
+ * A change to late marks costs pay, and a month is worked out under the rule of its last day, so a change made on
+ * 31 October would rework all of October. By default it takes effect from the next month; `marksFrom: 'THIS_MONTH'`
+ * applies it to this month too (the screen warns). Other parts of the rules take effect at once.
+ */
+export function marksFromOf(body: unknown): 'NEXT_MONTH' | 'THIS_MONTH' {
+  const v = (body as any)?.marksFrom;
+  if (v === undefined || v === null || v === 'NEXT_MONTH') return 'NEXT_MONTH';
+  if (v === 'THIS_MONTH') return 'THIS_MONTH';
+  throw new RulesError('A late-mark change takes effect from next month or from this month.');
+}
+
 export async function saveTimeRules(accountId: string, orgId: string, userId: string, body: unknown) {
+  const when = marksFromOf(body);
   const parsed = timeRulesSchema.safeParse(body);
   if (!parsed.success) throw new RulesError(parsed.error.issues[0]?.message || 'Check the rules.');
   const before = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
@@ -168,8 +188,10 @@ export async function saveTimeRules(accountId: string, orgId: string, userId: st
     update: { timeRules: next as any, ...legacy, updatedByUserId: userId },
   });
   const changed = JSON.stringify(current) !== JSON.stringify(next);
-  const v = changed ? await recordRuleVersion(accountId, orgId, userId, { kind: 'RULES', name: 'Attendance rules', before: current, after: next }) : null;
-  return { rules: next, version: v?.version ?? (await currentRuleVersion(orgId)) };
+  const marksChanged = JSON.stringify(current.marks) !== JSON.stringify(next.marks);
+  const from = marksChanged && when === 'NEXT_MONTH' ? nextMonthStart(istDay()) : null;
+  const v = changed ? await recordRuleVersion(accountId, orgId, userId, { kind: 'RULES', name: 'Attendance rules', before: current, after: next, ...(from ? { from } : {}) }) : null;
+  return { rules: next, version: v?.version ?? (await currentRuleVersion(orgId)), marksFrom: from };
 }
 
 /** The latest saved rule version (0 before any). */
@@ -183,8 +205,8 @@ export function marksFromLegacy(current: TimeRules, legacy: { lateAllowancePerMo
   const m = current.marks;
   /* 0 = no late penalty: late marks stop costing anything; early exits keep their own switch. */
   if (!every) return { ...current, marks: { ...m, on: m.on && m.early.on, late: { ...m.late, on: false } } };
-  /* The Attendance app's numbers are "half a day every N": switching late marks on there means that rule. */
-  return { ...current, marks: { ...m, on: true, late: { ...m.late, on: true, every, free: Math.max(0, legacy.lateAllowancePerMonth || 0) }, cutMode: m.on && m.late.on ? m.cutMode : 'HALF_DAY_PER_N' } };
+  /* Numbers only: the cut stays what People's Attendance rules say (the Attendance app is told it as lateCutMode). */
+  return { ...current, marks: { ...m, on: true, late: { ...m.late, on: true, every, free: Math.max(0, legacy.lateAllowancePerMonth || 0) } } };
 }
 
 // ---------------------------------------------------------------------------
