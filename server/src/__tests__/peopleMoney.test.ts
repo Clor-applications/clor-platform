@@ -310,7 +310,12 @@ describe('one advance, two claims approved at once', () => {
     expect((await api(hr).post(`/people/money/advances/${a.id}/recover`, {}).expect(409)).body.code).toBe('RECOVERY_WAITING');
     let adv = (await api(hr).get('/people/money/advances').expect(200)).body.advances.find((x: any) => x.id === a.id);
     expect(adv).toMatchObject({ status: 'PAID', recovering: 1500, recovered: 0, open: 0 });
+    /* Approved in Payroll is not yet taken: still being taken from salary. */
     await runInTenant(hr.orgId, () => payrollPrisma.payrollAdjustment.update({ where: { id: ded!.id }, data: { status: 'APPROVED' } }));
+    adv = (await api(hr).get('/people/money/advances').expect(200)).body.advances.find((x: any) => x.id === a.id);
+    expect(adv).toMatchObject({ status: 'PAID', recovering: 1500, recovered: 0 });
+    /* Taken by a payslip: recovered, and the advance closes. */
+    await runInTenant(hr.orgId, () => payrollPrisma.payrollAdjustment.update({ where: { id: ded!.id }, data: { status: 'CONSUMED', consumedByRunId: 'run-test' } }));
     adv = (await api(hr).get('/people/money/advances').expect(200)).body.advances.find((x: any) => x.id === a.id);
     expect(adv).toMatchObject({ status: 'CLOSED', recovering: 0, recovered: 1500 });
     await api(hr).post(`/people/money/advances/${a.id}/recover`, {}).expect(409);

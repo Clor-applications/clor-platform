@@ -82,9 +82,10 @@ const bodySchema = z.object({
       esiNumber: z.string().trim().max(40).optional().nullable(),
       taxRegime: z.enum(['OLD', 'NEW']).default('NEW'),
       professionalTaxState: z.string().trim().max(60).optional().nullable(),
-      pfApplicable: z.boolean().default(false),
-      esiApplicable: z.boolean().default(false),
-      ptApplicable: z.boolean().default(false),
+      /* Left out means unchanged: a form without the switches must not turn PF and PT off (QA of #82, F9). New profiles start off. */
+      pfApplicable: z.boolean().optional(),
+      esiApplicable: z.boolean().optional(),
+      ptApplicable: z.boolean().optional(),
     })
     .optional(),
 });
@@ -176,9 +177,9 @@ const payrollData = (p: NonNullable<z.infer<typeof bodySchema>['payroll']>) => (
   esiNumber: blank(p.esiNumber),
   taxRegime: p.taxRegime,
   professionalTaxState: blank(p.professionalTaxState),
-  pfApplicable: p.pfApplicable,
-  esiApplicable: p.esiApplicable,
-  ptApplicable: p.ptApplicable,
+  ...(p.pfApplicable !== undefined ? { pfApplicable: p.pfApplicable } : {}),
+  ...(p.esiApplicable !== undefined ? { esiApplicable: p.esiApplicable } : {}),
+  ...(p.ptApplicable !== undefined ? { ptApplicable: p.ptApplicable } : {}),
 });
 
 payrollEmployeesRouter.get(

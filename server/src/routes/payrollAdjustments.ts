@@ -11,6 +11,8 @@ import { peoplePrisma, peopleWrite } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { valueEncashments } from '../services/attendance/leaveEncashment.js';
 import { forLiveEmployee } from '../services/payroll/employeeLock.js';
+import { recordAudit } from '../services/auditTrail.js';
+import { ensureRecoveryBase } from '../services/payroll/recoveryChain.js';
 
 /**
  * One-off earnings and deductions: a bonus, an arrear, a fine, a recovery.
@@ -58,6 +60,23 @@ const shape = (a: any, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
+/**
+ * Whether the payroll that carried a row is done with it: a full and final
+ * (`settlement:<id>`, paid or not, never recalculated), or a pay run approved
+ * or later. Until then the row is that run's to change by recalculating;
+ * after, it is corrected by hand, with a reason (QA of #82, F2).
+ */
+const FINAL_RUN = ['APPROVED', 'LOCKED', 'PAID', 'POSTED'];
+async function carriersFinal(orgId: string, carriers: string[]): Promise<Set<string>> {
+  const final = new Set(carriers.filter((c) => c.startsWith('settlement:')));
+  const runIds = carriers.filter((c) => !c.startsWith('settlement:'));
+  if (runIds.length) {
+    const runs = await payrollPrisma.payrollRun.findMany({ where: { orgId, id: { in: runIds } }, select: { id: true, status: true } });
+    for (const r of runs) if (FINAL_RUN.includes(r.status)) final.add(r.id);
+  }
+  return final;
+}
+
 payrollAdjustmentsRouter.get(
   '/orgs/:orgId/payroll/adjustments',
   requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE),
@@ -101,6 +120,7 @@ payrollAdjustmentsRouter.get(
     const byComponent = new Map(components.map((c) => [c.id, c]));
     const byPeriod = new Map(periods.map((p) => [p.id, p]));
     const byRun = new Map(runs.map((r) => [r.id, r.number]));
+    const final = await carriersFinal(orgId, [...new Set(rows.map((r) => r.carriedByRunId).filter(Boolean) as string[])]);
 
     res.json({
       adjustments: rows.map((r) =>
@@ -111,6 +131,8 @@ payrollAdjustmentsRouter.get(
           componentCode: byComponent.get(r.componentId)?.code || '',
           periodName: byPeriod.get(r.periodId)?.name || '',
           consumedByRunNumber: r.consumedByRunId ? byRun.get(r.consumedByRunId) || '' : '',
+          /* Carried forward by a payroll: cancelled only with a reason, corrected only once that payroll is final. */
+          carried: r.carriedByRunId ? { final: final.has(r.carriedByRunId) } : null,
         })
       ),
     });
@@ -150,7 +172,7 @@ const body = z.object({
 type CheckFailure = { ok: false; error: string; status: number; code?: string };
 type CheckPass = { ok: true; type: 'EARNING' | 'DEDUCTION' };
 
-async function check(orgId: string, payload: z.infer<typeof body>): Promise<CheckFailure | CheckPass> {
+async function check(orgId: string, payload: z.infer<typeof body>, o: { carried?: boolean } = {}): Promise<CheckFailure | CheckPass> {
   const [employee, component, period] = await Promise.all([
     peoplePrisma.employee.findFirst({ where: { orgId, id: payload.employeeId }, select: { id: true } }),
     payrollPrisma.salaryComponent.findFirst({ where: { orgId, id: payload.componentId }, select: { id: true, type: true, isActive: true, name: true } }),
@@ -168,7 +190,8 @@ async function check(orgId: string, payload: z.infer<typeof body>): Promise<Chec
     };
   }
   if (!period) return { ok: false, error: 'No such payroll period.', status: 404 };
-  if (period.isLocked) {
+  /* A carried row is taken by whichever run comes next, whatever its own month: its month being closed does not stop a correction. */
+  if (period.isLocked && !o.carried) {
     return { ok: false, error: `${period.name} is closed. Adjust an open period instead.`, status: 409, code: 'PERIOD_LOCKED' };
   }
 
@@ -245,20 +268,54 @@ payrollAdjustmentsRouter.put(
     const parsed = body.safeParse(req.body || {});
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid adjustment.' });
 
-    const checked = await check(orgId, parsed.data);
+    /*
+     * The rest of a deduction a payroll or a full and final carried. While
+     * that payroll is open, it is changed by recalculating it. Once it is
+     * final, only the amount is corrected, with a reason kept on the row and
+     * in the audit log, and the row goes back for approval.
+     */
+    let correction: string | null = null;
+    if (existing.carriedByRunId) {
+      if (!(await carriersFinal(orgId, [existing.carriedByRunId])).has(existing.carriedByRunId)) {
+        return res.status(409).json({ error: 'This is the rest of a deduction carried forward by a payroll that is still open. Calculate that payroll again, or cancel this with a reason.', code: 'CARRIED' });
+      }
+      correction = String(req.body?.correctionReason || '').trim().slice(0, 160);
+      if (correction.length < 5) return res.status(400).json({ error: 'This is money still owed, carried forward. Say why the amount is corrected.', code: 'REASON_NEEDED' });
+      if (parsed.data.employeeId !== existing.employeeId || parsed.data.componentId !== existing.componentId || parsed.data.periodId !== existing.periodId) {
+        return res.status(400).json({ error: 'Only the amount of a carried deduction can be corrected.', code: 'CARRIED_FIXED' });
+      }
+    }
+
+    /* A recovery People sent, or the rest a payroll carried of one: its starting figure is recorded before its amount changes (recoveryChain.ts). */
+    const chainRow = existing.id.startsWith('advance-recover:') || Boolean(existing.carriedFromId) || Boolean(existing.reference?.startsWith('advance-recover:'));
+    if (chainRow) await ensureRecoveryBase(orgId, existing.id);
+    const checked = await check(orgId, parsed.data, { carried: Boolean(correction) });
     if (!checked.ok) return res.status(checked.status).json({ error: checked.error, code: checked.code });
 
     if (existing.id.startsWith('leave-encash:') && (parsed.data.employeeId !== existing.employeeId || checked.type !== 'EARNING')) return res.status(400).json({ error: 'An encashment earning must stay with its employee and remain an earning.' });
-    const row = await payrollPrisma.payrollAdjustment.update({
-      where: { id: existing.id },
+    /*
+     * Only the row as it was read: a payslip or a full and final that took it
+     * meanwhile (CONSUMED) is never turned back into a draft, which would
+     * take it twice. Its status and amount must still match (the starting figure written just before may touch the row, so not its last change).
+     */
+    const unchanged = { id: existing.id, status: existing.status, amount: existing.amount };
+    const moved = await payrollPrisma.payrollAdjustment.updateMany({
+      where: unchanged,
       data: {
         employeeId: parsed.data.employeeId,
         componentId: parsed.data.componentId,
         periodId: parsed.data.periodId,
         type: checked.type,
         amount: parsed.data.amount,
-        reason: parsed.data.reason?.trim() || null,
-        reference: existing.id.startsWith('leave-encash:') ? existing.reference : parsed.data.reference?.trim() || null,
+        reason: correction
+          ? `${existing.reason || 'Carried forward'}. Corrected from ₹${Number(existing.amount).toLocaleString('en-IN')} to ₹${parsed.data.amount.toLocaleString('en-IN')}: ${correction}`.slice(0, 240)
+          : parsed.data.reason?.trim() || null,
+        /*
+         * The reference ties a recovery's rows together (recoveryChain.ts):
+         * kept on encashments, People's recoveries and carried rows, and
+         * never cleared by a request that simply leaves it out.
+         */
+        reference: existing.id.startsWith('leave-encash:') || chainRow || parsed.data.reference === undefined ? existing.reference : parsed.data.reference?.trim() || null,
         /* Editing an approved adjustment sends it back for approval. The
            approval was of an amount, not of a row. */
         status: 'DRAFT',
@@ -266,7 +323,12 @@ payrollAdjustmentsRouter.put(
         approvedAt: null,
       },
     });
+    if (!moved.count) return res.status(409).json({ error: 'This adjustment changed while you were editing it (a payroll or a full and final may have taken it). Reload it.', code: 'ADJUSTMENT_CHANGED' });
+    const row = await payrollPrisma.payrollAdjustment.findUniqueOrThrow({ where: { id: existing.id } });
 
+    if (correction) {
+      await recordAudit(req, { entity: 'PAYROLL_ADJUSTMENT', entityId: existing.id, action: 'CORRECT_CARRIED', message: `Corrected a carried deduction from ₹${Number(existing.amount).toLocaleString('en-IN')} to ₹${parsed.data.amount.toLocaleString('en-IN')}: ${correction}`, metadata: { employeeId: existing.employeeId, from: Number(existing.amount), to: parsed.data.amount, reason: correction } });
+    }
     res.json({ adjustment: shape(row) });
   }
 );
@@ -326,8 +388,23 @@ payrollAdjustmentsRouter.post(
       });
     }
 
-    const row = await payrollPrisma.payrollAdjustment.update({ where: { id: existing.id }, data: { status: 'CANCELLED' } });
-    res.json({ adjustment: shape(row) });
+    /* Cancelling part of a recovery People sent: its starting figure first, so the cancelled amount is open again in People, once. */
+    if (existing.id.startsWith('advance-recover:') || existing.carriedFromId || existing.reference?.startsWith('advance-recover:')) await ensureRecoveryBase(orgId, existing.id);
+
+    /* Money still owed by the person, carried forward: let go only with a reason, kept on the row and in the audit log. */
+    if (existing.carriedByRunId) {
+      const reason = String(req.body?.reason || '').trim().slice(0, 200);
+      if (reason.length < 5) return res.status(400).json({ error: 'This is money still owed, carried forward. Say why it is cancelled.', code: 'REASON_NEEDED' });
+      const n = await payrollPrisma.payrollAdjustment.updateMany({ where: { id: existing.id, status: existing.status, amount: existing.amount }, data: { status: 'CANCELLED', reason: `${existing.reason || 'Carried forward'}. Cancelled: ${reason}`.slice(0, 240) } });
+      if (!n.count) return res.status(409).json({ error: 'Somebody else has just changed this adjustment. Reload it.', code: 'ADJUSTMENT_CHANGED' });
+      await recordAudit(req, { entity: 'PAYROLL_ADJUSTMENT', entityId: existing.id, action: 'CANCEL_CARRIED', message: `Cancelled a carried deduction of ₹${Number(existing.amount).toLocaleString('en-IN')}: ${reason}`, metadata: { employeeId: existing.employeeId, amount: Number(existing.amount), reason } });
+      return res.json({ adjustment: shape(await payrollPrisma.payrollAdjustment.findUniqueOrThrow({ where: { id: existing.id } })) });
+    }
+
+    /* Only the row as it was read: one a payroll took meanwhile stays taken, and People does not see it owed again. */
+    const n = await payrollPrisma.payrollAdjustment.updateMany({ where: { id: existing.id, status: existing.status, amount: existing.amount }, data: { status: 'CANCELLED' } });
+    if (!n.count) return res.status(409).json({ error: 'This adjustment changed while you were cancelling it (a payroll or a full and final may have taken it). Reload it.', code: 'ADJUSTMENT_CHANGED' });
+    res.json({ adjustment: shape(await payrollPrisma.payrollAdjustment.findUniqueOrThrow({ where: { id: existing.id } })) });
   }
 );
 

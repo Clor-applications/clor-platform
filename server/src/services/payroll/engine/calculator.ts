@@ -475,8 +475,11 @@ export function calculateStructure(components: EngineComponent[], input: EngineI
     }
 
     /* Proration is days worked over days expected, and only for components
-       that say they shrink. A fixed reimbursement usually does not. */
-    const factor = c.prorate ? proration : 1;
+       that say they shrink. A fixed reimbursement usually does not. A
+       statutory figure is never prorated here: the scheme worked it out on
+       wages already prorated, so doing it again took PF of a half month
+       twice ("12% of ₹7,000" came to ₹392, not ₹840; QA of #82, F3). */
+    const factor = c.prorate && c.calculationMethod !== 'STATUTORY' ? proration : 1;
     const prorated = full * factor;
     const finalValue = applyRounding(prorated, c.rounding);
 

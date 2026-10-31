@@ -166,31 +166,114 @@ export type DueRecovery = {
   employeeId: string;
   componentId: string;
   dueAmount: number;
+  principalAmount: number;
+  interestAmount: number;
+  loanNumber: string;
+  loanType: string;
+  /** Carried from an earlier run's period: taken before this period's own instalment. */
+  carriedFromPeriodId: string | null;
+  carriedFromStart: string | null;
 };
 
-/** Every loan instalment falling due in this period, for the people in the run. */
-export async function recoveriesDue(orgId: string, periodId: string, employeeIds: string[]): Promise<DueRecovery[]> {
+/**
+ * Every loan instalment this run is to recover, for the people in it: the
+ * ones falling due in its period, and the ones an earlier run could not take
+ * in full and carried on (the 50% limit, or net pay). A carried instalment
+ * has no period of its own; the first run after the one that carried it
+ * takes it, oldest first.
+ *
+ * A recalculation sees what it took before (RECOVERED by one of its own
+ * payslips) as still due, and what it carried itself as not yet carried:
+ * those are undone when its payslips are written again (run.ts).
+ */
+export async function recoveriesDue(
+  orgId: string,
+  periodId: string,
+  employeeIds: string[],
+  opts: { runId?: string; periodStart?: string; ownSlipIds?: string[] } = {}
+): Promise<DueRecovery[]> {
   if (!employeeIds.length) return [];
+  const own = opts.ownSlipIds || [];
+  const takenHere = own.length ? [{ status: 'RECOVERED', slipId: { in: own } }] : [];
+  /* Earlier periods, for instalments carried out of them. */
+  const earlier = opts.periodStart
+    ? await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lt: opts.periodStart } }, select: { id: true, startDate: true, isLocked: true } })
+    : [];
+  const startOf = new Map(earlier.map((p) => [p.id, p.startDate]));
+  /*
+   * An earlier month whose payroll is done (closed, or a run approved or
+   * later) and still holding an instalment due: nothing will ever take it
+   * there, so this run takes it, as from that month (QA retest of #82: an
+   * instalment scheduled into October after October was approved).
+   */
+  const doneRuns = earlier.length
+    ? await payrollPrisma.payrollRun.findMany({ where: { orgId, periodId: { in: earlier.map((p) => p.id) }, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] } }, select: { periodId: true, payGroupId: true } })
+    : [];
+  /* Done for whom: a closed month for everybody; a run for the company as a whole, or for the person's own pay group, not another group's (re-review of #82). */
+  const locked = new Set(earlier.filter((p) => p.isLocked).map((p) => p.id));
+  const groupOf = new Map(
+    (doneRuns.some((r) => r.payGroupId) ? await payrollPrisma.employeePayrollProfile.findMany({ where: { orgId, employeeId: { in: employeeIds } }, select: { employeeId: true, payGroupId: true } }) : []).map((x) => [x.employeeId, x.payGroupId]),
+  );
+  const doneFor = (employeeId: string, period: string | null) =>
+    Boolean(period) && (locked.has(period!) || doneRuns.some((r) => r.periodId === period && (!r.payGroupId || r.payGroupId === groupOf.get(employeeId))));
+  const done = new Set([...locked, ...doneRuns.map((r) => r.periodId)]);
 
   const loans = await payrollPrisma.payrollLoan.findMany({
-    where: { orgId, employeeId: { in: employeeIds }, status: 'ACTIVE' },
-    include: { installments: { where: { periodId, status: { in: ['PENDING', 'RECOVERED'] } } } },
+    where: { orgId, employeeId: { in: employeeIds }, status: { in: ['ACTIVE', 'COMPLETED'] } },
+    include: {
+      installments: {
+        where: {
+          OR: [
+            /* This month's own: still due, or taken by this run's own payslips, never another run's. */
+            { periodId, carriedByRunId: null, OR: [{ status: 'PENDING' }, ...takenHere] },
+            ...(done.size
+              ? [{ periodId: { in: [...done] }, carriedByRunId: null, OR: [{ status: 'PENDING' }, ...takenHere] }]
+              : []),
+            ...(earlier.length
+              ? [{
+                  periodId: null,
+                  carriedByRunId: { not: opts.runId || '' },
+                  carriedFromPeriodId: { in: earlier.map((p) => p.id) },
+                  OR: [{ status: 'PENDING' }, ...takenHere],
+                }]
+              : []),
+          ],
+        },
+        orderBy: { sequence: 'asc' },
+      },
+    },
   });
 
   const due: DueRecovery[] = [];
   for (const loan of loans) {
     if (!loan.recoveryComponentId) continue;
+    /* A loan finished by another run has nothing for this one, unless this run took its last instalment. */
+    if (loan.status === 'COMPLETED' && !loan.installments.some((i) => i.slipId && own.includes(i.slipId))) continue;
     for (const installment of loan.installments) {
+      /* This period's own, already taken by another run's payslip, is not this run's. */
+      if (installment.status === 'RECOVERED' && installment.slipId && own.length && !own.includes(installment.slipId)) continue;
+      if (installment.status === 'RECOVERED' && !own.length) continue;
+      /* An earlier month's, only where that month is done for this person's own payroll. */
+      const stuck = installment.periodId && installment.periodId !== periodId && done.has(installment.periodId);
+      if (stuck && !doneFor(loan.employeeId, installment.periodId)) continue;
       due.push({
         loanId: loan.id,
         installmentId: installment.id,
         employeeId: loan.employeeId,
         componentId: loan.recoveryComponentId,
         dueAmount: Number(installment.dueAmount) || 0,
+        principalAmount: Number(installment.principalAmount) || 0,
+        interestAmount: Number(installment.interestAmount) || 0,
+        loanNumber: loan.number,
+        loanType: loan.type,
+        /* Left in a month that is done: named and ordered as carried from it. */
+        carriedFromPeriodId: installment.carriedFromPeriodId || (stuck ? installment.periodId : null),
+        carriedFromStart: (() => { const from = installment.carriedFromPeriodId || (stuck ? installment.periodId : null); return from ? startOf.get(from) || null : null; })(),
       });
     }
   }
-  return due;
+  /* Carried ones first, oldest first: what has waited longest is taken first. */
+  return due.sort((a, b) => (a.carriedFromStart || '9999').localeCompare(b.carriedFromStart || '9999'));
 }
 
 /**
@@ -215,7 +298,8 @@ export function recoverable(dueAmount: number, netPayBefore: number) {
  */
 export function summarise(loan: { principal: any; interestRate: any }, installments: { dueAmount: any; status: string; periodId: string | null }[]) {
   const total = round2(installments.reduce((t, i) => t + Number(i.dueAmount), 0));
-  const recovered = round2(installments.filter((i) => i.status === 'RECOVERED').reduce((t, i) => t + Number(i.dueAmount), 0));
+  /* Settled in a full and final settlement is recovered too, just not by a payslip. */
+  const recovered = round2(installments.filter((i) => i.status === 'RECOVERED' || i.status === 'SETTLED').reduce((t, i) => t + Number(i.dueAmount), 0));
   const waived = round2(installments.filter((i) => i.status === 'WAIVED').reduce((t, i) => t + Number(i.dueAmount), 0));
   return {
     total,

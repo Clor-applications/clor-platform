@@ -9,6 +9,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { snapshotPerson } from '../services/payroll/payment.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { levelFor, resolveAccess } from '../services/access.js';
+import { readableLines } from '../services/payroll/slipLines.js';
 
 /**
  * Payslips, and the reasoning behind every figure on them.
@@ -172,7 +173,8 @@ payrollSlipsRouter.get(
     const inputSnapshot: any = parse(slip.inputSnapshotJson);
     const adjustmentSnapshot: any = parse(slip.adjustmentSnapshotJson, []);
 
-    const lines = slip.lines.map((l) => ({
+    /* Lines of nothing left out, entered ones with their reason (slipLines.ts). */
+    const lines = readableLines(slip.lines, slip.adjustmentSnapshotJson).map((l) => ({
       componentId: l.componentId,
       code: l.componentCode,
       name: l.componentName,
@@ -195,6 +197,7 @@ payrollSlipsRouter.get(
           designation: employeeSnapshot.designation || '',
           department: employeeSnapshot.department || '',
           dateOfJoining: employeeSnapshot.dateOfJoining || null,
+          dateOfLeaving: employeeSnapshot.dateOfLeaving || null,
           taxRegime: employeeSnapshot.taxRegime || null,
           /* Masked for everybody but a caller holding the level. A payslip is
              the document most likely to be forwarded by email. */
@@ -206,6 +209,8 @@ payrollSlipsRouter.get(
         earnings: lines.filter((l) => l.type === 'EARNING'),
         deductions: lines.filter((l) => l.type === 'DEDUCTION'),
         employerContributions: lines.filter((l) => l.type === 'EMPLOYER_CONTRIBUTION'),
+        /* Deductions held to the legal share of wages and carried to the next run (deductionCap.ts). */
+        deductionNote: (slip as any).deductionNote ?? null,
         days: {
           workingDays: Number(inputSnapshot.workingDays ?? 0),
           payableDays: Number(inputSnapshot.payableDays ?? 0),

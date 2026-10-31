@@ -101,7 +101,9 @@ describe('a settlement', () => {
     expect(s).toMatchObject({ status: 'DRAFT', leavingDate: '2026-10-14', dueDate: '2026-10-16' });
     const line = (code: string) => s.lines.find((l: { code: string }) => l.code === code);
     expect(line('GRATUITY').amount).toBe(121_153.85);
-    expect(line('LOAN_RECOVERY')).toMatchObject({ kind: 'DEDUCTION', amount: 4000, label: 'Advance recovery' });
+    const loan = s.lines.find((l: { source?: { type: string } }) => l.source?.type === 'LOAN');
+    expect(loan).toMatchObject({ kind: 'DEDUCTION', amount: 4000 });
+    expect(loan.label).toMatch(/^Salary advance L-\w+ recovery$/);
     expect(s.lines.filter((l: { code: string }) => l.code.startsWith('LEAVE_')).map((l: { label: string }) => l.label)).toEqual(['Earned encashment']);
     const leave = s.lines.find((l: { code: string }) => l.code.startsWith('LEAVE_'));
     expect(leave.amount).toBe(Math.round(Number(leave.explanation.match(/^([\d.]+) days/)![1]) * 1153.85 * 100) / 100);
@@ -132,7 +134,8 @@ describe('a settlement', () => {
 
     await new Promise((r) => setTimeout(r, 150));
     const actions = (await platformPrisma.auditLog.findMany({ where: { orgId: c.orgId, entity: 'PAYROLL_SETTLEMENT' } })).map((e) => e.action).sort();
-    expect(actions).toEqual(['APPROVE', 'CREATE', 'PAID', 'UPDATE']);
+    /* The owner worked it out and approved it: allowed, as nobody else can approve, and audited as such (makerChecker.ts). */
+    expect(actions).toEqual(['APPROVE', 'CREATE', 'PAID', 'SELF_APPROVED', 'UPDATE']);
   });
 
   it('needs a leaving date', async () => {

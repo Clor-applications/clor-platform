@@ -59,7 +59,7 @@ export function Payslips({ guard }) {
   if (!data?.available) return null;
   if (open) {
     return (
-      <section className="ui-card space-y-3 p-5" aria-labelledby="slip-h">
+      <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="slip-h">
         <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => { setOpen(null); setSlip(null); setSlipFailed(''); }}>
           <ChevronLeft size={16} aria-hidden="true" /> All payslips
         </button>
@@ -70,7 +70,7 @@ export function Payslips({ guard }) {
     );
   }
   return (
-    <section className="ui-card p-5" aria-labelledby="slips-h">
+    <section className="ui-card p-5 ui-touch-44" aria-labelledby="slips-h">
       <h2 id="slips-h" className="ui-t-sec mb-1">Payslips</h2>
       {data.slips.length ? (
         <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
@@ -103,8 +103,9 @@ function PayslipView({ slip: s }) {
     window.addEventListener('afterprint', back);
     window.print();
   };
-  const lines = (rows) => rows.map((l) => (
-    <div key={l.name} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
+  /* Two lines can share a name (two fines): keyed by place, not by name. */
+  const lines = (rows) => rows.map((l, i) => (
+    <div key={`${i}:${l.name}`} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
       <dt>{l.name}</dt>
       <dd className="text-right tabular-nums">{money(l.amount)}</dd>
     </div>

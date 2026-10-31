@@ -8201,3 +8201,23 @@ button.ui-side-alert { cursor: pointer; }
 @keyframes ui-popover-out-up { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(2px); } }
 /* A leave balance running low (15% or one day left): the warm highlight, never the error red (that is below zero). */
 .ui-balance-low { color: rgb(var(--warn-ink)); }
+
+/*
+ * Touch targets on a phone, opted into by a screen (QA of PR #82, F5:
+ * Payroll and the employee app measured 28-36px at 390). Every control in a
+ * `.ui-touch-44` subtree is at least 44px tall under 768px wide (Apple's
+ * minimum), and field text is 16px so Safari does not zoom into a field.
+ * Outside any layer, so it wins over the component sizes without !important.
+ */
+@media (max-width: 767px) {
+  .ui-touch-44 :is(.ui-btn, .ui-btn-sm, .ui-tab, .ui-page-btn, .ui-input, .ui-select),
+  .ui-touch-44 :is(input:not([type='checkbox']):not([type='radio']), select, textarea, [role='tab'], button) {
+    height: auto;
+    min-height: 2.75rem;
+  }
+  .ui-touch-44 .ui-btn-sm { padding-block: 0; }
+  .ui-touch-44 :is(input:not([type='checkbox']):not([type='radio']), select, textarea) { font-size: 1rem; }
+  .ui-touch-44 .ui-icon-btn { min-width: 2.75rem; min-height: 2.75rem; }
+  /* As People's: a checkbox is 24px to see and hit, and the row or label beside it takes the tap too. */
+  .ui-touch-44 input[type='checkbox'] { width: 1.5rem; height: 1.5rem; flex: none; }
+}
