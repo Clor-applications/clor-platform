@@ -14,8 +14,8 @@ const lateRuleWords = (r) => {
   if (!r.lateOn) return 'Late arrivals cost nothing.';
   const free = Number(r.lateFree) || 0;
   const after = free ? `After ${free} free a month, each` : 'Each';
-  return r.lateCutMode === 'TIME_MISSED_ROUNDED'
-    ? `${after} late arrival cuts the time missed, rounded up to ${r.lateRoundToMinutes === 60 ? 'the hour' : `${r.lateRoundToMinutes || 15} minutes`}.`
+  return r.lateCutMode === 'TIME_MISSED_ROUNDED_DOWN'
+    ? `${after} late arrival cuts the time missed, rounded down to ${r.lateRoundToMinutes === 60 ? 'whole hours' : `${r.lateRoundToMinutes || 15} minutes`}.`
     : `${after} late arrival cuts the time missed.`;
 };
 
@@ -126,7 +126,7 @@ export default function AttendanceRules() {
                 {Number(rules.latePenaltyEvery) > 0
                   ? `After ${Number(rules.lateAllowancePerMonth) || 0} free, every ${rules.latePenaltyEvery} late arrivals cost ${rules.lateCost === 1 ? 'a full day' : 'half a day'}.`
                   : 'No penalty: set a number above 0 to turn it on.'}
-                {rules.lateRuleInPeople ? ' A change counts from next month.' : ''}
+                {' A change counts from next month.'}
               </p>
             </>
           )}
@@ -352,27 +352,59 @@ function RulePreview({ shifts }) {
 
 const RULE_LABEL = { lateAllowancePerMonth: 'Free late arrivals', latePenaltyEvery: 'Half day lost every', photoRetentionDays: 'Selfies kept (days)', defaultShiftId: 'Default shift', readerUsersBecomeEmployees: 'Reader people become employees', autoShiftByPunch: 'Shift from the first punch', checkInBeforeMinutes: 'Earliest check-in', checkOutAfterMinutes: 'Latest check-out', leaveApproval: 'Leave approval', correctionApproval: 'Correction approval', startTime: 'Start', endTime: 'End', breakMinutes: 'Break', graceMinutes: 'Grace', earlyOutGraceMinutes: 'Early-out grace', halfDayMinutes: 'Half day', fullDayMinutes: 'Full day', overtimeAfterMinutes: 'Overtime after', weeklyOffDays: 'Weekly offs', offSaturdays: 'Saturdays off', isActive: 'Active' };
 
+/* People's Attendance rules are saved whole (late marks, missing punches, absence, night work): each field that moved, in words. */
+const PART_LABEL = {
+  'marks.on': 'Late marks', 'marks.cutMode': 'Each mark cuts', 'marks.roundToMinutes': 'Rounded down to (min)', 'marks.cost': 'Each step costs (days)', 'marks.takeFrom': 'Taken from leave types',
+  'marks.late.on': 'Count late arrivals', 'marks.late.every': 'Late marks per step', 'marks.late.free': 'Free late marks', 'marks.late.graceMinutes': 'Late by more than (min)',
+  'marks.early.on': 'Count early exits', 'marks.early.every': 'Early exits per step', 'marks.early.free': 'Free early exits', 'marks.early.graceMinutes': 'Early by more than (min)',
+  'nudge.on': 'Missing-punch reminders', 'nudge.afterHours': 'Remind after (hours)', 'nudge.managerDigest': 'Manager morning list',
+  'absence.on': 'Unexplained absence', 'absence.days': 'Tell HR after (days)', 'absence.noticeGapDays': 'Second notice after (days)', 'absence.replyDays': 'Days to answer',
+  'night.on': 'Night work for women', 'night.from': 'Night from', 'night.to': 'Night until', 'night.mode': 'Without consent',
+};
+const CUT_WORD = { TIME_MISSED: 'the time missed', TIME_MISSED_ROUNDED_DOWN: 'the time missed, rounded down', TIME_MISSED_ROUNDED: 'the time missed, rounded down', HALF_DAY_PER_N: 'every few marks' };
+const isPlain = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
+/** The fields that differ between two saved values, as [path, before, after], nested objects opened up. */
+function changedFields(before, after, prefix = '') {
+  const keys = [...new Set([...Object.keys(before || {}), ...Object.keys(after || {})])];
+  return keys.flatMap((k) => {
+    const a = before?.[k];
+    const b = after?.[k];
+    if (JSON.stringify(a) === JSON.stringify(b)) return [];
+    if (isPlain(a) || isPlain(b)) return changedFields(isPlain(a) ? a : {}, isPlain(b) ? b : {}, `${prefix}${k}.`);
+    return [[`${prefix}${k}`, a, b]];
+  });
+}
+
 /** Every saved change to the rules and to shifts' scoring: when, who, and what moved. */
 function RuleHistory({ shifts, attempt }) {
   const [versions, setVersions] = useState(null);
   const load = useCallback(() => { listRuleVersions().then(setVersions).catch(() => setVersions([])); }, []);
   useEffect(() => { load(); }, [load, attempt]);
   const shiftName = (id) => shifts.find((s) => s.id === id)?.name || 'a shift';
-  const show = (k, v) => (v == null || v === '' ? '—' : k === 'defaultShiftId' ? shiftName(v) : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v));
+  const show = (k, v) => {
+    if (v == null || v === '') return '—';
+    if (k === 'defaultShiftId') return shiftName(v);
+    if (k === 'marks.cutMode') return CUT_WORD[v] || String(v);
+    if (k === 'night.mode') return v === 'WARN' ? 'save and warn' : 'refuse the shift';
+    if (Array.isArray(v)) return v.length ? String(v.length) : 'none';
+    if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+    return String(v);
+  };
+  const fromWords = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
   if (!versions?.length) return null;
   return (
     <section className="ui-card overflow-hidden" aria-labelledby="history-h">
       <div className="flex items-center justify-between px-4 pt-4 pb-2"><h2 id="history-h" className="ui-t-sec">Changes to the rules</h2><button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={load}>Refresh</button></div>
       <ol className="divide-y">
         {versions.slice(0, 30).map((v) => {
-          const keys = Object.keys({ ...(v.before || {}), ...(v.after || {}) }).filter((k) => JSON.stringify(v.before?.[k]) !== JSON.stringify(v.after?.[k]));
+          const fields = changedFields(v.before, v.after);
           return (
             <li key={v.version} className="px-4 py-2.5 text-sm">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <strong>{v.kind === 'SHIFT' ? `Shift ${v.name}` : 'Company rules'}</strong>
+                <strong>{v.kind === 'SHIFT' ? `Shift ${v.name}` : v.name === 'Attendance rules' ? 'Attendance rules (People)' : 'Company rules'}</strong>
                 <span className="ui-caption">{new Date(v.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} · {v.by}</span>
               </div>
-              <p className="ui-caption">{keys.map((k) => `${RULE_LABEL[k] || k}: ${show(k, v.before?.[k])} → ${show(k, v.after?.[k])}`).join(' · ') || 'Saved with no change to scoring.'}</p>
+              <p className="ui-caption">{fields.map(([k, a, b]) => `${RULE_LABEL[k] || PART_LABEL[k] || k}: ${show(k, a)} → ${show(k, b)}`).join(' · ') || 'Saved with no change to scoring.'}{v.from ? ` · Counts from ${fromWords(v.from)}` : ''}</p>
             </li>
           );
         })}

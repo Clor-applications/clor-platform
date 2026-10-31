@@ -186,9 +186,11 @@ it('settings: a mark cuts the time missed by default; rounding asks how far; the
   const cut = within(block).getByLabelText('Each mark cuts');
   expect(cut.value).toBe('TIME_MISSED');
   expect(within(block).queryByText('Every')).toBeNull();
-  expect(within(block).getByText(/A mark cuts the whole time/)).toBeTruthy();
-  fireEvent.change(cut, { target: { value: 'TIME_MISSED_ROUNDED' } });
-  fireEvent.change(within(block).getByLabelText('Round each up to'), { target: { value: '30' } });
+  expect(within(block).getByText(/A mark cuts the minutes the person was late or left early/)).toBeTruthy();
+  fireEvent.change(cut, { target: { value: 'TIME_MISSED_ROUNDED_DOWN' } });
+  expect(within(block).getByText(/rounded down to 15 minutes.*20 minutes late cuts 15, 10 minutes cuts nothing\. It never cuts more than the time missed/)).toBeTruthy();
+  fireEvent.change(within(block).getByLabelText('Round each down to'), { target: { value: '30' } });
+  expect(within(block).getByText(/rounded down to 30 minutes.*35 minutes late cuts 30, 25 minutes cuts nothing/)).toBeTruthy();
   fireEvent.change(cut, { target: { value: 'HALF_DAY_PER_N' } });
   expect(within(block).getAllByText('Every').length).toBeGreaterThan(0);
   expect(within(block).getByLabelText('Costs')).toBeTruthy();
@@ -222,12 +224,16 @@ it('settings: a late-mark change counts from next month unless this month is cho
     fireEvent.click(within(block).getByLabelText('On'));
     fireEvent.click(within(block).getByLabelText('Casual leave'));
     expect(within(block).getByText(/In whole half days, in the order ticked\. Anything under half a day.*is unpaid\./)).toBeTruthy();
-    const when = screen.getByLabelText('Late-mark change counts');
+    const when = within(block).getByLabelText('Late-mark change counts');
     expect(when.value).toBe('NEXT_MONTH');
     expect(within(when).getByRole('option', { name: 'From November 2026' })).toBeTruthy();
     expect(screen.getByText('October 2026 stays under the rule it started with.')).toBeTruthy();
     fireEvent.change(when, { target: { value: 'THIS_MONTH' } });
-    expect(screen.getByRole('alert').textContent).toMatch(/Every late mark in October 2026 so far is worked out again/);
+    expect(within(block).getByRole('alert').textContent).toMatch(/Every late mark in October 2026 so far is worked out again/);
+    /* Switching late marks off is a change too: the choice stays, in the same section. */
+    fireEvent.click(within(block).getAllByLabelText('On')[0]);
+    expect(within(block).getByLabelText('Late-mark change counts')).toBeTruthy();
+    fireEvent.click(within(block).getAllByLabelText('On')[0]);
     fireEvent.change(when, { target: { value: 'NEXT_MONTH' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(api.saveAttendanceRules).toHaveBeenCalled());

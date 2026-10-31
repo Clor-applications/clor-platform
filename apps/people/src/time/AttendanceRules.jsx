@@ -40,9 +40,17 @@ const marksBody = (f) => ({
 /* How much a mark cuts (DECISIONS.md 1): the time missed is what the law allows (Code on Wages 2019, s.20). */
 const CUTS = [
   ['TIME_MISSED', 'The time actually missed'],
-  ['TIME_MISSED_ROUNDED', 'The time missed, rounded up'],
+  ['TIME_MISSED_ROUNDED_DOWN', 'The time missed, rounded down'],
   ['HALF_DAY_PER_N', 'Every few marks, half or a full day'],
 ];
+/* What a minute cut takes, in the words of the mode chosen (never more than the time missed). */
+const cutCaption = (f) => {
+  const tail = 'The free ones and the minutes allowed above apply first.';
+  if (f.cutMode !== 'TIME_MISSED_ROUNDED_DOWN') return `A mark cuts the minutes the person was late or left early, as a part of the day on their shift. ${tail}`;
+  const step = Number(f.roundTo) || 15;
+  const unit = step === 60 ? 'whole hours' : `${step} minutes`;
+  return `A mark cuts its minutes rounded down to ${unit}, as a part of the day on their shift: ${step + 5} minutes late cuts ${step}, ${step - 5} minutes cuts nothing. It never cuts more than the time missed. ${tail}`;
+};
 const toBody = (f) => ({
   marks: marksBody(f),
   nudge: { on: f.nudgeOn, afterHours: int(f.afterHours, 0, 24, 2), managerDigest: f.managerDigest },
@@ -62,7 +70,7 @@ function Num({ label, value, onChange, min = 0, max = 31, placeholder, suffix })
   );
 }
 
-function Block({ id, title, on, onToggle, children }) {
+function Block({ id, title, on, onToggle, children, footer = null }) {
   return (
     <fieldset className="py-6 first:pt-0 last:pb-0 space-y-4" aria-labelledby={`${id}-h`}>
       <div className="flex items-center justify-between gap-4">
@@ -70,6 +78,7 @@ function Block({ id, title, on, onToggle, children }) {
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={on} onChange={(e) => onToggle(e.target.checked)} />On</label>
       </div>
       {on ? children : null}
+      {footer}
     </fieldset>
   );
 }
@@ -130,6 +139,24 @@ export default function AttendanceRules({ openScreen }) {
     }
   };
   const order = (typeId) => form.takeFrom.indexOf(typeId);
+  /* When a late-mark change counts: in the late-marks section, shown even when the change is switching them off. */
+  const marksWhen = canEdit && marksChanged ? (
+    <div className="space-y-3">
+      <label className="block max-w-sm">
+        <span className="ui-label">Late-mark change counts</span>
+        <select className="ui-select w-full" value={marksFrom} onChange={(e) => setMarksFrom(e.target.value)}>
+          <option value="NEXT_MONTH">From {monthTitle(shiftMonth(thisMonth, 1))}</option>
+          <option value="THIS_MONTH">From this month, {monthTitle(thisMonth)}</option>
+        </select>
+      </label>
+      {marksFrom === 'THIS_MONTH' ? (
+        <p className="ui-alert ui-alert-warn text-sm" role="alert">Every late mark in {monthTitle(thisMonth)} so far is worked out again under the new rule, so what people lose this month changes.</p>
+      ) : (
+        <p className="ui-caption">{monthTitle(thisMonth)} stays under the rule it started with.</p>
+      )}
+    </div>
+  ) : null;
+
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -137,7 +164,7 @@ export default function AttendanceRules({ openScreen }) {
       <form className="ui-record-section ui-wizard-body" aria-label="Attendance rules" onSubmit={save}>
         {error ? <ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /> : null}
         <fieldset disabled={!canEdit} className="divide-y min-w-0" style={{ borderColor: 'rgb(var(--border))' }}>
-            <Block id="ar-marks" title="Late marks and early exits" on={form.marksOn} onToggle={(v) => set({ marksOn: v, ...(v && !form.lateOn && !form.earlyOn ? { lateOn: true } : {}) })}>
+            <Block id="ar-marks" title="Late marks and early exits" footer={marksWhen} on={form.marksOn} onToggle={(v) => set({ marksOn: v, ...(v && !form.lateOn && !form.earlyOn ? { lateOn: true } : {}) })}>
               <div className="space-y-3">
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={form.lateOn} onChange={(e) => set({ lateOn: e.target.checked })} />Count late arrivals</label>
                 {form.lateOn ? (
@@ -163,9 +190,9 @@ export default function AttendanceRules({ openScreen }) {
                     {CUTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                 </label>
-                {form.cutMode === 'TIME_MISSED_ROUNDED' ? (
+                {form.cutMode === 'TIME_MISSED_ROUNDED_DOWN' ? (
                   <label className="block">
-                    <span className="ui-label">Round each up to</span>
+                    <span className="ui-label">Round each down to</span>
                     <select className="ui-select w-full" value={form.roundTo} onChange={(e) => set({ roundTo: e.target.value })}>
                       <option value="15">15 minutes</option>
                       <option value="30">30 minutes</option>
@@ -186,7 +213,7 @@ export default function AttendanceRules({ openScreen }) {
               {form.cutMode === 'HALF_DAY_PER_N' ? (
                 <p className="ui-alert ui-alert-warn text-sm" role="note">This can cut more than the time missed. The law allows a cut only for the time missed (Code on Wages 2019, s.20). Late marks shows each person’s cut beside their time missed.</p>
               ) : (
-                <p className="ui-caption">A mark cuts the whole time the person was late or left early, as a part of the day on their shift. The free ones and the minutes allowed above apply first.</p>
+                <p className="ui-caption">{cutCaption(form)}</p>
               )}
               <div className="space-y-2">
                 <span className="ui-label">Take it from</span>
@@ -246,23 +273,6 @@ export default function AttendanceRules({ openScreen }) {
               <p className="ui-caption">A woman needs her written consent on file to work these hours (OSH Code 2020, s.43: before 6 am or after 7 pm; some states set other hours). With a warning, the shift is saved and she is listed on Home and under Night work until consent is recorded.</p>
             </Block>
         </fieldset>
-
-        {canEdit && marksChanged ? (
-          <div className="space-y-3 pt-6">
-            <label className="block max-w-sm">
-              <span className="ui-label">Late-mark change counts</span>
-              <select className="ui-select w-full" value={marksFrom} onChange={(e) => setMarksFrom(e.target.value)}>
-                <option value="NEXT_MONTH">From {monthTitle(shiftMonth(thisMonth, 1))}</option>
-                <option value="THIS_MONTH">From this month, {monthTitle(thisMonth)}</option>
-              </select>
-            </label>
-            {marksFrom === 'THIS_MONTH' ? (
-              <p className="ui-alert ui-alert-warn text-sm" role="alert">Every late mark in {monthTitle(thisMonth)} so far is worked out again under the new rule, so what people lose this month changes.</p>
-            ) : (
-              <p className="ui-caption">{monthTitle(thisMonth)} stays under the rule it started with.</p>
-            )}
-          </div>
-        ) : null}
 
         {canEdit ? (
           <div className="ui-wizard-actions">

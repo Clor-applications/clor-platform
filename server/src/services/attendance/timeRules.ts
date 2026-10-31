@@ -26,13 +26,18 @@ export type MarkKind = { on: boolean; graceMinutes: number | null; every: number
  *  - TIME_MISSED: the time actually missed (each counted mark's whole late or early minutes), as a part of the
  *    day: minutes ÷ the shift's full-day minutes. Code on Wages 2019 s.20 allows a cut in proportion to the time
  *    missed, so this is the default for a company not yet using late marks.
- *  - TIME_MISSED_ROUNDED: the same, each mark rounded up to 15, 30 or 60 minutes (`roundToMinutes`).
+ *  - TIME_MISSED_ROUNDED_DOWN: the same, each mark rounded DOWN to 15, 30 or 60 minutes (`roundToMinutes`): a
+ *    20-minute late under 15 cuts 15, a 10-minute late cuts nothing. It can never cut more than the time missed.
+ *    (Before 1 Nov 2026 this mode rounded up, as TIME_MISSED_ROUNDED; that cut more than the time missed, so the
+ *    migration 20261115090000_late_cut_round_down rewrote it, and a stray old value still reads as round-down.)
  *  - HALF_DAY_PER_N: every N marks cost ½ or 1 day (`every`, `cost`). It can cut more than the time missed; a
  *    company already using late marks keeps it, with its numbers, so its pay does not change.
  * The first `free` marks of a month cost nothing in every mode.
  */
-export type CutMode = 'TIME_MISSED' | 'TIME_MISSED_ROUNDED' | 'HALF_DAY_PER_N';
-export const CUT_MODES: CutMode[] = ['TIME_MISSED', 'TIME_MISSED_ROUNDED', 'HALF_DAY_PER_N'];
+export type CutMode = 'TIME_MISSED' | 'TIME_MISSED_ROUNDED_DOWN' | 'HALF_DAY_PER_N';
+export const CUT_MODES: CutMode[] = ['TIME_MISSED', 'TIME_MISSED_ROUNDED_DOWN', 'HALF_DAY_PER_N'];
+/** A minute cut: never more than the time missed. */
+export const isMinuteCut = (m: CutMode) => m === 'TIME_MISSED' || m === 'TIME_MISSED_ROUNDED_DOWN';
 export type MarkRules = { on: boolean; late: MarkKind; early: MarkKind; cost: 0.5 | 1; takeFrom: string[]; cutMode: CutMode; roundToMinutes: 15 | 30 | 60 };
 export type NudgeRules = { on: boolean; afterHours: number; managerDigest: boolean };
 export type AbsenceRules = { on: boolean; days: number; noticeGapDays: number; replyDays: number };
@@ -88,6 +93,8 @@ export const legacyMarks = (s: { lateAllowancePerMonth?: number | null; latePena
   return { ...DEFAULT_TIME_RULES.marks, on: every > 0, late: { on: true, graceMinutes: null, every: every || 3, free: Math.max(0, s?.lateAllowancePerMonth || 0) }, cutMode: every > 0 ? 'HALF_DAY_PER_N' : 'TIME_MISSED' };
 };
 const isCutMode = (v: unknown): v is CutMode => CUT_MODES.includes(v as CutMode);
+/* The old round-up value is read as round-down: rounding up cut more than the time missed (s.20). */
+const cutModeOf = (v: unknown): CutMode | null => (v === 'TIME_MISSED_ROUNDED' ? 'TIME_MISSED_ROUNDED_DOWN' : isCutMode(v) ? v : null);
 
 /** The rules as they stand, from the settings row (or null when none). */
 export function rulesOf(s: { timeRules?: unknown; lateAllowancePerMonth?: number | null; latePenaltyEvery?: number | null } | null | undefined): TimeRules {
@@ -103,7 +110,7 @@ export function rulesOf(s: { timeRules?: unknown; lateAllowancePerMonth?: number
       early: { ...marksBase.early, ...(m.early || {}) },
       takeFrom: Array.isArray(m.takeFrom) ? m.takeFrom : marksBase.takeFrom,
       /* Saved before the choice existed: a company using late marks was on every N = ½ or 1 day, and stays there. */
-      cutMode: isCutMode(m.cutMode) ? m.cutMode : saved.marks ? ((m.on ?? marksBase.on) ? 'HALF_DAY_PER_N' : 'TIME_MISSED') : marksBase.cutMode,
+      cutMode: cutModeOf(m.cutMode) ?? (saved.marks ? ((m.on ?? marksBase.on) ? 'HALF_DAY_PER_N' : 'TIME_MISSED') : marksBase.cutMode),
       roundToMinutes: m.roundToMinutes === 30 || m.roundToMinutes === 60 ? m.roundToMinutes : 15,
     },
     nudge: { ...d.nudge, ...(saved.nudge || {}) },
@@ -154,6 +161,22 @@ export const nextMonthStart = (day: string) => {
   return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
 };
 const istDay = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+const monthEnd = (day: string) => {
+  const [y, m] = day.slice(0, 7).split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+};
+/** `base` with only what changed from `was` to `now` (late and early field by field). */
+export function withChange(base: MarkRules, was: MarkRules, now: MarkRules): MarkRules {
+  const out: any = { ...base };
+  for (const k of Object.keys(now) as (keyof MarkRules)[]) {
+    if (k === 'late' || k === 'early') {
+      const part: any = { ...base[k] };
+      for (const f of Object.keys(now[k]) as (keyof MarkKind)[]) if (now[k][f] !== was[k][f]) part[f] = now[k][f];
+      out[k] = part;
+    } else if (JSON.stringify(now[k]) !== JSON.stringify(was[k])) out[k] = now[k];
+  }
+  return out;
+}
 
 /**
  * A change to late marks costs pay, and a month is worked out under the rule of its last day, so a change made on
@@ -174,6 +197,9 @@ export async function saveTimeRules(accountId: string, orgId: string, userId: st
   const before = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
   const current = rulesOf(before);
   const next = mergeRules(current, parsed.data);
+  /* The late-mark rule this month is worked out under, which may differ from the saved one while a next-month change waits. */
+  const { marksRulesOn } = await import('./markRules.js');
+  const thisMonth = (await marksRulesOn(orgId, monthEnd(istDay()))).marks;
   if (next.marks.takeFrom.length) {
     const types = await peoplePrisma.leaveType.findMany({ where: { orgId, id: { in: next.marks.takeFrom }, isPaid: true }, select: { id: true } });
     if (types.length !== next.marks.takeFrom.length) throw new RulesError('Take penalties only from paid leave types of this company.');
@@ -190,7 +216,14 @@ export async function saveTimeRules(accountId: string, orgId: string, userId: st
   const changed = JSON.stringify(current) !== JSON.stringify(next);
   const marksChanged = JSON.stringify(current.marks) !== JSON.stringify(next.marks);
   const from = marksChanged && when === 'NEXT_MONTH' ? nextMonthStart(istDay()) : null;
-  const v = changed ? await recordRuleVersion(accountId, orgId, userId, { kind: 'RULES', name: 'Attendance rules', before: current, after: next, ...(from ? { from } : {}) }) : null;
+  let v: Awaited<ReturnType<typeof recordRuleVersion>> = null;
+  if (changed && marksChanged && when === 'THIS_MONTH' && JSON.stringify(thisMonth) !== JSON.stringify(current.marks)) {
+    /* A next-month change is waiting: this month gets only this change, next month gets both (markRules.ts marksRulesOn). */
+    await recordRuleVersion(accountId, orgId, userId, { kind: 'RULES', name: 'Attendance rules', before: { ...current, marks: thisMonth }, after: { ...next, marks: withChange(thisMonth, current.marks, next.marks) } });
+    v = await recordRuleVersion(accountId, orgId, userId, { kind: 'RULES', name: 'Attendance rules', before: current, after: next, from: nextMonthStart(istDay()) });
+  } else if (changed) {
+    v = await recordRuleVersion(accountId, orgId, userId, { kind: 'RULES', name: 'Attendance rules', before: current, after: next, ...(from ? { from } : {}) });
+  }
   return { rules: next, version: v?.version ?? (await currentRuleVersion(orgId)), marksFrom: from };
 }
 

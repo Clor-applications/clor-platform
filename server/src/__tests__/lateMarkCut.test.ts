@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 
 /**
  * How much a late mark cuts (docs/people/workflow-engine/SPEC.md 3.1, DECISIONS.md 1; owner, 31 Oct 2026): the
- * time actually missed (the default for a company not yet using late marks), the same rounded up per mark, or every
+ * time actually missed (the default for a company not yet using late marks), the same rounded DOWN per mark, or every
  * N marks = ½ or 1 day (kept, with a warning and a per-person comparison, and kept for companies already on it).
  * Free marks and the grace apply in every mode. HR for the whole company or the owner changes it, audited.
  */
@@ -12,7 +14,8 @@ const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
 const { istInstant } = await import('../services/attendance/compute.js');
-const { rulesOf, legacyMarks, marksFromLegacy } = await import('../services/attendance/timeRules.js');
+const { rulesOf, legacyMarks, marksFromLegacy, withChange } = await import('../services/attendance/timeRules.js');
+const { PrismaClient } = await import('../generated/people/index.js');
 const { costOf, timeMissedOf, policyText } = await import('../services/attendance/markRules.js');
 
 const app = buildApp().listen(0);
@@ -88,11 +91,48 @@ describe('the cut, worked out', () => {
     expect(costOf(base({ cutMode: 'TIME_MISSED', late: { free: 4 } }), lates, [])).toBe(0);
   });
 
-  it('rounded: each mark up to 15, 30 or 60 minutes, never more than the day', () => {
-    expect(costOf(base({ cutMode: 'TIME_MISSED_ROUNDED', roundToMinutes: 15 }), lates, [])).toBe(Math.floor(((15 + 30 + 30) / 480) * 100) / 100);
-    expect(costOf(base({ cutMode: 'TIME_MISSED_ROUNDED', roundToMinutes: 30 }), lates, [])).toBe(Math.floor((90 / 480) * 100) / 100);
-    expect(costOf(base({ cutMode: 'TIME_MISSED_ROUNDED', roundToMinutes: 60 }), lates, [])).toBe(Math.floor((180 / 480) * 100) / 100);
-    expect(costOf(base({ cutMode: 'TIME_MISSED_ROUNDED', roundToMinutes: 60, late: { free: 0 } }), [mark('2026-09-01', 300, 240)], [])).toBe(1);
+  it('rounded: each mark DOWN to 15, 30 or 60 minutes, never more than the day', () => {
+    /* Counted: 15, 30, 25 minutes. */
+    expect(costOf(base({ cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 15 }), lates, [])).toBe(Math.floor(((15 + 30 + 15) / 480) * 100) / 100);
+    expect(costOf(base({ cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 30 }), lates, [])).toBe(Math.floor((30 / 480) * 100) / 100);
+    expect(costOf(base({ cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 60 }), lates, [])).toBe(0);
+    const r15 = base({ cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 15, late: { free: 0 } });
+    /* A 20-minute late under 15 cuts 15; a 10-minute late cuts nothing; a 5-minute late never cuts 15. */
+    expect(costOf(r15, [mark('2026-09-01', 20, 1500)], [])).toBe(0.01);
+    expect(costOf(r15, [mark('2026-09-01', 10)], [])).toBe(0);
+    expect(costOf(r15, [mark('2026-09-01', 5)], [])).toBe(0);
+    expect(costOf(base({ cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 60, late: { free: 0 } }), [mark('2026-09-01', 300, 240)], [])).toBe(1);
+  });
+
+  it('no mode but the warned every-N rule ever cuts more than the minutes missed (many random months)', () => {
+    let seed = 20261101;
+    const rand = (n: number) => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed % n;
+    };
+    const modes = [{ cutMode: 'TIME_MISSED' }, { cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 15 }, { cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 30 }, { cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 60 }];
+    for (let i = 0; i < 2000; i += 1) {
+      const mode = modes[i % modes.length];
+      const r = base({ ...mode, late: { on: true, free: rand(3) }, early: { on: rand(2) === 1, free: rand(3), every: 3 } });
+      const days = 1 + rand(26);
+      const L: ReturnType<typeof mark>[] = [];
+      const E: ReturnType<typeof mark>[] = [];
+      for (let d = 1; d <= days; d += 1) {
+        const date = `2026-09-${String(d).padStart(2, '0')}`;
+        const len = [240, 420, 480, 510, 540, 720][rand(6)];
+        if (rand(3)) L.push(mark(date, 1 + rand(len + 60), len));
+        if (rand(3)) E.push(mark(date, 1 + rand(len + 60), len));
+      }
+      /* What the counted marks missed, in days, each day at most the whole day. */
+      const perDay = new Map<string, number>();
+      const counted = (on: boolean, free: number, ms: typeof L) => (on ? ms.slice(free) : []);
+      for (const m of [...counted(r.late.on, r.late.free, L), ...counted(r.early.on, r.early.free, E)]) perDay.set(m.date, Math.min(1, (perDay.get(m.date) || 0) + Math.min(m.minutes, m.dayMinutes) / m.dayMinutes));
+      const missed = [...perDay.values()].reduce((a, b) => a + b, 0);
+      expect(costOf(r, L, E)).toBeLessThanOrEqual(missed + 1e-9);
+    }
+    /* The every-N rule can, which is why the screen warns: 3 marks of 5 minutes cost half a day. */
+    const step = base({ cutMode: 'HALF_DAY_PER_N', late: { free: 0, every: 3 } });
+    expect(costOf(step, [mark('2026-09-01', 5), mark('2026-09-02', 5), mark('2026-09-03', 5)], [])).toBe(0.5);
   });
 
   it('every N marks: today’s rule, counts as before; early exits count on their own in every mode', () => {
@@ -114,9 +154,9 @@ describe('the cut, worked out', () => {
         expect(cut * len).toBeLessThanOrEqual(missed + 1e-9);
       }
     }
-    const rounded = base({ cutMode: 'TIME_MISSED_ROUNDED', roundToMinutes: 15, late: { free: 0 } });
-    /* Rounded up to 75 minutes (the company's rule), then down to the 0.01 day: 0.15, not 0.16. */
-    expect(costOf(rounded, [mark('2026-09-01', 61)], [])).toBe(0.15);
+    const rounded = base({ cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 15, late: { free: 0 } });
+    /* Down to 60 minutes, then down to the 0.01 day: 0.12, not 0.13. */
+    expect(costOf(rounded, [mark('2026-09-01', 61)], [])).toBe(0.12);
   });
 
   it('one day’s late arrival and early exit together cut at most that day', () => {
@@ -126,6 +166,8 @@ describe('the cut, worked out', () => {
   });
 
   it('defaults: a company not using late marks gets time missed; one already using them keeps every N = ½ day', () => {
+    /* The old round-up value reads as round-down (migration 20261115090000_late_cut_round_down). */
+    expect(rulesOf({ timeRules: { marks: { on: true, cutMode: 'TIME_MISSED_ROUNDED', roundToMinutes: 30 } } }).marks).toMatchObject({ cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 30 });
     expect(rulesOf(null).marks.cutMode).toBe('TIME_MISSED');
     expect(rulesOf({ latePenaltyEvery: 0 }).marks.cutMode).toBe('TIME_MISSED');
     expect(legacyMarks({ latePenaltyEvery: 3, lateAllowancePerMonth: 2 })).toMatchObject({ on: true, cutMode: 'HALF_DAY_PER_N', cost: 0.5, late: { every: 3, free: 2 } });
@@ -139,7 +181,7 @@ describe('the cut, worked out', () => {
 
   it('the employee reads the rule in one sentence', () => {
     expect(policyText(base({ cutMode: 'TIME_MISSED' }), [])).toMatch(/The first 1 late arrivals by more than 10 minutes in a month are free; after that the time missed is cut, unpaid\./);
-    expect(policyText(base({ cutMode: 'TIME_MISSED_ROUNDED', roundToMinutes: 30 }), ['Casual leave'])).toMatch(/rounded up to 30 minutes, is cut, taken from Casual leave/);
+    expect(policyText(base({ cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 30 }), ['Casual leave'])).toMatch(/rounded down to 30 minutes, is cut, taken from Casual leave/);
     expect(policyText(base({ cutMode: 'HALF_DAY_PER_N' }), [])).toMatch(/every 3 cost ½ day/);
   });
 });
@@ -181,18 +223,19 @@ describe('a month under each cut, and who may change it', () => {
   });
 
   it('rounded up and every N marks; the preview sets the cut beside the time missed', async () => {
-    await ppl(hr, 'put', '/attendance-rules', { marks: { cutMode: 'TIME_MISSED_ROUNDED', roundToMinutes: 30 }, marksFrom: 'THIS_MONTH' }).expect(200);
+    await ppl(hr, 'put', '/attendance-rules', { marks: { cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 30 }, marksFrom: 'THIS_MONTH' }).expect(200);
     await backdate(c);
-    expect((await ashaRow()).days).toBe(Math.floor((90 / 480) * 100) / 100);
+    /* 20, 15 and 30 minutes, each down to 30: 0 + 0 + 30. */
+    expect((await ashaRow()).days).toBe(Math.floor((30 / 480) * 100) / 100);
     const p = (await ppl(hr, 'post', '/late-marks/preview', { month: lastMonth, marks: { cutMode: 'HALF_DAY_PER_N', late: { every: 3 }, cost: 0.5 } }).expect(200)).body;
-    expect(p.rows.find((r: any) => r.employeeId === asha.id)).toMatchObject({ now: 0.18, then: 0.5, timeMissedDays: 0.13, timeMissedMinutes: 65 });
+    expect(p.rows.find((r: any) => r.employeeId === asha.id)).toMatchObject({ now: 0.06, then: 0.5, timeMissedDays: 0.13, timeMissedMinutes: 65 });
   });
 
   it('the change is audited with before and after, as a company setting', async () => {
     const rows = await runInTenant(c.orgId, () => platformPrisma.auditLog.findMany({ where: { orgId: c.orgId, entity: 'COMPANY_SETTING', entityId: 'attendance.lateMarkCut' }, orderBy: { createdAt: 'asc' } }));
     expect(rows.length).toBe(1);
     expect(rows[0].createdByUserId).toBe(hr.userId);
-    expect(JSON.parse(rows[0].metadata!)).toEqual({ before: { cutMode: 'TIME_MISSED', roundToMinutes: 15 }, after: { cutMode: 'TIME_MISSED_ROUNDED', roundToMinutes: 30 }, from: null });
+    expect(JSON.parse(rows[0].metadata!)).toEqual({ before: { cutMode: 'TIME_MISSED', roundToMinutes: 15 }, after: { cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 30 }, from: null });
     expect(rows[0].message).toMatch(/from this month/);
   });
 
@@ -244,6 +287,33 @@ describe('leave covers whole half days only', () => {
 });
 
 describe('rule versions and when a change takes effect', () => {
+  it('a "this month" save while a next-month change waits: this month gets only its own change (10 Oct / 20 Oct)', async () => {
+    const c = await company();
+    const today = istToday();
+    const lastOfThis = (() => { const [y, m] = today.slice(0, 7).split('-').map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); })();
+    const nextMonthFirst = plus(lastOfThis, 1);
+    const { marksRulesOn } = await import('../services/attendance/markRules.js');
+    const on = (d: string) => runInTenant(c.orgId, () => marksRulesOn(c.orgId, d)).then((x) => x.marks);
+    /* The rule since long ago: every 3 marks cost ½ day. */
+    await ppl(c, 'put', '/attendance-rules', { marks: { on: true, cutMode: 'HALF_DAY_PER_N', cost: 0.5, late: { on: true, every: 3, free: 0 } }, marksFrom: 'THIS_MONTH' }).expect(200);
+    await backdate(c);
+    /* "10 Oct": every mark from next month. */
+    await ppl(c, 'put', '/attendance-rules', { marks: { late: { every: 1 } } }).expect(200);
+    /* "20 Oct": a full day per step, from this month. */
+    await ppl(c, 'put', '/attendance-rules', { marks: { cost: 1 }, marksFrom: 'THIS_MONTH' }).expect(200);
+    expect(await on(lastOfThis)).toMatchObject({ cost: 1, late: { every: 3 } });
+    expect(await on(plus(nextMonthFirst, 27))).toMatchObject({ cost: 1, late: { every: 1 } });
+    /* The screen still shows what is saved: the rule from next month. */
+    expect((await ppl(c, 'get', '/attendance-rules').expect(200)).body.rules.marks).toMatchObject({ cost: 1, late: { every: 1 } });
+  }, 60_000);
+
+  it('withChange takes only what changed, late and early field by field', () => {
+    const a = rulesOf({ timeRules: { marks: { on: true, cutMode: 'HALF_DAY_PER_N', late: { every: 3, free: 0 } } } }).marks;
+    const b = { ...a, late: { ...a.late, every: 1 } };
+    const bc = { ...b, cost: 1 as const, late: { ...b.late, free: 2 } };
+    expect(withChange(a, b, bc)).toMatchObject({ cost: 1, late: { every: 3, free: 2 } });
+  });
+
   it('a version saved before the cut existed (marks on, no cutMode) still gives the half-day rule for its month', async () => {
     const c = await company();
     const e = await person(c, { name: 'Past Rule', code: 'PR1' });
@@ -272,13 +342,50 @@ describe('rule versions and when a change takes effect', () => {
     const audit = await runInTenant(c.orgId, () => platformPrisma.auditLog.findMany({ where: { orgId: c.orgId, entity: 'COMPANY_SETTING', entityId: 'attendance.lateMarkCut' }, orderBy: { createdAt: 'asc' } }));
     expect(audit.at(-1)!.message).toContain(`from ${nextMonthFirst}`);
     expect(JSON.parse(audit.at(-1)!.metadata!).from).toBe(nextMonthFirst);
-    await ppl(c, 'put', '/attendance-rules', { marks: { cutMode: 'TIME_MISSED_ROUNDED' }, marksFrom: 'THIS_MONTH' }).expect(200);
-    expect((await runInTenant(c.orgId, () => marksRulesOn(c.orgId, lastOfThis))).marks.cutMode).toBe('TIME_MISSED_ROUNDED');
+    const general = await runInTenant(c.orgId, () => platformPrisma.auditLog.findMany({ where: { orgId: c.orgId, entity: 'AttendanceSettings', entityId: c.orgId }, orderBy: { createdAt: 'asc' } }));
+    expect(general.at(-1)!.message).toContain(`late marks from ${nextMonthFirst}`);
+    expect(JSON.parse(general.at(-1)!.metadata!).from).toBe(nextMonthFirst);
+    await ppl(c, 'put', '/attendance-rules', { marks: { cutMode: 'TIME_MISSED_ROUNDED_DOWN' }, marksFrom: 'THIS_MONTH' }).expect(200);
+    expect((await runInTenant(c.orgId, () => marksRulesOn(c.orgId, lastOfThis))).marks.cutMode).toBe('TIME_MISSED_ROUNDED_DOWN');
     expect((await ppl(c, 'put', '/attendance-rules', { marks: { on: false }, marksFrom: 'LAST_YEAR' }).expect(400)).body.error).toMatch(/next month|this month/);
   }, 60_000);
 });
 
 describe('the Attendance app’s two numbers', () => {
+  it('a company that never saved People’s rule: the first change is a baseline version, so this month and undecided earlier ones keep the old rule; it is audited', async () => {
+    const c = await company();
+    const e = await person(c, { name: 'Base Line', code: 'BL1' });
+    for (const d of workdays.slice(0, 3)) await day(c, e.id, d, 25);
+    const { marksRulesOn } = await import('../services/attendance/markRules.js');
+    const today = istToday();
+    const lastOfThis = (() => { const [y, m] = today.slice(0, 7).split('-').map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); })();
+    const nextMonthFirst = plus(lastOfThis, 1);
+    const rules = (await att(c, 'get', '/rules').expect(200)).body.rules;
+    await att(c, 'put', '/rules', { defaultShiftId: rules.defaultShiftId, lateAllowancePerMonth: 0, latePenaltyEvery: 3, leaveApproval: 'HR', correctionApproval: 'HR' }).expect(200);
+    const versions = (await runInTenant(c.orgId, () => peoplePrisma.attendanceRuleVersion.findMany({ where: { orgId: c.orgId } }))).map((v) => JSON.parse(v.rulesJson)).filter((x) => x.name === 'Attendance rules');
+    expect(versions).toHaveLength(1);
+    expect(versions[0]).toMatchObject({ from: nextMonthFirst, before: { marks: { on: false } }, after: { marks: { on: true, cutMode: 'HALF_DAY_PER_N', late: { every: 3 } } } });
+    /* Last month (undecided) and this month: no penalty, as before the change. Next month: ½ day every 3. */
+    expect((await ppl(c, 'get', `/late-marks?month=${lastMonth}`).expect(200)).body.rows.find((r: any) => r.employeeId === e.id)?.days ?? 0).toBe(0);
+    expect((await runInTenant(c.orgId, () => marksRulesOn(c.orgId, lastOfThis))).marks.on).toBe(false);
+    expect((await runInTenant(c.orgId, () => marksRulesOn(c.orgId, plus(nextMonthFirst, 27)))).marks).toMatchObject({ on: true, cutMode: 'HALF_DAY_PER_N', late: { every: 3 } });
+    const audit = await runInTenant(c.orgId, () => platformPrisma.auditLog.findMany({ where: { orgId: c.orgId, entity: 'AttendanceSettings', entityId: c.orgId } }));
+    const line = audit.find((a) => /Late arrivals/.test(a.message));
+    expect(line?.message).toBe(`Late arrivals: no penalty → 0 free, then every 3, from ${nextMonthFirst}`);
+    expect(JSON.parse(line!.metadata!)).toEqual({ before: { lateAllowancePerMonth: 0, latePenaltyEvery: 0 }, after: { lateAllowancePerMonth: 0, latePenaltyEvery: 3 }, from: nextMonthFirst });
+  }, 60_000);
+
+  it('the whole-company check holds with no settings row yet: a team-scoped role may not set the numbers', async () => {
+    const c = await company();
+    const teamOnly = await custom(c, ['ATTENDANCE::Shifts::VIEW', 'ATTENDANCE::Shifts::EDIT', 'PEOPLE::Employees::VIEW'], true);
+    expect(await runInTenant(c.orgId, () => peoplePrisma.attendanceSettings.count({ where: { orgId: c.orgId } }))).toBe(0);
+    const res = await att(teamOnly, 'put', '/rules', { defaultShiftId: null, lateAllowancePerMonth: 0, latePenaltyEvery: 3, leaveApproval: 'HR', correctionApproval: 'HR' });
+    expect(res.status).toBe(403);
+    expect(await runInTenant(c.orgId, () => peoplePrisma.attendanceSettings.count({ where: { orgId: c.orgId } }))).toBe(0);
+    /* Not touching the numbers, the same role may save the rest. */
+    await att(teamOnly, 'put', '/rules', { defaultShiftId: null, lateAllowancePerMonth: 0, latePenaltyEvery: 0, leaveApproval: 'MANAGER', correctionApproval: 'HR' }).expect(200);
+  }, 60_000);
+
   it('under People’s every-N rule they change the numbers only, versioned from next month; the cut stays and is not audited', async () => {
     const c = await company();
     await ppl(c, 'put', '/attendance-rules', { marks: { on: true, cutMode: 'HALF_DAY_PER_N', cost: 1, late: { on: true, every: 3, free: 0 } }, marksFrom: 'THIS_MONTH' }).expect(200);
@@ -315,5 +422,29 @@ describe('the Attendance app’s two numbers', () => {
     const rules = (await att(c, 'get', '/rules').expect(200)).body.rules;
     await att(c, 'put', '/rules', { defaultShiftId: rules.defaultShiftId, lateAllowancePerMonth: 0, latePenaltyEvery: 3, leaveApproval: 'HR', correctionApproval: 'HR' }).expect(200);
     expect((await att(c, 'get', '/rules').expect(200)).body.rules.lateCutMode).toBe('HALF_DAY_PER_N');
+  }, 60_000);
+});
+
+describe('migration 20261115090000_late_cut_round_down', () => {
+  it('rewrites saved round-up rules and versions to round-down, as the application role, twice', async () => {
+    const c = await company();
+    const marks = { on: true, cutMode: 'TIME_MISSED_ROUNDED', roundToMinutes: 30, late: { on: true, every: 3, free: 0, graceMinutes: null } };
+    await runInTenant(c.orgId, () => peoplePrisma.attendanceSettings.create({ data: { accountId: c.accountId!, orgId: c.orgId, timeRules: { marks } as any, updatedByUserId: 'test' } }));
+    await runInTenant(c.orgId, () => peoplePrisma.attendanceRuleVersion.create({ data: { accountId: c.accountId!, orgId: c.orgId, version: 1, rulesJson: JSON.stringify({ kind: 'RULES', name: 'Attendance rules', before: { marks: { on: false, cutMode: 'TIME_MISSED' } }, after: { marks } }), changedByUserId: 'test' } }));
+    const sql = readFileSync(resolve(process.cwd(), 'prisma/people/migrations/20261115090000_late_cut_round_down/migration.sql'), 'utf8');
+    const statements = sql.replace(/^\s*--.*$/gm, '').split(';').map((x) => x.trim()).filter(Boolean);
+    const db = new PrismaClient({ datasources: { db: { url: `${process.env.PEOPLE_DATABASE_URL}&connection_limit=1` } } });
+    try {
+      const [role] = await db.$queryRawUnsafe<Array<{ rolsuper: boolean; rolbypassrls: boolean }>>('SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user');
+      expect(role).toEqual({ rolsuper: false, rolbypassrls: false });
+      for (const x of statements) await db.$executeRawUnsafe(x);
+      for (const x of statements) await db.$executeRawUnsafe(x);
+    } finally {
+      await db.$disconnect();
+    }
+    const settings = await runInTenant(c.orgId, () => peoplePrisma.attendanceSettings.findUnique({ where: { orgId: c.orgId } }));
+    expect((settings!.timeRules as any).marks).toMatchObject({ cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 30, late: { every: 3 } });
+    const v = await runInTenant(c.orgId, () => peoplePrisma.attendanceRuleVersion.findFirst({ where: { orgId: c.orgId } }));
+    expect(JSON.parse(v!.rulesJson)).toMatchObject({ before: { marks: { cutMode: 'TIME_MISSED' } }, after: { marks: { cutMode: 'TIME_MISSED_ROUNDED_DOWN' } } });
   }, 60_000);
 });

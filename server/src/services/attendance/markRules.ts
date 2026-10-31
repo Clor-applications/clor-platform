@@ -3,7 +3,7 @@ import { platformPrisma } from '../../utils/platformPrisma.js';
 import { assertMonthOpen, daysOfMonth, payrollTaken, periodContext, today } from './days.js';
 import { istInstant } from './compute.js';
 import { balancesFor, leaveYearOf } from './leaveBalances.js';
-import { currentRuleVersion, rulesOf, timeRulesFor, type MarkRules } from './timeRules.js';
+import { currentRuleVersion, isMinuteCut, rulesOf, timeRulesFor, type MarkRules } from './timeRules.js';
 
 /**
  * Late marks and early exits that cost part of a day (WORKFLOW-GAP-RESEARCH-2026-10-30 B3, 4.4).
@@ -63,7 +63,8 @@ export function marksOf(rules: MarkRules, records: Iterable<Rec>, inSpan: (date:
 /** The marks that cost: after the month's first `free` ones, in date order. */
 const counted = (k: MarkRules['late'], marks: Mark[]) => (k.on ? [...marks].sort((a, b) => a.date.localeCompare(b.date)).slice(Math.max(0, k.free)) : []);
 const asMarks = (n: number | Mark[]): Mark[] => (Array.isArray(n) ? n : Array.from({ length: Math.max(0, n) }, (_, i) => ({ date: String(i).padStart(4, '0'), minutes: 0, dayMinutes: FULL_DAY })));
-const upTo = (m: number, step: number) => Math.ceil(m / step) * step;
+/* Down, never up: a rounded cut may not exceed the time missed (Payment of Wages s.9(2), Code on Wages s.20). */
+const downTo = (m: number, step: number) => Math.floor(m / step) * step;
 
 /** The time actually missed by the marks that cost, in minutes and as a part of the day (after the free ones). */
 export function timeMissedOf(rules: MarkRules, late: Mark[], early: Mark[]) {
@@ -73,19 +74,19 @@ export function timeMissedOf(rules: MarkRules, late: Mark[], early: Mark[]) {
 
 /**
  * Days the marks cost, by the rule's cut (timeRules.ts CutMode): the time missed (each counted mark's minutes over
- * its day's full-day minutes), the same rounded up per mark, or every N counted marks at ½ or 1 day. Counts work
+ * its day's full-day minutes), the same rounded down per mark, or every N counted marks at ½ or 1 day. Counts work
  * for the step rule; the minute cuts need the marks.
  */
 export function costOf(rules: MarkRules, late: number | Mark[], early: number | Mark[]) {
   if (!rules.on) return 0;
   const L = asMarks(late);
   const E = asMarks(early);
-  if (rules.cutMode === 'TIME_MISSED' || rules.cutMode === 'TIME_MISSED_ROUNDED') {
-    const step = rules.cutMode === 'TIME_MISSED_ROUNDED' ? rules.roundToMinutes || 15 : 0;
+  if (isMinuteCut(rules.cutMode)) {
+    const step = rules.cutMode === 'TIME_MISSED_ROUNDED_DOWN' ? rules.roundToMinutes || 15 : 0;
     /* Per day: a late arrival and an early exit together cut at most that day. Then the month, rounded down. */
     const perDay = new Map<string, number>();
     for (const m of [...counted(rules.late, L), ...counted(rules.early, E)]) {
-      const part = Math.min(m.dayMinutes, step ? upTo(m.minutes, step) : m.minutes) / m.dayMinutes;
+      const part = Math.min(m.dayMinutes, step ? downTo(m.minutes, step) : m.minutes) / m.dayMinutes;
       perDay.set(m.date, Math.min(1, (perDay.get(m.date) || 0) + part));
     }
     return down([...perDay.values()].reduce((s, x) => s + x, 0));
@@ -148,16 +149,24 @@ export async function marksRulesOn(orgId: string, date: string): Promise<{ marks
       return false;
     }
   });
-  /* A version saved "from next month" (timeRules.ts saveTimeRules) counts only for a month from that day on. */
-  const fromOf = (r: { rulesJson: string }) => {
+  /*
+   * Each version counts from a day: its `from` (a change saved "from next month", timeRules.ts saveTimeRules) or the IST
+   * day it was saved. The rule of a day is the one counting from the latest day on or before it, the later save first on
+   * the same day. Each version holds only what counts from its day: a "this month" save made while a next-month change
+   * waits is stored twice, once for this month without the waiting change and once for next month with it.
+   */
+  const fromOf = (r: { rulesJson: string; createdAt: Date }) => {
     try {
       const f = JSON.parse(r.rulesJson)?.from;
-      return typeof f === 'string' ? f : null;
+      if (typeof f === 'string') return f;
     } catch {
-      return null;
+      /* fall through */
     }
+    return new Date(r.createdAt.getTime() + 330 * 60_000).toISOString().slice(0, 10);
   };
-  const before = rows.filter((r) => r.createdAt < cutoff && (!fromOf(r) || fromOf(r)! <= date));
+  const order = (x: typeof rows[number], y: typeof rows[number]) => fromOf(x).localeCompare(fromOf(y)) || x.version - y.version;
+  const sorted = [...rows].sort(order);
+  const before = sorted.filter((r) => r.createdAt < cutoff && fromOf(r) <= date);
   const pick = (r: { rulesJson: string }, side: 'before' | 'after') => {
     try {
       const x = JSON.parse(r.rulesJson)?.[side];
@@ -171,7 +180,8 @@ export async function marksRulesOn(orgId: string, date: string): Promise<{ marks
     const m = pick(last, 'after');
     if (m) return { marks: m, version: last.version };
   }
-  const later = rows.find((r) => !before.includes(r));
+  /* Before any change counted: what the first one to count replaced. */
+  const later = sorted.find((r) => !before.includes(r));
   if (later) {
     const m = pick(later, 'before');
     if (m) return { marks: m, version: 0 };
@@ -424,8 +434,8 @@ const half = (d: number) => (d === 0.5 ? '½ day' : d === 1 ? '1 day' : `${d} da
 export function policyText(rules: MarkRules, leaveNames: string[]) {
   if (!rules.on) return null;
   const from = leaveNames.length ? `taken from ${leaveNames.join(', then ')}, or unpaid when there is none left` : 'unpaid';
-  const minutes = rules.cutMode === 'TIME_MISSED' || rules.cutMode === 'TIME_MISSED_ROUNDED';
-  const cut = rules.cutMode === 'TIME_MISSED_ROUNDED' ? `the time missed, each rounded up to ${rules.roundToMinutes} minutes, is cut` : 'the time missed is cut';
+  const minutes = isMinuteCut(rules.cutMode);
+  const cut = rules.cutMode === 'TIME_MISSED_ROUNDED_DOWN' ? `the time missed, each rounded down to ${rules.roundToMinutes} minutes, is cut` : 'the time missed is cut';
   const part = (k: MarkRules['late'], what: string) => {
     if (!k.on) return null;
     const grace = k.graceMinutes ? ` by more than ${k.graceMinutes} minutes` : '';
@@ -445,7 +455,7 @@ export async function myMarks(e: { id: string; accountId: string; orgId: string 
   const ordered = rules.takeFrom.map((id) => names.find((n) => n.id === id)?.name).filter(Boolean) as string[];
   if (!rules.on) return { on: false as const, month };
   const row = (await penaltiesOver(e.accountId, e.orgId, daysOfMonth(month), { employeeIds: [e.id] })).get(e.id);
-  const minuteCut = rules.cutMode === 'TIME_MISSED' || rules.cutMode === 'TIME_MISSED_ROUNDED';
+  const minuteCut = isMinuteCut(rules.cutMode);
   const line = (k: MarkRules['late'], count: number, what: string) => {
     if (minuteCut) {
       if (!k.on) return null;

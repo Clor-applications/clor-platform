@@ -32,10 +32,30 @@ it('under People’s every-N rule the two numbers are set here, with the cost Pe
 });
 
 it('under a minute cut the rule is shown in words, with no numbers to change', async () => {
-  api.getRules.mockResolvedValue({ ...BASE, latePenaltyEvery: 0, lateOn: true, lateFree: 2, lateCutMode: 'TIME_MISSED_ROUNDED', lateCost: 0.5, lateRoundToMinutes: 30, lateRuleInPeople: true, lateNumbersHere: false });
+  api.getRules.mockResolvedValue({ ...BASE, latePenaltyEvery: 0, lateOn: true, lateFree: 2, lateCutMode: 'TIME_MISSED_ROUNDED_DOWN', lateCost: 0.5, lateRoundToMinutes: 30, lateRuleInPeople: true, lateNumbersHere: false });
   mount();
   const late = await lateSection();
-  await waitFor(() => expect(late.getByRole('status').textContent).toMatch(/After 2 free a month, each late arrival cuts the time missed, rounded up to 30 minutes\. Set in People, under Attendance rules\./));
+  await waitFor(() => expect(late.getByRole('status').textContent).toMatch(/After 2 free a month, each late arrival cuts the time missed, rounded down to 30 minutes\. Set in People, under Attendance rules\./));
   expect(late.queryByLabelText('Free late arrivals a month')).toBeNull();
   expect(late.queryByText(/half a day/)).toBeNull();
+});
+
+it('changes to the rules read in words: a People save shows each field that moved and when it counts, never [object Object]', async () => {
+  api.getRules.mockResolvedValue({ ...BASE, lateOn: true, lateFree: 1, lateCutMode: 'HALF_DAY_PER_N', lateCost: 0.5, lateRoundToMinutes: 15, lateRuleInPeople: true, lateNumbersHere: true });
+  const marks = { on: true, cutMode: 'HALF_DAY_PER_N', cost: 0.5, roundToMinutes: 15, takeFrom: [], late: { on: true, every: 3, free: 0, graceMinutes: null }, early: { on: false, every: 3, free: 0, graceMinutes: null } };
+  api.listRuleVersions.mockResolvedValue([
+    { version: 2, at: '2026-10-31T10:00:00Z', by: 'Hema HR', kind: 'RULES', name: 'Attendance rules', from: '2026-11-01', before: { marks, night: { on: true, mode: 'ENFORCE' } }, after: { marks: { ...marks, cutMode: 'TIME_MISSED_ROUNDED_DOWN', roundToMinutes: 30, late: { ...marks.late, free: 2 } }, night: { on: true, mode: 'WARN' } } },
+    { version: 1, at: '2026-10-30T10:00:00Z', by: 'Owner', kind: 'RULES', before: { latePenaltyEvery: 0 }, after: { latePenaltyEvery: 3 } },
+  ]);
+  mount();
+  const history = within((await screen.findByRole('heading', { name: 'Changes to the rules' })).closest('section'));
+  const text = history.getAllByRole('listitem').map((li) => li.textContent).join(' | ');
+  expect(text).not.toMatch(/object Object/);
+  expect(text).toMatch(/Attendance rules \(People\)/);
+  expect(text).toMatch(/Each mark cuts: every few marks → the time missed, rounded down/);
+  expect(text).toMatch(/Rounded down to \(min\): 15 → 30/);
+  expect(text).toMatch(/Free late marks: 0 → 2/);
+  expect(text).toMatch(/Without consent: refuse the shift → save and warn/);
+  expect(text).toMatch(/save and warn · Counts from 1 November 2026/);
+  expect(text).toMatch(/Half day lost every: 0 → 3/);
 });

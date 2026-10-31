@@ -38,7 +38,7 @@ const att = (action: string, resource: string) => requirePermission(ATTENDANCE_M
 const ppl = (action: string, resource: string) => requirePermission(PEOPLE_MODULE, action as any, resource);
 const who = (req: Request) => ({ accountId: req.tenant!.accountId, orgId: req.tenant!.orgId, userId: req.auth!.userId });
 const whoC = (req: Request) => ({ ...who(req), correlationId: correlationOf(req as any) });
-const CUT_WORDS: Record<string, string> = { TIME_MISSED: 'the time actually missed', TIME_MISSED_ROUNDED: 'the time missed, rounded up', HALF_DAY_PER_N: 'every N marks, ½ or 1 day' };
+const CUT_WORDS: Record<string, string> = { TIME_MISSED: 'the time actually missed', TIME_MISSED_ROUNDED_DOWN: 'the time missed, rounded down', HALF_DAY_PER_N: 'every N marks, ½ or 1 day' };
 const isMonth = (m: unknown) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(m || ''));
 const lastMonth = () => {
   const [y, m] = today().slice(0, 7).split('-').map(Number);
@@ -81,7 +81,7 @@ peopleTimeRulesRouter.put(`${base}/attendance-rules`, att(PermissionAction.APPRO
   const before = await timeRulesFor(orgId);
   const out = await saveTimeRules(accountId, orgId, req.auth!.userId, req.body);
   if (JSON.stringify(before) !== JSON.stringify(out.rules)) {
-    await recordAudit(req, { entity: 'AttendanceSettings', entityId: orgId, action: 'UPDATE', message: `Attendance rules changed (version ${out.version})`, metadata: { before, after: out.rules } });
+    await recordAudit(req, { entity: 'AttendanceSettings', entityId: orgId, action: 'UPDATE', message: `Attendance rules changed (version ${out.version})${out.marksFrom ? `; late marks from ${out.marksFrom}` : ''}`, metadata: { before, after: out.rules, from: out.marksFrom } });
   }
   /* The late-mark cut is one of the company's choices (SPEC 3, DECISIONS.md 1): its own line, as the others have. */
   const cutOf = (m: typeof before.marks) => ({ cutMode: m.cutMode, roundToMinutes: m.roundToMinutes });
