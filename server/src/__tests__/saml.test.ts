@@ -17,7 +17,7 @@ const { buildApp } = await import('../app.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { samlClaims } = await import('../routes/sso.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 let dir = '';
 let keyPem = '';
 let certPem = '';

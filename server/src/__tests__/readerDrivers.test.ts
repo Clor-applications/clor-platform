@@ -14,7 +14,7 @@ const { pick, readTime, recordsOf, toAttlog, mappingSchema } = await import('../
 const { parseCsv } = await import('../services/attendance/csv.js');
 const { can, driverOf } = await import('../services/attendance/drivers.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
   await peoplePrisma.$disconnect();

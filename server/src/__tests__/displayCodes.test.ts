@@ -4,7 +4,7 @@ import { buildApp } from '../app.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { checkDigit, isDisplayCode, newDisplayCode } from '../services/displayCodes.js';
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 const rnd = () => Math.random().toString(36).slice(2, 8);
 /** Letters-only word, so test names never change the prefix by accident. */

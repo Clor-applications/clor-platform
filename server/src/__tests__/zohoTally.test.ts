@@ -14,7 +14,7 @@ const { enqueuePunches, flushOutbox, pullEmployees } = await import('../services
 const { zohoRecords } = await import('../services/hr/adapters.js');
 const { tallyJournalXml, tallyDate } = await import('../services/payroll/tally.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 let prevAllow: string | undefined;
 beforeAll(() => {
   prevAllow = process.env.INTEGRATIONS_ALLOW_PRIVATE;

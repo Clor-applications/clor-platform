@@ -12,7 +12,7 @@ const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { runEndDateReminders } = await import('../services/people/documentReminders.js');
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

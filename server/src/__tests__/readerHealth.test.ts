@@ -23,7 +23,7 @@ const adms = await import('../services/attendance/adms.js');
 const health = await import('../services/attendance/readerHealth.js');
 const { clockOffsetOf } = await import('../routes/iclock.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
   await peoplePrisma.$disconnect();

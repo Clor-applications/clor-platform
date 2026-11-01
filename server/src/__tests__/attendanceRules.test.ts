@@ -21,7 +21,7 @@ const { nudgeCompany, startPunchNudges } = await import('../services/attendance/
 const { checkCompany, startAbsenceChecks } = await import('../services/people/absconding.js');
 const { registeredJobs } = await import('../services/jobRegistry.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

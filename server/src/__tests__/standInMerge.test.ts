@@ -28,7 +28,7 @@ const { resolveApprover } = await import('../services/people/approvals/engine.js
 const { deciderFor, managerStepBy, standingInFor } = await import('../services/attendance/standIns.js');
 const { covers, cleanTypes } = await import('../services/people/approvals/standIns.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

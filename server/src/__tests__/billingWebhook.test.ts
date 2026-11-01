@@ -12,7 +12,7 @@ const { buildApp } = await import('../app.js');
 const { __setGateway } = await import('../billing/gateway.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 afterEach(() => __setGateway(null));
 

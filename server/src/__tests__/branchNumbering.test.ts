@@ -11,7 +11,7 @@ import { buildApp } from '../app.js';
  * an auditor, and the second one is indistinguishable from the first in every
  * report that groups by number.
  */
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 
 const rnd = () => Math.random().toString(36).slice(2, 8);

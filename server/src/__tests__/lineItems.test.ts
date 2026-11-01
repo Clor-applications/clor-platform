@@ -12,7 +12,7 @@ import { resolveLegacyItem } from '../services/legacyLineItems.js';
  * refuses a line naming anything it does not hold.
  */
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 
 type Ctx = { token: string; orgId: string; branchId: string };

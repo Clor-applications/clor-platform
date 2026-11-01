@@ -18,7 +18,7 @@ import { deriveSettlementStatus, recalcDocumentSettlement } from '../services/se
  * right number while storing the wrong one is exactly the failure being fixed.
  */
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 const rnd = () => Math.random().toString(36).slice(2, 8);
 

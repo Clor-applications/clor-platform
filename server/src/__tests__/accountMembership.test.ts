@@ -13,7 +13,7 @@ const { outsideTenant } = await import('../utils/tenantScope.js');
 const { stepNow, codeAt } = await import('../services/totp.js');
 const { clearOfStepEdge } = await import('./totpTiming.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 const rnd = () => Math.random().toString(36).slice(2, 8);
 const PASSWORD = 'Passw0rd!23';

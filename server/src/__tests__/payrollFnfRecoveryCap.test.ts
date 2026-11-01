@@ -36,7 +36,7 @@ const { runInTenant } = await import('../utils/tenantScope.js');
 const { applyRecoveryCap, withRecoverWishes, leavingSlipBasis } = await import('../services/payroll/fnfRecoveryCap.js');
 const { financeFound } = await import('../services/people/engagement/clearance.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
   await payrollPrisma.$disconnect();

@@ -16,7 +16,7 @@ import { purgeExpiredRecords } from '../services/retention.js';
  * kept working; access logs and the email outbox kept live tokens.
  */
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 
 type Ctx = { token: string; orgId: string; branchId: string; email: string; userId?: string };

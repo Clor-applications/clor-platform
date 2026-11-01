@@ -18,7 +18,7 @@ const { runInTenant } = await import('../utils/tenantScope.js');
 const { keepSources } = await import('../services/payroll/finalSettlementSources.js');
 const { gratuityFor } = await import('../services/payroll/finalSettlement.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
   await payrollPrisma.$disconnect();

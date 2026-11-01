@@ -15,7 +15,7 @@ const { runInTenant } = await import('../utils/tenantScope.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { deliverOutbox } = await import('../services/people/outbox.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });
