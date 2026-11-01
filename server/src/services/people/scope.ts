@@ -27,6 +27,8 @@ export async function teamScope(req: Request): Promise<TeamScope> {
    */
   if (req.ownDocumentsOnly === undefined && req.tenant && req.auth?.userId) {
     const access = await resolveAccess(req.tenant.accountId, req.tenant.orgId, req.auth.userId, String(req.tenant.branchId || ''));
+    /* No roles is no access (rbac.ts): such a user sees nobody, not the whole company. Owner and admins always hold a role. */
+    if (!access.roleIds.length) return { all: false, ids: [], selfId: null };
     req.ownDocumentsOnly = access.ownDocumentsOnly;
   }
   if (!req.ownDocumentsOnly) return { all: true };

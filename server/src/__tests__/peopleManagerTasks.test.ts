@@ -10,6 +10,8 @@ import request from 'supertest';
 const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
+const { platformPrisma } = await import('../utils/platformPrisma.js');
+const { teamScope } = await import('../services/people/scope.js');
 
 const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
@@ -76,5 +78,16 @@ describe('a Team Manager’s joining and leaving tasks', () => {
     /* HR (the owner) still counts everyone. */
     const all = (await people(boss).get('/home').expect(200)).body.todos.find((t: any) => t.key === 'checklists');
     expect(all.count).toBe(teamDue + dueOf(other.id));
+  }, 60_000);
+
+  it('a signed-in user with no roles is in nobody’s scope; the owner keeps the whole company', async () => {
+    const boss = await owner();
+    const email = `noroles.${Date.now()}.${rnd()}@example.com`;
+    const user = await request(app).post('/api/users').set(at(boss)).send({ email, fullName: 'No Roles', password: 'Passw0rd!23', orgIds: [boss.orgId], branchIdsByOrg: { [boss.orgId]: [boss.branchId] } }).expect(201);
+    const org = await platformPrisma.org.findUniqueOrThrow({ where: { id: boss.orgId }, select: { accountId: true, createdByUserId: true } });
+    /* As a route no permission check has run on sees it (the flag unread). */
+    const reqFor = (userId: string) => ({ tenant: { accountId: org.accountId, orgId: boss.orgId, branchId: boss.branchId }, auth: { userId } }) as any;
+    expect(await teamScope(reqFor(user.body.user.id))).toEqual({ all: false, ids: [], selfId: null });
+    expect(await teamScope(reqFor(String(org.createdByUserId)))).toEqual({ all: true });
   }, 60_000);
 });
