@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -166,11 +166,13 @@ describe('saving', () => {
     const user = userEvent.setup();
     render(<Host />);
     await fillHead(user, { tax: 500 });
+    /* Paid on a set day, so the tax year is known whatever today is (it was today's, and turned FY 2027-28 on 1 Apr 2027). */
+    fireEvent.change(screen.getByLabelText('Payment date'), { target: { value: '2026-10-20' } });
     await user.click(screen.getByRole('button', { name: 'Record challan' }));
 
     const challan = latest.db.tdsChallans.find((c) => c.number === 'CHL-2026-091');
     expect(challan.tan).toBe('BLRN12345F');
-    expect(challan.taxYear).toMatch(/2026/);
+    expect(challan.taxYear).toBe('FY 2026-27');
   });
 
   it('a challan with nothing allocated still saves, for allocating later', async () => {

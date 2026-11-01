@@ -19,9 +19,11 @@ vi.mock('@platform/admin/outsideAccess', () => api);
 const { default: OutsideAccess } = await import('./OutsideAccess');
 const { actionsFor, appsText } = await import('./outsideAccessModel');
 
+/* Access that ends some months from today, whatever today is: a past end date cannot be kept on a change. */
+const ENDS = new Date(Date.now() + 330 * 60_000 + 150 * 86_400_000).toISOString().slice(0, 10);
 const row = (over) => ({
   id: 'o1', person: { id: 'u1', name: 'Ravi Menon', email: 'ravi@firm.example', code: null }, from: { code: 'FIRM', name: 'Menon & Co' },
-  status: 'ACTIVE', effective: 'ACTIVE', apps: ['accounting'], expiresAt: '2027-03-31T00:00:00Z', grantedBy: 'Asha', grantedAt: '2026-10-24T00:00:00Z',
+  status: 'ACTIVE', effective: 'ACTIVE', apps: ['accounting'], expiresAt: `${ENDS}T00:00:00Z`, grantedBy: 'Asha', grantedAt: '2026-10-24T00:00:00Z',
   endedBy: null, endedAt: null, reason: null, ...over,
 });
 const APPS = ['accounting', 'payroll', 'people', 'attendance'];
@@ -70,7 +72,7 @@ describe('changing it', () => {
     const [id, patch] = api.changeOutsideAccess.mock.calls[0];
     expect(id).toBe('o1');
     expect(patch.apps).toEqual(['accounting', 'payroll']);
-    expect(patch.expiresAt).toMatch(/^2027-03-31/);
+    expect(patch.expiresAt.slice(0, 10)).toBe(ENDS);
   });
 
   it('ending asks first and records why', async () => {

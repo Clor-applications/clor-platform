@@ -92,7 +92,9 @@ describe('leaving', () => {
     /* The last working day is worked: on the doors and in attendance until the day is over (Workforce final audit W-A1). */
     const t = (await people(hr).post('/employees', { name: 'Works Today', code: 'L-2T', dateOfJoining: '2025-01-05' }).expect(201)).body.employee;
     expect((await people(hr).post(`/employees/${t.id}/resign`, { lastDay: plus(0), leavingType: 'RESIGNED' }).expect(200)).body.employee.status).toBe('ON_NOTICE');
-    expect(await runSeparations(new Date())).toBe(0);
+    /* The job runs across every company in the database: a count would also take in another test's leaver whose fixed last day has since passed. This person is the point. */
+    await runSeparations(new Date());
+    expect((await people(hr).get(`/employees/${t.id}`).expect(200)).body.employee.status).toBe('ON_NOTICE');
     expect(await runSeparations(new Date(Date.now() + 86_400_000))).toBeGreaterThanOrEqual(1);
     expect((await people(hr).get(`/employees/${t.id}`).expect(200)).body.employee.status).toBe('LEFT');
     const e = (await people(hr).post('/employees', { name: 'Sana Reddy', code: 'L-2', dateOfJoining: '2025-01-05' }).expect(201)).body.employee;

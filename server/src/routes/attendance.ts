@@ -157,7 +157,8 @@ attendanceRouter.get('/orgs/:orgId/attendance/records', can(PermissionAction.VIE
 
 const markSchema = z.object({
   employeeId: z.string().trim().min(1),
-  date: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.'),
+  /* A real day: '2026-13-40' fits the pattern, and once it sorted before today it was imported (found 1 Nov 2026). */
+  date: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.').refine((d) => { const t = new Date(`${d}T00:00:00Z`); return !Number.isNaN(t.getTime()) && t.toISOString().slice(0, 10) === d; }, 'Dates are YYYY-MM-DD.'),
   checkIn: z.string().optional().nullable(),
   checkOut: z.string().optional().nullable(),
   status: z.enum(STATUSES).optional().nullable(),

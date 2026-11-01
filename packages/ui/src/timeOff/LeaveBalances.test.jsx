@@ -47,9 +47,10 @@ it("sets one person's days for the period, and puts them back on the policy", as
   fireEvent.change(within(drawer).getByLabelText(/^Days/), { target: { value: '24' } });
   fireEvent.change(within(drawer).getByLabelText(/^Reason/), { target: { value: 'Agreed at joining' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save change' }));
-  await waitFor(() => expect(setAllocation).toHaveBeenCalledWith({ employeeId: 'e1', leaveTypeId: 't1', year: 2026, days: 24, note: 'Agreed at joining' }));
+  /* With no leave period set, the screen works in this calendar year: saved for that year, whichever it is. */
+  await waitFor(() => expect(setAllocation).toHaveBeenCalledWith({ employeeId: 'e1', leaveTypeId: 't1', year: new Date().getFullYear(), days: 24, note: 'Agreed at joining' }));
   fireEvent.click(within(drawer).getByRole('button', { name: /back on the policy/i }));
-  await waitFor(() => expect(setAllocation).toHaveBeenLastCalledWith({ employeeId: 'e1', leaveTypeId: 't1', year: 2026, days: null }));
+  await waitFor(() => expect(setAllocation).toHaveBeenLastCalledWith({ employeeId: 'e1', leaveTypeId: 't1', year: new Date().getFullYear(), days: null }));
 });
 
 it('says what a pay-out is worth and that it went to Payroll', async () => {

@@ -194,7 +194,10 @@ describe('any software with a JSON API', () => {
       const body = { vendor: 'HTTP_PULL', name: 'Old software', baseUrl: `${base}/logs?from={from}&to={to}`, username: 'X-API-Key', password: 'k-123', config: { method: 'GET', timeFormat: 'date', auth: 'header' } };
       const tested = await api(c).post('/devices/test-pull', body).expect(200);
       expect(tested.body).toMatchObject({ ok: true, punchesToday: 0, readable: 0 });
-      expect(seen[0]).toMatch(/\/logs\?from=2026-\d\d-\d\d&to=2026-\d\d-\d\d$/);
+      /* The window is today's (this said from=2026-…, and broke on 1 Jan 2027): dates in the URL, ending within a day of today in India. */
+      const [, from, to] = seen[0].match(/\/logs\?from=(\d{4}-\d\d-\d\d)&to=(\d{4}-\d\d-\d\d)$/) || [];
+      expect(from <= to).toBe(true);
+      expect(Math.abs(Date.parse(to) - Date.parse(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10)))).toBeLessThanOrEqual(86_400_000);
       const bad = await api(c).post('/devices/test-pull', { ...body, password: 'wrong' }).expect(200);
       expect(bad.body).toMatchObject({ ok: false, message: expect.stringContaining('refused') });
       await api(c).post('/devices/test-pull', { ...body, baseUrl: 'ftp://x/{from}' }).expect(400);

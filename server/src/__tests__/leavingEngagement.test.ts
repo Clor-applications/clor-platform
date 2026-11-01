@@ -354,16 +354,20 @@ describe('birthdays, anniversaries and the holiday heads-up (4.8)', () => {
   let mate: any;
   let elsewhere: any;
   const today = istToday();
+  const yearsHere = today.slice(5) === '02-29' ? 4 : 2;
   beforeAll(async () => {
     c = await company();
     mgr = await withRole(c, 'Team Manager', 'Neha Lead');
-    lead = await person(c, { name: 'Neha Lead', code: `N-${rnd()}` });
+    /* Everyone else joined on a day that is never today's date: the default 2024-01-01 made extra anniversaries every 1 January. */
+    const joined = plus(today, -400);
+    lead = await person(c, { name: 'Neha Lead', code: `N-${rnd()}`, dateOfJoining: joined });
     await inTenant(c, () => peoplePrisma.employee.update({ where: { id: lead.id }, data: { userId: mgr.userId } }));
-    bday = await person(c, { name: 'Ravi Kumar', code: `R-${rnd()}`, dateOfBirth: `1990-${today.slice(5)}`, dateOfJoining: `${Number(today.slice(0, 4)) - 2}-${today.slice(5)}` });
-    shy = await person(c, { name: 'Quiet Person', code: `Q-${rnd()}`, dateOfBirth: `1991-${today.slice(5)}` });
-    mate = await person(c, { name: 'Team Mate', code: `M-${rnd()}` });
+    /* Born in a leap year, so 29 February 2028 is a real birthday; joined 2 years ago today (4 on 29 February, the last one). */
+    bday = await person(c, { name: 'Ravi Kumar', code: `R-${rnd()}`, dateOfBirth: `1992-${today.slice(5)}`, dateOfJoining: `${Number(today.slice(0, 4)) - yearsHere}-${today.slice(5)}` });
+    shy = await person(c, { name: 'Quiet Person', code: `Q-${rnd()}`, dateOfBirth: `1988-${today.slice(5)}`, dateOfJoining: joined });
+    mate = await person(c, { name: 'Team Mate', code: `M-${rnd()}`, dateOfJoining: joined });
     const branch = await inTenant(c, () => peoplePrisma.employee.findFirst({ where: { id: mate.id } }));
-    elsewhere = await person(c, { name: 'Other Branch', code: `O-${rnd()}` });
+    elsewhere = await person(c, { name: 'Other Branch', code: `O-${rnd()}`, dateOfJoining: joined });
     await inTenant(c, () => peoplePrisma.employee.update({ where: { id: elsewhere.id }, data: { branchId: `elsewhere-${rnd()}` } }));
     await inTenant(c, () => peoplePrisma.employee.update({ where: { id: bday.id }, data: { reportingManagerId: lead.id } }));
     /* A branch holiday tomorrow for the team's branch only, and a company one. */
@@ -396,10 +400,10 @@ describe('birthdays, anniversaries and the holiday heads-up (4.8)', () => {
     expect(posts.some((p) => p.employeeId === shy.id)).toBe(false);
     expect(posts.find((p) => p.kind === 'BIRTHDAY')!.text).toBe('Ravi Kumar’s birthday today');
     expect(posts.every((p) => !/19\d\d/.test(p.text))).toBe(true);
-    expect(posts.find((p) => p.kind === 'ANNIVERSARY')!.text).toMatch(/2nd work anniversary/);
+    expect(posts.find((p) => p.kind === 'ANNIVERSARY')!.text).toMatch(new RegExp(`${yearsHere === 2 ? '2nd' : '4th'} work anniversary`));
     const wish = await inTenant(c, () => platformPrisma.notification.findMany({ where: { orgId: c.orgId, userId: mgr.userId!, kind: 'people.wish' } }));
     expect(wish).toHaveLength(1);
-    expect(wish[0].title).toMatch(/Wish Ravi a happy birthday and Ravi on 2 years here today/);
+    expect(wish[0].title).toMatch(new RegExp(`Wish Ravi a happy birthday and Ravi on ${yearsHere} years here today`));
     /* A second morning run the same day finds every recipe claimed. */
     expect(await inTenant(c, () => runCompany(c.accountId!, c.orgId))).toEqual({});
     expect(await inTenant(c, () => peoplePrisma.greetingPost.count({ where: { orgId: c.orgId } }))).toBe(3);

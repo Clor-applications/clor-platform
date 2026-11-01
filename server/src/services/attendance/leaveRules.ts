@@ -2,6 +2,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { usersHoldingRoles, usersWithPermission } from '../notifications.js';
 import { resolveAccess } from '../access.js';
 import { activeRule, addWorkingDays, conditionHolds, lastResortDeciders, type ApproverSpec, type StepSpec } from '../people/approvals/engine.js';
+import { legacySteps } from '../people/approvals/spec.js';
 import { activeManagerOf, CHAINS, type Chain } from './approvalChain.js';
 import { deciderFor } from './standIns.js';
 import { today } from './days.js';
@@ -150,13 +151,15 @@ export async function nextLeaveStep(accountId: string, orgId: string, r: Asked, 
 
 /** The company's leave rule, as it is now; null when there is none (the request then goes to HR). */
 export async function activeLeaveRule(orgId: string) {
-  return activeRule(orgId, 'LEAVE');
+  /* Read in the first step shape this walker knows: a leave rule saved as version 2 says nothing it cannot (cleanRule refuses the rest for LEAVE). */
+  const rule = await activeRule(orgId, 'LEAVE');
+  return rule ? { ...rule, steps: legacySteps(rule.steps) as unknown as typeof rule.steps } : null;
 }
 
 /** The steps of the rule version a request was asked under. */
 export async function stepsOf(ruleId: string): Promise<StepSpec[]> {
   const rule = await peoplePrisma.approvalRule.findUnique({ where: { id: ruleId }, select: { steps: true } });
-  return ((rule?.steps || []) as unknown as StepSpec[]).slice();
+  return legacySteps(rule?.steps);
 }
 
 /** "Step 2 skipped: its condition does not apply." lines for a request's history. */

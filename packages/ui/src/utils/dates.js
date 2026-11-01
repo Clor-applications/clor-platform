@@ -4,11 +4,17 @@
  * Hoisted out of component initializers: a `Date.now()` written inline in a
  * lazy useState reads as an impure render to the React compiler, and the same
  * two lines were pasted into every document form anyway.
+ *
+ * India's date (UTC+05:30), the server's `todayIst` rule. It was the UTC date,
+ * so from 00:00 to 05:30 IST a new invoice was dated yesterday, its due date
+ * a day short, and the TDS rule "in force today" looked up for yesterday.
  */
-export const todayIso = () => new Date().toISOString().split('T')[0];
+const IST_MS = 330 * 60 * 1000;
+const istDate = (ms) => new Date(ms + IST_MS).toISOString().slice(0, 10);
 
-export const plusDaysIso = (days) =>
-  new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+export const todayIso = () => istDate(Date.now());
+
+export const plusDaysIso = (days) => istDate(Date.now() + days * 24 * 60 * 60 * 1000);
 
 /**
  * A date as this country writes it: 12/09/2026, not 2026-09-12.
@@ -31,8 +37,8 @@ export const formatDateIn = (value) => {
 /**
  * The calendar date where the reader is, as YYYY-MM-DD.
  *
- * `todayIso()` is UTC, which is what a form default wants — it has to match
- * the day the server will store. This is for a date a person reads: "As of …"
+ * `todayIso()` is India's date, which is what a form default wants — it has to
+ * match the day the server will store. This is for a date a person reads: "As of …"
  * on a report header, "Last signed in …" beside a user. East of UTC those two
  * disagree for the first hours of the day, and a trial balance headed with
  * yesterday at 2am is simply wrong.

@@ -271,10 +271,13 @@ describe('the employee portal', () => {
 
   it('asks for leave and corrections as the employee', async () => {
     const type = (await hr(c).post('/leave/types', { name: 'Casual', isPaid: true, annualDays: 12 }).expect(201)).body.type;
-    let d = new Date(Date.now() + 10 * 86_400_000 + 330 * 60_000);
-    while (d.getUTCDay() === 0) d = new Date(d.getTime() + 86_400_000);
+    /* Ten days on, but inside this leave year (the balance below is this year's), and never a Sunday:
+       near the year end it steps back towards today instead of the test being skipped. */
+    const todayIn = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    const yearEnd = `${todayIn.slice(0, 4)}-12-31`;
+    let d = new Date(Date.parse(`${todayIn}T00:00:00Z`) + 10 * 86_400_000);
+    while (d.toISOString().slice(0, 10) > yearEnd || d.getUTCDay() === 0) d = new Date(d.getTime() - 86_400_000);
     const day = d.toISOString().slice(0, 10);
-    if (day.slice(0, 4) !== new Date().toISOString().slice(0, 4)) return; // year end: leave stays in one year
     const asked = await me(token).post('/leave', { leaveTypeId: type.id, fromDate: day, toDate: day, reason: 'Family function' }).expect(201);
     expect(asked.body.request).toMatchObject({ status: 'PENDING', days: 1, requestedByUserId: `portal:${emp.id}` });
     const mine = await me(token).get('/leave').expect(200);

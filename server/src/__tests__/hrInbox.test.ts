@@ -110,16 +110,25 @@ describe('one Approvals inbox', () => {
 
   it('approved work from home shows beside leave as its own mark, never as leave', async () => {
     const today = todayIst();
-    const home = (await att(hr, 'post', '/requests', { employeeId: report.id, kind: 'WFH', date: today, reason: 'Home day' }).expect(201)).body.request;
-    await att(hr, 'post', `/requests/${home.id}/approve`, {}).expect(200);
-    const overview = (await att(hr, 'get', '/leave/overview').expect(200)).body;
-    expect(overview.workingAwayToday.map((r: any) => [r.employeeName, r.kind])).toEqual([['Report', 'WFH']]);
-    expect(overview.awayToday.some((r: any) => r.employeeId === report.id)).toBe(false);
+    /* Today may be a Sunday, and work from home is not asked for on a weekly off: this company works every day of the week while the test runs. */
+    await att(hr, 'put', '/leave/working-week', { weeklyOffDays: '' }).expect(200);
+    try {
+      const home = (await att(hr, 'post', '/requests', { employeeId: report.id, kind: 'WFH', date: today, reason: 'Home day' }).expect(201)).body.request;
+      await att(hr, 'post', `/requests/${home.id}/approve`, {}).expect(200);
+      const overview = (await att(hr, 'get', '/leave/overview').expect(200)).body;
+      expect(overview.workingAwayToday.map((r: any) => [r.employeeName, r.kind])).toEqual([['Report', 'WFH']]);
+      expect(overview.awayToday.some((r: any) => r.employeeId === report.id)).toBe(false);
+    } finally {
+      await att(hr, 'put', '/leave/working-week', { weeklyOffDays: '0' }).expect(200);
+    }
     await att(hr, 'post', `/requests/${wfh.id}/approve`, {}).expect(200);
+    /* In December 2026 itself, today's home day is in that month's calendar too. */
+    const homeThisMonth = today.startsWith('2026-12') ? [['Report', 'WFH', today]] : [];
+    const byDate = (a: string[], b: string[]) => a[2].localeCompare(b[2]);
     const month = (await att(hr, 'get', '/leave/working-away?month=2026-12').expect(200)).body.rows;
-    expect(month.map((r: any) => [r.employeeName, r.kind, r.fromDate])).toEqual([['Asha', 'WFH', '2026-12-02']]);
-    /* A team lead's calendar holds their team's only. */
-    expect((await att(lead, 'get', '/leave/working-away?month=2026-12').expect(200)).body.rows).toEqual([]);
+    expect(month.map((r: any) => [r.employeeName, r.kind, r.fromDate]).sort(byDate)).toEqual([['Asha', 'WFH', '2026-12-02'], ...homeThisMonth].sort(byDate));
+    /* A team lead's calendar holds their team's only: never Asha. */
+    expect((await att(lead, 'get', '/leave/working-away?month=2026-12').expect(200)).body.rows.map((r: any) => [r.employeeName, r.kind, r.fromDate])).toEqual(homeThisMonth);
   });
 });
 
