@@ -23,5 +23,4 @@ export function StatusBadge({ employee, quiet = false }) {
   return <span className={`ui-pill ${s.pill}`}>{s.label}</span>;
 }
 
-/** A grant the signed-in user holds (admins hold all). The server checks again; this only hides what would be refused. */
-export const can = (perms, key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
+export { can } from '@ui/permissions/can';

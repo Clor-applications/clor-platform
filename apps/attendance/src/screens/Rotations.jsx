@@ -19,7 +19,7 @@ import {
   todayIst,
   updateRotation,
 } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const PERIODS = { 7: 'a week', 14: 'two weeks', 1: 'a day' };
 const TABS = [

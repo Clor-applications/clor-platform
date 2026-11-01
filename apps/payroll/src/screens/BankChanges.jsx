@@ -9,7 +9,7 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { formatDateIn } from '@ui/utils/dates';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { approveBankChange, listBankChanges, rejectBankChange } from '../api/payrollPeople';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const STATUS = {
   PENDING: { label: 'Waiting', pill: 'ui-pill-warn' },

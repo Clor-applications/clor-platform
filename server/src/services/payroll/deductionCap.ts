@@ -1,5 +1,5 @@
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
-import { round2 } from '../../utils/money.js';
+import { inr, round2 } from '../../utils/money.js';
 
 /**
  * The share of wages a payslip may deduct (Code on Wages 2019 s.18(3), excess
@@ -70,8 +70,6 @@ export function capDeductions(opts: { percent: number; wages: number; counted: n
 export const partWords = (name: string, taken: number, due: number, leaving = false) =>
   /* Somebody leaving has no next month: the rest goes to their full and final (QA of #82). */
   `${name} (${inr(taken)} of ${inr(due)}; ${inr(round2(due - taken))} ${leaving ? 'to the full and final' : 'next month'})`.slice(0, 120);
-
-export const inr = (n: number) => `₹${round2(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 /** The run screen's sentence: "Deductions held to 50% of wages for 2 people: ₹8,000 carried to next month." */
 export function capMessage(c: { percent: number; people: number; carried: number }) {

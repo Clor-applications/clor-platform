@@ -6,7 +6,7 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { listStructure } from '@ui/personnel/api';
 import { SCHEDULE_SOURCE, getSchedule, todayIst } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const WD = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const wd = (d) => new Date(`${d}T00:00:00Z`).getUTCDay();

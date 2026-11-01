@@ -7,7 +7,7 @@ import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { deviceCommand, fixReaderGaps, getReaderSync, removeReaderExtras } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const CELL = {
   OK: { mark: '✓', label: 'On the reader', color: 'rgb(var(--pos))' },

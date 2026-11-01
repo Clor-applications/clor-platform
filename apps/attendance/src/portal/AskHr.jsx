@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, getDesk, getDeskCase, raiseDesk, reopenDesk, replyDesk } from './portalApi';
 
 /**

@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { getPosTenderAccounts, setPosTenderAccount, clearPosTenderAccount } from '../../api/posTenderAccounts';
-import SettingsScreenHeader from '../settings/SettingsScreenHeader';
+import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 
 /**
  * Where the counter's money goes.

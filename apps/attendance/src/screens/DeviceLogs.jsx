@@ -8,7 +8,7 @@ import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPage
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { listDeviceLogs, todayIst } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const weekAgo = () => new Date(Date.now() + 330 * 60_000 - 6 * 86_400_000).toISOString().slice(0, 10);
 

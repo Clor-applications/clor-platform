@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId } from '@platform/context';
 
 /**
  * Stock adjustments and transfers kept on the server — see
@@ -7,11 +7,7 @@ import { orgId as platformOrgId } from '@platform/context';
  * the server stores it and checks warehouses, permissions and closed periods.
  */
 
-const base = () => {
-  const id = String(platformOrgId() || '').trim();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return `/orgs/${encodeURIComponent(id)}/stock-documents`;
-};
+const base = () => `/orgs/${encodeURIComponent(requireOrgId())}/stock-documents`;
 const opts = { skipWarehouseHeader: true };
 
 export const listStockDocuments = (kinds = ['ADJUSTMENT', 'TRANSFER']) =>

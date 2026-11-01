@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import FormFields from '@ui/requests/FormFields';
 import { missingIn, openFile } from '@ui/requests/formFiles';
 import { confirmDialog } from '@ui/components/ui/notify';

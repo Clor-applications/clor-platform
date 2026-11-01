@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { confirmDialog } from '@ui/components/ui/notify';
 import { ExitQuestionsForm } from '@ui/lifecycle/LeavingExtras';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, getCelebrations, getExitInterview, getTodayPosts, sendExitInterview, setCelebrations } from './portalApi';
 
 /*

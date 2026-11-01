@@ -9,7 +9,7 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { addTemporarySchedule, dayLabel, listEmployees, listShifts, listTemporarySchedules, removeTemporarySchedule, todayIst } from '../api/attendance';
 import { confirmScheduleChange } from '../components/scheduleCheck';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const COLUMNS = {
   employee: (r) => r.employeeName,

@@ -1,11 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
-
-const requireOrgId = () => {
-  const orgId = String(platformOrgId() || '').trim();
-  if (!orgId) throw new Error('Missing active org. Please select an organization.');
-  return orgId;
-};
+import { orgId as platformOrgId, requireOrgId } from '@platform/context';
 
 export const hasEInvoiceApiSession = () =>
   Boolean(String(localStorage.getItem('token') || '').trim() && String(platformOrgId() || '').trim());

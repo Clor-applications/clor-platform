@@ -4,7 +4,7 @@ import { HelpCircle, LogIn, LogOut } from 'lucide-react';
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { clock, dayLabel, explainMyDay, getMe, hm, phonePunch, REASON_CODES, requestCorrection, STATUS, todayIst } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import DayExplain from '../components/DayExplain';
 import PhonePunch from '../components/PhonePunch';
 

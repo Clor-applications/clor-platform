@@ -12,6 +12,7 @@ import { useServerMasters, mirrorServerRows } from '@ui/hooks/useServerMasters';
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import { getVendorDisplayName } from '@ui/utils/contacts';
 import { activePriceListOptions, mergeGstinFetch, validateParty } from '@ui/utils/partyMaster';
+import { isValidGstin, isValidPan } from '@ui/utils/gstin';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import PartyFormLayout from './PartyFormLayout';
 import { tdsPayableLedgers } from '@ui/utils/tdsLedgers';
@@ -468,8 +469,6 @@ export const VendorForm = ({ db, setDb, currentCompany, initialData = null, seed
     const g = normalizeGstin(gstin);
     return g.length >= 12 ? g.slice(2, 12) : '';
   };
-  const isValidPan = (pan) => /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(normalizePan(pan));
-  const isValidGstin = (gstin) => /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(normalizeGstin(gstin));
   const getGstinState = (gstin) => getGstStateFromGstin(normalizeGstin(gstin));
 
   const handleSubmit = async (e) => {

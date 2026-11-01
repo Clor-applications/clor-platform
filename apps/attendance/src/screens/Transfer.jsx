@@ -5,7 +5,7 @@ import { ArrowRightLeft, CheckCheck } from 'lucide-react';
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { listContractors, listEmployees, listStructure, transferEmployees } from '@ui/personnel/api';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const FIELDS = {
   departmentId: { label: 'Department', list: 'departments', current: 'department' },

@@ -9,6 +9,7 @@ import { can } from '@ui/timeOff/shared';
 
 import { getHrSalaryRevisions } from '../api/choices';
 import PayrollSalaryRevisions from '../../../payroll/src/screens/SalaryRevisions';
+import { wholeRupees as money } from '@ui/utils/money';
 
 /**
  * Salary revisions in People. Whoever holds Payroll's right works in Payroll's own screen. HR without Payroll
@@ -22,7 +23,6 @@ const STATUS = {
   APPLIED: { label: 'In effect', tone: 'ui-pill-pos' },
   REJECTED: { label: 'Rejected', tone: 'ui-pill-neutral' },
 };
-const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 export function SalaryRevisionsReadOnly() {
   const req = useRequest(() => getHrSalaryRevisions(), []);

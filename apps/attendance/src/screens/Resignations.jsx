@@ -10,7 +10,7 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { LEAVING_TYPES, listEmployees, rehireEmployee, resignEmployee } from '@ui/personnel/api';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 

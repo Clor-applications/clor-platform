@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * Salary revisions, and what they actually cost.
@@ -8,12 +8,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * was on the screen at approval is stored, so an approved revision shows the
  * figure that was approved rather than one recomputed under today's rates.
  */
-
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll/revisions`;
 const opts = { skipWarehouseHeader: true };

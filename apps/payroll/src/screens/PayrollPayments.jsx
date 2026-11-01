@@ -21,7 +21,8 @@ import {
   cancelPayrollPayment,
   getBankAdvice,
 } from '../api/payrollPayments';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
+import { rupees as money } from '@ui/utils/money';
 
 /**
  * Paying people, and saying what the bank did about it.
@@ -61,7 +62,6 @@ const METHODS = [
   { id: 'CASH', label: 'Cash' },
 ];
 
-const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 const shownDate = (iso) => {
   const s = String(iso || '').trim();

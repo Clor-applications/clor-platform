@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * Receipts and payments.
@@ -10,12 +10,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * a free-text label, so the money lands in a named account instead of a string
  * nobody can reconcile later.
  */
-
-const orgId = () => {
-  const id = String(platformOrgId() || '').trim();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}`;
 

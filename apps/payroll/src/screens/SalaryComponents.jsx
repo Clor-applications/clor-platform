@@ -17,7 +17,7 @@ import {
   ruleCatalogue,
   setComponentConditions,
 } from '../api/payrollComponents';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
  * The lines a salary is built from.

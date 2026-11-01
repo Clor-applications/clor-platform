@@ -58,6 +58,16 @@ const stored = (key) => {
 
 export const orgId = () => context.orgId || stored('activeOrgId');
 
+/**
+ * The company an API path is scoped by, or a plain error when none is chosen.
+ * Every API client used to carry its own copy of this guard.
+ */
+export const requireOrgId = () => {
+  const id = String(orgId() || '').trim();
+  if (!id) throw new Error('Missing active org. Please select an organization.');
+  return id;
+};
+
 /*
  * Branch and warehouse: chosen per company, per tab (A-23).
  *

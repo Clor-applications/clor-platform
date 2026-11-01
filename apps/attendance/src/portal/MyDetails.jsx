@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { confirmDialog } from '@ui/components/ui/notify';
 
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, acceptItem, answerMyRequest, askDetailsChange, getLeaving, getMyDetails, getPolicies, getPolicy, shrinkPhoto, withdrawMyRequest } from './portalApi';
 
 /**

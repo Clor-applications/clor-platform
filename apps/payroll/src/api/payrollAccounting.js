@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * What Payroll needs from Accounting, named as Payroll thinks of it.
@@ -15,12 +15,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * returns plain data. When Accounting moves behind its own service, this file
  * changes and no payroll screen does.
  */
-
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const opts = { skipWarehouseHeader: true };
 

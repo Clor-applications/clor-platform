@@ -10,7 +10,7 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { approveOvertime, bulkChangeDays, dayLabel, deleteDay, explainDay, hm, listEmployees, listRecords, markDay, STATUS, todayIst, validateDays } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import DayExplain from '../components/DayExplain';
 import { downloadEvidence } from '../components/evidenceXlsx';
 import PunchEvidence from '../components/PunchEvidence';

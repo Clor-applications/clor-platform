@@ -9,7 +9,7 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { closeMonth, getSummary, hm, todayIst } from '../api/attendance';
 import ReopenMonth from '../components/ReopenMonth';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
  * The month as payroll sees it: payable days and loss-of-pay days per

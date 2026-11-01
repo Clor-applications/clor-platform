@@ -21,7 +21,8 @@ import {
   cancelPayrollAdjustment,
   deletePayrollAdjustment,
 } from '../api/payrollAdjustments';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
+import { rupees as money } from '@ui/utils/money';
 
 /**
  * Bonuses, arrears, fines — what happened to one person in one month.
@@ -44,7 +45,6 @@ const STATUS = {
   CANCELLED: { label: 'Cancelled', tone: 'ui-pill-neutral' },
 };
 
-const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 const TABS = [
   { value: '', label: 'All', tone: 'all' },

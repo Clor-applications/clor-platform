@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, CalendarOff, Camera, CheckSquare, Clock3, Fingerprint, HelpCircle, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from 'lucide-react';
 
 import { REASON_CODES, STATUS } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import DayExplain from '../components/DayExplain';
 import LeaveExplain from '../components/LeaveExplain';
 import LeaveDocumentField from '@ui/timeOff/LeaveDocumentField';
@@ -70,6 +70,7 @@ import {
   todayIst,
 } from './portalApi';
 import PasswordInput from '@ui/components/ui/PasswordInput';
+import { wholeRupees as rupees } from '@ui/utils/money';
 
 /**
  * The employee portal (ClorTime's /portal), at #/portal: for staff who have no
@@ -1131,7 +1132,6 @@ function Devices({ guard }) {
   );
 }
 
-const rupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 /**
  * Income tax for the year: choose the regime, and under the old one declare

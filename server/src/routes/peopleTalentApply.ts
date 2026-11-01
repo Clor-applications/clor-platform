@@ -5,6 +5,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { applyLimiter, referViewLimiter } from '../middleware/rateLimit.js';
 import { TalentError, applyFromLink, openingByToken } from '../services/people/talent/hiring.js';
 import { applyThroughLink, byLinkToken } from '../services/people/talent/referrals.js';
+import { escapeHtml as esc } from '../utils/html.js';
 
 /**
  * A job opening's public apply page (Talent, TALENT-DECISIONS.md): the link HR shares on
@@ -14,7 +15,6 @@ import { applyThroughLink, byLinkToken } from '../services/people/talent/referra
  */
 export const peopleTalentApplyRouter = Router();
 
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const page = (title: string, body: string) =>
   `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title>` +
   `<style>body{font-family:Inter,system-ui,sans-serif;max-width:34rem;margin:3rem auto;padding:0 1rem;color:#1a1d3d}label{display:block;margin:.9rem 0 .25rem;font-size:.875rem;font-weight:600}input,textarea{width:100%;box-sizing:border-box;font:inherit;padding:.55rem .7rem;border:1px solid #d0cdde;border-radius:8px}button{margin-top:1.2rem;font:inherit;padding:.65rem 1.2rem;border-radius:8px;border:0;background:#232a66;color:#fff;cursor:pointer}.muted{color:#484d78}.trap{position:absolute;left:-9999px}</style>` +

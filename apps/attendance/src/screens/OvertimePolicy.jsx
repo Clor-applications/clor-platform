@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { PageHeader, SkeletonCard, StatusPill } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { getOvertimeRules, listShifts, saveOvertimeRules, updateShift } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import OvertimeRuleFields from '../components/OvertimeRuleFields';
 import { shiftBody } from '../components/shiftBody';
 

@@ -10,7 +10,7 @@ import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { dayLabel, explainDay, listExceptions, setExceptionState, setExceptionStates, todayIst } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import DayExplain from '../components/DayExplain';
 
 /**

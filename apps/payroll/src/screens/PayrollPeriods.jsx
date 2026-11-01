@@ -15,7 +15,7 @@ import {
   setPayrollPeriodLock,
   deletePayrollPeriod,
 } from '../api/payrollCalendar';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
  * The pay cycles a run is filed against.

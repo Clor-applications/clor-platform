@@ -8,7 +8,7 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { listEmployees, listUnmatchedPunches, matchPunches } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
  * Punches from reader user IDs that match no employee (by Reader ID or

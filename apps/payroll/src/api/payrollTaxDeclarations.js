@@ -1,13 +1,8 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /** Income tax declarations and proofs, by financial year ("2026-27"). */
 
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll/tax-declarations`;
 const opts = { skipWarehouseHeader: true };
 const fyq = (fy) => (fy ? `?fy=${encodeURIComponent(fy)}` : '');

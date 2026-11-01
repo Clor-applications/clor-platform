@@ -5,6 +5,7 @@ import { notify } from "@ui/components/ui/notify";
 import SuggestInput from "@ui/components/ui/SuggestInput";
 import { getDeductionCap, saveDeductionCap } from "../api/payrollSetup";
 import { recordOverLimitReason } from "../api/payrollRuns";
+import { rupees as inr } from "@ui/utils/money";
 
 /**
  * How much of a payslip's wages deductions may take. Half is the law's limit;
@@ -117,7 +118,6 @@ export function DeductionCapNotice({ run }) {
 }
 
 const warnStyle = { background: "rgb(var(--warn-soft))", color: "rgb(var(--warn-ink))" };
-const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
 /**
  * Entered deductions past the share of wages, from the last calculation.

@@ -2,6 +2,7 @@ import { Router, urlencoded } from 'express';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
 import { ownPlanRefusal, readTaskDoneToken, tickRefusal } from '../services/people/checklists.js';
+import { escapeHtml as esc } from '../utils/html.js';
 
 /**
  * The link in a task e-mail (docs/people/02-PRD.md LIFE-07): signed, for one
@@ -15,7 +16,6 @@ import { ownPlanRefusal, readTaskDoneToken, tickRefusal } from '../services/peop
  */
 export const peopleTaskLinksRouter = Router();
 
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const page = (title: string, body: string, opts: { ok?: boolean; form?: string } = {}) =>
   `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title>` +
   `<body style="font-family:Inter,system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;color:#18181b">` +

@@ -1,8 +1,8 @@
 import { peoplePrisma } from '../../../utils/peoplePrisma.js';
 import { payrollPrisma } from '../../../utils/payrollPrisma.js';
-import { round2 } from '../../../utils/money.js';
+import { inr, round2 } from '../../../utils/money.js';
 import { notifyUsers } from '../../notifications.js';
-import { MoneyError, inr, pendingLink, sendForApproval, type Me, type Staff } from './expenses.js';
+import { MoneyError, pendingLink, sendForApproval, type Me, type Staff } from './expenses.js';
 import { PERQUISITE_LIMIT, loanState, makeSalaryAdvanceLoan, payCap, payrollOn } from './payrollBridge.js';
 
 /**

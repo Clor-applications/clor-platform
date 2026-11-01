@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 import { PageHeader, SkeletonCard, StatTile, EmptyState } from '@ui/components/ui/Primitives';
 import { getReportInsights, listReports } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const monthName = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' });
 const fmt = (v, unit = '') => (v == null ? '—' : `${v}${unit}`);

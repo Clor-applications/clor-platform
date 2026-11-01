@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId } from '@platform/context';
 
 /**
  * A counter sale, rung up by the server.
@@ -11,12 +11,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * the whole thing — invoice, sale posting, receipt, allocation, receipt
  * posting, settlement — or none of it.
  */
-
-const requireOrgId = () => {
-  const id = String(platformOrgId() || '').trim();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 /**
  * The id for one checkout ATTEMPT, which a retry must reuse.

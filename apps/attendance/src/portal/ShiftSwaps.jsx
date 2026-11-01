@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { SignedOut, answerSwap, askSwap, getSwaps, swapColleagues, todayIst, withdrawSwap } from './portalApi';
 

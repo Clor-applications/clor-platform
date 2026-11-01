@@ -9,7 +9,7 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createContractor, deleteContractor, listContractors, updateContractor } from '@ui/personnel/api';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const BLANK = { name: '', code: '', contactPerson: '', phone: '', email: '', gstin: '', licenceNo: '', licenceValidTo: '', address: '', isActive: true };
 

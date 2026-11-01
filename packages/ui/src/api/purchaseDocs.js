@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { orgId as platformOrgId, requireOrgId } from '@platform/context';
 
 /**
  * Bills, credit notes, debit notes and expenses — the server's unified
@@ -7,12 +7,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * the stored document (with its allocated number), delete reverses the GL
  * posting server-side.
  */
-
-const requireOrgId = () => {
-  const orgId = String(platformOrgId() || '').trim();
-  if (!orgId) throw new Error('Missing active org. Please select an organization.');
-  return orgId;
-};
 
 /** True when this session can reach the API at all — mirrors the invoice guard. */
 export const hasApiSession = () =>

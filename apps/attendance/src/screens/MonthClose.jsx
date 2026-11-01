@@ -7,7 +7,7 @@ import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { closeMonth, getMonthReadiness, getMonthSnapshot, todayIst } from '../api/attendance';
 import ReopenMonth from '../components/ReopenMonth';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
  * Payroll readiness: before a month is closed, everything that would make its

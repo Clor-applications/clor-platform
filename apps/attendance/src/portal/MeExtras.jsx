@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { ChevronLeft } from 'lucide-react';
 import { confirmDialog } from '@ui/components/ui/notify';
 
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, doneJourneyTask, getJourney, getLeaving, getMyDetails, getPayslip, getPayslips, raisePrivateCase, resign, todayIst } from './portalApi';
 
 /**

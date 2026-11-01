@@ -12,6 +12,7 @@ import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
+import { can } from '@ui/permissions/can';
 import { PersonCell } from '@ui/lifecycle/shared';
 
 import {
@@ -27,7 +28,6 @@ import { money } from './words';
  * paid now is listed for entering in Books, with the GST kept for credit.
  */
 const TABS = [['pay', 'To pay'], ['advances', 'Advances'], ['salary', 'Salary advances'], ['books', 'For Books'], ['all', 'All claims'], ['report', 'Report']];
-const can = (perms, key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
 const today = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const yearAgo = () => { const d = new Date(`${today()}T00:00:00Z`); d.setUTCFullYear(d.getUTCFullYear() - 1); return d.toISOString().slice(0, 10); };
 const day = (iso) => (iso ? formatDate(String(iso).slice(0, 10)) : '');

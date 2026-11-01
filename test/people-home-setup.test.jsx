@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 vi.mock('@ui/components/ui/notify', () => ({ notify: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('@ui/timeOff/MyDays', () => ({ HomeCheckIn: () => null }));
 vi.mock('@ui/personnel/Employees', () => ({ Avatar: () => null }));
-vi.mock('@platform/context', () => ({ orgId: () => 'org1', branchId: () => 'br1', platformContext: () => ({ user: null }) }));
+vi.mock('@platform/context', () => ({ orgId: () => 'org1', requireOrgId: () => 'org1', branchId: () => 'br1', platformContext: () => ({ user: null }) }));
 vi.mock('@platform/auth', () => ({ setFeature: vi.fn(async () => ({})) }));
 /* The owner by default; a test may sign in as a team manager, who cannot set the company up. */
 const who = vi.hoisted(() => ({ perms: { loading: false, error: '', isAdmin: true, permissions: new Set() } }));

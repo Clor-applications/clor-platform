@@ -9,4 +9,4 @@ export const dayWords = (d) => {
 };
 
 /** ₹5,000 in Indian grouping. */
-export const rupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+export { rupees } from '../utils/money';

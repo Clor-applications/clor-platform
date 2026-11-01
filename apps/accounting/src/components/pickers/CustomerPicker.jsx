@@ -14,6 +14,7 @@ import { createCustomer, listCustomers, lookupGstin, toServerCustomer, updateCus
 import { useServerMasters, mirrorServerRows } from '@ui/hooks/useServerMasters';
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import { activePriceListOptions, mergeGstinFetch, validateParty } from '@ui/utils/partyMaster';
+import { isValidGstin, isValidPan } from '@ui/utils/gstin';
 import { getCustomerDisplayName } from '@ui/utils/contacts';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { rankedSearch, soleConfidentMatch } from '@ui/utils/rankedSearch';
@@ -329,8 +330,6 @@ export const CustomerForm = ({
     const g = normalizeGstin(gstin);
     return g.length >= 12 ? g.slice(2, 12) : '';
   };
-  const isValidPan = (pan) => /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(normalizePan(pan));
-  const isValidGstin = (gstin) => /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(normalizeGstin(gstin));
   const getGstinState = (gstin) => getGstStateFromGstin(normalizeGstin(gstin));
 
 

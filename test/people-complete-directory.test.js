@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { listAllEmployees } from '../packages/ui/src/personnel/api';
 import { apiFetch } from '@platform/http';
 vi.mock('@platform/http', () => ({ apiFetch: vi.fn() }));
-vi.mock('@platform/context', () => ({ orgId: () => 'company' }));
+vi.mock('@platform/context', () => ({ orgId: () => 'company', requireOrgId: () => 'company' }));
 beforeEach(() => apiFetch.mockReset());
 it('includes employees beyond the first API page in reports and pickers', async () => {
   const first = Array.from({ length: 500 }, (_, i) => ({ id: `employee-${i}` }));

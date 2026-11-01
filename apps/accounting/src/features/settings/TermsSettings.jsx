@@ -3,7 +3,7 @@ import { Check, Copy } from 'lucide-react';
 
 import { notify } from '@ui/components/ui/notify';
 import { getDocSettings } from '@ui/utils/docSettings';
-import SettingsScreenHeader from './SettingsScreenHeader';
+import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 
 /**
  * Only the documents this product can actually print.

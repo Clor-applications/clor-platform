@@ -5,7 +5,7 @@ import { SkeletonCard } from '@ui/components/ui/Primitives';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { CURRENCY_CATALOG, currencyMeta } from '@ui/utils/currencyCatalog';
 import { CURRENCIES_CHANGED_EVENT } from '../../hooks/useEnabledCurrencies';
-import SettingsScreenHeader from './SettingsScreenHeader';
+import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 
 export default function CurrencySettings() {
   const [baseCurrency, setBaseCurrency] = useState('INR');

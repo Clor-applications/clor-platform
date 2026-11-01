@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * Where this branch's counter takings post.
@@ -9,12 +9,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * not the screen's job to work that rule out — a client that filtered for
  * itself would be a second copy of a rule about where money lands.
  */
-
-const orgId = () => {
-  const id = String(platformOrgId() || '').trim();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}/pos/tender-accounts`;
 

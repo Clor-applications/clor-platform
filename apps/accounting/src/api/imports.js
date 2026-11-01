@@ -1,13 +1,7 @@
 import { API_BASE, apiFetch } from '@platform/http';
-import { orgId as platformOrgId, selectedBranchId } from '@platform/context';
+import { requireOrgId as orgId, selectedBranchId } from '@platform/context';
 
 /** Staged document import — requirements 15 and 16. */
-
-const orgId = () => {
-  const id = String(platformOrgId() || '').trim();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}`;
 const opts = { skipWarehouseHeader: true };

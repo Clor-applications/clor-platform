@@ -19,7 +19,8 @@ import {
   setInstallmentAction,
   cancelPayrollLoan,
 } from '../api/payrollLoans';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
+import { rupees as money } from '@ui/utils/money';
 
 /**
  * Money lent to somebody, and taken back out of their pay.
@@ -55,7 +56,6 @@ const TYPES = [
   { id: 'SALARY_ADVANCE', label: 'Salary advance' },
 ];
 
-const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 const TABS = [
   { value: '', label: 'All', tone: 'all' },

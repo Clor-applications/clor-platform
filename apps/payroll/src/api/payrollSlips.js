@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * Payslips, and the reasoning behind every figure on them.
@@ -8,12 +8,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * true when it was calculated — the job title held then, the structure used
  * then, the engine version that produced it. Nothing here re-derives anything.
  */
-
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll/slips`;
 const opts = { skipWarehouseHeader: true };

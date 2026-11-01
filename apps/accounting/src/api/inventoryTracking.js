@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * Batch (lot) and serial number tracking — requirement 11.
@@ -7,12 +7,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * Batch calls carry the warehouse header because a lot is held in one
  * warehouse; serial reads do not, because a sold unit no longer sits in any.
  */
-
-const orgId = () => {
-  const id = String(platformOrgId() || '').trim();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}`;
 const noWarehouse = { skipWarehouseHeader: true };

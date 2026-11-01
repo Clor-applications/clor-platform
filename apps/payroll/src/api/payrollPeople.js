@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * The people payroll pays, and what each of them is paid.
@@ -12,12 +12,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * level for them, and `sensitiveVisible` says which it was. The masking is the
  * server's: a value masked in the browser has already crossed the network.
  */
-
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll`;
 const opts = { skipWarehouseHeader: true };

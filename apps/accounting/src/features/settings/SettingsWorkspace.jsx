@@ -3,7 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 
 import { EntityMark } from '@ui/components/ui/Primitives';
 import { settingFor, visibleCategories } from './settingsRegistry';
-import { SETTINGS_ACTIONS_SLOT_ID, SettingsFrameContext } from './settingsFrame';
+import { SETTINGS_ACTIONS_SLOT_ID, SettingsFrameContext } from '@ui/chrome/settingsFrame';
 
 export const SettingsCatalogNav = ({ activeKey = '', can = () => true, isEnabled = () => true, onSelect }) => {
   const categories = useMemo(() => visibleCategories({ can, isEnabled }), [can, isEnabled]);

@@ -1,6 +1,6 @@
 import { ProfileScreen } from '@ui/profile/ProfileScreen';
 
-import SettingsScreenHeader from './SettingsScreenHeader';
+import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 
 /**
  * My profile inside Accounting's settings. The page itself is shared (the

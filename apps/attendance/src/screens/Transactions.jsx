@@ -10,7 +10,7 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import Modal from '@ui/components/ui/Modal';
 import { getPunchPhoto, listDevices, listEmployees, listTransactions, matchPunches, todayIst } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const TABS = [
   { value: '', label: 'All', tone: 'all' },

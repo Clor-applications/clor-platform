@@ -44,11 +44,12 @@ import {
   previewPayrollPosting,
   postPayrollRun,
 } from "../api/payrollRuns";
-import LoadFailed from "../components/LoadFailed";
+import LoadFailed from "@ui/components/ui/LoadFailed";
 import { LopCheckPanel, ProvisionalNotice } from "../components/RunGuards";
 import { ProvisionalDaysNotice } from "../components/ProvisionalDaysSetting";
 import { DeductionCapNotice, OverLimitPanel } from "../components/DeductionCapSetting";
 import { openMonthsOf } from "../components/runGuardText";
+import { wholeRupees as money } from "@ui/utils/money";
 
 /**
  * Running payroll.
@@ -76,8 +77,6 @@ const STATUS_LABEL = {
   CANCELLED: "Cancelled",
 };
 
-const money = (n) =>
-  `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
 const shownDate = (iso) => {
   const s = String(iso || "").trim();

@@ -1,5 +1,6 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
+import { queryString as query } from '@platform/query';
 import { featuresFor } from '@platform/auth';
 
 /**
@@ -7,21 +8,10 @@ import { featuresFor } from '@platform/auth';
  * Attendance reads (server: routes/leave.ts, routes/attendance.ts), so the two
  * apps never disagree; the server opens them when People or Attendance is on.
  */
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 const opts = { skipWarehouseHeader: true };
 const base = () => `/orgs/${encodeURIComponent(orgId())}/attendance`;
 const get = (path) => apiFetch(`${base()}${path}`, opts);
 const send = (path, method, body) => apiFetch(`${base()}${path}`, { method, body, ...opts });
-const query = (params = {}) => {
-  const q = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
-  const s = q.toString();
-  return s ? `?${s}` : '';
-};
 const id = (v) => encodeURIComponent(v);
 
 export const listLeaveTypes = () => get('/leave/types').then((r) => r?.types || []);

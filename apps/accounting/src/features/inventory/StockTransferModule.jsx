@@ -23,6 +23,7 @@ import { blockIfClosed } from '@ui/utils/bookClose';
 import { deleteStockDocOnServer } from './useStockSync';
 import { syncFieldsOf } from './stockSync';
 import { selectedBranchId, selectedWarehouseId } from '@platform/context';
+import { escapeHtml as esc } from '@ui/utils/html';
 
 const safeArray = (v) => (Array.isArray(v) ? v : []);
 
@@ -1646,7 +1647,6 @@ export const StockTransfersList = ({
   const printTransfer = (transfer) => {
     const itemName = (id) =>
       safeArray(db?.items).find((i) => normalizeId(i?.id) === normalizeId(id))?.name || `Item ${normalizeId(id)}`;
-    const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const rows = safeArray(transfer?.lines)
       .map((l) => {
         const received = l?.receivedQty === undefined || l?.receivedQty === null ? '' : toNum(l.receivedQty);

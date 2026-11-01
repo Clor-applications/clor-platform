@@ -123,3 +123,6 @@ export function allocate(total: unknown, weights: Array<unknown>): number[] {
 export function balanceOf(debits: Array<unknown>, credits: Array<unknown>): number {
   return toPaise(sumMoney(debits)) - toPaise(sumMoney(credits));
 }
+
+/** Rupees for a sentence or a note: ₹ and Indian grouping, at the paisa (₹1,23,456.5). */
+export const inr = (n: number) => `₹${round2(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;

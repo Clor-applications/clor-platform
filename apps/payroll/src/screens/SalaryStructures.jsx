@@ -16,7 +16,8 @@ import {
   deleteSalaryStructure,
   previewSalaryStructure,
 } from '../api/payrollStructures';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
+import { rupees as money } from '@ui/utils/money';
 
 /**
  * The shape of a salary, before anybody is on it.
@@ -46,8 +47,6 @@ const STATUSES = [
   { id: 'ARCHIVED', label: 'Archived' },
 ];
 
-const money = (n) =>
-  `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 0 })}`;
 
 const shownDate = (iso) => {
   const s = String(iso || '').trim();

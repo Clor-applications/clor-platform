@@ -19,7 +19,8 @@ import {
   rejectSalaryRevision,
   applySalaryRevision,
 } from '../api/payrollRevisions';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
+import { wholeRupees as money } from '@ui/utils/money';
 
 /**
  * Increments, and what they really cost.
@@ -44,7 +45,6 @@ const STATUS = {
   REJECTED: { label: 'Rejected', tone: 'ui-pill-neutral' },
 };
 
-const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 const signed = (n) => {
   const v = Number(n || 0);

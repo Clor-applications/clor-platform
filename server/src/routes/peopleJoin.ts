@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { enterTenant } from '../utils/tenantScope.js';
 import { InviteError, expireIfDue, findInviteByToken, joinerView, submitInvite } from '../services/people/lifecycle/invites.js';
 import { OfferError, acceptOffer, declineOffer, findOfferByToken, offerPdf, offerView } from '../services/people/offers.js';
+import { escapeHtml as esc } from '../utils/html.js';
 
 /**
  * The joiner's link (docs/people/02-PRD.md LIFE-01). No sign-in: the token
@@ -12,7 +13,6 @@ import { OfferError, acceptOffer, declineOffer, findOfferByToken, offerPdf, offe
  */
 export const peopleJoinRouter = Router();
 
-const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const shell = (title: string, body: string) =>
   `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>` +
   `<style>body{font-family:Inter,system-ui,sans-serif;max-width:36rem;margin:3rem auto;padding:0 1rem;color:#18181b;line-height:1.5}h1{font-size:1.25rem}label{display:block;margin:.75rem 0 .25rem;font-size:.875rem;font-weight:600}input,select,textarea{width:100%;padding:.5rem;border:1px solid #d4d4d8;border-radius:4px;font:inherit}button{margin-top:1rem;padding:.6rem 1rem;border:0;border-radius:4px;background:#a45761;color:#fff;font:inherit;font-weight:600;cursor:pointer}.muted{color:#52525b;font-size:.875rem}.row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}.doc{display:grid;grid-template-columns:9rem 1fr 1fr;gap:.5rem;margin-top:.5rem}.nom{display:grid;grid-template-columns:1.4fr 1fr .8fr 1fr;gap:.5rem;margin-top:.5rem}#msg{margin-top:1rem;font-weight:600}</style>` +

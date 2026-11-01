@@ -10,7 +10,7 @@ import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { LEAVE_STATUS, applyLeave, cancelMyLeave, editMyLeave, explainMyLeave, getMyLeave, getMyRestrictedHolidays, pickMyRestrictedHoliday, shortenMyLeave } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import LeaveExplain from '../components/LeaveExplain';
 import LeaveDocumentField from '@ui/timeOff/LeaveDocumentField';
 import HalfDayChoice, { HalfDayNote, halfDayBody, leaveSpan } from '@ui/timeOff/HalfDayChoice';

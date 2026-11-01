@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * Salary structures: the shape of a salary, before anybody is on it.
@@ -9,12 +9,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * the figure somebody sees while assembling a structure is the figure that will
  * actually be paid, not a second implementation that happens to agree today.
  */
-
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll/structures`;
 const opts = { skipWarehouseHeader: true };

@@ -8,9 +8,9 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { exportListXlsx } from '@ui/utils/listXlsx';
 import { createReportSchedule, deleteReportSchedule, listReportSchedules, listReports, listScheduleRuns, runReport, sendReportSchedule, todayIst, updateReportSchedule } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
+import { escapeHtml } from '@ui/utils/html';
 
-const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 /** The report as a real spreadsheet: a column is numeric only if every value in it is a number. */
 function exportXlsx(result) {

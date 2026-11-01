@@ -11,7 +11,7 @@ import { activeApp } from '@ui/utils/activeApp';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { getPortalAccess, issuePortalCodes, listGeofences, resetPortalPassword, setPortalAccess, signOutPortalEverywhere } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const STATE = {
   off: { label: 'Not set up', pill: 'ui-pill-neutral' },
