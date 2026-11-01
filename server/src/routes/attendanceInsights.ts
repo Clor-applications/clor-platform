@@ -960,6 +960,9 @@ export async function reviewFieldPunch(orgId: string, punchId: string, approve: 
 
 attendanceInsightsRouter.post(`${base}/phone-punches/:id/review`, can(PermissionAction.EDIT, R.devices), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  /* A team-scoped role decides its own team's punches only, as the bulk review does. */
+  const p = await peoplePrisma.devicePunch.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId }, select: { employeeId: true } });
+  if (!p?.employeeId || !inScope(await teamScope(req), p.employeeId)) return res.status(404).json({ error: 'No such field punch.' });
   try {
     const r = await reviewFieldPunch(req.tenant!.orgId, String(req.params.id), req.body?.approve === true, { userId: req.auth!.userId });
     res.json({ punch: { id: r.id, review: r.reviewStatus } });
@@ -1108,6 +1111,9 @@ attendanceInsightsRouter.post(`${base}/overtime/requests/:id/:decision`, can(Per
   const { orgId } = req.tenant!;
   const decision = String(req.params.decision);
   if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'approve or reject.' });
+  /* A team-scoped role decides its own team's overtime and comp-off only, as the bulk review does. */
+  const row = await peoplePrisma.overtimeRequest.findFirst({ where: { id: String(req.params.id), orgId }, select: { employeeId: true } });
+  if (!row || !inScope(await teamScope(req), row.employeeId)) return res.status(404).json({ error: 'No such request.' });
   try {
     const r = await decideOvertime(orgId, String(req.params.id), decision === 'approve', { userId: req.auth!.userId }, String(req.body?.note || '').trim().slice(0, 500) || null);
     res.json({ request: r });
