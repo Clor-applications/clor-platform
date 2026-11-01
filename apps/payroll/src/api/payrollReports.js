@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * Payroll reports.
@@ -7,12 +7,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * Every figure is read from payslips, which do not change. A month nobody has
  * run comes back empty rather than estimated.
  */
-
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll/reports`;
 const opts = { skipWarehouseHeader: true };

@@ -3,11 +3,12 @@ import { Camera, FileText, X } from 'lucide-react';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, todayIst } from './portalApi';
 import {
   addBill, answerMoney, askAdvance, askSalaryAdvance, billData, billUrl, getMoney, previewSalaryAdvance, reopenClaim, removeBill, sendClaim, withdrawMoney,
 } from './moneyApi';
+import { rupees as money } from '@ui/utils/money';
 
 /**
  * Money in the employee app's Me tab (WORKFLOW-GAP-RESEARCH 4.1, 4.2):
@@ -17,7 +18,6 @@ import {
  * are typed on the number pad, and what I asked shows with what was said.
  */
 
-const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const day = (iso) => {
   const [y, m, d] = String(iso || '').slice(0, 10).split('-');

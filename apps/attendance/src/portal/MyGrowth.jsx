@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, acknowledgeReview, checkInGoal, getGrowth, writeSelfReview } from './portalApi';
 
 /**

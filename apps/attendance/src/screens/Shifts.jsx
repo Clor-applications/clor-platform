@@ -8,7 +8,7 @@ import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitiv
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createShift, deleteShift, hm, listShifts, updateShift } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BLANK = {

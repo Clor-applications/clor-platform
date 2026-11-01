@@ -6,7 +6,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
 import { getEmployeeReaderIds, getMappingAudit, listEmployees, listSiteReaderIds, matchPunches, removeReaderExtras, saveEmployeeReaderIds } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
  * Reader IDs and employees, checked against each other: punches from IDs that

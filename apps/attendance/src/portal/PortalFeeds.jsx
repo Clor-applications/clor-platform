@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, getHolidays, getUpdates, pickRestrictedHoliday, todayIst } from './portalApi';
 
 const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));

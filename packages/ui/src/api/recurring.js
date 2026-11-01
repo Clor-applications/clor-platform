@@ -1,11 +1,6 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
-const orgId = () => {
-  const id = String(platformOrgId() || '').trim();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 const base = () => `/orgs/${encodeURIComponent(orgId())}`;
 const opts = { skipWarehouseHeader: true };
 

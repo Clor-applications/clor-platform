@@ -21,7 +21,7 @@ import {
   saveInvoicePaymentDetails,
   listBankAccounts,
 } from '@ui/utils/invoicePrefs';
-import SettingsScreenHeader from './SettingsScreenHeader';
+import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 
 /**
  * Which fields an invoice carries, for this company.

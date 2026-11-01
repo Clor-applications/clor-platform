@@ -8,7 +8,7 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { deleteFromBin, listRecycleBin, restoreFromBin } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
  * Settings → Recycle Bin. What was deleted in People and Attendance stays

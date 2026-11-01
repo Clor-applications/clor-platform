@@ -16,7 +16,8 @@ import {
   listAssignments,
   createAssignment,
 } from '../api/payrollPeople';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
+import { wholeRupees as money } from '@ui/utils/money';
 
 /**
  * Who is paid what.
@@ -32,7 +33,6 @@ import LoadFailed from '../components/LoadFailed';
  * the alternative is somebody hunting for an edit button that should not exist.
  */
 
-const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 const shownDate = (iso) => {
   const s = String(iso || '').trim();

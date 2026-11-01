@@ -9,7 +9,7 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { anonymiseEmployee, listDataRequests, resolveDataRequest } from '@ui/personnel/api';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
  * DPDP data-subject requests employees raise from the portal — see, correct,

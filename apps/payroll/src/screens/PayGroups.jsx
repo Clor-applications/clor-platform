@@ -9,7 +9,7 @@ import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitiv
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listPayGroups, createPayGroup, updatePayGroup, deletePayGroup } from '../api/payrollCalendar';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
  * Populations paid on the same rhythm.

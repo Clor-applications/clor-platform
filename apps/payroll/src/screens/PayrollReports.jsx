@@ -6,6 +6,7 @@ import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { listPayrollPeriods } from '../api/payrollCalendar';
 import { getSalaryRegister, getStatutoryReport, getVarianceReport, getCostReport, getFilings } from '../api/payrollReports';
+import { rupees as money } from '@ui/utils/money';
 
 /**
  * Payroll reports.
@@ -35,7 +36,6 @@ const SCHEME_NAMES = {
   LWF: 'Labour Welfare Fund',
 };
 
-const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 /* The sign belongs outside the currency symbol: "−₹6,360", never "₹-6,360". */
 const signedMoney = (n) => {

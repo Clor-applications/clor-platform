@@ -30,7 +30,7 @@ import {
   testWebhook,
   updateWebhook,
 } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { requestOpenApp } from '@platform/context';
 
 /* Groups for the webhook form; the words come from the server (eventHelp). */

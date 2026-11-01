@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * The statutory schemes a company runs under, and the dated rates behind them.
@@ -8,12 +8,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * day it changes, because a payslip records the version it was computed under
  * and editing in place would restate months already filed.
  */
-
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll/statutory`;
 const opts = { skipWarehouseHeader: true };

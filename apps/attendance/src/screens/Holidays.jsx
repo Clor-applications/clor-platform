@@ -8,7 +8,7 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createHoliday, dayLabel, deleteHoliday, getHolidayYear, todayIst, updateHoliday } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { listBranches, listStructure } from '@ui/personnel/api';
 import { CalendarImport, RestrictedPicks } from './HolidayDrawers';
 

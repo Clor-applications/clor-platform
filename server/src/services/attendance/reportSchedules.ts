@@ -5,6 +5,7 @@ import { istDate } from './compute.js';
 import { exclusive, leaseFor } from '../jobLease.js';
 import { appLive } from '../principalAllowed.js';
 import { registerJob } from '../jobRegistry.js';
+import { escapeHtml as esc } from '../../utils/html.js';
 
 /**
  * Reports that go out by e-mail on their own.
@@ -54,7 +55,6 @@ export function periodFor(s: Pick<Schedule, 'cadence'>, now: Date) {
   return { month: back(1).slice(0, 7), date: back(1), from: back(1), to: back(1) };
 }
 
-const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 export function renderReportHtml(r: { title: string; period: string; columns: Array<{ key: string; label: string; align?: string }>; rows: any[]; totals?: any; notes?: string[] }, companyName: string) {
   const al = (c: { align?: string }) => (c.align === 'end' ? 'right' : c.align === 'center' ? 'center' : 'left');

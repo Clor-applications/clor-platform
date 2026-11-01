@@ -1,6 +1,6 @@
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
-import { round2 } from '../../utils/money.js';
+import { inr, round2 } from '../../utils/money.js';
 import { advanceOpen } from '../people/money/expenses.js';
 import { ensureRecoveryBase, foldRecovery, liveLink, recoveryChain } from './recoveryChain.js';
 import type { SettlementLine } from './finalSettlement.js';
@@ -28,8 +28,6 @@ import type { SettlementLine } from './finalSettlement.js';
  */
 
 export type Source = NonNullable<SettlementLine['source']>;
-
-const inr = (n: number) => `₹${round2(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 /** The hold on this person's settlement, if an absconding case holds it now. */
 export async function settlementHold(orgId: string, employeeId: string) {

@@ -32,7 +32,7 @@ const UserCheck = colorIcon(PersonAvailableColor, 'PersonAvailable');
 const UserX = colorIcon(PersonWarningColor, 'PersonWarning');
 const Users = colorIcon(PeopleColor, 'People');
 import { getCalendar, getOverview, getReaderHealth, todayIst } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /* The reader states the server already decides (Reader health uses the same words). */
 const READER = {

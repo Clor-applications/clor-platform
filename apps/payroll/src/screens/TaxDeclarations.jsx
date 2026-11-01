@@ -11,7 +11,9 @@ import { formatDateIn } from '@ui/utils/dates';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { get24q, getForm16, getTaxDeclaration, listTaxDeclarations, reopenTaxDeclaration, saveTaxDeclaration, verifyTaxDeclaration } from '../api/payrollTaxDeclarations';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
+import { wholeRupees as money } from '@ui/utils/money';
+import { escapeHtml } from '@ui/utils/html';
 
 const STATUS = {
   NONE: { label: 'Not declared', pill: 'ui-pill-neutral' },
@@ -20,7 +22,6 @@ const STATUS = {
   VERIFIED: { label: 'Verified', pill: 'ui-pill-pos' },
 };
 
-const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 /** "2026-27" for today, and the year before it. */
 const yearOf = (d) => {
@@ -363,7 +364,6 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
   );
 }
 
-const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const inr = (n) => (n == null ? '—' : Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const QUARTERS = [
   [1, 'Q1 · Apr–Jun'],

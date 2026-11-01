@@ -18,6 +18,7 @@ import { ingestLimiter } from '../middleware/rateLimit.js';
 import { hashToken } from './publicApi.js';
 import { notifyPermission } from '../services/notifications.js';
 import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
+import { escapeHtml as esc } from '../utils/html.js';
 
 /**
  * UPI Direct: the company's customers pay straight into the company's own
@@ -209,7 +210,6 @@ async function requestOf(token: string): Promise<(PayRow & { usable: boolean }) 
   return { ...r, usable: v.ok && r.status === 'PENDING' };
 }
 
-const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 function page(title: string, body: string) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title>

@@ -15,6 +15,7 @@ import Modal from '@ui/components/ui/Modal';
 import { ExportButton } from '@ui/components/list/ListPageParts';
 import InvoicePreview from '../sales/InvoicePreview';
 import BillPreview from '../purchase/BillPreview';
+import { escapeHtml } from '@ui/utils/html';
 
 const num = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const text = (value) => String(value ?? '').trim();
@@ -41,9 +42,6 @@ const savedCustomerCode = (customer) => text(customer?.code || customer?.custome
 const monthKey = (value) => String(value || '').slice(0, 7);
 const deltaPercent = (current, previous) => previous > 0 ? ((current - previous) / previous) * 100 : current > 0 ? 100 : 0;
 
-const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-}[character]));
 
 const printAccountingEntry = ({ voucher, lines, company }) => {
   const popup = window.open('', '_blank', 'width=1100,height=760');

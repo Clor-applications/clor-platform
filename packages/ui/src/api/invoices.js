@@ -1,13 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
-
-const getOrgId = () => String(platformOrgId() || '').trim();
-
-const requireOrgId = () => {
-  const orgId = getOrgId();
-  if (!orgId) throw new Error('Missing active org. Please select an organization.');
-  return orgId;
-};
+import { requireOrgId } from '@platform/context';
 
 export async function listInvoicesApi() {
   const orgId = requireOrgId();

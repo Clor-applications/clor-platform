@@ -12,7 +12,7 @@ import {
   testEmailConnection,
 } from '../../api/email';
 import { EmptyState, Spinner, StatusPill, SkeletonCard } from '@ui/components/ui/Primitives';
-import SettingsScreenHeader from './SettingsScreenHeader';
+import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 
 const TABS = [
   { key: 'server', label: 'Mail server' },

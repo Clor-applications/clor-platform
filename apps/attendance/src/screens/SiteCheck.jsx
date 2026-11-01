@@ -3,7 +3,7 @@ import { LocateFixed, MapPin } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { listGeofences } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
  * Stand where the employees will stand and see what their phone will see.

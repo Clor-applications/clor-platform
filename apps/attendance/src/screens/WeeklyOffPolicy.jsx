@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { EmptyState, PageHeader, SkeletonCard, StatusPill } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { listShifts, updateShift } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { shiftBody } from '../components/shiftBody';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

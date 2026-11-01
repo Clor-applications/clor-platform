@@ -9,7 +9,7 @@ import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPage
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { getReaderPhoto, listBiometrics } from '../api/attendance';
 import { notify } from '@ui/components/ui/notify';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const COLUMNS = {
   employee: (r) => r.employeeName || 'Not matched',

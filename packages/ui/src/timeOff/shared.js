@@ -1,5 +1,6 @@
 import { activeApp } from '@ui/utils/activeApp';
 import { usePermissions } from '@ui/permissions/usePermissions';
+import { can } from '@ui/permissions/can';
 
 /**
  * Time & Leave screens are shared by People and Attendance (TIME-LEAVE-DECISIONS.md,
@@ -7,8 +8,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
  * never show the same request differently. What differs per app lives here.
  */
 
-/** A grant the signed-in user holds (admins hold all). The server checks again; this only hides what would be refused. */
-export const can = (perms, key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
+export { can };
 
 /** What asking for leave, checking in and changing one's own requests need (server: `can(CREATE, R.self)`). */
 export const SELF_ACT = 'ATTENDANCE::My Attendance::CREATE';

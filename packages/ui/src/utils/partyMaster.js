@@ -8,15 +8,10 @@
  */
 
 import { isPriceListInForce } from './pricing';
-
-export const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-export const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+import { isValidPan } from './gstin';
 
 const upper = (v) => String(v ?? '').trim().toUpperCase();
 const text = (v) => String(v ?? '').trim();
-
-export const isValidPan = (v) => PAN_RE.test(upper(v));
-export const isValidGstin = (v) => GSTIN_RE.test(upper(v));
 
 /**
  * What a GSTN lookup is allowed to change.

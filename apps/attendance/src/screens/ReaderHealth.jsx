@@ -6,7 +6,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { StatCards } from '@ui/components/list/ListPageParts';
 import { notify } from '@ui/components/ui/notify';
 import { getReaderHealth, getReaderTimeline, saveReaderAlertSettings } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const ago = (iso) => {
   if (!iso) return 'never';

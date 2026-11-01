@@ -8,23 +8,17 @@
  * so each one can be stated once and tested on its own.
  */
 
+import { PAN_RE, GSTIN_RE, isValidPan, isValidGstin } from './gstin';
+
 /** Four letters, a zero, then six of either. The zero is the part people miss. */
 export const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
-/** Five letters, four digits, a check letter. */
-export const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-
-/**
- * State code, the holder's PAN, entity number, Z, checksum. The PAN sits
- * inside the GSTIN, which is why the form can fill PAN in from it.
- */
-export const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+/* PAN and GSTIN shapes are shared with the party, picker and TDS forms (./gstin). */
+export { PAN_RE, GSTIN_RE, isValidPan, isValidGstin };
 
 const upper = (v) => String(v ?? '').trim().toUpperCase();
 
 export const isValidIfsc = (v) => IFSC_RE.test(upper(v));
-export const isValidPan = (v) => PAN_RE.test(upper(v));
-export const isValidGstin = (v) => GSTIN_RE.test(upper(v));
 
 /**
  * Which side a fresh opening balance sits on.

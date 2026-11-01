@@ -1,22 +1,10 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
-
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
+import { requireOrgId as orgId } from '@platform/context';
+import { queryString as query } from '@platform/query';
 
 const opts = { skipWarehouseHeader: true };
 const base = () => `/orgs/${encodeURIComponent(orgId())}/people`;
 const send = (path, method, body) => apiFetch(`${base()}${path}`, { method, body, ...opts });
-
-const query = (params = {}) => {
-  const q = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
-  const s = q.toString();
-  return s ? `?${s}` : '';
-};
 
 export const getOverview = () => apiFetch(`${base()}/overview`, opts);
 /* People → Home: what needs someone today (server: services/people/home.ts). */

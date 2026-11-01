@@ -9,7 +9,7 @@ import { notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
 import { addDepartmentSchedule, listDepartmentSchedules, listShifts, removeDepartmentSchedule, todayIst } from '../api/attendance';
 import { confirmScheduleChange } from '../components/scheduleCheck';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const COLUMNS = {
   department: (r) => r.departmentName,

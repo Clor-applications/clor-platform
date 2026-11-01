@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * One-off earnings and deductions: a bonus, an arrear, a fine.
@@ -7,12 +7,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * An adjustment belongs to a period, is approved before it is paid, and becomes
  * a record the moment a payroll pays it.
  */
-
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll/adjustments`;
 const opts = { skipWarehouseHeader: true };

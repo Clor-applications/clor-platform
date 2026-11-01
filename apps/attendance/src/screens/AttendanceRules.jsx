@@ -5,7 +5,7 @@ import { notify } from '@ui/components/ui/notify';
 import { getFeatures, setFeatures } from '@ui/api/features';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { dayLabel, getRules, hm, listRuleVersions, listShifts, recompute, recomputeTrust, saveRules, simulateRules, todayIst } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const monthStart = () => `${todayIst().slice(0, 7)}-01`;
 

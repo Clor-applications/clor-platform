@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { sendAppAccess } from './api';
+import { escapeHtml as esc } from '@ui/utils/html';
 
 /*
  * "Send employee app access" (HR-VIEW gap 3), from the directory's bulk bar
@@ -13,7 +14,6 @@ import { sendAppAccess } from './api';
 
 /* The server's own words for when the codes stop (India's time), so this, the sheet and the WhatsApp text agree. */
 const untilWords = (result) => result.expiresWords || new Date(result.expiresAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 /** One slip per person, to cut and hand over. Black on white: it is a printed document. */
 function printSheet(result) {

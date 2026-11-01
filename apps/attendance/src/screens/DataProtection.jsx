@@ -5,7 +5,7 @@ import { PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { getDataProtection, listBreaches, listEmployees, notifyBreach, recordBreach, saveDataProtection, updateBreach } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
  * How this company meets the Digital Personal Data Protection Act, 2023 and

@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * Loans and salary advances.
@@ -7,12 +7,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * A loan is a schedule. It is drafted, previewed, approved — and approving is
  * what writes the schedule and starts taking money out of somebody's pay.
  */
-
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll/loans`;
 const opts = { skipWarehouseHeader: true };

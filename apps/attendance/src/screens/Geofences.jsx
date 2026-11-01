@@ -9,7 +9,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
 import { createGeofence, deleteGeofence, listGeofences, placeAt, searchPlaces, updateGeofence } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /* The map library (Leaflet, ~150 KB) loads with this drawer, not with the app every user downloads. */
 const SiteMap = lazy(() => import('../components/SiteMap'));

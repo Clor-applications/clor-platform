@@ -9,8 +9,7 @@ import { Avatar, taskNote } from '@ui/personnel/Employees';
 
 import { KIND_WORD, OWNER_WORD, orgUsers, updateTask, withOwner } from './api';
 
-/** A grant the signed-in user holds (admins hold all). The server checks again; this only hides what would be refused. */
-export const can = (perms, key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
+export { can } from '@ui/permissions/can';
 export const crumbs = () => [{ label: 'People' }, { label: 'Joining & leaving' }];
 
 /** A person in a list row: avatar, name, then the line under it. */

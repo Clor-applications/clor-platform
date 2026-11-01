@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * The lines a payslip can be built from.
@@ -10,12 +10,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * re-implements a payroll rule in the browser: a second copy of "an employer
  * contribution cannot be part of net pay" is a second copy that can disagree.
  */
-
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll/components`;
 

@@ -1,13 +1,8 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /** Full and final settlements for people who have left. */
 
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll/settlements`;
 const opts = { skipWarehouseHeader: true };
 const one = (r) => r?.settlement;

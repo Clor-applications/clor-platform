@@ -1,4 +1,5 @@
 import { notify } from '@ui/components/ui/notify';
+import { escapeHtml } from '@ui/utils/html';
 
 /**
  * Reader trust (O-11) shared by the records list, the evidence drawer and the
@@ -10,7 +11,6 @@ export const TRUST = {
   MANUAL: { label: 'Manual', pill: 'ui-pill-neutral' },
 };
 
-const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const COLUMNS = [
   ['date', 'Day'], ['punched', 'Punched (IST)'], ['received', 'Received (IST)'], ['delayMinutes', 'Delay (min)'], ['direction', 'Direction'],
   ['readerId', 'Reader ID'], ['serialNumber', 'Serial'], ['reader', 'Reader'], ['method', 'Method'], ['geofence', 'Work site'],

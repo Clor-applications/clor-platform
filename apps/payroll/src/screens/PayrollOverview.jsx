@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { getPayrollOverview } from '../api/payrollOverview';
 import { getPayrollSetup } from '../api/payrollSetup';
+import { wholeRupees as money } from '@ui/utils/money';
 
 /**
  * Where payroll is this month, and what is in the way.
@@ -19,7 +20,6 @@ import { getPayrollSetup } from '../api/payrollSetup';
  * approving, so every card is a way in to the screen that owns the decision.
  */
 
-const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 const shownDate = (iso) => {
   const s = String(iso || '').trim();

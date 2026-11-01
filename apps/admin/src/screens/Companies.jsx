@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowDownUp, Plus, Search } from 'lucide-react';
 
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
+import { isValidGstin } from '@ui/utils/gstin';
 import { archiveCompany, getAccountOverview, reactivateCompany } from '@platform/admin/admin';
 import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
 import CompanyDetail from './CompanyDetail';
@@ -203,7 +204,7 @@ export function AddCompanyForm({ onAdd, onCancel }) {
   const [busy, setBusy] = useState(false);
   const gstinClean = gstin.trim().toUpperCase();
   const gstinState = gstinClean.length >= 2 ? getGstStateFromGstin(gstinClean) : '';
-  const gstinBad = gstinClean && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstinClean);
+  const gstinBad = gstinClean && !isValidGstin(gstinClean);
   const effectiveState = gstinState || state;
 
   return (

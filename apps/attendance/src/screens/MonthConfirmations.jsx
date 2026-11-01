@@ -7,7 +7,7 @@ import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import { getMonthReadiness, todayIst } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
  * Employees confirm their month in the app, or say what is wrong with it.

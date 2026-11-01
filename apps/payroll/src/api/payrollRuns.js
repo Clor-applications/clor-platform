@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * A payroll run, stage by stage.
@@ -9,12 +9,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * the validation says, and only then the arithmetic. The screen follows the
  * same shape.
  */
-
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll/runs`;
 const opts = { skipWarehouseHeader: true };

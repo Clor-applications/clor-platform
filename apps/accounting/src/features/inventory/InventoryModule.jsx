@@ -12,14 +12,10 @@ import { buildItemStockLedger, computeInventorySummaryByItemId, isStockItem } fr
 import { DocDate } from '@ui/components/docs';
 import { csvSafeValue } from '@ui/utils/csv';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { escapeHtml } from '@ui/utils/html';
 
 const safeArray = (v) => (Array.isArray(v) ? v : []);
 
-const escapeHtml = (v) =>
-  String(v ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
 
 /**
  * One way to put a table on paper.

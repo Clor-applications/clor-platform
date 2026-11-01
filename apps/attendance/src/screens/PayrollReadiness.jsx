@@ -5,7 +5,7 @@ import { EmptyState, PageHeader, SkeletonCard, StatTile } from '@ui/components/u
 import { MoreButton } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { getPayrollReadiness, todayIst } from '../api/attendance';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
  * Attendance → Period Closing → Payroll Readiness: the HR research's control

@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * Paying a payroll, and recording what the bank did with it.
@@ -7,12 +7,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * Bank account numbers arrive masked everywhere except the advice file, which
  * is a download rather than something this module ever holds.
  */
-
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll`;
 const opts = { skipWarehouseHeader: true };

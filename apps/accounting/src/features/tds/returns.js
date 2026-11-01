@@ -1,6 +1,7 @@
 import { companyTdsProfile } from './engine';
 import { natureByCode } from './ruleMaster';
 import { allocationsByEvent, isLive, tdsEvents, tdsExceptions, tdsReconciliation } from './reports';
+import { isValidPan } from '@ui/utils/gstin';
 
 /**
  * Is this quarter fit to file?
@@ -16,9 +17,6 @@ import { allocationsByEvent, isLive, tdsEvents, tdsExceptions, tdsReconciliation
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const day = (v) => String(v || '').slice(0, 10);
-
-/** A PAN that the department will actually accept. */
-const isValidPan = (pan) => /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(String(pan || '').trim().toUpperCase());
 
 /**
  * Every check the quarter has to pass, with what failing each one means.

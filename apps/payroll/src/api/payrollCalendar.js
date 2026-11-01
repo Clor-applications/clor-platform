@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { requireOrgId as orgId } from '@platform/context';
 
 /**
  * Who is paid, and for when.
@@ -9,12 +9,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * about them — overlap, locking, what may still be edited — is the server's;
  * the screens report what they are told.
  */
-
-const orgId = () => {
-  const id = platformOrgId();
-  if (!id) throw new Error('Missing active org. Please select an organization.');
-  return id;
-};
 
 const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll`;
 

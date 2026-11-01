@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
-import SettingsScreenHeader from './SettingsScreenHeader';
-import { SETTINGS_ACTIONS_SLOT_ID, SettingsFrameContext } from './settingsFrame';
+import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
+import { SETTINGS_ACTIONS_SLOT_ID, SettingsFrameContext } from '@ui/chrome/settingsFrame';
 
 /**
  * One heading per settings page, wherever the screen is standing.

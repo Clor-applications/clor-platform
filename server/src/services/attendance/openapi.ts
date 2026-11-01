@@ -5,6 +5,8 @@
  * which is also the reminder to document it.
  */
 
+import { escapeHtml as esc } from '../../utils/html.js';
+
 const auth = [{ bearer: [] }, { apiKey: [] }];
 const q = (name: string, description: string, schema: Record<string, unknown> = { type: 'string' }, required = false) => ({ name, in: 'query', description, required, schema });
 const p = (name: string, description: string) => ({ name, in: 'path', required: true, description, schema: { type: 'string' } });
@@ -101,7 +103,6 @@ export const OPENAPI = {
   },
 };
 
-const esc = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 /** Escaped, with `code` spans for the backticks the descriptions use. */
 const prose = (v: unknown) => esc(v).replace(/`([^`]+)`/g, '<code>$1</code>');
 

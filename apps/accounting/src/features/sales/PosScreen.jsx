@@ -9,6 +9,7 @@ import { hasApiSession } from '@ui/api/purchaseDocs';
 import { bumpCompanyNextNumber, getDocSettings } from '@ui/utils/docSettings';
 import DocNumberingPopover from '@ui/components/DocNumberingPopover';
 import { selectedBranchId, selectedWarehouseId } from '@platform/context';
+import { escapeHtml } from '@ui/utils/html';
 
 /**
  * Point of sale — the fast lane for counter sales. Search or tap items, take
@@ -28,7 +29,6 @@ import { selectedBranchId, selectedWarehouseId } from '@platform/context';
  * company, customer or item name is text there, never markup: an item called
  * `<img onerror=…>` would otherwise run in the cashier's session.
  */
-const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 /** The three the counter takes, in the spelling the books use. */
 const TENDERS = [

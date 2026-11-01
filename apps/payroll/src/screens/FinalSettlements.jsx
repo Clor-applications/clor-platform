@@ -21,7 +21,7 @@ import {
   startSettlement,
   updateSettlement,
 } from '../api/payrollSettlements';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const STATUS = {
   DRAFT: { label: 'Draft', pill: 'ui-pill-neutral' },

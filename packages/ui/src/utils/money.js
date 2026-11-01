@@ -179,3 +179,13 @@ export const amountInWordsInr = (value) => {
   const paiseText = paise ? ` and ${wordsUnder100(paise)} Paise` : '';
   return `${negative ? 'Minus ' : ''}Rupees ${body}${paiseText} Only`;
 };
+
+/*
+ * Rupees for reading: ₹ and Indian grouping (₹1,23,456.5). Twenty screens
+ * each wrote their own; these are the two the screens agreed on. A blank or
+ * non-number amount shows as ₹0.
+ */
+/** Up to two decimals, none when whole: ₹1,23,456.5 */
+export const rupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+/** To the rupee: ₹1,23,457 */
+export const wholeRupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;

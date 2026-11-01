@@ -1,13 +1,10 @@
 import { apiFetch } from '@platform/http';
 import { orgId } from '@platform/context';
+import { queryString as query } from '@platform/query';
 
 /* Inspection registers (server: routes/peopleCompliance.ts): each answers { title?, columns: string[], rows: string[][], totals?, notes?, establishment, generatedOn }. */
 const base = () => `/orgs/${encodeURIComponent(orgId())}/people/compliance/registers`;
 const opts = { skipWarehouseHeader: true };
-const query = (params) => {
-  const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''));
-  return q.toString() ? `?${q}` : '';
-};
 
 export const employeeRegister = (establishmentId) => apiFetch(`${base()}/employees${query({ establishmentId })}`, opts);
 export const leaveRegister = (from, to, establishmentId) => apiFetch(`${base()}/leave${query({ from, to, establishmentId })}`, opts);

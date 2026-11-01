@@ -34,7 +34,7 @@ import {
   updateDevice,
 } from '../api/attendance';
 import ReaderEvidence, { ReaderCompatibility, SupportPill } from '../components/ReaderEvidence';
-import LoadFailed from '../components/LoadFailed';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const DIRECTIONS = {
   both: 'In and out (the reader’s keys decide)',

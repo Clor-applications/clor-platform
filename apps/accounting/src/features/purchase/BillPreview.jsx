@@ -6,6 +6,7 @@ import { formatMoney } from '@ui/utils/money';
 import { notify } from '@ui/components/ui/notify';
 import { getCompanyGstProfile } from '@ui/utils/gst';
 import { returnableLines } from '@ui/utils/returns';
+import { escapeHtml as esc } from '@ui/utils/html';
 
 /**
  * A purchase bill as a document.
@@ -16,11 +17,6 @@ import { returnableLines } from '@ui/utils/returns';
  * beside it because that is what people do with a bill they are querying.
  */
 
-const esc = (v) =>
-  String(v ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 
 const BillPreview = ({ db, currentCompany, bill }) => {
   // Terms are stored per document type and were only ever printed on the

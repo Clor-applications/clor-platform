@@ -15,7 +15,7 @@ import {
   removeUserRestriction,
 } from '../../api/governance';
 import { EmptyState, Spinner, SkeletonCard } from '@ui/components/ui/Primitives';
-import SettingsScreenHeader from '../settings/SettingsScreenHeader';
+import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 import { orgId as platformOrgId } from '@platform/context';
 
 const TABS = [

@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import type { Prisma } from '../../../generated/people/index.js';
 import { peoplePrisma } from '../../../utils/peoplePrisma.js';
-import { round2 } from '../../../utils/money.js';
+import { inr, round2 } from '../../../utils/money.js';
 import { verifiedMime } from '../../fileType.js';
 import { notifyPermission, notifyUsers } from '../../notifications.js';
 import type { Actor } from '../changeLog.js';
@@ -47,7 +47,6 @@ export const BILL_MAX_BYTES = 5 * 1024 * 1024;
 const BILL_MIMES = /^(application\/pdf|image\/(jpeg|png|webp))$/;
 const OPEN_CLAIM = ['DRAFT', 'SUBMITTED', 'APPROVED', 'PAYING', 'WITH_SALARY', 'PAID', 'SETTLED'];
 const num = (v: unknown) => (v == null ? 0 : Number(v));
-export const inr = (n: number) => `₹${round2(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 const addDays = (iso: string, n: number) => {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
