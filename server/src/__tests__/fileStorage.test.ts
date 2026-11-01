@@ -18,7 +18,7 @@ const { moveFilesToDatabase, moveFilesToStore } = await import('../services/file
 const { checkCompany } = await import('../services/integrity/checks.js');
 const { deleteCompanyData } = await import('../services/companyClosure.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 afterEach(() => {
   process.env.FILE_STORE = 'memory';

@@ -9,7 +9,7 @@ import request from 'supertest';
 const { isGuardedWrite } = await import('../middleware/idempotency.js');
 const { buildApp } = await import('../app.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
   await platformPrisma.$disconnect();

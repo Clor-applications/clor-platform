@@ -13,7 +13,7 @@ const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
 const { creditsFor, balanceFor, carryLimitOf, workedCredit } = await import('../services/attendance/leaveAccrual.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

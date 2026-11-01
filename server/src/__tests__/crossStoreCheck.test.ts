@@ -17,7 +17,7 @@ const { outsideTenant } = await import('../utils/tenantScope.js');
 const { issueCredential, SYSTEM } = await import('../services/credentials.js');
 const { checkCompany } = await import('../services/integrity/checks.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 const rnd = () => Math.random().toString(36).slice(2, 8);
 

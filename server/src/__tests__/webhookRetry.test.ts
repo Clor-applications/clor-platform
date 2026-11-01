@@ -17,7 +17,7 @@ const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { deliver, retryDueDeliveries } = await import('../services/attendance/webhooks.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 const prevPrivate = process.env.INTEGRATIONS_ALLOW_PRIVATE;
 afterAll(async () => {
   process.env.INTEGRATIONS_ALLOW_PRIVATE = prevPrivate;

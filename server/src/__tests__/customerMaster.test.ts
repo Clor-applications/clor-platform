@@ -17,7 +17,7 @@ import { prisma } from '../utils/prisma.js';
  * them as one list so the form never sees the split.
  */
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 const rnd = () => Math.random().toString(36).slice(2, 8);
 

@@ -17,7 +17,7 @@ import { computeInventorySummaryByItemId } from '../../../packages/ui/src/utils/
  * while its items are held.
  */
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 
 type Ctx = { token: string; orgId: string; branchId: string };

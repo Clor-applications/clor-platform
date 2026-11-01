@@ -17,7 +17,7 @@ const { taskDoneToken } = await import('../services/people/checklists.js');
 const { checkReaderTasks } = await import('../services/people/lifecycle/readersDone.js');
 const { runDigests, startMissingPlans } = await import('../services/people/lifecycle/jobs.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

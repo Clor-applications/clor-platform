@@ -6,7 +6,7 @@ const { payrollPrisma } = await import('../utils/payrollPrisma.js');
 const { approveLeave } = await import('../routes/leave.js');
 import { earned } from '../services/attendance/leaveAccrual.js';
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 let token: string, orgId: string, branchId: string;
 const auth = () => ({ Authorization: `Bearer ${token}`, 'x-org-id': orgId, 'x-branch-id': branchId });
 const api = (method: 'get' | 'post' | 'put' | 'delete', path: string, body?: any) => request(app)[method](`/api/orgs/${orgId}${path}`).set(auth()).send(body);

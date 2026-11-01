@@ -14,7 +14,7 @@ const { outsideTenant } = await import('../utils/tenantScope.js');
 const { hashToken } = await import('../services/credentials.js');
 const { linkExpiry } = await import('../services/shareLinks.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 const rnd = () => Math.random().toString(36).slice(2, 8);
 const DAY = 864e5;

@@ -21,7 +21,7 @@ const { onApproved, resolveApprover, runApprovalDues } = await import('../servic
 const { resolveOwners } = await import('../services/people/checklists.js');
 const { hrMayDecide } = await import('../services/attendance/approvalChain.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

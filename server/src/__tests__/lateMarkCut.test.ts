@@ -18,7 +18,7 @@ const { rulesOf, legacyMarks, marksFromLegacy, withChange } = await import('../s
 const { PrismaClient } = await import('../generated/people/index.js');
 const { costOf, timeMissedOf, policyText } = await import('../services/attendance/markRules.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

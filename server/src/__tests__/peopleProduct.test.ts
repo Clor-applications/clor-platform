@@ -15,7 +15,7 @@ const { runInTenant } = await import('../utils/tenantScope.js');
 const { isoWeekOf, sendWeeklySummary, weeklySummaryFor, summaryText, runWeeklySummaries } = await import('../services/people/weeklySummary.js');
 const { track } = await import('../services/productEvents.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

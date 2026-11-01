@@ -14,7 +14,7 @@ const { buildApp } = await import('../app.js');
 const { prisma } = await import('../utils/prisma.js');
 const { beginRequestScope, outsideTenant, runInTenant } = await import('../utils/tenantScope.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 const rnd = () => Math.random().toString(36).slice(2, 8);
 
 /** A query as a request makes it before naming its company. */

@@ -9,7 +9,7 @@ import request from 'supertest';
 const { buildApp } = await import('../app.js');
 const { sniffMime } = await import('../services/fileType.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 const rnd = () => Math.random().toString(36).slice(2, 8);
 

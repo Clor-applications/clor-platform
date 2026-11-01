@@ -10,7 +10,7 @@ import { startLeaveJobs } from '../services/attendance/leaveJobs.js';
  * background jobs run when Cloud Scheduler wakes them through
  * POST /api/internal/jobs/tick (services/jobRegistry.ts).
  */
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => app.close());
 afterEach(() => {
   delete process.env.JOBS_TOKEN;

@@ -21,7 +21,7 @@ const jobLease = await import('../services/jobLease.js');
 const { codeAt, stepNow } = await import('../services/totp.js');
 const { clearOfStepEdge } = await import('./totpTiming.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 const ownerUrl = () => {
   const url = new URL(String(process.env.PG_ADMIN_URL));
   url.pathname = new URL(String(process.env.DATABASE_URL)).pathname;

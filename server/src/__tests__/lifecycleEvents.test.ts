@@ -12,7 +12,7 @@ process.env.INTEGRATIONS_ALLOW_PRIVATE = 'true';
 const { buildApp } = await import('../app.js');
 const { flushWebhooks } = await import('../services/attendance/webhooks.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 const got: Array<{ event: string; data: any }> = [];
 const sink = http.createServer((req, res) => {
   let body = '';
@@ -27,7 +27,7 @@ const sink = http.createServer((req, res) => {
     res.statusCode = 204;
     res.end();
   });
-}).listen(0);
+}).listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
   await new Promise((done) => sink.close(done));

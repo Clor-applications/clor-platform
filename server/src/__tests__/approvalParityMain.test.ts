@@ -20,7 +20,7 @@ const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/approvalParityMain.json', import.meta.url));
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

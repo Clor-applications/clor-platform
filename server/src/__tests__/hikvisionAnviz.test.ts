@@ -15,7 +15,7 @@ const { _resetAnviz } = await import('../services/attendance/pull/anviz.js');
 const { encryptSecret } = await import('../services/mailer.js');
 const { textParts, punchOf } = await import('../routes/hikvisionPush.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 let prevAllow: string | undefined;
 beforeAll(() => {
   prevAllow = process.env.INTEGRATIONS_ALLOW_PRIVATE;

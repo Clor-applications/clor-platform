@@ -18,7 +18,7 @@ const { chainFor } = await import('../services/attendance/approvalChain.js');
 const { cancelRequest } = await import('../services/attendance/requests.js');
 const { cancelLeaveRequest } = await import('../routes/leave.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

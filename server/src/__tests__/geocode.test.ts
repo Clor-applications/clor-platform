@@ -8,7 +8,7 @@ process.env.INTEGRATIONS_ALLOW_PRIVATE = 'true';
 const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { typedPosition, clearGeocodeCache } = await import('../services/geocode.js');
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
   await peoplePrisma.$disconnect();

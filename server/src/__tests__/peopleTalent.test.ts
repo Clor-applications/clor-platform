@@ -14,7 +14,7 @@ const { runInTenant } = await import('../utils/tenantScope.js');
 const { anonymiseOldCandidates } = await import('../services/people/talent/hiring.js');
 const { addMonths, runCertificateReminders } = await import('../services/people/talent/training.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });
