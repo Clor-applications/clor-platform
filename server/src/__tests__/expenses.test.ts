@@ -6,7 +6,7 @@ import { buildApp } from '../app.js';
  * One listening server for the whole file — see ledger.test.ts for why
  * (per-request listeners were the suite's flake source).
  */
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 
 type Ctx = { token: string; orgId: string; branchId: string; accountId: string; userId: string };

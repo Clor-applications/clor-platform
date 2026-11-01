@@ -16,7 +16,7 @@ const { runReaderChecks } = await import('../services/attendance/readerHealth.js
 const { runDocumentReminders } = await import('../services/people/documentReminders.js');
 const { runBooksDigest, booksDigestFor } = await import('../services/booksDigest.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
   await platformPrisma.$disconnect();

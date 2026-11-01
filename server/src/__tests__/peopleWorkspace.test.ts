@@ -5,7 +5,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { parseRecord } from '../services/people/workspace.js';
 import { runInTenant } from '../utils/tenantScope.js';
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 type Ctx = { token: string; orgId: string; branchId: string };
 const headers = (c: Ctx) => ({ Authorization: `Bearer ${c.token}`, 'x-org-id': c.orgId, 'x-branch-id': c.branchId });
 const path = (c: Ctx, kind: string, id = '') => `/api/orgs/${c.orgId}/people/workspace/${kind}${id ? `/${id}` : ''}`;

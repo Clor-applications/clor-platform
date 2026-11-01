@@ -13,7 +13,7 @@ const { PEOPLE_NAMED } = await import('../routes/audit.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const jwt = (await import('jsonwebtoken')).default;
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

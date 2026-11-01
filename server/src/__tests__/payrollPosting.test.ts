@@ -23,7 +23,7 @@ const { payrollPrisma } = await import('../utils/payrollPrisma.js');
 const { PAYROLL_SOURCE_DOC_TYPE, postPayrollRun, PayrollPostingError } = await import('../services/payroll/posting.js');
 const { accountingFor } = await import('../services/payroll/accounting/client.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
   await payrollPrisma.$disconnect();

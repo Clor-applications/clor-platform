@@ -12,7 +12,7 @@ const { prisma } = await import('../utils/prisma.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { upiIntent, newReference } = await import('../routes/payRequests.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

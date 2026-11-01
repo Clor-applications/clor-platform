@@ -17,7 +17,7 @@ const { deleteCompanyData } = await import('../services/companyClosure.js');
 const creds = await import('../services/credentials.js');
 const { hashToken, issueCredential, verifyCredential, suspendCredential, resumeCredential, revokeCredential, extendCredential, rotateCredential, touchLastUsed, __resetLastUsedGate } = creds;
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 const rnd = () => Math.random().toString(36).slice(2, 10);
 const DAY = 864e5;

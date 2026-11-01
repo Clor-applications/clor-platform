@@ -19,7 +19,7 @@ import { prisma } from '../utils/prisma.js';
  * device hydrated the books — or until a server-side report counted only what
  * it thought was live.
  */
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 const rnd = () => Math.random().toString(36).slice(2, 8);
 

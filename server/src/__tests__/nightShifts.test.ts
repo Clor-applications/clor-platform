@@ -23,7 +23,7 @@ const { clockDateFor } = await import('../services/attendance/punches.js');
 const { nightInstants, shiftHalves, isOvernight } = await import('../services/attendance/compute.js');
 const { timesOn } = await import('../services/attendance/nightShift.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

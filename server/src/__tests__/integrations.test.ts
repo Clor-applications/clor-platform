@@ -10,7 +10,7 @@ const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { flushWebhooks } = await import('../services/attendance/webhooks.js');
 const { blockedReason } = await import('../services/outbound.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
   await peoplePrisma.$disconnect();

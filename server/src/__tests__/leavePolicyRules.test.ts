@@ -17,7 +17,7 @@ const { runInTenant } = await import('../utils/tenantScope.js');
 const { overBalance, planLeave } = await import('../routes/leave.js');
 const { DEFAULT_SHIFT } = await import('../services/attendance/compute.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

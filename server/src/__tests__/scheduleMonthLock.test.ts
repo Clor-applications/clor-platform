@@ -13,7 +13,7 @@ const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { loadSchedule, resolveShift, weeksBefore } = await import('../services/attendance/schedule.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
   await peoplePrisma.$disconnect();

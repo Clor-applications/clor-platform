@@ -15,7 +15,7 @@ const { syncAllVendorConnections } = await import('../services/attendance/vendor
 const { planLdapSync, adActive, pullWindow, readTallyReply, hikvisionTimeZone, clockOffsetSeconds, clockSetDue, localStamp } = await import('../../agent/src/plan.js');
 const { assessConnector, runReaderChecks } = await import('../services/attendance/readerHealth.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
   await peoplePrisma.$disconnect();

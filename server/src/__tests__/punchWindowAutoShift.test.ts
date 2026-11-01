@@ -12,7 +12,7 @@ const { recomputeDeviceDay } = await import('../services/attendance/punches.js')
 const { pickShift, inPunchWindow } = await import('../services/attendance/autoShift.js');
 const { DEFAULT_SHIFT } = await import('../services/attendance/compute.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

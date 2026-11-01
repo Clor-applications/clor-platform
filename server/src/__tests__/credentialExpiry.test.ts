@@ -14,7 +14,7 @@ const { outsideTenant } = await import('../utils/tenantScope.js');
 const { hashToken, markReviewed } = await import('../services/credentials.js');
 const { warnExpiring, recordExpired, retireOrphans } = await import('../services/credentialReview.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 const rnd = () => Math.random().toString(36).slice(2, 8);
 const DAY = 864e5;

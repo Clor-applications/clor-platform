@@ -12,7 +12,7 @@ const { runInTenant } = await import('../utils/tenantScope.js');
 const { codeAt, stepNow } = await import('../services/totp.js');
 const { clearOfStepEdge } = await import('./totpTiming.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

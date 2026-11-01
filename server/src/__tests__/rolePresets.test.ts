@@ -12,7 +12,7 @@ import { ROLE_PRESETS, expandPreset, isKnownPermission, flattenCatalog } from '.
  * to the documents its holder raised, Odoo's "Own Documents Only".
  */
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 
 type Ctx = { token: string; orgId: string; branchId: string; userId: string };

@@ -13,7 +13,7 @@ const { readField3, clockFixDue, clockParts } = await import('../routes/matrix.j
 const { matrixRefId, matrixUserConfig, commandEffect, removalCommandsFor } = await import('../services/attendance/adms.js');
 const { setTimeCommand } = await import('../services/attendance/adms.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
   await peoplePrisma.$disconnect();

@@ -12,7 +12,7 @@ import { buildApp } from '../app.js';
  * created the company, whatever their role now.
  */
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 const rnd = () => Math.random().toString(36).slice(2, 8);
 

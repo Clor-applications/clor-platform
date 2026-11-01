@@ -11,7 +11,7 @@ import { prisma } from '../utils/prisma.js';
  * warehouses, and on which dates.
  */
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 
 type Ctx = { token: string; orgId: string; branchId: string; userId?: string };

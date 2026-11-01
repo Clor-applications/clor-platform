@@ -22,7 +22,7 @@ import { runDueSchedules } from '../services/recurring.js';
  * instance or a failed insert does.
  */
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 const rnd = () => Math.random().toString(36).slice(2, 8);
 
 /* The owner's connection to this run's database: the application role may not create triggers. */

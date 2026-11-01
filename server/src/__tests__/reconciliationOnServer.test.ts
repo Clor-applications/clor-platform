@@ -10,7 +10,7 @@ import { buildApp } from '../app.js';
  * next reload.
  */
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 
 type Ctx = { token: string; orgId: string; branchId: string };

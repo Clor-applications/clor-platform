@@ -14,7 +14,7 @@ const { platformPrisma } = await import('../utils/platformPrisma.js');
 const portal = await import('../services/attendance/portal.js');
 const { purgePunchPhotos } = await import('../services/attendance/punchPhotos.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
   await peoplePrisma.$disconnect();

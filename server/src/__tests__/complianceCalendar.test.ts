@@ -9,7 +9,7 @@ import request from 'supertest';
 const { buildApp } = await import('../app.js');
 const { dueDates } = await import('../services/people/compliance.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
   await new Promise((done) => app.close(done));
 });

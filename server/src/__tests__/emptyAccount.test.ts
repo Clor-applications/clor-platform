@@ -15,7 +15,7 @@ const { outsideTenant } = await import('../utils/tenantScope.js');
 const { deleteCompanyData, closeEmptyAccount } = await import('../services/companyClosure.js');
 const { __setGateway } = await import('../billing/gateway.js');
 
-const app = buildApp().listen(0);
+const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 afterEach(() => __setGateway(null));
 const rnd = () => Math.random().toString(36).slice(2, 8);
