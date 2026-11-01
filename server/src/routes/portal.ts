@@ -27,7 +27,7 @@ import { normaliseCode, passwordProblem } from '../services/attendance/portal.js
 import { chainFor } from '../services/attendance/approvalChain.js';
 import { askOvertime, attentionFor, chainsFor, confirmMonth, decideOvertime, monthReview, overtimeFor, ruleTimelineOf, timelineOf, upcomingShifts } from '../services/attendance/selfService.js';
 import { portalOf } from '../services/attendance/leaveRules.js';
-import { decideLeaveOnEngine, engineLeaveNaming, engineStepOf, offEngine } from '../services/attendance/leaveEngine.js';
+import { decideLeaveOnEngine, decidesNow, engineLeaveNaming, engineStepOf, offEngine, withWhom } from '../services/attendance/leaveEngine.js';
 import { createRequest } from './attendance.js';
 import { REASON_CODES } from '../services/attendance/corrections.js';
 import { KINDS, KIND_WORDS, askRequest, cancelRequest, chainOf, decideRequest, editRequest, rulesFor, shiftChoices, usage as requestUsage } from '../services/attendance/requests.js';
@@ -747,7 +747,8 @@ portalRouter.get('/leave', async (req, res) => {
     year,
     today: today(),
     types: types.filter((t) => t.isActive && (eligibleFor(t as any, req.portal!.employee as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, allowHalfDay: t.allowHalfDay, unit: t.unit, hoursPerDay: t.hoursPerDay ?? null, ...mine.get(t.id) })),
-    requests: (await withTypes(orgId, requests)).map((r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null, groupId: r.groupId ?? null })),
+    /* Waiting on the approval engine: who it is with now, "With Ravi (your manager)" (SPEC 5.7). */
+    requests: await Promise.all((await withTypes(orgId, requests)).map(async (r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null, groupId: r.groupId ?? null, withWhom: r.status === 'PENDING' ? await withWhom(orgId, r) : null }))),
   });
 });
 
@@ -877,7 +878,10 @@ portalRouter.get('/approvals', async (req, res) => {
   const ruleLeaves = await peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, status: 'PENDING', ruleId: { not: null }, stepUserIds: { hasSome: me } }, orderBy: { createdAt: 'asc' } });
   /* Leave on the approval engine (2c) waits on whoever its step names now, team or not: my team's is mine only when its step names me. */
   const engineMine = await engineLeaveNaming(e.orgId, me);
-  const engineLeaves = engineMine.size ? await peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, status: 'PENDING', id: { in: [...engineMine] } }, orderBy: { createdAt: 'asc' } }) : [];
+  const named = engineMine.size ? await peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, status: 'PENDING', id: { in: [...engineMine] } }, orderBy: { createdAt: 'asc' } }) : [];
+  /* Only what I may still decide (worked out live): a stand-in whose dates ended, or a manager passed up while away, no longer sees it. */
+  const engineLeaves = [];
+  for (const r of named) if ((await decidesNow(e.accountId, e.orgId, r, portalOf(e.id))) || (e.userId && (await decidesNow(e.accountId, e.orgId, r, e.userId)))) engineLeaves.push(r);
   const [leaves, corrections, fieldPunches] = ids.length || decidedIds.length || leaveIds.length
     ? await Promise.all([
         leaveIds.length ? peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: leaveIds }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }) : [],

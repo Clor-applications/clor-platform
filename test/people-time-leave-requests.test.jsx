@@ -80,4 +80,19 @@ describe('Leave requests', () => {
     expect(onClose).toHaveBeenCalled();
     expect(openScreen).toHaveBeenCalledWith('leaveTypes');
   });
+
+  it('on the approval engine: the steps as a short timeline, who decides now, and the leave right still decides', async () => {
+    api.getLeaveRequest.mockResolvedValueOnce({
+      request: row, history: [], dates: [], balance: null, parts: [], alsoAway: [], waitingForManager: null,
+      step: { engine: true, rule: 'Standard: the manager, then HR', of: 2, current: 2, waitingFor: ['Asha', 'Kavya'], dueAt: null, yours: false,
+        timeline: [{ order: 1, status: 'APPROVED', text: 'Ravi (manager) approved', on: '2026-10-31' }, { order: 2, status: 'WAITING', text: 'Waiting for Asha, Kavya (HR)', on: '2026-11-03' }] },
+    });
+    const { default: LeaveRequests } = await import('../packages/ui/src/timeOff/LeaveRequests');
+    render(<LeaveRequests params={{ id: 'r1' }} updateParams={() => {}} />);
+    expect(await screen.findByText('Ravi (manager) approved')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Steps' })).toHaveTextContent('Waiting for Asha, Kavya (HR)');
+    expect(screen.getByText('Standard: the manager, then HR')).toBeInTheDocument();
+    /* The leave right (an admin here) still decides, as on the chain. */
+    expect(screen.getByRole('button', { name: /Approve/ })).toBeInTheDocument();
+  });
 });

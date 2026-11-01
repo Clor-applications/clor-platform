@@ -13,7 +13,7 @@ import { teamScope } from '../people/scope.js';
 import { registerJob } from '../jobRegistry.js';
 import { addWorkingDays, REMIND_EVERY_WORKING_DAYS } from '../people/approvals/engine.js';
 import { deciders, stepsOf } from './leaveRules.js';
-import { handOnLeaveOnEngine } from './leaveEngine.js';
+import { handOnLeaveOnEngine, isOnEngine, refreshLeaveSteps } from './leaveEngine.js';
 import { automation, recordRun } from '../people/engagement/automations.js';
 
 /**
@@ -58,12 +58,14 @@ export async function runLeaveHandOns(now = new Date()) {
       /* The hand-on and the notice to HR commit together (closure audit O-07). */
       const { tellWaiting } = await import('../../routes/leave.js');
       const claimed = await peopleWrite(t.orgId, async () => {
+        /* On the approval engine (2c), the engine's step moves first: HR's step opens, or HR takes the manager's. With nobody to take it, it stays, and nothing is written on the leave. */
+        if (await isOnEngine(t.orgId, r) && !(await handOnLeaveOnEngine(t.orgId, r, `Handed on to HR: no decision from the manager in ${t.handOnAfterDays} days`))) return { count: 0 };
         const c = await peoplePrisma.leaveRequest.updateMany({ where: { id: r.id, status: 'PENDING', managerApprovedAt: null, updatedAt: r.updatedAt }, data: { managerApprovedAt: now, managerApprovedById: null, managerNote: `Handed on to HR: no decision in ${t.handOnAfterDays} days`, history } });
-        /* On the approval engine (2c), its step is handed on too: HR's step opens, or HR takes the manager's. */
-        if (c.count) await handOnLeaveOnEngine(t.orgId, r, `Handed on to HR: no decision from the manager in ${t.handOnAfterDays} days`);
-        if (c.count) await tellWaiting(t.orgId, r.id);
+        /* Written over meanwhile (a decision): the engine's move is undone with it. */
+        if (!c.count) throw Object.assign(new Error('decided meanwhile'), { skip: true });
+        await tellWaiting(t.orgId, r.id);
         return c;
-      });
+      }).catch((e) => { if (e?.skip) return { count: 0 }; throw e; });
       if (!claimed.count) continue;
       await platformPrisma.auditLog
         .create({ data: { accountId: r.accountId, orgId: t.orgId, branchId: '', entity: 'LeaveRequest', entityId: r.id, action: 'HAND_ON', message: `Handed on to HR: no decision from the manager in ${t.handOnAfterDays} days`, metadata: JSON.stringify({ employeeId: r.employeeId, leaveTypeId: r.leaveTypeId }), createdByUserId: 'system' } })
@@ -233,11 +235,32 @@ export async function runLeaveRuleDues(now = new Date()) {
   return { due: seen.size, reminded, handedOn };
 }
 
+/**
+ * Leave waiting on the approval engine, its steps' people worked out again for today, hourly (phase 2c-ii): an
+ * approver whose leave starts today is passed up, one back from leave gets it again, a stand-in whose dates began
+ * or ended is in or out, and whoever it goes to is told. Also catches a big company's refresh a screen left to it.
+ * One company that fails is logged and the rest go on.
+ */
+export async function runLeaveEngineRefresh() {
+  const { outsideTenant, runInTenant } = await import('../../utils/tenantScope.js');
+  const orgs = await outsideTenant('job: leave on the engine', () => peoplePrisma.approvalRequest.groupBy({ by: ['accountId', 'orgId'], where: { sourceKind: 'LEAVE', status: 'WAITING' } }));
+  let moved = 0;
+  for (const o of orgs) {
+    try {
+      moved += Math.max(0, await runInTenant(o.orgId, () => refreshLeaveSteps(o.accountId, o.orgId)));
+    } catch (e) {
+      console.error(`[leave-engine] refresh: org ${o.orgId}:`, e instanceof Error ? e.message : e);
+    }
+  }
+  return moved;
+}
+
 export function startLeaveJobs({ intervalMs = 3_600_000, startupDelayMs = 180_000 } = {}) {
   const tick = () =>
     exclusive('leave.automation', leaseFor(intervalMs), async () => {
       await runLeaveHandOns();
       await runLeaveRuleDues();
+      await runLeaveEngineRefresh();
       /* The digest goes out once, in the morning (IST), not every hour. */
       const hour = (new Date(Date.now() + 330 * 60_000).getUTCHours());
       if (hour >= 9 && hour < 11) {

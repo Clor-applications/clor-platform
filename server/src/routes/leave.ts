@@ -44,7 +44,7 @@ import { Prisma as PeoplePrisma } from '../generated/people/index.js';
 import { authorize } from '../middleware/rbac.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { inScope, teamScope, type TeamScope } from '../services/people/scope.js';
-import { decideLeaveOnEngine, decidesNow, refreshLeaveSteps, engineLeaveNaming, engineQueue, engineRequestOf, engineStepOf, openLeaveOnEngine, restartLeaveOnEngine, syncLeaveDecision } from '../services/attendance/leaveEngine.js';
+import { decideLeaveOnEngine, decidesNow, engineStepView, goesOnEngine, refreshForPerson, refreshLeaveSteps, engineLeaveNaming, engineQueue, engineRequestOf, engineStepOf, openLeaveOnEngine, restartLeaveOnEngine, syncLeaveDecision } from '../services/attendance/leaveEngine.js';
 
 /**
  * Leave, basic (after Horilla HRMS's leave app; reference only).
@@ -88,6 +88,17 @@ const canOrStep = (action: string, resource: string) => {
     return gate(req, res, next);
   };
 };
+/**
+ * Whoever may decide a leave on the engine now (worked out live) as its leave rule names them: like a step of the
+ * walker, they open it, and read what they decide on, outside their team. A chain's decider is in the team anyway.
+ */
+async function engineStepper(accountId: string, orgId: string, r: { id: string; groupId: string | null; status: string; ruleId: string | null }, userId: string) {
+  if (r.status !== 'PENDING' || r.ruleId) return false;
+  const step = await engineStepOf(orgId, r);
+  if (!step || step.preset !== 'RULE') return false;
+  return decidesNow(accountId, orgId, r, userId);
+}
+const onEngineNow = (e: Awaited<ReturnType<typeof engineRequestOf>>) => Boolean(e && e.status === 'WAITING' && e.steps.some((s) => s.status === 'WAITING'));
 const base = '/orgs/:orgId/attendance/leave';
 const MAX_SPAN_DAYS = 60;
 /** The longest single request: 26 weeks. A type's own longest request above 60 days lifts the span to it. */
@@ -1238,15 +1249,18 @@ export async function createLeave(
      * the chain, and so does anything longer than the rule allows.
      */
     const withinBalance = plan.parts.every((p) => p.balance.after == null || p.balance.after >= 0) && !plan.lossOfPay;
-    if (autoAllowed && plan.type.autoApproveUpToDays != null && plan.total <= plan.type.autoApproveUpToDays && withinBalance) {
+    const autoApproves = autoAllowed && plan.type.autoApproveUpToDays != null && plan.total <= plan.type.autoApproveUpToDays && withinBalance;
+    /* A company whose leave is on the approval engine (workflow engine 2c): the type's auto-approval and the leave rule are the engine's. */
+    const onEngine = await goesOnEngine(orgId, plan.type.id);
+    if (autoApproves && !onEngine) {
       /* The rule could not approve it (a clock-in that day, a closed month, something approved on it): it waits for a person instead, and the story says why. */
       rows = await approveByRule(accountId, orgId, rows, 'Approved by the leave rule', 'Not approved by the leave rule');
     }
     /* Still waiting, and its type follows the company's leave rule: the first step opens. */
-    rows = await startRule(accountId, orgId, rows);
-    /* Still waiting on a simple chain, in a company whose leave is on the approval engine: its request opens there (workflow engine 2c). */
+    if (!onEngine) rows = await startRule(accountId, orgId, rows);
+    /* On the engine: its request opens there, approved by the rule when the type approves it on its own. */
     const waitingBefore = new Set(rows.filter((r: any) => r.status === 'PENDING').map((r: any) => r.id));
-    rows = await openLeaveOnEngine(accountId, orgId, rows);
+    rows = await openLeaveOnEngine(accountId, orgId, rows, { autoApproved: autoApproves ? 'Approved by the leave rule' : null });
     /* Announced inside the transaction: the notice is queued with the request (closure audit O-07). One the engine approved at once was announced when it was approved: once is enough. */
     const shaped: any[] = [];
     for (const row of rows) shaped.push(waitingBefore.has(row.id) && row.status !== 'PENDING' ? (await withTypes(orgId, [row]))[0] : await announce(orgId, row));
@@ -1499,7 +1513,7 @@ export async function rejectLeave(orgId: string, r: any, userId: string, note: s
  * one leave, so it is approved or refused as one.
  */
 /** `opts.chain: false`: the approval engine decided who approves (leave on the engine); the chain's own turn is not asked again. */
-export async function decideLeave(accountId: string, orgId: string, r: any, userId: string, note: string | null, approve: boolean, opts: { chain?: boolean } = {}) {
+export async function decideLeave(accountId: string, orgId: string, r: any, userId: string, note: string | null, approve: boolean, opts: { chain?: boolean; auto?: boolean } = {}) {
   const out = await decideLeaveParts(accountId, orgId, r, userId, note, approve, opts);
   /* After the decision is written: telemetry never decides whether it stands. */
   const decision = approve ? 'approved' : 'rejected';
@@ -1507,7 +1521,7 @@ export async function decideLeave(accountId: string, orgId: string, r: any, user
   return out;
 }
 
-async function decideLeaveParts(accountId: string, orgId: string, r: any, userId: string, note: string | null, approve: boolean, opts: { chain?: boolean } = {}) {
+async function decideLeaveParts(accountId: string, orgId: string, r: any, userId: string, note: string | null, approve: boolean, opts: { chain?: boolean; auto?: boolean } = {}) {
   return peopleWrite(orgId, async () => {
     const parts = r.groupId ? await peoplePrisma.leaveRequest.findMany({ where: { orgId, groupId: r.groupId, status: 'PENDING', id: { not: r.id } }, orderBy: { fromDate: 'asc' } }) : [];
     const first = approve ? await approveLeave(accountId, orgId, r, userId, note, opts) : await rejectLeave(orgId, r, userId, note);
@@ -1554,6 +1568,9 @@ export async function managerStep(orgId: string, r: any, managerId: string, note
 async function announce(orgId: string, row: any, extra: { approvedBy?: string | null } = {}) {
   /* Decided or withdrawn anywhere but the engine's own steps: its engine request, if it has one, closes to match. */
   await syncLeaveDecision(orgId, row);
+  /* Away all of today, or back: the leave they decide on the engine goes up, or comes back, and whoever has it now is told. */
+  const day = today();
+  if ((row.status === 'APPROVED' || row.status === 'CANCELLED') && row.fromDate <= day && row.toDate >= day && !row.halfDay && !row.fromTime) await refreshForPerson(row.accountId, orgId, row.employeeId);
   const shaped = (await withTypes(orgId, [row]))[0];
   const event = leaveEventFor(row.status);
   if (event) afterPeopleCommit(() => emitWebhook(orgId, event, leaveEvent(shaped)));
@@ -1575,7 +1592,8 @@ async function queueLeaveNotice(orgId: string, shaped: any, extra: { approvedBy?
   const engine = shaped.status === 'PENDING' && !shaped.ruleId ? await engineStepOf(orgId, shaped) : null;
   /* ...or past a manager's step nobody could take (a manager who can sign in nowhere): straight to HR's step. */
   const pastManager = engine?.preset === 'MANAGER_THEN_HR' && engine.order === 2 && !shaped.managerApprovedAt;
-  const handedUp = engine && (engine.how === 'AWAY_HANDED_UP' || pastManager) ? { handedUpTo: engine.candidates, handedUpNote: engine.comment } : {};
+  /* ...or the company's leave rule, whose step's people are told as its own walker told them; or a step handed on. */
+  const handedUp = engine && (engine.how === 'AWAY_HANDED_UP' || engine.how === 'HANDED_ON' || pastManager || engine.preset === 'RULE') ? { handedUpTo: engine.candidates, handedUpNote: engine.preset === 'RULE' ? null : engine.comment, ...(engine.preset === 'RULE' ? { engineStep: engine.order } : {}) } : {};
   await queueNotice({ accountId: shaped.accountId, orgId }, 'leave', { request: { ...leaveSnapshot(shaped), ...handedUp }, rev: revisionOf(shaped.history), approvedBy: extra.approvedBy ?? null }, { employeeId: shaped.employeeId, correlationId: `leave_request_${shaped.id}` });
 }
 
@@ -1642,7 +1660,10 @@ export async function tellAboutLeave(orgId: string, r: any, ctx: { approvedBy?: 
     /* On the approval engine, sent up past a manager who is away: whoever it was sent to is told, not the manager. */
     if (Array.isArray(r.handedUpTo)) {
       const to = (r.handedUpTo as string[]).filter((u) => !u.startsWith('portal:'));
-      if (to.length) await sendNotice(emp.accountId, orgId, to, { kind: 'attendance.leave_asked', title: `${who} asks for ${what}, ${when}`, body: [leaveNoticeBody(r, days), r.handedUpNote].filter(Boolean).join('. '), link }, { except: r.requestedByUserId, dedupeKey, subjectKey: `leave:${r.id}` });
+      const step = Number(r.engineStep) || 0;
+      const title = step > 1 ? `${who}'s ${what}, ${when}, waits for you (step ${step})` : `${who} asks for ${what}, ${when}`;
+      const stepLink = step && app === 'people' ? { app, screen: 'approvals' } : link;
+      if (to.length) await sendNotice(emp.accountId, orgId, to, { kind: 'attendance.leave_asked', title, body: [leaveNoticeBody(r, days), r.handedUpNote].filter(Boolean).join('. '), link: stepLink }, { except: r.requestedByUserId, dedupeKey: step ? `leave-asked:${r.id}:step${step}:${ctx.rev ?? 0}` : dedupeKey, subjectKey: `leave:${r.id}` });
       return;
     }
     const chain = await leaveChainFor(orgId, r.leaveTypeId);
@@ -1715,16 +1736,25 @@ export async function waitingForReader(orgId: string, scope: TeamScope, userId: 
   const engineMine = (r: { id: string; employeeId: string }) => {
     const q = queue.get(leadOf.get(r.id) || r.id);
     if (!q) return null;
-    if (q.candidates.includes(userId)) return true;
-    /* Whoever approves leave for the person, also one who started since the step opened: HR stepping in, or HR's own step (after the manager: company-wide, never who took the manager's step). Deciding is checked live. */
+    /* Named on the step: someone who approves leave sees it; anyone else (a manager or stand-in by record) only while they may still decide it, checked live below. */
+    if (q.candidates.includes(userId)) return approvesLeave ? true : 'LIVE';
+    /* Whoever approves leave for the person, also one who started since the step opened: HR stepping in, or HR's own step (after the manager, and on the leave rule: company-wide, never who took the manager's step). Deciding is checked live. */
     if (!approvesLeave || !inScope(scope, r.employeeId) || ownIds.has(r.employeeId)) return false;
     if (q.stepIn === 'HR') return true;
+    if (q.preset === 'RULE') return q.hrStep && Boolean(scope.all) && !q.tookFirst.includes(userId);
     return q.hrStep && (q.preset !== 'MANAGER_THEN_HR' || q.step !== 2 || (scope.all && !q.tookFirst.includes(userId)));
   };
+  /* The queue shows only what this reader may still decide: a stand-in whose dates ended, a manager handed past, are not shown it. */
+  const liveFor = new Map<string, boolean>();
+  for (const r of [...inScopeRows, ...namedParts]) {
+    if (engineMine(r) !== 'LIVE' || liveFor.has(r.id)) continue;
+    liveFor.set(r.id, await decidesNow(r.accountId, orgId, r, userId));
+  }
+  const engineSees = (r: { id: string; employeeId: string }) => { const e = engineMine(r); return e === 'LIVE' ? Boolean(liveFor.get(r.id)) : e; };
   const rows = [
-    ...inScopeRows.filter((r) => { const e = engineMine(r); return e === null ? !r.ruleId || r.stepUserIds.includes(userId) : e; }),
+    ...inScopeRows.filter((r) => { const e = engineSees(r); return e === null ? !r.ruleId || r.stepUserIds.includes(userId) : e; }),
     ...named.filter((r) => !seenIds.has(r.id)),
-    ...namedParts.filter((r) => !seenIds.has(r.id) && !named.some((n) => n.id === r.id) && engineMine(r)),
+    ...namedParts.filter((r) => !seenIds.has(r.id) && !named.some((n) => n.id === r.id) && engineSees(r)),
   ].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   for (const r of rows) if (queue.has(leadOf.get(r.id) || r.id)) leadIds.add(r.id);
   if (!rows.length) return rows;
@@ -2488,7 +2518,7 @@ leaveRouter.get(`${base}/requests/:id/document`, canOrStep(PermissionAction.VIEW
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  const stepper = Boolean(r && takesStep(r, [req.auth!.userId]));
+  const stepper = Boolean(r && (takesStep(r, [req.auth!.userId]) || (await engineStepper(accountId, orgId, r, req.auth!.userId))));
   if (!r || (!inScope(await leaveScope(req), r.employeeId) && !stepper) || !r.attachmentDocId) return res.status(404).json({ error: 'No document with this request.' });
   const type = await peoplePrisma.leaveType.findFirst({ where: { id: r.leaveTypeId, orgId }, select: { isPrivate: true } });
   if (type?.isPrivate && !stepper && !(await readsPrivateLeave(req))) return res.status(404).json({ error: 'No document with this request.' });
@@ -2508,7 +2538,7 @@ leaveRouter.get(`${base}/requests/:id`, canOrStep(PermissionAction.VIEW, R.leave
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  const stepper = Boolean(r && takesStep(r, [req.auth!.userId]));
+  const stepper = Boolean(r && (takesStep(r, [req.auth!.userId]) || (await engineStepper(accountId, orgId, r, req.auth!.userId))));
   if (!r || (!inScope(await leaveScope(req), r.employeeId) && !stepper)) return res.status(404).json({ error: 'No such request.' });
   try {
     /* Whoever decides a step reads what they decide on, a private type's reason included. */
@@ -2556,7 +2586,7 @@ leaveRouter.get(`${base}/requests/:id`, canOrStep(PermissionAction.VIEW, R.leave
       alsoAway: await alsoAway(req, orgId, r.employeeId, r.fromDate, r.toDate, reads),
       waitingForManager: turn.ok || takesManagerStep ? null : turn.error,
       ownRequest: Boolean(employee?.userId && employee.userId === req.auth!.userId),
-      step: await stepView(orgId, r, req.auth!.userId),
+      step: r.ruleId ? await stepView(orgId, r, req.auth!.userId) : await engineStepView(accountId, orgId, r, req.auth!.userId),
       document: r.attachmentDocId && reads ? await peoplePrisma.employeeDocument.findFirst({ where: { id: r.attachmentDocId, orgId }, select: { id: true, title: true, mime: true, size: true } }) : null,
       documentNeeded: Boolean(type && documentNeeded(type, r.days)),
     });
@@ -2872,7 +2902,7 @@ export async function editLeave(accountId: string, orgId: string, r: any, body: 
     }
     /* A changed request starts the approval again: under the rule, from its first step. */
     const edited = groupId ? await peoplePrisma.leaveRequest.findMany({ where: { orgId, groupId }, orderBy: { fromDate: 'asc' } }) : [first];
-    const ruled = await startRule(accountId, orgId, edited);
+    const ruled = onEngineNow(engine) ? edited : await startRule(accountId, orgId, edited);
     await restartLeaveOnEngine(accountId, orgId, engine, ruled, by);
     const now = await peoplePrisma.leaveRequest.findMany({ where: { orgId, id: { in: ruled.map((x: any) => x.id) } } });
     return announce(orgId, now.find((x: any) => x.id === first.id) || first);
@@ -3048,7 +3078,7 @@ leaveRouter.post(`${base}/stand-ins`, can(PermissionAction.APPROVE, R.leave), as
   /* Audited under the name the People audit list already shows for stand-ins. */
   await recordAudit(req, { entity: 'ApprovalStandIn', entityId: row.id, action: 'CREATE', message: `${standIn.name} stands in for ${manager.name}, ${b.fromDate} to ${b.toDate}`, metadata: { ...b, requestTypes: types } });
   /* Leave already waiting on the engine: its steps take the stand-in in (or out) now. */
-  await refreshLeaveSteps(accountId, orgId);
+  await refreshLeaveSteps(accountId, orgId, { inline: true });
   res.status(201).json({ standIn: { ...row, managerEmployeeId: manager.id, managerName: manager.name, standInName: standIn.name } });
 });
 
@@ -3063,7 +3093,7 @@ leaveRouter.delete(`${base}/stand-ins/:id`, can(PermissionAction.APPROVE, R.leav
   const mine = (await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } }))?.id;
   if (coversPeople(row.requestTypes) && row.employeeId !== mine) return res.status(403).json({ error: 'This one also hands on their other approvals, so only they can remove it.' });
   await removeStandIn(orgId, row);
-  await refreshLeaveSteps(req.tenant!.accountId, orgId);
+  await refreshLeaveSteps(req.tenant!.accountId, orgId, { inline: true });
   await recordAudit(req, { entity: 'ApprovalStandIn', entityId: row.id, action: 'DELETE', message: `Stand-in removed (${row.fromDate} to ${row.toDate})`, metadata: { managerEmployeeId: row.employeeId } });
   res.json({ ok: true });
 });
