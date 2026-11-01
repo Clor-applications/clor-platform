@@ -2967,13 +2967,26 @@ model ApprovalRule {
   requestType     String
   version         Int      @default(1)
   active          Boolean  @default(true)
-  /// [{ order, approver: { kind: MANAGER | MANAGER_OF_MANAGER | USER | ROLE | HR, id? }, condition?: { field, op: changed | eq | ne, value? }, dueDays, overdue: { action: REMIND | HAND_ON, to?: { kind, id? } } }]
+  /// specVersion 1: [{ order, approver: { kind, id? }, condition?, dueDays, overdue? }].
+  /// specVersion 2 (docs/people/workflow-engine/SPEC.md 5.2): [{ order, approvers: [{ kind, id? }], mode: ANY | ALL, when?: [conditions], due: { hours? | workingDays? }, overdue?, stepIn?, ifRequester? }].
+  /// Both are read through normaliseSteps (services/people/approvals/spec.ts).
   steps           Json
+  /// 1 = the first step shape, 2 = section 5.2. A rule is written as 2 on its next save.
+  specVersion     Int      @default(1)
+  /// "" = the type's main rule; else a stable key for a variant (a branch, a department).
+  variantKey      String   @default("")
+  /// Conditions that pick this variant: the most specific matching variant wins, then the higher priority.
+  appliesWhen     Json?
+  priority        Int      @default(0)
+  /// [{ when: [conditions] }]: approved with no person asked when any entry holds. Never on money types.
+  autoApprove     Json?
+  /// HR_OR_MANAGER | MANAGER | MANAGER_THEN_HR | ... when made by seedPresets (phase 2c).
+  presetKey       String?
   createdByUserId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  @@unique([orgId, requestType, version])
+  @@unique([orgId, requestType, variantKey, version])
   @@index([orgId, requestType, active])
 }
 
@@ -2997,12 +3010,18 @@ model ApprovalRequest {
   idempotencyKey    String?
   decisionId        String?
   outcome           Json?
+  /// The module record this request decides, when the module keeps its own (LEAVE, ATTENDANCE, ...; phase 2c on). Null: the engine's own.
+  sourceKind        String?
+  sourceId          String?
+  /// The rule variant it was submitted under ("" = the main rule).
+  ruleVariant       String   @default("")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   steps ApprovalStep[]
 
   @@unique([orgId, idempotencyKey])
+  @@unique([orgId, sourceKind, sourceId])
   @@index([orgId, status, createdAt])
   @@index([orgId, subjectEmployeeId])
   @@index([orgId, requesterUserId])
@@ -3027,6 +3046,12 @@ model ApprovalStep {
   decidedByUserId  String?
   decidedAt        DateTime?
   remindedAt       DateTime?
+  /// ALL mode: one row per approver spec of the step (0..n); ANY mode: 0.
+  slot             Int       @default(0)
+  /// ANY | ALL
+  mode             String    @default("ANY")
+  /// How the deciders were found or the step was closed: MANAGER | STAND_IN | AWAY_HANDED_UP | NEXT_UP | STEP_IN | SELF_APPROVED | LAST_RESORT | AUTO_APPROVED
+  resolvedHow      String?
   createdAt        DateTime  @default(now())
 
   request ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)

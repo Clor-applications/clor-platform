@@ -137,7 +137,11 @@ describe('reports', () => {
     expect(cal.days.find((d: any) => d.date === '2026-09-03')).toMatchObject({ leave: 1, absent: 1 });
     expect(cal.days.find((d: any) => d.date === '2026-09-15')).toMatchObject({ holiday: 'Test holiday', off: true });
     expect(cal.days.find((d: any) => d.date === '2026-09-06')).toMatchObject({ weeklyOff: 2, off: true });
-    const ahead = (await api(c).get('/calendar?month=2027-01').expect(200)).body;
+    /* Next month in India, whatever today is (a fixed 2027-01 stopped being ahead on 1 Jan 2027). */
+    const now = new Date(Date.now() + 330 * 60_000);
+    const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString().slice(0, 7);
+    const ahead = (await api(c).get(`/calendar?month=${next}`).expect(200)).body;
+    expect(ahead.days.length).toBeGreaterThan(27);
     expect(ahead.days.every((d: any) => d.future && d.absent === 0)).toBe(true);
   });
 
