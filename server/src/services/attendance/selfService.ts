@@ -307,7 +307,7 @@ export async function decideOvertime(orgId: string, id: string, approve: boolean
       .catch((e) => console.error('[audit] OvertimeRequest not recorded:', e instanceof Error ? e.message : e)); // eslint-disable-line no-console
   if (by.managerId) {
     /* Their manager, or whoever stands in for that manager today (time depth review). */
-    if (!(await managerStepBy(orgId, by.managerId, r.employeeId))) throw Object.assign(new Error('This request is not yours to decide.'), { status: 403 });
+    if (!(await managerStepBy(orgId, by.managerId, r.employeeId, undefined, 'ATTENDANCE'))) throw Object.assign(new Error('This request is not yours to decide.'), { status: 403 });
     if (chain === 'HR') throw Object.assign(new Error('HR decides overtime and comp-off at this company.'), { status: 403 });
     if (chain === 'MANAGER_THEN_HR' && r.managerApprovedAt) throw Object.assign(new Error('You have already approved this; it is with HR now.'), { status: 409 });
     if (approve && chain === 'MANAGER_THEN_HR') {

@@ -191,14 +191,19 @@ describe('Probation review (gap 8)', () => {
   });
 });
 
-describe('Delegates: leave and other approvals on one screen (gap 9)', () => {
-  it('lists both kinds; one form names both for yourself', async () => {
-    time.listStandIns.mockResolvedValue({ today: '2026-10-30', standIns: [{ id: 'l1', managerName: 'Asha Rao', standInName: 'Rahul Manager', fromDate: '2026-11-01', toDate: '2026-11-05', live: false }] });
-    appr.listStandInsFull.mockResolvedValue({ today: '2026-10-30', selfEmployeeId: 'e-rahul', standIns: [{ id: 'a1', standInName: 'Kavya Iyer', standInEmployeeId: 'e-kavya', fromDate: '2026-10-29', toDate: '2026-11-02', live: true }] });
+describe('Delegates: one list and one form over the one stand-in table (gap 9, workflow engine 2b)', () => {
+  it('lists each delegate once, saying what it hands on; one form names one delegate for yourself', async () => {
+    /* The same row comes back from both routes (one table): shown once, as mine. */
+    const shared = { id: 's1', managerEmployeeId: 'e-rahul', managerName: 'Rahul Manager', standInName: 'Kavya Iyer', standInEmployeeId: 'e-kavya', fromDate: '2026-10-29', toDate: '2026-11-02', live: true, requestTypes: ['ALL'] };
+    time.listStandIns.mockResolvedValue({ today: '2026-10-30', standIns: [shared, { id: 'l1', managerEmployeeId: 'e-asha', managerName: 'Asha Rao', standInName: 'Rahul Manager', fromDate: '2026-11-01', toDate: '2026-11-05', live: false, requestTypes: ['ATTENDANCE', 'LEAVE'] }] });
+    /* A People stand-in named before the merge (PEOPLE, or an empty list from an older API): other approvals, not leave. */
+    appr.listStandInsFull.mockResolvedValue({ today: '2026-10-30', selfEmployeeId: 'e-rahul', standIns: [shared, { id: 'p0', managerEmployeeId: 'e-rahul', standInName: 'Asha Rao', fromDate: '2026-12-01', toDate: '2026-12-02', live: false, requestTypes: ['PEOPLE'] }] });
     render(<Delegates />);
     const table = await screen.findByRole('table', { name: 'Delegates' });
-    await waitFor(() => expect(within(table).getByText('Other approvals')).toBeInTheDocument());
-    expect(within(table).getByText('Leave')).toBeInTheDocument();
+    await waitFor(() => expect(within(table).getByText('All approvals')).toBeInTheDocument());
+    expect(within(table).getByText('Leave and attendance')).toBeInTheDocument();
+    expect(within(table).getByText('Other approvals')).toBeInTheDocument();
+    expect(within(table).getAllByText('Kavya Iyer')).toHaveLength(1);
     expect(within(table).getByText('Live')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Add delegate/ }));
@@ -206,14 +211,30 @@ describe('Delegates: leave and other approvals on one screen (gap 9)', () => {
     await pick('Decides *', /Kavya Iyer/);
     typeDate(screen.getByLabelText('From'), '10/11/2026');
     typeDate(screen.getByLabelText('To'), '14/11/2026');
-    expect(screen.getByRole('checkbox', { name: 'Leave requests' })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: /Other approvals/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'All approvals' })).toBeChecked();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(time.addStandIn).toHaveBeenCalledWith({ managerEmployeeId: 'e-rahul', standInEmployeeId: 'e-kavya', fromDate: '2026-11-10', toDate: '2026-11-14' }));
-    expect(appr.addStandIn).toHaveBeenCalledWith({ standInEmployeeId: 'e-kavya', fromDate: '2026-11-10', toDate: '2026-11-14' });
+    await waitFor(() => expect(appr.addStandIn).toHaveBeenCalledWith({ standInEmployeeId: 'e-kavya', fromDate: '2026-11-10', toDate: '2026-11-14', requestTypes: ['ALL'] }));
+    expect(time.addStandIn).not.toHaveBeenCalled();
   });
 
-  it('for another manager, only leave can be handed on', async () => {
+  it('chosen request types for yourself go as one delegate', async () => {
+    time.listStandIns.mockResolvedValue({ today: '2026-10-30', standIns: [] });
+    appr.listStandInsFull.mockResolvedValue({ today: '2026-10-30', selfEmployeeId: 'e-rahul', standIns: [] });
+    render(<Delegates />);
+    fireEvent.click(await screen.findByRole('button', { name: /Add delegate/ }));
+    await screen.findByRole('dialog', { name: 'Add delegate' });
+    await pick('Decides *', /Kavya Iyer/);
+    typeDate(screen.getByLabelText('From'), '10/11/2026');
+    typeDate(screen.getByLabelText('To'), '14/11/2026');
+    fireEvent.click(screen.getByRole('radio', { name: 'Chosen request types' }));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Leave' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Expense claims' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(appr.addStandIn).toHaveBeenCalledWith({ standInEmployeeId: 'e-kavya', fromDate: '2026-11-10', toDate: '2026-11-14', requestTypes: ['LEAVE', 'EXPENSE_CLAIM'] }));
+  });
+
+  it('for another manager, only leave and attendance can be handed on', async () => {
     time.listStandIns.mockResolvedValue({ today: '2026-10-30', standIns: [] });
     appr.listStandInsFull.mockResolvedValue({ today: '2026-10-30', selfEmployeeId: 'e-rahul', standIns: [] });
     render(<Delegates />);
@@ -221,12 +242,31 @@ describe('Delegates: leave and other approvals on one screen (gap 9)', () => {
     await screen.findByRole('dialog', { name: 'Add delegate' });
     await pick('In place of *', /Asha Rao/);
     await pick('Decides *', /Kavya Iyer/);
-    expect(screen.getByRole('checkbox', { name: /Other approvals/ })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: 'All approvals' })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: 'Leave and attendance' })).toBeChecked();
     expect(screen.getByText('Other approvals are handed on by the manager themselves, from their own sign-in.')).toBeInTheDocument();
     typeDate(screen.getByLabelText('From'), '10/11/2026');
     typeDate(screen.getByLabelText('To'), '14/11/2026');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(time.addStandIn).toHaveBeenCalledWith({ managerEmployeeId: 'e-asha', standInEmployeeId: 'e-kavya', fromDate: '2026-11-10', toDate: '2026-11-14' }));
+    await waitFor(() => expect(time.addStandIn).toHaveBeenCalledWith({ managerEmployeeId: 'e-asha', standInEmployeeId: 'e-kavya', fromDate: '2026-11-10', toDate: '2026-11-14', requestTypes: ['LEAVE', 'ATTENDANCE'] }));
+    expect(appr.addStandIn).not.toHaveBeenCalled();
+  });
+});
+
+describe('Delegates: HR with nobody chosen yet', () => {
+  it('an empty "In place of" never saves as the person signed in', async () => {
+    time.listStandIns.mockResolvedValue({ today: '2026-10-30', standIns: [] });
+    appr.listStandInsFull.mockResolvedValue({ today: '2026-10-30', selfEmployeeId: null, standIns: [] });
+    render(<Delegates />);
+    fireEvent.click(await screen.findByRole('button', { name: /Add delegate/ }));
+    await screen.findByRole('dialog', { name: 'Add delegate' });
+    await pick('Decides *', /Kavya Iyer/);
+    typeDate(screen.getByLabelText('From'), '10/11/2026');
+    typeDate(screen.getByLabelText('To'), '14/11/2026');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await pick('In place of *', /Asha Rao/);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(time.addStandIn).toHaveBeenCalledWith({ managerEmployeeId: 'e-asha', standInEmployeeId: 'e-kavya', fromDate: '2026-11-10', toDate: '2026-11-14', requestTypes: ['LEAVE', 'ATTENDANCE'] }));
     expect(appr.addStandIn).not.toHaveBeenCalled();
   });
 });

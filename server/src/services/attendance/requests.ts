@@ -399,7 +399,7 @@ export async function decideRequest(accountId: string, orgId: string, r: any, ap
   /* HR only (the company's choice): a manager or team-scoped approver sees it but does not decide it. */
   if (chain === 'HR_ONLY' && !by.scopeAll) throw fail(403, 'HR decides these requests in this company; you can see it, not decide it.', 'HR_ONLY');
   const manager = hrChain(chain) ? null : await activeManagerOf(orgId, r.employeeId);
-  const asManager = by.managerId && manager ? await managerStepBy(orgId, by.managerId, r.employeeId) : null;
+  const asManager = by.managerId && manager ? await managerStepBy(orgId, by.managerId, r.employeeId, undefined, 'ATTENDANCE') : null;
   const who = { accountId, orgId, userId: by.userId };
   if (approve && chain === 'MANAGER_THEN_HR' && manager) {
     if (!r.managerApprovedAt) {
@@ -621,7 +621,7 @@ async function tellAsked(orgId: string, r: any, rev: number) {
   const chain = await chainOf(orgId, kind);
   const manager = !hrChain(chain) && !r.managerApprovedAt ? await activeManagerOf(orgId, r.employeeId) : null;
   if (manager) {
-    const decider = await deciderFor(orgId, manager.id);
+    const decider = await deciderFor(orgId, manager.id, undefined, 'ATTENDANCE');
     const user = (await peoplePrisma.employee.findFirst({ where: { id: decider, orgId }, select: { userId: true } }))?.userId;
     if (user) await sendNotice(emp.accountId, orgId, [user], { kind: 'attendance.request_asked', title: `${who} asks for ${what}, ${when}`, body, link }, { except: r.requestedByUserId, dedupeKey, subjectKey: `attendance:${r.id}` });
     return;
@@ -678,7 +678,7 @@ const HISTORY_WORDS: Record<string, string> = { ASKED: 'Asked', EDITED: 'Changed
  */
 async function deciderWords(orgId: string, r: any, chain: Chain, readerEmployeeId: string | null | undefined, reader: { canDecide?: boolean; scopeAll?: boolean }) {
   const manager = await activeManagerOf(orgId, r.employeeId);
-  const step = manager && readerEmployeeId ? await managerStepBy(orgId, readerEmployeeId, r.employeeId) : null;
+  const step = manager && readerEmployeeId ? await managerStepBy(orgId, readerEmployeeId, r.employeeId, undefined, 'ATTENDANCE') : null;
   const me = step ? (step === readerEmployeeId ? 'you as their manager' : 'you, standing in for their manager') : null;
   const You = me ? me.charAt(0).toUpperCase() + me.slice(1) : null;
   if (chain === 'HR_ONLY') return 'HR';
@@ -702,7 +702,7 @@ export async function story(accountId: string, orgId: string, r: any, readerEmpl
   ]);
   const manager = !hrChain(chain) && r.status === 'PENDING' && !r.managerApprovedAt ? await activeManagerOf(orgId, r.employeeId) : null;
   /* The manager (or their stand-in) reading it is not waiting on anyone: Approve takes their step, as it does on the Approvals row. */
-  const takesManagerStep = Boolean(manager && readerEmployeeId && (await managerStepBy(orgId, readerEmployeeId, r.employeeId)));
+  const takesManagerStep = Boolean(manager && readerEmployeeId && (await managerStepBy(orgId, readerEmployeeId, r.employeeId, undefined, 'ATTENDANCE')));
   const decidedBy = await deciderWords(orgId, r, chain, readerEmployeeId, reader);
   return {
     request: shaped,
@@ -734,7 +734,7 @@ export async function requestsWaitingForReader(orgId: string, scope: TeamScope, 
   const managerIds = [...new Set(people.map((p) => p.reportingManagerId).filter(Boolean) as string[])];
   const managers = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, status: true, userId: true } })).map((m) => [m.id, m]));
   const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } });
-  const covers = new Set(me ? await standingInFor(orgId, me.id) : []);
+  const covers = new Set(me ? await standingInFor(orgId, me.id, undefined, 'ATTENDANCE') : []);
   return rows.filter((r) => {
     const p = of.get(r.employeeId);
     if (p?.userId && p.userId === userId) return false;

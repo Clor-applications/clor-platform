@@ -40,7 +40,8 @@ export async function usersHoldingRoles(accountId: string, orgId: string, roleId
     : [];
   const ids = [...new Set([...direct, ...viaProfiles].map((a) => a.userId))];
   if (!ids.length) return [];
-  const active = await platformPrisma.user.findMany({ where: { id: { in: ids }, isActive: true }, select: { id: true } });
+  /* A stable order, by id (cuids, so roughly who was added first): it decides who a step names first and who is told first, so it must not change from one read to the next. */
+  const active = await platformPrisma.user.findMany({ where: { id: { in: ids }, isActive: true }, select: { id: true }, orderBy: { id: 'asc' } });
   return active.map((u) => u.id);
 }
 

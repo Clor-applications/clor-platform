@@ -204,6 +204,18 @@ describe('Delegates (stand-ins)', () => {
     expect(screen.queryByRole('button', { name: /Add delegate/ })).toBeNull();
   });
 
+  it('says what each hands on; one that also hands on other approvals is not removable here', async () => {
+    api.listStandIns.mockResolvedValueOnce({ today: '2026-10-27', standIns: [
+      { id: 's1', managerName: 'Asha Rao', standInName: 'Ravi Kumar', fromDate: '2026-11-01', toDate: '2026-11-05', live: false, requestTypes: ['ATTENDANCE', 'LEAVE'] },
+      { id: 's2', managerName: 'Meena Iyer', standInName: 'Kavya Nair', fromDate: '2026-11-02', toDate: '2026-11-03', live: false, requestTypes: ['ALL'] },
+    ] });
+    render(<StandIns />);
+    const table = await screen.findByRole('table', { name: 'Delegates' });
+    await waitFor(() => expect(within(table).getByText('Leave and attendance')).toBeInTheDocument());
+    expect(within(table).getByText('All approvals')).toBeInTheDocument();
+    expect(within(table).getAllByRole('button', { name: /^Actions for/ })).toHaveLength(1);
+  });
+
   it('a team role names one for themselves only', async () => {
     perms.current = { isAdmin: false, ownDocumentsOnly: true, permissions: new Set(['ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::APPROVE']) };
     render(<StandIns />);

@@ -939,7 +939,7 @@ export async function reviewFieldPunch(orgId: string, punchId: string, approve: 
   const emp = p.employeeId ? await peoplePrisma.employee.findFirst({ where: { id: p.employeeId, orgId }, select: { id: true, accountId: true, name: true, userId: true, branchId: true, areaId: true } }) : null;
   let selfApproved = false;
   if (by.managerId) {
-    if (!emp || !(await managerStepBy(orgId, by.managerId, emp.id))) throw fail(403, 'This punch is not yours to decide.');
+    if (!emp || !(await managerStepBy(orgId, by.managerId, emp.id, undefined, 'ATTENDANCE'))) throw fail(403, 'This punch is not yours to decide.');
   } else if (emp?.userId && emp.userId === by.userId) {
     if (!(await selfDecisionAllowed(p.accountId, orgId, by.userId, `${ATTENDANCE_MODULE}::${R.devices}::EDIT`)).allowed) {
       throw fail(403, 'This is your own punch; somebody else has to decide it.', 'OWN_RECORD');
@@ -1182,7 +1182,7 @@ attendanceInsightsRouter.post(`${base}/overtime/requests/bulk-review`, can(Permi
     const r = found.get(id);
     if (!r || !inScope(scope, r.employeeId)) { results.push({ id, ok: false, error: 'No such request.' }); continue; }
     /* Their manager, or whoever stands in for that manager today, takes the manager's step where the chain has one; anyone else decides as HR. */
-    const asManager = Boolean(me && chain !== 'HR' && !r.managerApprovedAt && (subjects.get(r.employeeId)?.reportingManagerId === me.id || (await managerStepBy(orgId, me.id, r.employeeId))));
+    const asManager = Boolean(me && chain !== 'HR' && !r.managerApprovedAt && (subjects.get(r.employeeId)?.reportingManagerId === me.id || (await managerStepBy(orgId, me.id, r.employeeId, undefined, 'ATTENDANCE'))));
     try {
       const out = await decideOvertime(orgId, id, approve, { userId: req.auth!.userId, ...(asManager ? { managerId: me!.id } : {}) }, note);
       if (out.status === 'PENDING') handedOn += 1;
