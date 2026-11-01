@@ -61,6 +61,7 @@ const att = (c: Ctx) => ({
 const people = (c: Ctx) => ({
   get: (p: string) => request(app).get(`/api/orgs/${c.orgId}/people${p}`).set(at(c)),
   post: (p: string, b: unknown = {}) => request(app).post(`/api/orgs/${c.orgId}/people${p}`).set(at(c)).send(b as any),
+  put: (p: string, b: unknown = {}) => request(app).put(`/api/orgs/${c.orgId}/people${p}`).set(at(c)).send(b as any),
 });
 const portal = (token: string) => ({
   get: (p: string) => request(app).get(`/api/portal${p}`).set('Authorization', `Bearer ${token}`),
@@ -282,6 +283,21 @@ async function story(chain: string, sc: Scenario, engine: boolean) {
  *    either way, so the people are the same and only who is told differs.
  */
 const DIFFERENT: Record<string, (old: any, eng: any) => void> = {
+  /*
+   * The manager then HR, where the only one who could take HR's step is the manager who took the first (a small
+   * business whose owner is manager and HR). The old path refused the owner HR's step and the leave waited for
+   * ever; the engine skips HR's step, approves on the one decision, and the leave's history says so. Owner's
+   * decision (review of PR #102, item 5): no dead ends.
+   */
+  'MANAGER_THEN_HR / the only HR is the manager': (old, eng) => {
+    expect(old.afterFirst).toEqual({ status: 'PENDING', stage: 'HR' });
+    expect(old.second).toEqual({ status: 403, code: 'HR_STEP' });
+    expect(old.end).toBe('PENDING');
+    expect(eng.afterFirst).toEqual({ status: 'APPROVED', stage: null });
+    expect(eng.end).toBe('APPROVED');
+    expect(eng.steps).toEqual(['1:APPROVED', '2:SKIPPED']);
+    expect(eng.history).toContain('HR step skipped: nobody else can approve');
+  },
   'MANAGER_THEN_HR / manager away, no stand-in': (old, eng) => {
     expect(old.first).toEqual(['Ravi (manager)']);
     expect(eng.first).toEqual(['Meena (team)']);
@@ -556,6 +572,172 @@ describe('leave on the approval engine: the switch, the presets, the old rows', 
     expect(await inTenant(() => peoplePrisma.attendanceRecord.count({ where: { orgId: hr.orgId, leaveRequestId: id } }))).toBe(1);
     const r = await engineOf(id);
     expect(r?.steps.filter((s) => s.status === 'APPROVED')).toHaveLength(1);
+  }, 60_000);
+});
+
+describe('leave on the approval engine: review of PR #102', () => {
+  it('who decides is worked out live at decision time: (a) HR who lost the right, (b) an expired stand-in, (c) a stand-in named after it opened, (d) a new manager under HR or the manager, (e) HR who started later', async () => {
+    const sc = SCENARIOS[0];
+    /* (a) Hema approved leave when it opened, and no longer does. */
+    const hema = await colleague(hr, 'Hema', LEAVE_HR);
+    const a = await ask(sc, 'HR', true);
+    expect((await engineOf(a))?.steps.find((s) => s.status === 'WAITING')?.candidateUserIds).toContain(hema.userId);
+    await inTenant(() => platformPrisma.userRoleAssignment.deleteMany({ where: { orgId: hr.orgId, userId: hema.userId } }));
+    expect((await att(hema).post(`/leave/requests/${a}/approve`, {})).status).toBe(403);
+    expect((await leaveRow(a)).status).toBe('PENDING');
+    /* (e) Hari starts approving leave after it opened, and decides it. */
+    const hari = await colleague(hr, 'Hari', LEAVE_HR);
+    expect((await people(hari).get('/inbox').expect(200)).body.items.map((i: any) => i.id)).toContain(a);
+    expect((await att(hari).post(`/leave/requests/${a}/approve`, {})).status).toBe(200);
+    expect((await engineOf(a))?.steps.find((s) => s.status === 'APPROVED')?.decidedByUserId).toBe(hari.userId);
+
+    /* (c) Priya named Ravi's stand-in after the leave opened: she decides it from the employee app. */
+    const c = await ask(sc, 'MANAGER_THEN_HR', true);
+    expect((await portal(app_.priya).post(`/approvals/leave/${c}`, { decision: 'approve' })).status).toBe(403);
+    const standIn = (await att(hr).post('/leave/stand-ins', { managerEmployeeId: E.ravi.id, standInEmployeeId: E.priya.id, fromDate: todayIst(), toDate: addDays(todayIst(), 1) }).expect(201)).body.standIn;
+    expect((await engineOf(c))?.steps.find((s) => s.status === 'WAITING')?.candidateUserIds).toContain(priya.userId);
+    /* (b) Its dates end: she no longer decides, even with her name still on the step. */
+    const b = await ask(sc, 'MANAGER_THEN_HR', true);
+    expect((await engineOf(b))?.steps.find((s) => s.status === 'WAITING')?.candidateUserIds).toContain(priya.userId);
+    await inTenant(() => peoplePrisma.standIn.update({ where: { id: standIn.id }, data: { fromDate: addDays(todayIst(), -3), toDate: addDays(todayIst(), -1) } }));
+    const legacy = await inTenant(() => peoplePrisma.standIn.findUnique({ where: { id: standIn.id }, select: { legacyId: true } }));
+    if (legacy?.legacyId) await inTenant(() => peoplePrisma.approvalStandIn.updateMany({ where: { id: legacy.legacyId! }, data: { fromDate: addDays(todayIst(), -3), toDate: addDays(todayIst(), -1) } }));
+    expect((await portal(app_.priya).post(`/approvals/leave/${b}`, { decision: 'approve' })).status).toBe(403);
+    expect((await att(priya).post(`/leave/requests/${b}/approve`, {})).status).toBe(403);
+    expect((await att(ravi).post(`/leave/requests/${b}/approve`, {})).body.stage).toBe('HR');
+    await att(hr).del(`/leave/stand-ins/${standIn.id}`).expect(200);
+    for (const id of [b, c]) await att(hr).post(`/leave/requests/${id}/cancel`).expect(200);
+
+    /* (d) Om's manager changes from Nadia to Ravi while his leave waits on "HR or the manager": Ravi takes it, Nadia no longer. */
+    const d = await ask({ name: 'om', subject: 'om', asker: () => om }, 'HR', true);
+    expect((await engineOf(d))?.steps.find((s) => s.status === 'WAITING')?.candidateUserIds).toContain(`portal:${E.nadia.id}`);
+    await people(hr).put(`/employees/${E.om.id}`, { reportingManagerId: E.ravi.id }).expect(200);
+    try {
+      const now = (await engineOf(d))?.steps.find((s) => s.status === 'WAITING')?.candidateUserIds as string[];
+      expect(now).toContain(ravi.userId);
+      expect(now).not.toContain(`portal:${E.nadia.id}`);
+      expect((await portal(app_.nadia).post(`/approvals/leave/${d}`, { decision: 'approve' })).status).toBe(403);
+      /* The new manager is told. */
+      expect((await noticesFor(d)).some((n) => n.startsWith('Ravi · attendance.leave_asked'))).toBe(true);
+      expect((await portal(app_.ravi).post(`/approvals/leave/${d}`, { decision: 'approve' })).status).toBe(200);
+    } finally {
+      await people(hr).put(`/employees/${E.om.id}`, { reportingManagerId: E.nadia.id }).expect(200);
+    }
+  }, 180_000);
+
+  it('rollback: an older API took the manager’s step on the leave row while the engine waited at step 1; on the newer API HR decides it, the manager cannot take it twice', async () => {
+    const sc = SCENARIOS[0];
+    const id = await ask(sc, 'MANAGER_THEN_HR', true);
+    await inTenant(() => peoplePrisma.leaveRequest.update({ where: { id }, data: { managerApprovedAt: new Date(), managerApprovedById: E.ravi.id, managerNote: 'Fine' } }));
+    const again = await att(ravi).post(`/leave/requests/${id}/approve`, {});
+    expect([again.status, again.body.code]).toEqual([403, 'HR_STEP']);
+    expect((await att(kavya).post(`/leave/requests/${id}/approve`, {})).status).toBe(200);
+    const r = await engineOf(id);
+    expect(r?.steps.map((s) => `${s.order}:${s.status}:${s.decidedByUserId === ravi.userId ? 'ravi' : s.decidedByUserId === kavya.userId ? 'kavya' : ''}`)).toEqual(['1:APPROVED:ravi', '2:APPROVED:kavya']);
+    expect((await leaveRow(id)).status).toBe('APPROVED');
+  }, 60_000);
+
+  it('a hand-on with nobody to hand it to leaves the step waiting: never approved on nobody’s decision, and one company’s failure does not stop the job', async () => {
+    const c = await owner();
+    const inC = <X>(fn: () => Promise<X>) => runInTenant(c.orgId, fn);
+    const mo = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Mo Manager', code: 'M-1', dateOfJoining: '2024-01-01' }).expect(201)).body.employee;
+    const me = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Asha Owner', code: 'O-1', dateOfJoining: '2024-01-01', reportingManagerId: mo.id }).expect(201)).body.employee;
+    await inC(async () => {
+      await peoplePrisma.employee.update({ where: { id: me.id }, data: { userId: c.userId } });
+      await peoplePrisma.employee.update({ where: { id: mo.id }, data: { portalEnabled: true } });
+      await peoplePrisma.peopleSetting.upsert({ where: { orgId: c.orgId }, create: { accountId: c.accountId, orgId: c.orgId, leaveOnEngine: true }, update: { leaveOnEngine: true } });
+    });
+    const type = (await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/types`).set(at(c)).send({ name: 'Casual', annualDays: 12 }).expect(201)).body.type;
+    await request(app).put(`/api/orgs/${c.orgId}/attendance/leave/types/${type.id}`).set(at(c)).send({ name: 'Casual', annualDays: 12, approval: 'MANAGER', handOnAfterDays: 1 }).expect(200);
+    const day = nextDay();
+    const asked = (await request(app).post(`/api/orgs/${c.orgId}/attendance/me/leave`).set(at(c)).send({ leaveTypeId: type.id, fromDate: day, toDate: day, reason: 'Rest' }).expect(201)).body.request;
+    await inC(() => peoplePrisma.leaveRequest.update({ where: { id: asked.id }, data: { createdAt: new Date(Date.now() - 3 * 86_400_000) } }));
+    await runLeaveHandOns(new Date());
+    const r = await inC(() => peoplePrisma.approvalRequest.findFirst({ where: { orgId: c.orgId, sourceKind: 'LEAVE', sourceId: asked.id }, include: { steps: true } }));
+    expect(r?.status).toBe('WAITING');
+    expect(r?.steps.filter((s) => s.status === 'WAITING').map((s) => s.candidateUserIds)).toEqual([[`portal:${mo.id}`]]);
+    expect((await inC(() => peoplePrisma.leaveRequest.findUniqueOrThrow({ where: { id: asked.id } }))).status).toBe('PENDING');
+  }, 60_000);
+
+  it('a leave on the engine shows once: not again as an HR approval in Workforce, the weekly summary, the person’s activity or the employee app’s updates', async () => {
+    const { weeklySummaryFor } = await import('../services/people/weeklySummary.js');
+    const { activityOf } = await import('../services/people/activity.js');
+    const id = await ask({ name: 'priya', subject: 'priya', asker: () => priya }, 'HR', true);
+    const r = await engineOf(id);
+    const pending = JSON.stringify((await people(hr).get('/workforce/pending').expect(200)).body);
+    expect(pending).not.toContain(r!.id);
+    const summary = await inTenant(() => weeklySummaryFor(hr.accountId, hr.orgId));
+    expect(summary.waiting.some((w: any) => w.kind === 'approval')).toBe(false);
+    expect(JSON.stringify(await inTenant(() => activityOf({ orgId: hr.orgId, canStatutory: true, canNotes: true }, E.priya.id)))).not.toContain(r!.id);
+    await att(kavya).post(`/leave/requests/${id}/approve`, {}).expect(200);
+    await inTenant(() => peoplePrisma.portalSession.updateMany({ where: { orgId: hr.orgId }, data: { lastSeenAt: new Date() } }));
+    expect(JSON.stringify((await portal(app_.priya).get('/updates').expect(200)).body)).not.toContain(r!.id);
+  }, 60_000);
+
+  it('the only one who could take HR’s step is the manager who took the first: approved on the one decision, written down (deliberate difference)', async () => {
+    const c = await owner();
+    const inC = <X>(fn: () => Promise<X>) => runInTenant(c.orgId, fn);
+    const boss = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Asha Owner', code: 'O-1', dateOfJoining: '2024-01-01' }).expect(201)).body.employee;
+    const ted = await colleague(c, 'Ted', MY);
+    const tedE = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Ted Staff', code: 'T-1', dateOfJoining: '2024-01-01', reportingManagerId: boss.id }).expect(201)).body.employee;
+    await inC(async () => {
+      await peoplePrisma.employee.update({ where: { id: boss.id }, data: { userId: c.userId } });
+      await peoplePrisma.employee.update({ where: { id: tedE.id }, data: { userId: ted.userId } });
+    });
+    const type = (await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/types`).set(at(c)).send({ name: 'Casual', annualDays: 12 }).expect(201)).body.type;
+    await request(app).put(`/api/orgs/${c.orgId}/attendance/leave/types/${type.id}`).set(at(c)).send({ name: 'Casual', annualDays: 12, approval: 'MANAGER_THEN_HR' }).expect(200);
+    const setOn = (on: boolean) => inC(() => peoplePrisma.peopleSetting.upsert({ where: { orgId: c.orgId }, create: { accountId: c.accountId, orgId: c.orgId, leaveOnEngine: on }, update: { leaveOnEngine: on } }));
+    const run = async (engine: boolean) => {
+      await setOn(engine);
+      const day = nextDay();
+      const id = (await request(app).post(`/api/orgs/${c.orgId}/attendance/me/leave`).set(at(ted)).send({ leaveTypeId: type.id, fromDate: day, toDate: day, reason: 'Trip' }).expect(201)).body.request.id;
+      await setOn(false);
+      const first = await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/requests/${id}/approve`).set(at(c)).send({});
+      const row = await inC(() => peoplePrisma.leaveRequest.findUniqueOrThrow({ where: { id } }));
+      const out: any = { afterFirst: { status: row.status, stage: first.body.stage ?? null } };
+      if (row.status === 'PENDING') {
+        const second = await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/requests/${id}/approve`).set(at(c)).send({});
+        out.second = { status: second.status, code: second.body.code };
+      }
+      const done = await inC(() => peoplePrisma.leaveRequest.findUniqueOrThrow({ where: { id } }));
+      out.end = done.status;
+      out.history = ((done.history as any[]) || []).map((h) => h.note).filter(Boolean);
+      const r = await inC(() => peoplePrisma.approvalRequest.findFirst({ where: { orgId: c.orgId, sourceKind: 'LEAVE', sourceId: id }, include: { steps: { orderBy: { order: 'asc' } } } }));
+      if (r) out.steps = r.steps.map((s) => `${s.order}:${s.status}`);
+      return out;
+    };
+    const old = await run(false);
+    const eng = await run(true);
+    DIFFERENT['MANAGER_THEN_HR / the only HR is the manager'](old, eng);
+  }, 60_000);
+
+  it('approved at once (nobody else could) but the leave refuses it (a clock-in that day): it waits, as the old path left it, instead of failing the request', async () => {
+    const c = await owner();
+    const me = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Asha Owner', code: 'O-1', dateOfJoining: '2024-01-01' }).expect(201)).body.employee;
+    await runInTenant(c.orgId, async () => {
+      await peoplePrisma.employee.update({ where: { id: me.id }, data: { userId: c.userId } });
+      await peoplePrisma.peopleSetting.upsert({ where: { orgId: c.orgId }, create: { accountId: c.accountId, orgId: c.orgId, leaveOnEngine: true }, update: { leaveOnEngine: true } });
+    });
+    const type = (await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/types`).set(at(c)).send({ name: 'Casual', annualDays: 12 }).expect(201)).body.type;
+    const day = nextDay();
+    await runInTenant(c.orgId, () => peoplePrisma.attendanceRecord.create({ data: { accountId: c.accountId, orgId: c.orgId, employeeId: me.id, date: day, status: 'PRESENT', checkIn: new Date(`${day}T04:00:00Z`), source: 'MANUAL', createdByUserId: c.userId } as any }));
+    const asked = await request(app).post(`/api/orgs/${c.orgId}/attendance/me/leave`).set(at(c)).send({ leaveTypeId: type.id, fromDate: day, toDate: day, reason: 'Rest' });
+    expect(asked.status).toBe(201);
+    expect(asked.body.request.status).toBe('PENDING');
+    const row = await runInTenant(c.orgId, () => peoplePrisma.leaveRequest.findUniqueOrThrow({ where: { id: asked.body.request.id } }));
+    expect(JSON.stringify(row.history)).toContain('Not approved at once');
+    expect(await runInTenant(c.orgId, () => peoplePrisma.approvalRequest.count({ where: { orgId: c.orgId, sourceKind: 'LEAVE' } }))).toBe(0);
+  }, 60_000);
+
+  it('the employee app: an HR approver decides there only when they may decide it now (a manager’s step is not theirs)', async () => {
+    const id = await ask(SCENARIOS[0], 'MANAGER_THEN_HR', true);
+    /* Ravi is the manager: his. */
+    const notYet = await att(kavya).post(`/leave/requests/${id}/approve`, {});
+    expect(notYet.body.code).toBe('MANAGER_FIRST');
+    expect((await portal(app_.ravi).post(`/approvals/leave/${id}`, { decision: 'approve' })).body.stage).toBe('HR');
+    /* HR's step: Ravi, in the app, is not HR here. */
+    expect((await portal(app_.ravi).post(`/approvals/leave/${id}`, { decision: 'approve' })).status).toBe(409);
+    await att(kavya).post(`/leave/requests/${id}/approve`, {}).expect(200);
   }, 60_000);
 });
 

@@ -78,7 +78,7 @@ export async function activityOf(viewer: ActivityViewer, employeeId: string, opt
 
   const [lines, requests, docs, notes] = await Promise.all([
     peoplePrisma.changeLog.findMany({ where: { orgId, employeeId, ...(before ? { at: before } : {}) }, orderBy: { at: 'desc' }, take: limit * 6 }),
-    peoplePrisma.approvalRequest.findMany({ where: { orgId, subjectEmployeeId: employeeId }, include: { steps: true } }),
+    peoplePrisma.approvalRequest.findMany({ where: { orgId, subjectEmployeeId: employeeId, sourceKind: null }, include: { steps: true } }),
     peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId, ...(before ? { createdAt: before } : {}) }, select: { id: true, title: true, kind: true, version: true, classification: true, uploadedByUserId: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: limit }),
     viewer.canNotes ? peoplePrisma.employeeNote.findMany({ where: { orgId, employeeId, ...(before ? { createdAt: before } : {}) }, orderBy: { createdAt: 'desc' }, take: limit }) : Promise.resolve([]),
   ]);

@@ -71,7 +71,7 @@ export async function weeklySummaryFor(accountId: string, orgId: string, now = n
       peoplePrisma.leaveRequest.findMany({ where: { orgId, status: 'PENDING' }, select: { createdAt: true } }),
       peoplePrisma.attendanceRequest.findMany({ where: { orgId, status: 'PENDING' }, select: { kind: true, createdAt: true } }),
     ]),
-    peoplePrisma.approvalRequest.findMany({ where: { orgId, status: 'WAITING' }, select: { createdAt: true } }),
+    peoplePrisma.approvalRequest.findMany({ where: { orgId, status: 'WAITING', sourceKind: null }, select: { createdAt: true } }),
     peoplePrisma.employee.findMany({ where: { orgId, dateOfJoining: { gte: w.from, lte: w.to } }, select: { name: true, dateOfJoining: true }, orderBy: { dateOfJoining: 'asc' }, take: 50 }),
     peoplePrisma.employee.findMany({ where: { orgId, dateOfLeaving: { gte: w.from, lte: w.to } }, select: { name: true, dateOfLeaving: true }, orderBy: { dateOfLeaving: 'asc' }, take: 50 }),
   ]);

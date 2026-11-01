@@ -435,7 +435,7 @@ portalRouter.get('/updates', async (req, res) => {
     team.length ? peoplePrisma.attendanceRequest.count({ where: { orgId: e.orgId, employeeId: { in: team }, status: 'PENDING', managerApprovedAt: null } }) : 0,
     team.length ? peoplePrisma.devicePunch.count({ where: { orgId: e.orgId, employeeId: { in: team }, outsideSite: true, reviewStatus: 'PENDING' } }) : 0,
     /* E5: my own People requests (details, resignation) that HR answered or asked more about: the app's notice, as there may be no CLOR user to notify. */
-    peoplePrisma.approvalRequest.findMany({ where: { orgId: e.orgId, subjectEmployeeId: e.id, requesterUserId: { in: [`portal:${e.id}`, ...(e.userId ? [e.userId] : [])] }, status: { in: ['APPROVED', 'REJECTED', 'MORE_INFO'] }, updatedAt: { gte: since } }, select: { id: true, status: true, requestType: true, updatedAt: true } }),
+    peoplePrisma.approvalRequest.findMany({ where: { orgId: e.orgId, subjectEmployeeId: e.id, sourceKind: null, requesterUserId: { in: [`portal:${e.id}`, ...(e.userId ? [e.userId] : [])] }, status: { in: ['APPROVED', 'REJECTED', 'MORE_INFO'] }, updatedAt: { gte: since } }, select: { id: true, status: true, requestType: true, updatedAt: true } }),
     lapseFor(e.accountId, e.orgId, e.id).catch((err) => {
       console.error('[portal updates] lapse', err instanceof Error ? err.message : err);
       return null;

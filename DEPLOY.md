@@ -221,20 +221,26 @@ What a company with the switch on writes, and how rel-eed8908 reads it:
   written on the row (`managerApprovedAt`). To the older API it is an
   ordinary chain request, and the parity tests show the chain gives it the
   same people, so it decides it on the old path.
-- **Its engine request** (`ApprovalRequest`, `sourceKind` `LEAVE`) stays
-  `WAITING` on the older API. That API lists it on People → Approvals
-  under "Waiting for me", reminds its people after two working days, and
-  approving it there closes only the engine request (it has no leave
-  effect). Tell people to decide leave from the leave screens during a
-  rollback. When the newer API is back, a leave whose engine request is no
-  longer waiting goes on the old path (never stuck), and a waiting one is
-  closed to match as soon as the leave is decided or cancelled.
-- **Before rolling back a company that has it on:** switch it off, so no
-  more engine requests open. Optionally close the waiting ones so the older
-  People → Approvals page does not list them:
-  `UPDATE people."ApprovalRequest" SET status = 'WITHDRAWN' WHERE "sourceKind" = 'LEAVE' AND status = 'WAITING';`
-  (with `SET clor.bypass = 'on'`; their leave rows are untouched and finish
-  on the old path).
+- **Before rolling back a company that has it on (mandatory, both steps):**
+  1. Switch it off, so no more engine requests open:
+     `UPDATE people."PeopleSetting" SET "leaveOnEngine" = false WHERE "orgId" = '<id>';`
+  2. Close its waiting engine requests, so the older API never sees them:
+     `SET clor.bypass = 'on'; UPDATE people."ApprovalStep" SET status = 'WITHDRAWN' WHERE status = 'WAITING' AND "requestId" IN (SELECT id FROM people."ApprovalRequest" WHERE "orgId" = '<id>' AND "sourceKind" = 'LEAVE' AND status = 'WAITING'); UPDATE people."ApprovalRequest" SET status = 'WITHDRAWN' WHERE "orgId" = '<id>' AND "sourceKind" = 'LEAVE' AND status = 'WAITING';`
+  Their leave rows are untouched: the older API decides them on the old path,
+  with the same people, and a later roll-forward leaves them there.
+- **Why step 2 is not optional.** An engine request left waiting is read by
+  the older API as an ordinary People request: it lists it on People →
+  Approvals under "Waiting for me", reminds its people after two working
+  days, its away job may hand the step up to someone else, and approving it
+  there closes only the engine request (it has no leave effect) and tells
+  the employee "Approved" while the leave is still waiting.
+- **Rolling forward again.** A leave whose engine request is no longer
+  waiting goes on the old path (never stuck). If the older API took the
+  manager's step on the leave row, the newer API takes that step as the
+  same person's on the engine before anyone decides it, and HR's step opens.
+  A waiting engine request whose leave is decided or cancelled on the newer
+  API closes to match then; one whose leave the older API decided stays
+  waiting but is listed nowhere (the queues read waiting leave only).
 
 Nothing else needs undoing. Phase 3c stops the writes to the old manager
 columns, once no leave is pending on the old path.

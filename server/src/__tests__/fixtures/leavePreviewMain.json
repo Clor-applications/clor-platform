@@ -1,0 +1,531 @@
+{
+ "recordedOn": "99654fac",
+ "results": {
+  "HR / tara": {
+   "rule": {
+    "name": "HR",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Asha HR",
+        "Meena",
+        "Priya",
+        "Ravi"
+       ],
+       "how": "HR",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  },
+  "HR / ravi": {
+   "rule": {
+    "name": "HR",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Asha HR",
+        "Meena",
+        "Priya"
+       ],
+       "how": "HR",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  },
+  "HR / lone": {
+   "rule": {
+    "name": "HR",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Asha HR",
+        "Meena",
+        "Priya",
+        "Ravi"
+       ],
+       "how": "HR",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  },
+  "MANAGER / tara": {
+   "rule": {
+    "name": "MANAGER",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Ravi"
+       ],
+       "how": "MANAGER",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  },
+  "MANAGER / ravi": {
+   "rule": {
+    "name": "MANAGER",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Meena"
+       ],
+       "how": "MANAGER",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  },
+  "MANAGER / lone": {
+   "rule": {
+    "name": "MANAGER",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Asha HR",
+        "Kiran",
+        "Meena",
+        "Priya",
+        "Ravi"
+       ],
+       "how": "MANAGER",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  },
+  "MANAGER_THEN_HR / tara": {
+   "rule": {
+    "name": "MANAGER_THEN_HR",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Ravi"
+       ],
+       "how": "MANAGER",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Asha HR",
+        "Meena",
+        "Priya",
+        "Ravi"
+       ],
+       "how": "HR",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  },
+  "MANAGER_THEN_HR / ravi": {
+   "rule": {
+    "name": "MANAGER_THEN_HR",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Meena"
+       ],
+       "how": "MANAGER",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Asha HR",
+        "Meena",
+        "Priya"
+       ],
+       "how": "HR",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  },
+  "MANAGER_THEN_HR / lone": {
+   "rule": {
+    "name": "MANAGER_THEN_HR",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Asha HR",
+        "Kiran",
+        "Meena",
+        "Priya",
+        "Ravi"
+       ],
+       "how": "MANAGER",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Asha HR",
+        "Meena",
+        "Priya",
+        "Ravi"
+       ],
+       "how": "HR",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  },
+  "MANAGER_OF_MANAGER / tara": {
+   "rule": {
+    "name": "MANAGER_OF_MANAGER",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Meena"
+       ],
+       "how": "MANAGER_OF_MANAGER",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  },
+  "MANAGER_OF_MANAGER / ravi": {
+   "rule": {
+    "name": "MANAGER_OF_MANAGER",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Asha HR",
+        "Kiran",
+        "Meena",
+        "Priya"
+       ],
+       "how": "MANAGER_OF_MANAGER",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  },
+  "MANAGER_OF_MANAGER / lone": {
+   "rule": {
+    "name": "MANAGER_OF_MANAGER",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Asha HR",
+        "Kiran",
+        "Meena",
+        "Priya",
+        "Ravi"
+       ],
+       "how": "MANAGER_OF_MANAGER",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  },
+  "ROLE / tara": {
+   "rule": {
+    "name": "ROLE",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "SKIPPED",
+     "why": "Would have been the requester, or nobody to decide",
+     "mode": "ANY",
+     "dueAt": null,
+     "slots": []
+    },
+    {
+     "order": 2,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Meena"
+       ],
+       "how": "USER",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  },
+  "ROLE / ravi": {
+   "rule": {
+    "name": "ROLE",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "SKIPPED",
+     "why": "Would have been the requester, or nobody to decide",
+     "mode": "ANY",
+     "dueAt": null,
+     "slots": []
+    },
+    {
+     "order": 2,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Meena"
+       ],
+       "how": "USER",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  },
+  "ROLE / lone": {
+   "rule": {
+    "name": "ROLE",
+    "version": null,
+    "variantKey": "",
+    "draft": true
+   },
+   "autoApproved": false,
+   "steps": [
+    {
+     "order": 1,
+     "outcome": "SKIPPED",
+     "why": "Would have been the requester, or nobody to decide",
+     "mode": "ANY",
+     "dueAt": null,
+     "slots": []
+    },
+    {
+     "order": 2,
+     "outcome": "DECIDES",
+     "why": null,
+     "mode": "ANY",
+     "dueAt": "set",
+     "slots": [
+      {
+       "people": [
+        "Meena"
+       ],
+       "how": "USER",
+       "standInFor": null,
+       "note": null
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

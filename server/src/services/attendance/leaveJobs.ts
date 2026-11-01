@@ -49,6 +49,8 @@ export async function runLeaveHandOns(now = new Date()) {
     };
     const waiting = open.filter((r) => stepStart(r) < cutoff);
     for (const r of waiting) {
+      /* One request that cannot be handed on (a company with nobody to take it) never stops the rest. */
+      try {
       if (!(await activeManagerOf(t.orgId, r.employeeId))) continue;
       const history = [...((Array.isArray(r.history) ? r.history : []) as any[]), { at: now.toISOString(), by: 'system', what: 'HANDED_ON', note: `No decision from the manager in ${t.handOnAfterDays} days` }];
       /* The manager's step counts as taken by nobody: HR decides, and the story says so. */
@@ -67,6 +69,9 @@ export async function runLeaveHandOns(now = new Date()) {
         .create({ data: { accountId: r.accountId, orgId: t.orgId, branchId: '', entity: 'LeaveRequest', entityId: r.id, action: 'HAND_ON', message: `Handed on to HR: no decision from the manager in ${t.handOnAfterDays} days`, metadata: JSON.stringify({ employeeId: r.employeeId, leaveTypeId: r.leaveTypeId }), createdByUserId: 'system' } })
         .catch((e) => console.error('[audit] hand-on not recorded:', e instanceof Error ? e.message : e));
       handed += 1;
+      } catch (e) {
+        console.error(`[leave] hand-on: org ${t.orgId}, request ${r.id}:`, e instanceof Error ? e.message : e);
+      }
     }
   }
   return handed;
