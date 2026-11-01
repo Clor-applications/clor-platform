@@ -182,8 +182,16 @@ Until phase 3c, a rollback to an API from before 2b is safe:
   the newer API too. A delegate the older API names after the rollback exists
   only in `ApprovalStandIn`, and the newer API reads it from there.
 
+- The older API reads every `ApprovalStandIn` row as leave and attendance.
+  So a "Leave only" delegate also decides attendance requests there.
+- While the deploy runs, or after a rollback, removing a delegate on the older
+  API deletes only its `ApprovalStandIn` row. If the newer `StandIn` row was
+  an "All approvals" one, its People part goes as well: the newer API ignores
+  a row whose linked old row is gone. Name it again on the newer API if
+  needed.
+
 Nothing needs undoing on a rollback. Do not drop `ApprovalStandIn` before
-phase 3c.
+phase 3c. The 3c order is in `docs/people/workflow-engine/SPEC.md` section 9.
 
 ## A first-time setup, from nothing
 

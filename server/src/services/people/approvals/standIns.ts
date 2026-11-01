@@ -190,8 +190,9 @@ export async function standInUsersFor(orgId: string, userIds: string[], day: str
 /** For leave and attendance: the People record deciding for this manager on `day`, or null for the manager themselves. The latest named wins. */
 export async function standInEmployeeFor(orgId: string, managerEmployeeId: string, day: string, type?: string) {
   for (const r of await read(orgId, { day, managers: { userIds: [], employeeIds: [managerEmployeeId] } })) {
-    if (r.employeeId !== managerEmployeeId || !covers(r.requestTypes, type)) continue;
-    return r.standInEmployeeId && r.standInEmployeeId !== managerEmployeeId ? r.standInEmployeeId : null;
+    /* A row naming nobody with a People record decides nothing here, so it never hides an older one that does. */
+    if (r.employeeId !== managerEmployeeId || !r.standInEmployeeId || !covers(r.requestTypes, type)) continue;
+    return r.standInEmployeeId !== managerEmployeeId ? r.standInEmployeeId : null;
   }
   return null;
 }
@@ -235,6 +236,8 @@ export async function nameStandIn(data: {
   fromDate: string; toDate: string; requestTypes: string[]; note?: string | null;
 }) {
   const { accountId, orgId, createdByUserId, fromDate, toDate, requestTypes } = data;
+  /* Leave and attendance go by People record: never store one that would decide none of it (callers refuse it first). */
+  if (covers(requestTypes, 'TIME') && !data.standInEmployeeId) throw new Error('A stand-in for leave or attendance needs a People record.');
   const people = coversPeople(requestTypes) && data.userId && data.standInUserId;
   return peoplePrisma.$transaction(async (tx) => {
     const old = covers(requestTypes, 'TIME') && data.employeeId && data.standInEmployeeId

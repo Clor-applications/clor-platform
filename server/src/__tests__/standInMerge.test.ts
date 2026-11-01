@@ -408,3 +408,34 @@ describe('the employee app queue of a stand-in', () => {
     await clear(hr);
   }, 60_000);
 });
+
+describe('a stand-in with no People record', () => {
+  it('cannot be named for leave or attendance, only for People requests', async () => {
+    await clear(hr);
+    const nadia = await colleague(hr, 'Nadia', APPROVER);
+    for (const requestTypes of [['LEAVE'], ['ATTENDANCE'], ['ALL']]) {
+      const refused = await people(ravi).post('/stand-ins', { standInUserId: nadia.userId, fromDate: plus(40), toDate: plus(41), ...(requestTypes ? { requestTypes } : {}) }).expect(400);
+      expect(refused.body.error).toMatch(/no employee record/);
+    }
+    const ok = (await people(ravi).post('/stand-ins', { standInUserId: nadia.userId, fromDate: plus(40), toDate: plus(41), requestTypes: ['PEOPLE'] }).expect(201)).body.standIn;
+    expect(ok).toMatchObject({ standInUserId: nadia.userId, standInEmployeeId: null, requestTypes: ['PEOPLE'] });
+    /* Nothing named (as before the merge): People requests only, never all approvals. */
+    const plain = (await people(ravi).post('/stand-ins', { standInUserId: nadia.userId, fromDate: plus(42), toDate: plus(43) }).expect(201)).body.standIn;
+    expect(plain.requestTypes).toEqual(['PEOPLE']);
+    await clear(hr);
+  });
+
+  it('a newer row naming nobody with a record never hides the delegate who decides leave', async () => {
+    await clear(hr);
+    const nadia = await colleague(hr, 'Nadia', APPROVER);
+    const t0 = Date.now() - 600_000;
+    await newRow(hr, { employeeId: raviEmp.id, standInEmployeeId: priyaEmp.id, requestTypes: ['LEAVE', 'ATTENDANCE'], createdAt: new Date(t0) });
+    /* Written straight in (as no route now allows): newer, all approvals, a stand-in with a sign-in only. */
+    await newRow(hr, { userId: ravi.userId, standInUserId: nadia.userId, requestTypes: ['ALL'], createdAt: new Date(t0 + 60_000) });
+    expect(await inTenant(() => deciderFor(hr.orgId, raviEmp.id, todayIst(), 'LEAVE'))).toBe(priyaEmp.id);
+    expect(await inTenant(() => standingInFor(hr.orgId, priyaEmp.id, todayIst(), 'LEAVE'))).toEqual([raviEmp.id]);
+    /* The engine, by sign-in, still takes the newer one for People requests. */
+    expect((await inTenant(() => resolveApprover(hr, { kind: 'MANAGER' }, tara.id, todayIst(), 'DESK_ESCALATION'))).standIns).toEqual([{ for: ravi.userId, user: nadia.userId }]);
+    await clear(hr);
+  });
+});

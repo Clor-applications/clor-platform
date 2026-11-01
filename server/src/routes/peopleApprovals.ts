@@ -13,7 +13,7 @@ import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/peopl
 import { correlationOf } from '../services/people/employees.js';
 import { todayIst } from '../services/people/lifecycle/board.js';
 import { leavingReasonFilter } from '../services/people/companyChoices.js';
-import { cleanTypes, deciders, findStandIn, listStandIns, nameStandIn, removeStandIn, timeOnly } from '../services/people/approvals/standIns.js';
+import { cleanTypes, covers, deciders, findStandIn, listStandIns, nameStandIn, removeStandIn, timeOnly } from '../services/people/approvals/standIns.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
 import { ApprovalError, REQUEST_TYPES, RULE_TYPES, isFormType, activeRule, decide, mine, namesFor, previewRule, reply, retireRule, saveRuleSpec, shape, stepsOfRule, submitRequest, twoPersonProblem, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
 import { cleanRule, isRuleProblem, legacySteps, normaliseAutoApprove, normaliseConditions, v1Exact } from '../services/people/approvals/spec.js';
@@ -434,6 +434,10 @@ peopleApprovalsRouter.post(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUE
     if (!timeAlone && !(await deciders(accountId, orgId)).has(standInUserId)) return res.status(400).json({ error: 'They cannot approve requests here, so they cannot decide in your place. Choose someone who can.' });
     if (!standInEmployeeId) standInEmployeeId = (await myRecord(orgId, standInUserId))?.id ?? null;
   }
+  /* Leave and attendance are decided by People record: a stand-in with none could decide none of it, and would only hide the real one. */
+  /* Nothing named and nobody's record to name: People requests only, as a People stand-in always was. */
+  if (b.requestTypes === undefined && !standInEmployeeId) types.splice(0, types.length, 'PEOPLE');
+  if (covers(types, 'TIME') && !standInEmployeeId) return res.status(400).json({ error: 'They have no employee record here, so they cannot decide leave or attendance. Hand on other approvals only, or link a record first.' });
   const row = await nameStandIn({ accountId, orgId, createdByUserId: userId, userId, employeeId: me?.id ?? null, standInUserId, standInEmployeeId, fromDate: b.fromDate, toDate: b.toDate, requestTypes: types, note: b.note || null });
   res.status(201).json({ standIn: row });
 });
