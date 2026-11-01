@@ -1,8 +1,8 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { isWeeklyOff } from '../attendance/compute.js';
-import { daysBetween, periodContext } from '../attendance/days.js';
+import { periodContext } from '../attendance/days.js';
 import { lastOfMonth } from '../attendance/payableDays.js';
-import { todayIst } from '../../utils/istDate.js';
+import { eachDay, todayIst } from '../../utils/istDate.js';
 
 /**
  * The registers an inspector asks for that People keeps beside the register
@@ -32,7 +32,7 @@ async function establishmentOf(orgId: string, establishmentId: string | null) {
  * the note says so.
  */
 export async function musterRoll(accountId: string, orgId: string, month: string, establishmentId: string | null, attendanceOn: boolean) {
-  const days = daysBetween(`${month}-01`, lastOfMonth(month));
+  const days = eachDay(`${month}-01`, lastOfMonth(month));
   const ctx = await periodContext(accountId, orgId, days[0], days[days.length - 1]);
   const { establishment, ids } = await establishmentOf(orgId, establishmentId);
   const people = ctx.people.filter((p) => !ids || ids.has(p.id));

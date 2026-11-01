@@ -53,7 +53,6 @@ import {
   peopleByCode,
   codeKey,
   daysOfMonth,
-  daysBetween,
   periodContext,
   monthRows,
   periodRows,

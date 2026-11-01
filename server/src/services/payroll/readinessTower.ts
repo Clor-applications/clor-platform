@@ -1,11 +1,12 @@
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { monthReadiness } from '../attendance/readiness.js';
-import { daysBetween, periodRows } from '../attendance/days.js';
+import { periodRows } from '../attendance/days.js';
 import { lastOfMonth, leaveLossOfPay, payableMonth } from '../attendance/payableDays.js';
 import { dataHealth } from '../people/dataHealth.js';
 import { isFeatureEnabled } from '../features.js';
 import { provisionalPeriodRows } from './provisionalDays.js';
+import { eachDay } from '../../utils/istDate.js';
 
 /**
  * Payroll readiness, the HR research's "Workforce Control Tower": one answer
@@ -210,7 +211,7 @@ export async function runLopCheck(accountId: string, orgId: string, runId: strin
     had.leave += lv;
     records.set(id, had);
   };
-  const months = [...new Set(daysBetween(from, to).map((d) => d.slice(0, 7)))];
+  const months = [...new Set(eachDay(from, to).map((d) => d.slice(0, 7)))];
   const cutoffDate = (run.provisionalDays as { cutoffDate?: string } | null)?.cutoffDate;
   if (cutoffDate && attendanceOn) {
     for (const r of (await provisionalPeriodRows(accountId, orgId, from, to, cutoffDate)).rows) {
@@ -222,7 +223,7 @@ export async function runLopCheck(accountId: string, orgId: string, runId: strin
       for (const r of rows) add(r.employeeId, r.name, r.code, r.lossOfPayDays, r.unpaidLeaveDays);
     }
   } else if (attendanceOn) {
-    for (const r of await periodRows(accountId, orgId, daysBetween(from, to))) {
+    for (const r of await periodRows(accountId, orgId, eachDay(from, to))) {
       if (inRun.has(r.employeeId)) add(r.employeeId, r.name, r.code ?? null, Number(r.lossOfPayDays) || 0, Number(r.unpaidLeaveDays) || 0);
     }
   } else {

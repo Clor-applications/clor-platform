@@ -5,8 +5,9 @@ import { registerJob } from '../jobRegistry.js';
 import { sendNotice } from '../notifications.js';
 import { isFeatureEnabled } from '../features.js';
 import { isWeeklyOff, istTime, shiftWindow } from './compute.js';
-import { daysBetween, periodContext, today } from './days.js';
+import { periodContext, today } from './days.js';
 import { rulesOf } from './timeRules.js';
+import { eachDay } from '../../utils/istDate.js';
 
 /**
  * The missing-punch nudge (WORKFLOW-GAP-RESEARCH-2026-10-30 B5, 4.5).
@@ -67,7 +68,7 @@ export async function unfixedDays(accountId: string, orgId: string, now: Date, o
     const holidays = ctx.holidaysFor(p);
     const recs = ctx.recordsOf.get(p.id) || new Map();
     const items: FixItem[] = [];
-    for (const d of daysBetween(from, t)) {
+    for (const d of eachDay(from, t)) {
       if (!span.has(d) || holidays.has(d)) continue;
       const shift = ctx.shiftOn(p.id, d);
       if (isWeeklyOff(shift.rule, d)) continue;

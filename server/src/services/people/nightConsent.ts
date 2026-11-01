@@ -3,8 +3,9 @@ import { platformPrisma } from '../../utils/platformPrisma.js';
 import { notifyPermission } from '../notifications.js';
 import { isFeatureEnabled } from '../features.js';
 import { loadSchedule, resolveShift } from '../attendance/schedule.js';
-import { daysBetween, today } from '../attendance/days.js';
+import { today } from '../attendance/days.js';
 import { nightWords, timeRulesFor, touchesNight, type NightRules } from '../attendance/timeRules.js';
+import { eachDay } from '../../utils/istDate.js';
 
 /**
  * Women's consent to night work (WORKFLOW-GAP-RESEARCH-2026-10-30 B19).
@@ -102,7 +103,7 @@ export async function onShiftAhead(orgId: string, shiftId: string | null, count 
   if (!people.length) return [];
   const schedule = await loadSchedule(orgId, people.map((p) => p.id));
   const t = today();
-  const days = daysBetween(t, new Date(Date.parse(`${t}T00:00:00Z`) + (count - 1) * 86_400_000).toISOString().slice(0, 10));
+  const days = eachDay(t, new Date(Date.parse(`${t}T00:00:00Z`) + (count - 1) * 86_400_000).toISOString().slice(0, 10));
   return people.filter((p) => days.some((d) => {
     const r = resolveShift(schedule, p.id, d);
     return shiftId ? r.shiftId === shiftId : r.source === 'DEFAULT';
@@ -167,7 +168,7 @@ export async function nightDaysAhead(orgId: string, employeeIds: string[], count
   const shifts = new Map((await peoplePrisma.shift.findMany({ where: { orgId }, select: { id: true, startTime: true, endTime: true } })).map((s) => [s.id, s]));
   for (const id of employeeIds) {
     const days: string[] = [];
-    for (const d of daysBetween(t, end)) {
+    for (const d of eachDay(t, end)) {
       const r = resolveShift(schedule, id, d);
       const s = r.shiftId ? shifts.get(r.shiftId) : null;
       if (s && touchesNight(s, rules)) days.push(d);

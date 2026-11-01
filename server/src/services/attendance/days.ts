@@ -426,8 +426,6 @@ export const daysOfMonth = (month: string) => {
 };
 
 /** Every date from one day to another, inclusive. */
-/** Every date from `from` to `to`, both included (utils/istDate `eachDay`). */
-export const daysBetween = eachDay;
 
 /**
  * Everything a period's figures are worked out from — who was employed, their
@@ -435,7 +433,7 @@ export const daysBetween = eachDay;
  * unpaid. Shared by the month summary and the reports so they cannot disagree.
  */
 export async function periodContext(accountId: string, orgId: string, from: string, to: string) {
-  const days = daysBetween(from, to);
+  const days = eachDay(from, to);
   const [people, records, holidayData, schedule] = await Promise.all([
     peoplePrisma.employee.findMany({
       /* A missing joining or leaving date means "no limit" — never a filter

@@ -1,9 +1,9 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { isWeeklyOff, istInstant } from './compute.js';
 import { clashingTemporaries } from './conflicts.js';
-import { daysBetween, daysOfMonth, monthRows, periodContext } from './days.js';
+import { daysOfMonth, monthRows, periodContext } from './days.js';
 import { readerTrustOn } from './trust.js';
-import { todayIst } from '../../utils/istDate.js';
+import { eachDay, todayIst } from '../../utils/istDate.js';
 
 /**
  * What is still unsettled in a stretch of days, person by person.
@@ -138,4 +138,3 @@ export async function getMonthSnapshot(orgId: string, month: string) {
   return { month, version: snap.version, createdAt: snap.createdAt, rows: JSON.parse(snap.rowsJson || '[]') as any[] };
 }
 
-export { daysBetween };

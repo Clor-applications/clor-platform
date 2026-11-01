@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
-import { ISO_DATE, daysBetween } from './days.js';
+import { ISO_DATE } from './days.js';
+import { eachDay } from '../../utils/istDate.js';
 
 /**
  * Leave block dates (owner, 29 Oct 2026, from ERPNext's Leave Block List):
@@ -23,7 +24,7 @@ export const blockSchema = z.object({
   leaveTypeIds: ids,
   allowedEmployeeIds: ids,
 }).refine((b) => b.toDate >= b.fromDate, { message: 'The last day is before the first.', path: ['toDate'] })
-  .refine((b) => daysBetween(b.fromDate, b.toDate).length <= MAX_BLOCK_DAYS, { message: `A block covers at most ${MAX_BLOCK_DAYS} days.`, path: ['toDate'] });
+  .refine((b) => eachDay(b.fromDate, b.toDate).length <= MAX_BLOCK_DAYS, { message: `A block covers at most ${MAX_BLOCK_DAYS} days.`, path: ['toDate'] });
 export type BlockInput = z.infer<typeof blockSchema>;
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
