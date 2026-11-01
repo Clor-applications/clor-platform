@@ -439,6 +439,8 @@ peopleApprovalsRouter.post(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUE
   if (b.requestTypes === undefined && !standInEmployeeId) types.splice(0, types.length, 'PEOPLE');
   if (covers(types, 'TIME') && !standInEmployeeId) return res.status(400).json({ error: 'They have no employee record here, so they cannot decide leave or attendance. Hand on other approvals only, or link a record first.' });
   const row = await nameStandIn({ accountId, orgId, createdByUserId: userId, userId, employeeId: me?.id ?? null, standInUserId, standInEmployeeId, fromDate: b.fromDate, toDate: b.toDate, requestTypes: types, note: b.note || null });
+  /* Leave already waiting on the engine takes the stand-in in now (workflow engine 2c). */
+  await (await import('../services/attendance/leaveEngine.js')).refreshLeaveSteps(accountId, orgId);
   res.status(201).json({ standIn: row });
 });
 
@@ -450,6 +452,7 @@ peopleApprovalsRouter.delete(`${base}/stand-ins/:id`, can(PermissionAction.VIEW,
   const me = row ? await myRecord(orgId, userId) : null;
   if (!row || !(row.userId === userId || (me && row.employeeId === me.id))) return res.status(404).json({ error: 'No such stand-in.' });
   await removeStandIn(orgId, row);
+  await (await import('../services/attendance/leaveEngine.js')).refreshLeaveSteps(req.tenant!.accountId, orgId);
   res.json({ ok: true });
 });
 

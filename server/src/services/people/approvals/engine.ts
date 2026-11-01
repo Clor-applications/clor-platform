@@ -92,12 +92,38 @@ async function tellClosed(request: RequestRow, status: 'REJECTED' | 'WITHDRAWN',
   try {
     await fn(request, status, note);
   } catch (e) {
+    /* A module that keeps its own record decides inside one transaction with the engine: its refusal undoes the decision. */
+    if (sources.has(request.requestType)) throw e;
     console.error(`[people-approvals] ${request.orgId}: request ${request.id} closed, its own record not updated:`, e instanceof Error ? e.message : e);
   }
 }
 
 /** Someone who asked from the employee app without a CLOR sign-in is the requester `portal:<employeeId>`. */
 export const PORTAL_PREFIX = 'portal:';
+
+/**
+ * A request type whose module keeps its own record and says who decides in its own words (leave,
+ * workflow engine phase 2c). Its requests are opened by the module (openSourced, with `sourceKind`
+ * and `sourceId`), never through submitRequest, and decided only where they were asked (decide's
+ * `atSource`), inside the module's own transaction:
+ *  - `resolve`: who decides for one approver of a step (users, or `portal:<employeeId>` in the
+ *    employee app), stand-ins, away hand-up and scope already applied, the person it is about taken out;
+ *  - `stepIn`: who may step in for a step (5.5);
+ *  - the module tells people itself, so the engine sends no notice of its own;
+ *  - an effect or closer that fails undoes the decision (the caller's transaction rolls back), so a
+ *    request is never closed "approved but not applied" under the module's feet.
+ */
+export type SourceHooks = {
+  resolve: (who: { accountId: string; orgId: string }, approver: Approver, request: Req, day: string, approvedBy: () => Promise<Set<string | null>>) => Promise<Resolution>;
+  stepIn: (who: { accountId: string; orgId: string }, group: 'HR' | 'OWNER', request: Req) => Promise<string[]>;
+};
+const sources = new Map<string, SourceHooks>();
+export function onSource(type: string, hooks: SourceHooks) {
+  sources.set(type, hooks);
+}
+const sourced = (r: { requestType: string }) => sources.has(r.requestType);
+/** A request a module opened for its own record (sourceKind, or the preset it was opened under). */
+const ownedBySource = (r: { sourceKind?: string | null; payload?: unknown }) => Boolean(r.sourceKind || (r.payload as { preset?: unknown } | null | undefined)?.preset);
 
 export class ApprovalError extends Error {
   constructor(message: string, public status = 400, public code = 'APPROVAL_REFUSED') {
@@ -133,7 +159,7 @@ export async function activeRule(orgId: string, requestType: RuleType) {
   return peoplePrisma.approvalRule.findFirst({ where: { orgId, requestType, variantKey: '', active: true }, orderBy: { version: 'desc' } });
 }
 
-type RuleRow = NonNullable<Awaited<ReturnType<typeof activeRule>>>;
+export type RuleRow = NonNullable<Awaited<ReturnType<typeof activeRule>>>;
 
 /** A rule's steps as version 2, whichever version it was saved in. */
 export const stepsOfRule = (rule: { steps: unknown; requestType?: string } | null | undefined): StepV2[] => normaliseSteps(rule?.steps, rule?.requestType);
@@ -389,8 +415,8 @@ async function employeeOfUser(orgId: string, userId: string) {
 const GROUP_KINDS = new Set(['HR', 'ROLE', 'PAYROLL', 'OWNER']);
 const MANAGER_KINDS = new Set(['MANAGER', 'MANAGER_OF_MANAGER', 'COLLEAGUE_MANAGER']);
 
-type Req = { id?: string; requestType?: string; requesterUserId: string; subjectEmployeeId: string | null; payload?: unknown };
-type Resolution = {
+export type Req = { id?: string; requestType?: string; requesterUserId: string; subjectEmployeeId: string | null; payload?: unknown; sourceKind?: string | null };
+export type Resolution = {
   primary: string[];
   standIns: Array<{ for: string; user: string }>;
   /** Everyone found, before the requester and the people it is about were taken out. */
@@ -422,7 +448,10 @@ async function inScopeOnly(who: { accountId: string; orgId: string }, users: str
  * stand-ins added, anyone away passed up, the requester and the people it is
  * about taken out, and a team-scoped group kept to its team.
  */
-async function resolveOne(who: { accountId: string; orgId: string }, approver: Approver, request: Req, day: string): Promise<Resolution> {
+async function resolveOne(who: { accountId: string; orgId: string }, approver: Approver, request: Req, day: string, approvedBy: () => Promise<Set<string | null>> = async () => new Set()): Promise<Resolution> {
+  /* Only the module's own requests (opened with a preset) go to its words: a preview or anything else of the same type reads as before. */
+  const hooks = ownedBySource(request) ? sources.get(String(request.requestType || '')) : undefined;
+  if (hooks) return hooks.resolve(who, approver, request, day, approvedBy);
   const notes: string[] = [];
   let how: string | null = null;
   let resolved: { primary: string[]; standIns: Array<{ for: string; user: string }> };
@@ -478,10 +507,10 @@ async function resolveOne(who: { accountId: string; orgId: string }, approver: A
 }
 
 /** Several approvers resolved as one group (ANY), or one slot of ALL. */
-async function resolveGroup(who: { accountId: string; orgId: string }, approvers: Approver[], request: Req, day: string): Promise<Resolution> {
-  if (approvers.length === 1) return resolveOne(who, approvers[0], request, day);
+async function resolveGroup(who: { accountId: string; orgId: string }, approvers: Approver[], request: Req, day: string, approvedBy?: () => Promise<Set<string | null>>): Promise<Resolution> {
+  if (approvers.length === 1) return resolveOne(who, approvers[0], request, day, approvedBy);
   const parts = [];
-  for (const a of approvers) parts.push(await resolveOne(who, a, request, day));
+  for (const a of approvers) parts.push(await resolveOne(who, a, request, day, approvedBy));
   return {
     primary: [...new Set(parts.flatMap((p) => p.primary))],
     standIns: parts.flatMap((p) => p.standIns),
@@ -549,7 +578,7 @@ async function planStep(
   if (!allHold(spec.when, facts)) return { order: spec.order, kind: 'SKIPPED', comment: 'Condition not met' };
   const groups = spec.mode === 'ALL' ? spec.approvers.map((a) => [a]) : [spec.approvers];
   const resolved: Resolution[] = [];
-  for (const g of groups) resolved.push(await resolveGroup(who, g, request, ctx.day));
+  for (const g of groups) resolved.push(await resolveGroup(who, g, request, ctx.day, ctx.approvedBy));
   /* The colleague's manager step is not asked of whoever already approved this request (one manager for both, or HR standing in twice). */
   if (spec.approvers.some((a) => a.kind === 'COLLEAGUE_MANAGER') && resolved.some((r) => r.candidates.length)) {
     const approvedBy = await ctx.approvedBy();
@@ -648,7 +677,8 @@ type Audit = { action: string; message: string; metadata: Record<string, unknown
 async function openStep(
   tx: Prisma.TransactionClient,
   who: { accountId: string; orgId: string },
-  request: { id: string; requestType: string; requesterUserId: string; subjectEmployeeId: string | null; payload: unknown; ruleSteps: StepV2[] },
+  /* `since`: a request asked again (restartSourced) counts only the approvals made after that. */
+  request: { id: string; requestType: string; requesterUserId: string; subjectEmployeeId: string | null; payload: unknown; ruleSteps: StepV2[]; since?: Date },
   order: number,
   audits: Audit[] = [],
 ): Promise<'OPENED' | 'DONE'> {
@@ -656,11 +686,13 @@ async function openStep(
   const now = new Date();
   const day = todayIst();
   const base = { accountId: who.accountId, orgId: who.orgId, requestId: request.id };
+  const askedAgain = (request.payload as { restartedAt?: unknown } | null)?.restartedAt;
+  const since = request.since || (typeof askedAgain === 'string' ? new Date(askedAgain) : undefined);
   for (let i = order - 1; i < request.ruleSteps.length; i += 1) {
     const plan = await planStep(who, request.ruleSteps, i, request, facts, {
       day, now,
-      approvedBefore: async () => (await tx.approvalStep.count({ where: { requestId: request.id, orgId: who.orgId, status: 'APPROVED' } })) > 0,
-      approvedBy: async () => new Set((await tx.approvalStep.findMany({ where: { requestId: request.id, orgId: who.orgId, status: 'APPROVED' }, select: { decidedByUserId: true } })).map((x) => x.decidedByUserId)),
+      approvedBefore: async () => (await tx.approvalStep.count({ where: { requestId: request.id, orgId: who.orgId, status: 'APPROVED', ...(since ? { decidedAt: { gte: since } } : {}) } })) > 0,
+      approvedBy: async () => new Set((await tx.approvalStep.findMany({ where: { requestId: request.id, orgId: who.orgId, status: 'APPROVED', ...(since ? { decidedAt: { gte: since } } : {}) }, select: { decidedByUserId: true } })).map((x) => x.decidedByUserId)),
     });
     if (plan.kind === 'SKIPPED') {
       await tx.approvalStep.create({ data: { ...base, order: plan.order, candidateUserIds: [], approverUserId: null, dueAt: new Date(), status: 'SKIPPED', comment: plan.comment } });
@@ -756,12 +788,15 @@ export async function submitRequest(actor: Actor, input: { requestType: RequestT
  * employee app: they see it there (My details, and the app's updates), not
  * as a CLOR notification to a user who does not exist.
  */
-async function tellRequester(r: { accountId: string; orgId: string; requesterUserId: string }, title: string, body?: string | null) {
+async function tellRequester(r: { accountId: string; orgId: string; requesterUserId: string; requestType?: string }, title: string, body?: string | null) {
   if (r.requesterUserId.startsWith(PORTAL_PREFIX)) return;
+  /* A module that keeps its own record tells its own people (leave's notices). */
+  if (r.requestType && sources.has(r.requestType)) return;
   await notifyUsers(r.accountId, r.orgId, [r.requesterUserId], { kind: 'people.approval', title, body: body ?? null, link: { app: 'people', screen: 'approvals' } as any });
 }
 
 async function notifyStep(request: RequestRow) {
+  if (sourced(request)) return;
   const waiting = request.steps.filter((s) => s.order === request.currentStep && s.status === 'WAITING');
   const step = waiting[0];
   if (!step) return;
@@ -796,6 +831,8 @@ async function approveFinal(actor: Actor, requestId: string) {
     try {
       if (effect) outcome = await effect({ request, actor: { ...actor, source: 'APPROVAL', requestId: request.id, decisionId: decision.id } });
     } catch (e) {
+      /* The module's own transaction undoes the decision: its error, as it said it (leave's 409s). */
+      if (sourced(request)) throw e;
       await closeUnapplied(actor, request, decision.id, e);
       throw new ApprovalError(`Approved, but it could not be applied: ${reasonOf(e)} The request is closed; ask again once that is fixed.`, 409, 'NOT_APPLIED');
     }
@@ -869,12 +906,15 @@ async function stepInGroup(who: { accountId: string; orgId: string }, group: 'HR
   return group === 'HR' ? inScopeOnly(who, await hrDeciders(who.accountId, who.orgId), subjectEmployeeId) : ownerDeciders(who.accountId, who.orgId);
 }
 
-export async function decide(actor: Actor, requestId: string, decision: Decision, comment: string | null) {
+export async function decide(actor: Actor, requestId: string, decision: Decision, comment: string | null, opts: { atSource?: boolean } = {}) {
   const { orgId } = actor;
   const userId = actor.userId;
   if (!userId) throw new ApprovalError('Sign in to decide.', 401);
   const request = await peoplePrisma.approvalRequest.findFirst({ where: { id: requestId, orgId }, include });
   if (!request) throw new ApprovalError('No such request.', 404, 'NOT_FOUND');
+  /* A module's own record (a leave) is decided where it was asked, with the module's checks and in its transaction. */
+  if (request.sourceKind && !opts.atSource) throw new ApprovalError('Decide this from the leave requests, where it was asked.', 409, 'DECIDE_AT_SOURCE');
+  if (request.sourceKind && decision === 'more-info') throw new ApprovalError('Approve or reject it.', 400, 'NOT_SUPPORTED');
   if (request.status !== 'WAITING') throw new ApprovalError(`This request is ${request.status.toLowerCase().replace('_', ' ')}; nothing to decide.`, 409, 'NOT_WAITING');
   /* ANY mode: one row waits. ALL mode: one row per approver, each decided by its own people. */
   const waiting = request.steps.filter((s) => s.order === request.currentStep && s.status === 'WAITING');
@@ -892,7 +932,11 @@ export async function decide(actor: Actor, requestId: string, decision: Decision
   if (all && decidedPart.has(userId)) throw new ApprovalError('You approved part of this step already; someone else decides the rest.', 403, 'ALREADY_DECIDED_PART');
   /* Step-in (5.5): someone in the step's step-in group decides in the approver's place, and it is logged as such. */
   let steppingIn: 'HR' | 'OWNER' | null = null;
-  if (!mine.length && spec?.stepIn && (await stepInGroup({ accountId: actor.accountId, orgId }, spec.stepIn, request.subjectEmployeeId)).includes(userId)) {
+  const stepInPeople = async (group: 'HR' | 'OWNER') => {
+    const hooks = ownedBySource(request) ? sources.get(request.requestType) : undefined;
+    return hooks ? hooks.stepIn({ accountId: actor.accountId, orgId }, group, request) : stepInGroup({ accountId: actor.accountId, orgId }, group, request.subjectEmployeeId);
+  };
+  if (!mine.length && spec?.stepIn && (await stepInPeople(spec.stepIn)).includes(userId)) {
     mine = [waiting[0]];
     steppingIn = spec.stepIn;
   }
@@ -985,6 +1029,7 @@ export async function decide(actor: Actor, requestId: string, decision: Decision
 export async function reply(actor: Actor, requestId: string, note: string) {
   const request = await peoplePrisma.approvalRequest.findFirst({ where: { id: requestId, orgId: actor.orgId }, include });
   if (!request) throw new ApprovalError('No such request.', 404, 'NOT_FOUND');
+  if (request.sourceKind) throw new ApprovalError('Nothing was asked.', 409, 'NOT_WAITING');
   if (request.requesterUserId !== actor.userId) throw new ApprovalError('Only the person who asked can answer.', 403);
   if (request.status !== 'MORE_INFO') throw new ApprovalError('Nothing was asked.', 409, 'NOT_WAITING');
   const ofStep = request.steps.filter((s) => s.order === request.currentStep).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -1006,6 +1051,7 @@ export async function reply(actor: Actor, requestId: string, note: string) {
 export async function withdraw(actor: Actor, requestId: string) {
   const request = await peoplePrisma.approvalRequest.findFirst({ where: { id: requestId, orgId: actor.orgId }, include });
   if (!request) throw new ApprovalError('No such request.', 404, 'NOT_FOUND');
+  if (request.sourceKind) throw new ApprovalError('Withdraw it from your leave, where you asked for it.', 409, 'DECIDE_AT_SOURCE');
   if (request.requesterUserId !== actor.userId) throw new ApprovalError('Only the person who asked can withdraw it.', 403);
   if (!['WAITING', 'MORE_INFO'].includes(request.status)) throw new ApprovalError(`This request is ${request.status.toLowerCase()}.`, 409, 'NOT_WAITING');
   const done = await peoplePrisma.$transaction(async (tx) => {
@@ -1022,6 +1068,141 @@ export async function withdraw(actor: Actor, requestId: string) {
   const { withdrawnNotices } = await choicesFor(actor.orgId);
   await retireNotices(actor.orgId, `approval:${done.id}`, withdrawnNotices, { app: 'people', screen: 'approvals', params: { open: 'APPROVAL', id: done.id } });
   return done;
+}
+
+// ---------------------------------------------------------------------------
+// A module's own records (leave, phase 2c): opened, restarted and closed by the module
+// ---------------------------------------------------------------------------
+
+/**
+ * A request for a record a module keeps itself (a leave), under the rule the module chose (a preset).
+ * Called inside the module's transaction: the record and its request commit together. The module
+ * tells people itself. When nobody but the person could decide, the step closes as SELF_APPROVED
+ * (5.6) and the module's effect runs at once.
+ */
+export async function openSourced(actor: Actor, input: { requestType: string; sourceKind: string; sourceId: string; subjectEmployeeId: string; requesterUserId: string; title: string; payload: Payload; rule: RuleRow }): Promise<{ request: RequestRow; done: boolean }> {
+  const { accountId, orgId } = actor;
+  const ruleSteps = stepsOfRule(input.rule);
+  const audits: Audit[] = [];
+  const created = await peoplePrisma.$transaction(async (tx) => {
+    const r = await tx.approvalRequest.create({
+      data: {
+        accountId, orgId, requestType: input.requestType, subjectEmployeeId: input.subjectEmployeeId, requesterUserId: input.requesterUserId,
+        ruleId: input.rule.id, ruleVersion: input.rule.version, ruleVariant: input.rule.variantKey, title: input.title.slice(0, 200), payload: input.payload as unknown as Prisma.InputJsonValue,
+        status: 'WAITING', currentStep: 1, sourceKind: input.sourceKind, sourceId: input.sourceId,
+      },
+    });
+    await writeChangeLog(tx, actor, { kind: 'ApprovalRequest', id: r.id, employeeId: input.subjectEmployeeId }, [{ field: 'status', before: null, after: 'WAITING', redacted: false }]);
+    const state = await openStep(tx, { accountId, orgId }, { id: r.id, requestType: r.requestType, requesterUserId: r.requesterUserId, subjectEmployeeId: r.subjectEmployeeId, payload: r.payload, ruleSteps }, 1, audits);
+    return { id: r.id, state };
+  });
+  await writeAudits({ accountId, orgId }, created.id, audits);
+  return finishSourced(actor, created.id, created.state === 'DONE', input.requesterUserId);
+}
+
+/** Opened or restarted: when every step closed already (self-approved, skipped), the module's effect runs as whoever approved last. */
+async function finishSourced(actor: Actor, requestId: string, done: boolean, fallbackUserId: string | null) {
+  if (done) {
+    const last = await peoplePrisma.approvalStep.findFirst({ where: { requestId, status: 'APPROVED' }, orderBy: [{ order: 'desc' }, { createdAt: 'desc' }] });
+    const out = await approveFinal({ ...actor, userId: last?.decidedByUserId || fallbackUserId }, requestId);
+    return { request: out.request, done: true };
+  }
+  return { request: await peoplePrisma.approvalRequest.findUniqueOrThrow({ where: { id: requestId }, include }), done: false };
+}
+
+/**
+ * The record changed while it waited (a leave's dates or type): its request starts again from the
+ * first step under `rule`, and says so. Steps already decided stay in its story.
+ */
+export async function restartSourced(actor: Actor, requestId: string, input: { sourceId: string; payload: Payload; rule: RuleRow; why: string }): Promise<{ request: RequestRow; done: boolean } | null> {
+  const audits: Audit[] = [];
+  const ruleSteps = stepsOfRule(input.rule);
+  const state = await peoplePrisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-decide:${requestId}`}))`;
+    const r = await tx.approvalRequest.findFirst({ where: { id: requestId, orgId: actor.orgId } });
+    if (!r || !['WAITING', 'MORE_INFO'].includes(r.status)) return 'NONE' as const;
+    await tx.approvalStep.updateMany({ where: { requestId, status: { in: ['WAITING', 'MORE_INFO'] } }, data: { status: 'WITHDRAWN', comment: input.why.slice(0, 1000), decidedAt: new Date() } });
+    const fresh = await tx.approvalRequest.update({ where: { id: requestId }, data: { sourceId: input.sourceId, payload: { ...input.payload, restartedAt: new Date().toISOString() } as unknown as Prisma.InputJsonValue, ruleId: input.rule.id, ruleVersion: input.rule.version, ruleVariant: input.rule.variantKey, status: 'WAITING', currentStep: 1 } });
+    await writeChangeLog(tx, { ...actor, reason: input.why }, { kind: 'ApprovalRequest', id: requestId, employeeId: fresh.subjectEmployeeId }, [{ field: 'steps', before: 'WAITING', after: 'ASKED AGAIN', redacted: false }]);
+    /* Approvals before the change do not count for the new steps. */
+    return openStep(tx, { accountId: actor.accountId, orgId: actor.orgId }, { id: fresh.id, requestType: fresh.requestType, requesterUserId: fresh.requesterUserId, subjectEmployeeId: fresh.subjectEmployeeId, payload: fresh.payload, ruleSteps }, 1, audits);
+  });
+  if (state === 'NONE') return null;
+  await writeAudits({ accountId: actor.accountId, orgId: actor.orgId }, requestId, audits);
+  return finishSourced(actor, requestId, state === 'DONE', actor.userId);
+}
+
+/**
+ * The module's record was decided or withdrawn outside the steps (cancelled by the person or HR, decided
+ * through the public API, or by an older API during a rollback): its request closes to match, and the
+ * steps still waiting say why. A request with no step waiting is the engine's own finish in progress
+ * (the module's effect is running): left alone. Idempotent.
+ */
+export async function closeAtSource(actor: Actor, requestId: string, status: 'APPROVED' | 'REJECTED' | 'WITHDRAWN', why: string) {
+  return peoplePrisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-decide:${requestId}`}))`;
+    const r = await tx.approvalRequest.findFirst({ where: { id: requestId, orgId: actor.orgId }, include });
+    if (!r || !['WAITING', 'MORE_INFO'].includes(r.status) || !r.steps.some((s) => s.status === 'WAITING' || s.status === 'MORE_INFO')) return false;
+    await tx.approvalStep.updateMany({ where: { requestId, status: { in: ['WAITING', 'MORE_INFO'] } }, data: { status: status === 'WITHDRAWN' ? 'WITHDRAWN' : 'SKIPPED', comment: why.slice(0, 1000), decidedAt: new Date() } });
+    await tx.approvalRequest.update({ where: { id: requestId }, data: { status } });
+    await writeChangeLog(tx, { ...actor, reason: why }, { kind: 'ApprovalRequest', id: requestId, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: r.status, after: status, redacted: false }]);
+    return true;
+  });
+}
+
+/**
+ * Move on the step waiting now, for a module's own record:
+ *  - `to`: handed on in place to these people (a leave's manager step after the type's days). An empty
+ *    `to` moves nothing: the step stays waiting (never closes the request on nobody's decision);
+ *  - `approvedBy`: taken outside the engine by that person (an older API wrote the manager's step on the
+ *    leave during a rollback): written APPROVED by them, and the next step opens;
+ *  - neither: closed as HANDED_ON and the next step opens.
+ * Inside the module's transaction. Answers whether it moved.
+ */
+export async function handOnStep(actor: Actor, requestId: string, input: { to?: string[]; approvedBy?: string | null; why: string }) {
+  if (input.to && !input.to.length) return false;
+  const audits: Audit[] = [];
+  const state = await peoplePrisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-decide:${requestId}`}))`;
+    const r = await tx.approvalRequest.findFirst({ where: { id: requestId, orgId: actor.orgId }, include });
+    if (!r || r.status !== 'WAITING') return 'NONE' as const;
+    const waiting = r.steps.filter((s) => s.order === r.currentStep && s.status === 'WAITING');
+    if (!waiting.length) return 'NONE' as const;
+    const taken = input.approvedBy ? { status: 'APPROVED', decidedByUserId: input.approvedBy, approverUserId: input.approvedBy } : { status: 'HANDED_ON' };
+    await tx.approvalStep.updateMany({ where: { id: { in: waiting.map((w) => w.id) }, status: 'WAITING' }, data: { ...taken, comment: input.why.slice(0, 1000), decidedAt: new Date() } });
+    await writeChangeLog(tx, { ...actor, reason: input.why }, { kind: 'ApprovalRequest', id: requestId, employeeId: r.subjectEmployeeId }, [{ field: `step ${r.currentStep}`, before: 'WAITING', after: taken.status, redacted: false }]);
+    if (input.to?.length) {
+      const w = waiting[0];
+      await tx.approvalStep.create({ data: { accountId: r.accountId, orgId: r.orgId, requestId, order: w.order, slot: w.slot, mode: w.mode, candidateUserIds: input.to, approverUserId: input.to[0], dueAt: w.dueAt, status: 'WAITING', comment: input.why.slice(0, 1000), resolvedHow: 'HANDED_ON' } });
+      return 'OPENED' as const;
+    }
+    const ruleSteps = stepsOfRule(await tx.approvalRule.findUnique({ where: { id: r.ruleId } }));
+    return openStep(tx, { accountId: actor.accountId, orgId: actor.orgId }, { id: r.id, requestType: r.requestType, requesterUserId: r.requesterUserId, subjectEmployeeId: r.subjectEmployeeId, payload: r.payload, ruleSteps }, r.currentStep + 1, audits);
+  });
+  await writeAudits({ accountId: actor.accountId, orgId: actor.orgId }, requestId, audits);
+  /* Every later step closed on its own (self-approved when nobody else could, 5.6): finished as whoever approved last, never as "system". */
+  if (state === 'DONE') {
+    const last = await peoplePrisma.approvalStep.findFirst({ where: { requestId, status: 'APPROVED' }, orderBy: [{ decidedAt: 'desc' }, { createdAt: 'desc' }] });
+    await approveFinal({ ...actor, userId: last?.decidedByUserId || actor.userId }, requestId);
+  }
+  return state !== 'NONE';
+}
+
+/** A waiting step's people worked out again (a module's own record: the deciders changed since it opened). Answers whether they changed. */
+export async function reassignStep(actor: Actor, requestId: string, input: { candidates: string[]; how: string | null; comment: string | null; standInFor: string | null }) {
+  if (!input.candidates.length) return false;
+  return peoplePrisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-decide:${requestId}`}))`;
+    const r = await tx.approvalRequest.findFirst({ where: { id: requestId, orgId: actor.orgId }, include });
+    if (!r || r.status !== 'WAITING') return false;
+    const waiting = r.steps.filter((s) => s.order === r.currentStep && s.status === 'WAITING');
+    if (waiting.length !== 1) return false;
+    const before = (waiting[0].candidateUserIds as string[]) || [];
+    if (before.length === input.candidates.length && before.every((u, i) => u === input.candidates[i])) return false;
+    await tx.approvalStep.update({ where: { id: waiting[0].id }, data: { candidateUserIds: input.candidates, approverUserId: input.candidates[0], standInForUserId: input.standInFor, resolvedHow: input.how, comment: input.comment ? input.comment.slice(0, 1000) : null } });
+    await writeChangeLog(tx, { ...actor, reason: 'Who decides changed since the step opened' }, { kind: 'ApprovalRequest', id: requestId, employeeId: r.subjectEmployeeId }, [{ field: `step ${r.currentStep} approvers`, before: before.join(', ') || null, after: input.candidates.join(', '), redacted: false }]);
+    return true;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1111,17 +1292,18 @@ export async function waitingFor(orgId: string, userId: string) {
   const steps = await peoplePrisma.approvalStep.findMany({ where: { orgId, status: 'WAITING' }, select: { requestId: true, candidateUserIds: true, dueAt: true } });
   const ids = steps.filter((s) => ((s.candidateUserIds as string[]) || []).includes(userId)).map((s) => s.requestId);
   if (!ids.length) return [];
-  const rows = await peoplePrisma.approvalRequest.findMany({ where: { orgId, id: { in: ids }, status: 'WAITING' }, include });
+  /* A module's own requests (leave) wait in that module's queue, which the inbox already lists. */
+  const rows = await peoplePrisma.approvalRequest.findMany({ where: { orgId, id: { in: ids }, status: 'WAITING', sourceKind: null }, include });
   return rows.sort((a, b) => dueOf(a).getTime() - dueOf(b).getTime());
 }
 const dueOf = (r: RequestRow) => r.steps.find((s) => s.order === r.currentStep && s.status === 'WAITING')?.dueAt || r.createdAt;
 
 export async function mine(orgId: string, userId: string, limit = 100) {
-  return finishStalled(await peoplePrisma.approvalRequest.findMany({ where: { orgId, requesterUserId: userId }, include, orderBy: { createdAt: 'desc' }, take: limit }));
+  return finishStalled(await peoplePrisma.approvalRequest.findMany({ where: { orgId, requesterUserId: userId, sourceKind: null }, include, orderBy: { createdAt: 'desc' }, take: limit }));
 }
 
 export async function requestsAbout(orgId: string, employeeId: string) {
-  return finishStalled(await peoplePrisma.approvalRequest.findMany({ where: { orgId, subjectEmployeeId: employeeId }, include, orderBy: { createdAt: 'desc' } }));
+  return finishStalled(await peoplePrisma.approvalRequest.findMany({ where: { orgId, subjectEmployeeId: employeeId, sourceKind: null }, include, orderBy: { createdAt: 'desc' } }));
 }
 
 /**
@@ -1176,7 +1358,7 @@ export const REMIND_EVERY_WORKING_DAYS = 3;
  */
 export async function runApprovalDues(now = new Date()) {
   /* Only steps of requests still waiting: an ALL step's other slots sit WAITING while the request is with the requester for more information. */
-  const due = await outsideTenant('job: approval dues', () => peoplePrisma.approvalStep.findMany({ where: { status: 'WAITING', dueAt: { lt: now }, request: { status: 'WAITING' } }, include: { request: true } }));
+  const due = await outsideTenant('job: approval dues', () => peoplePrisma.approvalStep.findMany({ where: { status: 'WAITING', dueAt: { lt: now }, request: { status: 'WAITING', sourceKind: null } }, include: { request: true } }));
   let reminded = 0;
   let handedOn = 0;
   let autoApproved = 0;
@@ -1261,7 +1443,7 @@ export async function runApprovalDues(now = new Date()) {
   }
   const away = await runAwayHandUps(now);
   /* Requests approveFinal left half done (approved, never closed): finished here too, for those nobody opens again. */
-  const half = await outsideTenant('job: approvals left unfinished', () => peoplePrisma.approvalRequest.findMany({ where: { status: 'WAITING', steps: { some: {}, none: { status: 'WAITING' } } }, include, take: 200 }));
+  const half = await outsideTenant('job: approvals left unfinished', () => peoplePrisma.approvalRequest.findMany({ where: { status: 'WAITING', sourceKind: null, steps: { some: {}, none: { status: 'WAITING' } } }, include, take: 200 }));
   for (const r of half) await runInTenant(r.orgId, () => finishStalled([r]));
   return { due: due.length, reminded, handedOn, autoApproved, awayHandedUp: away.handedUp, failed: failed + away.failed };
 }
@@ -1283,7 +1465,7 @@ async function runAwayHandUps(now: Date) {
   const onLeave = await outsideTenant('job: approvers away today', () => peoplePrisma.leaveRequest.findMany({ where: { status: 'APPROVED', fromDate: { lte: day }, toDate: { gte: day }, halfDay: null, fromTime: null }, select: { orgId: true }, distinct: ['orgId'], take: 5000 }));
   if (!onLeave.length) return { handedUp, failed };
   const steps = await outsideTenant('job: steps waiting on someone away', () =>
-    peoplePrisma.approvalStep.findMany({ where: { orgId: { in: onLeave.map((o) => o.orgId) }, status: 'WAITING', request: { status: 'WAITING' }, AND: [{ resolvedHow: { not: null } }, { resolvedHow: { not: 'AWAY_HANDED_UP' } }] }, include: { request: true }, take: 2000 }),
+    peoplePrisma.approvalStep.findMany({ where: { orgId: { in: onLeave.map((o) => o.orgId) }, status: 'WAITING', request: { status: 'WAITING', sourceKind: null }, AND: [{ resolvedHow: { not: null } }, { resolvedHow: { not: 'AWAY_HANDED_UP' } }] }, include: { request: true }, take: 2000 }),
   );
   for (const step of steps) {
     try {
@@ -1356,7 +1538,8 @@ export const isoDay = (v: unknown) => (typeof v === 'string' && ISO_DAY.test(v) 
  * The requester never becomes the decider. Logged on the request.
  */
 export async function rerouteManagerSteps(actor: Actor, employeeId: string) {
-  const open = await peoplePrisma.approvalRequest.findMany({ where: { orgId: actor.orgId, subjectEmployeeId: employeeId, status: 'WAITING' }, include });
+  /* A module's own requests (leave) are re-resolved by the module, in its own words (leaveEngine.rerouteLeaveFor). */
+  const open = await peoplePrisma.approvalRequest.findMany({ where: { orgId: actor.orgId, subjectEmployeeId: employeeId, status: 'WAITING', sourceKind: null }, include });
   let moved = 0;
   for (const request of open) {
     const step = request.steps.find((s) => s.order === request.currentStep && s.status === 'WAITING');

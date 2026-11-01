@@ -193,6 +193,58 @@ Until phase 3c, a rollback to an API from before 2b is safe:
 Nothing needs undoing on a rollback. Do not drop `ApprovalStandIn` before
 phase 3c. The 3c order is in `docs/people/workflow-engine/SPEC.md` section 9.
 
+### Leave on the engine (workflow engine 2c-i, migration `20261119090000_leave_on_engine`): deploying and rolling back
+
+The migration adds one column, `PeopleSetting.leaveOnEngine`, default `false`.
+An older API never reads it.
+
+- **Switch off (every company, the default):** leave decides exactly as
+  before and nothing new is written: no `ApprovalRequest`, no preset rule.
+  The deploy window (old and new instances side by side) and a rollback to
+  rel-eed8908 need nothing.
+- **No screen or API turns it on in 2c-i.** Only staging QA turns it on, per
+  company, as the owner of the schema:
+  `UPDATE people."PeopleSetting" SET "leaveOnEngine" = true WHERE "orgId" = '<id>';`
+  (insert a row first if the company has none). 2c-ii adds the switch to
+  Company choices.
+
+What a company with the switch on writes, and how rel-eed8908 reads it:
+
+- **Preset rules:** three `ApprovalRule` rows, request type `LEAVE`, variant
+  keys `preset:HR_OR_MANAGER`, `preset:MANAGER`, `preset:MANAGER_THEN_HR`,
+  no conditions. The older API reads only the main rule (variant `""`) and
+  picks a variant only by its conditions, so it never uses them. Its
+  Approval rules screen lists them under Leave's variants, read only; that
+  is cosmetic.
+- **A new leave:** the leave row is written as before, with
+  `ruleId` null, and the manager's step under "manager, then HR" is still
+  written on the row (`managerApprovedAt`). To the older API it is an
+  ordinary chain request, and the parity tests show the chain gives it the
+  same people, so it decides it on the old path.
+- **Before rolling back a company that has it on (mandatory, both steps):**
+  1. Switch it off, so no more engine requests open:
+     `UPDATE people."PeopleSetting" SET "leaveOnEngine" = false WHERE "orgId" = '<id>';`
+  2. Close its waiting engine requests, so the older API never sees them:
+     `SET clor.bypass = 'on'; UPDATE people."ApprovalStep" SET status = 'WITHDRAWN' WHERE status = 'WAITING' AND "requestId" IN (SELECT id FROM people."ApprovalRequest" WHERE "orgId" = '<id>' AND "sourceKind" = 'LEAVE' AND status = 'WAITING'); UPDATE people."ApprovalRequest" SET status = 'WITHDRAWN' WHERE "orgId" = '<id>' AND "sourceKind" = 'LEAVE' AND status = 'WAITING';`
+  Their leave rows are untouched: the older API decides them on the old path,
+  with the same people, and a later roll-forward leaves them there.
+- **Why step 2 is not optional.** An engine request left waiting is read by
+  the older API as an ordinary People request: it lists it on People →
+  Approvals under "Waiting for me", reminds its people after two working
+  days, its away job may hand the step up to someone else, and approving it
+  there closes only the engine request (it has no leave effect) and tells
+  the employee "Approved" while the leave is still waiting.
+- **Rolling forward again.** A leave whose engine request is no longer
+  waiting goes on the old path (never stuck). If the older API took the
+  manager's step on the leave row, the newer API takes that step as the
+  same person's on the engine before anyone decides it, and HR's step opens.
+  A waiting engine request whose leave is decided or cancelled on the newer
+  API closes to match then; one whose leave the older API decided stays
+  waiting but is listed nowhere (the queues read waiting leave only).
+
+Nothing else needs undoing. Phase 3c stops the writes to the old manager
+columns, once no leave is pending on the old path.
+
 ## A first-time setup, from nothing
 
 ```bash

@@ -13,6 +13,7 @@ import { teamScope } from '../people/scope.js';
 import { registerJob } from '../jobRegistry.js';
 import { addWorkingDays, REMIND_EVERY_WORKING_DAYS } from '../people/approvals/engine.js';
 import { deciders, stepsOf } from './leaveRules.js';
+import { handOnLeaveOnEngine } from './leaveEngine.js';
 import { automation, recordRun } from '../people/engagement/automations.js';
 
 /**
@@ -48,6 +49,8 @@ export async function runLeaveHandOns(now = new Date()) {
     };
     const waiting = open.filter((r) => stepStart(r) < cutoff);
     for (const r of waiting) {
+      /* One request that cannot be handed on (a company with nobody to take it) never stops the rest. */
+      try {
       if (!(await activeManagerOf(t.orgId, r.employeeId))) continue;
       const history = [...((Array.isArray(r.history) ? r.history : []) as any[]), { at: now.toISOString(), by: 'system', what: 'HANDED_ON', note: `No decision from the manager in ${t.handOnAfterDays} days` }];
       /* The manager's step counts as taken by nobody: HR decides, and the story says so. */
@@ -56,6 +59,8 @@ export async function runLeaveHandOns(now = new Date()) {
       const { tellWaiting } = await import('../../routes/leave.js');
       const claimed = await peopleWrite(t.orgId, async () => {
         const c = await peoplePrisma.leaveRequest.updateMany({ where: { id: r.id, status: 'PENDING', managerApprovedAt: null, updatedAt: r.updatedAt }, data: { managerApprovedAt: now, managerApprovedById: null, managerNote: `Handed on to HR: no decision in ${t.handOnAfterDays} days`, history } });
+        /* On the approval engine (2c), its step is handed on too: HR's step opens, or HR takes the manager's. */
+        if (c.count) await handOnLeaveOnEngine(t.orgId, r, `Handed on to HR: no decision from the manager in ${t.handOnAfterDays} days`);
         if (c.count) await tellWaiting(t.orgId, r.id);
         return c;
       });
@@ -64,6 +69,9 @@ export async function runLeaveHandOns(now = new Date()) {
         .create({ data: { accountId: r.accountId, orgId: t.orgId, branchId: '', entity: 'LeaveRequest', entityId: r.id, action: 'HAND_ON', message: `Handed on to HR: no decision from the manager in ${t.handOnAfterDays} days`, metadata: JSON.stringify({ employeeId: r.employeeId, leaveTypeId: r.leaveTypeId }), createdByUserId: 'system' } })
         .catch((e) => console.error('[audit] hand-on not recorded:', e instanceof Error ? e.message : e));
       handed += 1;
+      } catch (e) {
+        console.error(`[leave] hand-on: org ${t.orgId}, request ${r.id}:`, e instanceof Error ? e.message : e);
+      }
     }
   }
   return handed;

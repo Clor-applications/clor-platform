@@ -133,6 +133,8 @@ export async function updateEmployee(
   if (result.changes.some((c) => c.field === 'reportingManagerId')) {
     const { rerouteManagerSteps } = await import('./approvals/engine.js');
     await rerouteManagerSteps(actor, result.row.id).catch((e) => console.error('[approvals] reroute after manager change:', e instanceof Error ? e.message : e));
+    /* Their leave waiting on the engine: the new manager takes it, in leave's words, and is told (workflow engine 2c). */
+    await (await import('../attendance/leaveEngine.js')).refreshLeaveSteps(actor.accountId, actor.orgId, result.row.id);
   }
   return { row: result.row, changes: result.changes };
 }

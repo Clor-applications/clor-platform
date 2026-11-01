@@ -790,7 +790,7 @@ peopleRouter.get('/orgs/:orgId/people/workforce/pending', can(PermissionAction.V
   const [requests, scheduled, invites, drafts] = await Promise.all([
     /* The team filter goes into the query, before the 200 cap: a lead in a busy company still sees their own team's items. */
     /* A resignation waiting is a leaving: not listed for a reader the company keeps leavings from (SPEC 3.5). */
-    peoplePrisma.approvalRequest.findMany({ where: { orgId, status: 'WAITING', subjectEmployeeId: scope.all ? { not: null } : { in: scope.ids }, ...(leavingsOk ? {} : { requestType: { not: 'LEAVING' } }) }, include: { steps: true }, orderBy: { createdAt: 'asc' }, take: 200 }),
+    peoplePrisma.approvalRequest.findMany({ where: { orgId, status: 'WAITING', sourceKind: null, subjectEmployeeId: scope.all ? { not: null } : { in: scope.ids }, ...(leavingsOk ? {} : { requestType: { not: 'LEAVING' } }) }, include: { steps: true }, orderBy: { createdAt: 'asc' }, take: 200 }),
     peoplePrisma.scheduledChange.findMany({ where: { orgId, status: 'PENDING', ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: [{ effectiveOn: 'asc' }], take: 200 }),
     peoplePrisma.joinInvite.findMany({ where: { orgId, status: 'RETURNED', ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: { returnedAt: 'asc' }, take: 200 }).catch(() => []),
     peoplePrisma.employeeDraft.findMany({ where: { orgId, userId: req.auth!.userId, expiresAt: { gt: new Date() } }, orderBy: { updatedAt: 'desc' }, take: 20 }),

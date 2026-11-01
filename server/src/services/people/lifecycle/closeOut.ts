@@ -16,7 +16,7 @@ export async function closeOutFor(actor: Actor, employeeId: string) {
   const person = (await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { id: true, name: true, reportingManagerId: true, seatId: true } })) || { id: employeeId, name: 'The person', reportingManagerId: null, seatId: null, gone: true as const };
   const now = new Date();
   const cancelled = await peoplePrisma.scheduledChange.updateMany({ where: { orgId, employeeId, status: 'PENDING' }, data: { status: 'CANCELLED', cancelledAt: now } });
-  const open = await peoplePrisma.approvalRequest.findMany({ where: { orgId, subjectEmployeeId: employeeId, status: { in: ['WAITING', 'MORE_INFO'] }, requestType: { not: 'LEAVING' } }, select: { id: true, status: true } });
+  const open = await peoplePrisma.approvalRequest.findMany({ where: { orgId, subjectEmployeeId: employeeId, status: { in: ['WAITING', 'MORE_INFO'] }, requestType: { not: 'LEAVING' }, sourceKind: null }, select: { id: true, status: true } });
   for (const r of open) {
     await peoplePrisma.$transaction(async (tx) => {
       await tx.approvalStep.updateMany({ where: { requestId: r.id, status: 'WAITING' }, data: { status: 'WITHDRAWN', comment: `${person.name} left` } });

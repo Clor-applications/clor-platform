@@ -27,6 +27,7 @@ import { normaliseCode, passwordProblem } from '../services/attendance/portal.js
 import { chainFor } from '../services/attendance/approvalChain.js';
 import { askOvertime, attentionFor, chainsFor, confirmMonth, decideOvertime, monthReview, overtimeFor, ruleTimelineOf, timelineOf, upcomingShifts } from '../services/attendance/selfService.js';
 import { portalOf } from '../services/attendance/leaveRules.js';
+import { decideLeaveOnEngine, engineLeaveNaming, engineStepOf, offEngine } from '../services/attendance/leaveEngine.js';
 import { createRequest } from './attendance.js';
 import { REASON_CODES } from '../services/attendance/corrections.js';
 import { KINDS, KIND_WORDS, askRequest, cancelRequest, chainOf, decideRequest, editRequest, rulesFor, shiftChoices, usage as requestUsage } from '../services/attendance/requests.js';
@@ -434,7 +435,7 @@ portalRouter.get('/updates', async (req, res) => {
     team.length ? peoplePrisma.attendanceRequest.count({ where: { orgId: e.orgId, employeeId: { in: team }, status: 'PENDING', managerApprovedAt: null } }) : 0,
     team.length ? peoplePrisma.devicePunch.count({ where: { orgId: e.orgId, employeeId: { in: team }, outsideSite: true, reviewStatus: 'PENDING' } }) : 0,
     /* E5: my own People requests (details, resignation) that HR answered or asked more about: the app's notice, as there may be no CLOR user to notify. */
-    peoplePrisma.approvalRequest.findMany({ where: { orgId: e.orgId, subjectEmployeeId: e.id, requesterUserId: { in: [`portal:${e.id}`, ...(e.userId ? [e.userId] : [])] }, status: { in: ['APPROVED', 'REJECTED', 'MORE_INFO'] }, updatedAt: { gte: since } }, select: { id: true, status: true, requestType: true, updatedAt: true } }),
+    peoplePrisma.approvalRequest.findMany({ where: { orgId: e.orgId, subjectEmployeeId: e.id, sourceKind: null, requesterUserId: { in: [`portal:${e.id}`, ...(e.userId ? [e.userId] : [])] }, status: { in: ['APPROVED', 'REJECTED', 'MORE_INFO'] }, updatedAt: { gte: since } }, select: { id: true, status: true, requestType: true, updatedAt: true } }),
     lapseFor(e.accountId, e.orgId, e.id).catch((err) => {
       console.error('[portal updates] lapse', err instanceof Error ? err.message : err);
       return null;
@@ -874,6 +875,9 @@ portalRouter.get('/approvals', async (req, res) => {
   /* Leave under the company's leave rule waits on whoever its step names, team or not; my team's is mine only when its step names me. */
   const me = [e.userId, portalOf(e.id)].filter(Boolean) as string[];
   const ruleLeaves = await peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, status: 'PENDING', ruleId: { not: null }, stepUserIds: { hasSome: me } }, orderBy: { createdAt: 'asc' } });
+  /* Leave on the approval engine (2c) waits on whoever its step names now, team or not: my team's is mine only when its step names me. */
+  const engineMine = await engineLeaveNaming(e.orgId, me);
+  const engineLeaves = engineMine.size ? await peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, status: 'PENDING', id: { in: [...engineMine] } }, orderBy: { createdAt: 'asc' } }) : [];
   const [leaves, corrections, fieldPunches] = ids.length || decidedIds.length || leaveIds.length
     ? await Promise.all([
         leaveIds.length ? peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: leaveIds }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }) : [],
@@ -901,7 +905,7 @@ portalRouter.get('/approvals', async (req, res) => {
     team: team.length,
     chain: { leave: leaveChain, correction: correctionChain === 'HR_ONLY' ? 'HR' : correctionChain, overtime: overtimeChainNow },
     /* A manager plans cover from dates, not diagnoses: private leave reads "Private leave" with no reason. */
-    leaves: masked(await withTypes(e.orgId, [...leaves.filter((r) => !r.managerApprovedAt && !r.ruleId), ...ruleLeaves]), false).map((r: any) => ({ id: r.id, type: 'leave', ...who(r.employeeId), ...(names.has(r.employeeId) ? {} : { employeeName: r.employeeName, employeeCode: r.employeeCode ?? null }), ...(r.ruleStep ? { step: r.ruleStep } : {}), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, reason: r.reason, askedAt: r.createdAt })),
+    leaves: masked(await withTypes(e.orgId, [...(await offEngine(e.orgId, leaves.filter((r) => !r.managerApprovedAt && !r.ruleId))).filter((r) => !engineMine.has(r.id)), ...ruleLeaves, ...engineLeaves]), false).map((r: any) => ({ id: r.id, type: 'leave', ...who(r.employeeId), ...(names.has(r.employeeId) ? {} : { employeeName: r.employeeName, employeeCode: r.employeeCode ?? null }), ...(r.ruleStep ? { step: r.ruleStep } : {}), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, reason: r.reason, askedAt: r.createdAt })),
     corrections: corrections.filter((r) => !r.managerApprovedAt && r.kind === 'MISSED_PUNCH' && managerDecides(r)).map((r) => ({ id: r.id, type: 'correction', ...who(r.employeeId), date: r.date, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, askedAt: r.createdAt })),
     /* Work from home, on duty and permission from my team, waiting on me. */
     requests: corrections.filter((r) => !r.managerApprovedAt && r.kind !== 'MISSED_PUNCH' && managerDecides(r)).map((r) => ({ id: r.id, type: 'request', kind: r.kind, kindName: KIND_WORDS[r.kind as keyof typeof KIND_WORDS]?.name || r.kind, ...who(r.employeeId), date: r.date, toDate: r.toDate, halfDay: r.halfDay, place: r.place, minutes: r.minutes, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, askedAt: r.createdAt })),
@@ -954,6 +958,20 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
   const note = String(req.body?.note || '').trim().slice(0, 500) || null;
   const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
+  /* On the approval engine (workflow engine 2c): whoever its step names now, as their CLOR user or as themselves in the app. */
+  if (r.status === 'PENDING' && !r.ruleId && (await engineStepOf(e.orgId, r))) {
+    if (decision === 'reject' && !note) return res.status(400).json({ error: 'Say why. They see this with the decision.' });
+    try {
+      const out = await decideLeaveOnEngine({ accountId: e.accountId, orgId: e.orgId, row: r, ids: [e.userId || '', portalOf(e.id)], approve: decision === 'approve', note, channel: 'app' });
+      if (out) {
+        const userId = out.by;
+        await leaveAudit({ accountId: e.accountId, orgId: e.orgId, userId }, { entityId: r.id, action: decision === 'approve' ? (out.stage ? 'MANAGER_APPROVE' : 'APPROVE') : 'REJECT', message: out.stage ? `${e.name} (manager) approved leave, ${r.fromDate} to ${r.toDate}; now with HR` : `${e.name} (manager) ${decision === 'approve' ? 'approved' : 'rejected'} leave, ${r.fromDate} to ${r.toDate}${note ? `: ${note}` : ''}`, metadata: { employeeId: r.employeeId } });
+        return res.json({ request: masked([out.request], false)[0], ...(out.stage ? { stage: out.stage } : {}) });
+      }
+    } catch (err) {
+      return sendError(res, err);
+    }
+  }
   if (r.ruleId) {
     /* Under the leave rule: whoever its step names, as their CLOR user or as themselves in the app. */
     const by = [e.userId, portalOf(e.id)].find((u) => u && r.stepUserIds.includes(u));
