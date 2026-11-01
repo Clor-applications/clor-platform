@@ -142,6 +142,12 @@ describe('Home: one primary action, and what waits on you comes first', () => {
     expect(contrast(onMuted, panel)).toBeGreaterThan(4.5);
   });
 
+  it('on a phone a waiting row stacks Review and Approve under the name, 44px targets', () => {
+    const phone = people.match(/@media \(max-width: 640px\) \{\n {2}\/\* A waiting row on a phone[\s\S]*?\n\}/)[0];
+    expect(phone).toContain('.people-approval > .min-w-0.flex-1 + div { flex: 1 1 100%;');
+    expect(phone).toContain('min-height: 2.75rem;');
+  });
+
   it('on a phone Waiting for you comes before the figures, so its first request is above the fold', () => {
     expect(block).toMatch(/@media \(max-width: 767px\) \{[\s\S]*\.soft-main > \.soft-bezel:has\(#todo-h\) \{ order: -1; \}/);
   });

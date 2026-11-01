@@ -420,7 +420,12 @@
 
 /* Teams: the company as one bar; a slice or a name picks the team above. */
 @media (max-width: 640px) {
-  .people-approval { flex-wrap: wrap; }
+  /* A waiting row on a phone (2 Nov 2026): the name and its line take the row beside the face, and Review and
+     Approve stack under them, each half the width and 44px tall, instead of squeezing the name into a column. */
+  .people-approval { flex-wrap: wrap; align-items: flex-start; }
+  .people-approval > .min-w-0.flex-1 { flex: 1 1 calc(100% - 3rem); }
+  .people-approval > .min-w-0.flex-1 + div { flex: 1 1 100%; margin-left: calc(34px + 0.75rem); gap: 0.5rem; }
+  .people-approval > .min-w-0.flex-1 + div > :is(button, .soft-chip) { flex: 1 1 0; justify-content: center; min-height: 2.75rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .people-member, .people-kpi, .people-row-action, .people-pulse-seg { transition: none; }
