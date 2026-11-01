@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -39,14 +39,6 @@ export function signAccessToken(payload: { userId: string; accountId: string; si
 }
 
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
-
-/** Constant-time comparison, so a wrong token cannot be found byte by byte. */
-export function safeEquals(a: string, b: string) {
-  const x = Buffer.from(String(a));
-  const y = Buffer.from(String(b));
-  if (x.length !== y.length) return false;
-  return timingSafeEqual(x, y);
-}
 
 // ---------------------------------------------------------------------------
 // Sessions

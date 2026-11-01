@@ -1,0 +1,5 @@
+## 2026-11-01 IST — Platform / dead code — server batch (audit batch 4)
+- Did: deleted 30 unreferenced server exports and 4 unused re-exports in 32 files, the `/portal/hr-cases` GET and POST routes with `HR_CATEGORIES`/`caseRow`/`DESK_CATEGORY` and `portalHrCases.test.ts`, and the imports only they used, and the two allow-list entries for those routes. Left out: the approvals engine's three dead exports (PR #93) and `postingIdempotencyKey` (payrollBoundary.test.ts reads it from the adapter source). The client batch is in a separate log, `clor-coder-deadcode.md` (PR #94).
+- Evidence: branch `claude/dead-code-server`. Server `tsc` clean; 76 affected server suites on CI Postgres 5434: 920 passed, then routeManifest re-run 4/4 after removing the two stale allow-list entries; `inventory-routes.mjs --check` 0 violations; lint 0 errors; build ok; `npm run test:web` 2119 passed, 1 failed (people-hr-inbox calendar, the known date-bound failure); `npm run e2e:smoke` 44/44.
+- Next: none; waiting for review.
+- Blocked on: nothing.

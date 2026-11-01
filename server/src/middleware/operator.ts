@@ -44,11 +44,6 @@ export async function operatorRole(userId: string | undefined | null): Promise<O
   return row?.active && OPERATOR_ROLES.includes(row.role as OperatorRole) ? (row.role as OperatorRole) : null;
 }
 
-/** Kept for the subscription route's callers: true for any operator. */
-export async function isOperator(userId: string | undefined | null): Promise<boolean> {
-  return (await operatorRole(userId)) !== null;
-}
-
 /**
  * Any operator, signed in with an authenticator. Puts the role on
  * `res.locals.operatorRole` for the routes that narrow it further.

@@ -22,11 +22,6 @@ import { originalOf, type PullContext, type PullResult } from './common.js';
  * expires. `checktype` is not a reliable in/out: the connection's direction
  * decides (state 255). Shape taken from public clients, not tried here.
  */
-export const ANVIZ_REGIONS: Record<string, string> = {
-  us: 'https://api.us.crosschexcloud.com/',
-  ap: 'https://api.ap.crosschexcloud.com/',
-  eu: 'https://api.eu.crosschexcloud.com/',
-};
 
 /** Tokens and the last request time, per account; the pull runs in one process. */
 const tokens = new Map<string, { token: string; exp: number }>();

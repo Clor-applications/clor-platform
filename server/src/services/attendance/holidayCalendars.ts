@@ -99,6 +99,3 @@ export function calendarsFor(year: number) {
 export function calendarOf(key: string) {
   return ALL.find((c) => c.key === key) || null;
 }
-
-/** Years that have at least one calendar: the screen offers import only there. */
-export const CALENDAR_YEARS = [...new Set(ALL.map((c) => c.year))];

@@ -338,16 +338,6 @@
     },
     {
       "method": "GET",
-      "path": "/api/portal/hr-cases",
-      "reason": "Employee self-service: reads their own hr cases; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
-    },
-    {
-      "method": "POST",
-      "path": "/api/portal/hr-cases",
-      "reason": "Employee self-service: changes their own hr cases; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
-    },
-    {
-      "method": "GET",
       "path": "/api/portal/leave",
       "reason": "Employee self-service: reads their own leave; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
     },

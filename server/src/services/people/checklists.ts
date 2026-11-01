@@ -217,12 +217,6 @@ export async function myTasks(orgId: string, userId: string, limit = 200) {
   return tasks.filter((t) => byId.has(t.employeeId)).map((t) => ({ id: t.id, kind: t.kind, title: t.title, owner: t.owner, dueDate: t.dueDate, overdue: !t.doneAt && !!t.dueDate && t.dueDate < today, done: !!t.doneAt, doneAt: t.doneAt, note: t.note, employee: byId.get(t.employeeId) }));
 }
 
-/** Give a task to someone else in the company. */
-export async function reassignTask(orgId: string, taskId: string, ownerUserId: string | null) {
-  const r = await peoplePrisma.checklistTask.updateMany({ where: { id: taskId, orgId }, data: { ownerUserId } });
-  return r.count === 1;
-}
-
 /** Someone's checklists, with who ticked each item. */
 export async function checklistOf(orgId: string, employeeId: string) {
   const tasks = await peoplePrisma.checklistTask.findMany({ where: { orgId, employeeId }, orderBy: [{ kind: 'asc' }, { createdAt: 'desc' }, { sortOrder: 'asc' }] });

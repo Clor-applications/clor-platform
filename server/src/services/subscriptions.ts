@@ -220,15 +220,6 @@ export async function syncAccountEntitlement(accountId: string) {
   });
 }
 
-/** Seat check for an app, if that app is seat-metered. null = may add. */
-export async function seatLimitReason(accountId: string, appCode: string, currentCount: number): Promise<string | null> {
-  const sub = await getSubscription(accountId);
-  const item = sub?.items.find((i) => i.appCode === appCode);
-  if (!item || item.seats == null) return null; // not seat-metered
-  if (currentCount < item.seats) return null;
-  return `Your ${appCode} plan includes ${item.seats} seats, and this account is using ${currentCount}.`;
-}
-
 /**
  * Apply a verified, normalized gateway event. Idempotent: the same provider
  * event id is recorded once and replays are no-ops.

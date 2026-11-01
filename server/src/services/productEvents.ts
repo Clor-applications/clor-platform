@@ -69,15 +69,6 @@ export async function track(orgId: string, userId: string | null | undefined, na
   }
 }
 
-/** Whether the company has ever recorded this event (for "first ..." props). */
-export async function hasEvent(orgId: string, name: ProductEventName) {
-  try {
-    return await runInTenant(orgId, async () => Boolean(await platformPrisma.productEvent.findFirst({ where: { orgId, name }, select: { id: true } })));
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Record an event with `first`: whether it is the company's first of its
  * name (first employee added, first leave approved, first app sign-in).

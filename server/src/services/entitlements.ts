@@ -111,12 +111,6 @@ export async function entitlementFor(accountId: string): Promise<Entitlement> {
   };
 }
 
-/** Whether the account may use this feature at all, before the org's own switch. */
-export async function isEntitled(accountId: string, key: string) {
-  const e = await entitlementFor(accountId);
-  return e.features.has(key);
-}
-
 /**
  * The upgrade line for a module the account cannot have.
  *

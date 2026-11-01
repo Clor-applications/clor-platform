@@ -55,7 +55,3 @@ export async function biometricPolicy(orgId: string): Promise<BiometricPolicy> {
 
 /** A Prisma where-fragment for templates CLOR may send on: none when copying is off, and never the excluded. */
 export const sendableWhere = (p: BiometricPolicy) => (p.copy ? { OR: [{ employeeId: null }, { employeeId: { notIn: [...p.excluded] } }] } : { id: '__copying_off__' });
-
-/** Delete every copy CLOR holds for these people (they withdrew, or left). */
-export const forgetTemplates = (orgId: string, employeeIds: string[]) =>
-  employeeIds.length ? peoplePrisma.biometricTemplate.deleteMany({ where: { orgId, employeeId: { in: employeeIds } } }) : Promise.resolve({ count: 0 });

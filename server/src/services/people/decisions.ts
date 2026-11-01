@@ -30,5 +30,3 @@ export async function recordDecision(request: Req) {
     update: {},
   });
 }
-
-export const decisionOf = (orgId: string, requestId: string) => peoplePrisma.decisionRecord.findFirst({ where: { orgId, requestId } });

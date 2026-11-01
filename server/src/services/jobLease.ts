@@ -275,7 +275,6 @@ export async function stopJobs() {
 
 /** A lease a little shorter than the interval, so the next tick can take it again. */
 export const leaseFor = (intervalMs: number) => Math.max(30_000, Math.floor(intervalMs * 0.9));
-export const leaseHolder = () => ME;
 
 /** For tests: forget a stop, so later tests in the same process can run jobs. */
 export const _resetForTests = () => {
