@@ -345,7 +345,7 @@ export default function PeopleOverview({ openScreen }) {
           <h1 className="soft-band-title">{firstName ? `${greeting()}, ${firstName}` : greeting()}</h1>
           <p className="soft-band-sub">
             {waiting ? <>You have <strong>{plural(waiting, 'request')}</strong> to answer</> : <>Nothing waits for your answer</>}
-            {leave ? <> and <strong>{plural(outToday.length, 'person', 'people')}</strong> {outToday.length === 1 ? 'is' : 'are'} out today.</> : '.'}
+            {leave ? <> and <strong data-zero={outToday.length === 0 || undefined}>{plural(outToday.length, 'person', 'people')}</strong> {outToday.length === 1 ? 'is' : 'are'} out today.</> : '.'}
           </p>
         </div>
         <div className="soft-actions">
@@ -372,13 +372,13 @@ export default function PeopleOverview({ openScreen }) {
           <div className="soft-band-stats" data-reveal style={{ '--i': 1 }}>
             <button type="button" className="soft-band-stat" data-tint="sky" onClick={go('employees')}>
               <span className="soft-band-stat-label"><UsersThree size={16} aria-hidden="true" /> Headcount</span>
-              <span className="soft-band-stat-value">{data.headcount}</span>
+              <span className="soft-band-stat-value" data-zero={Number(data.headcount) === 0 || undefined}>{data.headcount}</span>
               <span className="soft-band-stat-note">{data.joinedThisMonth.length ? `+${data.joinedThisMonth.length} in ${monthName()}` : `None joined in ${monthName()}`}</span>
             </button>
             <button type="button" className="soft-band-stat" data-tint="mint" onClick={go('leaveCalendar')}>
               <span className="soft-band-stat-label"><AirplaneTilt size={16} aria-hidden="true" /> Out today</span>
               <span className="soft-band-stat-row">
-                <span className="soft-band-stat-value">{leave ? outToday.length : '–'}</span>
+                <span className="soft-band-stat-value" data-zero={(leave && outToday.length === 0) || undefined}>{leave ? outToday.length : '–'}</span>
                 {outToday.length ? (
                   <span className="soft-faces" aria-hidden="true">
                     {outToday.slice(0, 3).map((r) => <Face key={r.id} person={{ name: r.employeeName, photoUrl: r.photoUrl }} size={26} colour={colourOf(r.department)} />)}
@@ -389,14 +389,14 @@ export default function PeopleOverview({ openScreen }) {
             </button>
             <button type="button" className="soft-band-stat" data-tint="peach" data-attention={waiting > 0 || undefined} onClick={go('approvals')}>
               <span className="soft-band-stat-label"><SealCheck size={16} aria-hidden="true" /> To approve</span>
-              <span className="soft-band-stat-value">{todos || leave ? waiting : '–'}</span>
+              <span className="soft-band-stat-value" data-zero={((todos || leave) && waiting === 0) || undefined}>{todos || leave ? waiting : '–'}</span>
               <span className="soft-band-stat-note">{pending.length ? `${plural(pending.length, 'leave request')}, next starts ${dayDate(pending[0].fromDate)}` : waiting ? 'No leave among them' : 'Nothing to approve'}</span>
             </button>
             {/* The company keeps who is leaving from this reader (Company choices): no leaving figures. */}
             {data.leavingsHidden ? null : (
               <button type="button" className="soft-band-stat" data-tint="lilac" onClick={go('employees')}>
                 <span className="soft-band-stat-label"><SignOut size={16} aria-hidden="true" /> On notice</span>
-                <span className="soft-band-stat-value">{onNotice}</span>
+                <span className="soft-band-stat-value" data-zero={Number(onNotice) === 0 || undefined}>{onNotice}</span>
                 <span className="soft-band-stat-note">{data.leftThisMonth ? `${plural(data.leftThisMonth, 'person', 'people')} left in ${monthName()}` : `Nobody left in ${monthName()}`}</span>
               </button>
             )}

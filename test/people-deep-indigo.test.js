@@ -20,7 +20,6 @@ const WHITE = '255 255 255';
 const INDIGO = '35 42 102';
 const MARIGOLD = '245 166 35';
 const LILAC = '233 229 244';
-const COTTON = '250 246 238';
 
 const frame = token(block, 'frame');
 const panel = token(block, 'frame-panel');
@@ -96,9 +95,11 @@ describe('the logo follows its colour tokens', () => {
     expect(tick).not.toMatch(/color = INDIGO|fill=\{color\}|stroke=\{color\}/);
   });
 
-  it('on the indigo bar the mark is marigold and CLOR is Cotton', () => {
-    expect(block).toMatch(/--logo-mark: var\(--marigold\);\n\s*--logo-word: var\(--cotton\);/);
-    expect(contrast(COTTON, frame)).toBeGreaterThan(12);
+  it('on the indigo bar the logo keeps its two tones: a lilac stroke, a marigold dot, CLOR in white', () => {
+    expect(block).toMatch(/--logo-mark: var\(--lilac\);\n\s*--logo-word: 255 255 255;\n\s*--logo-dot: var\(--marigold\);/);
+    expect(contrast(LILAC, frame)).toBeGreaterThan(12);
+    expect(contrast(MARIGOLD, frame)).toBeGreaterThan(3);
+    expect(contrast(MARIGOLD, LILAC)).toBeGreaterThan(1.5);
   });
 });
 
@@ -110,6 +111,11 @@ describe("DESIGN.md's shapes and type floor in People", () => {
     expect(people).not.toMatch(/\.ui-record-tablist \.ui-tab \{[^}]*border-radius: 999px/);
     const pill = people.match(/\n\.soft-pill \{[^}]*\}/)[0];
     expect(pill).toContain('border-radius: var(--radius-btn);');
+  });
+
+  it('fields in drawers and dialogs take 8px too', () => {
+    expect(people).toMatch(/\.ui-scrim :is\(\.ui-input, \.ui-select, textarea\.ui-input\) \{ border-radius: var\(--radius-input\);/);
+    expect(people).not.toMatch(/:is\(\.ui-input, \.ui-select, textarea\.ui-input\) \{ border-radius: 0\.75rem/);
   });
 
   it('content holders take 12px, not 20', () => {
@@ -126,6 +132,19 @@ describe("DESIGN.md's shapes and type floor in People", () => {
 
 describe('Home: one primary action, and what waits on you comes first', () => {
   const home = read('apps/people/src/screens/PeopleOverview.jsx');
+
+  it('a nought on Home is quiet: no marigold in the sentence, grey figures (the zero rule)', () => {
+    expect(home).toContain("<strong data-zero={outToday.length === 0 || undefined}>");
+    expect((home.match(/className="soft-band-stat-value" data-zero=/g) || []).length).toBe(4);
+    expect(block).toMatch(/\.soft-band-sub strong\[data-zero\] \{ color: inherit; font-weight: 400; \}/);
+    expect(block).toMatch(/\.soft-band-stat-value\[data-zero\] \{ color: rgb\(var\(--fg-subtle\)\) !important; font-weight: 600; \}/);
+    expect(contrast(token(people.slice(people.indexOf('Brand D, each colour with its own job')), 'fg-subtle'), LILAC)).toBeGreaterThan(3);
+    expect(contrast(onMuted, panel)).toBeGreaterThan(4.5);
+  });
+
+  it('on a phone Waiting for you comes before the figures, so its first request is above the fold', () => {
+    expect(block).toMatch(/@media \(max-width: 767px\) \{[\s\S]*\.soft-main > \.soft-bezel:has\(#todo-h\) \{ order: -1; \}/);
+  });
 
   it('Add an employee is the only primary; Check in steps down on Home', () => {
     expect(home.match(/soft-pill-primary|ui-btn-primary/g)).toHaveLength(1);
