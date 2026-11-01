@@ -99,6 +99,7 @@ describe('the choices: defaults, who may change them, audit', () => {
       'people.leavingReasonForReadOnly': false,
       'notifications.withdrawn': 'SHOW_WITHDRAWN',
       'leave.onEngine': false,
+      'attendance.onEngine': false,
     });
     expect(body.choices.every((x: any) => x.canChange && x.changed === null)).toBe(true);
   });

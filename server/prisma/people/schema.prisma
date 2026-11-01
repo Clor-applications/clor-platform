@@ -1883,6 +1883,11 @@ model PeopleSetting {
   /// approval engine under a preset rule made from that chain (services/attendance/leaveEngine.ts). Off by
   /// default until 2c-ii; requests already waiting finish on the old path either way.
   leaveOnEngine    Boolean @default(false)
+  /// Workflow engine phase 2d: new attendance requests (missed punch, work from home, on duty, permission, shift
+  /// change), overtime and comp-off, and field punches are decided by the approval engine under a preset rule made
+  /// from the company's stored chain (services/attendance/attendanceEngine.ts). Off by default; requests already
+  /// waiting finish on the old path either way.
+  attendanceOnEngine Boolean @default(false)
   updatedByUserId    String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

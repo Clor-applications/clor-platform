@@ -26,6 +26,8 @@ import { periodEnd, periodLabel, periodStart } from '../services/attendance/leav
 import { leavePeriodOf } from '../services/attendance/leaveBalances.js';
 import { decideRequest } from '../services/attendance/requests.js';
 import { managerStepBy } from '../services/attendance/standIns.js';
+import { FIELD_PUNCH_SOURCE, OVERTIME_SOURCE, closeOnEngine, decideOnEngine, engineChains, engineOf, onEngine, syncFromRow } from '../services/attendance/attendanceEngine.js';
+import { writePunchDecision } from '../services/attendance/phonePunch.js';
 import { selfDecisionAllowed } from '../services/makerChecker.js';
 import { ISO_DATE, employeeIn, fail, isHoliday, myEmployee, sendError, today, withNames, writeDay } from '../services/attendance/days.js';
 import { payrollReadiness } from '../services/payroll/readinessTower.js';
@@ -930,7 +932,11 @@ attendanceInsightsRouter.get(`${base}/devices/:id/timeline`, can(PermissionActio
 export async function reviewFieldPunch(orgId: string, punchId: string, approve: boolean, by: { userId: string; managerId?: string }) {
   const p = await peoplePrisma.devicePunch.findFirst({ where: { id: punchId, orgId } });
   if (!p || !p.outsideSite) throw fail(404, 'No such field punch.');
-  if (p.reviewStatus !== 'PENDING') throw fail(409, `This punch was already ${String(p.reviewStatus || 'counted').toLowerCase()}.`);
+  if (p.reviewStatus !== 'PENDING') {
+    /* Decided meanwhile by an older API (a rollback): its engine request, if any, closes to match. */
+    await peopleWrite(orgId, () => syncFromRow(p.accountId, orgId, FIELD_PUNCH_SOURCE, p.id));
+    throw fail(409, `This punch was already ${String(p.reviewStatus || 'counted').toLowerCase()}.`);
+  }
   const emp = p.employeeId ? await peoplePrisma.employee.findFirst({ where: { id: p.employeeId, orgId }, select: { id: true, accountId: true, name: true, userId: true, branchId: true, areaId: true } }) : null;
   let selfApproved = false;
   if (by.managerId) {
@@ -941,9 +947,24 @@ export async function reviewFieldPunch(orgId: string, punchId: string, approve: 
     }
     selfApproved = true;
   }
-  const claimed = await peoplePrisma.devicePunch.updateMany({ where: { id: p.id, reviewStatus: 'PENDING' }, data: { reviewStatus: approve ? 'APPROVED' : 'REJECTED' } });
-  if (!claimed.count) throw fail(409, 'Somebody decided this punch a moment ago.');
-  if (emp && p.shiftDate) await recomputeDeviceDay(emp.accountId, orgId, { id: emp.id, branchId: emp.branchId, areaId: emp.areaId }, p.shiftDate);
+  /* On the approval engine (workflow engine 2d): the same checks above, then the engine takes the step; its closing writes the review. */
+  if (onEngine(await engineOf(orgId, FIELD_PUNCH_SOURCE, p.id))) {
+    try {
+      await peopleWrite(orgId, async () => {
+        const res = await decideOnEngine({ accountId: p.accountId, orgId, source: FIELD_PUNCH_SOURCE, sourceId: p.id, userId: by.userId, approve, note: null, ownAllowed: selfApproved });
+        if (!res) throw fail(409, 'Somebody decided this punch a moment ago.');
+        if (res.direct) {
+          await writePunchDecision(orgId, p.id, approve);
+          await closeOnEngine(p.accountId, orgId, FIELD_PUNCH_SOURCE, p.id, approve ? 'APPROVED' : 'REJECTED', `${approve ? 'Approved' : 'Refused'} outside the steps`, by.userId);
+        }
+      });
+    } catch (e: any) {
+      if (selfApproved && e?.code === 'NOT_YOUR_STEP') throw fail(403, 'This is your own punch; somebody else has to decide it.', 'OWN_RECORD');
+      throw e;
+    }
+  } else {
+    await writePunchDecision(orgId, p.id, approve);
+  }
   try {
     await platformPrisma.auditLog.create({ data: {
       accountId: p.accountId, orgId, branchId: '', entity: 'DevicePunch', entityId: p.id,
@@ -1096,11 +1117,14 @@ attendanceInsightsRouter.get(`${base}/overtime/requests`, can(PermissionAction.V
   const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.employeeId))] } }, select: { id: true, name: true, code: true, reportingManagerId: true } });
   const by = new Map(people.map((p) => [p.id, p]));
   const chain = await overtimeChain(orgId);
+  /* On the approval engine (workflow engine 2d): the chain each was asked under, and whether the manager's step is closed. */
+  const engines = await engineChains(orgId, OVERTIME_SOURCE, rows.filter((r) => r.status === 'PENDING').map((r) => r.id));
   res.json({
     chain,
     requests: rows.map((r) => {
       const p = by.get(r.employeeId);
-      const waitingOnManager = chain === 'MANAGER_THEN_HR' && !r.managerApprovedAt && Boolean(p?.reportingManagerId) && r.status === 'PENDING';
+      const eng = engines.get(r.id);
+      const waitingOnManager = (eng?.chain || chain) === 'MANAGER_THEN_HR' && !r.managerApprovedAt && !(eng && eng.step > 1) && Boolean(p?.reportingManagerId) && r.status === 'PENDING';
       return { ...r, employeeName: p?.name || '—', employeeCode: p?.code || null, waitingOnManager };
     }),
   });
@@ -1176,14 +1200,17 @@ attendanceInsightsRouter.post(`${base}/overtime/requests/bulk-review`, can(Permi
   const found = new Map(rows.map((r) => [r.id, r]));
   const subjects = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: rows.map((r) => r.employeeId) } }, select: { id: true, reportingManagerId: true } })).map((p) => [p.id, p]));
   const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
-  const chain = await overtimeChain(orgId);
+  const chainNow = await overtimeChain(orgId);
+  const engines = await engineChains(orgId, OVERTIME_SOURCE, rows.map((r) => r.id));
   const results: BulkResult[] = [];
   let handedOn = 0;
   for (const id of ids) {
     const r = found.get(id);
     if (!r || !inScope(scope, r.employeeId)) { results.push({ id, ok: false, error: 'No such request.' }); continue; }
+    /* On the approval engine, the chain it was asked under (workflow engine 2d). */
+    const chain = engines.get(id)?.chain || chainNow;
     /* Their manager, or whoever stands in for that manager today, takes the manager's step where the chain has one; anyone else decides as HR. */
-    const asManager = Boolean(me && chain !== 'HR' && !r.managerApprovedAt && (subjects.get(r.employeeId)?.reportingManagerId === me.id || (await managerStepBy(orgId, me.id, r.employeeId, undefined, 'ATTENDANCE'))));
+    const asManager = Boolean(me && chain !== 'HR' && !r.managerApprovedAt && !((engines.get(id)?.step || 1) > 1) && (subjects.get(r.employeeId)?.reportingManagerId === me.id || (await managerStepBy(orgId, me.id, r.employeeId, undefined, 'ATTENDANCE'))));
     try {
       const out = await decideOvertime(orgId, id, approve, { userId: req.auth!.userId, ...(asManager ? { managerId: me!.id } : {}) }, note);
       if (out.status === 'PENDING') handedOn += 1;

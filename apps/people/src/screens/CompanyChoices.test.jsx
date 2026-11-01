@@ -118,3 +118,17 @@ it('leave on the approval rules: off with its plain words; the owner turns it on
   expect((await screen.findByLabelText('Leave requests are decided by the approval rules')).disabled).toBe(true);
   expect(screen.getAllByText(/Only the owner or an admin can change this/).length).toBeGreaterThan(0);
 });
+
+it('attendance on the approval rules: off with its plain words; the owner turns it on', async () => {
+  const onEngine = { key: 'attendance.onEngine', value: false, default: false, canChange: true, changed: null, options: [{ value: false, label: 'Off' }, { value: true, label: 'On' }] };
+  api.getCompanyChoices.mockResolvedValue({ choices: [...CHOICES().choices, onEngine] });
+  api.saveCompanyChoice.mockResolvedValue({ choices: [...CHOICES().choices, { ...onEngine, value: true }] });
+  render(<CompanyChoices />);
+  const control = await screen.findByLabelText('Attendance requests, overtime and field punches are decided by the approval rules');
+  expect(control.value).toBe('false');
+  expect(screen.getByText(/Off: missed punches, work from home/)).toBeTruthy();
+  fireEvent.change(control, { target: { value: 'true' } });
+  expect(screen.getByText(/Each request shows its steps and who has it now/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(api.saveCompanyChoice).toHaveBeenCalledWith('attendance.onEngine', true));
+});

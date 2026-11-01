@@ -238,7 +238,8 @@ peopleApprovalsRouter.get(
 peopleApprovalsRouter.get(`${base}/requests/:id`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
-  const r = await peoplePrisma.approvalRequest.findFirst({ where: { id: String(req.params.id), orgId }, include: { steps: { orderBy: { order: 'asc' } } } });
+  /* Steps in the engine's order: a step asked again or handed on sits after the row it replaced, even within one millisecond (createdAt, then slot, then id). */
+  const r = await peoplePrisma.approvalRequest.findFirst({ where: { id: String(req.params.id), orgId }, include: { steps: { orderBy: [{ order: 'asc' }, { createdAt: 'asc' }, { slot: 'asc' }, { id: 'asc' }] } } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
   const userId = req.auth!.userId;
   const involved = r.requesterUserId === userId || r.steps.some((s) => ((s.candidateUserIds as string[]) || []).includes(userId) || s.decidedByUserId === userId);

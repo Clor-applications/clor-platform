@@ -661,11 +661,27 @@ describe('leave on the approval engine: review of PR #102', () => {
     /* Ravi (a team approver, not the whole company's) cannot reject it either now: HR decides it; and a refusal never approves. */
     const rejected = await att(ravi).post(`/leave/requests/${id}/reject`, { note: 'No' });
     expect(rejected.status).toBe(403);
+    /* Meena approves leave for her team only (Tara is in it): HR's step is the whole company's, so she cannot reject it either. */
+    const teamReject = await att(meena).post(`/leave/requests/${id}/reject`, { note: 'No' });
+    expect([teamReject.status, teamReject.body.code]).toEqual([403, 'HR_STEP']);
     expect((await leaveRow(id)).status).toBe('PENDING');
+    /* The drawer reads it as HR's step, as the queues do: HR sees Approve; the manager and the team approver do not. */
+    const asHr = (await att(kavya).get(`/leave/requests/${id}`).expect(200)).body.step;
+    expect(asHr).toMatchObject({ current: 2, yours: true, mayReject: false });
+    expect(asHr.timeline.map((t: any) => `${t.order}:${t.status}`)).toEqual(['1:APPROVED', '2:WAITING']);
+    expect(asHr.timeline[0].text).toBe('Ravi Kumar (manager) approved');
+    expect((await att(ravi).get(`/leave/requests/${id}`).expect(200)).body.step).toMatchObject({ current: 2, yours: false, mayReject: false });
+    expect((await att(meena).get(`/leave/requests/${id}`).expect(200)).body.step).toMatchObject({ current: 2, yours: false, mayReject: false });
     expect((await att(kavya).post(`/leave/requests/${id}/approve`, {})).status).toBe(200);
     const r = await engineOf(id);
     expect(r?.steps.map((s) => `${s.order}:${s.status}:${s.decidedByUserId === ravi.userId ? 'ravi' : s.decidedByUserId === kavya.userId ? 'kavya' : ''}`)).toEqual(['1:APPROVED:ravi', '2:APPROVED:kavya']);
     expect((await leaveRow(id)).status).toBe('APPROVED');
+    /* The same state again: a whole-company approver may reject it, and the leave and its request close as rejected. */
+    const id2 = await ask(sc, 'MANAGER_THEN_HR', true);
+    await inTenant(() => peoplePrisma.leaveRequest.update({ where: { id: id2 }, data: { managerApprovedAt: new Date(), managerApprovedById: E.ravi.id } }));
+    expect((await att(kavya).post(`/leave/requests/${id2}/reject`, { note: 'Busy week' })).status).toBe(200);
+    expect((await leaveRow(id2)).status).toBe('REJECTED');
+    expect((await engineOf(id2))?.status).toBe('REJECTED');
   }, 60_000);
 
   it('a hand-on with nobody to hand it to leaves the step waiting: never approved on nobody’s decision, and one company’s failure does not stop the job', async () => {

@@ -7,7 +7,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 import { explainFor, leaveExplain, reviewFieldPunch } from './attendanceInsights.js';
-import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { peoplePrisma, peopleWrite } from '../utils/peoplePrisma.js';
 import { portalUpdates as referralUpdates } from '../services/people/talent/referrals.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { notifyPermission } from '../services/notifications.js';
@@ -28,6 +28,7 @@ import { chainFor } from '../services/attendance/approvalChain.js';
 import { askOvertime, attentionFor, chainsFor, confirmMonth, decideOvertime, monthReview, overtimeFor, ruleTimelineOf, timelineOf, upcomingShifts } from '../services/attendance/selfService.js';
 import { portalOf } from '../services/attendance/leaveRules.js';
 import { decideLeaveOnEngine, decidesNow, engineLeaveNaming, engineStepOf, offEngine, withWhom } from '../services/attendance/leaveEngine.js';
+import { ATTENDANCE_SOURCE, OVERTIME_SOURCE, closeOnEngine, engineChains } from '../services/attendance/attendanceEngine.js';
 import { createRequest } from './attendance.js';
 import { REASON_CODES } from '../services/attendance/corrections.js';
 import { KINDS, KIND_WORDS, askRequest, cancelRequest, chainOf, decideRequest, editRequest, rulesFor, shiftChoices, usage as requestUsage } from '../services/attendance/requests.js';
@@ -903,7 +904,16 @@ portalRouter.get('/approvals', async (req, res) => {
   const kindRules = await rulesFor(e.orgId);
   const hrOnly = new Set<string>();
   for (const k of KINDS) if ((await chainOf(e.orgId, k, kindRules)) === 'HR_ONLY') hrOnly.add(k);
-  const managerDecides = (r: { kind: string }) => !hrOnly.has(r.kind);
+  /* On the approval engine (workflow engine 2d): the chain each was asked under, and whether the manager's step is closed. */
+  const [onEngineRequests, onEngineOvertime] = await Promise.all([engineChains(e.orgId, ATTENDANCE_SOURCE, corrections.map((r) => r.id)), engineChains(e.orgId, OVERTIME_SOURCE, overtimeAsks.map((r) => r.id))]);
+  const managerDecides = (r: { id: string; kind: string }) => {
+    const eng = onEngineRequests.get(r.id);
+    return eng ? eng.chain !== 'HR_ONLY' && !(eng.chain === 'MANAGER_THEN_HR' && eng.step > 1) : !hrOnly.has(r.kind);
+  };
+  const overtimeMine = (r: { id: string }) => {
+    const eng = onEngineOvertime.get(r.id);
+    return eng ? eng.chain !== 'HR' && !(eng.chain === 'MANAGER_THEN_HR' && eng.step > 1) : overtimeChainNow !== 'HR';
+  };
   res.json({
     approver: ids.length > 0 || decidedIds.length > 0 || leaveIds.length > 0 || ruleLeaves.length > 0,
     team: team.length,
@@ -916,7 +926,7 @@ portalRouter.get('/approvals', async (req, res) => {
     /* Field punches from my team waiting for a decision. */
     punches: fieldPunches.map((p) => ({ id: p.id, type: 'punch', ...who(p.employeeId || ''), date: p.localTime.slice(0, 10), checkIn: p.localTime.slice(11, 16), kind: p.kind, reason: p.address || 'Outside the work sites', latitude: p.latitude, longitude: p.longitude, accuracy: p.accuracyM != null ? Math.round(p.accuracyM) : null, photo: Boolean(p.photoId), askedAt: p.createdAt })),
     /* Overtime and comp-off, when the manager has a say in them. */
-    overtime: overtimeChainNow === 'HR' ? [] : overtimeAsks.map((r) => ({ id: r.id, type: 'overtime', ...who(r.employeeId), kind: r.kind, date: r.date, minutes: r.minutes, days: r.days, reason: r.reason, askedAt: r.createdAt })),
+    overtime: overtimeAsks.filter(overtimeMine).map((r) => ({ id: r.id, type: 'overtime', ...who(r.employeeId), kind: r.kind, date: r.date, minutes: r.minutes, days: r.days, reason: r.reason, askedAt: r.createdAt })),
   });
 });
 
@@ -1118,7 +1128,15 @@ portalRouter.post('/overtime/:id/cancel', async (req, res) => {
   const r = await peoplePrisma.overtimeRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
   if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
-  res.json({ request: await peoplePrisma.overtimeRequest.update({ where: { id: r.id }, data: { status: 'CANCELLED', reviewedAt: new Date() } }) });
+  /* Withdrawn while it waited on the approval engine: its request closes with it (workflow engine 2d). */
+  const cancelled = await peopleWrite(e.orgId, async () => {
+    const claimed = await peoplePrisma.overtimeRequest.updateMany({ where: { id: r.id, status: 'PENDING' }, data: { status: 'CANCELLED', reviewedAt: new Date() } });
+    if (!claimed.count) return null;
+    await closeOnEngine(e.accountId, e.orgId, OVERTIME_SOURCE, r.id, 'WITHDRAWN', 'Withdrawn by the person', e.userId || `portal:${e.id}`);
+    return peoplePrisma.overtimeRequest.findFirstOrThrow({ where: { id: r.id } });
+  });
+  if (!cancelled) return res.status(409).json({ error: 'This request was already decided.' });
+  res.json({ request: cancelled });
 });
 
 /** A data request's steps: sent, HR working on it (with the legal due date), answered. */
