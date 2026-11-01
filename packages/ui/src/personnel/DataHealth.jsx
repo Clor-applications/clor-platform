@@ -8,6 +8,7 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import { MoreButton } from '@ui/components/list/ListPageParts';
 import { getDataHealth, getHeadcount, snoozeHealthCheck, unsnoozeHealthCheck } from './api';
 import { notify } from '@ui/components/ui/notify';
+import { plusDaysIso } from '@ui/utils/dates';
 
 /**
  * Data health (HR research, Phase 1: the implementation auditor). What is
@@ -26,9 +27,9 @@ const APP_OF = { Payroll: 'payroll', People: 'people' };
 const APP_NAME = { payroll: 'Payroll', people: 'People', attendance: 'Attendance' };
 
 /** A snooze suggests two weeks; the person can change it. */
-const twoWeeksOn = () => new Date(Date.now() + 330 * 60_000 + 14 * 86_400_000).toISOString().slice(0, 10);
-const sixMonthsOn = () => new Date(Date.now() + 330 * 60_000 + 182 * 86_400_000).toISOString().slice(0, 10);
-const tomorrow = () => new Date(Date.now() + 330 * 60_000 + 86_400_000).toISOString().slice(0, 10);
+const twoWeeksOn = () => plusDaysIso(14);
+const sixMonthsOn = () => plusDaysIso(182);
+const tomorrow = () => plusDaysIso(1);
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const monthWords = (ym) => { const [y, m] = String(ym).split('-'); return y && m ? `${MONTHS[Number(m) - 1]} ${y}` : ym; };
 

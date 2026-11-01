@@ -9,6 +9,8 @@ import { isWeeklyOff, istTime, monthSummary } from './compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from './schedule.js';
 import { activeManagerOf, chainFor } from './approvalChain.js';
 import { managerStepBy } from './standIns.js';
+import { addDays as plusDays, eachDay as daysBetween, todayIst } from '../../utils/istDate.js';
+export { todayIst };
 
 /**
  * What an employee sees about their own attendance beyond the day itself:
@@ -21,17 +23,6 @@ import { managerStepBy } from './standIns.js';
  */
 export type Who = { id: string; accountId: string; orgId: string; name: string; code: string | null; areaId: string | null; branchId: string | null };
 
-const plusDays = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
-const daysBetween = (from: string, to: string) => {
-  const out: string[] = [];
-  for (let d = from; d <= to; d = plusDays(d, 1)) out.push(d);
-  return out;
-};
-export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const monthDays = (month: string) => {
   const [y, m] = month.split('-').map(Number);
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate();

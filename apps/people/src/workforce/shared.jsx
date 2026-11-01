@@ -1,4 +1,5 @@
 import React from 'react';
+import { todayIst } from '@ui/utils/dates';
 
 /* Employee statuses as the server stores them (ACTIVE, ON_NOTICE, SUSPENDED, LEFT); the UI adds "Joining" for a date still to come. */
 export const STATUS = {
@@ -8,7 +9,6 @@ export const STATUS = {
   LEFT: { label: 'Left', pill: 'ui-pill-neutral' },
 };
 
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
 /**
  * The status in words, never colour alone (WF-02 StatusPill). `quiet`, in a

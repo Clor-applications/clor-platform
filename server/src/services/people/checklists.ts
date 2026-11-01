@@ -5,6 +5,7 @@ import { getJwtSecret } from '../auth.js';
 import { sendTemplate } from '../mailer.js';
 import { notifyUsers, usersHoldingRoles, usersWithPermission } from '../notifications.js';
 import { countFrom, workingCalendar } from './lifecycle/workdays.js';
+import { todayIst } from '../../utils/istDate.js';
 
 /**
  * Joining and leaving checklists (HR research, People first release:
@@ -59,7 +60,6 @@ export const DEFAULT_ITEMS: Record<'JOINING' | 'LEAVING', Item[]> = {
   ],
 };
 
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 /** The items a company uses for a kind: its own template, else the defaults. */

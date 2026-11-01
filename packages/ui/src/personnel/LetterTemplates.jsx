@@ -8,6 +8,7 @@ import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { getLetterTemplateVersions, getLetterTemplates, saveLetterTemplate } from './api';
+import { istDay } from '@ui/utils/dates';
 
 /**
  * Letters the company issues (DOC-04): one template per kind, plain text
@@ -16,7 +17,6 @@ import { getLetterTemplateVersions, getLetterTemplates, saveLetterTemplate } fro
  * that made it. Until the company writes its own, the built-in one is used.
  * Pick the letter, edit it, Save top right; a field goes in with a click.
  */
-const istDay = (v) => new Date(new Date(v).getTime() + 330 * 60_000).toISOString().slice(0, 10);
 
 export default function LetterTemplates() {
   const req = useRequest(() => getLetterTemplates(), []);

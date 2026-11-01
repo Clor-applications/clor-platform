@@ -5,6 +5,7 @@ import { exclusive, leaseFor } from '../jobLease.js';
 import { type Actor, writeChangeLog } from './changeLog.js';
 import { updateEmployee } from './employees.js';
 import { scopeWhere, type TeamScope } from './scope.js';
+import { todayIst } from '../../utils/istDate.js';
 
 /**
  * Organization (docs/people/design-v1/ORGANIZATION-DECISIONS.md): how the
@@ -251,7 +252,6 @@ export async function mergeInto(actor: Actor, kind: Kind, sourceId: string, into
   return { moved, children, item };
 }
 
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 /** Working now (one definition, D12): not left, and already joined or no joining date. */
 export const workingNow = () => ({ status: { not: 'LEFT' as const }, OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: todayIst() } }] });
 

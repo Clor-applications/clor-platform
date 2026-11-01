@@ -12,7 +12,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { DOC_WHO_CAN_SEE, docWhoLabel } from './documentClassification';
 import JoiningStatutory from './JoiningStatutory';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
-import { formatDateIn } from '@ui/utils/dates';
+import { formatDateIn, plusDaysIso } from '@ui/utils/dates';
 import { hasApp } from '@platform/context';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import {
@@ -71,6 +71,7 @@ import {
   updateEmployee,
 } from './api';
 import { TaskDrawer } from '../lifecycle/shared';
+import { istDay as istDayOf } from '@ui/utils/dates';
 
 /**
  * The staff directory, after Horilla's employee view: cards or a list, a
@@ -92,7 +93,7 @@ const TABS = [
   { value: 'LEFT', label: 'Left', tone: 'cancelled' },
   { value: '', label: 'All', tone: 'all' },
 ];
-const daysAgo = (n) => new Date(Date.now() + 330 * 60_000 - n * 86_400_000).toISOString().slice(0, 10);
+const daysAgo = (n) => plusDaysIso(-n);
 
 const initials = (name) =>
   String(name || '?')
@@ -105,7 +106,6 @@ const initials = (name) =>
 /* "2 Nov 2026" from an ISO day. */
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 /* A moment (accepted, asked) as India's calendar day: the UTC date would put a 2 a.m. IST ask on the day before. */
-const istDayOf = (t) => new Date(new Date(t).getTime() + 330 * 60_000).toISOString().slice(0, 10);
 /* Older reminder tasks start their note with a machine marker (`probation:2026-11-04.`); people read the words after it. */
 export const taskNote = (note) => String(note || '').replace(/^(probation|contract):\d{4}-\d{2}-\d{2}\.\s*/, '');
 const formatDateShort = (d) => { const [y, m, dd] = String(d).slice(0, 10).split('-'); return y && m && dd ? `${Number(dd)} ${MONTHS_SHORT[Number(m) - 1]} ${y}` : String(d); };

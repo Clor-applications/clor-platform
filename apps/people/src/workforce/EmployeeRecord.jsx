@@ -31,6 +31,7 @@ import { StatusBadge, can } from './shared';
 import OfferDrawer from './OfferDrawer';
 import AppAccessSend from './AppAccessSend';
 import { AppAccessHistory, PersonAssets, PersonCelebrations, PersonPolicies, ProbationSection } from './RecordExtras';
+import { todayIst } from '@ui/utils/dates';
 
 /**
  * Workforce → Employee (People design spec v1 EMP-03..09; Workforce package
@@ -45,7 +46,6 @@ import { AppAccessHistory, PersonAssets, PersonCelebrations, PersonPolicies, Pro
  */
 const TABS = [['overview', 'Overview'], ['personal', 'Personal'], ['employment', 'Employment'], ['organization', 'Organisation'], ['documents', 'Documents'], ['history', 'History'], ['activity', 'Activity']];
 const LAST_DIRECTORY = 'people.workforce.lastDirectory';
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const shown = (v) => (v === null || v === undefined || v === '' ? null : v);
 /* The open section form says whether it holds unsaved edits, so a tab or another Edit asks before replacing it. */
 const FormDirty = createContext(null);

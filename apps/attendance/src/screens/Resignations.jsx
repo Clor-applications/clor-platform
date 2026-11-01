@@ -11,8 +11,8 @@ import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { LEAVING_TYPES, listEmployees, rehireEmployee, resignEmployee } from '@ui/personnel/api';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { todayIst } from '@ui/utils/dates';
 
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
 const TONE = { RESIGNED: 'sent', TERMINATED: 'overdue', RETIRED: 'paid', ABSCONDED: 'outstanding', CONTRACT_ENDED: 'cancelled', DECEASED: 'cancelled' };
 const TABS = [{ value: '', label: 'All', tone: 'all' }, ...Object.entries(LEAVING_TYPES).map(([value, label]) => ({ value, label, tone: TONE[value] || 'cancelled' }))];

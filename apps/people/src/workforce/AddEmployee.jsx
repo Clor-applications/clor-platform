@@ -19,6 +19,7 @@ import { refreshSuggestions, useEmailSuggestions, useSuggestions } from './sugge
 import { createEmployee, deleteDraft, getDraft, listContractors, listEmployees, listTags, nextEmployeeCode, saveDraft, structure } from './api';
 import { listBranches } from '../organization/api';
 import { can } from './shared';
+import { todayIst } from '@ui/utils/dates';
 
 /**
  * Workforce → Add employee (People design spec v1 §4.3 EMP-02; Workforce
@@ -39,7 +40,6 @@ const BLANK = {
   departmentId: '', jobPositionId: '', branchId: '', areaId: '', establishmentId: '', businessUnitId: '', teamId: '', seatId: '', reportingManagerId: '', dottedManagerId: '', costCenterId: '', gradeId: '', workLocation: '',
   tagIds: [], devicePin: '', cardNumber: '', contractorId: '', attendanceRequired: true,
 };
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 /* Where each checked field is asked, and which show their message under the field. */
 const FIELD_STEP = { firstName: 'personal', workEmail: 'personal', email: 'personal', phone: 'personal', dateOfBirth: 'personal', emergencyContactPhone: 'personal', code: 'employment', dateOfJoining: 'employment', probationEndDate: 'employment', contractEndDate: 'employment', seatId: 'organization' };
 const SHOWN_INLINE = new Set(['firstName', 'workEmail', 'email', 'phone', 'dateOfBirth', 'emergencyContactPhone', 'code', 'dateOfJoining', 'probationEndDate', 'contractEndDate']);

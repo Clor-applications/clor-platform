@@ -20,6 +20,7 @@ import { approverUsers, queueNotice, revisionOf } from './notices.js';
 import { resolveAccess } from '../access.js';
 import { inScope, teamScope, type TeamScope } from '../people/scope.js';
 import { isFeatureEnabled } from '../features.js';
+import { addDays } from '../../utils/istDate.js';
 
 /**
  * Attendance requests (TIME-LEAVE-DECISIONS.md, advanced build): four kinds on
@@ -101,11 +102,6 @@ const hoursWords = (minutes: number) => {
   return [h ? `${h} ${h === 1 ? 'hour' : 'hours'}` : '', m ? `${m} minutes` : ''].filter(Boolean).join(' ');
 };
 const round = (n: number) => Math.round(n * 100) / 100;
-const addDays = (date: string, n: number) => {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 type Employee = { id: string; branchId: string | null; areaId?: string | null; name?: string | null };
 type HistoryEntry = { at: string; by: string; what: string; note?: string | null; from?: Record<string, unknown>; to?: Record<string, unknown> };
 /* Typed loosely on purpose: Prisma's Json input wants a plain array, not an interface. */

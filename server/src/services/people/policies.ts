@@ -4,6 +4,7 @@ import { type Actor, writeChangeLog } from './changeLog.js';
 import { writeEvent } from './outbox.js';
 import { activeRule, submitRequest } from './approvals/engine.js';
 import { ask } from './acknowledgements.js';
+import { addDays, todayIst } from '../../utils/istDate.js';
 
 /**
  * Policies (docs/people/02-PRD.md POL-01..06). A library entry has an owner
@@ -45,8 +46,6 @@ const cleanPurpose = (category: string, purpose: unknown) => {
 export type AppliesTo = { establishmentIds?: string[]; states?: string[]; departmentIds?: string[]; employeeTypeIds?: string[]; gradeIds?: string[]; workTypeIds?: string[] };
 const APPLIES_KEYS: Array<keyof AppliesTo> = ['establishmentIds', 'states', 'departmentIds', 'employeeTypeIds', 'gradeIds', 'workTypeIds'];
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
-const addDays = (date: string, days: number) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
 export class PolicyError extends Error {
   constructor(message: string, public status = 400) {

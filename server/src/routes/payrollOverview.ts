@@ -8,6 +8,7 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { round2 } from '../utils/money.js';
+import { todayIst } from '../utils/istDate.js';
 
 /**
  * The state of payroll, in one request.
@@ -44,7 +45,7 @@ payrollOverviewRouter.get(
     if (!(await payrollRouteOk(req, res))) return;
     const { accountId, orgId } = req.tenant!;
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIst();
 
     const [periods, runs, profiles, openAdjustments, activeLoans, openRevisions] = await Promise.all([
       payrollPrisma.payrollPeriod.findMany({ where: { orgId }, orderBy: { startDate: 'desc' }, take: 24 }),

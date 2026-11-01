@@ -14,6 +14,7 @@ import { employeeStatusChanged } from '../../portalSessions.js';
 import { activeRule, saveRule, submitRequest } from '../approvals/engine.js';
 import { writeChangeLog, type Actor } from '../changeLog.js';
 import { registerJob } from '../../jobRegistry.js';
+import { todayIst } from '../../../utils/istDate.js';
 
 /**
  * Someone leaves (docs/people/02-PRD.md LIFE-05): the last day, how and why.
@@ -47,7 +48,6 @@ const viaRequest = (who: Who) => (who.requestId ? ' (approved request)' : '');
 export const LEAVING_TYPES = ['RESIGNED', 'TERMINATED', 'RETIRED', 'ABSCONDED', 'CONTRACT_ENDED', 'DECEASED', 'NOT_JOINED', 'DUPLICATE'] as const;
 /* Someone who never came, or a second record of the same person: closed, but no final settlement is asked of Payroll (Workforce final audit W5, W16). */
 export const NO_SETTLEMENT = new Set(['NOT_JOINED', 'DUPLICATE']);
-const todayIst = (now = new Date()) => new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
 
 type Existing = { id: string; status: string; code: string | null; devicePin: string | null; name?: string | null; currentEpisodeSeq?: number | null; dateOfJoining?: string | null; createdAt?: Date | null } & Record<string, unknown>;
 type Input = { lastDay: string; leavingType: string; reason: string | null; resignedOn?: string | null; noticeWaived?: boolean };

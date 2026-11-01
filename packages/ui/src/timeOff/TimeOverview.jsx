@@ -13,6 +13,7 @@ import { activeApp, can, homeCrumbs } from './shared';
 import { daysText, getTimeOverview } from './api';
 import { EnterLeave, TypeDot } from './LeaveRequests';
 import { clashDays, clashWords } from './clashes';
+import { addDaysIso as addDays } from '@ui/utils/dates';
 
 /**
  * Time & Leave → Overview: the owner's morning question — who is away, what
@@ -22,7 +23,6 @@ import { clashDays, clashWords } from './clashes';
  * only in its last two months, when something can still be done about them.
  */
 const range = (from, to) => (from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`);
-const addDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const waited = (at) => { const d = Math.max(0, Math.floor((Date.now() - new Date(at).getTime()) / 86_400_000)); return d === 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`; };
 
 /** Approved work from home and on duty: shown with the people away, marked as working. */

@@ -19,6 +19,7 @@ import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 
 import { can } from '../workforce/shared';
 import { createItem, deleteItem, listItems, mergeItem, people as listPeople, updateItem } from './api';
+import { plusDaysIso, todayIst } from '@ui/utils/dates';
 
 /**
  * One Organization list (docs/people/design-v1/ORGANIZATION-DECISIONS.md),
@@ -122,8 +123,7 @@ const REGISTRATION_TYPES = [
   ['SE_REG', 'Shops & Establishments'], ['PF', 'PF code (EPFO)'], ['ESI', 'ESI code (ESIC)'], ['PT', 'Professional Tax'], ['LWF', 'Labour Welfare Fund'],
   ['CLRA', 'Contract labour licence'], ['FACTORY', 'Factory licence'], ['TRADE', 'Trade licence'], ['FIRE', 'Fire safety certificate'], ['OTHER', 'Other'],
 ];
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
-const plusDays = (n) => new Date(Date.now() + 330 * 60_000 + n * 86_400_000).toISOString().slice(0, 10);
+const plusDays = (n) => plusDaysIso(n);
 /** "3 · 1 runs out soon" for the list: how many, and what needs renewing. */
 function registrationSummary(list) {
   const regs = Array.isArray(list) ? list : [];

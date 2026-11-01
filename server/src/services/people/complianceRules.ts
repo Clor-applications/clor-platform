@@ -7,6 +7,7 @@ import { writeEvent } from './outbox.js';
 import { registerJob } from '../jobRegistry.js';
 import { verifiedMime } from '../fileType.js';
 import { applicability, dueDates } from './compliance.js';
+import { addDays, istDate, todayIst } from '../../utils/istDate.js';
 
 /**
  * The rule library and the obligations it produces (docs/people/02-PRD.md
@@ -43,8 +44,6 @@ export const CATALOGUE: CatalogueRule[] = [
 
 const STATE_CODES: Record<string, string> = { karnataka: 'KA', maharashtra: 'MH', 'tamil nadu': 'TN', tamilnadu: 'TN', telangana: 'TS', delhi: 'DL', gujarat: 'GJ', haryana: 'HR', 'uttar pradesh': 'UP', 'west bengal': 'WB', kerala: 'KL', 'andhra pradesh': 'AP', rajasthan: 'RJ', 'madhya pradesh': 'MP', punjab: 'PB', bihar: 'BR', odisha: 'OR', goa: 'GA', assam: 'AS' };
 export const stateCode = (state: string | null | undefined) => (state ? STATE_CODES[state.trim().toLowerCase()] || state.trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) : null);
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
-const addDays = (date: string, days: number) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 /** A date with the day held inside the month: 31 January stays 31, 31 February becomes the 28th or 29th. */
 const ymd = (y: number, m: number, d: number) => { const last = new Date(Date.UTC(y, m, 0)).getUTCDate(); return `${y}-${String(m).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`; };
 
@@ -213,7 +212,7 @@ const DONE_STATES = ['DONE', 'CHECKED', 'NOT_APPLICABLE'];
  * for a registration to renew) → OVERDUE after.
  */
 export async function buildObligations(accountId: string, orgId: string, now = new Date()) {
-  const today = new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
+  const today = todayIst(now);
   const from = addDays(today, -62);
   const to = addDays(today, 183);
   const [rules, ests, headcount, applies, org] = await Promise.all([
@@ -298,7 +297,7 @@ export async function obligationsOf(accountId: string, orgId: string, where: { s
   const names = await namesOf([...rows.flatMap((r) => [r.ownerUserId, r.doneByUserId, r.checkedByUserId]), ...proofs.map((p) => p.uploadedByUserId)]);
   const rules = await peoplePrisma.complianceRule.findMany({ where: { orgId, ruleId: { in: [...new Set(rows.map((r) => r.ruleId))] } }, select: { ruleId: true, version: true, reviewStatus: true, legalSource: true, requiredProof: true, ownerRole: true } });
   const ruleOf = new Map(rules.map((r) => [`${r.ruleId}@${r.version}`, r]));
-  const day = (d: Date | null) => (d ? new Date(d.getTime() + 330 * 60_000).toISOString().slice(0, 10) : null);
+  const day = (d: Date | null) => (d ? istDate(d) : null);
   return rows.map((o) => {
     const rule = ruleOf.get(`${o.ruleId}@${o.ruleVersion}`);
     const statutory = o.source === 'STATUTORY' ? statutoryOf(o.ruleId) : null;

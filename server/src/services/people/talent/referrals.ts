@@ -11,6 +11,8 @@ import { isAppEntitled } from '../../subscriptions.js';
 import { forLiveEmployee } from '../../payroll/employeeLock.js';
 import type { TeamScope } from '../scope.js';
 import { RESUME_TYPES, TalentError, candidateEvent } from './hiring.js';
+import { todayIst } from '../../../utils/istDate.js';
+export { todayIst };
 
 /**
  * Employee referrals (A20, WORKFLOW-GAP-RESEARCH-2026-10-30), made for a 1–20 person business
@@ -47,7 +49,6 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE = /^\+?[\d\s\-()]{7,20}$/;
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 const text = (v: unknown, max: number) => { const s = String(v ?? '').trim(); return s ? s.slice(0, max) : null; };
-export const todayIst = (now = new Date()) => new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
 const plusDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10);
 /** The last ten digits: +91 98450 12345, 098450-12345 and 9845012345 are one phone. */
 export const phoneKeyOf = (v: unknown) => { const d = String(v ?? '').replace(/\D/g, ''); return d.length >= 7 ? d.slice(-10) : null; };

@@ -17,6 +17,7 @@ import { listInvites, sendHeldToPayroll } from '@ui/personnel/api';
 import { pageJoiners } from './api';
 import { NextTask, PersonCell, Progress, can, crumbs } from './shared';
 import PlanDrawer from './Plan';
+import { istDay } from '@ui/utils/dates';
 
 /**
  * Joining & Leaving → Joining: everyone joining or recently joined. Before
@@ -35,7 +36,6 @@ const notBack = (invites) => {
   for (const i of invites) if (!latest.has(i.employeeId)) latest.set(i.employeeId, i);
   return [...latest.values()].filter((i) => ['SENT', 'STARTED', 'EXPIRED'].includes(i.status)).map((i) => ({ ...i, name: i.employeeName }));
 };
-const istDay = (d) => new Date(new Date(d).getTime() + 330 * 60_000).toISOString().slice(0, 10);
 export const STAGE_PILL = { CHECK: 'ui-pill-warn', PREPARING: 'ui-pill-neutral', READY: 'ui-pill-pos', JOINED: 'ui-pill-info', DONE: 'ui-pill-pos', NO_PLAN: 'ui-pill-neg', NOTICE: 'ui-pill-warn', LAST_DAY: 'ui-pill-warn', CLEARING: 'ui-pill-info' };
 
 export default function Joining({ params = {}, updateParams, openScreen }) {

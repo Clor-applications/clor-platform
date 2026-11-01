@@ -10,6 +10,7 @@ import { openTasks } from './checklists.js';
 import { teamScope } from './scope.js';
 import { dataHealth } from './dataHealth.js';
 import { buildObligations } from './complianceRules.js';
+import { addDays as plusDays, todayIst } from '../../utils/istDate.js';
 
 /**
  * People → Home: what needs someone today, not a wall of charts (founder,
@@ -20,12 +21,6 @@ import { buildObligations } from './complianceRules.js';
 
 export type Todo = { key: string; title: string; detail: string; count: number; tone: 'urgent' | 'soon' | 'info'; screen: string; params?: Record<string, string> };
 
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
-const plusDays = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 export async function homeTodos(req: Request): Promise<Todo[]> {

@@ -29,6 +29,7 @@ import { liveCredentialFor } from '../services/credentialKinds.js';
 import { MATRIX_COMMANDS, MATRIX_COMMAND_LABELS } from './matrix.js';
 import { setTimeCommand } from '../services/attendance/adms.js';
 import { ingestPunches } from '../services/attendance/punches.js';
+import { todayIst } from '../utils/istDate.js';
 
 /**
  * Biometric readers, as the company manages them: claim a reader by its serial
@@ -121,7 +122,7 @@ devicesRouter.post(`${base}/test-etimeoffice`, can(PermissionAction.CREATE), asy
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the details.' });
   const b = parsed.data;
   const now = new Date();
-  const midnight = new Date(`${new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10)}T00:00:00+05:30`);
+  const midnight = new Date(`${todayIst(now)}T00:00:00+05:30`);
   const r = await etoFetchPunches({ apiUrl: b.apiUrl || null, corporateId: b.corporateId || null, username: b.username, password: b.password }, midnight, now);
   res.json({ ok: r.ok, message: r.message, punchesToday: r.punches.length });
 });
@@ -170,7 +171,7 @@ devicesRouter.post(`${base}/test-pull`, can(PermissionAction.CREATE), async (req
     password = saved?.apiSecret ? decryptSecret(saved.apiSecret) : '';
   }
   const now = new Date();
-  const midnight = new Date(`${new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10)}T00:00:00+05:30`);
+  const midnight = new Date(`${todayIst(now)}T00:00:00+05:30`);
   const r = await syncVendorConnection(
     { id: 'test', vendor: b.vendor, apiUrl: b.baseUrl || null, apiCorporateId: null, apiUsername: b.username || null, apiSecret: password ? encryptSecret(password) : null, sourceTimezone: b.sourceTimezone, configJson: b.config ? JSON.stringify(b.config) : null, mappingJson: b.mapping ? JSON.stringify(b.mapping) : null, lastFetchedAt: null },
     { from: midnight, dryRun: true }

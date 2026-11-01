@@ -11,6 +11,7 @@ import { type Actor, writeChangeLog } from './changeLog.js';
 import { MERGE_FIELDS, mergeValues, render, templatesOf } from './letters.js';
 import { textPdf } from './pdf.js';
 import { createInvite } from './lifecycle/invites.js';
+import { addDays, todayIst } from '../../utils/istDate.js';
 
 /**
  * Offers sent from CLOR (HR-VIEW gap 5), on the letters system: the company's
@@ -37,8 +38,6 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const APP_URL = () => process.env.APP_URL || 'http://localhost:5173';
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
-const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 /** The end of a day in India, as an instant. */
 const endOfDayIst = (d: string) => new Date(Date.parse(`${d}T23:59:59+05:30`));
 const words = (d: string | null | undefined) => (d && ISO.test(d) ? new Date(`${d}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' }) : d || '');

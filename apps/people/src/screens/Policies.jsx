@@ -17,6 +17,7 @@ import {
   remindPolicyVersion, retirePolicyVersion, structureList, submitPolicyVersion, updatePolicy, updatePolicyVersion,
 } from '../api/policies';
 import { STATE_NAMES } from '../workforce/suggestions';
+import { todayIst } from '@ui/utils/dates';
 
 /**
  * Policies (POL-01..06): the library with an owner per policy; versions with
@@ -36,7 +37,6 @@ const SCOPE_KEYS = [
   ['workTypeIds', 'Work mode', 'work-types'],
 ];
 const day = (v) => (v ? formatDate(String(v).slice(0, 10)) : '');
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
 export default function Policies({ openScreen, params }) {
   const perms = usePermissions();

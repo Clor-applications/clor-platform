@@ -1,6 +1,7 @@
+import { todayIst as istToday } from '@ui/utils/dates';
+export { istToday };
 /* Small words and dates shared by the attendance-rules screens. */
 const pad = (n) => String(n).padStart(2, '0');
-export const istToday = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 export const shiftMonth = (month, by) => {
   const [y, m] = month.split('-').map(Number);
   const d = new Date(Date.UTC(y, m - 1 + by, 1));

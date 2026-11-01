@@ -11,6 +11,7 @@ import { financialYearOf, deductionsFor } from './taxDeclaration.js';
 import { round2 } from '../../utils/money.js';
 import { componentApplies, monthsOfService, type EligibilityFacts } from './eligibility.js';
 import { isCorrection, isLatePenalty } from './provisionalDays.js';
+import { daysBetween } from '../../utils/istDate.js';
 
 /**
  * A payroll run: turning a population and a period into payslips.
@@ -51,12 +52,7 @@ export type RunIssue = {
 const PERIODS_PER_YEAR: Record<string, number> = { MONTHLY: 12, FORTNIGHTLY: 26, WEEKLY: 52 };
 
 /** Whole days between two ISO dates, inclusive — the length of a period. */
-export function daysBetween(fromIso: string, toIso: string): number {
-  const from = Date.parse(`${fromIso}T00:00:00Z`);
-  const to = Date.parse(`${toIso}T00:00:00Z`);
-  if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) return 0;
-  return Math.round((to - from) / 86400000) + 1;
-}
+export { daysBetween };
 
 /**
  * Who this run is for.

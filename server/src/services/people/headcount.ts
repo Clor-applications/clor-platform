@@ -1,5 +1,6 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { type Actor, writeChangeLog } from './changeLog.js';
+import { todayIst } from '../../utils/istDate.js';
 
 /**
  * Headcount and movements (docs/people/02-PRD.md HLTH-04), and snoozing a
@@ -28,7 +29,7 @@ async function establishmentOn(orgId: string, people: Array<{ id: string; establ
 }
 
 export async function headcount(orgId: string, input: { asOf?: string; from?: string; to?: string }) {
-  const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+  const today = todayIst();
   const asOf = input.asOf && ISO.test(input.asOf) ? input.asOf : today;
   const to = input.to && ISO.test(input.to) ? input.to : today;
   const from = input.from && ISO.test(input.from) ? input.from : `${String(Number(to.slice(0, 4)) - 1)}${to.slice(4, 7)}-01`;
@@ -97,7 +98,7 @@ export async function snooze(actor: Actor, checkId: string, input: { reason?: st
   const reason = String(input.reason || '').trim().slice(0, 500);
   const until = String(input.until || '').trim();
   if (!reason) throw new HeadcountError('Say why it can wait.');
-  const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+  const today = todayIst();
   if (!ISO.test(until) || until <= today) throw new HeadcountError('Give the date it comes back, after today.');
   const maxDay = new Date(Date.now() + 330 * 60_000 + 180 * 86_400_000).toISOString().slice(0, 10);
   if (until > maxDay) throw new HeadcountError('Six months at most; then look again.');

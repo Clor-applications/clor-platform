@@ -31,6 +31,7 @@ import { ISO_DATE, employeeIn, fail, isHoliday, myEmployee, sendError, today, wi
 import { payrollReadiness } from '../services/payroll/readinessTower.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { PUNCH_ON_DECIDED, evidenceCsv, evidenceRows, readerTrustOn, reasonsOf, recomputeTrust } from '../services/attendance/trust.js';
+import { addDays, istDate as istInstantDate } from '../utils/istDate.js';
 
 /**
  * Attendance you can trust: the reads and the careful writes built on top of
@@ -51,11 +52,6 @@ const isMonth = (m: string) => /^\d{4}-\d{2}$/.test(m);
 const dateQ = (v: unknown) => {
   const s = String(v || '').trim();
   return ISO_DATE.test(s) ? s : null;
-};
-const addDays = (date: string, n: number) => {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
 };
 
 // ---------------------------------------------------------------------------
@@ -237,7 +233,6 @@ attendanceInsightsRouter.get(`${base}/exceptions`, can(PermissionAction.VIEW, R.
   res.json({ from, to, counts, total: visible.length, exceptions: visible.slice(0, 1000), truncated: visible.length > 1000 });
 });
 
-const istInstantDate = (at: Date) => new Date(at.getTime() + 330 * 60_000).toISOString().slice(0, 10);
 
 attendanceInsightsRouter.post(`${base}/exceptions/state`, can(PermissionAction.EDIT, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;

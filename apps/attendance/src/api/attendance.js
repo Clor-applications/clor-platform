@@ -2,6 +2,8 @@ import { formatDateIn } from '@ui/utils/dates';
 import { API_BASE, apiFetch } from '@platform/http';
 import { requireOrgId as orgId } from '@platform/context';
 import { queryString as query } from '@platform/query';
+import { todayIst } from '@ui/utils/dates';
+export { todayIst };
 
 /** The native attendance API (server: routes/attendance.ts). */
 const opts = { skipWarehouseHeader: true };
@@ -59,7 +61,6 @@ export const closeMonth = (month, acknowledge = false) => send(`/months/${encode
 export const reopenMonth = (month, reason) => send(`/months/${encodeURIComponent(month)}/reopen`, 'POST', { reason });
 
 /** IST "today", the attendance day. */
-export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 /**
  * A calendar date as people read it: the platform's dd/mm/yyyy (formatDateIn,
  * as Accounting shows dates), or "Fri, 16 Oct" with `weekday` for a list of

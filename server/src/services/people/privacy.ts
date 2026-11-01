@@ -1,6 +1,7 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { anonymiseEmployee } from '../anonymiseEmployee.js';
+import { todayIst } from '../../utils/istDate.js';
 
 /**
  * Privacy controls (docs/people/02-PRD.md PRV-02, 03, 06, 07):
@@ -35,7 +36,6 @@ export const RETENTION_DEFAULTS: Record<RetentionType, Default> = {
 };
 export const RETENTION_TYPES = Object.keys(RETENTION_DEFAULTS) as RetentionType[];
 
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const addYears = (ymd: string, years: number) => {
   const [y, m, d] = ymd.split('-').map(Number);
   const last = new Date(Date.UTC(y + years, m, 0)).getUTCDate();

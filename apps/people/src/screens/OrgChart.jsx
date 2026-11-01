@@ -12,6 +12,7 @@ import { organization } from '../organization/api';
 import { useTreeKeys } from '@ui/components/ui/useTreeKeys';
 import { Avatar } from '@ui/personnel/Employees';
 import OrgTreeChart from './OrgTreeChart';
+import { todayIst } from '@ui/utils/dates';
 
 /**
  * Who reports to whom. The Chart tab (the default) draws it as a tree of
@@ -22,7 +23,6 @@ import OrgTreeChart from './OrgTreeChart';
  * managers are named under the person; open seats (ORG-04) sit under their
  * team's lead, or in their own list when the team has no lead on the chart.
  */
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
 export default function OrgChart({ openScreen, params = {}, updateParams }) {
   /* As of a past date (FND-03): who reported to whom then. Open positions are today's, so a past view leaves them out. */

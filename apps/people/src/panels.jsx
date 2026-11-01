@@ -16,6 +16,7 @@ import { listDesk } from './api/desk';
 import { listItems, structureHistory } from './organization/api';
 import { listRecords } from './api/workspace';
 import { listSalaryRevisions } from '../../payroll/src/api/payrollRevisions';
+import { addDaysIso as plusDays } from '@ui/utils/dates';
 
 /**
  * The side panels of People's lists (owner, 28 Oct 2026): beside each list,
@@ -28,11 +29,6 @@ import { listSalaryRevisions } from '../../payroll/src/api/payrollRevisions';
 /* Today in India, not on the device: a laptop set to another zone (or a
    late-night UTC clock) must not shift which leave counts as "this week". */
 const todayIso = todayIst;
-const plusDays = (iso, n) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 /* "3 Nov" this year, "3 Nov 2027" another. */
 const day = (iso) => {
   const s = formatDate(String(iso || '').slice(0, 10));

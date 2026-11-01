@@ -9,6 +9,7 @@ import { permissionCovers } from './permissionWindow.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { asJson, decidedMarker, readerTrustOn, trustForDay } from './trust.js';
 import { halfOn, partOfDay } from './leaveHalves.js';
+import { eachDay } from '../../utils/istDate.js';
 
 /**
  * Attendance days: the one path a day is written by, and the reads every
@@ -425,11 +426,8 @@ export const daysOfMonth = (month: string) => {
 };
 
 /** Every date from one day to another, inclusive. */
-export const daysBetween = (from: string, to: string) => {
-  const out: string[] = [];
-  for (let d = new Date(`${from}T00:00:00Z`); d.toISOString().slice(0, 10) <= to; d.setUTCDate(d.getUTCDate() + 1)) out.push(d.toISOString().slice(0, 10));
-  return out;
-};
+/** Every date from `from` to `to`, both included (utils/istDate `eachDay`). */
+export const daysBetween = eachDay;
 
 /**
  * Everything a period's figures are worked out from — who was employed, their

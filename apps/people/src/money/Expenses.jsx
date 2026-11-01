@@ -19,6 +19,7 @@ import {
   advanceReturned, downloadCsv, getReport, listAdvances, listCategories, listClaims, listSalaryAdvances, markRecorded, openBill, payAdvance, payClaim, recoverAdvance, saveCategory, sendToPayroll,
 } from '../api/money';
 import { money } from './words';
+import { todayIst as today } from '@ui/utils/dates';
 
 /**
  * People › Expenses (WORKFLOW-GAP-RESEARCH 4.1, 4.2): what HR or the owner
@@ -28,7 +29,6 @@ import { money } from './words';
  * paid now is listed for entering in Books, with the GST kept for credit.
  */
 const TABS = [['pay', 'To pay'], ['advances', 'Advances'], ['salary', 'Salary advances'], ['books', 'For Books'], ['all', 'All claims'], ['report', 'Report']];
-const today = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const yearAgo = () => { const d = new Date(`${today()}T00:00:00Z`); d.setUTCFullYear(d.getUTCFullYear() - 1); return d.toISOString().slice(0, 10); };
 const day = (iso) => (iso ? formatDate(String(iso).slice(0, 10)) : '');
 const PILL = { WITH_SALARY: 'warn', SUBMITTED: 'warn', WAITING: 'warn', APPROVED: 'warn', PAYING: 'warn', PAID: 'pos', SETTLED: 'neutral', CLOSED: 'neutral', REJECTED: 'neg', WITHDRAWN: 'neutral' };

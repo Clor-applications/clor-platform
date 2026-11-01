@@ -9,6 +9,7 @@ import { startChecklist } from '../checklists.js';
 import { NO_SETTLEMENT } from './leaving.js';
 import { checkReaderTasks } from './readersDone.js';
 import { automation, recordRun } from '../engagement/automations.js';
+import { addDays as plus, todayIst } from '../../../utils/istDate.js';
 
 /**
  * The Joining & Leaving job (every 15 minutes, woken by Cloud Scheduler on
@@ -24,8 +25,6 @@ import { automation, recordRun } from '../engagement/automations.js';
  *    three or more days late on someone else's name. One per person per day
  *    (the notice dedupe key, and `remindedOn` on each task).
  */
-const todayIst = (now: Date) => new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
-const plus = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 const istHour = (now: Date) => new Date(now.getTime() + 330 * 60_000).getUTCHours();
 const ESCALATE_AFTER = 3;
 

@@ -2,6 +2,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { isWeeklyOff } from '../attendance/compute.js';
 import { daysBetween, periodContext } from '../attendance/days.js';
 import { lastOfMonth } from '../attendance/payableDays.js';
+import { todayIst } from '../../utils/istDate.js';
 
 /**
  * The registers an inspector asks for that People keeps beside the register
@@ -12,7 +13,6 @@ import { lastOfMonth } from '../attendance/payableDays.js';
  * form: each state prescribes its own layout.
  */
 
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const MARK: Record<string, string> = { PRESENT: 'P', HALF_DAY: 'HD', ABSENT: 'A', ON_LEAVE: 'L', HOLIDAY: 'H', WEEKLY_OFF: 'W' };
 const num = (n: number) => String(Math.round(n * 100) / 100);
 

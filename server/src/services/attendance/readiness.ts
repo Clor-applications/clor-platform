@@ -3,6 +3,7 @@ import { isWeeklyOff, istInstant } from './compute.js';
 import { clashingTemporaries } from './conflicts.js';
 import { daysBetween, daysOfMonth, monthRows, periodContext } from './days.js';
 import { readerTrustOn } from './trust.js';
+import { todayIst } from '../../utils/istDate.js';
 
 /**
  * What is still unsettled in a stretch of days, person by person.
@@ -110,7 +111,7 @@ export async function monthReadiness(accountId: string, orgId: string, month: st
   const toCheck = checks.filter((c) => c.severity === 'check' && c.count > 0).length;
   return {
     month,
-    ended: to < new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10),
+    ended: to < todayIst(),
     closed: lock ? { at: lock.lockedAt, byUserId: lock.lockedByUserId } : null,
     ready: blocking === 0,
     blocking,

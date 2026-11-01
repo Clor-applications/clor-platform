@@ -4,6 +4,8 @@ import type { TeamScope } from '../scope.js';
 import { NO_SETTLEMENT } from './leaving.js';
 import { TRACKED } from '../employmentHistory.js';
 import { leavingsOpenToManagers, type ReasonAccess } from '../companyChoices.js';
+import { todayIst } from '../../../utils/istDate.js';
+export { todayIst };
 
 /**
  * Joining & Leaving lists (docs/people/design-v1/JOINING-LEAVING-DECISIONS.md).
@@ -20,7 +22,6 @@ import { leavingsOpenToManagers, type ReasonAccess } from '../companyChoices.js'
  */
 
 const DAY = 86_400_000;
-export const todayIst = (now = new Date()) => new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
 const plus = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10);
 const RECENT_DAYS = 60;
 const CAP = 2000;

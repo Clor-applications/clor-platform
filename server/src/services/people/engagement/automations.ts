@@ -9,6 +9,7 @@ import { isFeatureEnabled } from '../../features.js';
 import { deliver, sendTemplate } from '../../mailer.js';
 import { istDate } from '../../attendance/compute.js';
 import { rulesOf } from '../../attendance/timeRules.js';
+import { todayIst } from '../../../utils/istDate.js';
 
 /**
  * Ready-made automations (WORKFLOW-GAP-RESEARCH-2026-10-30 A27, 4.7): a list of plain sentences with a
@@ -132,7 +133,6 @@ export async function saveAutomations(who: { accountId: string; orgId: string; u
 // What each recipe sent
 // ---------------------------------------------------------------------------
 
-const todayIst = (now = new Date()) => istDate(now);
 
 /**
  * Adds to a recipe's count for the day, with who got it (names, at most 20). Never throws: a record of a

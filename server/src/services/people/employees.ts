@@ -7,6 +7,7 @@ import { ensureFirstEpisode } from './episodes.js';
 import { recordChanges, recordJoined, TRACKED } from './employmentHistory.js';
 import { employeeStatusChanged } from '../portalSessions.js';
 import type { Actor as CredentialActor } from '../credentials.js';
+import { todayIst } from '../../utils/istDate.js';
 
 /**
  * The one way a person is created or changed (docs/people/02-PRD.md FND-08).
@@ -76,7 +77,7 @@ export async function updateEmployee(
   /* Moved into a department that works a night shift: a woman needs her consent to night work (people/nightConsent.ts). */
   const toDept = (data as { departmentId?: unknown }).departmentId;
   if (typeof toDept === 'string' && toDept && toDept !== existing.departmentId) {
-    const t = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    const t = todayIst();
     const sched = await peoplePrisma.departmentSchedule.findMany({ where: { orgId: actor.orgId, departmentId: toDept, OR: [{ effectiveTo: null }, { effectiveTo: { gte: t } }] }, select: { shiftId: true } });
     if (sched.length) {
       const { assertNightConsent } = await import('./nightConsent.js');

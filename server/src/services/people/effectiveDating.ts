@@ -6,6 +6,7 @@ import type { Actor } from './changeLog.js';
 import { updateEmployee } from './employees.js';
 import { TRACKED } from './employmentHistory.js';
 import { registerJob } from '../jobRegistry.js';
+import { todayIst } from '../../utils/istDate.js';
 
 /**
  * Effective-dated changes (docs/people/02-PRD.md FND-02, FND-03).
@@ -25,7 +26,6 @@ import { registerJob } from '../jobRegistry.js';
 /** Fields a change may be dated for: the job fields history tracks, plus status. */
 export const SCHEDULABLE_FIELDS = new Set([...Object.keys(TRACKED), 'establishmentId', 'status']);
 
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 export const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** The name behind an id, for the labels a scheduled change shows. */

@@ -12,6 +12,7 @@ import { featuresFor } from '@platform/auth';
 import { appAccessSends, decideProbation, getProbation, listAssets, policiesFor, saveProbationReview } from './api';
 import { getCelebrationsFor, setCelebrationsFor } from '../api/engagement';
 import Toggle from '../components/Toggle';
+import { todayIst } from '@ui/utils/dates';
 
 /*
  * Parts of the employee record that each read one more thing the server
@@ -23,7 +24,6 @@ import Toggle from '../components/Toggle';
 const day = (v) => (v ? formatDate(String(v).slice(0, 10)) : '');
 /* A moment (saved, accepted) as India's calendar day, not the UTC date. */
 const onDay = (t) => (t ? formatDate(new Date(new Date(t).getTime() + 330 * 60_000).toISOString().slice(0, 10)) : '');
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
 /* `writeAllowed`: the record screen is read-only for someone without Employees edit (WriteGuard), but a manager
    may still write a probation review with Lifecycle edit; the server checks that grant itself. */
