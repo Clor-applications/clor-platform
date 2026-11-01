@@ -112,8 +112,19 @@ const inTenant = <T>(fn: () => Promise<T>) => runInTenant(hr.orgId, fn);
 
 describe('what a stand-in hands on', () => {
   it('all approvals, leave only, leave and attendance, or chosen types; unknown types refused', () => {
-    expect(covers([], 'DESK_ESCALATION')).toBe(true);
-    expect(covers([], undefined)).toBe(true);
+    expect(covers(['ALL'], 'DESK_ESCALATION')).toBe(true);
+    expect(covers(['ALL'], 'LEAVE')).toBe(true);
+    expect(covers(['ALL'], undefined)).toBe(true);
+    /* A People stand-in from before the merge, or written by an older API (empty list): People requests only, never leave or attendance. */
+    for (const old of [[], ['PEOPLE']]) {
+      expect(covers(old, 'DESK_ESCALATION')).toBe(true);
+      expect(covers(old, 'FORM:abcd1234')).toBe(true);
+      expect(covers(old, undefined)).toBe(true);
+      expect(covers(old, 'LEAVE')).toBe(false);
+      expect(covers(old, 'ATTENDANCE:MISSED_PUNCH')).toBe(false);
+      expect(covers(old, 'OVERTIME')).toBe(false);
+      expect(covers(old, 'TIME')).toBe(false);
+    }
     expect(covers(['LEAVE'], 'LEAVE')).toBe(true);
     expect(covers(['LEAVE'], 'ATTENDANCE')).toBe(false);
     expect(covers(['LEAVE'], 'DESK_ESCALATION')).toBe(false);
@@ -122,7 +133,13 @@ describe('what a stand-in hands on', () => {
     expect(covers(['ATTENDANCE'], 'TIME')).toBe(true);
     expect(covers(['EXPENSE_CLAIM'], 'TIME')).toBe(false);
     expect(covers(['EXPENSE_CLAIM'], undefined)).toBe(false);
-    expect(cleanTypes(['LEAVE', 'FORM:abc_1', 'EXPENSE_CLAIM', 'LEAVE'])).toEqual(['EXPENSE_CLAIM', 'FORM:abc_1', 'LEAVE']);
+    expect(cleanTypes(['LEAVE', 'FORM:abcd1234', 'EXPENSE_CLAIM', 'LEAVE'])).toEqual(['EXPENSE_CLAIM', 'FORM:abcd1234', 'LEAVE']);
+    /* Always written as a list: nothing named is all approvals. */
+    expect(cleanTypes(undefined)).toEqual(['ALL']);
+    expect(cleanTypes([])).toEqual(['ALL']);
+    expect(cleanTypes(['ALL', 'LEAVE'])).toEqual(['ALL']);
+    /* A request type HR made, as the engine names it, and nothing looser. */
+    expect(cleanTypes(['FORM:abc_1'])).toBeNull();
     expect(cleanTypes(['PAYDAY'])).toBeNull();
     expect(cleanTypes('LEAVE')).toBeNull();
   });
@@ -131,7 +148,7 @@ describe('what a stand-in hands on', () => {
 describe('an approver away, with a stand-in in either table', () => {
   it('new table, named by People record only (as a leave delegate is): the stand-in decides a People request, nobody is handed up', async () => {
     await clear(hr);
-    await newRow(hr, { employeeId: raviEmp.id, standInEmployeeId: priyaEmp.id, requestTypes: [] });
+    await newRow(hr, { employeeId: raviEmp.id, standInEmployeeId: priyaEmp.id, requestTypes: ['ALL'] });
     const leave = await leaveToday(hr, raviEmp.id);
     try {
       const r = await ask(hr, 'DESK_ESCALATION', tara);
@@ -225,24 +242,35 @@ describe('one list, one table, through both routes', () => {
   it('a leave delegate HR names is seen from the manager’s own list; one they name for all approvals is seen by HR; each once', async () => {
     await clear(hr);
     const leaveRow = (await att(hr).post('/leave/stand-ins', { managerEmployeeId: raviEmp.id, standInEmployeeId: priyaEmp.id, fromDate: plus(10), toDate: plus(12) }).expect(201)).body.standIn;
-    expect(leaveRow).toMatchObject({ employeeId: raviEmp.id, userId: ravi.userId, standInUserId: priya.userId, requestTypes: ['LEAVE', 'ATTENDANCE'] });
-    /* Nothing goes to the retired table. */
-    expect(await inTenant(() => peoplePrisma.approvalStandIn.count({ where: { orgId: hr.orgId } }))).toBe(0);
+    /* Leave and attendance only: no sign-ins stored (an older engine or People list, after a rollback, never sees it), and a linked old row (an older leave path still does). */
+    expect(leaveRow).toMatchObject({ employeeId: raviEmp.id, userId: null, standInUserId: null, requestTypes: ['LEAVE', 'ATTENDANCE'], legacyId: expect.any(String) });
+    expect(await inTenant(() => peoplePrisma.approvalStandIn.findFirst({ where: { id: leaveRow.legacyId } }))).toMatchObject({ managerEmployeeId: raviEmp.id, standInEmployeeId: priyaEmp.id, fromDate: plus(10), toDate: plus(12) });
+    expect(await inTenant(() => peoplePrisma.standIn.findMany({ where: { orgId: hr.orgId, userId: { in: [ravi.userId] } } }))).toEqual([]);
     const all = (await people(ravi).post('/stand-ins', { standInEmployeeId: priyaEmp.id, fromDate: plus(20), toDate: plus(21) }).expect(201)).body.standIn;
-    expect(all).toMatchObject({ userId: ravi.userId, employeeId: raviEmp.id, standInEmployeeId: priyaEmp.id, requestTypes: [] });
+    expect(all).toMatchObject({ userId: ravi.userId, standInUserId: priya.userId, employeeId: raviEmp.id, standInEmployeeId: priyaEmp.id, requestTypes: ['ALL'] });
     const mine = (await people(ravi).get('/stand-ins').expect(200)).body.standIns;
     expect(mine.map((r: any) => r.id).sort()).toEqual([leaveRow.id, all.id].sort());
     const hrList = (await att(hr).get('/leave/stand-ins').expect(200)).body.standIns;
     expect(hrList.map((r: any) => r.id).sort()).toEqual([leaveRow.id, all.id].sort());
     /* The all-approvals one covers leave too. */
     expect(await inTenant(() => deciderFor(hr.orgId, raviEmp.id, plus(20), 'LEAVE'))).toBe(priyaEmp.id);
+    /* HR removes leave and attendance ones only; one that also hands on Ravi's other approvals is his. */
+    const theirs = await att(hr).del(`/leave/stand-ins/${all.id}`).expect(403);
+    expect(theirs.body.error).toBe('This one also hands on their other approvals, so only they can remove it.');
     await people(ravi).del(`/stand-ins/${leaveRow.id}`).expect(200);
     await people(ravi).del(`/stand-ins/${all.id}`).expect(200);
     expect((await people(ravi).get('/stand-ins').expect(200)).body.standIns).toEqual([]);
+    expect(await inTenant(() => peoplePrisma.approvalStandIn.count({ where: { orgId: hr.orgId } }))).toBe(0);
+    /* People requests only: on the manager's own list, not the leave list, and not removable there. */
+    const peopleOnly = (await people(ravi).post('/stand-ins', { standInEmployeeId: priyaEmp.id, fromDate: plus(20), toDate: plus(21), requestTypes: ['PEOPLE'] }).expect(201)).body.standIn;
+    expect((await att(hr).get('/leave/stand-ins').expect(200)).body.standIns).toEqual([]);
+    await att(hr).del(`/leave/stand-ins/${peopleOnly.id}`).expect(404);
+    expect((await people(ravi).get('/stand-ins').expect(200)).body.standIns.map((r: any) => r.id)).toEqual([peopleOnly.id]);
+    await clear(hr);
   });
 
   it('HR hands on only leave and attendance for another manager; more is the manager’s own to hand on', async () => {
-    const refused = await att(hr).post('/leave/stand-ins', { managerEmployeeId: raviEmp.id, standInEmployeeId: priyaEmp.id, fromDate: plus(10), toDate: plus(12), requestTypes: [] }).expect(403);
+    const refused = await att(hr).post('/leave/stand-ins', { managerEmployeeId: raviEmp.id, standInEmployeeId: priyaEmp.id, fromDate: plus(10), toDate: plus(12), requestTypes: ['ALL'] }).expect(403);
     expect(refused.body.error).toBe('Only Ravi Kumar can hand on their other approvals, from their own sign-in.');
     await att(hr).post('/leave/stand-ins', { managerEmployeeId: raviEmp.id, standInEmployeeId: priyaEmp.id, fromDate: plus(10), toDate: plus(12), requestTypes: ['PAYDAY'] }).expect(400);
     const leaveOnly = (await att(hr).post('/leave/stand-ins', { managerEmployeeId: raviEmp.id, standInEmployeeId: tara.id, fromDate: plus(10), toDate: plus(12), requestTypes: ['LEAVE'] }).expect(201)).body.standIn;
@@ -267,6 +295,9 @@ describe('the data migration (20261118090000_stand_in_merge)', () => {
     const otherBoss = (await people(other).post('/employees', { name: 'Other Boss', code: 'O-1' }).expect(201)).body.employee;
     const otherDeputy = (await people(other).post('/employees', { name: 'Other Deputy', code: 'O-2' }).expect(201)).body.employee;
     const theirs = await oldRow(other, otherBoss.id, otherDeputy.id, plus(30), plus(30));
+    /* A People stand-in named before the merge (as the old API wrote it: no list), Ravi to Meena over the same days. */
+    const before0 = await newRow(hr, { userId: ravi.userId, standInUserId: meena.userId, fromDate: plus(30), toDate: plus(33), createdAt: new Date(t0 + 120_000) });
+    expect(before0.requestTypes).toEqual([]);
     /* Read before the copy (fallback) and after it must agree. */
     const before = [plus(30), plus(31), plus(33)];
     const decidedBefore = await Promise.all(before.map((d) => inTenant(() => deciderFor(hr.orgId, raviEmp.id, d, 'LEAVE'))));
@@ -287,10 +318,14 @@ describe('the data migration (20261118090000_stand_in_merge)', () => {
       await db.$disconnect();
     }
 
-    const copied = await inTenant(() => peoplePrisma.standIn.findMany({ where: { orgId: hr.orgId }, orderBy: { createdAt: 'asc' } }));
+    /* The People stand-in hands on People requests only, as before: leave still goes as it did, and its approvals still go to Meena. */
+    expect((await inTenant(() => peoplePrisma.standIn.findUniqueOrThrow({ where: { id: before0.id } }))).requestTypes).toEqual(['PEOPLE']);
+    expect((await inTenant(() => resolveApprover(hr, { kind: 'MANAGER' }, tara.id, plus(31), 'DESK_ESCALATION'))).standIns).toEqual([{ for: ravi.userId, user: meena.userId }]);
+    const copied = await inTenant(() => peoplePrisma.standIn.findMany({ where: { orgId: hr.orgId, legacyId: { not: null } }, orderBy: { createdAt: 'asc' } }));
     expect(copied).toHaveLength(2);
     expect(copied.map((r) => r.legacyId)).toEqual([first.id, second.id]);
-    expect(copied[0]).toMatchObject({ id: `lsi_${first.id}`, employeeId: raviEmp.id, userId: ravi.userId, standInEmployeeId: priyaEmp.id, standInUserId: priya.userId, fromDate: plus(30), toDate: plus(32), requestTypes: ['LEAVE', 'ATTENDANCE'], createdByUserId: hr.userId });
+    /* No sign-ins stored: an older engine (a rollback) never takes a leave delegate for a People stand-in. */
+    expect(copied[0]).toMatchObject({ id: `lsi_${first.id}`, employeeId: raviEmp.id, userId: null, standInEmployeeId: priyaEmp.id, standInUserId: null, fromDate: plus(30), toDate: plus(32), requestTypes: ['LEAVE', 'ATTENDANCE'], createdByUserId: hr.userId });
     expect(copied[0].createdAt.getTime()).toBe(first.createdAt.getTime());
     expect(copied[1]).toMatchObject({ standInEmployeeId: tara.id, standInUserId: null });
     /* The other company's row stays the other company's. */
@@ -303,12 +338,73 @@ describe('the data migration (20261118090000_stand_in_merge)', () => {
     expect(decidedAfter).toEqual(decidedBefore);
     const listed = (await att(hr).get('/leave/stand-ins').expect(200)).body.standIns;
     expect(listed.map((r: any) => r.legacyId).sort()).toEqual([first.id, second.id].sort());
+    expect(listed.find((r: any) => r.legacyId === first.id)).toMatchObject({ managerName: 'Ravi Kumar', standInName: 'Priya Rao', userId: ravi.userId, standInUserId: priya.userId });
 
     /* Removing the later one takes it from both tables: the earlier one decides again, and nothing comes back. */
     await att(hr).del(`/leave/stand-ins/lsi_${second.id}`).expect(200);
     expect(await inTenant(() => peoplePrisma.approvalStandIn.findFirst({ where: { id: second.id } }))).toBeNull();
     expect(await inTenant(() => deciderFor(hr.orgId, raviEmp.id, plus(31), 'LEAVE'))).toBe(priyaEmp.id);
     expect(await inTenant(() => deciderFor(hr.orgId, raviEmp.id, plus(33), 'LEAVE'))).toBe(raviEmp.id);
+    await clear(hr);
+  }, 60_000);
+});
+
+describe('during the deploy and after a rollback (until phase 3c)', () => {
+  it('a delegate an older API removes (its old row) is gone here too', async () => {
+    await clear(hr);
+    const row = (await att(hr).post('/leave/stand-ins', { managerEmployeeId: raviEmp.id, standInEmployeeId: priyaEmp.id, fromDate: todayIst(), toDate: todayIst() }).expect(201)).body.standIn;
+    expect(await inTenant(() => deciderFor(hr.orgId, raviEmp.id, todayIst(), 'LEAVE'))).toBe(priyaEmp.id);
+    /* The older leave route deletes from ApprovalStandIn only. */
+    await inTenant(() => peoplePrisma.approvalStandIn.delete({ where: { id: row.legacyId } }));
+    expect(await inTenant(() => deciderFor(hr.orgId, raviEmp.id, todayIst(), 'LEAVE'))).toBe(raviEmp.id);
+    expect((await att(hr).get('/leave/stand-ins').expect(200)).body.standIns).toEqual([]);
+    await clear(hr);
+  });
+
+  it('the latest named wins on both paths, even when it names someone without a sign-in', async () => {
+    await clear(hr);
+    const t0 = Date.now() - 600_000;
+    await newRow(hr, { userId: ravi.userId, standInUserId: priya.userId, employeeId: raviEmp.id, standInEmployeeId: priyaEmp.id, requestTypes: ['ALL'], createdAt: new Date(t0) });
+    /* Named later: Tara, who decides in the employee app only. */
+    await newRow(hr, { employeeId: raviEmp.id, standInEmployeeId: tara.id, requestTypes: ['LEAVE'], createdAt: new Date(t0 + 60_000) });
+    expect(await inTenant(() => deciderFor(hr.orgId, raviEmp.id, todayIst(), 'LEAVE'))).toBe(tara.id);
+    /* The engine does not fall back to the older one: nobody with a sign-in stands in for leave today. */
+    expect((await inTenant(() => resolveApprover(hr, { kind: 'MANAGER' }, tara.id, todayIst(), 'LEAVE'))).standIns).toEqual([]);
+    /* For a People request the leave-only row does not count, so the older one does, on both paths. */
+    expect((await inTenant(() => resolveApprover(hr, { kind: 'MANAGER' }, tara.id, todayIst(), 'DESK_ESCALATION'))).standIns).toEqual([{ for: ravi.userId, user: priya.userId }]);
+    expect(await inTenant(() => deciderFor(hr.orgId, raviEmp.id, todayIst(), 'ATTENDANCE'))).toBe(priyaEmp.id);
+    await clear(hr);
+  });
+});
+
+describe('the employee app queue of a stand-in', () => {
+  it('a leave-only stand-in does not get the team’s field punches or overtime; leave and attendance does', async () => {
+    await clear(hr);
+    const access = (await att(hr).get('/portal-access').expect(200)).body.company.code;
+    const issued = (await att(hr).post('/portal-access/codes', { employeeIds: [priyaEmp.id] }).expect(200)).body.codes[0].activationCode;
+    const token = (await request(app).post('/api/portal/activate').send({ company: access, employeeCode: 'S-3', activationCode: issued, password: 'mine pass 1' }).expect(200)).body.token;
+    const queue = async () => (await request(app).get('/api/portal/approvals').set('Authorization', `Bearer ${token}`).expect(200)).body;
+    const day = plus(-7);
+    const t = await inTenant(() => peoplePrisma.employee.findUniqueOrThrow({ where: { id: tara.id } }));
+    await inTenant(async () => {
+      await peoplePrisma.devicePunch.create({ data: { accountId: t.accountId, orgId: hr.orgId, deviceId: 'phone', serialNumber: 'PHONE', pin: tara.id, at: new Date(`${day}T04:00:00Z`), localTime: `${day}T09:30:00`, state: 'IN', employeeId: tara.id, shiftDate: day, outsideSite: true, reviewStatus: 'PENDING' } });
+      await peoplePrisma.overtimeRequest.create({ data: { accountId: t.accountId, orgId: hr.orgId, employeeId: tara.id, date: day, kind: 'OVERTIME', minutes: 60, reason: 'Stock count', status: 'PENDING' } });
+      /* Overtime has a manager's step only when the company says so. */
+      await peoplePrisma.attendanceSettings.upsert({ where: { orgId: hr.orgId }, create: { accountId: t.accountId, orgId: hr.orgId, overtimeApproval: 'MANAGER', updatedByUserId: hr.userId }, update: { overtimeApproval: 'MANAGER' } });
+    });
+    expect((await queue()).approver).toBe(false);
+    await newRow(hr, { employeeId: raviEmp.id, standInEmployeeId: priyaEmp.id, requestTypes: ['LEAVE'] });
+    const leaveOnly = await queue();
+    expect(leaveOnly.approver).toBe(true);
+    expect(leaveOnly.punches).toEqual([]);
+    expect(leaveOnly.overtime).toEqual([]);
+    expect(leaveOnly.corrections).toEqual([]);
+    expect(leaveOnly.requests).toEqual([]);
+    await clear(hr);
+    await newRow(hr, { employeeId: raviEmp.id, standInEmployeeId: priyaEmp.id, requestTypes: ['LEAVE', 'ATTENDANCE'] });
+    const both = await queue();
+    expect(both.punches.map((p: any) => p.employeeName)).toEqual(['Tara Singh']);
+    expect(both.overtime.map((p: any) => p.employeeName)).toEqual(['Tara Singh']);
     await clear(hr);
   }, 60_000);
 });

@@ -11,6 +11,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { homeCrumbs } from '@ui/timeOff/shared';
+import { STAND_IN_TYPES, scopeWords } from '@ui/timeOff/standInScope';
 import { addStandIn as addLeaveDelegate, listPeople, listStandIns as listLeaveDelegates, removeStandIn as removeLeaveDelegate } from '@ui/timeOff/api';
 
 import { addStandIn as addApprovalDelegate, listStandInsFull as listApprovalDelegates, removeStandIn as removeApprovalDelegate, standInCandidates } from '../api/approvals';
@@ -24,6 +25,7 @@ import { addStandIn as addApprovalDelegate, listStandInsFull as listApprovalDele
  *   Leave and attendance   what a leave delegate always handed on
  *   Leave only
  *   Chosen request types
+ *   (Other approvals: a People stand-in named before the merge)
  *
  * HR names one for any manager, for leave and attendance; anything more is
  * handed on by the manager themselves, from their own sign-in. The list reads
@@ -34,35 +36,9 @@ const rank = (r, today) => (r.live ? 0 : r.fromDate > today ? 1 : 2);
 const when = (r, today) => (r.live ? ['Live', 'ui-pill-pos'] : r.fromDate > today ? ['Starts later', 'ui-pill-neutral'] : ['Over', 'ui-pill-neutral']);
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
-/** Request types a delegate can be given, in the words the rest of People uses. Leave and attendance first. */
-export const TYPES = [
-  ['LEAVE', 'Leave'],
-  ['ATTENDANCE', 'Attendance requests, overtime and field punches'],
-  ['PROFILE_CHANGE', 'Personal detail changes'],
-  ['JOB_CHANGE', 'Job changes'],
-  ['LEAVING', 'Leaving'],
-  ['PROBATION', 'Probation'],
-  ['LETTER_REQUEST', 'Letters'],
-  ['DOCUMENT_REQUEST', 'Documents'],
-  ['EXPENSE_CLAIM', 'Expense claims'],
-  ['EMPLOYEE_ADVANCE', 'Advances'],
-  ['SALARY_ADVANCE', 'Salary advances'],
-  ['SHIFT_SWAP', 'Shift swaps'],
-  ['SEAT_REQUEST', 'Seats'],
-  ['DESK_ESCALATION', 'Help desk'],
-  ['POLICY_PUBLISH', 'Policies'],
-];
+const TYPES = STAND_IN_TYPES;
 const TIME = new Set(['LEAVE', 'ATTENDANCE']);
-const LABEL = Object.fromEntries(TYPES);
-/** One line for what a delegate hands on. */
-export function scopeWords(types) {
-  const t = [...(types || [])].sort();
-  if (!t.length) return 'All approvals';
-  if (t.length === 2 && t[0] === 'ATTENDANCE' && t[1] === 'LEAVE') return 'Leave and attendance';
-  if (t.length === 1 && t[0] === 'LEAVE') return 'Leave only';
-  return t.map((x) => LABEL[x] || (x.startsWith('FORM:') ? 'A request type' : x)).join(', ');
-}
-const CHOICES = { ALL: [], TIME: ['LEAVE', 'ATTENDANCE'], LEAVE: ['LEAVE'] };
+const CHOICES = { ALL: ['ALL'], TIME: ['LEAVE', 'ATTENDANCE'], LEAVE: ['LEAVE'] };
 
 export default function Delegates() {
   const perms = usePermissions();
@@ -88,7 +64,9 @@ export default function Delegates() {
 
   /* Mine are removed from my own sign-in; anyone else's take the right to approve leave. */
   const removesAsMine = (r) => r.mine && seesApprovals;
-  const canRemove = (r) => removesAsMine(r) || namesLeave;
+  /* Someone else's one that also hands on their other approvals is theirs alone to remove. */
+  const timeAlone = (t) => Array.isArray(t) && t.length > 0 && t.every((x) => x === 'LEAVE' || x === 'ATTENDANCE');
+  const canRemove = (r) => removesAsMine(r) || (namesLeave && timeAlone(r.requestTypes));
   const remove = async (r) => {
     const ok = await confirmDialog({ title: 'Remove this delegate?', message: `${r.standInName || 'They'} stop${r.standInName ? 's' : ''} deciding for ${r.mine ? 'you' : r.managerName || 'this manager'}.`, confirmLabel: 'Remove' });
     if (!ok) return;
@@ -160,7 +138,9 @@ function AddDelegate({ wholeCompany, namesLeave, namesApprovals, selfEmployeeId,
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v, ...(k === 'fromDate' && v && (!f.toDate || f.toDate < v) ? { toDate: v } : {}) }));
 
   /* More than leave and attendance is handed on by the manager themselves, from their own sign-in. */
-  const forSelf = !wholeCompany || !form.managerEmployeeId || form.managerEmployeeId === selfEmployeeId;
+  /* HR picks whose decisions; an empty "In place of" is nobody yet, never "me". */
+  const picksManager = wholeCompany && namesLeave;
+  const forSelf = !picksManager || (Boolean(form.managerEmployeeId) && form.managerEmployeeId === selfEmployeeId);
   const handsOnMore = namesApprovals && forSelf && Boolean(selfEmployeeId);
   const choice = !handsOnMore && form.choice === 'ALL' ? 'TIME' : form.choice;
   const chosen = handsOnMore ? form.chosen : form.chosen.filter((t) => TIME.has(t));
@@ -168,9 +148,9 @@ function AddDelegate({ wholeCompany, namesLeave, namesApprovals, selfEmployeeId,
   const timeAlone = requestTypes.length > 0 && requestTypes.every((t) => TIME.has(t));
   /* Through my own sign-in when it is mine and I hand on approvals; else the leave route, which takes leave and attendance. */
   const asMine = forSelf && namesApprovals && Boolean(selfEmployeeId);
-  const same = Boolean(form.standInEmployeeId) && form.standInEmployeeId === (wholeCompany ? form.managerEmployeeId : selfEmployeeId);
+  const same = Boolean(form.standInEmployeeId) && form.standInEmployeeId === (picksManager ? form.managerEmployeeId : selfEmployeeId);
   const allowed = asMine || (namesLeave && timeAlone);
-  const ready = form.standInEmployeeId && form.fromDate && form.toDate && (!wholeCompany || !namesLeave || asMine || form.managerEmployeeId) && !same && (choice !== 'CHOSEN' || chosen.length > 0) && allowed;
+  const ready = form.standInEmployeeId && form.fromDate && form.toDate && (!picksManager || form.managerEmployeeId) && !same && (choice !== 'CHOSEN' || chosen.length > 0) && allowed;
   const dirty = Boolean(form.standInEmployeeId || form.fromDate);
   const toggle = (t) => setForm((f) => ({ ...f, chosen: f.chosen.includes(t) ? f.chosen.filter((x) => x !== t) : [...f.chosen, t] }));
 
@@ -181,7 +161,7 @@ function AddDelegate({ wholeCompany, namesLeave, namesApprovals, selfEmployeeId,
     const body = { standInEmployeeId: form.standInEmployeeId, fromDate: form.fromDate, toDate: form.toDate, requestTypes };
     try {
       if (asMine) await addApprovalDelegate(body);
-      else await addLeaveDelegate({ ...(wholeCompany && form.managerEmployeeId ? { managerEmployeeId: form.managerEmployeeId } : {}), ...body });
+      else await addLeaveDelegate({ ...(picksManager ? { managerEmployeeId: form.managerEmployeeId } : {}), ...body });
       const name = standInOptions.find((o) => o.value === form.standInEmployeeId)?.label?.replace(/ \(.*\)$/, '') || 'They';
       notify.success(`${name} decides ${scopeWords(requestTypes).toLowerCase()} from ${formatDate(form.fromDate)} to ${formatDate(form.toDate)}.`);
       onDone();
@@ -203,7 +183,7 @@ function AddDelegate({ wholeCompany, namesLeave, namesApprovals, selfEmployeeId,
         <button type="submit" form="add-delegate" className="ui-btn ui-btn-primary" disabled={!ready || saving}>{saving ? 'Saving…' : 'Save'}</button>
       </>}>
       <form id="add-delegate" onSubmit={save} className="space-y-4">
-        {wholeCompany && namesLeave ? <PopupSelect showValueSubtext={false} label="In place of *" value={form.managerEmployeeId} onChange={(v) => set('managerEmployeeId', v || '')} placeholder="Choose…" alwaysSearch options={options} /> : null}
+        {picksManager ? <PopupSelect showValueSubtext={false} label="In place of *" value={form.managerEmployeeId} onChange={(v) => set('managerEmployeeId', v || '')} placeholder="Choose…" alwaysSearch options={options} /> : null}
         <PopupSelect showValueSubtext={false} label="Decides *" value={form.standInEmployeeId} onChange={(v) => set('standInEmployeeId', v || '')} placeholder="Choose…" alwaysSearch options={standInOptions} />
         {same ? <p className="ui-caption ui-text-neg" role="alert">Someone else decides.</p> : null}
         <div className="grid gap-4 sm:grid-cols-2">

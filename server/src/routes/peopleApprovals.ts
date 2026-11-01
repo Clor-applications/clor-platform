@@ -371,7 +371,7 @@ peopleApprovalsRouter.get(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUES
   const userId = req.auth!.userId;
   const me = await myRecord(orgId, userId);
   const day = todayIst();
-  const rows = (await listStandIns(orgId, null, day)).filter((r) => r.userId === userId || (me && r.employeeId === me.id));
+  const rows = (await listStandIns(orgId, null, day, { userIds: [userId], employeeIds: me ? [me.id] : [] })).filter((r) => r.userId === userId || (me && r.employeeId === me.id));
   res.json({ today: day, selfEmployeeId: me?.id ?? null, standIns: rows });
 });
 
@@ -410,12 +410,14 @@ peopleApprovalsRouter.post(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUE
   const userId = req.auth!.userId;
   const b = parsed.data;
   if (b.toDate < b.fromDate) return res.status(400).json({ error: 'The end is before the start.' });
-  const types = cleanTypes(b.requestTypes ?? []);
+  const types = cleanTypes(b.requestTypes);
   if (!types) return res.status(400).json({ error: 'Choose what they decide.' });
   const timeAlone = timeOnly(types);
   const me = await myRecord(orgId, userId);
   /* Leave and attendance are decided by People record: a sign-in with none has nothing there to hand on. */
   if (timeAlone && !me) return res.status(400).json({ error: 'Leave and attendance are handed on from your employee record, and your sign-in is not linked to one.' });
+  /* Naming leave or attendance by itself: only someone who decides them has any to hand on. */
+  if ((types.includes('LEAVE') || types.includes('ATTENDANCE')) && !(await deciders(accountId, orgId)).has(userId)) return res.status(400).json({ error: 'You do not approve leave or requests here, so there is nothing to hand on.' });
   let standInUserId: string | null = b.standInUserId || null;
   let standInEmployeeId: string | null = null;
   if (b.standInEmployeeId) {

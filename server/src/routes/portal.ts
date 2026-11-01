@@ -901,15 +901,17 @@ portalRouter.get('/approvals', async (req, res) => {
   const ids = team.map((t) => t.id);
   const names = new Map(team.map((t) => [t.id, t]));
   /* Attendance requests (corrections, WFH, on duty, permission) come from everyone I decide for today: my reportees and those of the managers I stand in for. */
-  const decided = await teamDecidedBy(e.orgId, e.id);
-  for (const d of decided) names.set(d.id, d);
-  const decidedIds = decided.map((d) => d.id);
+  /* Leave and attendance each from the people I decide that kind for: a stand-in for leave only does not get the team's corrections, punches or overtime. */
+  const [forLeave, forAttendance] = await Promise.all([teamDecidedBy(e.orgId, e.id, undefined, 'LEAVE'), teamDecidedBy(e.orgId, e.id, undefined, 'ATTENDANCE')]);
+  for (const d of [...forLeave, ...forAttendance]) names.set(d.id, d);
+  const leaveIds = forLeave.map((d) => d.id);
+  const decidedIds = forAttendance.map((d) => d.id);
   /* Leave under the company's leave rule waits on whoever its step names, team or not; my team's is mine only when its step names me. */
   const me = [e.userId, portalOf(e.id)].filter(Boolean) as string[];
   const ruleLeaves = await peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, status: 'PENDING', ruleId: { not: null }, stepUserIds: { hasSome: me } }, orderBy: { createdAt: 'asc' } });
-  const [leaves, corrections, fieldPunches] = ids.length || decidedIds.length
+  const [leaves, corrections, fieldPunches] = ids.length || decidedIds.length || leaveIds.length
     ? await Promise.all([
-        decidedIds.length ? peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: decidedIds }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }) : [],
+        leaveIds.length ? peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: leaveIds }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }) : [],
         decidedIds.length ? peoplePrisma.attendanceRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: decidedIds }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }) : [],
         /* Field punches too, for whoever stands in today. */
         decidedIds.length ? peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: { in: decidedIds }, outsideSite: true, reviewStatus: 'PENDING' }, orderBy: { at: 'asc' }, take: 200 }) : [],
@@ -930,7 +932,7 @@ portalRouter.get('/approvals', async (req, res) => {
   for (const k of KINDS) if ((await chainOf(e.orgId, k, kindRules)) === 'HR_ONLY') hrOnly.add(k);
   const managerDecides = (r: { kind: string }) => !hrOnly.has(r.kind);
   res.json({
-    approver: ids.length > 0 || decidedIds.length > 0 || ruleLeaves.length > 0,
+    approver: ids.length > 0 || decidedIds.length > 0 || leaveIds.length > 0 || ruleLeaves.length > 0,
     team: team.length,
     chain: { leave: leaveChain, correction: correctionChain === 'HR_ONLY' ? 'HR' : correctionChain, overtime: overtimeChainNow },
     /* A manager plans cover from dates, not diagnoses: private leave reads "Private leave" with no reason. */

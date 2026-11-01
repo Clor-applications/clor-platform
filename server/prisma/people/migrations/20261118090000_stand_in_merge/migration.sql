@@ -1,13 +1,18 @@
 -- Stand-in merge, workflow engine phase 2b (docs/people/workflow-engine/SPEC.md sections 5.3, 6 and 9): one table
 -- for every stand-in. "StandIn" (People approval stand-ins, by sign-in) gains the People record ids, what is handed
--- on, a note and who named it. Every leave delegate in "ApprovalStandIn" (by People record) is copied in once, with
--- the sign-ins its people have today, handing on leave and attendance requests as it always did. Nothing writes to
--- "ApprovalStandIn" any more. It is still read as a fallback, for a row an older API writes during the deploy,
--- until phase 3c drops it.
+-- on ("requestTypes"), a note, who named it, and the "ApprovalStandIn" row it is linked to ("legacyId").
 --
--- Safe to run again: the columns and indexes are added only when missing, and a row already copied (same
--- "legacyId") is skipped. Both tables have row-level security, so the copy runs with the bypass on. No existing
--- column loses data: "userId" and "standInUserId" only become optional, as a leave delegate may have no sign-in.
+-- 1. Every People stand-in already here hands on People requests only, as it always did: ['PEOPLE'], never leave or
+--    attendance. (A row an older API writes during the deploy gets the column default, an empty list, which the
+--    application also reads as ['PEOPLE'].)
+-- 2. Every leave delegate in "ApprovalStandIn" is copied in once, handing on leave and attendance as it always did.
+--    Its sign-ins stay empty: the older engine and People list select stand-ins by sign-in and expect both, so they
+--    never see a leave delegate; the application fills them in from the People records. The old row is kept and
+--    linked, so an older API (a rollback) still sees every leave delegate; phase 3c drops the table.
+--
+-- Safe to run again: columns and indexes are added only when missing, step 1 touches only rows with no list, and a
+-- row already copied (same "legacyId") is skipped. Both tables have row-level security, so the data steps run with
+-- the bypass on. No existing column loses data: "userId" and "standInUserId" only become optional.
 
 ALTER TABLE "StandIn" ALTER COLUMN "userId" DROP NOT NULL;
 ALTER TABLE "StandIn" ALTER COLUMN "standInUserId" DROP NOT NULL;
@@ -25,12 +30,13 @@ CREATE INDEX IF NOT EXISTS "StandIn_orgId_standInUserId_fromDate_toDate_idx" ON 
 
 SET clor.bypass = 'on';
 
+UPDATE "StandIn" SET "requestTypes" = ARRAY['PEOPLE']::TEXT[]
+WHERE "legacyId" IS NULL AND COALESCE(cardinality("requestTypes"), 0) = 0;
+
 INSERT INTO "StandIn" ("id", "accountId", "orgId", "userId", "standInUserId", "employeeId", "standInEmployeeId", "fromDate", "toDate", "requestTypes", "createdByUserId", "legacyId", "createdAt")
-SELECT 'lsi_' || a."id", a."accountId", a."orgId", m."userId", s."userId", a."managerEmployeeId", a."standInEmployeeId", a."fromDate", a."toDate",
+SELECT 'lsi_' || a."id", a."accountId", a."orgId", NULL, NULL, a."managerEmployeeId", a."standInEmployeeId", a."fromDate", a."toDate",
        ARRAY['LEAVE', 'ATTENDANCE']::TEXT[], a."createdByUserId", a."id", a."createdAt"
 FROM "ApprovalStandIn" a
-LEFT JOIN "Employee" m ON m."id" = a."managerEmployeeId" AND m."orgId" = a."orgId"
-LEFT JOIN "Employee" s ON s."id" = a."standInEmployeeId" AND s."orgId" = a."orgId"
 WHERE NOT EXISTS (SELECT 1 FROM "StandIn" x WHERE x."legacyId" = a."id")
 ON CONFLICT DO NOTHING;
 

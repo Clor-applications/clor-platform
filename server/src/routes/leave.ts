@@ -37,7 +37,7 @@ import { OPEN, balancesFor, entitledDays, leavePeriodOf, leaveYearOf, probationO
 const round4 = (n: number) => Math.round(n * 10_000) / 10_000;
 import { daysWorkedBefore, daysWorkedByPeriod } from '../services/attendance/daysWorked.js';
 import { deciderFor, managerStepBy, standingInFor, teamDecidedBy } from '../services/attendance/standIns.js';
-import { LEAVE_DELEGATE_TYPES, cleanTypes, deciders, findStandIn, listStandIns, nameStandIn, removeStandIn, timeOnly } from '../services/people/approvals/standIns.js';
+import { LEAVE_DELEGATE_TYPES, cleanTypes, covers, coversPeople, deciders, findStandIn, listStandIns, nameStandIn, removeStandIn } from '../services/people/approvals/standIns.js';
 import { earlierWeeks, loadSchedule, resolveShift, weeksBefore, type EarlierWeek } from '../services/attendance/schedule.js';
 import { dayAfterMonth, scheduleGuard } from '../services/attendance/scheduleGuard.js';
 import { Prisma as PeoplePrisma } from '../generated/people/index.js';
@@ -2927,9 +2927,9 @@ leaveRouter.get(`${base}/stand-ins`, can(PermissionAction.VIEW, R.leave), async 
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const scope = await leaveScope(req);
-  const rows = (await listStandIns(orgId, addDays(today(), -30), today()))
-    .filter((r) => (scope.all ? Boolean(r.employeeId || r.userId) : r.employeeId === (scope.selfId || '__none__')))
-    .slice(0, 200);
+  /* Only stand-ins that hand on leave or attendance: a People-only one is the manager's own, on the People list. */
+  const rows = (await listStandIns(orgId, addDays(today(), -30), today(), scope.all ? undefined : { userIds: [], employeeIds: [scope.selfId || '__none__'] }))
+    .filter((r) => covers(r.requestTypes, 'TIME') && (scope.all ? Boolean(r.employeeId) : r.employeeId === (scope.selfId || '__none__')));
   res.json({ standIns: rows, today: today() });
 });
 
@@ -2958,7 +2958,7 @@ leaveRouter.post(`${base}/stand-ins`, can(PermissionAction.APPROVE, R.leave), as
   const [manager, standIn] = await Promise.all([managerId, b.standInEmployeeId].map((id) => peoplePrisma.employee.findFirst({ where: { id, orgId, status: { not: 'LEFT' } }, select: { id: true, name: true, userId: true } })));
   if (!manager || !standIn) return res.status(400).json({ error: 'Choose people who work here.' });
   /* More than leave and attendance is the manager's own to hand on, to someone who signs in and may approve. */
-  if (!timeOnly(types)) {
+  if (coversPeople(types)) {
     if (manager.id !== me?.id) return res.status(403).json({ error: `Only ${manager.name} can hand on their other approvals, from their own sign-in.` });
     if (!standIn.userId) return res.status(400).json({ error: `${standIn.name} has no CLOR sign-in, so they cannot decide requests. Link one on their record first.` });
     if (!(await deciders(accountId, orgId)).has(standIn.userId)) return res.status(400).json({ error: 'They cannot approve requests here, so they cannot decide in your place. Choose someone who can.' });
@@ -2973,9 +2973,12 @@ leaveRouter.delete(`${base}/stand-ins/:id`, can(PermissionAction.APPROVE, R.leav
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const row = await findStandIn(orgId, String(req.params.id));
-  if (!row) return res.status(404).json({ error: 'No such stand-in.' });
+  if (!row || !covers(row.requestTypes, 'TIME')) return res.status(404).json({ error: 'No such stand-in.' });
   const scope = await leaveScope(req);
   if (!scope.all && row.employeeId !== scope.selfId) return res.status(404).json({ error: 'No such stand-in.' });
+  /* One that also hands on People requests is the manager's own: HR removes leave and attendance ones only. */
+  const mine = (await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } }))?.id;
+  if (coversPeople(row.requestTypes) && row.employeeId !== mine) return res.status(403).json({ error: 'This one also hands on their other approvals, so only they can remove it.' });
   await removeStandIn(orgId, row);
   await recordAudit(req, { entity: 'ApprovalStandIn', entityId: row.id, action: 'DELETE', message: `Stand-in removed (${row.fromDate} to ${row.toDate})`, metadata: { managerEmployeeId: row.employeeId } });
   res.json({ ok: true });
