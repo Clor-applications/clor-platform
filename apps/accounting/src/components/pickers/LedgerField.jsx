@@ -31,8 +31,8 @@ const safeArray = (v) => (Array.isArray(v) ? v : []);
  * ledger, and come back to start again.
  *
  * So it is the field the line grid already uses for items: type, see what
- * matches, and if nothing does, make it from here. `AccountPicker` exists and
- * is the same idea, but it is a button that opens a dialog that holds a search
+ * matches, and if nothing does, make it from here. The old `AccountPicker` was
+ * the same idea, but it was a button that opened a dialog that held a search
  * box — two clicks before the first keystroke, which is one more than a row in
  * a table can afford.
  */

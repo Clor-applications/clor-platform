@@ -38,7 +38,6 @@ import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
 import { lapseFor } from '../services/attendance/leaveJobs.js';
 import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
 import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
-import { DeskError, listRequests as listDeskRequests, raiseRequest as raiseDeskRequest } from '../services/people/desk.js';
 import { readableLines } from '../services/payroll/slipLines.js';
 
 /**
@@ -394,36 +393,6 @@ portalRouter.get('/home', async (req, res) => {
     approvals: { approver: ids.length > 0, team: ids.length, waiting: (waitingLeave as number) + (waitingCorrections as number) + (waitingPunches as number), awayToday: (awayToday as Array<{ employeeId: string }>).map((a) => names.get(a.employeeId) || '').filter(Boolean) },
     privacy: { version: notice.version, read: e.privacyNoticeVersion === notice.version },
   });
-});
-
-/**
- * Ask HR (connected workflows): an employee raises an HR case from the app
- * and sees how it is going; HR works it in People → HR Cases. Only their own
- * cases, and only where the company uses People.
- */
-const HR_CATEGORIES = ['GENERAL', 'PAYROLL', 'LEAVE', 'DOCUMENTS', 'OTHER'] as const;
-/* The employee app's older "Ask HR" screen, served from the help desk HR actually works in (services/people/desk.ts); the old register is no longer written. */
-const caseRow = (r: any) => ({ id: r.id, title: r.subject, status: r.status === 'RESOLVED' || r.status === 'CLOSED' ? 'RESOLVED' : 'OPEN', category: r.category, description: r.status === 'MOVED' ? '' : r.description || '', resolution: r.resolution || '', createdAt: r.createdAt, updatedAt: r.updatedAt });
-const DESK_CATEGORY: Record<string, string> = { GENERAL: 'OTHER' };
-
-portalRouter.get('/hr-cases', async (req, res) => {
-  const e = req.portal!.employee;
-  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'peopleEngage'))) return res.json({ available: false, cases: [] });
-  const rows = await listDeskRequests(e.orgId, { employeeId: e.id });
-  res.json({ available: true, categories: HR_CATEGORIES, cases: rows.slice(0, 50).map(caseRow) });
-});
-
-portalRouter.post('/hr-cases', async (req, res) => {
-  const e = req.portal!.employee;
-  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'peopleEngage'))) return res.status(404).json({ error: 'Your company does not take HR questions here.' });
-  const category = HR_CATEGORIES.includes(req.body?.category) ? req.body.category : 'GENERAL';
-  try {
-    const row = await raiseDeskRequest({ accountId: e.accountId, orgId: e.orgId, userId: null, employeeId: e.id }, e.id, { category: DESK_CATEGORY[category] || category, subject: req.body?.title, description: req.body?.description });
-    res.status(201).json({ case: caseRow(row) });
-  } catch (err) {
-    if (err instanceof DeskError) return res.status(err.status).json({ error: err.message });
-    throw err;
-  }
 });
 
 // Published People communications reach employees without granting HR access.

@@ -26,7 +26,6 @@ import { appLive, closing, type Refusal } from './principalAllowed.js';
  */
 
 export type CredentialKind = 'SCIM' | 'API_KEY' | 'AGENT' | 'DEVICE_PUSH' | 'PAY_LINK' | 'SHARE_LINK';
-export const CREDENTIAL_KINDS: CredentialKind[] = ['SCIM', 'API_KEY', 'AGENT', 'DEVICE_PUSH', 'PAY_LINK', 'SHARE_LINK'];
 
 /** The app a kind serves; SCIM serves no app and answers only to a closure. */
 const APP_OF: Record<CredentialKind, string | null> = {

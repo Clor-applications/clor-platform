@@ -163,9 +163,6 @@ export async function rotateScimToken(orgId: string, id: string, actor: Actor, r
   return { row, token, credential, agentId: null };
 }
 
-/** The registry row a SCIM token has now (for its status on the SSO list). */
-export const scimCredentialOf = (orgId: string, scimTokenId: string) => liveCredentialOf('SCIM', scimTokenId, orgId);
-
 /**
  * The SSO settings list: every token not revoked, with the status the
  * registry and its agent give it now, so a token that stops for a reason

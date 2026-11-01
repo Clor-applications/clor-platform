@@ -231,6 +231,3 @@ export function startPunchNudges({ intervalMs = 3_600_000, startupDelayMs = 200_
   t.unref?.();
   return () => clearTimeout(t);
 }
-
-/* For the tests: the audit of a send is the nudge row itself. */
-export const nudgesOn = (orgId: string, sentOn: string) => peoplePrisma.attendanceNudge.findMany({ where: { orgId, sentOn }, orderBy: { createdAt: 'asc' } });

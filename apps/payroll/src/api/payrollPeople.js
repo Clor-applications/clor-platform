@@ -32,11 +32,6 @@ export async function listEmployees({ q = '', status = '' } = {}) {
   return { employees: Array.isArray(data.employees) ? data.employees : [], sensitiveVisible: !!data.sensitiveVisible };
 }
 
-export async function getEmployee(id) {
-  const data = await apiFetch(`${base()}/employees/${encodeURIComponent(id)}`, opts);
-  return { employee: data.employee, sensitiveVisible: !!data.sensitiveVisible };
-}
-
 export async function createEmployee(payload) {
   const { employee } = await apiFetch(`${base()}/employees`, { ...opts, method: 'POST', body: payload });
   return employee;
@@ -60,9 +55,6 @@ export const listBankChanges = ({ status = 'PENDING', employeeId = '' } = {}) =>
 export const approveBankChange = (id) => apiFetch(`${base()}/bank-changes/${encodeURIComponent(id)}/approve`, { ...opts, method: 'POST' });
 export const rejectBankChange = (id, note) => apiFetch(`${base()}/bank-changes/${encodeURIComponent(id)}/reject`, { ...opts, method: 'POST', body: { note } });
 
-export const deleteEmployee = (id) =>
-  apiFetch(`${base()}/employees/${encodeURIComponent(id)}`, { ...opts, method: 'DELETE' });
-
 // ---- what they are paid ----------------------------------------------------
 
 export async function listAssignments({ employeeId = '', status = '' } = {}) {
@@ -75,26 +67,5 @@ export async function listAssignments({ employeeId = '', status = '' } = {}) {
 
 export async function createAssignment(payload) {
   const { assignment } = await apiFetch(`${base()}/assignments`, { ...opts, method: 'POST', body: payload });
-  return assignment;
-}
-
-export async function updateAssignment(id, payload) {
-  const { assignment } = await apiFetch(`${base()}/assignments/${encodeURIComponent(id)}`, {
-    ...opts,
-    method: 'PUT',
-    body: payload,
-  });
-  return assignment;
-}
-
-export const deleteAssignment = (id) =>
-  apiFetch(`${base()}/assignments/${encodeURIComponent(id)}`, { ...opts, method: 'DELETE' });
-
-/** The salary in force for one person on one day — the question a run asks. */
-export async function effectiveAssignment(employeeId, on) {
-  const { assignment } = await apiFetch(
-    `${base()}/assignments/effective?employeeId=${encodeURIComponent(employeeId)}&on=${encodeURIComponent(on)}`,
-    opts
-  );
   return assignment;
 }

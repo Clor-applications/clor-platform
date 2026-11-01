@@ -14,10 +14,6 @@ const opts = { skipWarehouseHeader: true };
 
 export const listImportSpecs = () => apiFetch(`${base()}/imports/specs`, opts);
 
-export const listImports = () => apiFetch(`${base()}/imports`, opts).then((d) => d?.imports || []);
-
-export const getImport = (batchId) => apiFetch(`${base()}/imports/${encodeURIComponent(batchId)}`, opts);
-
 export const stageImport = ({ docType, csv, fileName }) =>
   apiFetch(`${base()}/imports`, { method: 'POST', body: { docType, csv, fileName }, ...opts });
 

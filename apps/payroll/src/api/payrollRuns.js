@@ -77,8 +77,6 @@ export async function previewPayrollPosting(id) {
   return preview;
 }
 
-/** The journal a run produced, and the entry as accounting holds it. */
-export const getPayrollPosting = (id) => apiFetch(`${base()}/${encodeURIComponent(id)}/posting`, opts);
 /** The same entry as Tally import XML: { filename, xml, … }. */
 export const payrollTallyXml = (id) => apiFetch(`${base()}/${encodeURIComponent(id)}/tally`, opts);
 /** Hand the entry to an on-site connector that posts it into Tally. */
@@ -92,6 +90,5 @@ export const rejectPayrollRun = stage('reject');
 export const lockPayrollRun = stage('lock');
 /* Idempotent: pressing it twice replays rather than posting twice. */
 export const postPayrollRun = stage('post');
-export const cancelPayrollRun = stage('cancel');
 /** Why entered deductions past the share of wages stand: recorded on the run, and then it can be sent for review. */
 export const recordOverLimitReason = (id, reason) => stage('over-limit-reason')(id, { reason });

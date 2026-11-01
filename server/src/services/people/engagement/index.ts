@@ -11,7 +11,7 @@ import { registerJob } from '../../jobRegistry.js';
 import { startPeopleAutomations } from './automations.js';
 import { eraseExpiredAnswers } from './exitInterview.js';
 
-export { runAutomations, runCompany, startPeopleAutomations } from './automations.js';
+export { runCompany, startPeopleAutomations } from './automations.js';
 
 /** The automations job, and once a day the exit-interview answers past their keeping period erased. */
 export function startEngagement() {

@@ -60,11 +60,3 @@ export async function livePostingsFor(
     .filter((e) => e.status === 'POSTED' && !contras.has(e.id))
     .map(({ id, entryNo, date, branchId }) => ({ id, entryNo, date, branchId }));
 }
-
-/** Whether the document currently has any effect on the ledger. */
-export async function hasLivePosting(
-  tx: Tx,
-  opts: { accountId: string; orgId: string; sourceDocType: string; sourceDocId: string }
-): Promise<boolean> {
-  return (await livePostingsFor(tx, opts)).length > 0;
-}

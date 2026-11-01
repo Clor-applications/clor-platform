@@ -158,8 +158,6 @@ export async function sendForApproval(e: { id: string; name: string; userId: str
 
 /** A link from a record to its approval request: `pending:<uuid>` until the engine names the request. */
 export const pendingLink = () => randomUUID();
-export const linkMatches = (stored: string | null | undefined, request: { id: string; idempotencyKey: string | null }, prefix: string) =>
-  Boolean(stored) && (stored === request.id || (stored!.startsWith(PENDING) && request.idempotencyKey === `${prefix}:${stored!.slice(PENDING.length)}`));
 
 /** Decisions the engine made since the record was read: rejected or withdrawn requests close the record. */
 async function catchUp(orgId: string, kind: 'claim' | 'advance' | 'ask', rows: Array<{ id: string; status: string; approvalRequestId: string | null }>) {

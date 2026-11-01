@@ -42,7 +42,6 @@ const cleanPurpose = (category: string, purpose: unknown) => {
   if (!PRIVACY_PURPOSES[p]) throw new PolicyError('Say what the notice covers: employment records, attendance, pay, hiring, monitoring, benefits or other.');
   return p;
 };
-export const VERSION_STATUSES = ['DRAFT', 'WAITING', 'PUBLISHED', 'RETIRED'] as const;
 export type AppliesTo = { establishmentIds?: string[]; states?: string[]; departmentIds?: string[]; employeeTypeIds?: string[]; gradeIds?: string[]; workTypeIds?: string[] };
 const APPLIES_KEYS: Array<keyof AppliesTo> = ['establishmentIds', 'states', 'departmentIds', 'employeeTypeIds', 'gradeIds', 'workTypeIds'];
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;

@@ -110,10 +110,25 @@ test.describe('Attendance rules', () => {
     await marks.getByRole('checkbox', { name: 'On', exact: true }).check();
     await expect(marks.getByRole('checkbox', { name: 'Count late arrivals' })).toBeChecked();
 
-    await marks.getByRole('button', { name: `Who this hits in ${monthTitle(days[0])}` }).click();
+    /* A company new to late marks cuts the time actually missed (DECISIONS.md 1, Code on Wages s.20): 3 × 45 min. */
+    const cuts = marks.getByLabel('Each mark cuts');
+    await expect(cuts).toHaveValue('TIME_MISSED');
+    const ask = marks.getByRole('button', { name: `Who this hits in ${monthTitle(days[0])}` });
+    await ask.click();
     const preview = marks.getByRole('table', { name: `Penalties in ${monthTitle(days[0])}` });
     const imran = preview.getByRole('row').filter({ hasText: 'Imran Khan' });
-    await expect(imran).toContainText('3');
+    await expect(imran.getByRole('cell').nth(1)).toHaveText('3');
+    await expect(imran).toContainText('2 h 15 min');
+    await expect(imran).not.toContainText('½ day');
+
+    /* Every 3 late marks = ½ day: the same three marks now cost half a day. */
+    await cuts.selectOption({ label: 'Every few marks, half or a full day' });
+    await expect(marks.getByRole('spinbutton', { name: /^Every.*late marks/ })).toHaveValue('3');
+    await expect(marks.getByLabel('Costs')).toHaveValue('0.5');
+    /* A changed rule clears the old answer; asked again, it is worked out under the new one. */
+    await expect(preview).toHaveCount(0);
+    await ask.click();
+    await expect(imran.getByRole('cell').nth(1)).toHaveText('3');
     await expect(imran).toContainText('½ day');
     await expect(marks).toContainText('Nothing is saved until you press Save.');
 

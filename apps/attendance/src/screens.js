@@ -41,7 +41,6 @@ export const AuditLogs = () => React.createElement(OpenInCompanyAdmin, { title: 
 export { default as PayrollReadiness } from './screens/PayrollReadiness';
 export { default as LifecycleTasks } from '@ui/lifecycle/Tasks';
 export { default as JourneySteps } from '@ui/lifecycle/Steps';
-export { default as ComplianceCalendar } from '@ui/personnel/ComplianceCalendar';
 export { default as RecycleBin } from './screens/RecycleBin';
 export { default as DeviceLogs } from './screens/DeviceLogs';
 export { default as AttendanceReports } from './screens/AttendanceReports';

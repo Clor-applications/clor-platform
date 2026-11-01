@@ -67,7 +67,3 @@ export const hrOrAttendanceRouteOk = async (req: Request, res: Response): Promis
   res.status(402).json({ error: 'Neither People nor Attendance is on this account’s subscription.', app: on[0], code: 'APP_NOT_SUBSCRIBED' });
   return false;
 };
-
-/** The same question outside a request (the employee app's sign-in). */
-export const hrOrAttendanceOn = async (accountId: string, orgId: string) =>
-  (await isFeatureEnabled(accountId, orgId, 'people')) || (await isFeatureEnabled(accountId, orgId, 'attendance'));

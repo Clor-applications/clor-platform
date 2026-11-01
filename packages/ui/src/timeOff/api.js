@@ -43,7 +43,6 @@ export const getLeaveRequest = (requestId) => get(`/leave/requests/${id(requestI
 export const getLeaveDocument = (requestId) => get(`/leave/requests/${id(requestId)}/document`).then((r) => r?.document || null);
 /** What a request would charge, without saving: { ok, total, split, parts[{label, from, to, days, balance, dates}], problems, reasonNeeded, alsoAway }. */
 export const previewLeave = (body) => send('/leave/requests/preview', 'POST', body);
-export const previewMyLeave = (body) => send('/me/leave/preview', 'POST', body);
 /** Away today, waiting (oldest first), the next seven days, days lapsing at the period end. */
 export const getTimeOverview = () => get('/leave/overview');
 /** A draft leave type tried on five real people this period. */
@@ -71,16 +70,10 @@ export const grantCompOff = (body) => send('/leave/comp-off', 'POST', body);
 export const listStandIns = () => get('/leave/stand-ins');
 export const addStandIn = (body) => send('/leave/stand-ins', 'POST', body);
 export const removeStandIn = (standInId) => send(`/leave/stand-ins/${id(standInId)}`, 'DELETE');
-/** A person's restricted holidays for a calendar year: { quota, picked, left, holidays: [{ id, date, name, picked, past }] }. */
-export const getRestrictedHolidays = (employeeId, year) => get(`/leave/holidays/restricted${query({ employeeId, year })}`);
-export const getMyRestrictedHolidays = (year) => get(`/me/holidays/restricted${query({ year })}`);
-export const pickMyRestrictedHoliday = (holidayId, picked) => send(`/me/holidays/restricted/${id(holidayId)}`, 'POST', { picked });
 /** Year end of a leave period: per person and type, what carries, lapses and is paid out; the runs so far. */
 export const getYearEnd = (year) => get(`/leave/year-end${query({ year })}`);
 export const runYearEnd = (year) => send('/leave/year-end', 'POST', { year });
 export const undoYearEnd = (runId) => send(`/leave/year-end/${id(runId)}/undo`, 'POST', {});
-export const editMyLeave = (requestId, body) => send(`/me/leave/${id(requestId)}`, 'PUT', body);
-export const shortenMyLeave = (requestId, toDate) => send(`/me/leave/${id(requestId)}/shorten`, 'POST', { toDate });
 
 export const getLeaveBalances = (year) => get(`/leave/balances${query({ year })}`);
 /** One person's ledger; `asOf` (YYYY-MM-DD) shows the balance as it stands on that day. */
@@ -88,8 +81,6 @@ export const getLeaveLedger = (employeeId, year, asOf) => get(`/leave/ledger${qu
 export const addLeaveAdjustment = (body) => send('/leave/adjustments', 'POST', body);
 /** One person's days of a type for a period, in place of the policy's; `days: null` puts them back on the policy (time depth, gap 22). */
 export const setAllocation = (body) => send('/leave/allocations', 'PUT', body);
-/** Who picked which restricted holiday in a year (HR's view, time depth, gap 22). */
-export const restrictedPicks = (year) => get(`/leave/holidays/restricted/picks${query({ year })}`);
 export const deleteLeaveAdjustment = (adjustmentId) => send(`/leave/adjustments/${id(adjustmentId)}`, 'DELETE');
 
 /** The company's leave period (e.g. April–March), with this, the last and the next period's bounds and names. */
@@ -100,13 +91,6 @@ export const getLeaveRegister = (params) => get(`/leave/register${query(params)}
 /** The register per worker, in a prescribed form's layout: days worked, opening, earned, availed and refused with dates, paid out, closing. */
 export const getLeaveRegisterBook = (params) => get(`/leave/register/book${query(params)}`);
 /** The periods to choose from, newest first, named as the company's leave year names them. */
-/** The leave period a date falls in, by the year it starts in (the calendar year without settings). */
-export const periodYearOf = (s, date) => {
-  const y = Number(String(date).slice(0, 4));
-  if (!s) return y;
-  const start = `${y}-${String(s.startMonth).padStart(2, '0')}-${String(s.startDay).padStart(2, '0')}`;
-  return date >= start ? y : y - 1;
-};
 export const periodChoices = (s) => (s ? [s.next, s.current, s.previous].filter(Boolean) : []);
 export const ACCRUAL_LABEL = { YEARLY: 'Yearly', HALF_YEARLY: 'Half-yearly', QUARTERLY: 'Quarterly', MONTHLY: 'Monthly' };
 export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];

@@ -25,9 +25,6 @@ export const createItem = (item) => apiFetch(`${base()}/items`, { method: 'POST'
 export const updateItem = (id, patch) =>
   apiFetch(`${base()}/items/${encodeURIComponent(id)}`, { method: 'PATCH', body: patch, ...opts });
 
-export const nextNumber = (docType, date) =>
-  apiFetch(`${base()}/number-series/next/${encodeURIComponent(docType)}${date ? `?date=${date}` : ''}`, opts);
-
 /**
  * What a GSTIN says about itself, plus whatever a configured portal adds.
  *
@@ -138,8 +135,6 @@ export const updateDeliveryChallan = (id, patch) =>
 
 export const listSalesmen = () => apiFetch(`${base()}/salesmen`, opts);
 export const createSalesman = (s) => apiFetch(`${base()}/salesmen`, { method: 'POST', body: s, ...opts });
-export const updateSalesman = (id, patch) =>
-  apiFetch(`${base()}/salesmen/${id}`, { method: 'PATCH', body: patch, ...opts });
 export const deactivateSalesman = (id) => apiFetch(`${base()}/salesmen/${id}`, { method: 'DELETE', ...opts });
 
 export const listFixedAssets = () => apiFetch(`${base()}/fixed-assets`, opts);
