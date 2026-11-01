@@ -12,7 +12,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { DOC_WHO_CAN_SEE, docWhoLabel } from './documentClassification';
 import JoiningStatutory from './JoiningStatutory';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
-import { formatDateIn, plusDaysIso } from '@ui/utils/dates';
+import { formatDateIn, istDay as istDayOf, plusDaysIso } from '@ui/utils/dates';
 import { hasApp } from '@platform/context';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import {
@@ -71,7 +71,6 @@ import {
   updateEmployee,
 } from './api';
 import { TaskDrawer } from '../lifecycle/shared';
-import { istDay as istDayOf } from '@ui/utils/dates';
 
 /**
  * The staff directory, after Horilla's employee view: cards or a list, a
