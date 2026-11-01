@@ -161,6 +161,38 @@ lost and exits 1 when something really would be:
 ssh ubuntu@$HOST 'cd /opt/clor/server && set -a && . /opt/clor/.env && set +a && npx tsx scripts/preflight.ts'
 ```
 
+### Stand-in merge (workflow engine 2b, migration `20261118090000_stand_in_merge`): rolling back
+
+Until phase 3c, a rollback to an API from before 2b is safe:
+
+- Leave delegates stay in `ApprovalStandIn`. The migration copies them into
+  `StandIn` and keeps the old rows, and every new stand-in that covers leave or
+  attendance is also written there (linked by `StandIn.legacyId`). The older
+  leave and attendance code still sees every one of them.
+- A leave-and-attendance `StandIn` row stores no sign-ins (`userId`,
+  `standInUserId` are null). The older engine and People stand-ins list select
+  by sign-in, so they never return such a row, and never meet a null where
+  their client expects a value.
+- People stand-ins named before the merge read `['PEOPLE']` (People requests
+  only), and so does a row an older API writes with no list.
+- Rows that hand on People requests (`ALL`, `PEOPLE`, named People types) keep
+  their sign-ins. The older engine reads every one of them as a People
+  stand-in for all People requests. It does not read the narrower list.
+- A delegate the older API removes (its `ApprovalStandIn` row) is ignored by
+  the newer API too. A delegate the older API names after the rollback exists
+  only in `ApprovalStandIn`, and the newer API reads it from there.
+
+- The older API reads every `ApprovalStandIn` row as leave and attendance.
+  So a "Leave only" delegate also decides attendance requests there.
+- While the deploy runs, or after a rollback, removing a delegate on the older
+  API deletes only its `ApprovalStandIn` row. If the newer `StandIn` row was
+  an "All approvals" one, its People part goes as well: the newer API ignores
+  a row whose linked old row is gone. Name it again on the newer API if
+  needed.
+
+Nothing needs undoing on a rollback. Do not drop `ApprovalStandIn` before
+phase 3c. The 3c order is in `docs/people/workflow-engine/SPEC.md` section 9.
+
 ## A first-time setup, from nothing
 
 ```bash

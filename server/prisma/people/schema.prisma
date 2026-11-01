@@ -582,6 +582,9 @@ model AttendanceRequest {
 /// A stand-in for a manager's approvals while they are away (leave and
 /// attendance requests of their team), between two dates. Set by HR or by
 /// the manager themselves; the stand-in decides as the manager would.
+/// Retired in phase 2b: rows were copied into StandIn. Until phase 3c a
+/// StandIn row covering leave or attendance is mirrored here (linked by
+/// StandIn.legacyId) so an older API, after a rollback, still sees it.
 model ApprovalStandIn {
   id                String   @id @default(cuid())
   accountId         String
@@ -3060,18 +3063,42 @@ model ApprovalStep {
   @@index([requestId, order])
 }
 
-/// Someone standing in for an approver between two dates (APR-04).
+/// Someone standing in for an approver between two dates (APR-04). One
+/// table for every stand-in (workflow engine SPEC 5.3, 6; phase 2b): People
+/// approval stand-ins (by sign-in) and leave delegates (by People record) are
+/// both here, each with whichever of the two ids it has. The rows of
+/// ApprovalStandIn were copied in, and a row covering leave or attendance is
+/// still written there too, linked by `legacyId`; both are read until phase
+/// 3c retires it.
 model StandIn {
-  id            String   @id @default(cuid())
-  accountId     String
-  orgId         String
-  userId        String
-  standInUserId String
-  fromDate      String
-  toDate        String
-  createdAt     DateTime @default(now())
+  id                String   @id @default(cuid())
+  accountId         String
+  orgId             String
+  /// The approver's sign-in, when they have one.
+  userId            String?
+  standInUserId     String?
+  /// The approver's People record, when they have one.
+  employeeId        String?
+  standInEmployeeId String?
+  /// IST dates, YYYY-MM-DD, both days included.
+  fromDate          String
+  toDate            String
+  /// What is handed on, always written as a list: ALL; PEOPLE (every People
+  /// request, not leave or attendance); LEAVE; ATTENDANCE (attendance
+  /// requests, overtime, field punches); or People types such as
+  /// PROFILE_CHANGE or FORM:<id>. Empty is a row an older API wrote: PEOPLE.
+  /// The sign-ins are stored only on rows handing on People requests.
+  requestTypes      String[] @default([])
+  note              String?
+  createdByUserId   String?
+  /// The ApprovalStandIn row this was copied from (phase 2b migration).
+  legacyId          String?  @unique
+  createdAt         DateTime @default(now())
 
   @@index([orgId, userId, fromDate, toDate])
+  @@index([orgId, employeeId, fromDate, toDate])
+  @@index([orgId, standInEmployeeId, fromDate, toDate])
+  @@index([orgId, standInUserId, fromDate, toDate])
 }
 
 /// A probation review (docs/people/02-PRD.md LIFE-03): the period, what was

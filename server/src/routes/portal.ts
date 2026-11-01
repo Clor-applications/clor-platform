@@ -484,7 +484,7 @@ portalRouter.get('/approvals/punch/:id/photo', async (req, res) => {
   const e = req.portal!.employee;
   const p = await peoplePrisma.devicePunch.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, outsideSite: true } });
   if (!p?.photoId) return res.status(404).json({ error: 'No selfie with this punch.' });
-  if (!p.employeeId || !(await managerStepBy(e.orgId, e.id, p.employeeId))) return res.status(403).json({ error: 'This punch is not yours to see.' });
+  if (!p.employeeId || !(await managerStepBy(e.orgId, e.id, p.employeeId, undefined, 'ATTENDANCE'))) return res.status(403).json({ error: 'This punch is not yours to see.' });
   const photo = await peoplePrisma.punchPhoto.findFirst({ where: { id: p.photoId, orgId: e.orgId } });
   if (!photo) return res.status(404).json({ error: 'The selfie has been deleted (kept for a limited time).' });
   res.set('Cache-Control', 'private, no-store').json({ photo: `data:${photo.mime};base64,${Buffer.from(photo.data).toString('base64')}` });
@@ -870,15 +870,17 @@ portalRouter.get('/approvals', async (req, res) => {
   const ids = team.map((t) => t.id);
   const names = new Map(team.map((t) => [t.id, t]));
   /* Attendance requests (corrections, WFH, on duty, permission) come from everyone I decide for today: my reportees and those of the managers I stand in for. */
-  const decided = await teamDecidedBy(e.orgId, e.id);
-  for (const d of decided) names.set(d.id, d);
-  const decidedIds = decided.map((d) => d.id);
+  /* Leave and attendance each from the people I decide that kind for: a stand-in for leave only does not get the team's corrections, punches or overtime. */
+  const [forLeave, forAttendance] = await Promise.all([teamDecidedBy(e.orgId, e.id, undefined, 'LEAVE'), teamDecidedBy(e.orgId, e.id, undefined, 'ATTENDANCE')]);
+  for (const d of [...forLeave, ...forAttendance]) names.set(d.id, d);
+  const leaveIds = forLeave.map((d) => d.id);
+  const decidedIds = forAttendance.map((d) => d.id);
   /* Leave under the company's leave rule waits on whoever its step names, team or not; my team's is mine only when its step names me. */
   const me = [e.userId, portalOf(e.id)].filter(Boolean) as string[];
   const ruleLeaves = await peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, status: 'PENDING', ruleId: { not: null }, stepUserIds: { hasSome: me } }, orderBy: { createdAt: 'asc' } });
-  const [leaves, corrections, fieldPunches] = ids.length || decidedIds.length
+  const [leaves, corrections, fieldPunches] = ids.length || decidedIds.length || leaveIds.length
     ? await Promise.all([
-        decidedIds.length ? peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: decidedIds }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }) : [],
+        leaveIds.length ? peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: leaveIds }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }) : [],
         decidedIds.length ? peoplePrisma.attendanceRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: decidedIds }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }) : [],
         /* Field punches too, for whoever stands in today. */
         decidedIds.length ? peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: { in: decidedIds }, outsideSite: true, reviewStatus: 'PENDING' }, orderBy: { at: 'asc' }, take: 200 }) : [],
@@ -899,7 +901,7 @@ portalRouter.get('/approvals', async (req, res) => {
   for (const k of KINDS) if ((await chainOf(e.orgId, k, kindRules)) === 'HR_ONLY') hrOnly.add(k);
   const managerDecides = (r: { kind: string }) => !hrOnly.has(r.kind);
   res.json({
-    approver: ids.length > 0 || decidedIds.length > 0 || ruleLeaves.length > 0,
+    approver: ids.length > 0 || decidedIds.length > 0 || leaveIds.length > 0 || ruleLeaves.length > 0,
     team: team.length,
     chain: { leave: leaveChain, correction: correctionChain === 'HR_ONLY' ? 'HR' : correctionChain, overtime: overtimeChainNow },
     /* A manager plans cover from dates, not diagnoses: private leave reads "Private leave" with no reason. */
@@ -930,7 +932,7 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
     /* Every kind of attendance request through one decision (services/attendance/requests.ts): the manager, or whoever stands in for them today. */
     const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId } });
     if (!r) return res.status(404).json({ error: 'No such request.' });
-    if (!(await managerStepBy(e.orgId, e.id, r.employeeId))) return res.status(403).json({ error: 'This request is not yours to decide.' });
+    if (!(await managerStepBy(e.orgId, e.id, r.employeeId, undefined, 'ATTENDANCE'))) return res.status(403).json({ error: 'This request is not yours to decide.' });
     try {
       return res.json(await decideRequest(e.accountId, e.orgId, r, decision === 'approve', { userId: e.userId || `portal:${e.id}`, managerId: e.id, scopeAll: false }, String(req.body?.note || '').trim().slice(0, 500) || null));
     } catch (err) {
@@ -971,7 +973,7 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
     }
   }
   /* The person's manager, or whoever stands in for them today, decides as the manager. */
-  const asManager = await managerStepBy(e.orgId, e.id, r.employeeId);
+  const asManager = await managerStepBy(e.orgId, e.id, r.employeeId, undefined, 'LEAVE');
   if (!asManager) return res.status(403).json({ error: 'This request is not yours to decide.' });
   if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${String(r.status).toLowerCase()}.` });
   try {

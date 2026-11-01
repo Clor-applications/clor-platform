@@ -11,6 +11,7 @@ import { registerJob } from '../../jobRegistry.js';
 import { getAuthPolicy } from '../../policy.js';
 import { resolveAccess } from '../../access.js';
 import { inReportingLine } from '../scope.js';
+import { standInUsersFor } from './standIns.js';
 import {
   MONEY_TYPES, NEVER_SELF_TYPES, SPEC_VERSION, TWO_PERSON_TYPES, allHold, dueAtFrom, normaliseAutoApprove, normaliseConditions, normaliseStep, normaliseSteps,
   type Approver, type ApproverSpec, type AutoApprove, type Condition, type ConditionV2, type Facts, type RuleSpecV2, type StepSpec, type StepV2,
@@ -219,10 +220,13 @@ export async function factsFor(orgId: string, subjectEmployeeId: string | null |
   return { payload: ((payload || {}) as Facts['payload']), person: person ? { ...person } : null };
 }
 
-async function standInsFor(orgId: string, userIds: string[], day: string) {
-  if (!userIds.length) return new Map<string, string>();
-  const rows = await peoplePrisma.standIn.findMany({ where: { orgId, userId: { in: userIds }, fromDate: { lte: day }, toDate: { gte: day } } });
-  return new Map(rows.map((r) => [r.userId, r.standInUserId]));
+/**
+ * Who stands in for each of these approvers on `day` for this request type:
+ * one StandIn table, by sign-in or People record, and the retired leave
+ * delegates as a fallback until phase 3c (stand-in merge, phase 2b).
+ */
+async function standInsFor(orgId: string, userIds: string[], day: string, requestType?: string) {
+  return standInUsersFor(orgId, userIds, day, requestType);
 }
 
 const APPROVE_GRANT = 'PEOPLE::Requests::APPROVE';
@@ -320,7 +324,7 @@ export async function resolveApprover(who: { accountId: string; orgId: string },
     /* No manager, one who has gone, one who cannot sign in, or one who may not approve: HR takes the step. */
     if (!primary.length) primary = await hrDeciders(accountId, orgId);
   }
-  const subs = await standInsFor(orgId, primary, day);
+  const subs = await standInsFor(orgId, primary, day, requestType);
   return { primary, standIns: [...subs.entries()].map(([f, u]) => ({ for: f, user: u })) };
 }
 
@@ -424,9 +428,9 @@ async function resolveOne(who: { accountId: string; orgId: string }, approver: A
   let resolved: { primary: string[]; standIns: Array<{ for: string; user: string }> };
   if (approver.kind === 'COLLEAGUE_MANAGER') {
     const other = String((request.payload as { colleagueEmployeeId?: unknown })?.colleagueEmployeeId || '') || null;
-    resolved = await resolveApprover(who, { kind: 'MANAGER' }, other, day);
+    resolved = await resolveApprover(who, { kind: 'MANAGER' }, other, day, request.requestType);
     /* The same manager as the requester's decided already: nothing more to ask. */
-    const mine = await resolveApprover(who, { kind: 'MANAGER' }, request.subjectEmployeeId, day);
+    const mine = await resolveApprover(who, { kind: 'MANAGER' }, request.subjectEmployeeId, day, request.requestType);
     const same = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
     if (!other || same(resolved.primary, mine.primary)) return { primary: [], standIns: [], all: [], candidates: [], how: null, notes };
   } else {
@@ -453,7 +457,7 @@ async function resolveOne(who: { accountId: string; orgId: string }, approver: A
           ups.push(...up);
         }
         const primary = [...new Set([...present, ...ups])];
-        const subs = await standInsFor(who.orgId, ups, day);
+        const subs = await standInsFor(who.orgId, ups, day, request.requestType);
         resolved = { primary, standIns: [...resolved.standIns.filter((s) => present.includes(s.for)), ...[...subs.entries()].map(([f, u]) => ({ for: f, user: u }))] };
         how = 'AWAY_HANDED_UP';
       }
@@ -465,7 +469,7 @@ async function resolveOne(who: { accountId: string; orgId: string }, approver: A
   if (GROUP_KINDS.has(approver.kind)) candidates = await inScopeOnly(who, candidates, request.subjectEmployeeId);
   /* A manager step left empty only because its manager is a party to it (the colleague manages the requester): HR decides instead. */
   if (!candidates.length && all.some((u) => parties.includes(u)) && MANAGER_KINDS.has(approver.kind)) {
-    resolved = await resolveApprover(who, { kind: 'HR' }, request.subjectEmployeeId, day);
+    resolved = await resolveApprover(who, { kind: 'HR' }, request.subjectEmployeeId, day, request.requestType);
     const hr = [...new Set([...resolved.primary, ...resolved.standIns.map((s) => s.user)])].filter((u) => !excluded.has(u));
     candidates = await inScopeOnly(who, hr, request.subjectEmployeeId);
   }

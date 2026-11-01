@@ -470,6 +470,13 @@ Follows `DESIGN.md`: People brand D (indigo ink, lilac selected, marigold only f
 | | 3b | Approval rules builder (section 8.2), phone layout, small business view | M |
 | | 3c | Retire the old chain columns' writes, `ApprovalStandIn`, and the old leave and attendance step code once nothing is pending | S |
 
+**3c, retiring `ApprovalStandIn` (stand-in merge, 2b), in this order:**
+
+1. Delete every `StandIn` row whose `legacyId` no longer exists in `ApprovalStandIn`. An older API removed those delegates, and today the read hides them by checking the link. Once the fallback read and the table are gone, they would come back.
+2. Copy any `ApprovalStandIn` row with no `StandIn` row (`legacyId`) into `StandIn`, as migration `20261118090000_stand_in_merge` does. These are delegates an older API named after 2b.
+3. Then drop the fallback read, the mirror write in `nameStandIn`, and the table.
+4. Then fill in the sign-ins on leave and attendance rows, if the engine still wants them stored.
+
 Each PR runs its affected server and web tests locally and lists them (TEAM.md, quick CI), and gets a code review, a design review for screens, and QA by person.
 
 ---
