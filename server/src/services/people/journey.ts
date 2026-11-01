@@ -4,6 +4,7 @@ import { episodesOf } from './episodes.js';
 import { labelOf, timelineOf } from './employmentHistory.js';
 import { namesFor, shape } from './approvals/engine.js';
 import { LOGGED_EMPLOYEE_FIELDS } from './changeLog.js';
+import { istDate } from '../../utils/istDate.js';
 
 /**
  * The journey (docs/people/02-PRD.md CORE-06) and "Why?" (TRACE-01, 02).
@@ -33,7 +34,7 @@ type Line = { id: string; field: string; before: string | null; after: string | 
 
 /** The stint a moment fell in: by date against the stints' start and end days. */
 function stintAt(episodes: Array<{ seq: number; startDate: string; endDate: string | null }>, at: Date) {
-  const day = new Date(at.getTime() + 330 * 60_000).toISOString().slice(0, 10);
+  const day = istDate(at);
   const hit = [...episodes].reverse().find((e) => e.startDate <= day && (!e.endDate || e.endDate >= day));
   return hit?.seq ?? (episodes[0]?.seq ?? 1);
 }

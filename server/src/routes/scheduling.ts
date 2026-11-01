@@ -11,7 +11,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { isWeeklyOff } from '../services/attendance/compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
-import { ISO_DATE, closedMonths, daysBetween, daysOfMonth, sendError, today, withNames, writeDay } from '../services/attendance/days.js';
+import { ISO_DATE, closedMonths, daysOfMonth, sendError, today, withNames, writeDay } from '../services/attendance/days.js';
 import { recomputeDeviceDay } from '../services/attendance/punches.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -21,6 +21,7 @@ import { assertNightConsent, nightRefusal, onShiftAhead, rotationShiftIds } from
 import { marksFromLegacy, nextMonthStart, rulesOf, timeRulesFor } from '../services/attendance/timeRules.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { teamScope } from '../services/people/scope.js';
+import { eachDay } from '../utils/istDate.js';
 
 /**
  * Scheduling — ClorTime's Shift and Schedule modules: temporary schedules,
@@ -468,7 +469,7 @@ schedulingRouter.post(`${base}/recompute`, can(PermissionAction.EDIT), async (re
   const parsed = z.object({ from: date, to: date, employeeIds: z.array(z.string()).max(2000).optional() }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Choose the days.' });
   const { from, to, employeeIds } = parsed.data;
-  if (to < from || daysBetween(from, to).length > 62) return res.status(400).json({ error: 'Choose up to 62 days.' });
+  if (to < from || eachDay(from, to).length > 62) return res.status(400).json({ error: 'Choose up to 62 days.' });
   if (to > today()) return res.status(400).json({ error: 'Days still to come have nothing to work out.' });
   const records = await peoplePrisma.attendanceRecord.findMany({
     where: { accountId, orgId, date: { gte: from, lte: to }, source: { in: ['DEVICE', 'CLOCK'] }, ...(employeeIds?.length ? { employeeId: { in: employeeIds } } : {}) },

@@ -22,6 +22,8 @@
  *
  * Earned days are rounded to the half day, which is how leave is granted.
  */
+import { addDays } from '../../utils/istDate.js';
+export { addDays };
 
 export type AccrualType = {
   id: string;
@@ -94,11 +96,6 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 const pad = (n: number) => String(n).padStart(2, '0');
 const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 
-export function addDays(date: string, n: number) {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
 export function addMonths(date: string, n: number) {
   const y = Number(date.slice(0, 4));
   const t = Number(date.slice(5, 7)) - 1 + n;

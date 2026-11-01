@@ -39,6 +39,7 @@ import { lapseFor } from '../services/attendance/leaveJobs.js';
 import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
 import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { readableLines } from '../services/payroll/slipLines.js';
+import { addDays as plusDaysIso, addDays as plusDays } from '../utils/istDate.js';
 
 /**
  * The employee portal (ClorTime's /portal): staff without a CLOR user sign in
@@ -295,11 +296,6 @@ portalRouter.get('/me', async (req, res) => {
  * the next holidays, what is waiting on me and on others, and who in my team
  * is away today. One round trip on a slow connection instead of eight.
  */
-const plusDays = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 
 portalRouter.get('/home', async (req, res) => {
   const e = req.portal!.employee;
@@ -1004,11 +1000,6 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
 // ---------------------------------------------------------------------------
 
 const fail = (res: Response, err: any) => res.status(err?.status || 500).json({ error: err?.message || 'Not done.' });
-const plusDaysIso = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 
 /** Past days with something missing or waiting: this month and last, up to yesterday. */
 /**

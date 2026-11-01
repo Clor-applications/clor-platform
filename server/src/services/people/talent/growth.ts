@@ -3,6 +3,7 @@ import { platformPrisma } from '../../../utils/platformPrisma.js';
 import { notifyUsers } from '../../notifications.js';
 import type { TeamScope } from '../scope.js';
 import { TalentError } from './hiring.js';
+import { todayIst } from '../../../utils/istDate.js';
 
 /**
  * Talent → Growth (docs/people/design-v1/TALENT-DECISIONS.md): goals and their check-ins,
@@ -22,7 +23,6 @@ const date = (v: unknown, what: string, required = false) => {
   if (!ISO.test(s)) throw new TalentError('Dates are YYYY-MM-DD.');
   return s;
 };
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 export const HEALTH = ['ON_TRACK', 'AT_RISK', 'BEHIND'] as const;
 export const RATING_WORDS: Record<number, string> = { 1: 'Well below what was expected', 2: 'Below what was expected', 3: 'What was expected', 4: 'Above what was expected', 5: 'Well above what was expected' };
 

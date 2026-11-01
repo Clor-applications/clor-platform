@@ -20,6 +20,8 @@
  *   a holiday or weekly off, every minute worked is overtime.
  */
 
+import { istDate } from '../../utils/istDate.js';
+
 export const IST_OFFSET_MINUTES = 330;
 
 export type ShiftRule = {
@@ -76,8 +78,8 @@ export const istInstant = (date: string, hhmm: string, addDays = 0): Date => {
   return new Date(utcMs);
 };
 
-/** The IST calendar date of an instant, YYYY-MM-DD. */
-export const istDate = (at: Date): string => new Date(at.getTime() + IST_OFFSET_MINUTES * 60_000).toISOString().slice(0, 10);
+/** The IST calendar date of an instant, YYYY-MM-DD (utils/istDate). */
+export { istDate };
 
 /** The IST wall-clock time of an instant, HH:MM. */
 export const istTime = (at: Date): string => new Date(at.getTime() + IST_OFFSET_MINUTES * 60_000).toISOString().slice(11, 16);

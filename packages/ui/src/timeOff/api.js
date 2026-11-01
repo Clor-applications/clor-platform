@@ -2,6 +2,8 @@ import { apiFetch } from '@platform/http';
 import { requireOrgId as orgId } from '@platform/context';
 import { queryString as query } from '@platform/query';
 import { featuresFor } from '@platform/auth';
+import { todayIst } from '@ui/utils/dates';
+export { todayIst };
 
 /**
  * People → Time & Leave. HR's leave and holidays are the same records
@@ -128,7 +130,6 @@ export const colorOf = (t) => t?.color || PALETTE[slotOf(t)];
 export const swatchOf = (t) => t?.color || `rgb(var(--leave-${slotOf(t)}))`;
 export const thisYear = () => new Date().getFullYear();
 /** Today in India, as the server counts days (not the browser's UTC date). */
-export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 export const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 /** "2 days", "half a day". */
 export const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's'}`);

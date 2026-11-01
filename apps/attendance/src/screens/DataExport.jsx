@@ -6,6 +6,7 @@ import { downloadCsv } from '@ui/utils/csv';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { can } from '@ui/timeOff/shared';
 import { listEmployees, listHolidays, listLeaveRequests, listRecords, listShifts, listTransactions, todayIst } from '../api/attendance';
+import { plusDaysIso } from '@ui/utils/dates';
 
 /**
  * ClorTime's Export Center: what, for when, in which shape. Everything comes
@@ -15,7 +16,7 @@ import { listEmployees, listHolidays, listLeaveRequests, listRecords, listShifts
 const first = (ym) => `${ym}-01`;
 const last = (ym) => { const [y, m] = ym.split('-').map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); };
 const shiftMonth = (ym, by) => { const [y, m] = ym.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + by, 1)).toISOString().slice(0, 7); };
-const d = (days) => new Date(Date.now() + 330 * 60_000 + days * 86_400_000).toISOString().slice(0, 10);
+const d = (days) => plusDaysIso(days);
 
 const PRESETS = [
   { id: 'this-month', label: 'This month', range: () => [first(todayIst().slice(0, 7)), todayIst()] },

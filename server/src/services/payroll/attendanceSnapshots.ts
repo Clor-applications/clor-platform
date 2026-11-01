@@ -1,7 +1,8 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
-import { closedMonths, daysBetween } from '../attendance/days.js';
+import { closedMonths } from '../attendance/days.js';
 import { getMonthSnapshot } from '../attendance/readiness.js';
 import { lastOfMonth } from '../attendance/payableDays.js';
+import { eachDay } from '../../utils/istDate.js';
 
 /**
  * Which Attendance month closes a payroll run takes its days from (closure
@@ -16,7 +17,7 @@ import { lastOfMonth } from '../attendance/payableDays.js';
 /** What the run stored: one entry per month the period touches. */
 export type TakenMonth = { month: string; version: number | null; closed: boolean };
 
-export const monthsOf = (startDate: string, endDate: string) => [...new Set(daysBetween(startDate, endDate).map((d) => d.slice(0, 7)))];
+export const monthsOf = (startDate: string, endDate: string) => [...new Set(eachDay(startDate, endDate).map((d) => d.slice(0, 7)))];
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 /** "September", or "September 2026" when the year needs saying. */

@@ -9,6 +9,8 @@ import { isWeeklyOff, istTime, monthSummary } from './compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from './schedule.js';
 import { activeManagerOf, chainFor } from './approvalChain.js';
 import { managerStepBy } from './standIns.js';
+import { addDays as plusDays, eachDay, todayIst } from '../../utils/istDate.js';
+export { todayIst };
 
 /**
  * What an employee sees about their own attendance beyond the day itself:
@@ -21,17 +23,6 @@ import { managerStepBy } from './standIns.js';
  */
 export type Who = { id: string; accountId: string; orgId: string; name: string; code: string | null; areaId: string | null; branchId: string | null };
 
-const plusDays = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
-const daysBetween = (from: string, to: string) => {
-  const out: string[] = [];
-  for (let d = from; d <= to; d = plusDays(d, 1)) out.push(d);
-  return out;
-};
-export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const monthDays = (month: string) => {
   const [y, m] = month.split('-').map(Number);
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
@@ -67,7 +58,7 @@ export async function attentionFor(e: Who, from: string, to: string): Promise<At
   const fixing = new Set(corrections.map((c) => c.date));
   const leaveAsked = (d: string) => leave.some((l) => l.fromDate <= d && l.toDate >= d);
   const out: AttentionItem[] = [];
-  for (const d of daysBetween(from, to)) {
+  for (const d of eachDay(from, to)) {
     const r = byDate.get(d);
     const working = !mine.has(d) && !isWeeklyOff(resolveShift(schedule, e.id, d).rule, d);
     if (fixing.has(d)) {
@@ -202,7 +193,7 @@ export async function upcomingShifts(e: Who, from: string, count: number) {
     peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: { in: ['APPROVED', 'PENDING'] }, fromDate: { lte: to }, toDate: { gte: from } }, select: { fromDate: true, toDate: true, status: true, halfDay: true } }),
   ]);
   const mine = holidays.forArea(e.areaId, e.branchId);
-  return daysBetween(from, to).map((d) => {
+  return eachDay(from, to).map((d) => {
     const r = resolveShift(schedule, e.id, d);
     const l = leave.find((x) => x.fromDate <= d && x.toDate >= d);
     const holiday = mine.has(d) ? holidays.rows.find((h) => h.date === d && (!h.areaId || h.areaId === e.areaId))?.name || 'Holiday' : null;

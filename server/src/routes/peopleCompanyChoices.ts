@@ -9,6 +9,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { CHOICE_KEYS, ChoiceError, choicesScreen, mayChange, readsRevisionsAsHr, saveChoice, type ChoiceKey } from '../services/people/companyChoices.js';
+import { todayIst } from '../utils/istDate.js';
 
 /**
  * People → Settings → Company choices (docs/people/workflow-engine/SPEC.md 3, 8.1): the decisions HR and the owner
@@ -71,7 +72,7 @@ peopleCompanyChoicesRouter.get(`${base}/salary-revisions`, view, handle(async (r
   const rows = await payrollPrisma.salaryRevision.findMany({ where: { accountId, orgId }, orderBy: { createdAt: 'desc' }, take: 300, select: { id: true, employeeId: true, currentAnnualCtc: true, proposedAnnualCtc: true, incrementPercent: true, effectiveFrom: true, status: true, createdAt: true } });
   const people = rows.length ? new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.employeeId))] } }, select: { id: true, name: true, code: true } })).map((p) => [p.id, p])) : new Map();
   /* Once a day per reader: "Asha read salary revisions" without a line per page load. */
-  const day = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+  const day = todayIst();
   const entityId = `${req.auth!.userId}:${day}`;
   await auditOncePerDay(req, entityId, rows.length);
   res.set('Cache-Control', 'private, no-store').json({

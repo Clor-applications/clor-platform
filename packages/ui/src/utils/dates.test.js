@@ -1,6 +1,6 @@
 import { describe, expect, it, afterEach, vi } from 'vitest';
 
-import { formatDateIn, localDateIso, parseDateIn, plusDaysIso, todayIso } from './dates';
+import { addDaysIso, formatDateIn, istDay, localDateIso, parseDateIn, plusDaysIso, todayIso, todayIst } from './dates';
 
 /**
  * A date that means the same thing on every machine.
@@ -103,5 +103,28 @@ describe("todayIso is India's date, as the server's todayIst", () => {
     /* `localDateIso` answers "the wall the reader is looking at"; `todayIso` is the business day in India, wherever the browser is. */
     at('2026-11-01T01:00:00+05:30');
     expect(todayIso()).toBe(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10));
+  });
+});
+
+/* The shared IST helpers (dedup batch 6): every screen copy said the same thing. */
+describe('todayIst, istDay and addDaysIso', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('today in India is todayIso, also between midnight and 05:30', () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2027-01-01T02:00:00+05:30') });
+    expect(todayIst()).toBe('2027-01-01');
+    expect(todayIst()).toBe(todayIso());
+  });
+
+  it('puts a UTC timestamp on its day in India', () => {
+    expect(istDay('2026-12-31T19:00:00Z')).toBe('2027-01-01');
+    expect(istDay('2026-12-31T18:29:00Z')).toBe('2026-12-31');
+    expect(istDay(new Date('2027-04-01T00:10:00+05:30'))).toBe('2027-04-01');
+  });
+
+  it('counts calendar days, across months and leap years', () => {
+    expect(addDaysIso('2026-12-31', 1)).toBe('2027-01-01');
+    expect(addDaysIso('2028-03-01', -1)).toBe('2028-02-29');
+    expect(addDaysIso('2027-04-01', 0)).toBe('2027-04-01');
   });
 });

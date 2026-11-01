@@ -2,6 +2,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { isFeatureEnabled } from '../features.js';
+import { addDays, istDate, todayIst } from '../../utils/istDate.js';
 
 /**
  * Compliance calendar (HR research, Phase 2: "compliance calendar,
@@ -21,18 +22,12 @@ type Who = { accountId: string; orgId: string; userId: string | null };
 export type Link = { app: 'payroll' | 'attendance'; screen: string } | null;
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const pad = (n: number) => String(n).padStart(2, '0');
 const ym = (y: number, m: number) => `${y}-${pad(m)}`;
 const nextMonth = (y: number, m: number) => (m === 12 ? [y + 1, 1] : [y, m + 1]);
 const lastDay = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 const date = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(Math.min(d, lastDay(y, m)))}`;
 const monthName = (y: number, m: number) => `${MONTHS[m - 1]} ${y}`;
-const addDays = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 
 /** Professional Tax: the usual monthly due day, the month after (states CLOR knows). */
 export const PT_DUE_DAY: Record<string, number> = {
@@ -136,7 +131,7 @@ export async function calendar(who: Who) {
   const a = await applicability(who.accountId, who.orgId);
   /* Nothing from before the company was on CLOR: a new company is not "late" for months it was not here. */
   const org = await platformPrisma.org.findUnique({ where: { id: who.orgId }, select: { createdAt: true } });
-  const joined = org ? new Date(org.createdAt.getTime() + 330 * 60_000).toISOString().slice(0, 10) : from;
+  const joined = org ? istDate(org.createdAt) : from;
   const due = dueDates(a, joined > from ? joined : from, to);
   if (due.length) {
     await peoplePrisma.complianceTask.createMany({

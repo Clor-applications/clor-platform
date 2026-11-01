@@ -12,6 +12,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 
 import { can, homeCrumbs } from './shared';
 import { daysText, getLeaveSettings, getYearEnd, periodChoices, runYearEnd, thisYear, undoYearEnd } from './api';
+import { addDaysIso as addDays } from '@ui/utils/dates';
 
 /**
  * Settings → Year end (TIME-LEAVE-DECISIONS.md, advanced build). The engine
@@ -20,7 +21,6 @@ import { daysText, getLeaveSettings, getYearEnd, periodChoices, runYearEnd, this
  * person and type first; run once a period; undone until Payroll pays any of
  * it. The previous period is the one that usually needs it.
  */
-const addDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const stamp = (at) => formatDate(new Date(new Date(at).getTime() + 330 * 60_000).toISOString().slice(0, 10));
 
 export default function YearEnd() {

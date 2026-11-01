@@ -1,5 +1,6 @@
 import { isWeeklyOff } from '../../attendance/compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../../attendance/schedule.js';
+import { addDays as shift } from '../../../utils/istDate.js';
 
 /**
  * Working days for one person (Joining & Leaving, JCL-A03): a step due "two
@@ -8,7 +9,6 @@ import { loadHolidays, loadSchedule, resolveShift } from '../../attendance/sched
  * (company, branch, location). Counting stops after a year either way, so a
  * calendar with no working days cannot loop.
  */
-const shift = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 export type Person = { id: string; areaId?: string | null; branchId?: string | null };
 

@@ -1,6 +1,7 @@
 import { peoplePrisma } from '../../../utils/peoplePrisma.js';
 import { sendNotice } from '../../notifications.js';
 import { registerRecipe } from './automations.js';
+import { addDays as plusDays } from '../../../utils/istDate.js';
 
 /**
  * Birthdays, work anniversaries and the holiday heads-up (WORKFLOW-GAP-RESEARCH-2026-10-30 A14, A15, 4.8).
@@ -22,7 +23,6 @@ const SMALL_COMPANY = 20;
 type Person = { id: string; name: string; userId: string | null; departmentId: string | null; reportingManagerId: string | null; areaId: string | null; branchId: string | null; dateOfBirth: string | null; dateOfJoining: string | null };
 const PERSON = { id: true, name: true, userId: true, departmentId: true, reportingManagerId: true, areaId: true, branchId: true, dateOfBirth: true, dateOfJoining: true } as const;
 
-const plusDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 const isLeap = (y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
 /** Month-day of a date this year; 29 Feb falls on 28 Feb in a year without one. */
 export const dayThisYear = (iso: string, year: number) => {

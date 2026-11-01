@@ -1,4 +1,5 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
+import { todayIst } from '../../utils/istDate.js';
 
 /**
  * Employment stints (docs/people/02-PRD.md FND-06; platform review R-03).
@@ -57,7 +58,7 @@ export type EpisodeRow = { seq: number; startDate: string; endDate: string | nul
 /** Every stint, first to last, with its length in days (to the end date, or today while it runs). */
 export async function episodesOf(orgId: string, employee: { id: string; currentEpisodeSeq?: number | null; status?: string | null }): Promise<EpisodeRow[]> {
   const rows = await peoplePrisma.employmentEpisode.findMany({ where: { orgId, employeeId: employee.id }, orderBy: { seq: 'asc' } });
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIst();
   const current = employee.currentEpisodeSeq || 1;
   return rows.map((r) => {
     const to = r.endDate || today;

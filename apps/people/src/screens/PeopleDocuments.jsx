@@ -14,6 +14,7 @@ import { runListExport } from '@ui/components/list/exportMenu';
 import { listCompanyDocuments, listAllEmployees, getDocument } from '@ui/personnel/api';
 import { EmployeeDocuments } from '@ui/personnel/Employees';
 import { docWhoLabel } from '@ui/personnel/documentClassification';
+import { todayIst } from '@ui/utils/dates';
 
 /**
  * Documents: every document on every person's file, with its expiry, in one
@@ -24,7 +25,6 @@ const EXPORT_COLUMNS = [{ key: 'title', label: 'Document' }, { key: 'employeeNam
 /* A type as words ("work permit"), capitalised; an expiry as a date, with Expired or Expires soon beside it so it is not colour alone. */
 const kindWord = (k) => { const w = String(k || '').replaceAll('_', ' ').toLowerCase(); return w ? w[0].toUpperCase() + w.slice(1) : '—'; };
 const SOON_DAYS = 30;
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 function Expiry({ on, today }) {
   if (!on) return <span className="ui-muted">No expiry</span>;
   const days = Math.round((Date.parse(on) - Date.parse(today)) / 86_400_000);

@@ -28,6 +28,7 @@ import {
   getLeaveDocument, getLeaveRequest, getLeaveSettings, listLeaveRequests, listLeaveTypes, pageLeaveRequests, periodChoices, previewLeave, rejectLeave,
   shortenLeave, swatchOf, updateLeaveRequest, listPeople,
 } from './api';
+import { addDaysIso as addDays } from '@ui/utils/dates';
 
 /**
  * Time & Leave → Requests (TIME-LEAVE-DECISIONS.md). Everything the list
@@ -394,7 +395,6 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
 const OPEN_STATUSES = ['PENDING', 'APPROVED'];
 export { LeaveDocumentField };
 
-const addDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
 /**
  * The preview while a request is being changed: the request itself is still

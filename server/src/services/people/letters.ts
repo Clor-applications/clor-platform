@@ -5,6 +5,7 @@ import { type Actor, writeChangeLog } from './changeLog.js';
 import { writeEvent } from './outbox.js';
 import { textPdf } from './pdf.js';
 import { startChecklist } from './checklists.js';
+import { addDays, todayIst } from '../../utils/istDate.js';
 
 /**
  * Letters (docs/people/02-PRD.md DOC-04, DOC-07). A template is plain text
@@ -242,9 +243,7 @@ export async function saveTemplate(actor: Actor, input: { kind?: string; name?: 
   });
 }
 
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 /** A YYYY-MM-DD plus whole days, with no time zone in the way. */
-const addDays = (date: string, days: number) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 const fmt = (d: string | null | undefined) => {
   if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return d || '';
   return new Date(`${d}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });

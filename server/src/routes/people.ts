@@ -60,6 +60,7 @@ import { track } from '../services/productEvents.js';
 import { PAYROLL_HISTORY, lockPayrollEmployee } from '../services/payroll/employeeLock.js';
 /* Only for Payroll's own delete guard (employeeLock.ts), which takes a payroll transaction; People reads nothing else from it. */
 import { payrollPrisma } from '../utils/payrollPrisma.js';
+import { addDays as addDaysIso, todayIst } from '../utils/istDate.js';
 
 /**
  * People: the staff directory.
@@ -85,7 +86,6 @@ const actorOf = (req: Request, source: ChangeSource, reason: string | null = nul
 const EMPLOYEE_STATUSES = ['ACTIVE', 'ON_NOTICE', 'LEFT', 'SUSPENDED'] as const;
 /* Inclusive options, and the right not to say (CORE-03). */
 export const GENDER_OPTIONS = ['MALE', 'FEMALE', 'NON_BINARY', 'OTHER', 'PREFER_NOT_TO_SAY'] as const;
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /* A real day, not only the right shape: 2026-13-01 and 2026-02-30 are refused. */
 const realDay = (v: string) => { const d = new Date(`${v}T00:00:00Z`); return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v; };
@@ -142,7 +142,6 @@ class ImportRowError extends Error {}
 
 const inWords = (iso: string) => { const [y, m, d] = String(iso).slice(0, 10).split('-'); return y && m && d ? `${Number(d)} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m) - 1]} ${y}` : iso; };
 const SCHEDULED_WORDS: Record<string, string> = { departmentId: 'Department', jobPositionId: 'Designation', reportingManagerId: 'Manager', dottedManagerId: 'Secondary manager', areaId: 'Location', establishmentId: 'Work site', teamId: 'Team', seatId: 'Position', employeeTypeId: 'Employment type', workTypeId: 'Work mode', gradeId: 'Grade', costCenterId: 'Cost centre', businessUnitId: 'Business unit', jobRoleId: 'Job role', branchId: 'Branch', contractorId: 'Contractor' };
-const addDaysIso = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 const blank = (v: unknown) => {
   const s = typeof v === 'string' ? v.trim() : v == null ? '' : String(v);
@@ -661,7 +660,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/counts', can(PermissionAction.VI
   const { accountId, orgId } = req.tenant!;
   const scope = await teamScope(req);
   const base = { accountId, orgId, ...scopeWhere(scope) };
-  const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+  const today = todayIst();
   const monthStart = `${today.slice(0, 8)}01`;
   /* Working now: not left, and already joined (someone joining next week is under Joining, not in the headcount). */
   const joined = { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: today } }] };

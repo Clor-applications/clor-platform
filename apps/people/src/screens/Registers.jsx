@@ -9,6 +9,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 import { runListExport } from '@ui/components/list/exportMenu';
 import { employeeRegister, leaveRegister, leaveSummary, listEstablishments, musterRoll } from '../api/registers';
+import { todayIst } from '@ui/utils/dates';
 
 /**
  * Insights → Registers (HR view audit, gap 4): what a labour inspector asks
@@ -29,7 +30,6 @@ const REGISTERS = [
 ];
 
 const pad = (n) => String(n).padStart(2, '0');
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const shiftMonth = (month, by) => {
   const [y, m] = month.split('-').map(Number);
   const d = new Date(Date.UTC(y, m - 1 + by, 1));

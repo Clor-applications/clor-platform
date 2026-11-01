@@ -539,8 +539,9 @@ describe('late marks: pay periods, half days, the rule of the month, leave and p
     const ready = await runInTenant(c.orgId, () => monthReadiness(c.accountId!, c.orgId, lastMonth));
     expect(ready.checks.find((x: any) => x.key === 'penalties')).toMatchObject({ severity: 'block', count: 2 });
     const { undecidedIn } = await import('../services/attendance/markRules.js');
-    const { periodRows, daysBetween } = await import('../services/attendance/days.js');
-    const period = daysBetween(`${lastMonth}-26`, `${thisMonth}-25`);
+    const { periodRows } = await import('../services/attendance/days.js');
+    const { eachDay } = await import('../utils/istDate.js');
+    const period = eachDay(`${lastMonth}-26`, `${thisMonth}-25`);
     expect((await runInTenant(c.orgId, () => undecidedIn(c.accountId!, c.orgId, period))).map((u) => u.employeeId).sort()).toEqual([arjun.id, kavya.id].sort());
     await ppl(c, 'post', `/late-marks/${arjun.id}/waive`, { month: lastMonth, reason: 'Road works all week' }).expect(201);
     await ppl(c, 'post', '/late-marks/apply', { month: lastMonth }).expect(200);
@@ -552,7 +553,7 @@ describe('late marks: pay periods, half days, the rule of the month, leave and p
     expect(k.penalty).toMatchObject({ status: 'APPLIED', fromLeaveDays: 0.5 });
     expect(k.latePenaltyDays).toBe(0);
     /* The next period does not charge last month again. */
-    const next = await runInTenant(c.orgId, () => periodRows(c.accountId!, c.orgId, daysBetween(`${thisMonth}-26`, plus(`${thisMonth}-25`, 31))));
+    const next = await runInTenant(c.orgId, () => periodRows(c.accountId!, c.orgId, eachDay(`${thisMonth}-26`, plus(`${thisMonth}-25`, 31))));
     expect((next.find((r: any) => r.employeeId === kavya.id) as any).penalty).toBeNull();
     expect(await runInTenant(c.orgId, () => undecidedIn(c.accountId!, c.orgId, period))).toEqual([]);
   });

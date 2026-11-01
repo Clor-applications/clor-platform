@@ -10,6 +10,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { Avatar } from '@ui/personnel/Employees';
 import { cancelSwap, listSwaps } from '../api/requests';
+import { todayIst as istToday } from '@ui/utils/dates';
 
 /*
  * Shift swaps (FEATURE-UI-AUDIT gap 24): two people swap shifts on a day or a
@@ -23,7 +24,6 @@ const TABS = [['', 'All'], ['ASKED', 'Asked'], ['WAITING', 'To approve'], ['APPR
 const day = (iso) => (iso ? formatDate(String(iso).slice(0, 10)) : '');
 const range = (a, b) => (a === b ? day(a) : `${day(a)} – ${day(b)}`);
 const shiftText = (s) => (s ? `${s.name}${s.startTime ? ` ${s.startTime}–${s.endTime}` : ''}` : '—');
-const istToday = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
 function Person({ p, size = 32 }) {
   return (

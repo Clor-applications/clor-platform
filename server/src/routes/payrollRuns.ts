@@ -12,7 +12,7 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/pa
 import { calculateRun, daysBetween, eligibleEmployees, validateRun } from '../services/payroll/run.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { recordAudit } from '../services/auditTrail.js';
-import { daysBetween as datesBetween, periodRows } from '../services/attendance/days.js';
+import { periodRows } from '../services/attendance/days.js';
 import { leaveLossOfPay } from '../services/attendance/payableDays.js';
 import { provisionalWarning, snapshotChange, snapshotRows, takenMonths } from '../services/payroll/attendanceSnapshots.js';
 import { runLopCheck } from '../services/payroll/readinessTower.js';
@@ -22,6 +22,7 @@ import { capMessage } from '../services/payroll/deductionCap.js';
 import { Prisma } from '../generated/payroll/index.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
+import { eachDay } from '../utils/istDate.js';
 
 /**
  * A payroll run, from who is in it to payslips somebody can approve.
@@ -433,12 +434,12 @@ payrollRunsRouter.post(
     const setting = fromSnapshot ? null : await provisionalSetting(accountId, orgId);
     const cutoffDate = setting?.enabled ? cutoffDateFor(period, setting.cutoffDay) : null;
     const provisional = cutoffDate ? await provisionalPeriodRows(accountId, orgId, period.startDate, period.endDate, cutoffDate) : null;
-    const rows = (fromSnapshot ? fromSnapshot.rows : provisional ? provisional.rows : await periodRows(accountId, orgId, datesBetween(period.startDate, period.endDate))).filter((r: any) => inRun.has(r.employeeId));
+    const rows = (fromSnapshot ? fromSnapshot.rows : provisional ? provisional.rows : await periodRows(accountId, orgId, eachDay(period.startDate, period.endDate))).filter((r: any) => inRun.has(r.employeeId));
     /* Late-mark penalties (People, attendance/markRules.ts): taken only once HR applied or waived them, never guessed. */
     if (!fromSnapshot) {
       const { undecidedIn } = await import('../services/attendance/markRules.js');
       /* Paid before the month ends (cut-off): only months that have ended by the cut-off are decided now. */
-      const undecided = await undecidedIn(accountId, orgId, datesBetween(period.startDate, cutoffDate && cutoffDate < period.endDate ? cutoffDate : period.endDate), [...inRun]);
+      const undecided = await undecidedIn(accountId, orgId, eachDay(period.startDate, cutoffDate && cutoffDate < period.endDate ? cutoffDate : period.endDate), [...inRun]);
       /* And the months an earlier run's cut-off left uncharged, which this pull charges (catchUpLatePenalties). */
       for (const owed of await lateMarkMonthsOwed(orgId, period, [...inRun])) {
         const { daysOfMonth } = await import('../services/attendance/days.js');
@@ -454,7 +455,7 @@ payrollRunsRouter.post(
     const existing = new Map(
       (await payrollPrisma.payrollInput.findMany({ where: { orgId, runId: run.id } })).map((i) => [i.employeeId, i])
     );
-    const workingDays = datesBetween(period.startDate, period.endDate).length;
+    const workingDays = eachDay(period.startDate, period.endDate).length;
 
     let saved = 0;
     const keptManual: string[] = [];
@@ -563,7 +564,7 @@ payrollRunsRouter.post(
     const overwrite = req.body?.overwrite === true;
     const period = await payrollPrisma.payrollPeriod.findFirst({ where: { orgId, id: run.periodId } });
     if (!period) return res.status(409).json({ error: 'This run has no payroll period.' });
-    const dates = datesBetween(period.startDate, period.endDate);
+    const dates = eachDay(period.startDate, period.endDate);
     const workingDays = dates.length;
 
     const members = (await payrollPrisma.payrollRunEmployee.findMany({ where: { orgId, runId: run.id, inclusion: 'INCLUDED' }, select: { employeeId: true } })).map((m) => m.employeeId);

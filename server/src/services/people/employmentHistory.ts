@@ -2,6 +2,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { emit as emitWebhook, employeeEvent } from '../attendance/webhooks.js';
 import { ensureFirstEpisode } from './episodes.js';
+import { todayIst } from '../../utils/istDate.js';
 
 /**
  * Employment history (HR research, Phase 1: "every change must retain
@@ -36,7 +37,6 @@ export const TRACKED: Record<string, { label: string; kind: 'TRANSFERRED' | 'CHA
   costCenterId: { label: 'Cost centre', kind: 'CHANGED' },
 };
 
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 export const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** The name behind an id, as it is today (stored on the event so later renames do not rewrite history). */

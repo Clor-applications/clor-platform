@@ -15,6 +15,7 @@ import { PersonCell, crumbs } from '@ui/lifecycle/shared';
 import { listOffers, withdrawOffer } from './api';
 import { can } from './shared';
 import { wholeRupees as rupees } from '@ui/utils/money';
+import { istDay } from '@ui/utils/dates';
 
 /**
  * Joining & leaving → Offers (FEATURE-UI-AUDIT gap 7): every offer sent with
@@ -33,7 +34,6 @@ const STATUS = {
 };
 const inView = (o, view) => (view === 'open' ? o.status === 'SENT' : view === 'accepted' ? o.status === 'ACCEPTED' : view === 'closed' ? ['DECLINED', 'EXPIRED', 'WITHDRAWN'].includes(o.status) : true);
 /* A moment as India's calendar day, not the UTC date. */
-const istDay = (t) => new Date(new Date(t).getTime() + 330 * 60_000).toISOString().slice(0, 10);
 const sentOn = (o) => formatDate(istDay(o.createdAt));
 
 export default function Offers({ params = {}, updateParams, openScreen }) {

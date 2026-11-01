@@ -3,6 +3,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { pullPunches } from './pull/index.js';
 import { vendorsWith } from './drivers.js';
 import { ingestPunches } from './punches.js';
+import { todayIst } from '../../utils/istDate.js';
 
 /**
  * Vendor cloud connections: pull punches from readers that report to a vendor service (Hikvision, Dahua, BioStar, Anviz, e-Time Office, any JSON API) and feed them in like a reader push.
@@ -25,7 +26,7 @@ import { ingestPunches } from './punches.js';
  */
 export async function syncVendorConnection(device: any, opts: { from?: Date; fetchImpl?: typeof fetch; dryRun?: boolean } = {}) {
   const now = new Date();
-  const midnight = new Date(`${new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10)}T00:00:00+05:30`);
+  const midnight = new Date(`${todayIst(now)}T00:00:00+05:30`);
   const from = opts.from || (device.lastFetchedAt ? new Date(device.lastFetchedAt.getTime() - 10 * 60_000) : midnight);
   let result;
   try {

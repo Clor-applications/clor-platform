@@ -8,6 +8,8 @@ import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import useRequest from '@ui/components/ui/useRequest';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { listAllEmployees } from '@ui/personnel/api';
+import { istDay, todayIst } from '@ui/utils/dates';
+export { todayIst };
 
 /* Talent's words and small parts, shared by its screens (TALENT-DECISIONS.md). */
 
@@ -45,8 +47,6 @@ export const Pill = ({ map, value }) => {
 };
 export const ratingWord = (n) => (n ? `${n} · ${RATINGS.find((r) => r[0] === n)?.[1] || ''}` : '');
 
-export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
-const istDay = (d) => new Date(new Date(d).getTime() + 330 * 60_000).toISOString().slice(0, 10);
 export const day = (d) => (!d ? '' : /^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? formatDate(String(d)) : formatDate(istDay(d)));
 export const when = (d) => (d ? `${day(d)}, ${new Date(d).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}` : '');
 /** A datetime-local value (IST) from a stored instant, and back. */

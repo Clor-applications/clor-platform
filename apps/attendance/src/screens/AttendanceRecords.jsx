@@ -15,6 +15,7 @@ import DayExplain from '../components/DayExplain';
 import { downloadEvidence } from '../components/evidenceXlsx';
 import PunchEvidence from '../components/PunchEvidence';
 import { TRUST } from '../components/readerTrust';
+import { plusDaysIso } from '@ui/utils/dates';
 
 /**
  * Everyone's days: filter, correct, validate, approve overtime. After
@@ -22,7 +23,7 @@ import { TRUST } from '../components/readerTrust';
  * laid out as Accounting's lists are — figures, status tabs with counts,
  * filters in the column headings, actions on the selection.
  */
-const weekAgo = () => new Date(Date.now() + 330 * 60_000 - 6 * 86_400_000).toISOString().slice(0, 10);
+const weekAgo = () => plusDaysIso(-6);
 
 const TABS = [
   { value: '', label: 'All', tone: 'all' },

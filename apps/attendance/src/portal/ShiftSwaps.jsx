@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { SignedOut, answerSwap, askSwap, getSwaps, swapColleagues, todayIst, withdrawSwap } from './portalApi';
+import { addDaysIso as plusDays } from '@ui/utils/dates';
 
 /**
  * Shift swaps in the employee app (People, FEATURE-UI-AUDIT gap 24), on the
@@ -23,11 +24,6 @@ const STATUS = {
 const dayLabel = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 const span = (a, b) => (a === b ? dayLabel(a) : `${dayLabel(a)} – ${dayLabel(b)}`);
 const hours = (s) => `${s.name} ${s.startTime}–${s.endTime}`;
-const plusDays = (iso, n) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
 
 function Pill({ status }) {

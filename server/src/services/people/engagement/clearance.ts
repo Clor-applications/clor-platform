@@ -9,6 +9,7 @@ import { NO_SETTLEMENT } from '../lifecycle/leaving.js';
 import { LEAVING_WITHDRAWN_NOTE } from '../lifecycle/stayOn.js';
 import { countFrom, workingCalendar } from '../lifecycle/workdays.js';
 import { registerRecipe } from './automations.js';
+import { addDays } from '../../../utils/istDate.js';
 
 /**
  * No-dues sign-off and the final-pay clock (WORKFLOW-GAP-RESEARCH-2026-10-30 A9, A10, 4.3).
@@ -47,7 +48,6 @@ export class ClearanceError extends Error {
 const today = () => istDate(new Date());
 /* Paise shown as two figures, or none: ₹1,250.50, not ₹1,250.5. */
 const money = (n: number) => `₹${n.toLocaleString('en-IN', Number.isInteger(n) ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 const longDay = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 
 async function refuseOwnPlan(who: Who, employeeId: string) {

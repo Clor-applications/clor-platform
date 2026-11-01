@@ -25,6 +25,7 @@ import { listBranches } from '../organization/api';
 import { hasApp } from '@platform/context';
 import { STATUS, StatusBadge, can } from './shared';
 import AppAccessSend from './AppAccessSend';
+import { plusDaysIso, todayIst } from '@ui/utils/dates';
 
 /**
  * Workforce → Directory (People design spec v1 EMP-01, EMP-11, EMP-12; Workforce
@@ -317,8 +318,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   );
 }
 
-const tomorrowIst = () => new Date(Date.now() + 330 * 60_000 + 86_400_000).toISOString().slice(0, 10);
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+const tomorrowIst = () => plusDaysIso(1);
 
 /*
  * WF-07 export: which people (this view, everyone you can see, or the rows

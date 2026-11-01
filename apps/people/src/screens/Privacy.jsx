@@ -14,6 +14,7 @@ import { downloadCsv } from '@ui/utils/csv';
 import { apiFetch } from '@platform/http';
 import { orgId } from '@platform/context';
 import { orgUsers } from '../api/desk';
+import { istDay, todayIst } from '@ui/utils/dates';
 
 /**
  * Privacy (PRV-03, 06, 07): who viewed what; how long each kind of data is
@@ -25,8 +26,6 @@ import { orgUsers } from '../api/desk';
 const base = () => `/orgs/${encodeURIComponent(orgId())}/people/privacy`;
 const opts = { skipWarehouseHeader: true };
 const VIEWS = [['access', 'Who viewed what'], ['retention', 'Retention'], ['review', 'Deletion review'], ['auditors', 'Auditor access']];
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
-const istDay = (v) => new Date(new Date(v).getTime() + 330 * 60_000).toISOString().slice(0, 10);
 const day = (v) => (v ? formatDate(String(v).length > 10 ? istDay(v) : String(v)) : '');
 const when = (v) => (v ? `${day(v)}, ${new Date(v).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}` : '');
 const SHEET = 'w-[min(36rem,96vw)] ui-drawer-sheet';

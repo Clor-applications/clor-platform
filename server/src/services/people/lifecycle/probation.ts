@@ -5,6 +5,7 @@ import { updateEmployee } from '../employees.js';
 import { writeEvent } from '../outbox.js';
 import { leaveEmployee } from './leaving.js';
 import { activeRule, submitRequest } from '../approvals/engine.js';
+import { todayIst } from '../../../utils/istDate.js';
 
 /**
  * Probation (docs/people/02-PRD.md LIFE-03). A review names the period, the
@@ -17,7 +18,6 @@ import { activeRule, submitRequest } from '../approvals/engine.js';
 
 export const PROBATION_OUTCOMES = ['CONFIRM', 'EXTEND', 'END'] as const;
 export type ProbationOutcome = (typeof PROBATION_OUTCOMES)[number];
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
 export class ProbationError extends Error {
   constructor(message: string, public status = 400) {

@@ -1,6 +1,7 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { isFeatureEnabled } from '../features.js';
-import { daysBetween, periodRows } from './days.js';
+import { periodRows } from './days.js';
+import { eachDay } from '../../utils/istDate.js';
 
 /**
  * Loss of pay and payable days, as Payroll takes them. One calculation for
@@ -73,7 +74,7 @@ export type PayableRow = {
  * it to a scope.
  */
 export async function payableMonth(accountId: string, orgId: string, month: string, employeeIds: string[] | null = null): Promise<{ source: 'ATTENDANCE' | 'LEAVE'; rows: PayableRow[] }> {
-  const dates = daysBetween(`${month}-01`, lastOfMonth(month));
+  const dates = eachDay(`${month}-01`, lastOfMonth(month));
   const keep = employeeIds ? new Set(employeeIds) : null;
   if (await isFeatureEnabled(accountId, orgId, 'attendance')) {
     const rows = (await periodRows(accountId, orgId, dates)).filter((r) => !keep || keep.has(r.employeeId));

@@ -9,8 +9,9 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { listDeviceLogs, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { plusDaysIso } from '@ui/utils/dates';
 
-const weekAgo = () => new Date(Date.now() + 330 * 60_000 - 6 * 86_400_000).toISOString().slice(0, 10);
+const weekAgo = () => plusDaysIso(-6);
 
 const TABS = [
   { value: 'OPERATION', label: 'Operations', tone: 'all' },

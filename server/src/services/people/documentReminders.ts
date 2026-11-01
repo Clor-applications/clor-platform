@@ -8,6 +8,7 @@ import { startChecklist } from './checklists.js';
 import { writeEvent } from './outbox.js';
 import { registerJob } from '../jobRegistry.js';
 import { RECIPE, automation, automationsFor, recordRun } from './engagement/automations.js';
+import { istDate } from '../../utils/istDate.js';
 
 /**
  * People's own events, told to whoever manages employees (PEOPLE::Employees
@@ -18,7 +19,6 @@ import { RECIPE, automation, automationsFor, recordRun } from './engagement/auto
 const MANAGES_PEOPLE = 'PEOPLE::Employees::EDIT';
 export const EXPIRY_WINDOW_DAYS = 30;
 
-const istDate = (d: Date) => new Date(d.getTime() + 330 * 60_000).toISOString().slice(0, 10);
 
 /** Joined / left: mail and bell to the people who manage employees, not to whoever did it. */
 export async function peopleEvent(accountId: string, orgId: string, key: 'people.joined' | 'people.left', employee: { id: string; name: string; code: string | null; departmentId?: string | null }, byUserId: string | null) {

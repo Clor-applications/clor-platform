@@ -20,6 +20,7 @@ import { teamScope } from '../services/people/scope.js';
 import { SourcesChangedError, closePayrollSources, closePeopleSources, keepSources, settlementHold, settlementHolds, staleSources, withChainRoots } from '../services/payroll/finalSettlementSources.js';
 import { releaseHold, AbsenceError } from '../services/people/absconding.js';
 import { applyRecoveryCap, fnfCapPercent, isRecovery, leavingSlipBasis, withRecoverWishes, type RecoveryCap, type SlipBasis } from '../services/payroll/fnfRecoveryCap.js';
+import { todayIst } from '../utils/istDate.js';
 
 /**
  * Full and final settlements for people who have left. Drafted from what CLOR
@@ -49,7 +50,6 @@ const updateSchema = z.object({
   notes: z.string().trim().max(1000).optional().nullable(),
 });
 
-const today = () => new Date().toISOString().slice(0, 10);
 
 type Hold = { caseId: string; reason: string; since: Date | null } | null | undefined;
 
@@ -64,7 +64,7 @@ function shape(row: any, people: Map<string, { name: string; code: string | null
     status: row.status,
     leavingDate: row.leavingDate,
     dueDate: row.dueDate,
-    overdue: open && row.dueDate < today(),
+    overdue: open && row.dueDate < todayIst(),
     lines,
     netPayable: Number(row.netPayable),
     notes: row.notes,
@@ -401,7 +401,6 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/paid', APPRO
   res.json({ settlement: await shapeOne(await payrollPrisma.finalSettlement.findUniqueOrThrow({ where: { id: row.id } })) });
 });
 
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
 /** People's records the settlement settles, closed once; on a failure the settlement stays paid and the retry route finishes it. */
 async function closeInPeople(req: any, row: any, lines: SettlementLine[]) {

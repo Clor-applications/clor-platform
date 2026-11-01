@@ -12,6 +12,7 @@ import { notify } from '@ui/components/ui/notify';
 import { dayLabel, explainDay, listExceptions, setExceptionState, setExceptionStates, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import DayExplain from '../components/DayExplain';
+import { plusDaysIso } from '@ui/utils/dates';
 
 /**
  * One queue for everything that is not settled yet: days with no check-out,
@@ -50,7 +51,7 @@ const COLUMNS = {
 };
 const SEVERITY = { high: 'Urgent', medium: 'To do', low: 'When you can' };
 const STATUS = { OPEN: 'Open', IN_PROGRESS: 'In progress', RESOLVED: 'Settled', IGNORED: 'Ignored' };
-const back = (n) => new Date(Date.now() + 330 * 60_000 - n * 86_400_000).toISOString().slice(0, 10);
+const back = (n) => plusDaysIso(-n);
 
 
 /* What Export writes: the rows on screen, as shown (AT-01). */

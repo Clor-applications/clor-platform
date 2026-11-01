@@ -5,6 +5,7 @@ import { updateEmployee } from './employees.js';
 import { activeRule } from './approvals/engine.js';
 import { ISO_DAY, SCHEDULABLE_FIELDS, scheduleChanges } from './effectiveDating.js';
 import { HOURS } from './employmentKinds.js';
+import { todayIst } from '../../utils/istDate.js';
 
 /**
  * Bulk update from the directory (docs/people/02-PRD.md CORE-01). Every
@@ -66,7 +67,7 @@ export async function bulkUpdate(actor: Actor, input: { ids?: unknown; set?: unk
   if (!Object.keys(set).length) throw new BulkError('Say what to change.');
   const reason = String(input.reason ?? '').trim().slice(0, 500) || null;
   /* From when (Workforce audit O20): a later day waits for that day, as a one-person change does; today or earlier applies now, dated. */
-  const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+  const today = todayIst();
   const effectiveFrom = input.effectiveFrom == null || input.effectiveFrom === '' ? null : String(input.effectiveFrom);
   if (effectiveFrom && (!ISO_DAY.test(effectiveFrom) || new Date(`${effectiveFrom}T00:00:00Z`).toISOString().slice(0, 10) !== effectiveFrom)) throw new BulkError('That date does not exist.');
   const later = Boolean(effectiveFrom && effectiveFrom > today);

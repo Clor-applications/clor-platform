@@ -17,6 +17,7 @@ import HalfDayChoice, { HalfDayNote, halfDayBody, leaveSpan } from '@ui/timeOff/
 import { HoursChoice, PreviewNotes } from '@ui/timeOff/LeaveShape';
 import { amountFigure, amountWords, hoursBetween, hoursBody, hoursReady, hoursText, hoursWords, isHourly } from '@ui/timeOff/partOfDay';
 import { useCanActForSelf } from '@ui/timeOff/shared';
+import { addDaysIso as addDays } from '@ui/utils/dates';
 
 /**
  * My leave (People → Time & Leave → My leave, and Attendance's own): one's
@@ -31,7 +32,6 @@ const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's
 const range = (from, to) => (from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`);
 const dayLabel = (iso) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 const NUMBER_WORD = ['', 'one', 'two', 'three', 'four'];
-const addDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 /** What a request would charge, without saving it (server: leave.ts `me/leave/preview`). */
 const previewMyLeave = (body) => apiFetch(`/orgs/${encodeURIComponent(platformOrgId() || '')}/attendance/me/leave/preview`, { method: 'POST', body, skipWarehouseHeader: true });
 /**

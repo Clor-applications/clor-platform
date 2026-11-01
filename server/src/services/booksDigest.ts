@@ -4,6 +4,7 @@ import { notifyPermissionOnce } from './notifications.js';
 import { exclusive, leaseFor } from './jobLease.js';
 import { appLive } from './principalAllowed.js';
 import { registerJob } from './jobRegistry.js';
+import { todayIst as istToday } from '../utils/istDate.js';
 
 /**
  * What Accounting's own bell used to work out in the browser — invoices past
@@ -12,7 +13,6 @@ import { registerJob } from './jobRegistry.js';
  * people who look after receivables and payables. One unread reminder of each
  * at a time: a person who has not read yesterday's is not given another.
  */
-const istToday = (now: Date) => new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
 const money = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const CLOSED = ['Draft', 'Cancelled', 'Paid', 'Void'];
 

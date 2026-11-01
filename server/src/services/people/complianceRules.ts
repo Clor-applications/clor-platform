@@ -7,6 +7,7 @@ import { writeEvent } from './outbox.js';
 import { registerJob } from '../jobRegistry.js';
 import { verifiedMime } from '../fileType.js';
 import { applicability, dueDates } from './compliance.js';
+import { addDays, istDate, todayIst } from '../../utils/istDate.js';
 
 /**
  * The rule library and the obligations it produces (docs/people/02-PRD.md
@@ -43,8 +44,6 @@ export const CATALOGUE: CatalogueRule[] = [
 
 const STATE_CODES: Record<string, string> = { karnataka: 'KA', maharashtra: 'MH', 'tamil nadu': 'TN', tamilnadu: 'TN', telangana: 'TS', delhi: 'DL', gujarat: 'GJ', haryana: 'HR', 'uttar pradesh': 'UP', 'west bengal': 'WB', kerala: 'KL', 'andhra pradesh': 'AP', rajasthan: 'RJ', 'madhya pradesh': 'MP', punjab: 'PB', bihar: 'BR', odisha: 'OR', goa: 'GA', assam: 'AS' };
 export const stateCode = (state: string | null | undefined) => (state ? STATE_CODES[state.trim().toLowerCase()] || state.trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) : null);
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
-const addDays = (date: string, days: number) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 /** A date with the day held inside the month: 31 January stays 31, 31 February becomes the 28th or 29th. */
 const ymd = (y: number, m: number, d: number) => { const last = new Date(Date.UTC(y, m, 0)).getUTCDate(); return `${y}-${String(m).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`; };
 
@@ -59,7 +58,7 @@ const shapeRule = (r: RuleRow, names: Map<string, string>) => ({
   id: r.id, ruleId: r.ruleId, version: r.version, title: r.title, jurisdiction: r.jurisdiction, establishmentKinds: r.establishmentKinds as string[], employeeCategories: r.employeeCategories as string[],
   legalSource: r.legalSource, notificationRef: r.notificationRef, effectiveFrom: r.effectiveFrom, effectiveTo: r.effectiveTo, supersedesVersion: r.supersedesVersion, obligation: r.obligation, threshold: (r.threshold as { minHeadcount?: number } | null) || null,
   ownerRole: r.ownerRole, dueRule: r.dueRule as DueRule, requiredProof: r.requiredProof as string[], reviewStatus: r.reviewStatus, active: r.active,
-  checkedBy: r.checkedByUserId ? names.get(r.checkedByUserId) || '' : '', checkedAt: r.checkedAt, checkedLine: r.reviewStatus === 'CHECKED' && r.checkedAt ? `Last checked by ${names.get(r.checkedByUserId || '') || 'someone'} on ${new Date(r.checkedAt.getTime() + 330 * 60_000).toISOString().slice(0, 10)}` : 'Check with your adviser', createdAt: r.createdAt,
+  checkedBy: r.checkedByUserId ? names.get(r.checkedByUserId) || '' : '', checkedAt: r.checkedAt, checkedLine: r.reviewStatus === 'CHECKED' && r.checkedAt ? `Last checked by ${names.get(r.checkedByUserId || '') || 'someone'} on ${istDate(r.checkedAt)}` : 'Check with your adviser', createdAt: r.createdAt,
 });
 
 /** The library, seeded from the catalogue the first time it is read. */
@@ -170,7 +169,7 @@ function periodsOf(rule: DueRule, est: { createdAt: Date } | null, from: string,
   /* A standing duty is due now and stays due until it is done. */
   if (rule.kind === 'STANDING') return [{ period: 'STANDING', dueOn: today }];
   if (rule.kind === 'ONCE') {
-    const start = est ? new Date(est.createdAt.getTime() + 330 * 60_000).toISOString().slice(0, 10) : from;
+    const start = est ? istDate(est.createdAt) : from;
     return [{ period: 'ONCE', dueOn: addDays(start, rule.days) }];
   }
   for (let y = fy - 1; y <= ty; y += 1) {
@@ -213,7 +212,7 @@ const DONE_STATES = ['DONE', 'CHECKED', 'NOT_APPLICABLE'];
  * for a registration to renew) → OVERDUE after.
  */
 export async function buildObligations(accountId: string, orgId: string, now = new Date()) {
-  const today = new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
+  const today = todayIst(now);
   const from = addDays(today, -62);
   const to = addDays(today, 183);
   const [rules, ests, headcount, applies, org] = await Promise.all([
@@ -234,7 +233,7 @@ export async function buildObligations(accountId: string, orgId: string, now = n
     }
   }
   /* Statutory deadlines from Payroll's settings; nothing from before the company was on CLOR. The POSH report comes from the library instead. */
-  const joined = org ? new Date(org.createdAt.getTime() + 330 * 60_000).toISOString().slice(0, 10) : from;
+  const joined = org ? istDate(org.createdAt) : from;
   for (const d of dueDates(applies, joined > from ? joined : from, to)) {
     if (d.code === 'POSH_REPORT') continue;
     rows.push({ ruleId: d.code, ruleVersion: 0, establishmentId: null, period: d.period, title: d.title, dueOn: d.dueDate, source: 'STATUTORY' });
@@ -298,7 +297,7 @@ export async function obligationsOf(accountId: string, orgId: string, where: { s
   const names = await namesOf([...rows.flatMap((r) => [r.ownerUserId, r.doneByUserId, r.checkedByUserId]), ...proofs.map((p) => p.uploadedByUserId)]);
   const rules = await peoplePrisma.complianceRule.findMany({ where: { orgId, ruleId: { in: [...new Set(rows.map((r) => r.ruleId))] } }, select: { ruleId: true, version: true, reviewStatus: true, legalSource: true, requiredProof: true, ownerRole: true } });
   const ruleOf = new Map(rules.map((r) => [`${r.ruleId}@${r.version}`, r]));
-  const day = (d: Date | null) => (d ? new Date(d.getTime() + 330 * 60_000).toISOString().slice(0, 10) : null);
+  const day = (d: Date | null) => (d ? istDate(d) : null);
   return rows.map((o) => {
     const rule = ruleOf.get(`${o.ruleId}@${o.ruleVersion}`);
     const statutory = o.source === 'STATUTORY' ? statutoryOf(o.ruleId) : null;
@@ -506,5 +505,5 @@ export async function leaveRegister(orgId: string, establishmentId: string | nul
   const types = await peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true } });
   const typeOf = new Map(types.map((t) => [t.id, t.name]));
   const of = new Map(people.map((p) => [p.id, p]));
-  return { from, to, columns: ['Employee ID', 'Name', 'Leave type', 'From', 'To', 'Days', 'Approved on'], rows: leaves.map((l) => [of.get(l.employeeId)?.code || '', of.get(l.employeeId)?.name || '', typeOf.get(l.leaveTypeId) || '', l.fromDate, l.toDate, String(l.days), l.reviewedAt ? new Date(l.reviewedAt.getTime() + 330 * 60_000).toISOString().slice(0, 10) : '']) };
+  return { from, to, columns: ['Employee ID', 'Name', 'Leave type', 'From', 'To', 'Days', 'Approved on'], rows: leaves.map((l) => [of.get(l.employeeId)?.code || '', of.get(l.employeeId)?.name || '', typeOf.get(l.leaveTypeId) || '', l.fromDate, l.toDate, String(l.days), l.reviewedAt ? istDate(l.reviewedAt) : '']) };
 }

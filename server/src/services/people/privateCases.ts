@@ -4,6 +4,7 @@ import { platformPrisma } from '../../utils/platformPrisma.js';
 import { notifyUsers } from '../notifications.js';
 import { decodeDocument } from './documentFiles.js';
 import { openBytes, openText, seal } from './caseBox.js';
+import { addDays, addMonths, todayIst } from '../../utils/istDate.js';
 
 /**
  * Private cases (docs/people/02-PRD.md PRIV-01..06; compliance matrix
@@ -23,15 +24,6 @@ const COMMITTEE_OF: Record<CaseKind, string> = { POSH: 'POSH_IC', GRIEVANCE: 'GR
 export const COMMITTEE_KINDS = ['POSH_IC', 'GRIEVANCE'] as const;
 const ROLES = ['PRESIDING', 'MEMBER', 'EXTERNAL', 'OFFICER'] as const;
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
-const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
-const addMonths = (d: string, n: number) => {
-  const [y, m, day] = d.split('-').map(Number);
-  const target = new Date(Date.UTC(y, m - 1 + n, 1));
-  const last = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
-  target.setUTCDate(Math.min(day, last));
-  return target.toISOString().slice(0, 10);
-};
 
 export class CaseError extends Error {
   constructor(message: string, public status = 400) {

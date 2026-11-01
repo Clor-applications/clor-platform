@@ -7,11 +7,12 @@ import { notifyPermission } from '../notifications.js';
 import { isFeatureEnabled } from '../features.js';
 import { sendTemplate } from '../mailer.js';
 import { isWeeklyOff, istDate } from '../attendance/compute.js';
-import { daysBetween, periodContext, today } from '../attendance/days.js';
+import { periodContext, today } from '../attendance/days.js';
 import { rulesOf, timeRulesFor } from '../attendance/timeRules.js';
 import { issueLetter, LetterError } from './letters.js';
 import { leaveEmployee } from './lifecycle/leaving.js';
 import { writeEvent } from './outbox.js';
+import { eachDay } from '../../utils/istDate.js';
 
 /**
  * Unexplained absence and absconding (WORKFLOW-GAP-RESEARCH-2026-10-30 A12, A13, 4.6).
@@ -83,7 +84,7 @@ export async function streaks(accountId: string, orgId: string, opts: { employee
     let last: string | null = null;
     let lastWorked: string | null = null;
     /* Back from yesterday until a day that breaks the run. */
-    for (const d of daysBetween(from, to).reverse()) {
+    for (const d of eachDay(from, to).reverse()) {
       if (!span.has(d)) break;
       if (holidays.has(d) || isWeeklyOff(ctx.shiftOn(p.id, d).rule, d)) continue;
       const r = recs.get(d);

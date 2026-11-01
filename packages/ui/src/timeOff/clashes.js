@@ -1,3 +1,4 @@
+import { addDaysIso as addDays } from '@ui/utils/dates';
 /**
  * Two or more people of one group away on the same day (M4): Who's away and
  * the Leave calendar flag it, as the approval panel's "Also away then" does,
@@ -8,7 +9,6 @@
  * a clash is worth knowing before it is approved. Days are the ones between
  * `from` and `to`, both included. Each clash: { date, to, group, count, names, waiting }.
  */
-const addDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
 export function clashDays(rows, from, to, { oneGroup = false } = {}) {
   const out = [];

@@ -1,5 +1,6 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { policiesFor } from './policies.js';
+import { todayIst } from '../../utils/istDate.js';
 
 /**
  * Decision records (docs/people/02-PRD.md TRACE-05). When a request is
@@ -10,7 +11,6 @@ import { policiesFor } from './policies.js';
  */
 
 type Req = { id: string; accountId: string; orgId: string; subjectEmployeeId: string | null; ruleId: string; ruleVersion: number; payload: unknown };
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
 export async function recordDecision(request: Req) {
   const payload = (request.payload || {}) as { evidence?: Array<{ documentId?: string; title?: string }>; policyVersionIds?: string[] };

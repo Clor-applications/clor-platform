@@ -6,6 +6,8 @@ import { isAppEntitled } from '../../subscriptions.js';
 import { forLiveEmployee } from '../../payroll/employeeLock.js';
 import { approveLoan } from '../../payroll/loan.js';
 import { usersWithPermission } from '../../notifications.js';
+import { todayIst } from '../../../utils/istDate.js';
+export { todayIst };
 
 /**
  * People's money hands over to Payroll through Payroll's own records, the way
@@ -24,7 +26,6 @@ import { usersWithPermission } from '../../notifications.js';
  * plain words and the People record keeps waiting.
  */
 
-export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
 export async function payrollOn(accountId: string, orgId: string) {
   return (await isAppEntitled(accountId, 'payroll')) && (await isFeatureEnabled(accountId, orgId, 'payroll'));

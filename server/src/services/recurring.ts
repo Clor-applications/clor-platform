@@ -1,6 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import { isFeatureEnabled } from './features.js';
 import { appLive } from './principalAllowed.js';
+import { addMonths } from '../utils/istDate.js';
 
 /**
  * Raising the invoices a schedule is due.
@@ -21,14 +22,6 @@ import { appLive } from './principalAllowed.js';
 
 const CATCH_UP_LIMIT = 12;
 
-const addMonths = (iso: string, n: number) => {
-  const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number);
-  const date = new Date(Date.UTC(y, m - 1 + n, 1));
-  const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
-  // Jan 31 + 1 month is Feb 28, not Mar 3.
-  date.setUTCDate(Math.min(d, lastDay));
-  return date.toISOString().slice(0, 10);
-};
 
 export const advanceRunDate = (iso: string, frequency: string, interval = 1) => {
   const n = Math.max(1, Math.floor(Number(interval) || 1));

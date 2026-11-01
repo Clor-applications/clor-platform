@@ -6,6 +6,7 @@ import { notifyUsers, sendNotice, usersWithPermission } from '../../notification
 import type { TeamScope } from '../scope.js';
 import { TalentError, anonymiseOldCandidates } from './hiring.js';
 import { runReferralBonuses } from './referrals.js';
+import { addDays, addMonths, todayIst } from '../../../utils/istDate.js';
 
 /**
  * Talent → Training (docs/people/design-v1/TALENT-DECISIONS.md): one training, many people.
@@ -16,14 +17,7 @@ import { runReferralBonuses } from './referrals.js';
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const text = (v: unknown, max: number) => { const s = String(v ?? '').trim(); return s ? s.slice(0, max) : null; };
 const date = (v: unknown) => { const s = String(v ?? '').trim(); if (!s) return null; if (!ISO.test(s)) throw new TalentError('Dates are YYYY-MM-DD.'); return s; };
-const todayIst = (now = new Date()) => new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
-export const addMonths = (iso: string, months: number) => {
-  const [y, m, d] = iso.split('-').map(Number);
-  const target = new Date(Date.UTC(y, m - 1 + months, 1));
-  const last = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
-  target.setUTCDate(Math.min(d, last));
-  return target.toISOString().slice(0, 10);
-};
+export { addMonths };
 export const CERT_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 export const CERT_MAX = 5 * 1024 * 1024;
 
@@ -114,7 +108,6 @@ const seatShape = (s: any, name?: { name: string; code: string | null } | null, 
   expired: Boolean(s.expiresOn && s.expiresOn < today), expiringSoon: Boolean(s.expiresOn && s.expiresOn >= today && s.expiresOn <= addDays(today, 60)),
   cert: s.certName ? { name: s.certName, size: s.certSize, mime: s.certMime } : null, certUrl: s.certUrl,
 });
-const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 export async function listTrainings(orgId: string, scope: TeamScope, q: { status?: string; q?: string } = {}) {
   const rows = await peoplePrisma.training.findMany({ where: { orgId, ...(q.status === 'all' ? {} : q.status ? { status: q.status } : { status: { not: 'CANCELLED' } }) }, orderBy: [{ startDate: 'desc' }, { createdAt: 'desc' }], take: 500 });

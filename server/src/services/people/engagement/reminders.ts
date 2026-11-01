@@ -4,6 +4,7 @@ import { resolveAccess } from '../../access.js';
 import { sendNotice, usersWithPermission } from '../../notifications.js';
 import { teamScope } from '../scope.js';
 import { mailOnce, registerRecipe } from './automations.js';
+import { addDays as plusDays } from '../../../utils/istDate.js';
 
 /**
  * The ready-made automations that remind (WORKFLOW-GAP-RESEARCH-2026-10-30 4.7), each reusing what CLOR
@@ -15,7 +16,6 @@ import { mailOnce, registerRecipe } from './automations.js';
  * Each runs once a company a day under the automations job's claim; notices carry a key per day besides.
  */
 
-const plusDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 const longDay = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 
 registerRecipe('leaveWaiting', async ({ accountId, orgId, today, n, now }) => {

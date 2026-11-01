@@ -5,6 +5,7 @@ import DatePicker from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { notify } from '@ui/components/ui/notify';
 import { createOffer, offerSetup, previewOffer } from './api';
+import { todayIst } from '@ui/utils/dates';
 
 /*
  * Send an offer from CLOR (HR-VIEW gap 5), to a draft hire (`employee`) or
@@ -14,7 +15,6 @@ import { createOffer, offerSetup, previewOffer } from './api';
  * accept; accepting is recorded and HR is told.
  */
 
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const plusDays = (n) => new Date(Date.parse(`${todayIst()}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 const TYPED = '__typed';
 

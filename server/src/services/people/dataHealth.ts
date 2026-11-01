@@ -4,6 +4,7 @@ import { isFeatureEnabled } from '../features.js';
 import { OUTSIDE_PAYROLL } from './employmentKinds.js';
 import { balancesFor, leaveYearOf } from '../attendance/leaveBalances.js';
 import { structureChecks } from './structureHealth.js';
+import { todayIst } from '../../utils/istDate.js';
 
 /**
  * Data health: the implementation auditor from the HR research ("finds
@@ -66,7 +67,7 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
 
   /* Documents past their date (DOC-03, LIFE-08): a lapsed permit first, then anything else that has run out. */
   {
-    const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    const today = todayIst();
     const byId = new Map(employees.map((e) => [e.id, e]));
     const expired = await peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId: { in: employees.map((e) => e.id) }, expiresOn: { not: null, lt: today } }, select: { employeeId: true, kind: true, title: true, classification: true, expiresOn: true, restrictsWork: true }, orderBy: { expiresOn: 'asc' } });
     /* A document the viewer may not open is counted, never named. */
@@ -98,7 +99,7 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
 
   /* Plan tasks past their date (HLTH-01): joining, leaving, renewals and changes. */
   {
-    const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    const today = todayIst();
     const late = await peoplePrisma.checklistTask.findMany({ where: { orgId, doneAt: null, dueDate: { not: null, lt: today } }, select: { employeeId: true, title: true, dueDate: true }, orderBy: { dueDate: 'asc' } });
     const byId = new Map(employees.map((e) => [e.id, e]));
     /* One line per person, not per task: how many are late and the oldest one. */
@@ -132,7 +133,7 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
 
   /* People: an end date that passed with nothing decided. */
   {
-    const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    const today = todayIst();
     add({ id: 'contract-ended', area: 'People', severity: 'FIX_SOON', title: 'Contract ended, still working', why: 'Their contract or internship end date has passed and they are still active, so they keep being paid on an ended contract.', fix: 'Renew the contract with a new end date, or record their leaving.', screen: 'employees' },
       employees.filter((e) => e.contractEndDate && String(e.contractEndDate).slice(0, 10) < today).map((e) => who(e, `ended ${dayWords(e.contractEndDate)}`)));
     add({ id: 'probation-due', area: 'People', severity: 'TIDY_UP', title: 'Probation over, not decided', why: 'The probation date passed without a confirmation, extension or end; leave and benefits that start on confirmation wait for it.', fix: 'Confirm, extend or end it on their Employment tab.', screen: 'employees' },
@@ -243,8 +244,7 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
   const order: Record<Severity, number> = { BLOCKS_PAYROLL: 0, FIX_SOON: 1, TIDY_UP: 2 };
   checks.sort((a, b) => order[a.severity] - order[b.severity] || b.count - a.count);
   /* Snoozed items step aside until their date (HLTH-03); they are still counted as snoozed, never hidden silently. */
-  const todayIst = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
-  const snoozes = await peoplePrisma.healthSnooze.findMany({ where: { orgId, endedAt: null, until: { gt: todayIst } }, orderBy: { createdAt: 'desc' } });
+  const snoozes = await peoplePrisma.healthSnooze.findMany({ where: { orgId, endedAt: null, until: { gt: todayIst() } }, orderBy: { createdAt: 'desc' } });
   const snoozeOf = new Map<string, (typeof snoozes)[number]>();
   for (const z of snoozes) if (!snoozeOf.has(z.checkId)) snoozeOf.set(z.checkId, z);
   const live = checks.filter((c) => !snoozeOf.has(c.id));

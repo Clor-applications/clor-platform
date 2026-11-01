@@ -10,6 +10,7 @@ import { ApprovalError, PORTAL_PREFIX, activeRule, reply, submitRequest, withdra
 import { adjustmentState, draftAdjustment, payCap, periodToPayIn, todayIst } from './payrollBridge.js';
 import { foldRecovery, liveLink, recoveryChain } from '../../payroll/recoveryChain.js';
 import { isValidGstinChecksum } from '../../../utils/gstin.js';
+import { addDays } from '../../../utils/istDate.js';
 
 /**
  * Expense claims and advances (WORKFLOW-GAP-RESEARCH 30 Oct 2026, 4.1).
@@ -47,11 +48,6 @@ export const BILL_MAX_BYTES = 5 * 1024 * 1024;
 const BILL_MIMES = /^(application\/pdf|image\/(jpeg|png|webp))$/;
 const OPEN_CLAIM = ['DRAFT', 'SUBMITTED', 'APPROVED', 'PAYING', 'WITH_SALARY', 'PAID', 'SETTLED'];
 const num = (v: unknown) => (v == null ? 0 : Number(v));
-const addDays = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 const PENDING = 'pending:';
 
 // ---------------------------------------------------------------------------

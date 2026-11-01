@@ -8,6 +8,7 @@
  * far back apply to people asking for themselves; HR entering leave on
  * someone's behalf — usually after the fact — is not held to them.
  */
+import { addDays } from '../../utils/istDate.js';
 
 export type LeavePolicy = {
   name: string;
@@ -39,11 +40,6 @@ export function placeProblem(type: Pick<LeavePolicy, 'name' | 'departmentIds' | 
   return null;
 }
 
-const addDays = (date: string, n: number) => {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 export const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
 export function policyProblem(

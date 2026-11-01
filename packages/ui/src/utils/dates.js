@@ -16,6 +16,22 @@ export const todayIso = () => istDate(Date.now());
 
 export const plusDaysIso = (days) => istDate(Date.now() + days * 24 * 60 * 60 * 1000);
 
+/** Today in India: the name the People, Attendance and portal screens use (the same as `todayIso`). */
+export const todayIst = todayIso;
+
+/**
+ * A server timestamp's day in India. `createdAt` is UTC; slicing it would put
+ * an evening request on the day before.
+ */
+export const istDay = (at) => istDate(new Date(at).getTime());
+
+/** A calendar date `n` days on (or back), as YYYY-MM-DD. */
+export const addDaysIso = (iso, n) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
 /**
  * A date as this country writes it: 12/09/2026, not 2026-09-12.
  *

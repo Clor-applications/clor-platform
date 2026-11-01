@@ -15,6 +15,7 @@ import { listEmployees } from '@ui/personnel/api';
 import {
   deskAssign, deskMessage, deskMoveToCase, deskReopen, deskResolve, deskTemplates, getDeskRequest, listDesk, orgUsers, raiseDeskRequest,
 } from '../api/desk';
+import { istDay } from '@ui/utils/dates';
 
 /**
  * Help desk (DESK-01..06): what employees asked, by queue, with reply-by
@@ -28,7 +29,6 @@ const TABS = [['OPEN', 'Open'], ['WAITING_EMPLOYEE', 'Waiting on them'], ['RESOL
 const STATUS = { OPEN: ['Open', 'ui-pill-info'], REOPENED: ['Reopened', 'ui-pill-warn'], WAITING_EMPLOYEE: ['Waiting on them', 'ui-pill-neutral'], RESOLVED: ['Resolved', 'ui-pill-pos'], MOVED: ['Moved', 'ui-pill-neutral'] };
 const URGENCY = { LOW: 'Low', NORMAL: 'Normal', HIGH: 'High', URGENT: 'Urgent' };
 const time = (d) => new Date(d).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
-const istDay = (d) => new Date(new Date(d).getTime() + 330 * 60_000).toISOString().slice(0, 10);
 const day = (d) => (d ? formatDate(istDay(d)) : '');
 const when = (d) => (d ? `${day(d)}, ${time(d)}` : '');
 

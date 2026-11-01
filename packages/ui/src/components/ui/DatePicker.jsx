@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from '@ui/components/ui/lineIcons';
+import { addDaysIso as addDays, todayIso } from '@ui/utils/dates';
 
 /**
  * DatePicker (People design spec v1 §5): type a date or pick one. Value in
@@ -37,14 +38,12 @@ export function parseDate(text) {
   return iso(y, m, d);
 }
 
-const addDays = (v, n) => { const t = new Date(`${v}T00:00:00Z`); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
 const addMonths = (v, n) => {
   const [y, m, d] = v.split('-').map(Number);
   const t = new Date(Date.UTC(y, m - 1 + n, 1));
   const last = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate();
   return iso(t.getUTCFullYear(), t.getUTCMonth(), Math.min(d, last));
 };
-const todayIso = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
 export default function DatePicker({ id, value = '', onChange, min = '', max = '', disabled = false, required = false, invalid = false, describedBy, placeholder = 'DD/MM/YYYY', label }) {
   const auto = useId();

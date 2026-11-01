@@ -4,10 +4,11 @@ import { notifyUsers } from '../notifications.js';
 import { isOvernight, isWeeklyOff } from '../attendance/compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../attendance/schedule.js';
 import { assertScheduleOpen, scheduleGuard } from '../attendance/scheduleGuard.js';
-import { daysBetween, today } from '../attendance/days.js';
+import { today } from '../attendance/days.js';
 import { nightRefusal } from './nightConsent.js';
 import { ApprovalError, PORTAL_PREFIX, activeRule, beforeApproving, onApproved, onClosed, saveRule, submitRequest, withdraw } from './approvals/engine.js';
 import type { Actor } from './changeLog.js';
+import { eachDay } from '../../utils/istDate.js';
 
 /**
  * Shift swaps (FEATURE-UI-AUDIT gap 24; WORKFLOW-GAP-RESEARCH: Frappe HR's
@@ -95,7 +96,7 @@ export async function swapContext(orgId: string, people: Person[], from: string,
   for (const p of people) {
     const plan: Plan = new Map();
     const mine = holidays.forArea(p.areaId, p.branchId);
-    for (const date of daysBetween(a, b)) {
+    for (const date of eachDay(a, b)) {
       const r = resolveShift(data, p.id, date);
       const onLeave = leave.find((l) => l.employeeId === p.id && l.fromDate <= date && l.toDate >= date);
       const off = onLeave ? (onLeave.status === 'PENDING' ? 'has leave waiting' : 'is on leave') : mine.has(date) ? 'has a holiday' : isWeeklyOff(r.rule, date) ? 'has a weekly off' : null;
@@ -151,7 +152,7 @@ export async function checkSwap(orgId: string, requester: Person, colleague: Per
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) throw new SwapError('Give the days as YYYY-MM-DD.');
   if (to < from) throw new SwapError('The last day is before the first.');
   if (from <= today()) throw new SwapError('A swap is for days still to come; today and earlier are already planned.');
-  const dates = daysBetween(from, to);
+  const dates = eachDay(from, to);
   if (dates.length > MAX_SWAP_DAYS) throw new SwapError(`Up to ${MAX_SWAP_DAYS} days in one swap.`);
   if (requester.id === colleague.id) throw new SwapError('Choose someone else to swap with.');
   if (ACTIVE.notIn.includes(colleague.status)) throw new SwapError(`${colleague.name} is not working here now.`);
@@ -207,7 +208,7 @@ async function personIn(orgId: string, id: string) {
  */
 export async function colleaguesFor(orgId: string, requesterId: string, from: string, to: string) {
   const requester = await personIn(orgId, requesterId);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || to < from || daysBetween(from, to).length > MAX_SWAP_DAYS || from <= today()) return [];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || to < from || eachDay(from, to).length > MAX_SWAP_DAYS || from <= today()) return [];
   const others = (await peoplePrisma.employee.findMany({ where: { orgId, id: { not: requester.id }, status: ACTIVE }, select: personSelect, orderBy: { name: 'asc' }, take: 500 })) as Person[];
   if (!others.length) return [];
   /* Read once for everyone; each colleague is then checked in memory. */

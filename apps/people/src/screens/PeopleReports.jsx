@@ -9,6 +9,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { apiFetch } from '@platform/http';
 import { orgId } from '@platform/context';
 import { leavingReasons } from '../api/engagement';
+import { todayIst } from '@ui/utils/dates';
 
 /**
  * People report (People audit gap 21): headcount, joiners, leavers and
@@ -19,7 +20,6 @@ import { leavingReasons } from '../api/engagement';
  * leavers over the average of the months.
  */
 
-const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const monthWord = (m) => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
 const lastOf = (y, m) => new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);

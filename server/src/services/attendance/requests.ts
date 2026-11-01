@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { peoplePrisma, peopleWrite, afterPeopleCommit } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
-import { ISO_DATE, closedMonthRefusal, daysBetween, employeeIn, fail, instants, isHoliday, shiftFor, today, withNames, writeDay } from './days.js';
+import { ISO_DATE, closedMonthRefusal, employeeIn, fail, instants, isHoliday, shiftFor, today, withNames, writeDay } from './days.js';
 import { isHHMM, isOvernight, isWeeklyOff } from './compute.js';
 import { loadSchedule, resolveShift } from './schedule.js';
 import { assertScheduleOpen } from './scheduleGuard.js';
@@ -20,6 +20,7 @@ import { approverUsers, queueNotice, revisionOf } from './notices.js';
 import { resolveAccess } from '../access.js';
 import { inScope, teamScope, type TeamScope } from '../people/scope.js';
 import { isFeatureEnabled } from '../features.js';
+import { addDays, eachDay } from '../../utils/istDate.js';
 
 /**
  * Attendance requests (TIME-LEAVE-DECISIONS.md, advanced build): four kinds on
@@ -101,11 +102,6 @@ const hoursWords = (minutes: number) => {
   return [h ? `${h} ${h === 1 ? 'hour' : 'hours'}` : '', m ? `${m} minutes` : ''].filter(Boolean).join(' ');
 };
 const round = (n: number) => Math.round(n * 100) / 100;
-const addDays = (date: string, n: number) => {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 type Employee = { id: string; branchId: string | null; areaId?: string | null; name?: string | null };
 type HistoryEntry = { at: string; by: string; what: string; note?: string | null; from?: Record<string, unknown>; to?: Record<string, unknown> };
 /* Typed loosely on purpose: Prisma's Json input wants a plain array, not an interface. */
@@ -142,9 +138,9 @@ async function amountOf(orgId: string, employee: Employee, r: { kind: string; da
   if (r.kind === 'MISSED_PUNCH') return 1;
   if (r.kind === 'PERMISSION') return (r.minutes || 0) / 60;
   /* A shift change counts every day it covers: the new shift has its own days off. */
-  if (r.kind === 'SHIFT_CHANGE') return daysBetween(r.date, r.toDate || r.date).filter((d) => d.slice(0, 7) === month).length;
+  if (r.kind === 'SHIFT_CHANGE') return eachDay(r.date, r.toDate || r.date).filter((d) => d.slice(0, 7) === month).length;
   if (r.halfDay) return 0.5;
-  const dates = daysBetween(r.date, r.toDate || r.date).filter((d) => d.slice(0, 7) === month);
+  const dates = eachDay(r.date, r.toDate || r.date).filter((d) => d.slice(0, 7) === month);
   return (await workingDates(orgId, employee, dates)).length;
 }
 
@@ -221,7 +217,7 @@ async function validate(who: Asker, employee: Employee, b: Ask, rules: Record<Ki
   if (kind === 'WFH' || kind === 'ON_DUTY') {
     toDate = b.toDate || b.date;
     if (toDate < b.date) throw fail(400, 'The end is before the start.');
-    if (daysBetween(b.date, toDate).length > MAX_SPAN_DAYS) throw fail(400, `Up to ${MAX_SPAN_DAYS} days in one request.`);
+    if (eachDay(b.date, toDate).length > MAX_SPAN_DAYS) throw fail(400, `Up to ${MAX_SPAN_DAYS} days in one request.`);
     if (b.halfDay && toDate !== b.date) throw fail(400, 'A half day is one day; give one date.');
     if (kind === 'ON_DUTY' && !b.place) throw fail(400, 'Where will you be? Give the place.');
   }
@@ -229,13 +225,13 @@ async function validate(who: Asker, employee: Employee, b: Ask, rules: Record<Ki
   if (kind === 'SHIFT_CHANGE') {
     toDate = b.toDate || b.date;
     if (toDate < b.date) throw fail(400, 'The end is before the start.');
-    if (daysBetween(b.date, toDate).length > MAX_SHIFT_DAYS) throw fail(400, `Up to ${MAX_SHIFT_DAYS} days in one request.`);
+    if (eachDay(b.date, toDate).length > MAX_SHIFT_DAYS) throw fail(400, `Up to ${MAX_SHIFT_DAYS} days in one request.`);
     if (!b.shiftId) throw fail(400, 'Choose the shift you want to work.');
     const shift = await peoplePrisma.shift.findFirst({ where: { id: b.shiftId, orgId: who.orgId, isActive: true }, select: { id: true, name: true } });
     if (!shift) throw fail(400, 'That shift is not in use in this company.');
     /* Asking for the shift already worked on every one of those days changes nothing. */
     const schedule = await loadSchedule(who.orgId, [employee.id]);
-    const differs = daysBetween(b.date, toDate).some((d) => resolveShift(schedule, employee.id, d).shiftId !== shift.id);
+    const differs = eachDay(b.date, toDate).some((d) => resolveShift(schedule, employee.id, d).shiftId !== shift.id);
     if (!differs) throw fail(400, `${shift.name} is already the shift on those days.`, 'SAME_SHIFT');
     /* A woman asking for a shift into the night needs her consent on file (OSH Code s.43). */
     await assertNightConsent(who.orgId, [{ employeeId: employee.id, shiftIds: [shift.id] }], { self: !who.onBehalf });
@@ -248,7 +244,7 @@ async function validate(who: Asker, employee: Employee, b: Ask, rules: Record<Ki
     if (minutes < 15 || minutes > rule.maxMinutes) throw fail(400, `A permission is between 15 minutes and ${hoursWords(rule.maxMinutes)}.`);
   }
   /* A closed Attendance month: refused now, not left waiting for an approval that can never happen (O-09). */
-  const shut = await closedMonthRefusal(who.orgId, daysBetween(b.date, toDate || b.date), 'request');
+  const shut = await closedMonthRefusal(who.orgId, eachDay(b.date, toDate || b.date), 'request');
   if (shut) throw shut;
   if (!who.onBehalf && b.date < addDays(t, -rule.backDays)) throw fail(400, `${name} requests go back ${rule.backDays} days at most; ask HR for older days.`, 'TOO_OLD');
   const span = { date: b.date, toDate };
@@ -267,14 +263,14 @@ async function validate(who: Asker, employee: Employee, b: Ask, rules: Record<Ki
   }
   let need = 1;
   if (kind === 'WFH' || kind === 'ON_DUTY') {
-    const working = await workingDates(who.orgId, employee, daysBetween(b.date, last));
+    const working = await workingDates(who.orgId, employee, eachDay(b.date, last));
     if (!working.length) throw fail(400, 'Those days are weekly offs or holidays; nothing to ask for.');
     need = b.halfDay ? 0.5 : working.length;
   }
   if (kind === 'PERMISSION') need = (minutes || 0) / 60;
-  if (kind === 'SHIFT_CHANGE') need = daysBetween(b.date, last).length;
+  if (kind === 'SHIFT_CHANGE') need = eachDay(b.date, last).length;
   /* A span over a month end is checked against each month's quota, with the days that fall in it. */
-  const spanDays = kind === 'WFH' || kind === 'ON_DUTY' ? await workingDates(who.orgId, employee, daysBetween(b.date, last)) : kind === 'SHIFT_CHANGE' ? daysBetween(b.date, last) : [];
+  const spanDays = kind === 'WFH' || kind === 'ON_DUTY' ? await workingDates(who.orgId, employee, eachDay(b.date, last)) : kind === 'SHIFT_CHANGE' ? eachDay(b.date, last) : [];
   const months = [...new Set((spanDays.length ? spanDays : [b.date]).map((d) => d.slice(0, 7)))];
   for (const month of months) {
     const needHere = kind === 'WFH' || kind === 'ON_DUTY' || kind === 'SHIFT_CHANGE' ? (b.halfDay && kind !== 'SHIFT_CHANGE' ? 0.5 : spanDays.filter((d) => d.slice(0, 7) === month).length) : need;
@@ -500,7 +496,7 @@ async function applyApproved(accountId: string, orgId: string, r: any, userId: s
     await writeDay({ accountId, orgId, userId, employee, date: r.date, checkIn: existing?.checkIn ?? null, checkOut: existing?.checkOut ?? null, source: existing?.source || 'REQUEST', dayKind: 'PERMISSION', attendanceRequestId: r.id, reason, ...(note ? { note } : {}) });
     return;
   }
-  for (const date of await workingDates(orgId, employee, daysBetween(r.date, last))) {
+  for (const date of await workingDates(orgId, employee, eachDay(r.date, last))) {
     const existing = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: r.employeeId, date } } });
     /* A full day is present by the request. A half day with punches is worked out from them; with none (a company without punches) the day is present by the request too, never absent. */
     await writeDay({ accountId, orgId, userId, employee, date, checkIn: existing?.checkIn ?? null, checkOut: existing?.checkOut ?? null, statusOverride: r.halfDay && existing?.checkIn ? null : 'PRESENT', source: 'REQUEST', dayKind: kind, attendanceRequestId: r.id, reason, ...(note ? { note } : {}) });

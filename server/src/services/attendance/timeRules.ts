@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { recordRuleVersion } from './ruleVersions.js';
 import { isHHMM } from './compute.js';
+import { todayIst as istDay } from '../../utils/istDate.js';
 
 /**
  * People → Settings → Attendance rules (WORKFLOW-GAP-RESEARCH-2026-10-30 4.4, 4.5, 4.6, B19), kept in
@@ -160,7 +161,6 @@ export const nextMonthStart = (day: string) => {
   const [y, m] = day.slice(0, 7).split('-').map(Number);
   return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
 };
-const istDay = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const monthEnd = (day: string) => {
   const [y, m] = day.slice(0, 7).split('-').map(Number);
   return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);

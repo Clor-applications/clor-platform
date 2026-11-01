@@ -1,4 +1,6 @@
 import { API_BASE } from '@platform/http';
+import { todayIst } from '@ui/utils/dates';
+export { todayIst };
 
 /**
  * The employee portal's own transport (server: routes/portal.ts). Its token is
@@ -149,7 +151,6 @@ export const changePassword = (current, next) =>
 /** A selfie made small on the phone (640 px, JPEG) before it is sent. */
 export { shrinkPhoto } from '@ui/timeOff/shrinkPhoto';
 
-export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 export const hm = (minutes) => {
   const m = Math.max(0, Number(minutes) || 0);
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;

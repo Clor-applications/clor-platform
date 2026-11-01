@@ -1,9 +1,10 @@
 import { Prisma } from '../../generated/payroll/index.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
-import { daysBetween, daysOfMonth, periodContext, periodRows } from '../attendance/days.js';
+import { daysOfMonth, periodContext, periodRows } from '../attendance/days.js';
 import { isWeeklyOff } from '../attendance/compute.js';
 import { isFeatureEnabled } from '../features.js';
+import { eachDay } from '../../utils/istDate.js';
 
 /**
  * Provisional days (closure audit O-11, TLA-004; feature
@@ -147,7 +148,7 @@ async function assumeWindow(accountId: string, orgId: string, from: string, to: 
 export async function provisionalPeriodRows(accountId: string, orgId: string, startDate: string, endDate: string, cutoffDate: string) {
   const windowFrom = nextDay(cutoffDate);
   const [before, window] = await Promise.all([
-    periodRows(accountId, orgId, daysBetween(startDate, cutoffDate)),
+    periodRows(accountId, orgId, eachDay(startDate, cutoffDate)),
     assumeWindow(accountId, orgId, windowFrom, endDate),
   ]);
   /* Employed days over the whole period, as periodRows counts them. */
@@ -155,7 +156,7 @@ export async function provisionalPeriodRows(accountId: string, orgId: string, st
     where: { orgId, id: { in: [...new Set([...before.map((r) => r.employeeId), ...window.keys()])] } },
     select: { id: true, dateOfJoining: true, dateOfLeaving: true },
   });
-  const all = daysBetween(startDate, endDate);
+  const all = eachDay(startDate, endDate);
   const spanOf = new Map(people.map((p) => [p.id, all.filter((d) => (!p.dateOfJoining || d >= p.dateOfJoining) && (!p.dateOfLeaving || d <= p.dateOfLeaving)).length]));
   const byId = new Map<string, any>(before.map((r) => [r.employeeId, r]));
   const rows: any[] = [];
@@ -410,7 +411,7 @@ export async function lateMarkMonthsOwed(orgId: string, period: { startDate: str
     if (!end || end >= period.startDate) continue;
     const w = r.provisionalDays as { from?: string; to?: string } | null;
     if (!w?.from || !w.to) continue;
-    const months = [...new Set(daysBetween(w.from, w.to).map((d) => d.slice(0, 7)))].filter((m) => {
+    const months = [...new Set(eachDay(w.from, w.to).map((d) => d.slice(0, 7)))].filter((m) => {
       const last = daysOfMonth(m).at(-1)!;
       return last >= w.from! && last <= w.to!;
     });

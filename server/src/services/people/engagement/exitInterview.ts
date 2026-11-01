@@ -9,6 +9,7 @@ import { ownPlanRefusal } from '../checklists.js';
 import { NO_SETTLEMENT } from '../lifecycle/leaving.js';
 import { cancelLeaving } from '../lifecycle/stayOn.js';
 import { mailOnce, registerRecipe } from './automations.js';
+import { addDays as plusDays } from '../../../utils/istDate.js';
 
 /**
  * Exit interviews (WORKFLOW-GAP-RESEARCH-2026-10-30 A8, 4.9). When someone is leaving, an interview is
@@ -61,7 +62,6 @@ export class ExitError extends Error {
 }
 
 const today = () => istDate(new Date());
-const plusDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 const plusMonths = (iso: string, n: number) => {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCMonth(d.getUTCMonth() + n);

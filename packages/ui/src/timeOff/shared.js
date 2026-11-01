@@ -1,6 +1,8 @@
 import { activeApp } from '@ui/utils/activeApp';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { can } from '@ui/permissions/can';
+import { istDay } from '@ui/utils/dates';
+export { istDay };
 
 /**
  * Time & Leave screens are shared by People and Attendance (TIME-LEAVE-DECISIONS.md,
@@ -33,4 +35,3 @@ export { activeApp };
 export const homeCrumbs = () => [{ label: APP_NAME[activeApp()] || 'People' }, { label: activeApp() === 'attendance' ? 'Time & Leave' : 'Time' }];
 
 /** A server timestamp's day in India (createdAt is UTC; slicing it would put an evening request on the day before). */
-export const istDay = (at) => new Date(new Date(at).getTime() + 330 * 60_000).toISOString().slice(0, 10);

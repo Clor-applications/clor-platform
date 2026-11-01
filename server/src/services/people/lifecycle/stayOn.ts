@@ -1,6 +1,7 @@
 import { peoplePrisma } from '../../../utils/peoplePrisma.js';
 import { recordChanges } from '../employmentHistory.js';
 import { updateEmployee } from '../employees.js';
+import { todayIst } from '../../../utils/istDate.js';
 
 /**
  * Leaving withdrawn while on notice (Workforce audit O11): a resignation
@@ -60,6 +61,6 @@ async function withdrawLeaving(who: Who, employeeId: string, reason: string | nu
       }
     },
   });
-  await recordChanges({ accountId, orgId, userId: who.userId }, existing as any, employee as any, { source: 'FORM', effectiveDate: new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10), note: `Leaving withdrawn${reason ? `: ${reason}` : ''}` });
+  await recordChanges({ accountId, orgId, userId: who.userId }, existing as any, employee as any, { source: 'FORM', effectiveDate: todayIst(), note: `Leaving withdrawn${reason ? `: ${reason}` : ''}` });
   return employee;
 }
