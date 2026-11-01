@@ -9,7 +9,6 @@ const send = (path, method, body) => apiFetch(`${base()}${path}`, { ...opts, met
 
 /* The claims, carrying the reimbursement line Payroll pays them on (`.reimbursement`: name, taxed). */
 export const listClaims = (status) => apiFetch(`${base()}/claims${status ? `?status=${id(status)}` : ''}`, opts).then((r) => Object.assign(r?.claims || [], { reimbursement: r?.reimbursement || null }));
-export const getClaim = (claimId) => apiFetch(`${base()}/claims/${id(claimId)}`, opts).then((r) => r?.claim);
 export const payClaim = (claimId, body) => send(`/claims/${id(claimId)}/pay`, 'POST', body).then((r) => r?.claim);
 export const sanctionClaim = (claimId, lines) => send(`/claims/${id(claimId)}/sanction`, 'POST', { lines }).then((r) => r?.claim);
 export const markRecorded = (body) => send('/books-recorded', 'POST', body);

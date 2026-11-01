@@ -30,9 +30,6 @@ export async function reminderLink(backendId) {
   }
 }
 
-export const revokeInvoiceShareLink = (invoiceId) =>
-  apiFetch(`${base()}/invoices/${encodeURIComponent(invoiceId)}/share`, { method: 'DELETE', ...opts });
-
 /**
  * Following a link. No session, no org header — the customer has no account
  * here, which is the whole point of the token.

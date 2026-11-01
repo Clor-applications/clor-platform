@@ -9,12 +9,11 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createStructure, deleteStructure, listStructure, updateStructure } from './api';
-import { KIND_WORDS } from './employmentKinds';
 
 /**
- * One screen for the five org-structure lists: departments, job positions,
- * job roles, employee types and work types. Each may hang under another
- * (a sub-department, a position in a department, a role in a position).
+ * One screen for the org-structure lists Attendance still shows: departments,
+ * job positions and areas. Each may hang under another (a sub-department, a
+ * position in a department, an area inside an area).
  */
 const KINDS = {
   departments: {
@@ -29,85 +28,11 @@ const KINDS = {
     description: 'The designations people hold — Accountant, Store Manager, Driver.',
     parent: { key: 'departmentId', kind: 'departments', label: 'Department' },
   },
-  'job-roles': {
-    title: 'Job Roles',
-    singular: 'job role',
-    description: 'A specialisation inside a designation — Accounts payable under Accountant, Night supervisor under Site supervisor.',
-    parent: { key: 'jobPositionId', kind: 'job-positions', label: 'Designation' },
-  },
-  'employee-types': {
-    title: 'Employment Types',
-    singular: 'employment type',
-    description: 'Permanent, fixed-term, trainee, intern, consultant. Probation is a date on the person, not a type.',
-    noDescription: true,
-    fields: [{ key: 'category', label: 'Counts as', type: 'select', options: Object.entries(KIND_WORDS) }, { key: 'probationMonths', label: 'Probation, months', placeholder: 'Blank if none' }, { key: 'noticeDays', label: 'Notice, days', placeholder: 'Blank if none' }],
-    columns: [{ key: 'category', label: 'Counts as', value: (r) => KIND_WORDS[r.category] || '' }, { key: 'probationMonths', label: 'Probation', value: (r) => (r.probationMonths ? `${r.probationMonths} ${r.probationMonths === 1 ? 'month' : 'months'}` : '') }],
-  },
-  'work-types': {
-    title: 'Work Modes',
-    singular: 'work mode',
-    description: 'Where the work happens — office, remote, hybrid, field.',
-    noDescription: true,
-  },
   areas: {
     title: 'Areas',
     singular: 'area',
     description: 'Sites and zones people work at — a plant, a branch, a floor. An area can sit inside another.',
     parent: { key: 'parentId', kind: 'areas', label: 'Inside area' },
-  },
-  'business-units': {
-    title: 'Business Units',
-    singular: 'business unit',
-    description: 'The divisions or domains the company runs as one business — Retail, Manufacturing, Services.',
-  },
-  grades: {
-    title: 'Grades',
-    singular: 'grade',
-    description: 'Levels or pay bands — L1, L2, M1 — that group designations and salaries.',
-  },
-  'cost-centres': {
-    title: 'Cost Centres',
-    singular: 'cost centre',
-    description: 'Where a person’s salary cost is booked in the accounts — a plant, a project, a client.',
-  },
-  'legal-entities': {
-    title: 'Company (legal)',
-    singular: 'legal entity',
-    description: 'The registered company its establishments belong to. Identifiers are shown masked.',
-    fields: [
-      { key: 'pan', label: 'PAN', placeholder: 'ABCDE1234F' },
-      { key: 'cin', label: 'CIN' },
-      { key: 'address', label: 'Registered address', type: 'textarea' },
-    ],
-  },
-  establishments: {
-    title: 'Work Sites',
-    singular: 'work site',
-    description: 'Each place of work in law (an establishment) — a shop, factory, office or site — in one state. The state decides which rules apply to the people there.',
-    parent: { key: 'legalEntityId', kind: 'legal-entities', label: 'Legal entity' },
-    fields: [
-      { key: 'kind', label: 'Type', type: 'select', options: [['OFFICE', 'Office'], ['SHOP', 'Shop'], ['FACTORY', 'Factory'], ['SITE', 'Site'], ['WAREHOUSE', 'Warehouse']] },
-      { key: 'state', label: 'State', placeholder: 'Karnataka', required: true },
-      { key: 'address', label: 'Address', type: 'textarea' },
-      { key: 'holdsOriginals', label: 'The company keeps employees’ original documents here', type: 'checkbox', hint: 'Not allowed in Karnataka (Shops & Establishments amendment, 2026); CLOR refuses it there.' },
-    ],
-    columns: [{ key: 'state', label: 'State' }, { key: 'kind', label: 'Type', value: (r) => (r.kind || '').charAt(0) + (r.kind || '').slice(1).toLowerCase() }],
-  },
-  teams: {
-    title: 'Teams',
-    singular: 'team',
-    description: 'A team under a department. Its lead is set on the people themselves (Manager); positions on the team are listed under Positions.',
-    parent: { key: 'departmentId', kind: 'departments', label: 'Department' },
-    fields: [],
-    columns: [],
-  },
-  seats: {
-    title: 'Positions',
-    singular: 'position',
-    description: 'Approved positions on a team: a title, a designation and a budget reference. A position is filled by the person placed in it on their record, or open — and open positions show on the org chart.',
-    parent: { key: 'teamId', kind: 'teams', label: 'Team' },
-    fields: [{ key: 'budgetRef', label: 'Budget reference', placeholder: 'e.g. FY27-OPS-04' }],
-    columns: [{ key: 'budgetRef', label: 'Budget' }],
   },
 };
 
@@ -385,14 +310,4 @@ export default function StructureList({ kind, title = '', singular = '' }) {
 
 export const Departments = () => <StructureList kind="departments" />;
 export const JobPositions = (props) => <StructureList kind="job-positions" {...props} />;
-export const JobRoles = () => <StructureList kind="job-roles" />;
-export const EmployeeTypes = () => <StructureList kind="employee-types" />;
-export const WorkTypes = () => <StructureList kind="work-types" />;
 export const Areas = (props) => <StructureList kind="areas" {...props} />;
-export const BusinessUnits = (props) => <StructureList kind="business-units" {...props} />;
-export const Grades = (props) => <StructureList kind="grades" {...props} />;
-export const CostCentres = (props) => <StructureList kind="cost-centres" {...props} />;
-export const LegalEntities = (props) => <StructureList kind="legal-entities" {...props} />;
-export const Establishments = (props) => <StructureList kind="establishments" {...props} />;
-export const Teams = (props) => <StructureList kind="teams" {...props} />;
-export const Seats = (props) => <StructureList kind="seats" {...props} />;

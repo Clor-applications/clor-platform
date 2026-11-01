@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
@@ -119,14 +118,6 @@ describe('the master is a screen, not a dialog', () => {
     const app = appSource(join(SRC, 'App.jsx'));
     expect(app).not.toMatch(/title: 'New Customer'/);
     expect(app).not.toMatch(/title: 'New Vendor'/);
-  });
-
-  it('leaves the picker\'s inline create untitled, so only the form speaks', () => {
-    const picker = readFileSync(join(SRC, 'components/pickers/AccountPicker.jsx'), 'utf8');
-    /* The two party modes share the empty title; the ledger and account
-       panels keep theirs. */
-    expect(picker).toMatch(/mode === 'createCustomer' \|\| mode === 'createVendor'\s*\n\s*\? ''/);
-    expect(picker).toMatch(/'Create Ledger'/);
   });
 });
 

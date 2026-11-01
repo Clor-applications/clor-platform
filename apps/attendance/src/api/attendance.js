@@ -42,10 +42,6 @@ export const clock = (kind) => send('/clock', 'POST', kind ? { kind } : {});
 export const phonePunch = (body) => send('/me/punch', 'POST', body);
 export const requestCorrection = (body) => send('/me/requests', 'POST', body);
 
-export const listRequests = (status) => get(`/requests${query({ status })}`).then((r) => r?.requests || []);
-export const approveRequest = (id, note) => send(`/requests/${encodeURIComponent(id)}/approve`, 'POST', { note });
-export const rejectRequest = (id, note) => send(`/requests/${encodeURIComponent(id)}/reject`, 'POST', { note });
-
 export const listShifts = () => get('/shifts').then((r) => r?.shifts || []);
 export const createShift = (body) => send('/shifts', 'POST', body);
 export const updateShift = (id, body) => send(`/shifts/${encodeURIComponent(id)}`, 'PUT', body);
@@ -101,16 +97,7 @@ export const STATUS = {
 
 // Leave (server: routes/leave.ts)
 export const listLeaveTypes = () => get('/leave/types').then((r) => r?.types || []);
-export const createLeaveType = (body) => send('/leave/types', 'POST', body);
-export const updateLeaveType = (id, body) => send(`/leave/types/${encodeURIComponent(id)}`, 'PUT', body);
-export const deleteLeaveType = (id) => send(`/leave/types/${encodeURIComponent(id)}`, 'DELETE');
-export const getLeaveBalances = (year) => get(`/leave/balances${query({ year })}`);
-export const setAllocation = (body) => send('/leave/allocations', 'PUT', body);
 export const listLeaveRequests = (params) => get(`/leave/requests${query(params)}`).then((r) => r?.requests || []);
-export const createLeaveRequest = (body) => send('/leave/requests', 'POST', body);
-export const approveLeave = (id, note) => send(`/leave/requests/${encodeURIComponent(id)}/approve`, 'POST', { note });
-export const rejectLeave = (id, note) => send(`/leave/requests/${encodeURIComponent(id)}/reject`, 'POST', { note });
-export const cancelLeave = (id) => send(`/leave/requests/${encodeURIComponent(id)}/cancel`, 'POST', {});
 export const getMyLeave = (year) => get(`/me/leave${query({ year })}`);
 export const applyLeave = (body) => send('/me/leave', 'POST', body);
 export const cancelMyLeave = (id) => send(`/me/leave/${encodeURIComponent(id)}/cancel`, 'POST', {});
@@ -128,8 +115,6 @@ export const LEAVE_STATUS = {
   REJECTED: 'ui-pill-neg',
   CANCELLED: 'ui-pill-neutral',
 };
-/** A request's dates: one day, or first → last. */
-export const leaveRange = (from, to) => (from === to ? from : `${from} → ${to}`);
 
 // Biometric readers (server: routes/devices.ts; the readers talk to /iclock)
 export const listDevices = () => get('/devices');
@@ -198,10 +183,6 @@ export const testPull = (body) => send('/devices/test-pull', 'POST', body);
 export const syncConnection = (id, from) => send(`/devices/${encodeURIComponent(id)}/sync`, 'POST', from ? { from } : {});
 
 // Integrations (server: routes/integrations.ts; the outside API is routes/publicApi.ts at /v1)
-export const listApiKeys = () => get('/integrations/keys');
-export const createApiKey = (body) => send('/integrations/keys', 'POST', body);
-export const rotateApiKey = (id) => send(`/integrations/keys/${encodeURIComponent(id)}/rotate`, 'POST', {});
-export const revokeApiKey = (id) => send(`/integrations/keys/${encodeURIComponent(id)}/revoke`, 'POST', {});
 export const listWebhooks = () => get('/integrations/webhooks');
 /* HR tools (greytHR, Keka, …): connections the company runs alongside CLOR. */
 export const listHrAdapters = () => get('/integrations/hr/adapters').then((r) => r?.adapters || []);
@@ -295,12 +276,10 @@ export const getMonthSnapshot = (month, version) => get(`/months/${encodeURIComp
 export const checkSchedule = (body) => send('/schedule/check', 'POST', body);
 /** Many days at once: preview first (`preview: true`), then apply. */
 export const bulkChangeDays = (body) => send('/records/bulk', 'POST', body);
-export const bulkReviewRequests = (ids, approve, note) => send('/requests/bulk-review', 'POST', { ids, approve, note });
 export const listRuleVersions = () => get('/rules/versions').then((r) => r?.versions || []);
 export const simulateRules = (body) => send('/rules/simulate', 'POST', body);
 export const getMappingAudit = () => get('/mapping-audit');
 export const getReaderTimeline = (id, days = 7) => get(`/devices/${encodeURIComponent(id)}/timeline${query({ days })}`);
-export const explainLeave = (employeeId, leaveTypeId, year) => get(`/leave/explain${query({ employeeId, leaveTypeId, year })}`);
 export const explainMyLeave = (leaveTypeId, year) => get(`/me/leave/explain${query({ leaveTypeId, year })}`);
 export const getEvidence = (employeeId, from, to) => get(`/evidence${query({ employeeId, from, to })}`);
 /* Reader trust (O-11): every punch of a person's period with reader, serial, made and received, method, work site and the day's trust. */
@@ -318,7 +297,6 @@ export const REASON_CODES = [
   { value: 'WRONG_SHIFT', label: 'Wrong shift' },
   { value: 'OTHER', label: 'Other' },
 ];
-export const reasonLabel = (code) => REASON_CODES.find((r) => r.value === code)?.label || null;
 
 
 /* Data protection (DPDP): settings, the employee notice, status, and the breach register. */
@@ -340,5 +318,3 @@ const orgPath = (path) => `/orgs/${encodeURIComponent(orgId())}${path}`;
 export const listRecycleBin = () => apiFetch(orgPath('/recycle-bin'), opts);
 export const restoreFromBin = (id) => apiFetch(orgPath(`/recycle-bin/${encodeURIComponent(id)}/restore`), { method: 'POST', body: {}, ...opts });
 export const deleteFromBin = (id) => apiFetch(orgPath(`/recycle-bin/${encodeURIComponent(id)}`), { method: 'DELETE', ...opts });
-export const listAuditLog = (params) => apiFetch(orgPath(`/audit${query({ app: 'attendance', ...params })}`), opts);
-export const getAuditFacets = () => apiFetch(orgPath('/audit/facets?app=attendance'), opts);

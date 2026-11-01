@@ -52,6 +52,3 @@ export async function withheldToAccounts() {
 export async function paymentAccounts() {
   return (await ledgers()).filter((a) => ['CASH', 'BANK'].includes(a.controlKind));
 }
-
-/** Everything, for a screen that needs to show what a mapping points at. */
-export const allAccounts = ledgers;

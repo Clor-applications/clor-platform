@@ -43,8 +43,7 @@ export async function listAllEmployees(params = {}) {
   }
 }
 export const getEmployee = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}`, opts);
-/* Changes dated for a future day (FND-02): pending ones on the record, and withdrawing one. */
-export const getScheduledChanges = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}`, opts).then((r) => r?.scheduledChanges || []);
+/* Changes dated for a future day (FND-02): withdrawing one. */
 export const cancelScheduledChange = (id, changeId) => send(`/employees/${encodeURIComponent(id)}/scheduled/${encodeURIComponent(changeId)}`, 'DELETE');
 export const createEmployee = (body) => send('/employees', 'POST', body);
 export const updateEmployee = (id, body) => send(`/employees/${encodeURIComponent(id)}`, 'PUT', body);
@@ -158,9 +157,7 @@ export const approveJoiningStatutory = (inviteId, values) => send(`/invites/${en
 export const rejectJoiningStatutory = (inviteId, note) => send(`/invites/${encodeURIComponent(inviteId)}/statutory/reject`, 'POST', { note });
 /* Payroll has been switched on since: every approved set kept in People goes to it (HR-VIEW gap 2, audit gap 15). */
 export const sendHeldToPayroll = () => send('/joining-statutory/send-held', 'POST', {});
-/* Probation (LIFE-03): the review on file, and the decision — confirm, extend or end. */
-export const getProbation = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/probation`, opts).then((r) => r?.reviews || []);
-export const saveProbationReview = (id, body) => send(`/employees/${encodeURIComponent(id)}/probation/review`, 'POST', body);
+/* Probation (LIFE-03): the decision — confirm, extend or end. */
 export const decideProbation = (id, body) => send(`/employees/${encodeURIComponent(id)}/probation/decide`, 'POST', body);
 export const getEmploymentHistory = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/history`, opts).then((r) => r?.events || []);
 /* Stints: joined, left, rejoined (FND-06). First to last. */
