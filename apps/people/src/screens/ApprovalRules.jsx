@@ -130,8 +130,8 @@ export default function ApprovalRules() {
   /* The type's main rule (a variant for a branch or department is set up elsewhere until the rules builder, SPEC 8.2). */
   const active = (type) => data?.rules.find((r) => r.requestType === type && r.active && !r.variantKey) || null;
   const versions = (type) => (data?.rules || []).filter((r) => r.requestType === type && !r.variantKey);
-  /* A branch's or department's own rule for the type (set up through the API until the rules builder). */
-  const variantsOf = (type) => (data?.rules || []).filter((r) => r.requestType === type && r.active && r.variantKey);
+  /* A branch's or department's own rule for the type (set up through the API until the rules builder). A standard rule CLOR keeps for a chain (`preset:`, workflow engine 2c) is not one. */
+  const variantsOf = (type) => (data?.rules || []).filter((r) => r.requestType === type && r.active && r.variantKey && !r.variantKey.startsWith('preset:'));
   const open = (t) => {
     const rule = active(t);
     /* `steps` is the rule in the shape this screen edits; `editableHere` is false when the rule says more than that shape can (several people in a step, all of them, hours). */

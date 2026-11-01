@@ -470,6 +470,13 @@ Follows `DESIGN.md`: People brand D (indigo ink, lilac selected, marigold only f
 | | 3b | Approval rules builder (section 8.2), phone layout, small business view | M |
 | | 3c | Retire the old chain columns' writes, `ApprovalStandIn`, and the old leave and attendance step code once nothing is pending | S |
 
+**2c, as built: two PRs** (clor-coder-workflow, 1 Nov 2026; one PR was too big to review).
+
+- **2c-i:** `seedPresets` (`services/people/approvals/presets.ts`: the chains as rows `preset:<KEY>`, request type LEAVE, never the main rule), leave on the engine (`services/attendance/leaveEngine.ts`: `sourceKind` LEAVE, leave's own words for who decides, the leave decided in the same transaction as the step), parity tests (`leaveEngineParity.test.ts`), behind `PeopleSetting.leaveOnEngine`, off by default. A type on the company's leave rule (RULE) keeps its own walker. Requests already waiting finish on the old path.
+- **2c-ii:** the switch in Company choices and on for new companies; the leave rule (RULE) moved onto the engine; the request drawer's step timeline and "With Ravi (your manager)" in the employee app; the type's auto-approve read into the rule's `autoApprove`; reminders and away hand-up for leave from the dues job instead of leave's digest and hand-on.
+
+Behaviour that differs from the chain on purpose, each tested: a manager away all day with no stand-in, where the manager alone decides a step, is sent up (5.3 step 2); the owner's own leave in a one-person company is recorded at once as SELF_APPROVED, and under STRICT refused when asked (5.6); a manager's step that nobody can take (a manager who can sign in nowhere) is skipped to HR instead of waiting for the type's hand-on; a request keeps the chain it was asked under when the setting changes later.
+
 **3c, retiring `ApprovalStandIn` (stand-in merge, 2b), in this order:**
 
 1. Delete every `StandIn` row whose `legacyId` no longer exists in `ApprovalStandIn`. An older API removed those delegates, and today the read hides them by checking the link. Once the fallback read and the table are gone, they would come back.

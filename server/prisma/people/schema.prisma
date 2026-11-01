@@ -1879,6 +1879,10 @@ model PeopleSetting {
   leavingReasonForReadOnly Boolean @default(false)
   /// 3.6: a withdrawn request's "waiting for you" notice: SHOW_WITHDRAWN (marked read, says so, links to it) | REMOVE.
   withdrawnNotices String @default("SHOW_WITHDRAWN")
+  /// Workflow engine phase 2c-i: new leave on a simple chain (HR, manager, manager then HR) is decided by the
+  /// approval engine under a preset rule made from that chain (services/attendance/leaveEngine.ts). Off by
+  /// default until 2c-ii; requests already waiting finish on the old path either way.
+  leaveOnEngine    Boolean @default(false)
   updatedByUserId    String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

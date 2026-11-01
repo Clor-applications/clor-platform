@@ -13,6 +13,7 @@ import { teamScope } from '../people/scope.js';
 import { registerJob } from '../jobRegistry.js';
 import { addWorkingDays, REMIND_EVERY_WORKING_DAYS } from '../people/approvals/engine.js';
 import { deciders, stepsOf } from './leaveRules.js';
+import { handOnLeaveOnEngine } from './leaveEngine.js';
 import { automation, recordRun } from '../people/engagement/automations.js';
 
 /**
@@ -56,6 +57,8 @@ export async function runLeaveHandOns(now = new Date()) {
       const { tellWaiting } = await import('../../routes/leave.js');
       const claimed = await peopleWrite(t.orgId, async () => {
         const c = await peoplePrisma.leaveRequest.updateMany({ where: { id: r.id, status: 'PENDING', managerApprovedAt: null, updatedAt: r.updatedAt }, data: { managerApprovedAt: now, managerApprovedById: null, managerNote: `Handed on to HR: no decision in ${t.handOnAfterDays} days`, history } });
+        /* On the approval engine (2c), its step is handed on too: HR's step opens, or HR takes the manager's. */
+        if (c.count) await handOnLeaveOnEngine(t.orgId, r, `Handed on to HR: no decision from the manager in ${t.handOnAfterDays} days`);
         if (c.count) await tellWaiting(t.orgId, r.id);
         return c;
       });

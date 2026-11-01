@@ -193,6 +193,52 @@ Until phase 3c, a rollback to an API from before 2b is safe:
 Nothing needs undoing on a rollback. Do not drop `ApprovalStandIn` before
 phase 3c. The 3c order is in `docs/people/workflow-engine/SPEC.md` section 9.
 
+### Leave on the engine (workflow engine 2c-i, migration `20261119090000_leave_on_engine`): deploying and rolling back
+
+The migration adds one column, `PeopleSetting.leaveOnEngine`, default `false`.
+An older API never reads it.
+
+- **Switch off (every company, the default):** leave decides exactly as
+  before and nothing new is written: no `ApprovalRequest`, no preset rule.
+  The deploy window (old and new instances side by side) and a rollback to
+  rel-eed8908 need nothing.
+- **No screen or API turns it on in 2c-i.** Only staging QA turns it on, per
+  company, as the owner of the schema:
+  `UPDATE people."PeopleSetting" SET "leaveOnEngine" = true WHERE "orgId" = '<id>';`
+  (insert a row first if the company has none). 2c-ii adds the switch to
+  Company choices.
+
+What a company with the switch on writes, and how rel-eed8908 reads it:
+
+- **Preset rules:** three `ApprovalRule` rows, request type `LEAVE`, variant
+  keys `preset:HR_OR_MANAGER`, `preset:MANAGER`, `preset:MANAGER_THEN_HR`,
+  no conditions. The older API reads only the main rule (variant `""`) and
+  picks a variant only by its conditions, so it never uses them. Its
+  Approval rules screen lists them under Leave's variants, read only; that
+  is cosmetic.
+- **A new leave:** the leave row is written as before, with
+  `ruleId` null, and the manager's step under "manager, then HR" is still
+  written on the row (`managerApprovedAt`). To the older API it is an
+  ordinary chain request, and the parity tests show the chain gives it the
+  same people, so it decides it on the old path.
+- **Its engine request** (`ApprovalRequest`, `sourceKind` `LEAVE`) stays
+  `WAITING` on the older API. That API lists it on People → Approvals
+  under "Waiting for me", reminds its people after two working days, and
+  approving it there closes only the engine request (it has no leave
+  effect). Tell people to decide leave from the leave screens during a
+  rollback. When the newer API is back, a leave whose engine request is no
+  longer waiting goes on the old path (never stuck), and a waiting one is
+  closed to match as soon as the leave is decided or cancelled.
+- **Before rolling back a company that has it on:** switch it off, so no
+  more engine requests open. Optionally close the waiting ones so the older
+  People → Approvals page does not list them:
+  `UPDATE people."ApprovalRequest" SET status = 'WITHDRAWN' WHERE "sourceKind" = 'LEAVE' AND status = 'WAITING';`
+  (with `SET clor.bypass = 'on'`; their leave rows are untouched and finish
+  on the old path).
+
+Nothing else needs undoing. Phase 3c stops the writes to the old manager
+columns, once no leave is pending on the old path.
+
 ## A first-time setup, from nothing
 
 ```bash
