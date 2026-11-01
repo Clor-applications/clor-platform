@@ -46,7 +46,7 @@ test.describe('Priya asks for leave in the employee app', () => {
     /* The note's "stop showing" button says what it stops in plain words, not the notice's key (attendance.leave_asked). */
     const bell = rahul.page.getByRole('dialog', { name: 'Notifications' });
     await expect(bell.getByRole('button', { name: 'Stop showing leave requests' }).first()).toBeVisible();
-    for (const name of await bell.getByRole('button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') || e.textContent || ''))) {
+    for (const name of await bell.getByRole('button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') || (e as HTMLElement).innerText || ''))) {
       expect(name, 'no raw notice key in a button name').not.toMatch(/\b[a-z]+\.[a-z_]+\b/);
     }
   });
