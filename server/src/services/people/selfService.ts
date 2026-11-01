@@ -6,6 +6,7 @@ import { notifyPermission } from '../notifications.js';
 import type { Actor } from './changeLog.js';
 import { updateEmployee } from './employees.js';
 import { PORTAL_PREFIX, activeRule, namesFor, reply, saveRule, submitRequest, withdraw, type Payload, type StepSpec } from './approvals/engine.js';
+import { legacySteps } from './approvals/spec.js';
 
 /**
  * Personal details from the employee app (docs/people/02-PRD.md CORE-03;
@@ -58,7 +59,7 @@ export class SelfServiceError extends Error {
 async function profileDecideDays(orgId: string) {
   const rule = await activeRule(orgId, 'PROFILE_CHANGE');
   if (!rule) return { days: DEFAULT_DUE_DAYS, ruleSet: false };
-  const steps = (rule.steps as unknown as StepSpec[]) || [];
+  const steps: StepSpec[] = legacySteps(rule.steps);
   return { days: steps.reduce((n, s) => n + (Number(s.dueDays) || 0), 0) || DEFAULT_DUE_DAYS, ruleSet: true };
 }
 

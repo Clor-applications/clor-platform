@@ -15,7 +15,10 @@ import { todayIst } from '../services/people/lifecycle/board.js';
 import { leavingReasonFilter } from '../services/people/companyChoices.js';
 import { usersWithPermission } from '../services/notifications.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
-import { ApprovalError, REQUEST_TYPES, RULE_TYPES, isFormType, activeRule, cleanSteps, decide, mine, namesFor, reply, retireRule, saveRule, shape, submitRequest, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
+import { ApprovalError, REQUEST_TYPES, RULE_TYPES, isFormType, activeRule, decide, mine, namesFor, previewRule, reply, retireRule, saveRuleSpec, shape, stepsOfRule, submitRequest, twoPersonProblem, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
+import { cleanRule, isRuleProblem, legacySteps, normaliseAutoApprove, normaliseConditions, v1Exact } from '../services/people/approvals/spec.js';
+import { recordAudit } from '../services/auditTrail.js';
+import { inScope, teamScope } from '../services/people/scope.js';
 
 /**
  * Approvals (docs/people/02-PRD.md APR-01..07): rules, requests, decisions,
@@ -47,34 +50,128 @@ const sendError = (res: any, e: unknown) => {
 peopleApprovalsRouter.get(`${base}/approval-rules`, can(PermissionAction.VIEW, APPROVALS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
-  const rows = await peoplePrisma.approvalRule.findMany({ where: { orgId }, orderBy: [{ requestType: 'asc' }, { version: 'desc' }] });
+  const rows = await peoplePrisma.approvalRule.findMany({ where: { orgId }, orderBy: [{ requestType: 'asc' }, { variantKey: 'asc' }, { version: 'desc' }] });
   /* Request types HR made (gap 25): each has its own rule, written FORM:<id>, and is named here so the screen can say which. */
   const forms = await peoplePrisma.requestForm.findMany({ where: { orgId }, select: { id: true, name: true, active: true }, orderBy: { name: 'asc' } });
-  res.json({ rules: rows, requestTypes: RULE_TYPES, forms: forms.map((f) => ({ requestType: `FORM:${f.id}`, name: f.name, active: f.active })) });
+  /*
+   * Each rule in both shapes (SPEC 5.2): `spec` is version 2, as the engine reads it; `steps` is the
+   * first shape the rules screen edits today, and `editableHere` says whether that shape says all of it
+   * (several approvers in a step, ALL mode, more conditions, a due time in hours or a variant do not fit).
+   */
+  const rules = rows.map((r) => ({
+    ...r, steps: legacySteps(r.steps), spec: stepsOfRule(r), editableHere: v1Exact(r.steps) && !r.variantKey && !normaliseAutoApprove(r.autoApprove).length,
+    appliesWhen: normaliseConditions(r.appliesWhen), autoApprove: normaliseAutoApprove(r.autoApprove),
+  }));
+  res.json({ rules, requestTypes: RULE_TYPES, forms: forms.map((f) => ({ requestType: `FORM:${f.id}`, name: f.name, active: f.active })) });
 });
 
 /** A fixed type, or one of this company's own request types (FORM:<id>). */
 const ruleTypeOk = async (orgId: string, type: string) => (RULE_TYPES as readonly string[]).includes(type) || (isFormType(type) && Boolean(await peoplePrisma.requestForm.findFirst({ where: { id: type.slice(5), orgId }, select: { id: true } })));
-const ruleSchema = z.object({ requestType: z.string().trim().max(60), name: z.string().trim().min(1, 'Name the rule.').max(120), steps: z.array(z.any()).min(1) });
+const ruleSchema = z.object({
+  requestType: z.string().trim().max(60),
+  name: z.string().trim().min(1, 'Name the rule.').max(120),
+  steps: z.array(z.any()).min(1),
+  variantKey: z.string().trim().max(40).optional().nullable(),
+  appliesWhen: z.array(z.any()).optional().nullable(),
+  priority: z.number().int().optional().nullable(),
+  autoApprove: z.array(z.any()).optional().nullable(),
+});
+const ruleInvalid = (res: any, p: { error: string; step?: number; field?: string }) => res.status(400).json({ error: p.error, code: 'RULE_INVALID', ...(p.step ? { step: p.step } : {}), ...(p.field ? { field: p.field } : {}) });
 
-/** Saving writes a new version of the rule for that request type. */
+/**
+ * Saving writes a new version of the rule for that request type (or one of its variants). Steps come in
+ * either shape and are saved as version 2; the version before and after go to the audit trail.
+ */
 peopleApprovalsRouter.post(`${base}/approval-rules`, can(PermissionAction.EDIT, APPROVALS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const parsed = ruleSchema.safeParse(req.body || {});
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the rule.' });
-  const steps = cleanSteps(parsed.data.steps);
-  if (typeof steps === 'string') return res.status(400).json({ error: steps });
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the rule.', code: 'RULE_INVALID' });
   const { accountId, orgId } = req.tenant!;
-  if (!(await ruleTypeOk(orgId, parsed.data.requestType))) return res.status(400).json({ error: 'Unknown request type.' });
-  const rule = await saveRule({ accountId, orgId, userId: req.auth!.userId }, parsed.data.requestType as RuleType, parsed.data.name, steps);
-  res.status(201).json({ rule });
+  const spec = cleanRule({ requestType: parsed.data.requestType, name: parsed.data.name, steps: parsed.data.steps, variantKey: parsed.data.variantKey ?? '', appliesWhen: parsed.data.appliesWhen ?? undefined, priority: parsed.data.priority ?? undefined, autoApprove: parsed.data.autoApprove ?? undefined });
+  if (isRuleProblem(spec)) return ruleInvalid(res, spec);
+  /* Money, all of them: only where this company has two different people to approve it (re-review of PR #93). */
+  const twoPeople = await twoPersonProblem({ accountId, orgId }, spec);
+  if (twoPeople) return ruleInvalid(res, twoPeople);
+  if (!(await ruleTypeOk(orgId, parsed.data.requestType))) return res.status(400).json({ error: 'Unknown request type.', code: 'RULE_INVALID', field: 'requestType' });
+  const before = await peoplePrisma.approvalRule.findFirst({ where: { orgId, requestType: spec.requestType, variantKey: spec.variantKey, active: true }, orderBy: { version: 'desc' } });
+  const rule = await saveRuleSpec({ accountId, orgId, userId: req.auth!.userId }, spec);
+  const by = (await namesFor([req.auth!.userId], orgId)).get(req.auth!.userId) || 'Someone';
+  await recordAudit(req, {
+    entity: 'APPROVAL_RULE', entityId: rule.id, action: 'SAVED',
+    message: `${by} saved the approval rule "${rule.name}"${spec.variantKey ? ` (variant ${spec.variantKey})` : ''} as version ${rule.version}`,
+    metadata: {
+      requestType: rule.requestType, variantKey: rule.variantKey, version: rule.version,
+      before: before ? { version: before.version, steps: stepsOfRule(before), appliesWhen: normaliseConditions(before.appliesWhen), autoApprove: normaliseAutoApprove(before.autoApprove) } : null,
+      after: { steps: spec.steps, appliesWhen: spec.appliesWhen, autoApprove: spec.autoApprove, priority: spec.priority },
+    },
+  });
+  res.status(201).json({ rule: { ...rule, steps: legacySteps(rule.steps), spec: stepsOfRule(rule) } });
+});
+
+/**
+ * Who would decide each step for this person and amount, today, and why (SPEC 8.1). For a draft rule
+ * (`rule`), or the rule a request would follow now. Creates nothing.
+ */
+const previewSchema = z.object({
+  requestType: z.string().trim().max(60),
+  rule: z.object({ name: z.string().trim().max(120).optional(), steps: z.array(z.any()).min(1), autoApprove: z.array(z.any()).optional().nullable() }).optional().nullable(),
+  sample: z.object({ employeeId: z.string().trim().max(60).optional().nullable(), requesterUserId: z.string().trim().max(80).optional().nullable(), payload: z.record(z.string(), z.any()).optional().nullable() }),
+});
+peopleApprovalsRouter.post(`${base}/approval-rules/preview`, can(PermissionAction.EDIT, APPROVALS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const parsed = previewSchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Choose a person to try it with.', code: 'RULE_INVALID' });
+  const { accountId, orgId } = req.tenant!;
+  const b = parsed.data;
+  if (!(await ruleTypeOk(orgId, b.requestType))) return res.status(400).json({ error: 'Unknown request type.', code: 'RULE_INVALID', field: 'requestType' });
+  /* Leave walks its own steps until it moves onto the engine (phase 2c): a preview here would not be what leave does. */
+  if (b.requestType === 'LEAVE') return res.status(400).json({ error: 'Leave moves onto these rules in the next phase; its preview comes with it.', code: 'RULE_INVALID', field: 'requestType' });
+  let draft = null;
+  if (b.rule) {
+    const spec = cleanRule({ requestType: b.requestType, name: b.rule.name || 'Draft', steps: b.rule.steps, autoApprove: b.rule.autoApprove ?? undefined });
+    if (isRuleProblem(spec)) return ruleInvalid(res, spec);
+    draft = spec;
+  }
+  /* A team-scoped editor tries it only with people in their team (review of PR #93): outside it reads as absent. */
+  if (b.sample.employeeId && !inScope(await teamScope(req), b.sample.employeeId)) return res.status(404).json({ error: 'No such person.' });
+  /* A named requester must be someone in this company. */
+  if (b.sample.requesterUserId && !(await platformPrisma.userOrgMembership.findFirst({ where: { orgId, userId: b.sample.requesterUserId }, select: { id: true } }))) {
+    return res.status(400).json({ error: 'That person is not in this company.', code: 'RULE_INVALID', field: 'sample' });
+  }
+  try {
+    res.json(await previewRule({ accountId, orgId }, { requestType: b.requestType, rule: draft, sample: b.sample }));
+  } catch (e) {
+    return sendError(res, e);
+  }
 });
 
 peopleApprovalsRouter.delete(`${base}/approval-rules/:requestType`, can(PermissionAction.DELETE, APPROVALS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const type = String(req.params.requestType) as RuleType;
   if (!(await ruleTypeOk(req.tenant!.orgId, type))) return res.status(404).json({ error: 'Unknown request type.' });
+  const was = await activeRule(req.tenant!.orgId, type);
   const retired = await retireRule(req.tenant!.orgId, type);
+  if (was && retired) await auditRetired(req, was);
+  res.json({ ok: true, retired });
+});
+
+/** Switching a rule off is audited by name, like saving one (review of PR #93). */
+async function auditRetired(req: Request, rule: { id: string; name: string; requestType: string; variantKey: string; version: number }) {
+  const by = (await namesFor([req.auth!.userId], req.tenant!.orgId)).get(req.auth!.userId) || 'Someone';
+  await recordAudit(req, { entity: 'APPROVAL_RULE', entityId: rule.id, action: 'RETIRED', message: `${by} switched off the approval rule "${rule.name}"${rule.variantKey ? ` (variant ${rule.variantKey})` : ''}`, metadata: { requestType: rule.requestType, variantKey: rule.variantKey, version: rule.version } });
+}
+
+/** Retire one variant of a type's rule; requests already waiting under it keep their steps. */
+peopleApprovalsRouter.delete(`${base}/approval-rules/:requestType/:variant`, can(PermissionAction.DELETE, APPROVALS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const type = String(req.params.requestType) as RuleType;
+  const variant = String(req.params.variant);
+  if (!(await ruleTypeOk(req.tenant!.orgId, type))) return res.status(404).json({ error: 'Unknown request type.' });
+  if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(variant)) return res.status(404).json({ error: 'No such variant.' });
+  const was = await peoplePrisma.approvalRule.findFirst({ where: { orgId: req.tenant!.orgId, requestType: type, variantKey: variant, active: true }, orderBy: { version: 'desc' } });
+  const retired = await retireRule(req.tenant!.orgId, type, variant);
+  if (!retired) return res.status(404).json({ error: 'No such variant.' });
+  if (was) await auditRetired(req, was);
   res.json({ ok: true, retired });
 });
 
@@ -336,5 +433,5 @@ peopleApprovalsRouter.get(`${base}/approval-rules/active/:requestType`, can(Perm
   const type = String(req.params.requestType) as RuleType;
   if (!(await ruleTypeOk(req.tenant!.orgId, type))) return res.status(404).json({ error: 'Unknown request type.' });
   const rule = await activeRule(req.tenant!.orgId, type);
-  res.json({ rule: rule ? { id: rule.id, name: rule.name, version: rule.version, steps: rule.steps } : null });
+  res.json({ rule: rule ? { id: rule.id, name: rule.name, version: rule.version, steps: legacySteps(rule.steps), spec: stepsOfRule(rule) } : null });
 });
