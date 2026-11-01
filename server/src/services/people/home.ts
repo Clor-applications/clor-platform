@@ -7,7 +7,7 @@ import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from '../attendance/guards.js'
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../payroll/guards.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE } from './guards.js';
 import { openTasks } from './checklists.js';
-import { teamScope } from './scope.js';
+import { inScope, teamScope } from './scope.js';
 import { dataHealth } from './dataHealth.js';
 import { buildObligations } from './complianceRules.js';
 import { addDays as plusDays, todayIst } from '../../utils/istDate.js';
@@ -53,7 +53,9 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
     /* Leavings kept from this reader (SPEC 3.5): leaving tasks not counted, except their own. */
     const { seesLeavings } = await import('./companyChoices.js');
     const leavingsOk = await seesLeavings(req);
-    const counted = leavingsOk ? tasks : tasks.filter((t) => t.kind !== 'LEAVING' || t.ownerUserId === userId);
+    /* A team lead counts their own team's tasks, as the task queue lists them (QA, 1 Nov 2026). */
+    const scope = await teamScope(req);
+    const counted = tasks.filter((t) => inScope(scope, t.employee!.id) && (leavingsOk || t.kind !== 'LEAVING' || t.ownerUserId === userId));
     const late = counted.filter((t) => t.overdue).length;
     const dueSoon = counted.filter((t) => !t.overdue && t.dueDate && t.dueDate <= week).length;
     if (late || dueSoon) out.push({ key: 'checklists', title: 'Joining and leaving tasks', detail: [late && `${late} late`, dueSoon && `${dueSoon} due this week`].filter(Boolean).join(' · '), count: late + dueSoon, tone: late ? 'urgent' : 'soon', screen: 'checklists' });

@@ -134,10 +134,40 @@ function PayslipView({ slip: s }) {
           <div className="flex items-baseline justify-between gap-3 py-1.5 text-sm font-medium"><dt>Total deductions</dt><dd className="text-right tabular-nums">{money(s.totalDeductions)}</dd></div>
         </dl>
       </div>
+      <MovedOn note={s.deductionNote} leaving={s.leaving} />
       <button type="button" className="ui-btn ui-btn-primary w-full" onClick={save}>Save as PDF</button>
       <p className="ui-caption">Choose “Save as PDF” as the printer. PAN and bank account show only their last digits.</p>
       <PayslipPrint slip={s} />
     </>
+  );
+}
+
+/**
+ * What this payslip could not take and moved on (deductionCap.ts), in the
+ * employee's words; Payroll's slip shows the same note to HR. Somebody leaving
+ * has no next payslip, so theirs goes to the full and final.
+ */
+export function MovedOn({ note, leaving = false }) {
+  if (!note?.carried?.length) return null;
+  const rest = leaving ? 'The rest goes to your full and final settlement.' : 'The rest comes off next month’s payslip.';
+  const why = note.reason !== 'LIMIT'
+    ? `This payslip had nothing left to take it from. ${rest}`
+    : Number(note.counted) > Number(note.limit)
+      ? `Instalments may take up to ${note.percent}% of your wages (${money(note.limit)} of ${money(note.wages)}), and other deductions already came to ${money(note.counted)}, so none was taken this month. ${leaving ? 'It goes to your full and final settlement.' : 'It comes off next month’s payslip.'}`
+      : `Instalments may take up to ${note.percent}% of your wages (${money(note.limit)} of ${money(note.wages)}), counting other deductions. ${rest}`;
+  return (
+    <div>
+      <h3 className="ui-label">{leaving ? 'Left for your full and final' : 'Moved to next month'}</h3>
+      <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+        {note.carried.map((c, i) => (
+          <div key={`${i}:${c.label}`} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
+            <dt>{c.label}</dt>
+            <dd className="text-right tabular-nums">{money(c.amount)}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="ui-caption mt-1">{why}</p>
+    </div>
   );
 }
 
@@ -191,6 +221,9 @@ function PayslipPrint({ slip: s }) {
           <tr className="tot"><td colSpan={3}>Take-home pay</td><td className="amt">{money(s.net)}</td></tr>
         </tbody>
       </table>
+      {s.deductionNote?.carried?.length ? (
+        <p className="muted">{s.leaving ? 'Left for the full and final' : 'Moved to next month'}: {s.deductionNote.carried.map((c) => `${c.label} ${money(c.amount)}`).join(', ')}.</p>
+      ) : null}
       <p className="muted">From CLOR. PAN and bank account show only their last digits.</p>
     </div>,
     document.body

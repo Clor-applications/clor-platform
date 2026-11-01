@@ -22,7 +22,7 @@ const COMING_PILL = { JOINING: 'ui-pill-pos', LEAVING: 'ui-pill-warn', CHANGE: '
 
 function Group({ title, count, action, children }) {
   return (
-    <section className="space-y-1" aria-label={title}>
+    <section className="min-w-0 space-y-1" aria-label={title}>
       <header className="flex items-baseline justify-between gap-3">
         <h2 className="ui-t-sec">{title}{count ? <span className="ui-caption tabular-nums ml-2">{count}</span> : null}</h2>
         {action}
@@ -68,7 +68,8 @@ export default function LifecycleOverview({ openScreen }) {
         <p className="text-sm" role="status">{c.plansMissing === 1 ? 'One person has' : `${c.plansMissing} people have`} no plan yet. CLOR starts it within a quarter of an hour, or start it from <button type="button" className="ui-link" onClick={() => openScreen?.('joiners', { view: 'all' })}>Joining</button>.</p>
       ) : null}
 
-      <div className="grid gap-6 2xl:grid-cols-2">
+      {/* One column of minmax(0, 1fr) below 2xl: an auto track grew to its widest row, and the page went 408px wide on a phone (QA, 1 Nov 2026). */}
+      <div className="grid grid-cols-1 gap-6 2xl:grid-cols-2">
         <Group title="Late" count={c.lateTasks} action={c.lateTasks > d.late.length ? <button type="button" className="ui-link text-sm" onClick={() => openScreen?.('checklists', { view: 'late' })}>All {c.lateTasks}</button> : null}>
           {d.late.length ? d.late.map((t) => (
             <li key={t.id}>

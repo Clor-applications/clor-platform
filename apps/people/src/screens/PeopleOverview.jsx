@@ -29,6 +29,8 @@ import { symbolOf } from './symbols';
 import { notify } from '@ui/components/ui/notify';
 import { formatDateIn } from '@ui/utils/dates';
 import { platformContext } from '@platform/context';
+import { usePermissions } from '@ui/permissions/usePermissions';
+import { can } from '../workforce/shared';
 import { HomeCheckIn } from '@ui/timeOff/MyDays';
 import { FinalPayBanner, FinalPayList } from '@ui/lifecycle/LeavingExtras';
 import { finalPayList } from '../api/engagement';
@@ -245,6 +247,9 @@ export default function PeopleOverview({ openScreen }) {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const revealRoot = useReveal();
+  /* Only what this reader may use (QA, 1 Nov 2026: a Team Manager was offered Announce and Add an employee). The server checks again. */
+  const perms = usePermissions();
+  const may = (key) => can(perms, key);
   /* The setup list replaces "All caught up" while it is showing (HomeSetup). */
   const [setupShowing, setSetupShowing] = useState(false);
   const onSetup = useCallback((d) => setSetupShowing(Boolean(d?.setup?.show)), []);
@@ -350,12 +355,14 @@ export default function PeopleOverview({ openScreen }) {
         </div>
         <div className="soft-actions">
           <button type="button" className="soft-pill" data-tint="peach" onClick={go('leaveRequests')}><CalendarDots size={18} aria-hidden="true" /> Leave requests</button>
-          <button type="button" className="soft-pill" data-tint="lilac" onClick={go('helpdesk')}><ChatsCircle size={18} aria-hidden="true" /> HR cases</button>
-          <button type="button" className="soft-pill" data-tint="butter" onClick={go('announcements')}><Megaphone size={18} aria-hidden="true" /> Announce</button>
-          <button type="button" className="soft-pill soft-pill-primary" onClick={go('employeeNew')}>
-            Add an employee
-            <span className="soft-pill-orb"><ArrowUpRight size={16} weight="bold" aria-hidden="true" /></span>
-          </button>
+          {may('PEOPLE::HR Cases::VIEW') ? <button type="button" className="soft-pill" data-tint="lilac" onClick={go('helpdesk')}><ChatsCircle size={18} aria-hidden="true" /> HR cases</button> : null}
+          {may('PEOPLE::Announcements::CREATE') ? <button type="button" className="soft-pill" data-tint="butter" onClick={go('announcements')}><Megaphone size={18} aria-hidden="true" /> Announce</button> : null}
+          {may('PEOPLE::Employees::CREATE') ? (
+            <button type="button" className="soft-pill soft-pill-primary" onClick={go('employeeNew')}>
+              Add an employee
+              <span className="soft-pill-orb"><ArrowUpRight size={16} weight="bold" aria-hidden="true" /></span>
+            </button>
+          ) : null}
         </div>
       </header>
       <HomeCheckIn />
@@ -552,7 +559,7 @@ export default function PeopleOverview({ openScreen }) {
         <aside className="soft-side" aria-label="Company news">
           <Bezel i={2}>
             <section aria-labelledby="news-h">
-              <PanelHead id="news-h" icon={Megaphone} tint="butter" title="Announcements" action={<button type="button" className="people-more" onClick={go('announcements')}>Post one <CaretRight size={14} aria-hidden="true" /></button>} />
+              <PanelHead id="news-h" icon={Megaphone} tint="butter" title="Announcements" action={may('PEOPLE::Announcements::CREATE') ? <button type="button" className="people-more" onClick={go('announcements')}>Post one <CaretRight size={14} aria-hidden="true" /></button> : null} />
               {posts.length ? (
                 <ul className="people-list">
                   {posts.map((n, i) => (
@@ -578,7 +585,7 @@ export default function PeopleOverview({ openScreen }) {
 
           <Bezel i={3}>
             <section aria-labelledby="events-h">
-              <PanelHead id="events-h" icon={Confetti} tint="lilac" title="Coming up" action={<button type="button" className="people-more" onClick={go('events')}>All events <CaretRight size={14} aria-hidden="true" /></button>} />
+              <PanelHead id="events-h" icon={Confetti} tint="lilac" title="Coming up" action={may('PEOPLE::Events::VIEW') ? <button type="button" className="people-more" onClick={go('events')}>All events <CaretRight size={14} aria-hidden="true" /></button> : null} />
               {upcoming.length ? (
                 <ul className="soft-events">
                   {upcoming.map((e, j) => {

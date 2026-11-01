@@ -3,6 +3,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { authorize } from '../../middleware/rbac.js';
 import { PermissionAction } from '../../constants/enums.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE } from './guards.js';
+import { resolveAccess } from '../access.js';
 
 /**
  * Team scope (docs/people/03 contract §4; PC-ACC-01). A role marked "own
@@ -19,6 +20,15 @@ import { PEOPLE_MODULE, PEOPLE_RESOURCE } from './guards.js';
 export type TeamScope = { all: true } | { all: false; ids: string[]; selfId: string | null };
 
 export async function teamScope(req: Request): Promise<TeamScope> {
+  /*
+   * Fail closed: the flag is set by a permission check, and a route open to anyone
+   * signed in (the task queue) may ask for the scope before any check has run. Unread
+   * is not "the whole company" (QA, 1 Nov 2026: a Team Manager saw every task).
+   */
+  if (req.ownDocumentsOnly === undefined && req.tenant && req.auth?.userId) {
+    const access = await resolveAccess(req.tenant.accountId, req.tenant.orgId, req.auth.userId, String(req.tenant.branchId || ''));
+    req.ownDocumentsOnly = access.ownDocumentsOnly;
+  }
   if (!req.ownDocumentsOnly) return { all: true };
   const orgId = req.tenant!.orgId;
   const userId = req.auth?.userId || '';

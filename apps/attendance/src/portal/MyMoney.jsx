@@ -89,7 +89,7 @@ function SpentForWork({ data, guard, reload }) {
   };
 
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="spent-h">
+    <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="spent-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="spent-h" className="ui-t-sec">Spent for work</h2>
         {!adding ? <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={() => setAdding(true)}><Camera size={16} aria-hidden="true" /> Add a bill</button> : null}
