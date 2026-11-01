@@ -1,5 +1,11 @@
 # clor-coder-workflow — work log
 
+## 2026-11-02 IST — People / Workflow engine — PR #106 extended, merged into #105 again
+- Did: #106 extended to every attendance records route (mark, import, delete, validate, a day's overtime): a team-scoped role keeps to its team (404; import rows outside it read as unknown codes and are not written; validate refuses the batch); company-wide unaffected. Merged into #105 again. #105: People → Approvals request steps ordered by order, createdAt, slot, id, as the engine (the peopleApprovals hand-on flake).
+- Evidence: five new records tests failed first on main (200, or the outside row imported), pass now; #106: 25 files that call these routes on 5434, 272 passed. #105: 71 affected files on 5434, sequentially, 931 passed, 0 failed. tsc clean.
+- Next: merge #106, then #105 (coordinator).
+- Blocked on: nothing.
+
 ## 2026-11-02 IST — People / Workflow engine — PR #105 review fixes, and PR #106
 - Did: (1, blocker) PR #106 off main: the single overtime and field punch decide routes keep a team-scoped role to its team (404 outside it); merged into #105, where overtime and field punch deciders are now in-scope holders only, so the steps name only real deciders. (2, blocker) a self-approval at open that the module refuses rolls back to a savepoint, its own half included (the owner's overtime on a closed month stayed APPROVED); field punches open inside a People transaction for it. Should-fix: maker-checker ALLOW keeps today's behaviour (the person's own decision is written by the module, the engine request closes to match), owner question in the PR; SPEC 9 item 5 (HR step skipped when the manager is the only possible HR) stated and tested for attendance, with the history line. Nit: an edit restarts under the current chain, documented in code and SPEC.
 - Evidence: every new test written first and failing on the pre-fix code (#106: 200 outside the team; #105: APPROVED left behind on a closed month, Meena and Ravi named on Om’s steps, 403 under ALLOW, no history line). After: attendanceEngineParity 60/60 + attendanceTeamScope 2/2; 62 affected files on 5434: 878 passed, 1 failed (peopleApprovals overdue hand-on, two step rows in one millisecond; passes alone 8/8, untouched by this PR); #106 alone: 6 files, 41 passed; tsc clean.
