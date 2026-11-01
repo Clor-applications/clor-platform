@@ -628,4 +628,97 @@ describe('attendance on the approval engine: a one-person company', () => {
     /* A punch is never refused for want of an approver: it waits, as on the old path. */
     expect((await punchOwn()).body.review).toBe('PENDING');
   }, 90_000);
+
+  it('the owner’s own overtime on a closed month: the approval at once is refused by the month, and nothing of it stays (review of PR #105, blocker 2)', async () => {
+    const c = await owner();
+    const inC = <X>(fn: () => Promise<X>) => runInTenant(c.orgId, fn);
+    const me = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Asha Owner', code: 'O-1', dateOfJoining: '2024-01-01' }).expect(201)).body.employee;
+    await inC(() => peoplePrisma.employee.update({ where: { id: me.id }, data: { userId: c.userId } }));
+    const company = (await request(app).get(`/api/orgs/${c.orgId}/attendance/portal-access`).set(at(c)).expect(200)).body.company.code;
+    const code = (await request(app).post(`/api/orgs/${c.orgId}/attendance/portal-access/codes`).set(at(c)).send({ employeeIds: [me.id] }).expect(200)).body.codes[0].activationCode;
+    const token = (await request(app).post('/api/portal/activate').send({ company, employeeCode: 'O-1', activationCode: code, password: 'app pass 123' }).expect(200)).body.token;
+    await inC(() => peoplePrisma.portalSession.updateMany({ where: { orgId: c.orgId }, data: { createdAt: new Date(), lastSeenAt: new Date() } }));
+    const day = addDays(todayIst(), -40);
+    await inC(async () => {
+      await peoplePrisma.attendanceRecord.create({ data: { accountId: c.accountId, orgId: c.orgId, employeeId: me.id, date: day, status: 'PRESENT', source: 'MANUAL', workedMinutes: 600, overtimeMinutes: 90, createdByUserId: c.userId } });
+      await peoplePrisma.attendanceMonthLock.create({ data: { accountId: c.accountId, orgId: c.orgId, month: day.slice(0, 7), lockedByUserId: c.userId } });
+      await peoplePrisma.peopleSetting.upsert({ where: { orgId: c.orgId }, create: { accountId: c.accountId, orgId: c.orgId, attendanceOnEngine: true }, update: { attendanceOnEngine: true } });
+    });
+    const asked = await request(app).post('/api/portal/overtime').set('Authorization', `Bearer ${token}`).send({ date: day, kind: 'OVERTIME', reason: 'Year-end count' });
+    expect(asked.status, JSON.stringify(asked.body)).toBe(201);
+    const row = await inC(() => peoplePrisma.overtimeRequest.findUniqueOrThrow({ where: { id: asked.body.request.id } }));
+    /* It waits on the old path, as it would have: not approved, the day not marked, no engine request half made. */
+    expect([row.status, row.reviewedByUserId]).toEqual(['PENDING', null]);
+    expect((await inC(() => peoplePrisma.attendanceRecord.findFirstOrThrow({ where: { orgId: c.orgId, employeeId: me.id, date: day } }))).overtimeApproved).toBe(false);
+    expect(await inC(() => peoplePrisma.approvalRequest.count({ where: { orgId: c.orgId } }))).toBe(0);
+  }, 90_000);
+
+  it('the manager, then HR, where the only one who could take HR’s step is the manager: the old path waits for ever; the engine skips HR’s step and approves on one decision, and the history says so (SPEC section 9, item 5)', async () => {
+    const c = await owner();
+    const inC = <X>(fn: () => Promise<X>) => runInTenant(c.orgId, fn);
+    const boss = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Asha Owner', code: 'O-1', dateOfJoining: '2024-01-01' }).expect(201)).body.employee;
+    const bo = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Bo Das', code: 'O-2', dateOfJoining: '2024-01-01', reportingManagerId: boss.id }).expect(201)).body.employee;
+    await inC(async () => {
+      await peoplePrisma.employee.update({ where: { id: boss.id }, data: { userId: c.userId } });
+      await peoplePrisma.attendanceSettings.upsert({ where: { orgId: c.orgId }, create: { accountId: c.accountId, orgId: c.orgId, requestRules: { WFH: { on: true, quotaPerMonth: null, backDays: 366 } } as any, updatedByUserId: c.userId }, update: { requestRules: { WFH: { on: true, quotaPerMonth: null, backDays: 366 } } as any } });
+      await peoplePrisma.peopleSetting.upsert({ where: { orgId: c.orgId }, create: { accountId: c.accountId, orgId: c.orgId, correctionApproval: 'MANAGER_THEN_HR' }, update: { correctionApproval: 'MANAGER_THEN_HR' } });
+    });
+    const story = async (on: boolean) => {
+      await inC(() => peoplePrisma.peopleSetting.update({ where: { orgId: c.orgId }, data: { attendanceOnEngine: on } }));
+      const id = (await request(app).post(`/api/orgs/${c.orgId}/attendance/requests`).set(at(c)).send({ employeeId: bo.id, kind: 'WFH', date: nextDay(), reason: 'Plumber' }).expect(201)).body.request.id;
+      const first = await request(app).post(`/api/orgs/${c.orgId}/attendance/requests/${id}/approve`).set(at(c)).send({});
+      const second = await request(app).post(`/api/orgs/${c.orgId}/attendance/requests/${id}/approve`).set(at(c)).send({});
+      const row = await inC(() => peoplePrisma.attendanceRequest.findUniqueOrThrow({ where: { id } }));
+      const eng = await inC(() => peoplePrisma.approvalRequest.findFirst({ where: { orgId: c.orgId, sourceKind: 'ATTENDANCE', sourceId: id }, include: { steps: { orderBy: [{ order: 'asc' }] } } }));
+      return { first: [first.status, first.body.stage || null], second: [second.status, second.body.code || null], end: row.status, steps: eng?.steps.map((s) => `${s.order}:${s.status}`) || null, history: (row.history as any[]).map((h) => h.note).filter(Boolean) };
+    };
+    const old = await story(false);
+    expect(old).toMatchObject({ first: [200, 'HR'], second: [403, 'HR_STEP'], end: 'PENDING', steps: null });
+    const eng = await story(true);
+    expect(eng).toMatchObject({ first: [200, null], second: [409, null], end: 'APPROVED', steps: ['1:APPROVED', '2:SKIPPED'] });
+    expect(eng.history).toContain('HR step skipped: nobody else can approve');
+  }, 90_000);
+});
+
+describe('attendance on the approval engine: review of PR #105', () => {
+  const sc = SCENARIOS[0];
+
+  it('a team-scoped holder decides overtime and field punches only for their team, and the steps name only real deciders (blocker 1)', async () => {
+    await setOvertimeChain('HR');
+    await setSwitch(true);
+    const ot = await askOvertimeFor('om');
+    const punch = await fieldPunch('om');
+    for (const [kind, id, tryIt] of [
+      ['OVERTIME', ot, (who: Ctx) => att(who).post(`/overtime/requests/${ot}/approve`, {})],
+      ['FIELD_PUNCH', punch, (who: Ctx) => att(who).post(`/phone-punches/${punch}/review`, { approve: true })],
+    ] as const) {
+      const step = (await engineOf(kind, id))!.steps.find((s) => s.status === 'WAITING')!;
+      const people = (step.candidateUserIds as string[]).map((u) => names.get(u) || u);
+      /* Om is in neither Meena's nor Ravi's team: they are not his deciders, and cannot decide it. */
+      expect(people).not.toContain('Meena');
+      expect(people).not.toContain('Ravi');
+      expect(people).toEqual(expect.arrayContaining(['Asha', 'Kavya']));
+      for (const who of [meena, ravi]) expect((await tryIt(who)).status).toBe(404);
+      expect((await tryIt(kavya)).status).toBe(200);
+    }
+    await setSwitch(false);
+  }, 120_000);
+
+  it('maker-checker ALLOW: someone may approve their own request, as today, on both paths (kept for parity; owner question in the PR)', async () => {
+    await setCorrectionChain('HR');
+    await platformPrisma.authPolicy.upsert({ where: { orgId: hr.orgId }, create: { accountId: hr.accountId, orgId: hr.orgId, makerChecker: 'ALLOW', updatedByUserId: hr.userId }, update: { makerChecker: 'ALLOW' } });
+    try {
+      for (const engine of [false, true]) {
+        await setSwitch(engine);
+        const id = await ATTENDANCE.ask({ name: 'own', subject: 'ravi' });
+        expect((await att(ravi).post(`/requests/${id}/approve`, {})).status).toBe(200);
+        expect((await ATTENDANCE.status(id)).status).toBe('APPROVED');
+        if (engine) expect((await engineOf('ATTENDANCE', id))?.status).toBe('APPROVED');
+        await setSwitch(false);
+      }
+    } finally {
+      await platformPrisma.authPolicy.update({ where: { orgId: hr.orgId }, data: { makerChecker: 'AUTO' } });
+    }
+    expect(sc.subject).toBe('tara');
+  }, 120_000);
 });

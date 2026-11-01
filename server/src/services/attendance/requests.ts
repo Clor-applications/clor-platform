@@ -367,7 +367,7 @@ export async function editRequest(who: Asker, asRead: any, body: unknown) {
     });
     /* Back to the start of the chain: whoever decides first hears of it again. */
     if (!reasonOnly && r.managerApprovedAt) await queueRequestNotice(updated);
-    /* On the approval engine: asked again from the first step, as the chain asks again (workflow engine 2d). */
+    /* On the approval engine: asked again from the first step, under the company's chain as it is now (as the old path, which reads the chain live), not the one it was first asked under (workflow engine 2d). */
     if (!reasonOnly) await restartOnEngine(who.accountId, who.orgId, ATTENDANCE_SOURCE, r.id, await chainOf(who.orgId, r.kind as Kind, rules), who.userId);
     return updated;
   });
@@ -452,6 +452,12 @@ export async function decideRequest(accountId: string, orgId: string, r: any, ap
   return { request: row };
 }
 
+/** One line added to a request's history (the approval engine's own steps, e.g. HR's step skipped). Inside the caller's People transaction. */
+export async function addHistory(orgId: string, id: string, entry: Omit<HistoryEntry, 'at'>) {
+  const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id, orgId }, select: { history: true } });
+  if (r) await peoplePrisma.attendanceRequest.update({ where: { id }, data: { history: pushHistory(r.history, entry) } });
+}
+
 /** The manager's step, written on the request: it stays waiting, now with HR. Inside the caller's People transaction. */
 async function writeManagerStep(r: any, by: Decider, note: string | null) {
   const changed = await peoplePrisma.attendanceRequest.updateMany({
@@ -499,12 +505,13 @@ async function decideOnTheEngine(accountId: string, orgId: string, r: any, appro
   let out: { row: any; stage?: 'HR' };
   try {
     out = await peopleWrite(orgId, async () => {
-      const res = await decideOnEngine({ accountId, orgId, source: ATTENDANCE_SOURCE, sourceId: r.id, userId: by.userId, approve, note, managerTook: { at: r.managerApprovedAt, byEmployeeId: r.managerApprovedById } });
+      const res = await decideOnEngine({ accountId, orgId, source: ATTENDANCE_SOURCE, sourceId: r.id, userId: by.userId, approve, note, managerTook: { at: r.managerApprovedAt, byEmployeeId: r.managerApprovedById }, ownAllowed: subjectUserId === by.userId });
       if (!res) throw fail(409, 'This request was already decided.');
       const now = await peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: r.id } });
       if (res.direct) {
-        const row = await writeDecision(accountId, orgId, now, false, by.userId, note);
-        await closeOnEngine(accountId, orgId, ATTENDANCE_SOURCE, r.id, 'REJECTED', 'Rejected outside the steps', by.userId);
+        /* HR rejecting while the manager decides, or the person's own decision where the company allows it: written here, as today. */
+        const row = await writeDecision(accountId, orgId, now, approve, by.userId, note);
+        await closeOnEngine(accountId, orgId, ATTENDANCE_SOURCE, r.id, approve ? 'APPROVED' : 'REJECTED', `${approve ? 'Approved' : 'Rejected'} outside the steps`, by.userId);
         return { row };
       }
       if (res.managerStep) return { row: await writeManagerStep(now, by, note), stage: 'HR' as const };
@@ -740,7 +747,7 @@ async function actorNames(orgId: string, ids: Array<string | null | undefined>) 
   return new Map<string, string>([...u.map((x) => [x.id, x.fullName] as [string, string]), ...e.map((x) => [`portal:${x.id}`, x.name] as [string, string])]);
 }
 
-const HISTORY_WORDS: Record<string, string> = { ASKED: 'Asked', EDITED: 'Changed', REASON_EDITED: 'Changed the reason', MANAGER_APPROVED: 'Approved by the manager', APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled' };
+const HISTORY_WORDS: Record<string, string> = { ASKED: 'Asked', EDITED: 'Changed', REASON_EDITED: 'Changed the reason', MANAGER_APPROVED: 'Approved by the manager', APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled', STEP_SKIPPED: 'Step skipped', RULE_SKIPPED: 'Not approved at once' };
 
 /**
  * Who decides this request, in words that match what the reader can do (#80 QA F4: "Decided by: HR" while the

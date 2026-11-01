@@ -332,12 +332,12 @@ export async function decideOvertime(orgId: string, id: string, approve: boolean
   }
   if (on) {
     const out = await peopleWrite(orgId, async () => {
-      const res = await decideOnEngine({ accountId: r.accountId, orgId, source: OVERTIME_SOURCE, sourceId: r.id, userId: by.userId, approve, note, managerTook: { at: r.managerApprovedAt, byEmployeeId: r.managerApprovedById } });
+      const res = await decideOnEngine({ accountId: r.accountId, orgId, source: OVERTIME_SOURCE, sourceId: r.id, userId: by.userId, approve, note, managerTook: { at: r.managerApprovedAt, byEmployeeId: r.managerApprovedById }, ownAllowed: ownByLogin });
       if (!res) throw Object.assign(new Error('This request was already decided.'), { status: 409 });
       if (res.direct) {
-        /* HR rejecting while the manager decides, as today: written here, and the engine request closes to match. */
-        const row = await writeOvertimeDecision(orgId, r.id, false, by.userId, note);
-        await closeOnEngine(r.accountId, orgId, OVERTIME_SOURCE, r.id, 'REJECTED', 'Rejected outside the steps', by.userId);
+        /* HR rejecting while the manager decides, or the person's own decision where the company allows it, as today: written here, and the engine request closes to match. */
+        const row = await writeOvertimeDecision(orgId, r.id, approve, by.userId, note);
+        await closeOnEngine(r.accountId, orgId, OVERTIME_SOURCE, r.id, approve ? 'APPROVED' : 'REJECTED', `${approve ? 'Approved' : 'Rejected'} outside the steps`, by.userId);
         return { row, managerStep: false };
       }
       if (res.managerStep) {

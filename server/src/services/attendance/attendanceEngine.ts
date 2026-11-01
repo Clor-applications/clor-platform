@@ -108,12 +108,11 @@ export async function engineChains(orgId: string, source: TimeSource, ids: strin
 
 /**
  * Holders of the source's right: `SCOPE` those whose scope holds the person (a team-scoped role only for its team, as
- * the attendance routes and queues check), `WHOLE` only those who decide for the whole company, `ALL` every holder
- * (overtime and field punches: their single decide routes check no team, so the engine does not narrow them).
+ * every attendance, overtime and field punch decide route checks since PR #106), `WHOLE` only those who decide for the
+ * whole company.
  */
-async function holders(accountId: string, orgId: string, source: TimeSource, employeeId: string, which: 'SCOPE' | 'WHOLE' | 'ALL') {
+async function holders(accountId: string, orgId: string, source: TimeSource, employeeId: string, which: 'SCOPE' | 'WHOLE') {
   const users = await usersWithPermission(accountId, orgId, RIGHT[source]);
-  if (which === 'ALL') return users;
   const out: string[] = [];
   for (const u of users) {
     const access = await resolveAccess(accountId, orgId, u);
@@ -156,9 +155,13 @@ async function subjectIds(orgId: string, employeeId: string | null) {
   return new Set([portalOf(employeeId), ...(e?.userId ? [e.userId] : [])]);
 }
 
-/** HR in attendance's words: who holds the right for this person; after the manager on attendance requests, the whole company only. */
+/**
+ * HR in attendance's words: who holds the right for this person, in their scope (a team-scoped role only for its own
+ * team). On attendance requests, "HR only" and HR's step after the manager are the whole company's. Overtime's HR step
+ * after the manager is anyone holding the right for this person, as today.
+ */
 async function hrFor(accountId: string, orgId: string, source: TimeSource, chain: string, employeeId: string, afterManager: boolean) {
-  if (source !== ATTENDANCE_SOURCE) return holders(accountId, orgId, source, employeeId, 'ALL');
+  if (source !== ATTENDANCE_SOURCE) return holders(accountId, orgId, source, employeeId, 'SCOPE');
   return holders(accountId, orgId, source, employeeId, chain === 'HR_ONLY' || afterManager ? 'WHOLE' : 'SCOPE');
 }
 
@@ -196,7 +199,7 @@ function resolveTime(source: TimeSource) {
           how = 'HR';
         }
       } else {
-        const rightHolders = await holders(accountId, orgId, source, employeeId, source === ATTENDANCE_SOURCE ? 'SCOPE' : 'ALL');
+        const rightHolders = await holders(accountId, orgId, source, employeeId, 'SCOPE');
         const standInId = await deciderFor(orgId, manager.id, day, 'ATTENDANCE');
         const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set([manager.id, standInId])] } }, select: { id: true, userId: true, portalEnabled: true, status: true } });
         const own = deciderIdOf(people.find((p) => p.id === manager.id), rightHolders);
@@ -237,6 +240,15 @@ for (const t of TYPES) {
     const by = actor.userId || last?.decidedByUserId || request.requesterUserId;
     /* What the approver wrote; a step the engine closed itself says nothing on the row. */
     const note = last && last.decidedByUserId === by && !last.resolvedHow?.startsWith('SELF') ? last.comment : null;
+    /*
+     * "The manager, then HR" where the only one who could take HR's step is the manager who took the first (a small
+     * business whose owner is manager and HR): HR's step is skipped so it never waits on nobody (SPEC section 9, as
+     * leave, owner's decision on PR #102), and the request's own history says so.
+     */
+    if (source === ATTENDANCE_SOURCE && payloadOf(request).chain === 'MANAGER_THEN_HR' && request.steps.some((s) => s.order === 2 && s.status === 'SKIPPED') && request.steps.some((s) => s.order === 1 && s.status === 'APPROVED' && s.decidedByUserId)) {
+      const { addHistory } = await import('./requests.js');
+      await addHistory(request.orgId, String(request.sourceId), { by: 'system', what: 'STEP_SKIPPED', note: 'HR step skipped: nobody else can approve' });
+    }
     await writeAtSource(request.accountId, request.orgId, source, String(request.sourceId), true, by, note);
     return { sourceId: request.sourceId };
   });
@@ -276,8 +288,10 @@ const moduleRefusal = (e: unknown) => Boolean(e && typeof e === 'object' && type
  * A new row waiting for a decision, inside the caller's transaction (askRequest, askOvertime, a field punch): its
  * engine request opens under the preset of the chain the company stores for it. When nobody but the person could
  * decide it, it is approved at once and written SELF_APPROVED (SPEC 5.6, as leave); under STRICT maker-checker that
- * is refused (409 NO_APPROVER) and nothing is saved. When the module itself refuses that approval at once, the row
- * waits on the old path and the engine request goes. Answers whether it opened, and whether it is decided already.
+ * is refused (409 NO_APPROVER) and nothing is saved. When the module itself refuses that approval at once (a closed
+ * month, a night shift without consent), everything the open wrote is rolled back to a savepoint, the module's half
+ * of the approval included, and the row waits on the old path (review of PR #105, blocker 2). Must run inside the
+ * caller's People transaction. Answers whether it opened, and whether it is decided already.
  */
 export async function openOnEngine(p: { accountId: string; orgId: string; source: TimeSource; sourceId: string; kind?: string | null; employeeId: string; chain: string; title: string; enteredBy: string | null; facts?: Record<string, unknown> }): Promise<{ opened: boolean; done: boolean; refused?: string }> {
   const { accountId, orgId, source } = p;
@@ -287,6 +301,7 @@ export async function openOnEngine(p: { accountId: string; orgId: string; source
   const rule = await timePresetRule({ accountId, orgId }, requestType, key);
   const person = await peoplePrisma.employee.findFirst({ where: { id: p.employeeId, orgId }, select: { userId: true } });
   const payload = { employeeId: p.employeeId, preset: key, chain: p.chain, kind: p.kind || null, enteredByUserId: p.enteredBy, ...(p.facts || {}) };
+  await peoplePrisma.$executeRawUnsafe('SAVEPOINT attendance_engine_open');
   try {
     const out = await openSourced(actorFor(accountId, orgId, p.enteredBy, p.sourceId), {
       requestType, sourceKind: source, sourceId: p.sourceId, subjectEmployeeId: p.employeeId,
@@ -294,13 +309,12 @@ export async function openOnEngine(p: { accountId: string; orgId: string; source
       requesterUserId: person?.userId || portalOf(p.employeeId),
       title: p.title, payload, rule,
     });
+    await peoplePrisma.$executeRawUnsafe('RELEASE SAVEPOINT attendance_engine_open');
     return { opened: true, done: out.done };
   } catch (e) {
-    const opened = await peoplePrisma.approvalRequest.findFirst({ where: { orgId, sourceKind: source, sourceId: p.sourceId }, select: { id: true } });
-    /* Only the module's own refusal turns into "it waits"; the engine's (STRICT) and anything unexpected refuse the request. */
-    if (!moduleRefusal(e) || !opened) throw e;
-    await peoplePrisma.decisionRecord.deleteMany({ where: { orgId, requestId: opened.id } });
-    await peoplePrisma.approvalRequest.delete({ where: { id: opened.id } });
+    /* Only the module's own refusal turns into "it waits"; the engine's (STRICT) and anything unexpected refuse the request (the caller's transaction rolls back). */
+    if (!moduleRefusal(e)) throw e;
+    await peoplePrisma.$executeRawUnsafe('ROLLBACK TO SAVEPOINT attendance_engine_open');
     return { opened: false, done: false, refused: e instanceof Error ? e.message : 'it could not be applied' };
   }
 }
@@ -332,11 +346,12 @@ async function liveDeciders(accountId: string, orgId: string, engine: EngineRequ
  *  - the decider takes the step, or steps in (`decided`: the engine's request as it is now; the module's write ran in
  *    its hook when the last step closed or the request was rejected);
  *  - a rejection by someone the module allows who is not one of the step's people (HR rejecting while the manager
- *    decides): `direct`, the module writes it, then calls closeOnEngine;
+ *    decides), or the person's own decision where the company allows it (`ownAllowed`: maker-checker ALLOW, or
+ *    nobody else can, as the module checked): `direct`, the module writes it, then calls closeOnEngine;
  *  - anything else is not theirs: 403.
  * Answers null when the row is no longer on the engine (decided meanwhile).
  */
-export async function decideOnEngine(p: { accountId: string; orgId: string; source: TimeSource; sourceId: string; userId: string; approve: boolean; note: string | null; managerTook?: { at: Date | null; byEmployeeId: string | null } }) {
+export async function decideOnEngine(p: { accountId: string; orgId: string; source: TimeSource; sourceId: string; userId: string; approve: boolean; note: string | null; managerTook?: { at: Date | null; byEmployeeId: string | null }; ownAllowed?: boolean }) {
   const { accountId, orgId, source, sourceId, approve } = p;
   let engine = await engineOf(orgId, source, sourceId);
   if (!onEngine(engine)) return null;
@@ -358,6 +373,8 @@ export async function decideOnEngine(p: { accountId: string; orgId: string; sour
   }
   const mayStep = live.candidates.includes(p.userId) || (Boolean(live.spec?.stepIn) && live.stepIn.includes(p.userId));
   if (!mayStep) {
+    /* Your own, where the company lets you decide it (today's maker-checker rule, kept: owner question in PR #105). */
+    if (p.ownAllowed && (await subjectIds(orgId, engine.subjectEmployeeId)).has(p.userId)) return { direct: true as const, before: engine.currentStep };
     if (!approve) return { direct: true as const, before: engine.currentStep };
     throw fail(403, 'This request is not yours to decide.', 'NOT_YOUR_STEP');
   }

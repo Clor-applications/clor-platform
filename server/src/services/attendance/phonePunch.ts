@@ -1,5 +1,5 @@
 import { isMinor } from './biometrics.js';
-import { peoplePrisma } from '../../utils/peoplePrisma.js';
+import { peoplePrisma, peopleWrite } from '../../utils/peoplePrisma.js';
 import { istDate, istTime } from './compute.js';
 import { emit as emitWebhook } from './webhooks.js';
 import { punchPhotoRetentionDays } from '../retention.js';
@@ -206,7 +206,7 @@ async function openPunchOnEngine(e: PunchingEmployee, punchId: string, shiftDate
   try {
     const { FIELD_PUNCH_SOURCE, openOnEngine } = await import('./attendanceEngine.js');
     const person = await peoplePrisma.employee.findFirst({ where: { id: e.id, orgId: e.orgId }, select: { name: true, userId: true } });
-    const out = await openOnEngine({ accountId: e.accountId, orgId: e.orgId, source: FIELD_PUNCH_SOURCE, sourceId: punchId, employeeId: e.id, chain: 'HR', title: `${person?.name || 'Field punch'}: field punch, ${shiftDate}`, enteredBy: person?.userId || `portal:${e.id}` });
+    const out = await peopleWrite(e.orgId, () => openOnEngine({ accountId: e.accountId, orgId: e.orgId, source: FIELD_PUNCH_SOURCE, sourceId: punchId, employeeId: e.id, chain: 'HR', title: `${person?.name || 'Field punch'}: field punch, ${shiftDate}`, enteredBy: person?.userId || `portal:${e.id}` }));
     return out.done;
   } catch (err) {
     console.error('[phone-punch] field punch left on the old review:', err instanceof Error ? err.message : err);

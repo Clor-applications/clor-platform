@@ -951,11 +951,11 @@ export async function reviewFieldPunch(orgId: string, punchId: string, approve: 
   if (onEngine(await engineOf(orgId, FIELD_PUNCH_SOURCE, p.id))) {
     try {
       await peopleWrite(orgId, async () => {
-        const res = await decideOnEngine({ accountId: p.accountId, orgId, source: FIELD_PUNCH_SOURCE, sourceId: p.id, userId: by.userId, approve, note: null });
+        const res = await decideOnEngine({ accountId: p.accountId, orgId, source: FIELD_PUNCH_SOURCE, sourceId: p.id, userId: by.userId, approve, note: null, ownAllowed: selfApproved });
         if (!res) throw fail(409, 'Somebody decided this punch a moment ago.');
         if (res.direct) {
-          await writePunchDecision(orgId, p.id, false);
-          await closeOnEngine(p.accountId, orgId, FIELD_PUNCH_SOURCE, p.id, 'REJECTED', 'Refused outside the steps', by.userId);
+          await writePunchDecision(orgId, p.id, approve);
+          await closeOnEngine(p.accountId, orgId, FIELD_PUNCH_SOURCE, p.id, approve ? 'APPROVED' : 'REJECTED', `${approve ? 'Approved' : 'Refused'} outside the steps`, by.userId);
         }
       });
     } catch (e: any) {
