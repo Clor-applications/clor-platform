@@ -37,6 +37,7 @@ import { OPEN, balancesFor, entitledDays, leavePeriodOf, leaveYearOf, probationO
 const round4 = (n: number) => Math.round(n * 10_000) / 10_000;
 import { daysWorkedBefore, daysWorkedByPeriod } from '../services/attendance/daysWorked.js';
 import { deciderFor, managerStepBy, standingInFor, teamDecidedBy } from '../services/attendance/standIns.js';
+import { LEAVE_DELEGATE_TYPES, cleanTypes, deciders, findStandIn, listStandIns, nameStandIn, removeStandIn, timeOnly } from '../services/people/approvals/standIns.js';
 import { earlierWeeks, loadSchedule, resolveShift, weeksBefore, type EarlierWeek } from '../services/attendance/schedule.js';
 import { dayAfterMonth, scheduleGuard } from '../services/attendance/scheduleGuard.js';
 import { Prisma as PeoplePrisma } from '../generated/people/index.js';
@@ -212,7 +213,7 @@ const leaveDays = async (orgId: string, employee: { id: string; branchId: string
 export async function leaveScope(req: any): Promise<TeamScope> {
   const scope = await teamScope(req);
   if (scope.all || !scope.selfId) return scope;
-  const covered = await teamDecidedBy(req.tenant!.orgId, scope.selfId);
+  const covered = await teamDecidedBy(req.tenant!.orgId, scope.selfId, undefined, 'LEAVE');
   if (!covered.length) return scope;
   return { all: false, ids: [...new Set([...scope.ids, ...covered.map((e) => e.id)])], selfId: scope.selfId };
 }
@@ -1621,7 +1622,7 @@ export async function tellAboutLeave(orgId: string, r: any, ctx: { approvedBy?: 
     const manager = chain !== 'HR' && !r.managerApprovedAt ? await activeManagerOf(orgId, r.employeeId) : null;
     if (manager) {
       /* The manager acts first — or their stand-in while they are away: in People with a sign-in, else in the employee app's queue (no notice there). */
-      const managerUser = (await peoplePrisma.employee.findFirst({ where: { id: await deciderFor(orgId, manager.id), orgId }, select: { userId: true } }))?.userId;
+      const managerUser = (await peoplePrisma.employee.findFirst({ where: { id: await deciderFor(orgId, manager.id, undefined, 'LEAVE'), orgId }, select: { userId: true } }))?.userId;
       if (managerUser) await sendNotice(emp.accountId, orgId, [managerUser], { kind: 'attendance.leave_asked', title: `${who} asks for ${what}, ${when}`, body: leaveNoticeBody(r, days), link }, { except: r.requestedByUserId, dedupeKey, subjectKey: `leave:${r.id}` });
       return;
     }
@@ -1676,7 +1677,7 @@ export async function waitingForReader(orgId: string, scope: TeamScope, userId: 
   const managers = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, status: true, userId: true } })).map((m) => [m.id, m]));
   /* While a manager is away, their stand-in holds their queue. */
   const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } });
-  const covers = new Set(me ? await standingInFor(orgId, me.id) : []);
+  const covers = new Set(me ? await standingInFor(orgId, me.id, undefined, 'LEAVE') : []);
   /*
    * The reader's own leave is somebody else's to decide, unless the company's
    * maker-checker lets them decide it (makerChecker.ts): AUTO when nobody else
@@ -1784,7 +1785,7 @@ async function reviewLeave(req: any, id: string, approve: boolean, note: string 
   if (chain === 'MANAGER_THEN_HR') {
     const manager = await activeManagerOf(orgId, r.employeeId);
     /* The manager's own step, taken in People — or their stand-in's: recorded, and the request goes on to HR. */
-    const asManager = manager && me ? await managerStepBy(orgId, me.id, r.employeeId) : null;
+    const asManager = manager && me ? await managerStepBy(orgId, me.id, r.employeeId, undefined, 'LEAVE') : null;
     if (!r.managerApprovedAt && asManager) {
       try {
         const request = await managerStep(orgId, r, asManager, note, { employeeId: me!.id, userId: req.auth!.userId });
@@ -2463,7 +2464,7 @@ leaveRouter.get(`${base}/requests/:id`, canOrStep(PermissionAction.VIEW, R.leave
     const turn = r.status === 'PENDING' && !r.ruleId ? await hrMayDecide(orgId, 'leave', r, await leaveChainFor(orgId, r.leaveTypeId)) : { ok: true as const };
     /* The manager (or their stand-in) reading it is not waiting on anyone: Approve takes their step, as it does on the Approvals row. */
     const reader = turn.ok ? null : await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
-    const takesManagerStep = Boolean(reader && (await managerStepBy(orgId, reader.id, r.employeeId)));
+    const takesManagerStep = Boolean(reader && (await managerStepBy(orgId, reader.id, r.employeeId, undefined, 'LEAVE')));
     /* Leave that ran over the balance into loss of pay is changed by withdrawing it and asking again (editLeave refuses it). */
     const linkedLop = Boolean(r.overflowOfId) || (r.groupId ? Boolean(await peoplePrisma.leaveRequest.findFirst({ where: { orgId, groupId: r.groupId, overflowOfId: { not: null } }, select: { id: true } })) : false);
     const editable = r.status === 'PENDING' && !linkedLop && (await readsPrivateLeave(req) || !shaped.reasonHidden);
@@ -2919,25 +2920,34 @@ leaveRouter.post(`${base}/comp-off`, can(PermissionAction.EDIT, R.leave), async 
   }
 });
 
-// Stand-ins: who decides for a manager while they are away.
+// Stand-ins: who decides for a manager while they are away. One StandIn table
+// since the stand-in merge (workflow engine phase 2b), shared with People
+// approval stand-ins; the retired ApprovalStandIn is read as a fallback.
 leaveRouter.get(`${base}/stand-ins`, can(PermissionAction.VIEW, R.leave), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const scope = await leaveScope(req);
-  const rows = await peoplePrisma.approvalStandIn.findMany({ where: { orgId, ...(scope.all ? {} : { managerEmployeeId: scope.selfId || '__none__' }), toDate: { gte: addDays(today(), -30) } }, orderBy: { fromDate: 'desc' }, take: 200 });
-  const ids = [...new Set(rows.flatMap((r) => [r.managerEmployeeId, r.standInEmployeeId]))];
-  const names = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true, code: true } })).map((e) => [e.id, e]));
-  res.json({ standIns: rows.map((r) => ({ ...r, managerName: names.get(r.managerEmployeeId)?.name || null, standInName: names.get(r.standInEmployeeId)?.name || null, live: r.fromDate <= today() && r.toDate >= today() })), today: today() });
+  const rows = (await listStandIns(orgId, addDays(today(), -30), today()))
+    .filter((r) => (scope.all ? Boolean(r.employeeId || r.userId) : r.employeeId === (scope.selfId || '__none__')))
+    .slice(0, 200);
+  res.json({ standIns: rows, today: today() });
 });
 
 /* Naming a stand-in hands an approval on, so it takes the right to approve. */
 leaveRouter.post(`${base}/stand-ins`, can(PermissionAction.APPROVE, R.leave), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const parsed = z.object({ managerEmployeeId: z.string().min(1).optional(), standInEmployeeId: z.string().min(1, 'Choose who stands in.'), fromDate: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.'), toDate: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.') }).safeParse(req.body);
+  const parsed = z.object({
+    managerEmployeeId: z.string().min(1).optional(), standInEmployeeId: z.string().min(1, 'Choose who stands in.'),
+    fromDate: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.'), toDate: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.'),
+    requestTypes: z.array(z.string()).max(40).optional(), note: z.string().trim().max(500).optional(),
+  }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the stand-in.' });
   const b = parsed.data;
   if (b.toDate < b.fromDate) return res.status(400).json({ error: 'The last day is before the first.' });
+  /* What is handed on: leave and attendance unless told otherwise, as a leave delegate always was. */
+  const types = b.requestTypes === undefined ? LEAVE_DELEGATE_TYPES : cleanTypes(b.requestTypes);
+  if (!types) return res.status(400).json({ error: 'Choose what they decide.' });
   const scope = await leaveScope(req);
   /* HR names a stand-in for any manager; a manager names one for themselves. */
   const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
@@ -2945,22 +2955,29 @@ leaveRouter.post(`${base}/stand-ins`, can(PermissionAction.APPROVE, R.leave), as
   if (!managerId) return res.status(400).json({ error: 'Choose the manager.' });
   if (!scope.all && b.managerEmployeeId && b.managerEmployeeId !== me?.id) return res.status(403).json({ error: 'You can name a stand-in for yourself only.' });
   if (b.standInEmployeeId === managerId) return res.status(400).json({ error: 'Someone else stands in.' });
-  const [manager, standIn] = await Promise.all([peoplePrisma.employee.findFirst({ where: { id: managerId, orgId, status: { not: 'LEFT' } }, select: { id: true, name: true } }), peoplePrisma.employee.findFirst({ where: { id: b.standInEmployeeId, orgId, status: { not: 'LEFT' } }, select: { id: true, name: true } })]);
+  const [manager, standIn] = await Promise.all([managerId, b.standInEmployeeId].map((id) => peoplePrisma.employee.findFirst({ where: { id, orgId, status: { not: 'LEFT' } }, select: { id: true, name: true, userId: true } })));
   if (!manager || !standIn) return res.status(400).json({ error: 'Choose people who work here.' });
-  const row = await peoplePrisma.approvalStandIn.create({ data: { accountId, orgId, managerEmployeeId: manager.id, standInEmployeeId: standIn.id, fromDate: b.fromDate, toDate: b.toDate, createdByUserId: req.auth!.userId } });
-  await recordAudit(req, { entity: 'ApprovalStandIn', entityId: row.id, action: 'CREATE', message: `${standIn.name} stands in for ${manager.name}, ${b.fromDate} to ${b.toDate}`, metadata: b });
-  res.status(201).json({ standIn: { ...row, managerName: manager.name, standInName: standIn.name } });
+  /* More than leave and attendance is the manager's own to hand on, to someone who signs in and may approve. */
+  if (!timeOnly(types)) {
+    if (manager.id !== me?.id) return res.status(403).json({ error: `Only ${manager.name} can hand on their other approvals, from their own sign-in.` });
+    if (!standIn.userId) return res.status(400).json({ error: `${standIn.name} has no CLOR sign-in, so they cannot decide requests. Link one on their record first.` });
+    if (!(await deciders(accountId, orgId)).has(standIn.userId)) return res.status(400).json({ error: 'They cannot approve requests here, so they cannot decide in your place. Choose someone who can.' });
+  }
+  const row = await nameStandIn({ accountId, orgId, createdByUserId: req.auth!.userId, userId: manager.userId, employeeId: manager.id, standInUserId: standIn.userId, standInEmployeeId: standIn.id, fromDate: b.fromDate, toDate: b.toDate, requestTypes: types, note: b.note || null });
+  /* Audited under the name the People audit list already shows for stand-ins. */
+  await recordAudit(req, { entity: 'ApprovalStandIn', entityId: row.id, action: 'CREATE', message: `${standIn.name} stands in for ${manager.name}, ${b.fromDate} to ${b.toDate}`, metadata: { ...b, requestTypes: types } });
+  res.status(201).json({ standIn: { ...row, managerEmployeeId: manager.id, managerName: manager.name, standInName: standIn.name } });
 });
 
 leaveRouter.delete(`${base}/stand-ins/:id`, can(PermissionAction.APPROVE, R.leave), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
-  const row = await peoplePrisma.approvalStandIn.findFirst({ where: { id: String(req.params.id), orgId } });
+  const row = await findStandIn(orgId, String(req.params.id));
   if (!row) return res.status(404).json({ error: 'No such stand-in.' });
   const scope = await leaveScope(req);
-  if (!scope.all && row.managerEmployeeId !== scope.selfId) return res.status(404).json({ error: 'No such stand-in.' });
-  await peoplePrisma.approvalStandIn.delete({ where: { id: row.id } });
-  await recordAudit(req, { entity: 'ApprovalStandIn', entityId: row.id, action: 'DELETE', message: `Stand-in removed (${row.fromDate} to ${row.toDate})`, metadata: { managerEmployeeId: row.managerEmployeeId } });
+  if (!scope.all && row.employeeId !== scope.selfId) return res.status(404).json({ error: 'No such stand-in.' });
+  await removeStandIn(orgId, row);
+  await recordAudit(req, { entity: 'ApprovalStandIn', entityId: row.id, action: 'DELETE', message: `Stand-in removed (${row.fromDate} to ${row.toDate})`, metadata: { managerEmployeeId: row.employeeId } });
   res.json({ ok: true });
 });
 

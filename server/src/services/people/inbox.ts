@@ -220,7 +220,7 @@ async function timeItems(orgId: string, userId: string, scope: Awaited<ReturnTyp
     const managerIds = [...new Set(asks.map((a) => people.get(a.employeeId)?.reportingManagerId).filter(Boolean) as string[])];
     const managers = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, status: true, userId: true } })).map((m) => [m.id, m]));
     const me = userId ? await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } }) : null;
-    const covers = new Set(me ? await standingInFor(orgId, me.id) : []);
+    const covers = new Set(me ? await standingInFor(orgId, me.id, undefined, 'ATTENDANCE') : []);
     for (const a of asks) {
       if (mine(a.employeeId)) continue;
       const m = managers.get(people.get(a.employeeId)?.reportingManagerId || '');

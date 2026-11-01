@@ -67,7 +67,7 @@ async function leaveHr(accountId: string, orgId: string) {
  * manager who cannot sign in.
  */
 async function managerDeciders(orgId: string, managerId: string, day: string) {
-  const ids = [...new Set([managerId, await deciderFor(orgId, managerId, day)])];
+  const ids = [...new Set([managerId, await deciderFor(orgId, managerId, day, 'LEAVE')])];
   const rows = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids }, status: { notIn: ['LEFT', 'SUSPENDED'] } }, select: { id: true, userId: true, portalEnabled: true } });
   return rows.map((e) => e.userId || (e.portalEnabled ? portalOf(e.id) : null)).filter(Boolean) as string[];
 }

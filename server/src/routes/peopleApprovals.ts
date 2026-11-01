@@ -13,7 +13,7 @@ import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/peopl
 import { correlationOf } from '../services/people/employees.js';
 import { todayIst } from '../services/people/lifecycle/board.js';
 import { leavingReasonFilter } from '../services/people/companyChoices.js';
-import { usersWithPermission } from '../services/notifications.js';
+import { cleanTypes, deciders, findStandIn, listStandIns, nameStandIn, removeStandIn, timeOnly } from '../services/people/approvals/standIns.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
 import { ApprovalError, REQUEST_TYPES, RULE_TYPES, isFormType, activeRule, decide, mine, namesFor, previewRule, reply, retireRule, saveRuleSpec, shape, stepsOfRule, submitRequest, twoPersonProblem, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
 import { cleanRule, isRuleProblem, legacySteps, normaliseAutoApprove, normaliseConditions, v1Exact } from '../services/people/approvals/spec.js';
@@ -32,11 +32,6 @@ const { approvals: APPROVALS, requests: REQUESTS } = PEOPLE_RESOURCE;
 const can = (action: string, resource: string) => requirePermission(PEOPLE_MODULE, action as any, resource);
 const base = '/orgs/:orgId/people';
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-/** Who may decide anything at all: a stand-in must be one of them (People requests or leave, approve). */
-async function deciders(accountId: string, orgId: string) {
-  const [people, leave] = await Promise.all([usersWithPermission(accountId, orgId, 'PEOPLE::Requests::APPROVE'), usersWithPermission(accountId, orgId, 'ATTENDANCE::Leave Requests::APPROVE')]);
-  return new Set([...people, ...leave]);
-}
 const actorOf = (req: Request, source: ChangeSource = 'FORM', reason: string | null = null): Actor => ({
   accountId: req.tenant!.accountId, orgId: req.tenant!.orgId, userId: req.auth?.userId || null, source, correlationId: correlationOf(req as any), reason,
 });
@@ -361,21 +356,23 @@ peopleApprovalsRouter.post(`${base}/requests/:id/withdraw`, can(PermissionAction
 });
 
 // ---- Stand-ins -------------------------------------------------------------
+// One StandIn table since the stand-in merge (workflow engine phase 2b): these
+// and the leave delegates (routes/leave.ts) are the same rows, each saying what
+// it hands on. Listed here: the ones handing on my decisions, by my sign-in or
+// my People record.
+
+async function myRecord(orgId: string, userId: string) {
+  return peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true, name: true } });
+}
 
 peopleApprovalsRouter.get(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
-  const rows = await peoplePrisma.standIn.findMany({ where: { orgId, userId: req.auth!.userId }, orderBy: { fromDate: 'desc' } });
-  const names = await namesFor(rows.map((r) => r.standInUserId), orgId);
-  /* The People record behind each login, so the Delegates screen can name people the way the leave list does. */
-  const records = await peoplePrisma.employee.findMany({ where: { orgId, userId: { in: [req.auth!.userId, ...rows.map((r) => r.standInUserId)] } }, select: { id: true, userId: true, name: true } });
-  const recordOf = new Map(records.map((e) => [e.userId, e]));
+  const userId = req.auth!.userId;
+  const me = await myRecord(orgId, userId);
   const day = todayIst();
-  res.json({
-    today: day,
-    selfEmployeeId: recordOf.get(req.auth!.userId)?.id ?? null,
-    standIns: rows.map((r) => ({ ...r, standInName: recordOf.get(r.standInUserId)?.name || names.get(r.standInUserId) || '', standInEmployeeId: recordOf.get(r.standInUserId)?.id ?? null, live: r.fromDate <= day && r.toDate >= day })),
-  });
+  const rows = (await listStandIns(orgId, null, day)).filter((r) => r.userId === userId || (me && r.employeeId === me.id));
+  res.json({ today: day, selfEmployeeId: me?.id ?? null, standIns: rows });
 });
 
 /**
@@ -397,33 +394,56 @@ peopleApprovalsRouter.get(`${base}/stand-ins/candidates`, can(PermissionAction.V
  * Name someone to decide in my place between two dates. Only my own; a
  * manager cannot be given one. The stand-in is named by their login, or by
  * their People record when it carries one (the Delegates screen picks people).
+ * `requestTypes` says what is handed on: all approvals when left out.
+ * Handing on more than leave and attendance needs someone who signs in and
+ * may approve; leave and attendance alone may go to someone deciding in the
+ * employee app.
  */
 peopleApprovalsRouter.post(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  const parsed = z.object({ standInUserId: z.string().trim().min(1).optional(), standInEmployeeId: z.string().trim().min(1).optional(), fromDate: z.string().regex(ISO_DATE), toDate: z.string().regex(ISO_DATE) }).safeParse(req.body || {});
+  const parsed = z.object({
+    standInUserId: z.string().trim().min(1).optional(), standInEmployeeId: z.string().trim().min(1).optional(), fromDate: z.string().regex(ISO_DATE), toDate: z.string().regex(ISO_DATE),
+    requestTypes: z.array(z.string()).max(40).optional(), note: z.string().trim().max(500).optional(),
+  }).safeParse(req.body || {});
   if (!parsed.success || (!parsed.data.standInUserId && !parsed.data.standInEmployeeId)) return res.status(400).json({ error: 'Name the person and the dates (YYYY-MM-DD).' });
   const { accountId, orgId } = req.tenant!;
+  const userId = req.auth!.userId;
   const b = parsed.data;
   if (b.toDate < b.fromDate) return res.status(400).json({ error: 'The end is before the start.' });
-  let standInUserId = b.standInUserId || '';
+  const types = cleanTypes(b.requestTypes ?? []);
+  if (!types) return res.status(400).json({ error: 'Choose what they decide.' });
+  const timeAlone = timeOnly(types);
+  const me = await myRecord(orgId, userId);
+  /* Leave and attendance are decided by People record: a sign-in with none has nothing there to hand on. */
+  if (timeAlone && !me) return res.status(400).json({ error: 'Leave and attendance are handed on from your employee record, and your sign-in is not linked to one.' });
+  let standInUserId: string | null = b.standInUserId || null;
+  let standInEmployeeId: string | null = null;
   if (b.standInEmployeeId) {
-    const person = await peoplePrisma.employee.findFirst({ where: { id: b.standInEmployeeId, orgId, status: { not: 'LEFT' } }, select: { name: true, userId: true } });
+    const person = await peoplePrisma.employee.findFirst({ where: { id: b.standInEmployeeId, orgId, status: { not: 'LEFT' } }, select: { id: true, name: true, userId: true } });
     if (!person) return res.status(400).json({ error: 'That person is not in this company.' });
-    if (!person.userId) return res.status(400).json({ error: `${person.name} has no CLOR sign-in, so they cannot decide requests. Link one on their record first.` });
+    if (!person.userId && !timeAlone) return res.status(400).json({ error: `${person.name} has no CLOR sign-in, so they cannot decide requests. Link one on their record first.` });
     standInUserId = person.userId;
+    standInEmployeeId = person.id;
   }
-  if (standInUserId === req.auth!.userId) return res.status(400).json({ error: 'Someone else has to stand in.' });
-  const member = await platformPrisma.userOrgMembership.findFirst({ where: { orgId, userId: standInUserId }, select: { id: true } });
-  if (!member) return res.status(400).json({ error: 'That person is not in this company.' });
-  if (!(await deciders(accountId, orgId)).has(standInUserId)) return res.status(400).json({ error: 'They cannot approve requests here, so they cannot decide in your place. Choose someone who can.' });
-  const row = await peoplePrisma.standIn.create({ data: { accountId, orgId, userId: req.auth!.userId, standInUserId, fromDate: b.fromDate, toDate: b.toDate } });
+  if ((standInUserId && standInUserId === userId) || (me && standInEmployeeId === me.id)) return res.status(400).json({ error: 'Someone else has to stand in.' });
+  if (standInUserId) {
+    const member = await platformPrisma.userOrgMembership.findFirst({ where: { orgId, userId: standInUserId }, select: { id: true } });
+    if (!member) return res.status(400).json({ error: 'That person is not in this company.' });
+    if (!timeAlone && !(await deciders(accountId, orgId)).has(standInUserId)) return res.status(400).json({ error: 'They cannot approve requests here, so they cannot decide in your place. Choose someone who can.' });
+    if (!standInEmployeeId) standInEmployeeId = (await myRecord(orgId, standInUserId))?.id ?? null;
+  }
+  const row = await nameStandIn({ accountId, orgId, createdByUserId: userId, userId, employeeId: me?.id ?? null, standInUserId, standInEmployeeId, fromDate: b.fromDate, toDate: b.toDate, requestTypes: types, note: b.note || null });
   res.status(201).json({ standIn: row });
 });
 
 peopleApprovalsRouter.delete(`${base}/stand-ins/:id`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  const r = await peoplePrisma.standIn.deleteMany({ where: { id: String(req.params.id), orgId: req.tenant!.orgId, userId: req.auth!.userId } });
-  if (!r.count) return res.status(404).json({ error: 'No such stand-in.' });
+  const { orgId } = req.tenant!;
+  const userId = req.auth!.userId;
+  const row = await findStandIn(orgId, String(req.params.id));
+  const me = row ? await myRecord(orgId, userId) : null;
+  if (!row || !(row.userId === userId || (me && row.employeeId === me.id))) return res.status(404).json({ error: 'No such stand-in.' });
+  await removeStandIn(orgId, row);
   res.json({ ok: true });
 });
 

@@ -515,7 +515,7 @@ portalRouter.get('/approvals/punch/:id/photo', async (req, res) => {
   const e = req.portal!.employee;
   const p = await peoplePrisma.devicePunch.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, outsideSite: true } });
   if (!p?.photoId) return res.status(404).json({ error: 'No selfie with this punch.' });
-  if (!p.employeeId || !(await managerStepBy(e.orgId, e.id, p.employeeId))) return res.status(403).json({ error: 'This punch is not yours to see.' });
+  if (!p.employeeId || !(await managerStepBy(e.orgId, e.id, p.employeeId, undefined, 'ATTENDANCE'))) return res.status(403).json({ error: 'This punch is not yours to see.' });
   const photo = await peoplePrisma.punchPhoto.findFirst({ where: { id: p.photoId, orgId: e.orgId } });
   if (!photo) return res.status(404).json({ error: 'The selfie has been deleted (kept for a limited time).' });
   res.set('Cache-Control', 'private, no-store').json({ photo: `data:${photo.mime};base64,${Buffer.from(photo.data).toString('base64')}` });
@@ -961,7 +961,7 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
     /* Every kind of attendance request through one decision (services/attendance/requests.ts): the manager, or whoever stands in for them today. */
     const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId } });
     if (!r) return res.status(404).json({ error: 'No such request.' });
-    if (!(await managerStepBy(e.orgId, e.id, r.employeeId))) return res.status(403).json({ error: 'This request is not yours to decide.' });
+    if (!(await managerStepBy(e.orgId, e.id, r.employeeId, undefined, 'ATTENDANCE'))) return res.status(403).json({ error: 'This request is not yours to decide.' });
     try {
       return res.json(await decideRequest(e.accountId, e.orgId, r, decision === 'approve', { userId: e.userId || `portal:${e.id}`, managerId: e.id, scopeAll: false }, String(req.body?.note || '').trim().slice(0, 500) || null));
     } catch (err) {
@@ -1002,7 +1002,7 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
     }
   }
   /* The person's manager, or whoever stands in for them today, decides as the manager. */
-  const asManager = await managerStepBy(e.orgId, e.id, r.employeeId);
+  const asManager = await managerStepBy(e.orgId, e.id, r.employeeId, undefined, 'LEAVE');
   if (!asManager) return res.status(403).json({ error: 'This request is not yours to decide.' });
   if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${String(r.status).toLowerCase()}.` });
   try {
