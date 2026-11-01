@@ -58,7 +58,7 @@ const shapeRule = (r: RuleRow, names: Map<string, string>) => ({
   id: r.id, ruleId: r.ruleId, version: r.version, title: r.title, jurisdiction: r.jurisdiction, establishmentKinds: r.establishmentKinds as string[], employeeCategories: r.employeeCategories as string[],
   legalSource: r.legalSource, notificationRef: r.notificationRef, effectiveFrom: r.effectiveFrom, effectiveTo: r.effectiveTo, supersedesVersion: r.supersedesVersion, obligation: r.obligation, threshold: (r.threshold as { minHeadcount?: number } | null) || null,
   ownerRole: r.ownerRole, dueRule: r.dueRule as DueRule, requiredProof: r.requiredProof as string[], reviewStatus: r.reviewStatus, active: r.active,
-  checkedBy: r.checkedByUserId ? names.get(r.checkedByUserId) || '' : '', checkedAt: r.checkedAt, checkedLine: r.reviewStatus === 'CHECKED' && r.checkedAt ? `Last checked by ${names.get(r.checkedByUserId || '') || 'someone'} on ${new Date(r.checkedAt.getTime() + 330 * 60_000).toISOString().slice(0, 10)}` : 'Check with your adviser', createdAt: r.createdAt,
+  checkedBy: r.checkedByUserId ? names.get(r.checkedByUserId) || '' : '', checkedAt: r.checkedAt, checkedLine: r.reviewStatus === 'CHECKED' && r.checkedAt ? `Last checked by ${names.get(r.checkedByUserId || '') || 'someone'} on ${istDate(r.checkedAt)}` : 'Check with your adviser', createdAt: r.createdAt,
 });
 
 /** The library, seeded from the catalogue the first time it is read. */
@@ -169,7 +169,7 @@ function periodsOf(rule: DueRule, est: { createdAt: Date } | null, from: string,
   /* A standing duty is due now and stays due until it is done. */
   if (rule.kind === 'STANDING') return [{ period: 'STANDING', dueOn: today }];
   if (rule.kind === 'ONCE') {
-    const start = est ? new Date(est.createdAt.getTime() + 330 * 60_000).toISOString().slice(0, 10) : from;
+    const start = est ? istDate(est.createdAt) : from;
     return [{ period: 'ONCE', dueOn: addDays(start, rule.days) }];
   }
   for (let y = fy - 1; y <= ty; y += 1) {
@@ -233,7 +233,7 @@ export async function buildObligations(accountId: string, orgId: string, now = n
     }
   }
   /* Statutory deadlines from Payroll's settings; nothing from before the company was on CLOR. The POSH report comes from the library instead. */
-  const joined = org ? new Date(org.createdAt.getTime() + 330 * 60_000).toISOString().slice(0, 10) : from;
+  const joined = org ? istDate(org.createdAt) : from;
   for (const d of dueDates(applies, joined > from ? joined : from, to)) {
     if (d.code === 'POSH_REPORT') continue;
     rows.push({ ruleId: d.code, ruleVersion: 0, establishmentId: null, period: d.period, title: d.title, dueOn: d.dueDate, source: 'STATUTORY' });
@@ -505,5 +505,5 @@ export async function leaveRegister(orgId: string, establishmentId: string | nul
   const types = await peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true } });
   const typeOf = new Map(types.map((t) => [t.id, t.name]));
   const of = new Map(people.map((p) => [p.id, p]));
-  return { from, to, columns: ['Employee ID', 'Name', 'Leave type', 'From', 'To', 'Days', 'Approved on'], rows: leaves.map((l) => [of.get(l.employeeId)?.code || '', of.get(l.employeeId)?.name || '', typeOf.get(l.leaveTypeId) || '', l.fromDate, l.toDate, String(l.days), l.reviewedAt ? new Date(l.reviewedAt.getTime() + 330 * 60_000).toISOString().slice(0, 10) : '']) };
+  return { from, to, columns: ['Employee ID', 'Name', 'Leave type', 'From', 'To', 'Days', 'Approved on'], rows: leaves.map((l) => [of.get(l.employeeId)?.code || '', of.get(l.employeeId)?.name || '', typeOf.get(l.leaveTypeId) || '', l.fromDate, l.toDate, String(l.days), l.reviewedAt ? istDate(l.reviewedAt) : '']) };
 }

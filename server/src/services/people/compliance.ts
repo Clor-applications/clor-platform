@@ -2,7 +2,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { isFeatureEnabled } from '../features.js';
-import { addDays, todayIst } from '../../utils/istDate.js';
+import { addDays, istDate, todayIst } from '../../utils/istDate.js';
 
 /**
  * Compliance calendar (HR research, Phase 2: "compliance calendar,
@@ -131,7 +131,7 @@ export async function calendar(who: Who) {
   const a = await applicability(who.accountId, who.orgId);
   /* Nothing from before the company was on CLOR: a new company is not "late" for months it was not here. */
   const org = await platformPrisma.org.findUnique({ where: { id: who.orgId }, select: { createdAt: true } });
-  const joined = org ? new Date(org.createdAt.getTime() + 330 * 60_000).toISOString().slice(0, 10) : from;
+  const joined = org ? istDate(org.createdAt) : from;
   const due = dueDates(a, joined > from ? joined : from, to);
   if (due.length) {
     await peoplePrisma.complianceTask.createMany({

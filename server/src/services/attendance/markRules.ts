@@ -4,6 +4,7 @@ import { assertMonthOpen, daysOfMonth, payrollTaken, periodContext, today } from
 import { istInstant } from './compute.js';
 import { balancesFor, leaveYearOf } from './leaveBalances.js';
 import { currentRuleVersion, isMinuteCut, rulesOf, timeRulesFor, type MarkRules } from './timeRules.js';
+import { istDate } from '../../utils/istDate.js';
 
 /**
  * Late marks and early exits that cost part of a day (WORKFLOW-GAP-RESEARCH-2026-10-30 B3, 4.4).
@@ -162,7 +163,7 @@ export async function marksRulesOn(orgId: string, date: string): Promise<{ marks
     } catch {
       /* fall through */
     }
-    return new Date(r.createdAt.getTime() + 330 * 60_000).toISOString().slice(0, 10);
+    return istDate(r.createdAt);
   };
   const order = (x: typeof rows[number], y: typeof rows[number]) => fromOf(x).localeCompare(fromOf(y)) || x.version - y.version;
   const sorted = [...rows].sort(order);
