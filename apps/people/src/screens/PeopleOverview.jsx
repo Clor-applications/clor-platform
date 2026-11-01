@@ -367,8 +367,6 @@ export default function PeopleOverview({ openScreen }) {
           <p className="ui-caption">Code on Wages 2019 s.17(2): wages within two working days of the last day. Clearance does not hold them up.</p>
         </section>
       ) : null}
-      <HomeSetup openScreen={openScreen} onState={onSetup} />
-
       <div className="soft-layout">
         <div className="soft-main">
           <div className="soft-band-stats" data-reveal style={{ '--i': 1 }}>
@@ -389,7 +387,7 @@ export default function PeopleOverview({ openScreen }) {
               </span>
               <span className="soft-band-stat-note">{leave ? `${data.headcount - outToday.length} of ${data.headcount} at work` : 'Loading leave'}</span>
             </button>
-            <button type="button" className="soft-band-stat" data-tint="peach" onClick={go('approvals')}>
+            <button type="button" className="soft-band-stat" data-tint="peach" data-attention={waiting > 0 || undefined} onClick={go('approvals')}>
               <span className="soft-band-stat-label"><SealCheck size={16} aria-hidden="true" /> To approve</span>
               <span className="soft-band-stat-value">{todos || leave ? waiting : '–'}</span>
               <span className="soft-band-stat-note">{pending.length ? `${plural(pending.length, 'leave request')}, next starts ${dayDate(pending[0].fromDate)}` : waiting ? 'No leave among them' : 'Nothing to approve'}</span>
@@ -447,10 +445,13 @@ export default function PeopleOverview({ openScreen }) {
                   ))}
                 </ul>
               ) : !pending.length ? (
-                <p className="people-empty">{setupShowing ? 'Nothing waits for you yet. Start with the steps above.' : <><strong>All caught up</strong>. Nothing needs your answer right now.</>}</p>
+                <p className="people-empty">{setupShowing ? 'Nothing waits for you yet. Start with the steps below.' : <><strong>All caught up</strong>. Nothing needs your answer right now.</>}</p>
               ) : null}
             </section>
           </Bezel>
+
+          {/* The setup list sits under what waits on you, so a request is never below the fold behind it (2 Nov 2026). */}
+          <HomeSetup openScreen={openScreen} onState={onSetup} />
 
           {openTasks.length ? (
             <Bezel i={3}>
