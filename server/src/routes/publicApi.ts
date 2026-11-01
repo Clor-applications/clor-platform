@@ -13,6 +13,7 @@ import { isWeeklyOff } from '../services/attendance/compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
 import { closedMonths } from '../services/attendance/days.js';
 import { approveLeave, createLeave, rejectLeave, withTypes } from './leave.js';
+import { engineStepOf } from '../services/attendance/leaveEngine.js';
 import { balancesFor, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { idempotent } from '../services/attendance/idempotency.js';
@@ -487,6 +488,8 @@ const decideLeave = (approve: boolean) => async (req: Request, res: Response) =>
   if (r.status !== 'PENDING') return fail(res, 409, `This request was already ${r.status.toLowerCase()}.`);
   /* Under the company's leave approval rule each step is a named person's or role's to take, in CLOR or the employee app; a key takes none of them. */
   if (r.ruleId) return fail(res, 409, 'This request follows the leave approval rule; it is decided step by step in CLOR.');
+  /* Decided by the approval rules (workflow engine 2c): each step is its people's to take, in CLOR or the employee app; a key takes none of them. */
+  if (await engineStepOf(orgId, r)) return fail(res, 409, 'This request is decided step by step in CLOR, by the approval rules.');
   /* A-13: a key that raised a request does not also approve it; a person, or another system's key, does. */
   if (approve && r.requestedByUserId === `api:${clientId}`) return fail(res, 403, 'This key raised this request; somebody else has to approve it.');
   const note = String(req.body?.note || '').trim().slice(0, 500) || null;

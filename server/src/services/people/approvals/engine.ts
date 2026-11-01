@@ -1262,7 +1262,9 @@ export async function previewRule(
     specs = stepsOfRule(rule);
     auto = normaliseAutoApprove(rule.autoApprove);
   }
-  if (!MONEY_TYPES.has(input.requestType) && auto.some((a) => allHold(a.when, facts))) return { rule: ruleWords, autoApproved: true, steps: [] as PreviewStep[] };
+  /* A leave preset's auto-approval also needs the person's own request within the balance, which a sample cannot say: not shown as approved on its own. */
+  const presetAuto = input.requestType === 'LEAVE' && !input.rule;
+  if (!presetAuto && !MONEY_TYPES.has(input.requestType) && auto.some((a) => allHold(a.when, facts))) return { rule: ruleWords, autoApproved: true, steps: [] as PreviewStep[] };
   const request: Req = { requestType: input.requestType, requesterUserId, subjectEmployeeId, payload };
   const day = todayIst();
   const now = new Date();

@@ -1570,7 +1570,12 @@ async function announce(orgId: string, row: any, extra: { approvedBy?: string | 
   await syncLeaveDecision(orgId, row);
   /* Away all of today, or back: the leave they decide on the engine goes up, or comes back, and whoever has it now is told. */
   const day = today();
-  if ((row.status === 'APPROVED' || row.status === 'CANCELLED') && row.fromDate <= day && row.toDate >= day && !row.halfDay && !row.fromTime) await refreshForPerson(row.accountId, orgId, row.employeeId);
+  /* After the approval commits, never inside it: each request is brought up to date in its own transaction and lock. */
+  if ((row.status === 'APPROVED' || row.status === 'CANCELLED') && row.fromDate <= day && row.toDate >= day && !row.halfDay && !row.fromTime) {
+    afterPeopleCommit(() => {
+      void refreshForPerson(row.accountId, orgId, row.employeeId).catch((e) => console.error(`[leave-engine] ${orgId}: steps not moved after a leave for today:`, e instanceof Error ? e.message : e));
+    });
+  }
   const shaped = (await withTypes(orgId, [row]))[0];
   const event = leaveEventFor(row.status);
   if (event) afterPeopleCommit(() => emitWebhook(orgId, event, leaveEvent(shaped)));

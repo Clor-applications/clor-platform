@@ -593,25 +593,20 @@ export async function refreshLeaveSteps(accountId: string, orgId: string, opts: 
 }
 
 /**
- * Someone whose own leave was approved or cancelled for today (they are away, or back): the leave they decide is
- * worked out again, so it goes up while they are away and back when they return, and whoever it goes to is told.
- * Their reportees' leave (they are the manager, or the manager's manager) and every step that names them.
+ * Someone whose own leave was approved or cancelled for today (they are away, or back): the leave they decide as
+ * a manager is worked out again, so it goes up while they are away and back when they return, and whoever has it
+ * now is told. Only where they are the manager (their reportees' leave) or the manager's manager (where a step is
+ * sent up to): HR and named people are not passed over for being away (resolveLeave), so their steps are left as
+ * they are. Each request in its own transaction and lock (refreshOne); called after the approval has committed.
  */
 export async function refreshForPerson(accountId: string, orgId: string, employeeId: string) {
-  const me = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { id: true, userId: true } });
-  if (!me) return 0;
-  const ids = [portalOf(me.id), ...(me.userId ? [me.userId] : [])];
-  const team = await peoplePrisma.employee.findMany({ where: { orgId, reportingManagerId: me.id }, select: { id: true } });
-  const below = team.length ? await peoplePrisma.employee.findMany({ where: { orgId, reportingManagerId: { in: team.map((t) => t.id) } }, select: { id: true } }) : [];
+  const team = await peoplePrisma.employee.findMany({ where: { orgId, reportingManagerId: employeeId }, select: { id: true } });
+  if (!team.length) return 0;
+  const below = await peoplePrisma.employee.findMany({ where: { orgId, reportingManagerId: { in: team.map((t) => t.id) } }, select: { id: true } });
   const subjects = [...team, ...below].map((x) => x.id);
-  const named = new Set<string>();
-  for (const id of ids) {
-    const steps = await peoplePrisma.approvalStep.findMany({ where: { orgId, status: 'WAITING', candidateUserIds: { array_contains: [id] }, request: { sourceKind: LEAVE_SOURCE, status: 'WAITING' } }, select: { requestId: true }, take: 2000 });
-    for (const s of steps) named.add(s.requestId);
-  }
-  const theirs = subjects.length ? await peoplePrisma.approvalRequest.findMany({ where: { orgId, sourceKind: LEAVE_SOURCE, status: 'WAITING', subjectEmployeeId: { in: subjects } }, select: { id: true }, take: 2000 }) : [];
+  const theirs = await peoplePrisma.approvalRequest.findMany({ where: { orgId, sourceKind: LEAVE_SOURCE, status: 'WAITING', subjectEmployeeId: { in: subjects } }, select: { id: true }, orderBy: { id: 'asc' }, take: 2000 });
   let moved = 0;
-  for (const id of new Set([...named, ...theirs.map((t) => t.id)])) if (await refreshOne(accountId, orgId, id)) moved += 1;
+  for (const t of theirs) if (await refreshOne(accountId, orgId, t.id)) moved += 1;
   return moved;
 }
 
@@ -687,9 +682,28 @@ export async function decideLeaveOnEngine(p: { accountId: string; orgId: string;
     let engine = await engineRequestOf(orgId, row);
     if (!onEngine(engine)) return null;
     await peoplePrisma.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`leave-engine:${engine.id}`}))`;
-    if (await catchUpManagerStep(accountId, orgId, engine)) engine = await engineRequestOf(orgId, row);
-    if (!onEngine(engine)) return null;
     const ids = p.ids.filter(Boolean);
+    /*
+     * The manager's step written on the leave while the engine still waits for it (an older API, during a rollback). Caught up
+     * only for an approval: catching up can close a step nobody else could take, and a rejection must never approve. A
+     * rejection meanwhile is HR's (below), never the manager's again.
+     */
+    const lead0 = engine.sourceId ? await peoplePrisma.leaveRequest.findFirst({ where: { id: engine.sourceId, orgId }, select: { managerApprovedAt: true } }) : null;
+    const behind = presetOf(engine) === 'MANAGER_THEN_HR' && engine.currentStep === 1 && Boolean(lead0?.managerApprovedAt);
+    if (behind && approve) {
+      if (await catchUpManagerStep(accountId, orgId, engine)) engine = await engineRequestOf(orgId, row);
+      if (!onEngine(engine)) return null;
+    } else if (behind) {
+      /* A rejection while caught up on the leave only: whoever approves leave for the person rejects it, as HR would at HR's step; never the manager again. */
+      const user = ids.find((u) => !u.startsWith('portal:'));
+      const took = lead0?.managerApprovedAt && engine.sourceId ? (await peoplePrisma.leaveRequest.findFirst({ where: { id: engine.sourceId, orgId }, select: { managerApprovedById: true } }))?.managerApprovedById : null;
+      const tookIds = took ? await bothIds(orgId, [portalOf(took)]) : new Set<string>();
+      if (p.channel === 'web' && user && !tookIds.has(user) && (await wholeCompanyApprovers(accountId, orgId)).includes(user) && !(await subjectIds(orgId, row.employeeId)).has(user)) {
+        const { decideLeave } = await import('../../routes/leave.js');
+        return { request: await decideLeave(accountId, orgId, row, user, note, false), by: user, override: true };
+      }
+      if (candidatesOf(engine).some((u) => ids.includes(u))) throw fail(403, 'The manager has passed this to HR; HR decides it now.', 'HR_STEP');
+    }
     const live = await liveDeciders(accountId, orgId, engine);
     if (await refreshStep(accountId, orgId, engine, live)) engine = (await engineRequestOf(orgId, row))!;
     const candidates = live.candidates;
@@ -792,15 +806,17 @@ export async function engineStepView(accountId: string, orgId: string, row: { id
   const rule = await peoplePrisma.approvalRule.findUnique({ where: { id: engine.ruleId }, select: { name: true, version: true, steps: true, presetKey: true } });
   const specs = stepsOfRule(rule);
   const names = await namesFor(steps.flatMap((s) => [s.decidedByUserId, ...((s.candidateUserIds as string[]) || [])]).filter(Boolean) as string[], orgId);
-  const role = (order: number, how: string | null) => {
-    const kind = how && KIND_WORDS[how] && how !== 'MANAGER' && how !== 'HR' ? how : specs.find((x) => x.order === order)?.approvers[0]?.kind || null;
+  /* A step's role in words: the stand-in only for whoever decided in someone's place (standInForUserId), never the manager on a step a stand-in was added to. */
+  const role = (order: number, how: string | null, stoodIn = false) => {
+    if (stoodIn) return ` (${KIND_WORDS.STAND_IN})`;
+    const kind = how && KIND_WORDS[how] && how !== 'MANAGER' && how !== 'HR' && how !== 'STAND_IN' ? how : specs.find((x) => x.order === order)?.approvers[0]?.kind || null;
     return kind && KIND_WORDS[kind] ? ` (${KIND_WORDS[kind]})` : '';
   };
   const timeline: Array<{ order: number; status: string; text: string; on: string | null }> = [];
   for (const s of steps) {
     const who = s.decidedByUserId ? names.get(s.decidedByUserId) || 'Someone' : null;
-    if (s.status === 'APPROVED') timeline.push({ order: s.order, status: s.status, on: dayOf(s.decidedAt), text: s.resolvedHow === 'AUTO_APPROVED' ? 'Approved by the leave rule' : s.resolvedHow === 'SELF_APPROVED' ? `${who} approved: nobody else in the company can decide this` : `${who}${role(s.order, s.resolvedHow)} approved` });
-    else if (s.status === 'REJECTED') timeline.push({ order: s.order, status: s.status, on: dayOf(s.decidedAt), text: `${who || 'Not approved'}${who ? `${role(s.order, s.resolvedHow)} rejected` : ''}` });
+    if (s.status === 'APPROVED') timeline.push({ order: s.order, status: s.status, on: dayOf(s.decidedAt), text: s.resolvedHow === 'AUTO_APPROVED' ? 'Approved by the leave rule' : s.resolvedHow === 'SELF_APPROVED' ? `${who} approved: nobody else in the company can decide this` : `${who}${role(s.order, s.resolvedHow, Boolean(s.standInForUserId && s.decidedByUserId !== s.standInForUserId))} approved` });
+    else if (s.status === 'REJECTED') timeline.push({ order: s.order, status: s.status, on: dayOf(s.decidedAt), text: `${who || 'Not approved'}${who ? `${role(s.order, s.resolvedHow, Boolean(s.standInForUserId && s.decidedByUserId !== s.standInForUserId))} rejected` : ''}` });
     else if (s.status === 'SKIPPED') timeline.push({ order: s.order, status: s.status, on: dayOf(s.decidedAt), text: `Step ${s.order} skipped${s.comment ? `: ${s.comment.charAt(0).toLowerCase()}${s.comment.slice(1)}` : ''}` });
     else if (s.status === 'HANDED_ON') timeline.push({ order: s.order, status: s.status, on: dayOf(s.decidedAt), text: `Step ${s.order} handed on${s.comment ? `: ${s.comment.charAt(0).toLowerCase()}${s.comment.slice(1)}` : ''}` });
     else if (s.status === 'WAITING') {
@@ -809,6 +825,7 @@ export async function engineStepView(accountId: string, orgId: string, row: { id
     }
   }
   const waiting = onEngine(engine) ? waitingSteps(engine)[0] : null;
+  const yours = waiting ? await decidesNow(accountId, orgId, row, readerId) : false;
   return {
     engine: true,
     rule: rule ? (rule.presetKey ? rule.name : `${rule.name} (v${rule.version})`) : 'Leave approval',
@@ -816,7 +833,9 @@ export async function engineStepView(accountId: string, orgId: string, row: { id
     current: waiting ? engine.currentStep : null,
     waitingFor: waiting ? ((waiting.candidateUserIds as string[]) || []).map((u) => names.get(u)).filter(Boolean) : [],
     dueAt: waiting?.dueAt ?? null,
-    yours: waiting ? await decidesNow(accountId, orgId, row, readerId) : false,
+    yours,
+    /* What the reader may do without it being theirs: reject while the manager decides (the manager, then HR: HR as on the chain). Approve only when it is theirs. */
+    mayReject: Boolean(waiting && !yours && presetOf(engine) === 'MANAGER_THEN_HR' && engine.currentStep === 1 && (await inScopeApprovers(accountId, orgId, String(engine.subjectEmployeeId))).includes(readerId)),
     timeline,
   };
 }

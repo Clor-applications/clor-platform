@@ -213,7 +213,9 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
   const d = req.data;
   const r = d?.request;
   /* Under the approval rule only whoever the waiting step names decides; they may do so without the general right. On the approval engine the leave right still decides as before (HR stepping in, or rejecting while the manager decides), and so does whoever the step names. */
-  const canDecide = d?.step?.engine ? Boolean(d.step.yours) || allowed('ATTENDANCE::Leave Requests::APPROVE') : d?.step ? Boolean(d.step.yours) : allowed('ATTENDANCE::Leave Requests::APPROVE');
+  /* On the approval engine the server says, worked out live: theirs to decide (approve and reject), or only to reject while the manager decides (HR, under "the manager, then HR"). Nothing else shows a button that would be refused. */
+  const canDecide = d?.step?.engine ? Boolean(d.step.yours || d.step.mayReject) : d?.step ? Boolean(d.step.yours) : allowed('ATTENDANCE::Leave Requests::APPROVE');
+  const canApprove = d?.step?.engine ? Boolean(d.step.yours) : true;
   const canCancel = allowed('ATTENDANCE::Leave Requests::EDIT');
   const [editing, setEditing] = useState(false);
   /* Came back early: the new last day, and what the shorter leave charges. */
@@ -288,7 +290,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
       {canCancel ? <button type="button" className="ui-btn ui-btn-ghost mr-auto" disabled={busy} onClick={cancel}>Withdraw</button> : null}
       {changeable ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => setEditing(true)}>Change</button> : null}
       <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={reject}><X size={16} aria-hidden="true" /> Reject</button>
-      <button type="button" className="ui-btn ui-btn-primary" disabled={busy || Boolean(d.waitingForManager)} onClick={approve}><Check size={16} aria-hidden="true" /> Approve</button>
+      {canApprove ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy || Boolean(d.waitingForManager)} onClick={approve}><Check size={16} aria-hidden="true" /> Approve</button> : null}
     </>
   ) : OPEN_STATUSES.includes(r.status) && canCancel ? (
     <>

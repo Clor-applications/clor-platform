@@ -168,6 +168,8 @@ describe('B: an approver going away, or coming back, moves the leave they decide
     expect(await waitingOn(r.id)).toEqual([ravi.userId]);
     const own = await ask(ravi, T.HR, todayIst());
     await att(kavya).post(`/leave/requests/${own.id}/approve`, {}).expect(200);
+    /* Moved after the approval commits, each request in its own transaction. */
+    await expect.poll(() => waitingOn(r.id), { timeout: 15_000 }).toEqual([meena.userId]);
     const up = await engineOf(r.id);
     expect(up?.steps.find((s) => s.status === 'WAITING')).toMatchObject({ resolvedHow: 'AWAY_HANDED_UP' });
     expect(await waitingOn(r.id)).toEqual([meena.userId]);
@@ -175,7 +177,7 @@ describe('B: an approver going away, or coming back, moves the leave they decide
     /* Ravi, away, is no longer offered it, and cannot take it. */
     expect((await people(ravi).get('/inbox').expect(200)).body.items.map((i: any) => i.id)).not.toContain(r.id);
     await att(kavya).post(`/leave/requests/${own.id}/cancel`).expect(200);
-    expect(await waitingOn(r.id)).toEqual([ravi.userId]);
+    await expect.poll(() => waitingOn(r.id), { timeout: 15_000 }).toEqual([ravi.userId]);
     expect((await att(ravi).post(`/leave/requests/${r.id}/approve`, {})).body.stage).toBe('HR');
     await att(hr).post(`/leave/requests/${r.id}/cancel`).expect(200);
   }, 60_000);
@@ -319,5 +321,62 @@ describe('what people see', () => {
     const d3 = (await att(kavya).get(`/leave/requests/${r.id}`).expect(200)).body.step;
     expect(d3.timeline.map((t: any) => t.text)).toEqual(['Ravi (manager) approved', 'Kavya (HR) approved']);
     expect((await mine()).withWhom).toBeNull();
+  }, 60_000);
+});
+
+describe('review of PR #104', () => {
+  beforeAll(() => switchOn());
+
+  it('the public API takes no step of leave on the approval rules: a chain’s or the leave rule’s, 409, and the leave keeps waiting', async () => {
+    const approver = (await att(hr).post('/integrations/keys', { name: `Key ${rnd()}`, scopes: ['leave:approve'] }).expect(201)).body.token;
+    await people(hr).post('/approval-rules', { requestType: 'LEAVE', name: 'Leave', steps: [{ approver: { kind: 'MANAGER' }, dueDays: 2 }, { approver: { kind: 'USER', id: kavya.userId }, dueDays: 2 }] }).expect(201);
+    const ruled = (await att(hr).post('/leave/types', { name: `Ruled ${rnd()}`, annualDays: 30 }).expect(201)).body.type;
+    await att(hr).put(`/leave/types/${ruled.id}`, { name: ruled.name, annualDays: 30, approval: 'RULE' }).expect(200);
+    for (const type of [T.MANAGER_THEN_HR, ruled]) {
+      const r = await ask(tara, type);
+      for (const what of ['approve', 'reject']) {
+        const out = await request(app).post(`/v1/leave/requests/${r.id}/${what}`).set('Authorization', `Bearer ${approver}`).send({ note: 'From the API' });
+        expect(out.status).toBe(409);
+      }
+      expect((await leaveRow(r.id)).status).toBe('PENDING');
+      expect((await engineOf(r.id))?.status).toBe('WAITING');
+      await att(hr).post(`/leave/requests/${r.id}/cancel`).expect(200);
+    }
+  }, 60_000);
+
+  it('HR’s own leave for today approved moves nothing: only the leave someone decides as a manager is worked out again', async () => {
+    const r = await ask(tara, T.HR);
+    const step = (await engineOf(r.id))!.steps.find((x) => x.status === 'WAITING')!;
+    /* Written stale on purpose: a refresh would put the real people back. */
+    await inTenant(() => peoplePrisma.approvalStep.update({ where: { id: step.id }, data: { candidateUserIds: [kavya.userId] } }));
+    const own = await ask(kavya, T.HR, todayIst());
+    await att(hr).post(`/leave/requests/${own.id}/approve`, {}).expect(200);
+    await new Promise((done) => setTimeout(done, 1500));
+    expect(await waitingOn(r.id)).toEqual([kavya.userId]);
+    for (const id of [own.id, r.id]) await att(hr).post(`/leave/requests/${id}/cancel`).expect(200);
+  }, 60_000);
+
+  it('the drawer: HR sees reject only while the manager decides, nothing on a leave rule step that is not theirs; the stand-in is marked, not the manager', async () => {
+    const r = await ask(tara, T.MANAGER_THEN_HR);
+    const asHr = (await att(kavya).get(`/leave/requests/${r.id}`).expect(200)).body.step;
+    expect(asHr).toMatchObject({ yours: false, mayReject: true });
+    expect((await att(ravi).get(`/leave/requests/${r.id}`).expect(200)).body.step).toMatchObject({ yours: true, mayReject: false });
+    await att(ravi).post(`/leave/requests/${r.id}/approve`, {}).expect(200);
+    const after = (await att(kavya).get(`/leave/requests/${r.id}`).expect(200)).body.step;
+    expect(after.timeline[0].text).toBe('Ravi (manager) approved');
+    await att(hr).post(`/leave/requests/${r.id}/cancel`).expect(200);
+    /* A stand-in named, who decides: marked as standing in. */
+    const standIn = (await att(hr).post('/leave/stand-ins', { managerEmployeeId: E.ravi.id, standInEmployeeId: E.meena.id, fromDate: todayIst(), toDate: addDays(todayIst(), 1) }).expect(201)).body.standIn;
+    try {
+      const x = await ask(tara, T.MANAGER_THEN_HR);
+      await att(meena).post(`/leave/requests/${x.id}/approve`, {}).expect(200);
+      expect((await att(kavya).get(`/leave/requests/${x.id}`).expect(200)).body.step.timeline[0].text).toBe('Meena (standing in) approved');
+      const y = await ask(tara, T.MANAGER_THEN_HR);
+      await att(ravi).post(`/leave/requests/${y.id}/approve`, {}).expect(200);
+      expect((await att(kavya).get(`/leave/requests/${y.id}`).expect(200)).body.step.timeline[0].text).toBe('Ravi (manager) approved');
+      for (const id of [x.id, y.id]) await att(hr).post(`/leave/requests/${id}/cancel`).expect(200);
+    } finally {
+      await att(hr).del(`/leave/stand-ins/${standIn.id}`).expect(200);
+    }
   }, 60_000);
 });

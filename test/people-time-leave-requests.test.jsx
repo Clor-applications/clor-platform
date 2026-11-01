@@ -92,7 +92,22 @@ describe('Leave requests', () => {
     expect(await screen.findByText('Ravi (manager) approved')).toBeInTheDocument();
     expect(screen.getByRole('list', { name: 'Steps' })).toHaveTextContent('Waiting for Asha, Kavya (HR)');
     expect(screen.getByText('Standard: the manager, then HR')).toBeInTheDocument();
-    /* The leave right (an admin here) still decides, as on the chain. */
-    expect(screen.getByRole('button', { name: /Approve/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Reject/ })).toBeNull();
+  });
+
+  it('on the approval engine: buttons only when the step is the reader’s; while the manager decides, HR may only reject', async () => {
+    const base = { request: row, history: [], dates: [], balance: null, parts: [], alsoAway: [], waitingForManager: null };
+    const step = { engine: true, rule: 'Leave (v1)', of: 2, current: 1, waitingFor: ['Ravi'], dueAt: null, timeline: [{ order: 1, status: 'WAITING', text: 'Waiting for Ravi (manager)', on: null }] };
+    const { default: LeaveRequests } = await import('../packages/ui/src/timeOff/LeaveRequests');
+    api.getLeaveRequest.mockResolvedValueOnce({ ...base, step: { ...step, yours: true, mayReject: false } });
+    const { unmount } = render(<LeaveRequests params={{ id: 'r1' }} updateParams={() => {}} />);
+    expect(await screen.findByRole('button', { name: /Approve/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Reject/ })).toBeInTheDocument();
+    unmount();
+    api.getLeaveRequest.mockResolvedValueOnce({ ...base, step: { ...step, yours: false, mayReject: true } });
+    render(<LeaveRequests params={{ id: 'r1' }} updateParams={() => {}} />);
+    expect(await screen.findByRole('button', { name: /Reject/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Approve/ })).toBeNull();
   });
 });

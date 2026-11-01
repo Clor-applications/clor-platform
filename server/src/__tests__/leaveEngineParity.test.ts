@@ -301,6 +301,16 @@ async function story(chain: string, sc: Scenario, engine: boolean) {
  */
 const DIFFERENT: Record<string, (old: any, eng: any) => void> = {
   /*
+   * The leave rule, owner alone: the rule's walker refused the owner's own leave (409 NO_APPROVER: nobody else could
+   * take a step); the engine records it at once as SELF_APPROVED, as it does on the chains, and refuses it only under
+   * STRICT maker-checker. Owner's decision (review of PR #104, item 2): a small business's owner can take leave.
+   */
+  'RULE / owner alone': (old, eng) => {
+    expect(old).toEqual({ status: 409, code: 'NO_APPROVER' });
+    expect(eng).toMatchObject({ status: 201, leave: 'APPROVED', steps: ['SELF_APPROVED'] });
+    expect(eng.strict).toEqual({ status: 409, code: 'NO_APPROVER' });
+  },
+  /*
    * The manager then HR, where the only one who could take HR's step is the manager who took the first (a small
    * business whose owner is manager and HR). The old path refused the owner HR's step and the leave waited for
    * ever; the engine skips HR's step, approves on the one decision, and the leave's history says so. Owner's
@@ -648,6 +658,10 @@ describe('leave on the approval engine: review of PR #102', () => {
     await inTenant(() => peoplePrisma.leaveRequest.update({ where: { id }, data: { managerApprovedAt: new Date(), managerApprovedById: E.ravi.id, managerNote: 'Fine' } }));
     const again = await att(ravi).post(`/leave/requests/${id}/approve`, {});
     expect([again.status, again.body.code]).toEqual([403, 'HR_STEP']);
+    /* Ravi (a team approver, not the whole company's) cannot reject it either now: HR decides it; and a refusal never approves. */
+    const rejected = await att(ravi).post(`/leave/requests/${id}/reject`, { note: 'No' });
+    expect(rejected.status).toBe(403);
+    expect((await leaveRow(id)).status).toBe('PENDING');
     expect((await att(kavya).post(`/leave/requests/${id}/approve`, {})).status).toBe(200);
     const r = await engineOf(id);
     expect(r?.steps.map((s) => `${s.order}:${s.status}:${s.decidedByUserId === ravi.userId ? 'ravi' : s.decidedByUserId === kavya.userId ? 'kavya' : ''}`)).toEqual(['1:APPROVED:ravi', '2:APPROVED:kavya']);
@@ -763,6 +777,29 @@ describe('leave on the approval engine: review of PR #102', () => {
 });
 
 describe('leave on the approval engine: a one-person company', () => {
+  it('the leave rule, owner alone: the walker refused, the engine records it at once (deliberate difference); STRICT refuses', async () => {
+    const c = await owner();
+    const inC = <X>(fn: () => Promise<X>) => runInTenant(c.orgId, fn);
+    const me = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Asha Owner', code: 'O-1', dateOfJoining: '2024-01-01' }).expect(201)).body.employee;
+    await inC(() => peoplePrisma.employee.update({ where: { id: me.id }, data: { userId: c.userId } }));
+    await request(app).post(`/api/orgs/${c.orgId}/people/approval-rules`).set(at(c)).send({ requestType: 'LEAVE', name: 'Leave', steps: [{ approver: { kind: 'MANAGER' }, dueDays: 2 }] }).expect(201);
+    const type = (await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/types`).set(at(c)).send({ name: 'Casual', annualDays: 12 }).expect(201)).body.type;
+    await request(app).put(`/api/orgs/${c.orgId}/attendance/leave/types/${type.id}`).set(at(c)).send({ name: 'Casual', annualDays: 12, approval: 'RULE' }).expect(200);
+    const askOwn = async () => {
+      const day = nextDay();
+      return request(app).post(`/api/orgs/${c.orgId}/attendance/me/leave`).set(at(c)).send({ leaveTypeId: type.id, fromDate: day, toDate: day, reason: 'Rest' });
+    };
+    const setOn = (on: boolean) => inC(() => peoplePrisma.peopleSetting.upsert({ where: { orgId: c.orgId }, create: { accountId: c.accountId, orgId: c.orgId, leaveOnEngine: on }, update: { leaveOnEngine: on } }));
+    const walker = await askOwn();
+    const old = { status: walker.status, code: walker.body.code };
+    await setOn(true);
+    const asked = await askOwn();
+    const r = await inC(() => peoplePrisma.approvalRequest.findFirst({ where: { orgId: c.orgId, sourceKind: 'LEAVE', sourceId: asked.body.request?.id }, include: { steps: true } }));
+    await platformPrisma.authPolicy.upsert({ where: { orgId: c.orgId }, create: { accountId: c.accountId, orgId: c.orgId, makerChecker: 'STRICT', updatedByUserId: c.userId }, update: { makerChecker: 'STRICT' } });
+    const strict = await askOwn();
+    DIFFERENT['RULE / owner alone'](old, { status: asked.status, leave: asked.body.request?.status, steps: r?.steps.map((x) => x.resolvedHow), strict: { status: strict.status, code: strict.body.code } });
+  }, 60_000);
+
   it('the owner’s own leave: the old path waits for the owner to approve it themselves; the engine records it at once, written SELF_APPROVED (SPEC 5.6); STRICT refuses it', async () => {
     const c = await owner();
     const me = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Asha Owner', code: 'O-1', dateOfJoining: '2024-01-01' }).expect(201)).body.employee;
