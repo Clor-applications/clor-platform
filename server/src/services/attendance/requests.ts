@@ -21,6 +21,7 @@ import { resolveAccess } from '../access.js';
 import { inScope, teamScope, type TeamScope } from '../people/scope.js';
 import { isFeatureEnabled } from '../features.js';
 import { addDays, eachDay } from '../../utils/istDate.js';
+import { ATTENDANCE_SOURCE, closeOnEngine, decideOnEngine, engineChain, engineChains, engineOf, onEngine, openOnEngine, restartOnEngine, syncFromRow, timeStepView } from './attendanceEngine.js';
 
 /**
  * Attendance requests (TIME-LEAVE-DECISIONS.md, advanced build): four kinds on
@@ -323,7 +324,13 @@ export async function askRequest(who: Asker, employee: Employee, body: unknown) 
       },
     });
     await queueRequestNotice(created);
-    return created;
+    /* On the approval engine (workflow engine 2d): its request opens under the chain the company stores for this kind. */
+    const opened = await openOnEngine({ accountId: who.accountId, orgId: who.orgId, source: ATTENDANCE_SOURCE, sourceId: created.id, kind: b.kind, employeeId: employee.id, chain: await chainOf(who.orgId, b.kind, rules), title: `${employee.name || 'Attendance'}: ${KIND_WORDS[b.kind].name.toLowerCase()}, ${spanWords(v.span)}`, enteredBy: who.userId });
+    if (opened.refused) {
+      const now = await peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: created.id } });
+      return peoplePrisma.attendanceRequest.update({ where: { id: created.id }, data: { history: pushHistory(now.history, { by: 'system', what: 'RULE_SKIPPED', note: `Not approved at once: ${opened.refused}` }) } });
+    }
+    return opened.done ? peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: created.id } }) : created;
   });
   await requestAudit(who, { entityId: row.id, action: 'CREATE', message: `${who.onBehalf ? `Entered ${KIND_WORDS[b.kind].name.toLowerCase()} for ${employee.name || 'an employee'}` : `${employee.name || 'An employee'} asked for ${KIND_WORDS[b.kind].name.toLowerCase()}`}, ${spanWords(v.span)}`, metadata: { employeeId: employee.id, kind: b.kind, date: b.date, toDate: v.toDate } });
   return row;
@@ -360,6 +367,8 @@ export async function editRequest(who: Asker, asRead: any, body: unknown) {
     });
     /* Back to the start of the chain: whoever decides first hears of it again. */
     if (!reasonOnly && r.managerApprovedAt) await queueRequestNotice(updated);
+    /* On the approval engine: asked again from the first step, as the chain asks again (workflow engine 2d). */
+    if (!reasonOnly) await restartOnEngine(who.accountId, who.orgId, ATTENDANCE_SOURCE, r.id, await chainOf(who.orgId, r.kind as Kind, rules), who.userId);
     return updated;
   });
   if (!row) return r;
@@ -380,7 +389,11 @@ export type Decider = { userId: string; /** The employee file of whoever decides
  * else with company-wide scope, takes the second. Approving writes the days.
  */
 export async function decideRequest(accountId: string, orgId: string, r: any, approve: boolean, by: Decider, note: string | null): Promise<{ request: any; stage?: 'HR' }> {
-  if (r.status !== 'PENDING') throw fail(409, `This request was already ${String(r.status).toLowerCase()}.`);
+  if (r.status !== 'PENDING') {
+    /* Decided meanwhile by an older API (a rollback): its engine request, if any, closes to match. */
+    await peopleWrite(orgId, () => syncFromRow(accountId, orgId, ATTENDANCE_SOURCE, r.id));
+    throw fail(409, `This request was already ${String(r.status).toLowerCase()}.`);
+  }
   /* Nobody decides their own request: not HR, not the owner, not a manager or stand-in (closure audit, 27 Oct 2026). */
   const subject = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { userId: true } });
   const ownByLogin = Boolean(subject?.userId && subject.userId === by.userId);
@@ -391,64 +404,123 @@ export async function decideRequest(accountId: string, orgId: string, r: any, ap
   if (ownByLogin) await requestAudit({ accountId, orgId, userId: by.userId }, { entityId: r.id, action: 'SELF_APPROVED', message: 'Decided by the person it is about: nobody else in the company can, or the company allows it', metadata: { employeeId: r.employeeId } });
   const kind = r.kind as Kind;
   const name = KIND_WORDS[kind].name;
-  const chain = await chainOf(orgId, kind);
+  /*
+   * On the approval engine (workflow engine 2d): the chain it was asked under, and a manager's step the engine closed
+   * (taken, or skipped because nobody could take it) reads as passed to HR. Every check below is today's, word for word.
+   */
+  const engine = await engineOf(orgId, ATTENDANCE_SOURCE, r.id);
+  const on = onEngine(engine);
+  const chain = on ? ((engine.payload as { chain?: Chain })?.chain || 'HR') : await chainOf(orgId, kind);
+  const checked = on && engine.currentStep > 1 && !r.managerApprovedAt ? { ...r, managerApprovedAt: new Date() } : r;
   /* HR only (the company's choice): a manager or team-scoped approver sees it but does not decide it. */
   if (chain === 'HR_ONLY' && !by.scopeAll) throw fail(403, 'HR decides these requests in this company; you can see it, not decide it.', 'HR_ONLY');
   const manager = hrChain(chain) ? null : await activeManagerOf(orgId, r.employeeId);
   const asManager = by.managerId && manager ? await managerStepBy(orgId, by.managerId, r.employeeId, undefined, 'ATTENDANCE') : null;
   const who = { accountId, orgId, userId: by.userId };
   if (approve && chain === 'MANAGER_THEN_HR' && manager) {
-    if (!r.managerApprovedAt) {
+    if (!checked.managerApprovedAt) {
       if (!asManager) throw fail(409, `${manager.name || 'Their manager'} has not approved this yet; the company asks for the manager first.`, 'MANAGER_FIRST');
-      const row = await peopleWrite(orgId, async () => {
-        const changed = await peoplePrisma.attendanceRequest.updateMany({
-          where: { id: r.id, status: 'PENDING', managerApprovedAt: null },
-          data: { managerApprovedAt: new Date(), managerApprovedById: by.managerId!, managerNote: note, history: pushHistory(r.history, { by: by.userId, what: 'MANAGER_APPROVED', note }) },
-        });
-        if (!changed.count) throw fail(409, 'This request is no longer waiting for the manager.');
-        const stepped = await peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: r.id } });
-        await queueRequestNotice(stepped);
-        return stepped;
-      });
-      await requestAudit(who, { entityId: r.id, action: 'MANAGER_APPROVE', message: `Manager approved ${name.toLowerCase()} request, ${spanWords(r)}; now with HR`, metadata: { employeeId: r.employeeId, kind } });
-      return { request: row, stage: 'HR' };
+      if (!on) {
+        const row = await peopleWrite(orgId, () => writeManagerStep(r, by, note));
+        await requestAudit(who, { entityId: r.id, action: 'MANAGER_APPROVE', message: `Manager approved ${name.toLowerCase()} request, ${spanWords(r)}; now with HR`, metadata: { employeeId: r.employeeId, kind } });
+        return { request: row, stage: 'HR' };
+      }
+    } else {
+      /* HR's step is a second pair of eyes: not the manager who took the first, and someone who decides for the whole company. */
+      const firstBy = r.managerApprovedById ? await peoplePrisma.employee.findFirst({ where: { id: r.managerApprovedById, orgId }, select: { id: true, userId: true } }) : null;
+      const samePerson = Boolean(firstBy && ((by.managerId && by.managerId === firstBy.id) || (firstBy.userId && firstBy.userId === by.userId)));
+      if (samePerson || !by.scopeAll) throw fail(403, 'HR approves after the manager; the manager cannot take both steps.', 'HR_STEP');
     }
-    /* HR's step is a second pair of eyes: not the manager who took the first, and someone who decides for the whole company. */
-    const firstBy = r.managerApprovedById ? await peoplePrisma.employee.findFirst({ where: { id: r.managerApprovedById, orgId }, select: { id: true, userId: true } }) : null;
-    const samePerson = Boolean(firstBy && ((by.managerId && by.managerId === firstBy.id) || (firstBy.userId && firstBy.userId === by.userId)));
-    if (samePerson || !by.scopeAll) throw fail(403, 'HR approves after the manager; the manager cannot take both steps.', 'HR_STEP');
   }
   /* Once the manager has passed it to HR, it is HR's to decide either way: not the manager's again, nor a team-scoped approver's (as leave, routes/leave.ts reviewLeave). */
-  if (!approve && chain === 'MANAGER_THEN_HR' && r.managerApprovedAt) {
+  if (!approve && chain === 'MANAGER_THEN_HR' && checked.managerApprovedAt) {
     const firstBy = r.managerApprovedById ? await peoplePrisma.employee.findFirst({ where: { id: r.managerApprovedById, orgId }, select: { id: true, userId: true } }) : null;
     const samePerson = Boolean(firstBy && ((by.managerId && by.managerId === firstBy.id) || (firstBy.userId && firstBy.userId === by.userId)));
     if (samePerson || !by.scopeAll) throw fail(403, 'The manager has passed this to HR; HR decides it now.', 'HR_STEP');
   }
   /* A refusal says why: the person reads it in the employee app. Corrections keep their old manners. */
   if (!approve && kind !== 'MISSED_PUNCH' && !note) throw fail(400, 'Say why. They see this with the decision.');
-  const history = pushHistory(r.history, { by: by.userId, what: approve ? 'APPROVED' : 'REJECTED', note });
+  if (on) return decideOnTheEngine(accountId, orgId, r, approve, by, note, subject?.userId ?? null);
   /*
    * One transaction for every kind, claimed by status: the decision, the day
    * it writes and the history line commit together or not at all, and two
    * people deciding at once cannot both write the day (closure audit,
    * 27 Oct 2026: a missed punch was three separate writes with no claim).
    */
-  const row = await peopleWrite(orgId, async () => {
-    const changed = await peoplePrisma.attendanceRequest.updateMany({ where: { id: r.id, status: 'PENDING' }, data: { status: approve ? 'APPROVED' : 'REJECTED', reviewedByUserId: by.userId, reviewedAt: new Date(), reviewNote: note, history } });
-    if (!changed.count) throw fail(409, 'This request was already decided.');
-    if (approve && kind === 'MISSED_PUNCH') {
-      const employee = await employeeIn(orgId, accountId, r.employeeId);
-      await writeDay({ accountId, orgId, userId: by.userId, employee, date: r.date, checkIn: r.checkIn, checkOut: r.checkOut, source: 'REQUEST', reason: `Correction approved: ${r.reason}` });
-    } else if (approve) {
-      await applyApproved(accountId, orgId, r, by.userId, note);
-    }
-    const decided = await peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: r.id } });
-    await queueRequestNotice(decided);
-    return decided;
-  });
-  if (approve && kind === 'MISSED_PUNCH') afterPeopleCommit(() => emitWebhook(orgId, 'correction.approved', { id: row.id, employeeId: row.employeeId, date: row.date, checkIn: row.checkIn, checkOut: row.checkOut, reason: row.reason ?? null, reviewNote: row.reviewNote }));
+  const row = await peopleWrite(orgId, () => writeDecision(accountId, orgId, r, approve, by.userId, note));
   await requestAudit(who, { entityId: r.id, action: approve ? 'APPROVE' : 'REJECT', message: `${approve ? 'Approved' : 'Rejected'} ${name.toLowerCase()} request, ${spanWords(r)}${note ? `: ${note}` : ''}`, metadata: { employeeId: r.employeeId, kind } });
   return { request: row };
+}
+
+/** The manager's step, written on the request: it stays waiting, now with HR. Inside the caller's People transaction. */
+async function writeManagerStep(r: any, by: Decider, note: string | null) {
+  const changed = await peoplePrisma.attendanceRequest.updateMany({
+    where: { id: r.id, status: 'PENDING', managerApprovedAt: null },
+    data: { managerApprovedAt: new Date(), managerApprovedById: by.managerId!, managerNote: note, history: pushHistory(r.history, { by: by.userId, what: 'MANAGER_APPROVED', note }) },
+  });
+  if (!changed.count) throw fail(409, 'This request is no longer waiting for the manager.');
+  const stepped = await peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: r.id } });
+  await queueRequestNotice(stepped);
+  return stepped;
+}
+
+/**
+ * The decision itself, inside the caller's People transaction: claimed by status, the days it writes, the history
+ * line and the notice. The old path calls it directly; on the approval engine it runs when the last step is approved
+ * or the request rejected (attendanceEngine.ts), in the same transaction as the step.
+ */
+export async function writeDecision(accountId: string, orgId: string, r: any, approve: boolean, userId: string, note: string | null) {
+  const kind = r.kind as Kind;
+  const history = pushHistory(r.history, { by: userId, what: approve ? 'APPROVED' : 'REJECTED', note });
+  const changed = await peoplePrisma.attendanceRequest.updateMany({ where: { id: r.id, status: 'PENDING' }, data: { status: approve ? 'APPROVED' : 'REJECTED', reviewedByUserId: userId, reviewedAt: new Date(), reviewNote: note, history } });
+  if (!changed.count) throw fail(409, 'This request was already decided.');
+  if (approve && kind === 'MISSED_PUNCH') {
+    const employee = await employeeIn(orgId, accountId, r.employeeId);
+    await writeDay({ accountId, orgId, userId, employee, date: r.date, checkIn: r.checkIn, checkOut: r.checkOut, source: 'REQUEST', reason: `Correction approved: ${r.reason}` });
+  } else if (approve) {
+    await applyApproved(accountId, orgId, r, userId, note);
+  }
+  const decided = await peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: r.id } });
+  await queueRequestNotice(decided);
+  if (approve && kind === 'MISSED_PUNCH') afterPeopleCommit(() => emitWebhook(orgId, 'correction.approved', { id: decided.id, employeeId: decided.employeeId, date: decided.date, checkIn: decided.checkIn, checkOut: decided.checkOut, reason: decided.reason ?? null, reviewNote: decided.reviewNote }));
+  return decided;
+}
+
+/**
+ * The decision on a request waiting on the approval engine, after today's checks passed: the step is taken (the
+ * manager's step written on the row as before, or the decision written when the last step closes), or a rejection
+ * the module allows outside the step's people (HR while the manager decides) is written here and the engine request
+ * closes to match. Audited as before.
+ */
+async function decideOnTheEngine(accountId: string, orgId: string, r: any, approve: boolean, by: Decider, note: string | null, subjectUserId: string | null): Promise<{ request: any; stage?: 'HR' }> {
+  const kind = r.kind as Kind;
+  const name = KIND_WORDS[kind].name;
+  const who = { accountId, orgId, userId: by.userId };
+  let out: { row: any; stage?: 'HR' };
+  try {
+    out = await peopleWrite(orgId, async () => {
+      const res = await decideOnEngine({ accountId, orgId, source: ATTENDANCE_SOURCE, sourceId: r.id, userId: by.userId, approve, note, managerTook: { at: r.managerApprovedAt, byEmployeeId: r.managerApprovedById } });
+      if (!res) throw fail(409, 'This request was already decided.');
+      const now = await peoplePrisma.attendanceRequest.findFirstOrThrow({ where: { id: r.id } });
+      if (res.direct) {
+        const row = await writeDecision(accountId, orgId, now, false, by.userId, note);
+        await closeOnEngine(accountId, orgId, ATTENDANCE_SOURCE, r.id, 'REJECTED', 'Rejected outside the steps', by.userId);
+        return { row };
+      }
+      if (res.managerStep) return { row: await writeManagerStep(now, by, note), stage: 'HR' as const };
+      return { row: now };
+    });
+  } catch (e: any) {
+    /* Your own request, where the company lets you decide it (maker-checker ALLOW): the engine's own-record rule asks someone else (SPEC 5.6). */
+    if (approve && subjectUserId === by.userId && e?.code === 'NOT_YOUR_STEP') throw fail(403, 'This is your own request; somebody else has to decide it. You can change or withdraw it.', 'OWN_RECORD');
+    throw e;
+  }
+  if (out.stage === 'HR') {
+    await requestAudit(who, { entityId: r.id, action: 'MANAGER_APPROVE', message: `Manager approved ${name.toLowerCase()} request, ${spanWords(r)}; now with HR`, metadata: { employeeId: r.employeeId, kind } });
+    return { request: out.row, stage: 'HR' };
+  }
+  if (out.row.status !== 'PENDING') await requestAudit(who, { entityId: r.id, action: out.row.status === 'APPROVED' ? 'APPROVE' : 'REJECT', message: `${out.row.status === 'APPROVED' ? 'Approved' : 'Rejected'} ${name.toLowerCase()} request, ${spanWords(r)}${note ? `: ${note}` : ''}`, metadata: { employeeId: r.employeeId, kind } });
+  return { request: out.row };
 }
 
 /**
@@ -526,6 +598,8 @@ export async function cancelRequest(accountId: string, orgId: string, r: any, by
       data: { status: 'CANCELLED', reviewedByUserId: by.userId, reviewedAt: new Date(), reviewNote: note || (own ? 'Withdrawn by the employee.' : 'Cancelled by HR.'), history: pushHistory(r.history, { by: by.userId, what: 'CANCELLED', note }) },
     });
     if (!changed.count) throw fail(409, 'This request was already decided.');
+    /* Withdrawn while it waited on the approval engine: its request closes to match (workflow engine 2d). */
+    if (r.status === 'PENDING') await closeOnEngine(accountId, orgId, ATTENDANCE_SOURCE, r.id, 'WITHDRAWN', own ? 'Withdrawn by the person' : 'Cancelled by HR', by.userId);
     /* A cancelled shift change takes its schedule away; the days go back to the shift they had. */
     if (r.status === 'APPROVED' && kind === 'SHIFT_CHANGE') {
       await assertScheduleOpen(orgId, [{ from: r.date, to: r.toDate || r.date }]);
@@ -614,7 +688,8 @@ async function tellAsked(orgId: string, r: any, rev: number) {
   const body = kind === 'PERMISSION' ? hoursWords(r.minutes || 0) : kind === 'ON_DUTY' ? r.place : kind === 'SHIFT_CHANGE' ? (shiftName ? `To ${shiftName}` : null) : r.halfDay ? 'Half a day' : null;
   /* A retry has the same key; the manager's step, or a real change, does not. */
   const dedupeKey = `request-asked:${r.id}:${r.managerApprovedAt ? 'manager' : 'new'}:${rev}`;
-  const chain = await chainOf(orgId, kind);
+  /* On the approval engine, the chain it was asked under (workflow engine 2d). */
+  const chain = ((await engineChain(orgId, ATTENDANCE_SOURCE, r.id)) as Chain | null) || (await chainOf(orgId, kind));
   const manager = !hrChain(chain) && !r.managerApprovedAt ? await activeManagerOf(orgId, r.employeeId) : null;
   if (manager) {
     const decider = await deciderFor(orgId, manager.id, undefined, 'ATTENDANCE');
@@ -691,15 +766,23 @@ export async function story(accountId: string, orgId: string, r: any, readerEmpl
   const names = await actorNames(orgId, [r.requestedByUserId, r.reviewedByUserId, ...history.map((h) => h.by)]);
   const rules = await rulesFor(orgId);
   const kind = r.kind as Kind;
-  const [use, days, chain] = await Promise.all([
+  // eslint-disable-next-line prefer-const
+  let [use, days, chain] = await Promise.all([
     usage(orgId, r.employeeId, kind, r.date.slice(0, 7), { rules }),
     peoplePrisma.attendanceRecord.findMany({ where: { orgId, employeeId: r.employeeId, date: { gte: r.date, lte: r.toDate || r.date } }, orderBy: { date: 'asc' } }),
     chainOf(orgId, kind, rules),
   ]);
-  const manager = !hrChain(chain) && r.status === 'PENDING' && !r.managerApprovedAt ? await activeManagerOf(orgId, r.employeeId) : null;
+  /* On the approval engine (workflow engine 2d): the chain it was asked under, the steps for the drawer; one an older API decided meanwhile closes to match. */
+  if (r.status !== 'PENDING') await peopleWrite(orgId, () => syncFromRow(accountId, orgId, ATTENDANCE_SOURCE, r.id));
+  const engine = r.status === 'PENDING' ? await engineOf(orgId, ATTENDANCE_SOURCE, r.id) : null;
+  const on = onEngine(engine);
+  if (on) chain = ((engine.payload as { chain?: Chain })?.chain || 'HR');
+  const passed = Boolean(r.managerApprovedAt || (on && engine.currentStep > 1));
+  const manager = !hrChain(chain) && r.status === 'PENDING' && !passed ? await activeManagerOf(orgId, r.employeeId) : null;
   /* The manager (or their stand-in) reading it is not waiting on anyone: Approve takes their step, as it does on the Approvals row. */
   const takesManagerStep = Boolean(manager && readerEmployeeId && (await managerStepBy(orgId, readerEmployeeId, r.employeeId, undefined, 'ATTENDANCE')));
   const decidedBy = await deciderWords(orgId, r, chain, readerEmployeeId, reader);
+  const step = await timeStepView(orgId, ATTENDANCE_SOURCE, r.id);
   return {
     request: shaped,
     history: history.map((h) => ({ ...h, byName: names.get(h.by) || null, what: HISTORY_WORDS[h.what] || h.what })),
@@ -709,6 +792,7 @@ export async function story(accountId: string, orgId: string, r: any, readerEmpl
     decidedBy,
     days: await withNames(orgId, days),
     waitingForManager: chain === 'MANAGER_THEN_HR' && manager && !takesManagerStep ? `${manager.name || 'Their manager'} has not approved this yet; the company asks for the manager first.` : null,
+    ...(step ? { step } : {}),
   };
 }
 
@@ -731,14 +815,18 @@ export async function requestsWaitingForReader(orgId: string, scope: TeamScope, 
   const managers = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, status: true, userId: true } })).map((m) => [m.id, m]));
   const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } });
   const covers = new Set(me ? await standingInFor(orgId, me.id, undefined, 'ATTENDANCE') : []);
+  /* On the approval engine (workflow engine 2d): the chain each was asked under, and whether the manager's step is closed. */
+  const engines = await engineChains(orgId, ATTENDANCE_SOURCE, rows.map((r) => r.id));
   return rows.filter((r) => {
     const p = of.get(r.employeeId);
     if (p?.userId && p.userId === userId) return false;
+    const eng = engines.get(r.id);
+    const chain = (eng?.chain as Chain | undefined) || chains.get(r.kind);
     /* HR only: waiting on HR, not on a team-scoped reader. */
-    if (chains.get(r.kind) === 'HR_ONLY' && !scope.all) return false;
+    if (chain === 'HR_ONLY' && !scope.all) return false;
     const m = p?.reportingManagerId ? managers.get(p.reportingManagerId) : null;
     const activeManager = m && m.status !== 'LEFT' && m.status !== 'SUSPENDED' ? m : null;
-    if (chains.get(r.kind) === 'MANAGER_THEN_HR' && !r.managerApprovedAt && activeManager) return activeManager.userId === userId || covers.has(activeManager.id);
+    if (chain === 'MANAGER_THEN_HR' && !r.managerApprovedAt && !(eng && eng.step > 1) && activeManager) return activeManager.userId === userId || covers.has(activeManager.id);
     return true;
   });
 }

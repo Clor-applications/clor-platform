@@ -363,6 +363,22 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
             </section>
           ) : null}
 
+          {/* On the approval rules (workflow engine 2d): the steps in plain words, who has it now. Who may decide is the server's, as before. */}
+          {d.step?.timeline?.length ? (
+            <section aria-labelledby="ar-step" className="space-y-1">
+              <h3 id="ar-step" className="ui-t-sec">Approval</h3>
+              <ol className="text-sm space-y-1" aria-label="Steps">
+                {d.step.timeline.map((t, i) => (
+                  <li key={`${t.order}-${i}`} className="flex flex-wrap gap-x-2">
+                    <span className={t.status === 'WAITING' ? 'font-medium' : ''}>{t.text}</span>
+                    {t.on ? <span className="ui-muted tabular-nums">{formatDate(t.on)}</span> : null}
+                  </li>
+                ))}
+              </ol>
+              <p className="ui-caption">{d.step.rule}</p>
+            </section>
+          ) : null}
+
           <section aria-labelledby="ar-history" className="space-y-2">
             <h3 id="ar-history" className="ui-t-sec">History</h3>
             <RequestHistory history={d.history} />

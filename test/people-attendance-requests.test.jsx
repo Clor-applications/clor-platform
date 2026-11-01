@@ -103,6 +103,23 @@ describe('Attendance requests', () => {
     expect(screen.getByRole('button', { name: /Approve/ })).toBeEnabled();
   });
 
+  it('on the approval rules, the drawer shows the steps in plain words; off them, no steps (workflow engine 2d)', async () => {
+    api.getRequest.mockResolvedValue({
+      request: row, history: [], usage: null, rule: RULES.WFH, chain: 'MANAGER_THEN_HR', decidedBy: 'Ravi Kumar, then HR', days: [], waitingForManager: null, ownRequest: false,
+      step: { engine: true, rule: 'Standard: the manager, then HR', of: 2, current: 2, timeline: [{ order: 1, status: 'APPROVED', on: '2026-11-02', text: 'Ravi Kumar (manager) approved' }, { order: 2, status: 'WAITING', on: null, text: 'Waiting for Kavya Rao (HR)' }] },
+    });
+    const { unmount } = render(<AttendanceRequests params={{ id: 'r1' }} updateParams={() => {}} />);
+    const steps = await screen.findByRole('list', { name: 'Steps' });
+    expect(within(steps).getByText('Ravi Kumar (manager) approved')).toBeInTheDocument();
+    expect(within(steps).getByText('Waiting for Kavya Rao (HR)')).toBeInTheDocument();
+    expect(screen.getByText('Standard: the manager, then HR')).toBeInTheDocument();
+    unmount();
+    api.getRequest.mockResolvedValue({ request: row, history: [], usage: null, rule: RULES.WFH, chain: 'HR', decidedBy: 'HR', days: [], waitingForManager: null, ownRequest: false });
+    render(<AttendanceRequests params={{ id: 'r1' }} updateParams={() => {}} />);
+    expect(await screen.findByText('Decided by')).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Steps' })).toBeNull();
+  });
+
   it('Enter request offers only the kinds that are on, and sends the kind and the place', async () => {
     const user = userEvent.setup();
     render(<AttendanceRequests params={{}} updateParams={() => {}} />);

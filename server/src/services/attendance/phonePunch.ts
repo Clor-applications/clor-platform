@@ -157,7 +157,7 @@ async function recordPhonePunchChecked(e: PunchingEmployee, input: any): Promise
     update: { lastSeenAt: at },
   });
   const saved = photo ? await peoplePrisma.punchPhoto.create({ data: { accountId: e.accountId, orgId: e.orgId, employeeId: e.id, mime: photo.mime, data: photo.data } }) : null;
-  await peoplePrisma.devicePunch.create({
+  const punch = await peoplePrisma.devicePunch.create({
     data: {
       accountId: e.accountId,
       orgId: e.orgId,
@@ -182,8 +182,10 @@ async function recordPhonePunchChecked(e: PunchingEmployee, input: any): Promise
     },
   });
   if (review === 'PENDING') {
+    /* On the approval engine (workflow engine 2d): its request opens, "HR or the manager". Nobody else to decide it at all: approved at once (SPEC 5.6). */
+    const opened = await openPunchOnEngine(e, punch.id, shiftDate);
     /* Not counted, nor sent anywhere, until someone approves it. */
-    return { status: 201, body: { kind, time: istTime(at), site: null, outside: true, address, review, photo: Boolean(saved) } };
+    if (!opened) return { status: 201, body: { kind, time: istTime(at), site: null, outside: true, address, review, photo: Boolean(saved) } };
   }
   emitWebhook(e.orgId, 'punch', {
     reader: serialNumber,
@@ -191,5 +193,38 @@ async function recordPhonePunchChecked(e: PunchingEmployee, input: any): Promise
   });
   void enqueuePunches(e.orgId, [{ employeeId: e.id, code: e.code || e.devicePin || null, readerId: serialNumber, time: localTime, direction: kind, verifyMode: PHONE_VERIFY }]);
   await recomputeDeviceDay(e.accountId, e.orgId, { id: e.id, branchId: e.branchId, areaId: e.areaId }, shiftDate);
-  return { status: 201, body: { kind, time: istTime(at), site: inside?.fence.name ?? null, distance: inside ? Math.round(inside.distance) : null, outside, address, review, photo: Boolean(saved) } };
+  return { status: 201, body: { kind, time: istTime(at), site: inside?.fence.name ?? null, distance: inside ? Math.round(inside.distance) : null, outside, address, review: review === 'PENDING' ? 'APPROVED' : review, photo: Boolean(saved) } };
+}
+
+/**
+ * A field punch waiting for review, on the approval engine when the company's switch is on: its request opens under
+ * "HR or the manager". Answers true only when it was approved at once (nobody but the person could decide it, SPEC
+ * 5.6), so it counts now. A punch is never refused for want of an approver: if the engine cannot open it (STRICT
+ * maker-checker with nobody else), it waits on the old path.
+ */
+async function openPunchOnEngine(e: PunchingEmployee, punchId: string, shiftDate: string) {
+  try {
+    const { FIELD_PUNCH_SOURCE, openOnEngine } = await import('./attendanceEngine.js');
+    const person = await peoplePrisma.employee.findFirst({ where: { id: e.id, orgId: e.orgId }, select: { name: true, userId: true } });
+    const out = await openOnEngine({ accountId: e.accountId, orgId: e.orgId, source: FIELD_PUNCH_SOURCE, sourceId: punchId, employeeId: e.id, chain: 'HR', title: `${person?.name || 'Field punch'}: field punch, ${shiftDate}`, enteredBy: person?.userId || `portal:${e.id}` });
+    return out.done;
+  } catch (err) {
+    console.error('[phone-punch] field punch left on the old review:', err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
+/**
+ * A field punch's review itself: claimed by its status, and the day worked out again with it counted or not. The
+ * old path (routes/attendanceInsights.ts reviewFieldPunch) and the approval engine (attendanceEngine.ts, when its
+ * step closes) both write it this way.
+ */
+export async function writePunchDecision(orgId: string, punchId: string, approve: boolean) {
+  const p = await peoplePrisma.devicePunch.findFirst({ where: { id: punchId, orgId } });
+  if (!p) throw Object.assign(new Error('No such field punch.'), { status: 404 });
+  const claimed = await peoplePrisma.devicePunch.updateMany({ where: { id: p.id, reviewStatus: 'PENDING' }, data: { reviewStatus: approve ? 'APPROVED' : 'REJECTED' } });
+  if (!claimed.count) throw Object.assign(new Error('Somebody decided this punch a moment ago.'), { status: 409 });
+  const emp = p.employeeId ? await peoplePrisma.employee.findFirst({ where: { id: p.employeeId, orgId }, select: { id: true, accountId: true, branchId: true, areaId: true } }) : null;
+  if (emp && p.shiftDate) await recomputeDeviceDay(emp.accountId, orgId, { id: emp.id, branchId: emp.branchId, areaId: emp.areaId }, p.shiftDate);
+  return p;
 }

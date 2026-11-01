@@ -94,3 +94,54 @@ export async function presetRule(who: { accountId: string; orgId: string }, chai
   if (active && active.presetKey === key && same(active.steps, LEAVE_PRESETS[key].steps) && same(active.autoApprove ?? null, autoOf(await typeAutoApprove(who.orgId)))) return active;
   return (await seedPresets(who))[key];
 }
+
+// ---------------------------------------------------------------------------
+// Attendance requests, overtime and comp-off, field punches (phase 2d)
+// ---------------------------------------------------------------------------
+
+/**
+ * The attendance chains as presets, one set per request type (`ATTENDANCE:<kind>`, `OVERTIME`, `COMP_OFF`,
+ * `FIELD_PUNCH`), read in attendance's own words (services/attendance/attendanceEngine.ts):
+ *  - HR_OR_MANAGER: attendance requests' stored "HR", and every field punch. HR (whoever holds the right for this
+ *    person) or the manager (or their stand-in), whoever is first.
+ *  - HR_ONLY: Company choices' "HR only" for attendance requests, and overtime's "HR" (the manager has no say).
+ *  - MANAGER: attendance requests under "the manager"; HR can still step in, as today.
+ *  - MANAGER_ALONE: overtime and comp-off under "the manager": only the manager approves (HR when there is none);
+ *    HR may still reject, which the module allows itself, as today. No step-in.
+ *  - MANAGER_THEN_HR: the manager, then HR.
+ * No reminders: attendance had none, and the module adds no overdue hook, so the due time changes nothing.
+ */
+export type TimePresetKey = 'HR_OR_MANAGER' | 'HR_ONLY' | 'MANAGER' | 'MANAGER_ALONE' | 'MANAGER_THEN_HR';
+export const TIME_PRESETS: Record<TimePresetKey, { name: string; steps: StepV2[] }> = {
+  HR_OR_MANAGER: LEAVE_PRESETS.HR_OR_MANAGER,
+  HR_ONLY: { name: 'Standard: HR only', steps: [step(1, [{ kind: 'HR' }])] },
+  MANAGER: LEAVE_PRESETS.MANAGER,
+  MANAGER_ALONE: { name: 'Standard: the manager (HR when there is none)', steps: [step(1, [{ kind: 'MANAGER' }])] },
+  MANAGER_THEN_HR: LEAVE_PRESETS.MANAGER_THEN_HR,
+};
+
+/**
+ * The preset rule of one attendance request type, made (or brought back) the first time it is needed: idempotent,
+ * one advisory lock per company and type with the check under it, an older version replaced by a new one (requests
+ * already waiting keep theirs). Runs inside the caller's transaction when there is one.
+ */
+export async function timePresetRule(who: { accountId: string; orgId: string }, requestType: string, key: TimePresetKey): Promise<RuleRow> {
+  const preset = TIME_PRESETS[key];
+  const variantKey = `${PRESET_PREFIX}${key}`;
+  const fits = (r: RuleRow | null): r is RuleRow => Boolean(r && r.presetKey === key && same(r.steps, preset.steps) && r.autoApprove == null);
+  const found = await peoplePrisma.approvalRule.findFirst({ where: { orgId: who.orgId, requestType, variantKey, active: true }, orderBy: { version: 'desc' } });
+  if (fits(found)) return found;
+  return peoplePrisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-presets:${who.orgId}:${requestType}`}))`;
+    const active = await tx.approvalRule.findFirst({ where: { orgId: who.orgId, requestType, variantKey, active: true }, orderBy: { version: 'desc' } });
+    if (fits(active)) return active;
+    const latest = await tx.approvalRule.findFirst({ where: { orgId: who.orgId, requestType, variantKey }, orderBy: { version: 'desc' }, select: { version: true } });
+    await tx.approvalRule.updateMany({ where: { orgId: who.orgId, requestType, variantKey, active: true }, data: { active: false } });
+    return tx.approvalRule.create({
+      data: {
+        accountId: who.accountId, orgId: who.orgId, requestType, name: preset.name, version: (latest?.version || 0) + 1, active: true,
+        steps: preset.steps as unknown as Prisma.InputJsonValue, specVersion: SPEC_VERSION, variantKey, priority: 0, presetKey: key, createdByUserId: null,
+      },
+    });
+  });
+}

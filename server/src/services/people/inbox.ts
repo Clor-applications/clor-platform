@@ -221,12 +221,16 @@ async function timeItems(orgId: string, userId: string, scope: Awaited<ReturnTyp
     const managers = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, status: true, userId: true } })).map((m) => [m.id, m]));
     const me = userId ? await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } }) : null;
     const covers = new Set(me ? await standingInFor(orgId, me.id, undefined, 'ATTENDANCE') : []);
+    /* On the approval engine (workflow engine 2d): the chain each was asked under, and whether the manager's step is closed. */
+    const { OVERTIME_SOURCE, engineChains } = await import('../attendance/attendanceEngine.js');
+    const engines = await engineChains(orgId, OVERTIME_SOURCE, asks.map((a) => a.id));
     for (const a of asks) {
       if (mine(a.employeeId)) continue;
       const m = managers.get(people.get(a.employeeId)?.reportingManagerId || '');
       const manager = m && m.status !== 'LEFT' && m.status !== 'SUSPENDED' ? m : null;
+      const eng = engines.get(a.id);
       /* Waiting on the manager first: theirs (or their stand-in's), not HR's yet. */
-      if (manager && chain !== 'HR' && !a.managerApprovedAt && !(manager.userId === userId || covers.has(manager.id))) continue;
+      if (manager && (eng?.chain || chain) !== 'HR' && !a.managerApprovedAt && !(eng && eng.step > 1) && !(manager.userId === userId || covers.has(manager.id))) continue;
       out.push({
         key: `OVERTIME:${a.id}`, kind: 'OVERTIME', id: a.id, what: a.kind === 'COMP_OFF' ? 'Comp-off' : 'Overtime', subKind: a.kind,
         ...who(a.employeeId), fromDate: a.date, toDate: a.date, days: a.kind === 'COMP_OFF' ? a.days : null, halfDay: null, minutes: a.kind === 'OVERTIME' ? a.minutes : null, reason: a.reason,

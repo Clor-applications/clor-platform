@@ -17,10 +17,10 @@ import { teamScope } from './scope.js';
  * lives with the attendance rules and the final-settlement cap with Payroll's settings; this screen links to them.
  */
 
-export type ChoiceKey = 'attendance.correctionApproval' | 'people.hrSeesSalaryRevisions' | 'people.leavingsForReadOnly' | 'people.leavingReasonForReadOnly' | 'notifications.withdrawn' | 'leave.onEngine';
+export type ChoiceKey = 'attendance.correctionApproval' | 'people.hrSeesSalaryRevisions' | 'people.leavingsForReadOnly' | 'people.leavingReasonForReadOnly' | 'notifications.withdrawn' | 'leave.onEngine' | 'attendance.onEngine';
 /** APPROVALS: whoever edits approval rules for the whole company (PEOPLE::Approvals::EDIT, not team-scoped), or an admin. ADMIN: the owner or an admin only. */
 type Who = 'APPROVALS' | 'ADMIN';
-type Column = 'correctionApproval' | 'hrSeesSalaryRevisions' | 'leavingsForReadOnly' | 'leavingReasonForReadOnly' | 'withdrawnNotices' | 'leaveOnEngine';
+type Column = 'correctionApproval' | 'hrSeesSalaryRevisions' | 'leavingsForReadOnly' | 'leavingReasonForReadOnly' | 'withdrawnNotices' | 'leaveOnEngine' | 'attendanceOnEngine';
 type Def = { column: Column; who: Who; default: string | boolean; options: Array<{ value: string | boolean; label: string }> };
 
 export const CORRECTION_CHOICES = ['HR_OR_MANAGER', 'MANAGER', 'HR', 'MANAGER_THEN_HR'] as const;
@@ -60,6 +60,12 @@ export const CHOICES: Record<ChoiceKey, Def> = {
    * admin only, off until they turn it on: it changes how every leave request is decided from then on.
    */
   'leave.onEngine': { column: 'leaveOnEngine', who: 'ADMIN', default: false, options: [{ value: false, label: 'Off' }, { value: true, label: 'On' }] },
+  /*
+   * Attendance on the approval engine (workflow engine 2d): new attendance requests, overtime and comp-off, and field
+   * punches are decided by the approval rules (the chain the company already chose for each), with the steps shown on
+   * the request. The same people decide. Owner or admin only, off until they turn it on, as leave.
+   */
+  'attendance.onEngine': { column: 'attendanceOnEngine', who: 'ADMIN', default: false, options: [{ value: false, label: 'Off' }, { value: true, label: 'On' }] },
 };
 export const CHOICE_KEYS = Object.keys(CHOICES) as ChoiceKey[];
 
@@ -81,12 +87,13 @@ export type Choices = {
   leavingReasonForReadOnly: boolean;
   withdrawnNotices: WithdrawnChoice;
   leaveOnEngine: boolean;
+  attendanceOnEngine: boolean;
 };
 
 /** The company's choices, with the defaults for anything not chosen. */
 export async function choicesFor(orgId: string): Promise<Choices> {
   const [row, att] = await Promise.all([
-    peoplePrisma.peopleSetting.findUnique({ where: { orgId }, select: { correctionApproval: true, hrSeesSalaryRevisions: true, leavingsForReadOnly: true, leavingReasonForReadOnly: true, withdrawnNotices: true, leaveOnEngine: true } }),
+    peoplePrisma.peopleSetting.findUnique({ where: { orgId }, select: { correctionApproval: true, hrSeesSalaryRevisions: true, leavingsForReadOnly: true, leavingReasonForReadOnly: true, withdrawnNotices: true, leaveOnEngine: true, attendanceOnEngine: true } }),
     peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { correctionApproval: true } }),
   ]);
   const correction = row?.correctionApproval && (CORRECTION_CHOICES as readonly string[]).includes(row.correctionApproval) ? (row.correctionApproval as CorrectionChoice) : fromAttendance(att?.correctionApproval);
@@ -97,6 +104,7 @@ export async function choicesFor(orgId: string): Promise<Choices> {
     leavingReasonForReadOnly: row?.leavingReasonForReadOnly ?? false,
     withdrawnNotices: row?.withdrawnNotices === 'REMOVE' ? 'REMOVE' : 'SHOW_WITHDRAWN',
     leaveOnEngine: row?.leaveOnEngine ?? false,
+    attendanceOnEngine: row?.attendanceOnEngine ?? false,
   };
 }
 
@@ -150,6 +158,7 @@ const LABELS: Record<ChoiceKey, string> = {
   'people.leavingReasonForReadOnly': 'Read-only users and IT administrators see the reason for leaving',
   'notifications.withdrawn': 'A withdrawn request’s notice',
   'leave.onEngine': 'Leave decided by the approval rules',
+  'attendance.onEngine': 'Attendance requests, overtime and field punches decided by the approval rules',
 };
 
 /** Who changed each choice last, and when: "Changed by Asha, 31 Oct". */

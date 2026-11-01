@@ -274,6 +274,55 @@ No migration. What is new:
   company with more than 100 waiting leave requests is picked up there
   rather than in the request that named it.
 
+### Attendance on the engine (workflow engine 2d, migration `20261120090000_attendance_on_engine`): deploying and rolling back
+
+The migration adds one column, `PeopleSetting.attendanceOnEngine`, default
+`false`. An older API never reads it.
+
+- **Switch off (every company, the default):** attendance requests (missed
+  punch, work from home, on duty, permission, shift change), overtime and
+  comp-off, and field punches decide exactly as before, and nothing new is
+  written. The deploy window and a rollback need nothing.
+- **The switch is a company choice** (People → Settings → Company choices,
+  "Attendance requests, overtime and field punches are decided by the
+  approval rules"), owner or admin only, audited.
+
+What a company with the switch on writes, and how an older API reads it:
+
+- **Preset rules:** `ApprovalRule` rows with request types
+  `ATTENDANCE:<kind>`, `OVERTIME`, `COMP_OFF` and `FIELD_PUNCH`, variant keys
+  `preset:<KEY>`, made the first time each is needed. No older API reads a
+  rule of those request types (its Approval rules screen lists only the
+  types it knows).
+- **A new request or field punch:** its row is written as before, and an
+  `ApprovalRequest` with `sourceKind` `ATTENDANCE`, `OVERTIME` or
+  `FIELD_PUNCH` opens beside it. The manager's step under "the manager, then
+  HR" is still written on the row (`managerApprovedAt`), so the older API
+  decides the row on the old path with the same people.
+- **Before rolling back a company that has it on (do both, as for leave):**
+  1. Switch it off:
+     `UPDATE people."PeopleSetting" SET "attendanceOnEngine" = false WHERE "orgId" = '<id>';`
+  2. Close its waiting engine requests:
+     `SET clor.bypass = 'on'; UPDATE people."ApprovalStep" SET status = 'WITHDRAWN' WHERE status = 'WAITING' AND "requestId" IN (SELECT id FROM people."ApprovalRequest" WHERE "orgId" = '<id>' AND "sourceKind" IN ('ATTENDANCE', 'OVERTIME', 'FIELD_PUNCH') AND status = 'WAITING'); UPDATE people."ApprovalRequest" SET status = 'WITHDRAWN' WHERE "orgId" = '<id>' AND "sourceKind" IN ('ATTENDANCE', 'OVERTIME', 'FIELD_PUNCH') AND status = 'WAITING';`
+  The rows themselves are untouched: the older API decides them on the old
+  path. Step 2 matters most for a rollback to a release before 2c, which
+  reads an engine request as an ordinary People request (it would list it
+  on People → Approvals, remind its people, and "approve" it with no effect
+  on the row). A release from 2c on leaves requests with a `sourceKind`
+  alone, but closing them keeps the data tidy either way.
+- **Rolling forward again.** A row whose engine request is no longer
+  waiting is decided on the old path (never stuck). A row the older API
+  decided closes its engine request when it is next read or decided. If the
+  older API took the manager's step on the row, the newer API takes that
+  step as the same person's on the engine before HR decides, and a
+  rejection then is HR's (the whole company's), never the manager's again.
+- **No reminders, no away hand-up, no new job.** Attendance had neither;
+  the engine's dues job only closes an engine request whose row was decided
+  elsewhere.
+
+Nothing else needs undoing. Phase 3c stops the writes to the old manager
+columns, once nothing is pending on the old path.
+
 ## A first-time setup, from nothing
 
 ```bash
