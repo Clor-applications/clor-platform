@@ -186,6 +186,8 @@ attendanceRouter.put('/orgs/:orgId/attendance/records', can(PermissionAction.EDI
     if ((b.checkIn && !isHHMM(b.checkIn)) || (b.checkOut && !isHHMM(b.checkOut))) throw fail(400, 'Times are HH:MM, 24-hour.');
     if (b.checkOut && !b.checkIn) throw fail(400, 'A check-out needs a check-in.');
     if (b.date > today()) throw fail(400, 'Attendance cannot be marked for a day that has not happened.');
+    /* A team-scoped role marks its own team's days only. */
+    if (!inScope(await teamScope(req), b.employeeId)) throw fail(404, 'No such employee.');
     const employee = await employeeIn(orgId, accountId, b.employeeId);
     const { checkIn, checkOut } = await handTimes(orgId, accountId, employee.id, b.date, b.checkIn, b.checkOut);
     const record = await writeDay({
@@ -221,7 +223,9 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/import', can(PermissionAc
   if (rows.length > IMPORT_MAX) return res.status(400).json({ error: `Import up to ${IMPORT_MAX.toLocaleString('en-IN')} days at a time.` });
   /* dryRun: check every row the same way and save nothing, so the screen can show what would happen first. */
   const dryRun = req.body?.dryRun === true;
-  const byCode = await peopleByCode(orgId);
+  /* A team-scoped role imports its own team's days only: anyone else's row reads as an unknown code, and is not written. */
+  const scope = await teamScope(req);
+  const byCode = new Map([...(await peopleByCode(orgId)).entries()].filter(([, e]) => inScope(scope, e.id)));
   const nightOn = await nightShiftsOn(orgId, accountId);
   const results: RowResult[] = [];
   /* Days already recorded for the people and dates in the file: the check says which an import would replace, and how they were made. */
@@ -333,10 +337,12 @@ attendanceRouter.post('/orgs/:orgId/attendance/shift-assignments/import', can(Pe
 attendanceRouter.delete('/orgs/:orgId/attendance/records/:id', can(PermissionAction.DELETE, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
+  const scope = await teamScope(req);
   try {
     await peopleWrite(orgId, async () => {
       const r = await peoplePrisma.attendanceRecord.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-      if (!r) throw fail(404, 'No such day.');
+      /* A team-scoped role deletes its own team's days only. */
+      if (!r || !inScope(scope, r.employeeId)) throw fail(404, 'No such day.');
       await assertMonthOpen(orgId, r.date, r.employeeId);
       if (r.leaveRequestId) throw fail(409, 'Cancel the linked leave request before deleting this day.', 'LEAVE_CONFLICT');
       await deleteToBin(req, 'attendanceRecord', r);
@@ -352,6 +358,12 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/validate', can(Permission
   const { accountId, orgId } = req.tenant!;
   const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String).slice(0, 2000) : [];
   if (!ids.length) return res.status(400).json({ error: 'Choose the days to validate.' });
+  /* A team-scoped role validates its own team's days only: any day outside it refuses the lot, as if it were not there. */
+  const scope = await teamScope(req);
+  if (!scope.all) {
+    const owners = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, id: { in: ids } }, select: { employeeId: true } });
+    if (owners.some((o) => !inScope(scope, o.employeeId))) return res.status(404).json({ error: 'No such day.' });
+  }
   const open = await peoplePrisma.attendanceRecord.count({
     where: { accountId, orgId, id: { in: ids }, checkIn: { not: null }, checkOut: null },
   });
@@ -371,7 +383,8 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/:id/overtime', can(Permis
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.attendanceRecord.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!r) return res.status(404).json({ error: 'No such day.' });
+  /* A team-scoped role approves its own team's overtime only. */
+  if (!r || !inScope(await teamScope(req), r.employeeId)) return res.status(404).json({ error: 'No such day.' });
   if (!r.overtimeMinutes) return res.status(400).json({ error: 'There is no overtime on that day.' });
   /* Overtime is paid with the month: a closed month's overtime is final (closure audit, 27 Oct 2026). */
   try {
