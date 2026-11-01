@@ -1,5 +1,11 @@
 # clor-coder-bugs
 
+## 2026-11-01 08:30 IST — R1 late-marks preview red in the release check
+- Did: root cause is the test, not the date. R1 was written on 30 Oct when late marks only knew "every N marks = ½ day"; on 31 Oct (bb813908, workflow spec 1b) a company new to late marks starts on "the time actually missed" (DECISIONS.md 1), so the preview correctly shows 3 marks, 2 h 15 min, 0.28 day. R1 is @rules, not @smoke, so no PR run caught it until the full release run. R1 now checks the default (time missed) and then switches to every 3 marks = ½ day; PERSONA-SCENARIOS R1 updated.
+- Evidence: old R1 fails the same way at 1 Nov 06:30 IST and at 17 Nov 12:00 IST (date-independent). New R1 passes desktop and phone with the API, test runner and browser clocks moved to 1 Nov 06:30, 17 Nov 12:00 and 31 Dec 23:30 IST (local preload, not committed; at 31 Dec the employee-app sign-ins in setup were skipped, as portal sessions are stamped by the DB clock, which is not moved).
+- Next: review.
+- Blocked on: nothing.
+
 ## 2026-11-01 05:00 IST — Tests not date-bound (red main of 1 Nov 2026)
 - Did: fixed the five tests that broke on 1 Nov (UTC vs IST today, today a Sunday, 15th a Sunday, letter due date clamped). Two app bugs: a letter asked for on a past day keeps its statutory due date; attendance import refuses an impossible date. todayIso()/plusDaysIso() now India's date. TEST_TODAY moves the clock in both suites; swept web and server with it and fixed every hard-coded date that breaks before May 2028. Rule added to TEAM.md.
 - Evidence: branch claude/tests-not-date-bound. Web 2122 passed now and at 6 shifted moments. Server full suite on 5434: 2759/2760 now (one Prisma transaction timeout under load, passes alone); 21 changed files 334/334 now. Shifted server runs leave only TEST_TODAY artifacts (DB now() is not moved).

@@ -104,7 +104,7 @@ the same account, plus a separate account, "Other Co", for boundary checks.
 
 | # | Scenario | Expected |
 |---|---|---|
-| R1 | Suresh turns on late marks in Settings → Attendance rules and asks who it hits last month (Imran was late three days) | The preview lists Imran with 3 late marks and ½ day, says nothing is saved until Save; Undo leaves the rule off |
+| R1 | Suresh turns on late marks in Settings → Attendance rules and asks who it hits last month (Imran was late three days) | The rule starts on "the time actually missed": the preview lists Imran with 3 late marks and 2 h 15 min missed. Switched to every 3 marks = ½ day, it lists him at ½ day. It says nothing is saved until Save; Undo leaves the rule off |
 | R2 | Lakshmi came in and never punched out on the last working day; the missing-punch notice reaches her app | Today shows "To fix" with Fix for that day; Fix opens the missed-punch request filled in; once sent it waits for approval and the notice goes |
 | R3 | The company sets night work for women to "save it and warn"; Farah, with no consent on file, is given an evening shift to 22:00 | The shift is saved, not refused; Time → Night work says shifts are saved with a warning and lists Farah with no consent and her night shifts |
 
