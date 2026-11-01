@@ -245,6 +245,35 @@ What a company with the switch on writes, and how rel-eed8908 reads it:
 Nothing else needs undoing. Phase 3c stops the writes to the old manager
 columns, once no leave is pending on the old path.
 
+### Leave on the engine, phase 2c-ii: what changes for deploying and rolling back
+
+No migration. What is new:
+
+- **The switch is a company choice** (People → Settings → Company choices,
+  "Leave requests are decided by the approval rules"), owner or admin only,
+  off by default, audited. Turning it on is now something a customer can do,
+  so the rollback steps above apply to any company that did.
+- **The company's leave rule (RULE types) runs on the engine too** with the
+  switch on. Its leave rows carry no `ruleId` (the engine has the steps), so
+  an older API reads them as chain leave and decides them by the company's
+  chain, not by the rule. Before rolling back such a company, after the two
+  mandatory steps, either let its waiting RULE-type leave be decided first,
+  or tell HR those requests now follow the company's chain until the
+  roll-forward.
+- **The type's auto-approval** is the engine's AUTO_APPROVED step; the
+  leave row is approved as before (`autoApproved`, by "system"), so an older
+  API reads it the same.
+- **Reminders and the leave rule's hand-on** for leave on the engine come
+  from the engine's dues job (`runApprovalDues`, every 15 minutes, woken by
+  the scheduler). An older API's dues job reminds leave engine steps in its
+  own words (the "Overdue: …" People notice) — one more reason for the
+  mandatory close step.
+- **The leave job refreshes who decides** leave waiting on the engine every
+  hour (`runLeaveEngineRefresh`, inside the existing leave job): approvers
+  away today, back, stand-ins starting or ending. A stand-in named in a
+  company with more than 100 waiting leave requests is picked up there
+  rather than in the request that named it.
+
 ## A first-time setup, from nothing
 
 ```bash

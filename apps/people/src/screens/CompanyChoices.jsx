@@ -22,6 +22,7 @@ const GROUPS = [
     items: [
       { key: 'attendance.correctionApproval', sentence: 'Missed punch, work from home, on duty, permission and shift change requests are decided by' },
       { key: 'notifications.withdrawn', sentence: 'When someone withdraws a request, the “waiting for you” notice' },
+      { key: 'leave.onEngine', sentence: 'Leave requests are decided by the approval rules' },
     ],
   },
   {
@@ -41,6 +42,10 @@ const CAPTIONS = {
     MANAGER: 'HR decides when the person has no manager.',
     HR: 'Managers see the request but cannot decide it.',
     MANAGER_THEN_HR: 'The manager approves first, then HR. Someone without a manager goes straight to HR.',
+  },
+  'leave.onEngine': {
+    false: 'Off: leave is decided as it is today. Only the owner or an admin can turn this on.',
+    true: 'The same people decide as today. Each request shows its steps, who has it and by when; reminders come from the approval rules. Requests already waiting finish as they started.',
   },
   'notifications.withdrawn': {
     SHOW_WITHDRAWN: 'It says “Withdrawn”, is marked read and opens the closed request.',

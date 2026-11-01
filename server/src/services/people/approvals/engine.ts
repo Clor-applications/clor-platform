@@ -116,6 +116,8 @@ export const PORTAL_PREFIX = 'portal:';
 export type SourceHooks = {
   resolve: (who: { accountId: string; orgId: string }, approver: Approver, request: Req, day: string, approvedBy: () => Promise<Set<string | null>>) => Promise<Resolution>;
   stepIn: (who: { accountId: string; orgId: string }, group: 'HR' | 'OWNER', request: Req) => Promise<string[]>;
+  /** A step of the module's own request past its due time (runApprovalDues): the module reminds and hands on in its own words. */
+  overdue?: (step: { id: string; requestId: string; accountId: string; orgId: string; order: number; dueAt: Date; remindedAt: Date | null; candidateUserIds: unknown }, spec: StepV2 | undefined, now: Date) => Promise<'REMINDED' | 'HANDED_ON' | null>;
 };
 const sources = new Map<string, SourceHooks>();
 export function onSource(type: string, hooks: SourceHooks) {
@@ -1080,7 +1082,7 @@ export async function withdraw(actor: Actor, requestId: string) {
  * tells people itself. When nobody but the person could decide, the step closes as SELF_APPROVED
  * (5.6) and the module's effect runs at once.
  */
-export async function openSourced(actor: Actor, input: { requestType: string; sourceKind: string; sourceId: string; subjectEmployeeId: string; requesterUserId: string; title: string; payload: Payload; rule: RuleRow }): Promise<{ request: RequestRow; done: boolean }> {
+export async function openSourced(actor: Actor, input: { requestType: string; sourceKind: string; sourceId: string; subjectEmployeeId: string; requesterUserId: string; title: string; payload: Payload; rule: RuleRow; autoApproved?: string | null }): Promise<{ request: RequestRow; done: boolean }> {
   const { accountId, orgId } = actor;
   const ruleSteps = stepsOfRule(input.rule);
   const audits: Audit[] = [];
@@ -1093,11 +1095,18 @@ export async function openSourced(actor: Actor, input: { requestType: string; so
       },
     });
     await writeChangeLog(tx, actor, { kind: 'ApprovalRequest', id: r.id, employeeId: input.subjectEmployeeId }, [{ field: 'status', before: null, after: 'WAITING', redacted: false }]);
+    /* Approved by the rule itself (the module says when: a leave type's own auto-approval): one closed step says so, and nobody is asked. */
+    if (input.autoApproved) {
+      await tx.approvalStep.create({ data: { accountId, orgId, requestId: r.id, order: 1, candidateUserIds: [], approverUserId: null, dueAt: new Date(), status: 'APPROVED', decidedAt: new Date(), comment: input.autoApproved.slice(0, 1000), resolvedHow: 'AUTO_APPROVED' } });
+      return { id: r.id, state: 'DONE' as const };
+    }
     const state = await openStep(tx, { accountId, orgId }, { id: r.id, requestType: r.requestType, requesterUserId: r.requesterUserId, subjectEmployeeId: r.subjectEmployeeId, payload: r.payload, ruleSteps }, 1, audits);
     return { id: r.id, state };
   });
+  /* The audit lines (self-approval) once it has really finished opening: a module that refuses the approval leaves none behind. */
+  const out = await finishSourced(actor, created.id, created.state === 'DONE', input.autoApproved ? null : input.requesterUserId);
   await writeAudits({ accountId, orgId }, created.id, audits);
-  return finishSourced(actor, created.id, created.state === 'DONE', input.requesterUserId);
+  return out;
 }
 
 /** Opened or restarted: when every step closed already (self-approved, skipped), the module's effect runs as whoever approved last. */
@@ -1189,14 +1198,15 @@ export async function handOnStep(actor: Actor, requestId: string, input: { to?: 
 }
 
 /** A waiting step's people worked out again (a module's own record: the deciders changed since it opened). Answers whether they changed. */
-export async function reassignStep(actor: Actor, requestId: string, input: { candidates: string[]; how: string | null; comment: string | null; standInFor: string | null }) {
+export async function reassignStep(actor: Actor, requestId: string, input: { stepId: string; candidates: string[]; how: string | null; comment: string | null; standInFor: string | null }) {
   if (!input.candidates.length) return false;
   return peoplePrisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-decide:${requestId}`}))`;
     const r = await tx.approvalRequest.findFirst({ where: { id: requestId, orgId: actor.orgId }, include });
     if (!r || r.status !== 'WAITING') return false;
     const waiting = r.steps.filter((s) => s.order === r.currentStep && s.status === 'WAITING');
-    if (waiting.length !== 1) return false;
+    /* Worked out for another step (one decided meanwhile opened the next): left alone, never given someone else's people. */
+    if (waiting.length !== 1 || waiting[0].id !== input.stepId) return false;
     const before = (waiting[0].candidateUserIds as string[]) || [];
     if (before.length === input.candidates.length && before.every((u, i) => u === input.candidates[i])) return false;
     await tx.approvalStep.update({ where: { id: waiting[0].id }, data: { candidateUserIds: input.candidates, approverUserId: input.candidates[0], standInForUserId: input.standInFor, resolvedHow: input.how, comment: input.comment ? input.comment.slice(0, 1000) : null } });
@@ -1252,7 +1262,9 @@ export async function previewRule(
     specs = stepsOfRule(rule);
     auto = normaliseAutoApprove(rule.autoApprove);
   }
-  if (!MONEY_TYPES.has(input.requestType) && auto.some((a) => allHold(a.when, facts))) return { rule: ruleWords, autoApproved: true, steps: [] as PreviewStep[] };
+  /* A leave preset's auto-approval also needs the person's own request within the balance, which a sample cannot say: not shown as approved on its own. */
+  const presetAuto = input.requestType === 'LEAVE' && !input.rule;
+  if (!presetAuto && !MONEY_TYPES.has(input.requestType) && auto.some((a) => allHold(a.when, facts))) return { rule: ruleWords, autoApproved: true, steps: [] as PreviewStep[] };
   const request: Req = { requestType: input.requestType, requesterUserId, subjectEmployeeId, payload };
   const day = todayIst();
   const now = new Date();
@@ -1358,7 +1370,7 @@ export const REMIND_EVERY_WORKING_DAYS = 3;
  */
 export async function runApprovalDues(now = new Date()) {
   /* Only steps of requests still waiting: an ALL step's other slots sit WAITING while the request is with the requester for more information. */
-  const due = await outsideTenant('job: approval dues', () => peoplePrisma.approvalStep.findMany({ where: { status: 'WAITING', dueAt: { lt: now }, request: { status: 'WAITING', sourceKind: null } }, include: { request: true } }));
+  const due = await outsideTenant('job: approval dues', () => peoplePrisma.approvalStep.findMany({ where: { status: 'WAITING', dueAt: { lt: now }, request: { status: 'WAITING' } }, include: { request: true } }));
   let reminded = 0;
   let handedOn = 0;
   let autoApproved = 0;
@@ -1373,6 +1385,14 @@ export async function runApprovalDues(now = new Date()) {
       await runInTenant(step.orgId, async () => {
         const rule = await peoplePrisma.approvalRule.findUnique({ where: { id: step.request.ruleId } });
         const specs = stepsOfRule(rule);
+        /* A module's own request (leave): reminded and handed on in its own words, or not at all when it has no hook. */
+        if (step.request.sourceKind) {
+          const hook = sources.get(step.request.requestType)?.overdue;
+          const done = hook ? await hook(step, specs.find((x) => x.order === step.order), now) : null;
+          if (done === 'REMINDED') reminded += 1;
+          if (done === 'HANDED_ON') handedOn += 1;
+          return;
+        }
         const spec = specs.find((s) => s.order === step.order);
         if (!step.remindedAt) return remind(step);
         const afterMs = (spec?.overdue?.afterHours ?? 24) * 3_600_000;

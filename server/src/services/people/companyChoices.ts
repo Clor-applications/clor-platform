@@ -17,10 +17,10 @@ import { teamScope } from './scope.js';
  * lives with the attendance rules and the final-settlement cap with Payroll's settings; this screen links to them.
  */
 
-export type ChoiceKey = 'attendance.correctionApproval' | 'people.hrSeesSalaryRevisions' | 'people.leavingsForReadOnly' | 'people.leavingReasonForReadOnly' | 'notifications.withdrawn';
+export type ChoiceKey = 'attendance.correctionApproval' | 'people.hrSeesSalaryRevisions' | 'people.leavingsForReadOnly' | 'people.leavingReasonForReadOnly' | 'notifications.withdrawn' | 'leave.onEngine';
 /** APPROVALS: whoever edits approval rules for the whole company (PEOPLE::Approvals::EDIT, not team-scoped), or an admin. ADMIN: the owner or an admin only. */
 type Who = 'APPROVALS' | 'ADMIN';
-type Column = 'correctionApproval' | 'hrSeesSalaryRevisions' | 'leavingsForReadOnly' | 'leavingReasonForReadOnly' | 'withdrawnNotices';
+type Column = 'correctionApproval' | 'hrSeesSalaryRevisions' | 'leavingsForReadOnly' | 'leavingReasonForReadOnly' | 'withdrawnNotices' | 'leaveOnEngine';
 type Def = { column: Column; who: Who; default: string | boolean; options: Array<{ value: string | boolean; label: string }> };
 
 export const CORRECTION_CHOICES = ['HR_OR_MANAGER', 'MANAGER', 'HR', 'MANAGER_THEN_HR'] as const;
@@ -54,6 +54,12 @@ export const CHOICES: Record<ChoiceKey, Def> = {
       { value: 'REMOVE', label: 'Is removed' },
     ],
   },
+  /*
+   * Leave on the approval engine (workflow engine 2c-ii): new leave is decided by the approval rules (the chain the
+   * company already chose, or its leave rule), with the steps shown on the request. The same people decide. Owner or
+   * admin only, off until they turn it on: it changes how every leave request is decided from then on.
+   */
+  'leave.onEngine': { column: 'leaveOnEngine', who: 'ADMIN', default: false, options: [{ value: false, label: 'Off' }, { value: true, label: 'On' }] },
 };
 export const CHOICE_KEYS = Object.keys(CHOICES) as ChoiceKey[];
 
@@ -74,12 +80,13 @@ export type Choices = {
   leavingsForReadOnly: boolean;
   leavingReasonForReadOnly: boolean;
   withdrawnNotices: WithdrawnChoice;
+  leaveOnEngine: boolean;
 };
 
 /** The company's choices, with the defaults for anything not chosen. */
 export async function choicesFor(orgId: string): Promise<Choices> {
   const [row, att] = await Promise.all([
-    peoplePrisma.peopleSetting.findUnique({ where: { orgId }, select: { correctionApproval: true, hrSeesSalaryRevisions: true, leavingsForReadOnly: true, leavingReasonForReadOnly: true, withdrawnNotices: true } }),
+    peoplePrisma.peopleSetting.findUnique({ where: { orgId }, select: { correctionApproval: true, hrSeesSalaryRevisions: true, leavingsForReadOnly: true, leavingReasonForReadOnly: true, withdrawnNotices: true, leaveOnEngine: true } }),
     peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { correctionApproval: true } }),
   ]);
   const correction = row?.correctionApproval && (CORRECTION_CHOICES as readonly string[]).includes(row.correctionApproval) ? (row.correctionApproval as CorrectionChoice) : fromAttendance(att?.correctionApproval);
@@ -89,6 +96,7 @@ export async function choicesFor(orgId: string): Promise<Choices> {
     leavingsForReadOnly: row?.leavingsForReadOnly ?? true,
     leavingReasonForReadOnly: row?.leavingReasonForReadOnly ?? false,
     withdrawnNotices: row?.withdrawnNotices === 'REMOVE' ? 'REMOVE' : 'SHOW_WITHDRAWN',
+    leaveOnEngine: row?.leaveOnEngine ?? false,
   };
 }
 
@@ -141,6 +149,7 @@ const LABELS: Record<ChoiceKey, string> = {
   'people.leavingsForReadOnly': 'Read-only users and IT administrators see the Leaving list',
   'people.leavingReasonForReadOnly': 'Read-only users and IT administrators see the reason for leaving',
   'notifications.withdrawn': 'A withdrawn request’s notice',
+  'leave.onEngine': 'Leave decided by the approval rules',
 };
 
 /** Who changed each choice last, and when: "Changed by Asha, 31 Oct". */

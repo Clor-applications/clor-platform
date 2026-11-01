@@ -99,3 +99,22 @@ it('HR’s salary revisions: old and new pay, read only, no actions; empty says 
   render(<SalaryRevisionsReadOnly />);
   expect(await screen.findByText('No salary revisions yet')).toBeTruthy();
 });
+
+it('leave on the approval rules: off with its plain words; the owner turns it on; someone else sees why they cannot', async () => {
+  const onEngine = { key: 'leave.onEngine', value: false, default: false, canChange: true, changed: null, options: [{ value: false, label: 'Off' }, { value: true, label: 'On' }] };
+  api.getCompanyChoices.mockResolvedValue({ choices: [...CHOICES().choices, onEngine] });
+  api.saveCompanyChoice.mockResolvedValue({ choices: [...CHOICES().choices, { ...onEngine, value: true }] });
+  const { unmount } = render(<CompanyChoices />);
+  const control = await screen.findByLabelText('Leave requests are decided by the approval rules');
+  expect(control.value).toBe('false');
+  expect(screen.getByText(/Off: leave is decided as it is today/)).toBeTruthy();
+  fireEvent.change(control, { target: { value: 'true' } });
+  expect(screen.getByText(/The same people decide as today/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(api.saveCompanyChoice).toHaveBeenCalledWith('leave.onEngine', true));
+  unmount();
+  api.getCompanyChoices.mockResolvedValue({ choices: [...CHOICES().choices, { ...onEngine, canChange: false, why: 'Only the owner or an admin can change this.' }] });
+  render(<CompanyChoices />);
+  expect((await screen.findByLabelText('Leave requests are decided by the approval rules')).disabled).toBe(true);
+  expect(screen.getAllByText(/Only the owner or an admin can change this/).length).toBeGreaterThan(0);
+});

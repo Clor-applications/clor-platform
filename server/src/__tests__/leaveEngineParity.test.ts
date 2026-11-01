@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 
 /**
@@ -30,7 +30,12 @@ afterAll(async () => {
 });
 
 const rnd = () => Math.random().toString(36).slice(2, 8);
-type Ctx = { token: string; orgId: string; branchId: string; userId: string; accountId: string };
+type Ctx = { token: string; orgId: string; branchId: string; userId: string; accountId: string; roleId?: string };
+/* Everyone signed in here, signed in again before each test: the file runs longer than a sign-in lasts when the Mac is busy. */
+const signedIn: Array<{ ctx: Ctx; email: string }> = [];
+beforeEach(async () => {
+  for (const s of signedIn) s.ctx.token = (await request(app).post('/api/auth/login').send({ email: s.email, password: 'Passw0rd!23' }).expect(200)).body.token;
+});
 const at = (c: Ctx) => ({ Authorization: `Bearer ${c.token}`, 'x-org-id': c.orgId, 'x-branch-id': c.branchId });
 async function owner(): Promise<Ctx> {
   const email = `le.${Date.now()}.${rnd()}@example.com`;
@@ -41,6 +46,7 @@ async function owner(): Promise<Ctx> {
   const me = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${signup.body.token}`).expect(200);
   c.userId = me.body.user.id;
   c.accountId = me.body.orgs.find((o: any) => o.orgId === c.orgId).accountId;
+  signedIn.push({ ctx: c, email });
   return c;
 }
 async function colleague(boss: Ctx, name: string, permissions: string[], ownOnly = false): Promise<Ctx> {
@@ -50,7 +56,9 @@ async function colleague(boss: Ctx, name: string, permissions: string[], ownOnly
   const user = await request(app).post('/api/users').set(at(boss)).send({ email, fullName: name, password: 'Passw0rd!23', orgIds: [boss.orgId], branchIdsByOrg: { [boss.orgId]: [boss.branchId] } }).expect(201);
   await request(app).post(`/api/orgs/${boss.orgId}/users/${user.body.user.id}/roles`).set(at(boss)).send({ roleId: role.body.role.id, branchId: null }).expect(201);
   const login = await request(app).post('/api/auth/login').send({ email, password: 'Passw0rd!23' }).expect(200);
-  return { token: login.body.token, orgId: boss.orgId, branchId: boss.branchId, userId: user.body.user.id, accountId: boss.accountId };
+  const ctx: Ctx = { token: login.body.token, orgId: boss.orgId, branchId: boss.branchId, userId: user.body.user.id, accountId: boss.accountId };
+  signedIn.push({ ctx, email });
+  return ctx;
 }
 const att = (c: Ctx) => ({
   get: (p: string) => request(app).get(`/api/orgs/${c.orgId}/attendance${p}`).set(at(c)),
@@ -130,7 +138,16 @@ beforeAll(async () => {
   /* Under TEST_TODAY the clock moves but PostgreSQL's now() does not: the app sessions start at the test's own "now", or they read as idle for weeks. */
   await inTenant(() => peoplePrisma.portalSession.updateMany({ where: { orgId: hr.orgId }, data: { createdAt: new Date(), lastSeenAt: new Date() } }));
   /* One type per chain: the type's own approval picks the preset (LeaveType.approval). */
-  for (const chain of ['HR', 'MANAGER', 'MANAGER_THEN_HR']) {
+  /* The company's leave rule (phase 2c-ii: RULE on the engine too): the manager; their manager when longer than 2 days; then Kavya by name. */
+  await people(hr).post('/approval-rules', {
+    requestType: 'LEAVE', name: 'Leave',
+    steps: [
+      { approver: { kind: 'MANAGER' }, dueDays: 2 },
+      { approver: { kind: 'MANAGER_OF_MANAGER' }, dueDays: 2, condition: { field: 'days', op: 'gt', value: '2' } },
+      { approver: { kind: 'USER', id: kavya.userId }, dueDays: 2, overdue: { action: 'HAND_ON', to: { kind: 'HR' } } },
+    ],
+  }).expect(201);
+  for (const chain of ['HR', 'MANAGER', 'MANAGER_THEN_HR', 'RULE']) {
     const t = (await att(hr).post('/leave/types', { name: `Casual ${chain}`, annualDays: 300 }).expect(201)).body.type;
     await att(hr).put(`/leave/types/${t.id}`, { name: t.name, annualDays: 300, approval: chain }).expect(200);
     T[chain] = t;
@@ -284,6 +301,16 @@ async function story(chain: string, sc: Scenario, engine: boolean) {
  */
 const DIFFERENT: Record<string, (old: any, eng: any) => void> = {
   /*
+   * The leave rule, owner alone: the rule's walker refused the owner's own leave (409 NO_APPROVER: nobody else could
+   * take a step); the engine records it at once as SELF_APPROVED, as it does on the chains, and refuses it only under
+   * STRICT maker-checker. Owner's decision (review of PR #104, item 2): a small business's owner can take leave.
+   */
+  'RULE / owner alone': (old, eng) => {
+    expect(old).toEqual({ status: 409, code: 'NO_APPROVER' });
+    expect(eng).toMatchObject({ status: 201, leave: 'APPROVED', steps: ['SELF_APPROVED'] });
+    expect(eng.strict).toEqual({ status: 409, code: 'NO_APPROVER' });
+  },
+  /*
    * The manager then HR, where the only one who could take HR's step is the manager who took the first (a small
    * business whose owner is manager and HR). The old path refused the owner HR's step and the leave waited for
    * ever; the engine skips HR's step, approves on the one decision, and the leave's history says so. Owner's
@@ -332,7 +359,7 @@ describe('leave on the approval engine: parity with the old path', () => {
     if (process.env.LEAVE_PARITY_OUT) writeFileSync(process.env.LEAVE_PARITY_OUT, `${JSON.stringify(results, null, 1)}\n`);
   });
 
-  for (const chain of ['HR', 'MANAGER', 'MANAGER_THEN_HR']) {
+  for (const chain of ['HR', 'MANAGER', 'MANAGER_THEN_HR', 'RULE']) {
     for (const sc of SCENARIOS) {
       it(`${chain} / ${sc.name}`, async () => {
         await sc.before?.();
@@ -631,6 +658,10 @@ describe('leave on the approval engine: review of PR #102', () => {
     await inTenant(() => peoplePrisma.leaveRequest.update({ where: { id }, data: { managerApprovedAt: new Date(), managerApprovedById: E.ravi.id, managerNote: 'Fine' } }));
     const again = await att(ravi).post(`/leave/requests/${id}/approve`, {});
     expect([again.status, again.body.code]).toEqual([403, 'HR_STEP']);
+    /* Ravi (a team approver, not the whole company's) cannot reject it either now: HR decides it; and a refusal never approves. */
+    const rejected = await att(ravi).post(`/leave/requests/${id}/reject`, { note: 'No' });
+    expect(rejected.status).toBe(403);
+    expect((await leaveRow(id)).status).toBe('PENDING');
     expect((await att(kavya).post(`/leave/requests/${id}/approve`, {})).status).toBe(200);
     const r = await engineOf(id);
     expect(r?.steps.map((s) => `${s.order}:${s.status}:${s.decidedByUserId === ravi.userId ? 'ravi' : s.decidedByUserId === kavya.userId ? 'kavya' : ''}`)).toEqual(['1:APPROVED:ravi', '2:APPROVED:kavya']);
@@ -656,7 +687,11 @@ describe('leave on the approval engine: review of PR #102', () => {
     const r = await inC(() => peoplePrisma.approvalRequest.findFirst({ where: { orgId: c.orgId, sourceKind: 'LEAVE', sourceId: asked.id }, include: { steps: true } }));
     expect(r?.status).toBe('WAITING');
     expect(r?.steps.filter((s) => s.status === 'WAITING').map((s) => s.candidateUserIds)).toEqual([[`portal:${mo.id}`]]);
-    expect((await inC(() => peoplePrisma.leaveRequest.findUniqueOrThrow({ where: { id: asked.id } }))).status).toBe('PENDING');
+    const still = await inC(() => peoplePrisma.leaveRequest.findUniqueOrThrow({ where: { id: asked.id } }));
+    expect(still.status).toBe('PENDING');
+    /* Nothing moved, so nothing is written on the leave: no "handed on" it never was. */
+    expect(still.managerApprovedAt).toBeNull();
+    expect(JSON.stringify(still.history)).not.toContain('HANDED_ON');
   }, 60_000);
 
   it('a leave on the engine shows once: not again as an HR approval in Workforce, the weekly summary, the person’s activity or the employee app’s updates', async () => {
@@ -742,6 +777,29 @@ describe('leave on the approval engine: review of PR #102', () => {
 });
 
 describe('leave on the approval engine: a one-person company', () => {
+  it('the leave rule, owner alone: the walker refused, the engine records it at once (deliberate difference); STRICT refuses', async () => {
+    const c = await owner();
+    const inC = <X>(fn: () => Promise<X>) => runInTenant(c.orgId, fn);
+    const me = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Asha Owner', code: 'O-1', dateOfJoining: '2024-01-01' }).expect(201)).body.employee;
+    await inC(() => peoplePrisma.employee.update({ where: { id: me.id }, data: { userId: c.userId } }));
+    await request(app).post(`/api/orgs/${c.orgId}/people/approval-rules`).set(at(c)).send({ requestType: 'LEAVE', name: 'Leave', steps: [{ approver: { kind: 'MANAGER' }, dueDays: 2 }] }).expect(201);
+    const type = (await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/types`).set(at(c)).send({ name: 'Casual', annualDays: 12 }).expect(201)).body.type;
+    await request(app).put(`/api/orgs/${c.orgId}/attendance/leave/types/${type.id}`).set(at(c)).send({ name: 'Casual', annualDays: 12, approval: 'RULE' }).expect(200);
+    const askOwn = async () => {
+      const day = nextDay();
+      return request(app).post(`/api/orgs/${c.orgId}/attendance/me/leave`).set(at(c)).send({ leaveTypeId: type.id, fromDate: day, toDate: day, reason: 'Rest' });
+    };
+    const setOn = (on: boolean) => inC(() => peoplePrisma.peopleSetting.upsert({ where: { orgId: c.orgId }, create: { accountId: c.accountId, orgId: c.orgId, leaveOnEngine: on }, update: { leaveOnEngine: on } }));
+    const walker = await askOwn();
+    const old = { status: walker.status, code: walker.body.code };
+    await setOn(true);
+    const asked = await askOwn();
+    const r = await inC(() => peoplePrisma.approvalRequest.findFirst({ where: { orgId: c.orgId, sourceKind: 'LEAVE', sourceId: asked.body.request?.id }, include: { steps: true } }));
+    await platformPrisma.authPolicy.upsert({ where: { orgId: c.orgId }, create: { accountId: c.accountId, orgId: c.orgId, makerChecker: 'STRICT', updatedByUserId: c.userId }, update: { makerChecker: 'STRICT' } });
+    const strict = await askOwn();
+    DIFFERENT['RULE / owner alone'](old, { status: asked.status, leave: asked.body.request?.status, steps: r?.steps.map((x) => x.resolvedHow), strict: { status: strict.status, code: strict.body.code } });
+  }, 60_000);
+
   it('the owner’s own leave: the old path waits for the owner to approve it themselves; the engine records it at once, written SELF_APPROVED (SPEC 5.6); STRICT refuses it', async () => {
     const c = await owner();
     const me = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Asha Owner', code: 'O-1', dateOfJoining: '2024-01-01' }).expect(201)).body.employee;

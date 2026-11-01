@@ -1,6 +1,6 @@
 import type { Prisma } from '../../../generated/people/index.js';
 import { peoplePrisma } from '../../../utils/peoplePrisma.js';
-import { SPEC_VERSION, type StepV2 } from './spec.js';
+import { SPEC_VERSION, type AutoApprove, type StepV2 } from './spec.js';
 import type { RuleRow } from './engine.js';
 
 /**
@@ -50,14 +50,26 @@ const same = (a: unknown, b: unknown) => JSON.stringify(canon(a)) === JSON.strin
  * under it). A preset found with other steps (an older preset) gets a new version; requests already
  * waiting keep the version they opened with. Runs inside the caller's transaction when there is one.
  */
+/**
+ * The leave types' own auto-approval (LeaveType.autoApproveUpToDays), read into the presets' `autoApprove` (phase 2c-ii):
+ * "this type, this many days or fewer". Whether a request may be approved this way at all (the person's own request,
+ * within the balance) is still leave's to say when it is asked; the rule says the threshold.
+ */
+export async function typeAutoApprove(orgId: string): Promise<AutoApprove[]> {
+  const types = await peoplePrisma.leaveType.findMany({ where: { orgId, isActive: true, autoApproveUpToDays: { not: null } }, select: { id: true, autoApproveUpToDays: true }, orderBy: { id: 'asc' } });
+  return types.map((t) => ({ when: [{ field: 'leaveTypeId', op: 'eq', value: t.id, from: 'request' }, { field: 'days', op: 'lte', value: Number(t.autoApproveUpToDays), from: 'request' }] }));
+}
+const autoOf = (rows: AutoApprove[]) => (rows.length ? rows : null);
+
 export async function seedPresets(who: { accountId: string; orgId: string }, requestType: 'LEAVE' = 'LEAVE'): Promise<Record<PresetKey, RuleRow>> {
   return peoplePrisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-presets:${who.orgId}:${requestType}`}))`;
     const out = {} as Record<PresetKey, RuleRow>;
+    const auto = autoOf(await typeAutoApprove(who.orgId));
     for (const [key, preset] of Object.entries(LEAVE_PRESETS) as Array<[PresetKey, (typeof LEAVE_PRESETS)[PresetKey]]>) {
       const variantKey = `${PRESET_PREFIX}${key}`;
       const active = await tx.approvalRule.findFirst({ where: { orgId: who.orgId, requestType, variantKey, active: true }, orderBy: { version: 'desc' } });
-      if (active && active.presetKey === key && same(active.steps, preset.steps)) {
+      if (active && active.presetKey === key && same(active.steps, preset.steps) && same(active.autoApprove ?? null, auto)) {
         out[key] = active;
         continue;
       }
@@ -67,6 +79,7 @@ export async function seedPresets(who: { accountId: string; orgId: string }, req
         data: {
           accountId: who.accountId, orgId: who.orgId, requestType, name: preset.name, version: (latest?.version || 0) + 1, active: true,
           steps: preset.steps as unknown as Prisma.InputJsonValue, specVersion: SPEC_VERSION, variantKey, priority: 0, presetKey: key, createdByUserId: null,
+          ...(auto ? { autoApprove: auto as unknown as Prisma.InputJsonValue } : {}),
         },
       });
     }
@@ -78,6 +91,6 @@ export async function seedPresets(who: { accountId: string; orgId: string }, req
 export async function presetRule(who: { accountId: string; orgId: string }, chain: LeaveChainKey): Promise<RuleRow> {
   const key = PRESET_OF_CHAIN[chain];
   const active = await peoplePrisma.approvalRule.findFirst({ where: { orgId: who.orgId, requestType: 'LEAVE', variantKey: `${PRESET_PREFIX}${key}`, active: true }, orderBy: { version: 'desc' } });
-  if (active && active.presetKey === key && same(active.steps, LEAVE_PRESETS[key].steps)) return active;
+  if (active && active.presetKey === key && same(active.steps, LEAVE_PRESETS[key].steps) && same(active.autoApprove ?? null, autoOf(await typeAutoApprove(who.orgId)))) return active;
   return (await seedPresets(who))[key];
 }

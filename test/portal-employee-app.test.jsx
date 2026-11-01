@@ -289,6 +289,22 @@ describe('The Me tab and Leave in the app', () => {
     expect(morning.textContent).toContain('first half (morning)');
   });
 
+  it('a waiting request says who has it now (leave on the approval rules)', async () => {
+    api.getMe.mockResolvedValue(ME);
+    api.getUpdates.mockResolvedValue({ decided: [] });
+    api.getHolidays.mockResolvedValue({ year: 2026, quota: 0, picked: 0, left: 0, holidays: [] });
+    api.getLeave.mockResolvedValue({ year: 2026, today: '2026-10-27', types: [{ id: 't1', name: 'Casual', isPaid: true, available: 5, allocated: 12 }], requests: [
+      { id: 'w1', leaveTypeId: 't1', leaveTypeName: 'Casual', fromDate: '2026-11-11', toDate: '2026-11-11', days: 1, status: 'PENDING', withWhom: 'With Ravi (your manager)' },
+      { id: 'w2', leaveTypeId: 't1', leaveTypeName: 'Casual', fromDate: '2026-11-12', toDate: '2026-11-12', days: 1, status: 'APPROVED', withWhom: null },
+    ] });
+    render(<EmployeePortal />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Leave' }));
+    const list = await screen.findByRole('region', { name: 'My requests' });
+    const [waiting, approved] = within(list).getAllByRole('listitem');
+    expect(waiting.textContent).toContain('With Ravi (your manager)');
+    expect(approved.textContent).not.toContain('With');
+  });
+
   it('asks before cancelling approved leave', async () => {
     api.getMe.mockResolvedValue(ME);
     api.getUpdates.mockResolvedValue({ decided: [] });

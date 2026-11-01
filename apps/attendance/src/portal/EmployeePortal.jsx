@@ -993,6 +993,7 @@ function MyLeave({ guard }) {
                   {r.leaveTypeName} · {r.fromTime && r.toTime ? hoursWords(hoursBetween(r.fromTime, r.toTime)) : r.days === 0.5 ? 'half a day' : `${r.days} day${r.days === 1 ? '' : 's'}`}
                   <span className="ui-caption block">{r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`}{leaveHours(r) ? `, ${leaveHours(r)}` : halfWords(r.halfDay) ? `, ${halfWords(r.halfDay)}` : ''}{!leaveHours(r) && r.overflowOfId ? ', over the balance: loss of pay' : ''}</span>
                   {r.note && r.status !== 'PENDING' ? <span className="ui-caption block">“{r.note}”</span> : null}
+                  {r.status === 'PENDING' && r.withWhom ? <span className="ui-caption block">{r.withWhom}</span> : null}
                 </span>
                 <span className="flex flex-col items-end gap-1">
                   <RequestPill status={r.status} />
