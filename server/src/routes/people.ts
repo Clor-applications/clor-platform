@@ -2311,7 +2311,7 @@ peopleRouter.post('/orgs/:orgId/people/structure/:kind', can(PermissionAction.CR
     const actor = actorOf(req, 'FORM', reasonOf(req));
     const row = await peoplePrisma.$transaction(async (tx) => {
       const created = await (tx as any)[cfg.model].create({ data });
-      await logStructure(tx, actor, kind, created, 'CREATED', await structureChanges(orgId, kind, null, created));
+      await logStructure(tx, actor, kind, created, 'CREATED', await structureChanges(orgId, kind, null, created, tx));
       return created;
     });
     res.status(201).json({ item: kind === 'legal-entities' ? { ...row, pan: maskPan(row.pan) } : row });

@@ -69,15 +69,15 @@ const labelOfField = (kind: Kind, field: string) => (field === 'parentId' ? (kin
 /* A reference field names another row; the history shows its name. */
 const REF_MODEL: Record<string, string> = { departmentId: 'department', jobPositionId: 'jobPosition', teamId: 'team', legalEntityId: 'legalEntity', headEmployeeId: 'employee', leadEmployeeId: 'employee' };
 
-async function nameOf(orgId: string, model: string, id: string): Promise<string> {
-  const row = await (peoplePrisma as any)[model].findFirst({ where: { id, orgId }, select: { name: true } });
+async function nameOf(orgId: string, model: string, id: string, db: any = peoplePrisma): Promise<string> {
+  const row = await db[model].findFirst({ where: { id, orgId }, select: { name: true } });
   return row?.name ?? 'something since removed';
 }
 
-async function shown(orgId: string, kind: Kind, field: string, v: unknown): Promise<string | null> {
+async function shown(orgId: string, kind: Kind, field: string, v: unknown, db?: any): Promise<string | null> {
   if (v === null || v === undefined || v === '') return null;
-  if (field === 'parentId') return nameOf(orgId, STRUCTURE_KINDS[kind].model, String(v));
-  if (REF_MODEL[field]) return nameOf(orgId, REF_MODEL[field], String(v));
+  if (field === 'parentId') return nameOf(orgId, STRUCTURE_KINDS[kind].model, String(v), db);
+  if (REF_MODEL[field]) return nameOf(orgId, REF_MODEL[field], String(v), db);
   if (field === 'isActive') return v ? 'Yes' : 'No (retired)';
   if (field === 'pan') return `******${String(v).slice(-4)}`;
   if (typeof v === 'boolean') return v ? 'Yes' : 'No';
@@ -88,8 +88,11 @@ async function shown(orgId: string, kind: Kind, field: string, v: unknown): Prom
 
 export type FieldChange = { field: string; label: string; before: string | null; after: string | null };
 
-/** The fields that differ between two versions of an item, named for people. `before` null is a new item. */
-export async function structureChanges(orgId: string, kind: Kind, before: Record<string, unknown> | null, after: Record<string, unknown>): Promise<FieldChange[]> {
+/**
+ * The fields that differ between two versions of an item, named for people. `before` null is a new item.
+ * Inside a transaction pass its `tx`: the People pool can be a single connection, which the transaction holds.
+ */
+export async function structureChanges(orgId: string, kind: Kind, before: Record<string, unknown> | null, after: Record<string, unknown>, db?: any): Promise<FieldChange[]> {
   const out: FieldChange[] = [];
   for (const field of ['name', ...STRUCTURE_KINDS[kind].extra, 'isActive']) {
     if (!(field in after)) continue;
@@ -97,7 +100,7 @@ export async function structureChanges(orgId: string, kind: Kind, before: Record
     const now = after[field];
     if (!before && (field === 'isActive' || now === null || now === undefined || now === '')) continue;
     if (JSON.stringify(was ?? null) === JSON.stringify(now ?? null)) continue;
-    out.push({ field, label: labelOfField(kind, field), before: before ? await shown(orgId, kind, field, was) : null, after: await shown(orgId, kind, field, now) });
+    out.push({ field, label: labelOfField(kind, field), before: before ? await shown(orgId, kind, field, was, db) : null, after: await shown(orgId, kind, field, now, db) });
   }
   return out;
 }
