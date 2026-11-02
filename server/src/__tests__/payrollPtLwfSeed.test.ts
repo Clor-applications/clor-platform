@@ -355,6 +355,8 @@ describe('the month professional tax and LWF belong to', () => {
     await person(c, structureId, 'Twice paid', 40_000, 'Karnataka');
     const monthly = await run(c, periodIds[0]);
     expect(await lineOf(monthly.slips[0].id, 'PT')).toBe(200);
+    await api.post(c, `/runs/${monthly.id}/submit-review`).expect(200);
+    await api.post(c, `/runs/${monthly.id}/approve`).expect(200);
     /* An off-cycle run inside the same month. */
     const offCycle = await periodOf(c, { frequency: 'WEEKLY', startDate: '2026-11-23', endDate: '2026-11-29', paymentDate: '2026-11-29' });
     const second = await run(c, offCycle);
@@ -530,5 +532,92 @@ describe('managers and supervisors', () => {
     expect(await lineOf(slip(lowSupervisor), 'LWF')).toBe(25);
     expect(await lineOf(slip(supervisor), 'LWF')).toBe(0);
     expect((await api.get(c, '/statutory').expect(200)).body.lwf).toEqual({ coverage: 'ALWAYS', managerDesignations: ['Store Manager'], supervisorDesignations: ['Supervisor'] });
+  });
+});
+
+async function approve(c: Ctx, runId: string) {
+  await api.post(c, `/runs/${runId}/submit-review`).expect(200);
+  const r = await api.post(c, `/runs/${runId}/approve`);
+  return r;
+}
+
+describe('the balance month, through real runs', () => {
+  it('reads a payslip with no recorded state as the person’s state, and counts nil-band months', async () => {
+    const c = await makeOwner();
+    const { structureId, periodIds } = await setUp(c, [['2027-02-01', '2027-02-28'], ['2027-03-01', '2027-03-31']]);
+    /* ₹20,000 a month: ₹2,40,000 a year, the ₹1,500 band — ₹125 a month. */
+    const steady = await person(c, structureId, 'Indore steady', 20_000, 'Madhya Pradesh');
+    /* ₹15,000 in February (nil), ₹30,000 from March: the year's pay sets the band. */
+    const raised = await person(c, structureId, 'Indore raised', 15_000, 'Madhya Pradesh');
+    const feb = await run(c, periodIds[0]);
+    expect((await approve(c, feb.id)).status).toBe(200);
+    const febSlip = (id: string) => feb.slips.find((s: any) => s.employeeId === id).id;
+    expect(await lineOf(febSlip(steady), 'PT')).toBe(125);
+    expect(await lineOf(febSlip(raised), 'PT')).toBe(0);
+    /* February's payslips as a payslip from before this change: no state recorded. */
+    for (const s of feb.slips) {
+      const row = await payrollPrisma.salarySlip.findUniqueOrThrow({ where: { id: s.id } });
+      const snap = JSON.parse(row.statutorySnapshotJson);
+      for (const r of snap.results) delete r.jurisdiction;
+      await payrollPrisma.salarySlip.update({ where: { id: s.id }, data: { statutorySnapshotJson: JSON.stringify(snap) } });
+    }
+    await api.post(c, '/assignments', { employeeId: raised, structureId, effectiveFrom: '2027-03-01', annualCtc: 30_000 * 12 }).expect(201);
+    const march = await run(c, periodIds[1]);
+    const marchSlip = (id: string) => march.slips.find((s: any) => s.employeeId === id).id;
+    /*
+     * The company's first month on CLOR this year is February, so two months
+     * are owed: ₹1,500 × 2/12 = ₹250, less February's ₹125 — read from the
+     * payslip with no state, through the person's state.
+     */
+    expect(await lineOf(marchSlip(steady), 'PT')).toBe(125);
+    /* February's nil month counts: (₹15,000 + ₹30,000) over two months is ₹2,70,000 a year, the ₹1,500 band: ₹250. */
+    expect(await lineOf(marchSlip(raised), 'PT')).toBe(250);
+  });
+});
+
+describe('PT already taken this month', () => {
+  it('counts only an approved run, and is checked again when the run is approved', async () => {
+    const c = await makeOwner();
+    const { structureId, periodIds } = await setUp(c, [['2026-11-01', '2026-11-30']]);
+    await person(c, structureId, 'Off-cycle first', 40_000, 'Karnataka');
+    const offCycle = await periodOf(c, { frequency: 'WEEKLY', startDate: '2026-11-02', endDate: '2026-11-08', paymentDate: '2026-11-08' });
+    const bonus = await run(c, offCycle);
+    expect(await lineOf(bonus.slips[0].id, 'PT')).toBe(200);
+    /* Calculated, not approved: it does not use up the month. */
+    const draftMonthly = await run(c, periodIds[0]);
+    expect(await lineOf(draftMonthly.slips[0].id, 'PT')).toBe(200);
+    await api.post(c, `/runs/${draftMonthly.id}/cancel`, { reason: 'Run again after the bonus' }).expect((r) => expect([200, 204]).toContain(r.status));
+    /* Approved: the monthly run takes nothing more for November. */
+    expect((await approve(c, bonus.id)).status).toBe(200);
+    const monthly = await run(c, periodIds[0]);
+    expect(await lineOf(monthly.slips[0].id, 'PT')).toBe(0);
+    /* The bonus run is cancelled: approving the monthly run at nil PT is refused until it is calculated again. */
+    await api.post(c, `/runs/${bonus.id}/cancel`, { reason: 'Wrong people' }).expect((r) => expect([200, 204]).toContain(r.status));
+    const refused = await approve(c, monthly.id);
+    expect([refused.status, refused.body.code]).toEqual([409, 'PT_TAKEN_ELSEWHERE_GONE']);
+  });
+});
+
+describe('a company rule CLOR’s figures have replaced', () => {
+  it('no longer holds later CLOR figures back as an offer', async () => {
+    const { c, scheme } = await legacyCompany();
+    /* The company's own Karnataka rate, already closed — nothing of the company's is in force. */
+    await payrollPrisma.statutoryRule.create({
+      data: { accountId: c.accountId, orgId: c.orgId, schemeId: scheme.id, jurisdiction: 'KA', effectiveFrom: '2024-06-01', effectiveTo: '2024-12-31', version: '2024-06-01', rounding: 'NEAREST', configJson: JSON.stringify({ slabs: [{ from: 0, to: null, amount: 250 }] }), status: 'SUPERSEDED', origin: 'COMPANY', createdByUserId: 'u' },
+    });
+    const out = (await api.post(c, '/statutory/seed').expect(200)).body;
+    expect(out.created).toContain('PT:KARNATAKA:2025-04-01');
+    expect(out.offered).not.toContain('PT:KARNATAKA:2025-04-01');
+  });
+
+  it('adopting matches the company’s rule however the state is spelt', async () => {
+    const { c, scheme } = await legacyCompany();
+    const own = await payrollPrisma.statutoryRule.create({
+      data: { accountId: c.accountId, orgId: c.orgId, schemeId: scheme.id, jurisdiction: 'WB', effectiveFrom: '2025-01-01', version: '2025-01-01', rounding: 'NEAREST', configJson: JSON.stringify({ slabs: [{ from: 0, to: null, amount: 180 }] }), status: 'ACTIVE', origin: 'COMPANY', createdByUserId: 'u' },
+    });
+    const offer = (await api.get(c, '/statutory').expect(200)).body.offers.find((o: any) => o.state === 'West Bengal');
+    expect(offer).toBeTruthy();
+    await api.post(c, `/statutory/rules/${offer.ruleId}/adopt`).expect(200);
+    expect(await payrollPrisma.statutoryRule.findUnique({ where: { id: own.id } })).toMatchObject({ status: 'SUPERSEDED', effectiveTo: '2026-09-30' });
   });
 });

@@ -359,8 +359,16 @@ export type PtContext = {
   yearToDate?: number;
   /** This financial year in this person's current state, for the balance month. Unknown: eleven twelfths assumed. */
   inState?: number | null;
-  /** Earlier months this financial year with professional tax in this state. */
+  /** Earlier months this financial year with a payslip in this state, whatever PT it took (nil-band months count). */
   monthsInState?: number;
+  /** Gross pay on those earlier payslips in this state: with this month's, the year's pay that picks the balance month's band. */
+  grossInState?: number;
+  /**
+   * Months of this financial year the person is employed, from their joining
+   * and leaving dates (12 for a full year). Only a real join or leave inside
+   * the year prorates the year's tax. Unknown: the full year.
+   */
+  monthsEmployed?: number;
   /** Already deducted for this same month by another run (an off-cycle one): nothing more is taken. */
   thisMonth?: number;
 };
@@ -417,7 +425,16 @@ function computePt(
   if ((Number(pt.thisMonth) || 0) > 0) {
     return nil(`${money(Number(pt.thisMonth))} of professional tax was already deducted for this month.`, 'ALREADY_THIS_MONTH');
   }
-  const measured = round2(wages.gross * factor);
+  /*
+   * The balance month of a yearly spread (March) reads the band from the
+   * year's pay — what this state's payslips paid so far plus this month,
+   * over the months they cover, as a year — not March's pay × 12, so a
+   * raise in December does not move somebody into a higher year's band.
+   */
+  const balanceMonthOfYear = factor === 12 && !collect.length && month === (Number(c.balanceMonth) || 3) && pt.inState != null && pt.grossInState != null;
+  const measured = balanceMonthOfYear
+    ? round2((((Number(pt.grossInState) || 0) + wages.gross) / Math.max(1, (Number(pt.monthsInState) || 0) + 1)) * 12)
+    : round2(wages.gross * factor);
   const woman = String(employee.gender || '').toUpperCase() === 'FEMALE';
 
   const slab = slabs.find(
@@ -446,11 +463,10 @@ function computePt(
     if (last && factor === 12 && pt.inState != null) {
       /*
        * The balance month takes what is left of the year's tax in this state,
-       * read from the payslips — not eleven twelfths assumed — so a raise or a
-       * band change mid-year is trued up. Somebody here for only part of the
-       * year owes that part (months taxed here, this one included).
+       * read from the payslips — not eleven twelfths assumed. Somebody who
+       * joined or left during the year owes the months they were employed.
        */
-      const months = Math.min(12, Math.max(1, (Number(pt.monthsInState) || 0) + 1));
+      const months = Math.min(12, Math.max(1, Number(pt.monthsEmployed) || 12));
       amount = Math.max(0, round2((whole * months) / 12 - (Number(pt.inState) || 0)));
     } else {
       amount = last ? whole - each * (factor - 1) : each;
@@ -464,7 +480,7 @@ function computePt(
   const capped = amount > room;
   if (capped) amount = room;
 
-  const band = factor === 1 ? money(wages.gross) : `${money(measured)} (${money(wages.gross)} × ${factor})`;
+  const band = factor === 1 ? money(wages.gross) : balanceMonthOfYear ? `${money(measured)} for the year` : `${money(measured)} (${money(wages.gross)} × ${factor})`;
   const women = slab.gender === 'FEMALE' ? ' on the women’s bands' : '';
   return {
     ...base,

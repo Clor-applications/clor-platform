@@ -116,7 +116,9 @@ export function applyStatutory(opts: {
    */
   levyDate?: string;
   /** Professional tax already on this financial year's payslips (run.ts ptPaidSoFar). */
-  ptSoFar?: { yearToDate: number; thisMonth: number; byState: Map<string, { amount: number; months: number }> };
+  ptSoFar?: { yearToDate: number; thisMonth: number; byState: Map<string, { amount: number; months: number; gross?: number }> };
+  /** Months of the financial year the person is employed (run.ts monthsEmployedInYear). */
+  ptMonthsEmployed?: number;
   /** People in payroll per state (canonical names), and the company's LWF coverage setting. */
   lwf?: { headcountByState?: Map<string, number>; coverage?: LwfContext['coverage'] };
   /** The year's declared deductions, given this period's employee PF (which counts towards 80C). */
@@ -157,7 +159,14 @@ export function applyStatutory(opts: {
       monthsRemaining: opts.monthsRemaining,
       taxAlreadyDeducted: opts.taxAlreadyDeducted,
       pt: opts.ptSoFar
-        ? { yearToDate: opts.ptSoFar.yearToDate, thisMonth: opts.ptSoFar.thisMonth, inState: inState?.amount ?? 0, monthsInState: inState?.months ?? 0 }
+        ? {
+            yearToDate: opts.ptSoFar.yearToDate,
+            thisMonth: opts.ptSoFar.thisMonth,
+            inState: inState?.amount ?? 0,
+            monthsInState: inState?.months ?? 0,
+            grossInState: inState?.gross ?? 0,
+            monthsEmployed: opts.ptMonthsEmployed,
+          }
         : {},
       lwf: {
         headcount: opts.lwf?.headcountByState ? opts.lwf.headcountByState.get(state) ?? 0 : null,
@@ -311,6 +320,8 @@ async function seedInside(db: any, orgId: string, accountId: string, userId: str
     const companyLatest = classified
       .filter((c) => c.origin === 'COMPANY' && !NOT_IN_FORCE.includes(c.row.status))
       .reduce<string>((latest, c) => (c.row.effectiveFrom > latest ? c.row.effectiveFrom : latest), '');
+    /* Only a company rule still in force holds CLOR's figures back as an offer. */
+    const companyInForce = classified.some((c) => c.origin === 'COMPANY' && c.row.status === 'ACTIVE');
 
     for (const seed of seeds) {
       const label = `${seed.scheme}:${seed.jurisdiction || 'ALL'}:${seed.version}`;
@@ -319,8 +330,12 @@ async function seedInside(db: any, orgId: string, accountId: string, userId: str
         kept.push(label);
         continue;
       }
-      /* Beside a company's own rule, CLOR's newer figures are an offer, not a change. */
-      const draft = Boolean(companyLatest);
+      /*
+       * Beside a company's own rule in force, CLOR's newer figures are an
+       * offer, not a change. Once the company has adopted CLOR's figures (its
+       * own rule superseded), later CLOR versions arrive as usual.
+       */
+      const draft = companyInForce;
       const row = await db.statutoryRule.create({
         data: {
           accountId,
@@ -455,7 +470,9 @@ export async function uncheckedRulesOnRun(orgId: string, runId: string) {
       const snap = JSON.parse(slip.statutorySnapshotJson || '{}');
       for (const scheme of ['PT', 'LWF']) {
         const id = snap?.versions?.[scheme]?.ruleId;
-        if (id) ids.add(String(id));
+        /* A rule that took nothing because this is not its month used none of its figures. */
+        const result = (snap?.results || []).find((r: any) => r.scheme === scheme);
+        if (id && result?.exemptReason !== 'NOT_THIS_MONTH') ids.add(String(id));
       }
     } catch {
       /* an old payslip without a snapshot */

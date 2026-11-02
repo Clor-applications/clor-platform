@@ -9,7 +9,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
-import { calculateRun, daysBetween, eligibleEmployees, validateRun } from '../services/payroll/run.js';
+import { calculateRun, daysBetween, eligibleEmployees, ptTakenElsewhereGone, validateRun } from '../services/payroll/run.js';
 import { checksSentence, uncheckedRulesOnRun } from '../services/payroll/statutory/resolve.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { recordAudit } from '../services/auditTrail.js';
@@ -796,6 +796,18 @@ const transition = (
             error: `This payroll uses figures CLOR could not confirm from an official notice: ${checksSentence(checks)}. Confirm ${checks.length === 1 ? 'it' : 'each'} in Payroll › Compliance, or correct it there and calculate again.`,
             code: 'RULE_NEEDS_CHECK',
             checks,
+          });
+        }
+      }
+
+      /* Nil PT because another run took the month's: that run must still stand, or this goes out with no PT at all. */
+      if (to === 'APPROVED') {
+        const gone = await ptTakenElsewhereGone(run.orgId, run);
+        if (gone.length) {
+          return res.status(409).json({
+            error: `${gone.length === 1 ? 'One person has' : `${gone.length} people have`} no professional tax on this payroll because another payroll for the month had taken it, and that payroll is no longer approved. Calculate this payroll again.`,
+            code: 'PT_TAKEN_ELSEWHERE_GONE',
+            employeeIds: gone,
           });
         }
       }

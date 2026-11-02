@@ -59,6 +59,19 @@ describe('due dates', () => {
     expect(list.some((d: any) => d.code === 'LWF_KARNATAKA')).toBe(false);
   });
 
+  it('decides LWF coverage under the rule for the period shown, not today’s', () => {
+    /* Karnataka: more than 50 people until 6 Jan 2026, 10 or more from 7 Jan 2026; the company has 12. */
+    const rules = [
+      { jurisdiction: 'KARNATAKA', effectiveFrom: '2024-12-01', effectiveTo: '2026-01-06', status: 'SUPERSEDED', version: '2024-12-01', configJson: JSON.stringify({ employeeAmount: 50, employerAmount: 100, months: [12], minEmployees: 51 }) },
+      { jurisdiction: 'KARNATAKA', effectiveFrom: '2026-01-07', effectiveTo: null, status: 'ACTIVE', version: '2026-01-07', configJson: JSON.stringify({ employeeAmount: 50, employerAmount: 100, months: [12], minEmployees: 10 }) },
+    ];
+    const a = { ...all, ptStates: [], lwfStates: ['KARNATAKA'], lwf: { always: false, headcount: { KARNATAKA: 12 }, rules } } as any;
+    /* December 2025's collection was under the old threshold: nothing due in January 2026. */
+    expect(dueDates(a, '2026-01-01', '2026-02-28').some((d: any) => d.code === 'LWF_KARNATAKA')).toBe(false);
+    /* December 2026's is under the new one: due 15 January 2027. */
+    expect(dueDates(a, '2027-01-01', '2027-02-28').find((d: any) => d.code === 'LWF_KARNATAKA')).toMatchObject({ dueDate: '2027-01-15' });
+  });
+
   it('knows an older calendar’s PT items that the current one replaces', () => {
     expect(staleLevyItem('PT_KA', '2026-09')).toBe(true);
     expect(staleLevyItem('PT_KARNATAKA', '2026-09')).toBe(false);

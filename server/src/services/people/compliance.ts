@@ -77,29 +77,22 @@ export async function applicability(accountId: string, orgId: string) {
     const st = canonicalState(p.professionalTaxState);
     if (st) headcount.set(st, (headcount.get(st) || 0) + 1);
   }
-  const lwfFunds: Array<{ state: string; fund: string }> = [];
-  if (lwfScheme) {
-    const rules = await payrollPrisma.statutoryRule.findMany({ where: { orgId, schemeId: lwfScheme.id, status: { in: ['ACTIVE', 'SUPERSEDED'] } } });
-    const always = setting?.lwfCoverage === 'ALWAYS';
-    for (const [st, people] of [...headcount.entries()].sort(([x], [y]) => x.localeCompare(y))) {
-      if (!LWF_FILINGS[st]) continue;
-      const rule = ruleInForce(rules, todayIst(), st);
-      if (!rule) continue;
-      let config: Record<string, any> = {};
-      try {
-        config = JSON.parse(rule.configJson || '{}') || {};
-      } catch {
-        /* a rule that does not parse is read as having no threshold */
+  const lwf: LwfCoverage | null = lwfScheme
+    ? {
+        always: setting?.lwfCoverage === 'ALWAYS',
+        headcount: Object.fromEntries(headcount),
+        rules: (await payrollPrisma.statutoryRule.findMany({ where: { orgId, schemeId: lwfScheme.id, status: { in: ['ACTIVE', 'SUPERSEDED'] } } })).map((r) => ({
+          jurisdiction: r.jurisdiction,
+          effectiveFrom: r.effectiveFrom,
+          effectiveTo: r.effectiveTo,
+          status: r.status,
+          version: r.version,
+          configJson: r.configJson,
+        })),
       }
-      const funds: Array<Record<string, any>> = Array.isArray(config.funds) && config.funds.length ? config.funds : [config];
-      for (const f of funds) {
-        const min = Number(f.minEmployees ?? config.minEmployees) || 0;
-        if (!always && min && people < min) continue;
-        const fund = f.name && LWF_FILINGS[st].funds?.[f.name] ? String(f.name) : '';
-        if (!lwfFunds.some((x) => x.state === st && x.fund === fund)) lwfFunds.push({ state: st, fund });
-      }
-    }
-  }
+    : null;
+  /* Today's answer, for the screen's summary; each period's deadline asks for its own date (dueDates). */
+  const lwfFunds = lwf ? lwfFundsOn(lwf, todayIst()) : [];
   const lwfStates = [...new Set(lwfFunds.map((x) => x.state))];
   return {
     payroll: payroll && profiles.length > 0,
@@ -108,10 +101,48 @@ export async function applicability(accountId: string, orgId: string) {
     ptStates,
     lwfStates,
     lwfFunds,
+    lwf,
     /* An Internal Committee and its annual report: workplaces of ten or more (POSH Act s.4, s.21). */
     posh: people >= 10,
     people,
   };
+}
+
+/** What LWF needs to decide coverage in any period: the headcount per state, the company's setting, and the rules with their dates. */
+export type LwfCoverage = {
+  always: boolean;
+  headcount: Record<string, number>;
+  rules: Array<{ jurisdiction: string | null; effectiveFrom: string; effectiveTo: string | null; status: string; version: string; configJson: string }>;
+};
+
+/**
+ * The LWF funds the company is covered for on a date: each state with people
+ * in payroll, under the rule in force THEN (Karnataka's threshold moved from
+ * more than 50 to 10 on 7 Jan 2026), where the establishment is big enough —
+ * read the way the pay run reads it: the people in payroll there, unless the
+ * company says it is covered anyway.
+ */
+export function lwfFundsOn(lwf: LwfCoverage, onDate: string) {
+  const out: Array<{ state: string; fund: string }> = [];
+  for (const [st, people] of Object.entries(lwf.headcount).sort(([x], [y]) => x.localeCompare(y))) {
+    if (!LWF_FILINGS[st]) continue;
+    const rule = ruleInForce(lwf.rules, onDate, st);
+    if (!rule) continue;
+    let config: Record<string, any> = {};
+    try {
+      config = JSON.parse(rule.configJson || '{}') || {};
+    } catch {
+      /* a rule that does not parse is read as having no threshold */
+    }
+    const funds: Array<Record<string, any>> = Array.isArray(config.funds) && config.funds.length ? config.funds : [config];
+    for (const f of funds) {
+      const min = Number(f.minEmployees ?? config.minEmployees) || 0;
+      if (!lwf.always && min && people < min) continue;
+      const fund = f.name && LWF_FILINGS[st].funds?.[f.name] ? String(f.name) : '';
+      if (!out.some((x) => x.state === st && x.fund === fund)) out.push({ state: st, fund });
+    }
+  }
+  return out;
 }
 
 /** Every due date that falls between `from` and `to`. */
@@ -146,7 +177,8 @@ export function dueDates(a: Awaited<ReturnType<typeof applicability>>, from: str
         note: f?.dueKnown ? `${f.how} The usual date: confirm it with the state's notification, and file on the state portal.` : "CLOR does not know this state's due date: set it, and confirm with the state.",
       });
     }
-    const funds = a.lwfFunds || (a.lwfStates || []).map((st) => ({ state: canonicalState(st), fund: '' }));
+    /* Covered under the rule for the month shown, not today's. */
+    const funds = a.lwf ? lwfFundsOn(a.lwf, `${period}-01`) : a.lwfFunds || (a.lwfStates || []).map((st) => ({ state: canonicalState(st), fund: '' }));
     for (const { state, fund } of funds) {
       /* Kerala's shops fund is its own monthly deadline beside the half-yearly fund. */
       const code = `LWF_${state.replace(/[^A-Z]+/g, '_')}${fund ? '_SHOPS' : ''}`;

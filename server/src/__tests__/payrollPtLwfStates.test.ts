@@ -208,7 +208,20 @@ describe('the balance month, read from the payslips', () => {
 
   it('charges somebody who joined in October only their part of the year', () => {
     /* Five months at ₹208 = ₹1,040; six months of ₹2,500 is ₹1,250, so March takes ₹210. */
-    expect(pt('MADHYA PRADESH', 40000, '2027-03-31', {}, 1040, { inState: 1040, monthsInState: 5 })!.employee).toBe(210);
+    expect(pt('MADHYA PRADESH', 40000, '2027-03-31', {}, 1040, { inState: 1040, monthsInState: 5, monthsEmployed: 6 })!.employee).toBe(210);
+  });
+
+  it('charges a full-year employee the full year, nil-band months included', () => {
+    /* Six months on ₹15,000 (nil) and five on ₹40,000 (₹208): ₹1,040 taken. Year's pay ₹3,30,000 → the ₹2,000 band. */
+    const r = pt('MADHYA PRADESH', 40000, '2027-03-31', {}, 1040, { inState: 1040, monthsInState: 11, grossInState: 6 * 15000 + 5 * 40000, monthsEmployed: 12 })!;
+    expect(r.employee).toBe(960);
+  });
+
+  it('reads the band from the year’s pay, not March’s', () => {
+    /* ₹30,000 until a December raise to ₹40,000: the year is ₹3,90,000 — the ₹2,000 band, not March's ₹4,80,000 (₹2,500). */
+    const r = pt('MADHYA PRADESH', 40000, '2027-03-31', {}, 1826, { inState: 1826, monthsInState: 11, grossInState: 8 * 30000 + 3 * 40000, monthsEmployed: 12 })!;
+    expect(r.employee).toBe(174);
+    expect(r.explanation).toMatch(/for the year/);
   });
 
   it('takes nothing when the year is already paid in full', () => {
@@ -217,7 +230,17 @@ describe('the balance month, read from the payslips', () => {
 
   it('counts only this state: tax paid in another state is not this state’s balance', () => {
     /* Moved from Karnataka in October: ₹1,000 there, ₹1,040 here; the cap still counts both. */
-    expect(pt('MADHYA PRADESH', 40000, '2027-03-31', {}, 2040, { inState: 1040, monthsInState: 5 })!.employee).toBe(210);
+    expect(pt('MADHYA PRADESH', 40000, '2027-03-31', {}, 2040, { inState: 1040, monthsInState: 5, monthsEmployed: 6 })!.employee).toBe(210);
+  });
+});
+
+describe('months employed in the financial year', () => {
+  it('counts from joining to leaving inside the year, else the whole year', async () => {
+    const { monthsEmployedInYear } = await import('../services/payroll/run.js');
+    expect(monthsEmployedInYear('2027-03-01', '2020-01-01', null)).toBe(12);
+    expect(monthsEmployedInYear('2027-03-01', '2026-10-15', null)).toBe(6);
+    expect(monthsEmployedInYear('2026-12-01', '2026-04-01', '2026-12-10')).toBe(9);
+    expect(monthsEmployedInYear('2027-03-01', '2027-03-02', null)).toBe(1);
   });
 });
 

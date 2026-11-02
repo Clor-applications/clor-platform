@@ -353,18 +353,19 @@ payrollStatutoryRouter.post(
     const rule = await payrollPrisma.statutoryRule.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
     if (!rule) return res.status(404).json({ error: 'No such rate.' });
     if (rule.status !== 'DRAFT') return res.status(409).json({ error: 'Only figures CLOR is offering can be adopted.', code: 'NOT_AN_OFFER' });
-    const later = await payrollPrisma.statutoryRule.findFirst({
-      where: { orgId, schemeId: rule.schemeId, jurisdiction: rule.jurisdiction, status: { in: ['ACTIVE', 'SUPERSEDED'] }, effectiveFrom: { gte: rule.effectiveFrom } },
-      select: { effectiveFrom: true },
-    });
+    /* The same state however it is spelt: a company rule written "KA" is Karnataka's. */
+    const state = canonicalState(rule.jurisdiction);
+    const sameState = (await payrollPrisma.statutoryRule.findMany({ where: { orgId, schemeId: rule.schemeId, id: { not: rule.id } } })).filter(
+      (r) => canonicalState(r.jurisdiction) === state
+    );
+    const later = sameState.find((r) => (r.status === 'ACTIVE' || r.status === 'SUPERSEDED') && r.effectiveFrom >= rule.effectiveFrom);
     if (later) {
       return res.status(409).json({ error: `Your own rate from ${later.effectiveFrom} is later than these figures, so they would never apply. Remove the offer, or publish a new rate.`, code: 'OFFER_OUTDATED' });
     }
     const row = await payrollPrisma.$transaction(async (tx) => {
-      const previous = await tx.statutoryRule.findFirst({
-        where: { orgId, schemeId: rule.schemeId, jurisdiction: rule.jurisdiction, status: 'ACTIVE', effectiveFrom: { lt: rule.effectiveFrom } },
-        orderBy: { effectiveFrom: 'desc' },
-      });
+      const previous = sameState
+        .filter((r) => r.status === 'ACTIVE' && r.effectiveFrom < rule.effectiveFrom)
+        .sort((x, y) => (x.effectiveFrom < y.effectiveFrom ? 1 : -1))[0];
       if (previous) await tx.statutoryRule.update({ where: { id: previous.id }, data: { effectiveTo: dayBefore(rule.effectiveFrom), status: 'SUPERSEDED' } });
       return tx.statutoryRule.update({ where: { id: rule.id }, data: { status: 'ACTIVE' } });
     });
