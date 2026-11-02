@@ -124,7 +124,7 @@ export const SEED_RULES: SeedRule[] = [
  * Bumped whenever the rules above change, so every company that has seeded
  * before is topped up once (resolve.ts `ensureStatutoryCatalogue`).
  */
-export const SEED_CATALOGUE_VERSION = '2026-11-02';
+export const SEED_CATALOGUE_VERSION = '2026-11-02.2';
 
 /**
  * Rules CLOR seeded once and has since corrected under a new version, kept so

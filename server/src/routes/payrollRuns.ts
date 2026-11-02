@@ -793,7 +793,7 @@ const transition = (
         const checks = await uncheckedRulesOnRun(run.orgId, run.id);
         if (checks.length) {
           return res.status(409).json({
-            error: `This payroll uses figures CLOR could not confirm from an official notice: ${checksSentence(checks)}. Confirm ${checks.length === 1 ? 'it' : 'each'} in Payroll › Compliance, or correct it there and calculate again.`,
+            error: `Not ready to approve. This payroll uses figures CLOR could not confirm from an official notice: ${checksSentence(checks)}. Check each against the state’s notice, then confirm it, or correct it and calculate again.`,
             code: 'RULE_NEEDS_CHECK',
             checks,
           });

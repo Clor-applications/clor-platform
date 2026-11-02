@@ -67,7 +67,9 @@ describe('seeding a new company', () => {
     const meghalaya = pt.find((r: any) => r.jurisdiction === 'MEGHALAYA');
     expect(meghalaya.config.needsCheck).toBe(true);
     expect(meghalaya.needsCheck).toBe(true);
-    expect(meghalaya.note).toMatch(/Not sure/);
+    expect(meghalaya.note).toMatch(/confirm before use/);
+    /* Notes are for the owner: no other products or research sources named. */
+    for (const r of [...pt, ...lwf]) expect(r.note, r.jurisdiction).not.toMatch(/greytHR|Lexplosion|K S & K|publisher|gazette|TankhaPay|SGCMS|CalcGuru|http/i);
   });
 
   it('keeps West Bengal’s old slabs, closed the day before the new ones', async () => {
@@ -643,5 +645,39 @@ describe('two runs in one month, both calculated before either is approved', () 
     const slips = (await api.get(c, `/slips?runId=${bonus.id}`).expect(200)).body.slips;
     expect(await lineOf(slips[0].id, 'PT')).toBe(0);
     expect((await approve(c, bonus.id)).status).toBe(200);
+  });
+});
+
+describe('a catalogue that only rewords notes', () => {
+  it('updates CLOR’s notes in place: no new versions, no offers, no stale runs', async () => {
+    const c = await makeOwner();
+    await api.post(c, '/statutory/seed').expect(200);
+    const before = await payrollPrisma.statutoryRule.findMany({ where: { orgId: c.orgId }, orderBy: { id: 'asc' } });
+    /* As an older catalogue left them: other words, an older catalogue version. */
+    await payrollPrisma.$executeRaw`UPDATE "StatutoryRule" SET "note" = 'Old research wording' WHERE "orgId" = ${c.orgId}`;
+    await payrollPrisma.payrollSetting.update({ where: { orgId: c.orgId }, data: { statutoryCatalogue: 'older' } });
+    const screen = (await api.get(c, '/statutory').expect(200)).body;
+    const after = await payrollPrisma.statutoryRule.findMany({ where: { orgId: c.orgId }, orderBy: { id: 'asc' } });
+    expect(after.map((r) => [r.id, r.version, r.status, r.configJson, r.updatedAt.getTime()])).toEqual(before.map((r) => [r.id, r.version, r.status, r.configJson, r.updatedAt.getTime()]));
+    expect(after.filter((r) => r.origin === 'SEED').every((r) => r.note && r.note !== 'Old research wording')).toBe(true);
+    expect(screen.offers).toEqual([]);
+  });
+});
+
+describe('the run’s check-before-use warning', () => {
+  it('shows only when approval is really blocked', async () => {
+    const c = await makeOwner();
+    const { structureId, periodIds } = await setUp(c, [['2026-11-01', '2026-11-30'], ['2026-09-01', '2026-09-30']]);
+    await person(c, structureId, 'Chennai', 30_000, 'Tamil Nadu');
+    /* November: Tamil Nadu's unconfirmed rule takes nothing (it is taken in September and February) — no warning, and approval goes through. */
+    const nov = await run(c, periodIds[0]);
+    expect(nov.checks.issues.some((i: any) => i.code === 'RULE_NEEDS_CHECK')).toBe(false);
+    expect((await approve(c, nov.id)).status).toBe(200);
+    /* September: it takes the half-year's tax — the warning, in the same words approval refuses with. */
+    const sept = await run(c, periodIds[1]);
+    const warning = sept.checks.issues.find((i: any) => i.code === 'RULE_NEEDS_CHECK');
+    expect(warning.message).toMatch(/^Not ready to approve\. .*Tamil Nadu professional tax/);
+    const refused = await approve(c, sept.id);
+    expect(refused.body.error).toBe(warning.message);
   });
 });

@@ -332,7 +332,19 @@ async function seedInside(db: any, orgId: string, accountId: string, userId: str
 
     for (const seed of seeds) {
       const label = `${seed.scheme}:${seed.jurisdiction || 'ALL'}:${seed.version}`;
-      if (existing.some((r) => r.version === seed.version && r.effectiveFrom === seed.effectiveFrom)) continue;
+      const have = classified.find((c) => c.row.version === seed.version && c.row.effectiveFrom === seed.effectiveFrom);
+      if (have) {
+        /*
+         * CLOR's own row, already there: only its note follows the catalogue.
+         * The figures never change in place, no version is added, and the
+         * write does not move `updatedAt` — a note is not a reason to call a
+         * calculated run stale.
+         */
+        if (have.origin === 'SEED' && have.row.note !== seed.note) {
+          await db.$executeRaw`UPDATE "StatutoryRule" SET "note" = ${seed.note} WHERE "id" = ${have.row.id} AND "orgId" = ${orgId}`;
+        }
+        continue;
+      }
       if (companyLatest && seed.effectiveFrom <= companyLatest) {
         kept.push(label);
         continue;
@@ -475,12 +487,7 @@ export async function uncheckedRulesOnRun(orgId: string, runId: string) {
   for (const slip of slips) {
     try {
       const snap = JSON.parse(slip.statutorySnapshotJson || '{}');
-      for (const scheme of ['PT', 'LWF']) {
-        const id = snap?.versions?.[scheme]?.ruleId;
-        /* A rule that took nothing because this is not its month used none of its figures. */
-        const result = (snap?.results || []).find((r: any) => r.scheme === scheme);
-        if (id && result?.exemptReason !== 'NOT_THIS_MONTH') ids.add(String(id));
-      }
+      for (const id of stateRulesThatCount(snap)) ids.add(id);
     } catch {
       /* an old payslip without a snapshot */
     }
@@ -491,6 +498,23 @@ export async function uncheckedRulesOnRun(orgId: string, runId: string) {
     .filter((r) => ruleNeedsCheck(r))
     .map((r) => ({ ruleId: r.id, scheme: r.scheme.code, state: stateLabel(String(r.jurisdiction || '')), version: r.version, effectiveFrom: r.effectiveFrom }))
     .sort((a, b) => a.state.localeCompare(b.state) || a.scheme.localeCompare(b.scheme));
+}
+
+/**
+ * The PT and LWF rule versions a calculation actually used figures from: the
+ * one the approval check holds a run to, and the one the run's checks warn
+ * about — the same function, so the warning shows exactly when approval is
+ * blocked. A rule that took nothing because this is not its month (Tamil
+ * Nadu outside September and February) used none of its figures.
+ */
+export function stateRulesThatCount(statutory: { versions?: Record<string, { ruleId: string }>; results?: Array<{ scheme: string; exemptReason?: string | null }> } | null | undefined) {
+  const ids: string[] = [];
+  for (const scheme of ['PT', 'LWF']) {
+    const id = statutory?.versions?.[scheme]?.ruleId;
+    const result = (statutory?.results || []).find((r) => r.scheme === scheme);
+    if (id && result?.exemptReason !== 'NOT_THIS_MONTH') ids.push(String(id));
+  }
+  return ids;
 }
 
 /** "Meghalaya professional tax and Kerala Labour Welfare Fund". */

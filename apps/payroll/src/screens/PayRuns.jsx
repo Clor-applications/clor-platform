@@ -1067,6 +1067,12 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
  * be previewed but not approved (the server refuses) until each is confirmed
  * or corrected on the Compliance screen.
  */
+/** "Meghalaya professional tax and Kerala Labour Welfare Fund" — the server's words (statutory/resolve.ts checksSentence). */
+const checksSentence = (checks) => {
+  const parts = checks.map((c) => `${c.state} ${c.scheme === "LWF" ? "Labour Welfare Fund" : "professional tax"}`);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0] || "";
+};
+
 const StatutoryChecksBlocker = ({ checks }) => (
   <div
     className="ui-card p-3 text-sm flex flex-wrap items-start justify-between gap-3"
@@ -1078,11 +1084,8 @@ const StatutoryChecksBlocker = ({ checks }) => (
       <div>
         <div className="font-medium">Not ready to approve</div>
         <div>
-          This payroll uses figures CLOR could not confirm from an official notice:{" "}
-          {checks
-            .map((c) => `${c.state} ${c.scheme === "LWF" ? "Labour Welfare Fund" : "professional tax"}`)
-            .join(", ")}
-          . Check each against the state’s notice, then confirm it, or correct it and calculate again.
+          This payroll uses figures CLOR could not confirm from an official notice: {checksSentence(checks)}. Check each
+          against the state’s notice, then confirm it, or correct it and calculate again.
         </div>
       </div>
     </div>

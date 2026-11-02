@@ -14,7 +14,7 @@ import { componentApplies, monthsOfService, type EligibilityFacts } from './elig
 import { isCorrection, isLatePenalty } from './provisionalDays.js';
 import { daysBetween } from '../../utils/istDate.js';
 import { canonicalState, stateLabel } from '../../constants/stateLevies.js';
-import { parseConfig, ruleNeedsCheck } from './statutory/resolve.js';
+import { checksSentence, parseConfig, ruleNeedsCheck, stateRulesThatCount } from './statutory/resolve.js';
 
 /**
  * A payroll run: turning a population and a period into payslips.
@@ -1032,7 +1032,7 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
         profile,
         PERIODS_PER_YEAR[structure.frequency] ?? 12
       );
-      for (const v of Object.values(trialStatutory.versions)) rulesUsed.add(v.ruleId);
+      for (const id of stateRulesThatCount(trialStatutory)) rulesUsed.add(id);
       for (const e of trial.errors) {
         add({ severity: 'ERROR', code: e.code, employeeId: employee.id, message: `${who}: ${e.message}` });
       }
@@ -1119,17 +1119,17 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
    * best reading — but said once per rule, by state, until HR confirms or
    * corrects it on the Compliance screen.
    */
-  for (const rows of ctx.statutoryRules.values()) {
-    for (const row of rows) {
-      if (!rulesUsed.has(row.id) || !ruleNeedsCheck(row)) continue;
-      const scheme = row.scheme === 'LWF' ? 'Labour Welfare Fund' : 'Professional tax';
-      add({
-        severity: 'WARNING',
-        code: 'RULE_NEEDS_CHECK',
-        message: `${scheme} for ${stateLabel(String(row.jurisdiction || ''))} uses figures CLOR could not confirm from an official notice. This payroll can be calculated and previewed, but not approved, until somebody checks them against the state’s current notice and confirms or corrects them in Payroll › Compliance.`,
-        ruleId: row.id,
-      });
-    }
+  const unchecked = [...ctx.statutoryRules.entries()].flatMap(([scheme, rows]) =>
+    rows.filter((row: any) => rulesUsed.has(row.id) && ruleNeedsCheck(row)).map((row: any) => ({ ruleId: row.id, scheme, state: stateLabel(String(row.jurisdiction || '')) }))
+  );
+  if (unchecked.length) {
+    /* The same words as the run's "Not ready to approve" notice. */
+    add({
+      severity: 'WARNING',
+      code: 'RULE_NEEDS_CHECK',
+      message: `Not ready to approve. This payroll uses figures CLOR could not confirm from an official notice: ${checksSentence(unchecked)}. Check each against the state’s notice, then confirm it, or correct it and calculate again.`,
+      ruleId: unchecked[0].ruleId,
+    });
   }
 
   return { issues, byEmployee };

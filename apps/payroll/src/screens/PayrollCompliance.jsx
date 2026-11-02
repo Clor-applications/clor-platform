@@ -606,12 +606,173 @@ const LwfSettings = ({ value, onSaved }) => {
   );
 };
 
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** A professional tax rule's settings, as the plain bands editor holds them. Anything it does not show is kept as it was. */
+const ptFormFrom = (config = {}) => {
+  const { slabs, basis, collectMonths, localBody, needsCheck, ...rest } = config || {};
+  void needsCheck;
+  return {
+    basis: basis === 'ANNUAL' || basis === 'HALF_YEARLY' ? basis : 'MONTHLY',
+    collectMonths: Array.isArray(collectMonths) ? collectMonths.map(Number) : [],
+    localBody: localBody || '',
+    rest,
+    bands: (Array.isArray(slabs) ? slabs : []).map((s) => {
+      const special = Object.entries(s.monthAmounts || {})[0] || null;
+      return {
+        from: s.from ?? 0,
+        to: s.to == null ? '' : s.to,
+        amount: s.amount ?? 0,
+        gender: s.gender || '',
+        specialMonth: special ? String(special[0]) : '',
+        specialAmount: special ? String(special[1]) : '',
+        /* An older way of writing a month's amount; kept as it was. */
+        months: Array.isArray(s.months) ? s.months : null,
+      };
+    }),
+  };
+};
+
+const ptConfigOf = (pt) => ({
+  ...pt.rest,
+  ...(pt.basis !== 'MONTHLY' ? { basis: pt.basis } : {}),
+  ...(pt.basis !== 'MONTHLY' && pt.collectMonths.length ? { collectMonths: [...pt.collectMonths].sort((a, b) => a - b) } : {}),
+  ...(pt.localBody.trim() ? { localBody: pt.localBody.trim() } : {}),
+  slabs: pt.bands.map((b) => ({
+    from: Number(b.from) || 0,
+    to: String(b.to).trim() === '' ? null : Number(b.to),
+    amount: Number(b.amount) || 0,
+    ...(b.gender ? { gender: b.gender } : {}),
+    ...(b.specialMonth && String(b.specialAmount).trim() !== '' ? { monthAmounts: { [b.specialMonth]: Number(b.specialAmount) } } : {}),
+    ...(b.months ? { months: b.months } : {}),
+  })),
+});
+
+/**
+ * Professional tax bands, in plain fields: from, to and the amount, who a
+ * band is for, and a different amount in one month (February, in
+ * Karnataka and Maharashtra). Yearly and half-yearly states say what the
+ * bands are measured in and when the tax is taken.
+ */
+const PtBandsEditor = ({ value, onChange }) => {
+  const set = (patch) => onChange({ ...value, ...patch });
+  const setBand = (i, patch) => set({ bands: value.bands.map((b, j) => (j === i ? { ...b, ...patch } : b)) });
+  const per = value.basis === 'ANNUAL' ? 'a year' : value.basis === 'HALF_YEARLY' ? 'a half-year' : 'a month';
+  const last = value.bands[value.bands.length - 1];
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="ui-label" htmlFor="pt-basis">Bands are for pay</label>
+          <select id="pt-basis" className="ui-select w-full" value={value.basis} onChange={(e) => set({ basis: e.target.value })}>
+            <option value="MONTHLY">Per month</option>
+            <option value="ANNUAL">Per year</option>
+            <option value="HALF_YEARLY">Per half-year</option>
+          </select>
+        </div>
+        <div>
+          <label className="ui-label" htmlFor="pt-local">Corporation or municipality</label>
+          <input id="pt-local" className="ui-input w-full" value={value.localBody} onChange={(e) => set({ localBody: e.target.value })} />
+          <span className="ui-caption">Only where the tax is set locally, as in Tamil Nadu and Kerala.</span>
+        </div>
+      </div>
+
+      {value.basis !== 'MONTHLY' ? (
+        <fieldset>
+          <legend className="ui-label">Taken in</legend>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {MONTH_NAMES.map((name, i) => (
+              <label key={name} className="flex items-center gap-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  className="ui-checkbox"
+                  checked={value.collectMonths.includes(i + 1)}
+                  onChange={(e) => set({ collectMonths: e.target.checked ? [...value.collectMonths, i + 1] : value.collectMonths.filter((m) => m !== i + 1) })}
+                />
+                {name.slice(0, 3)}
+              </label>
+            ))}
+          </div>
+          <span className="ui-caption">None ticked: spread over every month, with the balance in March.</span>
+        </fieldset>
+      ) : null}
+
+      <div className="ui-table-scroll">
+        <table className="ui-table w-full">
+          <thead>
+            <tr>
+              <th scope="col" className="ui-col-h-right">Pay from (₹)</th>
+              <th scope="col" className="ui-col-h-right">Up to (₹)</th>
+              <th scope="col" className="ui-col-h-right">Tax {per} (₹)</th>
+              <th scope="col">For</th>
+              <th scope="col">Different in</th>
+              <th scope="col" className="ui-col-h-right">Amount (₹)</th>
+              <th scope="col"><span className="sr-only">Remove</span></th>
+            </tr>
+          </thead>
+          <tbody className="ui-rows">
+            {value.bands.map((b, i) => (
+              <tr key={i}>
+                <td><input aria-label={`Band ${i + 1}: pay from`} type="number" min="0" step="0.01" className="ui-input ui-num w-28" value={b.from} onChange={(e) => setBand(i, { from: e.target.value })} /></td>
+                <td><input aria-label={`Band ${i + 1}: up to`} type="number" min="0" step="0.01" className="ui-input ui-num w-28" value={b.to} placeholder="No limit" onChange={(e) => setBand(i, { to: e.target.value })} /></td>
+                <td><input aria-label={`Band ${i + 1}: tax`} type="number" min="0" step="0.01" className="ui-input ui-num w-24" value={b.amount} onChange={(e) => setBand(i, { amount: e.target.value })} /></td>
+                <td>
+                  <select aria-label={`Band ${i + 1}: for`} className="ui-select w-36" value={b.gender} onChange={(e) => setBand(i, { gender: e.target.value })}>
+                    <option value="">Everyone</option>
+                    <option value="FEMALE">Women</option>
+                    <option value="MALE">Men and others</option>
+                  </select>
+                </td>
+                <td>
+                  <select aria-label={`Band ${i + 1}: different amount in`} className="ui-select w-32" value={b.specialMonth} onChange={(e) => setBand(i, { specialMonth: e.target.value })}>
+                    <option value="">No month</option>
+                    {MONTH_NAMES.map((name, m) => (
+                      <option key={name} value={String(m + 1)}>{name}</option>
+                    ))}
+                  </select>
+                </td>
+                <td>
+                  <input aria-label={`Band ${i + 1}: amount in that month`} type="number" min="0" step="0.01" className="ui-input ui-num w-24" value={b.specialAmount} disabled={!b.specialMonth} onChange={(e) => setBand(i, { specialAmount: e.target.value })} />
+                </td>
+                <td>
+                  <button type="button" className="ui-icon-btn" aria-label={`Remove band ${i + 1}`} onClick={() => set({ bands: value.bands.filter((_, j) => j !== i) })}>
+                    <Trash2 size={16} aria-hidden="true" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button
+        type="button"
+        className="ui-btn ui-btn-secondary ui-btn-sm"
+        onClick={() =>
+          set({
+            bands: [
+              ...value.bands,
+              { from: last && String(last.to).trim() !== '' ? Math.round((Number(last.to) + 0.01) * 100) / 100 : 0, to: '', amount: 0, gender: last?.gender || '', specialMonth: '', specialAmount: '', months: null },
+            ],
+          })
+        }
+      >
+        <Plus size={14} aria-hidden="true" /> Add a band
+      </button>
+      <p className="ui-caption">
+        Each band runs from its first figure up to and including the second; leave the last one open. Take the figures from the state’s current notice.
+      </p>
+    </div>
+  );
+};
+
 const RateForm = ({ scheme, from, onClose, onSaved }) => {
   /* Pre-filled from the rate being corrected, or the one in force, because a
      new version is usually the old one with one number moved. */
   const current = from || scheme.rules.find((r) => r.status === 'ACTIVE') || scheme.rules[0] || null;
   const [form, setForm] = useState({
-    jurisdiction: current?.jurisdiction || (scheme.code === 'PT' || scheme.code === 'LWF' ? '' : 'IN'),
+    /* A state as people write it ("Tamil Nadu"); the server stores one spelling. */
+    jurisdiction: current?.jurisdiction ? (STATE_SCHEMES.includes(scheme.code) ? stateName(current.jurisdiction) : current.jurisdiction) : STATE_SCHEMES.includes(scheme.code) ? '' : 'IN',
     /* Today in India, not in UTC: before 5:30 am the UTC date is still yesterday. */
     effectiveFrom: todayIst(),
     employeeRate: current?.employeeRate ?? 0,
@@ -624,6 +785,9 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
   });
   const [saving, setSaving] = useState(false);
   const set = (patch) => setForm((p) => ({ ...p, ...patch }));
+  /* Professional tax: plain bands rather than the settings text. */
+  const [pt, setPt] = useState(() => ptFormFrom(current?.config));
+  const isPt = scheme.code === 'PT';
 
   /* PT and TDS carry their shape in the configuration rather than in a rate —
      slabs and bands — so the rate fields would be meaningless for them. */
@@ -632,11 +796,14 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
   const save = async (e) => {
     e.preventDefault();
     let config;
-    try {
-      config = JSON.parse(form.config || '{}');
-    } catch {
-      notify.error('The configuration is not valid JSON.');
-      return;
+    if (isPt) config = ptConfigOf(pt);
+    else {
+      try {
+        config = JSON.parse(form.config || '{}');
+      } catch {
+        notify.error('The scheme settings could not be read. Check the brackets and commas.');
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -681,7 +848,7 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
             className="ui-input w-full"
             value={form.jurisdiction}
             onChange={(e) => set({ jurisdiction: e.target.value })}
-            placeholder={scheme.code === 'PT' || scheme.code === 'LWF' ? 'KARNATAKA' : 'IN'}
+            placeholder={STATE_SCHEMES.includes(scheme.code) ? 'Karnataka' : 'IN'}
           />
           <span className="ui-caption">
             {scheme.code === 'PT' || scheme.code === 'LWF' ? 'The state this applies in.' : 'Leave as IN unless it differs by place.'}
@@ -759,33 +926,29 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
         </select>
       </div>
 
-      <div>
-        <label className="ui-label" htmlFor="rate-config">
-          {scheme.code === 'PT' ? 'Slabs' : scheme.code === 'TDS' ? 'Tax bands' : 'Scheme settings'}
-        </label>
-        <textarea
-          id="rate-config"
-          rows={10}
-          className="ui-input ui-mono w-full text-sm"
-          value={form.config}
-          onChange={(e) => set({ config: e.target.value })}
-        />
-        <span className="ui-caption">
-          {scheme.code === 'PT'
-            ? 'A list of slabs, each with a from, a to and an amount. A slab may give another amount for a month ("monthAmounts": {"2": 300} is ₹300 in February) and may be for women only ("gender": "FEMALE"). "basis" says whether bands are monthly, ANNUAL or HALF_YEARLY. Take the figures from the state’s current notice.'
-            : scheme.code === 'LWF'
-              ? 'For the state above, from its current notification: employeeAmount and employerAmount in rupees (or rates above, capped by employeeCap / employerCap), months it is collected in, and eligibleUpTo if it stops above a monthly pay. E.g. {"employeeAmount": 25, "employerAmount": 75, "months": [6, 12]} — example figures only.'
+      {isPt ? (
+        <PtBandsEditor value={pt} onChange={setPt} />
+      ) : (
+        <div>
+          <label className="ui-label" htmlFor="rate-config">
+            {scheme.code === 'TDS' ? 'Tax bands' : 'Scheme settings'}
+          </label>
+          <textarea
+            id="rate-config"
+            rows={10}
+            className="ui-input ui-mono w-full text-sm"
+            value={form.config}
+            onChange={(e) => set({ config: e.target.value })}
+          />
+          <span className="ui-caption">
+            {scheme.code === 'LWF'
+              ? 'Copied from the rate you are correcting: change only the figures — the amounts from pay and from the employer, the months it is collected in, and the number of people it starts at — to match the state’s current notice.'
               : scheme.code === 'PF'
-              ? 'The pension split — epsRate and epsWageCeiling — and whether to contribute on the whole wage.'
-                : 'Anything the scheme needs beyond the rates above.'}
-        </span>
-      </div>
-
-      {current?.config?.localBody ? (
-        <p className="ui-caption">
-          These are the rates of {current.config.localBody}. Under another corporation or municipality? Change “localBody” and the slabs to its figures.
-        </p>
-      ) : null}
+                ? 'Copied from the rate you are correcting: the pension share and its wage ceiling, and whether the company contributes on the whole wage.'
+                : 'Copied from the rate you are correcting: change only the figures.'}
+          </span>
+        </div>
+      )}
 
       <p className="ui-caption">
         Saving this closes the rate before it the day before {shownDate(form.effectiveFrom)}. Payslips already produced keep
