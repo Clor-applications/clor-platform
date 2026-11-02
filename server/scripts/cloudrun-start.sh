@@ -7,9 +7,12 @@
 # /cloudsql/<instance> when the service has the Cloud SQL connection attached.
 #
 # Each Prisma client has its own pool, sized to how busy that database is:
-#   clor_main 4 (every accounting screen), clor_platform 2 (sign-in, membership
-#   and permission lookups, which are cached in memory), payroll 1, people 1.
-# 8 per instance; with max 2 instances = 16. db-f1-micro allows 25, minus 3
+#   clor_main 3 (every accounting screen), clor_platform 2 (sign-in, membership
+#   and permission lookups, which are cached in memory), payroll 2, people 2.
+# People and payroll need two: code inside a transaction still reads through the
+# plain client now and then, and with one connection that read waits on the
+# transaction holding it until the 5s transaction timeout (seen live 25-31 Oct).
+# 9 per instance; with max 2 instances = 18. db-f1-micro allows 25, minus 3
 # reserved and ~3 used by Cloud SQL itself, so this must stay at or under ~18.
 # Override per database with DB_POOL_MAIN / _PLATFORM / _PAYROLL / _PEOPLE.
 #
@@ -26,9 +29,9 @@ if [ -z "$DATABASE_URL" ]; then
   base="postgresql://${DB_USER}:${DB_PASSWORD}@localhost"
   q="host=/cloudsql/${CLOUDSQL_INSTANCE}&connection_limit"
   s="${DB_NAME_SUFFIX:-}"
-  export DATABASE_URL="${base}/clor_main${s}?${q}=${DB_POOL_MAIN:-4}"
-  export PAYROLL_DATABASE_URL="${base}/clor_payroll${s}?${q}=${DB_POOL_PAYROLL:-1}"
-  export PEOPLE_DATABASE_URL="${base}/clor_people${s}?${q}=${DB_POOL_PEOPLE:-1}"
+  export DATABASE_URL="${base}/clor_main${s}?${q}=${DB_POOL_MAIN:-3}"
+  export PAYROLL_DATABASE_URL="${base}/clor_payroll${s}?${q}=${DB_POOL_PAYROLL:-2}"
+  export PEOPLE_DATABASE_URL="${base}/clor_people${s}?${q}=${DB_POOL_PEOPLE:-2}"
   export PLATFORM_DATABASE_URL="${base}/clor_platform${s}?${q}=${DB_POOL_PLATFORM:-2}"
 fi
 
