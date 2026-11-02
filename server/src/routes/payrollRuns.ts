@@ -9,7 +9,8 @@ import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
-import { calculateRun, daysBetween, eligibleEmployees, validateRun } from '../services/payroll/run.js';
+import { calculateRun, daysBetween, eligibleEmployees, ptAlreadyTakenElsewhere, ptTakenElsewhereGone, validateRun } from '../services/payroll/run.js';
+import { checksSentence, uncheckedRulesOnRun } from '../services/payroll/statutory/resolve.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { periodRows } from '../services/attendance/days.js';
@@ -163,6 +164,8 @@ payrollRunsRouter.get(
 
     res.json({
       run: { ...shape(run, { period }), stale: await runStale(orgId, run) },
+      /* State rules on these payslips nobody has confirmed: the run cannot be approved until they are. */
+      statutoryChecks: slips.length ? await uncheckedRulesOnRun(orgId, run.id) : [],
       employees: members.map((m) => ({
         employeeId: m.employeeId,
         inclusion: m.inclusion,
@@ -777,6 +780,46 @@ const transition = (
             error: `Deductions pass ${over.people[0].percent}% of wages for ${over.people.length} ${over.people.length === 1 ? 'person' : 'people'}: ${over.people.map((p: any) => p.name).join(', ')}. Reduce them and calculate again, or record why they stand.`,
             code: 'DEDUCTIONS_OVER_LIMIT',
             overLimit: over,
+          });
+        }
+      }
+
+      /*
+       * State rules CLOR could not confirm: a run under them is calculated and
+       * previewed, never approved, until somebody confirms or corrects each
+       * one against the state's notice (Payroll › Compliance).
+       */
+      if (to === 'APPROVED') {
+        const checks = await uncheckedRulesOnRun(run.orgId, run.id);
+        if (checks.length) {
+          return res.status(409).json({
+            error: `Not ready to approve. This payroll uses figures CLOR could not confirm from an official notice: ${checksSentence(checks)}. Check each against the state’s notice, then confirm it, or correct it and calculate again.`,
+            code: 'RULE_NEEDS_CHECK',
+            checks,
+          });
+        }
+      }
+
+      /* PT another approved run already took for the same person and month: taken twice unless calculated again. */
+      if (to === 'APPROVED') {
+        const twice = await ptAlreadyTakenElsewhere(run.orgId, run);
+        if (twice.length) {
+          return res.status(409).json({
+            error: `Professional tax for ${twice[0].month} was already taken by another approved payroll for ${twice.map((t) => t.name).join(', ')}. Calculate this payroll again; it will then take none for ${twice.length === 1 ? 'them' : 'those people'}.`,
+            code: 'PT_ALREADY_TAKEN',
+            people: twice,
+          });
+        }
+      }
+
+      /* Nil PT because another run took the month's: that run must still stand, or this goes out with no PT at all. */
+      if (to === 'APPROVED') {
+        const gone = await ptTakenElsewhereGone(run.orgId, run);
+        if (gone.length) {
+          return res.status(409).json({
+            error: `${gone.length === 1 ? 'One person has' : `${gone.length} people have`} no professional tax on this payroll because another payroll for the month had taken it, and that payroll is no longer approved. Calculate this payroll again.`,
+            code: 'PT_TAKEN_ELSEWHERE_GONE',
+            employeeIds: gone,
           });
         }
       }

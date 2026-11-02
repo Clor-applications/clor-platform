@@ -1,4 +1,5 @@
 import { round2 } from '../../../utils/money.js';
+import { canonicalState } from '../../../constants/stateLevies.js';
 /**
  * The statutory deductions: provident fund, ESI, professional tax, income tax.
  *
@@ -67,6 +68,14 @@ export type StatutoryEmployee = {
   /** A voluntary higher contribution, where somebody has one. */
   overrideEmployeeRate?: number | null;
   overrideEmployerRate?: number | null;
+  /** MALE | FEMALE | OTHER, from the People record: Maharashtra's PT has women's bands. */
+  gender?: string | null;
+  /**
+   * LWF: MANAGER (a designation on the company's managers list: always left
+   * out where a state's Act leaves managers out) or SUPERVISOR (on the
+   * supervisors list: left out only above the state's pay limit).
+   */
+  lwfRole?: 'MANAGER' | 'SUPERVISOR' | null;
 };
 
 export type StatutoryAmount = {
@@ -86,6 +95,12 @@ export type StatutoryAmount = {
   ceilingApplied: number | null;
   /** Why nothing was deducted, when nothing was. */
   exemptReason?: string;
+  /** The state, for PT and LWF: which return the figure belongs on. */
+  jurisdiction?: string | null;
+  /** The rule's figures were not confirmed from an official notice. */
+  needsCheck?: boolean;
+  /** LWF: each fund's share, where a state has more than one. */
+  funds?: Array<{ name: string; employee: number; employer: number }>;
 };
 
 
@@ -207,7 +222,32 @@ function computeEsi(rule: StatutoryRuleInput, wages: StatutoryWages, employee: S
   };
 }
 
-export type PtSlab = { from: number; to: number | null; amount: number; months?: number[] };
+export type PtSlab = {
+  from: number;
+  to: number | null;
+  amount: number;
+  /** Only in these months (the older way of writing a February amount). */
+  months?: number[];
+  /** A different amount in a named month: {"2": 300}. */
+  monthAmounts?: Record<string, number>;
+  /** FEMALE, or MALE — which also covers anybody not recorded as a woman. */
+  gender?: 'FEMALE' | 'MALE';
+};
+
+/** Labour Welfare Fund rules have a headcount and a company setting behind them. */
+export type LwfContext = {
+  /** People in payroll in this person's state, for a state's size threshold. Unknown: no size test. */
+  headcount?: number | null;
+  /** BY_HEADCOUNT (default) reads the headcount; ALWAYS treats every establishment as covered. */
+  coverage?: 'BY_HEADCOUNT' | 'ALWAYS';
+};
+
+const titleCase = (s: string) => s.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase());
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const monthList = (months: number[]) => {
+  const names = months.map((m) => MONTHS[m - 1] || String(m));
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] || '';
+};
 
 /**
  * Labour Welfare Fund: a state levy like PT, collected by the state where
@@ -218,48 +258,143 @@ export type PtSlab = { from: number; to: number | null; amount: number; months?:
  *   employeeRate / employerRate       % of gross, capped by employeeCap / employerCap
  *   months                            the months it is collected (default: every month)
  *   eligibleUpTo                      monthly gross above which it does not apply
+ *   minEmployees                      the establishment size it starts at
+ *   excludesManagers                  managers and supervisors are left out, those
+ *   supervisorWageAbove               earning above this where the Act sets a limit
+ *   funds                             several funds in one state (Kerala), each
+ *                                     with its own amounts, months and threshold
  *
  * No state's figures are built in: they change, and must come from the state.
  */
-function computeLwf(rule: StatutoryRuleInput, wages: StatutoryWages, month: number): StatutoryAmount {
+function computeLwf(rule: StatutoryRuleInput, wages: StatutoryWages, employee: StatutoryEmployee, month: number, lwf: LwfContext = {}): StatutoryAmount {
   const c = rule.config || {};
-  const base = { scheme: 'LWF' as const, ruleId: rule.id, ruleVersion: rule.version, wageApplied: wages.gross, rateApplied: 0, ceilingApplied: null };
-  const months: number[] = Array.isArray(c.months) && c.months.length ? c.months.map(Number) : [];
-  const where = rule.jurisdiction || 'This state';
-  if (months.length && !months.includes(month)) {
-    return { ...base, employee: 0, employer: 0, explanation: `${where} collects LWF in month${months.length === 1 ? '' : 's'} ${months.join(', ')}, not this one.`, exemptReason: 'NOT_THIS_MONTH' };
-  }
-  const ceiling = Number(c.eligibleUpTo) || 0;
-  if (ceiling && wages.gross > ceiling) {
-    return { ...base, employee: 0, employer: 0, explanation: `LWF applies up to ${money(ceiling)} a month; this is ${money(wages.gross)}.`, exemptReason: 'ABOVE_CEILING' };
-  }
-  const part = (amount: unknown, rate: number, cap: unknown) => {
-    if (amount !== undefined && amount !== null && amount !== '') return Number(amount) || 0;
-    const v = (wages.gross * (Number(rate) || 0)) / 100;
-    return Number(cap) ? Math.min(v, Number(cap)) : v;
+  const base = {
+    scheme: 'LWF' as const,
+    ruleId: rule.id,
+    ruleVersion: rule.version,
+    wageApplied: wages.gross,
+    rateApplied: 0,
+    ceilingApplied: null,
+    jurisdiction: rule.jurisdiction,
+    needsCheck: Boolean(c.needsCheck),
   };
-  const employee = applyRounding(part(c.employeeAmount, rule.employeeRate, c.employeeCap), rule.rounding);
-  const employer = applyRounding(part(c.employerAmount, rule.employerRate, c.employerCap), rule.rounding);
-  if (!employee && !employer) {
-    return { ...base, employee: 0, employer: 0, explanation: `No LWF amounts are set for ${where}.`, exemptReason: 'NO_AMOUNTS' };
+  const where = rule.jurisdiction ? titleCase(rule.jurisdiction) : 'This state';
+  const funds: Record<string, any>[] = Array.isArray(c.funds) && c.funds.length ? c.funds : [c];
+
+  const parts: Array<{ name: string; employee: number; employer: number }> = [];
+  const reasons: Array<{ explanation: string; exemptReason: string }> = [];
+  for (const f of funds) {
+    const name = f.name || `${where} Labour Welfare Fund`;
+    const months: number[] = Array.isArray(f.months) && f.months.length ? f.months.map(Number) : [];
+    if (months.length && !months.includes(month)) {
+      reasons.push({ explanation: `${where} collects LWF in ${monthList(months)}, not this month.`, exemptReason: 'NOT_THIS_MONTH' });
+      continue;
+    }
+    const ceiling = Number(f.eligibleUpTo) || 0;
+    if (ceiling && wages.gross > ceiling) {
+      reasons.push({ explanation: `LWF applies up to ${money(ceiling)} a month; this is ${money(wages.gross)}.`, exemptReason: 'ABOVE_CEILING' });
+      continue;
+    }
+    /* An establishment below the state's size does not contribute at all. */
+    const minEmployees = Number(f.minEmployees ?? c.minEmployees) || 0;
+    if (minEmployees && lwf.coverage !== 'ALWAYS' && lwf.headcount != null && lwf.headcount < minEmployees) {
+      reasons.push({
+        explanation: `${name} starts at ${minEmployees} people; payroll has ${lwf.headcount} in ${where}. If others work there too, say so in the LWF settings.`,
+        exemptReason: 'BELOW_SIZE',
+      });
+      continue;
+    }
+    /*
+     * Managers are not "employees" under most LWF Acts, whatever they earn.
+     * Supervisors are left out only above the Act's wage limit; where a state
+     * sets none (Andhra Pradesh deleted it in 2015), they contribute.
+     */
+    const excludes = f.excludesManagers ?? c.excludesManagers;
+    const limit = Number(f.supervisorWageAbove ?? c.supervisorWageAbove) || 0;
+    if (excludes && employee.lwfRole === 'MANAGER') {
+      reasons.push({ explanation: `${name} leaves out managers, and this designation is on the company’s managers list.`, exemptReason: 'MANAGER_EXCLUDED' });
+      continue;
+    }
+    if (excludes && employee.lwfRole === 'SUPERVISOR' && limit && wages.gross > limit) {
+      reasons.push({ explanation: `${name} leaves out supervisors earning over ${money(limit)} a month, and this designation is on the company’s supervisors list.`, exemptReason: 'SUPERVISOR_EXCLUDED' });
+      continue;
+    }
+    const part = (amount: unknown, rate: number, cap: unknown) => {
+      if (amount !== undefined && amount !== null && amount !== '') return Number(amount) || 0;
+      const v = (wages.gross * (Number(rate) || 0)) / 100;
+      return Number(cap) ? Math.min(v, Number(cap)) : v;
+    };
+    const emp = applyRounding(part(f.employeeAmount, f.employeeRate ?? rule.employeeRate, f.employeeCap), rule.rounding);
+    const er = applyRounding(part(f.employerAmount, f.employerRate ?? rule.employerRate, f.employerCap), rule.rounding);
+    if (!emp && !er) {
+      reasons.push({ explanation: `No LWF amounts are set for ${where}.`, exemptReason: 'NO_AMOUNTS' });
+      continue;
+    }
+    parts.push({ name, employee: emp, employer: er });
   }
-  return { ...base, employee, employer, explanation: `${where} Labour Welfare Fund: ${money(employee)} from pay, ${money(employer)} from the employer.` };
+
+  if (!parts.length) {
+    const first = reasons[0] || { explanation: `No LWF amounts are set for ${where}.`, exemptReason: 'NO_AMOUNTS' };
+    return { ...base, employee: 0, employer: 0, explanation: first.explanation, exemptReason: first.exemptReason };
+  }
+  const employeeTotal = round2(parts.reduce((t, p) => t + p.employee, 0));
+  const employerTotal = round2(parts.reduce((t, p) => t + p.employer, 0));
+  return {
+    ...base,
+    employee: employeeTotal,
+    employer: employerTotal,
+    ...(parts.length > 1 ? { employerSplit: Object.fromEntries(parts.map((p) => [p.name, p.employer])) } : {}),
+    /* Each fund on its own, so a state with two funds (Kerala) files two returns. */
+    funds: parts,
+    explanation:
+      parts.length > 1
+        ? `${parts.map((p) => `${p.name}: ${money(p.employee)} from pay, ${money(p.employer)} from the employer`).join('; ')}.`
+        : `${parts[0].name}: ${money(employeeTotal)} from pay, ${money(employerTotal)} from the employer.`,
+  };
 }
+
+/** What payroll has already deducted, read from this financial year's payslips. */
+export type PtContext = {
+  /** Professional tax this financial year, every state: for the ₹2,500 cap. */
+  yearToDate?: number;
+  /** This financial year in this person's current state, for the balance month. Unknown: eleven twelfths assumed. */
+  inState?: number | null;
+  /** Earlier months this financial year with a payslip in this state, whatever PT it took (nil-band months count). */
+  monthsInState?: number;
+  /** Gross pay on those earlier payslips in this state: with this month's, the year's pay that picks the balance month's band. */
+  grossInState?: number;
+  /**
+   * Months of this financial year the person is employed, from their joining
+   * and leaving dates (12 for a full year). Only a real join or leave inside
+   * the year prorates the year's tax. Unknown: the full year.
+   */
+  monthsEmployed?: number;
+  /** Already deducted for this same month by another run (an off-cycle one): nothing more is taken. */
+  thisMonth?: number;
+};
+
+/** The Constitution's limit on professional tax per person per year (Article 276(2)). */
+export const PT_ANNUAL_CAP = 2500;
 
 /**
  * Professional tax.
  *
  * A state levy, and every state that charges it does so differently — different
- * slabs, different amounts, and in some states a different amount in one month
- * of the year. So the engine reads slabs and the slabs come from a rule; there
- * is no state named anywhere in this function.
+ * slabs, different amounts, in some states a different amount in February,
+ * women's bands in Maharashtra, yearly or half-yearly bands elsewhere. So the
+ * engine reads slabs and the slabs come from a rule; there is no state named
+ * anywhere in this function. What it does know is the ₹2,500 a year nobody
+ * may be charged beyond.
  */
 function computePt(
   rule: StatutoryRuleInput,
   wages: StatutoryWages,
   employee: StatutoryEmployee,
-  month: number
+  month: number,
+  pt: PtContext = {}
 ): StatutoryAmount {
+  const ptAlreadyDeducted = Number(pt.yearToDate) || 0;
+  const c = rule.config || {};
   const base = {
     scheme: 'PT' as const,
     ruleId: rule.id,
@@ -267,40 +402,95 @@ function computePt(
     wageApplied: wages.gross,
     rateApplied: 0,
     ceilingApplied: null,
+    jurisdiction: rule.jurisdiction,
+    needsCheck: Boolean(c.needsCheck),
   };
+  const where = rule.jurisdiction ? titleCase(rule.jurisdiction) : 'This state';
+  const nil = (explanation: string, exemptReason: string) => ({ ...base, employee: 0, employer: 0, explanation, exemptReason });
 
-  if (!employee.ptApplicable) {
-    return { ...base, employee: 0, employer: 0, explanation: 'Professional tax does not apply to this person.', exemptReason: 'NOT_APPLICABLE' };
-  }
+  if (!employee.ptApplicable) return nil('Professional tax does not apply to this person.', 'NOT_APPLICABLE');
+  if (c.notLevied) return nil(`${where} charges no professional tax on salaries.`, 'NOT_LEVIED');
 
-  const slabs: PtSlab[] = Array.isArray(rule.config?.slabs) ? rule.config.slabs : [];
-  if (!slabs.length) {
-    return {
-      ...base,
-      employee: 0,
-      employer: 0,
-      explanation: `No professional tax slabs are set for ${rule.jurisdiction || 'this state'}.`,
-      exemptReason: 'NO_SLABS',
-    };
+  const slabs: PtSlab[] = Array.isArray(c.slabs) ? c.slabs : [];
+  if (!slabs.length) return nil(`No professional tax slabs are set for ${rule.jurisdiction || 'this state'}.`, 'NO_SLABS');
+
+  /* Yearly and half-yearly bands are read on this month's pay for the year or half-year. */
+  const basis = String(c.basis || 'MONTHLY').toUpperCase();
+  const factor = basis === 'ANNUAL' ? 12 : basis === 'HALF_YEARLY' ? 6 : 1;
+  const collect: number[] = Array.isArray(c.collectMonths) ? c.collectMonths.map(Number) : [];
+  if (factor > 1 && collect.length && !collect.includes(month)) {
+    return nil(`${where} professional tax is taken in ${monthList(collect)}, not this month.`, 'NOT_THIS_MONTH');
   }
+  /* Once a month: an off-cycle run in a month already taxed takes nothing more. */
+  if ((Number(pt.thisMonth) || 0) > 0) {
+    return nil(`${money(Number(pt.thisMonth))} of professional tax was already deducted for this month.`, 'ALREADY_THIS_MONTH');
+  }
+  /*
+   * The balance month of a yearly spread (March) reads the band from the
+   * year's pay — what this state's payslips paid so far plus this month,
+   * over the months they cover, as a year — not March's pay × 12, so a
+   * raise in December does not move somebody into a higher year's band.
+   */
+  const balanceMonthOfYear = factor === 12 && !collect.length && month === (Number(c.balanceMonth) || 3) && pt.inState != null && pt.grossInState != null;
+  const measured = balanceMonthOfYear
+    ? round2((((Number(pt.grossInState) || 0) + wages.gross) / Math.max(1, (Number(pt.monthsInState) || 0) + 1)) * 12)
+    : round2(wages.gross * factor);
+  const woman = String(employee.gender || '').toUpperCase() === 'FEMALE';
 
   const slab = slabs.find(
     (s) =>
-      wages.gross >= s.from &&
-      (s.to == null || wages.gross <= s.to) &&
+      measured >= s.from &&
+      (s.to == null || measured <= s.to) &&
       /* Some states charge a different amount in one month of the year. */
-      (!Array.isArray(s.months) || s.months.includes(month))
+      (!Array.isArray(s.months) || s.months.includes(month)) &&
+      (!s.gender || (s.gender === 'FEMALE' ? woman : !woman))
   );
+  if (!slab) return nil(`No slab covers ${money(measured)}.`, 'NO_SLAB_MATCH');
 
-  if (!slab) {
-    return { ...base, employee: 0, employer: 0, explanation: `No slab covers ${money(wages.gross)}.`, exemptReason: 'NO_SLAB_MATCH' };
+  const special = slab.monthAmounts?.[String(month)];
+  let amount = special != null ? Number(special) : Number(slab.amount);
+  let how: string;
+  if (factor === 1) {
+    how = `${money(amount)} a month${special != null ? ` (the ${MONTHS[month - 1]} amount)` : ''}`;
+  } else if (collect.length) {
+    how = `${money(amount)} for the ${factor === 12 ? 'year' : 'half-year'}, taken this month`;
+  } else {
+    /* Spread: a twelfth (or sixth) each month, the balance in the last month so the period adds up. */
+    const each = Math.floor(amount / factor);
+    const balanceMonth = Number(c.balanceMonth) || 3;
+    const last = factor === 12 ? month === balanceMonth : month === 9 || month === 3;
+    const whole = amount;
+    if (last && factor === 12 && pt.inState != null) {
+      /*
+       * The balance month takes what is left of the year's tax in this state,
+       * read from the payslips — not eleven twelfths assumed. Somebody who
+       * joined or left during the year owes the months they were employed.
+       */
+      const months = Math.min(12, Math.max(1, Number(pt.monthsEmployed) || 12));
+      amount = Math.max(0, round2((whole * months) / 12 - (Number(pt.inState) || 0)));
+    } else {
+      amount = last ? whole - each * (factor - 1) : each;
+    }
+    how = `${money(whole)} a ${factor === 12 ? 'year' : 'half-year'}, ${money(amount)} this month`;
   }
 
+  /* No more than ₹2,500 in a financial year, whatever the slabs say. */
+  const cap = Number(c.annualCap ?? PT_ANNUAL_CAP) || PT_ANNUAL_CAP;
+  const room = Math.max(0, round2(cap - Math.max(0, Number(ptAlreadyDeducted) || 0)));
+  const capped = amount > room;
+  if (capped) amount = room;
+
+  const band = factor === 1 ? money(wages.gross) : balanceMonthOfYear ? `${money(measured)} for the year` : `${money(measured)} (${money(wages.gross)} × ${factor})`;
+  const women = slab.gender === 'FEMALE' ? ' on the women’s bands' : '';
   return {
     ...base,
-    employee: applyRounding(slab.amount, rule.rounding),
+    employee: applyRounding(amount, rule.rounding),
     employer: 0,
-    explanation: `${rule.jurisdiction || 'State'} professional tax on ${money(wages.gross)}: ${money(slab.amount)} a month.`,
+    ...(capped ? { ceilingApplied: cap } : {}),
+    ...(capped && amount <= 0 ? { exemptReason: 'ANNUAL_CAP' } : {}),
+    explanation: capped
+      ? `${where} professional tax on ${band}${women}: ${how}, held to ${money(amount)} so the year stays within ${money(cap)}.`
+      : `${where} professional tax on ${band}${women}: ${how}.`,
   };
 }
 
@@ -434,6 +624,10 @@ export type StatutoryContext = {
   month: number;
   monthsRemaining: number;
   taxAlreadyDeducted: number;
+  /** Professional tax already deducted, for the cap, the balance month and once a month. */
+  pt?: PtContext;
+  /** Headcount and the company's LWF coverage setting. */
+  lwf?: LwfContext;
 };
 
 /**
@@ -456,9 +650,9 @@ export function computeStatutory(
     case 'ESI':
       return computeEsi(rule, wages, employee);
     case 'PT':
-      return computePt(rule, wages, employee, context.month);
+      return computePt(rule, wages, employee, context.month, context.pt);
     case 'LWF':
-      return computeLwf(rule, wages, context.month);
+      return computeLwf(rule, wages, employee, context.month, context.lwf);
     case 'TDS':
       return computeTds(rule, wages, employee, {
         monthsRemaining: context.monthsRemaining,
@@ -488,17 +682,24 @@ export function computeStatutory(
  * many rates have been published since, which is the whole reason rules are
  * dated rather than edited.
  */
-export function ruleInForce<T extends { effectiveFrom: string; effectiveTo: string | null; jurisdiction: string | null; status: string }>(
+export function ruleInForce<T extends { effectiveFrom: string; effectiveTo: string | null; jurisdiction: string | null; status: string; version?: string }>(
   rules: T[],
   onDate: string,
   jurisdiction?: string | null
 ): T | null {
-  const wanted = String(jurisdiction || '').trim().toUpperCase();
+  const wanted = canonicalState(jurisdiction);
   const candidates = rules
-    .filter((r) => r.status === 'ACTIVE')
+    /*
+     * In force: ACTIVE, or SUPERSEDED inside the window it was closed to. A
+     * superseded version still answers for the months before its successor —
+     * West Bengal's old slabs for September 2026, once October's are in — or
+     * recomputing a past month would find nothing and deduct nil. One closed
+     * with no end date was withdrawn, not replaced, and answers for nothing.
+     */
+    .filter((r) => r.status === 'ACTIVE' || (r.status === 'SUPERSEDED' && Boolean(r.effectiveTo)))
     .filter((r) => r.effectiveFrom <= onDate && (!r.effectiveTo || r.effectiveTo >= onDate))
     .filter((r) => {
-      const j = String(r.jurisdiction || '').trim().toUpperCase();
+      const j = canonicalState(r.jurisdiction);
       /* A rule with no jurisdiction applies everywhere; one with a jurisdiction
          applies only there. A state rule beats the general one. */
       return !j || !wanted || j === wanted;
@@ -507,7 +708,9 @@ export function ruleInForce<T extends { effectiveFrom: string; effectiveTo: stri
       const aj = a.jurisdiction ? 1 : 0;
       const bj = b.jurisdiction ? 1 : 0;
       if (aj !== bj) return bj - aj;
-      return a.effectiveFrom < b.effectiveFrom ? 1 : -1;
+      if (a.effectiveFrom !== b.effectiveFrom) return a.effectiveFrom < b.effectiveFrom ? 1 : -1;
+      /* Two versions from the same day: the later version (a correction) wins. */
+      return String(a.version || '') < String(b.version || '') ? 1 : -1;
     });
   return candidates[0] || null;
 }

@@ -12,12 +12,18 @@
  * it changes, never an edit here: a payslip records the version it used, and
  * editing a live rate would restate months that have already been filed.
  *
- * Accurate as of the 2025-26 Indian financial year. Verify before relying on
- * them for a live payroll — they are a starting point, and the law moves.
+ * PF, ESI and TDS are accurate as of the 2025-26 Indian financial year.
+ * Professional tax and Labour Welfare Fund come from CLOR's state-by-state
+ * research of 2 Nov 2026 (statePt.ts and stateLwf.ts), each rule's note naming
+ * its source and how sure it is. Verify before relying on them for a live
+ * payroll — they are a starting point, and the law moves.
  */
 
+import { PT_SEEDS } from './statePt.js';
+import { LWF_SEEDS } from './stateLwf.js';
+
 export type SeedRule = {
-  scheme: 'PF' | 'ESI' | 'PT' | 'TDS';
+  scheme: 'PF' | 'ESI' | 'PT' | 'TDS' | 'LWF';
   jurisdiction: string | null;
   version: string;
   effectiveFrom: string;
@@ -71,67 +77,6 @@ export const SEED_RULES: SeedRule[] = [
     note: 'Employee 0.75% and employer 3.25% of ESI wages, for anybody earning up to ₹21,000 a month.',
   },
   {
-    scheme: 'PT',
-    jurisdiction: 'KARNATAKA',
-    version: '2023-04-01',
-    effectiveFrom: '2023-04-01',
-    employeeRate: 0,
-    employerRate: 0,
-    wageCeiling: null,
-    eligibilityThreshold: null,
-    rounding: 'NEAREST',
-    config: {
-      slabs: [
-        { from: 0, to: 24999.99, amount: 0 },
-        { from: 25000, to: null, amount: 200 },
-      ],
-    },
-    note: 'Karnataka: ₹200 a month once monthly salary reaches ₹25,000.',
-  },
-  {
-    scheme: 'PT',
-    jurisdiction: 'MAHARASHTRA',
-    version: '2023-04-01',
-    effectiveFrom: '2023-04-01',
-    employeeRate: 0,
-    employerRate: 0,
-    wageCeiling: null,
-    eligibilityThreshold: null,
-    rounding: 'NEAREST',
-    config: {
-      slabs: [
-        { from: 0, to: 7500, amount: 0 },
-        { from: 7500.01, to: 10000, amount: 175 },
-        /* February carries the year's balance in Maharashtra, which is why a
-           slab can name the months it applies to. */
-        { from: 10000.01, to: null, amount: 200, months: [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] },
-        { from: 10000.01, to: null, amount: 300, months: [2] },
-      ],
-    },
-    note: 'Maharashtra: banded by salary, with the year’s balance collected in February.',
-  },
-  {
-    scheme: 'PT',
-    jurisdiction: 'WEST BENGAL',
-    version: '2023-04-01',
-    effectiveFrom: '2023-04-01',
-    employeeRate: 0,
-    employerRate: 0,
-    wageCeiling: null,
-    eligibilityThreshold: null,
-    rounding: 'NEAREST',
-    config: {
-      slabs: [
-        { from: 0, to: 10000, amount: 0 },
-        { from: 10000.01, to: 15000, amount: 110 },
-        { from: 15000.01, to: 25000, amount: 130 },
-        { from: 25000.01, to: 40000, amount: 150 },
-        { from: 40000.01, to: null, amount: 200 },
-      ],
-    },
-    note: 'West Bengal: five bands from ₹10,000 upward.',
-  },
-  {
     scheme: 'TDS',
     jurisdiction: 'IN',
     version: '2025-04-01',
@@ -170,6 +115,55 @@ export const SEED_RULES: SeedRule[] = [
       oldRegime: { standardDeduction: 50000, rebateUpTo: 500000, rebateMax: 12500, marginalRelief: false },
     },
     note: 'Income tax withheld from salary, new regime by default. Declarations and investment proofs are not modelled yet.',
+  },
+  ...PT_SEEDS,
+  ...LWF_SEEDS,
+];
+
+/**
+ * Bumped whenever the rules above change, so every company that has seeded
+ * before is topped up once (resolve.ts `ensureStatutoryCatalogue`).
+ */
+export const SEED_CATALOGUE_VERSION = '2026-11-02.3';
+
+/**
+ * Rules CLOR seeded once and has since corrected under a new version, kept so
+ * that a company's untouched copy is still recognised as CLOR's (and replaced)
+ * rather than mistaken for one the company wrote.
+ */
+export const LEGACY_SEEDS: Array<Pick<SeedRule, 'scheme' | 'jurisdiction' | 'version' | 'config'>> = [
+  {
+    scheme: 'PT',
+    jurisdiction: 'MAHARASHTRA',
+    version: '2023-04-01',
+    config: {
+      slabs: [
+        { from: 0, to: 7500, amount: 0 },
+        { from: 7500.01, to: 10000, amount: 175 },
+        { from: 10000.01, to: null, amount: 200, months: [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] },
+        { from: 10000.01, to: null, amount: 300, months: [2] },
+      ],
+    },
+  },
+  {
+    scheme: 'PT',
+    jurisdiction: 'KARNATAKA',
+    version: '2023-04-01',
+    config: { slabs: [{ from: 0, to: 24999.99, amount: 0 }, { from: 25000, to: null, amount: 200 }] },
+  },
+  {
+    scheme: 'PT',
+    jurisdiction: 'WEST BENGAL',
+    version: '2023-04-01',
+    config: {
+      slabs: [
+        { from: 0, to: 10000, amount: 0 },
+        { from: 10000.01, to: 15000, amount: 110 },
+        { from: 15000.01, to: 25000, amount: 130 },
+        { from: 25000.01, to: 40000, amount: 150 },
+        { from: 40000.01, to: null, amount: 200 },
+      ],
+    },
   },
 ];
 

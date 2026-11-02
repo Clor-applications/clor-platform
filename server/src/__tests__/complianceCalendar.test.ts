@@ -7,7 +7,7 @@ import request from 'supertest';
  * evidence, beside the company's own deadlines.
  */
 const { buildApp } = await import('../app.js');
-const { dueDates } = await import('../services/people/compliance.js');
+const { dueDates, staleLevyItem } = await import('../services/people/compliance.js');
 
 const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
@@ -19,7 +19,7 @@ type Ctx = { token: string; orgId: string; branchId: string };
 const at = (c: Ctx) => ({ Authorization: `Bearer ${c.token}`, 'x-org-id': c.orgId, 'x-branch-id': c.branchId });
 
 describe('due dates', () => {
-  const all = { payroll: true, pf: true, esi: true, ptStates: ['Karnataka', 'Kerala'], posh: true, people: 40 };
+  const all = { payroll: true, pf: true, esi: true, ptStates: ['Karnataka', 'Kerala', 'Meghalaya', 'Odisha'], lwfStates: ['MAHARASHTRA', 'KARNATAKA'], posh: true, people: 40 };
   const due = (from: string, to: string) => dueDates(all, from, to);
   const find = (list: any[], code: string, period: string) => list.find((d) => d.code === code && d.period === period);
 
@@ -30,8 +30,14 @@ describe('due dates', () => {
     expect(find(list, 'TDS_DEPOSIT', '2026-09')?.dueDate).toBe('2026-10-07');
     expect(find(list, 'TDS_DEPOSIT', '2027-03')?.dueDate).toBe('2027-04-30');
     expect(find(list, 'PT_KARNATAKA', '2026-09')).toMatchObject({ dueDate: '2026-10-20', note: expect.stringMatching(/confirm/) });
+    /* Kerala is half-yearly: August's deduction is remitted by 10 September, one deadline for the half-year. */
+    expect(find(list, 'PT_KERALA', '2026-Apr–Sep')).toBeUndefined();
+    expect(find(list, 'PT_KERALA', '2026-Oct–Mar')).toMatchObject({ dueDate: '2027-03-10' });
+    expect(list.filter((d: any) => d.code === 'PT_KERALA')).toHaveLength(1);
     /* A state CLOR has no date for: the last day of the next month, and it says so. */
-    expect(find(list, 'PT_KERALA', '2026-09')).toMatchObject({ dueDate: '2026-10-31', note: expect.stringMatching(/does not know/) });
+    expect(find(list, 'PT_MEGHALAYA', '2026-09')).toMatchObject({ dueDate: '2026-10-31', note: expect.stringMatching(/does not know/) });
+    /* Odisha has no professional tax from April 2026: no deadline. */
+    expect(list.some((d: any) => d.code === 'PT_ODISHA')).toBe(false);
   });
 
   it('puts 24Q, Form 16, bonus and the POSH report on their dates', () => {
@@ -45,8 +51,39 @@ describe('due dates', () => {
     expect(find(list, 'POSH_REPORT', '2027')?.dueDate).toBe('2027-01-31');
   });
 
+  it('lists each LWF fund the company is covered for, Kerala’s shops fund monthly by the 5th', () => {
+    const list = dueDates({ ...all, ptStates: [], lwfStates: [], lwfFunds: [{ state: 'KERALA', fund: '' }, { state: 'KERALA', fund: 'Shops and Commercial Establishments Workers Welfare Fund' }] } as any, '2026-11-01', '2027-02-28');
+    expect(find(list, 'LWF_KERALA_SHOPS', '2026-Nov')).toMatchObject({ dueDate: '2026-12-05' });
+    expect(find(list, 'LWF_KERALA', '2026-Jul–Dec')).toMatchObject({ dueDate: '2027-01-15' });
+    /* A state below its size, left out by applicability, brings nothing. */
+    expect(list.some((d: any) => d.code === 'LWF_KARNATAKA')).toBe(false);
+  });
+
+  it('decides LWF coverage under the rule for the period shown, not today’s', () => {
+    /* Karnataka: more than 50 people until 6 Jan 2026, 10 or more from 7 Jan 2026; the company has 12. */
+    const rules = [
+      { jurisdiction: 'KARNATAKA', effectiveFrom: '2024-12-01', effectiveTo: '2026-01-06', status: 'SUPERSEDED', version: '2024-12-01', configJson: JSON.stringify({ employeeAmount: 50, employerAmount: 100, months: [12], minEmployees: 51 }) },
+      { jurisdiction: 'KARNATAKA', effectiveFrom: '2026-01-07', effectiveTo: null, status: 'ACTIVE', version: '2026-01-07', configJson: JSON.stringify({ employeeAmount: 50, employerAmount: 100, months: [12], minEmployees: 10 }) },
+    ];
+    const a = { ...all, ptStates: [], lwfStates: ['KARNATAKA'], lwf: { always: false, headcount: { KARNATAKA: 12 }, rules } } as any;
+    /* December 2025's collection was under the old threshold: nothing due in January 2026. */
+    expect(dueDates(a, '2026-01-01', '2026-02-28').some((d: any) => d.code === 'LWF_KARNATAKA')).toBe(false);
+    /* December 2026's is under the new one: due 15 January 2027. */
+    expect(dueDates(a, '2027-01-01', '2027-02-28').find((d: any) => d.code === 'LWF_KARNATAKA')).toMatchObject({ dueDate: '2027-01-15' });
+  });
+
+  it('knows an older calendar’s PT items that the current one replaces', () => {
+    expect(staleLevyItem('PT_KA', '2026-09')).toBe(true);
+    expect(staleLevyItem('PT_KARNATAKA', '2026-09')).toBe(false);
+    /* Tamil Nadu files by half-year: its old monthly items go. */
+    expect(staleLevyItem('PT_TAMIL_NADU', '2026-09')).toBe(true);
+    expect(staleLevyItem('PT_TAMIL_NADU', '2026-Apr–Sep')).toBe(false);
+    expect(staleLevyItem('LWF_KERALA_SHOPS', '2026-Nov')).toBe(false);
+    expect(staleLevyItem('PF_ECR', '2026-09')).toBe(false);
+  });
+
   it('leaves out what does not apply', () => {
-    const list = dueDates({ payroll: false, pf: false, esi: false, ptStates: [], posh: false, people: 4 }, '2026-01-01', '2027-12-31');
+    const list = dueDates({ payroll: false, pf: false, esi: false, ptStates: [], lwfStates: [], posh: false, people: 4 }, '2026-01-01', '2027-12-31');
     expect(list).toEqual([]);
   });
 });

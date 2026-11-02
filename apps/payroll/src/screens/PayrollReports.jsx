@@ -23,7 +23,7 @@ import { rupees as money } from '@ui/utils/money';
 const REPORTS = [
   { id: 'register', label: 'Salary register', hint: 'Everybody, every component — the one an auditor asks for.' },
   { id: 'statutory', label: 'Statutory', hint: 'What is owed to provident fund, ESI, professional tax and income tax.' },
-  { id: 'filings', label: 'Returns to file', hint: 'The PF ECR, the ESIC upload and professional tax, ready for the portals.' },
+  { id: 'filings', label: 'Returns to file', hint: 'The PF ECR, the ESIC upload, and professional tax and Labour Welfare Fund by state.' },
   { id: 'variance', label: 'What changed', hint: 'Who moved since last month, and every new joiner.' },
   { id: 'cost', label: 'Cost by department', hint: 'Where the money went.' },
 ];
@@ -471,7 +471,7 @@ const Problems = ({ rows }) =>
     </ul>
   ) : null;
 
-function FilingCard({ title, summary, note, problems, onDownload, disabled, label }) {
+function FilingCard({ title, summary, note, problems, onDownload, disabled, label, children }) {
   return (
     <section className="ui-card overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -483,16 +483,67 @@ function FilingCard({ title, summary, note, problems, onDownload, disabled, labe
           <Download size={14} aria-hidden="true" /> {label}
         </button>
       </div>
+      {children}
       <Problems rows={problems} />
       {note ? <p className="ui-caption px-4 pb-3">{note}</p> : null}
     </section>
   );
 }
 
+const shownDate = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(String(iso || '')) ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '—');
+
+/** One row per state (and collection): the return, when it is due, and what it carries. */
+function StateReturns({ rows, periodLabel, showEmployer = false }) {
+  if (!rows.length) return null;
+  return (
+    <div className="ui-table-scroll" style={{ borderTop: '1px solid rgb(var(--border))' }}>
+      <table className="ui-table w-full">
+        <thead>
+          <tr>
+            <th scope="col">State</th>
+            <th scope="col">{periodLabel}</th>
+            <th scope="col">Return</th>
+            <th scope="col" className="ui-col-h-center">Due</th>
+            <th scope="col" className="ui-col-h-right">People</th>
+            <th scope="col" className="ui-col-h-right">Employees</th>
+            {showEmployer ? <th scope="col" className="ui-col-h-right">Employer</th> : null}
+            <th scope="col" className="ui-col-h-right">Total</th>
+          </tr>
+        </thead>
+        <tbody className="ui-rows">
+          {rows.map((r) => (
+            <tr key={`${r.state}|${r.fund || ''}|${r.period || r.collection}`}>
+              <td className="ui-col-meta">{r.state}</td>
+              <td className="ui-col-meta">{r.period || r.collection || '—'}</td>
+              <td className="ui-col-meta" style={{ whiteSpace: 'normal', minWidth: '14rem', maxWidth: '22rem' }}>
+                {r.form}
+                <span className="ui-caption block" style={{ whiteSpace: 'normal' }}>{r.how}</span>
+              </td>
+              <td className="ui-col-date ui-col-h-center">
+                {shownDate(r.dueDate)}
+                {r.dueKnown ? null : <span className="ui-caption block">Confirm with the state</span>}
+              </td>
+              <td className="ui-col-amount">{r.people}</td>
+              <td className="ui-col-amount">{money(r.employee)}</td>
+              {showEmployer ? (
+                <td className="ui-col-amount">
+                  {money(r.employer)}
+                  {r.employerTopUp ? <span className="ui-caption block">+ {money(r.employerTopUp)} to reach the {money(r.employerMinimum)} minimum</span> : null}
+                </td>
+              ) : null}
+              <td className="ui-col-amount">{money(r.total)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 function Filings({ data, periodName }) {
-  const { ecr, esic, pt } = data;
+  const { ecr, esic, pt, lwf } = data;
   const done = (fn) => {
     try {
       fn();
@@ -546,7 +597,7 @@ function Filings({ data, periodName }) {
       />
       <FilingCard
         title="Professional tax"
-        label="PT summary"
+        label="PT by state"
         summary={
           pt.states.length
             ? pt.states.map((s) => `${s.state}: ${plural(s.people, 'person', 'people')}, ${money(s.total)}`).join(' · ')
@@ -560,16 +611,51 @@ function Filings({ data, periodName }) {
               fileName: `Professional tax ${periodName}`,
               columns: [
                 { key: 'state', label: 'State' },
-                { key: 'amount', label: 'Tax per person', value: (r) => Number(r.amount).toFixed(2) },
-                { key: 'count', label: 'People' },
-                { key: 'total', label: 'Tax', value: (r) => Number(r.total).toFixed(2) },
+                { key: 'collection', label: 'Return period' },
+                { key: 'code', label: 'Employee code' },
+                { key: 'name', label: 'Name' },
+                { key: 'wages', label: 'Gross pay', value: (r) => Number(r.wages).toFixed(2) },
+                { key: 'employee', label: 'Professional tax', value: (r) => Number(r.employee).toFixed(2) },
               ],
-              rows: pt.states.flatMap((s) => s.slabs.map((x) => ({ ...x, state: s.state }))),
+              rows: pt.rows,
             })
           )
         }
-        note="The count of people at each rate, per state — what the monthly PT return asks for."
-      />
+        note={`Per state, for the whole return period this month is in. ${pt.note || 'File it on the state portal.'}`}
+      >
+        <StateReturns rows={pt.states} periodLabel="Return period" />
+      </FilingCard>
+      <FilingCard
+        title="Labour Welfare Fund"
+        label="LWF by state"
+        summary={
+          lwf?.states?.length
+            ? lwf.states.map((s) => `${s.state} (${s.collection}): ${plural(s.people, 'person', 'people')}, ${money(s.total)}`).join(' · ')
+            : 'No Labour Welfare Fund was collected in this period. Most states collect it in June and December.'
+        }
+        problems={lwf?.problems || []}
+        disabled={!lwf?.rows?.length}
+        onDownload={() =>
+          done(() =>
+            downloadCsv({
+              fileName: `Labour Welfare Fund ${periodName}`,
+              columns: [
+                { key: 'state', label: 'State' },
+                { key: 'collection', label: 'Collection' },
+                { key: 'code', label: 'Employee code' },
+                { key: 'name', label: 'Name' },
+                { key: 'wages', label: 'Gross pay', value: (r) => Number(r.wages).toFixed(2) },
+                { key: 'employee', label: 'Employee', value: (r) => Number(r.employee).toFixed(2) },
+                { key: 'employer', label: 'Employer', value: (r) => Number(r.employer).toFixed(2) },
+              ],
+              rows: lwf.rows,
+            })
+          )
+        }
+        note={`Per state, per collection. ${lwf?.note || 'File it on the state portal.'}`}
+      >
+        <StateReturns rows={lwf?.states || []} periodLabel="Collection" showEmployer />
+      </FilingCard>
     </div>
   );
 }

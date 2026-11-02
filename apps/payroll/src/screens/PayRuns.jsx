@@ -22,7 +22,7 @@ import {
   EmptyState,
 } from "@ui/components/ui/Primitives";
 import { confirmDialog, notify } from "@ui/components/ui/notify";
-import { hasApp } from "@platform/context";
+import { hasApp, requestOpenScreen } from "@platform/context";
 import { listPayrollPeriods, listPayGroups } from "../api/payrollCalendar";
 import {
   listPayrollRuns,
@@ -448,6 +448,9 @@ const RunWorkflow = ({ runId, onBack }) => {
       />
 
       <div className="px-5 lg:px-7 pb-8 space-y-4">
+      {data.statutoryChecks?.length && ["CALCULATED", "REVIEW"].includes(run.status) ? (
+        <StatutoryChecksBlocker checks={data.statutoryChecks} />
+      ) : null}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <Tile label="People" value={run.employeeCount} />
         <Tile label="Gross" value={money(run.grossTotal)} />
@@ -1059,6 +1062,39 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
   );
 };
 
+/**
+ * State figures CLOR could not confirm, on this run's payslips: the run can
+ * be previewed but not approved (the server refuses) until each is confirmed
+ * or corrected on the Compliance screen.
+ */
+/** "Meghalaya professional tax and Kerala Labour Welfare Fund" — the server's words (statutory/resolve.ts checksSentence). */
+const checksSentence = (checks) => {
+  const parts = checks.map((c) => `${c.state} ${c.scheme === "LWF" ? "Labour Welfare Fund" : "professional tax"}`);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0] || "";
+};
+
+const StatutoryChecksBlocker = ({ checks }) => (
+  <div
+    className="ui-card p-3 text-sm flex flex-wrap items-start justify-between gap-3"
+    role="status"
+    style={{ background: "rgb(var(--warn-soft))", color: "rgb(var(--warn-ink))" }}
+  >
+    <div className="flex items-start gap-2 min-w-0 max-w-3xl">
+      <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+      <div>
+        <div className="font-medium">Not ready to approve</div>
+        <div>
+          This payroll uses figures CLOR could not confirm from an official notice: {checksSentence(checks)}. Check each
+          against the state’s notice, then confirm it, or correct it and calculate again.
+        </div>
+      </div>
+    </div>
+    <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => requestOpenScreen("compliance")}>
+      Confirm or correct
+    </button>
+  </div>
+);
+
 const ChecksStage = ({ issues, byEmployee, data }) => {
   const list = issues?.issues || data.employees.flatMap((m) => m.issues || []);
   if (!list.length) {
@@ -1106,6 +1142,11 @@ const ChecksStage = ({ issues, byEmployee, data }) => {
             )}
             <span className="min-w-0">
               {i.message}
+              {i.code === "RULE_NEEDS_CHECK" ? (
+                <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm ml-1" onClick={() => requestOpenScreen("compliance")}>
+                  Confirm or correct
+                </button>
+              ) : null}
               {i.employeeId && byEmployee.get(i.employeeId)?.employee?.name ? (
                 <span className="ui-caption block">
                   {byEmployee.get(i.employeeId).employee.name}
