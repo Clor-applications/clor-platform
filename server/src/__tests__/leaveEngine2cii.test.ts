@@ -230,7 +230,9 @@ describe('review nits', () => {
       await peoplePrisma.peopleSetting.upsert({ where: { orgId: c.orgId }, create: { accountId: c.accountId, orgId: c.orgId, leaveOnEngine: true }, update: { leaveOnEngine: true } });
     });
     const type = (await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/types`).set(at(c)).send({ name: 'Casual', annualDays: 12 }).expect(201)).body.type;
-    const day = addDays(todayIst(), 40);
+    /* A working day: leave on a weekly off is refused, and 40 days from 3 Nov is a Sunday. */
+    let day = addDays(todayIst(), 40);
+    while (new Date(`${day}T12:00:00Z`).getUTCDay() === 0) day = addDays(day, 1);
     await runInTenant(c.orgId, () => peoplePrisma.attendanceRecord.create({ data: { accountId: c.accountId, orgId: c.orgId, employeeId: me.id, date: day, status: 'PRESENT', checkIn: new Date(`${day}T04:00:00Z`), source: 'MANUAL', createdByUserId: c.userId } as any }));
     const asked = await request(app).post(`/api/orgs/${c.orgId}/attendance/me/leave`).set(at(c)).send({ leaveTypeId: type.id, fromDate: day, toDate: day, reason: 'Rest' }).expect(201);
     expect(asked.body.request.status).toBe('PENDING');
