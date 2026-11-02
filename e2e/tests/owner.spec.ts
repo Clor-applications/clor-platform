@@ -36,7 +36,8 @@ test.describe('Suresh owns the account', () => {
     await suresh.goto();
     await suresh.open('Settings');
     await suresh.main.getByRole('button', { name: /^Users & security/ }).click();
-    await expect(suresh.page).toHaveURL(/app=admin/);
+    /* Workspace opens: in place locally (?app=admin), on staging on the front door's own host (app.), where the address carries no app=. */
+    await expect(suresh.page.locator('html')).toHaveAttribute('data-app', 'admin');
     if (suresh.isPhone) await suresh.page.getByRole('banner').getByRole('button', { name: 'Menu' }).click();
     await suresh.page.getByRole('button', { name: 'Access', exact: true }).first().click();
     await suresh.page.getByRole('button', { name: 'Users', exact: true }).first().click();
