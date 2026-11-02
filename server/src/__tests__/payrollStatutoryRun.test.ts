@@ -361,10 +361,14 @@ describe('a rate that changes', () => {
     await api.del(c, `/statutory/rules/${added.body.rule.id}`).expect(200);
 
     const rules = (await api.get(c, '/statutory').expect(200)).body.schemes.find((s: any) => s.code === 'PT').rules;
-    const byPlace = (j: string) => rules.filter((r: any) => r.jurisdiction === j);
-    expect(byPlace('KARNATAKA').map((r: any) => r.status)).toEqual(['ACTIVE']);
-    expect(byPlace('MAHARASHTRA').every((r: any) => r.status === 'ACTIVE')).toBe(true);
-    expect(byPlace('WEST BENGAL').every((r: any) => r.status === 'ACTIVE')).toBe(true);
+    const shape = (list: any[], j: string) => list.filter((r: any) => r.jurisdiction === j).map((r: any) => [r.version, r.status, r.effectiveTo]);
+    /* Karnataka's April 2025 version is back in force with no end; its 2023 one stays closed where the seed closed it. */
+    expect(shape(rules, 'KARNATAKA')).toEqual([
+      ['2025-04-01', 'ACTIVE', null],
+      ['2023-04-01', 'SUPERSEDED', '2025-03-31'],
+    ]);
+    /* Every other state exactly as seeded. */
+    for (const j of ['MAHARASHTRA', 'WEST BENGAL', 'GUJARAT', 'TAMIL NADU']) expect(shape(rules, j)).toEqual(shape(pt.rules, j));
   });
 });
 

@@ -105,7 +105,11 @@ describe('statutory files', () => {
     expect(f.esic.problems.map((p: { name: string }) => p.name)).toEqual(['Nobody Uan']);
 
     /* PT: one person at ₹200 in Karnataka. */
-    expect(f.pt.states).toEqual([{ state: 'Karnataka', slabs: [{ amount: 200, count: 1, total: 200 }], people: 1, total: 200 }]);
+    expect(f.pt.states).toEqual([
+      expect.objectContaining({ state: 'Karnataka', slabs: [{ amount: 200, count: 1, total: 200 }], people: 1, employee: 200, total: 200, dueDate: '2026-10-20', form: expect.stringContaining('Form 5') }),
+    ]);
+    /* The screen says plainly where it is filed: CLOR makes no state upload file. */
+    expect(f.pt.note).toMatch(/state portal/);
   });
 
   it('keeps the separator and line breaks out of a name', () => {

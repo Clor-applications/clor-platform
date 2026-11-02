@@ -19,7 +19,7 @@ type Ctx = { token: string; orgId: string; branchId: string };
 const at = (c: Ctx) => ({ Authorization: `Bearer ${c.token}`, 'x-org-id': c.orgId, 'x-branch-id': c.branchId });
 
 describe('due dates', () => {
-  const all = { payroll: true, pf: true, esi: true, ptStates: ['Karnataka', 'Kerala'], posh: true, people: 40 };
+  const all = { payroll: true, pf: true, esi: true, ptStates: ['Karnataka', 'Kerala', 'Meghalaya', 'Odisha'], lwfStates: ['MAHARASHTRA', 'KARNATAKA'], posh: true, people: 40 };
   const due = (from: string, to: string) => dueDates(all, from, to);
   const find = (list: any[], code: string, period: string) => list.find((d) => d.code === code && d.period === period);
 
@@ -30,8 +30,14 @@ describe('due dates', () => {
     expect(find(list, 'TDS_DEPOSIT', '2026-09')?.dueDate).toBe('2026-10-07');
     expect(find(list, 'TDS_DEPOSIT', '2027-03')?.dueDate).toBe('2027-04-30');
     expect(find(list, 'PT_KARNATAKA', '2026-09')).toMatchObject({ dueDate: '2026-10-20', note: expect.stringMatching(/confirm/) });
+    /* Kerala is half-yearly: August's deduction is remitted by 10 September, one deadline for the half-year. */
+    expect(find(list, 'PT_KERALA', '2026-Apr–Sep')).toBeUndefined();
+    expect(find(list, 'PT_KERALA', '2026-Oct–Mar')).toMatchObject({ dueDate: '2027-03-10' });
+    expect(list.filter((d: any) => d.code === 'PT_KERALA')).toHaveLength(1);
     /* A state CLOR has no date for: the last day of the next month, and it says so. */
-    expect(find(list, 'PT_KERALA', '2026-09')).toMatchObject({ dueDate: '2026-10-31', note: expect.stringMatching(/does not know/) });
+    expect(find(list, 'PT_MEGHALAYA', '2026-09')).toMatchObject({ dueDate: '2026-10-31', note: expect.stringMatching(/does not know/) });
+    /* Odisha has no professional tax from April 2026: no deadline. */
+    expect(list.some((d: any) => d.code === 'PT_ODISHA')).toBe(false);
   });
 
   it('puts 24Q, Form 16, bonus and the POSH report on their dates', () => {
@@ -46,7 +52,7 @@ describe('due dates', () => {
   });
 
   it('leaves out what does not apply', () => {
-    const list = dueDates({ payroll: false, pf: false, esi: false, ptStates: [], posh: false, people: 4 }, '2026-01-01', '2027-12-31');
+    const list = dueDates({ payroll: false, pf: false, esi: false, ptStates: [], lwfStates: [], posh: false, people: 4 }, '2026-01-01', '2027-12-31');
     expect(list).toEqual([]);
   });
 });
