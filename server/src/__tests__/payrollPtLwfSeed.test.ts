@@ -621,3 +621,27 @@ describe('a company rule CLOR’s figures have replaced', () => {
     expect(await payrollPrisma.statutoryRule.findUnique({ where: { id: own.id } })).toMatchObject({ status: 'SUPERSEDED', effectiveTo: '2026-09-30' });
   });
 });
+
+describe('two runs in one month, both calculated before either is approved', () => {
+  it('refuses the second approval naming the person and month, and recalculating takes nil', async () => {
+    const c = await makeOwner();
+    const { structureId, periodIds } = await setUp(c, [['2026-11-01', '2026-11-30']]);
+    await person(c, structureId, 'Asha Both Runs', 40_000, 'Karnataka');
+    const offCycle = await periodOf(c, { frequency: 'WEEKLY', startDate: '2026-11-09', endDate: '2026-11-15', paymentDate: '2026-11-15' });
+    const monthly = await run(c, periodIds[0]);
+    const bonus = await run(c, offCycle);
+    expect(await lineOf(monthly.slips[0].id, 'PT')).toBe(200);
+    expect(await lineOf(bonus.slips[0].id, 'PT')).toBe(200);
+    expect((await approve(c, monthly.id)).status).toBe(200);
+    const refused = await approve(c, bonus.id);
+    expect(refused.status).toBe(409);
+    expect(refused.body.code).toBe('PT_ALREADY_TAKEN');
+    expect(refused.body.error).toMatch(/November 2026.*Asha Both Runs.*Calculate this payroll again/);
+    /* Recalculated: the approved monthly run counts, so the off-cycle run takes nil and can be approved. */
+    await api.post(c, `/runs/${bonus.id}/reject`, { reason: 'Recalculate for PT' }).expect(200);
+    await api.post(c, `/runs/${bonus.id}/calculate`).expect(200);
+    const slips = (await api.get(c, `/slips?runId=${bonus.id}`).expect(200)).body.slips;
+    expect(await lineOf(slips[0].id, 'PT')).toBe(0);
+    expect((await approve(c, bonus.id)).status).toBe(200);
+  });
+});

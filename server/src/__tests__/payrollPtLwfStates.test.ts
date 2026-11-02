@@ -234,6 +234,30 @@ describe('the balance month, read from the payslips', () => {
   });
 });
 
+describe('somebody who moved state during the year', () => {
+  it('owes the new state only the months paid there', async () => {
+    const { applyStatutory } = await import('../services/payroll/statutory/resolve.js');
+    const rules = new Map([['PT', rows.filter((r) => r.scheme === 'PT').map((r) => ({ ...r, configJson: JSON.stringify(r.seed.config), scheme: 'PT' }))]]) as any;
+    const out = (byState: Map<string, any>) =>
+      applyStatutory({
+        rules,
+        onDate: '2027-03-31',
+        wages: { pfWage: 0, esiWage: 0, gross: 40000 },
+        employee: person('MADHYA PRADESH'),
+        components: [{ code: 'PT', statutoryScheme: 'PT', type: 'DEDUCTION' }],
+        monthsRemaining: 1,
+        taxAlreadyDeducted: 0,
+        ptSoFar: { yearToDate: [...byState.values()].reduce((t, v) => t + v.amount, 0), thisMonth: 0, byState },
+        ptMonthsEmployed: 12,
+      }).amounts.PT;
+    /* Six months in Karnataka, then Oct–Feb in Madhya Pradesh at ₹208: March takes six months' share (₹1,250) less ₹1,040. */
+    const moved = new Map([['KARNATAKA', { amount: 1200, months: 6, gross: 240000 }], ['MADHYA PRADESH', { amount: 1040, months: 5, gross: 200000 }]]);
+    expect(out(moved)).toBe(210);
+    /* All year in Madhya Pradesh: the full year. */
+    expect(out(new Map([['MADHYA PRADESH', { amount: 2288, months: 11, gross: 440000 }]]))).toBe(212);
+  });
+});
+
 describe('months employed in the financial year', () => {
   it('counts from joining to leaving inside the year, else the whole year', async () => {
     const { monthsEmployedInYear } = await import('../services/payroll/run.js');

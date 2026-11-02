@@ -165,7 +165,14 @@ export function applyStatutory(opts: {
             inState: inState?.amount ?? 0,
             monthsInState: inState?.months ?? 0,
             grossInState: inState?.gross ?? 0,
-            monthsEmployed: opts.ptMonthsEmployed,
+            /*
+             * Somebody who moved here from another state this year owes this
+             * state only the months they were paid here (this one included),
+             * not every month employed.
+             */
+            monthsEmployed: [...opts.ptSoFar.byState.entries()].some(([st, v]) => st !== state && v.months > 0)
+              ? Math.min(opts.ptMonthsEmployed ?? 12, (inState?.months ?? 0) + 1)
+              : opts.ptMonthsEmployed,
           }
         : {},
       lwf: {

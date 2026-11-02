@@ -277,6 +277,32 @@ export function monthsEmployedInYear(periodStart: string, joined: string | null 
  * this run would go out with nil PT for the month — so it must be calculated
  * again first. Returns the people affected.
  */
+export async function ptAlreadyTakenElsewhere(orgId: string, run: { id: string; periodId: string }) {
+  /*
+   * Two runs in one month calculated before either is approved each see no
+   * approved PT, so both deduct it. Whichever is approved second is refused
+   * for every person whose PT another approved run already took that month;
+   * calculating it again then gives nil, because the approved run counts.
+   */
+  const period = await payrollPrisma.payrollPeriod.findFirst({ where: { orgId, id: run.periodId }, select: { startDate: true } });
+  if (!period) return [];
+  const ptComponents = await payrollPrisma.salaryComponent.findMany({ where: { orgId, statutoryScheme: 'PT', type: 'DEDUCTION' }, select: { id: true } });
+  if (!ptComponents.length) return [];
+  const slips = await payrollPrisma.salarySlip.findMany({ where: { orgId, runId: run.id, status: { not: 'CANCELLED' } }, select: { id: true, employeeId: true } });
+  if (!slips.length) return [];
+  const lines = await payrollPrisma.salarySlipLine.findMany({ where: { orgId, slipId: { in: slips.map((s) => s.id) }, componentId: { in: ptComponents.map((c) => c.id) } }, select: { slipId: true, amount: true } });
+  const taking = new Set(lines.filter((l) => Number(l.amount) > 0).map((l) => slips.find((s) => s.id === l.slipId)!.employeeId));
+  if (!taking.size) return [];
+  const approved = await ptPaidSoFar(orgId, run, period, [...taking]);
+  const ids = [...taking].filter((id) => (approved.get(id)?.thisMonth || 0) > 0);
+  if (!ids.length) return [];
+  const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true } });
+  const nameOf = new Map(people.map((p) => [p.id, p.name]));
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const month = `${MONTHS[Number(period.startDate.slice(5, 7)) - 1]} ${period.startDate.slice(0, 4)}`;
+  return ids.map((id) => ({ employeeId: id, name: nameOf.get(id) || 'Unknown employee', month }));
+}
+
 export async function ptTakenElsewhereGone(orgId: string, run: { id: string; periodId: string }) {
   const slips = await payrollPrisma.salarySlip.findMany({ where: { orgId, runId: run.id, status: { not: 'CANCELLED' } }, select: { employeeId: true, statutorySnapshotJson: true } });
   const relied = slips

@@ -9,7 +9,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
-import { calculateRun, daysBetween, eligibleEmployees, ptTakenElsewhereGone, validateRun } from '../services/payroll/run.js';
+import { calculateRun, daysBetween, eligibleEmployees, ptAlreadyTakenElsewhere, ptTakenElsewhereGone, validateRun } from '../services/payroll/run.js';
 import { checksSentence, uncheckedRulesOnRun } from '../services/payroll/statutory/resolve.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { recordAudit } from '../services/auditTrail.js';
@@ -796,6 +796,18 @@ const transition = (
             error: `This payroll uses figures CLOR could not confirm from an official notice: ${checksSentence(checks)}. Confirm ${checks.length === 1 ? 'it' : 'each'} in Payroll › Compliance, or correct it there and calculate again.`,
             code: 'RULE_NEEDS_CHECK',
             checks,
+          });
+        }
+      }
+
+      /* PT another approved run already took for the same person and month: taken twice unless calculated again. */
+      if (to === 'APPROVED') {
+        const twice = await ptAlreadyTakenElsewhere(run.orgId, run);
+        if (twice.length) {
+          return res.status(409).json({
+            error: `Professional tax for ${twice[0].month} was already taken by another approved payroll for ${twice.map((t) => t.name).join(', ')}. Calculate this payroll again; it will then take none for ${twice.length === 1 ? 'them' : 'those people'}.`,
+            code: 'PT_ALREADY_TAKEN',
+            people: twice,
           });
         }
       }
