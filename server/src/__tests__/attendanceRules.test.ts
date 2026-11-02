@@ -266,8 +266,20 @@ describe('the monthly limit on missed punches', () => {
     const c = await company();
     const e = await person(c, { name: 'Neha Iyer', code: 'Q1' });
     const P = await portalOf(c, e);
-    const recent: string[] = [];
-    for (let d = plus(istToday(), -1); recent.length < 4; d = plus(d, -1)) if (dow(d) !== 0) recent.push(d);
+    /*
+     * Four past working days in ONE calendar month: the limit is per month,
+     * so near a month's start (3 Nov) the last four days straddle two months
+     * and none is past its limit. Then they come from the month before —
+     * still inside the 30-day back-date window.
+     */
+    const byMonth = new Map<string, string[]>();
+    let recent: string[] = [];
+    for (let d = plus(istToday(), -1); recent.length < 4; d = plus(d, -1)) {
+      if (dow(d) === 0) continue;
+      const list = [...(byMonth.get(d.slice(0, 7)) || []), d];
+      byMonth.set(d.slice(0, 7), list);
+      if (list.length === 4) recent = list;
+    }
     for (const d of recent.slice(0, 3)) await P.post('/requests', { kind: 'MISSED_PUNCH', date: d, checkIn: '09:00', checkOut: '18:00', reason: 'Forgot to punch' }).expect(201);
     const refused = await P.post('/requests', { kind: 'MISSED_PUNCH', date: recent[3], checkIn: '09:00', checkOut: '18:00', reason: 'Forgot again' }).expect(409);
     expect(refused.body).toMatchObject({ code: 'QUOTA' });

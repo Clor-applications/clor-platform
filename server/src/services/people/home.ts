@@ -44,7 +44,13 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
       openTasks(orgId, 500),
       dataHealth(accountId, orgId, { payroll: payrollProfiles }),
       /* Compliance deadlines (rules, Payroll's statutory dates, registrations, the company's own): late, and due this week. A standing duty is not a deadline, so it waits on the Compliance screen. */
-      buildObligations(accountId, orgId).then(() => peoplePrisma.obligation.findMany({ where: { orgId, status: { in: ['DUE', 'OVERDUE'] }, period: { not: 'STANDING' } }, select: { status: true, dueOn: true } })),
+      /* A failure building deadlines (Payroll's settings unreadable, say) leaves this card out; it never takes Home down with it. */
+      buildObligations(accountId, orgId)
+        .then(() => peoplePrisma.obligation.findMany({ where: { orgId, status: { in: ['DUE', 'OVERDUE'] }, period: { not: 'STANDING' } }, select: { status: true, dueOn: true } }))
+        .catch((e) => {
+          console.error(`[home] compliance deadlines for ${orgId}:`, e instanceof Error ? e.message : e); // eslint-disable-line no-console
+          return [] as Array<{ status: string; dueOn: string }>;
+        }),
       peoplePrisma.employeeDocument.count({ where: { accountId, orgId, expiresOn: { gte: today, lte: month } } }),
       peoplePrisma.employee.findMany({ where: { accountId, orgId, status: { not: 'LEFT' } }, select: { probationEndDate: true, confirmedOn: true, contractEndDate: true } }),
       /* Company property still with someone who has left: the exit checklist's question, asked of the asset register. */

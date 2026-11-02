@@ -614,7 +614,8 @@ describe('who reads what on a leaving (review of #81)', () => {
     /* Their own line, the IT one, is theirs; the totals hold only what they may see. */
     expect(clearance.lines.find((l: any) => l.dept === 'IT')).toMatchObject({ mine: true, direction: 'NONE' });
     expect(clearance.totals).toEqual({ owes: 0, owed: 0 });
-    expect(JSON.stringify(res.body)).not.toMatch(/Advance |900/);
+    /* The ₹900 advance as a value anywhere (an amount, a total, words) — not a "900" inside an id. */
+    expect(JSON.stringify(res.body)).not.toMatch(/Advance |:900(?![0-9])|₹ ?900(?![0-9])/);
   });
 
   it('a manager gets no money on lines that are not theirs, and no totals at all if none are', async () => {
