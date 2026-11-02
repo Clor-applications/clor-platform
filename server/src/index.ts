@@ -33,6 +33,7 @@ import { startOwnerPermissionSync } from './services/ownerPermissions.js';
 import { startCredentialChecks } from './services/credentialReview.js';
 import { startIntegrityChecks } from './services/integrity/checks.js';
 import { startOrgDetailBackfill } from './services/people/organization.js';
+import { startStatutoryCatalogueBackfill } from './services/payroll/statutory/resolve.js';
 
 /* Crashes and unhandled rejections are reported, not lost. */
 reportProcessErrors();
@@ -124,3 +125,5 @@ startCredentialChecks();
 startIntegrityChecks();
 /* Organization: "Detailed structure" on, once, for every company already using those lists. */
 startOrgDetailBackfill();
+/* Payroll: every company that took the standard statutory rates gets CLOR's newer PT and LWF figures, once per catalogue. */
+startStatutoryCatalogueBackfill();

@@ -1027,6 +1027,16 @@ model StatutoryRule {
   /// DRAFT | ACTIVE | SUPERSEDED
   status String @default("DRAFT")
 
+  /// Where the figures come from and how sure CLOR is of them, in plain words.
+  note            String?
+  /// SEED (CLOR's catalogue) | COMPANY (a version the company published).
+  /// Null on rows made before this was recorded: the seed step works it out.
+  origin          String?
+  /// When somebody confirmed a rule CLOR marked `config.needsCheck`
+  /// against the state's notice. Only for this version: a new one is checked again.
+  checkedAt       DateTime?
+  checkedByUserId String?
+
   createdByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -1297,6 +1307,18 @@ model PayrollSetting {
   /// reimbursements. The rest stays owed by the person (owner, 31 Oct 2026).
   /// 0 to 50: a company may be stricter than the law, never looser.
   fnfRecoveryCapPercent Int @default(50)
+
+  /// Labour Welfare Fund size thresholds (Karnataka 10, Andhra Pradesh 20…):
+  /// BY_HEADCOUNT reads the people in payroll in each state; ALWAYS treats
+  /// every establishment as covered, for a company whose headcount there
+  /// includes people payroll does not pay (contract staff, say).
+  lwfCoverage            String @default("BY_HEADCOUNT")
+  /// Designations the company counts as managers or supervisors, whom most
+  /// LWF Acts leave out. JSON array of strings; empty means nobody is left out.
+  lwfManagerDesignations String @default("[]")
+  /// The statutory catalogue version this company was last topped up to
+  /// (defaults.ts SEED_CATALOGUE_VERSION).
+  statutoryCatalogue     String?
 
   updatedByUserId String
   createdAt       DateTime @default(now())
