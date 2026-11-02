@@ -7,8 +7,12 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
-import { seedStatutoryRules } from '../services/payroll/statutory/resolve.js';
-import { SCHEME_NAMES } from '../services/payroll/statutory/defaults.js';
+import { ensureStatutoryCatalogue, ruleNeedsCheck, seedStatutoryCatalogue } from '../services/payroll/statutory/resolve.js';
+import { ruleInForce } from '../services/payroll/statutory/engine.js';
+import { SCHEME_NAMES, SEED_CATALOGUE_VERSION } from '../services/payroll/statutory/defaults.js';
+import { canonicalState, stateLabel } from '../constants/stateLevies.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
+import { todayIst } from '../utils/istDate.js';
 
 /**
  * The statutory schemes a company runs under, and the dated rules behind them.
@@ -50,6 +54,12 @@ const shapeRule = (r: any) => ({
     }
   })(),
   status: r.status,
+  note: r.note || '',
+  /* CLOR's figures, or a version the company published. */
+  origin: r.origin === 'COMPANY' ? 'COMPANY' : r.origin === 'SEED' ? 'SEED' : null,
+  /* CLOR could not confirm these from an official notice, and nobody has checked them yet. */
+  needsCheck: ruleNeedsCheck(r),
+  checkedAt: r.checkedAt || null,
 });
 
 payrollStatutoryRouter.get(
@@ -58,6 +68,9 @@ payrollStatutoryRouter.get(
   async (req, res) => {
     if (!(await payrollRouteOk(req, res))) return;
     const { accountId, orgId } = req.tenant!;
+
+    /* A company that took the standard rates before gets CLOR's newer ones, once (never over its own). */
+    await ensureStatutoryCatalogue(orgId, accountId, req.auth!.userId);
 
     const schemes = await payrollPrisma.statutoryScheme.findMany({ where: { accountId, orgId }, orderBy: { code: 'asc' } });
     const rules = schemes.length
@@ -76,7 +89,49 @@ payrollStatutoryRouter.get(
     });
     const usedBy = new Map(usage.map((u) => [u.statutoryRuleId, u._count._all]));
 
+    /* The states payroll has people in, which is where an unconfirmed rule matters. */
+    const profiles = await payrollPrisma.employeePayrollProfile.findMany({ where: { orgId, payrollStatus: 'IN_PAYROLL' }, select: { professionalTaxState: true } });
+    const peopleByState = new Map<string, number>();
+    for (const p of profiles) {
+      const st = canonicalState(p.professionalTaxState);
+      if (st) peopleByState.set(st, (peopleByState.get(st) || 0) + 1);
+    }
+
+    /*
+     * Check before use: a rule CLOR could not confirm, in force today (or on a
+     * payslip) for a state the company has people in, that nobody has checked.
+     */
+    const today = todayIst();
+    const checks: Array<{ ruleId: string; scheme: string; schemeName: string; state: string; version: string; effectiveFrom: string; note: string; people: number; usedOnPayslips: number }> = [];
+    for (const s of schemes) {
+      if (s.code !== 'PT' && s.code !== 'LWF') continue;
+      const own = rules.filter((r) => r.schemeId === s.id);
+      for (const [state, people] of peopleByState) {
+        const inForce = ruleInForce(own, today, state);
+        for (const r of own) {
+          if (canonicalState(r.jurisdiction) !== state || !ruleNeedsCheck(r)) continue;
+          if (r.id !== inForce?.id && !usedBy.get(r.id)) continue;
+          checks.push({
+            ruleId: r.id,
+            scheme: s.code,
+            schemeName: s.name || SCHEME_NAMES[s.code] || s.code,
+            state: stateLabel(state),
+            version: r.version,
+            effectiveFrom: r.effectiveFrom,
+            note: r.note || '',
+            people,
+            usedOnPayslips: usedBy.get(r.id) || 0,
+          });
+        }
+      }
+    }
+
+    const setting = await payrollPrisma.payrollSetting.findUnique({ where: { orgId }, select: { lwfCoverage: true, lwfManagerDesignations: true } });
+
     res.json({
+      checks,
+      states: [...peopleByState.entries()].map(([state, people]) => ({ state, label: stateLabel(state), people })).sort((a, b) => a.label.localeCompare(b.label)),
+      lwf: lwfSettingsShape(setting),
       schemes: schemes.map((s) => ({
         id: s.id,
         code: s.code,
@@ -97,8 +152,14 @@ payrollStatutoryRouter.post(
   async (req, res) => {
     if (!(await payrollRouteOk(req, res))) return;
     const { accountId, orgId } = req.tenant!;
-    const created = await seedStatutoryRules(orgId, accountId, req.auth!.userId);
-    res.json({ created, count: created.length });
+    const { created, kept } = await seedStatutoryCatalogue(orgId, accountId, req.auth!.userId);
+    await payrollPrisma.payrollSetting.upsert({
+      where: { orgId },
+      update: { statutoryCatalogue: SEED_CATALOGUE_VERSION },
+      create: { accountId, orgId, statutoryCatalogue: SEED_CATALOGUE_VERSION, updatedByUserId: req.auth!.userId },
+    });
+    /* `kept`: newer CLOR figures not added because the company's own rate there is later. */
+    res.json({ created, count: created.length, kept });
   }
 );
 
@@ -165,12 +226,14 @@ payrollStatutoryRouter.post(
       eligibilityThreshold: z.number().finite().min(0).optional().nullable(),
       rounding: z.enum(['NONE', 'NEAREST', 'UP', 'DOWN']).default('NEAREST'),
       config: z.record(z.string(), z.any()).default({}),
+      note: z.string().trim().max(1000).optional().nullable(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid rate.' });
     const body = parsed.data;
 
-    const jurisdiction = body.jurisdiction?.trim().toUpperCase() || null;
+    /* One spelling per state, so "KA" and "Karnataka" are the same rule. */
+    const jurisdiction = (scheme.code === 'PT' || scheme.code === 'LWF' ? canonicalState(body.jurisdiction) : body.jurisdiction?.trim().toUpperCase()) || null;
 
     const clash = await payrollPrisma.statutoryRule.findFirst({
       where: { orgId, schemeId: scheme.id, jurisdiction, effectiveFrom: body.effectiveFrom },
@@ -213,12 +276,83 @@ payrollStatutoryRouter.post(
           rounding: body.rounding,
           configJson: JSON.stringify(body.config || {}),
           status: 'ACTIVE',
+          note: body.note?.trim() || null,
+          /* The company's own figures: the seed step never replaces them, and
+             whoever wrote them has checked them. */
+          origin: 'COMPANY',
+          checkedAt: new Date(),
+          checkedByUserId: req.auth!.userId,
           createdByUserId: req.auth!.userId,
         },
       });
     });
 
     res.status(201).json({ rule: shapeRule(row) });
+  }
+);
+
+/**
+ * Confirm a rule CLOR marked "check before use": somebody has read the state's
+ * notice and the figures match. Recorded on this version only — a new version
+ * is its own set of figures. The figures themselves do not change, so a rule
+ * already on payslips can be confirmed.
+ */
+payrollStatutoryRouter.post(
+  '/orgs/:orgId/payroll/statutory/rules/:id/confirm',
+  requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const rule = await payrollPrisma.statutoryRule.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+    if (!rule) return res.status(404).json({ error: 'No such rate.' });
+    if (rule.checkedAt) return res.json({ rule: shapeRule(rule) });
+    const row = await payrollPrisma.statutoryRule.update({ where: { id: rule.id }, data: { checkedAt: new Date(), checkedByUserId: req.auth!.userId } });
+    const who = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { fullName: true, email: true } }).catch(() => null);
+    res.json({ rule: { ...shapeRule(row), checkedBy: who?.fullName || who?.email || '' } });
+  }
+);
+
+const lwfSettingsShape = (setting: { lwfCoverage?: string | null; lwfManagerDesignations?: string | null } | null) => {
+  let designations: string[] = [];
+  try {
+    const parsed = JSON.parse(setting?.lwfManagerDesignations || '[]');
+    if (Array.isArray(parsed)) designations = parsed.map((d) => String(d)).filter(Boolean);
+  } catch {
+    /* none */
+  }
+  return { coverage: setting?.lwfCoverage === 'ALWAYS' ? 'ALWAYS' : 'BY_HEADCOUNT', managerDesignations: designations };
+};
+
+/**
+ * Labour Welfare Fund: what CLOR cannot know from payroll alone.
+ *
+ * coverage            BY_HEADCOUNT (default) reads each state's size threshold
+ *                     against the people in payroll there; ALWAYS treats every
+ *                     establishment as covered (staff payroll does not pay).
+ * managerDesignations the designations counted as managers or supervisors,
+ *                     whom most Acts leave out. Empty: nobody is left out,
+ *                     which is the safe side — the fund is paid for everybody.
+ */
+payrollStatutoryRouter.put(
+  '/orgs/:orgId/payroll/statutory/lwf-settings',
+  requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const parsed = z
+      .object({
+        coverage: z.enum(['BY_HEADCOUNT', 'ALWAYS']),
+        managerDesignations: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
+      })
+      .safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Say how LWF coverage is decided, and list designations one per line.' });
+    const designations = [...new Set(parsed.data.managerDesignations.map((d) => d.trim()))];
+    const row = await payrollPrisma.payrollSetting.upsert({
+      where: { orgId },
+      update: { lwfCoverage: parsed.data.coverage, lwfManagerDesignations: JSON.stringify(designations), updatedByUserId: req.auth!.userId },
+      create: { accountId, orgId, lwfCoverage: parsed.data.coverage, lwfManagerDesignations: JSON.stringify(designations), updatedByUserId: req.auth!.userId },
+    });
+    res.json({ lwf: lwfSettingsShape(row) });
   }
 );
 
