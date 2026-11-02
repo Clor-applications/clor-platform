@@ -149,7 +149,8 @@ export const PT_SEEDS: SeedRule[] = [
     {
       basis: 'HALF_YEARLY',
       collectMonths: [8, 2],
-      localBody: 'Panchayats (G.O. 1149/2024/LSGD)',
+      /* Set by G.O. 1149/2024/LSGD. */
+      localBody: 'Panchayats',
       needsCheck: true,
       slabs: bands([[11999.99, 0], [17999.99, 320], [29999.99, 450], [44999.99, 600], [99999.99, 750], [124999.99, 1000], [null, 1250]]),
     },

@@ -510,7 +510,8 @@ export default function PayrollCompliance() {
       <Drawer
         open={Boolean(adding)}
         onClose={() => setAdding(null)}
-        title={adding ? `${adding.from ? 'Correct' : 'New'} ${adding.scheme.name} rate${adding.from?.jurisdiction ? ` — ${stateName(adding.from.jurisdiction)}` : ''}` : ''}
+        /* Short enough for a phone: the state is what matters. */
+        title={adding ? (adding.from ? `Correct rate${adding.from.jurisdiction ? ` · ${STATE_SCHEMES.includes(adding.scheme.code) ? stateName(adding.from.jurisdiction) : adding.from.jurisdiction}` : ''}` : `New ${adding.scheme.name} rate`) : ''}
       >
         {adding ? (
           <RateForm
@@ -650,6 +651,18 @@ const ptConfigOf = (pt) => ({
 });
 
 /**
+ * A new band starts a paisa above the last band's "up to". A last band left
+ * open ("No limit") is closed first, at its own "from", for HR to set.
+ */
+const addBand = (bands) => {
+  const last = bands[bands.length - 1];
+  if (!last) return [{ from: 0, to: '', amount: 0, gender: '', specialMonth: '', specialAmount: '', months: null }];
+  const upTo = String(last.to).trim() === '' ? Number(last.from) || 0 : Number(last.to);
+  const closed = bands.map((b, i) => (i === bands.length - 1 ? { ...b, to: upTo } : b));
+  return [...closed, { from: Math.round((upTo + 0.01) * 100) / 100, to: '', amount: 0, gender: last.gender || '', specialMonth: '', specialAmount: '', months: null }];
+};
+
+/**
  * Professional tax bands, in plain fields: from, to and the amount, who a
  * band is for, and a different amount in one month (February, in
  * Karnataka and Maharashtra). Yearly and half-yearly states say what the
@@ -659,7 +672,6 @@ const PtBandsEditor = ({ value, onChange }) => {
   const set = (patch) => onChange({ ...value, ...patch });
   const setBand = (i, patch) => set({ bands: value.bands.map((b, j) => (j === i ? { ...b, ...patch } : b)) });
   const per = value.basis === 'ANNUAL' ? 'a year' : value.basis === 'HALF_YEARLY' ? 'a half-year' : 'a month';
-  const last = value.bands[value.bands.length - 1];
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -748,14 +760,7 @@ const PtBandsEditor = ({ value, onChange }) => {
       <button
         type="button"
         className="ui-btn ui-btn-secondary ui-btn-sm"
-        onClick={() =>
-          set({
-            bands: [
-              ...value.bands,
-              { from: last && String(last.to).trim() !== '' ? Math.round((Number(last.to) + 0.01) * 100) / 100 : 0, to: '', amount: 0, gender: last?.gender || '', specialMonth: '', specialAmount: '', months: null },
-            ],
-          })
-        }
+        onClick={() => set({ bands: addBand(value.bands) })}
       >
         <Plus size={14} aria-hidden="true" /> Add a band
       </button>

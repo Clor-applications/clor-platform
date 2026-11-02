@@ -210,6 +210,17 @@ const sameConfig = (configJson: unknown, config: Record<string, unknown>) => {
   }
 };
 
+/** The same CLOR figures, with only the local body's name different (a label, renamed by a later catalogue). */
+const sameExceptLocalBody = (configJson: unknown, config: Record<string, unknown>) => {
+  try {
+    const row = JSON.parse(String(configJson || '{}'));
+    if (!row || row.localBody === config.localBody || row.localBody === undefined) return false;
+    return JSON.stringify({ ...row, localBody: null }) === JSON.stringify({ ...config, localBody: null });
+  } catch {
+    return false;
+  }
+};
+
 const dayBefore = (iso: string) => {
   const d = new Date(`${iso}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - 1);
@@ -342,6 +353,11 @@ async function seedInside(db: any, orgId: string, accountId: string, userId: str
          */
         if (have.origin === 'SEED' && have.row.note !== seed.note) {
           await db.$executeRaw`UPDATE "StatutoryRule" SET "note" = ${seed.note} WHERE "id" = ${have.row.id} AND "orgId" = ${orgId}`;
+        }
+        /* Likewise a renamed local body: a label, never a figure — only when everything else is CLOR's exactly. */
+        if (have.origin === 'SEED' && sameExceptLocalBody(have.row.configJson, seed.config as Record<string, unknown>)) {
+          const configJson = JSON.stringify(seed.config);
+          await db.$executeRaw`UPDATE "StatutoryRule" SET "configJson" = ${configJson} WHERE "id" = ${have.row.id} AND "orgId" = ${orgId}`;
         }
         continue;
       }
