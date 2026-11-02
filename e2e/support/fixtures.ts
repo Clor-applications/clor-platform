@@ -22,6 +22,8 @@ import { test as base, expect, type Browser, type BrowserContext, type Page, typ
 
 import { EmployeeApp } from '../pages/employeeApp';
 import { PeopleWeb } from '../pages/people';
+import { signInWeb } from '../pages/signIn';
+import { target } from '../scripts/env.mjs';
 import { auditScreen, watchPage, type Watch } from './checks';
 import { authFile, deviceOf, readWorld, type World } from './world';
 
@@ -98,6 +100,19 @@ export const test = base.extend<Fixtures>({
 
   web: async ({ newContext, w }, use, testInfo) => {
     await use(async (who) => {
+      /*
+       * On staging each web browser signs in for itself. There the apps live on
+       * their own hosts (app., people.), so opening People refreshes the
+       * session; browsers sharing one saved sign-in then present a refresh
+       * token another already rotated, and reuse detection ends every session
+       * that person has. Locally it is one host and no refresh happens, so the
+       * sign-ins saved at setup are reused.
+       */
+      if (target === 'staging') {
+        const { page } = await newContext();
+        await signInWeb(page, w.users[who].email, w.password);
+        return new PeopleWeb(page, w.asha, testInfo);
+      }
       const { page } = await newContext(authFile(w.device, who));
       return new PeopleWeb(page, w.asha, testInfo);
     });

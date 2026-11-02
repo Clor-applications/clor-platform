@@ -7,8 +7,18 @@
 const KEY = 'clor.appIntent';
 const KNOWN = new Set(['accounting', 'payroll', 'people', 'attendance']);
 
-/** Read ?app= from the address (once, on load) and remember it for this tab. */
-export function captureAppIntent(search = typeof window !== 'undefined' ? window.location.search : '') {
+/**
+ * Read ?app= from the address (once, on load) and remember it for this tab.
+ * Only on the way in (sign-up, sign-in): inside a company (/o/<code>/) ?app=
+ * names the app open in place, and remembering it there sent every later
+ * visit to the Workspace on the front door straight back to that app, which
+ * sent it back to the Workspace, round and round.
+ */
+export function captureAppIntent(
+  search = typeof window !== 'undefined' ? window.location.search : '',
+  pathname = typeof window !== 'undefined' ? window.location.pathname : '',
+) {
+  if (/^\/o\//.test(String(pathname || ''))) return null;
   try {
     const asked = new URLSearchParams(search).get('app');
     if (asked && KNOWN.has(asked)) sessionStorage.setItem(KEY, asked);
