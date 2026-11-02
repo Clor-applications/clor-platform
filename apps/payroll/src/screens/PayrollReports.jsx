@@ -512,7 +512,7 @@ function StateReturns({ rows, periodLabel, showEmployer = false }) {
         </thead>
         <tbody className="ui-rows">
           {rows.map((r) => (
-            <tr key={`${r.state}|${r.period || r.collection}`}>
+            <tr key={`${r.state}|${r.fund || ''}|${r.period || r.collection}`}>
               <td className="ui-col-meta">{r.state}</td>
               <td className="ui-col-meta">{r.period || r.collection || '—'}</td>
               <td className="ui-col-meta" style={{ whiteSpace: 'normal', minWidth: '14rem', maxWidth: '22rem' }}>

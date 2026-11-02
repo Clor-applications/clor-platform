@@ -3,7 +3,8 @@ import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { isFeatureEnabled } from '../features.js';
 import { addDays, istDate, todayIst } from '../../utils/istDate.js';
-import { canonicalState, stateLabel, ptDueFor, lwfDueFor, PT_FILINGS, LWF_FILINGS, NO_PT_STATES } from '../../constants/stateLevies.js';
+import { canonicalState, stateLabel, ptDueFor, lwfDueFor, lwfFilingFor, PT_FILINGS, LWF_FILINGS, NO_PT_STATES } from '../../constants/stateLevies.js';
+import { ruleInForce } from '../payroll/statutory/engine.js';
 
 /**
  * Compliance calendar (HR research, Phase 2: "compliance calendar,
@@ -55,22 +56,58 @@ export async function applicability(accountId: string, orgId: string) {
     isFeatureEnabled(accountId, orgId, 'payroll'),
     peoplePrisma.employee.count({ where: { accountId, orgId, status: { not: 'LEFT' } } }),
   ]);
-  const [profiles, lwfOn] = payroll
+  const [profiles, lwfScheme, setting] = payroll
     ? await Promise.all([
         payrollPrisma.employeePayrollProfile.findMany({ where: { orgId, payrollStatus: 'IN_PAYROLL' }, select: { pfApplicable: true, esiApplicable: true, ptApplicable: true, professionalTaxState: true } }),
-        payrollPrisma.statutoryScheme.count({ where: { orgId, code: 'LWF', isEnabled: true } }),
+        payrollPrisma.statutoryScheme.findFirst({ where: { orgId, code: 'LWF', isEnabled: true }, select: { id: true } }),
+        payrollPrisma.payrollSetting.findUnique({ where: { orgId }, select: { lwfCoverage: true } }),
       ])
-    : [[], 0];
+    : [[], null, null];
   /* One name per state, so "KA" and "Karnataka" are one deadline. */
   const ptStates = [...new Set(profiles.filter((p) => p.ptApplicable && canonicalState(p.professionalTaxState)).map((p) => canonicalState(p.professionalTaxState)))].sort();
-  /* LWF reaches everybody in payroll in a state that collects it, once the company switches it on. */
-  const lwfStates = lwfOn ? [...new Set(profiles.map((p) => canonicalState(p.professionalTaxState)).filter((st) => st && LWF_FILINGS[st]))].sort() : [];
+  /*
+   * LWF: each fund of each state with people in payroll, once the company
+   * switches LWF on — and only where the establishment is big enough for the
+   * state's rule in force (Karnataka from 10, Andhra Pradesh from 20…), read
+   * the way the pay run reads it: the people in payroll there, unless the
+   * company says it is covered anyway.
+   */
+  const headcount = new Map<string, number>();
+  for (const p of profiles) {
+    const st = canonicalState(p.professionalTaxState);
+    if (st) headcount.set(st, (headcount.get(st) || 0) + 1);
+  }
+  const lwfFunds: Array<{ state: string; fund: string }> = [];
+  if (lwfScheme) {
+    const rules = await payrollPrisma.statutoryRule.findMany({ where: { orgId, schemeId: lwfScheme.id, status: { in: ['ACTIVE', 'SUPERSEDED'] } } });
+    const always = setting?.lwfCoverage === 'ALWAYS';
+    for (const [st, people] of [...headcount.entries()].sort(([x], [y]) => x.localeCompare(y))) {
+      if (!LWF_FILINGS[st]) continue;
+      const rule = ruleInForce(rules, todayIst(), st);
+      if (!rule) continue;
+      let config: Record<string, any> = {};
+      try {
+        config = JSON.parse(rule.configJson || '{}') || {};
+      } catch {
+        /* a rule that does not parse is read as having no threshold */
+      }
+      const funds: Array<Record<string, any>> = Array.isArray(config.funds) && config.funds.length ? config.funds : [config];
+      for (const f of funds) {
+        const min = Number(f.minEmployees ?? config.minEmployees) || 0;
+        if (!always && min && people < min) continue;
+        const fund = f.name && LWF_FILINGS[st].funds?.[f.name] ? String(f.name) : '';
+        if (!lwfFunds.some((x) => x.state === st && x.fund === fund)) lwfFunds.push({ state: st, fund });
+      }
+    }
+  }
+  const lwfStates = [...new Set(lwfFunds.map((x) => x.state))];
   return {
     payroll: payroll && profiles.length > 0,
     pf: profiles.some((p) => p.pfApplicable),
     esi: profiles.some((p) => p.esiApplicable),
     ptStates,
     lwfStates,
+    lwfFunds,
     /* An Internal Committee and its annual report: workplaces of ten or more (POSH Act s.4, s.21). */
     posh: people >= 10,
     people,
@@ -109,10 +146,12 @@ export function dueDates(a: Awaited<ReturnType<typeof applicability>>, from: str
         note: f?.dueKnown ? `${f.how} The usual date: confirm it with the state's notification, and file on the state portal.` : "CLOR does not know this state's due date: set it, and confirm with the state.",
       });
     }
-    for (const state of (a.lwfStates || []).map(canonicalState)) {
-      const code = `LWF_${state.replace(/[^A-Z]+/g, '_')}`;
-      const f = LWF_FILINGS[state];
-      const due = lwfDueFor(state, y, m);
+    const funds = a.lwfFunds || (a.lwfStates || []).map((st) => ({ state: canonicalState(st), fund: '' }));
+    for (const { state, fund } of funds) {
+      /* Kerala's shops fund is its own monthly deadline beside the half-yearly fund. */
+      const code = `LWF_${state.replace(/[^A-Z]+/g, '_')}${fund ? '_SHOPS' : ''}`;
+      const f = lwfFilingFor(state, fund);
+      const due = lwfDueFor(state, y, m, fund);
       if (!f || !due || out.some((d) => d.code === code && d.period === due.key)) continue;
       out.push({
         code,
@@ -144,6 +183,33 @@ export function dueDates(a: Awaited<ReturnType<typeof applicability>>, from: str
   return out.filter((d) => within(d.dueDate));
 }
 
+/**
+ * A PT or LWF deadline made under an older reading of the state: a raw
+ * spelling (PT_KA beside PT_KARNATAKA), or a monthly period for a state that
+ * files by half-year or quarter (Tamil Nadu's old monthly items). Closed as
+ * not applicable, so the calendar never shows the same return twice.
+ */
+export function staleLevyItem(code: string, period: string) {
+  const m = /^(PT|LWF)_(.+?)(_SHOPS)?$/.exec(code);
+  if (!m) return false;
+  const state = canonicalState(m[2].replace(/_/g, ' '));
+  if (`${m[1]}_${state.replace(/[^A-Z]+/g, '_')}${m[3] || ''}` !== code) return true;
+  if (m[1] === 'PT') {
+    const f = PT_FILINGS[state];
+    if (f && f.due.kind === 'PERIODS' && /^\d{4}-\d{2}$/.test(period)) return true;
+  }
+  return false;
+}
+
+const STALE_NOTE = 'Replaced: CLOR now lists this state’s return under its own name and filing period.';
+
+/** Close the open PT and LWF items an older calendar made that the current one replaces. */
+async function closeStaleLevyTasks(orgId: string) {
+  const open = await peoplePrisma.complianceTask.findMany({ where: { orgId, status: 'OPEN', OR: [{ code: { startsWith: 'PT_' } }, { code: { startsWith: 'LWF_' } }] }, select: { id: true, code: true, period: true } });
+  const stale = open.filter((t) => staleLevyItem(t.code, t.period)).map((t) => t.id);
+  if (stale.length) await peoplePrisma.complianceTask.updateMany({ where: { orgId, id: { in: stale } }, data: { status: 'NOT_APPLICABLE', note: STALE_NOTE } });
+}
+
 const linkFor = (code: string): Link => LINKS[code] ?? (code.startsWith('PT_') ? LINKS.PT : code.startsWith('LWF_') ? LINKS.LWF : null);
 
 /** The calendar: what is due from two months ago to three months ahead, plus anything still open from before. */
@@ -156,6 +222,7 @@ export async function calendar(who: Who) {
   const org = await platformPrisma.org.findUnique({ where: { id: who.orgId }, select: { createdAt: true } });
   const joined = org ? istDate(org.createdAt) : from;
   const due = dueDates(a, joined > from ? joined : from, to);
+  await closeStaleLevyTasks(who.orgId);
   if (due.length) {
     await peoplePrisma.complianceTask.createMany({
       data: due.map((d) => ({ accountId: who.accountId, orgId: who.orgId, code: d.code, period: d.period, title: d.title, dueDate: d.dueDate, note: d.note ?? null })),

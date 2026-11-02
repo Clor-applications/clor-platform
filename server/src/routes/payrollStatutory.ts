@@ -3,11 +3,11 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
-import { ensureStatutoryCatalogue, ruleNeedsCheck, seedStatutoryCatalogue } from '../services/payroll/statutory/resolve.js';
+import { ensureStatutoryCatalogue, NOT_IN_FORCE, ruleNeedsCheck, seedStatutoryCatalogue } from '../services/payroll/statutory/resolve.js';
 import { ruleInForce } from '../services/payroll/statutory/engine.js';
 import { SCHEME_NAMES, SEED_CATALOGUE_VERSION } from '../services/payroll/statutory/defaults.js';
 import { canonicalState, stateLabel } from '../constants/stateLevies.js';
@@ -69,13 +69,23 @@ payrollStatutoryRouter.get(
     if (!(await payrollRouteOk(req, res))) return;
     const { accountId, orgId } = req.tenant!;
 
-    /* A company that took the standard rates before gets CLOR's newer ones, once (never over its own). */
-    await ensureStatutoryCatalogue(orgId, accountId, req.auth!.userId);
+    /*
+     * A company that took the standard rates before gets CLOR's newer ones,
+     * once (never over its own). Only for somebody who may edit the rates —
+     * a read by a viewer writes nothing; the startup job covers the rest —
+     * and a top-up that fails never fails the screen.
+     */
+    if (!(await authorize(req, PAYROLL_MODULE, PermissionAction.EDIT, RESOURCE))) {
+      await ensureStatutoryCatalogue(orgId, accountId, req.auth!.userId).catch((e) =>
+        console.error(`[statutory-catalogue] ${orgId}:`, e instanceof Error ? e.message : e) // eslint-disable-line no-console
+      );
+    }
 
     const schemes = await payrollPrisma.statutoryScheme.findMany({ where: { accountId, orgId }, orderBy: { code: 'asc' } });
     const rules = schemes.length
       ? await payrollPrisma.statutoryRule.findMany({
-          where: { orgId, schemeId: { in: schemes.map((s) => s.id) } },
+          /* A CLOR rate the company removed is kept only so it does not come back. */
+          where: { orgId, schemeId: { in: schemes.map((s) => s.id) }, status: { not: 'WITHDRAWN' } },
           orderBy: [{ effectiveFrom: 'desc' }],
         })
       : [];
@@ -126,10 +136,30 @@ payrollStatutoryRouter.get(
       }
     }
 
-    const setting = await payrollPrisma.payrollSetting.findUnique({ where: { orgId }, select: { lwfCoverage: true, lwfManagerDesignations: true } });
+    const setting = await payrollPrisma.payrollSetting.findUnique({ where: { orgId }, select: { lwfCoverage: true, lwfManagerDesignations: true, lwfSupervisorDesignations: true } });
+
+    /* "CLOR has newer figures": offered beside the company's own rule, not in force until adopted. */
+    const offers = schemes.flatMap((s) =>
+      rules
+        .filter((r) => r.schemeId === s.id && r.status === 'DRAFT' && r.origin === 'SEED')
+        .map((r) => {
+          const current = ruleInForce(rules.filter((o) => o.schemeId === s.id), today, r.jurisdiction);
+          return {
+            ruleId: r.id,
+            scheme: s.code,
+            schemeName: s.name || SCHEME_NAMES[s.code] || s.code,
+            state: stateLabel(String(r.jurisdiction || '')),
+            effectiveFrom: r.effectiveFrom,
+            note: r.note || '',
+            /* What stays in force until somebody adopts the offer. */
+            yours: current && current.origin !== 'SEED' ? { effectiveFrom: current.effectiveFrom, version: current.version } : null,
+          };
+        })
+    );
 
     res.json({
       checks,
+      offers,
       states: [...peopleByState.entries()].map(([state, people]) => ({ state, label: stateLabel(state), people })).sort((a, b) => a.label.localeCompare(b.label)),
       lwf: lwfSettingsShape(setting),
       schemes: schemes.map((s) => ({
@@ -152,14 +182,15 @@ payrollStatutoryRouter.post(
   async (req, res) => {
     if (!(await payrollRouteOk(req, res))) return;
     const { accountId, orgId } = req.tenant!;
-    const { created, kept } = await seedStatutoryCatalogue(orgId, accountId, req.auth!.userId);
+    const { created, kept, offered } = await seedStatutoryCatalogue(orgId, accountId, req.auth!.userId);
     await payrollPrisma.payrollSetting.upsert({
       where: { orgId },
       update: { statutoryCatalogue: SEED_CATALOGUE_VERSION },
       create: { accountId, orgId, statutoryCatalogue: SEED_CATALOGUE_VERSION, updatedByUserId: req.auth!.userId },
     });
     /* `kept`: newer CLOR figures not added because the company's own rate there is later. */
-    res.json({ created, count: created.length, kept });
+    /* `offered`: newer CLOR figures beside the company's own, waiting as drafts to be adopted. */
+    res.json({ created, count: created.length, kept, offered });
   }
 );
 
@@ -235,18 +266,32 @@ payrollStatutoryRouter.post(
     /* One spelling per state, so "KA" and "Karnataka" are the same rule. */
     const jurisdiction = (scheme.code === 'PT' || scheme.code === 'LWF' ? canonicalState(body.jurisdiction) : body.jurisdiction?.trim().toUpperCase()) || null;
 
-    const clash = await payrollPrisma.statutoryRule.findFirst({
+    /*
+     * A rate already starting that day. The company's own: refused — remove it
+     * or pick another date. Only CLOR's: a correction from the same date is
+     * allowed as a suffixed version (2023-04-01.2, .3…), the way CLOR corrected
+     * Maharashtra, and CLOR's version is closed so it never applies again.
+     */
+    const sameDay = await payrollPrisma.statutoryRule.findMany({
       where: { orgId, schemeId: scheme.id, jurisdiction, effectiveFrom: body.effectiveFrom },
-      select: { id: true },
+      select: { id: true, origin: true, version: true, status: true },
     });
-    if (clash) {
+    if (sameDay.some((r) => r.origin !== 'SEED')) {
       return res.status(409).json({
         error: `A ${scheme.name} rate already starts on ${body.effectiveFrom}${jurisdiction ? ` for ${jurisdiction}` : ''}.`,
         code: 'RULE_EXISTS',
       });
     }
+    const suffix = sameDay.reduce((n, r) => Math.max(n, Number(String(r.version).split('.')[1]) || 1), 0);
+    const version = sameDay.length ? `${body.effectiveFrom}.${suffix + 1}` : body.effectiveFrom;
 
     const row = await payrollPrisma.$transaction(async (tx) => {
+      /* CLOR's version from the same day: closed before it starts, kept for any payslip that used it. */
+      for (const r of sameDay) {
+        if (r.status === 'ACTIVE' || r.status === 'SUPERSEDED') {
+          await tx.statutoryRule.update({ where: { id: r.id }, data: { effectiveTo: dayBefore(body.effectiveFrom), status: 'SUPERSEDED' } });
+        }
+      }
       /* The version before this one ends the day before it starts, so no two
          versions ever cover the same day. */
       const previous = await tx.statutoryRule.findFirst({
@@ -268,7 +313,7 @@ payrollStatutoryRouter.post(
           schemeId: scheme.id,
           jurisdiction,
           effectiveFrom: body.effectiveFrom,
-          version: body.effectiveFrom,
+          version,
           employeeRate: body.employeeRate,
           employerRate: body.employerRate,
           wageCeiling: body.wageCeiling ?? null,
@@ -292,6 +337,42 @@ payrollStatutoryRouter.post(
 );
 
 /**
+ * Adopt CLOR's newer figures offered beside the company's own rule.
+ *
+ * The seed step never puts CLOR's figures in force over a company's own; it
+ * leaves them as a DRAFT ("CLOR has newer figures"). Adopting one puts it in
+ * force from its date and closes the company's rule the day before — the
+ * same as publishing a new rate. The company's rule stays on record.
+ */
+payrollStatutoryRouter.post(
+  '/orgs/:orgId/payroll/statutory/rules/:id/adopt',
+  requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const rule = await payrollPrisma.statutoryRule.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+    if (!rule) return res.status(404).json({ error: 'No such rate.' });
+    if (rule.status !== 'DRAFT') return res.status(409).json({ error: 'Only figures CLOR is offering can be adopted.', code: 'NOT_AN_OFFER' });
+    const later = await payrollPrisma.statutoryRule.findFirst({
+      where: { orgId, schemeId: rule.schemeId, jurisdiction: rule.jurisdiction, status: { in: ['ACTIVE', 'SUPERSEDED'] }, effectiveFrom: { gte: rule.effectiveFrom } },
+      select: { effectiveFrom: true },
+    });
+    if (later) {
+      return res.status(409).json({ error: `Your own rate from ${later.effectiveFrom} is later than these figures, so they would never apply. Remove the offer, or publish a new rate.`, code: 'OFFER_OUTDATED' });
+    }
+    const row = await payrollPrisma.$transaction(async (tx) => {
+      const previous = await tx.statutoryRule.findFirst({
+        where: { orgId, schemeId: rule.schemeId, jurisdiction: rule.jurisdiction, status: 'ACTIVE', effectiveFrom: { lt: rule.effectiveFrom } },
+        orderBy: { effectiveFrom: 'desc' },
+      });
+      if (previous) await tx.statutoryRule.update({ where: { id: previous.id }, data: { effectiveTo: dayBefore(rule.effectiveFrom), status: 'SUPERSEDED' } });
+      return tx.statutoryRule.update({ where: { id: rule.id }, data: { status: 'ACTIVE' } });
+    });
+    res.json({ rule: shapeRule(row) });
+  }
+);
+
+/**
  * Confirm a rule CLOR marked "check before use": somebody has read the state's
  * notice and the figures match. Recorded on this version only — a new version
  * is its own set of figures. The figures themselves do not change, so a rule
@@ -306,21 +387,36 @@ payrollStatutoryRouter.post(
     const rule = await payrollPrisma.statutoryRule.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
     if (!rule) return res.status(404).json({ error: 'No such rate.' });
     if (rule.checkedAt) return res.json({ rule: shapeRule(rule) });
-    const row = await payrollPrisma.statutoryRule.update({ where: { id: rule.id }, data: { checkedAt: new Date(), checkedByUserId: req.auth!.userId } });
+    /*
+     * Written without moving `updatedAt`: confirming changes no figure, so a
+     * run calculated under this rule is not made stale by it (runStale reads
+     * rule updates) and can be approved straight after.
+     */
+    await payrollPrisma.$executeRaw`UPDATE "StatutoryRule" SET "checkedAt" = NOW(), "checkedByUserId" = ${req.auth!.userId} WHERE "id" = ${rule.id} AND "orgId" = ${orgId}`;
+    const row = await payrollPrisma.statutoryRule.findUniqueOrThrow({ where: { id: rule.id } });
     const who = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { fullName: true, email: true } }).catch(() => null);
     res.json({ rule: { ...shapeRule(row), checkedBy: who?.fullName || who?.email || '' } });
   }
 );
 
-const lwfSettingsShape = (setting: { lwfCoverage?: string | null; lwfManagerDesignations?: string | null } | null) => {
-  let designations: string[] = [];
+const listOf = (json: string | null | undefined) => {
   try {
-    const parsed = JSON.parse(setting?.lwfManagerDesignations || '[]');
-    if (Array.isArray(parsed)) designations = parsed.map((d) => String(d)).filter(Boolean);
+    const parsed = JSON.parse(json || '[]');
+    return Array.isArray(parsed) ? parsed.map((d) => String(d)).filter(Boolean) : [];
   } catch {
-    /* none */
+    return [];
   }
-  return { coverage: setting?.lwfCoverage === 'ALWAYS' ? 'ALWAYS' : 'BY_HEADCOUNT', managerDesignations: designations };
+};
+const lwfSettingsShape = (setting: { lwfCoverage?: string | null; lwfManagerDesignations?: string | null; lwfSupervisorDesignations?: string | null } | null) => ({
+  coverage: setting?.lwfCoverage === 'ALWAYS' ? 'ALWAYS' : 'BY_HEADCOUNT',
+  managerDesignations: listOf(setting?.lwfManagerDesignations),
+  supervisorDesignations: listOf(setting?.lwfSupervisorDesignations),
+});
+
+const dayBefore = (iso: string) => {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 };
 
 /**
@@ -329,9 +425,12 @@ const lwfSettingsShape = (setting: { lwfCoverage?: string | null; lwfManagerDesi
  * coverage            BY_HEADCOUNT (default) reads each state's size threshold
  *                     against the people in payroll there; ALWAYS treats every
  *                     establishment as covered (staff payroll does not pay).
- * managerDesignations the designations counted as managers or supervisors,
- *                     whom most Acts leave out. Empty: nobody is left out,
- *                     which is the safe side — the fund is paid for everybody.
+ * managerDesignations    counted as managers: left out wherever a state's Act
+ *                        leaves managers out, whatever they earn.
+ * supervisorDesignations counted as supervisors: left out only above the
+ *                        state's supervisory pay limit, where it sets one.
+ * Both empty by default: nobody is left out, the safe side — the fund is
+ * paid for everybody.
  */
 payrollStatutoryRouter.put(
   '/orgs/:orgId/payroll/statutory/lwf-settings',
@@ -343,24 +442,29 @@ payrollStatutoryRouter.put(
       .object({
         coverage: z.enum(['BY_HEADCOUNT', 'ALWAYS']),
         managerDesignations: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
+        supervisorDesignations: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
       })
       .safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'Say how LWF coverage is decided, and list designations one per line.' });
-    const designations = [...new Set(parsed.data.managerDesignations.map((d) => d.trim()))];
-    const row = await payrollPrisma.payrollSetting.upsert({
-      where: { orgId },
-      update: { lwfCoverage: parsed.data.coverage, lwfManagerDesignations: JSON.stringify(designations), updatedByUserId: req.auth!.userId },
-      create: { accountId, orgId, lwfCoverage: parsed.data.coverage, lwfManagerDesignations: JSON.stringify(designations), updatedByUserId: req.auth!.userId },
-    });
+    const managers = [...new Set(parsed.data.managerDesignations.map((d) => d.trim()))];
+    const managerKeys = new Set(managers.map((d) => d.toLowerCase()));
+    /* A designation is one or the other; on both lists, it counts as a manager. */
+    const supervisors = [...new Set(parsed.data.supervisorDesignations.map((d) => d.trim()))].filter((d) => !managerKeys.has(d.toLowerCase()));
+    const data = { lwfCoverage: parsed.data.coverage, lwfManagerDesignations: JSON.stringify(managers), lwfSupervisorDesignations: JSON.stringify(supervisors), updatedByUserId: req.auth!.userId };
+    const row = await payrollPrisma.payrollSetting.upsert({ where: { orgId }, update: data, create: { accountId, orgId, ...data } });
     res.json({ lwf: lwfSettingsShape(row) });
   }
 );
 
 /**
- * Remove a rate that has never been used.
+ * Remove a rate that has never been used — or decline CLOR's offered figures.
  *
  * One that has produced a payslip is a permanent record: the payslip names its
  * version, and deleting it would leave figures nobody could explain.
+ *
+ * A CLOR rate is not deleted but WITHDRAWN: the row stays, never in force and
+ * not shown, so the seed step and later catalogues know the company removed
+ * it and do not bring it back.
  */
 payrollStatutoryRouter.delete(
   '/orgs/:orgId/payroll/statutory/rules/:id',
@@ -380,9 +484,12 @@ payrollStatutoryRouter.delete(
       });
     }
 
+    const ours = rule.origin === 'SEED';
+    const wasInForce = rule.status === 'ACTIVE' || rule.status === 'SUPERSEDED';
     await payrollPrisma.$transaction(async (tx) => {
       /*
-       * The version this one closed reopens, taking over its window.
+       * The version this one closed reopens, taking over its window — only if
+       * this one was ever in force: a declined offer (DRAFT) closed nothing.
        *
        * Publishing a rate ends the one before it the day prior. Deleting the
        * new one without undoing that would leave the old one SUPERSEDED with an
@@ -397,11 +504,13 @@ payrollStatutoryRouter.delete(
           jurisdiction: rule.jurisdiction,
           id: { not: rule.id },
           effectiveFrom: { lt: rule.effectiveFrom },
+          status: { notIn: NOT_IN_FORCE },
         },
         orderBy: { effectiveFrom: 'desc' },
       });
-      await tx.statutoryRule.delete({ where: { id: rule.id } });
-      if (previous) {
+      if (ours) await tx.statutoryRule.update({ where: { id: rule.id }, data: { status: 'WITHDRAWN', effectiveTo: null } });
+      else await tx.statutoryRule.delete({ where: { id: rule.id } });
+      if (previous && wasInForce) {
         await tx.statutoryRule.update({
           where: { id: previous.id },
           data: { effectiveTo: rule.effectiveTo || null, status: rule.status },

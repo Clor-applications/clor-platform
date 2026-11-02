@@ -50,6 +50,8 @@ export type RunIssue = {
   code: string;
   message: string;
   employeeId?: string;
+  /** A statutory rule the issue is about (RULE_NEEDS_CHECK). */
+  ruleId?: string;
 };
 
 const PERIODS_PER_YEAR: Record<string, number> = { MONTHLY: 12, FORTNIGHTLY: 26, WEEKLY: 52 };
@@ -127,8 +129,7 @@ export const monthsLeftInFinancialYear = (isoDate: string) => {
  * which deducted more every month and the whole year's tax in March.
  */
 async function taxPaidSoFar(orgId: string, run: { id: string; payrollDate: string }, employeeIds: string[]) {
-  /* Gross and TDS for income tax; professional tax for the ₹2,500 a year it may not pass. */
-  const out = new Map<string, { gross: number; tds: number; pt: number }>();
+  const out = new Map<string, { gross: number; tds: number }>();
   if (!employeeIds.length) return out;
   const earlier = await payrollPrisma.payrollRun.findMany({
     where: {
@@ -144,38 +145,110 @@ async function taxPaidSoFar(orgId: string, run: { id: string; payrollDate: strin
     where: { orgId, runId: { in: earlier.map((r) => r.id) }, employeeId: { in: employeeIds } },
     select: { id: true, employeeId: true, grossEarnings: true },
   });
-  const schemeComponents = await payrollPrisma.salaryComponent.findMany({ where: { orgId, statutoryScheme: { in: ['TDS', 'PT'] } }, select: { id: true, statutoryScheme: true, type: true } });
-  const schemeOf = new Map(schemeComponents.filter((c) => c.type === 'DEDUCTION' || c.statutoryScheme === 'TDS').map((c) => [c.id, String(c.statutoryScheme)]));
-  const lines = slips.length && schemeOf.size
+  const tdsComponents = await payrollPrisma.salaryComponent.findMany({ where: { orgId, statutoryScheme: 'TDS' }, select: { id: true } });
+  const lines = slips.length && tdsComponents.length
     ? await payrollPrisma.salarySlipLine.findMany({
-        where: { orgId, slipId: { in: slips.map((x) => x.id) }, componentId: { in: [...schemeOf.keys()] } },
-        select: { slipId: true, amount: true, componentId: true },
+        where: { orgId, slipId: { in: slips.map((x) => x.id) }, componentId: { in: tdsComponents.map((c) => c.id) } },
+        select: { slipId: true, amount: true },
       })
     : [];
   const tdsBySlip = new Map<string, number>();
-  const ptBySlip = new Map<string, number>();
-  for (const l of lines) {
-    const into = schemeOf.get(l.componentId) === 'PT' ? ptBySlip : tdsBySlip;
-    into.set(l.slipId, (into.get(l.slipId) || 0) + Number(l.amount));
-  }
+  for (const l of lines) tdsBySlip.set(l.slipId, (tdsBySlip.get(l.slipId) || 0) + Number(l.amount));
   for (const x of slips) {
-    const cur = out.get(x.employeeId) || { gross: 0, tds: 0, pt: 0 };
+    const cur = out.get(x.employeeId) || { gross: 0, tds: 0 };
     cur.gross = round2(cur.gross + Number(x.grossEarnings));
     cur.tds = round2(cur.tds + (tdsBySlip.get(x.id) || 0));
-    cur.pt = round2(cur.pt + (ptBySlip.get(x.id) || 0));
     out.set(x.employeeId, cur);
   }
   return out;
 }
 
+/** Runs whose payslips count as professional tax taken: calculated or further along, never this one. */
+const PT_COUNTED_RUNS = ['CALCULATED', 'REVIEW', 'APPROVED', 'LOCKED', 'PAID', 'POSTED'];
+
+export type PtSoFar = { yearToDate: number; thisMonth: number; byState: Map<string, { amount: number; months: number }> };
+
+/**
+ * Professional tax already on payslips this financial year, by the month the
+ * pay is FOR (the pay period), not the day it was paid.
+ *
+ * Every other run counts — the monthly one, an off-cycle bonus run, a second
+ * run in the same month — so the ₹2,500 a year holds, the balance month
+ * (March) takes what is left in that state, and nobody is taxed twice for
+ * one month. The amounts are the PT lines actually deducted; the state is
+ * the one the payslip recorded.
+ */
+export async function ptPaidSoFar(orgId: string, run: { id: string }, period: { startDate: string }, employeeIds: string[]) {
+  const out = new Map<string, PtSoFar>();
+  if (!employeeIds.length) return out;
+  const fyStart = financialYearStart(period.startDate);
+  const month = period.startDate.slice(0, 7);
+  const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { gte: fyStart, lte: `${month}-31` } }, select: { id: true, startDate: true } });
+  if (!periods.length) return out;
+  const startOf = new Map(periods.map((p) => [p.id, p.startDate]));
+  const runs = await payrollPrisma.payrollRun.findMany({ where: { orgId, id: { not: run.id }, periodId: { in: periods.map((p) => p.id) }, status: { in: PT_COUNTED_RUNS } }, select: { id: true } });
+  if (!runs.length) return out;
+  const slips = await payrollPrisma.salarySlip.findMany({
+    where: { orgId, runId: { in: runs.map((r) => r.id) }, employeeId: { in: employeeIds }, status: { not: 'CANCELLED' } },
+    select: { id: true, employeeId: true, periodId: true, statutorySnapshotJson: true },
+  });
+  const ptComponents = await payrollPrisma.salaryComponent.findMany({ where: { orgId, statutoryScheme: 'PT', type: 'DEDUCTION' }, select: { id: true } });
+  const lines = slips.length && ptComponents.length
+    ? await payrollPrisma.salarySlipLine.findMany({ where: { orgId, slipId: { in: slips.map((x) => x.id) }, componentId: { in: ptComponents.map((c) => c.id) } }, select: { slipId: true, amount: true } })
+    : [];
+  const ptBySlip = new Map<string, number>();
+  for (const l of lines) ptBySlip.set(l.slipId, (ptBySlip.get(l.slipId) || 0) + Number(l.amount));
+  const monthsSeen = new Map<string, Set<string>>();
+  for (const x of slips) {
+    const amount = ptBySlip.get(x.id) || 0;
+    if (!amount) continue;
+    let state = '';
+    try {
+      const snap = JSON.parse(x.statutorySnapshotJson || '{}');
+      state = canonicalState((snap.results || []).find((r: any) => r.scheme === 'PT')?.jurisdiction);
+    } catch {
+      /* an old payslip without a snapshot: counted for the year, not for a state */
+    }
+    const cur = out.get(x.employeeId) || { yearToDate: 0, thisMonth: 0, byState: new Map() };
+    cur.yearToDate = round2(cur.yearToDate + amount);
+    const slipMonth = String(startOf.get(x.periodId) || '').slice(0, 7);
+    if (slipMonth === month) cur.thisMonth = round2(cur.thisMonth + amount);
+    else if (state) {
+      const st = cur.byState.get(state) || { amount: 0, months: 0 };
+      st.amount = round2(st.amount + amount);
+      const seen = monthsSeen.get(`${x.employeeId}|${state}`) || new Set<string>();
+      if (!seen.has(slipMonth)) {
+        seen.add(slipMonth);
+        st.months += 1;
+      }
+      monthsSeen.set(`${x.employeeId}|${state}`, seen);
+      cur.byState.set(state, st);
+    }
+    out.set(x.employeeId, cur);
+  }
+  return out;
+}
+
+const designationList = (json: string | null | undefined) => {
+  try {
+    const parsed = JSON.parse(json || '[]');
+    return Array.isArray(parsed) ? parsed.map((d) => String(d).trim().toLowerCase()).filter(Boolean) : [];
+  } catch {
+    /* a setting that does not parse leaves nobody out */
+    return [];
+  }
+};
+
 /**
  * What LWF needs to know about the company: how many people payroll has in
  * each state (for a state's size threshold), whether the company says it is
- * covered anyway, and which designations it counts as managerial.
+ * covered anyway, and which designations it counts as managers (always left
+ * out where the Act leaves managers out) and as supervisors (left out only
+ * above the state's pay limit).
  */
 export async function lwfSettingsFor(orgId: string) {
   const [setting, profiles] = await Promise.all([
-    payrollPrisma.payrollSetting.findUnique({ where: { orgId }, select: { lwfCoverage: true, lwfManagerDesignations: true } }),
+    payrollPrisma.payrollSetting.findUnique({ where: { orgId }, select: { lwfCoverage: true, lwfManagerDesignations: true, lwfSupervisorDesignations: true } }),
     payrollPrisma.employeePayrollProfile.findMany({ where: { orgId, payrollStatus: 'IN_PAYROLL' }, select: { professionalTaxState: true } }),
   ]);
   const headcountByState = new Map<string, number>();
@@ -183,17 +256,16 @@ export async function lwfSettingsFor(orgId: string) {
     const state = canonicalState(p.professionalTaxState);
     if (state) headcountByState.set(state, (headcountByState.get(state) || 0) + 1);
   }
-  let designations: string[] = [];
-  try {
-    const parsed = JSON.parse(setting?.lwfManagerDesignations || '[]');
-    if (Array.isArray(parsed)) designations = parsed.map((d) => String(d).trim().toLowerCase()).filter(Boolean);
-  } catch {
-    /* a setting that does not parse leaves nobody out */
-  }
+  const managers = new Set(designationList(setting?.lwfManagerDesignations));
+  const supervisors = new Set(designationList(setting?.lwfSupervisorDesignations));
   return {
     coverage: (setting?.lwfCoverage === 'ALWAYS' ? 'ALWAYS' : 'BY_HEADCOUNT') as 'ALWAYS' | 'BY_HEADCOUNT',
     headcountByState,
-    managerial: new Set(designations),
+    roleOf: (designation: string | null | undefined): 'MANAGER' | 'SUPERVISOR' | null => {
+      const d = String(designation || '').trim().toLowerCase();
+      if (!d) return null;
+      return managers.has(d) ? 'MANAGER' : supervisors.has(d) ? 'SUPERVISOR' : null;
+    },
   };
 }
 
@@ -350,6 +422,7 @@ async function loadRunContext(orgId: string, runId: string) {
 
   const taxSoFar = await taxPaidSoFar(orgId, run, employeeIds);
   const lwfSettings = await lwfSettingsFor(orgId);
+  const ptSoFar = await ptPaidSoFar(orgId, run, period, employeeIds);
   const taxDeclarations = new Map(
     (
       await payrollPrisma.taxDeclaration.findMany({ where: { orgId, financialYear: financialYearOf(run.payrollDate), employeeId: { in: employeeIds } } })
@@ -365,6 +438,7 @@ async function loadRunContext(orgId: string, runId: string) {
     taxDeclarations,
     taxSoFar,
     lwfSettings,
+    ptSoFar,
     recoveriesByEmployee: recoveries.reduce((m, r) => {
       const list = m.get(r.employeeId) || [];
       list.push(r);
@@ -566,7 +640,7 @@ function calculateWithStatutory(
 
   /* Months left in the Indian financial year, this one included, which is what TDS spreads over. */
   const monthsRemaining = monthsLeftInFinancialYear(ctx.run.payrollDate);
-  const soFar = ctx.taxSoFar.get(assignment.employeeId) || { gross: 0, tds: 0, pt: 0 };
+  const soFar = ctx.taxSoFar.get(assignment.employeeId) || { gross: 0, tds: 0 };
   const declaration = ctx.taxDeclarations.get(assignment.employeeId) || null;
   const person = ctx.employees.get(assignment.employeeId);
   const employee = {
@@ -576,8 +650,8 @@ function calculateWithStatutory(
     professionalTaxState: profile?.professionalTaxState ?? null,
     /* Maharashtra's women's bands read gender from the People record. */
     gender: person?.gender ?? null,
-    /* LWF leaves out the designations the company lists as managerial. */
-    managerial: Boolean(person?.designation && ctx.lwfSettings.managerial.has(String(person.designation).trim().toLowerCase())),
+    /* LWF leaves out the company's managers, and its supervisors above a state's pay limit. */
+    lwfRole: ctx.lwfSettings.roleOf(person?.designation),
     /* The year's declaration, where there is one, says which regime they chose. */
     taxRegime: ((declaration?.regime || profile?.taxRegime) as 'OLD' | 'NEW') || 'NEW',
   };
@@ -588,6 +662,8 @@ function calculateWithStatutory(
     applyStatutory({
       rules: ctx.statutoryRules,
       onDate: ctx.run.payrollDate,
+      /* PT and LWF: the month the pay is for. */
+      levyDate: ctx.period.startDate,
       wages: {
         pfWage: pass.pfWage,
         esiWage: pass.esiWage,
@@ -599,7 +675,7 @@ function calculateWithStatutory(
       components: engine.map((c) => ({ code: c.code, statutoryScheme: c.statutoryScheme, type: c.type })),
       monthsRemaining: Math.max(1, monthsRemaining),
       taxAlreadyDeducted: periodsPerYear === 12 ? soFar.tds : 0,
-      ptAlreadyDeducted: soFar.pt,
+      ptSoFar: ctx.ptSoFar.get(assignment.employeeId) || { yearToDate: 0, thisMonth: 0, byState: new Map() },
       lwf: { headcountByState: ctx.lwfSettings.headcountByState, coverage: ctx.lwfSettings.coverage },
       taxDeductionsFor: declaration
         ? (employeePf) => {
@@ -876,7 +952,7 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
       });
     } else if (ptOn && !employee.gender) {
       /* A state with women's bands needs to know; elsewhere gender changes nothing. */
-      const row = ruleInForce(ctx.statutoryRules.get('PT') || [], ctx.run.payrollDate, profile.professionalTaxState);
+      const row = ruleInForce(ctx.statutoryRules.get('PT') || [], ctx.period.startDate, profile.professionalTaxState);
       const slabs = row ? parseConfig(row.configJson).slabs : null;
       if (Array.isArray(slabs) && slabs.some((s: any) => s.gender === 'FEMALE')) {
         add({
@@ -886,6 +962,24 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
           message: `${who} has no gender on their People record, so ${stateLabel(String(row!.jurisdiction))} professional tax uses the bands for men. That state has lower bands for women: add their gender if that applies.`,
         });
       }
+    }
+    /*
+     * A state that has a rule, just not one for this month: re-running a month
+     * before CLOR's earliest figures (Odisha before April 2026, Madhya
+     * Pradesh LWF before 30 January 2026) would deduct nothing without saying.
+     */
+    const state = canonicalState(profile.professionalTaxState);
+    for (const scheme of state ? (['PT', 'LWF'] as const) : []) {
+      if (scheme === 'PT' ? !ptOn : !ctx.statutoryRules.has('LWF')) continue;
+      const rows = (ctx.statutoryRules.get(scheme) || []).filter((r: any) => canonicalState(r.jurisdiction) === state);
+      if (!rows.length || ruleInForce(rows, ctx.period.startDate, state)) continue;
+      const first = rows.reduce((a: any, b: any) => (a.effectiveFrom <= b.effectiveFrom ? a : b));
+      add({
+        severity: 'WARNING',
+        code: 'NO_RULE_FOR_MONTH',
+        employeeId: employee.id,
+        message: `${who}: there is no ${stateLabel(state)} ${scheme === 'PT' ? 'professional tax' : 'Labour Welfare Fund'} rate for ${ctx.period.name}; the first one starts on ${first.effectiveFrom}, so nothing is deducted. Add the rate that applied then in Payroll › Compliance.`,
+      });
     }
 
     /* Not blocking: payroll can be calculated and reviewed without them, and
@@ -932,7 +1026,8 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
       add({
         severity: 'WARNING',
         code: 'RULE_NEEDS_CHECK',
-        message: `${scheme} for ${stateLabel(String(row.jurisdiction || ''))} uses figures CLOR could not confirm from an official notice. Check them against the state’s current notice, then confirm or correct them in Payroll › Compliance.`,
+        message: `${scheme} for ${stateLabel(String(row.jurisdiction || ''))} uses figures CLOR could not confirm from an official notice. This payroll can be calculated and previewed, but not approved, until somebody checks them against the state’s current notice and confirms or corrects them in Payroll › Compliance.`,
+        ruleId: row.id,
       });
     }
   }
@@ -1483,6 +1578,8 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
             ruleVersion: r.ruleVersion,
             /* The state whose return a PT or LWF figure belongs on, as it was when paid. */
             jurisdiction: r.jurisdiction ?? null,
+            /* LWF in a state with two funds: each fund's share, for its own return. */
+            ...(r.funds && r.funds.length > 1 ? { funds: r.funds } : {}),
           })),
         }),
         /* Deductions held to the legal share of wages, and what was carried (deductionCap.ts). */

@@ -11,7 +11,8 @@ ALTER TABLE "StatutoryRule" ADD COLUMN "origin" TEXT;
 ALTER TABLE "StatutoryRule" ADD COLUMN "checkedAt" TIMESTAMP(3);
 ALTER TABLE "StatutoryRule" ADD COLUMN "checkedByUserId" TEXT;
 
--- AlterTable: LWF size thresholds and managerial exclusions, per company.
+-- AlterTable: LWF size thresholds, and the managers and supervisors it leaves out, per company.
 ALTER TABLE "PayrollSetting" ADD COLUMN "lwfCoverage" TEXT NOT NULL DEFAULT 'BY_HEADCOUNT';
 ALTER TABLE "PayrollSetting" ADD COLUMN "lwfManagerDesignations" TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE "PayrollSetting" ADD COLUMN "lwfSupervisorDesignations" TEXT NOT NULL DEFAULT '[]';
 ALTER TABLE "PayrollSetting" ADD COLUMN "statutoryCatalogue" TEXT;

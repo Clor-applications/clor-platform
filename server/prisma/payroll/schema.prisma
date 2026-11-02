@@ -1313,9 +1313,12 @@ model PayrollSetting {
   /// every establishment as covered, for a company whose headcount there
   /// includes people payroll does not pay (contract staff, say).
   lwfCoverage            String @default("BY_HEADCOUNT")
-  /// Designations the company counts as managers or supervisors, whom most
-  /// LWF Acts leave out. JSON array of strings; empty means nobody is left out.
-  lwfManagerDesignations String @default("[]")
+  /// Designations the company counts as managers, whom most LWF Acts leave
+  /// out whatever they earn. JSON array of strings; empty: nobody left out.
+  lwfManagerDesignations    String @default("[]")
+  /// Designations counted as supervisors: left out of LWF only above the
+  /// state's supervisory pay limit, where it sets one. JSON array of strings.
+  lwfSupervisorDesignations String @default("[]")
   /// The statutory catalogue version this company was last topped up to
   /// (defaults.ts SEED_CATALOGUE_VERSION).
   statutoryCatalogue     String?

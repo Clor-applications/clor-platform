@@ -10,6 +10,7 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { calculateRun, daysBetween, eligibleEmployees, validateRun } from '../services/payroll/run.js';
+import { checksSentence, uncheckedRulesOnRun } from '../services/payroll/statutory/resolve.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { periodRows } from '../services/attendance/days.js';
@@ -163,6 +164,8 @@ payrollRunsRouter.get(
 
     res.json({
       run: { ...shape(run, { period }), stale: await runStale(orgId, run) },
+      /* State rules on these payslips nobody has confirmed: the run cannot be approved until they are. */
+      statutoryChecks: slips.length ? await uncheckedRulesOnRun(orgId, run.id) : [],
       employees: members.map((m) => ({
         employeeId: m.employeeId,
         inclusion: m.inclusion,
@@ -777,6 +780,22 @@ const transition = (
             error: `Deductions pass ${over.people[0].percent}% of wages for ${over.people.length} ${over.people.length === 1 ? 'person' : 'people'}: ${over.people.map((p: any) => p.name).join(', ')}. Reduce them and calculate again, or record why they stand.`,
             code: 'DEDUCTIONS_OVER_LIMIT',
             overLimit: over,
+          });
+        }
+      }
+
+      /*
+       * State rules CLOR could not confirm: a run under them is calculated and
+       * previewed, never approved, until somebody confirms or corrects each
+       * one against the state's notice (Payroll › Compliance).
+       */
+      if (to === 'APPROVED') {
+        const checks = await uncheckedRulesOnRun(run.orgId, run.id);
+        if (checks.length) {
+          return res.status(409).json({
+            error: `This payroll uses figures CLOR could not confirm from an official notice: ${checksSentence(checks)}. Confirm ${checks.length === 1 ? 'it' : 'each'} in Payroll › Compliance, or correct it there and calculate again.`,
+            code: 'RULE_NEEDS_CHECK',
+            checks,
           });
         }
       }

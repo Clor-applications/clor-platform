@@ -6,7 +6,7 @@ import { notifyPermission, notifyUsers } from '../notifications.js';
 import { writeEvent } from './outbox.js';
 import { registerJob } from '../jobRegistry.js';
 import { verifiedMime } from '../fileType.js';
-import { applicability, dueDates } from './compliance.js';
+import { applicability, dueDates, staleLevyItem } from './compliance.js';
 import { addDays, istDate, todayIst } from '../../utils/istDate.js';
 
 /**
@@ -282,6 +282,12 @@ export async function buildObligations(accountId: string, orgId: string, now = n
       if (!se) continue;
       const due = await tx.obligation.findMany({ where: { orgId, establishmentId: est.id, ruleId: { in: ['IN-SE-REG', 'IN-TS-SE-REG'] }, status: { notIn: DONE_STATES } }, select: { id: true, note: true, reference: true } });
       for (const o of due) await tx.obligation.update({ where: { id: o.id }, data: { status: 'DONE', doneAt: now, reference: o.reference || se.number, note: note(o.note, 'Registration number on the work site.') } });
+    }
+    /* PT and LWF items an older calendar made under another name or period: closed, so a return is never listed twice. */
+    const levy = await tx.obligation.findMany({ where: { orgId, source: 'STATUTORY', status: { notIn: DONE_STATES }, OR: [{ ruleId: { startsWith: 'PT_' } }, { ruleId: { startsWith: 'LWF_' } }] }, select: { id: true, ruleId: true, period: true, note: true } });
+    for (const o of levy) {
+      if (!staleLevyItem(o.ruleId, o.period)) continue;
+      await tx.obligation.update({ where: { id: o.id }, data: { status: 'NOT_APPLICABLE', doneAt: now, note: note(o.note, 'Replaced: CLOR now lists this state’s return under its own name and filing period.') } });
     }
     /* Statuses move with the calendar; done and checked ones are left alone. */
     await tx.obligation.updateMany({ where: { orgId, status: { in: ['UPCOMING', 'DUE'] }, dueOn: { lt: today } }, data: { status: 'OVERDUE' } });

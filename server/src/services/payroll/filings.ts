@@ -1,7 +1,7 @@
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { snapshotPerson } from './payment.js';
-import { canonicalState, stateLabel, ptDueFor, lwfDueFor, PT_FILINGS, LWF_FILINGS } from '../../constants/stateLevies.js';
+import { canonicalState, stateLabel, ptDueFor, lwfDueFor, lwfFilingFor, PT_FILINGS, LWF_FILINGS } from '../../constants/stateLevies.js';
 import { parseConfig } from './statutory/resolve.js';
 
 /**
@@ -27,7 +27,7 @@ import { parseConfig } from './statutory/resolve.js';
  */
 
 type Snapshot = {
-  results?: Array<{ scheme: string; employee: number; employer: number; employerSplit?: { EPS?: number; EPF?: number } | null; wageApplied: number; ceilingApplied?: number | null; exemptReason?: string | null; jurisdiction?: string | null }>;
+  results?: Array<{ scheme: string; employee: number; employer: number; employerSplit?: { EPS?: number; EPF?: number } | null; wageApplied: number; ceilingApplied?: number | null; exemptReason?: string | null; jurisdiction?: string | null; funds?: Array<{ name: string; employee: number; employer: number }> | null }>;
   versions?: Record<string, { ruleId: string; version: string }>;
 };
 
@@ -236,7 +236,8 @@ export async function stateLevyReturns(orgId: string, period: { id: string; star
   /* The rules behind LWF figures, for an employer minimum per establishment. */
   const lwfRuleIds = new Set<string>();
 
-  type PersonRow = { employeeId: string; name: string; code: string; state: string; collection: string; wages: number; employee: number; employer: number };
+  /* `fund`: a state's second fund with its own return (Kerala's shops fund); '' for the state's main one. */
+  type PersonRow = { employeeId: string; name: string; code: string; state: string; fund: string; collection: string; wages: number; employee: number; employer: number };
   const ptRows = new Map<string, PersonRow>();
   const lwfRows = new Map<string, PersonRow>();
   const ptProblems: Problem[] = [];
@@ -258,20 +259,27 @@ export async function stateLevyReturns(orgId: string, period: { id: string; star
       if (r.scheme !== 'PT' && r.scheme !== 'LWF') continue;
       if (!(r.employee > 0 || r.employer > 0)) continue;
       const state = canonicalState(r.jurisdiction) || stateNow.get(slip.employeeId) || '';
-      const due = r.scheme === 'PT' ? ptDueFor(state, m.year, m.month) : lwfDueFor(state, m.year, m.month);
-      /* A month counts if it is in the same return as this pay period. */
-      const mine = r.scheme === 'PT' ? ptDueFor(state, here.year, here.month) : lwfDueFor(state, here.year, here.month);
-      const sameReturn = due && mine ? due.key === mine.key : slip.periodId === period.id;
-      if (!sameReturn) continue;
-      if (r.scheme === 'LWF' && stat.versions?.LWF?.ruleId) lwfRuleIds.add(stat.versions.LWF.ruleId);
-      const rows = r.scheme === 'PT' ? ptRows : lwfRows;
-      (r.scheme === 'PT' ? ptWanted : lwfWanted).set(state, mine);
-      const key = `${state}|${slip.employeeId}`;
-      const row = rows.get(key) || { employeeId: slip.employeeId, name, code, state, collection: mine?.label || '', wages: 0, employee: 0, employer: 0 };
-      row.wages = r2(row.wages + (Number(r.wageApplied) || 0));
-      row.employee = r2(row.employee + (Number(r.employee) || 0));
-      row.employer = r2(row.employer + (Number(r.employer) || 0));
-      rows.set(key, row);
+      /* Each fund of a two-fund state on its own return; anything else is one part. */
+      const parts = r.scheme === 'LWF' && Array.isArray(r.funds) && r.funds.length ? r.funds : [{ name: '', employee: r.employee, employer: r.employer }];
+      for (const part of parts) {
+        if (!(part.employee > 0 || part.employer > 0)) continue;
+        const fund = r.scheme === 'LWF' && part.name && LWF_FILINGS[state]?.funds?.[part.name] ? part.name : '';
+        const due = r.scheme === 'PT' ? ptDueFor(state, m.year, m.month) : lwfDueFor(state, m.year, m.month, fund);
+        /* A month counts if it is in the same return as this pay period. */
+        const mine = r.scheme === 'PT' ? ptDueFor(state, here.year, here.month) : lwfDueFor(state, here.year, here.month, fund);
+        const sameReturn = due && mine ? due.key === mine.key : slip.periodId === period.id;
+        if (!sameReturn) continue;
+        if (r.scheme === 'LWF' && stat.versions?.LWF?.ruleId) lwfRuleIds.add(stat.versions.LWF.ruleId);
+        const rows = r.scheme === 'PT' ? ptRows : lwfRows;
+        const group = `${state}|${fund}`;
+        (r.scheme === 'PT' ? ptWanted : lwfWanted).set(group, mine);
+        const key = `${group}|${slip.employeeId}`;
+        const row = rows.get(key) || { employeeId: slip.employeeId, name, code, state, fund, collection: mine?.label || '', wages: 0, employee: 0, employer: 0 };
+        row.wages = r2(row.wages + (Number(r.wageApplied) || 0));
+        row.employee = r2(row.employee + (Number(part.employee) || 0));
+        row.employer = r2(row.employer + (Number(part.employer) || 0));
+        rows.set(key, row);
+      }
       if (!state) {
         const list = r.scheme === 'PT' ? ptProblems : lwfProblems;
         if (!list.some((x) => x.employeeId === slip.employeeId)) list.push({ employeeId: slip.employeeId, name, message: 'No state on their payroll details or payslip.' });
@@ -290,15 +298,16 @@ export async function stateLevyReturns(orgId: string, period: { id: string; star
 
   const byState = (rows: Map<string, PersonRow>) => {
     const out = new Map<string, PersonRow[]>();
-    for (const row of rows.values()) out.set(row.state, [...(out.get(row.state) || []), row]);
+    for (const row of rows.values()) out.set(`${row.state}|${row.fund}`, [...(out.get(`${row.state}|${row.fund}`) || []), row]);
     return out;
   };
   const total = (rows: PersonRow[], f: (r: PersonRow) => number) => r2(rows.reduce((t, r) => t + f(r), 0));
   const filed = 'File it on the state portal; CLOR does not make the state’s upload file.';
 
-  const ptStates = [...byState(ptRows).entries()].map(([state, rows]) => {
+  const ptStates = [...byState(ptRows).entries()].map(([group, rows]) => {
+    const state = rows[0].state;
     const f = PT_FILINGS[state];
-    const due = ptWanted.get(state);
+    const due = ptWanted.get(group);
     const slabs = new Map<number, { amount: number; count: number; total: number }>();
     for (const row of rows) {
       const s = slabs.get(row.employee) || { amount: row.employee, count: 0, total: 0 };
@@ -321,16 +330,18 @@ export async function stateLevyReturns(orgId: string, period: { id: string; star
     };
   });
 
-  const lwfStates = [...byState(lwfRows).entries()].map(([state, rows]) => {
-    const f = LWF_FILINGS[state];
-    const due = lwfWanted.get(state);
+  const lwfStates = [...byState(lwfRows).entries()].map(([group, rows]) => {
+    const { state, fund } = rows[0];
+    const f = lwfFilingFor(state, fund);
+    const due = lwfWanted.get(group);
     const employee = total(rows, (r) => r.employee);
     const employer = total(rows, (r) => r.employer);
-    const minimum = minimums.get(state) || 0;
+    const minimum = fund ? 0 : minimums.get(state) || 0;
     /* The employer pays at least the minimum per establishment (Madhya Pradesh, Chhattisgarh). */
     const topUp = minimum && employer < minimum ? r2(minimum - employer) : 0;
     return {
       state: state ? stateLabel(state) : 'Not set',
+      fund: fund || null,
       collection: due?.label || '',
       form: f?.form || 'State Labour Welfare Fund return',
       dueDate: due?.dueDate || null,
@@ -345,7 +356,7 @@ export async function stateLevyReturns(orgId: string, period: { id: string; star
     };
   });
 
-  const sorted = <T extends { state: string }>(xs: T[]) => xs.sort((a, b) => a.state.localeCompare(b.state));
+  const sorted = <T extends { state: string; fund?: string | null }>(xs: T[]) => xs.sort((a, b) => a.state.localeCompare(b.state) || String(a.fund || '').localeCompare(String(b.fund || '')));
   const shown = (rows: Map<string, PersonRow>) => [...rows.values()].map((r) => ({ ...r, state: r.state ? stateLabel(r.state) : 'Not set' })).sort((a, b) => a.state.localeCompare(b.state) || a.name.localeCompare(b.name));
   return {
     pt: { states: sorted(ptStates), rows: shown(ptRows), problems: ptProblems, note: filed },

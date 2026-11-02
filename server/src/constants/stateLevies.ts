@@ -23,6 +23,9 @@ const STATE_ALIASES: Record<string, string> = {
   TR: 'TRIPURA', UP: 'UTTAR PRADESH', UK: 'UTTARAKHAND', UT: 'UTTARAKHAND', WB: 'WEST BENGAL',
   ORISSA: 'ODISHA', PONDICHERRY: 'PUDUCHERRY', TAMILNADU: 'TAMIL NADU', CHATTISGARH: 'CHHATTISGARH', 'NCT OF DELHI': 'DELHI', 'NEW DELHI': 'DELHI',
   'JAMMU & KASHMIR': 'JAMMU AND KASHMIR', WESTBENGAL: 'WEST BENGAL',
+  AN: 'ANDAMAN AND NICOBAR', 'ANDAMAN & NICOBAR': 'ANDAMAN AND NICOBAR', 'ANDAMAN AND NICOBAR ISLANDS': 'ANDAMAN AND NICOBAR', 'ANDAMAN & NICOBAR ISLANDS': 'ANDAMAN AND NICOBAR',
+  LD: 'LAKSHADWEEP', DN: 'DADRA AND NAGAR HAVELI AND DAMAN AND DIU', DD: 'DADRA AND NAGAR HAVELI AND DAMAN AND DIU', DH: 'DADRA AND NAGAR HAVELI AND DAMAN AND DIU',
+  'DADRA & NAGAR HAVELI AND DAMAN & DIU': 'DADRA AND NAGAR HAVELI AND DAMAN AND DIU', 'DADRA AND NAGAR HAVELI': 'DADRA AND NAGAR HAVELI AND DAMAN AND DIU', 'DAMAN AND DIU': 'DADRA AND NAGAR HAVELI AND DAMAN AND DIU',
 };
 
 /**
@@ -122,7 +125,10 @@ export const PT_FILINGS: Record<string, PtFiling> = {
 };
 
 /** States with no professional tax on salaries (research section 2). Odisha from 1 Apr 2026. */
-export const NO_PT_STATES = ['ODISHA', 'CHHATTISGARH', 'GOA', 'DELHI', 'HARYANA', 'UTTAR PRADESH', 'RAJASTHAN', 'UTTARAKHAND', 'HIMACHAL PRADESH', 'JAMMU AND KASHMIR', 'LADAKH', 'ARUNACHAL PRADESH', 'CHANDIGARH'];
+export const NO_PT_STATES = [
+  'ODISHA', 'CHHATTISGARH', 'GOA', 'DELHI', 'HARYANA', 'UTTAR PRADESH', 'RAJASTHAN', 'UTTARAKHAND', 'HIMACHAL PRADESH', 'JAMMU AND KASHMIR', 'LADAKH',
+  'ARUNACHAL PRADESH', 'CHANDIGARH', 'ANDAMAN AND NICOBAR', 'LAKSHADWEEP', 'DADRA AND NAGAR HAVELI AND DAMAN AND DIU',
+];
 
 export type LwfFiling = {
   form: string;
@@ -130,7 +136,16 @@ export type LwfFiling = {
   periods: CollectionPeriod[];
   dueKnown: boolean;
   how: string;
+  /** Other funds in the same state with a return of their own, by the fund's name in the rule. */
+  funds?: Record<string, LwfFiling>;
 };
+
+/** Kerala's second fund, named as the LWF rule names it. */
+export const KERALA_SHOPS_FUND = 'Shops and Commercial Establishments Workers Welfare Fund';
+
+/** Twelve one-month collections, each due on `day` of the month after. */
+const monthlyPeriods = (day: number): CollectionPeriod[] =>
+  MONTH_NAMES.map((name, i) => ({ label: name, months: [i + 1], due: i === 11 ? { month: 1, day, nextYear: true } : { month: i + 2, day } }));
 
 const JUNE_DEC = (form: string, how: string, due = 15): LwfFiling => ({
   form,
@@ -163,13 +178,22 @@ export const LWF_FILINGS: Record<string, LwfFiling> = {
   KARNATAKA: DECEMBER('Form D', 'Deducted from December pay and paid once a year, by 15 January.', { month: 1, day: 15 }),
   'TAMIL NADU': DECEMBER('Form A', 'Deducted in December and paid with Form A by 31 January.', { month: 1, day: 31 }),
   KERALA: {
-    form: 'Form A (Labour Welfare Fund); monthly remittance (Shops and Commercial Establishments Workers Welfare Fund)',
+    form: 'Form A (Kerala Labour Welfare Fund)',
     dueKnown: true,
-    how: 'Two funds. The 1975 fund is paid each half-year by 15 July and 15 January; the shops fund each month by the 5th.',
+    how: 'The 1975 fund: ₹45 and ₹45 each half-year, paid by 15 July and 15 January.',
     periods: [
       { label: 'Jan–Jun', months: [1, 2, 3, 4, 5, 6], due: { month: 7, day: 15 } },
       { label: 'Jul–Dec', months: [7, 8, 9, 10, 11, 12], due: { month: 1, day: 15, nextYear: true } },
     ],
+    /* A second fund with its own cycle: a shop or office owes both. */
+    funds: {
+      [KERALA_SHOPS_FUND]: {
+        form: 'Monthly remittance to the Kerala Shops and Commercial Establishments Workers Welfare Fund Board',
+        dueKnown: true,
+        how: '₹50 from the worker and ₹50 from the employer every month, remitted by the 5th of the following month.',
+        periods: monthlyPeriods(5),
+      },
+    },
   },
   'ANDHRA PRADESH': DECEMBER('Form F', 'On the register at 31 December, paid by 31 January.', { month: 1, day: 31 }),
   TELANGANA: DECEMBER('Form F', 'On the register at 31 December, paid by 31 January.', { month: 1, day: 31 }),
@@ -231,7 +255,14 @@ export function ptDueFor(state: string, year: number, month: number) {
 }
 
 /** A Labour Welfare Fund collection's due date for a payroll month. */
-export function lwfDueFor(state: string, year: number, month: number) {
-  const f = LWF_FILINGS[canonicalState(state)];
+export function lwfDueFor(state: string, year: number, month: number, fund?: string | null) {
+  const f = lwfFilingFor(state, fund);
   return f ? collectionFor(f.periods, year, month) : null;
+}
+
+/** A state's LWF return, or one of its other funds' (Kerala's shops fund). */
+export function lwfFilingFor(state: string, fund?: string | null): LwfFiling | null {
+  const f = LWF_FILINGS[canonicalState(state)];
+  if (!f) return null;
+  return (fund && f.funds?.[fund]) || f;
 }

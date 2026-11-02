@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
-import { computeStatutory, ruleInForce, type StatutoryRuleInput } from '../services/payroll/statutory/engine.js';
+import { computeStatutory, ruleInForce, type PtContext, type StatutoryRuleInput } from '../services/payroll/statutory/engine.js';
 import { SEED_RULES } from '../services/payroll/statutory/defaults.js';
-import { canonicalState, ptDueFor, lwfDueFor } from '../constants/stateLevies.js';
+import { canonicalState, ptDueFor, lwfDueFor, NO_PT_STATES, KERALA_SHOPS_FUND } from '../constants/stateLevies.js';
 
 /**
  * Professional tax and Labour Welfare Fund for every state that levies them,
@@ -66,14 +66,14 @@ const person = (state: string, over: Record<string, unknown> = {}) => ({
 });
 
 /** PT on a monthly gross in a month (2026-27 unless the date says otherwise). */
-const pt = (state: string, gross: number, onDate = '2026-11-30', over: Record<string, unknown> = {}, already = 0) => {
+const pt = (state: string, gross: number, onDate = '2026-11-30', over: Record<string, unknown> = {}, already = 0, ctx: PtContext = {}) => {
   const rule = ruleFor('PT', state, onDate);
   if (!rule) return null;
   return computeStatutory(rule, { pfWage: 0, esiWage: 0, gross }, person(state, over), {
     month: Number(onDate.slice(5, 7)),
     monthsRemaining: 1,
     taxAlreadyDeducted: 0,
-    ptAlreadyDeducted: already,
+    pt: { yearToDate: already, ...ctx },
   });
 };
 const ptAmount = (state: string, gross: number, onDate?: string, over?: Record<string, unknown>) => pt(state, gross, onDate, over)?.employee ?? null;
@@ -192,6 +192,40 @@ describe('Maharashtra’s women’s bands', () => {
 
   it('makes no difference in a state without women’s bands', () => {
     expect(ptAmount('KARNATAKA', 30000, undefined, { gender: 'FEMALE' })).toBe(200);
+  });
+});
+
+describe('the balance month, read from the payslips', () => {
+  /* Madhya Pradesh above ₹4 lakh: ₹2,500 a year, ₹208 a month. */
+  it('takes what is left of the year in that state in March', () => {
+    expect(pt('MADHYA PRADESH', 40000, '2027-03-31', {}, 2288, { inState: 2288, monthsInState: 11 })!.employee).toBe(212);
+  });
+
+  it('trues up a band change during the year', () => {
+    /* Six months at ₹125 and five at ₹166 before a raise into the ₹2,000 band: ₹1,580 taken, ₹420 left. */
+    expect(pt('MADHYA PRADESH', 30000, '2027-03-31', {}, 1580, { inState: 1580, monthsInState: 11 })!.employee).toBe(420);
+  });
+
+  it('charges somebody who joined in October only their part of the year', () => {
+    /* Five months at ₹208 = ₹1,040; six months of ₹2,500 is ₹1,250, so March takes ₹210. */
+    expect(pt('MADHYA PRADESH', 40000, '2027-03-31', {}, 1040, { inState: 1040, monthsInState: 5 })!.employee).toBe(210);
+  });
+
+  it('takes nothing when the year is already paid in full', () => {
+    expect(pt('MADHYA PRADESH', 40000, '2027-03-31', {}, 2500, { inState: 2500, monthsInState: 11 })!.employee).toBe(0);
+  });
+
+  it('counts only this state: tax paid in another state is not this state’s balance', () => {
+    /* Moved from Karnataka in October: ₹1,000 there, ₹1,040 here; the cap still counts both. */
+    expect(pt('MADHYA PRADESH', 40000, '2027-03-31', {}, 2040, { inState: 1040, monthsInState: 5 })!.employee).toBe(210);
+  });
+});
+
+describe('once a month', () => {
+  it('takes nothing for a month another run already taxed', () => {
+    const r = pt('KARNATAKA', 40000, '2026-11-30', {}, 1400, { thisMonth: 200 })!;
+    expect(r.employee).toBe(0);
+    expect(r.exemptReason).toBe('ALREADY_THIS_MONTH');
   });
 });
 
@@ -316,14 +350,32 @@ describe('Labour Welfare Fund, state by state', () => {
     expect(pair(lwf('KARNATAKA', 30000, '2026-12-31', {}, {}))).toEqual([50, 100]);
   });
 
-  it('leaves out a manager, and a supervisor only above the Act’s wage limit', () => {
-    expect(lwf('MAHARASHTRA', 30000, '2026-06-30', { managerial: true })!.exemptReason).toBe('MANAGER_EXCLUDED');
-    /* ₹3,500 is Maharashtra's supervisory limit. */
-    expect(pair(lwf('MAHARASHTRA', 3000, '2026-06-30', { managerial: true }))).toEqual([25, 75]);
+  it('always leaves out a manager, whatever they earn', () => {
+    expect(lwf('MAHARASHTRA', 30000, '2026-06-30', { lwfRole: 'MANAGER' })!.exemptReason).toBe('MANAGER_EXCLUDED');
+    expect(lwf('MAHARASHTRA', 3000, '2026-06-30', { lwfRole: 'MANAGER' })!.exemptReason).toBe('MANAGER_EXCLUDED');
+    expect(lwf('ANDHRA PRADESH', 1000, '2026-12-31', { lwfRole: 'MANAGER' })!.exemptReason).toBe('MANAGER_EXCLUDED');
     /* Karnataka's Act leaves nobody out. */
-    expect(pair(lwf('KARNATAKA', 30000, '2026-12-31', { managerial: true }))).toEqual([50, 100]);
-    /* Andhra Pradesh leaves managers out at any pay. */
-    expect(lwf('ANDHRA PRADESH', 1000, '2026-12-31', { managerial: true })!.exemptReason).toBe('MANAGER_EXCLUDED');
+    expect(pair(lwf('KARNATAKA', 30000, '2026-12-31', { lwfRole: 'MANAGER' }))).toEqual([50, 100]);
+  });
+
+  it('leaves out a supervisor only above the state’s pay limit', () => {
+    /* ₹3,500 is Maharashtra's supervisory limit. */
+    expect(pair(lwf('MAHARASHTRA', 3000, '2026-06-30', { lwfRole: 'SUPERVISOR' }))).toEqual([25, 75]);
+    expect(lwf('MAHARASHTRA', 3500.01, '2026-06-30', { lwfRole: 'SUPERVISOR' })!.exemptReason).toBe('SUPERVISOR_EXCLUDED');
+    /* Tamil Nadu: ₹15,000. */
+    expect(pair(lwf('TAMIL NADU', 15000, '2026-12-31', { lwfRole: 'SUPERVISOR' }))).toEqual([20, 40]);
+    expect(lwf('TAMIL NADU', 15000.01, '2026-12-31', { lwfRole: 'SUPERVISOR' })!.exemptReason).toBe('SUPERVISOR_EXCLUDED');
+    /* Andhra Pradesh deleted its supervisory limit: supervisors contribute at any pay. */
+    expect(pair(lwf('ANDHRA PRADESH', 90000, '2026-12-31', { lwfRole: 'SUPERVISOR' }))).toEqual([30, 70]);
+  });
+
+  it('keeps Kerala’s two funds apart', () => {
+    const june = lwf('KERALA', 30000, '2026-06-30')!;
+    expect(june.funds).toEqual([
+      { name: 'Kerala Labour Welfare Fund', employee: 45, employer: 45 },
+      { name: KERALA_SHOPS_FUND, employee: 50, employer: 50 },
+    ]);
+    expect(lwf('KERALA', 30000, '2026-07-31')!.funds).toEqual([{ name: KERALA_SHOPS_FUND, employee: 50, employer: 50 }]);
   });
 
   it('marks the rules CLOR could not confirm', () => {
@@ -335,6 +387,12 @@ describe('Labour Welfare Fund, state by state', () => {
 });
 
 describe('state names and due dates', () => {
+  it('lists the Union Territories with no professional tax', () => {
+    for (const ut of ['Andaman & Nicobar Islands', 'Lakshadweep', 'Dadra and Nagar Haveli and Daman and Diu', 'DN', 'Daman and Diu']) {
+      expect(NO_PT_STATES, ut).toContain(canonicalState(ut));
+    }
+  });
+
   it('reads a two-letter code, an old name and any case as the same state', () => {
     expect(canonicalState('KA')).toBe('KARNATAKA');
     expect(canonicalState(' karnataka ')).toBe('KARNATAKA');
@@ -369,5 +427,9 @@ describe('state names and due dates', () => {
     expect(lwfDueFor('Punjab', 2026, 6)!.dueDate).toBe('2026-10-15');
     expect(lwfDueFor('Punjab', 2027, 2)!.dueDate).toBe('2027-04-15');
     expect(lwfDueFor('Punjab', 2026, 11)).toEqual(lwfDueFor('Punjab', 2027, 2));
+    /* Kerala's shops fund: every month, by the 5th of the next. */
+    expect(lwfDueFor('Kerala', 2026, 11, KERALA_SHOPS_FUND)!.dueDate).toBe('2026-12-05');
+    expect(lwfDueFor('Kerala', 2026, 12, KERALA_SHOPS_FUND)!.dueDate).toBe('2027-01-05');
+    expect(lwfDueFor('Kerala', 2026, 12)!.dueDate).toBe('2027-01-15');
   });
 });

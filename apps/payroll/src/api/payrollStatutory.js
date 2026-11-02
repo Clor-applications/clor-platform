@@ -52,8 +52,9 @@ export async function getStatutoryOverview() {
   return {
     schemes: Array.isArray(body?.schemes) ? body.schemes : [],
     checks: Array.isArray(body?.checks) ? body.checks : [],
+    offers: Array.isArray(body?.offers) ? body.offers : [],
     states: Array.isArray(body?.states) ? body.states : [],
-    lwf: body?.lwf || { coverage: 'BY_HEADCOUNT', managerDesignations: [] },
+    lwf: body?.lwf || { coverage: 'BY_HEADCOUNT', managerDesignations: [], supervisorDesignations: [] },
   };
 }
 
@@ -67,4 +68,10 @@ export async function confirmStatutoryRate(ruleId) {
 export async function saveLwfSettings(payload) {
   const { lwf } = await apiFetch(`${base()}/lwf-settings`, { ...opts, method: 'PUT', body: payload });
   return lwf;
+}
+
+/** Put CLOR's newer figures, offered beside the company's own rule, in force from their date. */
+export async function adoptStatutoryRate(ruleId) {
+  const { rule } = await apiFetch(`${base()}/rules/${encodeURIComponent(ruleId)}/adopt`, { ...opts, method: 'POST' });
+  return rule;
 }

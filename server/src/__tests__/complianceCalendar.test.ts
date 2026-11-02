@@ -7,7 +7,7 @@ import request from 'supertest';
  * evidence, beside the company's own deadlines.
  */
 const { buildApp } = await import('../app.js');
-const { dueDates } = await import('../services/people/compliance.js');
+const { dueDates, staleLevyItem } = await import('../services/people/compliance.js');
 
 const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
@@ -49,6 +49,24 @@ describe('due dates', () => {
     expect(find(list, 'FORM16', '2027')?.dueDate).toBe('2027-06-15');
     expect(find(list, 'BONUS', '2026')?.dueDate).toBe('2026-11-30');
     expect(find(list, 'POSH_REPORT', '2027')?.dueDate).toBe('2027-01-31');
+  });
+
+  it('lists each LWF fund the company is covered for, Kerala’s shops fund monthly by the 5th', () => {
+    const list = dueDates({ ...all, ptStates: [], lwfStates: [], lwfFunds: [{ state: 'KERALA', fund: '' }, { state: 'KERALA', fund: 'Shops and Commercial Establishments Workers Welfare Fund' }] } as any, '2026-11-01', '2027-02-28');
+    expect(find(list, 'LWF_KERALA_SHOPS', '2026-Nov')).toMatchObject({ dueDate: '2026-12-05' });
+    expect(find(list, 'LWF_KERALA', '2026-Jul–Dec')).toMatchObject({ dueDate: '2027-01-15' });
+    /* A state below its size, left out by applicability, brings nothing. */
+    expect(list.some((d: any) => d.code === 'LWF_KARNATAKA')).toBe(false);
+  });
+
+  it('knows an older calendar’s PT items that the current one replaces', () => {
+    expect(staleLevyItem('PT_KA', '2026-09')).toBe(true);
+    expect(staleLevyItem('PT_KARNATAKA', '2026-09')).toBe(false);
+    /* Tamil Nadu files by half-year: its old monthly items go. */
+    expect(staleLevyItem('PT_TAMIL_NADU', '2026-09')).toBe(true);
+    expect(staleLevyItem('PT_TAMIL_NADU', '2026-Apr–Sep')).toBe(false);
+    expect(staleLevyItem('LWF_KERALA_SHOPS', '2026-Nov')).toBe(false);
+    expect(staleLevyItem('PF_ECR', '2026-09')).toBe(false);
   });
 
   it('leaves out what does not apply', () => {

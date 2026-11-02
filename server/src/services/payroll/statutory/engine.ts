@@ -70,8 +70,12 @@ export type StatutoryEmployee = {
   overrideEmployerRate?: number | null;
   /** MALE | FEMALE | OTHER, from the People record: Maharashtra's PT has women's bands. */
   gender?: string | null;
-  /** Holds a designation the company lists as managerial or supervisory (LWF leaves them out). */
-  managerial?: boolean;
+  /**
+   * LWF: MANAGER (a designation on the company's managers list: always left
+   * out where a state's Act leaves managers out) or SUPERVISOR (on the
+   * supervisors list: left out only above the state's pay limit).
+   */
+  lwfRole?: 'MANAGER' | 'SUPERVISOR' | null;
 };
 
 export type StatutoryAmount = {
@@ -95,6 +99,8 @@ export type StatutoryAmount = {
   jurisdiction?: string | null;
   /** The rule's figures were not confirmed from an official notice. */
   needsCheck?: boolean;
+  /** LWF: each fund's share, where a state has more than one. */
+  funds?: Array<{ name: string; employee: number; employer: number }>;
 };
 
 
@@ -298,14 +304,19 @@ function computeLwf(rule: StatutoryRuleInput, wages: StatutoryWages, employee: S
       });
       continue;
     }
-    /* Managers, and supervisors above the Act's wage limit, are not "employees" under most LWF Acts. */
+    /*
+     * Managers are not "employees" under most LWF Acts, whatever they earn.
+     * Supervisors are left out only above the Act's wage limit; where a state
+     * sets none (Andhra Pradesh deleted it in 2015), they contribute.
+     */
     const excludes = f.excludesManagers ?? c.excludesManagers;
     const limit = Number(f.supervisorWageAbove ?? c.supervisorWageAbove) || 0;
-    if (excludes && employee.managerial && (!limit || wages.gross > limit)) {
-      reasons.push({
-        explanation: `${name} leaves out managers and supervisors${limit ? ` earning over ${money(limit)} a month` : ''}, and this designation is on the company’s list.`,
-        exemptReason: 'MANAGER_EXCLUDED',
-      });
+    if (excludes && employee.lwfRole === 'MANAGER') {
+      reasons.push({ explanation: `${name} leaves out managers, and this designation is on the company’s managers list.`, exemptReason: 'MANAGER_EXCLUDED' });
+      continue;
+    }
+    if (excludes && employee.lwfRole === 'SUPERVISOR' && limit && wages.gross > limit) {
+      reasons.push({ explanation: `${name} leaves out supervisors earning over ${money(limit)} a month, and this designation is on the company’s supervisors list.`, exemptReason: 'SUPERVISOR_EXCLUDED' });
       continue;
     }
     const part = (amount: unknown, rate: number, cap: unknown) => {
@@ -333,12 +344,26 @@ function computeLwf(rule: StatutoryRuleInput, wages: StatutoryWages, employee: S
     employee: employeeTotal,
     employer: employerTotal,
     ...(parts.length > 1 ? { employerSplit: Object.fromEntries(parts.map((p) => [p.name, p.employer])) } : {}),
+    /* Each fund on its own, so a state with two funds (Kerala) files two returns. */
+    funds: parts,
     explanation:
       parts.length > 1
         ? `${parts.map((p) => `${p.name}: ${money(p.employee)} from pay, ${money(p.employer)} from the employer`).join('; ')}.`
         : `${parts[0].name}: ${money(employeeTotal)} from pay, ${money(employerTotal)} from the employer.`,
   };
 }
+
+/** What payroll has already deducted, read from this financial year's payslips. */
+export type PtContext = {
+  /** Professional tax this financial year, every state: for the ₹2,500 cap. */
+  yearToDate?: number;
+  /** This financial year in this person's current state, for the balance month. Unknown: eleven twelfths assumed. */
+  inState?: number | null;
+  /** Earlier months this financial year with professional tax in this state. */
+  monthsInState?: number;
+  /** Already deducted for this same month by another run (an off-cycle one): nothing more is taken. */
+  thisMonth?: number;
+};
 
 /** The Constitution's limit on professional tax per person per year (Article 276(2)). */
 export const PT_ANNUAL_CAP = 2500;
@@ -358,8 +383,9 @@ function computePt(
   wages: StatutoryWages,
   employee: StatutoryEmployee,
   month: number,
-  ptAlreadyDeducted = 0
+  pt: PtContext = {}
 ): StatutoryAmount {
+  const ptAlreadyDeducted = Number(pt.yearToDate) || 0;
   const c = rule.config || {};
   const base = {
     scheme: 'PT' as const,
@@ -387,6 +413,10 @@ function computePt(
   if (factor > 1 && collect.length && !collect.includes(month)) {
     return nil(`${where} professional tax is taken in ${monthList(collect)}, not this month.`, 'NOT_THIS_MONTH');
   }
+  /* Once a month: an off-cycle run in a month already taxed takes nothing more. */
+  if ((Number(pt.thisMonth) || 0) > 0) {
+    return nil(`${money(Number(pt.thisMonth))} of professional tax was already deducted for this month.`, 'ALREADY_THIS_MONTH');
+  }
   const measured = round2(wages.gross * factor);
   const woman = String(employee.gender || '').toUpperCase() === 'FEMALE';
 
@@ -413,7 +443,18 @@ function computePt(
     const balanceMonth = Number(c.balanceMonth) || 3;
     const last = factor === 12 ? month === balanceMonth : month === 9 || month === 3;
     const whole = amount;
-    amount = last ? whole - each * (factor - 1) : each;
+    if (last && factor === 12 && pt.inState != null) {
+      /*
+       * The balance month takes what is left of the year's tax in this state,
+       * read from the payslips — not eleven twelfths assumed — so a raise or a
+       * band change mid-year is trued up. Somebody here for only part of the
+       * year owes that part (months taxed here, this one included).
+       */
+      const months = Math.min(12, Math.max(1, (Number(pt.monthsInState) || 0) + 1));
+      amount = Math.max(0, round2((whole * months) / 12 - (Number(pt.inState) || 0)));
+    } else {
+      amount = last ? whole - each * (factor - 1) : each;
+    }
     how = `${money(whole)} a ${factor === 12 ? 'year' : 'half-year'}, ${money(amount)} this month`;
   }
 
@@ -567,8 +608,8 @@ export type StatutoryContext = {
   month: number;
   monthsRemaining: number;
   taxAlreadyDeducted: number;
-  /** Professional tax already deducted this financial year, for the ₹2,500 cap. */
-  ptAlreadyDeducted?: number;
+  /** Professional tax already deducted, for the cap, the balance month and once a month. */
+  pt?: PtContext;
   /** Headcount and the company's LWF coverage setting. */
   lwf?: LwfContext;
 };
@@ -593,7 +634,7 @@ export function computeStatutory(
     case 'ESI':
       return computeEsi(rule, wages, employee);
     case 'PT':
-      return computePt(rule, wages, employee, context.month, context.ptAlreadyDeducted);
+      return computePt(rule, wages, employee, context.month, context.pt);
     case 'LWF':
       return computeLwf(rule, wages, employee, context.month, context.lwf);
     case 'TDS':

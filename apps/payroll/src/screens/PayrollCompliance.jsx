@@ -4,6 +4,7 @@ import { AlertTriangle, Check, PenLine, Plus, Trash2 } from 'lucide-react';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import { todayIst } from '@ui/utils/dates';
 import {
   getStatutoryOverview,
   seedStatutoryRates,
@@ -12,6 +13,7 @@ import {
   deleteStatutoryRate,
   confirmStatutoryRate,
   saveLwfSettings,
+  adoptStatutoryRate,
 } from '../api/payrollStatutory';
 
 /**
@@ -95,8 +97,9 @@ const STATE_SCHEMES = ['PT', 'LWF'];
 export default function PayrollCompliance() {
   const [schemes, setSchemes] = useState([]);
   const [checks, setChecks] = useState([]);
+  const [offers, setOffers] = useState([]);
   const [states, setStates] = useState([]);
-  const [lwf, setLwf] = useState({ coverage: 'BY_HEADCOUNT', managerDesignations: [] });
+  const [lwf, setLwf] = useState({ coverage: 'BY_HEADCOUNT', managerDesignations: [], supervisorDesignations: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
@@ -109,6 +112,7 @@ export default function PayrollCompliance() {
       const out = await getStatutoryOverview();
       setSchemes(out.schemes);
       setChecks(out.checks);
+      setOffers(out.offers);
       setStates(out.states);
       setLwf(out.lwf);
       setError('');
@@ -209,6 +213,39 @@ export default function PayrollCompliance() {
     }
   };
 
+  const adopt = async (offer) => {
+    const ok = await confirmDialog({
+      title: `Use CLOR’s ${offer.state} figures?`,
+      message: `They apply from ${shownDate(offer.effectiveFrom)}. Your own rate closes the day before and stays on record; payslips already produced keep the rate they used.`,
+      confirmLabel: 'Use these figures',
+      tone: 'primary',
+    });
+    if (!ok) return;
+    setBusy(offer.ruleId);
+    try {
+      await adoptStatutoryRate(offer.ruleId);
+      notify.success(`${offer.state} now uses CLOR’s figures.`);
+      load();
+    } catch (e) {
+      notify.error(String(e?.message || 'Could not adopt those figures.'));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const keepMine = async (offer) => {
+    setBusy(offer.ruleId);
+    try {
+      await deleteStatutoryRate(offer.ruleId);
+      notify.success(`Your own ${offer.state} rate stays. CLOR will not offer these figures again.`);
+      load();
+    } catch (e) {
+      notify.error(String(e?.message || 'Could not dismiss those figures.'));
+    } finally {
+      setBusy('');
+    }
+  };
+
   const correct = (ruleId) => {
     for (const scheme of schemes) {
       const rule = scheme.rules.find((r) => r.id === ruleId);
@@ -277,6 +314,38 @@ export default function PayrollCompliance() {
         </section>
       ) : null}
 
+      {offers.length ? (
+        <section className="ui-card overflow-hidden" aria-labelledby="clor-newer">
+          <div className="px-4 py-3" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
+            <h3 id="clor-newer" className="ui-t-sec">CLOR has newer figures</h3>
+            <p className="ui-caption">
+              You set your own rate for these states, so CLOR’s newer figures are not used until you choose them. Your rate stays in force meanwhile.
+            </p>
+          </div>
+          <ul>
+            {offers.map((o, i) => (
+              <li key={o.ruleId} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3" style={{ borderTop: i ? '1px solid rgb(var(--border))' : 'none' }}>
+                <div className="min-w-0 max-w-3xl">
+                  <div className="text-sm font-medium">
+                    {o.state} — {o.scheme === 'LWF' ? 'Labour Welfare Fund' : 'Professional tax'}, from {shownDate(o.effectiveFrom)}
+                  </div>
+                  {o.yours ? <div className="ui-caption">In force now: your rate from {shownDate(o.yours.effectiveFrom)}</div> : null}
+                  {o.note ? <p className="ui-caption mt-1">{o.note}</p> : null}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => keepMine(o)} disabled={busy === o.ruleId}>
+                    Keep mine
+                  </button>
+                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => adopt(o)} disabled={busy === o.ruleId}>
+                    <Check size={14} aria-hidden="true" /> Use CLOR’s
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {schemes.length === 0 ? (
         <EmptyState
           title="No statutory schemes set up"
@@ -294,6 +363,8 @@ export default function PayrollCompliance() {
             const all = !byState || showAll[scheme.code] || !states.length;
             const rules = byState
               ? [...scheme.rules]
+                  /* CLOR's offered figures are listed above until adopted, not as rates. */
+                  .filter((r) => r.status !== 'DRAFT')
                   .filter((r) => all || peopleIn.has(String(r.jurisdiction || '').toUpperCase()))
                   .sort((a, b) => String(a.jurisdiction).localeCompare(String(b.jurisdiction)) || (a.effectiveFrom < b.effectiveFrom ? 1 : -1))
               : scheme.rules;
@@ -464,24 +535,26 @@ export default function PayrollCompliance() {
  * the headcount payroll has, and nobody left out.
  */
 const LwfSettings = ({ value, onSaved }) => {
+  const lines = (list) => (list || []).join('\n');
   const [coverage, setCoverage] = useState(value.coverage || 'BY_HEADCOUNT');
-  const [designations, setDesignations] = useState((value.managerDesignations || []).join('\n'));
+  const [managers, setManagers] = useState(lines(value.managerDesignations));
+  const [supervisors, setSupervisors] = useState(lines(value.supervisorDesignations));
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     setCoverage(value.coverage || 'BY_HEADCOUNT');
-    setDesignations((value.managerDesignations || []).join('\n'));
+    setManagers(lines(value.managerDesignations));
+    setSupervisors(lines(value.supervisorDesignations));
   }, [value]);
 
+  const list = (text) =>
+    text
+      .split('\n')
+      .map((d) => d.trim())
+      .filter(Boolean);
   const save = async () => {
     setSaving(true);
     try {
-      const next = await saveLwfSettings({
-        coverage,
-        managerDesignations: designations
-          .split('\n')
-          .map((d) => d.trim())
-          .filter(Boolean),
-      });
+      const next = await saveLwfSettings({ coverage, managerDesignations: list(managers), supervisorDesignations: list(supervisors) });
       notify.success('LWF settings saved.');
       onSaved(next);
     } catch (e) {
@@ -511,20 +584,21 @@ const LwfSettings = ({ value, onSaved }) => {
           </span>
         </label>
       </fieldset>
-      <div>
-        <label className="ui-label" htmlFor="lwf-managers">Designations counted as managers or supervisors</label>
-        <textarea
-          id="lwf-managers"
-          rows={3}
-          className="ui-input w-full max-w-md text-sm"
-          value={designations}
-          onChange={(e) => setDesignations(e.target.value)}
-          placeholder={'Branch Manager\nSupervisor'}
-        />
-        <span className="ui-caption block max-w-xl">
-          One per line, as written on People records. Most LWF Acts leave these people out (some only above a pay limit). CLOR cannot tell who they are from a title alone, so with none listed, LWF is deducted for everybody.
-        </span>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl">
+        <div>
+          <label className="ui-label" htmlFor="lwf-managers">Managers</label>
+          <textarea id="lwf-managers" rows={3} className="ui-input w-full text-sm" value={managers} onChange={(e) => setManagers(e.target.value)} placeholder={'Branch Manager\nGeneral Manager'} />
+          <span className="ui-caption block">Left out of LWF wherever the state’s Act leaves managers out, whatever they earn.</span>
+        </div>
+        <div>
+          <label className="ui-label" htmlFor="lwf-supervisors">Supervisors</label>
+          <textarea id="lwf-supervisors" rows={3} className="ui-input w-full text-sm" value={supervisors} onChange={(e) => setSupervisors(e.target.value)} placeholder={'Supervisor\nShift In-charge'} />
+          <span className="ui-caption block">Left out only above the state’s pay limit for supervisors (₹3,500 in Maharashtra, ₹15,000 in Tamil Nadu). Where a state sets none, they contribute.</span>
+        </div>
       </div>
+      <p className="ui-caption max-w-xl">
+        One designation per line, as written on People records. CLOR cannot tell who is a manager or a supervisor from a title alone, so with none listed, LWF is deducted for everybody.
+      </p>
       <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={save} disabled={saving}>
         {saving ? 'Saving…' : 'Save LWF settings'}
       </button>
@@ -538,7 +612,8 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
   const current = from || scheme.rules.find((r) => r.status === 'ACTIVE') || scheme.rules[0] || null;
   const [form, setForm] = useState({
     jurisdiction: current?.jurisdiction || (scheme.code === 'PT' || scheme.code === 'LWF' ? '' : 'IN'),
-    effectiveFrom: new Date().toISOString().slice(0, 10),
+    /* Today in India, not in UTC: before 5:30 am the UTC date is still yesterday. */
+    effectiveFrom: todayIst(),
     employeeRate: current?.employeeRate ?? 0,
     employerRate: current?.employerRate ?? 0,
     wageCeiling: current?.wageCeiling ?? '',
