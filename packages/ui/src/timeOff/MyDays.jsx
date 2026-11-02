@@ -31,7 +31,8 @@ function useMyDays() {
   return [me, load];
 }
 
-export function CheckInCard({ me, onChanged }) {
+/* `secondary`: on a screen whose one primary action is something else (People → Home), the button steps down. */
+export function CheckInCard({ me, onChanged, secondary = false }) {
   const [busy, setBusy] = useState(false);
   const canAct = useCanActForSelf();
   if (!me) return null;
@@ -59,7 +60,7 @@ export function CheckInCard({ me, onChanged }) {
         </p>
       </div>
       {closed || !canAct ? null : (
-        <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={press}>
+        <button type="button" className={`ui-btn ${secondary ? 'ui-btn-secondary' : 'ui-btn-primary'}`} disabled={busy} onClick={press}>
           {me.clockedIn ? <LogOut size={16} aria-hidden="true" /> : <LogIn size={16} aria-hidden="true" />} {me.clockedIn ? 'Check out' : 'Check in'}
         </button>
       )}
@@ -93,10 +94,10 @@ export function TodayPunches({ punches = [] }) {
   );
 }
 
-/** On People → Home: the check-in, when the person signed in has an employee file. */
+/** On People → Home: the check-in, when the person signed in has an employee file. Home's primary is Add an employee, so this one is secondary (2 Nov 2026). */
 export function HomeCheckIn() {
   const [me, load] = useMyDays();
-  return me ? <CheckInCard me={me} onChanged={load} /> : null;
+  return me ? <CheckInCard me={me} onChanged={load} secondary /> : null;
 }
 
 /**

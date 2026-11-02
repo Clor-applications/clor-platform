@@ -420,7 +420,12 @@
 
 /* Teams: the company as one bar; a slice or a name picks the team above. */
 @media (max-width: 640px) {
-  .people-approval { flex-wrap: wrap; }
+  /* A waiting row on a phone (2 Nov 2026): the name and its line take the row beside the face, and Review and
+     Approve stack under them, each half the width and 44px tall, instead of squeezing the name into a column. */
+  .people-approval { flex-wrap: wrap; align-items: flex-start; }
+  .people-approval > .min-w-0.flex-1 { flex: 1 1 calc(100% - 3rem); }
+  .people-approval > .min-w-0.flex-1 + div { flex: 1 1 100%; margin-left: calc(34px + 0.75rem); gap: 0.5rem; }
+  .people-approval > .min-w-0.flex-1 + div > :is(button, .soft-chip) { flex: 1 1 0; justify-content: center; min-height: 2.75rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .people-member, .people-kpi, .people-row-action, .people-pulse-seg { transition: none; }
@@ -441,7 +446,7 @@
   gap: 0.5rem;
   height: 2.75rem;
   padding: 0 1.125rem;
-  border-radius: 999px;
+  border-radius: var(--radius-btn);
   background: rgb(var(--surface));
   box-shadow: 0 0 0 1px rgb(var(--soft-ring)), 0 1px 2px rgb(24 24 27 / 0.04);
   font-size: 0.875rem;
@@ -580,7 +585,7 @@
   gap: 0.25rem;
   padding: 1.125rem 1.25rem;
   text-align: left;
-  border-radius: 1.25rem;
+  border-radius: var(--soft-card-r, 0.75rem);
   background: rgb(var(--surface));
   box-shadow: 0 0 0 1px rgb(var(--soft-ring)), var(--soft-ambient);
   color: rgb(var(--fg));
@@ -670,7 +675,7 @@
 .soft-event-date b { font-size: 1.125rem; line-height: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
 .soft-event-date span { font-size: 0.6875rem; font-weight: 600; color: rgb(var(--brand-ink)); }
 .soft-event[data-fun] .soft-event-date span { color: rgb(var(--butter-ink)); }
-.soft-fun { display: inline-flex; align-items: center; gap: 0.25rem; margin-bottom: 0.125rem; padding: 0 0.5rem; border-radius: 999px; background: rgb(var(--butter)); color: rgb(var(--butter-ink)); font-size: 0.6875rem; font-weight: 700; line-height: 1.125rem; }
+.soft-fun { display: inline-flex; align-items: center; gap: 0.25rem; margin-bottom: 0.125rem; padding: 0 0.5rem; border-radius: 999px; background: rgb(var(--butter)); color: rgb(var(--butter-ink)); font-size: 0.75rem; font-weight: 700; line-height: 1.125rem; }
 .soft-event-title { display: block; font-size: 0.875rem; font-weight: 600; color: rgb(var(--fg)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .soft-event-meta { display: block; font-size: 0.75rem; color: rgb(var(--fg-muted)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -732,7 +737,7 @@
 }
 .soft-main, .soft-side { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
 .people-soft .soft-band-stats { gap: 0.875rem; }
-.people-soft .soft-band-stat { padding: 0.875rem 1rem; border-radius: 1.125rem; gap: 0.125rem; }
+.people-soft .soft-band-stat { padding: 0.875rem 1rem; border-radius: var(--soft-card-r, 0.75rem); gap: 0.125rem; }
 .people-soft .soft-band-stat-value { font-size: 1.5rem; line-height: 1.875rem; }
 .people-soft .soft-band-stat-row { margin-top: 0.25rem; }
 .people-soft .soft-band-stat-label { font-size: 0.75rem; }
@@ -844,16 +849,23 @@
 
 
 /*
- * Every People page in Home's language (owner, 28 Oct 2026): pill buttons,
- * tables on a soft white card, pill tabs, rounded fields, Jakarta headings.
- * Scoped to the Sky palette's content area, so Accounting, Payroll and
- * Attendance keep their own look.
+ * Every People page in Home's language (owner, 28 Oct 2026): tables on a soft
+ * white card, tabs on a tray, Bricolage headings. Since 2 Nov 2026 (deep indigo)
+ * the shapes follow DESIGN.md's two radii: 8px on what you press (buttons, fields,
+ * tabs), 12px on what holds content (cards, trays, tiles); 999px is for status
+ * pills only. Scoped to the Sky palette, so Accounting, Payroll and Attendance
+ * keep their own look.
  */
-:root[data-palette='sky'] #main-content {
-  --soft-card-r: 1.25rem;
+:root[data-palette='sky'],
+[data-palette='sky'] {
+  --radius-btn: 0.5rem;
+  --radius-input: 0.5rem;
 }
-/* Buttons: pills. Primary keeps Sky with a soft glow; secondary is white on a hairline ring. */
-:root[data-palette='sky'] #main-content .ui-btn:not(.ui-icon-btn) { border-radius: 999px; padding-inline: 1.125rem; font-weight: 600; transition: transform 300ms var(--soft-ease), box-shadow 300ms var(--soft-ease), background-color 200ms ease; }
+:root[data-palette='sky'] #main-content {
+  --soft-card-r: 0.75rem;
+}
+/* Buttons: 8px. Primary keeps a soft glow; secondary is white on a hairline ring. */
+:root[data-palette='sky'] #main-content .ui-btn:not(.ui-icon-btn) { border-radius: var(--radius-btn); padding-inline: 1.125rem; font-weight: 600; transition: transform 300ms var(--soft-ease), box-shadow 300ms var(--soft-ease), background-color 200ms ease; }
 :root[data-palette='sky'] #main-content .ui-btn:not(.ui-icon-btn):active:not(:disabled) { transform: scale(0.98); }
 :root[data-palette='sky'] #main-content .ui-btn-primary { box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 8px 20px -10px rgb(var(--brand) / 0.7); }
 :root[data-palette='sky'] #main-content .ui-btn-secondary { border-color: transparent; background: rgb(var(--surface)); box-shadow: 0 0 0 1px rgb(var(--soft-ring)), 0 1px 2px rgb(24 24 27 / 0.04); }
@@ -862,8 +874,8 @@
 :root[data-palette='sky'] #main-content .ui-btn-secondary > svg { color: rgb(var(--brand-deep)); }
 
 /* Fields: softer corners, a calm ring, a Sky focus. */
-:root[data-palette='sky'] #main-content :is(.ui-input, .ui-select, textarea.ui-input) { border-radius: 0.75rem; border-color: rgb(var(--border)); background: rgb(var(--surface)); }
-:root[data-palette='sky'] #main-content .ui-search-field .ui-input { border-radius: 999px; box-shadow: 0 1px 2px rgb(24 24 27 / 0.03); }
+:root[data-palette='sky'] #main-content :is(.ui-input, .ui-select, textarea.ui-input) { border-radius: var(--radius-input); border-color: rgb(var(--border)); background: rgb(var(--surface)); }
+:root[data-palette='sky'] #main-content .ui-search-field .ui-input { border-radius: var(--radius-input); box-shadow: 0 1px 2px rgb(24 24 27 / 0.03); }
 :root[data-palette='sky'] #main-content :is(.ui-input, .ui-select):focus { border-color: rgb(var(--brand)); box-shadow: 0 0 0 3px rgb(var(--brand) / 0.15); }
 
 /* Headings and breadcrumbs. */
@@ -877,14 +889,14 @@
   gap: 0.25rem;
   padding: 0.25rem;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--soft-card-r);
   background: rgb(var(--soft-tray));
   box-shadow: 0 0 0 1px rgb(var(--soft-ring));
   /* A phone-width row of tabs scrolls inside its tray instead of widening the page (seen at 390px, 30 Oct 2026). */
   max-width: 100%;
 }
 :root[data-palette='sky'] #main-content .ui-record-tablist::after { display: none; }
-:root[data-palette='sky'] #main-content .ui-record-tablist .ui-tab { padding: 0 1rem; border-radius: 999px; font-weight: 500; color: rgb(var(--fg-muted)); }
+:root[data-palette='sky'] #main-content .ui-record-tablist .ui-tab { padding: 0 1rem; border-radius: var(--radius-btn); font-weight: 500; color: rgb(var(--fg-muted)); }
 :root[data-palette='sky'] #main-content .ui-record-tablist .ui-tab::after { display: none; }
 :root[data-palette='sky'] #main-content .ui-record-tablist .ui-tab.is-active,
 :root[data-palette='sky'] #main-content .ui-record-tablist [role='tab'][aria-selected='true'] { background: rgb(var(--surface)); color: rgb(var(--fg)); font-weight: 600; box-shadow: 0 1px 3px rgb(24 24 27 / 0.08), 0 0 0 1px rgb(var(--soft-ring)); }
@@ -914,7 +926,7 @@
 }
 
 /* Empty states: the picture sits in a soft sky circle. */
-:root[data-palette='sky'] .ui-split-mod > span { white-space: normal; text-align: center; line-height: 1.1; max-width: 4.5rem; }
+:root[data-palette='sky'] .ui-split-mod > span { white-space: normal; text-align: center; line-height: 1.1; max-width: 4.75rem; }
 
 
 /* Metric strips on list pages: a soft card, each figure's icon in its own pastel tile, as on Home. */
@@ -949,11 +961,12 @@
 :root[data-palette='sky'] #main-content .ui-table tbody td { padding-block: 0.5rem; }
 
 /* Sidebar: smaller marks and type, so longer names fit without spilling. */
-:root[data-palette='sky'] .ui-split-mod { font-size: 0.6875rem; padding: 0.375rem 0.125rem; gap: 0.25rem; }
-:root[data-palette='sky'] .ui-split-mod > span { font-size: 0.6875rem; font-weight: 600; letter-spacing: -0.005em; }
+/* Rail labels at the 12px floor (2 Nov 2026; were 11px). */
+:root[data-palette='sky'] .ui-split-mod { font-size: 0.75rem; padding: 0.375rem 0.125rem; gap: 0.25rem; }
+:root[data-palette='sky'] .ui-split-mod > span { font-size: 0.75rem; font-weight: 600; letter-spacing: -0.01em; }
 :root[data-palette='sky'] .ui-split-item { min-height: 2.125rem; padding: 0.3125rem 0.625rem; font-size: 0.8125rem; }
 :root[data-palette='sky'] .ui-split-item > svg[data-tint] { width: 1.5rem; height: 1.5rem; padding: 0.25rem; border-radius: 0.4375rem; }
-:root[data-palette='sky'] .ui-split-panel :is(p.ui-caption) { font-size: 0.6875rem; padding-top: 0.75rem; }
+:root[data-palette='sky'] .ui-split-panel :is(p.ui-caption) { font-size: 0.75rem; padding-top: 0.75rem; }
 :root[data-palette='sky'] .ui-split-panel-head { font-size: 0.9375rem; }
 
 /* Outline lists (Organisation overview and the like) sit on the same soft card as tables. */
@@ -1043,13 +1056,13 @@
 .att-summary-keys b { font-weight: 700; color: rgb(var(--fg)); font-variant-numeric: tabular-nums; }
 .att-summary-late { margin-left: auto; padding: 0.125rem 0.625rem; border-radius: 999px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); font-weight: 600; }
 
-.att-face { display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 999px; background: rgb(var(--brand-soft)); color: rgb(var(--brand-deep)); font-size: 0.6875rem; font-weight: 700; }
+.att-face { display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 999px; background: rgb(var(--brand-soft)); color: rgb(var(--brand-deep)); font-size: 0.75rem; font-weight: 700; }
 .att-line { position: relative; display: block; min-width: 9rem; height: 0.625rem; border-radius: 999px; background: rgb(var(--surface-sunken)); overflow: hidden; }
 .att-line-shift { position: absolute; top: 0; bottom: 0; background: rgb(var(--border-strong) / 0.35); }
 .att-line-span { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: rgb(var(--pos)); }
 .att-line-span[data-late] { background: linear-gradient(90deg, rgb(var(--warn)) 0 18%, rgb(var(--pos)) 18% 100%); }
 .att-line-span[data-open] { background-image: repeating-linear-gradient(135deg, rgb(var(--pos)) 0 6px, rgb(var(--pos) / 0.55) 6px 12px); }
-.att-late { margin-left: 0.375rem; padding: 0 0.3rem; border-radius: 999px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); font-size: 0.6875rem; font-weight: 600; }
+.att-late { margin-left: 0.375rem; padding: 0 0.3rem; border-radius: 999px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); font-size: 0.75rem; font-weight: 600; }
 .att-act-in { color: rgb(var(--pos)); }
 .att-mark { width: auto; min-width: 6.5rem; }
 
@@ -1229,7 +1242,7 @@
   gap: 0.25rem !important;
   padding: 0.25rem !important;
   border: 0 !important;
-  border-radius: 999px !important;
+  border-radius: var(--soft-card-r) !important;
   background: rgb(var(--soft-tray)) !important;
   box-shadow: 0 0 0 1px rgb(var(--soft-ring)) !important;
 }
@@ -1237,7 +1250,7 @@
   height: 2rem !important;
   padding: 0 0.875rem !important;
   border: 0 !important;
-  border-radius: 999px !important;
+  border-radius: var(--radius-btn) !important;
   background: transparent !important;
   box-shadow: none !important;
   color: rgb(var(--fg-muted)) !important;
@@ -1332,9 +1345,9 @@
 
 /* Drawers and dialogs sit outside the page, so they missed People's buttons
    and fields (square 4px corners beside the page's round ones). Same look. */
-:root[data-palette='sky'] .ui-scrim .ui-btn:not(.ui-icon-btn) { border-radius: 999px; padding-inline: 1.125rem; font-weight: 600; }
+:root[data-palette='sky'] .ui-scrim .ui-btn:not(.ui-icon-btn) { border-radius: var(--radius-btn); padding-inline: 1.125rem; font-weight: 600; }
 :root[data-palette='sky'] .ui-scrim .ui-btn-primary { box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 8px 20px -10px rgb(var(--brand) / 0.7); }
-:root[data-palette='sky'] .ui-scrim :is(.ui-input, .ui-select, textarea.ui-input) { border-radius: 0.75rem; border-color: rgb(var(--border)); background: rgb(var(--surface)); }
+:root[data-palette='sky'] .ui-scrim :is(.ui-input, .ui-select, textarea.ui-input) { border-radius: var(--radius-input); border-color: rgb(var(--border)); background: rgb(var(--surface)); }
 :root[data-palette='sky'] .ui-scrim :is(.ui-input, .ui-select):focus { border-color: rgb(var(--brand)); box-shadow: 0 0 0 3px rgb(var(--brand) / 0.15); }
 :root[data-palette='sky'] .ui-scrim .ui-icon-btn { border-radius: var(--radius-btn); }
 /* A record's section edited in place: the same 56rem as Add employee, Save under its fields. */
@@ -1862,17 +1875,8 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
   --border-field: 220 218 232;
   --soft-ring: 230 228 238;
 }
-:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail { border-right: 1px solid rgb(var(--border)); }
-/* Cotton on the two sidebars only (owner, 29 Oct 2026): the brand's warmth frames the page, the work area stays white
-   so tables and figures read clean. A selected item there keeps its lilac tile. */
-:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-rail, .ui-split-panel) { background: rgb(250 246 238); }
-:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { border-right: 1px solid rgb(var(--border)); }
-:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-rail, .ui-split-panel) :is(.ui-split-mod, .ui-split-item):hover:not([data-current]):not([aria-current='page']) { background: rgb(243 237 226); }
-/* The module panel a shade of lilac, not Cotton (owner, 31 Oct 2026: "sidebars both same yellowish background, need
-   to differentiate"): the rail keeps Cotton, the work area stays white, and the panel between them reads as its own
-   column. Its selected item keeps the lilac tile, a step darker than the panel. */
-:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { background: rgb(247 245 252); }
-:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item:hover:not([aria-current='page']) { background: rgb(239 236 248); }
+/* The rail and the module panel: superseded on 2 Nov 2026 by the deep indigo frame at the end of this file (the Cotton
+   rail of 29 Oct and the pale lilac panel of 31 Oct read as one washed-out block, 1.08:1 against the work area). */
 
 /* The line between a list and its side panel runs the page's full height (owner, 29 Oct 2026: "closing border line
    missing"): drawn by the row, not the panel, whose own edge stopped where its last block did. */
@@ -2001,10 +2005,6 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
 :root[data-palette='sky']:not([data-theme='dark']) .people-row-count[data-tone='warn'] { background: rgb(var(--warm)); color: rgb(var(--brand)); }
 /* Faces: initials in indigo on their team's wash (the series colour as text would be 2:1 for marigold). */
 :root[data-palette='sky']:not([data-theme='dark']) .people-face { color: rgb(var(--brand)); background: rgb(var(--dept) / 0.16); }
-/* The module panel's open screen: a lilac tile with a line, so it reads on the pale lilac panel (was 1.02:1). */
-:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] {
-  background: rgb(var(--brand-soft)); box-shadow: inset 0 0 0 1px rgb(var(--brand-border));
-}
 /* Place icons on Settings cards sit on the lilac tile, the rail's two-tone. */
 :root[data-palette='sky']:not([data-theme='dark']) #main-content li > button.ui-card > svg.ui-glyph:first-child {
   box-sizing: content-box; width: 1.25rem; height: 1.25rem; padding: 0.5rem; border-radius: 8px; background: rgb(var(--brand-soft)); color: rgb(var(--brand));
@@ -2012,6 +2012,167 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
 /* The bell: things waiting on you, so marigold with indigo, and a marigold dot on each unread line. */
 :root[data-palette='sky']:not([data-theme='dark']) .ui-bell-count { background: rgb(var(--warm)); color: rgb(var(--brand)); }
 :root[data-palette='sky']:not([data-theme='dark']) .ui-bell-unread { display: inline-block; background: rgb(var(--warm)); }
+
+/*
+ * Deep indigo (owner, 2 Nov 2026, direction A of three: "too pale, washed out", "generic"). The frame is the brand:
+ * the bar and rail in deep indigo, the module panel in indigo, the work area white, and colour in solid blocks where
+ * it means something (the greeting and the record's header on indigo, figures on lilac, what waits on you in
+ * marigold). Measured: the frame was 1.08:1 against the work area and the open screen 1.14:1 against its panel;
+ * now 13.2–15.2:1 and 10.7:1. Supersedes the Cotton rail and the pale lilac panel (29 and 31 Oct). Light theme only;
+ * Payroll, Attendance and Accounting are unchanged.
+ *
+ * Every colour is a token. On the frame the shared tokens are redefined (--surface, --fg, --border…), so the bar's
+ * own inline background, the company picker and the search field follow without a rule of their own.
+ */
+:root[data-palette='sky']:not([data-theme='dark']),
+:root:not([data-theme='dark']) [data-palette='sky'] {
+  --frame: 27 33 82;          /* #1B2152 bar and rail */
+  --frame-panel: 35 42 102;   /* #232A66 module panel (indigo) */
+  --frame-hi: 52 60 130;      /* #343C82 hover, a control on the frame */
+  --frame-line: 62 70 140;    /* #3E468C hairline on the frame */
+  --on-frame: 233 229 244;    /* lilac words: 12.3:1 on the bar, 10.7:1 on the panel */
+  --on-frame-muted: 201 195 229; /* 9.0:1 on the bar, 7.8:1 on the panel, 5.9:1 on --frame-hi */
+  --heading-bg: 233 229 244;  /* the head row is the lilac band itself */
+  --heading-hover: 221 216 238;
+  --border: 222 219 234;      /* row hairline a step firmer (1.36:1, was 1.26) */
+  --border-strong: 190 185 214;
+  --fg-muted: 72 76 104;      /* 8.4:1 on white */
+}
+/* The frame's tokens, on the bar, the rail and the panel. */
+html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-topbar, .ui-split-rail, .ui-split-panel) {
+  --surface: var(--frame-panel);
+  --surface-sunken: var(--frame-hi);
+  --border: var(--frame-line);
+  --border-strong: var(--frame-line);
+  --border-field: var(--frame-line);
+  --fg: var(--on-frame);
+  --fg-muted: var(--on-frame-muted);
+  --fg-subtle: var(--on-frame-muted);
+  --rail-ink: var(--on-frame-muted);
+  --rail-ink-strong: 255 255 255;
+  --brand-border: var(--frame-hi);
+  --logo-mark: var(--lilac);
+  --logo-word: 255 255 255;
+  --logo-dot: var(--marigold);
+  color: rgb(var(--fg));
+}
+/* Anything that opens from the bar (the app menu, the bell, the profile) is back on the light page. */
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar :is(.ui-popover, [role='menu'], [role='dialog'], [role='listbox']) {
+  --surface: 255 255 255;
+  --surface-sunken: 246 245 250;
+  --border: 222 219 234;
+  --border-strong: 190 185 214;
+  --border-field: 220 218 232;
+  --fg: 31 33 48;
+  --fg-muted: 72 76 104;
+  --fg-subtle: 104 107 124;
+  --brand-border: 201 195 229;
+  color: rgb(var(--fg));
+}
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar { background-color: rgb(var(--frame)) !important; border-bottom-color: rgb(var(--frame)) !important; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar > :is(button, div, label) .ui-icon-btn:hover,
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar > .ui-icon-btn:hover { background: rgb(var(--frame-hi)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-app-switch-name { color: rgb(255 255 255); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-app-switch-mark { background: rgb(var(--marigold)); color: rgb(var(--indigo)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-app-switch .ui-glyph { color: rgb(var(--indigo)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-topbar-initials { background: rgb(var(--lilac)); color: rgb(var(--indigo)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-bell-count { box-shadow: 0 0 0 2px rgb(var(--frame)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-global-search { background: rgb(var(--frame-panel)); box-shadow: inset 0 0 0 1px rgb(var(--frame-line)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-global-search kbd { background: rgb(var(--frame)); }
+/* The rail: deep indigo; the open module's tile one step lighter with its marigold fill and edge. */
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail { background: rgb(var(--frame)); border-right: 0; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod { color: rgb(var(--on-frame-muted)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod:hover:not([data-current]) { background: rgb(var(--frame-hi)); color: rgb(255 255 255); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] { background: transparent; color: rgb(255 255 255); font-weight: 700; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod > span { color: inherit; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-glyph { color: rgb(var(--on-frame)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-glyph [opacity='0.2'] { fill: rgb(var(--frame-hi)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] > svg.ui-glyph { color: rgb(255 255 255); background: rgb(var(--frame-hi)); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] .ui-glyph [opacity='0.2'] { fill: rgb(var(--marigold)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail > .ui-split-mod[data-more] > svg { background: transparent; color: rgb(var(--on-frame)); }
+/* The module panel: indigo; the open screen a lilac tile with indigo words and a marigold edge. */
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { background: rgb(var(--frame-panel)); border-right: 0; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-panel-head .ui-t-sec { color: rgb(255 255 255); font-family: var(--font-display); font-size: 1.125rem; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item { color: rgb(var(--on-frame)); font-size: 0.875rem; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item .ui-glyph { color: rgb(var(--on-frame)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item .ui-glyph [opacity='0.2'] { fill: rgb(var(--frame-hi)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item:hover:not([aria-current='page']) { background: rgb(var(--frame-hi)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] {
+  background: rgb(var(--lilac)); color: rgb(var(--indigo)); font-weight: 700; box-shadow: inset 3px 0 0 rgb(var(--marigold));
+}
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] .ui-glyph { color: rgb(var(--indigo)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] .ui-glyph [opacity='0.2'] { fill: rgb(var(--marigold)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel :is(p.ui-caption, .ui-caption) { color: rgb(var(--on-frame-muted)); }
+
+/* The work area: white, titles a step larger, colour in blocks. */
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading .ui-t-page { font-size: 1.75rem !important; line-height: 2.125rem !important; }
+/* Home: the greeting on an indigo block, its main action marigold; figures on lilac; the one that waits on you marigold. */
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home > header.soft-band-top {
+  align-items: center; padding: 1.5rem 1.75rem; border-radius: 0.75rem; background: rgb(var(--indigo));
+}
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-eyebrow { background: rgb(var(--frame-hi)); color: rgb(var(--on-frame)); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home h1.soft-band-title { color: rgb(255 255 255) !important; font-size: 2.125rem !important; line-height: 2.5rem !important; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-sub { color: rgb(var(--on-frame-muted)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-sub strong { color: rgb(var(--marigold)); }
+/* A nought is quiet (the zero rule, 31 Oct): no marigold, no weight, the sentence's own lilac (7.8:1 on indigo). */
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-sub strong[data-zero] { color: inherit; font-weight: 400; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:not(.soft-pill-primary) { background: rgb(var(--frame-hi)); color: rgb(255 255 255); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:not(.soft-pill-primary) svg { color: rgb(var(--marigold)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary { background: rgb(var(--marigold)); color: rgb(var(--indigo)); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary .soft-pill-orb { background: rgb(var(--indigo)); color: rgb(var(--marigold)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat { background: rgb(var(--lilac)); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-label { color: rgb(var(--indigo)); font-weight: 600; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-label > svg { background: rgb(255 255 255); color: rgb(var(--indigo)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-value { font-size: 2rem; line-height: 2.25rem; }
+/* Out today 0, On notice 0: quiet grey, weight 600 (4.3:1 on lilac at 32px, above the 3:1 large text needs). */
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-value[data-zero] { color: rgb(var(--fg-subtle)) !important; font-weight: 600; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-attention] { background: rgb(var(--marigold)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-attention] :is(.soft-band-stat-label, .soft-band-stat-note) { color: rgb(var(--indigo)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .people-panel-head { background: rgb(var(--lilac)); }
+/* Lists: the figures strip a lilac band; tabs on a lilac tray, the open one solid indigo with a marigold count. */
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-strip { background: rgb(var(--lilac)); border: 0; border-radius: var(--soft-card-r); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-strip > * { border-color: rgb(var(--brand-border)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-strip .ui-metric-label { color: rgb(var(--indigo)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric:hover { background: rgb(var(--heading-hover)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist { background: rgb(var(--lilac)); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist .ui-tab { color: rgb(var(--indigo)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { background: rgb(var(--indigo)); color: rgb(255 255 255); font-weight: 700; box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist .ui-tab.is-active .ui-tab-count { background: rgb(var(--marigold)) !important; color: rgb(var(--indigo)) !important; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table thead :is(th, .ui-th) { background: rgb(var(--heading-bg)) !important; color: rgb(var(--indigo)); border-bottom-color: rgb(var(--brand-border)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table .ui-avatar-initials { background: rgb(var(--indigo)) !important; color: rgb(255 255 255) !important; }
+/* The record: the person's name on an indigo band; Edit, its one primary, in marigold. */
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) {
+  /* The sky heading is transparent !important (a title earns no surface); the record's header is the exception, a block. */
+  padding: 1.25rem 1.5rem; border-radius: var(--soft-card-r); background: rgb(var(--page-heading-bg)) !important;
+  --page-heading-bg: var(--indigo); --btn-primary-bg: var(--marigold); --btn-primary-hover: 247 184 79; --on-brand: var(--indigo);
+  --fg: var(--on-frame); --fg-muted: var(--on-frame-muted); --fg-subtle: var(--on-frame-muted); --brand: var(--on-frame); --brand-deep: 255 255 255; --link: 255 255 255;
+  --surface: var(--frame-hi); --soft-ring: var(--frame-line); --border-strong: var(--frame-line);
+}
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) .ui-t-page { color: rgb(255 255 255) !important; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) :is(.ui-breadcrumb, .ui-breadcrumb *, .ui-profile-facts, .ui-profile-facts *) { color: rgb(var(--on-frame-muted)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) :is(.ui-breadcrumb [aria-current='page'], .ui-profile-facts :is(a, button)) { color: rgb(255 255 255); text-decoration-color: rgb(var(--marigold)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-profile .ui-pill { background: rgb(var(--lilac)); color: rgb(var(--indigo)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-profile .ui-avatar-initials { background: rgb(var(--marigold)) !important; color: rgb(var(--indigo)) !important; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) .ui-btn-secondary { color: rgb(255 255 255); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) .ui-btn-primary { box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) .ui-btn-primary > svg { color: rgb(var(--indigo)); }
+/* Phone: the tab bar is the frame too. */
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar {
+  background: rgb(var(--frame)); border-top-color: rgb(var(--frame));
+  --fg: var(--on-frame); --fg-muted: var(--on-frame-muted); --fg-subtle: var(--on-frame-muted); --brand: 255 255 255;
+}
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-tabbar-item { color: rgb(var(--on-frame-muted)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-tabbar-item[aria-current='page'] { color: rgb(255 255 255); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-glyph { color: rgb(var(--on-frame)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-glyph [opacity='0.2'] { fill: rgb(var(--frame-hi)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-tabbar-item[aria-current='page'] .ui-glyph [opacity='0.2'] { fill: rgb(var(--marigold)); }
+@media (max-width: 767px) {
+  html:root[data-palette='sky']:not([data-theme='dark']) .people-home > header.soft-band-top { padding: 1.25rem; }
+  html:root[data-palette='sky']:not([data-theme='dark']) .people-home h1.soft-band-title { font-size: 1.75rem !important; line-height: 2.125rem !important; }
+  html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* On a phone Waiting for you comes before the figures, so its first request is above the fold at 390×844. */
+  html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-main > .soft-bezel:has(#todo-h) { order: -1; }
+}
 
 /*
  * The employee app (shared with Attendance, 31 Oct 2026). It wears brand D's "waiting" and the open tab's marigold

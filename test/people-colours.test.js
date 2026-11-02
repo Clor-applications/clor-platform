@@ -183,8 +183,9 @@ describe('one brand series for charts, teams and leave types', () => {
 });
 
 describe('chosen and the employee app', () => {
-  it("the module panel's open screen sits on the lilac tile with a line", () => {
-    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(var\(--brand-soft\)\); box-shadow: inset 0 0 0 1px rgb\(var\(--brand-border\)\);/);
+  /* Since 2 Nov 2026 the panel is indigo (deep indigo, test/people-deep-indigo.test.js): the open screen is a lilac tile with a marigold edge. */
+  it("the module panel's open screen sits on the lilac tile, marked with marigold", () => {
+    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(var\(--lilac\)\); color: rgb\(var\(--indigo\)\); font-weight: 700; box-shadow: inset 3px 0 0 rgb\(var\(--marigold\)\);/);
   });
 
   it("the employee app wears brand D's waiting through its own data-brand, not the sky palette", () => {
