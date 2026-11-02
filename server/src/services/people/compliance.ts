@@ -3,6 +3,7 @@ import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { isFeatureEnabled } from '../features.js';
 import { addDays, istDate, todayIst } from '../../utils/istDate.js';
+import { canonicalState, stateLabel, ptDueFor, lwfDueFor, PT_FILINGS, LWF_FILINGS, NO_PT_STATES } from '../../constants/stateLevies.js';
 
 /**
  * Compliance calendar (HR research, Phase 2: "compliance calendar,
@@ -13,9 +14,12 @@ import { addDays, istDate, todayIst } from '../../utils/istDate.js';
  * challan or acknowledgement number, and keep the evidence. A company adds
  * its own deadlines (licence renewals, inspections) beside them.
  *
- * Central due dates are the published ones. Professional Tax dates differ by
- * state; the states CLOR knows show their usual date, the rest the last day
- * of the following month, and every PT item says to confirm with the state.
+ * Central due dates are the published ones. Professional Tax and Labour
+ * Welfare Fund dates differ by state, and come from the shared state table
+ * (constants/stateLevies.ts) that Payroll's returns read too: PT for each
+ * state with people on PT, LWF for each state with people in payroll once
+ * LWF is switched on. A state CLOR has no date for shows the last day of the
+ * following month and says to confirm it with the state.
  */
 
 type Who = { accountId: string; orgId: string; userId: string | null };
@@ -29,15 +33,6 @@ const lastDay = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate
 const date = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(Math.min(d, lastDay(y, m)))}`;
 const monthName = (y: number, m: number) => `${MONTHS[m - 1]} ${y}`;
 
-/** Professional Tax: the usual monthly due day, the month after (states CLOR knows). */
-export const PT_DUE_DAY: Record<string, number> = {
-  karnataka: 20,
-  'west bengal': 21,
-  telangana: 10,
-  'andhra pradesh': 10,
-  gujarat: 15,
-  'madhya pradesh': 10,
-};
 
 export const LINKS: Record<string, Link> = {
   PF_ECR: { app: 'payroll', screen: 'reports' },
@@ -47,6 +42,7 @@ export const LINKS: Record<string, Link> = {
   FORM16: { app: 'payroll', screen: 'reports' },
   BONUS: { app: 'payroll', screen: 'runs' },
   PT: { app: 'payroll', screen: 'reports' },
+  LWF: { app: 'payroll', screen: 'reports' },
   POSH_REPORT: null,
   CUSTOM: null,
 };
@@ -59,15 +55,22 @@ export async function applicability(accountId: string, orgId: string) {
     isFeatureEnabled(accountId, orgId, 'payroll'),
     peoplePrisma.employee.count({ where: { accountId, orgId, status: { not: 'LEFT' } } }),
   ]);
-  const profiles = payroll
-    ? await payrollPrisma.employeePayrollProfile.findMany({ where: { orgId, payrollStatus: 'IN_PAYROLL' }, select: { pfApplicable: true, esiApplicable: true, ptApplicable: true, professionalTaxState: true } })
-    : [];
-  const ptStates = [...new Set(profiles.filter((p) => p.ptApplicable && p.professionalTaxState).map((p) => String(p.professionalTaxState).trim()))].sort();
+  const [profiles, lwfOn] = payroll
+    ? await Promise.all([
+        payrollPrisma.employeePayrollProfile.findMany({ where: { orgId, payrollStatus: 'IN_PAYROLL' }, select: { pfApplicable: true, esiApplicable: true, ptApplicable: true, professionalTaxState: true } }),
+        payrollPrisma.statutoryScheme.count({ where: { orgId, code: 'LWF', isEnabled: true } }),
+      ])
+    : [[], 0];
+  /* One name per state, so "KA" and "Karnataka" are one deadline. */
+  const ptStates = [...new Set(profiles.filter((p) => p.ptApplicable && canonicalState(p.professionalTaxState)).map((p) => canonicalState(p.professionalTaxState)))].sort();
+  /* LWF reaches everybody in payroll in a state that collects it, once the company switches it on. */
+  const lwfStates = lwfOn ? [...new Set(profiles.map((p) => canonicalState(p.professionalTaxState)).filter((st) => st && LWF_FILINGS[st]))].sort() : [];
   return {
     payroll: payroll && profiles.length > 0,
     pf: profiles.some((p) => p.pfApplicable),
     esi: profiles.some((p) => p.esiApplicable),
     ptStates,
+    lwfStates,
     /* An Internal Committee and its annual report: workplaces of ten or more (POSH Act s.4, s.21). */
     posh: people >= 10,
     people,
@@ -89,14 +92,34 @@ export function dueDates(a: Awaited<ReturnType<typeof applicability>>, from: str
     if (a.payroll && a.pf) out.push({ code: 'PF_ECR', period, title: `PF: ECR filed and paid for ${label}`, dueDate: date(ny, nm, 15) });
     if (a.payroll && a.esi) out.push({ code: 'ESIC', period, title: `ESIC: contribution filed and paid for ${label}`, dueDate: date(ny, nm, 15) });
     if (a.payroll) out.push({ code: 'TDS_DEPOSIT', period, title: `TDS on salaries deposited for ${label}`, dueDate: m === 3 ? date(y, 4, 30) : date(ny, nm, 7) });
-    for (const state of a.ptStates) {
-      const day = PT_DUE_DAY[state.toLowerCase()];
+    for (const named of a.ptStates) {
+      const state = canonicalState(named);
+      if (NO_PT_STATES.includes(state)) continue;
+      const code = `PT_${state.replace(/[^A-Z]+/g, '_')}`;
+      const f = PT_FILINGS[state];
+      const due = ptDueFor(state, y, m);
+      if (f && !due) continue;
+      /* A quarterly or half-yearly return is one deadline, however many months it covers. */
+      if (due && out.some((d) => d.code === code && d.period === due.key)) continue;
       out.push({
-        code: `PT_${state.toUpperCase().replace(/[^A-Z]+/g, '_')}`,
-        period,
-        title: `Professional Tax (${state}) paid and returned for ${label}`,
-        dueDate: day ? date(ny, nm, day) : date(ny, nm, lastDay(ny, nm)),
-        note: day ? "Usual due date; confirm with the state's notification." : "CLOR does not know this state's due date: set it, and confirm with the state.",
+        code,
+        period: due?.key || period,
+        title: `Professional Tax (${stateLabel(state)}) paid and returned for ${due?.label || label}${f ? `: ${f.form}` : ''}`,
+        dueDate: due?.dueDate || date(ny, nm, lastDay(ny, nm)),
+        note: f?.dueKnown ? `${f.how} The usual date: confirm it with the state's notification, and file on the state portal.` : "CLOR does not know this state's due date: set it, and confirm with the state.",
+      });
+    }
+    for (const state of (a.lwfStates || []).map(canonicalState)) {
+      const code = `LWF_${state.replace(/[^A-Z]+/g, '_')}`;
+      const f = LWF_FILINGS[state];
+      const due = lwfDueFor(state, y, m);
+      if (!f || !due || out.some((d) => d.code === code && d.period === due.key)) continue;
+      out.push({
+        code,
+        period: due.key,
+        title: `Labour Welfare Fund (${stateLabel(state)}) paid for ${due.label}: ${f.form}`,
+        dueDate: due.dueDate,
+        note: `${f.how}${f.dueKnown ? '' : ' Confirm the date with the state.'} File it on the state portal.`,
       });
     }
     [y, m] = [ny, nm];
@@ -121,7 +144,7 @@ export function dueDates(a: Awaited<ReturnType<typeof applicability>>, from: str
   return out.filter((d) => within(d.dueDate));
 }
 
-const linkFor = (code: string): Link => LINKS[code] ?? (code.startsWith('PT_') ? LINKS.PT : null);
+const linkFor = (code: string): Link => LINKS[code] ?? (code.startsWith('PT_') ? LINKS.PT : code.startsWith('LWF_') ? LINKS.LWF : null);
 
 /** The calendar: what is due from two months ago to three months ahead, plus anything still open from before. */
 export async function calendar(who: Who) {

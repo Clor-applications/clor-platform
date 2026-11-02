@@ -199,7 +199,13 @@ const STATUTORY: Record<string, { legalSource: string; requiredProof: string[]; 
   BONUS: { legalSource: 'Payment of Bonus Act 1965, s.19: within eight months of the year closing', requiredProof: ['PAYMENT_RECORD'], owner: 'PAYROLL' },
   POSH_REPORT: { legalSource: 'POSH Act s.21: the Internal Committee’s annual report', requiredProof: ['FILING_RECEIPT'], owner: 'HR' },
 };
-const statutoryOf = (code: string) => STATUTORY[code] || (code.startsWith('PT_') ? { legalSource: 'State Professional Tax Act: monthly payment and return', requiredProof: ['PAYMENT_CHALLAN'], owner: 'PAYROLL' } : null);
+const statutoryOf = (code: string) =>
+  STATUTORY[code] ||
+  (code.startsWith('PT_')
+    ? { legalSource: 'State Professional Tax Act: payment and return on the state’s cycle', requiredProof: ['PAYMENT_CHALLAN'], owner: 'PAYROLL' }
+    : code.startsWith('LWF_')
+      ? { legalSource: 'State Labour Welfare Fund Act: contribution on the state’s cycle', requiredProof: ['PAYMENT_CHALLAN'], owner: 'PAYROLL' }
+      : null);
 const DONE_STATES = ['DONE', 'CHECKED', 'NOT_APPLICABLE'];
 
 /**
