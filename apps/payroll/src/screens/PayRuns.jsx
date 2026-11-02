@@ -122,19 +122,30 @@ export default function PayRuns() {
   const [starting, setStarting] = useState(false);
   const [status, setStatus] = useState("");
 
+  /* Periods refused or failed: the runs still list, and starting one waits (QA: one refused list failed the whole screen). */
+  const [periodsFailed, setPeriodsFailed] = useState(false);
+
   const load = useCallback(() => {
-    Promise.all([
-      listPayrollRuns(),
-      listPayrollPeriods({ openOnly: true }),
-      listPayGroups({ activeOnly: true }),
-    ])
-      .then(([runRows, periodRows, groupRows]) => {
+    /* Each list on its own: the runs are the screen; periods and pay groups only feed "Run payroll". */
+    listPayrollRuns()
+      .then((runRows) => {
         setRuns(runRows);
-        setPeriods(periodRows);
-        setPayGroups(groupRows);
         setError("");
       })
       .catch((e) => setError(String(e?.message || "Could not load payroll runs.")));
+    listPayrollPeriods({ openOnly: true })
+      .then((rows) => {
+        setPeriods(rows);
+        setPeriodsFailed(false);
+      })
+      .catch(() => {
+        setPeriods([]);
+        setPeriodsFailed(true);
+      });
+    /* No pay groups is a run for everyone, so a refused list costs nothing but the choice. */
+    listPayGroups({ activeOnly: true })
+      .then(setPayGroups)
+      .catch(() => setPayGroups([]));
   }, []);
 
   useEffect(() => {
@@ -223,6 +234,7 @@ export default function PayRuns() {
       above={starting ? <StartRun periods={periods} payGroups={payGroups} onCancel={() => setStarting(false)} onStart={start} /> : null}
     >
       <LoadFailed message={error} onRetry={load} />
+      {periodsFailed && runs ? <p className="ui-caption mb-2">Could not load the payroll periods, so a new run cannot be started here.</p> : null}
       {!runs ? (
         error ? null : <SkeletonCard lines={4} />
       ) : (
@@ -245,7 +257,7 @@ export default function PayRuns() {
                   <td colSpan={7}>
                     {inTab.length ? (
                       <EmptyState kind="filtered" totalCount={inTab.length} title="No pay runs match" description="Nothing in this tab matches the search or the column filters." />
-                    ) : !periods.length && !runs.length ? (
+                    ) : !periods.length && !runs.length && !periodsFailed ? (
                       <EmptyState
                         icon={CalendarClock}
                         title="No open payroll period"

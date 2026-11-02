@@ -142,7 +142,7 @@ function PersonalDetails({ d, guard, reload }) {
     );
   };
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="details-h">
+    <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="details-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="details-h" className="ui-t-sec">My details</h2>
         {!editing ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={open}>{atOnce.size ? 'Change details' : 'Ask HR to change'}</button> : null}

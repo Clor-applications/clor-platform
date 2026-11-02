@@ -166,7 +166,8 @@ export default function EmployeePortal() {
         {tab === 'schedule' ? <><ShiftSwaps guard={guard} onChanged={() => setScheduleKey((n) => n + 1)} /><MySchedule key={scheduleKey} guard={guard} /></> : null}
         {tab === 'leave' ? <MyLeave guard={guard} /> : null}
         {tab === 'me' ? (
-          <>
+          /* Every control on Me is a 44px target on a phone (QA, 1 Nov 2026: Add a bill, Change details and Sign out were 28px). */
+          <div className="ui-touch-44 space-y-4">
             {/* Steps that are mine while I join or leave come first: they have dates. */}
             <MySteps guard={guard} refreshKey={leavingSent} />
             <ExitInterview guard={guard} refreshKey={leavingSent} />
@@ -184,7 +185,7 @@ export default function EmployeePortal() {
             <PrivateComplaint guard={guard} />
             <LeavingCompany guard={guard} refreshKey={leavingSent} onSent={resigned} />
             <Account me={me} guard={guard} onSignOut={leave} />
-          </>
+          </div>
         ) : null}
       </main>
 
@@ -1106,7 +1107,7 @@ function Devices({ guard }) {
   const when = (v) => new Date(v).toLocaleDateString('en-IN', { dateStyle: 'medium' });
   const others = (d?.sessions || []).filter((s) => !s.current);
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="dev-h">
+    <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="dev-h">
       <h2 id="dev-h" className="ui-t-sec">Signed-in devices</h2>
       {failed ? <p className="text-sm" role="alert">{failed}</p> : null}
       {!d && !failed ? <p className="ui-caption">Loading…</p> : null}

@@ -1458,6 +1458,10 @@ portalRouter.get('/payslips/:id', async (req, res) => {
       totalDeductions: Number(slip.totalDeductions),
       net: Number(slip.netPay),
       paid: slip.paymentStatus === 'PAID',
+      /* What this payslip could not take and moved on (deductionCap.ts), as Payroll's copy shows it. */
+      deductionNote: slip.deductionNote ?? null,
+      /* Somebody whose last day falls in this period has no next payslip: the rest goes to the full and final. */
+      leaving: Boolean(person.dateOfLeaving && period?.endDate && String(person.dateOfLeaving).slice(0, 10) <= period.endDate),
     },
   });
 });

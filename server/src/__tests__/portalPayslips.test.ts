@@ -59,5 +59,14 @@ describe('portal payslips', () => {
     expect(slip.employee.pan).toBe('••••••234F');
     expect(slip.employee.account).toBe('••••••••9012');
     expect(JSON.stringify(slip)).not.toContain('ABCDE1234F');
+    /* Nothing moved: no note. */
+    expect(slip.deductionNote).toBeNull();
+    expect(slip.leaving).toBe(false);
+
+    /* A deduction held to the legal share and moved on: the employee's copy says so, as Payroll's does (deductionCap.ts). */
+    const note = { percent: 50, wages: 30_000, limit: 15_000, counted: 2_000, reason: 'LIMIT', total: 4_000, carried: [{ label: 'Loan Recovery', amount: 4_000 }] };
+    await payrollPrisma.salarySlip.update({ where: { id: slipId }, data: { deductionNote: note } });
+    const carried = (await request(app).get(`/api/portal/payslips/${slipId}`).set(me).expect(200)).body.slip;
+    expect(carried.deductionNote).toEqual(note);
   }, 60_000);
 });

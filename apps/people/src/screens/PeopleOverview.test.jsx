@@ -50,3 +50,21 @@ it('shows On notice by default, and leaves it out when the company keeps leaving
   expect(await screen.findByText('To approve')).toBeTruthy();
   expect(screen.queryByText('On notice')).toBeNull();
 });
+
+/* QA, Team Manager (1 Nov 2026): Home offered Announce, Post one, HR cases and Add an employee, which his role refuses. */
+it('offers only the actions this reader may use', async () => {
+  const { PermissionContext } = await import('@ui/permissions/context');
+  const as = (permissions, isAdmin = false) => (
+    <PermissionContext.Provider value={{ loading: false, isAdmin, permissions: new Set(permissions) }}>
+      <PeopleOverview openScreen={vi.fn()} />
+    </PermissionContext.Provider>
+  );
+  const { unmount } = render(as(['PEOPLE::Employees::VIEW', 'ATTENDANCE::Leave Requests::VIEW']));
+  expect(await screen.findByText('To approve')).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Leave requests/ })).toBeTruthy();
+  for (const name of [/Announce/, /Post one/, /HR cases/, /Add an employee/, /All events/]) expect(screen.queryByRole('button', { name })).toBeNull();
+  unmount();
+  render(as([], true));
+  expect(await screen.findByRole('button', { name: /Announce/ })).toBeTruthy();
+  for (const name of [/Post one/, /HR cases/, /Add an employee/, /All events/]) expect(screen.getByRole('button', { name })).toBeTruthy();
+});

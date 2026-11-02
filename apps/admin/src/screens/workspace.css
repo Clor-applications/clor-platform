@@ -171,6 +171,10 @@
   background: rgb(var(--ws-ok-soft));
   color: rgb(var(--ws-ink));
 }
+/* Ink on stone, as --ok and --role: muted grey on stone was 4.4:1, under AA for 12px text (QA, 1 Nov 2026). */
+.ws-pill--off {
+  color: rgb(var(--ws-ink));
+}
 .ws-pill--ok::before,
 .ws-pill--off::before {
   content: '';
