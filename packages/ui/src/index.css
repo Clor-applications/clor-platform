@@ -813,6 +813,104 @@
   --ws-nav-selected: 74 22 34; --ws-nav-selected-ink: 243 233 235; --ws-brand: var(--marigold);
 }
 
+/* ---------------------------------------------------------------------------
+   The Indigo palette: Direction D, "Done, daily" (2026-10-29), kept for
+   Accounting (owner, 3 Nov 2026: "do not change color to accounting").
+
+   Every other app moved to the red brand above; Accounting opts into this
+   palette with `palette: 'indigo'` in its manifest and keeps the colours it
+   had: indigo #232A66 acts, lilac #E9E5F4 is chosen and done, cotton #FAF6EE
+   is the page, and money out stays red. The logo is the CLOR logo, the same
+   in every app, so this palette leaves --logo-mark and --logo-dot alone.
+--------------------------------------------------------------------------- */
+/* As light as the platform's own :root block (:where), so the dark theme's
+   values still win where the dark block below does not restate them. */
+:root:where([data-palette='indigo']),
+:root:not([data-theme='dark']) [data-palette='indigo'] {
+  --cotton: 250 246 238; --indigo: 35 42 102; --marigold: 245 166 35; --lilac: 233 229 244;
+  --app-bg: var(--cotton); --surface: 255 255 255; --surface-raised: 255 255 255;
+  --surface-sunken: 247 244 238; --border: 232 227 216; --border-strong: 190 184 172;
+  --border-field: 205 199 188; --doc-section: 252 250 246;
+  /* Text is indigo-black, not zinc: a cold grey on cotton reads as a smudge.
+     fg-muted 7.8:1 and fg-subtle 5.3:1 on cotton; both higher on white. */
+  --fg: 26 29 61; --fg-muted: 72 75 106; --fg-subtle: 98 100 128;
+  /* White on indigo is 13.2:1; the hover lifts, pressed sinks. */
+  --brand: var(--indigo); --brand-deep: 24 29 74; --brand-hover: 48 56 128; --brand-pressed: 22 26 66;
+  --brand-soft: var(--lilac); --brand-subtle: 244 242 250; --brand-border: 201 194 228;
+  --brand-ink: var(--indigo); --brand-panel: var(--indigo); --on-brand: 255 255 255;
+  --doc-link: 52 62 148; --doc-link-wash: 244 242 250; --accent-soft: var(--brand-soft);
+  --ring: var(--indigo); --link: 52 62 148; --link-hover: var(--indigo); --info: 72 75 106; --info-soft: 244 242 250;
+  --st-all-soft: 244 242 250; --st-all-strong: var(--lilac); --st-all-key: var(--indigo); --st-all-ink: var(--indigo);
+  --nav-fg: 26 29 61; --nav-fg-muted: 72 75 106; --nav-fg-subtle: 98 100 128;
+  --rail-bg: var(--cotton); --rail-border: 232 227 216; --rail-hover: 241 237 229; --rail-active: var(--lilac);
+  --heading-bg: 244 242 250; --heading-hover: var(--lilac); --page-heading-bg: 244 242 250; --header-bg: 247 244 238;
+  --cursor-bg: 255 255 255; --cursor-fg: 26 29 61;
+  --nav-dashboard: var(--indigo); --nav-sales: var(--indigo); --nav-crm: var(--indigo);
+  --nav-purchases: var(--indigo); --nav-cashbank: var(--indigo); --nav-expenses: var(--indigo);
+  --nav-inventory: var(--indigo); --nav-journal: var(--indigo); --nav-approvals: var(--indigo);
+  --nav-reports: var(--indigo); --nav-masterdata: var(--indigo); --nav-settings: var(--indigo);
+  --nav-dashboard-ink: var(--lilac); --nav-sales-ink: var(--lilac); --nav-crm-ink: var(--lilac);
+  --nav-purchases-ink: var(--lilac); --nav-cashbank-ink: var(--lilac); --nav-expenses-ink: var(--lilac);
+  --nav-inventory-ink: var(--lilac); --nav-journal-ink: var(--lilac); --nav-approvals-ink: var(--lilac);
+  --nav-reports-ink: var(--lilac); --nav-masterdata-ink: var(--lilac); --nav-settings-ink: var(--lilac);
+  --ov-blue: var(--indigo); --ov-blue-soft: var(--lilac); --ov-blue-wash: 252 250 246;
+  --ov-green: 72 75 106; --ov-green-soft: var(--lilac); --ov-green-wash: 252 250 246;
+  --ov-amber: 72 75 106; --ov-amber-soft: var(--lilac); --ov-amber-wash: 252 250 246;
+  --ov-violet: var(--indigo); --ov-violet-soft: var(--lilac); --ov-violet-wash: 252 250 246;
+  --ov-orange: var(--indigo); --ov-orange-soft: var(--lilac); --ov-orange-wash: 252 250 246;
+  --kpi-line: 232 227 216;
+  --kpi-sales-bg: 252 250 246; --kpi-sales-ink: 26 29 61;
+  --kpi-invoices-bg: 244 242 250; --kpi-invoices-ink: var(--indigo);
+  --kpi-received-bg: 240 253 244; --kpi-received-ink: 21 128 61;
+  --kpi-due-bg: 252 250 246; --kpi-due-ink: 72 75 106;
+  --kpi-overdue-bg: 254 242 242; --kpi-overdue-ink: 185 28 28;
+  --kpi-credit-bg: 244 242 250; --kpi-credit-ink: var(--indigo);
+  --pos: 16 126 62; --pos-soft: 235 247 239;
+  --neg: 187 0 0; --neg-hover: 153 0 0; --neg-soft: 253 237 237;
+  --warn: 233 115 12; --warn-ink: 154 70 0; --warn-soft: 255 244 230;
+  /* The admin rail's selected module: lilac, like every other selection. */
+  --ws-nav-selected: var(--lilac); --ws-nav-selected-ink: var(--indigo); --ws-brand: var(--indigo);
+  /* What the red brand added that Direction D never had: unset, so the old fallbacks apply again. */
+  --btn-primary-bg: initial; --btn-primary-hover: initial; --fg-heading: initial;
+  /* Money out stays red in Accounting. */
+  --money-out: var(--neg);
+}
+
+:root[data-theme='dark'][data-palette='indigo'],
+:root[data-theme='dark'] [data-palette='indigo'] {
+  --app-bg: 16 18 40; --surface: 25 28 58; --surface-sunken: 32 36 72; --surface-raised: 42 47 90;
+  --border: 44 49 92; --border-strong: 78 84 132; --border-field: 62 68 114; --doc-section: 29 32 66;
+  --fg: 250 246 238; --fg-muted: 192 189 214; --fg-subtle: 166 163 194;
+  --brand: var(--marigold); --brand-deep: 250 196 102; --brand-hover: 250 186 74; --brand-pressed: 224 146 20;
+  --btn-primary-bg: var(--marigold); --btn-primary-hover: 250 186 74;
+  --brand-soft: 48 53 104; --brand-subtle: 32 36 72; --brand-border: 98 104 160; --brand-ink: 250 200 110;
+  --on-brand: var(--indigo); --on-primary: var(--indigo); --on-accent: var(--indigo); --accent-soft: 48 53 104;
+  --ring: var(--marigold); --doc-link: 200 194 242; --doc-link-wash: 42 47 90;
+  --link: 200 194 242; --link-hover: var(--lilac); --info: 192 189 214; --info-soft: 42 47 90;
+  --st-all-soft: 32 36 72; --st-all-strong: 48 53 104; --st-all-key: var(--marigold); --st-all-ink: 250 230 190;
+  --rail-bg: 12 14 32; --rail-border: 32 36 72; --rail-hover: 25 28 58; --rail-active: 48 53 104;
+  --heading-bg: 42 47 90; --heading-hover: 48 53 104; --page-heading-bg: 25 28 58; --header-bg: 21 24 50;
+  --cursor-bg: 32 36 72; --cursor-fg: 250 246 238;
+  --nav-fg: 250 246 238; --nav-fg-muted: 192 189 214; --nav-fg-subtle: 140 137 172;
+  --nav-dashboard: 200 194 242; --nav-sales: 200 194 242; --nav-crm: 200 194 242;
+  --nav-purchases: 200 194 242; --nav-cashbank: 200 194 242; --nav-expenses: 200 194 242;
+  --nav-inventory: 200 194 242; --nav-journal: 200 194 242; --nav-approvals: 200 194 242;
+  --nav-reports: 200 194 242; --nav-masterdata: 200 194 242; --nav-settings: 200 194 242;
+  --nav-dashboard-ink: 48 53 104; --nav-sales-ink: 48 53 104; --nav-crm-ink: 48 53 104;
+  --nav-purchases-ink: 48 53 104; --nav-cashbank-ink: 48 53 104; --nav-expenses-ink: 48 53 104;
+  --nav-inventory-ink: 48 53 104; --nav-journal-ink: 48 53 104; --nav-approvals-ink: 48 53 104;
+  --nav-reports-ink: 48 53 104; --nav-masterdata-ink: 48 53 104; --nav-settings-ink: 48 53 104;
+  --kpi-line: 44 49 92;
+  --kpi-sales-bg: 29 32 66; --kpi-sales-ink: 250 246 238;
+  --kpi-invoices-bg: 32 36 72; --kpi-invoices-ink: var(--lilac);
+  --kpi-received-bg: 5 46 22; --kpi-received-ink: 74 222 128;
+  --kpi-due-bg: 32 36 72; --kpi-due-ink: 192 189 214;
+  --kpi-overdue-bg: 69 10 10; --kpi-overdue-ink: 248 113 113;
+  --kpi-credit-bg: 29 32 66; --kpi-credit-ink: var(--lilac);
+  --ws-nav-selected: 48 53 104; --ws-nav-selected-ink: 250 246 238; --ws-brand: var(--marigold);
+  --fg-heading: initial; --money-out: var(--neg);
+}
+
 @layer base {
   html {
     /* Inter, matching the reference the module overviews are drawn from. */

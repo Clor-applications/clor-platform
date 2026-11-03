@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
   <title id="title">CLOR Accounting app icon</title>
-  <path fill="#C8102E" d="M57.6 0 H198.4 A57.6 57.6 0 0 1 256 57.6 V198.4 A57.6 57.6 0 0 1 198.4 256 H57.6 A57.6 57.6 0 0 1 0 198.4 V57.6 A57.6 57.6 0 0 1 57.6 0 Z"/>
+  <path fill="#14152B" d="M57.6 0 H198.4 A57.6 57.6 0 0 1 256 57.6 V198.4 A57.6 57.6 0 0 1 198.4 256 H57.6 A57.6 57.6 0 0 1 0 198.4 V57.6 A57.6 57.6 0 0 1 57.6 0 Z"/>
   <g transform="translate(0 -8)"><path fill="#FFFFFF" d="M64 78 Q96 70 122 84 V168 Q96 156 64 162 Z M134 84 Q160 70 192 78 V162 Q160 156 134 168 Z"/></g>
-  <path fill="#F5A623" d="M90.55 186 L174.55 186 L168 204 L84 204 Z"/>
+  <path fill="#FF6B00" d="M90.55 186 L174.55 186 L168 204 L84 204 Z"/>
 </svg>
