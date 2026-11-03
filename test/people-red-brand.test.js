@@ -90,7 +90,7 @@ describe('the rail is oxblood, and every word on it reads', () => {
     expect(contrast(token(block, 'border'), WHITE)).toBeGreaterThan(1.26);
   });
 
-  it('the rail redefines the shared tokens; the top bar stays white with the red logo ("header keep white only")', () => {
+  it('the rail redefines the shared tokens; the top bar stays white with the oxblood logo ("header keep white only")', () => {
     expect(block).toMatch(/\.ui-split-rail \{\n\s*--surface: var\(--frame-field\);/);
     expect(block).not.toMatch(/:is\(\.ui-topbar, \.ui-split-rail\)/);
     expect(block).toMatch(/\.ui-split-panel \{\n\s*--surface: 255 255 255;[\s\S]*?--fg: var\(--on-panel\);/);
@@ -126,21 +126,24 @@ describe('the logo is the owner\'s traced wordmark, painted from its tokens', ()
     expect(mark).toContain('<path d={C} fill={color || MARK} />');
   });
 
-  it('paints from --logo-mark and --logo-dot unless a caller sets a colour: red letters and a marigold dot', () => {
+  it('paints from --logo-mark and --logo-dot unless a caller sets a colour: oxblood letters and a marigold dot (owner: "logo color do not keep red")', () => {
     for (const f of [logo, mark]) {
-      expect(f).toContain('rgb(var(--logo-mark, 200 16 46))');
+      expect(f).toContain('rgb(var(--logo-mark, 92 10 22))');
       expect(f).toContain('rgb(var(--logo-dot, 245 166 35))');
     }
     const css = read('packages/ui/src/index.css');
-    expect(css).toMatch(/--logo-mark: var\(--red\); --logo-dot: var\(--marigold\);/);
+    expect(css).toMatch(/--logo-mark: var\(--oxblood\); --logo-dot: var\(--marigold\);/);
   });
 
   it('nothing draws the retired C-tick any more', () => {
     expect(() => read('packages/ui/src/components/brand/ClorTick.jsx')).toThrow();
-    for (const f of ['public/icon.svg', 'public/logo.svg', 'public/brand/clor-mark.svg', 'public/icons/people.svg']) {
-      expect(read(f), f).not.toContain('M74.04 25.96');
-      expect(read(f), f).toContain('#C8102E');
+    for (const f of ['public/icon.svg', 'public/logo.svg', 'public/brand/clor-mark.svg', 'public/icons/people.svg']) expect(read(f), f).not.toContain('M74.04 25.96');
+    /* The letters are oxblood; red is the app icon's tile, never the logo. */
+    for (const f of ['public/logo.svg', 'public/brand/clor-light.svg', 'public/brand/clor-mark.svg']) {
+      expect(read(f), f).toContain('fill="#5C0A16"');
+      expect(read(f), f).not.toContain('#C8102E');
     }
+    for (const f of ['public/icon.svg', 'public/icons/people.svg']) expect(read(f), f).toContain('fill="#C8102E"');
   });
 });
 

@@ -707,9 +707,11 @@
    indigo; brand board "CLOR red"). Supersedes Direction D's indigo.
 
    Six colours, each with one job:
-     Red      #C8102E  the logo and what you press: the primary action,
+     Red      #C8102E  what you press: the primary action,
                        the open tab's line, focus. White on it 5.9:1.
-     Oxblood  #5C0A16  the deep brand: the rail, headings, a solid block
+     Oxblood  #5C0A16  the deep brand and the logo's letters (owner, 3 Nov
+                       2026: "logo color do not keep red"): the rail,
+                       headings, a solid block
                        (an open tab, a greeting). White on it 13.9:1.
      Blush    #FBE8EA  chosen and done: the module panel, a selected row,
                        a "Filed / Paid / Approved" chip. Ink on it 14.6:1.
@@ -725,7 +727,7 @@
 :root {
   --red: 200 16 46; --oxblood: 92 10 22; --blush: 251 232 234; --marigold: 245 166 35;
   --ink: 31 26 28; --cream: 255 248 240;
-  --logo-mark: var(--red); --logo-dot: var(--marigold);
+  --logo-mark: var(--oxblood); --logo-dot: var(--marigold);
   /* The ground is a warm white with a trace of rose, so hairlines and blush belong to it. */
   --app-bg: 250 246 244; --surface: 255 255 255; --surface-raised: 255 255 255;
   --surface-sunken: 245 239 238; --border: 234 223 225; --border-strong: 206 188 192;

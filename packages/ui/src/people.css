@@ -2090,7 +2090,7 @@ html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel {
   --brand-border: var(--panel-line);
   color: rgb(var(--fg));
 }
-/* The bar: white with a hairline, the red logo, the app's tile red with a white mark, the search on the sunken tone. */
+/* The bar: white with a hairline, the oxblood logo, the app's tile red with a white mark, the search on the sunken tone. */
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar { background-color: rgb(255 255 255) !important; border-bottom-color: rgb(var(--border)) !important; }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-app-switch-name { color: rgb(var(--fg)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-app-switch-mark { background: rgb(var(--red)); color: rgb(255 255 255); }

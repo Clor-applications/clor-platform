@@ -9,11 +9,11 @@ import { C, L, O, R, DOT, WORD_WIDTH } from './clorPaths.js';
  * `variant`: 'horizontal' (default) and 'wordmark' are the word itself (its C
  * is the mark), 'stacked' the mark above the word, 'mark' the C and its dot
  * alone. `size` is the logo's height in px (or sm/md/lg/xl). The letters take
- * --logo-mark (red on light, white on dark) and the dot --logo-dot (marigold);
+ * --logo-mark (oxblood on light, white on dark) and the dot --logo-dot (marigold);
  * `color` and `dotColor` set them for one particular ground.
  */
 const HEIGHTS = { sm: 20, md: 28, lg: 40, xl: 56 };
-const MARK = 'rgb(var(--logo-mark, 200 16 46))';
+const MARK = 'rgb(var(--logo-mark, 92 10 22))';
 const DOT_PAINT = 'rgb(var(--logo-dot, 245 166 35))';
 
 function Word({ h, color, dotColor, className, title }) {
