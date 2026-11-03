@@ -773,6 +773,10 @@
   --warn: 233 115 12; --warn-ink: 154 70 0; --warn-soft: 255 244 230;
   /* The admin rail's selected module: blush, like every other selection. */
   --ws-nav-selected: var(--blush); --ws-nav-selected-ink: var(--oxblood); --ws-brand: var(--red);
+  /* A chosen view in a segmented switch (In use / Retired, Pending / Approved / All): marigold with oxblood
+     words, 6.9:1 (owner, 3 Nov 2026: "use different color like green or orange"). Not red, which is the
+     action; not green, which means done. */
+  --choice: var(--marigold); --on-choice: var(--oxblood); --choice-tray: 247 245 242;
 }
 
 /* Dark is the red brand's night: an oxblood-black ground, warm white text, and
@@ -810,6 +814,7 @@
   --kpi-overdue-bg: 69 10 10; --kpi-overdue-ink: 248 113 113;
   --kpi-credit-bg: 40 22 28; --kpi-credit-ink: var(--blush);
   --money-out: 243 233 235;
+  --choice: var(--marigold); --on-choice: var(--oxblood); --choice-tray: 46 26 32;
   --ws-nav-selected: 74 22 34; --ws-nav-selected-ink: 243 233 235; --ws-brand: var(--marigold);
 }
 
@@ -872,6 +877,7 @@
   --ws-nav-selected: var(--lilac); --ws-nav-selected-ink: var(--indigo); --ws-brand: var(--indigo);
   /* What the red brand added that Direction D never had: unset, so the old fallbacks apply again. */
   --btn-primary-bg: initial; --btn-primary-hover: initial; --fg-heading: initial;
+  --choice: initial; --on-choice: initial; --choice-tray: initial;
   /* Money out stays red in Accounting. */
   --money-out: var(--neg);
 }
@@ -909,6 +915,7 @@
   --kpi-credit-bg: 29 32 66; --kpi-credit-ink: var(--lilac);
   --ws-nav-selected: 48 53 104; --ws-nav-selected-ink: 250 246 238; --ws-brand: var(--marigold);
   --fg-heading: initial; --money-out: var(--neg);
+  --choice: initial; --on-choice: initial; --choice-tray: initial;
 }
 
 @layer base {
@@ -6063,15 +6070,17 @@ th.ui-th {
    flips them; an app that wears a shared palette answers these later with
    its own (see the Blaze and Rose blocks below). Status meaning stays in the
    counts and the content. */
+/* The red brand answers with its own choice colour, marigold (--choice); a
+   palette that unsets it (Accounting's indigo) keeps the brand fill. */
 .ui-segment[aria-selected='true'],
 [role='tab'][aria-selected='true'].ui-segment {
-  background-color: rgb(var(--brand)) !important;
-  border-color: rgb(var(--brand)) !important;
-  color: rgb(var(--on-brand)) !important;
+  background-color: rgb(var(--choice, var(--brand))) !important;
+  border-color: rgb(var(--choice, var(--brand))) !important;
+  color: rgb(var(--on-choice, var(--on-brand))) !important;
 }
 .ui-segment[aria-selected='true'] .ui-segment-count {
-  background-color: rgb(var(--on-brand) / 0.18) !important;
-  color: rgb(var(--on-brand)) !important;
+  background-color: rgb(var(--on-choice, var(--on-brand)) / 0.18) !important;
+  color: rgb(var(--on-choice, var(--on-brand))) !important;
 }
 .ui-segment:not([aria-selected='true']),
 [role='tab']:not([aria-selected='true']) {
@@ -7228,12 +7237,12 @@ th.ui-th {
   border-color: rgb(var(--brand-pressed)) !important;
 }
 :root[data-palette='blaze'] :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
-  background-color: rgb(var(--btn-primary-bg)) !important;
-  border-color: rgb(var(--btn-primary-bg)) !important;
-  color: rgb(var(--on-brand)) !important;
+  background-color: rgb(var(--choice, var(--btn-primary-bg))) !important;
+  border-color: rgb(var(--choice, var(--btn-primary-bg))) !important;
+  color: rgb(var(--on-choice, var(--on-brand))) !important;
 }
 :root[data-palette='blaze'] .ui-segment[aria-selected='true'] .ui-segment-count {
-  color: rgb(var(--on-brand)) !important;
+  color: rgb(var(--on-choice, var(--on-brand))) !important;
 }
 :root[data-palette='blaze'] :is(.ui-tab.is-active, [role='tab'][aria-selected='true']:not(.ui-segment)) {
   color: rgb(var(--fg));
@@ -7252,13 +7261,13 @@ th.ui-th {
   color: rgb(var(--on-brand)) !important;
 }
 :root[data-theme='dark'][data-palette='blaze'] :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
-  background-color: rgb(var(--btn-primary-bg)) !important;
-  border-color: rgb(var(--btn-primary-bg)) !important;
-  color: rgb(var(--on-brand)) !important;
+  background-color: rgb(var(--choice, var(--btn-primary-bg))) !important;
+  border-color: rgb(var(--choice, var(--btn-primary-bg))) !important;
+  color: rgb(var(--on-choice, var(--on-brand))) !important;
 }
 :root[data-theme='dark'][data-palette='blaze'] .ui-segment[aria-selected='true'] .ui-segment-count {
   background-color: rgb(0 0 0 / 0.16) !important;
-  color: rgb(var(--on-brand)) !important;
+  color: rgb(var(--on-choice, var(--on-brand))) !important;
 }
 :root[data-theme='dark'][data-palette='blaze'] .ui-tab.is-active::after {
   background-color: rgb(var(--brand));

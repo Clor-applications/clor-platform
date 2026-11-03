@@ -283,13 +283,14 @@
   height: auto;
 }
 :root[data-palette='sky'] .ui-split-item:hover { color: rgb(var(--fg)); }
-/* Selected segments are a choice, not an action: ink, so sky stays the action colour. */
+/* Selected segments are a choice, not an action: the choice colour (marigold, oxblood words, since 3 Nov 2026), so red
+   stays the action colour. Ink before then. */
 :root[data-palette='sky'] :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
-  background-color: rgb(var(--fg)) !important;
-  border-color: rgb(var(--fg)) !important;
-  color: rgb(var(--surface)) !important;
+  background-color: rgb(var(--choice, var(--fg))) !important;
+  border-color: rgb(var(--choice, var(--fg))) !important;
+  color: rgb(var(--on-choice, var(--surface))) !important;
 }
-:root[data-palette='sky'] .ui-segment[aria-selected='true'] .ui-segment-count { color: rgb(var(--surface)) !important; }
+:root[data-palette='sky'] .ui-segment[aria-selected='true'] .ui-segment-count { color: rgb(var(--on-choice, var(--surface))) !important; }
 :root[data-palette='sky'] .ui-tab.is-active::after { background-color: rgb(var(--fg)); }
 
 /* The heading sits on the ground: a title is not a document, so it earns no surface. */
@@ -1257,11 +1258,12 @@
   font-weight: 500 !important;
 }
 :root[data-palette='sky'] #main-content .ui-segmented .ui-segment[aria-selected='true'] {
-  background: rgb(var(--surface)) !important;
-  color: rgb(var(--fg)) !important;
-  font-weight: 600 !important;
-  box-shadow: 0 1px 3px rgb(24 24 27 / 0.08), 0 0 0 1px rgb(var(--soft-ring)) !important;
+  background: rgb(var(--choice, var(--surface))) !important;
+  color: rgb(var(--on-choice, var(--fg))) !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
 }
+:root[data-palette='sky'] #main-content .ui-segmented .ui-segment[aria-selected='true'] .ui-segment-count { background: rgb(var(--on-choice, var(--fg)) / 0.14) !important; color: rgb(var(--on-choice, var(--fg))) !important; }
 :root[data-palette='sky'] #main-content .ui-segmented .ui-segment .ui-segment-count { background: rgb(var(--border) / 0.6) !important; color: rgb(var(--fg-muted)) !important; }
 
 /* Column widths (owner, 28 Oct 2026). Every cell stays on one line and the
@@ -2148,10 +2150,12 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-strip > * { border-color: rgb(var(--border)); }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-strip .ui-metric-label { color: rgb(var(--fg-muted)); }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric:hover { background: rgb(var(--heading-hover)); }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist { background: rgb(var(--blush)); box-shadow: none; }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist .ui-tab { color: rgb(var(--oxblood)); }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { background: rgb(var(--oxblood)); color: rgb(255 255 255); font-weight: 700; box-shadow: none; }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist .ui-tab.is-active .ui-tab-count { background: rgb(var(--marigold)) !important; color: rgb(var(--oxblood)) !important; }
+/* View tabs (In use / Retired): a warm neutral tray, the chosen view marigold with oxblood words (3 Nov 2026: "use
+   different color like green or orange"; it was solid oxblood on a blush tray), its count an oxblood pill. */
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist { background: rgb(var(--choice-tray)); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist .ui-tab { color: rgb(var(--fg)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { background: rgb(var(--choice)); color: rgb(var(--on-choice)); font-weight: 700; box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist .ui-tab.is-active .ui-tab-count { background: rgb(var(--oxblood)) !important; color: rgb(255 255 255) !important; }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table thead :is(th, .ui-th) { background: rgb(var(--heading-bg)) !important; color: rgb(var(--oxblood)); border-bottom-color: rgb(var(--brand-border)); }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table .ui-avatar-initials { background: rgb(var(--oxblood)) !important; color: rgb(255 255 255) !important; }
 /* The record: the person's name on the frame's indigo, as Home's greeting; Edit, its one primary, in marigold. */

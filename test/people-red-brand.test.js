@@ -149,6 +149,24 @@ describe('colour beside the red ("only red is visible where is other colours")',
   });
 });
 
+describe('a chosen view is marigold ("use different color like green or orange")', () => {
+  const index = read('packages/ui/src/index.css');
+  it('the red brand defines one choice colour, readable, and Accounting\'s indigo unsets it', () => {
+    expect(index).toMatch(/--choice: var\(--marigold\); --on-choice: var\(--oxblood\); --choice-tray: 247 245 242;/);
+    expect(contrast(OXBLOOD, MARIGOLD)).toBeGreaterThan(4.5);
+    const indigo = index.slice(index.indexOf('The Indigo palette'), index.indexOf('@layer base'));
+    expect((indigo.match(/--choice: initial; --on-choice: initial; --choice-tray: initial;/g) || []).length).toBe(2);
+  });
+
+  it('every selected-segment rule reads the choice colour, falling back to what it was', () => {
+    expect(index).toMatch(/\[role='tab'\]\[aria-selected='true'\]\.ui-segment \{\n\s*background-color: rgb\(var\(--choice, var\(--brand\)\)\) !important;/);
+    expect(index).toMatch(/:root\[data-palette='blaze'\] :is\(\.ui-segment\[aria-selected='true'\][^{]*\{\n\s*background-color: rgb\(var\(--choice, var\(--btn-primary-bg\)\)\) !important;/);
+    expect(block).toMatch(/\.ui-record-tablist :is\(\.ui-tab\.is-active, \[role='tab'\]\[aria-selected='true'\]\) \{ background: rgb\(var\(--choice\)\); color: rgb\(var\(--on-choice\)\);/);
+    expect(block).toMatch(/\.ui-record-tablist \{ background: rgb\(var\(--choice-tray\)\);/);
+    expect(people).toMatch(/\.ui-segmented \.ui-segment\[aria-selected='true'\] \{\n\s*background: rgb\(var\(--choice, var\(--surface\)\)\) !important;/);
+  });
+});
+
 describe('the logo is the owner\'s traced wordmark, painted from its tokens', () => {
   const paths = read('packages/ui/src/components/brand/clorPaths.js');
   const logo = read('packages/ui/src/components/brand/ClorLogo.jsx');
