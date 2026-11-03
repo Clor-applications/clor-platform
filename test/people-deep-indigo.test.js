@@ -43,6 +43,12 @@ describe('the frame is indigo, and every word on it reads', () => {
     expect(contrast(frame, WHITE)).toBeGreaterThan(12);
   });
 
+  it('one indigo: Home\'s greeting and the record\'s header are the frame\'s own, not a second indigo under the bar (3 Nov 2026)', () => {
+    expect(block).toMatch(/\.people-home > header\.soft-band-top \{\n\s*[^}]*background: rgb\(var\(--frame\)\);/);
+    expect(block).toMatch(/--page-heading-bg: var\(--frame\);/);
+    expect(contrast(onMuted, frame)).toBeGreaterThan(7);
+  });
+
   it('the rail and the module panel are two grounds, not one (3 Nov 2026)', () => {
     expect(contrast(frame, panel)).toBeGreaterThan(10);
     expect(block).toMatch(/\.ui-split-panel \{ background: rgb\(var\(--frame-panel\)\); border-right: 1px solid rgb\(var\(--panel-line\)\); \}/);

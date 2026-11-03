@@ -2131,15 +2131,19 @@ html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel :is(p.ui-
 
 /* The work area: white, titles a step larger, colour in blocks. */
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading .ui-t-page { font-size: 1.75rem !important; line-height: 2.125rem !important; }
-/* Home: the greeting on an indigo block, its main action marigold; figures on lilac; the one that waits on you marigold. */
+/*
+ * Home: the greeting on an indigo block, its main action marigold; figures on lilac; the one that waits on you marigold.
+ * The block is the frame's own indigo (owner, 3 Nov 2026: "colour mismatch" — it was #232A66 right under the #1B2152
+ * bar, two indigos side by side). One indigo for the bar, the rail and every block in the work area.
+ */
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home > header.soft-band-top {
-  align-items: center; padding: 1.5rem 1.75rem; border-radius: 0.75rem; background: rgb(var(--indigo));
+  align-items: center; padding: 1.5rem 1.75rem; border-radius: 0.75rem; background: rgb(var(--frame));
 }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-eyebrow { background: rgb(var(--frame-hi)); color: rgb(var(--on-frame)); box-shadow: none; }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home h1.soft-band-title { color: rgb(255 255 255) !important; font-size: 2.125rem !important; line-height: 2.5rem !important; }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-sub { color: rgb(var(--on-frame-muted)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-sub strong { color: rgb(var(--marigold)); }
-/* A nought is quiet (the zero rule, 31 Oct): no marigold, no weight, the sentence's own lilac (7.8:1 on indigo). */
+/* A nought is quiet (the zero rule, 31 Oct): no marigold, no weight, the sentence's own lilac (9.0:1 on the block). */
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-sub strong[data-zero] { color: inherit; font-weight: 400; }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:not(.soft-pill-primary) { background: rgb(var(--frame-hi)); color: rgb(255 255 255); box-shadow: none; }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:not(.soft-pill-primary) svg { color: rgb(var(--marigold)); }
@@ -2165,11 +2169,11 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist .ui-tab.is-active .ui-tab-count { background: rgb(var(--marigold)) !important; color: rgb(var(--indigo)) !important; }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table thead :is(th, .ui-th) { background: rgb(var(--heading-bg)) !important; color: rgb(var(--indigo)); border-bottom-color: rgb(var(--brand-border)); }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table .ui-avatar-initials { background: rgb(var(--indigo)) !important; color: rgb(255 255 255) !important; }
-/* The record: the person's name on an indigo band; Edit, its one primary, in marigold. */
+/* The record: the person's name on the frame's indigo, as Home's greeting; Edit, its one primary, in marigold. */
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) {
   /* The sky heading is transparent !important (a title earns no surface); the record's header is the exception, a block. */
   padding: 1.25rem 1.5rem; border-radius: var(--soft-card-r); background: rgb(var(--page-heading-bg)) !important;
-  --page-heading-bg: var(--indigo); --btn-primary-bg: var(--marigold); --btn-primary-hover: 247 184 79; --on-brand: var(--indigo);
+  --page-heading-bg: var(--frame); --btn-primary-bg: var(--marigold); --btn-primary-hover: 247 184 79; --on-brand: var(--indigo);
   --fg: var(--on-frame); --fg-muted: var(--on-frame-muted); --fg-subtle: var(--on-frame-muted); --brand: var(--on-frame); --brand-deep: 255 255 255; --link: 255 255 255;
   --surface: var(--frame-hi); --soft-ring: var(--frame-line); --border-strong: var(--frame-line);
 }
