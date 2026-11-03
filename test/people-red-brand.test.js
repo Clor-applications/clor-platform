@@ -35,11 +35,12 @@ const panelHi = token(block, 'panel-hi');
 const onPanel = token(block, 'on-panel');
 const onPanelMuted = token(block, 'on-panel-muted');
 
-describe('the rail is oxblood, and every word on it reads', () => {
+describe('the frame and its blocks: every word reads', () => {
   it('defines the frame tokens once, in the light sky palette', () => {
     expect(block).toMatch(/^:root\[data-palette='sky'\]:not\(\[data-theme='dark'\]\),\n:root:not\(\[data-theme='dark'\]\) \[data-palette='sky'\] \{\n\s*--frame: 92 10 22;/m);
     expect(frame).toBe(OXBLOOD);
-    expect(panel).toBe(BLUSH);
+    /* The module panel is a warm neutral (3 Nov 2026: "only red is visible where is other colours"). */
+    expect(panel).toBe('247 245 242');
     expect(onPanel).toBe(INK);
     for (const t of [frame, panel, hi, onFrame, onMuted, panelHi, onPanel, onPanelMuted]) expect(t).toMatch(/^\d+ \d+ \d+$/);
   });
@@ -48,8 +49,13 @@ describe('the rail is oxblood, and every word on it reads', () => {
     expect(contrast(frame, WHITE)).toBeGreaterThan(12);
   });
 
-  it('one oxblood: Home\'s greeting and the record\'s header are the rail\'s own colour (3 Nov 2026)', () => {
-    expect(block).toMatch(/\.people-home > header\.soft-band-top \{\n\s*[^}]*background: rgb\(var\(--frame\)\);/);
+  it('Home\'s greeting sits on the white page, no card (owner, 3 Nov 2026: "remove hero card"); the record\'s header keeps its oxblood block', () => {
+    const greeting = block.match(/\.people-home > header\.soft-band-top \{[^}]*\}/)[0];
+    expect(greeting).not.toMatch(/background/);
+    expect(block).toMatch(/\.people-home h1\.soft-band-title \{ color: rgb\(var\(--fg-heading\)\) !important;/);
+    expect(block).toMatch(/\.people-home \.soft-pill-primary \{ background: rgb\(var\(--red\)\); color: rgb\(255 255 255\);/);
+    expect(contrast(WHITE, RED)).toBeGreaterThan(4.5);
+    expect(contrast(RED_INK, WHITE)).toBeGreaterThan(4.5);
     expect(block).toMatch(/--page-heading-bg: var\(--frame\);/);
     expect(contrast(onMuted, frame)).toBeGreaterThan(7);
   });
@@ -90,8 +96,13 @@ describe('the rail is oxblood, and every word on it reads', () => {
     expect(contrast(token(block, 'border'), WHITE)).toBeGreaterThan(1.26);
   });
 
-  it('the rail redefines the shared tokens; the top bar stays white with the oxblood logo ("header keep white only")', () => {
-    expect(block).toMatch(/\.ui-split-rail \{\n\s*--surface: var\(--frame-field\);/);
+  it('the top bar, the rail and the phone tab bar are white ("header keep white only", then "sidebar complete red background" removed)', () => {
+    expect(block).toMatch(/\.ui-split-rail \{ background: rgb\(255 255 255\); border-right: 1px solid rgb\(var\(--border\)\); \}/);
+    expect(block).toMatch(/\.ui-tabbar \{ background: rgb\(255 255 255\); border-top-color: rgb\(var\(--border\)\); \}/);
+    expect(block).not.toMatch(/\.ui-split-rail \{\n\s*--surface: var\(--frame-field\);/);
+    expect(block).not.toMatch(/\.(ui-split-rail|ui-tabbar) \{[^}]*background: rgb\(var\(--frame\)\)/);
+    expect(contrast(OXBLOOD, WHITE)).toBeGreaterThan(7);
+    expect(contrast(OXBLOOD, BLUSH)).toBeGreaterThan(7);
     expect(block).not.toMatch(/:is\(\.ui-topbar, \.ui-split-rail\)/);
     expect(block).toMatch(/\.ui-split-panel \{\n\s*--surface: 255 255 255;[\s\S]*?--fg: var\(--on-panel\);/);
     expect(block).toMatch(/\.ui-topbar \{ background-color: rgb\(255 255 255\) !important; border-bottom-color: rgb\(var\(--border\)\) !important; \}/);
@@ -111,6 +122,30 @@ describe('the rail is oxblood, and every word on it reads', () => {
     expect(block).not.toMatch(/var\(--(indigo|lilac|cotton)\)/);
     expect(people).not.toMatch(/:is\(\.ui-split-rail, \.ui-split-panel\) \{ background: rgb\(250 246 238\); \}/);
     expect(people).not.toMatch(/\.ui-split-panel \{ background: rgb\(247 245 252\); \}/);
+  });
+});
+
+describe('colour beside the red ("only red is visible where is other colours")', () => {
+  const tones = people.slice(people.indexOf('The red brand (owner, 3 Nov 2026'));
+  it('figures and panels keep four tint families, each readable on its own wash', () => {
+    const pairs = { mint: '22 101 52', sky: '51 65 85', peach: '166 63 18', lilac: '165 13 38' };
+    for (const [name, ink] of Object.entries(pairs)) {
+      expect(token(tones, `${name}-ink`), name).toBe(ink);
+      expect(contrast(token(tones, `${name}-ink`), token(tones, `${name}-soft`)), name).toBeGreaterThan(4.5);
+    }
+    expect(new Set(['mint', 'sky', 'peach', 'lilac'].map((n) => token(tones, `${n}-soft`))).size).toBe(4);
+    expect(token(tones, 'pos')).toBe('22 101 52');
+  });
+
+  it("Home's figures wear their own tint, card heads are white, list strips are white with tinted marks", () => {
+    expect(block).toMatch(/\.people-home \.soft-band-stat\[data-tint\] \{ background: rgb\(var\(--tint\)\); box-shadow: none; \}/);
+    expect(block).toMatch(/\.people-home \.people-panel-head \{ background: rgb\(255 255 255\);/);
+    expect(block).toMatch(/#main-content \.ui-metric-strip \{ background: rgb\(255 255 255\);/);
+    expect(people).not.toMatch(/\.ui-metric-strip \.ui-metric-icon \{ color: rgb\(var\(--oxblood\)\); \}/);
+  });
+
+  it('a leave type is never red', () => {
+    for (let i = 0; i < 8; i += 1) expect(token(people.slice(people.indexOf('Brand colours where they belong')), `leave-${i}`), `leave-${i}`).not.toBe(RED);
   });
 });
 
