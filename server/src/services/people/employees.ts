@@ -144,3 +144,20 @@ export const credentialActor = (actor: Pick<Actor, 'userId' | 'source'>): Creden
 
 /** The correlation id for a request: the request id the log middleware gave it, or a fresh one. */
 export const correlationOf = (req: { id?: unknown } & Record<string, unknown>): string => String((req as any).id || `corr_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
+
+/**
+ * An employee row as it may leave the server: the reader PIN and the employee
+ * app's password and set-up hashes stay behind, with flags saying whether each
+ * is set (as routes/people.ts withMeta does for its rows). For a route that
+ * answers with the raw row (security audit, 3 Nov 2026: resign, stay and rehire
+ * sent the PIN in clear and the password hash).
+ */
+export function withoutSecrets<T extends Record<string, any>>(row: T) {
+  const { devicePassword, portalPasswordHash, portalSetupHash, portalSetupExpires, ...rest } = row;
+  return {
+    ...rest,
+    hasDevicePassword: Boolean(devicePassword),
+    hasPortalPassword: Boolean(portalPasswordHash),
+    portalSetupPending: Boolean(portalSetupHash && portalSetupExpires && new Date(portalSetupExpires) > new Date()),
+  };
+}

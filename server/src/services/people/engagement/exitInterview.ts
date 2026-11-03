@@ -9,7 +9,7 @@ import { ownPlanRefusal } from '../checklists.js';
 import { NO_SETTLEMENT } from '../lifecycle/leaving.js';
 import { cancelLeaving } from '../lifecycle/stayOn.js';
 import { mailOnce, registerRecipe } from './automations.js';
-import { addDays as plusDays } from '../../../utils/istDate.js';
+import { addDays as plusDays, addMonths } from '../../../utils/istDate.js';
 
 /**
  * Exit interviews (WORKFLOW-GAP-RESEARCH-2026-10-30 A8, 4.9). When someone is leaving, an interview is
@@ -62,11 +62,8 @@ export class ExitError extends Error {
 }
 
 const today = () => istDate(new Date());
-const plusMonths = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCMonth(d.getUTCMonth() + n);
-  return d.toISOString().slice(0, 10);
-};
+/* Months on the calendar, held to the month's last day: 31 Aug + 6 is 28 Feb, not 3 Mar (tests audit, 3 Nov 2026). */
+const plusMonths = (iso: string, n: number) => addMonths(iso, n);
 
 const optionSchema = z.object({ code: z.string().trim().min(1).max(24).regex(/^[A-Z0-9_]+$/), label: z.string().trim().min(1).max(80) });
 const questionSchema = z.object({

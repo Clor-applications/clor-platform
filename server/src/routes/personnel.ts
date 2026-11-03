@@ -14,7 +14,7 @@ import { pushEmployeeToReaders, revokeFromReaders } from '../services/attendance
 import { deleteToBin } from '../services/recycleBin.js';
 import { openNextEpisode } from '../services/people/episodes.js';
 import { LEAVING_TYPES, leaveEmployee } from '../services/people/lifecycle/leaving.js';
-import { correlationOf, employeeSummary } from '../services/people/employees.js';
+import { correlationOf, employeeSummary, withoutSecrets } from '../services/people/employees.js';
 import { diffEmployee, writeChangeLog } from '../services/people/changeLog.js';
 import { writeEvent } from '../services/people/outbox.js';
 import { recordChanges } from '../services/people/employmentHistory.js';
@@ -215,7 +215,7 @@ personnelRouter.post(`${base}/employees/:id/resign`, can(PermissionAction.EDIT, 
   if (parsed.data.leavingType !== 'NOT_JOINED' && parsed.data.leavingType !== 'DUPLICATE' && existing.dateOfJoining && lastDay < existing.dateOfJoining) return res.status(400).json({ error: 'Somebody cannot leave before they joined. If they never came, choose Did not join.' });
   if (parsed.data.resignedOn && parsed.data.resignedOn > lastDay) return res.status(400).json({ error: 'The resignation came before the last day, not after it.' });
   const r = await leaveEmployee({ accountId, orgId, userId: req.auth!.userId }, existing as any, { lastDay, leavingType: parsed.data.leavingType, reason: blank(parsed.data.reason), resignedOn: parsed.data.resignedOn ?? undefined, noticeWaived: parsed.data.noticeWaived });
-  res.json({ employee: r.employee, readers: r.readers });
+  res.json({ employee: withoutSecrets(r.employee as any), readers: r.readers });
 });
 
 /** Leaving withdrawn while on notice (Workforce audit O11): active again, the leaving tasks closed as not needed. */
@@ -228,7 +228,7 @@ personnelRouter.post(`${base}/employees/:id/stay`, can(PermissionAction.EDIT, R.
   if (await ownPlanRefusal({ accountId, orgId, userId: req.auth!.userId }, { employeeId: existing.id, owner: 'HR' })) return res.status(403).json({ error: 'This is your own leaving: someone else withdraws it.', code: 'OWN_PLAN' });
   try {
     const employee = await cancelLeaving({ accountId, orgId, userId: req.auth!.userId }, existing.id, typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 500) || null : null);
-    res.json({ employee });
+    res.json({ employee: withoutSecrets(employee as any) });
   } catch (e) {
     if (e instanceof StayOnError) return res.status(e.status).json({ error: e.message });
     throw e;
@@ -295,7 +295,7 @@ personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, 
   await startChecklist({ accountId, orgId, userId: req.auth!.userId }, employee, 'JOINING', employee.dateOfJoining);
   /* Their fingerprints and faces were deleted when they left: they enrol again at a reader. */
   const pushed = await pushEmployeeToReaders(orgId, employee, req.auth!.userId);
-  res.json({ employee, readers: pushed.readers });
+  res.json({ employee: withoutSecrets(employee as any), readers: pushed.readers });
 });
 
 // ---------------------------------------------------------------------------

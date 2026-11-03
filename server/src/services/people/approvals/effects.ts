@@ -9,6 +9,7 @@ import { publishVersion } from '../policies.js';
 import { ApprovalError, beforeApproving, onApproved, type Payload } from './engine.js';
 import { staleFields } from '../selfService.js';
 import { registerMoneyEffects } from '../money/effects.js';
+import { changeFieldsFor, photoFrom } from './changeFields.js';
 
 /**
  * What an approved request does (contract §5.3). Registered once at start-up
@@ -32,13 +33,16 @@ export function registerPeopleEffects() {
     if (!request.subjectEmployeeId) return;
     const existing = await peoplePrisma.employee.findFirst({ where: { id: request.subjectEmployeeId, orgId: request.orgId } });
     if (!existing) return { skipped: 'The person is no longer here.' };
-    const fields = Object.fromEntries(Object.entries(p.fields || {}).map(([k, v]) => [k, v.after == null ? null : String(v.after)]));
+    /* Only the fields this type may change (changeFields.ts); the photo travels in `data`, its line in `fields` is only words. */
+    const allowed = changeFieldsFor(request.requestType)!;
+    const fields = Object.fromEntries(Object.entries(p.fields || {}).filter(([k]) => allowed.has(k) && k !== 'photoUrl').map(([k, v]) => [k, v?.after == null ? null : String(v.after)]));
     const who = { ...actor, reason: p.reason ?? actor.reason ?? null };
     if (p.effectiveOn && p.effectiveOn > todayIst()) {
       const rows = await scheduleChanges(who, existing as any, fields, p.effectiveOn);
       return { scheduled: rows.map((r) => r.id), effectiveOn: p.effectiveOn };
     }
-    const data: Record<string, unknown> = { ...fields, ...(p.data || {}) };
+    const photo = request.requestType === 'PROFILE_CHANGE' ? photoFrom(p.data) : null;
+    const data: Record<string, unknown> = { ...fields, ...(photo ? { photoUrl: photo } : {}) };
     if (fields.departmentId !== undefined) data.department = fields.departmentId ? (await peoplePrisma.department.findFirst({ where: { id: fields.departmentId, orgId: request.orgId }, select: { name: true } }))?.name ?? null : null;
     if (fields.jobPositionId !== undefined) data.designation = fields.jobPositionId ? (await peoplePrisma.jobPosition.findFirst({ where: { id: fields.jobPositionId, orgId: request.orgId }, select: { name: true } }))?.name ?? null : null;
     const { changes } = await updateEmployee(who, existing, data as any, { effectiveDate: p.effectiveOn || null });
