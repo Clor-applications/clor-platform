@@ -95,7 +95,7 @@ describe('figures', () => {
 
   it('figure cards that are not buttons (the People report) wear brand D too', () => {
     expect(people).not.toMatch(/section > button\.ui-card/);
-    expect(people.match(/section > :is\(button, div\)\.ui-card/g)).toHaveLength(3);
+    expect(people.match(/section > :is\(button, div\)\.ui-card/g)).toHaveLength(8);
   });
 });
 

@@ -1789,8 +1789,8 @@
   --butter-ink: 122 79 0;
   --warn-soft: 252 223 168;
   --warn-ink: 92 10 22;
-  --sky-soft: 238 241 245;
-  --sky-ink: 51 65 85;
+  --sky-soft: 230 244 242;
+  --sky-ink: 15 104 96;
   --lift: 0 1px 2px rgb(92 10 22 / 0.05), 0 6px 20px -12px rgb(92 10 22 / 0.16);
   --lift-hi: 0 2px 4px rgb(92 10 22 / 0.06), 0 14px 32px -14px rgb(92 10 22 / 0.24);
   --soft-ring: 234 223 225;
@@ -1818,8 +1818,9 @@
   --info-soft: 238 241 245;
   --mint-soft: 231 245 236;
   --mint-ink: 22 101 52;
-  --lilac-soft: 251 232 234;
-  --lilac-ink: 165 13 38;
+  /* Violet and teal join (owner, 4 Nov 2026: "use more different colours along with red, yellow"). */
+  --lilac-soft: 241 235 253;
+  --lilac-ink: 91 33 182;
   --peach-soft: 255 237 227;
   --peach-ink: 166 63 18;
 }
@@ -1911,10 +1912,15 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
   pointer-events: none;
 }
 :root[data-palette='sky'] #main-content .ui-with-panel[data-panel='on'] > .ui-side-panel { border-left: 0; }
-/* Figure cards from shared list pages (Salary revisions, and any DocumentListShell): Payroll's amber, blue and green
-   tones become brand D here: a lilac tile with an indigo mark, the figure in indigo, the label in sentence case. */
-:root[data-palette='sky']:not([data-theme='dark']) #main-content section > :is(button, div).ui-card > span:first-child { background: rgb(var(--brand-soft)) !important; color: rgb(var(--oxblood)) !important; }
-:root[data-palette='sky']:not([data-theme='dark']) #main-content section > :is(button, div).ui-card .tabular-nums { color: rgb(var(--oxblood)) !important; font-family: var(--font-display); font-weight: 700; font-size: 1.0625rem; }
+/* Figure cards from shared list pages (Salary revisions, and any DocumentListShell): each card's mark on its own tint
+   (4 Nov 2026: "more different colours"), teal, green, marigold, clay, violet in turn; the figure stays ink, in Inter. */
+:root[data-palette='sky']:not([data-theme='dark']) #main-content section > :is(button, div).ui-card { --tint: var(--sky-soft); --tint-ink: var(--sky-ink); }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content section > :is(button, div).ui-card:nth-child(5n + 2) { --tint: var(--mint-soft); --tint-ink: var(--mint-ink); }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content section > :is(button, div).ui-card:nth-child(5n + 3) { --tint: var(--butter-soft); --tint-ink: var(--butter-ink); }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content section > :is(button, div).ui-card:nth-child(5n + 4) { --tint: var(--peach-soft); --tint-ink: var(--peach-ink); }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content section > :is(button, div).ui-card:nth-child(5n + 5) { --tint: var(--lilac-soft); --tint-ink: var(--lilac-ink); }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content section > :is(button, div).ui-card > span:first-child { background: rgb(var(--tint)) !important; color: rgb(var(--tint-ink)) !important; }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content section > :is(button, div).ui-card .tabular-nums { color: rgb(var(--fg)) !important; font-weight: 700; font-size: 1.0625rem; }
 :root[data-palette='sky']:not([data-theme='dark']) #main-content section > :is(button, div).ui-card .ui-t-label { text-transform: none; letter-spacing: 0; font-size: 0.8125rem; }
 
 
@@ -2142,9 +2148,6 @@ html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:n
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary { background: rgb(var(--red)); color: rgb(255 255 255); box-shadow: none; }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary:hover { background: rgb(var(--brand-hover)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary .soft-pill-orb { background: rgb(255 255 255); color: rgb(var(--red)); }
-/* Home's figures keep their own tints (data-tint: slate, green, clay, blush), a solid wash, not one blush. */
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-tint] { background: rgb(var(--tint)); box-shadow: none; }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-label { color: rgb(var(--tint-ink, var(--fg))); font-weight: 600; }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-value { font-size: 2rem; line-height: 2.25rem; }
 /* Out today 0, On notice 0: quiet grey, weight 600 (4.3:1 on lilac at 32px, above the 3:1 large text needs). */
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-value[data-zero] { color: rgb(var(--fg-subtle)) !important; font-weight: 600; }
@@ -2164,23 +2167,10 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { background: rgb(var(--choice)); color: rgb(var(--on-choice)); font-weight: 700; box-shadow: none; }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist .ui-tab.is-active .ui-tab-count { background: rgb(var(--oxblood)) !important; color: rgb(255 255 255) !important; }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table thead :is(th, .ui-th) { background: rgb(var(--heading-bg)) !important; color: rgb(var(--oxblood)); border-bottom-color: rgb(var(--brand-border)); }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table .ui-avatar-initials { background: rgb(var(--oxblood)) !important; color: rgb(255 255 255) !important; }
-/* The record: the person's name on the frame's indigo, as Home's greeting; Edit, its one primary, in marigold. */
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) {
-  /* The sky heading is transparent !important (a title earns no surface); the record's header is the exception, a block. */
-  padding: 1.25rem 1.5rem; border-radius: var(--soft-card-r); background: rgb(var(--page-heading-bg)) !important;
-  --page-heading-bg: var(--frame); --btn-primary-bg: var(--marigold); --btn-primary-hover: 247 184 79; --on-brand: var(--oxblood);
-  --fg: var(--on-frame); --fg-muted: var(--on-frame-muted); --fg-subtle: var(--on-frame-muted); --brand: var(--on-frame); --brand-deep: 255 255 255; --link: 255 255 255;
-  --surface: var(--frame-hi); --soft-ring: var(--frame-line); --border-strong: var(--frame-line);
-}
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) .ui-t-page { color: rgb(255 255 255) !important; }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) :is(.ui-breadcrumb, .ui-breadcrumb *, .ui-profile-facts, .ui-profile-facts *) { color: rgb(var(--on-frame-muted)); }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) :is(.ui-breadcrumb [aria-current='page'], .ui-profile-facts :is(a, button)) { color: rgb(255 255 255); text-decoration-color: rgb(var(--marigold)); }
+/* The record's header sits on the white page like every title (owner, 4 Nov 2026: "complete white background"; it was
+   an oxblood block): the name in oxblood, its facts muted, Edit the one red primary; the face a marigold disc. */
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-profile .ui-pill { background: rgb(var(--blush)); color: rgb(var(--oxblood)); }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-profile .ui-avatar-initials { background: rgb(var(--marigold)) !important; color: rgb(var(--oxblood)) !important; }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) .ui-btn-secondary { color: rgb(255 255 255); }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) .ui-btn-primary { box-shadow: none; }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) .ui-btn-primary > svg { color: rgb(var(--oxblood)); }
 /* Phone: the tab bar is the rail's twin, so it is white too (3 Nov 2026): oxblood icons, the open tab red with its
    marigold fill. */
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar { background: rgb(255 255 255); border-top-color: rgb(var(--border)); }
@@ -2195,6 +2185,36 @@ html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-tabbar-ite
   /* On a phone Waiting for you comes before the figures, so its first request is above the fold at 390×844. */
   html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-main > .soft-bezel:has(#todo-h) { order: -1; }
 }
+
+/*
+ * White work area, colour in the accents (owner, 4 Nov 2026: "except sidebars use complete white background, use more
+ * different colours along with red, yellow, make right parts very clean"). Everything right of the module panel is white:
+ * no tinted tiles, trays or bands. Colour lives in small marks: each figure's icon chip and number in its own tint (teal,
+ * green, clay, violet, marigold), red for the one action, marigold for what waits. The right-hand panel is plain: no
+ * dividers, quick links a list of words with coloured marks rather than a grid of boxes.
+ */
+html:root[data-palette='sky']:not([data-theme='dark']) { --choice-tray: 255 255 255; --soft-tray: 255 255 255; --heading-bg: 255 255 255; --heading-hover: 250 248 247; --page-heading-bg: 255 255 255; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist { background: rgb(255 255 255); box-shadow: inset 0 0 0 1px rgb(var(--border)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table thead :is(th, .ui-th) { background: rgb(255 255 255) !important; border-bottom-color: rgb(var(--border)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric:hover { background: rgb(var(--tint, var(--surface-sunken)) / 0.35); }
+/* Home's figures: white cards over a hairline, each with its own coloured mark and number. */
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-tint] { background: rgb(255 255 255); box-shadow: inset 0 0 0 1px rgb(var(--border)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-tint] .soft-band-stat-label { color: rgb(var(--fg-muted)); font-weight: 600; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-tint] .soft-band-stat-label > svg { background: rgb(var(--tint)); color: rgb(var(--tint-ink)); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-tint] .soft-band-stat-value:not([data-zero]) { color: rgb(var(--tint-ink)) !important; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-attention] { background: rgb(255 255 255); box-shadow: inset 0 0 0 1px rgb(var(--border)), inset 0 3px 0 rgb(var(--marigold)); }
+/* The right-hand panel, clean: blocks parted by space, not rules; quick links a plain list, each mark in its own colour. */
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-block + .ui-side-block { border-top: 0; padding-top: 0; margin-top: 1.5rem; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-chips { grid-template-columns: minmax(0, 1fr); gap: 0; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-chip { height: 2rem; margin-left: -0.5rem; padding: 0 0.5rem; border: 0; background: transparent; font-size: 0.8125rem; font-weight: 500; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-chip:hover { background: rgb(var(--surface-sunken)); border: 0; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-chip > svg { color: rgb(var(--sky-ink)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-chip:nth-child(5n + 2) > svg { color: rgb(var(--mint-ink)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-chip:nth-child(5n + 3) > svg { color: rgb(var(--peach-ink)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-chip:nth-child(5n + 4) > svg { color: rgb(var(--lilac-ink)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-chip:nth-child(5n + 5) > svg { color: rgb(var(--btn-icon-on-white)); }
+/* The module panel holds its longest name ("Attendance requests") on one line: 216px (200 cut it). */
+:root[data-palette='sky'] .ui-split-panel { width: 13.5rem; }
 
 /*
  * The employee app (shared with Attendance, 31 Oct 2026). It wears brand D's "waiting" and the open tab's marigold
