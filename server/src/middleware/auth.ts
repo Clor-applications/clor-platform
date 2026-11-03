@@ -41,6 +41,37 @@ declare module 'express-serve-static-core' {
 /** The longest a session's "still signed in" answer is reused on one instance (A-08). */
 export const SESSION_LIVENESS_TTL_MS = 5_000;
 
+/** How many refreshes a still-unexpired access token may sit behind (at most a few in its 15 minutes). */
+const MAX_ROTATIONS_FOLLOWED = 25;
+
+/**
+ * The live session a token's session has become, or null when it has ended.
+ *
+ * Every CLOR app (people., payroll., attendance. …) keeps its own access token
+ * but they share one refresh cookie, so a refresh in one app rotates the session
+ * the others' tokens name. Rotation is not an ending: treating it as one meant
+ * each app's refresh 401'd every other open app, they refreshed in turn, and
+ * the pile-up of races signed the person out (seen in production, 3 Nov 2026).
+ * A rotated session is followed to the one it was rotated into; the token lives
+ * while that one does, so a sign-out, a password change or reuse detection —
+ * which all end the live end of the chain — still end it.
+ */
+async function liveSessionFor(sid: string, userId: string): Promise<string | null> {
+  let id: string | null = sid;
+  for (let hop = 0; id && hop <= MAX_ROTATIONS_FOLLOWED; hop += 1) {
+    const session: { revokedAt: Date | null; revokedReason: string | null; replacedBySessionId: string | null; expiresAt: Date; userId: string } | null =
+      await platformPrisma.session.findUnique({
+        where: { id },
+        select: { revokedAt: true, revokedReason: true, replacedBySessionId: true, expiresAt: true, userId: true },
+      });
+    if (!session || session.userId !== userId) return null;
+    if (!session.revokedAt) return session.expiresAt > new Date() ? id : null;
+    if (session.revokedReason !== 'ROTATED') return null;
+    id = session.replacedBySessionId;
+  }
+  return null;
+}
+
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const header = String(req.headers.authorization || '').trim();
   const token = header.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : '';
@@ -68,19 +99,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 
   try {
-    const state = await cachedAccess(`auth:${userId}:${sid}`, async () => {
+    const answer = await cachedAccess(`auth:${userId}:${sid}`, async () => {
       const user = await platformPrisma.user.findUnique({ where: { id: userId }, select: { isActive: true } });
-      if (!user || !user.isActive) return 'inactive' as const;
-      if (sid) {
-        const session = await platformPrisma.session.findUnique({
-          where: { id: sid },
-          select: { revokedAt: true, expiresAt: true, userId: true },
-        });
-        if (!session || session.userId !== userId || session.revokedAt || session.expiresAt <= new Date()) {
-          return 'ended' as const;
-        }
-      }
-      return 'ok' as const;
+      if (!user || !user.isActive) return { state: 'inactive' as const };
+      if (!sid) return { state: 'ok' as const };
+      const live = await liveSessionFor(sid, userId);
+      return live ? { state: 'ok' as const, live } : { state: 'ended' as const };
       /*
        * A-08: this cache lives in each API instance and only the instance that
        * handled a sign-out clears it, so a revoked session or a switched-off
@@ -88,10 +112,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
        * at most 5 s; the heavier permission answers keep the longer cache.
        */
     }, undefined, SESSION_LIVENESS_TTL_MS);
-    if (state === 'inactive') return res.status(401).json({ error: 'This account is no longer active', code: 'inactive' });
-    if (state === 'ended') {
+    if (answer.state === 'inactive') return res.status(401).json({ error: 'This account is no longer active', code: 'inactive' });
+    if (answer.state === 'ended') {
       return res.status(401).json({ error: 'This session has ended. Please sign in again.', code: 'session_ended' });
     }
+    /* The caller's session is the live one: "sign out everywhere else" keeps it, step-up binds to it. */
+    if ('live' in answer && answer.live) sid = answer.live;
   } catch (e) {
     return next(e);
   }

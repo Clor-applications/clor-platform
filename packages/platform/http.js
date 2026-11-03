@@ -45,10 +45,16 @@ async function refreshSession() {
       let res = await ask();
       /*
        * Another tab refreshed with the same cookie a moment earlier and won.
-       * Its response has already given this browser the new cookie, so one
-       * more try succeeds; giving up here would sign this tab out for nothing.
+       * Its response has already given this browser the new cookie, so trying
+       * again succeeds; giving up here would sign this tab out for nothing.
+       * With People, Payroll and Attendance open together the retry can lose
+       * to a third tab too, so it backs off and tries a few times (3 Nov 2026).
        */
-      if (res.status === 409) res = await ask();
+      for (const wait of [150, 400, 1000]) {
+        if (res.status !== 409) break;
+        await new Promise((resolve) => setTimeout(resolve, wait));
+        res = await ask();
+      }
       if (!res.ok) return null;
       const data = await res.json();
       if (!data?.token) return null;
