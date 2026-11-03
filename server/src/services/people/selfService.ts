@@ -44,8 +44,8 @@ const GENDERS = new Set(['MALE', 'FEMALE', 'NON_BINARY', 'OTHER', 'PREFER_NOT_TO
 const MARITAL = new Set(['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED']);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** A photo from the app: a small image as a data URL, the same limit HR's form has. */
-const PHOTO = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
-const PHOTO_MAX = 300_000;
+export const PHOTO = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+export const PHOTO_MAX = 300_000;
 const OPEN = ['WAITING', 'MORE_INFO'];
 const DEFAULT_DUE_DAYS = 3;
 

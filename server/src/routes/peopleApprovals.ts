@@ -19,6 +19,7 @@ import { ApprovalError, REQUEST_TYPES, RULE_TYPES, isFormType, activeRule, decid
 import { cleanRule, isRuleProblem, legacySteps, normaliseAutoApprove, normaliseConditions, v1Exact } from '../services/people/approvals/spec.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { inScope, teamScope } from '../services/people/scope.js';
+import { changePayloadProblem } from '../services/people/approvals/changeFields.js';
 
 /**
  * Approvals (docs/people/02-PRD.md APR-01..07): rules, requests, decisions,
@@ -254,7 +255,10 @@ async function requirePermissionCheck(req: Request, resource: string) {
 
 const submitSchema = z.object({
   /* A shift swap is asked from the employee app, colleague first (services/people/shiftSwaps.ts), and a form request through its form: neither from here. */
-  requestType: z.enum(REQUEST_TYPES).refine((t) => t !== 'SHIFT_SWAP', 'A shift swap is asked from the employee app.'),
+  requestType: z.enum(REQUEST_TYPES).refine((t) => t !== 'SHIFT_SWAP', 'A shift swap is asked from the employee app.')
+    /* These have their own paths, which check what the generic one cannot: a profile change from the employee app,
+       leaving from the person's record, probation from its review, a policy from its version (security audit, 3 Nov 2026). */
+    .refine((t) => !['PROFILE_CHANGE', 'LEAVING', 'PROBATION', 'POLICY_PUBLISH'].includes(t), 'Ask for this from its own screen.'),
   subjectEmployeeId: z.string().trim().max(60).optional().nullable(),
   title: z.string().trim().min(1, 'Say what is asked.').max(200),
   payload: z.record(z.string(), z.any()).default({}),
@@ -267,6 +271,10 @@ peopleApprovalsRouter.post(`${base}/requests`, can(PermissionAction.CREATE, REQU
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the request.' });
   const { orgId } = req.tenant!;
   if (parsed.data.subjectEmployeeId && !(await peoplePrisma.employee.findFirst({ where: { id: parsed.data.subjectEmployeeId, orgId }, select: { id: true } }))) return res.status(400).json({ error: 'That person is not in this company.' });
+  /* A team-scoped asker asks only about their own team; a change carries only its own fields (changeFields.ts). */
+  if (parsed.data.subjectEmployeeId && !inScope(await teamScope(req), parsed.data.subjectEmployeeId)) return res.status(404).json({ error: 'No such person.' });
+  const fieldProblem = changePayloadProblem(parsed.data.requestType, parsed.data.payload);
+  if (fieldProblem) return res.status(400).json({ error: fieldProblem });
   const key = String(req.headers['idempotency-key'] || req.body?.idempotencyKey || '').trim().slice(0, 120) || null;
   try {
     const r = await submitRequest(actorOf(req, 'FORM', typeof parsed.data.payload?.reason === 'string' ? parsed.data.payload.reason : null), { ...parsed.data, idempotencyKey: key });
