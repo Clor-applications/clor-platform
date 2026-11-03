@@ -1112,6 +1112,11 @@
 /* 200px (owner, 3 Nov 2026: "reduce width of the second sidebar bit"; was 224px): the longest screen name,
    "Joining & leaving", still fits on one line beside its icon. */
 :root[data-palette='sky'] .ui-split-panel { width: 12.5rem; }
+/* The module's name sits centred over its screens, the close × held at the right edge (owner, 3 Nov 2026: "align
+   that module's name in center"). The name keeps clear of the × on both sides, so it stays centred on the panel. */
+:root[data-palette='sky'] .ui-split-panel-head { position: relative; justify-content: center; }
+:root[data-palette='sky'] .ui-split-panel-head > .ui-t-sec { flex: 1 1 auto; min-width: 0; padding-inline: 2.25rem; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-palette='sky'] .ui-split-panel-head > .ui-icon-btn { position: absolute; right: 0.25rem; top: 50%; transform: translateY(-50%); }
 @media (min-width: 768px) {
   :root[data-palette='sky'] #main-content:not(.ui-content) { padding: 1rem 1.25rem 1.5rem; }
 }
