@@ -2,10 +2,11 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 /**
- * People in deep indigo (owner, 2 Nov 2026, direction A of three, after "too pale, washed out" and "generic"). The
- * bar and rail are the brand's indigo, the module panel lilac (3 Nov 2026: indigo rail and indigo panel read as one,
- * "hard to read modules and submodules"), the work area stays white, and colour comes in solid blocks.
- * The design note: DESIGN.md, Color → People (brand D) → Deep indigo frame.
+ * People in the red brand (owner, 3 Nov 2026: "go with red combination", then "header keep white only"). The rail is
+ * oxblood, the module panel blush, the top bar and the work area white, and colour comes in solid blocks. It began as
+ * the deep indigo frame of 2 Nov (direction A of three, after "too pale, washed out" and "generic"); the shapes and
+ * the contrast floors are the same, the colours are red.
+ * The design note: DESIGN.md, Color → the red brand.
  */
 const read = (f) => readFileSync(f, 'utf8');
 const people = read('packages/ui/src/people.css');
@@ -18,9 +19,12 @@ const lum = (rgb) => {
 };
 const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 const WHITE = '255 255 255';
-const INDIGO = '35 42 102';
+const RED = '200 16 46';
+const RED_INK = '165 13 38';
+const OXBLOOD = '92 10 22';
+const INK = '31 26 28';
 const MARIGOLD = '245 166 35';
-const LILAC = '233 229 244';
+const BLUSH = '251 232 234';
 
 const frame = token(block, 'frame');
 const panel = token(block, 'frame-panel');
@@ -31,11 +35,12 @@ const panelHi = token(block, 'panel-hi');
 const onPanel = token(block, 'on-panel');
 const onPanelMuted = token(block, 'on-panel-muted');
 
-describe('the frame is indigo, and every word on it reads', () => {
+describe('the rail is oxblood, and every word on it reads', () => {
   it('defines the frame tokens once, in the light sky palette', () => {
-    expect(block).toMatch(/^:root\[data-palette='sky'\]:not\(\[data-theme='dark'\]\),\n:root:not\(\[data-theme='dark'\]\) \[data-palette='sky'\] \{\n\s*--frame: 27 33 82;/m);
-    expect(panel).toBe(LILAC);
-    expect(onPanel).toBe(INDIGO);
+    expect(block).toMatch(/^:root\[data-palette='sky'\]:not\(\[data-theme='dark'\]\),\n:root:not\(\[data-theme='dark'\]\) \[data-palette='sky'\] \{\n\s*--frame: 92 10 22;/m);
+    expect(frame).toBe(OXBLOOD);
+    expect(panel).toBe(BLUSH);
+    expect(onPanel).toBe(INK);
     for (const t of [frame, panel, hi, onFrame, onMuted, panelHi, onPanel, onPanelMuted]) expect(t).toMatch(/^\d+ \d+ \d+$/);
   });
 
@@ -43,7 +48,7 @@ describe('the frame is indigo, and every word on it reads', () => {
     expect(contrast(frame, WHITE)).toBeGreaterThan(12);
   });
 
-  it('one indigo: Home\'s greeting and the record\'s header are the frame\'s own, not a second indigo under the bar (3 Nov 2026)', () => {
+  it('one oxblood: Home\'s greeting and the record\'s header are the rail\'s own colour (3 Nov 2026)', () => {
     expect(block).toMatch(/\.people-home > header\.soft-band-top \{\n\s*[^}]*background: rgb\(var\(--frame\)\);/);
     expect(block).toMatch(/--page-heading-bg: var\(--frame\);/);
     expect(contrast(onMuted, frame)).toBeGreaterThan(7);
@@ -65,14 +70,15 @@ describe('the frame is indigo, and every word on it reads', () => {
     expect(contrast(onPanelMuted, panelHi)).toBeGreaterThan(4.5);
   });
 
-  it('the open screen is a white tile on the lilac panel, with indigo words and a marigold edge', () => {
-    expect(contrast(INDIGO, WHITE)).toBeGreaterThan(7);
-    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(255 255 255\); color: rgb\(var\(--indigo\)\);[^}]*inset 3px 0 0 rgb\(var\(--marigold\)\)/);
+  it('the open screen is a white tile on the blush panel, with red words and a red edge (the board)', () => {
+    expect(contrast(RED_INK, WHITE)).toBeGreaterThan(7);
+    expect(token(people.slice(people.indexOf('The red brand (owner, 3 Nov 2026')), 'brand-ink')).toBe(RED_INK);
+    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(255 255 255\); color: rgb\(var\(--brand-ink\)\);[^}]*inset 3px 0 0 rgb\(var\(--red\)\)/);
   });
 
-  it('marigold on the frame is a fill or a mark: the open module and the waiting tile, indigo words on it', () => {
-    expect(contrast(MARIGOLD, frame)).toBeGreaterThan(3);
-    expect(contrast(INDIGO, MARIGOLD)).toBeGreaterThan(4.5);
+  it('marigold on the rail is a fill or a mark: the open module and the waiting tile, oxblood words on it', () => {
+    expect(contrast(MARIGOLD, frame)).toBeGreaterThan(6);
+    expect(contrast(OXBLOOD, MARIGOLD)).toBeGreaterThan(4.5);
     expect(block).toMatch(/\.ui-split-rail \.ui-split-mod\[data-current\] \.ui-glyph \[opacity='0\.2'\] \{ fill: rgb\(var\(--marigold\)\); \}/);
     expect(block).toMatch(/\.soft-band-stat\[data-attention\] \{ background: rgb\(var\(--marigold\)\); \}/);
     expect(read('apps/people/src/screens/PeopleOverview.jsx')).toContain('data-attention={waiting > 0 || undefined}');
@@ -80,14 +86,17 @@ describe('the frame is indigo, and every word on it reads', () => {
 
   it('the work area keeps readable support text and a firmer row line', () => {
     expect(contrast(token(block, 'fg-muted'), WHITE)).toBeGreaterThan(7);
-    expect(contrast(INDIGO, token(block, 'heading-bg'))).toBeGreaterThan(7);
+    expect(contrast(OXBLOOD, token(block, 'heading-bg'))).toBeGreaterThan(7);
     expect(contrast(token(block, 'border'), WHITE)).toBeGreaterThan(1.26);
   });
 
-  it('the frame redefines the shared tokens, so the bar, picker and search follow; menus from the bar return to light', () => {
-    expect(block).toMatch(/:is\(\.ui-topbar, \.ui-split-rail\) \{\n\s*--surface: var\(--frame-field\);/);
+  it('the rail redefines the shared tokens; the top bar stays white with the red logo ("header keep white only")', () => {
+    expect(block).toMatch(/\.ui-split-rail \{\n\s*--surface: var\(--frame-field\);/);
+    expect(block).not.toMatch(/:is\(\.ui-topbar, \.ui-split-rail\)/);
     expect(block).toMatch(/\.ui-split-panel \{\n\s*--surface: 255 255 255;[\s\S]*?--fg: var\(--on-panel\);/);
-    expect(block).toMatch(/\.ui-topbar :is\(\.ui-popover, \[role='menu'\], \[role='dialog'\], \[role='listbox'\]\) \{\n\s*--surface: 255 255 255;/);
+    expect(block).toMatch(/\.ui-topbar \{ background-color: rgb\(255 255 255\) !important; border-bottom-color: rgb\(var\(--border\)\) !important; \}/);
+    expect(block).not.toMatch(/--logo-mark/);
+    expect(contrast(WHITE, RED)).toBeGreaterThan(4.5);
   });
 
   it('stays in People: every rule of the block is on the light sky palette', () => {
@@ -97,26 +106,41 @@ describe('the frame is indigo, and every word on it reads', () => {
     expect(block).not.toMatch(/data-app=/);
   });
 
-  it('the superseded Cotton rail and pale lilac panel are gone', () => {
+  it('the superseded Cotton rail, pale lilac panel and indigo frame are gone', () => {
+    expect(block).not.toMatch(/\b(35 42 102|27 33 82|233 229 244)\b/);
+    expect(block).not.toMatch(/var\(--(indigo|lilac|cotton)\)/);
     expect(people).not.toMatch(/:is\(\.ui-split-rail, \.ui-split-panel\) \{ background: rgb\(250 246 238\); \}/);
     expect(people).not.toMatch(/\.ui-split-panel \{ background: rgb\(247 245 252\); \}/);
   });
 });
 
-describe('the logo follows its colour tokens', () => {
-  it('ClorTick paints from --logo-mark, --logo-word and --logo-dot unless a caller sets a colour', () => {
-    const tick = read('packages/ui/src/components/brand/ClorTick.jsx');
-    expect(tick).toContain("rgb(var(--logo-mark, 35 42 102))");
-    expect(tick).toContain("rgb(var(--logo-word, 35 42 102))");
-    expect(tick).toContain("rgb(var(--logo-dot, 245 166 35))");
-    expect(tick).not.toMatch(/color = INDIGO|fill=\{color\}|stroke=\{color\}/);
+describe('the logo is the owner\'s traced wordmark, painted from its tokens', () => {
+  const paths = read('packages/ui/src/components/brand/clorPaths.js');
+  const logo = read('packages/ui/src/components/brand/ClorLogo.jsx');
+  const mark = read('packages/ui/src/components/brand/ClorMark.jsx');
+
+  it('draws CLOR from outlines, not type, and the C keeps its own dot', () => {
+    for (const k of ['C', 'L', 'O', 'R', 'DOT']) expect(paths).toMatch(new RegExp(`export const ${k} = 'M[\\d.]`));
+    expect(logo).not.toMatch(/<text|fontFamily/);
+    expect(logo).toMatch(/<path d=\{C\} \/>\s*<path d=\{L\} \/>\s*<path d=\{O\} \/>\s*<path d=\{R\} \/>/);
+    expect(mark).toContain('<path d={C} fill={color || MARK} />');
   });
 
-  it('on the indigo bar the logo keeps its two tones: a lilac stroke, a marigold dot, CLOR in white', () => {
-    expect(block).toMatch(/--logo-mark: var\(--lilac\);\n\s*--logo-word: 255 255 255;\n\s*--logo-dot: var\(--marigold\);/);
-    expect(contrast(LILAC, frame)).toBeGreaterThan(12);
-    expect(contrast(MARIGOLD, frame)).toBeGreaterThan(3);
-    expect(contrast(MARIGOLD, LILAC)).toBeGreaterThan(1.5);
+  it('paints from --logo-mark and --logo-dot unless a caller sets a colour: red letters and a marigold dot', () => {
+    for (const f of [logo, mark]) {
+      expect(f).toContain('rgb(var(--logo-mark, 200 16 46))');
+      expect(f).toContain('rgb(var(--logo-dot, 245 166 35))');
+    }
+    const css = read('packages/ui/src/index.css');
+    expect(css).toMatch(/--logo-mark: var\(--red\); --logo-dot: var\(--marigold\);/);
+  });
+
+  it('nothing draws the retired C-tick any more', () => {
+    expect(() => read('packages/ui/src/components/brand/ClorTick.jsx')).toThrow();
+    for (const f of ['public/icon.svg', 'public/logo.svg', 'public/brand/clor-mark.svg', 'public/icons/people.svg']) {
+      expect(read(f), f).not.toContain('M74.04 25.96');
+      expect(read(f), f).toContain('#C8102E');
+    }
   });
 });
 
@@ -155,7 +179,7 @@ describe('Home: one primary action, and what waits on you comes first', () => {
     expect((home.match(/className="soft-band-stat-value" data-zero=/g) || []).length).toBe(4);
     expect(block).toMatch(/\.soft-band-sub strong\[data-zero\] \{ color: inherit; font-weight: 400; \}/);
     expect(block).toMatch(/\.soft-band-stat-value\[data-zero\] \{ color: rgb\(var\(--fg-subtle\)\) !important; font-weight: 600; \}/);
-    expect(contrast(token(people.slice(people.indexOf('Brand D, each colour with its own job')), 'fg-subtle'), LILAC)).toBeGreaterThan(3);
+    expect(contrast(token(people.slice(people.indexOf('Brand D, each colour with its own job')), 'fg-subtle'), BLUSH)).toBeGreaterThan(3);
     expect(contrast(onPanelMuted, panel)).toBeGreaterThan(4.5);
   });
 

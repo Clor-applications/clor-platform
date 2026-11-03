@@ -4,8 +4,8 @@
   "description": "CLOR business accounting. Books, GST, people and pay, done daily.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FAF6EE",
-  "theme_color": "#232A66",
+  "background_color": "#FAF6F4",
+  "theme_color": "#FFFFFF",
   "icons": [
     {
       "src": "/clor-icon-192.png",

@@ -703,100 +703,112 @@
 }
 
 /* ---------------------------------------------------------------------------
-   CLOR — Direction D, "Done, daily".
+   CLOR — the red brand (owner, 3 Nov 2026: "go with red combination", over
+   indigo; brand board "CLOR red"). Supersedes Direction D's indigo.
 
-   Four colours carry the brand, and each has one job:
-     Indigo   #232A66  the ink — the primary action, the logo, selection.
-     Marigold #F5A623  the mark's colour on dark, and dark mode's action.
-                       On cotton it is a fill, never text (2.0:1).
-     Lilac    #E9E5F4  the selected and done state — a chosen rail item, a
-                       chip that says Filed, Paid, Approved.
-     Cotton   #FAF6EE  the page. Cards and documents stay white on it.
-   Money colours (green in, red out, amber attention) are separate and
-   unchanged; the brand never borrows them.
+   Six colours, each with one job:
+     Red      #C8102E  the logo and what you press: the primary action,
+                       the open tab's line, focus. White on it 5.9:1.
+     Oxblood  #5C0A16  the deep brand: the rail, headings, a solid block
+                       (an open tab, a greeting). White on it 13.9:1.
+     Blush    #FBE8EA  chosen and done: the module panel, a selected row,
+                       a "Filed / Paid / Approved" chip. Ink on it 14.6:1.
+     Marigold #F5A623  the dot in the C, and "waiting on you". A fill, never
+                       text on white (2.0:1); oxblood on it 6.9:1.
+     Ink      #1F1A1C  running text, and the one-colour logo. 17.2:1 on white.
+     White             the work area and the top bar; cream #FFF8F0 is paper.
+
+   Red is the brand, so it no longer means money out: money paid out is ink
+   with a minus sign, money in stays green. An error keeps its own red,
+   #B91C1C, always with a warning mark, so it never reads as the brand.
 --------------------------------------------------------------------------- */
 :root {
-  --cotton: 250 246 238; --indigo: 35 42 102; --marigold: 245 166 35; --lilac: 233 229 244;
-  --logo-mark: var(--indigo); --logo-word: var(--indigo);
-  --app-bg: var(--cotton); --surface: 255 255 255; --surface-raised: 255 255 255;
-  --surface-sunken: 247 244 238; --border: 232 227 216; --border-strong: 190 184 172;
-  --border-field: 205 199 188; --doc-section: 252 250 246;
-  /* Text is indigo-black, not zinc: a cold grey on cotton reads as a smudge.
-     fg-muted 7.8:1 and fg-subtle 5.3:1 on cotton; both higher on white. */
-  --fg: 26 29 61; --fg-muted: 72 75 106; --fg-subtle: 98 100 128;
-  /* White on indigo is 13.2:1; the hover lifts, pressed sinks. */
-  --brand: var(--indigo); --brand-deep: 24 29 74; --brand-hover: 48 56 128; --brand-pressed: 22 26 66;
-  --brand-soft: var(--lilac); --brand-subtle: 244 242 250; --brand-border: 201 194 228;
-  --brand-ink: var(--indigo); --brand-panel: var(--indigo); --on-brand: 255 255 255;
-  --doc-link: 52 62 148; --doc-link-wash: 244 242 250; --accent-soft: var(--brand-soft);
-  --ring: var(--indigo); --link: 52 62 148; --link-hover: var(--indigo); --info: 72 75 106; --info-soft: 244 242 250;
-  --st-all-soft: 244 242 250; --st-all-strong: var(--lilac); --st-all-key: var(--indigo); --st-all-ink: var(--indigo);
-  --nav-fg: 26 29 61; --nav-fg-muted: 72 75 106; --nav-fg-subtle: 98 100 128;
-  --rail-bg: var(--cotton); --rail-border: 232 227 216; --rail-hover: 241 237 229; --rail-active: var(--lilac);
-  --heading-bg: 244 242 250; --heading-hover: var(--lilac); --page-heading-bg: 244 242 250; --header-bg: 247 244 238;
-  --cursor-bg: 255 255 255; --cursor-fg: 26 29 61;
-  --nav-dashboard: var(--indigo); --nav-sales: var(--indigo); --nav-crm: var(--indigo);
-  --nav-purchases: var(--indigo); --nav-cashbank: var(--indigo); --nav-expenses: var(--indigo);
-  --nav-inventory: var(--indigo); --nav-journal: var(--indigo); --nav-approvals: var(--indigo);
-  --nav-reports: var(--indigo); --nav-masterdata: var(--indigo); --nav-settings: var(--indigo);
-  --nav-dashboard-ink: var(--lilac); --nav-sales-ink: var(--lilac); --nav-crm-ink: var(--lilac);
-  --nav-purchases-ink: var(--lilac); --nav-cashbank-ink: var(--lilac); --nav-expenses-ink: var(--lilac);
-  --nav-inventory-ink: var(--lilac); --nav-journal-ink: var(--lilac); --nav-approvals-ink: var(--lilac);
-  --nav-reports-ink: var(--lilac); --nav-masterdata-ink: var(--lilac); --nav-settings-ink: var(--lilac);
-  --ov-blue: var(--indigo); --ov-blue-soft: var(--lilac); --ov-blue-wash: 252 250 246;
-  --ov-green: 72 75 106; --ov-green-soft: var(--lilac); --ov-green-wash: 252 250 246;
-  --ov-amber: 72 75 106; --ov-amber-soft: var(--lilac); --ov-amber-wash: 252 250 246;
-  --ov-violet: var(--indigo); --ov-violet-soft: var(--lilac); --ov-violet-wash: 252 250 246;
-  --ov-orange: var(--indigo); --ov-orange-soft: var(--lilac); --ov-orange-wash: 252 250 246;
-  --kpi-line: 232 227 216;
-  --kpi-sales-bg: 252 250 246; --kpi-sales-ink: 26 29 61;
-  --kpi-invoices-bg: 244 242 250; --kpi-invoices-ink: var(--indigo);
+  --red: 200 16 46; --oxblood: 92 10 22; --blush: 251 232 234; --marigold: 245 166 35;
+  --ink: 31 26 28; --cream: 255 248 240;
+  --logo-mark: var(--red); --logo-dot: var(--marigold);
+  /* The ground is a warm white with a trace of rose, so hairlines and blush belong to it. */
+  --app-bg: 250 246 244; --surface: 255 255 255; --surface-raised: 255 255 255;
+  --surface-sunken: 245 239 238; --border: 234 223 225; --border-strong: 206 188 192;
+  --border-field: 214 200 203; --doc-section: 253 251 250;
+  /* fg 16.0:1, muted 7.3:1, subtle 5.0:1 on the ground; all higher on white. */
+  --fg: 31 26 28; --fg-muted: 91 79 83; --fg-subtle: 116 104 108; --fg-heading: var(--oxblood);
+  /* White on red 5.9:1; hover 7.8:1; pressed 9.8:1. */
+  --brand: var(--red); --brand-deep: var(--oxblood); --brand-hover: 165 13 38; --brand-pressed: 138 11 32;
+  --btn-primary-bg: var(--red); --btn-primary-hover: 165 13 38;
+  --brand-soft: var(--blush); --brand-subtle: 253 244 245; --brand-border: 243 211 215;
+  /* Red as words: the hover step, 7.8:1 on white and 6.6:1 on blush. */
+  --brand-ink: 165 13 38; --brand-panel: var(--oxblood); --on-brand: 255 255 255;
+  --doc-link: 165 13 38; --doc-link-wash: 253 244 245; --accent-soft: var(--brand-soft);
+  --ring: var(--red); --link: 165 13 38; --link-hover: 138 11 32; --info: 91 79 83; --info-soft: 245 239 238;
+  --st-all-soft: 253 244 245; --st-all-strong: var(--blush); --st-all-key: var(--red); --st-all-ink: 165 13 38;
+  --nav-fg: 31 26 28; --nav-fg-muted: 91 79 83; --nav-fg-subtle: 116 104 108;
+  --rail-bg: 255 255 255; --rail-border: 234 223 225; --rail-hover: 245 239 238; --rail-active: var(--blush);
+  --heading-bg: 253 244 245; --heading-hover: var(--blush); --page-heading-bg: 253 244 245; --header-bg: 255 255 255;
+  --cursor-bg: 255 255 255; --cursor-fg: 31 26 28;
+  --nav-dashboard: var(--oxblood); --nav-sales: var(--oxblood); --nav-crm: var(--oxblood);
+  --nav-purchases: var(--oxblood); --nav-cashbank: var(--oxblood); --nav-expenses: var(--oxblood);
+  --nav-inventory: var(--oxblood); --nav-journal: var(--oxblood); --nav-approvals: var(--oxblood);
+  --nav-reports: var(--oxblood); --nav-masterdata: var(--oxblood); --nav-settings: var(--oxblood);
+  --nav-dashboard-ink: var(--blush); --nav-sales-ink: var(--blush); --nav-crm-ink: var(--blush);
+  --nav-purchases-ink: var(--blush); --nav-cashbank-ink: var(--blush); --nav-expenses-ink: var(--blush);
+  --nav-inventory-ink: var(--blush); --nav-journal-ink: var(--blush); --nav-approvals-ink: var(--blush);
+  --nav-reports-ink: var(--blush); --nav-masterdata-ink: var(--blush); --nav-settings-ink: var(--blush);
+  --ov-blue: var(--oxblood); --ov-blue-soft: var(--blush); --ov-blue-wash: 253 251 250;
+  --ov-green: 91 79 83; --ov-green-soft: var(--blush); --ov-green-wash: 253 251 250;
+  --ov-amber: 91 79 83; --ov-amber-soft: var(--blush); --ov-amber-wash: 253 251 250;
+  --ov-violet: var(--oxblood); --ov-violet-soft: var(--blush); --ov-violet-wash: 253 251 250;
+  --ov-orange: var(--oxblood); --ov-orange-soft: var(--blush); --ov-orange-wash: 253 251 250;
+  --kpi-line: 234 223 225;
+  --kpi-sales-bg: 253 251 250; --kpi-sales-ink: 31 26 28;
+  --kpi-invoices-bg: 253 244 245; --kpi-invoices-ink: var(--oxblood);
   --kpi-received-bg: 240 253 244; --kpi-received-ink: 21 128 61;
-  --kpi-due-bg: 252 250 246; --kpi-due-ink: 72 75 106;
+  --kpi-due-bg: 253 251 250; --kpi-due-ink: 91 79 83;
   --kpi-overdue-bg: 254 242 242; --kpi-overdue-ink: 185 28 28;
-  --kpi-credit-bg: 244 242 250; --kpi-credit-ink: var(--indigo);
-  --pos: 16 126 62; --pos-soft: 235 247 239;
-  --neg: 187 0 0; --neg-hover: 153 0 0; --neg-soft: 253 237 237;
+  --kpi-credit-bg: 253 244 245; --kpi-credit-ink: var(--oxblood);
+  /* Money: in is green; out is ink (see .ui-amount-neg). --neg is the error red only. */
+  --pos: 16 126 62; --pos-soft: 235 247 239; --money-out: var(--ink);
+  --neg: 185 28 28; --neg-hover: 153 27 27; --neg-soft: 253 236 236;
   --warn: 233 115 12; --warn-ink: 154 70 0; --warn-soft: 255 244 230;
-  /* The admin rail's selected module: lilac, like every other selection. */
-  --ws-nav-selected: var(--lilac); --ws-nav-selected-ink: var(--indigo); --ws-brand: var(--indigo);
+  /* The admin rail's selected module: blush, like every other selection. */
+  --ws-nav-selected: var(--blush); --ws-nav-selected-ink: var(--oxblood); --ws-brand: var(--red);
 }
 
-/* Dark is the brand's own night: the indigo ground of the "Done, daily"
-   board, cotton text, and marigold taking over the action — indigo on
-   indigo would vanish, and marigold with indigo ink is 6.5:1. */
+/* Dark is the red brand's night: an oxblood-black ground, warm white text, and
+   marigold taking over the action (red on near-black is too dim to press),
+   with oxblood words on it at 6.9:1. */
 :root[data-theme='dark'] {
-  --logo-mark: var(--marigold); --logo-word: var(--cotton);
-  --app-bg: 16 18 40; --surface: 25 28 58; --surface-sunken: 32 36 72; --surface-raised: 42 47 90;
-  --border: 44 49 92; --border-strong: 78 84 132; --border-field: 62 68 114; --doc-section: 29 32 66;
-  --fg: 250 246 238; --fg-muted: 192 189 214; --fg-subtle: 166 163 194;
+  --logo-mark: 255 255 255; --logo-dot: var(--marigold);
+  --app-bg: 26 12 15; --surface: 36 20 26; --surface-sunken: 46 26 32; --surface-raised: 56 32 40;
+  --border: 62 38 46; --border-strong: 96 64 72; --border-field: 82 52 60; --doc-section: 40 22 28;
+  --fg: 243 233 235; --fg-muted: 201 184 188; --fg-subtle: 170 150 156; --fg-heading: 243 233 235;
   --brand: var(--marigold); --brand-deep: 250 196 102; --brand-hover: 250 186 74; --brand-pressed: 224 146 20;
   --btn-primary-bg: var(--marigold); --btn-primary-hover: 250 186 74;
-  --brand-soft: 48 53 104; --brand-subtle: 32 36 72; --brand-border: 98 104 160; --brand-ink: 250 200 110;
-  --on-brand: var(--indigo); --on-primary: var(--indigo); --on-accent: var(--indigo); --accent-soft: 48 53 104;
-  --ring: var(--marigold); --doc-link: 200 194 242; --doc-link-wash: 42 47 90;
-  --link: 200 194 242; --link-hover: var(--lilac); --info: 192 189 214; --info-soft: 42 47 90;
-  --st-all-soft: 32 36 72; --st-all-strong: 48 53 104; --st-all-key: var(--marigold); --st-all-ink: 250 230 190;
-  --rail-bg: 12 14 32; --rail-border: 32 36 72; --rail-hover: 25 28 58; --rail-active: 48 53 104;
-  --heading-bg: 42 47 90; --heading-hover: 48 53 104; --page-heading-bg: 25 28 58; --header-bg: 21 24 50;
-  --cursor-bg: 32 36 72; --cursor-fg: 250 246 238;
-  --nav-fg: 250 246 238; --nav-fg-muted: 192 189 214; --nav-fg-subtle: 140 137 172;
-  --nav-dashboard: 200 194 242; --nav-sales: 200 194 242; --nav-crm: 200 194 242;
-  --nav-purchases: 200 194 242; --nav-cashbank: 200 194 242; --nav-expenses: 200 194 242;
-  --nav-inventory: 200 194 242; --nav-journal: 200 194 242; --nav-approvals: 200 194 242;
-  --nav-reports: 200 194 242; --nav-masterdata: 200 194 242; --nav-settings: 200 194 242;
-  --nav-dashboard-ink: 48 53 104; --nav-sales-ink: 48 53 104; --nav-crm-ink: 48 53 104;
-  --nav-purchases-ink: 48 53 104; --nav-cashbank-ink: 48 53 104; --nav-expenses-ink: 48 53 104;
-  --nav-inventory-ink: 48 53 104; --nav-journal-ink: 48 53 104; --nav-approvals-ink: 48 53 104;
-  --nav-reports-ink: 48 53 104; --nav-masterdata-ink: 48 53 104; --nav-settings-ink: 48 53 104;
-  --kpi-line: 44 49 92;
-  --kpi-sales-bg: 29 32 66; --kpi-sales-ink: 250 246 238;
-  --kpi-invoices-bg: 32 36 72; --kpi-invoices-ink: var(--lilac);
+  --brand-soft: 74 22 34; --brand-subtle: 46 20 28; --brand-border: 120 48 62; --brand-ink: 250 200 110;
+  --on-brand: var(--oxblood); --on-primary: var(--oxblood); --on-accent: var(--oxblood); --accent-soft: 74 22 34;
+  --ring: var(--marigold); --doc-link: 244 160 172; --doc-link-wash: 56 28 36;
+  --link: 244 160 172; --link-hover: var(--blush); --info: 201 184 188; --info-soft: 56 28 36;
+  --st-all-soft: 46 20 28; --st-all-strong: 74 22 34; --st-all-key: var(--marigold); --st-all-ink: 250 230 190;
+  --rail-bg: 20 9 12; --rail-border: 46 26 32; --rail-hover: 36 20 26; --rail-active: 74 22 34;
+  --heading-bg: 56 32 40; --heading-hover: 74 22 34; --page-heading-bg: 36 20 26; --header-bg: 30 15 20;
+  --cursor-bg: 46 26 32; --cursor-fg: 243 233 235;
+  --nav-fg: 243 233 235; --nav-fg-muted: 201 184 188; --nav-fg-subtle: 150 130 136;
+  --nav-dashboard: 244 160 172; --nav-sales: 244 160 172; --nav-crm: 244 160 172;
+  --nav-purchases: 244 160 172; --nav-cashbank: 244 160 172; --nav-expenses: 244 160 172;
+  --nav-inventory: 244 160 172; --nav-journal: 244 160 172; --nav-approvals: 244 160 172;
+  --nav-reports: 244 160 172; --nav-masterdata: 244 160 172; --nav-settings: 244 160 172;
+  --nav-dashboard-ink: 74 22 34; --nav-sales-ink: 74 22 34; --nav-crm-ink: 74 22 34;
+  --nav-purchases-ink: 74 22 34; --nav-cashbank-ink: 74 22 34; --nav-expenses-ink: 74 22 34;
+  --nav-inventory-ink: 74 22 34; --nav-journal-ink: 74 22 34; --nav-approvals-ink: 74 22 34;
+  --nav-reports-ink: 74 22 34; --nav-masterdata-ink: 74 22 34; --nav-settings-ink: 74 22 34;
+  --kpi-line: 62 38 46;
+  --kpi-sales-bg: 40 22 28; --kpi-sales-ink: 243 233 235;
+  --kpi-invoices-bg: 46 20 28; --kpi-invoices-ink: var(--blush);
   --kpi-received-bg: 5 46 22; --kpi-received-ink: 74 222 128;
-  --kpi-due-bg: 32 36 72; --kpi-due-ink: 192 189 214;
+  --kpi-due-bg: 46 20 28; --kpi-due-ink: 201 184 188;
   --kpi-overdue-bg: 69 10 10; --kpi-overdue-ink: 248 113 113;
-  --kpi-credit-bg: 29 32 66; --kpi-credit-ink: var(--lilac);
-  --ws-nav-selected: 48 53 104; --ws-nav-selected-ink: 250 246 238; --ws-brand: var(--marigold);
+  --kpi-credit-bg: 40 22 28; --kpi-credit-ink: var(--blush);
+  --money-out: 243 233 235;
+  --ws-nav-selected: 74 22 34; --ws-nav-selected-ink: 243 233 235; --ws-brand: var(--marigold);
 }
 
 @layer base {
@@ -908,8 +920,10 @@
   .ui-amount-pos.ui-amount-pos {
     color: rgb(var(--pos));
   }
+  /* Money out is ink, marked by its minus sign: red is the brand, and the
+     error colour, so it no longer means "paid out" (3 Nov 2026). */
   .ui-amount-neg.ui-amount-neg {
-    color: rgb(var(--neg));
+    color: rgb(var(--money-out, var(--fg)));
   }
 
   /* --- buttons --- */
@@ -2766,11 +2780,12 @@
     transition: background-color var(--dur-surface) ease, color var(--dur-surface) ease;
   }
   .ui-split-mod:hover { background: rgb(var(--surface)); color: rgb(var(--nav-fg)); }
-  /* The module holding the screen you are on: the one ink pill on the rail.
+  /* The module holding the screen you are on: the one solid pill on the rail,
+     in the brand's deep tone (oxblood since the red brand, 3 Nov 2026).
      A module whose panel is open but which you have not gone into yet is
      outlined, so "where I am" and "what I am looking at" never blur. */
   .ui-split-mod[data-current] {
-    background: rgb(var(--fg));
+    background: rgb(var(--brand-deep, var(--fg)));
     color: rgb(var(--surface));
     font-weight: 600;
     box-shadow: var(--shadow-card);
@@ -5003,7 +5018,7 @@ h1, .ui-t-page, .ui-wordmark {
   font-optical-sizing: auto;
   letter-spacing: -0.02em;
   line-height: 1;
-  color: rgb(var(--logo-word));
+  color: rgb(var(--logo-mark));
   white-space: nowrap;
 }
 h2, h2[class], .ui-t-doc {
@@ -6927,29 +6942,22 @@ th.ui-th {
 }
 
 /*
- * The Blaze palette: Blaze Orange and Graphite (2026-10-21). Shared.
+ * The Blaze palette, now in the red brand (3 Nov 2026; Blaze Orange and Graphite
+ * from 2026-10-21 until then). The name stays so manifests keep working. Shared.
  *
- * A palette, not an app's styling: any Clor app opts in with
+ * A palette, not an app's styling: any CLOR app opts in with
  * `palette: 'blaze'` in its manifest, and the shell sets data-palette="blaze"
- * on <html> and on the app's wrapper. Today only Attendance does; Accounting,
- * Payroll and People are untouched until they opt in. Everything below is
- * colour only (no size, spacing or layout) and works through the shared
- * tokens, so the shared components (buttons, inputs, selects, date pickers,
- * filter bars, tables, status badges, page headers, navigation, cards,
- * dialogs, drawers, notifications, empty states) pick it up without changes.
+ * on <html> and on the app's wrapper. Today only Attendance does. Everything
+ * below is colour only (no size, spacing or layout) and works through the
+ * shared tokens, so the shared components pick it up without changes.
  *
- * Brand palette: Blaze #FF6700, Graphite #23272B, Almost Black #070D0D,
- * Cloud White #F7F8FA.
- *
- *   page ground          Cloud White #F7F8FA
- *   ink                  Almost Black #070D0D (18.4:1 on the ground)
- *   sidebar (icon rail)  Graphite #23272B, labels #C9CDD2 (9.4:1)
- *   current module       Blaze edge bar, icon and tint; label white
- *   primary buttons      Graphite with white text (15:1)
- *   accent on light      #EB5E00 for focus, active bars, tab underline (3.4:1,
- *                        non-text); #B84A00 where orange is text (5.2:1).
- *                        Blaze itself on white is 2.9:1, so it carries text
- *                        only at display size (the Today greeting).
+ *   page ground          warm white #FAF6F4
+ *   ink                  #1F1A1C (16.0:1 on the ground)
+ *   sidebar (icon rail)  oxblood #5C0A16, labels #E2B2B9 (7.5:1)
+ *   current module       marigold edge bar and icon (6.9:1), label white
+ *   primary buttons      CLOR red #C8102E with white text (5.9:1)
+ *   accent on light      red for focus, active bars, the tab underline;
+ *                        #A50D26 where red is text (7.8:1)
  *   tables, forms        neutral white and grey, names in ink
  *
  * Tokens it sets (others keep the platform values): --app-bg, --fg, --brand*,
@@ -6958,71 +6966,71 @@ th.ui-th {
  */
 :root[data-palette='blaze'],
 [data-palette='blaze'] {
-  --app-bg: 247 248 250;
-  --fg: 7 13 13;
-  --brand: 235 94 0;
-  --brand-deep: 184 74 0;
-  --brand-hover: 47 52 56;
-  --brand-pressed: 7 13 13;
-  --btn-primary-bg: 35 39 43;
-  --btn-primary-hover: 47 52 56;
-  --brand-soft: 255 236 222;
-  --brand-subtle: 255 246 239;
-  --brand-border: 255 196 153;
-  --brand-ink: 184 74 0;
+  --app-bg: 250 246 244;
+  --fg: 31 26 28;
+  --brand: 200 16 46;
+  --brand-deep: 92 10 22;
+  --brand-hover: 165 13 38;
+  --brand-pressed: 138 11 32;
+  --btn-primary-bg: 200 16 46;
+  --btn-primary-hover: 165 13 38;
+  --brand-soft: 251 232 234;
+  --brand-subtle: 253 244 245;
+  --brand-border: 243 211 215;
+  --brand-ink: 165 13 38;
   --on-brand: 255 255 255;
-  --accent-soft: 255 236 222;
-  --ring: 235 94 0;
-  --link: 35 39 43;
-  --link-hover: 7 13 13;
-  --col-party: 7 13 13;
-  --page-heading-bg: 238 240 243;
-  --heading-bg: 238 240 243;
-  --rail-graphite: 35 39 43;
-  --rail-graphite-top: 43 48 53;
-  --rail-graphite-hover: 47 52 56;
-  --rail-ink: 201 205 210;
+  --accent-soft: 251 232 234;
+  --ring: 200 16 46;
+  --link: 165 13 38;
+  --link-hover: 138 11 32;
+  --col-party: 31 26 28;
+  --page-heading-bg: 253 244 245;
+  --heading-bg: 253 244 245;
+  --rail-graphite: 92 10 22;
+  --rail-graphite-top: 104 14 28;
+  --rail-graphite-hover: 122 20 34;
+  --rail-ink: 226 178 185;
   --rail-ink-strong: 255 255 255;
-  --rail-blaze: 255 103 0;
-  --rail-blaze-ink: 7 13 13;
-  /* Blaze on Cloud White is 2.9:1: enough for 28px bold, so the greeting may wear it. */
-  --hero-hi: 255 103 0;
+  --rail-blaze: 245 166 35;
+  --rail-blaze-ink: 92 10 22;
+  /* Red on the warm ground is 5.6:1, so the greeting may wear it at any size. */
+  --hero-hi: 200 16 46;
 }
 :root[data-theme='dark'][data-palette='blaze'],
 :root[data-theme='dark'] [data-palette='blaze'] {
-  --app-bg: 7 13 13;
-  --fg: 247 248 250;
-  --brand: 255 103 0;
-  --brand-deep: 255 138 64;
-  --brand-hover: 255 122 38;
-  --brand-pressed: 235 94 0;
-  --btn-primary-bg: 255 103 0;
-  --btn-primary-hover: 255 122 38;
-  --brand-soft: 61 30 10;
-  --brand-subtle: 31 19 11;
-  --brand-border: 122 55 14;
-  --brand-ink: 255 138 64;
-  --on-brand: 7 13 13;
-  --accent-soft: 61 30 10;
-  --ring: 255 103 0;
-  --link: 236 238 241;
-  --link-hover: 255 255 255;
-  --col-party: 247 248 250;
-  --page-heading-bg: 18 23 24;
-  --heading-bg: 18 23 24;
-  --rail-graphite: 18 23 24;
-  --rail-graphite-top: 24 30 32;
-  --rail-graphite-hover: 35 39 43;
+  --app-bg: 26 12 15;
+  --fg: 243 233 235;
+  --brand: 245 166 35;
+  --brand-deep: 250 196 102;
+  --brand-hover: 250 186 74;
+  --brand-pressed: 224 146 20;
+  --btn-primary-bg: 245 166 35;
+  --btn-primary-hover: 250 186 74;
+  --brand-soft: 74 22 34;
+  --brand-subtle: 46 20 28;
+  --brand-border: 120 48 62;
+  --brand-ink: 250 200 110;
+  --on-brand: 92 10 22;
+  --accent-soft: 74 22 34;
+  --ring: 245 166 35;
+  --link: 244 160 172;
+  --link-hover: 251 232 234;
+  --col-party: 243 233 235;
+  --page-heading-bg: 36 20 26;
+  --heading-bg: 36 20 26;
+  --rail-graphite: 20 9 12;
+  --rail-graphite-top: 30 14 18;
+  --rail-graphite-hover: 46 26 32;
 }
 
-/* The dashboard ground is Cloud White; cards, tables and forms stay white on it. */
+/* The dashboard ground is the warm white; cards, tables and forms stay white on it. */
 :root[data-palette='blaze'] main.ui-content {
   background-color: rgb(var(--app-bg));
 }
 
 /*
- * Sidebar: the icon rail in Graphite. The module you are in gets a Blaze bar
- * on the rail's edge, a Blaze icon and a warm tint behind it; the label stays
+ * Sidebar: the icon rail in oxblood. The module you are in gets a marigold bar
+ * on the rail's edge, a marigold icon and a warm tint behind it; the label stays
  * white so it reads at 11px. Hover lifts the icon a touch. "Me" is about you,
  * not the company, so it sits apart at the foot of the rail.
  */
@@ -7085,7 +7093,7 @@ th.ui-th {
   :root[data-palette='blaze'] .ui-split-mod[data-current]::before { animation: ui-rail-mark 260ms cubic-bezier(.2,.8,.2,1) both; }
 }
 
-/* The current screen in the module panel: Blaze bar and icon, the name in ink. */
+/* The current screen in the module panel: red bar and icon, the name in ink. */
 :root[data-palette='blaze'] .ui-split-item[aria-current='page'] {
   box-shadow: inset 3px 0 0 rgb(var(--brand));
 }
@@ -7093,7 +7101,7 @@ th.ui-th {
   color: rgb(var(--brand-ink));
 }
 
-/* Phone tab bar: the screen you are on gets a Blaze top bar and icon. */
+/* Phone tab bar: the screen you are on gets a red top bar and icon. */
 :root[data-palette='blaze'] .ui-tabbar-item[aria-current='page'] {
   box-shadow: inset 0 2px 0 rgb(var(--brand));
 }
@@ -7537,18 +7545,18 @@ th.ui-th {
 }
 
 /* ------------------------------------------------------------------ sign-in and sign-up (packages/shell/AuthLayout.jsx)
- * The brand board's "Done, daily" panel beside a white form on cotton, kept
- * light: the lilac ground, the promise in indigo with a marigold stroke under
- * its one word, a day ticked off with the mark, and the marigold halftone. The operator console passes its
+ * The brand board's "Done, daily" panel beside a white form on the warm ground,
+ * kept light: cream paper, the promise in red with a marigold stroke under its
+ * one word, a day ticked off, and the marigold halftone (red brand, 3 Nov 2026). The operator console passes its
  * own brand side and keeps the light ground (no `is-board`).
  */
 .ui-auth {
-  --auth-bg: var(--cotton);
-  --auth-ink: 26 29 61;
-  --auth-ink-2: 72 75 106;
-  --auth-line: 232 227 216;
-  --auth-accent: var(--indigo);
-  --auth-accent-hover: 48 56 128;
+  --auth-bg: 250 246 244;
+  --auth-ink: var(--ink);
+  --auth-ink-2: 91 79 83;
+  --auth-line: 234 223 225;
+  --auth-accent: var(--red);
+  --auth-accent-hover: 165 13 38;
   background: rgb(var(--auth-bg));
   color: rgb(var(--auth-ink));
 }
@@ -7561,15 +7569,16 @@ th.ui-th {
   background: rgb(var(--auth-bg));
 }
 .ui-auth-brand.is-board {
-  --auth-bg: var(--lilac);
-  --auth-ink: var(--indigo);
-  --auth-ink-2: 72 75 106;
-  --auth-line: 216 210 236;
+  --auth-bg: var(--cream);
+  --auth-ink: var(--ink);
+  --auth-ink-2: 91 79 83;
+  --auth-line: 240 224 214;
   color: rgb(var(--auth-ink));
 }
-/* Marigold is 2.0:1 on a light ground, so it underlines the word, never colours it. */
+/* The promise is red, 5.6:1 on cream; marigold is 2.0:1 there, so it underlines the word, never colours it. */
+.ui-auth-brand.is-board .ui-auth-title { color: rgb(var(--red)); }
 .ui-auth-brand.is-board .ui-auth-accent {
-  color: rgb(var(--indigo));
+  color: rgb(var(--red));
   background: linear-gradient(rgb(var(--marigold)), rgb(var(--marigold))) 0 88% / 100% 0.16em no-repeat;
 }
 .ui-auth-brand.is-board .ui-caption { color: rgb(var(--auth-ink-2)); }
@@ -7589,9 +7598,9 @@ th.ui-th {
   width: min(100%, 340px);
   padding: 20px;
   border-radius: 12px;
-  background: rgb(var(--cotton));
-  color: rgb(var(--indigo));
-  box-shadow: 0 1px 0 rgb(var(--indigo) / 0.04), 0 18px 36px -24px rgb(var(--indigo) / 0.35);
+  background: rgb(255 255 255);
+  color: rgb(var(--ink));
+  box-shadow: 0 1px 0 rgb(var(--oxblood) / 0.04), 0 18px 36px -24px rgb(var(--oxblood) / 0.35);
 }
 .ui-auth-today-title {
   margin-bottom: 12px;
@@ -7621,8 +7630,19 @@ th.ui-th {
   width: 18px;
   height: 18px;
   flex: none;
-  border: 2px solid rgb(var(--indigo));
+  border: 2px solid rgb(var(--oxblood));
   border-radius: 999px;
+}
+/* A done row: a white tick on red, the brand's own "done". */
+.ui-auth-today-done {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 999px;
+  background: rgb(var(--red));
+  color: rgb(255 255 255);
 }
 /* The marigold halftone: dots in rings, fading out from the corner. */
 .ui-auth-halftone {

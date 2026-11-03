@@ -1,50 +1,57 @@
 import React from 'react';
 import ClorMark from './ClorMark.jsx';
-import ClorTick from './ClorTick.jsx';
+import { C, L, O, R, DOT, WORD_WIDTH } from './clorPaths.js';
 
 /**
- * The CLOR logo: the C-tick mark beside the wordmark, set in Bricolage
- * Grotesque ExtraBold capitals. One logo across the site and every app; the
- * wordmark is always "CLOR".
+ * The CLOR logo: the owner's wordmark (3 Nov 2026), drawn from its traced
+ * outlines, always in capitals. One logo across the site and every app.
  *
- * `variant`: 'horizontal' (default) is mark + wordmark, 'wordmark' the word
- * alone, 'stacked' the mark above it, 'mark' the mark only. `size` is the
- * mark's height in px (or sm/md/lg/xl). `color` overrides the theme colour.
+ * `variant`: 'horizontal' (default) and 'wordmark' are the word itself (its C
+ * is the mark), 'stacked' the mark above the word, 'mark' the C and its dot
+ * alone. `size` is the logo's height in px (or sm/md/lg/xl). The letters take
+ * --logo-mark (red on light, white on dark) and the dot --logo-dot (marigold);
+ * `color` and `dotColor` set them for one particular ground.
  */
 const HEIGHTS = { sm: 20, md: 28, lg: 40, xl: 56 };
+const MARK = 'rgb(var(--logo-mark, 200 16 46))';
+const DOT_PAINT = 'rgb(var(--logo-dot, 245 166 35))';
 
-export default function ClorLogo({ variant = 'horizontal', size = 'md', color, className = '', title = 'CLOR' }) {
-  const h = typeof size === 'number' ? size : HEIGHTS[size] || HEIGHTS.md;
-  if (variant === 'mark') return <ClorMark size={h} color={color} className={className} title={title} />;
-  /* The horizontal lockup is ClorTick's one drawing: CLOR close to the tick, its bottom on the C's (3 Nov 2026). */
-  if (variant === 'horizontal') return <ClorTick size={h} wordmark color={color} className={className} title={title} />;
-  const word = (
-    <span
-      className="ui-wordmark"
-      aria-hidden="true"
-      style={{ fontSize: Math.round(h * 0.92), color: color || undefined }}
+function Word({ h, color, dotColor, className, title }) {
+  const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': 'true' };
+  return (
+    <svg
+      width={Math.round((h * WORD_WIDTH) / 100)}
+      height={h}
+      viewBox={`0 0 ${WORD_WIDTH} 100`}
+      className={className}
+      style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
+      {...a11y}
     >
-      CLOR
-    </span>
+      <g fill={color || MARK}>
+        <path d={C} />
+        <path d={L} />
+        <path d={O} />
+        <path d={R} />
+      </g>
+      <path d={DOT} fill={dotColor || DOT_PAINT} />
+    </svg>
   );
-  const stacked = variant === 'stacked';
+}
+
+export default function ClorLogo({ variant = 'horizontal', size = 'md', color, dotColor, className = '', title = 'CLOR' }) {
+  const h = typeof size === 'number' ? size : HEIGHTS[size] || HEIGHTS.md;
+  if (variant === 'mark') return <ClorMark size={h} color={color} dotColor={dotColor} className={className} title={title} />;
+  if (variant !== 'stacked') return <Word h={h} color={color} dotColor={dotColor} className={className} title={title} />;
   return (
     <span
       role="img"
       aria-label={title || undefined}
       aria-hidden={title ? undefined : 'true'}
       className={className}
-      style={{
-        display: 'inline-flex',
-        flexDirection: stacked ? 'column' : 'row',
-        alignItems: 'center',
-        gap: stacked ? Math.round(h / 3) : Math.round(h * 0.28),
-        verticalAlign: 'middle',
-        flexShrink: 0,
-      }}
+      style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(h / 3), verticalAlign: 'middle', flexShrink: 0 }}
     >
-      {variant !== 'wordmark' && <ClorMark size={stacked ? h * 1.6 : h} color={color} title="" />}
-      {word}
+      <ClorMark size={h * 1.6} color={color} dotColor={dotColor} title="" />
+      <Word h={h} color={color} dotColor={dotColor} title="" />
     </span>
   );
 }

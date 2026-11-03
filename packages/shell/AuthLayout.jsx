@@ -1,5 +1,6 @@
 import React from 'react';
-import { ClorLogo, ClorMark } from '@ui/components/brand';
+import { Check } from 'lucide-react';
+import { ClorLogo } from '@ui/components/brand';
 import LegalLinks from './legal/LegalLinks';
 
 /**
@@ -9,10 +10,9 @@ import LegalLinks from './legal/LegalLinks';
  * different form in it — and a sign-up that looked like a different product
  * would make somebody wonder whether they had followed the right link.
  *
- * The brand side is the "Done, daily" panel of the brand board: the indigo
- * ground, the promise, and a day's list ticked off with the mark itself — the
- * tick is the product's done state. It carries the platform claim, not the
- * accounting one — somebody signing in may be here for payroll alone.
+ * The brand side is the "Done, daily" panel of the red brand board: cream
+ * paper, the promise in red, and a day's list ticked off in red. It carries
+ * the platform claim, not the accounting one — somebody signing in may be here for payroll alone.
  */
 
 /* What a day in CLOR looks like: two things done, one waiting on you. */
@@ -38,7 +38,7 @@ function CustomerBrand() {
         <ul>
           {TODAY.map(({ text, done }) => (
             <li key={text} className={done ? undefined : 'is-waiting'}>
-              {done ? <ClorMark size={18} color="rgb(var(--indigo))" title="" /> : <span className="ui-auth-today-ring" aria-hidden="true" />}
+              {done ? <span className="ui-auth-today-done" aria-hidden="true"><Check size={12} strokeWidth={3} /></span> : <span className="ui-auth-today-ring" aria-hidden="true" />}
               <span>{text}</span>
               <span className="sr-only">{done ? ', done' : ', waiting on you'}</span>
             </li>

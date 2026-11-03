@@ -5,7 +5,7 @@ import { colorOf, swatchOf } from '../packages/ui/src/timeOff/api';
 
 /**
  * People's brand colours used where they belong (owner, 31 Oct 2026: "yellow and other colors not utilised
- * properly", then "Yes, all ten"). Marigold marks what waits on you, lilac what is chosen or done, away has its
+ * properly", then "Yes, all ten"; red brand from 3 Nov 2026). Marigold marks what waits on you, blush what is chosen or done, away has its
  * own mark, red is only for what went wrong, and charts, teams and leave types draw from one brand series.
  * The audit: docs/people/design-v1/COLOUR-AUDIT-2026-10-31.md.
  */
@@ -21,13 +21,13 @@ const lum = (rgb) => {
 };
 const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 const WHITE = '255 255 255';
-const INDIGO = '35 42 102';
+const OXBLOOD = '92 10 22';
 const MARIGOLD = '245 166 35';
 
 describe('counts that wait on you are marigold', () => {
   it('styles the count class the tabs render, not one that does not exist', () => {
     expect(people).not.toMatch(/\.ui-tab \.ui-count|\.ui-split-panel \.ui-count/);
-    expect(people).toMatch(/:is\(\.ui-tab-count, \.ui-side-count\)\[data-tone='warn'\] \{ background: rgb\(var\(--warm\)\) !important; color: rgb\(var\(--brand\)\) !important;/);
+    expect(people).toMatch(/:is\(\.ui-tab-count, \.ui-side-count\)\[data-tone='warn'\] \{ background: rgb\(var\(--warm\)\) !important; color: rgb\(var\(--oxblood\)\) !important;/);
   });
 
   it.each([
@@ -48,7 +48,7 @@ describe('counts that wait on you are marigold', () => {
     expect(bell).toContain('className="ui-bell-unread"');
     expect(index).toMatch(/\.ui-bell-count \{[^}]*font-size: 0\.75rem;[^}]*background: rgb\(var\(--neg\)\)/);
     expect(index).toMatch(/\.ui-bell-unread \{ display: none;/);
-    expect(block).toMatch(/\.ui-bell-count \{ background: rgb\(var\(--warm\)\); color: rgb\(var\(--brand\)\); \}/);
+    expect(block).toMatch(/\.ui-bell-count \{ background: rgb\(var\(--warm\)\); color: rgb\(var\(--oxblood\)\); \}/);
   });
 
   it('side blocks whose count waits on you mark it, and the timeline warning dot is a marigold mark', () => {
@@ -75,8 +75,8 @@ describe('counts that wait on you are marigold', () => {
 });
 
 describe('figures', () => {
-  it('indigo figures leave a nought to the quiet grey rule', () => {
-    const indigo = people.match(/^.*#main-content :is\(h1, h2, [^{]*\{ color: rgb\(var\(--brand\)\); \}$/m)[0];
+  it('oxblood figures leave a nought to the quiet grey rule', () => {
+    const indigo = people.match(/^.*#main-content :is\(h1, h2, [^{]*\{ color: rgb\(var\(--fg-heading\)\); \}$/m)[0];
     expect(indigo).toContain('.ui-metric:not([data-zero]) .ui-metric-value');
     expect(indigo).not.toMatch(/, \.ui-metric-value,/);
     expect(people).toMatch(/\.ui-metric\[data-zero\] \.ui-metric-value \{ color: rgb\(var\(--fg-subtle\)\)/);
@@ -105,7 +105,7 @@ describe('status tokens in brand D', () => {
     expect(token(block, 'warn')).not.toBe(MARIGOLD);
     expect(contrast(token(block, 'warn'), WHITE)).toBeGreaterThan(4.5);
     expect(token(block, 'warn-soft')).toBe('254 241 214');
-    expect(contrast(INDIGO, token(block, 'warn-soft'))).toBeGreaterThan(4.5);
+    expect(contrast(OXBLOOD, token(block, 'warn-soft'))).toBeGreaterThan(4.5);
     expect(block).toMatch(/\.ui-attention-dot\.is-warn \{ background: rgb\(var\(--warn-mark\)\); \}/);
   });
 
@@ -115,10 +115,10 @@ describe('status tokens in brand D', () => {
     expect(contrast(token(block, 'neg'), token(block, 'neg-soft'))).toBeGreaterThan(4.5);
   });
 
-  it('away has its own mark, apart from Present\'s indigo, and is never text', () => {
-    expect(token(block, 'away')).toBe('141 132 198');
+  it('away has its own mark, apart from Present\'s oxblood, and is never text', () => {
+    expect(token(block, 'away')).toBe('168 110 124');
     expect(contrast(token(block, 'away'), WHITE)).toBeGreaterThan(3);
-    expect(contrast(token(block, 'away'), INDIGO)).toBeGreaterThan(3);
+    expect(contrast(token(block, 'away'), OXBLOOD)).toBeGreaterThan(3);
     expect(block).toMatch(/\.att-summary \[data-tone='info'\] \{ --t: var\(--away\); \}/);
     expect(block).not.toMatch(/color: rgb\(var\(--away\)\)/);
   });
@@ -128,18 +128,18 @@ describe('status tokens in brand D', () => {
     expect(block).toMatch(/\.ui-side-alert\[data-tone='warn'\] \{ box-shadow: inset 3px 0 0 rgb\(var\(--warm\)\); \}/);
   });
 
-  it('indigo on marigold, the one way marigold carries words, clears AA', () => {
-    expect(contrast(INDIGO, MARIGOLD)).toBeGreaterThan(4.5);
+  it('oxblood on marigold, the one way marigold carries words, clears AA', () => {
+    expect(contrast(OXBLOOD, MARIGOLD)).toBeGreaterThan(4.5);
     expect(contrast(MARIGOLD, WHITE)).toBeLessThan(3);
   });
 });
 
 describe('one brand series for charts, teams and leave types', () => {
-  it('teams: indigo, marigold, away first; no-team stays grey', () => {
-    expect(token(block, 'dept-1')).toBe(INDIGO);
+  it('teams: oxblood, marigold, away first; no-team stays grey', () => {
+    expect(token(block, 'dept-1')).toBe(OXBLOOD);
     expect(token(block, 'dept-2')).toBe(MARIGOLD);
-    expect(token(block, 'dept-3')).toBe('141 132 198');
-    expect(token(block, 'dept-0')).toBe('104 107 124');
+    expect(token(block, 'dept-3')).toBe('168 110 124');
+    expect(token(block, 'dept-0')).toBe('116 104 108');
   });
 
   it('every team mark but marigold reads at least 3:1 on white', () => {
@@ -161,8 +161,8 @@ describe('one brand series for charts, teams and leave types', () => {
     expect(home.match(/\[1, 2, 3\]\[i\] \?\? 8/g)).toHaveLength(2);
   });
 
-  it('faces: initials in indigo on their team wash', () => {
-    expect(block).toMatch(/\.people-face \{ color: rgb\(var\(--brand\)\); background: rgb\(var\(--dept\) \/ 0\.16\); \}/);
+  it('faces: initials in oxblood on their team wash', () => {
+    expect(block).toMatch(/\.people-face \{ color: rgb\(var\(--oxblood\)\); background: rgb\(var\(--dept\) \/ 0\.16\); \}/);
   });
 
   it('a leave type nobody coloured draws its slot token; its own colour wins; the picker still gets a hex', () => {
@@ -183,9 +183,9 @@ describe('one brand series for charts, teams and leave types', () => {
 });
 
 describe('chosen and the employee app', () => {
-  /* Since 3 Nov 2026 the panel is lilac under an indigo rail (test/people-deep-indigo.test.js): the open screen is a white tile with a marigold edge. */
-  it("the module panel's open screen sits on a white tile, marked with marigold", () => {
-    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(255 255 255\); color: rgb\(var\(--indigo\)\); font-weight: 700; box-shadow: inset 3px 0 0 rgb\(var\(--marigold\)\)/);
+  /* Since 3 Nov 2026 the panel is blush under an oxblood rail (test/people-red-brand.test.js): the open screen is a white tile with a red edge. */
+  it("the module panel's open screen sits on a white tile, marked with red", () => {
+    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(255 255 255\); color: rgb\(var\(--brand-ink\)\); font-weight: 700; box-shadow: inset 3px 0 0 rgb\(var\(--red\)\)/);
   });
 
   it("the employee app wears brand D's waiting through its own data-brand, not the sky palette", () => {
@@ -193,7 +193,7 @@ describe('chosen and the employee app', () => {
     expect(portal).toContain('className="ui-portal min-h-dvh pb-20" data-brand="d"');
     expect(portal).not.toMatch(/data-palette/);
     const rules = block.slice(block.indexOf('The employee app'));
-    expect(rules).toMatch(/\.ui-portal\[data-brand='d'\] \.ui-pill-warn \{ background: rgb\(var\(--marigold\)\); color: rgb\(var\(--indigo\)\); \}/);
+    expect(rules).toMatch(/\.ui-portal\[data-brand='d'\] \.ui-pill-warn \{ background: rgb\(var\(--marigold\)\); color: rgb\(var\(--oxblood\)\); \}/);
     for (const line of rules.split('\n').filter((l) => l.includes('{'))) expect(line).toContain(".ui-portal[data-brand='d']");
   });
 });
