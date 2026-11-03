@@ -25,7 +25,6 @@ import { confirmDialog } from '@ui/components/ui/notify';
 /* Asked before any navigation that would drop edits a screen has not saved (spec v1 §5.1, WF-11). */
 const askLeave = () => confirmDialog({ title: 'Leave without saving?', message: 'Your changes on this page have not been saved.', confirmLabel: 'Leave', tone: 'danger' });
 import HelpCenter from './HelpCenter';
-import ClorMark from './ClorMark';
 import { ClorLogo, ClorTick } from '@ui/components/brand';
 import NotificationBell from './NotificationBell';
 import { watchWideTables } from './wideTables';
@@ -713,8 +712,7 @@ export default function Shell() {
   if (restoring) {
     return (
       <div className="min-h-dvh grid place-items-center" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
-        {/* The app the address names is known before the session is: People's loading screen wears its own mark. */}
-        {chosenAppId === 'people' ? <ClorTick size={40} /> : <ClorMark size={40} />}
+        <ClorTick size={40} />
       </div>
     );
   }
@@ -1034,10 +1032,7 @@ export default function Shell() {
             </button>
           ) : null}
           <button type="button" className="flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
-            {/* People wears the new mark (brand direction D, 29 Oct 2026); the other apps keep clor.in's until they move over. */}
-            {activeAppId === 'people'
-              ? <ClorTick size={phone ? 24 : 22} wordmark={!phone} />
-              : phone ? <ClorMark size={24} /> : <ClorLogo size={20} />}
+            <ClorTick size={phone ? 24 : 22} wordmark={!phone} />
           </button>
 
           {/* The app switcher. Named for the app you are in, because that is the
