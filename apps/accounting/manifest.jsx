@@ -30,6 +30,8 @@ export const accountingApp = {
   blurb: 'Invoices, bills, GST, and a double-entry ledger that balances itself.',
   available: true,
   database: 'accounting.db',
+  /** Keeps Direction D's indigo (packages/ui/src/index.css, [data-palette='indigo']): owner, 3 Nov 2026. */
+  palette: 'indigo',
 
   /** The app draws everything under the platform bar. */
   Root: AccountingRoot,

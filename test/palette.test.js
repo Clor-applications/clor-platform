@@ -7,15 +7,32 @@ import { APPS } from '../packages/shell/registry';
  * The Blaze palette is shared, not Attendance's own styling: an app opts in
  * with `palette: 'blaze'` in its manifest and the shell sets data-palette.
  * Attendance wears Blaze; People wears Sky (owner, 28 Oct 2026; Rose before that, D-01)
- * on Accounting's layout; Accounting and Payroll keep the platform's colours.
+ * on Accounting's layout; Payroll keeps the platform's colours (the red brand since 3 Nov 2026);
+ * Accounting keeps Direction D's indigo (owner, 3 Nov 2026: "do not change color to accounting").
  */
 const css = readFileSync('packages/ui/src/index.css', 'utf8') + readFileSync('packages/ui/src/people.css', 'utf8');
 
 describe('shared palettes', () => {
-  it('Attendance wears Blaze, People wears Sky; Accounting and Payroll keep the platform colours', () => {
+  it('Attendance wears Blaze, People wears Sky, Accounting keeps Indigo; Payroll keeps the platform colours', () => {
     const byPalette = {};
     for (const a of APPS.filter((x) => x.palette)) (byPalette[a.palette] ||= []).push(a.id);
-    expect(byPalette).toEqual({ blaze: ['attendance'], sky: ['people'] });
+    expect(byPalette).toEqual({ blaze: ['attendance'], sky: ['people'], indigo: ['accounting'] });
+  });
+
+  it('Indigo is Direction D as it was, keyed on the palette, and leaves the CLOR logo alone', () => {
+    const start = css.indexOf('The Indigo palette');
+    expect(start).toBeGreaterThan(-1);
+    const block = css.slice(start, css.indexOf('@layer base', start));
+    expect(block).toMatch(/--indigo: 35 42 102;/);
+    expect(block).toMatch(/--brand: var\(--indigo\);/);
+    expect(block).toMatch(/--brand-soft: var\(--lilac\);/);
+    expect(block).toMatch(/--app-bg: var\(--cotton\);/);
+    /* Money out stays red there; the red brand's ink-with-a-minus is for the other apps. */
+    expect(block).toMatch(/--money-out: var\(--neg\);/);
+    expect(block).not.toMatch(/--logo-(mark|dot):/);
+    expect(block).not.toMatch(/\[data-app=/);
+    /* The light values must not outrank the dark theme's own tokens. */
+    expect(block).toMatch(/^:root:where\(\[data-palette='indigo'\]\),$/m);
   });
 
   /* People has its own visual rhythm while the palette remains the boundary

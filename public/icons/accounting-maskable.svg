@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
   <title id="title">CLOR Accounting app icon, maskable</title>
-  <rect width="256" height="256" fill="#C8102E"/><g transform="translate(128 128) scale(0.8) translate(-128 -128)">
+  <rect width="256" height="256" fill="#14152B"/><g transform="translate(128 128) scale(0.8) translate(-128 -128)">
   <g transform="translate(0 -8)"><path fill="#FFFFFF" d="M64 78 Q96 70 122 84 V168 Q96 156 64 162 Z M134 84 Q160 70 192 78 V162 Q160 156 134 168 Z"/></g>
-  <path fill="#F5A623" d="M90.55 186 L174.55 186 L168 204 L84 204 Z"/>
+  <path fill="#FF6B00" d="M90.55 186 L174.55 186 L168 204 L84 204 Z"/>
 
 </g></svg>

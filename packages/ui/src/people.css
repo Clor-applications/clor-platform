@@ -283,13 +283,14 @@
   height: auto;
 }
 :root[data-palette='sky'] .ui-split-item:hover { color: rgb(var(--fg)); }
-/* Selected segments are a choice, not an action: ink, so sky stays the action colour. */
+/* Selected segments are a choice, not an action: the choice colour (marigold, oxblood words, since 3 Nov 2026), so red
+   stays the action colour. Ink before then. */
 :root[data-palette='sky'] :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
-  background-color: rgb(var(--fg)) !important;
-  border-color: rgb(var(--fg)) !important;
-  color: rgb(var(--surface)) !important;
+  background-color: rgb(var(--choice, var(--fg))) !important;
+  border-color: rgb(var(--choice, var(--fg))) !important;
+  color: rgb(var(--on-choice, var(--surface))) !important;
 }
-:root[data-palette='sky'] .ui-segment[aria-selected='true'] .ui-segment-count { color: rgb(var(--surface)) !important; }
+:root[data-palette='sky'] .ui-segment[aria-selected='true'] .ui-segment-count { color: rgb(var(--on-choice, var(--surface))) !important; }
 :root[data-palette='sky'] .ui-tab.is-active::after { background-color: rgb(var(--fg)); }
 
 /* The heading sits on the ground: a title is not a document, so it earns no surface. */
@@ -1257,11 +1258,12 @@
   font-weight: 500 !important;
 }
 :root[data-palette='sky'] #main-content .ui-segmented .ui-segment[aria-selected='true'] {
-  background: rgb(var(--surface)) !important;
-  color: rgb(var(--fg)) !important;
-  font-weight: 600 !important;
-  box-shadow: 0 1px 3px rgb(24 24 27 / 0.08), 0 0 0 1px rgb(var(--soft-ring)) !important;
+  background: rgb(var(--choice, var(--surface))) !important;
+  color: rgb(var(--on-choice, var(--fg))) !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
 }
+:root[data-palette='sky'] #main-content .ui-segmented .ui-segment[aria-selected='true'] .ui-segment-count { background: rgb(var(--on-choice, var(--fg)) / 0.14) !important; color: rgb(var(--on-choice, var(--fg))) !important; }
 :root[data-palette='sky'] #main-content .ui-segmented .ui-segment .ui-segment-count { background: rgb(var(--border) / 0.6) !important; color: rgb(var(--fg-muted)) !important; }
 
 /* Column widths (owner, 28 Oct 2026). Every cell stays on one line and the
@@ -1780,8 +1782,8 @@
   --butter-ink: 122 79 0;
   --warn-soft: 252 223 168;
   --warn-ink: 92 10 22;
-  --sky-soft: 251 232 234;
-  --sky-ink: 92 10 22;
+  --sky-soft: 238 241 245;
+  --sky-ink: 51 65 85;
   --lift: 0 1px 2px rgb(92 10 22 / 0.05), 0 6px 20px -12px rgb(92 10 22 / 0.16);
   --lift-hi: 0 2px 4px rgb(92 10 22 / 0.06), 0 14px 32px -14px rgb(92 10 22 / 0.24);
   --soft-ring: 234 223 225;
@@ -1796,20 +1798,23 @@
 :root:not([data-theme='dark']) [data-palette='sky'] {
   --font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 }
-/* Brand D has no green, peach or purple: "done" is lilac with an indigo tick, "look here" is marigold, red stays for
-   what went wrong. The decorative washes (mint, peach, lilac) collapse onto the brand's lilac and marigold. */
+/* Colour beside the red (owner, 3 Nov 2026: "only red is visible where is other colours"). Brand D folded every
+   wash into lilac, which the red brand turned into one blush: figures, panel heads and the module panel all read pink.
+   Each figure and panel now keeps its own tint again, in four families beside the brand: green for done and present
+   (#166534, 6.5:1 on its wash), marigold for waiting (#7A4F00 words), a cool slate for neutral counts (#334155), and blush with red
+   words for the brand's own. Peach is a warm clay (#A63F12). None is the banned blue. */
 :root[data-palette='sky']:not([data-theme='dark']),
 :root:not([data-theme='dark']) [data-palette='sky'] {
-  --pos: 92 10 22;
-  --pos-soft: 251 232 234;
-  --info: 92 10 22;
-  --info-soft: 253 244 245;
-  --mint-soft: 251 232 234;
-  --mint-ink: 92 10 22;
+  --pos: 22 101 52;
+  --pos-soft: 231 245 236;
+  --info: 51 65 85;
+  --info-soft: 238 241 245;
+  --mint-soft: 231 245 236;
+  --mint-ink: 22 101 52;
   --lilac-soft: 251 232 234;
-  --lilac-ink: 92 10 22;
-  --peach-soft: 254 241 214;
-  --peach-ink: 122 79 0;
+  --lilac-ink: 165 13 38;
+  --peach-soft: 255 237 227;
+  --peach-ink: 166 63 18;
 }
 
 /*
@@ -1863,8 +1868,7 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
   color: rgb(var(--oxblood)); background: rgb(var(--brand-soft)); box-shadow: inset 0 0 0 1px rgb(var(--brand-border));
 }
 :root[data-palette='sky']:not([data-theme='dark']) .ui-split-item > svg.ui-glyph { width: 1.125rem; height: 1.125rem; flex: none; }
-/* Figures: every mark in indigo, the same two-tone as the rail, not one colour per figure. */
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-strip .ui-metric-icon { color: rgb(var(--oxblood)); }
+/* Figures: each mark in its own tint (3 Nov 2026), set by the strip's nth-child rules above. */
 /* The People tile in the bar is solid indigo: its mark stays white there, no fill layer. */
 :root[data-palette='sky']:not([data-theme='dark']) .ui-app-switch .ui-glyph { color: rgb(var(--on-brand)); }
 :root[data-palette='sky']:not([data-theme='dark']) .ui-app-switch .ui-glyph [opacity='0.2'] { opacity: 0; }
@@ -1984,15 +1988,15 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
   --dept-3: 168 110 124;
   --dept-4: 201 130 0;
   --dept-5: 200 16 46;
-  --dept-6: 91 79 83;
+  --dept-6: 21 128 61;
   --dept-7: 150 136 140;
   --dept-8: 116 104 108;
   /* Leave slots: the same family, no warning brown; slot 6 (where "Casual leave" lands) wears the away mark. */
-  --leave-0: 91 79 83;
+  --leave-0: 51 65 85;
   --leave-1: 245 166 35;
   --leave-2: 92 10 22;
   --leave-3: 201 130 0;
-  --leave-4: 200 16 46;
+  --leave-4: 21 128 61;
   --leave-5: 150 136 140;
   --leave-6: 168 110 124;
   --leave-7: 116 104 108;
@@ -2049,31 +2053,17 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
    * The module panel in lilac, brand D's secondary (owner, 3 Nov 2026: "both sidebars same color, hard to read
    * modules and submodules"). Indigo rail, lilac panel, white page: three grounds, each a clear step from the next.
    */
-  --frame-panel: 251 232 234; /* #FBE8EA module panel (blush) */
-  --panel-hi: 246 217 221;    /* #DDD8EE a hovered row */
-  --panel-line: 243 211 215;  /* #F3D3D7 hairline and the duotone fill on the panel */
+  /* The module panel is a warm neutral, not blush (3 Nov 2026: "only red is visible"); blush stays for what is chosen. */
+  --frame-panel: 247 245 242; /* #F7F5F2 module panel */
+  --panel-hi: 238 235 231;    /* #EEEBE7 a hovered row */
+  --panel-line: 228 223 218;  /* #E4DFDA hairline and the duotone fill on the panel */
   --on-panel: 31 26 28;       /* ink words: 14.6:1 on the panel, 13.0:1 on a hovered row */
   --on-panel-muted: 91 79 83; /* 6.6:1 on the panel, 5.9:1 on a hovered row */
-  --heading-bg: 251 232 234;  /* the head row is the blush band itself */
+  --heading-bg: 247 245 242;  /* the head row: the panel's warm neutral */
   --heading-hover: 246 217 221;
   --border: 236 225 227;      /* row hairline a step firmer (1.36:1, was 1.26) */
   --border-strong: 206 188 192;
   --fg-muted: 91 79 83;      /* 8.4:1 on white */
-}
-/* The frame's tokens, on the rail. The top bar is white (owner, 3 Nov 2026: "header keep white only"). */
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail {
-  --surface: var(--frame-field);
-  --surface-sunken: var(--frame-hi);
-  --border: var(--frame-line);
-  --border-strong: var(--frame-line);
-  --border-field: var(--frame-line);
-  --fg: var(--on-frame);
-  --fg-muted: var(--on-frame-muted);
-  --fg-subtle: var(--on-frame-muted);
-  --rail-ink: var(--on-frame-muted);
-  --rail-ink-strong: 255 255 255;
-  --brand-border: var(--frame-hi);
-  color: rgb(var(--fg));
 }
 /* The panel's tokens: ink words on blush. */
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel {
@@ -2098,17 +2088,18 @@ html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-app-switch
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-topbar-initials { background: rgb(var(--blush)); color: rgb(var(--oxblood)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-bell-count { box-shadow: 0 0 0 2px rgb(255 255 255); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-global-search { background: rgb(var(--surface-sunken)); box-shadow: inset 0 0 0 1px rgb(var(--border)); }
-/* The rail: oxblood; the open module's tile one step lighter with its marigold fill and edge. */
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail { background: rgb(var(--frame)); border-right: 0; }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod { color: rgb(var(--on-frame-muted)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod:hover:not([data-current]) { background: rgb(var(--frame-hi)); color: rgb(255 255 255); }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] { background: transparent; color: rgb(255 255 255); font-weight: 700; }
+/* The rail: white with a hairline (owner, 3 Nov 2026: "sidebar complete red background", remove it), oxblood
+   icons on a blush duotone; the open module's icon on a blush tile with its marigold fill, its label red and bold. */
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail { background: rgb(255 255 255); border-right: 1px solid rgb(var(--border)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod { color: rgb(var(--fg-muted)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod:hover:not([data-current]) { background: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] { background: transparent; color: rgb(var(--brand-ink)); font-weight: 700; }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod > span { color: inherit; }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-glyph { color: rgb(var(--on-frame)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-glyph [opacity='0.2'] { fill: rgb(var(--frame-hi)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] > svg.ui-glyph { color: rgb(255 255 255); background: rgb(var(--frame-hi)); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-glyph { color: rgb(var(--oxblood)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-glyph [opacity='0.2'] { fill: rgb(var(--panel-line)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] > svg.ui-glyph { color: rgb(var(--oxblood)); background: rgb(var(--blush)); box-shadow: inset 0 0 0 1px rgb(var(--panel-line)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] .ui-glyph [opacity='0.2'] { fill: rgb(var(--marigold)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail > .ui-split-mod[data-more] > svg { background: transparent; color: rgb(var(--on-frame)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail > .ui-split-mod[data-more] > svg { background: transparent; color: rgb(var(--oxblood)); }
 /* The module panel: blush; the open screen a white tile with red words and a red edge. */
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { background: rgb(var(--frame-panel)); border-right: 1px solid rgb(var(--panel-line)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-panel-head .ui-t-sec { color: rgb(var(--on-panel)); font-family: var(--font-display); font-size: 1.125rem; }
@@ -2126,41 +2117,45 @@ html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel :is(p.ui-
 /* The work area: white, titles a step larger, colour in blocks. */
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading .ui-t-page { font-size: 1.75rem !important; line-height: 2.125rem !important; }
 /*
- * Home: the greeting on an indigo block, its main action marigold; figures on lilac; the one that waits on you marigold.
- * The block is the frame's own indigo (owner, 3 Nov 2026: "colour mismatch" — it was #232A66 right under the #1B2152
- * bar, two indigos side by side). One indigo for the bar, the rail and every block in the work area.
+ * Home: the greeting sits on the white page, no card (owner, 3 Nov 2026: "remove hero card"; it was an oxblood block
+ * from 2 Nov). The title in oxblood, a count above nought in red words, the date on a blush pill; the quick links are
+ * secondary buttons and Add an employee is the one red primary, as on every other page. Figures stay on blush tiles,
+ * the one that waits on you marigold.
  */
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home > header.soft-band-top {
-  align-items: center; padding: 1.5rem 1.75rem; border-radius: 0.75rem; background: rgb(var(--frame));
-}
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-eyebrow { background: rgb(var(--frame-hi)); color: rgb(var(--on-frame)); box-shadow: none; }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home h1.soft-band-title { color: rgb(255 255 255) !important; font-size: 2.125rem !important; line-height: 2.5rem !important; }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-sub { color: rgb(var(--on-frame-muted)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-sub strong { color: rgb(var(--marigold)); }
-/* A nought is quiet (the zero rule, 31 Oct): no marigold, no weight, the sentence's own lilac (9.0:1 on the block). */
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home > header.soft-band-top { align-items: center; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-eyebrow { background: rgb(var(--blush)); color: rgb(var(--oxblood)); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home h1.soft-band-title { color: rgb(var(--fg-heading)) !important; font-size: 2.125rem !important; line-height: 2.5rem !important; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-sub { color: rgb(var(--fg-muted)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-sub strong { color: rgb(var(--brand-ink)); }
+/* A nought is quiet (the zero rule, 31 Oct): no colour, no weight, the sentence's own grey. */
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-sub strong[data-zero] { color: inherit; font-weight: 400; }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:not(.soft-pill-primary) { background: rgb(var(--frame-hi)); color: rgb(255 255 255); box-shadow: none; }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:not(.soft-pill-primary) svg { color: rgb(var(--marigold)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary { background: rgb(var(--marigold)); color: rgb(var(--oxblood)); box-shadow: none; }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary .soft-pill-orb { background: rgb(var(--oxblood)); color: rgb(var(--marigold)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat { background: rgb(var(--blush)); box-shadow: none; }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-label { color: rgb(var(--oxblood)); font-weight: 600; }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-label > svg { background: rgb(255 255 255); color: rgb(var(--oxblood)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:not(.soft-pill-primary) { background: rgb(255 255 255); color: rgb(var(--fg)); box-shadow: inset 0 0 0 1px rgb(var(--border-strong)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:not(.soft-pill-primary):hover { background: rgb(var(--surface-sunken)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:not(.soft-pill-primary) svg { color: rgb(var(--btn-icon-on-white)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary { background: rgb(var(--red)); color: rgb(255 255 255); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary:hover { background: rgb(var(--brand-hover)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary .soft-pill-orb { background: rgb(255 255 255); color: rgb(var(--red)); }
+/* Home's figures keep their own tints (data-tint: slate, green, clay, blush), a solid wash, not one blush. */
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-tint] { background: rgb(var(--tint)); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-label { color: rgb(var(--tint-ink, var(--fg))); font-weight: 600; }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-value { font-size: 2rem; line-height: 2.25rem; }
 /* Out today 0, On notice 0: quiet grey, weight 600 (4.3:1 on lilac at 32px, above the 3:1 large text needs). */
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-value[data-zero] { color: rgb(var(--fg-subtle)) !important; font-weight: 600; }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-attention] { background: rgb(var(--marigold)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-attention] :is(.soft-band-stat-label, .soft-band-stat-note) { color: rgb(var(--oxblood)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .people-panel-head { background: rgb(var(--blush)); }
+/* Panel heads are white over a hairline; the tinted icon chip beside the title carries the colour. */
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .people-panel-head { background: rgb(255 255 255); border-bottom: 1px solid rgb(var(--border)); }
 /* Lists: the figures strip a lilac band; tabs on a lilac tray, the open one solid indigo with a marigold count. */
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-strip { background: rgb(var(--blush)); border: 0; border-radius: var(--soft-card-r); box-shadow: none; }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-strip > * { border-color: rgb(var(--brand-border)); }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-strip .ui-metric-label { color: rgb(var(--oxblood)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-strip { background: rgb(255 255 255); border: 1px solid rgb(var(--border)); border-radius: var(--soft-card-r); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-strip > * { border-color: rgb(var(--border)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-strip .ui-metric-label { color: rgb(var(--fg-muted)); }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric:hover { background: rgb(var(--heading-hover)); }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist { background: rgb(var(--blush)); box-shadow: none; }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist .ui-tab { color: rgb(var(--oxblood)); }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { background: rgb(var(--oxblood)); color: rgb(255 255 255); font-weight: 700; box-shadow: none; }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist .ui-tab.is-active .ui-tab-count { background: rgb(var(--marigold)) !important; color: rgb(var(--oxblood)) !important; }
+/* View tabs (In use / Retired): a warm neutral tray, the chosen view marigold with oxblood words (3 Nov 2026: "use
+   different color like green or orange"; it was solid oxblood on a blush tray), its count an oxblood pill. */
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist { background: rgb(var(--choice-tray)); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist .ui-tab { color: rgb(var(--fg)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { background: rgb(var(--choice)); color: rgb(var(--on-choice)); font-weight: 700; box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist .ui-tab.is-active .ui-tab-count { background: rgb(var(--oxblood)) !important; color: rgb(255 255 255) !important; }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table thead :is(th, .ui-th) { background: rgb(var(--heading-bg)) !important; color: rgb(var(--oxblood)); border-bottom-color: rgb(var(--brand-border)); }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table .ui-avatar-initials { background: rgb(var(--oxblood)) !important; color: rgb(255 255 255) !important; }
 /* The record: the person's name on the frame's indigo, as Home's greeting; Edit, its one primary, in marigold. */
@@ -2179,18 +2174,15 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-profile
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) .ui-btn-secondary { color: rgb(255 255 255); }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) .ui-btn-primary { box-shadow: none; }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading:has(.ui-profile) .ui-btn-primary > svg { color: rgb(var(--oxblood)); }
-/* Phone: the tab bar is the frame too. */
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar {
-  background: rgb(var(--frame)); border-top-color: rgb(var(--frame));
-  --fg: var(--on-frame); --fg-muted: var(--on-frame-muted); --fg-subtle: var(--on-frame-muted); --brand: 255 255 255;
-}
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-tabbar-item { color: rgb(var(--on-frame-muted)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-tabbar-item[aria-current='page'] { color: rgb(255 255 255); }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-glyph { color: rgb(var(--on-frame)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-glyph [opacity='0.2'] { fill: rgb(var(--frame-hi)); }
+/* Phone: the tab bar is the rail's twin, so it is white too (3 Nov 2026): oxblood icons, the open tab red with its
+   marigold fill. */
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar { background: rgb(255 255 255); border-top-color: rgb(var(--border)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-tabbar-item { color: rgb(var(--fg-muted)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-tabbar-item[aria-current='page'] { color: rgb(var(--brand-ink)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-glyph { color: rgb(var(--oxblood)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-glyph [opacity='0.2'] { fill: rgb(var(--panel-line)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-tabbar-item[aria-current='page'] .ui-glyph [opacity='0.2'] { fill: rgb(var(--marigold)); }
 @media (max-width: 767px) {
-  html:root[data-palette='sky']:not([data-theme='dark']) .people-home > header.soft-band-top { padding: 1.25rem; }
   html:root[data-palette='sky']:not([data-theme='dark']) .people-home h1.soft-band-title { font-size: 1.75rem !important; line-height: 2.125rem !important; }
   html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* On a phone Waiting for you comes before the figures, so its first request is above the fold at 390×844. */
