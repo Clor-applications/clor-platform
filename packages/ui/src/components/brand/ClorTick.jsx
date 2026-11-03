@@ -3,8 +3,8 @@ import React from 'react';
 /**
  * The CLOR mark (brand direction D, "Done, daily"; owner 29 Oct 2026): one
  * stroke, never lifted, runs round the C and finishes as a tick, with a
- * marigold dot inside the C. People wears it first; the other apps keep the
- * clor.in mark (ClorMark) until they move over.
+ * marigold dot inside the C. Every app and the sign-in page wear it (People
+ * from 29 Oct, the rest from 3 Nov 2026); ClorMark is this mark without CLOR.
  *
  * Indigo on light grounds (the theme's --logo-mark and --logo-word); `color` sets
  * the stroke and name for one particular ground. The dot stays marigold, except on a marigold ground,

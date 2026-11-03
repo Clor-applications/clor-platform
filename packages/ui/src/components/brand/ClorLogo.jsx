@@ -1,5 +1,6 @@
 import React from 'react';
 import ClorMark from './ClorMark.jsx';
+import ClorTick from './ClorTick.jsx';
 
 /**
  * The CLOR logo: the C-tick mark beside the wordmark, set in Bricolage
@@ -15,6 +16,8 @@ const HEIGHTS = { sm: 20, md: 28, lg: 40, xl: 56 };
 export default function ClorLogo({ variant = 'horizontal', size = 'md', color, className = '', title = 'CLOR' }) {
   const h = typeof size === 'number' ? size : HEIGHTS[size] || HEIGHTS.md;
   if (variant === 'mark') return <ClorMark size={h} color={color} className={className} title={title} />;
+  /* The horizontal lockup is ClorTick's one drawing: CLOR close to the tick, its bottom on the C's (3 Nov 2026). */
+  if (variant === 'horizontal') return <ClorTick size={h} wordmark color={color} className={className} title={title} />;
   const word = (
     <span
       className="ui-wordmark"

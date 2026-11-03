@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * People in deep indigo (owner, 2 Nov 2026, direction A of three, after "too pale, washed out" and "generic"). The
- * bar, rail and module panel are the brand's indigo, the work area stays white, and colour comes in solid blocks.
+ * bar and rail are the brand's indigo, the module panel lilac (3 Nov 2026: indigo rail and indigo panel read as one,
+ * "hard to read modules and submodules"), the work area stays white, and colour comes in solid blocks.
  * The design note: DESIGN.md, Color → People (brand D) → Deep indigo frame.
  */
 const read = (f) => readFileSync(f, 'utf8');
@@ -26,32 +27,41 @@ const panel = token(block, 'frame-panel');
 const hi = token(block, 'frame-hi');
 const onFrame = token(block, 'on-frame');
 const onMuted = token(block, 'on-frame-muted');
+const panelHi = token(block, 'panel-hi');
+const onPanel = token(block, 'on-panel');
+const onPanelMuted = token(block, 'on-panel-muted');
 
 describe('the frame is indigo, and every word on it reads', () => {
   it('defines the frame tokens once, in the light sky palette', () => {
     expect(block).toMatch(/^:root\[data-palette='sky'\]:not\(\[data-theme='dark'\]\),\n:root:not\(\[data-theme='dark'\]\) \[data-palette='sky'\] \{\n\s*--frame: 27 33 82;/m);
-    expect(panel).toBe(INDIGO);
-    for (const t of [frame, panel, hi, onFrame, onMuted]) expect(t).toMatch(/^\d+ \d+ \d+$/);
+    expect(panel).toBe(LILAC);
+    expect(onPanel).toBe(INDIGO);
+    for (const t of [frame, panel, hi, onFrame, onMuted, panelHi, onPanel, onPanelMuted]) expect(t).toMatch(/^\d+ \d+ \d+$/);
   });
 
   it('the frame stands apart from the white work area (was 1.08:1)', () => {
     expect(contrast(frame, WHITE)).toBeGreaterThan(12);
-    expect(contrast(panel, WHITE)).toBeGreaterThan(12);
+  });
+
+  it('the rail and the module panel are two grounds, not one (3 Nov 2026)', () => {
+    expect(contrast(frame, panel)).toBeGreaterThan(10);
+    expect(block).toMatch(/\.ui-split-panel \{ background: rgb\(var\(--frame-panel\)\); border-right: 1px solid rgb\(var\(--panel-line\)\); \}/);
   });
 
   it('labels, group names and menu words clear AA on the bar, the panel and a hovered row', () => {
-    for (const ground of [frame, panel]) {
-      expect(contrast(onFrame, ground)).toBeGreaterThan(7);
-      expect(contrast(onMuted, ground)).toBeGreaterThan(7);
-    }
+    expect(contrast(onFrame, frame)).toBeGreaterThan(7);
+    expect(contrast(onMuted, frame)).toBeGreaterThan(7);
     expect(contrast(onMuted, hi)).toBeGreaterThan(4.5);
     expect(contrast(WHITE, hi)).toBeGreaterThan(7);
+    expect(contrast(onPanel, panel)).toBeGreaterThan(7);
+    expect(contrast(onPanel, panelHi)).toBeGreaterThan(7);
+    expect(contrast(onPanelMuted, panel)).toBeGreaterThan(4.5);
+    expect(contrast(onPanelMuted, panelHi)).toBeGreaterThan(4.5);
   });
 
-  it('the open screen is a lilac tile that reads against the indigo panel (was 1.14:1), with indigo words', () => {
-    expect(contrast(LILAC, panel)).toBeGreaterThan(7);
-    expect(contrast(INDIGO, LILAC)).toBeGreaterThan(7);
-    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(var\(--lilac\)\); color: rgb\(var\(--indigo\)\);[^}]*inset 3px 0 0 rgb\(var\(--marigold\)\)/);
+  it('the open screen is a white tile on the lilac panel, with indigo words and a marigold edge', () => {
+    expect(contrast(INDIGO, WHITE)).toBeGreaterThan(7);
+    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(255 255 255\); color: rgb\(var\(--indigo\)\);[^}]*inset 3px 0 0 rgb\(var\(--marigold\)\)/);
   });
 
   it('marigold on the frame is a fill or a mark: the open module and the waiting tile, indigo words on it', () => {
@@ -69,7 +79,8 @@ describe('the frame is indigo, and every word on it reads', () => {
   });
 
   it('the frame redefines the shared tokens, so the bar, picker and search follow; menus from the bar return to light', () => {
-    expect(block).toMatch(/:is\(\.ui-topbar, \.ui-split-rail, \.ui-split-panel\) \{\n\s*--surface: var\(--frame-panel\);/);
+    expect(block).toMatch(/:is\(\.ui-topbar, \.ui-split-rail\) \{\n\s*--surface: var\(--frame-field\);/);
+    expect(block).toMatch(/\.ui-split-panel \{\n\s*--surface: 255 255 255;[\s\S]*?--fg: var\(--on-panel\);/);
     expect(block).toMatch(/\.ui-topbar :is\(\.ui-popover, \[role='menu'\], \[role='dialog'\], \[role='listbox'\]\) \{\n\s*--surface: 255 255 255;/);
   });
 
@@ -139,7 +150,7 @@ describe('Home: one primary action, and what waits on you comes first', () => {
     expect(block).toMatch(/\.soft-band-sub strong\[data-zero\] \{ color: inherit; font-weight: 400; \}/);
     expect(block).toMatch(/\.soft-band-stat-value\[data-zero\] \{ color: rgb\(var\(--fg-subtle\)\) !important; font-weight: 600; \}/);
     expect(contrast(token(people.slice(people.indexOf('Brand D, each colour with its own job')), 'fg-subtle'), LILAC)).toBeGreaterThan(3);
-    expect(contrast(onMuted, panel)).toBeGreaterThan(4.5);
+    expect(contrast(onPanelMuted, panel)).toBeGreaterThan(4.5);
   });
 
   it('on a phone a waiting row stacks Review and Approve under the name, 44px targets', () => {

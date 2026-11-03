@@ -2015,7 +2015,8 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
 
 /*
  * Deep indigo (owner, 2 Nov 2026, direction A of three: "too pale, washed out", "generic"). The frame is the brand:
- * the bar and rail in deep indigo, the module panel in indigo, the work area white, and colour in solid blocks where
+ * the bar and rail in deep indigo, the module panel in lilac (3 Nov; it was indigo too, and the two read as one),
+ * the work area white, and colour in solid blocks where
  * it means something (the greeting and the record's header on indigo, figures on lilac, what waits on you in
  * marigold). Measured: the frame was 1.08:1 against the work area and the open screen 1.14:1 against its panel;
  * now 13.2–15.2:1 and 10.7:1. Supersedes the Cotton rail and the pale lilac panel (29 and 31 Oct). Light theme only;
@@ -2027,20 +2028,29 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric-
 :root[data-palette='sky']:not([data-theme='dark']),
 :root:not([data-theme='dark']) [data-palette='sky'] {
   --frame: 27 33 82;          /* #1B2152 bar and rail */
-  --frame-panel: 35 42 102;   /* #232A66 module panel (indigo) */
+  --frame-field: 35 42 102;   /* #232A66 a field or picker on the bar (the search) */
   --frame-hi: 52 60 130;      /* #343C82 hover, a control on the frame */
   --frame-line: 62 70 140;    /* #3E468C hairline on the frame */
   --on-frame: 233 229 244;    /* lilac words: 12.3:1 on the bar, 10.7:1 on the panel */
-  --on-frame-muted: 201 195 229; /* 9.0:1 on the bar, 7.8:1 on the panel, 5.9:1 on --frame-hi */
+  --on-frame-muted: 201 195 229; /* 9.0:1 on the bar, 5.9:1 on --frame-hi */
+  /*
+   * The module panel in lilac, brand D's secondary (owner, 3 Nov 2026: "both sidebars same color, hard to read
+   * modules and submodules"). Indigo rail, lilac panel, white page: three grounds, each a clear step from the next.
+   */
+  --frame-panel: 233 229 244; /* #E9E5F4 module panel (lilac) */
+  --panel-hi: 221 216 238;    /* #DDD8EE a hovered row */
+  --panel-line: 201 195 229;  /* #C9C3E5 hairline and the duotone fill on the panel */
+  --on-panel: 35 42 102;      /* indigo words: 10.7:1 on the panel, 9.5:1 on a hovered row */
+  --on-panel-muted: 72 76 104; /* 6.8:1 on the panel, 6.0:1 on a hovered row */
   --heading-bg: 233 229 244;  /* the head row is the lilac band itself */
   --heading-hover: 221 216 238;
   --border: 222 219 234;      /* row hairline a step firmer (1.36:1, was 1.26) */
   --border-strong: 190 185 214;
   --fg-muted: 72 76 104;      /* 8.4:1 on white */
 }
-/* The frame's tokens, on the bar, the rail and the panel. */
-html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-topbar, .ui-split-rail, .ui-split-panel) {
-  --surface: var(--frame-panel);
+/* The frame's tokens, on the bar and the rail. */
+html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-topbar, .ui-split-rail) {
+  --surface: var(--frame-field);
   --surface-sunken: var(--frame-hi);
   --border: var(--frame-line);
   --border-strong: var(--frame-line);
@@ -2054,6 +2064,21 @@ html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-topbar, .ui-split
   --logo-mark: var(--lilac);
   --logo-word: 255 255 255;
   --logo-dot: var(--marigold);
+  color: rgb(var(--fg));
+}
+/* The panel's tokens: indigo words on lilac. */
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel {
+  --surface: 255 255 255;
+  --surface-sunken: var(--panel-hi);
+  --border: var(--panel-line);
+  --border-strong: var(--panel-line);
+  --border-field: var(--panel-line);
+  --fg: var(--on-panel);
+  --fg-muted: var(--on-panel-muted);
+  --fg-subtle: var(--on-panel-muted);
+  --rail-ink: var(--on-panel-muted);
+  --rail-ink-strong: var(--on-panel);
+  --brand-border: var(--panel-line);
   color: rgb(var(--fg));
 }
 /* Anything that opens from the bar (the app menu, the bell, the profile) is back on the light page. */
@@ -2077,7 +2102,7 @@ html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-app-switch
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-app-switch .ui-glyph { color: rgb(var(--indigo)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-topbar-initials { background: rgb(var(--lilac)); color: rgb(var(--indigo)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-bell-count { box-shadow: 0 0 0 2px rgb(var(--frame)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-global-search { background: rgb(var(--frame-panel)); box-shadow: inset 0 0 0 1px rgb(var(--frame-line)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-global-search { background: rgb(var(--frame-field)); box-shadow: inset 0 0 0 1px rgb(var(--frame-line)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-global-search kbd { background: rgb(var(--frame)); }
 /* The rail: deep indigo; the open module's tile one step lighter with its marigold fill and edge. */
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail { background: rgb(var(--frame)); border-right: 0; }
@@ -2090,19 +2115,19 @@ html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-glyph 
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] > svg.ui-glyph { color: rgb(255 255 255); background: rgb(var(--frame-hi)); box-shadow: none; }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] .ui-glyph [opacity='0.2'] { fill: rgb(var(--marigold)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail > .ui-split-mod[data-more] > svg { background: transparent; color: rgb(var(--on-frame)); }
-/* The module panel: indigo; the open screen a lilac tile with indigo words and a marigold edge. */
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { background: rgb(var(--frame-panel)); border-right: 0; }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-panel-head .ui-t-sec { color: rgb(255 255 255); font-family: var(--font-display); font-size: 1.125rem; }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item { color: rgb(var(--on-frame)); font-size: 0.875rem; }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item .ui-glyph { color: rgb(var(--on-frame)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item .ui-glyph [opacity='0.2'] { fill: rgb(var(--frame-hi)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item:hover:not([aria-current='page']) { background: rgb(var(--frame-hi)); }
+/* The module panel: lilac; the open screen a white tile with indigo words and a marigold edge. */
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { background: rgb(var(--frame-panel)); border-right: 1px solid rgb(var(--panel-line)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-panel-head .ui-t-sec { color: rgb(var(--on-panel)); font-family: var(--font-display); font-size: 1.125rem; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item { color: rgb(var(--on-panel)); font-size: 0.875rem; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item .ui-glyph { color: rgb(var(--on-panel)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item .ui-glyph [opacity='0.2'] { fill: rgb(var(--panel-line)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item:hover:not([aria-current='page']) { background: rgb(var(--panel-hi)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] {
-  background: rgb(var(--lilac)); color: rgb(var(--indigo)); font-weight: 700; box-shadow: inset 3px 0 0 rgb(var(--marigold));
+  background: rgb(255 255 255); color: rgb(var(--indigo)); font-weight: 700; box-shadow: inset 3px 0 0 rgb(var(--marigold)), 0 1px 2px rgb(35 42 102 / 0.08);
 }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] .ui-glyph { color: rgb(var(--indigo)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] .ui-glyph [opacity='0.2'] { fill: rgb(var(--marigold)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel :is(p.ui-caption, .ui-caption) { color: rgb(var(--on-frame-muted)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel :is(p.ui-caption, .ui-caption) { color: rgb(var(--on-panel-muted)); }
 
 /* The work area: white, titles a step larger, colour in blocks. */
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading .ui-t-page { font-size: 1.75rem !important; line-height: 2.125rem !important; }
