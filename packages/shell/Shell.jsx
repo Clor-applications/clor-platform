@@ -25,7 +25,7 @@ import { confirmDialog } from '@ui/components/ui/notify';
 /* Asked before any navigation that would drop edits a screen has not saved (spec v1 §5.1, WF-11). */
 const askLeave = () => confirmDialog({ title: 'Leave without saving?', message: 'Your changes on this page have not been saved.', confirmLabel: 'Leave', tone: 'danger' });
 import HelpCenter from './HelpCenter';
-import { ClorLogo, ClorTick } from '@ui/components/brand';
+import { ClorLogo, ClorMark } from '@ui/components/brand';
 import NotificationBell from './NotificationBell';
 import { watchWideTables } from './wideTables';
 import HelpMenu from './HelpMenu';
@@ -712,7 +712,7 @@ export default function Shell() {
   if (restoring) {
     return (
       <div className="min-h-dvh grid place-items-center" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
-        <ClorTick size={40} />
+        <ClorMark size={40} />
       </div>
     );
   }
@@ -775,7 +775,7 @@ export default function Shell() {
           <ClorLogo size={24} />
           <h1 id="suspended-title" className="ui-display text-2xl">This account is suspended</h1>
           <p className="ui-muted">{suspended}</p>
-          <p className="ui-muted text-sm">Your data is kept as it was. Once Clor reinstates the account, everything opens again.</p>
+          <p className="ui-muted text-sm">Your data is kept as it was. Once CLOR reinstates the account, everything opens again.</p>
           <div className="flex flex-wrap gap-2">
             <a className="ui-btn ui-btn-primary" href="mailto:support@clor.in">Contact support</a>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={signOut}>Sign out</button>
@@ -1032,7 +1032,7 @@ export default function Shell() {
             </button>
           ) : null}
           <button type="button" className="flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
-            <ClorTick size={phone ? 24 : 22} wordmark={!phone} />
+            {phone ? <ClorMark size={24} /> : <ClorLogo size={22} />}
           </button>
 
           {/* The app switcher. Named for the app you are in, because that is the

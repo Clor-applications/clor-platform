@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
   <title id="title">CLOR Payroll app icon, maskable</title>
-  <rect width="256" height="256" fill="#14152B"/><g transform="translate(128 128) scale(0.8) translate(-128 -128)">
+  <rect width="256" height="256" fill="#C8102E"/><g transform="translate(128 128) scale(0.8) translate(-128 -128)">
   <g transform="translate(0 -8)"><path fill="#FFFFFF" fill-rule="evenodd" d="M76 80 H180 A16 16 0 0 1 196 96 V154 A16 16 0 0 1 180 170 H76 A16 16 0 0 1 60 154 V96 A16 16 0 0 1 76 80 Z M154 104 H186 A10 10 0 0 1 196 114 V136 A10 10 0 0 1 186 146 H154 A10 10 0 0 1 144 136 V114 A10 10 0 0 1 154 104 Z"/><path fill="#FFFFFF" d="M158 125 A8 8 0 1 0 174 125 A8 8 0 1 0 158 125 Z"/></g>
-  <path fill="#FF6B00" d="M90.55 186 L174.55 186 L168 204 L84 204 Z"/>
+  <path fill="#F5A623" d="M90.55 186 L174.55 186 L168 204 L84 204 Z"/>
 
 </g></svg>

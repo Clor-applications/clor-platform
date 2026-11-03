@@ -1,18 +1,25 @@
 import React from 'react';
-import ClorTick from './ClorTick.jsx';
+import { C, DOT, MARK_VIEWBOX } from './clorPaths.js';
 
 /**
- * The CLOR mark: one stroke, never lifted. It runs round the C and finishes
- * as a tick — the tick being the product's done state, so the mark and the
- * "Filed / Paid / Approved" chips are the same idea — with the marigold dot
- * inside the C.
+ * The CLOR mark: the C of the owner's wordmark (3 Nov 2026) with the marigold
+ * dot inside it. The app icon, the favicon and the phone bar wear it;
+ * ClorLogo sets the whole word.
  *
- * Every app draws ClorTick's mark now (owner, 3 Nov 2026: Payroll, Attendance
- * and the sign-in page still showed the mark without its dot). It follows the
- * theme's --logo-mark / --logo-dot; public/brand/clor-mark.svg matches it.
- *
- * `color` overrides the theme colour for the rare surface that needs it.
+ * Paints follow the theme: the C takes --logo-mark (oxblood on light grounds,
+ * white on dark), the dot --logo-dot (marigold). `color` sets the C for one
+ * particular ground; on a marigold ground pass `dotColor` too, or the dot
+ * vanishes.
  */
-export default function ClorMark({ size = 28, color, className = '', title = 'CLOR' }) {
-  return <ClorTick size={size} color={color} className={className} title={title} />;
+const MARK = 'rgb(var(--logo-mark, 92 10 22))';
+const DOT_PAINT = 'rgb(var(--logo-dot, 245 166 35))';
+
+export default function ClorMark({ size = 28, color, dotColor, className = '', title = 'CLOR' }) {
+  const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': 'true' };
+  return (
+    <svg width={size} height={size} viewBox={MARK_VIEWBOX} className={className} style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }} {...a11y}>
+      <path d={C} fill={color || MARK} />
+      <path d={DOT} fill={dotColor || DOT_PAINT} />
+    </svg>
+  );
 }
