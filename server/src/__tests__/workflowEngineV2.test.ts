@@ -375,7 +375,14 @@ describe('no dead ends: a company of one, and the maker-checker setting', () => 
   }, 60_000);
 
   it('every People request type submits and closes for the owner alone, written SELF_APPROVED by name; none returns 409', async () => {
-    const types = ['PROFILE_CHANGE', 'JOB_CHANGE', 'LEAVING', 'DOCUMENT_REQUEST', 'LETTER_REQUEST', 'POLICY_PUBLISH', 'DESK_ESCALATION', 'SEAT_REQUEST', 'PROBATION'];
+    /* Profile changes, leaving, probation and policy publishing are asked from their own screens since 3 Nov 2026 (the
+       generic route refuses them; peopleSecurityFixes.test); the rest go through it and close for the owner alone. */
+    const ownPath = ['PROFILE_CHANGE', 'LEAVING', 'POLICY_PUBLISH', 'PROBATION'];
+    for (const t of ownPath) {
+      await people(solo).post('/approval-rules', { requestType: t, name: t, steps: [{ approver: { kind: 'MANAGER' }, dueDays: 2 }, { approver: { kind: 'HR' }, dueDays: 2 }] }).expect(201);
+      await people(solo).post('/requests', { requestType: t, subjectEmployeeId: me.id, title: `Mine: ${t}`, payload: { employeeId: me.id, fields: {} } }).expect(400);
+    }
+    const types = ['JOB_CHANGE', 'DOCUMENT_REQUEST', 'LETTER_REQUEST', 'DESK_ESCALATION', 'SEAT_REQUEST'];
     for (const t of types) {
       await people(solo).post('/approval-rules', { requestType: t, name: t, steps: [{ approver: { kind: 'MANAGER' }, dueDays: 2 }, { approver: { kind: 'HR' }, dueDays: 2 }] }).expect(201);
       const r = (await people(solo).post('/requests', { requestType: t, subjectEmployeeId: me.id, title: `Mine: ${t}`, payload: { employeeId: me.id, fields: {} } })).body;

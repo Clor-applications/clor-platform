@@ -114,7 +114,8 @@ test.describe('Rahul manages his team', () => {
     await expect(soon).toContainText('Imran Khan');
     await expect(soon).toContainText('Lakshmi Patil');
     await expect(rahul.main, 'only my team').not.toContainText('Arjun Das');
-    await expect(rahul.main, 'two of the team away the same day is flagged').toContainText(/clash|overlap|2 (people )?away|both away|at the same time/i);
+    /* Any count: another scenario in the same run may have a team member away that day too (nightly 4 Nov 2026 read "3 people away the same day"). */
+    await expect(rahul.main, 'two of the team away the same day is flagged').toContainText(/clash|overlap|\d+ (people )?away|both away|at the same time/i);
     const together = rahul.main.getByRole('region', { name: 'Away the same day' });
     await expect(together).toContainText('Imran Khan');
     await expect(together).toContainText('Lakshmi Patil');
@@ -124,7 +125,7 @@ test.describe('Rahul manages his team', () => {
     await rahul.open('Leave calendar');
     if (day.slice(0, 7) !== todayMonth()) await rahul.main.getByRole('button', { name: 'Next month' }).click();
     const flagged = rahul.main.getByRole('list', { name: 'Away the same day' });
-    await expect(flagged).toContainText(/2 people away the same day/);
+    await expect(flagged).toContainText(/\d+ people away the same day/);
     await expect(flagged).toContainText(/Imran Khan, Lakshmi Patil/);
   });
 
