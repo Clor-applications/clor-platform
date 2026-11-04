@@ -104,8 +104,8 @@ export default function YearEnd() {
       ) : null}
 
       <div className="ui-metric-strip" role="list" aria-label="Year end totals">
-        {[['carry', 'Carries forward', d.totals.carry], ['payOut', 'Paid out', d.totals.payOut], ['lapse', 'Lapses', lapses]].map(([k, label, value]) => (
-          <div key={k} role="listitem"><div className="ui-metric"><span><span className="ui-metric-value tabular-nums">{value}</span><span className="ui-metric-label">{label}</span></span></div></div>
+        {[['carry', 'Carries forward', d.totals.carry, 'mint'], ['payOut', 'Paid out', d.totals.payOut, 'lilac'], ['lapse', 'Lapses', lapses, 'peach']].map(([k, label, value, tint]) => (
+          <div key={k} role="listitem" data-tint={tint}><div className="ui-metric"><span><span className="ui-metric-value tabular-nums">{value}</span><span className="ui-metric-label">{label}</span></span></div></div>
         ))}
       </div>
 

@@ -27,3 +27,9 @@ it('shows nothing when no link is left', () => {
   const { container } = render(<SideLinks links={[links[0]]} navItems={[{ key: 'checklists' }]} />);
   expect(container.textContent).toBe('');
 });
+
+it('marks each link with the tint it names, and none when it names none', () => {
+  render(<SideLinks links={[{ label: 'Approvals', tint: 'butter', onClick: () => {} }, { label: 'Help', onClick: () => {} }]} />);
+  expect(screen.getByRole('button', { name: 'Approvals' }).getAttribute('data-tint')).toBe('butter');
+  expect(screen.getByRole('button', { name: 'Help' }).hasAttribute('data-tint')).toBe(false);
+});

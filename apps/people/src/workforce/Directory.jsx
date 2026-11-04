@@ -382,23 +382,23 @@ function MetricStrip({ counts, onPick }) {
   if (!counts) return <div className="ui-metric-strip" aria-busy="true"><span className="ui-skel ui-skel-text" /></div>;
   /* The owner's and the CEO's picture: who works here now, who is coming, who came and went this month, who is leaving. */
   const items = [
-    { k: 'total', label: 'Working now', value: counts.total, Icon: Users, patch: { working: 'now' } },
-    { k: 'joining', label: 'Joining', value: counts.joining, Icon: CalendarClock, patch: 'joining' },
-    { k: 'joinedMonth', label: 'Joined this month', value: counts.joinedThisMonth ?? 0, Icon: UserCheck, patch: 'joinedMonth' },
-    { k: 'leftMonth', label: 'Left this month', value: counts.leftThisMonth ?? 0, Icon: UserMinus, patch: 'leftMonth' },
-    { k: 'onNotice', label: 'On notice', value: counts.onNotice, Icon: UserMinus, patch: { status: 'ON_NOTICE' } },
-    { k: 'onLeave', label: 'On leave today', value: counts.onLeave, Icon: TreePalm, patch: null },
+    { k: 'total', label: 'Working now', tint: 'sky', value: counts.total, Icon: Users, patch: { working: 'now' } },
+    { k: 'joining', label: 'Joining', tint: 'mint', value: counts.joining, Icon: CalendarClock, patch: 'joining' },
+    { k: 'joinedMonth', label: 'Joined this month', tint: 'mint', value: counts.joinedThisMonth ?? 0, Icon: UserCheck, patch: 'joinedMonth' },
+    { k: 'leftMonth', label: 'Left this month', tint: 'peach', value: counts.leftThisMonth ?? 0, Icon: UserMinus, patch: 'leftMonth' },
+    { k: 'onNotice', label: 'On notice', tint: 'lilac', value: counts.onNotice, Icon: UserMinus, patch: { status: 'ON_NOTICE' } },
+    { k: 'onLeave', label: 'On leave today', tint: 'mint', value: counts.onLeave, Icon: TreePalm, patch: null },
   /* The company keeps who is leaving from this reader (Company choices): no leaving counts. */
   ].filter((m) => !counts.leavingsHidden || (m.k !== 'leftMonth' && m.k !== 'onNotice'));
   return (
     <div className="ui-metric-strip people-figures-scroll" role="list" aria-label="Workforce counts">
-      {items.map(({ k, label, value, Icon: LineIcon, patch }) => {
+      {items.map(({ k, label, tint, value, Icon: LineIcon, patch }) => {
         const Icon = mark(LineIcon);
         const body = (tail) => <><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span> <span className="ui-metric-label">{label}</span>{tail ? <span className="sr-only">{tail}</span> : null}</span></>;
         /* The list item holds the button, so it is still announced as a button. */
         return patch ? (
-          <div key={k} role="listitem"><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={() => onPick(patch === 'joining' ? { from: tomorrowIst() } : patch === 'joinedMonth' ? { status: 'ALL', from: counts.monthStart, to: todayIst() } : patch === 'leftMonth' ? { status: 'LEFT', lfrom: counts.monthStart, lto: todayIst() } : patch)}>{body(': show them')}</button></div>
-        ) : <div key={k} role="listitem" className="ui-metric" data-zero={Number(value) === 0 || undefined}>{body()}</div>;
+          <div key={k} role="listitem" data-tint={tint}><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={() => onPick(patch === 'joining' ? { from: tomorrowIst() } : patch === 'joinedMonth' ? { status: 'ALL', from: counts.monthStart, to: todayIst() } : patch === 'leftMonth' ? { status: 'LEFT', lfrom: counts.monthStart, lto: todayIst() } : patch)}>{body(': show them')}</button></div>
+        ) : <div key={k} role="listitem" className="ui-metric" data-tint={tint} data-zero={Number(value) === 0 || undefined}>{body()}</div>;
       })}
     </div>
   );
@@ -602,11 +602,11 @@ function BulkResult({ result, onClose }) {
       footer={<>{failed.length ? <button type="button" className="ui-btn ui-btn-secondary" onClick={save}>Download skipped</button> : null}<button type="button" className="ui-btn ui-btn-primary" onClick={onClose}>Done</button></>}>
       <dl className="ui-metric-strip">
         {result.effectiveFrom
-          ? <div className="ui-metric" data-zero={Number(result.scheduled) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.scheduled}</dd><dt className="ui-metric-label">Change on {formatDate(result.effectiveFrom)}</dt></span></div>
-          : <div className="ui-metric" data-zero={Number(result.changed) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.changed}</dd><dt className="ui-metric-label">Changed</dt></span></div>}
-        <div className="ui-metric" data-zero={Number(result.unchanged) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.unchanged}</dd><dt className="ui-metric-label">Already so</dt></span></div>
-        <div className="ui-metric" data-zero={failed.length === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{failed.length}</dd><dt className="ui-metric-label">Skipped</dt></span></div>
-        <div className="ui-metric" data-zero={Number(result.notFound) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.notFound}</dd><dt className="ui-metric-label">Not found</dt></span></div>
+          ? <div className="ui-metric" data-tint="mint" data-zero={Number(result.scheduled) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.scheduled}</dd><dt className="ui-metric-label">Change on {formatDate(result.effectiveFrom)}</dt></span></div>
+          : <div className="ui-metric" data-tint="mint" data-zero={Number(result.changed) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.changed}</dd><dt className="ui-metric-label">Changed</dt></span></div>}
+        <div className="ui-metric" data-tint="sky" data-zero={Number(result.unchanged) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.unchanged}</dd><dt className="ui-metric-label">Already so</dt></span></div>
+        <div className="ui-metric" data-tint="peach" data-zero={failed.length === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{failed.length}</dd><dt className="ui-metric-label">Skipped</dt></span></div>
+        <div className="ui-metric" data-tint="peach" data-zero={Number(result.notFound) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.notFound}</dd><dt className="ui-metric-label">Not found</dt></span></div>
       </dl>
       {failed.length ? (
         <ul className="mt-4 divide-y text-sm" aria-label="Skipped">

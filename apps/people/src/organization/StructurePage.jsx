@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { tintOf } from './tints';
 import { KIND_WORDS } from '@ui/personnel/employmentKinds';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { useSuggestions } from '../workforce/suggestions';
@@ -207,8 +208,6 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
   };
 
   /* Each row's own colour (stable by name) and its share of the biggest, so a list reads at a glance. */
-  const TINTS = ['sky', 'mint', 'lilac', 'peach', 'butter'];
-  const tintOf = (name = '') => TINTS[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % TINTS.length];
   const peak = Math.max(1, ...items.map((x) => x.employeeCount || 0));
   const columns = [
     { key: 'name', label: 'Name', always: true, render: (r) => (
