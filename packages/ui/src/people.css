@@ -417,7 +417,8 @@
   border-radius: 999px;
   box-shadow: 0 0 0 2px rgb(var(--surface));
 }
-.people-celebrate-badge { background: rgb(var(--butter)); color: rgb(var(--butter-ink)); }
+/* A birthday's badge violet, an anniversary's clay (below): marigold is kept for what waits on you. */
+.people-celebrate-badge { background: rgb(var(--lilac-soft)); color: rgb(var(--lilac-ink)); }
 
 /* Teams: the company as one bar; a slice or a name picks the team above. */
 @media (max-width: 640px) {
@@ -670,13 +671,14 @@
 .soft-event { display: flex; align-items: center; gap: 0.875rem; width: 100%; padding: 0.625rem; text-align: left; border-radius: 1rem; transition: background-color 300ms var(--soft-ease), transform 500ms var(--soft-ease); }
 .soft-event:hover { background: rgb(var(--surface-sunken) / 0.8); }
 .soft-event:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 0; }
-.soft-event[data-fun] { background: rgb(var(--butter-soft) / 0.55); }
-.soft-event[data-fun]:hover { background: rgb(var(--butter-soft)); }
+.soft-event[data-fun] { background: rgb(var(--tint, var(--peach-soft)) / 0.55); }
+.soft-event[data-fun]:hover { background: rgb(var(--tint, var(--peach-soft))); }
 .soft-event-date { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; width: 3rem; height: 3.25rem; border-radius: 0.875rem; background: rgb(var(--surface)); box-shadow: 0 0 0 1px rgb(var(--soft-ring)); }
 .soft-event-date b { font-size: 1.125rem; line-height: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
 .soft-event-date span { font-size: 0.6875rem; font-weight: 600; color: rgb(var(--brand-ink)); }
-.soft-event[data-fun] .soft-event-date span { color: rgb(var(--butter-ink)); }
-.soft-fun { display: inline-flex; align-items: center; gap: 0.25rem; margin-bottom: 0.125rem; padding: 0 0.5rem; border-radius: 999px; background: rgb(var(--butter)); color: rgb(var(--butter-ink)); font-size: 0.75rem; font-weight: 700; line-height: 1.125rem; }
+.soft-event[data-fun] .soft-event-date span { color: rgb(var(--tint-ink, var(--peach-ink))); }
+/* Fun Friday in its event's tint (clay), not marigold (review of #123). */
+.soft-fun { display: inline-flex; align-items: center; gap: 0.25rem; margin-bottom: 0.125rem; padding: 0 0.5rem; border-radius: 999px; background: rgb(var(--tint, var(--peach-soft))); color: rgb(var(--tint-ink, var(--peach-ink))); font-size: 0.75rem; font-weight: 700; line-height: 1.125rem; }
 .soft-event-title { display: block; font-size: 0.875rem; font-weight: 600; color: rgb(var(--fg)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .soft-event-meta { display: block; font-size: 0.75rem; color: rgb(var(--fg-muted)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -708,7 +710,7 @@
   .soft-pill, .soft-pill-orb, .soft-core-action, .soft-orb-btn, .soft-chip, .people-soft .people-member { transition: none; }
   .soft-core-action:hover, .soft-orb-btn:hover, .people-soft .people-member:hover { transform: none; }
 }
-.soft-news-icon[data-symbol] { font-size: 1.125rem; background: rgb(var(--butter-soft, 255 244 199)); }
+.soft-news-icon[data-symbol] { font-size: 1.125rem; background: rgb(var(--tint, var(--lilac-soft))); }
 
 .soft-emoji { margin-right: 0.375rem; }
 .soft-band-stat[data-tint] {
@@ -1390,12 +1392,12 @@
 :root[data-palette='sky']:not([data-theme='dark']) #main-content :is(h1.ui-t-page, .ui-t-sec) { color: rgb(var(--fg-heading)); }
 :root[data-palette='sky'] #main-content .ui-table tbody tr:hover { background: rgb(var(--brand-subtle)); }
 
-/* Initials in one of five washes, picked from the name, the same person always the same colour. */
+/* Initials in one of four washes, picked from the name, the same person always the same colour (data-hue 0–3; marigold,
+   kept for what waits on you, is not a face colour: review of #123, 4 Nov 2026). */
 :root[data-palette='sky'] .ui-avatar-initials[data-hue='0'] { background-color: rgb(var(--sky-soft)) !important; color: rgb(var(--sky-ink)) !important; }
 :root[data-palette='sky'] .ui-avatar-initials[data-hue='1'] { background-color: rgb(var(--mint-soft)) !important; color: rgb(var(--mint-ink)) !important; }
 :root[data-palette='sky'] .ui-avatar-initials[data-hue='2'] { background-color: rgb(var(--lilac-soft)) !important; color: rgb(var(--lilac-ink)) !important; }
 :root[data-palette='sky'] .ui-avatar-initials[data-hue='3'] { background-color: rgb(var(--peach-soft)) !important; color: rgb(var(--peach-ink)) !important; }
-:root[data-palette='sky'] .ui-avatar-initials[data-hue='4'] { background-color: rgb(var(--butter-soft)) !important; color: rgb(var(--butter-ink)) !important; }
 
 /*
  * People: finishing states (owner, 28 Oct 2026).
@@ -1840,7 +1842,8 @@
 /* Marigold: the mark beside the open module, the line under the open tab, progress, tab counts and the main action's arrow. */
 :root[data-palette='sky']:not([data-theme='dark']) .ui-split-mod[data-current]::before { background: rgb(var(--warm)); }
 :root[data-palette='sky']:not([data-theme='dark']) :is(.ui-tab-indicator, .ui-tab.is-active::after) { background: rgb(var(--warm)); }
-:root[data-palette='sky']:not([data-theme='dark']) .org-card-bar > span { background: rgb(var(--warm)); }
+/* A department's share of the company in its own tint (tintOf), not marigold, which is kept for what waits on you. */
+:root[data-palette='sky']:not([data-theme='dark']) .org-card-bar > span { background: rgb(var(--tint-ink, var(--fg-muted))); }
 /* A count that waits on you (`data-tone="warn"` on a tab's or a side block's count) is marigold; every other count keeps the lilac wash (31 Oct 2026: the rule named .ui-count, which no component renders). */
 :root[data-palette='sky']:not([data-theme='dark']) :is(.ui-tab-count, .ui-side-count)[data-tone='warn'] { background: rgb(var(--warm)) !important; color: rgb(var(--oxblood)) !important; font-weight: 700; }
 :root[data-palette='sky']:not([data-theme='dark']) .soft-pill-primary .soft-pill-orb { background: rgb(var(--warm)); color: rgb(var(--oxblood)); }
@@ -1866,7 +1869,7 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
   color: rgb(var(--oxblood)); background: rgb(var(--brand-soft)); box-shadow: inset 0 0 0 1px rgb(var(--brand-border));
 }
 :root[data-palette='sky']:not([data-theme='dark']) .ui-split-item > svg.ui-glyph { width: 1.125rem; height: 1.125rem; flex: none; }
-/* Figures: each mark in its own tint (3 Nov 2026), set by the strip's nth-child rules above. */
+/* Figures: each mark in the tint its caller names (`data-tint`), set by the strip rules above. */
 /* The People tile in the bar is solid indigo: its mark stays white there, no fill layer. */
 :root[data-palette='sky']:not([data-theme='dark']) .ui-app-switch .ui-glyph { color: rgb(var(--on-brand)); }
 :root[data-palette='sky']:not([data-theme='dark']) .ui-app-switch .ui-glyph [opacity='0.2'] { opacity: 0; }
@@ -2018,7 +2021,7 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
 :root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric[data-attention] { box-shadow: inset 0 3px 0 rgb(var(--warm)); }
 /* Home's count tiles for work that waits on you. */
 :root[data-palette='sky']:not([data-theme='dark']) .people-row-count[data-tone='warn'] { background: rgb(var(--warm)); color: rgb(var(--oxblood)); }
-/* Faces: initials in indigo on their team's wash (the series colour as text would be 2:1 for marigold). */
+/* Home's faces: initials in oxblood on their team's chart-series wash (the series colour as text would be 2:1 for marigold). */
 :root[data-palette='sky']:not([data-theme='dark']) .people-face { color: rgb(var(--oxblood)); background: rgb(var(--dept) / 0.16); }
 /* Place icons on Settings cards sit on the lilac tile, the rail's two-tone. */
 :root[data-palette='sky']:not([data-theme='dark']) #main-content li > button.ui-card > svg.ui-glyph:first-child {
@@ -2154,9 +2157,9 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist .ui-tab.is-active .ui-tab-count { background: rgb(var(--oxblood)) !important; color: rgb(255 255 255) !important; }
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table thead :is(th, .ui-th) { background: rgb(var(--heading-bg)) !important; color: rgb(var(--oxblood)); border-bottom-color: rgb(var(--brand-border)); }
 /* The record's header sits on the white page like every title (owner, 4 Nov 2026: "complete white background"; it was
-   an oxblood block): the name in oxblood, its facts muted, Edit the one red primary; the face a marigold disc. */
+   an oxblood block): the name in oxblood, its facts muted, Edit the one red primary. The face keeps the person's own
+   wash (data-hue), the same as in every list: it was a marigold disc until the 4 Nov 2026 review. */
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-profile .ui-pill { background: rgb(var(--blush)); color: rgb(var(--oxblood)); }
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-profile .ui-avatar-initials { background: rgb(var(--marigold)) !important; color: rgb(var(--oxblood)) !important; }
 /* Phone: the tab bar is the rail's twin, so it is white too (3 Nov 2026): oxblood icons, the open tab red with its
    marigold fill. */
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar { background: rgb(255 255 255); border-top-color: rgb(var(--border)); }

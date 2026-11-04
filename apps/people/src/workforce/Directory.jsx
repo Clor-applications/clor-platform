@@ -593,11 +593,11 @@ function BulkResult({ result, onClose }) {
       footer={<>{failed.length ? <button type="button" className="ui-btn ui-btn-secondary" onClick={save}>Download skipped</button> : null}<button type="button" className="ui-btn ui-btn-primary" onClick={onClose}>Done</button></>}>
       <dl className="ui-metric-strip">
         {result.effectiveFrom
-          ? <div className="ui-metric" data-zero={Number(result.scheduled) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.scheduled}</dd><dt className="ui-metric-label">Change on {formatDate(result.effectiveFrom)}</dt></span></div>
-          : <div className="ui-metric" data-zero={Number(result.changed) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.changed}</dd><dt className="ui-metric-label">Changed</dt></span></div>}
-        <div className="ui-metric" data-zero={Number(result.unchanged) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.unchanged}</dd><dt className="ui-metric-label">Already so</dt></span></div>
-        <div className="ui-metric" data-zero={failed.length === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{failed.length}</dd><dt className="ui-metric-label">Skipped</dt></span></div>
-        <div className="ui-metric" data-zero={Number(result.notFound) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.notFound}</dd><dt className="ui-metric-label">Not found</dt></span></div>
+          ? <div className="ui-metric" data-tint="mint" data-zero={Number(result.scheduled) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.scheduled}</dd><dt className="ui-metric-label">Change on {formatDate(result.effectiveFrom)}</dt></span></div>
+          : <div className="ui-metric" data-tint="mint" data-zero={Number(result.changed) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.changed}</dd><dt className="ui-metric-label">Changed</dt></span></div>}
+        <div className="ui-metric" data-tint="sky" data-zero={Number(result.unchanged) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.unchanged}</dd><dt className="ui-metric-label">Already so</dt></span></div>
+        <div className="ui-metric" data-tint="peach" data-zero={failed.length === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{failed.length}</dd><dt className="ui-metric-label">Skipped</dt></span></div>
+        <div className="ui-metric" data-tint="peach" data-zero={Number(result.notFound) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.notFound}</dd><dt className="ui-metric-label">Not found</dt></span></div>
       </dl>
       {failed.length ? (
         <ul className="mt-4 divide-y text-sm" aria-label="Skipped">

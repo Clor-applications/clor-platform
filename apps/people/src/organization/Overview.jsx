@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { tintOf } from './tints';
 import { Building2, GitBranch, MapPin, Plus, UserMinus, UserX } from '@ui/components/ui/lineIcons';
 import { useContentIcon } from '@ui/components/ui/colorSwap';
 
@@ -57,9 +58,7 @@ export default function OrganizationOverview({ openScreen }) {
   /* The departments as an outline: each under its parent, in name order. */
   const childrenOf = (id) => activeDepts.filter((x) => (x.parentId || null) === id && (id || !activeDepts.some((p) => p.id === x.parentId))).sort((a, b) => a.name.localeCompare(b.name));
   const rows = [];
-  /* Marigold is kept for what waits on you, so departments and branches cycle the other four. */
-  const ORG_TINTS = ['sky', 'mint', 'lilac', 'peach'];
-  const walk = (id, depth) => { for (const x of childrenOf(id)) { rows.push({ ...x, depth }); if (depth < 8) walk(x.id, depth + 1); } };
+    const walk = (id, depth) => { for (const x of childrenOf(id)) { rows.push({ ...x, depth }); if (depth < 8) walk(x.id, depth + 1); } };
   walk(null, 0);
   const orgTotal = Math.max(1, rows.reduce((n, x) => n + (x.people || 0), 0));
   /* In the sidebar's order. */
@@ -104,9 +103,9 @@ export default function OrganizationOverview({ openScreen }) {
           /* One ruled row per department, indented under its parent: name, head, people. */
           /* Departments as cards (an overview, not a register): head, size, and share of the company. */
           <ul className="org-cards">
-            {rows.map((x, i) => (
+            {rows.map((x) => (
               <li key={x.id}>
-                <button type="button" className="org-card" data-tint={ORG_TINTS[i % ORG_TINTS.length]} onClick={go('employees', { dept: x.id })} aria-label={`${x.name}: ${x.people} people. Open them.`}>
+                <button type="button" className="org-card" data-tint={tintOf(x.name)} onClick={go('employees', { dept: x.id })} aria-label={`${x.name}: ${x.people} people. Open them.`}>
                   <span className="org-card-top">
                     <span className="org-tile" aria-hidden="true">{x.name.charAt(0).toUpperCase()}</span>
                     <span className="org-card-n tabular-nums">{x.people}</span>
@@ -129,9 +128,9 @@ export default function OrganizationOverview({ openScreen }) {
         </div>
         {activeBranches.length ? (
           <ul className="org-cards org-cards-sm">
-            {activeBranches.map((b, i) => (
+            {activeBranches.map((b) => (
               <li key={b.id}>
-                <button type="button" className="org-card" data-tint={ORG_TINTS[(i + 2) % ORG_TINTS.length]} onClick={go('employees', { branch: b.id })} aria-label={`${b.name}: ${b.people} people. Open them.`}>
+                <button type="button" className="org-card" data-tint={tintOf(b.name)} onClick={go('employees', { branch: b.id })} aria-label={`${b.name}: ${b.people} people. Open them.`}>
                   <span className="org-card-top">
                     <span className="org-card-name">{b.name}</span>
                     <span className="org-card-n tabular-nums">{b.people}</span>

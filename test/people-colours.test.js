@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import { colorOf, swatchOf } from '../packages/ui/src/timeOff/api';
@@ -142,8 +142,63 @@ describe('tints are named by meaning, not handed out by position', () => {
     }
     expect(src).toMatch(/role="listitem"[^>]*data-tint=\{tint\}/);
   });
-  it('department and branch cards cycle four tints and leave marigold to what waits', () => {
-    expect(read('apps/people/src/organization/Overview.jsx')).toMatch(/const ORG_TINTS = \['sky', 'mint', 'lilac', 'peach'\];/);
+  it('People\'s JSX never picks a tint by a row\'s index', () => {
+    const files = [];
+    const walk = (dir) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const f = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(f);
+        else if (/\.jsx?$/.test(e.name) && !/\.test\./.test(e.name)) files.push(f);
+      }
+    };
+    ['apps/people/src', 'packages/ui/src/personnel', 'packages/ui/src/lifecycle', 'packages/ui/src/timeOff', 'packages/ui/src/components/list'].forEach(walk);
+    expect(files.length).toBeGreaterThan(50);
+    const byIndex = [
+      /\[\s*'(sky|mint|lilac|peach|butter)'[^\]]*\]\s*\[[^\]]*%/, // ['sky', 'mint'][i % 2]
+      /data-(tint|tone)=\{[^}]*\b[ijk]\s*%/, // data-tint={X[i % n]}
+      /(TINTS|TONES)\[\s*\(?\s*[ijk]\b/, // TONES[i % TONES.length]
+      /\.map\(\(\w+, [ijk]\) => \[\w+, (TINTS|TONES|\w*_TINTS)\[/, // new Map(names.map((d, i) => [d, TONES[i]]))
+    ];
+    for (const f of files) for (const re of byIndex) expect(read(f), `${f} ${re}`).not.toMatch(re);
+  });
+  it('a department has one tint on every Organisation screen, from its name, never marigold', async () => {
+    const { tintOf, ORG_TINTS } = await import('../apps/people/src/organization/tints.js');
+    expect(ORG_TINTS).not.toContain('butter');
+    for (const name of ['Sales', 'Production', 'Accounts', 'Human resources', 'Management', 'Head Office']) {
+      expect(ORG_TINTS).toContain(tintOf(name));
+      expect(tintOf(name)).toBe(tintOf(` ${name.toUpperCase()} `));
+    }
+    for (const f of ['apps/people/src/organization/Overview.jsx', 'apps/people/src/organization/StructurePage.jsx', 'apps/people/src/screens/OrgTreeChart.jsx']) {
+      const src = read(f);
+      expect(src, f).toMatch(/import \{ tintOf \} from '(\.\/|\.\.\/organization\/)tints'/);
+      expect(src, f).not.toMatch(/'butter'/);
+    }
+    expect(read('apps/people/src/organization/Overview.jsx')).toMatch(/data-tint=\{tintOf\(x\.name\)\}/);
+    expect(people).toMatch(/\.org-card-bar > span \{ background: rgb\(var\(--tint-ink, var\(--fg-muted\)\)\); \}/);
+    expect(people).not.toMatch(/\.org-card-bar > span \{ background: rgb\(var\(--warm\)\); \}/);
+    expect(read('apps/people/src/organization/StructurePage.jsx')).toMatch(/data-tint=\{tintOf\(r\.name\)\}/);
+    expect(read('apps/people/src/screens/OrgTreeChart.jsx')).toMatch(/\[d, tintOf\(d\)\]/);
+  });
+  it('Home: Waiting for you is the marigold panel; news, events and celebrations are not marigold', () => {
+    const home = read('apps/people/src/screens/PeopleOverview.jsx');
+    expect(home).toMatch(/id="todo-h" icon=\{SealCheck\} tint="butter"/);
+    expect((home.match(/tint="butter"|'butter'/g) || [])).toHaveLength(1);
+    expect(people).not.toMatch(/\.people-celebrate-badge \{ background: rgb\(var\(--butter/);
+    expect(people).not.toMatch(/\.soft-(fun|event\[data-fun\])[^{]*\{[^}]*--butter/);
+    expect(people).not.toMatch(/\.soft-news-icon\[data-symbol\] \{[^}]*--butter/);
+  });
+  it('faces hash over four washes, none marigold, and the record keeps the person\'s own', () => {
+    expect(read('packages/ui/src/personnel/Employees.jsx')).toMatch(/% 9973, 0\) % 4\}/);
+    expect(people).not.toMatch(/data-hue='4'/);
+    expect(people).not.toMatch(/\.ui-avatar-initials\[data-hue='\d'\] \{[^}]*--butter/);
+    expect(people).not.toMatch(/\.ui-profile \.ui-avatar-initials \{ background: rgb\(var\(--marigold\)\)/);
+  });
+  it('every figure strip names its tints, Data health\'s gaps clay', () => {
+    expect(read('packages/ui/src/personnel/DataHealth.jsx').match(/className="ui-metric" data-tint="peach"/g)).toHaveLength(2);
+    for (const f of ['apps/people/src/workforce/ImportEmployees.jsx', 'apps/people/src/workforce/Directory.jsx', 'packages/ui/src/personnel/DataHealth.jsx']) {
+      expect(read(f), f).not.toMatch(/<div className="ui-metric"(?! data-tint)[ >]/);
+    }
+    expect(read('packages/ui/src/timeOff/YearEnd.jsx')).toMatch(/\['lapse', 'Lapses', lapses, 'peach'\]\][\s\S]*role="listitem" data-tint=\{tint\}/);
   });
 });
 

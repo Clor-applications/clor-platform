@@ -1,4 +1,5 @@
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { tintOf } from '../organization/tints';
 import { Minus, Plus, Maximize2 } from '@ui/components/ui/lineIcons';
 
 import './orgChart.css';
@@ -12,7 +13,6 @@ import './orgChart.css';
  * Fit sizes it to the frame. Clicking a person opens their record; the count
  * under a manager shows or hides the people who report to them.
  */
-const TONES = ['sky', 'mint', 'lilac', 'peach', 'butter'];
 const MIN = 0.5;
 const MAX = 1.2;
 const STEP = 0.1;
@@ -21,10 +21,10 @@ const initialsOf = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2)
 const clamp = (z) => Math.min(MAX, Math.max(MIN, Math.round(z * 100) / 100));
 
 export default function OrgTreeChart({ chart, closed, toggle, openScreen, onExpandAll, onCollapseAll, lead = null }) {
-  /* One colour per department, the same everywhere on the chart: departments in name order take the five pastels in turn. */
+  /* One colour per department, the same as on the Organisation overview and the structure page (tintOf, from the name). */
   const tones = useMemo(() => {
     const names = [...new Set([...chart.byId.values()].map((n) => n.department).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-    return new Map(names.map((d, i) => [d, TONES[i % TONES.length]]));
+    return new Map(names.map((d) => [d, tintOf(d)]));
   }, [chart]);
 
   const frameRef = useRef(null);

@@ -119,8 +119,8 @@ export const Avatar = ({ person, size = 40 }) =>
       aria-hidden="true"
       /* Drawn, not text: the initials are a picture of the person, so they never become part of a button's name. */
       data-initials={initials(person?.name)}
-      /* A wash picked from the name; only palettes that opt in draw it (People's Sky). */
-      data-hue={[...String(person?.name || '')].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 9973, 0) % 5}
+      /* One of four washes picked from the name; only palettes that opt in draw it (People's Sky). Never marigold. */
+      data-hue={[...String(person?.name || '')].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 9973, 0) % 4}
     />
   );
 
