@@ -279,6 +279,62 @@ describe('sessions', () => {
     expect(await reuse(u.id)).toBe(0);
   });
 
+  /*
+   * Every CLOR app keeps its own access token and they share one refresh
+   * cookie, so a refresh in Payroll rotates the session People's token names.
+   * That token has to keep working: ending it made each app's refresh 401 the
+   * others, and their races signed the person out (production, 3 Nov 2026).
+   */
+  describe('an access token whose session another app refreshed', () => {
+    const me = (token: string) => request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
+
+    it('keeps working after the refresh', async () => {
+      const u = await makeUser();
+      const payroll = await request(app).post('/api/auth/refresh').set('Cookie', cookie(u.refreshToken)).expect(200);
+      await me(u.token).expect(200);
+      await me(payroll.body.token).expect(200);
+    });
+
+    it('keeps working after several refreshes', async () => {
+      const u = await makeUser();
+      const first = await request(app).post('/api/auth/refresh').set('Cookie', cookie(u.refreshToken)).expect(200);
+      await request(app).post('/api/auth/refresh').set('Cookie', cookie(refreshCookieValue(first))).expect(200);
+      await me(u.token).expect(200);
+      await me(first.body.token).expect(200);
+    });
+
+    it('stops working once the session it became is signed out', async () => {
+      const u = await makeUser();
+      const fresh = await request(app).post('/api/auth/refresh').set('Cookie', cookie(u.refreshToken)).expect(200);
+      await request(app).post('/api/auth/logout').set('Cookie', cookie(refreshCookieValue(fresh))).expect(200);
+      const res = await me(u.token).expect(401);
+      expect(res.body.code).toBe('session_ended');
+    });
+
+    it('stops working when the old refresh token is replayed as theft', async () => {
+      const u = await makeUser();
+      await request(app).post('/api/auth/refresh').set('Cookie', cookie(u.refreshToken)).expect(200);
+      await platformPrisma.session.updateMany({ where: { userId: u.id, revokedReason: 'ROTATED' }, data: { revokedAt: new Date(Date.now() - 60_000) } });
+      await request(app).post('/api/auth/refresh').set('Cookie', cookie(u.refreshToken)).expect(401);
+      expect(await reuse(u.id)).toBeGreaterThan(0);
+      const res = await me(u.token).expect(401);
+      expect(res.body.code).toBe('session_ended');
+    });
+
+    it('counts as the live session when it asks to sign out everywhere else', async () => {
+      const u = await makeUser();
+      const fresh = await request(app).post('/api/auth/refresh').set('Cookie', cookie(u.refreshToken)).expect(200);
+      await request(app).post('/api/auth/login').send({ emailOrUsername: u.email, password: u.password }).expect(200);
+
+      /* Asked from the app whose token predates the refresh. */
+      await request(app).post('/api/auth/sessions/revoke-all').set('Authorization', `Bearer ${u.token}`).expect(200);
+
+      const after = await request(app).get('/api/auth/sessions').set('Authorization', `Bearer ${fresh.body.token}`).expect(200);
+      expect(after.body.sessions).toHaveLength(1);
+      await request(app).post('/api/auth/refresh').set('Cookie', cookie(refreshCookieValue(fresh))).expect(200);
+    });
+  });
+
   it('lists active sessions and ends every one but the caller’s', async () => {
     const u = await makeUser();
     await request(app).post('/api/auth/login').send({ emailOrUsername: u.email, password: u.password }).expect(200);
