@@ -190,6 +190,15 @@ numbers refer to are defined once under *Controls → Height*.
     search); both are annotated in place and should converge on `.ui-kbd`, but
     their heights differ from it so that is a visual change, not a rename.
     Every other `rounded-md` was drift and is gone — a third is drift.
+  - **Platform-wide since 4 Nov 2026** (owner, design audit Q12). The tokens
+    in `packages/ui/src/index.css` are the two radii in every app:
+    `--radius-btn`, `--radius-input`, `--radius-sm`, `--radius-lg` 8px;
+    `--radius`, `--radius-xl`, `--radius-kpi` 12px. Tailwind's `rounded-lg`
+    and `rounded-xl` read `--radius-lg` and `--radius-xl`. The overview
+    figures are no longer square: they hold content, so 12px.
+  - **Drawn data marks are not surfaces** and keep their own geometry: chart
+    bars, 8–10px legend swatches, the 2px tab underline and the active-item
+    edge. `test/radius-tokens.test.js` lists each one and fails on anything else.
 - **No card-in-card.** A list is the page: one hairline, no wrapper. A document is a discrete object: it earns a surface.
 
 ### Elevation — three tiers, and they mean different things
@@ -631,6 +640,7 @@ because focus, portals and event order cannot be read off the source.
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-11-04 | Two radii in every app | Owner, design audit Q12 (PR #125): the platform tokens said 4px and 6px, so Accounting, Payroll, Attendance and Admin drew 4px cards and the overview figures square, against the two radii. Now 8px on what you press or type into and 12px on what holds content in every app, through the tokens; Tailwind's `rounded-lg`/`rounded-xl` read them; open-coded `rounded-md`/`rounded`/`rounded-2xl` and literal pixel radii in app chrome came onto the scale. Keycaps (6px), printed documents and drawn data marks keep theirs. Supersedes the square KPI card |
 | 2026-11-03 | A chosen view is marigold | Owner, on People's "In use / Retired" switch (solid oxblood): "use different color like green or orange, any best in entire app". Marigold with oxblood words (6.9:1) on a warm neutral tray, through `--choice` / `--on-choice` / `--choice-tray`, read by every selected-segment rule (platform, Blaze, People's tray and segmented strips). Orange-family marigold is already the brand's second colour; red is the action and green means done, so neither fits a choice. Accounting's indigo palette unsets the tokens and is unchanged |
 | 2026-11-03 | People: no hero card, a white rail, colour beside the red | Owner, after the red brand went live: "remove hero card and sidebar complete red background in people", then "only red is visible where is other colours". Home's greeting leaves its oxblood card for the white page (Add an employee the one red primary); the rail and the phone tab bar turn white with oxblood icons. The red brand had folded every wash into blush, so figures, panel heads and the module panel all read pink: figures get their own tints again (slate, green, clay, blush), panel heads and list strips go white, the module panel a warm neutral, and green returns for done and present. A leave type is never red |
 | 2026-11-03 | Accounting keeps its indigo | Owner, after the red brand went live: "do not change color to accounting". Accounting opts into a shared `indigo` palette (its manifest's `palette`), which restates Direction D's tokens exactly as they were (money out red, cotton page, lilac selection); its icon and install manifest go back to their navy tile. Keyed on the palette, not the app id. The CLOR logo is the same in every app, so the palette leaves `--logo-*` alone |

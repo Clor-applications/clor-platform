@@ -25,7 +25,15 @@ export default {
     'ui-btn-danger',
   ],
   theme: {
-    extend: {},
+    extend: {
+      /* The two radii (DESIGN.md) come from the platform tokens, so a palette
+         that redefines a token moves the utility with it. Values match
+         Tailwind's own (8px, 12px); test/radius-tokens.test.js pins both. */
+      borderRadius: {
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-xl)',
+      },
+    },
   },
   plugins: [],
 }

@@ -230,7 +230,7 @@ const CustomerAddressTable = ({ rows, states, onChange, onAdd, onRemove, sameAsB
   const addressCountries = allCountries();
   return (
   <section className="customer-address-table space-y-2">
-    <div className="overflow-visible rounded border border-[rgb(var(--border))]">
+    <div className="overflow-visible rounded-xl border border-[rgb(var(--border))]">
       <table className="w-full table-fixed border-collapse text-sm">
         <colgroup>
           <col style={{ width: '12%' }} />

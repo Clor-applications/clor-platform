@@ -695,10 +695,10 @@ export const GstComplianceWorkspace = ({ db, currentCompany, branches = [], init
           <div className="relative">
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-haspopup="menu" aria-expanded={exportOpen} onClick={() => setExportOpen((open) => !open)}><Download size={15} /> Export <ChevronDown size={14} /></button>
             {exportOpen ? <div role="menu" className="absolute end-0 top-[calc(100%+0.35rem)] z-40 w-56 overflow-hidden rounded-lg border bg-white p-1 shadow-lg ui-border-c">
-              <button type="button" role="menuitem" className="w-full rounded-md px-3 py-2 text-start text-sm font-medium ui-hover-sunken" onClick={() => { setExportOpen(false); exportCurrent(); }}>
+              <button type="button" role="menuitem" className="w-full rounded-lg px-3 py-2 text-start text-sm font-medium ui-hover-sunken" onClick={() => { setExportOpen(false); exportCurrent(); }}>
                 <span className="block">Export Excel</span><span className="block text-xs font-normal ui-muted">{report === 'gstr1' ? 'Complete multi-sheet filing workbook' : 'Current report data'}</span>
               </button>
-              <button type="button" role="menuitem" className="w-full rounded-md px-3 py-2 text-start text-sm font-medium ui-hover-sunken disabled:cursor-not-allowed disabled:opacity-45" disabled={report !== 'gstr1' && report !== 'gstr3b'} title={report !== 'gstr1' && report !== 'gstr3b' ? 'Available for GSTR-1 and GSTR-3B' : 'GST Portal compatible JSON'} onClick={() => { setExportOpen(false); exportPortalJson(); }}>
+              <button type="button" role="menuitem" className="w-full rounded-lg px-3 py-2 text-start text-sm font-medium ui-hover-sunken disabled:cursor-not-allowed disabled:opacity-45" disabled={report !== 'gstr1' && report !== 'gstr3b'} title={report !== 'gstr1' && report !== 'gstr3b' ? 'Available for GSTR-1 and GSTR-3B' : 'GST Portal compatible JSON'} onClick={() => { setExportOpen(false); exportPortalJson(); }}>
                 <span className="block">GST Portal JSON</span><span className="block text-xs font-normal ui-muted">GSTR-1 / GSTR-3B upload file</span>
               </button>
             </div> : null}

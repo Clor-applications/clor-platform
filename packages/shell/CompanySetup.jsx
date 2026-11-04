@@ -235,7 +235,7 @@ export default function CompanySetup() {
                         <app.icon size={18} aria-hidden="true" />
                       </span>
                       <span
-                        className="grid h-5 w-5 shrink-0 place-items-center rounded-md"
+                        className="grid h-5 w-5 shrink-0 place-items-center rounded-lg"
                         style={{
                           backgroundColor: on ? 'rgb(var(--brand))' : 'transparent',
                           border: on ? 'none' : '1px solid rgb(var(--border))',

@@ -93,7 +93,7 @@ function PurchaseEmptyState({ height, title, detail, action, icon: Icon = Packag
       style={{ minHeight: height, borderColor: 'rgb(var(--line))', backgroundColor: 'rgb(var(--surface-sunken))' }}
     >
       <span
-        className="mb-3 grid h-12 w-12 place-items-center rounded-2xl"
+        className="mb-3 grid h-12 w-12 place-items-center rounded-xl"
         style={{ backgroundColor: 'rgb(var(--ov-blue-soft))', color: 'rgb(var(--ov-blue))' }}
         aria-hidden="true"
       >

@@ -442,7 +442,7 @@ export const EstimatesList = ({
                           openEstimateMenu(est.id, e.currentTarget);
                         }
                       }}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md ui-hover-sunken"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg ui-hover-sunken"
                       aria-label="Quotation actions"
                       data-estimate-menu-button={est.id}
                     >

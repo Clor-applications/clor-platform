@@ -239,7 +239,7 @@ export default function Credentials() {
           }
         />
         {data?.createBlockedReason ? <p className="ws-card-blurb" style={{ marginTop: -16 }}>{data.createBlockedReason}</p> : null}
-        {data?.closing ? <p className="text-sm" role="status" style={{ ...WARN, padding: '10px 14px', borderRadius: 8 }}>Closure scheduled: all credentials are paused.</p> : null}
+        {data?.closing ? <p className="text-sm" role="status" style={{ ...WARN, padding: '10px 14px', borderRadius: 'var(--radius)' }}>Closure scheduled: all credentials are paused.</p> : null}
         {shown ? <ShownOnce label={shown.label} value={shown.value} hint={shown.hint} onDone={() => setShown(null)} /> : null}
 
         {data ? (

@@ -222,7 +222,7 @@ export default function SsoSettings() {
                 </p>
                 {scim?.baseUrl ? <Address label="Tenant URL to give the provider" value={scim.baseUrl} /> : null}
                 {newToken ? (
-                  <div className="grid gap-2" role="status" style={{ padding: 12, borderRadius: 8, background: 'rgb(var(--ws-warn-soft))' }}>
+                  <div className="grid gap-2" role="status" style={{ padding: 12, borderRadius: 'var(--radius)', background: 'rgb(var(--ws-warn-soft))' }}>
                     <span className="text-sm font-semibold">Secret token — shown once</span>
                     <div className="flex flex-wrap items-center gap-2">
                       <code className="ui-mono text-sm break-all min-w-0 flex-1">{newToken}</code>

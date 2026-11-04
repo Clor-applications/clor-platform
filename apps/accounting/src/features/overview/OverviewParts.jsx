@@ -205,7 +205,7 @@ export const Segmented = ({ options, value, onChange, ariaLabel }) => (
     style={{
       backgroundColor: 'rgb(var(--seg-bg))',
       border: '1px solid rgb(var(--seg-line))',
-      borderRadius: 8,
+      borderRadius: 'var(--radius-btn)',
       padding: 2,
       height: 32,
     }}
@@ -223,7 +223,7 @@ export const Segmented = ({ options, value, onChange, ariaLabel }) => (
           style={{
             height: 26,
             padding: '0 12px',
-            borderRadius: 6,
+            borderRadius: 'calc(var(--radius-btn) - 2px)',
             fontSize: 12,
             fontWeight: 550,
             ...(on

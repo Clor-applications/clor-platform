@@ -621,7 +621,7 @@ export const ExpensesList = ({ db, setDb, openModal, currentCompany }) => {
                   <td className="ui-action-col text-center" onClick={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()}>
                     <button
                       type="button"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md ui-hover-sunken"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg ui-hover-sunken"
                       aria-label="Expense actions"
                       onClick={(event) => {
                         event.stopPropagation();

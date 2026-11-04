@@ -1222,7 +1222,7 @@ export const InvoicesList = ({
                             openInvoiceMenu(inv.id, e.currentTarget);
                           }
                         }}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md ui-hover-sunken"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg ui-hover-sunken"
                         aria-label="Invoice actions"
                         data-invoice-menu-button={inv.id}
                       >

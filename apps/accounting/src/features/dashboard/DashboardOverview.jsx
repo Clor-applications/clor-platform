@@ -754,7 +754,7 @@ function HomeMetric({ label, value, company, Icon, tone, change, series }) {
   return (
     <section className="ui-card min-w-0 p-3.5" aria-label={label}>
       <div className="flex items-center gap-2">
-        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md" style={{ color: palette.ink, background: palette.wash }}>
+        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ color: palette.ink, background: palette.wash }}>
           <Icon size={15} aria-hidden="true" />
         </span>
         <span className="ui-card-label truncate">{label}</span>
@@ -1440,7 +1440,7 @@ export default function DashboardOverview({
               <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
                 {activity.slice(0, 5).map((row) => (
                   <li key={row.key} className="flex items-center gap-2 py-2">
-                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--surface-sunken))]"><FileText size={13} /></span>
+                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgb(var(--surface-sunken))]"><FileText size={13} /></span>
                     <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{row.kind}</div><div className="ui-caption truncate">{row.number} · {row.party}</div></div>
                     <span className="ui-money text-sm">{formatMoney(row.amount, currentCompany)}</span>
                   </li>
