@@ -271,7 +271,7 @@ describe('Home: one primary action, and what waits on you comes first', () => {
   });
 
   it('on a phone Waiting for you comes before the figures, so its first request is above the fold', () => {
-    expect(block).toMatch(/@media \(max-width: 767px\) \{[\s\S]*\.soft-main > \.soft-bezel:has\(#todo-h\) \{ order: -1; \}/);
+    expect(block).toMatch(/@media \(max-width: 767px\) \{[\s\S]*\.soft-main > \.soft-core:has\(#todo-h\) \{ order: -1; \}/);
   });
 
   it('Add an employee is the only primary; Check in steps down on Home', () => {

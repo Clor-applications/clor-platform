@@ -76,7 +76,7 @@ describe('counts that wait on you are marigold', () => {
 
 describe('figures', () => {
   it('oxblood figures leave a nought to the quiet grey rule', () => {
-    const indigo = people.match(/^.*#main-content :is\(h1, h2, [^{]*\{ color: rgb\(var\(--fg-heading\)\); \}$/m)[0];
+    const indigo = people.match(/^.*#main-content :is\(h1, [^{]*\{ color: rgb\(var\(--fg-heading\)\); \}$/m)[0];
     expect(indigo).toContain('.ui-metric:not([data-zero]) .ui-metric-value');
     expect(indigo).not.toMatch(/, \.ui-metric-value,/);
     expect(people).toMatch(/\.ui-metric\[data-zero\] \.ui-metric-value \{ color: rgb\(var\(--fg-subtle\)\)/);

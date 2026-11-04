@@ -13,7 +13,7 @@ import { can } from '@ui/timeOff/shared';
  * list worked out on the server (services/people/setup.ts), in place of
  * "All caught up" until it is done. Each step opens its screen and ticks
  * itself once its records exist; a step can be skipped, the list hidden.
- * Beside it, simple mode's one-time suggestion once the company has grown.
+ * Beside it, simple mode's one-time suggestion once the company has grown, as one line with its two buttons.
  *
  * Renders nothing for someone who cannot set the company up (the server
  * refuses them), and nothing once the list is settled.
@@ -72,17 +72,10 @@ export default function HomeSetup({ openScreen, onState }) {
   return (
     <>
       {simpleMode?.suggest ? (
-        <section className="ui-card p-4 flex flex-wrap items-start gap-3" aria-labelledby="simple-h" role="status">
-          <div className="min-w-0 flex-1 basis-64">
-            <h2 id="simple-h" className="font-medium">Your company has grown</h2>
-            <p className="ui-caption">
-              {simpleMode.reasons.join(', ').replace(/^./, (c) => c.toUpperCase())}. Simple mode keeps organisation detail, such as legal entities, out of the menu. You can switch it off now, or later in Settings → Modules &amp; Apps.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="ui-btn ui-btn-secondary" disabled={busy === 'simple'} onClick={turnOffSimple}>Show every screen</button>
-            <button type="button" className="ui-btn ui-btn-ghost" disabled={busy === 'simple'} onClick={() => change({ action: 'simpleAdviceSeen' }, 'simple')}>Keep it simple</button>
-          </div>
+        <section className="people-simple-line" aria-label="Your company has grown" role="status">
+          <p className="min-w-0 flex-1 text-sm">{/* The first reason is enough to say why; the rest made a paragraph. */}{String(simpleMode.reasons[0] || 'Your company has grown').replace(/^./, (c) => c.toUpperCase())}. <span className="ui-muted">Show every screen in the menu?</span></p>
+          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === 'simple'} onClick={turnOffSimple}>Show every screen</button>
+          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === 'simple'} onClick={() => change({ action: 'simpleAdviceSeen' }, 'simple')}>Keep it simple</button>
         </section>
       ) : null}
 

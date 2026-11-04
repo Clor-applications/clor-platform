@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AirplaneTilt,
-  ArrowUpRight,
   CalendarDots,
   CaretRight,
   Cake,
@@ -16,6 +15,8 @@ import {
   IconContext,
   Medal,
   Megaphone,
+  Plus,
+  WarningCircle,
   SealCheck,
   SignOut,
   UsersThree,
@@ -72,18 +73,9 @@ function Face({ person, size = 40, colour }) {
   );
 }
 
-/*
- * A double-bezel surface (28 Oct 2026, soft structural Home): a tinted tray
- * with a hairline ring holds a white core with its own highlight, radii
- * concentric. `as="button"` makes the whole core the control.
- */
-function Bezel({ as = 'div', className = '', i = 0, children, ...rest }) {
-  const Core = as;
-  return (
-    <div className={`soft-bezel ${className}`.trim()} data-reveal style={{ '--i': i }}>
-      <Core className={`soft-core${as === 'button' ? ' soft-core-action' : ''}`} {...(as === 'button' ? { type: 'button' } : {})} {...rest}>{children}</Core>
-    </div>
-  );
+/* One white sheet with one hairline per block (no double bezel: owner, 4 Nov 2026, design audit Q2). */
+function Block({ i = 0, children }) {
+  return <div className="soft-core" data-reveal style={{ '--i': i }}>{children}</div>;
 }
 
 /* Headcount at the end of each year since the first person joined, and today. */
@@ -179,28 +171,99 @@ function PanelHead({ id, icon: Icon, tint, title, action = null }) {
   );
 }
 
-/* Sections rise into place as they first scroll into view; once shown they stay. */
+/*
+ * Every block is shown as soon as it mounts, in the next frame so its 200ms settle plays once (design audit, 4 Nov
+ * 2026: blocks waited for an IntersectionObserver, so a print, a fast fling or a slow phone saw blank space).
+ */
 function useReveal() {
   const root = useRef(null);
   useEffect(() => {
     const el = root.current;
     if (!el) return undefined;
     const items = [...el.querySelectorAll('[data-reveal]:not([data-shown])')];
-    if (typeof IntersectionObserver === 'undefined') {
-      items.forEach((n) => n.setAttribute('data-shown', ''));
-      return undefined;
-    }
-    const io = new IntersectionObserver((entries) => {
-      for (const e of entries) {
-        if (!e.isIntersecting) continue;
-        e.target.setAttribute('data-shown', '');
-        io.unobserve(e.target);
-      }
-    }, { rootMargin: '0px 0px -8% 0px' });
-    items.forEach((n) => io.observe(n));
-    return () => io.disconnect();
+    if (!items.length) return undefined;
+    const show = () => items.forEach((n) => n.setAttribute('data-shown', ''));
+    if (typeof requestAnimationFrame !== 'function') { show(); return undefined; }
+    const frame = requestAnimationFrame(show);
+    /* A cancelled frame (the effect runs again before it fires) must not leave a block hidden. */
+    return () => { cancelAnimationFrame(frame); show(); };
   });
   return root;
+}
+
+/*
+ * A block whose request failed says so and offers to load it again (outside audit, 5 Nov 2026: a failed request read
+ * as "All caught up" and could hide a deadline). Refused or switched off (402, 403, 404) is not a failure: that block
+ * is simply empty for this reader, as before; the server checks again.
+ */
+const notOffered = (e) => [402, 403, 404].includes(Number(e?.status));
+function BlockFailed({ what, onRetry }) {
+  return (
+    <div className="people-load-failed" role="alert">
+      <WarningCircle size={16} weight="fill" aria-hidden="true" className="people-load-failed-mark" />
+      <span className="min-w-0 flex-1">{`Couldn't load ${what}.`}</span>
+      <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={onRetry}>Try again</button>
+    </div>
+  );
+}
+
+/* Tasks that are the same job for many people read as one line: "Collect ID and address proof · 6 people". */
+function groupTasks(tasks) {
+  const groups = new Map();
+  for (const t of tasks) {
+    const key = `${t.kind}|${t.title}`;
+    if (!groups.has(key)) groups.set(key, { key, title: t.title, kind: t.kind, tasks: [] });
+    groups.get(key).tasks.push(t);
+  }
+  return [...groups.values()];
+}
+const TASK_LINES = 5;
+
+function TaskLine({ task: t, onTick, label = t.title, person = true }) {
+  return (
+    <li className="people-row">
+      <input type="checkbox" className="mt-0.5" aria-label={`Done: ${label}`} onChange={() => onTick(t)} />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm">{person ? <>{t.title} <span className="ui-muted">· {t.employee?.name}</span></> : t.employee?.name}</p>
+        <p className="ui-caption">{t.kind.charAt(0)}{t.kind.slice(1).toLowerCase()}{t.dueDate ? ` · due ${formatDateIn(t.dueDate)}` : ''}{t.overdue ? <span className="ui-pill ui-pill-neg ml-2">Overdue</span> : null}</p>
+      </div>
+    </li>
+  );
+}
+
+function TaskGroups({ tasks, onTick }) {
+  const [open, setOpen] = useState(() => new Set());
+  const [all, setAll] = useState(false);
+  const groups = groupTasks(tasks);
+  const shown = all ? groups : groups.slice(0, TASK_LINES);
+  const toggle = (k) => setOpen((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+  return (
+    <>
+      <ul className="people-list">
+        {shown.map((g) => (g.tasks.length === 1 ? <TaskLine key={g.key} task={g.tasks[0]} onTick={onTick} /> : (
+          <li key={g.key} className="people-task-group">
+            <button type="button" className="people-row people-row-action w-full" aria-expanded={open.has(g.key)} onClick={() => toggle(g.key)}>
+              <span className="min-w-0 flex-1 text-left">
+                <span className="block text-sm">{g.title} <span className="ui-muted">· {plural(g.tasks.length, 'person', 'people')}</span></span>
+                <span className="ui-caption block">{g.kind.charAt(0)}{g.kind.slice(1).toLowerCase()}{g.tasks.some((t) => t.overdue) ? ' · some overdue' : ''}</span>
+              </span>
+              <CaretRight size={16} className="people-task-caret ui-subtle shrink-0" aria-hidden="true" />
+            </button>
+            {open.has(g.key) ? (
+              <ul className="people-task-people">
+                {g.tasks.map((t) => <TaskLine key={t.id} task={t} onTick={onTick} label={`${g.title} for ${t.employee?.name || 'this person'}`} person={false} />)}
+              </ul>
+            ) : null}
+          </li>
+        )))}
+      </ul>
+      {groups.length > TASK_LINES ? (
+        <div className="people-task-more">
+          <button type="button" className="people-more" onClick={() => setAll((v) => !v)}>{all ? 'Show fewer' : `Show all ${groups.length}`}</button>
+        </div>
+      ) : null}
+    </>
+  );
 }
 
 /* Work anniversaries in the next 30 days, from each person's joining date. */
@@ -243,7 +306,7 @@ export default function PeopleOverview({ openScreen }) {
   const [news, setNews] = useState(null);
   const [events, setEvents] = useState(null);
   /* Final pay due for leavers whose last day has come (WORKFLOW-GAP-RESEARCH 4.3). */
-  const [finalPay, setFinalPay] = useState([]);
+  const [finalPay, setFinalPay] = useState(null);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const revealRoot = useReveal();
@@ -253,7 +316,25 @@ export default function PeopleOverview({ openScreen }) {
   /* The setup list replaces "All caught up" while it is showing (HomeSetup). */
   const [setupShowing, setSetupShowing] = useState(false);
   const onSetup = useCallback((d) => setSetupShowing(Boolean(d?.setup?.show)), []);
-  const loadTasks = () => listMyTasks().then(setTasks).catch(() => setTasks([]));
+  const [failed, setFailed] = useState({});
+  /* Each source loads on its own, so one failure leaves the rest of Home working. */
+  const loader = (key, fetch, set, map = (v) => v) => () => {
+    setFailed((f) => ({ ...f, [key]: false }));
+    return fetch().then((v) => set(map(v))).catch((e) => {
+      if (notOffered(e)) { set(map(null)); return; }
+      set(null);
+      setFailed((f) => ({ ...f, [key]: true }));
+    });
+  };
+  const load = {
+    todos: loader('todos', getPeopleHome, setTodos, (v) => v || []),
+    people: loader('people', () => listEmployees({ limit: 500 }), setPeople, (r) => (r?.employees || []).filter((p) => p.status !== 'LEFT')),
+    leave: loader('leave', listLeaveRequests, setLeave, (v) => v || []),
+    news: loader('news', () => listRecords('announcements'), setNews, (v) => v || []),
+    events: loader('events', () => listRecords('events'), setEvents, (v) => v || []),
+    finalPay: loader('finalPay', finalPayList, setFinalPay, (v) => v || []),
+    tasks: loader('tasks', listMyTasks, setTasks, (v) => v || []),
+  };
   const tick = async (t) => {
     try {
       await updateChecklistTask(t.id, { done: true });
@@ -280,24 +361,13 @@ export default function PeopleOverview({ openScreen }) {
     getOverview()
       .then(setData)
       .catch((e) => setError(String(e?.message || 'Could not load the overview.')));
-    getPeopleHome()
-      .then(setTodos)
-      .catch(() => setTodos([]));
-    listEmployees({ limit: 500 })
-      .then((r) => setPeople((r?.employees || []).filter((p) => p.status !== 'LEFT')))
-      .catch(() => setPeople([]));
-    listLeaveRequests()
-      .then(setLeave)
-      .catch(() => setLeave([]));
-    /* Engage may be switched off for the company: then both lists are simply empty. */
-    listRecords('announcements').then(setNews).catch(() => setNews([]));
-    listRecords('events').then(setEvents).catch(() => setEvents([]));
-    finalPayList().then(setFinalPay).catch(() => setFinalPay([]));
-    loadTasks();
+    /* Engage may be switched off for the company: then announcements and events are simply empty (notOffered). */
+    Object.values(load).forEach((fn) => fn());
     /* Opened from the Monday summary's e-mail: counted once (PRODUCT-VIEW §7). */
     try {
       if (new URLSearchParams(window.location.search).get('from') === 'weekly') summaryOpened().catch(() => {});
     } catch { /* no address to read */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loads once on mount; Try again calls each loader itself.
   }, []);
   const go = (screen, params) => () => openScreen?.(screen, params);
   const openPerson = (id) => () => openScreen?.('employee', { id });
@@ -358,15 +428,15 @@ export default function PeopleOverview({ openScreen }) {
           {may('PEOPLE::HR Cases::VIEW') ? <button type="button" className="soft-pill" data-tint="lilac" onClick={go('helpdesk')}><ChatsCircle size={18} aria-hidden="true" /> HR cases</button> : null}
           {may('PEOPLE::Announcements::CREATE') ? <button type="button" className="soft-pill" data-tint="butter" onClick={go('announcements')}><Megaphone size={18} aria-hidden="true" /> Announce</button> : null}
           {may('PEOPLE::Employees::CREATE') ? (
-            <button type="button" className="soft-pill soft-pill-primary" onClick={go('employeeNew')}>
-              Add an employee
-              <span className="soft-pill-orb"><ArrowUpRight size={16} weight="bold" aria-hidden="true" /></span>
+            <button type="button" className="ui-btn ui-btn-primary" onClick={go('employeeNew')}>
+              <Plus size={16} weight="bold" aria-hidden="true" /> Add an employee
             </button>
           ) : null}
         </div>
       </header>
       <HomeCheckIn />
-      {finalPay.length ? (
+      {failed.finalPay ? <BlockFailed what="final pay due" onRetry={load.finalPay} /> : null}
+      {finalPay?.length ? (
         <section aria-label="Final pay due" className="space-y-2" data-reveal style={{ '--i': 1 }}>
           {finalPay.length === 1 ? (
             <FinalPayBanner clock={finalPay[0]} name={finalPay[0].name} showRule={false} action={<button type="button" className="ui-link inline-flex min-h-11 items-center whitespace-nowrap sm:min-h-0" onClick={go('leavers', { open: finalPay[0].employeeId })}>Open plan</button>} />
@@ -392,7 +462,7 @@ export default function PeopleOverview({ openScreen }) {
                   </span>
                 ) : null}
               </span>
-              <span className="soft-band-stat-note">{leave ? `${data.headcount - outToday.length} of ${data.headcount} at work` : 'Loading leave'}</span>
+              <span className="soft-band-stat-note">{leave ? `${data.headcount - outToday.length} of ${data.headcount} at work` : failed.leave ? "Couldn't load leave" : 'Loading leave'}</span>
             </button>
             <button type="button" className="soft-band-stat" data-tint="peach" data-attention={waiting > 0 || undefined} onClick={go('approvals')}>
               <span className="soft-band-stat-label"><SealCheck size={16} aria-hidden="true" /> To approve</span>
@@ -409,7 +479,7 @@ export default function PeopleOverview({ openScreen }) {
             )}
           </div>
 
-          <Bezel i={2}>
+          <Block i={2}>
             <section aria-labelledby="todo-h">
               <PanelHead id="todo-h" icon={SealCheck} tint="peach" title="Waiting for you" action={pending.length ? <button type="button" className="people-more" onClick={go('leaveRequests')}>All requests <CaretRight size={14} aria-hidden="true" /></button> : null} />
               {pending.length ? (
@@ -431,7 +501,9 @@ export default function PeopleOverview({ openScreen }) {
                   ))}
                 </ul>
               ) : null}
-              {!todos ? (
+              {failed.todos ? (
+                <BlockFailed what="what waits for you" onRetry={load.todos} />
+              ) : !todos ? (
                 <div className="p-4"><SkeletonCard lines={2} /></div>
               ) : otherTodos.length ? (
                 <ul className="people-list">
@@ -451,61 +523,19 @@ export default function PeopleOverview({ openScreen }) {
                     </li>
                   ))}
                 </ul>
-              ) : !pending.length ? (
+              ) : !pending.length && leave && !failed.leave ? (
                 <p className="people-empty">{setupShowing ? 'Nothing waits for you yet. Start with the steps below.' : <><strong>All caught up</strong>. Nothing needs your answer right now.</>}</p>
               ) : null}
             </section>
-          </Bezel>
+          </Block>
 
           {/* The setup list sits under what waits on you, so a request is never below the fold behind it (2 Nov 2026). */}
           <HomeSetup openScreen={openScreen} onState={onSetup} />
 
-          {openTasks.length ? (
-            <Bezel i={3}>
-              <section aria-labelledby="mytasks-h">
-                <PanelHead id="mytasks-h" icon={CheckSquare} tint="sky" title="Your tasks" />
-                <ul className="people-list">
-                  {openTasks.slice(0, 6).map((t) => (
-                    <li key={t.id} className="people-row">
-                      <input type="checkbox" className="mt-0.5" aria-label={`Done: ${t.title}`} onChange={() => tick(t)} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm">{t.title} <span className="ui-muted">· {t.employee?.name}</span></p>
-                        <p className="ui-caption">{t.kind.charAt(0)}{t.kind.slice(1).toLowerCase()}{t.dueDate ? ` · due ${formatDateIn(t.dueDate)}` : ''}{t.overdue ? <span className="ui-pill ui-pill-neg ml-2">Overdue</span> : null}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            </Bezel>
-          ) : null}
-
-          <Bezel i={4}>
-            <section aria-labelledby="out-h">
-              <PanelHead id="out-h" icon={AirplaneTilt} tint="mint" title="Out today" action={<button type="button" className="people-more" onClick={go('leaveCalendar')}>Leave calendar <CaretRight size={14} aria-hidden="true" /></button>} />
-              {outToday.length ? (
-                <ul className="soft-out">
-                  {outToday.map((r) => (
-                    <li key={r.id}>
-                      <button type="button" className="soft-out-card" onClick={openPerson(r.employeeId)}>
-                        <Face person={{ name: r.employeeName, photoUrl: r.photoUrl }} size={34} colour={colourOf(r.department)} />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold">{r.employeeName}</span>
-                          <span className="ui-caption block truncate">{r.leaveTypeName || 'Leave'}</span>
-                          <span className="soft-back">Back {backOn(r.toDate)}</span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="people-empty">{leave ? 'Everyone is in today.' : 'Loading leave…'}</p>
-              )}
-            </section>
-          </Bezel>
-
-          <Bezel i={6}>
+          <Block i={6}>
             <section aria-labelledby="snap-h">
               <PanelHead id="snap-h" icon={ChartLineUp} tint="sky" title="Company snapshot" action={<button type="button" className="people-more" onClick={go('reports')}>Reports <CaretRight size={14} aria-hidden="true" /></button>} />
+              {failed.people ? <BlockFailed what="the company snapshot" onRetry={load.people} /> : (
               <div className="soft-snapshot">
                 <div className="soft-snap-growth">
                   <div className="flex items-baseline gap-2">
@@ -553,12 +583,13 @@ export default function PeopleOverview({ openScreen }) {
                   </div>
                 </div>
               </div>
+              )}
             </section>
-          </Bezel>
+          </Block>
         </div>
 
-        <aside className="soft-side" aria-label="Company news">
-          <Bezel i={2}>
+        <aside className="soft-side" aria-label="Company news and your day">
+          <Block i={2}>
             <section aria-labelledby="news-h">
               <PanelHead id="news-h" icon={Megaphone} tint="butter" title="Announcements" action={may('PEOPLE::Announcements::CREATE') ? <button type="button" className="people-more" onClick={go('announcements')}>Post one <CaretRight size={14} aria-hidden="true" /></button> : null} />
               {posts.length ? (
@@ -579,12 +610,12 @@ export default function PeopleOverview({ openScreen }) {
                   ))}
                 </ul>
               ) : (
-                <p className="people-empty">{news ? 'Nothing posted yet. Share news, a policy change or a welcome.' : 'Loading…'}</p>
+                failed.news ? <BlockFailed what="announcements" onRetry={load.news} /> : <p className="people-empty">{news ? 'Nothing posted yet. Share news, a policy change or a welcome.' : 'Loading…'}</p>
               )}
             </section>
-          </Bezel>
+          </Block>
 
-          <Bezel i={3}>
+          <Block i={3}>
             <section aria-labelledby="events-h">
               <PanelHead id="events-h" icon={Confetti} tint="lilac" title="Coming up" action={may('PEOPLE::Events::VIEW') ? <button type="button" className="people-more" onClick={go('events')}>All events <CaretRight size={14} aria-hidden="true" /></button> : null} />
               {upcoming.length ? (
@@ -607,11 +638,11 @@ export default function PeopleOverview({ openScreen }) {
                   })}
                 </ul>
               ) : (
-                <p className="people-empty">{events ? 'No events planned. A Fun Friday is a good start.' : 'Loading…'}</p>
+                failed.events ? <BlockFailed what="events" onRetry={load.events} /> : <p className="people-empty">{events ? 'No events planned. A Fun Friday is a good start.' : 'Loading…'}</p>
               )}
             </section>
-          </Bezel>
-          <Bezel i={5}>
+          </Block>
+          <Block i={5}>
             <section aria-labelledby="celebrate-h">
               <PanelHead id="celebrate-h" icon={Cake} tint="butter" title="Celebrate" action={<span className="ui-caption">Next 30 days</span>} />
               {celebrations.length || data.joinedThisMonth.length ? (
@@ -650,7 +681,40 @@ export default function PeopleOverview({ openScreen }) {
                 <p className="people-empty">Nothing to celebrate in the next 30 days.</p>
               )}
             </section>
-          </Bezel>
+          </Block>
+
+          <Block i={4}>
+            <section aria-labelledby="out-h">
+              <PanelHead id="out-h" icon={AirplaneTilt} tint="mint" title="Out today" action={<button type="button" className="people-more" onClick={go('leaveCalendar')}>Leave calendar <CaretRight size={14} aria-hidden="true" /></button>} />
+              {outToday.length ? (
+                <ul className="soft-out">
+                  {outToday.map((r) => (
+                    <li key={r.id}>
+                      <button type="button" className="soft-out-card" onClick={openPerson(r.employeeId)}>
+                        <Face person={{ name: r.employeeName, photoUrl: r.photoUrl }} size={34} colour={colourOf(r.department)} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold">{r.employeeName}</span>
+                          <span className="ui-caption block truncate">{r.leaveTypeName || 'Leave'}</span>
+                          <span className="soft-back">Back {backOn(r.toDate)}</span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                failed.leave ? <BlockFailed what="who is out today" onRetry={load.leave} /> : <p className="people-empty">{leave ? 'Everyone is in today.' : 'Loading leave…'}</p>
+              )}
+            </section>
+          </Block>
+
+          {openTasks.length || failed.tasks ? (
+            <Block i={4}>
+              <section aria-labelledby="mytasks-h">
+                <PanelHead id="mytasks-h" icon={CheckSquare} tint="sky" title="Your tasks" />
+                {failed.tasks ? <BlockFailed what="your tasks" onRetry={load.tasks} /> : <TaskGroups tasks={openTasks} onTick={tick} />}
+              </section>
+            </Block>
+          ) : null}
         </aside>
       </div>
     </div>

@@ -33,7 +33,7 @@ export function visibleColumns(columns, prefs) {
   return ordered.map((k) => byKey.get(k)).filter((c) => c.always || !hidden.has(c.key));
 }
 
-function RowMenu({ label, items }) {
+export function RowMenu({ label, items }) {
   const [open, setOpen] = useState(false);
   const btn = useRef(null);
   const list = useRef(null);

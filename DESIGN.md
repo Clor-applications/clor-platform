@@ -81,8 +81,10 @@ component, read this one.
 Self-hosted (Fontsource) in `packages/ui/src/index.css`. **Inter for the work,
 Bricolage Grotesque for the brand** (2026-10-29, Direction D): warm display,
 plain Inter for figures. Bricolage is the wordmark and page titles (`h1`,
-`.ui-t-page`) and the sign-in display — nothing else. Rank inside a screen
-still comes from size and weight.
+`.ui-t-page`) and the sign-in display — nothing else; in People also the large
+figures. Two faces, not one (owner, 4 Nov 2026, design audit Q10): section heads,
+the rail and module panel, names, initials, tables and running text are Inter
+(Q11). Rank inside a screen still comes from size and weight.
 
 - **Display:** Bricolage Grotesque Variable (optical size auto), 700–800. In People it also sets large figures (count tiles, figure cards) via `--font-display`; tables, money and running text stay Inter.
 - **Everything else:** Inter — tabular figures, large x-height, wide weight range.
@@ -93,13 +95,15 @@ still comes from size and weight.
 | Role | Font | Size / line | Weight | Notes |
 |------|------|-------------|--------|-------|
 | Page title | Bricolage Grotesque | 24 / 29 | 700 | `letter-spacing: -.025em` |
-| Section title | Inter | 16 / 24 | 600 | |
+| Page title (People) | Bricolage Grotesque | 28 / 34 | 800 | Home's greeting 34 / 40, 28 on a phone |
+| Large figure (People) | Bricolage Grotesque | 24–32 | 800 | count tiles and figure cards only |
+| Section title | Inter | 16 / 24 | 600 | ink, also in People; panel heads too |
 | Body, UI | Inter | 14 / 20 | 400–500 | |
 | Table cell | Inter | 13 / 18 | 400 | |
 | Money | Inter | 13 / 18 | 400 | tabular-nums, right-aligned |
 | Label, caption | Inter | 12 / 16 | 500 | `.04em`, uppercase |
 
-All visible headings use weight 700. Table headings use the shared lilac
+Page titles use weight 700 (800 in People); section titles 600. Table headings use the shared lilac
 header surface and step to the next tint on hover, so sortable and filterable
 columns provide a clear cursor response without introducing another colour.
 
@@ -215,6 +219,8 @@ Rules that come out of that:
   In light both resolve to white so nothing changes; in dark, a menu opened on
   a card used to sit at exactly the card's colour with only a shadow between
   them. Shadow alone is not enough separation on a dark ground.
+- **People's shadows are warm ink** (`#1F1A1C`), not the platform's navy: the sky palette redefines the three
+  tokens, and Home's soft blocks read them (design audit, 4 Nov 2026). The primary button has no shadow at rest.
 - **Shadows are token-only.** No `shadow-lg` or any Tailwind shadow utility in
   app chrome — dark mode redefines these three and a hard-coded shadow does not
   follow.
@@ -537,6 +543,9 @@ top-right primary would need the owner's approval first.
 - **Approach:** minimal-functional.
 - **Duration:** 120ms state, 200ms surface.
 - **No entrance animation on list rows.** Data should be there when you look.
+- **People Home** settles once, on mount: every block at once, opacity and an 8px rise over 200ms, staggered 30ms
+  (at most 120ms). Nothing waits to be scrolled to, nothing is blurred, and the growth line draws in 400ms
+  (design audit, 4 Nov 2026).
 - Respect `prefers-reduced-motion`.
 
 ## Component Contract
@@ -632,6 +641,7 @@ because focus, portals and event order cannot be read off the source.
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-11-04 | People design audit: the owner's twelve answers | The designer's soft-skill audit (`docs/people/design-v1/DESIGN-AUDIT-2026-11-04.md`) asked twelve questions where the skill and this file disagree; the owner accepted every recommendation the same day. Q1 keep Inter as the working face. Q2 no double bezel: the switched-off `.soft-bezel` and `--soft-pad` are deleted. Q3 no button-in-button arrow: Home's *Add an employee* is the plain primary with its `+`. Q4 keep 12px inside a group and 24px between groups. Q5 no blur fade-up: Home settles in 200ms on mount (Motion). Q6 keep the white top bar and the rail. Q7 no eyebrow pills. Q8 keep the icon sets; fix their meaning instead. Q9 no grain, mesh gradients or changing layouts. Q10 two faces, Inter and Bricolage, People page titles 28/800 (CLAUDE.md and the scale say so now). Q11 Bricolage for titles and figures only; section heads, the rail, panel names and initials back to Inter. Q12 radii platform-wide: a separate lane; People sets its own `--radius*` tokens to 8 and 12 meanwhile. Built with the audit's blockers 1–9: one Approve shape (an 8px button, 28px, 44px on a phone), no glow on the primary, warm-ink shadows, the phone Employees list starting higher, phone sheets with their actions in a sticky footer, Home's tasks grouped and its two columns balanced |
 | 2026-11-04 | People: a white work area, colour in the accents, a plain right panel | Owner: "except sidebars use complete white background, use more different colours along with red, yellow… make right parts very clean". Tinted figure tiles, grey trays, the neutral head row and the record's oxblood header turn white; colour moves into small marks in five families (teal, green, clay, violet, marigold) beside red; table faces keep their own hues instead of solid oxblood. The right panel drops its dividers and its grid of boxed quick links for a plain list. The module panel goes to 216px: at 200px "Attendance requests" was cut |
 | 2026-11-03 | A chosen view is marigold | Owner, on People's "In use / Retired" switch (solid oxblood): "use different color like green or orange, any best in entire app". Marigold with oxblood words (6.9:1) on a warm neutral tray, through `--choice` / `--on-choice` / `--choice-tray`, read by every selected-segment rule (platform, Blaze, People's tray and segmented strips). Orange-family marigold is already the brand's second colour; red is the action and green means done, so neither fits a choice. Accounting's indigo palette unsets the tokens and is unchanged |
 | 2026-11-03 | People: no hero card, a white rail, colour beside the red | Owner, after the red brand went live: "remove hero card and sidebar complete red background in people", then "only red is visible where is other colours". Home's greeting leaves its oxblood card for the white page (Add an employee the one red primary); the rail and the phone tab bar turn white with oxblood icons. The red brand had folded every wash into blush, so figures, panel heads and the module panel all read pink: figures get their own tints again (slate, green, clay, blush), panel heads and list strips go white, the module panel a warm neutral, and green returns for done and present. A leave type is never red |

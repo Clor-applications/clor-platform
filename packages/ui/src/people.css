@@ -453,7 +453,7 @@
   font-size: 0.875rem;
   font-weight: 500;
   color: rgb(var(--fg));
-  transition: transform 500ms var(--soft-ease), box-shadow 500ms var(--soft-ease), background-color 300ms var(--soft-ease);
+  transition: transform 120ms var(--soft-ease), box-shadow 120ms var(--soft-ease), background-color 120ms var(--soft-ease);
 }
 .soft-pill:hover { box-shadow: 0 0 0 1px rgb(var(--soft-ring)), var(--soft-ambient); }
 .soft-pill:active { transform: scale(0.98); }
@@ -463,40 +463,23 @@
   padding: 0 0.375rem 0 1.25rem;
   background: rgb(var(--brand));
   color: rgb(var(--on-brand));
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 8px 24px -10px rgb(var(--brand) / 0.7);
   font-weight: 600;
 }
-.soft-pill-primary:hover { box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 12px 32px -10px rgb(var(--brand) / 0.8); }
-.soft-pill-orb {
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.18);
-  transition: transform 500ms var(--soft-ease);
-}
-.soft-pill-primary:hover .soft-pill-orb { transform: translate(2px, -1px) scale(1.05); }
+.soft-pill-primary:hover { background: rgb(var(--brand-ink)); }
 
 /* Bento: a hero, four tiles, then lists of uneven width. */
 
-.soft-bezel {
-  padding: var(--soft-pad);
-  border-radius: var(--soft-r);
-  background: rgb(var(--soft-tray));
-  box-shadow: 0 0 0 1px rgb(var(--soft-ring));
-}
 .soft-core {
   display: block;
   width: 100%;
-  border-radius: calc(var(--soft-r) - var(--soft-pad));
+  border-radius: var(--soft-r);
   background: rgb(var(--surface));
   box-shadow: var(--soft-highlight), var(--soft-ambient);
   overflow: hidden;
   text-align: left;
 }
 .soft-core-action {
-  transition: transform 600ms var(--soft-ease), box-shadow 600ms var(--soft-ease);
+  transition: transform 120ms var(--soft-ease), box-shadow 120ms var(--soft-ease);
 }
 .soft-core-action:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 3px; }
 @media (hover: hover) and (pointer: fine) {
@@ -524,15 +507,15 @@
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  height: 2rem;
-  padding: 0 0.875rem;
-  border-radius: 999px;
+  height: 1.75rem;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-btn);
   background: rgb(var(--surface));
   box-shadow: 0 0 0 1px rgb(var(--soft-ring));
   font-size: 0.8125rem;
   font-weight: 500;
   color: rgb(var(--fg));
-  transition: transform 400ms var(--soft-ease), background-color 300ms var(--soft-ease), box-shadow 300ms var(--soft-ease);
+  transition: transform 120ms var(--soft-ease), background-color 120ms var(--soft-ease), box-shadow 120ms var(--soft-ease);
 }
 .soft-chip:hover:not(:disabled) { background: rgb(var(--surface-sunken)); }
 .soft-chip:active:not(:disabled) { transform: scale(0.96); }
@@ -590,7 +573,7 @@
   background: rgb(var(--surface));
   box-shadow: 0 0 0 1px rgb(var(--soft-ring)), var(--soft-ambient);
   color: rgb(var(--fg));
-  transition: transform 600ms var(--soft-ease), box-shadow 600ms var(--soft-ease);
+  transition: transform 120ms var(--soft-ease), box-shadow 120ms var(--soft-ease);
 }
 @media (hover: hover) and (pointer: fine) {
   .soft-band-stat:hover { transform: translateY(-3px); box-shadow: 0 0 0 1px rgb(var(--soft-ring)), var(--soft-ambient-hi); }
@@ -614,7 +597,7 @@
 /* Growth: the headcount, the year as an area, and the teams. */
 .soft-chart { position: relative; display: flex; flex-direction: column; min-height: 12rem; margin: 0; }
 .soft-chart svg { flex: 1; width: 100%; min-height: 10rem; overflow: visible; }
-.soft-chart-line { stroke: rgb(var(--brand)); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: soft-draw 1600ms var(--soft-ease) 300ms forwards; }
+.soft-chart-line { stroke: rgb(var(--brand)); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: soft-draw 400ms var(--soft-ease) forwards; }
 .soft-chart-dot {
   position: absolute;
   width: 0.875rem;
@@ -656,7 +639,7 @@
 .soft-bar > span { display: block; height: 100%; border-radius: 999px; background: rgb(var(--fg) / 0.7); }
 
 /* Announcements: the newest pinned in butter, the rest quiet. */
-.soft-news { display: flex; align-items: flex-start; gap: 0.875rem; width: 100%; padding: 1rem 1.5rem; text-align: left; transition: background-color 300ms var(--soft-ease); }
+.soft-news { display: flex; align-items: flex-start; gap: 0.875rem; width: 100%; padding: 1rem 1.5rem; text-align: left; transition: background-color 120ms var(--soft-ease); }
 .soft-news:hover { background: rgb(var(--surface-sunken) / 0.7); }
 .soft-news:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: -2px; }
 .soft-news-icon { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: 0.75rem; background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); }
@@ -667,12 +650,12 @@
 
 /* Coming up: a date tile per event; Fun Friday wears butter. */
 .soft-events { display: grid; gap: 0.5rem; padding: 0 1rem 1rem; }
-.soft-event { display: flex; align-items: center; gap: 0.875rem; width: 100%; padding: 0.625rem; text-align: left; border-radius: 1rem; transition: background-color 300ms var(--soft-ease), transform 500ms var(--soft-ease); }
+.soft-event { display: flex; align-items: center; gap: 0.875rem; width: 100%; padding: 0.625rem; text-align: left; border-radius: var(--radius-btn); transition: background-color 120ms var(--soft-ease), transform 120ms var(--soft-ease); }
 .soft-event:hover { background: rgb(var(--surface-sunken) / 0.8); }
 .soft-event:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 0; }
 .soft-event[data-fun] { background: rgb(var(--butter-soft) / 0.55); }
 .soft-event[data-fun]:hover { background: rgb(var(--butter-soft)); }
-.soft-event-date { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; width: 3rem; height: 3.25rem; border-radius: 0.875rem; background: rgb(var(--surface)); box-shadow: 0 0 0 1px rgb(var(--soft-ring)); }
+.soft-event-date { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; width: 3rem; height: 3.25rem; border-radius: var(--radius-btn); background: rgb(var(--surface)); box-shadow: 0 0 0 1px rgb(var(--soft-ring)); }
 .soft-event-date b { font-size: 1.125rem; line-height: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
 .soft-event-date span { font-size: 0.6875rem; font-weight: 600; color: rgb(var(--brand-ink)); }
 .soft-event[data-fun] .soft-event-date span { color: rgb(var(--butter-ink)); }
@@ -680,15 +663,15 @@
 .soft-event-title { display: block; font-size: 0.875rem; font-weight: 600; color: rgb(var(--fg)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .soft-event-meta { display: block; font-size: 0.75rem; color: rgb(var(--fg-muted)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Entry: each block rises out of a soft blur once it scrolls into view. */
+/* Entry (design audit, 4 Nov 2026): every block is shown as soon as Home mounts, not when it is scrolled to, and
+   settles in 200ms with opacity and an 8px rise; nothing is blurred (DESIGN.md: "Data should be there when you look"). */
 .people-soft [data-reveal] {
   opacity: 0;
-  transform: translateY(2rem);
-  filter: blur(6px);
-  transition: opacity 900ms var(--soft-ease), transform 900ms var(--soft-ease), filter 900ms var(--soft-ease);
-  transition-delay: calc(var(--i, 0) * 70ms);
+  transform: translateY(0.5rem);
+  transition: opacity 200ms var(--soft-ease), transform 200ms var(--soft-ease);
+  transition-delay: calc(min(var(--i, 0), 4) * 30ms);
 }
-.people-soft [data-reveal][data-shown] { opacity: 1; transform: none; filter: none; }
+.people-soft [data-reveal][data-shown] { opacity: 1; transform: none; }
 
 @media (max-width: 1279px) {
   .soft-insight:nth-child(3) { border-left: 0; }
@@ -702,10 +685,10 @@
   .people-soft .people-approval { flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .people-soft [data-reveal] { opacity: 1; transform: none; filter: none; transition: none; }
+  .people-soft [data-reveal] { opacity: 1; transform: none; transition: none; }
   .soft-chart-line { animation: none; stroke-dashoffset: 0; }
   .soft-band-stat { transition: none; }
-  .soft-pill, .soft-pill-orb, .soft-core-action, .soft-orb-btn, .soft-chip, .people-soft .people-member { transition: none; }
+  .soft-pill, .soft-core-action, .soft-orb-btn, .soft-chip, .people-soft .people-member { transition: none; }
   .soft-core-action:hover, .soft-orb-btn:hover, .people-soft .people-member:hover { transform: none; }
 }
 .soft-news-icon[data-symbol] { font-size: 1.125rem; background: rgb(var(--butter-soft, 255 244 199)); }
@@ -753,16 +736,14 @@
 .people-soft .people-approval { padding: 0.625rem 1.25rem; gap: 0.75rem; }
 .people-soft .people-empty { padding: 0.25rem 1.25rem 1.125rem; font-size: 0.8125rem; }
 .people-soft .soft-news { padding: 0.75rem 1.25rem; gap: 0.75rem; }
-.people-soft .soft-news-icon { width: 2rem; height: 2rem; border-radius: 0.625rem; }
+.people-soft .soft-news-icon { width: 2rem; height: 2rem; border-radius: var(--radius-btn); }
 .people-soft .soft-events { padding: 0 0.75rem 0.75rem; gap: 0.375rem; }
 .people-soft .soft-event { padding: 0.5rem; }
-.people-soft .soft-event-date { width: 2.625rem; height: 2.75rem; border-radius: 0.75rem; }
+.people-soft .soft-event-date { width: 2.625rem; height: 2.75rem; border-radius: var(--radius-btn); }
 .people-soft .soft-event-date b { font-size: 1rem; }
 .people-soft .people-pill-today { display: inline-flex; align-items: center; gap: 0.25rem; }
 .soft-pill[data-tint] > svg { color: rgb(var(--tint-ink)); }
-.people-soft .soft-pill { height: 2.5rem; padding: 0 1rem; }
-.people-soft .soft-pill-primary { padding: 0 0.3125rem 0 1.125rem; }
-.people-soft .soft-pill-orb { width: 1.875rem; height: 1.875rem; }
+.people-soft .soft-pill { height: 2.25rem; padding: 0 1rem; }
 
 /* Company snapshot: growth and teams on the left, three readings on the right. */
 .soft-snapshot { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); border-top: 1px solid rgb(var(--soft-ring)); }
@@ -807,22 +788,18 @@
 :root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { background: rgb(var(--app-bg)); }
 
 /*
- * People type (owner, 28 Oct 2026): Plus Jakarta Sans for what is read as a
- * heading or a figure, Inter for running text and data. Jakarta's open,
- * rounded forms suit a people product; Inter keeps tables dense and exact.
+ * People type (owner, 4 Nov 2026, design audit Q10 and Q11): two faces. Bricolage (--font-display, set with the red
+ * brand below) for page titles and large figures, nothing else; Inter for section heads, the navigation, names and data.
  */
-:root[data-palette='sky'] {
-  --font-display: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
-}
-:root[data-palette='sky'] :is(h1, .ui-t-page, .ui-t-sec, .soft-panel-title, .ui-split-panel-head, .ui-app-switch-name, .soft-band-stat-value, .soft-snap-value, .soft-chart-tip, .soft-event-date b, .people-row-count, .soft-news-title, .soft-event-title) {
+:root[data-palette='sky'] :is(h1, .ui-t-page, .soft-band-stat-value, .soft-snap-value, .soft-chart-tip) {
   font-family: var(--font-display);
 }
 :root[data-palette='sky'] .people-soft h1.soft-band-title { font-weight: 800; letter-spacing: -0.03em; }
 :root[data-palette='sky'] .soft-panel-title { font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; }
 :root[data-palette='sky'] .soft-band-stat-value, :root[data-palette='sky'] .soft-snap-value { font-weight: 800; letter-spacing: -0.02em; }
 :root[data-palette='sky'] .soft-band-eyebrow, :root[data-palette='sky'] .soft-band-stat-label { letter-spacing: 0.01em; }
-:root[data-palette='sky'] .ui-split-mod { font-family: var(--font-display); font-weight: 600; }
-:root[data-palette='sky'] .ui-split-panel :is(p.ui-caption) { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.06em; color: rgb(var(--fg-subtle)); }
+:root[data-palette='sky'] .ui-split-mod { font-weight: 600; }
+:root[data-palette='sky'] .ui-split-panel :is(p.ui-caption) { font-weight: 700; letter-spacing: 0.06em; color: rgb(var(--fg-subtle)); }
 
 
 /* Out today: a strip of small cards, one per person away, so the block stays short. */
@@ -834,10 +811,10 @@
   width: 100%;
   padding: 0.75rem;
   text-align: left;
-  border-radius: 1rem;
+  border-radius: var(--soft-card-r, 0.75rem);
   background: rgb(var(--mint-soft) / 0.45);
   box-shadow: inset 0 0 0 1px rgb(var(--mint-ink) / 0.1);
-  transition: transform 500ms var(--soft-ease), background-color 300ms var(--soft-ease);
+  transition: transform 120ms var(--soft-ease), background-color 120ms var(--soft-ease);
 }
 .soft-out-card:hover { background: rgb(var(--mint-soft)); transform: translateY(-2px); }
 .soft-out-card:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
@@ -861,14 +838,25 @@
 [data-palette='sky'] {
   --radius-btn: 0.5rem;
   --radius-input: 0.5rem;
+  --radius: 0.75rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-kpi: 0.75rem;
+}
+/* One shadow family in warm ink (design audit, 4 Nov 2026): the platform's three were tinted with the old navy. No
+   hairline ring in the token, as most surfaces that take it already draw their own 1px border. */
+:root[data-palette='sky']:not([data-theme='dark']),
+:root:not([data-theme='dark']) [data-palette='sky'] {
+  --shadow-card: 0 1px 2px rgb(31 26 28 / 0.04);
+  --shadow-pop: 0 12px 32px -12px rgb(31 26 28 / 0.18);
+  --shadow-lift: 0 10px 24px -10px rgb(31 26 28 / 0.16);
 }
 :root[data-palette='sky'] #main-content {
   --soft-card-r: 0.75rem;
 }
-/* Buttons: 8px. Primary keeps a soft glow; secondary is white on a hairline ring. */
+/* Buttons: 8px. Primary is a flat fill (no glow, design audit 4 Nov 2026); secondary is white on a hairline ring. */
 :root[data-palette='sky'] #main-content .ui-btn:not(.ui-icon-btn) { border-radius: var(--radius-btn); padding-inline: 1.125rem; font-weight: 600; transition: transform 300ms var(--soft-ease), box-shadow 300ms var(--soft-ease), background-color 200ms ease; }
 :root[data-palette='sky'] #main-content .ui-btn:not(.ui-icon-btn):active:not(:disabled) { transform: scale(0.98); }
-:root[data-palette='sky'] #main-content .ui-btn-primary { box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 8px 20px -10px rgb(var(--brand) / 0.7); }
 :root[data-palette='sky'] #main-content .ui-btn-secondary { border-color: transparent; background: rgb(var(--surface)); box-shadow: 0 0 0 1px rgb(var(--soft-ring)), 0 1px 2px rgb(24 24 27 / 0.04); }
 :root[data-palette='sky'] #main-content .ui-btn-secondary:hover:not(:disabled) { background: rgb(var(--surface)); box-shadow: 0 0 0 1px rgb(var(--soft-ring)), var(--soft-ambient); }
 :root[data-palette='sky'] #main-content .ui-btn-primary > svg, :root[data-palette='sky'] #main-content .ui-btn-secondary > svg { flex: none; }
@@ -909,7 +897,6 @@
 :root[data-palette='sky'] #main-content .ui-table thead .ui-th {
   background: rgb(var(--sky-soft) / 0.55) !important;
   color: rgb(var(--fg-muted));
-  font-family: var(--font-display);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -953,7 +940,7 @@
 :root[data-palette='sky'] #main-content .ui-page-heading p.ui-muted { display: none; }
 :root[data-palette='sky'] #main-content .ui-breadcrumb { margin-bottom: 0.125rem; font-size: 0.75rem; }
 :root[data-palette='sky'] #main-content .ui-btn:not(.ui-icon-btn):not(.ui-btn-sm) { height: 2.25rem; min-height: 2.25rem; padding-inline: 1rem; font-size: 0.875rem; }
-:root[data-palette='sky'] #main-content .ui-btn-sm:not(.ui-icon-btn) { height: 1.875rem; min-height: 1.875rem; padding-inline: 0.75rem; font-size: 0.8125rem; }
+:root[data-palette='sky'] #main-content .ui-btn-sm:not(.ui-icon-btn) { height: 1.75rem; min-height: 1.75rem; padding-inline: 0.75rem; font-size: 0.8125rem; }
 :root[data-palette='sky'] #main-content .ui-search-field .ui-input { height: 2.25rem; }
 :root[data-palette='sky'] #main-content .ui-record-tablist .ui-tab { height: 1.875rem; font-size: 0.8125rem; }
 :root[data-palette='sky'] #main-content .ui-metric { padding: 0.625rem 0.875rem; gap: 0.625rem; }
@@ -972,7 +959,7 @@
 
 /* Outline lists (Organisation overview and the like) sit on the same soft card as tables. */
 :root[data-palette='sky'] #main-content .ui-org-outline { border: 0; }
-:root[data-palette='sky'] #main-content section > .flex .ui-t-sec, :root[data-palette='sky'] #main-content section > h2.ui-t-sec { font-family: var(--font-display); font-size: 1rem; font-weight: 700; }
+:root[data-palette='sky'] #main-content section > .flex .ui-t-sec, :root[data-palette='sky'] #main-content section > h2.ui-t-sec { font-size: 1rem; font-weight: 600; }
 :root[data-palette='sky'] #main-content .ui-attention { padding: 0.5rem 0.875rem; border: 0; }
 
 /* Settings: one icon tile size on every card, soft cards, no section captions. */
@@ -983,7 +970,7 @@
   width: 2.25rem;
   height: 2.25rem;
   padding: 0.5rem;
-  border-radius: 0.625rem;
+  border-radius: var(--radius-btn);
   background: rgb(var(--tint, var(--surface-sunken)));
   color: rgb(var(--tint-ink, var(--fg)));
 }
@@ -1075,14 +1062,14 @@
 .att-cell[data-s='HOLIDAY'], .att-cell[data-s='WEEKLY_OFF'] { background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); }
 
 /* Structure lists: a coloured initial per row, the head's face, and each row's size as a bar against the largest. */
-.org-tile { display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 0.625rem; background: rgb(var(--tint, var(--sky-soft))); color: rgb(var(--tint-ink, var(--sky-ink))); font-family: var(--font-display, inherit); font-weight: 800; font-size: 0.8125rem; }
+.org-tile { display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: var(--radius-btn); background: rgb(var(--tint, var(--sky-soft))); color: rgb(var(--tint-ink, var(--sky-ink))); font-weight: 800; font-size: 0.8125rem; }
 
 /* Overview cards (Organisation): one per department or branch, size and share at a glance; the whole card opens its people. */
 .org-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr)); gap: 0.75rem; }
 .org-cards-sm { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
 .org-card {
   display: flex; flex-direction: column; gap: 0.375rem; width: 100%; height: 100%;
-  padding: 0.875rem 1rem; text-align: left; border-radius: 1rem;
+  padding: 0.875rem 1rem; text-align: left; border-radius: var(--soft-card-r, 0.75rem);
   background: linear-gradient(170deg, rgb(var(--tint) / 0.55) 0%, rgb(var(--surface)) 55%);
   box-shadow: 0 0 0 1px rgb(var(--tint-ink) / 0.1), var(--soft-ambient, none);
   transition: transform 400ms var(--soft-ease, ease), box-shadow 400ms var(--soft-ease, ease);
@@ -1355,7 +1342,6 @@
 /* Drawers and dialogs sit outside the page, so they missed People's buttons
    and fields (square 4px corners beside the page's round ones). Same look. */
 :root[data-palette='sky'] .ui-scrim .ui-btn:not(.ui-icon-btn) { border-radius: var(--radius-btn); padding-inline: 1.125rem; font-weight: 600; }
-:root[data-palette='sky'] .ui-scrim .ui-btn-primary { box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 8px 20px -10px rgb(var(--brand) / 0.7); }
 :root[data-palette='sky'] .ui-scrim :is(.ui-input, .ui-select, textarea.ui-input) { border-radius: var(--radius-input); border-color: rgb(var(--border)); background: rgb(var(--surface)); }
 :root[data-palette='sky'] .ui-scrim :is(.ui-input, .ui-select):focus { border-color: rgb(var(--brand)); box-shadow: 0 0 0 3px rgb(var(--brand) / 0.15); }
 :root[data-palette='sky'] .ui-scrim .ui-icon-btn { border-radius: var(--radius-btn); }
@@ -1393,7 +1379,7 @@
   --fg-heading: 29 29 31;
 }
 :root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { border-right: 1px solid rgb(var(--border)); }
-:root[data-palette='sky']:not([data-theme='dark']) #main-content :is(h1.ui-t-page, .ui-t-sec) { color: rgb(var(--fg-heading)); }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content h1.ui-t-page { color: rgb(var(--fg-heading)); }
 :root[data-palette='sky'] #main-content .ui-table tbody tr:hover { background: rgb(var(--brand-subtle)); }
 
 /* Initials in one of five washes, picked from the name, the same person always the same colour. */
@@ -1575,10 +1561,9 @@
   --warm: 226 96 66;                /* coral #E26042: highlights only, never a button */
   --warm-soft: 253 236 231;
   --warm-ink: 168 56 30;            /* 6.3:1 on white */
-  --lift: 0 1px 2px rgb(16 48 47 / 0.05), 0 6px 20px -12px rgb(16 48 47 / 0.14);
-  --lift-hi: 0 2px 4px rgb(16 48 47 / 0.06), 0 14px 32px -14px rgb(16 48 47 / 0.22);
+  --lift: var(--shadow-card);
+  --lift-hi: var(--shadow-lift);
   --soft-r: 0.75rem;
-  --soft-pad: 0px;
   --soft-ring: 222 227 227;
   --soft-highlight: 0 0 #0000;
   --soft-ambient: var(--lift);
@@ -1599,9 +1584,7 @@
   --soft-ring: 48 54 54;
 }
 
-/* Home blocks: one sheet with one crisp edge. The grey tray and the white top
-   highlight around each block read as a white-washed, blurry border. */
-:root[data-palette='sky'] .soft-bezel { padding: 0; background: none; box-shadow: none; }
+/* Home blocks: one sheet with one crisp edge (no double bezel: owner, 4 Nov 2026, design audit Q2). */
 :root[data-palette='sky'] .soft-core { box-shadow: 0 0 0 1px rgb(var(--border)), var(--lift); }
 @media (hover: hover) and (pointer: fine) {
   :root[data-palette='sky'] .soft-core-action:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgb(var(--brand-border)), var(--lift-hi); }
@@ -1645,12 +1628,6 @@
 :root[data-palette='sky'] .ui-split-mod[data-current] > svg [opacity='0.2'] { opacity: 0.3; }
 :root[data-palette='sky'] .ui-split-mod[data-current] > span { color: rgb(var(--brand-ink)); font-weight: 700; }
 
-/* The primary button: a lit top edge and a teal glow, so it reads as a thing to press. */
-:root[data-palette='sky'] #main-content .ui-btn-primary,
-:root[data-palette='sky'] .ui-scrim .ui-btn-primary {
-  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0));
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 1px 2px rgb(var(--brand-pressed) / 0.3), 0 6px 16px -8px rgb(var(--brand) / 0.7);
-}
 
 /* Six figures fit one line from 900px of content: 10rem columns left the sixth alone on a second row. */
 @media (min-width: 1024px) {
@@ -1791,8 +1768,8 @@
   --warn-ink: 92 10 22;
   --sky-soft: 230 244 242;
   --sky-ink: 15 104 96;
-  --lift: 0 1px 2px rgb(92 10 22 / 0.05), 0 6px 20px -12px rgb(92 10 22 / 0.16);
-  --lift-hi: 0 2px 4px rgb(92 10 22 / 0.06), 0 14px 32px -14px rgb(92 10 22 / 0.24);
+  --lift: var(--shadow-card);
+  --lift-hi: var(--shadow-lift);
   --soft-ring: 234 223 225;
 }
 /* The page is Cotton everywhere People draws a ground: the work area, the module panel and the rail. */
@@ -1846,14 +1823,13 @@
   --rail-ink-strong: 31 26 28;
 }
 /* Indigo: headings and the big figures. */
-:root[data-palette='sky']:not([data-theme='dark']) #main-content :is(h1, h2, .ui-t-page, .ui-t-sec, .soft-panel-title, .ui-metric:not([data-zero]) .ui-metric-value, .soft-band-stat-value) { color: rgb(var(--fg-heading)); }
+:root[data-palette='sky']:not([data-theme='dark']) #main-content :is(h1, .ui-t-page, .ui-metric:not([data-zero]) .ui-metric-value, .soft-band-stat-value) { color: rgb(var(--fg-heading)); }
 /* Marigold: the mark beside the open module, the line under the open tab, progress, tab counts and the main action's arrow. */
 :root[data-palette='sky']:not([data-theme='dark']) .ui-split-mod[data-current]::before { background: rgb(var(--warm)); }
 :root[data-palette='sky']:not([data-theme='dark']) :is(.ui-tab-indicator, .ui-tab.is-active::after) { background: rgb(var(--warm)); }
 :root[data-palette='sky']:not([data-theme='dark']) .org-card-bar > span { background: rgb(var(--warm)); }
 /* A count that waits on you (`data-tone="warn"` on a tab's or a side block's count) is marigold; every other count keeps the lilac wash (31 Oct 2026: the rule named .ui-count, which no component renders). */
 :root[data-palette='sky']:not([data-theme='dark']) :is(.ui-tab-count, .ui-side-count)[data-tone='warn'] { background: rgb(var(--warm)) !important; color: rgb(var(--oxblood)) !important; font-weight: 700; }
-:root[data-palette='sky']:not([data-theme='dark']) .soft-pill-primary .soft-pill-orb { background: rgb(var(--warm)); color: rgb(var(--oxblood)); }
 /* Lilac: a row under the pointer, and the chosen row. */
 :root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table tbody tr:is(.ui-row-click:hover, [aria-selected='true']) > td { background: rgb(var(--brand-subtle)); }
 
@@ -2115,13 +2091,13 @@ html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail > .ui-split-mod[data-more] > svg { background: transparent; color: rgb(var(--oxblood)); }
 /* The module panel: blush; the open screen a white tile with red words and a red edge. */
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { background: rgb(var(--frame-panel)); border-right: 1px solid rgb(var(--panel-line)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-panel-head .ui-t-sec { color: rgb(var(--on-panel)); font-family: var(--font-display); font-size: 1.125rem; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-panel-head .ui-t-sec { color: rgb(var(--on-panel)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item { color: rgb(var(--on-panel)); font-size: 0.875rem; }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item .ui-glyph { color: rgb(var(--on-panel)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item .ui-glyph [opacity='0.2'] { fill: rgb(var(--panel-line)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item:hover:not([aria-current='page']) { background: rgb(var(--panel-hi)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] {
-  background: rgb(255 255 255); color: rgb(var(--brand-ink)); font-weight: 700; box-shadow: inset 3px 0 0 rgb(var(--red)), 0 1px 2px rgb(92 10 22 / 0.08);
+  background: rgb(255 255 255); color: rgb(var(--brand-ink)); font-weight: 700; box-shadow: inset 3px 0 0 rgb(var(--red)), var(--shadow-card);
 }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] .ui-glyph { color: rgb(var(--brand-ink)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] .ui-glyph [opacity='0.2'] { fill: rgb(var(--marigold)); }
@@ -2147,7 +2123,6 @@ html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:n
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:not(.soft-pill-primary) svg { color: rgb(var(--btn-icon-on-white)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary { background: rgb(var(--red)); color: rgb(255 255 255); box-shadow: none; }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary:hover { background: rgb(var(--brand-hover)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary .soft-pill-orb { background: rgb(255 255 255); color: rgb(var(--red)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-value { font-size: 2rem; line-height: 2.25rem; }
 /* Out today 0, On notice 0: quiet grey, weight 600 (4.3:1 on lilac at 32px, above the 3:1 large text needs). */
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-value[data-zero] { color: rgb(var(--fg-subtle)) !important; font-weight: 600; }
@@ -2183,7 +2158,7 @@ html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-tabbar-ite
   html:root[data-palette='sky']:not([data-theme='dark']) .people-home h1.soft-band-title { font-size: 1.75rem !important; line-height: 2.125rem !important; }
   html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* On a phone Waiting for you comes before the figures, so its first request is above the fold at 390×844. */
-  html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-main > .soft-bezel:has(#todo-h) { order: -1; }
+  html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-main > .soft-core:has(#todo-h) { order: -1; }
 }
 
 /*
@@ -2215,6 +2190,77 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-ch
 html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-chip:nth-child(5n + 5) > svg { color: rgb(var(--btn-icon-on-white)); }
 /* The module panel holds its longest name ("Attendance requests") on one line: 216px (200 cut it). */
 :root[data-palette='sky'] .ui-split-panel { width: 13.5rem; }
+
+/*
+ * Design audit blockers (4 Nov 2026, docs/people/design-v1/DESIGN-AUDIT-2026-11-04.md; the owner accepted all twelve
+ * answers the same day). Findings 1–3 and 5 are fixed where their rules live, above; these are the ones that have to
+ * win over the layers before them.
+ */
+/* 4. The primary is a flat red fill: no glow, no lit edge at rest; hover changes the fill only (DESIGN.md: a lift is
+   a promise of interactivity, and the primary is already the one red thing on the screen). */
+html:root[data-palette='sky'] :is(#main-content, .ui-scrim) :is(.ui-btn-primary, .ui-btn-brand),
+html:root[data-palette='sky'] .soft-pill-primary { background-image: none; box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) :is(#main-content, .ui-scrim) :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) { background-color: rgb(var(--brand-ink)); box-shadow: none; }
+/* 8, Q11. Section and panel heads are Inter 16/24 at 600 in ink: one display moment per screen, the page title.
+   The navigation, names, initials and small counts are in the working face too. */
+/* The platform sets h2 at 18/700 with !important (index.css, type roles), so these have to say it the same way. */
+html:root[data-palette='sky'] :is(#main-content, .ui-scrim, .ui-split-panel) :is(h2, .ui-t-sec, .soft-panel-title) { font-family: inherit; font-size: 1rem !important; line-height: 1.5rem !important; font-weight: 600 !important; letter-spacing: 0; color: rgb(var(--fg)); }
+html:root[data-palette='sky'] :is(.ui-split-mod, .ui-split-mod > span, .ui-split-panel p.ui-caption, .ui-app-switch-name, .ui-topbar-initials, .ui-avatar-initials, .people-face, .ui-side-title, .soft-news-title, .soft-event-title, .soft-event-date b, .people-row-count) { font-family: inherit; }
+/* 9. Home's tasks: the same job for many people is one line that opens to its people; five lines, then Show all. */
+html:root[data-palette='sky'] .people-task-group > .people-row-action .people-task-caret { transition: transform 120ms var(--soft-ease); }
+html:root[data-palette='sky'] .people-task-group > .people-row-action[aria-expanded='true'] .people-task-caret { transform: rotate(90deg); }
+html:root[data-palette='sky'] .people-task-people { border-top: 1px solid rgb(var(--border)); background: rgb(var(--surface-sunken) / 0.5); }
+html:root[data-palette='sky'] .people-task-people > li + li { border-top: 1px solid rgb(var(--border)); }
+html:root[data-palette='sky'] .people-soft .people-task-people .people-row { padding-left: 2.25rem; }
+html:root[data-palette='sky'] .people-task-more { padding: 0.5rem 1.25rem 0.75rem; border-top: 1px solid rgb(var(--border)); }
+/* A block that did not load: its warning mark, its own edge, and Try again (outside audit, 5 Nov 2026). */
+html:root[data-palette='sky'] .people-load-failed { display: flex; align-items: center; gap: 0.625rem; margin: 0 1.25rem 1rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-btn); background: rgb(var(--surface)); box-shadow: inset 3px 0 0 rgb(var(--neg)), inset 0 0 0 1px rgb(var(--border)); font-size: 0.8125rem; color: rgb(var(--fg)); }
+html:root[data-palette='sky'] .people-home > .people-load-failed { margin: 0; }
+html:root[data-palette='sky'] .people-load-failed-mark { flex: none; color: rgb(var(--neg)); }
+/* Simple mode's suggestion: one line with its two buttons, not a paragraph card in the middle of the work. */
+html:root[data-palette='sky'] .people-simple-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; padding: 0.5rem 0.75rem; border: 1px solid rgb(var(--border)); border-radius: var(--soft-card-r, 0.75rem); background: rgb(var(--surface)); }
+/* 6, 7. Phone. One or the other of a pair is drawn: the desktop's words, the phone's short form. */
+html:root[data-palette='sky'] .people-phone-only { display: none; }
+@media (max-width: 767px) {
+  html:root[data-palette='sky'] .people-phone-only { display: inline-flex; }
+  html:root[data-palette='sky'] .people-desktop-only { display: none !important; }
+  /* Employees: the figures are one row that scrolls on its own, zeros left out; search and an icon Filters share a row. */
+  html:root[data-palette='sky'] #main-content .people-figures-scroll { display: flex; flex-wrap: nowrap; gap: 0; overflow-x: auto; scrollbar-width: none; min-height: 0; }
+  html:root[data-palette='sky'] #main-content .people-figures-scroll::-webkit-scrollbar { display: none; }
+  html:root[data-palette='sky'] #main-content .people-figures-scroll > * { flex: none; border: 0 !important; }
+  html:root[data-palette='sky'] #main-content .people-figures-scroll > [role='listitem']:has(> [data-zero]),
+  html:root[data-palette='sky'] #main-content .people-figures-scroll > [data-zero] { display: none; }
+  html:root[data-palette='sky'] #main-content .people-figures-scroll .ui-metric { padding-block: 0.5rem; }
+  html:root[data-palette='sky'] #main-content .people-directory { --space-y: 0.75rem; }
+  html:root[data-palette='sky'] #main-content .people-directory.space-y-6 { gap: 0.5rem; }
+  html:root[data-palette='sky'] #main-content .people-directory.space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 0 !important; }
+  html:root[data-palette='sky'] #main-content .people-directory .ui-datatable-toolbar > .flex { flex-wrap: nowrap; }
+  html:root[data-palette='sky'] #main-content .people-directory .ui-datatable-toolbar .ui-search-field { flex: 1 1 auto; min-width: 0; width: auto; }
+  html:root[data-palette='sky'] #main-content .people-filters-btn { flex: none; width: 2.75rem; min-width: 2.75rem; padding-inline: 0 !important; justify-content: center; position: relative; }
+  html:root[data-palette='sky'] #main-content .people-filters-btn .ui-pill { position: absolute; top: -0.375rem; right: -0.375rem; margin: 0; }
+  html:root[data-palette='sky'] #main-content .people-directory .ui-attention > li { flex-wrap: nowrap; white-space: nowrap; }
+  html:root[data-palette='sky'] #main-content .people-directory .ui-attention { padding: 0 0.25rem; border-bottom: 0; }
+  html:root[data-palette='sky'] #main-content .people-directory .ui-attention > li { min-height: 2.75rem; padding-block: 0; }
+  /* The module panel and the tab bar already say where this is; the crumb row gave the list 22px. */
+  html:root[data-palette='sky'] #main-content .people-directory .ui-page-heading .ui-breadcrumb { display: none; }
+  /* The title, then one row of actions: Add employee across, the ⋮ at its end. */
+  html:root[data-palette='sky'] #main-content .people-directory .ui-page-heading { row-gap: 0.5rem; margin-bottom: 0; }
+  html:root[data-palette='sky'] #main-content .people-directory .ui-page-heading > div:last-child { width: 100%; flex-wrap: nowrap; }
+  html:root[data-palette='sky'] #main-content .people-directory .ui-page-heading > div:last-child > .ui-btn-primary { flex: 1 1 auto; }
+  html:root[data-palette='sky'] #main-content .people-directory .ui-page-heading > div:last-child > .people-phone-only { order: 2; }
+  /* Home: one column in the order a phone needs it: what waits on you, the figures, your tasks, who is out, then the rest. */
+  html:root[data-palette='sky'] .people-home .soft-layout { display: flex; flex-direction: column; gap: 1.25rem; }
+  html:root[data-palette='sky'] .people-home :is(.soft-main, .soft-side) { display: contents; }
+  html:root[data-palette='sky'] .people-home .soft-core:has(#todo-h) { order: -4 !important; }
+  html:root[data-palette='sky'] .people-home .soft-band-stats { order: -3; }
+  html:root[data-palette='sky'] .people-home .soft-core:has(#mytasks-h) { order: -2; }
+  html:root[data-palette='sky'] .people-home .soft-core:has(#out-h) { order: -1; }
+  html:root[data-palette='sky'] .people-simple-line > p { flex-basis: 100%; }
+  /* Sheets: the actions in a sticky footer under the content; the primary and the one beside it half and half. */
+  html:root[data-palette='sky'] .ui-sheet-actions { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom)); border-top: 1px solid rgb(var(--border)); background: rgb(var(--surface)); }
+  html:root[data-palette='sky'] .ui-sheet-actions > .ui-btn { flex: 1 1 0; min-width: 0; min-height: 2.75rem; margin: 0; justify-content: center; }
+  html:root[data-palette='sky'] .ui-sheet-actions > .ui-icon-btn { flex: none; width: 2.75rem; height: 2.75rem; }
+}
 
 /*
  * The employee app (shared with Attendance, 31 Oct 2026). It wears brand D's "waiting" and the open tab's marigold

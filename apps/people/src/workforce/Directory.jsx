@@ -6,7 +6,7 @@ import { CalendarClock, Download, Filter, Pencil, Plus, Trash2, TreePalm, Upload
 import { useContentIcon } from '@ui/components/ui/colorSwap';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
-import DataTable from '@ui/components/ui/DataTable';
+import DataTable, { RowMenu } from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
 import Alert from '@ui/components/ui/Alert';
@@ -199,14 +199,21 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     (p.lfrom || p.lto) && { k: 'left', label: `Left ${p.lfrom ? formatDate(p.lfrom) : 'any time'} – ${p.lto ? formatDate(p.lto) : 'now'}` },
   ].filter(Boolean);
 
+  const phoneMore = [
+    allowed('PEOPLE::Employees::CREATE') ? { key: 'import', label: 'Import employees', onSelect: () => openScreen?.('employeeImport') } : null,
+    allowed('PEOPLE::Employees::EXPORT') ? { key: 'export', label: 'Export employees', disabled: exporting, onSelect: () => setExportOpen(true) } : null,
+  ].filter(Boolean);
+
   return (
     <div className="people-directory space-y-6">
       <PageHeader
         breadcrumb={[{ label: 'People' }, { label: 'Employees' }]}
         title="Employees"
         actions={<>
-          {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('employeeImport')}><Upload size={16} aria-hidden="true" /> Import</button> : null}
-          {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary" disabled={exporting} onClick={() => setExportOpen(true)}><Download size={16} aria-hidden="true" /> Export</button> : null}
+          {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary people-desktop-only" onClick={() => openScreen?.('employeeImport')}><Upload size={16} aria-hidden="true" /> Import</button> : null}
+          {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary people-desktop-only" disabled={exporting} onClick={() => setExportOpen(true)}><Download size={16} aria-hidden="true" /> Export</button> : null}
+          {/* On a phone Import and Export wait behind a ⋮, so the title, the actions and the list start on one row (design audit, 4 Nov 2026). */}
+          {phoneMore.length ? <span className="people-phone-only"><RowMenu label="More: import or export" items={phoneMore} /></span> : null}
           {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => openScreen?.('employeeNew', {})}><Plus size={16} aria-hidden="true" /> Add employee</button> : null}
         </>}
       />
@@ -254,9 +261,9 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
             </span>
           )}
           toolbar={<>
-            <SearchField value={p.q || ''} onSearch={(q) => { if (/\d{6,}/.test(q)) { setPrivateQ(q); set({ q: null, page: null }); } else { setPrivateQ(''); set({ q: q || null, page: null }); } }} placeholder="Search name, employee ID or work email" label="Search employees" className="w-full sm:w-80" />
-            <button type="button" className="ui-btn ui-btn-secondary" aria-haspopup="dialog" onClick={() => setFiltersOpen(true)}>
-              <Filter size={16} aria-hidden="true" /> Filters{filtersOn ? <span className="ui-pill ui-pill-info tabular-nums ml-1">{filtersOn}</span> : null}
+            <SearchField value={p.q || ''} onSearch={(q) => { if (/\d{6,}/.test(q)) { setPrivateQ(q); set({ q: null, page: null }); } else { setPrivateQ(''); set({ q: q || null, page: null }); } }} placeholder="Search name, ID or email" label="Search employees" className="w-full sm:w-80" />
+            <button type="button" className="ui-btn ui-btn-secondary people-filters-btn" aria-haspopup="dialog" aria-label={filtersOn ? `Filters, ${filtersOn} on` : 'Filters'} onClick={() => setFiltersOpen(true)}>
+              <Filter size={16} aria-hidden="true" /> <span className="people-desktop-only">Filters</span>{filtersOn ? <span className="ui-pill ui-pill-info tabular-nums ml-1">{filtersOn}</span> : null}
             </button>
             {selected.size ? (
               <div className="ui-bulkbar" role="status" aria-live="polite">
@@ -384,7 +391,7 @@ function MetricStrip({ counts, onPick }) {
   /* The company keeps who is leaving from this reader (Company choices): no leaving counts. */
   ].filter((m) => !counts.leavingsHidden || (m.k !== 'leftMonth' && m.k !== 'onNotice'));
   return (
-    <div className="ui-metric-strip" role="list" aria-label="Workforce counts">
+    <div className="ui-metric-strip people-figures-scroll" role="list" aria-label="Workforce counts">
       {items.map(({ k, label, value, Icon: LineIcon, patch }) => {
         const Icon = mark(LineIcon);
         const body = (tail) => <><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span> <span className="ui-metric-label">{label}</span>{tail ? <span className="sr-only">{tail}</span> : null}</span></>;
@@ -408,8 +415,8 @@ function Banners({ openScreen }) {
   }, []);
   const dismiss = (k, n) => { const next = { ...dismissed, [k]: n }; setDismissed(next); writeJson(DISMISS_KEY, next); };
   const items = [
-    docs && dismissed.docs !== docs ? { key: 'docs', tone: 'neg', text: `${docs} expired ${docs === 1 ? 'document' : 'documents'}`, link: 'Review', screen: 'dataHealth', n: docs } : null,
-    joiners && dismissed.joiners !== joiners ? { key: 'joiners', tone: 'warn', text: `${joiners} ${joiners === 1 ? 'joiner' : 'joiners'} with joining steps open`, link: 'Open Joining', screen: 'joiners', n: joiners } : null,
+    docs && dismissed.docs !== docs ? { key: 'docs', tone: 'neg', text: `${docs} expired ${docs === 1 ? 'document' : 'documents'}`, short: `${docs} expired`, link: 'Review', shortLink: 'Review', screen: 'dataHealth', n: docs } : null,
+    joiners && dismissed.joiners !== joiners ? { key: 'joiners', tone: 'warn', text: `${joiners} ${joiners === 1 ? 'joiner' : 'joiners'} with joining steps open`, short: `${joiners} ${joiners === 1 ? 'joiner' : 'joiners'}`, link: 'Open Joining', shortLink: 'Open', screen: 'joiners', n: joiners } : null,
   ].filter(Boolean);
   if (!items.length) return null;
   /* One quiet line, not a stack of coloured boxes: the list below is what the page is for. */
@@ -418,8 +425,10 @@ function Banners({ openScreen }) {
       {items.map((it) => (
         <li key={it.key}>
           <span className={`ui-attention-dot is-${it.tone}`} aria-hidden="true" />
-          <span>{it.text}</span>
-          <button type="button" className="ui-link" onClick={() => openScreen?.(it.screen)}>{it.link}</button>
+          {/* One line on a phone: "12 joiners · Open". */}
+          <span className="people-desktop-only">{it.text}</span>
+          <span className="people-phone-only">{it.short}</span>
+          <button type="button" className="ui-link" aria-label={it.link} onClick={() => openScreen?.(it.screen)}><span className="people-desktop-only">{it.link}</span><span className="people-phone-only">{it.shortLink}</span></button>
           <button type="button" className="ui-icon-btn ui-attention-x" aria-label={`Dismiss: ${it.text}`} onClick={() => dismiss(it.key, it.n)}><X size={14} aria-hidden="true" /></button>
         </li>
       ))}
