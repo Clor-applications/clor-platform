@@ -26,8 +26,9 @@ import { payrollPresetRule } from './presets.js';
  *    recorded (recordOnPayrollEngine). The two databases cannot share a transaction, so the order is the one that
  *    leaves a state the next look can finish: a Payroll approval whose step was not recorded (the process stopped in
  *    between) is caught up from the row by syncPayrollEngine, as the person Payroll names as approver;
- *  - what Payroll lets the person it is about do today stays allowed (approving their own loan, rejecting their own
- *    revision): the module writes it and the engine request closes to match ("direct"), as attendance's own requests.
+ *  - nobody decides their own loan, revision or settlement (owner's decision, 4 Nov 2026); someone alone in the
+ *    company whom Payroll lets decide their own under the maker-checker setting (`ownAllowed`) writes it directly and
+ *    the engine request closes to match ("direct"), as attendance's own requests.
  *
  * Ones already waiting when the switch goes on finish on the old path. The engine sends no notices (Payroll sends
  * none for these today) and no reminders.
@@ -44,17 +45,6 @@ export const PAYROLL_SOURCE_RIGHT: Record<PayrollSource, string> = {
   LOAN: 'PAYROLL::Payroll Loans::APPROVE',
   SALARY_REVISION: 'PAYROLL::Salary Revisions::APPROVE',
   FINAL_SETTLEMENT: 'PAYROLL::Payroll Runs::APPROVE',
-};
-
-/**
- * What Payroll lets the person it is about do today, kept for parity: approve their own loan (the loan routes have no
- * own-record check), reject their own revision (the reject route has none). Everything else about yourself Payroll
- * refuses before it asks the engine. Owner question in the PR: SPEC 5.6 says your own loan is never self-approved.
- */
-const OWN_ALLOWED: Record<PayrollSource, { approve: boolean; reject: boolean }> = {
-  LOAN: { approve: true, reject: false },
-  SALARY_REVISION: { approve: false, reject: true },
-  FINAL_SETTLEMENT: { approve: false, reject: false },
 };
 
 const portalOf = (employeeId: string) => `portal:${employeeId}`;
@@ -157,15 +147,16 @@ export async function openOnPayrollEngine(p: { accountId: string; orgId: string;
   }
 }
 
-/** The answer to "may this user decide the step waiting now?": take the step, or write it directly (what Payroll allows the person it is about). Null: not on the engine. */
+/** The answer to "may this user decide the step waiting now?": take the step, or write it directly (the person it is about, alone, as Payroll allowed). Null: not on the engine. */
 export type PayrollAsk = { engineId: string; take: 'STEP' | 'DIRECT' } | null;
 
 /**
  * Asked by Payroll's approve and reject routes after their own checks passed and before they write. The route's guard
  * has already said the person holds the right, so they are one of the step's people unless the row is about them;
- * then it is theirs only where Payroll allows it today (OWN_ALLOWED), and otherwise refused (403 NOT_YOUR_STEP).
+ * then it is theirs only when Payroll's own check let them (`ownAllowed`: nobody else in the company could, and the
+ * maker-checker setting allows it), and otherwise refused (403 NOT_YOUR_STEP).
  */
-export async function askPayrollEngine(p: { accountId: string; orgId: string; source: PayrollSource; sourceId: string; userId: string; approve: boolean }): Promise<PayrollAsk> {
+export async function askPayrollEngine(p: { accountId: string; orgId: string; source: PayrollSource; sourceId: string; userId: string; approve: boolean; ownAllowed?: boolean }): Promise<PayrollAsk> {
   const engine = await engineOf(p.orgId, p.source, p.sourceId);
   if (!engine) return null;
   if (!onEngine(engine)) {
@@ -175,13 +166,13 @@ export async function askPayrollEngine(p: { accountId: string; orgId: string; so
   }
   const { candidates, excluded } = await deciders(p.accountId, p.orgId, p.source, engine.subjectEmployeeId, p.userId);
   if (candidates.includes(p.userId)) return { engineId: engine.id, take: 'STEP' };
-  if (excluded.has(p.userId) && OWN_ALLOWED[p.source][p.approve ? 'approve' : 'reject']) return { engineId: engine.id, take: 'DIRECT' };
+  if (excluded.has(p.userId) && p.ownAllowed) return { engineId: engine.id, take: 'DIRECT' };
   throw new PayrollEngineRefusal('This is not yours to decide.');
 }
 
 /**
  * After Payroll's write committed: the step recorded as this person's decision (its people brought up to date first,
- * this person among them, as the route's guard said), or, for what Payroll allows the person it is about, taken by
+ * this person among them, as the route's guard said), or, for the person it is about alone in the company, taken by
  * them outside the step's people. Never fails Payroll's request: the write stands, and a step not recorded is caught
  * up from the row (syncPayrollEngine) when the row is next asked about, or by the engine's dues job.
  */
@@ -194,8 +185,8 @@ export async function recordOnPayrollEngine(p: { accountId: string; orgId: strin
       if (!onEngine(engine) || engine.id !== ask.engineId) return;
       const actor = actorFor(accountId, orgId, p.userId, engine.id);
       if (ask.take === 'DIRECT') {
-        if (p.approve) await handOnStep(actor, engine.id, { approvedBy: p.userId, why: 'Approved by the person it is about, as Payroll allows' });
-        else await closeAtSource(actor, engine.id, 'REJECTED', 'Rejected by the person it is about, as Payroll allows');
+        if (p.approve) await handOnStep(actor, engine.id, { approvedBy: p.userId, why: 'Approved by the person it is about: nobody else in the company can approve it' });
+        else await closeAtSource(actor, engine.id, 'REJECTED', 'Rejected by the person it is about: nobody else in the company can decide it');
         return;
       }
       const { candidates } = await deciders(accountId, orgId, p.source, engine.subjectEmployeeId, p.userId);

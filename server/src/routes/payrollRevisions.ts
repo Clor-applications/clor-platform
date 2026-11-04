@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { ownRecordRefusal, ownWorkRefusal } from '../services/makerChecker.js';
+import { ownRecordUnlessAlone, ownWorkRefusal, subjectUserIds } from '../services/makerChecker.js';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
@@ -355,11 +355,20 @@ const transition = (
         });
       }
 
-      /* A-13: nobody approves a raise to their own pay; the preparer approves only as the company's setting allows. */
+      /*
+       * A-13: nobody approves or rejects their own salary revision (owner's decision, 4 Nov 2026; SPEC 5.6); someone alone
+       * in the company follows the maker-checker setting, never a dead end. The preparer approves only as the setting
+       * allows; the person it is about is not "somebody else who could" (as settlements).
+       */
+      let alone = false;
+      if (to === 'APPROVED' || to === 'REJECTED') {
+        const approving = to === 'APPROVED';
+        const own = await ownRecordUnlessAlone(req, existing.employeeId, { what: 'salary revision', does: approving ? 'approve it' : 'reject it', right: approving ? 'approve it' : 'reject it', plural: 'salary revisions', module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SALARY_REVISION', entityId: existing.id, action: approving ? 'SELF_APPROVED' : 'SELF_REJECTED' });
+        if (own.refusal) return res.status(own.refusal.status).json(own.refusal.body);
+        alone = own.alone;
+      }
       if (to === 'APPROVED') {
-        const refused =
-          (await ownRecordRefusal(req, existing.employeeId, 'salary revision')) ||
-          (await ownWorkRefusal(req, { makers: [existing.createdByUserId, existing.reviewedByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SALARY_REVISION', entityId: existing.id, what: 'salary revision' }));
+        const refused = await ownWorkRefusal(req, { makers: [existing.createdByUserId, existing.reviewedByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SALARY_REVISION', entityId: existing.id, what: 'salary revision', subjects: await subjectUserIds(orgId, existing.employeeId) });
         if (refused) return res.status(refused.status).json(refused.body);
       }
 
@@ -368,7 +377,7 @@ const transition = (
       let ask: PayrollAsk = null;
       if (deciding) {
         try {
-          ask = await askPayrollEngine({ accountId, orgId, source: REVISION_SOURCE, sourceId: existing.id, userId: req.auth!.userId, approve: to === 'APPROVED' });
+          ask = await askPayrollEngine({ accountId, orgId, source: REVISION_SOURCE, sourceId: existing.id, userId: req.auth!.userId, approve: to === 'APPROVED', ownAllowed: alone });
         } catch (e) {
           if (e instanceof PayrollEngineRefusal) return res.status(e.status).json({ error: e.message, code: e.code });
           throw e;
@@ -422,10 +431,10 @@ payrollRevisionsRouter.post(
     if (!(await payrollRouteOk(req, res))) return;
     const { accountId, orgId } = req.tenant!;
     /* A-13: applying is what changes pay; never to the person applying it. */
-    const target = await payrollPrisma.salaryRevision.findFirst({ where: { accountId, orgId, id: String(req.params.id) }, select: { employeeId: true } });
-    if (target) {
-      const refused = await ownRecordRefusal(req, target.employeeId, 'salary revision');
-      if (refused) return res.status(refused.status).json(refused.body);
+    const target = await payrollPrisma.salaryRevision.findFirst({ where: { accountId, orgId, id: String(req.params.id) }, select: { employeeId: true, status: true } });
+    if (target && target.status === 'APPROVED') {
+      const { refusal } = await ownRecordUnlessAlone(req, target.employeeId, { what: 'salary revision', does: 'put it into effect', right: 'put it into effect', plural: 'salary revisions', module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SALARY_REVISION', entityId: String(req.params.id) });
+      if (refusal) return res.status(refusal.status).json(refusal.body);
     }
     try {
       const { revision, assignment } = await applyRevision({

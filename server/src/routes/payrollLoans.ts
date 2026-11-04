@@ -10,6 +10,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { PayrollLoanError, approveLoan, buildSchedule, summarise } from '../services/payroll/loan.js';
 import { forLiveEmployee } from '../services/payroll/employeeLock.js';
+import { ownRecordUnlessAlone, ownWorkRefusal, subjectUserIds } from '../services/makerChecker.js';
 import { LOAN_SOURCE, PayrollEngineRefusal, askPayrollEngine, openOnPayrollEngine, recordOnPayrollEngine, withdrawOnPayrollEngine } from '../services/people/approvals/payrollSource.js';
 
 /**
@@ -324,9 +325,23 @@ payrollLoansRouter.post(
     const { accountId, orgId } = req.tenant!;
     const userId = req.auth!.userId;
     const loanId = String(req.params.id);
+    /*
+     * Never your own loan, and whoever drafted it approves it only as the company's maker-checker setting allows
+     * (owner's decision, 4 Nov 2026; SPEC 5.6 and 4). Someone alone in the company follows the setting, never a dead end.
+     * A loan already approved answers as it is, as before.
+     */
+    const target = await payrollPrisma.payrollLoan.findFirst({ where: { accountId, orgId, id: loanId }, select: { employeeId: true, createdByUserId: true, status: true } });
+    let alone = false;
+    if (target && !['ACTIVE', 'COMPLETED', 'CANCELLED'].includes(target.status)) {
+      const own = await ownRecordUnlessAlone(req, target.employeeId, { what: 'loan', does: 'approve it', right: 'approve it', plural: 'loans', module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_LOAN', entityId: loanId });
+      if (own.refusal) return res.status(own.refusal.status).json(own.refusal.body);
+      alone = own.alone;
+      const mine = await ownWorkRefusal(req, { makers: [target.createdByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_LOAN', entityId: loanId, what: 'loan', subjects: await subjectUserIds(orgId, target.employeeId) });
+      if (mine) return res.status(mine.status).json(mine.body);
+    }
     try {
       /* On the approval engine (3a): the engine is asked whether this person may decide its step, and the step is recorded once the loan is approved. */
-      const ask = await askPayrollEngine({ accountId, orgId, source: LOAN_SOURCE, sourceId: loanId, userId, approve: true });
+      const ask = await askPayrollEngine({ accountId, orgId, source: LOAN_SOURCE, sourceId: loanId, userId, approve: true, ownAllowed: alone });
       const loan = await approveLoan({ accountId, orgId, userId, loanId });
       if ((loan as { approvedNow?: boolean }).approvedNow) await recordOnPayrollEngine({ accountId, orgId, source: LOAN_SOURCE, sourceId: loanId, userId, approve: true, ask });
       res.json({ loan: shape(loan, { installments: (loan as any).installments?.map(shapeInstallment) || [] }) });

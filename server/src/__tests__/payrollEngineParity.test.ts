@@ -217,18 +217,18 @@ describe('payroll on the approval engine: parity with the old path', () => {
   it('the expected outcomes, written down once (so parity is not two wrongs agreeing)', async () => {
     await setSwitch(asha, true);
     const loan = await measure('loan', asha, b, staff, everyone);
-    expect(loan.outcome).toMatchObject({ 'Asha Owner': 'APPROVED', 'Ravi Kumar': 'APPROVED', 'Meena Iyer': expect.stringMatching(/^403/), 'Kiran Rao': expect.stringMatching(/^403/) });
+    /* Loans follow maker-checker (owner's decision, 4 Nov 2026): the owner prepared it and Ravi can approve, so Ravi does. */
+    expect(loan.outcome).toMatchObject({ 'Asha Owner': expect.stringMatching(/^403 MAKER_CHECKER You prepared this loan/), 'Ravi Kumar': 'APPROVED', 'Meena Iyer': expect.stringMatching(/^403/), 'Kiran Rao': expect.stringMatching(/^403/) });
     const revision = await measure('revision', asha, b, staff, everyone);
     expect(revision.outcome['Asha Owner']).toMatch(/^403 MAKER_CHECKER You prepared this salary revision/);
     expect(revision.outcome['Ravi Kumar']).toBe('APPROVED');
     const own = await measure('settlement', asha, b, ravisOwn, everyone);
     expect(own.outcome['Ravi Kumar']).toMatch(/^403 OWN_RECORD This is your own full and final settlement/);
-    /* Ravi's own loan: Payroll has no own-record check on loans today, and the engine keeps that (owner question in the PR). */
-    const ownLoan = await measure('loan', asha, b, ravisOwn, [ravi]);
-    expect(ownLoan.outcome['Ravi Kumar']).toBe('APPROVED');
-    const e = await engineOf(asha.orgId, 'loan', (await runInTenant(asha.orgId, () => payrollPrisma.payrollLoan.findFirstOrThrow({ where: { orgId: asha.orgId, employeeId: ravisOwn, status: 'ACTIVE' }, orderBy: { createdAt: 'desc' } }))).id);
-    expect(e).toMatchObject({ status: 'APPROVED' });
-    expect(e!.steps.find((s) => s.status === 'APPROVED')).toMatchObject({ decidedByUserId: ravi.userId, comment: 'Approved by the person it is about, as Payroll allows' });
+    /* Ravi's own loan and revision: never his (owner's decision, 4 Nov 2026); the owner, who prepared them, may, since the only other approver is the person it is about. */
+    const ownLoan = await measure('loan', asha, b, ravisOwn, [ravi, asha]);
+    expect(ownLoan.outcome).toEqual({ 'Ravi Kumar': '403 OWN_RECORD This is your own loan; somebody else has to approve it.', 'Asha Owner': 'APPROVED' });
+    const ownRevision = await measure('revision', asha, b, ravisOwn, [ravi, asha]);
+    expect(ownRevision.outcome).toEqual({ 'Ravi Kumar': '403 OWN_RECORD This is your own salary revision; somebody else has to approve it.', 'Asha Owner': 'APPROVED' });
     await setSwitch(asha, false);
   }, 180_000);
 });
@@ -247,7 +247,7 @@ describe('payroll on the approval engine: switch, old rows, changes, races', () 
     await setSwitch(asha, false);
   }, 120_000);
 
-  it('a revision: edited back to draft withdraws its request, sent again opens it again; rejected by an approver, or by the person it is about as Payroll allows', async () => {
+  it('a revision: edited back to draft withdraws its request, sent again opens it again; rejected by the owner, never by the person it is about', async () => {
     await setSwitch(asha, true);
     const id = await fresh('revision', asha, b, ravisOwn);
     expect((await engineOf(asha.orgId, 'revision', id))?.status).toBe('WAITING');
@@ -255,10 +255,11 @@ describe('payroll on the approval engine: switch, old rows, changes, races', () 
     expect((await engineOf(asha.orgId, 'revision', id))?.status).toBe('WITHDRAWN');
     await pay(asha).post(`/revisions/${id}/submit-review`).expect(200);
     expect((await engineOf(asha.orgId, 'revision', id))?.status).toBe('WAITING');
-    /* Ravi rejects his own revision: the reject route has no own-record check today; kept, and the request closes to match. */
-    await pay(ravi).post(`/revisions/${id}/reject`).expect(200);
-    const own = await engineOf(asha.orgId, 'revision', id);
-    expect(own?.status).toBe('REJECTED');
+    /* Ravi may not reject his own revision (owner's decision, 4 Nov 2026); it keeps waiting, and the owner may. */
+    expect((await pay(ravi).post(`/revisions/${id}/reject`).expect(403)).body).toMatchObject({ code: 'OWN_RECORD', error: 'This is your own salary revision; somebody else has to reject it.' });
+    expect((await engineOf(asha.orgId, 'revision', id))?.status).toBe('WAITING');
+    await pay(asha).post(`/revisions/${id}/reject`).expect(200);
+    expect((await engineOf(asha.orgId, 'revision', id))?.status).toBe('REJECTED');
 
     const other = await fresh('revision', ravi, b, staff);
     await pay(asha).post(`/revisions/${other}/reject`).expect(200);
@@ -338,7 +339,7 @@ describe('payroll on the approval engine: switch, old rows, changes, races', () 
 });
 
 describe('payroll on the approval engine: a one-person company', () => {
-  it('the owner alone approves what they prepared for an employee (SELF_APPROVED, as today); their own revision and settlement are refused as today, their own loan approved as today; none waits on the engine for nobody', async () => {
+  it('the owner alone approves what they prepared for an employee (SELF_APPROVED, as today); their own settlement is refused as today, their own loan and revision follow maker-checker; none waits on the engine for nobody', async () => {
     const solo = await owner('Owner Alone');
     const sb = await books(solo);
     const emp = await person(solo, sb, 'Shop Hand');
@@ -361,7 +362,8 @@ describe('payroll on the approval engine: a one-person company', () => {
     }
     for (const kind of KINDS) expect(results[`true|${kind}`], kind).toEqual(results[`false|${kind}`]);
     expect(results['true|loan']).toMatchObject({ forEmp: { 'Owner Alone': 'APPROVED' }, mine: { 'Owner Alone': 'APPROVED' } });
-    expect(results['true|revision']).toMatchObject({ forEmp: { 'Owner Alone': 'APPROVED' }, mine: { 'Owner Alone': expect.stringMatching(/^403 OWN_RECORD/) } });
+    /* The owner alone and their own revision: nobody else can approve it, so the maker-checker setting decides (AUTO: allowed, audited), never a dead end. */
+    expect(results['true|revision']).toMatchObject({ forEmp: { 'Owner Alone': 'APPROVED' }, mine: { 'Owner Alone': 'APPROVED' } });
     expect(results['true|settlement']).toMatchObject({ forEmp: { 'Owner Alone': 'APPROVED' }, mine: { 'Owner Alone': 'OWN_RECORD' } });
     expect((results['true|revision'] as any).rows[0].selfApproved).toBe(1);
     /* The owner's own revision is not left waiting on the engine for someone who does not exist: it is on the old path. */
@@ -381,4 +383,54 @@ describe('payroll on the approval engine: the switch', () => {
     const audit = await platformPrisma.auditLog.findFirst({ where: { orgId: c.orgId, entity: 'COMPANY_SETTING', entityId: 'payroll.onEngine' } });
     expect(audit?.message).toBe('Loans, salary revisions and final settlements decided by the approval rules: Off → On');
   }, 60_000);
+});
+
+describe('your own loan and salary revision (owner decision, 4 Nov 2026): never yours, on either path; the owner alone follows maker-checker', () => {
+  for (const on of [false, true]) {
+    it(`switch ${on ? 'on' : 'off'}: Ravi cannot approve his own loan, nor approve or reject his own revision; the owner can`, async () => {
+      await setSwitch(asha, on);
+      const loan = await fresh('loan', asha, b, ravisOwn);
+      expect((await approve('loan', ravi, loan).expect(403)).body).toEqual({ code: 'OWN_RECORD', error: 'This is your own loan; somebody else has to approve it.' });
+      expect(((await rowOf('loan', asha.orgId, loan, b)) as any).status).toBe('DRAFT');
+      await approve('loan', asha, loan).expect(200);
+      const rev = await fresh('revision', asha, b, ravisOwn);
+      expect((await approve('revision', ravi, rev).expect(403)).body.code).toBe('OWN_RECORD');
+      expect((await pay(ravi).post(`/revisions/${rev}/reject`).expect(403)).body.code).toBe('OWN_RECORD');
+      expect(((await rowOf('revision', asha.orgId, rev, b)) as any).status).toBe('REVIEWED');
+      await approve('revision', asha, rev).expect(200);
+      expect((await pay(ravi).post(`/revisions/${rev}/apply`).expect(403)).body.code).toBe('OWN_RECORD');
+      await setSwitch(asha, false);
+    }, 120_000);
+  }
+
+  it('the owner alone and their own loan and revision: AUTO and ALLOW approve it with a SELF_APPROVED line by name; STRICT refuses in plain words; on both paths', async () => {
+    const solo = await owner('Lone Owner');
+    const sb = await books(solo);
+    const me = await person(solo, sb, 'Lone Owner', { userId: solo.userId });
+    for (const on of [false, true]) {
+      await setSwitch(solo, on);
+      for (const mode of ['AUTO', 'ALLOW', 'STRICT']) {
+        await setMode(solo, mode);
+        const loan = await fresh('loan', solo, sb, me);
+        const rev = await fresh('revision', solo, sb, me);
+        if (mode === 'STRICT') {
+          expect((await approve('loan', solo, loan).expect(403)).body.error, `${on} ${mode}`).toBe('This is your own loan, and nobody else in the company can approve it. Give someone else the right to approve loans, or change the approval setting.');
+          expect((await approve('revision', solo, rev).expect(403)).body.code, `${on} ${mode}`).toBe('OWN_RECORD');
+          continue;
+        }
+        await approve('loan', solo, loan).expect(200);
+        await approve('revision', solo, rev).expect(200);
+        /* Put into effect once: a second salary starting on the same day is refused for its own reason. */
+        if (!on && mode === 'AUTO') await pay(solo).post(`/revisions/${rev}/apply`).expect(200);
+        const lines = await platformPrisma.auditLog.findMany({ where: { orgId: solo.orgId, entityId: { in: [loan, rev] }, action: 'SELF_APPROVED' } });
+        const own = lines.filter((l) => JSON.parse(l.metadata || '{}').ownRecord);
+        expect(own.length, `${on} ${mode}`).toBeGreaterThanOrEqual(2);
+        expect(own[0].message, `${on} ${mode}`).toContain(mode === 'ALLOW' ? 'the company allows one person to do both' : 'nobody else in the company can approve it');
+      }
+      await setMode(solo, 'AUTO');
+    }
+    /* Reject your own, alone: the same rule. */
+    const rev = await fresh('revision', solo, sb, me);
+    await pay(solo).post(`/revisions/${rev}/reject`).expect(200);
+  }, 240_000);
 });
