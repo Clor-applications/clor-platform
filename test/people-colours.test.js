@@ -95,7 +95,55 @@ describe('figures', () => {
 
   it('figure cards that are not buttons (the People report) wear brand D too', () => {
     expect(people).not.toMatch(/section > button\.ui-card/);
-    expect(people.match(/section > :is\(button, div\)\.ui-card/g)).toHaveLength(8);
+    expect(people).toMatch(/section > :is\(button, div\)\.ui-card\[data-tint\] > span:first-child \{ background: rgb\(var\(--tint\)\) !important; color: rgb\(var\(--tint-ink\)\) !important; \}/);
+  });
+});
+
+/*
+ * Colour by meaning, never by place (review of #123, 4 Nov 2026): a strip, a figure card or a quick link takes the
+ * tint its caller names, so marigold lands only on what waits on the reader and a figure keeps its colour when the
+ * one beside it is hidden.
+ */
+describe('tints are named by meaning, not handed out by position', () => {
+  const tintsIn = (src) => [...src.matchAll(/label: '([^']+)'[^\n]*?tint: '(\w+)'/g)].map(([, label, tint]) => [label, tint]);
+  it('no tint in People is picked by nth-child', () => {
+    expect(people).not.toMatch(/nth-child\(5n/);
+    expect(people).not.toMatch(/:nth-child\([^)]*\)[^{\n]*\{[^}\n]*(--tint|-ink\))/);
+  });
+  it('the shared figure cards on People screens each name a tint; only "To decide" is marigold', () => {
+    const revisions = Object.fromEntries(tintsIn(read('apps/payroll/src/screens/SalaryRevisions.jsx')));
+    expect(revisions).toMatchObject({ 'To decide': 'butter', Approved: 'mint', 'Yearly rise': 'sky', 'Average rise': 'lilac' });
+    const report = Object.fromEntries(tintsIn(read('apps/people/src/screens/PeopleReports.jsx')));
+    expect(report).toMatchObject({ 'Headcount today': 'sky', Joiners: 'mint', Leavers: 'peach', Attrition: 'lilac' });
+    expect(read('packages/ui/src/components/list/ListPageParts.jsx')).toMatch(/data-tint=\{card\.tint \|\| undefined\}/);
+  });
+  it('every quick link in People names a tint, and marigold only for Approvals', () => {
+    const panels = read('apps/people/src/panels.jsx');
+    const links = [...panels.matchAll(/\{ label: '([^']+)', icon: \w+,(?: screen: '\w+',)?( tint: '(\w+)',)? onClick/g)];
+    expect(links.length).toBeGreaterThan(40);
+    for (const [, label, , tint] of links) {
+      expect(tint, label).toMatch(/^(sky|mint|peach|lilac|butter)$/);
+      expect(tint === 'butter', label).toBe(label === 'Approvals');
+    }
+    for (const [, label, tint] of panels.matchAll(/\['([^']+)', \w+, '\w+', '(\w+)'\]/g)) expect(tint, label).not.toBe('butter');
+  });
+  it.each([
+    'apps/people/src/workforce/Directory.jsx',
+    'apps/people/src/organization/Overview.jsx',
+    'packages/ui/src/lifecycle/Overview.jsx',
+    'packages/ui/src/timeOff/TimeOverview.jsx',
+  ])('%s: each figure in the strip names a tint, marigold only on one that waits on you', (file) => {
+    const src = read(file);
+    const items = [...src.matchAll(/\{ k: '\w+',[^\n]*/g)].map(([line]) => line).filter((line) => /value:/.test(line) && /Icon/.test(line));
+    expect(items.length).toBeGreaterThan(2);
+    for (const line of items) {
+      expect(line).toMatch(/tint: '(sky|mint|peach|lilac|butter)'/);
+      expect(/tint: 'butter'/.test(line), line).toBe(/attention: true/.test(line));
+    }
+    expect(src).toMatch(/role="listitem"[^>]*data-tint=\{tint\}/);
+  });
+  it('department and branch cards cycle four tints and leave marigold to what waits', () => {
+    expect(read('apps/people/src/organization/Overview.jsx')).toMatch(/const ORG_TINTS = \['sky', 'mint', 'lilac', 'peach'\];/);
   });
 });
 

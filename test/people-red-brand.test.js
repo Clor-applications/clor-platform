@@ -128,7 +128,7 @@ describe('the frame and its blocks: every word reads', () => {
 
 describe('colour beside the red ("only red is visible where is other colours")', () => {
   const tones = people.slice(people.indexOf('The red brand (owner, 3 Nov 2026'));
-  it('figures and panels keep four tint families, each readable on its own wash', () => {
+  it('teal, green, clay and violet each read on their own wash, and green is done', () => {
     const pairs = { mint: '22 101 52', sky: '15 104 96', peach: '166 63 18', lilac: '91 33 182' };
     for (const [name, ink] of Object.entries(pairs)) {
       expect(token(tones, `${name}-ink`), name).toBe(ink);
@@ -169,8 +169,12 @@ describe('a white work area, colour in the accents ("complete white background",
     expect(white).toMatch(/\.ui-side-chips \{ grid-template-columns: minmax\(0, 1fr\);/);
     expect(white).toMatch(/\.ui-side-chip \{[^}]*border: 0; background: transparent;/);
   });
-  it('the module panel fits "Attendance requests" on one line', () => {
+  it('the module panel fits "Attendance requests" on one line, with one width rule', () => {
     expect(white).toMatch(/:root\[data-palette='sky'\] \.ui-split-panel \{ width: 13\.5rem; \}/);
+    expect(people.match(/\.ui-split-panel \{ width: [\d.]+rem; \}/g)).toEqual(['.ui-split-panel { width: 13.5rem; }']);
+  });
+  it('a Home figure\'s caption wraps rather than being cut off', () => {
+    expect(white).toMatch(/\.people-home \.soft-band-stat-note \{ white-space: normal;/);
   });
 });
 

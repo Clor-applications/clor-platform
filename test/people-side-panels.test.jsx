@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 vi.mock('@ui/personnel/Employees', () => ({ Avatar: () => null }));
 vi.mock('@platform/context', () => ({ orgId: () => 'org1' }));
@@ -65,6 +65,22 @@ describe('People list panels', () => {
     expect(screen.getByText('Ravi Kumar')).toBeTruthy();
     /* A rejected request is nobody away. */
     expect(screen.queryByText('Sunil Nair')).toBeNull();
+  });
+
+  it('Leave requests: no leave this year draws no "Recent activity" heading over Quick links', async () => {
+    timeOff.listLeaveRequests.mockImplementation(async () => []);
+    render(<LeaveRequestsPanel openScreen={vi.fn()} />);
+    expect(await screen.findByText('Quick links')).toBeTruthy();
+    expect(screen.queryByText('Recent activity')).toBeNull();
+  });
+
+  it('Leave requests: each quick link is tinted by where it goes, none marigold', async () => {
+    render(<LeaveRequestsPanel openScreen={vi.fn()} />);
+    const links = (await screen.findByText('Quick links')).closest('section');
+    const tint = (name) => within(links).getByRole('button', { name }).getAttribute('data-tint');
+    expect(tint('Calendar')).toBe('mint');
+    expect(tint('Holidays')).toBe('mint');
+    expect(tint('Policy')).toBe('peach');
   });
 
   it('Approvals: a kind narrows the list, the oldest waits on top', async () => {

@@ -48,16 +48,17 @@ export default function OrganizationOverview({ openScreen }) {
   const activeDepts = d.departments.filter((x) => x.isActive !== false);
   const activeBranches = d.branches.filter((b) => b.isActive !== false);
   const strip = [
-    { k: 'departments', label: 'Departments', value: activeDepts.length, Icon: mark(Building2), onClick: go('departments') },
-    { k: 'branches', label: activeBranches.length === 1 ? 'Branch' : 'Branches', value: activeBranches.length, Icon: mark(GitBranch), onClick: go('branches') },
-    { k: 'noManager', label: 'Without a manager', value: d.unplaced.noManager ?? 0, Icon: mark(UserMinus), onClick: go('employees', { mgr: 'none' }) },
-    { k: 'noDept', label: 'Without a department', value: d.unplaced.noDepartment, Icon: mark(UserX), onClick: go('employees', { dept: 'none' }) },
-    ...(activeBranches.length > 1 ? [{ k: 'noBranch', label: 'Without a branch', value: d.unplaced.noBranch, Icon: mark(MapPin), onClick: go('employees', { branch: 'none' }) }] : []),
+    { k: 'departments', label: 'Departments', tint: 'sky', value: activeDepts.length, Icon: mark(Building2), onClick: go('departments') },
+    { k: 'branches', tint: 'sky', label: activeBranches.length === 1 ? 'Branch' : 'Branches', value: activeBranches.length, Icon: mark(GitBranch), onClick: go('branches') },
+    { k: 'noManager', label: 'Without a manager', tint: 'peach', value: d.unplaced.noManager ?? 0, Icon: mark(UserMinus), onClick: go('employees', { mgr: 'none' }) },
+    { k: 'noDept', label: 'Without a department', tint: 'peach', value: d.unplaced.noDepartment, Icon: mark(UserX), onClick: go('employees', { dept: 'none' }) },
+    ...(activeBranches.length > 1 ? [{ k: 'noBranch', label: 'Without a branch', tint: 'peach', value: d.unplaced.noBranch, Icon: mark(MapPin), onClick: go('employees', { branch: 'none' }) }] : []),
   ];
   /* The departments as an outline: each under its parent, in name order. */
   const childrenOf = (id) => activeDepts.filter((x) => (x.parentId || null) === id && (id || !activeDepts.some((p) => p.id === x.parentId))).sort((a, b) => a.name.localeCompare(b.name));
   const rows = [];
-  const ORG_TINTS = ['sky', 'mint', 'lilac', 'peach', 'butter'];
+  /* Marigold is kept for what waits on you, so departments and branches cycle the other four. */
+  const ORG_TINTS = ['sky', 'mint', 'lilac', 'peach'];
   const walk = (id, depth) => { for (const x of childrenOf(id)) { rows.push({ ...x, depth }); if (depth < 8) walk(x.id, depth + 1); } };
   walk(null, 0);
   const orgTotal = Math.max(1, rows.reduce((n, x) => n + (x.people || 0), 0));
@@ -78,8 +79,8 @@ export default function OrganizationOverview({ openScreen }) {
     <div className="space-y-6">
       <Header openScreen={openScreen} perms={perms} />
       <div className="ui-metric-strip" role="list" aria-label="Organisation counts">
-        {strip.map(({ k, label, value, Icon, onClick }) => (
-          <div key={k} role="listitem"><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={onClick}><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span> <span className="ui-metric-label">{label}</span><span className="sr-only">: open</span></span></button></div>
+        {strip.map(({ k, label, tint, value, Icon, onClick }) => (
+          <div key={k} role="listitem" data-tint={tint}><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={onClick}><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span> <span className="ui-metric-label">{label}</span><span className="sr-only">: open</span></span></button></div>
         ))}
       </div>
       {d.checks?.length ? (
