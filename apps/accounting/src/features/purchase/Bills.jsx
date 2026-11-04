@@ -2044,7 +2044,7 @@ export const BillsList = ({
                           e.stopPropagation();
                           openBillMenu(b.id, e.currentTarget);
                         }}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md ui-hover-sunken"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg ui-hover-sunken"
       title="Actions"
                       >
                         <MoreVertical size={17} />

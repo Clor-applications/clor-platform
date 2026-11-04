@@ -209,7 +209,7 @@ function PlaceSearch({ onPick }) {
               id={`site-opt-${i}`}
               role="option"
               aria-selected={i === active}
-              className={`flex cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-sm ${i === active ? 'bg-[rgb(var(--accent-soft))]' : ''}`}
+              className={`flex cursor-pointer items-start gap-2 rounded-lg px-2.5 py-2 text-sm ${i === active ? 'bg-[rgb(var(--accent-soft))]' : ''}`}
               onMouseDown={(e) => { e.preventDefault(); pick(p); }}
               onMouseEnter={() => setActive(i)}
             >

@@ -585,7 +585,7 @@ export default function CustomerDetailPage({ db, currentCompany, customer, onBac
               </div>
 
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(16rem,1fr)]">
-                <section className="rounded-2xl border bg-[rgb(var(--surface))] p-5 ui-border-c">
+                <section className="rounded-xl border bg-[rgb(var(--surface))] p-5 ui-border-c">
                   <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold">{isVendor ? 'Purchases and payments' : 'Sales and collections'}</h3><p className="mt-1 text-sm ui-subtle">Six-month movement</p></div><div className="flex gap-4 text-xs font-medium"><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full ui-bar-sales" />{isVendor ? 'Purchases' : 'Sales'}</span><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full ui-bar-receipts" />{isVendor ? 'Payments' : 'Receipts'}</span></div></div>
                   <div className="mt-6 grid h-52 grid-cols-6 items-end gap-3 border-b ui-border-c">
                     {monthlyActivity.map((month) => (
@@ -600,7 +600,7 @@ export default function CustomerDetailPage({ db, currentCompany, customer, onBac
                   </div>
                 </section>
 
-                <section className="rounded-2xl border bg-[rgb(var(--surface))] p-5 ui-border-c">
+                <section className="rounded-xl border bg-[rgb(var(--surface))] p-5 ui-border-c">
                   <div className="flex items-center justify-between gap-3"><div><h3 className="font-bold">Top 5 outstanding {isVendor ? 'bills' : 'invoices'}</h3><p className="mt-1 text-sm ui-subtle">Oldest open balances</p></div><span className="rounded-full border px-3 py-1 text-xs font-medium ui-link ui-border-c">{openInvoices.length} open</span></div>
                   <div className="mt-4 overflow-x-auto">
                     <table className="w-full text-sm"><thead><tr className="border-b text-left text-xs ui-subtle ui-border-c"><th className="py-2">Invoice</th><th className="py-2">Date</th><th className="py-2 text-right">Outstanding</th></tr></thead><tbody>

@@ -456,15 +456,29 @@
   --z-platform-bar: 200;
   --z-platform-menu: 210;
 
-  --radius-btn: 0.25rem;
-  --radius-input: 0.25rem;
-  --radius-sm: 0.25rem;
-  --radius: 0.25rem;
-  --radius-lg: 0.25rem;
-  --radius-xl: 0.375rem;
-  /* The figures across an overview. Square on purpose: at 12px five small
-     cards in a row read as five pills rather than five panels of figures. */
-  --radius-kpi: 0.25rem;
+  /*
+   * Two radii, per DESIGN.md, in every app (owner, 4 Nov 2026, design audit
+   * Q12): 8px on anything you can press or type into, 12px on anything that
+   * holds content. 999px is for pills only, and the keycap's 6px is the one
+   * written-down exception (`.ui-kbd`).
+   *
+   * The names stay so call sites keep reading what they mean; the values are
+   * the two radii. `--radius-sm` and `--radius-lg` are the clickable one,
+   * `--radius`, `--radius-xl` and `--radius-kpi` the content one. Tailwind's
+   * `rounded-lg` and `rounded-xl` read these too (tailwind.config.js), so a
+   * palette that moves a token moves the utility with it.
+   * Pinned by test/radius-tokens.test.js.
+   */
+  --radius-btn: 0.5rem;
+  --radius-input: 0.5rem;
+  --radius-sm: 0.5rem;
+  --radius-lg: 0.5rem;
+  --radius: 0.75rem;
+  --radius-xl: 0.75rem;
+  /* The figures across an overview. Was square (4px) on the argument that at
+     12px five cards in a row read as pills; the owner ruled for the two radii
+     everywhere (Q12), so they are content and take 12px. */
+  --radius-kpi: 0.75rem;
 
   /* Layout */
   --sidebar-w: 260px;
@@ -955,7 +969,9 @@
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
     outline: 2px solid rgb(var(--ring));
     outline-offset: 2px;
-    border-radius: 4px;
+    /* Only reaches an element with no radius of its own (a bare link): any
+       class or utility that sets one wins over this :where() rule. */
+    border-radius: var(--radius-btn);
   }
 
   ::selection {
@@ -1716,7 +1732,7 @@
     justify-content: center;
     width: 1.4rem;
     height: 1.4rem;
-    border-radius: .25rem;
+    border-radius: var(--radius-btn);
   }
   .ui-table tbody td {
     /* Vertical padding comes from the density variable, so Settings can move
@@ -2268,7 +2284,7 @@
     justify-content: center;
     width: 2rem;
     height: 2rem;
-    border-radius: 0.5rem;
+    border-radius: var(--radius-btn);
     background-color: transparent;
     color: rgb(var(--fg));
   }
@@ -2965,7 +2981,7 @@
   .ui-register-mark {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 1.6rem; height: 1.4rem; padding: 0 0.25rem;
-    border-radius: 0.3rem; font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+    border-radius: var(--radius-btn); font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
   }
   .ui-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.25rem; }
   .ui-calendar-head { padding: 0.25rem 0.5rem; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: rgb(var(--fg-muted)); }
@@ -3250,7 +3266,7 @@
   .ui-tab:focus-visible {
     outline: 2px solid rgb(var(--brand));
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: var(--radius-btn);
   }
 
   /* The radio the product did not have. Checkboxes were tokenized; radios were
@@ -3608,10 +3624,10 @@
      about the same period, and a divided band asked the reader to accept them
      as one thing. Apart, each is its own object and can carry its own colour.
 
-     The corners are the deliberate exception to the two-radius rule: at 12px
-     five small cards in a row read as five pills, and the point of the row is
-     that they are panels of figures. `--radius-kpi` exists so the exception
-     is named and findable rather than a bare 0 somebody later "fixes".
+     The corners were once a deliberate exception (square, so five small
+     cards would not read as pills). The owner ruled on 4 Nov 2026 (Q12) that
+     the two radii hold here too: they are panels of content, 12px.
+     `--radius-kpi` stays as the named hook.
   --------------------------------------------------------------------------- */
   .ui-kpi-band {
     display: grid;
@@ -5045,7 +5061,7 @@ label {
 .ui-page-heading .ui-entity-mark {
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: .4rem;
+  border-radius: var(--radius-btn);
 }
 .ui-page-heading > :last-child :where(.ui-btn, .ui-input, .ui-select) {
   min-height: 2rem;
@@ -5204,7 +5220,7 @@ input[name*='narration' i], textarea[name*='narration' i] {
 .report-menu-item {
   display: block;
   width: 100%;
-  border-radius: 0.375rem;
+  border-radius: var(--radius-btn);
   padding: 0.5rem 0.625rem;
   color: #0f172a;
   font-size: var(--type-body);
@@ -5217,7 +5233,7 @@ input[name*='narration' i], textarea[name*='narration' i] {
   width: 100%;
   align-items: center;
   gap: 0.5rem;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-btn);
   padding: 0.55rem 0.625rem;
   color: #0f172a;
   text-align: left;
@@ -5333,7 +5349,7 @@ th.ui-th {
 .reports-page-bar .ui-entity-mark {
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: .4rem;
+  border-radius: var(--radius-btn);
 }
 .settings-page-bar :where(.ui-input, .ui-select, .ui-btn),
 .reports-page-bar :where(.ui-input, .ui-select, .ui-btn) {
@@ -5777,7 +5793,7 @@ th.ui-th {
   gap: 0;
   overflow: hidden;
   border: 1px solid rgb(var(--border));
-  border-radius: .55rem;
+  border-radius: var(--radius);
   background: rgb(var(--surface));
   box-shadow: 0 1px 3px rgb(15 23 42 / .05);
 }
@@ -5812,7 +5828,7 @@ th.ui-th {
   height: 1.7rem;
   flex: none;
   place-items: center;
-  border-radius: .38rem;
+  border-radius: var(--radius-btn);
   background: rgb(var(--brand-soft));
   color: rgb(var(--brand));
 }
@@ -5831,7 +5847,7 @@ th.ui-th {
 .company-profile-grid .ui-select {
   min-height: 2.25rem;
   height: 2.25rem;
-  border-radius: .35rem;
+  border-radius: var(--radius-input);
   padding-block: .35rem;
   font-size: .875rem;
 }
@@ -5853,7 +5869,7 @@ th.ui-th {
   place-items: center;
   overflow: hidden;
   border: 1px solid rgb(var(--border-field));
-  border-radius: .35rem;
+  border-radius: var(--radius-btn);
   background: rgb(var(--surface-sunken));
   color: rgb(var(--fg-subtle));
 }
@@ -6020,7 +6036,7 @@ th.ui-th {
 .ui-rail .ui-nav-item:not([data-level='module'])[data-active='true'] {
   background-color: rgb(var(--rail-active)) !important;
   color: rgb(var(--fg)) !important;
-  border-radius: 4px;
+  border-radius: var(--radius-btn);
   font-weight: 600;
 }
 .ui-rail .ui-nav-item[data-active='true'][data-tone] svg,
@@ -6150,13 +6166,13 @@ th.ui-th {
   gap: .2rem;
   padding: .2rem;
   border: 1px solid rgb(var(--brand-border));
-  border-radius: .4rem;
+  border-radius: var(--radius-btn);
   background: rgb(var(--heading-bg));
 }
 .customer-create-form .party-tabs-card > .ui-tabs .ui-tab {
   min-height: 1.7rem;
   padding: .25rem .65rem;
-  border-radius: .28rem !important;
+  border-radius: var(--radius-btn) !important;
   color: rgb(var(--brand-deep));
   font-size: var(--type-body);
   line-height: 1.2rem;
@@ -6270,7 +6286,7 @@ th.ui-th {
 .customer-create-form .party-tab-body .ui-card .h-9.w-9 {
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: .4rem;
+  border-radius: var(--radius-btn);
 }
 .customer-create-form .party-tab-body .ui-card :where(.mt-3, .mt-4) {
   margin-top: .55rem !important;
@@ -6371,7 +6387,7 @@ th.ui-th {
   min-width: 0;
   width: 100%;
   border-color: transparent;
-  border-radius: .2rem;
+  border-radius: var(--radius-input);
   background: transparent;
 }
 .customer-create-form .customer-address-table .ui-input:focus,
@@ -6449,7 +6465,7 @@ th.ui-th {
   margin-top: .2rem;
   padding: .4rem .55rem;
   border: 1px solid rgb(var(--border));
-  border-radius: .35rem;
+  border-radius: var(--radius-input);
   background: rgb(var(--surface-sunken));
   font-size: var(--type-body);
 }
@@ -6526,7 +6542,7 @@ th.ui-th {
 .settings-side-drawer.branch-detail-card > .grid {
   padding: .75rem;
   border: 1px solid rgb(var(--border));
-  border-radius: .45rem;
+  border-radius: var(--radius);
   background: rgb(var(--surface));
 }
 .settings-side-drawer .branch-editor-section-title {
@@ -6634,14 +6650,14 @@ th.ui-th {
 .legal-main { padding-top: 1.5rem; padding-bottom: 3rem; }
 .legal-tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 1rem; }
 .legal-tabs a {
-  border-radius: 8px;
+  border-radius: var(--radius-btn);
   padding: 0.375rem 0.75rem;
   font-size: 0.875rem;
   color: rgb(var(--fg-muted));
 }
 .legal-tabs a:hover { background-color: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
 .legal-tabs a[aria-current='page'] { background-color: rgb(var(--brand-soft)); color: rgb(var(--brand-ink)); font-weight: 600; }
-.legal-article { border-radius: 12px; padding: 1.5rem; line-height: 1.6; }
+.legal-article { border-radius: var(--radius); padding: 1.5rem; line-height: 1.6; }
 .legal-article h1:focus { outline: none; }
 .legal-section { margin-top: 1.75rem; }
 .legal-section h2 { font-size: 1.0625rem; font-weight: 600; margin-bottom: 0.5rem; color: rgb(var(--fg)); }
@@ -6656,13 +6672,13 @@ th.ui-th {
 .legal-placeholder {
   background-color: rgb(var(--warn-soft));
   color: rgb(var(--warn-ink));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 0 0.25rem;
   font-weight: 500;
 }
 .legal-draft {
   margin-top: 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 0.75rem 1rem;
   background-color: rgb(var(--warn-soft));
   color: rgb(var(--warn-ink));
@@ -6739,7 +6755,7 @@ th.ui-th {
 .ui-today-hero-queue { display: flex; flex-direction: column; gap: 0.375rem; list-style: none; margin: 0; padding: 0; }
 .ui-today-hero-action {
   display: flex; align-items: center; gap: 0.625rem; width: 100%;
-  min-height: 2.75rem; padding: 0.5rem 0.75rem; border-radius: var(--radius);
+  min-height: 2.75rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-btn);
   font-size: 0.875rem; color: rgb(var(--fg)); text-align: left;
   background: rgb(var(--surface)); border: 1px solid rgb(var(--border));
   box-shadow: var(--shadow-card);
@@ -6894,7 +6910,7 @@ th.ui-th {
 /* A strip of actions for what is selected in a table. */
 .ui-bulkbar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
-  padding: 0.5rem 0.75rem; border-radius: 8px;
+  padding: 0.5rem 0.75rem; border-radius: var(--radius);
   border: 1px solid rgb(var(--brand-border));
   background: rgb(var(--brand-subtle));
 }
@@ -6913,7 +6929,7 @@ th.ui-th {
 .ui-chip:focus-visible { outline: 2px solid rgb(var(--ring, var(--brand))); outline-offset: 2px; }
 
 /* Explain a day */
-.ui-explain-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem 1rem; padding: 0.875rem 1rem; border-radius: 8px; background: rgb(var(--surface-sunken)); }
+.ui-explain-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem 1rem; padding: 0.875rem 1rem; border-radius: var(--radius); background: rgb(var(--surface-sunken)); }
 .ui-explain-summary > div { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
 .ui-explain-summary > div > .ui-pill { align-self: flex-start; }
 .ui-explain-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
@@ -6921,7 +6937,7 @@ th.ui-th {
 .ui-explain-steps li > svg { margin-top: 0.15rem; color: rgb(var(--fg-subtle)); }
 .ui-explain-steps li[data-kind='mismatch'] { color: rgb(var(--warn-ink, 180 83 9)); }
 .ui-explain-steps li[data-kind='mismatch'] > svg { color: inherit; }
-.ui-explain-item { padding: 0.5rem 0.75rem; border: 1px solid rgb(var(--border)); border-radius: 8px; }
+.ui-explain-item { padding: 0.5rem 0.75rem; border: 1px solid rgb(var(--border)); border-radius: var(--radius); }
 .ui-explain-history { list-style: none; margin: 0; padding: 0 0 0 0.875rem; border-left: 2px solid rgb(var(--border)); display: grid; gap: 0.875rem; }
 .ui-explain-history > li { position: relative; }
 .ui-explain-history > li::before { content: ''; position: absolute; left: calc(-0.875rem - 5px); top: 0.4rem; width: 8px; height: 8px; border-radius: 50%; background: rgb(var(--fg-subtle)); }
@@ -6953,13 +6969,13 @@ th.ui-th {
 .ui-check-row[data-state='ok'] .ui-check-count { color: rgb(var(--fg-subtle)); font-weight: 500; }
 
 /* Leave balance, explained */
-.ui-ledger { list-style: none; margin: 0; padding: 0; border: 1px solid rgb(var(--border)); border-radius: 8px; overflow: hidden; }
+.ui-ledger { list-style: none; margin: 0; padding: 0; border: 1px solid rgb(var(--border)); border-radius: var(--radius); overflow: hidden; }
 .ui-ledger li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; }
 .ui-ledger li + li { border-top: 1px solid rgb(var(--border)); }
 .ui-ledger li[data-kind='taken'] > span:last-child, .ui-ledger li[data-kind='pending'] > span:last-child { color: rgb(var(--fg-muted)); }
 .ui-ledger li[data-kind='total'] { background: rgb(var(--surface-sunken)); font-weight: 650; }
 .ui-accrual { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr)); gap: 0.375rem; }
-.ui-accrual li { display: flex; flex-direction: column; align-items: center; padding: 0.375rem; border: 1px solid rgb(var(--border)); border-radius: 6px; font-size: 0.8125rem; }
+.ui-accrual li { display: flex; flex-direction: column; align-items: center; padding: 0.375rem; border: 1px solid rgb(var(--border)); border-radius: var(--radius-btn); font-size: 0.8125rem; }
 
 /* A reader's timeline */
 .ui-timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
@@ -6976,7 +6992,7 @@ th.ui-th {
 @media (max-width: 560px) { .ui-explain-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* Work-site map (attendance → Work sites). */
-.clor-site-map { height: 18rem; width: 100%; border-radius: 0.5rem; border: 1px solid rgb(var(--border)); overflow: hidden; z-index: 0; }
+.clor-site-map { height: 18rem; width: 100%; border-radius: var(--radius); border: 1px solid rgb(var(--border)); overflow: hidden; z-index: 0; }
 .clor-site-map:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; }
 .clor-site-pin { background: none; border: 0; }
 .clor-site-ring { stroke: rgb(var(--accent)); fill: rgb(var(--accent)); fill-opacity: 0.12; }
@@ -7418,7 +7434,7 @@ th.ui-th {
   margin-left: 12px;
   padding: 0 8px 0 12px;
   border: 1px solid rgb(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-input);
   background: rgb(var(--surface-sunken));
   color: rgb(var(--fg-subtle));
   font-size: 0.875rem;
@@ -7520,7 +7536,7 @@ th.ui-th {
   min-height: 34px;
   padding: 0 10px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-btn);
   background: none;
   font-size: 0.875rem;
   text-align: left;
@@ -7548,7 +7564,7 @@ th.ui-th {
   max-width: 760px;
   padding: 28px 32px;
   border: 1px solid rgb(var(--border));
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: rgb(var(--surface) / 0.7);
 }
 .ui-help .ui-help-title {
@@ -7706,7 +7722,7 @@ th.ui-th {
   z-index: 1;
   width: min(100%, 340px);
   padding: 20px;
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: rgb(255 255 255);
   color: rgb(var(--ink));
   box-shadow: 0 1px 0 rgb(var(--oxblood) / 0.04), 0 18px 36px -24px rgb(var(--oxblood) / 0.35);
@@ -7724,7 +7740,7 @@ th.ui-th {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-btn);
   background: rgb(255 255 255);
   box-shadow: inset 0 0 0 1px rgb(var(--border));
   font-size: 0.9375rem;
@@ -7825,7 +7841,7 @@ th.ui-th {
 }
 .ui-auth-card {
   padding: 36px 32px;
-  border-radius: 16px;
+  border-radius: var(--radius);
   background: rgb(255 255 255);
   border: 1px solid rgb(var(--auth-line));
   box-shadow: 0 1px 0 rgb(32 35 35 / 0.04), 0 24px 48px -28px rgb(32 35 35 / 0.25);
@@ -8141,13 +8157,13 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 @keyframes ui-sheet-up { from { transform: translate3d(0, 100%, 0); } to { transform: none; } }
 @media (max-width: 639px) {
   .ui-scrim:has(> .ui-drawer-sheet) { align-items: flex-end; }
-  .ui-drawer-sheet { width: 100% !important; height: auto !important; max-height: 88vh; border-radius: 12px 12px 0 0; animation-name: ui-sheet-up !important; }
+  .ui-drawer-sheet { width: 100% !important; height: auto !important; max-height: 88vh; border-radius: var(--radius) var(--radius) 0 0; animation-name: ui-sheet-up !important; }
 }
 @media (max-width: 639px) and (prefers-reduced-motion: reduce) { .ui-drawer-sheet { animation: none !important; } }
 .ui-avatar-initials::before { content: attr(data-initials); }
 .ui-choice-list, .ui-column-checks { display: grid; gap: 0.125rem; }
 .ui-column-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1rem; }
-.ui-choice-row { display: flex; align-items: center; gap: 0.625rem; min-height: 2.25rem; padding: 0 0.5rem; margin: 0 -0.5rem; border-radius: 8px; font-size: 0.875rem; cursor: pointer; }
+.ui-choice-row { display: flex; align-items: center; gap: 0.625rem; min-height: 2.25rem; padding: 0 0.5rem; margin: 0 -0.5rem; border-radius: var(--radius-btn); font-size: 0.875rem; cursor: pointer; }
 .ui-choice-row:hover { background: rgb(var(--surface-sunken)); }
 .ui-choice-row input[type='radio'] { accent-color: rgb(var(--brand)); width: 1rem; height: 1rem; }
 @media (max-width: 639px) { .ui-column-checks { grid-template-columns: minmax(0, 1fr); } }
@@ -8220,7 +8236,7 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-org-outline > li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 14rem) 4rem; align-items: center; gap: 1rem; min-height: 2.75rem; padding: 0.375rem 0 0.375rem calc(var(--depth, 0) * 1.25rem); border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
 .ui-org-outline-name { justify-self: start; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; font-weight: 500; color: rgb(var(--fg)); background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
 .ui-org-outline-name:hover { text-decoration: underline; }
-.ui-org-outline-name:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; border-radius: 4px; }
+.ui-org-outline-name:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; border-radius: var(--radius-btn); }
 .ui-org-outline-head { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ui-org-outline-count { justify-self: end; }
 .ui-org-outline > li > :nth-child(1) { position: relative; }
@@ -8234,7 +8250,7 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 
 /* An outline drawn as a tree (useTreeKeys): the focused row shows the ring on its own line, not around everything under it. */
 .ui-tree [role="treeitem"] { outline: none; }
-.ui-tree [role="treeitem"]:focus-visible > .ui-tree-row, .ui-tree .ui-tree-row[role="treeitem"]:focus-visible { box-shadow: inset 0 0 0 2px rgb(var(--ring)); border-radius: 8px; }
+.ui-tree [role="treeitem"]:focus-visible > .ui-tree-row, .ui-tree .ui-tree-row[role="treeitem"]:focus-visible { box-shadow: inset 0 0 0 2px rgb(var(--ring)); border-radius: var(--radius-btn); }
 
 /*
  * People → Home, soft structural (28 Oct 2026). Silver ground; every block a

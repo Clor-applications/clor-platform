@@ -25,7 +25,7 @@ export default function HelpMenu({ variant = 'bar', icon: Icon = null }) {
   const [open, setOpen] = useState(false);
   const whatsapp = digits(operator.supportWhatsapp);
   const email = operator.contactEmail;
-  const row = 'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm ui-hover-sunken';
+  const row = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm ui-hover-sunken';
   return (
     <>
       {variant === 'rail' ? (

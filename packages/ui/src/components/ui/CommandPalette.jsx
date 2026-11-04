@@ -129,7 +129,7 @@ export default function CommandPalette({ onClose, items = [], onSelect, searchRe
         style={{
           backgroundColor: 'rgb(var(--surface))',
           border: '1px solid rgb(var(--border))',
-          borderRadius: 'var(--radius-lg)',
+          borderRadius: 'var(--radius)',
           boxShadow: 'var(--shadow-lift)',
         }}
       >

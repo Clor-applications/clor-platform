@@ -56,7 +56,7 @@ export default function SettingsHub({ can = () => true, isEnabled = () => true, 
               const itemCategory = categoryFor(item.category);
               return (
                 <button key={item.key} type="button" onClick={() => onOpenSetting(item.key)} className="group flex min-h-[4.25rem] w-full items-center gap-3 border-b ui-border-c px-4 py-3 text-left transition-all hover:bg-[rgb(var(--heading-bg))] focus-visible:z-10 xl:odd:border-e">
-                  <span className="grid h-8 w-8 flex-none place-items-center rounded-md bg-[rgb(var(--surface-sunken))] transition-colors group-hover:bg-[rgb(var(--surface))]"><Icon size={15} className="ui-muted" aria-hidden="true" /></span>
+                  <span className="grid h-8 w-8 flex-none place-items-center rounded-lg bg-[rgb(var(--surface-sunken))] transition-colors group-hover:bg-[rgb(var(--surface))]"><Icon size={15} className="ui-muted" aria-hidden="true" /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{item.title}</span>
                     <span className="ui-muted mt-0.5 block truncate text-xs">{query ? `${itemCategory?.title || 'Settings'} · ${item.description}` : item.description}</span>
