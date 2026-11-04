@@ -323,6 +323,37 @@ What a company with the switch on writes, and how an older API reads it:
 Nothing else needs undoing. Phase 3c stops the writes to the old manager
 columns, once nothing is pending on the old path.
 
+### Payroll on the engine (workflow engine 3a, migration `20261121090000_payroll_on_engine`): deploying and rolling back
+
+The migration adds one column, `PeopleSetting.payrollOnEngine`, default `false`. An older API never reads it.
+
+- **Switch off (every company, the default):** loans, salary revisions and final settlements are approved exactly as
+  before, and nothing new is written. The deploy window and a rollback need nothing.
+- **The switch is a company choice** (People → Settings → Company choices, "Loans, salary revisions and final
+  settlements are decided by the approval rules"), owner or admin only, audited.
+- **One change with the switch off too:** approving a loan claims the loan before its schedule is written, so two
+  approvals at once write one schedule and only the one that moved it is recorded. Same answer to both callers as
+  before.
+
+What a company with the switch on writes, and how an older API reads it:
+
+- **Preset rules:** `ApprovalRule` rows with request types `LOAN`, `SALARY_REVISION`, `FINAL_SETTLEMENT`, variant key
+  `preset:PAYROLL`, made the first time each is needed. No older API reads a rule of those request types.
+- **A new loan, a revision sent for approval, a new settlement:** the Payroll row is written as before, then an
+  `ApprovalRequest` with `sourceKind` `LOAN`, `SALARY_REVISION` or `FINAL_SETTLEMENT` opens beside it. Payroll's rows,
+  states and checks are unchanged, so an older API approves the row on the old path with the same people.
+- **Before rolling back a company that has it on:**
+  1. Switch it off: `UPDATE people."PeopleSetting" SET "payrollOnEngine" = false WHERE "orgId" = '<id>';`
+  2. Close its waiting engine requests:
+     `SET clor.bypass = 'on'; UPDATE people."ApprovalStep" SET status = 'WITHDRAWN' WHERE status = 'WAITING' AND "requestId" IN (SELECT id FROM people."ApprovalRequest" WHERE "orgId" = '<id>' AND "sourceKind" IN ('LOAN', 'SALARY_REVISION', 'FINAL_SETTLEMENT') AND status = 'WAITING'); UPDATE people."ApprovalRequest" SET status = 'WITHDRAWN' WHERE "orgId" = '<id>' AND "sourceKind" IN ('LOAN', 'SALARY_REVISION', 'FINAL_SETTLEMENT') AND status = 'WAITING';`
+  Step 2 matters most for a rollback to a release before 2c, which reads an engine request as an ordinary People
+  request. A release from 2c on leaves requests with a `sourceKind` alone.
+- **Rolling forward again.** A row whose engine request is no longer waiting is approved on the old path (never
+  stuck). A row the older API approved meanwhile has its waiting request brought in line when it is next approved or
+  rejected, or by the engine’s dues job once its step is two working days old, as approved by the person Payroll
+  names as approver.
+- **No notices, no reminders, no new job.** Payroll sends none for these today.
+
 ## A first-time setup, from nothing
 
 ```bash

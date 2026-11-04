@@ -118,6 +118,11 @@ export type SourceHooks = {
   stepIn: (who: { accountId: string; orgId: string }, group: 'HR' | 'OWNER', request: Req) => Promise<string[]>;
   /** A step of the module's own request past its due time (runApprovalDues): the module reminds and hands on in its own words. */
   overdue?: (step: { id: string; requestId: string; accountId: string; orgId: string; order: number; dueAt: Date; remindedAt: Date | null; candidateUserIds: unknown }, spec: StepV2 | undefined, now: Date) => Promise<'REMINDED' | 'HANDED_ON' | null>;
+  /**
+   * Who takes a step nobody else could (the admins, else anyone who approves People requests, by default). A module
+   * whose deciders must hold its own right (Payroll, phase 3a) names them itself; none leaves the 5.6 fall-through.
+   */
+  lastResort?: (who: { accountId: string; orgId: string }, request: Req, excluded: string[]) => Promise<string[]>;
 };
 const sources = new Map<string, SourceHooks>();
 export function onSource(type: string, hooks: SourceHooks) {
@@ -631,7 +636,8 @@ async function planStep(
   if (approvedBefore || laterDecides) return { order: spec.order, kind: 'SKIPPED', comment: 'Would have been the requester, or nobody to decide' };
   /* Otherwise it would approve itself (E11): the admins decide instead. */
   const { excluded } = await excludedOf(who.orgId, request);
-  const admins = await lastResortDeciders(who.accountId, who.orgId, [...excluded], request.subjectEmployeeId);
+  const ownLastResort = ownedBySource(request) ? sources.get(String(request.requestType || ''))?.lastResort : undefined;
+  const admins = ownLastResort ? await ownLastResort(who, request, [...excluded]) : await lastResortDeciders(who.accountId, who.orgId, [...excluded], request.subjectEmployeeId);
   if (admins.length) return { order: spec.order, kind: 'OPEN', mode: 'ANY', dueAt, slots: [{ slot: 0, candidates: admins, approverUserId: admins[0], standInForUserId: null, how: 'LAST_RESORT', comment: 'Sent to the admins: nobody else could decide it' }] };
   /*
    * Nobody else in the company can decide it at all (5.6): the company's
@@ -1123,13 +1129,14 @@ async function finishSourced(actor: Actor, requestId: string, done: boolean, fal
  * The record changed while it waited (a leave's dates or type): its request starts again from the
  * first step under `rule`, and says so. Steps already decided stay in its story.
  */
-export async function restartSourced(actor: Actor, requestId: string, input: { sourceId: string; payload: Payload; rule: RuleRow; why: string }): Promise<{ request: RequestRow; done: boolean } | null> {
+export async function restartSourced(actor: Actor, requestId: string, input: { sourceId: string; payload: Payload; rule: RuleRow; why: string; reopen?: boolean }): Promise<{ request: RequestRow; done: boolean } | null> {
   const audits: Audit[] = [];
   const ruleSteps = stepsOfRule(input.rule);
   const state = await peoplePrisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-decide:${requestId}`}))`;
     const r = await tx.approvalRequest.findFirst({ where: { id: requestId, orgId: actor.orgId } });
-    if (!r || !['WAITING', 'MORE_INFO'].includes(r.status)) return 'NONE' as const;
+    /* `reopen`: a record sent back and asked again (a salary revision edited back to draft, then sent for approval): its withdrawn request opens again. */
+    if (!r || !['WAITING', 'MORE_INFO', ...(input.reopen ? ['WITHDRAWN'] : [])].includes(r.status)) return 'NONE' as const;
     await tx.approvalStep.updateMany({ where: { requestId, status: { in: ['WAITING', 'MORE_INFO'] } }, data: { status: 'WITHDRAWN', comment: input.why.slice(0, 1000), decidedAt: new Date() } });
     const fresh = await tx.approvalRequest.update({ where: { id: requestId }, data: { sourceId: input.sourceId, payload: { ...input.payload, restartedAt: new Date().toISOString() } as unknown as Prisma.InputJsonValue, ruleId: input.rule.id, ruleVersion: input.rule.version, ruleVariant: input.rule.variantKey, status: 'WAITING', currentStep: 1 } });
     await writeChangeLog(tx, { ...actor, reason: input.why }, { kind: 'ApprovalRequest', id: requestId, employeeId: fresh.subjectEmployeeId }, [{ field: 'steps', before: 'WAITING', after: 'ASKED AGAIN', redacted: false }]);

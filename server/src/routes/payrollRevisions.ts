@@ -11,6 +11,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { SalaryRevisionError, applyRevision, previewImpact } from '../services/payroll/revision.js';
 import { forLiveEmployee } from '../services/payroll/employeeLock.js';
+import { PayrollEngineRefusal, REVISION_SOURCE, askPayrollEngine, openOnPayrollEngine, recordOnPayrollEngine, withdrawOnPayrollEngine, type PayrollAsk } from '../services/people/approvals/payrollSource.js';
 
 /**
  * Salary revisions, and what they actually cost.
@@ -318,6 +319,8 @@ payrollRevisionsRouter.put(
         reviewedAt: null,
       },
     });
+    /* Sent back to draft: no longer waiting for approval on the approval engine either (3a). */
+    if (existing.status === 'REVIEWED') await withdrawOnPayrollEngine(accountId, orgId, REVISION_SOURCE, existing.id, 'Changed: back to draft', req.auth!.userId);
     res.json({ revision: shape(row) });
   }
 );
@@ -360,6 +363,18 @@ const transition = (
         if (refused) return res.status(refused.status).json(refused.body);
       }
 
+      /* On the approval engine (3a): approving or rejecting one waiting for approval asks the engine whether this person may decide its step. */
+      const deciding = (to === 'APPROVED' || to === 'REJECTED') && existing.status === 'REVIEWED';
+      let ask: PayrollAsk = null;
+      if (deciding) {
+        try {
+          ask = await askPayrollEngine({ accountId, orgId, source: REVISION_SOURCE, sourceId: existing.id, userId: req.auth!.userId, approve: to === 'APPROVED' });
+        } catch (e) {
+          if (e instanceof PayrollEngineRefusal) return res.status(e.status).json({ error: e.message, code: e.code });
+          throw e;
+        }
+      }
+
       const data: Record<string, unknown> = { status: to, ...stamp(req.auth!.userId) };
 
       if (to === 'APPROVED') {
@@ -378,6 +393,12 @@ const transition = (
       /* Only from the state that was checked: two people acting at once cannot both move it (A-13). */
       const moved = await payrollPrisma.salaryRevision.updateMany({ where: { id: existing.id, status: { in: from } }, data });
       if (moved.count !== 1) return res.status(409).json({ error: 'Somebody else has just changed this revision. Reload it.', code: 'REVISION_WRONG_STATE' });
+      if (deciding) await recordOnPayrollEngine({ accountId, orgId, source: REVISION_SOURCE, sourceId: existing.id, userId: req.auth!.userId, approve: to === 'APPROVED', ask });
+      /* Sent for approval: with the company's switch on, through the approval engine; off, nothing more is written. */
+      if (to === 'REVIEWED') {
+        const person = await peoplePrisma.employee.findFirst({ where: { orgId, id: existing.employeeId }, select: { name: true } });
+        await openOnPayrollEngine({ accountId, orgId, source: REVISION_SOURCE, sourceId: existing.id, employeeId: existing.employeeId, title: `Salary revision for ${person?.name || 'an employee'}`, by: req.auth!.userId, facts: { amount: Number(existing.proposedAnnualCtc) } });
+      }
       const row = await payrollPrisma.salaryRevision.findUniqueOrThrow({ where: { id: existing.id } });
       res.json({ revision: shape(row) });
     }

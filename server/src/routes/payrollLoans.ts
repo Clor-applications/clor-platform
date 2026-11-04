@@ -10,6 +10,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { PayrollLoanError, approveLoan, buildSchedule, summarise } from '../services/payroll/loan.js';
 import { forLiveEmployee } from '../services/payroll/employeeLock.js';
+import { LOAN_SOURCE, PayrollEngineRefusal, askPayrollEngine, openOnPayrollEngine, recordOnPayrollEngine, withdrawOnPayrollEngine } from '../services/people/approvals/payrollSource.js';
 
 /**
  * Loans and salary advances.
@@ -266,6 +267,10 @@ payrollLoansRouter.post(
       },
     }));
 
+    /* With the company's switch on, its approval goes through the approval engine (workflow engine 3a); off, nothing more is written. */
+    const person = await peoplePrisma.employee.findFirst({ where: { orgId, id: parsed.data.employeeId }, select: { name: true } });
+    await openOnPayrollEngine({ accountId, orgId, source: LOAN_SOURCE, sourceId: (row as { id: string }).id, employeeId: parsed.data.employeeId, title: `${parsed.data.type === 'SALARY_ADVANCE' ? 'Salary advance' : 'Loan'} ${number} for ${person?.name || 'an employee'}`, by: req.auth!.userId, facts: { amount: parsed.data.principal } });
+
     res.status(201).json({ loan: shape(row) });
   }
 );
@@ -317,10 +322,16 @@ payrollLoansRouter.post(
   async (req, res) => {
     if (!(await payrollRouteOk(req, res))) return;
     const { accountId, orgId } = req.tenant!;
+    const userId = req.auth!.userId;
+    const loanId = String(req.params.id);
     try {
-      const loan = await approveLoan({ accountId, orgId, userId: req.auth!.userId, loanId: String(req.params.id) });
+      /* On the approval engine (3a): the engine is asked whether this person may decide its step, and the step is recorded once the loan is approved. */
+      const ask = await askPayrollEngine({ accountId, orgId, source: LOAN_SOURCE, sourceId: loanId, userId, approve: true });
+      const loan = await approveLoan({ accountId, orgId, userId, loanId });
+      if ((loan as { approvedNow?: boolean }).approvedNow) await recordOnPayrollEngine({ accountId, orgId, source: LOAN_SOURCE, sourceId: loanId, userId, approve: true, ask });
       res.json({ loan: shape(loan, { installments: (loan as any).installments?.map(shapeInstallment) || [] }) });
     } catch (e) {
+      if (e instanceof PayrollEngineRefusal) return res.status(e.status).json({ error: e.message, code: e.code });
       return handle(res, e);
     }
   }
@@ -403,6 +414,7 @@ payrollLoansRouter.post(
       await tx.payrollLoanInstallment.deleteMany({ where: { loanId: loan.id } });
       return tx.payrollLoan.update({ where: { id: loan.id }, data: { status: 'CANCELLED', outstandingBalance: 0 } });
     });
+    await withdrawOnPayrollEngine(accountId, orgId, LOAN_SOURCE, loan.id, 'Cancelled in Payroll', req.auth!.userId);
     res.json({ loan: shape(row) });
   }
 );
