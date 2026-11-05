@@ -33,18 +33,6 @@
       "port": 4013
     },
     {
-      "name": "owner-api",
-      "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "cd /Users/suresh/Desktop/clor-platform/.claude/worktrees/owner-live/server && npm run dev"],
-      "port": 4002
-    },
-    {
-      "name": "owner-web",
-      "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "cd /Users/suresh/Desktop/clor-platform/.claude/worktrees/owner-live && VITE_API_PROXY_TARGET=http://127.0.0.1:4002 npx vite --host 127.0.0.1 --port 5186 --strictPort"],
-      "port": 5186
-    },
-    {
       "name": "people-web",
       "runtimeExecutable": "sh",
       "runtimeArgs": [
