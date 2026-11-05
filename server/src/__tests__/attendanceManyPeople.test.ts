@@ -62,9 +62,9 @@ beforeAll(async () => {
   );
   ids = (await runInTenant(boss.orgId, () => peoplePrisma.employee.findMany({ where: { orgId: boss.orgId }, select: { id: true }, orderBy: { code: 'asc' } }))).map((e) => e.id);
   expect(ids).toHaveLength(PEOPLE);
-  /* A team lead: own team only, records view and edit. */
+  /* A team lead: own team only, records view, edit and approve. */
   const role = await request(app).post(`/api/orgs/${boss.orgId}/roles`).set(at(boss)).send({ name: `Lead ${rnd()}`, roleType: 'CUSTOM', permissions: [], ownDocumentsOnly: true }).expect(201);
-  await request(app).put(`/api/orgs/${boss.orgId}/roles/${role.body.role.id}/permissions`).set(at(boss)).send({ permissions: ['ATTENDANCE::Attendance Records::VIEW', 'ATTENDANCE::Attendance Records::EDIT', 'PEOPLE::Employees::VIEW'] }).expect(200);
+  await request(app).put(`/api/orgs/${boss.orgId}/roles/${role.body.role.id}/permissions`).set(at(boss)).send({ permissions: ['ATTENDANCE::Attendance Records::VIEW', 'ATTENDANCE::Attendance Records::EDIT', 'ATTENDANCE::Attendance Records::APPROVE', 'PEOPLE::Employees::VIEW'] }).expect(200);
   const leadEmail = `lead.${Date.now()}.${rnd()}@example.com`;
   const user = await request(app).post('/api/users').set(at(boss)).send({ email: leadEmail, fullName: 'Lead', password: 'Passw0rd!23', orgIds: [boss.orgId], branchIdsByOrg: { [boss.orgId]: [boss.branchId] } }).expect(201);
   await request(app).post(`/api/orgs/${boss.orgId}/users/${user.body.user.id}/roles`).set(at(boss)).send({ roleId: role.body.role.id, branchId: null }).expect(201);
@@ -215,4 +215,97 @@ describe('a bulk change and a colleague', () => {
     expect(r.headers['content-encoding']).toBe('gzip');
     expect(r.body.counts.NO_RECORD).toBeGreaterThan(1000);
   }, 60_000);
+});
+
+describe('a team-scoped role on the routes beside them', () => {
+  const team = () => new Set(ids.slice(0, TEAM));
+  const outsider = () => ids[400];
+
+  it('lists only its team’s days, overview, month summary and overtime requests', async () => {
+    await att(boss).put('/records', { employeeId: outsider(), date: to, checkIn: '09:00' }).expect(200);
+    const accountId = (await runInTenant(boss.orgId, () => peoplePrisma.employee.findUniqueOrThrow({ where: { id: ids[0] } }))).accountId;
+    await runInTenant(boss.orgId, () => peoplePrisma.overtimeRequest.createMany({ data: [ids[4], outsider()].map((employeeId) => ({ accountId, orgId: boss.orgId, employeeId, date: to, kind: 'OVERTIME', minutes: 60, reason: 'Stock count' })) }));
+
+    const days = (await att(lead).get(`/records?from=${from}&to=${to}`).expect(200)).body.records;
+    expect(days.length).toBeGreaterThan(0);
+    expect(days.every((r: any) => team().has(r.employeeId))).toBe(true);
+    expect((await att(boss).get(`/records?from=${from}&to=${to}`).expect(200)).body.records.some((r: any) => r.employeeId === outsider())).toBe(true);
+
+    const overview = (await att(lead).get(`/overview?date=${to}`).expect(200)).body;
+    expect(overview.headcount).toBe(TEAM);
+    expect(overview.notIn.every((p: any) => team().has(p.id))).toBe(true);
+
+    const summary = (await att(lead).get(`/summary?month=${lastMonth()}`).expect(200)).body.rows;
+    expect(summary.map((r: any) => r.employeeId).sort()).toEqual(ids.slice(0, TEAM).sort());
+
+    const ot = (await att(lead).get('/overtime/requests').expect(200)).body.requests;
+    expect(ot.map((r: any) => r.employeeId)).toEqual([ids[4]]);
+  }, 60_000);
+
+  it('cannot read or change a day outside its team', async () => {
+    await att(lead).get(`/days/explain?employeeId=${outsider()}&date=${to}`).expect(404);
+    await att(lead).get(`/days/explain?employeeId=${ids[3]}&date=${to}`).expect(200);
+    await att(lead).get(`/evidence?employeeId=${outsider()}&from=${from}&to=${to}`).expect(404);
+    await att(lead).get(`/evidence/punches?employeeId=${outsider()}&from=${from}&to=${to}`).expect(404);
+    const theirs = (await att(boss).get(`/records?from=${to}&to=${to}&employeeId=${outsider()}`).expect(200)).body.records[0];
+    const plan = (await att(lead).post('/records/bulk', { ids: [theirs.id], operation: 'SET_OUT_SHIFT_END', reason: 'Forgot to punch out', preview: true }).expect(200)).body;
+    expect(plan.rows.map((r: any) => ({ ok: r.ok, error: r.error, name: r.name, date: r.date }))).toEqual([{ ok: false, error: 'No such day.', name: '—', date: '' }]);
+    const done = (await att(lead).post('/records/bulk', { ids: [theirs.id], operation: 'SET_OUT_SHIFT_END', reason: 'Forgot to punch out', preview: false }).expect(200)).body;
+    expect(done.applied).toBe(0);
+    const after = await runInTenant(boss.orgId, () => peoplePrisma.attendanceRecord.findUniqueOrThrow({ where: { id: theirs.id } }));
+    expect(after.checkOut).toBeNull();
+  }, 60_000);
+
+  it('is refused the company’s jobs: payroll readiness, overtime rules, reader trust again', async () => {
+    const pr = await att(lead).get(`/months/${lastMonth()}/payroll-readiness`).expect(403);
+    expect(pr.body.code).toBe('TEAM_SCOPED');
+    expect(pr.body.people).toBeUndefined();
+    await att(boss).get(`/months/${lastMonth()}/payroll-readiness`).expect(200);
+    const rules = (await att(boss).get('/overtime/rules').expect(200)).body.rules;
+    expect((await att(lead).put('/overtime/rules', rules).expect(403)).body.code).toBe('TEAM_SCOPED');
+    expect((await att(lead).post('/trust/recompute', { from, to }).expect(403)).body.code).toBe('TEAM_SCOPED');
+  }, 60_000);
+});
+
+describe('a bulk settle after the day was fixed in Records', () => {
+  it('counts the fixed day as skipped and writes nothing for it', async () => {
+    const day = await quietDay();
+    const fixed = `NO_RECORD:${ids[450]}:${day}`;
+    const open = `NO_RECORD:${ids[451]}:${day}`;
+    await att(boss).put('/records', { employeeId: ids[450], date: day, checkIn: '09:00', checkOut: '18:00' }).expect(200);
+    const r = (await att(boss).post('/exceptions/state/bulk', { keys: [fixed, open], status: 'RESOLVED' }).expect(200)).body;
+    expect(r).toMatchObject({ changed: 1, skipped: 1, unknown: 0 });
+    expect(await runInTenant(boss.orgId, () => peoplePrisma.attendanceExceptionState.count({ where: { orgId: boss.orgId, key: fixed } }))).toBe(0);
+  }, 60_000);
+});
+
+/* Last: it closes last month for the company, and reopens it at the end. */
+describe('closing the month, and what Payroll took', () => {
+  it('a team role cannot close or reopen it; its snapshot download holds its team only', async () => {
+    const month = lastMonth();
+    const refused = await att(lead).post(`/months/${month}/close`, { acknowledge: true }).expect(403);
+    expect(refused.body.code).toBe('TEAM_SCOPED');
+    expect(refused.body.readiness).toBeUndefined();
+    expect(await runInTenant(boss.orgId, () => peoplePrisma.attendanceMonthLock.count({ where: { orgId: boss.orgId, month } }))).toBe(0);
+    expect((await att(lead).get(`/months/${month}/readiness`).expect(200)).body.scope).toBe('team');
+    expect((await att(boss).get(`/months/${month}/readiness`).expect(200)).body.scope).toBe('company');
+
+    const closed = (await att(boss).post(`/months/${month}/close`, { acknowledge: true }).expect(200)).body;
+    const version = closed.snapshot.version;
+    const all = (await att(boss).get(`/months/${month}/snapshots/${version}`).expect(200)).body;
+    expect(all.rows).toHaveLength(PEOPLE);
+    expect(all.readiness.checks.length).toBeGreaterThan(0);
+    const mine = (await att(lead).get(`/months/${month}/snapshots/${version}`).expect(200)).body;
+    expect(mine.rows.map((r: any) => r.employeeId).sort()).toEqual(ids.slice(0, TEAM).sort());
+    expect(mine.readiness.checks).toBeUndefined();
+    expect(mine.readiness.people.every((p: any) => team().has(p.employeeId))).toBe(true);
+    expect(mine.readiness.people.length).toBe(TEAM);
+
+    expect((await att(lead).post(`/months/${month}/reopen`, { reason: 'Correct the team days' }).expect(403)).body.code).toBe('TEAM_SCOPED');
+    await att(boss).post(`/months/${month}/reopen`, { reason: 'Back to normal for the tests' }).expect(200);
+  }, 120_000);
+
+  function team() {
+    return new Set(ids.slice(0, TEAM));
+  }
 });

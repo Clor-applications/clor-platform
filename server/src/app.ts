@@ -187,14 +187,14 @@ export function buildApp() {
   app.use(helmet());
   /*
    * Gzip what a browser asks for: a list of 5,000 exceptions is 1.8 MB as
-   * JSON and about 120 KB compressed. Reader devices (/iclock) and ingest
-   * hooks are left alone, since their clients may not unpack it, and a
+   * JSON and about 120 KB compressed. Reader devices (/iclock for ZKTeco, /matrix
+   * for Matrix COSEC) and ingest hooks are left alone, since their clients may not unpack it, and a
    * server-sent event stream would be held back by the compressor's buffer.
    */
   app.use(
     compression({
       filter: (req, res) => {
-        if (req.path.startsWith('/iclock') || req.path.startsWith('/ingest')) return false;
+        if (req.path.startsWith('/iclock') || req.path.startsWith('/ingest') || req.path.startsWith('/matrix')) return false;
         if (String(res.getHeader('Content-Type') || '').includes('text/event-stream')) return false;
         return compression.filter(req, res);
       },

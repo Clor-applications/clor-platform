@@ -50,6 +50,8 @@ export default function MonthClose({ openScreen, params }) {
   useEffect(() => { load(); }, [load]);
 
   const openItems = (data?.checks || []).filter((c) => c.count > 0);
+  /* A team-scoped role sees its own team's days; the month is closed by someone who sees the company. */
+  const teamOnly = data?.scope === 'team';
   const filters = useColumnFilters();
   /* Everyone with something open, however many: the list pages, it never cuts. */
   const [kind, setKind] = useState('');
@@ -144,7 +146,7 @@ export default function MonthClose({ openScreen, params }) {
                     : 'Settle the red items first. The others are worth a look; payable days are worked out from what is there.'}
                 </p>
               </div>
-              {data.closed ? (
+              {data.closed && !teamOnly ? (
                 <button type="button" className="ui-btn ui-btn-secondary" onClick={reopen}><Unlock size={16} aria-hidden="true" /> Reopen</button>
               ) : null}
             </div>
@@ -167,7 +169,11 @@ export default function MonthClose({ openScreen, params }) {
             </ul>
           </section>
 
-          {!data.closed && data.ended ? (
+          {teamOnly ? (
+            <p className="ui-caption px-1" role="note">These are your team’s days. Closing or reopening the month is done by someone who sees the whole company.</p>
+          ) : null}
+
+          {!data.closed && data.ended && !teamOnly ? (
             <section className="ui-card p-4 space-y-3" aria-labelledby="close-h">
               <h2 id="close-h" className="ui-t-sec">Close {monthName(month)}</h2>
               <p className="text-sm ui-muted">Corrections, leave, manual changes and late reader uploads can no longer change its days. Payroll takes the figures as they are now; a snapshot is kept.</p>

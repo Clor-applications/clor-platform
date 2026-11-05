@@ -91,13 +91,16 @@ attendanceRouter.get('/orgs/:orgId/attendance/overview', can(PermissionAction.VI
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const date = dateParam(req.query.date, today());
+  /* A team-scoped role's overview is its own team's: headcount, days, late, queues. */
+  const scope = await teamScope(req);
+  const mine = scope.all ? {} : { employeeId: { in: scope.ids } };
   const [people, records, holiday] = await Promise.all([
     peoplePrisma.employee.findMany({
-      where: { accountId, orgId, status: { in: ['ACTIVE', 'ON_NOTICE'] }, attendanceRequired: true },
+      where: { accountId, orgId, status: { in: ['ACTIVE', 'ON_NOTICE'] }, attendanceRequired: true, ...scopeWhere(scope) },
       select: { id: true, name: true, code: true, department: true, photoUrl: true },
       orderBy: { name: 'asc' },
     }),
-    peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date } }),
+    peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date, ...mine } }),
     peoplePrisma.holiday.findFirst({ where: { orgId, date, isOptional: false, branchId: null } }),
   ]);
   const byEmployee = new Map(records.map((r) => [r.employeeId, r]));
@@ -118,9 +121,9 @@ attendanceRouter.get('/orgs/:orgId/attendance/overview', can(PermissionAction.VI
       lateMinutes: r.lateMinutes,
     })),
     notIn: people.filter((p) => !byEmployee.get(p.id)?.checkIn && byEmployee.get(p.id)?.status !== 'ON_LEAVE').slice(0, 50),
-    toValidate: await peoplePrisma.attendanceRecord.count({ where: { accountId, orgId, validated: false, date: { lt: today() } } }),
-    pendingRequests: await peoplePrisma.attendanceRequest.count({ where: { accountId, orgId, status: 'PENDING' } }),
-    pendingLeave: await peoplePrisma.leaveRequest.count({ where: { accountId, orgId, status: 'PENDING' } }),
+    toValidate: await peoplePrisma.attendanceRecord.count({ where: { accountId, orgId, validated: false, date: { lt: today() }, ...mine } }),
+    pendingRequests: await peoplePrisma.attendanceRequest.count({ where: { accountId, orgId, status: 'PENDING', ...mine } }),
+    pendingLeave: await peoplePrisma.leaveRequest.count({ where: { accountId, orgId, status: 'PENDING', ...mine } }),
   });
 });
 
@@ -133,11 +136,14 @@ attendanceRouter.get('/orgs/:orgId/attendance/records', can(PermissionAction.VIE
   /* Reader trust (O-11): the filter and the column only while the company has it on. */
   const readerTrust = await readerTrustOn(accountId, orgId);
   const trust = readerTrust && (TRUST_LEVELS as readonly string[]).includes(String(pick('trust'))) ? pick('trust') : undefined;
+  /* A team-scoped role lists its own team's days only; anyone else's reads as absent. */
+  const scope = await teamScope(req);
   const rows = await peoplePrisma.attendanceRecord.findMany({
     where: {
       accountId,
       orgId,
       date: { gte: from, lte: to },
+      ...(scope.all ? {} : { employeeId: { in: scope.ids } }),
       ...(pick('employeeId') ? { employeeId: pick('employeeId') } : {}),
       ...(pick('status') ? { status: pick('status') } : {}),
       ...(pick('validated') ? { validated: pick('validated') === 'true' } : {}),
@@ -1092,7 +1098,10 @@ attendanceRouter.get('/orgs/:orgId/attendance/summary', can(PermissionAction.VIE
   const { accountId, orgId } = req.tenant!;
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7);
   const lock = await peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } });
-  res.json({ month, days: daysOfMonth(month).length, rows: await monthRows(accountId, orgId, month), closed: lock ? { at: lock.lockedAt, byUserId: lock.lockedByUserId } : null });
+  /* A team-scoped role sees its own team's rows. */
+  const scope = await teamScope(req);
+  const rows = (await monthRows(accountId, orgId, month)).filter((r: any) => inScope(scope, r.employeeId));
+  res.json({ month, days: daysOfMonth(month).length, rows, closed: lock ? { at: lock.lockedAt, byUserId: lock.lockedByUserId } : null });
 });
 
 /**
@@ -1107,6 +1116,8 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
   const month = String(req.params.month);
   if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
   if (month >= today().slice(0, 7)) return res.status(400).json({ error: 'Only a month that has ended can be closed.' });
+  /* Closing freezes every person's days: a team role, which sees only its team, does not do it. */
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Closing a month is done by someone who sees the whole company.', code: 'TEAM_SCOPED' });
   /* The checklist first: a month with open items closes only when someone says they have seen them. */
   const { monthReadiness, snapshotMonth } = await import('../services/attendance/readiness.js');
   const readiness = await monthReadiness(accountId, orgId, month);
@@ -1146,6 +1157,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/reopen', can(Permis
   if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
   const reason = String(req.body?.reason || '').trim().slice(0, 300);
   if (reason.length < 5) return res.status(400).json({ error: 'Say why the month is reopened. It goes in the audit log.', code: 'REASON_NEEDED' });
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Reopening a month is done by someone who sees the whole company.', code: 'TEAM_SCOPED' });
   const lock = await peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } });
   if (!lock) return res.status(409).json({ error: `${month} is not closed.` });
   await peopleWrite(orgId, () => peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId, month } }));

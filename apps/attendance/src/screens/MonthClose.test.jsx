@@ -78,3 +78,18 @@ it('says everyone is complete when nobody has anything open', async () => {
   expect(screen.getByText('0 people have something open')).toBeTruthy();
   expect(screen.queryByRole('tablist', { name: 'What is open' })).toBeNull();
 });
+
+it('shows a team-scoped role its team’s days, without closing or reopening the month', async () => {
+  getMonthReadiness.mockResolvedValue({ ...readiness(Array.from({ length: 3 }, (_, i) => person(i))), scope: 'team' });
+  render(<MonthClose params={{ month: '2026-09' }} />);
+  await screen.findByText('3 people have something open');
+  expect(screen.getByText('These are your team’s days. Closing or reopening the month is done by someone who sees the whole company.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /Close the month/ })).toBeNull();
+});
+
+it('does not offer a team-scoped role Reopen on a closed month', async () => {
+  getMonthReadiness.mockResolvedValue({ ...readiness([]), scope: 'team', closed: { at: '2026-10-02T05:00:00Z', byUserId: 'u1' } });
+  render(<MonthClose params={{ month: '2026-09' }} />);
+  await screen.findByText(/is closed/);
+  expect(screen.queryByRole('button', { name: /Reopen/ })).toBeNull();
+});
