@@ -35,14 +35,14 @@ describe('naming the fiscal year', () => {
 describe('closing the books on the server', () => {
   it('closes the year the date falls in', async () => {
     expect(await setBookLockOnServer({ fyDate: '2027-03-31', lockedThrough: '2027-03-31' })).toEqual({ ok: true });
-    expect(locked).toHaveBeenCalledWith('2026-27', '2027-03-31');
+    expect(locked).toHaveBeenCalledWith('2026-27', '2027-03-31', undefined);
   });
 
   it('still names a year when reopening', async () => {
     // The route locks a named year, so an unlock that passes no name reopens
     // nothing and the books stay shut with the screen saying otherwise.
-    expect(await setBookLockOnServer({ fyDate: '2027-03-31', lockedThrough: null })).toEqual({ ok: true });
-    expect(locked).toHaveBeenCalledWith('2026-27', null);
+    expect(await setBookLockOnServer({ fyDate: '2027-03-31', lockedThrough: null, reason: 'Audit reclass' })).toEqual({ ok: true });
+    expect(locked).toHaveBeenCalledWith('2026-27', null, 'Audit reclass');
   });
 
   it('reports a refusal so the screen does not show a year as closed', async () => {

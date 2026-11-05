@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
+import { PrismaClient } from '@prisma/client';
 import { buildApp } from '../app.js';
 import { prisma } from '../utils/prisma.js';
 import { livePostingsFor } from '../services/postingState.js';
@@ -20,6 +21,29 @@ import { livePostingsFor } from '../services/postingState.js';
 
 const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
+
+/*
+ * An invoice whose posting is still a draft, which the product does not make
+ * today. The database refuses to take a posted entry back to DRAFT
+ * (migration 20261106100000_ledger_guards), so the test does it as the owner
+ * with triggers off for its one statement.
+ */
+const ownerUrl = () => {
+  const url = new URL(String(process.env.PG_ADMIN_URL));
+  url.pathname = new URL(String(process.env.DATABASE_URL)).pathname;
+  url.search = '?schema=accounting';
+  return url.toString();
+};
+const dbOwner = new PrismaClient({ datasources: { db: { url: ownerUrl() } } });
+afterAll(() => dbOwner.$disconnect());
+const unpost = (orgId: string, invoiceId: string) =>
+  dbOwner.$transaction([
+    dbOwner.$executeRawUnsafe(`SET LOCAL session_replication_role = replica`),
+    dbOwner.journalEntry.updateMany({
+      where: { orgId, sourceDocType: 'INVOICE', sourceDocId: invoiceId, status: 'POSTED' },
+      data: { status: 'DRAFT' },
+    }),
+  ]);
 const rnd = () => Math.random().toString(36).slice(2, 8);
 
 type Ctx = { token: string; orgId: string; branchId: string };
@@ -298,10 +322,7 @@ describe('tax treatment and attribution are immutable once posted', () => {
 
   it('leaves all of them editable while nothing is posted', async () => {
     const invoice = await makeInvoice({ placeOfSupplyState: 'Karnataka', taxType: 'CGST_SGST', warehouseId: WH.A });
-    await prisma.journalEntry.updateMany({
-      where: { orgId: owner.orgId, sourceDocType: 'INVOICE', sourceDocId: invoice.id, status: 'POSTED' },
-      data: { status: 'DRAFT' },
-    });
+    await unpost(owner.orgId, invoice.id);
     const res = await patch(invoice.id, {
       placeOfSupplyState: 'Maharashtra',
       taxType: 'IGST',
@@ -377,10 +398,7 @@ describe('I — an invoice cannot be reduced below what has been received', () =
   it('refuses, and leaves the receipt and the settlement untouched', async () => {
     /* Draft, so nothing is posted and only the settlement guard can refuse. */
     const invoice = await makeInvoice({ status: 'Draft' });
-    await prisma.journalEntry.updateMany({
-      where: { orgId: owner.orgId, sourceDocType: 'INVOICE', sourceDocId: invoice.id, status: 'POSTED' },
-      data: { status: 'DRAFT' },
-    });
+    await unpost(owner.orgId, invoice.id);
 
     await request(app)
       .post(`/api/orgs/${owner.orgId}/payments`)
@@ -504,10 +522,7 @@ describe('M — branch', () => {
 describe('N — an unposted invoice', () => {
   it('keeps its omitted financial fields through a note-only edit, and stays fully editable', async () => {
     const invoice = await makeInvoice();
-    await prisma.journalEntry.updateMany({
-      where: { orgId: owner.orgId, sourceDocType: 'INVOICE', sourceDocId: invoice.id, status: 'POSTED' },
-      data: { status: 'DRAFT' },
-    });
+    await unpost(owner.orgId, invoice.id);
 
     expect((await patch(invoice.id, { refNo: 'PO-UNPOSTED' })).status).toBe(200);
     const mid = await row(invoice.id);

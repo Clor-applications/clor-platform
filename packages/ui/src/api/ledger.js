@@ -17,6 +17,29 @@ export const getTrialBalance = (allBranches = false, from = '', to = '') => {
   return apiFetch(`${base()}/trial-balance${qs ? `?${qs}` : ''}`, opts);
 };
 
+/**
+ * Profit & loss and the balance sheet, from posted journal lines on the server.
+ *
+ * Both are the trial balance rearranged, with the same branch scope, so the
+ * three reports always agree — including on entries no browser ever held.
+ */
+export const getProfitLoss = ({ from = '', to = '', allBranches = false } = {}) => {
+  const q = new URLSearchParams();
+  if (allBranches) q.set('allBranches', 'true');
+  if (from) q.set('from', from);
+  if (to) q.set('to', to);
+  const qs = q.toString();
+  return apiFetch(`${base()}/profit-loss${qs ? `?${qs}` : ''}`, opts);
+};
+
+export const getBalanceSheet = ({ asOf = '', allBranches = false } = {}) => {
+  const q = new URLSearchParams();
+  if (allBranches) q.set('allBranches', 'true');
+  if (asOf) q.set('asOf', asOf);
+  const qs = q.toString();
+  return apiFetch(`${base()}/balance-sheet${qs ? `?${qs}` : ''}`, opts);
+};
+
 export const getAccountLedgerLines = (ledgerAccountId, { from = '', to = '', allBranches = false } = {}) => {
   const q = new URLSearchParams();
   if (allBranches) q.set('allBranches', 'true');
@@ -114,9 +137,10 @@ export const getFiscalYears = () => apiFetch(`${base()}/fiscal-years`, opts);
  * closed year actually closed. A lock held only in the browser stops the
  * machine that set it and nothing else.
  */
-export const lockFiscalYear = (name, lockedThrough) =>
+export const lockFiscalYear = (name, lockedThrough, reason) =>
   apiFetch(`${base()}/fiscal-years/${encodeURIComponent(name)}/lock`, {
     method: 'POST',
-    body: { lockedThrough: lockedThrough || null },
+    /* The server needs a reason to reopen books, and records it. */
+    body: { lockedThrough: lockedThrough || null, ...(reason ? { reason } : {}) },
     ...opts,
   });

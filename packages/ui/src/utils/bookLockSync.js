@@ -25,18 +25,21 @@ export const fyNameFor = (dateIso) => {
  * in this browser binds this browser: a second user, or the same user on
  * another machine, could still post into the year somebody had closed.
  *
+ * Reopening — removing the lock or moving it earlier — needs a reason, which
+ * the server keeps with the change.
+ *
  * Locking needs the approve right on the ledger. A refusal is reported and
  * nothing is changed here either, so the screen never shows a year as closed
  * that the server would still accept entries into.
  */
-export const setBookLockOnServer = async ({ fyDate, lockedThrough }) => {
+export const setBookLockOnServer = async ({ fyDate, lockedThrough, reason }) => {
   if (!hasApiSession()) return { ok: true, local: true };
   // Reopening still has to name a year, so the year comes from the date under
   // discussion rather than from the value being written.
   const name = fyNameFor(fyDate);
   if (!name) return { ok: false };
   try {
-    await lockFiscalYear(name, lockedThrough || null);
+    await lockFiscalYear(name, lockedThrough || null, reason);
     return { ok: true };
   } catch (e) {
     notify.error(

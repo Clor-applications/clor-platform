@@ -180,19 +180,31 @@ export default function YearEndClose({ db, setDb, currentCompany }) {
     return end.toISOString().slice(0, 10);
   });
 
+  /* Reopening closed books — the lock removed, or moved to an earlier date —
+     is recorded on the server with its reason, and refused without one. */
+  const [reopenReason, setReopenReason] = useState('');
+  const needReason = () => {
+    if (reopenReason.trim().length >= 3) return false;
+    notify.error('Say why the books are being reopened.');
+    return true;
+  };
+
   const closePeriod = async () => {
     const upTo = String(closeUpto || '').slice(0, 10);
     if (!upTo) {
       notify.error('Pick the last date to close.');
       return;
     }
+    const reopening = Boolean(lock && upTo < lock.upTo);
+    if (reopening && needReason()) return;
     const ok = await confirmDialog({
       title: `Close books up to ${upTo}`,
       message: `Everything dated on or before ${upTo} is frozen for every user. Documents dated inside it cannot be created, edited or removed until the period is reopened.`,
       confirmLabel: 'Close the books',
     });
     if (!ok) return;
-    if (!(await setBookLockOnServer({ fyDate: upTo, lockedThrough: upTo })).ok) return;
+    if (!(await setBookLockOnServer({ fyDate: upTo, lockedThrough: upTo, reason: reopening ? reopenReason.trim() : undefined })).ok) return;
+    if (reopening) setReopenReason('');
     setDb((prev) => ({
       ...prev,
       fyLocks: [
@@ -204,11 +216,13 @@ export default function YearEndClose({ db, setDb, currentCompany }) {
   };
 
   const unlockYear = async () => {
+    if (needReason()) return;
     const ok = await confirmDialog({ title: 'Unlock books', message: `Remove the lock at ${lock.upTo}?`, confirmLabel: 'Unlock' });
     if (!ok) return;
     // Reopened on the server first, for the same reason: a year the server
     // still holds shut is shut whatever this screen says.
-    if (!(await setBookLockOnServer({ fyDate: lock.upTo, lockedThrough: null })).ok) return;
+    if (!(await setBookLockOnServer({ fyDate: lock.upTo, lockedThrough: null, reason: reopenReason.trim() })).ok) return;
+    setReopenReason('');
     setDb((prev) => ({ ...prev, fyLocks: (prev.fyLocks || []).filter((l) => l.companyId !== companyId) }));
     notify.success('Books unlocked.');
   };
@@ -237,6 +251,18 @@ export default function YearEndClose({ db, setDb, currentCompany }) {
           </div>
           {lock ? (
             <>
+              <div>
+                <label className="ui-label" htmlFor="reopen-reason">Reason for reopening</label>
+                <input
+                  id="reopen-reason"
+                  type="text"
+                  value={reopenReason}
+                  onChange={(e) => setReopenReason(e.target.value)}
+                  maxLength={500}
+                  placeholder="Why the books reopen"
+                  className="ui-input"
+                />
+              </div>
               <button type="button" onClick={closePeriod} className="ui-btn ui-btn-secondary">
                 <Lock size={14} aria-hidden="true" /> Move the close date
               </button>

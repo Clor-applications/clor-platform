@@ -263,7 +263,7 @@ describe('period lock', () => {
     await request(app)
       .post(`/api/orgs/${A.orgId}/ledger/fiscal-years/2026-27/lock`)
       .set(auth(A))
-      .send({ lockedThrough: null })
+      .send({ lockedThrough: null, reason: 'Test clean-up' })
       .expect(200);
   });
 });
@@ -290,7 +290,7 @@ describe('a lock covers every earlier year too', () => {
     await request(app)
       .post(`/api/orgs/${A.orgId}/ledger/fiscal-years/2026-27/lock`)
       .set(auth(A))
-      .send({ lockedThrough: null })
+      .send({ lockedThrough: null, reason: 'Test clean-up' })
       .expect(200);
   });
 });
