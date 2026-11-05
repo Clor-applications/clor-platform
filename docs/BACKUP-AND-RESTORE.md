@@ -587,7 +587,7 @@ the values `succeeded` and `failed`.
 ## Testing the scripts
 
 `deploy/backup/test-local.sh` runs on a throwaway local PostgreSQL. It refuses
-any host that is not this machine. It covers 42 checks:
+any host that is not this machine. It covers 45 checks:
 
 - the round trip as a non-superuser reader through FORCE RLS, partitioned
   tables included, with a value that holds a newline, a tab and a backslash;
@@ -603,6 +603,9 @@ It also checks every refusal:
   BYPASSRLS role or `cloudsqlsuperuser`;
 - a wrong key, a damaged archive, a missing signature, an extra file beside
   the archive, or a signature by anyone but the job;
+- a 7 KB pack that unpacks to a 2 GB sparse archive, refused before anything
+  is hashed;
+- that the backup's tars cannot add a Mac's `._` files or xattr headers;
 - forged archives signed with the job's own key: an injected database name,
   a pattern in a manifest key, a symlink, an extra file, a wrong row count;
 - an existing target database;

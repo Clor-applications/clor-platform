@@ -113,6 +113,8 @@ if reader bash "$BACKUP" > "$W/backup.log" 2>&1; then
     || { cat "$W/backup.log"; fail "backup did not see every row"; }
 else cat "$W/backup.log"; fail "backup failed"; fi
 ARCHIVE="$(find "$W/bucket/frequent" -name '*.clorbackup' 2>/dev/null | head -1)"
+grep -q '^export COPYFILE_DISABLE=1$' "$BACKUP" && [ "$(grep -c 'tar --no-xattrs .*-cf' "$BACKUP")" = 2 ] \
+  && ok "the backup tars without AppleDouble ._ files or xattr headers (COPYFILE_DISABLE=1, --no-xattrs)" || fail "the backup's tar calls can add ._ files or xattr headers on a Mac"
 [ -n "$ARCHIVE" ] && [ "$(tar -tf "$ARCHIVE" 2>/dev/null | sed 's#^\./##' | grep -v '^$' | sort | tr '\n' ' ')" = "archive.tar.age archive.tar.age.sig " ] \
   && ok "one object under frequent/ holding the archive and its signature" || fail "no frequent/ .clorbackup holding exactly archive.tar.age and its .sig"
 n_daily=$(find "$W/bucket/daily" -name '*.clorbackup' 2>/dev/null | wc -l | tr -d ' ')
@@ -163,6 +165,15 @@ expect_fail "a backup with no signature is refused" "no signature" restorer bash
 mkdir "$W/outer"; cp "$W/peek/archive.tar.age" "$W/peek/archive.tar.age.sig" "$W/outer/"; echo x > "$W/outer/run-me.sh"
 tar -C "$W/outer" -cf "$W/extra-outer.clorbackup" archive.tar.age archive.tar.age.sig run-me.sh
 expect_fail "an extra file beside the archive is refused" "unexpected file in the backup" restorer bash "$RESTORE" "$W/extra-outer.clorbackup" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r4
+mkdir "$W/sparse"; cp "$W/peek/archive.tar.age.sig" "$W/sparse/"
+dd if=/dev/zero of="$W/sparse/archive.tar.age" bs=1 count=0 seek=2147483648 2>/dev/null
+tar --read-sparse -C "$W/sparse" -cf "$W/sparse.clorbackup" archive.tar.age archive.tar.age.sig 2>/dev/null \
+  || tar --sparse -C "$W/sparse" -cf "$W/sparse.clorbackup" archive.tar.age archive.tar.age.sig
+rm -f "$W/sparse/archive.tar.age"
+[ "$(wc -c < "$W/sparse.clorbackup" | tr -d ' ')" -lt 1048576 ] || fail "fixture: the sparse pack is not small; this tar cannot build one"
+SECONDS=0
+expect_fail "a small pack that unpacks to 2 GB (sparse) is refused before hashing" "sparse or forged pack" restorer bash "$RESTORE" "$W/sparse.clorbackup" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r4
+[ "$SECONDS" -lt 30 ] && ok "  ...and refused quickly (${SECONDS}s)" || fail "the sparse pack took ${SECONDS}s to refuse"
 
 # Forged archives: anyone holding the PUBLIC age key can make one, and anyone
 # who can write to the bucket can plant it. forge DIR OUT [signing-key]

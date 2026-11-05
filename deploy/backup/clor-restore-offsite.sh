@@ -168,6 +168,13 @@ odd="$(cd "$WORK/pack" && find . -mindepth 1 \( ! -type f -o -links +1 \) -print
 [ -z "$odd" ] || die "not a plain file in the backup: $odd"
 ARCHIVE="$WORK/pack/archive.tar.age"
 [ -f "$ARCHIVE" ] || die "the backup holds no archive"
+# A plain tar is never smaller than the files in it. A sparse entry can be:
+# a 10 KB pack can unpack to a 20 GB archive.tar.age that the signature check
+# would then spend an hour hashing. Refuse it before reading anything.
+pack_bytes="$(wc -c < "$PACK" | tr -d ' ')"
+inner_bytes="$(find "$WORK/pack" -type f -exec ls -ln {} + | awk '{s += $5} END {printf "%.0f", s}')"
+[ "$inner_bytes" -le "$pack_bytes" ] \
+  || die "the backup unpacks to $inner_bytes bytes from a $pack_bytes-byte file (a sparse or forged pack); not restoring it"
 ssh-keygen -Y verify -f "$SIGNERS" -I clor-backup-job -n clor-backup -s "$ARCHIVE.sig" < "$ARCHIVE" >/dev/null 2>&1 \
   || die "bad signature: this archive was not made by the backup job (or was changed since). Not restoring it"
 age -d -i "$IDENTITY" -o "$WORK/bundle.tar" "$ARCHIVE" 2>/dev/null \

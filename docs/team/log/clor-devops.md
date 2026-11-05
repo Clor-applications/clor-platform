@@ -1,5 +1,16 @@
 # clor-devops work log
 
+## 2026-11-05 17:20 IST — Backups — #129: main merged, two last fixes
+- Did:
+  - Merged origin/main into the branch (eb8ab176). The only conflict was docs/team/log/clor-code-reviewer.md: kept both entries, newest first. The backup scripts were unchanged by the merge.
+  - Restore: before the signature check, refuses a pack whose unpacked files are larger than the pack itself, so a sparse pack can no longer tie up the hashing.
+  - Backup: export COPYFILE_DISABLE=1 and tar --no-xattrs on both tars, so a backup made by hand on a Mac has no ._ entries or LIBARCHIVE.xattr headers. Checked: a Mac tar of a file with an xattr held ._archive.tar.age.sig, which the restore refuses; with both settings it held only the file.
+- Evidence:
+  - test-local.sh: 45 passed, 0 failed. The two new checks failed against 4fe45a42's scripts (43 passed, 2 failed); a 7 KB pack holding a 2 GB sparse archive is now refused in 1 s.
+  - CI on the merge eb8ab176: verify, e2e-smoke, audit and secrets passed; deploy, e2e-staging and server-tests skipped (PR).
+- Next: CI on the fix commit; merge decision by the coordinator.
+- Blocked on: nothing.
+
 ## 2026-11-05 16:10 IST — Backups — final fixes for #129 (re-review of c366c1a7)
 - Did:
   - The restore refuses a role that can SET ROLE to any superuser, CREATEROLE or BYPASSRLS role, cloudsqlsuperuser, or a server-file/program role (pg_has_role MEMBER).

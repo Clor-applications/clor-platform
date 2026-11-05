@@ -52,6 +52,12 @@
 # failed run never costs the month its copy: the next good run takes it.
 set -euo pipefail
 umask 077
+# Run by hand on a Mac, bsdtar would add ._<name> AppleDouble entries and
+# LIBARCHIVE.xattr headers for any extended attribute (com.apple.provenance,
+# for one). The restore refuses the unexpected ._ files, so a Mac-made backup
+# would never restore. COPYFILE_DISABLE stops the ._ files; --no-xattrs on
+# each tar below stops the headers. Both are harmless with GNU tar.
+export COPYFILE_DISABLE=1
 
 die() { echo "backup: FAILED: $*" >&2; exit 1; }
 say() { echo "backup: $*"; }
@@ -238,7 +244,7 @@ echo "rows.total=$total" >> "$MANIFEST"
 # --------------------------------------------------------------- encrypt, sign
 mkdir "$WORK/pack"
 ARCHIVE="$WORK/pack/archive.tar.age"
-tar -C "$WORK/bundle" -cf - . | age "${AGE_ARGS[@]}" -o "$ARCHIVE" \
+tar --no-xattrs -C "$WORK/bundle" -cf - . | age "${AGE_ARGS[@]}" -o "$ARCHIVE" \
   || die "encryption failed"
 rm -rf "$WORK/bundle"   # the plaintext is not needed past this point
 ssh-keygen -q -Y sign -f "$WORK/signing.key" -n clor-backup "$ARCHIVE" >/dev/null 2>&1 \
@@ -248,7 +254,7 @@ rm -f "$WORK/signing.key"
 # signature uploaded apart from its archive could fail after the archive was
 # stored, and the day's fixed name would then be taken by an unusable copy.
 BACKUP="$WORK/out.clorbackup"
-tar -C "$WORK/pack" -cf "$BACKUP" archive.tar.age archive.tar.age.sig || die "packing failed"
+tar --no-xattrs -C "$WORK/pack" -cf "$BACKUP" archive.tar.age archive.tar.age.sig || die "packing failed"
 size="$(filesize "$BACKUP")"
 
 # --------------------------------------------------------------- upload
