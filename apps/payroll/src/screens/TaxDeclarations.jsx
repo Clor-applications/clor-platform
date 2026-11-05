@@ -197,6 +197,12 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
       landlordPan: row.landlordPan || '',
       seniorSelf: row.seniorSelf,
       seniorParents: row.seniorParents,
+      previousEmployer: {
+        name: row.previousEmployer?.name || '',
+        income: row.previousEmployer?.income || '',
+        professionalTax: row.previousEmployer?.professionalTax || '',
+        tds: row.previousEmployer?.tds || '',
+      },
     });
   };
   useEffect(() => {
@@ -229,7 +235,14 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
     landlordPan: form.landlordPan || null,
     seniorSelf: form.seniorSelf,
     seniorParents: form.seniorParents,
+    previousEmployer: {
+      name: form.previousEmployer.name || null,
+      income: Number(form.previousEmployer.income) || 0,
+      professionalTax: Number(form.previousEmployer.professionalTax) || 0,
+      tds: Number(form.previousEmployer.tds) || 0,
+    },
   });
+  const setPrevious = (patch) => setForm((f) => ({ ...f, previousEmployer: { ...f.previousEmployer, ...patch } }));
   const save = () => run(() => saveTaxDeclaration(employeeId, fy, body()), 'Saved.');
   const verify = async () => {
     const ok = await confirmDialog({
@@ -358,6 +371,32 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
           ) : (
             <p className="ui-caption">Under the new regime only the standard deduction applies; nothing else needs declaring.</p>
           )}
+
+          <div className="space-y-3">
+            <div>
+              <span className="ui-label">Earlier employer this year (Form 12B)</span>
+              <p className="ui-caption">If they joined from another job this financial year, the year’s tax is worked on both salaries, less what that employer already withheld.</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="ui-label" htmlFor="tx-prev-name">Employer</label>
+                <input id="tx-prev-name" className="ui-input w-full" maxLength={200} value={form.previousEmployer.name} onChange={(e) => setPrevious({ name: e.target.value })} />
+              </div>
+              <div>
+                <label className="ui-label" htmlFor="tx-prev-income">Taxable salary paid</label>
+                <input id="tx-prev-income" type="number" min="0" className="ui-input ui-num w-full" value={form.previousEmployer.income} onChange={(e) => setPrevious({ income: e.target.value })} />
+                <span className="ui-caption">After that employer’s section 10 exemptions.</span>
+              </div>
+              <div>
+                <label className="ui-label" htmlFor="tx-prev-pt">Professional tax taken</label>
+                <input id="tx-prev-pt" type="number" min="0" max="2500" className="ui-input ui-num w-full" value={form.previousEmployer.professionalTax} onChange={(e) => setPrevious({ professionalTax: e.target.value })} />
+              </div>
+              <div>
+                <label className="ui-label" htmlFor="tx-prev-tds">Income tax withheld</label>
+                <input id="tx-prev-tds" type="number" min="0" className="ui-input ui-num w-full" value={form.previousEmployer.tds} onChange={(e) => setPrevious({ tds: e.target.value })} />
+              </div>
+            </div>
+          </div>
         </fieldset>
       )}
     </Drawer>
@@ -457,19 +496,24 @@ table{border-collapse:collapse;width:100%;margin-top:4px}td,th{border:1px solid 
 <tr><th>Employee</th><td>${escapeHtml(p.name)}${p.designation ? `, ${escapeHtml(p.designation)}` : ''}</td><th>PAN</th><td>${escapeHtml(p.pan || 'not on file')}</td><th>Period</th><td>${escapeHtml(formatDateIn(p.periodFrom))} – ${escapeHtml(formatDateIn(p.periodTo))}</td></tr></table>
 <h2>Computation (${p.regime === 'OLD' ? 'old regime' : 'new regime, section 115BAC'})</h2>
 <table>
-${row('1. Gross salary', p.gross, true)}
+${row('1. Gross salary (taxable components and employer NPS)', p.taxableSalary ?? p.gross, true)}
+${p.previousEmployer ? row(`   Add: salary from ${p.previousEmployer.name || 'a previous employer'} (Form 12B)`, p.previousEmployer.income) : ''}
 ${lines(p.exemptions)}
 ${row('2. Less: allowances exempt under section 10', sum(p.exemptions))}
 ${row('3. Less: standard deduction under section 16(ia)', p.standardDeduction)}
+${p.professionalTax ? row('   Less: professional tax under section 16(iii)', p.professionalTax) : ''}
+${p.employerNps ? row('   Less: employer NPS under section 80CCD(2)', p.employerNps) : ''}
 ${p.houseProperty.length ? lines(p.houseProperty) + row('4. Less: loss from house property (interest on housing loan)', sum(p.houseProperty)) : ''}
 ${lines(p.chapterVIA)}
 ${row('5. Less: deductions under Chapter VI-A', sum(p.chapterVIA))}
 ${row('6. Total taxable income', p.taxable, true)}
 ${row('7. Tax on total income', p.slabTax)}
 ${row('8. Less: rebate under section 87A', p.rebate)}
+${p.surcharge ? row('   Add: surcharge (after marginal relief)', p.surcharge) : ''}
 ${row('9. Health and education cess', p.cess)}
 ${row('10. Tax payable', p.taxPayable, true)}
 ${row('11. Tax deducted at source', p.tdsDeducted)}
+${p.previousEmployer?.tds ? row('   Tax deducted by the previous employer', p.previousEmployer.tds) : ''}
 ${row(p.balance >= 0 ? '12. Tax still payable' : '12. Deducted in excess', Math.abs(p.balance || 0), true)}
 </table>
 <h2>Tax deducted, month by month</h2>

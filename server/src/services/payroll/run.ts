@@ -5,10 +5,11 @@ import { Prisma } from '../../generated/payroll/index.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { calculateStructure, ENGINE_VERSION, type EngineComponent } from './engine/calculator.js';
 import { loadRules, applyStatutory } from './statutory/resolve.js';
-import { ruleInForce } from './statutory/engine.js';
+import { ageBandFor, ruleInForce } from './statutory/engine.js';
+import { isEmployerNps, taxablePayOf } from './taxablePay.js';
 import { recoveriesDue, type DueRecovery } from './loan.js';
 import { capDeductions, capSetting, partWords } from './deductionCap.js';
-import { financialYearOf, deductionsFor } from './taxDeclaration.js';
+import { financialYearOf, deductionsFor, previousEmployerOf } from './taxDeclaration.js';
 import { round2 } from '../../utils/money.js';
 import { componentApplies, monthsOfService, type EligibilityFacts } from './eligibility.js';
 import { isCorrection, isLatePenalty } from './provisionalDays.js';
@@ -128,8 +129,13 @@ export const monthsLeftInFinancialYear = (isoDate: string) => {
  * owed is spread over them — not the full year's tax over the months left,
  * which deducted more every month and the whole year's tax in March.
  */
+const PAN = /^[A-Z]{5}\d{4}[A-Z]$/;
+/** A PAN in the PAN format: five letters, four digits, a letter. Anything else is no PAN for section 206AA. */
+const hasValidPan = (pan: string | null | undefined) => PAN.test(String(pan || '').trim().toUpperCase());
+
 async function taxPaidSoFar(orgId: string, run: { id: string; payrollDate: string }, employeeIds: string[]) {
-  const out = new Map<string, { gross: number; tds: number }>();
+  /* `taxable` is what income tax reads (taxablePay.ts): taxable earnings and employer NPS, not gross. */
+  const out = new Map<string, { gross: number; tds: number; taxable: number; employerNps: number; basicDa: number }>();
   if (!employeeIds.length) return out;
   const earlier = await payrollPrisma.payrollRun.findMany({
     where: {
@@ -145,19 +151,32 @@ async function taxPaidSoFar(orgId: string, run: { id: string; payrollDate: strin
     where: { orgId, runId: { in: earlier.map((r) => r.id) }, employeeId: { in: employeeIds } },
     select: { id: true, employeeId: true, grossEarnings: true },
   });
-  const tdsComponents = await payrollPrisma.salaryComponent.findMany({ where: { orgId, statutoryScheme: 'TDS' }, select: { id: true } });
-  const lines = slips.length && tdsComponents.length
+  const lines = slips.length
     ? await payrollPrisma.salarySlipLine.findMany({
-        where: { orgId, slipId: { in: slips.map((x) => x.id) }, componentId: { in: tdsComponents.map((c) => c.id) } },
-        select: { slipId: true, amount: true },
+        where: { orgId, slipId: { in: slips.map((x) => x.id) } },
+        select: { slipId: true, componentId: true, componentCode: true, type: true, amount: true, isTaxable: true },
       })
     : [];
-  const tdsBySlip = new Map<string, number>();
-  for (const l of lines) tdsBySlip.set(l.slipId, (tdsBySlip.get(l.slipId) || 0) + Number(l.amount));
+  const components = new Map(
+    (
+      await payrollPrisma.salaryComponent.findMany({
+        where: { orgId, id: { in: [...new Set(lines.map((l) => l.componentId))] } },
+        select: { id: true, code: true, statutoryScheme: true, taxSection: true },
+      })
+    ).map((c) => [c.id, c])
+  );
+  const linesBySlip = new Map<string, typeof lines>();
+  for (const l of lines) linesBySlip.set(l.slipId, [...(linesBySlip.get(l.slipId) || []), l]);
   for (const x of slips) {
-    const cur = out.get(x.employeeId) || { gross: 0, tds: 0 };
+    const own = linesBySlip.get(x.id) || [];
+    const tds = own.filter((l) => l.type === 'DEDUCTION' && components.get(l.componentId)?.statutoryScheme === 'TDS').reduce((t, l) => t + Number(l.amount), 0);
+    const pay = taxablePayOf(own.map((l) => ({ type: l.type, amount: l.amount, isTaxable: l.isTaxable, code: l.componentCode, employerNps: isEmployerNps(components.get(l.componentId)) })));
+    const cur = out.get(x.employeeId) || { gross: 0, tds: 0, taxable: 0, employerNps: 0, basicDa: 0 };
     cur.gross = round2(cur.gross + Number(x.grossEarnings));
-    cur.tds = round2(cur.tds + (tdsBySlip.get(x.id) || 0));
+    cur.tds = round2(cur.tds + tds);
+    cur.taxable = round2(cur.taxable + pay.taxable);
+    cur.employerNps = round2(cur.employerNps + pay.employerNps);
+    cur.basicDa = round2(cur.basicDa + pay.basicDa);
     out.set(x.employeeId, cur);
   }
   return out;
@@ -734,7 +753,7 @@ function calculateWithStatutory(
 
   /* Months left in the Indian financial year, this one included, which is what TDS spreads over. */
   const monthsRemaining = monthsLeftInFinancialYear(ctx.run.payrollDate);
-  const soFar = ctx.taxSoFar.get(assignment.employeeId) || { gross: 0, tds: 0 };
+  const soFar = ctx.taxSoFar.get(assignment.employeeId) || { gross: 0, tds: 0, taxable: 0, employerNps: 0, basicDa: 0 };
   const declaration = ctx.taxDeclarations.get(assignment.employeeId) || null;
   const person = ctx.employees.get(assignment.employeeId);
   const employee = {
@@ -748,7 +767,19 @@ function calculateWithStatutory(
     lwfRole: ctx.lwfSettings.roleOf(person?.designation),
     /* The year's declaration, where there is one, says which regime they chose. */
     taxRegime: ((declaration?.regime || profile?.taxRegime) as 'OLD' | 'NEW') || 'NEW',
+    /* The old regime's senior and very senior slabs, from the date of birth on the People record. */
+    ageBand: ageBandFor(person?.dateOfBirth, ctx.run.payrollDate),
+    /* Without a valid PAN, section 206AA's 20%. */
+    hasPan: hasValidPan(profile?.pan),
   };
+  const previous = previousEmployerOf(declaration);
+  const ptSoFar = ctx.ptSoFar.get(assignment.employeeId) || { yearToDate: 0, thisMonth: 0, byState: new Map() };
+  /* The year from this period: what earlier payslips had, plus this period's for the periods left. Other frequencies keep the simple annualisation. */
+  const forYear = (sofar: number, now: number) => round2(periodsPerYear === 12 ? sofar + now * monthsRemaining : now * periodsPerYear);
+  const taxablePay = (pass: ReturnType<typeof calculateStructure>) =>
+    taxablePayOf(
+      pass.lines.map((l) => ({ type: l.type, amount: l.amount, isTaxable: l.isTaxable, code: l.code, employerNps: isEmployerNps(ctx.components.get(l.componentId)) }))
+    );
   /* Basic and DA (or PF wages, where a structure names them otherwise) and HRA, for the HRA exemption. */
   const byCode = (pass: ReturnType<typeof calculateStructure>, codes: string[]) =>
     pass.lines.filter((l) => l.type === 'EARNING' && codes.includes(l.code.toUpperCase())).reduce((t, l) => t + l.amount, 0);
@@ -762,14 +793,20 @@ function calculateWithStatutory(
         pfWage: pass.pfWage,
         esiWage: pass.esiWage,
         gross: pass.grossEarnings,
-        /* Monthly pay: the year is what was paid so far plus this month for the months left. Other frequencies keep the simple annualisation. */
-        annualTaxable: periodsPerYear === 12 ? soFar.gross + pass.grossEarnings * monthsRemaining : pass.grossEarnings * periodsPerYear,
+        /* Taxable earnings and employer NPS, never plain gross: a reimbursement is paid but not taxed. */
+        annualTaxable: forYear(soFar.taxable, taxablePay(pass).taxable),
+        employerNps: forYear(soFar.employerNps, taxablePay(pass).employerNps),
+        /* Basic and DA (PF wages where a structure names them otherwise), for the NPS limit. */
+        npsWage: forYear(soFar.basicDa || 0, taxablePay(pass).basicDa || pass.pfWage),
+        previousEmployer: previous ? { income: previous.income, tds: previous.tds } : null,
       },
       employee,
       components: engine.map((c) => ({ code: c.code, statutoryScheme: c.statutoryScheme, type: c.type })),
       monthsRemaining: Math.max(1, monthsRemaining),
       taxAlreadyDeducted: periodsPerYear === 12 ? soFar.tds : 0,
-      ptSoFar: ctx.ptSoFar.get(assignment.employeeId) || { yearToDate: 0, thisMonth: 0, byState: new Map() },
+      ptSoFar,
+      /* The year's professional tax: what payslips took, this period's for the periods left, and a previous employer's (engine caps it at ₹2,500). */
+      professionalTaxFor: (ptNow) => round2(forYear(ptSoFar.yearToDate, ptNow) + (previous?.professionalTax || 0)),
       /* From joining (or the company's first month on CLOR this year, if later) to leaving or March. */
       ptMonthsEmployed: monthsEmployedInYear(
         ctx.period.startDate,
@@ -1100,8 +1137,14 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
     if (pendingBank.has(employee.id)) {
       add({ severity: 'INFO', code: 'BANK_CHANGE_PENDING', employeeId: employee.id, message: `${who} has a bank change waiting for approval; pay goes to the account on file until then.` });
     }
-    if (!profile?.pan) {
-      add({ severity: 'INFO', code: 'NO_PAN', employeeId: employee.id, message: `${who} has no PAN on file.` });
+    /* Not blocking — tax is still withheld — but at 20% (section 206AA), which is money out of their pay. */
+    if (!hasValidPan(profile?.pan)) {
+      add({
+        severity: 'WARNING',
+        code: 'NO_PAN',
+        employeeId: employee.id,
+        message: `${who} has ${profile?.pan ? 'a PAN that is not in the PAN format' : 'no PAN on file'}, so income tax is withheld at 20% (section 206AA) once their income is above the taxable limit. Add their PAN before this run is approved.`,
+      });
     }
     if (input.derived) {
       add({

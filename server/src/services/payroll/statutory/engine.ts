@@ -52,10 +52,18 @@ export type StatutoryWages = {
   esiWage: number;
   /** Gross pay for the period, which is what PT slabs read. */
   gross: number;
-  /** Annual taxable pay, for income tax. */
+  /** The year's taxable pay from this employer: taxable earnings only, employer NPS included. */
   annualTaxable?: number;
   /** Old regime only: the year's deductions from a tax declaration (services/payroll/taxDeclaration.ts). */
   taxDeductions?: { total: number; note: string };
+  /** The year's professional tax, here and at a previous employer (deductible under the old regime). */
+  professionalTax?: number;
+  /** The year's employer NPS contribution, deductible within a share of `npsWage`. */
+  employerNps?: number;
+  /** The year's Basic and DA, for the employer NPS limit. */
+  npsWage?: number;
+  /** Form 12B: taxable salary from an earlier employer this year, and the tax they withheld. */
+  previousEmployer?: { income: number; tds: number } | null;
 };
 
 export type StatutoryEmployee = {
@@ -76,6 +84,10 @@ export type StatutoryEmployee = {
    * supervisors list: left out only above the state's pay limit).
    */
   lwfRole?: 'MANAGER' | 'SUPERVISOR' | null;
+  /** Old regime: 60 to 79, or 80 and over, at any time in the financial year (ageBandFor). */
+  ageBand?: AgeBand;
+  /** false when there is no valid PAN on file: TDS at 20% (section 206AA). Left out, a PAN is assumed. */
+  hasPan?: boolean;
 };
 
 export type StatutoryAmount = {
@@ -101,6 +113,8 @@ export type StatutoryAmount = {
   needsCheck?: boolean;
   /** LWF: each fund's share, where a state has more than one. */
   funds?: Array<{ name: string; employee: number; employer: number }>;
+  /** TDS: withheld at this rate because there is no PAN (section 206AA). */
+  noPanRate?: number;
 };
 
 
@@ -495,22 +509,126 @@ function computePt(
 }
 
 export type TaxBand = { upTo: number | null; rate: number };
+/** A surcharge rate on the tax, for total income above `over`. */
+export type SurchargeBand = { over: number; rate: number };
+/** Old regime only: 60 to 79 (SENIOR) or 80 and over (SUPER_SENIOR) at any time in the year. */
+export type AgeBand = 'SENIOR' | 'SUPER_SENIOR' | null;
+
+/*
+ * The figures below are the fallbacks for a TDS rule seeded before it carried
+ * them, and match the seed (defaults.ts). Checked against:
+ *
+ *  - FY 2025-26: Income-tax Act 1961 as amended by the Finance Act 2025 —
+ *    section 115BAC(1A) (new regime slabs), First Schedule Part III (old
+ *    regime slabs by age, surcharge and its marginal relief), section 87A
+ *    (rebate), section 16 (standard deduction, professional tax), section
+ *    80CCD(2) (employer NPS) and section 206AA (no PAN).
+ *  - FY 2026-27: Income-tax Act 2025 as amended by the Finance Act 2026 (ICAI's
+ *    text, April 2026) — section 202(1) (new regime slabs), Finance Act 2026
+ *    First Schedule Part III Paragraphs A and F (old regime slabs by age,
+ *    surcharge, marginal relief) and section 3(12)(b) Table Sl. No. 10 (new
+ *    regime surcharge, capped at 25%), section 156 (rebate), section 19(1)
+ *    Table Sl. Nos. 1 and 2 (professional tax, standard deduction), section
+ *    124(1)-(2) (employer NPS) and section 397(2)(b) (no PAN).
+ *
+ * The Finance Act 2026 kept every figure FY 2025-26 had, so one set serves both
+ * years.
+ */
 
 /** Old-regime deduction and rebate, for TDS rules seeded without `config.oldRegime`. */
 const OLD_REGIME_TERMS = { standardDeduction: 50000, rebateUpTo: 500000, rebateMax: 12500, marginalRelief: false };
 
+/* Old regime, resident 60 to 79 at any time in the year: nil to ₹3 lakh. */
+export const OLD_SENIOR_BANDS: TaxBand[] = [
+  { upTo: 300000, rate: 0 },
+  { upTo: 500000, rate: 5 },
+  { upTo: 1000000, rate: 20 },
+  { upTo: null, rate: 30 },
+];
+/* Old regime, resident 80 or over: nil to ₹5 lakh, then straight to 20%. */
+export const OLD_SUPER_SENIOR_BANDS: TaxBand[] = [
+  { upTo: 500000, rate: 0 },
+  { upTo: 1000000, rate: 20 },
+  { upTo: null, rate: 30 },
+];
+
+/* Surcharge on the tax once total income exceeds ₹50 lakh. The new regime
+   stops at 25%; the old one goes to 37% above ₹5 crore. */
+export const OLD_SURCHARGE: SurchargeBand[] = [
+  { over: 5000000, rate: 10 },
+  { over: 10000000, rate: 15 },
+  { over: 20000000, rate: 25 },
+  { over: 50000000, rate: 37 },
+];
+export const NEW_SURCHARGE: SurchargeBand[] = [
+  { over: 5000000, rate: 10 },
+  { over: 10000000, rate: 15 },
+  { over: 20000000, rate: 25 },
+];
+
+/* Employer NPS deductible up to this share of salary (Basic and DA): 10% for a
+   private employer under the old regime, 14% under the new. */
+const EMPLOYER_NPS_RATE = { OLD: 10, NEW: 14 };
+
+/* Section 206AA (397(2) from April 2026): without a PAN, the higher of the rate
+   in force and 20%. */
+export const NO_PAN_RATE = 20;
+
+/**
+ * Whether somebody is a senior (60) or very senior (80) citizen for a
+ * financial year: aged that "at any time during the year". A person attains an
+ * age the day before the birthday, so somebody born on 1 April 1966 is 60 on
+ * 31 March 2026 and a senior for 2025-26.
+ */
+export function ageBandFor(dateOfBirth: string | null | undefined, anyDateInYear: string): AgeBand {
+  if (!dateOfBirth || !/^\d{4}-\d{2}-\d{2}/.test(dateOfBirth)) return null;
+  const y = Number(anyDateInYear.slice(0, 4));
+  const start = Number(anyDateInYear.slice(5, 7)) >= 4 ? y : y - 1;
+  const dayAfterYear = `${start + 1}-04-01`;
+  const birthday = (age: number) => `${Number(dateOfBirth.slice(0, 4)) + age}${dateOfBirth.slice(4, 10)}`;
+  if (birthday(80) <= dayAfterYear) return 'SUPER_SENIOR';
+  if (birthday(60) <= dayAfterYear) return 'SENIOR';
+  return null;
+}
+
+/** Slab by slab, each rate applying only to the part of income inside it. */
+function slabTaxOn(bands: TaxBand[], income: number) {
+  let tax = 0;
+  let previous = 0;
+  for (const band of bands) {
+    const ceiling = band.upTo ?? Infinity;
+    if (income <= previous) break;
+    const inBand = Math.min(income, ceiling) - previous;
+    if (inBand > 0) tax += (inBand * band.rate) / 100;
+    previous = ceiling;
+    if (!Number.isFinite(ceiling)) break;
+  }
+  return tax;
+}
+
+/** The surcharge band total income falls in ("exceeds", so ₹50 lakh exactly has none). */
+const surchargeBandOf = (bands: SurchargeBand[], income: number) =>
+  [...bands].sort((a, b) => b.over - a.over).find((b) => income > b.over) || null;
+
+/** What, beyond declarations, comes off salary before the slabs. All annual. */
+export type TaxAdjustments = {
+  /** Professional tax paid in the year: deductible under the old regime only. */
+  professionalTax?: number;
+  /** The employer's NPS contribution, already counted in the income. */
+  employerNps?: number;
+  /** Basic and DA for the year, which the NPS limit is a share of. */
+  npsWage?: number;
+  ageBand?: AgeBand;
+};
+
 /**
  * The year's income tax on a year's salary, under one regime: standard
- * deduction, declared deductions (old regime only), slabs, rebate, marginal
- * relief and cess. Shared by monthly TDS and Form 16, so the certificate and
- * the payslips cannot disagree about how tax was worked out.
+ * deduction, professional tax (old regime), employer NPS, declared deductions
+ * (old regime only), slabs by age, rebate, surcharge with marginal relief and
+ * cess. Shared by monthly TDS and Form 16, so the certificate and the payslips
+ * cannot disagree about how tax was worked out.
  */
-export function incomeTax(rule: StatutoryRuleInput, regime: 'OLD' | 'NEW', annualIncome: number, deductions = 0) {
-  const bands: TaxBand[] = Array.isArray(rule.config?.[regime === 'OLD' ? 'oldRegimeBands' : 'newRegimeBands'])
-    ? rule.config[regime === 'OLD' ? 'oldRegimeBands' : 'newRegimeBands']
-    : [];
-  if (!bands.length) return null;
-
+export function incomeTax(rule: StatutoryRuleInput, regime: 'OLD' | 'NEW', annualIncome: number, deductions = 0, adjust: TaxAdjustments = {}) {
   /*
    * The standard deduction and the rebate are not the same in both regimes:
    * new ₹75,000 and a rebate up to ₹12 lakh (at most ₹60,000), old ₹50,000 and
@@ -523,21 +641,29 @@ export function incomeTax(rule: StatutoryRuleInput, regime: 'OLD' | 'NEW', annua
   const terms =
     regime === 'OLD' ? { ...OLD_REGIME_TERMS, ...(rule.config?.oldRegime || {}) } : rule.config || {};
 
-  const standardDeduction = Math.min(Math.max(0, annualIncome), Number(terms.standardDeduction ?? 0));
-  const declared = regime === 'OLD' ? Math.max(0, deductions) : 0;
-  const taxable = Math.max(0, annualIncome - standardDeduction - declared);
+  /* The old regime's slabs move with age; the new regime has one set for everybody. */
+  const ageBand = regime === 'OLD' ? adjust.ageBand || null : null;
+  const listed = (v: unknown): TaxBand[] | null => (Array.isArray(v) && v.length ? (v as TaxBand[]) : null);
+  const bands: TaxBand[] =
+    (ageBand === 'SUPER_SENIOR' && (listed(terms.superSeniorBands) || OLD_SUPER_SENIOR_BANDS)) ||
+    (ageBand === 'SENIOR' && (listed(terms.seniorBands) || OLD_SENIOR_BANDS)) ||
+    listed(rule.config?.[regime === 'OLD' ? 'oldRegimeBands' : 'newRegimeBands']) ||
+    [];
+  if (!bands.length) return null;
 
-  /* Slab by slab, each rate applying only to the part of income inside it. */
-  let slabTax = 0;
-  let previous = 0;
-  for (const band of bands) {
-    const ceiling = band.upTo ?? Infinity;
-    if (taxable <= previous) break;
-    const inBand = Math.min(taxable, ceiling) - previous;
-    if (inBand > 0) slabTax += (inBand * band.rate) / 100;
-    previous = ceiling;
-    if (!Number.isFinite(ceiling)) break;
-  }
+  const income = Math.max(0, annualIncome);
+  const standardDeduction = Math.min(income, Number(terms.standardDeduction ?? 0));
+  /* Tax on employment (section 16(iii); 19(1) Sl. No. 1 from April 2026), at
+     most ₹2,500 a year under the Constitution (article 276(2)). The new regime
+     allows only the standard deduction against salary (115BAC(2); 202(2)). */
+  const professionalTax = regime === 'OLD' ? Math.min(PT_ANNUAL_CAP, Math.max(0, Number(adjust.professionalTax) || 0)) : 0;
+  /* Employer NPS (80CCD(2); 124(1)-(2)): allowed in both regimes, up to a share of Basic and DA. */
+  const npsRate = Number(terms.employerNpsRate ?? EMPLOYER_NPS_RATE[regime]);
+  const employerNps = round2(Math.min(Math.max(0, Number(adjust.employerNps) || 0), (Math.max(0, Number(adjust.npsWage) || 0) * npsRate) / 100));
+  const declared = regime === 'OLD' ? Math.max(0, deductions) : 0;
+  const taxable = Math.max(0, income - standardDeduction - professionalTax - employerNps - declared);
+
+  const slabTax = slabTaxOn(bands, taxable);
 
   /* A rebate wipes the tax out entirely below a threshold rather than reducing
      it — somebody just under the line pays nothing at all. */
@@ -550,29 +676,54 @@ export function incomeTax(rule: StatutoryRuleInput, regime: 'OLD' | 'NEW', annua
      ₹60,000 in tax. */
   else if (rebateUpTo && terms.marginalRelief) tax = Math.min(tax, taxable - rebateUpTo);
 
+  /*
+   * Surcharge, a share of the tax once income passes ₹50 lakh — with its own
+   * marginal relief: crossing a line may not cost more in tax and surcharge
+   * than the income above the line. Without it ₹50,00,100 would owe about
+   * ₹1.3 lakh more than ₹50,00,000.
+   */
+  const surchargeBands: SurchargeBand[] = Array.isArray(terms.surcharge) ? terms.surcharge : regime === 'OLD' ? OLD_SURCHARGE : NEW_SURCHARGE;
+  const band = surchargeBandOf(surchargeBands, taxable);
+  let surcharge = band ? (tax * band.rate) / 100 : 0;
+  let surchargeRelief = 0;
+  if (band) {
+    const atLine = slabTaxOn(bands, band.over);
+    const below = surchargeBandOf(surchargeBands, band.over);
+    const ceiling = atLine + (below ? (atLine * below.rate) / 100 : 0) + (taxable - band.over);
+    if (tax + surcharge > ceiling) {
+      surchargeRelief = Math.min(surcharge, tax + surcharge - ceiling);
+      surcharge -= surchargeRelief;
+    }
+  }
+
   const cessRate = Number(rule.config?.cessRate ?? 0);
-  const cess = round2(tax * (cessRate / 100));
+  const cess = round2((tax + surcharge) * (cessRate / 100));
   return {
     standardDeduction,
+    professionalTax,
+    employerNps,
     deductions: declared,
     taxable,
+    ageBand,
+    /* Income up to here owes nothing whatever else applies: the first nil band. */
+    exemptionLimit: bands[0]?.rate === 0 ? Number(bands[0].upTo ?? Infinity) : 0,
     slabTax: round2(slabTax),
     rebate: round2(slabTax - tax),
     tax: round2(tax),
+    surchargeRate: band?.rate ?? 0,
+    surcharge: round2(surcharge),
+    surchargeRelief: round2(surchargeRelief),
     cess,
-    total: round2(tax + cess),
+    total: round2(tax + surcharge + cess),
   };
 }
 
 /**
  * Income tax withheld from salary.
  *
- * Deliberately the foundation rather than the whole of it. What is here is the
- * spine every TDS calculation shares: project the year's taxable pay, work the
- * tax on it, subtract what has already been withheld, and spread the rest over
- * the months that remain. Declarations, investment proofs, house property
- * losses and perquisites all attach to `annualTaxable` — they change what is
- * taxed, not how it is spread — so they can be added without this being rewritten.
+ * Project the year's taxable pay (this employer's, and a previous employer's
+ * from Form 12B), work the tax on it, subtract what has already been withheld
+ * here and there, and spread the rest over the months that remain.
  *
  * Spreading matters: charging the whole year's tax in March is legal and
  * ruinous for the person receiving it.
@@ -594,27 +745,66 @@ function computeTds(
 
   const regime = employee.taxRegime || 'NEW';
   const declared = regime === 'OLD' ? Math.max(0, Number(wages.taxDeductions?.total) || 0) : 0;
-  const year = incomeTax(rule, regime, Number(wages.annualTaxable ?? 0), declared);
+  const previous = wages.previousEmployer || null;
+  const income = Number(wages.annualTaxable ?? 0) + Math.max(0, Number(previous?.income) || 0);
+  const year = incomeTax(rule, regime, income, declared, {
+    professionalTax: wages.professionalTax,
+    employerNps: wages.employerNps,
+    npsWage: wages.npsWage,
+    ageBand: employee.ageBand,
+  });
   if (!year) {
     return { ...base, employee: 0, employer: 0, explanation: 'No income tax bands are set.', exemptReason: 'NO_BANDS' };
   }
-  const { taxable, total: withCess } = year;
+  const { taxable } = year;
 
-  const remaining = Math.max(0, round2(withCess - Number(opts.taxAlreadyDeducted || 0)));
+  /*
+   * No PAN: the higher of the tax in force and 20% of the income (section
+   * 206AA; 397(2)(b) from April 2026). CBDT's salary circulars read this as
+   * the average rate against 20%, with no cess on the 20%, and nothing to
+   * withhold while the income is below the taxable limit.
+   */
+  let due = year.total;
+  let noPanRate: number | undefined;
+  if (employee.hasPan === false && taxable > year.exemptionLimit) {
+    const rate = Number(rule.config?.noPanRate ?? NO_PAN_RATE);
+    const flat = round2((taxable * rate) / 100);
+    if (flat > due) {
+      due = flat;
+      noPanRate = rate;
+    }
+  }
+
+  const previousTds = Math.max(0, Number(previous?.tds) || 0);
+  const already = Math.max(0, Number(opts.taxAlreadyDeducted) || 0) + previousTds;
+  const remaining = Math.max(0, round2(due - already));
   const months = Math.max(1, opts.monthsRemaining);
   const monthly = applyRounding(remaining / months, rule.rounding);
+
+  const off = [
+    year.professionalTax ? `${money(year.professionalTax)} of professional tax` : '',
+    year.employerNps ? `${money(year.employerNps)} of employer NPS` : '',
+    declared ? `${money(declared)} of ${wages.taxDeductions?.note || 'declared deductions'}` : '',
+  ].filter(Boolean);
+  const how = noPanRate
+    ? `${money(due)} of tax at ${noPanRate}% of ${money(taxable)} for the year, because there is no PAN on file (section 206AA)`
+    : `${money(due)} of tax on ${money(taxable)} for the year${off.length ? ` (after ${off.join(', ')})` : ''}${
+        year.surcharge ? `, including ${money(year.surcharge)} of surcharge${year.surchargeRelief ? ' after marginal relief' : ''}` : ''
+      }`;
+  const prior = previousTds
+    ? `less ${money(opts.taxAlreadyDeducted || 0)} already deducted here and ${money(previousTds)} by a previous employer`
+    : `less ${money(opts.taxAlreadyDeducted || 0)} already deducted`;
 
   return {
     ...base,
     employee: monthly,
     employer: 0,
     wageApplied: taxable,
+    ...(noPanRate ? { rateApplied: noPanRate, noPanRate } : {}),
     explanation:
-      withCess <= 0
+      due <= 0
         ? `No tax is due on ${money(taxable)} of taxable pay under the ${regime.toLowerCase()} regime.`
-        : `${money(withCess)} of tax on ${money(taxable)} for the year${declared ? ` (after ${money(declared)} of ${wages.taxDeductions?.note || 'declared deductions'})` : ''}, less ${money(
-            opts.taxAlreadyDeducted || 0
-          )} already deducted, spread over ${months} month${months === 1 ? '' : 's'}.`,
+        : `${how}${previous?.income ? `, counting ${money(previous.income)} paid by a previous employer` : ''}, ${prior}, spread over ${months} month${months === 1 ? '' : 's'}.`,
   };
 }
 

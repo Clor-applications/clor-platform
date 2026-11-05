@@ -92,6 +92,19 @@ export function deductionsFor(decl: Decl | null, annual: { basic: number; hra: n
   return { total: round2(lines.reduce((t, l) => t + l.allowed, 0)), lines, basis };
 }
 
+/**
+ * Form 12B, where somebody joined from another employer this year: the salary
+ * that employer paid (taxable, after its own exemptions), the professional tax
+ * and the TDS it took. Null when there is none.
+ */
+export function previousEmployerOf(row: { previousEmployerName?: string | null; previousEmployerIncome?: unknown; previousEmployerPt?: unknown; previousEmployerTds?: unknown } | null) {
+  const income = Number(row?.previousEmployerIncome ?? 0) || 0;
+  const professionalTax = Number(row?.previousEmployerPt ?? 0) || 0;
+  const tds = Number(row?.previousEmployerTds ?? 0) || 0;
+  if (!income && !professionalTax && !tds) return null;
+  return { name: row?.previousEmployerName || null, income, professionalTax, tds };
+}
+
 const money = z.coerce.number().min(0, 'Amounts cannot be negative.').max(100_000_000);
 export const declarationSchema = z.object({
   regime: z.enum(['NEW', 'OLD']),
@@ -104,6 +117,16 @@ export const declarationSchema = z.object({
   landlordPan: z.string().trim().toUpperCase().regex(/^[A-Z]{5}\d{4}[A-Z]$/, 'That is not a PAN.').nullable().optional().or(z.literal('')),
   seniorSelf: z.boolean().default(false),
   seniorParents: z.boolean().default(false),
+  /* Form 12B: an earlier employer this year. Counts under either regime. */
+  previousEmployer: z
+    .object({
+      name: z.string().trim().max(200).nullable().optional(),
+      income: money.default(0),
+      professionalTax: money.max(2500, 'Professional tax is at most ₹2,500 a year.').default(0),
+      tds: money.default(0),
+    })
+    .nullable()
+    .optional(),
 });
 
 export class DeclarationError extends Error {
@@ -150,6 +173,14 @@ export async function saveDeclaration(
     landlordPan: d.landlordPan || null,
     seniorSelf: d.seniorSelf,
     seniorParents: d.seniorParents,
+    ...(d.previousEmployer !== undefined
+      ? {
+          previousEmployerName: d.previousEmployer?.name || null,
+          previousEmployerIncome: round2(d.previousEmployer?.income || 0),
+          previousEmployerPt: round2(d.previousEmployer?.professionalTax || 0),
+          previousEmployerTds: round2(d.previousEmployer?.tds || 0),
+        }
+      : {}),
     updatedByUserId: by.userId,
     ...(by.asEmployee ? { status: 'SUBMITTED', submittedAt: new Date() } : {}),
   };
@@ -186,6 +217,7 @@ export function shapeDeclaration(row: any | null, employeeId: string, financialY
     landlordPan: row?.landlordPan || '',
     seniorSelf: !!row?.seniorSelf,
     seniorParents: !!row?.seniorParents,
+    previousEmployer: previousEmployerOf(row),
     submittedAt: row?.submittedAt || null,
     verifiedAt: row?.verifiedAt || null,
     updatedAt: row?.updatedAt || null,

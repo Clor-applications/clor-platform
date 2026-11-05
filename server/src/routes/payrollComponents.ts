@@ -41,6 +41,7 @@ export const COMPONENT_TYPES = ['EARNING', 'DEDUCTION', 'EMPLOYER_CONTRIBUTION']
 export const CALCULATION_METHODS = ['FIXED', 'PERCENTAGE', 'FORMULA', 'VARIABLE', 'STATUTORY', 'BALANCING'] as const;
 export const ROUNDING_MODES = ['NONE', 'NEAREST', 'UP', 'DOWN'] as const;
 export const STATUTORY_SCHEMES = ['PF', 'ESI', 'PT', 'TDS', 'LWF'] as const;
+export const TAX_SECTIONS = ['EMPLOYER_NPS'] as const;
 
 const bodySchema = z.object({
   name: z.string().trim().min(1, 'A component needs a name.').max(120),
@@ -64,6 +65,8 @@ const bodySchema = z.object({
   statutoryScheme: z.enum(STATUTORY_SCHEMES).optional().nullable(),
 
   isTaxable: z.boolean().default(true),
+  /* EMPLOYER_NPS: deducted from taxable salary up to the section 80CCD(2) limit (statutory/engine.ts incomeTax). */
+  taxSection: z.enum(TAX_SECTIONS).optional().nullable(),
   prorate: z.boolean().default(true),
   includeInPfWage: z.boolean().default(false),
   includeInEsiWage: z.boolean().default(false),
@@ -157,6 +160,9 @@ function methodProblems(body: Body): string | null {
   /* An employer contribution is a cost the company carries. Letting one into
      net pay would take it off the employee's take-home, which is the opposite
      of what it is. */
+  if (body.taxSection === 'EMPLOYER_NPS' && body.type === 'DEDUCTION') {
+    return 'The employer’s NPS contribution is an earning or an employer contribution, not a deduction from pay.';
+  }
   if (body.type === 'EMPLOYER_CONTRIBUTION' && body.includeInNetPay) {
     return 'An employer contribution is a company cost and cannot be part of net pay.';
   }
@@ -192,6 +198,7 @@ const shape = (row: any) => ({
   rounding: row.rounding,
   statutoryScheme: row.statutoryScheme || null,
   isTaxable: !!row.isTaxable,
+  taxSection: row.taxSection || null,
   prorate: !!row.prorate,
   includeInPfWage: !!row.includeInPfWage,
   includeInEsiWage: !!row.includeInEsiWage,

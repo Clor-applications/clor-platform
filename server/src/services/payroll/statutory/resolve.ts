@@ -123,6 +123,8 @@ export function applyStatutory(opts: {
   lwf?: { headcountByState?: Map<string, number>; coverage?: LwfContext['coverage'] };
   /** The year's declared deductions, given this period's employee PF (which counts towards 80C). */
   taxDeductionsFor?: (employeePf: number) => { total: number; note: string };
+  /** The year's professional tax, given this period's (old regime: deducted from salary before tax). */
+  professionalTaxFor?: (ptThisPeriod: number) => number;
 }): StatutoryOutcome {
   const amounts: Record<string, number> = {};
   const results: StatutoryAmount[] = [];
@@ -133,7 +135,7 @@ export function applyStatutory(opts: {
   const levyMonth = Number(levyDate.slice(5, 7)) || month;
   const state = canonicalState(opts.employee.professionalTaxState);
 
-  /* Income tax last: it needs this period's PF for 80C. */
+  /* Income tax last: it needs this period's PF for 80C and PT for section 16(iii). */
   const ordered = [...opts.rules].sort(([a], [b]) => Number(a === 'TDS') - Number(b === 'TDS'));
   for (const [scheme, rows] of ordered) {
     /*
@@ -149,9 +151,14 @@ export function applyStatutory(opts: {
     if (stateLevy && !row.jurisdiction) continue;
 
     const rule = toEngineRule(row);
+    const thisPeriod = (s: StatutoryScheme) => results.find((r) => r.scheme === s)?.employee || 0;
     const wages =
-      scheme === 'TDS' && opts.taxDeductionsFor
-        ? { ...opts.wages, taxDeductions: opts.taxDeductionsFor(results.find((r) => r.scheme === 'PF')?.employee || 0) }
+      scheme === 'TDS'
+        ? {
+            ...opts.wages,
+            ...(opts.taxDeductionsFor ? { taxDeductions: opts.taxDeductionsFor(thisPeriod('PF')) } : {}),
+            ...(opts.professionalTaxFor ? { professionalTax: opts.professionalTaxFor(thisPeriod('PT')) } : {}),
+          }
         : opts.wages;
     const inState = opts.ptSoFar?.byState.get(state);
     const result = computeStatutory(rule, wages, opts.employee, {
