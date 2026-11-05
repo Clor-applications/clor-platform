@@ -6,7 +6,8 @@ import {
   CaretRight,
   Cake,
   ChatsCircle,
-  Check,
+  FileArrowUp,
+  FileText,
   HandWaving,
   ChartLineUp,
   CheckSquare,
@@ -23,7 +24,7 @@ import {
 
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { getOverview, getPeopleHome, listEmployees, listMyTasks, summaryOpened, updateChecklistTask } from '@ui/personnel/api';
-import { approveLeave, listLeaveRequests } from '@ui/timeOff/api';
+import { listLeaveRequests } from '@ui/timeOff/api';
 import { listRecords } from '../api/workspace';
 import { symbolOf } from './symbols';
 import { notify } from '@ui/components/ui/notify';
@@ -35,8 +36,15 @@ import { HomeCheckIn } from '@ui/timeOff/MyDays';
 import { FinalPayBanner, FinalPayList } from '@ui/lifecycle/LeavingExtras';
 import { finalPayList } from '../api/engagement';
 import HomeSetup from './HomeSetup';
+import { getInbox } from '../api/approvals';
+import { getHomeDashboard } from '../api/home';
+import { Face, PanelHead, plural } from './home/bits';
+import TodayBanner from './home/TodayBanner';
+import WaitingQueue from './home/WaitingQueue';
+import WorkforcePanel from './home/WorkforcePanel';
+import AppLinks from './home/AppLinks';
+import { KudosPanel, PulsePanel } from './home/Culture';
 
-const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'neutral' }, info: { label: 'When you can', pill: 'neutral' } };
 const DEPT_COLOURS = 8;
 /*
  * News and events coloured by what they are, never by their place in the list (review of #123): a post for a group
@@ -55,28 +63,7 @@ const isoToday = () => {
 const shortDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 const dayDate = (d) => new Date(d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 const monthName = () => new Date().toLocaleDateString('en-IN', { month: 'long' });
-const initials = (name = '') => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase();
 const whenLabel = (days, date) => (days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : shortDate(date));
-const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-const range = (from, to) => (from === to ? dayDate(from) : `${shortDate(from)} to ${shortDate(to)}`);
-/* The working day after a leave ends: the next day, or Monday after a Friday. */
-const backOn = (to) => {
-  const d = new Date(`${to}T00:00:00`);
-  d.setDate(d.getDate() + 1);
-  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
-  return dayDate(d);
-};
-
-/* A face in its team's colour: the photo when there is one, initials when not. */
-function Face({ person, size = 40, colour }) {
-  /* No text under 12px (DESIGN.md): a small face grows its initials to 12px rather than shrinking them. */
-  const style = { width: size, height: size, '--dept': `var(--dept-${colour ?? 0})`, fontSize: Math.max(12, Math.round(size * 0.36)) };
-  return person?.photoUrl ? (
-    <img src={person.photoUrl} alt="" className="people-face" style={style} />
-  ) : (
-    <span className="people-face" style={style} aria-hidden="true">{initials(person?.name)}</span>
-  );
-}
 
 /*
  * A double-bezel surface (28 Oct 2026, soft structural Home): a tinted tray
@@ -175,16 +162,6 @@ const ago = (iso) => {
   return days <= 0 ? 'Today' : days === 1 ? 'Yesterday' : days < 7 ? `${days} days ago` : shortDate(iso);
 };
 
-/* A panel's head: a small tinted icon, the title, and one link on the right. */
-function PanelHead({ id, icon: Icon, tint, title, action = null }) {
-  return (
-    <header className="people-panel-head">
-      <h2 id={id} className="soft-panel-title"><span className="soft-panel-icon" data-tint={tint}><Icon size={16} weight="duotone" aria-hidden="true" /></span>{title}</h2>
-      {action}
-    </header>
-  );
-}
-
 /* Sections rise into place as they first scroll into view; once shown they stay. */
 function useReveal() {
   const root = useRef(null);
@@ -250,7 +227,9 @@ export default function PeopleOverview({ openScreen }) {
   const [events, setEvents] = useState(null);
   /* Final pay due for leavers whose last day has come (WORKFLOW-GAP-RESEARCH 4.3). */
   const [finalPay, setFinalPay] = useState([]);
-  const [busy, setBusy] = useState('');
+  /* The dashboard (attendance today, decisions, workforce, hiring, other apps) and the Approvals inbox. */
+  const [dash, setDash] = useState(null);
+  const [inbox, setInbox] = useState(null);
   const [error, setError] = useState('');
   const revealRoot = useReveal();
   /* Only what this reader may use (QA, 1 Nov 2026: a Team Manager was offered Announce and Add an employee). The server checks again. */
@@ -269,17 +248,13 @@ export default function PeopleOverview({ openScreen }) {
       notify.error(String(e?.message || 'Not saved.'));
     }
   };
-  const approve = async (r) => {
-    setBusy(r.id);
-    try {
-      await approveLeave(r.id, null);
-      setLeave((list) => (list || []).map((x) => (x.id === r.id ? { ...x, status: 'APPROVED' } : x)));
-      notify.success(`${r.employeeName}'s ${String(r.leaveTypeName || 'leave').toLowerCase()} approved.`);
-    } catch (e) {
-      notify.error(String(e?.message || 'Not approved.'));
-    } finally {
-      setBusy('');
-    }
+  const loadInbox = () => getInbox().then((r) => setInbox(r?.items || [])).catch(() => setInbox([]));
+  const loadDash = () => getHomeDashboard().then(setDash).catch(() => setDash({}));
+  /* A request decided on Home: the inbox, the leave figures and the to-do counts all move. */
+  const decided = () => {
+    loadInbox();
+    getPeopleHome().then(setTodos).catch(() => {});
+    listLeaveRequests().then(setLeave).catch(() => {});
   };
 
   useEffect(() => {
@@ -300,6 +275,8 @@ export default function PeopleOverview({ openScreen }) {
     listRecords('events').then(setEvents).catch(() => setEvents([]));
     finalPayList().then(setFinalPay).catch(() => setFinalPay([]));
     loadTasks();
+    loadInbox();
+    loadDash();
     /* Opened from the Monday summary's e-mail: counted once (PRODUCT-VIEW §7). */
     try {
       if (new URLSearchParams(window.location.search).get('from') === 'weekly') summaryOpened().catch(() => {});
@@ -337,8 +314,6 @@ export default function PeopleOverview({ openScreen }) {
   const onNotice = data.byStatus.ON_NOTICE || 0;
   const tenure = averageTenure(people || []);
   const openTasks = (tasks || []).filter((t) => !t.done);
-  /* Leave already listed above with its own Approve: the summary row would say it twice. */
-  const otherTodos = (todos || []).filter((t) => !(pending.length && t.screen === 'leaveRequests'));
   const deptOf = new Map((people || []).map((p) => [p.id, p.department]));
   const posts = (news || []).filter((n) => n.status === 'PUBLISHED').slice(0, 3);
   const upcoming = (events || [])
@@ -360,9 +335,10 @@ export default function PeopleOverview({ openScreen }) {
           </p>
         </div>
         <div className="soft-actions">
-          <button type="button" className="soft-pill" data-tint="mint" onClick={go('leaveRequests')}><CalendarDots size={18} aria-hidden="true" /> Leave requests</button>
-          {may('PEOPLE::HR Cases::VIEW') ? <button type="button" className="soft-pill" data-tint="lilac" onClick={go('helpdesk')}><ChatsCircle size={18} aria-hidden="true" /> HR cases</button> : null}
-          {may('PEOPLE::Announcements::CREATE') ? <button type="button" className="soft-pill" data-tint="lilac" onClick={go('announcements')}><Megaphone size={18} aria-hidden="true" /> Announce</button> : null}
+          {/* The spec's actions (5–6 Nov 2026): a broadcast, an offer or letter, a CSV import; Add employee the one primary. */}
+          {may('PEOPLE::Announcements::CREATE') ? <button type="button" className="soft-pill" data-tint="lilac" onClick={go('announcements')}><Megaphone size={18} aria-hidden="true" /> Post broadcast</button> : null}
+          {may('PEOPLE::Documents::CREATE') ? <button type="button" className="soft-pill" data-tint="lilac" onClick={go('offers')}><FileText size={18} aria-hidden="true" /> Issue offer or letter</button> : null}
+          {may('PEOPLE::Employees::CREATE') ? <button type="button" className="soft-pill" data-tint="sky" onClick={go('employeeImport')}><FileArrowUp size={18} aria-hidden="true" /> Import CSV</button> : null}
           {may('PEOPLE::Employees::CREATE') ? (
             <button type="button" className="soft-pill soft-pill-primary" onClick={go('employeeNew')}>
               Add an employee
@@ -372,6 +348,7 @@ export default function PeopleOverview({ openScreen }) {
         </div>
       </header>
       <HomeCheckIn />
+      <TodayBanner today={dash?.today} colourOf={colourOf} openPerson={(id) => openScreen?.('employee', { id })} onCalendar={go('leaveCalendar')} />
       {finalPay.length ? (
         <section aria-label="Final pay due" className="space-y-2" data-reveal style={{ '--i': 1 }}>
           {finalPay.length === 1 ? (
@@ -416,51 +393,7 @@ export default function PeopleOverview({ openScreen }) {
           </div>
 
           <Bezel i={2}>
-            <section aria-labelledby="todo-h">
-              <PanelHead id="todo-h" icon={SealCheck} tint="butter" title="Waiting for you" action={pending.length ? <button type="button" className="people-more" onClick={go('leaveRequests')}>All requests <CaretRight size={14} aria-hidden="true" /></button> : null} />
-              {pending.length ? (
-                <ul className="people-list">
-                  {pending.slice(0, 4).map((r) => (
-                    <li key={r.id} className="people-approval">
-                      <Face person={{ name: r.employeeName, photoUrl: r.photoUrl }} size={34} colour={colourOf(r.department)} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm"><button type="button" className="people-name-link" onClick={openPerson(r.employeeId)}>{r.employeeName}</button> <span className="ui-muted">asks for {String(r.leaveTypeName || 'leave').toLowerCase()}</span></p>
-                        <p className="ui-caption truncate">{range(r.fromDate, r.toDate)}, {plural(r.days, 'day')}. {r.reason}</p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <button type="button" className="soft-chip" onClick={go('leaveRequests')}>Review</button>
-                        <button type="button" className="soft-chip soft-chip-pos" disabled={busy === r.id} onClick={() => approve(r)}>
-                          <Check size={14} weight="bold" aria-hidden="true" /> {busy === r.id ? 'Approving' : 'Approve'}
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              {!todos ? (
-                <div className="p-4"><SkeletonCard lines={2} /></div>
-              ) : otherTodos.length ? (
-                <ul className="people-list">
-                  {otherTodos.map((t) => (
-                    <li key={t.key}>
-                      <button type="button" onClick={go(t.screen, t.params)} className="people-row people-row-action">
-                        <span className="people-row-count" data-tone={t.tone === 'info' ? undefined : 'warn'}>{t.count}</span>
-                        <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium text-sm">{t.title}</span>
-                            <span className={`ui-pill ui-pill-${TONE[t.tone]?.pill || 'neutral'}`}>{TONE[t.tone]?.label}</span>
-                          </span>
-                          <span className="ui-caption block">{t.detail}</span>
-                        </span>
-                        <CaretRight size={16} className="ui-subtle shrink-0" aria-hidden="true" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : !pending.length ? (
-                <p className="people-empty">{setupShowing ? 'Nothing waits for you yet. Start with the steps below.' : <><strong>All caught up</strong>. Nothing needs your answer right now.</>}</p>
-              ) : null}
-            </section>
+            <WaitingQueue items={inbox} decisions={dash?.decisions} todos={todos} colourOf={colourOf} openScreen={openScreen} onDecided={decided} setupShowing={setupShowing} />
           </Bezel>
 
           {/* The setup list sits under what waits on you, so a request is never below the fold behind it (2 Nov 2026). */}
@@ -485,29 +418,9 @@ export default function PeopleOverview({ openScreen }) {
             </Bezel>
           ) : null}
 
-          <Bezel i={4}>
-            <section aria-labelledby="out-h">
-              <PanelHead id="out-h" icon={AirplaneTilt} tint="mint" title="Out today" action={<button type="button" className="people-more" onClick={go('leaveCalendar')}>Leave calendar <CaretRight size={14} aria-hidden="true" /></button>} />
-              {outToday.length ? (
-                <ul className="soft-out">
-                  {outToday.map((r) => (
-                    <li key={r.id}>
-                      <button type="button" className="soft-out-card" onClick={openPerson(r.employeeId)}>
-                        <Face person={{ name: r.employeeName, photoUrl: r.photoUrl }} size={34} colour={colourOf(r.department)} />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold">{r.employeeName}</span>
-                          <span className="ui-caption block truncate">{r.leaveTypeName || 'Leave'}</span>
-                          <span className="soft-back">Back {backOn(r.toDate)}</span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="people-empty">{leave ? 'Everyone is in today.' : 'Loading leave…'}</p>
-              )}
-            </section>
-          </Bezel>
+          {dash?.links?.length ? <Bezel i={4}><AppLinks links={dash.links} openScreen={openScreen} /></Bezel> : null}
+
+          {dash?.workforce ? <Bezel i={5}><WorkforcePanel workforce={dash.workforce} hiring={dash.hiring} openScreen={openScreen} /></Bezel> : null}
 
           <Bezel i={6}>
             <section aria-labelledby="snap-h">
@@ -546,14 +459,6 @@ export default function PeopleOverview({ openScreen }) {
                     <ul className="soft-bars" data-tint="mint">
                       {insight.bands.map((b) => (
                         <li key={b.label}><span className="truncate">{b.label}</span><span className="soft-bar"><span style={{ width: `${(b.count / insight.n) * 100}%` }} /></span><b>{b.count}</b></li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="soft-insight">
-                    <span className="soft-label">Where people work</span>
-                    <ul className="soft-bars" data-tint="lilac">
-                      {insight.places.map(([k, v]) => (
-                        <li key={k}><span className="flex items-center gap-1.5 truncate"><MapPin size={14} aria-hidden="true" />{k}</span><span className="soft-bar"><span style={{ width: `${(v / insight.n) * 100}%` }} /></span><b>{v}</b></li>
                       ))}
                     </ul>
                   </div>
@@ -657,6 +562,8 @@ export default function PeopleOverview({ openScreen }) {
               )}
             </section>
           </Bezel>
+          <Bezel i={6}><KudosPanel people={people} colourOf={colourOf} /></Bezel>
+          <Bezel i={7}><PulsePanel /></Bezel>
         </aside>
       </div>
     </div>

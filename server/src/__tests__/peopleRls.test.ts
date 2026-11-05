@@ -65,6 +65,10 @@ const TABLES: Array<{ table: string; model: string; make: (c: Ctx, employeeId: s
   { table: 'AutomationRun', model: 'automationRun', make: (c) => ({ accountId: c.accountId, orgId: c.orgId, key: 'birthdays', ranOn: `2099-03-${rnd()}` }) },
   { table: 'CelebrationOptOut', model: 'celebrationOptOut', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, byUserId: 'u' }) },
   { table: 'GreetingPost', model: 'greetingPost', make: (c) => ({ accountId: c.accountId, orgId: c.orgId, onDate: '2099-01-01', kind: 'HOLIDAY', key: `HOLIDAY:${rnd()}`, text: 'x' }) },
+  /* People Home's kudos stream and one-question pulse (owner's suite spec, 5–6 Nov 2026). */
+  { table: 'Kudos', model: 'kudos', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, toEmployeeId: employeeId, message: 'Thanks', fromUserId: 'u', fromName: 'U' }) },
+  { table: 'PulseQuestion', model: 'pulseQuestion', make: (c) => ({ accountId: c.accountId, orgId: c.orgId, text: 'How was your week?', createdByUserId: 'u' }) },
+  { table: 'PulseAnswer', model: 'pulseAnswer', make: (c) => ({ accountId: c.accountId, orgId: c.orgId, questionId: `q-${rnd()}`, userId: 'u', score: 4 }) },
   /* Workflow engine 2a (docs/people/workflow-engine/SPEC.md 6): no new table; the new columns (a rule variant, a request's source record, a step's slot) sit behind the existing policies. */
   { table: 'ApprovalRule', model: 'approvalRule', make: (c) => ({ accountId: c.accountId, orgId: c.orgId, name: 'Pune', requestType: 'JOB_CHANGE', variantKey: `v-${rnd()}`, specVersion: 2, appliesWhen: [{ field: 'branchId', op: 'eq', value: 'x' }], priority: 1, steps: [] }) },
   { table: 'ApprovalRequest', model: 'approvalRequest', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, requestType: 'JOB_CHANGE', subjectEmployeeId: employeeId, requesterUserId: 'u', ruleId: 'r', ruleVersion: 1, title: 'x', payload: {}, sourceKind: 'LEAVE', sourceId: `l-${rnd()}`, ruleVariant: 'v', steps: { create: [{ accountId: c.accountId, orgId: c.orgId, order: 1, slot: 1, mode: 'ALL', candidateUserIds: [], dueAt: new Date(), resolvedHow: 'STAND_IN' }] } }) },

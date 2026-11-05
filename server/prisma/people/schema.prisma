@@ -4331,3 +4331,47 @@ model GreetingPost {
   @@unique([orgId, onDate, key])
   @@index([orgId, onDate])
 }
+
+/// A thank-you in public (People Home, owner's suite spec 5–6 Nov 2026): who it is for, what for, and who
+/// said it, as their name stood then. Anyone in People may give one; the giver or HR may take it down.
+model Kudos {
+  id           String   @id @default(cuid())
+  accountId    String
+  orgId        String
+  toEmployeeId String
+  message      String
+  fromUserId   String
+  fromName     String
+  createdAt    DateTime @default(now())
+
+  @@index([orgId, createdAt])
+}
+
+/// The one-question pulse on People Home: one question open at a time, set by HR.
+model PulseQuestion {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  text            String
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  closedAt        DateTime?
+
+  @@index([orgId, closedAt])
+}
+
+/// One answer per person per question, on a 1–5 scale. Kept apart from who gave it in what anyone reads:
+/// results show only counts, and only once enough people have answered that no one answer can be picked out.
+model PulseAnswer {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  questionId String
+  userId     String
+  score      Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([questionId, userId])
+  @@index([orgId, questionId])
+}

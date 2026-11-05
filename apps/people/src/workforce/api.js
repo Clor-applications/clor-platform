@@ -37,6 +37,12 @@ export const getDraft = (id) => apiFetch(`${base()}/employee-drafts/${encodeURIC
 export const saveDraft = (id, body) => send(`/employee-drafts${id ? `/${encodeURIComponent(id)}` : ''}`, 'PUT', body).then((r) => r?.draft);
 export const deleteDraft = (id) => send(`/employee-drafts/${encodeURIComponent(id)}`, 'DELETE');
 
+/* The Add employee wizard's Salary and Documents steps, sent once the person exists. */
+const payroll = () => `/orgs/${encodeURIComponent(orgId())}/payroll`;
+export const listPayStructures = () => apiFetch(`${payroll()}/structures?status=ACTIVE`, opts).then((r) => r?.structures || []);
+export const assignSalary = (body) => apiFetch(`${payroll()}/assignments`, { ...opts, method: 'POST', body });
+export const uploadEmployeeDocument = (id, body) => send(`/employees/${encodeURIComponent(id)}/documents`, 'POST', body);
+
 /** Save text as a file the browser downloads. */
 export function downloadText(text, fileName, type = 'text/csv;charset=utf-8') {
   const blob = new Blob([text], { type });

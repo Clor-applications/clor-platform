@@ -9,14 +9,14 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { usePermissions } from '@ui/permissions/usePermissions';
-import { Avatar, GENDER_WORDS, shrinkPhoto } from '@ui/personnel/Employees';
+import { Avatar, DOC_KINDS, GENDER_WORDS, shrinkPhoto } from '@ui/personnel/Employees';
 import { HOURS_WORDS, datesFor, kindOf, probationEndFor } from '@ui/personnel/employmentKinds';
 import { hasApp } from '@platform/context';
 import { clearUnsaved } from '@platform/unsaved';
 
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { refreshSuggestions, useEmailSuggestions, useSuggestions } from './suggestions';
-import { createEmployee, deleteDraft, getDraft, listContractors, listEmployees, listTags, nextEmployeeCode, saveDraft, structure } from './api';
+import { assignSalary, createEmployee, deleteDraft, getDraft, listContractors, listEmployees, listPayStructures, listTags, nextEmployeeCode, saveDraft, structure, uploadEmployeeDocument } from './api';
 import { listBranches } from '../organization/api';
 import { can } from './shared';
 import { todayIst } from '@ui/utils/dates';
@@ -32,6 +32,21 @@ import { todayIst } from '@ui/utils/dates';
  * idempotency key, and the server checks everything again.
  */
 const STEPS = [['personal', 'Personal'], ['employment', 'Employment'], ['organization', 'Organisation'], ['review', 'Review']];
+/* The files a new joiner brings. A permit or certificate needs its expiry and a letter is issued later, so both stay on the record's Documents tab. */
+const JOINING_DOCS = DOC_KINDS.filter(([k]) => !['WORK_PERMIT', 'CERTIFICATE', 'LETTER'].includes(k));
+const DOC_MAX = 5 * 1024 * 1024;
+const DOC_ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt';
+const kb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+const readFile = (file) => new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('Could not read the file.')); r.readAsDataURL(file); });
+/* A salary is optional here, but half of one is not: a structure needs its CTC and a CTC its structure. */
+function checkSalary(s) {
+  const e = {};
+  const ctc = String(s.annualCtc).trim();
+  if (s.structureId && !(Number(ctc) > 0)) e.annualCtc = 'Enter the yearly CTC, or clear the structure to set the salary later.';
+  if (ctc && !(Number(ctc) > 0)) e.annualCtc = 'The yearly CTC is a number above 0.';
+  if (ctc && !s.structureId) e.structureId = 'Choose the salary structure this CTC is paid on.';
+  return e;
+}
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BLANK = {
   firstName: '', lastName: '', preferredName: '', workEmail: '', workPhone: '', email: '', phone: '', dateOfBirth: '', gender: '', guardianName: '', photoUrl: '',
@@ -41,8 +56,8 @@ const BLANK = {
   tagIds: [], devicePin: '', cardNumber: '', contractorId: '', attendanceRequired: true,
 };
 /* Where each checked field is asked, and which show their message under the field. */
-const FIELD_STEP = { firstName: 'personal', workEmail: 'personal', email: 'personal', phone: 'personal', dateOfBirth: 'personal', emergencyContactPhone: 'personal', code: 'employment', dateOfJoining: 'employment', probationEndDate: 'employment', contractEndDate: 'employment', seatId: 'organization' };
-const SHOWN_INLINE = new Set(['firstName', 'workEmail', 'email', 'phone', 'dateOfBirth', 'emergencyContactPhone', 'code', 'dateOfJoining', 'probationEndDate', 'contractEndDate']);
+const FIELD_STEP = { structureId: 'salary', annualCtc: 'salary', firstName: 'personal', workEmail: 'personal', email: 'personal', phone: 'personal', dateOfBirth: 'personal', emergencyContactPhone: 'personal', code: 'employment', dateOfJoining: 'employment', probationEndDate: 'employment', contractEndDate: 'employment', seatId: 'organization' };
+const SHOWN_INLINE = new Set(['annualCtc', 'firstName', 'workEmail', 'email', 'phone', 'dateOfBirth', 'emergencyContactPhone', 'code', 'dateOfJoining', 'probationEndDate', 'contractEndDate']);
 
 const CODE_MISSING = 'Enter an employee ID.';
 
@@ -77,6 +92,18 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   const [duplicates, setDuplicates] = useState(null);
   const [duplicateReason, setDuplicateReason] = useState('');
   const [lists, setLists] = useState(null);
+  /* Salary and Documents (owner's suite spec, 5–6 Nov 2026): each step shows only to someone who may do it, and is
+     sent once the person exists. Neither goes into a draft: a salary is not left in a draft, and files are quick to choose again. */
+  const salaryOn = hasApp('payroll') && can(perms, 'PAYROLL::Salary Assignments::CREATE') && can(perms, 'PAYROLL::Salary Structures::VIEW');
+  const docsOn = can(perms, 'PEOPLE::Documents::CREATE');
+  const steps = [...STEPS.slice(0, 3), ...(salaryOn ? [['salary', 'Salary']] : []), ...(docsOn ? [['documents', 'Documents']] : []), STEPS[3]];
+  const [salary, setSalary] = useState({ structureId: '', annualCtc: '' });
+  const [payStructures, setPayStructures] = useState(null);
+  const [files, setFiles] = useState([]);
+  const fileInput = useRef(null);
+  useEffect(() => {
+    if (salaryOn) listPayStructures().then(setPayStructures).catch(() => setPayStructures([]));
+  }, [salaryOn]);
   /* The employment type decides which end dates are asked for (an intern has no probation, a permanent hire no contract end). */
   const dates = datesFor(kindOf(lists?.types, form.employeeTypeId));
   /* The type's probation length fills the end date once both are known, and follows a corrected joining date while it is still the date filled in; a date typed by hand is never replaced. */
@@ -90,8 +117,8 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
     if (form.probationEndDate !== suggestedProbation) setForm((f) => ({ ...f, probationEndDate: suggestedProbation }));
   }, [suggestedProbation]); // eslint-disable-line react-hooks/exhaustive-deps
   const [people, setPeople] = useState([]);
-  const stepKey = STEPS.some(([k]) => k === params.step) ? params.step : 'personal';
-  const stepIndex = STEPS.findIndex(([k]) => k === stepKey);
+  const stepKey = steps.some(([k]) => k === params.step) ? params.step : 'personal';
+  const stepIndex = steps.findIndex(([k]) => k === stepKey);
   const bodyRef = useRef(null);
   /* The suggested employee ID while it is on its way, and a Continue waiting for it (one at a time). */
   const suggestedCode = useRef(null);
@@ -156,15 +183,15 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
         continuing.current = false;
       }
     }
-    const e = check(stepKey, f);
+    const e = stepKey === 'salary' ? checkSalary(salary) : check(stepKey, f);
     setErrors(e);
     if (Object.keys(e).length) {
       setTimeout(() => bodyRef.current?.querySelector('[aria-invalid="true"]')?.focus(), 0);
       return;
     }
-    goStep(STEPS[stepIndex + 1][0]);
+    goStep(steps[stepIndex + 1][0]);
   };
-  const back = () => goStep(STEPS[stepIndex - 1][0]);
+  const back = () => goStep(steps[stepIndex - 1][0]);
   const saveAsDraft = async () => {
     if (busy) return;
     setBusy(true);
@@ -192,10 +219,40 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
     if (!(await confirmDialog({ title: 'Delete the saved draft?', confirmLabel: 'Delete draft' }))) return;
     try { await deleteDraft(draftId); setDraftId(null); updateParams?.({ draft: null }); notify.success('Draft deleted.'); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
   };
+  /* The salary starts on the joining date, or on the structure's own start if that is later (the server refuses earlier). */
+  const chosenStructure = (payStructures || []).find((x) => x.id === salary.structureId);
+  const salaryFrom = chosenStructure?.effectiveFrom && chosenStructure.effectiveFrom > form.dateOfJoining ? chosenStructure.effectiveFrom : form.dateOfJoining;
+  /* The person exists by now: what fails here is said, and is added on their record, rather than undoing the person. */
+  const afterCreate = async (id) => {
+    const missed = [];
+    if (salaryOn && salary.structureId && Number(salary.annualCtc) > 0) {
+      try { await assignSalary({ employeeId: id, structureId: salary.structureId, effectiveFrom: salaryFrom, annualCtc: Number(salary.annualCtc) }); } catch (e) { missed.push(`Salary: ${e?.message || 'not saved'}.`); }
+    }
+    for (const d of docsOn ? files : []) {
+      try {
+        await uploadEmployeeDocument(id, { kind: d.kind, title: d.title.trim() || d.file.name.replace(/\.[^.]+$/, ''), data: await readFile(d.file), mime: d.file.type, classification: 'EMPLOYEE_VISIBLE' });
+      } catch (e) {
+        missed.push(`${d.file.name}: ${e?.message || 'not uploaded'}`);
+      }
+    }
+    return missed;
+  };
+  const addFiles = (list) => {
+    const chosen = [...(list || [])];
+    const big = chosen.filter((x) => x.size > DOC_MAX);
+    if (big.length) notify.error(`${big.map((x) => x.name).join(', ')}: files up to 5 MB.`);
+    setFiles((now) => [...now, ...chosen.filter((x) => x.size <= DOC_MAX).map((file, i) => ({ key: `${Date.now()}-${i}-${file.name}`, file, kind: 'ID_PROOF', title: '' }))]);
+    if (fileInput.current) fileInput.current.value = '';
+  };
+  const setFile = (key, patch) => setFiles((now) => now.map((d) => (d.key === key ? { ...d, ...patch } : d)));
   const create = async () => {
     for (const [k] of STEPS.slice(0, 3)) {
       const e = check(k, form);
       if (Object.keys(e).length) { setErrors(e); goStep(k); return; }
+    }
+    if (salaryOn) {
+      const e = checkSalary(salary);
+      if (Object.keys(e).length) { setErrors(e); goStep('salary'); return; }
     }
     if (busy) return;
     setBusy(true);
@@ -206,7 +263,9 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
       const r = await createEmployee({ ...body, ...(duplicateReason ? { duplicateReason } : {}), ...(draftId ? { draftId } : {}) });
       setSaved(form);
       clearUnsaved();
-      notify.success(`${r.employee.name} added.`);
+      const missed = await afterCreate(r.employee.id);
+      if (missed.length) notify.error(`${r.employee.name} added, but not all of it was saved. ${missed.join(' ')} Add it on their record.`);
+      else notify.success(`${r.employee.name} added.`);
       openScreen?.('employee', { id: r.employee.id });
     } catch (e) {
       if (e?.status === 409 && e?.data?.code === 'DUPLICATE') setDuplicates(e.data.duplicates || []);
@@ -241,7 +300,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
       <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Employees', onClick: cancel }, { label: 'Add employee' }]} title="Add employee"
         actions={draftId ? <button type="button" className="ui-link text-sm" onClick={discardDraft}>Delete saved draft</button> : null} />
       <ol className="ui-stepper" aria-label="Steps">
-        {STEPS.map(([k, label], i) => (
+        {steps.map(([k, label], i) => (
           <li key={k} className={`ui-step ${i === stepIndex ? 'is-current' : ''} ${i < stepIndex ? 'is-done' : ''}`} aria-current={i === stepIndex ? 'step' : undefined}>
             <span className="ui-step-mark" aria-hidden="true">{i < stepIndex ? <Check size={14} /> : i + 1}</span>
             <span className="ui-step-label">{label}</span>
@@ -251,7 +310,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
 
       {/* noValidate: `check` asks for each field in plain words. The browser's own "fill in this field" stopped Continue
           before `next` ran, so an employee ID still on its way kept the wizard on Employment (H1 on a phone). */}
-      <form ref={bodyRef} tabIndex={-1} noValidate className="ui-record-section ui-wizard-body" aria-label={STEPS[stepIndex][1]}
+      <form ref={bodyRef} tabIndex={-1} noValidate className="ui-record-section ui-wizard-body" aria-label={steps[stepIndex][1]}
         onSubmit={(e) => { e.preventDefault(); if (stepKey === 'review') create(); else next(); }}
         onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT' && !e.nativeEvent.isComposing) e.preventDefault(); }}>
         {summarise ? (
@@ -330,6 +389,48 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
           </Step>
         ) : null}
 
+        {stepKey === 'salary' ? (
+          <Step title="Salary" hint="Their yearly CTC on one of the company's salary structures. Payroll pays from it; you can also set it later on their record.">
+            {payStructures?.length ? (
+              <>
+                <SelectField id="structureId" label="Salary structure" optional options={[{ value: '', label: 'Set later' }, ...payStructures.map((x) => ({ value: x.id, label: x.name }))]} value={salary.structureId}
+                  onChange={(v) => { setSalary((x) => ({ ...x, structureId: v })); setErrors((e) => { const n = { ...e }; delete n.structureId; delete n.annualCtc; return n; }); }} />
+                <Text id="annualCtc" label="Yearly CTC (₹)" inputMode="decimal" max={12} placeholder="480000" value={salary.annualCtc} error={errors.annualCtc}
+                  help={salary.structureId && salaryFrom ? `Starts ${formatDate(salaryFrom)}${Number(salary.annualCtc) > 0 ? `, about ₹${Math.round(Number(salary.annualCtc) / 12).toLocaleString('en-IN')} a month` : ''}.` : null}
+                  onChange={(v) => { setSalary((x) => ({ ...x, annualCtc: v.replace(/[^\d.]/g, '') })); setErrors((e) => { const n = { ...e }; delete n.annualCtc; return n; }); }} />
+              </>
+            ) : (
+              <p className="ui-caption sm:col-span-2">{payStructures ? 'Payroll has no active salary structure yet. Make one in Payroll, then set this salary on their record.' : 'Loading salary structures…'}</p>
+            )}
+          </Step>
+        ) : null}
+
+        {stepKey === 'documents' ? (
+          <Step title="Documents" hint="ID proof, address proof, the signed offer. They are added to the record once it is created, and the person sees them under Me. Up to 5 MB a file.">
+            <div className="sm:col-span-2 space-y-3">
+              <input ref={fileInput} id="joiningFiles" type="file" multiple accept={DOC_ACCEPT} className="hidden" onChange={(e) => addFiles(e.target.files)} />
+              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => fileInput.current?.click()}>Choose files</button>
+              {files.length ? (
+                <ul className="ui-doc-picks" aria-label="Files to add">
+                  {files.map((d) => (
+                    <li key={d.key} className="ui-doc-pick">
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium" title={d.file.name}>{d.file.name}</span>
+                        <span className="ui-caption tabular-nums">{kb(d.file.size)}</span>
+                      </span>
+                      <span className="ui-doc-pick-fields">
+                        <div><PopupSelect showValueSubtext={false} label="Type" ariaLabel={`Type of ${d.file.name}`} value={d.kind} onChange={(v) => setFile(d.key, { kind: v || 'ID_PROOF' })} options={JOINING_DOCS.map(([value, label]) => ({ value, label }))} /></div>
+                        <label className="block"><span className="ui-label">Name</span><input className="ui-input w-full" maxLength={120} aria-label={`Name for ${d.file.name}`} placeholder={d.file.name.replace(/\.[^.]+$/, '')} value={d.title} onChange={(e) => setFile(d.key, { title: e.target.value })} /></label>
+                      </span>
+                      <button type="button" className="ui-link text-sm" aria-label={`Remove ${d.file.name}`} onClick={() => setFiles((now) => now.filter((x) => x.key !== d.key))}>Remove</button>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="ui-caption">No files chosen. They can also be added on the record later.</p>}
+            </div>
+          </Step>
+        ) : null}
+
         {stepKey === 'review' ? (
           <div className="space-y-4 ui-panel-in">
             <h2 className="ui-t-sec">Review</h2>
@@ -342,6 +443,8 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             {[['personal', 'Personal', [['Name', [form.firstName, form.lastName].filter(Boolean).join(' ')], ['Preferred name', form.preferredName], ['Photo', form.photoUrl ? 'Added' : ''], ['Work email', form.workEmail], ['Phone', form.phone], ['Work phone', form.workPhone], ['Personal email', form.email], ['Date of birth', form.dateOfBirth && formatDate(form.dateOfBirth)], ['Gender', GENDER_WORDS[form.gender]], ['Father / husband name', form.guardianName], ['Emergency contact', [form.emergencyContactName, form.emergencyContactRelation, form.emergencyContactPhone].filter(Boolean).join(' · ')]]],
               ['employment', 'Employment', [['Employee ID', form.code], ['Employment type', nameIn(lists.types, form.employeeTypeId)], ['Joining date', form.dateOfJoining && formatDate(form.dateOfJoining)], ['Hours', HOURS_WORDS[form.hours]], ['Work mode', nameIn(lists.workTypes, form.workTypeId)], ['Probation ends', dates.probation && form.probationEndDate && formatDate(form.probationEndDate)], [dates.contractLabel, dates.contract && form.contractEndDate && formatDate(form.contractEndDate)]]],
               ['organization', 'Organisation', [...((lists.branches || []).length > 1 ? [['Works at', nameIn(lists.branches, form.branchId)]] : []), ['Department', nameIn(lists.departments, form.departmentId)], ['Designation', nameIn(lists.positions, form.jobPositionId)], ...(lists.roles.length ? [['Job role', nameIn(lists.roles, form.jobRoleId)]] : []), ...(lists.areas.length ? [['Location', nameIn(lists.areas, form.areaId)]] : []), ...(lists.establishments.length ? [['Work site', nameIn(lists.establishments, form.establishmentId)]] : []), ['Manager', people.find((x) => x.id === form.reportingManagerId)?.name], ['Secondary manager', people.find((x) => x.id === form.dottedManagerId)?.name], ...(lists.units.length ? [['Business unit', nameIn(lists.units, form.businessUnitId)]] : []), ...(lists.teams.length ? [['Team', nameIn(lists.teams, form.teamId)]] : []), ...(lists.seats.length ? [['Position', nameIn(lists.seats, form.seatId)]] : []), ...(lists.centres.length ? [['Cost centre', nameIn(lists.centres, form.costCenterId)]] : []), ...(lists.grades.length ? [['Grade', nameIn(lists.grades, form.gradeId)]] : []), ['Tags', lists.tags.filter((t) => form.tagIds.includes(t.id)).map((t) => t.name).join(', ')], ...(hasApp('attendance') ? [['Attendance ID', form.devicePin || (form.code ? `${form.code} (employee ID)` : '')], ['Card number', form.cardNumber], ...(lists.contractors.length ? [['Contractor', nameIn(lists.contractors, form.contractorId)]] : []), ['Marks attendance', form.attendanceRequired === false ? 'No, door only' : 'Yes']] : [])]],
+              ...(salaryOn ? [['salary', 'Salary', [['Salary structure', chosenStructure?.name || 'Set later'], ['Yearly CTC', chosenStructure && Number(salary.annualCtc) > 0 ? `₹${Number(salary.annualCtc).toLocaleString('en-IN')}` : ''], ['Starts', chosenStructure && salaryFrom ? formatDate(salaryFrom) : '']]]] : []),
+              ...(docsOn ? [['documents', 'Documents', [['Files', files.length ? files.map((d) => `${d.title.trim() || d.file.name} (${JOINING_DOCS.find(([k]) => k === d.kind)?.[1] || d.kind})`).join(', ') : 'None']]]] : []),
             ].map(([k, title, rows]) => (
               <section key={k} className="ui-review-block" aria-label={title}>
                 <header className="flex items-center justify-between"><h3 className="text-sm font-semibold">{title}</h3><button type="button" className="ui-link text-sm" onClick={() => goStep(k)}>Edit</button></header>

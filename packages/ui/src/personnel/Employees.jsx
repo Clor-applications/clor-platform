@@ -2041,7 +2041,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
   );
 }
 
-const DOC_KINDS = [
+export const DOC_KINDS = [
   ['ID_PROOF', 'ID proof'],
   ['ADDRESS_PROOF', 'Address proof'],
   ['EDUCATION', 'Education'],
