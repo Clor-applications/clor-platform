@@ -6,6 +6,7 @@ import { getAccountOverview } from '@platform/admin/admin';
 import { operator } from '@platform/operator';
 import { ACTION_WORDS } from './AccountActivity';
 import { ICON, Meter, Panel, Stat, ago, productIcon } from './wsKit';
+import { rupees, seatsByApp, securityOf } from './overviewFigures';
 import { requestOpenHelp } from '@platform/context';
 import './workspace.css';
 
@@ -47,6 +48,11 @@ export function appState(app, tenant, myApps = null) {
   return onPlan ? { key: 'off', label: 'Not switched on', pill: 'ws-pill ws-pill--off' } : { key: 'plan', label: 'Subscription required', pill: 'ws-pill' };
 }
 
+/** A count in the figure face (DESIGN.md: numbers are JetBrains Mono, tabular); words beside it stay in the text face. */
+const N = ({ children }) => <span className="ui-num">{children}</span>;
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const APP_NAME = { accounting: 'Accounting', payroll: 'Payroll', people: 'People', attendance: 'Attendance', projects: 'Projects' };
+
 const firstName = (user) => String(user?.firstName || user?.fullName || '').trim().split(/\s+/)[0] || '';
 
 
@@ -55,7 +61,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const [overview, setOverview] = useState(null);
   const [members, setMembers] = useState(null);
   const [pending, setPending] = useState(null);
-  const [privilegedNo2fa, setPrivilegedNo2fa] = useState(null);
+  const [directory, setDirectory] = useState(null);
   const [activity, setActivity] = useState(null);
 
   useEffect(() => {
@@ -71,7 +77,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
           listInvitations().then((x) => live && setPending((x?.invitations || []).filter((i) => i.status === 'PENDING').length)).catch(() => {});
           accountAudit({ limit: 6 }).then((a) => live && setActivity(a?.events || [])).catch(() => {});
           memberDirectory()
-            .then((d) => live && setPrivilegedNo2fa((d?.members || []).filter((m) => m.status === 'ACTIVE' && !m.authenticator && (m.accountRole === 'OWNER' || m.accountRole === 'ADMIN' || m.companies.some((c) => c.isAdmin))).length))
+            .then((d) => live && setDirectory(d?.members || []))
             .catch(() => {});
         }
       })
@@ -92,16 +98,25 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const built = products.filter((a) => a.available);
   const planned = products.filter((a) => !a.available);
   const states = built.map((a) => ({ app: a, state: appState(a, tenant, myApps) }));
-  const active = states.filter((s) => s.state.key === 'open' || s.state.key === 'noaccess').length;
   const notAssigned = states.filter((s) => s.state.key === 'noaccess');
   const activeMembers = members ? members.filter((m) => m.status === 'ACTIVE').length : null;
   const plan = overview?.plan;
   const usage = overview?.usage;
+  const entities = overview?.entities || null;
+  const health = overview?.dataHealth || null;
+  const runRate = overview ? overview.runRate : undefined;
+  const security = directory ? securityOf(directory) : null;
+  const privilegedNo2fa = security?.privilegedNo2fa || 0;
+  /* Seats for the apps that are built and on the account; Workspace itself is not a seat. */
+  const seatApps = built.filter((a) => (tenant?.subscriptions || []).includes(a.id) || (overview?.seats || []).some((x) => x.app === a.id)).map((a) => a.id);
+  const seats = directory ? seatsByApp(directory, overview?.seats, seatApps) : null;
+  const seatsInUse = seats ? seats.reduce((n, x) => n + x.used, 0) : null;
 
   /* Needs your attention: only what is true and actionable. */
   const attention = [
     pending ? { key: 'inv', icon: ICON.invite, tone: 'brand', title: `${pending} pending invitation${pending === 1 ? '' : 's'}`, sub: 'Waiting for people to accept.', go: go('invitations') } : null,
     privilegedNo2fa ? { key: '2fa', icon: ICON.warning, tone: 'warn', title: `${privilegedNo2fa} administrator${privilegedNo2fa === 1 ? '' : 's'} without an authenticator`, sub: 'They can change who has access; ask them to switch it on.', go: go('members') } : null,
+    health?.status === 'attention' ? { key: 'sync', icon: ICON.data, tone: 'warn', title: `${plural(health.issues, 'sync problem')}`, sub: health.alerts?.[0]?.title || health.sources.filter((x) => x.issues).map((x) => x.label).join(', '), go: null } : null,
     plan && plan.inGoodStanding === false ? { key: 'plan', icon: ICON.alert, tone: 'danger', title: 'Your plan needs attention', sub: `Status: ${String(plan.status || '').toLowerCase()}.`, go: go('account') } : null,
     notAssigned.length ? { key: 'na', icon: ICON.person, tone: null, title: `You can’t open ${notAssigned.map((s) => s.app.name).join(', ')} yet`, sub: 'An administrator gives access with a role.', go: null } : null,
     isAdmin && overview && overview.companies?.some((c) => !c.gstin) ? { key: 'gstin', icon: ICON.company, tone: null, title: 'Company details incomplete', sub: `${overview.companies.filter((c) => !c.gstin).map((c) => c.name).join(', ')}: no GSTIN on record.`, go: go('companies') } : null,
@@ -126,16 +141,65 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
           </div>
         </section>
 
-        {overview || members ? (
-          <div className="ws-stats">
-            {overview ? (
-              <Stat icon={ICON.companies} label="Companies" value={usage?.companies ?? overview.companies?.length ?? 0} note={plan?.limits?.maxCompanies != null ? `of ${plan.limits.maxCompanies} on your plan` : 'no limit on your plan'} onOpen={go('companies')} />
+        {overview || directory ? (
+          <div className="ws-stats" aria-label="Workspace figures">
+            {entities ? (
+              <Stat
+                icon={ICON.companies}
+                label="Entities"
+                value={<N>{entities.companies}</N>}
+                note={
+                  <>
+                    <N>{entities.branches}</N> {entities.branches === 1 ? 'branch' : 'branches'} · <N>{entities.taxProfiles}</N> GST {entities.taxProfiles === 1 ? 'registration' : 'registrations'}
+                    {entities.costCentres ? <> · <N>{entities.costCentres}</N> cost {entities.costCentres === 1 ? 'centre' : 'centres'}</> : null}
+                  </>
+                }
+                onOpen={go('companies')}
+              />
             ) : null}
-            {members ? (
-              <Stat icon={ICON.people} label="Members" value={activeMembers} note={pending ? `${pending} invitation${pending === 1 ? '' : 's'} pending` : 'no invitations pending'} onOpen={go('members')} />
+            {seats ? (
+              <Stat icon={ICON.people} label="Active seats" value={<N>{seatsInUse}</N>} note={`across ${plural(seats.length, 'app')} · ${plural(activeMembers ?? security.active, 'member')}`} onOpen={go('members')} />
             ) : null}
-            <Stat icon={ICON.apps} label="Applications" value={active} note={`${built.length - active} more available`} onOpen={openMoreApps || null} />
-            {plan ? <Stat icon={ICON.plan} label="Plan" value={plan.name} note={plan.inGoodStanding ? 'In good standing' : String(plan.status || '').toLowerCase()} onOpen={go('account')} /> : null}
+            {health ? (
+              <Stat
+                icon={ICON.data}
+                tone={health.status === 'attention' ? 'warn' : null}
+                label="Data health"
+                value={health.status === 'none' ? 'Nothing to sync' : health.status === 'ok' ? 'All flowing' : <><N>{health.issues}</N> {health.issues === 1 ? 'problem' : 'problems'}</>}
+                note={health.status === 'none' ? 'No readers, connectors or e-mail yet' : `${plural(health.sources.length, 'source')} checked`}
+              />
+            ) : null}
+            {security ? (
+              <Stat
+                icon={ICON.secure}
+                tone={privilegedNo2fa ? 'warn' : null}
+                label="Security"
+                value={security.pct == null ? '—' : <N>{security.pct}%</N>}
+                note={<><N>{security.withTotp}</N> of <N>{security.active}</N> {security.active === 1 ? 'member signs' : 'members sign'} in with an authenticator</>}
+                onOpen={go('securityHome') || go('members')}
+              />
+            ) : null}
+            {runRate !== undefined ? (
+              <Stat
+                icon={ICON.plan}
+                label="Monthly run rate"
+                value={runRate?.monthly != null ? <N>{rupees(runRate.monthly)}</N> : 'Not priced yet'}
+                note={
+                  !runRate
+                    ? 'No subscription on record'
+                    : runRate.monthly == null
+                      ? runRate.unpriced?.length
+                        ? `CLOR has not set a price for ${runRate.unpriced.map((a) => APP_NAME[a] || a).join(', ')}`
+                        : 'No billing period set'
+                      : runRate.status === 'trialing'
+                        ? 'once the trial ends'
+                        : runRate.interval === 'year'
+                          ? 'billed yearly, per month'
+                          : `${plan?.name || 'Plan'} · billed monthly`
+                }
+                onOpen={go('account')}
+              />
+            ) : null}
           </div>
         ) : null}
 
@@ -276,6 +340,31 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   )}
                 </Panel>
               ) : null}
+              {health && health.sources.length ? (
+                <Panel title="Data health">
+                  <ul className="ws-list">
+                    {health.sources.map((x) => (
+                      <li key={x.key}>
+                        <div className="ws-item">
+                          <span className={`ws-tile${x.issues ? ' ws-tile--warn' : ''}`} aria-hidden="true">
+                            {x.issues ? <ICON.warning size={18} /> : <ICON.data size={18} />}
+                          </span>
+                          <span className="ws-item-text">
+                            <span className="ws-item-title">{x.label}</span>
+                            <span className="ws-item-sub">
+                              {x.key === 'readers' ? <><N>{x.total}</N> active{x.issues ? <> · <N>{x.issues}</N> open {x.issues === 1 ? 'alert' : 'alerts'}</> : ''}</> : null}
+                              {x.key === 'connectors' ? <><N>{x.total}</N> active{x.lastSeenAt ? ` · last heard ${ago(x.lastSeenAt)}` : ' · not connected yet'}</> : null}
+                              {x.key === 'tally' ? <><N>{x.total}</N> this week{x.failed ? <> · <N>{x.failed}</N> failed</> : ''}{x.waiting ? <> · <N>{x.waiting}</N> waiting over a day</> : ''}</> : null}
+                              {x.key === 'email' ? <><N>{x.total}</N> this week{x.issues ? <> · <N>{x.issues}</N> not delivered</> : ''}</> : null}
+                            </span>
+                          </span>
+                          <span className={x.issues ? 'ws-pill' : 'ws-pill ws-pill--ok'}>{x.issues ? 'Needs a look' : 'Flowing'}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </Panel>
+              ) : null}
             </div>
           </div>
 
@@ -324,6 +413,23 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 </div>
                 <Meter label="Companies" used={usage?.companies ?? 0} limit={plan.limits?.maxCompanies ?? null} />
                 <Meter label="Users" used={usage?.users ?? 0} limit={plan.limits?.maxUsers ?? null} />
+              </Panel>
+            ) : null}
+
+            {seats && seats.length ? (
+              <Panel
+                title="Seats by app"
+                action={
+                  go('members') ? (
+                    <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={go('members')}>
+                      Members
+                    </button>
+                  ) : null
+                }
+              >
+                {seats.map((x) => (
+                  <Meter key={x.app} label={APP_NAME[x.app] || x.app} used={x.used} limit={x.bought} />
+                ))}
               </Panel>
             ) : null}
 
