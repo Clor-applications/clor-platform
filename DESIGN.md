@@ -11,9 +11,9 @@ Preview (rendered): https://claude.ai/code/artifact/b5f06c26-a4de-4879-979f-fbb1
 - **Brand idea (Direction D, 2026-10-29; red since 2026-11-03):** *Done, daily.* Books, GST, people and pay, ticked off before tea.
 
 ## Brand
-- **Logo (owner's wordmark, 3 Nov 2026):** **CLOR** in the owner's own letterforms, always capitals, drawn from outlines traced curve for curve from the owner's artwork (within 0.3% of its pixels) — never typed. The C holds a marigold dot, its own shape. `ClorLogo` (`packages/ui/src/components/brand`) draws it; the outlines live once, in `clorPaths.js`. Oxblood `#5C0A16` letters on light grounds (owner, 3 Nov 2026: "logo color do not keep red"), white on dark (`--logo-mark`); the dot is marigold everywhere (`--logo-dot`); ink `#1F1A1C` for one-colour print. Red is never the logo's colour; it is the app icon's tile. The C-tick mark of 29 Oct is retired.
-- **Mark:** the C with its dot (`ClorMark`, `public/brand/clor-mark.svg`): the favicon, the app icon, the phone bar.
-- **App icons:** one family — a red tile, a white glyph and a marigold accent (`public/icon.svg`, `public/icons/*.svg` and their PNGs). The mark sits at 60% of the tile so it survives a maskable crop.
+- **Logo (owner's master, 5 Nov 2026):** a Blaze orange `#FF5400` ribbon C with a centre dot, then **CLOR** in capitals with an orange O. The ribbon and dot are the owner's exact geometry; the letters are Inter Black outlines, never typed, so the word is the same on every device. `ClorLogo` (`packages/ui/src/components/brand`) draws it; the outlines live once, in `clorPaths.js`. Letters are slate `#0F172A` on light grounds and white on dark (`--logo-ink`); the ribbon, dot and O are orange everywhere (`--logo-accent`). The traced oxblood wordmark of 3 Nov is retired.
+- **Mark:** the ribbon with its dot (`ClorMark`, `public/brand/clor-mark.svg`, `public/icon.svg`): the favicon of every app (one tab icon, no per-app favicon), the phone bar.
+- **App icons:** one family for every app — the orange ribbon on a white tile (`public/brand/clor-icon.svg`, `public/icons/*.svg` and their PNGs). The ribbon is about 60% of the tile, under 50% on the maskable icon so it survives a round crop.
 - **Sign-in:** the oxblood logo over the board's "Done, daily." panel on cream `#FFF8F0` (light only, the promise in red with a marigold underline) with a Today card whose done rows carry a white tick on red, and a marigold halftone. The operator console keeps its own light side.
 - **Never:** the blue `#1F7EFD` from the owner's source image (owner, 3 Nov 2026: "do not use this color").
 
@@ -106,6 +106,22 @@ columns provide a clear cursor response without introducing another colour.
 Nothing below 12px. Nothing between 16 and 24.
 
 ## Color
+- **Pure white and neon (owner, 5 Nov 2026) — current for every app but Accounting, light theme.** One neon per app on a pure white canvas; the red brand below survives only as the token names the neon blocks restate (`--red` = the app's neon, `--oxblood` = its deep ink, `--blush` = its 5% tint), and Accounting keeps its indigo.
+
+  | App | Neon (action) | Deep ink (words) | Tint (5%) | Stroke | Palette |
+  |---|---|---|---|---|---|
+  | Workspace, clor.in | Hyper Cobalt `#0052FF` | `#0038B8` | `#EDF3FF` | `#CCE0FF` | none (`:root`) |
+  | People | Pitaya Coral `#FF1356` | `#B80036` | `#FFF0F4` | `#FFC7D5` | `sky` (people.css) |
+  | Attendance | Cyber Tangerine `#FF5400` | `#BA3900` | `#FFF3ED` | `#FFD4C2` | `blaze` |
+  | Payroll | Electric Cyan `#00A3FF` | `#006DB2` | `#EDF8FF` | `#BAE6FF` | `cyan` |
+
+  - **Neutrals, every neon app:** canvas, surfaces, rail and module panel `#FFFFFF`; subtle `#F8FAFC` (head rows, fields); hover `#F1F5F9`; hairline `#E2E8F0`, firmer `#CBD5E1`. Headings `#0F172A`, body `#334155`, support `#64748B` (4.8:1), placeholder `#94A3B8` only.
+  - **Selected, chosen and badges:** the tint with the deep ink and the stroke — never a solid pill (the rail's open module, a chosen view, a selected row, a status chip).
+  - **Primary action:** solid neon, white words, a glow in its own colour (`0 4px 14px` at 32%). White on the neon measures cobalt 5.8:1, coral 3.8:1, tangerine 3.2:1, cyan 2.7:1: coral and tangerine pass only as large/bold text and cyan fails AA, so keep primary labels semibold and open a decision before using cyan for anything smaller.
+  - **Cards:** white, `#E2E8F0` hairline, 12px, `0 4px 16px -2px rgb(0 0 0 / .03)`; a card you can press lifts 2px on hover (none with reduced motion). No heavy shadows.
+  - **Halo:** the app's neon at 14% as a soft circle in the work area's top right (`#main-content`), so each app reads as its own without darkening the page.
+  - People extras: Peach `#FF6D00` for what waits, milestones and birthdays (a fill or edge, never text); Mulberry `#7C3AED` for org-chart connections.
+  - Dark theme keeps its earlier values until the owner decides; the brief says "no dark mode", which is not yet acted on.
 - **Approach:** restrained. The red brand (owner, 3 Nov 2026: "go with red combination"; supersedes Direction D's indigo) — six colours, each with one job. Tokens in `packages/ui/src/index.css` (platform), `people.css` (People) and the `blaze` palette block (Attendance).
 - **CLOR Red `#C8102E`** (`--red`, `--brand`): what you press, and the app icon's tile — the primary action, the open tab's line, the focus ring. White on it 5.9:1. As words it is `#A50D26` (`--brand-ink`, `--link`, 7.8:1 on white, 6.6:1 on blush); hover `#A50D26`, pressed `#8A0B20`.
 - **Oxblood `#5C0A16`** (`--oxblood`, `--brand-deep`): the deep brand — the logo's letters, People's rail, headings in People, a solid block (Home's greeting, the record's header, an open view tab, the rail's open module pill). White on it 13.9:1.
@@ -130,7 +146,7 @@ Nothing below 12px. Nothing between 16 and 24.
   - **The employee app** (shared with Attendance) wears the brand's "waiting" — solid marigold pills with oxblood words, a marigold line over the open tab — through its own `data-brand="d"`.
   - **Dark theme:** People keeps its earlier dark values (teal `#2DD4BF` on near-black) until a dark red brand is designed for it.
   - Superseded and not to be reused: Burnished Rose `#A45761` (2026-10-24), Sky blue `#0B72B5` and lagoon teal `#0E7C7B` (2026-10-28), Direction D indigo `#232A66` / `#1B2152`, lilac `#E9E5F4` and cotton `#FAF6EE` (2026-10-29 to 2026-11-03), Blaze orange `#FF6700` (2026-10-21 to 2026-11-03).
-- **Dark mode:** redefine tokens only, never restyle components inside a theme block. Surfaces are the red brand's night (`#1A0C0F` ground, `#24141A` card), text warm white, the logo white with its marigold dot, marigold takes the action with oxblood words; money greens, ambers and reds remain available for meaning.
+- **Dark mode:** redefine tokens only, never restyle components inside a theme block. Surfaces are the red brand's night (`#1A0C0F` ground, `#24141A` card), text warm white, the logo white with its orange ribbon, marigold takes the action with oxblood words; money greens, ambers and reds remain available for meaning.
 
 ## Spacing
 - **Base:** 8px.
@@ -632,6 +648,8 @@ because focus, portals and event order cannot be read off the source.
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-11-05 | One neon per app on pure white | Owner: "Pure White & Neon Chromatic UI" with a ramp per subdomain (cobalt, coral, tangerine, cyan), slate text, micro-border cards, a neon halo and neon CTA glow; "exclude accounting/books", in the order People, Workspace, Attendance, Payroll. Each palette restates the red brand's base tokens, so existing rules follow; Payroll gains its own `cyan` palette. White on cyan is 2.7:1 and on tangerine 3.2:1 — recorded, not hidden |
+| 2026-11-05 | The orange ribbon logo | Owner supplied a master vector (ribbon C, centre dot, CLOR with an orange O) and asked for it everywhere: "rollout only logo and brand". One favicon in every tab, white app tiles with the orange ribbon. Letters outlined from Inter Black so they do not change with the device's system font. App colour palettes are not part of this change |
 | 2026-11-04 | People: marigold off faces, news, events and org colours | Re-review of #123: Home's Waiting for you panel was clay while Announcements and Celebrate were marigold; news and event marks cycled by index (the newest post always marigold); org cards, the org chart and the structure page each picked a department's colour their own way, so Sales was teal, marigold and green on three screens; one face in five was marigold and the record's face a marigold disc. Now Waiting for you is the marigold panel; news, events, Fun Friday and the birthday badge take violet or clay by kind; one `tintOf(name)` over four families colours a department or branch everywhere; faces hash over four washes and the record's face keeps its own. A test scans People's JSX for tints picked by index |
 | 2026-11-04 | People: tints by meaning, not by position; accent teal is not lagoon | Code review of #123: figure cards, list strips and quick links took their tint from their place (`nth-child`), so marigold, kept for "look here", landed on Yearly rise and Leavers while To decide was teal, and a figure changed colour when the one beside it was hidden. Each caller now names its tint (`data-tint` / a `tint` field: teal people and structure, green done, present and joining, clay leaving, gaps and rules, violet notice, records and what is coming, marigold only what waits on you), and no People rule picks a colour by position. Department and branch cards cycle four tints, leaving marigold out. Accent teal `#0F6860` is one of those tint families for small marks; it is not the retired lagoon teal `#0E7C7B`, which was People's action and brand colour and stays retired. Faces, which take one of five washes from the name, are written down as the code does it |
 | 2026-11-04 | People: a white work area, colour in the accents, a plain right panel | Owner: "except sidebars use complete white background, use more different colours along with red, yellow… make right parts very clean". Tinted figure tiles, grey trays, the neutral head row and the record's oxblood header turn white; colour moves into small marks in five families (teal, green, clay, violet, marigold) beside red; table faces keep their own hues instead of solid oxblood. The right panel drops its dividers and its grid of boxed quick links for a plain list. The module panel goes to 216px: at 200px "Attendance requests" was cut |

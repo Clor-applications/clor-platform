@@ -2211,6 +2211,76 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-ch
 :root[data-palette='sky'] .ui-split-panel { width: 13.5rem; }
 
 /*
+ * Pure white and Pitaya Coral (owner, 5 Nov 2026: "Pure White & Neon Chromatic UI", one neon ramp per app, People
+ * first). Supersedes the red brand in People. The canvas, surfaces and rail are pure white; text is slate; the neon is
+ * the action and where you are; a choice, a selected row and a badge are the 5% tint with the deep ink on it.
+ *   Neon Coral   #FF1356  the primary action (white on it, with a coral glow), focus, the open module's edge
+ *   Crimson ink  #B80036  coral as words: links, the open module's label, a chosen view (6.9:1 on white)
+ *   Blush tint   #FFF0F4  chosen, selected, a badge's ground; stroke #FFC7D5 its edge
+ *   Peach        #FF6D00  what waits on you (a dot, an edge), milestones and birthdays; never text on white
+ *   Mulberry     #7C3AED  org chart connections
+ * Slate on white: headings #0F172A, body #334155, support #64748B (4.8:1), hairlines #E2E8F0 / #F1F5F9.
+ */
+html:root[data-palette='sky']:not([data-theme='dark']),
+html:root:not([data-theme='dark']) [data-palette='sky'] {
+  --neon: 255 19 86;
+  --red: 255 19 86; --oxblood: 184 0 54; --blush: 255 240 244; --marigold: 255 109 0;
+  --mulberry: 124 58 237; --peach: 255 109 0;
+  --app-bg: 255 255 255; --surface: 255 255 255; --surface-raised: 255 255 255;
+  --surface-sunken: 248 250 252; --doc-section: 248 250 252;
+  --border: 226 232 240; --border-strong: 203 213 225; --border-field: 203 213 225;
+  --fg: 51 65 85; --fg-heading: 15 23 42; --col-party: 15 23 42;
+  --fg-muted: 100 116 139; --fg-subtle: 100 116 139;
+  --brand: 255 19 86; --brand-deep: 184 0 54; --brand-hover: 230 0 72; --brand-pressed: 204 0 64;
+  --btn-primary-bg: 255 19 86; --btn-primary-hover: 230 0 72; --on-brand: 255 255 255;
+  --brand-soft: 255 240 244; --brand-subtle: 255 240 244; --brand-border: 255 199 213; --accent-soft: 255 240 244;
+  --brand-ink: 184 0 54; --ring: 255 19 86; --link: 184 0 54; --link-hover: 150 0 44; --hero-hi: 255 19 86;
+  --heading-bg: 255 255 255; --heading-hover: 241 245 249; --page-heading-bg: 255 255 255;
+  --rail-ink: 100 116 139; --rail-ink-strong: 15 23 42; --rail-accent: 255 19 86; --rail-graphite-hover: 241 245 249;
+  --frame-panel: 255 255 255; --panel-hi: 241 245 249; --panel-line: 226 232 240;
+  --on-panel: 15 23 42; --on-panel-muted: 100 116 139;
+  --choice: 255 240 244; --on-choice: 184 0 54; --choice-tray: 255 255 255;
+  --warm: 255 109 0; --warm-soft: 255 243 237; --warm-ink: 179 64 0;
+  --butter: 255 109 0; --butter-soft: 255 243 237; --butter-ink: 179 64 0;
+  --warn-soft: 255 243 237; --warn-ink: 179 64 0;
+  --lift: 0 4px 16px -2px rgb(0 0 0 / 0.03), 0 0 0 1px rgb(0 0 0 / 0.01);
+  --lift-hi: 0 10px 28px -4px rgb(0 0 0 / 0.06);
+  --soft-ring: 226 232 240;
+}
+/* A badge or what waits: the tint with its ink, not a solid fill (rule 3 of the white UI). */
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-pill-warn { background: rgb(var(--warm-soft)); color: rgb(var(--warm-ink)); box-shadow: inset 0 0 0 1px rgb(255 212 194); }
+html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-bell-count, .ui-topbar .ui-bell-count) { background: rgb(var(--brand)); color: rgb(255 255 255); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-topbar-initials { background: rgb(var(--blush)); color: rgb(var(--oxblood)); }
+/* The rail and module panel are white; the open module is coral words on the tint with a coral edge. */
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-glyph { color: rgb(var(--fg-muted)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] > svg.ui-glyph { color: rgb(var(--oxblood)); background: rgb(var(--blush)); box-shadow: inset 0 0 0 1px rgb(var(--brand-border)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] .ui-glyph [opacity='0.2'],
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] .ui-glyph [opacity='0.2'],
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-tabbar-item[aria-current='page'] .ui-glyph [opacity='0.2'] { fill: rgb(var(--brand-border)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] { background: rgb(var(--blush)); box-shadow: inset 3px 0 0 rgb(var(--brand)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-glyph { color: rgb(var(--fg-muted)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-tabbar .ui-tabbar-item[aria-current='page'] .ui-glyph { color: rgb(var(--oxblood)); }
+/* Chosen view: the tint with crimson words and a coral stroke; its count a coral pill. */
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { box-shadow: inset 0 0 0 1px rgb(var(--brand-border)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-record-tablist .ui-tab.is-active .ui-tab-count { background: rgb(var(--brand)) !important; }
+html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) { box-shadow: inset 0 0 0 1px rgb(var(--brand-border)); }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table thead :is(th, .ui-th) { color: rgb(var(--fg-muted)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-attention] { box-shadow: inset 0 0 0 1px rgb(var(--border)), inset 0 3px 0 rgb(var(--peach)); }
+html:root[data-palette='sky']:not([data-theme='dark']),
+html:root:not([data-theme='dark']) [data-palette='sky'] {
+  --btn-icon: 255 255 255; --btn-icon-on-white: 100 116 139;
+  --warn: 179 64 0; --warn-mark: 255 109 0; --warn-ink: 179 64 0;
+  /* Teams and leave types: coral's family first (crimson, peach, mulberry), then green, ocean and slate; each mark 3:1 or more on white but peach, a fill. */
+  --dept-0: 100 116 139; --dept-1: 184 0 54; --dept-2: 255 109 0; --dept-3: 124 58 237; --dept-4: 255 19 86;
+  --dept-5: 0 109 178; --dept-6: 21 128 61; --dept-7: 100 116 139; --dept-8: 71 85 105;
+  --leave-0: 51 65 85; --leave-1: 255 109 0; --leave-2: 184 0 54; --leave-3: 124 58 237; --leave-4: 21 128 61;
+  --leave-5: 0 109 178; --leave-6: 168 110 124; --leave-7: 100 116 139;
+}
+html:root[data-palette='sky']:not([data-theme='dark']) :is(#main-content, body) .ui-btn:is(.ui-btn-primary, .ui-btn-brand):not(.ui-btn-icon-only, [data-icon-only]) { --btn-icon-color: rgb(255 255 255); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary { box-shadow: 0 4px 14px rgb(var(--neon) / 0.32); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary .soft-pill-orb { color: rgb(var(--brand)); }
+
+/*
  * The employee app (shared with Attendance, 31 Oct 2026). It wears brand D's "waiting" and the open tab's marigold
  * line through its own `data-brand="d"`, not the sky palette, so Attendance's web screens keep Blaze and the app keeps
  * its layout. Light theme only.

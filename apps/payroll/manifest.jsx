@@ -44,6 +44,8 @@ export const payrollApp = {
   blurb: 'Salaries, statutory deductions, payslips, and the journal they post.',
   available: true,
   database: 'payroll.db',
+  /** Electric Cyan on pure white (packages/ui/src/index.css, [data-palette='cyan']): owner, 5 Nov 2026. */
+  palette: 'cyan',
   home: 'overview',
 
   /** The phone tab bar: what a payroll admin opens most. */
