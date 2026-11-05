@@ -454,7 +454,7 @@
   font-size: 0.875rem;
   font-weight: 500;
   color: rgb(var(--fg));
-  transition: transform 120ms var(--soft-ease), box-shadow 120ms var(--soft-ease), background-color 120ms var(--soft-ease);
+  transition: transform 120ms var(--soft-ease), opacity 120ms var(--soft-ease);
 }
 .soft-pill:hover { box-shadow: 0 0 0 1px rgb(var(--soft-ring)), var(--soft-ambient); }
 .soft-pill:active { transform: scale(0.98); }
@@ -480,7 +480,7 @@
   text-align: left;
 }
 .soft-core-action {
-  transition: transform 120ms var(--soft-ease), box-shadow 120ms var(--soft-ease);
+  transition: transform 120ms var(--soft-ease), opacity 120ms var(--soft-ease);
 }
 .soft-core-action:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 3px; }
 @media (hover: hover) and (pointer: fine) {
@@ -856,7 +856,7 @@
   --soft-card-r: 0.75rem;
 }
 /* Buttons: 8px. Primary is a flat fill (no glow, design audit 4 Nov 2026); secondary is white on a hairline ring. */
-:root[data-palette='sky'] #main-content .ui-btn:not(.ui-icon-btn) { border-radius: var(--radius-btn); padding-inline: 1.125rem; font-weight: 600; transition: transform 300ms var(--soft-ease), box-shadow 300ms var(--soft-ease), background-color 200ms ease; }
+:root[data-palette='sky'] #main-content .ui-btn:not(.ui-icon-btn) { border-radius: var(--radius-btn); padding-inline: 1.125rem; font-weight: 600; transition: transform 160ms var(--soft-ease), opacity 120ms ease; }
 :root[data-palette='sky'] #main-content .ui-btn:not(.ui-icon-btn):active:not(:disabled) { transform: scale(0.98); }
 :root[data-palette='sky'] #main-content .ui-btn-secondary { border-color: transparent; background: rgb(var(--surface)); box-shadow: 0 0 0 1px rgb(var(--soft-ring)), 0 1px 2px rgb(24 24 27 / 0.04); }
 :root[data-palette='sky'] #main-content .ui-btn-secondary:hover:not(:disabled) { background: rgb(var(--surface)); box-shadow: 0 0 0 1px rgb(var(--soft-ring)), var(--soft-ambient); }

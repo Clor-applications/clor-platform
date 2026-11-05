@@ -6,7 +6,8 @@ import { CalendarClock, Download, Filter, Pencil, Plus, Trash2, TreePalm, Upload
 import { useContentIcon } from '@ui/components/ui/colorSwap';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
-import DataTable, { RowMenu } from '@ui/components/ui/DataTable';
+import DataTable from '@ui/components/ui/DataTable';
+import { RowMenu } from '@ui/components/ui/RowMenu';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
 import Alert from '@ui/components/ui/Alert';

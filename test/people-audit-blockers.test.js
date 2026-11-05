@@ -81,6 +81,19 @@ describe('3. One Approve: an 8px button at 28px, 44px on a phone', () => {
   });
 });
 
+describe('Buttons and Home hovers animate transform and opacity only, 120–200ms (review of #128)', () => {
+  it('the People button, the quick links and a clickable Home block', () => {
+    const tx = (sel) => all.filter((r) => r.sel === sel).map((r) => (r.body.match(/transition:([^;]*)/) || [])[1]).filter(Boolean);
+    for (const sel of [":root[data-palette='sky'] #main-content .ui-btn:not(.ui-icon-btn)", '.soft-pill', '.soft-core-action']) {
+      const t = tx(sel);
+      expect(t.length, sel).toBeGreaterThan(0);
+      for (const v of t) {
+        for (const part of v.split(',')) expect(part.trim(), sel).toMatch(/^(transform|opacity) (1[2-9]\d|200)ms /);
+      }
+    }
+  });
+});
+
 describe('4. The primary button has no glow at rest', () => {
   it('flat red fill, no shadow; hover changes the fill only', () => {
     expect(people).toMatch(/html:root\[data-palette='sky'\] :is\(#main-content, \.ui-scrim\) :is\(\.ui-btn-primary, \.ui-btn-brand\),\nhtml:root\[data-palette='sky'\] \.soft-pill-primary \{ background-image: none; box-shadow: none; \}/);

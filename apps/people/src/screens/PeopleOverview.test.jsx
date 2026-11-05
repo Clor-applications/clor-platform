@@ -172,3 +172,49 @@ describe('Home when a request fails', () => {
     expect(screen.getByText("Couldn't load final pay due.")).toBeTruthy();
   });
 });
+
+/* Review of #128, 5 Nov 2026: a count that did not load is never a nought. */
+describe('Home never shows a false zero', () => {
+  it('to-dos and leave both fail: the greeting and To approve say so, not "Nothing waits" or "Nothing to approve"', async () => {
+    const api = await import('@ui/personnel/api');
+    const leaveApi = await import('@ui/timeOff/api');
+    api.getPeopleHome.mockRejectedValueOnce(new Error('down'));
+    leaveApi.listLeaveRequests.mockRejectedValueOnce(new Error('down'));
+    render(<PeopleOverview openScreen={vi.fn()} />);
+    const figure = (await screen.findByText('To approve')).closest('button');
+    await waitFor(() => expect(within(figure).getByText("Couldn't load what waits for you")).toBeTruthy());
+    expect(within(figure).queryByText('Nothing to approve')).toBeNull();
+    expect(within(figure).getByText('–')).toBeTruthy();
+    expect(screen.queryByText(/Nothing waits for your answer/)).toBeNull();
+    expect(screen.getByText(/Couldn't load what waits for you\./, { selector: '.soft-band-sub' })).toBeTruthy();
+  });
+
+  it('only leave fails: the note says leave did not load, not "No leave among them"', async () => {
+    const leaveApi = await import('@ui/timeOff/api');
+    leaveApi.listLeaveRequests.mockRejectedValueOnce(new Error('down'));
+    render(<PeopleOverview openScreen={vi.fn()} />);
+    const figure = (await screen.findByText('To approve')).closest('button');
+    await waitFor(() => expect(within(figure).getByText("Couldn't load leave")).toBeTruthy());
+    expect(within(figure).queryByText('No leave among them')).toBeNull();
+  });
+
+  it('leave fails and nothing else waits: Waiting for you carries the error line, not a bare heading', async () => {
+    const api = await import('@ui/personnel/api');
+    const leaveApi = await import('@ui/timeOff/api');
+    api.getPeopleHome.mockResolvedValueOnce([]);
+    leaveApi.listLeaveRequests.mockRejectedValueOnce(new Error('down'));
+    render(<PeopleOverview openScreen={vi.fn()} />);
+    const block = (await screen.findByRole('heading', { name: 'Waiting for you' })).closest('section');
+    await waitFor(() => expect(within(block).getByText("Couldn't load leave requests.")).toBeTruthy());
+    expect(within(block).getByRole('button', { name: 'Try again' })).toBeTruthy();
+  });
+
+  it('the people list fails: Celebrate says it did not load, not "Nothing to celebrate"', async () => {
+    const api = await import('@ui/personnel/api');
+    api.listEmployees.mockRejectedValueOnce(new Error('down'));
+    render(<PeopleOverview openScreen={vi.fn()} />);
+    const block = (await screen.findByRole('heading', { name: 'Celebrate' })).closest('section');
+    await waitFor(() => expect(within(block).getByText("Couldn't load anniversaries.")).toBeTruthy());
+    expect(within(block).queryByText(/Nothing to celebrate/)).toBeNull();
+  });
+});

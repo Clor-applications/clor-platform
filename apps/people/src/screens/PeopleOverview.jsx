@@ -403,6 +403,8 @@ export default function PeopleOverview({ openScreen }) {
      Home's to-dos that open it carry its counts. Leave stays the detail line. Until they load, leave alone. */
   const inboxTodos = (todos || []).filter((t) => t.screen === 'approvals');
   const waiting = todos ? inboxTodos.reduce((n, t) => n + (Number(t.count) || 0), 0) : pending.length;
+  /* Known only when the inbox counts loaded, or (while they load) when leave did; a failure leaves it unknown. */
+  const waitingKnown = !failed.todos && Boolean(todos || leave);
   const outToday = (leave || []).filter((r) => r.status === 'APPROVED' && r.fromDate <= today && r.toDate >= today);
   const onNotice = data.byStatus.ON_NOTICE || 0;
   const tenure = averageTenure(people || []);
@@ -425,8 +427,15 @@ export default function PeopleOverview({ openScreen }) {
           <span className="soft-band-eyebrow">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
           <h1 className="soft-band-title">{firstName ? `${greeting()}, ${firstName}` : greeting()}</h1>
           <p className="soft-band-sub">
-            {waiting ? <>You have <strong>{plural(waiting, 'request')}</strong> to answer</> : <>Nothing waits for your answer</>}
-            {leave ? <> and <strong data-zero={outToday.length === 0 || undefined}>{plural(outToday.length, 'person', 'people')}</strong> {outToday.length === 1 ? 'is' : 'are'} out today.</> : '.'}
+            {/* A count that did not load is never a nought (review of #128): say so instead. */}
+            {failed.todos ? (
+              <>Couldn't load what waits for you.{leave ? <> <strong data-zero={outToday.length === 0 || undefined}>{plural(outToday.length, 'person', 'people')}</strong> {outToday.length === 1 ? 'is' : 'are'} out today.</> : null}</>
+            ) : (
+              <>
+                {waiting ? <>You have <strong>{plural(waiting, 'request')}</strong> to answer</> : waitingKnown ? <>Nothing waits for your answer</> : <>Checking what waits for you</>}
+                {leave ? <> and <strong data-zero={outToday.length === 0 || undefined}>{plural(outToday.length, 'person', 'people')}</strong> {outToday.length === 1 ? 'is' : 'are'} out today.</> : '.'}
+              </>
+            )}
           </p>
         </div>
         <div className="soft-actions">
@@ -472,8 +481,8 @@ export default function PeopleOverview({ openScreen }) {
             </button>
             <button type="button" className="soft-band-stat" data-tint="peach" data-attention={waiting > 0 || undefined} onClick={go('approvals')}>
               <span className="soft-band-stat-label"><SealCheck size={16} aria-hidden="true" /> To approve</span>
-              <span className="soft-band-stat-value" data-zero={((todos || leave) && waiting === 0) || undefined}>{todos || leave ? waiting : '–'}</span>
-              <span className="soft-band-stat-note">{pending.length ? `${plural(pending.length, 'leave request')}, next starts ${dayDate(pending[0].fromDate)}` : waiting ? 'No leave among them' : 'Nothing to approve'}</span>
+              <span className="soft-band-stat-value" data-zero={(waitingKnown && waiting === 0) || undefined}>{waitingKnown ? waiting : '–'}</span>
+              <span className="soft-band-stat-note">{failed.todos ? "Couldn't load what waits for you" : failed.leave ? "Couldn't load leave" : !waitingKnown ? 'Loading' : pending.length ? `${plural(pending.length, 'leave request')}, next starts ${dayDate(pending[0].fromDate)}` : waiting ? 'No leave among them' : 'Nothing to approve'}</span>
             </button>
             {/* The company keeps who is leaving from this reader (Company choices): no leaving figures. */}
             {data.leavingsHidden ? null : (
@@ -507,6 +516,7 @@ export default function PeopleOverview({ openScreen }) {
                   ))}
                 </ul>
               ) : null}
+              {failed.leave ? <BlockFailed what="leave requests" onRetry={load.leave} /> : null}
               {failed.todos ? (
                 <BlockFailed what="what waits for you" onRetry={load.todos} />
               ) : !todos ? (
@@ -683,9 +693,11 @@ export default function PeopleOverview({ openScreen }) {
                     </li>
                   ))}
                 </ul>
-              ) : (
+              ) : failed.people ? null : (
                 <p className="people-empty">Nothing to celebrate in the next 30 days.</p>
               )}
+              {/* Anniversaries come from the people list: without it, "nothing to celebrate" may not be true. */}
+              {failed.people ? <BlockFailed what="anniversaries" onRetry={load.people} /> : null}
             </section>
           </Block>
 
