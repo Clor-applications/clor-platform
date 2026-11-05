@@ -50,10 +50,11 @@ const signedPercent = (n) => {
   return `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)}%`;
 };
 
-export default function PayrollReports() {
-  const [report, setReport] = useState('register');
+/* `params` opens it on one report and month (the overview's returns open "Returns to file" for the month they are for). */
+export default function PayrollReports({ params } = {}) {
+  const [report, setReport] = useState(() => (REPORTS.some((r) => r.id === params?.report) ? params.report : 'register'));
   const [periods, setPeriods] = useState([]);
-  const [periodId, setPeriodId] = useState('');
+  const [periodId, setPeriodId] = useState(params?.periodId || '');
   const [threshold, setThreshold] = useState(5);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
