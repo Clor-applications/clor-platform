@@ -370,7 +370,7 @@ const transition = (
         alone = own.alone;
       }
       if (to === 'APPROVED') {
-        const refused = await ownWorkRefusal(req, { makers: [existing.createdByUserId, existing.reviewedByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SALARY_REVISION', entityId: existing.id, what: 'salary revision', subjects: await subjectUserIds(orgId, existing.employeeId) });
+        const refused = alone ? null : await ownWorkRefusal(req, { makers: [existing.createdByUserId, existing.reviewedByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SALARY_REVISION', entityId: existing.id, what: 'salary revision', subjects: await subjectUserIds(orgId, existing.employeeId) });
         if (refused) return res.status(refused.status).json(refused.body);
       }
 
@@ -412,7 +412,7 @@ const transition = (
       /* Sent for approval: with the company's switch on, through the approval engine; off, nothing more is written. */
       if (to === 'REVIEWED') {
         const person = await peoplePrisma.employee.findFirst({ where: { orgId, id: existing.employeeId }, select: { name: true } });
-        await openOnPayrollEngine({ accountId, orgId, source: REVISION_SOURCE, sourceId: existing.id, employeeId: existing.employeeId, title: `Salary revision for ${person?.name || 'an employee'}`, by: req.auth!.userId, facts: { amount: Number(existing.proposedAnnualCtc) } });
+        await openOnPayrollEngine({ accountId, orgId, source: REVISION_SOURCE, makers: [existing.createdByUserId, req.auth!.userId], sourceId: existing.id, employeeId: existing.employeeId, title: `Salary revision for ${person?.name || 'an employee'}`, by: req.auth!.userId, facts: { amount: Number(existing.proposedAnnualCtc) } });
       }
       const row = await payrollPrisma.salaryRevision.findUniqueOrThrow({ where: { id: existing.id } });
       res.json({ revision: shape(row) });

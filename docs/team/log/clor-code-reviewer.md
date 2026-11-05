@@ -1,5 +1,11 @@
 # clor-code-reviewer
 
+## 2026-11-05 IST — Workflow — re-review of #126 4a44675b (phase 3a)
+- Did: re-reviewed the own-record decision and review fixes; moved-loan, reversal and catch-up fixed; owner-alone matrix as decided; found a stray screenshot and that editing a draft loan doesn't count as preparing it.
+- Evidence: probes P1–P3, R1, A1, C1 and the owner matrix; 16 affected files, 350 passed; typecheck clean; CI quick checks pass.
+- Next: coder fixes; merge.
+- Blocked on: nothing.
+
 ## 2026-10-31 IST — People — review of #81 a300cb7a..eebafd40
 - Did: reviewed #81 a300cb7a..eebafd40 (13 QA fixes), ready for QA retest; 4 should-fix (lastDayMoved reopens prior-stint wages, 20:00 cut-off drops final-pay notices, celebrations PUT not hrOnly, migration leaves done withdrawn steps).
 - Evidence: 74+33+33 tests green, migration safe to rerun as clor_app, no drift.

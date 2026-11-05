@@ -54,7 +54,8 @@ export async function anotherApproverExists(accountId: string, orgId: string, ac
 export async function ownWorkRefusal(
   req: Request,
   /* `subjects`: whoever the thing is about. They may never approve it (ownRecordRefusal), so they are not "somebody else who could". */
-  opts: { makers: Array<string | null | undefined>; module: string; resource: string; entity: string; entityId: string; what: string; subjects?: string[]; who?: string },
+  /* `notCounting`: others who also prepared it (a loan's later editors): refused too, so not "somebody else who could" either. */
+  opts: { makers: Array<string | null | undefined>; module: string; resource: string; entity: string; entityId: string; what: string; subjects?: string[]; who?: string; notCounting?: string[] },
 ): Promise<Refusal | null> {
   const actorId = req.auth!.userId;
   if (!opts.makers.some((m) => m && m === actorId)) return null;
@@ -65,7 +66,7 @@ export async function ownWorkRefusal(
     body: { error: `You prepared this ${opts.what}; ${opts.who || 'somebody else'} has to approve it.`, code: 'MAKER_CHECKER' },
   };
   if (mode === 'STRICT') return refuse;
-  if (mode !== 'ALLOW' && (await anotherApproverExists(accountId, orgId, actorId, permKey(opts.module, opts.resource, 'APPROVE'), opts.subjects || []))) return refuse;
+  if (mode !== 'ALLOW' && (await anotherApproverExists(accountId, orgId, actorId, permKey(opts.module, opts.resource, 'APPROVE'), [...(opts.subjects || []), ...(opts.notCounting || [])]))) return refuse;
   const subjectApprover = mode !== 'ALLOW' && (opts.subjects || []).length > 0 && (await anotherApproverExists(accountId, orgId, actorId, permKey(opts.module, opts.resource, 'APPROVE')));
   await recordAudit(req, {
     entity: opts.entity,

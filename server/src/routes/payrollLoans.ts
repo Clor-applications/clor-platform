@@ -270,7 +270,7 @@ payrollLoansRouter.post(
 
     /* With the company's switch on, its approval goes through the approval engine (workflow engine 3a); off, nothing more is written. */
     const person = await peoplePrisma.employee.findFirst({ where: { orgId, id: parsed.data.employeeId }, select: { name: true } });
-    await openOnPayrollEngine({ accountId, orgId, source: LOAN_SOURCE, sourceId: (row as { id: string }).id, employeeId: parsed.data.employeeId, title: `${parsed.data.type === 'SALARY_ADVANCE' ? 'Salary advance' : 'Loan'} ${number} for ${person?.name || 'an employee'}`, by: req.auth!.userId, facts: { amount: parsed.data.principal } });
+    await openOnPayrollEngine({ accountId, orgId, source: LOAN_SOURCE, makers: [req.auth!.userId], sourceId: (row as { id: string }).id, employeeId: parsed.data.employeeId, title: `${parsed.data.type === 'SALARY_ADVANCE' ? 'Salary advance' : 'Loan'} ${number} for ${person?.name || 'an employee'}`, by: req.auth!.userId, facts: { amount: parsed.data.principal } });
 
     res.status(201).json({ loan: shape(row) });
   }
@@ -298,9 +298,19 @@ payrollLoansRouter.put(
     const checked = await check(orgId, parsed.data);
     if (!checked.ok) return res.status(checked.status).json({ error: checked.error, code: checked.code });
 
+    /*
+     * Changing a draft's terms or person is preparing it (review of #126): whoever did is refused its approval as its
+     * maker is (maker-checker). A save that changes nothing is not.
+     */
+    const d = parsed.data;
+    const changed = existing.employeeId !== d.employeeId || existing.type !== d.type || Number(existing.principal) !== d.principal || Number(existing.interestRate) !== d.interestRate
+      || existing.startDate !== d.startDate || existing.recoveryStartPeriodId !== d.recoveryStartPeriodId || existing.installmentCount !== d.installmentCount || existing.recoveryComponentId !== d.recoveryComponentId;
+    const editor = req.auth!.userId;
+    const editors = changed && editor !== existing.createdByUserId && !existing.editedByUserIds.includes(editor) ? [...existing.editedByUserIds, editor] : existing.editedByUserIds;
     const row = await payrollPrisma.payrollLoan.update({
       where: { id: existing.id },
       data: {
+        editedByUserIds: editors,
         employeeId: parsed.data.employeeId,
         type: parsed.data.type,
         principal: parsed.data.principal,
@@ -315,7 +325,7 @@ payrollLoansRouter.put(
     /* Moved to another person while a draft: its approval request starts again about them (review of #126). */
     if (existing.employeeId !== parsed.data.employeeId) {
       const person = await peoplePrisma.employee.findFirst({ where: { orgId, id: parsed.data.employeeId }, select: { name: true } });
-      await resubjectOnPayrollEngine({ accountId, orgId, source: LOAN_SOURCE, sourceId: existing.id, employeeId: parsed.data.employeeId, title: `${parsed.data.type === 'SALARY_ADVANCE' ? 'Salary advance' : 'Loan'} ${existing.number} for ${person?.name || 'an employee'}`, by: req.auth!.userId, facts: { amount: parsed.data.principal } });
+      await resubjectOnPayrollEngine({ accountId, orgId, source: LOAN_SOURCE, makers: [existing.createdByUserId, ...editors], sourceId: existing.id, employeeId: parsed.data.employeeId, title: `${parsed.data.type === 'SALARY_ADVANCE' ? 'Salary advance' : 'Loan'} ${existing.number} for ${person?.name || 'an employee'}`, by: req.auth!.userId, facts: { amount: parsed.data.principal } });
     }
     res.json({ loan: shape(row) });
   }
@@ -337,12 +347,14 @@ payrollLoansRouter.post(
      */
     /* A request out of line with its loan (approved here, its step not recorded) is brought in line first. */
     await syncPayrollEngine(accountId, orgId, LOAN_SOURCE, loanId);
-    const target = await payrollPrisma.payrollLoan.findFirst({ where: { accountId, orgId, id: loanId }, select: { employeeId: true, createdByUserId: true, status: true, recoveryComponentId: true } });
+    const target = await payrollPrisma.payrollLoan.findFirst({ where: { accountId, orgId, id: loanId }, select: { employeeId: true, createdByUserId: true, editedByUserIds: true, status: true, recoveryComponentId: true } });
     let ask: Awaited<ReturnType<typeof askPayrollEngine>> = null;
     if (target && !['ACTIVE', 'COMPLETED', 'CANCELLED'].includes(target.status)) {
       const own = await ownRecordUnlessAlone(req, target.employeeId, { what: 'loan', does: 'approve it', right: 'approve it', plural: 'loans', module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_LOAN', entityId: loanId });
       if (own.refusal) return res.status(own.refusal.status).json(own.refusal.body);
-      const mine = await ownWorkRefusal(req, { makers: [target.createdByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_LOAN', entityId: loanId, what: 'loan', subjects: await subjectUserIds(orgId, target.employeeId) });
+      /* Whoever made it or changed it since; someone alone deciding their own was answered (and audited, once) above. */
+      const makers = [target.createdByUserId, ...target.editedByUserIds];
+      const mine = own.alone ? null : await ownWorkRefusal(req, { makers, module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_LOAN', entityId: loanId, what: 'loan', subjects: await subjectUserIds(orgId, target.employeeId), notCounting: makers.filter((m) => m !== userId) });
       if (mine) return res.status(mine.status).json(mine.body);
       /* On the approval engine (3a), after Payroll's own checks: may this person decide its step? Recorded once the loan is approved. */
       if (target.recoveryComponentId) {

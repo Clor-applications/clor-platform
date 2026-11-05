@@ -225,7 +225,7 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements', EDIT, async (r
     });
     /* With the company's switch on, its approval goes through the approval engine (workflow engine 3a); off, nothing more is written. */
     const person = await peoplePrisma.employee.findFirst({ where: { orgId, id: employeeId }, select: { name: true } });
-    await openOnPayrollEngine({ accountId, orgId, source: SETTLEMENT_SOURCE, sourceId: row.id, employeeId, title: `Full and final settlement for ${person?.name || 'an employee'}`, by: req.auth!.userId, facts: { amount: Number(row.netPayable) } });
+    await openOnPayrollEngine({ accountId, orgId, source: SETTLEMENT_SOURCE, makers: [req.auth!.userId], sourceId: row.id, employeeId, title: `Full and final settlement for ${person?.name || 'an employee'}`, by: req.auth!.userId, facts: { amount: Number(row.netPayable) } });
     res.status(201).json({ settlement: await shapeOne(row) });
   } catch (e) {
     return fail(res, e);

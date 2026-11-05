@@ -920,6 +920,9 @@ model PayrollLoan {
   approvedAt       DateTime?
 
   createdByUserId String
+  /// Everyone who changed this draft's terms or person after it was made (workflow engine 3a, review of #126): they
+  /// prepared it as much as its maker, so maker-checker refuses them its approval as it does the maker.
+  editedByUserIds String[] @default([])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

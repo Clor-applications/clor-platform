@@ -507,3 +507,91 @@ describe('your own loan and salary revision (owner decision, 4 Nov 2026): never 
     await pay(solo).post(`/revisions/${rev}/reject`).expect(200);
   }, 240_000);
 });
+
+describe('re-review of #126: editing a draft loan is preparing it; moved back reopens; one audit line; STRICT owner alone', () => {
+  const loanBody = (bk: Books, emp: string, principal = 30_000) => ({ employeeId: emp, principal, interestRate: 0, startDate: '2026-11-03', recoveryStartPeriodId: bk.periods[0].id, installmentCount: 3, recoveryComponentId: bk.recoveryId });
+
+  for (const on of [false, true]) {
+    it(`switch ${on ? 'on' : 'off'}: whoever changed a draft loan does not approve it while someone who did not could; with nobody else, maker-checker decides`, async () => {
+      const c = await owner('Edit Owner');
+      const cb = await books(c);
+      const r = await colleague(c, 'Ravi Edit', PAYROLL_APPROVER);
+      const p = await colleague(c, 'Priya Edit', PAYROLL_APPROVER);
+      await setSwitch(c, on);
+      const emp = await person(c, cb, 'Tara Staff');
+      const other = await person(c, cb, 'Om Staff');
+      /* Asha drafted it, Ravi changed the amount: neither approves while Priya can. */
+      const id = (await pay(c).post('/loans', loanBody(cb, emp)).expect(201)).body.loan.id;
+      await pay(r).put(`/loans/${id}`, loanBody(cb, emp, 40_000)).expect(200);
+      expect((await approve('loan', r, id).expect(403)).body.code).toBe('MAKER_CHECKER');
+      expect((await approve('loan', c, id).expect(403)).body.code).toBe('MAKER_CHECKER');
+      await approve('loan', p, id).expect(200);
+      /* Moving it to someone else is preparing it too. */
+      const moved = (await pay(c).post('/loans', loanBody(cb, emp)).expect(201)).body.loan.id;
+      await pay(r).put(`/loans/${moved}`, loanBody(cb, other)).expect(200);
+      expect((await approve('loan', r, moved).expect(403)).body.code).toBe('MAKER_CHECKER');
+      /* Saved with nothing changed: not preparing it. */
+      const same = (await pay(c).post('/loans', loanBody(cb, emp)).expect(201)).body.loan.id;
+      await pay(r).put(`/loans/${same}`, loanBody(cb, emp)).expect(200);
+      await approve('loan', r, same).expect(200);
+      /* Everyone who could approve prepared it: AUTO lets one approve, audited; STRICT refuses. */
+      await request(app).delete(`/api/orgs/${c.orgId}/users/${p.userId}/roles`).set(at(c));
+      await runInTenant(c.orgId, () => platformPrisma.userRoleAssignment.deleteMany({ where: { orgId: c.orgId, userId: p.userId } }));
+      const both = (await pay(c).post('/loans', loanBody(cb, emp)).expect(201)).body.loan.id;
+      await pay(r).put(`/loans/${both}`, loanBody(cb, emp, 45_000)).expect(200);
+      await setMode(c, 'STRICT');
+      expect((await approve('loan', r, both).expect(403)).body.code).toBe('MAKER_CHECKER');
+      await setMode(c, 'AUTO');
+      await approve('loan', r, both).expect(200);
+      expect(await selfApproved(c.orgId, both)).toBe(1);
+      if (on) expect((await engineOf(c.orgId, 'loan', both))?.status).toBe('APPROVED');
+    }, 180_000);
+  }
+
+  it('a draft moved to the one person nobody else can approve for, then back: its request opens again', async () => {
+    const c = await owner('Back Owner');
+    const cb = await books(c);
+    const r = await colleague(c, 'Ravi Back', PAYROLL_APPROVER);
+    await setSwitch(c, true);
+    const emp = await person(c, cb, 'Tara Back');
+    /* With Ravi's role gone, the owner is the only approver: their own record is one nobody else can approve for. */
+    const mine = await person(c, cb, 'Back Owner', { userId: c.userId });
+    await runInTenant(c.orgId, () => platformPrisma.userRoleAssignment.deleteMany({ where: { orgId: c.orgId, userId: r.userId } }));
+    const id = (await pay(c).post('/loans', loanBody(cb, emp)).expect(201)).body.loan.id;
+    expect((await engineOf(c.orgId, 'loan', id))?.status).toBe('WAITING');
+    await pay(c).put(`/loans/${id}`, loanBody(cb, mine)).expect(200);
+    expect((await engineOf(c.orgId, 'loan', id))?.status).toBe('WITHDRAWN');
+    await pay(c).put(`/loans/${id}`, loanBody(cb, emp)).expect(200);
+    expect(await engineOf(c.orgId, 'loan', id)).toMatchObject({ status: 'WAITING', subjectEmployeeId: emp });
+  }, 120_000);
+
+  it('the owner alone and their own loan or revision: one SELF_APPROVED line per decision', async () => {
+    const c = await owner('One Line');
+    const cb = await books(c);
+    const me = await person(c, cb, 'One Line', { userId: c.userId });
+    for (const on of [false, true]) {
+      await setSwitch(c, on);
+      const loan = await fresh('loan', c, cb, me);
+      await approve('loan', c, loan).expect(200);
+      expect(await selfApproved(c.orgId, loan), `loan ${on}`).toBe(1);
+      const rev = await fresh('revision', c, cb, me);
+      await approve('revision', c, rev).expect(200);
+      expect(await selfApproved(c.orgId, rev), `revision ${on}`).toBe(1);
+    }
+  }, 120_000);
+
+  it('STRICT, the owner alone: an employee’s loan, revision or settlement does not open an engine request nobody can take; it waits on the old path, which refuses as before', async () => {
+    const c = await owner('Strict Alone');
+    const cb = await books(c);
+    const emp = await person(c, cb, 'Tara Strict');
+    const leaver = await person(c, cb, 'Neha Strict', { leaving: '2026-11-03' });
+    await setSwitch(c, true);
+    await setMode(c, 'STRICT');
+    for (const kind of KINDS) {
+      const id = await fresh(kind, c, cb, kind === 'settlement' ? leaver : emp);
+      expect(await engineOf(c.orgId, kind, id), kind).toBeNull();
+      expect((await approve(kind, c, id).expect(403)).body.code, kind).toBe('MAKER_CHECKER');
+    }
+    await setMode(c, 'AUTO');
+  }, 120_000);
+});

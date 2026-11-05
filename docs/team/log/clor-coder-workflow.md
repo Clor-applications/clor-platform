@@ -1,5 +1,11 @@
 # clor-coder-workflow — work log
 
+## 2026-11-05 IST — People / Workflow engine — PR #126 re-review fixes
+- Did: stray screenshot removed, `.playwright-mcp/` ignored. Editing a draft loan is preparing it: editors recorded (`PayrollLoan.editedByUserIds`, payroll migration 20261122090000), refused its approval as the maker is while someone who prepared nothing could; all prepared it: maker-checker decides; a no-change save does not count (both paths). Nits: a draft withdrawn after moving to someone nobody else can approve for reopens when moved on; one SELF_APPROVED line for someone alone deciding their own; under STRICT an owner alone's row opens no engine request (old path refuses as before). Reviewer's log entry committed. SPEC 9, DEPLOY.md updated.
+- Evidence: 5 new tests failed first; parity file 35/35; payroll migration drift clean (shadow DB on 5434); 64 affected server files on 5434 sequentially: 1119 passed; tsc clean.
+- Next: re-review; CI full tests (label set).
+- Blocked on: nothing.
+
 ## 2026-11-05 IST — People / Workflow engine — PR #126 review fixes
 - Did: (1, blocker) a draft loan moved to another person restarts its engine request about them (subject, requester, title; `restartSourced` subject option, `resubjectOnPayrollEngine`, runs whatever the switch says); revisions and settlements cannot change person. (2, blocker) reversed after approval (revision rejected once approved, loan or settlement cancelled once approved) closes the approved request as REJECTED or WITHDRAWN with a closing step naming who and why (`reverseSourced`); sync does the same for an older API's reversal. (3) catch-up runs at the start of every approve or reject of the row, whatever Payroll answers, and from the dues job (tested). Nits: loan asks the engine after Payroll's own checks; DEPLOY.md race wording; Company choices caption true after the own-record block, no promise of steps on screen. SPEC 9 and DEPLOY.md updated.
 - Evidence: 4 new tests (catch-up on next approve, dues job, reversals, loan moved), 3 failed first; parity file 30/30; reviewer's probes now: P1 own loan 403 and subject updated, P2 engine REJECTED/WITHDRAWN, P3 caught up on next ask and by dues; R1 3 instalments every round. 64 affected server files on 5434 sequentially: 1114 passed (peopleCompanyChoices included). tsc clean; CompanyChoices web 9/9.

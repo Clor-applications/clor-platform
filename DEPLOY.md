@@ -325,7 +325,8 @@ columns, once nothing is pending on the old path.
 
 ### Payroll on the engine (workflow engine 3a, migration `20261121090000_payroll_on_engine`): deploying and rolling back
 
-The migration adds one column, `PeopleSetting.payrollOnEngine`, default `false`. An older API never reads it.
+The migrations add `PeopleSetting.payrollOnEngine` (people `20261121090000_payroll_on_engine`), default `false`, and
+`PayrollLoan.editedByUserIds` (payroll `20261122090000_loan_edited_by`), default empty. An older API reads neither.
 
 - **Switch off (every company, the default):** loans, salary revisions and final settlements are approved exactly as
   before, and nothing new is written. The deploy window and a rollback need nothing.
@@ -334,8 +335,9 @@ The migration adds one column, `PeopleSetting.payrollOnEngine`, default `false`.
 - **Changes with the switch off too:** approving a loan claims the loan before its schedule is written, so two
   approvals at once write one schedule and only the one that moved it is recorded; the other caller now gets 200 with
   the loan as it is (before, one of two simultaneous callers could get a 409). Nobody approves their own loan, and
-  nobody approves, rejects or puts into effect their own salary revision; loans follow maker-checker; someone alone in
-  the company follows the maker-checker setting (owner's decision, 4 Nov 2026).
+  nobody approves, rejects or puts into effect their own salary revision; loans follow maker-checker, and whoever
+  changed a draft loan counts as having prepared it; someone alone in the company follows the maker-checker setting
+  (owner's decision, 4 Nov 2026). A rollback leaves `editedByUserIds` unread: the older API checks the maker only.
 
 What a company with the switch on writes, and how an older API reads it:
 

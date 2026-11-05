@@ -1,6 +1,7 @@
 import { peoplePrisma, peopleWrite } from '../../../utils/peoplePrisma.js';
 import { payrollPrisma } from '../../../utils/payrollPrisma.js';
 import { usersWithPermission } from '../../notifications.js';
+import { getAuthPolicy } from '../../policy.js';
 import type { Actor } from '../changeLog.js';
 import {
   ApprovalError, closeAtSource, decide, handOnStep, onSource, openSourced, reassignStep, restartSourced, reverseSourced,
@@ -110,6 +111,17 @@ for (const source of PAYROLL_SOURCES) {
   });
 }
 
+/**
+ * Under STRICT maker-checker, a row whose only possible deciders prepared it (an owner alone) cannot be taken by anyone
+ * on the engine: it is not opened, and waits on the old path, which refuses its approval as before (re-review of #126).
+ */
+async function nobodyCanTake(accountId: string, orgId: string, source: PayrollSource, employeeId: string, makers: Array<string | null> = []) {
+  const prepared = makers.filter((m): m is string => Boolean(m));
+  if (!prepared.length || (await getAuthPolicy(accountId, orgId)).makerChecker !== 'STRICT') return false;
+  const { candidates } = await deciders(accountId, orgId, source, employeeId);
+  return candidates.every((u) => prepared.includes(u));
+}
+
 const actorFor = (accountId: string, orgId: string, userId: string | null, correlationId: string): Actor => ({ accountId, orgId, userId, source: 'FORM', correlationId });
 
 /**
@@ -119,10 +131,11 @@ const actorFor = (accountId: string, orgId: string, userId: string | null, corre
  * the person it is about could approve it) or anything else goes wrong, the row is simply on the old path, which is
  * what it would have been with the switch off. Answers whether it is on the engine.
  */
-export async function openOnPayrollEngine(p: { accountId: string; orgId: string; source: PayrollSource; sourceId: string; employeeId: string; title: string; by: string | null; facts?: Record<string, unknown> }): Promise<boolean> {
+export async function openOnPayrollEngine(p: { accountId: string; orgId: string; source: PayrollSource; sourceId: string; employeeId: string; title: string; by: string | null; facts?: Record<string, unknown>; makers?: Array<string | null> }): Promise<boolean> {
   const { accountId, orgId, source, sourceId } = p;
   try {
     if (!(await payrollOnEngine(orgId))) return false;
+    if (await nobodyCanTake(accountId, orgId, source, p.employeeId, p.makers)) return false;
     return await peopleWrite(orgId, async () => {
       const rule = await payrollPresetRule({ accountId, orgId }, source);
       const payload = { employeeId: p.employeeId, preset: 'PAYROLL', ...(p.facts || {}) };
@@ -203,17 +216,21 @@ export async function recordOnPayrollEngine(p: { accountId: string; orgId: strin
  * withdrawn and the row goes on the old path, which refuses or allows it as Payroll does. Called whatever the switch
  * says: a request already open must follow its row. Never fails Payroll's request.
  */
-export async function resubjectOnPayrollEngine(p: { accountId: string; orgId: string; source: PayrollSource; sourceId: string; employeeId: string; title: string; by: string | null; facts?: Record<string, unknown> }) {
+export async function resubjectOnPayrollEngine(p: { accountId: string; orgId: string; source: PayrollSource; sourceId: string; employeeId: string; title: string; by: string | null; facts?: Record<string, unknown>; makers?: Array<string | null> }) {
   const { accountId, orgId, source, sourceId } = p;
   try {
     const engine = await engineOf(orgId, source, sourceId);
-    if (!engine || engine.status !== 'WAITING' || engine.subjectEmployeeId === p.employeeId) return false;
+    if (!engine) return false;
+    /* Withdrawn because it had moved to someone nobody else could approve for, and now moved again: asked again, with the switch on (re-review of #126). */
+    const reopen = engine.status === 'WITHDRAWN' && (await payrollOnEngine(orgId));
+    if (!reopen && (engine.status !== 'WAITING' || engine.subjectEmployeeId === p.employeeId)) return false;
+    if (reopen && (await nobodyCanTake(accountId, orgId, source, p.employeeId, p.makers))) return false;
     try {
       return await peopleWrite(orgId, async () => {
         const rule = await payrollPresetRule({ accountId, orgId }, source);
         const person = await peoplePrisma.employee.findFirst({ where: { id: p.employeeId, orgId }, select: { userId: true } });
         const subject = { subjectEmployeeId: p.employeeId, requesterUserId: person?.userId || portalOf(p.employeeId), title: p.title };
-        return Boolean(await restartSourced(actorFor(accountId, orgId, p.by, sourceId), engine.id, { sourceId, payload: { employeeId: p.employeeId, preset: 'PAYROLL', ...(p.facts || {}) }, rule, why: 'Now about someone else: asked again', subject }));
+        return Boolean(await restartSourced(actorFor(accountId, orgId, p.by, sourceId), engine.id, { sourceId, payload: { employeeId: p.employeeId, preset: 'PAYROLL', ...(p.facts || {}) }, rule, why: 'Now about someone else: asked again', subject, reopen }));
       });
     } catch (e) {
       if (!(e instanceof ApprovalError)) throw e;
