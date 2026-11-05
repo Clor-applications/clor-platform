@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import Ajv from 'ajv';
-import { b2clLimitFor, buildGstr1Json, buildGstr3bJson } from './gstrExport';
+import { b2clLimitFor, buildGstr1Json, buildGstr3bJson, gstr1Classifier } from './gstrExport';
 
 /**
  * GSTR-1 and GSTR-3B JSON, validated against GSTN's own request schemas
@@ -116,6 +116,24 @@ describe('B2CL limit', () => {
     expect(july.b2cs[0]).toMatchObject({ sply_ty: 'INTER', pos: '32', txval: 127119 });
     const aug = buildGstr1Json({ invoices: [{ ...inv[0], date: '2024-08-10' }], items, company, period: '082024' });
     expect(aug.b2cl[0].pos).toBe('32');
+  });
+});
+
+describe('documents read back from the server', () => {
+  // A hydrated invoice names its buyer by the server party id; the browser's
+  // customer row has its own id and keeps the server one as backendPartyId.
+  const hydrated = [
+    { id: 7, backendPartyId: 'srv-sez', gstRegistration: 'SEZ', billingAddress: { country: 'India' } },
+    { id: 8, backendPartyId: 'srv-gulf', gstRegistration: 'Overseas', billingAddress: { country: 'United Arab Emirates' } },
+  ];
+  const sale = (over) => doc({ date: '2026-11-05', items: [line('rice', 100, 100, 5)], ...over });
+
+  it('finds the buyer by its server id, so SEZ and export sales are not filed as B2C', () => {
+    const kindOf = gstr1Classifier({ customers: hydrated, items, company });
+    expect(kindOf(sale({ customerId: 'srv-sez', customerGstin: '33AWGPV7107B1ZQ', placeOfSupplyState: 'Tamil Nadu', inter: true }))).toBe('SEZ');
+    expect(kindOf(sale({ customerId: 'srv-gulf', placeOfSupplyState: 'Other Country', inter: true, items: [line('rice', 2000, 100, 5)] }))).toBe('EXP');
+    expect(kindOf(sale({ customerId: 'nobody', placeOfSupplyState: 'Kerala', inter: true, items: [line('rice', 2000, 100, 5)] }))).toBe('B2CL');
+    expect(kindOf(sale({ customerId: 'nobody', placeOfSupplyState: 'Karnataka' }))).toBe('B2CS');
   });
 });
 

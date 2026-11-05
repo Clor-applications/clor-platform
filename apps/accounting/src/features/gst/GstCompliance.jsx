@@ -1,7 +1,7 @@
 import { formatMoney, round2 } from '@ui/utils/money';
 import { computeGstForLine } from '@ui/utils/gst';
 import { notify } from '@ui/components/ui/notify';
-import { b2clLimitFor, buildGstr1Json, buildGstr3bJson, downloadJson } from '@ui/utils/gstrExport';
+import { buildGstr1Json, gstr1Classifier, buildGstr3bJson, downloadJson } from '@ui/utils/gstrExport';
 import { lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Building2, ChevronDown, Download, Plus, Search } from 'lucide-react';
 import { exportGstr1Excel } from '@ui/utils/gstr1Excel';
@@ -327,17 +327,19 @@ export const Gstr1Report = ({ db, currentCompany, search = '', onSearchChange, o
   const receipts = (db.payments || []).filter((row) => row?.companyId === companyId && /receipt/i.test(String(row?.voucherType || row?.direction || row?.type || '')));
   const journals = (db.journalEntries || []).filter((row) => row?.companyId === companyId && !/draft|reversed|cancel/i.test(String(row?.status || '')));
   const gstinOf = (row) => String(row?.customerGstin || row?.partyGstin || row?.gstin || '').trim();
-  const isExport = (row) => /export/i.test(String(row?.supplyType || row?.taxTreatment || row?.placeOfSupplyType || ''));
   const isNil = (row) => Number(row?.gstTotal || 0) === 0;
-  const isInterstate = (row) => String(row?.taxType || '').toUpperCase() === 'IGST';
+  const kindOf = gstr1Classifier({ invoices, items: db.items || [], customers: db.customers || [], company: currentCompany });
+  const invoiceKind = new Map(invoices.map((row) => [row, kindOf(row)]));
+  const zeroRated = (row) => ['EXP', 'SEZ'].includes(invoiceKind.get(row));
   const invoiceRow = (doc) => ({ doc, values: gstDocValues(doc, 1) });
   const noteRow = (doc) => ({ doc, values: gstDocValues(doc, -1) });
 
-  const b2b = invoices.filter((row) => gstinOf(row) && !isExport(row) && !isNil(row)).map(invoiceRow);
-  const exports = invoices.filter(isExport).map(invoiceRow);
-  const nil = invoices.filter(isNil).map(invoiceRow);
-  const b2cl = invoices.filter((row) => !gstinOf(row) && !isNil(row) && !isExport(row) && isInterstate(row) && Number(row.total || 0) > b2clLimitFor(`${String(row.date || '').slice(5, 7)}${String(row.date || '').slice(0, 4)}`)).map(invoiceRow);
-  const b2cs = invoices.filter((row) => !gstinOf(row) && !isNil(row) && !isExport(row) && !b2cl.some((candidate) => candidate.doc === row)).map(invoiceRow);
+  const inSection = (...kinds) => (row) => kinds.includes(invoiceKind.get(row));
+  const b2b = invoices.filter((row) => inSection('B2B', 'SEZ', 'DE')(row) && (!isNil(row) || zeroRated(row))).map(invoiceRow);
+  const exports = invoices.filter(inSection('EXP')).map(invoiceRow);
+  const nil = invoices.filter((row) => isNil(row) && !zeroRated(row)).map(invoiceRow);
+  const b2cl = invoices.filter((row) => inSection('B2CL')(row) && !isNil(row)).map(invoiceRow);
+  const b2cs = invoices.filter((row) => inSection('B2CS')(row) && !isNil(row)).map(invoiceRow);
   const cdnr = creditNotes.filter((row) => gstinOf(row)).map(noteRow);
   const cdnur = creditNotes.filter((row) => !gstinOf(row)).map(noteRow);
   const advanceRows = receipts.filter((row) => Number(row.advanceAmount || 0) > 0).map((doc) => ({ doc, values: { count: 1, taxable: Number(doc.advanceAmount || 0), igst: 0, cgst: 0, sgst: 0, cess: 0, tax: Number(doc.gstTotal || 0), total: Number(doc.advanceAmount || 0) } }));

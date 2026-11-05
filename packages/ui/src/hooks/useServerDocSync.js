@@ -77,6 +77,7 @@ const GST_REGISTRATION = {
   COMPOSITION: 'Composition',
   UNREGISTERED: 'Unregistered',
   SEZ: 'SEZ',
+  OVERSEAS: 'Overseas',
 };
 
 /** A server party as the browser's books store one. */
@@ -603,7 +604,11 @@ export function useServerDocSync({ enabled, currentCompanyId, setDb }) {
         collected.invoices = invoices.map((d) => ({
           ...mapCommon(d, currentCompanyId, 'backendInvoiceId'),
           customerName: d.partyName || d.customerName || '',
-          customerId: d.partyId || '',
+          customerId: d.partyId || d.customerId || '',
+          // The returns read these; without them every hydrated sale looked like B2C.
+          customerGstin: d.customerGstin || '',
+          supplyType: d.supplyType || '',
+          reverseCharge: Boolean(d.reverseCharge),
         }));
       } catch {
         /* same: partial hydration beats none */

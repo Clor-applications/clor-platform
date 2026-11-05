@@ -205,7 +205,10 @@ const sumItems = (itms) =>
 function context({ items = [], customers = [], company = {}, invoices = [] }) {
   const companyGstin = text(company.gstin).toUpperCase();
   const itemById = new Map(items.map((it) => [String(it.id), it]));
+  items.forEach((it) => it.backendItemId && itemById.set(String(it.backendItemId), it));
+  // Documents read back from the server name the party by its server id.
   const partyById = new Map(customers.map((c) => [String(c.id), c]));
+  customers.forEach((c) => c.backendPartyId && partyById.set(String(c.backendPartyId), c));
   const invoiceById = new Map(invoices.map((d) => [String(d.id), d]));
   invoices.forEach((d) => d.backendInvoiceId && invoiceById.set(String(d.backendInvoiceId), d));
   const invoiceByNumber = new Map(invoices.map((d) => [text(d.number), d]));
@@ -266,6 +269,21 @@ function outward({ invoices = [], creditNotes = [], items = [], customers = [], 
     return { doc: d, ...own, kind, zeroRated, withPay: own.withPay, ...splitLines(d, ctx, zeroRated) };
   });
   return { ctx, inv, cdn, limit };
+}
+
+/**
+ * The GSTR-1 table each sales invoice falls in, by the same rules as the
+ * portal JSON, so a screen listing the sections agrees with the export.
+ * B2CL is judged against the limit of the invoice's own month.
+ */
+export function gstr1Classifier({ invoices = [], items = [], customers = [], company = {} }) {
+  const ctx = context({ items, customers, company, invoices });
+  return (doc) => {
+    const c = classify(doc, ctx);
+    if (c.kind) return c.kind;
+    const period = `${text(doc.date).slice(5, 7)}${text(doc.date).slice(0, 4)}`;
+    return isB2cl(doc, c, b2clLimitFor(period)) ? 'B2CL' : 'B2CS';
+  };
 }
 
 const invTyp = (e) => (e.kind === 'SEZ' ? (e.withPay ? 'SEWP' : 'SEWOP') : e.kind === 'DE' ? 'DE' : 'R');
