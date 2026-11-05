@@ -18,13 +18,31 @@ export async function testEInvoiceConnectionApi() {
   return apiFetch(`/orgs/${requireOrgId()}/einvoice/test`, { method: 'POST', body: {} });
 }
 
-/** Registers one invoice on the IRP. `payload` is the NIC INV-01 JSON. */
-export async function registerEInvoiceApi(backendInvoiceId, payload) {
+/**
+ * Registers one invoice on the IRP. The server builds and checks the INV-01
+ * payload from the stored invoice; a 422 carries `err.data.issues`.
+ */
+export async function registerEInvoiceApi(backendInvoiceId) {
   return apiFetch(`/orgs/${requireOrgId()}/invoices/${encodeURIComponent(backendInvoiceId)}/einvoice`, {
     method: 'POST',
-    body: { payload },
+    body: {},
   });
 }
+
+/**
+ * The INV-01 JSON the server would register, for preview and the NIC bulk
+ * tool. `docs` is 'invoices' or 'credit-notes'. When the document cannot be
+ * e-invoiced the call throws and `err.data.issues` lists what to fix.
+ */
+export async function getEInvoicePayloadApi(backendDocId, docs = 'invoices') {
+  return apiFetch(`/orgs/${requireOrgId()}/${docs}/${encodeURIComponent(backendDocId)}/einvoice/payload`);
+}
+
+/** What to show for a failed e-invoice call: the server's list of fixes, else its message. */
+export const eInvoiceIssues = (err) => {
+  const issues = err?.data?.issues;
+  return Array.isArray(issues) && issues.length ? issues.map(String) : [String(err?.message || 'The e-invoice could not be built.')];
+};
 
 /** Full stored e-invoice record (IRN, ack, signed invoice/QR, payload, cancel state). */
 export async function getEInvoiceDetailsApi(backendInvoiceId) {

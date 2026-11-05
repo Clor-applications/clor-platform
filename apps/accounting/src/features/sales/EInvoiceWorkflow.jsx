@@ -1,37 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { notify } from '@ui/components/ui/notify';
-import { buildEInvoicePayload } from '@ui/utils/einvoice';
-import { registerEInvoiceApi, getEInvoiceDetailsApi, cancelEInvoiceApi } from '../../api/einvoice';
+import { registerEInvoiceApi, getEInvoiceDetailsApi, getEInvoicePayloadApi, cancelEInvoiceApi, eInvoiceIssues } from '../../api/einvoice';
 
 /**
  * The native e-invoice workflow for one invoice:
  *   Validate → Generate IRN → QR → Download, plus cancellation while the
- *   24-hour window is open. Everything the IRP returned (IRN, ack, signed
+ *   24-hour window is open. The server builds the INV-01 payload from the
+ *   stored invoice and checks it against NIC's schema; this screen shows the
+ *   result, or the list of things to fix. Everything the IRP returned (IRN, ack, signed
  *   invoice JWT, signed QR, the registered payload) is stored server-side and
  *   downloadable from here.
  */
-
-/** Pre-flight checks — catch what the IRP would reject, before calling it. */
-export function validateForEInvoice({ invoice, company, customer }) {
-  const issues = [];
-  const gstin = String(company?.gstin || '').trim();
-  if (!/^[0-9]{2}[A-Z0-9]{10}[0-9A-Z]{3}$/.test(gstin)) issues.push('Company GSTIN missing or malformed (Settings → Tax & Compliance).');
-  if (!String(company?.state || '').trim()) issues.push('Company state not set.');
-  if (!String(invoice?.number || '').trim()) issues.push('Invoice has no number.');
-  if (!String(invoice?.date || '').trim()) issues.push('Invoice has no date.');
-  const buyerGstin = String(invoice?.customerGstin || customer?.gstin || '').trim();
-  if (!buyerGstin) issues.push('Buyer GSTIN missing — e-invoices are for B2B; B2C invoices are not registered on the IRP.');
-  else if (!/^[0-9]{2}[A-Z0-9]{10}[0-9A-Z]{3}$/.test(buyerGstin)) issues.push(`Buyer GSTIN "${buyerGstin}" is malformed.`);
-  const lines = Array.isArray(invoice?.items) ? invoice.items : [];
-  if (!lines.length) issues.push('Invoice has no line items.');
-  lines.forEach((l, i) => {
-    if (!String(l.hsnSac || '').trim()) issues.push(`Line ${i + 1} (${l.description || 'item'}) has no HSN/SAC code.`);
-  });
-  if (!(Number(invoice?.total) > 0)) issues.push('Invoice total must be greater than zero.');
-  return issues;
-}
 
 const download = (filename, data) => {
   const blob = new Blob([typeof data === 'string' ? data : JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -50,7 +31,7 @@ const Step = ({ done, active, label }) => (
   </div>
 );
 
-export default function EInvoiceWorkflow({ invoice, company, customer, onRegistered, onCancelled, onClose }) {
+export default function EInvoiceWorkflow({ invoice, onRegistered, onCancelled, onClose }) {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -59,14 +40,8 @@ export default function EInvoiceWorkflow({ invoice, company, customer, onRegiste
   const [cancelReason, setCancelReason] = useState('2');
   const [cancelRemarks, setCancelRemarks] = useState('');
 
-  const issues = useMemo(() => validateForEInvoice({ invoice, company, customer }), [invoice, company, customer]);
-  const payload = useMemo(() => {
-    try {
-      return buildEInvoicePayload({ invoice, company, customer: customer || {} });
-    } catch {
-      return null;
-    }
-  }, [invoice, company, customer]);
+  const [payload, setPayload] = useState(null);
+  const [issues, setIssues] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +55,18 @@ export default function EInvoiceWorkflow({ invoice, company, customer, onRegiste
         if (!cancelled) setDetails(d);
       } catch {
         /* not registered yet */
+      }
+      try {
+        const built = await getEInvoicePayloadApi(invoice.backendInvoiceId);
+        if (!cancelled) {
+          setPayload(built?.payload || null);
+          setIssues([]);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setPayload(null);
+          setIssues(eInvoiceIssues(err));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -110,12 +97,13 @@ export default function EInvoiceWorkflow({ invoice, company, customer, onRegiste
     if (issues.length || !payload) return;
     setBusy(true);
     try {
-      await registerEInvoiceApi(invoice.backendInvoiceId, payload);
+      await registerEInvoiceApi(invoice.backendInvoiceId);
       const d = await getEInvoiceDetailsApi(invoice.backendInvoiceId);
       setDetails(d);
       onRegistered?.(d);
       notify.success(`IRN generated: ${d.irn}`);
     } catch (err) {
+      if (err?.status === 422) setIssues(eInvoiceIssues(err));
       notify.error(String(err?.message || 'IRP registration failed.'));
     } finally {
       setBusy(false);

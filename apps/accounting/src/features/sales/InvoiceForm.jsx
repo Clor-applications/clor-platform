@@ -27,7 +27,6 @@ import { blockIfClosed } from '@ui/utils/bookClose';
 import { amountInWordsInr, formatMoney } from '@ui/utils/money';
 import { getNextNumericId } from '@ui/utils/ids';
 import { getEInvoiceSettingsApi, registerEInvoiceApi } from '../../api/einvoice';
-import { buildEInvoicePayload } from '@ui/utils/einvoice';
 import { useDocumentFormKeys } from '@ui/components/ui/useDocumentFormKeys';
 import { AmountInWordsBand, DocFormActions, DocFormFootnote } from '@ui/components/DocumentForm';
 import { Ban, Building2, Copy, Eye, Lock, Package, Plus, Settings2, SlidersHorizontal, Trash2, Users } from 'lucide-react';
@@ -1316,11 +1315,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
             return;
           }
           if (!settings?.autoRegister || !settings?.baseUrl) return;
-          const customer = (db.customers || []).find((c) => c.id === newInvoice.customerId) || {};
-          const result = await registerEInvoiceApi(
-            newInvoice.backendInvoiceId,
-            buildEInvoicePayload({ invoice: newInvoice, company: currentCompany, customer })
-          );
+          const result = await registerEInvoiceApi(newInvoice.backendInvoiceId);
           setDb((prev) => ({
             ...prev,
             invoices: (prev.invoices || []).map((x) =>
@@ -1331,6 +1326,8 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
           }));
           notify.success(`IRN for ${newInvoice.number}: ${result.irn}`);
         } catch (err) {
+          // A sale to an unregistered buyer is outside e-invoicing: nothing failed.
+          if (err?.data?.code === 'B2C_NOT_EINVOICED') return;
           notify.error(`IRP auto-registration failed: ${String(err?.message || err)}`);
         }
       })();

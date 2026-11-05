@@ -33,9 +33,9 @@ import { Balance, DateCell, DueDateCell, InvoiceIdentifier, Money } from '@ui/co
 import { MoneyValue } from '@ui/components/docs';
 import EInvoiceWorkflow from './EInvoiceWorkflow';
 import EwbTransportForm from '@ui/components/EwbTransportForm';
-import { generateEwaybillApi } from '../../api/einvoice';
+import { eInvoiceIssues, generateEwaybillApi, getEInvoicePayloadApi } from '../../api/einvoice';
 import { downloadJson } from '@ui/utils/gstrExport';
-import { buildEInvoicePayload, buildEwayBillPayload } from '@ui/utils/einvoice';
+import { buildEwayBillPayload } from '@ui/utils/einvoice';
 import { CreditNoteForm } from './salesShared';
 
 /** Columns the invoices grid can show or hide. Identity and actions stay. */
@@ -1456,12 +1456,9 @@ export const InvoicesList = ({
                       className="w-full px-4 py-2 text-left text-sm ui-hover-sunken flex items-center gap-2"
                       onClick={() => {
                         setOpenMenu(null);
-                        const customer = (db.customers || []).find((c) => c.id === inv.customerId) || {};
                         openModal(
                           <EInvoiceWorkflow
                             invoice={inv}
-      company={currentCompany}
-                            customer={customer}
                             onClose={() => openModal(null)}
                             onRegistered={(d) =>
                               setDb((prev) => ({
@@ -1549,18 +1546,19 @@ export const InvoicesList = ({
                     <button
                       type="button"
                       className="w-full px-4 py-2 text-left text-sm ui-hover-sunken flex items-center gap-2"
-                      onClick={() => {
+                      onClick={async () => {
                         setOpenMenu(null);
-                        if (!String(currentCompany?.gstin || '').trim()) {
-                          notify.error('Set the company GSTIN in Company Profile before generating e-invoice JSON.');
+                        if (!inv.backendInvoiceId) {
+                          notify.error('This invoice has not reached the server yet — e-invoice JSON is built from the saved invoice.');
                           return;
                         }
-                        const customer = (db.customers || []).find((c) => c.id === inv.customerId) || {};
-                        downloadJson(
-                          `EINV_${inv.number}.json`,
-                          buildEInvoicePayload({ invoice: inv, company: currentCompany, customer })
-                        );
-                        notify.success(`e-Invoice JSON for ${inv.number} downloaded — upload via the NIC bulk tool.`);
+                        try {
+                          const built = await getEInvoicePayloadApi(inv.backendInvoiceId);
+                          downloadJson(`EINV_${inv.number}.json`, built.payload);
+                          notify.success(`e-Invoice JSON for ${inv.number} downloaded — upload via the NIC bulk tool.`);
+                        } catch (err) {
+                          notify.error(`e-Invoice JSON for ${inv.number} not made: ${eInvoiceIssues(err).join(' ')}`);
+                        }
                       }}
                     >
                       <FileText size={16} className="ui-muted" />

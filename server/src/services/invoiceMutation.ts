@@ -161,8 +161,8 @@ export async function assertInvoiceMutationAllowed(opts: {
      * The GSTIN is not a printed decoration. It is the counterparty's CTIN in
      * GSTR-1, and whether it is present is what sorts the invoice into B2B or
      * B2C (`gstrExport.js`); it becomes `BuyerDtls.Gstin` and decides `SupTyp`
-     * in the INV-01 payload, and `toGstin` on the e-way bill
-     * (`utils/einvoice.js`). An invoice that has been registered keeps the
+     * in the INV-01 payload (`gst/inv01.ts`), and `toGstin` on the e-way
+     * bill (`utils/einvoice.js`). An invoice that has been registered keeps the
      * signed payload it was registered with, so editing the GSTIN afterwards
      * would leave the document disagreeing with its own IRN.
      *

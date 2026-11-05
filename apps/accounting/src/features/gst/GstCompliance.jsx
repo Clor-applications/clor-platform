@@ -1,7 +1,7 @@
 import { formatMoney, round2 } from '@ui/utils/money';
 import { computeGstForLine } from '@ui/utils/gst';
 import { notify } from '@ui/components/ui/notify';
-import { buildGstr1Json, buildGstr3bJson, downloadJson } from '@ui/utils/gstrExport';
+import { b2clLimitFor, buildGstr1Json, buildGstr3bJson, downloadJson } from '@ui/utils/gstrExport';
 import { lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Building2, ChevronDown, Download, Plus, Search } from 'lucide-react';
 import { exportGstr1Excel } from '@ui/utils/gstr1Excel';
@@ -177,7 +177,7 @@ export const LegacyGstr1Report = ({ db, currentCompany }) => {
               notify.error('Set the company GSTIN in Company Profile before exporting a return.');
               return;
             }
-            const json = buildGstr1Json({ invoices, creditNotes, items: db.items || [], company: currentCompany, period });
+            const json = buildGstr1Json({ invoices, creditNotes, items: db.items || [], customers: db.customers || [], company: currentCompany, period });
             downloadJson(`GSTR1_${currentCompany.gstin}_${period}.json`, json);
             notify.success(`GSTR-1 JSON for ${period} downloaded.`);
           }}
@@ -336,7 +336,7 @@ export const Gstr1Report = ({ db, currentCompany, search = '', onSearchChange, o
   const b2b = invoices.filter((row) => gstinOf(row) && !isExport(row) && !isNil(row)).map(invoiceRow);
   const exports = invoices.filter(isExport).map(invoiceRow);
   const nil = invoices.filter(isNil).map(invoiceRow);
-  const b2cl = invoices.filter((row) => !gstinOf(row) && !isNil(row) && !isExport(row) && isInterstate(row) && Number(row.total || 0) > 250000).map(invoiceRow);
+  const b2cl = invoices.filter((row) => !gstinOf(row) && !isNil(row) && !isExport(row) && isInterstate(row) && Number(row.total || 0) > b2clLimitFor(`${String(row.date || '').slice(5, 7)}${String(row.date || '').slice(0, 4)}`)).map(invoiceRow);
   const b2cs = invoices.filter((row) => !gstinOf(row) && !isNil(row) && !isExport(row) && !b2cl.some((candidate) => candidate.doc === row)).map(invoiceRow);
   const cdnr = creditNotes.filter((row) => gstinOf(row)).map(noteRow);
   const cdnur = creditNotes.filter((row) => !gstinOf(row)).map(noteRow);
@@ -661,6 +661,7 @@ export const GstComplianceWorkspace = ({ db, currentCompany, branches = [], init
           invoices: scopedDb.invoices || [],
           creditNotes: scopedDb.creditNotes || [],
           items: db.items || [],
+          customers: db.customers || [],
           company: exportCompany,
           period: portalPeriod,
         })
@@ -670,6 +671,10 @@ export const GstComplianceWorkspace = ({ db, currentCompany, branches = [], init
           bills: scopedDb.bills || [],
           expenses: scopedDb.expenses || [],
           debitNotes: scopedDb.debitNotes || [],
+          journalEntries: scopedDb.journalEntries || [],
+          items: db.items || [],
+          customers: db.customers || [],
+          vendors: db.vendors || [],
           company: exportCompany,
           period: portalPeriod,
         });

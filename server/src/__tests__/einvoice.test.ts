@@ -3,6 +3,7 @@ import request from 'supertest';
 import { generateKeyPairSync, privateDecrypt, constants as cryptoConstants } from 'node:crypto';
 import { buildApp } from '../app.js';
 import { prisma } from '../utils/prisma.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
 import {
   registerOnIrp,
   getEInvoiceConfig,
@@ -39,9 +40,47 @@ async function makeOwner(): Promise<Ctx> {
   const setup = await request(app)
     .post('/api/auth/setup-company')
     .set('Authorization', `Bearer ${signup.body.token}`)
-    .send({ companyName: `EInv Co ${Date.now()}-${rnd()}`, state: 'Karnataka' })
+    .send({
+      companyName: `EInv Co ${Date.now()}-${rnd()}`,
+      state: 'Karnataka',
+      gstin: '29ABCDE1234F1ZW',
+      profile: { addressLine: '12, 3rd Cross, Jayanagar', city: 'Bengaluru', pincode: '560011' },
+    })
     .expect(200);
   return { token: signup.body.token, orgId: setup.body.company.orgId, branchId: setup.body.branch.id };
+}
+
+/**
+ * A registered buyer and an item with an HSN — what the server needs to build
+ * an INV-01 payload. Returns the invoice body fields that point at them.
+ */
+async function eInvoiceable(c: Ctx) {
+  const org = await platformPrisma.org.findUnique({ where: { id: c.orgId }, select: { accountId: true, createdByUserId: true } });
+  const scope = { accountId: org!.accountId, orgId: c.orgId, createdByUserId: org!.createdByUserId };
+  const party = await prisma.party.create({
+    data: {
+      ...scope,
+      partyType: 'CUSTOMER',
+      name: `Buyer ${rnd()}`,
+      gstin: '29AWGPV7107B1ZF',
+      gstRegistrationType: 'REGULAR',
+      billingLine1: '44 Market Road',
+      billingCity: 'Mysuru',
+      billingState: 'Karnataka',
+      billingPincode: '570001',
+    },
+  });
+  const item = await prisma.itemMaster.create({
+    data: { ...scope, name: `Widget ${rnd()}`, unit: 'Pcs', hsnSac: '84719000', gstRate: 18, openingQty: 1000 },
+  });
+  return {
+    customerId: party.id,
+    customerName: party.name,
+    customerGstin: party.gstin,
+    placeOfSupplyState: 'Karnataka',
+    lineItemId: item.id,
+    scope,
+  };
 }
 
 const setFeature = async (key: string, enabled: boolean) => {
@@ -131,44 +170,60 @@ describe('IRP registration', () => {
   it('registers an invoice and stores the IRN on the row', async () => {
     await setFeature('einvoice', true);
 
+    const buyer = await eInvoiceable(owner);
     const created = await request(app)
       .post(`/api/orgs/${owner.orgId}/invoices`)
       .set(auth(owner))
       .send({
         date: '2026-08-01',
-        customerName: 'Buyer Co',
+        customerId: buyer.customerId,
+        customerName: buyer.customerName,
+        customerGstin: buyer.customerGstin,
+        placeOfSupplyState: buyer.placeOfSupplyState,
         subtotal: 1000,
         cgstTotal: 90,
         sgstTotal: 90,
         gstTotal: 180,
         total: 1180,
         status: 'Unpaid',
-        items: [{ description: 'Widget', quantity: 1, rate: 1000, gstRate: 18 }],
+        items: [{ itemId: buyer.lineItemId, description: 'Widget', quantity: 1, rate: 1000, gstRate: 18 }],
       })
       .expect(201);
     const invoiceId = created.body.invoice.id;
 
     // The route uses global fetch; point the gateway at a stubbed one.
+    let sent: any = null;
     const origFetch = globalThis.fetch;
-    globalThis.fetch = (async () => ({
-      status: 200,
-      json: async () => ({ Irn: 'irn-for-row', AckNo: '9', AckDt: '2026-08-19', SignedQRCode: 'qr' }),
-      text: async () => '',
-    })) as any;
+    globalThis.fetch = (async (_url: string, init: any) => {
+      sent = JSON.parse(init.body);
+      return {
+        status: 200,
+        json: async () => ({ Irn: 'irn-for-row', AckNo: '9', AckDt: '2026-08-19', SignedQRCode: 'qr' }),
+        text: async () => '',
+      };
+    }) as any;
     try {
       const reg = await request(app)
         .post(`/api/orgs/${owner.orgId}/invoices/${invoiceId}/einvoice`)
         .set(auth(owner))
-        .send({ payload: { Version: '1.1', DocDtls: { No: created.body.invoice.number } } })
+        // A payload from the browser is ignored: the server builds its own.
+        .send({ payload: { Version: '1.1', TranDtls: { SupTyp: 'B2C' } } })
         .expect(200);
       expect(reg.body.irn).toBe('irn-for-row');
     } finally {
       globalThis.fetch = origFetch;
     }
 
+    // What reached the gateway is the server-built INV-01.
+    expect(sent.TranDtls).toMatchObject({ SupTyp: 'B2B', TaxSch: 'GST' });
+    expect(sent.DocDtls).toMatchObject({ Typ: 'INV', No: created.body.invoice.number, Dt: '01/08/2026' });
+    expect(sent.SellerDtls).toMatchObject({ Gstin: '29ABCDE1234F1ZW', Pin: 560011, Stcd: '29' });
+    expect(sent.ItemList[0]).toMatchObject({ HsnCd: '84719000', Unit: 'PCS', IsServc: 'N', CgstAmt: 90, SgstAmt: 90 });
+
     const row = await prisma.invoice.findUnique({ where: { id: invoiceId } });
     expect(row?.irn).toBe('irn-for-row');
     expect(row?.irnStatus).toBe('REGISTERED');
+    expect(JSON.parse(row!.einvoicePayloadJson!).TranDtls.SupTyp).toBe('B2B');
 
     // Second registration refuses: the IRN is immutable.
     const again = await request(app)
@@ -177,6 +232,97 @@ describe('IRP registration', () => {
       .send({ payload: {} })
       .expect(409);
     expect(String(again.body.error)).toContain('irn-for-row');
+  });
+
+  it('refuses a B2C invoice with the reasons, without calling the gateway', async () => {
+    await setFeature('einvoice', true);
+    const created = await request(app)
+      .post(`/api/orgs/${owner.orgId}/invoices`)
+      .set(auth(owner))
+      .send({
+        date: '2026-08-03',
+        customerName: 'Walk-in',
+        subtotal: 100,
+        total: 100,
+        status: 'Unpaid',
+        items: [{ description: 'Loose item', quantity: 1, rate: 100, gstRate: 0 }],
+      })
+      .expect(201);
+    const origFetch = globalThis.fetch;
+    let called = false;
+    globalThis.fetch = (async () => {
+      called = true;
+      throw new Error('should not be called');
+    }) as any;
+    try {
+      const reg = await request(app)
+        .post(`/api/orgs/${owner.orgId}/invoices/${created.body.invoice.id}/einvoice`)
+        .set(auth(owner))
+        .send({})
+        .expect(422);
+      expect(reg.body.issues.join(' ')).toMatch(/not e-invoiced/);
+      expect(reg.body.code).toBe('B2C_NOT_EINVOICED');
+      expect(reg.body.issues.join(' ')).toMatch(/no HSN\/SAC code/);
+      expect(called).toBe(false);
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+    const preview = await request(app)
+      .get(`/api/orgs/${owner.orgId}/invoices/${created.body.invoice.id}/einvoice/payload`)
+      .set(auth(owner))
+      .expect(422);
+    expect(preview.body.issues.length).toBeGreaterThan(0);
+  });
+
+  it('builds a credit note as CRN with the original invoice referenced', async () => {
+    const buyer = await eInvoiceable(owner);
+    const inv = await request(app)
+      .post(`/api/orgs/${owner.orgId}/invoices`)
+      .set(auth(owner))
+      .send({
+        date: '2026-08-04',
+        customerId: buyer.customerId,
+        customerName: buyer.customerName,
+        customerGstin: buyer.customerGstin,
+        placeOfSupplyState: 'Karnataka',
+        subtotal: 1000,
+        cgstTotal: 90,
+        sgstTotal: 90,
+        gstTotal: 180,
+        total: 1180,
+        status: 'Unpaid',
+        items: [{ itemId: buyer.lineItemId, description: 'Widget', quantity: 1, rate: 1000, gstRate: 18 }],
+      })
+      .expect(201);
+    const note = await prisma.creditNote.create({
+      data: {
+        accountId: buyer.scope.accountId,
+        orgId: owner.orgId,
+        branchId: owner.branchId,
+        number: `CN-${rnd()}`,
+        date: '2026-08-05',
+        againstDocId: inv.body.invoice.id,
+        partyId: buyer.customerId,
+        partyName: buyer.customerName,
+        partyGstin: buyer.customerGstin,
+        placeOfSupplyState: 'Karnataka',
+        subtotal: 500,
+        cgstTotal: 45,
+        sgstTotal: 45,
+        gstTotal: 90,
+        total: 590,
+        status: 'Open',
+        itemsJson: JSON.stringify([{ itemId: buyer.lineItemId, description: 'Widget', quantity: 0.5, rate: 1000, gstRate: 18 }]),
+        createdByUserId: buyer.scope.createdByUserId,
+      },
+    });
+    const res = await request(app)
+      .get(`/api/orgs/${owner.orgId}/credit-notes/${note.id}/einvoice/payload`)
+      .set(auth(owner))
+      .expect(200);
+    expect(res.body.payload.DocDtls).toMatchObject({ Typ: 'CRN', No: note.number, Dt: '05/08/2026' });
+    expect(res.body.payload.RefDtls.PrecDocDtls[0]).toEqual({ InvNo: inv.body.invoice.number, InvDt: '04/08/2026' });
+    expect(res.body.payload.ValDtls).toMatchObject({ AssVal: 500, TotInvVal: 590 });
   });
 
   it('refuses when the feature flag is off', async () => {
@@ -314,18 +460,24 @@ describe('NIC direct provider', () => {
       .send({ publicKeyPem })
       .expect(200);
     await setFeature('einvoice', true);
+    const cancelBuyer = await eInvoiceable(owner);
 
     const created = await request(app)
       .post(`/api/orgs/${owner.orgId}/invoices`)
       .set(auth(owner))
       .send({
         date: '2026-08-02',
-        customerName: 'Cancel Buyer',
+        customerId: cancelBuyer.customerId,
+        customerName: cancelBuyer.customerName,
+        customerGstin: cancelBuyer.customerGstin,
+        placeOfSupplyState: 'Karnataka',
         subtotal: 500,
+        cgstTotal: 45,
+        sgstTotal: 45,
         gstTotal: 90,
         total: 590,
         status: 'Unpaid',
-        items: [{ description: 'Widget', quantity: 1, rate: 500, gstRate: 18 }],
+        items: [{ itemId: cancelBuyer.lineItemId, description: 'Widget', quantity: 1, rate: 500, gstRate: 18 }],
       })
       .expect(201);
     const invoiceId = created.body.invoice.id;

@@ -89,7 +89,8 @@ const partySchema = z.object({
   name: z.string().min(1).max(200),
   legalName: z.string().max(200).optional().nullable(),
   gstin: z.string().max(15).optional().nullable(),
-  gstRegistrationType: z.enum(['REGULAR', 'COMPOSITION', 'UNREGISTERED']).optional(),
+  // SEZ and OVERSEAS decide the e-invoice supply type (gst/inv01.ts).
+  gstRegistrationType: z.enum(['REGULAR', 'COMPOSITION', 'UNREGISTERED', 'SEZ', 'OVERSEAS']).optional(),
   pan: z.string().max(10).optional().nullable(),
   placeOfSupplyState: z.string().max(100).optional().nullable(),
   email: z.string().email().max(200).optional().nullable().or(z.literal('')),

@@ -14,12 +14,14 @@ import {
   generateEwbByIrn,
   cancelIrnOnIrp,
 } from '../services/einvoice.js';
+import { buildEInvoiceFor, type EInvoiceDocKind } from '../services/einvoicePayload.js';
 
 /**
  * e-Invoice (IRP) surface: gateway settings and per-invoice IRN registration.
- * The client builds the NIC INV-01 payload (it already owns that logic for
- * the manual JSON download); the server owns credentials, the gateway call,
- * and persisting the IRN onto the invoice row.
+ * The server builds the NIC INV-01 payload from the stored document and
+ * checks it against NIC's schema (gst/inv01.ts), owns the credentials and the
+ * gateway call, and persists the IRN onto the invoice row. The browser never
+ * supplies the payload.
  */
 export const einvoiceRouter = Router();
 einvoiceRouter.use(requireAuth, requireTenantContext);
@@ -107,8 +109,40 @@ einvoiceRouter.post('/orgs/:orgId/einvoice/test', SETTINGS_EDIT, async (req, res
 });
 
 /**
- * Register one invoice on the IRP. Body: { payload } — the NIC INV-01 JSON
- * built client-side. On success the IRN lands on the invoice row.
+ * Answers a payload that cannot be filed: 422 with every reason, so the
+ * screen can list what to fix in one go.
+ */
+const refuse = (res: any, built: { issues: string[]; b2c: boolean }) =>
+  res.status(422).json({
+    error:
+      built.issues.length === 1
+        ? built.issues[0]
+        : `Fix ${built.issues.length} things before this can be e-invoiced: ${built.issues.join(' ')}`,
+    issues: built.issues,
+    // B2C_NOT_EINVOICED: nothing to fix, the sale is simply outside e-invoicing.
+    code: built.b2c ? 'B2C_NOT_EINVOICED' : 'EINVOICE_INVALID',
+  });
+
+/**
+ * The INV-01 JSON for one sales invoice or credit note, built and checked on
+ * the server — for the NIC bulk-upload tool, and for the screen to show what
+ * would be registered. 422 with `issues` when it would not pass.
+ */
+const PAYLOAD_KINDS: Record<string, EInvoiceDocKind> = { invoices: 'invoice', 'credit-notes': 'creditNote' };
+einvoiceRouter.get('/orgs/:orgId/:docs(invoices|credit-notes)/:docId/einvoice/payload', INVOICE_EDIT, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const { accountId, orgId } = req.tenant!;
+  const kind = PAYLOAD_KINDS[String(req.params.docs)];
+  const built = await buildEInvoiceFor(kind, String(req.params.docId), { accountId, orgId });
+  if (!built.found) return res.status(404).json({ error: kind === 'invoice' ? 'Invoice not found' : 'Credit note not found' });
+  if (!built.ok) return refuse(res, built);
+  res.json({ payload: built.payload, supplyType: built.supplyType });
+});
+
+/**
+ * Register one invoice on the IRP. The payload is built here from the stored
+ * invoice; anything in the request body is ignored. On success the IRN lands
+ * on the invoice row.
  */
 einvoiceRouter.post('/orgs/:orgId/invoices/:invoiceId/einvoice', INVOICE_EDIT, async (req, res) => {
   if (!orgOk(req, res)) return;
@@ -126,10 +160,10 @@ einvoiceRouter.post('/orgs/:orgId/invoices/:invoiceId/einvoice', INVOICE_EDIT, a
     return res.status(409).json({ error: `Invoice already has IRN ${invoice.irn}` });
   }
 
-  const payload = req.body?.payload;
-  if (!payload || typeof payload !== 'object') {
-    return res.status(400).json({ error: 'Missing INV-01 payload' });
-  }
+  const built = await buildEInvoiceFor('invoice', invoice.id, { accountId, orgId });
+  if (!built.found) return res.status(404).json({ error: 'Invoice not found' });
+  if (!built.ok) return refuse(res, built);
+  const payload = built.payload;
 
   const result = await registerOnIrp(orgId, payload);
   if (!result.ok) {
