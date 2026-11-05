@@ -1,0 +1,12 @@
+# Builds the backup job image. Run from the repo root, as the clor-build account:
+#   gcloud builds submit --config deploy/backup/cloudbuild.yaml --substitutions=_TAG=<git-sha> \
+#     --service-account=projects/clor-apps-511409/serviceAccounts/clor-build@clor-apps-511409.iam.gserviceaccount.com deploy/backup
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/clor/backup:${_TAG}', '.']
+images:
+  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/clor/backup:${_TAG}'
+substitutions:
+  _TAG: manual
+options:
+  logging: CLOUD_LOGGING_ONLY

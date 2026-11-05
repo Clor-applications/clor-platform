@@ -85,3 +85,8 @@ dist-e2e/
 e2e/.state/
 e2e/test-results/
 e2e/report/
+
+# age private keys for backups: never in the repository
+clor-backup-*.txt
+*.agekey
+AGE-SECRET-KEY*

@@ -129,26 +129,29 @@ Run's request timeout must be at least 300s, which is the default.
 
 ## Backups
 
-Installed on the server as `/usr/local/bin/clor-backup`, run by cron at 02:30:
+Production runs on Cloud SQL `clor-pg`, not on this host, and its backups are
+described in **`docs/BACKUP-AND-RESTORE.md`**. That file covers:
 
-```
-30 2 * * * /usr/local/bin/clor-backup --verify >> /var/log/clor-backup.log 2>&1
-```
+- what Cloud SQL already keeps: daily snapshots, 7 days of point-in-time
+  recovery, a final backup on deletion;
+- the encrypted off-host copy (`deploy/backup/`: a Cloud Run Job that encrypts
+  with age and writes to a create-only bucket);
+- the recovery point and recovery time for each kind of failure;
+- the restore drill, the real restore, and the owner's one-off setup
+  checklist.
 
-`--verify` restores the archive it has just written into a scratch database and
-compares its row counts against the live one, table by table. An archive nobody
-has restored is a file of unknown value, and the moment you find out is the
-moment you can least afford to.
-
-Restoring is deliberately beside the live database, never over it:
+Before every release, take an on-demand snapshot:
 
 ```bash
-/usr/local/bin/clor-backup --restore /var/backups/clor/clor-<stamp>.sql.gz clor_restored
-# look at it, then swap:
-sudo -u postgres psql -c 'ALTER DATABASE clor RENAME TO clor_old'
-sudo -u postgres psql -c 'ALTER DATABASE clor_restored RENAME TO clor'
-sudo systemctl restart clor-api
+gcloud sql backups create --instance clor-pg
 ```
+
+On-demand snapshots are kept until someone deletes them. Every few months,
+delete the old ones in the console so they do not pile up.
+
+`deploy/backup.sh` is for the self-hosted layout described at the top of this
+file. It writes unencrypted archives on the same machine as the database, so if
+that layout is ever used again, add the off-host copy to it as well.
 
 ## Schema changes
 
