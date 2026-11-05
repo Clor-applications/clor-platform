@@ -432,7 +432,9 @@ export const daysOfMonth = (month: string) => {
  * days, holidays, each person's shift on each date, and which leave was
  * unpaid. Shared by the month summary and the reports so they cannot disagree.
  */
-export async function periodContext(accountId: string, orgId: string, from: string, to: string) {
+/** `employeeIds` narrows it to those people (a team-scoped role); omitted, it is everyone. */
+export async function periodContext(accountId: string, orgId: string, from: string, to: string, opts: { employeeIds?: string[] } = {}) {
+  const only = opts.employeeIds ? { id: { in: opts.employeeIds } } : {};
   const days = eachDay(from, to);
   const [people, records, holidayData, schedule] = await Promise.all([
     peoplePrisma.employee.findMany({
@@ -443,6 +445,7 @@ export async function periodContext(accountId: string, orgId: string, from: stri
         orgId,
         /* Door-only staff (guards, drivers) open doors but are not expected at work (ClorTime attendance_required). */
         attendanceRequired: true,
+        ...only,
         AND: [
           { OR: [{ dateOfLeaving: null }, { dateOfLeaving: { gte: from } }] },
           { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: to } }] },
@@ -451,7 +454,7 @@ export async function periodContext(accountId: string, orgId: string, from: stri
       select: { id: true, name: true, code: true, department: true, departmentId: true, areaId: true, branchId: true, contractorId: true, guardianName: true, dateOfJoining: true, dateOfLeaving: true, status: true },
       orderBy: { name: 'asc' },
     }),
-    peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: from, lte: to } } }),
+    peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: from, lte: to }, ...(opts.employeeIds ? { employeeId: { in: opts.employeeIds } } : {}) } }),
     loadHolidays(orgId, from, to),
     loadSchedule(orgId),
   ]);

@@ -39,7 +39,7 @@ beforeEach(() => {
 const pickAllAndSettle = async () => {
   render(<Exceptions />);
   fireEvent.click(await screen.findByRole('checkbox', { name: `Select all ${ITEMS} open items` }));
-  expect(screen.getByText(`${ITEMS} selected`)).toBeTruthy();
+  expect(screen.getByText("1,200 selected")).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: /Settle selected/ }));
   const drawer = await screen.findByRole('dialog');
   expect(within(drawer).getByText("Mark settled: 1,200 items")).toBeTruthy();
@@ -61,7 +61,7 @@ it('says how far it got when a batch is refused, never claims the rest', async (
     .mockResolvedValueOnce({ updated: 500 })
     .mockRejectedValueOnce(new Error('At most 500 items at a time. Send the rest in another batch.'));
   await pickAllAndSettle();
-  await waitFor(() => expect(notify.error).toHaveBeenCalledWith('500 of 1,200 marked settled; the rest were not changed. At most 500 items at a time. Send the rest in another batch.'));
+  await waitFor(() => expect(notify.error).toHaveBeenCalledWith('At most 500 items at a time. Send the rest in another batch. 500 of 1,200 marked settled; the rest may not have been changed. The list below is up to date.'));
   expect(notify.success).not.toHaveBeenCalled();
   expect(setExceptionStates).toHaveBeenCalledTimes(2);
 });
@@ -84,4 +84,45 @@ it('asks only for narrower dates when there is just one kind to pick', async () 
   listExceptions.mockResolvedValue({ ...answer(50), counts: { NO_RECORD: 7200 }, total: 7200, truncated: true });
   render(<Exceptions />);
   expect(await screen.findByText('Showing the first 50 of 7,200. Narrow the dates to reach the rest.')).toBeTruthy();
+});
+
+it('locks the bar and shows how far a long run has got, so a second click cannot overlap it', async () => {
+  const waits = [];
+  setExceptionStates.mockImplementation(({ keys }) => new Promise((done) => waits.push(() => done({ changed: keys.length, skipped: 0, unknown: 0 }))));
+  await pickAllAndSettle();
+  await waitFor(() => expect(waits).toHaveLength(1));
+  expect(screen.getByText('Settling 0 of 1,200…')).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Settle selected/ })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: /Settle selected/ }));
+  waits[0]();
+  await screen.findByText('Settling 500 of 1,200…');
+  waits[1]();
+  await waitFor(() => expect(waits).toHaveLength(3));
+  waits[2]();
+  await waitFor(() => expect(notify.success).toHaveBeenCalledTimes(1));
+  expect(setExceptionStates).toHaveBeenCalledTimes(3);
+});
+
+it('says how many a colleague had already decided, and how many were not found', async () => {
+  setExceptionStates.mockImplementation(async ({ keys }) => ({ changed: keys.length - 20, skipped: 15, unknown: 5 }));
+  await pickAllAndSettle();
+  await waitFor(() => expect(notify.success).toHaveBeenCalledWith('1,140 items marked settled; 45 were already settled or ignored by someone else; 15 could not be found.'));
+});
+
+it('drops an answer that arrives after a quicker one for the kind now chosen', async () => {
+  let late;
+  listExceptions.mockReset();
+  listExceptions
+    .mockResolvedValueOnce(answer(ITEMS))
+    .mockImplementationOnce(() => new Promise((done) => { late = done; }))
+    .mockResolvedValueOnce(answer(ITEMS));
+  render(<Exceptions />);
+  await screen.findByRole('checkbox', { name: `Select all ${ITEMS} open items` });
+  fireEvent.click(screen.getByRole('tab', { name: /^No check-out/ }));
+  fireEvent.click(screen.getByRole('tab', { name: /^All/ }));
+  await waitFor(() => expect(listExceptions).toHaveBeenCalledTimes(3));
+  late({ counts: {}, figures: { high: 0, medium: 0, low: 0, unowned: 0 }, total: 0, exceptions: [], truncated: false });
+  await new Promise((r) => setTimeout(r, 0));
+  expect(screen.queryByText('Nothing to settle')).toBeNull();
+  expect(screen.getByRole('checkbox', { name: `Select all ${ITEMS} open items` })).toBeTruthy();
 });

@@ -61,6 +61,16 @@ export default function MonthClose({ openScreen, params }) {
   const people = filters.applyFilters(inKind, { employee: (p) => `${p.name}${p.code ? ` · ${p.code}` : ''}` });
   const { pageCount, safePage, pageRows } = usePaged(people, perPage, page);
   useResetPage(setPage, [kind, month, filters.filters ?? null]);
+  /* Arrow keys, Home and End move between the kinds, as a tab list does. */
+  const tabKeys = (e) => {
+    const at = KINDS.findIndex((k) => k.value === kind);
+    const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: KINDS.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    const next = KINDS[(to + KINDS.length) % KINDS.length].value;
+    setKind(next);
+    document.getElementById(`kind-tab-${next || 'all'}`)?.focus();
+  };
   const close = async () => {
     setBusy(true);
     try {
@@ -180,17 +190,30 @@ export default function MonthClose({ openScreen, params }) {
                 <span className="ui-caption tabular-nums">{openPeople.length === 1 ? '1 person has' : `${openPeople.length.toLocaleString('en-IN')} people have`} something open</span>
               </div>
               {openPeople.length ? (
-                <div className="ui-segmented max-w-full overflow-x-auto" role="tablist" aria-label="What is open">
+                <div className="ui-segmented max-w-full overflow-x-auto" role="tablist" aria-label="What is open" onKeyDown={tabKeys}>
                   {KINDS.map((k) => (
-                    <button key={k.value || 'all'} type="button" role="tab" aria-selected={kind === k.value} className="ui-segment" onClick={() => setKind(k.value)}>
+                    <button
+                      key={k.value || 'all'}
+                      id={`kind-tab-${k.value || 'all'}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={kind === k.value}
+                      aria-controls="people-panel"
+                      tabIndex={kind === k.value ? 0 : -1}
+                      className="ui-segment"
+                      onClick={() => setKind(k.value)}
+                    >
                       {k.label}
-                      <span className="ui-segment-count" data-on={kindCounts[k.value] > 0 ? 'true' : undefined}>{kindCounts[k.value]}</span>
+                      {/* People, not days: the checklist above counts days. */}
+                      <span className="ui-segment-count tabular-nums" data-on={kindCounts[k.value] > 0 ? 'true' : undefined}>
+                        {kindCounts[k.value].toLocaleString('en-IN')} {kindCounts[k.value] === 1 ? 'person' : 'people'}
+                      </span>
                     </button>
                   ))}
                 </div>
               ) : null}
             </div>
-            <div className="ui-table-scroll">
+            <div className="ui-table-scroll" id="people-panel" role="tabpanel" aria-labelledby={`kind-tab-${kind || 'all'}`}>
               <table className="ui-table ui-table-sticky w-full">
                 <thead>
                   <tr>

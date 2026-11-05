@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDot, Clock, EyeOff, HelpCircle, UserRoundCheck } from 'lucide-react';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -82,11 +82,17 @@ export default function Exceptions({ openScreen }) {
   /* Keys of the open items ticked for a bulk Settle / Ignore. */
   const [picked, setPicked] = useState(() => new Set());
 
+  /* A bulk change in progress: how many of how many, and the bar is locked until it ends. */
+  const [running, setRunning] = useState(null);
+  /* Only the latest request's answer is shown; one for a kind left a moment ago is dropped. */
+  const latest = useRef(0);
+
   const load = useCallback(() => {
+    const ask = ++latest.current;
     /* The kind is chosen on the server, before its cap, so a kind reaches all of its items. */
     listExceptions({ ...range, show: showAll ? 'all' : 'open', ...(kind ? { kind } : {}) })
-      .then((d) => { setData(d); setError(''); })
-      .catch((e) => setError(String(e?.message || 'Could not load the exceptions.')));
+      .then((d) => { if (ask === latest.current) { setData(d); setError(''); } })
+      .catch((e) => { if (ask === latest.current) setError(String(e?.message || 'Could not load the exceptions.')); });
   }, [range, showAll, kind]);
   useEffect(() => { load(); }, [load]);
 
@@ -145,21 +151,41 @@ export default function Exceptions({ openScreen }) {
     const { x, keys, status } = settling;
     setSettling(null);
     if (!keys) return change(x, { status, note: note.trim() || null }, status === 'RESOLVED' ? 'Marked settled.' : 'Ignored.');
-    /* Every picked item, in batches the server takes; a failed batch says how far it got. */
+    /*
+     * Every picked item, in batches the server takes, one run at a time. The
+     * server changes only items still open, so what a colleague settled in the
+     * meantime is counted, not overwritten; a failed batch says how far it got.
+     */
+    if (running) return;
     const verb = status === 'RESOLVED' ? 'marked settled' : 'ignored';
-    let updated = 0;
+    const n = (v) => v.toLocaleString('en-IN');
+    let changed = 0;
+    let skipped = 0;
+    let unknown = 0;
+    let sent = 0;
+    setRunning({ done: 0, total: keys.length, status });
     try {
       for (let i = 0; i < keys.length; i += BATCH) {
         const r = await setExceptionStates({ keys: keys.slice(i, i + BATCH), status, note: note.trim() || null });
-        updated += r.updated;
+        changed += r.changed ?? r.updated ?? 0;
+        skipped += r.skipped || 0;
+        unknown += r.unknown || 0;
+        sent = Math.min(i + BATCH, keys.length);
+        setRunning({ done: sent, total: keys.length, status });
       }
-      notify.success(`${updated.toLocaleString('en-IN')} ${updated === 1 ? 'item' : 'items'} ${verb}.`);
+      const extra = [
+        skipped ? `${n(skipped)} ${skipped === 1 ? 'was' : 'were'} already settled or ignored by someone else` : null,
+        unknown ? `${n(unknown)} could not be found` : null,
+      ].filter(Boolean);
+      notify.success(`${n(changed)} ${changed === 1 ? 'item' : 'items'} ${verb}${extra.length ? `; ${extra.join('; ')}` : ''}.`);
     } catch (e) {
       const why = String(e?.message || 'Not saved.');
-      notify.error(updated ? `${updated.toLocaleString('en-IN')} of ${keys.length.toLocaleString('en-IN')} ${verb}; the rest were not changed. ${why}` : why);
+      notify.error(sent ? `${why} ${n(changed)} of ${n(keys.length)} ${verb}; the rest may not have been changed. The list below is up to date.` : why);
+    } finally {
+      setRunning(null);
+      setPicked(new Set());
+      load();
     }
-    setPicked(new Set());
-    load();
   };
   const settleMany = (status) => {
     setNote('');
@@ -212,12 +238,18 @@ export default function Exceptions({ openScreen }) {
         error ? null : <SkeletonCard lines={6} />
       ) : (
         <>
-          {pickedKeys.length ? (
-            <div className="flex flex-wrap items-center gap-2 px-1 py-2" role="region" aria-label="Selected items">
-              <span className="text-sm font-medium">{pickedKeys.length} selected</span>
-              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => settleMany('RESOLVED')}><CheckCircle2 size={14} aria-hidden="true" /> Settle selected</button>
-              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => settleMany('IGNORED')}><EyeOff size={14} aria-hidden="true" /> Ignore selected</button>
-              <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPicked(new Set())}>Clear</button>
+          {pickedKeys.length || running ? (
+            <div className="flex flex-wrap items-center gap-2 px-1 py-2" role="region" aria-label="Selected items" aria-busy={running ? 'true' : undefined}>
+              {running ? (
+                <span className="text-sm font-medium tabular-nums" role="status">
+                  {running.status === 'IGNORED' ? 'Ignoring' : 'Settling'} {running.done.toLocaleString('en-IN')} of {running.total.toLocaleString('en-IN')}…
+                </span>
+              ) : (
+                <span className="text-sm font-medium">{pickedKeys.length.toLocaleString('en-IN')} selected</span>
+              )}
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(running)} onClick={() => settleMany('RESOLVED')}><CheckCircle2 size={14} aria-hidden="true" /> Settle selected</button>
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(running)} onClick={() => settleMany('IGNORED')}><EyeOff size={14} aria-hidden="true" /> Ignore selected</button>
+              <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={Boolean(running)} onClick={() => setPicked(new Set())}>Clear</button>
             </div>
           ) : null}
           {/*

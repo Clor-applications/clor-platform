@@ -4,6 +4,10 @@ import { clashingTemporaries } from './conflicts.js';
 import { daysOfMonth, monthRows, periodContext } from './days.js';
 import { readerTrustOn } from './trust.js';
 import { eachDay, todayIst } from '../../utils/istDate.js';
+import type { TeamScope } from '../people/scope.js';
+
+/** The people a scope reaches, as a list to filter on; undefined is everyone. */
+const idsOf = (scope?: TeamScope) => (scope && !scope.all ? scope.ids : undefined);
 
 /**
  * What is still unsettled in a stretch of days, person by person.
@@ -23,8 +27,8 @@ export type PersonIssues = {
   unapprovedOvertime: Array<{ id: string; date: string; minutes: number }>;
 };
 
-export async function scanDays(accountId: string, orgId: string, from: string, to: string) {
-  const ctx = await periodContext(accountId, orgId, from, to);
+export async function scanDays(accountId: string, orgId: string, from: string, to: string, scope?: TeamScope) {
+  const ctx = await periodContext(accountId, orgId, from, to, { employeeIds: idsOf(scope) });
   const people: PersonIssues[] = [];
   for (const p of ctx.people) {
     if (p.status === 'LEFT' && !p.dateOfLeaving) continue;
@@ -49,16 +53,22 @@ export async function scanDays(accountId: string, orgId: string, from: string, t
   return { people, today: ctx.today };
 }
 
-/** Queues that are not about one day of one person's record. */
-export async function scanQueues(orgId: string, from: string, to: string) {
+/**
+ * Queues that are not about one day of one person's record. Under a team
+ * scope only that team's requests and schedules count; reader IDs that match
+ * nobody and reader problems belong to no team, so a team sees none of them.
+ */
+export async function scanQueues(orgId: string, from: string, to: string, scope?: TeamScope) {
   const fromAt = istInstant(from, '00:00');
   const toAt = istInstant(to, '00:00', 1);
+  const ids = idsOf(scope);
+  const mine = ids ? { employeeId: { in: ids } } : {};
   const [corrections, leave, unmatched, alerts, temporaries] = await Promise.all([
-    peoplePrisma.attendanceRequest.findMany({ where: { orgId, status: 'PENDING', date: { gte: from, lte: to } }, orderBy: { date: 'asc' } }),
-    peoplePrisma.leaveRequest.findMany({ where: { orgId, status: 'PENDING', fromDate: { lte: to }, toDate: { gte: from } }, orderBy: { fromDate: 'asc' } }),
-    peoplePrisma.devicePunch.groupBy({ by: ['pin'], where: { orgId, employeeId: null, at: { gte: fromAt, lt: toAt } }, _count: { _all: true }, _min: { at: true }, _max: { at: true } }),
-    peoplePrisma.readerAlert.findMany({ where: { orgId, resolvedAt: null }, orderBy: { openedAt: 'desc' } }),
-    peoplePrisma.temporarySchedule.findMany({ where: { orgId, fromDate: { lte: to }, toDate: { gte: from } } }),
+    peoplePrisma.attendanceRequest.findMany({ where: { orgId, status: 'PENDING', date: { gte: from, lte: to }, ...mine }, orderBy: { date: 'asc' } }),
+    peoplePrisma.leaveRequest.findMany({ where: { orgId, status: 'PENDING', fromDate: { lte: to }, toDate: { gte: from }, ...mine }, orderBy: { fromDate: 'asc' } }),
+    ids ? Promise.resolve([] as any[]) : peoplePrisma.devicePunch.groupBy({ by: ['pin'], where: { orgId, employeeId: null, at: { gte: fromAt, lt: toAt } }, _count: { _all: true }, _min: { at: true }, _max: { at: true } }),
+    ids ? Promise.resolve([] as any[]) : peoplePrisma.readerAlert.findMany({ where: { orgId, resolvedAt: null }, orderBy: { openedAt: 'desc' } }),
+    peoplePrisma.temporarySchedule.findMany({ where: { orgId, fromDate: { lte: to }, toDate: { gte: from }, ...mine } }),
   ]);
   /* Two temporary schedules for the same person on the same days with different shifts. */
   const byPerson = new Map<string, Array<{ id: string; shiftId: string; from: string; to: string | null }>>();
@@ -72,23 +82,27 @@ export async function scanQueues(orgId: string, from: string, to: string) {
   return { corrections, leave, unmatched, alerts, clashes };
 }
 
-/** The month-close checklist: every item, its severity, and whether the month is ready. */
-export async function monthReadiness(accountId: string, orgId: string, month: string) {
+/**
+ * The month-close checklist: every item, its severity, and whether the month
+ * is ready. A team scope narrows every count to that team; closing the month
+ * reads it unscoped, for the whole company.
+ */
+export async function monthReadiness(accountId: string, orgId: string, month: string, scope?: TeamScope) {
   const days = daysOfMonth(month);
   const from = days[0];
   const to = days[days.length - 1];
   const [{ people }, queues, lock, snapshots, trustOn] = await Promise.all([
-    scanDays(accountId, orgId, from, to),
-    scanQueues(orgId, from, to),
+    scanDays(accountId, orgId, from, to, scope),
+    scanQueues(orgId, from, to, scope),
     peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } }),
     peoplePrisma.attendanceMonthSnapshot.findMany({ where: { orgId, month }, orderBy: { version: 'desc' }, select: { version: true, createdAt: true, createdByUserId: true } }),
     readerTrustOn(accountId, orgId),
   ]);
   /* Reader trust (O-11): days whose punches need a look. Worth a look, never a blocker. */
-  const trustCheck = trustOn ? await peoplePrisma.attendanceRecord.count({ where: { accountId, orgId, date: { gte: from, lte: to }, trust: 'CHECK' } }) : 0;
+  const trustCheck = trustOn ? await peoplePrisma.attendanceRecord.count({ where: { accountId, orgId, date: { gte: from, lte: to }, trust: 'CHECK', ...(idsOf(scope) ? { employeeId: { in: idsOf(scope) } } : {}) } }) : 0;
   /* Late-mark penalties nobody decided (markRules.ts): a part to come from leave must be applied before payroll takes the month. */
   const { penaltiesOver } = await import('./markRules.js');
-  const due = [...(await penaltiesOver(accountId, orgId, days)).values()].filter((p) => p.status === 'DUE');
+  const due = [...(await penaltiesOver(accountId, orgId, days, { employeeIds: idsOf(scope) })).values()].filter((p) => p.status === 'DUE');
   const dueFromLeave = due.some((p) => p.fromLeave.length > 0);
   const sum = (f: (p: PersonIssues) => number) => people.reduce((s, p) => s + f(p), 0);
   const checks = [
