@@ -124,7 +124,13 @@ export async function approveLoan(opts: { accountId: string; orgId: string; user
 
   const periodIds = loan.recoveryStartPeriodId ? await periodsFrom(opts.orgId, loan.recoveryStartPeriodId, schedule.length) : [];
 
-  return payrollPrisma.$transaction(async (tx) => {
+  const approved = await payrollPrisma.$transaction(async (tx) => {
+    /*
+     * Claimed first, from the state that was read: two approvals at once write one schedule, and only the one that
+     * moved it says so (approvedNow), so the approval engine records one decision (workflow engine 3a).
+     */
+    const claimed = await tx.payrollLoan.updateMany({ where: { id: loan.id, status: loan.status }, data: { status: 'ACTIVE' } });
+    if (!claimed.count) return null;
     await tx.payrollLoanInstallment.deleteMany({ where: { loanId: loan.id } });
     await tx.payrollLoanInstallment.createMany({
       data: schedule.map((row, i) => ({
@@ -158,6 +164,11 @@ export async function approveLoan(opts: { accountId: string; orgId: string; user
       include: { installments: { orderBy: { sequence: 'asc' } } },
     });
   });
+  if (approved) return { ...approved, approvedNow: true };
+  /* Approved (or cancelled) by someone else a moment ago: answered as it is now, as a second approval always was. */
+  const now = await payrollPrisma.payrollLoan.findFirstOrThrow({ where: { accountId: opts.accountId, orgId: opts.orgId, id: opts.loanId }, include: { installments: { orderBy: { sequence: 'asc' } } } });
+  if (now.status === 'CANCELLED') throw new PayrollLoanError('LOAN_CANCELLED', 'This loan was cancelled.');
+  return now;
 }
 
 export type DueRecovery = {

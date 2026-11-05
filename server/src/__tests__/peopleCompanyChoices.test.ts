@@ -100,6 +100,7 @@ describe('the choices: defaults, who may change them, audit', () => {
       'notifications.withdrawn': 'SHOW_WITHDRAWN',
       'leave.onEngine': false,
       'attendance.onEngine': false,
+      'payroll.onEngine': false,
     });
     expect(body.choices.every((x: any) => x.canChange && x.changed === null)).toBe(true);
   });

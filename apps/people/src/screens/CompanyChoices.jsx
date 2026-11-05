@@ -24,6 +24,7 @@ const GROUPS = [
       { key: 'notifications.withdrawn', sentence: 'When someone withdraws a request, the “waiting for you” notice' },
       { key: 'leave.onEngine', sentence: 'Leave requests are decided by the approval rules' },
       { key: 'attendance.onEngine', sentence: 'Attendance requests, overtime and field punches are decided by the approval rules' },
+      { key: 'payroll.onEngine', sentence: 'Loans, salary revisions and final settlements are decided by the approval rules' },
     ],
   },
   {
@@ -51,6 +52,10 @@ const CAPTIONS = {
   'attendance.onEngine': {
     false: 'Off: missed punches, work from home, on duty, permission, shift changes, overtime, comp-off and field punches are decided as they are today. Only the owner or an admin can turn this on.',
     true: 'The same people decide as today. Each request shows its steps and who has it now. Requests already waiting finish as they started.',
+  },
+  'payroll.onEngine': {
+    false: 'Off: loans, salary revisions and final settlements are approved as they are today. Only the owner or an admin can turn this on.',
+    true: 'The same people approve them in Payroll, with the same checks: never your own unless nobody else can and your approval setting allows it, a second person where your company asks for one, and the authenticator code. Ones already waiting finish as they started.',
   },
   'notifications.withdrawn': {
     SHOW_WITHDRAWN: 'It says “Withdrawn”, is marked read and opens the closed request.',

@@ -108,3 +108,37 @@ export async function subjectUserIds(orgId: string, employeeId: string): Promise
   const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { userId: true } });
   return e?.userId ? [e.userId] : [];
 }
+
+/**
+ * Your own loan or salary revision (owner's decision, 4 Nov 2026; SPEC 5.6): never yours to approve, reject or put
+ * into effect while somebody else could. When nobody else in the company holds the right (an owner alone, paying
+ * themselves), the company's maker-checker setting decides, so it is never a dead end: AUTO and ALLOW let them, written
+ * SELF_APPROVED by name with the reason; STRICT refuses in plain words. `alone`: allowed only because nobody else could.
+ */
+export async function ownRecordUnlessAlone(
+  req: Request,
+  employeeId: string,
+  opts: { what: string; does: string; right: string; plural: string; module: string; resource: string; entity: string; entityId: string; action?: string },
+): Promise<{ refusal: Refusal | null; alone: boolean }> {
+  const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId: req.tenant!.orgId }, select: { userId: true } });
+  const actorId = req.auth!.userId;
+  if (!e?.userId || e.userId !== actorId) return { refusal: null, alone: false };
+  const { accountId, orgId } = req.tenant!;
+  if (await anotherApproverExists(accountId, orgId, actorId, permKey(opts.module, opts.resource, 'APPROVE'))) {
+    return { refusal: { status: 403, body: { error: `This is your own ${opts.what}; somebody else has to ${opts.does}.`, code: 'OWN_RECORD' } }, alone: false };
+  }
+  const mode = (await getAuthPolicy(accountId, orgId)).makerChecker;
+  if (mode === 'STRICT') {
+    return { refusal: { status: 403, body: { error: `This is your own ${opts.what}, and nobody else in the company can ${opts.right}. Give someone else the right to approve ${opts.plural}, or change the approval setting.`, code: 'OWN_RECORD' } }, alone: false };
+  }
+  await recordAudit(req, {
+    entity: opts.entity,
+    entityId: opts.entityId,
+    action: opts.action || 'SELF_APPROVED',
+    message: mode === 'ALLOW'
+      ? `Decided by the person it is about, their own ${opts.what} (the company allows one person to do both)`
+      : `Decided by the person it is about, their own ${opts.what}: nobody else in the company can approve it`,
+    metadata: { makerChecker: mode, ownRecord: true },
+  });
+  return { refusal: null, alone: true };
+}

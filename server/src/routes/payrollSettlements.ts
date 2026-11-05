@@ -21,6 +21,7 @@ import { SourcesChangedError, closePayrollSources, closePeopleSources, keepSourc
 import { releaseHold, AbsenceError } from '../services/people/absconding.js';
 import { applyRecoveryCap, fnfCapPercent, isRecovery, leavingSlipBasis, withRecoverWishes, type RecoveryCap, type SlipBasis } from '../services/payroll/fnfRecoveryCap.js';
 import { todayIst } from '../utils/istDate.js';
+import { PayrollEngineRefusal, SETTLEMENT_SOURCE, askPayrollEngine, openOnPayrollEngine, recordOnPayrollEngine, syncPayrollEngine, withdrawOnPayrollEngine } from '../services/people/approvals/payrollSource.js';
 
 /**
  * Full and final settlements for people who have left. Drafted from what CLOR
@@ -222,6 +223,9 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements', EDIT, async (r
         createdByUserId: req.auth!.userId,
       },
     });
+    /* With the company's switch on, its approval goes through the approval engine (workflow engine 3a); off, nothing more is written. */
+    const person = await peoplePrisma.employee.findFirst({ where: { orgId, id: employeeId }, select: { name: true } });
+    await openOnPayrollEngine({ accountId, orgId, source: SETTLEMENT_SOURCE, sourceId: row.id, employeeId, title: `Full and final settlement for ${person?.name || 'an employee'}`, by: req.auth!.userId, facts: { amount: Number(row.netPayable) } });
     res.status(201).json({ settlement: await shapeOne(row) });
   } catch (e) {
     return fail(res, e);
@@ -310,10 +314,20 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/approve', AP
   if (!(await payrollRouteOk(req, res))) return;
   const row = await findOwn(req, res);
   if (!row) return;
+  /* A request out of line with its settlement (approved here, its step not recorded) is brought in line first. */
+  await syncPayrollEngine(row.accountId, row.orgId, SETTLEMENT_SOURCE, row.id);
   if (row.status !== 'DRAFT') return res.status(409).json({ error: 'Only a draft can be approved.', code: 'NOT_DRAFT' });
   /* Never your own; whoever worked it out approves it only as the company's maker-checker setting allows (makerChecker.ts). */
   const refused = (await ownRecordRefusal(req, row.employeeId, 'full and final settlement', { who: await othersFor(req) })) || await ownWorkRefusal(req, { makers: [row.createdByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SETTLEMENT', entityId: row.id, what: 'settlement', who: await othersFor(req), subjects: await subjectUserIds(row.orgId, row.employeeId) });
   if (refused) return res.status(refused.status).json(refused.body);
+  /* On the approval engine (3a): the engine is asked whether this person may decide its step, and the step is recorded once Payroll has approved it. */
+  let ask;
+  try {
+    ask = await askPayrollEngine({ accountId: row.accountId, orgId: row.orgId, source: SETTLEMENT_SOURCE, sourceId: row.id, userId: req.auth!.userId, approve: true });
+  } catch (e) {
+    if (e instanceof PayrollEngineRefusal) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
+  }
   /*
    * The limit from today's records, checked in the same transaction as the
    * approval with the leaving month's payroll runs locked (leavingSlipBasis
@@ -334,6 +348,7 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/approve', AP
     throw e;
   }
   if (!moved.count) return res.status(409).json({ error: 'Somebody else has just changed this settlement. Reload it.', code: 'NOT_DRAFT' });
+  await recordOnPayrollEngine({ accountId: row.accountId, orgId: row.orgId, source: SETTLEMENT_SOURCE, sourceId: row.id, userId: req.auth!.userId, approve: true, ask });
   const updated = await payrollPrisma.finalSettlement.findUniqueOrThrow({ where: { id: row.id } });
   await recordAudit(req, {
     entity: 'PAYROLL_SETTLEMENT',
@@ -466,6 +481,7 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/cancel', APP
   const mineCancel = await ownRecordRefusal(req, row.employeeId, 'full and final settlement', { who: await othersFor(req), does: 'cancel it' });
   if (mineCancel) return res.status(mineCancel.status).json(mineCancel.body);
   const updated = await payrollPrisma.finalSettlement.update({ where: { id: row.id }, data: { status: 'CANCELLED' } });
+  await withdrawOnPayrollEngine(row.accountId, row.orgId, SETTLEMENT_SOURCE, row.id, 'Cancelled in Payroll', req.auth!.userId);
   await recordAudit(req, { entity: 'PAYROLL_SETTLEMENT', entityId: row.id, action: 'CANCEL', message: 'Cancelled a full and final settlement', metadata: { employeeId: row.employeeId, was: row.status } });
   res.json({ settlement: await shapeOne(updated) });
 });

@@ -126,7 +126,10 @@ export const TIME_PRESETS: Record<TimePresetKey, { name: string; steps: StepV2[]
  * already waiting keep theirs). Runs inside the caller's transaction when there is one.
  */
 export async function timePresetRule(who: { accountId: string; orgId: string }, requestType: string, key: TimePresetKey): Promise<RuleRow> {
-  const preset = TIME_PRESETS[key];
+  return ensurePreset(who, requestType, key, TIME_PRESETS[key]);
+}
+
+async function ensurePreset(who: { accountId: string; orgId: string }, requestType: string, key: string, preset: { name: string; steps: StepV2[] }): Promise<RuleRow> {
   const variantKey = `${PRESET_PREFIX}${key}`;
   const fits = (r: RuleRow | null): r is RuleRow => Boolean(r && r.presetKey === key && same(r.steps, preset.steps) && r.autoApprove == null);
   const found = await peoplePrisma.approvalRule.findFirst({ where: { orgId: who.orgId, requestType, variantKey, active: true }, orderBy: { version: 'desc' } });
@@ -144,4 +147,24 @@ export async function timePresetRule(who: { accountId: string; orgId: string }, 
       },
     });
   });
+}
+
+// ---------------------------------------------------------------------------
+// Loans, salary revisions, final settlements (phase 3a)
+// ---------------------------------------------------------------------------
+
+/**
+ * Payroll's own rule as a preset, one per request type (`LOAN`, `SALARY_REVISION`, `FINAL_SETTLEMENT`), read in
+ * Payroll's words (services/people/approvals/payrollSource.ts): one step, whoever holds the type's Payroll approve
+ * right (Payroll Loans, Salary Revisions, Payroll Runs for settlements), the person it is about taken out. Maker-checker
+ * (who prepared it) and the authenticator code stay in Payroll's routes, which ask first. No reminders: Payroll has
+ * none, and the module's overdue hook only closes a request whose record was decided elsewhere.
+ */
+export type PayrollPresetKey = 'PAYROLL';
+export const PAYROLL_PRESETS: Record<PayrollPresetKey, { name: string; steps: StepV2[] }> = {
+  PAYROLL: { name: 'Standard: whoever approves it in Payroll', steps: [step(1, [{ kind: 'PAYROLL' }])] },
+};
+
+export async function payrollPresetRule(who: { accountId: string; orgId: string }, requestType: string): Promise<RuleRow> {
+  return ensurePreset(who, requestType, 'PAYROLL', PAYROLL_PRESETS.PAYROLL);
 }

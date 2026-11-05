@@ -132,3 +132,17 @@ it('attendance on the approval rules: off with its plain words; the owner turns 
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(api.saveCompanyChoice).toHaveBeenCalledWith('attendance.onEngine', true));
 });
+
+it('loans, salary revisions and final settlements on the approval rules: off with its plain words; the owner turns it on', async () => {
+  const onEngine = { key: 'payroll.onEngine', value: false, default: false, canChange: true, changed: null, options: [{ value: false, label: 'Off' }, { value: true, label: 'On' }] };
+  api.getCompanyChoices.mockResolvedValue({ choices: [...CHOICES().choices, onEngine] });
+  api.saveCompanyChoice.mockResolvedValue({ choices: [...CHOICES().choices, { ...onEngine, value: true }] });
+  render(<CompanyChoices />);
+  const control = await screen.findByLabelText('Loans, salary revisions and final settlements are decided by the approval rules');
+  expect(control.value).toBe('false');
+  expect(screen.getByText(/Off: loans, salary revisions and final settlements are approved as they are today/)).toBeTruthy();
+  fireEvent.change(control, { target: { value: 'true' } });
+  expect(screen.getByText(/The same people approve them in Payroll, with the same checks/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(api.saveCompanyChoice).toHaveBeenCalledWith('payroll.onEngine', true));
+});

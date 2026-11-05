@@ -1888,6 +1888,11 @@ model PeopleSetting {
   /// from the company's stored chain (services/attendance/attendanceEngine.ts). Off by default; requests already
   /// waiting finish on the old path either way.
   attendanceOnEngine Boolean @default(false)
+  /// Workflow engine phase 3a: new loans, salary revisions sent for approval and final settlements are decided
+  /// through the approval engine under a preset rule that copies Payroll's own (whoever holds the Payroll approve
+  /// right; maker-checker and step-up stay in Payroll's routes) (services/people/approvals/payrollSource.ts). Off
+  /// by default; ones already waiting finish on the old path either way.
+  payrollOnEngine    Boolean @default(false)
   updatedByUserId    String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
