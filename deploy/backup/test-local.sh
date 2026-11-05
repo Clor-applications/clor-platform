@@ -30,7 +30,7 @@ cleanup() {
   for d in $(PGUSER="$SU" psql -d postgres -qtAXc "SELECT datname FROM pg_database WHERE datname LIKE 'clorbk\_%'"); do
     PGUSER="$SU" psql -d postgres -qXc "DROP DATABASE \"$d\"" >/dev/null
   done
-  for r in $(PGUSER="$SU" psql -d postgres -qtAXc "SELECT rolname FROM pg_roles WHERE rolname LIKE 'clorbk\_%' OR rolname LIKE 'evil%'"); do
+  for r in $(PGUSER="$SU" psql -d postgres -qtAXc "SELECT rolname FROM pg_roles WHERE rolname LIKE 'clorbk\_%' OR rolname LIKE 'evil%' OR rolname = 'cloudsqlsuperuser'"); do
     PGUSER="$SU" psql -d postgres -qXc "DROP ROLE \"$r\"" >/dev/null 2>&1
   done
   [ -n "$W" ] && rm -rf "$W"
@@ -57,7 +57,7 @@ CREATE ROLE clorbk_owner LOGIN PASSWORD 'local-test-owner' CREATEDB;
 CREATE ROLE clorbk_reader LOGIN PASSWORD 'local-test-reader';
 GRANT pg_read_all_data TO clorbk_reader;
 CREATE ROLE clorbk_restorer LOGIN PASSWORD 'local-test-restorer' CREATEDB;
-GRANT clorbk_owner TO clorbk_restorer;
+GRANT clorbk_owner TO clorbk_restorer WITH INHERIT FALSE;
 CREATE DATABASE clorbk_one OWNER clorbk_owner;
 CREATE DATABASE clorbk_two OWNER clorbk_owner;
 SQL
@@ -112,19 +112,29 @@ if reader bash "$BACKUP" > "$W/backup.log" 2>&1; then
   grep -q 'clorbk_one: 4 tables, 342 rows' "$W/backup.log" && ok "backup as a non-superuser reader sees every row through FORCE RLS, partitions included" \
     || { cat "$W/backup.log"; fail "backup did not see every row"; }
 else cat "$W/backup.log"; fail "backup failed"; fi
-ARCHIVE="$(find "$W/bucket/frequent" -name '*.tar.age' 2>/dev/null | head -1)"
-[ -n "$ARCHIVE" ] && [ -f "$ARCHIVE.sig" ] && ok "archive and its signature written under frequent/" || fail "no frequent/ archive with a .sig"
-n_daily=$(find "$W/bucket/daily" -name '*.tar.age' 2>/dev/null | wc -l | tr -d ' ')
-n_month=$(find "$W/bucket/monthly" -name '*.tar.age' 2>/dev/null | wc -l | tr -d ' ')
+ARCHIVE="$(find "$W/bucket/frequent" -name '*.clorbackup' 2>/dev/null | head -1)"
+[ -n "$ARCHIVE" ] && [ "$(tar -tf "$ARCHIVE" 2>/dev/null | sed 's#^\./##' | grep -v '^$' | sort | tr '\n' ' ')" = "archive.tar.age archive.tar.age.sig " ] \
+  && ok "one object under frequent/ holding the archive and its signature" || fail "no frequent/ .clorbackup holding exactly archive.tar.age and its .sig"
+n_daily=$(find "$W/bucket/daily" -name '*.clorbackup' 2>/dev/null | wc -l | tr -d ' ')
+n_month=$(find "$W/bucket/monthly" -name '*.clorbackup' 2>/dev/null | wc -l | tr -d ' ')
 [ "$n_daily" = 1 ] && [ "$n_month" = 1 ] && ok "the first successful run of the day and of the month also writes daily/ and monthly/" || fail "daily=$n_daily monthly=$n_month after the first run (want 1 and 1)"
 reader bash "$BACKUP" > "$W/backup2.log" 2>&1 || { cat "$W/backup2.log"; fail "second backup failed"; }
-n_freq=$(find "$W/bucket/frequent" -name '*.tar.age' | wc -l | tr -d ' ')
-n_daily=$(find "$W/bucket/daily" -name '*.tar.age' 2>/dev/null | wc -l | tr -d ' ')
+n_freq=$(find "$W/bucket/frequent" -name '*.clorbackup' | wc -l | tr -d ' ')
+n_daily=$(find "$W/bucket/daily" -name '*.clorbackup' 2>/dev/null | wc -l | tr -d ' ')
 [ "$n_freq" = 2 ] && [ "$n_daily" = 1 ] && ok "a later run the same day writes frequent/ only, and still succeeds" || fail "frequent=$n_freq daily=$n_daily after the second run (want 2 and 1)"
-if [ -n "$ARCHIVE" ] && ! tar -tf "$ARCHIVE" >/dev/null 2>&1 && ! grep -aq 'Person 1' "$ARCHIVE"; then ok "archive is not readable without the key"; else fail "archive is readable without the key"; fi
+mkdir -p "$W/peek"; [ -n "$ARCHIVE" ] && tar -C "$W/peek" -xf "$ARCHIVE" 2>/dev/null
+if [ -f "$W/peek/archive.tar.age" ] && ! tar -tf "$W/peek/archive.tar.age" >/dev/null 2>&1 && ! grep -aq 'Person 1' "$ARCHIVE"; then ok "archive is not readable without the key"; else fail "archive is readable without the key"; fi
 
 expect_fail "restore refuses to run as a superuser (a forged dump could run COPY ... TO PROGRAM)" "superuser" \
   env CLOR_RESTORE_DATABASES="$DBS" bash "$RESTORE" "$ARCHIVE" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r0
+
+psql -d postgres -qXc 'CREATE ROLE clorbk_su SUPERUSER NOLOGIN; GRANT clorbk_su TO clorbk_restorer WITH INHERIT FALSE' >/dev/null
+expect_fail "restore refuses a role that can SET ROLE to a superuser" "clorbk_su (superuser)" restorer bash "$RESTORE" "$ARCHIVE" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r0
+psql -d postgres -qXc 'DROP ROLE clorbk_su; CREATE ROLE clorbk_by BYPASSRLS NOLOGIN; GRANT clorbk_by TO clorbk_restorer' >/dev/null
+expect_fail "restore refuses a member of a BYPASSRLS role" "clorbk_by (BYPASSRLS)" restorer bash "$RESTORE" "$ARCHIVE" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r0
+psql -d postgres -qXc 'DROP ROLE clorbk_by; CREATE ROLE cloudsqlsuperuser NOLOGIN; GRANT cloudsqlsuperuser TO clorbk_restorer' >/dev/null
+expect_fail "restore refuses a member of Cloud SQL's cloudsqlsuperuser" "cloudsqlsuperuser" restorer bash "$RESTORE" "$ARCHIVE" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r0
+psql -d postgres -qXc 'DROP ROLE cloudsqlsuperuser' >/dev/null
 
 if restorer bash "$RESTORE" "$ARCHIVE" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r1 > "$W/restore.log" 2>&1 && grep -q 'every count matches' "$W/restore.log"; then
   [ "$(PGUSER="$SU" psql -d clorbk_one_r1 -qtAXc "SELECT name FROM \"Employee\" WHERE id = 7")" = "$(printf 'two\nlines\tand a tab \\ slash')" ] \
@@ -135,52 +145,60 @@ for d in clorbk_one_r1 clorbk_two_r1; do PGUSER="$SU" psql -d postgres -qXc "DRO
 if restorer bash "$RESTORE" "$ARCHIVE" --identity "$W/spare.key" "${SIGN[@]}" --suffix _r2 --owner clorbk_owner --drop-after > "$W/restore2.log" 2>&1 \
    && [ "$(dbs_like '%\_r2')" = 0 ]; then ok "the spare key also decrypts; --owner and --drop-after work"; else cat "$W/restore2.log"; fail "spare key / --owner / --drop-after"; fi
 
+if restorer bash "$RESTORE" "$ARCHIVE" --identity "$W/owner.key" "${SIGN[@]}" --drop-after > "$W/restore3.log" 2>&1 \
+   && grep -q '_restore_' "$W/restore3.log" && [ "$(dbs_like '%\_restore\_%')" = 0 ]; then ok "the default suffix (as the drill uses it) works"; else sed 's/^/       | /' "$W/restore3.log" >&2; fail "restore with the default suffix"; fi
+
 # ------------------------------------------------------------------ restore refusals
 expect_fail "wrong key is refused" "could not decrypt" restorer bash "$RESTORE" "$ARCHIVE" --identity "$W/other.key" "${SIGN[@]}" --suffix _r3
 PGUSER="$SU" psql -d postgres -qXc 'CREATE DATABASE clorbk_one_r3b' >/dev/null
 expect_fail "an existing database is never restored over" "already exists" restorer bash "$RESTORE" "$ARCHIVE" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r3b
 [ "$(dbs_like 'clorbk\_one\_r3b')" = 1 ] && ok "the existing database was left alone" || fail "the existing database was dropped"
 PGUSER="$SU" psql -d postgres -qXc 'DROP DATABASE clorbk_one_r3b' >/dev/null
-cp "$ARCHIVE" "$W/tampered.tar.age"; cp "$ARCHIVE.sig" "$W/tampered.tar.age.sig"
-size=$(wc -c < "$W/tampered.tar.age"); printf 'X' | dd of="$W/tampered.tar.age" bs=1 seek=$((size / 2)) conv=notrunc 2>/dev/null
-expect_fail "a damaged archive is refused" "signature" restorer bash "$RESTORE" "$W/tampered.tar.age" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r4
-cp "$ARCHIVE" "$W/nosig.tar.age"
-expect_fail "an archive with no signature is refused" "signature" restorer bash "$RESTORE" "$W/nosig.tar.age" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r4
+mkdir "$W/tam"; tar -C "$W/tam" -xf "$ARCHIVE"
+size=$(wc -c < "$W/tam/archive.tar.age"); printf 'X' | dd of="$W/tam/archive.tar.age" bs=1 seek=$((size / 2)) conv=notrunc 2>/dev/null
+tar -C "$W/tam" -cf "$W/tampered.clorbackup" archive.tar.age archive.tar.age.sig
+expect_fail "a damaged archive is refused" "signature" restorer bash "$RESTORE" "$W/tampered.clorbackup" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r4
+tar -C "$W/peek" -cf "$W/nosig.clorbackup" archive.tar.age
+expect_fail "a backup with no signature is refused" "no signature" restorer bash "$RESTORE" "$W/nosig.clorbackup" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r4
+mkdir "$W/outer"; cp "$W/peek/archive.tar.age" "$W/peek/archive.tar.age.sig" "$W/outer/"; echo x > "$W/outer/run-me.sh"
+tar -C "$W/outer" -cf "$W/extra-outer.clorbackup" archive.tar.age archive.tar.age.sig run-me.sh
+expect_fail "an extra file beside the archive is refused" "unexpected file in the backup" restorer bash "$RESTORE" "$W/extra-outer.clorbackup" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r4
 
 # Forged archives: anyone holding the PUBLIC age key can make one, and anyone
 # who can write to the bucket can plant it. forge DIR OUT [signing-key]
-mkdir "$W/good"; age -d -i "$W/owner.key" "$ARCHIVE" | tar -C "$W/good" -xf -
+mkdir "$W/good"; age -d -i "$W/owner.key" "$W/peek/archive.tar.age" | tar -C "$W/good" -xf -
 forge() {
-  tar -C "$1" -cf - . | age -r "$(age-keygen -y "$W/owner.key")" -o "$2"
-  [ -n "${3:-}" ] && ssh-keygen -q -Y sign -f "$3" -n clor-backup "$2" >/dev/null 2>&1
-  return 0
+  local p; p="$(mktemp -d "$W/pack.XXXXXX")"
+  tar -C "$1" -cf - . | age -r "$(age-keygen -y "$W/owner.key")" -o "$p/archive.tar.age"
+  ssh-keygen -q -Y sign -f "$3" -n clor-backup "$p/archive.tar.age" >/dev/null 2>&1
+  tar -C "$p" -cf "$2" archive.tar.age archive.tar.age.sig
 }
-forge "$W/good" "$W/impostor.tar.age" "$W/impostor"
-expect_fail "an archive signed by anyone but the job is refused" "signature" restorer bash "$RESTORE" "$W/impostor.tar.age" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r5
+forge "$W/good" "$W/impostor.clorbackup" "$W/impostor"
+expect_fail "an archive signed by anyone but the job is refused" "signature" restorer bash "$RESTORE" "$W/impostor.clorbackup" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r5
 
 # The next ones are signed with the job's real key: what a stolen signing key
 # could produce. Names, paths and SQL must still be refused.
 cp -R "$W/good" "$W/inj"
 sed -i.bak 's/^databases=.*/databases=clorbk_one clorbk_two x";CREATE ROLE evil_super SUPERUSER LOGIN;--/' "$W/inj/MANIFEST"; rm -f "$W/inj/MANIFEST.bak"
-forge "$W/inj" "$W/inj.tar.age" "$W/signing"
-expect_fail "a database name outside the expected set is refused" "unexpected database" restorer bash "$RESTORE" "$W/inj.tar.age" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r6
+forge "$W/inj" "$W/inj.clorbackup" "$W/signing"
+expect_fail "a database name outside the expected set is refused" "unexpected database" restorer bash "$RESTORE" "$W/inj.clorbackup" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r6
 [ "$(PGUSER="$SU" psql -d postgres -qtAXc "SELECT count(*) FROM pg_roles WHERE rolname LIKE 'evil%'")" = 0 ] && ok "the forged MANIFEST created no role" || fail "the forged MANIFEST created a role"
 cp -R "$W/good" "$W/inj2"
 sed -i.bak 's/^databases=.*/databases=clorbk_one clorbk_two/; s/^sha256\.clorbk_one=/sha256.clorbk_one=x/' "$W/inj2/MANIFEST"; rm -f "$W/inj2/MANIFEST.bak"
 printf 'sha256.clor.*=evil\n' >> "$W/inj2/MANIFEST"
-forge "$W/inj2" "$W/inj2.tar.age" "$W/signing"
-expect_fail "manifest keys are matched literally, not as patterns" "checksum" restorer bash "$RESTORE" "$W/inj2.tar.age" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r6
+forge "$W/inj2" "$W/inj2.clorbackup" "$W/signing"
+expect_fail "manifest keys are matched literally, not as patterns" "checksum" restorer bash "$RESTORE" "$W/inj2.clorbackup" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r6
 mkdir "$W/sym"; cp "$W/good/MANIFEST" "$W/good/clorbk_two.dump" "$W/good/clorbk_two.rows" "$W/good/clorbk_one.rows" "$W/sym/"; ln -s /etc/passwd "$W/sym/clorbk_one.dump"
-forge "$W/sym" "$W/sym.tar.age" "$W/signing"
-expect_fail "a symlink inside the archive is refused" "not a plain file" restorer bash "$RESTORE" "$W/sym.tar.age" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r7
+forge "$W/sym" "$W/sym.clorbackup" "$W/signing"
+expect_fail "a symlink inside the archive is refused" "not a plain file" restorer bash "$RESTORE" "$W/sym.clorbackup" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r7
 mkdir "$W/extra"; cp "$W/good/"* "$W/extra/"; echo x > "$W/extra/evil.sh"
-forge "$W/extra" "$W/extra.tar.age" "$W/signing"
-expect_fail "an unexpected file inside the archive is refused" "unexpected file" restorer bash "$RESTORE" "$W/extra.tar.age" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r7
+forge "$W/extra" "$W/extra.clorbackup" "$W/signing"
+expect_fail "an unexpected file inside the archive is refused" "unexpected file" restorer bash "$RESTORE" "$W/extra.clorbackup" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r7
 
 cp -R "$W/good" "$W/forge"
 awk -F'\t' 'BEGIN{OFS="\t"} $1 ~ /Employee/ {$2 = $2 + 1} {print}' "$W/forge/clorbk_two.rows" > "$W/forge/x" && mv "$W/forge/x" "$W/forge/clorbk_two.rows"
-forge "$W/forge" "$W/forged.tar.age" "$W/signing"
-expect_fail "a count that does not match is caught, table named" 'Employee' restorer bash "$RESTORE" "$W/forged.tar.age" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r8
+forge "$W/forge" "$W/forged.clorbackup" "$W/signing"
+expect_fail "a count that does not match is caught, table named" 'Employee' restorer bash "$RESTORE" "$W/forged.clorbackup" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r8
 [ "$(dbs_like '%\_r8')" = 0 ] && ok "a failed verification removes the databases it created" || fail "failed restore left databases behind"
 
 # Interrupted: the databases created so far must go, too.
@@ -193,6 +211,17 @@ if grep -q verified "$W/r9.log"; then fail "interrupt test: the restore finished
 elif [ "$rc" -ne 0 ] && [ "$(dbs_like '%\_r9')" = 0 ]; then ok "an interrupted restore removes the databases it created"
 else fail "an interrupted restore left $(dbs_like '%\_r9') database(s) (exit $rc)"; fi
 
+( export PGUSER=clorbk_restorer PGPASSWORD=local-test-restorer CLOR_RESTORE_DATABASES="$DBS"
+  exec bash "$RESTORE" "$ARCHIVE" --identity "$W/owner.key" "${SIGN[@]}" --suffix _r10 --owner clorbk_owner ) > "$W/r10.log" 2>&1 &
+rpid=$!
+for _ in $(seq 1 300); do [ "$(dbs_like 'clorbk\_one\_r10')" = 1 ] && break; sleep 0.1; done
+kill -HUP "$rpid" 2>/dev/null; wait "$rpid"; rc=$?
+left="$(dbs_like '%\_r10')"
+if grep -q verified "$W/r10.log"; then fail "hang-up test: the restore finished before the signal"
+elif [ "$rc" -ne 0 ] && [ "$left" = 0 ] && grep -q 'removed the databases this run created: clorbk_one_r10' "$W/r10.log" && ! grep -q 'could NOT drop' "$W/r10.log"; then
+  ok "a hang-up during pg_restore (with --owner) removes the databases, and says so truthfully"
+else sed 's/^/       | /' "$W/r10.log" >&2; fail "hang-up left $left database(s) (exit $rc)"; fi
+
 # ------------------------------------------------------------------ gs:// upload, against a local stand-in
 port=$((40000 + RANDOM % 20000))
 python3 -I "$HERE/gcs-standin.py" "$port" > "$W/standin.log" 2>&1 & STANDIN_PID=$!
@@ -200,11 +229,12 @@ for _ in $(seq 1 50); do curl -s "http://127.0.0.1:$port/_list" >/dev/null && br
 gs() { reader env CLOR_BACKUP_DEST=gs://clor-backups-test CLOR_BACKUP_METADATA_URL="http://127.0.0.1:$1" CLOR_BACKUP_GCS_URL="http://127.0.0.1:$1" bash "$BACKUP"; }
 if gs "$port" > "$W/gs1.log" 2>&1 && gs "$port" > "$W/gs2.log" 2>&1; then
   list="$(curl -s "http://127.0.0.1:$port/_list")"
-  nf=$(printf '%s' "$list" | grep -o '"clor-backups-test/frequent/[^"]*\.tar\.age"' | wc -l | tr -d ' ')
-  ns=$(printf '%s' "$list" | grep -o '\.tar\.age\.sig"' | wc -l | tr -d ' ')
-  nd=$(printf '%s' "$list" | grep -o '"clor-backups-test/daily/[^"]*\.tar\.age"' | wc -l | tr -d ' ')
-  [ "$nf" = 2 ] && [ "$nd" = 1 ] && [ "$ns" = 4 ] && ok "gs:// upload: two runs, two frequent/, one daily/ and one monthly/, each signed" \
-    || { echo "$list" >&2; fail "gs:// objects: frequent=$nf daily=$nd sigs=$ns (want 2, 1, 4)"; }
+  nf=$(printf '%s' "$list" | grep -o '"clor-backups-test/frequent/[^"]*\.clorbackup"' | wc -l | tr -d ' ')
+  nd=$(printf '%s' "$list" | grep -o '"clor-backups-test/daily/[^"]*\.clorbackup"' | wc -l | tr -d ' ')
+  nm=$(printf '%s' "$list" | grep -o '"clor-backups-test/monthly/[^"]*\.clorbackup"' | wc -l | tr -d ' ')
+  nall=$(printf '%s' "$list" | grep -o '"[^"]*"' | wc -l | tr -d ' ')
+  [ "$nf" = 2 ] && [ "$nd" = 1 ] && [ "$nm" = 1 ] && [ "$nall" = 4 ] && ok "gs:// upload: two runs, two frequent/, one daily/ and one monthly/, one object each" \
+    || { echo "$list" >&2; fail "gs:// objects: frequent=$nf daily=$nd monthly=$nm total=$nall (want 2, 1, 1, 4)"; }
 else cat "$W/gs1.log" "$W/gs2.log" 2>/dev/null | tail -5; fail "gs:// upload failed"; fi
 kill "$STANDIN_PID" 2>/dev/null; wait "$STANDIN_PID" 2>/dev/null
 python3 -I "$HERE/gcs-standin.py" "$((port + 1))" --wrong-md5 > /dev/null 2>&1 & STANDIN_PID=$!

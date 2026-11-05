@@ -109,11 +109,14 @@ Cloud Scheduler (02:30, 08:30, 14:30, 20:30 IST)
   - the archive may hold only `MANIFEST` and `<name>.dump`/`.rows`, as plain
     files (no links, no other paths);
   - manifest keys are matched as text, never as patterns;
-  - the restore refuses to run as a superuser, as a role with CREATEROLE, or
-    with server-file or server-program access. A dump is SQL, and a forged
-    one restored by a superuser could run shell commands on the server
-    (`COPY ... TO PROGRAM`). Restore as `clor_restore`, a role that can only
-    create databases.
+  - the restore refuses to run as a role that is, or could `SET ROLE` to,
+    a superuser, a role with CREATEROLE or BYPASSRLS, Cloud SQL's
+    `cloudsqlsuperuser`, or a role with server-file or server-program access.
+    A dump is SQL, and a forged one restored by such a role could run shell
+    commands on the server (`COPY ... TO PROGRAM`). Restore as
+    `clor_restore`, a role that can only create databases. It holds
+    `clor_app` WITH INHERIT FALSE, so it acts as `clor_app` only where the
+    restore says so.
 - **Least privilege.** The job's service account may only *create* objects in
   the bucket (`roles/storage.objectCreator`). It cannot list, read, overwrite
   or delete them. Its database role, `clor_backup`, is read-only and not a
@@ -151,11 +154,15 @@ Cloud Scheduler (02:30, 08:30, 14:30, 20:30 IST)
 
 | Object | Written by | Kept |
 |---|---|---|
-| `frequent/clor-prod-<UTC time>.tar.age` | every run | 7 days |
-| `daily/clor-prod-<date>.tar.age` | the **first successful** run of the day (IST) | 35 days |
-| `monthly/clor-prod-<month>.tar.age` | the **first successful** run of the month | 400 days, Coldline after 30 |
+| `frequent/clor-prod-<UTC time>.clorbackup` | every run | 7 days |
+| `daily/clor-prod-<date>.clorbackup` | the **first successful** run of the day (IST) | 35 days |
+| `monthly/clor-prod-<month>.clorbackup` | the **first successful** run of the month | 400 days, Coldline after 30 |
 
-Each archive has a `.sig` beside it. The daily and monthly names are fixed per
+Each object is a `.clorbackup`: a plain tar of exactly two files, the
+encrypted `archive.tar.age` and its signature `archive.tar.age.sig`. The
+job uploads it in one go, so a copy is stored whole or not at all. It cannot
+end up with an archive whose signature failed to upload under a name the
+next run is not allowed to replace. The daily and monthly names are fixed per
 day and per month, and written only if they do not exist yet. So if a run
 fails, or Scheduler does not start it, the next good run takes the day's and
 the month's copy. The month's copy does not depend on the 02:30 run of the 1st.
@@ -191,16 +198,16 @@ This is the only protection against losing the Google account or its billing.
   is 13 × 20–100 MB, well inside it, so **$0**; beyond 10 GB it costs
   $0.015/GB-month.
 
-  Once a month, after the drill, copy that month's two files:
+  Once a month, after the drill, copy that month's backup:
 
   ```bash
-  npx wrangler@3 r2 object put clor-backups-offgoogle/monthly/clor-prod-2026-11.tar.age --file clor-prod-2026-11.tar.age
-  npx wrangler@3 r2 object put clor-backups-offgoogle/monthly/clor-prod-2026-11.tar.age.sig --file clor-prod-2026-11.tar.age.sig
+  gcloud storage cp gs://clor-backups-511409/monthly/clor-prod-2026-11.clorbackup .
+  npx wrangler@3 r2 object put clor-backups-offgoogle/monthly/clor-prod-2026-11.clorbackup --file clor-prod-2026-11.clorbackup
   ```
 
   Enabling R2 needs a payment method on the Cloudflare account. The archives
   are encrypted, so R2 never sees the data.
-- **An external disk.** The same two files, kept on an encrypted USB disk.
+- **An external disk.** The same file, kept on an encrypted USB disk.
   $0.
 
 Either way the recovery point for losing the account is however often you
@@ -299,7 +306,7 @@ refuses a superuser.
 initdb -D /tmp/clor-drill -U drill --auth=trust --locale=C
 pg_ctl -D /tmp/clor-drill -o "-p 55432 -k /tmp -c listen_addresses=localhost" -l /tmp/clor-drill.log start
 psql -h 127.0.0.1 -p 55432 -U drill -d postgres \
-  -c 'CREATE ROLE clor_app' -c 'CREATE ROLE clor_restore LOGIN CREATEDB' -c 'GRANT clor_app TO clor_restore'
+  -c 'CREATE ROLE clor_app' -c 'CREATE ROLE clor_restore LOGIN CREATEDB' -c 'GRANT clor_app TO clor_restore WITH INHERIT FALSE'
 
 # 2. Copy the private key from the password manager to the clipboard. It
 #    goes straight to age, never to a file. Newest backup, signature checked,
@@ -344,9 +351,11 @@ Delete the clone when you are done. It costs about $0.013 an hour.
 ### Real restore, from the off-host copy (project or instance gone)
 
 1. Create a new instance, PostgreSQL 18, asia-south1, in a working project.
-2. As `postgres`, with SQL, create:
+2. As `postgres`, with SQL (not `gcloud sql users create`, which puts the
+   user in `cloudsqlsuperuser`, and then the restore refuses), create:
    - `clor_app`;
-   - `clor_restore` (`LOGIN CREATEDB`, then `GRANT clor_app TO clor_restore`);
+   - `clor_restore`: `CREATE ROLE clor_restore LOGIN CREATEDB PASSWORD '...'`,
+     then `GRANT clor_app TO clor_restore WITH INHERIT FALSE`;
    - `clor_backup`.
 
    Set new passwords and store them in Secret Manager.
@@ -366,6 +375,12 @@ Delete the clone when you are done. It costs about $0.013 an hour.
    instance, with fresh secrets. JWT and mail secrets that were lost with the
    project mean everyone signs in again.
 6. Point `api.clor.in` at it in Cloudflare.
+7. **Take the restore role away.** It is no longer needed, and it can act as
+   `clor_app`:
+   ```sql
+   REVOKE clor_app FROM clor_restore;
+   DROP ROLE clor_restore;   -- or ALTER ROLE clor_restore NOLOGIN, to keep it for next time
+   ```
 
 ## One-off setup: the owner's checklist
 
@@ -379,11 +394,13 @@ Nothing here has been done; do it in this order.
 ### 1. Keys (on your Mac, 10 minutes)
 
 Use a folder that iCloud does not sync, readable by you only. Do not use the
-Desktop or Documents, which iCloud Drive may upload.
+Desktop or Documents, which iCloud Drive may upload. Keep it out of Time
+Machine too, before any key is written to it.
 
 ```bash
 brew install age
 K=~/.clor-backup-keys; mkdir -m 700 "$K"
+tmutil addexclusion "$K"          # Time Machine must never copy the keys
 age-keygen -o "$K/owner.txt"     # prints "Public key: age1..."
 age-keygen -o "$K/spare.txt"
 ssh-keygen -t ed25519 -N '' -C clor-backup-job -f "$K/signing"
@@ -395,6 +412,14 @@ ssh-keygen -t ed25519 -N '' -C clor-backup-job -f "$K/signing"
   and sealed in a safe place.
 - Note the two `age1...` public keys. They are not secret.
 - The signing key goes to Secret Manager in step 5.
+- **Then delete the two private keys from the Mac**, once both are safely in
+  their two places. Keep the public keys.
+  ```bash
+  age-keygen -y "$K/owner.txt" > "$K/owner.pub"; age-keygen -y "$K/spare.txt" > "$K/spare.pub"
+  rm "$K/owner.txt" "$K/spare.txt"
+  ```
+  If Time Machine ran before the exclusion took effect, the keys may be in a
+  backup. Delete those snapshots, or make new keys.
 
 If both age private keys are lost, every off-host backup is unreadable, and
 nobody can recover them, Google included.
@@ -500,7 +525,7 @@ gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name=
 ```
 
 The last line reads
-`backup: written: gs://... frequent/clor-prod-....tar.age as frequent, daily, monthly (N bytes, N rows, Ns)`.
+`backup: written: gs://... frequent/clor-prod-....clorbackup as frequent, daily, monthly (N bytes, N rows, Ns)`.
 Then run the monthly drill above. Do not schedule anything until the drill
 passes.
 
@@ -540,7 +565,17 @@ execution only, and the email arrives within minutes.
 gcloud run jobs execute clor-backup --region asia-south1 --update-env-vars CLOR_BACKUP_DEST=broken
 ```
 
-If an alert never fires in that test, check in Metrics Explorer that
+Test the second alert once too: pause the schedule for 8 hours. No run
+happens, so nothing fails, and the "no successful run in 7 hours" email
+must arrive. Then resume it.
+
+```bash
+gcloud scheduler jobs pause clor-backup --location asia-south1
+# ... 8 hours later, after the email:
+gcloud scheduler jobs resume clor-backup --location asia-south1
+```
+
+If an alert never fires in either test, check in Metrics Explorer that
 `run.googleapis.com/job/completed_execution_count` has a `result` label with
 the values `succeeded` and `failed`.
 
@@ -552,7 +587,7 @@ the values `succeeded` and `failed`.
 ## Testing the scripts
 
 `deploy/backup/test-local.sh` runs on a throwaway local PostgreSQL. It refuses
-any host that is not this machine. It covers 36 checks:
+any host that is not this machine. It covers 42 checks:
 
 - the round trip as a non-superuser reader through FORCE RLS, partitioned
   tables included, with a value that holds a newline, a tab and a backslash;
@@ -564,13 +599,16 @@ any host that is not this machine. It covers 36 checks:
 It also checks every refusal:
 
 - no key, no signing key, or a private key given as the public one;
-- restoring as a superuser;
-- a wrong key, a damaged archive, a missing signature, or a signature by
-  anyone but the job;
+- restoring as a superuser, or as a role that can become a superuser, a
+  BYPASSRLS role or `cloudsqlsuperuser`;
+- a wrong key, a damaged archive, a missing signature, an extra file beside
+  the archive, or a signature by anyone but the job;
 - forged archives signed with the job's own key: an injected database name,
   a pattern in a manifest key, a symlink, an extra file, a wrong row count;
 - an existing target database;
-- an interrupted restore, which must leave nothing behind;
+- an interrupted (TERM) or hung-up (HUP) restore, which must leave nothing
+  behind and report only the databases it really removed;
+- the default suffix, as the drill uses it;
 - a policy without the bypass, one that mentions the bypass but does not let
   it through, one that does not apply to the backup role, and RLS with no
   policy;

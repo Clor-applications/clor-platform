@@ -1,5 +1,20 @@
 # clor-devops work log
 
+## 2026-11-05 16:10 IST — Backups — final fixes for #129 (re-review of c366c1a7)
+- Did:
+  - The restore refuses a role that can SET ROLE to any superuser, CREATEROLE or BYPASSRLS role, cloudsqlsuperuser, or a server-file/program role (pg_has_role MEMBER).
+  - clor_restore holds clor_app WITH INHERIT FALSE; the restore sets the role itself to count and drop. The real-restore runbook now ends with REVOKE and DROP ROLE.
+  - Traps: added HUP; DROP DATABASE ... WITH (FORCE); "removed" lists only databases really dropped; signals are deferred during CREATE DATABASE until the database is noted.
+  - Archive and signature are now ONE object (.clorbackup, a tar of archive.tar.age and its .sig), so a fixed daily or monthly name is never taken by an unsigned copy.
+  - Runbook: Time Machine exclusion, and owner.txt/spare.txt deleted once stored; the no-success alert is tested by pausing Scheduler for 8 hours.
+  - Found and fixed while testing in the image: the default suffix _restore_<stamp>Z failed the restore's own a-z check, so the documented drill would have failed. Now _restore_YYYYMMDD_HHMMSS, with a test.
+- Evidence:
+  - test-local.sh: 42 passed, 0 failed on a throwaway PG17. New checks: inherited superuser, BYPASSRLS and cloudsqlsuperuser refused; HUP during pg_restore with --owner leaves nothing and reports truthfully; an extra file in the backup is refused; the default suffix works.
+  - Throwaway PG18 container with the real migrations, through the pinned image: backup wrote frequent, daily and monthly .clorbackup objects. Restore as clor_restore (INHERIT FALSE) with --owner clor_app and the default suffix matched every count, 2 s, then dropped.
+  - The TERM-during-CREATE window is handled by deferral but not reproduced by timing.
+- Next: merge decision by the coordinator; then the owner's checklist.
+- Blocked on: nothing.
+
 ## 2026-11-05 11:30 IST — Backups — review fixes for #129 (632e8cd7)
 - Did: fixed every point in the review of #129, with tests written first.
   - Restore: refuses superuser, CREATEROLE and server-file/program roles; database names only from an allow-list, passed to SQL as psql variables; manifest keys matched as text; only MANIFEST and <name>.dump/.rows as plain files; partitioned parents left out of the count; the trap drops the databases it created on any failure or interrupt.

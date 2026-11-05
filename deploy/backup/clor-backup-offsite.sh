@@ -20,7 +20,8 @@
 #   5. signs the encrypted archive (ssh-keygen -Y sign) with a key only the
 #      job holds, so the restore can refuse an archive somebody else planted
 #      (anyone with the public age key can make one);
-#   6. uploads it write-once and checks the stored MD5 against the local one.
+#   6. packs archive and signature into one object, uploads it write-once and
+#      checks the stored MD5 against the local one.
 #
 # Nothing unencrypted ever leaves the working directory, which is mode 700 and
 # removed on exit.
@@ -42,10 +43,11 @@
 #   CLOR_BACKUP_TZ                default: Asia/Kolkata (decides the day and month)
 #
 # Objects (the bucket's lifecycle rules delete by prefix, deploy/backup/lifecycle.json):
-#   frequent/clor-prod-<UTC stamp>.tar.age   every run                  kept 7 days
-#   daily/clor-prod-<YYYY-MM-DD>.tar.age     first SUCCESSFUL run of the day    35 days
-#   monthly/clor-prod-<YYYY-MM>.tar.age      first SUCCESSFUL run of the month  400 days
-# each with a .sig beside it. The daily and monthly names are fixed per day and
+#   frequent/clor-prod-<UTC stamp>.clorbackup   every run                  kept 7 days
+#   daily/clor-prod-<YYYY-MM-DD>.clorbackup     first SUCCESSFUL run of the day    35 days
+#   monthly/clor-prod-<YYYY-MM>.clorbackup      first SUCCESSFUL run of the month  400 days
+# A .clorbackup is an uncompressed tar of archive.tar.age and its signature
+# archive.tar.age.sig, uploaded as one object. The daily and monthly names are fixed per day and
 # per month and written only if absent (ifGenerationMatch=0), so a missed or
 # failed run never costs the month its copy: the next good run takes it.
 set -euo pipefail
@@ -234,14 +236,20 @@ echo "rows.total=$total" >> "$MANIFEST"
   || die "every table is empty; this is not a backup of a live database"
 
 # --------------------------------------------------------------- encrypt, sign
-ARCHIVE="$WORK/out.tar.age"
+mkdir "$WORK/pack"
+ARCHIVE="$WORK/pack/archive.tar.age"
 tar -C "$WORK/bundle" -cf - . | age "${AGE_ARGS[@]}" -o "$ARCHIVE" \
   || die "encryption failed"
 rm -rf "$WORK/bundle"   # the plaintext is not needed past this point
 ssh-keygen -q -Y sign -f "$WORK/signing.key" -n clor-backup "$ARCHIVE" >/dev/null 2>&1 \
   || die "signing failed (is CLOR_BACKUP_SIGNING_KEY_FILE an OpenSSH private key?)"
 rm -f "$WORK/signing.key"
-size="$(filesize "$ARCHIVE")"
+# One object holding both, so a copy is stored whole or not at all: a
+# signature uploaded apart from its archive could fail after the archive was
+# stored, and the day's fixed name would then be taken by an unusable copy.
+BACKUP="$WORK/out.clorbackup"
+tar -C "$WORK/pack" -cf "$BACKUP" archive.tar.age archive.tar.age.sig || die "packing failed"
+size="$(filesize "$BACKUP")"
 
 # --------------------------------------------------------------- upload
 # put LOCAL OBJECT_NAME -> 0 written, 2 already there, dies on anything else.
@@ -285,27 +293,17 @@ case "$DEST" in
     } ;;
 esac
 
-# The archive and then its signature. A copy that exists already is skipped.
-put_pair() {
-  local name="$1" rc=0
-  put "$ARCHIVE" "$name" || rc=$?
-  [ "$rc" = 0 ] || return "$rc"
-  rc=0; put "$ARCHIVE.sig" "$name.sig" || rc=$?
-  [ "$rc" = 0 ] || die "$name.sig already exists without its archive"
-}
-
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-written=""
-put_pair "frequent/clor-$LABEL-$STAMP.tar.age" || die "frequent/clor-$LABEL-$STAMP.tar.age already exists"
+put "$BACKUP" "frequent/clor-$LABEL-$STAMP.clorbackup" || die "frequent/clor-$LABEL-$STAMP.clorbackup already exists"
 written="frequent"
 for tier in daily monthly; do
   case "$tier" in
-    daily) name="daily/clor-$LABEL-$(TZ="$TZNAME" date +%Y-%m-%d).tar.age" ;;
-    monthly) name="monthly/clor-$LABEL-$(TZ="$TZNAME" date +%Y-%m).tar.age" ;;
+    daily) name="daily/clor-$LABEL-$(TZ="$TZNAME" date +%Y-%m-%d).clorbackup" ;;
+    monthly) name="monthly/clor-$LABEL-$(TZ="$TZNAME" date +%Y-%m).clorbackup" ;;
   esac
-  rc=0; put_pair "$name" || rc=$?
+  rc=0; put "$BACKUP" "$name" || rc=$?
   [ "$rc" = 0 ] && written="$written, $tier"
 done
 rm -f "$WORK/auth"
 
-say "written: $DEST frequent/clor-$LABEL-$STAMP.tar.age as $written ($size bytes, $total rows, $(( $(date +%s) - START_EPOCH ))s)"
+say "written: $DEST frequent/clor-$LABEL-$STAMP.clorbackup as $written ($size bytes, $total rows, $(( $(date +%s) - START_EPOCH ))s)"

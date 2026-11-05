@@ -3,9 +3,9 @@
 #
 #   clor-restore-offsite.sh SOURCE --identity KEYFILE [options]
 #
-# SOURCE    gs://BUCKET/daily/clor-prod-2026-11-05.tar.age
-#           gs://BUCKET             (the newest archive in the bucket)
-#           ./clor-prod-....tar.age  (a file already downloaded; its .sig beside it)
+# SOURCE    gs://BUCKET/daily/clor-prod-2026-11-05.clorbackup
+#           gs://BUCKET                (the newest backup in the bucket)
+#           ./clor-prod-....clorbackup  (a file already downloaded)
 #
 # --identity KEYFILE   the age PRIVATE key. Do not write it to disk: from the
 #                      password manager, --identity <(pbpaste), then clear the
@@ -22,10 +22,12 @@
 # --drop-after         drop the restored databases once verified (the drill).
 #
 # Where to restore: the usual libpq settings, PGHOST PGPORT PGUSER PGPASSWORD,
-# for a role that can CREATE DATABASE but is NOT a superuser, has no CREATEROLE
-# and no server-file access (the runbook creates `clor_restore`). It refuses
-# anything stronger: a dump is SQL, and a forged one restored by a superuser
-# could run shell commands on the server (COPY ... TO PROGRAM).
+# for a role that can CREATE DATABASE and nothing more (the runbook creates
+# `clor_restore`, holding clor_app WITH INHERIT FALSE). It refuses a role that
+# is, or could SET ROLE to, a superuser, a CREATEROLE or BYPASSRLS role,
+# cloudsqlsuperuser, or one with server-file or server-program access: a dump
+# is SQL, and a forged one restored by such a role could run shell commands
+# on the server (COPY ... TO PROGRAM).
 #
 # What it trusts, and what it checks anyway:
 #   - the archive must carry a valid signature from a key in --signers, checked
@@ -63,7 +65,7 @@ done
 [ -n "$SOURCE" ] || die "usage: clor-restore-offsite.sh SOURCE --identity KEYFILE [--signers FILE] [--suffix S] [--owner ROLE] [--drop-after]"
 [ -n "$IDENTITY" ] || die "--identity KEYFILE is required (the age private key)"
 [ -f "$SIGNERS" ] || die "no signers file at $SIGNERS (the job's public signing key; see docs/BACKUP-AND-RESTORE.md)"
-[ "$SUFFIX" = "__default__" ] && SUFFIX="_restore_$(date -u +%Y%m%dT%H%M%SZ)"
+[ "$SUFFIX" = "__default__" ] && SUFFIX="_restore_$(date -u +%Y%m%d_%H%M%S)"
 [ -z "$SUFFIX" ] || printf '%s' "$SUFFIX" | grep -Eq '^[a-z0-9_]+$' || die "suffix may hold only a-z 0-9 _"
 [ -z "$OWNER" ] || printf '%s' "$OWNER" | grep -Eq "$NAME_RE" || die "not a plain role name: $OWNER"
 
@@ -77,60 +79,95 @@ sha256() { if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d' ' -
 sql() { psql -qtAX -v ON_ERROR_STOP=1 "$@"; }
 
 # --------------------------------------------------------------- who is restoring
+# The role itself and every role it is a member of (it could SET ROLE to any
+# of them, so a forged dump could too): none may be a superuser, create roles,
+# bypass row-level security or reach the server's files or programs. That
+# includes Cloud SQL's cloudsqlsuperuser, which is none of those on paper.
 strong="$(sql -d postgres <<'SQL'
-SELECT concat_ws(', ',
-  CASE WHEN rolsuper THEN 'superuser' END,
-  CASE WHEN rolcreaterole THEN 'CREATEROLE' END,
-  CASE WHEN pg_has_role(current_user, 'pg_execute_server_program', 'MEMBER') THEN 'pg_execute_server_program' END,
-  CASE WHEN pg_has_role(current_user, 'pg_write_server_files', 'MEMBER') THEN 'pg_write_server_files' END,
-  CASE WHEN pg_has_role(current_user, 'pg_read_server_files', 'MEMBER') THEN 'pg_read_server_files' END)
-FROM pg_roles WHERE rolname = current_user
+SELECT string_agg(r.rolname || ' (' || concat_ws(', ',
+         CASE WHEN r.rolsuper THEN 'superuser' END,
+         CASE WHEN r.rolcreaterole THEN 'CREATEROLE' END,
+         CASE WHEN r.rolbypassrls THEN 'BYPASSRLS' END,
+         CASE WHEN r.rolname IN ('pg_execute_server_program', 'pg_write_server_files', 'pg_read_server_files', 'cloudsqlsuperuser')
+              THEN 'server access' END) || ')', ', ' ORDER BY r.rolname)
+FROM pg_roles r
+WHERE pg_has_role(current_user, r.oid, 'MEMBER')
+  AND (r.rolsuper OR r.rolcreaterole OR r.rolbypassrls
+       OR r.rolname IN ('pg_execute_server_program', 'pg_write_server_files', 'pg_read_server_files', 'cloudsqlsuperuser'))
 SQL
 )" || die "cannot connect to the restore server"
-[ -z "$strong" ] || die "refusing to restore as $(sql -d postgres -c 'SELECT current_user') ($strong). Restore as a role that can create databases and nothing more, e.g. clor_restore (not a superuser): a forged dump restored by a superuser can run commands on the server"
+[ -z "$strong" ] || die "refusing to restore as $(sql -d postgres -c 'SELECT current_user'): it is, or can become, $strong. Restore as a role that can create databases and nothing more, e.g. clor_restore (not a superuser): a forged dump restored by a superuser can run commands on the server"
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/clor-restore.XXXXXX")"
 chmod 700 "$WORK"
-CREATED="" VERIFIED=0
+CREATED="" VERIFIED=0 DEFERRED=""
+# Drop a database this run created. With --owner the databases belong to that
+# role, which clor_restore holds WITHOUT inheriting its rights, so become it.
+drop_db() {
+  if [ -n "$OWNER" ]; then
+    printf 'SET ROLE :"owner";\nDROP DATABASE IF EXISTS :"name" WITH (FORCE);\n' | sql -d postgres -v name="$1" -v owner="$OWNER"
+  else
+    printf 'DROP DATABASE IF EXISTS :"name" WITH (FORCE);\n' | sql -d postgres -v name="$1"
+  fi
+}
 on_exit() {
-  local rc=$?
+  local rc=$? dropped="" d
+  trap '' INT TERM HUP
   if [ "$VERIFIED" != 1 ]; then
     for d in $CREATED; do
-      sql -d postgres -v name="$d" >/dev/null 2>&1 <<'SQL' || echo "restore: could not drop $d; drop it by hand" >&2
-DROP DATABASE IF EXISTS :"name"
-SQL
+      if drop_db "$d" >/dev/null 2>&1; then dropped="$dropped $d"
+      else echo "restore: could NOT drop $d; drop it by hand" >&2; fi
     done
-    [ -z "$CREATED" ] || echo "restore: removed the databases this run created:$CREATED" >&2
+    [ -z "$dropped" ] || echo "restore: removed the databases this run created:$dropped" >&2
   fi
   rm -rf "$WORK"
   exit "$rc"
 }
 trap on_exit EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
+exit_traps() { trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP; }
+# While a database is being created, a signal waits until the run has noted
+# the database as its own, so the exit can remove it.
+defer_traps() { trap 'DEFERRED=130' INT; trap 'DEFERRED=143' TERM; trap 'DEFERRED=129' HUP; }
+exit_traps
 T0="$(now)"
 
 # --------------------------------------------------------------- fetch
+# A backup is ONE object (.clorbackup): an uncompressed tar of exactly two
+# files, archive.tar.age and archive.tar.age.sig, so it is stored whole or not at all.
 case "$SOURCE" in
   gs://*)
     command -v gcloud >/dev/null || die "gcloud is needed to read $SOURCE"
-    if [ "${SOURCE%.tar.age}" = "$SOURCE" ]; then
+    if [ "${SOURCE%.clorbackup}" = "$SOURCE" ]; then
       SOURCE="$(gcloud storage ls -l "${SOURCE%/}/**" 2>/dev/null \
-        | awk '$NF ~ /\.tar\.age$/ {print $2, $NF}' | sort | tail -1 | cut -d' ' -f2)"
+        | awk '$NF ~ /\.clorbackup$/ {print $2, $NF}' | sort | tail -1 | cut -d' ' -f2)"
       [ -n "$SOURCE" ] || die "no backups found in the bucket"
       say "newest backup: $SOURCE"
     fi
-    gcloud storage cp "$SOURCE" "$WORK/in.tar.age" >/dev/null || die "could not download $SOURCE"
-    gcloud storage cp "$SOURCE.sig" "$WORK/in.tar.age.sig" >/dev/null 2>&1 || die "$SOURCE has no signature ($SOURCE.sig)"
-    ARCHIVE="$WORK/in.tar.age" ;;
+    gcloud storage cp "$SOURCE" "$WORK/in.clorbackup" >/dev/null || die "could not download $SOURCE"
+    PACK="$WORK/in.clorbackup" ;;
   *)
     [ -f "$SOURCE" ] || die "no such file: $SOURCE"
-    [ -f "$SOURCE.sig" ] || die "$SOURCE has no signature beside it ($SOURCE.sig)"
-    ARCHIVE="$SOURCE" ;;
+    PACK="$SOURCE" ;;
 esac
 T1="$(now)"
 
 # --------------------------------------------------------------- signature, decrypt
+tar -tf "$PACK" > "$WORK/packlist" 2>/dev/null || die "$SOURCE is not a CLOR backup (not a tar file)"
+has_sig=0
+while IFS= read -r entry; do
+  case "${entry#./}" in
+    ""|archive.tar.age) ;;
+    archive.tar.age.sig) has_sig=1 ;;
+    *) die "unexpected file in the backup: $entry" ;;
+  esac
+done < "$WORK/packlist"
+[ "$has_sig" = 1 ] || die "the backup carries no signature; not restoring it"
+mkdir "$WORK/pack"
+tar -C "$WORK/pack" -xf "$PACK" || die "could not unpack $SOURCE"
+odd="$(cd "$WORK/pack" && find . -mindepth 1 \( ! -type f -o -links +1 \) -print)"
+[ -z "$odd" ] || die "not a plain file in the backup: $odd"
+ARCHIVE="$WORK/pack/archive.tar.age"
+[ -f "$ARCHIVE" ] || die "the backup holds no archive"
 ssh-keygen -Y verify -f "$SIGNERS" -I clor-backup-job -n clor-backup -s "$ARCHIVE.sig" < "$ARCHIVE" >/dev/null 2>&1 \
   || die "bad signature: this archive was not made by the backup job (or was changed since). Not restoring it"
 age -d -i "$IDENTITY" -o "$WORK/bundle.tar" "$ARCHIVE" 2>/dev/null \
@@ -182,9 +219,11 @@ SQL
 done
 
 ROLE_ARGS=(--no-owner --no-acl)
-[ -n "$OWNER" ] && ROLE_ARGS+=(--role="$OWNER")
+OWNER_VAR=()
+[ -n "$OWNER" ] && ROLE_ARGS+=(--role="$OWNER") && OWNER_VAR=(-v owner="$OWNER")
 for db in $DATABASES; do
   target="$db$SUFFIX"
+  defer_traps
   if [ -n "$OWNER" ]; then
     sql -d postgres -v name="$target" -v owner="$OWNER" >/dev/null <<'SQL' || die "could not create $target"
 CREATE DATABASE :"name" OWNER :"owner"
@@ -195,6 +234,8 @@ CREATE DATABASE :"name"
 SQL
   fi
   CREATED="$CREATED $target"
+  exit_traps
+  [ -z "$DEFERRED" ] || exit "$DEFERRED"
   # Table data loads before the policies are switched on (pg_dump puts row
   # security in the post-data section), so FORCE RLS does not get in the way.
   pg_restore -d "$target" --exit-on-error "${ROLE_ARGS[@]}" "$WORK/bundle/$db.dump" \
@@ -210,7 +251,12 @@ T3="$(now)"
 norm() { awk -F'\t' '{ print $1 "\t" $2 }' "$1" | sort; }
 for db in $DATABASES; do
   target="$db$SUFFIX"
-  PGOPTIONS="${PGOPTIONS:-} -c clor.bypass=on" sql -d "$target" -F $'\t' > "$WORK/$db.restored" <<'SQL'
+  # With --owner, clor_restore holds the owner role without its rights
+  # (INHERIT FALSE), so it reads the tables as that role.
+  PGOPTIONS="${PGOPTIONS:-} -c clor.bypass=on" sql -d "$target" -F $'\t' ${OWNER_VAR[@]+"${OWNER_VAR[@]}"} > "$WORK/$db.restored" <<'SQL'
+\if :{?owner}
+SET ROLE :"owner";
+\endif
 SELECT format('%I.%I', n.nspname, c.relname),
        (xpath('/row/c/text()', query_to_xml(format('SELECT count(*) AS c FROM ONLY %I.%I', n.nspname, c.relname), false, true, '')))[1]::text
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -230,10 +276,7 @@ T4="$(now)"
 say "verified. download $((T1-T0))s, check+decrypt $((T2-T1))s, restore $((T3-T2))s, verify $((T4-T3))s, total $((T4-T0))s"
 
 if [ "$DROP_AFTER" = 1 ]; then
-  for d in $CREATED; do sql -d postgres -v name="$d" >/dev/null <<'SQL'
-DROP DATABASE :"name"
-SQL
-  done
+  for d in $CREATED; do drop_db "$d" >/dev/null || die "could not drop $d after the drill"; done
   CREATED=""
   say "drill done; restored databases dropped"
 else
