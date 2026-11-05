@@ -119,8 +119,8 @@ export const Avatar = ({ person, size = 40 }) =>
       aria-hidden="true"
       /* Drawn, not text: the initials are a picture of the person, so they never become part of a button's name. */
       data-initials={initials(person?.name)}
-      /* A wash picked from the name; only palettes that opt in draw it (People's Sky). */
-      data-hue={[...String(person?.name || '')].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 9973, 0) % 5}
+      /* One of four washes picked from the name; only palettes that opt in draw it (People's Sky). Never marigold. */
+      data-hue={[...String(person?.name || '')].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 9973, 0) % 4}
     />
   );
 
@@ -360,10 +360,10 @@ export default function Employees({ description = '' } = {}) {
         </>
       }
       cards={[
-        { label: 'Headcount', value: figures.headcount, count: true, tone: 'sent', Icon: Users },
-        { label: 'Joined in 30 days', value: figures.joined, count: true, tone: 'paid', Icon: UserPlus },
-        { label: 'On notice', value: figures.notice, count: true, tone: 'partial', Icon: UserMinus, onSelect: () => setStatus('ON_NOTICE') },
-        { label: 'No department', value: figures.unplaced, count: true, tone: 'outstanding', Icon: UserRound },
+        { label: 'Headcount', value: figures.headcount, count: true, tone: 'sent', tint: 'sky', Icon: Users },
+        { label: 'Joined in 30 days', value: figures.joined, count: true, tone: 'paid', tint: 'mint', Icon: UserPlus },
+        { label: 'On notice', value: figures.notice, count: true, tone: 'partial', tint: 'lilac', Icon: UserMinus, onSelect: () => setStatus('ON_NOTICE') },
+        { label: 'No department', value: figures.unplaced, count: true, tone: 'outstanding', tint: 'peach', Icon: UserRound },
       ]}
       tabs={TABS}
       statusValue={status}

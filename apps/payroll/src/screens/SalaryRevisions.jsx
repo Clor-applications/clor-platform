@@ -155,10 +155,10 @@ export default function SalaryRevisions() {
         </button>
       }
       cards={[
-        { label: 'To decide', value: counts.OPEN || 0, count: true, tone: 'outstanding', Icon: Clock, onSelect: () => setStatus('OPEN') },
-        { label: 'Approved', value: counts.APPROVED || 0, count: true, tone: 'sent', Icon: Check, onSelect: () => setStatus('APPROVED') },
-        { label: 'Yearly rise', value: figures.rise, tone: 'partial', Icon: TrendingUp },
-        { label: 'Average rise', value: `${figures.avg}%`, count: true, tone: 'paid', Icon: Percent },
+        { label: 'To decide', value: counts.OPEN || 0, count: true, tone: 'outstanding', tint: 'butter', Icon: Clock, onSelect: () => setStatus('OPEN') },
+        { label: 'Approved', value: counts.APPROVED || 0, count: true, tone: 'sent', tint: 'mint', Icon: Check, onSelect: () => setStatus('APPROVED') },
+        { label: 'Yearly rise', value: figures.rise, tone: 'partial', tint: 'sky', Icon: TrendingUp },
+        { label: 'Average rise', value: `${figures.avg}%`, count: true, tone: 'paid', tint: 'lilac', Icon: Percent },
       ]}
       tabs={TABS}
       statusValue={status}

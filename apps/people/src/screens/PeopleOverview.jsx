@@ -38,6 +38,12 @@ import HomeSetup from './HomeSetup';
 
 const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'neutral' }, info: { label: 'When you can', pill: 'neutral' } };
 const DEPT_COLOURS = 8;
+/*
+ * News and events coloured by what they are, never by their place in the list (review of #123): a post for a group
+ * is clay, one for everyone violet; a Fun Friday clay, any other event violet. Marigold stays with "Waiting for you".
+ */
+const newsTint = (n) => (n.details?.audienceKind && n.details.audienceKind !== 'ALL' ? 'peach' : 'lilac');
+const eventTint = (e) => (/fun friday/i.test(e.title || '') ? 'peach' : 'lilac');
 const greeting = () => {
   const h = new Date().getHours();
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
@@ -354,9 +360,9 @@ export default function PeopleOverview({ openScreen }) {
           </p>
         </div>
         <div className="soft-actions">
-          <button type="button" className="soft-pill" data-tint="peach" onClick={go('leaveRequests')}><CalendarDots size={18} aria-hidden="true" /> Leave requests</button>
+          <button type="button" className="soft-pill" data-tint="mint" onClick={go('leaveRequests')}><CalendarDots size={18} aria-hidden="true" /> Leave requests</button>
           {may('PEOPLE::HR Cases::VIEW') ? <button type="button" className="soft-pill" data-tint="lilac" onClick={go('helpdesk')}><ChatsCircle size={18} aria-hidden="true" /> HR cases</button> : null}
-          {may('PEOPLE::Announcements::CREATE') ? <button type="button" className="soft-pill" data-tint="butter" onClick={go('announcements')}><Megaphone size={18} aria-hidden="true" /> Announce</button> : null}
+          {may('PEOPLE::Announcements::CREATE') ? <button type="button" className="soft-pill" data-tint="lilac" onClick={go('announcements')}><Megaphone size={18} aria-hidden="true" /> Announce</button> : null}
           {may('PEOPLE::Employees::CREATE') ? (
             <button type="button" className="soft-pill soft-pill-primary" onClick={go('employeeNew')}>
               Add an employee
@@ -411,7 +417,7 @@ export default function PeopleOverview({ openScreen }) {
 
           <Bezel i={2}>
             <section aria-labelledby="todo-h">
-              <PanelHead id="todo-h" icon={SealCheck} tint="peach" title="Waiting for you" action={pending.length ? <button type="button" className="people-more" onClick={go('leaveRequests')}>All requests <CaretRight size={14} aria-hidden="true" /></button> : null} />
+              <PanelHead id="todo-h" icon={SealCheck} tint="butter" title="Waiting for you" action={pending.length ? <button type="button" className="people-more" onClick={go('leaveRequests')}>All requests <CaretRight size={14} aria-hidden="true" /></button> : null} />
               {pending.length ? (
                 <ul className="people-list">
                   {pending.slice(0, 4).map((r) => (
@@ -560,13 +566,13 @@ export default function PeopleOverview({ openScreen }) {
         <aside className="soft-side" aria-label="Company news">
           <Bezel i={2}>
             <section aria-labelledby="news-h">
-              <PanelHead id="news-h" icon={Megaphone} tint="butter" title="Announcements" action={may('PEOPLE::Announcements::CREATE') ? <button type="button" className="people-more" onClick={go('announcements')}>Post one <CaretRight size={14} aria-hidden="true" /></button> : null} />
+              <PanelHead id="news-h" icon={Megaphone} tint="lilac" title="Announcements" action={may('PEOPLE::Announcements::CREATE') ? <button type="button" className="people-more" onClick={go('announcements')}>Post one <CaretRight size={14} aria-hidden="true" /></button> : null} />
               {posts.length ? (
                 <ul className="people-list">
                   {posts.map((n, i) => (
                     <li key={n.id}>
                       <button type="button" className="soft-news" onClick={go('announcements')}>
-                        <span className="soft-news-icon" data-tint={['butter', 'mint', 'lilac'][i % 3]} data-symbol={symbolOf(n.details?.symbol) ? '' : undefined}>
+                        <span className="soft-news-icon" data-tint={newsTint(n)} data-symbol={symbolOf(n.details?.symbol) ? '' : undefined}>
                           {symbolOf(n.details?.symbol) ? <span aria-hidden="true">{symbolOf(n.details.symbol).emoji}</span> : i === 0 ? <PushPin size={16} aria-hidden="true" /> : <Megaphone size={16} aria-hidden="true" />}
                         </span>
                         <span className="min-w-0 flex-1">
@@ -589,12 +595,12 @@ export default function PeopleOverview({ openScreen }) {
               <PanelHead id="events-h" icon={Confetti} tint="lilac" title="Coming up" action={may('PEOPLE::Events::VIEW') ? <button type="button" className="people-more" onClick={go('events')}>All events <CaretRight size={14} aria-hidden="true" /></button> : null} />
               {upcoming.length ? (
                 <ul className="soft-events">
-                  {upcoming.map((e, j) => {
+                  {upcoming.map((e) => {
                     const d = eventDay(e.details.startDate);
                     const fun = /fun friday/i.test(e.title);
                     return (
                       <li key={e.id}>
-                        <button type="button" className="soft-event" data-fun={fun ? '' : undefined} data-tint={fun ? 'butter' : ['sky', 'mint', 'lilac', 'peach'][j % 4]} onClick={go('events')}>
+                        <button type="button" className="soft-event" data-fun={fun ? '' : undefined} data-tint={eventTint(e)} onClick={go('events')}>
                           <span className="soft-event-date"><b>{d.day}</b><span>{d.month}</span></span>
                           <span className="min-w-0 flex-1">
                             {fun ? <span className="soft-fun"><Confetti size={12} weight="fill" aria-hidden="true" /> Fun Friday</span> : null}
@@ -613,7 +619,7 @@ export default function PeopleOverview({ openScreen }) {
           </Bezel>
           <Bezel i={5}>
             <section aria-labelledby="celebrate-h">
-              <PanelHead id="celebrate-h" icon={Cake} tint="butter" title="Celebrate" action={<span className="ui-caption">Next 30 days</span>} />
+              <PanelHead id="celebrate-h" icon={Cake} tint="peach" title="Celebrate" action={<span className="ui-caption">Next 30 days</span>} />
               {celebrations.length || data.joinedThisMonth.length ? (
                 <ul className="people-list">
                   {data.joinedThisMonth.slice(0, 1).map((j) => (
