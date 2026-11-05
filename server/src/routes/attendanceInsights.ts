@@ -170,6 +170,15 @@ attendanceInsightsRouter.get(`${base}/me/days/explain`, can(PermissionAction.VIE
 // ---------------------------------------------------------------------------
 
 const EXC_STATUS = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'IGNORED'] as const;
+const EXC_KINDS = ['MISSING_OUT', 'NO_RECORD', 'OVERTIME', 'CORRECTION', 'LEAVE', 'UNMATCHED', 'READER', 'SHIFT_CLASH', 'READER_ON_MANUAL'] as const;
+/*
+ * Rows sent in one answer. Past it the answer says how many there are, and a
+ * kind or a shorter range (both applied before the cap) reaches the rest:
+ * 600 people with nobody marked for a week is 3,000 "No attendance" items.
+ */
+const EXC_LIMIT = 5000;
+/* Items one bulk change takes; the screen sends more in batches of this size. */
+const EXC_BULK_MAX = 500;
 
 attendanceInsightsRouter.get(`${base}/exceptions`, can(PermissionAction.VIEW, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
@@ -181,6 +190,9 @@ attendanceInsightsRouter.get(`${base}/exceptions`, can(PermissionAction.VIEW, R.
   /* A long range is a report, not a work queue. */
   if (addDays(from, 62) < to) from = addDays(to, -62);
   const show = String(req.query.show || 'open');
+  /* One kind, chosen before the cap below, so picking a kind really does reach all of it. */
+  const kindQ = String(req.query.kind || '');
+  const onlyKind = EXC_KINDS.includes(kindQ as any) ? kindQ : '';
 
   const [{ people }, queues, states] = await Promise.all([
     scanDays(accountId, orgId, from, to),
@@ -232,7 +244,14 @@ attendanceInsightsRouter.get(`${base}/exceptions`, can(PermissionAction.VIEW, R.
   visible.sort((a, b) => order[a.severity] - order[b.severity] || String(b.date || '').localeCompare(String(a.date || '')));
   const counts: Record<string, number> = {};
   for (const x of withState.filter((y) => y.status === 'OPEN' || y.status === 'IN_PROGRESS')) counts[x.kind] = (counts[x.kind] || 0) + 1;
-  res.json({ from, to, counts, total: visible.length, exceptions: visible.slice(0, 1000), truncated: visible.length > 1000 });
+  /* The figures strip counts everything shown, of every kind, not just the rows sent. */
+  const figures = { high: 0, medium: 0, low: 0, unowned: 0 };
+  for (const x of visible) {
+    figures[x.severity as 'high' | 'medium' | 'low'] += 1;
+    if (!x.assigneeUserId && (x.status === 'OPEN' || x.status === 'IN_PROGRESS')) figures.unowned += 1;
+  }
+  const inKind = onlyKind ? visible.filter((x) => x.kind === onlyKind) : visible;
+  res.json({ from, to, kind: onlyKind || null, counts, figures, total: inKind.length, limit: EXC_LIMIT, exceptions: inKind.slice(0, EXC_LIMIT), truncated: inKind.length > EXC_LIMIT });
 });
 
 
@@ -283,7 +302,7 @@ attendanceInsightsRouter.post(`${base}/exceptions/state/bulk`, can(PermissionAct
   const { accountId, orgId } = req.tenant!;
   const parsed = z
     .object({
-      keys: z.array(z.string().trim().min(3).max(200)).min(1).max(500),
+      keys: z.array(z.string().trim().min(3).max(200)).min(1, 'Pick at least one item.').max(EXC_BULK_MAX, `At most ${EXC_BULK_MAX} items at a time. Send the rest in another batch.`),
       status: z.enum(['RESOLVED', 'IGNORED', 'OPEN']),
       note: z.string().trim().max(500).optional().nullable(),
     })

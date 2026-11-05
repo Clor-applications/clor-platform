@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CalendarDays, CheckCircle2, Download, Lock, Unlock } from 'lucide-react';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
@@ -23,6 +24,15 @@ const lastMonth = () => {
   d.setUTCMonth(d.getUTCMonth() - 1);
   return d.toISOString().slice(0, 7);
 };
+/* The kinds a person can have open, each a filter on the list. */
+const KINDS = [
+  { value: '', label: 'All' },
+  { value: 'missingOut', label: 'No check-out' },
+  { value: 'noRecord', label: 'No attendance' },
+  { value: 'unapprovedOvertime', label: 'Overtime to approve' },
+  { value: 'unvalidated', label: 'Not validated' },
+];
+const hasOpen = (p) => p.missingOut || p.noRecord || p.unapprovedOvertime || p.unvalidated;
 const monthName = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
 export default function MonthClose({ openScreen, params }) {
@@ -41,8 +51,16 @@ export default function MonthClose({ openScreen, params }) {
 
   const openItems = (data?.checks || []).filter((c) => c.count > 0);
   const filters = useColumnFilters();
-  const openPeople = (data?.people || []).filter((p) => p.missingOut || p.noRecord || p.unapprovedOvertime || p.unvalidated).slice(0, 500);
-  const people = filters.applyFilters(openPeople, { employee: (p) => `${p.name}${p.code ? ` · ${p.code}` : ''}` });
+  /* Everyone with something open, however many: the list pages, it never cuts. */
+  const [kind, setKind] = useState('');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(50);
+  const openPeople = (data?.people || []).filter(hasOpen);
+  const kindCounts = KINDS.reduce((c, k) => ({ ...c, [k.value]: k.value ? openPeople.filter((p) => p[k.value] > 0).length : openPeople.length }), {});
+  const inKind = kind ? openPeople.filter((p) => p[kind] > 0) : openPeople;
+  const people = filters.applyFilters(inKind, { employee: (p) => `${p.name}${p.code ? ` · ${p.code}` : ''}` });
+  const { pageCount, safePage, pageRows } = usePaged(people, perPage, page);
+  useResetPage(setPage, [kind, month, filters.filters ?? null]);
   const close = async () => {
     setBusy(true);
     try {
@@ -156,7 +174,22 @@ export default function MonthClose({ openScreen, params }) {
           ) : null}
 
           <section className="ui-card overflow-hidden" aria-labelledby="people-h">
-            <h2 id="people-h" className="ui-t-sec px-4 pt-4 pb-2">By person</h2>
+            <div className="px-4 pt-4 pb-2 space-y-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                <h2 id="people-h" className="ui-t-sec">By person</h2>
+                <span className="ui-caption tabular-nums">{openPeople.length === 1 ? '1 person has' : `${openPeople.length.toLocaleString('en-IN')} people have`} something open</span>
+              </div>
+              {openPeople.length ? (
+                <div className="ui-segmented max-w-full overflow-x-auto" role="tablist" aria-label="What is open">
+                  {KINDS.map((k) => (
+                    <button key={k.value || 'all'} type="button" role="tab" aria-selected={kind === k.value} className="ui-segment" onClick={() => setKind(k.value)}>
+                      {k.label}
+                      <span className="ui-segment-count" data-on={kindCounts[k.value] > 0 ? 'true' : undefined}>{kindCounts[k.value]}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <div className="ui-table-scroll">
               <table className="ui-table ui-table-sticky w-full">
                 <thead>
@@ -173,15 +206,17 @@ export default function MonthClose({ openScreen, params }) {
                   {!people.length ? (
                     <tr>
                       <td colSpan={6}>
-                        {openPeople.length ? (
-                          <EmptyState kind="filtered" totalCount={openPeople.length} title="Nobody matches" description="Nobody matches the column filter." />
+                        {inKind.length ? (
+                          <EmptyState kind="filtered" totalCount={inKind.length} title="Nobody matches" description="Nobody matches the column filter." />
+                        ) : openPeople.length ? (
+                          <EmptyState icon={CheckCircle2} title="Nobody has this open" description="Pick another kind, or All." />
                         ) : (
                           <EmptyState icon={CheckCircle2} title="Everyone’s days are complete" />
                         )}
                       </td>
                     </tr>
                   ) : (
-                    people.map((p) => (
+                    pageRows.map((p) => (
                       <tr key={p.employeeId}>
                         <td className="ui-col-entity">{p.name}{p.code ? <span className="ui-caption"> · {p.code}</span> : null}</td>
                         <td className="ui-num">{p.missingOut ? <strong style={{ color: 'rgb(var(--neg))' }}>{p.missingOut}</strong> : '—'}</td>
@@ -195,6 +230,7 @@ export default function MonthClose({ openScreen, params }) {
                 </tbody>
               </table>
             </div>
+            {people.length ? <Pagination total={people.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun={people.length === 1 ? 'person' : 'people'} /> : null}
           </section>
 
           {data.snapshots?.length ? (

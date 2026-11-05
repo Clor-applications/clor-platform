@@ -52,6 +52,8 @@ const COLUMNS = {
 const SEVERITY = { high: 'Urgent', medium: 'To do', low: 'When you can' };
 const STATUS = { OPEN: 'Open', IN_PROGRESS: 'In progress', RESOLVED: 'Settled', IGNORED: 'Ignored' };
 const back = (n) => plusDaysIso(-n);
+/* What one bulk change takes on the server; more picked are sent in batches this size. */
+const BATCH = 500;
 
 
 /* What Export writes: the rows on screen, as shown (AT-01). */
@@ -81,14 +83,15 @@ export default function Exceptions({ openScreen }) {
   const [picked, setPicked] = useState(() => new Set());
 
   const load = useCallback(() => {
-    listExceptions({ ...range, show: showAll ? 'all' : 'open' })
+    /* The kind is chosen on the server, before its cap, so a kind reaches all of its items. */
+    listExceptions({ ...range, show: showAll ? 'all' : 'open', ...(kind ? { kind } : {}) })
       .then((d) => { setData(d); setError(''); })
       .catch((e) => setError(String(e?.message || 'Could not load the exceptions.')));
-  }, [range, showAll]);
+  }, [range, showAll, kind]);
   useEffect(() => { load(); }, [load]);
 
   const all = data?.exceptions;
-  /* The server counts every kind (past the 1,000 shown); All is their sum. */
+  /* The server counts every kind, past the rows it sends; All is their sum. */
   const counts = useMemo(() => {
     const c = { ...(data?.counts || {}) };
     c[''] = Object.values(data?.counts || {}).reduce((a, b) => a + b, 0);
@@ -113,6 +116,8 @@ export default function Exceptions({ openScreen }) {
   const togglePick = (key) => setPicked((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   const toggleAll = () => setPicked(allPicked ? new Set() : new Set(pickable.map((x) => x.key)));
   const figures = useMemo(() => {
+    /* The server counts every item shown, past the rows it sends. */
+    if (data?.figures) return data.figures;
     const list = all || [];
     return {
       high: list.filter((x) => x.severity === 'high').length,
@@ -120,7 +125,7 @@ export default function Exceptions({ openScreen }) {
       low: list.filter((x) => x.severity === 'low').length,
       unowned: list.filter((x) => !x.assigneeUserId && (x.status === 'OPEN' || x.status === 'IN_PROGRESS')).length,
     };
-  }, [all]);
+  }, [all, data]);
   const explainLoad = useCallback(() => explainDay(explaining?.employeeId, explaining?.date), [explaining]);
 
   const change = async (x, body, done) => {
@@ -140,18 +145,25 @@ export default function Exceptions({ openScreen }) {
     const { x, keys, status } = settling;
     setSettling(null);
     if (!keys) return change(x, { status, note: note.trim() || null }, status === 'RESOLVED' ? 'Marked settled.' : 'Ignored.');
+    /* Every picked item, in batches the server takes; a failed batch says how far it got. */
+    const verb = status === 'RESOLVED' ? 'marked settled' : 'ignored';
+    let updated = 0;
     try {
-      const r = await setExceptionStates({ keys, status, note: note.trim() || null });
-      notify.success(`${r.updated} ${r.updated === 1 ? 'item' : 'items'} ${status === 'RESOLVED' ? 'marked settled' : 'ignored'}.`);
-      setPicked(new Set());
-      load();
+      for (let i = 0; i < keys.length; i += BATCH) {
+        const r = await setExceptionStates({ keys: keys.slice(i, i + BATCH), status, note: note.trim() || null });
+        updated += r.updated;
+      }
+      notify.success(`${updated.toLocaleString('en-IN')} ${updated === 1 ? 'item' : 'items'} ${verb}.`);
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      const why = String(e?.message || 'Not saved.');
+      notify.error(updated ? `${updated.toLocaleString('en-IN')} of ${keys.length.toLocaleString('en-IN')} ${verb}; the rest were not changed. ${why}` : why);
     }
+    setPicked(new Set());
+    load();
   };
   const settleMany = (status) => {
     setNote('');
-    setSettling({ keys: pickedKeys.slice(0, 500), status });
+    setSettling({ keys: pickedKeys, status });
   };
   const open = (x) => {
     if (!openScreen) return;
@@ -206,7 +218,6 @@ export default function Exceptions({ openScreen }) {
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => settleMany('RESOLVED')}><CheckCircle2 size={14} aria-hidden="true" /> Settle selected</button>
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => settleMany('IGNORED')}><EyeOff size={14} aria-hidden="true" /> Ignore selected</button>
               <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPicked(new Set())}>Clear</button>
-              {pickedKeys.length > 500 ? <span className="ui-caption">The first 500 are changed; run it again for the rest.</span> : null}
             </div>
           ) : null}
           {/*
@@ -326,14 +337,18 @@ export default function Exceptions({ openScreen }) {
             </table>
           </div>
           <Pagination total={rows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="items" />
-          {data.truncated ? <p className="ui-caption p-3">Showing the first 1,000. Narrow the dates or pick one kind.</p> : null}
+          {data.truncated ? (
+            <p className="ui-caption p-3" role="status">
+              Showing the first {(data.exceptions?.length || 0).toLocaleString('en-IN')} of {(data.total || 0).toLocaleString('en-IN')}. {kind || Object.values(data.counts || {}).filter(Boolean).length < 2 ? 'Narrow the dates to reach the rest.' : 'Pick one kind or narrow the dates to reach the rest.'}
+            </p>
+          ) : null}
         </>
       )}
       <DayExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />
       <Drawer
         open={Boolean(settling)}
         onClose={() => setSettling(null)}
-        title={settling?.keys ? `${settling.status === 'IGNORED' ? 'Ignore' : 'Mark settled'}: ${settling.keys.length} ${settling.keys.length === 1 ? 'item' : 'items'}` : settling?.status === 'IGNORED' ? 'Ignore this item' : 'Mark this item settled'}
+        title={settling?.keys ? `${settling.status === 'IGNORED' ? 'Ignore' : 'Mark settled'}: ${settling.keys.length.toLocaleString('en-IN')} ${settling.keys.length === 1 ? 'item' : 'items'}` : settling?.status === 'IGNORED' ? 'Ignore this item' : 'Mark this item settled'}
         description={settling?.x ? `${settling.x.title}${settling.x.employeeName ? `, ${settling.x.employeeName}` : ''}${settling.x.date ? `, ${settling.x.date}` : ''}` : settling?.keys ? 'The same note is kept on each.' : ''}
         widthClass="w-[min(30rem,96vw)]"
         actions={
