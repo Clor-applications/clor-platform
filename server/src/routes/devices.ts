@@ -848,6 +848,8 @@ devicesRouter.get('/orgs/:orgId/attendance/transactions', can(PermissionAction.V
   const employeeId = String(req.query.employeeId || '').trim();
   const deviceId = String(req.query.deviceId || '').trim();
   const unmatched = req.query.unmatched === 'true';
+  /* The dashboard's live list asks for the latest few, not the day's 5000. */
+  const limit = Math.min(LIMIT, Math.max(1, Number.parseInt(String(req.query.limit || ''), 10) || LIMIT));
   const where: any = {
     accountId,
     orgId,
@@ -856,7 +858,7 @@ devicesRouter.get('/orgs/:orgId/attendance/transactions', can(PermissionAction.V
     ...(unmatched ? { employeeId: null } : employeeId ? { employeeId } : {}),
   };
   const [rows, total, devices, people] = await Promise.all([
-    peoplePrisma.devicePunch.findMany({ where, orderBy: { at: 'desc' }, take: LIMIT }),
+    peoplePrisma.devicePunch.findMany({ where, orderBy: { at: 'desc' }, take: limit }),
     peoplePrisma.devicePunch.count({ where }),
     peoplePrisma.attendanceDevice.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, name: true, code: true } }),

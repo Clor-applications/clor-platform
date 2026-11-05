@@ -6862,6 +6862,13 @@ th.ui-th {
 .ui-legend { display: inline-flex; align-items: center; gap: 0.375rem; }
 .ui-legend i { display: inline-block; width: 0.625rem; height: 0.625rem; border-radius: 3px; margin-left: 0.625rem; }
 .ui-legend i:first-child { margin-left: 0; }
+/* Attendance's dashboard: the punch list's live mark, a shift's own colour, and a count that wants a look. */
+.ui-live { display: inline-flex; align-items: center; gap: 0.375rem; }
+.ui-live > i { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: rgb(var(--pos)); box-shadow: 0 0 0 0 rgb(var(--pos) / 0.4); }
+@keyframes ui-live-ping { 0% { box-shadow: 0 0 0 0 rgb(var(--pos) / 0.45); } 80%, 100% { box-shadow: 0 0 0 6px rgb(var(--pos) / 0); } }
+@media (prefers-reduced-motion: no-preference) { .ui-live > i { animation: ui-live-ping 2.4s ease-out infinite; } }
+.ui-shift-dot { width: 0.625rem; height: 0.625rem; flex: none; border-radius: 999px; background: rgb(var(--fg-subtle)); }
+.ui-today-warn { color: rgb(var(--warn-ink, var(--warn))); }
 @media (max-width: 480px) {
   .ui-week-plot { --week-h: 7rem; }
   .ui-week { gap: 0.375rem; }
@@ -8603,6 +8610,8 @@ html:root[data-palette='blaze']:not([data-theme='dark']) .ui-split-mod[aria-pres
 html:root[data-palette='blaze']:not([data-theme='dark']) .ui-split-mod:focus-visible { outline-color: rgb(var(--ring)); }
 html:root[data-palette='blaze']:not([data-theme='dark']) .ui-split-rail > .ui-split-mod:last-child:not(:first-child)::after { background: rgb(var(--border)); }
 html:root[data-palette='blaze']:not([data-theme='dark']) .ui-split-item[aria-current='page'] { background: rgb(var(--blush)); color: rgb(var(--oxblood)); }
+/* Amber is a fill, never words or a small mark on white (#EAB308 is 1.9:1): today's dot on the dashboard's week takes the ink #854D0E. */
+html:root[data-palette='blaze']:not([data-theme='dark']) .ui-week li[data-today] .ui-week-day::after { background: rgb(var(--brand-ink)); }
 /* Payroll's primary action, as Attendance's: the palette's neon over the platform's own button colours. */
 :root[data-palette='cyan'] :is(.ui-btn-primary, .ui-btn-brand) { background-color: rgb(var(--btn-primary-bg)) !important; border-color: rgb(var(--btn-primary-bg)) !important; color: rgb(var(--on-brand)) !important; }
 :root[data-palette='cyan'] :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) { background-color: rgb(var(--btn-primary-hover)) !important; border-color: rgb(var(--btn-primary-hover)) !important; }

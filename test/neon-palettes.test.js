@@ -40,6 +40,19 @@ describe('pure white and neon', () => {
     });
   }
 
+  it('attendance: amber is a fill, never words — every token that colours text is the ink #854D0E or slate', () => {
+    const a = APPS.attendance;
+    /* Amber on white is 1.9:1: no word may take it. */
+    expect(contrast(a.neon, '255 255 255')).toBeLessThan(3);
+    for (const name of ['brand-ink', 'brand-panel', 'link', 'hero-hi', 'doc-link', 'on-choice', 'st-all-ink', 'ws-nav-selected-ink', 'oxblood', 'rail-blaze-ink']) {
+      const v = token(a.block, name);
+      expect(v, name).not.toBe(a.neon);
+      expect(contrast(v, '255 255 255'), name).toBeGreaterThan(4.5);
+    }
+    /* The dashboard's small mark for today takes the ink; a 5px amber dot on white does not read. */
+    expect(css).toMatch(/html:root\[data-palette='blaze'\]:not\(\[data-theme='dark'\]\) \.ui-week li\[data-today\] \.ui-week-day::after \{ background: rgb\(var\(--brand-ink\)\); \}/);
+  });
+
   it('the halo, card and glow rules skip Accounting and the dark theme', () => {
     const shared = css.slice(css.indexOf('Pure white and neon (owner, 5 Nov 2026)'));
     for (const line of shared.split('\n').filter((l) => /^html:root.*\{/.test(l) && /#main-content \{|\.ui-card[,)]|ui-btn-primary/.test(l))) {

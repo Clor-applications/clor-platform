@@ -388,6 +388,11 @@ describe('transactions and reader logs', () => {
     expect(all.transactions.find((t: any) => t.pin === '601' && t.localTime.endsWith('09:01:00')).verify).toBe('Face');
     expect((await api(c).get(`/transactions?from=2026-09-10&to=2026-09-10&employeeId=${p.id}`).expect(200)).body.total).toBe(2);
     expect((await api(c).get('/transactions?from=2026-09-10&to=2026-09-10&unmatched=true').expect(200)).body.transactions.map((t: any) => t.pin)).toEqual(['777']);
+    /* The dashboard's live list: the latest few, the day's total still counted. */
+    const latest = (await api(c).get('/transactions?from=2026-09-10&to=2026-09-10&limit=2').expect(200)).body;
+    expect(latest.transactions.map((t: any) => t.localTime)).toEqual(['2026-09-10 18:00:00', '2026-09-10 09:02:00']);
+    expect(latest).toMatchObject({ total: 3, truncated: true });
+    expect((await api(c).get('/transactions?from=2026-09-10&to=2026-09-10&limit=nonsense').expect(200)).body.transactions).toHaveLength(3);
 
     const ops = (await api(c).get('/device-logs?from=2026-09-10&to=2026-09-10').expect(200)).body.logs;
     expect(ops).toHaveLength(1);
