@@ -12,7 +12,7 @@ const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - 
 const APPS = {
   workspace: { block: blockAt(css, '/* Hyper Cobalt'), neon: '0 82 255', ink: '0 56 184', tint: '237 243 255', stroke: '204 224 255' },
   attendance: { block: blockAt(css, '/* Cyber Tangerine'), neon: '255 84 0', ink: '186 57 0', tint: '255 243 237', stroke: '255 212 194' },
-  payroll: { block: blockAt(css, '/* Electric Cyan'), neon: '0 163 255', ink: '0 109 178', tint: '237 248 255', stroke: '186 230 255' },
+  payroll: { block: blockAt(css, '/* Electric Cyan'), neon: '0 163 255', button: '0 121 191', ink: '0 109 178', tint: '237 248 255', stroke: '186 230 255' },
   people: { block: blockAt(people, "html:root[data-palette='sky']:not([data-theme='dark']),\nhtml:root:not([data-theme='dark']) [data-palette='sky'] {\n  --neon"), neon: '255 19 86', ink: '184 0 54', tint: '255 240 244', stroke: '255 199 213' },
 };
 
@@ -20,7 +20,9 @@ describe('pure white and neon', () => {
   for (const [app, p] of Object.entries(APPS)) {
     it(`${app}: neon action, deep ink, 5% tint, stroke, on white with slate text`, () => {
       expect(token(p.block, 'neon')).toBe(p.neon);
-      expect(token(p.block, 'btn-primary-bg')).toBe(p.neon);
+      expect(token(p.block, 'btn-primary-bg')).toBe(p.button || p.neon);
+      /* White words on the primary button: AA for Payroll's deeper cyan and cobalt; coral and tangerine are the owner's large-text neons. */
+      if (p.button) expect(contrast('255 255 255', p.button)).toBeGreaterThan(4.5);
       expect(token(p.block, 'brand-ink')).toBe(p.ink);
       expect(token(p.block, 'brand-soft')).toBe(p.tint);
       expect(token(p.block, 'brand-border')).toBe(p.stroke);

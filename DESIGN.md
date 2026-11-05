@@ -113,11 +113,11 @@ Nothing below 12px. Nothing between 16 and 24.
   | Workspace, clor.in | Hyper Cobalt `#0052FF` | `#0038B8` | `#EDF3FF` | `#CCE0FF` | none (`:root`) |
   | People | Pitaya Coral `#FF1356` | `#B80036` | `#FFF0F4` | `#FFC7D5` | `sky` (people.css) |
   | Attendance | Cyber Tangerine `#FF5400` | `#BA3900` | `#FFF3ED` | `#FFD4C2` | `blaze` |
-  | Payroll | Electric Cyan `#00A3FF` | `#006DB2` | `#EDF8FF` | `#BAE6FF` | `cyan` |
+  | Payroll | Electric Cyan `#00A3FF` (button `#0079BF`) | `#006DB2` | `#EDF8FF` | `#BAE6FF` | `cyan` |
 
   - **Neutrals, every neon app:** canvas, surfaces, rail and module panel `#FFFFFF`; subtle `#F8FAFC` (head rows, fields); hover `#F1F5F9`; hairline `#E2E8F0`, firmer `#CBD5E1`. Headings `#0F172A`, body `#334155`, support `#64748B` (4.8:1), placeholder `#94A3B8` only.
   - **Selected, chosen and badges:** the tint with the deep ink and the stroke — never a solid pill (the rail's open module, a chosen view, a selected row, a status chip).
-  - **Primary action:** solid neon, white words, a glow in its own colour (`0 4px 14px` at 32%). White on the neon measures cobalt 5.8:1, coral 3.8:1, tangerine 3.2:1, cyan 2.7:1: coral and tangerine pass only as large/bold text and cyan fails AA, so keep primary labels semibold and open a decision before using cyan for anything smaller.
+  - **Primary action:** solid neon, white words, a glow in its own colour (`0 4px 14px` at 32%). White on the button measures cobalt 5.8:1, coral 3.8:1, tangerine 3.2:1; Payroll's button is a deeper cyan `#0079BF` (4.7:1, owner 6 Nov 2026), since white on the neon `#00A3FF` was 2.7:1 — the neon stays for the halo, the glow and marks. Coral and tangerine pass only as large/bold text, so keep primary labels semibold.
   - **Cards:** white, `#E2E8F0` hairline, 12px, `0 4px 16px -2px rgb(0 0 0 / .03)`; a card you can press lifts 2px on hover (none with reduced motion). No heavy shadows.
   - **Halo:** the app's neon at 14% as a soft circle in the work area's top right (`#main-content`), so each app reads as its own without darkening the page.
   - People extras: Peach `#FF6D00` for what waits, milestones and birthdays (a fill or edge, never text); Mulberry `#7C3AED` for org-chart connections.
@@ -648,6 +648,7 @@ because focus, portals and event order cannot be read off the source.
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-11-06 | Payroll's button is a deeper cyan | White on Electric Cyan `#00A3FF` measured 2.7:1; owner chose "Darker cyan button". The button is `#0079BF` (4.7:1, AA), hover `#006DB2`, pressed `#00609E`; the halo and glow keep the neon |
 | 2026-11-05 | One neon per app on pure white | Owner: "Pure White & Neon Chromatic UI" with a ramp per subdomain (cobalt, coral, tangerine, cyan), slate text, micro-border cards, a neon halo and neon CTA glow; "exclude accounting/books", in the order People, Workspace, Attendance, Payroll. Each palette restates the red brand's base tokens, so existing rules follow; Payroll gains its own `cyan` palette. White on cyan is 2.7:1 and on tangerine 3.2:1 — recorded, not hidden |
 | 2026-11-05 | The orange ribbon logo | Owner supplied a master vector (ribbon C, centre dot, CLOR with an orange O) and asked for it everywhere: "rollout only logo and brand". One favicon in every tab, white app tiles with the orange ribbon. Letters outlined from Inter Black so they do not change with the device's system font. App colour palettes are not part of this change |
 | 2026-11-04 | People: marigold off faces, news, events and org colours | Re-review of #123: Home's Waiting for you panel was clay while Announcements and Celebrate were marigold; news and event marks cycled by index (the newest post always marigold); org cards, the org chart and the structure page each picked a department's colour their own way, so Sales was teal, marigold and green on three screens; one face in five was marigold and the record's face a marigold disc. Now Waiting for you is the marigold panel; news, events, Fun Friday and the birthday badge take violet or clay by kind; one `tintOf(name)` over four families colours a department or branch everywhere; faces hash over four washes and the record's face keeps its own. A test scans People's JSX for tints picked by index |

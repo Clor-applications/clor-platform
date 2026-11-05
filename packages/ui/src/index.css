@@ -8567,7 +8567,8 @@ html:root:not([data-theme='dark']) [data-palette='blaze'] {
   --rail-graphite: 255 255 255; --rail-graphite-top: 255 255 255; --rail-graphite-hover: 241 245 249;
   --rail-ink: 100 116 139; --rail-ink-strong: 15 23 42; --rail-blaze: 255 84 0; --rail-blaze-ink: 186 57 0;
 }
-/* Electric Cyan: #00A3FF / ink #006DB2 / tint #EDF8FF / stroke #BAE6FF. */
+/* Electric Cyan: #00A3FF / ink #006DB2 / tint #EDF8FF / stroke #BAE6FF. The button is a deeper cyan #0079BF
+   (owner, 6 Nov 2026: white on #00A3FF is 2.7:1; on #0079BF 4.7:1, AA); the halo and glow keep the neon. */
 html:root[data-palette='cyan']:not([data-theme='dark']),
 html:root:not([data-theme='dark']) [data-palette='cyan'] {
   --neon: 0 163 255;
@@ -8576,8 +8577,8 @@ html:root:not([data-theme='dark']) [data-palette='cyan'] {
   --surface-sunken: 248 250 252; --doc-section: 248 250 252;
   --border: 226 232 240; --border-strong: 203 213 225; --border-field: 203 213 225;
   --fg: 51 65 85; --fg-heading: 15 23 42; --col-party: 15 23 42; --fg-muted: 100 116 139; --fg-subtle: 100 116 139;
-  --brand: 0 163 255; --brand-deep: 0 109 178; --brand-hover: 0 145 230; --brand-pressed: 0 128 204;
-  --btn-primary-bg: 0 163 255; --btn-primary-hover: 0 145 230; --on-brand: 255 255 255;
+  --brand: 0 163 255; --brand-deep: 0 109 178; --brand-hover: 0 109 178; --brand-pressed: 0 96 158;
+  --btn-primary-bg: 0 121 191; --btn-primary-hover: 0 109 178; --on-brand: 255 255 255;
   --brand-soft: 237 248 255; --brand-subtle: 237 248 255; --brand-border: 186 230 255; --accent-soft: 237 248 255;
   --brand-ink: 0 109 178; --brand-panel: 0 109 178; --ring: 0 163 255; --link: 0 109 178; --link-hover: 0 84 140; --hero-hi: 0 109 178;
   --doc-link: 0 109 178; --doc-link-wash: 237 248 255; --info: 100 116 139; --info-soft: 241 245 249;
