@@ -134,8 +134,9 @@ described in **`docs/BACKUP-AND-RESTORE.md`**. That file covers:
 
 - what Cloud SQL already keeps: daily snapshots, 7 days of point-in-time
   recovery, a final backup on deletion;
-- the encrypted off-host copy (`deploy/backup/`: a Cloud Run Job that encrypts
-  with age and writes to a create-only bucket);
+- the encrypted off-host copy (`deploy/backup/`: a Cloud Run Job that
+  encrypts with age, signs, and writes to a create-only bucket in a separate
+  project), and what it does not survive;
 - the recovery point and recovery time for each kind of failure;
 - the restore drill, the real restore, and the owner's one-off setup
   checklist.

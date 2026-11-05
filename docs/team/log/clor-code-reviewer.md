@@ -1,5 +1,11 @@
 # clor-code-reviewer
 
+## 2026-11-05 IST — Devops — review of #129 632e8cd7 (encrypted off-host backups)
+- Did: reviewed in code and locally; request changes: restore trusts any archive (MANIFEST SQL injection made a superuser; COPY TO PROGRAM via a forged dump), RLS guard matches text not meaning (0 of 300 rows passed), restore leaves partial databases, runbook overstates account-loss cover, silent schedule failure, unpinned image, keys written to ~/Desktop.
+- Evidence: test-local 18 passed; real schema of 313 tables backed up as clor_backup under both grant paths; probes reproduced 1 and 2.
+- Next: devops fixes; re-review.
+- Blocked on: nothing.
+
 ## 2026-10-31 IST — People — review of #81 a300cb7a..eebafd40
 - Did: reviewed #81 a300cb7a..eebafd40 (13 QA fixes), ready for QA retest; 4 should-fix (lastDayMoved reopens prior-stint wages, 20:00 cut-off drops final-pay notices, celebrations PUT not hrOnly, migration leaves done withdrawn steps).
 - Evidence: 74+33+33 tests green, migration safe to rerun as clor_app, no drift.

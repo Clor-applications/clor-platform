@@ -1,0 +1,19 @@
+{
+  "displayName": "CLOR backup: no successful run in 7 hours",
+  "documentation": {
+    "content": "The off-host backup job clor-backup has not succeeded for 7 hours. It runs every 6 hours, so at least one run was missed or failed, including the case where Cloud Scheduler never started it. Runbook: docs/BACKUP-AND-RESTORE.md.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "clor-backup: no succeeded execution for 7 h",
+      "conditionAbsent": {
+        "filter": "resource.type = \"cloud_run_job\" AND resource.labels.job_name = \"clor-backup\" AND metric.type = \"run.googleapis.com/job/completed_execution_count\" AND metric.labels.result = \"succeeded\"",
+        "duration": "25200s",
+        "aggregations": [{ "alignmentPeriod": "3600s", "perSeriesAligner": "ALIGN_SUM" }]
+      }
+    }
+  ],
+  "notificationChannels": ["CHANNEL"]
+}

@@ -1,9 +1,18 @@
 -- The read-only role the off-host backup job connects as. Run ONCE on clor-pg,
 -- as the `postgres` user (Cloud SQL Studio in the console, database clor_main).
 --
--- Replace PASTE_PASSWORD_HERE with the value of the DB_BACKUP_PASSWORD secret:
+-- Replace PASTE_PASSWORD_HERE with the value of the DB_BACKUP_PASSWORD secret
+-- (created with `openssl rand -hex 24 | tr -d '\n'`, so no newline in it):
 --   gcloud secrets versions access latest --secret DB_BACKUP_PASSWORD | pbcopy
--- and do not save this file with the password in it.
+-- Do not save this file with the password in it, and clear the clipboard after.
+--
+-- The password is in this statement in clear text. Before running it, check the
+-- instance logs no statements: no `log_statement` flag (other than 'none') and
+-- no pgaudit (gcloud sql instances describe clor-pg --format='value(settings.databaseFlags)').
+-- Neither was set on 5 Nov 2026.
+--
+-- Run it again after any restore from the off-host copy: the restore leaves
+-- grants out (--no-acl).
 --
 -- Created with SQL, not `gcloud sql users create`: a user made through the
 -- Cloud SQL API is put in cloudsqlsuperuser, which a backup reader must not be.
