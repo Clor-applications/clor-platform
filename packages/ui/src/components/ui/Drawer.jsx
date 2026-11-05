@@ -5,12 +5,15 @@ import { X } from '@ui/components/ui/lineIcons';
 import { OverlayLayerContext } from './overlayLayer';
 import { confirmDialog } from './notify';
 import useSheetDrag from './useSheetDrag';
+import { RowMenu } from './RowMenu';
 
 /* Safari shows :active on a touch only when the page listens for touches: the press feedback needs it. */
 if (typeof document !== 'undefined') document.addEventListener('touchstart', () => {}, { passive: true });
 
 /* An Escape that belongs to a popup inside the drawer (a date grid, a list of options, a menu) closes that popup, not the drawer. */
 const INNER_POPUP = '.ui-datepicker-pop, [role="listbox"], [role="menu"], [aria-expanded="true"]';
+/* A popup portalled out of the drawer (the sheet's ⋮ menu, a popover): its Escape is its own, wherever it lives. */
+const PORTALLED_POPUP = '.ui-popover, [role="menu"]';
 
 /**
  * A panel that slides in from the right, over whatever is behind it.
@@ -30,11 +33,37 @@ const INNER_POPUP = '.ui-datepicker-pop, [role="listbox"], [role="menu"], [aria-
  * clipped by it.
  */
 /*
+ * People on a phone (design audit, 4 Nov 2026, blocker 7): under 640px, where the sheet shape, its grabber and drag
+ * and DataTable's cards all start, a drawer is a bottom sheet and its actions sit
+ * in a sticky footer under the content, in thumb reach; the primary and the action beside it share the width, and
+ * `more` (the rest: Withdraw, Change…) goes behind a ⋮. Sky palette only, so other apps keep their drawers. At
+ * desktop width `more` renders as plain buttons before `actions`, as before.
+ */
+const PHONE = '(max-width: 639px)';
+const isPeoplePhone = () => typeof window !== 'undefined'
+  && document.documentElement.dataset.palette === 'sky'
+  && Boolean(window.matchMedia?.(PHONE)?.matches);
+function usePeoplePhone() {
+  const [phone, setPhone] = useState(isPeoplePhone);
+  useEffect(() => {
+    const mq = window.matchMedia?.(PHONE);
+    if (!mq?.addEventListener) return undefined;
+    const on = () => setPhone(isPeoplePhone());
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return phone;
+}
+
+/*
  * People design spec v1 (§5, §5.1): `footer` holds sticky actions (Cancel ·
  * Save); `dirty` means unsaved edits — the scrim then does not close it, and
  * Escape or × asks before discarding. Focus goes back to whatever opened it.
  */
-export default function Drawer({ open, onClose, title, description = '', actions = null, footer = null, dirty = false, children, widthClass = 'ui-form-drawer' }) {
+export default function Drawer({ open, onClose, title, description = '', actions = null, more = null, footer = null, dirty = false, children, widthClass = 'ui-form-drawer' }) {
+  const phone = usePeoplePhone();
+  const moreItems = (more || []).filter(Boolean);
+  const sheetActions = phone && (actions || moreItems.length);
   /* Slid in over 200ms and vanished in one frame; it leaves the way it came,
      toward the edge it lives on. Same machinery as Modal. */
   const [closing, setClosing] = useState(false);
@@ -75,6 +104,7 @@ export default function Drawer({ open, onClose, title, description = '', actions
     const onKey = (e) => {
       if (e.key === 'Escape') {
         if (e.target?.closest?.(INNER_POPUP) && panelRef.current?.contains(e.target)) return;
+        if (e.target?.closest?.(PORTALLED_POPUP) && !panelRef.current?.contains(e.target)) return;
         e.stopPropagation();
         beginClose();
         return;
@@ -135,7 +165,7 @@ export default function Drawer({ open, onClose, title, description = '', actions
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className={`ui-surface h-full ${widthClass} max-w-full flex flex-col ${closing ? 'ui-out-edge' : 'ui-in-right'}`}
+        className={`ui-surface h-full ${widthClass}${phone && !/ui-drawer-sheet/.test(widthClass) ? ' ui-drawer-sheet' : ''} max-w-full flex flex-col ${closing ? 'ui-out-edge' : 'ui-in-right'}`}
         onAnimationEnd={(e) => {
           if (closing && e.target === e.currentTarget) onClose?.();
         }}
@@ -154,7 +184,10 @@ export default function Drawer({ open, onClose, title, description = '', actions
             {description ? <p className="text-sm ui-muted mt-0.5">{description}</p> : null}
           </div>
           <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
-            {actions}
+            {sheetActions ? null : <>
+              {moreItems.map((m) => <button key={m.key} type="button" className={m.className || 'ui-btn ui-btn-secondary'} disabled={m.disabled} onClick={m.onSelect}>{m.label}</button>)}
+              {actions}
+            </>}
             <button type="button" onClick={beginClose} className="ui-icon-btn shrink-0" aria-label="Close">
               <X size={18} />
             </button>
@@ -162,6 +195,12 @@ export default function Drawer({ open, onClose, title, description = '', actions
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">{children}</div>
+        {sheetActions ? (
+          <div className="ui-sheet-actions shrink-0">
+            {moreItems.length ? <RowMenu label="More actions" items={moreItems} /> : null}
+            {actions}
+          </div>
+        ) : null}
         {footer ? <div className="ui-drawer-footer shrink-0">{footer}</div> : null}
       </div>
     </div>

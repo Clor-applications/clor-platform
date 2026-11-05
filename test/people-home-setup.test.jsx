@@ -7,6 +7,10 @@ vi.mock('@ui/timeOff/MyDays', () => ({ HomeCheckIn: () => null }));
 vi.mock('@ui/personnel/Employees', () => ({ Avatar: () => null }));
 vi.mock('@platform/context', () => ({ orgId: () => 'org1', requireOrgId: () => 'org1', branchId: () => 'br1', platformContext: () => ({ user: null }) }));
 vi.mock('@platform/auth', () => ({ setFeature: vi.fn(async () => ({})) }));
+/* Home's other sources answer, empty: "All caught up" is said only when what it sums up has loaded (5 Nov 2026). */
+vi.mock('@ui/timeOff/api', () => ({ listLeaveRequests: vi.fn(async () => []), approveLeave: vi.fn() }));
+vi.mock('../apps/people/src/api/workspace', () => ({ listRecords: vi.fn(async () => []) }));
+vi.mock('../apps/people/src/api/engagement', () => ({ finalPayList: vi.fn(async () => []) }));
 /* The owner by default; a test may sign in as a team manager, who cannot set the company up. */
 const who = vi.hoisted(() => ({ perms: { loading: false, error: '', isAdmin: true, permissions: new Set() } }));
 vi.mock('@ui/permissions/usePermissions', () => ({ usePermissions: () => who.perms }));
@@ -98,13 +102,15 @@ describe('People Home setup list', () => {
     api.getPeopleSetup.mockResolvedValue(setup({ setup: { ...setup().setup, show: false }, simpleMode: { on: true, suggest: true, reasons: ['12 people work here'] } }));
     api.changePeopleSetup.mockResolvedValue(setup({ setup: { ...setup().setup, show: false }, simpleMode: { on: false, suggest: false, reasons: [] } }));
     render(<PeopleOverview openScreen={vi.fn()} />);
-    expect(await screen.findByRole('heading', { name: 'Your company has grown' })).toBeInTheDocument();
-    expect(screen.getByText(/^12 people work here\./)).toBeInTheDocument();
+    /* One line with its two buttons, not a paragraph card in the middle of the work (design audit, 4 Nov 2026). */
+    const line = await screen.findByRole('status', { name: 'Your company has grown' });
+    expect(line.textContent).toBe('12 people work here. Show every screen in the menu?Show every screenKeep it simple');
+    expect(screen.queryByRole('heading', { name: 'Your company has grown' })).toBeNull();
     expect(setFeature).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Show every screen' }));
     await waitFor(() => expect(setFeature).toHaveBeenCalledWith('org1', 'br1', 'peopleSimpleMode', false, { trigger: 'outgrown' }));
     await waitFor(() => expect(api.changePeopleSetup).toHaveBeenCalledWith({ action: 'simpleAdviceSeen' }));
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Your company has grown' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('status', { name: 'Your company has grown' })).toBeNull());
   });
 
   it('keeps simple mode when the owner says so', async () => {

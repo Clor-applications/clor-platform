@@ -26,9 +26,12 @@ Hard rules that come up most often:
   invoice does not follow the app theme. Leave their raw classes alone.
 - **Two radii.** 8px on anything clickable, 12px on anything holding content.
   `rounded-full` for pills only.
+- **Two faces.** Inter for the work; Bricolage Grotesque for the wordmark,
+  page titles and large figures only (People titles 28/800). Section heads,
+  navigation, tables and running text are Inter.
 - **Money is tabular.** Every displayed amount is Inter with `tabular-nums`
-  (the money/mono utility classes), right-aligned. One face app-wide — no
-  second family for numbers or codes.
+  (the money/mono utility classes), right-aligned. No second family for
+  amounts or codes.
 - **No card-in-card.** A list sits on the page ground under one hairline. A
   document is a discrete object and earns a surface.
 - **One primary action per screen**, top right.

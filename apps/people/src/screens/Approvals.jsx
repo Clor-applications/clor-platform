@@ -383,7 +383,6 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
         <>
           {deciding ? (
             <>
-              <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => act('more-info')}>Ask for more</button>
               <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => act('reject')}>Reject</button>
               <button type="button" className="ui-btn ui-btn-primary" disabled={Boolean(busy)} onClick={() => act('approve')}>{busy === 'approve' ? 'Approving…' : 'Approve'}</button>
             </>
@@ -392,6 +391,7 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
           {mine && ['WAITING', 'MORE_INFO'].includes(open.status) ? <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => act('withdraw')}>Withdraw</button> : null}
         </>
       ) : null}
+      more={deciding ? [{ key: 'more-info', label: 'Ask for more', disabled: Boolean(busy), onSelect: () => act('more-info') }] : null}
     >
       {list.error && !open ? <ErrorState error={list.error} onRetry={list.reload} compact /> : gone ? (
         <EmptyState title="No longer waiting" description="Someone decided this or it was withdrawn since your list was loaded." />

@@ -287,8 +287,6 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
     </>
   ) : r.status === 'PENDING' && canDecide ? (
     <>
-      {canCancel ? <button type="button" className="ui-btn ui-btn-ghost mr-auto" disabled={busy} onClick={cancel}>Withdraw</button> : null}
-      {changeable ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => setEditing(true)}>Change</button> : null}
       <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={reject}><X size={16} aria-hidden="true" /> Reject</button>
       {canApprove ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy || Boolean(d.waitingForManager)} onClick={approve}><Check size={16} aria-hidden="true" /> Approve</button> : null}
     </>
@@ -299,9 +297,14 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
       <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={cancel}>{r.status === 'APPROVED' ? 'Cancel leave' : 'Withdraw'}</button>
     </>
   ) : null;
+  /* Deciding, Withdraw and Change sit before Reject and Approve; on a phone they go behind the sheet's ⋮ (design audit, 4 Nov 2026). */
+  const more = r && !shortening && r.status === 'PENDING' && canDecide ? [
+    canCancel ? { key: 'withdraw', label: 'Withdraw', className: 'ui-btn ui-btn-ghost mr-auto', disabled: busy, onSelect: cancel } : null,
+    changeable ? { key: 'change', label: 'Change', disabled: busy, onSelect: () => setEditing(true) } : null,
+  ] : null;
 
   return (
-    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={r ? `${r.employeeName}: ${r.leaveTypeName}` : 'Leave request'} actions={actions} dirty={Boolean(note.trim()) || Boolean(shortTo)}>
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={r ? `${r.employeeName}: ${r.leaveTypeName}` : 'Leave request'} actions={actions} more={more} dirty={Boolean(note.trim()) || Boolean(shortTo)}>
       {req.error ? <ErrorState error={req.error} onRetry={req.reload} compact /> : !d ? <div className="ui-skel ui-skel-text" aria-busy="true" /> : (
         <div className="space-y-6">
           <dl className="grid grid-cols-2 gap-4 text-sm">

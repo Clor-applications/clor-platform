@@ -7963,7 +7963,7 @@ th.ui-th {
   .ui-datepicker-day { height: 2.75rem; }
 }
 
-.ui-drawer-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; padding: 0.75rem 1.25rem; border-top: 1px solid rgb(var(--border)); background: rgb(var(--surface)); }
+.ui-drawer-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; padding: 0.75rem 1.25rem calc(0.75rem + env(safe-area-inset-bottom)); border-top: 1px solid rgb(var(--border)); background: rgb(var(--surface)); }
 
 /* DataTable (People design v1 §5) */
 .ui-datatable-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.75rem 0; }
@@ -8238,14 +8238,13 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 
 /*
  * People → Home, soft structural (28 Oct 2026). Silver ground; every block a
- * double bezel: a tinted tray with a hairline ring, a white core inside with
+ * white core (the double bezel that once framed it was removed, 4 Nov 2026), with
  * a top highlight, radii concentric. Shadows are wide and faint, so blocks
  * float rather than sit. Motion is one spring curve for everything.
  */
 :root {
   --soft-ease: cubic-bezier(0.32, 0.72, 0, 1);
   --soft-r: 1.5rem;
-  --soft-pad: 0.375rem;
   --soft-tray: 24 24 27 / 0.022;
   --soft-ring: 24 24 27 / 0.05;
   --soft-ambient: 0 1px 1px rgb(24 24 27 / 0.02), 0 12px 40px -16px rgb(24 24 27 / 0.12);

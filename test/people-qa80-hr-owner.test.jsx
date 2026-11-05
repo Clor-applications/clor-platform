@@ -1,4 +1,5 @@
 import React from 'react';
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 
@@ -57,7 +58,9 @@ describe('Announcements: "For" names a department audience saved without its wor
 describe('Home: the "Your company has grown" card on a phone', () => {
   it('keeps its words a readable width, so the buttons wrap below instead of squeezing them', async () => {
     render(<PermissionContext.Provider value={{ permissions: new Set(), isAdmin: true }}><HomeSetup openScreen={() => {}} /></PermissionContext.Provider>);
-    const heading = await screen.findByRole('heading', { name: 'Your company has grown' });
-    expect(heading.parentElement.className).toMatch(/\bbasis-64\b/);
+    /* Since the design audit (4 Nov 2026) it is one line: its words take the full width, the buttons go under them on a phone. */
+    const line = await screen.findByRole('status', { name: 'Your company has grown' });
+    expect(line.className).toMatch(/\bpeople-simple-line\b/);
+    expect(readFileSync('packages/ui/src/people.css', 'utf8')).toMatch(/\.people-simple-line > p \{ flex-basis: 100%; \}/);
   });
 });
