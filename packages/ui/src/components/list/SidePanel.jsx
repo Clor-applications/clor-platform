@@ -184,6 +184,8 @@ export function DateTile({ iso }) {
  * Where to go next: small chips with their icons, two to a row. A link that
  * names its `screen` shows only when that screen is in `navItems` (the nav the
  * shell kept for this person), so nobody is sent to a page that refuses them.
+ * A link's `tint` (sky, mint, peach, lilac, butter) colours its mark by what it
+ * opens, never by its place in the list; butter (marigold) only for what waits on you.
  */
 export function SideLinks({ links, navItems = null }) {
   const mark = useContentIcon();
@@ -194,8 +196,8 @@ export function SideLinks({ links, navItems = null }) {
     <section className="ui-side-block">
       <div className="ui-side-head"><h2 className="ui-side-title">Quick links</h2></div>
       <div className="ui-side-chips">
-        {shown.map(({ label, onClick, icon: Icon }) => (
-          <button key={label} type="button" className="ui-side-chip" onClick={onClick}>
+        {shown.map(({ label, onClick, icon: Icon, tint }) => (
+          <button key={label} type="button" className="ui-side-chip" data-tint={tint || undefined} onClick={onClick}>
             {Icon ? <Icon size={14} aria-hidden="true" /> : null}
             <span>{label}</span>
           </button>

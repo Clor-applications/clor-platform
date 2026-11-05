@@ -6,6 +6,12 @@
 - Next: coder fixes; re-review.
 - Blocked on: nothing.
 
+## 2026-11-04 IST — People — re-review of #123 63eeccd6
+- Did: re-reviewed the colour fixes; not ready: Home's waiting panel clay while Announcements/Celebrate marigold; JSX still picks tints by index (news, events, org cards, org chart, structure), so a department changes colour per screen; faces include a marigold hue.
+- Evidence: CI green; 83 tests passed; Payroll Salary revisions 0 pixels differ at 1440 and 390; contrast 5.53–8.98:1; no sideways scroll at 390.
+- Next: coder fixes; re-review.
+- Blocked on: nothing.
+
 ## 2026-10-31 IST — People — review of #81 a300cb7a..eebafd40
 - Did: reviewed #81 a300cb7a..eebafd40 (13 QA fixes), ready for QA retest; 4 should-fix (lastDayMoved reopens prior-stint wages, 20:00 cut-off drops final-pay notices, celebrations PUT not hrOnly, migration leaves done withdrawn steps).
 - Evidence: 74+33+33 tests green, migration safe to rerun as clor_app, no drift.

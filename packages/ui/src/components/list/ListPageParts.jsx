@@ -62,6 +62,8 @@ export function StatCards({ cards, company, dense = false }) {
    */
   const anyHint = shown.some((c) => c.hint);
 
+  /* `tint` (sky, mint, peach, lilac, butter) names the card's mark by meaning in People, where it overrides the tone's
+     colour; butter (marigold) only for a figure that waits on the reader. Elsewhere the tone colours the card. */
   /* A card that names a destination is a control: rendered as a button —
      focusable, keyboard-operable — while a plain figure stays a div. Same
      tile either way. */
@@ -71,12 +73,13 @@ export function StatCards({ cards, company, dense = false }) {
         type="button"
         onClick={card.onSelect}
         className={`ui-card px-3 flex items-center text-left w-full cursor-pointer ${dense ? 'py-1.5 gap-1.5' : 'py-2 gap-2'}`}
+        data-tint={card.tint || undefined}
         aria-label={`${card.label} — open`}
       >
         {children}
       </button>
     ) : (
-      <div className={`ui-card px-3 flex items-center ${dense ? 'py-1.5 gap-1.5' : 'py-2 gap-2'}`}>{children}</div>
+      <div className={`ui-card px-3 flex items-center ${dense ? 'py-1.5 gap-1.5' : 'py-2 gap-2'}`} data-tint={card.tint || undefined}>{children}</div>
     );
 
   return (
