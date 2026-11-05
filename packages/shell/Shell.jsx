@@ -920,6 +920,7 @@ export default function Shell() {
               key={item.key}
               type="button"
               className="ui-split-item"
+              title={item.label}
               aria-current={isCurrent(item.key) ? 'page' : undefined}
               onClick={() => goTo(item.key)}
             >

@@ -948,7 +948,7 @@
 :root[data-palette='sky'] #main-content { padding-top: 1rem; }
 :root[data-palette='sky'] #main-content .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
 :root[data-palette='sky'] #main-content .ui-page-heading { margin-bottom: 0; padding-top: 0; min-height: 0; }
-:root[data-palette='sky'] #main-content .ui-page-heading .ui-t-page { font-size: 1.5rem !important; line-height: 2rem !important; }
+:root[data-palette='sky'] #main-content .ui-page-heading .ui-t-page { font-size: 1.25rem !important; line-height: 1.625rem !important; }
 :root[data-palette='sky'] #main-content .ui-page-heading p.ui-muted { display: none; }
 :root[data-palette='sky'] #main-content .ui-breadcrumb { margin-bottom: 0.125rem; font-size: 0.75rem; }
 :root[data-palette='sky'] #main-content .ui-btn:not(.ui-icon-btn):not(.ui-btn-sm) { height: 2.25rem; min-height: 2.25rem; padding-inline: 1rem; font-size: 0.875rem; }
@@ -1607,7 +1607,7 @@
    450 so small grey lines stop looking thin; the open letterforms (cv11
    single-storey a, ss03 round quotes) and tabular figures in data. */
 :root[data-palette='sky'] #main-content { font-weight: 450; font-feature-settings: 'cv11', 'ss03'; }
-:root[data-palette='sky'] #main-content :is(h1, .ui-t-page) { font-size: 1.625rem; line-height: 2rem; font-weight: 800; letter-spacing: -0.025em; }
+:root[data-palette='sky'] #main-content :is(h1, .ui-t-page) { font-size: 1.25rem; line-height: 1.625rem; font-weight: 800; letter-spacing: -0.5px; }
 :root[data-palette='sky'] #main-content :is(h2, .ui-t-sec) { font-weight: 700; letter-spacing: -0.015em; }
 :root[data-palette='sky'] #main-content .ui-table td { font-feature-settings: 'cv11', 'ss03', 'tnum'; }
 :root[data-palette='sky'] #main-content .ui-table thead th { color: rgb(var(--fg-muted)); font-weight: 600; letter-spacing: 0.01em; background: rgb(var(--heading-bg)); }
@@ -2117,7 +2117,7 @@ html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel :is(p.ui-caption, .ui-caption) { color: rgb(var(--on-panel-muted)); }
 
 /* The work area: white, titles a step larger, colour in blocks. */
-html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading .ui-t-page { font-size: 1.75rem !important; line-height: 2.125rem !important; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-page-heading .ui-t-page { font-size: 1.25rem !important; line-height: 1.625rem !important; }
 /*
  * Home: the greeting sits on the white page, no card (owner, 3 Nov 2026: "remove hero card"; it was an oxblood block
  * from 2 Nov). The title in oxblood, a count above nought in red words, the date on a blush pill; the quick links are
