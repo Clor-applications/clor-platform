@@ -106,7 +106,6 @@
 .oc [data-tone='mint'] { --oc-soft: var(--mint-soft); --oc-ink: var(--mint-ink); }
 .oc [data-tone='lilac'] { --oc-soft: var(--lilac-soft); --oc-ink: var(--lilac-ink); }
 .oc [data-tone='peach'] { --oc-soft: var(--peach-soft); --oc-ink: var(--peach-ink); }
-.oc [data-tone='butter'] { --oc-soft: var(--butter-soft); --oc-ink: var(--butter-ink); }
 
 .oc-card {
   position: relative;
