@@ -845,6 +845,7 @@ export default function Shell() {
             aria-current={current ? 'true' : undefined}
             aria-expanded={m.single ? undefined : panelShown}
             data-current={current || undefined}
+            data-tint={m.tint || undefined}
             title={m.label}
             onClick={() => {
               const action = railAction({ single: m.single, phone, panelShown, opensHome: Boolean(app?.railOpensHome), current });

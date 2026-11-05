@@ -8614,3 +8614,40 @@ html:root:not([data-theme='dark']):is([data-palette='cyan'], [data-palette='blaz
   background: rgb(var(--blush)); color: rgb(var(--oxblood)); box-shadow: inset 0 0 0 1px rgb(var(--brand-border));
 }
 html:root:not([data-theme='dark']):is([data-palette='cyan'], [data-palette='blaze'], :not([data-palette])) .ui-split-mod[data-current] > svg { color: rgb(var(--brand)); }
+
+/* ---------------------------------------------------------------------------
+   The other neons beside each app's own (owner, 6 Nov 2026: "use all the
+   other colours also along with primary colour"). Every app but Accounting,
+   light theme. The app's neon stays the action and where you are; the rest of
+   the family marks meaning, each as tint + ink (ink 4.5:1 or more on its tint):
+     Cobalt     #0052FF  ink #0038B8  tint #EDF3FF  sent, information
+     Emerald    #00C853  ink #008736  tint #E8FBF0  paid, done, money in
+     Mulberry   #7C3AED  ink #6D28D9  tint #F5F0FF  partial, refund, structure
+     Tangerine  #FF5400  ink #BA3900  tint #FFF3ED  outstanding, waiting
+     Cyan       #00A3FF  ink #006DB2  tint #EDF8FF  people and teams (sky tint)
+     Coral      #FF1356  ink #B80036  tint #FFF0F4  celebrations
+   Overdue keeps the error red, so a brand colour never reads as a fault.
+--------------------------------------------------------------------------- */
+html:root:not([data-theme='dark']):not([data-palette='indigo']),
+html:root:not([data-theme='dark']) :is([data-palette='sky'], [data-palette='blaze'], [data-palette='cyan']) {
+  --sky-soft: 237 248 255; --sky-ink: 0 109 178;
+  --mint-soft: 232 251 240; --mint-ink: 0 135 54;
+  --lilac-soft: 245 240 255; --lilac-ink: 109 40 217;
+  --peach-soft: 255 243 237; --peach-ink: 186 57 0;
+  --butter-soft: 255 240 244; --butter-ink: 184 0 54;
+  --cobalt-soft: 237 243 255; --cobalt-ink: 0 56 184;
+  --st-sent-soft: 237 243 255; --st-sent-strong: 204 224 255; --st-sent-key: 0 82 255; --st-sent-ink: 0 56 184;
+  --st-paid-soft: 232 251 240; --st-paid-strong: 183 245 208; --st-paid-key: 0 200 83; --st-paid-ink: 0 135 54;
+  --st-partial-soft: 245 240 255; --st-partial-strong: 228 216 253; --st-partial-key: 124 58 237; --st-partial-ink: 109 40 217;
+  --st-refund-soft: 245 240 255; --st-refund-strong: 228 216 253; --st-refund-key: 124 58 237; --st-refund-ink: 109 40 217;
+  --st-outstanding-soft: 255 243 237; --st-outstanding-strong: 255 212 194; --st-outstanding-key: 255 84 0; --st-outstanding-ink: 186 57 0;
+  --st-draft-soft: 248 250 252; --st-draft-strong: 226 232 240; --st-draft-key: 100 116 139; --st-draft-ink: 51 65 85;
+  --pos: 0 135 54; --pos-soft: 232 251 240;
+  --warn: 186 57 0; --warn-ink: 186 57 0; --warn-soft: 255 243 237;
+  --info: 0 56 184; --info-soft: 237 243 255;
+}
+[data-tint='cobalt'] { --tint: var(--cobalt-soft); --tint-ink: var(--cobalt-ink); }
+/* A figure's mark: its icon on its own tint (`data-tint` on the card), so a row of figures reads in several colours. */
+.ui-figure-mark { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; flex: none; border-radius: var(--radius-btn); background: rgb(var(--tint, var(--surface-sunken))); color: rgb(var(--tint-ink, var(--fg-muted))); }
+/* A rail module may name a family colour (`tint` in the manifest): its icon wears that ink; the open module keeps the app's neon. */
+html:root:not([data-theme='dark']):not([data-palette='indigo']) .ui-split-mod[data-tint]:not([data-current]) > svg { color: rgb(var(--tint-ink)); }
