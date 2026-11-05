@@ -3,7 +3,7 @@ import { payrollPrisma } from '../../../utils/payrollPrisma.js';
 import { usersWithPermission } from '../../notifications.js';
 import type { Actor } from '../changeLog.js';
 import {
-  ApprovalError, closeAtSource, decide, handOnStep, onSource, openSourced, reassignStep, restartSourced,
+  ApprovalError, closeAtSource, decide, handOnStep, onSource, openSourced, reassignStep, restartSourced, reverseSourced,
   type Req, type Resolution,
 } from './engine.js';
 import { payrollPresetRule } from './presets.js';
@@ -128,11 +128,12 @@ export async function openOnPayrollEngine(p: { accountId: string; orgId: string;
       const payload = { employeeId: p.employeeId, preset: 'PAYROLL', ...(p.facts || {}) };
       const actor = actorFor(accountId, orgId, p.by, sourceId);
       const existing = await engineOf(orgId, source, sourceId);
-      if (existing) {
-        if (existing.status === 'WAITING') return true;
-        return Boolean(await restartSourced(actor, existing.id, { sourceId, payload, rule, why: 'Sent for approval again', reopen: true }));
-      }
       const person = await peoplePrisma.employee.findFirst({ where: { id: p.employeeId, orgId }, select: { userId: true } });
+      if (existing) {
+        if (existing.status === 'WAITING' && existing.subjectEmployeeId === p.employeeId) return true;
+        const subject = { subjectEmployeeId: p.employeeId, requesterUserId: person?.userId || portalOf(p.employeeId), title: p.title };
+        return Boolean(await restartSourced(actor, existing.id, { sourceId, payload, rule, why: 'Sent for approval again', reopen: true, subject }));
+      }
       await openSourced(actor, {
         requestType: source, sourceKind: source, sourceId, subjectEmployeeId: p.employeeId,
         /* Who it is about is who it is for, whoever prepared it: they never decide it, and the preparer still may, as maker-checker allows (as today). */
@@ -157,13 +158,10 @@ export type PayrollAsk = { engineId: string; take: 'STEP' | 'DIRECT' } | null;
  * maker-checker setting allows it), and otherwise refused (403 NOT_YOUR_STEP).
  */
 export async function askPayrollEngine(p: { accountId: string; orgId: string; source: PayrollSource; sourceId: string; userId: string; approve: boolean; ownAllowed?: boolean }): Promise<PayrollAsk> {
+  /* Decided on the row meanwhile (an older API, or a step not recorded): brought in line first, then the old path. */
+  await syncPayrollEngine(p.accountId, p.orgId, p.source, p.sourceId);
   const engine = await engineOf(p.orgId, p.source, p.sourceId);
-  if (!engine) return null;
-  if (!onEngine(engine)) {
-    /* Decided on the row meanwhile (an older API, or a step not recorded): closed to match, then the old path. */
-    await syncPayrollEngine(p.accountId, p.orgId, p.source, p.sourceId);
-    return null;
-  }
+  if (!engine || !onEngine(engine)) return null;
   const { candidates, excluded } = await deciders(p.accountId, p.orgId, p.source, engine.subjectEmployeeId, p.userId);
   if (candidates.includes(p.userId)) return { engineId: engine.id, take: 'STEP' };
   if (excluded.has(p.userId) && p.ownAllowed) return { engineId: engine.id, take: 'DIRECT' };
@@ -200,16 +198,50 @@ export async function recordOnPayrollEngine(p: { accountId: string; orgId: strin
 }
 
 /**
- * The row stopped waiting outside a decision (cancelled, or a revision edited back to draft): its engine request is
- * withdrawn. Idempotent; nothing for a row not on the engine. Never fails Payroll's request.
+ * The draft is now about someone else (a loan moved to another person while a draft): its request starts again about
+ * them, with their name and their own-record rule. When nobody but the new person could approve it, the request is
+ * withdrawn and the row goes on the old path, which refuses or allows it as Payroll does. Called whatever the switch
+ * says: a request already open must follow its row. Never fails Payroll's request.
  */
-export async function withdrawOnPayrollEngine(accountId: string, orgId: string, source: PayrollSource, sourceId: string, why: string, by: string | null) {
+export async function resubjectOnPayrollEngine(p: { accountId: string; orgId: string; source: PayrollSource; sourceId: string; employeeId: string; title: string; by: string | null; facts?: Record<string, unknown> }) {
+  const { accountId, orgId, source, sourceId } = p;
   try {
     const engine = await engineOf(orgId, source, sourceId);
-    if (!engine || !['WAITING', 'MORE_INFO'].includes(engine.status)) return false;
-    return await peopleWrite(orgId, () => closeAtSource(actorFor(accountId, orgId, by, sourceId), engine.id, 'WITHDRAWN', why));
+    if (!engine || engine.status !== 'WAITING' || engine.subjectEmployeeId === p.employeeId) return false;
+    try {
+      return await peopleWrite(orgId, async () => {
+        const rule = await payrollPresetRule({ accountId, orgId }, source);
+        const person = await peoplePrisma.employee.findFirst({ where: { id: p.employeeId, orgId }, select: { userId: true } });
+        const subject = { subjectEmployeeId: p.employeeId, requesterUserId: person?.userId || portalOf(p.employeeId), title: p.title };
+        return Boolean(await restartSourced(actorFor(accountId, orgId, p.by, sourceId), engine.id, { sourceId, payload: { employeeId: p.employeeId, preset: 'PAYROLL', ...(p.facts || {}) }, rule, why: 'Now about someone else: asked again', subject }));
+      });
+    } catch (e) {
+      if (!(e instanceof ApprovalError)) throw e;
+      await peopleWrite(orgId, () => closeAtSource(actorFor(accountId, orgId, p.by, sourceId), engine.id, 'WITHDRAWN', 'Now about someone nobody else can approve for: decided in Payroll'));
+      return false;
+    }
   } catch (e) {
-    console.error(`[payroll-engine] ${orgId}: ${source} ${sourceId} not withdrawn on the engine:`, e instanceof Error ? e.message : e); // eslint-disable-line no-console
+    console.error(`[payroll-engine] ${orgId}: ${source} ${sourceId} not moved to its new person on the engine:`, e instanceof Error ? e.message : e); // eslint-disable-line no-console
+    return false;
+  }
+}
+
+/**
+ * The row stopped waiting outside a decision, or was reversed after approval: a waiting request is withdrawn (cancelled,
+ * or a revision edited back to draft); an approved one is closed as reversed, with who did it and why (a loan or
+ * settlement cancelled once approved: WITHDRAWN; a revision rejected once approved: REJECTED). Idempotent; nothing for
+ * a row not on the engine. Never fails Payroll's request.
+ */
+export async function withdrawOnPayrollEngine(accountId: string, orgId: string, source: PayrollSource, sourceId: string, why: string, by: string | null, after: { status: 'REJECTED' | 'WITHDRAWN'; why: string } = { status: 'WITHDRAWN', why: 'Cancelled in Payroll after approval' }) {
+  try {
+    const engine = await engineOf(orgId, source, sourceId);
+    if (!engine) return false;
+    const actor = actorFor(accountId, orgId, by, sourceId);
+    if (engine.status === 'APPROVED') return await peopleWrite(orgId, () => reverseSourced(actor, engine.id, after.status, after.why));
+    if (!['WAITING', 'MORE_INFO'].includes(engine.status)) return false;
+    return await peopleWrite(orgId, () => closeAtSource(actor, engine.id, 'WITHDRAWN', why));
+  } catch (e) {
+    console.error(`[payroll-engine] ${orgId}: ${source} ${sourceId} not closed on the engine:`, e instanceof Error ? e.message : e); // eslint-disable-line no-console
     return false;
   }
 }
@@ -233,16 +265,22 @@ async function rowState(orgId: string, source: PayrollSource, sourceId: string):
 }
 
 /**
- * An engine request still waiting whose Payroll row is not (a step not recorded after Payroll's write, an older API
- * during a rollback): brought in line with the row, an approval as the person Payroll names as approver. Answers
- * whether it moved.
+ * An engine request out of line with its Payroll row: still waiting while the row was decided (a step not recorded
+ * after Payroll's write, an older API during a rollback), taken as the person Payroll names as approver; or approved
+ * while the row was reversed since, closed as reversed. Answers whether it moved.
  */
 export async function syncPayrollEngine(accountId: string, orgId: string, source: PayrollSource, sourceId: string) {
   try {
     const engine = await engineOf(orgId, source, sourceId);
-    if (!onEngine(engine)) return false;
+    if (!engine) return false;
     const row = await rowState(orgId, source, sourceId);
     if (!row || row.state === 'WAITING') return false;
+    /* Approved on the engine, reversed in Payroll since (an older API): closed as reversed. */
+    if (engine.status === 'APPROVED') {
+      if (row.state === 'APPROVED') return false;
+      return await peopleWrite(orgId, () => reverseSourced(actorFor(accountId, orgId, null, engine.id), engine.id, row.state === 'REJECTED' ? 'REJECTED' : 'WITHDRAWN', row.state === 'REJECTED' ? 'Rejected in Payroll after approval' : 'Cancelled in Payroll after approval'));
+    }
+    if (!onEngine(engine)) return false;
     return await peopleWrite(orgId, async () => {
       const actor = actorFor(accountId, orgId, row.by, engine.id);
       if (row.state === 'APPROVED' && row.by) return handOnStep(actor, engine.id, { approvedBy: row.by, why: 'Approved in Payroll' });

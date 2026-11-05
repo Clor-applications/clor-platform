@@ -1129,7 +1129,7 @@ async function finishSourced(actor: Actor, requestId: string, done: boolean, fal
  * The record changed while it waited (a leave's dates or type): its request starts again from the
  * first step under `rule`, and says so. Steps already decided stay in its story.
  */
-export async function restartSourced(actor: Actor, requestId: string, input: { sourceId: string; payload: Payload; rule: RuleRow; why: string; reopen?: boolean }): Promise<{ request: RequestRow; done: boolean } | null> {
+export async function restartSourced(actor: Actor, requestId: string, input: { sourceId: string; payload: Payload; rule: RuleRow; why: string; reopen?: boolean; subject?: { subjectEmployeeId: string; requesterUserId: string; title: string } }): Promise<{ request: RequestRow; done: boolean } | null> {
   const audits: Audit[] = [];
   const ruleSteps = stepsOfRule(input.rule);
   const state = await peoplePrisma.$transaction(async (tx) => {
@@ -1138,7 +1138,8 @@ export async function restartSourced(actor: Actor, requestId: string, input: { s
     /* `reopen`: a record sent back and asked again (a salary revision edited back to draft, then sent for approval): its withdrawn request opens again. */
     if (!r || !['WAITING', 'MORE_INFO', ...(input.reopen ? ['WITHDRAWN'] : [])].includes(r.status)) return 'NONE' as const;
     await tx.approvalStep.updateMany({ where: { requestId, status: { in: ['WAITING', 'MORE_INFO'] } }, data: { status: 'WITHDRAWN', comment: input.why.slice(0, 1000), decidedAt: new Date() } });
-    const fresh = await tx.approvalRequest.update({ where: { id: requestId }, data: { sourceId: input.sourceId, payload: { ...input.payload, restartedAt: new Date().toISOString() } as unknown as Prisma.InputJsonValue, ruleId: input.rule.id, ruleVersion: input.rule.version, ruleVariant: input.rule.variantKey, status: 'WAITING', currentStep: 1 } });
+    /* `subject`: the record is now about someone else (a draft loan moved to another person): asked again about them. */
+    const fresh = await tx.approvalRequest.update({ where: { id: requestId }, data: { ...(input.subject ? { subjectEmployeeId: input.subject.subjectEmployeeId, requesterUserId: input.subject.requesterUserId, title: input.subject.title.slice(0, 200) } : {}), sourceId: input.sourceId, payload: { ...input.payload, restartedAt: new Date().toISOString() } as unknown as Prisma.InputJsonValue, ruleId: input.rule.id, ruleVersion: input.rule.version, ruleVariant: input.rule.variantKey, status: 'WAITING', currentStep: 1 } });
     await writeChangeLog(tx, { ...actor, reason: input.why }, { kind: 'ApprovalRequest', id: requestId, employeeId: fresh.subjectEmployeeId }, [{ field: 'steps', before: 'WAITING', after: 'ASKED AGAIN', redacted: false }]);
     /* Approvals before the change do not count for the new steps. */
     return openStep(tx, { accountId: actor.accountId, orgId: actor.orgId }, { id: fresh.id, requestType: fresh.requestType, requesterUserId: fresh.requesterUserId, subjectEmployeeId: fresh.subjectEmployeeId, payload: fresh.payload, ruleSteps }, 1, audits);
@@ -1162,6 +1163,24 @@ export async function closeAtSource(actor: Actor, requestId: string, status: 'AP
     await tx.approvalStep.updateMany({ where: { requestId, status: { in: ['WAITING', 'MORE_INFO'] } }, data: { status: status === 'WITHDRAWN' ? 'WITHDRAWN' : 'SKIPPED', comment: why.slice(0, 1000), decidedAt: new Date() } });
     await tx.approvalRequest.update({ where: { id: requestId }, data: { status } });
     await writeChangeLog(tx, { ...actor, reason: why }, { kind: 'ApprovalRequest', id: requestId, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: r.status, after: status, redacted: false }]);
+    return true;
+  });
+}
+
+/**
+ * The module's record was reversed after its request was approved (a salary revision rejected once approved, a loan or
+ * settlement cancelled once approved): the request closes as REJECTED or WITHDRAWN, and a closing step names who did it
+ * and why. Idempotent: only an APPROVED request moves.
+ */
+export async function reverseSourced(actor: Actor, requestId: string, status: 'REJECTED' | 'WITHDRAWN', why: string) {
+  return peoplePrisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-decide:${requestId}`}))`;
+    const r = await tx.approvalRequest.findFirst({ where: { id: requestId, orgId: actor.orgId } });
+    if (!r || r.status !== 'APPROVED') return false;
+    const now = new Date();
+    await tx.approvalStep.create({ data: { accountId: r.accountId, orgId: r.orgId, requestId, order: r.currentStep, candidateUserIds: [], approverUserId: actor.userId, dueAt: now, status, decidedByUserId: actor.userId, decidedAt: now, comment: why.slice(0, 1000) } });
+    await tx.approvalRequest.update({ where: { id: requestId }, data: { status } });
+    await writeChangeLog(tx, { ...actor, reason: why }, { kind: 'ApprovalRequest', id: requestId, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: 'APPROVED', after: status, redacted: false }]);
     return true;
   });
 }

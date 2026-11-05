@@ -11,7 +11,7 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/pa
 import { PayrollLoanError, approveLoan, buildSchedule, summarise } from '../services/payroll/loan.js';
 import { forLiveEmployee } from '../services/payroll/employeeLock.js';
 import { ownRecordUnlessAlone, ownWorkRefusal, subjectUserIds } from '../services/makerChecker.js';
-import { LOAN_SOURCE, PayrollEngineRefusal, askPayrollEngine, openOnPayrollEngine, recordOnPayrollEngine, withdrawOnPayrollEngine } from '../services/people/approvals/payrollSource.js';
+import { LOAN_SOURCE, PayrollEngineRefusal, askPayrollEngine, openOnPayrollEngine, recordOnPayrollEngine, resubjectOnPayrollEngine, syncPayrollEngine, withdrawOnPayrollEngine } from '../services/people/approvals/payrollSource.js';
 
 /**
  * Loans and salary advances.
@@ -312,6 +312,11 @@ payrollLoansRouter.put(
         notes: parsed.data.notes?.trim() || null,
       },
     });
+    /* Moved to another person while a draft: its approval request starts again about them (review of #126). */
+    if (existing.employeeId !== parsed.data.employeeId) {
+      const person = await peoplePrisma.employee.findFirst({ where: { orgId, id: parsed.data.employeeId }, select: { name: true } });
+      await resubjectOnPayrollEngine({ accountId, orgId, source: LOAN_SOURCE, sourceId: existing.id, employeeId: parsed.data.employeeId, title: `${parsed.data.type === 'SALARY_ADVANCE' ? 'Salary advance' : 'Loan'} ${existing.number} for ${person?.name || 'an employee'}`, by: req.auth!.userId, facts: { amount: parsed.data.principal } });
+    }
     res.json({ loan: shape(row) });
   }
 );
@@ -330,23 +335,30 @@ payrollLoansRouter.post(
      * (owner's decision, 4 Nov 2026; SPEC 5.6 and 4). Someone alone in the company follows the setting, never a dead end.
      * A loan already approved answers as it is, as before.
      */
-    const target = await payrollPrisma.payrollLoan.findFirst({ where: { accountId, orgId, id: loanId }, select: { employeeId: true, createdByUserId: true, status: true } });
-    let alone = false;
+    /* A request out of line with its loan (approved here, its step not recorded) is brought in line first. */
+    await syncPayrollEngine(accountId, orgId, LOAN_SOURCE, loanId);
+    const target = await payrollPrisma.payrollLoan.findFirst({ where: { accountId, orgId, id: loanId }, select: { employeeId: true, createdByUserId: true, status: true, recoveryComponentId: true } });
+    let ask: Awaited<ReturnType<typeof askPayrollEngine>> = null;
     if (target && !['ACTIVE', 'COMPLETED', 'CANCELLED'].includes(target.status)) {
       const own = await ownRecordUnlessAlone(req, target.employeeId, { what: 'loan', does: 'approve it', right: 'approve it', plural: 'loans', module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_LOAN', entityId: loanId });
       if (own.refusal) return res.status(own.refusal.status).json(own.refusal.body);
-      alone = own.alone;
       const mine = await ownWorkRefusal(req, { makers: [target.createdByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_LOAN', entityId: loanId, what: 'loan', subjects: await subjectUserIds(orgId, target.employeeId) });
       if (mine) return res.status(mine.status).json(mine.body);
+      /* On the approval engine (3a), after Payroll's own checks: may this person decide its step? Recorded once the loan is approved. */
+      if (target.recoveryComponentId) {
+        try {
+          ask = await askPayrollEngine({ accountId, orgId, source: LOAN_SOURCE, sourceId: loanId, userId, approve: true, ownAllowed: own.alone });
+        } catch (e) {
+          if (e instanceof PayrollEngineRefusal) return res.status(e.status).json({ error: e.message, code: e.code });
+          throw e;
+        }
+      }
     }
     try {
-      /* On the approval engine (3a): the engine is asked whether this person may decide its step, and the step is recorded once the loan is approved. */
-      const ask = await askPayrollEngine({ accountId, orgId, source: LOAN_SOURCE, sourceId: loanId, userId, approve: true, ownAllowed: alone });
       const loan = await approveLoan({ accountId, orgId, userId, loanId });
       if ((loan as { approvedNow?: boolean }).approvedNow) await recordOnPayrollEngine({ accountId, orgId, source: LOAN_SOURCE, sourceId: loanId, userId, approve: true, ask });
       res.json({ loan: shape(loan, { installments: (loan as any).installments?.map(shapeInstallment) || [] }) });
     } catch (e) {
-      if (e instanceof PayrollEngineRefusal) return res.status(e.status).json({ error: e.message, code: e.code });
       return handle(res, e);
     }
   }

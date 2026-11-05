@@ -21,7 +21,7 @@ import { SourcesChangedError, closePayrollSources, closePeopleSources, keepSourc
 import { releaseHold, AbsenceError } from '../services/people/absconding.js';
 import { applyRecoveryCap, fnfCapPercent, isRecovery, leavingSlipBasis, withRecoverWishes, type RecoveryCap, type SlipBasis } from '../services/payroll/fnfRecoveryCap.js';
 import { todayIst } from '../utils/istDate.js';
-import { PayrollEngineRefusal, SETTLEMENT_SOURCE, askPayrollEngine, openOnPayrollEngine, recordOnPayrollEngine, withdrawOnPayrollEngine } from '../services/people/approvals/payrollSource.js';
+import { PayrollEngineRefusal, SETTLEMENT_SOURCE, askPayrollEngine, openOnPayrollEngine, recordOnPayrollEngine, syncPayrollEngine, withdrawOnPayrollEngine } from '../services/people/approvals/payrollSource.js';
 
 /**
  * Full and final settlements for people who have left. Drafted from what CLOR
@@ -314,6 +314,8 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/approve', AP
   if (!(await payrollRouteOk(req, res))) return;
   const row = await findOwn(req, res);
   if (!row) return;
+  /* A request out of line with its settlement (approved here, its step not recorded) is brought in line first. */
+  await syncPayrollEngine(row.accountId, row.orgId, SETTLEMENT_SOURCE, row.id);
   if (row.status !== 'DRAFT') return res.status(409).json({ error: 'Only a draft can be approved.', code: 'NOT_DRAFT' });
   /* Never your own; whoever worked it out approves it only as the company's maker-checker setting allows (makerChecker.ts). */
   const refused = (await ownRecordRefusal(req, row.employeeId, 'full and final settlement', { who: await othersFor(req) })) || await ownWorkRefusal(req, { makers: [row.createdByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SETTLEMENT', entityId: row.id, what: 'settlement', who: await othersFor(req), subjects: await subjectUserIds(row.orgId, row.employeeId) });

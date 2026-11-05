@@ -55,7 +55,7 @@ const CAPTIONS = {
   },
   'payroll.onEngine': {
     false: 'Off: loans, salary revisions and final settlements are approved as they are today. Only the owner or an admin can turn this on.',
-    true: 'The same people approve them in Payroll, with the same checks: never your own, a second person where your company asks for one, and the authenticator code. Each records who approved it. Ones already waiting finish as they started.',
+    true: 'The same people approve them in Payroll, with the same checks: never your own unless nobody else can and your approval setting allows it, a second person where your company asks for one, and the authenticator code. Ones already waiting finish as they started.',
   },
   'notifications.withdrawn': {
     SHOW_WITHDRAWN: 'It says “Withdrawn”, is marked read and opens the closed request.',

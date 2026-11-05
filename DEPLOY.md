@@ -331,9 +331,11 @@ The migration adds one column, `PeopleSetting.payrollOnEngine`, default `false`.
   before, and nothing new is written. The deploy window and a rollback need nothing.
 - **The switch is a company choice** (People → Settings → Company choices, "Loans, salary revisions and final
   settlements are decided by the approval rules"), owner or admin only, audited.
-- **One change with the switch off too:** approving a loan claims the loan before its schedule is written, so two
-  approvals at once write one schedule and only the one that moved it is recorded. Same answer to both callers as
-  before.
+- **Changes with the switch off too:** approving a loan claims the loan before its schedule is written, so two
+  approvals at once write one schedule and only the one that moved it is recorded; the other caller now gets 200 with
+  the loan as it is (before, one of two simultaneous callers could get a 409). Nobody approves their own loan, and
+  nobody approves, rejects or puts into effect their own salary revision; loans follow maker-checker; someone alone in
+  the company follows the maker-checker setting (owner's decision, 4 Nov 2026).
 
 What a company with the switch on writes, and how an older API reads it:
 
@@ -349,9 +351,10 @@ What a company with the switch on writes, and how an older API reads it:
   Step 2 matters most for a rollback to a release before 2c, which reads an engine request as an ordinary People
   request. A release from 2c on leaves requests with a `sourceKind` alone.
 - **Rolling forward again.** A row whose engine request is no longer waiting is approved on the old path (never
-  stuck). A row the older API approved meanwhile has its waiting request brought in line when it is next approved or
-  rejected, or by the engine’s dues job once its step is two working days old, as approved by the person Payroll
-  names as approver.
+  stuck). A row the older API approved meanwhile has its waiting request brought in line when someone next approves
+  or rejects it (whatever Payroll then answers), or by the engine’s dues job once its step is two working days old, as
+  approved by the person Payroll names as approver. A row the older API rejected or cancelled after approval has its
+  approved request closed as reversed the same way.
 - **No notices, no reminders, no new job.** Payroll sends none for these today.
 
 ## A first-time setup, from nothing

@@ -11,7 +11,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { SalaryRevisionError, applyRevision, previewImpact } from '../services/payroll/revision.js';
 import { forLiveEmployee } from '../services/payroll/employeeLock.js';
-import { PayrollEngineRefusal, REVISION_SOURCE, askPayrollEngine, openOnPayrollEngine, recordOnPayrollEngine, withdrawOnPayrollEngine, type PayrollAsk } from '../services/people/approvals/payrollSource.js';
+import { PayrollEngineRefusal, REVISION_SOURCE, askPayrollEngine, openOnPayrollEngine, recordOnPayrollEngine, syncPayrollEngine, withdrawOnPayrollEngine, type PayrollAsk } from '../services/people/approvals/payrollSource.js';
 
 /**
  * Salary revisions, and what they actually cost.
@@ -346,6 +346,8 @@ const transition = (
       if (!(await payrollRouteOk(req, res))) return;
       const { accountId, orgId } = req.tenant!;
 
+      /* A request out of line with its revision (approved here, its step not recorded) is brought in line first. */
+      if (to === 'APPROVED' || to === 'REJECTED') await syncPayrollEngine(accountId, orgId, REVISION_SOURCE, String(req.params.id));
       const existing = await payrollPrisma.salaryRevision.findFirst({ where: { accountId, orgId, id: String(req.params.id) } });
       if (!existing) return res.status(404).json({ error: 'No such salary revision.' });
       if (!from.includes(existing.status)) {
@@ -403,6 +405,10 @@ const transition = (
       const moved = await payrollPrisma.salaryRevision.updateMany({ where: { id: existing.id, status: { in: from } }, data });
       if (moved.count !== 1) return res.status(409).json({ error: 'Somebody else has just changed this revision. Reload it.', code: 'REVISION_WRONG_STATE' });
       if (deciding) await recordOnPayrollEngine({ accountId, orgId, source: REVISION_SOURCE, sourceId: existing.id, userId: req.auth!.userId, approve: to === 'APPROVED', ask });
+      /* Rejected once approved: its approved request is closed as reversed (review of #126). */
+      if (to === 'REJECTED' && existing.status === 'APPROVED') await withdrawOnPayrollEngine(accountId, orgId, REVISION_SOURCE, existing.id, 'Rejected in Payroll', req.auth!.userId, { status: 'REJECTED', why: 'Rejected in Payroll after approval' });
+      /* Rejected while a draft: a request still open (none normally) is withdrawn. */
+      if (to === 'REJECTED' && existing.status === 'DRAFT') await withdrawOnPayrollEngine(accountId, orgId, REVISION_SOURCE, existing.id, 'Rejected in Payroll', req.auth!.userId);
       /* Sent for approval: with the company's switch on, through the approval engine; off, nothing more is written. */
       if (to === 'REVIEWED') {
         const person = await peoplePrisma.employee.findFirst({ where: { orgId, id: existing.employeeId }, select: { name: true } });

@@ -1,5 +1,11 @@
 # clor-coder-workflow — work log
 
+## 2026-11-05 IST — People / Workflow engine — PR #126 review fixes
+- Did: (1, blocker) a draft loan moved to another person restarts its engine request about them (subject, requester, title; `restartSourced` subject option, `resubjectOnPayrollEngine`, runs whatever the switch says); revisions and settlements cannot change person. (2, blocker) reversed after approval (revision rejected once approved, loan or settlement cancelled once approved) closes the approved request as REJECTED or WITHDRAWN with a closing step naming who and why (`reverseSourced`); sync does the same for an older API's reversal. (3) catch-up runs at the start of every approve or reject of the row, whatever Payroll answers, and from the dues job (tested). Nits: loan asks the engine after Payroll's own checks; DEPLOY.md race wording; Company choices caption true after the own-record block, no promise of steps on screen. SPEC 9 and DEPLOY.md updated.
+- Evidence: 4 new tests (catch-up on next approve, dues job, reversals, loan moved), 3 failed first; parity file 30/30; reviewer's probes now: P1 own loan 403 and subject updated, P2 engine REJECTED/WITHDRAWN, P3 caught up on next ask and by dues; R1 3 instalments every round. 64 affected server files on 5434 sequentially: 1114 passed (peopleCompanyChoices included). tsc clean; CompanyChoices web 9/9.
+- Next: re-review.
+- Blocked on: nothing.
+
 ## 2026-11-05 IST — People / Workflow engine — PR #126, owner's decision on your own loan and revision
 - Did: separate commit on #126: nobody approves their own loan, nor approves, rejects or puts into effect their own salary revision, on both paths (`ownRecordUnlessAlone`, settlements' own-record words); loans follow maker-checker (drafter, the person it is about not counted as another approver, as settlements; revisions now likewise). Alone in the company: maker-checker decides (AUTO/ALLOW allowed with SELF_APPROVED or SELF_REJECTED by name; STRICT refused in plain words). Engine: the parity exception table removed; a direct write only when Payroll allowed someone alone (`ownAllowed`). SPEC 9 as-built updated.
 - Evidence: 4 new tests and 3 changed failed first (6 failing), parity file 27/27 after; affected server files: see PR body.

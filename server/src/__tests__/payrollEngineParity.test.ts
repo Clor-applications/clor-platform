@@ -18,6 +18,8 @@ const { payrollPrisma } = await import('../utils/payrollPrisma.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
 const { syncPayrollEngine } = await import('../services/people/approvals/payrollSource.js');
+const { approveLoan } = await import('../services/payroll/loan.js');
+const { runApprovalDues } = await import('../services/people/approvals/engine.js');
 
 const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
@@ -305,17 +307,88 @@ describe('payroll on the approval engine: switch, old rows, changes, races', () 
     await setSwitch(asha, false);
   }, 180_000);
 
-  it('a rollback: an older API approves the row (no engine code), and the request is brought in line when next asked, as Payroll’s approver', async () => {
+  it('a rollback, or a step not recorded: the row approved in Payroll alone is brought in line on the next approve or reject, as Payroll’s approver', async () => {
     await setSwitch(asha, true);
     const id = await fresh('settlement', asha, b, leaverStaff);
     await runInTenant(asha.orgId, () => payrollPrisma.finalSettlement.update({ where: { id }, data: { status: 'APPROVED', approvedByUserId: ravi.userId, approvedAt: new Date() } }));
     expect((await engineOf(asha.orgId, 'settlement', id))?.status).toBe('WAITING');
-    await runInTenant(asha.orgId, () => syncPayrollEngine(asha.accountId, asha.orgId, 'FINAL_SETTLEMENT', id));
+    /* Approving it again: refused by Payroll's own state, as before, and the request is caught up from the row. */
+    expect((await approve('settlement', ravi, id).expect(409)).body.code).toBe('NOT_DRAFT');
     const e = await engineOf(asha.orgId, 'settlement', id);
     expect(e?.status).toBe('APPROVED');
     expect(e!.steps.find((s) => s.status === 'APPROVED')).toMatchObject({ decidedByUserId: ravi.userId, comment: 'Approved in Payroll' });
-    /* Approving it again on the newer API: as before, refused by Payroll's own state. */
-    expect((await approve('settlement', ravi, id).expect(409)).body.code).toBe('NOT_DRAFT');
+    /* A loan approved in Payroll, its step not recorded (the process stopped between the two): the next approve catches it up. */
+    const loan = await fresh('loan', asha, b, staff);
+    await runInTenant(asha.orgId, () => approveLoan({ accountId: asha.accountId, orgId: asha.orgId, userId: ravi.userId, loanId: loan }));
+    await approve('loan', ravi, loan).expect(200);
+    expect((await engineOf(asha.orgId, 'loan', loan))?.status).toBe('APPROVED');
+    /* A revision approved in Payroll alone: a later reject catches it up first, then reverses it. */
+    const rev = await fresh('revision', asha, b, staff);
+    await runInTenant(asha.orgId, () => payrollPrisma.salaryRevision.update({ where: { id: rev }, data: { status: 'APPROVED', approvedByUserId: ravi.userId, approvedAt: new Date() } }));
+    expect((await approve('revision', ravi, rev).expect(409)).body.code).toBe('REVISION_WRONG_STATE');
+    expect((await engineOf(asha.orgId, 'revision', rev))?.status).toBe('APPROVED');
+    await setSwitch(asha, false);
+  }, 120_000);
+
+  it('the dues job: a Payroll step past its due time whose row was approved elsewhere is caught up; one still waiting is left alone, with no reminder', async () => {
+    await setSwitch(asha, true);
+    const done = await fresh('loan', asha, b, staff);
+    await runInTenant(asha.orgId, () => approveLoan({ accountId: asha.accountId, orgId: asha.orgId, userId: ravi.userId, loanId: done }));
+    const waiting = await fresh('loan', asha, b, staff);
+    const before = await platformPrisma.notification.count({ where: { orgId: asha.orgId } });
+    await runApprovalDues(new Date(Date.now() + 10 * 86_400_000));
+    const e = await engineOf(asha.orgId, 'loan', done);
+    expect(e?.status).toBe('APPROVED');
+    expect(e!.steps.find((s) => s.status === 'APPROVED')).toMatchObject({ decidedByUserId: ravi.userId, comment: 'Approved in Payroll' });
+    const w = await engineOf(asha.orgId, 'loan', waiting);
+    expect(w?.status).toBe('WAITING');
+    expect(w!.steps.every((s) => !s.remindedAt)).toBe(true);
+    expect(await platformPrisma.notification.count({ where: { orgId: asha.orgId } })).toBe(before);
+    await setSwitch(asha, false);
+  }, 120_000);
+
+  it('reversed after approval: a revision rejected once approved, a loan and a settlement cancelled once approved; the request says so', async () => {
+    await setSwitch(asha, true);
+    const rev = await fresh('revision', asha, b, staff);
+    await approve('revision', ravi, rev).expect(200);
+    await pay(asha).post(`/revisions/${rev}/reject`).expect(200);
+    const er = await engineOf(asha.orgId, 'revision', rev);
+    expect(er?.status).toBe('REJECTED');
+    expect(er!.steps.at(-1)).toMatchObject({ status: 'REJECTED', decidedByUserId: asha.userId, comment: 'Rejected in Payroll after approval' });
+    const loan = await fresh('loan', asha, b, staff);
+    await approve('loan', ravi, loan).expect(200);
+    await pay(asha).post(`/loans/${loan}/cancel`).expect(200);
+    const el = await engineOf(asha.orgId, 'loan', loan);
+    expect(el?.status).toBe('WITHDRAWN');
+    expect(el!.steps.at(-1)).toMatchObject({ status: 'WITHDRAWN', decidedByUserId: asha.userId, comment: 'Cancelled in Payroll after approval' });
+    const s = await fresh('settlement', asha, b, leaverStaff);
+    await approve('settlement', ravi, s).expect(200);
+    await pay(asha).post(`/settlements/${s}/cancel`).expect(200);
+    expect((await engineOf(asha.orgId, 'settlement', s))?.status).toBe('WITHDRAWN');
+    /* An older API reversed it (no engine code): the next look brings the request in line too. */
+    const s2 = await fresh('settlement', asha, b, leaverStaff);
+    await approve('settlement', ravi, s2).expect(200);
+    await runInTenant(asha.orgId, () => payrollPrisma.finalSettlement.update({ where: { id: s2 }, data: { status: 'CANCELLED' } }));
+    await runInTenant(asha.orgId, () => syncPayrollEngine(asha.accountId, asha.orgId, 'FINAL_SETTLEMENT', s2));
+    expect((await engineOf(asha.orgId, 'settlement', s2))?.status).toBe('WITHDRAWN');
+    await setSwitch(asha, false);
+  }, 120_000);
+
+  it('a draft loan moved to another person: its request starts again about them, so nobody approves their own and nothing is written as "about them" falsely', async () => {
+    await setSwitch(asha, true);
+    const body = (emp: string) => ({ employeeId: emp, principal: 30_000, interestRate: 0, startDate: '2026-11-03', recoveryStartPeriodId: b.periods[0].id, installmentCount: 3, recoveryComponentId: b.recoveryId });
+    const a = (await pay(asha).post('/loans', body(staff)).expect(201)).body.loan.id;
+    await pay(asha).put(`/loans/${a}`, body(ravisOwn)).expect(200);
+    const ea = await engineOf(asha.orgId, 'loan', a);
+    expect(ea).toMatchObject({ status: 'WAITING', subjectEmployeeId: ravisOwn, requesterUserId: ravi.userId, title: expect.stringContaining('Ravi Kumar') });
+    expect((await approve('loan', ravi, a).expect(403)).body.code).toBe('OWN_RECORD');
+    await approve('loan', asha, a).expect(200);
+    const c = (await pay(asha).post('/loans', body(ravisOwn)).expect(201)).body.loan.id;
+    await pay(asha).put(`/loans/${c}`, body(staff)).expect(200);
+    await approve('loan', ravi, c).expect(200);
+    const ec = await engineOf(asha.orgId, 'loan', c);
+    expect(ec).toMatchObject({ status: 'APPROVED', subjectEmployeeId: staff });
+    expect(ec!.steps.filter((x) => x.status === 'APPROVED')).toEqual([expect.objectContaining({ decidedByUserId: ravi.userId, resolvedHow: 'PAYROLL' })]);
     await setSwitch(asha, false);
   }, 120_000);
 
