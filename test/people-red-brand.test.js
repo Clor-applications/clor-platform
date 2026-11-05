@@ -49,14 +49,15 @@ describe('the frame and its blocks: every word reads', () => {
     expect(contrast(frame, WHITE)).toBeGreaterThan(12);
   });
 
-  it('Home\'s greeting sits on the white page, no card (owner, 3 Nov 2026: "remove hero card"); the record\'s header keeps its oxblood block', () => {
+  it('Home\'s greeting and the record\'s header sit on the white page, no card (owner, 3–4 Nov 2026: "remove hero card", "complete white background")', () => {
     const greeting = block.match(/\.people-home > header\.soft-band-top \{[^}]*\}/)[0];
     expect(greeting).not.toMatch(/background/);
     expect(block).toMatch(/\.people-home h1\.soft-band-title \{ color: rgb\(var\(--fg-heading\)\) !important;/);
     expect(block).toMatch(/\.people-home \.soft-pill-primary \{ background: rgb\(var\(--red\)\); color: rgb\(255 255 255\);/);
     expect(contrast(WHITE, RED)).toBeGreaterThan(4.5);
     expect(contrast(RED_INK, WHITE)).toBeGreaterThan(4.5);
-    expect(block).toMatch(/--page-heading-bg: var\(--frame\);/);
+    expect(block).not.toMatch(/--page-heading-bg: var\(--frame\);/);
+    expect(block).not.toMatch(/\.ui-page-heading:has\(\.ui-profile\) \{/);
     expect(contrast(onMuted, frame)).toBeGreaterThan(7);
   });
 
@@ -127,8 +128,8 @@ describe('the frame and its blocks: every word reads', () => {
 
 describe('colour beside the red ("only red is visible where is other colours")', () => {
   const tones = people.slice(people.indexOf('The red brand (owner, 3 Nov 2026'));
-  it('figures and panels keep four tint families, each readable on its own wash', () => {
-    const pairs = { mint: '22 101 52', sky: '51 65 85', peach: '166 63 18', lilac: '165 13 38' };
+  it('teal, green, clay and violet each read on their own wash, and green is done', () => {
+    const pairs = { mint: '22 101 52', sky: '15 104 96', peach: '166 63 18', lilac: '91 33 182' };
     for (const [name, ink] of Object.entries(pairs)) {
       expect(token(tones, `${name}-ink`), name).toBe(ink);
       expect(contrast(token(tones, `${name}-ink`), token(tones, `${name}-soft`)), name).toBeGreaterThan(4.5);
@@ -137,8 +138,8 @@ describe('colour beside the red ("only red is visible where is other colours")',
     expect(token(tones, 'pos')).toBe('22 101 52');
   });
 
-  it("Home's figures wear their own tint, card heads are white, list strips are white with tinted marks", () => {
-    expect(block).toMatch(/\.people-home \.soft-band-stat\[data-tint\] \{ background: rgb\(var\(--tint\)\); box-shadow: none; \}/);
+  it("card heads are white, list strips are white with tinted marks", () => {
+    /* Since 4 Nov the figure is a white card with its tint on the mark (the white work area block below). */
     expect(block).toMatch(/\.people-home \.people-panel-head \{ background: rgb\(255 255 255\);/);
     expect(block).toMatch(/#main-content \.ui-metric-strip \{ background: rgb\(255 255 255\);/);
     expect(people).not.toMatch(/\.ui-metric-strip \.ui-metric-icon \{ color: rgb\(var\(--oxblood\)\); \}/);
@@ -146,6 +147,34 @@ describe('colour beside the red ("only red is visible where is other colours")',
 
   it('a leave type is never red', () => {
     for (let i = 0; i < 8; i += 1) expect(token(people.slice(people.indexOf('Brand colours where they belong')), `leave-${i}`), `leave-${i}`).not.toBe(RED);
+  });
+});
+
+describe('a white work area, colour in the accents ("complete white background", "more different colours", "right parts very clean")', () => {
+  const white = people.slice(people.indexOf('White work area, colour in the accents (owner, 4 Nov 2026'), people.indexOf('The employee app (shared with Attendance'));
+  it('trays, head rows and page headings are white; Home\'s figures are white cards with a coloured mark', () => {
+    expect(white).toMatch(/--choice-tray: 255 255 255; --soft-tray: 255 255 255; --heading-bg: 255 255 255;/);
+    expect(white).toMatch(/\.people-home \.soft-band-stat\[data-tint\] \{ background: rgb\(255 255 255\);/);
+    expect(white).toMatch(/\.soft-band-stat-label > svg \{ background: rgb\(var\(--tint\)\); color: rgb\(var\(--tint-ink\)\);/);
+    expect(people).not.toMatch(/\.people-home \.soft-band-stat\[data-tint\] \{ background: rgb\(var\(--tint\)\);/);
+  });
+  it('five accent families beside red and marigold, every ink readable on its tint', () => {
+    const tones = people.slice(people.indexOf('The red brand (owner, 3 Nov 2026'));
+    const inks = ['sky', 'mint', 'peach', 'lilac', 'butter'].map((n) => [token(tones, `${n}-ink`), token(tones, `${n}-soft`)]);
+    expect(new Set(inks.map(([i]) => i)).size).toBe(5);
+    for (const [ink, soft] of inks) expect(contrast(ink, soft), ink).toBeGreaterThan(4.5);
+  });
+  it('the right-hand panel is plain: no dividers, quick links a list with coloured marks', () => {
+    expect(white).toMatch(/\.ui-side-block \+ \.ui-side-block \{ border-top: 0;/);
+    expect(white).toMatch(/\.ui-side-chips \{ grid-template-columns: minmax\(0, 1fr\);/);
+    expect(white).toMatch(/\.ui-side-chip \{[^}]*border: 0; background: transparent;/);
+  });
+  it('the module panel fits "Attendance requests" on one line, with one width rule', () => {
+    expect(white).toMatch(/:root\[data-palette='sky'\] \.ui-split-panel \{ width: 13\.5rem; \}/);
+    expect(people.match(/\.ui-split-panel \{ width: [\d.]+rem; \}/g)).toEqual(['.ui-split-panel { width: 13.5rem; }']);
+  });
+  it('a Home figure\'s caption wraps rather than being cut off', () => {
+    expect(white).toMatch(/\.people-home \.soft-band-stat-note \{ white-space: normal;/);
   });
 });
 

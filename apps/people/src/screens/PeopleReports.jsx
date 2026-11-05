@@ -115,10 +115,10 @@ export default function PeopleReports({ params = {}, updateParams }) {
     <DocumentListShell title="People report" entity="people" tight
       moreItems={[exportMenuItem('Export')]} onMoreSelect={onExport}
       cards={t ? [
-        { label: 'Headcount today', value: d.headcount, count: true, Icon: Users, tone: 'sent' },
-        { label: 'Joiners', value: t.joiners, count: true, Icon: UserPlus, tone: 'paid' },
-        { label: 'Leavers', value: t.leavers, count: true, Icon: UserMinus, tone: t.leavers ? 'outstanding' : 'draft' },
-        { label: 'Attrition', value: pct(t.attritionPct), count: true, Icon: Percent, tone: 'draft' },
+        { label: 'Headcount today', value: d.headcount, count: true, Icon: Users, tone: 'sent', tint: 'sky' },
+        { label: 'Joiners', value: t.joiners, count: true, Icon: UserPlus, tone: 'paid', tint: 'mint' },
+        { label: 'Leavers', value: t.leavers, count: true, Icon: UserMinus, tone: t.leavers ? 'outstanding' : 'draft', tint: 'peach' },
+        { label: 'Attrition', value: pct(t.attritionPct), count: true, Icon: Percent, tone: 'draft', tint: 'lilac' },
       ] : null}
       above={(
         <div className="flex flex-wrap items-end gap-3">

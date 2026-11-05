@@ -98,9 +98,9 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
         ) : (
           <>
             <dl className="ui-metric-strip" aria-label="Summary">
-              <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{data.people}</dd><dt className="ui-metric-label">People checked</dt></span></div>
-              <div className="ui-metric"><span><dd className={`ui-metric-value tabular-nums${data.blocking ? ' ui-text-neg' : ''}`}>{data.blocking}</dd><dt className="ui-metric-label">Blocks payday</dt></span></div>
-              <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{data.checks.length}</dd><dt className="ui-metric-label">Checks to look at</dt></span></div>
+              <div className="ui-metric" data-tint="sky"><span><dd className="ui-metric-value tabular-nums">{data.people}</dd><dt className="ui-metric-label">People checked</dt></span></div>
+              <div className="ui-metric" data-tint="peach"><span><dd className={`ui-metric-value tabular-nums${data.blocking ? ' ui-text-neg' : ''}`}>{data.blocking}</dd><dt className="ui-metric-label">Blocks payday</dt></span></div>
+              <div className="ui-metric" data-tint="peach"><span><dd className="ui-metric-value tabular-nums">{data.checks.length}</dd><dt className="ui-metric-label">Checks to look at</dt></span></div>
             </dl>
             {!data.checks.length ? (
               <EmptyState icon={ShieldCheck} title="Nothing to fix" description="Every check passed: no duplicates, joining dates in place, and payroll has the PAN, UAN, ESIC and bank details it needs." />

@@ -26,6 +26,9 @@ import { addDaysIso as plusDays } from '@ui/utils/dates';
  * may not read fails quietly to nothing.
  */
 
+/* Quick links take their mark's tint from where they go (4 Nov 2026 review): teal people and structure, green time
+   and leave, clay rules and policy, violet records and documents, marigold only Approvals, which waits on you. */
+
 /* Today in India, not on the device: a laptop set to another zone (or a
    late-night UTC clock) must not shift which leave counts as "this week". */
 const todayIso = todayIst;
@@ -78,17 +81,18 @@ export function LeaveRequestsPanel({ openScreen }) {
       <SideBlock title="Next holidays" action={next.length ? { label: 'All', onClick: () => openScreen?.('holidays') } : null}>
         {next.map((h) => <SideLine key={h.id || h.date} lead={<DateTile iso={h.date} />} title={h.name} sub={new Date(`${String(h.date).slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'UTC' })} />)}
       </SideBlock>
+      {/* Nothing yet this year: no block, so an empty heading never sits on top of Quick links. */}
       <SideBlock title="Recent activity">
-        <SideTimeline items={recent.map(({ r, at, what }) => ({
+        {recent.length ? <SideTimeline items={recent.map(({ r, at, what }) => ({
           key: `${r.id}-${what}`, at, title: r.employeeName, sub: `${what} ${r.leaveTypeName.toLowerCase()} · ${span(r.fromDate, r.toDate)}`,
           tone: what === 'Approved' ? 'pos' : what === 'Rejected' ? 'neg' : what === 'Cancelled' ? undefined : 'info',
-        }))} />
+        }))} /> : null}
       </SideBlock>
       <SideLinks links={[
-        { label: 'Calendar', icon: CalendarRange, onClick: () => openScreen?.('leaveCalendar') },
-        { label: 'Balances', icon: Scale, onClick: () => openScreen?.('leaveBalances') },
-        { label: 'Policy', icon: Gavel, onClick: () => openScreen?.('leaveTypes') },
-        { label: 'Holidays', icon: CalendarDays, onClick: () => openScreen?.('holidays') },
+        { label: 'Calendar', icon: CalendarRange, tint: 'mint', onClick: () => openScreen?.('leaveCalendar') },
+        { label: 'Balances', icon: Scale, tint: 'mint', onClick: () => openScreen?.('leaveBalances') },
+        { label: 'Policy', icon: Gavel, tint: 'peach', onClick: () => openScreen?.('leaveTypes') },
+        { label: 'Holidays', icon: CalendarDays, tint: 'mint', onClick: () => openScreen?.('holidays') },
       ]} />
     </>
   );
@@ -119,10 +123,10 @@ export function ApprovalsPanel({ openScreen }) {
         ))}
       </SideBlock>
       <SideLinks links={[
-        { label: 'Leave', icon: CalendarDays, onClick: () => openScreen?.('leaveRequests') },
-        { label: 'Delegates', icon: UserCheck, onClick: () => openScreen?.('standIns') },
-        { label: 'Rules', icon: Workflow, onClick: () => openScreen?.('approvalRules') },
-        { label: 'Help desk', icon: LifeBuoy, onClick: () => openScreen?.('helpdesk') },
+        { label: 'Leave', icon: CalendarDays, tint: 'mint', onClick: () => openScreen?.('leaveRequests') },
+        { label: 'Delegates', icon: UserCheck, tint: 'sky', onClick: () => openScreen?.('standIns') },
+        { label: 'Rules', icon: Workflow, tint: 'peach', onClick: () => openScreen?.('approvalRules') },
+        { label: 'Help desk', icon: LifeBuoy, tint: 'lilac', onClick: () => openScreen?.('helpdesk') },
       ]} />
     </>
   );
@@ -147,10 +151,10 @@ export function AttendanceRequestsPanel({ openScreen }) {
         {o.waiting?.count ? <SideLine title="Leave requests" sub={o.waiting.olderThan3Days ? `${o.waiting.olderThan3Days} older than 3 days` : 'All asked recently'} meta={o.waiting.count} tone={o.waiting.olderThan3Days ? 'neg' : 'count'} onClick={() => openScreen?.('leaveRequests')} /> : null}
       </SideBlock>
       <SideLinks links={[
-        { label: 'Attendance', icon: Timer, onClick: () => openScreen?.('attendance') },
-        { label: 'Approvals', icon: Inbox, onClick: () => openScreen?.('approvals') },
-        { label: 'Rules', icon: Workflow, onClick: () => openScreen?.('requestRules') },
-        { label: 'Leave', icon: CalendarDays, onClick: () => openScreen?.('leaveRequests') },
+        { label: 'Attendance', icon: Timer, tint: 'mint', onClick: () => openScreen?.('attendance') },
+        { label: 'Approvals', icon: Inbox, tint: 'butter', onClick: () => openScreen?.('approvals') },
+        { label: 'Rules', icon: Workflow, tint: 'peach', onClick: () => openScreen?.('requestRules') },
+        { label: 'Leave', icon: CalendarDays, tint: 'mint', onClick: () => openScreen?.('leaveRequests') },
       ]} />
     </>
   );
@@ -184,9 +188,9 @@ export function LeaveBalancesPanel({ openScreen }) {
       </SideBlock>
       {/* Only pages outside this module's menu (Reports, Settings), under their menu names; Leave requests is one click away already. */}
       <SideLinks links={[
-        { label: 'Leave register', icon: BarChart3, onClick: () => openScreen?.('leaveRegister') },
-        { label: 'Leave year end', icon: CalendarRange, onClick: () => openScreen?.('leaveYearEnd') },
-        { label: 'Leave policy', icon: Gavel, onClick: () => openScreen?.('leaveTypes') },
+        { label: 'Leave register', icon: BarChart3, tint: 'mint', onClick: () => openScreen?.('leaveRegister') },
+        { label: 'Leave year end', icon: CalendarRange, tint: 'mint', onClick: () => openScreen?.('leaveYearEnd') },
+        { label: 'Leave policy', icon: Gavel, tint: 'peach', onClick: () => openScreen?.('leaveTypes') },
       ]} />
     </>
   );
@@ -232,10 +236,10 @@ export function EmployeesPanel({ openScreen }) {
         ))}
       </SideBlock>
       <SideLinks links={[
-        { label: 'Org chart', icon: Network, onClick: () => openScreen?.('orgChart') },
-        { label: 'Onboarding', icon: ListChecks, onClick: () => openScreen?.('checklists') },
-        { label: 'Import', icon: Upload, onClick: () => openScreen?.('employeeImport') },
-        { label: 'Departments', icon: Building2, onClick: () => openScreen?.('departments') },
+        { label: 'Org chart', icon: Network, tint: 'sky', onClick: () => openScreen?.('orgChart') },
+        { label: 'Onboarding', icon: ListChecks, tint: 'lilac', onClick: () => openScreen?.('checklists') },
+        { label: 'Import', icon: Upload, tint: 'sky', onClick: () => openScreen?.('employeeImport') },
+        { label: 'Departments', icon: Building2, tint: 'sky', onClick: () => openScreen?.('departments') },
       ]} />
     </>
   );
@@ -269,10 +273,10 @@ export function ChecklistsPanel({ openScreen, navItems }) {
       </SideBlock>
       {/* Tasks is where People opens for someone without Home (an employee, an auditor): only links they may follow. */}
       <SideLinks navItems={navItems} links={[
-        { label: 'Employees', icon: Users, screen: 'employees', onClick: () => openScreen?.('employees') },
-        { label: 'Documents', icon: FileText, screen: 'documents', onClick: () => openScreen?.('documents') },
-        { label: 'Assets', icon: ClipboardCheck, screen: 'assets', onClick: () => openScreen?.('assets') },
-        { label: 'Letters', icon: FileText, screen: 'letterTemplates', onClick: () => openScreen?.('letterTemplates') },
+        { label: 'Employees', icon: Users, screen: 'employees', tint: 'sky', onClick: () => openScreen?.('employees') },
+        { label: 'Documents', icon: FileText, screen: 'documents', tint: 'lilac', onClick: () => openScreen?.('documents') },
+        { label: 'Assets', icon: ClipboardCheck, screen: 'assets', tint: 'lilac', onClick: () => openScreen?.('assets') },
+        { label: 'Letters', icon: FileText, screen: 'letterTemplates', tint: 'lilac', onClick: () => openScreen?.('letterTemplates') },
       ]} />
     </>
   );
@@ -293,10 +297,10 @@ export function DocumentsPanel({ openScreen }) {
         {req.data && !soon.length && !gone.length ? <SideClear>Nothing expires this month</SideClear> : null}
       </SideBlock>
       <SideLinks links={[
-        { label: 'Letters', icon: FileText, onClick: () => openScreen?.('letterTemplates') },
-        { label: 'Onboarding', icon: ListChecks, onClick: () => openScreen?.('checklists') },
-        { label: 'Employees', icon: Users, onClick: () => openScreen?.('employees') },
-        { label: 'Policies', icon: Gavel, onClick: () => openScreen?.('policies') },
+        { label: 'Letters', icon: FileText, tint: 'lilac', onClick: () => openScreen?.('letterTemplates') },
+        { label: 'Onboarding', icon: ListChecks, tint: 'lilac', onClick: () => openScreen?.('checklists') },
+        { label: 'Employees', icon: Users, tint: 'sky', onClick: () => openScreen?.('employees') },
+        { label: 'Policies', icon: Gavel, tint: 'peach', onClick: () => openScreen?.('policies') },
       ]} />
     </>
   );
@@ -319,10 +323,10 @@ export function HelpDeskPanel({ openScreen }) {
         {req.data && !rows.length ? <SideClear>Nothing open</SideClear> : null}
       </SideBlock>
       <SideLinks links={[
-        { label: 'Private', icon: Lock, onClick: () => openScreen?.('privateCases') },
-        { label: 'Settings', icon: Settings2, onClick: () => openScreen?.('helpDeskSettings') },
-        { label: 'Approvals', icon: Inbox, onClick: () => openScreen?.('approvals') },
-        { label: 'Policies', icon: Gavel, onClick: () => openScreen?.('policies') },
+        { label: 'Private', icon: Lock, tint: 'peach', onClick: () => openScreen?.('privateCases') },
+        { label: 'Settings', icon: Settings2, tint: 'peach', onClick: () => openScreen?.('helpDeskSettings') },
+        { label: 'Approvals', icon: Inbox, tint: 'butter', onClick: () => openScreen?.('approvals') },
+        { label: 'Policies', icon: Gavel, tint: 'peach', onClick: () => openScreen?.('policies') },
       ]} />
     </>
   );
@@ -344,10 +348,10 @@ export function DepartmentsPanel({ openScreen }) {
         ))}
       </SideBlock>
       <SideLinks links={[
-        { label: 'Org chart', icon: Network, onClick: () => openScreen?.('orgChart') },
-        { label: 'Roles', icon: Users, onClick: () => openScreen?.('jobPositions') },
-        { label: 'Branches', icon: MapPin, onClick: () => openScreen?.('branches') },
-        { label: 'Changes', icon: Workflow, onClick: () => openScreen?.('orgChanges') },
+        { label: 'Org chart', icon: Network, tint: 'sky', onClick: () => openScreen?.('orgChart') },
+        { label: 'Roles', icon: Users, tint: 'sky', onClick: () => openScreen?.('jobPositions') },
+        { label: 'Branches', icon: MapPin, tint: 'sky', onClick: () => openScreen?.('branches') },
+        { label: 'Changes', icon: Workflow, tint: 'lilac', onClick: () => openScreen?.('orgChanges') },
       ]} />
     </>
   );
@@ -365,10 +369,10 @@ export function BranchesPanel({ openScreen }) {
         {req.data && !none ? <SideClear>Everyone has a branch</SideClear> : null}
       </SideBlock>
       <SideLinks links={[
-        { label: 'Departments', icon: Building2, onClick: () => openScreen?.('departments') },
-        { label: 'Holidays', icon: CalendarDays, onClick: () => openScreen?.('holidays') },
-        { label: 'Org chart', icon: Network, onClick: () => openScreen?.('orgChart') },
-        { label: 'Employees', icon: Users, onClick: () => openScreen?.('employees') },
+        { label: 'Departments', icon: Building2, tint: 'sky', onClick: () => openScreen?.('departments') },
+        { label: 'Holidays', icon: CalendarDays, tint: 'mint', onClick: () => openScreen?.('holidays') },
+        { label: 'Org chart', icon: Network, tint: 'sky', onClick: () => openScreen?.('orgChart') },
+        { label: 'Employees', icon: Users, tint: 'sky', onClick: () => openScreen?.('employees') },
       ]} />
     </>
   );
@@ -408,8 +412,8 @@ export function AssetsPanel({ openScreen }) {
         {[...types].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, n]) => <SideLine key={k} title={k} meta={n} tone="count" bar={(n / peak) * 100} />)}
       </SideBlock>
       <SideLinks links={[
-        { label: 'Onboarding & exit', icon: ClipboardCheck, onClick: () => openScreen?.('checklists') },
-        { label: 'Employees', icon: Users, onClick: () => openScreen?.('employees') },
+        { label: 'Onboarding & exit', icon: ClipboardCheck, tint: 'lilac', onClick: () => openScreen?.('checklists') },
+        { label: 'Employees', icon: Users, tint: 'sky', onClick: () => openScreen?.('employees') },
       ]} />
     </>
   );
@@ -440,9 +444,9 @@ export function DesignationsPanel({ openScreen }) {
       </SideBlock>
       {!empty.length && !loose.length ? <SideBlock title="Tidy"><SideClear>Every designation is held and has a department</SideClear></SideBlock> : null}
       <SideLinks links={[
-        { label: 'Departments', icon: Building2, onClick: () => openScreen?.('departments') },
-        { label: 'Org chart', icon: Network, onClick: () => openScreen?.('orgChart') },
-        { label: 'Employees', icon: Users, onClick: () => openScreen?.('employees') },
+        { label: 'Departments', icon: Building2, tint: 'sky', onClick: () => openScreen?.('departments') },
+        { label: 'Org chart', icon: Network, tint: 'sky', onClick: () => openScreen?.('orgChart') },
+        { label: 'Employees', icon: Users, tint: 'sky', onClick: () => openScreen?.('employees') },
       ]} />
     </>
   );
@@ -469,9 +473,9 @@ export function ChangesPanel({ openScreen }) {
         {[...who].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => <SideLine key={k} lead={face(k)} title={k} meta={`${n} change${n === 1 ? '' : 's'}`} />)}
       </SideBlock>
       <SideLinks links={[
-        { label: 'Departments', icon: Building2, onClick: () => openScreen?.('departments') },
-        { label: 'Branches', icon: MapPin, onClick: () => openScreen?.('branches') },
-        { label: 'Audit logs', icon: FileText, onClick: () => openScreen?.('auditLogs') },
+        { label: 'Departments', icon: Building2, tint: 'sky', onClick: () => openScreen?.('departments') },
+        { label: 'Branches', icon: MapPin, tint: 'sky', onClick: () => openScreen?.('branches') },
+        { label: 'Audit logs', icon: FileText, tint: 'peach', onClick: () => openScreen?.('auditLogs') },
       ]} />
     </>
   );
@@ -487,10 +491,10 @@ export function TimeOverviewPanel({ openScreen }) {
         {next.map((h) => <SideLine key={h.id || h.date} lead={<DateTile iso={h.date} />} title={h.name} sub={new Date(`${String(h.date).slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'UTC' })} />)}
       </SideBlock>
       <SideLinks links={[
-        { label: 'Leave calendar', icon: CalendarRange, onClick: () => openScreen?.('leaveCalendar') },
-        { label: 'Leave balances', icon: Scale, onClick: () => openScreen?.('leaveBalances') },
-        { label: 'Leave requests', icon: Inbox, onClick: () => openScreen?.('leaveRequests') },
-        { label: 'Delegates', icon: UserCheck, onClick: () => openScreen?.('standIns') },
+        { label: 'Leave calendar', icon: CalendarRange, tint: 'mint', onClick: () => openScreen?.('leaveCalendar') },
+        { label: 'Leave balances', icon: Scale, tint: 'mint', onClick: () => openScreen?.('leaveBalances') },
+        { label: 'Leave requests', icon: Inbox, tint: 'mint', onClick: () => openScreen?.('leaveRequests') },
+        { label: 'Delegates', icon: UserCheck, tint: 'sky', onClick: () => openScreen?.('standIns') },
       ]} />
     </>
   );
@@ -513,8 +517,8 @@ export function SalaryRevisionsPanel({ openScreen }) {
       </SideBlock>
       {!waiting.length && !soon.length ? <SideBlock title="Nothing pending"><SideClear>No revision waits or starts in the next 60 days</SideClear></SideBlock> : null}
       <SideLinks links={[
-        { label: 'Employees', icon: Users, onClick: () => openScreen?.('employees') },
-        { label: 'People report', icon: BarChart3, onClick: () => openScreen?.('reports') },
+        { label: 'Employees', icon: Users, tint: 'sky', onClick: () => openScreen?.('employees') },
+        { label: 'People report', icon: BarChart3, tint: 'lilac', onClick: () => openScreen?.('reports') },
       ]} />
     </>
   );
@@ -522,9 +526,9 @@ export function SalaryRevisionsPanel({ openScreen }) {
 
 /* The registers (benefits, announcements, events): where each stands and what is due. */
 const REGISTER_LINKS = {
-  benefits: [['Salary revisions', Scale, 'compensation'], ['Employees', Users, 'employees']],
-  announcements: [['Events', CalendarDays, 'events'], ['Help desk', LifeBuoy, 'helpdesk']],
-  events: [['Announcements', Inbox, 'announcements'], ['Holidays', CalendarRange, 'holidays']],
+  benefits: [['Salary revisions', Scale, 'compensation', 'lilac'], ['Employees', Users, 'employees', 'sky']],
+  announcements: [['Events', CalendarDays, 'events', 'lilac'], ['Help desk', LifeBuoy, 'helpdesk', 'lilac']],
+  events: [['Announcements', Inbox, 'announcements', 'lilac'], ['Holidays', CalendarRange, 'holidays', 'mint']],
 };
 export function registerPanel(kind) {
   const RegisterPanel = ({ openScreen }) => {
@@ -548,7 +552,7 @@ export function registerPanel(kind) {
         <SideBlock title="Due in 14 days" count={soon.length}>
           {soon.slice(0, 4).map((r) => <SideLine key={r.id} title={r.title} meta={day(r.dueDate)} />)}
         </SideBlock>
-        <SideLinks links={(REGISTER_LINKS[kind] || []).map(([label, icon, key]) => ({ label, icon, onClick: () => openScreen?.(key) }))} />
+        <SideLinks links={(REGISTER_LINKS[kind] || []).map(([label, icon, key, tint]) => ({ label, icon, tint, onClick: () => openScreen?.(key) }))} />
       </>
     );
   };

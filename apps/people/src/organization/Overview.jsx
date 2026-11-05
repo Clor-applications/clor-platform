@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { tintOf } from './tints';
 import { Building2, GitBranch, MapPin, Plus, UserMinus, UserX } from '@ui/components/ui/lineIcons';
 import { useContentIcon } from '@ui/components/ui/colorSwap';
 
@@ -48,17 +49,16 @@ export default function OrganizationOverview({ openScreen }) {
   const activeDepts = d.departments.filter((x) => x.isActive !== false);
   const activeBranches = d.branches.filter((b) => b.isActive !== false);
   const strip = [
-    { k: 'departments', label: 'Departments', value: activeDepts.length, Icon: mark(Building2), onClick: go('departments') },
-    { k: 'branches', label: activeBranches.length === 1 ? 'Branch' : 'Branches', value: activeBranches.length, Icon: mark(GitBranch), onClick: go('branches') },
-    { k: 'noManager', label: 'Without a manager', value: d.unplaced.noManager ?? 0, Icon: mark(UserMinus), onClick: go('employees', { mgr: 'none' }) },
-    { k: 'noDept', label: 'Without a department', value: d.unplaced.noDepartment, Icon: mark(UserX), onClick: go('employees', { dept: 'none' }) },
-    ...(activeBranches.length > 1 ? [{ k: 'noBranch', label: 'Without a branch', value: d.unplaced.noBranch, Icon: mark(MapPin), onClick: go('employees', { branch: 'none' }) }] : []),
+    { k: 'departments', label: 'Departments', tint: 'sky', value: activeDepts.length, Icon: mark(Building2), onClick: go('departments') },
+    { k: 'branches', tint: 'sky', label: activeBranches.length === 1 ? 'Branch' : 'Branches', value: activeBranches.length, Icon: mark(GitBranch), onClick: go('branches') },
+    { k: 'noManager', label: 'Without a manager', tint: 'peach', value: d.unplaced.noManager ?? 0, Icon: mark(UserMinus), onClick: go('employees', { mgr: 'none' }) },
+    { k: 'noDept', label: 'Without a department', tint: 'peach', value: d.unplaced.noDepartment, Icon: mark(UserX), onClick: go('employees', { dept: 'none' }) },
+    ...(activeBranches.length > 1 ? [{ k: 'noBranch', label: 'Without a branch', tint: 'peach', value: d.unplaced.noBranch, Icon: mark(MapPin), onClick: go('employees', { branch: 'none' }) }] : []),
   ];
   /* The departments as an outline: each under its parent, in name order. */
   const childrenOf = (id) => activeDepts.filter((x) => (x.parentId || null) === id && (id || !activeDepts.some((p) => p.id === x.parentId))).sort((a, b) => a.name.localeCompare(b.name));
   const rows = [];
-  const ORG_TINTS = ['sky', 'mint', 'lilac', 'peach', 'butter'];
-  const walk = (id, depth) => { for (const x of childrenOf(id)) { rows.push({ ...x, depth }); if (depth < 8) walk(x.id, depth + 1); } };
+    const walk = (id, depth) => { for (const x of childrenOf(id)) { rows.push({ ...x, depth }); if (depth < 8) walk(x.id, depth + 1); } };
   walk(null, 0);
   const orgTotal = Math.max(1, rows.reduce((n, x) => n + (x.people || 0), 0));
   /* In the sidebar's order. */
@@ -78,8 +78,8 @@ export default function OrganizationOverview({ openScreen }) {
     <div className="space-y-6">
       <Header openScreen={openScreen} perms={perms} />
       <div className="ui-metric-strip" role="list" aria-label="Organisation counts">
-        {strip.map(({ k, label, value, Icon, onClick }) => (
-          <div key={k} role="listitem"><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={onClick}><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span> <span className="ui-metric-label">{label}</span><span className="sr-only">: open</span></span></button></div>
+        {strip.map(({ k, label, tint, value, Icon, onClick }) => (
+          <div key={k} role="listitem" data-tint={tint}><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={onClick}><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span> <span className="ui-metric-label">{label}</span><span className="sr-only">: open</span></span></button></div>
         ))}
       </div>
       {d.checks?.length ? (
@@ -103,9 +103,9 @@ export default function OrganizationOverview({ openScreen }) {
           /* One ruled row per department, indented under its parent: name, head, people. */
           /* Departments as cards (an overview, not a register): head, size, and share of the company. */
           <ul className="org-cards">
-            {rows.map((x, i) => (
+            {rows.map((x) => (
               <li key={x.id}>
-                <button type="button" className="org-card" data-tint={ORG_TINTS[i % ORG_TINTS.length]} onClick={go('employees', { dept: x.id })} aria-label={`${x.name}: ${x.people} people. Open them.`}>
+                <button type="button" className="org-card" data-tint={tintOf(x.name)} onClick={go('employees', { dept: x.id })} aria-label={`${x.name}: ${x.people} people. Open them.`}>
                   <span className="org-card-top">
                     <span className="org-tile" aria-hidden="true">{x.name.charAt(0).toUpperCase()}</span>
                     <span className="org-card-n tabular-nums">{x.people}</span>
@@ -128,9 +128,9 @@ export default function OrganizationOverview({ openScreen }) {
         </div>
         {activeBranches.length ? (
           <ul className="org-cards org-cards-sm">
-            {activeBranches.map((b, i) => (
+            {activeBranches.map((b) => (
               <li key={b.id}>
-                <button type="button" className="org-card" data-tint={ORG_TINTS[(i + 2) % ORG_TINTS.length]} onClick={go('employees', { branch: b.id })} aria-label={`${b.name}: ${b.people} people. Open them.`}>
+                <button type="button" className="org-card" data-tint={tintOf(b.name)} onClick={go('employees', { branch: b.id })} aria-label={`${b.name}: ${b.people} people. Open them.`}>
                   <span className="org-card-top">
                     <span className="org-card-name">{b.name}</span>
                     <span className="org-card-n tabular-nums">{b.people}</span>

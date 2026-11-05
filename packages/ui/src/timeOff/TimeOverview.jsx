@@ -78,10 +78,10 @@ export default function TimeOverview({ openScreen }) {
   /* Working, but not at the office: approved work from home and on duty, their own mark, never leave. */
   const working = d.workingAwayToday || [];
   const strip = [
-    { k: 'away', label: 'Away today', value: d.awayToday.length + working.length, Icon: mark(CalendarDays), onClick: () => openScreen?.('leaveCalendar') },
-    { k: 'waiting', label: 'Waiting for a decision', attention: true, value: d.waiting.count, Icon: mark(Clock3), onClick: toDecide },
-    { k: 'old', label: 'Waiting over 3 days', attention: true, value: d.waiting.olderThan3Days, Icon: mark(Hourglass), onClick: toDecide },
-    { k: 'soon', label: 'Away in the next 7 days', value: new Set(d.upcoming.map((r) => r.employeeId)).size, Icon: mark(CalendarClock), onClick: () => openScreen?.('leaveCalendar') },
+    { k: 'away', label: 'Away today', tint: 'mint', value: d.awayToday.length + working.length, Icon: mark(CalendarDays), onClick: () => openScreen?.('leaveCalendar') },
+    { k: 'waiting', label: 'Waiting for a decision', tint: 'butter', attention: true, value: d.waiting.count, Icon: mark(Clock3), onClick: toDecide },
+    { k: 'old', label: 'Waiting over 3 days', tint: 'butter', attention: true, value: d.waiting.olderThan3Days, Icon: mark(Hourglass), onClick: toDecide },
+    { k: 'soon', label: 'Away in the next 7 days', tint: 'lilac', value: new Set(d.upcoming.map((r) => r.employeeId)).size, Icon: mark(CalendarClock), onClick: () => openScreen?.('leaveCalendar') },
   ];
 
   /* Two or more of a department (of a manager's team, all of it) away on one day, today and the next seven (M4). */
@@ -92,8 +92,8 @@ export default function TimeOverview({ openScreen }) {
     <div className="space-y-6">
       {header}
       <div className="ui-metric-strip" role="list" aria-label="Time and leave counts">
-        {strip.map(({ k, label, value, Icon, onClick, attention }) => (
-          <div key={k} role="listitem"><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} data-attention={(attention && Number(value) > 0) || undefined} onClick={onClick}><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span> <span className="ui-metric-label">{label}</span><span className="sr-only">: open</span></span></button></div>
+        {strip.map(({ k, label, tint, value, Icon, onClick, attention }) => (
+          <div key={k} role="listitem" data-tint={tint}><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} data-attention={(attention && Number(value) > 0) || undefined} onClick={onClick}><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span> <span className="ui-metric-label">{label}</span><span className="sr-only">: open</span></span></button></div>
         ))}
       </div>
 
