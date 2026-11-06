@@ -192,3 +192,141 @@ describe('what is in the way', () => {
     expect(o.blockers).toEqual([]);
   });
 });
+
+/*
+ * The rest of the cockpit: salaries and payslips, payouts, full and final, and
+ * the statutory returns. Each count is checked against the rows it is read
+ * from, and each thing that stops a payroll or a return is checked to appear
+ * as a blocker — and to say so in words, not a code.
+ */
+const accountOf = async (c: Ctx) => (await payrollPrisma.salaryStructure.findFirst({ where: { orgId: c.orgId }, select: { accountId: true } }))!.accountId;
+
+describe('salaries and payslips', () => {
+  it('counts the structures in use, who is on one, and this month’s payslips', async () => {
+    const c = await makeOwner();
+    const ids = await setUp(c);
+
+    let o = await overview(c);
+    expect(o.salaries.structures).toBe(1);
+    expect(o.salaries.onStructure).toBe(2);
+    expect(o.salaries.withoutSalary).toBe(0);
+    expect(o.salaries.slips).toBe(0);
+
+    const run = await api.post(c, '/runs', { periodId: ids.periodId }).expect(201);
+    await api.post(c, `/runs/${run.body.run.id}/validate`).expect(200);
+    await api.post(c, `/runs/${run.body.run.id}/calculate`).expect(200);
+
+    o = await overview(c);
+    expect(o.salaries.slips).toBe(2);
+    /* Calculated is not final: nobody has approved them. */
+    expect(o.salaries.slipsFinal).toBe(0);
+    expect(o.payouts.runId).toBe(run.body.run.id);
+    expect(o.payouts.net).toBe(o.currentRun.net);
+    expect(o.payouts.paid).toBe(0);
+    expect(o.payouts.batches).toBe(0);
+  });
+});
+
+describe('payouts and bank details', () => {
+  it('names a payment the bank sent back', async () => {
+    const c = await makeOwner();
+    const ids = await setUp(c);
+    const run = await api.post(c, '/runs', { periodId: ids.periodId }).expect(201);
+    await api.post(c, `/runs/${run.body.run.id}/validate`).expect(200);
+    await api.post(c, `/runs/${run.body.run.id}/calculate`).expect(200);
+    await payrollPrisma.salarySlip.updateMany({ where: { orgId: c.orgId, employeeId: ids.people[0] }, data: { paymentStatus: 'FAILED' } });
+
+    const o = await overview(c);
+    const b = o.blockers.find((x: any) => x.code === 'PAYOUTS_FAILED');
+    expect(b.count).toBe(1);
+    expect(b.message).toContain('1 payment came back');
+  });
+
+  it('names a bank change nobody has approved, since pay still goes to the old account', async () => {
+    const c = await makeOwner();
+    const ids = await setUp(c);
+    await payrollPrisma.bankDetailChange.create({
+      data: { accountId: await accountOf(c), orgId: c.orgId, employeeId: ids.people[0], status: 'PENDING', newAccountNumber: '000111222333', newIfsc: 'HDFC0000001', requestedByUserId: 'someone' },
+    });
+
+    const o = await overview(c);
+    expect(o.bankChanges).toBe(1);
+    expect(o.blockers.map((b: any) => b.code)).toContain('BANK_CHANGES_PENDING');
+  });
+});
+
+describe('full and final', () => {
+  it('counts a leaver nobody has started on, and a settlement past its due date', async () => {
+    const c = await makeOwner();
+    const ids = await setUp(c);
+    const accountId = await accountOf(c);
+    await peoplePrisma.employee.update({ where: { id: ids.people[0] }, data: { status: 'LEFT', dateOfLeaving: '2026-01-31' } });
+    await peoplePrisma.employee.update({ where: { id: ids.people[1] }, data: { status: 'LEFT', dateOfLeaving: '2026-01-31' } });
+    await payrollPrisma.finalSettlement.create({
+      data: { accountId, orgId: c.orgId, employeeId: ids.people[1], status: 'APPROVED', leavingDate: '2026-01-31', dueDate: '2026-02-03', netPayable: 42_000, createdByUserId: 'someone' },
+    });
+
+    const o = await overview(c);
+    expect(o.settlements.notStarted).toBe(1);
+    expect(o.settlements.approved).toBe(1);
+    expect(o.settlements.drafts).toBe(0);
+    expect(o.settlements.overdue).toBe(1);
+    expect(o.settlements.payable).toBe(42_000);
+    const b = o.blockers.find((x: any) => x.code === 'SETTLEMENTS_OVERDUE');
+    expect(b.message).toContain('1 full and final settlement is past');
+  });
+
+  it('does not count a leaver whose settlement is already paid as not started', async () => {
+    const c = await makeOwner();
+    const ids = await setUp(c);
+    await peoplePrisma.employee.update({ where: { id: ids.people[0] }, data: { status: 'LEFT', dateOfLeaving: '2026-01-31' } });
+    await payrollPrisma.finalSettlement.create({
+      data: { accountId: await accountOf(c), orgId: c.orgId, employeeId: ids.people[0], status: 'PAID', leavingDate: '2026-01-31', dueDate: '2026-02-03', netPayable: 10_000, createdByUserId: 'someone' },
+    });
+
+    const o = await overview(c);
+    expect(o.settlements.notStarted).toBe(0);
+    expect(o.settlements.overdue).toBe(0);
+    expect(o.blockers.map((b: any) => b.code)).not.toContain('SETTLEMENTS_OVERDUE');
+  });
+});
+
+describe('statutory returns', () => {
+  it('lists the five outputs, with no month to file until a payroll is approved', async () => {
+    const c = await makeOwner();
+    await setUp(c);
+
+    const o = await overview(c);
+    expect(o.statutory.map((r: any) => r.output)).toEqual(['PF ECR', 'ESI contributions', 'PT returns', 'TDS 24Q', 'Form 16']);
+    for (const r of o.statutory.slice(0, 4)) {
+      expect(r.period).toBe(null);
+      expect(r.dueDate).toBe(null);
+      expect(r.problems).toBe(0);
+    }
+    /* Form 16 is for the year that has ended, whatever has been paid since. */
+    expect(o.statutory[4].period).toMatch(/^FY \d{4}-\d{2}$/);
+  });
+});
+
+describe('statutory due dates', async () => {
+  const { pfEsiDue, fyOf, due24q, dueForm16 } = await import('../services/payroll/cockpit.js');
+
+  it('puts PF and ESI on the 15th of the next month, across a year end', () => {
+    expect(pfEsiDue('2026-10-31')).toBe('2026-11-15');
+    expect(pfEsiDue('2026-12-31')).toBe('2027-01-15');
+  });
+
+  it('reads the financial year from April', () => {
+    expect(fyOf('2026-04-01')).toBe('2026-27');
+    expect(fyOf('2027-03-31')).toBe('2026-27');
+    expect(fyOf('2099-12-01')).toBe('2099-00');
+  });
+
+  it('gives 24Q its quarter’s date and Form 16 the 15th of June', () => {
+    expect(due24q('2026-27', 1)).toBe('2026-07-31');
+    expect(due24q('2026-27', 2)).toBe('2026-10-31');
+    expect(due24q('2026-27', 3)).toBe('2027-01-31');
+    expect(due24q('2026-27', 4)).toBe('2027-05-31');
+    expect(dueForm16('2025-26')).toBe('2026-06-15');
+  });
+});

@@ -9,6 +9,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { round2 } from '../utils/money.js';
 import { todayIst } from '../utils/istDate.js';
+import { payrollCockpit } from '../services/payroll/cockpit.js';
 
 /**
  * The state of payroll, in one request.
@@ -170,6 +171,43 @@ payrollOverviewRouter.get(
       blockers.push({ code: 'RUN_NOT_POSTED', message: `${currentRun.number} is approved but is not in the books yet.` });
     }
 
+    const cockpit = await payrollCockpit(accountId, orgId, today, {
+      currentPeriodId: current?.id || null,
+      currentRunId: currentRun?.id || null,
+      inPayroll,
+      withoutSalary,
+    });
+    if (cockpit.failedSlips > 0) {
+      blockers.push({
+        code: 'PAYOUTS_FAILED',
+        message: `${cockpit.failedSlips} ${cockpit.failedSlips === 1 ? 'payment' : 'payments'} came back from the bank unpaid, and those people have not been paid.`,
+        count: cockpit.failedSlips,
+      });
+    }
+    if (cockpit.bankChanges > 0) {
+      blockers.push({
+        code: 'BANK_CHANGES_PENDING',
+        message: `${cockpit.bankChanges} bank ${cockpit.bankChanges === 1 ? 'detail change is' : 'detail changes are'} waiting for approval; pay goes to the old account until then.`,
+        count: cockpit.bankChanges,
+      });
+    }
+    if (cockpit.fnf.overdue > 0) {
+      blockers.push({
+        code: 'SETTLEMENTS_OVERDUE',
+        message: `${cockpit.fnf.overdue} full and final ${cockpit.fnf.overdue === 1 ? 'settlement is' : 'settlements are'} past the two working days the law allows.`,
+        count: cockpit.fnf.overdue,
+      });
+    }
+    /* A return that would leave somebody out — no UAN, no IP number, no PAN — is in the way of filing it. */
+    const leftOut = cockpit.statutory.filter((r) => r.enabled && r.problems > 0 && r.code !== 'FORM16');
+    for (const r of leftOut) {
+      blockers.push({
+        code: `FILING_GAPS_${r.code}`,
+        message: `${r.output}${r.period ? ` for ${r.period}` : ''}: ${r.problems} ${r.problems === 1 ? 'person is' : 'people are'} missing a number the return needs.`,
+        count: r.problems,
+      });
+    }
+
     const approvedAdjustments = openAdjustments.filter((a) => a.status === 'APPROVED');
     const pendingAdjustmentValue = round2(
       approvedAdjustments.reduce((t, a) => t + (a.type === 'DEDUCTION' ? -Number(a.amount) : Number(a.amount)), 0)
@@ -206,6 +244,11 @@ payrollOverviewRouter.get(
           loanOutstanding: round2(activeLoans.reduce((t, l) => t + Number(l.outstandingBalance), 0)),
           revisions: openRevisions.length,
         },
+        salaries: cockpit.salaries,
+        payouts: cockpit.payouts,
+        settlements: cockpit.fnf,
+        statutory: cockpit.statutory,
+        bankChanges: cockpit.bankChanges,
         blockers,
       },
     });

@@ -1,25 +1,21 @@
 import React from 'react';
-import { C, DOT, MARK_VIEWBOX } from './clorPaths.js';
+import { GLYPH, DOT, MARK_VIEWBOX } from './clorPaths.js';
 
 /**
- * The CLOR mark: the C of the owner's wordmark (3 Nov 2026) with the marigold
- * dot inside it. The app icon, the favicon and the phone bar wear it;
- * ClorLogo sets the whole word.
- *
- * Paints follow the theme: the C takes --logo-mark (oxblood on light grounds,
- * white on dark), the dot --logo-dot (marigold). `color` sets the C for one
- * particular ground; on a marigold ground pass `dotColor` too, or the dot
- * vanishes.
+ * The CLOR mark: the ribbon C with its centre dot (owner's master, 5 Nov 2026).
+ * The favicon, the app icon and the phone bar wear it; ClorLogo sets the word.
+ * It paints in --logo-accent (Blaze orange); `color` overrides it for one ground.
  */
-const MARK = 'rgb(var(--logo-mark, 92 10 22))';
-const DOT_PAINT = 'rgb(var(--logo-dot, 245 166 35))';
+const ACCENT = 'rgb(var(--logo-accent, 255 84 0))';
 
-export default function ClorMark({ size = 28, color, dotColor, className = '', title = 'CLOR' }) {
+export default function ClorMark({ size = 28, color, className = '', title = 'CLOR' }) {
   const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': 'true' };
   return (
     <svg width={size} height={size} viewBox={MARK_VIEWBOX} className={className} style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }} {...a11y}>
-      <path d={C} fill={color || MARK} />
-      <path d={DOT} fill={dotColor || DOT_PAINT} />
+      <g fill={color || ACCENT}>
+        <path d={GLYPH} />
+        <path d={DOT} />
+      </g>
     </svg>
   );
 }
