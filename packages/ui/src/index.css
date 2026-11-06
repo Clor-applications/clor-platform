@@ -3280,7 +3280,7 @@
 
   .ui-money,
   .ui-amount {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
     font-size: 0.8125rem;     /* 13px */
     line-height: 1.125rem;
     font-weight: 400;
@@ -3294,7 +3294,7 @@
      size the scale does not have. One role instead: monospace, tabular, and
      the same 20px everywhere a figure leads a card. */
   .ui-money-lg {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
     font-size: 1.25rem;       /* 20px */
     line-height: 1.75rem;     /* 28px */
     /* A headline figure earns its emphasis from size, not from weight on top
@@ -3463,7 +3463,7 @@
        tabular-nums, weight and alignment but never the family, so every rupee
        figure in every table rendered in the sans face — the one place the rule
        matters most, and the only place it was not applied. */
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
     font-variant-numeric: tabular-nums;
     /* 400. Monospace and right alignment already say "this is money"; a
        weight on top of them made every figure in every table shout, and a
@@ -3539,7 +3539,7 @@
     overflow-wrap: anywhere;
   }
   .ui-detail-value.ui-detail-mono {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
     font-variant-numeric: tabular-nums;
   }
 
