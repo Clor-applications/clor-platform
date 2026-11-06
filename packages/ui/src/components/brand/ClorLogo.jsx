@@ -26,7 +26,7 @@ function Lor({ h, color, className, title, style: extraStyle }) {
         fontWeight: 900,
         fontSize: h,
         lineHeight: 1,
-        letterSpacing: '-0.05em',
+        letterSpacing: '0.02em',
         userSelect: 'none',
         flexShrink: 0,
         ...extraStyle,
@@ -70,8 +70,8 @@ export default function ClorLogo({ variant = 'horizontal', size = 'md', color, c
       className={className}
       style={{ display: 'inline-flex', alignItems: 'center', gap: 0, verticalAlign: 'middle', flexShrink: 0 }}
     >
-      <ClorMark size={Math.round(h * 1.05)} color={color} title="" />
-      <Lor h={h} color={color} title="" style={{ marginLeft: -Math.round(h * 0.08) }} />
+      <ClorMark size={Math.round(h * 0.8)} color={color} title="" />
+      <Lor h={h} color={color} title="" style={{ marginLeft: -Math.round(h * 0.09) }} />
     </span>
   );
 }
