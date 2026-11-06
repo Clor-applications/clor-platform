@@ -70,7 +70,7 @@ export default function ClorLogo({ variant = 'horizontal', size = 'md', color, c
       className={className}
       style={{ display: 'inline-flex', alignItems: 'center', gap: 0, verticalAlign: 'middle', flexShrink: 0 }}
     >
-      <ClorMark size={Math.round(h * 0.8)} color={color} title="" />
+      <ClorMark size={Math.round(h * 1.08)} color={color} title="" />
       <Lor h={h} color={color} title="" style={{ marginLeft: -Math.round(h * 0.09) }} />
     </span>
   );
