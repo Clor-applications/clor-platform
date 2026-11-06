@@ -112,16 +112,17 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     const failed = [];
     const ids = (k) => chosen.filter((i) => i.kind === k).map((i) => i.id);
     try {
-      /* Each source's own bulk route: its checks hold per request, and one refused never stops the rest. */
-      for (const [k, fn] of Object.entries(BULK)) {
-        if (!ids(k).length) continue;
-        try {
-          const out = await fn(ids(k), approve, note || undefined);
-          done += out.done || 0;
-          handedOn += out.handedOn || 0;
-          for (const r of out.results || []) failed.push(r.error);
-        } catch (e) {
-          failed.push(...ids(k).map(() => String(e?.message || 'Not done.')));
+      /* Each source's own bulk route runs in parallel; one refused never stops the rest. */
+      const routes = Object.entries(BULK).filter(([k]) => ids(k).length);
+      const outs = await Promise.allSettled(routes.map(([k, fn]) => fn(ids(k), approve, note || undefined)));
+      for (const [i, res] of outs.entries()) {
+        const [k] = routes[i];
+        if (res.status === 'fulfilled') {
+          done += res.value.done || 0;
+          handedOn += res.value.handedOn || 0;
+          for (const r of res.value.results || []) if (r.error) failed.push(r.error);
+        } else {
+          failed.push(...ids(k).map(() => String(res.reason?.message || 'Not done.')));
         }
       }
       const did = approve ? 'approved' : 'rejected';
@@ -348,17 +349,14 @@ function TimeDrawer({ item, onClose, onDone }) {
 
 /** A People approval with its steps: approve, reject with a reason, ask for more; or, for my own, answer or withdraw. */
 function ApprovalDrawer({ id, mine, onClose, onDone }) {
-  const list = useRequest(() => listRequests(), [id]);
+  const req = useRequest(() => getRequest(id).catch((e) => (e?.status === 404 || e?.status === 403 ? null : Promise.reject(e))), [id]);
   const [request, setRequest] = useState(null);
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState('');
-  const listed = [...(list.data?.waitingForMe || []), ...(list.data?.mine || [])].find((r) => r.id === id) || null;
-  /* Not in the open lists (withdrawn or decided since, opened from a notice): read it by id, as it now stands. */
-  const byId = useRequest(() => (list.data && !listed ? getRequest(id).catch(() => null) : Promise.resolve(null)), [id, Boolean(list.data), Boolean(listed)]);
-  const open = request || listed || byId.data || null;
+  const open = request || req.data || null;
   const deciding = open && open.status === 'WAITING' && !mine;
-  /* Neither the lists nor a read by id have it: say so rather than load forever. */
-  const gone = !open && Boolean(list.data) && !list.loading && !list.refreshing && !byId.loading && !byId.refreshing && !listed;
+  /* data === null (not undefined) means the fetch resolved with no match (404/403): say so. */
+  const gone = !open && req.data === null && !req.loading && !req.refreshing;
 
   const act = async (action) => {
     if (!open) return;
@@ -393,7 +391,7 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
         </>
       ) : null}
     >
-      {list.error && !open ? <ErrorState error={list.error} onRetry={list.reload} compact /> : gone ? (
+      {req.error && !open ? <ErrorState error={req.error} onRetry={req.reload} compact /> : gone ? (
         <EmptyState title="No longer waiting" description="Someone decided this or it was withdrawn since your list was loaded." />
       ) : !open ? <div className="ui-skel ui-skel-text" aria-busy="true" /> : (
         <div className="space-y-4 text-sm">
@@ -410,7 +408,7 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
                 {Object.entries(open.payload.fields).map(([k, v]) => (
                   k === 'photoUrl' && open.payload.data?.photoUrl
                     /* A new photo is shown, not described: HR sees what they are approving. */
-                    ? <li key={k} className="flex items-center gap-3"><span className="ui-muted">Photo:</span><img src={open.payload.data.photoUrl} alt="New photo asked for" className="h-16 w-16 rounded-full object-cover" /></li>
+                    ? <li key={k} className="flex items-center gap-3"><span className="ui-muted">Photo:</span><img src={open.payload.data.photoUrl} alt="New photo asked for" className="h-16 w-16 rounded-xl object-cover" /></li>
                     : <li key={k}><span className="ui-muted">{FIELD_WORDS[k] || SCHEDULED_LABELS[k] || k.replace(/Id$/, '')}</span>: <span className="ui-muted">{String(v.before ?? 'None')}</span> → <strong>{String(v.after ?? 'None')}</strong></li>
                 ))}
               </ul>

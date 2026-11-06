@@ -82,7 +82,7 @@ export default function Automations({ openScreen }) {
       req.setData?.((d) => ({ ...d, automations: out.automations }));
       if (!req.setData) req.reload();
       const a = out.automations.find((x) => x.key === key);
-      notify.success(patch.on === undefined ? 'Saved.' : `${a.on ? 'On' : 'Off'}: ${a.sentence.replace('{n}', String(a.n ?? ''))}.`);
+      notify.success(!a || patch.on === undefined ? 'Saved.' : `${a.on ? 'On' : 'Off'}: ${a.sentence.replace('{n}', String(a.n ?? ''))}.`);
     } catch (e) {
       notify.error(String(e?.message || 'Not saved.'));
     } finally {
