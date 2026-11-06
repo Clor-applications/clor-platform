@@ -18,11 +18,11 @@
  * to be upgraded"; one unusual accent, Apple's system colours for status):
  *   60%  ground #F5F5F7, white surfaces, neutral hairlines #E3E3E8
  *   30%  ink #1D1D1F for text and selected choices; #4A4A4F and #6E6E73 for support
- *   10%  lagoon teal #0E7C7B: the primary action, where you are, focus,
- *        the emphasised data line. White on it 5.0:1; #0A6665 where it is
- *        text (6.6:1). Not blue on purpose (owner, 28 Oct 2026: "every
- *        software in this industry uses the same colours"); teal sits apart
- *        from the blues and purples of other HR apps and from status green.
+ *   10%  pitaya coral #FF1356: the primary action, where you are, focus,
+ *        the emphasised data line. White on it; #C00040 where it is text.
+ *        Not blue on purpose (owner, 28 Oct 2026: "every software in this
+ *        industry uses the same colours"); coral sits apart from the blues
+ *        and purples of other HR apps. Upgraded to coral 6 Nov 2026.
  *   butter #FFF4C7 with #6B4E00 ink (7.0:1): warmth only. Celebrations,
  *        Fun Friday, pinned news, "today" markers. Never an action.
  *   companions, each a soft tint with its own dark ink (all over 5:1): mint
@@ -84,7 +84,7 @@
   --warn-soft: 255 244 229;
   --info: 137 68 171;
   --info-soft: 246 239 250;
-  --page-heading-bg: 245 245 247;
+  --page-heading-bg: 255 248 250;
   --heading-bg: 240 240 243;
   --heading-hover: 230 230 235;
 }
@@ -92,7 +92,7 @@
 :root[data-theme='dark'] [data-palette='sky'] {
   --brand: 255 107 157;
   --brand-deep: 255 150 185;
-  --brand-hover: 255 150 185;
+  --brand-hover: 255 130 170;
   --brand-pressed: 220 60 100;
   --btn-primary-bg: 255 107 157;
   --btn-primary-hover: 255 150 185;
@@ -1371,7 +1371,7 @@
  * a grey fill.
  *
  * One job per colour:
- *   Teal #0E7C7B    the action: primary buttons, links, focus, where you are
+ *   Coral #FF1356   the action: primary buttons, links, focus, where you are
  *   Ink #1D1D1F     headings and body; weight, not a second colour, ranks them
  *   Green #1E7F37   approved, active, present, done
  *   Orange #B25000  waiting, due soon, needs a look (on a cream wash)
@@ -1384,8 +1384,8 @@
  */
 :root[data-palette='sky']:not([data-theme='dark']),
 :root:not([data-theme='dark']) [data-palette='sky'] {
-  --app-bg: 255 255 255;
-  --page-heading-bg: 255 255 255;
+  --app-bg: 255 248 250;
+  --page-heading-bg: 255 248 250;
   --fg-heading: 29 29 31;
 }
 :root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel { border-right: 1px solid rgb(var(--border)); }
