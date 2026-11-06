@@ -3,19 +3,15 @@ import ClorMark from './ClorMark.jsx';
 import { C, L, O, R, DOT, WORD_WIDTH } from './clorPaths.js';
 
 /**
- * The CLOR logo: the owner's wordmark (3 Nov 2026), drawn from its traced
- * outlines, always in capitals. One logo across the site and every app.
- *
- * `variant`: 'horizontal' (default) and 'wordmark' are the word itself (its C
- * is the mark), 'stacked' the mark above the word, 'mark' the C and its dot
- * alone. `size` is the logo's height in px (or sm/md/lg/xl). The letters take
- * --logo-mark (oxblood on light, white on dark) and the dot --logo-dot (marigold);
- * `color` and `dotColor` set them for one particular ground.
+ * The CLOR logo (6 Nov 2026): C-mark icon + CLOR wordmark.
+ * Wordmark: C=slate, L=slate, O=orange, R=slate (only O carries the brand colour).
+ * `variant`: 'horizontal' (default) = mark icon + word side-by-side;
+ *            'wordmark' = word only; 'mark' = icon only; 'stacked' = icon above word.
  */
 const HEIGHTS = { sm: 20, md: 28, lg: 40, xl: 56 };
-/* Neon brand: C+O orange, L+R slate. Single `color` prop overrides both for one-colour contexts. */
-const ORANGE = 'rgb(var(--logo-mark-orange, 255 84 0))';
-const SLATE  = 'rgb(var(--logo-mark-slate,  15 23 42))';
+/* Only O is orange. C/L/R are slate. `color` override applies to all for one-colour contexts. */
+const ORANGE    = 'rgb(var(--logo-mark-orange, 255 84 0))';
+const SLATE     = 'rgb(var(--logo-mark-slate,  15 23 42))';
 const DOT_PAINT = 'rgb(var(--logo-dot, 255 84 0))';
 
 function Word({ h, color, dotColor, className, title }) {
@@ -31,7 +27,7 @@ function Word({ h, color, dotColor, className, title }) {
       style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
       {...a11y}
     >
-      <path d={C} fill={co} />
+      <path d={C} fill={sl} />
       <path d={L} fill={sl} />
       <path d={O} fill={co} />
       <path d={R} fill={sl} />
@@ -42,17 +38,32 @@ function Word({ h, color, dotColor, className, title }) {
 
 export default function ClorLogo({ variant = 'horizontal', size = 'md', color, dotColor, className = '', title = 'CLOR' }) {
   const h = typeof size === 'number' ? size : HEIGHTS[size] || HEIGHTS.md;
-  if (variant === 'mark') return <ClorMark size={h} color={color} dotColor={dotColor} className={className} title={title} />;
-  if (variant !== 'stacked') return <Word h={h} color={color} dotColor={dotColor} className={className} title={title} />;
+  if (variant === 'mark')     return <ClorMark size={h} color={color} className={className} title={title} />;
+  if (variant === 'wordmark') return <Word h={h} color={color} dotColor={dotColor} className={className} title={title} />;
+  if (variant === 'stacked') {
+    return (
+      <span
+        role="img"
+        aria-label={title || undefined}
+        aria-hidden={title ? undefined : 'true'}
+        className={className}
+        style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(h / 3), verticalAlign: 'middle', flexShrink: 0 }}
+      >
+        <ClorMark size={Math.round(h * 1.4)} color={color} title="" />
+        <Word h={h} color={color} dotColor={dotColor} title="" />
+      </span>
+    );
+  }
+  /* horizontal (default): C-mark icon + CLOR word side by side */
   return (
     <span
       role="img"
-      aria-label={title || undefined}
+      aria-label={title}
       aria-hidden={title ? undefined : 'true'}
       className={className}
-      style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(h / 3), verticalAlign: 'middle', flexShrink: 0 }}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: Math.round(h * 0.35), verticalAlign: 'middle', flexShrink: 0 }}
     >
-      <ClorMark size={h * 1.6} color={color} dotColor={dotColor} title="" />
+      <ClorMark size={h} color={color} title="" />
       <Word h={h} color={color} dotColor={dotColor} title="" />
     </span>
   );

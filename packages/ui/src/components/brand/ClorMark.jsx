@@ -1,25 +1,30 @@
 import React from 'react';
-import { C, DOT, MARK_VIEWBOX } from './clorPaths.js';
 
 /**
- * The CLOR mark: the C of the owner's wordmark (3 Nov 2026) with the marigold
- * dot inside it. The app icon, the favicon and the phone bar wear it;
- * ClorLogo sets the whole word.
- *
- * Paints follow the theme: the C takes --logo-mark (oxblood on light grounds,
- * white on dark), the dot --logo-dot (marigold). `color` sets the C for one
- * particular ground; on a marigold ground pass `dotColor` too, or the dot
- * vanishes.
+ * CLOR C-mark icon (6 Nov 2026): custom orange arc, NOT the font-traced letter C.
+ * Thick rounded stroke, opens right. Favicon, app-icon, browser tab, phone bar.
+ * Pass `color` to override the orange for a specific ground.
  */
-const MARK = 'rgb(var(--logo-mark, 92 10 22))';
-const DOT_PAINT = 'rgb(var(--logo-dot, 245 166 35))';
-
-export default function ClorMark({ size = 28, color, dotColor, className = '', title = 'CLOR' }) {
+export default function ClorMark({ size = 28, color, className = '', title = 'CLOR' }) {
   const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': 'true' };
+  const paint = color || 'rgb(var(--logo-mark-orange, 255 84 0))';
   return (
-    <svg width={size} height={size} viewBox={MARK_VIEWBOX} className={className} style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }} {...a11y}>
-      <path d={C} fill={color || MARK} />
-      <path d={DOT} fill={dotColor || DOT_PAINT} />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      className={className}
+      style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
+      {...a11y}
+    >
+      {/* Arc from top-right to bottom-right, long way round (the C shape opens right) */}
+      <path
+        d="M 73 17 A 40 40 0 1 0 73 83"
+        fill="none"
+        stroke={paint}
+        strokeWidth="22"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
