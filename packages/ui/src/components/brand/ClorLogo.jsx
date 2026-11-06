@@ -13,11 +13,15 @@ import { C, L, O, R, DOT, WORD_WIDTH } from './clorPaths.js';
  * `color` and `dotColor` set them for one particular ground.
  */
 const HEIGHTS = { sm: 20, md: 28, lg: 40, xl: 56 };
-const MARK = 'rgb(var(--logo-mark, 92 10 22))';
-const DOT_PAINT = 'rgb(var(--logo-dot, 245 166 35))';
+/* Neon brand: C+O orange, L+R slate. Single `color` prop overrides both for one-colour contexts. */
+const ORANGE = 'rgb(var(--logo-mark-orange, 255 84 0))';
+const SLATE  = 'rgb(var(--logo-mark-slate,  15 23 42))';
+const DOT_PAINT = 'rgb(var(--logo-dot, 255 84 0))';
 
 function Word({ h, color, dotColor, className, title }) {
   const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': 'true' };
+  const co = color || ORANGE;
+  const sl = color || SLATE;
   return (
     <svg
       width={Math.round((h * WORD_WIDTH) / 100)}
@@ -27,12 +31,10 @@ function Word({ h, color, dotColor, className, title }) {
       style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
       {...a11y}
     >
-      <g fill={color || MARK}>
-        <path d={C} />
-        <path d={L} />
-        <path d={O} />
-        <path d={R} />
-      </g>
+      <path d={C} fill={co} />
+      <path d={L} fill={sl} />
+      <path d={O} fill={co} />
+      <path d={R} fill={sl} />
       <path d={DOT} fill={dotColor || DOT_PAINT} />
     </svg>
   );

@@ -1,17 +1,10 @@
-/* One face: Inter. The Graphite decision, adopted ahead of the rest of that
-   system — it has tabular figures, a large x-height and a wide weight range,
-   which is everything a dense financial UI asks of type. Numbers and codes
-   are Inter too, marked by tabular-nums and alignment rather than a second
-   family. display=swap so text is never invisible while fonts load.
-   Served from this app (Fontsource, SIL OFL 1.1), not from Google: loading
-   it from fonts.googleapis.com sent every visitor's IP address to Google
-   before they had signed in to anything. */
+/* Neon brand (5–6 Nov 2026): Plus Jakarta Sans for words, JetBrains Mono for numbers.
+   Inter kept for Accounting (indigo palette). Bricolage Grotesque retired.
+   All self-hosted (Fontsource, SIL OFL 1.1), not Google — no IP leakage before sign-in. */
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/plus-jakarta-sans';
-/* Bricolage Grotesque, the brand's display face (Direction D): the wordmark
-   and page titles only. Figures, tables and forms stay Inter — warm display,
-   plain Inter for figures. Self-hosted for the same reason as Inter. */
-@import '@fontsource-variable/bricolage-grotesque/opsz.css';
+@import '@fontsource/jetbrains-mono';
+/* Bricolage Grotesque retired in neon brand (5–6 Nov 2026). */
 
 @tailwind base;
 @tailwind components;
@@ -727,7 +720,8 @@
 :root {
   --red: 200 16 46; --oxblood: 92 10 22; --blush: 251 232 234; --marigold: 245 166 35;
   --ink: 31 26 28; --cream: 255 248 240;
-  --logo-mark: var(--oxblood); --logo-dot: var(--marigold);
+  --logo-mark: 255 84 0; --logo-dot: 255 84 0; /* neon orange #FF5400; L/R slate handled in component */
+  --logo-mark-orange: 255 84 0; --logo-mark-slate: 15 23 42; /* two-color logo tokens */
   /* The ground is a warm white with a trace of rose, so hairlines and blush belong to it. */
   --app-bg: 250 246 244; --surface: 255 255 255; --surface-raised: 255 255 255;
   --surface-sunken: 245 239 238; --border: 234 223 225; --border-strong: 206 188 192;
@@ -921,7 +915,7 @@
 @layer base {
   html {
     /* Inter, matching the reference the module overviews are drawn from. */
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
     /* Tabular figures everywhere: money columns must not jitter between rows. */
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
@@ -1014,7 +1008,7 @@
   .ui-mono {
     /* Inter, like everything else. A code is marked by disabled ligatures
        and the tabular figures it inherits, not by a second typeface. */
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'calt' 0; /* no ligatures in IDs and codes */
   }
   .ui-amount {
@@ -2183,7 +2177,7 @@
      Inter at display sizes for headline moments — one face, ranked by size
      and weight rather than by switching family. */
   .ui-display {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'ss01', 'cv11';
     font-weight: 600;
     letter-spacing: -0.02em;
@@ -2555,7 +2549,7 @@
     font-size: 0.8125rem;
   }
   .ui-table-totals .fig {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     /* 500, per DESIGN.md. At 600 every figure in every table read as
        emphasised, which means none of them did — a column where each cell
@@ -2638,7 +2632,7 @@
     box-shadow: 0 -2px 10px rgb(28 25 23 / 0.06);
   }
   .ui-entry-summary .fig {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
   }
@@ -3164,7 +3158,7 @@
      doing 200 vouchers a day and an owner reading outstandings.
   --------------------------------------------------------------------------- */
   .ui-t-page {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.75rem;       /* 28px — Graphite's title size */
     line-height: 2.25rem;     /* 36px */
     font-weight: 700;
@@ -3289,7 +3283,7 @@
 
   .ui-money,
   .ui-amount {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-size: 0.8125rem;     /* 13px */
     line-height: 1.125rem;
     font-weight: 400;
@@ -3303,7 +3297,7 @@
      size the scale does not have. One role instead: monospace, tabular, and
      the same 20px everywhere a figure leads a card. */
   .ui-money-lg {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.25rem;       /* 20px */
     line-height: 1.75rem;     /* 28px */
     /* A headline figure earns its emphasis from size, not from weight on top
@@ -3330,7 +3324,7 @@
     font-weight: 500;
   }
   .ui-total-row > :last-child {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.25rem;       /* 20px */
     line-height: 1.75rem;
     font-weight: 400;
@@ -3407,7 +3401,7 @@
   /* The scan anchor. Mono so digits align down the column and the eye can run
      it like a list of codes rather than prose. */
   .ui-col-id.ui-col-id {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'calt' 0;
     font-size: 0.8125rem;
     font-weight: 500;
@@ -3472,7 +3466,7 @@
        tabular-nums, weight and alignment but never the family, so every rupee
        figure in every table rendered in the sans face — the one place the rule
        matters most, and the only place it was not applied. */
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     /* 400. Monospace and right alignment already say "this is money"; a
        weight on top of them made every figure in every table shout, and a
@@ -3491,7 +3485,7 @@
      or a glyph.
   ------------------------------------------------------------------------- */
   .ui-cell-ref {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     color: rgb(var(--doc-link));
     font-weight: 600;
@@ -3548,7 +3542,7 @@
     overflow-wrap: anywhere;
   }
   .ui-detail-value.ui-detail-mono {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
   }
 
@@ -4372,7 +4366,7 @@
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.10);
   }
   .ui-segment-count {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-size: 0.75rem;
     line-height: 1rem;
@@ -4617,7 +4611,7 @@
      left-aligned, which is why a column of rates did not line up on the
      decimal and had to be read one cell at a time. */
   .ui-grid-dense input[type='number'] {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-weight: 500;
     text-align: right;
@@ -5105,8 +5099,30 @@ label {
    h2 smaller than a neighbouring card label. Element-level sizes are made
    authoritative here so the same heading means the same thing on every page. */
 body, button, input, select, textarea, table,
-.font-sans, .font-serif, .font-mono {
+.font-sans, .font-serif {
+  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+/* JetBrains Mono for all numbers/metrics outside Accounting. */
+.font-mono, .ui-mono, .ui-metric, code, pre,
+.tabular-nums, [class*='ui-amount'] {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+/* Accounting keeps Inter throughout — the indigo palette restores the original face. */
+[data-palette='indigo'] body,
+[data-palette='indigo'] button,
+[data-palette='indigo'] input,
+[data-palette='indigo'] select,
+[data-palette='indigo'] textarea,
+[data-palette='indigo'] table,
+[data-palette='indigo'],
+[data-palette='indigo'] * {
   font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+[data-palette='indigo'] .font-mono,
+[data-palette='indigo'] .ui-mono,
+[data-palette='indigo'] code,
+[data-palette='indigo'] pre {
+  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 
 h1, h1[class], .ui-t-page {
@@ -5116,7 +5132,7 @@ h1, h1[class], .ui-t-page {
   letter-spacing: -0.025em;
 }
 h1, .ui-t-page, .ui-wordmark {
-  font-family: 'Bricolage Grotesque Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   font-variant-numeric: normal;
 }
 /* The wordmark: always CLOR, ExtraBold, tight, in the theme's logo ink. */
@@ -7694,7 +7710,7 @@ th.ui-th {
 .ui-auth-brand.is-board .ui-auth-copy { margin-top: auto; }
 .ui-auth-brand.is-board .ui-auth .ui-auth-title,
 .ui-auth-brand.is-board .ui-auth-title {
-  font-family: 'Bricolage Grotesque Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(3.25rem, 1.5rem + 3.6vw, 5.25rem) !important;
   line-height: 0.92 !important;
   letter-spacing: -0.045em;
@@ -7713,7 +7729,7 @@ th.ui-th {
 }
 .ui-auth-today-title {
   margin-bottom: 12px;
-  font-family: 'Bricolage Grotesque Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   font-size: 1.375rem;
   font-weight: 800;
   letter-spacing: -0.02em;

@@ -1,4 +1,4 @@
-@import '@fontsource-variable/bricolage-grotesque';
+/* Bricolage Grotesque retired in neon brand (5–6 Nov 2026). */
 /*
  * People's own look (Sky palette and People-only classes), split out of index.css on 28 Oct 2026 so each
  * element's People rule lives in one place. Loaded right after index.css (main.jsx), so it sits where these
@@ -1793,7 +1793,7 @@
 /* Brand D type: Bricolage Grotesque for what is read as a heading or a large figure; Inter stays for running text, tables and money. */
 :root[data-palette='sky']:not([data-theme='dark']),
 :root:not([data-theme='dark']) [data-palette='sky'] {
-  --font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
 }
 /* Colour beside the red (owner, 3 Nov 2026: "only red is visible where is other colours"). Brand D folded every
    wash into lilac, which the red brand turned into one blush: figures, panel heads and the module panel all read pink.
