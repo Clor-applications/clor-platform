@@ -44,24 +44,27 @@ export const payrollApp = {
   blurb: 'Salaries, statutory deductions, payslips, and the journal they post.',
   available: true,
   database: 'payroll.db',
+  /** Electric Cyan on pure white (packages/ui/src/index.css, [data-palette='cyan']): owner, 5 Nov 2026. */
+  palette: 'cyan',
   home: 'overview',
 
   /** The phone tab bar: what a payroll admin opens most. */
   mobileTabs: ['overview', 'runs', 'slips', 'payments'],
   /* Pages edge to edge on the white column, the way Accounting's are. */
   flush: true,
-  /* The split sidebar: modules on a rail, the open module's screens grouped (see Attendance). */
+  /* The split sidebar: modules on a rail, the open module's screens grouped (see Attendance). Each module's icon
+     wears a family colour by meaning (`tint`): overview cobalt, pay runs emerald, salaries mulberry, reports tangerine. */
   modules: [
-    { key: 'overview', label: 'Overview', items: ['overview'] },
-    { key: 'runs', label: 'Pay runs', groups: [
+    { key: 'overview', label: 'Overview', tint: 'cobalt', items: ['overview'] },
+    { key: 'runs', label: 'Pay runs', tint: 'mint', groups: [
       { label: 'Each month', items: ['runs', 'slips', 'payments'] },
       { label: 'Before the run', items: ['adjustments', 'bankChanges'] },
     ] },
-    { key: 'people', label: 'Salaries', groups: [
+    { key: 'people', label: 'Salaries', tint: 'lilac', groups: [
       { label: 'Per employee', items: ['assignments', 'revisions', 'loans', 'taxDeclarations'] },
       { label: 'Leaving', items: ['settlements'] },
     ] },
-    { key: 'reports', label: 'Reports', items: ['reports'] },
+    { key: 'reports', label: 'Reports', tint: 'peach', items: ['reports'] },
     { key: 'settings', label: 'Settings', groups: [
       { label: 'Setup', items: ['setup', 'periods', 'payGroups'] },
       { label: 'Salary design', items: ['components', 'structures'] },

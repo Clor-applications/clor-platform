@@ -1,22 +1,22 @@
 import React from 'react';
 import ClorMark from './ClorMark.jsx';
-import { C, L, O, R, DOT, WORD_WIDTH } from './clorPaths.js';
+import { GLYPH, DOT, C, L, O, R, WORD_WIDTH } from './clorPaths.js';
 
 /**
- * The CLOR logo: the owner's wordmark (3 Nov 2026), drawn from its traced
- * outlines, always in capitals. One logo across the site and every app.
+ * The CLOR logo (owner's master, 5 Nov 2026): the ribbon mark, then CLOR in
+ * outlined letters, always capitals. One logo across the site and every app.
  *
- * `variant`: 'horizontal' (default) and 'wordmark' are the word itself (its C
- * is the mark), 'stacked' the mark above the word, 'mark' the C and its dot
- * alone. `size` is the logo's height in px (or sm/md/lg/xl). The letters take
- * --logo-mark (oxblood on light, white on dark) and the dot --logo-dot (marigold);
- * `color` and `dotColor` set them for one particular ground.
+ * `variant`: 'horizontal' (default) is mark and word, 'stacked' the mark above
+ * them, 'mark' the ribbon alone. `size` is the logo's height in px (or
+ * sm/md/lg/xl). The ribbon, dot and O take --logo-accent (Blaze orange), the
+ * other letters --logo-ink (slate on light, white on dark); `color` and
+ * `accentColor` set them for one particular ground.
  */
 const HEIGHTS = { sm: 20, md: 28, lg: 40, xl: 56 };
-const MARK = 'rgb(var(--logo-mark, 92 10 22))';
-const DOT_PAINT = 'rgb(var(--logo-dot, 245 166 35))';
+const INK = 'rgb(var(--logo-ink, 15 23 42))';
+const ACCENT = 'rgb(var(--logo-accent, 255 84 0))';
 
-function Word({ h, color, dotColor, className, title }) {
+function Word({ h, color, accentColor, className, title }) {
   const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': 'true' };
   return (
     <svg
@@ -27,21 +27,24 @@ function Word({ h, color, dotColor, className, title }) {
       style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
       {...a11y}
     >
-      <g fill={color || MARK}>
+      <g fill={accentColor || ACCENT}>
+        <path d={GLYPH} />
+        <path d={DOT} />
+        <path d={O} />
+      </g>
+      <g fill={color || INK}>
         <path d={C} />
         <path d={L} />
-        <path d={O} />
         <path d={R} />
       </g>
-      <path d={DOT} fill={dotColor || DOT_PAINT} />
     </svg>
   );
 }
 
-export default function ClorLogo({ variant = 'horizontal', size = 'md', color, dotColor, className = '', title = 'CLOR' }) {
+export default function ClorLogo({ variant = 'horizontal', size = 'md', color, accentColor, className = '', title = 'CLOR' }) {
   const h = typeof size === 'number' ? size : HEIGHTS[size] || HEIGHTS.md;
-  if (variant === 'mark') return <ClorMark size={h} color={color} dotColor={dotColor} className={className} title={title} />;
-  if (variant !== 'stacked') return <Word h={h} color={color} dotColor={dotColor} className={className} title={title} />;
+  if (variant === 'mark') return <ClorMark size={h} color={accentColor} className={className} title={title} />;
+  if (variant !== 'stacked') return <Word h={h} color={color} accentColor={accentColor} className={className} title={title} />;
   return (
     <span
       role="img"
@@ -50,8 +53,8 @@ export default function ClorLogo({ variant = 'horizontal', size = 'md', color, d
       className={className}
       style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(h / 3), verticalAlign: 'middle', flexShrink: 0 }}
     >
-      <ClorMark size={h * 1.6} color={color} dotColor={dotColor} title="" />
-      <Word h={h} color={color} dotColor={dotColor} title="" />
+      <ClorMark size={h * 1.6} color={accentColor} title="" />
+      <Word h={h} color={color} accentColor={accentColor} title="" />
     </span>
   );
 }

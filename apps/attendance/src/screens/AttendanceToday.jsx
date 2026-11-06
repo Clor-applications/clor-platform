@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, MapPin, Timer } from 'lucide-react';
 import {
   CalendarCancelColor,
   CalendarCheckmarkColor,
@@ -31,7 +31,8 @@ const Sunrise = colorIcon(WeatherSunnyLowColor, 'WeatherSunnyLow');
 const UserCheck = colorIcon(PersonAvailableColor, 'PersonAvailable');
 const UserX = colorIcon(PersonWarningColor, 'PersonWarning');
 const Users = colorIcon(PeopleColor, 'People');
-import { getCalendar, getOverview, getReaderHealth, todayIst } from '../api/attendance';
+import { getCalendar, getOverview, getPhonePunches, getReaderHealth, listOvertimeRequests, todayIst } from '../api/attendance';
+import { LivePunches, PhonePunchesCard, ShiftsToday } from './AttendanceTodayPanels';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /* The reader states the server already decides (Reader health uses the same words). */
@@ -115,6 +116,9 @@ export default function AttendanceToday({ openScreen }) {
   /* Readers and the week are extras: without access to them, or on a failed read, the panel is simply not shown. */
   const [readers, setReaders] = useState(null);
   const [week, setWeek] = useState(null);
+  /* Phone punches and overtime feed "Waiting for you" as well as their own lines; same rule, hidden without access. */
+  const [phone, setPhone] = useState(null);
+  const [overtime, setOvertime] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,6 +133,24 @@ export default function AttendanceToday({ openScreen }) {
   useEffect(() => {
     let cancelled = false;
     getReaderHealth().then((d) => !cancelled && setReaders(d)).catch(() => !cancelled && setReaders(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPhonePunches({ from: date, to: date }).then((d) => !cancelled && setPhone(d)).catch(() => !cancelled && setPhone(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [date, attempt]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listOvertimeRequests('PENDING')
+      .then((d) => !cancelled && setOvertime((d?.requests || []).length))
+      .catch(() => !cancelled && setOvertime(null));
     return () => {
       cancelled = true;
     };
@@ -154,6 +176,8 @@ export default function AttendanceToday({ openScreen }) {
         { n: data.toValidate, label: data.toValidate === 1 ? 'day to validate' : 'days to validate', key: 'records', icon: ListChecks },
         { n: data.pendingRequests, label: data.pendingRequests === 1 ? 'attendance request' : 'attendance requests', key: 'requests', icon: Inbox },
         { n: data.pendingLeave, label: data.pendingLeave === 1 ? 'leave request' : 'leave requests', key: 'leaveRequests', icon: CalendarCheck },
+        { n: overtime || 0, label: overtime === 1 ? 'overtime request' : 'overtime requests', key: 'overtime', icon: Timer },
+        { n: phone?.summary?.waiting || 0, label: phone?.summary?.waiting === 1 ? 'field punch to review' : 'field punches to review', key: 'phonePunches', icon: MapPin },
       ]
     : [];
   const weekRate = week
@@ -232,8 +256,49 @@ export default function AttendanceToday({ openScreen }) {
             <StatTile label="Not marked" value={data.notMarked} />
           </div>
 
+          <div className="grid items-start gap-4 xl:grid-cols-3">
+            <LivePunches date={date} attempt={attempt} openScreen={openScreen} wide={!readers && !phone} />
+            {readers || phone ? (
+              <div className="space-y-4">
+                {readers ? (
+                <section className="ui-card p-4" aria-labelledby="readers-h">
+                  <div className="mb-2 flex items-baseline justify-between gap-3">
+                    <h2 id="readers-h" className="ui-t-sec">Readers</h2>
+                    <span className="ui-caption">{readerList.length ? (readerTrouble ? `${readerTrouble} need${readerTrouble === 1 ? 's' : ''} a look` : 'All healthy') : 'None added'}</span>
+                  </div>
+                  {readerList.length ? (
+                    <ul className="divide-y">
+                      {readerList.slice(0, 5).map((r) => {
+                        const st = READER[r.status] || READER.ok;
+                        return (
+                          <li key={r.id} className="flex items-center gap-3 py-2 text-sm">
+                            <Cpu size={16} aria-hidden="true" className="ui-subtle shrink-0" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-medium">{r.name}</span>
+                              <span className="ui-caption">Last heard {ago(r.lastSeenAt)}</span>
+                            </span>
+                            <span className={`ui-pill ui-pill-${st.tone}`}>{st.label}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="ui-muted text-sm">Add a reader under Readers to see it here.</p>
+                  )}
+                  {openScreen ? (
+                    <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm mt-3" onClick={() => go('readerHealth')}>
+                      Open reader health
+                    </button>
+                  ) : null}
+                </section>
+                ) : null}
+                <PhonePunchesCard phone={phone} openScreen={openScreen} />
+              </div>
+            ) : null}
+          </div>
+
           <div className="grid items-stretch gap-4 xl:grid-cols-3">
-            <section className={`ui-card p-4 ${readers ? 'xl:col-span-2' : 'xl:col-span-3'}`} aria-labelledby="week-h">
+            <section className="ui-card p-4 xl:col-span-2 xl:[&:only-child]:col-span-3" aria-labelledby="week-h">
               <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
                 <span className="flex items-baseline gap-3">
                   <h2 id="week-h" className="ui-t-sec">Last {week?.length || 7} days</h2>
@@ -273,38 +338,7 @@ export default function AttendanceToday({ openScreen }) {
               )}
             </section>
 
-            {readers ? (
-              <section className="ui-card p-4" aria-labelledby="readers-h">
-                <div className="mb-2 flex items-baseline justify-between gap-3">
-                  <h2 id="readers-h" className="ui-t-sec">Readers</h2>
-                  <span className="ui-caption">{readerList.length ? (readerTrouble ? `${readerTrouble} need${readerTrouble === 1 ? 's' : ''} a look` : 'All healthy') : 'None added'}</span>
-                </div>
-                {readerList.length ? (
-                  <ul className="divide-y">
-                    {readerList.slice(0, 5).map((r) => {
-                      const st = READER[r.status] || READER.ok;
-                      return (
-                        <li key={r.id} className="flex items-center gap-3 py-2 text-sm">
-                          <Cpu size={16} aria-hidden="true" className="ui-subtle shrink-0" />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate font-medium">{r.name}</span>
-                            <span className="ui-caption">Last heard {ago(r.lastSeenAt)}</span>
-                          </span>
-                          <span className={`ui-pill ui-pill-${st.tone}`}>{st.label}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <p className="ui-muted text-sm">Add a reader under Readers to see it here.</p>
-                )}
-                {openScreen ? (
-                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm mt-3" onClick={() => go('readerHealth')}>
-                    Open reader health
-                  </button>
-                ) : null}
-              </section>
-            ) : null}
+            <ShiftsToday date={date} attempt={attempt} openScreen={openScreen} />
           </div>
 
           <div className="grid items-stretch gap-4 xl:grid-cols-3">

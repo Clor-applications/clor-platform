@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-    <link rel="alternate icon" type="image/png" href="/clor-icon-192.png" />
+    <link rel="alternate icon" type="image/png" href="/brand/clor-mark.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/clor-icon-192.png" />
@@ -21,9 +21,6 @@
         if (m) m.href = '/manifest-' + app + '.webmanifest';
         var a = document.querySelector('link[rel="apple-touch-icon"]');
         if (a) a.href = '/icons/' + app + '-192.png';
-        /* People wears its own app icon in the browser tab (brand kit, 28 Oct 2026); the other apps keep the CLOR icon there. */
-        var f = document.querySelector('link[rel="icon"]');
-        if (f && app === 'people') { f.type = 'image/svg+xml'; f.href = '/icons/people.svg'; }
         var t = document.querySelector('meta[name="theme-color"]');
         if (t) t.content = '#FFFFFF';
         document.title = 'CLOR ' + app.charAt(0).toUpperCase() + app.slice(1);

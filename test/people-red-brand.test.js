@@ -196,39 +196,6 @@ describe('a chosen view is marigold ("use different color like green or orange")
   });
 });
 
-describe('the logo is the owner\'s traced wordmark, painted from its tokens', () => {
-  const paths = read('packages/ui/src/components/brand/clorPaths.js');
-  const logo = read('packages/ui/src/components/brand/ClorLogo.jsx');
-  const mark = read('packages/ui/src/components/brand/ClorMark.jsx');
-
-  it('draws CLOR from outlines, not type, and the C keeps its own dot', () => {
-    for (const k of ['C', 'L', 'O', 'R', 'DOT']) expect(paths).toMatch(new RegExp(`export const ${k} = 'M[\\d.]`));
-    expect(logo).not.toMatch(/<text|fontFamily/);
-    expect(logo).toMatch(/<path d=\{C\} \/>\s*<path d=\{L\} \/>\s*<path d=\{O\} \/>\s*<path d=\{R\} \/>/);
-    expect(mark).toContain('<path d={C} fill={color || MARK} />');
-  });
-
-  it('paints from --logo-mark and --logo-dot unless a caller sets a colour: oxblood letters and a marigold dot (owner: "logo color do not keep red")', () => {
-    for (const f of [logo, mark]) {
-      expect(f).toContain('rgb(var(--logo-mark, 92 10 22))');
-      expect(f).toContain('rgb(var(--logo-dot, 245 166 35))');
-    }
-    const css = read('packages/ui/src/index.css');
-    expect(css).toMatch(/--logo-mark: var\(--oxblood\); --logo-dot: var\(--marigold\);/);
-  });
-
-  it('nothing draws the retired C-tick any more', () => {
-    expect(() => read('packages/ui/src/components/brand/ClorTick.jsx')).toThrow();
-    for (const f of ['public/icon.svg', 'public/logo.svg', 'public/brand/clor-mark.svg', 'public/icons/people.svg']) expect(read(f), f).not.toContain('M74.04 25.96');
-    /* The letters are oxblood; red is the app icon's tile, never the logo. */
-    for (const f of ['public/logo.svg', 'public/brand/clor-light.svg', 'public/brand/clor-mark.svg']) {
-      expect(read(f), f).toContain('fill="#5C0A16"');
-      expect(read(f), f).not.toContain('#C8102E');
-    }
-    for (const f of ['public/icon.svg', 'public/icons/people.svg']) expect(read(f), f).toContain('fill="#C8102E"');
-  });
-});
-
 describe("DESIGN.md's shapes and type floor in People", () => {
   it('buttons, fields and tabs take 8px; nothing pressable is a 999px pill', () => {
     expect(people).toMatch(/\[data-palette='sky'\] \{\n\s*--radius-btn: 0\.5rem;\n\s*--radius-input: 0\.5rem;/);

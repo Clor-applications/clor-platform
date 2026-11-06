@@ -340,7 +340,7 @@ export const peopleApp = {
     ] },
     /* Organisation: one flat list; headings over one item each only made it longer. The detailed lists
        (Detailed structure switch) follow under one heading. */
-    { key: 'organization', label: 'Organisation', icon: M.org, groups: [
+    { key: 'organization', label: 'Organisation', short: 'Org', icon: M.org, groups: [
       { label: '', items: ['organization', 'departments', 'jobPositions', 'orgChart', 'branches', 'orgChanges'] },
       { label: 'Detailed structure', items: ['establishments', 'areas', 'teams', 'seats', 'businessUnits', 'grades', 'costCentres', 'jobRoles'] },
     ] },

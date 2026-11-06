@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, ArrowRight } from 'lucide-react';
+import { AlertTriangle, ArrowRight, HandCoins, Receipt, TrendingUp, Users } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { getPayrollOverview } from '../api/payrollOverview';
@@ -205,14 +205,16 @@ export default function PayrollOverview({ onOpen = () => {} }) {
       ) : null}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Figure label="In payroll" value={String(people.inPayroll)} hint={`of ${people.headcount} on the books`} />
+        <Figure Icon={Users} tint="sky" label="In payroll" value={String(people.inPayroll)} hint={`of ${people.headcount} on the books`} />
         <Figure
+          Icon={Receipt}
+          tint="lilac"
           label="Approved one-offs"
           value={String(pending.adjustments)}
           hint={pending.adjustmentValue ? `${pending.adjustmentValue > 0 ? '+' : '−'}${money(Math.abs(pending.adjustmentValue))}` : 'nothing pending'}
         />
-        <Figure label="Loans running" value={String(pending.loans)} hint={pending.loanOutstanding ? `${money(pending.loanOutstanding)} owed` : 'nothing owed'} />
-        <Figure label="Revisions open" value={String(pending.revisions)} hint={pending.revisions ? 'not yet in effect' : 'none waiting'} />
+        <Figure Icon={HandCoins} tint="peach" label="Loans running" value={String(pending.loans)} hint={pending.loanOutstanding ? `${money(pending.loanOutstanding)} owed` : 'nothing owed'} />
+        <Figure Icon={TrendingUp} tint="mint" label="Revisions open" value={String(pending.revisions)} hint={pending.revisions ? 'not yet in effect' : 'none waiting'} />
       </div>
 
       {trend.length ? (
@@ -267,9 +269,12 @@ const Cell = ({ label, value }) => (
   </div>
 );
 
-const Figure = ({ label, value, hint }) => (
-  <div className="ui-card p-3">
-    <div className="ui-caption">{label}</div>
+const Figure = ({ Icon, tint, label, value, hint }) => (
+  <div className="ui-card p-3" data-tint={tint}>
+    <div className="ui-caption flex items-center gap-2">
+      {Icon ? <span className="ui-figure-mark"><Icon size={14} aria-hidden="true" /></span> : null}
+      {label}
+    </div>
     <div className="ui-amount mt-1 text-lg font-semibold tabular-nums">{value}</div>
     {hint ? <div className="ui-caption">{hint}</div> : null}
   </div>
