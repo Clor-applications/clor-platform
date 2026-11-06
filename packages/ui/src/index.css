@@ -1006,9 +1006,6 @@
     color: rgb(var(--fg-subtle));
   }
   .ui-mono {
-    /* Inter, like everything else. A code is marked by disabled ligatures
-       and the tabular figures it inherits, not by a second typeface. */
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'calt' 0; /* no ligatures in IDs and codes */
   }
   .ui-amount {

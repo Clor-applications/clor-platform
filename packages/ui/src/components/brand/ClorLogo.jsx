@@ -61,7 +61,7 @@ export default function ClorLogo({ variant = 'horizontal', size = 'md', color, d
       aria-label={title}
       aria-hidden={title ? undefined : 'true'}
       className={className}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: Math.round(h * 0.35), verticalAlign: 'middle', flexShrink: 0 }}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: Math.round(h * 0.2), verticalAlign: 'middle', flexShrink: 0 }}
     >
       <ClorMark size={h} color={color} title="" />
       <Word h={h} color={color} dotColor={dotColor} title="" />
