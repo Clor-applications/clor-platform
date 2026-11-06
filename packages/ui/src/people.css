@@ -38,23 +38,23 @@
  */
 :root[data-palette='sky'],
 [data-palette='sky'] {
-  --brand: 14 124 123;
-  --brand-deep: 10 102 101;
-  --brand-hover: 10 102 101;
-  --brand-pressed: 8 84 83;
-  --btn-primary-bg: 14 124 123;
-  --btn-primary-hover: 10 102 101;
-  --brand-soft: 225 243 242;
-  --brand-subtle: 240 249 248;
-  --brand-border: 157 212 209;
-  --brand-ink: 10 102 101;
+  --brand: 255 19 86;
+  --brand-deep: 192 0 64;
+  --brand-hover: 224 10 71;
+  --brand-pressed: 180 0 50;
+  --btn-primary-bg: 255 19 86;
+  --btn-primary-hover: 224 10 71;
+  --brand-soft: 255 240 244;
+  --brand-subtle: 255 247 249;
+  --brand-border: 255 204 216;
+  --brand-ink: 192 0 64;
   --on-brand: 255 255 255;
-  --accent-soft: 225 243 242;
-  --ring: 14 124 123;
-  --link: 10 102 101;
-  --link-hover: 8 84 83;
-  --hero-hi: 14 124 123;
-  --app-bg: 245 245 247;
+  --accent-soft: 255 240 244;
+  --ring: 255 19 86;
+  --link: 192 0 64;
+  --link-hover: 180 0 50;
+  --hero-hi: 255 19 86;
+  --app-bg: 255 248 250;
   --fg: 29 29 31;
   --col-party: 29 29 31;
   --rail-graphite: 35 34 38;
@@ -62,12 +62,12 @@
   --rail-graphite-hover: 52 50 56;
   --rail-ink: 205 202 208;
   --rail-ink-strong: 255 255 255;
-  --rail-accent: 45 212 191;
+  --rail-accent: 255 19 86;
   --butter: 242 201 76;
   --butter-soft: 255 244 199;
   --butter-ink: 107 78 0;
-  --sky-soft: 225 243 242;
-  --sky-ink: 10 102 101;
+  --sky-soft: 255 240 244;
+  --sky-ink: 192 0 64;
   --mint-soft: 227 245 232;
   --mint-ink: 30 127 55;
   --lilac-soft: 240 234 251;
@@ -90,22 +90,22 @@
 }
 :root[data-theme='dark'][data-palette='sky'],
 :root[data-theme='dark'] [data-palette='sky'] {
-  --brand: 45 212 191;
-  --brand-deep: 94 234 212;
-  --brand-hover: 94 234 212;
-  --brand-pressed: 20 184 166;
-  --btn-primary-bg: 45 212 191;
-  --btn-primary-hover: 94 234 212;
-  --brand-soft: 8 47 44;
-  --brand-subtle: 5 28 27;
-  --brand-border: 17 94 89;
-  --brand-ink: 94 234 212;
+  --brand: 255 107 157;
+  --brand-deep: 255 150 185;
+  --brand-hover: 255 150 185;
+  --brand-pressed: 220 60 100;
+  --btn-primary-bg: 255 107 157;
+  --btn-primary-hover: 255 150 185;
+  --brand-soft: 80 10 30;
+  --brand-subtle: 50 5 20;
+  --brand-border: 150 20 55;
+  --brand-ink: 255 150 185;
   --on-brand: 0 0 0;
-  --accent-soft: 8 47 44;
-  --ring: 45 212 191;
-  --link: 94 234 212;
-  --link-hover: 153 246 228;
-  --hero-hi: 45 212 191;
+  --accent-soft: 80 10 30;
+  --ring: 255 107 157;
+  --link: 255 150 185;
+  --link-hover: 255 180 210;
+  --hero-hi: 255 107 157;
   --app-bg: 10 10 12;
   --page-heading-bg: 10 10 12;
   --surface: 28 28 30;
@@ -126,8 +126,8 @@
   --butter: 242 201 76;
   --butter-soft: 58 48 16;
   --butter-ink: 245 215 122;
-  --sky-soft: 8 47 44;
-  --sky-ink: 94 234 212;
+  --sky-soft: 80 10 30;
+  --sky-ink: 255 150 185;
   --mint-soft: 14 46 24;
   --mint-ink: 48 209 88;
   --lilac-soft: 42 30 66;
@@ -252,7 +252,7 @@
   --rail-graphite-hover: 242 242 245;
   --rail-ink: 74 74 79;
   --rail-ink-strong: 29 29 31;
-  --rail-accent: 14 124 123;
+  --rail-accent: 255 19 86;
 }
 :root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail {
   background: rgb(var(--surface));
