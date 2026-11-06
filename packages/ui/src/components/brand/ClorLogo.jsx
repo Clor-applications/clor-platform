@@ -12,7 +12,7 @@ const SLATE  = 'rgb(var(--logo-mark-slate,  15 23 42))';
 const FONT   = "'Inter Variable', 'Inter', ui-sans-serif, sans-serif";
 const HEIGHTS = { sm: 20, md: 28, lg: 40, xl: 56 };
 
-function Lor({ h, color, className, title }) {
+function Lor({ h, color, className, title, style: extraStyle }) {
   const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': 'true' };
   const co = color || ORANGE;
   const sl = color || SLATE;
@@ -29,6 +29,7 @@ function Lor({ h, color, className, title }) {
         letterSpacing: '-0.05em',
         userSelect: 'none',
         flexShrink: 0,
+        ...extraStyle,
       }}
       {...a11y}
     >
@@ -60,17 +61,17 @@ export default function ClorLogo({ variant = 'horizontal', size = 'md', color, c
     );
   }
 
-  /* horizontal (default): [C-mark] LOR — icon acts as the "C" */
+  /* horizontal (default): [C-mark] LOR — icon acts as the "C", zero gap = one word */
   return (
     <span
       role="img"
       aria-label={title}
       aria-hidden={title ? undefined : 'true'}
       className={className}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: Math.round(h * 0.1), verticalAlign: 'middle', flexShrink: 0 }}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 0, verticalAlign: 'middle', flexShrink: 0 }}
     >
-      <ClorMark size={h} color={color} title="" />
-      <Lor h={h} color={color} title="" />
+      <ClorMark size={Math.round(h * 1.05)} color={color} title="" />
+      <Lor h={h} color={color} title="" style={{ marginLeft: -Math.round(h * 0.08) }} />
     </span>
   );
 }
