@@ -136,6 +136,12 @@ export async function taxYear(orgId: string, fy: string, only?: string, by: 'PER
     loadRules(orgId),
   ]);
   const person = new Map(people.map((p) => [p.id, p]));
+  /* Someone with only opening figures (no CLOR payslip yet) has no snapshot: their name and code come from People. */
+  for (const a of acc.values()) {
+    const p = person.get(a.employeeId);
+    if (!a.name && p?.name) a.name = p.name;
+    if (!a.code && p?.code) a.code = p.code;
+  }
   const profile = new Map(profiles.map((p) => [p.employeeId, p]));
   const declaration = new Map(declarations.map((d) => [d.employeeId, d]));
   const yearRegime = await yearRegimes(orgId, ids, fy);

@@ -476,9 +476,14 @@ describe('Re-review of #146', () => {
     await opening(c, employeeId, { grossPay: 1_080_000, tds: 0 }).expect(200);
     const oct = await run(c, await period(c, '2026-10-01', '2026-10-31', '2026-10-31'), true);
     expect(JSON.parse(oct.slips[0].employeeSnapshotJson).taxRegime).toBe('OLD');
-    /* 2 April 2027: the new year's declaration chooses NEW, which is copied onto the profile. */
+    /* 2 April 2027: the new year's declaration chooses NEW. It is copied onto the profile only once 2027-28 is the year today is in. */
     await api.put(c, `/tax-declarations/${employeeId}?fy=2027-28`, { regime: 'NEW', items: [] }).expect(200);
-    expect((await payrollPrisma.employeePayrollProfile.findFirstOrThrow({ where: { orgId: c.orgId, employeeId } })).taxRegime).toBe('NEW');
+    const { financialYearOf: fyOfDay } = await import('../services/payroll/taxDeclaration.js');
+    const { todayIst: todayNow } = await import('../utils/istDate.js');
+    const profileRegime = (await payrollPrisma.employeePayrollProfile.findFirstOrThrow({ where: { orgId: c.orgId, employeeId } })).taxRegime;
+    expect(profileRegime).toBe(fyOfDay(todayNow()) === '2027-28' ? 'NEW' : 'OLD');
+    /* As on 2 April either way: the profile on next year's regime. */
+    await payrollPrisma.employeePayrollProfile.updateMany({ where: { orgId: c.orgId, employeeId }, data: { taxRegime: 'NEW' } });
     const { regimeInForce } = await import('../services/payroll/taxDeclaration.js');
     expect(await regimeInForce(c.orgId, employeeId, '2026-27')).toBe('OLD');
     /* The March payroll, run on 2 April, is 2026-27's: still OLD, and a NEW for 2026-27 is still refused. */

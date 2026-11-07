@@ -1,3 +1,4 @@
+import { todayIst } from '../../utils/istDate.js';
 import { z } from 'zod';
 
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
@@ -265,8 +266,14 @@ export async function saveDeclaration(
     create: { accountId: t.accountId, orgId: t.orgId, employeeId, financialYear, ...data },
     update: data,
   });
-  /* The profile shows the regime on the employee screen; keep it the same. */
-  await payrollPrisma.employeePayrollProfile.updateMany({ where: { orgId: t.orgId, employeeId }, data: { taxRegime: d.regime } });
+  /*
+   * The profile shows the regime on the employee screen; keep it the same,
+   * but only for this tax year's declaration: last year's correction or next
+   * year's early choice is not today's regime.
+   */
+  if (financialYear === financialYearOf(todayIst())) {
+    await payrollPrisma.employeePayrollProfile.updateMany({ where: { orgId: t.orgId, employeeId }, data: { taxRegime: d.regime } });
+  }
   return row;
 }
 

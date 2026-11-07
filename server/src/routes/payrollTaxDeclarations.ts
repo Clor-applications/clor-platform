@@ -454,6 +454,14 @@ payrollTaxDeclarationsRouter.post('/orgs/:orgId/payroll/tax-declarations/:employ
   const where = { orgId_employeeId_financialYear: { orgId: req.tenant!.orgId, employeeId: e.id, financialYear } };
   const row = await payrollPrisma.taxDeclaration.findUnique({ where });
   if (!row || row.status !== 'VERIFIED') return res.status(409).json({ error: 'Only a verified declaration can be reopened.', code: 'NOT_VERIFIED' });
+  /* Reopening your own verified declaration lets its amounts change again: somebody else does it, unless nobody else can. */
+  const mine = await peoplePrisma.employee.findFirst({ where: { id: e.id, orgId: req.tenant!.orgId }, select: { userId: true } });
+  if (mine?.userId && mine.userId === req.auth!.userId) {
+    const { accountId, orgId } = req.tenant!;
+    if (await anotherApproverExists(accountId, orgId, req.auth!.userId, permKey(PAYROLL_MODULE, RESOURCE, PermissionAction.EDIT))) {
+      return res.status(403).json({ error: 'This is your own tax declaration; somebody else has to reopen it.', code: 'OWN_RECORD' });
+    }
+  }
   const updated = await payrollPrisma.taxDeclaration.update({ where, data: { status: 'SUBMITTED', verifiedAt: null, verifiedByUserId: null, updatedByUserId: req.auth!.userId } });
   await recordAudit(req, { entity: 'PAYROLL_TAX_DECLARATION', entityId: row.id, action: 'REOPEN', message: `Reopened ${e.name}’s tax declaration for ${financialYear}`, metadata: { employeeId: e.id, financialYear } });
   res.json({ declaration: { ...shapeDeclaration(updated, e.id, financialYear), employeeName: e.name } });
