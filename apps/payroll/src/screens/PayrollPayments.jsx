@@ -54,6 +54,8 @@ const LINE_STATUS = {
   PENDING: { label: 'Waiting', tone: 'ui-pill-neutral' },
   PAID: { label: 'Paid', tone: 'ui-pill-pos' },
   FAILED: { label: 'Rejected', tone: 'ui-pill-neg' },
+  /* The batch was called off: the payslip went back to be paid in another. */
+  CANCELLED: { label: 'Called off', tone: 'ui-pill-neutral' },
 };
 
 const METHODS = [

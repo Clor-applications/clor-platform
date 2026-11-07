@@ -900,9 +900,14 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   VIEWER: {
     label: 'Viewer',
     group: 'Read-only',
-    description: 'Read-only across the product',
+    description: 'Read-only across the product, except salaries',
     roleType: 'CUSTOM',
-    grants: PERMISSION_CATALOG.map((m) => [m.key, '*', [A.VIEW]] as [string, string, string[]]),
+    /*
+     * Not Payroll (audit 7 Nov 2026, #8): read-only there is every payslip, CTC,
+     * report and full PAN. Somebody who should see salaries is given a Payroll
+     * role, on purpose. Existing Viewer roles: platform migration 20261116090000_viewer_without_payroll.
+     */
+    grants: PERMISSION_CATALOG.filter((m) => m.key !== 'PAYROLL').map((m) => [m.key, '*', [A.VIEW]] as [string, string, string[]]),
   },
 };
 

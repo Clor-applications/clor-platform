@@ -281,7 +281,7 @@ describe('what the bank did', () => {
     expect(preview.body.preview.problems.map((p: any) => p.code)).toContain('LINES_PENDING');
   });
 
-  it('marks the run paid once everybody has been', async () => {
+  it('marks the slips paid once everybody has been, and keeps a posted run posted', async () => {
     const c = await makeOwner();
     const { runId } = await payrollThroughToPosted(c);
     const bank = await bankLedger(c);
@@ -295,8 +295,13 @@ describe('what the bank did', () => {
       .expect(200);
     await api.post(c, `/payments/${made.body.payment.id}/post`).expect(200);
 
+    /* This run was posted to the books before it was paid. Paying it must not
+       move it back from POSTED to PAID (audit #20); the slips carry the payment. */
     const run = await payrollPrisma.payrollRun.findFirst({ where: { id: runId } });
-    expect(run!.status).toBe('PAID');
+    expect(run!.status).toBe('POSTED');
+    const slips = await payrollPrisma.salarySlip.findMany({ where: { runId } });
+    expect(slips.length).toBeGreaterThan(0);
+    expect(slips.every((s: any) => s.paymentStatus === 'PAID')).toBe(true);
   });
 });
 

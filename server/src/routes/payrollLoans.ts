@@ -10,6 +10,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { PayrollLoanError, approveLoan, buildSchedule, summarise } from '../services/payroll/loan.js';
 import { forLiveEmployee } from '../services/payroll/employeeLock.js';
+import { ownPayRefusal } from '../services/payroll/ownPay.js';
 
 /**
  * Loans and salary advances.
@@ -356,10 +357,19 @@ payrollLoansRouter.post(
       });
     }
 
+    /* Nobody waives or skips an instalment of their own loan (audit 7 Nov 2026, #7). Approving it is #126's. */
+    const owner = await payrollPrisma.payrollLoan.findFirst({ where: { orgId, id: installment.loanId }, select: { employeeId: true } });
+    if (owner) {
+      const own = await ownPayRefusal(req, owner.employeeId, { what: 'loan', does: 'decide its instalments', module: PAYROLL_MODULE, resource: RESOURCE, action: 'APPROVE', entity: 'PAYROLL_LOAN', entityId: installment.loanId });
+      if (own) return res.status(own.status).json(own.body);
+    }
+
     const next = parsed.data.action === 'RESTORE' ? 'PENDING' : parsed.data.action === 'SKIP' ? 'SKIPPED' : 'WAIVED';
 
     const loan = await payrollPrisma.$transaction(async (tx) => {
-      await tx.payrollLoanInstallment.update({ where: { id: installment.id }, data: { status: next } });
+      /* Only from the status read (compare-and-set): a payroll recovering it in between keeps it RECOVERED. */
+      const moved = await tx.payrollLoanInstallment.updateMany({ where: { orgId, id: installment.id, status: installment.status }, data: { status: next } });
+      if (moved.count !== 1) return null;
       const installments = await tx.payrollLoanInstallment.findMany({ where: { orgId, loanId: installment.loanId } });
       const left = installments.filter((i) => i.status === 'PENDING');
       /* A skipped instalment is still owed, so it stays in the outstanding; a
@@ -375,6 +385,7 @@ payrollLoansRouter.post(
         },
       });
     });
+    if (!loan) return res.status(409).json({ error: 'This instalment has just changed, perhaps taken by a payroll. Reload the loan.', code: 'INSTALMENT_CHANGED' });
 
     res.json({ loan: shape(loan) });
   }

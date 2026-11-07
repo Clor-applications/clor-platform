@@ -86,3 +86,5 @@ export const lockPayrollRun = stage('lock');
 export const postPayrollRun = stage('post');
 /** Why entered deductions past the share of wages stand: recorded on the run, and then it can be sent for review. */
 export const recordOverLimitReason = (id, reason) => stage('over-limit-reason')(id, { reason });
+/** The owner's record that PF, ESI or LWF on these payslips does not apply to the company (this calculation only). */
+export const recordStatutoryWaiver = (id, schemes, reason) => stage('statutory-waiver')(id, { schemes, reason });
