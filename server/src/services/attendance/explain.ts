@@ -1,4 +1,4 @@
-import { computeDay, isWeeklyOff, istTime, shiftWindow, type DayResult, type ShiftRule } from './compute.js';
+import { computeDay, fullDayNeeded, isWeeklyOff, istTime, shiftWindow, type DayResult, type ShiftRule } from './compute.js';
 import { pairDay } from './adms.js';
 
 /**
@@ -109,7 +109,7 @@ export function explainDay(input: ExplainInput) {
     if (!input.holidayName && !offDay && earlyBy > rule.earlyOutGraceMinutes) steps.push({ kind: 'early', text: `Left ${earlyBy} min before the shift ended${rule.earlyOutGraceMinutes ? ` (early-out grace ${rule.earlyOutGraceMinutes} min)` : ''}.` });
     steps.push({
       kind: 'status',
-      text: `A full day needs ${hm(rule.fullDayMinutes)} and a half day ${hm(rule.halfDayMinutes)}. ${hm(record.workedMinutes)} worked makes it ${statusWord(record.status)}.`,
+      text: `A full day needs ${hm(fullDayNeeded(rule))}${fullDayNeeded(rule) < rule.fullDayMinutes ? ' (the shift less its break and grace)' : ''} and a half day ${hm(rule.halfDayMinutes)}. ${hm(record.workedMinutes)} worked makes it ${statusWord(record.status)}.`,
     });
     const otAfter = rule.overtimeAfterMinutes ?? rule.fullDayMinutes;
     if (record.overtimeMinutes > 0) {

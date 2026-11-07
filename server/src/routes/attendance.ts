@@ -24,6 +24,8 @@ import {
   istInstant,
   istTime,
   monthSummary,
+  scheduledMinutes,
+  shiftRuleProblem,
   type ShiftRule,
 } from '../services/attendance/compute.js';
 import { clientIp } from '../services/auth.js';
@@ -765,7 +767,8 @@ const shiftSchema = z.object({
   graceMinutes: z.coerce.number().int().min(0).max(240).default(10),
   earlyOutGraceMinutes: z.coerce.number().int().min(0).max(240).default(0),
   halfDayMinutes: z.coerce.number().int().min(0).max(1440).default(240),
-  fullDayMinutes: z.coerce.number().int().min(1).max(1440).default(480),
+  /* Left out: the shift's own net minutes, start to end less the break (compute.ts scheduledMinutes). */
+  fullDayMinutes: z.coerce.number().int().min(1).max(1440).optional(),
   overtimeAfterMinutes: z.coerce.number().int().min(0).max(1440).optional().nullable(),
   /* The punch window: how early a check-in and how late a check-out still count; blank = no limit. */
   checkInBeforeMinutes: z.coerce.number().int().min(0, 'The punch window is minutes, 0 or more.').max(720, 'At most 12 hours before the start.').optional().nullable(),
@@ -777,6 +780,9 @@ const shiftSchema = z.object({
   color: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, 'Colours are #RRGGBB.').optional().nullable().or(z.literal('')),
   isActive: z.boolean().optional(),
 });
+
+/** A shift's full day, or, left out, its own net minutes (start to end less the break). */
+const withFullDay = <T extends z.infer<typeof shiftSchema>>(s: T) => ({ ...s, fullDayMinutes: s.fullDayMinutes ?? scheduledMinutes(s) });
 
 /**
  * A shift's times and rules can change only while no closed month uses it:
@@ -816,7 +822,10 @@ attendanceRouter.post('/orgs/:orgId/attendance/shifts', can(PermissionAction.CRE
   const { accountId, orgId } = req.tenant!;
   const parsed = shiftSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid shift.' });
-  if (parsed.data.halfDayMinutes > parsed.data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.' });
+  const data = withFullDay(parsed.data);
+  const problem = shiftRuleProblem(data);
+  if (problem) return res.status(400).json({ error: problem, code: 'SHIFT_RULES' });
+  parsed.data.fullDayMinutes = data.fullDayMinutes;
   try {
     const shift = await peoplePrisma.shift.create({ data: { accountId, orgId, ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null, createdByUserId: req.auth!.userId } as any });
     res.status(201).json({ shift });
@@ -832,7 +841,16 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
   if (!existing) return res.status(404).json({ error: 'No such shift.' });
   const parsed = shiftSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid shift.' });
-  if (parsed.data.halfDayMinutes > parsed.data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.' });
+  const data = withFullDay(parsed.data);
+  if (data.halfDayMinutes > data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.', code: 'SHIFT_RULES' });
+  /*
+   * A full day longer than the shift is refused when the hours change. A shift
+   * saved that way before the check keeps its name, code and colour editable:
+   * the day rule already scores it by its own length (compute.ts fullDayNeeded).
+   */
+  const hours = (x: any) => [x.startTime, x.endTime, x.breakMinutes, x.halfDayMinutes, x.fullDayMinutes].join('|');
+  const problem = hours(data) !== hours(existing) ? shiftRuleProblem(data) : null;
+  parsed.data.fullDayMinutes = data.fullDayMinutes;
   const scoring = (x: any) => ({ startTime: x.startTime, endTime: x.endTime, breakMinutes: x.breakMinutes, graceMinutes: x.graceMinutes, earlyOutGraceMinutes: x.earlyOutGraceMinutes, halfDayMinutes: x.halfDayMinutes, fullDayMinutes: x.fullDayMinutes, overtimeAfterMinutes: x.overtimeAfterMinutes ?? null, checkInBeforeMinutes: x.checkInBeforeMinutes ?? null, checkOutAfterMinutes: x.checkOutAfterMinutes ?? null, weeklyOffDays: x.weeklyOffDays, offSaturdays: x.offSaturdays, isActive: x.isActive });
   try {
     /*
@@ -842,6 +860,8 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
      */
     const next = { ...existing, ...Object.fromEntries(Object.entries(parsed.data).filter(([, v]) => v !== undefined)) };
     if (JSON.stringify(scoring(existing)) !== JSON.stringify(scoring(next))) await shiftOpen(orgId, existing.id);
+    /* After the closed-month check, so a month that holds the shift is what is said first. */
+    if (problem) return res.status(400).json({ error: problem, code: 'SHIFT_RULES' });
     /* New times that run into the night reach every woman on this shift (people/nightConsent.ts). */
     if (next.startTime !== existing.startTime || next.endTime !== existing.endTime) {
       const on = await onShiftAhead(orgId, existing.id);

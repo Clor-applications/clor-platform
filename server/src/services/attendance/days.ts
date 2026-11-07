@@ -1,6 +1,6 @@
 import { peoplePrisma, peopleWrite, afterPeopleCommit } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
-import { computeDay, isOvernight, isWeeklyOff, istDate, istInstant, istTime, monthSummary, nightShiftLabel } from './compute.js';
+import { computeDay, fullDayNeeded, isOvernight, isWeeklyOff, istDate, istInstant, istTime, monthSummary, nightShiftLabel } from './compute.js';
 import { nightShiftsOn } from './nightShift.js';
 import { loadHolidays, loadSchedule, resolveShift } from './schedule.js';
 import { emit as emitWebhook } from './webhooks.js';
@@ -157,7 +157,7 @@ export class PayrollTakenError extends Error {
     super(`Payroll for ${period} is ${state.toLowerCase()} and has taken this day. Record the change in Payroll as an adjustment instead.`);
   }
 }
-const FINAL_RUN = ['APPROVED', 'LOCKED', 'PAID', 'POSTED'];
+export const FINAL_RUN = ['APPROVED', 'LOCKED', 'PAID', 'POSTED'];
 export async function payrollTaken(orgId: string, employeeId: string, date: string): Promise<{ period: string; state: string } | null> {
   const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lte: date }, endDate: { gte: date } }, select: { id: true, name: true } });
   if (!periods.length) return null;
@@ -255,7 +255,7 @@ export async function writeDay(opts: {
     const status = half
       ? (computed.workedMinutes || 0) >= rule.halfDayMinutes ? 'PRESENT' : 'HALF_DAY'
       : hours
-        ? withHours >= rule.fullDayMinutes ? 'PRESENT' : withHours >= rule.halfDayMinutes ? 'HALF_DAY' : computed.status
+        ? withHours >= fullDayNeeded(rule) ? 'PRESENT' : withHours >= rule.halfDayMinutes ? 'HALF_DAY' : computed.status
         : opts.statusOverride && !opts.checkIn ? opts.statusOverride : computed.status;
     if (half === 'FIRST') computed.lateMinutes = 0;
     if (half === 'SECOND') computed.earlyOutMinutes = 0;

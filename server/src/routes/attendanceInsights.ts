@@ -13,7 +13,7 @@ import { recordAudit } from '../services/auditTrail.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
-import { computeDay, istInstant, istTime, type ShiftRule } from '../services/attendance/compute.js';
+import { computeDay, fullDayNeeded, istInstant, istTime, type ShiftRule } from '../services/attendance/compute.js';
 import { loadSchedule, resolveShift, toRule } from '../services/attendance/schedule.js';
 import { explainDay } from '../services/attendance/explain.js';
 import { dayDiff, daySnapshot, dayHistory } from '../services/attendance/history.js';
@@ -117,7 +117,7 @@ export async function explainFor(orgId: string, employee: { id: string; branchId
     trust,
     date,
     employee: { id: employee.id, name: employee.name || null },
-    shift: { name: shift.name, source: shift.source, ...shift.rule },
+    shift: { name: shift.name, source: shift.source, ...shift.rule, fullDayNeeded: fullDayNeeded(shift.rule) },
     holiday: holiday?.name || null,
     record: record ? { ...daySnapshot(record), id: record.id, validatedBy: record.validatedByUserId ? actors.get(record.validatedByUserId) || null : null, validatedAt: record.validatedAt } : null,
     punches: points.sort((a, b) => a.at.getTime() - b.at.getTime()).map((p) => ({ time: istTime(p.at), at: p.at, kind: p.kind, where: p.where })),

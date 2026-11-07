@@ -182,8 +182,8 @@ describe('imports', () => {
     expect(r.body.results.map((x: any) => x.row)).toEqual([2, 3, 4]);
     expect(r.body.results[0].error).toMatch(/No employee with code NOPE/);
     const day = (await api(c).get(`/records?from=${pastWeekday}&to=${pastWeekday}&employeeId=${p.id}`).expect(200)).body.records[0];
-    /* Row 1's imported day stands once the leave row is refused: 535 minutes minus a 60-minute break is 475, a half day short of 480. */
-    expect(day).toMatchObject({ status: 'HALF_DAY', workedMinutes: 475, leaveRequestId: null });
+    /* Row 1's imported day stands once the leave row is refused: 535 minutes minus a 60-minute break is 475, in within the grace and out after the end: a full day (compute.ts fullDayNeeded). */
+    expect(day).toMatchObject({ status: 'PRESENT', workedMinutes: 475, leaveRequestId: null });
     await api(c).post('/records/import', { rows: [] }).expect(400);
   });
 

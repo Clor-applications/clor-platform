@@ -189,6 +189,23 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
       employees.filter((e) => e.attendanceRequired !== false && !e.devicePin).map((e) => who(e))
     );
   }
+  /*
+   * Days the old full-day rule paid short (audit 7 Nov 2026) in a month that
+   * was closed, or a pay run already approved, so they were not changed
+   * (services/attendance/fullDayFix.ts). One line per person, with the days.
+   */
+  try {
+    const { fullDayDays } = await import('../attendance/fullDayFix.js');
+    const held = (await fullDayDays({ accountId, orgId })).filter((r) => r.held);
+    const byId = new Map(employees.map((e) => [e.id, e]));
+    const perPerson = new Map<string, typeof held>();
+    for (const h of held) if (byId.has(h.employeeId)) perPerson.set(h.employeeId, [...(perPerson.get(h.employeeId) || []), h]);
+    const word = (s: string) => (s === 'HALF_DAY' ? 'half day' : 'absent');
+    add({ id: 'full-day-held', area: 'Attendance', severity: 'FIX_SOON', title: 'Worked the shift, paid short', why: 'Until 7 Nov 2026 a day was a full day only at the full-day minutes, so someone in within the grace, or on a shorter shift, got a half day. Open months were corrected; these days are in a closed month or a pay run already approved, so they were left as paid.', fix: 'Pay each day\'s difference in Payroll as an adjustment, or reopen the month before its pay run is approved and the days are corrected.', screen: 'monthClose' },
+      [...perPerson.entries()].map(([id, days]) => who(byId.get(id)!, `${days.slice(0, 6).map((d) => `${dayWords(d.date)} ${word(d.from)} → present`).join('; ')}${days.length > 6 ? `; ${days.length - 6} more` : ''}`)));
+  } catch (e) {
+    console.error('[data-health] full day:', e instanceof Error ? e.message : e);
+  }
   if (unmatched.length && !only) {
     const punches = unmatched.reduce((n, u) => n + u._count._all, 0);
     checks.push({

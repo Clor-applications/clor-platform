@@ -14,10 +14,25 @@
  * - Late: arriving after start + grace; once late, it counts from the start.
  * - Early out: leaving before end − early-out grace; counts to the end.
  * - Worked: out − in, less the break when the span is longer than a half day.
- * - Status: full-day minutes → PRESENT, half-day minutes → HALF_DAY, less →
- *   ABSENT. Checked in but not out yet → PRESENT, provisionally, 0 minutes.
+ * - Status: a full day's minutes (`fullDayNeeded`, below) → PRESENT, half-day
+ *   minutes → HALF_DAY, less → ABSENT. Checked in but not out yet → PRESENT,
+ *   provisionally, 0 minutes.
  * - Overtime: worked beyond `overtimeAfterMinutes` (default the full day). On
  *   a holiday or weekly off, every minute worked is overtime.
+ *
+ * The full-day rule (audit 7 Nov 2026, P0): working the shift as scheduled is
+ * always a full day. A day counts as present at the shift's own net minutes
+ * (start to end, less the break) less the late grace and the early-out
+ * grace, or at `fullDayMinutes` if that is lower. So on 09:00–18:00 with a
+ * 60-minute break and 10 minutes' grace, 09:10–18:00 (470 minutes) is
+ * present; 09:11–18:00 is 11 minutes late and short of the shift, so a half
+ * day, as before. Before this, present needed `fullDayMinutes` (480) whatever
+ * the shift, so anyone using the grace lost half a day, and a 22:00–06:00
+ * shift with a 30-minute break (450 at most) could never be present. The
+ * grace is shared: in on time and out up to both graces early is present too
+ * (with its early-out mark). A shift cannot be saved with a full day longer
+ * than its net minutes (`shiftRuleProblem`); shifts saved before that are
+ * scored by the same rule, so they are covered as well.
  */
 
 import { istDate } from '../../utils/istDate.js';
@@ -150,6 +165,42 @@ export const nightInstants = (date: string, shift: Pick<ShiftRule, 'startTime' |
 
 const mins = (ms: number) => Math.max(0, Math.round(ms / 60_000));
 
+/** Minutes from start to end as scheduled: a night shift runs past midnight, and an end equal to the start is 24 hours. */
+export const shiftSpanMinutes = (shift: Pick<ShiftRule, 'startTime' | 'endTime'>) => {
+  const d = minutesOf(shift.endTime) - minutesOf(shift.startTime);
+  return d > 0 ? d : d + 24 * 60;
+};
+
+/* The break comes off a longer day, but never takes it back under half a day: staying longer must not score worse. */
+const netOf = (shift: Pick<ShiftRule, 'breakMinutes' | 'halfDayMinutes'>, span: number) =>
+  span > shift.halfDayMinutes ? Math.max(shift.halfDayMinutes, span - shift.breakMinutes) : span;
+
+/** The minutes worked by someone in at the start and out at the end: the span less the break. */
+export const scheduledMinutes = (shift: Pick<ShiftRule, 'startTime' | 'endTime' | 'breakMinutes' | 'halfDayMinutes'>) => netOf(shift, shiftSpanMinutes(shift));
+
+/**
+ * The minutes that make a day PRESENT: the shift's net minutes less both
+ * graces, or the shift's `fullDayMinutes` when that is lower (a flexible
+ * shift asking for 6 hours inside a 9-hour window). At least a minute.
+ */
+export const fullDayNeeded = (shift: Pick<ShiftRule, 'startTime' | 'endTime' | 'breakMinutes' | 'halfDayMinutes' | 'fullDayMinutes' | 'graceMinutes' | 'earlyOutGraceMinutes'>) =>
+  Math.max(1, Math.min(shift.fullDayMinutes, scheduledMinutes(shift) - (shift.graceMinutes || 0) - (shift.earlyOutGraceMinutes || 0)));
+
+const hoursWords = (m: number) => `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
+
+/**
+ * Why a shift's numbers do not hold together, or null. A full day longer than
+ * the shift itself could never be reached by anyone working it as scheduled.
+ */
+export function shiftRuleProblem(shift: Pick<ShiftRule, 'startTime' | 'endTime' | 'breakMinutes' | 'halfDayMinutes' | 'fullDayMinutes'>): string | null {
+  if (shift.halfDayMinutes > shift.fullDayMinutes) return 'A half day cannot be longer than a full day.';
+  const net = scheduledMinutes(shift);
+  if (shift.fullDayMinutes > net) {
+    return `A full day cannot be longer than the shift: ${shift.startTime}–${shift.endTime} less the ${shift.breakMinutes} min break is ${hoursWords(net)}. Set the full day to ${net} minutes or less.`;
+  }
+  return null;
+}
+
 export function computeDay(input: {
   date: string;
   shift: ShiftRule;
@@ -179,8 +230,7 @@ export function computeDay(input: {
   if (checkOut.getTime() < checkIn.getTime()) throw new Error('Check-out is before check-in.');
 
   const span = mins(checkOut.getTime() - checkIn.getTime());
-  /* The break comes off a longer day, but never takes it back under half a day: staying longer must not score worse. */
-  const workedMinutes = span > shift.halfDayMinutes ? Math.max(shift.halfDayMinutes, span - shift.breakMinutes) : span;
+  const workedMinutes = netOf(shift, span);
   const earlyBy = mins(end.getTime() - checkOut.getTime());
   const earlyOutMinutes = restDay ? 0 : earlyBy > shift.earlyOutGraceMinutes ? earlyBy : 0;
   const otThreshold = shift.overtimeAfterMinutes ?? shift.fullDayMinutes;
@@ -188,7 +238,7 @@ export function computeDay(input: {
 
   /* A day off stays paid whatever was worked on it; the hours are overtime, never a half day's loss of pay. */
   const status: DayStatus =
-    workedMinutes >= shift.fullDayMinutes ? 'PRESENT' : restDay ? restDay : workedMinutes >= shift.halfDayMinutes ? 'HALF_DAY' : 'ABSENT';
+    workedMinutes >= fullDayNeeded(shift) ? 'PRESENT' : restDay ? restDay : workedMinutes >= shift.halfDayMinutes ? 'HALF_DAY' : 'ABSENT';
 
   return { workedMinutes, lateMinutes, earlyOutMinutes, overtimeMinutes, status };
 }
