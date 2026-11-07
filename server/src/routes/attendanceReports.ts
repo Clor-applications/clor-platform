@@ -12,6 +12,7 @@ import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js
 import { FACE, ONLINE_WINDOW_MS } from '../services/attendance/adms.js';
 import { ISO_DATE, daysOfMonth, monthRows, periodContext, today } from '../services/attendance/days.js';
 import { sentOnly } from '../utils/sentOnly.js';
+import { docAccess, docAccessOfUser, docWhere, type DocAccess } from '../services/people/documentAccess.js';
 
 /**
  * Attendance reports — ClorTime's catalogue (routes/reports.js) and its
@@ -228,7 +229,7 @@ const inScope = (f: Scope) => (p: { id?: string; departmentId?: string | null; a
   (!f.contractorId || p.contractorId === f.contractorId) &&
   (!f.employeeId || p.id === f.employeeId);
 
-export async function build(id: string, accountId: string, orgId: string, q: any): Promise<Report> {
+export async function build(id: string, accountId: string, orgId: string, q: any, as: { docs?: DocAccess; asUserId?: string | null } = {}): Promise<Report> {
   const scope = params(q);
   const { month, date, from, to, departmentId, employeeId } = scope;
   const inDept = (_d: string | null) => inScope(scope);
@@ -702,7 +703,9 @@ export async function build(id: string, accountId: string, orgId: string, q: any
 
   if (id === 'documents') {
     const limit = istDate(new Date(Date.now() + 90 * 86_400_000));
-    const docs = await peoplePrisma.employeeDocument.findMany({ where: { orgId, expiresOn: { not: null, lte: limit } }, select: { title: true, kind: true, expiresOn: true, employeeId: true }, orderBy: { expiresOn: 'asc' } });
+    /* Only the files the reader may open in People are listed (audit 7 Nov 2026); a scheduled mail reads as whoever set it up. */
+    const access = as.docs ?? (await docAccessOfUser(accountId, orgId, as.asUserId));
+    const docs = await peoplePrisma.employeeDocument.findMany({ where: { orgId, expiresOn: { not: null, lte: limit }, ...docWhere(access) }, select: { title: true, kind: true, expiresOn: true, employeeId: true }, orderBy: { expiresOn: 'asc' } });
     const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, ...(departmentId ? { departmentId } : {}) }, select: { id: true, code: true, name: true, department: true } })).map((p) => [p.id, p]));
     const t = today();
     const rows = docs.filter((d) => people.has(d.employeeId)).map((d) => { const p = people.get(d.employeeId)!; return { expires: d.expiresOn, code: p.code, name: p.name, department: p.department, document: d.title, kind: d.kind, state: d.expiresOn! < t ? 'Expired' : 'Expiring' }; });
@@ -969,7 +972,7 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/:id', can(), async 
   const { accountId, orgId } = req.tenant!;
   try {
     const id = String(req.params.id);
-    const report = await build(id, accountId, orgId, req.query);
+    const report = await build(id, accountId, orgId, req.query, id === 'documents' ? { docs: await docAccess(req) } : {});
     res.json({ id, ...report, figures: figuresFor(id, report) });
   } catch (e: any) {
     if (e?.status) return res.status(e.status).json({ error: e.message });

@@ -124,12 +124,13 @@ describe('who can see a document', () => {
  * payslip but the manager's own; HR (a company-wide Documents VIEW) keeps every HR-only file.
  */
 const { runInTenant } = await import('../utils/tenantScope.js');
+const { writeChangeLog } = await import('../services/people/changeLog.js');
 /* The Team Manager preset's grants (permissionCatalog.ts TEAM_MANAGER), on a role kept to its own team. */
 const TEAM_MANAGER = ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW', 'PEOPLE::Org Structure::VIEW', 'PEOPLE::Requests::VIEW', 'PEOPLE::Requests::CREATE', 'PEOPLE::Requests::APPROVE', 'PEOPLE::Lifecycle::VIEW', 'PEOPLE::Lifecycle::EDIT', 'PEOPLE::Policies::VIEW', 'PEOPLE::Performance::VIEW', 'ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::APPROVE', 'ATTENDANCE::My Attendance::VIEW', 'ATTENDANCE::My Attendance::CREATE'];
 
-async function teamManager(boss: Ctx): Promise<Ctx & { userId: string }> {
+async function teamManager(boss: Ctx, extra: string[] = []): Promise<Ctx & { userId: string }> {
   const role = await request(app).post(`/api/orgs/${boss.orgId}/roles`).set(at(boss)).send({ name: `Team ${rnd()}`, roleType: 'CUSTOM', permissions: [], ownDocumentsOnly: true }).expect(201);
-  await request(app).put(`/api/orgs/${boss.orgId}/roles/${role.body.role.id}/permissions`).set(at(boss)).send({ permissions: TEAM_MANAGER }).expect(200);
+  await request(app).put(`/api/orgs/${boss.orgId}/roles/${role.body.role.id}/permissions`).set(at(boss)).send({ permissions: [...TEAM_MANAGER, ...extra] }).expect(200);
   const email = `mgr.${Date.now()}.${rnd()}@example.com`;
   const user = await request(app).post('/api/users').set(at(boss)).send({ email, fullName: 'Rahul Manager', password: 'Passw0rd!23', orgIds: [boss.orgId], branchIdsByOrg: { [boss.orgId]: [boss.branchId] } }).expect(201);
   await request(app).post(`/api/orgs/${boss.orgId}/users/${user.body.user.id}/roles`).set(at(boss)).send({ roleId: role.body.role.id, branchId: null }).expect(201);
@@ -202,5 +203,141 @@ describe('a team manager and the HR-only files of their team (audit #1)', () => 
     expect(mine).toEqual([f.shared, f.reportPayslip].sort());
     await request(app).get(`/api/portal/documents/${f.reportPayslip}`).set('Authorization', `Bearer ${token}`).expect(200);
     await request(app).get(`/api/portal/documents/${f.hrPayslip}`).set('Authorization', `Bearer ${token}`).expect(404);
+  });
+});
+
+/*
+ * Review of PR #143: every other surface that names, writes or brings back a file asks the same rule. A team-scoped
+ * role that may add, change and delete files still writes only what it may open; Activity, the recycle bin, the
+ * profile's permits and the attendance "Documents expiring" report (on screen and by mail) name no file it cannot open.
+ */
+describe('a team-scoped writer and every other surface that names a file (review of #143)', () => {
+  let boss: Ctx & { userId: string; accountId: string };
+  let mgr: Ctx & { userId: string };
+  let writer: Ctx & { userId: string };
+  let report: any;
+  const f: Record<string, string> = {};
+  const upload = async (who: Ctx, employee: string, body: Record<string, unknown>) =>
+    (await people(who).post(`/employees/${employee}/documents`, { kind: 'OTHER', classification: 'EMPLOYEE_VISIBLE', ...body, ...file(String(body.title)) }).expect(201)).body.document.id as string;
+  const claims = (c: Ctx) => JSON.parse(Buffer.from(c.token.split('.')[1], 'base64url').toString());
+
+  beforeAll(async () => {
+    const o = await owner();
+    boss = { ...o, userId: claims(o).userId, accountId: claims(o).accountId };
+    mgr = await teamManager(boss);
+    writer = await teamManager(boss, ['PEOPLE::Documents::CREATE', 'PEOPLE::Documents::EDIT', 'PEOPLE::Documents::DELETE']);
+    /* The viewing manager leads the writer, who leads the person: both readers have the person in their team. */
+    const top = (await people(boss).post('/employees', { firstName: 'Rahul', lastName: 'Viewer', code: 'TW-0' }).expect(201)).body.employee;
+    await runInTenant(boss.orgId, () => peoplePrisma.employee.update({ where: { id: top.id }, data: { userId: mgr.userId } }));
+    const lead = (await people(boss).post('/employees', { firstName: 'Kiran', lastName: 'Lead', code: 'TW-1', reportingManagerId: top.id }).expect(201)).body.employee;
+    await runInTenant(boss.orgId, () => peoplePrisma.employee.update({ where: { id: lead.id }, data: { userId: writer.userId } }));
+    report = (await people(boss).post('/employees', { firstName: 'Anu', lastName: 'Report', code: 'TW-2', reportingManagerId: lead.id }).expect(201)).body.employee;
+    f.hrContract = await upload(boss, report.id, { title: 'Signed contract TW', kind: 'CONTRACT', classification: 'HR_ONLY' });
+    f.reportPayslip = await upload(boss, report.id, { title: 'Payslip TW', kind: 'PAYSLIP' });
+    f.toDelete = await upload(boss, report.id, { title: 'Warning letter TW', kind: 'LETTER', classification: 'HR_ONLY' });
+    f.permit = await upload(boss, report.id, { title: 'Visa TW', kind: 'WORK_PERMIT', classification: 'HR_ONLY', expiresOn: '2020-01-01' });
+    f.shared = await upload(boss, report.id, { title: 'Joining kit TW', expiresOn: '2020-02-01' });
+  }, 180_000);
+
+  it('the writer cannot replace, delete, remind about or ask to read an HR-only file or a report\'s payslip', async () => {
+    for (const id of [f.hrContract, f.reportPayslip]) {
+      await people(writer).post(`/documents/${id}/replace`, { title: 'x', ...file('x') }).expect(404);
+      await people(writer).post(`/documents/${id}/remind`, {}).expect(404);
+      await people(writer).post(`/documents/${id}/ask-to-read`, {}).expect(404);
+      await people(writer).del(`/documents/${id}`).expect(404);
+    }
+    expect(await peoplePrisma.employeeDocument.count({ where: { orgId: boss.orgId, id: { in: [f.hrContract, f.reportPayslip] }, supersededById: null } })).toBe(2);
+  });
+
+  it('the writer cannot add an HR-only file or a payslip; a file the person sees, they can', async () => {
+    const hrOnly = await people(writer).post(`/employees/${report.id}/documents`, { title: 'Note', kind: 'OTHER', classification: 'HR_ONLY', ...file('n') }).expect(403);
+    expect(hrOnly.body.error).toMatch(/Only HR adds files the person cannot see/);
+    const restricted = await people(writer).post(`/employees/${report.id}/documents`, { title: 'Note', kind: 'OTHER', classification: 'RESTRICTED', ...file('n') }).expect(403);
+    expect(restricted.body.error).toMatch(/Only HR/);
+    const payslip = await people(writer).post(`/employees/${report.id}/documents`, { title: 'Slip', kind: 'PAYSLIP', classification: 'EMPLOYEE_VISIBLE', ...file('p') }).expect(403);
+    expect(payslip.body.error).toMatch(/Only HR adds payslips/);
+    await people(writer).post(`/employees/${report.id}/documents`, { title: 'Team photo ID', kind: 'ID_PROOF', classification: 'EMPLOYEE_VISIBLE', ...file('id') }).expect(201);
+  });
+
+  it('a deleted HR-only file is not named in a team reader\'s Activity, nor is an older line that never stored who could see it', async () => {
+    await people(boss).del(`/documents/${f.toDelete}`).expect(200);
+    const legacy = await runInTenant(boss.orgId, () => writeChangeLog(peoplePrisma as any, { accountId: boss.accountId, orgId: boss.orgId, userId: boss.userId, source: 'FORM', correlationId: `legacy-${rnd()}` } as any, { kind: 'EmployeeDocument', id: `gone-${rnd()}`, employeeId: report.id }, [{ field: 'document', before: 'Old disciplinary note TW', after: null, redacted: false }]));
+    expect(legacy).toBe(1);
+    for (const who of [mgr, writer]) {
+      const activity = JSON.stringify((await people(who).get(`/employees/${report.id}/activity`).expect(200)).body);
+      expect(activity).not.toContain('Warning letter TW');
+      expect(activity).not.toContain('Old disciplinary note TW');
+      expect(activity).not.toContain('document.classification');
+    }
+    const hrView = JSON.stringify((await people(boss).get(`/employees/${report.id}/activity`).expect(200)).body);
+    expect(hrView).toContain('Warning letter TW');
+    expect(hrView).toContain('Old disciplinary note TW');
+    expect(hrView).not.toContain('document.classification');
+  });
+
+  it('the recycle bin lists a removed HR-only file only to who could open it; restore and purge read as absent to anyone else', async () => {
+    const bin = (c: Ctx) => request(app).get(`/api/orgs/${c.orgId}/recycle-bin`).set(at(c)).expect(200).then((r) => r.body.items as any[]);
+    const item = (await bin(boss)).find((i) => i.kind === 'employeeDocument' && i.label.includes('Warning letter TW'));
+    expect(item).toBeTruthy();
+    expect((await bin(writer)).some((i) => i.id === item.id)).toBe(false);
+    await request(app).post(`/api/orgs/${writer.orgId}/recycle-bin/${item.id}/restore`).set(at(writer)).expect(404);
+    await request(app).delete(`/api/orgs/${writer.orgId}/recycle-bin/${item.id}`).set(at(writer)).expect(404);
+
+    /* A file the writer could open, it sees in the bin and can bring back. */
+    const own = await upload(writer, report.id, { title: 'Bus pass TW' });
+    await people(writer).del(`/documents/${own}`).expect(200);
+    const mine = (await bin(writer)).find((i) => i.kind === 'employeeDocument' && i.label.includes('Bus pass TW'));
+    expect(mine).toBeTruthy();
+    await request(app).post(`/api/orgs/${writer.orgId}/recycle-bin/${mine.id}/restore`).set(at(writer)).expect(200);
+
+    /* HR brings the HR-only file back. */
+    await request(app).post(`/api/orgs/${boss.orgId}/recycle-bin/${item.id}/restore`).set(at(boss)).expect(200);
+    expect(await peoplePrisma.employeeDocument.count({ where: { orgId: boss.orgId, id: f.toDelete } })).toBe(1);
+  });
+
+  it('a removed confidential file comes back only with the confidential grant', async () => {
+    const conf = await upload(boss, report.id, { title: 'Medical TW', classification: 'CONFIDENTIAL' });
+    await people(boss).del(`/documents/${conf}`).expect(200);
+    const item = (await request(app).get(`/api/orgs/${boss.orgId}/recycle-bin`).set(at(boss)).expect(200)).body.items.find((i: any) => i.label.includes('Medical TW'));
+    expect(item).toBeTruthy();
+    const hrUser = await colleague(boss, ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW', 'PEOPLE::Documents::EDIT', 'PEOPLE::Documents::DELETE']);
+    expect((await request(app).get(`/api/orgs/${hrUser.orgId}/recycle-bin`).set(at(hrUser)).expect(200)).body.items.some((i: any) => i.id === item.id)).toBe(false);
+    await request(app).post(`/api/orgs/${hrUser.orgId}/recycle-bin/${item.id}/restore`).set(at(hrUser)).expect(404);
+    /* Opens it, may delete files, but not confidential ones: refused. */
+    const reader = await colleague(boss, ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW', 'PEOPLE::Documents::DELETE', 'PEOPLE::Confidential Documents::VIEW']);
+    await request(app).post(`/api/orgs/${reader.orgId}/recycle-bin/${item.id}/restore`).set(at(reader)).expect(403);
+  });
+
+  it('the profile says a permit has lapsed without naming an HR-only one to the manager', async () => {
+    const mgrPermits = (await people(mgr).get(`/employees/${report.id}`).expect(200)).body.permits;
+    expect(mgrPermits).toEqual([expect.objectContaining({ id: null, title: 'A restricted document', hidden: true, expired: true })]);
+    expect(JSON.stringify(mgrPermits)).not.toContain('Visa TW');
+    const hrPermits = (await people(boss).get(`/employees/${report.id}`).expect(200)).body.permits;
+    expect(hrPermits).toEqual([expect.objectContaining({ id: f.permit, title: 'Visa TW', hidden: false })]);
+  });
+
+  it('the attendance "Documents expiring" report lists only files the reader may open, on screen and by mail', async () => {
+    const reader = await colleague(boss, ATTENDANCE_MANAGER_PEOPLE);
+    const docsReport = async (c: Ctx) => (await request(app).get(`/api/orgs/${c.orgId}/attendance/reports/documents`).set(at(c)).expect(200)).body.rows.map((r: any) => r.document);
+    const readerRows = await docsReport(reader);
+    for (const t of ['Visa TW', 'Joining kit TW', 'Signed contract TW']) expect(readerRows).not.toContain(t);
+    expect(await docsReport(boss)).toEqual(expect.arrayContaining(['Visa TW', 'Joining kit TW']));
+
+    /* A scheduled mail reads as the person who set it up, and as nobody when that is unknown. */
+    const { build } = await import('../routes/attendanceReports.js');
+    const mailed = async (asUserId?: string | null) => (await build('documents', boss.accountId, boss.orgId, {}, { asUserId })).rows.map((r: any) => r.document);
+    expect(await mailed(boss.userId)).toEqual(expect.arrayContaining(['Visa TW', 'Joining kit TW']));
+    const asManager = await mailed(mgr.userId);
+    expect(asManager).toContain('Joining kit TW');
+    expect(asManager).not.toContain('Visa TW');
+    expect(await mailed(null)).toEqual([]);
+
+    const { runSchedule } = await import('../services/attendance/reportSchedules.js');
+    const seen: unknown[] = [];
+    await runSchedule({ id: `s-${rnd()}`, accountId: boss.accountId, orgId: boss.orgId, reportId: 'documents', paramsJson: '{}', cadence: 'DAILY', dayOfWeek: null, dayOfMonth: null, hour: 7, recipients: '', enabled: true, lastSentAt: null, createdByUserId: mgr.userId }, async (...args: unknown[]) => {
+      seen.push(args[4]);
+      return { title: 'Documents', period: '', columns: [], rows: [] };
+    }).catch(() => undefined);
+    expect(seen).toEqual([{ asUserId: mgr.userId }]);
   });
 });

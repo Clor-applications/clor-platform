@@ -32,6 +32,8 @@ export type ActivityViewer = {
   docClasses: string[];
   /** Finer than the classes when given: whether this reader opens one file (a team-scoped reader never opens another person's payslip). */
   docOpens?: (d: { classification: string; kind: string; employeeId: string }) => boolean;
+  /** A removed file's line written before its classification was kept on it: shown only to who opens every kind of file (company-wide). */
+  docLegacyOpens?: boolean;
   /** Whether the viewer holds a grant like PEOPLE::Statutory Details::VIEW (the route answers with authorize()). */
   allows: (permission: string) => Promise<boolean>;
 };
@@ -111,14 +113,27 @@ export async function activityOf(viewer: ActivityViewer, employeeId: string, opt
   const groups = new Map<string, typeof lines>();
   for (const l of lines) {
     if (l.entity === 'ApprovalRequest') continue; /* told through the approval decision below */
-    const k = `${l.correlationId}:${l.entity}`;
+    const k = l.entity === 'EmployeeDocument' ? `${l.correlationId}:${l.entity}:${l.entityId}` : `${l.correlationId}:${l.entity}`;
     groups.set(k, [...(groups.get(k) || []), l]);
   }
   /* A leaving kept from this reader (SPEC 3.5, "leavings: no"): its change lines and its audit lines are not shown. */
   const LEAVING_FIELDS = new Set(['dateOfLeaving', 'leavingType', 'leavingReason', 'resignedOn', 'noticeWaived']);
   const aboutLeaving = (g: Array<{ field: string; before: string | null; after: string | null }>) => g.some((l) => LEAVING_FIELDS.has(l.field) || (l.field === 'status' && (l.after === 'ON_NOTICE' || l.before === 'ON_NOTICE')));
-  for (const [k, g] of groups) {
-    if (viewer.canLeavings === false && aboutLeaving(g)) continue;
+  for (const [k, g0] of groups) {
+    if (viewer.canLeavings === false && aboutLeaving(g0)) continue;
+    /*
+     * A removed file's line names it (audit 7 Nov 2026): it shows only to whoever could have opened the file. Its
+     * classification and kind ride on the same change as their own lines (routes/people.ts, document delete).
+     */
+    let g = g0;
+    if (g0[0]?.entity === 'EmployeeDocument') {
+      const meta = (f: string) => g0.find((l) => l.field === f)?.before ?? null;
+      const classification = meta('document.classification');
+      const opens = classification ? Boolean(viewer.docClasses.includes(classification) && (!viewer.docOpens || viewer.docOpens({ classification, kind: meta('document.kind') || '', employeeId }))) : Boolean(viewer.docLegacyOpens);
+      if (!opens) continue;
+      g = g0.filter((l) => !l.field.startsWith('document.'));
+      if (!g.length) continue;
+    }
     const first = g[g.length - 1];
     const created = g.some((l) => l.field === 'record' && l.after === 'created');
     /* One line per real change: the text copies (department, designation) ride with their id field, and a line written twice shows once. */

@@ -36,6 +36,7 @@ import { isFeatureEnabled } from '../services/features.js';
 import { closeOutFor } from '../services/people/lifecycle/closeOut.js';
 import { DEFAULT_EMPLOYEE_TYPES, EMPLOYMENT_KINDS, HOURS, guessKind } from '../services/people/employmentKinds.js';
 import { isLeavingEvent, journeyOf, whyOf, withoutStintEnd } from '../services/people/journey.js';
+import { DOC_CLASSIFICATIONS, HIDDEN_DOCUMENT, docAccess, docOpens, docWhere, writeGrantFor, type DocClass, type DocLike } from '../services/people/documentAccess.js';
 import { salaryQuestion } from '../services/people/salaryQuestion.js';
 import { activityOf } from '../services/people/activity.js';
 import { BULK_LIMIT, BulkError, bulkUpdate } from '../services/people/bulk.js';
@@ -964,10 +965,15 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
 });
 
 /** Work permits and certificates on file, with how long they have left (LIFE-08): shown on the profile, not enforced. */
-async function permitsOf(orgId: string, employeeId: string) {
+async function permitsOf(req: Request, orgId: string, employeeId: string) {
   const now = new Date();
-  const docs = await peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId, kind: { in: [...PERMIT_KINDS] }, expiresOn: { not: null } }, select: { id: true, kind: true, title: true, expiresOn: true, restrictsWork: true }, orderBy: { expiresOn: 'asc' } });
-  return docs.map((d) => ({ ...d, daysLeft: daysUntil(d.expiresOn!, now), expired: daysUntil(d.expiresOn!, now) < 0 }));
+  const docs = await peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId, kind: { in: [...PERMIT_KINDS] }, expiresOn: { not: null } }, select: { id: true, kind: true, title: true, expiresOn: true, restrictsWork: true, classification: true, employeeId: true }, orderBy: { expiresOn: 'asc' } });
+  /* Whether a permit has lapsed is everyone's to know (LIFE-08); its name and the file itself are only for who may open it. */
+  const access = await docAccess(req);
+  return docs.map(({ classification, employeeId: owner, ...d }) => {
+    const opens = docOpens(access, { classification, kind: d.kind, employeeId: owner });
+    return { ...d, id: opens ? d.id : null, title: opens ? d.title : HIDDEN_DOCUMENT, hidden: !opens, daysLeft: daysUntil(d.expiresOn!, now), expired: daysUntil(d.expiresOn!, now) < 0 };
+  });
 }
 
 peopleRouter.get('/orgs/:orgId/people/employees/link-candidates', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
@@ -1005,7 +1011,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW,
   const read = { ...((await seesPersonal(req)) ? full : withoutPersonal(full, req.auth!.userId)), ...(reasonShown ? {} : { leavingReason: null, leavingReasonHidden: Boolean((full as any).leavingReason) }) };
   const shaped = { ...(leavingsShown ? read : withoutLeaving(read, req.auth!.userId)), managerOpens: !row.reportingManagerId || inScope(viewScope, row.reportingManagerId), ownRecordLocked: !viewScope.all && Boolean(row.userId) && row.userId === req.auth!.userId };
   const linked = row.userId ? await platformPrisma.user.findFirst({ where: { id: row.userId }, select: { fullName: true, email: true } }) : null;
-  res.json({ scheduledChanges, permits: await permitsOf(orgId, row.id), employee: { ...shaped, directReports: reports, linkedUser: linked ? { name: linked.fullName || linked.email, email: linked.email } : null } });
+  res.json({ scheduledChanges, permits: await permitsOf(req, orgId, row.id), employee: { ...shaped, directReports: reports, linkedUser: linked ? { name: linked.fullName || linked.email, email: linked.email } : null } });
 });
 
 /** Replace a person's tags; a real change goes on their change log by tag name (Workforce Activity). */
@@ -1645,6 +1651,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/activity', can(PermissionAct
     canLeavings: Boolean(employee.userId && employee.userId === req.auth!.userId) || (await seesLeavings(req)),
     docClasses: docs.classes,
     docOpens: (d) => docOpens(docs, d),
+    docLegacyOpens: docs.employeeIds === null && DOC_CLASSIFICATIONS.every((c) => docs.classes.includes(c)),
     allows,
   }, employee.id, { before: req.query.before ? new Date(String(req.query.before)) : null, limit: Number(req.query.limit || 50) });
   res.set('Cache-Control', 'private, no-store').json(out);
@@ -2573,60 +2580,14 @@ const DOC_KINDS = new Set(['ID_PROOF', 'ADDRESS_PROOF', 'EDUCATION', 'CONTRACT',
 const docRow = (d: any) => ({ id: d.id, employeeId: d.employeeId, kind: d.kind, title: d.title, mime: d.mime, size: d.size, expiresOn: d.expiresOn, restrictsWork: d.restrictsWork ?? null, version: d.version ?? 1, supersedesId: d.supersedesId ?? null, supersededById: d.supersededById ?? null, templateId: d.templateId ?? null, templateVersion: d.templateVersion ?? null, classification: d.classification, visibleToEmployee: d.visibleToEmployee, uploadedByUserId: d.uploadedByUserId, createdAt: d.createdAt });
 const DOC_SELECT = { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, restrictsWork: true, version: true, supersedesId: true, supersededById: true, templateId: true, templateVersion: true, classification: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true } as const;
 
-/**
- * Who can see a document (docs/people/02-PRD.md DOC-01; review R-01).
- *
- * Until 24 Oct 2026 any role with Employees VIEW opened every file on every
- * person, and the Attendance Manager preset carried that grant. Now each
- * document names its classification, and the grant that opens it is:
- *
- *   EMPLOYEE_VISIBLE            Documents VIEW
- *   HR_ONLY                     Documents VIEW, company-wide
- *   RESTRICTED                  Documents EDIT, company-wide
- *   CONFIDENTIAL                Confidential Documents VIEW, company-wide (its own grant)
- *
- * A team-scoped role (a Team Manager: "own records only") opens only what the
- * person themself can see, and never a payslip but their own (audit 7 Nov
- * 2026 #1: a manager listed and opened HR-only payslips of their reports
- * through the team's Documents VIEW). HR-level reading is the company-wide
- * grant, never the team one.
- *
- * The employee app keeps reading `visibleToEmployee`, which is true only for
- * EMPLOYEE_VISIBLE. Lists are filtered to what the caller may open, so a
- * person never learns a confidential file exists from its title.
- */
-const DOC_CLASSIFICATIONS = ['EMPLOYEE_VISIBLE', 'HR_ONLY', 'RESTRICTED', 'CONFIDENTIAL'] as const;
-type DocClass = (typeof DOC_CLASSIFICATIONS)[number];
-/** What the caller may open: the classifications, and whose payslips ('ALL', one person's id, or nobody's). */
-type DocAccess = { classes: DocClass[]; payslipsOf: 'ALL' | string | null };
-async function docAccess(req: Request): Promise<DocAccess> {
-  const views = !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, DOCUMENTS));
-  const scope = await teamScope(req);
-  if (!scope.all) return { classes: views ? ['EMPLOYEE_VISIBLE'] : [], payslipsOf: scope.selfId };
-  const classes: DocClass[] = [];
-  if (views) classes.push('EMPLOYEE_VISIBLE', 'HR_ONLY');
-  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, DOCUMENTS))) classes.push('RESTRICTED');
-  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, CONFIDENTIAL))) classes.push('CONFIDENTIAL');
-  return { classes, payslipsOf: 'ALL' };
-}
+/* Who can open a document: one rule, services/people/documentAccess.ts (DOC-01; R-01; audit 7 Nov 2026 #1). */
 async function readableClassifications(req: Request): Promise<DocClass[]> {
   return (await docAccess(req)).classes;
 }
-/** The `where` for a document list under this access. */
-const docWhere = (a: DocAccess) => ({
-  classification: { in: a.classes },
-  ...(a.payslipsOf === 'ALL' ? {} : { OR: [{ kind: { not: 'PAYSLIP' } }, ...(a.payslipsOf ? [{ employeeId: a.payslipsOf }] : [])] }),
-});
-/** Whether one document opens under this access. */
-const docOpens = (a: DocAccess, d: { classification: string; kind?: string | null; employeeId: string }) =>
-  a.classes.includes(d.classification as DocClass) && (a.payslipsOf === 'ALL' || d.kind !== 'PAYSLIP' || d.employeeId === a.payslipsOf);
-/** One document the caller may open, inside their scope; anything else reads as absent. */
-async function mayOpenDoc(req: Request, d: { classification: string; kind?: string | null; employeeId: string }): Promise<boolean> {
-  return docOpens(await docAccess(req), d) && inScope(await teamScope(req), d.employeeId);
+/** One document the caller may open (classification, payslip, team scope); anything else reads as absent. */
+async function mayOpenDoc(req: Request, d: DocLike): Promise<boolean> {
+  return docOpens(await docAccess(req), d);
 }
-/** The grant a write (upload, delete) on a document of this classification needs. */
-const writeGrantFor = (classification: string, action: PermissionActionType): [string, PermissionActionType, string] =>
-  classification === 'CONFIDENTIAL' ? [PEOPLE_MODULE, action, CONFIDENTIAL] : [PEOPLE_MODULE, action, DOCUMENTS];
 
 peopleRouter.get('/orgs/:orgId/people/documents', can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
@@ -2742,6 +2703,10 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/documents', can(PermissionA
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
   const kind = String(req.body?.kind || 'OTHER').toUpperCase();
   if (!DOC_KINDS.has(kind)) return res.status(400).json({ error: 'Unknown document kind.' });
+  /* Nobody files what they could not open themselves: a team manager adds only files the person can see, and no payslip. */
+  if (!docOpens(await docAccess(req), { classification, kind, employeeId: employee.id })) {
+    return res.status(403).json({ error: kind === 'PAYSLIP' ? 'Only HR adds payslips to someone\'s file.' : 'Only HR adds files the person cannot see. Choose "The person and HR", or ask HR to add it.' });
+  }
   const title = String(req.body?.title || '').trim().slice(0, 120);
   if (!title) return res.status(400).json({ error: 'Name the document.' });
   const expiresOn = String(req.body?.expiresOn || '').trim() || null;
@@ -2780,7 +2745,12 @@ peopleRouter.delete('/orgs/:orgId/people/documents/:docId', can(PermissionAction
   if (refused) return res.status(refused.status).json(refused.body);
   await deleteToBin(req, 'employeeDocument', { id: d.id });
   /* The person's Activity shows a removed file, as it shows an uploaded one (Workforce WF-18). */
-  await writeChangeLog(peoplePrisma as any, actorOf(req, 'FORM'), { kind: 'EmployeeDocument', id: d.id, employeeId: d.employeeId }, [{ field: 'document', before: d.title, after: null, redacted: false }]);
+  await writeChangeLog(peoplePrisma as any, actorOf(req, 'FORM'), { kind: 'EmployeeDocument', id: d.id, employeeId: d.employeeId }, [
+    { field: 'document', before: d.title, after: null, redacted: false },
+    /* Who could have opened it: Activity shows this line only to them (services/people/activity.ts). */
+    { field: 'document.classification', before: d.classification, after: null, redacted: false },
+    { field: 'document.kind', before: d.kind, after: null, redacted: false },
+  ]);
   res.json({ ok: true });
 });
 
