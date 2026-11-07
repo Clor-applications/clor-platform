@@ -1,6 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
-  <title id="title">CLOR Accounting app icon</title>
-  <path fill="#14152B" d="M57.6 0 H198.4 A57.6 57.6 0 0 1 256 57.6 V198.4 A57.6 57.6 0 0 1 198.4 256 H57.6 A57.6 57.6 0 0 1 0 198.4 V57.6 A57.6 57.6 0 0 1 57.6 0 Z"/>
-  <g transform="translate(0 -8)"><path fill="#FFFFFF" d="M64 78 Q96 70 122 84 V168 Q96 156 64 162 Z M134 84 Q160 70 192 78 V162 Q160 156 134 168 Z"/></g>
-  <path fill="#FF6B00" d="M90.55 186 L174.55 186 L168 204 L84 204 Z"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="CLOR Accounting"><title>CLOR Accounting app icon</title><rect width="256" height="256" rx="57.6" fill="#FFFFFF"/><rect x="1" y="1" width="254" height="254" rx="56.6" fill="none" stroke="#E6E1E2" stroke-width="2"/><g transform="translate(66.89 53) scale(1.5)" fill="#FF5400"><path d="M51.85 11.11C25 11.11 0 31.48 0 55.56C0 79.63 25 100 51.85 100C65.74 100 75.93 94.44 81.48 84.26L58.33 66.67C54.63 70.37 50 73.15 44.44 73.15C29.63 73.15 19.44 62.04 19.44 50C19.44 37.96 29.63 26.85 44.44 26.85C50 26.85 54.63 29.63 58.33 33.33L81.48 15.74C75.93 5.56 65.74 0 51.85 0Z"/><path d="M32.41 51.85a10.19 10.19 0 1 0 20.37 0a10.19 10.19 0 1 0 -20.37 0Z"/></g></svg>

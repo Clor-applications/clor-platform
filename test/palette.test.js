@@ -7,16 +7,16 @@ import { APPS } from '../packages/shell/registry';
  * The Blaze palette is shared, not Attendance's own styling: an app opts in
  * with `palette: 'blaze'` in its manifest and the shell sets data-palette.
  * Attendance wears Blaze; People wears Sky (owner, 28 Oct 2026; Rose before that, D-01)
- * on Accounting's layout; Payroll keeps the platform's colours (the red brand since 3 Nov 2026);
+ * on Accounting's layout; Payroll wears Cyan (owner, 5 Nov 2026: one neon per app on pure white);
  * Accounting keeps Direction D's indigo (owner, 3 Nov 2026: "do not change color to accounting").
  */
 const css = readFileSync('packages/ui/src/index.css', 'utf8') + readFileSync('packages/ui/src/people.css', 'utf8');
 
 describe('shared palettes', () => {
-  it('Attendance wears Blaze, People wears Sky, Accounting keeps Indigo; Payroll keeps the platform colours', () => {
+  it('Attendance wears Blaze, People wears Sky, Payroll wears Cyan, Accounting keeps Indigo', () => {
     const byPalette = {};
     for (const a of APPS.filter((x) => x.palette)) (byPalette[a.palette] ||= []).push(a.id);
-    expect(byPalette).toEqual({ blaze: ['attendance'], sky: ['people'], indigo: ['accounting'] });
+    expect(byPalette).toEqual({ blaze: ['attendance'], sky: ['people'], indigo: ['accounting'], cyan: ['payroll'] });
   });
 
   it('Indigo is Direction D as it was, keyed on the palette, and leaves the CLOR logo alone', () => {

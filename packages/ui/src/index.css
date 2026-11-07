@@ -3,8 +3,12 @@
    All self-hosted (Fontsource, SIL OFL 1.1), not Google — no IP leakage before sign-in. */
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/plus-jakarta-sans';
-@import '@fontsource/jetbrains-mono';
-/* Bricolage Grotesque retired in neon brand (5–6 Nov 2026). */
+/* JetBrains Mono: figures, money, times and codes in every app but Accounting (owner, 6 Nov 2026). */
+@import '@fontsource-variable/jetbrains-mono';
+/* Bricolage Grotesque, the brand's display face (Direction D): the wordmark
+   and page titles only. Figures, tables and forms stay Inter — warm display,
+   plain Inter for figures. Self-hosted for the same reason as Inter. */
+@import '@fontsource-variable/bricolage-grotesque/opsz.css';
 
 @tailwind base;
 @tailwind components;
@@ -720,6 +724,7 @@
 :root {
   --red: 200 16 46; --oxblood: 92 10 22; --blush: 251 232 234; --marigold: 245 166 35;
   --ink: 31 26 28; --cream: 255 248 240;
+  --logo-ink: 15 23 42; --logo-accent: 255 84 0;
   --logo-mark: 255 84 0; --logo-dot: 255 84 0; /* neon orange #FF5400; L/R slate handled in component */
   --logo-mark-orange: 255 84 0; --logo-mark-slate: 15 23 42; /* two-color logo tokens */
   /* The ground is a warm white with a trace of rose, so hairlines and blush belong to it. */
@@ -777,7 +782,7 @@
    marigold taking over the action (red on near-black is too dim to press),
    with oxblood words on it at 6.9:1. */
 :root[data-theme='dark'] {
-  --logo-mark: 255 255 255; --logo-dot: var(--marigold);
+  --logo-ink: 255 255 255; --logo-accent: 255 84 0;
   --app-bg: 26 12 15; --surface: 36 20 26; --surface-sunken: 46 26 32; --surface-raised: 56 32 40;
   --border: 62 38 46; --border-strong: 96 64 72; --border-field: 82 52 60; --doc-section: 40 22 28;
   --fg: 243 233 235; --fg-muted: 201 184 188; --fg-subtle: 170 150 156; --fg-heading: 243 233 235;
@@ -820,7 +825,7 @@
    palette with `palette: 'indigo'` in its manifest and keeps the colours it
    had: indigo #232A66 acts, lilac #E9E5F4 is chosen and done, cotton #FAF6EE
    is the page, and money out stays red. The logo is the CLOR logo, the same
-   in every app, so this palette leaves --logo-mark and --logo-dot alone.
+   in every app, so this palette leaves --logo-ink and --logo-accent alone.
 --------------------------------------------------------------------------- */
 /* As light as the platform's own :root block (:where), so the dark theme's
    values still win where the dark block below does not restate them. */
@@ -5138,7 +5143,7 @@ h1, .ui-t-page, .ui-wordmark {
   font-optical-sizing: auto;
   letter-spacing: -0.02em;
   line-height: 1;
-  color: rgb(var(--logo-mark));
+  color: rgb(var(--logo-ink));
   white-space: nowrap;
 }
 h2, h2[class], .ui-t-doc {
@@ -8488,3 +8493,268 @@ button.ui-side-alert { cursor: pointer; }
   /* As People's: a checkbox is 24px to see and hit, and the row or label beside it takes the tap too. */
   .ui-touch-44 input[type='checkbox'] { width: 1.5rem; height: 1.5rem; flex: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   Pure white and neon (owner, 5 Nov 2026), every app but Accounting, light
+   theme. Each app's palette names its neon as --neon; these rules turn it
+   into the white UI's four touches:
+     1. cards: white, a #E2E8F0 hairline, 12px, a soft wide shadow; a card you
+        can press lifts 2px on hover
+     2. a halo: the neon at 14%, a soft circle in the work area's top right
+     3. selected and badges: the 5% tint with the deep ink (in each palette)
+     4. the primary action: solid neon, white words (slate on amber), a glow in its own colour
+--------------------------------------------------------------------------- */
+html:root:not([data-theme='dark']):not([data-palette='indigo']) :is(.ui-card, .ui-table-shell, .ui-doc-section) {
+  border-color: rgb(226 232 240);
+  box-shadow: 0 4px 16px -2px rgb(0 0 0 / 0.03), 0 0 0 1px rgb(0 0 0 / 0.01);
+}
+html:root:not([data-theme='dark']):not([data-palette='indigo']) :is(a.ui-card, button.ui-card, .ui-card[role='button']) {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease, border-color 0.18s ease;
+}
+html:root:not([data-theme='dark']):not([data-palette='indigo']) :is(a.ui-card, button.ui-card, .ui-card[role='button']):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px -4px rgb(0 0 0 / 0.06);
+  border-color: rgb(203 213 225);
+}
+@media (prefers-reduced-motion: reduce) {
+  html:root:not([data-theme='dark']):not([data-palette='indigo']) :is(a.ui-card, button.ui-card, .ui-card[role='button']):hover { transform: none; }
+}
+html:root:not([data-theme='dark']):not([data-palette='indigo']) #main-content {
+  background-image: radial-gradient(36rem circle at 100% 0%, rgb(var(--neon) / 0.14), rgb(var(--neon) / 0) 70%);
+  background-repeat: no-repeat;
+}
+html:root:not([data-theme='dark']):not([data-palette='indigo']) :is(.ui-btn-primary, .ui-btn-brand):not(:disabled) {
+  box-shadow: 0 4px 14px rgb(var(--neon) / 0.32) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   One neon per app on pure white (owner, 5–6 Nov 2026), light theme. Workspace
+   (clor.in: no palette) is Blaze Orange, Attendance (`blaze`) Solar Amber,
+   Payroll (`cyan`) Electric Cyan; People's Pitaya Coral is in people.css and
+   Accounting keeps its indigo. Each block restates the red brand's base
+   tokens (--red, --oxblood, --blush) as the app's neon, deep ink and 5% tint,
+   so every rule written for the red brand follows; slate text, #E2E8F0
+   hairlines and white grounds are the same in every app.
+--------------------------------------------------------------------------- */
+/* Blaze Orange: #FF5400 / hover #E04800 / ink #BA3900 / tint #FFF3ED / stroke #FFD4C2. */
+html:root:not([data-theme='dark']):not([data-palette]) {
+  --neon: 255 84 0;
+  --red: 255 84 0; --oxblood: 186 57 0; --blush: 255 243 237; --ink: 15 23 42; --cream: 255 255 255;
+  --app-bg: 255 255 255; --surface: 255 255 255; --surface-raised: 255 255 255;
+  --surface-sunken: 248 250 252; --doc-section: 248 250 252;
+  --border: 226 232 240; --border-strong: 203 213 225; --border-field: 203 213 225;
+  --fg: 51 65 85; --fg-heading: 15 23 42; --col-party: 15 23 42; --fg-muted: 100 116 139; --fg-subtle: 100 116 139;
+  --brand: 255 84 0; --brand-deep: 186 57 0; --brand-hover: 224 72 0; --brand-pressed: 204 64 0;
+  --btn-primary-bg: 255 84 0; --btn-primary-hover: 224 72 0; --on-brand: 255 255 255;
+  --brand-soft: 255 243 237; --brand-subtle: 255 243 237; --brand-border: 255 212 194; --accent-soft: 255 243 237;
+  --brand-ink: 186 57 0; --brand-panel: 186 57 0; --ring: 255 84 0; --link: 186 57 0; --link-hover: 150 46 0; --hero-hi: 186 57 0;
+  --doc-link: 186 57 0; --doc-link-wash: 255 243 237; --info: 100 116 139; --info-soft: 241 245 249;
+  --st-all-soft: 255 243 237; --st-all-strong: 255 243 237; --st-all-key: 255 84 0; --st-all-ink: 186 57 0;
+  --nav-fg: 51 65 85; --nav-fg-muted: 100 116 139; --nav-fg-subtle: 100 116 139;
+  --rail-bg: 255 255 255; --rail-border: 226 232 240; --rail-hover: 241 245 249; --rail-active: 255 243 237;
+  --heading-bg: 255 255 255; --heading-hover: 241 245 249; --page-heading-bg: 255 255 255; --header-bg: 255 255 255;
+  --kpi-line: 226 232 240;
+  --ws-nav-selected: 255 243 237; --ws-nav-selected-ink: 186 57 0; --ws-brand: 255 84 0;
+  --choice: 255 243 237; --on-choice: 186 57 0; --choice-tray: 255 255 255;
+  --money-out: 15 23 42;
+  --rail-graphite: 255 255 255; --rail-graphite-top: 255 255 255; --rail-graphite-hover: 241 245 249;
+  --rail-ink: 100 116 139; --rail-ink-strong: 15 23 42; --rail-blaze: 255 84 0; --rail-blaze-ink: 186 57 0;
+}
+/* Solar Amber: #EAB308 / hover #CA8A04 / ink #854D0E / tint #FEFCE8 / stroke #FEF08A. Slate words on the amber button (white is 2.1:1, slate 9:1). */
+html:root[data-palette='blaze']:not([data-theme='dark']),
+html:root:not([data-theme='dark']) [data-palette='blaze'] {
+  --neon: 234 179 8;
+  --red: 234 179 8; --oxblood: 133 77 14; --blush: 254 252 232; --ink: 15 23 42; --cream: 255 255 255;
+  --app-bg: 255 255 255; --surface: 255 255 255; --surface-raised: 255 255 255;
+  --surface-sunken: 248 250 252; --doc-section: 248 250 252;
+  --border: 226 232 240; --border-strong: 203 213 225; --border-field: 203 213 225;
+  --fg: 51 65 85; --fg-heading: 15 23 42; --col-party: 15 23 42; --fg-muted: 100 116 139; --fg-subtle: 100 116 139;
+  --brand: 234 179 8; --brand-deep: 133 77 14; --brand-hover: 202 138 4; --brand-pressed: 161 98 7;
+  --btn-primary-bg: 234 179 8; --btn-primary-hover: 202 138 4; --on-brand: 15 23 42;
+  --brand-soft: 254 252 232; --brand-subtle: 254 252 232; --brand-border: 254 240 138; --accent-soft: 254 252 232;
+  --brand-ink: 133 77 14; --brand-panel: 133 77 14; --ring: 234 179 8; --link: 133 77 14; --link-hover: 113 63 18; --hero-hi: 133 77 14;
+  --doc-link: 133 77 14; --doc-link-wash: 254 252 232; --info: 100 116 139; --info-soft: 241 245 249;
+  --st-all-soft: 254 252 232; --st-all-strong: 254 252 232; --st-all-key: 234 179 8; --st-all-ink: 133 77 14;
+  --nav-fg: 51 65 85; --nav-fg-muted: 100 116 139; --nav-fg-subtle: 100 116 139;
+  --rail-bg: 255 255 255; --rail-border: 226 232 240; --rail-hover: 241 245 249; --rail-active: 254 252 232;
+  --heading-bg: 255 255 255; --heading-hover: 241 245 249; --page-heading-bg: 255 255 255; --header-bg: 255 255 255;
+  --kpi-line: 226 232 240;
+  --ws-nav-selected: 254 252 232; --ws-nav-selected-ink: 133 77 14; --ws-brand: 234 179 8;
+  --choice: 254 252 232; --on-choice: 133 77 14; --choice-tray: 255 255 255;
+  --money-out: 15 23 42;
+  --rail-graphite: 255 255 255; --rail-graphite-top: 255 255 255; --rail-graphite-hover: 241 245 249;
+  --rail-ink: 100 116 139; --rail-ink-strong: 15 23 42; --rail-blaze: 234 179 8; --rail-blaze-ink: 133 77 14;
+}
+/* Electric Cyan: #00A3FF / ink #006DB2 / tint #EDF8FF / stroke #BAE6FF. The button is a deeper cyan #0079BF
+   (owner, 6 Nov 2026: white on #00A3FF is 2.7:1; on #0079BF 4.7:1, AA); the halo and glow keep the neon. */
+html:root[data-palette='cyan']:not([data-theme='dark']),
+html:root:not([data-theme='dark']) [data-palette='cyan'] {
+  --neon: 0 163 255;
+  --red: 0 163 255; --oxblood: 0 109 178; --blush: 237 248 255; --ink: 15 23 42; --cream: 255 255 255;
+  --app-bg: 255 255 255; --surface: 255 255 255; --surface-raised: 255 255 255;
+  --surface-sunken: 248 250 252; --doc-section: 248 250 252;
+  --border: 226 232 240; --border-strong: 203 213 225; --border-field: 203 213 225;
+  --fg: 51 65 85; --fg-heading: 15 23 42; --col-party: 15 23 42; --fg-muted: 100 116 139; --fg-subtle: 100 116 139;
+  --brand: 0 163 255; --brand-deep: 0 109 178; --brand-hover: 0 109 178; --brand-pressed: 0 96 158;
+  --btn-primary-bg: 0 121 191; --btn-primary-hover: 0 109 178; --on-brand: 255 255 255;
+  --brand-soft: 237 248 255; --brand-subtle: 237 248 255; --brand-border: 186 230 255; --accent-soft: 237 248 255;
+  --brand-ink: 0 109 178; --brand-panel: 0 109 178; --ring: 0 163 255; --link: 0 109 178; --link-hover: 0 84 140; --hero-hi: 0 109 178;
+  --doc-link: 0 109 178; --doc-link-wash: 237 248 255; --info: 100 116 139; --info-soft: 241 245 249;
+  --st-all-soft: 237 248 255; --st-all-strong: 237 248 255; --st-all-key: 0 163 255; --st-all-ink: 0 109 178;
+  --nav-fg: 51 65 85; --nav-fg-muted: 100 116 139; --nav-fg-subtle: 100 116 139;
+  --rail-bg: 255 255 255; --rail-border: 226 232 240; --rail-hover: 241 245 249; --rail-active: 237 248 255;
+  --heading-bg: 255 255 255; --heading-hover: 241 245 249; --page-heading-bg: 255 255 255; --header-bg: 255 255 255;
+  --kpi-line: 226 232 240;
+  --ws-nav-selected: 237 248 255; --ws-nav-selected-ink: 0 109 178; --ws-brand: 0 163 255;
+  --choice: 237 248 255; --on-choice: 0 109 178; --choice-tray: 255 255 255;
+  --money-out: 15 23 42;
+  --rail-graphite: 255 255 255; --rail-graphite-top: 255 255 255; --rail-graphite-hover: 241 245 249;
+  --rail-ink: 100 116 139; --rail-ink-strong: 15 23 42; --rail-blaze: 0 163 255; --rail-blaze-ink: 0 109 178;
+}
+/* Attendance's rail is white like every other app's: slate icons, the open module the tint with the neon edge. */
+html:root[data-palette='blaze']:not([data-theme='dark']) .ui-split-rail { background: rgb(255 255 255); border-right: 1px solid rgb(var(--border)); box-shadow: none; }
+html:root[data-palette='blaze']:not([data-theme='dark']) .ui-split-mod:hover { background: rgb(var(--surface-sunken)); color: rgb(var(--fg-heading)); }
+html:root[data-palette='blaze']:not([data-theme='dark']) .ui-split-mod[data-current] { background: rgb(var(--blush)); color: rgb(var(--oxblood)); box-shadow: inset 0 0 0 1px rgb(var(--brand-border)); }
+html:root[data-palette='blaze']:not([data-theme='dark']) .ui-split-mod[aria-pressed='true']:not([data-current]) { background: rgb(var(--surface-sunken)); color: rgb(var(--fg-heading)); box-shadow: none; }
+html:root[data-palette='blaze']:not([data-theme='dark']) .ui-split-mod:focus-visible { outline-color: rgb(var(--ring)); }
+html:root[data-palette='blaze']:not([data-theme='dark']) .ui-split-rail > .ui-split-mod:last-child:not(:first-child)::after { background: rgb(var(--border)); }
+html:root[data-palette='blaze']:not([data-theme='dark']) .ui-split-item[aria-current='page'] { background: rgb(var(--blush)); color: rgb(var(--oxblood)); }
+/* Payroll's primary action, as Attendance's: the palette's neon over the platform's own button colours. */
+:root[data-palette='cyan'] :is(.ui-btn-primary, .ui-btn-brand) { background-color: rgb(var(--btn-primary-bg)) !important; border-color: rgb(var(--btn-primary-bg)) !important; color: rgb(var(--on-brand)) !important; }
+:root[data-palette='cyan'] :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) { background-color: rgb(var(--btn-primary-hover)) !important; border-color: rgb(var(--btn-primary-hover)) !important; }
+:root[data-palette='cyan'] :is(.ui-btn-primary, .ui-btn-brand):active:not(:disabled) { background-color: rgb(var(--brand-pressed)) !important; border-color: rgb(var(--brand-pressed)) !important; }
+/* A chosen view in every neon app: the tint, the ink and the stroke (rule 3). */
+html:root:not([data-theme='dark']):is([data-palette='blaze'], [data-palette='cyan'], :not([data-palette])) :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) { box-shadow: inset 0 0 0 1px rgb(var(--brand-border)); }
+/* The rail in every neon app: white, slate icons; the open module the tint with the deep ink and the stroke, not a solid pill. */
+html:root:not([data-theme='dark']):is([data-palette='cyan'], :not([data-palette])) .ui-split-rail { background: rgb(255 255 255); }
+html:root:not([data-theme='dark']):is([data-palette='cyan'], :not([data-palette])) .ui-split-mod:hover:not([data-current]) { background: rgb(var(--surface-sunken)); }
+html:root:not([data-theme='dark']):is([data-palette='cyan'], [data-palette='blaze'], :not([data-palette])) .ui-split-mod[data-current] {
+  background: rgb(var(--blush)); color: rgb(var(--oxblood)); box-shadow: inset 0 0 0 1px rgb(var(--brand-border));
+}
+html:root:not([data-theme='dark']):is([data-palette='cyan'], [data-palette='blaze'], :not([data-palette])) .ui-split-mod[data-current] > svg { color: rgb(var(--brand)); }
+
+/* ---------------------------------------------------------------------------
+   The other neons beside each app's own (owner, 6 Nov 2026: "use all the
+   other colours also along with primary colour"). Every app but Accounting,
+   light theme. The app's neon stays the action and where you are; the rest of
+   the family marks meaning, each as tint + ink (ink 4.5:1 or more on its tint):
+     Cobalt     #0052FF  ink #0038B8  tint #EDF3FF  sent, information
+     Emerald    #00C853  ink #008736  tint #E8FBF0  paid, done, money in
+     Mulberry   #7C3AED  ink #6D28D9  tint #F5F0FF  partial, refund, structure
+     Tangerine  #FF5400  ink #BA3900  tint #FFF3ED  outstanding, waiting
+     Cyan       #00A3FF  ink #006DB2  tint #EDF8FF  people and teams (sky tint)
+     Coral      #FF1356  ink #B80036  tint #FFF0F4  celebrations
+   Overdue keeps the error red, so a brand colour never reads as a fault.
+--------------------------------------------------------------------------- */
+html:root:not([data-theme='dark']):not([data-palette='indigo']),
+html:root:not([data-theme='dark']) :is([data-palette='sky'], [data-palette='blaze'], [data-palette='cyan']) {
+  --sky-soft: 237 248 255; --sky-ink: 0 109 178;
+  --mint-soft: 232 251 240; --mint-ink: 0 135 54;
+  --lilac-soft: 245 240 255; --lilac-ink: 109 40 217;
+  --peach-soft: 255 243 237; --peach-ink: 186 57 0;
+  --butter-soft: 255 240 244; --butter-ink: 184 0 54;
+  --cobalt-soft: 237 243 255; --cobalt-ink: 0 56 184;
+  --st-sent-soft: 237 243 255; --st-sent-strong: 204 224 255; --st-sent-key: 0 82 255; --st-sent-ink: 0 56 184;
+  --st-paid-soft: 232 251 240; --st-paid-strong: 183 245 208; --st-paid-key: 0 200 83; --st-paid-ink: 0 135 54;
+  --st-partial-soft: 245 240 255; --st-partial-strong: 228 216 253; --st-partial-key: 124 58 237; --st-partial-ink: 109 40 217;
+  --st-refund-soft: 245 240 255; --st-refund-strong: 228 216 253; --st-refund-key: 124 58 237; --st-refund-ink: 109 40 217;
+  --st-outstanding-soft: 255 243 237; --st-outstanding-strong: 255 212 194; --st-outstanding-key: 255 84 0; --st-outstanding-ink: 186 57 0;
+  --st-draft-soft: 248 250 252; --st-draft-strong: 226 232 240; --st-draft-key: 100 116 139; --st-draft-ink: 51 65 85;
+  --pos: 0 135 54; --pos-soft: 232 251 240;
+  --warn: 186 57 0; --warn-ink: 186 57 0; --warn-soft: 255 243 237;
+  --info: 0 56 184; --info-soft: 237 243 255;
+}
+[data-tint='cobalt'] { --tint: var(--cobalt-soft); --tint-ink: var(--cobalt-ink); }
+/* A figure's mark: its icon on its own tint (`data-tint` on the card), so a row of figures reads in several colours. */
+.ui-figure-mark { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; flex: none; border-radius: var(--radius-btn); background: rgb(var(--tint, var(--surface-sunken))); color: rgb(var(--tint-ink, var(--fg-muted))); }
+/* A rail module may name a family colour (`tint` in the manifest): its icon wears that ink; the open module keeps the app's neon. */
+html:root:not([data-theme='dark']):not([data-palette='indigo']) .ui-split-mod[data-tint]:not([data-current]) > svg { color: rgb(var(--tint-ink)); }
+
+/* ---------------------------------------------------------------------------
+   Two faces and one type scale in every app but Accounting (owner, 6 Nov
+   2026). Plus Jakarta Sans for every word; JetBrains Mono with tabular
+   figures for every number, amount, time and code. Accounting keeps Inter.
+     app title    20/26 800 -0.5px     card header 14/20 700
+     metric       22/26 800 mono       body        13/18 500
+     caption      11/15                badge       10/13 700 +0.05em caps
+     code         11/16 600 mono
+--------------------------------------------------------------------------- */
+html:root:not([data-palette='indigo']) {
+  --font-ui: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-num: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: var(--font-ui);
+  font-family: var(--font-ui);
+}
+html:root:not([data-palette='indigo']) body { font-size: 0.8125rem; line-height: 1.125rem; font-weight: 500; }
+html:root:not([data-palette='indigo']) :is(body, body *:not(svg):not(svg *)) { font-family: var(--font-ui) !important; }
+html:root:not([data-palette='indigo']) :is(
+  .tabular-nums, .font-mono, code, kbd, samp, time,
+  .ui-num, .num, .ui-amount, .ui-col-amount, .ui-cell-money, .ui-money, .ui-money-lg, .ui-money-centred, .ui-mono, .ui-detail-mono,
+  .ui-metric-value, .ui-metric strong, .ui-kpi, .ui-kpi-figure, .ui-strip-figure, .ui-figure, .ui-trend-value,
+  .ui-segment-count, .ui-tab-count, .ui-side-count, .ui-section-count, .ui-count, .ui-bell-count, .ui-check-count, .ui-week-n,
+  .ui-week-axis, .ui-week-day > b,
+  .soft-band-stat-value, .soft-snap-value, .org-card-n, .org-count-n, .people-row-count, .oc-count
+),
+html:root:not([data-palette='indigo']) :is(
+  code, kbd, samp, time,
+  .ui-num, .num, .ui-amount, .ui-col-amount, .ui-cell-money, .ui-money, .ui-money-lg, .ui-money-centred, .ui-mono, .ui-detail-mono,
+  .ui-metric-value, .ui-metric strong, .ui-kpi, .ui-kpi-figure, .ui-strip-figure, .ui-figure, .ui-trend-value,
+  .ui-segment-count, .ui-tab-count, .ui-side-count, .ui-section-count, .ui-count, .ui-bell-count, .ui-check-count, .ui-week-n,
+  .ui-week-axis, .ui-week-day > b,
+  .soft-band-stat-value, .soft-snap-value, .org-card-n, .org-count-n, .people-row-count, .oc-count
+) * {
+  font-family: var(--font-num) !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+html:root:not([data-palette='indigo']) :is(h1, h1[class], .ui-t-page) {
+  font-size: 1.25rem !important; line-height: 1.625rem !important; font-weight: 800 !important; letter-spacing: -0.5px !important;
+}
+html:root:not([data-palette='indigo']) :is(h2.ui-t-sec, .ui-t-sec, .ui-card-title) {
+  font-size: 0.875rem !important; line-height: 1.25rem !important; font-weight: 700 !important;
+}
+html:root:not([data-palette='indigo']) :is(.ui-metric-value, .ui-metric strong, .ui-kpi, .ui-kpi-figure, .soft-band-stat-value) {
+  font-size: 1.375rem !important; line-height: 1.625rem !important; font-weight: 800 !important; letter-spacing: -0.02em !important;
+}
+html:root:not([data-palette='indigo']) .ui-caption { font-size: 0.6875rem; line-height: 0.9375rem; }
+html:root:not([data-palette='indigo']) :is(.ui-pill, .ui-pill-status, .ui-badge) {
+  font-size: 0.625rem !important; line-height: 0.8125rem !important; font-weight: 700 !important; letter-spacing: 0.05em; text-transform: uppercase;
+}
+html:root:not([data-palette='indigo']) :is(code, kbd, samp, .ui-mono, .ui-detail-mono) { font-size: 0.6875rem; line-height: 1rem; font-weight: 600; }
+
+/* ---------------------------------------------------------------------------
+   The two-tier sidebar in every app but Accounting (owner, 6 Nov 2026): the
+   app rail 64px, the module's screens 180px, the work area takes the rest.
+   The module you are in: a 3px neon bar at the rail's edge on a 5% wash, its
+   name in the deep ink. The screen you are on: bold, in the ink, on the tint.
+   Long screen names end in an ellipsis; the button's title keeps the whole.
+--------------------------------------------------------------------------- */
+html:root:not([data-palette='indigo']) body .ui-split-rail:not(.ui-nav-sheet-split *) { width: 4rem !important; padding-inline: 0.125rem !important; }
+html:root:not([data-palette='indigo']) body .ui-split-rail .ui-split-mod { position: relative; padding-inline: 0 !important; font-size: 10px !important; }
+html:root:not([data-palette='indigo']) body .ui-split-rail .ui-split-mod > span { font-size: 10px !important; letter-spacing: 0 !important; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+html:root:not([data-palette='indigo']) body .ui-split-rail .ui-split-mod[data-current] {
+  background: rgb(var(--neon) / 0.05) !important;
+  color: rgb(var(--oxblood)) !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+html:root:not([data-palette='indigo']) body .ui-split-rail .ui-split-mod[data-current]::before {
+  content: '' !important; position: absolute !important;
+  left: -0.125rem !important; top: 18% !important; bottom: 18% !important; width: 3px !important;
+  border-radius: 0 3px 3px 0 !important; background: rgb(var(--neon)) !important;
+}
+html:root:not([data-palette='indigo']) body .ui-split-panel:not(.ui-nav-sheet-split *) { width: 11.25rem !important; }
+html:root:not([data-palette='indigo']) body .ui-split-panel { padding-inline: 0.5rem !important; }
+html:root:not([data-palette='indigo']) body .ui-split[data-overlay] .ui-split-panel { left: 4rem; }
+html:root:not([data-palette='indigo']) body .ui-split-scrim { left: 4rem; }
+html:root:not([data-palette='indigo']) body .ui-split-panel .ui-split-panel-head { margin-inline: -0.5rem !important; padding-inline: 0.75rem !important; }
+html:root:not([data-palette='indigo']) body .ui-split-panel .ui-split-item { gap: 0.5rem; padding-inline: 0.5rem; font-size: 0.8125rem !important; }
+html:root:not([data-palette='indigo']) body .ui-split-panel .ui-split-item[aria-current='page'] {
+  background: rgb(var(--blush)) !important;
+  color: rgb(var(--oxblood)) !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+html:root:not([data-palette='indigo']) body .ui-split-panel .ui-split-item[aria-current='page'] > svg { color: rgb(var(--brand)) !important; }
+
+html:root:not([data-palette='indigo']) body .ui-split-panel .ui-split-panel-head > .ui-t-sec { padding-inline: 0 1.75rem !important; text-align: left !important; }

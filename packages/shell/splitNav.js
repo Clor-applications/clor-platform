@@ -3,7 +3,7 @@
  * filtered `nav`, so the rail and the panel only ever show screens this
  * person may open.
  *
- *   modules: [{ key, label, short?, icon?, items?: [navKey], groups?: [{ label, items: [navKey] }] }]
+ *   modules: [{ key, label, short?, icon?, tint?, items?: [navKey], groups?: [{ label, items: [navKey] }] }]
  *
  * A module keeps whatever of its screens survive the filter; one that keeps
  * nothing is not shown. A module with a single screen and no groups has no
@@ -19,7 +19,7 @@ export function resolveModules(app, nav) {
       const items = groups.flatMap((g) => g.items);
       if (!items.length) return null;
       const single = !m.groups && items.length === 1;
-      return { key: m.key, label: m.label, short: m.short, icon: m.icon || items[0].icon, groups, items, single, home: items[0].key };
+      return { key: m.key, label: m.label, short: m.short, icon: m.icon || items[0].icon, tint: m.tint, groups, items, single, home: items[0].key };
     })
     .filter(Boolean);
 }
