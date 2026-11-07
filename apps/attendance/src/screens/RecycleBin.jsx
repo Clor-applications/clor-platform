@@ -75,7 +75,7 @@ export default function RecycleBin() {
   return (
     <DocumentListShell
       entity="settings"
-      title="Recycle Bin"
+      title="Recycle bin"
       description={`Deleted employees, shifts, holidays, schedules and days stay here for ${data?.days || 30} days. Restore puts them back as they were.`}
       compact
       tight

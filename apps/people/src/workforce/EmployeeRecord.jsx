@@ -16,7 +16,7 @@ import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { hasApp } from '@platform/context';
 import {
-  Avatar, CustomFields, EmployeeChecklist, shrinkPhoto, EmployeeDocuments, EmploymentHistory, GENDER_WORDS, InviteForm, JoiningDetails, Journey, ResignForm, SCHEDULED_LABELS, StatutoryDetails,
+  Avatar, CustomFields, EmployeeChecklist, shrinkPhoto, EmployeeDocuments, EmploymentHistory, GENDER_WORDS, InviteForm, IssueLetter, JoiningDetails, Journey, ResignForm, SCHEDULED_LABELS, StatutoryDetails,
 } from '@ui/personnel/Employees';
 import { LEAVING_TYPES } from '@ui/personnel/api';
 import { HOURS_WORDS, datesFor, kindOf, probationState } from '@ui/personnel/employmentKinds';
@@ -102,6 +102,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   const [resigning, setResigning] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [offering, setOffering] = useState(false);
+  const [lettering, setLettering] = useState(false);
   const [givingAccess, setGivingAccess] = useState(false);
   /* The record's list of access sent reloads after a send. */
   const [accessKey, setAccessKey] = useState(0);
@@ -152,11 +153,17 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       rec.reload();
     } catch (e) { notify.error(String(e?.message || 'Not changed.')); }
   };
+  /* Probation still to decide: the same test the Employment tab's Probation section uses. */
+  const probationDue = Boolean(person.probationEndDate && !person.confirmedOn && person.status !== 'LEFT' && !(person.dateOfJoining && String(person.dateOfJoining).slice(0, 10) > todayIst()));
   const moreItems = [
     editable ? ['manager', 'Change manager'] : null,
     editable ? ['transfer', 'Transfer'] : null,
     editable ? ['designation', 'Change designation'] : null,
     editable ? ['type', 'Change employment type'] : null,
+    /* The jobs HR looked for here and found on other tabs or in Payroll (People plan, 8 Nov 2026). */
+    person.status !== 'LEFT' && hasApp('payroll') && allowed('PAYROLL::Salary Revisions::CREATE') ? ['salary', 'Change salary'] : null,
+    person.status !== 'LEFT' && allowed('PEOPLE::Documents::CREATE') ? ['letter', 'Issue a letter'] : null,
+    probationDue && allowed('PEOPLE::Lifecycle::APPROVE') ? ['probation', 'Confirm probation'] : null,
     /* Someone on notice is not suspended: their leaving runs on its day (W2). */
     editable && person.status === 'ACTIVE' ? ['status', 'Suspend'] : null,
     allowed('PEOPLE::Employees::EDIT') && person.status === 'SUSPENDED' ? ['status', 'Reactivate'] : null,
@@ -215,6 +222,10 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
                     if (k === 'delete') return remove();
                     if (k === 'invite') { setMoreOpen(false); return setInviting(true); }
                     if (k === 'offer') { setMoreOpen(false); return setOffering(true); }
+                    if (k === 'letter') { setMoreOpen(false); return setLettering(true); }
+                    if (k === 'salary') { setMoreOpen(false); return window.location.assign(`?app=payroll&open=revisions&s.new=${encodeURIComponent(person.id)}`); }
+                    /* Confirm, extend or end sit in the Probation section on Employment, with the manager's review beside them. */
+                    if (k === 'probation') { setMoreOpen(false); return leaveTo({ tab: 'employment', edit: null, action: null }, true).then(() => setTimeout(() => document.getElementById('probation')?.scrollIntoView({ block: 'start' }), 150)); }
                     if (k === 'appAccess') { setMoreOpen(false); return setGivingAccess(true); }
                     if (k === 'leave') { setMoreOpen(false); return setResigning(true); }
                     if (k === 'stay') { setMoreOpen(false); return withdrawLeaving(); }
@@ -255,6 +266,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       ) : null}
       {resigning ? <ResignForm person={person} onClose={() => setResigning(false)} onDone={(p) => { setResigning(false); setPerson(p); rec.reload(); }} /> : null}
       {inviting ? <InviteForm person={person} onClose={() => setInviting(false)} onDone={() => setInviting(false)} /> : null}
+      {lettering ? <IssueLetter employeeId={person.id} onClose={() => setLettering(false)} onIssued={() => { setLettering(false); rec.reload(); }} /> : null}
       {offering ? <OfferDrawer employee={person} onClose={() => setOffering(false)} onSent={() => { setOffering(false); rec.reload(); }} /> : null}
       {givingAccess ? <AppAccessSend people={[{ id: person.id, name: person.name }]} onClose={() => { setGivingAccess(false); setAccessKey((k) => k + 1); }} /> : null}
     </div>

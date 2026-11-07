@@ -347,6 +347,19 @@ export default function Shell() {
   useEffect(() => {
     try { window.localStorage.setItem('clor.splitPanel', panelClosed ? 'closed' : 'open'); } catch { /* storage blocked */ }
   }, [panelClosed]);
+  /* Counts beside rail entries (manifest `railCounts`: { moduleKey: n }), fetched again on each screen change so an
+     answered request leaves the count. A failed load shows none. */
+  const [railLoad, setRailLoad] = useState({ key: '', counts: {} });
+  const railKey = `${activeAppId || ''}|${tenant?.id || ''}`;
+  useEffect(() => {
+    const load = tenant?.id ? appById(activeAppId)?.railCounts : null;
+    if (!load) return undefined;
+    let live = true;
+    load().then((c) => { if (live) setRailLoad({ key: railKey, counts: c || {} }); }).catch(() => { if (live) setRailLoad({ key: railKey, counts: {} }); });
+    return () => { live = false; };
+  }, [activeAppId, tenant?.id, screenKey, railKey]);
+  /* Counts from another app or company are never shown while the new ones load. */
+  const railCounts = railLoad.key === railKey ? railLoad.counts : {};
   /* A page the platform owns rather than the app (My profile), shown in an
      app's main area. Only for apps that use the shell's menu: an app that
      draws its own (Accounting) has its own profile entry. */
@@ -867,6 +880,7 @@ export default function Shell() {
             {Icon ? <Icon size={20} aria-hidden="true" /> : null}
             {/* The rail is narrow: a module may give it a shorter name; the panel and the tooltip keep the full one. */}
             <span>{m.short || m.label}</span>
+            {railCounts[m.key] > 0 ? <span className="ui-split-mod-count tabular-nums" aria-label={`${railCounts[m.key]} waiting`}>{railCounts[m.key] > 99 ? '99+' : railCounts[m.key]}</span> : null}
           </button>
         );
       })}

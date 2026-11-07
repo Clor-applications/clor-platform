@@ -80,13 +80,14 @@ const EXPORT_COLUMNS = [
   { key: 'status', label: 'Status', value: (r) => STATUS[r.status]?.label || r.status },
 ];
 
-export default function SalaryRevisions() {
+export default function SalaryRevisions({ params } = {}) {
   const [all, setAll] = useState(null);
   const [people, setPeople] = useState([]);
   const [structures, setStructures] = useState([]);
   const [error, setError] = useState('');
   const [openId, setOpenId] = useState(null);
-  const [starting, setStarting] = useState(false);
+  /* Opened from a People record's "Change salary" (`s.new=<employee id>`): the form starts on that person. */
+  const [starting, setStarting] = useState(Boolean(params?.new));
   const [status, setStatus] = useState('');
 
   const load = useCallback(() => {
@@ -168,6 +169,8 @@ export default function SalaryRevisions() {
       above={
         starting ? (
           <RevisionForm
+            key={people.length}
+            initialEmployeeId={params?.new}
             people={people}
             structures={structures}
             onCancel={() => setStarting(false)}
@@ -248,9 +251,9 @@ export default function SalaryRevisions() {
  * appears once it is computed. Waiting until after saving would mean typing a
  * number, saving it, and then discovering it meant something else.
  */
-const RevisionForm = ({ people, structures, onCancel, onCreated }) => {
+const RevisionForm = ({ people, structures, onCancel, onCreated, initialEmployeeId }) => {
   const [form, setForm] = useState({
-    employeeId: people[0]?.id || '',
+    employeeId: (initialEmployeeId && people.some((p) => p.id === initialEmployeeId) ? initialEmployeeId : people[0]?.id) || '',
     proposedStructureId: structures[0]?.id || '',
     proposedAnnualCtc: '',
     effectiveFrom: new Date().toISOString().slice(0, 10),

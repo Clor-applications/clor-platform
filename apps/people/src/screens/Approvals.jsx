@@ -216,7 +216,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Home' }]} title="Approvals" />
+      <PageHeader title="Inbox" />
 
       {tab === 'waiting' && chosen.length ? (
         <div className="ui-bulkbar" role="region" aria-label="Decide the chosen requests">
