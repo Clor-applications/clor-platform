@@ -69,7 +69,8 @@ function lastLine(a, canEdit) {
 
 /** Who and how, changed together and saved with one button. At least one of each stays. */
 function WhoAndHow({ a, users, busy, onSave, onClose }) {
-  const [to, setTo] = useState(() => (a.to || []).map((t) => t.value));
+  /* A named person who is no longer a user is left out: saving drops them (the server does too). */
+  const [to, setTo] = useState(() => (a.to || []).filter((t) => !t.gone).map((t) => t.value));
   const [channels, setChannels] = useState(() => [...(a.channels || [])]);
   const [error, setError] = useState('');
   const flip = (list, set, v) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);

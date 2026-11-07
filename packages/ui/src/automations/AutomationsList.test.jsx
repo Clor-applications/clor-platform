@@ -101,3 +101,13 @@ it('a reader sees "a named person"; a named user who left shows, with who hears 
   expect(await screen.findByText('Goes to Owner and a named person · In the app')).toBeTruthy();
   expect(screen.getByText('Goes to someone no longer a user, so HR hears instead · In the app')).toBeTruthy();
 });
+
+it('the editor leaves out a named person who is no longer a user, so saving does not send them', async () => {
+  const gone = row({ key: 'payroll.b', sentence: 'Gone', to: [{ value: 'OWNER', label: null }, { value: 'PERSON:u9', label: null, gone: true }], fallback: ['OWNER'], recipients: { options: ['OWNER', 'HR', 'PERSON'], label: 'Goes to' } });
+  const api = { load: vi.fn(async () => ({ automations: [gone], canEdit: true, users: USERS })), save: vi.fn(async () => ({ automations: [gone] })), history: vi.fn() };
+  render(<AutomationsList module="payroll" api={api} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Change who and how: Gone/ }));
+  expect(screen.queryByRole('checkbox', { name: /no longer a user/ })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(api.save).toHaveBeenCalledWith({ 'payroll.b': { to: ['OWNER'] } }));
+});

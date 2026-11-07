@@ -226,7 +226,17 @@ describe('the jobs honour the choice', () => {
     await runEndDateReminders();
     expect(await told('No Manager Hire', hr.userId)).toBe(1);
     expect(await told('No Manager Hire', c.userId)).toBe(1);
-    await put(c, { probationEnds: { to: ['HR'] } }).expect(200);
+    /* A save that still carries the user who left (an open editor) goes through and drops them... */
+    await runInTenant(c.orgId, async () => {
+      const row = await peoplePrisma.engagementSettings.findUnique({ where: { orgId: c.orgId } });
+      const automations = { ...(row!.automations as any), probationEnds: { ...(row!.automations as any).probationEnds, to: [`PERSON:${gone.userId}`] } };
+      await peoplePrisma.engagementSettings.update({ where: { orgId: c.orgId }, data: { automations } });
+    });
+    const saved = (await put(c, { probationEnds: { to: [`PERSON:${gone.userId}`, 'OWNER'], n: 12 } }).expect(200)).body.automations.find((a: any) => a.key === 'probationEnds');
+    expect(saved).toMatchObject({ n: 12, to: [{ value: 'OWNER', label: null }] });
+    /* ...but one newly named who is not an active user is refused. */
+    expect((await put(c, { probationEnds: { to: [`PERSON:${gone.userId}`, 'OWNER'] } }).expect(400)).body.error).toMatch(/not a user/);
+    await put(c, { probationEnds: { to: ['HR'], n: 14 } }).expect(200);
   }, 60_000);
 
   it('the daily job: once per company and day, with the choice, and only while the module is on', async () => {

@@ -202,9 +202,14 @@ export async function companyUsers(orgId: string, ids?: string[]) {
 export async function saveAutomations(who: { accountId: string; orgId: string; userId: string }, body: unknown, module: AutomationModule = 'people') {
   const parsed = saveSchema.safeParse(body);
   if (!parsed.success) throw new AutomationError('Those settings could not be read.');
-  /* Read and written under one lock per company: two saves at once (two tabs) each keep the other's change. */
+  /*
+   * Read and written under one lock per company: two saves at once (two tabs) each keep the other's change,
+   * and `before` (the screen as it was, for the audit) is read under the same lock.
+   */
+  let before: Awaited<ReturnType<typeof listAutomations>> = [];
   await peoplePrisma.$transaction(async (tx) => {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`automations:${who.orgId}`}))`;
+  before = await listAutomations(who.orgId, { module, showRuns: true });
   const current = ((await tx.engagementSettings.findUnique({ where: { orgId: who.orgId }, select: { automations: true } }))?.automations || {}) as Record<string, Saved>;
   const next: Record<string, Saved> = { ...current };
   for (const [key, v] of Object.entries(parsed.data.automations)) {
@@ -220,11 +225,20 @@ export async function saveAutomations(who: { accountId: string; orgId: string; u
     }
     if (v.to) {
       if (!r.recipients) throw new AutomationError('Who this one goes to is fixed.');
-      const to = [...new Set(v.to)];
-      if (!to.length) throw new AutomationError('Choose at least one person to tell.');
+      let to = [...new Set(v.to)];
       if (to.some((x) => !recipientOk(x, r.recipients!.options))) throw new AutomationError('This automation cannot go to that choice.');
       const named = to.filter((x) => x.startsWith('PERSON:')).map((x) => x.slice(7));
-      if (named.length && (await companyUsers(who.orgId, named)).length !== named.length) throw new AutomationError('That person is not a user of this company.');
+      if (named.length) {
+        /*
+         * A named person saved earlier who is no longer a user is dropped, so an unrelated change still saves;
+         * one newly added who is not an active user of this company is refused.
+         */
+        const active = new Set((await companyUsers(who.orgId, named)).map((u) => u.id));
+        const before = new Set((current[key]?.to || []).filter((x) => x.startsWith('PERSON:')).map((x) => x.slice(7)));
+        if (named.some((id) => !active.has(id) && !before.has(id))) throw new AutomationError('That person is not a user of this company.');
+        to = to.filter((x) => !x.startsWith('PERSON:') || active.has(x.slice(7)));
+      }
+      if (!to.length) throw new AutomationError('Choose at least one person to tell.');
       row.to = to;
     }
     if (v.channels) {
@@ -241,8 +255,8 @@ export async function saveAutomations(who: { accountId: string; orgId: string; u
     create: { accountId: who.accountId, orgId: who.orgId, automations: next as any, updatedByUserId: who.userId },
     update: { automations: next as any, updatedByUserId: who.userId },
   });
-  });
-  return automationsFor(who.orgId);
+  }, { timeout: 15_000 });
+  return { settings: await automationsFor(who.orgId), before };
 }
 
 // ---------------------------------------------------------------------------

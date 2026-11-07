@@ -89,8 +89,7 @@ export async function putAutomations(req: Request, res: Response, module: string
     const g = await gate(req, res, module, 'EDIT');
     if (!g) return;
     const orgId = req.tenant!.orgId;
-    const before = await listAutomations(orgId, { module: g.module, showRuns: true });
-    await saveAutomations({ accountId: req.tenant!.accountId, orgId, userId: req.auth!.userId }, req.body, g.module);
+    const { before } = await saveAutomations({ accountId: req.tenant!.accountId, orgId, userId: req.auth!.userId }, req.body, g.module);
     const after = await listAutomations(orgId, { module: g.module, showRuns: true });
     const changed = after.filter((a) => { const b = before.find((x) => x.key === a.key); return b && words(b) !== words(a); });
     if (changed.length) {
