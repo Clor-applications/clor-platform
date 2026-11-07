@@ -2298,7 +2298,7 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
  * template asks for, and a PDF lands under Documents naming the template
  * version. A service certificate shows when it is due (DOC-07).
  */
-function IssueLetter({ employeeId, onClose, onIssued }) {
+export function IssueLetter({ employeeId, onClose, onIssued }) {
   const openForm = true;
   const [templates, setTemplates] = useState(null);
   const [kind, setKind] = useState('APPOINTMENT');

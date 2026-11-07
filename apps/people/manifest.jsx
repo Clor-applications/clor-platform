@@ -65,6 +65,7 @@ import {
   SignIn,
   SignOut,
   UserCirclePlus,
+  Tray,
 } from '@phosphor-icons/react';
 import { lazyScreens } from '@ui/utils/lazyScreens';
 import { withSidePanel } from '@ui/components/list/SidePanel';
@@ -203,6 +204,7 @@ const duo = (Icon, name) => {
 };
 const M = {
   home: duo(House, 'House'),
+  inbox: duo(Tray, 'Tray'),
   workforce: duo(UsersThree, 'UsersThree'),
   org: duo(Buildings, 'Buildings'),
   time: duo(CalendarCheck, 'CalendarCheck'),
@@ -326,10 +328,16 @@ export const peopleApp = {
   profileLinks: ['myLeave', 'myDays', 'myRequests'],
   /* Grant- and membership-based access the shell merges with the person's permissions (src/api/access.js). */
   access: () => import('./src/api/access.js').then((m) => m.myPeopleAccess()),
+  /* A rail tap opens the module's first screen with its panel (People plan, 8 Nov 2026: a click opens a screen, not only a panel). */
+  railOpensHome: true,
+  /* Counts beside rail entries: what waits in the Inbox (src/api/railCounts.js). */
+  railCounts: () => import('./src/api/railCounts.js').then((m) => m.peopleRailCounts()),
 
   /* The sidebar holds the day's work; everything set up once lives on one Settings page (PeopleSettings), its pages marked `parent: 'settings'`. */
   modules: [
-    { key: 'overview', label: 'Home', icon: M.home, items: ['overview', 'approvals'] },
+    { key: 'overview', label: 'Home', icon: M.home, items: ['overview'] },
+    /* One Inbox for everything waiting on you, on the rail with its count (People plan, 8 Nov 2026). */
+    { key: 'approvals', label: 'Inbox', icon: M.inbox, items: ['approvals'] },
     /* Menu by what the owner is trying to do (owner, 28 Oct 2026 audit): records about people here; the
        service staff come to (help desk, policies, news) under Workplace. Screen keys stay, so old links work. */
     { key: 'employees', label: 'People', icon: M.workforce, groups: [
@@ -372,7 +380,7 @@ export const peopleApp = {
      delegates, policies, compliance, privacy and the like are always shown, as a small business needs them. */
   nav: [
     { key: 'overview', label: 'Home', icon: I.home, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'approvals', label: 'Approvals', icon: I.approve, permission: 'PEOPLE::Requests::VIEW' },
+    { key: 'approvals', label: 'Inbox', icon: I.approve, permission: 'PEOPLE::Requests::VIEW' },
     { key: 'employees', label: 'Employees', icon: I.people, permission: 'PEOPLE::Employees::VIEW' },
     /* Pages inside Workforce (profile, add, import): reached from the directory, never their own sidebar entries; the shell shows "← Workforce". */
     { key: 'employee', label: 'Employee', icon: I.people, permission: 'PEOPLE::Employees::VIEW', parent: 'employees' },

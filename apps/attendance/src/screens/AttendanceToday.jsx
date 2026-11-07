@@ -170,7 +170,7 @@ export default function AttendanceToday({ openScreen }) {
     <div className="space-y-3">
       <PageHeader
         entity="attendance"
-        title="Dashboard"
+        title="Today"
         description={data?.holiday ? `Holiday: ${data.holiday}` : 'Attendance at a glance.'}
         actions={
           <input type="date" className="ui-input" value={date} max={todayIst()} onChange={(e) => setDate(e.target.value)} aria-label="Day" />

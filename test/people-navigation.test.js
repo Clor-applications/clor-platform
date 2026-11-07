@@ -16,7 +16,7 @@ describe('People navigation', () => {
   it('keeps the sidebar to the day’s work, Settings last', () => {
     /* Workforce package (owner, 26 Oct 2026): the visible module is Workforce; its key stays `employees`. */
     /* Organization follows Workforce (ORGANIZATION-DECISIONS.md): the company's shape moved out of Settings. */
-    expect(modules.map((m) => m.label)).toEqual(['Home', 'People', 'Organisation', 'Time', 'Talent', 'Workplace', 'Reports', 'Settings']);
+    expect(modules.map((m) => m.label)).toEqual(['Home', 'Inbox', 'People', 'Organisation', 'Time', 'Talent', 'Workplace', 'Reports', 'Settings']);
     /* Joining & leaving sits under People (JOINING-LEAVING-DECISIONS.md, placed in the 28 Oct menu). */
     for (const k of ['lifecycle', 'joiners', 'lifecycleChanges', 'leavers', 'checklists']) expect(moduleForScreen(modules, k, peopleApp.nav)?.label, k).toBe('People');
     expect(modules.find((m) => m.label === 'Settings').single).toBe(true);
@@ -100,7 +100,7 @@ describe('People navigation in simple mode', () => {
 
   it('keeps every module that has a screen left, and the leave screens under one naming rule', () => {
     const modules = resolveModules(peopleApp, simple);
-    expect(modules.map((m) => m.label)).toEqual(['Home', 'People', 'Organisation', 'Time', 'Talent', 'Workplace', 'Reports', 'Settings']);
+    expect(modules.map((m) => m.label)).toEqual(['Home', 'Inbox', 'People', 'Organisation', 'Time', 'Talent', 'Workplace', 'Reports', 'Settings']);
     expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Delegates', 'Daily attendance', 'Attendance requests', 'Shift swaps', 'Late marks', 'Absences', 'Night work']);
   });
 
@@ -125,7 +125,7 @@ describe('Shared Time & Leave screens', () => {
     const { attendanceApp } = await import('../apps/attendance/manifest.jsx');
     expect(peopleApp.nav.find((i) => i.key === 'establishments').label).toBe('Work sites');
     expect(attendanceApp.nav.some((i) => i.label === 'Work Sites')).toBe(false);
-    expect(attendanceApp.nav.find((i) => i.key === 'sites').label).toBe('Punch Areas');
+    expect(attendanceApp.nav.find((i) => i.key === 'sites').label).toBe('Punch areas');
   });
 
   it('show in Attendance under simple mode too, as in People', async () => {

@@ -58,7 +58,7 @@ export default function PayrollReadiness({ openScreen }) {
     <div className="space-y-3">
       <PageHeader
         entity="report"
-        title="Payroll Readiness"
+        title="Payroll readiness"
         description="What is in the way of this month's payroll, who fixes it, and the pay at stake if nobody does."
         actions={
           <span className="flex items-center gap-2">
