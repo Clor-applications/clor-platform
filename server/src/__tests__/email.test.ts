@@ -191,6 +191,39 @@ describe('notification preferences', () => {
     expect(after.body.events.find((e: any) => e.key === 'approval.requested').enabled).toBe(false);
   });
 
+  /*
+   * B5 review: an offer, a joining invite and a scheduled report are each a
+   * link somebody is waiting for. Switched off, the offer was saved as sent
+   * and the candidate never got the accept link. None is offered as a switch,
+   * none can be saved as one, and a row left from before still does not stop it.
+   */
+  it('never offers or honours a switch for an offer, a joining invite or a scheduled report', async () => {
+    const list = await request(app).get(`/api/orgs/${owner.orgId}/notifications`).set(auth(owner)).expect(200);
+    const keys = list.body.events.map((e: any) => e.key);
+    for (const key of ['people.offer', 'people.join_invite', 'reports.scheduled']) {
+      expect(keys).not.toContain(key);
+      await request(app)
+        .put(`/api/orgs/${owner.orgId}/notifications`)
+        .set(auth(owner))
+        .send({ events: [{ eventKey: key, enabled: false }] })
+        .expect(400);
+    }
+
+    const { sendTemplate } = await import('../services/mailer.js');
+    const org = await platformPrisma.org.findUnique({ where: { id: owner.orgId }, select: { accountId: true } });
+    await platformPrisma.notificationSetting.create({
+      data: { accountId: org!.accountId, orgId: owner.orgId, eventKey: 'people.offer', enabled: false, updatedByUserId: 'test' },
+    });
+    const to = `cand.${rnd()}@example.com`;
+    await sendTemplate({
+      templateKey: 'people.offer', to, accountId: org!.accountId, orgId: owner.orgId,
+      data: { name: 'Cand', orgName: 'Mail Co', designation: 'Clerk', ctc: '3,00,000', link: 'https://example.com/x', acceptBy: '2026-12-01', message: '' },
+    });
+    const row = await platformPrisma.emailOutbox.findFirst({ where: { orgId: owner.orgId, templateKey: 'people.offer', toEmail: to } });
+    expect(row).toBeTruthy();
+    expect(row!.status).not.toBe('SUPPRESSED');
+  });
+
   it('rejects an unknown event key', async () => {
     await request(app)
       .put(`/api/orgs/${owner.orgId}/notifications`)

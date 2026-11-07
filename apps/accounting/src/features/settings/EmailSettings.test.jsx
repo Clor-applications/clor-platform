@@ -23,7 +23,7 @@ beforeEach(() => {
   api.getEmailSettings.mockReset().mockResolvedValue({ settings: { provider: 'SYSTEM' } });
   api.getNotifications.mockReset().mockResolvedValue({
     events: [
-      { key: 'invoice.sent', label: 'Invoice to customer', description: 'On request.', enabled: true },
+      { key: 'approval.decided', label: 'Approval decided', description: 'To whoever raised it.', enabled: true },
       { key: 'people.joined', label: 'Somebody joined', description: 'To HR.', enabled: true },
     ],
   });
@@ -37,11 +37,11 @@ describe('notifications tab', () => {
     fireEvent.click(await screen.findByRole('tab', { name: 'Notifications' }));
     const accounting = screen.getByRole('region', { name: 'Accounting' });
     expect(screen.getByRole('region', { name: 'People' })).toBeInTheDocument();
-    fireEvent.click(within(accounting).getByRole('checkbox', { name: /Invoice to customer/ }));
+    fireEvent.click(within(accounting).getByRole('checkbox', { name: /Approval decided/ }));
     fireEvent.click(screen.getByRole('button', { name: /Save/ }));
     await waitFor(() =>
       expect(api.saveNotifications).toHaveBeenCalledWith([
-        { eventKey: 'invoice.sent', enabled: false },
+        { eventKey: 'approval.decided', enabled: false },
         { eventKey: 'people.joined', enabled: true },
       ])
     );

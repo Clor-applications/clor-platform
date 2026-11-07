@@ -56,6 +56,18 @@ describe('which app sends what', () => {
   it('without the apps, shows only apps that have something to switch off', () => {
     expect(emailGroups(EVENTS).map((g) => g.id)).toEqual(['accounting', 'people']);
   });
+
+  it('lists the Monday summary once, under the first app that sends it and is on', () => {
+    const where = (subs) => emailGroups(EVENTS, subs).filter((g) => g.events.some((e) => e.key === 'people.weekly_summary')).map((g) => g.id);
+    expect(where(['attendance'])).toEqual(['attendance']);
+    expect(where(['people', 'attendance'])).toEqual(['people']);
+    expect(where(['payroll'])).toEqual([]);
+  });
+
+  it('hides emails nothing sends yet', () => {
+    const keys = emailGroups(EVENTS, ['accounting']).flatMap((g) => g.events.map((e) => e.key));
+    expect(keys).toEqual(['approval.requested']);
+  });
 });
 
 describe('the screen', () => {
@@ -96,6 +108,21 @@ describe('the screen', () => {
     await screen.findByRole('region', { name: 'Accounting' });
     for (const box of screen.getAllByRole('checkbox')) expect(box).toBeDisabled();
     expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
+    expect(screen.getByText('View only')).toBeInTheDocument();
+  });
+
+  it('lets an Attendance-only company stop the Monday summary, and counts only what it shows', async () => {
+    api.getEmailSwitches.mockResolvedValue({ events: EVENTS.map((e) => ({ ...e, enabled: e.key !== 'approval.requested' })) });
+    render(withPerms(<NotificationSettings tenant={{ subscriptions: ['attendance'] }} />, [PERMISSION, 'SETTINGS::Company Profile::EDIT']));
+    const attendance = await screen.findByRole('region', { name: 'Attendance' });
+    /* Approval requested is off, but Accounting is not on here: nothing shown is off. */
+    expect(screen.getByText('All on')).toBeInTheDocument();
+    expect(screen.queryByText('Document expiring')).toBeNull();
+    fireEvent.click(within(attendance).getByRole('checkbox', { name: /Monday summary/ }));
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+    await waitFor(() => expect(api.saveEmailSwitches).toHaveBeenCalledTimes(1));
+    expect(api.saveEmailSwitches.mock.calls[0][0]).toContainEqual({ eventKey: 'people.weekly_summary', enabled: false });
   });
 
   it('says so when the settings cannot be read', async () => {

@@ -46,7 +46,8 @@ export default function NotificationSettings({ tenant }) {
   const subscriptions = Array.isArray(tenant?.subscriptions) ? tenant.subscriptions : null;
   const groups = useMemo(() => emailGroups(events || [], subscriptions), [events, subscriptions]);
   const dirty = Boolean(events && saved) && JSON.stringify(switchesBody(events)) !== JSON.stringify(switchesBody(saved));
-  const offCount = (events || []).filter((e) => !e.enabled).length;
+  /* Counted over what is shown: an email of an app the company does not have is not one it switched off here. */
+  const offCount = groups.reduce((n, g) => n + g.events.filter((e) => !e.enabled).length, 0);
 
   const save = async () => {
     setSaving(true);
@@ -67,7 +68,8 @@ export default function NotificationSettings({ tenant }) {
         <PageHead
           crumbs={['Company', 'Email notifications']}
           title="Email notifications"
-          meta={dirty ? 'Unsaved changes' : events ? (offCount ? `${offCount} switched off` : 'All on') : null}
+          /* Read-only says so in the head too; the shell's WriteGuard banner gives the reason. */
+          meta={readOnly && events ? 'View only' : dirty ? 'Unsaved changes' : events ? (offCount ? `${offCount} switched off` : 'All on') : null}
           actions={
             events ? (
               <button type="button" className="ws-btn ws-btn--primary" disabled={!dirty || saving} onClick={save}>
@@ -106,8 +108,9 @@ export default function NotificationSettings({ tenant }) {
           <aside className="ws-side">
             <Panel title="Always sent">
               <p className="ws-card-blurb">
-                Sign-in links, password resets, invitations, salary bank changes and letters to an employee, such as an
-                absence notice. These are not listed and cannot be switched off.
+                Sign-in links, password resets, invitations, offer letters, the link to fill in details before joining,
+                salary bank changes and letters to an employee, such as an absence notice. These are not listed and
+                cannot be switched off.
               </p>
             </Panel>
           </aside>

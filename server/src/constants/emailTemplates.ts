@@ -245,6 +245,8 @@ The link works once and runs out on {{expiresOn}}. You see only your own details
 {{message}}
 If you did not expect this, ignore it.`,
     fields: ['name', 'orgName', 'joiningDate', 'link', 'expiresOn', 'message'],
+    /* The link is the invite: switched off, the invite was saved as sent and the joiner never got it (lifecycle/invites.ts). HR sends it on purpose, one person at a time. */
+    transactional: true,
   },
   {
     key: 'people.offer',
@@ -262,6 +264,8 @@ The offer is open until {{acceptBy}}.
 {{message}}
 If you did not expect this, ignore it.`,
     fields: ['name', 'orgName', 'designation', 'ctc', 'link', 'acceptBy', 'message'],
+    /* The accept link is the offer: switched off, the offer was saved SENT and the candidate could never accept it (offers.ts). HR sends it on purpose, one person at a time. */
+    transactional: true,
   },
   {
     key: 'people.task_assigned',
