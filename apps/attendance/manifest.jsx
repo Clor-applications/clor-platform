@@ -218,6 +218,16 @@ export const attendanceApp = {
      gets Exceptions, their main to-do (UX-14); someone without it gets My attendance. */
   /* A rail tap opens the module's first screen with its panel (People plan, 8 Nov 2026). */
   railOpensHome: true,
+  /* Search (People plan, 8 Nov 2026): a person opens in People where the company has it; jobs by the words people use. */
+  searchRecords: (q, { apps = [] } = {}) => (apps.includes('people') ? import('@ui/personnel/search').then((m) => m.findPeople(q, { appId: 'people' })) : Promise.resolve([])),
+  searchActions: [
+    { label: 'Fix a punch', screen: 'requests', keywords: ['punch', 'missed punch', 'regularise', 'regularize'] },
+    { label: 'Month close', screen: 'monthClose', keywords: ['month close', 'close the month', 'lock attendance', 'payroll cut-off'] },
+    { label: 'Shifts', screen: 'shifts', keywords: ['shift', 'roster', 'timing', 'weekly off'] },
+    { label: 'Who is late today', screen: 'today', keywords: ['late', 'absent', 'who is in'] },
+    { label: 'Probation ending', appId: 'people', screen: 'employees', params: { prob: 'on' }, keywords: ['probation', 'confirm'] },
+    { label: 'Payslips', appId: 'payroll', screen: 'slips', keywords: ['payslip', 'salary slip'] },
+  ],
   mobileTabs: ['today', 'exceptions', 'records', 'requests', 'me'],
   /*
    * The split sidebar (ClorTime's MainLayout): a rail of modules, and the
