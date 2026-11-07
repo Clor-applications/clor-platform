@@ -42,6 +42,8 @@ import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.
 import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { readableLines } from '../services/payroll/slipLines.js';
 import { addDays as plusDaysIso, addDays as plusDays } from '../utils/istDate.js';
+import { reportError } from '../utils/log.js';
+import { safeUrl } from '../utils/safeUrl.js';
 
 /**
  * The employee portal (ClorTime's /portal): staff without a CLOR user sign in
@@ -58,6 +60,19 @@ import { addDays as plusDaysIso, addDays as plusDays } from '../utils/istDate.js
  * (Attendance → Portal access), valid 24 hours, and the person sets their own.
  */
 export const portalRouter = Router();
+
+/*
+ * A refusal (a 4xx the service chose, in its own plain words) goes to the phone as it is. Anything else is a fault:
+ * logged, and answered plainly with the request id, never with Prisma or driver text (audit 7 Nov 2026 #24).
+ */
+function sendFailure(req: Request, res: Response, err: any, refusedWords = 'Not done.') {
+  const status = Number(err?.status);
+  if (Number.isInteger(status) && status >= 400 && status < 500) return res.status(status).json({ error: err?.message || refusedWords, ...(err?.code ? { code: err.code } : {}) });
+  // eslint-disable-next-line no-console
+  console.error('[portal] failed:', err instanceof Error ? err.stack || err.message : err);
+  reportError(err, req, safeUrl);
+  return res.status(500).json({ error: 'Something went wrong. Try again in a moment.', requestId: (req as any).id || null });
+}
 
 const AUDIENCE = 'clor-portal';
 const ISSUER = () => process.env.JWT_ISSUER || 'accounting';
@@ -694,7 +709,7 @@ portalRouter.get('/leave/explain', async (req, res) => {
     const year = Number(req.query.year) || (await leaveYearOf(orgId));
     res.json(await leaveExplain(accountId, orgId, employeeId, String(req.query.leaveTypeId || ''), year));
   } catch (err: any) {
-    res.status(err?.status || 500).json({ error: err?.message || 'Could not explain this balance.' });
+    sendFailure(req, res, err, 'Could not explain this balance.');
   }
 });
 
@@ -958,7 +973,7 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
       const r = await decideOvertime(e.orgId, String(req.params.id), decision === 'approve', { userId: e.userId || `portal:${e.id}`, managerId: e.id }, String(req.body?.note || '').trim().slice(0, 500) || null);
       return res.json({ request: r, stage: r.status === 'PENDING' ? 'HR' : undefined });
     } catch (err: any) {
-      return res.status(err?.status || 500).json({ error: err?.message || 'Not done.' });
+      return sendFailure(req, res, err);
     }
   }
   if (type === 'punch') {
@@ -966,7 +981,7 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
       const r = await reviewFieldPunch(e.orgId, String(req.params.id), decision === 'approve', { userId: e.userId || `portal:${e.id}`, managerId: e.id });
       return res.json({ punch: { id: r.id, review: r.reviewStatus } });
     } catch (err: any) {
-      return res.status(err?.status || 500).json({ error: err?.message || 'Not done.' });
+      return sendFailure(req, res, err);
     }
   }
   const note = String(req.body?.note || '').trim().slice(0, 500) || null;
@@ -1031,7 +1046,7 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
 // Needs attention, month confirmation, overtime and comp-off
 // ---------------------------------------------------------------------------
 
-const fail = (res: Response, err: any) => res.status(err?.status || 500).json({ error: err?.message || 'Not done.' });
+const fail = (req: Request, res: Response, err: any) => sendFailure(req, res, err);
 
 /** Past days with something missing or waiting: this month and last, up to yesterday. */
 /**
@@ -1065,7 +1080,7 @@ portalRouter.get('/month-review', async (req, res) => {
   try {
     res.json(await monthReview(e, month));
   } catch (err) {
-    fail(res, err);
+    fail(req, res, err);
   }
 });
 
@@ -1076,7 +1091,7 @@ portalRouter.post('/month-review/:month/confirm', async (req, res) => {
   try {
     res.json({ confirmation: await confirmMonth(e, month, null) });
   } catch (err) {
-    fail(res, err);
+    fail(req, res, err);
   }
 });
 
@@ -1089,7 +1104,7 @@ portalRouter.post('/month-review/:month/dispute', async (req, res) => {
   try {
     res.json({ confirmation: await confirmMonth(e, month, note) });
   } catch (err) {
-    fail(res, err);
+    fail(req, res, err);
   }
 });
 
@@ -1119,7 +1134,7 @@ portalRouter.post('/overtime', async (req, res) => {
     }
     res.status(201).json({ request: r });
   } catch (err) {
-    fail(res, err);
+    fail(req, res, err);
   }
 });
 

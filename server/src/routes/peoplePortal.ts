@@ -148,7 +148,8 @@ peoplePortalRouter.post('/me/change-request', async (req, res) => {
 
 const selfServiceError = (res: any, e: unknown) => {
   if (e instanceof SelfServiceError) return res.status(e.status).json({ error: e.message });
-  if ((e as any)?.status) return res.status((e as any).status).json({ error: (e as Error).message });
+  /* A 4xx carries words meant for the person; a 5xx's message is internal and stays in the log (audit 7 Nov 2026 #24). */
+  if ((e as any)?.status && (e as any).status < 500) return res.status((e as any).status).json({ error: (e as Error).message });
   console.error('[people-portal me]', e instanceof Error ? e.message : e);
   res.status(500).json({ error: 'Something went wrong.' });
 };
@@ -179,7 +180,7 @@ peoplePortalRouter.post('/me/resign', async (req, res) => {
     res.status(202).json(await resignFromApp({ accountId, orgId, employeeId, userId: req.portal!.employee.userId || null, correlationId: correlationOf(req as any) }, req.body || {}));
   } catch (e) {
     if (e instanceof ResignError) return res.status(e.status).json({ error: e.message });
-    if ((e as any)?.status) return res.status((e as any).status).json({ error: (e as Error).message });
+    if ((e as any)?.status && (e as any).status < 500) return res.status((e as any).status).json({ error: (e as Error).message });
     console.error('[people-portal resign]', e instanceof Error ? e.message : e);
     res.status(500).json({ error: 'Something went wrong.' });
   }

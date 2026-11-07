@@ -15,6 +15,8 @@ import { listCompanyDocuments, listAllEmployees, getDocument } from '@ui/personn
 import { EmployeeDocuments } from '@ui/personnel/Employees';
 import { docWhoLabel } from '@ui/personnel/documentClassification';
 import { todayIst } from '@ui/utils/dates';
+import { usePermissions } from '@ui/permissions/usePermissions';
+import { can } from '@ui/permissions/can';
 
 /**
  * Documents: every document on every person's file, with its expiry, in one
@@ -42,6 +44,8 @@ export default function PeopleDocuments({ openScreen }) {
   const [tab, setTab] = useState('all');
   const [q, setQ] = useState('');
   const [drawer, setDrawer] = useState(null);
+  /* A reader who may not add files (a view-only manager) is not offered New document; the server refuses it anyway. */
+  const mayAdd = can(usePermissions(), 'PEOPLE::Documents::CREATE');
   const tabsRef = useRef(null);
   const tabIndicator = useTabIndicator(tabsRef, tab);
   const today = todayIst();
@@ -73,7 +77,7 @@ export default function PeopleDocuments({ openScreen }) {
       <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Documents' }]} title="Documents"
         actions={<>
           <button type="button" className="ui-btn ui-btn-secondary" disabled={!shown.length} onClick={() => runListExport({ format: 'csv', title: 'Documents', fileName: 'document-register', label: 'Documents', rows: shown, columns: EXPORT_COLUMNS })}><Download size={16} aria-hidden="true" /> Export</button>
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setDrawer({ employeeId: '' })}><Plus size={16} aria-hidden="true" /> New document</button>
+          {mayAdd ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setDrawer({ employeeId: '' })}><Plus size={16} aria-hidden="true" /> New document</button> : null}
         </>} />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
@@ -91,7 +95,7 @@ export default function PeopleDocuments({ openScreen }) {
           card={(r) => <span className="min-w-0 flex-1"><span className="block truncate font-medium">{r.title}</span><span className="block truncate ui-caption">{[r.employeeName, kindWord(r.kind), r.expiresOn ? `until ${formatDate(r.expiresOn)}` : null].filter(Boolean).join(' · ')}</span></span>}
           empty={q || tab !== 'all'
             ? <EmptyState kind="filtered" title="No documents match" description="Nothing here matches the search or the tab." />
-            : <EmptyState title="No documents yet" description="Documents added on a person's record, or here, are listed with their expiry." routes={[{ label: 'New document', onSelect: () => setDrawer({ employeeId: '' }) }]} />}
+            : <EmptyState title="No documents yet" description="Documents added on a person's record, or here, are listed with their expiry." routes={mayAdd ? [{ label: 'New document', onSelect: () => setDrawer({ employeeId: '' }) }] : []} />}
           toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search documents" label="Search documents" className="w-full sm:w-80" />} />
       )}
       {drawer ? (

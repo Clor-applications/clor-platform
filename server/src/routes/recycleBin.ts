@@ -10,6 +10,7 @@ import { pushEmployeeToReaders } from '../services/attendance/readerSync.js';
 import { assertMonthOpen } from '../services/attendance/days.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { docAccess, docOpens, writeGrantFor, type DocLike } from '../services/people/documentAccess.js';
 
 /**
  * The recycle bin (services/recycleBin.ts). Someone sees, restores and
@@ -28,6 +29,12 @@ const orgOk = (req: any, res: any) => {
   return true;
 };
 
+/** What a removed employee file's snapshot says about it (services/recycleBin.ts keeps the row as it was). */
+const docOf = (snapshot: unknown): DocLike => {
+  const row = (snapshot as any)?.row || {};
+  return { classification: row.classification ?? null, kind: row.kind ?? null, employeeId: row.employeeId ?? null };
+};
+
 /** The kinds this person may delete, so may see and restore. */
 async function allowedKinds(req: any) {
   const decided = new Map<string, boolean>();
@@ -44,7 +51,7 @@ recycleBinRouter.get(base, async (req, res) => {
   if (!orgOk(req, res)) return;
   const { orgId } = req.tenant!;
   const kinds = await allowedKinds(req);
-  const rows = kinds.length
+  let rows = kinds.length
     ? await peoplePrisma.deletedItem.findMany({
         where: { orgId, kind: { in: kinds } },
         orderBy: { deletedAt: 'desc' },
@@ -52,6 +59,14 @@ recycleBinRouter.get(base, async (req, res) => {
         select: { id: true, kind: true, entityId: true, label: true, deletedByUserId: true, deletedAt: true, purgeAfter: true },
       })
     : [];
+  /* A removed employee file shows only to who could have opened it (audit 7 Nov 2026): its title is its label. */
+  const docIds = rows.filter((r) => r.kind === 'employeeDocument').map((r) => r.id);
+  if (docIds.length) {
+    const access = await docAccess(req);
+    const snaps = await peoplePrisma.deletedItem.findMany({ where: { orgId, id: { in: docIds } }, select: { id: true, snapshot: true } });
+    const opens = new Set(snaps.filter((x) => docOpens(access, docOf(x.snapshot))).map((x) => x.id));
+    rows = rows.filter((r) => r.kind !== 'employeeDocument' || opens.has(r.id));
+  }
   const userIds = [...new Set(rows.map((r) => r.deletedByUserId))];
   const users = userIds.length ? await platformPrisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, fullName: true, email: true } }) : [];
   const nameOf = new Map(users.map((u) => [u.id, u.fullName || u.email]));
@@ -81,6 +96,19 @@ async function itemFor(req: any, res: any) {
   if (refused) {
     res.status(refused.status).json(refused.body);
     return null;
+  }
+  /* A removed employee file: only who could open it sees it here, and bringing it back or deleting it for good needs its own write grant. */
+  if (item.kind === 'employeeDocument') {
+    const doc = docOf(item.snapshot);
+    if (!docOpens(await docAccess(req), doc)) {
+      res.status(404).json({ error: 'That is no longer in the recycle bin.' });
+      return null;
+    }
+    const write = await authorize(req, ...writeGrantFor(String(doc.classification || ''), PermissionAction.DELETE as any));
+    if (write) {
+      res.status(write.status).json(write.body);
+      return null;
+    }
   }
   return item;
 }

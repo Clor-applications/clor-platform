@@ -7,6 +7,7 @@ import { decodeDocument } from './documentFiles.js';
 import { inForce } from './policies.js';
 import { registerJob } from '../jobRegistry.js';
 import type { TeamScope } from './scope.js';
+import { isCompanyUser } from './members.js';
 
 /**
  * Help desk (docs/people/02-PRD.md DESK-01..06). An employee raises a
@@ -76,7 +77,7 @@ export async function saveCategory(who: Who, key: string, input: { label?: strin
   if (input.queue !== undefined) { const q = String(input.queue || '').trim().slice(0, 60); if (!q) throw new DeskError('Name the queue.'); data.queue = q; }
   if (input.leadUserId !== undefined) {
     const id = String(input.leadUserId || '').trim() || null;
-    if (id && !(await platformPrisma.user.findUnique({ where: { id }, select: { id: true } }))) throw new DeskError('That lead is not a user here.');
+    if (id && !(await isCompanyUser(who.accountId, who.orgId, id))) throw new DeskError('That lead is not a user here.');
     data.leadUserId = id;
   }
   if (input.replyHours !== undefined) { const n = Number(input.replyHours); if (!Number.isInteger(n) || n < 1 || n > 720) throw new DeskError('Reply within 1 to 720 hours.'); data.replyHours = n; }
@@ -232,7 +233,7 @@ export async function assignRequest(who: Who, id: string, input: { assigneeUserI
   const data: Record<string, unknown> = {};
   if (input.assigneeUserId !== undefined) {
     const uid = String(input.assigneeUserId || '').trim() || null;
-    if (uid && !(await platformPrisma.user.findUnique({ where: { id: uid }, select: { id: true } }))) throw new DeskError('That person is not a user here.');
+    if (uid && !(await isCompanyUser(who.accountId, who.orgId, uid))) throw new DeskError('That person is not a user here.');
     data.assigneeUserId = uid;
     if (uid && uid !== who.userId) await notifyUsers(who.accountId, who.orgId, [uid], { kind: 'people.desk', title: `Assigned to you: ${r.subject}`, body: `Resolve by ${r.resolveBy.toISOString().slice(0, 10)}.`, link: { app: 'people', screen: 'helpdesk', params: { id: r.id } } as any }).catch(() => undefined);
   }

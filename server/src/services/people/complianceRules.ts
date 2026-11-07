@@ -1,5 +1,6 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
+import { isCompanyUser } from './members.js';
 import { outsideTenant, runInTenant } from '../../utils/tenantScope.js';
 import { exclusive, leaseFor } from '../jobLease.js';
 import { notifyPermission, notifyUsers } from '../notifications.js';
@@ -329,9 +330,7 @@ export async function obligationsOf(accountId: string, orgId: string, where: { s
 }
 
 /** Someone who may own an obligation: a user of this company. */
-async function memberOf(accountId: string, orgId: string, userId: string) {
-  return Boolean(await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { userId: true } }));
-}
+const memberOf = isCompanyUser;
 const ownerLink = (id: string) => ({ app: 'people', screen: 'compliance', params: { id } });
 
 /**
