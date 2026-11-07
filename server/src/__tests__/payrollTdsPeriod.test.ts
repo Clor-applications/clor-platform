@@ -435,9 +435,18 @@ describe('review of #146', () => {
     const refused = await api.put(c, `/tax-declarations/${employeeId}?fy=2026-27`, body);
     expect(refused.status).toBe(409);
     expect(refused.body.code).toBe('REGIME_LOCKED');
-    const profile = await api.put(c, `/employees/${employeeId}`, { name: 'Meera Shetty', code, dateOfJoining: '2026-04-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'OLD', pan: 'ABCDE1234F', pfApplicable: true } });
-    expect(profile.status).toBe(409);
-    expect(profile.body.code).toBe('REGIME_LOCKED');
+    const profileAs = (taxRegime: string) => api.put(c, `/employees/${employeeId}`, { name: 'Meera Shetty', code, dateOfJoining: '2026-04-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime, pan: 'ABCDE1234F', pfApplicable: true } });
+    const { financialYearOf } = await import('../services/payroll/taxDeclaration.js');
+    const { todayIst } = await import('../utils/istDate.js');
+    if (financialYearOf(todayIst()) === '2026-27') {
+      const profile = await profileAs('OLD');
+      expect(profile.status).toBe(409);
+      expect(profile.body.code).toBe('REGIME_LOCKED');
+    } else {
+      /* From 1 April the profile sets next year's regime, a fresh choice: not locked by last year's payslips. */
+      await profileAs('OLD').expect(200);
+      await profileAs('NEW').expect(200);
+    }
     /* The same regime is no change: saving the declaration otherwise still works. */
     await api.put(c, `/tax-declarations/${employeeId}?fy=2026-27`, { regime: 'NEW', items: [] }).expect(200);
     await api.put(c, `/tax-declarations/${employeeId}?fy=2026-27`, { ...body, regimeOverrideReason: 'Chose the old regime in April; entered wrongly' }).expect(200);

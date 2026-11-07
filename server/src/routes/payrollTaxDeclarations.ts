@@ -121,10 +121,12 @@ async function saveOpening(req: any, employeeId: string, financialYear: string, 
   const { accountId, orgId } = req.tenant;
   const where = { orgId_employeeId_financialYear: { orgId, employeeId, financialYear } };
   const before = await db.payrollOpeningYtd.findUnique({ where });
+  /* updatedAt from this clock, as calculatedAt is: runStale compares the two. */
+  const updatedAt = new Date();
   const row = await db.payrollOpeningYtd.upsert({
     where,
-    create: { accountId, orgId, employeeId, financialYear, ...figures, createdByUserId: req.auth.userId, updatedByUserId: req.auth.userId },
-    update: { ...figures, deletedAt: null, updatedByUserId: req.auth.userId },
+    create: { accountId, orgId, employeeId, financialYear, ...figures, createdByUserId: req.auth.userId, updatedByUserId: req.auth.userId, updatedAt },
+    update: { ...figures, deletedAt: null, updatedByUserId: req.auth.userId, updatedAt },
   });
   return { before: shapeOpening(before), row };
 }
@@ -165,7 +167,7 @@ payrollTaxDeclarationsRouter.delete('/orgs/:orgId/payroll/opening-ytd/:employeeI
   const refused = await ownOpeningRefusal(req, e.id, 'remove it', e.name);
   if (refused) return res.status(refused.status).json(refused.body);
   /* Kept as a removed row, so a payroll already calculated on these figures shows as changed (runStale; review of #146, 6). */
-  await payrollPrisma.payrollOpeningYtd.updateMany({ where: { id: row.id, orgId: req.tenant!.orgId }, data: { deletedAt: new Date(), updatedByUserId: req.auth!.userId } });
+  await payrollPrisma.payrollOpeningYtd.updateMany({ where: { id: row.id, orgId: req.tenant!.orgId }, data: { deletedAt: new Date(), updatedAt: new Date(), updatedByUserId: req.auth!.userId } });
   await recordAudit(req, { entity: 'PAYROLL_OPENING_YTD', entityId: row.id, action: 'DELETE', message: `Removed ${e.name}’s pay earlier in ${financialYear}`, metadata: { employeeId: e.id, financialYear, before: shapeOpening(row) } });
   res.json({ ok: true });
 });
