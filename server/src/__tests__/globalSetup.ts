@@ -341,6 +341,8 @@ export default async function setup() {
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261112100100_expenses_and_advances_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261113090100_attendance_rules_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261114090100_leaving_engagement_rls');
+  /* The full-day fix's review table (PR #141): table and policy in one migration, every statement safe to run twice over a pushed schema. */
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261121090000_attendance_full_day_review');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018040100_scim_tokens_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018060100_notifications_rls');

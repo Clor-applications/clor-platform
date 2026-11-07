@@ -1,6 +1,7 @@
 -- The full-day rule fix (attendance audit 7 Nov 2026, PR #141): an index for its scan of half days and
 -- absences, and a table of the days it looked at (corrected, or held with why), with the tenant policy
 -- every People table has. Additive; an older API never reads it. Safe to run twice.
+-- Deploy: the index is a plain CREATE INDEX, which blocks writes to AttendanceRecord while it builds: run off-peak.
 CREATE INDEX IF NOT EXISTS "AttendanceRecord_orgId_status_date_idx" ON "AttendanceRecord"("orgId", "status", "date");
 
 CREATE TABLE IF NOT EXISTS "AttendanceFullDayReview" (

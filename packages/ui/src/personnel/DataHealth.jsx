@@ -6,7 +6,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { MoreButton } from '@ui/components/list/ListPageParts';
-import { getDataHealth, getHeadcount, markFullDaysPaid, snoozeHealthCheck, unsnoozeHealthCheck } from './api';
+import { getDataHealth, getHeadcount, markFullDaysPaid, snoozeHealthCheck, unmarkFullDaysPaid, unsnoozeHealthCheck } from './api';
 import { notify } from '@ui/components/ui/notify';
 import { plusDaysIso } from '@ui/utils/dates';
 
@@ -71,18 +71,18 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
       notify.error(String(e?.message || 'Not changed.'));
     }
   };
-  /* Full days paid short (fullDayFix.ts): once the difference is paid, the person's days leave the list. */
-  const [paying, setPaying] = useState('');
-  const paid = async (p) => {
-    setPaying(p.id);
+  /* Full days paid short (fullDayFix.ts): marked paid after a confirmation with an optional note; the last one can be undone. */
+  const [paying, setPaying] = useState(null);
+  const [lastPaid, setLastPaid] = useState(null);
+  const undoPaid = async () => {
+    const was = lastPaid;
     try {
-      const r = await markFullDaysPaid(p.settle);
-      notify.success(`${r?.settled ?? p.settle.length} day${(r?.settled ?? p.settle.length) === 1 ? '' : 's'} for ${p.name} marked paid.`);
+      await unmarkFullDaysPaid(was.ids);
+      setLastPaid(null);
+      notify.success(`${was.name}'s days are held again.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not changed.'));
-    } finally {
-      setPaying('');
+      notify.error(String(e?.message || 'Not undone.'));
     }
   };
   const rows = (data?.checks || []).flatMap((c) => c.people.map((p) => ({ severity: c.severity, title: c.title, name: p.name, code: p.code || '', detail: p.detail || '', fix: c.fix })));
@@ -116,6 +116,12 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
               <div className="ui-metric" data-tint="peach"><span><dd className={`ui-metric-value tabular-nums${data.blocking ? ' ui-text-neg' : ''}`}>{data.blocking}</dd><dt className="ui-metric-label">Blocks payday</dt></span></div>
               <div className="ui-metric" data-tint="peach"><span><dd className="ui-metric-value tabular-nums">{data.checks.length}</dd><dt className="ui-metric-label">Checks to look at</dt></span></div>
             </dl>
+            {lastPaid ? (
+              <p className="flex flex-wrap items-center gap-2 text-sm" role="status">
+                <span>{lastPaid.count} day{lastPaid.count === 1 ? '' : 's'} for {lastPaid.name} marked paid.</span>
+                <button type="button" className="ui-link" onClick={undoPaid}>Undo</button>
+              </p>
+            ) : null}
             {!data.checks.length ? (
               <EmptyState icon={ShieldCheck} title="Nothing to fix" description="Every check passed: no duplicates, joining dates in place, and payroll has the PAN, UAN, ESIC and bank details it needs." />
             ) : (
@@ -139,15 +145,16 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
                     <p className="text-sm">{c.why} {c.fix}</p>
                     <ul className="flex flex-wrap gap-2" aria-label="Who">
                       {c.people.map((p, i) => (
-                        <li key={`${p.id}-${i}`} className="flex flex-wrap items-center gap-2">
-                          <span className="ui-pill ui-pill-neutral">
+                        <li key={`${p.id}-${i}`} className="flex max-w-full flex-wrap items-center gap-2">
+                          {/* A long detail (several days) wraps inside its pill rather than pushing the page wide on a phone. */}
+                          <span className="ui-pill ui-pill-neutral max-w-full" style={{ whiteSpace: 'normal' }}>
                             {p.name}
                             {p.code ? ` · ${p.code}` : ''}
                             {p.detail ? ` — ${p.detail}` : ''}
                           </span>
                           {p.settle?.length ? (
-                            <button type="button" className="ui-link text-sm" disabled={paying === p.id} onClick={() => paid(p)} aria-label={`Paid the difference to ${p.name}`}>
-                              {paying === p.id ? 'Saving…' : 'Paid the difference'}
+                            <button type="button" className="ui-link text-sm" onClick={() => setPaying(p)} aria-label={`Paid the difference to ${p.name}`}>
+                              Paid the difference
                             </button>
                           ) : null}
                         </li>
@@ -176,8 +183,39 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
           </>
         )}
       </div>
+      {paying ? <PaidDrawer person={paying} onClose={() => setPaying(null)} onDone={(count) => { setLastPaid({ name: paying.name, ids: paying.settle, count }); setPaying(null); load(); }} /> : null}
       {snoozing ? <SnoozeDrawer check={snoozing} onClose={() => setSnoozing(null)} onDone={() => { setSnoozing(null); load(); }} /> : null}
     </div>
+  );
+}
+
+/** "Paid the difference" for one person's held days: says which, takes an optional note (kept with the days and in the audit log). */
+function PaidDrawer({ person, onClose, onDone }) {
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const save = async () => {
+    setBusy(true);
+    try {
+      const r = await markFullDaysPaid(person.settle, note.trim() || null);
+      onDone(r?.settled ?? person.settle.length);
+    } catch (e) {
+      setError(String(e?.message || 'Not changed.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const n = person.settle.length;
+  return (
+    <Drawer open onClose={onClose} widthClass="w-[min(32rem,96vw)] ui-drawer-sheet" title={`Paid the difference to ${person.name}?`} dirty={Boolean(note)}
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : `Mark ${n} day${n === 1 ? '' : 's'} paid`}</button></>}>
+      <div className="grid gap-4">
+        <p className="text-sm">{person.detail}</p>
+        <p className="ui-caption">Only once the difference has gone out, as a Payroll adjustment or otherwise. The days leave this list; you can undo it straight after.</p>
+        <label className="block"><span className="ui-label">Note</span><textarea className="ui-input w-full" rows={2} maxLength={300} value={note} placeholder="How it was paid (optional)" onChange={(e) => { setNote(e.target.value); setError(''); }} /></label>
+        {error ? <p className="ui-field-error" role="alert">{error}</p> : null}
+      </div>
+    </Drawer>
   );
 }
 

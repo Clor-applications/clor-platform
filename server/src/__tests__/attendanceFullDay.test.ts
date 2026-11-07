@@ -1,6 +1,9 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 
+/* Every day these tests write stands for one written before the release of the rule (fullDayFix.ts FIX_CUTOFF); a test that needs the release in the past passes its own cutoff. */
+process.env.FULL_DAY_FIX_CUTOFF = '2999-01-01T00:00:00Z';
+
 /**
  * The full-day rule (attendance audit 7 Nov 2026, P0; review of PR #141).
  *
@@ -25,7 +28,7 @@ const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { payrollPrisma } = await import('../utils/payrollPrisma.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
-const { fixFullDays } = await import('../services/attendance/fullDayFix.js');
+const { fixFullDays, fullDayFixTesting } = await import('../services/attendance/fullDayFix.js');
 const { dataHealth } = await import('../services/people/dataHealth.js');
 
 /* Pure rules on fixed dates: nothing here is compared against today. 14 Oct 2026 is a Wednesday, 18 Oct a Sunday. */
@@ -419,6 +422,98 @@ describe('days written under the old rule', () => {
     expect(await statusOf(c, hourlyCovered.id)).toBe('HALF_DAY');
   });
 
+  it('a run with a provisional cut-off on the 25th took the days to the 25th only: later days are corrected, for the next run to true up', async () => {
+    const c = await company();
+    const ravi = await person(c, 'CO1');
+    const asha = await person(c, 'CO2');
+    const month = monthBack(1);
+    /* A working day after the 25th and on or before the period's end (the 28th). */
+    const late = ['26', '27', '28'].map((d) => `${month}-${d}`).find((d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0)!;
+    const taken = await legacyDay(c, ravi.id, wednesdayOf(month));
+    const raviLate = await legacyDay(c, ravi.id, late);
+    const ashaLate = await legacyDay(c, asha.id, late);
+    const { runId } = await payRun(c, month, 'PAID', [ravi.id]);
+    await inTenant(c, () => payrollPrisma.payrollRun.update({ where: { id: runId }, data: { provisionalDays: { cutoffDate: `${month}-25` } } as any }));
+    const r = await fix(c);
+    expect(Object.fromEntries(r.held.map((x) => [x.recordId, x.held]))).toEqual({ [taken.id]: 'PAYROLL_TAKEN' });
+    expect(r.corrected.map((x) => x.recordId).sort()).toEqual([raviLate.id, ashaLate.id].sort());
+  });
+
+  it('the latest final run ended more than two months ago: this month and last only, older days held as OLD', async () => {
+    const c = await company();
+    const p = await person(c, 'ST1');
+    const paid = await legacyDay(c, p.id, wednesdayOf(monthBack(4)));
+    const between = await legacyDay(c, p.id, wednesdayOf(monthBack(3)));
+    const recent = await legacyDay(c, p.id, wednesdayOf(monthBack(1)));
+    await payRun(c, monthBack(4), 'PAID', [p.id]);
+    const r = await fix(c);
+    expect(Object.fromEntries(r.held.map((x) => [x.recordId, x.held]))).toEqual({ [paid.id]: 'PAYROLL_TAKEN', [between.id]: 'OLD' });
+    expect(r.corrected.map((x) => x.recordId)).toEqual([recent.id]);
+  });
+
+  it('a one-time fix: a day written after the release is not flipped when its shift gets a longer grace', async () => {
+    const c = await company();
+    const p = await person(c, 'RL1');
+    const s = (await att(c, 'post', '/shifts', { name: `Day ${rnd()}`, startTime: '09:00', endTime: '18:00' }).expect(201)).body.shift;
+    const r = (await att(c, 'put', '/records', { employeeId: p.id, date: wednesdayOf(monthBack(1)), checkIn: '09:15', checkOut: '18:00' }).expect(200)).body.record;
+    await inTenant(c, () => peoplePrisma.attendanceRecord.update({ where: { id: r.id }, data: { shiftId: s.id } }));
+    expect(await statusOf(c, r.id)).toBe('HALF_DAY');
+    /* The release just before the day was written: from the row's own stamp, which the database clock sets (TEST_TODAY moves only the app's). */
+    const release = new Date((await recordOf(c, r.id)).updatedAt.getTime() - 1000);
+    await inTenant(c, () => peoplePrisma.shift.update({ where: { id: s.id }, data: { graceMinutes: 20 } }));
+    /* Taken for a day from before the release, it would be corrected: the cut-off is all that keeps it. */
+    expect((await fix(c, { apply: false })).open.map((x) => x.recordId)).toEqual([r.id]);
+    const run = await fix(c, { cutoff: release });
+    expect(run.corrected).toEqual([]);
+    expect(await statusOf(c, r.id)).toBe('HALF_DAY');
+  });
+
+  it('a held day saved again, or no longer short, is settled as RECORD_CHANGED and leaves the list', async () => {
+    const c = await company();
+    const p = await person(c, 'RC1');
+    const old = await legacyDay(c, p.id, wednesdayOf(monthBack(2)));
+    expect((await fix(c)).held.map((x) => x.recordId)).toEqual([old.id]);
+    await att(c, 'put', '/records', { employeeId: p.id, date: old.date, checkIn: '09:00', checkOut: '13:00' }).expect(200);
+    const r = await fix(c);
+    expect(r.settled).toBe(1);
+    expect(r.held).toEqual([]);
+    expect(await reviewOf(c, old.id)).toMatchObject({ outcome: 'HELD', settledAs: 'RECORD_CHANGED' });
+  });
+
+  it('a holiday worked short is left as it is', async () => {
+    const c = await company();
+    const p = await person(c, 'HO1');
+    const d = await legacyDay(c, p.id, wednesdayOf(monthBack(1)));
+    /* Added straight to the table, as if it were there when the day was written: the API would re-score the day itself. */
+    await inTenant(c, () => peoplePrisma.holiday.create({ data: { accountId: c.accountId, orgId: c.orgId, date: d.date, name: 'Test holiday', createdByUserId: c.userId } as any }));
+    expect((await fix(c, { apply: false })).open).toEqual([]);
+    expect((await fix(c)).corrected).toEqual([]);
+    expect(await statusOf(c, d.id)).toBe('HALF_DAY');
+  });
+
+  it('closing a month: a fix that fails does not fail the close with a 500; a day it left stops the close with a clear 409', async () => {
+    const c = await company();
+    const p = await person(c, 'CL1');
+    const month = monthBack(1);
+    const d = await legacyDay(c, p.id, wednesdayOf(month));
+    fullDayFixTesting.failNext = true;
+    const refused = await att(c, 'post', `/months/${month}/close`, { acknowledge: true });
+    expect(refused.status, JSON.stringify(refused.body)).toBe(409);
+    expect(refused.body.code).toBe('FULL_DAYS_PENDING');
+    expect(refused.body.error).toMatch(/1 day was scored a half day or absent under the old full-day rule/);
+    expect(await inTenant(c, () => peoplePrisma.attendanceMonthLock.count({ where: { orgId: c.orgId, month } }))).toBe(0);
+    expect(await statusOf(c, d.id)).toBe('HALF_DAY');
+    /* Next time the fix runs, corrects it, and the month closes. */
+    await att(c, 'post', `/months/${month}/close`, { acknowledge: true }).expect(200);
+    expect(await statusOf(c, d.id)).toBe('PRESENT');
+
+    /* With nothing left to correct, a failing fix is no bar at all. */
+    const other = await company();
+    fullDayFixTesting.failNext = true;
+    await att(other, 'post', `/months/${month}/close`, { acknowledge: true }).expect(200);
+    expect(fullDayFixTesting.failNext).toBe(false);
+  });
+
   it('a night shift saved with the 480 default is corrected through the job', async () => {
     const c = await company();
     const p = await person(c, 'FD12');
@@ -438,7 +533,7 @@ describe('days written under the old rule', () => {
 });
 
 describe('Data health', () => {
-  it('lists held days by what to do, with leavers; corrected days for 60 days; paid days leave the list, audited; an earning adjustment clears them too', async () => {
+  it('lists held days by what to do, with leavers; corrected days for 60 days; paid days leave the list only when marked, audited, and can be undone', async () => {
     const c = await company();
     const ravi = await person(c, 'DH1');
     const leaver = await person(c, 'DH2');
@@ -447,6 +542,7 @@ describe('Data health', () => {
     await legacyDay(c, ravi.id, wednesdayOf(paidMonth));
     await legacyDay(c, leaver.id, wednesdayOf(paidMonth, 1));
     await legacyDay(c, asha.id, wednesdayOf(monthBack(1)));
+    const ashaBefore = await legacyDay(c, asha.id, wednesdayOf(paidMonth, 3));
     await payRun(c, paidMonth, 'PAID', [ravi.id, leaver.id]);
     await inTenant(c, () => peoplePrisma.employee.update({ where: { id: leaver.id }, data: { status: 'LEFT' } }));
     await fix(c);
@@ -476,10 +572,26 @@ describe('Data health', () => {
     const audit = await inTenant(c, () => platformPrisma.auditLog.findFirst({ where: { orgId: c.orgId, entity: 'ATTENDANCE_FULL_DAY' } }));
     expect(audit?.message).toMatch(/Marked 1 day paid short as paid the difference: Paid in the final settlement/);
 
-    /* An earning adjustment for Ravi since his day was held clears his row too. */
+    /* An adjustment is not taken as the difference paid: only marking it paid settles a day. */
     await inTenant(c, () => payrollPrisma.payrollAdjustment.create({ data: { accountId: c.accountId, orgId: c.orgId, employeeId: ravi.id, componentId: 'x', periodId: 'x', type: 'EARNING', amount: 500, createdByUserId: c.userId } as any }));
     h = await health();
-    expect(h.checks.find((x: any) => x.id === 'full-day-held-paid')).toBeUndefined();
+    expect(h.checks.find((x: any) => x.id === 'full-day-held-paid').people.map((p: any) => p.id)).toEqual([ravi.id]);
+
+    /* Undo: the leaver's day is held again, the audit log says so. */
+    const undone = await att(c, 'post', '/full-day/unpaid', { ids: leaverRow.settle }).expect(200);
+    expect(undone.body.undone).toBe(1);
+    await att(c, 'post', '/full-day/unpaid', { ids: leaverRow.settle }).expect(409);
+    expect(await inTenant(c, () => peoplePrisma.attendanceFullDayReview.findUnique({ where: { id: leaverRow.settle[0] } }))).toMatchObject({ settledAs: null, settledAt: null, settledByUserId: null, note: null });
+    expect((await inTenant(c, () => platformPrisma.auditLog.findFirst({ where: { orgId: c.orgId, entity: 'ATTENDANCE_FULL_DAY', message: { contains: 'held again' } } })))).toBeTruthy();
+    h = await health();
+    expect(h.checks.find((x: any) => x.id === 'full-day-held-paid').count).toBe(2);
+
+    /* A day before the last pay run that no CLOR run paid: its own list, asking how it was paid. */
+    const before = h.checks.find((x: any) => x.id === 'full-day-held-before');
+    expect(before).toMatchObject({ area: 'Payroll', count: 1 });
+    expect(before.fix).toMatch(/not paid by a CLOR pay run: check how they were paid/);
+    expect(before.people[0]).toMatchObject({ id: asha.id });
+    expect(before.people[0].settle).toEqual([(await reviewOf(c, ashaBefore.id))!.id]);
 
     /* Not on the readiness of one person or the Organization overview. */
     const plain = await inTenant(c, () => dataHealth(c.accountId, c.orgId, { payroll: false }));
