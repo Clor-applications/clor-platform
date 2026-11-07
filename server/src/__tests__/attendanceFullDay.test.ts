@@ -580,6 +580,31 @@ describe('days written under the old rule', () => {
     expect(await statusOf(c, d.id)).toBe('HALF_DAY');
   });
 
+  it("a branch's or an area's holiday is the holiday of the people there only", async () => {
+    const c = await company();
+    const inBranch = await person(c, 'HB1');
+    const inArea = await person(c, 'HA1');
+    const elsewhere = await person(c, 'HE1');
+    const date = wednesdayOf(monthBack(1));
+    const area = await inTenant(c, () => peoplePrisma.area.create({ data: { accountId: c.accountId, orgId: c.orgId, name: `Plant ${rnd()}`, createdByUserId: c.userId } as any }));
+    await inTenant(c, async () => {
+      await peoplePrisma.employee.update({ where: { id: inBranch.id }, data: { branchId: c.branchId, areaId: null } });
+      await peoplePrisma.employee.update({ where: { id: inArea.id }, data: { branchId: null, areaId: area.id } });
+      await peoplePrisma.employee.update({ where: { id: elsewhere.id }, data: { branchId: null, areaId: null } });
+    });
+    const branchDay = await legacyDay(c, inBranch.id, date);
+    const areaDay = await legacyDay(c, inArea.id, date);
+    const otherDay = await legacyDay(c, elsewhere.id, date);
+    await inTenant(c, async () => {
+      await peoplePrisma.holiday.create({ data: { accountId: c.accountId, orgId: c.orgId, date, name: 'Branch holiday', branchId: c.branchId, createdByUserId: c.userId } as any });
+      await peoplePrisma.holiday.create({ data: { accountId: c.accountId, orgId: c.orgId, date, name: 'Area holiday', areaId: area.id, createdByUserId: c.userId } as any });
+    });
+    const r = await fix(c);
+    expect(r.corrected.map((x) => x.recordId)).toEqual([otherDay.id]);
+    expect(await statusOf(c, branchDay.id)).toBe('HALF_DAY');
+    expect(await statusOf(c, areaDay.id)).toBe('HALF_DAY');
+  });
+
   it('closing a month: a fix that fails does not fail the close with a 500; a day it left stops the close with a clear 409', async () => {
     const c = await company();
     const p = await person(c, 'CL1');
