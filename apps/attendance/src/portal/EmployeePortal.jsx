@@ -228,7 +228,12 @@ const fromLink = () => {
   }
 };
 
-function PortalSignIn({ onDone }) {
+const SIGN_IN_TABS = [
+  ['signin', 'Sign in'],
+  ['activate', 'First time? Activate'],
+];
+
+export function PortalSignIn({ onDone }) {
   const [mode, setMode] = useState('signin');
   const [form, setForm] = useState(() => {
     const link = fromLink();
@@ -255,6 +260,17 @@ function PortalSignIn({ onDone }) {
     }
   };
 
+  const choose = (k) => { setMode(k); setError(''); };
+  const onTabKey = (e) => {
+    const at = SIGN_IN_TABS.findIndex(([k]) => k === mode);
+    const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: SIGN_IN_TABS.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    const [k] = SIGN_IN_TABS[(to + SIGN_IN_TABS.length) % SIGN_IN_TABS.length];
+    choose(k);
+    document.getElementById(`portal-tab-${k}`)?.focus();
+  };
+
   return (
     <div className="grid min-h-dvh place-items-center px-4 py-8" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
       <div className="w-full max-w-sm space-y-5">
@@ -263,17 +279,29 @@ function PortalSignIn({ onDone }) {
           <h1 className="ui-display text-xl">Employee portal</h1>
           <p className="ui-caption">Your attendance, schedule and leave.</p>
         </div>
-        <div className="grid grid-cols-2 gap-1 rounded-lg p-1" role="tablist" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
-          {[
-            ['signin', 'Sign in'],
-            ['activate', 'First time? Activate'],
-          ].map(([k, label]) => (
-            <button key={k} type="button" role="tab" aria-selected={mode === k} className={`ui-btn ui-btn-sm ${mode === k ? 'ui-btn-primary' : 'ui-btn-ghost'}`} onClick={() => { setMode(k); setError(''); }}>
+        {/*
+          * The whole tab pattern (UI audit, 7 Nov 2026): the form is the tab panel, the chosen tab alone is in the Tab
+          * order, and the arrow keys, Home and End move between the two. Kept as tabs, not pressed buttons, so the
+          * submit button stays the only button called "Sign in".
+          */}
+        <div className="grid grid-cols-2 gap-1 rounded-lg p-1" role="tablist" aria-label="Sign in or activate" style={{ backgroundColor: 'rgb(var(--app-bg))' }} onKeyDown={onTabKey}>
+          {SIGN_IN_TABS.map(([k, label]) => (
+            <button
+              key={k}
+              id={`portal-tab-${k}`}
+              type="button"
+              role="tab"
+              aria-selected={mode === k}
+              aria-controls="portal-signin-panel"
+              tabIndex={mode === k ? 0 : -1}
+              className={`ui-btn ui-btn-sm ${mode === k ? 'ui-btn-primary' : 'ui-btn-ghost'}`}
+              onClick={() => choose(k)}
+            >
               {label}
             </button>
           ))}
         </div>
-        <form onSubmit={submit} className="ui-card space-y-4 p-5">
+        <form onSubmit={submit} className="ui-card space-y-4 p-5" id="portal-signin-panel" role="tabpanel" aria-labelledby={`portal-tab-${mode}`}>
           <label className="block">
             <span className="ui-label">Company code</span>
             <input className="ui-input ui-num w-full" required inputMode="numeric" autoComplete="organization" value={form.company} onChange={set('company')} placeholder="e.g. 4831920657" />

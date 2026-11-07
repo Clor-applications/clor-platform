@@ -13,7 +13,7 @@ import { activeApp, can, homeCrumbs } from './shared';
 import { daysText, getTimeOverview } from './api';
 import { EnterLeave, TypeDot } from './LeaveRequests';
 import { clashDays, clashWords } from './clashes';
-import { addDaysIso as addDays } from '@ui/utils/dates';
+import { addDaysIso as addDays, todayIst } from '@ui/utils/dates';
 
 /**
  * Time & Leave → Overview: the owner's morning question — who is away, what
@@ -85,7 +85,8 @@ export default function TimeOverview({ openScreen }) {
   ];
 
   /* Two or more of a department (of a manager's team, all of it) away on one day, today and the next seven (M4). */
-  const today = d.today || new Date().toISOString().slice(0, 10);
+  /* India's day, not UTC's: from 00:00 to 05:30 IST the UTC date is still yesterday (UI audit, 7 Nov 2026). */
+  const today = d.today || todayIst();
   const clashes = clashDays([...d.awayToday, ...d.upcoming], today, addDays(today, 7), { oneGroup: Boolean(d.team) });
 
   return (

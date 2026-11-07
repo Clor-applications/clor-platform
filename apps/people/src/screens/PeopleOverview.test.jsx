@@ -68,3 +68,60 @@ it('offers only the actions this reader may use', async () => {
   expect(await screen.findByRole('button', { name: /Announce/ })).toBeTruthy();
   for (const name of [/Post one/, /HR cases/, /Add an employee/, /All events/]) expect(screen.getByRole('button', { name })).toBeTruthy();
 });
+
+/* UI audit, 7 Nov 2026: a failed Home list said "All caught up" and "Everyone is in today". A failure is said as one, with Retry. */
+it('never reads a failed list as nothing waiting, and Retry asks both lists again', async () => {
+  const api = await import('@ui/personnel/api');
+  const timeOff = await import('@ui/timeOff/api');
+  const fail = Object.assign(new Error('Server down'), { status: 503 });
+  api.getPeopleHome.mockClear();
+  api.listMyTasks.mockClear();
+  api.getPeopleHome.mockRejectedValueOnce(fail);
+  api.listMyTasks.mockRejectedValueOnce(fail);
+  timeOff.listLeaveRequests.mockResolvedValueOnce([]);
+  render(<PeopleOverview openScreen={vi.fn()} />);
+  expect(await screen.findByText(/Could not load what waits for you/)).toBeTruthy();
+  expect(screen.queryByText('All caught up')).toBeNull();
+  expect(screen.getByText(/Could not check what waits for your answer/)).toBeTruthy();
+  expect(api.getPeopleHome).toHaveBeenCalledTimes(1);
+  expect(api.listMyTasks).toHaveBeenCalledTimes(1);
+
+  api.getPeopleHome.mockResolvedValueOnce([]);
+  api.listMyTasks.mockResolvedValueOnce([]);
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  expect(await screen.findByText('All caught up')).toBeTruthy();
+  expect(api.getPeopleHome).toHaveBeenCalledTimes(2);
+  expect(api.listMyTasks).toHaveBeenCalledTimes(2);
+  expect(screen.queryByText(/Could not load what waits for you/)).toBeNull();
+});
+
+it('says a failed leave or news list failed instead of drawing it empty; a refusal (403) stays empty', async () => {
+  const timeOff = await import('@ui/timeOff/api');
+  const ws = await import('../api/workspace');
+  const fail = Object.assign(new Error('offline'), { network: true });
+  timeOff.listLeaveRequests.mockRejectedValueOnce(fail);
+  ws.listRecords.mockImplementation((kind) => Promise.reject(kind === 'announcements' ? fail : Object.assign(new Error('Engage is switched off'), { status: 403 })));
+  render(<PeopleOverview openScreen={vi.fn()} />);
+  expect(await screen.findByText(/Could not load who is out today/)).toBeTruthy();
+  expect(screen.queryByText('Everyone is in today.')).toBeNull();
+  expect(screen.getByText('Could not load leave')).toBeTruthy();
+  expect(await screen.findByText(/Could not load announcements/)).toBeTruthy();
+  expect(await screen.findByText(/No events planned/)).toBeTruthy();
+  expect(screen.queryByText(/Could not load events/)).toBeNull();
+  ws.listRecords.mockReset();
+  ws.listRecords.mockResolvedValue([]);
+});
+
+/* UI audit, 7 Nov 2026: "Out today" is India's day, not the browser's or UTC's. At 00:30 IST it is already the 7th. */
+it('counts who is out today by India’s date at 00:30 IST', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-06T19:00:00.000Z')); // 00:30 IST, 7 Nov
+  try {
+    const timeOff = await import('@ui/timeOff/api');
+    timeOff.listLeaveRequests.mockResolvedValueOnce([{ id: 'l2', employeeId: 'e2', status: 'APPROVED', fromDate: '2026-11-07', toDate: '2026-11-07', employeeName: 'Bala', leaveTypeName: 'Casual leave', days: 1 }]);
+    render(<PeopleOverview openScreen={vi.fn()} />);
+    expect(await screen.findByText('9 of 10 at work')).toBeTruthy();
+  } finally {
+    vi.useRealTimers();
+  }
+});
