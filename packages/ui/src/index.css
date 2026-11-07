@@ -1,9 +1,9 @@
-/* Neon brand (5–6 Nov 2026): Plus Jakarta Sans for words, JetBrains Mono for numbers.
+/* One face outside Accounting (8 Nov 2026): Plus Jakarta Sans for words and, with tabular
+   figures, for numbers. The second face for numbers (JetBrains Mono) is retired.
    Inter kept for Accounting (indigo palette). Bricolage Grotesque retired.
    All self-hosted (Fontsource, SIL OFL 1.1), not Google — no IP leakage before sign-in. */
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/plus-jakarta-sans';
-@import '@fontsource/jetbrains-mono';
 /* Bricolage Grotesque retired in neon brand (5–6 Nov 2026). */
 
 @tailwind base;
@@ -3280,7 +3280,7 @@
 
   .ui-money,
   .ui-amount {
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-size: 0.8125rem;     /* 13px */
     line-height: 1.125rem;
     font-weight: 400;
@@ -3294,7 +3294,7 @@
      size the scale does not have. One role instead: monospace, tabular, and
      the same 20px everywhere a figure leads a card. */
   .ui-money-lg {
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.25rem;       /* 20px */
     line-height: 1.75rem;     /* 28px */
     /* A headline figure earns its emphasis from size, not from weight on top
@@ -3463,7 +3463,7 @@
        tabular-nums, weight and alignment but never the family, so every rupee
        figure in every table rendered in the sans face — the one place the rule
        matters most, and the only place it was not applied. */
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     /* 400. Monospace and right alignment already say "this is money"; a
        weight on top of them made every figure in every table shout, and a
@@ -3539,7 +3539,7 @@
     overflow-wrap: anywhere;
   }
   .ui-detail-value.ui-detail-mono {
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
   }
 
@@ -5099,11 +5099,13 @@ body, button, input, select, textarea, table,
 .font-sans, .font-serif {
   font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
-/* JetBrains Mono for all numbers/metrics outside Accounting. */
-.font-mono, .ui-mono, .ui-metric, code, pre,
+/* Numbers outside Accounting: the words' face with tabular figures, so digits line up. */
+.font-mono, .ui-mono, .ui-metric,
 .tabular-nums, [class*='ui-amount'] {
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
 }
+code, pre { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; }
 /* Accounting keeps Inter throughout — the indigo palette restores the original face. */
 [data-palette='indigo'] body,
 [data-palette='indigo'] button,
@@ -6719,25 +6721,8 @@ th.ui-th {
 }
 .ui-today-hero-main { min-width: 0; display: flex; align-items: flex-start; gap: 1rem; }
 .ui-today-hero-text { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 0.25rem; }
-.ui-today-hero-sun {
-  position: relative; flex: none;
-  display: grid; place-items: center;
-  width: 3rem; height: 3rem; margin-top: 0.125rem;
-  border-radius: 999px;
-  color: rgb(var(--brand-ink));
-  background: rgb(var(--brand-soft));
-}
-.ui-today-hero-sun::before,
-.ui-today-hero-sun::after {
-  content: ''; position: absolute; inset: 0; border-radius: inherit;
-  border: 1.5px solid rgb(var(--brand) / 0.45);
-  opacity: 0; pointer-events: none;
-}
-.ui-today-hero-sun > svg { position: relative; }
-.ui-today-hero-date { font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
 /* The one display line on the page, so it steps outside the forced heading scale. */
 .ui-today-hero .ui-today-hero-greet { font-size: 1.75rem !important; line-height: 2.125rem !important; font-weight: 700; letter-spacing: -0.025em; color: inherit; }
-.ui-today-hero-hi { color: rgb(var(--hero-hi, var(--brand))); }
 .ui-today-hero-line { font-size: 0.9375rem; color: rgb(var(--fg-muted)); max-width: 62ch; }
 .ui-today-hero-meter {
   margin-top: 0.625rem; height: 0.375rem; max-width: 28rem; border-radius: 999px; overflow: hidden;
@@ -6768,24 +6753,11 @@ th.ui-th {
 
 @keyframes ui-hero-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes ui-hero-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes ui-hero-pop { from { opacity: 0; transform: scale(0.6) rotate(-30deg); } to { opacity: 1; transform: none; } }
-@keyframes ui-hero-ring { 0% { opacity: 0.9; transform: scale(1); } 100% { opacity: 0; transform: scale(1.7); } }
-@keyframes ui-hero-turn { to { transform: rotate(360deg); } }
-@keyframes ui-hero-dawn { 0%, 100% { transform: translateY(2px); } 50% { transform: translateY(-2px); } }
-@keyframes ui-hero-sway { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
 
 @media (prefers-reduced-motion: no-preference) {
-  .ui-today-hero-sun { animation: ui-hero-pop 520ms cubic-bezier(.2,.9,.3,1.3) both; }
-  /* Two rings ripple out from the mark, a beat apart, then rest for a while. */
-  .ui-today-hero-sun::before { animation: ui-hero-ring 2.8s ease-out 700ms infinite; }
-  .ui-today-hero-sun::after { animation: ui-hero-ring 2.8s ease-out 2.1s infinite; }
-  .ui-today-hero-sun[data-time='morning'] > svg { animation: ui-hero-dawn 3.6s ease-in-out infinite; }
-  .ui-today-hero-sun[data-time='afternoon'] > svg { animation: ui-hero-turn 24s linear infinite; }
-  .ui-today-hero-sun[data-time='evening'] > svg { animation: ui-hero-sway 5s ease-in-out infinite; transform-origin: 50% 60%; }
   .ui-today-hero-text > *,
   .ui-today-hero-side > *,
   .ui-today-hero-queue > li { animation: ui-hero-rise 480ms cubic-bezier(.2,.7,.2,1) both; }
-  .ui-today-hero-date { animation-delay: 60ms; }
   .ui-today-hero .ui-today-hero-greet { animation-delay: 120ms; }
   .ui-today-hero-line { animation-delay: 200ms; }
   .ui-today-hero-meter { animation-delay: 260ms; }
@@ -7667,13 +7639,13 @@ th.ui-th {
 }
 
 /* ------------------------------------------------------------------ sign-in and sign-up (packages/shell/AuthLayout.jsx)
- * The brand board's "Done, daily" panel beside a white form on the warm ground,
- * kept light: cream paper, the promise in red with a marigold stroke under its
- * one word, a day ticked off, and the marigold halftone (red brand, 3 Nov 2026). The operator console passes its
- * own brand side and keeps the light ground (no `is-board`).
+ * A plain white page: the brand side says what CLOR does in ink and shows a
+ * day in it, parted from the form by one hairline. No cream, accent word,
+ * underline or halftone (owner, 8 Nov 2026). The operator console passes its
+ * own brand side (no `is-board`).
  */
 .ui-auth {
-  --auth-bg: 250 246 244;
+  --auth-bg: 255 255 255;
   --auth-ink: var(--ink);
   --auth-ink-2: 91 79 83;
   --auth-line: 234 223 225;
@@ -7691,27 +7663,17 @@ th.ui-th {
   background: rgb(var(--auth-bg));
 }
 .ui-auth-brand.is-board {
-  --auth-bg: var(--cream);
   --auth-ink: var(--ink);
   --auth-ink-2: 91 79 83;
-  --auth-line: 240 224 214;
   color: rgb(var(--auth-ink));
-}
-/* The promise is red, 5.6:1 on cream; marigold is 2.0:1 there, so it underlines the word, never colours it. */
-.ui-auth-brand.is-board .ui-auth-title { color: rgb(var(--red)); }
-.ui-auth-brand.is-board .ui-auth-accent {
-  color: rgb(var(--red));
-  background: linear-gradient(rgb(var(--marigold)), rgb(var(--marigold))) 0 88% / 100% 0.16em no-repeat;
 }
 .ui-auth-brand.is-board .ui-caption { color: rgb(var(--auth-ink-2)); }
 .ui-auth-brand.is-board .ui-auth-copy { margin-top: auto; }
-.ui-auth-brand.is-board .ui-auth .ui-auth-title,
 .ui-auth-brand.is-board .ui-auth-title {
-  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-  font-size: clamp(3.25rem, 1.5rem + 3.6vw, 5.25rem) !important;
-  line-height: 0.92 !important;
-  letter-spacing: -0.045em;
-  max-width: none;
+  max-width: 22ch;
+  font-size: clamp(1.75rem, 1.1rem + 1.2vw, 2.25rem) !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.02em;
 }
 /* A day in CLOR: the board's "Today" card, two rows done, one waiting. */
 .ui-auth-today {
@@ -7722,7 +7684,7 @@ th.ui-th {
   border-radius: 12px;
   background: rgb(255 255 255);
   color: rgb(var(--ink));
-  box-shadow: 0 1px 0 rgb(var(--oxblood) / 0.04), 0 18px 36px -24px rgb(var(--oxblood) / 0.35);
+  box-shadow: inset 0 0 0 1px rgb(var(--border));
 }
 .ui-auth-today-title {
   margin-bottom: 12px;
@@ -7744,8 +7706,6 @@ th.ui-th {
   font-weight: 500;
 }
 .ui-auth-today li.is-waiting {
-  background: rgb(var(--marigold));
-  box-shadow: none;
   font-weight: 700;
 }
 .ui-auth-today-ring {
@@ -7755,7 +7715,7 @@ th.ui-th {
   border: 2px solid rgb(var(--oxblood));
   border-radius: 999px;
 }
-/* A done row: a white tick on red, the brand's own "done". */
+/* A done row: a white tick on green, the done tint. */
 .ui-auth-today-done {
   display: grid;
   place-items: center;
@@ -7763,23 +7723,8 @@ th.ui-th {
   height: 18px;
   flex: none;
   border-radius: 999px;
-  background: rgb(var(--red));
+  background: rgb(22 101 52);
   color: rgb(255 255 255);
-}
-/* The marigold halftone: dots in rings, fading out from the corner. */
-.ui-auth-halftone {
-  position: absolute;
-  right: -140px;
-  bottom: -140px;
-  width: 460px;
-  height: 460px;
-  pointer-events: none;
-  background: radial-gradient(circle, rgb(var(--marigold)) 1.6px, transparent 2.2px) 0 0 / 12px 12px;
-  -webkit-mask: repeating-radial-gradient(circle, #000 0 9px, transparent 9px 18px), radial-gradient(circle, #000 30%, transparent 70%);
-  -webkit-mask-composite: source-in;
-  mask: repeating-radial-gradient(circle, #000 0 9px, transparent 9px 18px), radial-gradient(circle, #000 30%, transparent 70%);
-  mask-composite: intersect;
-  opacity: 0.9;
 }
 .ui-auth-brand.is-board .ui-auth-brand-inner { position: relative; z-index: 1; }
 .ui-auth-brand-inner {
@@ -8487,4 +8432,21 @@ button.ui-side-alert { cursor: pointer; }
   .ui-touch-44 .ui-icon-btn { min-width: 2.75rem; min-height: 2.75rem; }
   /* As People's: a checkbox is 24px to see and hit, and the row or label beside it takes the tap too. */
   .ui-touch-44 input[type='checkbox'] { width: 1.5rem; height: 1.5rem; flex: none; }
+}
+
+/* ------------------------------------------------------------------ labels in sentence case (owner, 8 Nov 2026)
+ * Small wide-tracked capitals over every block were one of the marks that make
+ * a screen read as machine-made. Outside Accounting, column heads, eyebrows and
+ * section labels are 12px sentence case at their own weight. Accounting keeps
+ * its labels until its own pass; printed documents (`.ui-doc-section`) are untouched.
+ */
+:root:not([data-palette='indigo']) :is(
+  .ui-table thead th, .ui-th, .ui-eyebrow, .ui-section-label, .ui-t-label,
+  .ui-kpi-label, .ui-label-eyebrow, .ui-calendar-head, .ui-cell-settled,
+  .ui-impact .ui-impact-heading, .ui-auth-eyebrow
+) {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.75rem;
+  line-height: 1rem;
 }

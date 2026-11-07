@@ -913,7 +913,7 @@ export default function Shell() {
       </div>
       {openModule.groups.map((g, gi) => (
         <div key={g.label || gi} className={gi ? 'mt-4' : ''}>
-          {g.label ? <p className="ui-caption px-2 pb-1 uppercase tracking-wide">{g.label}</p> : null}
+          {g.label ? <p className="ui-caption px-2 pb-1">{g.label}</p> : null}
           {g.items.map((item) => (
             <button
               key={item.key}
@@ -945,7 +945,7 @@ export default function Shell() {
           {nav.map((item) =>
             /* `{ section: 'Settings' }` starts a group: setup apart from daily work. */
             item.section ? (
-              <p key={`section:${item.section}`} className="ui-caption px-2 pt-4 pb-1 uppercase tracking-wide">
+              <p key={`section:${item.section}`} className="ui-caption px-2 pt-4 pb-1">
                 {item.section}
               </p>
             ) : (

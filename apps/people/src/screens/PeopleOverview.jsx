@@ -28,7 +28,6 @@ import { listRecords } from '../api/workspace';
 import { symbolOf } from './symbols';
 import { notify } from '@ui/components/ui/notify';
 import { formatDateIn } from '@ui/utils/dates';
-import { platformContext } from '@platform/context';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { can } from '../workforce/shared';
 import { HomeCheckIn } from '@ui/timeOff/MyDays';
@@ -44,10 +43,6 @@ const DEPT_COLOURS = 8;
  */
 const newsTint = (n) => (n.details?.audienceKind && n.details.audienceKind !== 'ALL' ? 'peach' : 'lilac');
 const eventTint = (e) => (/fun friday/i.test(e.title || '') ? 'peach' : 'lilac');
-const greeting = () => {
-  const h = new Date().getHours();
-  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-};
 const isoToday = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -325,8 +320,6 @@ export default function PeopleOverview({ openScreen }) {
   if (error) return <div className="ui-card p-4 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</div>;
   if (!data) return <SkeletonCard lines={6} />;
 
-  const rawFirst = String(platformContext().user?.fullName || '').trim().split(/\s+/)[0];
-  const firstName = rawFirst ? rawFirst.charAt(0).toUpperCase() + rawFirst.slice(1) : '';
   const today = isoToday();
   const pending = (leave || []).filter((r) => r.status === 'PENDING').sort((a, b) => a.fromDate.localeCompare(b.fromDate));
   /* Everything waiting in the one Approvals inbox (leave, attendance requests, field punches, overtime, People approvals):
@@ -352,8 +345,8 @@ export default function PeopleOverview({ openScreen }) {
     <div className="people-home people-soft" ref={revealRoot}>
       <header className="soft-band-top" data-reveal style={{ '--i': 0 }}>
         <div className="min-w-0">
-          <span className="soft-band-eyebrow">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
-          <h1 className="soft-band-title">{firstName ? `${greeting()}, ${firstName}` : greeting()}</h1>
+          {/* Titled by the day, not a time-of-day greeting (8 Nov 2026). */}
+          <h1 className="soft-band-title">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</h1>
           <p className="soft-band-sub">
             {waiting ? <>You have <strong>{plural(waiting, 'request')}</strong> to answer</> : <>Nothing waits for your answer</>}
             {leave ? <> and <strong data-zero={outToday.length === 0 || undefined}>{plural(outToday.length, 'person', 'people')}</strong> {outToday.length === 1 ? 'is' : 'are'} out today.</> : '.'}
