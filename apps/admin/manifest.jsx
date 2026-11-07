@@ -21,6 +21,7 @@ const Invitations = screen('Invitations');
 const Members = screen('Members');
 const AccountActivity = screen('AccountActivity');
 const Companies = screen('Companies');
+const NotificationSettings = screen('NotificationSettings');
 const AccessHome = screen('AccessHome');
 const SecurityHome = screen('SecurityHome');
 const DataHome = screen('DataHome');
@@ -70,7 +71,7 @@ export const adminApp = {
 
   modules: [
     { key: 'home', label: 'Overview', icon: ICON.home, items: ['home'] },
-    { key: 'company', label: 'Company', icon: ICON.company, items: ['companies', 'company', 'branches'] },
+    { key: 'company', label: 'Company', icon: ICON.company, items: ['companies', 'company', 'branches', 'notifications'] },
     { key: 'access', label: 'Access', icon: ICON.people, groups: [
       { label: null, items: ['accessHome'] },
       { label: 'Who', items: ['members', 'users', 'invitations', 'outsideAccess'] },
@@ -90,6 +91,8 @@ export const adminApp = {
     { key: 'companies', label: 'Companies', icon: ICON.companies, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'company', label: 'Company profile', icon: ICON.company, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'branches', label: 'Branches', icon: ICON.companies, permission: 'MASTERS::Company/Branch setup::VIEW' },
+    /* B5: every app's switchable emails, for the apps the company has on; the server's own gate (routes/email.ts). */
+    { key: 'notifications', label: 'Email notifications', icon: ICON.mail, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'accessHome', label: 'Overview', short: 'Access', icon: ICON.people, permission: 'SETTINGS::Users::VIEW' },
     /* W-4: the account's people, every company at once; the server lets only owners and administrators in. */
     { key: 'members', label: 'Members', icon: ICON.people, permission: 'SETTINGS::Users::VIEW' },
@@ -121,6 +124,7 @@ export const adminApp = {
     dataHome: DataHome,
     company: CompanyProfile,
     branches: SettingsBranches,
+    notifications: NotificationSettings,
     users: SettingsUsers,
     roles: SettingsRoles,
     permissions: RolePermissionManager,

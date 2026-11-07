@@ -170,6 +170,7 @@ const DataProtection = screen('DataProtection');
 const DataRequests = screen('DataRequests');
 const SsoSettings = screen('SsoSettings');
 const RolesAccess = screen('RolesAccess');
+const EmailNotifications = screen('EmailNotifications');
 /* Request types HR sets up, their report, shift swaps and a person's own requests (FEATURE-UI-AUDIT gaps 24, 25). */
 const RequestForms = screen('RequestForms');
 const RequestsReport = screen('RequestsReport');
@@ -485,6 +486,7 @@ export const peopleApp = {
     { key: 'costCentres', label: 'Cost centres', icon: I.costCentre, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
     { key: 'sso', label: 'Users & security', icon: I.sso, permission: 'SETTINGS::Users::VIEW', parent: 'settings' },
     { key: 'rolesAccess', label: 'Roles & permissions', icon: I.sso, permission: 'SETTINGS::Roles::VIEW', parent: 'settings' },
+    { key: 'emailNotifications', label: 'Email notifications', icon: I.policy, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     /* Its routes answer only where Attendance is on (attendanceRouteOk). */
     { key: 'integrations', label: 'Integrations', icon: I.integrations, permission: 'ATTENDANCE::Attendance Integrations::VIEW', parent: 'settings', feature: 'attendance' },
     /* Any one read behind its datasets (DataExport.jsx `need`); the screen lists only those this person holds. */
@@ -596,6 +598,7 @@ export const peopleApp = {
     costCentres: OrgCostCentres,
     sso: SsoSettings,
     rolesAccess: RolesAccess,
+    emailNotifications: EmailNotifications,
     integrations: Integrations,
     dataExport: DataExport,
     recycleBin: RecycleBin,

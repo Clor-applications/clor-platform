@@ -11,6 +11,7 @@ const GROUPS = [
       ['modules', 'Simple mode, HR modules on or off, and which apps the subscription carries'],
       ['companyDetails', 'Legal name, PAN, TAN, address and statutory registrations'],
       ['legalEntities', 'Only when one group runs more than one registered company: which one each work site belongs to'],
+      ['emailNotifications', 'Which emails go out, such as a document about to expire or the Monday summary, in Workspace'],
     ],
   },
   {

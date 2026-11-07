@@ -30,6 +30,7 @@ import {
   LinkMultipleColor,
   LocationRippleColor,
   LockClosedColor,
+  MailColor,
   PeopleColor,
   PeopleSyncColor,
   PersonAddColor,
@@ -117,6 +118,7 @@ const DataRequests = screen('DataRequests');
 const DataProtection = screen('DataProtection');
 const SsoSettings = screen('SsoSettings');
 const RolesAccess = screen('RolesAccess');
+const EmailNotifications = screen('EmailNotifications');
 const Exceptions = screen('Exceptions');
 const MonthClose = screen('MonthClose');
 const OvertimeRequests = screen('OvertimeRequests');
@@ -163,6 +165,7 @@ const History = colorIcon(HistoryColor, 'History');
 const Inbox = colorIcon(DocumentEditColor, 'DocumentEdit');
 const LayoutDashboard = colorIcon(BoardColor, 'Board');
 const ListChecks = colorIcon(TextBulletListSquareColor, 'TextBulletListSquare');
+const Mail = colorIcon(MailColor, 'Mail');
 const MapPin = colorIcon(BuildingMultipleColor, 'BuildingMultiple');
 const Plug = colorIcon(LinkMultipleColor, 'LinkMultiple');
 const Repeat = colorIcon(ArrowClockwiseDashesColor, 'ArrowClockwiseDashes');
@@ -266,7 +269,7 @@ export const attendanceApp = {
          over the shifts' own fields and the company rules, not new rules. */
       { label: 'Work Policy', items: ['rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'workingWeek', 'holidays', 'leaveYearEnd', 'requestRules'] },
       { label: 'Integrations', items: ['integrations'] },
-      { label: 'Access & Security', items: ['sso', 'rolesAccess'] },
+      { label: 'Access & Security', items: ['sso', 'rolesAccess', 'emailNotifications'] },
       { label: 'Data Management', items: ['dataHealth', 'dataImport', 'dataExport', 'closeCompany'] },
       { label: 'Compliance', items: ['complianceCalendar'] },
       { label: 'Privacy', items: ['dataProtection', 'dataRequests'] },
@@ -360,6 +363,7 @@ export const attendanceApp = {
     /* The same SSO set-up as Accounting's Settings → Single Sign-On: one per company, for every CLOR app. */
     { key: 'sso', label: 'Users & Security', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },
     { key: 'rolesAccess', label: 'Roles & Access', icon: KeyRound, permission: 'SETTINGS::Roles::VIEW' },
+    { key: 'emailNotifications', label: 'Email Notifications', icon: Mail, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'dataImport', label: 'Import Data', icon: Upload, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'dataExport', label: 'Export Data', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     /* LX-07: shared screen; the server lets only the company's owner ask or cancel. */
@@ -451,6 +455,7 @@ export const attendanceApp = {
     dataProtection: DataProtection,
     sso: SsoSettings,
     rolesAccess: RolesAccess,
+    emailNotifications: EmailNotifications,
     dataRequests: DataRequests,
     me: MyAttendance,
     myLeave: MyLeave,

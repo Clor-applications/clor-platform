@@ -1,4 +1,4 @@
-import { ArrowUpRight, BadgePercent, Banknote, BarChart3, CalendarClock, FileText, Handshake, Landmark, Layers, ListChecks, Percent, Receipt, RefreshCw, Shield, SlidersHorizontal, Table2, Users, Wallet } from 'lucide-react';
+import { ArrowUpRight, BadgePercent, Banknote, BarChart3, CalendarClock, FileText, Handshake, Landmark, Layers, ListChecks, Mail, Percent, Receipt, RefreshCw, Shield, SlidersHorizontal, Table2, Users, Wallet } from 'lucide-react';
 
 import { lazyScreens } from '@ui/utils/lazyScreens';
 
@@ -24,6 +24,7 @@ const BankChanges = screen('BankChanges');
 const FinalSettlements = screen('FinalSettlements');
 const TaxDeclarations = screen('TaxDeclarations');
 const RolesAccess = screen('RolesAccess');
+const EmailNotifications = screen('EmailNotifications');
 
 /**
  * Everything the shell knows about Payroll.
@@ -66,7 +67,7 @@ export const payrollApp = {
       { label: 'Setup', items: ['setup', 'periods', 'payGroups'] },
       { label: 'Salary design', items: ['components', 'structures'] },
       { label: 'Statutory', items: ['compliance', 'ledgers'] },
-      { label: 'Access', items: ['rolesAccess'] },
+      { label: 'Access', items: ['rolesAccess', 'emailNotifications'] },
     ] },
   ],
   /* `permission`: what the screen's data needs (server routes); the shell hides what this user cannot open and shows read-only what they cannot change. */
@@ -98,6 +99,7 @@ export const payrollApp = {
     { key: 'ledgers', label: 'Ledger mapping', icon: Landmark, permission: 'PAYROLL::Payroll Posting::VIEW' },
     /* Payroll's roles live in Workspace's one role editor; this opens it on Payroll (ADR-010). */
     { key: 'rolesAccess', label: 'Roles & Access', icon: Shield, permission: 'SETTINGS::Roles::VIEW' },
+    { key: 'emailNotifications', label: 'Email notifications', icon: Mail, permission: 'SETTINGS::Company Profile::VIEW' },
   ],
 
   screens: {
@@ -121,5 +123,6 @@ export const payrollApp = {
     payGroups: PayGroups,
     setup: PayrollSetup,
     rolesAccess: RolesAccess,
+    emailNotifications: EmailNotifications,
   },
 };

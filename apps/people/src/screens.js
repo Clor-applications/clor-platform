@@ -107,4 +107,6 @@ export { default as DataRequests } from '../../attendance/src/screens/DataReques
 export const SsoSettings = () => React.createElement(OpenInCompanyAdmin, { title: 'Users & Security', screen: 'sso' });
 /* This app's roles and permissions, in Workspace's one role editor, opened on People's share (ADR-010). */
 export const RolesAccess = () => React.createElement(OpenInCompanyAdmin, { title: 'Roles & Access', screen: 'permissions', forApp: 'people' });
+/* Which of the company's emails go out is set once for every app, in Workspace (automations B5). */
+export const EmailNotifications = () => React.createElement(OpenInCompanyAdmin, { title: 'Email notifications', screen: 'notifications' });
 

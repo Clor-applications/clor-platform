@@ -14,7 +14,7 @@ import { istDate } from '../../utils/istDate.js';
  * People's own events, told to whoever manages employees (PEOPLE::Employees
  * EDIT, and administrators): someone joined, someone left, a document is
  * about to expire. Each is an e-mail the organisation can switch off under
- * Settings → E-mail, and a row in the bell either way.
+ * Workspace → Company → Email notifications, and a row in the bell either way.
  */
 const MANAGES_PEOPLE = 'PEOPLE::Employees::EDIT';
 export const EXPIRY_WINDOW_DAYS = 30;

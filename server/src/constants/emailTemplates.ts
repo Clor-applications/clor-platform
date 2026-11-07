@@ -29,6 +29,8 @@ export const EMAIL_TEMPLATES: TemplateDef[] = [
 The full table is in this message; open {{appUrl}} for the report with filters and export.
 To stop these, ask whoever set the schedule up under Attendance → Reports → Scheduled.`,
     fields: ['reportTitle', 'period', 'companyName', 'summary', 'appName', 'appUrl'],
+    /* Its sender always sent it as transactional (services/attendance/reportSchedules.ts): somebody asked for it, and the schedule is its off switch. Listing it among the company's switches offered one that did nothing. */
+    transactional: true,
   },
   {
     key: 'auth.verify_email',
@@ -309,7 +311,7 @@ Questions: {{contact}}. You can also complain to the Data Protection Board of In
   {
     key: 'people.weekly_summary',
     label: 'Monday summary',
-    description: 'Each Monday, to owners and HR: who is away this week, what waits for a decision, lapsing leave, and who joins or leaves (services/people/weeklySummary.ts).',
+    description: 'Each Monday, to owners and HR: who is away this week, what waits for a decision, lapsing leave, and who joins or leaves.',
     subject: '{{orgName}} this week: {{headline}}',
     body: `Hello {{name}},
 

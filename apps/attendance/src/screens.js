@@ -75,4 +75,6 @@ export { default as ReportInsights } from './screens/ReportInsights';
 export { default as CloseCompany } from '@ui/company/CloseCompany';
 /* This app's roles and permissions, in Workspace's one role editor, opened on Attendance's share (ADR-010). */
 export const RolesAccess = () => React.createElement(OpenInCompanyAdmin, { title: 'Roles & Access', screen: 'permissions', forApp: 'attendance' });
+/* Which of the company's emails go out is set once for every app, in Workspace (automations B5). */
+export const EmailNotifications = () => React.createElement(OpenInCompanyAdmin, { title: 'Email Notifications', screen: 'notifications' });
 
