@@ -1,57 +1,77 @@
 import React from 'react';
 import ClorMark from './ClorMark.jsx';
-import { C, L, O, R, DOT, WORD_WIDTH } from './clorPaths.js';
 
 /**
- * The CLOR logo: the owner's wordmark (3 Nov 2026), drawn from its traced
- * outlines, always in capitals. One logo across the site and every app.
- *
- * `variant`: 'horizontal' (default) and 'wordmark' are the word itself (its C
- * is the mark), 'stacked' the mark above the word, 'mark' the C and its dot
- * alone. `size` is the logo's height in px (or sm/md/lg/xl). The letters take
- * --logo-mark (oxblood on light, white on dark) and the dot --logo-dot (marigold);
- * `color` and `dotColor` set them for one particular ground.
+ * The CLOR logo: ribbon-arc C-mark + "LOR" text — the icon IS the "C".
+ * Together they read "CLOR". O is orange, L/R are slate.
+ * variant: 'horizontal' (default) | 'mark' (icon only) | 'wordmark' (LOR text only) | 'stacked'
  */
-const HEIGHTS = { sm: 20, md: 28, lg: 40, xl: 56 };
-const MARK = 'rgb(var(--logo-mark, 92 10 22))';
-const DOT_PAINT = 'rgb(var(--logo-dot, 245 166 35))';
 
-function Word({ h, color, dotColor, className, title }) {
+const ORANGE = 'rgb(var(--logo-mark-orange, 255 84 0))';
+const SLATE  = 'rgb(var(--logo-mark-slate,  15 23 42))';
+const FONT   = "'Inter Variable', 'Inter', ui-sans-serif, sans-serif";
+const HEIGHTS = { sm: 20, md: 28, lg: 40, xl: 56 };
+
+function Lor({ h, color, className, title, style: extraStyle }) {
   const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': 'true' };
+  const co = color || ORANGE;
+  const sl = color || SLATE;
   return (
-    <svg
-      width={Math.round((h * WORD_WIDTH) / 100)}
-      height={h}
-      viewBox={`0 0 ${WORD_WIDTH} 100`}
+    <span
       className={className}
-      style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        fontFamily: FONT,
+        fontWeight: 900,
+        fontSize: h,
+        lineHeight: 1,
+        letterSpacing: '0.02em',
+        userSelect: 'none',
+        flexShrink: 0,
+        ...extraStyle,
+      }}
       {...a11y}
     >
-      <g fill={color || MARK}>
-        <path d={C} />
-        <path d={L} />
-        <path d={O} />
-        <path d={R} />
-      </g>
-      <path d={DOT} fill={dotColor || DOT_PAINT} />
-    </svg>
+      <span style={{ color: sl }}>L</span>
+      <span style={{ color: co }}>O</span>
+      <span style={{ color: sl }}>R</span>
+    </span>
   );
 }
 
-export default function ClorLogo({ variant = 'horizontal', size = 'md', color, dotColor, className = '', title = 'CLOR' }) {
+export default function ClorLogo({ variant = 'horizontal', size = 'md', color, className = '', title = 'CLOR' }) {
   const h = typeof size === 'number' ? size : HEIGHTS[size] || HEIGHTS.md;
-  if (variant === 'mark') return <ClorMark size={h} color={color} dotColor={dotColor} className={className} title={title} />;
-  if (variant !== 'stacked') return <Word h={h} color={color} dotColor={dotColor} className={className} title={title} />;
+
+  if (variant === 'mark')     return <ClorMark size={h} color={color} className={className} title={title} />;
+  if (variant === 'wordmark') return <Lor h={h} color={color} className={className} title={title} />;
+
+  if (variant === 'stacked') {
+    return (
+      <span
+        role="img"
+        aria-label={title || undefined}
+        aria-hidden={title ? undefined : 'true'}
+        className={className}
+        style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(h / 4), verticalAlign: 'middle', flexShrink: 0 }}
+      >
+        <ClorMark size={Math.round(h * 1.4)} color={color} title="" />
+        <Lor h={h} color={color} title="" />
+      </span>
+    );
+  }
+
+  /* horizontal (default): [C-mark] LOR — icon acts as the "C", zero gap = one word */
   return (
     <span
       role="img"
-      aria-label={title || undefined}
+      aria-label={title}
       aria-hidden={title ? undefined : 'true'}
       className={className}
-      style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(h / 3), verticalAlign: 'middle', flexShrink: 0 }}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 0, verticalAlign: 'middle', flexShrink: 0 }}
     >
-      <ClorMark size={h * 1.6} color={color} dotColor={dotColor} title="" />
-      <Word h={h} color={color} dotColor={dotColor} title="" />
+      <ClorMark size={Math.round(h * 1.08)} color={color} title="" />
+      <Lor h={h} color={color} title="" style={{ marginLeft: -Math.round(h * 0.09) }} />
     </span>
   );
 }
