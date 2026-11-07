@@ -20,6 +20,7 @@ import { BANK_FIELDS, BankChangeError, approveBankChange, maskNumber, rejectBank
 import { requirePayrollStepUp } from '../services/stepUp.js';
 import { nomineesOf } from '../services/payroll/statutoryWrite.js';
 import { costCentreRefusal } from '../services/payroll/accounting/references.js';
+import { ownPayRefusal } from '../services/payroll/ownPay.js';
 
 /**
  * The people payroll pays, and the payroll-specific things known about them.
@@ -182,6 +183,11 @@ const payrollData = (p: NonNullable<z.infer<typeof bodySchema>['payroll']>) => (
   ...(p.ptApplicable !== undefined ? { ptApplicable: p.ptApplicable } : {}),
 });
 
+/** Profile fields that change what is deducted from somebody's pay (ownPayRefusal on edit). */
+const OWN_STATUTORY_FIELDS = ['pfApplicable', 'esiApplicable', 'ptApplicable', 'taxRegime', 'professionalTaxState', 'pan', 'payrollStatus'];
+/** What a profile not yet on file holds, so sending the defaults is not a change. */
+const STATUTORY_DEFAULTS: Record<string, unknown> = { pfApplicable: false, esiApplicable: false, ptApplicable: false, taxRegime: 'NEW', payrollStatus: 'IN_PAYROLL' };
+
 payrollEmployeesRouter.get(
   '/orgs/:orgId/payroll/employees',
   requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE),
@@ -326,6 +332,23 @@ payrollEmployeesRouter.put(
         select: { id: true },
       });
       if (clash) return res.status(409).json({ error: `An employee with the code ${code} already exists.` });
+    }
+
+    /*
+     * Nobody switches their own PF, ESI, PT, tax regime, PAN or payroll status
+     * (review of #145, S4): each one changes what is deducted from their own
+     * pay. Their name or phone they may; these, somebody else does.
+     */
+    if (body.payroll) {
+      const before = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: existing.id } });
+      const after = payrollData(body.payroll) as Record<string, unknown>;
+      /* A caller shown the PAN masked sends it back masked, and it is kept as it was below. */
+      const fields = (await mayRevealSensitive(req)) ? OWN_STATUTORY_FIELDS : OWN_STATUTORY_FIELDS.filter((k) => k !== 'pan');
+      const changed = fields.filter((k) => k in after && after[k] !== undefined && (after[k] ?? null) !== ((before as any)?.[k] ?? STATUTORY_DEFAULTS[k] ?? null));
+      if (changed.length) {
+        const own = await ownPayRefusal(req, existing.id, { what: 'tax and statutory settings', does: 'change them', module: PAYROLL_MODULE, resource: RESOURCE, action: 'EDIT', entity: 'EMPLOYEE_PAYROLL_PROFILE', entityId: before?.id || existing.id });
+        if (own) return res.status(own.status).json(own.body);
+      }
     }
 
     const row = await peoplePrisma.employee.update({

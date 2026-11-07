@@ -28,7 +28,7 @@ const REASON_HINT = {
  * Statutory lines on these payslips that nothing worked out: a PF, ESI, PT,
  * LWF or TDS component whose scheme is switched off or has no rate (audit
  * 7 Nov 2026, #3). The payroll is not approved until they are set up, or, for
- * PF, ESI and LWF only, the owner records why the law does not reach the
+ * PF, ESI and LWF only, an owner or administrator records why the law does not reach the
  * company. Calculating again asks again.
  */
 export default function StatutoryGapsPanel({ run, gaps, canWaive, onSaved }) {
@@ -82,13 +82,15 @@ export default function StatutoryGapsPanel({ run, gaps, canWaive, onSaved }) {
             <ul className="space-y-0.5">
               {open.map((g) => (
                 <li key={g.scheme}>
-                  {g.name} {g.reason === "OFF" ? "is switched off" : "has no rate for this month"}, so it shows as nil for {who(g.people)}.
+                  {g.reason === "OFF"
+                    ? `${g.name} is switched off, so it shows as nil for ${who(g.people)}. Switch it on in Compliance.`
+                    : `${g.name} is switched on, but no rate covers this pay month${["PT", "LWF"].includes(g.scheme) ? " in the state they work in" : ""}, so it shows as nil for ${who(g.people)}. Add this month's rate in Compliance.`}
                 </li>
               ))}
             </ul>
             <p>
-              Switch {open.length === 1 ? "it" : "them"} on in Compliance and calculate again.
-              {waivable ? " If the law does not reach your company, the owner can record why instead." : ""}
+              Then calculate again.
+              {waivable ? " If the law does not reach your company, an owner or administrator can record why instead." : ""}
             </p>
           </div>
         </div>

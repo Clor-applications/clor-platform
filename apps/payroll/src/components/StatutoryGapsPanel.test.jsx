@@ -30,7 +30,7 @@ it('says what is off and for whom, and opens Compliance', async () => {
   render(<StatutoryGapsPanel run={run()} gaps={[pf, tds]} canWaive />);
   expect(screen.getByRole('heading', { name: 'Not ready to approve' })).toBeInTheDocument();
   expect(screen.getByText(/Provident Fund is switched off, so it shows as nil for Meera Shetty/)).toBeInTheDocument();
-  expect(screen.getByText(/Income Tax \(TDS\) has no rate for this month/)).toBeInTheDocument();
+  expect(screen.getByText(/Income Tax \(TDS\) is switched on, but no rate covers this pay month.*Add this month's rate in Compliance/)).toBeInTheDocument();
   /* TDS can never be waived, so the owner is not offered it. */
   expect(screen.queryByRole('button', { name: 'Record it does not apply' })).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Open Compliance' }));
@@ -52,7 +52,7 @@ it('lets the owner record that PF does not apply, with a reason', async () => {
 
 it('offers someone who is not the owner no way round it', () => {
   render(<StatutoryGapsPanel run={run()} gaps={[pf]} canWaive={false} />);
-  expect(screen.getByText(/the owner can record why instead/)).toBeInTheDocument();
+  expect(screen.getByText(/an owner or administrator can record why instead/)).toBeInTheDocument();
   expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
 });
 
@@ -60,4 +60,11 @@ it('shows the recorded reason once it is given', () => {
   render(<StatutoryGapsPanel run={run({ statutoryWaiver: { schemes: ['PF'], reason: '12 people, under 20' } })} gaps={[pf]} canWaive />);
   expect(screen.getByRole('heading', { name: 'Provident Fund recorded as not applying to this company' })).toBeInTheDocument();
   expect(screen.getByText('12 people, under 20')).toBeInTheDocument();
+});
+
+it("says professional tax with no rate needs this month's rate for their state, not switching on", () => {
+  const pt = { scheme: 'PT', name: 'Professional Tax', reason: 'NO_RULE', mayStandWithout: false, people: [meera] };
+  render(<StatutoryGapsPanel run={run()} gaps={[pt]} canWaive />);
+  expect(screen.getByText(/Professional Tax is switched on, but no rate covers this pay month in the state they work in/)).toBeInTheDocument();
+  expect(screen.queryByText(/Switch it on/)).not.toBeInTheDocument();
 });

@@ -435,3 +435,234 @@ describe('#8 the Viewer role', () => {
     expect(expandPreset('VIEWER').some((r) => r.module === 'PEOPLE')).toBe(true);
   });
 });
+
+/* ------------------------------------------------------------ review of #145 */
+
+async function approvedWithPayment(c: Ctx) {
+  const { periodId, employeeId } = await setUp(c);
+  const runId = await calculated(c, periodId);
+  await api.post(c, `/runs/${runId}/approve`).expect(200);
+  const bank = await bankLedger(c);
+  const pay = await api.post(c, '/payments', { runId, paymentDate: '2026-10-31', ledgerAccountId: bank.id }).expect(201);
+  return { runId, employeeId, bank, paymentId: pay.body.payment.id as string, line: await lineOf(pay.body.payment.id) };
+}
+
+/** Run `between` after the route's first read of `model`, before it writes: deterministic, not a race of requests. */
+function between(model: any, method: string, gap: () => Promise<unknown>) {
+  const read = model[method].bind(model);
+  return vi.spyOn(model, method).mockImplementationOnce(async (args: any) => {
+    const row = await read(args);
+    await gap();
+    return row;
+  });
+}
+
+describe('B2 cancelling a loan', () => {
+  async function approvedLoan(c: Ctx, employeeId: string, periodId: string) {
+    const recovery = await mk(c, { name: 'Loan recovery', code: `LOAN${rnd().toUpperCase()}`, type: 'DEDUCTION', calculationMethod: 'FIXED', isVariable: true, displayOrder: 80 });
+    const made = await api.post(c, '/loans', { employeeId, principal: 60_000, interestRate: 0, startDate: '2026-10-01', recoveryStartPeriodId: periodId, installmentCount: 6, recoveryComponentId: recovery }).expect(201);
+    await api.post(c, `/loans/${made.body.loan.id}/approve`).expect(200);
+    return (await api.get(c, `/loans/${made.body.loan.id}`)).body.loan;
+  }
+
+  it('is refused to the person who owes it while somebody else could', async () => {
+    const c = await makeOwner();
+    const other = await member(c, 'ADMIN');
+    const { employeeId, periodId } = await setUp(c);
+    const loan = await approvedLoan(c, employeeId, periodId);
+    await peoplePrisma.employee.update({ where: { id: employeeId }, data: { userId: other.userId } });
+    const res = await api.post(other, `/loans/${loan.id}/cancel`);
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('OWN_RECORD');
+    expect(await payrollPrisma.payrollLoanInstallment.count({ where: { loanId: loan.id } })).toBe(6);
+    await api.post(c, `/loans/${loan.id}/cancel`).expect(200);
+    expect(await payrollPrisma.payrollLoanInstallment.count({ where: { loanId: loan.id } })).toBe(0);
+  });
+
+  it('a payroll recovering an instalment after the check: nothing is deleted and the cancel is refused', async () => {
+    const c = await makeOwner();
+    const { employeeId, periodId } = await setUp(c);
+    const loan = await approvedLoan(c, employeeId, periodId);
+    const first = loan.installments[0].id;
+    const spy = between(payrollPrisma.payrollLoan, 'findFirst', () => payrollPrisma.payrollLoanInstallment.updateMany({ where: { id: first }, data: { status: 'RECOVERED' } }));
+    const res = await api.post(c, `/loans/${loan.id}/cancel`);
+    spy.mockRestore();
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('LOAN_CHANGED');
+    expect(await payrollPrisma.payrollLoanInstallment.count({ where: { loanId: loan.id } })).toBe(6);
+    expect((await payrollPrisma.payrollLoan.findUniqueOrThrow({ where: { id: loan.id } })).status).not.toBe('CANCELLED');
+  });
+
+  it('a payroll that recovers after the cancel finds the instalment gone, and stops', async () => {
+    const c = await makeOwner();
+    const { employeeId, periodId } = await setUp(c);
+    const loan = await approvedLoan(c, employeeId, periodId);
+    await api.post(c, `/loans/${loan.id}/cancel`).expect(200);
+    /* What run.ts does on a full recovery: a conditional update that must move every instalment it took. */
+    const n = await payrollPrisma.payrollLoanInstallment.updateMany({ where: { orgId: c.orgId, id: { in: [loan.installments[0].id] }, status: 'PENDING' }, data: { status: 'RECOVERED' } });
+    expect(n.count).toBe(0);
+  });
+});
+
+describe('S1 the bank file', () => {
+  it('is refused for a cancelled payment; a payslip cancelled then paid again is in one file only', async () => {
+    const c = await makeOwner();
+    const { runId, bank, paymentId, line } = await approvedWithPayment(c);
+    await api.post(c, `/payments/${paymentId}/cancel`).expect(200);
+    const second = await api.post(c, '/payments', { runId, paymentDate: '2026-11-01', ledgerAccountId: bank.id }).expect(201);
+
+    const old = await api.get(c, `/payments/${paymentId}/advice`);
+    expect(old.status).toBe(409);
+    expect(old.body.code).toBe('PAYMENT_CANCELLED');
+    const fresh = await api.get(c, `/payments/${second.body.payment.id}/advice`).expect(200);
+    expect(fresh.body.rows).toHaveLength(1);
+    expect(fresh.body.rows[0].amount).toBe(Number(line.amount));
+  });
+
+  it('leaves out a line already paid or rejected', async () => {
+    const c = await makeOwner();
+    const { paymentId, line } = await approvedWithPayment(c);
+    await api.post(c, `/payments/${paymentId}/settle`, { results: [{ lineId: line.id, status: 'PAID' }] }).expect(200);
+    expect((await api.get(c, `/payments/${paymentId}/advice`).expect(200)).body.rows).toHaveLength(0);
+  });
+});
+
+describe('S2 recording what the bank did', () => {
+  it('(a) the payment cancelled between the read and the write: refused, the line stays cancelled', async () => {
+    const c = await makeOwner();
+    const { paymentId, line } = await approvedWithPayment(c);
+    const spy = between(payrollPrisma.payrollPayment, 'findFirst', async () => {
+      await payrollPrisma.payrollPayment.update({ where: { id: paymentId }, data: { status: 'CANCELLED' } });
+      await payrollPrisma.payrollPaymentLine.updateMany({ where: { paymentId }, data: { status: 'CANCELLED' } });
+    });
+    const res = await api.post(c, `/payments/${paymentId}/settle`, { results: [{ lineId: line.id, status: 'PAID' }] });
+    spy.mockRestore();
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('PAYMENT_CHANGED');
+    expect((await payrollPrisma.payrollPaymentLine.findUniqueOrThrow({ where: { id: line.id } })).status).toBe('CANCELLED');
+    expect((await payrollPrisma.salarySlip.findUniqueOrThrow({ where: { id: line.slipId } })).paymentStatus).not.toBe('PAID');
+  });
+
+  it('(b) the payroll cancelled between the read and the write: nothing on it is marked paid', async () => {
+    const c = await makeOwner();
+    const { runId, paymentId, line } = await approvedWithPayment(c);
+    const spy = between(payrollPrisma.payrollPayment, 'findFirst', () => payrollPrisma.payrollRun.update({ where: { id: runId }, data: { status: 'CANCELLED' } }));
+    const res = await api.post(c, `/payments/${paymentId}/settle`, { results: [{ lineId: line.id, status: 'PAID' }] });
+    spy.mockRestore();
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('RUN_NOT_APPROVED');
+    expect((await payrollPrisma.payrollPaymentLine.findUniqueOrThrow({ where: { id: line.id } })).status).toBe('PENDING');
+  });
+
+  it('N3 a payslip that is gone is said in words, not a server error', async () => {
+    const c = await makeOwner();
+    const { paymentId, line } = await approvedWithPayment(c);
+    await payrollPrisma.salarySlipLine.deleteMany({ where: { slipId: line.slipId } });
+    await payrollPrisma.payrollCalculationTrace.deleteMany({ where: { slipId: line.slipId } });
+    await payrollPrisma.salarySlip.delete({ where: { id: line.slipId } });
+    const res = await api.post(c, `/payments/${paymentId}/settle`, { results: [{ lineId: line.id, status: 'PAID' }] });
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('SLIP_GONE');
+    expect((await payrollPrisma.payrollPaymentLine.findUniqueOrThrow({ where: { id: line.id } })).status).toBe('PENDING');
+  });
+});
+
+describe('S3 the one-live-line index', () => {
+  it('a missing index and a payslip in two live payments are reported, and the index is built once that is cleared', async () => {
+    const { PrismaClient } = await import('../generated/payroll/index.js');
+    const { checkCompany } = await import('../services/integrity/checks.js');
+    const health = await import('../services/payroll/liveLineIndex.js');
+    const own = new URL(String(process.env.PAYROLL_DATABASE_URL));
+    const adminUrl = new URL(String(process.env.PGADMIN_URL || process.env.PG_ADMIN_URL || process.env.DATABASE_URL));
+    adminUrl.pathname = own.pathname;
+    adminUrl.search = own.search;
+    const owner = new PrismaClient({ datasources: { db: { url: adminUrl.toString() } } });
+    const build = `CREATE UNIQUE INDEX IF NOT EXISTS "${health.LIVE_LINE_INDEX}" ON "PayrollPaymentLine"("slipId") WHERE "status" IN ('PENDING', 'PAID')`;
+
+    const c = await makeOwner();
+    const { runId, line } = await approvedWithPayment(c);
+    let extraLine = '';
+    try {
+      await owner.$executeRawUnsafe(`DROP INDEX IF EXISTS "${health.LIVE_LINE_INDEX}"`);
+      expect(await health.liveLineIndexPresent()).toBe(false);
+      const extra = await payrollPrisma.payrollPayment.create({ data: { accountId: c.accountId, orgId: c.orgId, number: `PAY-X-${rnd()}`, runId, paymentDate: '2026-10-31', totalAmount: 0, createdByUserId: c.userId } });
+      extraLine = (await payrollPrisma.payrollPaymentLine.create({ data: { accountId: c.accountId, orgId: c.orgId, paymentId: extra.id, slipId: line.slipId, employeeId: line.employeeId, amount: 1, status: 'PENDING' } })).id;
+
+      const found = await checkCompany({ accountId: c.accountId, orgId: c.orgId });
+      expect(found.filter((f) => f.link.includes('two live payments')).map((f) => f.sourceId)).toEqual([line.slipId]);
+      const refused = await health.ensureLiveLineIndex();
+      expect(refused.built).toBe(false);
+      expect(refused.clashes.map((x) => x.orgId)).toContain(c.orgId);
+
+      /* The owner cancels the extra batch; the next check builds the index. Built here as the table's owner,
+         as clor_app is in production (it runs the migrations); in this suite it only uses the tables. */
+      await payrollPrisma.payrollPaymentLine.update({ where: { id: extraLine }, data: { status: 'CANCELLED' } });
+      const built = await health.ensureLiveLineIndex((sql) => owner.$executeRawUnsafe(sql));
+      expect(built).toMatchObject({ indexPresent: true, built: true });
+      expect(await health.liveLineIndexPresent()).toBe(true);
+    } finally {
+      if (extraLine) await payrollPrisma.payrollPaymentLine.update({ where: { id: extraLine }, data: { status: 'CANCELLED' } });
+      await owner.$executeRawUnsafe(build);
+      await owner.$disconnect();
+    }
+  });
+});
+
+describe('S4 your own tax and statutory settings', () => {
+  it('are not switched by the person they are about while somebody else could; their name is', async () => {
+    const c = await makeOwner();
+    const other = await member(c, 'ADMIN');
+    const { employeeId } = await setUp(c);
+    await peoplePrisma.employee.update({ where: { id: employeeId }, data: { userId: other.userId } });
+    const person = await peoplePrisma.employee.findUniqueOrThrow({ where: { id: employeeId } });
+    const base = { name: person.name, code: person.code, dateOfJoining: person.dateOfJoining, status: 'ACTIVE' };
+    const payroll = { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW', pfApplicable: true, esiApplicable: true, ptApplicable: true, professionalTaxState: 'Karnataka', bankAccountName: 'Meera Shetty', bankAccountNumber: '123456789012', bankIfsc: 'HDFC0001234', bankName: 'HDFC Bank' };
+
+    for (const change of [{ pfApplicable: false }, { esiApplicable: false }, { ptApplicable: false }, { taxRegime: 'OLD' }, { professionalTaxState: 'Goa' }, { payrollStatus: 'EXCLUDED' }]) {
+      const res = await api.put(other, `/employees/${employeeId}`, { ...base, payroll: { ...payroll, ...change } });
+      expect(res.status, JSON.stringify(change)).toBe(403);
+      expect(res.body.code).toBe('OWN_RECORD');
+    }
+    const profile = await payrollPrisma.employeePayrollProfile.findFirstOrThrow({ where: { orgId: c.orgId, employeeId } });
+    expect(profile).toMatchObject({ pfApplicable: true, esiApplicable: true, ptApplicable: true, taxRegime: 'NEW' });
+
+    await api.put(other, `/employees/${employeeId}`, { ...base, name: 'Meera S Shetty', payroll }).expect(200);
+    await api.put(c, `/employees/${employeeId}`, { ...base, payroll: { ...payroll, pfApplicable: false } }).expect(200);
+  });
+});
+
+describe('N2 recording a statutory scheme does not apply', () => {
+  it('needs a fresh authenticator code from someone who has one', async () => {
+    const c = await makeOwner();
+    const { periodId } = await setUp(c, { statutory: ['PF'] });
+    const runId = await calculated(c, periodId);
+    await platformPrisma.user.update({ where: { id: c.userId }, data: { totpEnabledAt: new Date() } });
+    const body = { schemes: ['PF'], reason: '12 people, under the PF threshold of 20' };
+    const asked = await api.post(c, `/runs/${runId}/statutory-waiver`, body);
+    expect(asked.status).toBe(403);
+    expect(asked.body.code).toBe('STEP_UP_REQUIRED');
+    const { issueStepUp } = await import('../services/stepUp.js');
+    const { token } = issueStepUp(c.userId, undefined);
+    await request(app).post(`/api/orgs/${c.orgId}/payroll/runs/${runId}/statutory-waiver`).set({ ...at(c), 'x-step-up': token }).send(body).expect(200);
+  });
+
+  it('says an owner or administrator records it', async () => {
+    const c = await makeOwner();
+    const manager = await member(c, 'Payroll Manager');
+    const { periodId } = await setUp(c, { statutory: ['PF'] });
+    const runId = await calculated(c, periodId);
+    const res = await api.post(manager, `/runs/${runId}/approve`);
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/an owner or administrator records why/);
+  });
+});
+
+describe('N1 professional tax with no rate for the month', () => {
+  it('says to add the month\'s rate for their state, not to switch it on', async () => {
+    const { gapsAdvice } = await import('../services/payroll/statutoryGaps.js');
+    const text = gapsAdvice([{ scheme: 'PT', name: 'Professional Tax', reason: 'NO_RULE', mayStandWithout: false, people: [{ employeeId: 'e', name: 'Meera' }] }]);
+    expect(text).toMatch(/add a rate for this pay month to Professional Tax in Payroll › Compliance/);
+    expect(text).toMatch(/no rate covers this month in the state these people work in/);
+    expect(text).not.toMatch(/switch Professional Tax on/i);
+  });
+});

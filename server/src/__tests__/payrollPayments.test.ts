@@ -454,7 +454,7 @@ describe('calling a batch off', () => {
 });
 
 describe('a failed line', () => {
-  it('is owed again in the next batch, and is not in the file for this one', async () => {
+  it('is owed again in the next batch, and neither it nor the paid line is in the file for this one', async () => {
     const c = await makeOwner();
     const { runId } = await payrollThroughToPosted(c);
     const bank = await bankLedger(c);
@@ -473,7 +473,8 @@ describe('a failed line', () => {
       .expect(200);
 
     const advice = await api.get(c, `/payments/${paymentId}/advice`).expect(200);
-    expect(advice.body.rows).toHaveLength(1);
+    /* Only what is still waiting at the bank goes in the file (review of #145, S1): the paid line would be paid twice, the failed one goes in the next batch. */
+    expect(advice.body.rows).toHaveLength(0);
 
     /* The person the bank rejected is payable again; the one who was paid is
        not. */

@@ -121,6 +121,26 @@ export function gapsSentence(gaps: StatutoryGap[]) {
   return list(gaps.map((g) => `${g.name} ${g.reason === 'OFF' ? 'is switched off' : 'has no rate in force for this month'} (${g.people.length} ${g.people.length === 1 ? 'person' : 'people'})`));
 }
 
+/**
+ * What to do about them, in words (review of #145, N1). A scheme switched off
+ * is switched on. A scheme that is on but has no rate for the month (most
+ * often professional tax, whose slabs are per state and change on 1 April)
+ * needs that month's rate added; switching it on again does nothing.
+ */
+export function gapsAdvice(gaps: StatutoryGap[]) {
+  const off = gaps.filter((g) => g.reason === 'OFF');
+  const noRate = gaps.filter((g) => g.reason !== 'OFF');
+  const parts: string[] = [];
+  if (off.length) parts.push(`switch ${list(off.map((g) => g.name))} on in Payroll › Compliance`);
+  if (noRate.length) {
+    const state = noRate.some((g) => g.scheme === 'PT' || g.scheme === 'LWF') ? ' in the state these people work in' : '';
+    parts.push(
+      `add a rate for this pay month to ${list(noRate.map((g) => g.name))} in Payroll › Compliance (${noRate.length === 1 ? 'it is' : 'they are'} switched on, but no rate covers this month${state})`
+    );
+  }
+  return `${parts.join(', and ')}, then calculate again`;
+}
+
 /** The waiver recorded on a run counts only for the calculation it was given on. */
 export type StatutoryWaiver = { schemes: string[]; reason: string; userId: string; at: string; calculatedAt: string | null };
 

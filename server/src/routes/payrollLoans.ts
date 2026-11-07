@@ -410,10 +410,36 @@ payrollLoansRouter.post(
       });
     }
 
-    const row = await payrollPrisma.$transaction(async (tx) => {
-      await tx.payrollLoanInstallment.deleteMany({ where: { loanId: loan.id } });
-      return tx.payrollLoan.update({ where: { id: loan.id }, data: { status: 'CANCELLED', outstandingBalance: 0 } });
-    });
+    /* Nobody cancels their own loan: it is money they would no longer owe (review of #145, B2). */
+    const own = await ownPayRefusal(req, loan.employeeId, { what: 'loan', does: 'cancel it', module: PAYROLL_MODULE, resource: RESOURCE, action: 'APPROVE', entity: 'PAYROLL_LOAN', entityId: loan.id });
+    if (own) return res.status(own.status).json(own.body);
+
+    /*
+     * The check above was a read. A payroll recovering an instalment after it
+     * would have its recovery deleted with the schedule, and the money taken
+     * from the payslip would belong to no loan. So, inside one transaction and
+     * the loan's schedule lock (the one a run takes on a part recovery): only
+     * instalments not recovered are deleted; anything recovered by then rolls
+     * the whole cancel back. A run that recovers after this commits finds the
+     * instalment gone and stops (RunSourcesMovedError).
+     */
+    class Recovered extends Error {}
+    let row;
+    try {
+      row = await payrollPrisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payroll-loan-schedule:${loan.id}`}))`;
+        await tx.payrollLoanInstallment.deleteMany({ where: { orgId, loanId: loan.id, status: { not: 'RECOVERED' } } });
+        if (await tx.payrollLoanInstallment.count({ where: { orgId, loanId: loan.id, status: 'RECOVERED' } })) throw new Recovered();
+        const moved = await tx.payrollLoan.updateMany({ where: { orgId, id: loan.id, status: loan.status }, data: { status: 'CANCELLED', outstandingBalance: 0 } });
+        if (moved.count !== 1) throw new Recovered();
+        return tx.payrollLoan.findUniqueOrThrow({ where: { id: loan.id } });
+      });
+    } catch (e) {
+      if (e instanceof Recovered) {
+        return res.status(409).json({ error: 'This loan has just changed: a payroll may have recovered an instalment. Reload it, and waive what is left rather than cancelling.', code: 'LOAN_CHANGED' });
+      }
+      throw e;
+    }
     res.json({ loan: shape(row) });
   }
 );

@@ -21,11 +21,11 @@ import { catchUpLatePenalties, correctProvisionalDays, cutoffDateFor, lateMarkMo
 import { CarryTakenError, RunBusyError, RunNotEditableError, RunSourcesMovedError, carriesTakenElsewhere, leaseFree, rederiveLoans, runStale, undoCarries } from '../services/payroll/run.js';
 import { capMessage } from '../services/payroll/deductionCap.js';
 import { Prisma } from '../generated/payroll/index.js';
-import { requirePayrollStepUp } from '../services/stepUp.js';
+import { requirePayrollStepUp, stepUpIfEnrolledRefusal } from '../services/stepUp.js';
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { eachDay } from '../utils/istDate.js';
 import { LIVE_LINE, paymentLockKey } from '../services/payroll/payment.js';
-import { gapsSentence, statutoryGapsOnRun, unwaived, waiverOf } from '../services/payroll/statutoryGaps.js';
+import { gapsAdvice, gapsSentence, statutoryGapsOnRun, unwaived, waiverOf } from '../services/payroll/statutoryGaps.js';
 
 /**
  * A payroll run, from who is in it to payslips somebody can approve.
@@ -782,7 +782,10 @@ payrollRunsRouter.post(
   requirePermission(PAYROLL_MODULE, PermissionAction.APPROVE, RESOURCE),
   async (req, res) => {
     if (!(await payrollRouteOk(req, res))) return;
-    if (!req.isAdmin) return res.status(403).json({ error: 'Only the owner (an administrator of this company) can say a statutory scheme does not apply.', code: 'ADMIN_ONLY' });
+    if (!req.isAdmin) return res.status(403).json({ error: 'Only an owner or administrator of this company can say a statutory scheme does not apply.', code: 'ADMIN_ONLY' });
+    /* A fresh authenticator code from whoever has one (review of #145, N2). */
+    const stepUp = await stepUpIfEnrolledRefusal(req);
+    if (stepUp) return res.status(stepUp.status).json(stepUp.body);
     const run = await runOr404(req, res);
     if (!run) return;
     if (!['CALCULATED', 'REVIEW'].includes(run.status)) return res.status(409).json({ error: 'Only a calculated payroll takes this.', code: 'RUN_WRONG_STATUS' });
@@ -884,7 +887,7 @@ const transition = (
         if (gaps.length) {
           const waivable = gaps.every((g) => g.mayStandWithout);
           return res.status(409).json({
-            error: `Not ready to approve. ${gapsSentence(gaps)}, so ${gaps.length === 1 ? 'it shows' : 'they show'} as nil on the payslips. Switch ${gaps.length === 1 ? 'it' : 'them'} on in Payroll › Compliance and calculate again${waivable ? ', or, if the law does not reach your company, the owner records why' : ''}.`,
+            error: `Not ready to approve. ${gapsSentence(gaps)}, so ${gaps.length === 1 ? 'it shows' : 'they show'} as nil on the payslips. ${gapsAdvice(gaps).replace(/^./, (c) => c.toUpperCase())}${waivable ? '. Or, if the law does not reach your company, an owner or administrator records why' : ''}.`,
             code: 'STATUTORY_NOT_SET_UP',
             gaps,
             canWaive: waivable && Boolean(req.isAdmin),
