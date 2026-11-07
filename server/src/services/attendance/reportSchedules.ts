@@ -18,7 +18,7 @@ import { escapeHtml as esc } from '../../utils/html.js';
  * built by the same code the screen uses (routes/attendanceReports.ts) and
  * sent as a table in the mail, text first so it always renders.
  */
-export type Schedule = { id: string; accountId: string; orgId: string; reportId: string; paramsJson: string; cadence: string; dayOfWeek: number | null; dayOfMonth: number | null; hour: number; recipients: string; enabled: boolean; lastSentAt: Date | null };
+export type Schedule = { id: string; accountId: string; orgId: string; reportId: string; paramsJson: string; cadence: string; dayOfWeek: number | null; dayOfMonth: number | null; hour: number; recipients: string; enabled: boolean; lastSentAt: Date | null; createdByUserId?: string | null };
 
 const IST = 330 * 60_000;
 const istParts = (now: Date) => {
@@ -100,10 +100,11 @@ export const MAX_SENDS_PER_RECIPIENT = 3;
  * marked sent only once every recipient has it (or has failed
  * MAX_SENDS_PER_RECIPIENT times — then the error stays on the schedule).
  */
-export async function runSchedule(s: Schedule, build: (reportId: string, accountId: string, orgId: string, q: any) => Promise<any>, now = new Date(), opts: { slot?: string | null } = {}) {
+export async function runSchedule(s: Schedule, build: (reportId: string, accountId: string, orgId: string, q: any, as?: { asUserId?: string | null }) => Promise<any>, now = new Date(), opts: { slot?: string | null } = {}) {
   try {
     const params = { ...(JSON.parse(s.paramsJson || '{}') as Record<string, string>), ...periodFor(s, now) };
-    const report = await build(s.reportId, s.accountId, s.orgId, params);
+    /* The mail carries what the person who set it up may read (the expiring-documents report names files). */
+    const report = await build(s.reportId, s.accountId, s.orgId, params, { asUserId: s.createdByUserId ?? null });
     const org = await platformPrisma.org.findUnique({ where: { id: s.orgId }, select: { name: true } });
     const html = renderReportHtml(report, org?.name || '');
     const to = [...new Set(s.recipients.split(/[,\s;]+/).map((x) => x.trim()).filter((x) => /.+@.+\..+/.test(x)))];
@@ -145,7 +146,7 @@ export async function runSchedule(s: Schedule, build: (reportId: string, account
 }
 
 /** The scheduler's run: every due schedule of a company whose Attendance is live, once per slot. */
-export async function runDueSchedules(build: (reportId: string, accountId: string, orgId: string, q: any) => Promise<any>, now = new Date()) {
+export async function runDueSchedules(build: (reportId: string, accountId: string, orgId: string, q: any, as?: { asUserId?: string | null }) => Promise<any>, now = new Date()) {
   const rows = await peoplePrisma.reportSchedule.findMany({ where: { enabled: true } });
   const live = new Map<string, Promise<unknown>>();
   let n = 0;

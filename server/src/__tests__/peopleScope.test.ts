@@ -60,7 +60,7 @@ beforeAll(async () => {
   dotted = (await people(hr).post('/employees', { name: 'Dotted Report', code: 'M-3', dottedManagerId: me.id }).expect(201)).body.employee;
   grandReport = (await people(hr).post('/employees', { name: 'Grand Report', code: 'M-4', reportingManagerId: report.id }).expect(201)).body.employee;
   stranger = (await people(hr).post('/employees', { name: 'Someone Else', code: 'M-5' }).expect(201)).body.employee;
-  for (const e of [report, stranger]) await people(hr).post(`/employees/${e.id}/documents`, { title: `${e.name} file`, kind: 'OTHER', classification: 'HR_ONLY', ...file('x') }).expect(201);
+  for (const e of [report, stranger]) await people(hr).post(`/employees/${e.id}/documents`, { title: `${e.name} file`, kind: 'OTHER', classification: 'EMPLOYEE_VISIBLE', ...file('x') }).expect(201); /* HR-only files never open to a team manager (peopleDocuments.test.ts). */
 }, 90_000);
 
 describe('a manager limited to their own team', () => {

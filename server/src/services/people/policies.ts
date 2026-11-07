@@ -1,6 +1,7 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { type Actor, writeChangeLog } from './changeLog.js';
+import { isCompanyUser } from './members.js';
 import { writeEvent } from './outbox.js';
 import { activeRule, submitRequest } from './approvals/engine.js';
 import { ask } from './acknowledgements.js';
@@ -107,8 +108,7 @@ export async function createPolicy(actor: Actor, input: { title?: string; catego
   const purpose = cleanPurpose(category, input.purpose);
   const ownerUserId = String(input.ownerUserId || actor.userId || '').trim();
   if (!ownerUserId) throw new PolicyError('A policy needs an owner.');
-  const owner = await platformPrisma.user.findUnique({ where: { id: ownerUserId }, select: { id: true } });
-  if (!owner) throw new PolicyError('That owner is not a user here.');
+  if (!(await isCompanyUser(actor.accountId, actor.orgId, ownerUserId))) throw new PolicyError('That owner is not a user here.');
   return peoplePrisma.policy.create({ data: { accountId: actor.accountId, orgId: actor.orgId, title, category, purpose, description: String(input.description || '').trim().slice(0, 2000) || null, ownerUserId, createdByUserId: actor.userId } });
 }
 
@@ -119,7 +119,7 @@ export async function updatePolicy(actor: Actor, id: string, input: { title?: st
   if (input.title !== undefined) { const t = String(input.title || '').trim().slice(0, 160); if (!t) throw new PolicyError('Name the policy.'); data.title = t; }
   if (input.category !== undefined) { const c = String(input.category || '').toUpperCase(); if (!POLICY_CATEGORIES.includes(c as any)) throw new PolicyError('Unknown category.'); data.category = c; }
   if (input.description !== undefined) data.description = String(input.description || '').trim().slice(0, 2000) || null;
-  if (input.ownerUserId !== undefined) { const o = String(input.ownerUserId || '').trim(); if (!o || !(await platformPrisma.user.findUnique({ where: { id: o }, select: { id: true } }))) throw new PolicyError('That owner is not a user here.'); data.ownerUserId = o; }
+  if (input.ownerUserId !== undefined) { const o = String(input.ownerUserId || '').trim(); if (!o || !(await isCompanyUser(actor.accountId, actor.orgId, o))) throw new PolicyError('That owner is not a user here.'); data.ownerUserId = o; }
   if (input.isActive !== undefined) data.isActive = Boolean(input.isActive);
   if (input.category !== undefined || input.purpose !== undefined) data.purpose = cleanPurpose(String(data.category ?? row.category), input.purpose ?? row.purpose);
   return peoplePrisma.policy.update({ where: { id: row.id }, data });

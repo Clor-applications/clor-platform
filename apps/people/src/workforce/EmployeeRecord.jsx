@@ -230,8 +230,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
         </>}
       />
 
-      {(rec.data.permits || []).filter((p) => p.daysLeft <= 30).map((p) => (
-        <Alert key={p.id} tone={p.expired ? 'neg' : 'warn'} title={p.expired ? `${p.title} expired on ${formatDate(p.expiresOn)}` : `${p.title} expires in ${p.daysLeft} day${p.daysLeft === 1 ? '' : 's'}`}>{p.restrictsWork ? `Until renewed: ${p.restrictsWork}.` : 'Add the renewed copy on Documents.'}</Alert>
+      {(rec.data.permits || []).filter((p) => p.daysLeft <= 30).map((p, i) => (
+        <Alert key={p.id || `hidden-${i}`} tone={p.expired ? 'neg' : 'warn'} title={p.expired ? `${p.title} expired on ${formatDate(p.expiresOn)}` : `${p.title} expires in ${p.daysLeft} day${p.daysLeft === 1 ? '' : 's'}`}>{p.restrictsWork ? `Until renewed: ${p.restrictsWork}.` : 'Add the renewed copy on Documents.'}</Alert>
       ))}
       {rec.error ? <Alert tone="neg" title="Could not refresh this record" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={rec.reload}>Retry</button>}>Showing what was loaded before.</Alert> : null}
 

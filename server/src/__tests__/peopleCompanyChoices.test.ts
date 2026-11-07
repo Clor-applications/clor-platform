@@ -489,6 +489,44 @@ describe('leavings kept from Viewer and IT administrator on the list and record'
     expect(hrCsv.text).toMatch(/Neha Notice,On notice/);
   });
 
+  it('history, the journey and Why keep the leaving from them too (audit 7 Nov 2026 #22)', async () => {
+    const LEAVING = new Set(['dateOfLeaving', 'leavingType', 'leavingReason', 'resignedOn', 'noticeWaived']);
+    const leavingEntry = (e: any) => (e.changes || []).some((ch: any) => LEAVING.has(ch.key) || (ch.key === 'status' && /notice/i.test(String(ch.after))));
+    const leavingEvent = (e: any) => e.kind === 'LEFT' || e.source === 'RESIGNATION';
+    /* Someone who has already left: history holds the LEFT entry with the last day, and the stint's end. */
+    const gone = await person(c, { name: 'Ganesh Gone', code: 'N3' });
+    const lastDay = plus(istToday(), -5);
+    const { leaveEmployee } = await import('../services/people/lifecycle/leaving.js');
+    const existing = await runInTenant(c.orgId, () => peoplePrisma.employee.findFirstOrThrow({ where: { id: gone.id } }));
+    /* As an approved LEAVING request records it: the change log's leaving lines, under the request's id. */
+    const requestId = `req_${rnd()}`;
+    await runInTenant(c.orgId, () => leaveEmployee({ accountId: c.accountId, orgId: c.orgId, userId: c.userId, source: 'APPROVAL', correlationId: requestId, requestId, reason: 'Moving' }, existing as any, { lastDay, leavingType: 'RESIGNED', reason: 'Moving' }));
+    /* HR's own view carries the leaving: the checks below would prove nothing otherwise. */
+    const hrHistory = (await ppl(hr, 'get', `/employees/${gone.id}/history`).expect(200)).body;
+    expect(hrHistory.events.some(leavingEvent)).toBe(true);
+    expect(hrHistory.episodes.some((ep: any) => ep.endDate === lastDay)).toBe(true);
+    const goneHistory = (await ppl(viewer, 'get', `/employees/${gone.id}/history`).expect(200)).body;
+    expect(goneHistory.events.some(leavingEvent)).toBe(false);
+    expect(JSON.stringify(goneHistory)).not.toContain(lastDay);
+    const goneJourney = (await ppl(viewer, 'get', `/employees/${gone.id}/journey`).expect(200)).body;
+    expect(goneJourney.entries.some(leavingEntry)).toBe(false);
+    expect(JSON.stringify(goneJourney.episodes)).not.toContain(lastDay);
+    /* Still left, as on the record: only the day and the story are kept from them. */
+    expect((await ppl(viewer, 'get', `/employees/${gone.id}`).expect(200)).body.employee.status).toBe('LEFT');
+
+    expect(goneHistory.events.some((e: any) => e.kind === 'JOINED')).toBe(true);
+    expect(goneJourney.entries.length).toBeGreaterThan(0);
+
+    /* The leaving's own change, and its Why panel, open for HR and read as absent for the viewer. */
+    const hrJourney = (await ppl(hr, 'get', `/employees/${gone.id}/journey`).expect(200)).body;
+    expect(JSON.stringify(hrJourney.episodes)).toContain(lastDay);
+    const leavingKey = hrJourney.entries.find(leavingEntry)?.key;
+    expect(leavingKey).toBeTruthy();
+    expect(goneJourney.entries.some((e: any) => e.key === leavingKey)).toBe(false);
+    await ppl(viewer, 'get', `/employees/${gone.id}/why/${leavingKey}`).expect(404);
+    await ppl(hr, 'get', `/employees/${gone.id}/why/${leavingKey}`).expect(200);
+  });
+
   it('HR, the owner and the team manager still see the notice; the owner turns it back on', async () => {
     for (const who of [hr, c, lead]) {
       const rec = (await ppl(who, 'get', `/employees/${going.id}`).expect(200)).body.employee;
