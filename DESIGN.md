@@ -8,13 +8,13 @@ Preview (rendered): https://claude.ai/code/artifact/b5f06c26-a4de-4879-979f-fbb1
 - **Space:** Tally, Zoho Books, Vyapar, QuickBooks India. All either dated or generic.
 - **Project type:** dense data web application.
 - **Memorable thing:** *Serious software for serious work.* Calm, obviously accurate, never shouts. Trust is the product.
-- **Brand idea (Direction D, 2026-10-29; red since 2026-11-03):** *Done, daily.* Books, GST, people and pay, ticked off before tea.
+- **Brand idea (Direction D, 2026-10-29; red 2026-11-03; neon multi-app 2026-11-05):** *Done, daily.* Books, GST, people and pay, ticked off before tea.
 
 ## Brand
-- **Logo (owner's master, 5 Nov 2026):** a Blaze orange `#FF5400` ribbon C with a centre dot, then **CLOR** in capitals with an orange O. The ribbon and dot are the owner's exact geometry; the letters are Plus Jakarta Sans outlines at its heaviest weight (800; the owner's spec asked 900, which the font does not have), never typed, so the word is the same on every device. `ClorLogo` (`packages/ui/src/components/brand`) draws it; the outlines live once, in `clorPaths.js`. Letters are slate `#0F172A` on light grounds and white on dark (`--logo-ink`); the ribbon, dot and O are orange everywhere (`--logo-accent`). The traced oxblood wordmark of 3 Nov is retired.
-- **Mark:** the ribbon with its dot (`ClorMark`, `public/brand/clor-mark.svg`, `public/icon.svg`): the favicon of every app (one tab icon, no per-app favicon), the phone bar.
-- **App icons:** one family for every app — the orange ribbon on a white tile (`public/brand/clor-icon.svg`, `public/icons/*.svg` and their PNGs). The ribbon is about 60% of the tile, under 50% on the maskable icon so it survives a round crop.
-- **Sign-in:** the oxblood logo over the board's "Done, daily." panel on cream `#FFF8F0` (light only, the promise in red with a marigold underline) with a Today card whose done rows carry a white tick on red, and a marigold halftone. The operator console keeps its own light side.
+- **Logo (owner, 6 Nov 2026; supersedes the neon wordmark of 5 Nov):** the C-mark stands for the C, followed by **LOR** — together they read **CLOR**, always in capitals. L and R are slate `#0F172A`, the O is Blaze orange `#FF5400`; only the mark and the O carry the orange. `ClorLogo` (`packages/ui/src/components/brand`) draws it: variant `'horizontal'` (mark + LOR), `'wordmark'` (LOR alone), `'mark'` (the icon alone), `'stacked'`. Colours come from `--logo-mark-orange` and `--logo-mark-slate`. One-colour print: ink `#1F1A1C` throughout. Red is never the logo colour. The outline wordmark of 5 Nov (`clorPaths.js`) and the old brand kit under `public/brand/` are retired.
+- **Mark / C-icon (6 Nov 2026 — locked vector):** ribbon C-arc and its centre dot, both solid orange `#FF5400`, viewBox `"10 0 60 60"`. Path and viewBox are verbatim from the master vector; do not recalculate. `ClorMark` draws it. The favicon (`public/icon.svg`) is the white mark on an orange tile, the same tab icon for every app.
+- **App icons:** one family for every app — the orange ribbon on a white tile (`public/icons/*.svg` and their PNGs), about 60% of the tile, under 50% on the maskable icon so it survives a round crop. They were drawn from the 5 Nov ribbon; redrawing them from the locked vector is still to do.
+- **Sign-in:** the orange/slate logo over the board's "Done, daily." panel on cream `#FFF8F0` (light only, the promise in red with a marigold underline) with a Today card whose done rows carry a white tick on red, and a marigold halftone. The operator console keeps its own light side.
 - **Never:** the blue `#1F7EFD` from the owner's source image (owner, 3 Nov 2026: "do not use this color").
 
 ## Aesthetic Direction
@@ -98,26 +98,24 @@ plain Inter for figures. Bricolage is the wordmark and page titles (`h1`,
 `.ui-t-page`) and the sign-in display — nothing else. Rank inside a screen
 still comes from size and weight.
 
-- **Display:** Bricolage Grotesque Variable (optical size auto), 700–800. In People it also sets large figures (count tiles, figure cards) via `--font-display`; tables, money and running text stay Inter.
-- **Everything else:** Inter — tabular figures, large x-height, wide weight range.
-- **Money:** Inter, `font-variant-numeric: tabular-nums` (inherited from `html`) — columns align to the digit, right-aligned.
-- **Code / voucher numbers:** Inter with ligatures off (`.ui-mono`); marked by alignment and context, not a second typeface.
+- **Words (outside Accounting):** Plus Jakarta Sans Variable, 400–800. The wordmark/logo uses 800; page titles, card headers and UI labels use 700–800.
+- **Numbers (outside Accounting):** JetBrains Mono — metrics, counts, money figures, any displayed number. Tabular by default.
+- **Accounting:** Inter for everything (unchanged).
+- **Money:** JetBrains Mono, `font-variant-numeric: tabular-nums` (outside Accounting: inherited from `html` via `.font-mono`), right-aligned in tables.
+- **Code / voucher numbers:** JetBrains Mono with ligatures off (`.ui-mono`).
 
-### Scale
+### Scale (neon spec, 5–6 Nov 2026)
 | Role | Font | Size / line | Weight | Notes |
 |------|------|-------------|--------|-------|
-| Page title | Bricolage Grotesque | 24 / 29 | 700 | `letter-spacing: -.025em` |
-| Section title | Inter | 16 / 24 | 600 | |
-| Body, UI | Inter | 14 / 20 | 400–500 | |
-| Table cell | Inter | 13 / 18 | 400 | |
-| Money | Inter | 13 / 18 | 400 | tabular-nums, right-aligned |
-| Label, caption | Inter | 12 / 16 | 500 | `.04em`, uppercase |
+| Page / card title | Plus Jakarta Sans | 20 / 26 | 800 | |
+| Card header | Plus Jakarta Sans | 14 / 20 | 700 | |
+| Metric / figure | JetBrains Mono | 22 / 26 | 800 | `.ui-metric` |
+| Badge / label | Plus Jakarta Sans | 10px caps | 700 | `.04em`, uppercase |
+| Body, UI | Plus Jakarta Sans | 14 / 20 | 400–500 | |
+| Table cell | Plus Jakarta Sans | 13 / 18 | 400 | |
+| Money | JetBrains Mono | 13 / 18 | 400 | tabular-nums, right-aligned |
 
-All visible headings use weight 700. Table headings use the shared lilac
-header surface and step to the next tint on hover, so sortable and filterable
-columns provide a clear cursor response without introducing another colour.
-
-Nothing below 12px. Nothing between 16 and 24.
+All visible headings use weight 700–800. Nothing below 12px (10px badge is a cap-height label, not running text).
 
 ## Color
 - **Pure white and neon (owner, 5–6 Nov 2026) — current for every app but Accounting. Light only: there is no dark mode anywhere (`useTheme` stamps `data-theme="light"`; the dark token blocks below are inert history).** One neon per app on a pure white canvas; the red brand below survives only as the token names the neon blocks restate (`--red` = the app's neon, `--oxblood` = its deep ink, `--blush` = its 5% tint), and Accounting keeps its indigo.
@@ -138,6 +136,7 @@ Nothing below 12px. Nothing between 16 and 24.
   - People extras: Peach `#FF6D00` for what waits, milestones and birthdays (a fill or edge, never text); Mulberry `#7C3AED` for org-chart connections.
   - **Sidebar (owner, 6 Nov 2026):** the app rail is 64px, the module's screens 180px, the work area fluid. The module you are in: a 3px neon bar at the rail's edge on a 5% neon wash, its name in the deep ink, weight 700. The screen you are on: weight 700, deep ink on the tint. A long screen name ends in an ellipsis and keeps its whole name as the tooltip; a rail module too long for 64px gives a `short` name in its manifest (People's Organisation shows "Org").
   - People's own colour stays Pitaya Coral (owner, 6 Nov 2026: "keep previous color do not change to violet"), though the later spec named Hyper Iris Violet `#6366F1`.
+- **Logo colours:** orange `#FF5400` ribbon C + O (`--logo-mark-orange`), slate `#0F172A` L + R (`--logo-mark-slate`), orange dot (`--logo-dot`). Shared across all apps; Accounting's `indigo` palette does not override logo tokens.
 - **Approach:** restrained. The red brand (owner, 3 Nov 2026: "go with red combination"; supersedes Direction D's indigo) — six colours, each with one job. Tokens in `packages/ui/src/index.css` (platform), `people.css` (People) and the `blaze` palette block (Attendance).
 - **CLOR Red `#C8102E`** (`--red`, `--brand`): what you press, and the app icon's tile — the primary action, the open tab's line, the focus ring. White on it 5.9:1. As words it is `#A50D26` (`--brand-ink`, `--link`, 7.8:1 on white, 6.6:1 on blush); hover `#A50D26`, pressed `#8A0B20`.
 - **Oxblood `#5C0A16`** (`--oxblood`, `--brand-deep`): the deep brand — the logo's letters, People's rail, headings in People, a solid block (Home's greeting, the record's header, an open view tab, the rail's open module pill). White on it 13.9:1.

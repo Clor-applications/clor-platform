@@ -71,6 +71,6 @@ describe('type and sidebar', () => {
     expect(tail).toMatch(/background: rgb\(var\(--neon\) \/ 0\.05\) !important/);
     expect(tail).toMatch(/width: 3px !important;[^}]*background: rgb\(var\(--neon\)\) !important/);
     expect(tail).toMatch(/\.ui-split-panel:not\(\.ui-nav-sheet-split \*\) \{ width: 11\.25rem !important/);
-    expect(tail).toMatch(/\.ui-split-item\[aria-current='page'\] \{\n  background: rgb\(var\(--blush\)\) !important;\n  color: rgb\(var\(--oxblood\)\) !important;\n  font-weight: 700/);
+    expect(tail).toMatch(/\.ui-split-item\[aria-current='page'\] \{\n {2}background: rgb\(var\(--blush\)\) !important;\n {2}color: rgb\(var\(--oxblood\)\) !important;\n {2}font-weight: 700/);
   });
 });

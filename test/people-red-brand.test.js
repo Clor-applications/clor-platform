@@ -196,6 +196,35 @@ describe('a chosen view is marigold ("use different color like green or orange")
   });
 });
 
+describe('the logo is the orange ribbon-arc C-mark (neon brand, 6 Nov 2026)', () => {
+  const logo = read('packages/ui/src/components/brand/ClorLogo.jsx');
+  const mark = read('packages/ui/src/components/brand/ClorMark.jsx');
+
+  it('clorPaths.js is retired — the logo is now the ribbon arc, not letter outlines', () => {
+    expect(() => read('packages/ui/src/components/brand/clorPaths.js')).toThrow();
+    /* ClorMark is the icon; ClorLogo composes it with "LOR" text */
+    expect(mark).toContain('viewBox="10 0 60 60"');
+    expect(mark).toContain('translate(-4, -6)');
+    expect(logo).toContain('ClorMark');
+    expect(logo).toContain('LOR');
+  });
+
+  it('paints from --logo-mark-orange (255 84 0) — no more oxblood or marigold in the mark', () => {
+    expect(mark).toContain('var(--logo-mark-orange, 255 84 0)');
+    expect(mark).not.toContain('92 10 22');   /* oxblood gone */
+    expect(mark).not.toContain('245 166 35'); /* marigold gone */
+  });
+
+  it('nothing draws the retired C-tick any more', () => {
+    expect(() => read('packages/ui/src/components/brand/ClorTick.jsx')).toThrow();
+    /* icon.svg is now the orange C-mark tile, not the red square */
+    const icon = read('public/icon.svg');
+    expect(icon).toContain('#FF5400');
+    expect(icon).not.toContain('#C8102E');
+    expect(icon).not.toContain('M74.04 25.96');
+  });
+});
+
 describe("DESIGN.md's shapes and type floor in People", () => {
   it('buttons, fields and tabs take 8px; nothing pressable is a 999px pill', () => {
     expect(people).toMatch(/\[data-palette='sky'\] \{\n\s*--radius-btn: 0\.5rem;\n\s*--radius-input: 0\.5rem;/);
