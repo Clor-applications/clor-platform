@@ -54,15 +54,21 @@ export default function LeaveCalendar() {
   const [dept, setDept] = useState('');
   const req = useRequest(
     () => Promise.all([listLeaveRequests({ month }), listHolidays(month.slice(0, 4)).catch(() => []), getWorkingWeek().catch(() => null), getWorkingAway(month).catch(() => [])])
-      .then(([r, h, week, working]) => ({ requests: r.filter((x) => ['APPROVED', 'PENDING'].includes(x.status)), holidays: h, week, working })),
+      .then(([r, h, week, working]) => ({ month, requests: r.filter((x) => ['APPROVED', 'PENDING'].includes(x.status)), holidays: h, week, working })),
     [month],
   );
-  const requests = req.data?.requests;
+  /*
+   * Only the open month's answer is drawn (UI audit, 7 Nov 2026). useRequest already lets the newest request win; this
+   * also keeps the last month's people off the new month's grid while it loads, and lets a failed month say so rather
+   * than sit behind the month before.
+   */
+  const data = req.data?.month === month ? req.data : undefined;
+  const requests = data?.requests;
 
   const days = daysIn(month);
-  const isOffDay = useMemo(() => offTest(req.data?.week), [req.data?.week]);
-  const holidayOn = useMemo(() => new Map((req.data?.holidays || []).filter((h) => h.date.startsWith(month) && !h.isOptional).map((h) => [h.date, h.name])), [req.data, month]);
-  const working = req.data?.working;
+  const isOffDay = useMemo(() => offTest(data?.week), [data?.week]);
+  const holidayOn = useMemo(() => new Map((data?.holidays || []).filter((h) => h.date.startsWith(month) && !h.isOptional).map((h) => [h.date, h.name])), [data, month]);
+  const working = data?.working;
   const departments = useMemo(() => [...new Set([...(requests || []), ...(working || [])].map((r) => r.department).filter(Boolean))].sort(), [requests, working]);
   const people = useMemo(() => {
     const byPerson = new Map();

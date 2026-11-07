@@ -276,10 +276,13 @@ function ReaderList({ readers, onTimeline }) {
               const st = STATUS[r.status] || STATUS.ok;
               const isOpen = openId === r.id;
               const full = fullest(r);
+              const detailId = `reader-detail-${r.id}`;
+              const toggle = () => setOpenId(isOpen ? null : r.id);
               const drift = r.clockOffsetSec !== null && r.clockOffsetSec !== undefined && Math.abs(r.clockOffsetSec) >= 120;
               return (
                 <React.Fragment key={r.id}>
-                  <tr className="ui-row-click" onClick={() => setOpenId(isOpen ? null : r.id)} aria-expanded={isOpen}>
+                  {/* The row click is a convenience for the mouse; the button in the last cell is the control (UI audit, 7 Nov 2026). */}
+                  <tr className="ui-row-click" onClick={toggle}>
                     <td className="ui-col-entity">
                       <span className="flex items-center gap-2">
                         <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: st.dot }} aria-hidden="true" />
@@ -310,11 +313,20 @@ function ReaderList({ readers, onTimeline }) {
                       ) : <span className="ui-caption">Nothing</span>}
                     </td>
                     <td className="ui-col-meta">
-                      <ChevronDown size={16} aria-hidden="true" style={{ transform: isOpen ? 'rotate(180deg)' : undefined, transition: 'transform 120ms' }} />
+                      <button
+                        type="button"
+                        className="ui-icon-btn"
+                        aria-expanded={isOpen}
+                        aria-controls={isOpen ? detailId : undefined}
+                        aria-label={`${r.name}: details`}
+                        onClick={(e) => { e.stopPropagation(); toggle(); }}
+                      >
+                        <ChevronDown size={16} aria-hidden="true" style={{ transform: isOpen ? 'rotate(180deg)' : undefined, transition: 'transform 120ms' }} />
+                      </button>
                     </td>
                   </tr>
                   {isOpen ? (
-                    <tr>
+                    <tr id={detailId}>
                       <td colSpan={8} className="!p-0 whitespace-normal" style={{ backgroundColor: 'rgb(var(--surface-sunken))' }}>
                         <div className="flex justify-end px-4 pt-3">
                           <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => onTimeline(r)}><History size={14} aria-hidden="true" /> Timeline</button>

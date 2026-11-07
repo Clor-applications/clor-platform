@@ -166,7 +166,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
       const filter = scope === 'all' ? { status: 'CURRENT' } : scope === 'selected' && !viaFilters ? { ids: [...selected].join(',') } : { ...apiParams(p), ...(tab === 'team' ? { team: 'mine' } : {}) };
       if (viaFilters) notify.info(`Exporting the ${total} people the filters match, which are the rows ticked.`);
       const text = await exportEmployees({ ...filter, columns: columns.join(',') });
-      downloadText(text, `employees-${new Date().toISOString().slice(0, 10)}.csv`);
+      downloadText(text, `employees-${todayIst()}.csv`);
       notify.success('Exported.');
     } catch (e) {
       notify.error(String(e?.message || 'Export failed.'));

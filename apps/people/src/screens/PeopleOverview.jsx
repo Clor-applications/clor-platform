@@ -19,6 +19,7 @@ import {
   SealCheck,
   SignOut,
   UsersThree,
+  WarningCircle,
 } from '@phosphor-icons/react';
 
 import { SkeletonCard } from '@ui/components/ui/Primitives';
@@ -27,7 +28,7 @@ import { approveLeave, listLeaveRequests } from '@ui/timeOff/api';
 import { listRecords } from '../api/workspace';
 import { symbolOf } from './symbols';
 import { notify } from '@ui/components/ui/notify';
-import { formatDateIn } from '@ui/utils/dates';
+import { formatDateIn, todayIst } from '@ui/utils/dates';
 import { platformContext } from '@platform/context';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { can } from '../workforce/shared';
@@ -48,10 +49,8 @@ const greeting = () => {
   const h = new Date().getHours();
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 };
-const isoToday = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+/* The business day is India's, whatever the browser's clock zone: who is out today, and today's headcount. */
+const isoToday = todayIst;
 const shortDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 const dayDate = (d) => new Date(d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 const monthName = () => new Date().toLocaleDateString('en-IN', { month: 'long' });
@@ -185,6 +184,38 @@ function PanelHead({ id, icon: Icon, tint, title, action = null }) {
   );
 }
 
+/*
+ * A card whose request failed (UI audit, 7 Nov 2026): said as a failure with a way to try again, never drawn as an empty
+ * answer. "All caught up" or "Everyone is in today" over a list that never arrived tells the owner nothing waits when it may.
+ */
+function CardFailed({ what, onRetry, role = 'status' }) {
+  /* Polite by default: several side cards failing at once must not interrupt a screen reader in turn. "Waiting for you" alerts. */
+  return (
+    <div className="people-empty flex flex-wrap items-center gap-2" role={role}>
+      <WarningCircle size={16} weight="bold" aria-hidden="true" style={{ color: 'rgb(var(--neg))' }} />
+      <span className="min-w-0 flex-1">Could not load {what}. It may not be complete.</span>
+      <button type="button" className="soft-chip" onClick={onRetry}>Retry</button>
+    </div>
+  );
+}
+
+/*
+ * One card's request: the answer into its state, or the failure into `failed`. A refusal (403) is an answer, not a
+ * failure: a module switched off or a list this reader may not open is simply empty for them, as before.
+ */
+function loadCard(key, request, set, setFailed, inFlight) {
+  /* One request per card at a time: a second Retry before the first answers asks nothing again. */
+  if (inFlight.has(key)) return Promise.resolve();
+  inFlight.add(key);
+  setFailed((f) => (f[key] ? { ...f, [key]: false } : f));
+  set(null);
+  return request().then(set, (e) => {
+    if (Number(e?.status) === 403) return set([]);
+    setFailed((f) => ({ ...f, [key]: true }));
+    return undefined;
+  }).finally(() => inFlight.delete(key));
+}
+
 /* Sections rise into place as they first scroll into view; once shown they stay. */
 function useReveal() {
   const root = useRef(null);
@@ -250,6 +281,8 @@ export default function PeopleOverview({ openScreen }) {
   const [events, setEvents] = useState(null);
   /* Final pay due for leavers whose last day has come (WORKFLOW-GAP-RESEARCH 4.3). */
   const [finalPay, setFinalPay] = useState([]);
+  const [failed, setFailed] = useState({});
+  const inFlight = useRef(new Set()).current;
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const revealRoot = useReveal();
@@ -259,7 +292,19 @@ export default function PeopleOverview({ openScreen }) {
   /* The setup list replaces "All caught up" while it is showing (HomeSetup). */
   const [setupShowing, setSetupShowing] = useState(false);
   const onSetup = useCallback((d) => setSetupShowing(Boolean(d?.setup?.show)), []);
-  const loadTasks = () => listMyTasks().then(setTasks).catch(() => setTasks([]));
+  const loadTodos = () => loadCard('todos', getPeopleHome, setTodos, setFailed, inFlight);
+  const loadTasks = () => loadCard('tasks', listMyTasks, setTasks, setFailed, inFlight);
+  const loadLeave = () => loadCard('leave', listLeaveRequests, setLeave, setFailed, inFlight);
+  const loadPeople = () => loadCard('people', () => listEmployees({ limit: 500 }).then((r) => (r?.employees || []).filter((p) => p.status !== 'LEFT')), setPeople, setFailed, inFlight);
+  const loadNews = () => loadCard('news', () => listRecords('announcements'), setNews, setFailed, inFlight);
+  const loadEvents = () => loadCard('events', () => listRecords('events'), setEvents, setFailed, inFlight);
+  const loadFinalPay = () => loadCard('finalPay', finalPayList, (v) => setFinalPay(v || []), setFailed, inFlight);
+  /* "Waiting for you" reads three lists; its Retry asks again only for those that failed. */
+  const retryWaiting = () => {
+    if (failed.todos) loadTodos();
+    if (failed.tasks) loadTasks();
+    if (failed.leave) loadLeave();
+  };
   const tick = async (t) => {
     try {
       await updateChecklistTask(t.id, { done: true });
@@ -286,24 +331,19 @@ export default function PeopleOverview({ openScreen }) {
     getOverview()
       .then(setData)
       .catch((e) => setError(String(e?.message || 'Could not load the overview.')));
-    getPeopleHome()
-      .then(setTodos)
-      .catch(() => setTodos([]));
-    listEmployees({ limit: 500 })
-      .then((r) => setPeople((r?.employees || []).filter((p) => p.status !== 'LEFT')))
-      .catch(() => setPeople([]));
-    listLeaveRequests()
-      .then(setLeave)
-      .catch(() => setLeave([]));
-    /* Engage may be switched off for the company: then both lists are simply empty. */
-    listRecords('announcements').then(setNews).catch(() => setNews([]));
-    listRecords('events').then(setEvents).catch(() => setEvents([]));
-    finalPayList().then(setFinalPay).catch(() => setFinalPay([]));
+    loadTodos();
+    loadPeople();
+    loadLeave();
+    /* Engage may be switched off for the company (a 403): then both lists are simply empty. */
+    loadNews();
+    loadEvents();
+    loadFinalPay();
     loadTasks();
     /* Opened from the Monday summary's e-mail: counted once (PRODUCT-VIEW §7). */
     try {
       if (new URLSearchParams(window.location.search).get('from') === 'weekly') summaryOpened().catch(() => {});
     } catch { /* no address to read */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the first load only; each card reloads itself on Retry
   }, []);
   const go = (screen, params) => () => openScreen?.(screen, params);
   const openPerson = (id) => () => openScreen?.('employee', { id });
@@ -332,7 +372,9 @@ export default function PeopleOverview({ openScreen }) {
   /* Everything waiting in the one Approvals inbox (leave, attendance requests, field punches, overtime, People approvals):
      Home's to-dos that open it carry its counts. Leave stays the detail line. Until they load, leave alone. */
   const inboxTodos = (todos || []).filter((t) => t.screen === 'approvals');
-  const waiting = todos ? inboxTodos.reduce((n, t) => n + (Number(t.count) || 0), 0) : pending.length;
+  /* Unknown (null) while the inbox count failed: never a confident nought. */
+  const waiting = todos ? inboxTodos.reduce((n, t) => n + (Number(t.count) || 0), 0) : failed.todos ? null : pending.length;
+  const waitFailed = Boolean(failed.todos || failed.tasks || failed.leave);
   const outToday = (leave || []).filter((r) => r.status === 'APPROVED' && r.fromDate <= today && r.toDate >= today);
   const onNotice = data.byStatus.ON_NOTICE || 0;
   const tenure = averageTenure(people || []);
@@ -355,7 +397,7 @@ export default function PeopleOverview({ openScreen }) {
           <span className="soft-band-eyebrow">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
           <h1 className="soft-band-title">{firstName ? `${greeting()}, ${firstName}` : greeting()}</h1>
           <p className="soft-band-sub">
-            {waiting ? <>You have <strong>{plural(waiting, 'request')}</strong> to answer</> : <>Nothing waits for your answer</>}
+            {waiting === null ? <>Could not check what waits for your answer</> : !todos && !leave ? <>Checking what waits for your answer</> : waiting ? <>You have <strong>{plural(waiting, 'request')}</strong> to answer</> : <>Nothing waits for your answer</>}
             {leave ? <> and <strong data-zero={outToday.length === 0 || undefined}>{plural(outToday.length, 'person', 'people')}</strong> {outToday.length === 1 ? 'is' : 'are'} out today.</> : '.'}
           </p>
         </div>
@@ -372,6 +414,7 @@ export default function PeopleOverview({ openScreen }) {
         </div>
       </header>
       <HomeCheckIn />
+      {failed.finalPay ? <CardFailed what="the final pay that is due" onRetry={loadFinalPay} /> : null}
       {finalPay.length ? (
         <section aria-label="Final pay due" className="space-y-2" data-reveal style={{ '--i': 1 }}>
           {finalPay.length === 1 ? (
@@ -398,12 +441,12 @@ export default function PeopleOverview({ openScreen }) {
                   </span>
                 ) : null}
               </span>
-              <span className="soft-band-stat-note">{leave ? `${data.headcount - outToday.length} of ${data.headcount} at work` : 'Loading leave'}</span>
+              <span className="soft-band-stat-note">{leave ? `${data.headcount - outToday.length} of ${data.headcount} at work` : failed.leave ? 'Could not load leave' : 'Loading leave'}</span>
             </button>
             <button type="button" className="soft-band-stat" data-tint="peach" data-attention={waiting > 0 || undefined} onClick={go('approvals')}>
               <span className="soft-band-stat-label"><SealCheck size={16} aria-hidden="true" /> To approve</span>
-              <span className="soft-band-stat-value" data-zero={((todos || leave) && waiting === 0) || undefined}>{todos || leave ? waiting : '–'}</span>
-              <span className="soft-band-stat-note">{pending.length ? `${plural(pending.length, 'leave request')}, next starts ${dayDate(pending[0].fromDate)}` : waiting ? 'No leave among them' : 'Nothing to approve'}</span>
+              <span className="soft-band-stat-value" data-zero={((todos || leave) && waiting === 0 && !waitFailed) || undefined}>{(todos || leave) && waiting !== null ? waiting : '–'}</span>
+              <span className="soft-band-stat-note">{pending.length ? `${plural(pending.length, 'leave request')}, next starts ${dayDate(pending[0].fromDate)}` : failed.leave ? 'Leave could not load' : waiting === null ? 'Could not load' : !todos && !leave ? 'Checking' : waiting ? 'No leave among them' : 'Nothing to approve'}</span>
             </button>
             {/* The company keeps who is leaving from this reader (Company choices): no leaving figures. */}
             {data.leavingsHidden ? null : (
@@ -437,7 +480,8 @@ export default function PeopleOverview({ openScreen }) {
                   ))}
                 </ul>
               ) : null}
-              {!todos ? (
+              {waitFailed ? <CardFailed what={failed.todos ? 'what waits for you' : failed.leave ? 'the leave waiting for you' : 'your tasks'} onRetry={retryWaiting} role="alert" /> : null}
+              {failed.todos ? null : !todos ? (
                 <div className="p-4"><SkeletonCard lines={2} /></div>
               ) : otherTodos.length ? (
                 <ul className="people-list">
@@ -457,7 +501,7 @@ export default function PeopleOverview({ openScreen }) {
                     </li>
                   ))}
                 </ul>
-              ) : !pending.length ? (
+              ) : !pending.length && !waitFailed ? (
                 <p className="people-empty">{setupShowing ? 'Nothing waits for you yet. Start with the steps below.' : <><strong>All caught up</strong>. Nothing needs your answer right now.</>}</p>
               ) : null}
             </section>
@@ -503,7 +547,7 @@ export default function PeopleOverview({ openScreen }) {
                     </li>
                   ))}
                 </ul>
-              ) : (
+              ) : failed.leave ? <CardFailed what="who is out today" onRetry={loadLeave} /> : (
                 <p className="people-empty">{leave ? 'Everyone is in today.' : 'Loading leave…'}</p>
               )}
             </section>
@@ -516,9 +560,9 @@ export default function PeopleOverview({ openScreen }) {
                 <div className="soft-snap-growth">
                   <div className="flex items-baseline gap-2">
                     <span className="soft-snap-value">{data.headcount}</span>
-                    <span className="soft-note">people, grown from {growth[0]?.count ?? 0} in {growth[0]?.label || 'the start'}</span>
+                    {people ? <span className="soft-note">people, grown from {growth[0]?.count ?? 0} in {growth[0]?.label || 'the start'}</span> : <span className="soft-note">people</span>}
                   </div>
-                  <GrowthChart points={growth} />
+                  {failed.people ? <CardFailed what="the company figures" onRetry={loadPeople} /> : <GrowthChart points={growth} />}
                   <div className="soft-team-bar" role="img" aria-label={depts.map((d) => `${d.name} ${d.count}`).join(', ')}>
                     {depts.map((d) => <span key={d.name} title={`${d.name}: ${d.count}`} style={{ flexGrow: d.count, '--dept': `var(--dept-${colourOf(d.name)})` }} />)}
                   </div>
@@ -529,6 +573,7 @@ export default function PeopleOverview({ openScreen }) {
                     {depts.length > 6 ? <li className="ui-caption">+{depts.length - 6} more</li> : null}
                   </ul>
                 </div>
+                {failed.people ? null : (
                 <div className="soft-snap-side">
                   <div className="soft-insight">
                     <span className="soft-label">Gender mix</span>
@@ -558,6 +603,7 @@ export default function PeopleOverview({ openScreen }) {
                     </ul>
                   </div>
                 </div>
+                )}
               </div>
             </section>
           </Bezel>
@@ -584,7 +630,7 @@ export default function PeopleOverview({ openScreen }) {
                     </li>
                   ))}
                 </ul>
-              ) : (
+              ) : failed.news ? <CardFailed what="announcements" onRetry={loadNews} /> : (
                 <p className="people-empty">{news ? 'Nothing posted yet. Share news, a policy change or a welcome.' : 'Loading…'}</p>
               )}
             </section>
@@ -612,7 +658,7 @@ export default function PeopleOverview({ openScreen }) {
                     );
                   })}
                 </ul>
-              ) : (
+              ) : failed.events ? <CardFailed what="events" onRetry={loadEvents} /> : (
                 <p className="people-empty">{events ? 'No events planned. A Fun Friday is a good start.' : 'Loading…'}</p>
               )}
             </section>
@@ -652,9 +698,11 @@ export default function PeopleOverview({ openScreen }) {
                     </li>
                   ))}
                 </ul>
-              ) : (
+              ) : failed.people ? null : (
                 <p className="people-empty">Nothing to celebrate in the next 30 days.</p>
               )}
+              {/* Work anniversaries come from the directory: when it failed, say so rather than leave them out. */}
+              {failed.people ? <CardFailed what="work anniversaries" onRetry={loadPeople} /> : null}
             </section>
           </Bezel>
         </aside>
