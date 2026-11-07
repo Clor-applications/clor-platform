@@ -263,7 +263,7 @@ export default function MonthClose({ openScreen, params }) {
             </ul>
           </section>
 
-          {held && !data.closed ? <HeldPunches canDecide={canClose} onChanged={load} /> : null}
+          {held && !data.closed ? <HeldPunches canDecide={canClose} onChanged={load} month={month} key={month} /> : null}
 
           {teamOnly ? (
             <p className="ui-caption px-1" role="note">These are your team’s days. Closing or reopening the month is done by someone who sees the whole company.</p>

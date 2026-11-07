@@ -61,7 +61,7 @@ import {
 import { DEFAULT_RULES, KINDS, KIND_WORDS, askRequest, cancelRequest, decideRequest, editRequest, rulesFor, saveRules, shiftChoices, story, usage, type Kind } from '../services/attendance/requests.js';
 import { CHAINS } from '../services/attendance/approvalChain.js';
 import { nightShiftsOn, timesOn } from '../services/attendance/nightShift.js';
-import { clockDateFor, decideHeldPunch } from '../services/attendance/punches.js';
+import { clockDateFor, decideHeldPunch, decideHeldPunches, FUTURE_TOLERANCE_MS } from '../services/attendance/punches.js';
 import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
 import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/attendance/suggestions.js';
 import { recordAudit } from '../services/auditTrail.js';
@@ -635,21 +635,77 @@ attendanceRouter.put('/orgs/:orgId/attendance/start-date', can(PermissionAction.
 /* Whoever looks after readers, and whoever closes months (the held punches block a close); a team role only its team's (review of #144). */
 const heldView = requireAnyPermission([ATTENDANCE_MODULE, PermissionAction.VIEW, R.devices], [ATTENDANCE_MODULE, PermissionAction.APPROVE, R.records]);
 const heldDecide = requireAnyPermission([ATTENDANCE_MODULE, PermissionAction.EDIT, R.devices], [ATTENDANCE_MODULE, PermissionAction.APPROVE, R.records]);
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 attendanceRouter.get('/orgs/:orgId/attendance/held-punches', heldView, async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const scope = await teamScope(req);
-  const [held, impossible, devices] = await Promise.all([
-    peoplePrisma.devicePunch.findMany({ where: { orgId, reviewStatus: 'HELD', ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: { at: 'desc' }, take: 1000 }),
-    !scope.all ? Promise.resolve([]) : peoplePrisma.readerEvent.findMany({ where: { orgId, outcome: 'REJECTED', reason: 'Not a real date and time', receivedAt: { gte: new Date(Date.now() - 31 * 86_400_000) } }, orderBy: { receivedAt: 'desc' }, take: 500, select: { id: true, deviceId: true, pin: true, localTime: true, receivedAt: true } }),
+  /* Month close asks for its month only (by the time on the punch); Unmatched punches for all. */
+  const month = MONTH.test(String(req.query.month || '')) ? String(req.query.month) : null;
+  const where = {
+    orgId,
+    reviewStatus: 'HELD',
+    ...(month ? { localTime: { gte: `${month}-01 00:00:00`, lte: `${month}-31 23:59:59` } } : {}),
+    ...(scope.all ? {} : { employeeId: { in: scope.ids } }),
+  };
+  const due = new Date(Date.now() + FUTURE_TOLERANCE_MS);
+  const [held, total, perReader, countable, impossible, devices] = await Promise.all([
+    peoplePrisma.devicePunch.findMany({ where, orderBy: { at: 'desc' }, take: 1000 }),
+    peoplePrisma.devicePunch.count({ where }),
+    /* Every reader with held punches, however many there are: the bulk actions work from these, not from the 1000 listed. */
+    peoplePrisma.devicePunch.groupBy({ by: ['deviceId'], where, _count: { _all: true } }),
+    peoplePrisma.devicePunch.groupBy({ by: ['deviceId'], where: { ...where, at: { lte: due }, employeeId: scope.all ? { not: null } : { in: scope.ids } }, _count: { _all: true } }),
+    !scope.all || month ? Promise.resolve([]) : peoplePrisma.readerEvent.findMany({ where: { orgId, outcome: 'REJECTED', reason: 'Not a real date and time', receivedAt: { gte: new Date(Date.now() - 31 * 86_400_000) } }, orderBy: { receivedAt: 'desc' }, take: 500, select: { id: true, deviceId: true, pin: true, localTime: true, receivedAt: true } }),
     peoplePrisma.attendanceDevice.findMany({ where: { orgId }, select: { id: true, name: true, serialNumber: true } }),
   ]);
   const reader = new Map(devices.map((d) => [d.id, d.name || d.serialNumber]));
+  const canCount = new Map(countable.map((g) => [g.deviceId, g._count._all]));
   const named = await withNames(orgId, held.map((p) => ({ employeeId: p.employeeId })));
   res.json({
-    held: held.map((p, i) => ({ id: p.id, reader: reader.get(p.deviceId) || p.serialNumber, pin: p.pin, time: p.localTime, receivedAt: p.createdAt, employeeId: p.employeeId, employeeName: p.employeeId ? named[i]?.employeeName || null : null, reason: p.heldReason, due: p.at.getTime() <= Date.now() })),
+    month,
+    total,
+    readers: perReader
+      .map((g) => ({ deviceId: g.deviceId, reader: reader.get(g.deviceId) || '—', count: g._count._all, countable: canCount.get(g.deviceId) || 0 }))
+      .sort((a, b) => b.count - a.count),
+    held: held.map((p, i) => ({ id: p.id, deviceId: p.deviceId, reader: reader.get(p.deviceId) || p.serialNumber, pin: p.pin, time: p.localTime, receivedAt: p.createdAt, employeeId: p.employeeId, employeeName: p.employeeId ? named[i]?.employeeName || null : null, reason: p.heldReason, due: p.at.getTime() <= Date.now() })),
     impossible: impossible.map((x) => ({ id: x.id, reader: reader.get(x.deviceId) || '—', pin: x.pin, time: x.localTime, receivedAt: x.receivedAt })),
   });
+});
+
+/**
+ * Count or discard every held punch from one reader (and, from Month close, one month) at once
+ * (review of #144): a reader whose clock ran ahead for weeks leaves more than anyone can click
+ * through. A team role decides only its people's. One audit entry for the batch, with the counts.
+ */
+attendanceRouter.post('/orgs/:orgId/attendance/held-punches/bulk', heldDecide, async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const action = req.body?.action === 'release' ? 'release' : req.body?.action === 'discard' ? 'discard' : null;
+  const deviceId = typeof req.body?.deviceId === 'string' ? req.body.deviceId : '';
+  const month = req.body?.month == null || req.body.month === '' ? null : String(req.body.month);
+  if (!action) return res.status(400).json({ error: 'Say whether to count or discard them.' });
+  if (!deviceId) return res.status(400).json({ error: 'Choose the reader.' });
+  if (month && !MONTH.test(month)) return res.status(400).json({ error: 'The month should look like 2026-10.' });
+  const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: deviceId, orgId }, select: { id: true, name: true, serialNumber: true } });
+  if (!device) return res.status(404).json({ error: 'No such reader.' });
+  const scope = await teamScope(req);
+  try {
+    const out = await peopleWrite(orgId, () => decideHeldPunches(orgId, { deviceId, month, employeeIds: scope.all ? null : scope.ids }, action));
+    const done = action === 'release' ? out.counted : out.discarded;
+    if (done) {
+      const name = device.name || device.serialNumber;
+      await recordAudit(req, {
+        entity: 'DEVICE_PUNCH',
+        entityId: device.id,
+        action: action === 'release' ? 'APPROVE' : 'REJECT',
+        message: `${done} held reader punch${done === 1 ? ' was' : 'es were'} ${action === 'release' ? 'counted' : 'discarded'} from ${name}${month ? ` for ${month}` : ''}`,
+        metadata: { deviceId: device.id, month, action, ...out, teamOnly: !scope.all },
+      });
+    }
+    res.json(out);
+  } catch (e) {
+    return sendError(res, e);
+  }
 });
 
 const decideHeld = (action: 'release' | 'discard') => async (req: any, res: any) => {

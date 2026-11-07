@@ -64,8 +64,10 @@ export const setAttendanceStartDate = (date) => send('/start-date', 'PUT', { dat
 export const getWebClock = () => get('/clock/settings');
 export const saveWebClock = (body) => send('/clock/settings', 'PUT', body);
 /** Reader punches held for review (a time ahead of the server's) and lines with a date that does not exist (audit #11). */
-export const getHeldPunches = () => get('/held-punches');
+export const getHeldPunches = (month) => get(`/held-punches${month ? `?month=${encodeURIComponent(month)}` : ''}`);
 export const decideHeldPunch = (id, action) => send(`/held-punches/${encodeURIComponent(id)}/${action}`, 'POST', {});
+/** Count or discard every held punch from one reader, optionally one month's only (review of #144). */
+export const decideHeldPunches = ({ action, deviceId, month = null }) => send('/held-punches/bulk', 'POST', { action, deviceId, month });
 /** Reopen a closed month; `reason` (5+ characters) goes in the audit log. */
 export const reopenMonth = (month, reason) => send(`/months/${encodeURIComponent(month)}/reopen`, 'POST', { reason });
 

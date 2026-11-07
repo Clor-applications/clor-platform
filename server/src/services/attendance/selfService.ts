@@ -46,14 +46,17 @@ export type AttentionItem = {
 /** Past working days with something missing or waiting, newest first. */
 export async function attentionFor(e: Who, from: string, to: string): Promise<AttentionItem[]> {
   if (from > to) return [];
-  const [schedule, holidays, records, corrections, field, leave] = await Promise.all([
+  const [schedule, holidays, records, corrections, field, leave, settings] = await Promise.all([
     loadSchedule(e.orgId, [e.id]),
     loadHolidays(e.orgId, from, to),
     peoplePrisma.attendanceRecord.findMany({ where: { orgId: e.orgId, employeeId: e.id, date: { gte: from, lte: to } } }),
     peoplePrisma.attendanceRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: 'PENDING', date: { gte: from, lte: to } }, select: { date: true } }),
     peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: e.id, outsideSite: true, reviewStatus: 'PENDING', shiftDate: { gte: from, lte: to } }, select: { shiftDate: true, localTime: true } }),
     peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: 'PENDING', fromDate: { lte: to }, toDate: { gte: from } }, select: { fromDate: true, toDate: true } }),
+    peoplePrisma.attendanceSettings.findUnique({ where: { orgId: e.orgId }, select: { attendanceStartDate: true } }),
   ]);
+  /* Before the company's attendance start date a day with no record is not counted, so there is nothing to fix (audit #5). */
+  const start = settings?.attendanceStartDate || null;
   const mine = holidays.forArea(e.areaId, e.branchId);
   const byDate = new Map(records.map((r) => [r.date, r]));
   const fixing = new Set(corrections.map((c) => c.date));
@@ -72,8 +75,9 @@ export async function attentionFor(e: Who, from: string, to: string): Promise<At
       continue;
     }
     if (!working || leaveAsked(d)) continue;
-    if (!r) out.push({ date: d, kind: 'NO_PUNCHES', text: 'No punches on a working day', action: 'FIX' });
-    else if (r.status === 'ABSENT') out.push({ date: d, kind: 'ABSENT', text: 'Marked absent', action: 'FIX', checkIn: r.checkIn ? istTime(r.checkIn) : null });
+    if (!r) {
+      if (!start || d >= start) out.push({ date: d, kind: 'NO_PUNCHES', text: 'No punches on a working day', action: 'FIX' });
+    } else if (r.status === 'ABSENT') out.push({ date: d, kind: 'ABSENT', text: 'Marked absent', action: 'FIX', checkIn: r.checkIn ? istTime(r.checkIn) : null });
     else if (r.checkIn && !r.checkOut) out.push({ date: d, kind: 'NO_OUT', text: `In at ${istTime(r.checkIn)}, no punch out`, action: 'FIX', checkIn: istTime(r.checkIn) });
   }
   return out.reverse();

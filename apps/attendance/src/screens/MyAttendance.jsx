@@ -40,7 +40,7 @@ export default function MyAttendance() {
   const punch = async () => {
     setBusy(true);
     try {
-      const r = await clock();
+      const r = await clock(me?.webClock?.outOnly ? 'OUT' : undefined);
       notify.success(r.kind === 'IN' ? `Clocked in at ${r.record.checkInTime}.` : `Clocked out at ${r.record.checkOutTime}.`);
       load();
     } catch (e) {
@@ -72,6 +72,12 @@ export default function MyAttendance() {
   }
   if (!me) return <div className="space-y-3"><PageHeader entity="attendance" title="My attendance" /><div className="pb-8"><SkeletonCard lines={6} /></div></div>;
   const t = me.todayRecord;
+  /*
+   * A day this browser opened can always be closed here, even when the punch policy now sends this person
+   * to the phone or refuses the browser (review of #144): otherwise the day is left open with no way out.
+   */
+  const outOnly = Boolean(me.webClock?.outOnly);
+  const showClock = outOnly || (!me.phone?.allowed && me.webClock?.allowed !== false);
 
   return (
     <div className="space-y-3">
@@ -82,12 +88,12 @@ export default function MyAttendance() {
         <PhonePunch phone={me.phone} punches={me.punches} onPunch={phonePunch} onDone={load} />
       ) : null}
       <section className="ui-card flex flex-wrap items-center gap-4 p-4">
-        {!me.phone?.allowed && me.webClock?.allowed !== false ? <button type="button" className="ui-btn ui-btn-primary !h-12 !px-6 text-base" onClick={punch} disabled={busy}>
-          {me.clockedIn ? <LogOut size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}
-          {busy ? 'Saving…' : me.clockedIn ? 'Clock out' : 'Clock in'}
+        {showClock ? <button type="button" className="ui-btn ui-btn-primary !h-12 !px-6 text-base" onClick={punch} disabled={busy}>
+          {me.clockedIn || outOnly ? <LogOut size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}
+          {busy ? 'Saving…' : me.clockedIn || outOnly ? 'Clock out' : 'Clock in'}
         </button> : null}
         {/* The company's punch policy says this browser may not clock in (audit #6): say why, instead of a button the server refuses. */}
-        {!me.phone?.allowed && me.webClock?.allowed === false ? <p className="ui-caption basis-full" role="note">{me.webClock.why}</p> : null}
+        {outOnly || (!me.phone?.allowed && me.webClock?.allowed === false) ? <p className="ui-caption basis-full" role="note">{me.webClock.why}</p> : null}
         <dl className="flex flex-wrap gap-6 text-sm">
           <div><dt className="ui-t-label">Today</dt><dd>{me.today}</dd></div>
           <div><dt className="ui-t-label">In</dt><dd>{t?.checkInTime || '—'}</dd></div>

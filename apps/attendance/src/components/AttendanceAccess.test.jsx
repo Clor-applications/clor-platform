@@ -4,16 +4,17 @@ import { beforeEach, expect, it, vi } from 'vitest';
 
 import HeldPunches from './HeldPunches';
 import WebClockSettings from './WebClockSettings';
-import { decideHeldPunch, getHeldPunches, getWebClock, saveWebClock } from '../api/attendance';
+import { decideHeldPunch, decideHeldPunches, getHeldPunches, getWebClock, saveWebClock } from '../api/attendance';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 
 /*
  * Attendance audit, 7 Nov 2026: reader punches held for a look (#11) and
  * clock-in from a browser (#6).
  */
 vi.mock('../api/attendance', () => ({
-  getHeldPunches: vi.fn(), decideHeldPunch: vi.fn(), getWebClock: vi.fn(), saveWebClock: vi.fn(),
+  getHeldPunches: vi.fn(), decideHeldPunch: vi.fn(), decideHeldPunches: vi.fn(), getWebClock: vi.fn(), saveWebClock: vi.fn(),
 }));
-vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() }, confirmDialog: vi.fn() }));
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -44,6 +45,39 @@ it('lists held punches; Count waits until the time has come, Discard does not', 
   await waitFor(() => expect(decideHeldPunch).toHaveBeenCalledWith('p2', 'release'));
   fireEvent.click(within(rows[0]).getByRole('button', { name: /Discard/ }));
   await waitFor(() => expect(decideHeldPunch).toHaveBeenCalledWith('p1', 'discard'));
+});
+
+/* Review of #144: a reader whose clock ran ahead for weeks leaves more than anyone can click through. */
+it('counts or discards every held punch from one reader at once, for the month asked', async () => {
+  getHeldPunches.mockResolvedValue({
+    month: '2026-10',
+    total: 1600,
+    readers: [{ deviceId: 'd1', reader: 'Front gate', count: 1600, countable: 1550 }],
+    held: [{ id: 'p1', deviceId: 'd1', reader: 'Front gate', pin: '701', time: '2026-10-09 09:00:00', employeeName: 'Asha Rao', due: true }],
+    impossible: [],
+  });
+  confirmDialog.mockResolvedValue(true);
+  decideHeldPunches.mockResolvedValue({ counted: 1550, discarded: 0, notYet: 50, notMatched: 0, closedDays: 0, left: 50 });
+  render(<HeldPunches month="2026-10" />);
+  await waitFor(() => expect(getHeldPunches).toHaveBeenCalledWith('2026-10'));
+  expect(await screen.findByText(/Showing the latest/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: /Count all from this reader/ }));
+  await waitFor(() => expect(decideHeldPunches).toHaveBeenCalledWith({ action: 'release', deviceId: 'd1', month: '2026-10' }));
+  expect(confirmDialog.mock.calls[0][0].title).toMatch(/1,550 punches from Front gate/);
+  await waitFor(() => expect(notify.success).toHaveBeenCalledWith(expect.stringMatching(/1,550 punches counted\. 50 are still ahead of today\./)));
+
+  confirmDialog.mockResolvedValue(false);
+  fireEvent.click(screen.getByRole('button', { name: /Discard all/ }));
+  await waitFor(() => expect(confirmDialog).toHaveBeenCalledTimes(2));
+  expect(decideHeldPunches).toHaveBeenCalledTimes(1);
+});
+
+it('says when a counted punch’s day is in a closed month', async () => {
+  getHeldPunches.mockResolvedValue({ held: [{ id: 'p1', reader: 'Gate', pin: '701', time: '2026-09-09 09:00:00', employeeName: 'Asha Rao', due: true }], impossible: [] });
+  decideHeldPunch.mockResolvedValue({ status: 200, closedMonth: true, message: 'Counted. The day is in a closed month, so it was not changed — adjust in payroll.' });
+  render(<HeldPunches />);
+  fireEvent.click(await screen.findByRole('button', { name: /^Count$/ }));
+  await waitFor(() => expect(notify.success).toHaveBeenCalledWith('Counted. The day is in a closed month, so it was not changed — adjust in payroll.'));
 });
 
 it('offers no decisions to someone who may only look', async () => {

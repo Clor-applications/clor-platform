@@ -11,3 +11,9 @@
 - Evidence: attendanceAccess + attendanceMonthLock 25 passed and the attendance/payroll server set (50 files, 568 tests) on CI Postgres 5434; test:web 304 files / 2234 passed; tsc clean; eslint clean; e2e:smoke 44 passed; browser-checked Month close with a held punch (list, disabled close, Count clears it) and the browser clock-in drawer address rows at 1440 and 390.
 - Next: coordinator re-review.
 - Blocked on: nothing.
+
+## 2026-11-07 IST — Attendance — re-review fixes on #144
+- Did: bulk Count all / Discard all per reader for held punches (month-filtered on Month close, team-scoped, one audit line per batch, 5000 per call); held check counts matched punches only; held list no longer 500s on an unmatched punch (withNames skipped nulls); reader address limit per address for known readers, per block for unknown serials; unknown-reader remember uses a try-lock and skips when busy; start date refused only over final runs that used Attendance (ATTENDANCE input or pulled snapshot); attentionFor skips pre-start days; My attendance keeps Clock out when outOnly; Count in a closed month says so and leaves the day. Security CI: repo-wide compression/qs advisory, lockfile patch bump in server.
+- Evidence: CI Postgres 5434 sequential, 54 files / 615 tests (attendanceAccess 30, incl. 1,600 held punches counted in about 2.5 s); test:web 305 files / 2238; tsc and eslint clean; e2e:smoke 44 passed; browser-checked bulk Count all (6, then 1,200) on Month close at 1440 and 390.
+- Next: coordinator re-review once CI is green.
+- Blocked on: nothing.

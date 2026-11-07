@@ -287,6 +287,74 @@ export async function decideHeldPunch(orgId: string, id: string, action: 'releas
   /* Taken once: a second click (or a colleague's) finds it no longer held. */
   const taken = await peoplePrisma.devicePunch.updateMany({ where: { id, orgId, reviewStatus: 'HELD' }, data: { reviewStatus: null, heldReason: null, shiftDate } });
   if (!taken.count) return { status: 404 as const, error: 'No such held punch.' };
-  await recomputeDeviceDay(emp.accountId, orgId, { id: emp.id, branchId: emp.branchId, areaId: emp.areaId }, shiftDate);
-  return { status: 200 as const, punch: { id, review: null, shiftDate } };
+  /* A closed month keeps its days: the punch counts from now on, but the day is not worked out again (recomputeDeviceDay). Say so. */
+  const closed = (await closedMonths(orgId, [shiftDate.slice(0, 7)])).size > 0;
+  if (!closed) await recomputeDeviceDay(emp.accountId, orgId, { id: emp.id, branchId: emp.branchId, areaId: emp.areaId }, shiftDate);
+  return { status: 200 as const, punch: { id, review: null, shiftDate }, closedMonth: closed, message: closed ? CLOSED_MONTH_COUNTED : 'Counted. The day is worked out again.' };
+}
+
+export const CLOSED_MONTH_COUNTED = 'Counted. The day is in a closed month, so it was not changed — adjust in payroll.';
+
+/** Which held punches a bulk decision takes: one reader's, optionally one month's (by the time on the punch), optionally only some people's. */
+export type HeldFilter = { deviceId: string; month?: string | null; employeeIds?: string[] | null };
+export const heldWhere = (orgId: string, f: HeldFilter) => ({
+  orgId,
+  reviewStatus: 'HELD',
+  deviceId: f.deviceId,
+  ...(f.month ? { localTime: { gte: `${f.month}-01 00:00:00`, lte: `${f.month}-31 23:59:59` } } : {}),
+  ...(f.employeeIds ? { employeeId: { in: f.employeeIds } } : {}),
+});
+
+/** At most this many punches per bulk decision; the answer says how many are left. */
+export const HELD_BULK_MAX = 5000;
+
+/**
+ * Count or discard every held punch from one reader at once (review of #144): a reader whose clock ran
+ * ahead for weeks can leave thousands, and a month cannot close until each is decided. Count takes only
+ * punches whose time has come and whose reader ID matches someone; the rest stay held and are counted
+ * in the answer. Each punch is taken once (a colleague deciding the same ones at the same time gets the
+ * rest), and each person's day is worked out once however many of its punches were counted.
+ */
+export async function decideHeldPunches(orgId: string, f: HeldFilter, action: 'release' | 'discard') {
+  const where = heldWhere(orgId, f);
+  if (action === 'discard') {
+    const ids = (await peoplePrisma.devicePunch.findMany({ where, select: { id: true }, orderBy: { at: 'asc' }, take: HELD_BULK_MAX })).map((p) => p.id);
+    const done = ids.length ? await peoplePrisma.devicePunch.updateMany({ where: { id: { in: ids }, orgId, reviewStatus: 'HELD' }, data: { reviewStatus: 'REJECTED' } }) : { count: 0 };
+    const left = await peoplePrisma.devicePunch.count({ where });
+    return { counted: 0, discarded: done.count, notYet: 0, notMatched: 0, closedDays: 0, left };
+  }
+  const due = new Date(Date.now() + FUTURE_TOLERANCE_MS);
+  const [punches, notYet, notMatched] = await Promise.all([
+    peoplePrisma.devicePunch.findMany({ where: { ...where, employeeId: { not: null, ...(f.employeeIds ? { in: f.employeeIds } : {}) }, at: { lte: due } }, select: { id: true, employeeId: true, localTime: true }, orderBy: { at: 'asc' }, take: HELD_BULK_MAX }),
+    peoplePrisma.devicePunch.count({ where: { ...where, at: { gt: due } } }),
+    /* A team role sees only its people's, so none of its punches are unmatched. */
+    f.employeeIds ? Promise.resolve(0) : peoplePrisma.devicePunch.count({ where: { ...where, employeeId: null } }),
+  ]);
+  const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(punches.map((p) => p.employeeId!))] } }, select: { id: true, accountId: true, branchId: true, areaId: true } })).map((e) => [e.id, e]));
+  /* The shift day of each, then one update per (person, day). */
+  const groups = new Map<string, { employeeId: string; shiftDate: string; ids: string[] }>();
+  for (const p of punches) {
+    if (!people.has(p.employeeId!)) continue;
+    const shiftDate = await shiftDayFor(orgId, p.employeeId!, p.localTime);
+    const key = `${p.employeeId}|${shiftDate}`;
+    const g = groups.get(key) || { employeeId: p.employeeId!, shiftDate, ids: [] };
+    g.ids.push(p.id);
+    groups.set(key, g);
+  }
+  const closed = await closedMonths(orgId, [...new Set([...groups.values()].map((g) => g.shiftDate.slice(0, 7)))]);
+  let counted = 0;
+  let closedDays = 0;
+  for (const g of groups.values()) {
+    const taken = await peoplePrisma.devicePunch.updateMany({ where: { id: { in: g.ids }, orgId, reviewStatus: 'HELD' }, data: { reviewStatus: null, heldReason: null, shiftDate: g.shiftDate } });
+    if (!taken.count) continue;
+    counted += taken.count;
+    if (closed.has(g.shiftDate.slice(0, 7))) {
+      closedDays += 1;
+      continue;
+    }
+    const emp = people.get(g.employeeId)!;
+    await recomputeDeviceDay(emp.accountId, orgId, { id: emp.id, branchId: emp.branchId, areaId: emp.areaId }, g.shiftDate);
+  }
+  const left = await peoplePrisma.devicePunch.count({ where });
+  return { counted, discarded: 0, notYet, notMatched, closedDays, left };
 }

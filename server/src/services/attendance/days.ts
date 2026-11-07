@@ -171,14 +171,24 @@ export async function payrollTaken(orgId: string, employeeId: string, date: stri
   return { period: periods.find((p) => p.id === run.periodId)?.name || date.slice(0, 7), state: run.status };
 }
 
-/** A final payroll run (approved, locked, paid or posted) over any day from `from` to `to`, or null. For a change to many people's days at once. */
+/**
+ * A final payroll run (approved, locked, paid or posted) over any day from `from` to `to` that took its
+ * days from Attendance, or null. For a change to many people's days at once. A run whose inputs were all
+ * typed in or imported never read the days, so changing them takes nothing from it (review of #144): it
+ * counts only with an input from Attendance or a pulled Attendance snapshot.
+ */
 export async function payrollTakenBetween(orgId: string, from: string, to: string): Promise<{ period: string; state: string } | null> {
   const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lte: to }, endDate: { gte: from } }, select: { id: true, name: true, startDate: true } });
   if (!periods.length) return null;
-  const run = await payrollPrisma.payrollRun.findFirst({ where: { orgId, periodId: { in: periods.map((p) => p.id) }, status: { in: FINAL_RUN } }, select: { status: true, periodId: true } });
-  if (!run) return null;
-  const period = periods.find((p) => p.id === run.periodId);
-  return { period: period?.name || String(period?.startDate || from).slice(0, 7), state: run.status };
+  const runs = await payrollPrisma.payrollRun.findMany({ where: { orgId, periodId: { in: periods.map((p) => p.id) }, status: { in: FINAL_RUN } }, select: { id: true, status: true, periodId: true, attendanceSnapshots: true } });
+  for (const run of runs) {
+    const pulled = Array.isArray(run.attendanceSnapshots) && run.attendanceSnapshots.length > 0;
+    const used = pulled || (await payrollPrisma.payrollInput.count({ where: { orgId, runId: run.id, source: 'ATTENDANCE' } })) > 0;
+    if (!used) continue;
+    const period = periods.find((p) => p.id === run.periodId);
+    return { period: period?.name || String(period?.startDate || from).slice(0, 7), state: run.status };
+  }
+  return null;
 }
 
 /** The day can still change: its Attendance month is open and, for `employeeId`, no final payroll run has taken it. */
@@ -388,7 +398,8 @@ async function nightLabels(orgId: string, rows: Array<{ shiftId?: string | null;
 }
 
 export const withNames = async (orgId: string, rows: any[]) => {
-  const ids = [...new Set(rows.map((r) => r.employeeId))];
+  /* A row may name nobody (a reader punch whose ID matches no one): it gets no name, and asks for none. */
+  const ids = [...new Set(rows.map((r) => r.employeeId).filter((id): id is string => typeof id === 'string'))];
   const people = ids.length
     ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true, code: true, department: true, photoUrl: true } })
     : [];
