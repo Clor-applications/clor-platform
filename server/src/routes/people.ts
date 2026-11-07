@@ -35,7 +35,8 @@ import { changeImpact } from '../services/people/lifecycle/changes.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { closeOutFor } from '../services/people/lifecycle/closeOut.js';
 import { DEFAULT_EMPLOYEE_TYPES, EMPLOYMENT_KINDS, HOURS, guessKind } from '../services/people/employmentKinds.js';
-import { journeyOf, whyOf } from '../services/people/journey.js';
+import { isLeavingEvent, journeyOf, whyOf, withoutStintEnd } from '../services/people/journey.js';
+import { DOC_CLASSIFICATIONS, HIDDEN_DOCUMENT, docAccess, docOpens, docWhere, writeGrantFor, type DocClass, type DocLike } from '../services/people/documentAccess.js';
 import { salaryQuestion } from '../services/people/salaryQuestion.js';
 import { activityOf } from '../services/people/activity.js';
 import { BULK_LIMIT, BulkError, bulkUpdate } from '../services/people/bulk.js';
@@ -965,10 +966,15 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
 });
 
 /** Work permits and certificates on file, with how long they have left (LIFE-08): shown on the profile, not enforced. */
-async function permitsOf(orgId: string, employeeId: string) {
+async function permitsOf(req: Request, orgId: string, employeeId: string) {
   const now = new Date();
-  const docs = await peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId, kind: { in: [...PERMIT_KINDS] }, expiresOn: { not: null } }, select: { id: true, kind: true, title: true, expiresOn: true, restrictsWork: true }, orderBy: { expiresOn: 'asc' } });
-  return docs.map((d) => ({ ...d, daysLeft: daysUntil(d.expiresOn!, now), expired: daysUntil(d.expiresOn!, now) < 0 }));
+  const docs = await peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId, kind: { in: [...PERMIT_KINDS] }, expiresOn: { not: null } }, select: { id: true, kind: true, title: true, expiresOn: true, restrictsWork: true, classification: true, employeeId: true }, orderBy: { expiresOn: 'asc' } });
+  /* Whether a permit has lapsed is everyone's to know (LIFE-08); its name and the file itself are only for who may open it. */
+  const access = await docAccess(req);
+  return docs.map(({ classification, employeeId: owner, ...d }) => {
+    const opens = docOpens(access, { classification, kind: d.kind, employeeId: owner });
+    return { ...d, id: opens ? d.id : null, title: opens ? d.title : HIDDEN_DOCUMENT, hidden: !opens, daysLeft: daysUntil(d.expiresOn!, now), expired: daysUntil(d.expiresOn!, now) < 0 };
+  });
 }
 
 peopleRouter.get('/orgs/:orgId/people/employees/link-candidates', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
@@ -1006,7 +1012,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW,
   const read = { ...((await seesPersonal(req)) ? full : withoutPersonal(full, req.auth!.userId)), ...(reasonShown ? {} : { leavingReason: null, leavingReasonHidden: Boolean((full as any).leavingReason) }) };
   const shaped = { ...(leavingsShown ? read : withoutLeaving(read, req.auth!.userId)), managerOpens: !row.reportingManagerId || inScope(viewScope, row.reportingManagerId), ownRecordLocked: !viewScope.all && Boolean(row.userId) && row.userId === req.auth!.userId };
   const linked = row.userId ? await platformPrisma.user.findFirst({ where: { id: row.userId }, select: { fullName: true, email: true } }) : null;
-  res.json({ scheduledChanges, permits: await permitsOf(orgId, row.id), employee: { ...shaped, directReports: reports, linkedUser: linked ? { name: linked.fullName || linked.email, email: linked.email } : null } });
+  res.json({ scheduledChanges, permits: await permitsOf(req, orgId, row.id), employee: { ...shaped, directReports: reports, linkedUser: linked ? { name: linked.fullName || linked.email, email: linked.email } : null } });
 });
 
 /** Replace a person's tags; a real change goes on their change log by tag name (Workforce Activity). */
@@ -1476,8 +1482,10 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/history', can(PermissionActi
   /* A leaving's note is the reason typed for it: hidden as the company's choice says (SPEC 3.5). */
   const shows = await leavingReasonFilter(req, [employee]);
   /* A leaving's notes carry the reason typed for it ("On notice until …: Family health"), and so does each stint's end. */
-  const events = (await timelineOf(orgId, employee)).map((e: any) => ((e.kind === 'LEFT' || e.source === 'RESIGNATION') && !shows(employee, e.effectiveDate) ? { ...e, note: null } : e));
-  const episodes = (await episodesOf(orgId, employee)).map((ep) => (ep.endReason && !shows(employee, ep.endDate) ? { ...ep, endReason: null } : ep));
+  /* A reader the company keeps leavings from sees no leaving here either, as on the profile and Activity (SPEC 3.5). */
+  const hideLeavings = !(employee.userId && employee.userId === req.auth!.userId) && !(await seesLeavings(req));
+  const events = (await timelineOf(orgId, employee)).filter((e: any) => !hideLeavings || !isLeavingEvent(e)).map((e: any) => (isLeavingEvent(e) && !shows(employee, e.effectiveDate) ? { ...e, note: null } : e));
+  const episodes = (await episodesOf(orgId, employee)).map((ep) => (hideLeavings ? withoutStintEnd(ep) : ep.endReason && !shows(employee, ep.endDate) ? { ...ep, endReason: null } : ep));
   res.json({ events, episodes });
 });
 
@@ -1633,6 +1641,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/activity', can(PermissionAct
     const [m, sub, action] = permission.split('::');
     return !(await authorize(req, m, action as PermissionActionType, sub));
   };
+  const docs = await docAccess(req);
   const out = await activityOf({
     orgId,
     canStatutory: !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, STATUTORY)),
@@ -1644,7 +1653,9 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/activity', can(PermissionAct
     /* The reason typed for leaving, and the note that came with it (SPEC 3.5). */
     canLeavingReason: await seesLeavingReason(req, employee),
     canLeavings: Boolean(employee.userId && employee.userId === req.auth!.userId) || (await seesLeavings(req)),
-    docClasses: await readableClassifications(req),
+    docClasses: docs.classes,
+    docOpens: (d) => docOpens(docs, d),
+    docLegacyOpens: docs.employeeIds === null && DOC_CLASSIFICATIONS.every((c) => docs.classes.includes(c)),
     allows,
   }, employee.id, { before: req.query.before ? new Date(String(req.query.before)) : null, limit: Number(req.query.limit || 50) });
   res.set('Cache-Control', 'private, no-store').json(out);
@@ -1657,7 +1668,8 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/journey', can(PermissionActi
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   const shows = await leavingReasonFilter(req, [employee]);
-  res.json(await journeyOf(orgId, employee as any, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !shows(employee), reasonShownFor: (day) => shows(employee, day) }));
+  const hideLeavings = !(employee.userId && employee.userId === req.auth!.userId) && !(await seesLeavings(req));
+  res.json(await journeyOf(orgId, employee as any, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !shows(employee), hideLeavings, reasonShownFor: (day) => shows(employee, day) }));
 });
 
 /** Why (TRACE-01, 02): what changed, when, who asked, who approved, the rule version, the evidence, what it set off — or plain words for what is not known. */
@@ -1666,7 +1678,8 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/why/:key', can(PermissionAct
   const { accountId, orgId } = req.tenant!;
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, userId: true, dateOfLeaving: true } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
-  const why = await whyOf(orgId, employee.id, String(req.params.key), { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !(await seesLeavingReason(req, employee)) });
+  const hideLeavings = !(employee.userId && employee.userId === req.auth!.userId) && !(await seesLeavings(req));
+  const why = await whyOf(orgId, employee.id, String(req.params.key), { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !(await seesLeavingReason(req, employee)), hideLeavings });
   if (!why) return res.status(404).json({ error: 'No such change.' });
   res.json({ why });
 });
@@ -1682,7 +1695,8 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/why/:key/raise', can(Permis
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, name: true, userId: true, dateOfLeaving: true } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   const key = String(req.params.key);
-  const why = await whyOf(orgId, employee.id, key, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !(await seesLeavingReason(req, employee)) });
+  const hideLeavings = !(employee.userId && employee.userId === req.auth!.userId) && !(await seesLeavings(req));
+  const why = await whyOf(orgId, employee.id, key, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !(await seesLeavingReason(req, employee)), hideLeavings });
   if (!why) return res.status(404).json({ error: 'No such change.' });
   const kind = String(req.body?.kind || 'CORRECTION').toUpperCase() === 'QUESTION' ? 'QUESTION' : 'CORRECTION';
   const what = (why.what as Array<{ field: string; before: string | null; after: string | null }>).map((w) => `${w.field}: ${w.before ?? 'blank'} to ${w.after ?? 'blank'}`).join('; ') || 'the change';
@@ -2570,41 +2584,22 @@ const DOC_KINDS = new Set(['ID_PROOF', 'ADDRESS_PROOF', 'EDUCATION', 'CONTRACT',
 const docRow = (d: any) => ({ id: d.id, employeeId: d.employeeId, kind: d.kind, title: d.title, mime: d.mime, size: d.size, expiresOn: d.expiresOn, restrictsWork: d.restrictsWork ?? null, version: d.version ?? 1, supersedesId: d.supersedesId ?? null, supersededById: d.supersededById ?? null, templateId: d.templateId ?? null, templateVersion: d.templateVersion ?? null, classification: d.classification, visibleToEmployee: d.visibleToEmployee, uploadedByUserId: d.uploadedByUserId, createdAt: d.createdAt });
 const DOC_SELECT = { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, restrictsWork: true, version: true, supersedesId: true, supersededById: true, templateId: true, templateVersion: true, classification: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true } as const;
 
-/**
- * Who can see a document (docs/people/02-PRD.md DOC-01; review R-01).
- *
- * Until 24 Oct 2026 any role with Employees VIEW opened every file on every
- * person, and the Attendance Manager preset carried that grant. Now each
- * document names its classification, and the grant that opens it is:
- *
- *   EMPLOYEE_VISIBLE, HR_ONLY   Documents VIEW
- *   RESTRICTED                  Documents EDIT
- *   CONFIDENTIAL                Confidential Documents VIEW (its own grant)
- *
- * The employee app keeps reading `visibleToEmployee`, which is true only for
- * EMPLOYEE_VISIBLE. Lists are filtered to what the caller may open, so a
- * person never learns a confidential file exists from its title.
- */
-const DOC_CLASSIFICATIONS = ['EMPLOYEE_VISIBLE', 'HR_ONLY', 'RESTRICTED', 'CONFIDENTIAL'] as const;
-type DocClass = (typeof DOC_CLASSIFICATIONS)[number];
+/* Who can open a document: one rule, services/people/documentAccess.ts (DOC-01; R-01; audit 7 Nov 2026 #1). */
 async function readableClassifications(req: Request): Promise<DocClass[]> {
-  const out: DocClass[] = [];
-  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, DOCUMENTS))) out.push('EMPLOYEE_VISIBLE', 'HR_ONLY');
-  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, DOCUMENTS))) out.push('RESTRICTED');
-  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, CONFIDENTIAL))) out.push('CONFIDENTIAL');
-  return out;
+  return (await docAccess(req)).classes;
 }
-/** The grant a write (upload, delete) on a document of this classification needs. */
-const writeGrantFor = (classification: string, action: PermissionActionType): [string, PermissionActionType, string] =>
-  classification === 'CONFIDENTIAL' ? [PEOPLE_MODULE, action, CONFIDENTIAL] : [PEOPLE_MODULE, action, DOCUMENTS];
+/** One document the caller may open (classification, payslip, team scope); anything else reads as absent. */
+async function mayOpenDoc(req: Request, d: DocLike): Promise<boolean> {
+  return docOpens(await docAccess(req), d);
+}
 
 peopleRouter.get('/orgs/:orgId/people/documents', can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const classification = { in: await readableClassifications(req) };
+  const access = await docAccess(req);
   const scope = await teamScope(req);
   const rows = await peoplePrisma.employeeDocument.findMany({
-    where: { accountId, orgId, classification, supersededById: null, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: { createdAt: 'desc' },
+    where: { accountId, orgId, ...docWhere(access), supersededById: null, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: { createdAt: 'desc' },
     select: { ...DOC_SELECT, employee: { select: { name: true, code: true } } },
   });
   res.json({ documents: rows.map((r) => ({ ...docRow(r), employeeName: r.employee.name, employeeCode: r.employee.code })) });
@@ -2613,9 +2608,9 @@ peopleRouter.get('/orgs/:orgId/people/documents', can(PermissionAction.VIEW, DOC
 peopleRouter.get('/orgs/:orgId/people/employees/:id/documents', can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const classification = { in: await readableClassifications(req) };
+  const access = await docAccess(req);
   if (!inScope(await teamScope(req), String(req.params.id))) return res.status(404).json({ error: 'No such employee.' });
-  const rows = await peoplePrisma.employeeDocument.findMany({ where: { accountId, orgId, employeeId: String(req.params.id), classification, supersededById: null }, orderBy: { createdAt: 'desc' }, select: DOC_SELECT });
+  const rows = await peoplePrisma.employeeDocument.findMany({ where: { accountId, orgId, employeeId: String(req.params.id), ...docWhere(access), supersededById: null }, orderBy: { createdAt: 'desc' }, select: DOC_SELECT });
   /* Whether the person was asked to read and accept each file, and when they did (DOC-05): one read for the whole list. */
   const acks = rows.length ? await peoplePrisma.acknowledgement.findMany({ where: { orgId, employeeId: String(req.params.id), targetType: 'DOCUMENT', targetId: { in: rows.map((r) => r.id) } }, select: { targetId: true, askedAt: true, acceptedAt: true, remindedAt: true, remindCount: true } }) : [];
   const ackOf = new Map(acks.map((a) => [a.targetId, a]));
@@ -2630,7 +2625,7 @@ peopleRouter.post('/orgs/:orgId/people/documents/:docId/replace', can(Permission
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const old = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { ...DOC_SELECT } });
-  if (!old || !(await readableClassifications(req)).includes(old.classification as DocClass) || !inScope(await teamScope(req), old.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  if (!old || !(await mayOpenDoc(req, old))) return res.status(404).json({ error: 'No such document.' });
   if (old.supersededById) return res.status(409).json({ error: 'A newer version already exists; replace that one.' });
   const refused = await authorize(req, ...writeGrantFor(old.classification, PermissionAction.CREATE));
   if (refused) return res.status(refused.status).json(refused.body);
@@ -2653,8 +2648,8 @@ peopleRouter.post('/orgs/:orgId/people/documents/:docId/replace', can(Permission
 peopleRouter.post('/orgs/:orgId/people/documents/:docId/ask-to-read', can(PermissionAction.EDIT, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, title: true, employeeId: true, classification: true } });
-  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, title: true, kind: true, employeeId: true, classification: true } });
+  if (!d || !(await mayOpenDoc(req, d))) return res.status(404).json({ error: 'No such document.' });
   if (d.classification !== 'EMPLOYEE_VISIBLE') return res.status(400).json({ error: 'The person cannot see this file, so they cannot be asked to accept it. Set "Who can see" to the person and HR first.' });
   const asked = await askToRead({ accountId, orgId, userId: req.auth!.userId }, 'DOCUMENT', d.id, [d.employeeId], { title: `Please read and accept: ${d.title}`, body: 'Open Me → Documents in the employee app.' });
   res.json({ newlyAsked: asked, ...(await ackReport(orgId, 'DOCUMENT', d.id)) });
@@ -2663,16 +2658,16 @@ peopleRouter.post('/orgs/:orgId/people/documents/:docId/ask-to-read', can(Permis
 peopleRouter.get('/orgs/:orgId/people/documents/:docId/acknowledgements', can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, employeeId: true, classification: true } });
-  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, kind: true, employeeId: true, classification: true } });
+  if (!d || !(await mayOpenDoc(req, d))) return res.status(404).json({ error: 'No such document.' });
   res.json(await ackReport(orgId, 'DOCUMENT', d.id));
 });
 
 peopleRouter.post('/orgs/:orgId/people/documents/:docId/remind', can(PermissionAction.EDIT, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, title: true, employeeId: true, classification: true } });
-  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, title: true, kind: true, employeeId: true, classification: true } });
+  if (!d || !(await mayOpenDoc(req, d))) return res.status(404).json({ error: 'No such document.' });
   res.json({ reminded: await ackRemind({ accountId, orgId, userId: req.auth!.userId }, 'DOCUMENT', d.id, { title: `Please read and accept: ${d.title}`, body: 'Open Me → Documents in the employee app.' }) });
 });
 
@@ -2681,7 +2676,7 @@ peopleRouter.get('/orgs/:orgId/people/documents/:docId/versions', can(Permission
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: DOC_SELECT });
-  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  if (!d || !(await mayOpenDoc(req, d))) return res.status(404).json({ error: 'No such document.' });
   const chain: Array<typeof d> = [d];
   let cur = d;
   for (let i = 0; i < 50 && cur.supersedesId; i += 1) {
@@ -2712,6 +2707,10 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/documents', can(PermissionA
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
   const kind = String(req.body?.kind || 'OTHER').toUpperCase();
   if (!DOC_KINDS.has(kind)) return res.status(400).json({ error: 'Unknown document kind.' });
+  /* Nobody files what they could not open themselves: a team manager adds only files the person can see, and no payslip. */
+  if (!docOpens(await docAccess(req), { classification, kind, employeeId: employee.id })) {
+    return res.status(403).json({ error: kind === 'PAYSLIP' ? 'Only HR adds payslips to someone\'s file.' : 'Only HR adds files the person cannot see. Choose "The person and HR", or ask HR to add it.' });
+  }
   const title = String(req.body?.title || '').trim().slice(0, 120);
   if (!title) return res.status(400).json({ error: 'Name the document.' });
   const expiresOn = String(req.body?.expiresOn || '').trim() || null;
@@ -2733,7 +2732,7 @@ peopleRouter.get('/orgs/:orgId/people/documents/:docId', can(PermissionAction.VI
   const { accountId, orgId } = req.tenant!;
   const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId } });
   /* A file the caller may not open reads as absent, so its title does not leak through a 403. */
-  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  if (!d || !(await mayOpenDoc(req, d))) return res.status(404).json({ error: 'No such document.' });
   /* PRV-07: every open of a confidential or restricted file is on the access log. */
   if (d.classification === 'CONFIDENTIAL' || d.classification === 'RESTRICTED') {
     await peoplePrisma.accessLog.create({ data: { accountId, orgId, what: d.classification === 'CONFIDENTIAL' ? 'DOC_CONFIDENTIAL' : 'DOC_RESTRICTED', entityId: d.id, employeeId: d.employeeId, userId: req.auth!.userId } });
@@ -2744,13 +2743,18 @@ peopleRouter.get('/orgs/:orgId/people/documents/:docId', can(PermissionAction.VI
 peopleRouter.delete('/orgs/:orgId/people/documents/:docId', can(PermissionAction.DELETE, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, classification: true, title: true, employeeId: true } });
-  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, kind: true, classification: true, title: true, employeeId: true } });
+  if (!d || !(await mayOpenDoc(req, d))) return res.status(404).json({ error: 'No such document.' });
   const refused = await authorize(req, ...writeGrantFor(d.classification, PermissionAction.DELETE));
   if (refused) return res.status(refused.status).json(refused.body);
   await deleteToBin(req, 'employeeDocument', { id: d.id });
   /* The person's Activity shows a removed file, as it shows an uploaded one (Workforce WF-18). */
-  await writeChangeLog(peoplePrisma as any, actorOf(req, 'FORM'), { kind: 'EmployeeDocument', id: d.id, employeeId: d.employeeId }, [{ field: 'document', before: d.title, after: null, redacted: false }]);
+  await writeChangeLog(peoplePrisma as any, actorOf(req, 'FORM'), { kind: 'EmployeeDocument', id: d.id, employeeId: d.employeeId }, [
+    { field: 'document', before: d.title, after: null, redacted: false },
+    /* Who could have opened it: Activity shows this line only to them (services/people/activity.ts). */
+    { field: 'document.classification', before: d.classification, after: null, redacted: false },
+    { field: 'document.kind', before: d.kind, after: null, redacted: false },
+  ]);
   res.json({ ok: true });
 });
 
