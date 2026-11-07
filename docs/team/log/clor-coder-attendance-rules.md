@@ -1,10 +1,16 @@
 # clor-coder-attendance-rules
 
+## 2026-11-07 IST — Attendance — full-day fix, third review of PR #141
+- Did: "scored before the release" is now the day's latest WRITE or BULK in AttendanceRecordHistory (none counts as before), never `updatedAt`; bulk overtime approval logs OVERTIME (it logged BULK), validate VALIDATE, single overtime OVERTIME, trust updates no history. The release is AttendanceFullDayFixMeta.releasedAt, inserted by the migration with now() at deploy; `FIX_CUTOFF` and `FULL_DAY_FIX_CUTOFF` are gone. Scan skips days created after the release. Held days store status, punches and minutes, and settle as RECORD_CHANGED only when one of those changed (or a scoring write since the release); correct() re-checks the same fields under the lock and guards its update by them. isHoliday gets the person's branch and area. New history index (orgId, recordId, action).
+- Evidence: see the PR comment.
+- Next: re-review.
+- Blocked on: nothing; the migration's two indexes run off-peak.
+
 ## 2026-11-07 IST — Attendance — full-day fix, second review of PR #141
 - Did: held days settle only by "Paid the difference" (confirm with note, undo route, audited) or by the day changing (RECORD_CHANGED when no longer eligible); a run's end is the earlier of its period end and provisional cut-off; one-time fix (`FIX_CUTOFF` 2026-11-10 IST, env `FULL_DAY_FIX_CUTOFF`); stale final run (over two months) also bounds to this month and last; close runs the fix before, and under the lock only checks the month (409 FULL_DAYS_PENDING); holidays skipped; BEFORE_PAYROLL its own Data health list; review table in peopleRls and in the test setup's policy list (its policy was not applied to the test database before).
 - Evidence: see the PR comment.
 - Next: re-review.
-- Blocked on: FIX_CUTOFF must equal the release date; set FULL_DAY_FIX_CUTOFF if the deploy slips.
+- Blocked on: FIX_CUTOFF must equal the release date (replaced in the third review by the migration's release row).
 
 ## 2026-11-07 IST — Attendance — full-day rule, review of PR #141
 - Did: rule is now present if (a) the shift was worked as scheduled (in by start + late grace, out from end − early-out grace, night shifts handled; at least the half-day minutes) or (b) `fullDayMinutes` worked (compute.ts `workedAsScheduled`, `fullDayBy`); rest days by (b) only; comp-off back on `fullDayMinutes`. Old-day fix rewritten: corrects only days after the latest final pay run's period (or, with none, this month and last); holds MONTH_CLOSED / PAYROLL_TAKEN / PAYROLL_PENDING (a run being prepared that pulled the days) / BEFORE_PAYROLL / OLD, recorded in AttendanceFullDayReview (migration 20261121090000, RLS); in-lock re-check of updatedAt and eligibility; corrected days need validating again; runs on reopen and before close; honours the lease and skips companies with Attendance off; logs a held day once. payrollTaken weighs every final run of a period. Data health: held days by what to do (adjustment / reopen / pull again / save again), corrected days for 60 days, leavers included, needs Attendance records view, "Paid the difference" (EDIT, team-scoped, audited) or cleared by an earning adjustment; not on readiness/overview/home/tower. Simulate applies the shift check; Shifts form checks the full day only when the hours change, alert on Save only.

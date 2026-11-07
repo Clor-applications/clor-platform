@@ -1,8 +1,20 @@
 -- The full-day rule fix (attendance audit 7 Nov 2026, PR #141): an index for its scan of half days and
 -- absences, and a table of the days it looked at (corrected, or held with why), with the tenant policy
 -- every People table has. Additive; an older API never reads it. Safe to run twice.
--- Deploy: the index is a plain CREATE INDEX, which blocks writes to AttendanceRecord while it builds: run off-peak.
+-- Deploy: the two indexes are plain CREATE INDEX, which block writes to AttendanceRecord and
+-- AttendanceRecordHistory while they build: run off-peak.
 CREATE INDEX IF NOT EXISTS "AttendanceRecord_orgId_status_date_idx" ON "AttendanceRecord"("orgId", "status", "date");
+-- A day's latest scoring write (WRITE or BULK in its history) is what says which rule scored it.
+CREATE INDEX IF NOT EXISTS "AttendanceRecordHistory_orgId_recordId_action_idx" ON "AttendanceRecordHistory"("orgId", "recordId", "action");
+
+-- The release: the moment this migration runs. A day last scored before it was scored by the old rule.
+-- One row for every company, so no orgId and no policy. Run twice, it keeps the first time.
+CREATE TABLE IF NOT EXISTS "AttendanceFullDayFixMeta" (
+    "id" TEXT NOT NULL,
+    "releasedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "AttendanceFullDayFixMeta_pkey" PRIMARY KEY ("id")
+);
+INSERT INTO "AttendanceFullDayFixMeta" ("id", "releasedAt") VALUES ('release', now()) ON CONFLICT ("id") DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS "AttendanceFullDayReview" (
     "id" TEXT NOT NULL,
@@ -14,6 +26,8 @@ CREATE TABLE IF NOT EXISTS "AttendanceFullDayReview" (
     "fromStatus" TEXT NOT NULL,
     "toStatus" TEXT NOT NULL,
     "workedMinutes" INTEGER NOT NULL,
+    "checkIn" TIMESTAMP(3),
+    "checkOut" TIMESTAMP(3),
     "outcome" TEXT NOT NULL,
     "reason" TEXT,
     "settledAs" TEXT,

@@ -465,7 +465,7 @@ attendanceInsightsRouter.post(`${base}/records/bulk`, can(PermissionAction.EDIT,
       if (b.operation === 'APPROVE_OVERTIME') {
         const updated = await peoplePrisma.attendanceRecord.update({ where: { id: r.id }, data: { overtimeApproved: true } });
         const { logDayChange } = await import('../services/attendance/history.js');
-        await logDayChange({ accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'BULK', before: r, after: updated, userId: req.auth!.userId, reason: b.reason });
+        await logDayChange({ accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'OVERTIME', before: r, after: updated, userId: req.auth!.userId, reason: b.reason });
       } else {
         const person = people.get(r.employeeId)!;
         await writeDay({

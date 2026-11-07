@@ -1,8 +1,5 @@
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
-
-/* Every day these tests write stands for one written before the release of the rule (fullDayFix.ts FIX_CUTOFF); a test that needs the release in the past passes its own cutoff. */
-process.env.FULL_DAY_FIX_CUTOFF = '2999-01-01T00:00:00Z';
 
 /**
  * The full-day rule (attendance audit 7 Nov 2026, P0; review of PR #141).
@@ -157,7 +154,29 @@ describe('a shift that does not hold together', () => {
 // ---------------------------------------------------------------------------
 
 const app = buildApp().listen(0, '127.0.0.1');
+
+/*
+ * The release is the row the migration wrote at deploy (globalSetup runs it). Every day these tests write stands for one
+ * written before the release, so for this file it is far in the future; a test that needs it in the past sets it, and
+ * the file puts back what was there.
+ */
+const FAR = new Date('2999-01-01T00:00:00Z');
+let releaseWas: Date | null = null;
+const setRelease = (at: Date) => peoplePrisma.attendanceFullDayFixMeta.upsert({ where: { id: 'release' }, create: { id: 'release', releasedAt: at }, update: { releasedAt: at } });
+/* The database clock, which stamps history (TEST_TODAY moves only the app's); a short wait either side keeps two stamps apart. */
+const dbNow = async () => {
+  await new Promise((done) => setTimeout(done, 25));
+  const [{ now }] = await peoplePrisma.$queryRaw<Array<{ now: Date }>>`SELECT now() AS now`;
+  await new Promise((done) => setTimeout(done, 25));
+  return now;
+};
+beforeAll(async () => {
+  releaseWas = (await peoplePrisma.attendanceFullDayFixMeta.findUnique({ where: { id: 'release' } }))?.releasedAt ?? null;
+  expect(releaseWas, 'the migration records the release').toBeTruthy();
+  await setRelease(FAR);
+});
 afterAll(async () => {
+  if (releaseWas) await setRelease(releaseWas);
   await new Promise((done) => app.close(done));
 });
 
@@ -368,13 +387,18 @@ describe('days written under the old rule', () => {
     expect(await statusOf(c, b.id)).toBe('HALF_DAY');
   });
 
-  it('a day changed between the scan and the lock is not flipped; nor one whose leave became a half day meanwhile', async () => {
+  it('between the scan and the lock: a day scored again is not flipped, nor one whose leave became a half day; a note, a validation or a trust update is no bar', async () => {
     const c = await company();
     const p = await person(c, 'FD8');
     const q = await person(c, 'FD10');
+    const v = await person(c, 'FD12');
+    const n = await person(c, 'FD13');
     const month = monthBack(1);
-    const edited = await legacyDay(c, p.id, wednesdayOf(month));
+    const rescored = await legacyDay(c, p.id, wednesdayOf(month));
     const leaveDay = await legacyDay(c, q.id, wednesdayOf(month));
+    const validated = await legacyDay(c, v.id, wednesdayOf(month));
+    const noted = await legacyDay(c, n.id, wednesdayOf(month));
+    await inTenant(c, () => peoplePrisma.attendanceRecord.update({ where: { id: validated.id }, data: { validated: false } }));
     const leave = await inTenant(c, async () => {
       const type = await peoplePrisma.leaveType.create({ data: { accountId: c.accountId, orgId: c.orgId, name: `Casual ${rnd()}`, createdByUserId: c.userId } as any });
       const l = await peoplePrisma.leaveRequest.create({ data: { accountId: c.accountId, orgId: c.orgId, employeeId: q.id, leaveTypeId: type.id, fromDate: leaveDay.date, toDate: leaveDay.date, days: 1, reason: 'Pending', status: 'PENDING', requestedByUserId: c.userId } });
@@ -383,18 +407,24 @@ describe('days written under the old rule', () => {
     });
     const r = await fix(c, {
       beforeCorrect: async (row) => {
-        if (row.recordId === edited.id) await inTenant(c, () => peoplePrisma.attendanceRecord.update({ where: { id: edited.id }, data: { note: 'Edited by someone' } }));
+        /* Saved again through the API, as a genuine half day: the rule as it is now scored it. */
+        if (row.recordId === rescored.id) await att(c, 'put', '/records', { employeeId: p.id, date: rescored.date, checkIn: '09:00', checkOut: '13:00' }).expect(200);
         /* The record itself is untouched: only re-weighing it under the lock finds the half day. */
         if (row.recordId === leaveDay.id) await inTenant(c, () => peoplePrisma.leaveRequest.update({ where: { id: leave.id }, data: { halfDay: 'SECOND', days: 0.5, status: 'APPROVED' } }));
+        /* These move updatedAt and score nothing. */
+        if (row.recordId === validated.id) await att(c, 'post', '/records/validate', { ids: [validated.id] }).expect(200);
+        if (row.recordId === noted.id) await inTenant(c, () => peoplePrisma.attendanceRecord.update({ where: { id: noted.id }, data: { note: 'Edited by someone', trust: 'MANUAL' } }));
       },
     });
-    expect(r.corrected).toEqual([]);
-    expect(await statusOf(c, edited.id)).toBe('HALF_DAY');
+    expect(r.corrected.map((x) => x.recordId).sort()).toEqual([validated.id, noted.id].sort());
+    expect(await statusOf(c, validated.id)).toBe('PRESENT');
+    expect(await statusOf(c, noted.id)).toBe('PRESENT');
+    expect(await statusOf(c, rescored.id)).toBe('HALF_DAY');
     expect(await statusOf(c, leaveDay.id)).toBe('HALF_DAY');
-    expect(await reviewOf(c, edited.id)).toBeNull();
-    /* Still unchanged in substance, the edited day is weighed again on the next run and corrected then. */
-    const next = await fix(c);
-    expect(next.corrected.map((x) => x.recordId)).toEqual([edited.id]);
+    expect(await reviewOf(c, rescored.id)).toBeNull();
+    /* Scored since the release, the rewritten day is not the fix's on the next run either. */
+    expect((await fix(c)).corrected).toEqual([]);
+    expect(await statusOf(c, rescored.id)).toBe('HALF_DAY');
   });
 
   it('half-day leave is left to the half-day rule; an hourly leave day goes as a write would score it', async () => {
@@ -455,20 +485,79 @@ describe('days written under the old rule', () => {
     const c = await company();
     const p = await person(c, 'RL1');
     const s = (await att(c, 'post', '/shifts', { name: `Day ${rnd()}`, startTime: '09:00', endTime: '18:00' }).expect(201)).body.shift;
+    const release = await dbNow();
     const r = (await att(c, 'put', '/records', { employeeId: p.id, date: wednesdayOf(monthBack(1)), checkIn: '09:15', checkOut: '18:00' }).expect(200)).body.record;
     await inTenant(c, () => peoplePrisma.attendanceRecord.update({ where: { id: r.id }, data: { shiftId: s.id } }));
     expect(await statusOf(c, r.id)).toBe('HALF_DAY');
-    /* The release just before the day was written: from the row's own stamp, which the database clock sets (TEST_TODAY moves only the app's). */
-    const release = new Date((await recordOf(c, r.id)).updatedAt.getTime() - 1000);
     await inTenant(c, () => peoplePrisma.shift.update({ where: { id: s.id }, data: { graceMinutes: 20 } }));
-    /* Taken for a day from before the release, it would be corrected: the cut-off is all that keeps it. */
+    /* Taken for a day from before the release, it would be corrected: the release is all that keeps it. */
     expect((await fix(c, { apply: false })).open.map((x) => x.recordId)).toEqual([r.id]);
-    const run = await fix(c, { cutoff: release });
+    const run = await fix(c, { releasedAt: release });
     expect(run.corrected).toEqual([]);
     expect(await statusOf(c, r.id)).toBe('HALF_DAY');
   });
 
-  it('a held day saved again, or no longer short, is settled as RECORD_CHANGED and leaves the list', async () => {
+  it('the release is the one the migration recorded: a day last scored before it is corrected, one scored after it is not (created after, or saved again after)', async () => {
+    const c = await company();
+    const p = await person(c, 'DR1');
+    const month = monthBack(1);
+    const before = await legacyDay(c, p.id, wednesdayOf(month, 1));
+    /* Written before the release, saved again after it: its latest scoring write is the new rule's. */
+    const savedAgain = await legacyDay(c, p.id, wednesdayOf(month, 2));
+    try {
+      await setRelease(await dbNow());
+      await att(c, 'put', '/records', { employeeId: p.id, date: savedAgain.date, checkIn: '09:06', checkOut: '18:00', note: 'Saved again' }).expect(200);
+      await inTenant(c, () => peoplePrisma.attendanceRecord.update({ where: { id: savedAgain.id }, data: { status: 'HALF_DAY' } }));
+      const after = await legacyDay(c, p.id, wednesdayOf(month, 3));
+      /* Validated after the release: not a scoring write, so the day still counts as scored before it. */
+      await inTenant(c, () => peoplePrisma.attendanceRecord.update({ where: { id: before.id }, data: { validated: false } }));
+      await att(c, 'post', '/records/validate', { ids: [before.id] }).expect(200);
+      const r = await fix(c);
+      expect(r.corrected.map((x) => x.recordId)).toEqual([before.id]);
+      expect(await statusOf(c, savedAgain.id)).toBe('HALF_DAY');
+      expect(await statusOf(c, after.id)).toBe('HALF_DAY');
+    } finally {
+      await setRelease(FAR);
+    }
+  });
+
+  it('a held day validated, or its overtime approved, one by one or in bulk, stays held; a closed month validated stays MONTH_CLOSED', async () => {
+    const c = await company();
+    const p = await person(c, 'VH1');
+    const validated = await legacyDay(c, p.id, wednesdayOf(monthBack(2), 1));
+    const overtime = await legacyDay(c, p.id, wednesdayOf(monthBack(2), 3));
+    const bulk = await legacyDay(c, p.id, wednesdayOf(monthBack(2), 4));
+    await inTenant(c, () => peoplePrisma.attendanceRecord.updateMany({ where: { id: { in: [overtime.id, bulk.id] } }, data: { overtimeMinutes: 30 } }));
+    await inTenant(c, () => peoplePrisma.attendanceRecord.update({ where: { id: validated.id }, data: { validated: false } }));
+    const month = monthBack(1);
+    const closed = await legacyDay(c, p.id, wednesdayOf(month));
+    await inTenant(c, () => peoplePrisma.attendanceRecord.update({ where: { id: closed.id }, data: { validated: false } }));
+    await inTenant(c, () => peoplePrisma.attendanceMonthLock.create({ data: { accountId: c.accountId, orgId: c.orgId, month, lockedByUserId: c.userId } }));
+    const first = await fix(c);
+    const reasons: Record<string, string> = { [validated.id]: 'OLD', [overtime.id]: 'OLD', [bulk.id]: 'OLD', [closed.id]: 'MONTH_CLOSED' };
+    expect(Object.fromEntries(first.held.map((x) => [x.recordId, x.held]))).toEqual(reasons);
+
+    await att(c, 'post', '/records/validate', { ids: [validated.id, closed.id] }).expect(200);
+    await att(c, 'post', `/records/${overtime.id}/overtime`, { approved: true }).expect(200);
+    const applied = await att(c, 'post', '/records/bulk', { ids: [bulk.id], operation: 'APPROVE_OVERTIME', reason: 'Approved in bulk', preview: false }).expect(200);
+    expect(applied.body.applied).toBe(1);
+    /* Bulk overtime approval is logged as overtime, not as a bulk write that scored the day. */
+    expect(await inTenant(c, () => peoplePrisma.attendanceRecordHistory.count({ where: { orgId: c.orgId, recordId: bulk.id, action: 'OVERTIME' } }))).toBe(1);
+    expect((await recordOf(c, closed.id)).validated).toBe(true);
+
+    for (let run = 0; run < 2; run += 1) {
+      const r = await fix(c);
+      expect(r.settled).toBe(0);
+      expect(r.corrected).toEqual([]);
+      expect(Object.fromEntries(r.held.map((x) => [x.recordId, x.held]))).toEqual(reasons);
+    }
+    for (const id of Object.keys(reasons)) {
+      expect(await reviewOf(c, id)).toMatchObject({ outcome: 'HELD', reason: reasons[id], settledAs: null, settledAt: null });
+      expect(await statusOf(c, id)).toBe('HALF_DAY');
+    }
+  });
+
+  it('a held day scored again (status, punches or minutes) is settled as RECORD_CHANGED and leaves the list', async () => {
     const c = await company();
     const p = await person(c, 'RC1');
     const old = await legacyDay(c, p.id, wednesdayOf(monthBack(2)));

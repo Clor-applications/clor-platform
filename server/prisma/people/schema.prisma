@@ -526,6 +526,9 @@ model AttendanceFullDayReview {
   fromStatus    String
   toStatus      String
   workedMinutes Int
+  /// The punches as they stood when the day was looked at: a held day is settled as changed only when these, the status or the minutes change.
+  checkIn       DateTime?
+  checkOut      DateTime?
   /// CORRECTED (set to present) | HELD (left as it was)
   outcome       String
   /// Why a day was held: MONTH_CLOSED | PAYROLL_TAKEN | PAYROLL_PENDING | BEFORE_PAYROLL | OLD
@@ -540,6 +543,13 @@ model AttendanceFullDayReview {
 
   @@index([orgId, outcome, settledAt])
   @@index([orgId, employeeId])
+}
+
+/// When the full-day rule fix was released: set by its migration at deploy (now()), one row, id "release".
+/// A day last scored (a WRITE or BULK in its history) before then was scored by the old rule. Not per company: no orgId, no policy.
+model AttendanceFullDayFixMeta {
+  id         String   @id
+  releasedAt DateTime @default(now())
 }
 
 /// Each clock-in and clock-out as it happened; the record keeps the day's
@@ -2563,6 +2573,7 @@ model AttendanceRecordHistory {
 
   @@index([orgId, employeeId, date])
   @@index([accountId, orgId, at])
+  @@index([orgId, recordId, action])
 }
 
 /// What a month looked like when it was closed: the figures Payroll takes.
