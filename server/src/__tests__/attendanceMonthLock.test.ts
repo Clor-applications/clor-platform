@@ -72,8 +72,13 @@ describe('a closed month', () => {
     const unconfirmed = await att(c).post('/months/2026-09/close', { acknowledge: true }).expect(409);
     expect(unconfirmed.body.code).toBe('NO_RECORD_UNCONFIRMED');
     expect(unconfirmed.body.people.find((x: any) => x.employeeId === p.id).days).toContain('2026-09-03');
-    await att(c).post('/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: noRecordDays - 1 }).expect(409);
-    const closed = await att(c).post('/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: noRecordDays }).expect(200);
+    const token = refused.body.readiness.noRecordToken;
+    expect(token).toMatch(/^[0-9a-f]{24}$/);
+    await att(c).post('/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: noRecordDays - 1, confirmNoRecordToken: token }).expect(409);
+    /* The count alone is not enough: the token names the days that were shown. */
+    await att(c).post('/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: noRecordDays }).expect(409);
+    await att(c).post('/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: noRecordDays, confirmNoRecordToken: 'f'.repeat(24) }).expect(409);
+    const closed = await att(c).post('/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: noRecordDays, confirmNoRecordToken: token }).expect(200);
     expect(closed.body.closed).toBeTruthy();
     // What Payroll takes is kept as a numbered snapshot.
     expect(closed.body.snapshot.version).toBe(1);

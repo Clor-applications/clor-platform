@@ -3,7 +3,7 @@ import express, { Router, type Request, type RequestHandler, type Response } fro
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, HANDSHAKE_OPTIONS, commandEffect, instantOf, parseAttlogLine, parseBiodataLine, parseCommandResults, parseInfo, parseOpLine, parseReaderInfo, refusalReason } from '../services/attendance/adms.js';
 import { readerLimiter } from '../middleware/rateLimit.js';
-import { MAX_NETWORKS, networkOf, sameBlock } from '../services/attendance/network.js';
+import { MAX_NETWORKS, blockOf, networkOf, sameBlock } from '../services/attendance/network.js';
 import { biometricPolicy } from '../services/attendance/biometrics.js';
 import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
 import { DECIDED, ingestPunches, pinMatcher } from '../services/attendance/punches.js';
@@ -47,23 +47,37 @@ async function deviceFor(serial: string) {
 
 /**
  * Unknown serials are kept so a company adding a reader sees it was heard from (devices.ts). Nobody signs
- * in to send one, so the table is bounded (audit 7 Nov 2026, #10): at most this many per network, the
- * longest silent giving way to a new one (so a real reader switched on today is always heard), and rows
- * not heard from in 30 days are pruned (services/retention.ts, UNCLAIMED_READER_KEEP_DAYS).
+ * in to send one, so the table is bounded (audit 7 Nov 2026, #10; review of #144): at most
+ * UNCLAIMED_PER_BLOCK per address block (/24, /64, so walking the addresses of one line buys nothing) and
+ * UNCLAIMED_MAX in all, the longest silent giving way to a new one (so a real reader switched on today is
+ * always heard), and rows not heard from in 30 days are pruned (services/retention.ts).
  */
-export const UNCLAIMED_PER_NETWORK = 20;
+export const UNCLAIMED_PER_BLOCK = 20;
+export const UNCLAIMED_MAX = 2000;
+/** Kept for callers of the old name. */
+export const UNCLAIMED_PER_NETWORK = UNCLAIMED_PER_BLOCK;
+
+/** The rows of one block: `network` is canonical (network.ts), so a block is a prefix of it. */
+const blockWhere = (network: string | null) => {
+  const block = blockOf(network);
+  if (!block) return { network: null };
+  const prefix = block.includes('.') ? `${block.split('.').slice(0, 3).join('.')}.` : `${block.replace('::/64', '')}:`;
+  return { network: { startsWith: prefix } };
+};
 
 export async function remember(serial: string, ip: string | null, info: string | null, network: string | null) {
   /* The latest network is kept: adding the reader from that network proves it is yours (devices.ts). */
   const seen = { lastSeenAt: new Date(), ...(ip ? { ip } : {}), ...(network ? { network } : {}), ...(info ? { info: info.slice(0, 300) } : {}) };
-  /* One already kept is only touched; only a new serial counts against the cap. */
+  /* One already kept is only touched; only a new serial counts against the caps. */
   const touched = await peoplePrisma.unclaimedReader.updateMany({ where: { serialNumber: serial }, data: seen });
   if (touched.count) return;
-  /* A new one counts against its network's cap, under a lock per network, so a burst cannot overshoot it. */
+  /* One lock for the table, so a burst from many blocks cannot overshoot either cap. */
   await peoplePrisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`unclaimed-reader:${network ?? ''}`}))`;
-    const kept = await tx.unclaimedReader.findMany({ where: { network }, orderBy: { lastSeenAt: 'desc' }, skip: UNCLAIMED_PER_NETWORK - 1, select: { serialNumber: true } });
-    if (kept.length) await tx.unclaimedReader.deleteMany({ where: { serialNumber: { in: kept.map((k) => k.serialNumber) } } });
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('unclaimed-reader'))`;
+    const inBlock = await tx.unclaimedReader.findMany({ where: blockWhere(network), orderBy: { lastSeenAt: 'desc' }, skip: UNCLAIMED_PER_BLOCK - 1, select: { serialNumber: true } });
+    const overall = await tx.unclaimedReader.findMany({ orderBy: { lastSeenAt: 'desc' }, skip: UNCLAIMED_MAX - 1, select: { serialNumber: true } });
+    const gone = [...new Set([...inBlock, ...overall].map((k) => k.serialNumber))];
+    if (gone.length) await tx.unclaimedReader.deleteMany({ where: { serialNumber: { in: gone } } });
     await tx.unclaimedReader.createMany({ data: [{ serialNumber: serial, ip, network, info: info?.slice(0, 300) || null }], skipDuplicates: true });
   });
 }
@@ -71,14 +85,20 @@ export async function remember(serial: string, ip: string | null, info: string |
 /**
  * Bodies are parsed only up to what the serial deserves: a reader a company added may send a big batch
  * (a few hundred KB; ClorTime caps at 8 MB), anything else gets 64 KB (#10). The serial is looked up
- * once a minute at most, so a flood of unknown serials costs one small query each, not an 8 MB parse.
+ * at most once a minute (an unknown one every few seconds), so a flood of unknown serials costs one small
+ * query each, not an 8 MB parse.
  */
 const BIG_BODY = express.text({ type: () => true, limit: '8mb' });
 const SMALL_BODY = express.text({ type: () => true, limit: '64kb' });
 const knownSerials = new Map<string, { known: boolean; at: number }>();
+export const UNKNOWN_SERIAL_TTL_MS = 5_000;
 async function knownSerial(serial: string) {
   const hit = knownSerials.get(serial);
-  if (hit && Date.now() - hit.at < 60_000) return hit.known;
+  /*
+   * "Unknown" is remembered for a few seconds only, so a reader added or claimed a moment ago sends its
+   * big first batch at once (review of #144) without devices.ts having to reach into this cache.
+   */
+  if (hit && Date.now() - hit.at < (hit.known ? 60_000 : UNKNOWN_SERIAL_TTL_MS)) return hit.known;
   const device = await outsideTenant('adms: is this serial a company reader (body size)', () => peoplePrisma.attendanceDevice.findUnique({ where: { serialNumber: serial }, select: { isActive: true, vendor: true } }));
   const known = Boolean(device?.isActive && device.vendor === 'ADMS');
   if (knownSerials.size > 5_000) knownSerials.clear();

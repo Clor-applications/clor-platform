@@ -106,8 +106,13 @@ export async function monthReview(e: Who, month: string) {
   /* The late-mark penalty under the company's rules, as payroll will take it (markRules.ts). */
   const { penaltiesOver } = await import('./markRules.js');
   const penalty = (await penaltiesOver(e.accountId, e.orgId, days, { employeeIds: [e.id] })).get(e.id);
+  /* Before the company's attendance start date a day with no record is not counted, as on the register (audit #5, days.ts periodContext). */
+  const start = settings?.attendanceStartDate || null;
+  const recorded = new Set(records.map((r) => r.date));
+  const counted = start ? days.filter((d) => d >= start || recorded.has(d)) : days;
+  const untrackedDays = days.length - counted.length;
   const summary = monthSummary({
-    days,
+    days: counted,
     records: new Map(records.map((r) => [r.date, { status: r.status as any, lateMinutes: r.lateMinutes, overtimeMinutes: r.overtimeMinutes, overtimeApproved: r.overtimeApproved, checkIn: r.checkIn, checkOut: r.checkOut }])),
     shift: (d) => resolveShift(schedule, e.id, d).rule,
     holidays: mine,
@@ -129,7 +134,7 @@ export async function monthReview(e: Who, month: string) {
       late: summary.lateCount,
       latePenaltyDays: summary.latePenaltyDays,
       lossOfPayDays: summary.lossOfPayDays,
-      payableDays: summary.payableDays,
+      payableDays: summary.payableDays + untrackedDays,
       notYet: summary.notYet,
       workedMinutes: records.reduce((a, r) => a + (r.workedMinutes || 0), 0),
       overtimeMinutes: records.reduce((a, r) => a + (r.overtimeMinutes || 0), 0),

@@ -335,7 +335,7 @@ export const attendanceApp = {
     { key: 'reportInsights', label: 'Attendance Insights', icon: TrendChart, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
     { key: 'register', label: 'Daily Attendance Register', icon: Grid3x3, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
     { key: 'summary', label: 'Monthly Attendance Summary', icon: ClipboardCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'calendar', label: 'Attendance Calendar', icon: CalendarDays, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'calendar', label: 'Attendance Calendar', icon: CalendarDays, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'reportLateEarly', label: 'Late Arrivals & Early Exits', icon: Clock3, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
     { key: 'reportAbsent', label: 'Absence Report', icon: CalendarOff, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
     { key: 'reportDepartment', label: 'Department Attendance', icon: Building2, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },

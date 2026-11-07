@@ -44,7 +44,7 @@ export default function UnmatchedPunches() {
   const [choice, setChoice] = useState({});
   const [siteOnly, setSiteOnly] = useState({});
   const perms = usePermissions();
-  const canDecide = Boolean(perms?.isAdmin) || Boolean(perms?.permissions?.has?.('ATTENDANCE::Attendance Devices::EDIT'));
+  const canDecide = Boolean(perms?.isAdmin) || Boolean((perms?.permissions?.has?.('ATTENDANCE::Attendance Devices::EDIT') || perms?.permissions?.has?.('ATTENDANCE::Attendance Records::APPROVE')));
 
   const load = useCallback(() => {
     listUnmatchedPunches().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load punches.')));

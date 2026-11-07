@@ -12,6 +12,7 @@ import { closeMonth, getMonthReadiness, setAttendanceStartDate } from '../api/at
  * reached (the list used to stop at 500), the total is said, and the list
  * narrows to one kind of open item.
  */
+vi.mock('../components/HeldPunches', () => ({ default: () => <section aria-label="Held for a look" /> }));
 vi.mock('../api/attendance', () => ({
   closeMonth: vi.fn(), getMonthReadiness: vi.fn(), getMonthSnapshot: vi.fn(), reopenMonth: vi.fn(), setAttendanceStartDate: vi.fn(),
   dayLabel: (d) => d,
@@ -105,8 +106,8 @@ it('does not offer a team-scoped role Reopen on a closed month', async () => {
  * the days are named, and closing needs its own tick, sent back as the count.
  */
 const lopMonth = () => ({
-  month: '2026-09', ended: true, closed: null, ready: true, blocking: 0, toCheck: 1, snapshots: [], attendanceStartDate: null,
-  noRecordDays: 3, noRecordPeople: 1,
+  month: '2026-09', ended: true, closed: null, ready: false, blocking: 0, toCheck: 1, snapshots: [], attendanceStartDate: null,
+  noRecordDays: 3, noRecordPeople: 1, noRecordConfirm: { confirmNoRecordDays: 3, confirmNoRecordToken: 'abc' },
   checks: [{ key: 'noRecord', label: 'Working days with no attendance', severity: 'confirm', count: 3, screen: 'records', hint: 'Each is docked as an unpaid absence (loss of pay) when the month closes.' }],
   people: [{ employeeId: 'e1', name: 'Asha Rao', code: 'A-1', missingOut: 0, noRecord: 3, noRecordDates: ['2026-09-03', '2026-09-04', '2026-09-07'], unapprovedOvertime: 0, unvalidated: 0, ready: false }],
 });
@@ -128,7 +129,7 @@ it('does not call a month with no-record days ready, and closes only once they a
   fireEvent.click(within(confirm).getByLabelText('Dock these 3 working days from pay as unpaid absence.'));
   expect(button.disabled).toBe(false);
   fireEvent.click(button);
-  await waitFor(() => expect(closeMonth).toHaveBeenCalledWith('2026-09', true, 3));
+  await waitFor(() => expect(closeMonth).toHaveBeenCalledWith('2026-09', true, { confirmNoRecordDays: 3, confirmNoRecordToken: 'abc' }));
 });
 
 it('sets when attendance started on CLOR, from the month close', async () => {
@@ -141,4 +142,17 @@ it('sets when attendance started on CLOR, from the month close', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(setAttendanceStartDate).toHaveBeenCalledWith('2026-09-08'));
   await waitFor(() => expect(getMonthReadiness).toHaveBeenCalledTimes(2));
+});
+
+/* Review of #144: a reader punch held for the month blocks the close until it is counted or discarded, from here. */
+it('blocks the close while reader punches are held for the month, and shows them', async () => {
+  const m = lopMonth();
+  getMonthReadiness.mockResolvedValue({ ...m, blocking: 1, checks: [...m.checks, { key: 'held', label: 'Reader punches held for this month', severity: 'block', count: 2, screen: 'unmatched', hint: 'Count or discard.' }] });
+  render(<MonthClose params={{ month: '2026-09' }} />);
+  await screen.findByText('1 thing to settle before September 2026 closes');
+  expect(screen.getByRole('region', { name: 'Held for a look' })).toBeTruthy();
+  expect(screen.getByText(/2 reader punches are held for a look in this month/)).toBeTruthy();
+  fireEvent.click(screen.getByLabelText(/I have seen the 2 open items/));
+  fireEvent.click(screen.getByLabelText('Dock these 3 working days from pay as unpaid absence.'));
+  expect(screen.getByRole('button', { name: /Close the month/ }).disabled).toBe(true);
 });

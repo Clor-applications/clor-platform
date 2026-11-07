@@ -7,6 +7,7 @@ import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitiv
 import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { usePermissions } from '@ui/permissions/usePermissions';
+import HeldPunches from '../components/HeldPunches';
 import { closeMonth, dayLabel, getMonthReadiness, getMonthSnapshot, setAttendanceStartDate, todayIst } from '../api/attendance';
 import ReopenMonth from '../components/ReopenMonth';
 import LoadFailed from '@ui/components/ui/LoadFailed';
@@ -133,6 +134,10 @@ export default function MonthClose({ openScreen, params }) {
   const openItems = (data?.checks || []).filter((c) => c.count > 0);
   /* Docked as unpaid absence on close: never an "all clear", and confirmed on its own. */
   const noRecordDays = data?.noRecordDays || 0;
+  /* `ready` is false while days would be docked; what is red to settle is `blocking`. */
+  const blocked = (data?.blocking || 0) > 0;
+  /* Reader punches held for this month: the server refuses the close until each is counted or discarded. */
+  const held = (data?.checks || []).find((c) => c.key === 'held')?.count || 0;
   const noRecordPeople = (data?.people || []).filter((p) => p.noRecord > 0);
   /* A team-scoped role sees its own team's days; the month is closed by someone who sees the company. */
   const teamOnly = data?.scope === 'team';
@@ -160,7 +165,7 @@ export default function MonthClose({ openScreen, params }) {
   const close = async () => {
     setBusy(true);
     try {
-      const r = await closeMonth(month, openItems.length > 0, noRecordDays || undefined);
+      const r = await closeMonth(month, openItems.length > 0, noRecordDays ? data.noRecordConfirm : undefined);
       notify.success(`${monthName(month)} closed. Snapshot ${r.snapshot?.version ?? ''} kept for Payroll.`);
       load();
     } catch (e) {
@@ -209,16 +214,16 @@ export default function MonthClose({ openScreen, params }) {
         error ? null : <SkeletonCard lines={8} />
       ) : (
         <>
-          <section className={`ui-card ui-readiness ${data.closed ? 'is-closed' : !data.ready ? 'is-blocked' : noRecordDays ? 'is-warn' : 'is-ready'}`} aria-live="polite">
+          <section className={`ui-card ui-readiness ${data.closed ? 'is-closed' : blocked ? 'is-blocked' : noRecordDays ? 'is-warn' : 'is-ready'}`} aria-live="polite">
             <div className="flex items-start gap-3">
-              {data.closed ? <Lock size={22} aria-hidden="true" /> : data.ready && !noRecordDays ? <CheckCircle2 size={22} aria-hidden="true" /> : <AlertTriangle size={22} aria-hidden="true" />}
+              {data.closed ? <Lock size={22} aria-hidden="true" /> : !blocked && !noRecordDays ? <CheckCircle2 size={22} aria-hidden="true" /> : <AlertTriangle size={22} aria-hidden="true" />}
               <div className="min-w-0 flex-1">
                 <h2 className="ui-t-sec">
                   {data.closed
                     ? `${monthName(month)} is closed`
                     : !data.ended
                       ? `${monthName(month)} has not ended yet`
-                      : !data.ready
+                      : blocked
                         ? `${data.blocking} thing${data.blocking === 1 ? '' : 's'} to settle before ${monthName(month)} closes`
                         : noRecordDays
                           ? `${days(noRecordDays)} with no record would be docked as unpaid absence`
@@ -229,7 +234,7 @@ export default function MonthClose({ openScreen, params }) {
                 <p className="ui-caption mt-0.5">
                   {data.closed
                     ? `Closed ${new Date(data.closed.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}. Its days are final until it is reopened.`
-                    : data.ready && noRecordDays
+                    : !blocked && noRecordDays
                       ? `${noRecordPeople.length.toLocaleString('en-IN')} ${noRecordPeople.length === 1 ? 'person has' : 'people have'} days with no punch, mark or leave. Correct them, or set when attendance started on CLOR, before closing.`
                       : 'Settle the red items first. The others are worth a look; payable days are worked out from what is there.'}
                 </p>
@@ -258,6 +263,8 @@ export default function MonthClose({ openScreen, params }) {
             </ul>
           </section>
 
+          {held && !data.closed ? <HeldPunches canDecide={canClose} onChanged={load} /> : null}
+
           {teamOnly ? (
             <p className="ui-caption px-1" role="note">These are your team’s days. Closing or reopening the month is done by someone who sees the whole company.</p>
           ) : null}
@@ -266,6 +273,7 @@ export default function MonthClose({ openScreen, params }) {
             <section className="ui-card p-4 space-y-3" aria-labelledby="close-h">
               <h2 id="close-h" className="ui-t-sec">Close {monthName(month)}</h2>
               <p className="text-sm ui-muted">Corrections, leave, manual changes and late reader uploads can no longer change its days. Payroll takes the figures as they are now; a snapshot is kept.</p>
+              {held ? <p className="text-sm ui-text-neg" role="note">{held} reader punch{held === 1 ? ' is' : 'es are'} held for a look in this month. Count or discard {held === 1 ? 'it' : 'them'} under Held for a look before closing.</p> : null}
               {noRecordDays ? <NoRecordConfirm people={noRecordPeople} count={noRecordDays} checked={lopOk} onChange={setLopOk} /> : null}
               {openItems.length ? (
                 <label className="flex items-start gap-2 text-sm">
@@ -273,7 +281,7 @@ export default function MonthClose({ openScreen, params }) {
                   <span>I have seen the {openItems.length} open item{openItems.length === 1 ? '' : 's'} above and want to close the month as it is.</span>
                 </label>
               ) : null}
-              <button type="button" className="ui-btn ui-btn-primary" disabled={busy || (openItems.length > 0 && !ack) || (noRecordDays > 0 && !lopOk)} onClick={close}>
+              <button type="button" className="ui-btn ui-btn-primary" disabled={busy || held > 0 || (openItems.length > 0 && !ack) || (noRecordDays > 0 && !lopOk)} onClick={close}>
                 <Lock size={16} aria-hidden="true" /> {busy ? 'Closing…' : 'Close the month'}
               </button>
             </section>

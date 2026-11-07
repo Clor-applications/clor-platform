@@ -55,9 +55,9 @@ export const getRestrictedPicks = (year) => get(`/leave/holidays/restricted/pick
 export const getSummary = (month) => get(`/summary${query({ month })}`);
 /** Close a month (its days become final) or reopen it. */
 /* `acknowledge`: the month-close checklist has open items and the person closing has seen them. */
-/* `confirmNoRecordDays`: the number of working days with no record the closer was shown and confirmed as unpaid absence (audit #5). */
-export const closeMonth = (month, acknowledge = false, confirmNoRecordDays = undefined) =>
-  send(`/months/${encodeURIComponent(month)}/close`, 'POST', { ...(acknowledge ? { acknowledge: true } : {}), ...(confirmNoRecordDays ? { confirmNoRecordDays } : {}) });
+/* `confirm`: the readiness's `noRecordConfirm`, the count and token of the no-record days the closer was shown and confirmed as unpaid absence (audit #5). */
+export const closeMonth = (month, acknowledge = false, confirm = undefined) =>
+  send(`/months/${encodeURIComponent(month)}/close`, 'POST', { ...(acknowledge ? { acknowledge: true } : {}), ...(confirm || {}) });
 /** The first day the company kept attendance on CLOR; days before it with no record are not counted (audit #5). */
 export const setAttendanceStartDate = (date) => send('/start-date', 'PUT', { date: date || null });
 /** Browser clock-in: the company switch and the address allow-list (audit #6). */

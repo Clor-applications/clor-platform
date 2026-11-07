@@ -78,7 +78,7 @@ describe('leave workflow invariants', () => {
   it('refuses full-day cancellation in a closed month without changing any rows', async () => {
     const p = await person(); const t = await type(); const r = await ask(p, t);
     await leave('post', `/requests/${r.id}/approve`).expect(200);
-    await api('post', '/attendance/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: (await api('get', '/attendance/months/2026-09/readiness')).body.noRecordDays }).expect(200);
+    await api('post', '/attendance/months/2026-09/close', { acknowledge: true, ...(await api('get', '/attendance/months/2026-09/readiness')).body.noRecordConfirm }).expect(200);
     await leave('post', `/requests/${r.id}/cancel`).expect(409);
     expect((await peoplePrisma.leaveRequest.findUnique({ where: { id: r.id } }))?.status).toBe('APPROVED');
     expect(await peoplePrisma.attendanceRecord.count({ where: { orgId, leaveRequestId: r.id } })).toBe(1);
@@ -162,7 +162,7 @@ describe('leave workflow invariants', () => {
   it('refuses half-day cancellation in a closed month without changing any rows', async () => {
     const p = await person(); const t = await type(); const r = await ask(p, t, '2026-09-01', { halfDay: 'FIRST' });
     await leave('post', `/requests/${r.id}/approve`).expect(200);
-    await api('post', '/attendance/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: (await api('get', '/attendance/months/2026-09/readiness')).body.noRecordDays }).expect(200);
+    await api('post', '/attendance/months/2026-09/close', { acknowledge: true, ...(await api('get', '/attendance/months/2026-09/readiness')).body.noRecordConfirm }).expect(200);
     await leave('post', `/requests/${r.id}/cancel`).expect(409);
     const day = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: p.id, date: '2026-09-01' } } });
     expect(day).toMatchObject({ leaveRequestId: r.id, status: 'HALF_DAY' });

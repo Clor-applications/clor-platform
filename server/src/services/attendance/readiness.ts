@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { isWeeklyOff, istInstant } from './compute.js';
 import { clashingTemporaries } from './conflicts.js';
@@ -65,12 +67,14 @@ export async function scanQueues(orgId: string, from: string, to: string, scope?
   const toAt = istInstant(to, '00:00', 1);
   const ids = idsOf(scope);
   const mine = ids ? { employeeId: { in: ids } } : {};
-  const [corrections, leave, unmatched, alerts, temporaries] = await Promise.all([
+  const [corrections, leave, unmatched, alerts, temporaries, held] = await Promise.all([
     peoplePrisma.attendanceRequest.findMany({ where: { orgId, status: 'PENDING', date: { gte: from, lte: to }, ...mine }, orderBy: { date: 'asc' } }),
     peoplePrisma.leaveRequest.findMany({ where: { orgId, status: 'PENDING', fromDate: { lte: to }, toDate: { gte: from }, ...mine }, orderBy: { fromDate: 'asc' } }),
     ids ? Promise.resolve([] as any[]) : peoplePrisma.devicePunch.groupBy({ by: ['pin'], where: { orgId, employeeId: null, at: { gte: fromAt, lt: toAt } }, _count: { _all: true }, _min: { at: true }, _max: { at: true } }),
     ids ? Promise.resolve([] as any[]) : peoplePrisma.readerAlert.findMany({ where: { orgId, resolvedAt: null }, orderBy: { openedAt: 'desc' } }),
     peoplePrisma.temporarySchedule.findMany({ where: { orgId, fromDate: { lte: to }, toDate: { gte: from }, ...mine } }),
+    /* Reader punches held for a look (#11), by the time on them: on nobody's day until Count or Discard. */
+    peoplePrisma.devicePunch.findMany({ where: { orgId, reviewStatus: 'HELD', localTime: { gte: `${from} 00:00:00`, lte: `${to} 23:59:59` }, ...mine }, select: { id: true, employeeId: true, localTime: true } }),
   ]);
   /* Two temporary schedules for the same person on the same days with different shifts. */
   const byPerson = new Map<string, Array<{ id: string; shiftId: string; from: string; to: string | null }>>();
@@ -81,7 +85,7 @@ export async function scanQueues(orgId: string, from: string, to: string, scope?
   }
   const clashes: Array<{ employeeId: string; a: any; b: any; from: string; to: string | null }> = [];
   for (const [employeeId, list] of byPerson) for (const c of clashingTemporaries(list)) clashes.push({ employeeId, ...c });
-  return { corrections, leave, unmatched, alerts, clashes };
+  return { corrections, leave, unmatched, alerts, clashes, held };
 }
 
 /**
@@ -111,6 +115,8 @@ export async function monthReadiness(accountId: string, orgId: string, month: st
     { key: 'missingOut', label: 'Days with a check-in and no check-out', severity: 'block', count: sum((p) => p.missingOut.length), screen: 'records', hint: 'Not paid until corrected.' },
     { key: 'corrections', label: 'Correction requests waiting', severity: 'block', count: queues.corrections.length, screen: 'requests', hint: 'Approve or reject so the days are final.' },
     { key: 'leave', label: 'Leave requests waiting', severity: 'block', count: queues.leave.length, screen: 'leaveRequests', hint: 'Pending leave is not on the days yet.' },
+    /* Review of #144: a held punch dated in the month is on nobody's day; Count or Discard it before the month is final. */
+    { key: 'held', label: 'Reader punches held for this month', severity: 'block', count: queues.held.length, screen: 'unmatched', hint: 'The reader’s clock was ahead. Count or discard each under Held for a look.' },
     { key: 'unmatched', label: 'Reader IDs with punches but no employee', severity: 'block', count: queues.unmatched.length, screen: 'unmatched', hint: 'Their punches are not on anybody’s days.' },
     /*
      * Not a quiet "worth a look" (audit 7 Nov 2026, #5): each of these days is docked from pay as an unpaid
@@ -131,16 +137,27 @@ export async function monthReadiness(accountId: string, orgId: string, month: st
   const toCheck = checks.filter((c) => c.severity === 'check' && c.count > 0).length;
   /* Days that would be docked as unpaid absence: closing asks for this exact number back (routes/attendance.ts). */
   const lossOfPayDays = sum((p) => p.noRecord.length);
+  /*
+   * What the closer confirms: the exact days, not only how many (review of #144). Another set of days
+   * with the same count (a day corrected, another one gone missing) gives another token.
+   */
+  const noRecordToken = lossOfPayDays
+    ? createHash('sha256').update(people.flatMap((p) => p.noRecord.map((d) => `${p.employeeId}:${d}`)).sort().join('\n')).digest('hex').slice(0, 24)
+    : null;
   const settings = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { attendanceStartDate: true } });
   return {
     month,
     ended: to < todayIst(),
     closed: lock ? { at: lock.lockedAt, byUserId: lock.lockedByUserId } : null,
-    ready: blocking === 0,
+    /* Not ready while days would be docked as unpaid absence: closing over them is a decision, not an all clear. */
+    ready: blocking === 0 && lossOfPayDays === 0,
     blocking,
     toCheck,
     /* `ready` says nothing blocks; with these above nought it is not "all clear" either. */
     noRecordDays: lossOfPayDays,
+    noRecordToken,
+    /* Sent back as is with the close (routes/attendance.ts). */
+    noRecordConfirm: lossOfPayDays ? { confirmNoRecordDays: lossOfPayDays, confirmNoRecordToken: noRecordToken } : {},
     noRecordPeople: people.filter((p) => p.noRecord.length > 0).length,
     attendanceStartDate: settings?.attendanceStartDate ?? null,
     checks,

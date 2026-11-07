@@ -79,3 +79,9 @@ it('says why instead of Check in when the punch policy refuses this browser', ()
   expect(screen.getByRole('note').textContent).toBe(why);
   expect(screen.queryByRole('button', { name: /check in/i })).toBeNull();
 });
+
+/* Review of #144: a day the browser clock opened can always be closed by it. */
+it('keeps Check out for a day the browser clock opened, even when the policy now refuses a new one', () => {
+  withPerms(perms([], { isAdmin: true }), <CheckInCard me={{ ...me, clockedIn: true, todayRecord: { checkInTime: '09:05' }, webClock: { allowed: true, outOnly: true, code: 'WEB_CLOCK_OFF', why: 'Off here.' } }} onChanged={() => {}} />);
+  expect(screen.getByRole('button', { name: /check out/i })).toBeTruthy();
+});

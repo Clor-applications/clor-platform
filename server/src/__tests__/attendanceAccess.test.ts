@@ -16,7 +16,11 @@ const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { runInTenant, outsideTenant } = await import('../utils/tenantScope.js');
 const { expandPreset } = await import('../constants/permissionCatalog.js');
-const { remember, UNCLAIMED_PER_NETWORK } = await import('../routes/iclock.js');
+const { remember, UNCLAIMED_PER_BLOCK, UNCLAIMED_MAX } = await import('../routes/iclock.js');
+const { blockOf } = await import('../services/attendance/network.js');
+const { payrollPrisma } = await import('../utils/payrollPrisma.js');
+const { monthReview } = await import('../services/attendance/selfService.js');
+const { outcomes } = await import('../services/payroll/provisionalDays.js');
 const { purgeExpiredRecords } = await import('../services/retention.js');
 
 const app = buildApp().listen(0, '127.0.0.1');
@@ -200,7 +204,7 @@ describe('#5 month close and the attendance start date', () => {
     const refused = await att(c).post('/months/2026-09/close', { acknowledge: true }).expect(409);
     expect(refused.body.code).toBe('NO_RECORD_UNCONFIRMED');
     expect(refused.body.noRecordDays).toBe(after.noRecordDays);
-    await att(c).post('/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: after.noRecordDays }).expect(200);
+    await att(c).post('/months/2026-09/close', { acknowledge: true, ...after.noRecordConfirm }).expect(200);
     /* A closed month's days went to Payroll: the start date cannot move across it. */
     expect((await att(c).put('/start-date', { date: '2026-09-20' }).expect(409)).body.code).toBe('ATTENDANCE_MONTH_CLOSED');
     expect((await att(c).put('/start-date', { date: null }).expect(409)).body.code).toBe('ATTENDANCE_MONTH_CLOSED');
@@ -329,18 +333,49 @@ describe('#11 reader punch times that cannot be right', () => {
 });
 
 describe('#10 readers nobody has claimed', () => {
-  it('are kept up to a cap a network, the longest silent giving way', async () => {
-    const network = `198.51.100.${Math.floor(Math.random() * 250)}-${rnd()}`;
-    const serials = Array.from({ length: UNCLAIMED_PER_NETWORK + 5 }, () => serial());
-    for (const sn of serials) await remember(sn, null, null, network);
-    const kept = await outsideTenant('test: unclaimed readers', () => peoplePrisma.unclaimedReader.findMany({ where: { network }, select: { serialNumber: true } }));
-    expect(kept).toHaveLength(UNCLAIMED_PER_NETWORK);
+  it('are kept up to a cap a block (/24, /64), the longest silent giving way, and up to a ceiling in all', async () => {
+    const [a, b] = [10 + Math.floor(Math.random() * 200), Math.floor(Math.random() * 250)];
+    const prefix = `100.${a}.${b}.`;
+    const inBlock = { network: { startsWith: prefix } };
+    /* Twenty-five addresses of one /24 count as one block. */
+    const serials = Array.from({ length: UNCLAIMED_PER_BLOCK + 5 }, () => serial());
+    for (const [i, sn] of serials.entries()) await remember(sn, null, null, `${prefix}${i + 1}`);
+    const kept = await outsideTenant('test: unclaimed readers', () => peoplePrisma.unclaimedReader.findMany({ where: inBlock, select: { serialNumber: true } }));
+    expect(kept).toHaveLength(UNCLAIMED_PER_BLOCK);
     /* The newest is always heard: adding it shows it was seen. */
     expect(kept.map((k) => k.serialNumber)).toContain(serials[serials.length - 1]);
     /* One already kept is only touched. */
-    await remember(serials[serials.length - 1], '10.0.0.9', 'ZK', network);
-    expect(await outsideTenant('test: unclaimed readers', () => peoplePrisma.unclaimedReader.count({ where: { network } }))).toBe(UNCLAIMED_PER_NETWORK);
-    await outsideTenant('test: tidy', () => peoplePrisma.unclaimedReader.deleteMany({ where: { network } }));
+    await remember(serials[serials.length - 1], '10.0.0.9', 'ZK', `${prefix}200`);
+    expect(await outsideTenant('test: unclaimed readers', () => peoplePrisma.unclaimedReader.count({ where: inBlock }))).toBe(UNCLAIMED_PER_BLOCK);
+    /* Another block is not touched by this one's cap. */
+    const other = serial();
+    await remember(other, null, null, `100.${a}.${(b + 1) % 250}.7`);
+    expect(await outsideTenant('test: unclaimed readers', () => peoplePrisma.unclaimedReader.count({ where: { serialNumber: other } }))).toBe(1);
+    /* IPv6: one /64 is one block. */
+    const v6 = `2001:0db8:${rnd().slice(0, 4).padStart(4, '0').replace(/[^0-9a-f]/g, 'a')}:0001:`;
+    for (let i = 0; i < UNCLAIMED_PER_BLOCK + 2; i += 1) await remember(serial(), null, null, `${v6}0000:0000:0000:${String(i).padStart(4, '0')}`);
+    expect(await outsideTenant('test: unclaimed readers', () => peoplePrisma.unclaimedReader.count({ where: { network: { startsWith: v6 } } }))).toBe(UNCLAIMED_PER_BLOCK);
+    await outsideTenant('test: tidy', () => peoplePrisma.unclaimedReader.deleteMany({ where: { OR: [inBlock, { serialNumber: other }, { network: { startsWith: v6 } }] } }));
+  });
+
+  it('never number more than the ceiling in all', async () => {
+    const tag = `100.250.${Math.floor(Math.random() * 250)}`;
+    /* Already full, from many blocks (a row each), all quieter than the next one. */
+    await outsideTenant('test: fill', () => peoplePrisma.unclaimedReader.createMany({ data: Array.from({ length: UNCLAIMED_MAX }, (_, i) => ({ serialNumber: `FILL${tag.replace(/\./g, '')}X${i}`, network: `${tag}.${i % 250}-${i}`, lastSeenAt: new Date(Date.now() - 86_400_000) })), skipDuplicates: true }));
+    const fresh = serial();
+    await remember(fresh, null, null, '100.251.1.1');
+    expect(await outsideTenant('test: count', () => peoplePrisma.unclaimedReader.count())).toBeLessThanOrEqual(UNCLAIMED_MAX);
+    expect(await outsideTenant('test: count', () => peoplePrisma.unclaimedReader.count({ where: { serialNumber: fresh } }))).toBe(1);
+    await outsideTenant('test: tidy', () => peoplePrisma.unclaimedReader.deleteMany({ where: { OR: [{ serialNumber: { startsWith: `FILL${tag.replace(/\./g, '')}X` } }, { serialNumber: fresh }] } }));
+  });
+
+  it('a block is a /24 or a /64, whatever the address looks like', () => {
+    expect(blockOf('49.205.10.4')).toBe('49.205.10.0/24');
+    expect(blockOf('::ffff:49.205.10.250')).toBe('49.205.10.0/24');
+    expect(blockOf('2401:4900:1c2a:5b00::1')).toBe('2401:4900:1c2a:5b00::/64');
+    expect(blockOf('2401:4900:1c2a:5b00:ffff::9')).toBe(blockOf('2401:4900:1c2a:5b00::1'));
+    expect(blockOf('2401:4900:1c2a:5b01::1')).not.toBe(blockOf('2401:4900:1c2a:5b00::1'));
+    expect(blockOf('not an address')).toBeNull();
   });
 
   it('are pruned after 30 days silent', async () => {
@@ -368,3 +403,129 @@ describe('#10 readers nobody has claimed', () => {
   });
 });
 
+
+describe('review of #144', () => {
+  /** A company with a team role (records view and approve) leading one report, and an outsider. */
+  async function withTeam() {
+    const boss = await owner();
+    const lead = await teamLead(boss, ['ATTENDANCE::Attendance Records::VIEW', 'ATTENDANCE::Attendance Records::APPROVE']);
+    const me = await person(boss, { name: 'Lead Self', code: 'RV-0' });
+    const report = await person(boss, { name: 'In The Team', code: 'RV-1' });
+    const outsider = await person(boss, { name: 'Outside Team', code: 'RV-2' });
+    await runInTenant(boss.orgId, async () => {
+      await peoplePrisma.employee.update({ where: { id: me.id }, data: { userId: lead.userId } });
+      await peoplePrisma.employee.update({ where: { id: report.id }, data: { reportingManagerId: me.id } });
+    });
+    return { boss, lead, report, outsider };
+  }
+  /** A reader punch held for a look, its time moved into September as if the reader had sent it then. */
+  async function heldIn(c: Ctx, code: string, sn: string, when: string) {
+    const ahead = istLocal(Date.now() + 2 * 86_400_000 + Math.floor(Math.random() * 3_600_000));
+    await punchFrom(sn)([`${code}\t${ahead}\t0\t1`]).expect(200);
+    const p = await runInTenant(c.orgId, () => peoplePrisma.devicePunch.findFirstOrThrow({ where: { orgId: c.orgId, serialNumber: sn, localTime: ahead } }));
+    await runInTenant(c.orgId, () => peoplePrisma.devicePunch.update({ where: { id: p.id }, data: { localTime: when, at: new Date(Date.parse(`${when.replace(' ', 'T')}+05:30`)) } }));
+    return p.id;
+  }
+
+  it('a team role asking for one person’s days outside its team gets none', async () => {
+    const { boss, lead, report, outsider } = await withTeam();
+    for (const id of [report.id, outsider.id]) await att(boss).put('/records', { employeeId: id, date: '2026-09-02', checkIn: '09:00', checkOut: '18:00' }).expect(200);
+    expect((await att(lead).get(`/records?from=2026-09-01&to=2026-09-30&employeeId=${outsider.id}`).expect(200)).body.records).toEqual([]);
+    expect((await att(lead).get(`/records?from=2026-09-01&to=2026-09-30&employeeId=${report.id}`).expect(200)).body.records.map((r: any) => r.employeeId)).toEqual([report.id]);
+    expect((await att(boss).get(`/records?from=2026-09-01&to=2026-09-30&employeeId=${outsider.id}`).expect(200)).body.records).toHaveLength(1);
+  });
+
+  it('a held punch in the month blocks the close; whoever closes months counts or discards it, a team role only its team’s', async () => {
+    const { boss, lead, report } = await withTeam();
+    const sn = serial();
+    await att(boss).post('/devices', { serialNumber: sn, name: 'Gate', direction: 'both' }).expect(201);
+    const mine = await heldIn(boss, 'RV-1', sn, '2026-09-10 09:05:00');
+    const theirs = await heldIn(boss, 'RV-2', sn, '2026-09-11 09:05:00');
+
+    const r = (await att(boss).get('/months/2026-09/readiness').expect(200)).body;
+    expect(r.checks.find((x: any) => x.key === 'held')).toMatchObject({ count: 2, severity: 'block' });
+    expect(r.ready).toBe(false);
+    const refused = await att(boss).post('/months/2026-09/close', { acknowledge: true, ...r.noRecordConfirm }).expect(409);
+    expect(refused.body.code).toBe('HELD_PUNCHES');
+    /* The team's readiness counts the team's held punch only. */
+    expect((await att(lead).get('/months/2026-09/readiness').expect(200)).body.checks.find((x: any) => x.key === 'held').count).toBe(1);
+
+    /* Records approve, no reader rights: the list and the decision, for the team only. */
+    expect((await att(lead).get('/held-punches').expect(200)).body.held.map((h: any) => h.id)).toEqual([mine]);
+    await att(lead).post(`/held-punches/${theirs}/discard`).expect(404);
+    await att(lead).post(`/held-punches/${mine}/release`).expect(200);
+    expect(await runInTenant(boss.orgId, () => peoplePrisma.attendanceRecord.count({ where: { employeeId: report.id, date: '2026-09-10' } }))).toBe(1);
+    await att(boss).post(`/held-punches/${theirs}/discard`).expect(200);
+
+    const after = (await att(boss).get('/months/2026-09/readiness').expect(200)).body;
+    expect(after.checks.find((x: any) => x.key === 'held').count).toBe(0);
+    await att(boss).post('/months/2026-09/close', { acknowledge: true, ...after.noRecordConfirm }).expect(200);
+  });
+
+  it('the start date cannot move across a month a final payroll run took', async () => {
+    const c = await owner();
+    const p = await person(c, { name: 'Paid Already', code: 'RV-3' });
+    const accountId = (await runInTenant(c.orgId, () => peoplePrisma.employee.findUniqueOrThrow({ where: { id: p.id } }))).accountId;
+    await runInTenant(c.orgId, async () => {
+      const period = await payrollPrisma.payrollPeriod.create({ data: { accountId, orgId: c.orgId, name: 'September 2026', startDate: '2026-09-01', endDate: '2026-09-30', createdByUserId: c.userId } });
+      await payrollPrisma.payrollRun.create({ data: { accountId, orgId: c.orgId, number: `PR-${rnd()}`, periodId: period.id, payrollDate: '2026-09-30', status: 'APPROVED', createdByUserId: c.userId } });
+    });
+    expect((await att(c).put('/start-date', { date: '2026-09-15' }).expect(409)).body.code).toBe('PAYROLL_TAKEN');
+    /* From nothing to a later date moves every day before it, September's too. */
+    expect((await att(c).put('/start-date', { date: '2026-10-05' }).expect(409)).body.code).toBe('PAYROLL_TAKEN');
+    /* A cancelled run took nothing. */
+    await runInTenant(c.orgId, () => payrollPrisma.payrollRun.updateMany({ where: { orgId: c.orgId }, data: { status: 'CANCELLED' } }));
+    await att(c).put('/start-date', { date: '2026-09-15' }).expect(200);
+  });
+
+  it('the start date holds on the muster roll, the employee’s month and the provisional-days outcomes', async () => {
+    const c = await owner();
+    const p = await person(c, { name: 'Muster Person', code: 'RV-4' });
+    const e = await runInTenant(c.orgId, () => peoplePrisma.employee.findUniqueOrThrow({ where: { id: p.id } }));
+    const before = await runInTenant(c.orgId, () => monthReview(e as any, '2026-09'));
+    await att(c).put('/start-date', { date: '2026-09-15' }).expect(200);
+
+    const m = (await request(app).get(`/api/orgs/${c.orgId}/people/compliance/registers/muster?month=2026-09`).set(at(c)).expect(200)).body;
+    const row = m.rows.find((r: string[]) => r[1] === 'Muster Person');
+    /* 1 Sept (Tuesday), before the start: blank. 16 Sept (Wednesday), after: absent. */
+    expect(row[3 + 0]).toBe('');
+    expect(row[3 + 15]).toBe('A');
+
+    const after = await runInTenant(c.orgId, () => monthReview(e as any, '2026-09'));
+    expect(after.summary.lossOfPayDays).toBeLessThan(before.summary.lossOfPayDays);
+    expect(after.summary.payableDays - before.summary.payableDays).toBe(before.summary.lossOfPayDays - after.summary.lossOfPayDays);
+
+    const out = await runInTenant(c.orgId, () => outcomes(e.accountId, c.orgId, '2026-09-01', '2026-09-30'));
+    const days = out.get(p.id)!;
+    expect(days.get('2026-09-01')).toMatchObject({ absent: 0, paid: 1 });
+    expect(days.get('2026-09-16')).toMatchObject({ absent: 1, paid: 0 });
+  });
+
+  it('a day the browser clock opened is closed by it, whatever the rules say now', async () => {
+    const c = await owner();
+    await person(c, { name: 'Owner', code: 'RV-5', workEmail: c.email });
+    expect((await att(c).post('/clock', { kind: 'IN' }).expect(200)).body.kind).toBe('IN');
+    await att(c).put('/clock/settings', { allowed: false, addresses: [] }).expect(200);
+    expect((await att(c).get('/me').expect(200)).body.webClock).toMatchObject({ allowed: true, outOnly: true, code: 'WEB_CLOCK_OFF' });
+    /* In again is refused; out is not. */
+    expect((await att(c).post('/clock', { kind: 'IN' }).expect(403)).body.code).toBe('WEB_CLOCK_OFF');
+    expect((await att(c).post('/clock', {}).expect(200)).body.kind).toBe('OUT');
+    expect((await att(c).get('/me').expect(200)).body.webClock).toMatchObject({ allowed: false, code: 'WEB_CLOCK_OFF' });
+  });
+
+  it('the public API lists only punches that count', async () => {
+    const c = await owner();
+    await person(c, { name: 'Api Person', code: 'RV-6' });
+    const sn = serial();
+    await att(c).post('/devices', { serialNumber: sn, name: 'Gate', direction: 'both' }).expect(201);
+    await punchFrom(sn)(['RV-6\t2026-09-09 09:00:00\t0\t1']).expect(200);
+    await heldIn(c, 'RV-6', sn, '2026-09-09 18:00:00');
+    const counted = await runInTenant(c.orgId, () => peoplePrisma.devicePunch.findFirstOrThrow({ where: { orgId: c.orgId, serialNumber: sn, localTime: '2026-09-09 09:00:00' } }));
+    /* A second counted punch, then marked rejected (as a refused field punch is). */
+    await punchFrom(sn)(['RV-6\t2026-09-09 13:00:00\t1\t1']).expect(200);
+    await runInTenant(c.orgId, () => peoplePrisma.devicePunch.updateMany({ where: { orgId: c.orgId, serialNumber: sn, localTime: '2026-09-09 13:00:00' }, data: { reviewStatus: 'REJECTED' } }));
+    const key = (await att(c).post('/integrations/keys', { name: `Key ${rnd()}`, scopes: ['attendance:read'] }).expect(201)).body.token;
+    const punches = (await request(app).get('/v1/attendance/punches?from=2026-09-09&to=2026-09-09').set('Authorization', `Bearer ${key}`).expect(200)).body.punches;
+    expect(punches.map((p: any) => p.time)).toEqual([counted.localTime]);
+  });
+});

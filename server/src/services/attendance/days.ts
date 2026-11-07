@@ -171,6 +171,16 @@ export async function payrollTaken(orgId: string, employeeId: string, date: stri
   return { period: periods.find((p) => p.id === run.periodId)?.name || date.slice(0, 7), state: run.status };
 }
 
+/** A final payroll run (approved, locked, paid or posted) over any day from `from` to `to`, or null. For a change to many people's days at once. */
+export async function payrollTakenBetween(orgId: string, from: string, to: string): Promise<{ period: string; state: string } | null> {
+  const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lte: to }, endDate: { gte: from } }, select: { id: true, name: true, startDate: true } });
+  if (!periods.length) return null;
+  const run = await payrollPrisma.payrollRun.findFirst({ where: { orgId, periodId: { in: periods.map((p) => p.id) }, status: { in: FINAL_RUN } }, select: { status: true, periodId: true } });
+  if (!run) return null;
+  const period = periods.find((p) => p.id === run.periodId);
+  return { period: period?.name || String(period?.startDate || from).slice(0, 7), state: run.status };
+}
+
 /** The day can still change: its Attendance month is open and, for `employeeId`, no final payroll run has taken it. */
 export async function assertMonthOpen(orgId: string, date: string, employeeId?: string | null) {
   const month = date.slice(0, 7);

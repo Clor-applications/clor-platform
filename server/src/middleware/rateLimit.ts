@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto';
  * hour, and a per-instance cap still stops a flood.
  */
 import { PostgresRateLimitStore } from './rateLimitStore.js';
+import { blockOf } from '../services/attendance/network.js';
 let storeSeq = 0;
 const message = (what: string) => ({
   error: `Too many ${what}. Please wait a few minutes and try again.`,
@@ -143,7 +144,8 @@ const readerBucket = (max: number, key: (req: any) => string, skipWhen?: (req: a
 export const READER_LIMITS = { perSerial: 600, perAddress: 3000 };
 export const readerLimiter = [
   readerBucket(READER_LIMITS.perSerial, (req) => `sn:${readerSerial(req)}`, (req) => !readerSerial(req)),
-  readerBucket(READER_LIMITS.perAddress, (req) => `ip:${ipOf(req)}`),
+  /* Per block (/24, /64), not per address: walking the addresses of one line does not buy more (review of #144). */
+  readerBucket(READER_LIMITS.perAddress, (req) => `ip:${blockOf(req.ip) || ipOf(req)}`),
 ];
 
 /**
