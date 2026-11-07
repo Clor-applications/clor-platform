@@ -105,6 +105,12 @@ it('says a failed leave or news list failed instead of drawing it empty; a refus
   expect(await screen.findByText(/Could not load who is out today/)).toBeTruthy();
   expect(screen.queryByText('Everyone is in today.')).toBeNull();
   expect(screen.getByText('Could not load leave')).toBeTruthy();
+  /* To approve: a leave failure is said as one, never "No leave among them". */
+  expect(screen.getByText('Leave could not load')).toBeTruthy();
+  expect(screen.queryByText('No leave among them')).toBeNull();
+  /* Side cards are polite (status); only "Waiting for you" alerts. */
+  expect(screen.getByText(/Could not load announcements/).closest('[role]').getAttribute('role')).toBe('status');
+  expect(screen.getByText(/Could not load the leave waiting for you/).closest('[role]').getAttribute('role')).toBe('alert');
   expect(await screen.findByText(/Could not load announcements/)).toBeTruthy();
   expect(await screen.findByText(/No events planned/)).toBeTruthy();
   expect(screen.queryByText(/Could not load events/)).toBeNull();
@@ -113,7 +119,14 @@ it('says a failed leave or news list failed instead of drawing it empty; a refus
 });
 
 /* UI audit, 7 Nov 2026: "Out today" is India's day, not the browser's or UTC's. At 00:30 IST it is already the 7th. */
-it('counts who is out today by India’s date at 00:30 IST', async () => {
+it('counts who is out today by India’s date at 00:30 IST, even when the browser runs on UTC', async () => {
+  /*
+   * A browser on UTC, whatever zone this machine is in: the local-date getters read UTC's. A worker thread cannot
+   * change its own TZ once started, so the getters are what is pinned. The old local-date code fails here on an
+   * Indian machine too.
+   */
+  const local = ['FullYear', 'Month', 'Date', 'Day', 'Hours'].map((k) => vi.spyOn(Date.prototype, `get${k}`).mockImplementation(function utc() { return this[`getUTC${k}`](); }));
+  expect(new Date('2026-11-06T19:00:00.000Z').getDate()).toBe(6);
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-11-06T19:00:00.000Z')); // 00:30 IST, 7 Nov
   try {
@@ -123,5 +136,37 @@ it('counts who is out today by India’s date at 00:30 IST', async () => {
     expect(await screen.findByText('9 of 10 at work')).toBeTruthy();
   } finally {
     vi.useRealTimers();
+    local.forEach((spy) => spy.mockRestore());
   }
+});
+
+/* Review of #147: Retry asks again only for what failed, and a second Retry while one is in flight asks nothing. */
+it('retries only the failed list, once, however often Retry is pressed', async () => {
+  const api = await import('@ui/personnel/api');
+  api.getPeopleHome.mockClear();
+  api.listMyTasks.mockClear();
+  api.listMyTasks.mockRejectedValueOnce(Object.assign(new Error('down'), { status: 503 }));
+  render(<PeopleOverview openScreen={vi.fn()} />);
+  expect(await screen.findByText(/Could not load your tasks/)).toBeTruthy();
+  let answer;
+  api.listMyTasks.mockImplementationOnce(() => new Promise((res) => { answer = res; }));
+  const retry = screen.getByRole('button', { name: 'Retry' });
+  fireEvent.click(retry);
+  fireEvent.click(retry);
+  expect(api.listMyTasks).toHaveBeenCalledTimes(2);
+  expect(api.getPeopleHome).toHaveBeenCalledTimes(1);
+  answer([]);
+  expect(await screen.findByText(/Field punches waiting/)).toBeTruthy();
+  expect(screen.queryByText(/Could not load your tasks/)).toBeNull();
+});
+
+/* Review of #147: before the inbox and leave answer, the greeting does not claim nothing waits. */
+it('says it is checking, not "Nothing waits", while the inbox and leave are loading', async () => {
+  const api = await import('@ui/personnel/api');
+  const timeOff = await import('@ui/timeOff/api');
+  api.getPeopleHome.mockImplementationOnce(() => new Promise(() => {}));
+  timeOff.listLeaveRequests.mockImplementationOnce(() => new Promise(() => {}));
+  render(<PeopleOverview openScreen={vi.fn()} />);
+  expect(await screen.findByText(/Checking what waits for your answer/)).toBeTruthy();
+  expect(screen.queryByText(/Nothing waits for your answer/)).toBeNull();
 });

@@ -188,9 +188,10 @@ function PanelHead({ id, icon: Icon, tint, title, action = null }) {
  * A card whose request failed (UI audit, 7 Nov 2026): said as a failure with a way to try again, never drawn as an empty
  * answer. "All caught up" or "Everyone is in today" over a list that never arrived tells the owner nothing waits when it may.
  */
-function CardFailed({ what, onRetry }) {
+function CardFailed({ what, onRetry, role = 'status' }) {
+  /* Polite by default: several side cards failing at once must not interrupt a screen reader in turn. "Waiting for you" alerts. */
   return (
-    <div className="people-empty flex flex-wrap items-center gap-2" role="alert">
+    <div className="people-empty flex flex-wrap items-center gap-2" role={role}>
       <WarningCircle size={16} weight="bold" aria-hidden="true" style={{ color: 'rgb(var(--neg))' }} />
       <span className="min-w-0 flex-1">Could not load {what}. It may not be complete.</span>
       <button type="button" className="soft-chip" onClick={onRetry}>Retry</button>
@@ -202,14 +203,17 @@ function CardFailed({ what, onRetry }) {
  * One card's request: the answer into its state, or the failure into `failed`. A refusal (403) is an answer, not a
  * failure: a module switched off or a list this reader may not open is simply empty for them, as before.
  */
-function loadCard(key, request, set, setFailed) {
+function loadCard(key, request, set, setFailed, inFlight) {
+  /* One request per card at a time: a second Retry before the first answers asks nothing again. */
+  if (inFlight.has(key)) return Promise.resolve();
+  inFlight.add(key);
   setFailed((f) => (f[key] ? { ...f, [key]: false } : f));
   set(null);
   return request().then(set, (e) => {
     if (Number(e?.status) === 403) return set([]);
     setFailed((f) => ({ ...f, [key]: true }));
     return undefined;
-  });
+  }).finally(() => inFlight.delete(key));
 }
 
 /* Sections rise into place as they first scroll into view; once shown they stay. */
@@ -278,6 +282,7 @@ export default function PeopleOverview({ openScreen }) {
   /* Final pay due for leavers whose last day has come (WORKFLOW-GAP-RESEARCH 4.3). */
   const [finalPay, setFinalPay] = useState([]);
   const [failed, setFailed] = useState({});
+  const inFlight = useRef(new Set()).current;
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const revealRoot = useReveal();
@@ -287,17 +292,17 @@ export default function PeopleOverview({ openScreen }) {
   /* The setup list replaces "All caught up" while it is showing (HomeSetup). */
   const [setupShowing, setSetupShowing] = useState(false);
   const onSetup = useCallback((d) => setSetupShowing(Boolean(d?.setup?.show)), []);
-  const loadTodos = () => loadCard('todos', getPeopleHome, setTodos, setFailed);
-  const loadTasks = () => loadCard('tasks', listMyTasks, setTasks, setFailed);
-  const loadLeave = () => loadCard('leave', listLeaveRequests, setLeave, setFailed);
-  const loadPeople = () => loadCard('people', () => listEmployees({ limit: 500 }).then((r) => (r?.employees || []).filter((p) => p.status !== 'LEFT')), setPeople, setFailed);
-  const loadNews = () => loadCard('news', () => listRecords('announcements'), setNews, setFailed);
-  const loadEvents = () => loadCard('events', () => listRecords('events'), setEvents, setFailed);
-  const loadFinalPay = () => loadCard('finalPay', finalPayList, (v) => setFinalPay(v || []), setFailed);
-  /* "Waiting for you" reads three lists; its Retry asks all three again. */
+  const loadTodos = () => loadCard('todos', getPeopleHome, setTodos, setFailed, inFlight);
+  const loadTasks = () => loadCard('tasks', listMyTasks, setTasks, setFailed, inFlight);
+  const loadLeave = () => loadCard('leave', listLeaveRequests, setLeave, setFailed, inFlight);
+  const loadPeople = () => loadCard('people', () => listEmployees({ limit: 500 }).then((r) => (r?.employees || []).filter((p) => p.status !== 'LEFT')), setPeople, setFailed, inFlight);
+  const loadNews = () => loadCard('news', () => listRecords('announcements'), setNews, setFailed, inFlight);
+  const loadEvents = () => loadCard('events', () => listRecords('events'), setEvents, setFailed, inFlight);
+  const loadFinalPay = () => loadCard('finalPay', finalPayList, (v) => setFinalPay(v || []), setFailed, inFlight);
+  /* "Waiting for you" reads three lists; its Retry asks again only for those that failed. */
   const retryWaiting = () => {
-    loadTodos();
-    loadTasks();
+    if (failed.todos) loadTodos();
+    if (failed.tasks) loadTasks();
     if (failed.leave) loadLeave();
   };
   const tick = async (t) => {
@@ -338,6 +343,7 @@ export default function PeopleOverview({ openScreen }) {
     try {
       if (new URLSearchParams(window.location.search).get('from') === 'weekly') summaryOpened().catch(() => {});
     } catch { /* no address to read */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the first load only; each card reloads itself on Retry
   }, []);
   const go = (screen, params) => () => openScreen?.(screen, params);
   const openPerson = (id) => () => openScreen?.('employee', { id });
@@ -391,7 +397,7 @@ export default function PeopleOverview({ openScreen }) {
           <span className="soft-band-eyebrow">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
           <h1 className="soft-band-title">{firstName ? `${greeting()}, ${firstName}` : greeting()}</h1>
           <p className="soft-band-sub">
-            {waiting === null ? <>Could not check what waits for your answer</> : waiting ? <>You have <strong>{plural(waiting, 'request')}</strong> to answer</> : <>Nothing waits for your answer</>}
+            {waiting === null ? <>Could not check what waits for your answer</> : !todos && !leave ? <>Checking what waits for your answer</> : waiting ? <>You have <strong>{plural(waiting, 'request')}</strong> to answer</> : <>Nothing waits for your answer</>}
             {leave ? <> and <strong data-zero={outToday.length === 0 || undefined}>{plural(outToday.length, 'person', 'people')}</strong> {outToday.length === 1 ? 'is' : 'are'} out today.</> : '.'}
           </p>
         </div>
@@ -440,7 +446,7 @@ export default function PeopleOverview({ openScreen }) {
             <button type="button" className="soft-band-stat" data-tint="peach" data-attention={waiting > 0 || undefined} onClick={go('approvals')}>
               <span className="soft-band-stat-label"><SealCheck size={16} aria-hidden="true" /> To approve</span>
               <span className="soft-band-stat-value" data-zero={((todos || leave) && waiting === 0 && !waitFailed) || undefined}>{(todos || leave) && waiting !== null ? waiting : '–'}</span>
-              <span className="soft-band-stat-note">{pending.length ? `${plural(pending.length, 'leave request')}, next starts ${dayDate(pending[0].fromDate)}` : waiting === null || (failed.leave && !waiting) ? 'Could not load' : waiting ? 'No leave among them' : 'Nothing to approve'}</span>
+              <span className="soft-band-stat-note">{pending.length ? `${plural(pending.length, 'leave request')}, next starts ${dayDate(pending[0].fromDate)}` : failed.leave ? 'Leave could not load' : waiting === null ? 'Could not load' : !todos && !leave ? 'Checking' : waiting ? 'No leave among them' : 'Nothing to approve'}</span>
             </button>
             {/* The company keeps who is leaving from this reader (Company choices): no leaving figures. */}
             {data.leavingsHidden ? null : (
@@ -474,7 +480,7 @@ export default function PeopleOverview({ openScreen }) {
                   ))}
                 </ul>
               ) : null}
-              {waitFailed ? <CardFailed what={failed.todos ? 'what waits for you' : failed.leave ? 'the leave waiting for you' : 'your tasks'} onRetry={retryWaiting} /> : null}
+              {waitFailed ? <CardFailed what={failed.todos ? 'what waits for you' : failed.leave ? 'the leave waiting for you' : 'your tasks'} onRetry={retryWaiting} role="alert" /> : null}
               {failed.todos ? null : !todos ? (
                 <div className="p-4"><SkeletonCard lines={2} /></div>
               ) : otherTodos.length ? (
