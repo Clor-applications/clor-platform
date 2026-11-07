@@ -1286,7 +1286,7 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
       <dt className={embedded ? 'ui-caption' : 'ui-t-label'}>{label}</dt>
       <dd className={`${embedded ? '' : 'mt-1 '}text-sm flex items-center gap-2`}>
         <span className="tabular-nums">{shown[field] ?? (value || <span className="ui-muted">{embedded ? 'Not provided' : 'Not set'}</span>)}</span>
-        {value && !shown[field] ? <button type="button" className="ui-link" onClick={() => show(field)}>Show</button> : null}
+        {value && !shown[field] && d.canReveal !== false ? <button type="button" className="ui-link" onClick={() => show(field)}>Show</button> : null}
       </dd>
     </div>
   );
@@ -1310,7 +1310,7 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
       <div className="flex items-center justify-between gap-2">
         {embedded
           ? <span />
-          : <h3 className="text-sm font-semibold">Statutory details <span className="ui-caption font-normal">masked; a full value needs your authenticator code and is logged</span></h3>}
+          : <h3 className="text-sm font-semibold">Statutory details <span className="ui-caption font-normal">{d.canReveal === false ? 'masked' : 'masked; a full value needs your authenticator code and is logged'}</span></h3>}
         {d.canEdit && !editing ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing({ aadhaarLast4: '', passportNumber: '', passportExpiry: id.passportExpiry || '', workPermitNumber: '', workPermitExpiry: id.workPermitExpiry || '', statutoryCategory: id.statutoryCategory || '', categoryFrom: id.categoryFrom || '' })}>Edit identifiers</button> : null}
       </div>
       {editing ? (
@@ -1649,7 +1649,7 @@ export function JoiningDetails({ person, onChecked }) {
           ) : null}
         </>
       ) : null}
-      {latest.statutory ? <JoiningStatutory key={latest.id} invite={latest} canView={allowed('PEOPLE::Statutory Details::VIEW')} canApprove={allowed('PEOPLE::Statutory Details::EDIT')} /> : null}
+      {latest.statutory ? <JoiningStatutory key={latest.id} invite={latest} canView={allowed('PEOPLE::Statutory Details::VIEW') && allowed('PEOPLE::Full Identifiers::VIEW')} canApprove={allowed('PEOPLE::Statutory Details::EDIT')} /> : null}
     </section>
   );
 }
@@ -2065,6 +2065,9 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
   const perms = usePermissions();
   /* Asking a person to read and accept a file, and reminding them, take Documents EDIT (DOC-05), as the server checks. */
   const canAsk = Boolean(perms?.isAdmin || perms?.permissions?.has?.('PEOPLE::Documents::EDIT'));
+  /* Adding, replacing and removing a file are Documents CREATE and DELETE on the server: a read-only role sees no such button. */
+  const canAdd = Boolean(perms?.isAdmin || perms?.permissions?.has?.('PEOPLE::Documents::CREATE'));
+  const canRemove = Boolean(perms?.isAdmin || perms?.permissions?.has?.('PEOPLE::Documents::DELETE'));
   const [docs, setDocs] = useState(null);
   const [form, setForm] = useState({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE', ask: false });
   const [file, setFile] = useState(null);
@@ -2207,13 +2210,15 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
       <input ref={replaceInput} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="hidden" onChange={replaceWith} aria-label="Replacement file" />
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="ui-t-sec">Documents{docs?.length ? <span className="ui-section-count tabular-nums">{docs.length}</span> : null}</h2>
-        <span className="ml-auto flex gap-2">
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setLettering(true)}>Issue a letter</button>
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setUploading(true)}><Upload size={16} aria-hidden="true" /> Upload</button>
-        </span>
+        {canAdd ? (
+          <span className="ml-auto flex gap-2">
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setLettering(true)}>Issue a letter</button>
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setUploading(true)}><Upload size={16} aria-hidden="true" /> Upload</button>
+          </span>
+        ) : null}
       </div>
       {!docs ? <SkeletonCard lines={3} /> : !docs.length ? (
-        <EmptyState icon={FileDown} title="No documents yet" action={<button type="button" className="ui-btn ui-btn-secondary" onClick={() => setUploading(true)}><Upload size={16} aria-hidden="true" /> Upload</button>} />
+        <EmptyState icon={FileDown} title="No documents yet" action={canAdd ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setUploading(true)}><Upload size={16} aria-hidden="true" /> Upload</button> : null} />
       ) : (
         <ul className="ui-doc-list" aria-label="Documents">
           {docs.map((d) => {
@@ -2232,15 +2237,15 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
                   </span>
                   <span className="flex items-center gap-1">
                     <button type="button" className="ui-icon-btn" aria-label={`Download ${d.title}`} onClick={() => open(d)}><FileDown size={16} aria-hidden="true" /></button>
-                    <button ref={(el) => { menuBtn.current[d.id] = el; }} type="button" className="ui-icon-btn" aria-label={`More for ${d.title}`} aria-haspopup="menu" aria-expanded={menu === d.id} onClick={() => setMenu(menu === d.id ? null : d.id)}><MoreHorizontal size={16} aria-hidden="true" /></button>
+                    {canAdd || canAsk || canRemove || d.version > 1 ? <button ref={(el) => { menuBtn.current[d.id] = el; }} type="button" className="ui-icon-btn" aria-label={`More for ${d.title}`} aria-haspopup="menu" aria-expanded={menu === d.id} onClick={() => setMenu(menu === d.id ? null : d.id)}><MoreHorizontal size={16} aria-hidden="true" /></button> : null}
                     {menu === d.id ? (
                       <Popover anchorRef={{ current: menuBtn.current[d.id] }} onClose={() => setMenu(null)} minWidth={200}>
                         <div role="menu" className="ui-menu">
-                          {d.kind !== 'LETTER' ? <button type="button" role="menuitem" data-autofocus="" className="ui-menu-item" disabled={busy} onClick={() => { setMenu(null); pickReplacement(d); }}>Replace with a new version</button> : null}
+                          {canAdd && d.kind !== 'LETTER' ? <button type="button" role="menuitem" data-autofocus="" className="ui-menu-item" disabled={busy} onClick={() => { setMenu(null); pickReplacement(d); }}>Replace with a new version</button> : null}
                           {canAsk && d.classification === 'EMPLOYEE_VISIBLE' && !d.acceptance ? <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { setMenu(null); ask(d); }}>Ask to read and accept</button> : null}
                           {canAsk && d.acceptance && !d.acceptance.acceptedAt ? <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { setMenu(null); remind(d); }}>Remind to accept</button> : null}
                           {d.version > 1 ? <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { setMenu(null); showVersions(d); }}>{versions[d.id] ? 'Hide earlier versions' : 'Earlier versions'}</button> : null}
-                          <button type="button" role="menuitem" data-autofocus={d.kind === 'LETTER' ? '' : undefined} className="ui-menu-item is-danger" onClick={() => { setMenu(null); remove(d); }}>Remove</button>
+                          {canRemove ? <button type="button" role="menuitem" data-autofocus={d.kind === 'LETTER' || !canAdd ? '' : undefined} className="ui-menu-item is-danger" onClick={() => { setMenu(null); remove(d); }}>Remove</button> : null}
                         </div>
                       </Popover>
                     ) : null}

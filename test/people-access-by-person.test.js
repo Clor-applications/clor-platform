@@ -26,6 +26,8 @@ const PERSONS = {
   auditorNoGrant: menu(keysOf('EXTERNAL_AUDITOR')),
   committee: menu(keysOf('EMPLOYEE_SELF_SERVICE'), [CASE_SEAT]),
   hrReadsPay: menu(keysOf('HR_MANAGER'), [SALARY_READ]),
+  viewer: menu(keysOf('VIEWER')),
+  readOnlyAuditor: menu(keysOf('AUDITOR')),
 };
 
 describe('People menu by person', () => {
@@ -56,7 +58,18 @@ describe('People menu by person', () => {
   it('shows Confidential cases to whoever takes cases in or sits on a case or committee, and to no one else', () => {
     expect(PERSONS.owner.has('privateCases')).toBe(true);
     expect(PERSONS.committee.has('privateCases')).toBe(true);
-    for (const p of ['hr', 'hrManager', 'manager', 'employee', 'auditor']) expect(PERSONS[p].has('privateCases'), p).toBe(false);
+    /* HR Manager takes cases in (owner, 8 Nov 2026). */
+    expect(PERSONS.hrManager.has('privateCases')).toBe(true);
+    for (const p of ['hr', 'manager', 'employee', 'auditor', 'viewer', 'readOnlyAuditor']) expect(PERSONS[p].has('privateCases'), p).toBe(false);
+  });
+
+  it('gives HR Manager Policies and Privacy controls, and the read-only roles neither privacy nor files they may not open', () => {
+    for (const k of ['policies', 'privacy']) expect(PERSONS.hrManager.has(k), k).toBe(true);
+    for (const p of ['viewer', 'readOnlyAuditor']) expect(PERSONS[p].has('privacy'), p).toBe(false);
+    /* Viewer reads the people and the files the person can see; the Auditor the list, no files, no recycle bin. */
+    expect(PERSONS.viewer.has('employees')).toBe(true);
+    expect(PERSONS.readOnlyAuditor.has('employees')).toBe(true);
+    for (const k of ['documents', 'recycleBin', 'myLeave']) expect(PERSONS.readOnlyAuditor.has(k), k).toBe(false);
   });
 
   it('shows the recycle bin to those who may delete something in it, export to those who may read a dataset', () => {

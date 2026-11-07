@@ -125,6 +125,13 @@ describe('gap 3: People roles may act on their own leave and attendance', () => 
     const viewer = await roleOf(boss, 'Viewer');
     const all = [hrUser.id, teamMgr.id, hrMgr.id, wideMgr.id];
     await outsideTenant('test: roles as they were before the change, and as administrators changed some', async () => {
+      /* HR User's template has moved on since (8 Nov 2026): put it back to the template this migration knew. */
+      const hrUserRole = await platformPrisma.role.findUniqueOrThrow({ where: { id: hrUser.id } });
+      await platformPrisma.rolePermission.deleteMany({ where: { roleId: hrUser.id } });
+      for (const m of sql.matchAll(/\('hr user', '([^']+)', '([^']+)', '([^']+)'\)/g)) {
+        const p = await platformPrisma.permission.findFirstOrThrow({ where: { module: m[1], subModule: m[2], action: m[3] } });
+        await platformPrisma.rolePermission.create({ data: { accountId: hrUserRole.accountId, orgId: hrUserRole.orgId, roleId: hrUser.id, permissionId: p.id, allowed: true, permLevel: 0 } });
+      }
       /* Made from the old templates: no My attendance CREATE, and Team Manager without Performance VIEW. */
       await platformPrisma.rolePermission.deleteMany({ where: { roleId: { in: all }, permissionId: create.id } });
       await platformPrisma.rolePermission.deleteMany({ where: { roleId: { in: [teamMgr.id, wideMgr.id] }, permissionId: perf.id } });

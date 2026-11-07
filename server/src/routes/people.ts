@@ -77,7 +77,7 @@ import { addDays as addDaysIso, todayIst } from '../utils/istDate.js';
 export const peopleRouter = Router();
 peopleRouter.use(requireAuth, requireTenantContext);
 
-const { employees: EMPLOYEES, structure: STRUCTURE, notes: NOTES, documents: DOCUMENTS, confidentialDocuments: CONFIDENTIAL, statutory: STATUTORY, lifecycle: LIFECYCLE } = PEOPLE_RESOURCE;
+const { employees: EMPLOYEES, structure: STRUCTURE, notes: NOTES, documents: DOCUMENTS, confidentialDocuments: CONFIDENTIAL, statutory: STATUTORY, fullIdentifiers: FULL_IDS, lifecycle: LIFECYCLE } = PEOPLE_RESOURCE;
 const can = (action: string, resource: string) => requirePermission(PEOPLE_MODULE, action as any, resource);
 /** Who is making this change and why, for the change log and the outbox (services/people/changeLog.ts). */
 const actorOf = (req: Request, source: ChangeSource, reason: string | null = null): Actor => ({
@@ -404,8 +404,10 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/statutory', can(PermissionAc
   if (await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, STATUTORY)) return res.json({ visible: false });
   const [payroll, identity, nominees, joining] = await Promise.all([maskedStatutory(orgId, employee.id), peoplePrisma.employeeIdentity.findUnique({ where: { employeeId: employee.id } }), nomineesOf(orgId, employee.id), heldFor(orgId, employee.id)]);
   const canEdit = !(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, STATUTORY));
+  /* A full value is Full identifiers' (owner, 8 Nov 2026): Viewer and Auditor read these masked, with no Show. */
+  const canReveal = !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, FULL_IDS));
   /* PF nominees from Payroll; and what the joiner sent that waits for HR, or for Payroll to be switched on (masked). */
-  res.json({ visible: true, canEdit, ...payroll, identity: identityRow(identity), nominees, joining });
+  res.json({ visible: true, canEdit, canReveal, ...payroll, identity: identityRow(identity), nominees, joining });
 });
 
 peopleRouter.put('/orgs/:orgId/people/employees/:id/identity', can(PermissionAction.EDIT, STATUTORY), async (req, res) => {
@@ -438,8 +440,8 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id/identity', can(PermissionAct
   res.json({ identity: identityRow(row) });
 });
 
-/** One value in clear, for a person with the grant and a fresh authenticator code; written to the access log. */
-peopleRouter.post('/orgs/:orgId/people/employees/:id/statutory/reveal', can(PermissionAction.VIEW, STATUTORY), async (req, res) => {
+/** One value in clear, for a person with Full identifiers and a fresh authenticator code; written to the access log. */
+peopleRouter.post('/orgs/:orgId/people/employees/:id/statutory/reveal', can(PermissionAction.VIEW, STATUTORY), can(PermissionAction.VIEW, FULL_IDS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const employee = await scopedEmployee(req, String(req.params.id), { id: true });
