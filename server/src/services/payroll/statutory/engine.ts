@@ -580,8 +580,9 @@ export const NO_PAN_RATE = 20;
  * age the day before the birthday, so somebody born on 1 April 1966 is 60 on
  * 31 March 2026 and a senior for 2025-26.
  */
-export function ageBandFor(dateOfBirth: string | null | undefined, anyDateInYear: string): AgeBand {
-  if (!dateOfBirth || !/^\d{4}-\d{2}-\d{2}/.test(dateOfBirth)) return null;
+export function ageBandFor(dateOfBirth: string | null | undefined, anyDateInYear: string, declaredSenior?: boolean | null): AgeBand {
+  /* No date of birth on file: the declaration's "I am 60 or older" stands in (review of #138), as the senior band; 80 and over needs the date. */
+  if (!dateOfBirth || !/^\d{4}-\d{2}-\d{2}/.test(dateOfBirth)) return declaredSenior ? 'SENIOR' : null;
   const y = Number(anyDateInYear.slice(0, 4));
   const start = Number(anyDateInYear.slice(5, 7)) >= 4 ? y : y - 1;
   const dayAfterYear = `${start + 1}-04-01`;

@@ -52,7 +52,7 @@ export async function taxYear(orgId: string, fy: string, only?: string) {
   });
   const componentIds = [...new Set(slips.flatMap((s) => s.lines.map((l) => l.componentId)))];
   const schemeOf = new Map(
-    (await payrollPrisma.salaryComponent.findMany({ where: { orgId, id: { in: componentIds } }, select: { id: true, code: true, statutoryScheme: true, taxSection: true } })).map((c) => [c.id, c])
+    (await payrollPrisma.salaryComponent.findMany({ where: { orgId, id: { in: componentIds } }, select: { id: true, code: true, statutoryScheme: true, taxSection: true, includeInPfWage: true } })).map((c) => [c.id, c])
   );
 
   type Acc = { employeeId: string; name: string; code: string; months: Map<string, Month>; gross: number; taxable: number; employerNps: number; pt: number; basic: number; hra: number; pf: number; tds: number };
@@ -72,14 +72,17 @@ export async function taxYear(orgId: string, fy: string, only?: string) {
       if (l.type === 'DEDUCTION' && scheme === 'TDS') tds += amount;
       if (l.type === 'DEDUCTION' && scheme === 'PF') a.pf += amount;
       if (l.type === 'DEDUCTION' && scheme === 'PT') a.pt += amount;
-      if (l.type === 'EARNING' && ['BASIC', 'DA'].includes(l.componentCode.toUpperCase())) a.basic += amount;
       if (l.type === 'EARNING' && l.componentCode.toUpperCase() === 'HRA') a.hra += amount;
     }
     m.gross = round2(m.gross + gross);
     m.tds = round2(m.tds + tds);
     a.months.set(key, m);
     /* Taxed on taxable earnings and employer NPS, as the monthly TDS was (taxablePay.ts). */
-    const pay = taxablePayOf(slip.lines.map((l) => ({ type: l.type, amount: l.amount, isTaxable: l.isTaxable, code: l.componentCode, employerNps: isEmployerNps(schemeOf.get(l.componentId)) })));
+    const pay = taxablePayOf(
+      slip.lines.map((l) => ({ type: l.type, amount: l.amount, isTaxable: l.isTaxable, code: l.componentCode, employerNps: isEmployerNps(schemeOf.get(l.componentId)), pfWage: !!schemeOf.get(l.componentId)?.includeInPfWage }))
+    );
+    /* Basic and DA, or PF wages where the structure has neither, as the monthly TDS counted them: the NPS limit and the HRA exemption. */
+    a.basic = round2(a.basic + pay.basicDa);
     a.gross = round2(a.gross + gross);
     a.taxable = round2(a.taxable + pay.taxable);
     a.employerNps = round2(a.employerNps + pay.employerNps);
@@ -112,7 +115,7 @@ export async function taxYear(orgId: string, fy: string, only?: string) {
             professionalTax: a.pt + (previous?.professionalTax || 0),
             employerNps: a.employerNps,
             npsWage: a.basic,
-            ageBand: ageBandFor(p?.dateOfBirth, to),
+            ageBand: ageBandFor(p?.dateOfBirth, to, d?.seniorSelf),
           })
         : null;
       const pan = (profile.get(a.employeeId)?.pan || '').toUpperCase();
