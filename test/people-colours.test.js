@@ -67,10 +67,11 @@ describe('counts that wait on you are marigold', () => {
     expect(block).toMatch(/\.people-row-count\[data-tone='warn'\] \{ background: rgb\(var\(--warm\)\)/);
   });
 
-  it('a figure that waits on you and is above nought gets the marigold bar', () => {
+  it('a figure that waits on you and is above nought shows its number in the waiting ink, no top bar', () => {
     expect(read('packages/ui/src/timeOff/TimeOverview.jsx')).toContain('data-attention={(attention && Number(value) > 0) || undefined}');
     expect(read('packages/ui/src/lifecycle/Overview.jsx')).toContain('data-zero={Number(value) === 0 || undefined}');
-    expect(block).toMatch(/\.ui-metric\[data-attention\] \{ box-shadow: inset 0 3px 0 rgb\(var\(--warm\)\); \}/);
+    expect(block).toMatch(/\.ui-metric\[data-attention\] \.ui-metric-value \{ color: rgb\(var\(--warn\)\); \}/);
+    expect(block).not.toMatch(/\[data-attention\][^}]*inset 0 3px 0/);
   });
 });
 

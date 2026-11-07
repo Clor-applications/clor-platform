@@ -2017,8 +2017,8 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
 /* A look-here line (a clash, a gap in the data): marigold-soft, indigo words, a marigold edge, the mark in deep marigold. */
 :root[data-palette='sky']:not([data-theme='dark']) .ui-side-alert[data-tone='warn'] { box-shadow: inset 3px 0 0 rgb(var(--warm)); }
 :root[data-palette='sky']:not([data-theme='dark']) .ui-side-alert[data-tone='warn'] > svg { color: rgb(var(--btn-icon-on-white)); }
-/* A figure that waits on you, above nought: a marigold bar along its top. */
-:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric[data-attention] { box-shadow: inset 0 3px 0 rgb(var(--warm)); }
+/* A figure that waits on you, above nought: its number in the waiting ink, no bar (8 Nov 2026). */
+:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-metric[data-attention] .ui-metric-value { color: rgb(var(--warn)); }
 /* Home's count tiles for work that waits on you. */
 :root[data-palette='sky']:not([data-theme='dark']) .people-row-count[data-tone='warn'] { background: rgb(var(--warm)); color: rgb(var(--oxblood)); }
 /* Home's faces: initials in oxblood on their team's chart-series wash (the series colour as text would be 2:1 for marigold). */
@@ -2191,7 +2191,7 @@ html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-s
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-tint] .soft-band-stat-label { color: rgb(var(--fg-muted)); font-weight: 600; }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-tint] .soft-band-stat-label > svg { background: rgb(var(--tint)); color: rgb(var(--tint-ink)); box-shadow: none; }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-tint] .soft-band-stat-value:not([data-zero]) { color: rgb(var(--tint-ink)) !important; }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-attention] { background: rgb(255 255 255); box-shadow: inset 0 0 0 1px rgb(var(--border)), inset 0 3px 0 rgb(var(--marigold)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-attention] { background: rgb(255 255 255); box-shadow: inset 0 0 0 1px rgb(var(--border)); }
 /* A caption wraps to a second line rather than being cut off ("None joined in Nove…" at 1440px, 4 Nov 2026 review). */
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-note { white-space: normal; overflow: visible; text-wrap: balance; }
 /* The right-hand panel, clean: blocks parted by space, not rules; quick links a plain list, each mark in its own colour. */

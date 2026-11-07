@@ -29,7 +29,7 @@ const when = (iso) => (iso ? new Date(iso).toLocaleString('en-IN', { day: 'numer
 /** One labelled group of facts in a reader card: label on the left, value on the right. */
 const Facts = ({ title, rows, note = null }) => (
   <div className="px-4 py-3" style={{ backgroundColor: 'rgb(var(--surface))' }}>
-    <p className="text-xs font-semibold uppercase tracking-wide ui-muted mb-2">{title}</p>
+    <p className="text-xs font-semibold ui-muted mb-2">{title}</p>
     <dl className="space-y-1">
       {rows.map(([k, v]) => (
         <div key={k} className="flex items-baseline justify-between gap-3 text-sm">
