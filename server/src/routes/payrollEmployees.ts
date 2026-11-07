@@ -20,6 +20,7 @@ import { BANK_FIELDS, BankChangeError, approveBankChange, maskNumber, rejectBank
 import { requirePayrollStepUp } from '../services/stepUp.js';
 import { nomineesOf } from '../services/payroll/statutoryWrite.js';
 import { costCentreRefusal } from '../services/payroll/accounting/references.js';
+import { ownPayRefusal } from '../services/payroll/ownPay.js';
 
 /**
  * The people payroll pays, and the payroll-specific things known about them.
@@ -69,7 +70,8 @@ const bodySchema = z.object({
      anybody has decided how they are paid. */
   payroll: z
     .object({
-      payrollStatus: z.enum(PAYROLL_STATUSES).default('IN_PAYROLL'),
+      /* Left out means unchanged, as for PF/ESI/PT below (re-review of #145, N1): a default here reset OLD to NEW on every save that omitted it. A new profile takes the column default. */
+      payrollStatus: z.enum(PAYROLL_STATUSES).optional(),
       payGroupId: z.string().trim().optional().nullable(),
       costCenterId: z.string().trim().optional().nullable(),
       bankAccountName: z.string().trim().max(120).optional().nullable(),
@@ -80,7 +82,7 @@ const bodySchema = z.object({
       uan: z.string().trim().max(30).optional().nullable(),
       pfNumber: z.string().trim().max(40).optional().nullable(),
       esiNumber: z.string().trim().max(40).optional().nullable(),
-      taxRegime: z.enum(['OLD', 'NEW']).default('NEW'),
+      taxRegime: z.enum(['OLD', 'NEW']).optional(),
       professionalTaxState: z.string().trim().max(60).optional().nullable(),
       /* Left out means unchanged: a form without the switches must not turn PF and PT off (QA of #82, F9). New profiles start off. */
       pfApplicable: z.boolean().optional(),
@@ -164,7 +166,7 @@ async function mayRevealSensitive(req: any) {
 
 /** The payroll half, as it goes into the database. */
 const payrollData = (p: NonNullable<z.infer<typeof bodySchema>['payroll']>) => ({
-  payrollStatus: p.payrollStatus,
+  ...(p.payrollStatus !== undefined ? { payrollStatus: p.payrollStatus } : {}),
   payGroupId: blank(p.payGroupId),
   costCenterId: blank(p.costCenterId),
   bankAccountName: blank(p.bankAccountName),
@@ -175,12 +177,18 @@ const payrollData = (p: NonNullable<z.infer<typeof bodySchema>['payroll']>) => (
   uan: blank(p.uan),
   pfNumber: blank(p.pfNumber),
   esiNumber: blank(p.esiNumber),
-  taxRegime: p.taxRegime,
-  professionalTaxState: blank(p.professionalTaxState),
+  ...(p.taxRegime !== undefined ? { taxRegime: p.taxRegime } : {}),
+  /* Same for the PT state: left out is unchanged; sent blank clears it. */
+  ...(p.professionalTaxState !== undefined ? { professionalTaxState: blank(p.professionalTaxState) } : {}),
   ...(p.pfApplicable !== undefined ? { pfApplicable: p.pfApplicable } : {}),
   ...(p.esiApplicable !== undefined ? { esiApplicable: p.esiApplicable } : {}),
   ...(p.ptApplicable !== undefined ? { ptApplicable: p.ptApplicable } : {}),
 });
+
+/** Profile fields that change what is deducted from somebody's pay (ownPayRefusal on edit). */
+const OWN_STATUTORY_FIELDS = ['pfApplicable', 'esiApplicable', 'ptApplicable', 'taxRegime', 'professionalTaxState', 'pan', 'payrollStatus'];
+/** What a profile not yet on file holds, so sending the defaults is not a change. */
+const STATUTORY_DEFAULTS: Record<string, unknown> = { pfApplicable: false, esiApplicable: false, ptApplicable: false, taxRegime: 'NEW', payrollStatus: 'IN_PAYROLL' };
 
 payrollEmployeesRouter.get(
   '/orgs/:orgId/payroll/employees',
@@ -326,6 +334,23 @@ payrollEmployeesRouter.put(
         select: { id: true },
       });
       if (clash) return res.status(409).json({ error: `An employee with the code ${code} already exists.` });
+    }
+
+    /*
+     * Nobody switches their own PF, ESI, PT, tax regime, PAN or payroll status
+     * (review of #145, S4): each one changes what is deducted from their own
+     * pay. Their name or phone they may; these, somebody else does.
+     */
+    if (body.payroll) {
+      const before = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: existing.id } });
+      const after = payrollData(body.payroll) as Record<string, unknown>;
+      /* A caller shown the PAN masked sends it back masked, and it is kept as it was below. */
+      const fields = (await mayRevealSensitive(req)) ? OWN_STATUTORY_FIELDS : OWN_STATUTORY_FIELDS.filter((k) => k !== 'pan');
+      const changed = fields.filter((k) => k in after && after[k] !== undefined && (after[k] ?? null) !== ((before as any)?.[k] ?? STATUTORY_DEFAULTS[k] ?? null));
+      if (changed.length) {
+        const own = await ownPayRefusal(req, existing.id, { what: 'tax and statutory settings', does: 'change them', module: PAYROLL_MODULE, resource: RESOURCE, action: 'EDIT', entity: 'EMPLOYEE_PAYROLL_PROFILE', entityId: before?.id || existing.id });
+        if (own) return res.status(own.status).json(own.body);
+      }
     }
 
     const row = await peoplePrisma.employee.update({

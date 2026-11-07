@@ -649,6 +649,11 @@ model PayrollRun {
   /// had a loan or advance instalment carried to the next run, and how much.
   deductionCap Json?
 
+  /// The owner's record that a statutory scheme on these payslips does not
+  /// apply to the company (statutoryGaps.ts): { schemes, reason, userId, at,
+  /// calculatedAt }. Counts only for the calculation it was given on.
+  statutoryWaiver Json?
+
   /// Who is working this run out right now (run.ts calculateRun): a lease,
   /// taken and let go without holding a database connection, so a payroll
   /// pool of one still calculates. Past calcLeaseUntil it may be taken over;
@@ -1135,7 +1140,7 @@ model PayrollPaymentLine {
 
   amount Decimal @default(0)
 
-  /// PENDING | PAID | FAILED
+  /// PENDING | PAID | FAILED | CANCELLED (its batch was called off)
   status        String    @default("PENDING")
   failureReason String?
   reference     String?
@@ -1151,6 +1156,8 @@ model PayrollPaymentLine {
   payment PayrollPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@unique([paymentId, slipId])
+  /// And one live (PENDING or PAID) line per slip across every payment: a
+  /// partial unique index, SQL only (migration 20261107100000_run_integrity).
   @@index([accountId, orgId, paymentId, status])
 }
 

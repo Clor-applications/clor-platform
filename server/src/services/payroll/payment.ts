@@ -101,7 +101,7 @@ export async function previewPayment(accountId: string, orgId: string, runId: st
       orgId,
       slipId: { in: slips.map((s) => s.id) },
       payment: { status: { not: 'CANCELLED' } },
-      status: { not: 'FAILED' },
+      status: { in: LIVE_LINE },
     },
     select: { slipId: true, payment: { select: { number: true } } },
   });
@@ -228,11 +228,32 @@ export async function createPayment(opts: {
   });
   const bank = new Map(profiles.map((p) => [p.employeeId, p]));
 
-  const count = await payrollPrisma.payrollPayment.count({ where: { orgId } });
-  const number = `PAY-${opts.paymentDate.slice(0, 7).replace('-', '')}-${String(count + 1).padStart(3, '0')}`;
   const totalAmount = round2(chosen.reduce((t, r) => t + r.amount, 0));
 
-  return payrollPrisma.payrollPayment.create({
+  /*
+   * One live payment per payslip (audit 7 Nov 2026, #5). The preview above was
+   * a read before the write: two batches started at the same moment both
+   * passed it, and two bank files went out for one salary. So the slips are
+   * claimed inside one transaction, one payroll at a time (an advisory lock),
+   * checked again there, and the partial unique index on live lines
+   * (migration 20261107100000_run_integrity) refuses whatever still slips past.
+   * Everything inside uses the transaction's own connection: the payroll pool
+   * may be one.
+   */
+  try {
+    return await payrollPrisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${paymentLockKey(orgId, runId)}))`;
+      /* The run's cancel takes the same lock: a payroll cancelled in between is not paid. */
+      const still = await tx.payrollRun.count({ where: { orgId, id: runId, status: { in: PAYABLE_RUN } } });
+      if (!still) throw new PayrollPaymentError('RUN_NOT_APPROVED', 'This payroll has just been cancelled or sent back. Reload it.');
+      const taken = await tx.payrollPaymentLine.findMany({
+        where: { orgId, slipId: { in: chosen.map((r) => r.slipId) }, status: { in: LIVE_LINE }, payment: { status: { not: 'CANCELLED' } } },
+        select: { slipId: true },
+      });
+      if (taken.length) throw new PayrollPaymentError('SLIP_ALREADY_IN_PAYMENT', alreadyInPayment(taken.length));
+      const count = await tx.payrollPayment.count({ where: { orgId } });
+      const number = `PAY-${opts.paymentDate.slice(0, 7).replace('-', '')}-${String(count + 1).padStart(3, '0')}`;
+      return tx.payrollPayment.create({
     data: {
       accountId,
       orgId,
@@ -260,8 +281,32 @@ export async function createPayment(opts: {
       },
     },
     include: { lines: true },
-  });
+      });
+    });
+  } catch (e) {
+    if (isLiveSlipClash(e)) throw new PayrollPaymentError('SLIP_ALREADY_IN_PAYMENT', alreadyInPayment());
+    throw e;
+  }
 }
+
+/** One payroll's payments, and its cancel, one at a time (routes/payrollRuns.ts cancel). */
+export const paymentLockKey = (orgId: string, runId: string) => `payroll-payment:${orgId}:${runId}`;
+
+/** A payroll whose payslips may be paid. */
+export const PAYABLE_RUN = ['APPROVED', 'LOCKED', 'POSTED', 'PAID'];
+
+/** A line that holds its slip: waiting at the bank, or paid. FAILED and CANCELLED lines have let it go. */
+export const LIVE_LINE = ['PENDING', 'PAID'];
+
+const alreadyInPayment = (n?: number) =>
+  `${n === 1 ? 'One person on this payroll is' : n ? `${n} people on this payroll are` : 'Somebody on this payroll is'} already in another payment that has just been made. Reload, and pay whoever is left.`;
+
+/** The partial unique index on live lines refused the write (P2002 on PayrollPaymentLine_live_slip_key). */
+const isLiveSlipClash = (e: unknown) => {
+  const err = e as { code?: string; meta?: { target?: unknown; modelName?: string }; message?: string };
+  if (err?.code === 'P2002') return String(err.meta?.target ?? '').includes('slipId') || String(err.meta?.target ?? '').includes('live_slip') || err.meta?.modelName === 'PayrollPaymentLine';
+  return /PayrollPaymentLine_live_slip_key/.test(String(err?.message || ''));
+};
 
 /**
  * The file that goes to the bank.
@@ -274,9 +319,15 @@ export async function createPayment(opts: {
 export async function bankAdvice(accountId: string, orgId: string, paymentId: string) {
   const payment = await payrollPrisma.payrollPayment.findFirst({
     where: { accountId, orgId, id: paymentId },
-    include: { lines: { orderBy: { createdAt: 'asc' } } },
+    /* Only what is still waiting at the bank (review of #145, S1): a paid line
+       sent again is paid twice, and a called-off line belongs to another batch now. */
+    include: { lines: { where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' } } },
   });
   if (!payment) throw new PayrollPaymentError('NO_PAYMENT', 'No such payment.', 404);
+  /* A cancelled batch let its payslips go to the next one; its file would pay them twice. */
+  if (payment.status === 'CANCELLED') {
+    throw new PayrollPaymentError('PAYMENT_CANCELLED', 'This payment was cancelled, so there is no bank file for it. Download the file of the payment that replaced it.');
+  }
 
   const ids = [...new Set(payment.lines.map((l) => l.employeeId))];
   const [people, profiles, slips] = await Promise.all([
@@ -293,10 +344,9 @@ export async function bankAdvice(accountId: string, orgId: string, paymentId: st
   const byProfile = new Map(profiles.map((p) => [p.employeeId, p]));
   const bySlip = new Map(slips.map((s) => [s.id, snapshotPerson(s.employeeSnapshotJson)]));
 
+  /* A line already known to have failed is not sent again in the same file
+     (read above as PENDING only): it is paid in the next batch, once somebody has fixed the account. */
   const rows = payment.lines
-    /* A line already known to have failed is not sent again in the same file.
-       It is paid in the next batch, once somebody has fixed the account. */
-    .filter((l) => l.status !== 'FAILED')
     .map((l) => ({
       employeeCode: byPerson.get(l.employeeId)?.code || bySlip.get(l.slipId)?.code || '',
       beneficiaryName:
@@ -368,10 +418,39 @@ export async function settleLines(opts: {
     if (!byId.has(r.lineId)) throw new PayrollPaymentError('NO_LINE', 'That payment line is not in this payment.', 404);
   }
 
+  try {
   await payrollPrisma.$transaction(async (tx) => {
+    /*
+     * Everything above was a read (review of #145, S2). (a) The batch cancelled
+     * in between: its lines are CANCELLED and its payslips already in the next
+     * batch; marking one paid here pays it twice. (b) The payroll cancelled or
+     * sent back in between: nothing on it is payable any more. So: the same
+     * lock the payment's create, its cancel and the run's cancel take, then
+     * both checked again, and every write only on what is not cancelled.
+     */
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${paymentLockKey(orgId, payment.runId)}))`;
+    const live = await tx.payrollPayment.count({ where: { orgId, id: paymentId, status: { not: 'CANCELLED' }, postingStatus: { not: 'POSTED' } } });
+    if (!live) throw new PayrollPaymentError('PAYMENT_CHANGED', 'This payment has just been cancelled or put in the books. Reload it.');
+    const payable = await tx.payrollRun.count({ where: { orgId, id: payment.runId, status: { in: PAYABLE_RUN } } });
+    if (!payable) throw new PayrollPaymentError('RUN_NOT_APPROVED', 'This payroll has just been cancelled or sent back, so nothing on it is paid. Reload it.');
     for (const r of opts.results) {
-      await tx.payrollPaymentLine.update({
-        where: { id: r.lineId },
+      /*
+       * A failed line brought back to paid or pending (re-review of #145, S1):
+       * its payslip may already sit in a newer live payment, paid again from
+       * there. The unique index would refuse it, but only where it was built;
+       * so the same check createPayment makes, under the same lock.
+       */
+      if (LIVE_LINE.includes(r.status)) {
+        const line = await tx.payrollPaymentLine.findFirst({ where: { orgId, id: r.lineId, paymentId }, select: { slipId: true, status: true } });
+        if (line && !LIVE_LINE.includes(line.status)) {
+          const elsewhere = await tx.payrollPaymentLine.count({
+            where: { orgId, slipId: line.slipId, id: { not: r.lineId }, status: { in: LIVE_LINE }, payment: { status: { not: 'CANCELLED' } } },
+          });
+          if (elsewhere) throw new PayrollPaymentError('SLIP_ALREADY_IN_PAYMENT', 'That person has been put in another payment since the bank rejected this line. Record it there, or cancel that payment first.');
+        }
+      }
+      const moved = await tx.payrollPaymentLine.updateMany({
+        where: { orgId, id: r.lineId, paymentId, status: { not: 'CANCELLED' } },
         data: {
           status: r.status,
           reference: r.reference?.trim() || null,
@@ -379,9 +458,10 @@ export async function settleLines(opts: {
           paidAt: r.status === 'PAID' ? new Date() : null,
         },
       });
+      if (moved.count !== 1) throw new PayrollPaymentError('PAYMENT_CHANGED', 'A line on this payment has just been called off. Reload it.');
     }
 
-    const lines = await tx.payrollPaymentLine.findMany({ where: { paymentId } });
+    const lines = (await tx.payrollPaymentLine.findMany({ where: { paymentId } })).filter((l) => l.status !== 'CANCELLED');
     const paid = lines.filter((l) => l.status === 'PAID');
     const failed = lines.filter((l) => l.status === 'FAILED');
     const pending = lines.filter((l) => l.status === 'PENDING');
@@ -396,8 +476,8 @@ export async function settleLines(opts: {
           : 'FAILED'
         : 'COMPLETED';
 
-    await tx.payrollPayment.update({
-      where: { id: paymentId },
+    const kept = await tx.payrollPayment.updateMany({
+      where: { orgId, id: paymentId, status: { not: 'CANCELLED' } },
       data: {
         paidAmount: round2(paid.reduce((t, l) => t + Number(l.amount), 0)),
         paidCount: paid.length,
@@ -405,16 +485,28 @@ export async function settleLines(opts: {
         status,
       },
     });
+    if (kept.count !== 1) throw new PayrollPaymentError('PAYMENT_CHANGED', 'This payment has just been cancelled. Reload it.');
 
     /* The payslip carries the answer too, because that is where somebody
-       looking at one person goes. */
+       looking at one person goes. One that is gone (its payroll worked out
+       again) is said in words, not a server error (review of #145, N3). */
     for (const line of lines) {
-      await tx.salarySlip.update({
-        where: { id: line.slipId },
+      const slip = await tx.salarySlip.updateMany({
+        where: { orgId, id: line.slipId },
         data: { paymentStatus: line.status === 'PAID' ? 'PAID' : line.status === 'FAILED' ? 'FAILED' : 'UNPAID' },
       });
+      if (slip.count !== 1) {
+        throw new PayrollPaymentError('SLIP_GONE', 'A payslip on this payment no longer exists: its payroll was worked out again or cancelled. Cancel this payment and make a new one from the payroll as it is now.');
+      }
     }
   });
+  } catch (e) {
+    /* A rejected line marked waiting or paid again, while its payslip has since gone into another batch. */
+    if (isLiveSlipClash(e)) {
+      throw new PayrollPaymentError('SLIP_ALREADY_IN_PAYMENT', 'That person has been put in another payment since the bank rejected this line. Record it there, or cancel that payment first.');
+    }
+    throw e;
+  }
 
   return payrollPrisma.payrollPayment.findFirst({ where: { id: paymentId }, include: { lines: true } });
 }
@@ -584,8 +676,9 @@ export async function postPayment(opts: {
   const outstanding = await payrollPrisma.salarySlip.count({
     where: { orgId, runId: payment.runId, status: { not: 'CANCELLED' }, paymentStatus: { not: 'PAID' }, netPay: { gt: 0 } },
   });
+  /* Forward only (audit #20): an approved or locked run becomes PAID; one already posted to the books stays POSTED. */
   if (!outstanding) {
-    await payrollPrisma.payrollRun.update({ where: { id: payment.runId }, data: { status: 'PAID' } });
+    await payrollPrisma.payrollRun.updateMany({ where: { orgId, id: payment.runId, status: { in: ['APPROVED', 'LOCKED'] } }, data: { status: 'PAID' } });
   }
 
   return { payment: row, replayed: false as const };
@@ -615,7 +708,15 @@ export async function cancelPayment(accountId: string, orgId: string, paymentId:
   }
 
   return payrollPrisma.$transaction(async (tx) => {
-    const row = await tx.payrollPayment.update({ where: { id: paymentId }, data: { status: 'CANCELLED' } });
+    /* One at a time with a settle of the same payroll's payments (settleLines). */
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${paymentLockKey(orgId, payment.runId)}))`;
+    /* Only from what was checked: a line paid or a posting in between stops it. */
+    const moved = await tx.payrollPayment.updateMany({ where: { orgId, id: paymentId, status: { not: 'CANCELLED' }, postingStatus: 'UNPOSTED' }, data: { status: 'CANCELLED' } });
+    const paidSince = await tx.payrollPaymentLine.count({ where: { orgId, paymentId, status: 'PAID' } });
+    if (moved.count !== 1 || paidSince) throw new PayrollPaymentError('PAYMENT_CHANGED', 'This payment has just changed. Reload it.');
+    /* Its lines let their payslips go, so the next batch can take them (one live line per slip). */
+    await tx.payrollPaymentLine.updateMany({ where: { orgId, paymentId, status: 'PENDING' }, data: { status: 'CANCELLED' } });
+    const row = await tx.payrollPayment.findUniqueOrThrow({ where: { id: paymentId } });
     await tx.salarySlip.updateMany({
       where: { orgId, id: { in: payment.lines.map((l) => l.slipId) }, paymentStatus: { not: 'PAID' } },
       data: { paymentStatus: 'UNPAID' },

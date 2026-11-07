@@ -15,6 +15,7 @@ import { clientIp, recordAuthEvent } from '../services/auth.js';
 import { issueOperatorStepUp, requireOperatorStepUp } from '../services/stepUp.js';
 import { getSubscription, inGoodStanding } from '../services/subscriptions.js';
 import { useSecondFactor } from './security.js';
+import { ensureLiveLineIndex, liveLineHealth } from '../services/payroll/liveLineIndex.js';
 
 /**
  * The Clor operator console (W-8.2): Clor's own staff, looking across every
@@ -176,6 +177,39 @@ opsRouter.get('/ops/overview', (_req, res) =>
       trialsEndingIn7d: trialsEnding,
       signups: [...byDay.entries()].map(([day, count]) => ({ day, count })),
     });
+  }),
+);
+
+/*
+ * Data health: one live salary payment per payslip (review of #145, S3).
+ * Whether the database index is built, and which companies have a payslip in
+ * two live payments, by count only (no payroll figures leave the company).
+ * The build is the follow-up once their owners have cancelled the extra
+ * batch; it refuses while any clash is left.
+ */
+opsRouter.get('/ops/data-health/payroll-payments', (_req, res) =>
+  outsideTenant('ops: payroll live payment index', async () => {
+    const health = await liveLineHealth();
+    const orgs = health.companies.length ? await platformPrisma.org.findMany({ where: { id: { in: health.companies } }, select: { id: true, name: true, accountId: true } }) : [];
+    res.json({
+      indexPresent: health.indexPresent,
+      companies: orgs.map((o) => ({ orgId: o.id, accountId: o.accountId, name: o.name, payslips: health.clashes.filter((c) => c.orgId === o.id).length })),
+    });
+  }),
+);
+
+opsRouter.post('/ops/data-health/payroll-payments/build-index', requireOperatorRole('SUPPORT'), requireOperatorStepUp, (req, res) =>
+  outsideTenant('ops: build payroll live payment index', async () => {
+    const r = await ensureLiveLineIndex();
+    await audit(req, 'PAYROLL_LIVE_LINE_INDEX', {}, { indexPresent: r.indexPresent, built: r.built, clashes: r.clashes.length });
+    if (!r.indexPresent) {
+      return res.status(409).json({
+        error: r.clashes.length ? `Not built: ${r.clashes.length} payslip(s) are still in two live payments. Their companies cancel the extra batch first.` : 'Not built; the server log says why.',
+        code: 'LIVE_LINES_CLASH',
+        companies: [...new Set(r.clashes.map((c) => c.orgId))],
+      });
+    }
+    res.json({ indexPresent: true, built: r.built });
   }),
 );
 

@@ -21,9 +21,11 @@ import { catchUpLatePenalties, correctProvisionalDays, cutoffDateFor, lateMarkMo
 import { CarryTakenError, RunBusyError, RunNotEditableError, RunSourcesMovedError, carriesTakenElsewhere, leaseFree, rederiveLoans, runStale, undoCarries } from '../services/payroll/run.js';
 import { capMessage } from '../services/payroll/deductionCap.js';
 import { Prisma } from '../generated/payroll/index.js';
-import { requirePayrollStepUp } from '../services/stepUp.js';
+import { requirePayrollStepUp, stepUpIfEnrolledRefusal } from '../services/stepUp.js';
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { eachDay } from '../utils/istDate.js';
+import { LIVE_LINE, paymentLockKey } from '../services/payroll/payment.js';
+import { gapsAdvice, gapsSentence, statutoryGapsOnRun, unwaived, waiverOf } from '../services/payroll/statutoryGaps.js';
 
 /**
  * A payroll run, from who is in it to payslips somebody can approve.
@@ -84,6 +86,8 @@ const shape = (row: any, extra: Record<string, unknown> = {}) => ({
   deductionCapMessage: row.deductionCap ? capMessage(row.deductionCap as any) : null,
   /* People whose entered deductions pass the share of wages on their own, and the recorded reason they stand (null until given). */
   overLimit: overLimitOf(row),
+  /* The owner's record that a scheme on the payslips does not apply here, for this calculation only (statutoryGaps.ts). */
+  statutoryWaiver: waiverOf(row),
   createdAt: row.createdAt,
   ...extra,
 });
@@ -106,6 +110,21 @@ async function runOr404(req: any, res: any) {
   }
   return run;
 }
+
+/** Thrown inside the cancel's transaction to roll it back with an answer. */
+class RunChangedError extends Error {
+  constructor(public code: string, message: string) {
+    super(message);
+  }
+}
+
+/** Payment lines for this run's payslips still holding them: waiting at the bank or paid, in a payment not called off. */
+async function livePaymentLines(orgId: string, runId: string, db: any = payrollPrisma) {
+  return db.payrollPaymentLine.count({ where: { orgId, status: { in: LIVE_LINE }, payment: { runId, status: { not: 'CANCELLED' } } } }) as Promise<number>;
+}
+
+const paymentBlocksCancel = (n: number) =>
+  `${n === 1 ? 'One payslip' : `${n} payslips`} on this payroll ${n === 1 ? 'is' : 'are'} in a salary payment. Cancel that payment first if nothing on it has been paid; once money has gone, correct this payroll with adjustments in the next one.`;
 
 const editable = (run: any, res: any) => {
   if (EDITABLE.includes(run.status)) return true;
@@ -166,6 +185,9 @@ payrollRunsRouter.get(
       run: { ...shape(run, { period }), stale: await runStale(orgId, run) },
       /* State rules on these payslips nobody has confirmed: the run cannot be approved until they are. */
       statutoryChecks: slips.length ? await uncheckedRulesOnRun(orgId, run.id) : [],
+      /* Statutory lines nothing worked out (a scheme off, or no rate): the run cannot be approved until they are, or the owner records they do not apply. */
+      statutoryGaps: slips.length ? await statutoryGapsOnRun(orgId, run.id) : [],
+      canWaiveStatutory: Boolean(req.isAdmin),
       employees: members.map((m) => ({
         employeeId: m.employeeId,
         inclusion: m.inclusion,
@@ -742,6 +764,59 @@ payrollRunsRouter.post(
   }
 );
 
+/**
+ * The owner's record that a statutory scheme on these payslips does not apply
+ * to the company (audit 7 Nov 2026, #3): PF under 20 people, ESI under 10 or
+ * outside a notified area, a state's LWF below its headcount. Only for those
+ * three, only an administrator, only with a reason, and only for this
+ * calculation: calculating again asks again. Income tax and professional tax
+ * are never waived, because their rules already give nil where nil is owed.
+ */
+const waiverSchema = z.object({
+  schemes: z.array(z.string().trim().toUpperCase()).min(1).max(5),
+  reason: z.string().trim().max(300),
+});
+
+payrollRunsRouter.post(
+  '/orgs/:orgId/payroll/runs/:id/statutory-waiver',
+  requirePermission(PAYROLL_MODULE, PermissionAction.APPROVE, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    if (!req.isAdmin) return res.status(403).json({ error: 'Only an owner or administrator of this company can say a statutory scheme does not apply.', code: 'ADMIN_ONLY' });
+    /* A fresh authenticator code from whoever has one (review of #145, N2). */
+    const stepUp = await stepUpIfEnrolledRefusal(req);
+    if (stepUp) return res.status(stepUp.status).json(stepUp.body);
+    const run = await runOr404(req, res);
+    if (!run) return;
+    if (!['CALCULATED', 'REVIEW'].includes(run.status)) return res.status(409).json({ error: 'Only a calculated payroll takes this.', code: 'RUN_WRONG_STATUS' });
+    const parsed = waiverSchema.safeParse(req.body || {});
+    if (!parsed.success) return res.status(400).json({ error: 'Say which schemes do not apply, and why.', code: 'REASON_NEEDED' });
+    const reason = parsed.data.reason;
+    if (reason.length < 5) return res.status(400).json({ error: 'Say why it does not apply, e.g. "12 people, under the PF threshold of 20".', code: 'REASON_NEEDED' });
+    const gaps = await statutoryGapsOnRun(run.orgId, run.id);
+    const schemes = [...new Set(parsed.data.schemes)];
+    for (const code of schemes) {
+      const gap = gaps.find((g) => g.scheme === code);
+      if (!gap) return res.status(409).json({ error: `${code} is worked out on this payroll, so there is nothing to record.`, code: 'NOT_A_GAP' });
+      if (!gap.mayStandWithout) {
+        return res.status(409).json({ error: `${gap.name} cannot be left out: where it applies, its own rules already give nil below the limit. Switch it on in Payroll › Compliance and calculate again.`, code: 'NOT_WAIVABLE' });
+      }
+    }
+    const waiver = { schemes, reason, userId: req.auth!.userId, at: new Date().toISOString(), calculatedAt: run.calculatedAt ? run.calculatedAt.toISOString() : null };
+    /* Against the calculation it was given for: a recalculation in between replaces the figures, and this with them. */
+    const moved = await payrollPrisma.payrollRun.updateMany({ where: { id: run.id, calculatedAt: run.calculatedAt, status: run.status }, data: { statutoryWaiver: waiver } });
+    if (!moved.count) return res.status(409).json({ error: 'This payroll has just been worked out again. Reload it.', code: 'RUN_CHANGED' });
+    await recordAudit(req, {
+      entity: 'PAYROLL_RUN',
+      entityId: run.id,
+      action: 'STATUTORY_WAIVED',
+      message: `Payroll ${run.number || run.id}: ${schemes.join(', ')} recorded as not applying to this company: ${reason}`,
+      metadata: { schemes, reason, people: gaps.filter((g) => schemes.includes(g.scheme)).map((g) => ({ scheme: g.scheme, count: g.people.length })) },
+    });
+    res.json({ run: shape(await payrollPrisma.payrollRun.findUniqueOrThrow({ where: { id: run.id } })) });
+  }
+);
+
 const transition = (
   path: string,
   from: string[],
@@ -796,6 +871,26 @@ const transition = (
             error: `Not ready to approve. This payroll uses figures CLOR could not confirm from an official notice: ${checksSentence(checks)}. Check each against the state’s notice, then confirm it, or correct it and calculate again.`,
             code: 'RULE_NEEDS_CHECK',
             checks,
+          });
+        }
+      }
+
+      /*
+       * Statutory lines nothing worked out (audit 7 Nov 2026, #3): a PF, ESI,
+       * PT, LWF or TDS component on the payslips whose scheme is switched off
+       * or has no rate in force. Approved like that, every one is under-deducted.
+       * Only the owner may approve without PF, ESI or LWF, by recording why the
+       * law does not reach the company (statutory-waiver); never without TDS or PT.
+       */
+      if (to === 'APPROVED') {
+        const gaps = unwaived(await statutoryGapsOnRun(run.orgId, run.id), waiverOf(run));
+        if (gaps.length) {
+          const waivable = gaps.every((g) => g.mayStandWithout);
+          return res.status(409).json({
+            error: `Not ready to approve. ${gapsSentence(gaps)}, so ${gaps.length === 1 ? 'it shows' : 'they show'} as nil on the payslips. ${gapsAdvice(gaps).replace(/^./, (c) => c.toUpperCase())}${waivable ? '. Or, if the law does not reach your company, an owner or administrator records why' : ''}.`,
+            code: 'STATUTORY_NOT_SET_UP',
+            gaps,
+            canWaive: waivable && Boolean(req.isAdmin),
           });
         }
       }
@@ -924,6 +1019,8 @@ payrollRunsRouter.post(
         code: 'RUN_SETTLED',
       });
     }
+    /* Already cancelled: nothing left to undo, and undoing it twice would put instalments back twice. */
+    if (run.status === 'CANCELLED') return res.status(409).json({ error: 'This payroll is already cancelled.', code: 'RUN_WRONG_STATUS' });
     /* Locked is final: corrections go in a later run as adjustments, not by unmaking this one. */
     if (run.status === 'LOCKED') {
       return res.status(409).json({ error: 'This payroll is locked. Correct it with adjustments in the next run.', code: 'RUN_LOCKED' });
@@ -934,6 +1031,16 @@ payrollRunsRouter.post(
       if (await authorize(req, PAYROLL_MODULE, PermissionAction.APPROVE, RESOURCE)) {
         return res.status(403).json({ error: 'Only somebody who can approve payroll can cancel an approved one.', code: 'APPROVE_REQUIRED' });
       }
+    }
+    /*
+     * Money on its way (audit 7 Nov 2026, #4): a payment with a line waiting at
+     * the bank or paid. Cancelling would delete the payslips that money was for
+     * and put loan instalments back to be taken again. Cancel the payment
+     * first; a line the bank rejected does not count.
+     */
+    const inPayment = await livePaymentLines(orgId, run.id);
+    if (inPayment) {
+      return res.status(409).json({ error: paymentBlocksCancel(inPayment), code: 'RUN_HAS_PAYMENTS' });
     }
     /* What this payroll carried forward, a later one has taken: that one stands on this. */
     if (await carriesTakenElsewhere(orgId, run.id)) {
@@ -954,8 +1061,15 @@ payrollRunsRouter.post(
          * row stays locked until this commits, so a calculation starting now
          * waits, then finds the run cancelled and writes nothing.
          */
+        /* A payment being made for this payroll right now finishes first, then is seen below (payment.ts createPayment). */
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${paymentLockKey(orgId, run.id)}))`;
         const free = await tx.payrollRun.updateMany({ where: { orgId, id: run.id, ...leaseFree() }, data: { calcLeaseToken: null, calcLeaseUntil: null } });
         if (!free.count) throw new RunBusyError('This payroll is being calculated right now. Try again in a minute.');
+        const paying = await livePaymentLines(orgId, run.id, tx);
+        if (paying) throw new RunChangedError('RUN_HAS_PAYMENTS', paymentBlocksCancel(paying));
+        /* Being posted to the books right now (posting.ts takes the same lock once it holds its claim). */
+        const posting = await tx.payrollPosting.count({ where: { orgId, runId: run.id, status: { in: ['POSTING', 'POSTED'] } } });
+        if (posting) throw new RunChangedError('RUN_SETTLED', 'This payroll is being posted to the books. Reverse it rather than cancelling it.');
         const slips = await tx.salarySlip.findMany({ where: { orgId, runId: run.id }, select: { id: true } });
         const ids = slips.map((s) => s.id);
         /*
@@ -973,10 +1087,13 @@ payrollRunsRouter.post(
           await tx.salarySlipLine.deleteMany({ where: { slipId: { in: ids } } });
           await tx.salarySlip.deleteMany({ where: { id: { in: ids } } });
         }
-        return tx.payrollRun.update({ where: { id: run.id }, data: { status: 'CANCELLED', deductionCap: Prisma.DbNull } });
+        /* Only from the status that was checked (compare-and-set): approved, locked or paid in between stops it. */
+        const moved = await tx.payrollRun.updateMany({ where: { orgId, id: run.id, status: run.status }, data: { status: 'CANCELLED', deductionCap: Prisma.DbNull } });
+        if (moved.count !== 1) throw new RunChangedError('RUN_WRONG_STATUS', 'Somebody else has just changed this payroll. Reload it.');
+        return tx.payrollRun.findUniqueOrThrow({ where: { id: run.id } });
       });
     } catch (e) {
-      if (e instanceof RunBusyError || e instanceof CarryTakenError) return res.status(409).json({ error: e.message, code: e.code });
+      if (e instanceof RunBusyError || e instanceof CarryTakenError || e instanceof RunChangedError) return res.status(409).json({ error: e.message, code: e.code });
       throw e;
     }
     /* Leave paid out by these payslips is owed again (the earning is canonical; see calculateRun). */

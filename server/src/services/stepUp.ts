@@ -100,3 +100,16 @@ export async function requirePayrollStepUp(req: Request, res: Response, next: Ne
   }
   return res.status(403).json({ error: 'Enter the code from your authenticator app to continue.', code: 'STEP_UP_REQUIRED' });
 }
+
+/**
+ * A fresh code from whoever has an authenticator, whatever the company's
+ * payroll setting says; somebody without one is not stopped. For an act that
+ * lets a payroll go out short of a statutory line (statutory-waiver, review of
+ * #145 N2): the session alone is not enough where a second factor exists.
+ */
+export async function stepUpIfEnrolledRefusal(req: Request) {
+  if (validFor(req)) return null;
+  const user = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { totpEnabledAt: true } });
+  if (!user?.totpEnabledAt) return null;
+  return { status: 403, body: { error: 'Enter the code from your authenticator app to continue.', code: 'STEP_UP_REQUIRED' } };
+}

@@ -48,6 +48,7 @@ import LoadFailed from "@ui/components/ui/LoadFailed";
 import { LopCheckPanel, ProvisionalNotice } from "../components/RunGuards";
 import { ProvisionalDaysNotice } from "../components/ProvisionalDaysSetting";
 import { DeductionCapNotice, OverLimitPanel } from "../components/DeductionCapSetting";
+import StatutoryGapsPanel from "../components/StatutoryGapsPanel";
 import { openMonthsOf } from "../components/runGuardText";
 import { wholeRupees as money } from "@ui/utils/money";
 
@@ -451,6 +452,8 @@ const RunWorkflow = ({ runId, onBack }) => {
       {data.statutoryChecks?.length && ["CALCULATED", "REVIEW"].includes(run.status) ? (
         <StatutoryChecksBlocker checks={data.statutoryChecks} />
       ) : null}
+      {/* Statutory lines nothing worked out: not approved until set up, or the owner records they do not apply. */}
+      <StatutoryGapsPanel run={run} gaps={data.statutoryGaps} canWaive={data.canWaiveStatutory} onSaved={load} />
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <Tile label="People" value={run.employeeCount} />
         <Tile label="Gross" value={money(run.grossTotal)} />
