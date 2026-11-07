@@ -24,6 +24,8 @@ import {
   istInstant,
   istTime,
   monthSummary,
+  scheduledMinutes,
+  shiftRuleProblem,
   type ShiftRule,
 } from '../services/attendance/compute.js';
 import { clientIp } from '../services/auth.js';
@@ -765,7 +767,8 @@ const shiftSchema = z.object({
   graceMinutes: z.coerce.number().int().min(0).max(240).default(10),
   earlyOutGraceMinutes: z.coerce.number().int().min(0).max(240).default(0),
   halfDayMinutes: z.coerce.number().int().min(0).max(1440).default(240),
-  fullDayMinutes: z.coerce.number().int().min(1).max(1440).default(480),
+  /* Left out: the shift's own net minutes, start to end less the break (compute.ts scheduledMinutes). */
+  fullDayMinutes: z.coerce.number().int().min(1).max(1440).optional(),
   overtimeAfterMinutes: z.coerce.number().int().min(0).max(1440).optional().nullable(),
   /* The punch window: how early a check-in and how late a check-out still count; blank = no limit. */
   checkInBeforeMinutes: z.coerce.number().int().min(0, 'The punch window is minutes, 0 or more.').max(720, 'At most 12 hours before the start.').optional().nullable(),
@@ -777,6 +780,9 @@ const shiftSchema = z.object({
   color: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, 'Colours are #RRGGBB.').optional().nullable().or(z.literal('')),
   isActive: z.boolean().optional(),
 });
+
+/** A shift's full day, or, left out, its own net minutes (start to end less the break). */
+const withFullDay = <T extends z.infer<typeof shiftSchema>>(s: T) => ({ ...s, fullDayMinutes: s.fullDayMinutes ?? scheduledMinutes(s) });
 
 /**
  * A shift's times and rules can change only while no closed month uses it:
@@ -816,7 +822,10 @@ attendanceRouter.post('/orgs/:orgId/attendance/shifts', can(PermissionAction.CRE
   const { accountId, orgId } = req.tenant!;
   const parsed = shiftSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid shift.' });
-  if (parsed.data.halfDayMinutes > parsed.data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.' });
+  const data = withFullDay(parsed.data);
+  const problem = shiftRuleProblem(data);
+  if (problem) return res.status(400).json({ error: problem, code: 'SHIFT_RULES' });
+  parsed.data.fullDayMinutes = data.fullDayMinutes;
   try {
     const shift = await peoplePrisma.shift.create({ data: { accountId, orgId, ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null, createdByUserId: req.auth!.userId } as any });
     res.status(201).json({ shift });
@@ -832,7 +841,16 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
   if (!existing) return res.status(404).json({ error: 'No such shift.' });
   const parsed = shiftSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid shift.' });
-  if (parsed.data.halfDayMinutes > parsed.data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.' });
+  const data = withFullDay(parsed.data);
+  if (data.halfDayMinutes > data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.', code: 'SHIFT_RULES' });
+  /*
+   * A full day longer than the shift is refused when the hours change. A shift
+   * saved that way before the check keeps its name, code and colour editable:
+   * the shift worked as scheduled is still a full day (compute.ts workedAsScheduled).
+   */
+  const hours = (x: any) => [x.startTime, x.endTime, x.breakMinutes, x.halfDayMinutes, x.fullDayMinutes].join('|');
+  const problem = hours(data) !== hours(existing) ? shiftRuleProblem(data) : null;
+  parsed.data.fullDayMinutes = data.fullDayMinutes;
   const scoring = (x: any) => ({ startTime: x.startTime, endTime: x.endTime, breakMinutes: x.breakMinutes, graceMinutes: x.graceMinutes, earlyOutGraceMinutes: x.earlyOutGraceMinutes, halfDayMinutes: x.halfDayMinutes, fullDayMinutes: x.fullDayMinutes, overtimeAfterMinutes: x.overtimeAfterMinutes ?? null, checkInBeforeMinutes: x.checkInBeforeMinutes ?? null, checkOutAfterMinutes: x.checkOutAfterMinutes ?? null, weeklyOffDays: x.weeklyOffDays, offSaturdays: x.offSaturdays, isActive: x.isActive });
   try {
     /*
@@ -842,6 +860,8 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
      */
     const next = { ...existing, ...Object.fromEntries(Object.entries(parsed.data).filter(([, v]) => v !== undefined)) };
     if (JSON.stringify(scoring(existing)) !== JSON.stringify(scoring(next))) await shiftOpen(orgId, existing.id);
+    /* After the closed-month check, so a month that holds the shift is what is said first. */
+    if (problem) return res.status(400).json({ error: problem, code: 'SHIFT_RULES' });
     /* New times that run into the night reach every woman on this shift (people/nightConsent.ts). */
     if (next.startTime !== existing.startTime || next.endTime !== existing.endTime) {
       const on = await onShiftAhead(orgId, existing.id);
@@ -1109,6 +1129,9 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
   if (month >= today().slice(0, 7)) return res.status(400).json({ error: 'Only a month that has ended can be closed.' });
   /* The checklist first: a month with open items closes only when someone says they have seen them. */
   const { monthReadiness, snapshotMonth } = await import('../services/attendance/readiness.js');
+  /* Days the old full-day rule scored short are corrected before the month is weighed and closed, so none is left behind the lock (fullDayFix.ts). */
+  const { fixFullDaysQuietly } = await import('../services/attendance/fullDayFix.js');
+  await fixFullDaysQuietly({ accountId, orgId });
   const readiness = await monthReadiness(accountId, orgId, month);
   const open = readiness.checks.filter((c) => c.count > 0);
   if (open.length && req.body?.acknowledge !== true) {
@@ -1118,20 +1141,63 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
       readiness,
     });
   }
-  const result = await peopleWrite(orgId, async () => {
-    const latest = await monthReadiness(accountId, orgId, month);
-    if (latest.checks.some((c) => c.count > 0) && req.body?.acknowledge !== true) throw fail(409, 'The register changed. Review the month-close checklist again.', 'MONTH_NOT_READY');
-    const lock = await peoplePrisma.attendanceMonthLock.upsert({
-      where: { orgId_month: { orgId, month } },
-      create: { accountId, orgId, month, lockedByUserId: req.auth!.userId },
-      update: {},
+  let result: { month: string; closed: { at: Date; byUserId: string }; snapshot: { version: number } };
+  try {
+    result = await peopleWrite(orgId, async () => {
+      /* Under the lock, only a look: a day the fix above should have corrected (it failed, or the day is new) stops the close, never a write here. */
+      const { fullDaysToCorrect } = await import('../services/attendance/fullDayFix.js');
+      const left = await fullDaysToCorrect({ accountId, orgId }, month);
+      if (left.length) throw fail(409, `${left.length} day${left.length === 1 ? ' was' : 's were'} scored a half day or absent under the old full-day rule and ${left.length === 1 ? 'has' : 'have'} not been corrected yet. Try closing again in a minute; if it keeps happening, tell support.`, 'FULL_DAYS_PENDING');
+      const latest = await monthReadiness(accountId, orgId, month);
+      if (latest.checks.some((c) => c.count > 0) && req.body?.acknowledge !== true) throw fail(409, 'The register changed. Review the month-close checklist again.', 'MONTH_NOT_READY');
+      const lock = await peoplePrisma.attendanceMonthLock.upsert({
+        where: { orgId_month: { orgId, month } },
+        create: { accountId, orgId, month, lockedByUserId: req.auth!.userId },
+        update: {},
+      });
+      const snapshot = await snapshotMonth(accountId, orgId, month, req.auth!.userId, { ...latest, acknowledged: latest.checks.filter((c) => c.count > 0).map((c) => ({ key: c.key, count: c.count })) });
+      return { month, closed: { at: lock.lockedAt, byUserId: lock.lockedByUserId }, snapshot: { version: snapshot.version } };
     });
-    const snapshot = await snapshotMonth(accountId, orgId, month, req.auth!.userId, { ...latest, acknowledged: latest.checks.filter((c) => c.count > 0).map((c) => ({ key: c.key, count: c.count })) });
-    return { month, closed: { at: lock.lockedAt, byUserId: lock.lockedByUserId }, snapshot: { version: snapshot.version } };
-  });
+  } catch (e) {
+    /* The refusals above carry their code (MONTH_NOT_READY, FULL_DAYS_PENDING) to the screen. */
+    return sendError(res, e);
+  }
   await recordAudit(req, { entity: 'ATTENDANCE_MONTH', entityId: month, action: 'CLOSE', message: `Closed ${month} (snapshot ${result.snapshot.version})${open.length ? `, with ${open.length} checklist item${open.length === 1 ? '' : 's'} acknowledged` : ''}`, metadata: { month, snapshotVersion: result.snapshot.version, acknowledged: open.map((c) => ({ key: c.key, count: c.count })) } });
   res.json(result);
   emitWebhook(orgId, 'month.closed', { month, closedAt: result.closed.at, byUserId: req.auth!.userId });
+});
+
+/**
+ * Days the old full-day rule paid short, held because a pay run had taken
+ * them or the month was closed (fullDayFix.ts): someone paid the difference,
+ * and says so. Who and when are kept on each day; the audit log names them.
+ */
+attendanceRouter.post('/orgs/:orgId/attendance/full-day/paid', can(PermissionAction.EDIT, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const ids = Array.isArray(req.body?.ids) ? [...new Set(req.body.ids.map(String))].slice(0, 500) as string[] : [];
+  if (!ids.length) return res.status(400).json({ error: 'Say which days were paid.' });
+  const note = String(req.body?.note || '').trim().slice(0, 300) || null;
+  const { settleFullDays } = await import('../services/attendance/fullDayFix.js');
+  const scope = await teamScope(req);
+  const settled = await peopleWrite(orgId, () => settleFullDays(orgId, ids, req.auth!.userId, note, scope.all ? undefined : scope.ids));
+  if (!settled) return res.status(409).json({ error: 'Those days are no longer waiting to be paid. Check again.' });
+  await recordAudit(req, { entity: 'ATTENDANCE_FULL_DAY', entityId: ids[0], action: 'UPDATE', message: `Marked ${settled} day${settled === 1 ? '' : 's'} paid short as paid the difference${note ? `: ${note}` : ''}`, metadata: { ids, settled, note } });
+  res.json({ settled });
+});
+
+/** Undo "Paid the difference": the days are held again. Same right as marking them paid; audited. */
+attendanceRouter.post('/orgs/:orgId/attendance/full-day/unpaid', can(PermissionAction.EDIT, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const ids = Array.isArray(req.body?.ids) ? [...new Set(req.body.ids.map(String))].slice(0, 500) as string[] : [];
+  if (!ids.length) return res.status(400).json({ error: 'Say which days to hold again.' });
+  const { unsettleFullDays } = await import('../services/attendance/fullDayFix.js');
+  const scope = await teamScope(req);
+  const undone = await peopleWrite(orgId, () => unsettleFullDays(orgId, ids, scope.all ? undefined : scope.ids));
+  if (!undone) return res.status(409).json({ error: 'Those days are not marked paid. Check again.' });
+  await recordAudit(req, { entity: 'ATTENDANCE_FULL_DAY', entityId: ids[0], action: 'UPDATE', message: `Undid paid the difference on ${undone} day${undone === 1 ? '' : 's'} paid short: held again`, metadata: { ids, undone } });
+  res.json({ undone });
 });
 
 /**
@@ -1141,7 +1207,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
  */
 attendanceRouter.post('/orgs/:orgId/attendance/months/:month/reopen', can(PermissionAction.APPROVE, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
-  const { orgId } = req.tenant!;
+  const { accountId, orgId } = req.tenant!;
   const month = String(req.params.month);
   if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
   const reason = String(req.body?.reason || '').trim().slice(0, 300);
@@ -1149,6 +1215,9 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/reopen', can(Permis
   const lock = await peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } });
   if (!lock) return res.status(409).json({ error: `${month} is not closed.` });
   await peopleWrite(orgId, () => peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId, month } }));
+  /* The month is open again: days the old full-day rule held in it are corrected now, not at the next daily run (fullDayFix.ts). */
+  const { fixFullDaysQuietly } = await import('../services/attendance/fullDayFix.js');
+  await fixFullDaysQuietly({ accountId, orgId });
   await recordAudit(req, { entity: 'ATTENDANCE_MONTH', entityId: month, action: 'REOPEN', message: `Reopened ${month}: ${reason}`, metadata: { month, reason, closedAt: lock.lockedAt, closedByUserId: lock.lockedByUserId } });
   res.json({ month, closed: null });
   emitWebhook(orgId, 'month.reopened', { month: String(req.params.month), byUserId: req.auth!.userId });

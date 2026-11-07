@@ -1,4 +1,4 @@
-import { computeDay, isWeeklyOff, istTime, shiftWindow, type DayResult, type ShiftRule } from './compute.js';
+import { computeDay, fullDayBy, isWeeklyOff, istTime, shiftWindow, type DayResult, type ShiftRule } from './compute.js';
 import { pairDay } from './adms.js';
 
 /**
@@ -107,9 +107,13 @@ export function explainDay(input: ExplainInput) {
     });
     const earlyBy = Math.max(0, Math.round((end.getTime() - record.checkOut.getTime()) / 60000));
     if (!input.holidayName && !offDay && earlyBy > rule.earlyOutGraceMinutes) steps.push({ kind: 'early', text: `Left ${earlyBy} min before the shift ended${rule.earlyOutGraceMinutes ? ` (early-out grace ${rule.earlyOutGraceMinutes} min)` : ''}.` });
+    /* The two ways to a full day (compute.ts): the shift worked as scheduled, or the full-day minutes. */
+    const inBy = istTime(new Date(start.getTime() + rule.graceMinutes * 60_000));
+    const outFrom = istTime(new Date(end.getTime() - rule.earlyOutGraceMinutes * 60_000));
+    const by = !input.holidayName && !offDay ? fullDayBy(rule, date, record.checkIn, record.checkOut, record.workedMinutes) : null;
     steps.push({
       kind: 'status',
-      text: `A full day needs ${hm(rule.fullDayMinutes)} and a half day ${hm(rule.halfDayMinutes)}. ${hm(record.workedMinutes)} worked makes it ${statusWord(record.status)}.`,
+      text: `A full day is the shift worked as scheduled (in by ${inBy}, out from ${outFrom}) or ${hm(rule.fullDayMinutes)} worked; a half day is ${hm(rule.halfDayMinutes)}. ${by === 'SCHEDULE' ? 'Worked as scheduled' : `${hm(record.workedMinutes)} worked`}: ${statusWord(record.status)}.`,
     });
     const otAfter = rule.overtimeAfterMinutes ?? rule.fullDayMinutes;
     if (record.overtimeMinutes > 0) {

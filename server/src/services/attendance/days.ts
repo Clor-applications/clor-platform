@@ -157,17 +157,21 @@ export class PayrollTakenError extends Error {
     super(`Payroll for ${period} is ${state.toLowerCase()} and has taken this day. Record the change in Payroll as an adjustment instead.`);
   }
 }
-const FINAL_RUN = ['APPROVED', 'LOCKED', 'PAID', 'POSTED'];
+export const FINAL_RUN = ['APPROVED', 'LOCKED', 'PAID', 'POSTED'];
 export async function payrollTaken(orgId: string, employeeId: string, date: string): Promise<{ period: string; state: string } | null> {
   const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lte: date }, endDate: { gte: date } }, select: { id: true, name: true } });
   if (!periods.length) return null;
-  const run = await payrollPrisma.payrollRun.findFirst({ where: { orgId, periodId: { in: periods.map((p) => p.id) }, status: { in: FINAL_RUN } }, select: { id: true, status: true, periodId: true, provisionalDays: true } });
-  if (!run) return null;
+  /* Every final run of the period, not the first: a period can have several (pay groups, branches), and only one may pay this person. */
+  const runs = await payrollPrisma.payrollRun.findMany({ where: { orgId, periodId: { in: periods.map((p) => p.id) }, status: { in: FINAL_RUN } }, select: { id: true, status: true, periodId: true, provisionalDays: true } });
   /* A day after the cut-off that the run counted as present before it happened (payrollProvisionalDays) was assumed, not taken: it is recorded as it happens, and next month's payroll corrects the difference. */
-  const cutoff = (run.provisionalDays as { cutoffDate?: string } | null)?.cutoffDate;
-  if (cutoff && date > cutoff) return null;
-  const member = await payrollPrisma.payrollRunEmployee.findFirst({ where: { orgId, runId: run.id, employeeId, inclusion: 'INCLUDED' }, select: { id: true } });
+  const taking = runs.filter((run) => {
+    const cutoff = (run.provisionalDays as { cutoffDate?: string } | null)?.cutoffDate;
+    return !(cutoff && date > cutoff);
+  });
+  if (!taking.length) return null;
+  const member = await payrollPrisma.payrollRunEmployee.findFirst({ where: { orgId, runId: { in: taking.map((r) => r.id) }, employeeId, inclusion: 'INCLUDED' }, select: { runId: true } });
   if (!member) return null;
+  const run = taking.find((r) => r.id === member.runId)!;
   return { period: periods.find((p) => p.id === run.periodId)?.name || date.slice(0, 7), state: run.status };
 }
 
@@ -255,7 +259,7 @@ export async function writeDay(opts: {
     const status = half
       ? (computed.workedMinutes || 0) >= rule.halfDayMinutes ? 'PRESENT' : 'HALF_DAY'
       : hours
-        ? withHours >= rule.fullDayMinutes ? 'PRESENT' : withHours >= rule.halfDayMinutes ? 'HALF_DAY' : computed.status
+        ? withHours >= rule.fullDayMinutes || computed.status === 'PRESENT' ? 'PRESENT' : withHours >= rule.halfDayMinutes ? 'HALF_DAY' : computed.status
         : opts.statusOverride && !opts.checkIn ? opts.statusOverride : computed.status;
     if (half === 'FIRST') computed.lateMinutes = 0;
     if (half === 'SECOND') computed.earlyOutMinutes = 0;

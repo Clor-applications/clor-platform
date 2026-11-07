@@ -115,6 +115,9 @@ export const getDataHealth = () => apiFetch(`${base()}/data-health`, opts);
 /* Snooze a Health check item with a reason and a date (HLTH-03); headcount and movements (HLTH-04). */
 export const snoozeHealthCheck = (checkId, body) => send(`/data-health/${encodeURIComponent(checkId)}/snooze`, 'POST', body);
 export const unsnoozeHealthCheck = (checkId) => send(`/data-health/${encodeURIComponent(checkId)}/snooze`, 'DELETE');
+/* Days the old full-day rule paid short, marked paid once the difference went out (server: attendance full-day/paid). */
+export const markFullDaysPaid = (ids, note) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/attendance/full-day/paid`, { ...opts, method: 'POST', body: { ids, note } });
+export const unmarkFullDaysPaid = (ids) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/attendance/full-day/unpaid`, { ...opts, method: 'POST', body: { ids } });
 export const getHeadcount = (params = {}) => apiFetch(`${base()}/headcount?${new URLSearchParams(Object.entries(params).filter(([, v]) => v))}`, opts);
 /* What else a change affects (LIFE-04): asked before the form is sent, with the fields as they would be saved. */
 export const getChangeImpact = (id, fields) => {
