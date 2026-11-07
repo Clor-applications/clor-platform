@@ -6,7 +6,7 @@ import { snapshotPerson } from './payment.js';
 import { ageBandFor, incomeTax, ruleInForce } from './statutory/engine.js';
 import { isEmployerNps, taxablePayOf } from './taxablePay.js';
 import { loadRules, toEngineRule } from './statutory/resolve.js';
-import { deductionsFor, previousEmployerOf } from './taxDeclaration.js';
+import { deductionsFor, previousEmployerOf, yearRegimes } from './taxDeclaration.js';
 import { openingFor } from './openingYtd.js';
 
 /**
@@ -135,6 +135,7 @@ export async function taxYear(orgId: string, fy: string, only?: string, by: 'PER
   const person = new Map(people.map((p) => [p.id, p]));
   const profile = new Map(profiles.map((p) => [p.employeeId, p]));
   const declaration = new Map(declarations.map((d) => [d.employeeId, d]));
+  const yearRegime = await yearRegimes(orgId, ids, fy);
   const tdsRow = ruleInForce(rules.get('TDS') || [], to, null);
   const rule = tdsRow ? toEngineRule(tdsRow) : null;
 
@@ -142,7 +143,7 @@ export async function taxYear(orgId: string, fy: string, only?: string, by: 'PER
     .map((a) => {
       const p = person.get(a.employeeId);
       const d = declaration.get(a.employeeId) || null;
-      const regime = ((d?.regime || profile.get(a.employeeId)?.taxRegime) as 'OLD' | 'NEW') || 'NEW';
+      const regime = ((d?.regime || yearRegime.get(a.employeeId) || profile.get(a.employeeId)?.taxRegime) as 'OLD' | 'NEW') || 'NEW';
       const ded = deductionsFor(d && { ...d, regime }, { basic: a.basic, hra: a.hra, employeePf: a.pf });
       const previous = previousEmployerOf(d);
       const year = rule

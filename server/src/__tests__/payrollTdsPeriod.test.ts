@@ -466,3 +466,64 @@ describe('review of #146', () => {
     expect(['2026-09', 'September 2026', '09/2026', '9/2026', 'Sep-26'].map(parseThroughMonth)).toEqual(Array(5).fill('2026-09'));
   });
 });
+
+describe('Re-review of #146', () => {
+  it('S1 2 April: next year\'s declaration or profile does not move March to its regime', async () => {
+    const c = await makeOwner();
+    const { employeeId, code } = await meera(c);
+    /* 2026-27 on the old regime, with no declaration for it: the profile's, as the October payslip went out on. */
+    await payrollPrisma.employeePayrollProfile.updateMany({ where: { orgId: c.orgId, employeeId }, data: { taxRegime: 'OLD' } });
+    await opening(c, employeeId, { grossPay: 1_080_000, tds: 0 }).expect(200);
+    const oct = await run(c, await period(c, '2026-10-01', '2026-10-31', '2026-10-31'), true);
+    expect(JSON.parse(oct.slips[0].employeeSnapshotJson).taxRegime).toBe('OLD');
+    /* 2 April 2027: the new year's declaration chooses NEW, which is copied onto the profile. */
+    await api.put(c, `/tax-declarations/${employeeId}?fy=2027-28`, { regime: 'NEW', items: [] }).expect(200);
+    expect((await payrollPrisma.employeePayrollProfile.findFirstOrThrow({ where: { orgId: c.orgId, employeeId } })).taxRegime).toBe('NEW');
+    const { regimeInForce } = await import('../services/payroll/taxDeclaration.js');
+    expect(await regimeInForce(c.orgId, employeeId, '2026-27')).toBe('OLD');
+    /* The March payroll, run on 2 April, is 2026-27's: still OLD, and a NEW for 2026-27 is still refused. */
+    const mar = await run(c, await period(c, '2027-03-01', '2027-03-31', '2027-03-31'), false, '2027-04-02');
+    expect(mar.calc.status).toBe(200);
+    expect(JSON.parse(mar.slips[0].employeeSnapshotJson).taxRegime).toBe('OLD');
+    const refused = await api.put(c, `/tax-declarations/${employeeId}?fy=2026-27`, { regime: 'NEW', items: [] });
+    expect(refused.body.code).toBe('REGIME_LOCKED');
+    const { financialYearOf } = await import('../services/payroll/taxDeclaration.js');
+    const { todayIst } = await import('../utils/istDate.js');
+    if (financialYearOf(todayIst()) === '2026-27') {
+      /* An override on the profile this year is that year's declaration regime, audited after the save. */
+      const profile = await api.put(c, `/employees/${employeeId}`, { name: 'Meera Shetty', code, dateOfJoining: '2026-04-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW', pan: 'ABCDE1234F', pfApplicable: true, regimeOverrideReason: 'Chose NEW in April; entered wrongly' } });
+      expect(profile.status).toBe(200);
+      expect(await regimeInForce(c.orgId, employeeId, '2026-27')).toBe('NEW');
+      expect(await platformPrisma.auditLog.count({ where: { orgId: c.orgId, action: 'REGIME_OVERRIDE' } })).toBe(1);
+    }
+  });
+
+  it('S2 joined 27 September, after its cut-off, first paid in October: a warning, and October calculates', async () => {
+    const c = await makeOwner();
+    const { employeeId } = await meera(c, { joined: '2026-09-27' });
+    const r = await run(c, await period(c, '2026-10-01', '2026-10-31', '2026-10-31'));
+    const issue = r.checks.issues.find((i: any) => i.code === 'NO_OPENING_YTD');
+    expect(issue).toMatchObject({ severity: 'WARNING', employeeId });
+    expect(issue.message).toMatch(/joined on 2026-09-27/);
+    expect(r.calc.status).toBe(200);
+    /* Joined in August: an error as before. */
+    const d = await makeOwner();
+    const august = await meera(d, { joined: '2026-08-20' });
+    const r2 = await run(d, await period(d, '2026-10-01', '2026-10-31', '2026-10-31'));
+    expect(r2.checks.issues.find((i: any) => i.code === 'NO_OPENING_YTD')).toMatchObject({ severity: 'ERROR', employeeId: august.employeeId });
+  });
+
+  it('nits: gone before this period is one month left; codes that differ only by case refuse the row', async () => {
+    const { monthsLeftFor } = await import('../services/payroll/run.js');
+    expect(monthsLeftFor('2026-10-31', '2026-09-30')).toBe(1);
+    expect(monthsLeftFor('2026-10-31', '2026-12-31')).toBe(3);
+    expect(monthsLeftFor('2026-10-31', null)).toBe(6);
+    const c = await makeOwner();
+    const tag = rnd();
+    await meera(c, { code: `ab${tag}` });
+    await meera(c, { code: `AB${tag.toUpperCase()}` });
+    const res = await api.post(c, '/opening-ytd/import?fy=2026-27', { csv: `Code,Gross,TDS\nab${tag},100,0\n` });
+    expect(res.status).toBe(400);
+    expect(res.body.problems[0].message).toMatch(/More than one person in payroll has the code/);
+  });
+});

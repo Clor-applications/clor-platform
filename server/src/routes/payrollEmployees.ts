@@ -329,6 +329,7 @@ payrollEmployeesRouter.put(
      * declaration's wins). An owner or administrator may override, with a
      * reason and a fresh authenticator code where they have one.
      */
+    let regimeOverride: { fy: string; from: string; to: string; reason: string } | null = null;
     if (body.payroll?.taxRegime) {
       const fy = financialYearOf(todayIst());
       const inForce = await regimeInForce(orgId, existing.id, fy);
@@ -340,13 +341,8 @@ payrollEmployeesRouter.put(
         if (reason.length < 5) return res.status(400).json({ error: 'Say in a few words why the regime changes mid-year.', code: 'NO_REASON' });
         const stepUp = await stepUpIfEnrolledRefusal(req);
         if (stepUp) return res.status(stepUp.status).json(stepUp.body);
-        await recordAudit(req, {
-          entity: 'EMPLOYEE_PAYROLL_PROFILE',
-          entityId: existing.id,
-          action: 'REGIME_OVERRIDE',
-          message: `Changed ${existing.name}’s tax regime for ${fy} from ${inForce} to ${body.payroll.taxRegime} after payslips went out: ${reason}`,
-          metadata: { employeeId: existing.id, financialYear: fy, from: inForce, to: body.payroll.taxRegime, reason },
-        });
+        /* Audited once the save has gone through (re-review of #146), below. */
+        regimeOverride = { fy, from: inForce, to: body.payroll.taxRegime, reason };
       }
     }
 
@@ -418,6 +414,26 @@ payrollEmployeesRouter.put(
         : await payrollPrisma.employeePayrollProfile.create({
             data: { accountId, orgId, employeeId: row.id, createdByUserId: req.auth!.userId, ...incoming },
           });
+    }
+
+    if (regimeOverride) {
+      /*
+       * A year with payslips keeps the regime its first payslip went out on
+       * (yearRegimes), not the profile's; so the override is written as that
+       * year's declaration regime, which the payroll reads first.
+       */
+      await payrollPrisma.taxDeclaration.upsert({
+        where: { orgId_employeeId_financialYear: { orgId, employeeId: existing.id, financialYear: regimeOverride.fy } },
+        create: { accountId, orgId, employeeId: existing.id, financialYear: regimeOverride.fy, regime: regimeOverride.to, updatedByUserId: req.auth!.userId },
+        update: { regime: regimeOverride.to, updatedByUserId: req.auth!.userId },
+      });
+      await recordAudit(req, {
+        entity: 'EMPLOYEE_PAYROLL_PROFILE',
+        entityId: existing.id,
+        action: 'REGIME_OVERRIDE',
+        message: `Changed ${existing.name}’s tax regime for ${regimeOverride.fy} from ${regimeOverride.from} to ${regimeOverride.to} after payslips went out: ${regimeOverride.reason}`,
+        metadata: { employeeId: existing.id, financialYear: regimeOverride.fy, from: regimeOverride.from, to: regimeOverride.to, reason: regimeOverride.reason },
+      });
     }
 
     res.json({ employee: shape({ ...row, payroll }, await mayRevealSensitive(req)), bankChangePending });

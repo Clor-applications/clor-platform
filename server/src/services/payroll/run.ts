@@ -9,7 +9,7 @@ import { ageBandFor, ruleInForce } from './statutory/engine.js';
 import { isEmployerNps, taxablePayOf } from './taxablePay.js';
 import { recoveriesDue, type DueRecovery } from './loan.js';
 import { capDeductions, capSetting, partWords } from './deductionCap.js';
-import { financialYearOf, deductionsFor, previousEmployerOf } from './taxDeclaration.js';
+import { financialYearOf, deductionsFor, previousEmployerOf, yearRegimes } from './taxDeclaration.js';
 import { firstPayrollYearOf, openingFor, type Opening } from './openingYtd.js';
 import { round2 } from '../../utils/money.js';
 import { componentApplies, monthsOfService, type EligibilityFacts } from './eligibility.js';
@@ -134,7 +134,9 @@ export function monthsLeftFor(periodEnd: string, dateOfLeaving?: string | null) 
   const toMarch = monthsLeftInFinancialYear(periodEnd);
   const left = dateOfLeaving ? String(dateOfLeaving).slice(0, 10) : '';
   const yearEnd = `${Number(financialYearStart(periodEnd).slice(0, 4)) + 1}-03-31`;
-  if (!left || left.slice(0, 7) < periodEnd.slice(0, 7) || left > yearEnd) return toMarch;
+  /* Gone before this period (paid arrears or a settlement after leaving): this payslip is the last, one month. */
+  if (left && left.slice(0, 7) < periodEnd.slice(0, 7)) return 1;
+  if (!left || left > yearEnd) return toMarch;
   const index = (iso: string) => Number(iso.slice(0, 4)) * 12 + Number(iso.slice(5, 7));
   return Math.max(1, Math.min(toMarch, index(left) - index(periodEnd) + 1));
 }
@@ -162,7 +164,24 @@ export function openingNeededFor(
   if (period.startDate <= fyStart) return false;
   if (company.firstPayrollYear?.financialYear === company.taxYear) return false;
   if (person.hasOpening || person.earlierSlips > 0) return false;
-  return !person.dateOfJoining || String(person.dateOfJoining).slice(0, 10) < period.startDate;
+  const joined = person.dateOfJoining ? String(person.dateOfJoining).slice(0, 10) : '';
+  if (joined && joined >= period.startDate) return false;
+  /*
+   * Joined inside the period just before this one (re-review of #146, S2):
+   * joins 27 September after September's cut-off, first paid in October with
+   * arrears. Likely nothing was paid anywhere, so a warning, not a block.
+   */
+  if (joined && joined >= monthBefore(period.startDate)) return 'WARNING';
+  return 'ERROR';
+}
+
+/** The same day a month earlier (the start of the period before, for monthly periods). */
+function monthBefore(iso: string) {
+  const y = Number(iso.slice(0, 4));
+  const m = Number(iso.slice(5, 7));
+  const py = m === 1 ? y - 1 : y;
+  const pm = m === 1 ? 12 : m - 1;
+  return `${py}-${String(pm).padStart(2, '0')}${iso.slice(7, 10)}`;
 }
 
 /** The TDS rule is on for this payroll; without it there is no tax to bring figures in for. */
@@ -636,6 +655,8 @@ async function loadRunContext(orgId: string, runId: string) {
       await payrollPrisma.taxDeclaration.findMany({ where: { orgId, financialYear: taxYear, employeeId: { in: employeeIds } } })
     ).map((d) => [d.employeeId, d])
   );
+  /* With no declaration, the regime this year's first payslip went out on, never next year's choice on the profile (re-review of #146, S1). */
+  const yearRegime = await yearRegimes(orgId, employeeIds, taxYear, runId);
 
   return {
     ownSlipIds,
@@ -644,6 +665,7 @@ async function loadRunContext(orgId: string, runId: string) {
     capRule: await capSetting(orgId),
     statutoryRules,
     taxDeclarations,
+    yearRegime,
     taxSoFar,
     taxYear,
     openingYtd,
@@ -869,7 +891,7 @@ function calculateWithStatutory(
     /* LWF leaves out the company's managers, and its supervisors above a state's pay limit. */
     lwfRole: ctx.lwfSettings.roleOf(person?.designation),
     /* The year's declaration, where there is one, says which regime they chose. */
-    taxRegime: ((declaration?.regime || profile?.taxRegime) as 'OLD' | 'NEW') || 'NEW',
+    taxRegime: ((declaration?.regime || ctx.yearRegime.get(assignment.employeeId) || profile?.taxRegime) as 'OLD' | 'NEW') || 'NEW',
     /* The old regime's senior and very senior slabs, from the date of birth on the People record. */
     ageBand: ageBandFor(person?.dateOfBirth, ctx.period.endDate),
     /* Without a valid PAN, section 206AA's 20%. */
@@ -1077,19 +1099,26 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
      * (openingNeededFor): employed before this period, no CLOR payslip
      * earlier in the year, nothing entered.
      */
-    if (
-      openingChecked &&
-      openingNeededFor(
-        ctx.period,
-        { dateOfJoining: employee.dateOfJoining, earlierSlips: ctx.taxSoFar.get(employee.id)?.slips || 0, hasOpening: ctx.openingYtd.has(employee.id) },
-        { taxYear: ctx.taxYear, firstPayrollYear: ctx.firstPayrollYear }
-      )
-    ) {
+    const openingNeed = openingChecked
+      ? openingNeededFor(
+          ctx.period,
+          { dateOfJoining: employee.dateOfJoining, earlierSlips: ctx.taxSoFar.get(employee.id)?.slips || 0, hasOpening: ctx.openingYtd.has(employee.id) },
+          { taxYear: ctx.taxYear, firstPayrollYear: ctx.firstPayrollYear }
+        )
+      : false;
+    if (openingNeed === 'ERROR') {
       add({
         severity: 'ERROR',
         code: 'NO_OPENING_YTD',
         employeeId: employee.id,
         message: `${who} was employed here before ${monthWords(ctx.period.startDate)} but has no earlier payslip in CLOR this year, and income tax for the rest of the year needs what this company paid them from April (or from joining) and the tax taken from it. Enter it in Payroll › Tax declarations › Earlier this year, even if it was nil; or, if ${ctx.taxYear} is the company's first year of paying salaries, say so there.`,
+      });
+    } else if (openingNeed === 'WARNING') {
+      add({
+        severity: 'WARNING',
+        code: 'NO_OPENING_YTD',
+        employeeId: employee.id,
+        message: `${who} joined on ${String(employee.dateOfJoining).slice(0, 10)}, just before this period, and has no earlier payslip in CLOR this year. If anything was paid to them before this payroll, enter it in Payroll › Tax declarations › Earlier this year so the year's tax is right.`,
       });
     }
 
@@ -1857,7 +1886,8 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
           dateOfJoining: employee.dateOfJoining,
           dateOfLeaving: employee.dateOfLeaving,
           payrollStatus: profile?.payrollStatus ?? null,
-          taxRegime: profile?.taxRegime ?? null,
+          /* The regime the tax was worked out on: what yearRegimes reads back for the rest of the year. */
+          taxRegime: ctx.taxDeclarations.get(employee.id)?.regime || ctx.yearRegime.get(employee.id) || profile?.taxRegime || null,
         }),
         assignmentSnapshotJson: JSON.stringify({
           assignmentId: assignment.id,

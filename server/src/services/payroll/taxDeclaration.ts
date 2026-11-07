@@ -157,13 +157,53 @@ export async function regimeFixedForYear(orgId: string, employeeId: string, fina
   return n > 0;
 }
 
-/** The regime the year's tax was being worked out on: the declaration's, else the profile's. */
+/**
+ * The regime each person's first CLOR payslip of the year went out on, for a
+ * year with no declaration (re-review of #146, S1). The profile holds one
+ * regime for every year: from 1 April it is next year's choice, and a
+ * declaration for next year is copied onto it. Read for last year's March run,
+ * it would move March to next year's regime with no override. So a year that
+ * has a payslip keeps the regime that payslip was worked out on.
+ */
+export async function yearRegimes(orgId: string, employeeIds: string[], financialYear: string, exceptRunId?: string) {
+  const out = new Map<string, 'OLD' | 'NEW'>();
+  if (!employeeIds.length) return out;
+  const start = Number(financialYear.slice(0, 4));
+  const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, endDate: { gte: `${start}-04-01`, lte: `${start + 1}-03-31` } }, select: { id: true, endDate: true } });
+  if (!periods.length) return out;
+  const endOf = new Map(periods.map((p) => [p.id, p.endDate]));
+  const slips = await payrollPrisma.salarySlip.findMany({
+    where: {
+      orgId,
+      employeeId: { in: employeeIds },
+      status: { not: 'CANCELLED' },
+      periodId: { in: periods.map((p) => p.id) },
+      run: { status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] }, ...(exceptRunId ? { id: { not: exceptRunId } } : {}) },
+    },
+    select: { employeeId: true, periodId: true, createdAt: true, employeeSnapshotJson: true },
+  });
+  slips.sort((a, b) => String(endOf.get(a.periodId)).localeCompare(String(endOf.get(b.periodId))) || a.createdAt.getTime() - b.createdAt.getTime());
+  for (const s of slips) {
+    if (out.has(s.employeeId)) continue;
+    let regime: unknown = null;
+    try {
+      regime = JSON.parse(s.employeeSnapshotJson || '{}').taxRegime;
+    } catch {
+      regime = null;
+    }
+    if (regime === 'OLD' || regime === 'NEW') out.set(s.employeeId, regime);
+  }
+  return out;
+}
+
+/** The regime the year's tax is worked out on: the year's declaration, else its first payslip's, else the profile's. */
 export async function regimeInForce(orgId: string, employeeId: string, financialYear: string) {
-  const [d, p] = await Promise.all([
+  const [d, y, p] = await Promise.all([
     payrollPrisma.taxDeclaration.findUnique({ where: { orgId_employeeId_financialYear: { orgId, employeeId, financialYear } }, select: { regime: true } }),
+    yearRegimes(orgId, [employeeId], financialYear),
     payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId }, select: { taxRegime: true } }),
   ]);
-  return (d?.regime || p?.taxRegime || 'NEW') as 'OLD' | 'NEW';
+  return (d?.regime || y.get(employeeId) || p?.taxRegime || 'NEW') as 'OLD' | 'NEW';
 }
 
 export const REGIME_LOCKED_MESSAGE =

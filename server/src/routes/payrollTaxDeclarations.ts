@@ -58,15 +58,18 @@ async function ownOpeningRefusal(req: any, employeeId: string, does: string, nam
     (await anotherApproverExists(accountId, orgId, req.auth.userId, permKey(PAYROLL_MODULE, RESOURCE, PermissionAction.EDIT))) ||
     (await anotherApproverExists(accountId, orgId, req.auth.userId, permKey(PAYROLL_MODULE, PAYROLL_RESOURCE.runs, PermissionAction.APPROVE)));
   if (someoneElse) return { status: 403, body: { error: `This is your own pay record; somebody else has to ${does}.`, code: 'OWN_RECORD' } };
-  await recordAudit(req, {
+  return { soleUser: true as const };
+}
+
+/** The self-entry audit row, written once the change has been saved (re-review of #146). */
+const soleUserAudit = (req: any, employeeId: string, name: string, did: string) =>
+  recordAudit(req, {
     entity: 'PAYROLL_OPENING_YTD',
     entityId: employeeId,
     action: 'SELF_ENTRY_SOLE_USER',
-    message: `${name} entered their own pay earlier this year: nobody else in the company can`,
+    message: `${name} ${did} their own pay earlier this year: nobody else in the company can`,
     metadata: { employeeId, ownRecord: true },
   });
-  return null;
-}
 
 /** Everybody in payroll, with what was paid them earlier this year before CLOR, and the owner's first-year answer. */
 payrollTaxDeclarationsRouter.get('/orgs/:orgId/payroll/opening-ytd', VIEW, async (req, res) => {
@@ -111,7 +114,7 @@ payrollTaxDeclarationsRouter.get('/orgs/:orgId/payroll/opening-ytd', VIEW, async
     people: people.map((p) => {
       const opening = shapeOpening(byEmployee.get(p.id));
       const at = firstPeriod.get(p.id) || (financialYearOf(today) === financialYear ? thisMonth : null);
-      const needsFigures = Boolean(at) && openingNeededFor(at!, { dateOfJoining: p.dateOfJoining, earlierSlips: 0, hasOpening: Boolean(opening) }, company);
+      const needsFigures = Boolean(at) && openingNeededFor(at!, { dateOfJoining: p.dateOfJoining, earlierSlips: 0, hasOpening: Boolean(opening) }, company) === 'ERROR';
       return { employeeId: p.id, name: p.name, code: p.code, dateOfJoining: p.dateOfJoining, opening, needsFigures };
     }),
   });
@@ -140,9 +143,10 @@ payrollTaxDeclarationsRouter.put('/orgs/:orgId/payroll/opening-ytd/:employeeId',
     /* Checked before anything is written or audited as a self-entry. */
     const figures = checkOpening(req.body || {}, financialYear);
     /* These figures set the tax deducted from someone's pay for the rest of the year: not your own, unless nobody else can. */
-    const refused = await ownOpeningRefusal(req, e.id, 'enter it', e.name);
-    if (refused) return res.status(refused.status).json(refused.body);
+    const own = await ownOpeningRefusal(req, e.id, 'enter it', e.name);
+    if (own?.status) return res.status(own.status).json(own.body);
     const { before, row } = await saveOpening(req, e.id, financialYear, figures);
+    if (own?.soleUser) await soleUserAudit(req, e.id, e.name, 'entered');
     await recordAudit(req, {
       entity: 'PAYROLL_OPENING_YTD',
       entityId: row.id,
@@ -164,10 +168,11 @@ payrollTaxDeclarationsRouter.delete('/orgs/:orgId/payroll/opening-ytd/:employeeI
   const where = { orgId_employeeId_financialYear: { orgId: req.tenant!.orgId, employeeId: e.id, financialYear } };
   const row = await payrollPrisma.payrollOpeningYtd.findUnique({ where });
   if (!row || row.deletedAt) return res.status(404).json({ error: 'Nothing was entered for this year.' });
-  const refused = await ownOpeningRefusal(req, e.id, 'remove it', e.name);
-  if (refused) return res.status(refused.status).json(refused.body);
+  const own = await ownOpeningRefusal(req, e.id, 'remove it', e.name);
+  if (own?.status) return res.status(own.status).json(own.body);
   /* Kept as a removed row, so a payroll already calculated on these figures shows as changed (runStale; review of #146, 6). */
   await payrollPrisma.payrollOpeningYtd.updateMany({ where: { id: row.id, orgId: req.tenant!.orgId }, data: { deletedAt: new Date(), updatedAt: new Date(), updatedByUserId: req.auth!.userId } });
+  if (own?.soleUser) await soleUserAudit(req, e.id, e.name, 'removed');
   await recordAudit(req, { entity: 'PAYROLL_OPENING_YTD', entityId: row.id, action: 'DELETE', message: `Removed ${e.name}’s pay earlier in ${financialYear}`, metadata: { employeeId: e.id, financialYear, before: shapeOpening(row) } });
   res.json({ ok: true });
 });
@@ -188,7 +193,12 @@ payrollTaxDeclarationsRouter.post('/orgs/:orgId/payroll/opening-ytd/import', EDI
   }
   const profiles = await payrollPrisma.employeePayrollProfile.findMany({ where: { accountId, orgId }, select: { employeeId: true } });
   const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: profiles.map((p) => p.employeeId) } }, select: { id: true, name: true, code: true, userId: true } });
-  const byCode = new Map(people.map((p) => [String(p.code || '').trim().toUpperCase(), p]));
+  /* Codes match in any case; two people whose codes differ only by case cannot be told apart, so a row for either is refused. */
+  const byCode = new Map<string, (typeof people)[number] | 'TWO'>();
+  for (const p of people) {
+    const k = String(p.code || '').trim().toUpperCase();
+    if (k) byCode.set(k, byCode.has(k) ? 'TWO' : p);
+  }
   const problems: { line: number; message: string }[] = [];
   const ready: { person: (typeof people)[number]; figures: ReturnType<typeof checkOpening> }[] = [];
   const seen = new Set<string>();
@@ -197,6 +207,10 @@ payrollTaxDeclarationsRouter.post('/orgs/:orgId/payroll/opening-ytd/import', EDI
   let ownRow: (typeof people)[number] | null = null;
   for (const r of rows as any[]) {
     const person = byCode.get(String(r.code || '').trim().toUpperCase());
+    if (person === 'TWO') {
+      problems.push({ line: r.line, message: `More than one person in payroll has the code ${r.code} (in capitals or small letters). Give them different codes first.` });
+      continue;
+    }
     if (!person) {
       problems.push({ line: r.line, message: r.code ? `Nobody in payroll has the code ${r.code}.` : 'No employee code.' });
       continue;
