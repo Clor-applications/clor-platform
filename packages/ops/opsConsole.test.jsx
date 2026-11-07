@@ -5,7 +5,7 @@ const api = vi.hoisted(() => ({ opsMe: vi.fn(), opsOverview: vi.fn(), opsStartTw
 vi.mock('./api', () => ({
   opsMe: () => api.opsMe(),
   opsOverview: () => api.opsOverview(),
-  opsStartTwoFactor: () => api.opsStartTwoFactor(),
+  opsStartTwoFactor: (p) => api.opsStartTwoFactor(p),
   opsEnableTwoFactor: (code) => api.opsEnableTwoFactor(code),
   opsAccounts: vi.fn(), opsAccount: vi.fn(), opsSuspend: vi.fn(), opsReinstate: vi.fn(), opsExtendTrial: vi.fn(),
   opsGrantPlan: vi.fn(), opsAudit: vi.fn(), opsOperators: vi.fn(), opsAddOperator: vi.fn(), opsChangeOperator: vi.fn(),
@@ -44,8 +44,11 @@ describe('the operator console', () => {
     api.opsEnableTwoFactor.mockResolvedValue({ enabled: true, recoveryCodes: ['AAAA-BBBB', 'CCCC-DDDD'] });
     render(<OpsConsole />);
     expect(await screen.findByText('Set up your authenticator')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Set up an authenticator app/ })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Your password'), { target: { value: 'my-password' } });
     fireEvent.click(screen.getByRole('button', { name: /Set up an authenticator app/ }));
     fireEvent.change(await screen.findByLabelText('Code from the app'), { target: { value: '123456' } });
+    expect(api.opsStartTwoFactor).toHaveBeenCalledWith('my-password');
     fireEvent.click(screen.getByRole('button', { name: 'Turn on' }));
     expect(await screen.findByText('AAAA-BBBB')).toBeInTheDocument();
     expect(api.opsEnableTwoFactor).toHaveBeenCalledWith('123456');

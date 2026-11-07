@@ -83,6 +83,11 @@
     },
     {
       "method": "POST",
+      "path": "/api/auth/resend-verification/sign-in",
+      "reason": "Needs the 15-minute challenge a refused sign-in returns only after the right password (#4); sends the link to that person's own address; resetLimiter."
+    },
+    {
+      "method": "POST",
       "path": "/api/auth/reset-password",
       "reason": "Needs the single-use reset token from the e-mail, consumed atomically (A-06); resetLimiter."
     },

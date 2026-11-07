@@ -580,6 +580,7 @@ function EnrolAuthenticator({ onDone }) {
   const [qr, setQr] = useState('');
   const [code, setCode] = useState('');
   const [codes, setCodes] = useState(null);
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -594,12 +595,16 @@ function EnrolAuthenticator({ onDone }) {
       setBusy(false);
     }
   };
-  const begin = () =>
+  /* The password first, so a stolen session cannot put someone else's authenticator on the console. */
+  const begin = (e) => {
+    e.preventDefault();
     act(async () => {
-      const r = await opsStartTwoFactor();
+      const r = await opsStartTwoFactor(password);
+      setPassword('');
       setSetup(r);
       setQr(await QRCode.toDataURL(r.uri, { margin: 1, width: 192 }));
     });
+  };
   const confirm = (e) => {
     e.preventDefault();
     act(async () => {
@@ -636,9 +641,15 @@ function EnrolAuthenticator({ onDone }) {
           </div>
         </form>
       ) : (
-        <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={begin}>
-          <KeyRound size={16} aria-hidden="true" /> Set up an authenticator app
-        </button>
+        <form onSubmit={begin} className="flex flex-wrap items-end gap-2">
+          <label className="grid gap-1">
+            <span className="text-sm font-medium">Your password</span>
+            <input type="password" className="ui-input" autoComplete="current-password" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} required />
+          </label>
+          <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || !password}>
+            <KeyRound size={16} aria-hidden="true" /> Set up an authenticator app
+          </button>
+        </form>
       )}
       {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
     </div>

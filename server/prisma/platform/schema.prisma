@@ -781,6 +781,8 @@ model AuthProvider {
   /// Create a user on first successful sign-in instead of refusing.
   autoProvision     Boolean @default(false)
   defaultRoleId     String?
+  /// Who chose defaultRoleId: the role is given only while they still hold everything it grants (review N2).
+  defaultRoleSetByUserId String?
 
   lastUsedAt DateTime?
   lastError  String?

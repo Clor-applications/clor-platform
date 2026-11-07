@@ -36,7 +36,8 @@ import {
 import { decryptSecret, sendTemplate } from '../services/mailer.js';
 import { hashRecovery, verifyCode } from '../services/totp.js';
 import { adminTwoFactorMissing } from '../services/twoFactorPolicy.js';
-import { DEFAULT_POLICY, policyForUser, validatePassword, getAuthPolicy } from '../services/policy.js';
+import { DEFAULT_POLICY, policyForUser, sessionPolicyFor, validatePassword, getAuthPolicy } from '../services/policy.js';
+import { type EntryRefusal, resendChallengeFor, resendChallengeUser, signInEntry } from '../services/signInRules.js';
 import { expandPreset, permKey } from '../constants/permissionCatalog.js';
 import { validateGstinOrThrow, deriveStateCodeFromInput } from '../utils/gstin.js';
 import { isDevOrTest } from '../utils/devMode.js';
@@ -136,6 +137,7 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
       lockedUntil: true,
       totpEnabledAt: true,
       totpSecretEnc: true,
+      emailVerifiedAt: true,
     },
   });
 
@@ -186,6 +188,9 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
    * guessed after a correct password still count towards the lockout.
    */
   if (user.totpEnabledAt && user.totpSecretEnc) {
+    /* #4: refused by every company's rules — said now, before asking for a code that would not help. */
+    const entry = await signInEntry(user.id, user);
+    if (entry.refusal) return refuseEntry(res, user, entry.refusal, identity, ip, userAgent);
     const challenge = jwt.sign({ typ: 'login2fa', uid: user.id }, getJwtSecret(), { expiresIn: LOGIN_2FA_TTL_S, audience: LOGIN_2FA_AUDIENCE });
     return res.json({ twoFactorRequired: true, challenge, expiresIn: LOGIN_2FA_TTL_S });
   }
@@ -196,20 +201,39 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
 const LOGIN_2FA_TTL_S = 5 * 60;
 const LOGIN_2FA_AUDIENCE = 'clor-login-2fa';
 
-type LoginUser = { id: string; accountId: string; email: string | null; fullName: string | null };
+type LoginUser = { id: string; accountId: string; email: string | null; fullName: string | null; emailVerifiedAt: Date | null };
+
+/**
+ * #4: the right password, but none of the person's companies lets them in
+ * (an address not confirmed, or outside the allowed domains). No session is
+ * made. An unconfirmed address gets a way to ask for a new link.
+ */
+async function refuseEntry(res: Response, user: { id: string; accountId: string }, refusal: EntryRefusal, identity: string, ip: ReturnType<typeof clientIp>, userAgent: string | undefined) {
+  await recordAuthEvent({ accountId: user.accountId, userId: user.id, email: identity, eventType: 'LOGIN_REFUSED', ip, userAgent, detail: refusal.code });
+  return res.status(refusal.status).json({
+    error: refusal.error,
+    code: refusal.code,
+    ...(refusal.code === 'EMAIL_NOT_CONFIRMED' ? { resendChallenge: resendChallengeFor(user.id) } : {}),
+  });
+}
 
 /** Everything after the person is known to be who they say: session, token, companies. */
 async function completeLogin(req: Request, res: Response, user: LoginUser, identity: string, ip: ReturnType<typeof clientIp>, userAgent: string | undefined) {
+  const entry = await signInEntry(user.id, user);
+  if (entry.refusal) return refuseEntry(res, user, entry.refusal, identity, ip, userAgent);
   await clearFailedLogins(user.id);
+  /* #4: how long this sign-in lasts, and each access token, are the companies' rules (the strictest of them). */
+  const policy = await sessionPolicyFor(user.id);
   const { session, refreshToken } = await createSession({
     accountId: user.accountId,
     userId: user.id,
     ip,
     userAgent,
+    days: policy.sessionDays,
   });
   await recordAuthEvent({ accountId: user.accountId, userId: user.id, email: identity, eventType: 'LOGIN_SUCCESS', ip, userAgent });
 
-  const token = signAccessToken({ userId: user.id, accountId: user.accountId, sid: session.id });
+  const token = signAccessToken({ userId: user.id, accountId: user.accountId, sid: session.id }, policy.accessTokenMinutes);
 
   /*
    * Every company this person can open, not only the ones their own account
@@ -236,7 +260,7 @@ async function completeLogin(req: Request, res: Response, user: LoginUser, ident
 
   /* GAP-006: a company from another account whose engagement is not live is not offered. */
   const closedHere = await closedForOutsider(user.id, user.accountId, memberships);
-  const companies = memberships.filter((m) => !closedHere.has(m.orgId)).map((m) => ({
+  const companies = memberships.filter((m) => !closedHere.has(m.orgId) && !entry.closed.has(m.orgId)).map((m) => ({
     orgId: m.orgId,
     id: m.org?.id ?? m.orgId,
     name: m.org?.name ?? '',
@@ -263,7 +287,7 @@ async function completeLogin(req: Request, res: Response, user: LoginUser, ident
    * which is the thing the cookie exists to prevent — the browser can hold a
    * credential the page itself cannot see, and that is the whole point.
    */
-  setRefreshCookie(res, refreshToken);
+  setRefreshCookie(res, refreshToken, session.expiresAt);
 
   /* Any company that requires an authenticator of this owner or admin, who has none yet: the app opens on the set-up. */
   let twoFactorSetupRequired = false;
@@ -277,7 +301,7 @@ async function completeLogin(req: Request, res: Response, user: LoginUser, ident
   return res.json({
     token,
     twoFactorSetupRequired,
-    expiresIn: process.env.JWT_EXPIRES_IN || '15m',
+    expiresIn: `${policy.accessTokenMinutes}m`,
     user: { id: user.id, email: user.email, fullName: user.fullName, accountId: user.accountId },
     companies,
     activeOrgId: firstOrgId,
@@ -303,7 +327,7 @@ authRouter.post('/login/two-factor', ...codeLimiter, async (req: Request, res: R
 
   const user = await platformPrisma.user.findUnique({
     where: { id: String(claims.uid) },
-    select: { id: true, accountId: true, email: true, fullName: true, isActive: true, lockedUntil: true, totpEnabledAt: true, totpSecretEnc: true, totpLastStep: true, totpRecoveryJson: true },
+    select: { id: true, accountId: true, email: true, fullName: true, isActive: true, lockedUntil: true, totpEnabledAt: true, totpSecretEnc: true, totpLastStep: true, totpRecoveryJson: true, emailVerifiedAt: true },
   });
   if (!user || !user.isActive || !user.totpEnabledAt || !user.totpSecretEnc) return res.status(401).json({ error: 'Enter your password again.', code: 'CHALLENGE_EXPIRED' });
   const identity = String(user.email || '').toLowerCase();
@@ -360,7 +384,7 @@ authRouter.post('/refresh', refreshLimiter, async (req: Request, res: Response) 
       ip: clientIp(req),
     });
     // The rotated token replaces the cookie and, again, is not in the body.
-    setRefreshCookie(res, rotated.refreshToken);
+    setRefreshCookie(res, rotated.refreshToken, rotated.session.expiresAt);
     return res.json({ token: rotated.accessToken });
   } catch (e: any) {
     /*
@@ -371,7 +395,7 @@ authRouter.post('/refresh', refreshLimiter, async (req: Request, res: Response) 
     /* Lost a race with another tab: the winner's response has just set the new cookie, so this one must not clear it. */
     if (e instanceof AuthError && e.code === 'refresh_raced') return res.status(409).json({ error: e.message, code: e.code });
     clearRefreshCookie(res);
-    if (e instanceof AuthError) return res.status(e.status).json({ error: e.message });
+    if (e instanceof AuthError) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
     throw e;
   }
 });
@@ -458,7 +482,8 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
   });
   /* GAP-006: and only those whose engagement, for a company of another account, is live. */
   const closedForMe = await closedForOutsider(auth.userId, user.accountId, everyMembership);
-  const orgMemberships = everyMembership.filter((m) => !closedForMe.has(m.orgId));
+  const entryClosed = (await signInEntry(auth.userId, user)).closed;
+  const orgMemberships = everyMembership.filter((m) => !closedForMe.has(m.orgId) && !entryClosed.has(m.orgId));
 
   let isOrgAdmin = false;
   let allowedBranchIds: string[] = [];
@@ -712,7 +737,7 @@ authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) =>
     transactional: true,
   });
 
-  setRefreshCookie(res, refreshToken);
+  setRefreshCookie(res, refreshToken, session.expiresAt);
 
   return res.json({
     token,
@@ -1094,6 +1119,33 @@ authRouter.post('/resend-verification', resetLimiter, requireLiveAuth, async (re
     ok: true,
     ...(isDevOrTest() ? { devVerifyToken: token } : {}),
   });
+});
+
+/**
+ * #4: a new link for someone whose sign-in was refused because their company
+ * asks for a confirmed address. They have no session, so the refusal carried
+ * a short-lived token (services/signInRules.ts) that only the right password
+ * earned; it asks for the link and nothing else.
+ */
+authRouter.post('/resend-verification/sign-in', resetLimiter, async (req: Request, res: Response) => {
+  const userId = resendChallengeUser(String(req.body?.challenge || ''));
+  if (!userId) return res.status(400).json({ error: 'That took too long. Sign in again to ask for a new link.', code: 'CHALLENGE_EXPIRED' });
+  const user = await platformPrisma.user.findFirst({ where: { id: userId, isActive: true }, select: { id: true, accountId: true, email: true, fullName: true, emailVerifiedAt: true } });
+  if (!user) return res.status(400).json({ error: 'That took too long. Sign in again to ask for a new link.', code: 'CHALLENGE_EXPIRED' });
+  if (user.emailVerifiedAt) return res.json({ ok: true, alreadyVerified: true });
+  const token = await issueEmailVerificationToken(user);
+  await sendTemplate({
+    templateKey: 'auth.verify_email',
+    to: user.email,
+    toName: user.fullName,
+    accountId: user.accountId,
+    data: { userName: user.fullName, email: user.email, verifyUrl: `${process.env.APP_URL || 'http://localhost:5173'}/?verify=${token}` },
+    relatedType: 'User',
+    relatedId: user.id,
+    transactional: true,
+  });
+  await recordAuthEvent({ accountId: user.accountId, userId: user.id, email: user.email, eventType: 'VERIFICATION_RESENT', ip: clientIp(req), detail: 'From a refused sign-in' });
+  return res.json({ ok: true, ...(isDevOrTest() ? { devVerifyToken: token } : {}) });
 });
 
 /** Update your own name. Email changes go through verification separately. */

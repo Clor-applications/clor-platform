@@ -15,6 +15,9 @@ import { ssoLimiter } from '../middleware/rateLimit.js';
 import { isDevOrTest } from '../utils/devMode.js';
 import { acrossCompanies } from '../utils/tenantScope.js';
 import { ensureAccountMembership } from '../services/accountMembership.js';
+import { domainRefusalFor, sessionPolicyFor } from '../services/policy.js';
+import { signInEntry } from '../services/signInRules.js';
+import { automaticRoleUsable } from '../services/roleGuards.js';
 
 /**
  * Single sign-on, OpenID Connect.
@@ -214,7 +217,7 @@ ssoRouter.get('/callback', async (req: Request, res: Response) => {
  * CLOR user at a domain the provider owns, or — when the provider says so — a
  * new one made on the spot as a member of that company with its default role.
  */
-async function finishSignIn(p: { id: string; name: string; accountId: string; orgId: string; emailDomains: string | null; verifiedDomains: string | null; autoProvision: boolean; defaultRoleId: string | null }, who: { email: string; name: string }, req: Request, res: Response, back: string) {
+async function finishSignIn(p: { id: string; name: string; accountId: string; orgId: string; emailDomains: string | null; verifiedDomains: string | null; autoProvision: boolean; defaultRoleId: string | null; defaultRoleSetByUserId?: string | null }, who: { email: string; name: string }, req: Request, res: Response, back: string) {
   const fail = (msg: string) => res.redirect(`${appUrl()}/?sso_error=${encodeURIComponent(msg)}`);
   const ip = clientIp(req);
   const userAgent = req.headers['user-agent'] as string | undefined;
@@ -228,6 +231,12 @@ async function finishSignIn(p: { id: string; name: string; accountId: string; or
       await recordAuthEvent({ email, eventType: 'LOGIN_FAILED', ip, userAgent, detail: `SSO ${p.name}: no CLOR user for this e-mail` });
       return fail(`${email} has no CLOR login yet. Ask your administrator to invite you.`);
     }
+    /* #4: the company's allowed email domains bind its identity provider too. */
+    const domainRefused = await domainRefusalFor([p.orgId], email);
+    if (domainRefused) {
+      await recordAuthEvent({ email, eventType: 'LOGIN_FAILED', ip, userAgent, detail: `SSO ${p.name}: outside the company's allowed domains` });
+      return fail(domainRefused);
+    }
     /* Made on the spot: a member of the provider's company, with its default role, and a password nobody knows. */
     const fullName = String(who.name || email.split('@')[0]).slice(0, 120);
     user = await platformPrisma.user.create({
@@ -236,7 +245,8 @@ async function finishSignIn(p: { id: string; name: string; accountId: string; or
     });
     await platformPrisma.userOrgMembership.create({ data: { accountId: p.accountId, orgId: p.orgId, userId: user.id } });
     await ensureAccountMembership(p.accountId, user.id);
-    if (p.defaultRoleId) await platformPrisma.userRoleAssignment.create({ data: { accountId: p.accountId, orgId: p.orgId, userId: user.id, roleId: p.defaultRoleId, createdByUserId: user.id } }).catch(() => {});
+    /* #3: the provider's role, checked again now — this company's, and never an administrator's. Otherwise no role; an administrator assigns one. */
+    if (await automaticRoleUsable(p.accountId, p.orgId, p.defaultRoleId, p.defaultRoleSetByUserId)) await platformPrisma.userRoleAssignment.create({ data: { accountId: p.accountId, orgId: p.orgId, userId: user.id, roleId: p.defaultRoleId!, createdByUserId: user.id } }).catch(() => {});
     await recordAuthEvent({ accountId: p.accountId, userId: user.id, email, eventType: 'USER_PROVISIONED', ip, userAgent, detail: `SSO ${p.name}` });
   } else {
     /*
@@ -255,11 +265,24 @@ async function finishSignIn(p: { id: string; name: string; accountId: string; or
       await platformPrisma.userOrgMembership.create({ data: { accountId: p.accountId, orgId: p.orgId, userId: user.id } });
     }
   }
-  const { refreshToken } = await createSession({ accountId: user.accountId, userId: user.id, ip, userAgent });
+  /*
+   * #4: the provider has just proven this address at a domain the company
+   * verified, so it counts as confirmed; then the same rules as a password
+   * sign-in decide whether any company lets them in, and for how long.
+   */
+  const proven = await platformPrisma.user.findUnique({ where: { id: user.id }, select: { email: true, emailVerifiedAt: true } });
+  if (proven && !proven.emailVerifiedAt) await platformPrisma.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } });
+  const entry = await signInEntry(user.id, { email: proven?.email ?? email, emailVerifiedAt: proven?.emailVerifiedAt ?? new Date() });
+  if (entry.refusal) {
+    await recordAuthEvent({ accountId: user.accountId, userId: user.id, email, eventType: 'LOGIN_REFUSED', ip, userAgent, detail: `SSO ${p.name}: ${entry.refusal.code}` });
+    return fail(entry.refusal.error);
+  }
+  const policy = await sessionPolicyFor(user.id);
+  const { session, refreshToken } = await createSession({ accountId: user.accountId, userId: user.id, ip, userAgent, days: policy.sessionDays });
   await platformPrisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(), failedLoginCount: 0, lockedUntil: null } });
   await platformPrisma.authProvider.update({ where: { id: p.id }, data: { lastUsedAt: new Date(), lastError: null } });
   await recordAuthEvent({ accountId: user.accountId, userId: user.id, email, eventType: 'LOGIN_SUCCESS', ip, userAgent, detail: `SSO ${p.name}` });
-  setRefreshCookie(res, refreshToken);
+  setRefreshCookie(res, refreshToken, session.expiresAt);
   return res.redirect(`${appUrl()}${back}${back.includes('?') ? '&' : '?'}sso=ok`);
 }
 

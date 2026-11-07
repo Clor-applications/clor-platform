@@ -20,6 +20,10 @@ import { createApiKey, revokeApiKey, rotateApiKey } from '../services/apiKeys.js
 import { CredentialError, actorFrom, issueCredential, liveCredentialOf, revokeCredential, rotateCredential } from '../services/credentials.js';
 import { liveCredentialFor } from '../services/credentialKinds.js';
 import { revokeScimToken, rotateScimToken } from '../services/scimTokens.js';
+import { scopeRefusal } from '../services/apiKeyScopes.js';
+import { permKey } from '../constants/permissionCatalog.js';
+import { automaticRoleRefusal } from '../services/roleGuards.js';
+import { stepUpIfHeld } from '../services/stepUp.js';
 
 /**
  * Integrations, as the company manages them: API keys for outside systems
@@ -55,6 +59,9 @@ integrationsRouter.post(`${base}/keys`, can(PermissionAction.CREATE), async (req
     .object({ name: z.string().trim().min(1, 'Name the key after what uses it.').max(80), scopes: z.array(z.enum(SCOPES)).min(1, 'Choose what the key may do.'), allowedIps: ipList })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the details.' });
+  /* #10: a key does only what its maker could do themselves (services/apiKeyScopes.ts). */
+  const scopeRefused = await scopeRefusal(req, parsed.data.scopes, permKey(ATTENDANCE_MODULE, ATTENDANCE_RESOURCE.integrations, PermissionAction.CREATE));
+  if (scopeRefused) return res.status(scopeRefused.status).json(scopeRefused.body);
   const { key, token } = await createApiKey({ accountId, orgId }, { name: parsed.data.name, scopes: parsed.data.scopes, allowedIps: parsed.data.allowedIps }, { ...actorFrom(req), id: req.auth!.userId });
   res.status(201).json({ key: keyRow(key), token, note: 'Shown once — copy it now. Only a hash is kept.' });
 });
@@ -68,6 +75,10 @@ const credentialFailed = (res: any, e: unknown) => {
 integrationsRouter.post(`${base}/keys/:id/rotate`, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
+  /* #10: rotating hands out a working key with all the old one's scopes. */
+  const existing = await peoplePrisma.apiClient.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { scopes: true } });
+  const scopeRefused = await scopeRefusal(req, String(existing?.scopes || '').split(',').filter(Boolean), permKey(ATTENDANCE_MODULE, ATTENDANCE_RESOURCE.integrations, PermissionAction.EDIT));
+  if (scopeRefused) return res.status(scopeRefused.status).json(scopeRefused.body);
   try {
     /* The old key stops working at once; the punches it sent stay under its reader row. A revoked key stays revoked. */
     const { key, token } = await rotateApiKey({ accountId, orgId }, String(req.params.id), actorFrom(req), req.body?.reason ? String(req.body.reason).slice(0, 200) : null);
@@ -252,13 +263,14 @@ const agentRow = async (a: any) => {
   };
 };
 
-/** A role the connector's directory sync may give: this organisation's, and never an administrator role. */
-async function ldapRoleProblem(orgId: string, roleId: string | null | undefined) {
-  if (!roleId) return null;
-  const role = await platformPrisma.role.findFirst({ where: { id: roleId, orgId }, select: { roleType: true } });
-  if (!role) return 'That role is not in this organisation.';
-  if (role.roleType === 'ADMIN') return 'People from the directory cannot be given an administrator role automatically; assign it by hand.';
-  return null;
+/*
+ * Review B1: the connector's directory sync makes a SCIM token like the one
+ * under Settings → Single sign-on, so its role is bounded the same way (#2):
+ * this company's, never an administrator's, and nothing the person choosing
+ * it does not hold — and, where they have an authenticator, a fresh code.
+ */
+async function directorySyncRefusal(req: any, roleId: string | null | undefined) {
+  return (await automaticRoleRefusal(req, roleId)) || (await stepUpIfHeld(req, 'Enter the code from your authenticator app to change directory sync.'));
 }
 /* Turning on directory sync makes a SCIM token: the same right as making one under Settings → Single sign-on. */
 const mayManageUsers = async (req: any) => !(await authorize(req, 'SETTINGS', PermissionAction.EDIT, 'Users'));
@@ -278,8 +290,8 @@ integrationsRouter.post(`${base}/agents`, can(PermissionAction.CREATE), async (r
   if ((await peoplePrisma.siteAgent.count({ where: { orgId } })) >= 10) return res.status(400).json({ error: 'Ten connectors is the most.' });
   if (p.data.ldap) {
     if (!(await mayManageUsers(req))) return res.status(403).json({ error: 'Directory sync adds people to CLOR: it needs permission to edit users (Settings → Users).' });
-    const bad = await ldapRoleProblem(orgId, p.data.ldap.defaultRoleId);
-    if (bad) return res.status(400).json({ error: bad });
+    const refused = await directorySyncRefusal(req, p.data.ldap.defaultRoleId);
+    if (refused) return res.status(refused.status).json(refused.body);
   }
   const token = newAgentToken();
   const { ldap, tally, pollSeconds, name } = p.data;
@@ -300,7 +312,7 @@ integrationsRouter.post(`${base}/agents`, can(PermissionAction.CREATE), async (r
   await issueCredential({ kind: 'AGENT', accountId, orgId, ownerId: a.id, token, tokenPrefix: a.tokenPrefix, label: a.name, createdByUserId: req.auth!.userId }, actorFrom(req)).catch((e) =>
     console.error('[credentials] agent registered on first use instead:', (e as Error).message)
   );
-  if (ldap) await ensureScimForAgent(a, ldap.defaultRoleId ?? null);
+  if (ldap) await ensureScimForAgent(a, ldap.defaultRoleId ?? null, req.auth!.userId);
   res.status(201).json({ token, agent: await agentRow(await peoplePrisma.siteAgent.findUniqueOrThrow({ where: { id: a.id } })), baseUrl: agentBase(), downloadUrl: `${agentBase()}/download` });
 });
 
@@ -314,8 +326,8 @@ integrationsRouter.put(`${base}/agents/:id`, can(PermissionAction.EDIT), async (
   const { ldap, tally, pollSeconds, name, isActive } = p.data;
   if (ldap !== undefined && (ldap || agentConfig(a).ldap)) {
     if (!(await mayManageUsers(req))) return res.status(403).json({ error: 'Directory sync adds people to CLOR: it needs permission to edit users (Settings → Users).' });
-    const bad = await ldapRoleProblem(orgId, ldap?.defaultRoleId);
-    if (bad) return res.status(400).json({ error: bad });
+    const refused = await directorySyncRefusal(req, ldap?.defaultRoleId);
+    if (refused) return res.status(refused.status).json(refused.body);
   }
   const { bindPassword, ...ldapCfg } = ldap || ({} as any);
   const secrets = agentSecrets(a);
@@ -326,7 +338,7 @@ integrationsRouter.put(`${base}/agents/:id`, can(PermissionAction.EDIT), async (
   if (!next.tally) delete next.tally;
   if (!next.ldap) delete next.ldap;
   await peoplePrisma.siteAgent.update({ where: { id: a.id }, data: { name, ...(isActive !== undefined ? { isActive } : {}), configJson: JSON.stringify(next), secretsEnc: Object.keys(secrets).length ? encryptSecret(JSON.stringify(secrets)) : null } });
-  if (ldap) await ensureScimForAgent({ ...a, name }, ldap.defaultRoleId ?? null);
+  if (ldap) await ensureScimForAgent({ ...a, name }, ldap.defaultRoleId ?? null, req.auth!.userId);
   /* A-31: directory sync removed — its token stops with it, instead of staying live with nothing using it. */
   if (ldap === null && a.scimTokenId) await revokeScimToken(orgId, a.scimTokenId, actorFrom(req), 'directory sync removed from the connector').catch((e) => credentialFailed(res, e));
   if (res.headersSent) return;
@@ -338,6 +350,19 @@ integrationsRouter.post(`${base}/agents/:id/rotate`, can(PermissionAction.EDIT),
   if (!(await attendanceRouteOk(req, res))) return;
   const a = await peoplePrisma.siteAgent.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId } });
   if (!a) return res.status(404).json({ error: 'No such connector.' });
+  /*
+   * Review B1: rotating hands the connector a new directory-sync token too,
+   * carrying its role, so whoever rotates must be able to set that role
+   * afresh, and becomes the person provisioning is checked against.
+   */
+  const scim = a.scimTokenId ? await platformPrisma.scimToken.findFirst({ where: { id: a.scimTokenId, orgId: a.orgId, revokedAt: null }, select: { id: true, defaultRoleId: true } }) : null;
+  if (scim) {
+    if (!(await mayManageUsers(req))) return res.status(403).json({ error: 'Directory sync adds people to CLOR: it needs permission to edit users (Settings → Users).' });
+    const roleRefused = await automaticRoleRefusal(req, scim.defaultRoleId);
+    /* A role since deleted is simply not given (routes/scim.ts checks at each provision). */
+    const refused = (roleRefused?.body.code === 'FOREIGN_ROLE' ? null : roleRefused) || (await stepUpIfHeld(req, 'Enter the code from your authenticator app to rotate a connector with directory sync.'));
+    if (refused) return res.status(refused.status).json(refused.body);
+  }
   const token = newAgentToken();
   /* Batch 5: the registry first — if the rotation cannot be recorded, the old token keeps working and this fails (KTD4). */
   try {
@@ -351,6 +376,7 @@ integrationsRouter.post(`${base}/agents/:id/rotate`, can(PermissionAction.EDIT),
   if (a.scimTokenId) {
     try {
       await rotateScimToken(a.orgId, a.scimTokenId, actorFrom(req), 'connector token rotated');
+      if (scim) await platformPrisma.scimToken.update({ where: { id: scim.id }, data: { createdByUserId: req.auth!.userId } });
     } catch (e) {
       return credentialFailed(res, e);
     }

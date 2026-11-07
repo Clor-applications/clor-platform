@@ -8,7 +8,7 @@ const q = (params) => {
 };
 
 export const opsMe = () => apiFetch('/ops/me', o);
-export const opsStartTwoFactor = () => apiFetch('/ops/two-factor/setup', { ...o, method: 'POST' });
+export const opsStartTwoFactor = (password) => apiFetch('/ops/two-factor/setup', { ...o, method: 'POST', body: { password } });
 export const opsEnableTwoFactor = (code) => apiFetch('/ops/two-factor/enable', { ...o, method: 'POST', body: { code } });
 export const opsOverview = () => apiFetch('/ops/overview', o);
 export const opsAccounts = (params) => apiFetch(`/ops/accounts${q(params)}`, o);
