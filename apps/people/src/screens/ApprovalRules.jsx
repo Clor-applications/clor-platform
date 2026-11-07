@@ -124,6 +124,7 @@ export default function ApprovalRules() {
     apiFetch(`/orgs/${encodeURIComponent(orgId())}/roles`, { skipWarehouseHeader: true }).then((r) => r?.roles || []).catch(() => []),
   ]), []);
   const [data, users, roles] = req.data || [null, [], []];
+  FORM_NAMES.clear();
   for (const f of data?.forms || []) FORM_NAMES.set(f.requestType, f.name);
   const kinds = [...(data?.requestTypes || []), ...(data?.forms || []).filter((f) => f.active).map((f) => f.requestType)];
   const [editing, setEditing] = useState(null);
@@ -135,7 +136,7 @@ export default function ApprovalRules() {
   const open = (t) => {
     const rule = active(t);
     /* `steps` is the rule in the shape this screen edits; `editableHere` is false when the rule says more than that shape can (several people in a step, all of them, hours). */
-    setEditing({ requestType: t, name: rule?.name || `${typeName(t)} rule`, readOnly: rule ? rule.editableHere === false : false, spec: rule?.spec || null, autoApprove: rule?.autoApprove || [], variants: variantsOf(t), steps: rule ? rule.steps.map((s, i) => ({ ...blankStep(i + 1), ...s, order: i + 1 })) : [blankStep(1)] });
+    setEditing({ requestType: t, name: rule?.name || `${typeName(t)} rule`, readOnly: rule ? rule.editableHere === false : false, spec: rule?.spec || null, autoApprove: rule?.autoApprove || [], variants: variantsOf(t), steps: rule ? (rule.steps || []).map((s, i) => ({ ...blankStep(i + 1), ...s, order: i + 1 })) : [blankStep(1)] });
   };
   const retire = async (type) => {
     const message = MONEY_RULES.includes(type)
@@ -229,7 +230,7 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
         {rule.readOnly ? (
           <ol className="divide-y border-t" aria-label="Steps">
             {(rule.spec || []).map((s) => <li key={s.order} className="py-3"><span className="font-medium">Step {s.order}: </span>{specLine(s, users, roles, names)}</li>)}
-            {autoWords(rule, names).map((w) => <li key={w} className="py-3">{w}</li>)}
+            {autoWords(rule, names).map((w, i) => <li key={i} className="py-3">{w}</li>)}
           </ol>
         ) : <>
         <ol className="divide-y border-t" aria-label="Steps">
@@ -272,7 +273,7 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
         {versions.length ? (
           <section className="space-y-2">
             <h3 className="ui-t-sec">Versions</h3>
-            <ul className="divide-y border-t text-sm">{versions.map((v) => <li key={v.id} className="py-2 flex flex-wrap gap-x-2"><span className="tabular-nums font-medium">v{v.version}</span><span>{v.name}</span>{v.active ? <span className="ui-pill ui-pill-pos">In use</span> : null}<span className="ui-caption ms-auto tabular-nums">{formatDate(new Date(new Date(v.createdAt).getTime() + 330 * 60_000).toISOString().slice(0, 10))} · {(v.steps || []).length} {(v.steps || []).length === 1 ? 'step' : 'steps'}</span></li>)}</ul>
+            <ul className="divide-y border-t text-sm">{versions.map((v) => <li key={v.id} className="py-2 flex flex-wrap gap-x-2"><span className="tabular-nums font-medium">v{v.version}</span><span>{v.name}</span>{v.active ? <span className="ui-pill ui-pill-pos">In use</span> : null}<span className="ui-caption ms-auto tabular-nums">{formatDate(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(v.createdAt)))} · {(v.steps || []).length} {(v.steps || []).length === 1 ? 'step' : 'steps'}</span></li>)}</ul>
           </section>
         ) : null}
       </form>
