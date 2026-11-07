@@ -317,6 +317,29 @@ payrollTaxDeclarationsRouter.get('/orgs/:orgId/payroll/tax-declarations', VIEW, 
   });
 });
 
+/** Refused, allowed as the only one who could (audited after the save), or not your own / nothing that moves your tax. */
+async function ownDeclarationRefusal(req: any, employeeId: string, financialYear: string) {
+  const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId: req.tenant.orgId }, select: { userId: true } });
+  if (!e?.userId || e.userId !== req.auth.userId) return null;
+  const before = await payrollPrisma.taxDeclaration.findUnique({ where: { orgId_employeeId_financialYear: { orgId: req.tenant.orgId, employeeId, financialYear } } });
+  const body = req.body || {};
+  const regimeBefore = await regimeInForce(req.tenant.orgId, employeeId, financialYear);
+  const regimeMoves = body.regime !== undefined && String(body.regime) !== regimeBefore;
+  const p = body.previousEmployer;
+  const n = (v: unknown) => Math.round((Number(v) || 0) * 100) / 100;
+  const previousMoves =
+    p !== undefined &&
+    ((p?.name || null) !== (before?.previousEmployerName || null) ||
+      n(p?.income) !== n(before?.previousEmployerIncome) ||
+      n(p?.professionalTax) !== n(before?.previousEmployerPt) ||
+      n(p?.tds) !== n(before?.previousEmployerTds));
+  if (!regimeMoves && !previousMoves) return null;
+  const { accountId, orgId } = req.tenant;
+  const someoneElse = await anotherApproverExists(accountId, orgId, req.auth.userId, permKey(PAYROLL_MODULE, RESOURCE, PermissionAction.EDIT));
+  if (someoneElse) return { status: 403, body: { error: 'This is your own tax declaration; somebody else has to change its regime or previous employer.', code: 'OWN_RECORD' } };
+  return { soleUser: true as const };
+}
+
 async function employeeOk(req: any, res: any) {
   const e = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.employeeId), accountId: req.tenant.accountId, orgId: req.tenant.orgId }, select: { id: true, name: true, dateOfJoining: true } });
   if (!e) res.status(404).json({ error: 'No such employee.' });
@@ -340,6 +363,13 @@ payrollTaxDeclarationsRouter.put('/orgs/:orgId/payroll/tax-declarations/:employe
   const financialYear = fyOf(req.query.fy);
   try {
     /*
+     * Your own regime or Form 12B (review of #138, S2): each sets the tax
+     * taken from your own pay, so somebody else enters it, unless nobody else
+     * in the company holds Payroll's edit right (audited then).
+     */
+    const own = await ownDeclarationRefusal(req, e.id, financialYear);
+    if (own?.status) return res.status(own.status).json(own.body);
+    /*
      * The regime is fixed for the year once a payslip went out on it (CBDT
      * Circular 04/2023; review of #146, 10). An owner or administrator may
      * still change it, with a reason and a fresh authenticator code where
@@ -359,6 +389,15 @@ payrollTaxDeclarationsRouter.put('/orgs/:orgId/payroll/tax-declarations/:employe
       regimeOverride = true;
     }
     const row = await saveDeclaration(req.tenant!, e.id, financialYear, req.body, { userId: req.auth!.userId, asEmployee: false, regimeOverride });
+    if (own?.soleUser) {
+      await recordAudit(req, {
+        entity: 'PAYROLL_TAX_DECLARATION',
+        entityId: row.id,
+        action: 'SELF_ENTRY_SOLE_USER',
+        message: `${e.name} changed the regime or previous employer on their own declaration for ${financialYear}: nobody else in the company can`,
+        metadata: { employeeId: e.id, financialYear, ownRecord: true },
+      });
+    }
     if (regimeOverride) {
       await recordAudit(req, {
         entity: 'PAYROLL_TAX_DECLARATION',

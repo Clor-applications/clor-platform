@@ -244,7 +244,12 @@ export async function saveDeclaration(
     landlordPan: d.landlordPan || null,
     seniorSelf: d.seniorSelf,
     seniorParents: d.seniorParents,
-    ...(d.previousEmployer !== undefined
+    /*
+     * Form 12B is HR's to enter (review of #138, B1): it is used as given, and
+     * a previous employer's TDS sent from the portal would cut this year's tax
+     * to nothing. From the portal it is ignored and what is stored is kept.
+     */
+    ...(d.previousEmployer !== undefined && !by.asEmployee
       ? {
           previousEmployerName: d.previousEmployer?.name || null,
           previousEmployerIncome: round2(d.previousEmployer?.income || 0),

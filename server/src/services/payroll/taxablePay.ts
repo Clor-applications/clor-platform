@@ -20,13 +20,20 @@ const EMPLOYER_NPS_CODES = ['EMPLOYER_NPS', 'ER_NPS', 'NPS_ER', 'NPS_EMPLOYER'];
 export const isEmployerNps = (c: { taxSection?: string | null; code?: string | null } | null | undefined) =>
   !!c && (c.taxSection === 'EMPLOYER_NPS' || EMPLOYER_NPS_CODES.includes(String(c.code || '').toUpperCase()));
 
-export type TaxableLine = { type: string; amount: unknown; isTaxable: boolean; code: string; employerNps: boolean };
+export type TaxableLine = { type: string; amount: unknown; isTaxable: boolean; code: string; employerNps: boolean; pfWage?: boolean };
 
-/** Taxable salary (employer NPS included), employer NPS on its own, and Basic plus DA for the NPS limit. */
+/**
+ * Taxable salary (employer NPS included), employer NPS on its own, and Basic
+ * plus DA for the NPS limit. A structure with no BASIC or DA line counts its
+ * PF-wage earnings instead (review of #138, S3), as the run does for this
+ * month: otherwise earlier months added nothing and the 14% limit shrank
+ * month by month, and Form 16 allowed less than the payslips had.
+ */
 export function taxablePayOf(lines: TaxableLine[]) {
   let earnings = 0;
   let employerNps = 0;
   let basicDa = 0;
+  let pfWage = 0;
   for (const l of lines) {
     const amount = Number(l.amount) || 0;
     if (l.employerNps) {
@@ -36,6 +43,7 @@ export function taxablePayOf(lines: TaxableLine[]) {
     if (l.type !== 'EARNING') continue;
     if (l.isTaxable) earnings += amount;
     if (['BASIC', 'DA'].includes(l.code.toUpperCase())) basicDa += amount;
+    if (l.pfWage) pfWage += amount;
   }
-  return { taxable: round2(earnings + employerNps), employerNps: round2(employerNps), basicDa: round2(basicDa) };
+  return { taxable: round2(earnings + employerNps), employerNps: round2(employerNps), basicDa: round2(basicDa || pfWage) };
 }
