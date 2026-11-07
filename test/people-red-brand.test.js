@@ -196,36 +196,32 @@ describe('a chosen view is marigold ("use different color like green or orange")
   });
 });
 
-describe('the logo is the owner\'s traced wordmark, painted from its tokens', () => {
-  const paths = read('packages/ui/src/components/brand/clorPaths.js');
+describe('the logo is the orange ribbon-arc C-mark (neon brand, 6 Nov 2026)', () => {
   const logo = read('packages/ui/src/components/brand/ClorLogo.jsx');
   const mark = read('packages/ui/src/components/brand/ClorMark.jsx');
 
-  it('draws CLOR from outlines, not type, and the C keeps its own dot', () => {
-    for (const k of ['C', 'L', 'O', 'R', 'DOT']) expect(paths).toMatch(new RegExp(`export const ${k} = 'M[\\d.]`));
-    expect(logo).not.toMatch(/<text|fontFamily/);
-    expect(logo).toMatch(/<path d=\{C\} \/>\s*<path d=\{L\} \/>\s*<path d=\{O\} \/>\s*<path d=\{R\} \/>/);
-    expect(mark).toContain('<path d={C} fill={color || MARK} />');
+  it('clorPaths.js is retired — the logo is now the ribbon arc, not letter outlines', () => {
+    expect(() => read('packages/ui/src/components/brand/clorPaths.js')).toThrow();
+    /* ClorMark is the icon; ClorLogo composes it with "LOR" text */
+    expect(mark).toContain('viewBox="10 0 60 60"');
+    expect(mark).toContain('translate(-4, -6)');
+    expect(logo).toContain('ClorMark');
+    expect(logo).toContain('LOR');
   });
 
-  it('paints from --logo-mark and --logo-dot unless a caller sets a colour: oxblood letters and a marigold dot (owner: "logo color do not keep red")', () => {
-    for (const f of [logo, mark]) {
-      expect(f).toContain('rgb(var(--logo-mark, 92 10 22))');
-      expect(f).toContain('rgb(var(--logo-dot, 245 166 35))');
-    }
-    const css = read('packages/ui/src/index.css');
-    expect(css).toMatch(/--logo-mark: var\(--oxblood\); --logo-dot: var\(--marigold\);/);
+  it('paints from --logo-mark-orange (255 84 0) — no more oxblood or marigold in the mark', () => {
+    expect(mark).toContain('var(--logo-mark-orange, 255 84 0)');
+    expect(mark).not.toContain('92 10 22');   /* oxblood gone */
+    expect(mark).not.toContain('245 166 35'); /* marigold gone */
   });
 
   it('nothing draws the retired C-tick any more', () => {
     expect(() => read('packages/ui/src/components/brand/ClorTick.jsx')).toThrow();
-    for (const f of ['public/icon.svg', 'public/logo.svg', 'public/brand/clor-mark.svg', 'public/icons/people.svg']) expect(read(f), f).not.toContain('M74.04 25.96');
-    /* The letters are oxblood; red is the app icon's tile, never the logo. */
-    for (const f of ['public/logo.svg', 'public/brand/clor-light.svg', 'public/brand/clor-mark.svg']) {
-      expect(read(f), f).toContain('fill="#5C0A16"');
-      expect(read(f), f).not.toContain('#C8102E');
-    }
-    for (const f of ['public/icon.svg', 'public/icons/people.svg']) expect(read(f), f).toContain('fill="#C8102E"');
+    /* icon.svg is now the orange C-mark tile, not the red square */
+    const icon = read('public/icon.svg');
+    expect(icon).toContain('#FF5400');
+    expect(icon).not.toContain('#C8102E');
+    expect(icon).not.toContain('M74.04 25.96');
   });
 });
 

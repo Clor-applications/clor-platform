@@ -56,8 +56,8 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
       <div className="ui-min-h-viewport flex">
         <aside className={`ui-auth-brand hidden lg:flex${brand ? '' : ' is-board'}`} aria-label="About CLOR">
           <div className="ui-auth-brand-inner">
-            <button type="button" onClick={onHome} className="text-left" aria-label="CLOR, back to clor.in">
-              <ClorLogo size={30} />
+            <button type="button" onClick={onHome} className="text-left">
+              <ClorLogo size={30} title="CLOR, back to clor.in" />
             </button>
 
             {brand || <CustomerBrand />}
@@ -69,8 +69,8 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
         <div className="relative flex-1 flex items-center justify-center px-6 py-10">
           <div className={`relative w-full ${wide ? 'max-w-3xl' : 'max-w-md'}`}>
             <div className="lg:hidden mb-8 text-center">
-              <button type="button" onClick={onHome} className="inline-flex items-center gap-2" aria-label="CLOR, back to clor.in">
-                <ClorLogo size={30} />
+              <button type="button" onClick={onHome} className="inline-flex items-center gap-2">
+                <ClorLogo size={30} title="CLOR, back to clor.in" />
               </button>
             </div>
 
