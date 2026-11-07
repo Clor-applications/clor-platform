@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, afterAll, afterEach, beforeAll } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 
@@ -272,4 +272,201 @@ describe('N5 a refresh asks again whether any company lets the person in', () =>
     const refused = await refreshWith(r).expect(403);
     expect(refused.body.code).toBe('EMAIL_DOMAIN_NOT_ALLOWED');
   }, 60_000);
+});
+
+/*
+ * Review round 2:
+ *  S-A  account administrators (active) are exempt from both entry rules, like owners; suspended ones are not;
+ *  N-a  "shuts out an administrator" refuses only a save that tightens the rules;
+ *  N-b  who those administrators are only for someone who may see the company's people;
+ *  N-d  a role chosen for directory sync or sign-on is withheld once its chooser no longer holds it;
+ *       an outsider is still held to the confirmed-email rule.
+ */
+const { companyEntryRefusal, signInEntry, whoRulesKeepOut } = await import('../services/signInRules.js');
+const { clearAccessCache } = await import('../utils/accessCache.js');
+const { SignedXml } = await import('xml-crypto');
+const { execFileSync } = await import('node:child_process');
+const fs = await import('node:fs');
+const os = await import('node:os');
+const path = await import('node:path');
+
+const accountRole = (o: Ctx, userId: string, r: 'ADMIN' | 'MEMBER') => request(app).put(`/api/account/members/${userId}/role`).set(at(o)).send({ role: r }).expect(200);
+const membershipStatus = (accountId: string, userId: string, status: 'ACTIVE' | 'SUSPENDED') =>
+  outsideTenant('test: account membership status', () => platformPrisma.accountMembership.update({ where: { accountId_userId: { accountId, userId } }, data: { status } }));
+/** Takes away every role the person holds in the company, as an administrator would. */
+const stripRoles = async (c: Ctx, userId: string) => {
+  await outsideTenant('test: roles taken away', () => platformPrisma.userRoleAssignment.deleteMany({ where: { orgId: c.orgId, userId } }));
+  clearAccessCache();
+};
+const rolesOf = (orgId: string, email: string) =>
+  outsideTenant('test: roles given on arrival', async () => {
+    const u = await platformPrisma.user.findFirstOrThrow({ where: { email } });
+    return (await platformPrisma.userRoleAssignment.findMany({ where: { orgId, userId: u.id }, select: { roleId: true } })).map((r) => r.roleId);
+  });
+
+describe('S-A an account administrator is exempt from the entry rules, like an owner', () => {
+  it('opens the company, signs in and refreshes though unconfirmed and outside the domains, and is not counted as kept out', async () => {
+    const o = await owner('sa');
+    const accountAdmin = await added(o, [], mail('acctadmin', 'elsewhere.example'));
+    await accountRole(o, accountAdmin.userId, 'ADMIN');
+    const saved = await setPolicy(o, { requireVerifiedEmail: true, allowedEmailDomains: 'onlythis.in' }).expect(200);
+    expect(saved.body.keptOut).toEqual({ unconfirmed: 0, outsideDomains: 0 });
+
+    const r = await login(accountAdmin.email).expect(200);
+    await opens({ ...accountAdmin, token: r.body.token }).expect(200);
+    const refreshed = await refreshWith(r).expect(200);
+
+    /* Back to an ordinary member: the rules now apply. */
+    await accountRole(o, accountAdmin.userId, 'MEMBER');
+    expect((await refreshWith(refreshed).expect(403)).body.code).toBe('EMAIL_DOMAIN_NOT_ALLOWED');
+  }, 90_000);
+
+  it('does not exempt a suspended owner or a suspended account administrator', async () => {
+    const o = await owner('sa-susp');
+    const accountAdmin = await added(o, [], mail('acctadmin', 'elsewhere.example'));
+    await accountRole(o, accountAdmin.userId, 'ADMIN');
+    const rules = { requireVerifiedEmail: true, allowedEmailDomains: 'onlythis.in' };
+    await setPolicy(o, rules).expect(200);
+    expect(await companyEntryRefusal(o.userId, o.orgId, o.accountId)).toBeNull();
+    expect(await companyEntryRefusal(accountAdmin.userId, o.orgId, o.accountId)).toBeNull();
+
+    await membershipStatus(o.accountId, o.userId, 'SUSPENDED');
+    await membershipStatus(o.accountId, accountAdmin.userId, 'SUSPENDED');
+    expect((await companyEntryRefusal(o.userId, o.orgId, o.accountId))?.code).toBe('EMAIL_DOMAIN_NOT_ALLOWED');
+    expect((await companyEntryRefusal(accountAdmin.userId, o.orgId, o.accountId))?.code).toBe('EMAIL_DOMAIN_NOT_ALLOWED');
+    expect((await signInEntry(accountAdmin.userId, { email: accountAdmin.email, emailVerifiedAt: null })).refusal?.code).toBe('EMAIL_DOMAIN_NOT_ALLOWED');
+    const kept = (await whoRulesKeepOut(o.accountId, o.orgId, rules)).map((k) => k.userId);
+    expect(kept).toEqual(expect.arrayContaining([o.userId, accountAdmin.userId]));
+  }, 90_000);
+});
+
+describe('N-a an administrator already kept out does not block an unrelated save', () => {
+  it('saves a lockout change, and refuses only the administrators a tightening would newly shut out', async () => {
+    const o = await owner('na');
+    await request(app).post('/api/auth/verify-email').send({ token: o.verifyToken }).expect(200);
+    const far = await added(o, 'ADMIN', mail('faradmin', 'partner.example'));
+    await setPolicy(o, { allowedEmailDomains: 'example.com, partner.example' }).expect(200);
+    /* The partner's domain comes off outside this save (an older one, a changed address): that admin is already kept out. */
+    await outsideTenant('test: rules saved before', () => platformPrisma.authPolicy.update({ where: { orgId: o.orgId }, data: { allowedEmailDomains: 'example.com' } }));
+
+    const unrelated = await setPolicy(o, { allowedEmailDomains: 'example.com', maxFailedLogins: 9 }).expect(200);
+    expect(unrelated.body.keptOut.outsideDomains).toBe(1);
+
+    /* Turning on confirmed email would newly shut out a second, unconfirmed administrator at an allowed domain. */
+    const near = await added(o, 'ADMIN', mail('nearadmin'));
+    const tightened = await setPolicy(o, { allowedEmailDomains: 'example.com', requireVerifiedEmail: true }).expect(400);
+    expect(tightened.body.code).toBe('ADMINS_SHUT_OUT');
+    expect(tightened.body.people.map((p: any) => p.email)).toEqual([near.email]);
+    expect(tightened.body.error).not.toContain(far.email);
+  }, 90_000);
+});
+
+describe('N-b who would be shut out is named only to someone who may see the company’s people', () => {
+  it('gives a saver without Users view the count alone', async () => {
+    const o = await owner('nb');
+    await request(app).post('/api/auth/verify-email').send({ token: o.verifyToken }).expect(200);
+    const admin = await added(o, 'ADMIN', mail('admin', 'partner.example'));
+    const editor = await signedIn(await added(o, ['SETTINGS::Users::EDIT']));
+    const r = await setPolicy(editor, { allowedEmailDomains: 'example.com' }).expect(400);
+    expect(r.body.code).toBe('ADMINS_SHUT_OUT');
+    expect(r.body.count).toBe(1);
+    expect(r.body.people).toBeUndefined();
+    expect(r.body.error).not.toContain(admin.email);
+    /* The owner, who may see them, is told who. */
+    expect((await setPolicy(o, { allowedEmailDomains: 'example.com' }).expect(400)).body.people.map((p: any) => p.email)).toEqual([admin.email]);
+  }, 90_000);
+});
+
+describe('N-d a role chosen for automatic arrivals answers to its chooser at each arrival', () => {
+  let dir = '';
+  let keyPem = '';
+  let certPem = '';
+  beforeAll(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clor-wsr-saml-'));
+    execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path.join(dir, 'k.pem'), '-out', path.join(dir, 'c.pem'), '-subj', '/CN=test-idp', '-days', '2'], { stdio: 'ignore' });
+    keyPem = fs.readFileSync(path.join(dir, 'k.pem'), 'utf8');
+    certPem = fs.readFileSync(path.join(dir, 'c.pem'), 'utf8');
+  });
+  afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  const iso = (ms: number) => new Date(Date.now() + ms).toISOString();
+  function signedResponse(o: { acs: string; audience: string; issuer: string; email: string }) {
+    const xml = `<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="_r${rnd()}" Version="2.0" IssueInstant="${iso(0)}" Destination="${o.acs}">
+  <saml:Issuer>${o.issuer}</saml:Issuer>
+  <samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>
+  <saml:Assertion ID="_a${rnd()}${rnd()}" Version="2.0" IssueInstant="${iso(0)}">
+    <saml:Issuer>${o.issuer}</saml:Issuer>
+    <saml:Subject>
+      <saml:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">${o.email}</saml:NameID>
+      <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"><saml:SubjectConfirmationData NotOnOrAfter="${iso(300_000)}" Recipient="${o.acs}"/></saml:SubjectConfirmation>
+    </saml:Subject>
+    <saml:Conditions NotBefore="${iso(-60_000)}" NotOnOrAfter="${iso(300_000)}"><saml:AudienceRestriction><saml:Audience>${o.audience}</saml:Audience></saml:AudienceRestriction></saml:Conditions>
+    <saml:AuthnStatement AuthnInstant="${iso(0)}"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement>
+  </saml:Assertion>
+</samlp:Response>`;
+    const sig = new SignedXml({ privateKey: keyPem, canonicalizationAlgorithm: 'http://www.w3.org/2001/10/xml-exc-c14n#', signatureAlgorithm: 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256' });
+    sig.addReference({ xpath: "//*[local-name(.)='Assertion']", digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256', transforms: ['http://www.w3.org/2000/09/xmldsig#enveloped-signature', 'http://www.w3.org/2001/10/xml-exc-c14n#'] });
+    sig.computeSignature(xml, { location: { reference: "//*[local-name(.)='Assertion']/*[local-name(.)='Issuer']", action: 'after' } } as any);
+    return Buffer.from(sig.getSignedXml()).toString('base64');
+  }
+
+  it('withholds the connector token’s role once the person who set it no longer holds it', async () => {
+    const o = await owner('nd-conn');
+    const maker = await signedIn(await added(o, CONNECTOR_MAKER));
+    const roleId = await role(o, ['SETTINGS::Users::VIEW']);
+    const made = await agents(maker).make(roleId).expect(201);
+    const config = await request(app).get('/agent/v1/config').set('Authorization', `Bearer ${made.body.token}`).expect(200);
+    const scim = config.body.once.scimToken as string;
+    const arrive = (email: string) => request(app).post('/scim/v2/Users').set('Authorization', `Bearer ${scim}`).send({ userName: email, name: { givenName: 'Dir', familyName: 'Person' } }).expect(201);
+
+    const first = mail('dir1');
+    await arrive(first);
+    expect(await rolesOf(o.orgId, first)).toEqual([roleId]);
+
+    await stripRoles(o, maker.userId);
+    const second = mail('dir2');
+    await arrive(second);
+    expect(await rolesOf(o.orgId, second)).toEqual([]);
+  }, 90_000);
+
+  it('withholds a sign-on provider’s role once the person who chose it no longer holds it', async () => {
+    const domain = `wsr${rnd()}.example.com`;
+    const o = await owner('nd-sso', domain);
+    const setter = await signedIn(await added(o, ['SETTINGS::Users::VIEW', 'SETTINGS::Users::EDIT'], mail('setter', domain)));
+    const roleId = await role(o, ['SETTINGS::Users::VIEW']);
+    const issuer = 'https://idp.example.com/adfs/services/trust';
+    const made = await request(app)
+      .post(`/api/orgs/${o.orgId}/security/providers`)
+      .set(at(setter))
+      .send({ kind: 'SAML', name: `ADFS ${rnd()}`, entryPoint: 'https://idp.example.com/adfs/ls/', entityId: issuer, certificate: certPem, emailDomains: domain, autoProvision: true, defaultRoleId: roleId, enabled: true })
+      .expect(201);
+    const p = made.body.provider;
+    const arrive = async (email: string) => {
+      const r = await request(app).post(`/api/auth/sso/saml/${p.id}/acs`).type('form').send({ SAMLResponse: signedResponse({ acs: p.saml.acsUrl, audience: p.saml.spEntityId, issuer, email }) }).expect(302);
+      expect(r.headers.location).toMatch(/sso=ok/);
+    };
+
+    const first = `first.${rnd()}@${domain}`;
+    await arrive(first);
+    expect(await rolesOf(o.orgId, first)).toEqual([roleId]);
+
+    await stripRoles(o, setter.userId);
+    const second = `second.${rnd()}@${domain}`;
+    await arrive(second);
+    expect(await rolesOf(o.orgId, second)).toEqual([]);
+  }, 90_000);
+
+  it('still refuses an outsider by the confirmed-email rule', async () => {
+    const client = await owner('nd-out');
+    await request(app).post('/api/auth/verify-email').send({ token: client.verifyToken }).expect(200);
+    const firm = await owner('nd-firm', 'firm.example');
+    await outsideTenant('test: the accountant confirmed their address', () => platformPrisma.user.update({ where: { id: firm.userId }, data: { emailVerifiedAt: new Date() } }));
+    await request(app).post('/api/users').set(at(client)).send({ email: firm.email, fullName: 'Firm accountant', password: 'Irrelevant!23', orgIds: [client.orgId], branchIdsByOrg: { [client.orgId]: [client.branchId] } }).expect(201);
+    const accountant = { ...client, token: (await login(firm.email).expect(200)).body.token, userId: firm.userId, email: firm.email };
+    await setPolicy(client, { requireVerifiedEmail: true }).expect(200);
+    await opens(accountant).expect(200);
+
+    await outsideTenant('test: the address is no longer confirmed', () => platformPrisma.user.update({ where: { id: firm.userId }, data: { emailVerifiedAt: null } }));
+    expect((await opens(accountant).expect(403)).body.code).toBe('EMAIL_NOT_CONFIRMED');
+  }, 90_000);
 });

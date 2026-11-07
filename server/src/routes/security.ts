@@ -7,7 +7,7 @@ import { createScimToken, revokeScimToken, scimTokensFor } from '../services/sci
 import { CredentialError, actorFrom } from '../services/credentials.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
 import { callbackUrl, samlAcsUrl, samlEntityId } from './sso.js';
@@ -97,10 +97,14 @@ securityRouter.put('/orgs/:orgId/security/policy', EDIT, async (req, res) => {
    * #4: "Require a confirmed email address" and "Allowed email domains" now
    * decide who may open the company. Saving rules that shut out the person
    * saving them, or anyone who administers the company (review S3), would
-   * leave it with nobody to undo them. Account owners are never shut out.
+   * leave it with nobody to undo them. Account owners and admins are never
+   * shut out.
    */
   const rules = { requireVerifiedEmail: body.requireVerifiedEmail, allowedEmailDomains: body.allowedEmailDomains ?? null };
-  const wouldKeepOut = await whoRulesKeepOut(accountId, orgId, rules);
+  const [wouldKeepOut, current] = await Promise.all([
+    whoRulesKeepOut(accountId, orgId, rules),
+    platformPrisma.authPolicy.findUnique({ where: { orgId }, select: { requireVerifiedEmail: true, allowedEmailDomains: true } }),
+  ]);
   const mine = wouldKeepOut.find((k) => k.userId === req.auth!.userId);
   if (mine?.code === 'EMAIL_DOMAIN_NOT_ALLOWED') {
     return res.status(400).json({ error: `Your own address (${mine.email}) is not at one of those domains, so you would lose access. Add its domain to the list.`, code: 'OWN_DOMAIN_EXCLUDED' });
@@ -108,12 +112,26 @@ securityRouter.put('/orgs/:orgId/security/policy', EDIT, async (req, res) => {
   if (mine?.code === 'EMAIL_NOT_CONFIRMED') {
     return res.status(400).json({ error: 'Confirm your own email address first (My profile), then require it of everyone.', code: 'OWN_EMAIL_NOT_CONFIRMED' });
   }
-  const leaders = wouldKeepOut.filter((k) => k.admin);
+  /*
+   * Review N-a: refuse only the administrators this save would newly shut out,
+   * that is, when it narrows the domains or turns on confirmed email. An
+   * admin the saved rules already keep out does not block an unrelated change
+   * such as the lockout count.
+   */
+  const keptOutNow = current ? new Set((await whoRulesKeepOut(accountId, orgId, current)).map((k) => `${k.userId}|${k.code}`)) : new Set<string>();
+  const leaders = wouldKeepOut.filter((k) => k.admin && !keptOutNow.has(`${k.userId}|${k.code}`));
   if (leaders.length) {
+    const what = leaders.length === 1 ? 'an administrator' : `${leaders.length} administrators`;
+    const fix = 'Add their domain, or have them confirm their email, first.';
+    /* Review N-b: who they are only for someone who may see the company's people. */
+    if (await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Users')) {
+      return res.status(400).json({ error: `These rules would shut out ${what} of this company. ${fix}`, code: 'ADMINS_SHUT_OUT', count: leaders.length });
+    }
     const names = leaders.map((k) => (k.fullName ? `${k.fullName} (${k.email})` : k.email)).join(', ');
     return res.status(400).json({
-      error: `These rules would shut out ${leaders.length === 1 ? 'an administrator' : 'administrators'} of this company: ${names}. Add their domain, or have them confirm their email, first.`,
+      error: `These rules would shut out ${what} of this company: ${names}. ${fix}`,
       code: 'ADMINS_SHUT_OUT',
+      count: leaders.length,
       people: leaders.map((k) => ({ email: k.email, fullName: k.fullName, reason: k.code })),
     });
   }

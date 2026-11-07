@@ -4,6 +4,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { outsideTenant } from '../utils/tenantScope.js';
 import { getJwtSecret } from './auth.js';
 import { domainRefusalFor, domainRefusalText, emailDomainAllowed } from './policy.js';
+import { ACCOUNT_ADMINS } from './accountMembership.js';
 import { adminUserIds } from './roleGuards.js';
 
 /**
@@ -26,17 +27,19 @@ export const NOT_CONFIRMED_TEXT = 'This company asks everyone to confirm their e
 
 /**
  * Who the rules never shut out, or only partly:
- * - an account owner (review S3): the person who pays for the account cannot
- *   be locked out of their own companies by a company setting;
+ * - an account owner or account administrator (ACCOUNT_ADMINS) whose account
+ *   membership is active (review S3, S-A): the people who run the account
+ *   cannot be locked out of its companies by a company setting. A suspended
+ *   membership is held to the rules like anyone else;
  * - someone let in by an outside engagement, such as an accountant or an
  *   auditor (review S2): they work at their own firm's domain by definition,
  *   so the domain rule does not apply to them. A confirmed address still does.
  */
-export type Standing = { owner?: boolean; outsider?: boolean };
+export type Standing = { accountAdmin?: boolean; outsider?: boolean };
 
 /** Why this company's rules keep this person out, or null. */
 export function entryRefusal(rules: Rules, who: Person, standing: Standing = {}): EntryRefusal | null {
-  if (!rules || standing.owner) return null;
+  if (!rules || standing.accountAdmin) return null;
   if (!standing.outsider && !emailDomainAllowed(String(who.email || ''), rules.allowedEmailDomains)) {
     return { status: 403, error: domainRefusalText(rules.allowedEmailDomains), code: 'EMAIL_DOMAIN_NOT_ALLOWED' };
   }
@@ -44,14 +47,14 @@ export function entryRefusal(rules: Rules, who: Person, standing: Standing = {})
   return null;
 }
 
-/** The person's standing in one account: its owner, and whether they come from another account. */
+/** The person's standing in one account: an active owner or admin of it, and whether they come from another account. */
 export async function standingIn(userId: string, accountId: string): Promise<Standing> {
-  return outsideTenant('sign-in rules: owner or outsider', async () => {
+  return outsideTenant('sign-in rules: account admin or outsider', async () => {
     const [user, m] = await Promise.all([
       platformPrisma.user.findUnique({ where: { id: userId }, select: { accountId: true } }),
       platformPrisma.accountMembership.findUnique({ where: { accountId_userId: { accountId, userId } }, select: { role: true, status: true } }),
     ]);
-    return { owner: m?.role === 'OWNER' && m.status === 'ACTIVE', outsider: !!user && user.accountId !== accountId };
+    return { accountAdmin: !!m && (ACCOUNT_ADMINS as string[]).includes(m.role) && m.status === 'ACTIVE', outsider: !!user && user.accountId !== accountId };
   });
 }
 
@@ -73,20 +76,20 @@ export async function signInEntry(userId: string, who: Person): Promise<{ closed
   return outsideTenant('sign-in: each company’s rules on who may open it', async () => {
     const memberships = await platformPrisma.userOrgMembership.findMany({ where: { userId }, select: { orgId: true, accountId: true } });
     if (!memberships.length) return { closed: new Set<string>(), refusal: null };
-    const [rows, user, owned] = await Promise.all([
+    const [rows, user, runs] = await Promise.all([
       platformPrisma.authPolicy.findMany({
         where: { orgId: { in: memberships.map((m) => m.orgId) } },
         select: { orgId: true, requireVerifiedEmail: true, allowedEmailDomains: true },
       }),
       platformPrisma.user.findUnique({ where: { id: userId }, select: { accountId: true } }),
-      platformPrisma.accountMembership.findMany({ where: { userId, role: 'OWNER', status: 'ACTIVE' }, select: { accountId: true } }),
+      platformPrisma.accountMembership.findMany({ where: { userId, role: { in: ACCOUNT_ADMINS }, status: 'ACTIVE' }, select: { accountId: true } }),
     ]);
     const byOrg = new Map(rows.map((r) => [r.orgId, r]));
-    const owns = new Set(owned.map((o) => o.accountId));
+    const admins = new Set(runs.map((o) => o.accountId));
     const closed = new Set<string>();
     const reasons: EntryRefusal[] = [];
     for (const m of memberships) {
-      const r = entryRefusal(byOrg.get(m.orgId), who, { owner: owns.has(m.accountId), outsider: !!user && user.accountId !== m.accountId });
+      const r = entryRefusal(byOrg.get(m.orgId), who, { accountAdmin: admins.has(m.accountId), outsider: !!user && user.accountId !== m.accountId });
       if (r) {
         closed.add(m.orgId);
         reasons.push(r);
@@ -100,13 +103,13 @@ export async function signInEntry(userId: string, who: Person): Promise<{ closed
 
 /**
  * The domain check when adding a person who may already have a login (review
- * S2, S3): an owner of the account, or someone from another account let in by
+ * S2, S3, S-A): an active owner or admin of the account, or someone from another account let in by
  * an engagement, is not held to the company's domain list.
  */
 export async function domainRefusalForPerson(userId: string | null | undefined, accountId: string, orgIds: string[], email: string): Promise<string | null> {
   if (userId) {
     const s = await standingIn(userId, accountId);
-    if (s.owner || s.outsider) return null;
+    if (s.accountAdmin || s.outsider) return null;
   }
   return domainRefusalFor(orgIds, email);
 }
@@ -114,26 +117,26 @@ export async function domainRefusalForPerson(userId: string | null | undefined, 
 export type KeptOut = { userId: string; email: string; fullName: string | null; code: EntryRefusal['code']; admin: boolean };
 
 /**
- * Everyone in this company these rules would keep out (owners and outsiders
+ * Everyone in this company these rules would keep out (account admins and outsiders
  * exempt as above), and whether each administers it. Used before saving, so a
  * company cannot be closed to the people who run it, and after, to say how
  * many it now keeps out.
  */
 export async function whoRulesKeepOut(accountId: string, orgId: string, rules: NonNullable<Rules>): Promise<KeptOut[]> {
   return outsideTenant('sign-in rules: who a company policy would keep out', async () => {
-    const [members, owners, admins] = await Promise.all([
+    const [members, accountAdmins, admins] = await Promise.all([
       platformPrisma.userOrgMembership.findMany({
         where: { accountId, orgId },
         select: { user: { select: { id: true, email: true, fullName: true, emailVerifiedAt: true, isActive: true, accountId: true } } },
       }),
-      platformPrisma.accountMembership.findMany({ where: { accountId, role: 'OWNER', status: 'ACTIVE' }, select: { userId: true } }),
+      platformPrisma.accountMembership.findMany({ where: { accountId, role: { in: ACCOUNT_ADMINS }, status: 'ACTIVE' }, select: { userId: true } }),
       adminUserIds(platformPrisma, accountId, orgId),
     ]);
-    const ownerIds = new Set(owners.map((o) => o.userId));
+    const exempt = new Set(accountAdmins.map((o) => o.userId));
     const out: KeptOut[] = [];
     for (const { user: u } of members) {
       if (!u.isActive) continue;
-      const r = entryRefusal(rules, u, { owner: ownerIds.has(u.id), outsider: u.accountId !== accountId });
+      const r = entryRefusal(rules, u, { accountAdmin: exempt.has(u.id), outsider: u.accountId !== accountId });
       if (r) out.push({ userId: u.id, email: u.email, fullName: u.fullName, code: r.code, admin: admins.has(u.id) });
     }
     return out;

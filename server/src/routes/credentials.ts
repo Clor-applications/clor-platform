@@ -279,8 +279,6 @@ credentialsRouter.post(`${base}/:id/rotate`, can(PermissionAction.EDIT), async (
     const roleRefused = await automaticRoleRefusal(req, s?.defaultRoleId);
     const refused = (roleRefused?.body.code === 'FOREIGN_ROLE' ? null : roleRefused) || (await stepUpIfHeld(req, 'Enter the code from your authenticator app to rotate a directory-sync token.'));
     if (refused) return res.status(refused.status).json(refused.body);
-    /* Review B1: the person rotating answers for its role from now on; provisioning checks against them. */
-    await platformPrisma.scimToken.update({ where: { id: c.ownerId }, data: { createdByUserId: req.auth!.userId } });
   }
   try {
     if (c.kind === 'API_KEY') {
@@ -290,6 +288,13 @@ credentialsRouter.post(`${base}/:id/rotate`, can(PermissionAction.EDIT), async (
     }
     if (c.kind === 'SCIM') {
       const r = await rotateScimToken(c.orgId, c.ownerId, actorFrom(req), reasonOf(req));
+      /*
+       * Review B1, N-c: the person rotating answers for its role from now on;
+       * provisioning checks against them. Recorded only once the rotation has
+       * gone through, so a failed one leaves the token answering to whoever
+       * it did before.
+       */
+      await platformPrisma.scimToken.update({ where: { id: c.ownerId }, data: { createdByUserId: req.auth!.userId } });
       await audit(req, c, 'ROTATE', 'Rotated');
       return res.json({ token: r.token, credentialId: r.credential.id, sentToAgent: !!r.agentId, note: r.token ? 'Rotated — paste the new token into your identity provider. Shown once.' : 'Rotated — the connector picks up the new token on its next check-in.' });
     }
