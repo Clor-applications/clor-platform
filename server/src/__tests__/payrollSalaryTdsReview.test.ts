@@ -233,3 +233,62 @@ describe('nits', () => {
     expect(ageBandFor('1990-01-01', '2026-10-31', true)).toBeNull();
   });
 });
+
+describe('Re-check of #146 and #138 together', () => {
+  it('someone who runs payroll cannot change their own regime from the portal while somebody else could', async () => {
+    const c = await makeOwner();
+    const other = await admin(c);
+    const s = await plainStructure(c);
+    const { id, code } = await person(c, s, 2_160_000);
+    /* The owner (who holds Payroll edit) is this employee. */
+    await peoplePrisma.employee.update({ where: { id }, data: { userId: c.userId } });
+    const portal = await portalFor(c, id, code);
+    const res = await portal.put({ regime: 'OLD', items: [] });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('OWN_RECORD');
+    /* The same regime, with deductions: their own declaration as anybody's. */
+    await portal.put({ regime: 'NEW', items: [] }).expect(200);
+    expect(other.userId).not.toBe(c.userId);
+  });
+
+  it('your own verified declaration is reopened by somebody else', async () => {
+    const c = await makeOwner();
+    const other = await admin(c);
+    const s = await plainStructure(c);
+    const { id } = await person(c, s, 2_160_000);
+    await api.put(c, `/tax-declarations/${id}?fy=2026-27`, { regime: 'NEW', items: [] }).expect(200);
+    await api.post(other, `/tax-declarations/${id}/verify?fy=2026-27`).expect(200);
+    await peoplePrisma.employee.update({ where: { id }, data: { userId: other.userId } });
+    const res = await api.post(other, `/tax-declarations/${id}/reopen?fy=2026-27`);
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('OWN_RECORD');
+    await api.post(c, `/tax-declarations/${id}/reopen?fy=2026-27`).expect(200);
+  });
+
+  it('a declaration for another year leaves the profile\'s regime alone', async () => {
+    const c = await makeOwner();
+    const s = await plainStructure(c);
+    const { id } = await person(c, s, 2_160_000);
+    const { financialYearOf } = await import('../services/payroll/taxDeclaration.js');
+    const { todayIst } = await import('../utils/istDate.js');
+    const now = financialYearOf(todayIst());
+    const start = Number(now.slice(0, 4));
+    const other = `${start + 1}-${String((start + 2) % 100).padStart(2, '0')}`;
+    await api.put(c, `/tax-declarations/${id}?fy=${other}`, { regime: 'OLD', items: [] }).expect(200);
+    expect((await payrollPrisma.employeePayrollProfile.findFirstOrThrow({ where: { orgId: c.orgId, employeeId: id } })).taxRegime).toBe('NEW');
+    await api.put(c, `/tax-declarations/${id}?fy=${now}`, { regime: 'OLD', items: [] }).expect(200);
+    expect((await payrollPrisma.employeePayrollProfile.findFirstOrThrow({ where: { orgId: c.orgId, employeeId: id } })).taxRegime).toBe('OLD');
+  });
+
+  it('Form 16 names someone who has only opening figures', async () => {
+    const c = await makeOwner();
+    const s = await plainStructure(c);
+    const { id, code } = await person(c, s, 2_160_000);
+    await api.put(c, `/opening-ytd/${id}?fy=2026-27`, { grossPay: 540_000, tds: 20_000 }).expect(200);
+    const { taxYear } = await import('../services/payroll/form16.js');
+    const [row] = await taxYear(c.orgId, '2026-27', id);
+    expect(row.code).toBe(code);
+    expect(row.name).toMatch(/^Person /);
+    expect(row.gross).toBe(540_000);
+  });
+});

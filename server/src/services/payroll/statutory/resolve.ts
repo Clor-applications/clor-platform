@@ -115,6 +115,12 @@ export function applyStatutory(opts: {
    * financial year. Defaults to `onDate`.
    */
   levyDate?: string;
+  /**
+   * The day the pay period starts, for income tax: the rule of the financial
+   * year the pay is for (audit 7 Nov 2026, #1). March's salary paid on 1 April
+   * is taxed under March's year. Defaults to `onDate`.
+   */
+  taxDate?: string;
   /** Professional tax already on this financial year's payslips (run.ts ptPaidSoFar). */
   ptSoFar?: { yearToDate: number; thisMonth: number; byState: Map<string, { amount: number; months: number; gross?: number }> };
   /** Months of the financial year the person is employed (run.ts monthsEmployedInYear). */
@@ -145,7 +151,7 @@ export function applyStatutory(opts: {
      */
     const stateLevy = scheme === 'PT' || scheme === 'LWF';
     if (stateLevy && !state) continue;
-    const row = ruleInForce(rows, stateLevy ? levyDate : opts.onDate, stateLevy ? state : null);
+    const row = ruleInForce(rows, stateLevy ? levyDate : scheme === 'TDS' ? opts.taxDate || opts.onDate : opts.onDate, stateLevy ? state : null);
     if (!row) continue;
     /* A state rule only: a PT rule written with no state must not tax everybody. */
     if (stateLevy && !row.jurisdiction) continue;

@@ -272,6 +272,7 @@ export default async function setup() {
   /* A-35: fail closed — last, after every policy above exists. */
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261024100000_rls_fail_closed');
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261031100100_pf_nominees_rls');
+  await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261107110100_opening_ytd_rls');
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261102100100_provisional_days_rls');
   /* One live payment per payslip, a partial index `db push` cannot build. */
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261107100000_run_integrity');

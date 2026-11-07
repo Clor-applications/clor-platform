@@ -42,6 +42,8 @@ async function makeOwner(): Promise<Ctx> {
     .expect(200);
   const ctx = { token: signup.body.token, orgId: setup.body.company.orgId, branchId: setup.body.branch.id };
   await request(app).put(`/api/orgs/${ctx.orgId}/features`).set(at(ctx)).send({ features: { payroll: true } }).expect(200);
+  /* Its payroll starts in September with nothing earlier to bring in (audit 7 Nov 2026, #2). */
+  await api.put(ctx, '/opening-ytd-first-year?fy=2026-27', { firstYear: true, reason: 'First year of paying salaries' }).expect(200);
   return ctx;
 }
 

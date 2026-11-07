@@ -9,7 +9,8 @@ import { ageBandFor, ruleInForce } from './statutory/engine.js';
 import { isEmployerNps, taxablePayOf } from './taxablePay.js';
 import { recoveriesDue, type DueRecovery } from './loan.js';
 import { capDeductions, capSetting, partWords } from './deductionCap.js';
-import { financialYearOf, deductionsFor, previousEmployerOf } from './taxDeclaration.js';
+import { financialYearOf, deductionsFor, previousEmployerOf, yearRegimes } from './taxDeclaration.js';
+import { firstPayrollYearOf, openingFor, type Opening } from './openingYtd.js';
 import { round2 } from '../../utils/money.js';
 import { componentApplies, monthsOfService, type EligibilityFacts } from './eligibility.js';
 import { isCorrection, isLatePenalty } from './provisionalDays.js';
@@ -123,6 +124,101 @@ export const monthsLeftInFinancialYear = (isoDate: string) => {
 };
 
 /**
+ * Months TDS spreads over for one person: to March, or to the month they
+ * leave when that is earlier in the year (review of #146, 9). Leaving on 31
+ * December, October's payroll spreads over October, November and December,
+ * so the year's tax is deducted by the last payslip rather than a share of it
+ * left for months nobody is paid.
+ */
+export function monthsLeftFor(periodEnd: string, dateOfLeaving?: string | null) {
+  const toMarch = monthsLeftInFinancialYear(periodEnd);
+  const left = dateOfLeaving ? String(dateOfLeaving).slice(0, 10) : '';
+  const yearEnd = `${Number(financialYearStart(periodEnd).slice(0, 4)) + 1}-03-31`;
+  /* Gone before this period (paid arrears or a settlement after leaving): this payslip is the last, one month. */
+  if (left && left.slice(0, 7) < periodEnd.slice(0, 7)) return 1;
+  if (!left || left > yearEnd) return toMarch;
+  const index = (iso: string) => Number(iso.slice(0, 4)) * 12 + Number(iso.slice(5, 7));
+  return Math.max(1, Math.min(toMarch, index(left) - index(periodEnd) + 1));
+}
+
+/**
+ * The first month of this financial year CLOR ran payroll for, when that is
+ * after April and income tax is on: everyone employed before it was paid
+ * somewhere else first and needs opening figures (#2). Null when nothing is
+ * missing: payroll ran here from April, tax is off, or the owner said this
+ * is the company's first year of paying salaries.
+ */
+export function openingNeededFor(
+  period: { startDate: string; endDate: string },
+  person: { dateOfJoining?: string | null; earlierSlips: number; hasOpening: boolean },
+  company: { taxYear: string; firstPayrollYear: { financialYear: string } | null }
+) {
+  /*
+   * Per person (review of #146, 2): employed before this period starts, in a
+   * tax year that began before it, with no CLOR payslip earlier in that year
+   * and nothing entered. A second pay group moved onto CLOR in October needs
+   * them; the group paid here since April does not. Never when the owner said
+   * this is the company's first year of paying salaries.
+   */
+  const fyStart = financialYearStart(period.endDate);
+  if (period.startDate <= fyStart) return false;
+  if (company.firstPayrollYear?.financialYear === company.taxYear) return false;
+  if (person.hasOpening || person.earlierSlips > 0) return false;
+  const joined = person.dateOfJoining ? String(person.dateOfJoining).slice(0, 10) : '';
+  if (joined && joined >= period.startDate) return false;
+  /*
+   * Joined inside the period just before this one (re-review of #146, S2):
+   * joins 27 September after September's cut-off, first paid in October with
+   * arrears. Likely nothing was paid anywhere, so a warning, not a block.
+   */
+  if (joined && joined >= monthBefore(period.startDate)) return 'WARNING';
+  return 'ERROR';
+}
+
+/** The same day a month earlier (the start of the period before, for monthly periods). */
+function monthBefore(iso: string) {
+  const y = Number(iso.slice(0, 4));
+  const m = Number(iso.slice(5, 7));
+  const py = m === 1 ? y - 1 : y;
+  const pm = m === 1 ? 12 : m - 1;
+  return `${py}-${String(pm).padStart(2, '0')}${iso.slice(7, 10)}`;
+}
+
+/** The TDS rule is on for this payroll; without it there is no tax to bring figures in for. */
+export const tdsInForce = (ctx: { period: { endDate: string }; statutoryRules: Map<any, any[]> }) => Boolean(ruleInForce(ctx.statutoryRules.get('TDS') || [], ctx.period.endDate, null));
+
+const MONTH_WORDS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const monthWords = (iso: string) => `${MONTH_WORDS[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+
+/** Earlier payslips this year plus the opening figures from before CLOR. */
+export function withOpening(sofar: TaxSoFar | undefined, opening: Opening | undefined): TaxSoFar {
+  const base = sofar || { gross: 0, tds: 0, taxable: 0, employerNps: 0, basicDa: 0, slips: 0 };
+  if (!opening) return base;
+  return {
+    ...base,
+    gross: round2(base.gross + opening.grossPay),
+    taxable: round2(base.taxable + opening.taxablePay),
+    tds: round2(base.tds + opening.tds),
+    /* Employer NPS (80CCD(2), already inside taxable) and Basic and DA (its limit), as CLOR's own payslips give them (review of #146, 4). */
+    employerNps: round2(base.employerNps + (opening.employerNps || 0)),
+    basicDa: round2((base.basicDa || 0) + (opening.basicDa || 0)),
+  };
+}
+
+/** Taxable one-off earnings a person's adjustments add this period (a bonus, arrears), as the payslip will carry them. */
+export function oneOffTaxableOf(ctx: { components: Map<string, any> }, adjustments: any[]) {
+  let total = 0;
+  for (const adj of adjustments) {
+    const component = ctx.components.get(adj.componentId);
+    const isDeduction = adj.type === 'DEDUCTION' || component?.type === 'DEDUCTION';
+    if (isDeduction) continue;
+    if (!(component?.isTaxable ?? true)) continue;
+    total += Number(adj.amount) || 0;
+  }
+  return round2(total);
+}
+
+/**
  * What each person has already been paid and had deducted as TDS this
  * financial year, from earlier runs that went past review. Tax is projected
  * on pay so far plus this month for the months left, and only what is still
@@ -165,22 +261,37 @@ export async function noPanPeopleOnRun(orgId: string, runId: string) {
     });
 }
 
-async function taxPaidSoFar(orgId: string, run: { id: string; payrollDate: string }, employeeIds: string[]) {
+
+export type TaxSoFar = { gross: number; tds: number; taxable: number; employerNps: number; basicDa: number; slips: number };
+
+/*
+ * Keyed on the pay period, not the day it was paid (audit 7 Nov 2026, #1).
+ * March's salary paid on 1 April is March's pay: it belongs to the year that
+ * ends that March, it is the last of that year's months, and April's payroll
+ * starts the new year from nothing. Payment dates used to decide this, so a
+ * March payroll paid in April was taxed as April (twelve months left) with the
+ * year's earlier pay forgotten, and April's payroll counted March's in its year.
+ */
+export async function taxPaidSoFar(orgId: string, run: { id: string; payrollDate: string }, period: { startDate: string; endDate: string }, employeeIds: string[]) {
   /* `taxable` is what income tax reads (taxablePay.ts): taxable earnings and employer NPS, not gross. */
-  const out = new Map<string, { gross: number; tds: number; taxable: number; employerNps: number; basicDa: number }>();
+  const out = new Map<string, TaxSoFar>();
   if (!employeeIds.length) return out;
-  const earlier = await payrollPrisma.payrollRun.findMany({
-    where: {
-      orgId,
-      id: { not: run.id },
-      status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] },
-      payrollDate: { gte: financialYearStart(run.payrollDate), lt: run.payrollDate },
-    },
-    select: { id: true },
+  /* By the period's last day (review of #146, 3): a 26 March to 25 April period is April's, the new year's. */
+  const periods = await payrollPrisma.payrollPeriod.findMany({
+    where: { orgId, endDate: { gte: financialYearStart(period.endDate), lte: period.endDate } },
+    select: { id: true, endDate: true },
   });
+  if (!periods.length) return out;
+  const endOf = new Map(periods.map((p) => [p.id, p.endDate]));
+  const candidates = await payrollPrisma.payrollRun.findMany({
+    where: { orgId, id: { not: run.id }, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] }, periodId: { in: periods.map((p) => p.id) } },
+    select: { id: true, periodId: true, payrollDate: true },
+  });
+  /* An earlier month of the year; or, for the same month, another run (a bonus run) paid before this one. */
+  const earlier = candidates.filter((r) => String(endOf.get(r.periodId)) < period.endDate || r.payrollDate < run.payrollDate);
   if (!earlier.length) return out;
   const slips = await payrollPrisma.salarySlip.findMany({
-    where: { orgId, runId: { in: earlier.map((r) => r.id) }, employeeId: { in: employeeIds } },
+    where: { orgId, runId: { in: earlier.map((r) => r.id) }, employeeId: { in: employeeIds }, status: { not: 'CANCELLED' } },
     select: { id: true, employeeId: true, grossEarnings: true },
   });
   const lines = slips.length
@@ -205,7 +316,8 @@ async function taxPaidSoFar(orgId: string, run: { id: string; payrollDate: strin
     const pay = taxablePayOf(
       own.map((l) => ({ type: l.type, amount: l.amount, isTaxable: l.isTaxable, code: l.componentCode, employerNps: isEmployerNps(components.get(l.componentId)), pfWage: !!components.get(l.componentId)?.includeInPfWage }))
     );
-    const cur = out.get(x.employeeId) || { gross: 0, tds: 0, taxable: 0, employerNps: 0, basicDa: 0 };
+    const cur = out.get(x.employeeId) || { gross: 0, tds: 0, taxable: 0, employerNps: 0, basicDa: 0, slips: 0 };
+    cur.slips += 1;
     cur.gross = round2(cur.gross + Number(x.grossEarnings));
     cur.tds = round2(cur.tds + tds);
     cur.taxable = round2(cur.taxable + pay.taxable);
@@ -565,15 +677,21 @@ async function loadRunContext(orgId: string, runId: string) {
     include: { conditions: { orderBy: { displayOrder: 'asc' } }, employeeTargets: true },
   });
 
-  const taxSoFar = await taxPaidSoFar(orgId, run, employeeIds);
+  const taxSoFar = await taxPaidSoFar(orgId, run, period, employeeIds);
+  /* The year this payroll's tax belongs to: the pay period's, never the payment date's (#1). */
+  const taxYear = financialYearOf(period.endDate);
+  const openingYtd = await openingFor(orgId, taxYear, employeeIds);
+  const firstPayrollYear = await firstPayrollYearOf(orgId);
   const lwfSettings = await lwfSettingsFor(orgId);
   const ptFirstMonth = await firstPayrollMonthInYear(orgId, run, period);
   const ptSoFar = await ptPaidSoFar(orgId, run, period, employeeIds, new Map(profiles.map((p) => [p.employeeId, canonicalState(p.professionalTaxState)])));
   const taxDeclarations = new Map(
     (
-      await payrollPrisma.taxDeclaration.findMany({ where: { orgId, financialYear: financialYearOf(run.payrollDate), employeeId: { in: employeeIds } } })
+      await payrollPrisma.taxDeclaration.findMany({ where: { orgId, financialYear: taxYear, employeeId: { in: employeeIds } } })
     ).map((d) => [d.employeeId, d])
   );
+  /* With no declaration, the regime this year's first payslip went out on, never next year's choice on the profile (re-review of #146, S1). */
+  const yearRegime = await yearRegimes(orgId, employeeIds, taxYear, runId);
 
   return {
     ownSlipIds,
@@ -582,7 +700,11 @@ async function loadRunContext(orgId: string, runId: string) {
     capRule: await capSetting(orgId),
     statutoryRules,
     taxDeclarations,
+    yearRegime,
     taxSoFar,
+    taxYear,
+    openingYtd,
+    firstPayrollYear,
     lwfSettings,
     ptSoFar,
     ptFirstMonth,
@@ -768,7 +890,9 @@ function calculateWithStatutory(
   input: ReturnType<typeof inputFor>,
   assignment: any,
   profile: any,
-  periodsPerYear: number
+  periodsPerYear: number,
+  /** Taxable one-off adjustment earnings this period (a bonus), counted in the year once, not for every month left (#15). */
+  oneOffTaxable = 0
 ) {
   const engineInput = {
     annualCtc: Number(assignment.annualCtc),
@@ -786,8 +910,10 @@ function calculateWithStatutory(
   }
 
   /* Months left in the Indian financial year, this one included, which is what TDS spreads over. */
-  const monthsRemaining = monthsLeftInFinancialYear(ctx.run.payrollDate);
-  const soFar = ctx.taxSoFar.get(assignment.employeeId) || { gross: 0, tds: 0, taxable: 0, employerNps: 0, basicDa: 0 };
+  const monthsRemaining = monthsLeftFor(ctx.period.endDate, ctx.employees.get(assignment.employeeId)?.dateOfLeaving);
+  /* CLOR's own earlier payslips this year, plus what was paid before CLOR (opening figures, #2). */
+  const soFar = withOpening(ctx.taxSoFar.get(assignment.employeeId), ctx.openingYtd.get(assignment.employeeId));
+  const openingPt = ctx.openingYtd.get(assignment.employeeId)?.professionalTax || 0;
   const declaration = ctx.taxDeclarations.get(assignment.employeeId) || null;
   const person = ctx.employees.get(assignment.employeeId);
   const employee = {
@@ -800,20 +926,40 @@ function calculateWithStatutory(
     /* LWF leaves out the company's managers, and its supervisors above a state's pay limit. */
     lwfRole: ctx.lwfSettings.roleOf(person?.designation),
     /* The year's declaration, where there is one, says which regime they chose. */
-    taxRegime: ((declaration?.regime || profile?.taxRegime) as 'OLD' | 'NEW') || 'NEW',
+    taxRegime: ((declaration?.regime || ctx.yearRegime.get(assignment.employeeId) || profile?.taxRegime) as 'OLD' | 'NEW') || 'NEW',
     /* The old regime's senior and very senior slabs, from the date of birth on the People record. */
-    ageBand: ageBandFor(person?.dateOfBirth, ctx.run.payrollDate, declaration?.seniorSelf),
+    ageBand: ageBandFor(person?.dateOfBirth, ctx.period.endDate, declaration?.seniorSelf),
     /* Without a valid PAN, section 206AA's 20%. */
     hasPan: hasValidPan(profile?.pan),
   };
   const previous = previousEmployerOf(declaration);
   const ptSoFar = ctx.ptSoFar.get(assignment.employeeId) || { yearToDate: 0, thisMonth: 0, byState: new Map() };
   /* The year from this period: what earlier payslips had, plus this period's for the periods left. Other frequencies keep the simple annualisation. */
-  const forYear = (sofar: number, now: number) => round2(periodsPerYear === 12 ? sofar + now * monthsRemaining : now * periodsPerYear);
+  const forYear = (sofar: number, now: number, once = 0) => round2(periodsPerYear === 12 ? sofar + now * monthsRemaining + once : (now + once) * periodsPerYear);
   const taxablePay = (pass: ReturnType<typeof calculateStructure>) =>
     taxablePayOf(
       pass.lines.map((l) => ({ type: l.type, amount: l.amount, isTaxable: l.isTaxable, code: l.code, employerNps: isEmployerNps(ctx.components.get(l.componentId)), pfWage: !!ctx.components.get(l.componentId)?.includeInPfWage }))
     );
+  /*
+   * Variable pay and overtime this month happened once (#15): projecting them
+   * for every month left taxed a ₹1 lakh March-quarter bonus in October as six
+   * lakh. They count in the year once, with this period's one-off adjustments;
+   * only the rest of this month's pay is what the months left will repeat.
+   */
+  const oneOffInPass = (pass: ReturnType<typeof calculateStructure>) =>
+    taxablePayOf(
+      pass.lines
+        .filter((l) => {
+          const c = ctx.components.get(l.componentId);
+          /* Entered each month (VARIABLE) only: a FIXED component flagged isVariable is standing pay, and repeats (review of #146, 8). */
+          return c?.calculationMethod === 'VARIABLE';
+        })
+        .map((l) => ({ type: l.type, amount: l.amount, isTaxable: l.isTaxable, code: l.code, employerNps: isEmployerNps(ctx.components.get(l.componentId)) }))
+    ).taxable;
+  const annualTaxable = (pass: ReturnType<typeof calculateStructure>) => {
+    const once = oneOffInPass(pass);
+    return forYear(soFar.taxable, taxablePay(pass).taxable - once, once + oneOffTaxable);
+  };
   /* Basic and DA (or PF wages, where a structure names them otherwise) and HRA, for the HRA exemption. */
   const byCode = (pass: ReturnType<typeof calculateStructure>, codes: string[]) =>
     pass.lines.filter((l) => l.type === 'EARNING' && codes.includes(l.code.toUpperCase())).reduce((t, l) => t + l.amount, 0);
@@ -823,12 +969,14 @@ function calculateWithStatutory(
       onDate: ctx.run.payrollDate,
       /* PT and LWF: the month the pay is for. */
       levyDate: ctx.period.startDate,
+      /* Income tax: the year the pay is for, so March paid in April takes March's rule (#1). */
+      taxDate: ctx.period.endDate,
       wages: {
         pfWage: pass.pfWage,
         esiWage: pass.esiWage,
         gross: pass.grossEarnings,
         /* Taxable earnings and employer NPS, never plain gross: a reimbursement is paid but not taxed. */
-        annualTaxable: forYear(soFar.taxable, taxablePay(pass).taxable),
+        annualTaxable: annualTaxable(pass),
         employerNps: forYear(soFar.employerNps, taxablePay(pass).employerNps),
         /* Basic and DA (PF wages where a structure names them otherwise), for the NPS limit. */
         npsWage: forYear(soFar.basicDa || 0, taxablePay(pass).basicDa || pass.pfWage),
@@ -845,7 +993,7 @@ function calculateWithStatutory(
           (periodsPerYear === 12
             ? /* This month counted once (review of #138): a second run in the month finds the first one's PT already in yearToDate. */
               ptSoFar.yearToDate - ptSoFar.thisMonth + Math.max(ptSoFar.thisMonth, ptNow) * monthsRemaining
-            : forYear(ptSoFar.yearToDate, ptNow)) + (previous?.professionalTax || 0)
+            : forYear(ptSoFar.yearToDate, ptNow)) + (previous?.professionalTax || 0) + openingPt
         ),
       /* From joining (or the company's first month on CLOR this year, if later) to leaving or March. */
       ptMonthsEmployed: monthsEmployedInYear(
@@ -975,6 +1123,7 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
 
   /* The statutory rules the trial calculations used, for the check-before-use warning. */
   const rulesUsed = new Set<string>();
+  const openingChecked = tdsInForce(ctx);
   for (const member of ctx.members) {
     const employee = ctx.employees.get(member.employeeId);
     if (!employee) {
@@ -983,6 +1132,36 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
     }
     const who = employee.name;
     const profile = ctx.profiles.get(employee.id);
+
+    /*
+     * Earlier months of the year paid before CLOR (#2). Without them the tax
+     * for the rest of the year is worked out on part of a year's pay, so too
+     * little comes off every month and the year ends short. Per person
+     * (openingNeededFor): employed before this period, no CLOR payslip
+     * earlier in the year, nothing entered.
+     */
+    const openingNeed = openingChecked
+      ? openingNeededFor(
+          ctx.period,
+          { dateOfJoining: employee.dateOfJoining, earlierSlips: ctx.taxSoFar.get(employee.id)?.slips || 0, hasOpening: ctx.openingYtd.has(employee.id) },
+          { taxYear: ctx.taxYear, firstPayrollYear: ctx.firstPayrollYear }
+        )
+      : false;
+    if (openingNeed === 'ERROR') {
+      add({
+        severity: 'ERROR',
+        code: 'NO_OPENING_YTD',
+        employeeId: employee.id,
+        message: `${who} was employed here before ${monthWords(ctx.period.startDate)} but has no earlier payslip in CLOR this year, and income tax for the rest of the year needs what this company paid them from April (or from joining) and the tax taken from it. Enter it in Payroll › Tax declarations › Earlier this year, even if it was nil; or, if ${ctx.taxYear} is the company's first year of paying salaries, say so there.`,
+      });
+    } else if (openingNeed === 'WARNING') {
+      add({
+        severity: 'WARNING',
+        code: 'NO_OPENING_YTD',
+        employeeId: employee.id,
+        message: `${who} joined on ${String(employee.dateOfJoining).slice(0, 10)}, just before this period, and has no earlier payslip in CLOR this year. If anything was paid to them before this payroll, enter it in Payroll › Tax declarations › Earlier this year so the year's tax is right.`,
+      });
+    }
 
     /*
      * Being in the staff directory is not being in payroll.
@@ -1049,6 +1228,30 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
       add({ severity: 'ERROR', code: 'NO_CTC', employeeId: employee.id, message: `${who} has no salary figure.` });
     }
 
+    /*
+     * Opening figures that look like a previous employer's (review of #146, 5):
+     * somebody who joined after 1 April, with a Form 12B on their declaration,
+     * whose "earlier this year" taxable pay is more than this company could
+     * have paid them between joining and this period. Counted twice, the
+     * previous employer's pay is taxed twice.
+     */
+    const opening = ctx.openingYtd.get(employee.id);
+    const fyStart = financialYearStart(ctx.period.endDate);
+    const joined = employee.dateOfJoining ? String(employee.dateOfJoining).slice(0, 10) : '';
+    if (opening && joined > fyStart && previousEmployerOf(ctx.taxDeclarations.get(employee.id) || null) && Number(assignment.annualCtc) > 0) {
+      const index = (iso: string) => Number(iso.slice(0, 4)) * 12 + Number(iso.slice(5, 7));
+      const monthsHere = Math.max(0, index(ctx.period.startDate) - index(joined));
+      const possible = round2((Number(assignment.annualCtc) / 12) * monthsHere);
+      if (opening.taxablePay > possible + 1) {
+        add({
+          severity: 'WARNING',
+          code: 'OPENING_LOOKS_LIKE_PREVIOUS_EMPLOYER',
+          employeeId: employee.id,
+          message: `${who}'s pay earlier this year here (₹${opening.taxablePay.toLocaleString('en-IN')} taxable) is more than this company could have paid between joining on ${joined} and now (about ₹${possible.toLocaleString('en-IN')}). A previous employer's pay goes in Form 12B only; entered in both, it is taxed twice.`,
+        });
+      }
+    }
+
     const input = inputFor(ctx, employee.id);
     if (input.payableDays <= 0) {
       add({
@@ -1107,7 +1310,8 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
         input,
         assignment,
         profile,
-        PERIODS_PER_YEAR[structure.frequency] ?? 12
+        PERIODS_PER_YEAR[structure.frequency] ?? 12,
+        oneOffTaxableOf(ctx, ctx.adjustmentsByEmployee.get(employee.id) || [])
       );
       for (const id of stateRulesThatCount(trialStatutory)) rulesUsed.add(id);
       for (const e of trial.errors) {
@@ -1320,7 +1524,11 @@ export async function runStale(orgId: string, run: { id: string; periodId: strin
     payrollPrisma.payrollSetting.count({ where: { orgId, ...since } }),
     payrollPrisma.payrollLoan.count({ where: { orgId, employeeId: { in: ids }, ...since } }),
     payrollPrisma.payrollLoanInstallment.count({ where: { orgId, loan: { employeeId: { in: ids } }, ...since } }),
-    payrollPrisma.taxDeclaration.count({ where: { orgId, employeeId: { in: ids }, ...since } }),
+    /* A declaration, or pay from before CLOR this year (opening figures, #2): both move the tax. */
+    Promise.all([
+      payrollPrisma.taxDeclaration.count({ where: { orgId, employeeId: { in: ids }, ...since } }),
+      payrollPrisma.payrollOpeningYtd.count({ where: { orgId, employeeId: { in: ids }, ...since } }),
+    ]).then((n) => n[0] + n[1]),
     Promise.all([
       payrollPrisma.statutoryScheme.count({ where: { orgId, ...since } }),
       payrollPrisma.statutoryRule.count({ where: { orgId, ...since } }),
@@ -1514,7 +1722,8 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
       input,
       assignment,
       profile,
-      periodsPerYear(assignment.structureId)
+      periodsPerYear(assignment.structureId),
+      oneOffTaxableOf(ctx, adjustments)
     );
 
     /*
@@ -1718,7 +1927,8 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
           dateOfJoining: employee.dateOfJoining,
           dateOfLeaving: employee.dateOfLeaving,
           payrollStatus: profile?.payrollStatus ?? null,
-          taxRegime: profile?.taxRegime ?? null,
+          /* The regime the tax was worked out on: what yearRegimes reads back for the rest of the year. */
+          taxRegime: ctx.taxDeclarations.get(employee.id)?.regime || ctx.yearRegime.get(employee.id) || profile?.taxRegime || null,
         }),
         assignmentSnapshotJson: JSON.stringify({
           assignmentId: assignment.id,
