@@ -67,7 +67,8 @@ export const saveWebClock = (body) => send('/clock/settings', 'PUT', body);
 export const getHeldPunches = (month) => get(`/held-punches${month ? `?month=${encodeURIComponent(month)}` : ''}`);
 export const decideHeldPunch = (id, action) => send(`/held-punches/${encodeURIComponent(id)}/${action}`, 'POST', {});
 /** Count or discard every held punch from one reader, optionally one month's only (review of #144). */
-export const decideHeldPunches = ({ action, deviceId, month = null }) => send('/held-punches/bulk', 'POST', { action, deviceId, month });
+export const decideHeldPunches = ({ action, deviceId, month = null, shiftMinutes = 0 }) =>
+  send('/held-punches/bulk', 'POST', { action, deviceId, month, ...(shiftMinutes ? { shiftMinutes } : {}) });
 /** Reopen a closed month; `reason` (5+ characters) goes in the audit log. */
 export const reopenMonth = (month, reason) => send(`/months/${encodeURIComponent(month)}/reopen`, 'POST', { reason });
 

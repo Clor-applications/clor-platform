@@ -1031,6 +1031,12 @@ model DevicePunch {
   /// Why a reader punch is held instead of counted (reviewStatus HELD): FUTURE, the reader's clock was ahead of
   /// the server's when it arrived. A held punch has no shift day and changes no day until someone releases it.
   heldReason   String?
+  /// A held punch counted "moved back" (the reader's clock was ahead): the minutes taken off its time. Null = as recorded.
+  clockShiftMinutes Int?
+  /// The reader's own time, kept when the punch was moved back.
+  recordedLocalTime String?
+  /// Counted while its month was closed: the day was left alone, and is worked out when the month reopens.
+  dayPending   Boolean  @default(false)
   createdAt    DateTime @default(now())
 
   /// Per reader: two sites may give the same reader ID to different people

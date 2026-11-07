@@ -19,7 +19,8 @@ const { expandPreset } = await import('../constants/permissionCatalog.js');
 const { remember, UNCLAIMED_PER_BLOCK, UNCLAIMED_MAX } = await import('../routes/iclock.js');
 const { READER_KNOWN, READER_LIMITS, readerAddressKey } = await import('../middleware/rateLimit.js');
 const { attentionFor } = await import('../services/attendance/selfService.js');
-const { HELD_BULK_MAX } = await import('../services/attendance/punches.js');
+const { HELD_BULK_PAIRS } = await import('../services/attendance/punches.js');
+const { KNOWN_SERIALS_MAX, knownSerialCache } = await import('../routes/iclock.js');
 const { blockOf } = await import('../services/attendance/network.js');
 const { payrollPrisma } = await import('../utils/payrollPrisma.js');
 const { monthReview } = await import('../services/attendance/selfService.js');
@@ -555,11 +556,15 @@ describe('re-review of #144', () => {
     return { sn, id: (body.device || body).id as string };
   }
   /** Held punches written straight in, as a reader with its clock weeks ahead would have left them. */
-  async function heldRows(c: Ctx, gate: { sn: string; id: string }, rows: Array<{ employeeId: string | null; pin: string; localTime: string }>) {
+  async function heldRows(c: Ctx, gate: { sn: string; id: string }, rows: Array<{ employeeId: string | null; pin: string; localTime: string; aheadMin?: number }>) {
     const accountId = (await runInTenant(c.orgId, () => peoplePrisma.attendanceDevice.findUniqueOrThrow({ where: { id: gate.id } }))).accountId;
     await runInTenant(c.orgId, () =>
       peoplePrisma.devicePunch.createMany({
-        data: rows.map((r) => ({ accountId, orgId: c.orgId, deviceId: gate.id, serialNumber: gate.sn, pin: r.pin, employeeId: r.employeeId, localTime: r.localTime, at: new Date(Date.parse(`${r.localTime.replace(' ', 'T')}+05:30`)), state: '0', kind: 'IN', reviewStatus: 'HELD', heldReason: 'FUTURE' })),
+        data: rows.map((r) => {
+          const at = new Date(Date.parse(`${r.localTime.replace(' ', 'T')}+05:30`));
+          /* aheadMin: the reader's clock was that far ahead, so the punch arrived that long before its time. */
+          return { accountId, orgId: c.orgId, deviceId: gate.id, serialNumber: gate.sn, pin: r.pin, employeeId: r.employeeId, localTime: r.localTime, at, state: '0', kind: 'IN', reviewStatus: 'HELD', heldReason: 'FUTURE', ...(r.aheadMin ? { createdAt: new Date(at.getTime() - r.aheadMin * 60_000) } : {}) };
+        }),
       }),
     );
   }
@@ -614,7 +619,130 @@ describe('re-review of #144', () => {
     expect((await att(c).post('/held-punches/bulk', { action: 'discard', deviceId: side.id, month: '2026-10' }).expect(200)).body).toMatchObject({ discarded: 2, left: 0 });
     const after = (await att(c).get('/months/2026-10/readiness').expect(200)).body;
     expect(after.checks.find((x: any) => x.key === 'held').count).toBe(0);
-    expect(HELD_BULK_MAX).toBeGreaterThanOrEqual(1600);
+  }, 300_000);
+
+  it('200 people x 30 days x 2 punches: counted a chunk at a time, other writes go through between chunks', async () => {
+    const c = await owner();
+    const people: Array<{ id: string; code: string }> = [];
+    for (let i = 0; i < 200; i += 1) {
+      const code = `SC-${String(i).padStart(3, '0')}`;
+      people.push({ id: (await person(c, { name: `Scale ${i}`, code })).id, code });
+    }
+    const bystander = await person(c, { name: 'Bystander', code: 'SC-X' });
+    const gate = await addGate(c, 'Main gate');
+    const rows: Array<{ employeeId: string; pin: string; localTime: string }> = [];
+    for (const p of people) for (let d = 1; d <= 30; d += 1) for (const t of ['13:00:00', '18:00:00']) rows.push({ employeeId: p.id, pin: p.code, localTime: `2026-10-${pad(d)} ${t}` });
+    await heldRows(c, gate, rows);
+    expect(rows).toHaveLength(12_000);
+
+    let calls = 0;
+    let counted = 0;
+    let writeMs = 0;
+    for (;;) {
+      const out = (await att(c).post('/held-punches/bulk', { action: 'release', deviceId: gate.id, month: '2026-10' }).expect(200)).body;
+      calls += 1;
+      counted += out.counted;
+      /* At most HELD_BULK_PAIRS (person, day) pairs per call: 2 punches each. */
+      expect(out.counted).toBeLessThanOrEqual(HELD_BULK_PAIRS * 2);
+      if (calls === 1) {
+        expect(out.left).toBeGreaterThan(0);
+        /* Between chunks, someone else's write is not waiting on the whole run. */
+        const started = Date.now();
+        await att(c).put('/records', { employeeId: bystander.id, date: '2026-10-02', checkIn: '09:00', checkOut: '18:00' }).expect(200);
+        writeMs = Date.now() - started;
+      }
+      if (!out.left) break;
+    }
+    expect(counted).toBe(12_000);
+    expect(calls).toBe(30);
+    expect(writeMs).toBeLessThan(10_000);
+    expect(await runInTenant(c.orgId, () => peoplePrisma.devicePunch.count({ where: { orgId: c.orgId, deviceId: gate.id, reviewStatus: 'HELD' } }))).toBe(0);
+    expect(await runInTenant(c.orgId, () => peoplePrisma.attendanceRecord.count({ where: { orgId: c.orgId, employeeId: { in: people.map((p) => p.id) }, date: { gte: '2026-10-01', lte: '2026-10-30' } } }))).toBe(6_000);
+  }, 900_000);
+
+  it('a reader whose clock ran 30 min ahead: Count moved back makes no late mark, and the reader’s own time is kept', async () => {
+    const c = await owner();
+    const moved = await person(c, { name: 'Moved Back', code: 'OF-1' });
+    const asIs = await person(c, { name: 'As Recorded', code: 'OF-2' });
+    const gate = await addGate(c, 'Fast clock');
+    const other = await addGate(c, 'Fast clock two');
+    /* Tuesday 6 Oct: the reader said 09:30 and 18:30; it was 09:00 and 18:00. */
+    await heldRows(c, gate, [
+      { employeeId: moved.id, pin: 'OF-1', localTime: '2026-10-06 09:30:00', aheadMin: 30 },
+      { employeeId: moved.id, pin: 'OF-1', localTime: '2026-10-06 18:30:00', aheadMin: 30 },
+      { employeeId: moved.id, pin: 'OF-1', localTime: '2026-10-07 09:31:00', aheadMin: 31 },
+    ]);
+    await heldRows(c, other, [{ employeeId: asIs.id, pin: 'OF-2', localTime: '2026-10-06 09:30:00', aheadMin: 30 }]);
+    const list = (await att(c).get('/held-punches?month=2026-10').expect(200)).body;
+    expect(list.readers.find((r: any) => r.deviceId === gate.id).aheadMinutes).toBe(30);
+
+    const out = (await att(c).post('/held-punches/bulk', { action: 'release', deviceId: gate.id, month: '2026-10', shiftMinutes: 30 }).expect(200)).body;
+    expect(out).toMatchObject({ counted: 3, shiftMinutes: 30, left: 0 });
+    const day = await runInTenant(c.orgId, () => peoplePrisma.attendanceRecord.findUniqueOrThrow({ where: { employeeId_date: { employeeId: moved.id, date: '2026-10-06' } } }));
+    expect(day.lateMinutes).toBe(0);
+    const punch = await runInTenant(c.orgId, () => peoplePrisma.devicePunch.findFirstOrThrow({ where: { orgId: c.orgId, deviceId: gate.id, recordedLocalTime: '2026-10-06 09:30:00' } }));
+    expect(punch).toMatchObject({ localTime: '2026-10-06 09:00:00', clockShiftMinutes: 30, reviewStatus: null, shiftDate: '2026-10-06' });
+    const audit = await runInTenant(c.orgId, () => platformPrisma.auditLog.findFirstOrThrow({ where: { orgId: c.orgId, entity: 'DEVICE_PUNCH', entityId: gate.id } }));
+    expect(audit.message).toMatch(/moved back 30 min/);
+
+    /* The same time counted as recorded is late. */
+    await att(c).post('/held-punches/bulk', { action: 'release', deviceId: other.id, month: '2026-10' }).expect(200);
+    const late = await runInTenant(c.orgId, () => peoplePrisma.attendanceRecord.findUniqueOrThrow({ where: { employeeId_date: { employeeId: asIs.id, date: '2026-10-06' } } }));
+    expect(late.lateMinutes).toBeGreaterThan(0);
+    expect((await runInTenant(c.orgId, () => peoplePrisma.devicePunch.findFirstOrThrow({ where: { orgId: c.orgId, deviceId: other.id } }))).clockShiftMinutes).toBeNull();
+
+    await att(c).post('/held-punches/bulk', { action: 'release', deviceId: gate.id, shiftMinutes: -5 }).expect(400);
+    await att(c).post('/held-punches/bulk', { action: 'release', deviceId: gate.id, shiftMinutes: 2.5 }).expect(400);
+  });
+
+  it('punches counted while their month was closed have their days worked out when it reopens', async () => {
+    const c = await owner();
+    const p = await person(c, { name: 'Reopen Me', code: 'RO-1' });
+    const r = (await att(c).get('/months/2026-09/readiness').expect(200)).body;
+    await att(c).post('/months/2026-09/close', { acknowledge: true, ...r.noRecordConfirm }).expect(200);
+    const gate = await addGate(c);
+    await heldRows(c, gate, [
+      { employeeId: p.id, pin: 'RO-1', localTime: '2026-09-14 13:00:00' },
+      { employeeId: p.id, pin: 'RO-1', localTime: '2026-09-14 18:00:00' },
+    ]);
+    expect((await att(c).post('/held-punches/bulk', { action: 'release', deviceId: gate.id }).expect(200)).body).toMatchObject({ counted: 2, closedDays: 1 });
+    expect(await runInTenant(c.orgId, () => peoplePrisma.attendanceRecord.count({ where: { employeeId: p.id, date: '2026-09-14' } }))).toBe(0);
+    expect(await runInTenant(c.orgId, () => peoplePrisma.devicePunch.count({ where: { orgId: c.orgId, deviceId: gate.id, dayPending: true } }))).toBe(2);
+
+    const reopened = (await att(c).post('/months/2026-09/reopen', { reason: 'Reader clock fixed late' }).expect(200)).body;
+    expect(reopened.pendingDays).toBe(1);
+    expect(await runInTenant(c.orgId, () => peoplePrisma.attendanceRecord.count({ where: { employeeId: p.id, date: '2026-09-14' } }))).toBe(1);
+    expect(await runInTenant(c.orgId, () => peoplePrisma.devicePunch.count({ where: { orgId: c.orgId, deviceId: gate.id, dayPending: true } }))).toBe(0);
+  });
+
+  it('a flood of invented serials from one block is turned away before any lookup; the serial cache is a bounded LRU', async () => {
+    const saved = { ...READER_LIMITS };
+    process.env.DISABLE_RATE_LIMIT = 'false';
+    try {
+      READER_LIMITS.perBlock = 3;
+      READER_LIMITS.perAddress = 10_000;
+      const sent = Array.from({ length: 6 }, () => serial());
+      const statuses: number[] = [];
+      for (const sn of sent) statuses.push((await request(app).get(`/iclock/cdata?SN=${sn}&options=all`)).status);
+      expect(statuses.filter((x) => x === 503).length).toBeGreaterThan(0);
+      /* A refused request never reached the lookup. */
+      const refused = sent.filter((_, i) => statuses[i] === 503);
+      for (const sn of refused) expect(knownSerialCache.has(sn)).toBe(false);
+    } finally {
+      Object.assign(READER_LIMITS, saved);
+      process.env.DISABLE_RATE_LIMIT = 'true';
+    }
+
+    const c = await owner();
+    const gate = await addGate(c);
+    expect(await knownSerialCache.check(gate.sn)).toBe(true);
+    for (let i = 0; i < KNOWN_SERIALS_MAX + 10; i += 1) {
+      await knownSerialCache.check(`LRU${rnd()}${i}`);
+      /* The company's reader keeps heartbeating, so it stays among the most recently used. */
+      if (i % 1000 === 0) await knownSerialCache.check(gate.sn);
+    }
+    expect(knownSerialCache.size()).toBeLessThanOrEqual(KNOWN_SERIALS_MAX);
+    expect(knownSerialCache.has(gate.sn)).toBe(true);
   }, 300_000);
 
   it('bulk decisions: a team role takes only its team’s; bad input and other companies’ readers are refused', async () => {

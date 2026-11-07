@@ -61,7 +61,7 @@ import {
 import { DEFAULT_RULES, KINDS, KIND_WORDS, askRequest, cancelRequest, decideRequest, editRequest, rulesFor, saveRules, shiftChoices, story, usage, type Kind } from '../services/attendance/requests.js';
 import { CHAINS } from '../services/attendance/approvalChain.js';
 import { nightShiftsOn, timesOn } from '../services/attendance/nightShift.js';
-import { clockDateFor, decideHeldPunch, decideHeldPunches, FUTURE_TOLERANCE_MS } from '../services/attendance/punches.js';
+import { clockDateFor, decideHeldPunch, decideHeldPunches, FUTURE_TOLERANCE_MS, readerClockAhead, workOutPendingDays } from '../services/attendance/punches.js';
 import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
 import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/attendance/suggestions.js';
 import { recordAudit } from '../services/auditTrail.js';
@@ -660,12 +660,14 @@ attendanceRouter.get('/orgs/:orgId/attendance/held-punches', heldView, async (re
   ]);
   const reader = new Map(devices.map((d) => [d.id, d.name || d.serialNumber]));
   const canCount = new Map(countable.map((g) => [g.deviceId, g._count._all]));
+  /* How far ahead each reader's clock looks, so Count all can move its punches back (final review of #144). */
+  const ahead = new Map(await Promise.all(perReader.map(async (g) => [g.deviceId, await readerClockAhead(orgId, { deviceId: g.deviceId, month, employeeIds: scope.all ? null : scope.ids })] as const)));
   const named = await withNames(orgId, held.map((p) => ({ employeeId: p.employeeId })));
   res.json({
     month,
     total,
     readers: perReader
-      .map((g) => ({ deviceId: g.deviceId, reader: reader.get(g.deviceId) || '—', count: g._count._all, countable: canCount.get(g.deviceId) || 0 }))
+      .map((g) => ({ deviceId: g.deviceId, reader: reader.get(g.deviceId) || '—', count: g._count._all, countable: canCount.get(g.deviceId) || 0, aheadMinutes: ahead.get(g.deviceId) ?? null }))
       .sort((a, b) => b.count - a.count),
     held: held.map((p, i) => ({ id: p.id, deviceId: p.deviceId, reader: reader.get(p.deviceId) || p.serialNumber, pin: p.pin, time: p.localTime, receivedAt: p.createdAt, employeeId: p.employeeId, employeeName: p.employeeId ? named[i]?.employeeName || null : null, reason: p.heldReason, due: p.at.getTime() <= Date.now() })),
     impossible: impossible.map((x) => ({ id: x.id, reader: reader.get(x.deviceId) || '—', pin: x.pin, time: x.localTime, receivedAt: x.receivedAt })),
@@ -683,14 +685,19 @@ attendanceRouter.post('/orgs/:orgId/attendance/held-punches/bulk', heldDecide, a
   const action = req.body?.action === 'release' ? 'release' : req.body?.action === 'discard' ? 'discard' : null;
   const deviceId = typeof req.body?.deviceId === 'string' ? req.body.deviceId : '';
   const month = req.body?.month == null || req.body.month === '' ? null : String(req.body.month);
+  /* Count only: move each punch back by this many minutes (the reader's clock was ahead), or 0 / null for as recorded. */
+  const shiftRaw = req.body?.shiftMinutes;
+  const shiftMinutes = shiftRaw == null || shiftRaw === '' ? 0 : Number(shiftRaw);
   if (!action) return res.status(400).json({ error: 'Say whether to count or discard them.' });
+  if (!Number.isInteger(shiftMinutes) || shiftMinutes < 0 || shiftMinutes > 7 * 24 * 60) return res.status(400).json({ error: 'Moving punches back takes whole minutes, at most a week.' });
   if (!deviceId) return res.status(400).json({ error: 'Choose the reader.' });
   if (month && !MONTH.test(month)) return res.status(400).json({ error: 'The month should look like 2026-10.' });
   const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: deviceId, orgId }, select: { id: true, name: true, serialNumber: true } });
   if (!device) return res.status(404).json({ error: 'No such reader.' });
   const scope = await teamScope(req);
   try {
-    const out = await peopleWrite(orgId, () => decideHeldPunches(orgId, { deviceId, month, employeeIds: scope.all ? null : scope.ids }, action));
+    /* One chunk per call, in one transaction (decideHeldPunches): the screen calls again while `left` is above nought. */
+    const out = await peopleWrite(orgId, () => decideHeldPunches(orgId, { deviceId, month, employeeIds: scope.all ? null : scope.ids }, action, { shiftMinutes: action === 'release' ? shiftMinutes : 0 }));
     const done = action === 'release' ? out.counted : out.discarded;
     if (done) {
       const name = device.name || device.serialNumber;
@@ -698,7 +705,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/held-punches/bulk', heldDecide, a
         entity: 'DEVICE_PUNCH',
         entityId: device.id,
         action: action === 'release' ? 'APPROVE' : 'REJECT',
-        message: `${done} held reader punch${done === 1 ? ' was' : 'es were'} ${action === 'release' ? 'counted' : 'discarded'} from ${name}${month ? ` for ${month}` : ''}`,
+        message: `${done} held reader punch${done === 1 ? ' was' : 'es were'} ${action === 'release' ? 'counted' : 'discarded'} from ${name}${month ? ` for ${month}` : ''}${out.shiftMinutes ? `, moved back ${out.shiftMinutes} min (the reader's clock was ahead)` : ''}`,
         metadata: { deviceId: device.id, month, action, ...out, teamOnly: !scope.all },
       });
     }
@@ -1392,7 +1399,9 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/reopen', can(Permis
   const lock = await peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } });
   if (!lock) return res.status(409).json({ error: `${month} is not closed.` });
   await peopleWrite(orgId, () => peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId, month } }));
-  await recordAudit(req, { entity: 'ATTENDANCE_MONTH', entityId: month, action: 'REOPEN', message: `Reopened ${month}: ${reason}`, metadata: { month, reason, closedAt: lock.lockedAt, closedByUserId: lock.lockedByUserId } });
-  res.json({ month, closed: null });
+  /* Reader punches counted while it was closed left their days alone: work those days out now (final review of #144). */
+  const pendingDays = await peopleWrite(orgId, () => workOutPendingDays(orgId, month));
+  await recordAudit(req, { entity: 'ATTENDANCE_MONTH', entityId: month, action: 'REOPEN', message: `Reopened ${month}: ${reason}`, metadata: { month, reason, closedAt: lock.lockedAt, closedByUserId: lock.lockedByUserId, pendingDays } });
+  res.json({ month, closed: null, pendingDays });
   emitWebhook(orgId, 'month.reopened', { month: String(req.params.month), byUserId: req.auth!.userId });
 });

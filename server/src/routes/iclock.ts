@@ -2,7 +2,7 @@ import { appLive, closing } from '../services/principalAllowed.js';
 import express, { Router, type Request, type RequestHandler, type Response } from 'express';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, HANDSHAKE_OPTIONS, commandEffect, instantOf, parseAttlogLine, parseBiodataLine, parseCommandResults, parseInfo, parseOpLine, parseReaderInfo, refusalReason } from '../services/attendance/adms.js';
-import { READER_KNOWN, readerAddressLimiter, readerSerialLimiter } from '../middleware/rateLimit.js';
+import { READER_KNOWN, readerAddressLimiter, readerBlockLimiter, readerSerialLimiter } from '../middleware/rateLimit.js';
 import { MAX_NETWORKS, blockOf, networkOf, sameBlock } from '../services/attendance/network.js';
 import { biometricPolicy } from '../services/attendance/biometrics.js';
 import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
@@ -25,12 +25,14 @@ import { markOnReader, storeTemplate, storeUser } from '../services/attendance/r
  */
 export const iclockRouter = Router();
 /*
- * The limits first, then the body: a flood is turned away before anything is read (#10). The serial
- * limit, then whether the serial is a company's reader (one cached lookup), then the address limit,
+ * The limits first, then the body: a flood is turned away before anything is read (#10). A generous
+ * limit on the whole block and the serial limit, then whether the serial is a company's reader (one
+ * cached lookup, so the block limit is what bounds those lookups), then the address limit,
  * which counts a known reader per address and anything else per block (review of #144). Body parsing
  * is below (iclockBody).
  */
 iclockRouter.use(
+  readerBlockLimiter,
   readerSerialLimiter,
   ((req, res, next) => readerKind(req, res, next)) as RequestHandler,
   readerAddressLimiter,
@@ -106,7 +108,9 @@ export async function remember(serial: string, ip: string | null, info: string |
  */
 const BIG_BODY = express.text({ type: () => true, limit: '8mb' });
 const SMALL_BODY = express.text({ type: () => true, limit: '64kb' });
+/* Least recently used first (a Map keeps insertion order; a hit moves to the end). */
 const knownSerials = new Map<string, { known: boolean; at: number }>();
+export const KNOWN_SERIALS_MAX = 5_000;
 export const UNKNOWN_SERIAL_TTL_MS = 5_000;
 async function knownSerial(serial: string) {
   const hit = knownSerials.get(serial);
@@ -114,13 +118,21 @@ async function knownSerial(serial: string) {
    * "Unknown" is remembered for a few seconds only, so a reader added or claimed a moment ago sends its
    * big first batch at once (review of #144) without devices.ts having to reach into this cache.
    */
-  if (hit && Date.now() - hit.at < (hit.known ? 60_000 : UNKNOWN_SERIAL_TTL_MS)) return hit.known;
+  if (hit && Date.now() - hit.at < (hit.known ? 60_000 : UNKNOWN_SERIAL_TTL_MS)) {
+    knownSerials.delete(serial);
+    knownSerials.set(serial, hit);
+    return hit.known;
+  }
   const device = await outsideTenant('adms: is this serial a company reader (body size)', () => peoplePrisma.attendanceDevice.findUnique({ where: { serialNumber: serial }, select: { isActive: true, vendor: true } }));
   const known = Boolean(device?.isActive && device.vendor === 'ADMS');
-  if (knownSerials.size > 5_000) knownSerials.clear();
+  /* Bounded: a flood of new serials evicts the least recently used, never the company readers in steady use (final review of #144). */
+  knownSerials.delete(serial);
   knownSerials.set(serial, { known, at: Date.now() });
+  while (knownSerials.size > KNOWN_SERIALS_MAX) knownSerials.delete(knownSerials.keys().next().value!);
   return known;
 }
+/** For tests: how many serials are cached, and whether one is. */
+export const knownSerialCache = { size: () => knownSerials.size, has: (serial: string) => knownSerials.has(serial), check: (serial: string) => knownSerial(serial) };
 /** Marks the request with whether its serial is a company's active reader; the address limit and the body size read it. */
 const readerKind: RequestHandler = (req, _res, next) => {
   const serial = serialOf(req);

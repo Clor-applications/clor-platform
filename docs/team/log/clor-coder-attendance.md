@@ -17,3 +17,9 @@
 - Evidence: CI Postgres 5434 sequential, 54 files / 615 tests (attendanceAccess 30, incl. 1,600 held punches counted in about 2.5 s); test:web 305 files / 2238; tsc and eslint clean; e2e:smoke 44 passed; browser-checked bulk Count all (6, then 1,200) on Month close at 1440 and 390.
 - Next: coordinator re-review once CI is green.
 - Blocked on: nothing.
+
+## 2026-11-07 IST — Attendance — final review fixes on #144
+- Did: merged origin/main (#143 People access; one import conflict in attendanceReports.ts, documentAccess kept). Bulk Count commits one chunk of up to 200 (person, day) pairs per peopleWrite and returns `left`; the screen loops by itself with a "Counted X of Y…" line; shiftDayFor cached per person and hour. Readers: a generous per-block pre-limit runs before the known-reader lookup; the known-serial cache is a 5000-entry LRU. Held-for-future readers get a clock offset (median of punch time minus received time, whole minutes); Count all asks "This reader's clock looks N min ahead", defaults to moving punches back N min (recordedLocalTime and clockShiftMinutes kept on each punch, offset in the audit line) or counts as recorded. Punches counted in a closed month are marked and their days worked out on reopen. Fixed in browser testing: the API helper dropped shiftMinutes (new API-layer test).
+- Evidence: attendanceAccess on CI Postgres 5434 incl. 200 people × 30 days × 2 punches in 30 chunks with a bystander write between chunks under 10 s, offset (late 0 moved back, late > 0 as recorded), reopen, block pre-limit and LRU; test:web 307 files / 2245; tsc and eslint clean; browser-checked Count all with progress and the offset dialog at 1440 (October, 806) and 390 (September, 780 moved back 20 min, late 0 in the DB).
+- Next: coordinator review once CI is green.
+- Blocked on: nothing.

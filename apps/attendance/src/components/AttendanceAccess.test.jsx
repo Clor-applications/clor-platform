@@ -48,27 +48,53 @@ it('lists held punches; Count waits until the time has come, Discard does not', 
 });
 
 /* Review of #144: a reader whose clock ran ahead for weeks leaves more than anyone can click through. */
-it('counts or discards every held punch from one reader at once, for the month asked', async () => {
+it('counts every held punch from one reader, moved back by its clock offset, calling until none are left', async () => {
   getHeldPunches.mockResolvedValue({
     month: '2026-10',
     total: 1600,
-    readers: [{ deviceId: 'd1', reader: 'Front gate', count: 1600, countable: 1550 }],
-    held: [{ id: 'p1', deviceId: 'd1', reader: 'Front gate', pin: '701', time: '2026-10-09 09:00:00', employeeName: 'Asha Rao', due: true }],
+    readers: [{ deviceId: 'd1', reader: 'Front gate', count: 1600, countable: 1550, aheadMinutes: 20 }],
+    held: [{ id: 'p1', deviceId: 'd1', reader: 'Front gate', pin: '701', time: '2026-10-09 09:20:00', employeeName: 'Asha Rao', due: true }],
     impossible: [],
   });
-  confirmDialog.mockResolvedValue(true);
-  decideHeldPunches.mockResolvedValue({ counted: 1550, discarded: 0, notYet: 50, notMatched: 0, closedDays: 0, left: 50 });
+  let release;
+  decideHeldPunches
+    .mockImplementationOnce(() => new Promise((done) => { release = () => done({ counted: 400, discarded: 0, notYet: 50, notMatched: 0, closedDays: 0, left: 1150, shiftMinutes: 20 }); }))
+    .mockResolvedValueOnce({ counted: 1150, discarded: 0, notYet: 50, notMatched: 0, closedDays: 0, left: 0, shiftMinutes: 20 });
   render(<HeldPunches month="2026-10" />);
   await waitFor(() => expect(getHeldPunches).toHaveBeenCalledWith('2026-10'));
   expect(await screen.findByText(/Showing the latest/)).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: /Count all from this reader/ }));
-  await waitFor(() => expect(decideHeldPunches).toHaveBeenCalledWith({ action: 'release', deviceId: 'd1', month: '2026-10' }));
-  expect(confirmDialog.mock.calls[0][0].title).toMatch(/1,550 punches from Front gate/);
-  await waitFor(() => expect(notify.success).toHaveBeenCalledWith(expect.stringMatching(/1,550 punches counted\. 50 are still ahead of today\./)));
+  const dialog = await screen.findByRole('dialog');
+  expect(within(dialog).getByText(/1,550 punches from Front gate/)).toBeTruthy();
+  expect(within(dialog).getByText(/clock looks/)).toBeTruthy();
+  expect(within(dialog).getByRole('radio', { name: /moved back 20 min/ }).checked).toBe(true);
+  fireEvent.click(within(dialog).getByRole('button', { name: /^Count all$/ }));
+  await waitFor(() => expect(decideHeldPunches).toHaveBeenCalledWith({ action: 'release', deviceId: 'd1', month: '2026-10', shiftMinutes: 20 }));
+  release();
+  /* The progress line, then the second call without asking again. */
+  expect(await within(dialog).findByText(/Counted/)).toBeTruthy();
+  await waitFor(() => expect(decideHeldPunches).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(notify.success).toHaveBeenCalledWith('1,550 punches counted, moved back 20 min. 50 are still ahead of today.'));
+});
+
+it('can count as recorded; Discard all asks first', async () => {
+  getHeldPunches.mockResolvedValue({
+    readers: [{ deviceId: 'd1', reader: 'Front gate', count: 3, countable: 3, aheadMinutes: 12 }],
+    held: [{ id: 'p1', deviceId: 'd1', reader: 'Front gate', pin: '701', time: '2026-10-09 09:12:00', employeeName: 'Asha Rao', due: true }],
+    impossible: [],
+  });
+  decideHeldPunches.mockResolvedValue({ counted: 3, discarded: 0, notYet: 0, notMatched: 0, closedDays: 0, left: 0, shiftMinutes: null });
+  render(<HeldPunches />);
+  fireEvent.click(await screen.findByRole('button', { name: /Count all from this reader/ }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.click(within(dialog).getByRole('radio', { name: /Count as recorded/ }));
+  fireEvent.click(within(dialog).getByRole('button', { name: /^Count all$/ }));
+  await waitFor(() => expect(decideHeldPunches).toHaveBeenCalledWith({ action: 'release', deviceId: 'd1', month: null }));
 
   confirmDialog.mockResolvedValue(false);
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   fireEvent.click(screen.getByRole('button', { name: /Discard all/ }));
-  await waitFor(() => expect(confirmDialog).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(confirmDialog).toHaveBeenCalledTimes(1));
   expect(decideHeldPunches).toHaveBeenCalledTimes(1);
 });
 

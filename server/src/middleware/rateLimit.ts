@@ -144,7 +144,12 @@ const readerBucket = (max: () => number, key: (req: any) => string, skipWhen?: (
     },
   });
 
-export const READER_LIMITS = { perSerial: 600, perAddress: 3000 };
+/*
+ * perBlock is the generous ceiling on everything from one /24 or /64, before anything is looked up: it
+ * stops a flood of invented serials costing a database lookup each (final review of #144), and leaves room
+ * for a building of readers behind one line (each heartbeats twice a minute; a busy gate a few hundred).
+ */
+export const READER_LIMITS = { perSerial: 600, perAddress: 3000, perBlock: 12_000 };
 /** Set by routes/iclock.ts (knownSerial) before the address limit runs: is this serial a company's active reader? */
 export const READER_KNOWN = Symbol('clor.readerKnown');
 /**
@@ -155,6 +160,8 @@ export const READER_KNOWN = Symbol('clor.readerKnown');
  */
 export const readerAddressKey = (req: any) => (req[READER_KNOWN] ? `ip:${ipOf(req)}` : `blk:${blockOf(req.ip) || ipOf(req)}`);
 export const readerSerialLimiter = readerBucket(() => READER_LIMITS.perSerial, (req) => `sn:${readerSerial(req)}`, (req) => !readerSerial(req));
+/** Everything from one block, known or not, before the serial is looked up. */
+export const readerBlockLimiter = readerBucket(() => READER_LIMITS.perBlock, (req) => `pre:${blockOf(req.ip) || ipOf(req)}`);
 export const readerAddressLimiter = readerBucket(() => READER_LIMITS.perAddress, readerAddressKey);
 
 /**
