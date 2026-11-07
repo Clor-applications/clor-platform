@@ -92,3 +92,12 @@ it('with no api given, reads and saves its module on the shared endpoint', async
   await waitFor(() => expect(http.apiFetch).toHaveBeenCalledWith('/orgs/org1/automations?module=payroll', expect.objectContaining({ method: 'PUT', body: { automations: { 'payroll.runDue': { on: true } } } })));
   expect(http.apiFetch.mock.calls[0][0]).toBe('/orgs/org1/automations?module=payroll');
 });
+
+it('a reader sees "a named person"; a named user who left shows, with who hears instead', async () => {
+  const masked = row({ key: 'payroll.a', sentence: 'Masked', to: [{ value: 'OWNER', label: null }, { value: 'PERSON', label: null }], recipients: { options: ['OWNER', 'PERSON'], label: 'Goes to' } });
+  const gone = row({ key: 'payroll.b', sentence: 'Gone', to: [{ value: 'PERSON:u9', label: null, gone: true }], fallback: ['HR'], recipients: { options: ['HR', 'PERSON'], label: 'Goes to' } });
+  const api = { load: vi.fn(async () => ({ automations: [masked, gone], canEdit: false, users: [] })), save: vi.fn(), history: vi.fn() };
+  render(<AutomationsList module="payroll" api={api} />);
+  expect(await screen.findByText('Goes to Owner and a named person · In the app')).toBeTruthy();
+  expect(screen.getByText('Goes to someone no longer a user, so HR hears instead · In the app')).toBeTruthy();
+});

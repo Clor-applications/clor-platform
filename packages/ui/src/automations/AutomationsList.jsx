@@ -22,7 +22,12 @@ const CHANNEL_WORDS = { bell: 'In the app', app: 'Employee app', email: 'Email' 
 
 const andList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 /* Mid-sentence ("Goes to Owner and their manager"), so the manager is lower case. */
-const toWords = (to) => (to || []).map((t) => (t.value.startsWith('PERSON:') ? t.label : t.value === 'MANAGER' ? 'their manager' : RECIPIENT_WORDS[t.value] || t.value));
+const GONE = 'someone no longer a user';
+/* A reader who may not change these sees "a named person" (value PERSON, no id): names are the editor's. */
+const personWord = (t) => (t.gone ? GONE : t.value === 'PERSON' ? 'a named person' : t.label);
+const toWords = (to) => (to || []).map((t) => (t.value.startsWith('PERSON') ? personWord(t) : t.value === 'MANAGER' ? 'their manager' : RECIPIENT_WORDS[t.value] || t.value));
+/** Every saved choice is a named person who is no longer a user: the recipe's default hears instead. */
+const fallsBack = (a) => Boolean(a.to?.length && a.to.every((t) => t.gone) && a.fallback);
 /** "In the app and email". */
 const channelWords = (channels) => andList((channels || []).map((c, i) => (i ? (CHANNEL_WORDS[c] || c).toLowerCase() : CHANNEL_WORDS[c] || c)));
 
@@ -70,7 +75,7 @@ function WhoAndHow({ a, users, busy, onSave, onClose }) {
   const flip = (list, set, v) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const options = a.recipients?.options || [];
   const named = to.filter((v) => v.startsWith('PERSON:'));
-  const nameOf = (v) => users.find((u) => `PERSON:${u.id}` === v)?.name || (a.to || []).find((t) => t.value === v)?.label || 'Someone';
+  const nameOf = (v) => users.find((u) => `PERSON:${u.id}` === v)?.name || (a.to || []).find((t) => t.value === v)?.label || 'Someone no longer a user';
   const save = () => {
     if (a.recipients && !to.length) return setError('Choose at least one person to tell.');
     if (a.channelOptions && !channels.length) return setError('Keep at least one way to send it.');
@@ -146,7 +151,7 @@ function Row({ a, canEdit, busy, users, api, onSave, openScreen }) {
     if (v < a.range.min || v > a.range.max) { notify.error(`Choose ${a.range.min} to ${a.range.max} days.`); setN(String(a.n)); return; }
     onSave(a.key, { n: v });
   };
-  const who = a.to ? `${a.recipients?.label || 'Goes to'} ${andList(toWords(a.to))}` : null;
+  const who = a.to ? `${a.recipients?.label || 'Goes to'} ${andList(toWords(a.to))}${fallsBack(a) ? `, so ${andList(a.fallback.map((f) => RECIPIENT_WORDS[f] || f))} hears instead` : ''}` : null;
   const how = channelWords(a.channels);
   const choosable = editable && (a.recipients || a.channelOptions);
   const label = a.sentence.replace('{n}', String(a.n ?? ''));
@@ -166,8 +171,8 @@ function Row({ a, canEdit, busy, users, api, onSave, openScreen }) {
               {who || how ? <p className="ui-caption">{[who, how].filter(Boolean).join(' · ')}</p> : null}
               {editable ? (
                 <span className="flex gap-3">
-                  {choosable ? <button type="button" className="ui-link text-xs" aria-expanded={open === 'edit'} aria-label={`Change who and how: ${label}`} onClick={() => setOpen(open === 'edit' ? '' : 'edit')}>Change</button> : null}
-                  <button type="button" className="ui-link text-xs" aria-expanded={open === 'history'} aria-label={`History: ${label}`} onClick={() => setOpen(open === 'history' ? '' : 'history')}>History</button>
+                  {choosable ? <button type="button" className="ui-link inline-flex min-h-[44px] items-center text-xs sm:min-h-0" aria-expanded={open === 'edit'} aria-label={`Change who and how: ${label}`} onClick={() => setOpen(open === 'edit' ? '' : 'edit')}>Change</button> : null}
+                  <button type="button" className="ui-link inline-flex min-h-[44px] items-center text-xs sm:min-h-0" aria-expanded={open === 'history'} aria-label={`History: ${label}`} onClick={() => setOpen(open === 'history' ? '' : 'history')}>History</button>
                 </span>
               ) : null}
             </div>

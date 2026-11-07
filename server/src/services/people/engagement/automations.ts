@@ -202,7 +202,10 @@ export async function companyUsers(orgId: string, ids?: string[]) {
 export async function saveAutomations(who: { accountId: string; orgId: string; userId: string }, body: unknown, module: AutomationModule = 'people') {
   const parsed = saveSchema.safeParse(body);
   if (!parsed.success) throw new AutomationError('Those settings could not be read.');
-  const current = await saved(who.orgId);
+  /* Read and written under one lock per company: two saves at once (two tabs) each keep the other's change. */
+  await peoplePrisma.$transaction(async (tx) => {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`automations:${who.orgId}`}))`;
+  const current = ((await tx.engagementSettings.findUnique({ where: { orgId: who.orgId }, select: { automations: true } }))?.automations || {}) as Record<string, Saved>;
   const next: Record<string, Saved> = { ...current };
   for (const [key, v] of Object.entries(parsed.data.automations)) {
     const r = RECIPE.get(key);
@@ -233,10 +236,11 @@ export async function saveAutomations(who: { accountId: string; orgId: string; u
     }
     next[key] = row;
   }
-  await peoplePrisma.engagementSettings.upsert({
+  await tx.engagementSettings.upsert({
     where: { orgId: who.orgId },
     create: { accountId: who.accountId, orgId: who.orgId, automations: next as any, updatedByUserId: who.userId },
     update: { automations: next as any, updatedByUserId: who.userId },
+  });
   });
   return automationsFor(who.orgId);
 }
@@ -257,9 +261,19 @@ export async function ownerUsers(accountId: string, orgId: string) {
 /**
  * The users a recipe's `to` names, each once, in the order chosen: HR as before (whoever may edit employees,
  * administrators included), the owner, the reporting manager of `employeeId` when they sign in and still
- * work here, and named users still active in the company. A choice that names nobody adds nobody.
+ * work here, and named users still active in the company. A choice that resolves to nobody (the named
+ * person left, the person has no manager) falls back to `fallback` (the recipe's default; HR when not said),
+ * so a reminder is never sent to no one.
  */
-export async function recipientUsers(ctx: { accountId: string; orgId: string }, to: Recipient[] | null, opts: { employeeId?: string | null } = {}): Promise<string[]> {
+export async function recipientUsers(ctx: { accountId: string; orgId: string }, to: Recipient[] | null, opts: { employeeId?: string | null; fallback?: Recipient[] } = {}): Promise<string[]> {
+  const out = await resolve(ctx, to, opts.employeeId);
+  if (out.length) return out;
+  const fallback = opts.fallback || ['HR'];
+  return fallback.join() === (to || []).join() ? out : resolve(ctx, fallback, opts.employeeId);
+}
+
+async function resolve(ctx: { accountId: string; orgId: string }, to: Recipient[] | null, employeeId?: string | null): Promise<string[]> {
+  const opts = { employeeId };
   const out: string[] = [];
   for (const r of to || []) {
     const [kind, id] = r.split(':');
@@ -389,7 +403,13 @@ export async function listAutomations(orgId: string, opts: { module?: Automation
       managedIn: r.managedIn ? { screen: r.managedIn.screen, label: r.managedIn.label } : null,
       when: r.when,
       /* Who it goes to: each choice with the words for it; a named person who has left the company drops out. */
-      to: s.to ? s.to.map((v) => ({ value: v, label: v.startsWith('PERSON:') ? names.get(v.slice(7)) || null : null })).filter((t) => !t.value.startsWith('PERSON:') || t.label) : null,
+      /*
+       * Who it goes to. A named person's name is the editor's to read (as who was told is): a reader sees "a
+       * named person". A named person no longer an active user stays listed as gone, so the editor sees why
+       * the default hears instead.
+       */
+      to: s.to ? s.to.map((v) => (!v.startsWith('PERSON:') ? { value: v, label: null } : !opts.showRuns ? { value: 'PERSON', label: null } : names.has(v.slice(7)) ? { value: v, label: names.get(v.slice(7))! } : { value: v, label: null, gone: true })) : null,
+      fallback: r.recipients ? r.recipients.default : null,
       recipients: r.recipients ? { options: r.recipients.options, label: r.recipients.label || 'Goes to' } : null,
       channels: s.channels,
       channelOptions: r.chooseChannels ? r.channels : null,

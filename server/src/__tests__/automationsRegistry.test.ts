@@ -117,6 +117,11 @@ describe('the Automations screen for any module', () => {
     await put(c, { probationEnds: { to: ['OWNER', `PERSON:${mgr.userId}`] } }).expect(200);
     const row = (await api(c, 'get', '/automations').expect(200)).body.automations.find((a: any) => a.key === 'probationEnds');
     expect(row.to).toEqual([{ value: 'OWNER', label: null }, { value: `PERSON:${mgr.userId}`, label: 'Mina Lead' }]);
+    /* A reader sees that a named person hears, not who: neither the name nor the user id. */
+    const seen = (await api(mgr, 'get', '/automations').expect(200)).body;
+    expect(seen.automations.find((a: any) => a.key === 'probationEnds').to).toEqual([{ value: 'OWNER', label: null }, { value: 'PERSON', label: null }]);
+    expect(JSON.stringify(seen)).not.toContain(mgr.userId);
+    expect(JSON.stringify(seen)).not.toContain('Mina Lead');
     expect((await put(c, { taskDigest: { to: ['MANAGER'] } }).expect(400)).body.error).toMatch(/cannot go to/);
     expect((await put(c, { probationEnds: { to: [] } }).expect(400)).body.error).toMatch(/at least one/);
     expect((await put(c, { probationEnds: { to: ['PERSON:nobody-here'] } }).expect(400)).body.error).toMatch(/not a user/);
@@ -194,6 +199,34 @@ describe('the jobs honour the choice', () => {
     const history = (await api(c, 'get', '/automations/taskDigest/history').expect(200)).body.history;
     expect(history[0]).toMatchObject({ on: istToday(), count: run!.count });
     expect(history[0].recipients).toContain('Ravi Lead');
+    /* The job wakes every 15 minutes: a task added later that day does not mail Ravi a second digest. */
+    await runInTenant(c.orgId, () => peoplePrisma.checklistTask.create({ data: { accountId: c.accountId, orgId: c.orgId, employeeId: e.id, kind: 'LEAVING', title: 'Return badge', owner: 'IT', dueDate: plus(istToday(), -4) } }));
+    await runDigests(new Date(tenAm().getTime() + 3_600_000));
+    expect(await platformPrisma.emailOutbox.count({ where: { orgId: c.orgId, templateKey: 'people.task_digest', toEmail: mgrUser!.email } })).toBe(1);
+    await put(c, { taskDigest: { to: ['HR'], channels: ['bell', 'email'] } }).expect(200);
+  }, 60_000);
+
+  it('a choice that names nobody falls back to the default: a named user who left, a person with no manager', async () => {
+    const gone = await withRole(c, 'Viewer', 'Gita Gone');
+    await put(c, { probationEnds: { to: [`PERSON:${gone.userId}`] } }).expect(200);
+    await platformPrisma.user.update({ where: { id: gone.userId }, data: { isActive: false } });
+    const listed = (await api(c, 'get', '/automations').expect(200)).body.automations.find((a: any) => a.key === 'probationEnds');
+    expect(listed.to).toEqual([{ value: `PERSON:${gone.userId}`, label: null, gone: true }]);
+    expect(listed.fallback).toEqual(['HR']);
+    const told = (name: string, userId: string) => runInTenant(c.orgId, () => platformPrisma.notification.count({ where: { orgId: c.orgId, userId, kind: 'people.probation_ending', title: { contains: name } } }));
+    const p = await person(c, 'Fallback Hire');
+    await runInTenant(c.orgId, () => peoplePrisma.employee.update({ where: { id: p.id }, data: { probationEndDate: plus(istToday(), 9), confirmedOn: null } }));
+    await runEndDateReminders();
+    expect(await told('Fallback Hire', hr.userId)).toBe(1);
+    expect(await told('Fallback Hire', gone.userId)).toBe(0);
+    /* Their manager, for someone with none: HR hears instead. */
+    await put(c, { probationEnds: { to: ['MANAGER'] } }).expect(200);
+    const q = await person(c, 'No Manager Hire');
+    await runInTenant(c.orgId, () => peoplePrisma.employee.update({ where: { id: q.id }, data: { reportingManagerId: null, probationEndDate: plus(istToday(), 8), confirmedOn: null } }));
+    await runEndDateReminders();
+    expect(await told('No Manager Hire', hr.userId)).toBe(1);
+    expect(await told('No Manager Hire', c.userId)).toBe(1);
+    await put(c, { probationEnds: { to: ['HR'] } }).expect(200);
   }, 60_000);
 
   it('the daily job: once per company and day, with the choice, and only while the module is on', async () => {

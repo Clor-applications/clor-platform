@@ -239,7 +239,7 @@ export async function runEndDateReminders(now = new Date(), pageSize = PAGE) {
       if (contract && cStage !== null) {
         const past = contract < today;
         if (auto.contractEnds.on) {
-          const n = await notifyUsersOnce(e.accountId, e.orgId, await recipientUsers(e, auto.contractEnds.to, { employeeId: e.id }), {
+          const n = await notifyUsersOnce(e.accountId, e.orgId, await recipientUsers(e, auto.contractEnds.to, { employeeId: e.id, fallback: RECIPE.get('contractEnds')!.recipients!.default }), {
           kind: 'people.contract_ending',
           title: past ? `${e.name}’s contract ended on ${words(contract)}` : contract === today ? `${e.name}’s contract ends today` : `${e.name}’s contract ends on ${words(contract)}`,
           body: past ? 'They are still active. Renew it or record their leaving.' : 'Renew it with a new end date, or record their leaving.',
@@ -259,7 +259,7 @@ export async function runEndDateReminders(now = new Date(), pageSize = PAGE) {
       const pStage = probation ? stageIn(probationStages(auto.probationEnds.n), daysUntil(probation, now)) : null;
       if (probation && pStage !== null) {
         if (auto.probationEnds.on) {
-          const n = await notifyUsersOnce(e.accountId, e.orgId, await recipientUsers(e, auto.probationEnds.to, { employeeId: e.id }), {
+          const n = await notifyUsersOnce(e.accountId, e.orgId, await recipientUsers(e, auto.probationEnds.to, { employeeId: e.id, fallback: RECIPE.get('probationEnds')!.recipients!.default }), {
           kind: 'people.probation_ending',
           title: probation < today ? `${e.name}’s probation ended on ${words(probation)}, not yet decided` : probation === today ? `${e.name}’s probation ends today` : `${e.name}’s probation ends on ${words(probation)}`,
           body: 'Confirm, extend or end it on their Employment tab.',

@@ -76,7 +76,7 @@ async function digestFor(accountId: string, orgId: string, today: string) {
   for (const t of due) if (t.ownerUserId) byOwner.set(t.ownerUserId, [...(byOwner.get(t.ownerUserId) || []), t]);
   /* Escalation: late by three or more days on someone else's name, or on nobody's, goes to HR too (or whoever the company chose). */
   const cutoff = plus(today, -ESCALATE_AFTER);
-  const hr = await recipientUsers({ accountId, orgId }, setting.to).catch(() => [] as string[]);
+  const hr = await recipientUsers({ accountId, orgId }, setting.to, { fallback: ['HR'] }).catch(() => [] as string[]);
   const bell = setting.channels.includes('bell');
   const email = setting.channels.includes('email');
   const stuck = due.filter((t) => t.dueDate && t.dueDate <= cutoff);
@@ -92,8 +92,27 @@ async function digestFor(accountId: string, orgId: string, today: string) {
     const count = mine.length + others.length;
     const u = users.get(userId);
     const mailTo = email ? u?.email : null;
-    /* The bell, when the company kept it: its dedupe key makes the digest one a day; mail only, it is the tasks' `remindedOn`. */
-    const n = !bell ? (mailTo ? 1 : 0) : await sendNotice(accountId, orgId, [userId], {
+    const mail = () => sendTemplate({
+      templateKey: 'people.task_digest', to: mailTo!, toName: u!.fullName, accountId, orgId, relatedType: 'ChecklistTask', relatedId: (mine[0] || others[0]).id,
+      data: { count: String(count), lines: mine.map(line).join('\n') || '- Nothing of your own.', others: others.length ? `\nLate by ${ESCALATE_AFTER} days or more on someone else's name, or nobody's:\n${others.map((t) => `${line(t)}`).join('\n')}\n` : '' },
+    }).catch(() => null);
+    if (!bell) {
+      /*
+       * Mail only: the bell's dedupe key is what kept the digest to one a day, and the job runs every 15
+       * minutes, so a task added at 11:00 would mail again. One digest mail per person per IST day, and it
+       * counts as sent only once it went.
+       */
+      if (!mailTo) continue;
+      const already = await platformPrisma.emailOutbox.count({ where: { orgId, templateKey: 'people.task_digest', toEmail: mailTo, status: { not: 'FAILED' }, createdAt: { gte: new Date(`${today}T00:00:00+05:30`) } } });
+      if (already) continue;
+      const row = await mail();
+      if (row?.status !== 'SENT') continue;
+      sent += 1;
+      if (u?.fullName) told.push(u.fullName);
+      continue;
+    }
+    /* The bell's dedupe key makes the digest one a day; the mail follows a bell that went. */
+    const n = await sendNotice(accountId, orgId, [userId], {
       kind: 'people.task',
       title: mine.length ? `${mine.length} joining and leaving task${mine.length === 1 ? '' : 's'} due or late` : `${others.length} task${others.length === 1 ? '' : 's'} late on others' names`,
       body: [...mine, ...others].slice(0, 5).map(line).join('\n'),
@@ -102,12 +121,7 @@ async function digestFor(accountId: string, orgId: string, today: string) {
     if (!n) continue;
     sent += 1;
     if (u?.fullName) told.push(u.fullName);
-    if (mailTo) {
-      await sendTemplate({
-        templateKey: 'people.task_digest', to: mailTo, toName: u!.fullName, accountId, orgId, relatedType: 'ChecklistTask', relatedId: (mine[0] || others[0]).id,
-        data: { count: String(count), lines: mine.map(line).join('\n') || '- Nothing of your own.', others: others.length ? `\nLate by ${ESCALATE_AFTER} days or more on someone else's name, or nobody's:\n${others.map((t) => `${line(t)}`).join('\n')}\n` : '' },
-      }).catch(() => undefined);
-    }
+    if (mailTo) await mail();
   }
   await peoplePrisma.checklistTask.updateMany({ where: { id: { in: due.map((t) => t.id) } }, data: { remindedOn: today } });
   await recordRun(accountId, orgId, 'taskDigest', sent, told);
