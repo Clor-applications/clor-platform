@@ -426,7 +426,7 @@ peopleApprovalsRouter.post(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUE
   /* Leave and attendance are decided by People record: a sign-in with none has nothing there to hand on. */
   if (timeAlone && !me) return res.status(400).json({ error: 'Leave and attendance are handed on from your employee record, and your sign-in is not linked to one.' });
   /* Naming leave or attendance by itself: only someone who decides them has any to hand on. */
-  if ((types.includes('LEAVE') || types.includes('ATTENDANCE')) && !(await deciders(accountId, orgId)).has(userId)) return res.status(400).json({ error: 'You do not approve leave or requests here, so there is nothing to hand on.' });
+  if ((types.includes('LEAVE') || types.includes('ATTENDANCE')) && !(await deciders(accountId, orgId, types)).has(userId)) return res.status(400).json({ error: 'You do not approve leave or requests here, so there is nothing to hand on.' });
   let standInUserId: string | null = b.standInUserId || null;
   let standInEmployeeId: string | null = null;
   if (b.standInEmployeeId) {
@@ -440,7 +440,7 @@ peopleApprovalsRouter.post(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUE
   if (standInUserId) {
     const member = await platformPrisma.userOrgMembership.findFirst({ where: { orgId, userId: standInUserId }, select: { id: true } });
     if (!member) return res.status(400).json({ error: 'That person is not in this company.' });
-    if (!timeAlone && !(await deciders(accountId, orgId)).has(standInUserId)) return res.status(400).json({ error: 'They cannot approve requests here, so they cannot decide in your place. Choose someone who can.' });
+    if (!timeAlone && !(await deciders(accountId, orgId, types)).has(standInUserId)) return res.status(400).json({ error: 'They cannot approve requests here, so they cannot decide in your place. Choose someone who can.' });
     if (!standInEmployeeId) standInEmployeeId = (await myRecord(orgId, standInUserId))?.id ?? null;
   }
   /* Leave and attendance are decided by People record: a stand-in with none could decide none of it, and would only hide the real one. */

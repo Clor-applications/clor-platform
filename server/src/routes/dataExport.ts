@@ -12,6 +12,9 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { recordAudit } from '../services/auditTrail.js';
+import { docAccess, docOpens, type DocAccess } from '../services/people/documentAccess.js';
+import { maskTail } from '../services/people/identifiers.js';
+import { levelFor, resolveAccess } from '../services/access.js';
 
 /**
  * A company's own books and its own settings, in files its owner can keep.
@@ -82,14 +85,71 @@ const HEAVY = new Set(['DevicePunch', 'DeviceLog', 'PunchPhoto', 'BiometricTempl
 const PRIVATE = new Set(['PrivateCase', 'PrivateCaseMember', 'PrivateCaseEvidence', 'PrivateCaseAccess', 'CommitteeSetup']);
 const SECRETISH = /hash|secret|token|passwordenc|enc$|salt|apikey/i;
 const scrub = (rows: any[]) => rows.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !SECRETISH.test(k))));
-async function exportDomain(client: any, dmmf: { datamodel: { models: Array<{ name: string; fields: Array<{ name: string }> }> } }, prefix: string, scope: { orgId: string }) {
+
+/*
+ * What you may see in the app is what you may take out of it, table by table (review of #154, 8 Nov 2026).
+ * A person's identifiers, wherever they sit (a column, or inside a JSON value such as a joiner's statutory form or
+ * a recycle-bin snapshot), leave in full only to who could reveal them; everybody else gets the tail. An employee
+ * file leaves only if the reader could open it (documentAccess.ts): HR-only and confidential files, and their
+ * titles, stay behind.
+ */
+const PAN_BANK_KEYS = new Set(['pan', 'landlordPan', 'bankAccountNumber', 'newAccountNumber', 'oldAccountNumber']);
+const ID_KEYS = new Set(['uan', 'esiNumber', 'esicNumber', 'pfNumber', 'passportNumber', 'workPermitNumber']);
+/* The company's own PAN is not a person's identifier. */
+const COMPANY_MODELS = new Set(['LegalEntity']);
+export type ExportReveal = { panBank: boolean; ids: boolean };
+const maskDeep = (v: unknown, reveal: ExportReveal): unknown => {
+  if (Array.isArray(v)) return v.map((x) => maskDeep(x, reveal));
+  if (!v || typeof v !== 'object' || v instanceof Date || ArrayBuffer.isView(v) || typeof (v as any).toFixed === 'function') return v;
+  const out: Record<string, unknown> = {};
+  for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+    const masked = (PAN_BANK_KEYS.has(k) && !reveal.panBank) || (ID_KEYS.has(k) && !reveal.ids);
+    out[k] = masked && (typeof x === 'string' || typeof x === 'number') ? maskTail(String(x)) || null : maskDeep(x, reveal);
+  }
+  return out;
+};
+type RowRule = { reveal: ExportReveal; docs?: DocAccess };
+const docOfSnapshot = (snapshot: unknown) => {
+  const row = (snapshot as any)?.row || {};
+  return { classification: row.classification ?? null, kind: row.kind ?? null, employeeId: row.employeeId ?? null };
+};
+function shapeRows(model: string, rows: any[], rule: RowRule) {
+  let kept = rows;
+  if (rule.docs && model === 'EmployeeDocument') kept = kept.filter((d) => docOpens(rule.docs!, d));
+  if (rule.docs && model === 'DeletedItem') kept = kept.filter((d) => d.kind !== 'employeeDocument' || docOpens(rule.docs!, docOfSnapshot(d.snapshot)));
+  /* A file's lines in the change log name it; its classification and kind ride on the same change (routes/people.ts), as Activity reads them. */
+  if (rule.docs && model === 'ChangeLog') {
+    const docs = rule.docs;
+    const groupOf = (l: any) => `${l.correlationId}:${l.entityId}`;
+    type Meta = { classification?: string; kind?: string; employeeId?: string };
+    const meta = new Map<string, Meta>();
+    for (const l of kept) {
+      if (l.entity !== 'EmployeeDocument') continue;
+      const m: Meta = meta.get(groupOf(l)) || { employeeId: l.employeeId };
+      if (l.field === 'document.classification') m.classification = l.before ?? l.after;
+      if (l.field === 'document.kind') m.kind = l.before ?? l.after;
+      meta.set(groupOf(l), m);
+    }
+    /* A line from before classifications were written opens only for who opens every class. */
+    const everything = (['EMPLOYEE_VISIBLE', 'HR_ONLY', 'RESTRICTED', 'CONFIDENTIAL'] as const).every((c) => docs.classes.includes(c));
+    kept = kept.filter((l) => {
+      if (l.entity !== 'EmployeeDocument') return true;
+      const m = meta.get(groupOf(l))!;
+      return m.classification ? docOpens(docs, m as any) : everything;
+    });
+  }
+  if (COMPANY_MODELS.has(model) || (rule.reveal.panBank && rule.reveal.ids)) return kept;
+  return kept.map((r) => maskDeep(r, rule.reveal));
+}
+
+async function exportDomain(client: any, dmmf: { datamodel: { models: Array<{ name: string; fields: Array<{ name: string }> }> } }, prefix: string, scope: { orgId: string }, rule: RowRule) {
   const out: Record<string, any[]> = {};
   for (const m of dmmf.datamodel.models) {
     if (HEAVY.has(m.name) || PRIVATE.has(m.name) || !m.fields.some((f) => f.name === 'orgId')) continue;
     const key = m.name.charAt(0).toLowerCase() + m.name.slice(1);
     const delegate = client[key];
     if (!delegate?.findMany) continue;
-    out[`${prefix}.${key}`] = scrub(await delegate.findMany({ where: { orgId: scope.orgId } }));
+    out[`${prefix}.${key}`] = shapeRows(m.name, scrub(await delegate.findMany({ where: { orgId: scope.orgId } })), rule);
   }
   return out;
 }
@@ -229,8 +289,10 @@ dataExportRouter.get('/orgs/:orgId/export', EXPORT, async (req, res) => {
   const withheld: Array<{ domain: string; reason: string }> = [];
   if (asked === 'data' || asked === 'all') {
     const holds = (k: string) => Boolean(req.isAdmin) || Boolean(req.permissions?.has(k));
+    /* A full identifier is for who may reveal one in People: Statutory details and Full identifiers. */
+    const fullIds = holds('PEOPLE::Statutory Details::VIEW') && holds('PEOPLE::Full Identifiers::VIEW');
     if (holds('PEOPLE::Employees::VIEW')) {
-      Object.assign(data, await exportDomain(peoplePrisma, PeoplePrisma.dmmf as any, 'people', scope));
+      Object.assign(data, await exportDomain(peoplePrisma, PeoplePrisma.dmmf as any, 'people', scope, { reveal: { panBank: fullIds, ids: fullIds }, docs: await docAccess(req) }));
       await recordAudit(req, { entity: 'Company', entityId: orgId, action: 'EXPORT_PEOPLE', message: 'Exported People and Attendance records (personal data)' });
     } else {
       withheld.push({ domain: 'people', reason: 'You cannot view employees in People.' });
@@ -241,7 +303,10 @@ dataExportRouter.get('/orgs/:orgId/export', EXPORT, async (req, res) => {
     } else if (policy?.requirePayrollStepUp && !hasValidStepUp(req)) {
       withheld.push({ domain: 'payroll', reason: 'Your company asks for an authenticator code before payroll data leaves CLOR.' });
     } else {
-      Object.assign(data, await exportDomain(payrollPrisma, PayrollPrisma.dmmf as any, 'payroll', scope));
+      /* As Payroll's own screens show them (payrollEmployees.ts): PAN and bank by the profile's field level; UAN, PF and ESI also with Full identifiers. */
+      const access = await resolveAccess(accountId, orgId, req.auth!.userId, req.tenant!.branchId);
+      const panBank = Boolean(req.isAdmin) || levelFor(access, 'PAYROLL', 'Employee Payroll Profile', PermissionAction.VIEW) >= 1;
+      Object.assign(data, await exportDomain(payrollPrisma, PayrollPrisma.dmmf as any, 'payroll', scope, { reveal: { panBank, ids: panBank || fullIds } }));
       await recordAudit(req, { entity: 'Company', entityId: orgId, action: 'EXPORT_PAYROLL', message: 'Exported Payroll records (bank, PAN, UAN, salary and tax data)' });
     }
   }

@@ -75,7 +75,13 @@ async function managerDeciders(orgId: string, managerId: string, day: string) {
 /** Who may take a step for this person's leave, before the person and the asker are taken out. */
 export async function leaveStepDeciders(accountId: string, orgId: string, spec: ApproverSpec, employeeId: string, day = today()): Promise<string[]> {
   if (spec.kind === 'USER') return spec.id ? [spec.id] : [];
-  if (spec.kind === 'ROLE') return spec.id ? usersHoldingRoles(accountId, orgId, [spec.id]) : [];
+  if (spec.kind === 'ROLE') {
+    if (!spec.id) return [];
+    /* A role named on a step decides only if it may approve leave at all: a rule naming HR User never makes HR User a leave approver (owner, 8 Nov 2026). */
+    const [holders, approvers] = await Promise.all([usersHoldingRoles(accountId, orgId, [spec.id]), usersWithPermission(accountId, orgId, LEAVE_APPROVE)]);
+    const may = new Set(approvers);
+    return holders.filter((u) => may.has(u));
+  }
   if (spec.kind === 'HR') return leaveHr(accountId, orgId);
   let manager = await activeManagerOf(orgId, employeeId);
   if (spec.kind === 'MANAGER_OF_MANAGER' && manager) manager = await activeManagerOf(orgId, manager.id);

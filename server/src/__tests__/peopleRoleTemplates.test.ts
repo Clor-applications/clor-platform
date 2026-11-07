@@ -22,6 +22,8 @@ const { payrollPrisma } = await import('../utils/payrollPrisma.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { runInTenant, outsideTenant } = await import('../utils/tenantScope.js');
 const { ROLE_PRESETS, expandPreset, templateDrift } = await import('../constants/permissionCatalog.js');
+const { leaveStepDeciders } = await import('../services/attendance/leaveRules.js');
+const { deciders } = await import('../services/people/approvals/standIns.js');
 
 const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
@@ -130,7 +132,7 @@ describe('the server enforces each rule for each role', () => {
     docs.binned = await up('Old contract BINNED', 'HR_ONLY');
     await api(boss).del(`/people/documents/${docs.binned.id}`).expect(200);
     await api(boss).put(`/people/employees/${emp.id}/identity`, { passportNumber: 'K1234567', aadhaarLast4: '4321' }).expect(200);
-    await runInTenant(boss.orgId, () => payrollPrisma.employeePayrollProfile.create({ data: { accountId: boss.accountId!, orgId: boss.orgId, employeeId: emp.id, pan: 'ABCPE1234F', uan: '100200300400', bankAccountNumber: '987654321012', createdByUserId: boss.userId } }));
+    await runInTenant(boss.orgId, () => payrollPrisma.employeePayrollProfile.create({ data: { accountId: boss.accountId!, orgId: boss.orgId, employeeId: emp.id, pan: 'ABCPE1234F', uan: '100200300400', pfNumber: 'KABLR00112230000099', esiNumber: '3100445566', bankAccountNumber: '987654321012', createdByUserId: boss.userId } }));
   }, 120_000);
 
   it('leave: HR Manager approves; HR User, Viewer and Auditor are refused', async () => {
@@ -231,9 +233,55 @@ describe('the server enforces each rule for each role', () => {
       const refused = await api(as[r]).get('/payroll/reports/statutory').expect(403);
       expect(refused.body.permission, r).toMatchObject({ module: 'PAYROLL', subModule: 'Payroll Reports' });
     }
-    /* Payroll's own employee screen keeps them masked for Viewer (its permission level, untouched). */
-    const pay = await api(as.Viewer).get(`/payroll/employees/${emp.id}`);
-    if (pay.status === 200) expect(JSON.stringify(pay.body)).not.toContain('ABCPE1234F');
+    /* Payroll's own employee screen keeps them masked for Viewer: PAN and bank by its field level, UAN, PF and ESI numbers without Full identifiers. */
+    const pay = await api(as.Viewer).get(`/payroll/employees/${emp.id}`).expect(200);
+    for (const clear of ['ABCPE1234F', '987654321012', '100200300400', 'KABLR00112230000099', '3100445566']) expect(JSON.stringify(pay.body), clear).not.toContain(clear);
+    expect(pay.body.employee.payroll.uan).toMatch(/0400$/);
+    expect(pay.body.employee.payroll.statutoryMasked).toBe(true);
+    const own = await api(boss).get(`/payroll/employees/${emp.id}`).expect(200);
+    expect(own.body.employee.payroll).toMatchObject({ uan: '100200300400', pfNumber: 'KABLR00112230000099', esiNumber: '3100445566' });
+  });
+
+  it('the company export: Auditor takes People with identifiers masked and no HR-only, confidential or binned file; the owner takes it whole', async () => {
+    const taken = await api(as.Auditor).get('/export?scope=data').expect(200);
+    const text = JSON.stringify(taken.body);
+    expect(taken.body.data['people.employee'].some((e: any) => e.id === emp.id)).toBe(true);
+    for (const clear of ['K1234567', 'ABCPE1234F', '100200300400', 'KABLR00112230000099', '987654321012']) expect(text, clear).not.toContain(clear);
+    expect(taken.body.data['people.employeeIdentity'].find((i: any) => i.employeeId === emp.id).passportNumber).toMatch(/\*+4567$/);
+    for (const title of ['Offer letter HRONLY', 'Medical note CONFIDENTIAL', 'Old contract BINNED', 'Handbook receipt']) expect(text, title).not.toContain(title);
+    const whole = JSON.stringify((await api(boss).get('/export?scope=data').expect(200)).body);
+    for (const kept of ['K1234567', 'Offer letter HRONLY', 'Medical note CONFIDENTIAL', 'Old contract BINNED']) expect(whole, kept).toContain(kept);
+  });
+
+  it('leave already taken, imported, is approved as it lands: HR User is refused it, HR Manager imports', async () => {
+    const type = (await api(boss).post('/attendance/leave/types', { name: `Earned ${rnd()}`, annualDays: 20 }).expect(201)).body.type;
+    const rows = [{ employeeCode: 'RT-1', leaveType: type.name, from: '2026-10-06', to: '2026-10-06', reason: 'Imported' }];
+    for (const dryRun of [true, false]) {
+      const refused = await api(as['HR User']).post('/attendance/leave/requests/import', { rows, dryRun }).expect(403);
+      expect(refused.body.permission).toMatchObject({ module: 'ATTENDANCE', subModule: 'Leave Requests', action: 'APPROVE' });
+    }
+    expect((await runInTenant(boss.orgId, () => peoplePrisma.leaveRequest.count({ where: { orgId: boss.orgId, leaveTypeId: type.id } })))).toBe(0);
+    const done = await api(as['HR Manager']).post('/attendance/leave/requests/import', { rows }).expect(200);
+    expect(done.body.imported).toBe(1);
+  });
+
+  it('a leave rule naming HR User’s role gives HR User no decision; nor can HR User stand in for leave', async () => {
+    const roles = (await api(boss).get('/roles').expect(200)).body.roles;
+    const roleId = (name: string) => roles.find((r: any) => r.name === name).id;
+    const step = (name: string) => runInTenant(boss.orgId, () => leaveStepDeciders(boss.accountId!, boss.orgId, { kind: 'ROLE', id: roleId(name) } as any, emp.id));
+    expect(await step('HR User')).toEqual([]);
+    expect(await step('HR Manager')).toContain(as['HR Manager'].userId);
+    const leave = await runInTenant(boss.orgId, () => deciders(boss.accountId!, boss.orgId, ['LEAVE']));
+    expect(leave.has(as['HR User'].userId)).toBe(false);
+    expect(leave.has(as['HR Manager'].userId)).toBe(true);
+    /* HR User still decides People requests, and may stand in for those. */
+    expect((await runInTenant(boss.orgId, () => deciders(boss.accountId!, boss.orgId, ['PROFILE_CHANGE']))).has(as['HR User'].userId)).toBe(true);
+  });
+
+  it('a compliance deadline’s evidence opens only for who sees statutory details', async () => {
+    const task = await runInTenant(boss.orgId, () => peoplePrisma.complianceTask.create({ data: { accountId: boss.accountId!, orgId: boss.orgId, code: 'PF_ECR', period: '2026-10', title: 'PF ECR', dueDate: '2026-11-15', evidenceName: 'ecr.txt', evidenceMime: 'text/plain', evidenceData: Buffer.from('UAN 100200300400') } }));
+    await api(as.Auditor).get(`/people/compliance/${task.id}/evidence`).expect(404);
+    await api(as['HR Manager']).get(`/people/compliance/${task.id}/evidence`).expect(200);
   });
 
   it('Auditor reads the employee list with joining and leaving dates, and the audit trail; changes nothing', async () => {

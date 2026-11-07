@@ -1465,7 +1465,9 @@ peopleRouter.post('/orgs/:orgId/people/compliance', can(PermissionAction.EDIT, E
 peopleRouter.patch('/orgs/:orgId/people/compliance/:id', can(PermissionAction.EDIT, EMPLOYEES), calendarMoved);
 
 peopleRouter.get('/orgs/:orgId/people/compliance/:id/evidence', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
-  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
+  /* A deadline's challan carries Payroll's figures: only for who sees statutory details, as a Compliance proof (peopleCompliance.ts). */
+  if (!(await seesPersonal(req))) return res.status(404).json({ error: 'No evidence kept for this deadline.' });
   const file = await evidenceOf(req.tenant!.orgId, String(req.params.id));
   if (!file) return res.status(404).json({ error: 'No evidence kept for this deadline.' });
   res.json({ evidence: file });
