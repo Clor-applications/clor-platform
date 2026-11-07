@@ -1,0 +1,21 @@
+{
+  "displayName": "CLOR backup: a run failed",
+  "documentation": {
+    "content": "An execution of the off-host backup job clor-backup failed. Read its log for the line starting 'backup: FAILED'. Runbook: docs/BACKUP-AND-RESTORE.md.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "clor-backup: failed execution",
+      "conditionThreshold": {
+        "filter": "resource.type = \"cloud_run_job\" AND resource.labels.job_name = \"clor-backup\" AND metric.type = \"run.googleapis.com/job/completed_execution_count\" AND metric.labels.result = \"failed\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0,
+        "duration": "0s",
+        "aggregations": [{ "alignmentPeriod": "300s", "perSeriesAligner": "ALIGN_SUM" }]
+      }
+    }
+  ],
+  "notificationChannels": ["CHANNEL"]
+}

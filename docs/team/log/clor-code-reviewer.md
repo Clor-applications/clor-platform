@@ -1,5 +1,11 @@
 # clor-code-reviewer
 
+## 2026-11-05 IST — Devops — review of #129 632e8cd7 (encrypted off-host backups)
+- Did: reviewed in code and locally; request changes: restore trusts any archive (MANIFEST SQL injection made a superuser; COPY TO PROGRAM via a forged dump), RLS guard matches text not meaning (0 of 300 rows passed), restore leaves partial databases, runbook overstates account-loss cover, silent schedule failure, unpinned image, keys written to ~/Desktop.
+- Evidence: test-local 18 passed; real schema of 313 tables backed up as clor_backup under both grant paths; probes reproduced 1 and 2.
+- Next: devops fixes; re-review.
+- Blocked on: nothing.
+
 ## 2026-11-04 IST — People — re-review of #123 63eeccd6
 - Did: re-reviewed the colour fixes; not ready: Home's waiting panel clay while Announcements/Celebrate marigold; JSX still picks tints by index (news, events, org cards, org chart, structure), so a department changes colour per screen; faces include a marigold hue.
 - Evidence: CI green; 83 tests passed; Payroll Salary revisions 0 pixels differ at 1440 and 390; contrast 5.53–8.98:1; no sideways scroll at 390.

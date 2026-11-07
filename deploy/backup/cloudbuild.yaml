@@ -1,0 +1,13 @@
+# Builds the backup job image. Run from the repo root, as the clor-build account,
+# always with the commit it is built from (there is no default tag):
+#   gcloud builds submit --config deploy/backup/cloudbuild.yaml --substitutions=_TAG=$(git rev-parse --short HEAD) \
+#     --service-account=projects/clor-apps-511409/serviceAccounts/clor-build@clor-apps-511409.iam.gserviceaccount.com deploy/backup
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/clor/backup:${_TAG}', '.']
+images:
+  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/clor/backup:${_TAG}'
+options:
+  # A build without --substitutions=_TAG=... fails instead of tagging "manual".
+  substitutionOption: MUST_MATCH
+  logging: CLOUD_LOGGING_ONLY

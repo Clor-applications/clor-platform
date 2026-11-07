@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# NOT USED BY PRODUCTION. Production is Cloud SQL (Cloud Run API). Its backups,
+# including the encrypted off-host copy, are in docs/BACKUP-AND-RESTORE.md and
+# deploy/backup/. This script is for a self-hosted single box. It writes
+# UNENCRYPTED archives on the database host, so it is not enough by itself.
+#
 # A backup of the live books, and a restore that has been proved to work.
 #
 # Two rewrites, for the same reason each time: this script described a
