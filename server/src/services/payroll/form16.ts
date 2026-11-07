@@ -53,7 +53,8 @@ export async function taxYear(orgId: string, fy: string, only?: string, by: 'PER
   const inYear =
     by === 'PAYMENT'
       ? null
-      : await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { gte: from, lte: to } }, select: { id: true } });
+      : /* By the period's last day (review of #146, 3): 26 March to 25 April is the new year's April. */
+        await payrollPrisma.payrollPeriod.findMany({ where: { orgId, endDate: { gte: from, lte: to } }, select: { id: true } });
   const runs = await payrollPrisma.payrollRun.findMany({
     where: { orgId, status: { in: SETTLED }, ...(inYear ? { periodId: { in: inYear.map((p) => p.id) } } : { payrollDate: { gte: from, lte: to } }) },
     select: { id: true, payrollDate: true, periodId: true },
@@ -78,8 +79,9 @@ export async function taxYear(orgId: string, fy: string, only?: string, by: 'PER
     const period = periods.get(run.periodId);
     const snap = snapshotPerson(slip.employeeSnapshotJson);
     const a = acc.get(slip.employeeId) || { employeeId: slip.employeeId, name: snap.name || '', code: snap.code || '', months: new Map(), gross: 0, taxable: 0, employerNps: 0, pt: 0, basic: 0, hra: 0, pf: 0, tds: 0 };
-    const key = by === 'PAYMENT' ? run.payrollDate.slice(0, 7) : String(period?.startDate || run.payrollDate).slice(0, 7);
-    const m = a.months.get(key) || { month: key, paymentDate: period?.paymentDate || period?.endDate || run.payrollDate, gross: 0, tds: 0 };
+    /* PAYMENT (24Q): the day tax was deducted is the day the payroll paid, run.payrollDate, not the period's planned date (review of #146, 7). */
+    const key = by === 'PAYMENT' ? run.payrollDate.slice(0, 7) : String(period?.endDate || run.payrollDate).slice(0, 7);
+    const m = a.months.get(key) || { month: key, paymentDate: by === 'PAYMENT' ? run.payrollDate : period?.paymentDate || period?.endDate || run.payrollDate, gross: 0, tds: 0 };
     const gross = Number(slip.grossEarnings) || 0;
     let tds = 0;
     for (const l of slip.lines) {
@@ -116,6 +118,10 @@ export async function taxYear(orgId: string, fy: string, only?: string, by: 'PER
     a.tds = round2(a.tds + o.tds);
     a.pt = round2(a.pt + o.professionalTax);
     a.pf = round2(a.pf + o.employeePf);
+    /* HRA exemption and 80CCD(2) read these as they read a payslip's (review of #146, 4). */
+    a.basic = round2(a.basic + (o.basicDa || 0));
+    a.hra = round2(a.hra + (o.hraReceived || 0));
+    a.employerNps = round2(a.employerNps + (o.employerNps || 0));
     acc.set(employeeId, a);
   }
 
@@ -188,7 +194,7 @@ export async function taxYear(orgId: string, fy: string, only?: string, by: 'PER
 }
 
 async function openingIds(orgId: string, fy: string) {
-  return (await payrollPrisma.payrollOpeningYtd.findMany({ where: { orgId, financialYear: fy }, select: { employeeId: true } })).map((r) => r.employeeId);
+  return (await payrollPrisma.payrollOpeningYtd.findMany({ where: { orgId, financialYear: fy, deletedAt: null }, select: { employeeId: true } })).map((r) => r.employeeId);
 }
 
 export async function employerFor(orgId: string) {

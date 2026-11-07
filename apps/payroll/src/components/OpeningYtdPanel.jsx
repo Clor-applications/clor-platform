@@ -34,9 +34,16 @@ const TEMPLATE_COLUMNS = [
   { key: 'tds', label: 'tds', value: (p) => p.opening?.tds ?? '' },
   { key: 'pt', label: 'pt', value: (p) => p.opening?.professionalTax ?? '' },
   { key: 'pf', label: 'pf', value: (p) => p.opening?.employeePf ?? '' },
-  { key: 'through', label: 'through', value: (p) => p.opening?.throughMonth ?? '' },
+  { key: 'basic', label: 'basic', value: (p) => p.opening?.basicDa ?? '' },
+  { key: 'hra', label: 'hra', value: (p) => p.opening?.hraReceived ?? '' },
+  { key: 'nps', label: 'nps', value: (p) => p.opening?.employerNps ?? '' },
+  /* As words ("Sep 2026"): a spreadsheet turns 2026-09 into a date. The import takes either. */
+  { key: 'through', label: 'through', value: (p) => throughWords(p.opening?.throughMonth) },
   { key: 'note', label: 'note', value: (p) => p.opening?.note ?? '' },
 ];
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const throughWords = (ym) => (ym && /^\d{4}-\d{2}$/.test(ym) ? `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}` : '');
 
 function Panel({ fy, onClose, onOpenPerson }) {
   const [data, setData] = useState(null);
@@ -96,7 +103,8 @@ function Panel({ fy, onClose, onOpenPerson }) {
   };
 
   const people = data?.people || [];
-  const missing = people.filter((p) => !p.opening).length;
+  /* Only the people the payroll will ask about (the server's rule), not everyone without a row. */
+  const missing = people.filter((p) => p.needsFigures).length;
 
   return (
     <Drawer
@@ -104,7 +112,7 @@ function Panel({ fy, onClose, onOpenPerson }) {
       onClose={onClose}
       widthClass="w-[min(44rem,96vw)]"
       title={`Earlier this year · FY ${fy}`}
-      description="Pay from April until payroll moved to CLOR, so income tax for the rest of the year starts from the right place."
+      description="What this company paid from April, or from joining, until payroll moved to CLOR, so income tax for the rest of the year starts from the right place."
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-ghost" disabled={!data} onClick={template}>Download the file to fill</button>
@@ -176,14 +184,14 @@ function Panel({ fy, onClose, onOpenPerson }) {
                         {p.name}
                         {p.code ? <span className="ui-caption"> · {p.code}</span> : null}
                       </td>
-                      <td className="ui-col-amount">{p.opening ? money(p.opening.grossPay) : <span className="ui-caption">Not entered</span>}</td>
+                      <td className="ui-col-amount">{p.opening ? money(p.opening.grossPay) : <span className="ui-caption">{p.needsFigures ? 'Needed' : 'Not entered'}</span>}</td>
                       <td className="ui-col-amount">{p.opening ? money(p.opening.tds) : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <p className="ui-caption">Open someone to enter or change their figures. The file takes the same columns: code, gross, taxable, tds, pt, pf, through and note.</p>
+            <p className="ui-caption">Open someone to enter or change their figures. The file takes the same columns: code, gross, taxable, tds, pt, pf, basic, hra, nps, through and note. A previous employer’s pay goes in Form 12B, not here.</p>
           </section>
         </div>
       )}

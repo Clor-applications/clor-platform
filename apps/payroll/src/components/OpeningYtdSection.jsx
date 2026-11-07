@@ -7,20 +7,26 @@ import { deleteOpeningYtd, getOpeningYtd, saveOpeningYtd } from '../api/payrollT
  * One person's pay earlier in the financial year, before CLOR ran payroll
  * (opening year-to-date figures). Income tax for the rest of the year counts
  * it as pay and tax so far; Form 16 adds it in. Saved on its own, apart from
- * the declaration, and open even once the proofs are verified.
+ * the declaration, and open even once the proofs are verified. Only this
+ * company's pay: a previous employer's goes in Form 12B.
  */
 const FIELDS = [
   ['grossPay', 'Gross pay', 'Everything paid in those months.'],
-  ['taxablePay', 'Taxable pay', 'Left blank, the gross is used.'],
+  ['taxablePay', 'Taxable pay', 'Left blank, the gross (and employer NPS) is used.'],
   ['tds', 'Income tax deducted', ''],
   ['professionalTax', 'Professional tax', ''],
   ['employeePf', 'Employee PF', 'Their own share, for 80C.'],
+  ['basicDa', 'Basic and DA', 'For the HRA exemption and the NPS limit.'],
+  ['hraReceived', 'HRA received', 'For the HRA exemption.'],
+  ['employerNps', 'Employer NPS', 'Deducted under 80CCD(2).'],
 ];
 
-const empty = { grossPay: '', taxablePay: '', tds: '', professionalTax: '', employeePf: '', throughMonth: '', note: '' };
+const empty = { grossPay: '', taxablePay: '', tds: '', professionalTax: '', employeePf: '', basicDa: '', hraReceived: '', employerNps: '', throughMonth: '', note: '' };
 const formOf = (o) => (o ? Object.fromEntries(Object.keys(empty).map((k) => [k, o[k] ?? ''])) : empty);
 
-export default function OpeningYtdSection({ employeeId, fy, onChanged }) {
+const hasPrevious = (p) => Boolean(p && (p.name || Number(p.income) > 0 || Number(p.tds) > 0));
+
+export default function OpeningYtdSection({ employeeId, fy, onChanged, joinedOn, previousEmployer }) {
   const [saved, setSaved] = useState(undefined);
   const [form, setForm] = useState(empty);
   const [busy, setBusy] = useState(false);
@@ -41,6 +47,10 @@ export default function OpeningYtdSection({ employeeId, fy, onChanged }) {
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const start = Number(String(fy).slice(0, 4));
+  const joined = joinedOn ? String(joinedOn).slice(0, 10) : '';
+  /* Joined after 1 April with a Form 12B: the figures here are this company's months only (review of #146, 5). */
+  const joinedThisYear = joined > `${start}-04-01`;
+  const warnPrevious = joinedThisYear && hasPrevious(previousEmployer) && Number(form.grossPay || form.taxablePay) > 0;
 
   const save = async () => {
     setBusy(true);
@@ -57,7 +67,7 @@ export default function OpeningYtdSection({ employeeId, fy, onChanged }) {
     }
   };
   const remove = async () => {
-    const ok = await confirmDialog({ title: 'Remove these figures?', message: 'The next payroll will treat this year as if nothing was paid before CLOR.', confirmLabel: 'Remove', tone: 'danger' });
+    const ok = await confirmDialog({ title: 'Remove these figures?', message: 'The next payroll will treat this year as if nothing was paid before CLOR. A payroll already worked out will ask to be calculated again.', confirmLabel: 'Remove', tone: 'danger' });
     if (!ok) return;
     setBusy(true);
     try {
@@ -78,10 +88,12 @@ export default function OpeningYtdSection({ employeeId, fy, onChanged }) {
       <div>
         {/* Same weight as the Form 12B heading above it in the drawer. */}
         <span id={`opening-${employeeId}`} className="ui-label">Earlier this year, before CLOR</span>
-        <p className="ui-caption">
-          What this company paid them from April {start} until payroll moved to CLOR, and the tax taken from it. Tax for the rest of the year starts from here. Enter nil if they were
-          paid nothing.
-        </p>
+        <p className="ui-caption">What this company paid them from April, or from joining. A previous employer goes in Form 12B above.</p>
+        {warnPrevious ? (
+          <p className="ui-caption" style={{ color: 'rgb(var(--warn-ink))' }} role="note">
+            They joined on {joined} and have a previous employer in Form 12B. Enter only what this company paid since {joined}; the previous employer’s pay entered here as well is taxed twice.
+          </p>
+        ) : null}
       </div>
       <fieldset disabled={busy || saved === undefined} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {FIELDS.map(([key, label, hint]) => (

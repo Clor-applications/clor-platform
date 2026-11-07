@@ -17,7 +17,10 @@ import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from '.
 import { PAYROLL_HISTORY, PAYROLL_SETUP, lockPayrollEmployee } from '../services/payroll/employeeLock.js';
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { BANK_FIELDS, BankChangeError, approveBankChange, maskNumber, rejectBankChange, routeBankUpdate } from '../services/payroll/bankChanges.js';
-import { requirePayrollStepUp } from '../services/stepUp.js';
+import { requirePayrollStepUp, stepUpIfEnrolledRefusal } from '../services/stepUp.js';
+import { REGIME_LOCKED_MESSAGE, financialYearOf, regimeFixedForYear, regimeInForce } from '../services/payroll/taxDeclaration.js';
+import { todayIst } from '../utils/istDate.js';
+import { recordAudit } from '../services/auditTrail.js';
 import { nomineesOf } from '../services/payroll/statutoryWrite.js';
 import { costCentreRefusal } from '../services/payroll/accounting/references.js';
 
@@ -317,6 +320,34 @@ payrollEmployeesRouter.put(
 
     if (body.dateOfLeaving && body.dateOfJoining && body.dateOfLeaving < body.dateOfJoining) {
       return res.status(400).json({ error: 'Somebody cannot leave before they joined.' });
+    }
+
+    /*
+     * The tax regime is fixed for the year once a payslip went out on it
+     * (CBDT Circular 04/2023; review of #146, 10). Here it is the profile's
+     * regime, which counts only while the year has no declaration (the
+     * declaration's wins). An owner or administrator may override, with a
+     * reason and a fresh authenticator code where they have one.
+     */
+    if (body.payroll?.taxRegime) {
+      const fy = financialYearOf(todayIst());
+      const inForce = await regimeInForce(orgId, existing.id, fy);
+      const declared = await payrollPrisma.taxDeclaration.count({ where: { orgId, employeeId: existing.id, financialYear: fy } });
+      if (!declared && body.payroll.taxRegime !== inForce && (await regimeFixedForYear(orgId, existing.id, fy))) {
+        const reason = String((req.body?.payroll as any)?.regimeOverrideReason || '').trim().slice(0, 300);
+        if (!reason) return res.status(409).json({ error: REGIME_LOCKED_MESSAGE, code: 'REGIME_LOCKED' });
+        if (!req.isAdmin) return res.status(403).json({ error: 'Only an owner or administrator can change the tax regime once the year has started.', code: 'ADMIN_ONLY' });
+        if (reason.length < 5) return res.status(400).json({ error: 'Say in a few words why the regime changes mid-year.', code: 'NO_REASON' });
+        const stepUp = await stepUpIfEnrolledRefusal(req);
+        if (stepUp) return res.status(stepUp.status).json(stepUp.body);
+        await recordAudit(req, {
+          entity: 'EMPLOYEE_PAYROLL_PROFILE',
+          entityId: existing.id,
+          action: 'REGIME_OVERRIDE',
+          message: `Changed ${existing.name}’s tax regime for ${fy} from ${inForce} to ${body.payroll.taxRegime} after payslips went out: ${reason}`,
+          metadata: { employeeId: existing.id, financialYear: fy, from: inForce, to: body.payroll.taxRegime, reason },
+        });
+      }
     }
 
     const code = blank(body.code);

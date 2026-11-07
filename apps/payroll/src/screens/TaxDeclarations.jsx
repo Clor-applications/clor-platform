@@ -15,6 +15,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import OpeningYtdPanel from '../components/OpeningYtdPanel';
 import OpeningYtdSection from '../components/OpeningYtdSection';
 import { wholeRupees as money } from '@ui/utils/money';
+import SuggestInput from '@ui/components/ui/SuggestInput';
 import { escapeHtml } from '@ui/utils/html';
 
 const STATUS = {
@@ -219,6 +220,9 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
   }, [employeeId, fy]);
 
   const verified = d?.status === 'VERIFIED';
+  /* The regime is fixed once a payslip went out (CBDT Circular 04/2023); an owner or administrator may change it with a reason. */
+  const [regimeLocked, setRegimeLocked] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const setItem = (code, patch) => setForm((f) => ({ ...f, items: f.items.map((i) => (i.code === code ? { ...i, ...patch } : i)) }));
 
@@ -227,8 +231,11 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
     try {
       take(await fn());
       notify.success(done);
+      setRegimeLocked(false);
+      setOverrideReason('');
       onChanged();
     } catch (e) {
+      if (e?.code === 'REGIME_LOCKED') setRegimeLocked(true);
       notify.error(String(e?.message || 'Not saved.'));
     } finally {
       setBusy(false);
@@ -236,6 +243,7 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
   };
   const body = () => ({
     regime: form.regime,
+    ...(regimeLocked && overrideReason.trim() ? { regimeOverrideReason: overrideReason.trim() } : {}),
     items: form.items.map((i) => ({ code: i.code, declared: Number(i.declared) || 0, verified: i.verified === '' ? null : Number(i.verified) || 0, note: i.note || null })),
     monthlyRent: Number(form.monthlyRent) || 0,
     metroCity: form.metroCity,
@@ -316,6 +324,13 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
                 </label>
               ))}
             </div>
+            {regimeLocked ? (
+              <div className="mt-2 max-w-xl">
+                <label className="ui-label" htmlFor="tx-regime-why">Why the regime changes after payslips went out</label>
+                <SuggestInput id="tx-regime-why" value={overrideReason} onChange={setOverrideReason} maxLength={300} placeholder="e.g. Chose the old regime in April; entered wrongly" suggestions={[]} aria-label="Why the regime changes" />
+                <span className="ui-caption">Only an owner or administrator can change it now. It is recorded in the audit log.</span>
+              </div>
+            ) : null}
           </div>
 
           {form.regime === 'OLD' ? (
@@ -406,7 +421,7 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
           </div>
         </fieldset>
       )}
-      {form ? <OpeningYtdSection employeeId={employeeId} fy={fy} onChanged={onChanged} /> : null}
+      {form ? <OpeningYtdSection employeeId={employeeId} fy={fy} onChanged={onChanged} joinedOn={d?.dateOfJoining} previousEmployer={form.previousEmployer} /> : null}
     </Drawer>
   );
 }

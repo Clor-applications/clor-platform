@@ -23,6 +23,7 @@ import jwt from 'jsonwebtoken';
 const { buildApp } = await import('../app.js');
 const { payrollPrisma } = await import('../utils/payrollPrisma.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
+const { platformPrisma } = await import('../utils/platformPrisma.js');
 
 const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
@@ -60,7 +61,24 @@ async function makeOwner(): Promise<Ctx> {
 const mk = async (c: Ctx, payload: Record<string, unknown>) => (await api.post(c, '/components', payload).expect(201)).body.component.id as string;
 
 /** Meera's structure and Meera, on it from 1 April 2026. */
-async function meera(c: Ctx, opts: { joined?: string; code?: string } = {}) {
+const structures = new Map<string, string>();
+async function meera(c: Ctx, opts: { joined?: string; code?: string; leaving?: string; extra?: Record<string, unknown> } = {}) {
+  /* A second person in the same company goes on the same structure. */
+  const structureId = structures.get(c.orgId) || (await staffStructure(c, opts.extra));
+  structures.set(c.orgId, structureId);
+  const code = opts.code || `M${rnd().toUpperCase()}`;
+  const made = await api
+    .post(c, '/employees', {
+      name: 'Meera Shetty', code, dateOfJoining: opts.joined || '2026-04-01', ...(opts.leaving ? { dateOfLeaving: opts.leaving } : {}), status: 'ACTIVE',
+      payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW', pan: 'ABCDE1234F', pfApplicable: true },
+    })
+    .expect(201);
+  const employeeId = made.body.employee.id as string;
+  await api.post(c, '/assignments', { employeeId, structureId, effectiveFrom: opts.joined && opts.joined > '2026-04-01' ? opts.joined : '2026-04-01', annualCtc: 2_181_600 }).expect(201);
+  return { employeeId, code };
+}
+
+async function staffStructure(c: Ctx, extra?: Record<string, unknown>) {
   const ids = [
     await mk(c, { name: 'Basic', code: 'BASIC', type: 'EARNING', calculationMethod: 'PERCENTAGE', percentage: 50, calculationBase: 'MONTHLY_CTC', includeInPfWage: true, displayOrder: 1 }),
     await mk(c, { name: 'HRA', code: 'HRA', type: 'EARNING', calculationMethod: 'PERCENTAGE', percentage: 40, calculationBase: 'BASIC', displayOrder: 2 }),
@@ -68,6 +86,7 @@ async function meera(c: Ctx, opts: { joined?: string; code?: string } = {}) {
     await mk(c, { name: 'Employer PF', code: 'ER_PF', type: 'EMPLOYER_CONTRIBUTION', calculationMethod: 'STATUTORY', statutoryScheme: 'PF', includeInGross: false, includeInNetPay: false, isTaxable: false, displayOrder: 4 }),
     await mk(c, { name: 'Employee PF', code: 'EE_PF', type: 'DEDUCTION', calculationMethod: 'STATUTORY', statutoryScheme: 'PF', includeInGross: false, isTaxable: false, displayOrder: 10 }),
     await mk(c, { name: 'Income tax', code: 'TDS', type: 'DEDUCTION', calculationMethod: 'STATUTORY', statutoryScheme: 'TDS', includeInGross: false, isTaxable: false, displayOrder: 11 }),
+    ...(extra ? [await mk(c, { displayOrder: 5, ...extra })] : []),
   ];
   const structure = await api
     .post(c, '/structures', {
@@ -75,24 +94,15 @@ async function meera(c: Ctx, opts: { joined?: string; code?: string } = {}) {
       components: ids.map((componentId, i) => ({ componentId, displayOrder: i + 1, ...(i === 2 ? { isBalancing: true } : {}) })),
     })
     .expect(201);
-  const code = opts.code || `M${rnd().toUpperCase()}`;
-  const made = await api
-    .post(c, '/employees', {
-      name: 'Meera Shetty', code, dateOfJoining: opts.joined || '2026-04-01', status: 'ACTIVE',
-      payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW', pan: 'ABCDE1234F', pfApplicable: true },
-    })
-    .expect(201);
-  const employeeId = made.body.employee.id as string;
-  await api.post(c, '/assignments', { employeeId, structureId: structure.body.structure.id, effectiveFrom: opts.joined || '2026-04-01', annualCtc: 2_181_600 }).expect(201);
-  return { employeeId, code };
+  return structure.body.structure.id as string;
 }
 
 const period = async (c: Ctx, start: string, end: string, paid: string) =>
   (await api.post(c, '/periods', { name: `${start.slice(0, 7)} ${rnd()}`, startDate: start, endDate: end, paymentDate: paid }).expect(201)).body.period.id as string;
 
 /** Validate and calculate a run for the period; approve it too when asked. */
-async function run(c: Ctx, periodId: string, approve = false) {
-  const id = (await api.post(c, '/runs', { periodId }).expect(201)).body.run.id as string;
+async function run(c: Ctx, periodId: string, approve = false, payrollDate?: string) {
+  const id = (await api.post(c, '/runs', { periodId, ...(payrollDate ? { payrollDate } : {}) }).expect(201)).body.run.id as string;
   const checks = (await api.post(c, `/runs/${id}/validate`).expect(200)).body;
   const calc = await api.post(c, `/runs/${id}/calculate`);
   if (approve) {
@@ -114,7 +124,7 @@ describe('#2 opening figures before a first payroll after April', () => {
     const r = await run(c, await period(c, '2026-10-01', '2026-10-31', '2026-10-31'));
     const issue = r.checks.issues.find((i: any) => i.code === 'NO_OPENING_YTD');
     expect(issue).toMatchObject({ severity: 'ERROR', employeeId });
-    expect(issue.message).toMatch(/Meera Shetty was paid here before October 2026, outside CLOR/);
+    expect(issue.message).toMatch(/Meera Shetty was employed here before October 2026 but has no earlier payslip in CLOR this year/);
     expect(r.calc.status).not.toBe(200);
     expect(r.slips).toHaveLength(0);
   });
@@ -188,18 +198,34 @@ describe('#2 opening figures before a first payroll after April', () => {
     const row = (await api.get(c, `/tax-declarations/${a.employeeId}?fy=2026-27`).expect(200)).body.opening;
     expect(row).toMatchObject({ grossPay: 1_080_000, tds: 115_050, professionalTax: 1_200, employeePf: 10_800, throughMonth: '2026-09' });
     await api.del(c, `/opening-ytd/${a.employeeId}?fy=2026-27`).expect(200);
-    expect(await payrollPrisma.payrollOpeningYtd.count({ where: { orgId: c.orgId } })).toBe(0);
+    /* Kept as a removed row (a calculated payroll sees the change), read as none. */
+    expect(await payrollPrisma.payrollOpeningYtd.count({ where: { orgId: c.orgId, deletedAt: null } })).toBe(0);
+    expect((await api.get(c, `/tax-declarations/${a.employeeId}?fy=2026-27`).expect(200)).body.opening).toBeNull();
   });
 
-  it('is not entered by the person it is about', async () => {
+  it('a one-person company starting in October: the owner enters their own, audited (review of #146, 1)', async () => {
     const c = await makeOwner();
     const { employeeId } = await meera(c);
     const userId = (jwt.decode(c.token) as any).userId as string;
-    expect(userId).toBeTruthy();
     await peoplePrisma.employee.update({ where: { id: employeeId }, data: { userId } });
-    const res = await opening(c, employeeId, { grossPay: 1 });
+    await opening(c, employeeId, { grossPay: 1_080_000, tds: 115_050 }).expect(200);
+    expect(await platformPrisma.auditLog.count({ where: { orgId: c.orgId, action: 'SELF_ENTRY_SOLE_USER' } })).toBe(1);
+    const r = await run(c, await period(c, '2026-10-01', '2026-10-31', '2026-10-31'));
+    expect(r.line(employeeId, 'TDS')).toBe(19_175);
+  });
+
+  it('is not entered by the person it is about while somebody else could', async () => {
+    const c = await makeOwner();
+    const { employeeId, code } = await meera(c);
+    const other = await member(c);
+    await peoplePrisma.employee.update({ where: { id: employeeId }, data: { userId: other.userId } });
+    const res = await opening(other, employeeId, { grossPay: 1 });
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('OWN_RECORD');
+    const file = await api.post(other, '/opening-ytd/import?fy=2026-27', { csv: `code,gross\n${code},1\n` });
+    expect(file.status).toBe(400);
+    expect(file.body.problems[0].message).toMatch(/your own pay record/);
+    expect(await payrollPrisma.payrollOpeningYtd.count({ where: { orgId: c.orgId } })).toBe(0);
   });
 
   it('another company cannot see or write them', async () => {
@@ -275,5 +301,159 @@ describe('#15 a one-off counts in the year once', () => {
      * Times six it would have been 28,80,000 of pay and 39,000 a month.
      */
     expect(r.line(employeeId, 'TDS')).toBe(24_375);
+  });
+});
+
+
+/** Another active administrator in the company (holds Payroll's edit and approve rights). */
+async function member(c: Ctx): Promise<Ctx & { userId: string }> {
+  const ownerId = (jwt.decode(c.token) as any).userId as string;
+  const org = await platformPrisma.org.findUniqueOrThrow({ where: { id: c.orgId }, select: { accountId: true } });
+  const { ensureDefaultRoles } = await import('../services/defaultRoles.js');
+  await ensureDefaultRoles(org.accountId, c.orgId, ownerId);
+  const email = `tdsp2.${Date.now()}.${rnd()}@example.com`;
+  const made = await request(app).post('/api/users').set(at(c)).send({ email, fullName: `Member ${rnd()}`, password: 'Passw0rd!23', orgIds: [c.orgId], branchIdsByOrg: { [c.orgId]: [c.branchId] } }).expect(201);
+  const role = await platformPrisma.role.findFirstOrThrow({ where: { orgId: c.orgId, roleType: 'ADMIN' }, select: { id: true } });
+  await request(app).put(`/api/orgs/${c.orgId}/users/${made.body.user.id}/role`).set(at(c)).send({ roleId: role.id }).expect(200);
+  const login = await request(app).post('/api/auth/login').send({ emailOrUsername: email, password: 'Passw0rd!23' }).expect(200);
+  return { ...c, token: login.body.token, userId: made.body.user.id };
+}
+
+describe('review of #146', () => {
+  it('2: per person: a pay group moved onto CLOR in October needs figures, the group paid here since April does not', async () => {
+    const c = await makeOwner();
+    const a = await meera(c, { code: `A${rnd().toUpperCase()}` });
+    await run(c, await period(c, '2026-04-01', '2026-04-30', '2026-04-30'), true);
+    /* Group B: employed since 2025, paid elsewhere until October. */
+    const b = await meera(c, { code: `B${rnd().toUpperCase()}`, joined: '2025-06-01' });
+    const r = await run(c, await period(c, '2026-10-01', '2026-10-31', '2026-10-31'));
+    const missing = r.checks.issues.filter((i: any) => i.code === 'NO_OPENING_YTD').map((i: any) => i.employeeId);
+    expect(missing).toEqual([b.employeeId]);
+    expect(missing).not.toContain(a.employeeId);
+    /* The list counts only who the payroll will ask about. */
+    const list = (await api.get(c, '/opening-ytd?fy=2026-27').expect(200)).body.people;
+    expect(list.find((p: any) => p.employeeId === a.employeeId).needsFigures).toBe(false);
+  });
+
+  it('3: a 26th–25th cycle is keyed on the period end, across the April turn', async () => {
+    const c = await makeOwner();
+    const { employeeId } = await meera(c);
+    await opening(c, employeeId, { grossPay: 1_800_000, tds: 150_000 }).expect(200);
+    /* 26 Jan – 25 Feb is February: two months left, as the calendar February above. */
+    const feb = await run(c, await period(c, '2027-01-26', '2027-02-25', '2027-02-28'), true);
+    expect(feb.line(employeeId, 'TDS')).toBe(40_050);
+    const mar = await run(c, await period(c, '2027-02-26', '2027-03-25', '2027-03-31'), true);
+    expect(mar.line(employeeId, 'TDS')).toBe(40_050);
+    /* 26 March – 25 April is April 2027: a new year, twelve months, nothing so far, no opening figures asked. */
+    const apr = await run(c, await period(c, '2027-03-26', '2027-04-25', '2027-04-30'));
+    expect(apr.checks.issues.filter((i: any) => i.code === 'NO_OPENING_YTD')).toEqual([]);
+    expect(apr.line(employeeId, 'TDS')).toBe(19_175);
+    const { taxYear } = await import('../services/payroll/form16.js');
+    const [y] = await taxYear(c.orgId, '2026-27');
+    expect(y.months.map((m: any) => m.month)).toEqual(['2027-02', '2027-03']);
+  });
+
+  it('4: Basic and DA, HRA and employer NPS from before CLOR reach Form 16; taxable may exceed gross by NPS', async () => {
+    const c = await makeOwner();
+    const { employeeId } = await meera(c);
+    const tooMuch = await opening(c, employeeId, { grossPay: 1_080_000, taxablePay: 1_200_000, employerNps: 50_000 });
+    expect(tooMuch.status).toBe(400);
+    expect(tooMuch.body.code).toBe('TAXABLE_OVER_GROSS');
+    await opening(c, employeeId, { grossPay: 1_080_000, taxablePay: 1_130_000, tds: 0, basicDa: 540_000, hraReceived: 216_000, employerNps: 50_000 }).expect(200);
+    await api
+      .put(c, `/tax-declarations/${employeeId}?fy=2026-27`, { regime: 'OLD', items: [], monthlyRent: 30_000, metroCity: true, landlordPan: 'ABCDE1234F' })
+      .expect(200);
+    const { taxYear } = await import('../services/payroll/form16.js');
+    const [y] = await taxYear(c.orgId, '2026-27');
+    expect(y.taxableSalary).toBe(1_130_000);
+    expect(y.employerNps).toBe(50_000);
+    /* Least of HRA 2,16,000; rent 3,60,000 less 10% of Basic 54,000; half of Basic 2,70,000. */
+    expect(y.exemptions[0]).toMatchObject({ code: 'HRA', allowed: 216_000 });
+  });
+
+  it('6: removing or changing the figures marks a calculated payroll for that person as changed', async () => {
+    const c = await makeOwner();
+    const { employeeId } = await meera(c);
+    await opening(c, employeeId, { grossPay: 1_080_000, tds: 115_050 }).expect(200);
+    const r = await run(c, await period(c, '2026-10-01', '2026-10-31', '2026-10-31'));
+    const { runStale } = await import('../services/payroll/run.js');
+    const row = () => payrollPrisma.payrollRun.findUniqueOrThrow({ where: { id: r.id } });
+    expect(await runStale(c.orgId, await row())).toBeNull();
+    await new Promise((done) => setTimeout(done, 20));
+    await opening(c, employeeId, { grossPay: 1_080_000, tds: 100_000 }).expect(200);
+    expect(await runStale(c.orgId, await row())).toMatch(/tax declarations/);
+    await api.post(c, `/runs/${r.id}/calculate`).expect(200);
+    expect(await runStale(c.orgId, await row())).toBeNull();
+    await new Promise((done) => setTimeout(done, 20));
+    await api.del(c, `/opening-ytd/${employeeId}?fy=2026-27`).expect(200);
+    expect(await runStale(c.orgId, await row())).toMatch(/tax declarations/);
+  });
+
+  it('7: 24Q goes by the day the payroll paid: a March period paid on 1 April is April in the return', async () => {
+    const c = await makeOwner();
+    const { employeeId } = await meera(c);
+    await opening(c, employeeId, { grossPay: 1_980_000, tds: 190_050 }).expect(200);
+    /* The period planned payment on 31 March; the payroll actually paid on 1 April. */
+    const mar = await run(c, await period(c, '2027-03-01', '2027-03-31', '2027-03-31'), true, '2027-04-01');
+    expect(mar.line(employeeId, 'TDS')).toBe(40_050);
+    const { form24q } = await import('../services/payroll/form16.js');
+    expect((await form24q(c.orgId, '2026-27', 4)).rows).toEqual([]);
+    const q1 = await form24q(c.orgId, '2027-28', 1);
+    expect(q1.rows.map((r: any) => [r.paymentDate, r.tds])).toEqual([['2027-04-01', 40_050]]);
+    expect(q1.months.map((m: any) => m.month)).toEqual(['2027-04']);
+  });
+
+  it('8: a FIXED component flagged "entered each month" is standing pay, and repeats', async () => {
+    const c = await makeOwner();
+    const { employeeId } = await meera(c, { extra: { name: 'Car allowance', code: 'CAR', type: 'EARNING', calculationMethod: 'FIXED', amount: 10_000, isVariable: true } });
+    await opening(c, employeeId, { grossPay: 1_080_000, tds: 115_050 }).expect(200);
+    const r = await run(c, await period(c, '2026-10-01', '2026-10-31', '2026-10-31'));
+    expect(r.line(employeeId, 'CAR')).toBe(10_000);
+    /* Inside the same ₹1,80,000 gross (Special balances it): the year is 21,60,000 as before, 19,175 a month. Counted once it would have been less. */
+    expect(r.line(employeeId, 'TDS')).toBe(19_175);
+  });
+
+  it('9: leaving on 31 December, October spreads the year over October to December', async () => {
+    const c = await makeOwner();
+    const { employeeId } = await meera(c, { leaving: '2026-12-31' });
+    await opening(c, employeeId, { grossPay: 1_080_000, tds: 115_050 }).expect(200);
+    const r = await run(c, await period(c, '2026-10-01', '2026-10-31', '2026-10-31'));
+    /*
+     * 10,80,000 + 1,80,000 × 3 = 16,20,000; less 75,000 = 15,45,000:
+     * 20,000 + 40,000 + 15% of 3,45,000 (51,750) = 1,11,750; cess 4,470; 1,16,220.
+     * Less 1,15,050 already; ÷ 3 = 390. (Spread to March it would be 19,175 and over-deducted.)
+     */
+    expect(r.line(employeeId, 'TDS')).toBe(390);
+  });
+
+  it('10: the regime is fixed once a payslip went out; an owner or administrator overrides with a reason, audited', async () => {
+    const c = await makeOwner();
+    const { employeeId, code } = await meera(c);
+    await opening(c, employeeId, { grossPay: 1_080_000, tds: 115_050 }).expect(200);
+    await run(c, await period(c, '2026-10-01', '2026-10-31', '2026-10-31'), true);
+    const body = { regime: 'OLD', items: [] };
+    const refused = await api.put(c, `/tax-declarations/${employeeId}?fy=2026-27`, body);
+    expect(refused.status).toBe(409);
+    expect(refused.body.code).toBe('REGIME_LOCKED');
+    const profile = await api.put(c, `/employees/${employeeId}`, { name: 'Meera Shetty', code, dateOfJoining: '2026-04-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'OLD', pan: 'ABCDE1234F', pfApplicable: true } });
+    expect(profile.status).toBe(409);
+    expect(profile.body.code).toBe('REGIME_LOCKED');
+    /* The same regime is no change: saving the declaration otherwise still works. */
+    await api.put(c, `/tax-declarations/${employeeId}?fy=2026-27`, { regime: 'NEW', items: [] }).expect(200);
+    await api.put(c, `/tax-declarations/${employeeId}?fy=2026-27`, { ...body, regimeOverrideReason: 'Chose the old regime in April; entered wrongly' }).expect(200);
+    expect(await platformPrisma.auditLog.count({ where: { orgId: c.orgId, action: 'REGIME_OVERRIDE' } })).toBe(1);
+    expect((await api.get(c, `/tax-declarations/${employeeId}?fy=2026-27`).expect(200)).body.declaration.regime).toBe('OLD');
+  });
+
+  it('nits: codes in any case, quoted line breaks, "Sep 2026" and "Sep-26" for the month', async () => {
+    const c = await makeOwner();
+    const a = await meera(c, { code: `Aa${rnd()}` });
+    const b = await meera(c, { code: `Bb${rnd()}` });
+    const csv = `Code,Gross,TDS,Through,Note\n${a.code.toLowerCase()},100,0,Sep 2026,"two\nlines, with a comma"\n${b.code.toUpperCase()},200,0,Sep-26,\n`;
+    await api.post(c, '/opening-ytd/import?fy=2026-27', { csv }).expect(200);
+    const rows = await payrollPrisma.payrollOpeningYtd.findMany({ where: { orgId: c.orgId }, orderBy: { grossPay: 'asc' } });
+    expect(rows.map((r) => [r.throughMonth, r.note])).toEqual([['2026-09', 'two\nlines, with a comma'], ['2026-09', null]]);
+    const { parseThroughMonth } = await import('../services/payroll/openingYtd.js');
+    expect(['2026-09', 'September 2026', '09/2026', '9/2026', 'Sep-26'].map(parseThroughMonth)).toEqual(Array(5).fill('2026-09'));
   });
 });
