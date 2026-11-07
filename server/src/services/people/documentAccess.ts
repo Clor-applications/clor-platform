@@ -58,6 +58,14 @@ export async function docAccessOfUser(accountId: string, orgId: string, userId: 
   return shape(grants, access.ownDocumentsOnly ? await teamOf(orgId, userId) : { all: true });
 }
 
+/** What both readers may open (the stricter of two): a report sent now by one person on a schedule another set up. */
+export function docAccessOfBoth(a: DocAccess, b: DocAccess): DocAccess {
+  const classes = a.classes.filter((c) => b.classes.includes(c));
+  const payslipsOf = a.payslipsOf === 'ALL' ? b.payslipsOf : b.payslipsOf === 'ALL' ? a.payslipsOf : a.payslipsOf === b.payslipsOf ? a.payslipsOf : null;
+  const employeeIds = a.employeeIds === null ? b.employeeIds : b.employeeIds === null ? a.employeeIds : a.employeeIds.filter((id) => b.employeeIds!.includes(id));
+  return { classes, payslipsOf, employeeIds };
+}
+
 /** The `where` for a document query under this access (an AND, so it never overwrites the caller's own employeeId). */
 export const docWhere = (a: DocAccess) => ({
   AND: [

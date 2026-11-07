@@ -1,5 +1,11 @@
 # clor-coder-people — work log
 
+## 2026-11-07 IST — People / PR #143 re-review blocker (report schedules)
+- Did: editing a schedule's report, params or recipients makes the editor the one it reads as (`createdByUserId`); Send now builds with what both the presser and the schedule's owner may open (`docAccessOfBoth`).
+- Evidence: 2 new peopleDocuments tests (editor without document grants mails no file names; a weaker presser's mail has no restricted file) fail on 42074a0c and pass now; peopleDocuments, attendanceReports, reportScheduleDelivery 35 passed on 5434; tsc, lint clean. CI server-tests on the new head.
+- Next: merge decision on #143.
+- Blocked on: nothing.
+
 ## 2026-11-07 IST — People / PR #143 review round (every surface asks the same document rule)
 - Did: the rule moved to `services/people/documentAccess.ts` (`docAccess`, `docAccessOfUser`, `docWhere`, `docOpens`, `writeGrantFor`) and is asked everywhere a file is named, written or brought back. Upload refuses a team-scoped writer an HR-only, restricted or confidential file and any payslip. Deleting a file logs its classification and kind beside its title; Activity hides the line from anyone who could not have opened the file, and an older line with no class from anyone short of full company-wide access. Recycle bin lists a removed file only to who could open it; restore and purge read as absent otherwise and need the classification's own DELETE grant. The profile's permits keep "has lapsed" but name an unopenable one "A restricted document" with no id. The attendance "Documents expiring" report lists only files the reader may open; a scheduled mail reads as whoever set it up (no owner, no files). Nits: employee app resign and self-service handlers send a 5xx's message to the log only; compliance owner and clearance line owner checks use `isCompanyUser`. People Documents hides New document from a reader without Documents CREATE.
 - Evidence: peopleDocuments 18 passed; 6 of the 7 new tests fail on ca53ad6a (the seventh, replace/delete/remind/ask-to-read, was already covered by ca53ad6a and is kept as a guard). PeopleDocuments.test.jsx 3 new. Server suites on 5434, web suite, tsc, lint, e2e smoke, browser as manager and HR at 1440/390.

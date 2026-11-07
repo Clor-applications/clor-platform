@@ -12,7 +12,7 @@ import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js
 import { FACE, ONLINE_WINDOW_MS } from '../services/attendance/adms.js';
 import { ISO_DATE, daysOfMonth, monthRows, periodContext, today } from '../services/attendance/days.js';
 import { sentOnly } from '../utils/sentOnly.js';
-import { docAccess, docAccessOfUser, docWhere, type DocAccess } from '../services/people/documentAccess.js';
+import { docAccess, docAccessOfBoth, docAccessOfUser, docWhere, type DocAccess } from '../services/people/documentAccess.js';
 
 /**
  * Attendance reports — ClorTime's catalogue (routes/reports.js) and its
@@ -853,7 +853,9 @@ attendanceReportsRouter.put('/orgs/:orgId/attendance/reports/schedules/:id', can
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the schedule.' });
   const b = sentOnly(parsed.data, req.body);
   const cadence = b.cadence || s.cadence;
-  const row = await peoplePrisma.reportSchedule.update({ where: { id: s.id }, data: { ...(b.reportId ? { reportId: b.reportId } : {}), ...(b.params ? { paramsJson: JSON.stringify(b.params) } : {}), cadence, dayOfWeek: cadence === 'WEEKLY' ? b.dayOfWeek ?? s.dayOfWeek ?? 1 : null, dayOfMonth: cadence === 'MONTHLY' ? b.dayOfMonth ?? s.dayOfMonth ?? 1 : null, ...(b.hour !== undefined ? { hour: b.hour } : {}), ...(b.recipients ? { recipients: b.recipients.trim() } : {}), ...(b.enabled !== undefined ? { enabled: b.enabled } : {}) } });
+  /* Whoever changes what a schedule sends, or to whom, becomes the one it reads as (the mail can name files). */
+  const redirected = b.reportId !== undefined || b.params !== undefined || b.recipients !== undefined;
+  const row = await peoplePrisma.reportSchedule.update({ where: { id: s.id }, data: { ...(redirected ? { createdByUserId: req.auth!.userId } : {}), ...(b.reportId ? { reportId: b.reportId } : {}), ...(b.params ? { paramsJson: JSON.stringify(b.params) } : {}), cadence, dayOfWeek: cadence === 'WEEKLY' ? b.dayOfWeek ?? s.dayOfWeek ?? 1 : null, dayOfMonth: cadence === 'MONTHLY' ? b.dayOfMonth ?? s.dayOfMonth ?? 1 : null, ...(b.hour !== undefined ? { hour: b.hour } : {}), ...(b.recipients ? { recipients: b.recipients.trim() } : {}), ...(b.enabled !== undefined ? { enabled: b.enabled } : {}) } });
   res.json({ schedule: publicSchedule(row) });
 });
 
@@ -882,7 +884,9 @@ attendanceReportsRouter.post('/orgs/:orgId/attendance/reports/schedules/:id/send
   const { accountId, orgId } = req.tenant!;
   const s = await peoplePrisma.reportSchedule.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!s) return res.status(404).json({ error: 'No such schedule.' });
-  res.json(await runSchedule(s, build));
+  /* Sent now, it reads as both the person pressing it and the one who set it up: only what both may open. */
+  const docs = docAccessOfBoth(await docAccess(req), await docAccessOfUser(accountId, orgId, s.createdByUserId));
+  res.json(await runSchedule(s, (reportId, acc, org, q) => build(reportId, acc, org, q, { docs })));
 });
 
 attendanceReportsRouter.get('/orgs/:orgId/attendance/reports', can(), async (req, res) => {

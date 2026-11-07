@@ -125,6 +125,7 @@ describe('who can see a document', () => {
  */
 const { runInTenant } = await import('../utils/tenantScope.js');
 const { writeChangeLog } = await import('../services/people/changeLog.js');
+const { platformPrisma } = await import('../utils/platformPrisma.js');
 /* The Team Manager preset's grants (permissionCatalog.ts TEAM_MANAGER), on a role kept to its own team. */
 const TEAM_MANAGER = ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW', 'PEOPLE::Org Structure::VIEW', 'PEOPLE::Requests::VIEW', 'PEOPLE::Requests::CREATE', 'PEOPLE::Requests::APPROVE', 'PEOPLE::Lifecycle::VIEW', 'PEOPLE::Lifecycle::EDIT', 'PEOPLE::Policies::VIEW', 'PEOPLE::Performance::VIEW', 'ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::APPROVE', 'ATTENDANCE::My Attendance::VIEW', 'ATTENDANCE::My Attendance::CREATE'];
 
@@ -339,5 +340,42 @@ describe('a team-scoped writer and every other surface that names a file (review
       return { title: 'Documents', period: '', columns: [], rows: [] };
     }).catch(() => undefined);
     expect(seen).toEqual([{ asUserId: mgr.userId }]);
+  });
+
+  /* Re-review of #143: a schedule anyone with Records VIEW may edit or send must not carry its creator's files to them. */
+  const att = (c: Ctx) => ({
+    post: (p: string, b: unknown = {}) => request(app).post(`/api/orgs/${c.orgId}/attendance/reports${p}`).set(at(c)).send(b as any),
+    put: (p: string, b: unknown) => request(app).put(`/api/orgs/${c.orgId}/attendance/reports${p}`).set(at(c)).send(b as any),
+  });
+  const mailOf = async (scheduleId: string) => (await platformPrisma.emailOutbox.findMany({ where: { relatedType: 'ReportSchedule', relatedId: scheduleId }, select: { bodyHtml: true, bodyText: true, attachmentsJson: true } })).map((m) => `${m.bodyHtml}${m.bodyText}${m.attachmentsJson}`).join('\n');
+
+  it('whoever redirects a schedule becomes who it reads as: an editor without document grants mails no file names', async () => {
+    const reader = await colleague(boss, ATTENDANCE_MANAGER_PEOPLE);
+    const s = (await att(boss).post('/schedules', { reportId: 'documents', cadence: 'DAILY', hour: 7, recipients: 'hr@example.com' }).expect(201)).body.schedule;
+    await att(reader).put(`/schedules/${s.id}`, { recipients: 'outside@example.com' }).expect(200);
+    const row = await peoplePrisma.reportSchedule.findFirst({ where: { id: s.id }, select: { createdByUserId: true } });
+    expect(row?.createdByUserId).toBe(claims(reader).userId);
+    await att(reader).post(`/schedules/${s.id}/send`).expect(200);
+    const mail = await mailOf(s.id);
+    expect(mail.length).toBeGreaterThan(0);
+    for (const t of ['Visa TW', 'Joining kit TW', 'Signed contract TW']) expect(mail).not.toContain(t);
+    /* A change to only the hour does not move whose access it reads with. */
+    await att(boss).put(`/schedules/${s.id}`, { hour: 8 }).expect(200);
+    expect((await peoplePrisma.reportSchedule.findFirst({ where: { id: s.id }, select: { createdByUserId: true } }))?.createdByUserId).toBe(claims(reader).userId);
+  });
+
+  it('sent now by someone weaker than its creator, it lists only what both may open', async () => {
+    await upload(boss, report.id, { title: 'Address proof TW', kind: 'ADDRESS_PROOF', classification: 'RESTRICTED', expiresOn: '2020-03-01' });
+    const weaker = await colleague(boss, ['ATTENDANCE::Attendance Records::VIEW', 'PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW']);
+    const s = (await att(boss).post('/schedules', { reportId: 'documents', cadence: 'DAILY', hour: 7, recipients: 'hr@example.com' }).expect(201)).body.schedule;
+    await att(weaker).post(`/schedules/${s.id}/send`).expect(200);
+    const mail = await mailOf(s.id);
+    expect(mail).toContain('Joining kit TW');
+    expect(mail).toContain('Visa TW');
+    expect(mail).not.toContain('Address proof TW');
+    /* The creator pressing it gets the restricted file too. */
+    const s2 = (await att(boss).post('/schedules', { reportId: 'documents', cadence: 'DAILY', hour: 7, recipients: 'hr@example.com' }).expect(201)).body.schedule;
+    await att(boss).post(`/schedules/${s2.id}/send`).expect(200);
+    expect(await mailOf(s2.id)).toContain('Address proof TW');
   });
 });
