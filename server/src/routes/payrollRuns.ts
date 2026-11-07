@@ -9,7 +9,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
-import { calculateRun, daysBetween, eligibleEmployees, ptAlreadyTakenElsewhere, ptTakenElsewhereGone, validateRun } from '../services/payroll/run.js';
+import { calculateRun, daysBetween, eligibleEmployees, noPanPeopleOnRun, ptAlreadyTakenElsewhere, ptTakenElsewhereGone, validateRun } from '../services/payroll/run.js';
 import { checksSentence, uncheckedRulesOnRun } from '../services/payroll/statutory/resolve.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { recordAudit } from '../services/auditTrail.js';
@@ -949,6 +949,27 @@ const transition = (
         }
       }
 
+      /*
+       * Tax withheld without a PAN (section 206AA, 20%): approved only when
+       * the approver says so for each person by name, and audited (review of
+       * #138, S4). Adding the PAN and calculating again clears it.
+       */
+      let noPanAcknowledged: { employeeId: string; name: string }[] | null = null;
+      if (to === 'APPROVED') {
+        const noPan = await noPanPeopleOnRun(run.orgId, run.id);
+        if (noPan.length) {
+          const ticked = new Set(Array.isArray(req.body?.noPanAcknowledged) ? req.body.noPanAcknowledged.map(String) : []);
+          if (!noPan.every((p) => ticked.has(p.employeeId))) {
+            return res.status(409).json({
+              error: `Income tax for ${noPan.map((p) => p.name).join(', ')} is withheld without a PAN, at 20% where that is more (section 206AA). Add ${noPan.length === 1 ? 'their PAN' : 'their PANs'} and calculate again, or approve saying you know.`,
+              code: 'NO_PAN_UNACKNOWLEDGED',
+              people: noPan,
+            });
+          }
+          noPanAcknowledged = noPan;
+        }
+      }
+
       /* A-13: whoever prepared the run approves it only as the company's maker-checker setting allows. */
       if (to === 'APPROVED') {
         const refused = await ownWorkRefusal(req, { makers: [run.createdByUserId, run.submittedByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_RUN', entityId: run.id, what: 'payroll' });
@@ -967,6 +988,15 @@ const transition = (
       });
       if (moved.count !== 1) return res.status(409).json({ error: 'Somebody else has just changed this payroll. Reload it.', code: 'RUN_WRONG_STATUS' });
       const updated = await payrollPrisma.payrollRun.findUniqueOrThrow({ where: { id: run.id } });
+      if (noPanAcknowledged) {
+        await recordAudit(req, {
+          entity: 'PAYROLL_RUN',
+          entityId: run.id,
+          action: 'NO_PAN_ACKNOWLEDGED',
+          message: `Payroll ${run.number || run.id} approved with income tax withheld without a PAN for ${noPanAcknowledged.map((p) => p.name).join(', ')}`,
+          metadata: { people: noPanAcknowledged },
+        });
+      }
       if (lopAcknowledged) {
         await recordAudit(req, {
           entity: 'PAYROLL_RUN',

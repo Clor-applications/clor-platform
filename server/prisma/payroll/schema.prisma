@@ -314,6 +314,10 @@ model SalaryComponent {
   exceedBehaviour String  @default("CAP")
 
   isTaxable             Boolean @default(true)
+  /// EMPLOYER_NPS: the employer's NPS contribution, taxed as salary and
+  /// deducted up to 10% (old regime) or 14% (new) of Basic and DA under
+  /// section 80CCD(2) (124 from April 2026). Null for anything else.
+  taxSection            String?
   prorate               Boolean @default(true)
   includeInPfWage       Boolean @default(false)
   includeInEsiWage      Boolean @default(false)
@@ -1249,6 +1253,15 @@ model TaxDeclaration {
   /// Self or parents aged 60 or more, for the higher 80D limits.
   seniorSelf    Boolean @default(false)
   seniorParents Boolean @default(false)
+
+  /// Form 12B: salary from an employer this person left earlier in the same
+  /// year (taxable, after its section 10 exemptions), the professional tax and
+  /// the TDS that employer took. Tax here is worked on the year's whole salary,
+  /// less what was already withheld there.
+  previousEmployerName    String?
+  previousEmployerIncome  Decimal @default(0)
+  previousEmployerPt      Decimal @default(0)
+  previousEmployerTds     Decimal @default(0)
 
   submittedAt      DateTime?
   verifiedAt       DateTime?

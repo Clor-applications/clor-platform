@@ -98,7 +98,7 @@ describe('TDS on a flat salary', () => {
       })
       .expect(201);
     const person = await api
-      .post(c, '/employees', { name: 'Flat salary', code: `E${rnd().toUpperCase()}`, dateOfJoining: '2026-04-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW' } })
+      .post(c, '/employees', { name: 'Flat salary', code: `E${rnd().toUpperCase()}`, dateOfJoining: '2026-04-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW', pan: 'ABCDE1234F' } })
       .expect(201);
     await api.post(c, '/assignments', { employeeId: person.body.employee.id, structureId: structure.body.structure.id, effectiveFrom: '2026-04-01', annualCtc: 2_400_000 }).expect(201);
 

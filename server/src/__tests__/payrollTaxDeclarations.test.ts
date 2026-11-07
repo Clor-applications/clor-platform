@@ -96,7 +96,7 @@ async function setUp(c: Ctx) {
     .post(c, '/structures', { name: `Staff ${rnd()}`, frequency: 'MONTHLY', effectiveFrom: '2026-04-01', status: 'ACTIVE', components: ids.map((componentId, i) => ({ componentId, displayOrder: i + 1, ...(i === 2 ? { isBalancing: true } : {}) })) })
     .expect(201);
   const person = await api
-    .post(c, '/employees', { name: 'Ravi Kumar', code: 'T101', dateOfJoining: '2026-04-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'OLD' } })
+    .post(c, '/employees', { name: 'Ravi Kumar', code: 'T101', dateOfJoining: '2026-04-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'OLD', pan: 'ABCDE1234F' } })
     .expect(201);
   const employeeId = person.body.employee.id;
   await api.post(c, '/assignments', { employeeId, structureId: structure.body.structure.id, effectiveFrom: '2026-04-01', annualCtc: 1_200_000 }).expect(201);

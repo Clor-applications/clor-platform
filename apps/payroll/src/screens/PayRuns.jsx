@@ -719,8 +719,25 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
             if (ok)
               act(
                 "approve",
-                () => approvePayrollRun(runId),
-                () => notify.success("Payroll approved."),
+                async () => {
+                  try {
+                    return await approvePayrollRun(runId);
+                  } catch (e) {
+                    /* Tax withheld without a PAN: approved only once the approver says so, naming each person. */
+                    const people = e?.data?.people;
+                    if (e?.code !== "NO_PAN_UNACKNOWLEDGED" || !Array.isArray(people)) throw e;
+                    const sure = await confirmDialog({
+                      title: "Approve with tax withheld without a PAN?",
+                      message: `${people.map((p) => p.name).join(", ")} ${people.length === 1 ? "has" : "have"} no valid PAN, so income tax is withheld at 20% where that is more (section 206AA). Adding the PAN and calculating again lowers it. Approving now is recorded in the audit log.`,
+                      confirmLabel: "I know, approve",
+                    });
+                    if (!sure) return null;
+                    return approvePayrollRun(runId, { noPanAcknowledged: people.map((p) => p.employeeId) });
+                  }
+                },
+                (out) => {
+                  if (out) notify.success("Payroll approved.");
+                },
               );
           }}
         >
