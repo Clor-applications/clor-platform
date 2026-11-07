@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto';
  * hour, and a per-instance cap still stops a flood.
  */
 import { PostgresRateLimitStore } from './rateLimitStore.js';
+import { blockOf } from '../services/attendance/network.js';
 let storeSeq = 0;
 const message = (what: string) => ({
   error: `Too many ${what}. Please wait a few minutes and try again.`,
@@ -127,10 +128,13 @@ export const ssoLimiter = [guard(60 * 1000, 60, 'sign-in attempts', (req) => `ss
  * and sends it again after ErrorDelay, so nothing is lost by slowing it down.
  */
 const readerSerial = (req: any) => String(req.query?.SN || '').trim().slice(0, 40);
-const readerBucket = (max: number, key: (req: any) => string, skipWhen?: (req: any) => boolean) =>
+const readerBucket = (max: () => number, key: (req: any) => string, skipWhen?: (req: any) => boolean) =>
   rateLimit({
     windowMs: 60 * 1000,
-    max,
+    /* Read per request, so a test can lower it for a moment. */
+    max: () => max(),
+    /* The address key is ipKeyGenerator's (one address) or blockOf's (/24, /64) on purpose; see readerAddressKey. */
+    validate: { keyGeneratorIpFallback: false },
     standardHeaders: false,
     legacyHeaders: false,
     skip: (req) => isDisabled() || Boolean(skipWhen?.(req)),
@@ -140,11 +144,25 @@ const readerBucket = (max: number, key: (req: any) => string, skipWhen?: (req: a
     },
   });
 
-export const READER_LIMITS = { perSerial: 600, perAddress: 3000 };
-export const readerLimiter = [
-  readerBucket(READER_LIMITS.perSerial, (req) => `sn:${readerSerial(req)}`, (req) => !readerSerial(req)),
-  readerBucket(READER_LIMITS.perAddress, (req) => `ip:${ipOf(req)}`),
-];
+/*
+ * perBlock is the generous ceiling on everything from one /24 or /64, before anything is looked up: it
+ * stops a flood of invented serials costing a database lookup each (final review of #144), and leaves room
+ * for a building of readers behind one line (each heartbeats twice a minute; a busy gate a few hundred).
+ */
+export const READER_LIMITS = { perSerial: 600, perAddress: 3000, perBlock: 12_000 };
+/** Set by routes/iclock.ts (knownSerial) before the address limit runs: is this serial a company's active reader? */
+export const READER_KNOWN = Symbol('clor.readerKnown');
+/**
+ * The address bucket. A company's own reader is counted per address: an office with a dozen readers
+ * behind one line keeps its own room, and a neighbour on the same /24 does not eat into it. A serial
+ * nobody added is counted per block (/24, /64), so walking the addresses of one line buys nothing
+ * (review of #144).
+ */
+export const readerAddressKey = (req: any) => (req[READER_KNOWN] ? `ip:${ipOf(req)}` : `blk:${blockOf(req.ip) || ipOf(req)}`);
+export const readerSerialLimiter = readerBucket(() => READER_LIMITS.perSerial, (req) => `sn:${readerSerial(req)}`, (req) => !readerSerial(req));
+/** Everything from one block, known or not, before the serial is looked up. */
+export const readerBlockLimiter = readerBucket(() => READER_LIMITS.perBlock, (req) => `pre:${blockOf(req.ip) || ipOf(req)}`);
+export const readerAddressLimiter = readerBucket(() => READER_LIMITS.perAddress, readerAddressKey);
 
 /**
  * Employee portal sign-in and activation: per address, and per company +

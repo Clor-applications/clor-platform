@@ -107,9 +107,14 @@ async function adoptReaderUser(device: Device, pin: string, u: { name: string | 
 export async function attachPunchesTo(accountId: string, orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, pin: string, siteAreaId?: string | null) {
   /* A site ID claims only the punches made on that site's readers. */
   const readers = siteAreaId ? (await peoplePrisma.attendanceDevice.findMany({ where: { orgId, areaId: siteAreaId }, select: { id: true } })).map((d) => d.id) : null;
-  const punches = await peoplePrisma.devicePunch.findMany({ where: { orgId, pin, employeeId: null, ...(readers ? { deviceId: { in: readers } } : {}) }, select: { id: true, localTime: true } });
+  const punches = await peoplePrisma.devicePunch.findMany({ where: { orgId, pin, employeeId: null, ...(readers ? { deviceId: { in: readers } } : {}) }, select: { id: true, localTime: true, reviewStatus: true } });
   const days = new Set<string>();
   for (const p of punches) {
+    /* A held punch (its time was ahead of the server's, #11) becomes theirs but stays on no day until released. */
+    if (p.reviewStatus === 'HELD') {
+      await peoplePrisma.devicePunch.update({ where: { id: p.id }, data: { employeeId: employee.id } });
+      continue;
+    }
     const shiftDate = await shiftDayFor(orgId, employee.id, p.localTime);
     await peoplePrisma.devicePunch.update({ where: { id: p.id }, data: { employeeId: employee.id, shiftDate } });
     days.add(shiftDate);

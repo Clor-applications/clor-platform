@@ -12,6 +12,7 @@ import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js
 import { FACE, ONLINE_WINDOW_MS } from '../services/attendance/adms.js';
 import { ISO_DATE, daysOfMonth, monthRows, periodContext, today } from '../services/attendance/days.js';
 import { sentOnly } from '../utils/sentOnly.js';
+import { teamScope } from '../services/people/scope.js';
 import { docAccess, docAccessOfBoth, docAccessOfUser, docWhere, type DocAccess } from '../services/people/documentAccess.js';
 
 /**
@@ -28,6 +29,16 @@ export const attendanceReportsRouter = Router();
 attendanceReportsRouter.use(requireAuth, requireTenantContext);
 
 const can = () => requirePermission(ATTENDANCE_MODULE, PermissionAction.VIEW as any, ATTENDANCE_RESOURCE.records);
+/*
+ * The reports are the whole company's (registers, readers, documents, everyone's birthdays). A
+ * team-scoped role (a Team Manager, audit 7 Nov 2026 #3) holds Records VIEW for its team today, not
+ * these: it is refused rather than shown company-wide figures. The calendar alone narrows to its team.
+ */
+const wholeCompany = async (req: any, res: any) => {
+  if ((await teamScope(req)).all) return true;
+  res.status(403).json({ error: 'Attendance reports cover the whole company. Your team’s days are under Daily attendance.', code: 'TEAM_SCOPED' });
+  return false;
+};
 const MAX_DAYS = 92;
 const hm = (m: number) => `${Math.floor(Math.max(0, m) / 60)}:${String(Math.max(0, m) % 60).padStart(2, '0')}`;
 
@@ -100,6 +111,8 @@ function dayStatus(ctx: Awaited<ReturnType<typeof periodContext>>, p: { id: stri
   if (ctx.holidaysFor(p as any).has(date)) return 'HOLIDAY';
   if (isWeeklyOff(ctx.shiftOn(p.id, date).rule, date)) return 'WEEKLY_OFF';
   if (date > ctx.today) return null;
+  /* Before the company kept attendance on CLOR: not tracked, not absent (#5). */
+  if (ctx.untracked(p.id, date)) return null;
   return 'ABSENT';
 }
 
@@ -784,7 +797,9 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/calendar', can(), async (re
   const { accountId, orgId } = req.tenant!;
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7);
   const days = daysOfMonth(month);
-  const ctx = await periodContext(accountId, orgId, days[0], days[days.length - 1]);
+  /* A team-scoped role's calendar counts its own team (the Attendance dashboard's week). */
+  const team = await teamScope(req);
+  const ctx = await periodContext(accountId, orgId, days[0], days[days.length - 1], team.all ? {} : { employeeIds: team.ids });
   const q = (k: string) => String(req.query[k] || '').trim() || null;
   const people = ctx.people.filter(inScope({ departmentId: q('departmentId'), areaId: q('areaId'), contractorId: q('contractorId'), employeeId: null }));
   const out = days.map((date) => {
@@ -827,6 +842,7 @@ const publicSchedule = (s: any) => ({ ...s, params: JSON.parse(s.paramsJson || '
 
 attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/schedules', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const rows = await peoplePrisma.reportSchedule.findMany({ where: { accountId, orgId }, orderBy: { createdAt: 'asc' } });
   res.json({ schedules: rows.map(publicSchedule) });
@@ -834,6 +850,7 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/schedules', can(), 
 
 attendanceReportsRouter.post('/orgs/:orgId/attendance/reports/schedules', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const parsed = scheduleSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the schedule.' });
@@ -846,6 +863,7 @@ attendanceReportsRouter.post('/orgs/:orgId/attendance/reports/schedules', can(),
 
 attendanceReportsRouter.put('/orgs/:orgId/attendance/reports/schedules/:id', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const s = await peoplePrisma.reportSchedule.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!s) return res.status(404).json({ error: 'No such schedule.' });
@@ -861,6 +879,7 @@ attendanceReportsRouter.put('/orgs/:orgId/attendance/reports/schedules/:id', can
 
 attendanceReportsRouter.delete('/orgs/:orgId/attendance/reports/schedules/:id', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const s = await peoplePrisma.reportSchedule.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
   if (!s) return res.status(404).json({ error: 'No such schedule.' });
@@ -871,6 +890,7 @@ attendanceReportsRouter.delete('/orgs/:orgId/attendance/reports/schedules/:id', 
 /** When a schedule ran, and whether it went. */
 attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/schedules/:id/runs', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const s = await peoplePrisma.reportSchedule.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
   if (!s) return res.status(404).json({ error: 'No such schedule.' });
@@ -881,6 +901,7 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/schedules/:id/runs'
 /** Send it now, for the period it would cover if it ran this morning. */
 attendanceReportsRouter.post('/orgs/:orgId/attendance/reports/schedules/:id/send', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const s = await peoplePrisma.reportSchedule.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!s) return res.status(404).json({ error: 'No such schedule.' });
@@ -891,6 +912,7 @@ attendanceReportsRouter.post('/orgs/:orgId/attendance/reports/schedules/:id/send
 
 attendanceReportsRouter.get('/orgs/:orgId/attendance/reports', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const departments = await peoplePrisma.department.findMany({ where: { orgId: req.tenant!.orgId }, select: { id: true, name: true }, orderBy: { name: 'asc' } });
   const employees = await peoplePrisma.employee.findMany({ where: { orgId: req.tenant!.orgId, status: { not: 'LEFT' } }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' } });
   const [areas, contractors] = await Promise.all([
@@ -908,6 +930,7 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/reports', can(), async (req
  */
 attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/insights', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const count = Math.min(12, Math.max(3, Number(req.query.months) || 6));
   const scope = { departmentId: String(req.query.departmentId || '') || null, areaId: String(req.query.areaId || '') || null, contractorId: String(req.query.contractorId || '') || null, employeeId: null };
@@ -973,6 +996,7 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/insights', can(), a
 
 attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/:id', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
     const id = String(req.params.id);

@@ -365,7 +365,7 @@ export function Pagination({ total, page, perPage, pageCount, onPage, onPerPage,
   return (
     <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3" style={{ borderTop: '1px solid rgb(var(--border))' }}>
       <span className="ui-subtle text-xs">
-        Showing {total === 0 ? 0 : (page - 1) * perPage + 1} to {Math.min(page * perPage, total)} of {total} {noun}
+        Showing {(total === 0 ? 0 : (page - 1) * perPage + 1).toLocaleString('en-IN')} to {Math.min(page * perPage, total).toLocaleString('en-IN')} of {total.toLocaleString('en-IN')} {noun}
       </span>
       <div className="flex items-center gap-1.5 flex-wrap">
         <button type="button" className="ui-btn ui-btn-sm" disabled={page === 1} onClick={() => onPage(1)} aria-label="First page">«</button>

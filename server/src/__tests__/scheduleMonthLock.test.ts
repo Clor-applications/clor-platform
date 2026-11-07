@@ -50,7 +50,7 @@ const shiftBody = (s: any, extra: Record<string, unknown> = {}) => ({
   halfDayMinutes: s.halfDayMinutes, fullDayMinutes: s.fullDayMinutes, overtimeAfterMinutes: s.overtimeAfterMinutes, weeklyOffDays: s.weeklyOffDays, offSaturdays: s.offSaturdays,
   code: s.code, color: s.color, isActive: s.isActive, ...extra,
 });
-const close = async (c: Ctx, month: string) => att(c).post(`/months/${month}/close`, { acknowledge: true }).expect(200);
+const close = async (c: Ctx, month: string) => att(c).post(`/months/${month}/close`, { acknowledge: true, ...(await att(c).get(`/months/${month}/readiness`)).body.noRecordConfirm }).expect(200);
 const reopen = async (c: Ctx, month: string) => att(c).post(`/months/${month}/reopen`, { reason: 'Correct the schedule' }).expect(200);
 const closedRefusal = (res: request.Response, month = '2026-09') => {
   expect(res.status).toBe(409);

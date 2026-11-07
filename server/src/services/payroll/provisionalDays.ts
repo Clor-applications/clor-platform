@@ -189,7 +189,7 @@ type Outcome = { paid: number; absent: number; half: number; unpaidLeave: number
  * a day with no check-out lose the whole day, a half day loses half, approved
  * unpaid leave loses its share on top. Never more than the day.
  */
-async function outcomes(accountId: string, orgId: string, from: string, to: string) {
+export async function outcomes(accountId: string, orgId: string, from: string, to: string) {
   const ctx = await periodContext(accountId, orgId, from, to);
   const leave = await approvedLeave(orgId, ctx);
   const out = new Map<string, Map<string, Outcome>>();
@@ -204,7 +204,8 @@ async function outcomes(accountId: string, orgId: string, from: string, to: stri
       const lv = r?.leaveRequestId ? leave.get(r.leaveRequestId) : undefined;
       if (lv && !lv.isPaid) o.unpaidLeave = r.status === 'ON_LEAVE' ? 1 : 0.5;
       if (r?.status === 'PRESENT' && r.checkIn && !r.checkOut && date < ctx.today && !restDay) o.noCheckOut = 1;
-      else if (!r) o.absent = restDay || date > ctx.today ? 0 : 1;
+      /* Before the company's attendance start date, no record is not an absence (audit #5, periodContext untracked). */
+      else if (!r) o.absent = restDay || date > ctx.today || ctx.untracked(p.id, date) ? 0 : 1;
       else if (r.status === 'ABSENT') o.absent = 1;
       else if (r.status === 'HALF_DAY') o.half = 0.5;
       o.paid = Math.max(0, 1 - Math.min(1, o.absent + o.half + o.noCheckOut + o.unpaidLeave));

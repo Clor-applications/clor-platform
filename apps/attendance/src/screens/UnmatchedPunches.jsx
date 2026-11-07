@@ -9,6 +9,8 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { listEmployees, listUnmatchedPunches, matchPunches } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { usePermissions } from '@ui/permissions/usePermissions';
+import HeldPunches from '../components/HeldPunches';
 
 /**
  * Punches from reader user IDs that match no employee (by Reader ID or
@@ -41,6 +43,8 @@ export default function UnmatchedPunches() {
   const [people, setPeople] = useState([]);
   const [choice, setChoice] = useState({});
   const [siteOnly, setSiteOnly] = useState({});
+  const perms = usePermissions();
+  const canDecide = Boolean(perms?.isAdmin) || Boolean((perms?.permissions?.has?.('ATTENDANCE::Attendance Devices::EDIT') || perms?.permissions?.has?.('ATTENDANCE::Attendance Records::APPROVE')));
 
   const load = useCallback(() => {
     listUnmatchedPunches().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load punches.')));
@@ -87,6 +91,7 @@ export default function UnmatchedPunches() {
       tight
       denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search reader IDs…', label: 'Search unmatched punches' }}
+      above={<HeldPunches canDecide={canDecide} onChanged={load} />}
       cards={[
         { label: 'Reader IDs', value: figures.ids, count: true, tone: 'outstanding', Icon: Fingerprint },
         { label: 'Punches waiting', value: figures.punches, count: true, tone: 'partial', Icon: Clock },

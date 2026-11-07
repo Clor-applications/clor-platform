@@ -175,6 +175,26 @@ export async function payrollTaken(orgId: string, employeeId: string, date: stri
   return { period: periods.find((p) => p.id === run.periodId)?.name || date.slice(0, 7), state: run.status };
 }
 
+/**
+ * A final payroll run (approved, locked, paid or posted) over any day from `from` to `to` that took its
+ * days from Attendance, or null. For a change to many people's days at once. A run whose inputs were all
+ * typed in or imported never read the days, so changing them takes nothing from it (review of #144): it
+ * counts only with an input from Attendance or a pulled Attendance snapshot.
+ */
+export async function payrollTakenBetween(orgId: string, from: string, to: string): Promise<{ period: string; state: string } | null> {
+  const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lte: to }, endDate: { gte: from } }, select: { id: true, name: true, startDate: true } });
+  if (!periods.length) return null;
+  const runs = await payrollPrisma.payrollRun.findMany({ where: { orgId, periodId: { in: periods.map((p) => p.id) }, status: { in: FINAL_RUN } }, select: { id: true, status: true, periodId: true, attendanceSnapshots: true } });
+  for (const run of runs) {
+    const pulled = Array.isArray(run.attendanceSnapshots) && run.attendanceSnapshots.length > 0;
+    const used = pulled || (await payrollPrisma.payrollInput.count({ where: { orgId, runId: run.id, source: 'ATTENDANCE' } })) > 0;
+    if (!used) continue;
+    const period = periods.find((p) => p.id === run.periodId);
+    return { period: period?.name || String(period?.startDate || from).slice(0, 7), state: run.status };
+  }
+  return null;
+}
+
 /** The day can still change: its Attendance month is open and, for `employeeId`, no final payroll run has taken it. */
 export async function assertMonthOpen(orgId: string, date: string, employeeId?: string | null) {
   const month = date.slice(0, 7);
@@ -382,7 +402,8 @@ async function nightLabels(orgId: string, rows: Array<{ shiftId?: string | null;
 }
 
 export const withNames = async (orgId: string, rows: any[]) => {
-  const ids = [...new Set(rows.map((r) => r.employeeId))];
+  /* A row may name nobody (a reader punch whose ID matches no one): it gets no name, and asks for none. */
+  const ids = [...new Set(rows.map((r) => r.employeeId).filter((id): id is string => typeof id === 'string'))];
   const people = ids.length
     ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true, code: true, department: true, photoUrl: true } })
     : [];
@@ -436,7 +457,9 @@ export const daysOfMonth = (month: string) => {
  * days, holidays, each person's shift on each date, and which leave was
  * unpaid. Shared by the month summary and the reports so they cannot disagree.
  */
-export async function periodContext(accountId: string, orgId: string, from: string, to: string) {
+/** `employeeIds` narrows it to those people (a team-scoped role); omitted, it is everyone. */
+export async function periodContext(accountId: string, orgId: string, from: string, to: string, opts: { employeeIds?: string[] } = {}) {
+  const only = opts.employeeIds ? { id: { in: opts.employeeIds } } : {};
   const days = eachDay(from, to);
   const [people, records, holidayData, schedule] = await Promise.all([
     peoplePrisma.employee.findMany({
@@ -447,6 +470,7 @@ export async function periodContext(accountId: string, orgId: string, from: stri
         orgId,
         /* Door-only staff (guards, drivers) open doors but are not expected at work (ClorTime attendance_required). */
         attendanceRequired: true,
+        ...only,
         AND: [
           { OR: [{ dateOfLeaving: null }, { dateOfLeaving: { gte: from } }] },
           { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: to } }] },
@@ -455,7 +479,7 @@ export async function periodContext(accountId: string, orgId: string, from: stri
       select: { id: true, name: true, code: true, department: true, departmentId: true, areaId: true, branchId: true, contractorId: true, guardianName: true, dateOfJoining: true, dateOfLeaving: true, status: true },
       orderBy: { name: 'asc' },
     }),
-    peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: from, lte: to } } }),
+    peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: from, lte: to }, ...(opts.employeeIds ? { employeeId: { in: opts.employeeIds } } : {}) } }),
     loadHolidays(orgId, from, to),
     loadSchedule(orgId),
   ]);
@@ -504,7 +528,14 @@ export async function periodContext(accountId: string, orgId: string, from: stri
   const spanOf = (p: { dateOfJoining: string | null; dateOfLeaving: string | null }) =>
     days.filter((d) => (!p.dateOfJoining || d >= p.dateOfJoining) && (!p.dateOfLeaving || d <= p.dateOfLeaving));
   const settings = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
-  return { days, people, records, holidays, holidaySet, holidaysFor, shiftOn, recordsOf, spanOf, unpaidRequest, settings, today: today() };
+  /*
+   * The first day the company kept attendance on CLOR (audit 7 Nov 2026, #5). A day before it with no
+   * record was never tracked: it is not absent, not loss of pay and not "no record". A day before it
+   * that does have a record (imported, marked by hand) counts as it always did.
+   */
+  const startDate = settings?.attendanceStartDate && ISO_DATE.test(settings.attendanceStartDate) ? settings.attendanceStartDate : null;
+  const untracked = (employeeId: string, date: string) => Boolean(startDate && date < startDate && !recordsOf.get(employeeId)?.has(date));
+  return { days, people, records, holidays, holidaySet, holidaysFor, shiftOn, recordsOf, spanOf, untracked, startDate, unpaidRequest, settings, today: today() };
 }
 
 /** Payable and loss-of-pay days per person for a month (the month summary, and Payroll's input). */
@@ -526,21 +557,28 @@ export async function periodRows(accountId: string, orgId: string, days: string[
       (r) => spanSet.has(r.date) && r.leaveRequestId && ctx.unpaidRequest.has(r.leaveRequestId)
     ).reduce((sum, r) => sum + (ctx.unpaidRequest.get(r.leaveRequestId!) || 0), 0);
     const pen = penalties.get(p.id);
+    /* Days before the company's attendance start with no record: paid as an employed day, never absent (#5). */
+    const counted = span.filter((d) => !ctx.untracked(p.id, d));
+    const untrackedDays = span.length - counted.length;
+    const summary = monthSummary({
+      days: counted,
+      records: recs as any,
+      shift: (d) => ctx.shiftOn(p.id, d).rule,
+      holidays: ctx.holidaysFor(p),
+      today: ctx.today,
+      unpaidLeaveDays,
+      penaltyDays: pen?.lossOfPayDays ?? 0,
+    });
     return {
       employeeId: p.id,
       name: p.name,
       code: p.code,
       department: p.department,
       unpaidLeaveDays,
-      ...monthSummary({
-        days: span,
-        records: recs as any,
-        shift: (d) => ctx.shiftOn(p.id, d).rule,
-        holidays: ctx.holidaysFor(p),
-        today: ctx.today,
-        unpaidLeaveDays,
-        penaltyDays: pen?.lossOfPayDays ?? 0,
-      }),
+      ...summary,
+      totalDays: summary.totalDays + untrackedDays,
+      payableDays: summary.payableDays + untrackedDays,
+      untrackedDays,
       earlyCount: pen?.earlyMarks ?? 0,
       penalty: pen && pen.status !== 'NONE' ? { status: pen.status, days: pen.days, lateMarks: pen.lateMarks, earlyMarks: pen.earlyMarks, fromLeaveDays: Math.round(pen.fromLeave.reduce((s, x) => s + x.days, 0) * 100) / 100 } : null,
     };

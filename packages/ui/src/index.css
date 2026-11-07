@@ -6962,6 +6962,10 @@ th.ui-th {
 .ui-check-mark { flex: none; color: rgb(var(--pos)); display: inline-flex; }
 .ui-check-row[data-state='block'] .ui-check-mark { color: rgb(var(--neg)); }
 .ui-check-row[data-state='check'] .ui-check-mark { color: rgb(var(--warn-ink, 180 83 9)); }
+/* Days docked as unpaid absence on close (audit #5): never a green tick, and closing names them. */
+.ui-check-row[data-state='confirm'] .ui-check-mark { color: rgb(var(--warn-ink, 180 83 9)); }
+.ui-readiness.is-warn { border-left-color: rgb(var(--warn-ink, 180 83 9)); }
+.ui-readiness.is-warn > div > svg { color: rgb(var(--warn-ink, 180 83 9)); }
 .ui-check-count { min-width: 2.5rem; text-align: right; font-weight: 650; font-size: 1rem; }
 .ui-check-row[data-state='ok'] .ui-check-count { color: rgb(var(--fg-subtle)); font-weight: 500; }
 
