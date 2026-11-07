@@ -29,3 +29,9 @@
 - Evidence: attendanceAccess 36 passed on CI Postgres 5434 (new: resend after move-back adds no rows and leaves the day unchanged, HR outbox holds 09:00/18:00, single Count sends, repeats reported; stranded days worked out on close); component tests 12 passed; tsc and eslint clean.
 - Next: coordinator review.
 - Blocked on: nothing.
+
+## 2026-11-07 IST — Attendance — re-review fixes on #144 (W1, W2, month)
+- Did: W1, Count's punch webhook goes through afterPeopleCommit (sent only after commit; the HR outbox stays in the transaction). W2, recordedAt and its index moved out of 20261122090000 into a new migration 20261123090000_punch_recorded_at, index partial (WHERE "recordedAt" IS NOT NULL). Month: kept on the reader's time and documented in punches.ts and readiness.ts (a held punch has no corrected time until someone chooses moved back or as recorded; list, counts, close check and Count must agree), with a test that 00:30 1 Nov moved back an hour, counted from November, lands on 31 Oct.
+- Evidence: rollback test fails with the old in-transaction emit and passes with the fix; attendanceAccess and related attendance set on CI Postgres 5434.
+- Next: coordinator review.
+- Blocked on: nothing.

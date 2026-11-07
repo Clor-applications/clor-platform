@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { enqueuePunches } from '../../services/hr/sync.js';
-import { peoplePrisma } from '../../utils/peoplePrisma.js';
+import { afterPeopleCommit, peoplePrisma } from '../../utils/peoplePrisma.js';
 import { instantOf, pairDay, parseAttlogLine, punchKind, shiftDayOf } from './adms.js';
 import { emit as emitWebhook } from './webhooks.js';
 import { closedMonths, shiftFor, writeDay } from './days.js';
@@ -311,8 +311,9 @@ async function sendCounted(orgId: string, rows: CountedPunch[], people: Map<stri
   if (!rows.length) return;
   const byReader = new Map<string, CountedPunch[]>();
   for (const r of rows) byReader.set(r.serialNumber, [...(byReader.get(r.serialNumber) || []), r]);
+  /* Webhooks leave only once the Count is committed: a Count rolled back never told anyone. The HR outbox is a table, written in the same transaction. */
   for (const [reader, punches] of byReader) {
-    emitWebhook(orgId, 'punch', { reader, punches: punches.map((r) => ({ readerId: r.pin, employeeId: r.employeeId, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode ?? 0 })) });
+    afterPeopleCommit(() => emitWebhook(orgId, 'punch', { reader, punches: punches.map((r) => ({ readerId: r.pin, employeeId: r.employeeId, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode ?? 0 })) }));
   }
   const emp = (id: string | null) => (id ? people.get(id) : undefined);
   await enqueuePunches(orgId, rows.map((r) => ({ employeeId: r.employeeId, code: emp(r.employeeId)?.code || emp(r.employeeId)?.devicePin || null, readerId: r.pin, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode ?? 0 })));
@@ -454,7 +455,15 @@ export async function decideHeldPunches(orgId: string, f: HeldFilter, action: 'r
   return { counted, discarded: 0, notYet, notMatched, closedDays, left, resends: after.resends, shiftMinutes: shift || null };
 }
 
-/* Held punches a Count can take: due, matched, from one reader (optionally one month by the reader's time, and some people). */
+/*
+ * Held punches a Count can take: due, matched, from one reader (optionally one month, and some people).
+ *
+ * The month is the reader's time, not the corrected one, on purpose (re-review of #144). Until someone counts it,
+ * a held punch has no corrected time: the offset is an estimate and the person may count as recorded. The held
+ * list, its per-reader counts, the month-close check (readiness.ts) and Count must agree on one set, and the
+ * reader's time is the only one that does not depend on that choice. Where the punch lands is the corrected time:
+ * 00:30 on 1 Nov moved back an hour, counted from November, goes on 31 Oct (marked dayPending if October is closed).
+ */
 const naive = (d: Date) => d.toISOString().replace('T', ' ').replace('Z', '');
 function takeableHeld(orgId: string, f: HeldFilter, due: Date, shift: number) {
   const month = f.month ? [`${f.month}-01 00:00:00`, `${f.month}-31 23:59:59`] : null;

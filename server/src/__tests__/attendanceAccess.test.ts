@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import fs from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
 import request from 'supertest';
 
@@ -19,7 +20,9 @@ const { expandPreset } = await import('../constants/permissionCatalog.js');
 const { remember, UNCLAIMED_PER_BLOCK, UNCLAIMED_MAX } = await import('../routes/iclock.js');
 const { READER_KNOWN, READER_LIMITS, readerAddressKey } = await import('../middleware/rateLimit.js');
 const { attentionFor } = await import('../services/attendance/selfService.js');
-const { HELD_BULK_PAIRS } = await import('../services/attendance/punches.js');
+const { HELD_BULK_PAIRS, decideHeldPunches } = await import('../services/attendance/punches.js');
+const { flushWebhooks } = await import('../services/attendance/webhooks.js');
+const { peopleWrite } = await import('../utils/peoplePrisma.js');
 const { KNOWN_SERIALS_MAX, knownSerialCache } = await import('../routes/iclock.js');
 const { blockOf } = await import('../services/attendance/network.js');
 const { payrollPrisma } = await import('../utils/payrollPrisma.js');
@@ -740,6 +743,66 @@ describe('re-review of #144', () => {
     await att(c).post(`/held-punches/${one.id}/release`).expect(200);
     const sent = await runInTenant(c.orgId, () => peoplePrisma.hrOutbox.findMany({ where: { connectionId: conn.id } }));
     expect(sent.map((r) => JSON.parse(r.payload)).find((x) => x.code === '8802')).toMatchObject({ time: '2026-10-07 09:05:00' });
+  });
+
+  it('a Count’s punch webhook leaves once the Count is committed, and never from a Count rolled back', async () => {
+    const got: string[] = [];
+    const receiver = http.createServer((req, res) => {
+      let body = '';
+      req.on('data', (d) => (body += d));
+      req.on('end', () => {
+        got.push(body);
+        res.writeHead(204).end();
+      });
+    });
+    await new Promise<void>((done) => receiver.listen(0, '127.0.0.1', () => done()));
+    process.env.INTEGRATIONS_ALLOW_PRIVATE = 'true';
+    try {
+      const c = await owner();
+      const p = await person(c, { name: 'Hooked Count', code: '8811' });
+      const gate = await addGate(c, 'Hooked gate');
+      await att(c).post(`/integrations/webhooks`, { name: 'HRMS', url: `http://127.0.0.1:${(receiver.address() as any).port}/clor`, events: ['punch'] }).expect(201);
+      await heldRows(c, gate, [
+        { employeeId: p.id, pin: '8811', localTime: '2026-10-08 09:20:00', aheadMin: 20 },
+        { employeeId: p.id, pin: '8811', localTime: '2026-10-08 18:20:00', aheadMin: 20, out: true },
+      ]);
+      const punchEvents = () => got.map((b) => JSON.parse(b)).filter((e) => e.event === 'punch');
+
+      /* Rolled back after the Count: nothing is sent, and the punches are still held. */
+      await expect(runInTenant(c.orgId, () => peopleWrite(c.orgId, async () => {
+        expect((await decideHeldPunches(c.orgId, { deviceId: gate.id }, 'release', { shiftMinutes: 20 })).counted).toBe(2);
+        /* Anything sent from inside the transaction would have gone by now. */
+        await flushWebhooks();
+        throw new Error('roll back');
+      }))).rejects.toThrow('roll back');
+      await flushWebhooks();
+      expect(punchEvents()).toEqual([]);
+      expect(await runInTenant(c.orgId, () => peoplePrisma.devicePunch.count({ where: { orgId: c.orgId, deviceId: gate.id, reviewStatus: 'HELD' } }))).toBe(2);
+
+      /* Committed: one punch event, with the corrected times. */
+      await att(c).post('/held-punches/bulk', { action: 'release', deviceId: gate.id, shiftMinutes: 20 }).expect(200);
+      await flushWebhooks();
+      expect(punchEvents()).toHaveLength(1);
+      expect(punchEvents()[0].data.punches.map((x: any) => x.time)).toEqual(['2026-10-08 09:00:00', '2026-10-08 18:00:00']);
+    } finally {
+      process.env.INTEGRATIONS_ALLOW_PRIVATE = 'false';
+      await new Promise((done) => receiver.close(done));
+    }
+  });
+
+  it('00:30 on 1 Nov from a clock an hour ahead, counted from November, goes on 31 Oct', async () => {
+    const c = await owner();
+    const p = await person(c, { name: 'Month Edge', code: '8812' });
+    const gate = await addGate(c, 'Edge gate');
+    /* November's list and close check hold it, by the reader's time; Count puts it where it was really made. */
+    await heldRows(c, gate, [{ employeeId: p.id, pin: '8812', localTime: '2026-11-01 00:30:00', aheadMin: 60 }]);
+    expect((await att(c).get('/held-punches?month=2026-11').expect(200)).body.total).toBe(1);
+    expect((await att(c).get('/held-punches?month=2026-10').expect(200)).body.total).toBe(0);
+    const out = (await att(c).post('/held-punches/bulk', { action: 'release', deviceId: gate.id, month: '2026-11', shiftMinutes: 60 }).expect(200)).body;
+    expect(out).toMatchObject({ counted: 1, left: 0 });
+    const punch = await runInTenant(c.orgId, () => peoplePrisma.devicePunch.findFirstOrThrow({ where: { orgId: c.orgId, deviceId: gate.id } }));
+    expect(punch).toMatchObject({ localTime: '2026-10-31 23:30:00', recordedLocalTime: '2026-11-01 00:30:00', shiftDate: '2026-10-31', dayPending: false });
+    expect(await runInTenant(c.orgId, () => peoplePrisma.attendanceRecord.count({ where: { employeeId: p.id, date: '2026-10-31' } }))).toBe(1);
   });
 
   it('punches counted while their month was closed have their days worked out when it reopens', async () => {

@@ -73,7 +73,7 @@ export async function scanQueues(orgId: string, from: string, to: string, scope?
     ids ? Promise.resolve([] as any[]) : peoplePrisma.devicePunch.groupBy({ by: ['pin'], where: { orgId, employeeId: null, at: { gte: fromAt, lt: toAt } }, _count: { _all: true }, _min: { at: true }, _max: { at: true } }),
     ids ? Promise.resolve([] as any[]) : peoplePrisma.readerAlert.findMany({ where: { orgId, resolvedAt: null }, orderBy: { openedAt: 'desc' } }),
     peoplePrisma.temporarySchedule.findMany({ where: { orgId, fromDate: { lte: to }, toDate: { gte: from }, ...mine } }),
-    /* Reader punches held for a look (#11), by the time on them: on nobody's day until Count or Discard. Matched ones only: a held punch nobody's ID matches is under `unmatched` already. */
+    /* Reader punches held for a look (#11), by the time the reader put on them (the same set the held list and Count take; punches.ts takeableHeld): on nobody's day until Count or Discard. Matched ones only: a held punch nobody's ID matches is under `unmatched` already. */
     peoplePrisma.devicePunch.findMany({ where: { orgId, reviewStatus: 'HELD', employeeId: { not: null }, localTime: { gte: `${from} 00:00:00`, lte: `${to} 23:59:59` }, ...mine }, select: { id: true, employeeId: true, localTime: true } }),
   ]);
   /* Two temporary schedules for the same person on the same days with different shifts. */
