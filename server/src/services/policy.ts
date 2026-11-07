@@ -37,10 +37,17 @@ export function envAccessMinutes(raw = process.env.JWT_EXPIRES_IN): number {
   return minutes >= 1 ? Math.round(minutes) : 15;
 }
 
+/**
+ * The longest a sign-in may last: the refresh token's own lifetime. A saved
+ * "Stay signed in for" above it (the form used to allow 365) is read as this.
+ */
+export const SESSION_DAYS_CAP = Number(process.env.REFRESH_TOKEN_DAYS || 30);
+const capDays = (d: number) => Math.min(d, SESSION_DAYS_CAP);
+
 export const DEFAULT_POLICY: Policy = {
   maxFailedLogins: Number(process.env.MAX_FAILED_LOGINS || 8),
   lockoutMinutes: Number(process.env.LOCKOUT_MINUTES || 15),
-  sessionDays: Number(process.env.REFRESH_TOKEN_DAYS || 30),
+  sessionDays: SESSION_DAYS_CAP,
   accessTokenMinutes: envAccessMinutes(),
   passwordMinLength: 8,
   passwordRequireMixedCase: false,
@@ -59,7 +66,7 @@ export async function getAuthPolicy(accountId: string, orgId: string): Promise<P
   return {
     maxFailedLogins: row.maxFailedLogins,
     lockoutMinutes: row.lockoutMinutes,
-    sessionDays: row.sessionDays,
+    sessionDays: capDays(row.sessionDays),
     accessTokenMinutes: row.accessTokenMinutes,
     passwordMinLength: row.passwordMinLength,
     passwordRequireMixedCase: row.passwordRequireMixedCase,
@@ -100,7 +107,7 @@ export function strictestOf(rows: PolicyRow[]): Policy {
     (strictest, r) => ({
       maxFailedLogins: Math.min(strictest.maxFailedLogins, r.maxFailedLogins),
       lockoutMinutes: Math.max(strictest.lockoutMinutes, r.lockoutMinutes),
-      sessionDays: Math.min(strictest.sessionDays, r.sessionDays),
+      sessionDays: Math.min(strictest.sessionDays, capDays(r.sessionDays)),
       accessTokenMinutes: Math.min(strictest.accessTokenMinutes, r.accessTokenMinutes),
       passwordMinLength: Math.max(strictest.passwordMinLength, r.passwordMinLength),
       passwordRequireMixedCase: strictest.passwordRequireMixedCase || r.passwordRequireMixedCase,
@@ -113,7 +120,7 @@ export function strictestOf(rows: PolicyRow[]): Policy {
       /* Strictest across companies: STRICT over AUTO over ALLOW. */
       makerChecker: [strictest.makerChecker, r.makerChecker].includes('STRICT') ? 'STRICT' : [strictest.makerChecker, r.makerChecker].includes('AUTO') ? 'AUTO' : 'ALLOW',
     }),
-    { ...DEFAULT_POLICY, maxFailedLogins: 999, sessionDays: 999, accessTokenMinutes: 999, lockoutMinutes: 0, makerChecker: 'ALLOW' }
+    { ...DEFAULT_POLICY, maxFailedLogins: 999, sessionDays: SESSION_DAYS_CAP, accessTokenMinutes: 999, lockoutMinutes: 0, makerChecker: 'ALLOW' }
   );
 }
 

@@ -395,7 +395,7 @@ authRouter.post('/refresh', refreshLimiter, async (req: Request, res: Response) 
     /* Lost a race with another tab: the winner's response has just set the new cookie, so this one must not clear it. */
     if (e instanceof AuthError && e.code === 'refresh_raced') return res.status(409).json({ error: e.message, code: e.code });
     clearRefreshCookie(res);
-    if (e instanceof AuthError) return res.status(e.status).json({ error: e.message });
+    if (e instanceof AuthError) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
     throw e;
   }
 });

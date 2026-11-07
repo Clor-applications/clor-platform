@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'crypto';
+import { signInEntry } from './signInRules.js';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -134,9 +135,13 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
 
   const user = await platformPrisma.user.findFirst({
     where: { id: session.userId, isActive: true },
-    select: { id: true, accountId: true },
+    select: { id: true, accountId: true, email: true, emailVerifiedAt: true },
   });
   if (!user) throw new AuthError('Account is no longer active');
+
+  /* Review N5: a refresh is a sign-in without the password; if no company's rules let the person in now, it is refused like one. */
+  const entry = await signInEntry(user.id, user);
+  if (entry.refusal) throw new AuthError(entry.refusal.error, 403, entry.refusal.code);
 
   /*
    * A-06: claim the old session before issuing the next one. Reading

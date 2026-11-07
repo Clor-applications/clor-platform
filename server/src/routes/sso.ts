@@ -217,7 +217,7 @@ ssoRouter.get('/callback', async (req: Request, res: Response) => {
  * CLOR user at a domain the provider owns, or — when the provider says so — a
  * new one made on the spot as a member of that company with its default role.
  */
-async function finishSignIn(p: { id: string; name: string; accountId: string; orgId: string; emailDomains: string | null; verifiedDomains: string | null; autoProvision: boolean; defaultRoleId: string | null }, who: { email: string; name: string }, req: Request, res: Response, back: string) {
+async function finishSignIn(p: { id: string; name: string; accountId: string; orgId: string; emailDomains: string | null; verifiedDomains: string | null; autoProvision: boolean; defaultRoleId: string | null; defaultRoleSetByUserId?: string | null }, who: { email: string; name: string }, req: Request, res: Response, back: string) {
   const fail = (msg: string) => res.redirect(`${appUrl()}/?sso_error=${encodeURIComponent(msg)}`);
   const ip = clientIp(req);
   const userAgent = req.headers['user-agent'] as string | undefined;
@@ -246,7 +246,7 @@ async function finishSignIn(p: { id: string; name: string; accountId: string; or
     await platformPrisma.userOrgMembership.create({ data: { accountId: p.accountId, orgId: p.orgId, userId: user.id } });
     await ensureAccountMembership(p.accountId, user.id);
     /* #3: the provider's role, checked again now — this company's, and never an administrator's. Otherwise no role; an administrator assigns one. */
-    if (await automaticRoleUsable(p.accountId, p.orgId, p.defaultRoleId)) await platformPrisma.userRoleAssignment.create({ data: { accountId: p.accountId, orgId: p.orgId, userId: user.id, roleId: p.defaultRoleId!, createdByUserId: user.id } }).catch(() => {});
+    if (await automaticRoleUsable(p.accountId, p.orgId, p.defaultRoleId, p.defaultRoleSetByUserId)) await platformPrisma.userRoleAssignment.create({ data: { accountId: p.accountId, orgId: p.orgId, userId: user.id, roleId: p.defaultRoleId!, createdByUserId: user.id } }).catch(() => {});
     await recordAuthEvent({ accountId: p.accountId, userId: user.id, email, eventType: 'USER_PROVISIONED', ip, userAgent, detail: `SSO ${p.name}` });
   } else {
     /*

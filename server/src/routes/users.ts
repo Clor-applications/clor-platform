@@ -7,7 +7,8 @@ import bcrypt from 'bcrypt';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { userLimitReason } from '../services/entitlements.js';
-import { domainRefusalFor, getAuthPolicy, policyForUser, validatePassword } from '../services/policy.js';
+import { getAuthPolicy, policyForUser, validatePassword } from '../services/policy.js';
+import { domainRefusalForPerson } from '../services/signInRules.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
@@ -304,7 +305,7 @@ usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', Pe
   if ('email' in body && body.email) {
     const refusal = await identityChangeRefusal(req, accountId, orgId, userId);
     if (refusal) return res.status(refusal.status).json(refusal.body);
-    const domainRefused = await domainRefusalFor([orgId], body.email);
+    const domainRefused = await domainRefusalForPerson(userId, accountId, [orgId], body.email);
     if (domainRefused) return res.status(400).json({ error: domainRefused, code: 'EMAIL_DOMAIN_NOT_ALLOWED' });
   }
 
@@ -430,7 +431,7 @@ usersRouter.put('/users/:userId/companies', requirePermission('SETTINGS', Permis
   const userId = String(req.params.userId);
   const body = companyAccessSchema.parse(req.body);
 
-  const target = await platformPrisma.user.findFirst({ where: { id: userId, accountId }, select: { id: true } });
+  const target = await platformPrisma.user.findFirst({ where: { id: userId, accountId }, select: { id: true, email: true } });
   if (!target) return res.status(404).json({ error: 'User not found' });
 
   // Only companies in this account, and only ones that exist. Anything else in
@@ -461,6 +462,12 @@ usersRouter.put('/users/:userId/companies', requirePermission('SETTINGS', Permis
     if (!caller.isAdmin && toRemove.includes(orgId) && (await userIsAdmin(accountId, orgId, userId))) {
       return res.status(403).json({ ...ADMIN_ONLY_ERROR, orgId });
     }
+  }
+
+  /* Review N4: a company added must allow the person's domain, as when they are first added (owners exempt). */
+  if (toAdd.length) {
+    const domainRefused = await domainRefusalForPerson(userId, accountId, toAdd, target.email);
+    if (domainRefused) return res.status(400).json({ error: domainRefused, code: 'EMAIL_DOMAIN_NOT_ALLOWED' });
   }
 
   // Taking a company away from its only administrator locks that company.
@@ -723,10 +730,6 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
   const body = createUserSchema.parse(req.body);
   const email = body.email.toLowerCase();
 
-  /* #4: each company the person is added to must allow their address's domain. */
-  const domainRefused = await domainRefusalFor(body.orgIds.length ? body.orgIds : [req.tenant!.orgId], email);
-  if (domainRefused) return res.status(400).json({ error: domainRefused, code: 'EMAIL_DOMAIN_NOT_ALLOWED' });
-
   /*
    * The plan's seat allowance. Checked before anything is written, and before
    * the invitation branch below, so an account at its limit is told so rather
@@ -824,6 +827,19 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
       select: { id: true },
     });
     if (usernameTaken) return res.status(409).json({ error: 'That username is already taken' });
+  }
+
+  /*
+   * #4: each company the person is added to must allow their address's
+   * domain. Only this account's companies are read (review S5: another
+   * account's list must not show through), and an owner, or someone from
+   * another account let in by an engagement, is not held to it (S2, S3).
+   */
+  {
+    const asked = body.orgIds.length ? body.orgIds : [req.tenant!.orgId];
+    const ours = await platformPrisma.org.findMany({ where: { accountId, id: { in: asked } }, select: { id: true } });
+    const domainRefused = await domainRefusalForPerson(invited?.id, accountId, ours.map((o) => o.id), email);
+    if (domainRefused) return res.status(400).json({ error: domainRefused, code: 'EMAIL_DOMAIN_NOT_ALLOWED' });
   }
 
   /* A new login meets the adding company's password rules (SX-13). */
@@ -1034,6 +1050,14 @@ usersRouter.post('/orgs/:orgId/users/:userId/branches', requirePermission('SETTI
 
   const body = assignBranchesSchema.parse(req.body);
   const branchIds = Array.from(new Set(body.branchIds));
+
+  /* Review N4: this can add the person to the company; if so, its domain rule applies as anywhere else (owners and outsiders exempt). */
+  const alreadyMember = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
+  if (!alreadyMember) {
+    const who = await platformPrisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    const domainRefused = who ? await domainRefusalForPerson(userId, accountId, [orgId], who.email) : null;
+    if (domainRefused) return res.status(400).json({ error: domainRefused, code: 'EMAIL_DOMAIN_NOT_ALLOWED' });
+  }
 
   // ensure org membership exists
   await platformPrisma.userOrgMembership.upsert({

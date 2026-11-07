@@ -129,7 +129,7 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
   if (acct?.suspendedAt) return { status: 403, error: 'This account has been suspended by Clor. Contact support@clor.in.', code: 'ACCOUNT_SUSPENDED' };
 
   /* #4: the company's own rules on who may open it — a confirmed address, an allowed domain (services/signInRules.ts). */
-  const entry = await companyEntryRefusal(userId, orgId);
+  const entry = await companyEntryRefusal(userId, orgId, accountId);
   if (entry) return entry;
 
   /*

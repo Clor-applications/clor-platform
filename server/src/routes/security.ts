@@ -21,7 +21,8 @@ import {
   revokeAllSessions,
   listSessions,
 } from '../services/auth.js';
-import { getAuthPolicy, describePasswordRules, domainList, emailDomainAllowed, validatePassword } from '../services/policy.js';
+import { SESSION_DAYS_CAP, getAuthPolicy, describePasswordRules, validatePassword } from '../services/policy.js';
+import { whoRulesKeepOut } from '../services/signInRules.js';
 import { stepUpIfHeld } from '../services/stepUp.js';
 import { automaticRoleRefusal } from '../services/roleGuards.js';
 
@@ -54,7 +55,8 @@ const orgOk = (req: any, res: any) => {
 const policySchema = z.object({
   maxFailedLogins: z.number().int().min(3).max(50),
   lockoutMinutes: z.number().int().min(1).max(1440),
-  sessionDays: z.number().int().min(1).max(365),
+  /* N3: never longer than the refresh token itself lasts. */
+  sessionDays: z.number().int().min(1).max(SESSION_DAYS_CAP),
   accessTokenMinutes: z.number().int().min(5).max(1440),
   passwordMinLength: z.number().int().min(8).max(64),
   passwordRequireMixedCase: z.boolean(),
@@ -93,15 +95,27 @@ securityRouter.put('/orgs/:orgId/security/policy', EDIT, async (req, res) => {
 
   /*
    * #4: "Require a confirmed email address" and "Allowed email domains" now
-   * decide who may open the company. Saving one that shuts out the person
-   * saving it would lock them out on their next request.
+   * decide who may open the company. Saving rules that shut out the person
+   * saving them, or anyone who administers the company (review S3), would
+   * leave it with nobody to undo them. Account owners are never shut out.
    */
-  const me = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { email: true, emailVerifiedAt: true } });
-  if (body.allowedEmailDomains && domainList(body.allowedEmailDomains).length && !emailDomainAllowed(String(me?.email || ''), body.allowedEmailDomains)) {
-    return res.status(400).json({ error: `Your own address (${me?.email}) is not at one of those domains, so you would lose access. Add its domain to the list.`, code: 'OWN_DOMAIN_EXCLUDED' });
+  const rules = { requireVerifiedEmail: body.requireVerifiedEmail, allowedEmailDomains: body.allowedEmailDomains ?? null };
+  const wouldKeepOut = await whoRulesKeepOut(accountId, orgId, rules);
+  const mine = wouldKeepOut.find((k) => k.userId === req.auth!.userId);
+  if (mine?.code === 'EMAIL_DOMAIN_NOT_ALLOWED') {
+    return res.status(400).json({ error: `Your own address (${mine.email}) is not at one of those domains, so you would lose access. Add its domain to the list.`, code: 'OWN_DOMAIN_EXCLUDED' });
   }
-  if (body.requireVerifiedEmail && !me?.emailVerifiedAt) {
+  if (mine?.code === 'EMAIL_NOT_CONFIRMED') {
     return res.status(400).json({ error: 'Confirm your own email address first (My profile), then require it of everyone.', code: 'OWN_EMAIL_NOT_CONFIRMED' });
+  }
+  const leaders = wouldKeepOut.filter((k) => k.admin);
+  if (leaders.length) {
+    const names = leaders.map((k) => (k.fullName ? `${k.fullName} (${k.email})` : k.email)).join(', ');
+    return res.status(400).json({
+      error: `These rules would shut out ${leaders.length === 1 ? 'an administrator' : 'administrators'} of this company: ${names}. Add their domain, or have them confirm their email, first.`,
+      code: 'ADMINS_SHUT_OUT',
+      people: leaders.map((k) => ({ email: k.email, fullName: k.fullName, reason: k.code })),
+    });
   }
 
   const saved = await platformPrisma.authPolicy.upsert({
@@ -125,11 +139,9 @@ securityRouter.put('/orgs/:orgId/security/policy', EDIT, async (req, res) => {
   });
 
   /* Who these rules now keep out, so the screen can say so rather than leave it to be discovered. */
-  const members = await platformPrisma.userOrgMembership.findMany({ where: { accountId, orgId }, select: { user: { select: { email: true, emailVerifiedAt: true, isActive: true } } } });
-  const live = members.map((m) => m.user).filter((u) => u.isActive);
   const keptOut = {
-    unconfirmed: saved.requireVerifiedEmail ? live.filter((u) => !u.emailVerifiedAt).length : 0,
-    outsideDomains: live.filter((u) => !emailDomainAllowed(u.email, saved.allowedEmailDomains)).length,
+    unconfirmed: wouldKeepOut.filter((k) => k.code === 'EMAIL_NOT_CONFIRMED').length,
+    outsideDomains: wouldKeepOut.filter((k) => k.code === 'EMAIL_DOMAIN_NOT_ALLOWED').length,
   };
 
   /* The same shape GET returns, so the screen's saved copy matches what it shows and stops saying "Unsaved changes". */
@@ -304,6 +316,7 @@ securityRouter.post('/orgs/:orgId/security/providers', EDIT, async (req, res) =>
         verifiedDomains: verificationSkipped() ? domainsOf(body.emailDomains).join(',') || null : null,
         autoProvision: body.autoProvision ?? false,
         defaultRoleId: body.defaultRoleId ?? null,
+        defaultRoleSetByUserId: body.defaultRoleId ? req.auth!.userId : null,
         createdByUserId: req.auth!.userId,
       },
     });
@@ -369,6 +382,7 @@ securityRouter.patch('/orgs/:orgId/security/providers/:providerId', EDIT, async 
       domainVerifyToken: existing.domainVerifyToken || newDomainToken(),
       autoProvision: body.autoProvision ?? existing.autoProvision,
       defaultRoleId: body.defaultRoleId ?? null,
+      defaultRoleSetByUserId: body.defaultRoleId ? req.auth!.userId : null,
     },
   });
   await recordAuthEvent({ accountId, userId: req.auth!.userId, eventType: 'PROVIDER_UPDATED', detail: `${updated.kind} ${updated.name}`, ip: clientIp(req) });

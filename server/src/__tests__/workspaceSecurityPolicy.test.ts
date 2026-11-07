@@ -60,6 +60,7 @@ async function added(o: Ctx, permissions: string[], email = mail('m')): Promise<
   if (permissions.length) await request(app).post(`/api/orgs/${o.orgId}/users/${id}/roles`).set(at(o)).send({ roleId: await role(o, permissions) }).expect(201);
   return { ...o, token: '', userId: id, email };
 }
+const adminRoleOf = async (o: Ctx) => ((await request(app).get(`/api/orgs/${o.orgId}/roles`).set(at(o)).expect(200)).body.roles as any[]).find((r) => r.roleType === 'ADMIN').id as string;
 const login = (email: string, password = PASSWORD) => request(app).post('/api/auth/login').send({ email, password });
 const signedIn = async (c: Ctx) => ({ ...c, token: (await login(c.email).expect(200)).body.token as string });
 
@@ -126,9 +127,11 @@ describe('#4 how long a sign-in lasts', () => {
 });
 
 describe('#4 a confirmed email address', () => {
-  it('cannot be required by someone who has not confirmed their own', async () => {
+  it('cannot be required by an administrator who has not confirmed their own', async () => {
     const o = await owner('own-unconfirmed');
-    expect((await setPolicy(o, { requireVerifiedEmail: true }).expect(400)).body.code).toBe('OWN_EMAIL_NOT_CONFIRMED');
+    const admin = await signedIn(await added(o, [], mail('admin')));
+    await request(app).post(`/api/orgs/${o.orgId}/users/${admin.userId}/roles`).set(at(o)).send({ roleId: await adminRoleOf(o) }).expect(201);
+    expect((await setPolicy(admin, { requireVerifiedEmail: true }).expect(400)).body.code).toBe('OWN_EMAIL_NOT_CONFIRMED');
   }, 60_000);
 
   it('refuses an unconfirmed address with a plain message and a way to get a new link, then lets them in', async () => {
@@ -166,10 +169,12 @@ describe('#4 a confirmed email address', () => {
 });
 
 describe('#4 allowed email domains', () => {
-  it('cannot shut out the person saving it', async () => {
+  it('cannot shut out the administrator saving it', async () => {
     const o = await owner('own-domain');
-    expect((await setPolicy(o, { allowedEmailDomains: 'onlythis.in' }).expect(400)).body.code).toBe('OWN_DOMAIN_EXCLUDED');
-    await setPolicy(o, { allowedEmailDomains: 'example.com, onlythis.in' }).expect(200);
+    const admin = await signedIn(await added(o, [], mail('admin')));
+    await request(app).post(`/api/orgs/${o.orgId}/users/${admin.userId}/roles`).set(at(o)).send({ roleId: await adminRoleOf(o) }).expect(201);
+    expect((await setPolicy(admin, { allowedEmailDomains: 'onlythis.in' }).expect(400)).body.code).toBe('OWN_DOMAIN_EXCLUDED');
+    await setPolicy(admin, { allowedEmailDomains: 'example.com, onlythis.in' }).expect(200);
   }, 60_000);
 
   it('refuses invitations, added users and directory sync at other domains, and allowed ones go through', async () => {

@@ -25,7 +25,7 @@ import './workspace.css';
 const NUMBERS = [
   { key: 'maxFailedLogins', label: 'Failed attempts before lockout', min: 3, max: 50 },
   { key: 'lockoutMinutes', label: 'Lockout duration (minutes)', min: 1, max: 1440 },
-  { key: 'sessionDays', label: 'Stay signed in for (days)', min: 1, max: 365 },
+  { key: 'sessionDays', label: 'Stay signed in for (days)', min: 1, max: 30 },
   { key: 'accessTokenMinutes', label: 'Access token lifetime (minutes)', min: 5, max: 1440 },
 ];
 const PASSWORD_RULES = [

@@ -279,6 +279,8 @@ credentialsRouter.post(`${base}/:id/rotate`, can(PermissionAction.EDIT), async (
     const roleRefused = await automaticRoleRefusal(req, s?.defaultRoleId);
     const refused = (roleRefused?.body.code === 'FOREIGN_ROLE' ? null : roleRefused) || (await stepUpIfHeld(req, 'Enter the code from your authenticator app to rotate a directory-sync token.'));
     if (refused) return res.status(refused.status).json(refused.body);
+    /* Review B1: the person rotating answers for its role from now on; provisioning checks against them. */
+    await platformPrisma.scimToken.update({ where: { id: c.ownerId }, data: { createdByUserId: req.auth!.userId } });
   }
   try {
     if (c.kind === 'API_KEY') {

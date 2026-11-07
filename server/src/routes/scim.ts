@@ -7,6 +7,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { recordAuthEvent, clientIp } from '../services/auth.js';
 import { notifyPermission } from '../services/notifications.js';
 import { LAST_ADMIN_ERROR, automaticRoleUsable, userIsAdmin, wouldRemoveLastAdmin } from '../services/roleGuards.js';
+import { ACCOUNT_ADMINS } from '../services/accountMembership.js';
 import { domainRefusalFor } from '../services/policy.js';
 import { outsideTenant, enterTenant } from '../utils/tenantScope.js';
 import { verifyCredential, touchLastUsed } from '../services/credentials.js';
@@ -234,13 +235,14 @@ scimRouter.post('/Users', async (req, res) => {
 
 /**
  * #1: people a directory-sync token never switches off or removes — an owner
- * of the account, and anyone who administers this company. The token is not
+ * or administrator of the account (ACCOUNT_ADMINS, review S4), and anyone who
+ * administers this company. The token is not
  * an administrator, so the Users route's rule ("an administrator only by an
  * administrator") leaves them out of its reach entirely.
  */
 async function protectedFromDirectory(t: Tenant, userId: string) {
-  const owner = await platformPrisma.accountMembership.findFirst({ where: { accountId: t.accountId, userId, role: 'OWNER' }, select: { id: true } });
-  return Boolean(owner) || (await userIsAdmin(t.accountId, t.orgId, userId));
+  const leader = await platformPrisma.accountMembership.findFirst({ where: { accountId: t.accountId, userId, role: { in: ACCOUNT_ADMINS } }, select: { id: true } });
+  return Boolean(leader) || (await userIsAdmin(t.accountId, t.orgId, userId));
 }
 
 /** What a replace or a patch may change, applied the same way. */

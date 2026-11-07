@@ -12,7 +12,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { outsideTenant } from '../utils/tenantScope.js';
 import { clearAccessCache } from '../utils/accessCache.js';
 import { clientIp, recordAuthEvent } from '../services/auth.js';
-import { issueStepUp, requireOperatorStepUp } from '../services/stepUp.js';
+import { issueOperatorStepUp, requireOperatorStepUp } from '../services/stepUp.js';
 import { getSubscription, inGoodStanding } from '../services/subscriptions.js';
 import { useSecondFactor } from './security.js';
 
@@ -143,7 +143,7 @@ opsRouter.post('/ops/step-up', ...codeLimiter, async (req, res) => {
     }
     return res.status(400).json({ error: 'That code is not right, or has been used. Wait for the next one.', code: 'BAD_CODE' });
   }
-  res.json(issueStepUp(u.id, req.auth!.sessionId));
+  res.json(issueOperatorStepUp(u.id, req.auth!.sessionId));
 });
 
 /** The numbers on the console's first page. */
