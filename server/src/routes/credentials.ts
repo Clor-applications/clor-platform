@@ -25,6 +25,10 @@ import { agentKind, apiKeyKind, devicePushKind } from '../services/credentialKin
 import { scimKind, revokeScimToken, rotateScimToken } from '../services/scimTokens.js';
 import { createApiKey, revokeApiKey, rotateApiKey } from '../services/apiKeys.js';
 import { SCOPES } from './publicApi.js';
+import { scopeRefusal } from '../services/apiKeyScopes.js';
+import { automaticRoleRefusal } from '../services/roleGuards.js';
+import { stepUpIfHeld } from '../services/stepUp.js';
+import { permKey } from '../constants/permissionCatalog.js';
 
 /**
  * Workspace → Credentials (Batch 5, R18): every key and token other
@@ -178,6 +182,9 @@ credentialsRouter.post(`${base}/api-keys`, can(PermissionAction.CREATE), async (
     .object({ name: z.string().trim().min(1, 'Name the key after what uses it.').max(80), scopes: z.array(z.enum(SCOPES)).min(1, 'Choose what the key may do.'), allowedIps: ipList, expiresAt: expiry })
     .safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || 'Check the details.' });
+  /* #10: a key does only what its maker could do themselves. */
+  const scopeRefused = await scopeRefusal(req, p.data.scopes, permKey(MODULE, RESOURCE, PermissionAction.CREATE));
+  if (scopeRefused) return res.status(scopeRefused.status).json(scopeRefused.body);
   const { key, token, credential } = await createApiKey({ accountId, orgId }, p.data, { ...actorFrom(req), id: req.auth!.userId });
   await recordAudit(req, { entity: 'Credential', entityId: credential?.id || key.id, action: 'CREATE', message: `Made the API key “${key.name}”`, metadata: { scopes: p.data.scopes, expiresAt: credential?.expiresAt ?? null } });
   res.status(201).json({ token, credentialId: credential?.id ?? null, note: 'Shown once — copy it now. Only a hash is kept.' });
@@ -257,6 +264,22 @@ credentialsRouter.post(`${base}/:id/rotate`, can(PermissionAction.EDIT), async (
   const c = await target(req, res);
   if (!c) return;
   const t = { accountId: req.tenant!.accountId, orgId: c.orgId };
+  /*
+   * #2, #10: a rotation hands out a working token with everything the old one
+   * could do, so whoever rotates must be able to make it afresh.
+   */
+  if (c.kind === 'API_KEY') {
+    const k = await peoplePrisma.apiClient.findFirst({ where: { id: c.ownerId, orgId: c.orgId }, select: { scopes: true } });
+    const refused = await scopeRefusal(req, String(k?.scopes || '').split(',').filter(Boolean), permKey(MODULE, RESOURCE, PermissionAction.EDIT));
+    if (refused) return res.status(refused.status).json(refused.body);
+  }
+  if (c.kind === 'SCIM') {
+    const s = await platformPrisma.scimToken.findFirst({ where: { id: c.ownerId, orgId: c.orgId }, select: { defaultRoleId: true } });
+    /* A role since deleted is simply not given (routes/scim.ts checks at each provision), so only a live one is bounded here. */
+    const roleRefused = await automaticRoleRefusal(req, s?.defaultRoleId);
+    const refused = (roleRefused?.body.code === 'FOREIGN_ROLE' ? null : roleRefused) || (await stepUpIfHeld(req, 'Enter the code from your authenticator app to rotate a directory-sync token.'));
+    if (refused) return res.status(refused.status).json(refused.body);
+  }
   try {
     if (c.kind === 'API_KEY') {
       const r = await rotateApiKey(t, c.ownerId, actorFrom(req), reasonOf(req));

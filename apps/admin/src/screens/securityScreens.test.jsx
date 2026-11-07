@@ -46,6 +46,15 @@ describe('sign-in and sessions', () => {
     await waitFor(() => expect(save).toBeDisabled());
   });
 
+  it('says after saving who the rules now keep out', async () => {
+    api.savePolicy.mockImplementation(async (p) => ({ policy: p, keptOut: { unconfirmed: 2, outsideDomains: 1 } }));
+    render(<SecuritySettings />);
+    const save = await screen.findByRole('button', { name: /Save rules/ });
+    fireEvent.click(screen.getByLabelText(/Require a confirmed email address/));
+    fireEvent.click(save);
+    expect(await screen.findByRole('status')).toHaveTextContent('Sign-in rules saved. 2 people must confirm their email before they can open this company. 1 person with an address outside the allowed domains can no longer open it.');
+  });
+
   it('refuses a password change whose two new passwords differ', async () => {
     render(<SecuritySettings />);
     await screen.findByRole('button', { name: /Save rules/ });

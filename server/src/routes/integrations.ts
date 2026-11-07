@@ -20,6 +20,8 @@ import { createApiKey, revokeApiKey, rotateApiKey } from '../services/apiKeys.js
 import { CredentialError, actorFrom, issueCredential, liveCredentialOf, revokeCredential, rotateCredential } from '../services/credentials.js';
 import { liveCredentialFor } from '../services/credentialKinds.js';
 import { revokeScimToken, rotateScimToken } from '../services/scimTokens.js';
+import { scopeRefusal } from '../services/apiKeyScopes.js';
+import { permKey } from '../constants/permissionCatalog.js';
 
 /**
  * Integrations, as the company manages them: API keys for outside systems
@@ -55,6 +57,9 @@ integrationsRouter.post(`${base}/keys`, can(PermissionAction.CREATE), async (req
     .object({ name: z.string().trim().min(1, 'Name the key after what uses it.').max(80), scopes: z.array(z.enum(SCOPES)).min(1, 'Choose what the key may do.'), allowedIps: ipList })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the details.' });
+  /* #10: a key does only what its maker could do themselves (services/apiKeyScopes.ts). */
+  const scopeRefused = await scopeRefusal(req, parsed.data.scopes, permKey(ATTENDANCE_MODULE, ATTENDANCE_RESOURCE.integrations, PermissionAction.CREATE));
+  if (scopeRefused) return res.status(scopeRefused.status).json(scopeRefused.body);
   const { key, token } = await createApiKey({ accountId, orgId }, { name: parsed.data.name, scopes: parsed.data.scopes, allowedIps: parsed.data.allowedIps }, { ...actorFrom(req), id: req.auth!.userId });
   res.status(201).json({ key: keyRow(key), token, note: 'Shown once — copy it now. Only a hash is kept.' });
 });
@@ -68,6 +73,10 @@ const credentialFailed = (res: any, e: unknown) => {
 integrationsRouter.post(`${base}/keys/:id/rotate`, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
+  /* #10: rotating hands out a working key with all the old one's scopes. */
+  const existing = await peoplePrisma.apiClient.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { scopes: true } });
+  const scopeRefused = await scopeRefusal(req, String(existing?.scopes || '').split(',').filter(Boolean), permKey(ATTENDANCE_MODULE, ATTENDANCE_RESOURCE.integrations, PermissionAction.EDIT));
+  if (scopeRefused) return res.status(scopeRefused.status).json(scopeRefused.body);
   try {
     /* The old key stops working at once; the punches it sent stay under its reader row. A revoked key stays revoked. */
     const { key, token } = await rotateApiKey({ accountId, orgId }, String(req.params.id), actorFrom(req), req.body?.reason ? String(req.body.reason).slice(0, 200) : null);

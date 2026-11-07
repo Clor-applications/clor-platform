@@ -7,7 +7,7 @@ import bcrypt from 'bcrypt';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { userLimitReason } from '../services/entitlements.js';
-import { getAuthPolicy, policyForUser, validatePassword } from '../services/policy.js';
+import { domainRefusalFor, getAuthPolicy, policyForUser, validatePassword } from '../services/policy.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
@@ -304,6 +304,8 @@ usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', Pe
   if ('email' in body && body.email) {
     const refusal = await identityChangeRefusal(req, accountId, orgId, userId);
     if (refusal) return res.status(refusal.status).json(refusal.body);
+    const domainRefused = await domainRefusalFor([orgId], body.email);
+    if (domainRefused) return res.status(400).json({ error: domainRefused, code: 'EMAIL_DOMAIN_NOT_ALLOWED' });
   }
 
   /*
@@ -720,6 +722,10 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
 
   const body = createUserSchema.parse(req.body);
   const email = body.email.toLowerCase();
+
+  /* #4: each company the person is added to must allow their address's domain. */
+  const domainRefused = await domainRefusalFor(body.orgIds.length ? body.orgIds : [req.tenant!.orgId], email);
+  if (domainRefused) return res.status(400).json({ error: domainRefused, code: 'EMAIL_DOMAIN_NOT_ALLOWED' });
 
   /*
    * The plan's seat allowance. Checked before anything is written, and before

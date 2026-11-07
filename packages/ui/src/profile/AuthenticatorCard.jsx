@@ -8,12 +8,13 @@ import { orgId } from '@platform/context';
 const base = () => `/orgs/${encodeURIComponent(String(orgId() || ''))}/security`;
 const opts = { skipWarehouseHeader: true };
 const getTwoFactor = () => apiFetch(`${base()}/two-factor`, opts);
-const startTwoFactor = () => apiFetch(`${base()}/two-factor/setup`, { method: 'POST', ...opts });
+const startTwoFactor = (password) => apiFetch(`${base()}/two-factor/setup`, { method: 'POST', body: { password }, ...opts });
 const enableTwoFactor = (code) => apiFetch(`${base()}/two-factor/enable`, { method: 'POST', body: { code }, ...opts });
 const disableTwoFactor = (password, code) => apiFetch(`${base()}/two-factor/disable`, { method: 'POST', body: { password, code }, ...opts });
 
 /**
- * The signed-in person's authenticator app: set up by scanning a QR code and
+ * The signed-in person's authenticator app: set up — after their password, so
+ * a stolen session cannot add the thief's — by scanning a QR code and
  * typing a code from it, shown recovery codes once, turned off with their
  * password and a current code (or a recovery code) — a password alone could
  * otherwise strip the second factor. Where the company asks (Policy), payroll approvals need a code.
@@ -25,6 +26,7 @@ export default function AuthenticatorCard() {
   const [code, setCode] = useState('');
   const [codes, setCodes] = useState(null);
   const [password, setPassword] = useState('');
+  const [setupPassword, setSetupPassword] = useState('');
   const [offCode, setOffCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null);
@@ -45,12 +47,15 @@ export default function AuthenticatorCard() {
       setBusy(false);
     }
   };
-  const begin = () =>
+  const begin = (e) => {
+    e.preventDefault();
     act(async () => {
-      const r = await startTwoFactor();
+      const r = await startTwoFactor(setupPassword);
+      setSetupPassword('');
       setSetup(r);
       setQr(await QRCode.toDataURL(r.uri, { margin: 1, width: 192 }));
     });
+  };
   const confirm = (e) => {
     e.preventDefault();
     act(async () => {
@@ -106,7 +111,7 @@ export default function AuthenticatorCard() {
       ) : setup ? (
         <form onSubmit={confirm} className="flex flex-wrap items-start gap-4">
           {qr ? <img src={qr} alt="QR code to scan with your authenticator app" width={192} height={192} className="rounded" /> : null}
-          <div className="min-w-0 flex-1 space-y-2">
+          <div className="min-w-[12rem] flex-1 space-y-2">
             <p className="text-sm">Scan this with your authenticator app, then type the six-digit code it shows.</p>
             <p className="ui-caption">Can’t scan? Enter this key: <span className="ui-mono break-all">{setup.secret}</span></p>
             <div className="flex flex-wrap gap-2">
@@ -116,9 +121,12 @@ export default function AuthenticatorCard() {
           </div>
         </form>
       ) : (
-        <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={begin}>
-          <KeyRound size={14} aria-hidden="true" /> Set up an authenticator app
-        </button>
+        <form onSubmit={begin} className="flex flex-wrap items-end gap-2">
+          <input type="password" className="ui-input" placeholder="Your password" aria-label="Your password" autoComplete="current-password" value={setupPassword} onChange={(e) => setSetupPassword(e.target.value)} required />
+          <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !setupPassword}>
+            <KeyRound size={14} aria-hidden="true" /> Set up an authenticator app
+          </button>
+        </form>
       )}
       {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
     </section>

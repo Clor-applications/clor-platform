@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request } from 'express';
 import { z } from 'zod';
+import bcrypt from 'bcrypt';
 
 import { requireAuth } from '../middleware/auth.js';
 import { OPERATOR_ROLES, operatorUserIds, requireOperator, requireOperatorRole, requireOperatorToEnrol } from '../middleware/operator.js';
@@ -45,10 +46,15 @@ export const opsRouter = Router();
  * an operator need not belong to one.
  */
 const enrolling = (req: Request) =>
-  platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { id: true, email: true, totpSecretEnc: true } });
+  platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { id: true, email: true, totpSecretEnc: true, passwordHash: true } });
 
-opsRouter.post('/ops/two-factor/setup', requireAuth, requireOperatorToEnrol, async (req, res) => {
+/* #12: the operator's password first, so a stolen access token cannot enrol the thief's authenticator and then pass every step-up. */
+opsRouter.post('/ops/two-factor/setup', requireAuth, ...codeLimiter, requireOperatorToEnrol, async (req, res) => {
   const u = (await enrolling(req))!;
+  if (!(await bcrypt.compare(String(req.body?.password || ''), u.passwordHash))) {
+    await platformPrisma.operatorAuditEvent.create({ data: { operatorUserId: u.id, action: 'TWO_FACTOR_SETUP_REFUSED', ip: clientIp(req) ?? null } });
+    return res.status(400).json({ error: 'Your password is not correct.', code: 'BAD_PASSWORD' });
+  }
   const secret = newSecret();
   await platformPrisma.user.update({ where: { id: u.id }, data: { totpSecretEnc: encryptSecret(secret), totpLastStep: null } });
   res.json({ secret, uri: otpauthUri(secret, u.email) });
@@ -102,16 +108,39 @@ opsRouter.get('/ops/me', async (req, res) => {
   res.json({ user: u, role: res.locals.operatorRole });
 });
 
-/** A fresh authenticator code for fifteen minutes of changes (the console has no company to ask through). */
-opsRouter.post('/ops/step-up', async (req, res) => {
+/** Wrong step-up codes an operator may type in a window before the console stops taking them (#9). */
+export const OPS_STEP_UP_MAX_FAILURES = 5;
+export const OPS_STEP_UP_WINDOW_MIN = 15;
+
+/**
+ * A fresh authenticator code for fifteen minutes of changes (the console has no company to ask through).
+ *
+ * #9: this unlocks changes to every customer account, so a stolen operator
+ * token must not be able to walk the six digits. The shared code limiter
+ * counts every try; on top of that, five wrong codes in fifteen minutes stop
+ * step-up for this operator until the window has passed — counted from the
+ * append-only audit, so every API instance sees the same number — and the
+ * lockout is written to the operator's sign-in log as well.
+ */
+opsRouter.post('/ops/step-up', ...codeLimiter, async (req, res) => {
   const u = await platformPrisma.user.findUnique({
     where: { id: req.auth!.userId },
-    select: { id: true, totpSecretEnc: true, totpEnabledAt: true, totpLastStep: true, totpRecoveryJson: true },
+    select: { id: true, accountId: true, totpSecretEnc: true, totpEnabledAt: true, totpLastStep: true, totpRecoveryJson: true },
   });
   if (!u?.totpEnabledAt || !u.totpSecretEnc) return res.status(400).json({ error: 'Set up an authenticator app first.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
+  const since = new Date(Date.now() - OPS_STEP_UP_WINDOW_MIN * 60_000);
+  const failures = () => platformPrisma.operatorAuditEvent.count({ where: { operatorUserId: u.id, action: 'STEP_UP_FAILED', at: { gt: since } } });
+  if ((await failures()) >= OPS_STEP_UP_MAX_FAILURES) {
+    return res.status(429).json({ error: `Too many wrong codes. Wait ${OPS_STEP_UP_WINDOW_MIN} minutes, then try again.`, code: 'STEP_UP_LOCKED' });
+  }
   const used = await useSecondFactor(u, String(req.body?.code || ''));
   if (!used) {
     await platformPrisma.operatorAuditEvent.create({ data: { operatorUserId: u.id, action: 'STEP_UP_FAILED', ip: clientIp(req) ?? null } });
+    if ((await failures()) >= OPS_STEP_UP_MAX_FAILURES) {
+      await platformPrisma.operatorAuditEvent.create({ data: { operatorUserId: u.id, action: 'STEP_UP_LOCKED', ip: clientIp(req) ?? null } });
+      await recordAuthEvent({ accountId: u.accountId, userId: u.id, eventType: 'OPERATOR_STEP_UP_LOCKED', ip: clientIp(req), detail: `${OPS_STEP_UP_MAX_FAILURES} wrong codes in ${OPS_STEP_UP_WINDOW_MIN} minutes` });
+      console.warn('[ops] operator step-up locked after repeated wrong codes', { operatorUserId: u.id, ip: clientIp(req) });
+    }
     return res.status(400).json({ error: 'That code is not right, or has been used. Wait for the next one.', code: 'BAD_CODE' });
   }
   res.json(issueStepUp(u.id, req.auth!.sessionId));

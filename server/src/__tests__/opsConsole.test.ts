@@ -35,7 +35,7 @@ async function company(): Promise<Ctx> {
 /** Enrol an authenticator; returns a function giving a fresh code. */
 async function authenticator(c: Ctx) {
   const sec = (p: string, b: unknown = {}) => request(app).post(`/api/orgs/${c.orgId}/security${p}`).set(at(c)).send(b as any);
-  const { secret } = (await sec('/two-factor/setup').expect(200)).body;
+  const { secret } = (await sec('/two-factor/setup', { password: 'Passw0rd!23' }).expect(200)).body;
   await clearOfStepEdge();
   await sec('/two-factor/enable', { code: codeAt(secret, stepNow() - 1) }).expect(200);
   return (n = 0) => codeAt(secret, stepNow() + n);
@@ -58,7 +58,9 @@ describe('the operator console', () => {
     /* A customer cannot use the console's set-up. */
     expect((await request(app).post('/api/ops/two-factor/setup').set(bearer(c)).expect(403)).body.code).toBe('OPERATOR_ONLY');
     process.env.CLOR_OPERATOR_USER_IDS = op.userId;
-    const { secret } = (await request(app).post('/api/ops/two-factor/setup').set(bearer(op)).expect(200)).body;
+    /* #12: not without the operator's password. */
+    expect((await request(app).post('/api/ops/two-factor/setup').set(bearer(op)).send({ password: 'wrong' }).expect(400)).body.code).toBe('BAD_PASSWORD');
+    const { secret } = (await request(app).post('/api/ops/two-factor/setup').set(bearer(op)).send({ password: 'Passw0rd!23' }).expect(200)).body;
     expect((await request(app).post('/api/ops/two-factor/enable').set(bearer(op)).send({ code: '000000' }).expect(400)).body.code).toBe('BAD_CODE');
     const on = (await request(app).post('/api/ops/two-factor/enable').set(bearer(op)).send({ code: codeAt(secret, stepNow()) }).expect(200)).body;
     expect(on.recoveryCodes.length).toBeGreaterThan(0);

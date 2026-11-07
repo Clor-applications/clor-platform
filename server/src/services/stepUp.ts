@@ -63,6 +63,19 @@ export async function stepUpRefusal(req: Request, noAuthenticator: string) {
   return null;
 }
 
+/**
+ * W-5.2's rule for changes that hand out access in bulk — making someone an
+ * administrator, single sign-on, directory sync: where the person making the
+ * change has an authenticator, it takes a fresh code (the client asks and
+ * retries). Someone with none is not stopped, as for an administrator grant;
+ * the change is in the audit either way. Null when it may go ahead.
+ */
+export async function stepUpIfHeld(req: Request, message = 'Enter the code from your authenticator app to change this.') {
+  const user = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { totpEnabledAt: true } });
+  if (user?.totpEnabledAt && !validFor(req)) return { status: 403, body: { error: message, code: 'STEP_UP_REQUIRED' } };
+  return null;
+}
+
 /** Route guard; passes straight through where the organisation has not switched it on. */
 export async function requirePayrollStepUp(req: Request, res: Response, next: NextFunction) {
   const orgId = req.tenant?.orgId;

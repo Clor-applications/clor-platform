@@ -21,7 +21,9 @@ import {
   revokeAllSessions,
   listSessions,
 } from '../services/auth.js';
-import { getAuthPolicy, describePasswordRules, validatePassword } from '../services/policy.js';
+import { getAuthPolicy, describePasswordRules, domainList, emailDomainAllowed, validatePassword } from '../services/policy.js';
+import { stepUpIfHeld } from '../services/stepUp.js';
+import { automaticRoleRefusal } from '../services/roleGuards.js';
 
 /**
  * Security administration: the policy an organisation enforces, the sign-in
@@ -89,6 +91,19 @@ securityRouter.put('/orgs/:orgId/security/policy', EDIT, async (req, res) => {
     }
   }
 
+  /*
+   * #4: "Require a confirmed email address" and "Allowed email domains" now
+   * decide who may open the company. Saving one that shuts out the person
+   * saving it would lock them out on their next request.
+   */
+  const me = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { email: true, emailVerifiedAt: true } });
+  if (body.allowedEmailDomains && domainList(body.allowedEmailDomains).length && !emailDomainAllowed(String(me?.email || ''), body.allowedEmailDomains)) {
+    return res.status(400).json({ error: `Your own address (${me?.email}) is not at one of those domains, so you would lose access. Add its domain to the list.`, code: 'OWN_DOMAIN_EXCLUDED' });
+  }
+  if (body.requireVerifiedEmail && !me?.emailVerifiedAt) {
+    return res.status(400).json({ error: 'Confirm your own email address first (My profile), then require it of everyone.', code: 'OWN_EMAIL_NOT_CONFIRMED' });
+  }
+
   const saved = await platformPrisma.authPolicy.upsert({
     where: { orgId },
     update: { ...body, allowedEmailDomains: body.allowedEmailDomains ?? null, updatedByUserId: req.auth!.userId },
@@ -106,10 +121,20 @@ securityRouter.put('/orgs/:orgId/security/policy', EDIT, async (req, res) => {
     userId: req.auth!.userId,
     eventType: 'POLICY_CHANGED',
     ip: clientIp(req),
-    detail: `Lockout ${saved.maxFailedLogins}/${saved.lockoutMinutes}m, session ${saved.sessionDays}d`,
+    detail: `Lockout ${saved.maxFailedLogins}/${saved.lockoutMinutes}m, session ${saved.sessionDays}d, access ${saved.accessTokenMinutes}m, confirmed email ${saved.requireVerifiedEmail ? 'required' : 'not required'}, domains ${saved.allowedEmailDomains || 'any'}`,
   });
 
-  res.json({ policy: saved, passwordRules: describePasswordRules(saved) });
+  /* Who these rules now keep out, so the screen can say so rather than leave it to be discovered. */
+  const members = await platformPrisma.userOrgMembership.findMany({ where: { accountId, orgId }, select: { user: { select: { email: true, emailVerifiedAt: true, isActive: true } } } });
+  const live = members.map((m) => m.user).filter((u) => u.isActive);
+  const keptOut = {
+    unconfirmed: saved.requireVerifiedEmail ? live.filter((u) => !u.emailVerifiedAt).length : 0,
+    outsideDomains: live.filter((u) => !emailDomainAllowed(u.email, saved.allowedEmailDomains)).length,
+  };
+
+  /* The same shape GET returns, so the screen's saved copy matches what it shows and stops saying "Unsaved changes". */
+  const policy = await getAuthPolicy(accountId, orgId);
+  res.json({ policy, passwordRules: describePasswordRules(policy), keptOut });
 });
 
 // ---------------------------------------------------------------------------
@@ -187,9 +212,11 @@ securityRouter.post('/orgs/:orgId/security/scim', EDIT, async (req, res) => {
   if (!orgOk(req, res)) return;
   const { accountId, orgId } = req.tenant!;
   const defaultRoleId = req.body?.defaultRoleId ? String(req.body.defaultRoleId) : null;
-  const role = defaultRoleId ? await platformPrisma.role.findFirst({ where: { id: defaultRoleId, orgId }, select: { roleType: true } }) : null;
-  if (defaultRoleId && !role) return res.status(400).json({ error: 'That role is not in this organisation.' });
-  if (role?.roleType === 'ADMIN') return res.status(400).json({ error: 'People from the directory cannot be given an administrator role automatically; assign it by hand.' });
+  /* #2: a role of this company, never an administrator's, and nothing the maker does not hold themselves. */
+  const roleRefused = await automaticRoleRefusal(req, defaultRoleId);
+  if (roleRefused) return res.status(roleRefused.status).json(roleRefused.body);
+  const steppedUp = await stepUpIfHeld(req, 'Enter the code from your authenticator app to make a directory-sync token.');
+  if (steppedUp) return res.status(steppedUp.status).json(steppedUp.body);
   const expiresAt = expiryOf(req.body?.expiresAt);
   if (expiresAt === 'bad') return res.status(400).json({ error: 'An expiry must be a date in the future, at most a year away.' });
   /* A-31: revoked tokens are kept for the record, so only live ones count towards the five. */
@@ -250,6 +277,11 @@ securityRouter.post('/orgs/:orgId/security/providers', EDIT, async (req, res) =>
   if (problem) return res.status(400).json({ error: problem });
   /* Switched on only once its domains are proven (verify-domains below). */
   if (body.enabled && !verificationSkipped()) return res.status(400).json({ error: 'Add it switched off, publish the TXT record on each domain, choose Verify, then switch it on.' });
+  /* #3: the role every person it creates gets — bounded like a directory-sync token's (#2). */
+  const roleRefused = await automaticRoleRefusal(req, body.defaultRoleId);
+  if (roleRefused) return res.status(roleRefused.status).json(roleRefused.body);
+  const steppedUp = await stepUpIfHeld(req, 'Enter the code from your authenticator app to change single sign-on.');
+  if (steppedUp) return res.status(steppedUp.status).json(steppedUp.body);
 
   try {
     const created = await platformPrisma.authProvider.create({
@@ -310,6 +342,11 @@ securityRouter.patch('/orgs/:orgId/security/providers/:providerId', EDIT, async 
   if (wantsOn && domainsOf(nextDomains).some((d) => !domainsOf(nextVerified).includes(d))) {
     return res.status(400).json({ error: 'Every domain must be verified before this sign-in method is switched on. Publish the TXT record and choose Verify.' });
   }
+  /* #3: checked whenever it is set, even to the role it already had: whoever saves the form now hands it out. */
+  const roleRefused = await automaticRoleRefusal(req, body.defaultRoleId);
+  if (roleRefused) return res.status(roleRefused.status).json(roleRefused.body);
+  const steppedUp = await stepUpIfHeld(req, 'Enter the code from your authenticator app to change single sign-on.');
+  if (steppedUp) return res.status(steppedUp.status).json(steppedUp.body);
 
   const updated = await platformPrisma.authProvider.update({
     where: { id: existing.id },
@@ -334,6 +371,7 @@ securityRouter.patch('/orgs/:orgId/security/providers/:providerId', EDIT, async 
       defaultRoleId: body.defaultRoleId ?? null,
     },
   });
+  await recordAuthEvent({ accountId, userId: req.auth!.userId, eventType: 'PROVIDER_UPDATED', detail: `${updated.kind} ${updated.name}`, ip: clientIp(req) });
 
   res.json({ provider: publicProvider(updated) });
 });
@@ -358,6 +396,8 @@ securityRouter.delete('/orgs/:orgId/security/providers/:providerId', EDIT, async
     where: { id: String(req.params.providerId), accountId, orgId },
   });
   if (!existing) return res.status(404).json({ error: 'Sign-in method not found' });
+  const steppedUp = await stepUpIfHeld(req, 'Enter the code from your authenticator app to change single sign-on.');
+  if (steppedUp) return res.status(steppedUp.status).json(steppedUp.body);
   await platformPrisma.authProvider.delete({ where: { id: existing.id } });
   await recordAuthEvent({
     accountId,
@@ -455,12 +495,23 @@ securityRouter.get('/orgs/:orgId/security/two-factor', async (req, res) => {
   res.json({ enabled: !!u?.totpEnabledAt, enabledAt: u?.totpEnabledAt || null, recoveryCodesLeft: left, payrollStepUp: !!policy?.requirePayrollStepUp, stepUpMinutes: STEP_UP_MINUTES });
 });
 
-/** A new secret, not yet in force: it is switched on only by a code from it. */
-securityRouter.post('/orgs/:orgId/security/two-factor/setup', async (req, res) => {
+/**
+ * A new secret, not yet in force: it is switched on only by a code from it.
+ *
+ * #12: it takes the person's password. Someone holding a stolen access token
+ * could otherwise put an authenticator they control on the account, and the
+ * real owner's next sign-in would need the thief's code. Wrong passwords
+ * share the code limiter, so the password cannot be guessed here either.
+ */
+securityRouter.post('/orgs/:orgId/security/two-factor/setup', ...codeLimiter, async (req, res) => {
   if (!orgOk(req, res)) return;
   const u = await me2fa(req);
   if (!u) return res.status(401).json({ error: 'Unauthorized' });
   if (u.totpEnabledAt) return res.status(409).json({ error: 'An authenticator is already set up. Turn it off first to set up another.', code: 'ALREADY_ENABLED' });
+  if (!(await bcrypt.compare(String(req.body?.password || ''), u.passwordHash))) {
+    await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'TWO_FACTOR_SETUP_REFUSED', ip: clientIp(req), detail: 'Wrong password' });
+    return res.status(400).json({ error: 'Your password is not correct. If you sign in with single sign-on, set a password first with “Forgot password”.', code: 'BAD_PASSWORD' });
+  }
   const secret = newSecret();
   await platformPrisma.user.update({ where: { id: u.id }, data: { totpSecretEnc: encryptSecret(secret), totpLastStep: null } });
   res.json({ secret, uri: otpauthUri(secret, u.email) });
