@@ -12,6 +12,8 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { get24q, getForm16, getTaxDeclaration, listTaxDeclarations, reopenTaxDeclaration, saveTaxDeclaration, verifyTaxDeclaration } from '../api/payrollTaxDeclarations';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import OpeningYtdPanel from '../components/OpeningYtdPanel';
+import OpeningYtdSection from '../components/OpeningYtdSection';
 import { wholeRupees as money } from '@ui/utils/money';
 import { escapeHtml } from '@ui/utils/html';
 
@@ -101,7 +103,12 @@ export default function TaxDeclarations() {
       tight
       denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search tax declarations' }}
-      headerExtras={<Return24q fy={fy} />}
+      headerExtras={
+        <>
+          <OpeningYtdPanel fy={fy} onOpenPerson={setOpen} />
+          <Return24q fy={fy} />
+        </>
+      }
       moreItems={people.length ? [exportMenuItem('Export declarations')] : null}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
@@ -399,6 +406,7 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
           </div>
         </fieldset>
       )}
+      {form ? <OpeningYtdSection employeeId={employeeId} fy={fy} onChanged={onChanged} /> : null}
     </Drawer>
   );
 }
@@ -484,7 +492,11 @@ async function printForm16(employeeId, fy) {
   const row = (label, amount, strong) => `<tr${strong ? ' class="t"' : ''}><td>${escapeHtml(label)}</td><td class="r">${inr(amount)}</td></tr>`;
   const lines = (rows) => rows.map((l) => row(`${l.label}${l.claimed !== l.allowed ? ` (claimed ${inr(l.claimed)})` : ''}`, l.allowed)).join('');
   const sum = (rows) => rows.reduce((t, l) => t + l.allowed, 0);
-  const months = p.months.map((m) => `<tr><td>${escapeHtml(m.month)}</td><td>${escapeHtml(formatDateIn(m.paymentDate))}</td><td class="r">${inr(m.gross)}</td><td class="r">${inr(m.tds)}</td></tr>`).join('');
+  /* Pay from before payroll moved to CLOR this year: already inside the totals above. */
+  const earlier = p.openingYtd
+    ? `<tr><td>${escapeHtml(`Earlier this year${p.openingYtd.throughMonth ? `, to ${p.openingYtd.throughMonth}` : ''}`)}</td><td>before CLOR</td><td class="r">${inr(p.openingYtd.grossPay)}</td><td class="r">${inr(p.openingYtd.tds)}</td></tr>`
+    : '';
+  const months = earlier + p.months.map((m) => `<tr><td>${escapeHtml(m.month)}</td><td>${escapeHtml(formatDateIn(m.paymentDate))}</td><td class="r">${inr(m.gross)}</td><td class="r">${inr(m.tds)}</td></tr>`).join('');
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Form 16 Part B ${escapeHtml(p.name)} FY ${escapeHtml(fy)}</title>
 <style>body{font:12px system-ui,sans-serif;margin:16px;color:#111}h1{font-size:16px;margin:0}h2{font-size:13px;margin:16px 0 6px}p{margin:2px 0;color:#333}
 table{border-collapse:collapse;width:100%;margin-top:4px}td,th{border:1px solid #bbb;padding:4px 6px;text-align:left}th{background:#f2f2f2}.r{text-align:right}tr.t td{font-weight:600;background:#fafafa}.n{color:#555;margin-top:12px}

@@ -10,6 +10,8 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { DeclarationError, financialYearOf, parseItems, saveDeclaration, shapeDeclaration } from '../services/payroll/taxDeclaration.js';
+import { OpeningError, checkOpening, firstPayrollYearOf, parseOpeningCsv, shapeOpening } from '../services/payroll/openingYtd.js';
+import { todayIst } from '../utils/istDate.js';
 
 /**
  * Income tax declarations and proofs, HR's side. Employees declare from the
@@ -24,12 +26,178 @@ const RESOURCE = PAYROLL_RESOURCE.profile;
 const VIEW = requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE);
 const EDIT = requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, RESOURCE);
 
-const fyOf = (q: unknown) => (/^\d{4}-\d{2}$/.test(String(q || '')) ? String(q) : financialYearOf(new Date().toISOString().slice(0, 10)));
+/* This year is India's year: at 00:30 IST on 1 April the UTC date is still 31 March. */
+const fyOf = (q: unknown) => (/^\d{4}-\d{2}$/.test(String(q || '')) ? String(q) : financialYearOf(todayIst()));
 
 const fail = (res: any, e: unknown) => {
-  if (e instanceof DeclarationError) return res.status(e.status).json({ error: e.message, code: e.code });
+  if (e instanceof DeclarationError || e instanceof OpeningError) return res.status(e.status).json({ error: e.message, code: e.code });
   throw e;
 };
+
+/* ------------------------------------------------------------------ */
+/* Opening year-to-date figures (audit 7 Nov 2026, #2)                 */
+/* Registered before /tax-declarations/:employeeId so no path is read  */
+/* as an employee id.                                                  */
+/* ------------------------------------------------------------------ */
+
+/** Everybody in payroll, with what was paid them earlier this year before CLOR, and the owner's first-year answer. */
+payrollTaxDeclarationsRouter.get('/orgs/:orgId/payroll/opening-ytd', VIEW, async (req, res) => {
+  if (!(await payrollRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const financialYear = fyOf(req.query.fy);
+  const profiles = await payrollPrisma.employeePayrollProfile.findMany({ where: { accountId, orgId, payrollStatus: 'IN_PAYROLL' }, select: { employeeId: true } });
+  const ids = profiles.map((p) => p.employeeId);
+  const [people, rows, first] = await Promise.all([
+    peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids }, status: { not: 'LEFT' } }, select: { id: true, name: true, code: true, dateOfJoining: true }, orderBy: { name: 'asc' } }),
+    payrollPrisma.payrollOpeningYtd.findMany({ where: { orgId, financialYear, employeeId: { in: ids } } }),
+    firstPayrollYearOf(orgId),
+  ]);
+  const byEmployee = new Map(rows.map((r) => [r.employeeId, r]));
+  res.json({
+    financialYear,
+    firstPayrollYear: first?.financialYear === financialYear ? first : null,
+    canSetFirstYear: Boolean(req.isAdmin),
+    people: people.map((p) => ({ employeeId: p.id, name: p.name, code: p.code, dateOfJoining: p.dateOfJoining, opening: shapeOpening(byEmployee.get(p.id)) })),
+  });
+});
+
+async function saveOpening(req: any, employeeId: string, financialYear: string, figures: ReturnType<typeof checkOpening>, db: any = payrollPrisma) {
+  const { accountId, orgId } = req.tenant;
+  const where = { orgId_employeeId_financialYear: { orgId, employeeId, financialYear } };
+  const before = await db.payrollOpeningYtd.findUnique({ where });
+  const row = await db.payrollOpeningYtd.upsert({
+    where,
+    create: { accountId, orgId, employeeId, financialYear, ...figures, createdByUserId: req.auth.userId, updatedByUserId: req.auth.userId },
+    update: { ...figures, updatedByUserId: req.auth.userId },
+  });
+  return { before: shapeOpening(before), row };
+}
+
+payrollTaxDeclarationsRouter.put('/orgs/:orgId/payroll/opening-ytd/:employeeId', EDIT, async (req, res) => {
+  if (!(await payrollRouteOk(req, res))) return;
+  const e = await employeeOk(req, res);
+  if (!e) return;
+  const financialYear = fyOf(req.query.fy);
+  /* These figures set the tax deducted from someone's pay for the rest of the year: never your own. */
+  const refused = await ownRecordRefusal(req, e.id, 'pay record', { does: 'enter it' });
+  if (refused) return res.status(refused.status).json(refused.body);
+  try {
+    const figures = checkOpening(req.body || {}, financialYear);
+    const { before, row } = await saveOpening(req, e.id, financialYear, figures);
+    await recordAudit(req, {
+      entity: 'PAYROLL_OPENING_YTD',
+      entityId: row.id,
+      action: before ? 'UPDATE' : 'CREATE',
+      message: `${before ? 'Changed' : 'Entered'} ${e.name}’s pay earlier in ${financialYear}`,
+      metadata: { employeeId: e.id, financialYear, before, after: shapeOpening(row) },
+    });
+    res.json({ opening: shapeOpening(row) });
+  } catch (err) {
+    return fail(res, err);
+  }
+});
+
+payrollTaxDeclarationsRouter.delete('/orgs/:orgId/payroll/opening-ytd/:employeeId', EDIT, async (req, res) => {
+  if (!(await payrollRouteOk(req, res))) return;
+  const e = await employeeOk(req, res);
+  if (!e) return;
+  const financialYear = fyOf(req.query.fy);
+  const refused = await ownRecordRefusal(req, e.id, 'pay record', { does: 'remove it' });
+  if (refused) return res.status(refused.status).json(refused.body);
+  const where = { orgId_employeeId_financialYear: { orgId: req.tenant!.orgId, employeeId: e.id, financialYear } };
+  const row = await payrollPrisma.payrollOpeningYtd.findUnique({ where });
+  if (!row) return res.status(404).json({ error: 'Nothing was entered for this year.' });
+  await payrollPrisma.payrollOpeningYtd.deleteMany({ where: { id: row.id, orgId: req.tenant!.orgId } });
+  await recordAudit(req, { entity: 'PAYROLL_OPENING_YTD', entityId: row.id, action: 'DELETE', message: `Removed ${e.name}’s pay earlier in ${financialYear}`, metadata: { employeeId: e.id, financialYear, before: shapeOpening(row) } });
+  res.json({ ok: true });
+});
+
+/**
+ * A CSV of everybody's opening figures, by employee code. Every row is
+ * checked first; one wrong row saves nothing and the answer lists each one.
+ */
+payrollTaxDeclarationsRouter.post('/orgs/:orgId/payroll/opening-ytd/import', EDIT, async (req, res) => {
+  if (!(await payrollRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const financialYear = fyOf(req.query.fy);
+  let rows: ReturnType<typeof parseOpeningCsv>;
+  try {
+    rows = parseOpeningCsv(String(req.body?.csv || ''));
+  } catch (err) {
+    return fail(res, err);
+  }
+  const profiles = await payrollPrisma.employeePayrollProfile.findMany({ where: { accountId, orgId }, select: { employeeId: true } });
+  const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: profiles.map((p) => p.employeeId) } }, select: { id: true, name: true, code: true, userId: true } });
+  const byCode = new Map(people.map((p) => [String(p.code || '').trim().toUpperCase(), p]));
+  const problems: { line: number; message: string }[] = [];
+  const ready: { person: (typeof people)[number]; figures: ReturnType<typeof checkOpening> }[] = [];
+  const seen = new Set<string>();
+  for (const r of rows as any[]) {
+    const person = byCode.get(String(r.code || '').trim().toUpperCase());
+    if (!person) {
+      problems.push({ line: r.line, message: r.code ? `Nobody in payroll has the code ${r.code}.` : 'No employee code.' });
+      continue;
+    }
+    if (seen.has(person.id)) {
+      problems.push({ line: r.line, message: `${person.name} is in the file twice.` });
+      continue;
+    }
+    seen.add(person.id);
+    if (person.userId && person.userId === req.auth!.userId) {
+      problems.push({ line: r.line, message: 'This is your own pay record; somebody else has to enter it.' });
+      continue;
+    }
+    try {
+      ready.push({ person, figures: checkOpening(r, financialYear) });
+    } catch (err) {
+      if (err instanceof OpeningError) problems.push({ line: r.line, message: `${person.name}: ${err.message}` });
+      else throw err;
+    }
+  }
+  if (problems.length) {
+    return res.status(400).json({ error: `Nothing was saved: ${problems.length} row${problems.length === 1 ? '' : 's'} need${problems.length === 1 ? 's' : ''} correcting.`, code: 'IMPORT_ROWS', problems });
+  }
+  await payrollPrisma.$transaction(async (tx) => {
+    for (const r of ready) await saveOpening(req, r.person.id, financialYear, r.figures, tx);
+  });
+  await recordAudit(req, {
+    entity: 'PAYROLL_OPENING_YTD',
+    entityId: financialYear,
+    action: 'IMPORT',
+    message: `Imported pay earlier in ${financialYear} for ${ready.length} ${ready.length === 1 ? 'person' : 'people'}`,
+    metadata: { financialYear, employees: ready.map((r) => ({ employeeId: r.person.id, ...r.figures })) },
+  });
+  res.json({ saved: ready.length });
+});
+
+/**
+ * The owner's answer: this is the company's first year of paying salaries, so
+ * nobody has earlier months to bring in. Owner (administrator) only, with a
+ * reason; audited. Saying no again puts the check back.
+ */
+payrollTaxDeclarationsRouter.put('/orgs/:orgId/payroll/opening-ytd-first-year', EDIT, async (req, res) => {
+  if (!(await payrollRouteOk(req, res))) return;
+  if (!req.isAdmin) return res.status(403).json({ error: 'Only the owner can say this is the company’s first year of paying salaries.', code: 'ADMIN_ONLY' });
+  const { accountId, orgId } = req.tenant!;
+  const financialYear = fyOf(req.query.fy);
+  const firstYear = req.body?.firstYear === true;
+  const reason = String(req.body?.reason || '').trim().slice(0, 300);
+  if (firstYear && reason.length < 5) return res.status(400).json({ error: 'Say in a few words why, such as “company registered in August 2026”.', code: 'NO_REASON' });
+  const before = await firstPayrollYearOf(orgId);
+  if (!firstYear && before?.financialYear !== financialYear) return res.json({ firstPayrollYear: null });
+  const data = firstYear
+    ? { firstPayrollYear: financialYear, firstPayrollYearReason: reason, firstPayrollYearBy: req.auth!.userId, firstPayrollYearAt: new Date() }
+    : { firstPayrollYear: null, firstPayrollYearReason: null, firstPayrollYearBy: null, firstPayrollYearAt: null };
+  await payrollPrisma.payrollSetting.upsert({ where: { orgId }, create: { accountId, orgId, updatedByUserId: req.auth!.userId, ...data }, update: { ...data, updatedByUserId: req.auth!.userId } });
+  await recordAudit(req, {
+    entity: 'COMPANY_SETTING',
+    entityId: 'payroll.firstPayrollYear',
+    action: 'UPDATE',
+    message: firstYear ? `Said ${financialYear} is the company’s first year of paying salaries: ${reason}` : `Took back that ${financialYear} is the company’s first year of paying salaries`,
+    metadata: { before, after: firstYear ? { financialYear, reason } : null },
+  });
+  res.json({ firstPayrollYear: await firstPayrollYearOf(orgId) });
+});
 
 /** Everybody in payroll, with where their declaration for the year stands. */
 payrollTaxDeclarationsRouter.get('/orgs/:orgId/payroll/tax-declarations', VIEW, async (req, res) => {
@@ -74,8 +242,9 @@ payrollTaxDeclarationsRouter.get('/orgs/:orgId/payroll/tax-declarations/:employe
   const e = await employeeOk(req, res);
   if (!e) return;
   const financialYear = fyOf(req.query.fy);
-  const row = await payrollPrisma.taxDeclaration.findUnique({ where: { orgId_employeeId_financialYear: { orgId: req.tenant!.orgId, employeeId: e.id, financialYear } } });
-  res.json({ declaration: { ...shapeDeclaration(row, e.id, financialYear), employeeName: e.name } });
+  const key = { orgId_employeeId_financialYear: { orgId: req.tenant!.orgId, employeeId: e.id, financialYear } };
+  const [row, opening] = await Promise.all([payrollPrisma.taxDeclaration.findUnique({ where: key }), payrollPrisma.payrollOpeningYtd.findUnique({ where: key })]);
+  res.json({ declaration: { ...shapeDeclaration(row, e.id, financialYear), employeeName: e.name }, opening: shapeOpening(opening) });
 });
 
 payrollTaxDeclarationsRouter.put('/orgs/:orgId/payroll/tax-declarations/:employeeId', EDIT, async (req, res) => {
