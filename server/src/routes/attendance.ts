@@ -1335,6 +1335,8 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
   if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Closing a month is done by someone who sees the whole company.', code: 'TEAM_SCOPED' });
   /* The checklist first: a month with open items closes only when someone says they have seen them. */
   const { monthReadiness, snapshotMonth } = await import('../services/attendance/readiness.js');
+  /* Days a reopen did not get to (marked dayPending) are worked out before the month is judged; nothing in a closed month. */
+  await peopleWrite(orgId, () => workOutPendingDays(orgId, month));
   const readiness = await monthReadiness(accountId, orgId, month);
   const open = readiness.checks.filter((c) => c.count > 0);
   if (open.length && req.body?.acknowledge !== true) {
@@ -1398,9 +1400,14 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/reopen', can(Permis
   if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Reopening a month is done by someone who sees the whole company.', code: 'TEAM_SCOPED' });
   const lock = await peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } });
   if (!lock) return res.status(409).json({ error: `${month} is not closed.` });
-  await peopleWrite(orgId, () => peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId, month } }));
-  /* Reader punches counted while it was closed left their days alone: work those days out now (final review of #144). */
-  const pendingDays = await peopleWrite(orgId, () => workOutPendingDays(orgId, month));
+  /*
+   * Reader punches counted while it was closed left their days alone: work those days out now (final review of #144),
+   * in the same transaction, so a reopen that fails leaves the month closed with its marks rather than open without them.
+   */
+  const pendingDays = await peopleWrite(orgId, async () => {
+    await peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId, month } });
+    return workOutPendingDays(orgId, month);
+  });
   await recordAudit(req, { entity: 'ATTENDANCE_MONTH', entityId: month, action: 'REOPEN', message: `Reopened ${month}: ${reason}`, metadata: { month, reason, closedAt: lock.lockedAt, closedByUserId: lock.lockedByUserId, pendingDays } });
   res.json({ month, closed: null, pendingDays });
   emitWebhook(orgId, 'month.reopened', { month: String(req.params.month), byUserId: req.auth!.userId });

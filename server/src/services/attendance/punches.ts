@@ -216,15 +216,23 @@ export async function ingestPunches(device: { id: string; accountId: string; org
   const fresh: typeof rows = [];
   for (let i = 0; i < rows.length; i += 500) {
     const chunk = rows.slice(i, i + 500);
-    /* A repeat is the same ID on the same reader at the same second — or the same person at the same second on any reader. */
+    /*
+     * A repeat is the same ID on the same reader at the same second — or the same person at the same second on any reader.
+     * A punch moved back when it was counted (its reader's clock was ahead) keeps the reader's own instant in recordedAt,
+     * and a resend matches that too (final review of #144): otherwise each line of a resent log would count again.
+     */
     const people = [...new Set(chunk.map((r) => r.employeeId).filter(Boolean))] as string[];
+    const instants = [...new Set(chunk.map((r) => r.at.getTime()))].map((t) => new Date(t));
     const [seen, seenPeople] = await Promise.all([
-      peoplePrisma.devicePunch.findMany({ where: { orgId: device.orgId, deviceId: device.id, OR: chunk.map((r) => ({ pin: r.pin, at: r.at })) }, select: { pin: true, at: true } }),
+      peoplePrisma.devicePunch.findMany({ where: { orgId: device.orgId, deviceId: device.id, OR: chunk.flatMap((r) => [{ pin: r.pin, at: r.at }, { pin: r.pin, recordedAt: r.at }]) }, select: { pin: true, at: true, recordedAt: true } }),
       people.length
-        ? peoplePrisma.devicePunch.findMany({ where: { orgId: device.orgId, employeeId: { in: people }, at: { in: [...new Set(chunk.map((r) => r.at.getTime()))].map((t) => new Date(t)) } }, select: { employeeId: true, at: true } })
+        ? peoplePrisma.devicePunch.findMany({ where: { orgId: device.orgId, employeeId: { in: people }, OR: [{ at: { in: instants } }, { recordedAt: { in: instants } }] }, select: { employeeId: true, at: true, recordedAt: true } })
         : [],
     ]);
-    const have = new Set([...seen.map((s) => `p|${s.pin}|${s.at.getTime()}`), ...seenPeople.map((s) => `e|${s.employeeId}|${s.at.getTime()}`)]);
+    const have = new Set([
+      ...seen.flatMap((s) => [`p|${s.pin}|${s.at.getTime()}`, ...(s.recordedAt ? [`p|${s.pin}|${s.recordedAt.getTime()}`] : [])]),
+      ...seenPeople.flatMap((s) => [`e|${s.employeeId}|${s.at.getTime()}`, ...(s.recordedAt ? [`e|${s.employeeId}|${s.recordedAt.getTime()}`] : [])]),
+    ]);
     for (const r of chunk) {
       const keys = [`p|${r.pin}|${r.at.getTime()}`, ...(r.employeeId ? [`e|${r.employeeId}|${r.at.getTime()}`] : [])];
       if (keys.some((k) => have.has(k))) continue;
@@ -281,7 +289,7 @@ export async function decideHeldPunch(orgId: string, id: string, action: 'releas
   }
   if (p.at.getTime() > Date.now() + FUTURE_TOLERANCE_MS) return { status: 409 as const, error: 'This punch is still ahead of today. Set the reader’s clock right; the punches it makes from then on count.', code: 'STILL_IN_FUTURE' };
   if (!p.employeeId) return { status: 409 as const, error: 'This reader ID matches nobody yet. Map it under Employee ID mapping first.', code: 'NOT_MATCHED' };
-  const emp = await peoplePrisma.employee.findFirst({ where: { id: p.employeeId, orgId }, select: { id: true, accountId: true, branchId: true, areaId: true } });
+  const emp = await peoplePrisma.employee.findFirst({ where: { id: p.employeeId, orgId }, select: { id: true, accountId: true, branchId: true, areaId: true, code: true, devicePin: true } });
   if (!emp) return { status: 404 as const, error: 'No such held punch.' };
   const shiftDate = await shiftDayFor(orgId, emp.id, p.localTime);
   /* Taken once: a second click (or a colleague's) finds it no longer held. */
@@ -289,8 +297,25 @@ export async function decideHeldPunch(orgId: string, id: string, action: 'releas
   const closed = (await closedMonths(orgId, [shiftDate.slice(0, 7)])).size > 0;
   const taken = await peoplePrisma.devicePunch.updateMany({ where: { id, orgId, reviewStatus: 'HELD' }, data: { reviewStatus: null, heldReason: null, shiftDate, dayPending: closed } });
   if (!taken.count) return { status: 404 as const, error: 'No such held punch.' };
+  await sendCounted(orgId, [{ ...p, employeeId: emp.id }], new Map([[emp.id, emp]]));
   if (!closed) await recomputeDeviceDay(emp.accountId, orgId, { id: emp.id, branchId: emp.branchId, areaId: emp.areaId }, shiftDate);
   return { status: 200 as const, punch: { id, review: null, shiftDate }, closedMonth: closed, message: closed ? CLOSED_MONTH_COUNTED : 'Counted. The day is worked out again.' };
+}
+
+/**
+ * Held punches someone just counted go where ingest sends every counted punch (it skipped them while they
+ * were held): the company's webhooks and any HR tool it connected, with the times as counted (final review of #144).
+ */
+type CountedPunch = { serialNumber: string; pin: string; employeeId: string | null; localTime: string; kind: string | null; verifyMode: number | null };
+async function sendCounted(orgId: string, rows: CountedPunch[], people: Map<string, { code?: string | null; devicePin?: string | null }>) {
+  if (!rows.length) return;
+  const byReader = new Map<string, CountedPunch[]>();
+  for (const r of rows) byReader.set(r.serialNumber, [...(byReader.get(r.serialNumber) || []), r]);
+  for (const [reader, punches] of byReader) {
+    emitWebhook(orgId, 'punch', { reader, punches: punches.map((r) => ({ readerId: r.pin, employeeId: r.employeeId, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode ?? 0 })) });
+  }
+  const emp = (id: string | null) => (id ? people.get(id) : undefined);
+  await enqueuePunches(orgId, rows.map((r) => ({ employeeId: r.employeeId, code: emp(r.employeeId)?.code || emp(r.employeeId)?.devicePin || null, readerId: r.pin, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode ?? 0 })));
 }
 
 export const CLOSED_MONTH_COUNTED = 'Counted. The day is in a closed month, so it was not changed — adjust in payroll.';
@@ -353,56 +378,65 @@ export async function decideHeldPunches(orgId: string, f: HeldFilter, action: 'r
     const ids = (await peoplePrisma.devicePunch.findMany({ where, select: { id: true }, orderBy: { at: 'asc' }, take: HELD_DISCARD_MAX })).map((p) => p.id);
     const done = ids.length ? await peoplePrisma.devicePunch.updateMany({ where: { id: { in: ids }, orgId, reviewStatus: 'HELD' }, data: { reviewStatus: 'REJECTED' } }) : { count: 0 };
     const left = await peoplePrisma.devicePunch.count({ where });
-    return { counted: 0, discarded: done.count, notYet: 0, notMatched: 0, closedDays: 0, left, shiftMinutes: null };
+    return { counted: 0, discarded: done.count, notYet: 0, notMatched: 0, closedDays: 0, left, resends: 0, shiftMinutes: null };
   }
   const shift = opts.shiftMinutes && opts.shiftMinutes > 0 ? Math.min(Math.round(opts.shiftMinutes), 7 * 24 * 60) : 0;
   /* Moved back by the shift, a punch is due once its corrected time has come. */
   const due = new Date(Date.now() + FUTURE_TOLERANCE_MS + shift * 60_000);
-  const takeable = { ...where, employeeId: { not: null, ...(f.employeeIds ? { in: f.employeeIds } : {}) }, at: { lte: due } };
-  const [punches, notYet, notMatched] = await Promise.all([
-    peoplePrisma.devicePunch.findMany({ where: takeable, select: { id: true, employeeId: true, localTime: true, at: true }, orderBy: [{ employeeId: 'asc' }, { at: 'asc' }], take: HELD_BULK_READ }),
+  const [punches, counts, notYet, notMatched] = await Promise.all([
+    takeableHeld(orgId, f, due, shift),
+    takeableHeldCounts(orgId, f, due, shift),
     peoplePrisma.devicePunch.count({ where: { ...where, at: { gt: due } } }),
     /* A team role sees only its people's, so none of its punches are unmatched. */
     f.employeeIds ? Promise.resolve(0) : peoplePrisma.devicePunch.count({ where: { ...where, employeeId: null } }),
   ]);
-  const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(punches.map((p) => p.employeeId!))] } }, select: { id: true, accountId: true, branchId: true, areaId: true } })).map((e) => [e.id, e]));
+  const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(punches.map((p) => p.employeeId))] } }, select: { id: true, accountId: true, branchId: true, areaId: true, code: true, devicePin: true } })).map((e) => [e.id, e]));
   /* The shift day of each (one lookup per person-hour, as ingest does), up to HELD_BULK_PAIRS (person, day) pairs. */
   const dayOf = new Map<string, string>();
   const groups = new Map<string, { employeeId: string; shiftDate: string; ids: string[] }>();
+  const grouped = new Set<string>();
   for (const p of punches) {
-    if (!people.has(p.employeeId!)) continue;
+    if (!people.has(p.employeeId)) continue;
+    /* Read by person: once the pairs are full, a person not yet in them has nothing more to add here. */
+    if (groups.size >= HELD_BULK_PAIRS && !grouped.has(p.employeeId)) break;
     const localTime = shift ? istLocal(new Date(p.at.getTime() - shift * 60_000)) : p.localTime;
     const hour = `${p.employeeId}|${localTime.slice(0, 13)}`;
-    if (!dayOf.has(hour)) dayOf.set(hour, await shiftDayFor(orgId, p.employeeId!, localTime));
+    if (!dayOf.has(hour)) dayOf.set(hour, await shiftDayFor(orgId, p.employeeId, localTime));
     const shiftDate = dayOf.get(hour)!;
     const key = `${p.employeeId}|${shiftDate}`;
     let g = groups.get(key);
     if (!g) {
       if (groups.size >= HELD_BULK_PAIRS) continue;
-      g = { employeeId: p.employeeId!, shiftDate, ids: [] };
+      g = { employeeId: p.employeeId, shiftDate, ids: [] };
       groups.set(key, g);
+      grouped.add(p.employeeId);
     }
     g.ids.push(p.id);
   }
   const closed = await closedMonths(orgId, [...new Set([...groups.values()].map((g) => g.shiftDate.slice(0, 7)))]);
   let counted = 0;
   let closedDays = 0;
+  const sent: CountedPunch[] = [];
   for (const g of groups.values()) {
     const pending = closed.has(g.shiftDate.slice(0, 7));
-    const taken = shift
-      ? /* Moved back, the reader's own time kept; a punch whose corrected time is already on record is a resend and stays held. */
-        await peoplePrisma.$executeRaw`
-          UPDATE "DevicePunch" p SET
-            "recordedLocalTime" = p."localTime",
-            "clockShiftMinutes" = ${shift},
-            "at" = p."at" - make_interval(mins => ${shift}::int),
-            "localTime" = to_char(p."at" - make_interval(mins => ${shift}::int) + interval '5 hours 30 minutes', 'YYYY-MM-DD HH24:MI:SS'),
-            "reviewStatus" = NULL, "heldReason" = NULL, "shiftDate" = ${g.shiftDate}, "dayPending" = ${pending}
-          WHERE p."orgId" = ${orgId} AND p."reviewStatus" = 'HELD' AND p.id = ANY(${g.ids}::text[])
-            AND NOT EXISTS (SELECT 1 FROM "DevicePunch" o WHERE o."orgId" = p."orgId" AND o."deviceId" = p."deviceId" AND o.pin = p.pin AND o."at" = p."at" - make_interval(mins => ${shift}::int))`
-      : (await peoplePrisma.devicePunch.updateMany({ where: { id: { in: g.ids }, orgId, reviewStatus: 'HELD' }, data: { reviewStatus: null, heldReason: null, shiftDate: g.shiftDate, dayPending: pending } })).count;
-    if (!taken) continue;
-    counted += taken;
+    /*
+     * Taken once (still HELD). Moved back, the reader's own time and instant are kept beside it (recordedAt is what
+     * a resend of the reader's log matches); a punch whose corrected time is already on record is a resend, left held.
+     */
+    const taken = await peoplePrisma.$queryRaw<CountedPunch[]>`
+      UPDATE "DevicePunch" p SET
+        "recordedLocalTime" = CASE WHEN ${shift}::int > 0 THEN p."localTime" ELSE p."recordedLocalTime" END,
+        "recordedAt" = CASE WHEN ${shift}::int > 0 THEN p."at" ELSE p."recordedAt" END,
+        "clockShiftMinutes" = CASE WHEN ${shift}::int > 0 THEN ${shift}::int ELSE p."clockShiftMinutes" END,
+        "at" = p."at" - make_interval(mins => ${shift}::int),
+        "localTime" = CASE WHEN ${shift}::int > 0 THEN to_char(p."at" - make_interval(mins => ${shift}::int) + interval '5 hours 30 minutes', 'YYYY-MM-DD HH24:MI:SS') ELSE p."localTime" END,
+        "reviewStatus" = NULL, "heldReason" = NULL, "shiftDate" = ${g.shiftDate}, "dayPending" = ${pending}
+      WHERE p."orgId" = ${orgId} AND p."reviewStatus" = 'HELD' AND p.id = ANY(${g.ids}::text[])
+        AND (${shift}::int = 0 OR NOT EXISTS (SELECT 1 FROM "DevicePunch" o WHERE o."orgId" = p."orgId" AND o."deviceId" = p."deviceId" AND o.pin = p.pin AND o.id <> p.id AND o."at" = p."at" - make_interval(mins => ${shift}::int)))
+      RETURNING p."serialNumber", p.pin, p."employeeId", p."localTime", p.kind, p."verifyMode"`;
+    if (!taken.length) continue;
+    counted += taken.length;
+    sent.push(...taken);
     if (pending) {
       closedDays += 1;
       continue;
@@ -410,9 +444,42 @@ export async function decideHeldPunches(orgId: string, f: HeldFilter, action: 'r
     const emp = people.get(g.employeeId)!;
     await recomputeDeviceDay(emp.accountId, orgId, { id: emp.id, branchId: emp.branchId, areaId: emp.areaId }, g.shiftDate);
   }
-  /* What a further call could take; nought when this call took nothing (only resends were left). */
-  const left = counted ? await peoplePrisma.devicePunch.count({ where: takeable }) : 0;
-  return { counted, discarded: 0, notYet, notMatched, closedDays, left, shiftMinutes: shift || null };
+  await sendCounted(orgId, sent, people);
+  /*
+   * What a further call could take; nought when this call took nothing. `resends` stay held: moved back, their
+   * time is already on record from the same reader, so they are repeats, and the screen says to discard them.
+   */
+  const after = counted ? await takeableHeldCounts(orgId, f, due, shift) : counts;
+  const left = counted ? after.takeable : 0;
+  return { counted, discarded: 0, notYet, notMatched, closedDays, left, resends: after.resends, shiftMinutes: shift || null };
+}
+
+/* Held punches a Count can take: due, matched, from one reader (optionally one month by the reader's time, and some people). */
+const naive = (d: Date) => d.toISOString().replace('T', ' ').replace('Z', '');
+function takeableHeld(orgId: string, f: HeldFilter, due: Date, shift: number) {
+  const month = f.month ? [`${f.month}-01 00:00:00`, `${f.month}-31 23:59:59`] : null;
+  return peoplePrisma.$queryRaw<Array<{ id: string; employeeId: string; localTime: string; at: Date }>>`
+    SELECT p.id, p."employeeId", p."localTime", p."at" FROM "DevicePunch" p
+    WHERE p."orgId" = ${orgId} AND p."deviceId" = ${f.deviceId} AND p."reviewStatus" = 'HELD' AND p."employeeId" IS NOT NULL
+      AND p."at" <= ${naive(due)}::timestamp
+      AND (${month ? month[0] : null}::text IS NULL OR p."localTime" BETWEEN ${month ? month[0] : ''} AND ${month ? month[1] : ''})
+      AND (${f.employeeIds ? 1 : 0}::int = 0 OR p."employeeId" = ANY(${f.employeeIds || []}::text[]))
+      AND (${shift}::int = 0 OR NOT EXISTS (SELECT 1 FROM "DevicePunch" o WHERE o."orgId" = p."orgId" AND o."deviceId" = p."deviceId" AND o.pin = p.pin AND o.id <> p.id AND o."at" = p."at" - make_interval(mins => ${shift}::int)))
+    ORDER BY p."employeeId", p."at"
+    LIMIT ${HELD_BULK_READ}`;
+}
+async function takeableHeldCounts(orgId: string, f: HeldFilter, due: Date, shift: number) {
+  const month = f.month ? [`${f.month}-01 00:00:00`, `${f.month}-31 23:59:59`] : null;
+  const [r] = await peoplePrisma.$queryRaw<Array<{ takeable: bigint; resends: bigint }>>`
+    SELECT count(*) FILTER (WHERE NOT x.repeat) AS takeable, count(*) FILTER (WHERE x.repeat) AS resends FROM (
+      SELECT (${shift}::int > 0 AND EXISTS (SELECT 1 FROM "DevicePunch" o WHERE o."orgId" = p."orgId" AND o."deviceId" = p."deviceId" AND o.pin = p.pin AND o.id <> p.id AND o."at" = p."at" - make_interval(mins => ${shift}::int))) AS repeat
+      FROM "DevicePunch" p
+      WHERE p."orgId" = ${orgId} AND p."deviceId" = ${f.deviceId} AND p."reviewStatus" = 'HELD' AND p."employeeId" IS NOT NULL
+        AND p."at" <= ${naive(due)}::timestamp
+        AND (${month ? month[0] : null}::text IS NULL OR p."localTime" BETWEEN ${month ? month[0] : ''} AND ${month ? month[1] : ''})
+        AND (${f.employeeIds ? 1 : 0}::int = 0 OR p."employeeId" = ANY(${f.employeeIds || []}::text[]))
+    ) x`;
+  return { takeable: Number(r?.takeable ?? 0), resends: Number(r?.resends ?? 0) };
 }
 
 /**
@@ -420,6 +487,8 @@ export async function decideHeldPunches(orgId: string, f: HeldFilter, action: 'r
  * them out now, once each, and clear the mark.
  */
 export async function workOutPendingDays(orgId: string, month: string) {
+  /* A closed month keeps its days: its marks wait for the reopen. */
+  if ((await closedMonths(orgId, [month])).size) return 0;
   const pending = await peoplePrisma.devicePunch.findMany({
     where: { orgId, dayPending: true, shiftDate: { gte: `${month}-01`, lte: `${month}-31` }, employeeId: { not: null } },
     select: { employeeId: true, shiftDate: true },

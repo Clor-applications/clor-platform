@@ -23,3 +23,9 @@
 - Evidence: attendanceAccess on CI Postgres 5434 incl. 200 people × 30 days × 2 punches in 30 chunks with a bystander write between chunks under 10 s, offset (late 0 moved back, late > 0 as recorded), reopen, block pre-limit and LRU; test:web 307 files / 2245; tsc and eslint clean; browser-checked Count all with progress and the offset dialog at 1440 (October, 806) and 390 (September, 780 moved back 20 min, late 0 in the DB).
 - Next: coordinator review once CI is green.
 - Blocked on: nothing.
+
+## 2026-11-07 IST — Attendance — pre-merge fixes on #144 (S1, S2, nits)
+- Did: S1, a punch moved back keeps the reader's own instant in `recordedAt` (new column, indexed per reader); ingest de-dup matches it per reader and per person, so a resent log adds nothing. S2, Count (single and bulk) sends the counted punches to webhooks and the HR outbox with the corrected times (bulk UPDATE … RETURNING). Nits: reopen deletes the lock and works out marked days in one transaction, and close works out any stranded marked days first (never in a closed month); bulk stops computing shift days once the 200 pairs are full; moved-back repeats are excluded from the read and reported as `resends`, which the summary explains. Month filter stays on the reader's time, on purpose: it is what the list shows and what holds the close.
+- Evidence: attendanceAccess 36 passed on CI Postgres 5434 (new: resend after move-back adds no rows and leaves the day unchanged, HR outbox holds 09:00/18:00, single Count sends, repeats reported; stranded days worked out on close); component tests 12 passed; tsc and eslint clean.
+- Next: coordinator review.
+- Blocked on: nothing.

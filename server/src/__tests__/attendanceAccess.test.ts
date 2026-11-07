@@ -556,14 +556,14 @@ describe('re-review of #144', () => {
     return { sn, id: (body.device || body).id as string };
   }
   /** Held punches written straight in, as a reader with its clock weeks ahead would have left them. */
-  async function heldRows(c: Ctx, gate: { sn: string; id: string }, rows: Array<{ employeeId: string | null; pin: string; localTime: string; aheadMin?: number }>) {
+  async function heldRows(c: Ctx, gate: { sn: string; id: string }, rows: Array<{ employeeId: string | null; pin: string; localTime: string; aheadMin?: number; out?: boolean }>) {
     const accountId = (await runInTenant(c.orgId, () => peoplePrisma.attendanceDevice.findUniqueOrThrow({ where: { id: gate.id } }))).accountId;
     await runInTenant(c.orgId, () =>
       peoplePrisma.devicePunch.createMany({
         data: rows.map((r) => {
           const at = new Date(Date.parse(`${r.localTime.replace(' ', 'T')}+05:30`));
           /* aheadMin: the reader's clock was that far ahead, so the punch arrived that long before its time. */
-          return { accountId, orgId: c.orgId, deviceId: gate.id, serialNumber: gate.sn, pin: r.pin, employeeId: r.employeeId, localTime: r.localTime, at, state: '0', kind: 'IN', reviewStatus: 'HELD', heldReason: 'FUTURE', ...(r.aheadMin ? { createdAt: new Date(at.getTime() - r.aheadMin * 60_000) } : {}) };
+          return { accountId, orgId: c.orgId, deviceId: gate.id, serialNumber: gate.sn, pin: r.pin, employeeId: r.employeeId, localTime: r.localTime, at, state: r.out ? '1' : '0', kind: r.out ? 'OUT' : 'IN', reviewStatus: 'HELD', heldReason: 'FUTURE', ...(r.aheadMin ? { createdAt: new Date(at.getTime() - r.aheadMin * 60_000) } : {}) };
         }),
       }),
     );
@@ -695,6 +695,53 @@ describe('re-review of #144', () => {
     await att(c).post('/held-punches/bulk', { action: 'release', deviceId: gate.id, shiftMinutes: 2.5 }).expect(400);
   });
 
+  it('moved back, a resend of the reader’s log is a repeat; counted punches go to the webhooks and the HR tool with their corrected times', async () => {
+    const c = await owner();
+    const p = await person(c, { name: 'Resent Log', code: '8801' });
+    const q = await person(c, { name: 'One At A Time', code: '8802' });
+    const gate = await addGate(c, 'Fast clock');
+    const accountId = (await runInTenant(c.orgId, () => peoplePrisma.attendanceDevice.findUniqueOrThrow({ where: { id: gate.id } }))).accountId;
+    /* A connected HR tool that takes punches (no network here: they wait in its outbox). */
+    const conn = await runInTenant(c.orgId, () => peoplePrisma.hrConnection.create({ data: { accountId, orgId: c.orgId, adapter: 'GREYTHR', name: 'HR', enabled: true, pushPunches: true, createdByUserId: c.userId } }));
+    await heldRows(c, gate, [
+      { employeeId: p.id, pin: '8801', localTime: '2026-10-06 09:30:00', aheadMin: 30 },
+      { employeeId: p.id, pin: '8801', localTime: '2026-10-06 18:30:00', aheadMin: 30, out: true },
+    ]);
+    expect((await att(c).post('/held-punches/bulk', { action: 'release', deviceId: gate.id, month: '2026-10', shiftMinutes: 30 }).expect(200)).body).toMatchObject({ counted: 2, left: 0, resends: 0 });
+    const day = () => runInTenant(c.orgId, () => peoplePrisma.attendanceRecord.findUniqueOrThrow({ where: { employeeId_date: { employeeId: p.id, date: '2026-10-06' } } }));
+    const before = await day();
+    expect(before.lateMinutes).toBe(0);
+    expect(before.workedMinutes).toBeGreaterThan(0);
+    const moved = await runInTenant(c.orgId, () => peoplePrisma.devicePunch.findFirstOrThrow({ where: { orgId: c.orgId, deviceId: gate.id, localTime: '2026-10-06 09:00:00' } }));
+    expect(moved.recordedAt?.toISOString()).toBe(new Date('2026-10-06T09:30:00+05:30').toISOString());
+
+    /* S2: the HR tool gets them as counted, at 09:00 and 18:00 — not at the reader's 09:30. */
+    const outbox = await runInTenant(c.orgId, () => peoplePrisma.hrOutbox.findMany({ where: { connectionId: conn.id }, orderBy: { key: 'asc' } }));
+    expect(outbox.map((r) => JSON.parse(r.payload).time)).toEqual(['2026-10-06 09:00:00', '2026-10-06 18:00:00']);
+
+    /* S1: the reader sends its whole log again (upload position reset): every line is a repeat. */
+    const count = () => runInTenant(c.orgId, () => peoplePrisma.devicePunch.count({ where: { orgId: c.orgId, deviceId: gate.id } }));
+    expect(await count()).toBe(2);
+    await punchFrom(gate.sn)(['8801\t2026-10-06 09:30:00\t0\t1', '8801\t2026-10-06 18:30:00\t1\t1']).expect(200);
+    expect(await count()).toBe(2);
+    const after = await day();
+    expect(after).toMatchObject({ workedMinutes: before.workedMinutes, overtimeMinutes: before.overtimeMinutes, lateMinutes: 0 });
+    expect(await runInTenant(c.orgId, () => peoplePrisma.hrOutbox.count({ where: { connectionId: conn.id } }))).toBe(2);
+
+    /* A held punch moved back onto a time the reader already sent is a repeat: it stays held, and the answer says so. */
+    await runInTenant(c.orgId, () =>
+      peoplePrisma.devicePunch.create({ data: { accountId, orgId: c.orgId, deviceId: gate.id, serialNumber: gate.sn, pin: '8801', employeeId: p.id, localTime: '2026-10-06 09:30:00', at: new Date('2026-10-06T09:30:00+05:30'), state: '0', kind: 'IN', reviewStatus: 'HELD', heldReason: 'FUTURE' } }),
+    );
+    expect((await att(c).post('/held-punches/bulk', { action: 'release', deviceId: gate.id, month: '2026-10', shiftMinutes: 30 }).expect(200)).body).toMatchObject({ counted: 0, left: 0, resends: 1 });
+
+    /* One held punch counted on its own goes out too. */
+    await heldRows(c, gate, [{ employeeId: q.id, pin: '8802', localTime: '2026-10-07 09:05:00' }]);
+    const one = await runInTenant(c.orgId, () => peoplePrisma.devicePunch.findFirstOrThrow({ where: { orgId: c.orgId, deviceId: gate.id, pin: '8802' } }));
+    await att(c).post(`/held-punches/${one.id}/release`).expect(200);
+    const sent = await runInTenant(c.orgId, () => peoplePrisma.hrOutbox.findMany({ where: { connectionId: conn.id } }));
+    expect(sent.map((r) => JSON.parse(r.payload)).find((x) => x.code === '8802')).toMatchObject({ time: '2026-10-07 09:05:00' });
+  });
+
   it('punches counted while their month was closed have their days worked out when it reopens', async () => {
     const c = await owner();
     const p = await person(c, { name: 'Reopen Me', code: 'RO-1' });
@@ -712,6 +759,22 @@ describe('re-review of #144', () => {
     const reopened = (await att(c).post('/months/2026-09/reopen', { reason: 'Reader clock fixed late' }).expect(200)).body;
     expect(reopened.pendingDays).toBe(1);
     expect(await runInTenant(c.orgId, () => peoplePrisma.attendanceRecord.count({ where: { employeeId: p.id, date: '2026-09-14' } }))).toBe(1);
+    expect(await runInTenant(c.orgId, () => peoplePrisma.devicePunch.count({ where: { orgId: c.orgId, deviceId: gate.id, dayPending: true } }))).toBe(0);
+  });
+
+  it('days left marked by a reopen that never got to them are worked out before the month closes again', async () => {
+    const c = await owner();
+    const p = await person(c, { name: 'Stranded Day', code: 'SD-1' });
+    const r = (await att(c).get('/months/2026-09/readiness').expect(200)).body;
+    await att(c).post('/months/2026-09/close', { acknowledge: true, ...r.noRecordConfirm }).expect(200);
+    const gate = await addGate(c);
+    await heldRows(c, gate, [{ employeeId: p.id, pin: 'SD-1', localTime: '2026-09-15 09:00:00' }, { employeeId: p.id, pin: 'SD-1', localTime: '2026-09-15 18:00:00' }]);
+    expect((await att(c).post('/held-punches/bulk', { action: 'release', deviceId: gate.id }).expect(200)).body).toMatchObject({ counted: 2, closedDays: 1 });
+    /* The lock goes but the days are not worked out (a reopen that failed half way, before this fix). */
+    await runInTenant(c.orgId, () => peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId: c.orgId, month: '2026-09' } }));
+    const again = (await att(c).get('/months/2026-09/readiness').expect(200)).body;
+    await att(c).post('/months/2026-09/close', { acknowledge: true, ...again.noRecordConfirm });
+    expect(await runInTenant(c.orgId, () => peoplePrisma.attendanceRecord.count({ where: { employeeId: p.id, date: '2026-09-15' } }))).toBe(1);
     expect(await runInTenant(c.orgId, () => peoplePrisma.devicePunch.count({ where: { orgId: c.orgId, deviceId: gate.id, dayPending: true } }))).toBe(0);
   });
 

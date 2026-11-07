@@ -1035,6 +1035,9 @@ model DevicePunch {
   clockShiftMinutes Int?
   /// The reader's own time, kept when the punch was moved back.
   recordedLocalTime String?
+  /// The instant the reader sent, kept when the punch was moved back: a resend of the reader's log still
+  /// matches it (ingest de-dup), so it is never counted twice.
+  recordedAt   DateTime?
   /// Counted while its month was closed: the day was left alone, and is worked out when the month reopens.
   dayPending   Boolean  @default(false)
   createdAt    DateTime @default(now())
@@ -1046,6 +1049,7 @@ model DevicePunch {
   @@index([orgId, employeeId, at])
   @@index([accountId, orgId, employeeId, shiftDate])
   @@index([orgId, deviceId, at])
+  @@index([orgId, deviceId, recordedAt])
 }
 
 /// A command waiting for a reader's next heartbeat (ADMS "C:<id>:<command>").

@@ -98,6 +98,20 @@ it('can count as recorded; Discard all asks first', async () => {
   expect(decideHeldPunches).toHaveBeenCalledTimes(1);
 });
 
+it('says why repeats stay held after Count all, and that they keep the month from closing', async () => {
+  getHeldPunches.mockResolvedValue({
+    readers: [{ deviceId: 'd1', reader: 'Front gate', count: 4, countable: 4, aheadMinutes: 20 }],
+    held: [{ id: 'p1', deviceId: 'd1', reader: 'Front gate', pin: '701', time: '2026-10-09 09:20:00', employeeName: 'Asha Rao', due: true }],
+    impossible: [],
+  });
+  decideHeldPunches.mockResolvedValue({ counted: 3, discarded: 0, notYet: 0, notMatched: 0, closedDays: 0, left: 0, resends: 1, shiftMinutes: 20 });
+  render(<HeldPunches />);
+  fireEvent.click(await screen.findByRole('button', { name: /Count all from this reader/ }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.click(within(dialog).getByRole('button', { name: /^Count all$/ }));
+  await waitFor(() => expect(notify.success).toHaveBeenCalledWith('3 punches counted, moved back 20 min. 1 is a repeat of a punch already on record at the corrected time, so it stays held and keeps the month from closing. Discard it.'));
+});
+
 it('says when a counted punch’s day is in a closed month', async () => {
   getHeldPunches.mockResolvedValue({ held: [{ id: 'p1', reader: 'Gate', pin: '701', time: '2026-09-09 09:00:00', employeeName: 'Asha Rao', due: true }], impossible: [] });
   decideHeldPunch.mockResolvedValue({ status: 200, closedMonth: true, message: 'Counted. The day is in a closed month, so it was not changed — adjust in payroll.' });

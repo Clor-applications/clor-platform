@@ -13,6 +13,8 @@ function bulkSummary(out, action) {
   if (out.closedDays) parts.push(`${plural(out.closedDays, 'day is', 'days are')} in a closed month, so not changed — adjust in payroll`);
   if (out.notYet) parts.push(`${plural(out.notYet, 'is', 'are')} still ahead of today`);
   if (out.notMatched) parts.push(`${plural(out.notMatched, 'matches', 'match')} nobody yet`);
+  /* Moved back, these land on a time the same reader already sent: repeats. They stay held, and hold the month close, until discarded. */
+  if (out.resends) parts.push(`${plural(out.resends, 'is a repeat', 'are repeats')} of a punch already on record at the corrected time, so ${out.resends === 1 ? 'it stays held and keeps' : 'they stay held and keep'} the month from closing. Discard ${out.resends === 1 ? 'it' : 'them'}`);
   return `${parts.join('. ')}.`;
 }
 
@@ -21,7 +23,7 @@ function bulkSummary(out, action) {
  * so other work is not held up), calling again until none are left. `onProgress` gets the running total.
  */
 async function decideAllFrom({ deviceId, month, action, shiftMinutes = 0, onProgress }) {
-  const sum = { counted: 0, discarded: 0, closedDays: 0, notYet: 0, notMatched: 0, shiftMinutes: null };
+  const sum = { counted: 0, discarded: 0, closedDays: 0, notYet: 0, notMatched: 0, resends: 0, shiftMinutes: null };
   for (let round = 0; round < 1000; round += 1) {
     const out = await decideHeldPunches({ action, deviceId, month, ...(action === 'release' && shiftMinutes ? { shiftMinutes } : {}) });
     sum.counted += out.counted || 0;
@@ -29,6 +31,7 @@ async function decideAllFrom({ deviceId, month, action, shiftMinutes = 0, onProg
     sum.closedDays += out.closedDays || 0;
     sum.notYet = out.notYet || 0;
     sum.notMatched = out.notMatched || 0;
+    sum.resends = out.resends || 0;
     sum.shiftMinutes = out.shiftMinutes ?? sum.shiftMinutes;
     onProgress?.({ ...sum, left: out.left || 0 });
     if (!out.left || !(out.counted || out.discarded)) break;
