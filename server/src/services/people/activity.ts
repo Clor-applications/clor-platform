@@ -30,6 +30,8 @@ export type ActivityViewer = {
   /** Whether the company lets this reader see who is leaving (companyChoices.ts seesLeavings): false drops the leaving's events. */
   canLeavings?: boolean;
   docClasses: string[];
+  /** Finer than the classes when given: whether this reader opens one file (a team-scoped reader never opens another person's payslip). */
+  docOpens?: (d: { classification: string; kind: string; employeeId: string }) => boolean;
   /** Whether the viewer holds a grant like PEOPLE::Statutory Details::VIEW (the route answers with authorize()). */
   allows: (permission: string) => Promise<boolean>;
 };
@@ -168,7 +170,7 @@ export async function activityOf(viewer: ActivityViewer, employeeId: string, opt
     }
   }
   for (const d of docs) {
-    if (!viewer.docClasses.includes(d.classification)) continue;
+    if (!viewer.docClasses.includes(d.classification) || (viewer.docOpens && !viewer.docOpens({ classification: d.classification, kind: d.kind, employeeId }))) continue;
     events.push({ id: `doc_${d.id}`, type: 'upload', at: d.createdAt.toISOString(), actorId: d.uploadedByUserId && d.uploadedByUserId !== 'EMPLOYEE' ? d.uploadedByUserId : null, actor: d.uploadedByUserId === 'EMPLOYEE' ? 'The employee' : null, role: null, title: `${d.version && d.version > 1 ? `New version (${d.version}) of` : 'Uploaded'} ${d.title}` });
   }
   for (const n of notes as any[]) {

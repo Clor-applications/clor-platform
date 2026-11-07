@@ -226,3 +226,26 @@ describe('help desk', () => {
     expect(m.policyVersionId).toBe(v2?.id);
   });
 });
+
+/* Audit 7 Nov 2026 #23: a lead, assignee or policy owner was checked against every user of every company. */
+describe('who may be named on a desk queue, a request or a policy', () => {
+  it('a user of another company is refused as queue lead, assignee and policy owner, and is told nothing', async () => {
+    const outsider = await owner();
+    const member = await colleague(hr, 'Member', ['PEOPLE::HR Cases::VIEW', 'PEOPLE::HR Cases::EDIT']);
+    await people(hr).put('/desk/categories/IT', { leadUserId: outsider.userId }).expect(400);
+    await people(hr).put('/desk/categories/IT', { leadUserId: member.userId }).expect(200);
+
+    const e = (await people(hr).post('/employees', { name: 'Neha Rao', code: 'D-91', dateOfJoining: '2026-01-05' }).expect(201)).body.employee;
+    const r = (await people(hr).post('/desk', { employeeId: e.id, category: 'IT', subject: 'Laptop will not start', description: 'Since Monday.' }).expect(201)).body.request;
+    await people(hr).post(`/desk/${r.id}/assign`, { assigneeUserId: outsider.userId }).expect(400);
+    const told = await platformPrisma.notification.findMany({ where: { orgId: hr.orgId, userId: outsider.userId, title: { contains: 'Laptop will not start' } } });
+    expect(told).toEqual([]);
+    expect((await people(hr).get(`/desk/${r.id}`).expect(200)).body.request.assigneeUserId ?? null).toBeNull();
+    await people(hr).post(`/desk/${r.id}/assign`, { assigneeUserId: member.userId }).expect(200);
+
+    await people(hr).post('/policies', { title: 'Dress code', category: 'CONDUCT', ownerUserId: outsider.userId }).expect(400);
+    const p = (await people(hr).post('/policies', { title: 'Dress code', category: 'CONDUCT' }).expect(201)).body.policy;
+    await people(hr).put(`/policies/${p.id}`, { ownerUserId: outsider.userId }).expect(400);
+    await people(hr).put(`/policies/${p.id}`, { ownerUserId: member.userId }).expect(200);
+  });
+});

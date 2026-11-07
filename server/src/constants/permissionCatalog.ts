@@ -233,7 +233,7 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
       {
         key: 'Documents',
         label: 'Documents',
-        description: 'Files on a person\'s record. VIEW opens what the person can see and HR-only files; EDIT also opens restricted ones',
+        description: 'Files on a person\'s record. VIEW opens what the person can see, and HR-only files company-wide; EDIT also opens restricted ones. A role kept to its own team opens only what the person can see, and no payslip but the holder\'s own',
         actions: MASTER,
       },
       {
@@ -754,7 +754,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   TEAM_MANAGER: {
     label: 'Team Manager',
     group: 'People',
-    description: 'Their own team only: the people who report to them, their documents, joining and leaving tasks, and their goals, reviews and improvement plans; no statutory details',
+    description: 'Their own team only: the people who report to them, the documents those people can see themselves (never HR-only files or payslips), joining and leaving tasks, and their goals, reviews and improvement plans; no statutory details',
     roleType: 'CUSTOM',
     ownDocumentsOnly: true,
     grants: [

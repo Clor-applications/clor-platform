@@ -117,3 +117,90 @@ describe('who can see a document', () => {
     for (const r of rows) expect(r.visibleToEmployee).toBe(r.classification === 'EMPLOYEE_VISIBLE');
   });
 });
+
+/*
+ * Audit 7 Nov 2026 #1 (P0): a Team Manager listed and opened "HR only" files of their reports, payslips included,
+ * through the team's Documents VIEW. A team-scoped role now opens only what the person themself can see, and no
+ * payslip but the manager's own; HR (a company-wide Documents VIEW) keeps every HR-only file.
+ */
+const { runInTenant } = await import('../utils/tenantScope.js');
+/* The Team Manager preset's grants (permissionCatalog.ts TEAM_MANAGER), on a role kept to its own team. */
+const TEAM_MANAGER = ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW', 'PEOPLE::Org Structure::VIEW', 'PEOPLE::Requests::VIEW', 'PEOPLE::Requests::CREATE', 'PEOPLE::Requests::APPROVE', 'PEOPLE::Lifecycle::VIEW', 'PEOPLE::Lifecycle::EDIT', 'PEOPLE::Policies::VIEW', 'PEOPLE::Performance::VIEW', 'ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::APPROVE', 'ATTENDANCE::My Attendance::VIEW', 'ATTENDANCE::My Attendance::CREATE'];
+
+async function teamManager(boss: Ctx): Promise<Ctx & { userId: string }> {
+  const role = await request(app).post(`/api/orgs/${boss.orgId}/roles`).set(at(boss)).send({ name: `Team ${rnd()}`, roleType: 'CUSTOM', permissions: [], ownDocumentsOnly: true }).expect(201);
+  await request(app).put(`/api/orgs/${boss.orgId}/roles/${role.body.role.id}/permissions`).set(at(boss)).send({ permissions: TEAM_MANAGER }).expect(200);
+  const email = `mgr.${Date.now()}.${rnd()}@example.com`;
+  const user = await request(app).post('/api/users').set(at(boss)).send({ email, fullName: 'Rahul Manager', password: 'Passw0rd!23', orgIds: [boss.orgId], branchIdsByOrg: { [boss.orgId]: [boss.branchId] } }).expect(201);
+  await request(app).post(`/api/orgs/${boss.orgId}/users/${user.body.user.id}/roles`).set(at(boss)).send({ roleId: role.body.role.id, branchId: null }).expect(201);
+  const login = await request(app).post('/api/auth/login').send({ email, password: 'Passw0rd!23' }).expect(200);
+  return { token: login.body.token, orgId: boss.orgId, branchId: boss.branchId, userId: user.body.user.id };
+}
+
+describe('a team manager and the HR-only files of their team (audit #1)', () => {
+  let boss: Ctx;
+  let mgr: Ctx & { userId: string };
+  let mgrEmp: any;
+  let report: any;
+  const f: Record<string, string> = {};
+  const upload = async (employee: string, title: string, kind: string, classification: string) =>
+    (await people(boss).post(`/employees/${employee}/documents`, { title, kind, classification, ...file(title) }).expect(201)).body.document.id as string;
+
+  beforeAll(async () => {
+    boss = await owner();
+    mgr = await teamManager(boss);
+    mgrEmp = (await people(boss).post('/employees', { firstName: 'Rahul', lastName: 'Manager', code: 'TM-1' }).expect(201)).body.employee;
+    await runInTenant(boss.orgId, () => peoplePrisma.employee.update({ where: { id: mgrEmp.id }, data: { userId: mgr.userId } }));
+    report = (await people(boss).post('/employees', { firstName: 'Priya', lastName: 'Report', code: 'TM-2', reportingManagerId: mgrEmp.id }).expect(201)).body.employee;
+    f.shared = await upload(report.id, 'Joining kit', 'OTHER', 'EMPLOYEE_VISIBLE');
+    f.hrPayslip = await upload(report.id, 'Payslip October', 'PAYSLIP', 'HR_ONLY');
+    f.hrContract = await upload(report.id, 'Signed contract', 'CONTRACT', 'HR_ONLY');
+    f.reportPayslip = await upload(report.id, 'Payslip September', 'PAYSLIP', 'EMPLOYEE_VISIBLE');
+    f.mgrPayslip = await upload(mgrEmp.id, 'My payslip', 'PAYSLIP', 'EMPLOYEE_VISIBLE');
+  }, 120_000);
+
+  it('the manager lists only what the person can see, and no payslip but their own', async () => {
+    const register = (await people(mgr).get('/documents').expect(200)).body.documents.map((d: any) => d.id).sort();
+    expect(register).toEqual([f.shared, f.mgrPayslip].sort());
+    const onRecord = (await people(mgr).get(`/employees/${report.id}/documents`).expect(200)).body.documents.map((d: any) => d.id);
+    expect(onRecord).toEqual([f.shared]);
+  });
+
+  it('the manager cannot download, preview or follow an HR-only file or a report\'s payslip: each reads as absent', async () => {
+    for (const id of [f.hrPayslip, f.hrContract, f.reportPayslip]) {
+      await people(mgr).get(`/documents/${id}`).expect(404);
+      await people(mgr).get(`/documents/${id}/versions`).expect(404);
+      await people(mgr).get(`/documents/${id}/acknowledgements`).expect(404);
+    }
+    const open = await people(mgr).get(`/documents/${f.shared}`).expect(200);
+    expect(open.body.document.dataUrl).toContain('base64,');
+    await people(mgr).get(`/documents/${f.mgrPayslip}`).expect(200);
+  });
+
+  it('the manager\'s view of the person\'s activity names no HR-only file or payslip', async () => {
+    const activity = JSON.stringify((await people(mgr).get(`/employees/${report.id}/activity`).expect(200)).body);
+    expect(activity).toContain('Joining kit');
+    for (const title of ['Payslip October', 'Signed contract', 'Payslip September']) expect(activity).not.toContain(title);
+  });
+
+  it('HR, with a company-wide Documents VIEW, lists and opens every HR-only file and payslip', async () => {
+    const hrUser = await colleague(boss, ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW']);
+    for (const who of [boss, hrUser]) {
+      const listed = (await people(who).get(`/employees/${report.id}/documents`).expect(200)).body.documents.map((d: any) => d.id).sort();
+      expect(listed).toEqual([f.shared, f.hrPayslip, f.hrContract, f.reportPayslip].sort());
+      for (const id of [f.hrPayslip, f.hrContract, f.reportPayslip]) await people(who).get(`/documents/${id}`).expect(200);
+    }
+  });
+
+  it('the employee sees their own visible files and payslip in the employee app, never the HR-only ones', async () => {
+    const att = (m: 'get' | 'post', p: string, b?: unknown) => (request(app) as any)[m](`/api/orgs/${boss.orgId}/attendance${p}`).set(at(boss)).send(b as any);
+    const companyCode = (await att('get', '/portal-access').expect(200)).body.company.code;
+    const code = (await att('post', '/portal-access/codes', { employeeIds: [report.id] }).expect(200)).body.codes[0].activationCode;
+    await request(app).post('/api/portal/activate').send({ company: companyCode, employeeCode: 'TM-2', activationCode: code, password: 'app pass 12' }).expect(200);
+    const token = (await request(app).post('/api/portal/login').send({ company: companyCode, employeeCode: 'TM-2', password: 'app pass 12' }).expect(200)).body.token;
+    const mine = (await request(app).get('/api/portal/documents').set('Authorization', `Bearer ${token}`).expect(200)).body.documents.map((d: any) => d.id).sort();
+    expect(mine).toEqual([f.shared, f.reportPayslip].sort());
+    await request(app).get(`/api/portal/documents/${f.reportPayslip}`).set('Authorization', `Bearer ${token}`).expect(200);
+    await request(app).get(`/api/portal/documents/${f.hrPayslip}`).set('Authorization', `Bearer ${token}`).expect(404);
+  });
+});
