@@ -434,6 +434,21 @@ export async function settleLines(opts: {
     const payable = await tx.payrollRun.count({ where: { orgId, id: payment.runId, status: { in: PAYABLE_RUN } } });
     if (!payable) throw new PayrollPaymentError('RUN_NOT_APPROVED', 'This payroll has just been cancelled or sent back, so nothing on it is paid. Reload it.');
     for (const r of opts.results) {
+      /*
+       * A failed line brought back to paid or pending (re-review of #145, S1):
+       * its payslip may already sit in a newer live payment, paid again from
+       * there. The unique index would refuse it, but only where it was built;
+       * so the same check createPayment makes, under the same lock.
+       */
+      if (LIVE_LINE.includes(r.status)) {
+        const line = await tx.payrollPaymentLine.findFirst({ where: { orgId, id: r.lineId, paymentId }, select: { slipId: true, status: true } });
+        if (line && !LIVE_LINE.includes(line.status)) {
+          const elsewhere = await tx.payrollPaymentLine.count({
+            where: { orgId, slipId: line.slipId, id: { not: r.lineId }, status: { in: LIVE_LINE }, payment: { status: { not: 'CANCELLED' } } },
+          });
+          if (elsewhere) throw new PayrollPaymentError('SLIP_ALREADY_IN_PAYMENT', 'That person has been put in another payment since the bank rejected this line. Record it there, or cancel that payment first.');
+        }
+      }
       const moved = await tx.payrollPaymentLine.updateMany({
         where: { orgId, id: r.lineId, paymentId, status: { not: 'CANCELLED' } },
         data: {

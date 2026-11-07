@@ -70,7 +70,8 @@ const bodySchema = z.object({
      anybody has decided how they are paid. */
   payroll: z
     .object({
-      payrollStatus: z.enum(PAYROLL_STATUSES).default('IN_PAYROLL'),
+      /* Left out means unchanged, as for PF/ESI/PT below (re-review of #145, N1): a default here reset OLD to NEW on every save that omitted it. A new profile takes the column default. */
+      payrollStatus: z.enum(PAYROLL_STATUSES).optional(),
       payGroupId: z.string().trim().optional().nullable(),
       costCenterId: z.string().trim().optional().nullable(),
       bankAccountName: z.string().trim().max(120).optional().nullable(),
@@ -81,7 +82,7 @@ const bodySchema = z.object({
       uan: z.string().trim().max(30).optional().nullable(),
       pfNumber: z.string().trim().max(40).optional().nullable(),
       esiNumber: z.string().trim().max(40).optional().nullable(),
-      taxRegime: z.enum(['OLD', 'NEW']).default('NEW'),
+      taxRegime: z.enum(['OLD', 'NEW']).optional(),
       professionalTaxState: z.string().trim().max(60).optional().nullable(),
       /* Left out means unchanged: a form without the switches must not turn PF and PT off (QA of #82, F9). New profiles start off. */
       pfApplicable: z.boolean().optional(),
@@ -165,7 +166,7 @@ async function mayRevealSensitive(req: any) {
 
 /** The payroll half, as it goes into the database. */
 const payrollData = (p: NonNullable<z.infer<typeof bodySchema>['payroll']>) => ({
-  payrollStatus: p.payrollStatus,
+  ...(p.payrollStatus !== undefined ? { payrollStatus: p.payrollStatus } : {}),
   payGroupId: blank(p.payGroupId),
   costCenterId: blank(p.costCenterId),
   bankAccountName: blank(p.bankAccountName),
@@ -176,8 +177,9 @@ const payrollData = (p: NonNullable<z.infer<typeof bodySchema>['payroll']>) => (
   uan: blank(p.uan),
   pfNumber: blank(p.pfNumber),
   esiNumber: blank(p.esiNumber),
-  taxRegime: p.taxRegime,
-  professionalTaxState: blank(p.professionalTaxState),
+  ...(p.taxRegime !== undefined ? { taxRegime: p.taxRegime } : {}),
+  /* Same for the PT state: left out is unchanged; sent blank clears it. */
+  ...(p.professionalTaxState !== undefined ? { professionalTaxState: blank(p.professionalTaxState) } : {}),
   ...(p.pfApplicable !== undefined ? { pfApplicable: p.pfApplicable } : {}),
   ...(p.esiApplicable !== undefined ? { esiApplicable: p.esiApplicable } : {}),
   ...(p.ptApplicable !== undefined ? { ptApplicable: p.ptApplicable } : {}),

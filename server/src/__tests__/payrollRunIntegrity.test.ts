@@ -666,3 +666,74 @@ describe('N1 professional tax with no rate for the month', () => {
     expect(text).not.toMatch(/switch Professional Tax on/i);
   });
 });
+
+describe('Re-review of #145', () => {
+  async function adminClient() {
+    const { PrismaClient } = await import('../generated/payroll/index.js');
+    const own = new URL(String(process.env.PAYROLL_DATABASE_URL));
+    const adminUrl = new URL(String(process.env.PGADMIN_URL || process.env.PG_ADMIN_URL || process.env.DATABASE_URL));
+    adminUrl.pathname = own.pathname;
+    adminUrl.search = own.search;
+    return new PrismaClient({ datasources: { db: { url: adminUrl.toString() } } });
+  }
+
+  it('S1 a rejected line marked paid again while its payslip is in a newer live payment is refused, with the index gone', async () => {
+    const health = await import('../services/payroll/liveLineIndex.js');
+    const owner = await adminClient();
+    const c = await makeOwner();
+    const { runId, bank, paymentId, line } = await approvedWithPayment(c);
+    try {
+      await owner.$executeRawUnsafe(`DROP INDEX IF EXISTS "${health.LIVE_LINE_INDEX}"`);
+      await api.post(c, `/payments/${paymentId}/settle`, { results: [{ lineId: line.id, status: 'FAILED', failureReason: 'Wrong IFSC' }] }).expect(200);
+      const second = await api.post(c, '/payments', { runId, paymentDate: '2026-11-02', ledgerAccountId: bank.id }).expect(201);
+      for (const status of ['PAID', 'PENDING']) {
+        const res = await api.post(c, `/payments/${paymentId}/settle`, { results: [{ lineId: line.id, status }] });
+        expect(res.status, status).toBe(409);
+        expect(res.body.code).toBe('SLIP_ALREADY_IN_PAYMENT');
+      }
+      expect(await payrollPrisma.payrollPaymentLine.count({ where: { slipId: line.slipId, status: { in: ['PENDING', 'PAID'] } } })).toBe(1);
+      expect((await lineOf(paymentId)).status).toBe('FAILED');
+      expect((await lineOf(second.body.payment.id)).status).toBe('PENDING');
+    } finally {
+      await owner.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "${health.LIVE_LINE_INDEX}" ON "PayrollPaymentLine"("slipId") WHERE "status" IN ('PENDING', 'PAID')`);
+      await owner.$disconnect();
+    }
+  });
+
+  it('N1 a save that leaves out the tax regime and payroll status keeps them, for somebody else and for yourself', async () => {
+    const c = await makeOwner();
+    const other = await member(c, 'ADMIN');
+    const { employeeId } = await setUp(c);
+    await payrollPrisma.employeePayrollProfile.updateMany({ where: { orgId: c.orgId, employeeId }, data: { taxRegime: 'OLD', payrollStatus: 'ON_HOLD', professionalTaxState: 'Karnataka' } });
+    const person = await peoplePrisma.employee.findUniqueOrThrow({ where: { id: employeeId } });
+    const base = { name: person.name, code: person.code, dateOfJoining: person.dateOfJoining, status: 'ACTIVE' };
+    const payroll = { bankAccountName: 'Meera Shetty', bankName: 'HDFC Bank' };
+    const kept = () => payrollPrisma.employeePayrollProfile.findFirstOrThrow({ where: { orgId: c.orgId, employeeId } });
+    await api.put(c, `/employees/${employeeId}`, { ...base, payroll }).expect(200);
+    expect(await kept()).toMatchObject({ taxRegime: 'OLD', payrollStatus: 'ON_HOLD', professionalTaxState: 'Karnataka' });
+    /* Their own record, while somebody else could: nothing statutory sent, so nothing to refuse. */
+    await peoplePrisma.employee.update({ where: { id: employeeId }, data: { userId: other.userId } });
+    await api.put(other, `/employees/${employeeId}`, { ...base, name: 'Meera S Shetty', payroll }).expect(200);
+    expect(await kept()).toMatchObject({ taxRegime: 'OLD', payrollStatus: 'ON_HOLD', professionalTaxState: 'Karnataka' });
+  });
+
+  it('N2 a cancel between the approval\'s read and its write: the loan stays cancelled with no schedule', async () => {
+    const c = await makeOwner();
+    const { employeeId, periodId } = await setUp(c);
+    const recovery = await mk(c, { name: 'Loan recovery', code: `LOAN${rnd().toUpperCase()}`, type: 'DEDUCTION', calculationMethod: 'FIXED', isVariable: true, displayOrder: 80 });
+    const body = { employeeId, principal: 60_000, interestRate: 0, startDate: '2026-10-01', recoveryStartPeriodId: periodId, installmentCount: 6, recoveryComponentId: recovery };
+    const loanId = (await api.post(c, '/loans', body).expect(201)).body.loan.id as string;
+    const { approveLoan } = await import('../services/payroll/loan.js');
+    const who = { accountId: c.accountId, orgId: c.orgId, userId: c.userId };
+    const spy = between(payrollPrisma.payrollLoan, 'findFirst', () => payrollPrisma.payrollLoan.updateMany({ where: { id: loanId }, data: { status: 'CANCELLED' } }));
+    await expect(approveLoan({ ...who, loanId })).rejects.toMatchObject({ code: 'LOAN_CANCELLED' });
+    spy.mockRestore();
+    expect((await payrollPrisma.payrollLoan.findUniqueOrThrow({ where: { id: loanId } })).status).toBe('CANCELLED');
+    expect(await payrollPrisma.payrollLoanInstallment.count({ where: { loanId } })).toBe(0);
+    /* Two approvals at once: one approves, the other is told it changed; one schedule. */
+    const second = (await api.post(c, '/loans', body).expect(201)).body.loan.id as string;
+    const results = await Promise.allSettled([1, 2].map(() => approveLoan({ ...who, loanId: second })));
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(await payrollPrisma.payrollLoanInstallment.count({ where: { loanId: second } })).toBe(6);
+  });
+});
