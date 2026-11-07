@@ -243,11 +243,37 @@ describe('the server enforces each rule for each role', () => {
   });
 
   it('the company export: Auditor takes People with identifiers masked and no HR-only, confidential or binned file; the owner takes it whole', async () => {
+    /* Personal details, a note, a register entry and a compliance file the Auditor's roles do not open. */
+    await runInTenant(boss.orgId, async () => {
+      await peoplePrisma.employee.update({ where: { id: emp.id }, data: { dateOfBirth: '1990-02-03', addressLine: '12 Lake Road PRIVATE', personalEmail: 'meera.private@example.com', emergencyContactName: 'Ravi EMERGENCY', guardianName: 'Suresh GUARDIAN', cardNumber: 'CARD-778899' } });
+      await peoplePrisma.employeeNote.create({ data: { accountId: boss.accountId!, orgId: boss.orgId, employeeId: emp.id, body: 'HR NOTE about Meera', createdByUserId: boss.userId } });
+      await peoplePrisma.complianceTask.create({ data: { accountId: boss.accountId!, orgId: boss.orgId, code: 'ESIC', period: '2026-09', title: 'ESIC Sept', dueDate: '2026-10-15', evidenceName: 'esic.txt', evidenceMime: 'text/plain', evidenceData: Buffer.from('ESIC CHALLAN') } });
+    });
+    const desk = await api(boss).post('/people/workspace/helpdesk', { title: 'Payslip query HELPDESK', status: 'OPEN', employeeId: emp.id, details: { category: 'PAYROLL', priority: 'NORMAL', description: 'Where is it' } });
+    expect(desk.status, JSON.stringify(desk.body)).toBeLessThan(300);
     const taken = await api(as.Auditor).get('/export?scope=data').expect(200);
+    const auditorText = JSON.stringify(taken.body);
+    for (const kept of ['1990-02-03', '12 Lake Road PRIVATE', 'meera.private@example.com', 'Ravi EMERGENCY', 'Suresh GUARDIAN', 'CARD-778899', 'HR NOTE about Meera', 'Payslip query HELPDESK']) expect(auditorText, kept).not.toContain(kept);
+    expect(taken.body.data['people.employeeNote']).toBeUndefined();
+    expect(taken.body.data['people.employee'].find((e: any) => e.id === emp.id).dateOfJoining).toBe('2025-04-01');
+    expect(taken.body.data['people.complianceTask'].find((t: any) => t.code === 'ESIC').evidenceData).toBeNull();
+    expect(taken.body.export.withheld.some((w: any) => w.domain === 'people')).toBe(true);
+    const ownerTaken = (await api(boss).get('/export?scope=data').expect(200)).body;
+    const ownerText = JSON.stringify(ownerTaken);
+    for (const kept of ['1990-02-03', '12 Lake Road PRIVATE', 'Suresh GUARDIAN', 'CARD-778899', 'HR NOTE about Meera', 'Payslip query HELPDESK']) expect(ownerText, kept).toContain(kept);
+    expect(ownerTaken.data['people.complianceTask'].find((t: any) => t.code === 'ESIC').evidenceData).not.toBeNull();
+    /* With Statutory details but no Full identifiers, the identity table leaves masked. */
+    const name = `Statutory reader ${rnd()}`;
+    await api(boss).post('/roles', { name, roleType: 'CUSTOM', permissions: ['PEOPLE::Employees::VIEW', 'PEOPLE::Statutory Details::VIEW', 'SETTINGS::Company data::VIEW', 'SETTINGS::Company data::EXPORT'] }).expect(201);
+    const reader = await withRole(boss, name);
+    const read = (await api(reader).get('/export?scope=data').expect(200)).body;
+    expect(read.data['people.employeeIdentity'].find((i: any) => i.employeeId === emp.id).passportNumber).toMatch(/\*+4567$/);
+    expect(JSON.stringify(read)).not.toContain('K1234567');
     const text = JSON.stringify(taken.body);
     expect(taken.body.data['people.employee'].some((e: any) => e.id === emp.id)).toBe(true);
     for (const clear of ['K1234567', 'ABCPE1234F', '100200300400', 'KABLR00112230000099', '987654321012']) expect(text, clear).not.toContain(clear);
-    expect(taken.body.data['people.employeeIdentity'].find((i: any) => i.employeeId === emp.id).passportNumber).toMatch(/\*+4567$/);
+    /* No Statutory details grant: the identity table does not leave at all (with the grant but no Full identifiers, it leaves masked). */
+    expect(taken.body.data['people.employeeIdentity']).toBeUndefined();
     for (const title of ['Offer letter HRONLY', 'Medical note CONFIDENTIAL', 'Old contract BINNED', 'Handbook receipt']) expect(text, title).not.toContain(title);
     const whole = JSON.stringify((await api(boss).get('/export?scope=data').expect(200)).body);
     for (const kept of ['K1234567', 'Offer letter HRONLY', 'Medical note CONFIDENTIAL', 'Old contract BINNED']) expect(whole, kept).toContain(kept);

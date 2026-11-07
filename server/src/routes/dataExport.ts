@@ -1,3 +1,4 @@
+// bounded-file: a company export is every row of its own data, by design (see the note on the router below).
 import { Router } from 'express';
 import { hasValidStepUp } from '../services/stepUp.js';
 
@@ -15,6 +16,8 @@ import { recordAudit } from '../services/auditTrail.js';
 import { docAccess, docOpens, type DocAccess } from '../services/people/documentAccess.js';
 import { maskTail } from '../services/people/identifiers.js';
 import { levelFor, resolveAccess } from '../services/access.js';
+import { seesPersonal, teamScope } from '../services/people/scope.js';
+import { WORKSPACE } from '../services/people/workspace.js';
 
 /**
  * A company's own books and its own settings, in files its owner can keep.
@@ -93,8 +96,50 @@ const scrub = (rows: any[]) => rows.map((r) => Object.fromEntries(Object.entries
  * file leaves only if the reader could open it (documentAccess.ts): HR-only and confidential files, and their
  * titles, stay behind.
  */
-const PAN_BANK_KEYS = new Set(['pan', 'landlordPan', 'bankAccountNumber', 'newAccountNumber', 'oldAccountNumber']);
-const ID_KEYS = new Set(['uan', 'esiNumber', 'esicNumber', 'pfNumber', 'passportNumber', 'workPermitNumber']);
+const PAN_BANK_KEYS = new Set(['pan', 'landlordPan', 'bankAccountNumber', 'bankAccount', 'accountNumber', 'newAccountNumber', 'oldAccountNumber']);
+const ID_KEYS = new Set(['uan', 'esiNumber', 'esicNumber', 'esic', 'pfNumber', 'passportNumber', 'workPermitNumber', 'aadhaar', 'aadhaarNumber']);
+
+/*
+ * Each People table leaves with the grant its own screens are opened by (VIEW unless said). A table not named here
+ * is HR's working data and leaves only with Employees EDIT; private cases never leave (PRIVATE above).
+ */
+const P = (resource: string, action = 'VIEW') => `PEOPLE::${resource}::${action}`;
+const T = (resource: string) => `ATTENDANCE::${resource}::VIEW`;
+const TABLE_GRANT: Record<string, string> = {
+  ...Object.fromEntries(['Employee', 'EmployeeType', 'WorkType', 'EmployeeTag', 'EmployeeTagLink', 'CustomFieldDef', 'CustomFieldValue', 'EmploymentEvent', 'EmploymentEpisode', 'ChangeLog', 'PeopleSetting', 'LegalEntity', 'Establishment', 'CelebrationOptOut', 'Obligation', 'ComplianceRule', 'ComplianceTask', 'ObligationProof'].map((m) => [m, P('Employees')])),
+  ...Object.fromEntries(['Department', 'JobPosition', 'JobRole', 'Team', 'Seat', 'BusinessUnit', 'Grade', 'CostCenter'].map((m) => [m, P('Org Structure')])),
+  EmployeeNote: P('Employee Notes'),
+  EmployeeDocument: P('Documents'),
+  LetterTemplate: P('Documents'),
+  ...Object.fromEntries(['EmployeeIdentity', 'JoinStatutory'].map((m) => [m, P('Statutory Details')])),
+  ...Object.fromEntries(['ApprovalRule', 'ApprovalRequest', 'ApprovalStep', 'StandIn', 'ApprovalStandIn', 'DecisionRecord', 'RequestForm', 'RequestFormFile', 'ScheduledChange'].map((m) => [m, P('Requests')])),
+  ...Object.fromEntries(['ProbationReview', 'JoinInvite', 'ChecklistTemplate', 'ChecklistTask', 'ClearanceLine', 'ExitInterview', 'AbsenceCase', 'AbsenceNotice', 'NightWorkConsent'].map((m) => [m, P('Lifecycle')])),
+  ...Object.fromEntries(['Policy', 'PolicyVersion', 'Acknowledgement'].map((m) => [m, P('Policies')])),
+  ...Object.fromEntries(['RetentionRule', 'DeletionReview', 'AuditorGrant', 'DataRequest', 'DataBreach', 'AccessLog'].map((m) => [m, P('Privacy')])),
+  ...Object.fromEntries(['DeskCategory', 'DeskRequest', 'DeskMessage', 'DeskTemplate'].map((m) => [m, P('HR Cases')])),
+  ...Object.fromEntries(['JobOpening', 'Candidate', 'Referral', 'ReferralLink', 'CandidateEvent', 'Interview', 'InterviewFeedback', 'Offer'].map((m) => [m, P('Recruitment')])),
+  ...Object.fromEntries(['Goal', 'GoalCheckIn', 'ReviewCycle', 'Review', 'ImprovementPlan', 'TalentNote', 'OneOnOne'].map((m) => [m, P('Performance')])),
+  ...Object.fromEntries(['Training', 'TrainingSeat'].map((m) => [m, P('Learning')])),
+  ...Object.fromEntries(['ExpenseCategory', 'ExpenseBill', 'ExpenseClaim', 'ExpenseLine', 'EmployeeAdvance', 'SalaryAdvanceAsk'].map((m) => [m, P('Expenses')])),
+  ...Object.fromEntries(['GreetingPost', 'EngagementSettings'].map((m) => [m, P('Announcements')])),
+  ...Object.fromEntries(['AttendanceRecord', 'AttendanceActivity', 'AttendanceRecordHistory', 'AttendanceMonthSnapshot', 'AttendanceExceptionState', 'AttendanceMonthLock', 'AttendanceMonthConfirmation', 'AttendancePenalty', 'AttendanceNudge', 'PhonePunchAttempt', 'ReaderEvent', 'IngestRun', 'Area', 'Contractor', 'AttendanceSettings', 'AttendanceRuleVersion'].map((m) => [m, T('Attendance Records')])),
+  ...Object.fromEntries(['AttendanceRequest', 'OvertimeRequest'].map((m) => [m, T('Attendance Requests')])),
+  ...Object.fromEntries(['Shift', 'ShiftAssignment', 'TemporarySchedule', 'DepartmentSchedule', 'ShiftRotation', 'RotationAssignment', 'ShiftSwap', 'Geofence'].map((m) => [m, T('Shifts')])),
+  ...Object.fromEntries(['Holiday', 'HolidayPick'].map((m) => [m, T('Holidays')])),
+  ...Object.fromEntries(['LeaveType', 'LeaveBlock', 'LeaveYearEnd'].map((m) => [m, T('Leave Types')])),
+  ...Object.fromEntries(['LeaveAllocation', 'LeaveAdjustment', 'LeaveRequest'].map((m) => [m, T('Leave Requests')])),
+  ...Object.fromEntries(['AttendanceDevice', 'DeviceUser', 'ReaderIdAtSite', 'ReaderAlert', 'SiteAgent', 'AgentJob'].map((m) => [m, T('Attendance Devices')])),
+  ...Object.fromEntries(['ApiClient', 'Webhook', 'HrConnection', 'OutboxEvent'].map((m) => [m, T('Attendance Integrations')])),
+  ...Object.fromEntries(['PortalSession', 'AppAccessSend'].map((m) => [m, T('Employee Portal')])),
+  /* Opened per register below (services/people/workspace.ts): the register's own grant. */
+  PeopleRecord: P('Employees'),
+};
+export const tableGrant = (model: string) => TABLE_GRANT[model] ?? P('Employees', 'EDIT');
+/* A person's private details (routes/people.ts PERSONAL_FIELDS), and the reason they left: for who keeps the records (seesPersonal). */
+const PERSONAL_KEYS = ['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber', 'leavingReason'];
+const PERSONAL_SET = new Set(PERSONAL_KEYS);
+/* Files kept against a compliance deadline carry Payroll's figures (peopleCompliance.ts proofFile). */
+const BLOB_OF: Record<string, string> = { ObligationProof: 'data', ComplianceTask: 'evidenceData' };
 /* The company's own PAN is not a person's identifier. */
 const COMPANY_MODELS = new Set(['LegalEntity']);
 export type ExportReveal = { panBank: boolean; ids: boolean };
@@ -108,13 +153,32 @@ const maskDeep = (v: unknown, reveal: ExportReveal): unknown => {
   }
   return out;
 };
-type RowRule = { reveal: ExportReveal; docs?: DocAccess };
+type RowRule = {
+  reveal: ExportReveal;
+  docs?: DocAccess;
+  /* People only: may this table leave at all; does a person's private detail leave; does a compliance file leave. */
+  opens?: (model: string) => boolean;
+  holds?: (key: string) => boolean;
+  personal?: boolean;
+  blobs?: boolean;
+};
 const docOfSnapshot = (snapshot: unknown) => {
   const row = (snapshot as any)?.row || {};
   return { classification: row.classification ?? null, kind: row.kind ?? null, employeeId: row.employeeId ?? null };
 };
 function shapeRows(model: string, rows: any[], rule: RowRule) {
   let kept = rows;
+  if (model === 'PeopleRecord' && rule.holds) kept = kept.filter((r) => {
+    const resource = (WORKSPACE as Record<string, { resource: string }>)[r.kind]?.resource;
+    return Boolean(resource) && rule.holds!(P(resource!));
+  });
+  if (rule.personal === false) {
+    if (model === 'Employee') kept = kept.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !PERSONAL_SET.has(k))));
+    if (model === 'ChangeLog') kept = kept.map((l) => (l.entity === 'Employee' && PERSONAL_SET.has(l.field) ? { ...l, before: null, after: null, redacted: true } : l));
+    if (model === 'EmploymentEvent' || model === 'EmploymentEpisode') kept = kept.map((r) => ('endReason' in r ? { ...r, endReason: null } : r.kind === 'LEFT' ? { ...r, note: null } : r));
+    if (model === 'DeletedItem') kept = kept.map((d) => (d.kind === 'employee' ? { ...d, snapshot: null } : d));
+  }
+  if (rule.blobs === false && BLOB_OF[model]) kept = kept.map((r) => ({ ...r, [BLOB_OF[model]]: null }));
   if (rule.docs && model === 'EmployeeDocument') kept = kept.filter((d) => docOpens(rule.docs!, d));
   if (rule.docs && model === 'DeletedItem') kept = kept.filter((d) => d.kind !== 'employeeDocument' || docOpens(rule.docs!, docOfSnapshot(d.snapshot)));
   /* A file's lines in the change log name it; its classification and kind ride on the same change (routes/people.ts), as Activity reads them. */
@@ -146,6 +210,7 @@ async function exportDomain(client: any, dmmf: { datamodel: { models: Array<{ na
   const out: Record<string, any[]> = {};
   for (const m of dmmf.datamodel.models) {
     if (HEAVY.has(m.name) || PRIVATE.has(m.name) || !m.fields.some((f) => f.name === 'orgId')) continue;
+    if (rule.opens && !rule.opens(m.name)) continue;
     const key = m.name.charAt(0).toLowerCase() + m.name.slice(1);
     const delegate = client[key];
     if (!delegate?.findMany) continue;
@@ -292,7 +357,19 @@ dataExportRouter.get('/orgs/:orgId/export', EXPORT, async (req, res) => {
     /* A full identifier is for who may reveal one in People: Statutory details and Full identifiers. */
     const fullIds = holds('PEOPLE::Statutory Details::VIEW') && holds('PEOPLE::Full Identifiers::VIEW');
     if (holds('PEOPLE::Employees::VIEW')) {
-      Object.assign(data, await exportDomain(peoplePrisma, PeoplePrisma.dmmf as any, 'people', scope, { reveal: { panBank: fullIds, ids: fullIds }, docs: await docAccess(req) }));
+      const personal = await seesPersonal(req);
+      const wholeCompany = (await teamScope(req)).all;
+      const people = await exportDomain(peoplePrisma, PeoplePrisma.dmmf as any, 'people', scope, {
+        reveal: { panBank: fullIds, ids: fullIds },
+        docs: await docAccess(req),
+        opens: (model) => holds(tableGrant(model)),
+        holds,
+        personal,
+        blobs: wholeCompany && personal,
+      });
+      Object.assign(data, people);
+      const skipped = PeoplePrisma.dmmf.datamodel.models.filter((m: any) => !HEAVY.has(m.name) && !PRIVATE.has(m.name) && m.fields.some((f: any) => f.name === 'orgId') && !holds(tableGrant(m.name))).length;
+      if (skipped) withheld.push({ domain: 'people', reason: `${skipped} People and Attendance ${skipped === 1 ? 'table is' : 'tables are'} not open to your roles, so ${skipped === 1 ? 'it was' : 'they were'} left out.` });
       await recordAudit(req, { entity: 'Company', entityId: orgId, action: 'EXPORT_PEOPLE', message: 'Exported People and Attendance records (personal data)' });
     } else {
       withheld.push({ domain: 'people', reason: 'You cannot view employees in People.' });
