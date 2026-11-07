@@ -1127,7 +1127,7 @@ export default function Shell() {
               <button type="button" ref={searchRef} className="ui-global-search" onClick={() => setPaletteOpen(true)} aria-keyshortcuts="Meta+K Control+K">
                 <Search size={16} aria-hidden="true" />
                 {/* Named by its visible words; the shortcut is announced through aria-keyshortcuts, so the keycap is hidden from it. */}
-                <span>Search screens and apps</span>
+                <span>{app?.searchRecords ? "Search people and screens" : "Search screens and apps"}</span>
                 <kbd aria-hidden="true">{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
               </button>
             )
@@ -1508,17 +1508,25 @@ export default function Shell() {
         {paletteOpen && !Root ? (
           <CommandPalette
             onClose={() => setPaletteOpen(false)}
-            placeholder={`Search ${app?.name || 'CLOR'} screens and apps…`}
+            placeholder={app?.searchRecords ? `Search people, jobs and screens…` : `Search ${app?.name || 'CLOR'} screens and apps…`}
+            /* People by name, code or email (manifest `searchRecords`), as the person types. */
+            loadRecords={app?.searchRecords ? (q) => app.searchRecords(q, { apps: mine.map((a) => a.id) }) : undefined}
             items={[
               /* A screen can sit in two places in the menu; it is one destination here. */
-              ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key })),
+              ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key, keywords: i.keywords })),
+              /* Jobs named the way people ask for them (manifest `searchActions`): "probation", "fix a punch", "month close".
+                 One in another app shows only when this company has that app and this person can open it there. */
+              ...(app?.searchActions || [])
+                .filter((a) => (a.appId ? mine.some((m) => m.id === a.appId) : nav.some((i) => i.key === a.screen)))
+                .map((a) => ({ key: `do:${a.appId || ''}:${a.screen}:${a.label}`, label: a.label, group: a.appId ? appById(a.appId)?.name || 'Apps' : 'Do', icon: a.icon, screen: a.screen, params: a.params, appId: a.appId, keywords: a.keywords })),
               ...mine.filter((a) => a.id !== activeAppId).map((a) => ({ key: `app:${a.id}`, label: `Open ${a.name}`, group: 'Apps', icon: a.icon, appId: a.id })),
               { key: 'profile', label: 'My profile', group: 'You', icon: UserRound },
               { key: 'help', label: 'Help centre', group: 'You', icon: CircleHelp },
             ]}
             onSelect={(item) => {
               setPaletteOpen(false);
-              if (item.screen) goTo(item.screen);
+              if (item.appId && item.appId !== activeAppId) openApp(item.appId, item.screen || '', item.params || {});
+              else if (item.screen) goTo(item.screen, item.params || null);
               else if (item.appId) openApp(item.appId);
               else if (item.key === 'profile') {
                 setPlatformScreen('profile');
