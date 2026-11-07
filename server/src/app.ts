@@ -259,10 +259,11 @@ export function buildApp() {
    * Biometric readers (ZKTeco / eSSL push). Plain-text bodies, no login: a
    * reader is known by its serial number, which a company claims under
    * Attendance → Readers. Mounted before the JSON parser and outside /api, so
-   * none of the user-session middleware applies. Bodies are capped: a real
-   * batch of punches is a few hundred KB (ClorTime caps at 8 MB).
+   * none of the user-session middleware applies. Bodies are capped inside the
+   * router: 8 MB for a reader a company added (a real batch is a few hundred KB;
+   * ClorTime caps at 8 MB), 64 KB for any other serial (routes/iclock.ts, iclockBody).
    */
-  app.use('/iclock', express.text({ type: () => true, limit: '8mb' }), iclockRouter);
+  app.use('/iclock', iclockRouter);
   /* Any shape of body: JSON when it says so, a form, or plain text we try as JSON. */
   /* The exact bytes are kept beside the parsed body, so a signed push can be checked (routes/ingest.ts). */
   const keepRaw = (req: any, _res: any, buf: Buffer) => {

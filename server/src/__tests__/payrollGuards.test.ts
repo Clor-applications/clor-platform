@@ -53,7 +53,7 @@ async function setUp(c: Ctx) {
 }
 const inputOf = (runId: string, employeeId: string) => payrollPrisma.payrollInput.findUnique({ where: { runId_employeeId: { runId, employeeId } } });
 const setStatus = (runId: string, status: string) => payrollPrisma.payrollRun.update({ where: { id: runId }, data: { status } });
-const closeSept = (c: Ctx) => att(c, '/months/2026-09/close', { acknowledge: true }).expect(200);
+const closeSept = async (c: Ctx) => att(c, '/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: (await request(app).get(`/api/orgs/${c.orgId}/attendance/months/2026-09/readiness`).set(at(c))).body.noRecordDays }).expect(200);
 const record = (c: Ctx, employeeId: string, date: string) =>
   request(app).put(`/api/orgs/${c.orgId}/attendance/records`).set(at(c)).send({ employeeId, date, checkIn: '09:00', checkOut: '18:00' }).expect(200);
 

@@ -60,11 +60,12 @@ import {
 import { DEFAULT_RULES, KINDS, KIND_WORDS, askRequest, cancelRequest, decideRequest, editRequest, rulesFor, saveRules, shiftChoices, story, usage, type Kind } from '../services/attendance/requests.js';
 import { CHAINS } from '../services/attendance/approvalChain.js';
 import { nightShiftsOn, timesOn } from '../services/attendance/nightShift.js';
-import { clockDateFor } from '../services/attendance/punches.js';
+import { clockDateFor, decideHeldPunch } from '../services/attendance/punches.js';
 import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
 import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/attendance/suggestions.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { TRUST_LEVELS, readerTrustOn } from '../services/attendance/trust.js';
+import { parseAddressList, plainIp, validEntry, webClockRefusal, webClockSettings } from '../services/attendance/webClock.js';
 
 /**
  * Attendance, native (after Horilla HRMS's attendance; reference only).
@@ -468,6 +469,11 @@ attendanceRouter.get('/orgs/:orgId/attendance/me', can(PermissionAction.VIEW, R.
       requests,
       /* The phone punch card, when HR has switched it on for this person (Portal access). */
       ...(await phoneStatus(me)),
+      /* Whether the plain clock may be pressed here, and if not why: the screen says so instead of a button the server refuses (#6). */
+      webClock: await (async () => {
+        const no = await webClockRefusal(me, plainIp(clientIp(req)));
+        return no ? { allowed: false, code: no.code, why: no.message } : { allowed: true };
+      })(),
     });
   } catch (e) {
     return sendError(res, e);
@@ -494,6 +500,9 @@ attendanceRouter.post('/orgs/:orgId/attendance/clock', can(PermissionAction.CREA
   try {
     const me = await myEmployee(accountId, orgId, req.auth!.userId);
     if (me.status === 'LEFT') throw fail(403, 'This employee file is marked as having left.');
+    /* The punch policy applies here too (audit 7 Nov 2026, #6): the company switch, phone-only people, the office addresses. */
+    const refused = await webClockRefusal(me, plainIp(clientIp(req)));
+    if (refused) throw fail(403, refused.message, refused.code);
     const now = new Date();
     const open = await peoplePrisma.attendanceRecord.findFirst({
       where: { orgId, employeeId: me.id, checkIn: { not: null, gte: new Date(now.getTime() - 20 * 3_600_000) }, checkOut: null },
@@ -519,6 +528,120 @@ attendanceRouter.post('/orgs/:orgId/attendance/clock', can(PermissionAction.CREA
     return sendError(res, e);
   }
 });
+
+/**
+ * Browser clock-in settings (audit #6): the company switch and the office addresses. Kept with the work
+ * sites, under Employee Portal, as the rest of "where may punches come from" is. `yourAddress` lets the
+ * person setting it up add the network they are on; `recent` are addresses clock-ins came from lately.
+ */
+attendanceRouter.get('/orgs/:orgId/attendance/clock/settings', can(PermissionAction.VIEW, R.portal), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const s = await webClockSettings(orgId);
+  const since = new Date(Date.now() - 30 * 86_400_000);
+  const recent = await peoplePrisma.attendanceActivity.groupBy({ by: ['ip'], where: { orgId, source: 'CLOCK', at: { gte: since }, ip: { not: null } }, _count: { _all: true }, orderBy: { _count: { ip: 'desc' } }, take: 10 });
+  res.json({ allowed: s.allowed, addresses: s.addresses, yourAddress: plainIp(clientIp(req)), recent: recent.map((r) => ({ address: plainIp(r.ip), clockIns: r._count._all })).filter((r) => r.address) });
+});
+
+const webClockSchema = z.object({
+  allowed: z.boolean(),
+  addresses: z.array(z.string().trim().max(64)).max(50).default([]),
+});
+attendanceRouter.put('/orgs/:orgId/attendance/clock/settings', can(PermissionAction.EDIT, R.portal), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  /* A company setting: a team-scoped role does not change it for everyone. */
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Browser clock-in is set by someone who decides for the whole company.', code: 'TEAM_SCOPED' });
+  const parsed = webClockSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Send allowed and up to 50 addresses.' });
+  const addresses = parseAddressList(parsed.data.addresses.join('\n'));
+  const bad = addresses.filter((a) => !validEntry(a));
+  if (bad.length) return res.status(400).json({ error: `${bad[0]} is not an address or a block like 49.205.10.0/24.`, code: 'BAD_ADDRESS' });
+  const data = { webClockAllowed: parsed.data.allowed, webClockIps: addresses.join('\n'), updatedByUserId: req.auth!.userId };
+  const before = await peopleWrite(orgId, async () => {
+    const old = await webClockSettings(orgId);
+    await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, ...data }, update: data });
+    return old;
+  });
+  await recordAudit(req, { entity: 'ATTENDANCE_SETTINGS', entityId: orgId, action: 'UPDATE', message: `Browser clock-in ${data.webClockAllowed ? (addresses.length ? `on, from ${addresses.length} address${addresses.length === 1 ? '' : 'es'}` : 'on, from anywhere') : 'off'}`, metadata: { before, after: { allowed: data.webClockAllowed, addresses } } });
+  res.json({ allowed: data.webClockAllowed, addresses });
+});
+
+/**
+ * The first day the company kept attendance on CLOR (audit #5). Days before it with no record are not
+ * absent, not loss of pay and not "no record" on month close. Set by whoever closes months, for the whole
+ * company; refused when it would change a closed month's days.
+ */
+attendanceRouter.put('/orgs/:orgId/attendance/start-date', can(PermissionAction.APPROVE, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'The attendance start date is set by someone who sees the whole company.', code: 'TEAM_SCOPED' });
+  const raw = req.body?.date;
+  const date = raw === null || raw === '' ? null : String(raw || '');
+  if (date !== null) {
+    const t = new Date(`${date}T00:00:00Z`);
+    if (!ISO_DATE.test(date) || Number.isNaN(t.getTime()) || t.toISOString().slice(0, 10) !== date) return res.status(400).json({ error: 'Dates are YYYY-MM-DD.' });
+    if (date > today()) return res.status(400).json({ error: 'The start date cannot be after today.' });
+  }
+  try {
+    const before = await peopleWrite(orgId, async () => {
+      const old = (await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { attendanceStartDate: true } }))?.attendanceStartDate ?? null;
+      /*
+       * Every month whose days this moves: between the two dates, or — when one side is "no start date" —
+       * every month before the other. None of them may be closed: their figures went to Payroll.
+       */
+      if (old !== date) {
+        const set = [old, date].filter((x): x is string => Boolean(x)).sort();
+        const lo = old && date ? set[0].slice(0, 7) : '0000-01';
+        const hi = set[set.length - 1].slice(0, 7);
+        const lock = await peoplePrisma.attendanceMonthLock.findFirst({ where: { orgId, month: { gte: lo, lte: hi } }, orderBy: { month: 'asc' }, select: { month: true } });
+        if (lock) throw fail(409, `${lock.month} is closed. Reopen it before moving the start date across it.`, 'ATTENDANCE_MONTH_CLOSED');
+      }
+      await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, attendanceStartDate: date, updatedByUserId: req.auth!.userId }, update: { attendanceStartDate: date, updatedByUserId: req.auth!.userId } });
+      return old;
+    });
+    await recordAudit(req, { entity: 'ATTENDANCE_SETTINGS', entityId: orgId, action: 'UPDATE', message: date ? `Attendance kept on CLOR from ${date}` : 'Attendance start date cleared', metadata: { before: { attendanceStartDate: before }, after: { attendanceStartDate: date } } });
+    res.json({ attendanceStartDate: date });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+/**
+ * Reader punches held for a look (audit #11): a time ahead of the server's (the reader's clock was
+ * wrong), stored but on no day; and, for the last 31 days, lines whose date does not exist (31 Feb),
+ * kept as evidence only. Count releases a held punch once its time has come; Discard keeps it out.
+ */
+attendanceRouter.get('/orgs/:orgId/attendance/held-punches', can(PermissionAction.VIEW, R.devices), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const [held, impossible, devices] = await Promise.all([
+    peoplePrisma.devicePunch.findMany({ where: { orgId, reviewStatus: 'HELD' }, orderBy: { at: 'desc' }, take: 1000 }),
+    peoplePrisma.readerEvent.findMany({ where: { orgId, outcome: 'REJECTED', reason: 'Not a real date and time', receivedAt: { gte: new Date(Date.now() - 31 * 86_400_000) } }, orderBy: { receivedAt: 'desc' }, take: 500, select: { id: true, deviceId: true, pin: true, localTime: true, receivedAt: true } }),
+    peoplePrisma.attendanceDevice.findMany({ where: { orgId }, select: { id: true, name: true, serialNumber: true } }),
+  ]);
+  const reader = new Map(devices.map((d) => [d.id, d.name || d.serialNumber]));
+  const named = await withNames(orgId, held.map((p) => ({ employeeId: p.employeeId })));
+  res.json({
+    held: held.map((p, i) => ({ id: p.id, reader: reader.get(p.deviceId) || p.serialNumber, pin: p.pin, time: p.localTime, receivedAt: p.createdAt, employeeId: p.employeeId, employeeName: p.employeeId ? named[i]?.employeeName || null : null, reason: p.heldReason, due: p.at.getTime() <= Date.now() })),
+    impossible: impossible.map((x) => ({ id: x.id, reader: reader.get(x.deviceId) || '—', pin: x.pin, time: x.localTime, receivedAt: x.receivedAt })),
+  });
+});
+
+const decideHeld = (action: 'release' | 'discard') => async (req: any, res: any) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  try {
+    const out = await peopleWrite(orgId, () => decideHeldPunch(orgId, String(req.params.id), action));
+    if (out.status !== 200) return res.status(out.status).json({ error: out.error, ...('code' in out && out.code ? { code: out.code } : {}) });
+    await recordAudit(req, { entity: 'DEVICE_PUNCH', entityId: String(req.params.id), action: action === 'release' ? 'APPROVE' : 'REJECT', message: action === 'release' ? 'A held reader punch was counted' : 'A held reader punch was discarded', metadata: { punch: out.punch } });
+    res.json(out);
+  } catch (e) {
+    return sendError(res, e);
+  }
+};
+attendanceRouter.post('/orgs/:orgId/attendance/held-punches/:id/release', can(PermissionAction.EDIT, R.devices), decideHeld('release'));
+attendanceRouter.post('/orgs/:orgId/attendance/held-punches/:id/discard', can(PermissionAction.EDIT, R.devices), decideHeld('discard'));
 
 // ---------------------------------------------------------------------------
 // Correction requests
@@ -1129,18 +1252,34 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
       readiness,
     });
   }
+  /*
+   * Working days with no record are docked as unpaid absence once the month closes (audit 7 Nov 2026, #5).
+   * A general "I have seen the open items" is not enough for that: the closer sends back the exact number
+   * of days they were shown, so a month whose count changed since, or a close that never looked, is refused.
+   */
+  const confirmed = Number(req.body?.confirmNoRecordDays);
+  const unconfirmed = (days: number) => days > 0 && confirmed !== days;
+  if (unconfirmed(readiness.noRecordDays)) {
+    return res.status(409).json({
+      error: `${readiness.noRecordDays.toLocaleString('en-IN')} working day${readiness.noRecordDays === 1 ? '' : 's'} with no record would be docked as unpaid absence. Confirm them to close the month.`,
+      code: 'NO_RECORD_UNCONFIRMED',
+      noRecordDays: readiness.noRecordDays,
+      people: readiness.people.filter((p) => p.noRecord > 0).map((p) => ({ employeeId: p.employeeId, name: p.name, code: p.code, days: p.noRecordDates })),
+    });
+  }
   const result = await peopleWrite(orgId, async () => {
     const latest = await monthReadiness(accountId, orgId, month);
     if (latest.checks.some((c) => c.count > 0) && req.body?.acknowledge !== true) throw fail(409, 'The register changed. Review the month-close checklist again.', 'MONTH_NOT_READY');
+    if (unconfirmed(latest.noRecordDays)) throw fail(409, 'The days with no record changed. Review the month-close checklist again.', 'NO_RECORD_UNCONFIRMED');
     const lock = await peoplePrisma.attendanceMonthLock.upsert({
       where: { orgId_month: { orgId, month } },
       create: { accountId, orgId, month, lockedByUserId: req.auth!.userId },
       update: {},
     });
-    const snapshot = await snapshotMonth(accountId, orgId, month, req.auth!.userId, { ...latest, acknowledged: latest.checks.filter((c) => c.count > 0).map((c) => ({ key: c.key, count: c.count })) });
+    const snapshot = await snapshotMonth(accountId, orgId, month, req.auth!.userId, { ...latest, acknowledged: latest.checks.filter((c) => c.count > 0).map((c) => ({ key: c.key, count: c.count })), confirmedNoRecordDays: latest.noRecordDays });
     return { month, closed: { at: lock.lockedAt, byUserId: lock.lockedByUserId }, snapshot: { version: snapshot.version } };
   });
-  await recordAudit(req, { entity: 'ATTENDANCE_MONTH', entityId: month, action: 'CLOSE', message: `Closed ${month} (snapshot ${result.snapshot.version})${open.length ? `, with ${open.length} checklist item${open.length === 1 ? '' : 's'} acknowledged` : ''}`, metadata: { month, snapshotVersion: result.snapshot.version, acknowledged: open.map((c) => ({ key: c.key, count: c.count })) } });
+  await recordAudit(req, { entity: 'ATTENDANCE_MONTH', entityId: month, action: 'CLOSE', message: `Closed ${month} (snapshot ${result.snapshot.version})${open.length ? `, with ${open.length} checklist item${open.length === 1 ? '' : 's'} acknowledged` : ''}${readiness.noRecordDays ? `; ${readiness.noRecordDays} day${readiness.noRecordDays === 1 ? '' : 's'} with no record confirmed as unpaid absence` : ''}`, metadata: { month, snapshotVersion: result.snapshot.version, acknowledged: open.map((c) => ({ key: c.key, count: c.count })), confirmedNoRecordDays: readiness.noRecordDays } });
   res.json(result);
   emitWebhook(orgId, 'month.closed', { month, closedAt: result.closed.at, byUserId: req.auth!.userId });
 });

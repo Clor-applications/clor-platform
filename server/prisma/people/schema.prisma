@@ -1028,6 +1028,9 @@ model DevicePunch {
   address      String?
   /// Field punches waiting for a decision: PENDING (not counted yet), APPROVED, REJECTED. Null = counts.
   reviewStatus String?
+  /// Why a reader punch is held instead of counted (reviewStatus HELD): FUTURE, the reader's clock was ahead of
+  /// the server's when it arrived. A held punch has no shift day and changes no day until someone releases it.
+  heldReason   String?
   createdAt    DateTime @default(now())
 
   /// Per reader: two sites may give the same reader ID to different people
@@ -1488,6 +1491,13 @@ model AttendanceSettings {
   /// missing-punch notice (on), absence: the unexplained-absence check (on), night: women's night-work
   /// consent check (on, 7 pm to 6 am) }. Each part is read over its defaults; versioned in AttendanceRuleVersion.
   timeRules             Json      @default("{}")
+  /// The first day this company kept attendance on CLOR (YYYY-MM-DD). Days before it with no record are not
+  /// counted: not absent, not loss of pay, not "no record" on month close (audit 7 Nov 2026, #5). Null = no limit.
+  attendanceStartDate   String?
+  /// Clock-in from a browser (POST /attendance/clock). Off, only readers and phone punches count (audit #6).
+  webClockAllowed       Boolean   @default(true)
+  /// Addresses a browser clock-in may come from, one per line: an IPv4/IPv6 address or a CIDR block. Empty = any.
+  webClockIps           String    @default("")
 
   updatedByUserId String
   updatedAt       DateTime @updatedAt

@@ -243,7 +243,7 @@ export default function Shell() {
     let off = false;
     Promise.resolve()
       .then(getMyPermissions)
-      .then((d) => !off && setGrants({ key: tenantKey, set: new Set(Array.isArray(d?.permissions) ? d.permissions : []) }))
+      .then((d) => !off && setGrants({ key: tenantKey, set: new Set(Array.isArray(d?.permissions) ? d.permissions : []), teamOnly: Boolean(d?.ownDocumentsOnly) && !d?.isAdmin }))
       .catch(() => undefined);
     return () => {
       off = true;
@@ -791,7 +791,9 @@ export default function Shell() {
   /* Items whose `permission` this person lacks go, and those of a module the company switched off (`feature`), then a settings page left with nothing on it, then any section heading left with nothing under it. */
   const switchedOn = (item) => !item.feature || !tenant?.features || tenant.features[item.feature] !== false;
   const holds = (p) => holdsPermission(p, granted, extraAccess);
-  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || (holds(item.permission) && switchedOn(item))));
+  /* `wholeCompany`: a screen of company-wide figures, which a team-only role (a Team Manager) is refused by the server; not offered to it. */
+  const teamOnly = grants.key === tenantKey && Boolean(grants.teamOnly);
+  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || (holds(item.permission) && switchedOn(item) && !(item.wholeCompany && teamOnly))));
   const nav = allowed.filter((item, i) => !item.section || (allowed[i + 1] && !allowed[i + 1].section));
   /* A screen the open app does not have is not a screen: the same company
      switch that changes the app leaves last app's screen key behind, and

@@ -55,7 +55,17 @@ export const getRestrictedPicks = (year) => get(`/leave/holidays/restricted/pick
 export const getSummary = (month) => get(`/summary${query({ month })}`);
 /** Close a month (its days become final) or reopen it. */
 /* `acknowledge`: the month-close checklist has open items and the person closing has seen them. */
-export const closeMonth = (month, acknowledge = false) => send(`/months/${encodeURIComponent(month)}/close`, 'POST', acknowledge ? { acknowledge: true } : {});
+/* `confirmNoRecordDays`: the number of working days with no record the closer was shown and confirmed as unpaid absence (audit #5). */
+export const closeMonth = (month, acknowledge = false, confirmNoRecordDays = undefined) =>
+  send(`/months/${encodeURIComponent(month)}/close`, 'POST', { ...(acknowledge ? { acknowledge: true } : {}), ...(confirmNoRecordDays ? { confirmNoRecordDays } : {}) });
+/** The first day the company kept attendance on CLOR; days before it with no record are not counted (audit #5). */
+export const setAttendanceStartDate = (date) => send('/start-date', 'PUT', { date: date || null });
+/** Browser clock-in: the company switch and the address allow-list (audit #6). */
+export const getWebClock = () => get('/clock/settings');
+export const saveWebClock = (body) => send('/clock/settings', 'PUT', body);
+/** Reader punches held for review (a time ahead of the server's) and lines with a date that does not exist (audit #11). */
+export const getHeldPunches = () => get('/held-punches');
+export const decideHeldPunch = (id, action) => send(`/held-punches/${encodeURIComponent(id)}/${action}`, 'POST', {});
 /** Reopen a closed month; `reason` (5+ characters) goes in the audit log. */
 export const reopenMonth = (month, reason) => send(`/months/${encodeURIComponent(month)}/reopen`, 'POST', { reason });
 

@@ -82,10 +82,12 @@ export default function MyAttendance() {
         <PhonePunch phone={me.phone} punches={me.punches} onPunch={phonePunch} onDone={load} />
       ) : null}
       <section className="ui-card flex flex-wrap items-center gap-4 p-4">
-        {!me.phone?.allowed ? <button type="button" className="ui-btn ui-btn-primary !h-12 !px-6 text-base" onClick={punch} disabled={busy}>
+        {!me.phone?.allowed && me.webClock?.allowed !== false ? <button type="button" className="ui-btn ui-btn-primary !h-12 !px-6 text-base" onClick={punch} disabled={busy}>
           {me.clockedIn ? <LogOut size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}
           {busy ? 'Saving…' : me.clockedIn ? 'Clock out' : 'Clock in'}
         </button> : null}
+        {/* The company's punch policy says this browser may not clock in (audit #6): say why, instead of a button the server refuses. */}
+        {!me.phone?.allowed && me.webClock?.allowed === false ? <p className="ui-caption basis-full" role="note">{me.webClock.why}</p> : null}
         <dl className="flex flex-wrap gap-6 text-sm">
           <div><dt className="ui-t-label">Today</dt><dd>{me.today}</dd></div>
           <div><dt className="ui-t-label">In</dt><dd>{t?.checkInTime || '—'}</dd></div>

@@ -503,7 +503,14 @@ export async function periodContext(accountId: string, orgId: string, from: stri
   const spanOf = (p: { dateOfJoining: string | null; dateOfLeaving: string | null }) =>
     days.filter((d) => (!p.dateOfJoining || d >= p.dateOfJoining) && (!p.dateOfLeaving || d <= p.dateOfLeaving));
   const settings = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
-  return { days, people, records, holidays, holidaySet, holidaysFor, shiftOn, recordsOf, spanOf, unpaidRequest, settings, today: today() };
+  /*
+   * The first day the company kept attendance on CLOR (audit 7 Nov 2026, #5). A day before it with no
+   * record was never tracked: it is not absent, not loss of pay and not "no record". A day before it
+   * that does have a record (imported, marked by hand) counts as it always did.
+   */
+  const startDate = settings?.attendanceStartDate && ISO_DATE.test(settings.attendanceStartDate) ? settings.attendanceStartDate : null;
+  const untracked = (employeeId: string, date: string) => Boolean(startDate && date < startDate && !recordsOf.get(employeeId)?.has(date));
+  return { days, people, records, holidays, holidaySet, holidaysFor, shiftOn, recordsOf, spanOf, untracked, startDate, unpaidRequest, settings, today: today() };
 }
 
 /** Payable and loss-of-pay days per person for a month (the month summary, and Payroll's input). */
@@ -525,21 +532,28 @@ export async function periodRows(accountId: string, orgId: string, days: string[
       (r) => spanSet.has(r.date) && r.leaveRequestId && ctx.unpaidRequest.has(r.leaveRequestId)
     ).reduce((sum, r) => sum + (ctx.unpaidRequest.get(r.leaveRequestId!) || 0), 0);
     const pen = penalties.get(p.id);
+    /* Days before the company's attendance start with no record: paid as an employed day, never absent (#5). */
+    const counted = span.filter((d) => !ctx.untracked(p.id, d));
+    const untrackedDays = span.length - counted.length;
+    const summary = monthSummary({
+      days: counted,
+      records: recs as any,
+      shift: (d) => ctx.shiftOn(p.id, d).rule,
+      holidays: ctx.holidaysFor(p),
+      today: ctx.today,
+      unpaidLeaveDays,
+      penaltyDays: pen?.lossOfPayDays ?? 0,
+    });
     return {
       employeeId: p.id,
       name: p.name,
       code: p.code,
       department: p.department,
       unpaidLeaveDays,
-      ...monthSummary({
-        days: span,
-        records: recs as any,
-        shift: (d) => ctx.shiftOn(p.id, d).rule,
-        holidays: ctx.holidaysFor(p),
-        today: ctx.today,
-        unpaidLeaveDays,
-        penaltyDays: pen?.lossOfPayDays ?? 0,
-      }),
+      ...summary,
+      totalDays: summary.totalDays + untrackedDays,
+      payableDays: summary.payableDays + untrackedDays,
+      untrackedDays,
       earlyCount: pen?.earlyMarks ?? 0,
       penalty: pen && pen.status !== 'NONE' ? { status: pen.status, days: pen.days, lateMarks: pen.lateMarks, earlyMarks: pen.earlyMarks, fromLeaveDays: Math.round(pen.fromLeave.reduce((s, x) => s + x.days, 0) * 100) / 100 } : null,
     };

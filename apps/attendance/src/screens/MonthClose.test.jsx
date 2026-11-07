@@ -3,7 +3,9 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, expect, it, vi } from 'vitest';
 
 import MonthClose from './MonthClose';
-import { getMonthReadiness } from '../api/attendance';
+
+vi.mock('@ui/permissions/usePermissions', () => ({ usePermissions: () => ({ isAdmin: true, permissions: new Set() }) }));
+import { closeMonth, getMonthReadiness, setAttendanceStartDate } from '../api/attendance';
 
 /*
  * Month close in a bigger company: every person with something open can be
@@ -11,7 +13,8 @@ import { getMonthReadiness } from '../api/attendance';
  * narrows to one kind of open item.
  */
 vi.mock('../api/attendance', () => ({
-  closeMonth: vi.fn(), getMonthReadiness: vi.fn(), getMonthSnapshot: vi.fn(), reopenMonth: vi.fn(),
+  closeMonth: vi.fn(), getMonthReadiness: vi.fn(), getMonthSnapshot: vi.fn(), reopenMonth: vi.fn(), setAttendanceStartDate: vi.fn(),
+  dayLabel: (d) => d,
   todayIst: () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10),
 }));
 
@@ -28,6 +31,8 @@ const readiness = (people) => ({
 
 beforeEach(() => {
   getMonthReadiness.mockReset();
+  closeMonth.mockReset();
+  setAttendanceStartDate.mockReset();
 });
 
 const byPerson = () => screen.getByRole('region', { name: 'By person' });
@@ -92,4 +97,48 @@ it('does not offer a team-scoped role Reopen on a closed month', async () => {
   render(<MonthClose params={{ month: '2026-09' }} />);
   await screen.findByText(/is closed/);
   expect(screen.queryByRole('button', { name: /Reopen/ })).toBeNull();
+});
+
+/*
+ * Audit 7 Nov 2026, #5: working days with no record are docked as unpaid
+ * absence when the month closes. A month with them is never shown as ready,
+ * the days are named, and closing needs its own tick, sent back as the count.
+ */
+const lopMonth = () => ({
+  month: '2026-09', ended: true, closed: null, ready: true, blocking: 0, toCheck: 1, snapshots: [], attendanceStartDate: null,
+  noRecordDays: 3, noRecordPeople: 1,
+  checks: [{ key: 'noRecord', label: 'Working days with no attendance', severity: 'confirm', count: 3, screen: 'records', hint: 'Each is docked as an unpaid absence (loss of pay) when the month closes.' }],
+  people: [{ employeeId: 'e1', name: 'Asha Rao', code: 'A-1', missingOut: 0, noRecord: 3, noRecordDates: ['2026-09-03', '2026-09-04', '2026-09-07'], unapprovedOvertime: 0, unvalidated: 0, ready: false }],
+});
+
+it('does not call a month with no-record days ready, and closes only once they are confirmed', async () => {
+  getMonthReadiness.mockResolvedValue(lopMonth());
+  closeMonth.mockResolvedValue({ closed: true, snapshot: { version: 1 } });
+  render(<MonthClose params={{ month: '2026-09' }} />);
+  expect((await screen.findAllByText('3 working days with no record would be docked as unpaid absence')).length).toBe(1);
+  expect(screen.queryByText(/is ready to close/)).toBeNull();
+  expect(document.querySelector('.ui-readiness').className).toContain('is-warn');
+  const confirm = screen.getByRole('group', { name: '3 working days with no record will be docked as unpaid absence' });
+  expect(within(confirm).getByText('Asha Rao')).toBeTruthy();
+  expect(within(confirm).getByText(/3, 4, 7 Sept|3, 4, 7 Sep/)).toBeTruthy();
+
+  const button = screen.getByRole('button', { name: /Close the month/ });
+  fireEvent.click(screen.getByLabelText(/I have seen the 1 open item/));
+  expect(button.disabled).toBe(true);
+  fireEvent.click(within(confirm).getByLabelText('Dock these 3 working days from pay as unpaid absence.'));
+  expect(button.disabled).toBe(false);
+  fireEvent.click(button);
+  await waitFor(() => expect(closeMonth).toHaveBeenCalledWith('2026-09', true, 3));
+});
+
+it('sets when attendance started on CLOR, from the month close', async () => {
+  getMonthReadiness.mockResolvedValue(lopMonth());
+  setAttendanceStartDate.mockResolvedValue({ attendanceStartDate: '2026-09-08' });
+  render(<MonthClose params={{ month: '2026-09' }} />);
+  await screen.findByText('No start date: every working day since joining counts.');
+  fireEvent.click(screen.getByRole('button', { name: 'Set start date' }));
+  fireEvent.change(screen.getByLabelText('Attendance on CLOR from'), { target: { value: '2026-09-08' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(setAttendanceStartDate).toHaveBeenCalledWith('2026-09-08'));
+  await waitFor(() => expect(getMonthReadiness).toHaveBeenCalledTimes(2));
 });

@@ -6,7 +6,8 @@ import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPage
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
-import { closeMonth, getMonthReadiness, getMonthSnapshot, todayIst } from '../api/attendance';
+import { usePermissions } from '@ui/permissions/usePermissions';
+import { closeMonth, dayLabel, getMonthReadiness, getMonthSnapshot, setAttendanceStartDate, todayIst } from '../api/attendance';
 import ReopenMonth from '../components/ReopenMonth';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 
@@ -33,6 +34,83 @@ const KINDS = [
   { value: 'unvalidated', label: 'Not validated' },
 ];
 const hasOpen = (p) => p.missingOut || p.noRecord || p.unapprovedOvertime || p.unvalidated;
+const days = (n) => `${Number(n).toLocaleString('en-IN')} working day${n === 1 ? '' : 's'}`;
+/* A person's no-record days as a short run: "3, 4, 7 Oct" or the first few and how many more. */
+const dateList = (dates = []) => {
+  const shown = dates.slice(0, 6).map((d) => String(Number(d.slice(8, 10))));
+  const month = dates[0] ? new Date(`${dates[0]}T00:00:00Z`).toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' }) : '';
+  return `${shown.join(', ')}${dates.length > 6 ? ` and ${dates.length - 6} more` : ''} ${month}`.trim();
+};
+
+/**
+ * Working days with no record are docked from pay as unpaid absence once the month closes (audit 7 Nov
+ * 2026, #5). Closing over them needs its own, explicit confirmation that names whose days they are, and
+ * the server takes the close only with that exact number back.
+ */
+function NoRecordConfirm({ people, count, checked, onChange }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? people : people.slice(0, 8);
+  return (
+    <div className="space-y-2" role="group" aria-labelledby="norec-h">
+      <h3 id="norec-h" className="text-sm font-semibold">{days(count)} with no record will be docked as unpaid absence</h3>
+      <ul className="text-sm space-y-1">
+        {shown.map((p) => (
+          <li key={p.employeeId} className="flex flex-wrap gap-x-2">
+            <span className="font-medium">{p.name}</span>
+            <span className="ui-caption">{p.noRecord} day{p.noRecord === 1 ? '' : 's'}: {dateList(p.noRecordDates)}</span>
+          </li>
+        ))}
+      </ul>
+      {people.length > 8 ? (
+        <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setAll((v) => !v)}>{all ? 'Show fewer' : `Show all ${people.length.toLocaleString('en-IN')} people`}</button>
+      ) : null}
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="ui-checkbox mt-0.5" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+        <span>Dock these {days(count)} from pay as unpaid absence.</span>
+      </label>
+    </div>
+  );
+}
+
+/** When the company started keeping attendance on CLOR: days before it with no record are not counted. */
+function StartDate({ value, canChange, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [date, setDate] = useState(value || '');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setDate(value || ''); }, [value]);
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await setAttendanceStartDate(date || null);
+      notify.success(date ? `Days before ${dayLabel(date)} with no record are not counted.` : 'Start date cleared.');
+      setEditing(false);
+      onSaved();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (editing) {
+    return (
+      <form className="flex flex-wrap items-end gap-2" onSubmit={save}>
+        <label className="block">
+          <span className="ui-label">Attendance on CLOR from</span>
+          <input type="date" className="ui-input !w-auto" value={date} max={todayIst()} onChange={(e) => setDate(e.target.value)} />
+        </label>
+        <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy}>Save</button>
+        <button type="button" className="ui-btn ui-btn-ghost" onClick={() => { setDate(value || ''); setEditing(false); }}>Cancel</button>
+      </form>
+    );
+  }
+  return (
+    <p className="ui-caption flex flex-wrap items-center gap-x-2">
+      <span>{value ? `Attendance kept on CLOR from ${dayLabel(value)}. Days before it with no record are not counted.` : 'No start date: every working day since joining counts.'}</span>
+      {canChange ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setEditing(true)}>{value ? 'Change' : 'Set start date'}</button> : null}
+    </p>
+  );
+}
 const monthName = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
 export default function MonthClose({ openScreen, params }) {
@@ -40,16 +118,22 @@ export default function MonthClose({ openScreen, params }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [ack, setAck] = useState(false);
+  const [lopOk, setLopOk] = useState(false);
   const [busy, setBusy] = useState(false);
+  const perms = usePermissions();
+  const canClose = Boolean(perms?.isAdmin) || Boolean(perms?.permissions?.has?.('ATTENDANCE::Attendance Records::APPROVE'));
 
   const load = useCallback(() => {
     getMonthReadiness(month)
-      .then((d) => { setData(d); setError(''); setAck(false); })
+      .then((d) => { setData(d); setError(''); setAck(false); setLopOk(false); })
       .catch((e) => setError(String(e?.message || 'Could not check the month.')));
   }, [month]);
   useEffect(() => { load(); }, [load]);
 
   const openItems = (data?.checks || []).filter((c) => c.count > 0);
+  /* Docked as unpaid absence on close: never an "all clear", and confirmed on its own. */
+  const noRecordDays = data?.noRecordDays || 0;
+  const noRecordPeople = (data?.people || []).filter((p) => p.noRecord > 0);
   /* A team-scoped role sees its own team's days; the month is closed by someone who sees the company. */
   const teamOnly = data?.scope === 'team';
   const filters = useColumnFilters();
@@ -76,7 +160,7 @@ export default function MonthClose({ openScreen, params }) {
   const close = async () => {
     setBusy(true);
     try {
-      const r = await closeMonth(month, openItems.length > 0);
+      const r = await closeMonth(month, openItems.length > 0, noRecordDays || undefined);
       notify.success(`${monthName(month)} closed. Snapshot ${r.snapshot?.version ?? ''} kept for Payroll.`);
       load();
     } catch (e) {
@@ -125,26 +209,31 @@ export default function MonthClose({ openScreen, params }) {
         error ? null : <SkeletonCard lines={8} />
       ) : (
         <>
-          <section className={`ui-card ui-readiness ${data.closed ? 'is-closed' : data.ready ? 'is-ready' : 'is-blocked'}`} aria-live="polite">
+          <section className={`ui-card ui-readiness ${data.closed ? 'is-closed' : !data.ready ? 'is-blocked' : noRecordDays ? 'is-warn' : 'is-ready'}`} aria-live="polite">
             <div className="flex items-start gap-3">
-              {data.closed ? <Lock size={22} aria-hidden="true" /> : data.ready ? <CheckCircle2 size={22} aria-hidden="true" /> : <AlertTriangle size={22} aria-hidden="true" />}
+              {data.closed ? <Lock size={22} aria-hidden="true" /> : data.ready && !noRecordDays ? <CheckCircle2 size={22} aria-hidden="true" /> : <AlertTriangle size={22} aria-hidden="true" />}
               <div className="min-w-0 flex-1">
                 <h2 className="ui-t-sec">
                   {data.closed
                     ? `${monthName(month)} is closed`
                     : !data.ended
                       ? `${monthName(month)} has not ended yet`
-                      : data.ready && !data.toCheck
-                        ? `${monthName(month)} is ready to close`
-                        : data.ready
-                          ? `${monthName(month)} can close; ${data.toCheck} thing${data.toCheck === 1 ? '' : 's'} to check`
-                          : `${data.blocking} thing${data.blocking === 1 ? '' : 's'} to settle before ${monthName(month)} closes`}
+                      : !data.ready
+                        ? `${data.blocking} thing${data.blocking === 1 ? '' : 's'} to settle before ${monthName(month)} closes`
+                        : noRecordDays
+                          ? `${days(noRecordDays)} with no record would be docked as unpaid absence`
+                          : !data.toCheck
+                            ? `${monthName(month)} is ready to close`
+                            : `${monthName(month)} can close; ${data.toCheck} thing${data.toCheck === 1 ? '' : 's'} to check`}
                 </h2>
                 <p className="ui-caption mt-0.5">
                   {data.closed
                     ? `Closed ${new Date(data.closed.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}. Its days are final until it is reopened.`
-                    : 'Settle the red items first. The others are worth a look; payable days are worked out from what is there.'}
+                    : data.ready && noRecordDays
+                      ? `${noRecordPeople.length.toLocaleString('en-IN')} ${noRecordPeople.length === 1 ? 'person has' : 'people have'} days with no punch, mark or leave. Correct them, or set when attendance started on CLOR, before closing.`
+                      : 'Settle the red items first. The others are worth a look; payable days are worked out from what is there.'}
                 </p>
+                {!data.closed && !teamOnly ? <div className="mt-2"><StartDate value={data.attendanceStartDate} canChange={canClose} onSaved={load} /></div> : null}
               </div>
               {data.closed && !teamOnly ? (
                 <button type="button" className="ui-btn ui-btn-secondary" onClick={reopen}><Unlock size={16} aria-hidden="true" /> Reopen</button>
@@ -177,13 +266,14 @@ export default function MonthClose({ openScreen, params }) {
             <section className="ui-card p-4 space-y-3" aria-labelledby="close-h">
               <h2 id="close-h" className="ui-t-sec">Close {monthName(month)}</h2>
               <p className="text-sm ui-muted">Corrections, leave, manual changes and late reader uploads can no longer change its days. Payroll takes the figures as they are now; a snapshot is kept.</p>
+              {noRecordDays ? <NoRecordConfirm people={noRecordPeople} count={noRecordDays} checked={lopOk} onChange={setLopOk} /> : null}
               {openItems.length ? (
                 <label className="flex items-start gap-2 text-sm">
                   <input type="checkbox" className="ui-checkbox mt-0.5" checked={ack} onChange={(e) => setAck(e.target.checked)} />
                   <span>I have seen the {openItems.length} open item{openItems.length === 1 ? '' : 's'} above and want to close the month as it is.</span>
                 </label>
               ) : null}
-              <button type="button" className="ui-btn ui-btn-primary" disabled={busy || (openItems.length > 0 && !ack)} onClick={close}>
+              <button type="button" className="ui-btn ui-btn-primary" disabled={busy || (openItems.length > 0 && !ack) || (noRecordDays > 0 && !lopOk)} onClick={close}>
                 <Lock size={16} aria-hidden="true" /> {busy ? 'Closing…' : 'Close the month'}
               </button>
             </section>

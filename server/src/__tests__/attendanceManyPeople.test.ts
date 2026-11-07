@@ -290,7 +290,8 @@ describe('closing the month, and what Payroll took', () => {
     expect((await att(lead).get(`/months/${month}/readiness`).expect(200)).body.scope).toBe('team');
     expect((await att(boss).get(`/months/${month}/readiness`).expect(200)).body.scope).toBe('company');
 
-    const closed = (await att(boss).post(`/months/${month}/close`, { acknowledge: true }).expect(200)).body;
+    const confirmNoRecordDays = (await att(boss).get(`/months/${month}/readiness`).expect(200)).body.noRecordDays;
+    const closed = (await att(boss).post(`/months/${month}/close`, { acknowledge: true, confirmNoRecordDays }).expect(200)).body;
     const version = closed.snapshot.version;
     const all = (await att(boss).get(`/months/${month}/snapshots/${version}`).expect(200)).body;
     expect(all.rows).toHaveLength(PEOPLE);

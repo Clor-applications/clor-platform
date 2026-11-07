@@ -100,7 +100,7 @@ describe('O-09: a closed month refuses leave and requests when they are asked', 
     me = await person(c, { name: 'Owner Self', code: 'C2', workEmail: c.email });
     await att(c, 'put', '/request-rules', { WFH: { on: true, backDays: 366 }, MISSED_PUNCH: { on: true, backDays: 366 } }).expect(200);
     app_ = await portalFor(c, asha.id, 'C1');
-    await att(c, 'post', '/months/2026-09/close', { acknowledge: true }).expect(200);
+    await att(c, 'post', '/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: (await att(c, 'get', '/months/2026-09/readiness')).body.noRecordDays }).expect(200);
   }, 90_000);
 
   it('HR entering leave gets the refusal with the code and the month, and the preview says it first', async () => {

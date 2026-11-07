@@ -1,5 +1,5 @@
 import { appLive, closing } from '../services/principalAllowed.js';
-import { Router, type Request, type Response } from 'express';
+import express, { Router, type Request, type RequestHandler, type Response } from 'express';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, HANDSHAKE_OPTIONS, commandEffect, instantOf, parseAttlogLine, parseBiodataLine, parseCommandResults, parseInfo, parseOpLine, parseReaderInfo, refusalReason } from '../services/attendance/adms.js';
 import { readerLimiter } from '../middleware/rateLimit.js';
@@ -24,7 +24,8 @@ import { markOnReader, storeTemplate, storeUser } from '../services/attendance/r
  * production (server/services/adms.js there).
  */
 export const iclockRouter = Router();
-iclockRouter.use(readerLimiter);
+/* The limiter first, then the body: a flood is turned away before anything is read (#10). Body parsing is below (iclockBody). */
+iclockRouter.use(readerLimiter, ((req, res, next) => iclockBody(req, res, next)) as RequestHandler);
 
 const SERIAL = /^[A-Za-z0-9_-]{4,40}$/;
 const text = (res: Response, body: string, status = 200) => res.status(status).type('text/plain').send(body);
@@ -44,13 +45,52 @@ async function deviceFor(serial: string) {
   return device;
 }
 
-async function remember(serial: string, ip: string | null, info: string | null, network: string | null) {
-  await peoplePrisma.unclaimedReader.upsert({
-    where: { serialNumber: serial },
-    create: { serialNumber: serial, ip, network, info: info?.slice(0, 300) || null },
-    update: { lastSeenAt: new Date(), ...(ip ? { ip } : {}), ...(network ? { network } : {}), ...(info ? { info: info.slice(0, 300) } : {}) },
+/**
+ * Unknown serials are kept so a company adding a reader sees it was heard from (devices.ts). Nobody signs
+ * in to send one, so the table is bounded (audit 7 Nov 2026, #10): at most this many per network, the
+ * longest silent giving way to a new one (so a real reader switched on today is always heard), and rows
+ * not heard from in 30 days are pruned (services/retention.ts, UNCLAIMED_READER_KEEP_DAYS).
+ */
+export const UNCLAIMED_PER_NETWORK = 20;
+
+export async function remember(serial: string, ip: string | null, info: string | null, network: string | null) {
+  /* The latest network is kept: adding the reader from that network proves it is yours (devices.ts). */
+  const seen = { lastSeenAt: new Date(), ...(ip ? { ip } : {}), ...(network ? { network } : {}), ...(info ? { info: info.slice(0, 300) } : {}) };
+  /* One already kept is only touched; only a new serial counts against the cap. */
+  const touched = await peoplePrisma.unclaimedReader.updateMany({ where: { serialNumber: serial }, data: seen });
+  if (touched.count) return;
+  /* A new one counts against its network's cap, under a lock per network, so a burst cannot overshoot it. */
+  await peoplePrisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`unclaimed-reader:${network ?? ''}`}))`;
+    const kept = await tx.unclaimedReader.findMany({ where: { network }, orderBy: { lastSeenAt: 'desc' }, skip: UNCLAIMED_PER_NETWORK - 1, select: { serialNumber: true } });
+    if (kept.length) await tx.unclaimedReader.deleteMany({ where: { serialNumber: { in: kept.map((k) => k.serialNumber) } } });
+    await tx.unclaimedReader.createMany({ data: [{ serialNumber: serial, ip, network, info: info?.slice(0, 300) || null }], skipDuplicates: true });
   });
 }
+
+/**
+ * Bodies are parsed only up to what the serial deserves: a reader a company added may send a big batch
+ * (a few hundred KB; ClorTime caps at 8 MB), anything else gets 64 KB (#10). The serial is looked up
+ * once a minute at most, so a flood of unknown serials costs one small query each, not an 8 MB parse.
+ */
+const BIG_BODY = express.text({ type: () => true, limit: '8mb' });
+const SMALL_BODY = express.text({ type: () => true, limit: '64kb' });
+const knownSerials = new Map<string, { known: boolean; at: number }>();
+async function knownSerial(serial: string) {
+  const hit = knownSerials.get(serial);
+  if (hit && Date.now() - hit.at < 60_000) return hit.known;
+  const device = await outsideTenant('adms: is this serial a company reader (body size)', () => peoplePrisma.attendanceDevice.findUnique({ where: { serialNumber: serial }, select: { isActive: true, vendor: true } }));
+  const known = Boolean(device?.isActive && device.vendor === 'ADMS');
+  if (knownSerials.size > 5_000) knownSerials.clear();
+  knownSerials.set(serial, { known, at: Date.now() });
+  return known;
+}
+export const iclockBody: RequestHandler = (req, res, next) => {
+  if (req.method !== 'POST') return SMALL_BODY(req, res, next);
+  const serial = serialOf(req);
+  if (!serial) return SMALL_BODY(req, res, next);
+  knownSerial(serial).then((known) => (known ? BIG_BODY : SMALL_BODY)(req, res, next), next);
+};
 
 type Lockable = {
   id: string;

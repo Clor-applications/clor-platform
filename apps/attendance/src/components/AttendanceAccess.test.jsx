@@ -1,0 +1,86 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { beforeEach, expect, it, vi } from 'vitest';
+
+import HeldPunches from './HeldPunches';
+import WebClockSettings from './WebClockSettings';
+import { decideHeldPunch, getHeldPunches, getWebClock, saveWebClock } from '../api/attendance';
+
+/*
+ * Attendance audit, 7 Nov 2026: reader punches held for a look (#11) and
+ * clock-in from a browser (#6).
+ */
+vi.mock('../api/attendance', () => ({
+  getHeldPunches: vi.fn(), decideHeldPunch: vi.fn(), getWebClock: vi.fn(), saveWebClock: vi.fn(),
+}));
+vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() } }));
+
+beforeEach(() => vi.clearAllMocks());
+
+it('draws nothing when no punch is held', async () => {
+  getHeldPunches.mockResolvedValue({ held: [], impossible: [] });
+  const { container } = render(<HeldPunches />);
+  await waitFor(() => expect(getHeldPunches).toHaveBeenCalled());
+  expect(container.textContent).toBe('');
+});
+
+it('lists held punches; Count waits until the time has come, Discard does not', async () => {
+  getHeldPunches.mockResolvedValue({
+    held: [
+      { id: 'p1', reader: 'Gate', pin: '701', time: '2026-11-09 09:00:00', employeeName: 'Asha Rao', due: false },
+      { id: 'p2', reader: 'Gate', pin: '702', time: '2026-11-07 09:10:00', employeeName: null, due: true },
+    ],
+    impossible: [{ id: 'x1', reader: 'Gate', pin: '703', time: '2026-02-31 09:00:00' }],
+  });
+  decideHeldPunch.mockResolvedValue({ status: 200 });
+  render(<HeldPunches />);
+  const table = await screen.findByRole('table');
+  const rows = within(table).getAllByRole('row').slice(1);
+  expect(rows).toHaveLength(3);
+  expect(within(rows[0]).getByRole('button', { name: /Count/ }).disabled).toBe(true);
+  expect(within(rows[1]).getByText('Not matched')).toBeTruthy();
+  expect(within(rows[2]).getByText('No such date')).toBeTruthy();
+  fireEvent.click(within(rows[1]).getByRole('button', { name: /Count/ }));
+  await waitFor(() => expect(decideHeldPunch).toHaveBeenCalledWith('p2', 'release'));
+  fireEvent.click(within(rows[0]).getByRole('button', { name: /Discard/ }));
+  await waitFor(() => expect(decideHeldPunch).toHaveBeenCalledWith('p1', 'discard'));
+});
+
+it('offers no decisions to someone who may only look', async () => {
+  getHeldPunches.mockResolvedValue({ held: [{ id: 'p1', reader: 'Gate', pin: '701', time: '2026-11-09 09:00:00', employeeName: 'Asha Rao', due: true }], impossible: [] });
+  render(<HeldPunches canDecide={false} />);
+  await screen.findByRole('table');
+  expect(screen.queryByRole('button')).toBeNull();
+});
+
+it('browser clock-in: suggests this network, and saves the switch and the addresses', async () => {
+  getWebClock.mockResolvedValue({ allowed: true, addresses: [], yourAddress: '49.205.10.4', recent: [{ address: '49.205.10.9', clockIns: 3 }] });
+  saveWebClock.mockResolvedValue({ allowed: true, addresses: ['49.205.10.4'] });
+  const onClose = vi.fn();
+  render(<WebClockSettings onClose={onClose} />);
+  await screen.findByText(/You are on/);
+  const save = screen.getByRole('button', { name: 'Save' });
+  expect(save.disabled).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: /Add an address/ }));
+  const field = screen.getByLabelText('Address 1');
+  fireEvent.focus(field);
+  expect(await screen.findByText('This network')).toBeTruthy();
+  fireEvent.keyDown(field, { key: 'ArrowDown' });
+  fireEvent.keyDown(field, { key: 'Enter' });
+  expect(field.value).toBe('49.205.10.4');
+  fireEvent.click(save);
+  await waitFor(() => expect(saveWebClock).toHaveBeenCalledWith({ allowed: true, addresses: ['49.205.10.4'] }));
+  await waitFor(() => expect(onClose).toHaveBeenCalled());
+});
+
+it('browser clock-in: switched off hides the addresses; a refusal is shown', async () => {
+  getWebClock.mockResolvedValue({ allowed: true, addresses: ['49.205.10.0/24'], yourAddress: null, recent: [] });
+  saveWebClock.mockRejectedValue(new Error('300.1.1.1 is not an address or a block like 49.205.10.0/24.'));
+  render(<WebClockSettings onClose={() => {}} />);
+  await screen.findByLabelText('Address 1');
+  fireEvent.click(screen.getByLabelText(/Clock in and out from a browser/));
+  expect(screen.queryByLabelText('Address 1')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  expect((await screen.findByRole('alert')).textContent).toMatch(/is not an address/);
+  expect(saveWebClock).toHaveBeenCalledWith({ allowed: false, addresses: ['49.205.10.0/24'] });
+});

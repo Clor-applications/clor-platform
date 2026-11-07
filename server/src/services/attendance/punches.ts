@@ -121,6 +121,14 @@ export async function recomputeDeviceDay(accountId: string, orgId: string, emplo
   return writeDay({ accountId, orgId, userId: 'reader', employee, date, checkIn: day.checkIn, checkOut: day.checkOut, source: 'DEVICE', ...(half ? { leaveRequestId: half.id, halfDayLeave: half.halfDay as 'FIRST' | 'SECOND' } : {}) });
 }
 
+/**
+ * A reader punch more than this far ahead of the server's clock is held, not counted (audit 7 Nov 2026, #11):
+ * a reader whose clock jumped ahead wrote a working day in March 2027. A few minutes of drift is normal.
+ */
+export const FUTURE_TOLERANCE_MS = 15 * 60_000;
+/** Why a punch is held, for the list HR reviews. */
+export const HELD_REASON = { FUTURE: 'FUTURE' } as const;
+
 /** What a channel knows about each line besides the line: the vendor's own record and event id, and records it set aside. */
 export type IngestMeta = { sources?: string[]; ids?: Array<string | null>; aside?: Array<{ original: string; reason: string; id?: string | null }> };
 
@@ -165,12 +173,15 @@ export async function ingestPunches(device: { id: string; accountId: string; org
   const saveEvidence = () => (evidence.length ? peoplePrisma.readerEvent.createMany({ data: evidence }).catch((e) => console.error('[reader-event]', e instanceof Error ? e.message : e)) : null);
 
   const rows: any[] = [];
+  const heldAfter = Date.now() + FUTURE_TOLERANCE_MS;
   for (const { raw, i, p } of parsed) {
     const at = instantOf(p.localTime);
     if (!at) {
       keep('REJECTED', meta.sources?.[i] ?? raw, { reason: 'Not a real date and time', id: meta.ids?.[i], pin: p.pin, localTime: p.localTime });
       continue;
     }
+    /* Ahead of now: stored (so a resend is a repeat) but held, with no shift day, until someone looks (#11). */
+    const held = at.getTime() > heldAfter;
     const emp = match(p.pin, device.areaId);
     rows.push({
       accountId: device.accountId,
@@ -188,6 +199,9 @@ export async function ingestPunches(device: { id: string; accountId: string; org
       employeeId: emp?.id ?? null,
       shiftDate: null as string | null,
       raw: raw.slice(0, 300),
+      reviewStatus: held ? 'HELD' : null,
+      heldReason: held ? HELD_REASON.FUTURE : null,
+      _held: held,
       _emp: emp,
       _src: { original: meta.sources?.[i] ?? raw, id: meta.ids?.[i] ?? null },
     });
@@ -218,7 +232,7 @@ export async function ingestPunches(device: { id: string; accountId: string; org
       fresh.push(r);
     }
   }
-  for (const r of fresh) keep('NEW', r._src.original, { id: r._src.id, pin: r.pin, localTime: r.localTime });
+  for (const r of fresh) keep(r._held ? 'HELD' : 'NEW', r._src.original, { id: r._src.id, pin: r.pin, localTime: r.localTime, ...(r._held ? { reason: 'Time ahead of the server: the reader’s clock may be wrong' } : {}) });
   await saveEvidence();
   if (!fresh.length) {
     await record(0, rows.length, parsed.length - rows.length);
@@ -228,23 +242,51 @@ export async function ingestPunches(device: { id: string; accountId: string; org
   /* Shift days only for new punches: a reader resending its whole log costs one lookup per person-hour, not one per line. */
   const dayOf = new Map<string, string>();
   for (const r of fresh) {
-    if (!r._emp) continue;
+    if (!r._emp || r._held) continue;
     const k = `${r._emp.id}|${r.localTime.slice(0, 13)}`;
     if (!dayOf.has(k)) dayOf.set(k, await shiftDayFor(device.orgId, r._emp.id, r.localTime));
     r.shiftDate = dayOf.get(k)!;
   }
-  await peoplePrisma.devicePunch.createMany({ data: fresh.map(({ _emp, _src, ...r }) => r), skipDuplicates: true });
-  emitWebhook(device.orgId, 'punch', {
-    reader: device.serialNumber,
-    punches: fresh.map((r) => ({ readerId: r.pin, employeeId: r.employeeId, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode })),
-  });
-  /* And to any HR tool the company connected (services/hr/sync.ts); never waits. */
-  void enqueuePunches(device.orgId, fresh.map((r) => ({ employeeId: r.employeeId, code: r._emp?.code || r._emp?.devicePin || null, readerId: r.pin, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode })));
+  await peoplePrisma.devicePunch.createMany({ data: fresh.map(({ _emp, _src, _held, ...r }) => r), skipDuplicates: true });
+  /* Held punches go nowhere yet: not to webhooks, not to a connected HR tool, not onto a day. */
+  const counted = fresh.filter((r) => !r._held);
+  if (counted.length) {
+    emitWebhook(device.orgId, 'punch', {
+      reader: device.serialNumber,
+      punches: counted.map((r) => ({ readerId: r.pin, employeeId: r.employeeId, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode })),
+    });
+    /* And to any HR tool the company connected (services/hr/sync.ts); never waits. */
+    void enqueuePunches(device.orgId, counted.map((r) => ({ employeeId: r.employeeId, code: r._emp?.code || r._emp?.devicePin || null, readerId: r.pin, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode })));
+  }
 
   const days = new Map<string, { emp: any; date: string }>();
-  for (const r of fresh) if (r._emp && r.shiftDate) days.set(`${r._emp.id}|${r.shiftDate}`, { emp: r._emp, date: r.shiftDate });
+  for (const r of counted) if (r._emp && r.shiftDate) days.set(`${r._emp.id}|${r.shiftDate}`, { emp: r._emp, date: r.shiftDate });
   for (const { emp, date } of days.values()) {
     await recomputeDeviceDay(device.accountId, device.orgId, { id: emp.id, branchId: emp.branchId, areaId: emp.areaId }, date);
   }
   return fresh.length;
+}
+
+/**
+ * A held punch (#11), decided by someone who looked at it. Count it: only once its time is no longer ahead
+ * of the server's, then it gets its shift day and the day is worked out again, as if it had just arrived.
+ * Discard it: it stays stored (a resend is still a repeat) as REJECTED, and changes nothing.
+ */
+export async function decideHeldPunch(orgId: string, id: string, action: 'release' | 'discard') {
+  const p = await peoplePrisma.devicePunch.findFirst({ where: { id, orgId, reviewStatus: 'HELD' } });
+  if (!p) return { status: 404 as const, error: 'No such held punch.' };
+  if (action === 'discard') {
+    await peoplePrisma.devicePunch.updateMany({ where: { id, orgId, reviewStatus: 'HELD' }, data: { reviewStatus: 'REJECTED' } });
+    return { status: 200 as const, punch: { id, review: 'REJECTED' } };
+  }
+  if (p.at.getTime() > Date.now() + FUTURE_TOLERANCE_MS) return { status: 409 as const, error: 'This punch is still ahead of today. Set the reader’s clock right; the punches it makes from then on count.', code: 'STILL_IN_FUTURE' };
+  if (!p.employeeId) return { status: 409 as const, error: 'This reader ID matches nobody yet. Map it under Employee ID mapping first.', code: 'NOT_MATCHED' };
+  const emp = await peoplePrisma.employee.findFirst({ where: { id: p.employeeId, orgId }, select: { id: true, accountId: true, branchId: true, areaId: true } });
+  if (!emp) return { status: 404 as const, error: 'No such held punch.' };
+  const shiftDate = await shiftDayFor(orgId, emp.id, p.localTime);
+  /* Taken once: a second click (or a colleague's) finds it no longer held. */
+  const taken = await peoplePrisma.devicePunch.updateMany({ where: { id, orgId, reviewStatus: 'HELD' }, data: { reviewStatus: null, heldReason: null, shiftDate } });
+  if (!taken.count) return { status: 404 as const, error: 'No such held punch.' };
+  await recomputeDeviceDay(emp.accountId, orgId, { id: emp.id, branchId: emp.branchId, areaId: emp.areaId }, shiftDate);
+  return { status: 200 as const, punch: { id, review: null, shiftDate } };
 }

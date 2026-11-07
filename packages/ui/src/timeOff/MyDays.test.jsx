@@ -71,3 +71,11 @@ it('lists nothing when there are no punches yet, and says a refused field punch 
   render(<TodayPunches punches={[{ time: '18:10', kind: 'OUT', phone: true, site: 'Client site', review: 'REJECTED' }]} />);
   expect(screen.getByText('Not counted')).toBeTruthy();
 });
+
+/* Attendance audit, 7 Nov 2026, #6: the company's punch policy refuses this browser, so the card says why instead of a button the server refuses. */
+it('says why instead of Check in when the punch policy refuses this browser', () => {
+  const why = 'Clock-in from a browser counts only from the office network. Punch at a reader, or ask HR.';
+  withPerms(perms([], { isAdmin: true }), <CheckInCard me={{ ...me, webClock: { allowed: false, code: 'WEB_CLOCK_ADDRESS', why } }} onChanged={() => {}} />);
+  expect(screen.getByRole('note').textContent).toBe(why);
+  expect(screen.queryByRole('button', { name: /check in/i })).toBeNull();
+});

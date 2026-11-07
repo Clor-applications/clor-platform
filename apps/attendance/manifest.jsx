@@ -279,6 +279,8 @@ export const attendanceApp = {
   ],
 
   /* `permission`: what the screen's data needs (server routes); the shell hides what this user cannot open.
+     `wholeCompany`: company-wide figures a team-only role (Team Manager) is refused; the shell does not offer them to it.
+     It keeps its team's Dashboard, Records, Exceptions, Overtime, Month close and Monthly summary (audit 7 Nov 2026, #3).
      `short`: the label on the phone's bottom tab bar, where the full name does not fit. */
   nav: [
     { section: 'Overview' },
@@ -330,26 +332,26 @@ export const attendanceApp = {
     { key: 'monthClose', label: 'Month Close', icon: Lock, permission: 'ATTENDANCE::Attendance Records::VIEW' },
 
     { section: 'Reports' },
-    { key: 'reportInsights', label: 'Attendance Insights', icon: TrendChart, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'register', label: 'Daily Attendance Register', icon: Grid3x3, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'reportInsights', label: 'Attendance Insights', icon: TrendChart, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'register', label: 'Daily Attendance Register', icon: Grid3x3, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
     { key: 'summary', label: 'Monthly Attendance Summary', icon: ClipboardCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'calendar', label: 'Attendance Calendar', icon: CalendarDays, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'reportLateEarly', label: 'Late Arrivals & Early Exits', icon: Clock3, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'reportAbsent', label: 'Absence Report', icon: CalendarOff, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'reportDepartment', label: 'Department Attendance', icon: Building2, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'reportTimecard', label: 'Employee Attendance History', icon: UserRoundCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'reportOvertime', label: 'Overtime Report', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'reportLeave', label: 'Leave Report', icon: CalendarCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'reportReaderPunches', label: 'Reader Activity', icon: Cpu, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'reports', label: 'Report Catalogue', icon: BarChart3, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'calendar', label: 'Attendance Calendar', icon: CalendarDays, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reportLateEarly', label: 'Late Arrivals & Early Exits', icon: Clock3, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reportAbsent', label: 'Absence Report', icon: CalendarOff, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reportDepartment', label: 'Department Attendance', icon: Building2, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reportTimecard', label: 'Employee Attendance History', icon: UserRoundCheck, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reportOvertime', label: 'Overtime Report', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reportLeave', label: 'Leave Report', icon: CalendarCheck, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reportReaderPunches', label: 'Reader Activity', icon: Cpu, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reports', label: 'Report Catalogue', icon: BarChart3, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
 
     { section: 'Settings' },
-    { key: 'setup', label: 'Attendance Setup', icon: ClipboardList, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'setup', label: 'Attendance Setup', icon: ClipboardList, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
     { key: 'sites', label: 'Punch Areas', icon: LocateFixed, permission: 'ATTENDANCE::Employee Portal::VIEW' },
     { key: 'siteCheck', label: 'Punch Area Check', icon: MapPin, permission: 'ATTENDANCE::Employee Portal::VIEW' },
     { key: 'rules', label: 'Attendance Policy', icon: Gavel, permission: 'ATTENDANCE::Shifts::VIEW' },
     { key: 'weeklyOffPolicy', label: 'Weekly Off Policy', icon: CalendarOff, permission: 'ATTENDANCE::Shifts::VIEW' },
-    { key: 'overtimePolicy', label: 'Overtime Policy', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'overtimePolicy', label: 'Overtime Policy', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
     { key: 'leaveTypes', label: 'Leave Policy', icon: Tags, permission: 'ATTENDANCE::Leave Types::VIEW' },
     /* Days off for anyone with no shift; with shifts, the shift decides (TIME-LEAVE-DECISIONS.md M2). */
     { key: 'workingWeek', label: 'Working Week', icon: CalendarOff, permission: 'ATTENDANCE::Leave Types::VIEW' },
@@ -360,8 +362,8 @@ export const attendanceApp = {
     /* The same SSO set-up as Accounting's Settings → Single Sign-On: one per company, for every CLOR app. */
     { key: 'sso', label: 'Users & Security', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },
     { key: 'rolesAccess', label: 'Roles & Access', icon: KeyRound, permission: 'SETTINGS::Roles::VIEW' },
-    { key: 'dataImport', label: 'Import Data', icon: Upload, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'dataExport', label: 'Export Data', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'dataImport', label: 'Import Data', icon: Upload, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'dataExport', label: 'Export Data', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
     /* LX-07: shared screen; the server lets only the company's owner ask or cancel. */
     { key: 'closeCompany', label: 'Close Company', icon: Lock, permission: 'SETTINGS::Company data::VIEW' },
     /* HR research Phase 2: statutory and company deadlines with owners and evidence. */
@@ -371,7 +373,7 @@ export const attendanceApp = {
     { key: 'checklists', label: 'Joining & Leaving Tasks', icon: ClipboardCheck, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'journeySteps', label: 'Joining & Leaving Steps', icon: ClipboardCheck, permission: 'PEOPLE::Employees::VIEW' },
     /* HR research Phase 1: the control tower for one month's payroll. */
-    { key: 'payrollReadiness', label: 'Payroll Readiness', icon: ClipboardCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'payrollReadiness', label: 'Payroll Readiness', icon: ClipboardCheck, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
     /* HR research Phase 1: the implementation auditor. */
     { key: 'dataHealth', label: 'Data Health', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'auditLogs', label: 'Audit Logs', icon: AuditIcon, permission: 'SETTINGS::Audit trail::VIEW' },

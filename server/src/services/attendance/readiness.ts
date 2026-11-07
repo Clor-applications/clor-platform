@@ -40,6 +40,8 @@ export async function scanDays(accountId: string, orgId: string, from: string, t
       if (d >= ctx.today) continue; /* only days that have ended */
       const r = recs.get(d);
       if (!r) {
+        /* Before the company kept attendance on CLOR: never tracked, so neither absent nor "no record" (#5). */
+        if (ctx.untracked(p.id, d)) continue;
         const rule = ctx.shiftOn(p.id, d).rule;
         if (!holidays.has(d) && !isWeeklyOff(rule, d)) issue.noRecord.push(d);
         continue;
@@ -110,7 +112,11 @@ export async function monthReadiness(accountId: string, orgId: string, month: st
     { key: 'corrections', label: 'Correction requests waiting', severity: 'block', count: queues.corrections.length, screen: 'requests', hint: 'Approve or reject so the days are final.' },
     { key: 'leave', label: 'Leave requests waiting', severity: 'block', count: queues.leave.length, screen: 'leaveRequests', hint: 'Pending leave is not on the days yet.' },
     { key: 'unmatched', label: 'Reader IDs with punches but no employee', severity: 'block', count: queues.unmatched.length, screen: 'unmatched', hint: 'Their punches are not on anybody’s days.' },
-    { key: 'noRecord', label: 'Working days with no record', severity: 'check', count: sum((p) => p.noRecord.length), screen: 'register', hint: 'They count as absent (loss of pay).' },
+    /*
+     * Not a quiet "worth a look" (audit 7 Nov 2026, #5): each of these days is docked from pay as an unpaid
+     * absence once the month closes. The month closes over them only when someone confirms them, by count.
+     */
+    { key: 'noRecord', label: 'Working days with no record', severity: 'confirm', count: sum((p) => p.noRecord.length), screen: 'register', hint: 'Each is docked as an unpaid absence (loss of pay) when the month closes.' },
     { key: 'overtime', label: 'Overtime not yet approved', severity: 'check', count: sum((p) => p.unapprovedOvertime.length), screen: 'records', hint: 'Unapproved overtime is not paid.' },
     { key: 'unvalidated', label: 'Days not validated', severity: 'check', count: sum((p) => p.unvalidated.length), screen: 'records', hint: 'Payable days are worked out from validated and unvalidated days alike.' },
     { key: 'readers', label: 'Reader problems open now', severity: 'check', count: queues.alerts.length, screen: 'readerHealth', hint: 'Punches may be missing from these readers.' },
@@ -118,11 +124,14 @@ export async function monthReadiness(accountId: string, orgId: string, month: st
     ...(trustOn ? [{ key: 'trustCheck', label: 'Days whose punches need a look', severity: 'check', count: trustCheck, screen: 'records', hint: 'A punch arrived late, a reader was offline or its clock was out, a phone punch was outside the work sites, or a reader is not registered.' }] : []),
   ];
   const perPerson = people
-    .map((p) => ({ employeeId: p.employeeId, name: p.name, code: p.code, missingOut: p.missingOut.length, noRecord: p.noRecord.length, unvalidated: p.unvalidated.length, unapprovedOvertime: p.unapprovedOvertime.length }))
+    .map((p) => ({ employeeId: p.employeeId, name: p.name, code: p.code, missingOut: p.missingOut.length, noRecord: p.noRecord.length, noRecordDates: p.noRecord, unvalidated: p.unvalidated.length, unapprovedOvertime: p.unapprovedOvertime.length }))
     .map((p) => ({ ...p, ready: p.missingOut === 0 }))
     .sort((a, b) => b.missingOut - a.missingOut || b.noRecord - a.noRecord || a.name.localeCompare(b.name));
   const blocking = checks.filter((c) => c.severity === 'block' && c.count > 0).length;
   const toCheck = checks.filter((c) => c.severity === 'check' && c.count > 0).length;
+  /* Days that would be docked as unpaid absence: closing asks for this exact number back (routes/attendance.ts). */
+  const lossOfPayDays = sum((p) => p.noRecord.length);
+  const settings = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { attendanceStartDate: true } });
   return {
     month,
     ended: to < todayIst(),
@@ -130,6 +139,10 @@ export async function monthReadiness(accountId: string, orgId: string, month: st
     ready: blocking === 0,
     blocking,
     toCheck,
+    /* `ready` says nothing blocks; with these above nought it is not "all clear" either. */
+    noRecordDays: lossOfPayDays,
+    noRecordPeople: people.filter((p) => p.noRecord.length > 0).length,
+    attendanceStartDate: settings?.attendanceStartDate ?? null,
     checks,
     people: perPerson,
     snapshots,
