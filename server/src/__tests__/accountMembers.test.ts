@@ -156,7 +156,7 @@ describe('the account’s people', () => {
     const admin = roles.find((r: any) => r.roleType === 'ADMIN');
     const grant = (extra: Record<string, string> = {}) => request(app).post(`/api/orgs/${o.orgId}/users/${p.userId}/roles`).set({ ...at(o), ...extra }).send({ roleId: admin.id, branchId: null });
     const sec = (path: string, b?: unknown) => request(app).post(`/api/orgs/${o.orgId}/security${path}`).set(at(o)).send(b as any);
-    const { secret } = (await sec('/two-factor/setup').expect(200)).body;
+    const { secret } = (await sec('/two-factor/setup', { password: PASSWORD }).expect(200)).body;
     await clearOfStepEdge();
     const s0 = stepNow();
     await sec('/two-factor/enable', { code: codeAt(secret, s0) }).expect(200);

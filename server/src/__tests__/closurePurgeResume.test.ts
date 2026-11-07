@@ -54,7 +54,7 @@ async function closedCompany(): Promise<Ctx> {
   await request(app).get(`/api/orgs/${c.orgId}/export?scope=all`).set(at(c)).expect(200);
   /* A-21: closing needs a fresh authenticator code. */
   const sec = (p: string, body: unknown = {}) => request(app).post(`/api/orgs/${c.orgId}/security${p}`).set(at(c)).send(body as any);
-  const { secret } = (await sec('/two-factor/setup').expect(200)).body;
+  const { secret } = (await sec('/two-factor/setup', { password: 'Passw0rd!23' }).expect(200)).body;
   await clearOfStepEdge();
   await sec('/two-factor/enable', { code: codeAt(secret, stepNow() - 1) }).expect(200);
   const stepUp = (await sec('/step-up', { code: codeAt(secret, stepNow()) }).expect(200)).body.token as string;
