@@ -27,7 +27,7 @@ export type Check = {
   /** The screen that fixes it (nav key in the Attendance or Payroll app). */
   screen: string;
   count: number;
-  people: Array<Person & { detail?: string }>;
+  people: Array<Person & { detail?: string; settle?: string[] }>;
 };
 
 /* Formats the portals check (EPFO, ESIC, Income Tax, RBI). */
@@ -44,7 +44,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 /* A day as people write it in what they read: 2 Mar 2024. */
 const dayWords = (iso: string | null | undefined) => { const [y, m, d] = String(iso || '').slice(0, 10).split('-'); return y && m && d ? `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}` : String(iso || ''); };
 
-export async function dataHealth(accountId: string, orgId: string, opts: { payroll: boolean; year?: number; sample?: number; onlyIds?: string[]; readable?: string[] } = { payroll: true }) {
+export async function dataHealth(accountId: string, orgId: string, opts: { payroll: boolean; year?: number; sample?: number; onlyIds?: string[]; readable?: string[]; fullDay?: boolean; canSettle?: boolean } = { payroll: true }) {
   const year = opts.year ?? (await leaveYearOf(orgId));
   const [employees, payrollOn, readers, unmatched] = await Promise.all([
     peoplePrisma.employee.findMany({
@@ -60,7 +60,7 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
   const checks: Check[] = [];
   /* A team lead sees their own team's rows; the checks still run across the company (a phone shared with someone outside the team is still shared). */
   const only = opts.onlyIds ? new Set(opts.onlyIds) : null;
-  const add = (c: Omit<Check, 'count' | 'people'>, all: Array<Person & { detail?: string }>) => {
+  const add = (c: Omit<Check, 'count' | 'people'>, all: Array<Person & { detail?: string; settle?: string[] }>) => {
     const list = only ? all.filter((x) => x.id && only.has(x.id)) : all;
     if (list.length) checks.push({ ...c, count: list.length, people: list.slice(0, opts.sample ?? SAMPLE) });
   };
@@ -190,22 +190,14 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
     );
   }
   /*
-   * Days the old full-day rule paid short (audit 7 Nov 2026) in a month that
-   * was closed, or a pay run already approved, so they were not changed
-   * (services/attendance/fullDayFix.ts). One line per person, with the days.
+   * Days the old full-day rule scored short (attendance audit 7 Nov 2026;
+   * services/attendance/fullDayFix.ts): the ones corrected, so the owner
+   * sees what changed, and the ones held, with what to do. Read from what the
+   * fix recorded, never worked out here. Only for someone who may see
+   * attendance records (the route says so); leavers are included, a day
+   * paid short is owed after someone leaves too.
    */
-  try {
-    const { fullDayDays } = await import('../attendance/fullDayFix.js');
-    const held = (await fullDayDays({ accountId, orgId })).filter((r) => r.held);
-    const byId = new Map(employees.map((e) => [e.id, e]));
-    const perPerson = new Map<string, typeof held>();
-    for (const h of held) if (byId.has(h.employeeId)) perPerson.set(h.employeeId, [...(perPerson.get(h.employeeId) || []), h]);
-    const word = (s: string) => (s === 'HALF_DAY' ? 'half day' : 'absent');
-    add({ id: 'full-day-held', area: 'Attendance', severity: 'FIX_SOON', title: 'Worked the shift, paid short', why: 'Until 7 Nov 2026 a day was a full day only at the full-day minutes, so someone in within the grace, or on a shorter shift, got a half day. Open months were corrected; these days are in a closed month or a pay run already approved, so they were left as paid.', fix: 'Pay each day\'s difference in Payroll as an adjustment, or reopen the month before its pay run is approved and the days are corrected.', screen: 'monthClose' },
-      [...perPerson.entries()].map(([id, days]) => who(byId.get(id)!, `${days.slice(0, 6).map((d) => `${dayWords(d.date)} ${word(d.from)} → present`).join('; ')}${days.length > 6 ? `; ${days.length - 6} more` : ''}`)));
-  } catch (e) {
-    console.error('[data-health] full day:', e instanceof Error ? e.message : e);
-  }
+  if (opts.fullDay) await fullDayChecks(accountId, orgId, add, opts.canSettle === true);
   if (unmatched.length && !only) {
     const punches = unmatched.reduce((n, u) => n + u._count._all, 0);
     checks.push({
@@ -288,4 +280,52 @@ export async function readinessOf(accountId: string, orgId: string, employeeId: 
     .filter((x) => x.me)
     .map(({ c, me }) => ({ id: c.id, area: c.area, severity: c.severity, title: c.title, why: c.why, fix: c.fix, screen: c.screen, detail: me!.detail || null }));
   return { checks, ranAt: all.ranAt };
+}
+
+type Add = (c: Omit<Check, 'count' | 'people'>, all: Array<Person & { detail?: string; settle?: string[] }>) => void;
+const FULL_DAY_WHY = 'Until 7 Nov 2026 a day was a full day only at the full-day minutes, so someone in within the grace, or on a shorter shift, got a half day or an absence for a day worked as scheduled.';
+/* Held days, by what the owner does about them. */
+const HELD_GROUPS: Array<{ id: string; reasons: string[]; area: Check['area']; title: string; why: string; fix: string; screen: string; settle: boolean }> = [
+  { id: 'full-day-held-paid', reasons: ['PAYROLL_TAKEN', 'BEFORE_PAYROLL'], area: 'Payroll', title: 'Worked the shift, paid short', why: `${FULL_DAY_WHY} These days were in a pay run already approved, so they were left as paid.`, fix: 'Pay each day\'s difference as a Payroll adjustment, then mark it paid here.', screen: 'adjustments', settle: true },
+  { id: 'full-day-held-closed', reasons: ['MONTH_CLOSED'], area: 'Attendance', title: 'Worked the shift, short in a closed month', why: `${FULL_DAY_WHY} These days are in a closed month, so they were not changed.`, fix: 'Reopen the month before its pay run is approved and the days are corrected; if it is paid, pay the difference as an adjustment and mark it paid here.', screen: 'monthClose', settle: true },
+  { id: 'full-day-held-pending', reasons: ['PAYROLL_PENDING'], area: 'Attendance', title: 'Worked the shift, short in a pay run being prepared', why: `${FULL_DAY_WHY} A pay run for the period has already pulled these days, so they were not changed under it.`, fix: 'Save each day again on Daily records, then pull the days again on the pay run.', screen: 'records', settle: false },
+  { id: 'full-day-held-old', reasons: ['OLD'], area: 'Attendance', title: 'Worked the shift, short before last month', why: `${FULL_DAY_WHY} These days are older than last month and no pay run is on record, so they were left as they were.`, fix: 'Save a day again on Daily records if it should count as a full day.', screen: 'records', settle: false },
+];
+const CORRECTED_FOR_DAYS = 60;
+
+async function fullDayChecks(accountId: string, orgId: string, add: Add, canSettle: boolean) {
+  const since = new Date(Date.now() - CORRECTED_FOR_DAYS * 86_400_000);
+  const rows = await peoplePrisma.attendanceFullDayReview.findMany({
+    where: { orgId, OR: [{ outcome: 'HELD', settledAt: null }, { outcome: 'CORRECTED', updatedAt: { gte: since } }] },
+    select: { id: true, employeeId: true, date: true, fromStatus: true, outcome: true, reason: true, createdAt: true },
+    orderBy: [{ date: 'asc' }],
+  });
+  if (!rows.length) return;
+  const people = await peoplePrisma.employee.findMany({ where: { accountId, orgId, id: { in: [...new Set(rows.map((r) => r.employeeId))] } }, select: { id: true, name: true, code: true, status: true } });
+  const byId = new Map(people.map((e) => [e.id, e]));
+  /* An earning adjustment for the person since the day was held settles it: the difference went out. */
+  const paidIds = rows.filter((r) => r.outcome === 'HELD' && ['PAYROLL_TAKEN', 'BEFORE_PAYROLL', 'MONTH_CLOSED'].includes(String(r.reason))).map((r) => r.employeeId);
+  const adjustments = paidIds.length
+    ? await payrollPrisma.payrollAdjustment.findMany({ where: { orgId, employeeId: { in: [...new Set(paidIds)] }, type: 'EARNING', status: { not: 'CANCELLED' } }, select: { employeeId: true, createdAt: true } })
+    : [];
+  const adjustedSince = (employeeId: string, at: Date) => adjustments.some((a) => a.employeeId === employeeId && a.createdAt >= at);
+  const word = (s: string) => (s === 'HALF_DAY' ? 'half day' : 'absent');
+  const line = (days: typeof rows) => `${days.slice(0, 6).map((d) => `${dayWords(d.date)} ${word(d.fromStatus)} → present`).join('; ')}${days.length > 6 ? `; ${days.length - 6} more` : ''}`;
+  const perPerson = (list: typeof rows, settle: boolean) => {
+    const by = new Map<string, typeof rows>();
+    for (const r of list) if (byId.has(r.employeeId)) by.set(r.employeeId, [...(by.get(r.employeeId) || []), r]);
+    return [...by.entries()].map(([id, days]) => {
+      const e = byId.get(id)!;
+      return { id: e.id, name: e.status === 'LEFT' ? `${e.name} (left)` : e.name, code: e.code, detail: line(days), ...(settle ? { settle: days.map((d) => d.id) } : {}) };
+    });
+  };
+  for (const g of HELD_GROUPS) {
+    const list = rows.filter((r) => r.outcome === 'HELD' && g.reasons.includes(String(r.reason)) && !(g.settle && adjustedSince(r.employeeId, r.createdAt)));
+    /* Only days paid short can be marked paid; the others are fixed by saving the day again. */
+    add({ id: g.id, area: g.area, severity: 'FIX_SOON', title: g.title, why: g.why, fix: g.fix, screen: g.screen }, perPerson(list, canSettle && g.settle));
+  }
+  add(
+    { id: 'full-day-corrected', area: 'Attendance', severity: 'TIDY_UP', title: 'Days corrected to present', why: `${FULL_DAY_WHY} These days were in open months, so they were set to present and need validating again. Listed for ${CORRECTED_FOR_DAYS} days.`, fix: 'Validate the days on Daily records; a pay run being prepared picks them up when its days are pulled again.', screen: 'records' },
+    perPerson(rows.filter((r) => r.outcome === 'CORRECTED'), false),
+  );
 }

@@ -13,7 +13,7 @@ import { recordAudit } from '../services/auditTrail.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
-import { computeDay, fullDayNeeded, istInstant, istTime, type ShiftRule } from '../services/attendance/compute.js';
+import { computeDay, istInstant, istTime, shiftRuleProblem, type ShiftRule } from '../services/attendance/compute.js';
 import { loadSchedule, resolveShift, toRule } from '../services/attendance/schedule.js';
 import { explainDay } from '../services/attendance/explain.js';
 import { dayDiff, daySnapshot, dayHistory } from '../services/attendance/history.js';
@@ -117,7 +117,7 @@ export async function explainFor(orgId: string, employee: { id: string; branchId
     trust,
     date,
     employee: { id: employee.id, name: employee.name || null },
-    shift: { name: shift.name, source: shift.source, ...shift.rule, fullDayNeeded: fullDayNeeded(shift.rule) },
+    shift: { name: shift.name, source: shift.source, ...shift.rule },
     holiday: holiday?.name || null,
     record: record ? { ...daySnapshot(record), id: record.id, validatedBy: record.validatedByUserId ? actors.get(record.validatedByUserId) || null : null, validatedAt: record.validatedAt } : null,
     punches: points.sort((a, b) => a.at.getTime() - b.at.getTime()).map((p) => ({ time: istTime(p.at), at: p.at, kind: p.kind, where: p.where })),
@@ -571,6 +571,10 @@ attendanceInsightsRouter.post(`${base}/rules/simulate`, can(PermissionAction.VIE
   const current: ShiftRule = toRule(shift);
   const proposed: ShiftRule = { ...current, ...Object.fromEntries(Object.entries(b.changes).filter(([, v]) => v !== undefined)) } as ShiftRule;
   if (proposed.halfDayMinutes > proposed.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.' });
+  /* The same rule a save applies (routes/attendance.ts): a change to the hours that the shift could never meet is not previewed as if it could. */
+  const HOURS = ['startTime', 'endTime', 'breakMinutes', 'halfDayMinutes', 'fullDayMinutes'] as const;
+  const problem = HOURS.some((k) => b.changes[k] !== undefined && b.changes[k] !== (current as any)[k]) ? shiftRuleProblem(proposed) : null;
+  if (problem) return res.status(400).json({ error: problem, code: 'SHIFT_RULES' });
   const records = await peoplePrisma.attendanceRecord.findMany({ where: { orgId, accountId, shiftId: shift.id, date: { gte: b.from, lte: b.to } } });
   const locks = new Set((await peoplePrisma.attendanceMonthLock.findMany({ where: { orgId }, select: { month: true } })).map((l) => l.month));
   const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(records.map((r) => r.employeeId))] } }, select: { id: true, name: true, branchId: true, areaId: true } })).map((p) => [p.id, p]));

@@ -6,7 +6,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { MoreButton } from '@ui/components/list/ListPageParts';
-import { getDataHealth, getHeadcount, snoozeHealthCheck, unsnoozeHealthCheck } from './api';
+import { getDataHealth, getHeadcount, markFullDaysPaid, snoozeHealthCheck, unsnoozeHealthCheck } from './api';
 import { notify } from '@ui/components/ui/notify';
 import { plusDaysIso } from '@ui/utils/dates';
 
@@ -71,6 +71,20 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
       notify.error(String(e?.message || 'Not changed.'));
     }
   };
+  /* Full days paid short (fullDayFix.ts): once the difference is paid, the person's days leave the list. */
+  const [paying, setPaying] = useState('');
+  const paid = async (p) => {
+    setPaying(p.id);
+    try {
+      const r = await markFullDaysPaid(p.settle);
+      notify.success(`${r?.settled ?? p.settle.length} day${(r?.settled ?? p.settle.length) === 1 ? '' : 's'} for ${p.name} marked paid.`);
+      load();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not changed.'));
+    } finally {
+      setPaying('');
+    }
+  };
   const rows = (data?.checks || []).flatMap((c) => c.people.map((p) => ({ severity: c.severity, title: c.title, name: p.name, code: p.code || '', detail: p.detail || '', fix: c.fix })));
 
   return (
@@ -125,10 +139,17 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
                     <p className="text-sm">{c.why} {c.fix}</p>
                     <ul className="flex flex-wrap gap-2" aria-label="Who">
                       {c.people.map((p, i) => (
-                        <li key={`${p.id}-${i}`} className="ui-pill ui-pill-neutral">
-                          {p.name}
-                          {p.code ? ` · ${p.code}` : ''}
-                          {p.detail ? ` — ${p.detail}` : ''}
+                        <li key={`${p.id}-${i}`} className="flex flex-wrap items-center gap-2">
+                          <span className="ui-pill ui-pill-neutral">
+                            {p.name}
+                            {p.code ? ` · ${p.code}` : ''}
+                            {p.detail ? ` — ${p.detail}` : ''}
+                          </span>
+                          {p.settle?.length ? (
+                            <button type="button" className="ui-link text-sm" disabled={paying === p.id} onClick={() => paid(p)} aria-label={`Paid the difference to ${p.name}`}>
+                              {paying === p.id ? 'Saving…' : 'Paid the difference'}
+                            </button>
+                          ) : null}
                         </li>
                       ))}
                       {c.count > c.people.length ? <li className="ui-caption self-center">and {c.count - c.people.length} more</li> : null}

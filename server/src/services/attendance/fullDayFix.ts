@@ -2,9 +2,11 @@ import { peoplePrisma, peopleWrite, afterPeopleCommit } from '../../utils/people
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { outsideTenant, runInTenant } from '../../utils/tenantScope.js';
-import { exclusive, leaseFor } from '../jobLease.js';
+import { todayIst } from '../../utils/istDate.js';
+import { isFeatureEnabled } from '../features.js';
+import { currentLease, exclusive, leaseFor } from '../jobLease.js';
 import { registerJob } from '../jobRegistry.js';
-import { fullDayNeeded, istTime, type ShiftRule } from './compute.js';
+import { computeDay, istTime, type ShiftRule } from './compute.js';
 import { FINAL_RUN, MonthClosedError, PayrollTakenError, assertMonthOpen } from './days.js';
 import { logDayChange } from './history.js';
 import { halfOn } from './leaveHalves.js';
@@ -12,40 +14,46 @@ import { loadSchedule, resolveShift } from './schedule.js';
 import { emit as emitWebhook } from './webhooks.js';
 
 /**
- * Days already written under the old full-day rule (audit 7 Nov 2026, P0).
+ * Days already written under the old full-day rule (attendance audit 7 Nov 2026, P0; PR #141).
  *
- * Before the fix a day was PRESENT only at `fullDayMinutes` (480 by default),
- * so someone in within the late grace, or anyone on a shift shorter than
- * eight hours net, got a HALF_DAY (or ABSENT) for a day worked as scheduled.
- * compute.ts now measures against the shift itself (`fullDayNeeded`), and
- * every new write uses it. This finds the days written before:
+ * Before the fix a working day was PRESENT only at `fullDayMinutes`, so
+ * someone in within the late grace, or on a night shift shorter than eight
+ * hours net, got a HALF_DAY (or ABSENT) for a day worked as scheduled.
+ * compute.ts now also counts the shift worked as scheduled, and every new
+ * write uses it. This weighs the days written before: both punches, stored
+ * HALF_DAY or ABSENT, scored the same minutes today, and PRESENT under the
+ * rule now. The only change is to PRESENT; the minutes stay as they are.
  *
- *   both punches, stored HALF_DAY or ABSENT, worked minutes short of the
- *   shift's `fullDayMinutes` (so the old rule decided it) but at least
- *   `fullDayNeeded` (so the new rule makes it PRESENT).
+ * Which of those days change, and which are only listed ("held"):
+ * - MONTH_CLOSED: a closed Attendance month. Never changed.
+ * - PAYROLL_TAKEN: an approved, locked, paid or posted pay run took the day
+ *   for this person. Never changed; paid as a Payroll adjustment.
+ * - PAYROLL_PENDING: a pay run still being worked on (draft, calculated, in
+ *   review) has already pulled this person's days for the period. Not
+ *   changed under it: the owner saves the day again and pulls the days again.
+ * - BEFORE_PAYROLL: on or before the end of the latest final pay run's
+ *   period for this person (or, if none paid them, for the company).
+ * - OLD: the company has no final pay run, and the day is before last month.
+ * Everything after that is corrected: set to PRESENT, made to need
+ * validating again, with a history entry and the day webhook. Each one is
+ * re-checked under the company's write lock (month open, no final run, the
+ * record unchanged since it was read, still eligible on the row as it is).
  *
- * The only possible change is to PRESENT: worked, late, early-out and
- * overtime minutes are the same under both rules, so only the status moves,
- * and never against the employee.
+ * What was corrected and what was held is kept (AttendanceFullDayReview), so
+ * the owner sees both on Data health, a day is never weighed twice, and the
+ * log names a held day once. Held days are looked at again on each run: a
+ * month reopened or a run deleted lets them be corrected; a day saved again
+ * since is settled as RECORD_CHANGED; someone can mark one PAID.
  *
- * - In an open month that no final pay run (approved, locked, paid, posted)
- *   has taken, the day is set to PRESENT, with a history entry and the day
- *   webhook, as any other write. A draft pay run picks it up when recalculated.
- * - In a closed Attendance month, or a day a final pay run took, the day is
- *   never changed. It is listed instead (employee, date, old → new), on
- *   People → Data health and in the job's log, so the owner can pay the
- *   difference as a payroll adjustment, or reopen the month.
+ * Rest days (HOLIDAY / WEEKLY_OFF) are not touched: paid either way. Days
+ * with a half-day leave are left: the half-day rule did not change.
  *
- * Days on a rest day (HOLIDAY / WEEKLY_OFF) are left: both are paid either
- * way. Days with a half-day leave are decided by the half-day rule, which did
- * not change; hourly leave counts its hours, as days.ts writeDay does.
- *
- * Idempotent: a fixed day no longer matches, so running again changes
- * nothing. Run once shortly after boot and daily after (a month reopened
- * later has its days fixed then), on one instance under a lease.
+ * Runs once shortly after boot and daily after, on one instance under a
+ * lease; also for a company right after a month is reopened, and before a
+ * month is closed (routes/attendance.ts), so no window is left between them.
  */
 
-export type FullDayHeld = 'MONTH_CLOSED' | 'PAYROLL_TAKEN';
+export type HeldReason = 'MONTH_CLOSED' | 'PAYROLL_TAKEN' | 'PAYROLL_PENDING' | 'BEFORE_PAYROLL' | 'OLD';
 export type FullDayRow = {
   recordId: string;
   employeeId: string;
@@ -53,137 +61,277 @@ export type FullDayRow = {
   from: string;
   to: 'PRESENT';
   workedMinutes: number;
-  neededMinutes: number;
-  held: FullDayHeld | null;
+  updatedAt: Date;
+  held: HeldReason | null;
+};
+type Company = { accountId: string; orgId: string };
+type Rec = { id: string; employeeId: string; date: string; shiftId: string | null; status: string; workedMinutes: number; leaveRequestId: string | null; checkIn: Date | null; checkOut: Date | null; updatedAt: Date };
+
+const PENDING_RUN = ['DRAFT', 'CALCULATED', 'REVIEW'];
+const SCANNED = 'SCANNED';
+const select = { id: true, employeeId: true, date: true, shiftId: true, status: true, workedMinutes: true, leaveRequestId: true, checkIn: true, checkOut: true, updatedAt: true } as const;
+
+/** First day of last month, India's calendar: with no final pay run, only this month and last are corrected. */
+const lastMonthStart = () => {
+  const [y, m] = todayIst().split('-').map(Number);
+  return new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 10);
 };
 
-type Company = { accountId: string; orgId: string };
+/** Is this day one the rule now makes PRESENT, as the row stands? */
+function eligible(r: Rec, rule: ShiftRule, leave: { fromDate: string; toDate: string; halfDay: string | null; minutes: number | null } | null | undefined) {
+  if (!['HALF_DAY', 'ABSENT'].includes(r.status) || !r.checkIn || !r.checkOut) return false;
+  if (leave && halfOn(leave as any, r.date)) return false;
+  if ((r.workedMinutes || 0) + (leave?.minutes || 0) >= rule.fullDayMinutes) return false;
+  try {
+    const now = computeDay({ date: r.date, shift: rule, checkIn: r.checkIn, checkOut: r.checkOut });
+    /* Scored the same minutes as when written; otherwise the shift changed since, and a recalculation is the owner's call. */
+    return now.workedMinutes === r.workedMinutes && now.status === 'PRESENT';
+  } catch {
+    return false;
+  }
+}
 
-/** Which days a final pay run has taken, worked out with three queries rather than three per day (days.ts payrollTaken, batched). */
-async function payrollTakenLookup(orgId: string) {
-  const runs = await payrollPrisma.payrollRun.findMany({ where: { orgId, status: { in: FINAL_RUN } }, select: { id: true, periodId: true, provisionalDays: true } });
-  if (!runs.length) return () => false;
-  const [periods, members] = await Promise.all([
-    payrollPrisma.payrollPeriod.findMany({ where: { orgId, id: { in: [...new Set(runs.map((r) => r.periodId))] } }, select: { id: true, startDate: true, endDate: true } }),
-    payrollPrisma.payrollRunEmployee.findMany({ where: { orgId, runId: { in: runs.map((r) => r.id) }, inclusion: 'INCLUDED' }, select: { runId: true, employeeId: true } }),
+/** The pay-run facts every day of a company is weighed against: three or four queries, not three per day. */
+async function payrollFacts(orgId: string) {
+  const runs = await payrollPrisma.payrollRun.findMany({ where: { orgId, status: { in: [...FINAL_RUN, ...PENDING_RUN] } }, select: { id: true, status: true, periodId: true, provisionalDays: true } });
+  const periods = runs.length ? await payrollPrisma.payrollPeriod.findMany({ where: { orgId, id: { in: [...new Set(runs.map((r) => r.periodId))] } }, select: { id: true, startDate: true, endDate: true } }) : [];
+  const final = runs.filter((r) => FINAL_RUN.includes(r.status));
+  const pending = runs.filter((r) => PENDING_RUN.includes(r.status));
+  const [members, pulled] = await Promise.all([
+    final.length ? payrollPrisma.payrollRunEmployee.findMany({ where: { orgId, runId: { in: final.map((r) => r.id) }, inclusion: 'INCLUDED' }, select: { runId: true, employeeId: true } }) : [],
+    pending.length ? payrollPrisma.payrollInput.findMany({ where: { orgId, runId: { in: pending.map((r) => r.id) }, source: 'ATTENDANCE' }, select: { runId: true, employeeId: true } }) : [],
   ]);
   const periodOf = new Map(periods.map((p) => [p.id, p]));
   const inRun = new Set(members.map((m) => `${m.runId}|${m.employeeId}`));
-  return (employeeId: string, date: string) =>
-    runs.some((r) => {
-      const p = periodOf.get(r.periodId);
-      if (!p || p.startDate > date || p.endDate < date) return false;
-      /* A day after the run's cut-off was assumed present, not taken (payrollTaken). */
-      const cutoff = (r.provisionalDays as { cutoffDate?: string } | null)?.cutoffDate;
-      if (cutoff && date > cutoff) return false;
-      return inRun.has(`${r.id}|${employeeId}`);
-    });
-}
-
-/** The days the old rule scored short that the new rule makes present, each marked open or held. Read only; call inside the company's scope. */
-export async function fullDayDays({ accountId, orgId }: Company): Promise<FullDayRow[]> {
-  const records = await peoplePrisma.attendanceRecord.findMany({
-    where: { accountId, orgId, status: { in: ['HALF_DAY', 'ABSENT'] }, checkIn: { not: null }, checkOut: { not: null } },
-    select: { id: true, employeeId: true, date: true, shiftId: true, status: true, workedMinutes: true, leaveRequestId: true },
-    orderBy: [{ date: 'asc' }, { employeeId: 'asc' }],
-  });
-  if (!records.length) return [];
-  const schedule = await loadSchedule(orgId, [...new Set(records.map((r) => r.employeeId))]);
-  const leaveIds = [...new Set(records.map((r) => r.leaveRequestId).filter((x): x is string => Boolean(x)))];
-  const leaves = new Map(
-    leaveIds.length
-      ? (await peoplePrisma.leaveRequest.findMany({ where: { orgId, id: { in: leaveIds } }, select: { id: true, fromDate: true, toDate: true, halfDay: true, minutes: true } })).map((l) => [l.id, l])
-      : [],
-  );
-  const out: FullDayRow[] = [];
-  for (const r of records) {
-    /* The shift the day was scored on; a day with none was on the schedule's rule for that date. */
-    const rule: ShiftRule = (r.shiftId && schedule.shifts.get(r.shiftId)?.rule) || resolveShift(schedule, r.employeeId, r.date).rule;
-    const leave = r.leaveRequestId ? leaves.get(r.leaveRequestId) : null;
-    if (leave && halfOn(leave as any, r.date)) continue;
-    const counted = (r.workedMinutes || 0) + (leave?.minutes || 0);
-    const needed = fullDayNeeded(rule);
-    if (counted >= rule.fullDayMinutes || counted < needed) continue;
-    out.push({ recordId: r.id, employeeId: r.employeeId, date: r.date, from: r.status, to: 'PRESENT', workedMinutes: counted, neededMinutes: needed, held: null });
+  const pulledFor = new Set(pulled.map((m) => `${m.runId}|${m.employeeId}`));
+  const covers = (r: { periodId: string }, date: string) => {
+    const p = periodOf.get(r.periodId);
+    return Boolean(p && p.startDate <= date && p.endDate >= date);
+  };
+  /* The end of the latest final period, for the person and for the company. */
+  const lastEnd = new Map<string, string>();
+  let companyEnd: string | null = null;
+  for (const r of final) {
+    const end = periodOf.get(r.periodId)?.endDate;
+    if (!end) continue;
+    if (!companyEnd || end > companyEnd) companyEnd = end;
+    for (const m of members) if (m.runId === r.id && (!lastEnd.get(m.employeeId) || end > lastEnd.get(m.employeeId)!)) lastEnd.set(m.employeeId, end);
   }
-  if (!out.length) return out;
-  const closed = new Set((await peoplePrisma.attendanceMonthLock.findMany({ where: { orgId }, select: { month: true } })).map((l) => l.month));
-  const taken = await payrollTakenLookup(orgId);
-  for (const row of out) row.held = closed.has(row.date.slice(0, 7)) ? 'MONTH_CLOSED' : taken(row.employeeId, row.date) ? 'PAYROLL_TAKEN' : null;
-  return out;
+  return {
+    /* Every final run of the period, as days.ts payrollTaken; a day after a run's cut-off was assumed, not taken. */
+    taken: (employeeId: string, date: string) =>
+      final.some((r) => {
+        const cutoff = (r.provisionalDays as { cutoffDate?: string } | null)?.cutoffDate;
+        return covers(r, date) && !(cutoff && date > cutoff) && inRun.has(`${r.id}|${employeeId}`);
+      }),
+    pending: (employeeId: string, date: string) => pending.some((r) => covers(r, date) && pulledFor.has(`${r.id}|${employeeId}`)),
+    cutoff: (employeeId: string) => lastEnd.get(employeeId) || companyEnd,
+    anyFinal: final.length > 0,
+  };
 }
 
-const REASON = 'Full-day rule fix (7 Nov 2026): the shift worked as scheduled, within its grace, is a full day.';
+async function classifier(orgId: string) {
+  const [locks, pay] = await Promise.all([peoplePrisma.attendanceMonthLock.findMany({ where: { orgId }, select: { month: true } }), payrollFacts(orgId)]);
+  const closed = new Set(locks.map((l) => l.month));
+  const oldBefore = lastMonthStart();
+  return (employeeId: string, date: string): HeldReason | null => {
+    if (closed.has(date.slice(0, 7))) return 'MONTH_CLOSED';
+    if (pay.taken(employeeId, date)) return 'PAYROLL_TAKEN';
+    if (pay.pending(employeeId, date)) return 'PAYROLL_PENDING';
+    if (pay.anyFinal) {
+      const cut = pay.cutoff(employeeId);
+      if (cut && date <= cut) return 'BEFORE_PAYROLL';
+    } else if (date < oldBefore) return 'OLD';
+    return null;
+  };
+}
+
+async function rulesFor(orgId: string, rows: Rec[]) {
+  const schedule = await loadSchedule(orgId, [...new Set(rows.map((r) => r.employeeId))]);
+  const leaveIds = [...new Set(rows.map((r) => r.leaveRequestId).filter((x): x is string => Boolean(x)))];
+  const leaves = new Map(
+    leaveIds.length ? (await peoplePrisma.leaveRequest.findMany({ where: { orgId, id: { in: leaveIds } }, select: { id: true, fromDate: true, toDate: true, halfDay: true, minutes: true } })).map((l) => [l.id, l]) : [],
+  );
+  return {
+    /* The shift the day was scored on; a day with none was on the schedule's rule for that date. */
+    rule: (r: Rec): ShiftRule => (r.shiftId && schedule.shifts.get(r.shiftId)?.rule) || resolveShift(schedule, r.employeeId, r.date).rule,
+    leave: (r: Rec) => (r.leaveRequestId ? leaves.get(r.leaveRequestId) : null),
+  };
+}
+
+const REASON = 'Full-day rule fix (7 Nov 2026): the shift worked as scheduled, within its grace, is a full day. The day needs validating again.';
+
+/** Correct one day under the company's write lock, re-checking it on the row as it is now. */
+async function correct(company: Company, row: FullDayRow): Promise<'CORRECTED' | 'CHANGED' | HeldReason> {
+  const { accountId, orgId } = company;
+  try {
+    return await peopleWrite(orgId, async () => {
+      await assertMonthOpen(orgId, row.date, row.employeeId);
+      const rec = (await peoplePrisma.attendanceRecord.findFirst({ where: { id: row.recordId, orgId }, select: { ...select, lateMinutes: true, earlyOutMinutes: true, overtimeMinutes: true, source: true, validated: true, overtimeApproved: true, note: true } })) as any;
+      /* Rewritten since it was read: it was scored by the rule as it is now. */
+      if (!rec || rec.updatedAt.getTime() !== row.updatedAt.getTime()) return 'CHANGED';
+      const facts = await rulesFor(orgId, [rec]);
+      if (!eligible(rec, facts.rule(rec), facts.leave(rec))) return 'CHANGED';
+      /* A pay run that pulled this person's days in the meantime: not changed under it. */
+      if ((await payrollFacts(orgId)).pending(rec.employeeId, rec.date)) return 'PAYROLL_PENDING';
+      const changed = await peoplePrisma.attendanceRecord.updateMany({
+        where: { id: rec.id, orgId, status: rec.status, updatedAt: rec.updatedAt },
+        data: { status: 'PRESENT', validated: false, validatedByUserId: null, validatedAt: null },
+      });
+      if (!changed.count) return 'CHANGED';
+      const after = { ...rec, status: 'PRESENT', validated: false };
+      await logDayChange({ accountId, orgId, employeeId: rec.employeeId, date: rec.date, recordId: rec.id, action: 'BULK', before: rec, after, userId: 'system', reason: REASON });
+      await peoplePrisma.attendanceFullDayReview.upsert({
+        where: { recordId: rec.id },
+        create: { accountId, orgId, employeeId: rec.employeeId, date: rec.date, recordId: rec.id, fromStatus: rec.status, toStatus: 'PRESENT', workedMinutes: rec.workedMinutes, outcome: 'CORRECTED' },
+        update: { outcome: 'CORRECTED', reason: null, fromStatus: rec.status },
+      });
+      afterPeopleCommit(() => emitWebhook(orgId, 'day', {
+        employeeId: rec.employeeId,
+        date: rec.date,
+        status: 'PRESENT',
+        checkIn: rec.checkIn ? istTime(rec.checkIn) : null,
+        checkOut: rec.checkOut ? istTime(rec.checkOut) : null,
+        workedMinutes: rec.workedMinutes,
+        lateMinutes: rec.lateMinutes,
+        earlyOutMinutes: rec.earlyOutMinutes,
+        overtimeMinutes: rec.overtimeMinutes,
+        source: rec.source,
+      }));
+      return 'CORRECTED';
+    });
+  } catch (e) {
+    if (e instanceof MonthClosedError) return 'MONTH_CLOSED';
+    if (e instanceof PayrollTakenError) return 'PAYROLL_TAKEN';
+    throw e;
+  }
+}
 
 /**
- * One company: set the open days to PRESENT and return what was fixed and what
- * was held. Each day is re-checked under the company's write lock (month still
- * open, no final run, record unchanged since it was read), so a month closed
- * or a day rewritten meanwhile is not touched.
+ * One company. Weighs the days not looked at before, and the held days again;
+ * corrects what may change and records what was held. Returns what it did,
+ * and which held days are new (the job logs only those).
+ *
+ * `apply: false` weighs and returns without writing anything.
+ * `beforeCorrect` is for tests: it runs between the scan and the write.
  */
-export async function fixFullDays(company: Company, opts: { apply?: boolean } = { apply: true }) {
+export async function fixFullDays(company: Company, opts: { apply?: boolean; beforeCorrect?: (row: FullDayRow) => Promise<void> } = {}) {
   const { accountId, orgId } = company;
+  const apply = opts.apply !== false;
   return runInTenant(orgId, async () => {
-    const rows = await fullDayDays(company);
-    const fixed: FullDayRow[] = [];
-    const held: FullDayRow[] = rows.filter((r) => r.held);
-    if (opts.apply) {
-      for (const row of rows.filter((r) => !r.held)) {
-        try {
-          const done = await peopleWrite(orgId, async () => {
-            await assertMonthOpen(orgId, row.date, row.employeeId);
-            const before = await peoplePrisma.attendanceRecord.findFirst({ where: { id: row.recordId, orgId, status: row.from } });
-            if (!before) return false;
-            /* Only while it still says what was read: a day rewritten since was scored by the new rule already. */
-            const changed = await peoplePrisma.attendanceRecord.updateMany({ where: { id: row.recordId, orgId, status: row.from, updatedAt: before.updatedAt }, data: { status: 'PRESENT' } });
-            if (!changed.count) return false;
-            const after = { ...before, status: 'PRESENT' };
-            await logDayChange({ accountId, orgId, employeeId: before.employeeId, date: before.date, recordId: before.id, action: 'BULK', before, after, userId: 'system', reason: REASON });
-            afterPeopleCommit(() => emitWebhook(orgId, 'day', {
-              employeeId: before.employeeId,
-              date: before.date,
-              status: 'PRESENT',
-              checkIn: before.checkIn ? istTime(before.checkIn) : null,
-              checkOut: before.checkOut ? istTime(before.checkOut) : null,
-              workedMinutes: before.workedMinutes,
-              lateMinutes: before.lateMinutes,
-              earlyOutMinutes: before.earlyOutMinutes,
-              overtimeMinutes: before.overtimeMinutes,
-              source: before.source,
-            }));
-            return true;
-          });
-          if (done) fixed.push(row);
-        } catch (e) {
-          /* Closed, or taken by a pay run, between the read and the write: held, never changed. */
-          if (e instanceof MonthClosedError) held.push({ ...row, held: 'MONTH_CLOSED' });
-          else if (e instanceof PayrollTakenError) held.push({ ...row, held: 'PAYROLL_TAKEN' });
-          else throw e;
-        }
-      }
+    const reviews = await peoplePrisma.attendanceFullDayReview.findMany({ where: { orgId }, select: { id: true, recordId: true, outcome: true, reason: true, settledAt: true, fromStatus: true } });
+    const seen = new Map(reviews.map((r) => [r.recordId, r]));
+    const scanned = reviews.some((r) => r.outcome === SCANNED);
+    /* After the first scan, closed months are left out: their days were weighed then, or just before they closed. */
+    const closedMonths = scanned ? (await peoplePrisma.attendanceMonthLock.findMany({ where: { orgId }, select: { month: true } })).map((l) => l.month) : [];
+    const fresh = (await peoplePrisma.attendanceRecord.findMany({
+      where: {
+        orgId,
+        status: { in: ['HALF_DAY', 'ABSENT'] },
+        checkIn: { not: null },
+        checkOut: { not: null },
+        ...(closedMonths.length ? { NOT: closedMonths.map((m) => ({ date: { startsWith: m } })) } : {}),
+      },
+      select,
+      orderBy: [{ date: 'asc' }, { employeeId: 'asc' }],
+    })) as Rec[];
+    const heldIds = reviews.filter((r) => r.outcome === 'HELD' && !r.settledAt).map((r) => r.recordId);
+    const again = heldIds.length ? ((await peoplePrisma.attendanceRecord.findMany({ where: { orgId, id: { in: heldIds } }, select })) as Rec[]) : [];
+    const rows = [...fresh.filter((r) => !seen.has(r.id)), ...again];
+
+    /* A held day saved again since (or deleted) is no longer short: settled, it leaves the list. */
+    const stillThere = new Set(again.map((r) => r.id));
+    const settled = reviews.filter((r) => r.outcome === 'HELD' && !r.settledAt && (!stillThere.has(r.recordId) || again.find((a) => a.id === r.recordId)!.status !== r.fromStatus));
+
+    const facts = await rulesFor(orgId, rows);
+    const holdOf = await classifier(orgId);
+    const candidates: FullDayRow[] = [];
+    for (const r of rows) {
+      if (!eligible(r, facts.rule(r), facts.leave(r))) continue;
+      candidates.push({ recordId: r.id, employeeId: r.employeeId, date: r.date, from: r.status, to: 'PRESENT', workedMinutes: r.workedMinutes, updatedAt: r.updatedAt, held: holdOf(r.employeeId, r.date) });
     }
-    return { fixed, held, open: rows.filter((r) => !r.held).length };
+    const corrected: FullDayRow[] = [];
+    const held: FullDayRow[] = [];
+    const newlyHeld: FullDayRow[] = [];
+    if (!apply) return { corrected, held: candidates.filter((c) => c.held), open: candidates.filter((c) => !c.held), newlyHeld, settled: settled.length };
+
+    for (const id of settled.map((s) => s.id)) {
+      await peoplePrisma.attendanceFullDayReview.update({ where: { id }, data: { settledAs: 'RECORD_CHANGED', settledAt: new Date() } });
+    }
+    for (const c of candidates) {
+      if (currentLease()?.signal.aborted) break;
+      let outcome: 'CORRECTED' | 'CHANGED' | HeldReason | null = c.held;
+      if (!outcome) {
+        if (opts.beforeCorrect) await opts.beforeCorrect(c);
+        outcome = await correct(company, c);
+      }
+      if (outcome === 'CORRECTED') {
+        corrected.push(c);
+        continue;
+      }
+      if (outcome === 'CHANGED') continue;
+      const row = { ...c, held: outcome };
+      held.push(row);
+      const before = seen.get(c.recordId);
+      if (!before || before.reason !== outcome) newlyHeld.push(row);
+      await peoplePrisma.attendanceFullDayReview.upsert({
+        where: { recordId: c.recordId },
+        create: { accountId, orgId, employeeId: c.employeeId, date: c.date, recordId: c.recordId, fromStatus: c.from, toStatus: 'PRESENT', workedMinutes: c.workedMinutes, outcome: 'HELD', reason: outcome },
+        update: { outcome: 'HELD', reason: outcome },
+      });
+    }
+    if (!scanned) {
+      await peoplePrisma.attendanceFullDayReview.upsert({
+        where: { recordId: `${SCANNED}:${orgId}` },
+        create: { accountId, orgId, employeeId: '', date: todayIst(), recordId: `${SCANNED}:${orgId}`, fromStatus: '', toStatus: '', workedMinutes: 0, outcome: SCANNED },
+        update: {},
+      });
+    }
+    return { corrected, held, open: [] as FullDayRow[], newlyHeld, settled: settled.length };
   });
 }
 
-/** Every company, once. Logs per company what was fixed and, by id, what was held for the owner (employee, date, old → new). */
-export async function fixFullDaysEverywhere(opts: { apply?: boolean } = { apply: true }) {
+/** Mark held days settled: someone paid the difference (or decided it was right). Returns how many changed. */
+export async function settleFullDays(orgId: string, ids: string[], userId: string, note: string | null, onlyEmployees?: string[]) {
+  /* Only days paid short (a pay run took them, or a closed month); a team lead only for their own team. */
+  const r = await peoplePrisma.attendanceFullDayReview.updateMany({
+    where: { orgId, id: { in: ids }, outcome: 'HELD', settledAt: null, reason: { in: ['PAYROLL_TAKEN', 'BEFORE_PAYROLL', 'MONTH_CLOSED'] }, ...(onlyEmployees ? { employeeId: { in: onlyEmployees } } : {}) },
+    data: { settledAs: 'PAID', settledByUserId: userId, settledAt: new Date(), note },
+  });
+  return r.count;
+}
+
+/** Every company with Attendance on, once. Logs counts, and each held day only the first time it is held for that reason. */
+export async function fixFullDaysEverywhere() {
   const orgs = await outsideTenant('full-day fix: every company', () => platformPrisma.org.findMany({ select: { id: true, accountId: true } }));
-  const totals = { companies: 0, fixed: 0, held: 0 };
+  const totals = { companies: 0, corrected: 0, held: 0, newlyHeld: 0 };
   for (const o of orgs) {
+    if (currentLease()?.signal.aborted) break;
     try {
-      const { fixed, held } = await fixFullDays({ accountId: o.accountId, orgId: o.id }, opts);
-      if (!fixed.length && !held.length) continue;
+      if (!(await isFeatureEnabled(o.accountId, o.id, 'attendance'))) continue;
+      const { corrected, held, newlyHeld } = await fixFullDays({ accountId: o.accountId, orgId: o.id });
+      if (!corrected.length && !newlyHeld.length) continue;
       totals.companies += 1;
-      totals.fixed += fixed.length;
+      totals.corrected += corrected.length;
       totals.held += held.length;
-      console.log(`[full-day] ${o.id}: ${fixed.length} day(s) set to present, ${held.length} held`); // eslint-disable-line no-console
-      for (const h of held) console.log(`[full-day] ${o.id} held ${h.held}: employee ${h.employeeId} ${h.date} ${h.from} -> ${h.to} (${h.workedMinutes} of ${h.neededMinutes} min)`); // eslint-disable-line no-console
+      totals.newlyHeld += newlyHeld.length;
+      console.log(`[full-day] ${o.id}: ${corrected.length} day(s) set to present, ${newlyHeld.length} newly held`); // eslint-disable-line no-console
+      for (const h of newlyHeld) console.log(`[full-day] ${o.id} held ${h.held}: employee ${h.employeeId} ${h.date} ${h.from} -> ${h.to} (${h.workedMinutes} min)`); // eslint-disable-line no-console
     } catch (e) {
       console.error(`[full-day] ${o.id}:`, e instanceof Error ? e.message : e); // eslint-disable-line no-console
     }
   }
   return totals;
+}
+
+/** The fix for one company from a route (a month reopened or about to close): never fails the request. */
+export async function fixFullDaysQuietly(company: Company) {
+  try {
+    return await fixFullDays(company);
+  } catch (e) {
+    console.error(`[full-day] ${company.orgId}:`, e instanceof Error ? e.message : e); // eslint-disable-line no-console
+    return null;
+  }
 }
 
 export function startFullDayFix({ delayMs = 120_000, intervalMs = 24 * 3_600_000 } = {}) {

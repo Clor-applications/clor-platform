@@ -509,6 +509,37 @@ model AttendanceRecord {
   @@index([accountId, orgId, employeeId, date])
   @@index([attendanceRequestId])
   @@index([orgId, trust, date])
+  /// The full-day rule fix's scan (services/attendance/fullDayFix.ts): half days and absences by company.
+  @@index([orgId, status, date])
+}
+
+/// A day the full-day rule fix (attendance audit 7 Nov 2026) looked at, kept so the owner sees
+/// both what was corrected and what was left, and the scan never weighs the same day twice
+/// (services/attendance/fullDayFix.ts).
+model AttendanceFullDayReview {
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  employeeId    String
+  date          String /// YYYY-MM-DD
+  recordId      String    @unique
+  fromStatus    String
+  toStatus      String
+  workedMinutes Int
+  /// CORRECTED (set to present) | HELD (left as it was)
+  outcome       String
+  /// Why a day was held: MONTH_CLOSED | PAYROLL_TAKEN | PAYROLL_PENDING | BEFORE_PAYROLL | OLD
+  reason        String?
+  /// A held day settled: PAID (someone paid the difference) | RECORD_CHANGED (the day itself was corrected since)
+  settledAs       String?
+  settledByUserId String?
+  settledAt       DateTime?
+  note            String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([orgId, outcome, settledAt])
+  @@index([orgId, employeeId])
 }
 
 /// Each clock-in and clock-out as it happened; the record keeps the day's

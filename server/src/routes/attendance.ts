@@ -846,7 +846,7 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
   /*
    * A full day longer than the shift is refused when the hours change. A shift
    * saved that way before the check keeps its name, code and colour editable:
-   * the day rule already scores it by its own length (compute.ts fullDayNeeded).
+   * the shift worked as scheduled is still a full day (compute.ts workedAsScheduled).
    */
   const hours = (x: any) => [x.startTime, x.endTime, x.breakMinutes, x.halfDayMinutes, x.fullDayMinutes].join('|');
   const problem = hours(data) !== hours(existing) ? shiftRuleProblem(data) : null;
@@ -1129,6 +1129,9 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
   if (month >= today().slice(0, 7)) return res.status(400).json({ error: 'Only a month that has ended can be closed.' });
   /* The checklist first: a month with open items closes only when someone says they have seen them. */
   const { monthReadiness, snapshotMonth } = await import('../services/attendance/readiness.js');
+  /* Days the old full-day rule scored short are corrected before the month is weighed and closed, so none is left behind the lock (fullDayFix.ts). */
+  const { fixFullDaysQuietly } = await import('../services/attendance/fullDayFix.js');
+  await fixFullDaysQuietly({ accountId, orgId });
   const readiness = await monthReadiness(accountId, orgId, month);
   const open = readiness.checks.filter((c) => c.count > 0);
   if (open.length && req.body?.acknowledge !== true) {
@@ -1139,6 +1142,8 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
     });
   }
   const result = await peopleWrite(orgId, async () => {
+    /* Again under the lock: a day written since is in the snapshot as the rule scores it. */
+    await fixFullDaysQuietly({ accountId, orgId });
     const latest = await monthReadiness(accountId, orgId, month);
     if (latest.checks.some((c) => c.count > 0) && req.body?.acknowledge !== true) throw fail(409, 'The register changed. Review the month-close checklist again.', 'MONTH_NOT_READY');
     const lock = await peoplePrisma.attendanceMonthLock.upsert({
@@ -1155,13 +1160,32 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
 });
 
 /**
+ * Days the old full-day rule paid short, held because a pay run had taken
+ * them or the month was closed (fullDayFix.ts): someone paid the difference,
+ * and says so. Who and when are kept on each day; the audit log names them.
+ */
+attendanceRouter.post('/orgs/:orgId/attendance/full-day/paid', can(PermissionAction.EDIT, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const ids = Array.isArray(req.body?.ids) ? [...new Set(req.body.ids.map(String))].slice(0, 500) as string[] : [];
+  if (!ids.length) return res.status(400).json({ error: 'Say which days were paid.' });
+  const note = String(req.body?.note || '').trim().slice(0, 300) || null;
+  const { settleFullDays } = await import('../services/attendance/fullDayFix.js');
+  const scope = await teamScope(req);
+  const settled = await peopleWrite(orgId, () => settleFullDays(orgId, ids, req.auth!.userId, note, scope.all ? undefined : scope.ids));
+  if (!settled) return res.status(409).json({ error: 'Those days are no longer waiting to be paid. Check again.' });
+  await recordAudit(req, { entity: 'ATTENDANCE_FULL_DAY', entityId: ids[0], action: 'UPDATE', message: `Marked ${settled} day${settled === 1 ? '' : 's'} paid short as paid the difference${note ? `: ${note}` : ''}`, metadata: { ids, settled, note } });
+  res.json({ settled });
+});
+
+/**
  * Reopen a closed month, to correct it. Payroll already taken from it is not
  * changed, so a reopen says why and is written to the audit log with who
  * closed it and when (closure audit, 27 Oct 2026: a reopen left no trace).
  */
 attendanceRouter.post('/orgs/:orgId/attendance/months/:month/reopen', can(PermissionAction.APPROVE, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
-  const { orgId } = req.tenant!;
+  const { accountId, orgId } = req.tenant!;
   const month = String(req.params.month);
   if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
   const reason = String(req.body?.reason || '').trim().slice(0, 300);
@@ -1169,6 +1193,9 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/reopen', can(Permis
   const lock = await peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } });
   if (!lock) return res.status(409).json({ error: `${month} is not closed.` });
   await peopleWrite(orgId, () => peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId, month } }));
+  /* The month is open again: days the old full-day rule held in it are corrected now, not at the next daily run (fullDayFix.ts). */
+  const { fixFullDaysQuietly } = await import('../services/attendance/fullDayFix.js');
+  await fixFullDaysQuietly({ accountId, orgId });
   await recordAudit(req, { entity: 'ATTENDANCE_MONTH', entityId: month, action: 'REOPEN', message: `Reopened ${month}: ${reason}`, metadata: { month, reason, closedAt: lock.lockedAt, closedByUserId: lock.lockedByUserId } });
   res.json({ month, closed: null });
   emitWebhook(orgId, 'month.reopened', { month: String(req.params.month), byUserId: req.auth!.userId });

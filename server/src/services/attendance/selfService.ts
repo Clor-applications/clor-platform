@@ -5,7 +5,7 @@ import { logDayChange } from './history.js';
 import { leaveYearOf } from './leaveBalances.js';
 import { selfDecisionAllowed } from '../makerChecker.js';
 import { notifyPermission } from '../notifications.js';
-import { fullDayNeeded, isWeeklyOff, istTime, monthSummary } from './compute.js';
+import { isWeeklyOff, istTime, monthSummary } from './compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from './schedule.js';
 import { activeManagerOf, chainFor } from './approvalChain.js';
 import { managerStepBy } from './standIns.js';
@@ -238,7 +238,7 @@ export async function overtimeFor(e: Who, month: string) {
     .map((r) => {
       const rule = resolveShift(schedule, e.id, r.date).rule;
       const restDay = rest(r.date) && Boolean(r.checkIn);
-      const compOffDays = restDay ? ((r.workedMinutes || 0) >= fullDayNeeded(rule) ? 1 : (r.workedMinutes || 0) >= rule.halfDayMinutes ? 0.5 : 0) : 0;
+      const compOffDays = restDay ? ((r.workedMinutes || 0) >= rule.fullDayMinutes ? 1 : (r.workedMinutes || 0) >= rule.halfDayMinutes ? 0.5 : 0) : 0;
       const ot = asked(r.date, 'OVERTIME');
       const co = asked(r.date, 'COMP_OFF');
       return {

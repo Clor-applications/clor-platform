@@ -223,7 +223,12 @@ function ShiftForm({ initial, onClose, onSaved }) {
     });
   };
   const net = netMinutes(form);
-  const fullDayTooLong = net !== null && Number(form.fullDayMinutes) > net;
+  /* Checked only when the hours change (as the server does): an older shift whose full day is longer than its hours can still be renamed or turned off. */
+  const hoursChanged = !initial.id || [...SHAPE, 'fullDayMinutes'].some((k) => String(form[k]) !== String(initial[k]));
+  const overShift = net !== null && Number(form.fullDayMinutes) > net;
+  const fullDayTooLong = hoursChanged && overShift;
+  /* Said aloud once someone tries to save, not on every key. */
+  const [tried, setTried] = useState(false);
   const offSet = new Set(String(form.weeklyOffDays || '').split(',').filter(Boolean));
   const toggleOff = (i) => {
     const n = new Set(offSet);
@@ -234,6 +239,10 @@ function ShiftForm({ initial, onClose, onSaved }) {
 
   const save = async (e) => {
     e.preventDefault();
+    if (fullDayTooLong) {
+      setTried(true);
+      return;
+    }
     setSaving(true);
     const body = {
       name: form.name,
@@ -295,7 +304,7 @@ function ShiftForm({ initial, onClose, onSaved }) {
         <>
           {form.id ? <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Delete</button> : null}
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="shift-form" className="ui-btn ui-btn-primary" disabled={saving || !form.name.trim() || fullDayTooLong}>{saving ? 'Saving…' : 'Save'}</button>
+          <button type="submit" form="shift-form" className="ui-btn ui-btn-primary" disabled={saving || !form.name.trim()}>{saving ? 'Saving…' : 'Save'}</button>
         </>
       }
     >
@@ -313,11 +322,13 @@ function ShiftForm({ initial, onClose, onSaved }) {
         {num('halfDayMinutes', 'Half day (minutes worked)')}
         <label className="block">
           <span className="ui-label">Full day (minutes worked)</span>
-          <input type="number" min={0} className="ui-input w-full" value={form.fullDayMinutes} onChange={set('fullDayMinutes')} aria-invalid={fullDayTooLong || undefined} data-invalid={fullDayTooLong ? 'true' : undefined} aria-describedby="full-day-hint" />
+          <input type="number" min={0} className="ui-input w-full" value={form.fullDayMinutes} onChange={set('fullDayMinutes')} aria-invalid={fullDayTooLong || undefined} data-invalid={fullDayTooLong ? 'true' : undefined} aria-describedby={net !== null ? 'full-day-hint' : undefined} />
           {fullDayTooLong ? (
-            <span id="full-day-hint" className="ui-field-error block" role="alert">Longer than the shift: {form.startTime}–{form.endTime} less the break is {hoursWords(net)} ({net} min).</span>
+            <span id="full-day-hint" className="ui-field-error block" role={tried ? 'alert' : undefined}>Longer than the shift: {form.startTime}–{form.endTime} less the break is {hoursWords(net)} ({net} min).</span>
+          ) : overShift ? (
+            <span id="full-day-hint" className="ui-caption">Longer than the shift less its break ({hoursWords(net)}): kept as it is, as nobody can work it. In within the grace and out on time is still a full day.</span>
           ) : net !== null ? (
-            <span id="full-day-hint" className="ui-caption">The shift less its break is {hoursWords(net)}. In within the grace and out on time is a full day.</span>
+            <span id="full-day-hint" className="ui-caption">The shift less its break is {hoursWords(net)}. In within the grace and out on time, or this many minutes worked, is a full day.</span>
           ) : null}
         </label>
         {num('overtimeAfterMinutes', 'Overtime after (minutes)', 'Blank = after a full day.')}

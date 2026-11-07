@@ -14,25 +14,29 @@
  * - Late: arriving after start + grace; once late, it counts from the start.
  * - Early out: leaving before end − early-out grace; counts to the end.
  * - Worked: out − in, less the break when the span is longer than a half day.
- * - Status: a full day's minutes (`fullDayNeeded`, below) → PRESENT, half-day
- *   minutes → HALF_DAY, less → ABSENT. Checked in but not out yet → PRESENT,
+ * - Status: a full day (`isFullDay`, below) → PRESENT, half-day minutes →
+ *   HALF_DAY, less → ABSENT. Checked in but not out yet → PRESENT,
  *   provisionally, 0 minutes.
  * - Overtime: worked beyond `overtimeAfterMinutes` (default the full day). On
  *   a holiday or weekly off, every minute worked is overtime.
  *
- * The full-day rule (audit 7 Nov 2026, P0): working the shift as scheduled is
- * always a full day. A day counts as present at the shift's own net minutes
- * (start to end, less the break) less the late grace and the early-out
- * grace, or at `fullDayMinutes` if that is lower. So on 09:00–18:00 with a
- * 60-minute break and 10 minutes' grace, 09:10–18:00 (470 minutes) is
- * present; 09:11–18:00 is 11 minutes late and short of the shift, so a half
- * day, as before. Before this, present needed `fullDayMinutes` (480) whatever
- * the shift, so anyone using the grace lost half a day, and a 22:00–06:00
- * shift with a 30-minute break (450 at most) could never be present. The
- * grace is shared: in on time and out up to both graces early is present too
- * (with its early-out mark). A shift cannot be saved with a full day longer
- * than its net minutes (`shiftRuleProblem`); shifts saved before that are
- * scored by the same rule, so they are covered as well.
+ * The full-day rule (audit 7 Nov 2026, P0; coordinator's rule on PR #141).
+ * A working day is PRESENT when either
+ *   (a) the shift was worked as scheduled: in no later than start + late
+ *       grace, and out no earlier than end − early-out grace (a night shift's
+ *       end is the next morning), with at least half a day's minutes worked; or
+ *   (b) the minutes worked reach `fullDayMinutes`, as before.
+ * The graces do not stack: each covers its own end of the day, and an
+ * early-out grace of 0 means leaving early is never covered by (a). Late and
+ * early-out marks are as before (within grace, no mark). So on 09:00–18:00
+ * with a 60-minute break and 10 minutes' grace, 09:06–18:00 (474 minutes) is
+ * present; 09:11–18:00 is late and short, a half day. Before, only (b)
+ * counted, so anyone using the grace lost half a day, and a 22:00–06:00 shift
+ * with a 30-minute break (450 at most) could never be present. On a rest day
+ * only (b) counts: nothing was scheduled, and the day is paid either way.
+ * Comp-off for a rest day worked still needs `fullDayMinutes` (selfService).
+ * A shift cannot be saved with a full day longer than its net minutes
+ * (`shiftRuleProblem`).
  */
 
 import { istDate } from '../../utils/istDate.js';
@@ -178,13 +182,18 @@ const netOf = (shift: Pick<ShiftRule, 'breakMinutes' | 'halfDayMinutes'>, span: 
 /** The minutes worked by someone in at the start and out at the end: the span less the break. */
 export const scheduledMinutes = (shift: Pick<ShiftRule, 'startTime' | 'endTime' | 'breakMinutes' | 'halfDayMinutes'>) => netOf(shift, shiftSpanMinutes(shift));
 
-/**
- * The minutes that make a day PRESENT: the shift's net minutes less both
- * graces, or the shift's `fullDayMinutes` when that is lower (a flexible
- * shift asking for 6 hours inside a 9-hour window). At least a minute.
- */
-export const fullDayNeeded = (shift: Pick<ShiftRule, 'startTime' | 'endTime' | 'breakMinutes' | 'halfDayMinutes' | 'fullDayMinutes' | 'graceMinutes' | 'earlyOutGraceMinutes'>) =>
-  Math.max(1, Math.min(shift.fullDayMinutes, scheduledMinutes(shift) - (shift.graceMinutes || 0) - (shift.earlyOutGraceMinutes || 0)));
+/** (a) of the full-day rule: in by start + late grace, and out at or after end − early-out grace. */
+export function workedAsScheduled(shift: ShiftRule, date: string, checkIn: Date, checkOut: Date) {
+  const { start, end } = shiftWindow(shift, date);
+  return checkIn.getTime() <= start.getTime() + (shift.graceMinutes || 0) * 60_000 && checkOut.getTime() >= end.getTime() - (shift.earlyOutGraceMinutes || 0) * 60_000;
+}
+
+/** Which part of the full-day rule makes a working day present, or null: 'SCHEDULE' (a) or 'MINUTES' (b). Never below half a day's minutes. */
+export function fullDayBy(shift: ShiftRule, date: string, checkIn: Date, checkOut: Date, workedMinutes: number): 'SCHEDULE' | 'MINUTES' | null {
+  if (workedMinutes >= shift.fullDayMinutes) return 'MINUTES';
+  if (workedMinutes >= shift.halfDayMinutes && workedAsScheduled(shift, date, checkIn, checkOut)) return 'SCHEDULE';
+  return null;
+}
 
 const hoursWords = (m: number) => `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
 
@@ -236,9 +245,9 @@ export function computeDay(input: {
   const otThreshold = shift.overtimeAfterMinutes ?? shift.fullDayMinutes;
   const overtimeMinutes = restDay ? workedMinutes : Math.max(0, workedMinutes - otThreshold);
 
-  /* A day off stays paid whatever was worked on it; the hours are overtime, never a half day's loss of pay. */
-  const status: DayStatus =
-    workedMinutes >= fullDayNeeded(shift) ? 'PRESENT' : restDay ? restDay : workedMinutes >= shift.halfDayMinutes ? 'HALF_DAY' : 'ABSENT';
+  /* A day off stays paid whatever was worked on it; the hours are overtime, never a half day's loss of pay. Only (b) on a rest day. */
+  const full = restDay ? workedMinutes >= shift.fullDayMinutes : fullDayBy(shift, date, checkIn, checkOut, workedMinutes) !== null;
+  const status: DayStatus = full ? 'PRESENT' : restDay ? restDay : workedMinutes >= shift.halfDayMinutes ? 'HALF_DAY' : 'ABSENT';
 
   return { workedMinutes, lateMinutes, earlyOutMinutes, overtimeMinutes, status };
 }

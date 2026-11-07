@@ -98,7 +98,7 @@ export default function DayExplain({ open, onClose, load, actions = null, title 
                 </li>
               ))}
             </ol>
-            <p className="ui-caption mt-2">Shift window {data.window?.start}–{data.window?.end}. Grace {data.shift?.graceMinutes} min, half day {mins(data.shift?.halfDayMinutes)}, full day {mins(data.shift?.fullDayNeeded ?? data.shift?.fullDayMinutes)}.{data.monthClosed ? ' This month is closed.' : ''}</p>
+            <p className="ui-caption mt-2">Shift window {data.window?.start}–{data.window?.end}. Grace {data.shift?.graceMinutes} min, half day {mins(data.shift?.halfDayMinutes)}, full day {mins(data.shift?.fullDayMinutes)} or the shift worked as scheduled.{data.monthClosed ? ' This month is closed.' : ''}</p>
           </section>
 
           <section aria-labelledby="explain-punches">

@@ -76,6 +76,7 @@ const PHRASES: Array<[RegExp, string]> = [
   [/^POST attendance\/leave\/requests\/:id\/reject$/, 'Rejected leave'],
   [/^POST attendance\/months\/:id\/close$/, 'Closed an attendance month'],
   [/^POST attendance\/months\/:id\/reopen$/, 'Reopened an attendance month'],
+  [/^POST attendance\/full-day\/paid$/, 'Marked full days paid short as paid'],
   [/^PUT attendance\/rules$/, 'Changed attendance rules'],
   [/^POST attendance\/recompute$/, 'Recalculated past days'],
   [/^POST attendance\/devices$/, 'Added a reader'],
