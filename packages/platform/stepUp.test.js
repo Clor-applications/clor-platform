@@ -18,7 +18,7 @@ beforeEach(() => {
 describe('step-up', () => {
   it('asks the operator console for an operator action, and keeps the company token for company actions', async () => {
     const steppedUp = new Set();
-    global.fetch = vi.fn(async (url, opts) => {
+    globalThis.fetch = vi.fn(async (url, opts) => {
       const path = String(url).replace(/^\/api/, '');
       const stepUp = opts.headers['x-step-up'];
       calls.push({ path, stepUp });
