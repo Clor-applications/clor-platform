@@ -262,7 +262,8 @@ describe('one brand series for charts, teams and leave types', () => {
   it('the gender bar takes the first two of the series, not blue and crimson', () => {
     const home = read('apps/people/src/screens/PeopleOverview.jsx');
     expect(home).not.toMatch(/\[6, 3, 5\]/);
-    expect(home.match(/\[1, 2, 3\]\[i\] \?\? 8/g)).toHaveLength(2);
+    /* A fourth answer is grey: a chart carries three colours (UI rules, 8 Nov 2026). */
+    expect(home.match(/\[1, 2, 3\]\[i\] \?\? 0/g)).toHaveLength(2);
   });
 
   it('faces: initials in oxblood on their team wash', () => {

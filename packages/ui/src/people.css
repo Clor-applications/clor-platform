@@ -2211,6 +2211,34 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-ch
 :root[data-palette='sky'] .ui-split-panel { width: 13.5rem; }
 
 /*
+ * UI rules (owner, 8 Nov 2026). People and Attendance only; Accounting and Payroll keep their measured
+ * geometry, and printed documents are untouched. The page ground stays white: no grey page, no card round a list.
+ * Rows 48px. Controls 40px, 44px on a phone. Icons 18px in the rail and menu, 16px in buttons and tables.
+ * Doubled classes and the id lift these over the palette rules above without !important.
+ */
+:root:is([data-palette='sky'], [data-palette='blaze']):not([data-density='compact']) :is(#main-content, .ui-scrim) .ui-table.ui-table tbody tr { height: 3rem; }
+:root:is([data-palette='sky'], [data-palette='blaze']):not([data-density='compact']) :is(#main-content, .ui-scrim) .ui-table.ui-table tbody td { padding-block: calc(0.375rem - 0.5px); }
+
+:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .ui-scrim) .ui-btn.ui-btn:not(.ui-icon-btn, .ui-btn-sm, .ui-grid-dense *) { height: 2.5rem; min-height: 2.5rem; }
+:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .ui-scrim) :is(.ui-input, .ui-select):not(.ui-ctl-compact, textarea, .ui-grid-dense *) { min-height: 2.5rem; }
+:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .ui-scrim) input:is([type='date'], [type='datetime-local'], [type='time']).ui-input:not(.ui-ctl-compact, .ui-grid-dense *),
+:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .ui-scrim) .ui-search-field.ui-search-field .ui-input { height: 2.5rem; }
+:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .ui-scrim) .ui-icon-btn.ui-icon-btn:not(.ui-table *, .ui-grid-dense *) { width: 2.5rem; height: 2.5rem; }
+:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .ui-scrim) .ui-choice-chip.ui-choice-chip { height: 2.5rem; padding-inline: 1rem; }
+
+@media (max-width: 767px) {
+  html:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .ui-scrim) :is(.ui-btn.ui-btn.ui-btn, .ui-icon-btn.ui-icon-btn.ui-icon-btn):not(.ui-table *, .ui-grid-dense *) { height: auto; min-height: 2.75rem; min-width: 2.75rem; }
+  html:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .ui-scrim) :is(.ui-input, .ui-select):not(.ui-ctl-compact, textarea, .ui-grid-dense *),
+  html:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .ui-scrim) input:is([type='date'], [type='datetime-local'], [type='time']).ui-input:not(.ui-ctl-compact, .ui-grid-dense *),
+  html:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .ui-scrim) .ui-search-field.ui-search-field .ui-input,
+  html:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .ui-scrim) .ui-choice-chip.ui-choice-chip { height: 2.75rem; min-height: 2.75rem; }
+}
+
+html:root:is([data-palette='sky'], [data-palette='blaze']) :is(.ui-split-rail, .ui-split-panel, .ui-shell) :is(.ui-split-mod, .ui-split-item, .ui-nav-item) > svg:is(.ui-glyph, svg) { width: 1.125rem; height: 1.125rem; font-size: 1.125rem; }
+html:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .ui-scrim) :is(.ui-btn, .ui-icon-btn) > svg,
+html:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .ui-scrim) .ui-table tbody td > svg { width: 1rem; height: 1rem; font-size: 1rem; }
+
+/*
  * The employee app (shared with Attendance, 31 Oct 2026). It wears brand D's "waiting" and the open tab's marigold
  * line through its own `data-brand="d"`, not the sky palette, so Attendance's web screens keep Blaze and the app keeps
  * its layout. Light theme only.
