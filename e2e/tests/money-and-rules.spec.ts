@@ -58,7 +58,7 @@ test.describe('Expense claims', () => {
 
     /* Rahul, her manager, sees it in Approvals and approves it (under ₹5,000: no HR step). */
     await rahul.goto();
-    await rahul.open('Approvals');
+    await rahul.open('Inbox');
     await expect(rahul.row(title)).toContainText(/Expense claim/);
     await (await rahul.approve(title)).click();
     await expect(rahul.row(title)).toHaveCount(0);

@@ -12,9 +12,12 @@ import type { Company } from '../support/world';
 /** Rail modules that hold a single screen: the rail button opens it, with no list. */
 const ONE_SCREEN = new Set(['Home', 'Inbox', 'Settings']);
 
+/** A rail button by its module label; its name carries a count when something waits ("Inbox 3 waiting"). */
+const railButton = (rail: Locator, module: string) => rail.getByRole('button', { name: new RegExp(`^${module}(?: |$)`) });
+
 export const MENU: Record<string, string> = {
   Home: 'Home',
-  Approvals: 'Inbox',
+  Inbox: 'Inbox',
   Employees: 'People',
   Documents: 'People',
   'Joining & leaving': 'People',
@@ -103,7 +106,8 @@ export class PeopleWeb {
     const root = await this.drawer();
     const labels = await root.getByRole('navigation', { name: 'People modules' }).getByRole('button').allTextContents();
     if (this.isPhone) await this.page.keyboard.press('Escape');
-    return labels.map((s) => s.trim()).filter((s) => s && s !== 'More apps');
+    /* A waiting count sits inside the button ("Inbox3"): the label is the words before it. */
+    return labels.map((s) => s.trim().replace(/\d+\+?$/, '')).filter((s) => s && s !== 'More apps');
   }
 
   /** The screen labels under one module. */
@@ -111,7 +115,7 @@ export class PeopleWeb {
     const root = await this.drawer();
     const rail = root.getByRole('navigation', { name: 'People modules' });
     const list = root.getByRole('navigation', { name: `${module} screens` });
-    if (!(await list.isVisible().catch(() => false))) await rail.getByRole('button', { name: module, exact: true }).click();
+    if (!(await list.isVisible().catch(() => false))) await railButton(rail, module).click();
     const labels = (await list.isVisible().catch(() => false)) ? await list.getByRole('button').allTextContents() : [];
     if (this.isPhone && (await this.page.getByRole('dialog', { name: 'People navigation' }).isVisible())) await this.page.keyboard.press('Escape');
     return labels.map((s) => s.trim()).filter((s) => s && !/^(Close|More apps)/.test(s));
@@ -128,14 +132,15 @@ export class PeopleWeb {
     const root = await this.drawer();
     const rail = root.getByRole('navigation', { name: 'People modules' });
     const list = root.getByRole('navigation', { name: `${module} screens` });
+    const button = railButton(rail, module);
     if (ONE_SCREEN.has(module)) {
       /* A module of one screen (Home, Inbox, Settings) opens it straight away. */
-      await rail.getByRole('button', { name: module, exact: true }).click();
+      await button.click();
     } else {
       /* The rail button toggles its list: press it only when that list is not already open. */
       /* (A press can land while the panel is still settling: try again until the list shows.) */
       await expect(async () => {
-        if (!(await list.isVisible())) await rail.getByRole('button', { name: module, exact: true }).click();
+        if (!(await list.isVisible())) await button.click();
         await expect(list).toBeVisible({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
       await list.getByRole('button', { name: label, exact: true }).click();
