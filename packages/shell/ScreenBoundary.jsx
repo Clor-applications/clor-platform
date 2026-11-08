@@ -11,6 +11,10 @@ import React from 'react';
  * It resets when the screen changes, so moving somewhere else is the way out,
  * rather than reloading and losing where you were.
  */
+/* What browsers say when a code file of an older release is no longer on the server. */
+export const isStaleRelease = (error) =>
+  /dynamically imported module|Importing a module script failed/i.test(String(error?.message || error || ''));
+
 export default class ScreenBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -35,6 +39,17 @@ export default class ScreenBoundary extends React.Component {
 
   render() {
     if (!this.state.error) return this.props.children;
+
+    /* The screen's code is from a release that has since been replaced (see main.jsx): only a reload brings the new one. */
+    if (isStaleRelease(this.state.error)) {
+      return (
+        <div className="ui-card p-6" style={{ maxWidth: '40rem' }}>
+          <h1 className="ui-display text-xl">CLOR has been updated</h1>
+          <p className="mt-2 text-sm ui-muted">A newer version came out while this page was open. Reload to use it; nothing you saved is lost.</p>
+          <button type="button" className="ui-btn ui-btn-primary mt-4" onClick={() => window.location.reload()}>Reload</button>
+        </div>
+      );
+    }
 
     return (
       <div className="ui-card p-6" style={{ maxWidth: '40rem' }}>
