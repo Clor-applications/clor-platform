@@ -15,25 +15,78 @@ describe('People navigation', () => {
 
   it('keeps the sidebar to the day’s work, Settings last', () => {
     /* Workforce package (owner, 26 Oct 2026): the visible module is Workforce; its key stays `employees`. */
-    /* Organization follows Workforce (ORGANIZATION-DECISIONS.md): the company's shape moved out of Settings. */
-    expect(modules.map((m) => m.label)).toEqual(['Home', 'Inbox', 'People', 'Organisation', 'Time', 'Talent', 'Workplace', 'Reports', 'Settings']);
-    /* Joining & leaving sits under People (JOINING-LEAVING-DECISIONS.md, placed in the 28 Oct menu). */
-    for (const k of ['lifecycle', 'joiners', 'lifecycleChanges', 'leavers', 'checklists']) expect(moduleForScreen(modules, k, peopleApp.nav)?.label, k).toBe('People');
+    /* The People plan (8 Nov 2026, §2): no Organisation module; the org chart is a People screen and the company's shape is Settings. */
+    expect(modules.map((m) => m.label)).toEqual(['Home', 'Inbox', 'People', 'Time', 'Workplace', 'Talent', 'Reports', 'Settings']);
+    expect(modules.some((m) => m.key === 'organization')).toBe(false);
+    /* Joining & leaving sits under People (JOINING-LEAVING-DECISIONS.md, placed in the 28 Oct menu); the hub screen is off the menu. */
+    for (const k of ['joiners', 'offers', 'lifecycleChanges', 'leavers', 'checklists', 'orgChart']) expect(moduleForScreen(modules, k, peopleApp.nav)?.label, k).toBe('People');
+    expect(peopleApp.nav.some((i) => i.key === 'lifecycle')).toBe(false);
     expect(modules.find((m) => m.label === 'Settings').single).toBe(true);
+  });
+
+  /* The plan's groups, word for word (docs/people/10-PEOPLE-PLAN-2026-11-08.md §2). */
+  it('groups People, Time, Talent and Reports as the plan does', () => {
+    const groupsOf = (key) => modules.find((m) => m.key === key).groups.map((g) => [g.label, g.items.map((i) => i.label)]);
+    expect(groupsOf('employees')).toEqual([
+      ['', ['Employees', 'Org chart', 'Documents']],
+      ['Joining & leaving', ['Joining', 'Offers', 'Job changes', 'Leaving', 'Tasks']],
+      ['Pay & assets', ['Salary revisions', 'Expenses', 'Benefits', 'Assets']],
+    ]);
+    expect(groupsOf('leave')).toEqual([
+      ['Leave', ["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances']],
+      ['Attendance', ['Daily attendance', 'Attendance fixes', 'Shift swaps', 'Late marks', 'Absent, no leave']],
+    ]);
+    expect(groupsOf('talent').map(([l]) => l)).toEqual(['Hiring', 'Performance']);
+    expect(groupsOf('talent')[0][1]).not.toContain('Refer someone');
+    expect(groupsOf('reports')).toEqual([
+      ['People', ['Headcount']],
+      ['Time', ['Leave register', 'Requests report']],
+      ['Statutory registers', ['Statutory registers', 'Night work']],
+    ]);
+  });
+
+  it('Delegates, the compliance calendar, the auditor’s evidence and the company’s shape are Settings pages; Night work is a report', () => {
+    const parentOf = Object.fromEntries(peopleApp.nav.filter((i) => i.key).map((i) => [i.key, i.parent]));
+    for (const k of ['standIns', 'compliance', 'auditEvidence', 'departments', 'jobPositions', 'branches', 'orgChanges', 'establishments', 'areas', 'teams', 'seats', 'businessUnits', 'grades', 'costCentres', 'jobRoles']) expect(parentOf[k], k).toBe('settings');
+    expect(moduleForScreen(modules, 'nightWork', peopleApp.nav)?.label).toBe('Reports');
+    expect(moduleForScreen(modules, 'standIns', peopleApp.nav)?.label).toBe('Settings');
+    /* Leave summary is a tab of Statutory registers, so it is not a second entry; its address still works. */
+    expect(inModules.has('leaveSummary')).toBe(false);
+    expect(parentOf.leaveSummary).toBe('registers');
+    /* Old names still find the screen in search. */
+    const keywordsOf = (k) => peopleApp.nav.find((i) => i.key === k).keywords || [];
+    expect(keywordsOf('orgChanges')).toContain('change history');
+    expect(keywordsOf('absences')).toContain('absences');
+    expect(keywordsOf('companyChoices')).toContain('company choices');
+    expect(keywordsOf('reports')).toContain('people report');
+    expect(keywordsOf('orgChart')).toContain('organisation');
+  });
+
+  it('Settings is the plan’s seven groups, in order, and every Settings row has its own icon', async () => {
+    const { GROUPS } = await import('../apps/people/src/screens/PeopleSettings.jsx');
+    expect(GROUPS.map((g) => g.title)).toEqual(['Company', 'More structure', 'People', 'Time', 'Requests & approvals', 'Data & privacy', 'Access & apps']);
+    expect(GROUPS.find((g) => g.title === 'Requests & approvals').items.map(([k]) => k)).toContain('standIns');
+    expect(GROUPS.find((g) => g.title === 'Company').items.map(([k]) => k)).toEqual(expect.arrayContaining(['departments', 'jobPositions', 'branches', 'orgChanges', 'compliance']));
+    expect(GROUPS.find((g) => g.title === 'Data & privacy').items.map(([k]) => k)).toContain('auditEvidence');
+    const rows = GROUPS.flatMap((g) => g.items.map(([k]) => k));
+    const icons = rows.map((k) => peopleApp.nav.find((i) => i.key === k)?.icon?.displayName);
+    expect(new Set(icons).size, 'icons reused across Settings rows').toBe(icons.length);
   });
 
   it('reaches every page from the sidebar or from Settings, and every page exists', () => {
     for (const item of peopleApp.nav.filter((i) => i.key)) {
       /* Your own leave and days open from My profile (owner, 28 Oct 2026 audit), not from the admin menu. */
-      const reachable = inModules.has(item.key) || (item.parent && inModules.has(item.parent)) || peopleApp.profileLinks.includes(item.key);
+      /* A retired address (the old compliance calendar) names the page that replaced it, which may itself sit under Settings. */
+      const parentOf = (k) => peopleApp.nav.find((i) => i.key === k)?.parent;
+      const reachable = inModules.has(item.key) || (item.parent && (inModules.has(item.parent) || inModules.has(parentOf(item.parent)))) || peopleApp.profileLinks.includes(item.key);
       expect(reachable, item.key).toBe(true);
       expect(peopleApp.screens[item.key], item.key).toBeTruthy();
     }
   });
 
   it('shows Settings on the rail while a settings page is open', () => {
-    expect(moduleForScreen(modules, 'departments', peopleApp.nav)?.label).toBe('Organisation');
-    expect(moduleForScreen(modules, 'branches', peopleApp.nav)?.label).toBe('Organisation');
+    expect(moduleForScreen(modules, 'departments', peopleApp.nav)?.label).toBe('Settings');
+    expect(moduleForScreen(modules, 'branches', peopleApp.nav)?.label).toBe('Settings');
     expect(moduleForScreen(modules, 'companyDetails', peopleApp.nav)?.label).toBe('Settings');
     expect(moduleForScreen(modules, 'employees', peopleApp.nav)?.label).toBe('People');
     /* The record, Add employee and Import keep People selected (WF-01). */
@@ -100,8 +153,8 @@ describe('People navigation in simple mode', () => {
 
   it('keeps every module that has a screen left, and the leave screens under one naming rule', () => {
     const modules = resolveModules(peopleApp, simple);
-    expect(modules.map((m) => m.label)).toEqual(['Home', 'Inbox', 'People', 'Organisation', 'Time', 'Talent', 'Workplace', 'Reports', 'Settings']);
-    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Delegates', 'Daily attendance', 'Attendance fixes', 'Shift swaps', 'Late marks', 'Absences', 'Night work']);
+    expect(modules.map((m) => m.label)).toEqual(['Home', 'Inbox', 'People', 'Time', 'Workplace', 'Talent', 'Reports', 'Settings']);
+    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Daily attendance', 'Attendance fixes', 'Shift swaps', 'Late marks', 'Absent, no leave']);
   });
 
   it('shows everything when simple mode is off, or when the company’s switches are not known yet', () => {

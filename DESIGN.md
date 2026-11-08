@@ -40,7 +40,7 @@ component, read this one.
   cannot hold the full height (UI rules, 8 Nov 2026).
 - **Give a status both colour and text.** Colour alone is not a state.
 - **Let one screen have one primary action**, top right.
-- **Name menus in sentence case, and make each page title equal its menu label.** (People rail, 2026-10-28: Home · People · Organisation · Time · Talent · Workplace · Reports · Settings; one Approvals inbox; *My leave* and *My attendance* open from My profile.) A test enforces the case in People.
+- **Name menus in sentence case, and make each page title equal its menu label.** (People rail, 2026-11-08: Home · Inbox · People · Time · Workplace · Talent · Reports · Settings; the company's shape under Settings; one Inbox; *My leave* and *My attendance* open from My profile.) A test enforces the case in People.
 - **Write the brand as CLOR**, in capitals, in every logo, wordmark and app header.
 - **Look at the screen while building it** — desktop and phone screenshots, fixed as seen, before it is called done.
 - **Measure before you change geometry.** Every number in this document came
@@ -112,7 +112,7 @@ All visible headings use weight 700–800. Nothing below 12px, labels included. 
   - **Attendance — Solar Amber `#EAB308`** (`--brand`, via `blaze` palette): action fill. Slate `#0F172A` words on its button (white 2.1:1 — amber button uses slate label). Ink `#854D0E` for text uses.
   - **Payroll — Electric Cyan** (`--brand`, via `payroll` palette): action fill. Deeper button `#0079BF` (owner's pick). White on it 4.7:1.
   - **Accounting** — unchanged Direction D indigo (owner: "do not change color to accounting"). `indigo` palette restates Direction D tokens exactly; money out stays red; logo tokens untouched.
-- **Sidebar (outside Accounting):** rail 64px wide; 3px neon bar + 5% neon wash on the current module. Sub-nav 180px. People "Organisation" rail short name: "Org".
+- **Sidebar (outside Accounting):** rail 64px wide; 3px neon bar + 5% neon wash on the current module. Sub-nav 180px (People: 192px).
 - **Grounds:** pure white for the work area and all chrome in every app (neon brand). The page ground `#FFFFFF`. Hairlines `#E5E7EB`.
 - **Money:** money in green `#15803D`; **money out is ink with a minus sign** (`--money-out`, `.ui-amount-neg`), not the neon brand colour; attention `#A16207`. The brand neon is never an error colour: errors stay `#B91C1C` (`--neg`), always with a warning mark.
 - **Per-app palettes:** palette key in each app's manifest (`palette`); the block redefines only colour tokens (never type, radius, spacing, shadow). Palette keys: `sky` (People), `blaze` (Attendance), `payroll` (Payroll), `indigo` (Accounting). Workspace and the shell use the platform tokens directly. **Accounting's `indigo` palette is the sole exception to the neon brand** — keep it untouched.
