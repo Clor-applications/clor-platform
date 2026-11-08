@@ -131,7 +131,7 @@ export default function OrgChart({ openScreen, params = {}, updateParams }) {
   if (chartView) {
     return (
       <div className="space-y-6 ui-print-area oc-page">
-        <PageHeader entity="people" breadcrumb={[{ label: 'People' }, { label: 'Organisation', onClick: () => openScreen?.('organization') }, { label: 'Org Chart' }]} title="Org Chart"
+        <PageHeader entity="people" breadcrumb={[{ label: 'People' }, { label: 'Org chart' }]} title="Org chart"
           actions={<button type="button" className="ui-btn ui-btn-secondary ui-no-print" onClick={print}><Printer size={16} aria-hidden="true" />Print</button>}
         />
         <OrgTreeChart chart={chart} closed={closed} toggle={toggle} openScreen={openScreen} lead={<>{viewTabs}{asOfPicker}{headcount}</>}
@@ -142,7 +142,7 @@ export default function OrgChart({ openScreen, params = {}, updateParams }) {
 
   return (
     <div className="space-y-6 ui-print-area">
-      <PageHeader entity="people" breadcrumb={[{ label: 'People' }, { label: 'Organisation', onClick: () => openScreen?.('organization') }, { label: 'Org Chart' }]} title="Org Chart"
+      <PageHeader entity="people" breadcrumb={[{ label: 'People' }, { label: 'Org chart' }]} title="Org chart"
         actions={nodes.length ? <button type="button" className="ui-btn ui-btn-secondary ui-no-print" onClick={print}><Printer size={16} aria-hidden="true" />Print</button> : null}
       />
       {viewTabs}

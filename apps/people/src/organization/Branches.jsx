@@ -55,7 +55,6 @@ export default function Branches({ openScreen }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Organisation', onClick: () => openScreen?.('organization') }, { label: 'Branches' }]}
         title="Branches"
         actions={canCreate ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ branchName: '', branchCode: '', addressLine1: '', city: '', state: '', isActive: true })}><Plus size={16} aria-hidden="true" /> New branch</button> : null}
       />
