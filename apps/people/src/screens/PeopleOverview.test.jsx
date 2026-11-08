@@ -57,6 +57,8 @@ it('has no To approve figure; Probation due counts probation to decide and opens
   render(<PeopleOverview openScreen={openScreen} />);
   const figure = (await screen.findByText('Probation due')).closest('button');
   expect(screen.queryByText('To approve')).toBeNull();
+  // Probation is the figure and the list below, not also a Waiting-for-you row.
+  expect(screen.queryByText('Probation to decide')).toBeNull();
   expect(figure.textContent).toMatch(/3/);
   expect(figure.textContent).toMatch(/1 person past their date/);
   fireEvent.click(figure);
@@ -213,3 +215,4 @@ it('shows one line for the Inbox, no request list and no Approve button', async 
   fireEvent.click(line);
   expect(openScreen).toHaveBeenCalledWith('approvals', undefined);
 });
+

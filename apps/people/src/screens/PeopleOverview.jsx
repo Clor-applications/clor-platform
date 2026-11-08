@@ -461,7 +461,8 @@ export default function PeopleOverview({ openScreen }) {
   const openTasks = (tasks || []).filter((t) => !t.done);
   /* Leave already listed above with its own Approve: the summary row would say it twice. */
   /* What the Inbox holds is the one line above; the rest of Home's to-dos are tasks, listed here. */
-  const otherTodos = (todos || []).filter((t) => t.screen !== 'approvals' && t.screen !== 'leaveRequests');
+  /* Probation has its own figure and its own list below, so it is not a third time a task row here. */
+  const otherTodos = (todos || []).filter((t) => t.screen !== 'approvals' && t.screen !== 'leaveRequests' && t.key !== 'probation');
   const deptOf = new Map((people || []).map((p) => [p.id, p.department]));
   const posts = (news || []).filter((n) => n.status === 'PUBLISHED').slice(0, 3);
   const upcoming = (events || [])
