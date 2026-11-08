@@ -12,7 +12,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { DOC_WHO_CAN_SEE, docWhoLabel } from './documentClassification';
 import JoiningStatutory from './JoiningStatutory';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
-import { formatDateIn, istDay as istDayOf, plusDaysIso } from '@ui/utils/dates';
+import { istDay as istDayOf, plusDaysIso } from '@ui/utils/dates';
 import { hasApp } from '@platform/context';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import {
@@ -459,7 +459,7 @@ export default function Employees({ description = '' } = {}) {
                     <td className="ui-col-meta">{p.department || '—'}</td>
                     <td className="ui-col-meta">{p.designation || '—'}</td>
                     <td className="ui-col-meta">{p.reportingManagerName || '—'}</td>
-                    <td className="ui-col-h-center">{p.dateOfJoining ? formatDateIn(p.dateOfJoining) : '—'}</td>
+                    <td className="ui-col-h-center">{p.dateOfJoining ? formatDateShort(p.dateOfJoining) : '—'}</td>
                     <td className="ui-col-h-center"><span className={`ui-pill ${statusOf(p.status).pill}`}>{statusOf(p.status).label}</span></td>
                   </tr>
                 ))}
@@ -589,13 +589,13 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
   const [extendTo, setExtendTo] = useState('');
   /* Probation (LIFE-03): confirm, or extend to a later date; with a rule it becomes a request. */
   const probation = async (outcome) => {
-    const ok = await confirmDialog({ title: outcome === 'CONFIRM' ? `Confirm ${person.name} after probation?` : `Extend ${person.name}'s probation to ${formatDateIn(extendTo)}?`, message: outcome === 'CONFIRM' ? 'The confirmation date goes on their record and history, and they are told.' : 'The new end date goes on their record and history, and they are told.', confirmLabel: outcome === 'CONFIRM' ? 'Confirm' : 'Extend', tone: 'primary' });
+    const ok = await confirmDialog({ title: outcome === 'CONFIRM' ? `Confirm ${person.name} after probation?` : `Extend ${person.name}'s probation to ${formatDateShort(extendTo)}?`, message: outcome === 'CONFIRM' ? 'The confirmation date goes on their record and history, and they are told.' : 'The new end date goes on their record and history, and they are told.', confirmLabel: outcome === 'CONFIRM' ? 'Confirm' : 'Extend', tone: 'primary' });
     if (!ok) return;
     try {
       const r = await decideProbation(person.id, outcome === 'CONFIRM' ? { outcome } : { outcome, newEndDate: extendTo });
       if (r.request) notify.success(`Sent for approval: ${r.request.title}.`);
       else {
-        notify.success(outcome === 'CONFIRM' ? `${person.name} confirmed.` : `Probation now ends ${formatDateIn(extendTo)}.`);
+        notify.success(outcome === 'CONFIRM' ? `${person.name} confirmed.` : `Probation now ends ${formatDateShort(extendTo)}.`);
         setPerson((x) => ({ ...x, ...(r.applied || {}) }));
       }
       setExtendTo('');
@@ -604,7 +604,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
     }
   };
   const withdrawChange = async (c) => {
-    if (!(await confirmDialog({ title: `Withdraw the change on ${formatDateIn(c.effectiveOn)}?`, message: `${SCHEDULED_LABELS[c.field] || c.field} stays ${c.fromLabel || 'as it is'}.`, confirmLabel: 'Withdraw' }))) return;
+    if (!(await confirmDialog({ title: `Withdraw the change on ${formatDateShort(c.effectiveOn)}?`, message: `${SCHEDULED_LABELS[c.field] || c.field} stays ${c.fromLabel || 'as it is'}.`, confirmLabel: 'Withdraw' }))) return;
     try {
       await cancelScheduledChange(person.id, c.id);
       setPerson((x) => ({ ...x, scheduledChanges: (x.scheduledChanges || []).filter((y) => y.id !== c.id) }));
@@ -616,7 +616,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
   const rehire = async () => {
     if (!rejoinDate) return notify.error('Give the rejoin date first.');
     if (person.dateOfLeaving && rejoinDate <= person.dateOfLeaving) return notify.error(`The rejoin date must be after their last day, ${person.dateOfLeaving}.`);
-    const ok = await confirmDialog({ title: `Rehire ${person.name} from ${formatDateIn(rejoinDate)}?`, message: `A new period of employment starts on that date; their first joining date (${person.firstJoiningDate ? formatDateIn(person.firstJoiningDate) : 'on file'}) stays. They become active again and are put back on every reader; fingerprints and faces were deleted when they left, so they enrol again.`, confirmLabel: 'Rehire', tone: 'primary' });
+    const ok = await confirmDialog({ title: `Rehire ${person.name} from ${formatDateShort(rejoinDate)}?`, message: `A new period of employment starts on that date; their first joining date (${person.firstJoiningDate ? formatDateShort(person.firstJoiningDate) : 'on file'}) stays. They become active again and are put back on every reader; fingerprints and faces were deleted when they left, so they enrol again.`, confirmLabel: 'Rehire', tone: 'primary' });
     if (!ok) return;
     try {
       const r = await rehireEmployee(person.id, { rejoinDate });
@@ -800,7 +800,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                   <dd className="mt-1 space-y-1">
                     {person.scheduledChanges.map((c) => (
                       <div key={c.id} className="text-sm flex flex-wrap items-center gap-2">
-                        <span className="tabular-nums">{formatDateIn(c.effectiveOn)}</span>
+                        <span className="tabular-nums">{formatDateShort(c.effectiveOn)}</span>
                         <span>{SCHEDULED_LABELS[c.field] || c.field}: <span className="ui-muted">{c.fromLabel || 'None'}</span> → <strong>{c.toLabel || 'None'}</strong></span>
                         {c.reason ? <span className="ui-caption">{c.reason}</span> : null}
                         <button type="button" className="ui-link" onClick={() => withdrawChange(c)}>Withdraw</button>
@@ -918,7 +918,7 @@ export function EmploymentHistory({ employeeId }) {
         {episodes.map((st) => (
           <li key={st.seq} className="text-sm flex flex-wrap items-center gap-2">
             <span className={`ui-pill ${st.current ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>Period {st.seq}</span>
-            <span className="tabular-nums">{formatDateIn(st.startDate)} – {st.endDate ? formatDateIn(st.endDate) : 'now'}</span>
+            <span className="tabular-nums">{formatDateShort(st.startDate)} – {st.endDate ? formatDateShort(st.endDate) : 'now'}</span>
             {st.endType ? <span className="ui-caption">{st.endType.replaceAll('_', ' ').toLowerCase()}{st.endReason ? ` · ${st.endReason}` : ''}</span> : null}
           </li>
         ))}
@@ -985,7 +985,7 @@ export function Journey({ employeeId }) {
         const st = data.episodes.find((x) => x.seq === seq);
         return (
           <section key={seq} aria-label={`Employment period ${seq}`} className="space-y-2">
-            {data.episodes.length > 1 || st ? <h3 className="text-sm font-semibold">Employment period {seq}{st ? <span className="ui-caption font-normal"> · {formatDateIn(st.startDate)} – {st.endDate ? formatDateIn(st.endDate) : 'now'}</span> : null}</h3> : null}
+            {data.episodes.length > 1 || st ? <h3 className="text-sm font-semibold">Employment period {seq}{st ? <span className="ui-caption font-normal"> · {formatDateShort(st.startDate)} – {st.endDate ? formatDateShort(st.endDate) : 'now'}</span> : null}</h3> : null}
             <ol className="divide-y">
               {data.entries.filter((e) => e.stint === seq).map((e) => (
                 <li key={e.key} className="py-2.5 flex flex-wrap items-start gap-2">
@@ -1105,7 +1105,7 @@ function PayQuestion({ employeeId }) {
             </table>
           ) : null}
           {data.payslip ? <p className="ui-caption">Rules: {data.payslip.ruleSet}, version {data.payslip.ruleVersion}.</p> : null}
-          {data.days ? <p>{data.days.payableDays} payable days, {data.days.lopDays} loss-of-pay{data.days.absences.length ? `: ${data.days.absences.map((a) => `${formatDateIn(a.date)} (${a.reason})`).join(', ')}` : ''}.</p> : null}
+          {data.days ? <p>{data.days.payableDays} payable days, {data.days.lopDays} loss-of-pay{data.days.absences.length ? `: ${data.days.absences.map((a) => `${formatDateShort(a.date)} (${a.reason})`).join(', ')}` : ''}.</p> : null}
           {data.missing.length ? <ul className="ui-muted list-disc pl-4 space-y-0.5">{data.missing.map((m) => <li key={m.evidence}>{m.evidence}: {m.why}</li>)}</ul> : null}
           <p className="ui-caption">{data.correction.note}</p>
         </div>
@@ -1124,7 +1124,7 @@ function WhyPanel({ why }) {
       <Row label="What changed">
         <ul>{why.what.map((c, i) => <li key={i}>{c.field}: {c.redacted ? <span className="ui-muted">changed (not shown)</span> : <><span className="ui-muted">{c.before || '—'}</span> → <strong>{c.after || '—'}</strong></>}</li>)}</ul>
       </Row>
-      <Row label="When">{why.recordedAt ? `${formatDateIn(why.when)} (recorded ${whenAt(why.recordedAt)})` : whenAt(why.when)}</Row>
+      <Row label="When">{why.recordedAt ? `${formatDateShort(why.when)} (recorded ${whenAt(why.recordedAt)})` : whenAt(why.when)}</Row>
       <Row label="Who asked">{why.askedBy || <span className="ui-muted">Not known</span>}</Row>
       <Row label="Who approved">{why.approvedBy?.length ? why.approvedBy.join('; ') : <span className="ui-muted">Not known</span>}</Row>
       <Row label="Rule">{why.rule ? `${why.rule.name}, version ${why.rule.version}` : <span className="ui-muted">No rule recorded</span>}{why.request ? <span className="ui-caption block">Request: {why.request.title} · {why.request.status.toLowerCase()}</span> : null}</Row>
@@ -1132,7 +1132,7 @@ function WhyPanel({ why }) {
       <Row label="Evidence">{why.evidence?.length ? <ul>{why.evidence.map((e) => <li key={e.id}>{e.title}{e.version ? <span className="ui-caption"> · version {e.version} when decided</span> : null}</li>)}</ul> : <span className="ui-muted">None attached</span>}</Row>
       {why.decision ? (
         <Row label="Policies it rested on">
-          {why.decision.policies.length ? <ul>{why.decision.policies.map((p) => <li key={p.versionId}>{p.title}, version {p.version}<span className="ui-caption"> · in force from {formatDateIn(p.effectiveFrom)}</span></li>)}</ul> : <span className="ui-muted">No policy applied to the person that day</span>}
+          {why.decision.policies.length ? <ul>{why.decision.policies.map((p) => <li key={p.versionId}>{p.title}, version {p.version}<span className="ui-caption"> · in force from {formatDateShort(p.effectiveFrom)}</span></li>)}</ul> : <span className="ui-muted">No policy applied to the person that day</span>}
           <span className="ui-caption block">As they stood when it was decided, {whenAt(why.decision.decidedAt)}.</span>
         </Row>
       ) : null}

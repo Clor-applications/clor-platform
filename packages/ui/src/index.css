@@ -7698,18 +7698,17 @@ th.ui-th {
   font-weight: 800;
   letter-spacing: -0.02em;
 }
-.ui-auth-today ul { display: grid; gap: 8px; }
+/* Plain ticked lines split by hairlines, not a box per line (8 Nov 2026: no card-in-card). */
+.ui-auth-today ul { display: grid; }
 .ui-auth-today li {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: rgb(255 255 255);
-  box-shadow: inset 0 0 0 1px rgb(var(--border));
+  padding: 10px 0;
   font-size: 0.9375rem;
   font-weight: 500;
 }
+.ui-auth-today li + li { border-top: 1px solid rgb(var(--border)); }
 .ui-auth-today li.is-waiting {
   font-weight: 700;
 }
@@ -7743,6 +7742,38 @@ th.ui-th {
   display: grid;
   gap: 16px;
   margin-top: 8px;
+}
+
+/*
+ * Settings (People plan, 8 Nov 2026): plain rows in groups, on the page ground under one hairline, not a grid
+ * of cards. Each row: an icon, the name, what it is for, a chevron; 48px with its hairline. On a phone the note
+ * goes under the name.
+ */
+.ui-settings-rows { border-top: 1px solid rgb(var(--border)); max-width: 64rem; }
+.ui-settings-rows > li { border-bottom: 1px solid rgb(var(--border)); }
+.ui-settings-row {
+  display: grid;
+  grid-template-columns: 16px minmax(10rem, 14rem) minmax(0, 1fr) 16px;
+  align-items: center;
+  column-gap: 12px;
+  width: 100%;
+  min-height: 47px;
+  padding: 6px 8px;
+  text-align: left;
+  color: rgb(var(--fg));
+  transition: background-color 150ms ease;
+}
+.ui-settings-row:hover { background: rgb(var(--surface-sunken)); }
+.ui-settings-row:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: -2px; }
+.ui-settings-row-icon { width: 16px; height: 16px; color: rgb(var(--fg-muted)); }
+.ui-settings-row-label { font-size: 0.875rem; font-weight: 600; }
+.ui-settings-row-note { min-width: 0; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.ui-settings-row-go { color: rgb(var(--fg-subtle)); }
+@media (max-width: 767px) {
+  .ui-settings-row { grid-template-columns: 16px minmax(0, 1fr) 16px; row-gap: 2px; padding: 10px 4px; }
+  .ui-settings-row-icon { grid-row: 1 / span 2; }
+  .ui-settings-row-note { grid-column: 2; }
+  .ui-settings-row-go { grid-column: 3; grid-row: 1 / span 2; }
 }
 .ui-auth-eyebrow {
   font-size: 0.8125rem;

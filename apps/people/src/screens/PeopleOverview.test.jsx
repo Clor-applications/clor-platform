@@ -11,12 +11,19 @@ import PeopleOverview from './PeopleOverview';
  */
 vi.mock('@ui/personnel/api', () => ({
   getOverview: vi.fn().mockResolvedValue({ headcount: 10, byDepartment: [], byStatus: {}, joinedThisMonth: [], leftThisMonth: 0 }),
-  getPeopleHome: vi.fn().mockResolvedValue([
-    { key: 'leave', title: 'Leave waiting', count: 1, screen: 'approvals', params: { kind: 'LEAVE' } },
-    { key: 'fieldPunches', title: 'Field punches waiting', count: 2, screen: 'approvals', params: { kind: 'PUNCH' } },
-    { key: 'overtime', title: 'Overtime waiting', count: 1, screen: 'approvals', params: { kind: 'OVERTIME' } },
-    { key: 'documents', title: 'Documents expiring', count: 4, screen: 'documents' },
-  ]),
+  getPeopleHome: vi.fn().mockResolvedValue({
+    todos: [
+      { key: 'leave', title: 'Leave waiting', count: 1, screen: 'approvals', params: { kind: 'LEAVE' } },
+      { key: 'fieldPunches', title: 'Field punches waiting', count: 2, screen: 'approvals', params: { kind: 'PUNCH' } },
+      { key: 'overtime', title: 'Overtime waiting', count: 1, screen: 'approvals', params: { kind: 'OVERTIME' } },
+      { key: 'documents', title: 'Documents expiring', count: 4, screen: 'documents' },
+    ],
+    /* The inbox's own count, as the rail badge and the Inbox show it. */
+    waiting: 4,
+    probation: null,
+    week: null,
+    monthClose: null,
+  }),
   listEmployees: vi.fn().mockResolvedValue({ employees: [] }),
   listMyTasks: vi.fn().mockResolvedValue([]),
   summaryOpened: vi.fn().mockResolvedValue({}),
@@ -156,7 +163,7 @@ it('retries only the failed list, once, however often Retry is pressed', async (
   expect(api.listMyTasks).toHaveBeenCalledTimes(2);
   expect(api.getPeopleHome).toHaveBeenCalledTimes(1);
   answer([]);
-  expect(await screen.findByText(/Field punches waiting/)).toBeTruthy();
+  expect(await screen.findByText(/Documents expiring/)).toBeTruthy();
   expect(screen.queryByText(/Could not load your tasks/)).toBeNull();
 });
 
@@ -169,4 +176,26 @@ it('says it is checking, not "Nothing waits", while the inbox and leave are load
   render(<PeopleOverview openScreen={vi.fn()} />);
   expect(await screen.findByText(/Checking what waits for your answer/)).toBeTruthy();
   expect(screen.queryByText(/Nothing waits for your answer/)).toBeNull();
+});
+
+/* People plan, 8 Nov 2026: Home's To approve is the inbox's own number (help desk included), not a sum of to-do lines. */
+it('shows the waiting number the server counts for the inbox, the one the rail badge shows', async () => {
+  const api = await import('@ui/personnel/api');
+  api.getPeopleHome.mockResolvedValueOnce({ todos: [{ key: 'leave', title: 'Leave waiting', count: 1, screen: 'approvals' }], waiting: 3, probation: null, week: null, monthClose: null });
+  render(<PeopleOverview openScreen={vi.fn()} />);
+  expect(await screen.findByText('3 requests')).toBeTruthy();
+});
+
+/* Owner, 8 Nov 2026: approvals live in the Inbox. Home says how many wait and opens it; it lists and approves none. */
+it('shows one line for the Inbox, no request list and no Approve button', async () => {
+  const openScreen = vi.fn();
+  render(<PeopleOverview openScreen={openScreen} />);
+  const line = (await screen.findByText('4 requests wait for you')).closest('button');
+  expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
+  expect(screen.queryByText('Leave waiting')).toBeNull();
+  expect(screen.queryByText('Field punches waiting')).toBeNull();
+  /* Tasks that are not approvals stay listed. */
+  expect(screen.getByText('Documents expiring')).toBeTruthy();
+  fireEvent.click(line);
+  expect(openScreen).toHaveBeenCalledWith('approvals', undefined);
 });

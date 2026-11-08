@@ -97,6 +97,13 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
     Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'teams', 'business-units', 'grades', 'cost-centres', 'seats', 'job-roles'].map((k) => structure(k).catch(() => [])), hasApp('attendance') ? listContractors() : Promise.resolve([]), listTags().catch(() => []), listBranches().catch(() => [])])
       .then(([departments, positions, types, workTypes, areas, establishments, teams, units, grades, centres, seats, roles, contractors, tags, branchRows]) => setLists({ departments, positions, types, workTypes, areas, establishments, teams, units, grades, centres, seats, roles, contractors, tags , branches: branchRows.filter((b) => b.isActive !== false).map((b) => ({ id: b.id, name: b.branchName, isActive: true })) }));
   }, []);
+  /* Opened at a section (People Home's Probation ending: focus=probation): scrolled to it once the record is drawn. */
+  const loadedId = person?.id;
+  useEffect(() => {
+    if (!loadedId || !params.focus) return undefined;
+    const t = setTimeout(() => document.getElementById(params.focus)?.scrollIntoView({ block: 'start' }), 150);
+    return () => clearTimeout(t);
+  }, [loadedId, params.focus, tab]);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef(null);
   const [resigning, setResigning] = useState(false);

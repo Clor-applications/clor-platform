@@ -365,6 +365,35 @@
 .people-more:hover { color: rgb(var(--fg)); }
 .people-more:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
 .people-empty { padding: 0 1.25rem 1.25rem; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+/*
+ * People Home's short lists (8 Nov 2026): probation ending, this week, month close. On the page ground, a heading
+ * and rows under one hairline each, no surface (DESIGN.md "No card-in-card"); side by side when there is room.
+ */
+.people-glance { display: grid; gap: 0.75rem 1.5rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+.people-glance-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding-bottom: 0.375rem; }
+.people-glance-title { font-size: 0.9375rem; line-height: 1.5rem; font-weight: 700; color: rgb(var(--fg)); }
+.people-glance-list { border-top: 1px solid rgb(var(--border)); }
+.people-glance-list > li { border-bottom: 1px solid rgb(var(--border)); }
+.people-glance-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 47px; /* 48 with its hairline (UI rules, 8 Nov 2026) */
+  padding: 0 0.25rem;
+  text-align: left;
+  font-size: 0.875rem;
+  color: rgb(var(--fg));
+  transition: background-color var(--dur-surface) ease;
+}
+.people-glance-row b { font-weight: 600; }
+.people-glance-row:hover { background: rgb(var(--surface-sunken) / 0.7); }
+.people-glance-row:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: -2px; }
+.people-glance-when { flex: none; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.people-glance-month { flex: none; }
+.people-glance-state { flex: 1 1 auto; min-width: 0; text-align: right; }
+.people-glance-when[data-tone='warn'] { color: rgb(var(--warn)); font-weight: 600; }
+.people-glance-when[data-tone='pos'] { color: rgb(var(--pos)); }
 .people-list { border-top: 1px solid rgb(var(--border)); }
 .people-list > li + li { border-top: 1px solid rgb(var(--border)); }
 .people-row {

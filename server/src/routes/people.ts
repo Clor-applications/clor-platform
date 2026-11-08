@@ -56,7 +56,7 @@ import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from '../services/attendance/g
 import { KINDS, checklistOf, cleanItems, itemsFor, myTasks, openTasks, ownPlanRefusal, lastDayMoved, redatePlan, startChecklist, tickRefusal, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { settleReaderTask } from '../services/people/lifecycle/readersDone.js';
 import { calendar, evidenceOf } from '../services/people/compliance.js';
-import { homeTodos } from '../services/people/home.js';
+import { homeGlance, homeTodosAndWaiting } from '../services/people/home.js';
 import { SetupError, changeSetup, peopleSetup } from '../services/people/setup.js';
 import { track } from '../services/productEvents.js';
 import { PAYROLL_HISTORY, lockPayrollEmployee } from '../services/payroll/employeeLock.js';
@@ -461,7 +461,8 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/statutory/reveal', can(Perm
 /** People → Home: what needs someone today (services/people/home.ts). */
 peopleRouter.get('/orgs/:orgId/people/home', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  res.json({ todos: await homeTodos(req) });
+  const [{ todos, waiting }, glance] = await Promise.all([homeTodosAndWaiting(req), homeGlance(req)]);
+  res.json({ todos, waiting, ...glance });
 });
 
 /** People → Home: the setup list and simple mode's suggestion, for whoever sets the company up (services/people/setup.ts). */
