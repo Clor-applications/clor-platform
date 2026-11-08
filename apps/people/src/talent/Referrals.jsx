@@ -71,8 +71,14 @@ export default function Referrals({ params = {}, openScreen }) {
 
   return (
     <div className="space-y-6">
+      {/* Refer someone is the one primary action here (People plan, 8 Nov 2026), not a menu entry of its own. */}
       <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Referrals' }]} title="Referrals"
-        actions={canEdit ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setRule(true)}>Bonus rule</button> : null} />
+        actions={(
+          <>
+            {canEdit ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setRule(true)}>Bonus rule</button> : null}
+            <button type="button" className="ui-btn ui-btn-primary" onClick={() => openScreen?.('referMe')}>Refer someone</button>
+          </>
+        )} />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : report ? (
         <>
           <Tabs label="Referrals" tabs={TABS.map(([k, l]) => [k, l, k !== 'report' ? counts[k] : undefined])} value={status} onChange={setStatus} />
