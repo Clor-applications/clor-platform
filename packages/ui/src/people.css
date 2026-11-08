@@ -2212,8 +2212,74 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-ch
 @media (max-width: 767px) {
   html:root[data-palette='sky'] #main-content .ui-table td[colspan] > :only-child { position: sticky; left: 0; max-width: calc(100vw - 3.5rem); }
 }
-/* The module panel holds its longest name ("Attendance requests") on one line: 216px (200 cut it). */
-:root[data-palette='sky'] .ui-split-panel { width: 13.5rem; }
+/* The module panel: 192px (owner, 8 Nov 2026: "secondary sidebar reduce width"; was 216). Names are kept short enough to fit on one line. */
+:root[data-palette='sky'] .ui-split-panel { width: 12rem; }
+
+/*
+ * Coral and teal (owner, 8 Nov 2026). Coral (the brand tokens above) is what you press and the open screen; teal
+ * #0F766E is the second colour and replaces marigold: a chosen view, what waits on you, the open module's mark and
+ * the tab indicator. White on teal 5.5:1; teal ink #0F5F59 on its tint #E6F4F2 7.0:1. A warning is amber-brown
+ * #B45309 on #FEF3E8, never a yellow fill. Light theme only; the employee app keeps its own marks.
+ */
+html:root[data-palette='sky']:not([data-theme='dark']),
+html:root:not([data-theme='dark']) [data-palette='sky'] {
+  --teal: 15 118 110;
+  --teal-soft: 230 244 242;
+  --teal-ink: 15 95 89;
+  --marigold: var(--teal);
+  --warm: var(--teal);
+  --warm-soft: var(--teal-soft);
+  --warm-ink: var(--teal-ink);
+  --butter: var(--teal);
+  --butter-soft: var(--teal-soft);
+  --butter-ink: var(--teal-ink);
+  --warn-mark: 180 83 9;
+  --warn-soft: 254 243 232;
+  --warn-ink: 180 83 9;
+  --choice: var(--teal);
+  --on-choice: 255 255 255;
+  --choice-tray: 245 245 244;
+  /* Icon colour by kind of work (manifest `data-kind`). */
+  --kind-people: 201 63 40;
+  --kind-time: 15 118 110;
+  --kind-join: 21 128 61;
+  --kind-leave: 87 83 78;
+  --kind-pay: 109 40 217;
+  --kind-docs: 180 83 9;
+  --kind-work: 162 28 175;
+  --kind-talent: 14 116 144;
+  --kind-admin: 51 65 85;
+  /* Icons in white buttons (Import, Export, Filters, Columns) were deep marigold; teal now. Gold leaves the series too. */
+  --btn-icon-on-white: var(--teal);
+  --dept-4: 109 40 217;
+  --leave-3: 109 40 217;
+  --dept-2: 15 118 110;
+  --leave-1: 15 118 110;
+  --btn-icon: 255 255 255;
+}
+/* Words that sat in oxblood on marigold: a filled count is white on teal, a pill is teal ink on the teal tint. */
+html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-tab-count, .ui-side-count)[data-tone='warn'] { background: rgb(var(--teal)) !important; color: rgb(255 255 255) !important; }
+html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-bell-count, .soft-pill-primary .soft-pill-orb) { background: rgb(var(--teal)); color: rgb(255 255 255); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary .soft-pill-orb { background: rgb(255 255 255); color: rgb(var(--brand)); }
+html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-pill-warn, .ui-side-pill[data-tone='warn'], .people-row-count[data-tone='warn']) { background: rgb(var(--teal-soft)); color: rgb(var(--teal-ink)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-attention] :is(.soft-band-stat-label, .soft-band-stat-note) { color: rgb(var(--fg-muted)); }
+
+/* Icons: the line and a light fill in the kind's colour; the open screen or module fills a little deeper. */
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-glyph[data-kind='people'] { --k: var(--kind-people); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-glyph[data-kind='time'] { --k: var(--kind-time); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-glyph[data-kind='join'] { --k: var(--kind-join); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-glyph[data-kind='leave'] { --k: var(--kind-leave); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-glyph[data-kind='pay'] { --k: var(--kind-pay); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-glyph[data-kind='docs'] { --k: var(--kind-docs); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-glyph[data-kind='work'] { --k: var(--kind-work); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-glyph[data-kind='talent'] { --k: var(--kind-talent); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-glyph[data-kind='admin'] { --k: var(--kind-admin); }
+html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-rail, .ui-split-panel, .ui-tabbar, #main-content) .ui-glyph[data-kind] { color: rgb(var(--k)); }
+html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-rail, .ui-split-panel, .ui-tabbar, #main-content) .ui-glyph[data-kind] [opacity='0.2'] { fill: rgb(var(--k)); opacity: 0.18; }
+html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-rail, .ui-split-panel, .ui-tabbar, #main-content) :is(.ui-split-mod[data-current], .ui-split-item[aria-current='page'], .ui-tabbar-item[aria-current='page']) .ui-glyph[data-kind] [opacity='0.2'] { opacity: 0.32; }
+html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-rail, #main-content) .ui-split-mod[data-current] > svg.ui-glyph[data-kind] { background: rgb(var(--k) / 0.1); box-shadow: none; }
+/* On the coral primary the icon is white like its words; light marigold leaves with the rest of the yellow. */
+html:root[data-palette='sky']:not([data-theme='dark']) :is(#main-content, body) .ui-btn:is(.ui-btn-primary, .ui-btn-brand):not(.ui-btn-icon-only, [data-icon-only]) { --btn-icon-color: rgb(255 255 255); }
 
 /*
  * UI rules (owner, 8 Nov 2026). People and Attendance only; Accounting and Payroll keep their measured

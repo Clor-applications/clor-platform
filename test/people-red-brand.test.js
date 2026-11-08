@@ -169,9 +169,9 @@ describe('a white work area, colour in the accents ("complete white background",
     expect(white).toMatch(/\.ui-side-chips \{ grid-template-columns: minmax\(0, 1fr\);/);
     expect(white).toMatch(/\.ui-side-chip \{[^}]*border: 0; background: transparent;/);
   });
-  it('the module panel fits "Attendance requests" on one line, with one width rule', () => {
-    expect(white).toMatch(/:root\[data-palette='sky'\] \.ui-split-panel \{ width: 13\.5rem; \}/);
-    expect(people.match(/\.ui-split-panel \{ width: [\d.]+rem; \}/g)).toEqual(['.ui-split-panel { width: 13.5rem; }']);
+  it('the module panel is 192px (owner, 8 Nov 2026), with one width rule', () => {
+    expect(white).toMatch(/:root\[data-palette='sky'\] \.ui-split-panel \{ width: 12rem; \}/);
+    expect(people.match(/\.ui-split-panel \{ width: [\d.]+rem; \}/g)).toEqual(['.ui-split-panel { width: 12rem; }']);
   });
   it('a Home figure\'s caption wraps rather than being cut off', () => {
     expect(white).toMatch(/\.people-home \.soft-band-stat-note \{ white-space: normal;/);
