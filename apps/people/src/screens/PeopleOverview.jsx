@@ -15,6 +15,7 @@ import {
   IconContext,
   Medal,
   Megaphone,
+  Hourglass,
   SealCheck,
   SignOut,
   UsersThree,
@@ -468,6 +469,10 @@ export default function PeopleOverview({ openScreen }) {
     .sort((a, b) => String(a.details?.startDate).localeCompare(String(b.details?.startDate)))
     .slice(0, 4);
   const insight = insightsOf(people || []);
+  /* Probation ending in 30 days or past and undecided: the to-do's count (in this reader's scope), the list for the dates. */
+  const probationDue = Number((todos || []).find((t) => t.key === 'probation')?.count) || 0;
+  const probationOver = (glance?.probation || []).filter((p) => p.over).length;
+  const nextProbation = (glance?.probation || []).find((p) => !p.over) || null;
 
   return (
     <IconContext.Provider value={{ weight: 'duotone' }}>
@@ -523,10 +528,14 @@ export default function PeopleOverview({ openScreen }) {
               </span>
               <span className="soft-band-stat-note">{leave ? `${data.headcount - outToday.length} of ${data.headcount} at work` : failed.leave ? 'Could not load leave' : 'Loading leave'}</span>
             </button>
-            <button type="button" className="soft-band-stat" data-tint="peach" data-attention={waiting > 0 || undefined} onClick={go('approvals')}>
-              <span className="soft-band-stat-label"><SealCheck size={16} aria-hidden="true" /> To approve</span>
-              <span className="soft-band-stat-value" data-zero={((todos || leave) && waiting === 0 && !waitFailed) || undefined}>{(todos || leave) && waiting !== null ? waiting : '–'}</span>
-              <span className="soft-band-stat-note">{pending.length ? `${plural(pending.length, 'leave request')}, next starts ${dayDate(pending[0].fromDate)}` : failed.leave ? 'Leave could not load' : waiting === null ? 'Could not load' : !todos && !leave ? 'Checking' : waiting ? 'No leave among them' : 'Nothing to approve'}</span>
+            {/*
+             * No approvals among Home's figures (owner, 8 Nov 2026): the Inbox owns them and Home says it once, in the
+             * line under "Waiting for you". This figure is a decision that is Home's: probation to confirm, extend or end.
+             */}
+            <button type="button" className="soft-band-stat" data-tint="peach" data-attention={probationDue > 0 || undefined} onClick={go('employees', { prob: 'on' })}>
+              <span className="soft-band-stat-label"><Hourglass size={16} aria-hidden="true" /> Probation due</span>
+              <span className="soft-band-stat-value" data-zero={(todos && probationDue === 0) || undefined}>{todos ? probationDue : '–'}</span>
+              <span className="soft-band-stat-note">{failed.todos ? 'Could not load' : !todos ? 'Checking' : probationOver ? `${plural(probationOver, 'person', 'people')} past their date` : nextProbation ? `Next ends ${shortDate(nextProbation.endsOn)}` : 'None in the next 30 days'}</span>
             </button>
             {/* The company keeps who is leaving from this reader (Company choices): no leaving figures. */}
             {data.leavingsHidden ? null : (

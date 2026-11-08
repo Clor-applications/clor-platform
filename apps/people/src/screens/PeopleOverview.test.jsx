@@ -37,13 +37,30 @@ vi.mock('../api/workspace', () => ({ listRecords: vi.fn().mockResolvedValue([]) 
 vi.mock('@ui/timeOff/MyDays', () => ({ HomeCheckIn: () => null }));
 vi.mock('./HomeSetup', () => ({ default: () => null }));
 
-it('counts the whole inbox in the headline and the To approve figure, with leave as the detail', async () => {
+it('counts the whole inbox in the greeting, with leave as the detail on the Inbox line', async () => {
+  render(<PeopleOverview openScreen={vi.fn()} />);
+  expect(await screen.findByText('4 requests')).toBeTruthy();
+  expect(await screen.findByText(/1 leave request among them, next starts/)).toBeTruthy();
+});
+
+/* Owner, 8 Nov 2026: no approvals among Home's figures. The fourth figure is probation to decide, opening the list. */
+it('has no To approve figure; Probation due counts probation to decide and opens it', async () => {
+  const api = await import('@ui/personnel/api');
+  api.getPeopleHome.mockResolvedValueOnce({
+    todos: [{ key: 'probation', title: 'Probation to decide', count: 3, tone: 'urgent', screen: 'employees', params: { prob: 'on' } }],
+    waiting: 0,
+    probation: [{ id: 'p1', name: 'Bina', code: 'G2', endsOn: '2026-11-04', over: true }, { id: 'p2', name: 'Asha', code: 'G1', endsOn: '2026-11-20', over: false }],
+    week: null,
+    monthClose: null,
+  });
   const openScreen = vi.fn();
   render(<PeopleOverview openScreen={openScreen} />);
-  expect(await screen.findByText('4 requests')).toBeTruthy();
-  expect(await screen.findByText(/1 leave request, next starts/)).toBeTruthy();
-  fireEvent.click(screen.getByText('To approve').closest('button'));
-  expect(openScreen).toHaveBeenCalledWith('approvals', undefined);
+  const figure = (await screen.findByText('Probation due')).closest('button');
+  expect(screen.queryByText('To approve')).toBeNull();
+  expect(figure.textContent).toMatch(/3/);
+  expect(figure.textContent).toMatch(/1 person past their date/);
+  fireEvent.click(figure);
+  expect(openScreen).toHaveBeenCalledWith('employees', { prob: 'on' });
 });
 
 /* Company choices, "leavings: no" (SPEC 3.5): a reader the leavings are kept from gets no On notice figure. */
@@ -54,7 +71,7 @@ it('shows On notice by default, and leaves it out when the company keeps leaving
   unmount();
   api.getOverview.mockResolvedValueOnce({ headcount: 10, byDepartment: [], byStatus: { ACTIVE: 10 }, joinedThisMonth: [], leftThisMonth: null, leavingsHidden: true });
   render(<PeopleOverview openScreen={vi.fn()} />);
-  expect(await screen.findByText('To approve')).toBeTruthy();
+  expect(await screen.findByText('Probation due')).toBeTruthy();
   expect(screen.queryByText('On notice')).toBeNull();
 });
 
@@ -67,7 +84,7 @@ it('offers only the actions this reader may use', async () => {
     </PermissionContext.Provider>
   );
   const { unmount } = render(as(['PEOPLE::Employees::VIEW', 'ATTENDANCE::Leave Requests::VIEW']));
-  expect(await screen.findByText('To approve')).toBeTruthy();
+  expect(await screen.findByText('Probation due')).toBeTruthy();
   expect(screen.getByRole('button', { name: /Leave requests/ })).toBeTruthy();
   for (const name of [/Announce/, /Post one/, /HR cases/, /Add an employee/, /All events/]) expect(screen.queryByRole('button', { name })).toBeNull();
   unmount();
@@ -112,9 +129,6 @@ it('says a failed leave or news list failed instead of drawing it empty; a refus
   expect(await screen.findByText(/Could not load who is out today/)).toBeTruthy();
   expect(screen.queryByText('Everyone is in today.')).toBeNull();
   expect(screen.getByText('Could not load leave')).toBeTruthy();
-  /* To approve: a leave failure is said as one, never "No leave among them". */
-  expect(screen.getByText('Leave could not load')).toBeTruthy();
-  expect(screen.queryByText('No leave among them')).toBeNull();
   /* Side cards are polite (status); only "Waiting for you" alerts. */
   expect(screen.getByText(/Could not load announcements/).closest('[role]').getAttribute('role')).toBe('status');
   expect(screen.getByText(/Could not load the leave waiting for you/).closest('[role]').getAttribute('role')).toBe('alert');
@@ -178,7 +192,7 @@ it('says it is checking, not "Nothing waits", while the inbox and leave are load
   expect(screen.queryByText(/Nothing waits for your answer/)).toBeNull();
 });
 
-/* People plan, 8 Nov 2026: Home's To approve is the inbox's own number (help desk included), not a sum of to-do lines. */
+/* People plan, 8 Nov 2026: Home's waiting number is the inbox's own (help desk included), not a sum of to-do lines. */
 it('shows the waiting number the server counts for the inbox, the one the rail badge shows', async () => {
   const api = await import('@ui/personnel/api');
   api.getPeopleHome.mockResolvedValueOnce({ todos: [{ key: 'leave', title: 'Leave waiting', count: 1, screen: 'approvals' }], waiting: 3, probation: null, week: null, monthClose: null });
