@@ -22,6 +22,27 @@ try {
 }
 
 /*
+ * A new release while this tab was open.
+ *
+ * Every deploy renames the code files, and the old ones are gone from the
+ * server. A tab opened before the deploy still asks for an old name when it
+ * opens a screen it has not loaded yet, and fails with "error loading
+ * dynamically imported module". Reloading fetches the new release. Once a
+ * minute at most, so a file that is truly missing cannot loop the page.
+ */
+window.addEventListener('vite:preloadError', (event) => {
+  try {
+    const last = Number(sessionStorage.getItem('clor:staleReloadAt')) || 0;
+    if (Date.now() - last < 60_000) return;
+    sessionStorage.setItem('clor:staleReloadAt', String(Date.now()));
+  } catch {
+    /* storage unavailable: reload anyway, the browser keeps its own guard */
+  }
+  event.preventDefault();
+  window.location.reload();
+});
+
+/*
  * A customer following an invoice link (`/?share=<token>`, A-32).
  *
  * They have no account here and never will, so the page is the invoice and
