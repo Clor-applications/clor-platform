@@ -37,7 +37,8 @@ import { finalPayList } from '../api/engagement';
 import HomeSetup from './HomeSetup';
 
 const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'neutral' }, info: { label: 'When you can', pill: 'neutral' } };
-const DEPT_COLOURS = 8;
+/** A chart carries three colours at most; every other team is one grey "Other" (UI rules, 8 Nov 2026). */
+const CHART_COLOURS = 3;
 /*
  * News and events coloured by what they are, never by their place in the list (review of #123): a post for a group
  * is clay, one for everyone violet; a Fun Friday clay, any other event violet. Marigold stays with "Waiting for you".
@@ -345,8 +346,14 @@ export default function PeopleOverview({ openScreen }) {
 
   const depts = useMemo(() => [...(data?.byDepartment || [])].sort((a, b) => b.count - a.count), [data]);
   const colourOf = useMemo(() => {
-    const m = new Map(depts.map((d, i) => [d.name, (i % DEPT_COLOURS) + 1]));
+    const m = new Map(depts.slice(0, CHART_COLOURS).map((d, i) => [d.name, i + 1]));
     return (name) => m.get(name) || 0;
+  }, [depts]);
+  /* The team bar and its keys: the three biggest teams, then the rest as one grey "Other". */
+  const teamBar = useMemo(() => {
+    const rest = depts.slice(CHART_COLOURS);
+    const head = depts.slice(0, CHART_COLOURS).map((d, i) => ({ name: d.name, count: d.count, colour: i + 1 }));
+    return rest.length ? [...head, { name: rest.length === 1 ? rest[0].name : 'Other', count: rest.reduce((n, d) => n + d.count, 0), colour: 0 }] : head;
   }, [depts]);
   const growth = useMemo(() => growthOf(people || []), [people]);
   const celebrations = useMemo(() => {
@@ -557,13 +564,12 @@ export default function PeopleOverview({ openScreen }) {
                   </div>
                   {failed.people ? <CardFailed what="the company figures" onRetry={loadPeople} /> : <GrowthChart points={growth} />}
                   <div className="soft-team-bar" role="img" aria-label={depts.map((d) => `${d.name} ${d.count}`).join(', ')}>
-                    {depts.map((d) => <span key={d.name} title={`${d.name}: ${d.count}`} style={{ flexGrow: d.count, '--dept': `var(--dept-${colourOf(d.name)})` }} />)}
+                    {teamBar.map((d) => <span key={d.name} title={`${d.name}: ${d.count}`} style={{ flexGrow: d.count, '--dept': `var(--dept-${d.colour})` }} />)}
                   </div>
                   <ul className="soft-team-keys">
-                    {depts.slice(0, 6).map((d) => (
-                      <li key={d.name} style={{ '--dept': `var(--dept-${colourOf(d.name)})` }}><span className="people-dot" aria-hidden="true" />{d.name} <b>{d.count}</b></li>
+                    {teamBar.map((d) => (
+                      <li key={d.name} style={{ '--dept': `var(--dept-${d.colour})` }}><span className="people-dot" aria-hidden="true" />{d.name} <b>{d.count}</b></li>
                     ))}
-                    {depts.length > 6 ? <li className="ui-caption">+{depts.length - 6} more</li> : null}
                   </ul>
                 </div>
                 {failed.people ? null : (
@@ -571,11 +577,11 @@ export default function PeopleOverview({ openScreen }) {
                   <div className="soft-insight">
                     <span className="soft-label">Gender mix</span>
                     <div className="soft-split" role="img" aria-label={insight.gender.map(([k, v]) => `${k} ${v}`).join(', ') || 'Gender mix: none recorded yet'}>
-                      {insight.gender.map(([k, v], i) => <span key={k} style={{ flexGrow: v, '--dept': `var(--dept-${[1, 2, 3][i] ?? 8})` }} />)}
+                      {insight.gender.map(([k, v], i) => <span key={k} style={{ flexGrow: v, '--dept': `var(--dept-${[1, 2, 3][i] ?? 0})` }} />)}
                     </div>
                     <ul className="soft-insight-list soft-insight-inline">
                       {insight.gender.map(([k, v], i) => (
-                        <li key={k} style={{ '--dept': `var(--dept-${[1, 2, 3][i] ?? 8})` }}><span className="people-dot" aria-hidden="true" />{k}<b>{Math.round((v / insight.n) * 100)}%</b></li>
+                        <li key={k} style={{ '--dept': `var(--dept-${[1, 2, 3][i] ?? 0})` }}><span className="people-dot" aria-hidden="true" />{k}<b>{Math.round((v / insight.n) * 100)}%</b></li>
                       ))}
                     </ul>
                   </div>

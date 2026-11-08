@@ -35,8 +35,9 @@ component, read this one.
   redefinition, so a literal colour is a light-mode-only colour.
 - **Set every amount in tabular figures** and align it by what it is, not by
   being a number — see *Value alignment*.
-- **Use the shared control height**: 36px, or 28px where a table cell genuinely
-  cannot hold 36.
+- **Use the shared control height**: 40px in People and Attendance (44px on a
+  phone), 36px in Accounting and Payroll, or 28px where a table cell genuinely
+  cannot hold the full height (UI rules, 8 Nov 2026).
 - **Give a status both colour and text.** Colour alone is not a state.
 - **Let one screen have one primary action**, top right.
 - **Name menus in sentence case, and make each page title equal its menu label.** (People rail, 2026-10-28: Home · People · Organisation · Time · Talent · Workplace · Reports · Settings; one Approvals inbox; *My leave* and *My attendance* open from My profile.) A test enforces the case in People.
@@ -121,6 +122,7 @@ All visible headings use weight 700–800. Nothing below 12px, labels included. 
   - **The right-hand panel is plain:** blocks parted by space, not rules, and a block with nothing in it is not drawn (no lone heading); quick links a single list of words, not a grid of boxes, each mark tinted by where it goes (`tint` on each link: teal people and structure, green time and leave, clay rules and policy, violet records and documents, marigold only Approvals).
   - **Marigold is the one warm "look here":** the bell's count and a dot on each unread line; the count on a tab whose rows wait on you; a 3px bar along the top of a figure that waits on you and is above nought; Waiting and To do pills (solid marigold, oxblood words); warning marks. Drawn as a line on white it is deep marigold `#C98200` (`--btn-icon-on-white`, 3.2:1), never running text; marigold's text form is `#7A4F00`. A look-here line (a clash, a gap in the data) is marigold-soft `#FEF1D6` with a 3px marigold edge — not red.
   - **Away `#A86E7C`** (`--away`) marks on leave and out today, a mark only (4.1:1 on white).
+  - **A chart carries three colours at most** (UI rules, 8 Nov 2026): the three biggest series take `--dept-1..3`, everything else is one grey "Other" (`--dept-0`). People Home's team bar and its keys do this; the gender split draws its fourth answer grey.
   - **Charts and categories** use one series: oxblood, marigold, away, deep marigold, red, `#5B4F53`, `#968A8C`, `#74686C` (`--dept-1..8`; `--dept-0`, no team, grey). Initials on a face take one of four tint washes (teal, green, violet, clay), picked from the name so a person is always the same colour (`data-hue`, 0–3), the record's header included; never marigold. Home's small faces beside a leave or a birthday take their team's chart-series wash (`--dept-*`, 16%), so they match the snapshot's team bars. A department or branch tile, card or chart node takes one tint from its name (`tintOf`, `apps/people/src/organization/tints.js`, four families, never marigold), the same on the Organisation overview, the org chart and the structure pages. Leave types draw from the same family (`--leave-0..7`), never red, as a leave is not an error.
   - **Zero is quiet:** a figure at nought is subtle grey at weight 600.
   - **Shapes and order (unchanged):** buttons, fields, search and tabs 8px; cards, trays and figure tiles 12px; 999px only for status pills, faces and dots. Page titles 28px (Bricolage 800); Home's greeting 34px, 28px on a phone. Rail labels and panel group names 12px. The module panel is 216px wide (owner, 3 Nov 2026: "reduce width of the second sidebar bit"; was 224px, then 200px cut "Attendance requests"). Home has one primary action (Add an employee).
@@ -155,7 +157,8 @@ reading an older version of this file.
 
 | Context | Row | Control |
 | --- | --- | --- |
-| List / data table (`.ui-table`) | **55px** (9px cell padding); People: **46–49px** a name over an email (6px, 2026-10-28) | 36px |
+| List / data table (`.ui-table`), People and Attendance | **48px** with its hairline (5.5px cell padding, a name over an email fits; 8 Nov 2026) | 40px; 44px on a phone |
+| List / data table (`.ui-table`), Accounting and Payroll | **55px** (9px cell padding) | 36px |
 | Dense line grid (`.ui-grid-dense`) | **40px** (1px cell padding) | **34px** |
 
 Header rows: 37px on a list, 29px on a dense grid. The control tiers those
@@ -233,7 +236,8 @@ Fixed points across the whole band:
 
 - Content caps at **1920px** and centres beyond it. It does not keep growing.
 - Page padding is **24px**, dropping to 16px below `sm`.
-- Control heights never change with viewport — 36px is 36px at every width.
+- Control heights change once: People and Attendance controls are 40px, and 44px
+  under 768px where a thumb hits them. Accounting and Payroll stay 36px at every width.
 - **A table that scrolls inside its container is not a defect. A page that
   scrolls sideways is.** Those are the two different results, and only the
   second one is a bug.
@@ -245,12 +249,14 @@ Fixed points across the whole band:
 
 | Tier | Height | Where |
 | --- | --- | --- |
-| Baseline | **36px** | Every input, select and button in app chrome |
+| Baseline, People and Attendance | **40px**; **44px** under 768px | Every button, input, select, search field, icon button and filter chip (`.ui-choice-chip`) in the work area and in dialogs (UI rules, 8 Nov 2026; `people.css`, end of file) |
+| Baseline, Accounting and Payroll | **36px** | Every input, select and button in app chrome |
 | Compact | **28px** | `.ui-ctl-compact`, `.ui-btn-sm` — column filters and in-table editors, where 36 will not fit |
 | Dense grid | **34px** | `.ui-grid-dense .ui-input` / `.ui-select` — the line grid only |
 
-The baseline is **36, not 40**. A generic spec will tell you 40; this product
-was measured before that was adopted and 36 is what every screen already uses.
+Accounting's baseline is **36**: it was measured before the 8 Nov rules and is
+left as it is until its own pass. People and Attendance moved to 40 with the
+owner's UI rules; compact (28px) and the dense grid (34px) keep their sizes there.
 An override that merely restates the baseline (`!h-9`) is noise and
 `src/test/control-geometry.test.js` fails on it.
 
@@ -276,7 +282,10 @@ That is not a scale, it is two people's defaults.
 | **XS** | 12px | very compact metadata, tiny supporting marks — only where 12 stays legible |
 | **SM** | 14px | compact table actions, compact buttons, dense inline marks |
 | **MD** | **16px** | **the default.** Buttons, form and entity icons, toolbar controls, menu items, ordinary inline icons |
-| **LG** | 18px | page-heading icons, prominent navigation and context icons |
+| **LG** | 18px | page-heading icons, prominent navigation and context icons; **every rail and menu icon in People and Attendance** (8 Nov 2026) |
+
+In People and Attendance (UI rules, 8 Nov 2026): rail and menu icons are 18px,
+and icons inside buttons and table cells are 16px, compact buttons included.
 
 Reach for MD unless the context is genuinely compact or genuinely a heading.
 
@@ -452,7 +461,7 @@ There is no sixth. **Icon-only is a size of ghost, not a type**
 (`.ui-icon-btn`): it always has an accessible name (`aria-label`), and a 44px
 tap area on phones even when the glyph is smaller.
 
-Sizes: **36px** baseline, **28px** compact (`.ui-btn-sm`, in tables and
+Sizes: **40px** baseline in People and Attendance (36px in Accounting and Payroll), **28px** compact (`.ui-btn-sm`, in tables and
 toolbars where 36 will not fit), and **44px on phones** as the target for
 every button a thumb has to hit. Where it is enforced today: in People (sky
 palette, under 768px) every `.ui-btn`, `.ui-btn-sm` and page button in the work
@@ -629,6 +638,7 @@ because focus, portals and event order cannot be read off the source.
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-11-08 | UI rules: 48px rows, 40/44px controls, 18/16px icons, 3 chart colours, white page kept | Owner took the recommendation on the UI-rules paste. People and Attendance only: table rows 48px (was 46–49 in People, 55 in Attendance); buttons, fields, search, icon buttons and filter chips 40px, 44px under 768px (was 36); rail and menu icons 18px, button and table icons 16px; a chart three colours, the rest one grey "Other". The page stays a clean white ground with no card round a list (the paste's grey page with white cards was declined). Accounting, Payroll and printed documents unchanged |
 | 2026-11-08 | Marks that read as machine-made are dropped | Owner approved decision 6 of the 8 Nov People plan. The checker (SlopCop, 14 patterns) and GPTZero scored CLOR's surfaces as machine-made. Out: the cream sign-in board with the underlined accent word *daily.* and the *ticked off before tea* line (now a white page with one plain sentence), the halftone, Attendance's *Good morning* with its animated sun (now the date), small wide-tracked capitals on column heads, eyebrows and section labels outside Accounting (now 12px sentence case), the marigold bar along the top of a waiting figure card (now the number in the waiting ink), and JetBrains Mono for numbers (now Plus Jakarta Sans with tabular figures, one face). Accounting and printed documents are unchanged |
 | 2026-11-04 | People: marigold off faces, news, events and org colours | Re-review of #123: Home's Waiting for you panel was clay while Announcements and Celebrate were marigold; news and event marks cycled by index (the newest post always marigold); org cards, the org chart and the structure page each picked a department's colour their own way, so Sales was teal, marigold and green on three screens; one face in five was marigold and the record's face a marigold disc. Now Waiting for you is the marigold panel; news, events, Fun Friday and the birthday badge take violet or clay by kind; one `tintOf(name)` over four families colours a department or branch everywhere; faces hash over four washes and the record's face keeps its own. A test scans People's JSX for tints picked by index |
 | 2026-11-04 | People: tints by meaning, not by position; accent teal is not lagoon | Code review of #123: figure cards, list strips and quick links took their tint from their place (`nth-child`), so marigold, kept for "look here", landed on Yearly rise and Leavers while To decide was teal, and a figure changed colour when the one beside it was hidden. Each caller now names its tint (`data-tint` / a `tint` field: teal people and structure, green done, present and joining, clay leaving, gaps and rules, violet notice, records and what is coming, marigold only what waits on you), and no People rule picks a colour by position. Department and branch cards cycle four tints, leaving marigold out. Accent teal `#0F6860` is one of those tint families for small marks; it is not the retired lagoon teal `#0E7C7B`, which was People's action and brand colour and stays retired. Faces, which take one of five washes from the name, are written down as the code does it |
