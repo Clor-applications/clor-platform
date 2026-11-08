@@ -81,6 +81,8 @@ async function setUp(c: Ctx, opts: { statutory?: Array<'PF' | 'ESI' | 'TDS' | 'P
     payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW', pfApplicable: true, esiApplicable: true, ptApplicable: true, professionalTaxState: opts.state || 'Karnataka', ...(opts.bank === false ? {} : { bankAccountName: 'Meera Shetty', bankAccountNumber: '123456789012', bankIfsc: 'HDFC0001234', bankName: 'HDFC Bank' }) },
   }).expect(201);
   await api.post(c, '/assignments', { employeeId: person.body.employee.id, structureId: structure.body.structure.id, effectiveFrom: '2026-01-01', annualCtc: 600_000 }).expect(201);
+  // Joined in January with no earlier payslip here: income tax needs April's opening figures (#147) unless this is the first year.
+  await api.put(c, '/opening-ytd-first-year?fy=2026-27', { firstYear: true, reason: 'First year of paying salaries' }).expect(200);
   return { periodId: period.body.period.id as string, employeeId: person.body.employee.id as string, structureId: structure.body.structure.id as string };
 }
 

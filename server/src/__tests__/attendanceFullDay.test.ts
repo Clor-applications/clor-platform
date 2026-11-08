@@ -184,6 +184,13 @@ const rnd = () => Math.random().toString(36).slice(2, 8);
 type Ctx = { token: string; orgId: string; branchId: string; accountId: string; userId: string };
 const at = (c: Ctx) => ({ Authorization: `Bearer ${c.token}`, 'x-org-id': c.orgId, 'x-branch-id': c.branchId });
 const att = (c: Ctx, m: 'get' | 'post' | 'put', p: string, b?: unknown) => (request(app) as any)[m](`/api/orgs/${c.orgId}/attendance${p}`).set(at(c)).send(b as any);
+/** Close a month the way the screen does: look at the checklist, then confirm what it showed, days with no record included. */
+const close = async (c: Ctx, month: string) => {
+  const look = await att(c, 'post', `/months/${month}/close`, {});
+  if (look.status !== 409 || look.body.code !== 'MONTH_NOT_READY') return look;
+  const r = look.body.readiness;
+  return att(c, 'post', `/months/${month}/close`, { acknowledge: true, confirmNoRecordDays: r.noRecordDays, confirmNoRecordToken: r.noRecordToken });
+};
 async function company(): Promise<Ctx> {
   const email = `fd.${Date.now()}.${rnd()}@example.com`;
   const signup = await request(app).post('/api/auth/signup').send({ email, password: 'Passw0rd!23', name: 'Owner' }).expect(200);
@@ -363,7 +370,7 @@ describe('days written under the old rule', () => {
 
     /* Another old day, never seen by the daily run, in the month about to close: corrected before the lock and the snapshot. */
     const late = await legacyDay(c, p.id, wednesdayOf(month, 3));
-    const closed = await att(c, 'post', `/months/${month}/close`, { acknowledge: true });
+    const closed = await close(c, month);
     expect(closed.status, JSON.stringify(closed.body)).toBe(200);
     expect(await statusOf(c, late.id)).toBe('PRESENT');
   });
@@ -618,13 +625,13 @@ describe('days written under the old rule', () => {
     expect(await inTenant(c, () => peoplePrisma.attendanceMonthLock.count({ where: { orgId: c.orgId, month } }))).toBe(0);
     expect(await statusOf(c, d.id)).toBe('HALF_DAY');
     /* Next time the fix runs, corrects it, and the month closes. */
-    await att(c, 'post', `/months/${month}/close`, { acknowledge: true }).expect(200);
+    expect((await close(c, month)).status).toBe(200);
     expect(await statusOf(c, d.id)).toBe('PRESENT');
 
     /* With nothing left to correct, a failing fix is no bar at all. */
     const other = await company();
     fullDayFixTesting.failNext = true;
-    await att(other, 'post', `/months/${month}/close`, { acknowledge: true }).expect(200);
+    expect((await close(other, month)).status).toBe(200);
     expect(fullDayFixTesting.failNext).toBe(false);
   });
 

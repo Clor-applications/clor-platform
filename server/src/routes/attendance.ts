@@ -1345,6 +1345,7 @@ attendanceRouter.get('/orgs/:orgId/attendance/summary', can(PermissionAction.VIE
  * the payable days Payroll takes cannot move afterwards. Approve permission,
  * as validating days is; only a month that has ended can be closed.
  */
+const fullDaysPendingError = (n: number) => `${n} day${n === 1 ? ' was' : 's were'} scored a half day or absent under the old full-day rule and ${n === 1 ? 'has' : 'have'} not been corrected yet. Try closing again in a minute; if it keeps happening, tell support.`;
 attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(PermissionAction.APPROVE, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -1360,6 +1361,10 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
   await fixFullDaysQuietly({ accountId, orgId });
   /* Days a reopen did not get to (marked dayPending) are worked out before the month is judged; nothing in a closed month. */
   await peopleWrite(orgId, () => workOutPendingDays(orgId, month));
+  /* A day the fix could not correct is said before the checklist: the counts the closer would confirm are about to change. */
+  const { fullDaysToCorrect } = await import('../services/attendance/fullDayFix.js');
+  const leftBefore = await fullDaysToCorrect({ accountId, orgId }, month);
+  if (leftBefore.length) return res.status(409).json({ error: fullDaysPendingError(leftBefore.length), code: 'FULL_DAYS_PENDING' });
   const readiness = await monthReadiness(accountId, orgId, month);
   const open = readiness.checks.filter((c) => c.count > 0);
   if (open.length && req.body?.acknowledge !== true) {
@@ -1394,9 +1399,8 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
   try {
     result = await peopleWrite(orgId, async () => {
       /* Under the lock, only a look: a day the fix above should have corrected (it failed, or the day is new) stops the close, never a write here. */
-      const { fullDaysToCorrect } = await import('../services/attendance/fullDayFix.js');
       const left = await fullDaysToCorrect({ accountId, orgId }, month);
-      if (left.length) throw fail(409, `${left.length} day${left.length === 1 ? ' was' : 's were'} scored a half day or absent under the old full-day rule and ${left.length === 1 ? 'has' : 'have'} not been corrected yet. Try closing again in a minute; if it keeps happening, tell support.`, 'FULL_DAYS_PENDING');
+      if (left.length) throw fail(409, fullDaysPendingError(left.length), 'FULL_DAYS_PENDING');
       const latest = await monthReadiness(accountId, orgId, month);
       if (latest.checks.some((c) => c.count > 0) && req.body?.acknowledge !== true) throw fail(409, 'The register changed. Review the month-close checklist again.', 'MONTH_NOT_READY');
       if (heldOf(latest)) throw fail(409, 'A reader punch was held for this month since. Review the month-close checklist again.', 'HELD_PUNCHES');
