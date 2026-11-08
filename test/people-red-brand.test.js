@@ -83,12 +83,12 @@ describe('the frame and its blocks: every word reads', () => {
     expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(255 255 255\); color: rgb\(var\(--brand-ink\)\);[^}]*inset 3px 0 0 rgb\(var\(--brand\)\)/);
   });
 
-  it('marigold on the rail is a fill or a mark: the open module and the waiting tile, oxblood words on it', () => {
+  it('marigold on the rail is a fill or a mark: the open module and the probation-due tile, oxblood words on it', () => {
     expect(contrast(MARIGOLD, frame)).toBeGreaterThan(6);
     expect(contrast(OXBLOOD, MARIGOLD)).toBeGreaterThan(4.5);
     expect(block).toMatch(/\.ui-split-rail \.ui-split-mod\[data-current\] \.ui-glyph \[opacity='0\.2'\] \{ fill: rgb\(var\(--marigold\)\); \}/);
     expect(block).toMatch(/\.soft-band-stat\[data-attention\] \{ background: rgb\(var\(--marigold\)\); \}/);
-    expect(read('apps/people/src/screens/PeopleOverview.jsx')).toContain('data-attention={waiting > 0 || undefined}');
+    expect(read('apps/people/src/screens/PeopleOverview.jsx')).toContain('data-attention={probationDue > 0 || undefined}');
   });
 
   it('the work area keeps readable support text and a firmer row line', () => {
