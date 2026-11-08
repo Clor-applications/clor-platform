@@ -757,11 +757,13 @@ portalRouter.get('/schedule', async (req, res) => {
 portalRouter.get('/leave', async (req, res) => {
   const { accountId, orgId, employeeId } = req.portal!;
   const y = Number(req.query.year);
-  const year = Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : await leaveYearOf(orgId);
+  const thisYear = await leaveYearOf(orgId);
+  const year = Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : thisYear;
   const { types, balances, period } = await balancesFor(accountId, orgId, [employeeId], year);
   const mine = balances.get(employeeId)!;
+  /* This leave year also lists what is asked for beyond it (a January trip asked for in November), so it can still be changed or withdrawn. */
   const requests = await peoplePrisma.leaveRequest.findMany({
-    where: { accountId, orgId, employeeId, fromDate: { gte: periodStart(period, year), lte: periodEnd(period, year) } },
+    where: { accountId, orgId, employeeId, fromDate: year === thisYear ? { gte: periodStart(period, year) } : { gte: periodStart(period, year), lte: periodEnd(period, year) } },
     orderBy: [{ fromDate: 'desc' }, { createdAt: 'desc' }],
   });
   res.json({

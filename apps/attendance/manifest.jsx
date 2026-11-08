@@ -325,7 +325,7 @@ export const attendanceApp = {
     { key: 'records', label: 'Attendance records', short: 'Records', icon: ListChecks, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'exceptions', label: 'Exceptions', icon: ShieldAlert, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     /* Missed punch, work from home, on duty, permission hours: one list, one approval (was Corrections). */
-    { key: 'requests', label: 'Attendance requests', short: 'Requests', icon: Inbox, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
+    { key: 'requests', label: 'Attendance fixes', keywords: ['attendance requests', 'missed punch', 'regularise'], short: 'Fixes', icon: Inbox, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
     { key: 'scheduleCalendar', label: 'Schedule calendar', icon: CalendarRange, permission: 'ATTENDANCE::Shifts::VIEW' },
     { key: 'shifts', label: 'Shifts', icon: Clock3, permission: 'ATTENDANCE::Shifts::VIEW' },
     { key: 'shiftAssignments', label: 'Shift assignments', icon: Users, permission: 'ATTENDANCE::Shifts::VIEW' },

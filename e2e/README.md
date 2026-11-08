@@ -69,7 +69,7 @@ import { expect, test } from '../support/fixtures';
 test('M2: reject with a reason', { tag: ['@M2', '@smoke'] }, async ({ asManager: rahul, app, w }) => {
   await appLeave(w, 'lakshmi', from, to, 'Trip to Hampi');   // setup through the API is fine
   await rahul.goto();
-  await rahul.open('Approvals');                              // by the menu label
+  await rahul.open('Inbox');                              // by the menu label
   …
   const lakshmi = await app('lakshmi');
   await lakshmi.goto('Leave');

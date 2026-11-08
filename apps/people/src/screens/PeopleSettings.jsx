@@ -2,7 +2,7 @@ import React from 'react';
 
 import SettingsHub from '@ui/settings/SettingsHub';
 
-/* People → Settings: the company, its people's classifications, time off, access, integrations and data. */
+/* People → Settings in eight groups of plain rows (People plan, 8 Nov 2026): company, people, joining and leaving, requests, time, access, apps, data. */
 const GROUPS = [
   {
     title: 'Company',
@@ -15,20 +15,32 @@ const GROUPS = [
   },
   {
     title: 'People',
-    note: 'How people are classified, and what happens when they join or leave.',
+    note: 'How people are classified and what is kept about them.',
     items: [
       ['employeeTypes', 'Permanent, fixed-term, trainee, intern, consultant: what each counts as, probation and notice'],
       ['workTypes', 'Office, remote, hybrid, field'],
       ['tags', 'Labels to group people any way you like'],
       ['customFields', 'Your own fields on every person: who sees them, who edits them'],
+    ],
+  },
+  {
+    title: 'Joining & leaving',
+    note: 'What happens when someone joins or leaves, and the letters and reminders that go with it.',
+    items: [
       ['journeySteps', 'The steps when someone joins or leaves: whose, when, for whom, and which need a note'],
       ['exitQuestions', 'The questions a leaver answers in the employee app, and how long answers are kept'],
-      ['automations', 'Reminders CLOR sends on its own: probation ending, final pay due, birthdays, leave waiting'],
       ['letterTemplates', 'Offer, appointment, relieving and other letters the company issues'],
-      ['helpDeskSettings', 'Help desk categories, reply and resolve times, and answer templates'],
+      ['automations', 'Reminders CLOR sends on its own: probation ending, final pay due, birthdays, leave waiting'],
+    ],
+  },
+  {
+    title: 'Requests & approvals',
+    note: 'What people may ask for, who decides, and what they may change themselves.',
+    items: [
       ['approvalRules', 'Who decides job changes, resignations, probation, policies: steps, due days, overdue'],
       ['companyChoices', 'Who decides attendance requests, withdrawn notices, who sees salary revisions and why someone leaves'],
       ['requestForms', 'Requests people can make, such as an ID card or a salary certificate: the form, who may ask, who approves'],
+      ['helpDeskSettings', 'Help desk categories, reply and resolve times, and answer templates'],
       ['selfService', 'Who can sign in to the employee app'],
       ['selfServiceChanges', 'Which of their own details employees may change without waiting for HR'],
     ],
@@ -55,14 +67,9 @@ const GROUPS = [
     ],
   },
   {
-    title: 'Integrations',
-    note: 'Connect CLOR to your other systems.',
+    title: 'Apps & integrations',
+    note: 'The other CLOR apps that work from these people, and your other systems.',
     items: [['integrations', 'Webhooks, API keys and HR tool sync']],
-  },
-  {
-    title: 'Connected apps',
-    note: 'The other CLOR apps that work from these people.',
-    items: [],
     apps: [
       ['payroll', 'Payroll', 'Salaries, statutory deductions and payslips for these people'],
       ['attendance', 'Attendance', 'Readers, shifts and days for these people'],

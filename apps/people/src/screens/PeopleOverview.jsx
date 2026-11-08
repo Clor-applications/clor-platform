@@ -6,7 +6,6 @@ import {
   CaretRight,
   Cake,
   ChatsCircle,
-  Check,
   HandWaving,
   ChartLineUp,
   CheckSquare,
@@ -16,6 +15,7 @@ import {
   IconContext,
   Medal,
   Megaphone,
+  Hourglass,
   SealCheck,
   SignOut,
   UsersThree,
@@ -24,11 +24,13 @@ import {
 
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { getOverview, getPeopleHome, listEmployees, listMyTasks, summaryOpened, updateChecklistTask } from '@ui/personnel/api';
-import { approveLeave, listLeaveRequests } from '@ui/timeOff/api';
+import { listLeaveRequests } from '@ui/timeOff/api';
 import { listRecords } from '../api/workspace';
 import { symbolOf } from './symbols';
 import { notify } from '@ui/components/ui/notify';
-import { formatDateIn, todayIst } from '@ui/utils/dates';
+import { todayIst } from '@ui/utils/dates';
+import { formatDate } from '@ui/components/ui/DatePicker';
+import { requestOpenApp } from '@platform/context';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { can } from '../workforce/shared';
 import { HomeCheckIn } from '@ui/timeOff/MyDays';
@@ -47,13 +49,16 @@ const newsTint = (n) => (n.details?.audienceKind && n.details.audienceKind !== '
 const eventTint = (e) => (/fun friday/i.test(e.title || '') ? 'peach' : 'lilac');
 /* The business day is India's, whatever the browser's clock zone: who is out today, and today's headcount. */
 const isoToday = todayIst;
-const shortDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-const dayDate = (d) => new Date(d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+/* A stored day (YYYY-MM-DD) read on its own calendar, never shifted by the browser's clock zone. */
+const isDay = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+const words = (d, opts) => (isDay(d) ? new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { ...opts, timeZone: 'UTC' }) : new Date(d).toLocaleDateString('en-IN', opts));
+const shortDate = (d) => words(d, { day: 'numeric', month: 'short' });
+const dayDate = (d) => words(d, { weekday: 'short', day: 'numeric', month: 'short' });
+const monthWords = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const monthName = () => new Date().toLocaleDateString('en-IN', { month: 'long' });
 const initials = (name = '') => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase();
 const whenLabel = (days, date) => (days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : shortDate(date));
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-const range = (from, to) => (from === to ? dayDate(from) : `${shortDate(from)} to ${shortDate(to)}`);
 /* The working day after a leave ends: the next day, or Monday after a Friday. */
 const backOn = (to) => {
   const d = new Date(`${to}T00:00:00`);
@@ -236,6 +241,89 @@ function useReveal() {
   return root;
 }
 
+/*
+ * Three short lists under "Waiting for you" (People plan, 8 Nov 2026): probation ending, this week, and last
+ * month's attendance close. A list on the page ground under one hairline, no card (DESIGN.md); a block with
+ * nothing in it, or one this reader may not see (null from the server), is left out.
+ */
+export function HomeGlance({ glance, go }) {
+  if (!glance) return null;
+  const { probation, week, monthClose } = glance;
+  const weekRows = week ? [
+    ...week.joining.map((p) => ({ key: `j-${p.id}`, on: p.on, text: <><b>{p.name}</b> joins</>, open: go('employee', { id: p.id }) })),
+    ...week.leaving.map((p) => ({ key: `l-${p.id}`, on: p.on, text: <><b>{p.name}</b>’s last day</>, open: go('employee', { id: p.id }) })),
+    ...week.holidays.map((h) => ({ key: `h-${h.date}-${h.name}`, on: h.date, text: <><b>{h.name}</b>{h.optional ? ' (optional holiday)' : ' (holiday)'}</>, open: go('holidays') })),
+  ].sort((a, b) => a.on.localeCompare(b.on)) : [];
+  const blocks = [];
+  if (probation?.length) {
+    blocks.push(
+      <section key="probation" className="people-glance-block" aria-labelledby="glance-probation">
+        <header className="people-glance-head">
+          <h2 id="glance-probation" className="people-glance-title">Probation ending</h2>
+          <button type="button" className="people-more" onClick={go('employees', { prob: 'on' })}>All <CaretRight size={14} aria-hidden="true" /></button>
+        </header>
+        <ul className="people-glance-list">
+          {probation.map((p) => (
+            <li key={p.id}>
+              <button type="button" className="people-glance-row" onClick={go('employee', { id: p.id, tab: 'employment', focus: 'probation' })}>
+                <span className="min-w-0 flex-1 truncate"><b>{p.name}</b>{p.code ? <span className="ui-muted"> · {p.code}</span> : null}</span>
+                <span className="people-glance-when tabular-nums" data-tone={p.over ? 'warn' : undefined}>{p.over ? `Ended ${formatDate(p.endsOn)}` : `Ends ${formatDate(p.endsOn)}`}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>,
+    );
+  }
+  if (weekRows.length) {
+    blocks.push(
+      <section key="week" className="people-glance-block" aria-labelledby="glance-week">
+        <header className="people-glance-head">
+          <h2 id="glance-week" className="people-glance-title">This week</h2>
+          <span className="ui-caption tabular-nums">{shortDate(week.from)} to {shortDate(week.to)}</span>
+        </header>
+        <ul className="people-glance-list">
+          {weekRows.map((r) => (
+            <li key={r.key}>
+              <button type="button" className="people-glance-row" onClick={r.open}>
+                <span className="min-w-0 flex-1 truncate">{r.text}</span>
+                <span className="people-glance-when tabular-nums">{dayDate(r.on)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>,
+    );
+  }
+  if (monthClose) {
+    const state = monthClose.closedAt
+      ? { tone: 'pos', text: `Closed on ${shortDate(monthClose.closedAt)}` }
+      : monthClose.blocking
+        ? { tone: 'warn', text: `${plural(monthClose.blocking, 'thing')} to fix before closing` }
+        : monthClose.noRecordDays
+          ? { tone: 'warn', text: `${monthClose.noRecordDays.toLocaleString('en-IN')} ${monthClose.noRecordDays === 1 ? 'day' : 'days'} with no record to confirm` }
+          : { tone: undefined, text: 'Ready to close' };
+    blocks.push(
+      <section key="close" className="people-glance-block" aria-labelledby="glance-close">
+        <header className="people-glance-head">
+          <h2 id="glance-close" className="people-glance-title">Month close</h2>
+        </header>
+        <ul className="people-glance-list">
+          <li>
+            <button type="button" className="people-glance-row" onClick={() => requestOpenApp('attendance', 'monthClose', { month: monthClose.month })}>
+              {/* The month is never cut short; a long state wraps under it instead. */}
+              <span className="people-glance-month"><b>{monthWords(monthClose.month)}</b></span>
+              <span className="people-glance-when people-glance-state" data-tone={state.tone}>{state.text}</span>
+            </button>
+          </li>
+        </ul>
+      </section>,
+    );
+  }
+  if (!blocks.length) return null;
+  return <div className="people-glance" data-reveal style={{ '--i': 2 }}>{blocks}</div>;
+}
+
 /* Work anniversaries in the next 30 days, from each person's joining date. */
 function anniversariesOf(people) {
   const today = new Date();
@@ -269,7 +357,8 @@ function averageTenure(people) {
  */
 export default function PeopleOverview({ openScreen }) {
   const [data, setData] = useState(null);
-  const [todos, setTodos] = useState(null);
+  /* People → Home's own answer: to-dos, the waiting number, probation, this week, last month's close. */
+  const [home, setHome] = useState(null);
   const [tasks, setTasks] = useState(null);
   const [people, setPeople] = useState(null);
   const [leave, setLeave] = useState(null);
@@ -279,7 +368,6 @@ export default function PeopleOverview({ openScreen }) {
   const [finalPay, setFinalPay] = useState([]);
   const [failed, setFailed] = useState({});
   const inFlight = useRef(new Set()).current;
-  const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const revealRoot = useReveal();
   /* Only what this reader may use (QA, 1 Nov 2026: a Team Manager was offered Announce and Add an employee). The server checks again. */
@@ -288,7 +376,7 @@ export default function PeopleOverview({ openScreen }) {
   /* The setup list replaces "All caught up" while it is showing (HomeSetup). */
   const [setupShowing, setSetupShowing] = useState(false);
   const onSetup = useCallback((d) => setSetupShowing(Boolean(d?.setup?.show)), []);
-  const loadTodos = () => loadCard('todos', getPeopleHome, setTodos, setFailed, inFlight);
+  const loadTodos = () => loadCard('todos', getPeopleHome, setHome, setFailed, inFlight);
   const loadTasks = () => loadCard('tasks', listMyTasks, setTasks, setFailed, inFlight);
   const loadLeave = () => loadCard('leave', listLeaveRequests, setLeave, setFailed, inFlight);
   const loadPeople = () => loadCard('people', () => listEmployees({ limit: 500 }).then((r) => (r?.employees || []).filter((p) => p.status !== 'LEFT')), setPeople, setFailed, inFlight);
@@ -310,18 +398,6 @@ export default function PeopleOverview({ openScreen }) {
       notify.error(String(e?.message || 'Not saved.'));
     }
   };
-  const approve = async (r) => {
-    setBusy(r.id);
-    try {
-      await approveLeave(r.id, null);
-      setLeave((list) => (list || []).map((x) => (x.id === r.id ? { ...x, status: 'APPROVED' } : x)));
-      notify.success(`${r.employeeName}'s ${String(r.leaveTypeName || 'leave').toLowerCase()} approved.`);
-    } catch (e) {
-      notify.error(String(e?.message || 'Not approved.'));
-    } finally {
-      setBusy('');
-    }
-  };
 
   useEffect(() => {
     getOverview()
@@ -341,6 +417,9 @@ export default function PeopleOverview({ openScreen }) {
     } catch { /* no address to read */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the first load only; each card reloads itself on Retry
   }, []);
+  /* A refusal (403) arrives as []: no to-dos and nothing else to show. */
+  const todos = home ? (Array.isArray(home) ? home : home.todos) : null;
+  const glance = home && !Array.isArray(home) ? home : null;
   const go = (screen, params) => () => openScreen?.(screen, params);
   const openPerson = (id) => () => openScreen?.('employee', { id });
 
@@ -369,18 +448,21 @@ export default function PeopleOverview({ openScreen }) {
 
   const today = isoToday();
   const pending = (leave || []).filter((r) => r.status === 'PENDING').sort((a, b) => a.fromDate.localeCompare(b.fromDate));
-  /* Everything waiting in the one Approvals inbox (leave, attendance requests, field punches, overtime, People approvals):
-     Home's to-dos that open it carry its counts. Leave stays the detail line. Until they load, leave alone. */
-  const inboxTodos = (todos || []).filter((t) => t.screen === 'approvals');
-  /* Unknown (null) while the inbox count failed: never a confident nought. */
-  const waiting = todos ? inboxTodos.reduce((n, t) => n + (Number(t.count) || 0), 0) : failed.todos ? null : pending.length;
+  /*
+   * Everything waiting in the one Approvals inbox, as the inbox counts it (help desk included): the same number the
+   * rail's Inbox badge and the Inbox's Waiting tab show (People plan, 8 Nov 2026). Leave stays the detail line.
+   * Until it loads, leave alone; unknown (null) while it failed, never a confident nought.
+   */
+  const waiting = glance ? glance.waiting : todos ? 0 : failed.todos ? null : pending.length;
   const waitFailed = Boolean(failed.todos || failed.tasks || failed.leave);
   const outToday = (leave || []).filter((r) => r.status === 'APPROVED' && r.fromDate <= today && r.toDate >= today);
   const onNotice = data.byStatus.ON_NOTICE || 0;
   const tenure = averageTenure(people || []);
   const openTasks = (tasks || []).filter((t) => !t.done);
   /* Leave already listed above with its own Approve: the summary row would say it twice. */
-  const otherTodos = (todos || []).filter((t) => !(pending.length && t.screen === 'leaveRequests'));
+  /* What the Inbox holds is the one line above; the rest of Home's to-dos are tasks, listed here. */
+  /* Probation has its own figure and its own list below, so it is not a third time a task row here. */
+  const otherTodos = (todos || []).filter((t) => t.screen !== 'approvals' && t.screen !== 'leaveRequests' && t.key !== 'probation');
   const deptOf = new Map((people || []).map((p) => [p.id, p.department]));
   const posts = (news || []).filter((n) => n.status === 'PUBLISHED').slice(0, 3);
   const upcoming = (events || [])
@@ -388,6 +470,10 @@ export default function PeopleOverview({ openScreen }) {
     .sort((a, b) => String(a.details?.startDate).localeCompare(String(b.details?.startDate)))
     .slice(0, 4);
   const insight = insightsOf(people || []);
+  /* Probation ending in 30 days or past and undecided: the to-do's count (in this reader's scope), the list for the dates. */
+  const probationDue = Number((todos || []).find((t) => t.key === 'probation')?.count) || 0;
+  const probationOver = (glance?.probation || []).filter((p) => p.over).length;
+  const nextProbation = (glance?.probation || []).find((p) => !p.over) || null;
 
   return (
     <IconContext.Provider value={{ weight: 'duotone' }}>
@@ -443,10 +529,14 @@ export default function PeopleOverview({ openScreen }) {
               </span>
               <span className="soft-band-stat-note">{leave ? `${data.headcount - outToday.length} of ${data.headcount} at work` : failed.leave ? 'Could not load leave' : 'Loading leave'}</span>
             </button>
-            <button type="button" className="soft-band-stat" data-tint="peach" data-attention={waiting > 0 || undefined} onClick={go('approvals')}>
-              <span className="soft-band-stat-label"><SealCheck size={16} aria-hidden="true" /> To approve</span>
-              <span className="soft-band-stat-value" data-zero={((todos || leave) && waiting === 0 && !waitFailed) || undefined}>{(todos || leave) && waiting !== null ? waiting : '–'}</span>
-              <span className="soft-band-stat-note">{pending.length ? `${plural(pending.length, 'leave request')}, next starts ${dayDate(pending[0].fromDate)}` : failed.leave ? 'Leave could not load' : waiting === null ? 'Could not load' : !todos && !leave ? 'Checking' : waiting ? 'No leave among them' : 'Nothing to approve'}</span>
+            {/*
+             * No approvals among Home's figures (owner, 8 Nov 2026): the Inbox owns them and Home says it once, in the
+             * line under "Waiting for you". This figure is a decision that is Home's: probation to confirm, extend or end.
+             */}
+            <button type="button" className="soft-band-stat" data-tint="peach" data-attention={probationDue > 0 || undefined} onClick={go('employees', { prob: 'on' })}>
+              <span className="soft-band-stat-label"><Hourglass size={16} aria-hidden="true" /> Probation due</span>
+              <span className="soft-band-stat-value" data-zero={(todos && probationDue === 0) || undefined}>{todos ? probationDue : '–'}</span>
+              <span className="soft-band-stat-note">{failed.todos ? 'Could not load' : !todos ? 'Checking' : probationOver ? `${plural(probationOver, 'person', 'people')} past their date` : nextProbation ? `Next ends ${shortDate(nextProbation.endsOn)}` : 'None in the next 30 days'}</span>
             </button>
             {/* The company keeps who is leaving from this reader (Company choices): no leaving figures. */}
             {data.leavingsHidden ? null : (
@@ -460,24 +550,23 @@ export default function PeopleOverview({ openScreen }) {
 
           <Bezel i={2}>
             <section aria-labelledby="todo-h">
-              <PanelHead id="todo-h" icon={SealCheck} tint="butter" title="Waiting for you" action={pending.length ? <button type="button" className="people-more" onClick={go('leaveRequests')}>All requests <CaretRight size={14} aria-hidden="true" /></button> : null} />
-              {pending.length ? (
+              <PanelHead id="todo-h" icon={SealCheck} tint="butter" title="Waiting for you" />
+              {/*
+               * Approvals live in the Inbox, not on Home (owner, 8 Nov 2026): one line with the Inbox's own count, the
+               * number the rail badge and the Inbox's Waiting tab show, and the way there.
+               */}
+              {waiting ? (
                 <ul className="people-list">
-                  {pending.slice(0, 4).map((r) => (
-                    <li key={r.id} className="people-approval">
-                      <Face person={{ name: r.employeeName, photoUrl: r.photoUrl }} size={34} colour={colourOf(r.department)} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm"><button type="button" className="people-name-link" onClick={openPerson(r.employeeId)}>{r.employeeName}</button> <span className="ui-muted">asks for {String(r.leaveTypeName || 'leave').toLowerCase()}</span></p>
-                        <p className="ui-caption truncate">{range(r.fromDate, r.toDate)}, {plural(r.days, 'day')}. {r.reason}</p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <button type="button" className="soft-chip" onClick={go('leaveRequests')}>Review</button>
-                        <button type="button" className="soft-chip soft-chip-pos" disabled={busy === r.id} onClick={() => approve(r)}>
-                          <Check size={14} weight="bold" aria-hidden="true" /> {busy === r.id ? 'Approving' : 'Approve'}
-                        </button>
-                      </div>
-                    </li>
-                  ))}
+                  <li>
+                    <button type="button" onClick={go('approvals')} className="people-row people-row-action">
+                      <span className="people-row-count" data-tone="warn">{waiting}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium text-sm">{waiting === 1 ? '1 request waits' : `${waiting} requests wait`} for you</span>
+                        <span className="ui-caption block">{pending.length ? `${plural(pending.length, 'leave request')} among them, next starts ${dayDate(pending[0].fromDate)}` : 'Leave, attendance and other requests'}</span>
+                      </span>
+                      <span className="people-more">Open Inbox <CaretRight size={14} aria-hidden="true" /></span>
+                    </button>
+                  </li>
                 </ul>
               ) : null}
               {waitFailed ? <CardFailed what={failed.todos ? 'what waits for you' : failed.leave ? 'the leave waiting for you' : 'your tasks'} onRetry={retryWaiting} role="alert" /> : null}
@@ -501,11 +590,13 @@ export default function PeopleOverview({ openScreen }) {
                     </li>
                   ))}
                 </ul>
-              ) : !pending.length && !waitFailed ? (
+              ) : !waiting && !waitFailed ? (
                 <p className="people-empty">{setupShowing ? 'Nothing waits for you yet. Start with the steps below.' : <><strong>All caught up</strong>. Nothing needs your answer right now.</>}</p>
               ) : null}
             </section>
           </Bezel>
+
+          <HomeGlance glance={glance} go={go} />
 
           {/* The setup list sits under what waits on you, so a request is never below the fold behind it (2 Nov 2026). */}
           <HomeSetup openScreen={openScreen} onState={onSetup} />
@@ -520,7 +611,7 @@ export default function PeopleOverview({ openScreen }) {
                       <input type="checkbox" className="mt-0.5" aria-label={`Done: ${t.title}`} onChange={() => tick(t)} />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm">{t.title} <span className="ui-muted">· {t.employee?.name}</span></p>
-                        <p className="ui-caption">{t.kind.charAt(0)}{t.kind.slice(1).toLowerCase()}{t.dueDate ? ` · due ${formatDateIn(t.dueDate)}` : ''}{t.overdue ? <span className="ui-pill ui-pill-neg ml-2">Overdue</span> : null}</p>
+                        <p className="ui-caption">{t.kind.charAt(0)}{t.kind.slice(1).toLowerCase()}{t.dueDate ? ` · due ${formatDate(String(t.dueDate).slice(0, 10))}` : ''}{t.overdue ? <span className="ui-pill ui-pill-neg ml-2">Overdue</span> : null}</p>
                       </div>
                     </li>
                   ))}

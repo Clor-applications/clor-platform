@@ -24,6 +24,15 @@ export type Todo = { key: string; title: string; detail: string; count: number; 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 export async function homeTodos(req: Request): Promise<Todo[]> {
+  return (await homeTodosAndWaiting(req)).todos;
+}
+
+/*
+ * The to-dos and the one "waiting for you" number. The number is the Approvals inbox's own count (counts.all,
+ * help desk included), so Home's To approve, the rail's Inbox badge and the Inbox screen's Waiting tab read
+ * the same figure from the same function (People plan, 8 Nov 2026: the three counts used to disagree).
+ */
+export async function homeTodosAndWaiting(req: Request): Promise<{ todos: Todo[]; waiting: number }> {
   const { accountId, orgId } = req.tenant!;
   const userId = req.auth!.userId;
   const may = async (module: string, resource: string) => !(await authorize(req, module, PermissionAction.VIEW as any, resource));
@@ -38,6 +47,7 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
   const week = plusDays(today, 7);
   const month = plusDays(today, 30);
   const out: Todo[] = [];
+  let waiting = 0;
 
   if (employees) {
     const [tasks, health, compliance, docs, people, assetsOut] = await Promise.all([
@@ -90,6 +100,7 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
   {
     const { inboxFor } = await import('./inbox.js');
     const { counts, items } = await inboxFor(req);
+    waiting = counts.all;
     if (counts.LEAVE) out.push({ key: 'leave', title: 'Leave waiting for a decision', detail: `${plural(counts.LEAVE, 'request')} to approve or reject`, count: counts.LEAVE, tone: 'soon', screen: 'approvals', params: { kind: 'LEAVE' } });
     if (counts.ATTENDANCE) out.push({ key: 'attendanceRequests', title: 'Attendance requests waiting', detail: `${plural(counts.ATTENDANCE, 'request')}: work from home, on duty, permission or missed punch`, count: counts.ATTENDANCE, tone: 'soon', screen: 'approvals', params: { kind: 'ATTENDANCE' } });
     if (counts.PUNCH) out.push({ key: 'fieldPunches', title: 'Field punches waiting', detail: `${plural(counts.PUNCH, 'punch', 'punches')} made outside the work sites`, count: counts.PUNCH, tone: 'soon', screen: 'approvals', params: { kind: 'PUNCH' } });
@@ -121,5 +132,92 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
     if (toReview) out.push({ key: 'candidates', title: 'Candidates to review', detail: `${plural(toReview, 'candidate')} applied or in screening`, count: toReview, tone: 'info', screen: 'candidates' });
   }
   const order = { urgent: 0, soon: 1, info: 2 };
-  return out.sort((a, b) => order[a.tone] - order[b.tone] || b.count - a.count);
+  return { todos: out.sort((a, b) => order[a.tone] - order[b.tone] || b.count - a.count), waiting };
+}
+
+/** Monday to Sunday of the IST week holding `today`, as YYYY-MM-DD. */
+export function weekOf(today: string): { from: string; to: string } {
+  const dow = new Date(`${today}T00:00:00Z`).getUTCDay(); // 0 is Sunday
+  const from = plusDays(today, -((dow + 6) % 7));
+  return { from, to: plusDays(from, 6) };
+}
+
+/** The month before `today`'s, as YYYY-MM. */
+const lastMonthOf = (today: string) => {
+  const [y, m] = today.split('-').map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+};
+
+export type HomeGlance = {
+  probation: Array<{ id: string; name: string; code: string | null; endsOn: string; over: boolean }> | null;
+  week: { from: string; to: string; joining: Array<{ id: string; name: string; on: string }>; leaving: Array<{ id: string; name: string; on: string }>; holidays: Array<{ date: string; name: string; optional: boolean }> } | null;
+  monthClose: { month: string; closedAt: string | null; ready: boolean; blocking: number; noRecordDays: number } | null;
+};
+
+/**
+ * People → Home's three short lists (People plan, 8 Nov 2026): probation ending in the next 30 days (or past and
+ * not decided), this week's joiners, last days and holidays, and how last month's attendance close stands. Each is
+ * null when this reader may not see it, so the screen leaves the block out rather than showing an empty one.
+ */
+export async function homeGlance(req: Request): Promise<HomeGlance> {
+  const { accountId, orgId } = req.tenant!;
+  const today = todayIst();
+  const may = async (module: string, action: PermissionAction, resource: string) => !(await authorize(req, module, action as any, resource));
+  const scope = await teamScope(req);
+  const [lifecycle, employees, closer] = await Promise.all([
+    may(PEOPLE_MODULE, PermissionAction.VIEW, PEOPLE_RESOURCE.lifecycle),
+    may(PEOPLE_MODULE, PermissionAction.VIEW, PEOPLE_RESOURCE.employees),
+    may(ATTENDANCE_MODULE, PermissionAction.APPROVE, ATTENDANCE_RESOURCE.records),
+  ]);
+  const out: HomeGlance = { probation: null, week: null, monthClose: null };
+
+  if (lifecycle) {
+    const rows = await peoplePrisma.employee.findMany({
+      where: { accountId, orgId, status: { not: 'LEFT' }, confirmedOn: null, probationEndDate: { not: null, lte: plusDays(today, 30) }, dateOfJoining: { lte: today } },
+      select: { id: true, name: true, code: true, probationEndDate: true },
+      orderBy: { probationEndDate: 'asc' },
+    });
+    out.probation = rows.filter((r) => inScope(scope, r.id)).slice(0, 6).map((r) => ({ id: r.id, name: r.name, code: r.code, endsOn: r.probationEndDate!, over: r.probationEndDate! < today }));
+  }
+
+  if (employees) {
+    const { from, to } = weekOf(today);
+    const { seesLeavings } = await import('./companyChoices.js');
+    const [joining, leaving, holidays, leavingsOk] = await Promise.all([
+      peoplePrisma.employee.findMany({ where: { accountId, orgId, dateOfJoining: { gte: from, lte: to }, status: { not: 'LEFT' } }, select: { id: true, name: true, dateOfJoining: true }, orderBy: { dateOfJoining: 'asc' } }),
+      peoplePrisma.employee.findMany({ where: { accountId, orgId, dateOfLeaving: { gte: from, lte: to } }, select: { id: true, name: true, dateOfLeaving: true }, orderBy: { dateOfLeaving: 'asc' } }),
+      peoplePrisma.holiday.findMany({ where: { accountId, orgId, date: { gte: from, lte: to } }, select: { date: true, name: true, isOptional: true }, orderBy: { date: 'asc' } }),
+      seesLeavings(req),
+    ]);
+    const seen = new Set<string>();
+    out.week = {
+      from,
+      to,
+      joining: joining.filter((p) => inScope(scope, p.id)).map((p) => ({ id: p.id, name: p.name, on: p.dateOfJoining! })),
+      /* Who is leaving is kept from a reader the company keeps it from (Company choices), as on the rest of Home. */
+      leaving: leavingsOk ? leaving.filter((p) => inScope(scope, p.id)).map((p) => ({ id: p.id, name: p.name, on: p.dateOfLeaving! })) : [],
+      /* One line per day and name: an area's copy of a company holiday is the same day off. */
+      holidays: holidays.filter((h) => (seen.has(`${h.date}|${h.name}`) ? false : (seen.add(`${h.date}|${h.name}`), true))).map((h) => ({ date: h.date, name: h.name, optional: h.isOptional })),
+    };
+  }
+
+  /* Last month's close: only for someone who closes months for the whole company, and only where Attendance is on. */
+  if (closer && scope.all) {
+    const [{ isAppEntitled }, { isFeatureEnabled }] = await Promise.all([import('../subscriptions.js'), import('../features.js')]);
+    if ((await isAppEntitled(accountId, 'attendance')) && (await isFeatureEnabled(accountId, orgId, 'attendance'))) {
+      const month = lastMonthOf(today);
+      const lock = await peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } }, select: { lockedAt: true } });
+      if (lock) out.monthClose = { month, closedAt: lock.lockedAt.toISOString(), ready: true, blocking: 0, noRecordDays: 0 };
+      else {
+        /* The full checklist is a scan of the month; a failure leaves the block out, never takes Home down. */
+        const { monthReadiness } = await import('../attendance/readiness.js');
+        const r = await monthReadiness(accountId, orgId, month).catch((e) => {
+          console.error(`[home] month close for ${orgId}:`, e instanceof Error ? e.message : e); // eslint-disable-line no-console
+          return null;
+        });
+        if (r) out.monthClose = { month, closedAt: null, ready: r.ready, blocking: r.blocking, noRecordDays: r.noRecordDays };
+      }
+    }
+  }
+  return out;
 }

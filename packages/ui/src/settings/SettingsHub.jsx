@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowUpRight, Search } from '@ui/components/ui/lineIcons';
+import { ArrowUpRight, ChevronRight, Search } from '@ui/components/ui/lineIcons';
 
 import { PageHeader } from '../components/ui/Primitives';
 
@@ -7,7 +7,7 @@ import { PageHeader } from '../components/ui/Primitives';
  * Settings as one page instead of a long sidebar (founder, 22 Oct 2026; the
  * pattern of Zoho People, Keka and greytHR settings). Everything set up once
  * and changed rarely, in groups, each with a line saying what it is for.
- * Only the cards this person may open: the shell hands over the nav it kept.
+ * Only the rows this person may open: the shell hands over the nav it kept.
  *
  * groups: [{ title, note, items: [[navKey, note]], apps?: [[appId, label, note]] }]
  */
@@ -22,7 +22,7 @@ export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [],
   })).filter((g) => g.cards.length || g.apps.length);
 
   return (
-    <div className="space-y-4 pb-8">
+    <div className="space-y-6 pb-8">
       <PageHeader
         entity="settings"
         title="Settings"
@@ -41,29 +41,28 @@ export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [],
             <h2 id={`set-${g.title}`} className="ui-t-sec">{g.title}</h2>
             <p className="ui-caption ui-settings-note">{g.note}</p>
           </div>
-          <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {/* Plain rows on the page ground under one hairline, not a grid of cards (People plan, 8 Nov 2026). */}
+          <ul className="ui-settings-rows">
             {g.cards.map(({ key, note, item }) => {
               const Icon = item.icon;
               return (
                 <li key={key}>
-                  <button type="button" onClick={() => openScreen?.(key)} className="ui-card w-full h-full p-4 text-left flex items-start gap-3 hover:border-[rgb(var(--brand))]">
-                    {Icon ? <Icon size={22} aria-hidden="true" /> : null}
-                    <span className="min-w-0">
-                      <span className="block font-medium">{item.label}</span>
-                      <span className="ui-caption block">{note}</span>
-                    </span>
+                  <button type="button" onClick={() => openScreen?.(key)} className="ui-settings-row">
+                    {Icon ? <Icon size={16} aria-hidden="true" className="ui-settings-row-icon" /> : <span className="ui-settings-row-icon" aria-hidden="true" />}
+                    <span className="ui-settings-row-label">{item.label}</span>
+                    <span className="ui-settings-row-note">{note}</span>
+                    <ChevronRight size={16} aria-hidden="true" className="ui-settings-row-go" />
                   </button>
                 </li>
               );
             })}
             {g.apps.map(([id, label, note]) => (
               <li key={id}>
-                <a href={`?app=${id}`} className="ui-card w-full h-full p-4 text-left flex items-start gap-3 hover:border-[rgb(var(--brand))]">
-                  <ArrowUpRight size={22} aria-hidden="true" />
-                  <span className="min-w-0">
-                    <span className="block font-medium">{label}</span>
-                    <span className="ui-caption block">{note}</span>
-                  </span>
+                <a href={`?app=${id}`} className="ui-settings-row">
+                  <ArrowUpRight size={16} aria-hidden="true" className="ui-settings-row-icon" />
+                  <span className="ui-settings-row-label">{label}</span>
+                  <span className="ui-settings-row-note">{note}</span>
+                  <ChevronRight size={16} aria-hidden="true" className="ui-settings-row-go" />
                 </a>
               </li>
             ))}
