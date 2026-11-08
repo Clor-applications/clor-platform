@@ -2248,7 +2248,7 @@ html:root:not([data-theme='dark']) [data-palette='sky'] {
   --kind-docs: 180 83 9;
   --kind-work: 162 28 175;
   --kind-talent: 14 116 144;
-  --kind-admin: 51 65 85;
+  --kind-admin: 71 85 105;
   /* Icons in white buttons (Import, Export, Filters, Columns) were deep marigold; teal now. Gold leaves the series too. */
   --btn-icon-on-white: var(--teal);
   --dept-4: 109 40 217;
@@ -2278,6 +2278,10 @@ html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-rail, .ui-s
 html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-rail, .ui-split-panel, .ui-tabbar, #main-content) .ui-glyph[data-kind] [opacity='0.2'] { fill: rgb(var(--k)); opacity: 0.18; }
 html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-rail, .ui-split-panel, .ui-tabbar, #main-content) :is(.ui-split-mod[data-current], .ui-split-item[aria-current='page'], .ui-tabbar-item[aria-current='page']) .ui-glyph[data-kind] [opacity='0.2'] { opacity: 0.32; }
 html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-split-rail, #main-content) .ui-split-mod[data-current] > svg.ui-glyph[data-kind] { background: rgb(var(--k) / 0.1); box-shadow: none; }
+/* The rail holds one icon per module with no word beside it at rest, so its line is drawn heavier and its fill deeper to carry the colour. */
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-glyph[data-kind] path:not([opacity]) { stroke: currentColor; stroke-width: 6; stroke-linejoin: round; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-glyph[data-kind] [opacity='0.2'] { opacity: 0.3; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] .ui-glyph[data-kind] [opacity='0.2'] { opacity: 0.45; }
 /* On the coral primary the icon is white like its words; light marigold leaves with the rest of the yellow. */
 html:root[data-palette='sky']:not([data-theme='dark']) :is(#main-content, body) .ui-btn:is(.ui-btn-primary, .ui-btn-brand):not(.ui-btn-icon-only, [data-icon-only]) { --btn-icon-color: rgb(255 255 255); }
 
