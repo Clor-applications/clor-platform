@@ -40,7 +40,7 @@ describe('Attendance navigation structure', () => {
       ['Other punch sources', ['Mobile punches']],
     ]);
     expect(s.Attendance).toEqual([
-      ['Daily operations', ['Attendance records', 'Punches', 'Exceptions', 'Attendance requests']],
+      ['Daily operations', ['Attendance records', 'Punches', 'Exceptions', 'Attendance fixes']],
       ['Scheduling', ['Schedule calendar', 'Shifts', 'Shift assignments', 'Department schedules', 'Temporary schedules', 'Shift rotations']],
       /* Time & Leave: the screens People shows, shared (TIME-LEAVE-DECISIONS.md). */
       ['Leave', ["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Leave register', 'Delegates']],

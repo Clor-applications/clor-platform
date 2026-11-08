@@ -202,7 +202,36 @@ const duo = (Icon, name) => {
   Duo.displayName = `Duo(${name})`;
   return Duo;
 };
-const M = {
+/* Each kind of work wears its own colour (owner, 8 Nov 2026, option A): the line and a light fill in the kind's
+   colour (people.css, `.ui-glyph[data-kind]`). Kinds: people, time, join, leave, pay, docs, work, talent, admin. */
+const kinded = (icons, kinds) => Object.fromEntries(Object.entries(icons).map(([key, Icon]) => {
+  const kind = kinds[key] || 'admin';
+  const Kinded = (props) => <Icon data-kind={kind} {...props} />;
+  Kinded.displayName = `${Icon.displayName}:${kind}`;
+  return [key, Kinded];
+}));
+/* The same icon on a screen of another kind wears that kind (Shift swaps is time, though its arrows are Job changes'). */
+const asKind = (Icon, kind) => {
+  const Kinded = (props) => <Icon {...props} data-kind={kind} />;
+  Kinded.displayName = `${Icon.displayName}>${kind}`;
+  return Kinded;
+};
+const MODULE_KIND = {
+  home: 'people', inbox: 'time', workforce: 'people', org: 'admin', time: 'time', insights: 'admin',
+  hiring: 'talent', growth: 'talent', engage: 'work', settings: 'admin',
+};
+const ITEM_KIND = {
+  home: 'people', people: 'people', key: 'people', type: 'people', designation: 'people', change: 'people', delegate: 'people',
+  approve: 'time', leave: 'time', balance: 'time', policy: 'time', myLeave: 'time', holiday: 'time', calendar: 'time',
+  register: 'time', attendance: 'time', myDays: 'time', workType: 'time', away: 'time', attRequest: 'time', summary: 'time',
+  checklist: 'join', lifecycle: 'join', joiner: 'join', offer: 'join', task: 'join', steps: 'join',
+  leaver: 'leave',
+  salary: 'pay', expense: 'pay', benefit: 'pay', statutory: 'pay', grade: 'pay', costCentre: 'pay',
+  folder: 'docs', asset: 'docs', import: 'docs', export: 'docs', audit: 'docs', evidence: 'docs', field: 'docs', tag: 'docs', history: 'docs',
+  news: 'work', event: 'work', hrCase: 'work', oneOnOne: 'work',
+  job: 'talent', candidate: 'talent', goal: 'talent', training: 'talent', interview: 'talent', review: 'talent', plan: 'talent',
+};
+const M = kinded({
   home: duo(House, 'House'),
   inbox: duo(Tray, 'Tray'),
   workforce: duo(UsersThree, 'UsersThree'),
@@ -213,8 +242,8 @@ const M = {
   growth: duo(Trophy, 'Trophy'),
   engage: duo(Megaphone, 'Megaphone'),
   settings: duo(GearSix, 'GearSix'),
-};
-const I = {
+}, MODULE_KIND);
+const I = kinded({
   home: duo(House, 'House'),
   people: duo(UsersThree, 'UsersThree'),
   org: duo(TreeStructure, 'TreeStructure'),
@@ -289,7 +318,7 @@ const I = {
   change: duo(ArrowsLeftRight, 'ArrowsLeftRight'),
   task: duo(ListChecks, 'ListChecks'),
   steps: duo(ListNumbers, 'ListNumbers'),
-};
+}, ITEM_KIND);
 
 /* One register screen per kind, with the shell's props (openScreen, params). */
 const register = (kind) => {
@@ -422,9 +451,9 @@ export const peopleApp = {
     { key: 'requestForms', label: 'Request types', icon: I.policy, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
     { key: 'requestsReport', label: 'Requests report', icon: I.report, permission: 'PEOPLE::Approvals::VIEW' },
     /* Swaps asked in the employee app; HR sees all, a manager their team (the server decides). */
-    { key: 'shiftSwaps', label: 'Shift swaps', icon: I.change, permission: 'PEOPLE::Requests::VIEW' },
+    { key: 'shiftSwaps', label: 'Shift swaps', icon: asKind(I.change, 'time'), permission: 'PEOPLE::Requests::VIEW' },
     { key: 'lateMarks', label: 'Late marks', icon: I.myDays, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
-    { key: 'absences', label: 'Absences', icon: I.leaver, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'absences', label: 'Absences', icon: asKind(I.leaver, 'time'), permission: 'PEOPLE::Employees::VIEW' },
     { key: 'nightWork', label: 'Night work', icon: I.policy, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'attendanceRules', label: 'Attendance rules', icon: I.policy, permission: 'ATTENDANCE::Attendance Requests::VIEW', parent: 'settings' },
     { key: 'automations', label: 'Automations', icon: I.policy, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
@@ -435,8 +464,8 @@ export const peopleApp = {
     { key: 'leaveBalances', label: 'Leave balances', keywords: ['leave balance', 'remaining leave'], icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRegister', label: 'Leave register', icon: I.register, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveCalendar', label: 'Leave calendar', icon: I.calendar, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'standIns', label: 'Delegates', icon: I.delegate, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'attendanceRequests', label: 'Attendance requests', keywords: ['punch', 'missed punch', 'regularise', 'regularize', 'fix punch'], short: 'Requests', icon: I.attRequest, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
+    { key: 'standIns', label: 'Delegates', icon: asKind(I.delegate, 'time'), permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'attendanceRequests', label: 'Attendance fixes', keywords: ['attendance requests', 'punch', 'missed punch', 'regularise', 'regularize', 'fix punch'], short: 'Fixes', icon: I.attRequest, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
     { key: 'attendance', label: 'Daily attendance', keywords: ['who is in', 'absent', 'present', 'late', 'today'], icon: I.attendance, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'myDays', label: 'My attendance', icon: I.myDays, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'myLeave', label: 'My leave', icon: I.myLeave, permission: 'ATTENDANCE::My Attendance::VIEW' },

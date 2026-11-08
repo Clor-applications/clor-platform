@@ -290,7 +290,7 @@ describe('one brand series for charts, teams and leave types', () => {
 describe('chosen and the employee app', () => {
   /* Since 3 Nov 2026 the panel is blush under an oxblood rail (test/people-red-brand.test.js): the open screen is a white tile with a red edge. */
   it("the module panel's open screen sits on a white tile, marked with red", () => {
-    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(255 255 255\); color: rgb\(var\(--brand-ink\)\); font-weight: 700; box-shadow: inset 3px 0 0 rgb\(var\(--red\)\)/);
+    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(255 255 255\); color: rgb\(var\(--brand-ink\)\); font-weight: 700; box-shadow: inset 3px 0 0 rgb\(var\(--brand\)\)/);
   });
 
   it("the employee app wears brand D's waiting through its own data-brand, not the sky palette", () => {

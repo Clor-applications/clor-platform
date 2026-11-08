@@ -177,7 +177,7 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
     <div className="space-y-6">
       <PageHeader
         breadcrumb={homeCrumbs()}
-        title="Attendance requests"
+        title="Attendance fixes"
         actions={allowed('ATTENDANCE::Attendance Requests::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Enter request</button> : null}
       />
 
