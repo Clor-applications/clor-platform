@@ -9,9 +9,12 @@ import { auditScreen } from '../support/checks';
 import type { Company } from '../support/world';
 
 /** Each screen's menu label → the module it sits under (apps/people/manifest.jsx `modules`). */
+/** Rail modules that hold a single screen: the rail button opens it, with no list. */
+const ONE_SCREEN = new Set(['Home', 'Inbox', 'Settings']);
+
 export const MENU: Record<string, string> = {
   Home: 'Home',
-  Approvals: 'Home',
+  Approvals: 'Inbox',
   Employees: 'People',
   Documents: 'People',
   'Joining & leaving': 'People',
@@ -125,8 +128,8 @@ export class PeopleWeb {
     const root = await this.drawer();
     const rail = root.getByRole('navigation', { name: 'People modules' });
     const list = root.getByRole('navigation', { name: `${module} screens` });
-    if (module === 'Settings') {
-      /* A module of one screen opens it straight away. */
+    if (ONE_SCREEN.has(module)) {
+      /* A module of one screen (Home, Inbox, Settings) opens it straight away. */
       await rail.getByRole('button', { name: module, exact: true }).click();
     } else {
       /* The rail button toggles its list: press it only when that list is not already open. */
