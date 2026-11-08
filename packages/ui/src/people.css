@@ -1727,6 +1727,11 @@
  * headings, a solid block) or red #C8102E (what you press); lilac reads blush #FBE8EA; cotton reads the warm white
  * #FAF6F4. Marigold keeps its jobs. The top bar is white (owner, same day: "header keep white only"). The notes keep
  * their history; the hexes in them are the old ones.
+ *
+ * People coral (owner, 8 Nov 2026: "change icons primary color for people"; chose coral). The action colour, icons,
+ * links and chosen tints move from red #C8102E to coral: #C93F28 fills buttons and the open icon (white on it 5.0:1),
+ * #E8553D is the focus ring and highlight, #9A2E1B links and coral words (7.5:1), #FDEDEA the chosen tint. Oxblood
+ * stays the ink and marigold keeps its jobs. People only; the other apps keep their own colour.
  */
 /*
  * People brand D, "Done, daily" (owner, 29 Oct 2026; supersedes teal). Light theme only: the dark theme keeps
@@ -1737,22 +1742,22 @@
  */
 :root[data-palette='sky']:not([data-theme='dark']),
 :root:not([data-theme='dark']) [data-palette='sky'] {
-  --brand: 200 16 46;
+  --brand: 201 63 40;
   --brand-deep: 92 10 22;
-  --brand-hover: 165 13 38;
-  --brand-pressed: 138 11 32;
-  --btn-primary-bg: 200 16 46;
-  --btn-primary-hover: 165 13 38;
-  --brand-soft: 251 232 234;
-  --brand-subtle: 253 244 245;
-  --brand-border: 243 211 215;
-  --brand-ink: 165 13 38;
+  --brand-hover: 184 58 36;
+  --brand-pressed: 168 52 31;
+  --btn-primary-bg: 201 63 40;
+  --btn-primary-hover: 184 58 36;
+  --brand-soft: 253 237 234;
+  --brand-subtle: 254 246 244;
+  --brand-border: 248 207 198;
+  --brand-ink: 154 46 27;
   --on-brand: 255 255 255;
-  --accent-soft: 251 232 234;
-  --ring: 200 16 46;
-  --link: 165 13 38;
-  --link-hover: 138 11 32;
-  --hero-hi: 200 16 46;
+  --accent-soft: 253 237 234;
+  --ring: 232 85 61;
+  --link: 154 46 27;
+  --link-hover: 136 40 24;
+  --hero-hi: 232 85 61;
   --app-bg: 250 246 244;
   --page-heading-bg: 250 246 244;
   --surface: 255 255 255;
@@ -1760,8 +1765,8 @@
   --border: 234 223 225;
   --border-strong: 214 200 203;
   --border-field: 224 211 214;
-  --heading-bg: 253 244 245;
-  --heading-hover: 251 232 234;
+  --heading-bg: 254 246 244;
+  --heading-hover: 253 237 234;
   --fg: 92 10 22;
   --fg-heading: 92 10 22;
   --col-party: 92 10 22;
@@ -2085,7 +2090,7 @@ html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel {
 /* The bar: white with a hairline, the oxblood logo, the app's tile red with a white mark, the search on the sunken tone. */
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar { background-color: rgb(255 255 255) !important; border-bottom-color: rgb(var(--border)) !important; }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-app-switch-name { color: rgb(var(--fg)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-app-switch-mark { background: rgb(var(--red)); color: rgb(255 255 255); }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-app-switch-mark { background: rgb(var(--brand)); color: rgb(255 255 255); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-app-switch .ui-glyph { color: rgb(255 255 255); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-topbar-initials { background: rgb(var(--blush)); color: rgb(var(--oxblood)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-topbar .ui-bell-count { box-shadow: 0 0 0 2px rgb(255 255 255); }
@@ -2110,7 +2115,7 @@ html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item .ui-glyph [opacity='0.2'] { fill: rgb(var(--panel-line)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item:hover:not([aria-current='page']) { background: rgb(var(--panel-hi)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] {
-  background: rgb(255 255 255); color: rgb(var(--brand-ink)); font-weight: 700; box-shadow: inset 3px 0 0 rgb(var(--red)), 0 1px 2px rgb(92 10 22 / 0.08);
+  background: rgb(255 255 255); color: rgb(var(--brand-ink)); font-weight: 700; box-shadow: inset 3px 0 0 rgb(var(--brand)), 0 1px 2px rgb(92 10 22 / 0.08);
 }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] .ui-glyph { color: rgb(var(--brand-ink)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-panel .ui-split-item[aria-current='page'] .ui-glyph [opacity='0.2'] { fill: rgb(var(--marigold)); }
@@ -2134,9 +2139,9 @@ html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-s
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:not(.soft-pill-primary) { background: rgb(255 255 255); color: rgb(var(--fg)); box-shadow: inset 0 0 0 1px rgb(var(--border-strong)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:not(.soft-pill-primary):hover { background: rgb(var(--surface-sunken)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill:not(.soft-pill-primary) svg { color: rgb(var(--btn-icon-on-white)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary { background: rgb(var(--red)); color: rgb(255 255 255); box-shadow: none; }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary { background: rgb(var(--brand)); color: rgb(255 255 255); box-shadow: none; }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary:hover { background: rgb(var(--brand-hover)); }
-html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary .soft-pill-orb { background: rgb(255 255 255); color: rgb(var(--red)); }
+html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary .soft-pill-orb { background: rgb(255 255 255); color: rgb(var(--brand)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-value { font-size: 2rem; line-height: 2.25rem; }
 /* Out today 0, On notice 0: quiet grey, weight 600 (5.3:1 on the white card at 32px, above the 3:1 large text needs). */
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat-value[data-zero] { color: rgb(var(--fg-subtle)) !important; font-weight: 600; }

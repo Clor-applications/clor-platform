@@ -19,8 +19,8 @@ const lum = (rgb) => {
 };
 const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 const WHITE = '255 255 255';
-const RED = '200 16 46';
-const RED_INK = '165 13 38';
+const RED = '201 63 40'; // People's action colour: coral since 8 Nov 2026 (was red 200 16 46)
+const RED_INK = '154 46 27';
 const OXBLOOD = '92 10 22';
 const INK = '31 26 28';
 const MARIGOLD = '245 166 35';
@@ -53,7 +53,7 @@ describe('the frame and its blocks: every word reads', () => {
     const greeting = block.match(/\.people-home > header\.soft-band-top \{[^}]*\}/)[0];
     expect(greeting).not.toMatch(/background/);
     expect(block).toMatch(/\.people-home h1\.soft-band-title \{ color: rgb\(var\(--fg-heading\)\) !important;/);
-    expect(block).toMatch(/\.people-home \.soft-pill-primary \{ background: rgb\(var\(--red\)\); color: rgb\(255 255 255\);/);
+    expect(block).toMatch(/\.people-home \.soft-pill-primary \{ background: rgb\(var\(--brand\)\); color: rgb\(255 255 255\);/);
     expect(contrast(WHITE, RED)).toBeGreaterThan(4.5);
     expect(contrast(RED_INK, WHITE)).toBeGreaterThan(4.5);
     expect(block).not.toMatch(/--page-heading-bg: var\(--frame\);/);
@@ -80,7 +80,7 @@ describe('the frame and its blocks: every word reads', () => {
   it('the open screen is a white tile on the blush panel, with red words and a red edge (the board)', () => {
     expect(contrast(RED_INK, WHITE)).toBeGreaterThan(7);
     expect(token(people.slice(people.indexOf('The red brand (owner, 3 Nov 2026')), 'brand-ink')).toBe(RED_INK);
-    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(255 255 255\); color: rgb\(var\(--brand-ink\)\);[^}]*inset 3px 0 0 rgb\(var\(--red\)\)/);
+    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(255 255 255\); color: rgb\(var\(--brand-ink\)\);[^}]*inset 3px 0 0 rgb\(var\(--brand\)\)/);
   });
 
   it('marigold on the rail is a fill or a mark: the open module and the waiting tile, oxblood words on it', () => {
