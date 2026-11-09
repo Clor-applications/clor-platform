@@ -359,7 +359,7 @@ export function EmailLog({ role, initialStatus = 'all', openCustomer }) {
         <Empty>{view.status === 'FAILED' ? 'No failed emails.' : 'No messages match.'}</Empty>
       ) : (
         <div className="ws-table-wrap">
-          <table className="ws-table">
+          <table className="ws-table ops-stack">
             <caption className="sr-only">Every email the product tried to send, newest first</caption>
             <thead>
               <tr>
@@ -374,8 +374,8 @@ export function EmailLog({ role, initialStatus = 'all', openCustomer }) {
             <tbody>
               {d.messages.map((m) => (
                 <tr key={m.id}>
-                  <td className="tabular-nums">{when(m.at)}</td>
-                  <td style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', minWidth: 160 }}>
+                  <td className="tabular-nums" data-label="When">{when(m.at)}</td>
+                  <td className="ops-primary" style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', minWidth: 160 }}>
                     {m.to}
                     {m.accountName ? (
                       <div className="ws-item-sub">
@@ -383,14 +383,14 @@ export function EmailLog({ role, initialStatus = 'all', openCustomer }) {
                       </div>
                     ) : null}
                   </td>
-                  <td className="hidden md:table-cell" style={{ whiteSpace: 'normal' }}>
-                    {m.templateLabel}
-                    <div className="ws-item-sub">{m.subject}</div>
+                  <td className="hidden md:table-cell" data-label="Email" style={{ whiteSpace: 'normal' }}>
+                    <span>{m.templateLabel}
+                    <span className="ws-item-sub" style={{ display: 'block' }}>{m.subject}</span></span>
                   </td>
-                  <td><span className={mailTone(m.status)}>{MAIL_STATUS[m.status] || m.status}</span></td>
-                  <td className="hidden sm:table-cell" style={{ whiteSpace: 'normal', maxWidth: 360 }}>{m.reason || '—'}</td>
+                  <td data-label="Status"><span className={mailTone(m.status)}>{MAIL_STATUS[m.status] || m.status}</span></td>
+                  <td className="hidden sm:table-cell" data-label="Why" style={{ whiteSpace: 'normal', maxWidth: 360 }}>{m.reason || '—'}</td>
                   {canResend ? (
-                    <td className="num">
+                    <td className="num ops-stack-actions">
                       {m.status === 'FAILED' || m.status === 'QUEUED' ? (
                         <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => setResend(m)}>Resend</button>
                       ) : null}

@@ -99,7 +99,7 @@ export function AuditLog({ initialAccount = null, openCustomer }) {
         <Empty>Nothing recorded for these filters.</Empty>
       ) : (
         <div className="ws-table-wrap">
-          <table className="ws-table">
+          <table className="ws-table ops-stack">
             <caption className="sr-only">Everything CLOR staff did, newest first</caption>
             <thead>
               <tr>
@@ -113,20 +113,20 @@ export function AuditLog({ initialAccount = null, openCustomer }) {
             <tbody>
               {d.events.map((e) => (
                 <tr key={e.id}>
-                  <td className="tabular-nums">{when(e.at)}</td>
-                  <td>{e.operator?.fullName || e.operator?.email || '—'}</td>
-                  <td style={{ whiteSpace: 'normal' }}>
+                  <td className="tabular-nums" data-label="When">{when(e.at)}</td>
+                  <td data-label="Staff member">{e.operator?.fullName || e.operator?.email || '—'}</td>
+                  <td className="ops-primary" style={{ whiteSpace: 'normal' }}>
                     {e.label}
                     {e.targetUser ? <div className="ws-item-sub">{e.targetUser.email}</div> : null}
                   </td>
-                  <td className="hidden md:table-cell">
+                  <td className="hidden md:table-cell" data-label="Customer">
                     {e.targetAccountId ? (
                       <button type="button" className="ws-name-link" onClick={() => openCustomer(e.targetAccountId)}>{e.accountName || 'Customer'}</button>
                     ) : (
                       '—'
                     )}
                   </td>
-                  <td className="hidden sm:table-cell" style={{ whiteSpace: 'normal', maxWidth: 420 }}>{e.summary || '—'}</td>
+                  <td className="hidden sm:table-cell" data-label="Why" style={{ whiteSpace: 'normal', maxWidth: 420 }}>{e.summary || '—'}</td>
                 </tr>
               ))}
             </tbody>

@@ -60,7 +60,7 @@ export function Staff({ me }) {
         error ? null : <Loading />
       ) : (
         <div className="ws-table-wrap">
-          <table className="ws-table">
+          <table className="ws-table ops-stack">
             <caption className="sr-only">CLOR staff on the console</caption>
             <thead>
               <tr>
@@ -76,17 +76,17 @@ export function Staff({ me }) {
                 const fixed = r.bootstrap || r.userId === me.user.id;
                 return (
                   <tr key={r.userId}>
-                    <td>
+                    <td className="ops-primary">
                       <strong style={{ fontWeight: 600 }}>{r.name || '—'}</strong>
                       {r.userId === me.user.id ? <span className="ws-item-sub"> (you)</span> : null}
                       <div className="ws-item-sub">{r.email}</div>
                     </td>
-                    <td>
+                    <td data-label="Role">
                       {fixed ? (
-                        <>
+                        <span>
                           {ROLE[r.role] || r.role}
-                          {r.bootstrap ? <div className="ws-item-sub">set by engineering</div> : null}
-                        </>
+                          {r.bootstrap ? <span className="ws-item-sub" style={{ display: 'block' }}>set by engineering</span> : null}
+                        </span>
                       ) : (
                         <select
                           className="ui-select"
@@ -101,9 +101,9 @@ export function Staff({ me }) {
                         </select>
                       )}
                     </td>
-                    <td className="hidden sm:table-cell">{r.authenticator ? <span className="ws-pill ws-pill--ok">Set up</span> : <span className="ws-pill ws-pill--warn">Not yet</span>}</td>
-                    <td className="hidden md:table-cell">{r.lastLoginAt ? ago(r.lastLoginAt) : 'Never'}</td>
-                    <td className="num">
+                    <td className="hidden sm:table-cell" data-label="Authenticator">{r.authenticator ? <span className="ws-pill ws-pill--ok">Set up</span> : <span className="ws-pill ws-pill--warn">Not yet</span>}</td>
+                    <td className="hidden md:table-cell" data-label="Last sign-in">{r.lastLoginAt ? ago(r.lastLoginAt) : 'Never'}</td>
+                    <td className="num ops-stack-actions">
                       {!fixed ? (
                         <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => setAct({ kind: 'remove', row: r })}>Remove</button>
                       ) : null}

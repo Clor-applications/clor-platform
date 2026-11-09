@@ -709,6 +709,16 @@ button.ws-item:hover {
 .ws-btn--danger:hover {
   filter: brightness(0.95);
 }
+/* The secondary destructive button: outlined, in the danger colour, for an act that sits beside ordinary ones. */
+.ws-btn--danger-quiet {
+  background: rgb(var(--ws-surface));
+  color: rgb(var(--ws-danger));
+  border-color: rgb(var(--ws-danger) / 0.4);
+}
+.ws-btn--danger-quiet:hover {
+  background: rgb(var(--ws-danger-soft));
+  border-color: rgb(var(--ws-danger) / 0.6);
+}
 /* Usage against an allowance. */
 .ws-meter {
   display: grid;
@@ -1888,4 +1898,87 @@ button.ws-item:hover {
   grid-template-columns: repeat(2, max-content);
   gap: 8px 16px;
   font-size: 0.9375rem;
+}
+
+/* A customer's subscription actions: ordinary ones on the left, the destructive ones set apart on the right. */
+.ops-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+.ops-actions-main,
+.ops-actions-danger {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 639px) {
+  .ops-actions-danger {
+    padding-top: 12px;
+    border-top: 1px solid rgb(var(--ws-line));
+    width: 100%;
+  }
+}
+
+/*
+ * A table that becomes a list on a phone: each row a block, the cell marked
+ * ops-primary the bold line on top, every other cell a "label: value" line from its data-label. Cells
+ * hidden on narrow desks (hidden sm:table-cell…) come back as lines here, so
+ * nothing is lost and nothing scrolls sideways.
+ */
+@media (max-width: 639px) {
+  .ops-stack {
+    border-collapse: separate;
+  }
+  .ops-stack thead {
+    display: none;
+  }
+  .ops-stack tbody {
+    display: block;
+  }
+  .ops-stack tr {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgb(var(--ws-line));
+  }
+  .ops-stack tr:last-child {
+    border-bottom: 0;
+  }
+  .ops-stack td,
+  .ops-stack td.hidden {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 2px 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+  .ops-stack td.ops-primary {
+    order: -1;
+    display: block;
+    font-weight: 600;
+    padding-bottom: 4px;
+  }
+  .ops-stack td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 104px;
+    color: rgb(var(--ws-muted));
+    font-weight: 400;
+  }
+  .ops-stack td.num {
+    justify-content: flex-start;
+  }
+  .ops-stack td.ops-stack-actions {
+    flex-wrap: wrap;
+    padding-top: 8px;
+  }
+  .ops-stack td:empty {
+    display: none;
+  }
 }
