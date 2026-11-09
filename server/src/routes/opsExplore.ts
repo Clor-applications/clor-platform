@@ -85,7 +85,7 @@ opsExploreRouter.get('/ops/explore/passes', (req, res) =>
 );
 
 /** Resend one link (a new link; an ended or run-out one opens again for 14 days). */
-opsExploreRouter.post('/ops/explore/passes/:id/resend', requireOperatorRole('SUPPORT', 'BILLING'), requireOperatorStepUp, (req, res) =>
+opsExploreRouter.post('/ops/explore/passes/:id/resend', requireOperatorRole('SALES', 'SUPPORT', 'BILLING'), requireOperatorStepUp, (req, res) =>
   outsideTenant('ops: resend an Explore link', async () => {
     const id = String(req.params.id);
     const pass = await platformPrisma.explorePass.findUnique({ where: { id } });
@@ -98,7 +98,7 @@ opsExploreRouter.post('/ops/explore/passes/:id/resend', requireOperatorRole('SUP
 );
 
 /** End one link: it stops working and every session it opened ends. */
-opsExploreRouter.post('/ops/explore/passes/:id/end', requireOperatorRole('SUPPORT', 'BILLING'), requireOperatorStepUp, (req, res) =>
+opsExploreRouter.post('/ops/explore/passes/:id/end', requireOperatorRole('SALES', 'SUPPORT', 'BILLING'), requireOperatorStepUp, (req, res) =>
   outsideTenant('ops: end an Explore link', async () => {
     const id = String(req.params.id);
     const pass = await platformPrisma.explorePass.findUnique({ where: { id }, select: { id: true, demoRequestId: true } });
