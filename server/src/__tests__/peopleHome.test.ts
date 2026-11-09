@@ -81,9 +81,10 @@ describe('People home', () => {
 
     const home = (await people('get', '/home').expect(200)).body;
     const inbox = (await people('get', '/inbox').expect(200)).body;
-    /* Home's To approve, the rail badge and the Inbox's Waiting tab: one number from one place. */
-    expect(home.waiting).toBe(inbox.counts.all);
-    expect(home.waiting).toBeGreaterThanOrEqual(2);
+    /* Home's subtitle and card, the rail badge, the bell and the Inbox tabs: one number from one place (requests to approve plus the reader's own open tasks). */
+    expect(home.waiting).toBe(inbox.counts.waiting);
+    expect(inbox.counts.waiting).toBe(inbox.counts.all + inbox.counts.TASK);
+    expect(inbox.counts.all).toBeGreaterThanOrEqual(2);
 
     expect(home.probation.map((p: any) => p.id)).toEqual([late.id, a.id]);
     expect(home.probation[0]).toMatchObject({ over: true, endsOn: plus(-3) });

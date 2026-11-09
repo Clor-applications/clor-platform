@@ -100,7 +100,9 @@ export async function homeTodosAndWaiting(req: Request): Promise<{ todos: Todo[]
   {
     const { inboxFor } = await import('./inbox.js');
     const { counts, items } = await inboxFor(req);
-    waiting = counts.all;
+    /* Requests to approve plus the reader's own open tasks: the number the rail badge, the bell and the Inbox show. */
+    waiting = counts.waiting;
+    if (counts.TASK) out.push({ key: 'myTasks', title: 'Tasks on your name', detail: `${plural(counts.TASK, 'joining, leaving or other task')} to do`, count: counts.TASK, tone: 'soon', screen: 'approvals', params: { tab: 'tasks' } });
     if (counts.LEAVE) out.push({ key: 'leave', title: 'Leave waiting for a decision', detail: `${plural(counts.LEAVE, 'request')} to approve or reject`, count: counts.LEAVE, tone: 'soon', screen: 'approvals', params: { kind: 'LEAVE' } });
     if (counts.ATTENDANCE) out.push({ key: 'attendanceRequests', title: 'Attendance requests waiting', detail: `${plural(counts.ATTENDANCE, 'request')}: work from home, on duty, permission or missed punch`, count: counts.ATTENDANCE, tone: 'soon', screen: 'approvals', params: { kind: 'ATTENDANCE' } });
     if (counts.PUNCH) out.push({ key: 'fieldPunches', title: 'Field punches waiting', detail: `${plural(counts.PUNCH, 'punch', 'punches')} made outside the work sites`, count: counts.PUNCH, tone: 'soon', screen: 'approvals', params: { kind: 'PUNCH' } });
