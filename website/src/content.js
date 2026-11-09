@@ -39,9 +39,9 @@ export const PRODUCT_CONTENT = {
     ],
   },
   people: {
-    title: 'Every employee, one record, every app.',
+    title: 'The HR app for a company that is growing.',
     intro:
-      'Keep each person’s details, documents and history in one place. Onboard new joiners with a checklist, issue letters, and give every employee an app for their own requests.',
+      'Each person’s details, documents and history in one place; attendance, leave and shifts inside it, so you do not need Attendance as well; joining and leaving run from checklists; and every employee gets an app for their own requests.',
     problems: [
       ['The same person in five spreadsheets', 'One employee record that Attendance, Payroll and the employee app all read. Change it once and it is right everywhere.'],
       ['Joining and leaving done from memory', 'Checklists for joining and leaving, with tasks for HR, IT and the manager, ticked as the work is done.'],
@@ -49,6 +49,7 @@ export const PRODUCT_CONTENT = {
     ],
     features: [
       ['Employee records', 'Personal, job and statutory details with a dated history of every change.'],
+      ['Time and leave', 'Everything Attendance does, inside People: readers, phone punches, shifts, leave balances and approvals, and the month close.'],
       ['Documents', 'Offer letters, IDs and certificates, with expiry reminders and who may see each one.'],
       ['Onboarding and exits', 'Joining and leaving checklists, notice periods and final settlement handed to Payroll.'],
       ['Org chart', 'Departments, managers and reporting lines, kept current from the records.'],
@@ -68,6 +69,7 @@ export const PRODUCT_CONTENT = {
     faq: [
       ['Do employees need a login to the workspace?', 'No. They use the employee app with an activation code from HR; it opens only their own data.'],
       ['Can I use People without Payroll?', 'Yes. Each CLOR product works on its own; together they share the employee record.'],
+      ['Do I need Attendance as well as People?', 'No. People includes attendance, leave and shifts. Attendance on its own is for a small company that wants only time and leave.'],
       ['Can we import our employee list?', 'Yes, from a spreadsheet, with a preview before anything is saved.'],
     ],
   },
@@ -105,9 +107,9 @@ export const PRODUCT_CONTENT = {
     ],
   },
   attendance: {
-    title: 'Attendance from the reader to the pay run.',
+    title: 'Time and leave for a small company.',
     intro:
-      'Connect your biometric readers or let people punch from their phone within your sites, set shifts and rules, approve leave and corrections, and close the month for payroll.',
+      'Connect your biometric readers or let people punch from their phone within your sites, set shifts and rules, approve leave and corrections, and close the month for payroll. When the company grows and needs records, documents and onboarding too, People takes over and includes all of this.',
     problems: [
       ['Readers that nobody can read', 'Punches arrive from ZKTeco, eSSL, Hikvision and Matrix readers as they happen.'],
       ['Field staff on the honour system', 'Phone punches inside a geofence, with a selfie when you want one, and a manager’s approval outside it.'],
@@ -135,6 +137,40 @@ export const PRODUCT_CONTENT = {
       ['Which readers work with CLOR?', 'ZKTeco and eSSL readers over their push protocol, Hikvision and Matrix readers, and others through the on-site connector.'],
       ['Do phone punches need GPS?', 'Yes, location is checked against your sites; punches outside them can still be approved by a manager.'],
       ['Can we use Attendance without Payroll?', 'Yes. The month’s totals can also be exported for another payroll.'],
+      ['When should we choose People instead?', 'When you need more than time and leave: employee records, documents, joining and leaving checklists, letters and an org chart. People includes everything Attendance does.'],
+    ],
+  },
+  workspace: {
+    title: 'One sign-in, and who may see what.',
+    intro:
+      'Workspace comes with every CLOR product. It holds your companies and branches, the people who sign in and the role each one has, invitations to your accountant, and the audit trail of every change.',
+    problems: [
+      ['A login for each tool', 'One sign-in opens every CLOR product you use, and every company you run, from one company menu.'],
+      ['Nobody sure who can see what', 'Each user has a role per company and sees only the companies, branches and products you gave them.'],
+      ['The accountant using your password', 'Invite your accountant with their own login, choose their role, set an end date if you like, and end it any time.'],
+    ],
+    features: [
+      ['Companies and branches', 'All your companies under one sign-in; each branch with its own GSTIN, series and stock.'],
+      ['Users and roles', 'Invite people by email and give each a role per company. Change or remove it whenever you need.'],
+      ['Outside access', 'Access for an accountant or auditor that ends on a date you choose.'],
+      ['Audit trail', 'Every change to records, roles and access, written in plain words with who made it and when.'],
+      ['Single sign-on', 'Sign in through Google Workspace, Microsoft Entra ID or another provider over SAML or OpenID Connect; SCIM keeps users in step.'],
+      ['Subscriptions', 'Switch a product on for a company when you need it; the data stays if you switch it off.'],
+    ],
+    workflow: {
+      title: 'Setting a company up',
+      steps: [
+        ['Add the company', 'Name, address and GSTIN; branches if you have them.'],
+        ['Switch on the products', 'Books, People, Attendance or Payroll, for the companies that use them.'],
+        ['Invite people', 'Your accountant, HR and managers, each with a role. Staff use the employee app instead.'],
+        ['Read the trail', 'Everything anyone changes is in the audit trail, in plain words.'],
+      ],
+    },
+    roles: 'The owner sees everything and decides every role. An accountant sees the books they were invited to. A manager sees their team. An employee never signs in here; they use the employee app, which opens only their own data.',
+    faq: [
+      ['Is Workspace sold separately?', 'No. It comes with any CLOR product. There is nothing to pay for it on its own.'],
+      ['Can one person work in several companies?', 'Yes. One sign-in, and the company menu switches between them without signing out.'],
+      ['Can I close a company?', 'Yes. Closing a company needs a fresh authenticator code and comes with a notice period before anything is deleted.'],
     ],
   },
   projects: {
