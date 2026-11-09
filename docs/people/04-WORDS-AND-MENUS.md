@@ -91,19 +91,19 @@ The menu as built on 8 November 2026 (`apps/people/manifest.jsx`, after `docs/pe
 | | Joining & leaving | Joining · Offers · Job changes · Leaving · Tasks |
 | | Pay & assets | Salary revisions · Expenses · Benefits · Assets |
 | **Time** | Leave | Who's away · Leave requests · Leave calendar · Leave balances |
-| | Attendance | Daily attendance · Attendance fixes · Shift swaps · Late marks · Absent, no leave |
+| | Attendance | Daily attendance · Attendance fixes · Shift swaps · Late marks · Absent without leave · Night work |
 | **Workplace** | News | Announcements · Events |
 | | Help | Help desk · Policies · Confidential cases |
 | **Talent** (module switches) | Hiring | Job openings · Candidates · Interviews · Referrals |
 | | Performance | Goals · Reviews · One-on-ones · Improvement plans · Training |
-| **Reports** | People | Headcount |
+| **Reports** | People | Headcount & attrition |
 | | Time | Leave register · Requests report |
-| | Statutory registers | Statutory registers (tabs: Register of employees · Muster roll · Leave register · Leave summary) · Night work |
+| | Statutory registers | Statutory registers (tabs: Register of employees · Muster roll · Leave register · Leave summary) |
 | **Settings** | – | one page, section 3.3 |
 
 Off the menu, still at their addresses: Organisation overview (`organization`), the Joining & leaving hub (removed), Refer someone (`referMe`, the primary action on Referrals), Leave summary (`leaveSummary`, a tab of Statutory registers). My leave, My attendance and My requests open from My profile.
 
-Renamed on 8 November 2026: Growth → Performance; Change history → Org changes; Absences → Absent, no leave (the plan's "Absent without leave" and "Headcount & attrition" do not fit the 192px panel); "Pay, benefits & assets" → Pay & assets; People report → Headcount; Compliance → Compliance calendar; Company choices → Who decides & who sees (it holds who decides requests and who sees salary revisions and leavings, not probation or notice, which live under Employment types).
+Renamed on 8 November 2026: Growth → Performance; Change history → Org changes; Absences → Absent without leave; "Pay, benefits & assets" → Pay & assets; People report → Headcount & attrition; Compliance → Compliance calendar; Company choices → Who decides & who sees (it holds who decides requests and who sees salary revisions and leavings, not probation or notice, which live under Employment types).
 
 ### 3.2 What each role sees
 

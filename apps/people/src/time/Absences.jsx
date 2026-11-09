@@ -69,7 +69,7 @@ export default function Absences({ params = {}, updateParams }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Time' }]} title="Absent, no leave" actions={canAct ? <button type="button" className="ui-btn ui-btn-secondary" disabled={checking} onClick={check}>{checking ? 'Checking…' : 'Check now'}</button> : null} />
+      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Time' }]} title="Absent without leave" actions={canAct ? <button type="button" className="ui-btn ui-btn-secondary" disabled={checking} onClick={check}>{checking ? 'Checking…' : 'Check now'}</button> : null} />
       <DataTable
         tabs={(
           <div ref={tabsRef} role="tablist" aria-label="Absences" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>

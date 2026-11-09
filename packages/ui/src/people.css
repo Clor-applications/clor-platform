@@ -2241,8 +2241,8 @@ html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-side-ch
 @media (max-width: 767px) {
   html:root[data-palette='sky'] #main-content .ui-table td[colspan] > :only-child { position: sticky; left: 0; max-width: calc(100vw - 3.5rem); }
 }
-/* The module panel: 192px (owner, 8 Nov 2026: "secondary sidebar reduce width"; was 216). Names are kept short enough to fit on one line. */
-:root[data-palette='sky'] .ui-split-panel { width: 12rem; }
+/* The module panel: 216px (owner, 9 Nov 2026: back from 192, so the plan's names fit on one line). */
+:root[data-palette='sky'] .ui-split-panel { width: 13.5rem; }
 
 /*
  * Coral and teal (owner, 8 Nov 2026). Coral (the brand tokens above) is what you press and the open screen; teal

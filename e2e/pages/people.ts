@@ -38,7 +38,8 @@ export const MENU: Record<string, string> = {
   'Attendance requests': 'Time',
   'Shift swaps': 'Time',
   'Late marks': 'Time',
-  'Absent, no leave': 'Time',
+  'Absent without leave': 'Time',
+  'Night work': 'Time',
   'Job openings': 'Talent',
   Candidates: 'Talent',
   Interviews: 'Talent',
@@ -53,11 +54,10 @@ export const MENU: Record<string, string> = {
   'Help desk': 'Workplace',
   Policies: 'Workplace',
   'Confidential cases': 'Workplace',
-  Headcount: 'Reports',
+  'Headcount & attrition': 'Reports',
   'Leave register': 'Reports',
   'Requests report': 'Reports',
   'Statutory registers': 'Reports',
-  'Night work': 'Reports',
   Settings: 'Settings',
 };
 

@@ -34,21 +34,21 @@ describe('People navigation', () => {
     ]);
     expect(groupsOf('leave')).toEqual([
       ['Leave', ["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances']],
-      ['Attendance', ['Daily attendance', 'Attendance fixes', 'Shift swaps', 'Late marks', 'Absent, no leave']],
+      ['Attendance', ['Daily attendance', 'Attendance fixes', 'Shift swaps', 'Late marks', 'Absent without leave', 'Night work']],
     ]);
     expect(groupsOf('talent').map(([l]) => l)).toEqual(['Hiring', 'Performance']);
     expect(groupsOf('talent')[0][1]).not.toContain('Refer someone');
     expect(groupsOf('reports')).toEqual([
-      ['People', ['Headcount']],
+      ['People', ['Headcount & attrition']],
       ['Time', ['Leave register', 'Requests report']],
-      ['Statutory registers', ['Statutory registers', 'Night work']],
+      ['Statutory registers', ['Statutory registers']],
     ]);
   });
 
-  it('Delegates, the compliance calendar, the auditor’s evidence and the company’s shape are Settings pages; Night work is a report', () => {
+  it('Delegates, the compliance calendar, the auditor’s evidence and the company’s shape are Settings pages; Night work stays in Time', () => {
     const parentOf = Object.fromEntries(peopleApp.nav.filter((i) => i.key).map((i) => [i.key, i.parent]));
     for (const k of ['standIns', 'compliance', 'auditEvidence', 'departments', 'jobPositions', 'branches', 'orgChanges', 'establishments', 'areas', 'teams', 'seats', 'businessUnits', 'grades', 'costCentres', 'jobRoles']) expect(parentOf[k], k).toBe('settings');
-    expect(moduleForScreen(modules, 'nightWork', peopleApp.nav)?.label).toBe('Reports');
+    expect(moduleForScreen(modules, 'nightWork', peopleApp.nav)?.label).toBe('Time');
     expect(moduleForScreen(modules, 'standIns', peopleApp.nav)?.label).toBe('Settings');
     /* Leave summary is a tab of Statutory registers, so it is not a second entry; its address still works. */
     expect(inModules.has('leaveSummary')).toBe(false);
@@ -154,7 +154,7 @@ describe('People navigation in simple mode', () => {
   it('keeps every module that has a screen left, and the leave screens under one naming rule', () => {
     const modules = resolveModules(peopleApp, simple);
     expect(modules.map((m) => m.label)).toEqual(['Home', 'Inbox', 'People', 'Time', 'Workplace', 'Talent', 'Reports', 'Settings']);
-    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Daily attendance', 'Attendance fixes', 'Shift swaps', 'Late marks', 'Absent, no leave']);
+    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Daily attendance', 'Attendance fixes', 'Shift swaps', 'Late marks', 'Absent without leave', 'Night work']);
   });
 
   it('shows everything when simple mode is off, or when the company’s switches are not known yet', () => {

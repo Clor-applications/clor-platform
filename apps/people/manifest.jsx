@@ -434,10 +434,10 @@ export const peopleApp = {
     ] },
     /* Time: leave and attendance in one module whose name fits the rail on one line. Your own leave and
        days live under My profile, not in the admin menu. Leave register is a statutory form: Reports.
-       Delegates is set up once: Settings. Night work is a consent register: Reports. */
+       Delegates is set up once: Settings. Night work stays here: HR records consent on it and Home links to it. */
     { key: 'leave', label: 'Time', icon: M.time, groups: [
       { label: 'Leave', items: ['timeOverview', 'leaveRequests', 'leaveCalendar', 'leaveBalances'] },
-      { label: 'Attendance', items: ['attendance', 'attendanceRequests', 'shiftSwaps', 'lateMarks', 'absences'] },
+      { label: 'Attendance', items: ['attendance', 'attendanceRequests', 'shiftSwaps', 'lateMarks', 'absences', 'nightWork'] },
     ] },
     /* Workplace: what the company offers its staff, news to help. */
     { key: 'workplace', label: 'Workplace', icon: M.engage, groups: [
@@ -455,7 +455,7 @@ export const peopleApp = {
     { key: 'reports', label: 'Reports', icon: M.insights, groups: [
       { label: 'People', items: ['reports'] },
       { label: 'Time', items: ['leaveRegister', 'requestsReport'] },
-      { label: 'Statutory registers', items: ['registers', 'nightWork'] },
+      { label: 'Statutory registers', items: ['registers'] },
     ] },
     { key: 'settings', label: 'Settings', icon: M.settings, items: ['settings'] },
   ],
@@ -501,8 +501,8 @@ export const peopleApp = {
     { key: 'shiftSwaps', label: 'Shift swaps', icon: asKind(I.change, 'time'), permission: 'PEOPLE::Requests::VIEW' },
     { key: 'lateMarks', label: 'Late marks', icon: I.myDays, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
     /* Absent working day after working day with no leave and no word (Absences.jsx): the label says so. */
-    { key: 'absences', label: 'Absent, no leave', keywords: ['absences', 'absent without leave', 'absconding', 'no show', 'missing'], icon: asKind(I.leaver, 'time'), permission: 'PEOPLE::Employees::VIEW' },
-    /* Women's consent to night work (OSH Code s.43): a register, under Reports. */
+    { key: 'absences', label: 'Absent without leave', keywords: ['absences', 'absconding', 'no show', 'missing'], icon: asKind(I.leaver, 'time'), permission: 'PEOPLE::Employees::VIEW' },
+    /* Women's consent to night work (OSH Code s.43), recorded here; Time › Attendance. */
     { key: 'nightWork', label: 'Night work', keywords: ['night shift', 'consent', 'women'], icon: I.night, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'attendanceRules', label: 'Attendance rules', icon: I.attRules, permission: 'ATTENDANCE::Attendance Requests::VIEW', parent: 'settings' },
     { key: 'automations', label: 'Automations', icon: I.automation, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
@@ -552,7 +552,7 @@ export const peopleApp = {
     { key: 'compensation', label: 'Salary revisions', keywords: ['salary', 'hike', 'increment', 'raise', 'revision'], icon: I.salary, permission: ['PAYROLL::Salary Revisions::VIEW', 'PEOPLE::Salary revisions read::VIEW'], feature: 'peopleBenefits' },
     /* Claims approved in Approvals, paid here; advances and salary advances (WORKFLOW-GAP-RESEARCH 4.1, 4.2). */
     { key: 'expenses', label: 'Expenses', keywords: ['claim', 'reimbursement', 'advance', 'bill'], icon: I.expense, permission: 'PEOPLE::Expenses::VIEW' },
-    { key: 'reports', label: 'Headcount', keywords: ['people report', 'headcount', 'attrition', 'headcount & attrition', 'joiners', 'leavers'], icon: I.report, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'reports', label: 'Headcount & attrition', keywords: ['people report', 'headcount', 'attrition', 'joiners', 'leavers'], icon: I.report, permission: 'PEOPLE::Employees::VIEW' },
     /* What an inspector asks for (HR view audit, gap 4), and leave taken by department and type (gap 9). */
     { key: 'registers', label: 'Statutory registers', keywords: ['muster roll', 'statutory form', 'form', 'leave summary', 'leave taken'], icon: I.statutory, permission: 'PEOPLE::Employees::VIEW' },
     /* Leave summary is a tab of Statutory registers; its own address stays for links, not the menu (People plan, 8 Nov 2026). */
