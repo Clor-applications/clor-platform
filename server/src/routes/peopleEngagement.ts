@@ -13,7 +13,8 @@ import { seesLeavings } from '../services/people/companyChoices.js';
 import { ownPlanRefusal } from '../services/people/checklists.js';
 import { StayOnError } from '../services/people/lifecycle/stayOn.js';
 import '../services/people/engagement/index.js';
-import { AutomationError, listAutomations, saveAutomations } from '../services/people/engagement/automations.js';
+import { AutomationError } from '../services/people/engagement/automations.js';
+import { getAutomations, putAutomations } from './automations.js';
 import { ClearanceError, addLine, clearanceFor, ensureClearance, finalPayBoard, finalPayOf, removeLine, updateLine } from '../services/people/engagement/clearance.js';
 import { ExitError, decideInterview, exitSettings, interviewFor, leavingReasons, resetExitSettings, saveExitSettings, submitInterview } from '../services/people/engagement/exitInterview.js';
 import { optedOut, setOptOut } from '../services/people/engagement/greetings.js';
@@ -210,19 +211,9 @@ peopleEngagementRouter.get(`${base}/assignees`, ppl(PermissionAction.EDIT, R.emp
 
 /* --------------------------------------------------------------- automations */
 
-peopleEngagementRouter.get(`${base}/automations`, ppl(PermissionAction.VIEW, R.employees), handle(async (req, res) => {
-  const canEdit = await isHr(req);
-  res.json({ automations: await listAutomations(req.tenant!.orgId, { showRuns: canEdit }), canEdit });
-}));
-
-peopleEngagementRouter.put(`${base}/automations`, ppl(PermissionAction.EDIT, R.employees), hrOnly(async (req, res) => {
-  const before = await listAutomations(req.tenant!.orgId, { showRuns: true });
-  await saveAutomations(who(req), req.body);
-  const after = await listAutomations(req.tenant!.orgId, { showRuns: true });
-  const changed = after.filter((a) => { const b = before.find((x) => x.key === a.key); return b && (b.on !== a.on || b.n !== a.n); });
-  if (changed.length) await recordAudit(req, { entity: 'EngagementSettings', entityId: req.tenant!.orgId, action: 'UPDATE', message: `Automations changed: ${changed.map((c) => `${c.key} ${c.on ? 'on' : 'off'}${c.n != null ? ` (${c.n})` : ''}`).join(', ')}`.slice(0, 480), metadata: { changed: changed.map((c) => ({ key: c.key, on: c.on, n: c.n })) } });
-  res.json({ automations: after, canEdit: true });
-}));
+/* The old path of Settings → Automations: the same handlers as /orgs/:orgId/automations?module=people (routes/automations.ts). */
+peopleEngagementRouter.get(`${base}/automations`, ppl(PermissionAction.VIEW, R.employees), (req, res) => getAutomations(req, res, 'people'));
+peopleEngagementRouter.put(`${base}/automations`, ppl(PermissionAction.EDIT, R.employees), (req, res) => putAutomations(req, res, 'people'));
 
 /* ------------------------------------------------------------- celebrations */
 
