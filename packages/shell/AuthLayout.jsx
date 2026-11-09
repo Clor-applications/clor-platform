@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Check } from '@ui/components/ui/lineIcons';
 import { ClorLogo } from '@ui/components/brand';
 import LegalLinks from './legal/LegalLinks';
 import { appFromHost } from './appHosts';
-import { sceneFile, sceneSrc } from './authScenes';
+import { factsFor, sceneFile, sceneSrc } from './authScenes';
 
 /**
  * The frame both sign-in and sign-up sit in.
@@ -50,10 +50,37 @@ function CustomerBrand() {
 }
 
 /**
- * The picture side: one scene filling 60% of the screen, the logo on its top-left
- * corner. On a phone it is a short band above the form.
+ * Facts about the app that turn over every few seconds on the picture's navy
+ * fade. Held still for anyone who asks for less motion; the dots let a reader
+ * pick one.
  */
-function Scene({ file, onHome, band = false }) {
+function Facts({ app }) {
+  const facts = factsFor(app);
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const t = setInterval(() => setI((n) => (n + 1) % facts.length), 6000);
+    return () => clearInterval(t);
+  }, [facts.length, i]);
+  return (
+    <div className="ui-auth-facts">
+      <p key={i} className="ui-auth-fact">
+        {facts[i]}
+      </p>
+      <div className="ui-auth-fact-dots">
+        {facts.map((f, n) => (
+          <button key={f} type="button" aria-label={`Fact ${n + 1} of ${facts.length}`} aria-current={n === i ? 'true' : undefined} onClick={() => setI(n)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The picture side: one scene filling 60% of the screen, its own title top left,
+ * the logo and the app's facts along the bottom. On a phone it is a short band above the form.
+ */
+function Scene({ file, onHome, band = false, app = null }) {
   const { src, srcSet } = sceneSrc(file);
   return (
     <div className={band ? 'ui-auth-scene-band lg:hidden' : 'ui-auth-scene'}>
@@ -63,6 +90,7 @@ function Scene({ file, onHome, band = false }) {
           <button type="button" onClick={onHome} className="ui-auth-scene-logo">
             <ClorLogo size={30} title="CLOR, back to clor.in" />
           </button>
+          <Facts app={app} />
         </div>
       )}
     </div>
@@ -71,13 +99,14 @@ function Scene({ file, onHome, band = false }) {
 
 export default function AuthLayout({ title, subtitle, wide = false, onHome, children, footer, brand, scene = 'signin' }) {
   /* The operator console brings its own brand side; the customer's doors get a picture. */
-  const file = brand ? null : sceneFile(scene, appFromHost());
+  const app = appFromHost();
+  const file = brand ? null : sceneFile(scene, app);
   return (
     <div className={`ui-auth min-h-dvh${file ? ' has-scene' : ''}`}>
       <div className="ui-min-h-viewport flex">
         {file ? (
           <aside className="ui-auth-brand ui-auth-brand--scene hidden lg:flex" aria-label="About CLOR">
-            <Scene file={file} onHome={onHome} />
+            <Scene file={file} onHome={onHome} app={app} />
           </aside>
         ) : (
           <aside className={`ui-auth-brand hidden lg:flex${brand ? '' : ' is-board'}`} aria-label="About CLOR">
