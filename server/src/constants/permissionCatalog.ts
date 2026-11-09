@@ -233,8 +233,14 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
       {
         key: 'Documents',
         label: 'Documents',
-        description: 'Files on a person\'s record. VIEW opens what the person can see, and HR-only files company-wide; EDIT also opens restricted ones. A role kept to its own team opens only what the person can see, and no payslip but the holder\'s own',
+        description: 'Files on a person\'s record. VIEW opens what the person can see; HR-only files need HR-only documents too; EDIT also opens restricted ones. A role kept to its own team opens only what the person can see, and no payslip but the holder\'s own',
         actions: MASTER,
+      },
+      {
+        key: 'HR-only Documents',
+        label: 'HR-only documents',
+        description: 'Files marked HR only (offer letters, contracts, salary letters), company-wide, together with Documents VIEW. A read-only role goes without it',
+        actions: [A.VIEW],
       },
       {
         key: 'Confidential Documents',
@@ -287,8 +293,14 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
       {
         key: 'Statutory Details',
         label: 'Statutory details',
-        description: 'Identifiers and statutory category: PAN, UAN, ESIC and bank from Payroll, Aadhaar (last four), passport, work permit. Shown masked; revealing one needs an authenticator code and is logged',
+        description: 'Identifiers and statutory category: PAN, UAN, ESIC and bank from Payroll, Aadhaar (last four), passport, work permit. Shown masked; a full value needs Full identifiers',
         actions: [A.VIEW, A.EDIT],
+      },
+      {
+        key: 'Full Identifiers',
+        label: 'Full identifiers',
+        description: 'Show a full PAN, UAN, ESIC, bank account, passport or work permit number, one at a time, with an authenticator code; every one is logged. Without it they stay masked',
+        actions: [A.VIEW],
       },
     ],
   },
@@ -529,6 +541,19 @@ const REFERENCE_DATA: Array<[string, string, string[]]> = [
   ['MASTERS', 'Units of Measure', [A.VIEW]],
 ];
 
+/*
+ * What Viewer goes without (owner, 8 Nov 2026): read-only employee records, but no confidential or HR-only file,
+ * no full identifier, nobody's privacy work or confidential case. (Payroll, statutory reports included, is left out
+ * of Viewer as a whole; see the preset.)
+ */
+const VIEWER_WITHOUT = new Set([
+  'PEOPLE::Confidential Documents',
+  'PEOPLE::HR-only Documents',
+  'PEOPLE::Full Identifiers',
+  'PEOPLE::Privacy',
+  'PEOPLE::Private Cases',
+]);
+
 export const ROLE_PRESETS: Record<string, RolePreset> = {
   ADMIN: {
     label: 'Administrator',
@@ -699,25 +724,42 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
     ],
   },
 
-  // ---- People (Horilla / ERPNext: HR User / HR Manager) ----
+  // ---- People (ERPNext HRMS: HR User / HR Manager; owner, 8 Nov 2026) ----
+  /*
+   * Aligned with ERPNext HRMS's stock doctype permissions (PR body: the mapping table), additively: what ERPNext
+   * gives HR User on Department, Designation, Leave Type, Attendance, Shift Type and Assignment, Job Opening,
+   * Appraisal, Training Event, Employee Grievance and Expense Claim is here too. Two things differ on purpose:
+   * HR User does not approve leave (the owner's decision; ERPNext lets it submit a Leave Application), and
+   * deciding attendance requests and deleting attendance stay with HR Manager and the person's manager.
+   */
   HR_USER: {
     label: 'HR User',
     group: 'People',
-    description: 'Keep employee files and notes up to date; read the org structure',
+    description: 'Keep employee files, documents and notes, attendance, shifts and leave types up to date, and raise leave; HR Manager approves leave',
     roleType: 'CUSTOM',
     grants: [
       ['PEOPLE', 'Employees', USER_EXPORT],
-      ['PEOPLE', 'Org Structure', [A.VIEW]],
+      ['PEOPLE', 'Org Structure', USER],
       ['PEOPLE', 'Employee Notes', USER],
       ['PEOPLE', 'Documents', USER],
+      ['PEOPLE', 'HR-only Documents', [A.VIEW]],
       ['PEOPLE', 'Statutory Details', [A.VIEW]],
+      ['PEOPLE', 'Full Identifiers', [A.VIEW]],
       ['PEOPLE', 'Requests', [A.VIEW, A.CREATE, A.APPROVE]],
       ['PEOPLE', 'Lifecycle', [A.VIEW, A.CREATE, A.EDIT]],
       ['PEOPLE', 'Policies', [A.VIEW, A.CREATE, A.EDIT]],
-      /* Leave is HR's (founder, 22 Oct 2026): People's leave screens are gated on these (review R-12). */
+      ['PEOPLE', 'Recruitment', USER],
+      ['PEOPLE', 'Performance', USER],
+      ['PEOPLE', 'Learning', [A.VIEW, A.EDIT]],
+      ['PEOPLE', 'HR Cases', USER],
+      ['PEOPLE', 'Expenses', [A.VIEW]],
+      /* Leave is HR's (founder, 22 Oct 2026): People's leave screens are gated on these (review R-12). Raising and
+         correcting leave, never approving it: HR Manager approves (owner, 8 Nov 2026). */
       ['ATTENDANCE', 'Leave Requests', [A.VIEW, A.CREATE, A.EDIT]],
-      ['ATTENDANCE', 'Leave Types', [A.VIEW]],
+      ['ATTENDANCE', 'Leave Types', USER],
       ['ATTENDANCE', 'Holidays', [A.VIEW]],
+      ['ATTENDANCE', 'Attendance Records', [A.VIEW, A.CREATE, A.EDIT, A.EXPORT]],
+      ['ATTENDANCE', 'Shifts', USER],
       /* Their own leave and check-in (People audit, 30 Oct 2026, gap 3): VIEW alone showed the buttons and the
          server refused them. HR Manager and Team Manager carry the same; migration 20261102090000 fixes old roles. */
       ['ATTENDANCE', 'My Attendance', [A.VIEW, A.CREATE]],
@@ -728,21 +770,27 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   HR_MANAGER: {
     label: 'HR Manager',
     group: 'People',
-    description: 'Everything in People: employee files, org structure, notes, removal',
+    description: 'Everything in People: employee files, confidential documents, policies, privacy requests and confidential cases; approves leave',
     roleType: 'CUSTOM',
     grants: [
       ['PEOPLE', 'Employees', ['*']],
       ['PEOPLE', 'Org Structure', ['*']],
       ['PEOPLE', 'Employee Notes', ['*']],
       ['PEOPLE', 'Documents', ['*']],
+      ['PEOPLE', 'HR-only Documents', ['*']],
       ['PEOPLE', 'Confidential Documents', ['*']],
       ['PEOPLE', 'Statutory Details', ['*']],
+      ['PEOPLE', 'Full Identifiers', ['*']],
       ['PEOPLE', 'Approvals', ['*']],
       ['PEOPLE', 'Requests', ['*']],
       ['PEOPLE', 'Lifecycle', ['*']],
       ['PEOPLE', 'Expenses', ['*']],
+      /* Owner, 8 Nov 2026: policies, privacy requests (Privacy controls: retention, deletion review, auditor access) and confidential cases. */
+      ['PEOPLE', 'Policies', ['*']],
+      ['PEOPLE', 'Privacy', ['*']],
+      ['PEOPLE', 'Private Cases', ['*']],
       ...['Announcements', 'Events', 'Recruitment', 'Performance', 'Learning', 'HR Cases', 'Assets', 'Benefits'].map((key) => ['PEOPLE', key, ['*']] as [string, string, string[]]),
-      /* Leave, holidays and the employee app are HR's too (review R-12). */
+      /* Leave, holidays and the employee app are HR's too (review R-12). HR Manager approves leave (owner, 8 Nov 2026). */
       ['ATTENDANCE', 'Leave Requests', ['*']],
       ['ATTENDANCE', 'Leave Types', ['*']],
       ['ATTENDANCE', 'Holidays', ['*']],
@@ -750,8 +798,9 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['ATTENDANCE', 'Employee Portal', ['*']],
       ['ATTENDANCE', 'Attendance Requests', ['*']],
       /* In a business of one to twenty, HR runs attendance (audit 7 Nov 2026, #4): everyone's days, the muster
-         roll and month close (Records), and shifts. Readers stay with the Attendance Manager. Migration
-         20261121090000_attendance_role_grants gives roles still exactly the old template the same. */
+         roll and month close (Records), and shifts, as ERPNext's HR Manager has Attendance and Shift Type /
+         Assignment. Readers stay with the Attendance Manager. Migration 20261121090000_attendance_role_grants
+         gives roles still exactly the old template the same. */
       ['ATTENDANCE', 'Attendance Records', ['*']],
       ['ATTENDANCE', 'Shifts', ['*']],
     ],
@@ -789,7 +838,9 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Employees', [A.VIEW, A.EXPORT]],
       ['PEOPLE', 'Org Structure', [A.VIEW]],
       ['PEOPLE', 'Documents', [A.VIEW]],
+      ['PEOPLE', 'HR-only Documents', [A.VIEW]],
       ['PEOPLE', 'Statutory Details', [A.VIEW]],
+      ['PEOPLE', 'Full Identifiers', [A.VIEW]],
       ['ATTENDANCE', 'Employee Portal', [A.VIEW]],
       ['SETTINGS', 'Audit trail', [A.VIEW, A.EXPORT]],
     ],
@@ -881,9 +932,12 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   AUDITOR: {
     label: 'Auditor',
     group: 'Read-only',
-    description: 'Read and export every book, document, report and the audit trail; change nothing',
+    description: 'Read and export every book, document, report and the audit trail, and the employee list with joining and leaving dates; no employee documents or identifiers; change nothing',
     roleType: 'CUSTOM',
     grants: [
+      /* Owner, 8 Nov 2026: read-only People, the list with joining and leaving dates; no documents, no identifiers. */
+      ['PEOPLE', 'Employees', READ],
+      ['PEOPLE', 'Org Structure', [A.VIEW]],
       ['SALES', '*', READ],
       ['PURCHASE', '*', READ],
       ['INVENTORY', '*', READ],
@@ -908,14 +962,20 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   VIEWER: {
     label: 'Viewer',
     group: 'Read-only',
-    description: 'Read-only across the product, except salaries',
+    description: 'Read-only across the product, except salaries; employee records included, but no confidential or HR-only documents, and PAN, Aadhaar, UAN and bank stay masked',
     roleType: 'CUSTOM',
     /*
      * Not Payroll (audit 7 Nov 2026, #8): read-only there is every payslip, CTC,
      * report and full PAN. Somebody who should see salaries is given a Payroll
      * role, on purpose. Existing Viewer roles: platform migration 20261107100100_viewer_without_payroll.
+     * In People, not the resources VIEWER_WITHOUT names (owner, 8 Nov 2026); migration
+     * 20261116090000_people_role_templates_erpnext.
      */
-    grants: PERMISSION_CATALOG.filter((m) => m.key !== 'PAYROLL').map((m) => [m.key, '*', [A.VIEW]] as [string, string, string[]]),
+    grants: PERMISSION_CATALOG.filter((m) => m.key !== 'PAYROLL').flatMap((m) =>
+      m.resources
+        .filter((r) => r.actions.includes(A.VIEW) && !VIEWER_WITHOUT.has(`${m.key}::${r.key}`))
+        .map((r) => [m.key, r.key, [A.VIEW]] as [string, string, string[]])
+    ),
   },
 };
 
@@ -946,4 +1006,22 @@ export const expandPreset = (presetKey: string) => {
     }
   }
   return out;
+};
+
+/**
+ * How a role named after a stock template stands against that template today (owner, 8 Nov 2026). A migration that
+ * changes a template brings along only the roles nobody changed; a role someone did change is left as it is, and
+ * this says so on the roles screen: what the template now has that the role lacks, and what the role has besides.
+ * Null for a role not named after a template (the Owner, a role made here) or one that is branch-only.
+ */
+export const templateDrift = (role: { name: string; branchId?: string | null }, held: Iterable<string>) => {
+  if (role.branchId) return null;
+  const entry = Object.entries(ROLE_PRESETS).find(([key, p]) => key !== 'ADMIN' && p.label.toLowerCase() === String(role.name).toLowerCase());
+  if (!entry) return null;
+  const [key, preset] = entry;
+  const want = new Set(expandPreset(key).map((r) => permKey(r.module, r.subModule, r.action)));
+  const have = new Set([...held].filter((k) => CATALOG_KEYS.has(k)));
+  const missing = [...want].filter((k) => !have.has(k)).sort();
+  const extra = [...have].filter((k) => !want.has(k)).sort();
+  return { key, label: preset.label, matches: !missing.length && !extra.length, missing, extra };
 };

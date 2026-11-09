@@ -18,6 +18,7 @@ import {
 
 import { appFromHost } from './appHosts';
 import { chooseTenant, codeNames, lastUsedKey, orgCodeFromPath, tabChoiceKey, withOrgPath } from './orgUrl';
+import { isExplorePath } from './exploreLink';
 
 /**
  * Who is signed in, which company they are looking at, and which apps that
@@ -36,6 +37,24 @@ import { chooseTenant, codeNames, lastUsedKey, orgCodeFromPath, tabChoiceKey, wi
  */
 
 const SessionContext = createContext(null);
+
+/* Explore (the read-only sample company): this tab's session came from an Explore link, so its end is "This link has ended", not the sign-in page. */
+const EXPLORE_KEY = 'clor.explore';
+const markExplore = (on) => {
+  try {
+    if (on) sessionStorage.setItem(EXPLORE_KEY, '1');
+    else sessionStorage.removeItem(EXPLORE_KEY);
+  } catch {
+    /* storage unavailable: the sign-in page shows instead */
+  }
+};
+const wasExplore = () => {
+  try {
+    return sessionStorage.getItem(EXPLORE_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
 
 const TOKEN_KEY = 'token';
 
@@ -115,6 +134,10 @@ export function SessionProvider({ children }) {
   }, [user?.id]);
   /* A company here requires an authenticator of this owner or admin, who has none yet (SX-09). */
   const [twoFactorSetupRequired, setTwoFactorSetupRequired] = useState(false);
+  /* Explore: { daysLeft, expiresAt, app } while this is the sample company's read-only session; null otherwise. */
+  const [explore, setExplore] = useState(null);
+  /* An Explore session ran out or was ended: the shell says so instead of offering a sign-in. */
+  const [exploreEnded, setExploreEnded] = useState(false);
   /* True until the token in this browser has been checked against the server.
      Rendering the public page first would flash it at somebody already signed
      in, on every reload. */
@@ -168,6 +191,8 @@ export function SessionProvider({ children }) {
     setAccounts(Array.isArray(payload?.accounts) ? payload.accounts : []);
     setUser(payload?.user || null);
     setTwoFactorSetupRequired(Boolean(payload?.twoFactorSetupRequired));
+    setExplore(payload?.explore || null);
+    markExplore(Boolean(payload?.explore));
     const userId = payload?.user?.id;
     const read = (store, key) => {
       try { return String(store.getItem(key) || ''); } catch { return ''; }
@@ -200,6 +225,8 @@ export function SessionProvider({ children }) {
   const tenantLegacyCode = tenantCode ? tenant.legacyCode || '' : '';
   useEffect(() => {
     if (!tenantCode || typeof window === 'undefined') return;
+    /* Explore's landing page trades its link for the sample company's session; no company code belongs on it. */
+    if (isExplorePath()) return;
     const current = orgCodeFromPath(window.location.pathname);
     if (current === tenantCode.toUpperCase()) return;
     const url = `${withOrgPath(window.location.pathname, tenantCode)}${window.location.search}${window.location.hash}`;
@@ -262,7 +289,10 @@ export function SessionProvider({ children }) {
         const next = adopt(data);
         if (next) loadApps(next.id, next.branchId);
       } catch {
-        if (!cancelled) writeToken('');
+        if (!cancelled) {
+          writeToken('');
+          if (wasExplore()) setExploreEnded(true);
+        }
       } finally {
         if (!cancelled) setRestoring(false);
       }
@@ -300,7 +330,12 @@ export function SessionProvider({ children }) {
   useEffect(() => {
     const onEnded = () => {
       writeToken('');
-    forgetSelections();
+      forgetSelections();
+      if (wasExplore()) {
+        markExplore(false);
+        setExploreEnded(true);
+      }
+      setExplore(null);
       setUser(null);
       setTenants([]);
       setAccounts([]);
@@ -402,6 +437,8 @@ export function SessionProvider({ children }) {
       /* Losing the server's goodbye must not trap somebody in a session. */
     }
     writeToken('');
+    markExplore(false);
+    setExplore(null);
     setUser(null);
     setTenants([]);
     setAccounts([]);
@@ -430,8 +467,8 @@ export function SessionProvider({ children }) {
   );
 
   const value = useMemo(
-    () => ({ user, tenant, tenants, accounts, deniedCode, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp }),
-    [user, tenant, tenants, accounts, deniedCode, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp]
+    () => ({ user, tenant, tenants, accounts, deniedCode, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp, explore, exploreEnded }),
+    [user, tenant, tenants, accounts, deniedCode, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp, explore, exploreEnded]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

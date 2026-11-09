@@ -59,9 +59,9 @@ export default function Openings({ params = {}, openScreen }) {
 
   const columns = [
     { key: 'title', label: 'Job', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.title}</span><span className="block truncate ui-caption">{[r.departmentName, r.designationName, r.branchName || r.location].filter(Boolean).join(' · ')}</span></span> },
-    { key: 'places', label: 'Places', render: (r) => <span className="tabular-nums">{r.places}</span> },
     { key: 'active', label: 'Candidates', render: (r) => (r.active ? <button type="button" className="ui-link tabular-nums" onClick={(e) => { e.stopPropagation(); openScreen?.('candidates', { opening: r.id }); }}>{r.active}</button> : <span className="ui-muted tabular-nums">0</span>) },
-    { key: 'hired', label: 'Hired', render: (r) => <span className={`tabular-nums ${r.hired ? '' : 'ui-muted'}`}>{r.hired}</span> },
+    /* Hired of places: a declined offer frees a place, a hire takes one (People plan 8 Nov 2026, step 4). */
+    { key: 'hired', label: 'Filled', render: (r) => <span className={`tabular-nums whitespace-nowrap ${r.hired ? '' : 'ui-muted'}`}>{r.hired} of {r.places}</span> },
     { key: 'manager', label: 'Hiring manager', render: (r) => r.hiringManagerName || <span className="ui-muted">—</span> },
     { key: 'target', label: 'Fill by', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.targetDate) || '—'}</span> },
     { key: 'status', label: 'Status', render: (r) => <span className="inline-flex flex-wrap items-center gap-1.5"><Pill map={OPENING_STATUS} value={r.status} />{r.applyOpen ? <span className="ui-pill ui-pill-info">Apply link on</span> : null}{r.referralOpen ? <span className="ui-pill ui-pill-info">Referrals on</span> : null}</span> },

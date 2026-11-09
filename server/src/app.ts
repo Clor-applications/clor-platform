@@ -49,6 +49,7 @@ import { peopleTimeRulesRouter } from './routes/peopleTimeRules.js';
 import { peopleCompanyChoicesRouter } from './routes/peopleCompanyChoices.js';
 import { peopleTimePortalRouter } from './routes/peopleTimePortal.js';
 import { peopleEngagementRouter } from './routes/peopleEngagement.js';
+import { automationsRouter } from './routes/automations.js';
 import { peopleEngagementPortalRouter } from './routes/peopleEngagementPortal.js';
 import { peopleJoinRouter } from './routes/peopleJoin.js';
 import { peopleInvitesRouter } from './routes/peopleInvites.js';
@@ -120,7 +121,10 @@ import { stockLedgerRouter } from './routes/stockLedger.js';
 import { notFound, errorHandler } from './middleware/errors.js';
 import { billingRouter, billingOperatorRouter, billingWebhook } from './routes/billing.js';
 import { demoRequestCors, demoRequestsRouter, opsDemoRequestsRouter } from './routes/demoRequests.js';
+import { opsExploreRouter } from './routes/opsExplore.js';
 import { opsRouter } from './routes/ops.js';
+import { exploreRouter } from './routes/explore.js';
+import { exploreReadOnly } from './middleware/exploreReadOnly.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
 import { internalJobsRouter } from './routes/internalJobs.js';
 import { auditMutations } from './middleware/auditMutations.js';
@@ -259,6 +263,12 @@ export function buildApp() {
     })
   );
   /*
+   * Explore (roadmap item 6): a session on the sample company reads and
+   * changes nothing. Here, after CORS so the app can read the refusal, and
+   * ahead of every body parser and router, so no route can forget it.
+   */
+  app.use(exploreReadOnly);
+  /*
    * Biometric readers (ZKTeco / eSSL push). Plain-text bodies, no login: a
    * reader is known by its serial number, which a company claims under
    * Attendance → Readers. Mounted before the JSON parser and outside /api, so
@@ -386,6 +396,8 @@ export function buildApp() {
   /* Single sign-on lands here from the identity provider; mounted before the password routes. */
   /* A ceiling on every API call, per session and per address (FX-05). */
   app.use('/api', ...apiLimiter);
+  /* Explore: a link from the demo request's mail, traded for a read-only session on the sample company. */
+  app.use('/api', exploreRouter);
   app.use('/api/auth/sso', ssoRouter);
   app.use('/api/auth', authRouter);
   /* W-3: an invited person's side of an invitation — before they belong to any company, so not company-scoped. */
@@ -423,6 +435,7 @@ export function buildApp() {
   /* W-8.2: the operator console — Clor staff, outside every customer account, so ahead of the tenant routers. */
   app.use('/api', opsRouter);
   app.use('/api', opsDemoRequestsRouter);
+  app.use('/api', opsExploreRouter);
 
   /*
    * Mounted before every tenant-scoped router, and that position is the point.
@@ -465,6 +478,7 @@ export function buildApp() {
   app.use('/api', peopleTimeRulesRouter);
   app.use('/api', peopleCompanyChoicesRouter);
   app.use('/api', peopleEngagementRouter);
+  app.use('/api', automationsRouter);
   app.use('/api', peopleInvitesRouter);
   app.use('/api', peopleLettersRouter);
   app.use('/api', peoplePoliciesRouter);

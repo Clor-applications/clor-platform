@@ -703,6 +703,9 @@ leaveRouter.post(`${base}/allocations/import`, can(PermissionAction.EDIT, R.leav
  */
 leaveRouter.post(`${base}/requests/import`, can(PermissionAction.EDIT, R.leave), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  /* Every row is approved as it lands: importing leave is deciding it, so it takes Leave APPROVE (HR User may not; owner, 8 Nov 2026). */
+  const notApprover = await authorize(req, ATTENDANCE_MODULE, PermissionAction.APPROVE, R.leave);
+  if (notApprover) return res.status(notApprover.status).json(notApprover.body);
   if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
@@ -3077,7 +3080,7 @@ leaveRouter.post(`${base}/stand-ins`, can(PermissionAction.APPROVE, R.leave), as
   if (coversPeople(types)) {
     if (manager.id !== me?.id) return res.status(403).json({ error: `Only ${manager.name} can hand on their other approvals, from their own sign-in.` });
     if (!standIn.userId) return res.status(400).json({ error: `${standIn.name} has no CLOR sign-in, so they cannot decide requests. Link one on their record first.` });
-    if (!(await deciders(accountId, orgId)).has(standIn.userId)) return res.status(400).json({ error: 'They cannot approve requests here, so they cannot decide in your place. Choose someone who can.' });
+    if (!(await deciders(accountId, orgId, types)).has(standIn.userId)) return res.status(400).json({ error: 'They cannot approve requests here, so they cannot decide in your place. Choose someone who can.' });
   }
   const row = await nameStandIn({ accountId, orgId, createdByUserId: req.auth!.userId, userId: manager.userId, employeeId: manager.id, standInUserId: standIn.userId, standInEmployeeId: standIn.id, fromDate: b.fromDate, toDate: b.toDate, requestTypes: types, note: b.note || null });
   /* Audited under the name the People audit list already shows for stand-ins. */

@@ -105,6 +105,8 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
         rowActions={(o) => [
           o.employeeId ? { key: 'record', label: 'Open their record', onSelect: () => open(o) } : null,
           o.candidateId ? { key: 'candidate', label: 'Open the candidate', onSelect: () => open(o) } : null,
+          /* Accepted: the candidate's card opens with Hire ready (People plan 8 Nov 2026, step 4). */
+          o.candidateId && !o.employeeId && o.status === 'ACCEPTED' ? { key: 'hire', label: 'Hire', onSelect: () => open(o) } : null,
           canWithdraw && o.status === 'SENT' ? { key: 'withdraw', label: 'Withdraw', danger: true, onSelect: () => withdraw(o) } : null,
         ].filter(Boolean)}
         card={(o) => (

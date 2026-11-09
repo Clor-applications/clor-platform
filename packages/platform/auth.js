@@ -54,6 +54,9 @@ export const me = () => apiFetch('/auth/me', { skipBranchHeader: true, skipWareh
 
 export const logout = () => apiFetch('/auth/logout', { method: 'POST', skipAuth: true });
 
+/** Explore: the link's token for a read-only session on the sample company (server: routes/explore.ts). */
+export const exploreExchange = (token) => apiFetch('/explore/exchange', { method: 'POST', body: { token }, skipAuth: true });
+
 /* The signed-in person's own profile. Platform data, so every app shows the
    same page: Accounting in its settings, the shell for apps that use its menu. */
 export const getProfile = () =>

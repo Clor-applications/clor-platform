@@ -20,7 +20,9 @@ import { landingScreen, mergeParams, moduleForScreen, railAction, readScreenSear
 import { useSession } from './session';
 import { OPEN_APP_EVENT, OPEN_HELP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
 import { clearUnsaved, confirmLeave, hasUnsaved } from '@platform/unsaved';
-import { confirmDialog } from '@ui/components/ui/notify';
+import { EXPLORE_READ_ONLY_TEXT, confirmDialog, notify } from '@ui/components/ui/notify';
+import { ExploreEnded, ExploreLanding, ExploreNotice } from './Explore';
+import { isExplorePath } from './exploreLink';
 
 /* Asked before any navigation that would drop edits a screen has not saved (spec v1 §5.1, WF-11). */
 const askLeave = () => confirmDialog({ title: 'Leave without saving?', message: 'Your changes on this page have not been saved.', confirmLabel: 'Leave', tone: 'danger' });
@@ -77,6 +79,9 @@ function AppLoading() {
 const MARKETING_URL = import.meta.env.VITE_MARKETING_URL || 'https://clor.in';
 /* Before any page rewrites the address: remember the app a visitor came for. */
 captureAppIntent();
+
+/* Explore's way back to a person: the demo form on clor.in. */
+const DEMO_URL = `${MARKETING_URL.replace(/\/$/, '')}/demo`;
 
 const PUBLIC_PATHS = { signin: '/signin', signup: '/signup', forgot: '/forgot-password' };
 
@@ -226,7 +231,7 @@ function ShellScreens() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [tabletPanel]);
-  const { user, tenant, tenants, accounts, createCompany, deniedCode, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired } = useSession();
+  const { user, tenant, tenants, accounts, createCompany, deniedCode, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired, explore, exploreEnded } = useSession();
 
   /* The shared hook, not a second copy: the public page has a toggle too, and
      a private key here would mean the choice did not follow you inside. */
@@ -532,6 +537,12 @@ function ShellScreens() {
     window.addEventListener(OPEN_SCREEN_EVENT, onScreen);
     return () => window.removeEventListener(OPEN_SCREEN_EVENT, onScreen);
   }, []);
+  /* Explore: the sample company refused a change. The same sentence as the bar, as a toast, whichever screen tried. */
+  useEffect(() => {
+    const on = () => notify.info(EXPLORE_READ_ONLY_TEXT);
+    window.addEventListener('clor:explore-read-only', on);
+    return () => window.removeEventListener('clor:explore-read-only', on);
+  }, []);
   /* The API refused an app this account has not bought (402): say so once, with the way to add it. */
   const [unbought, setUnbought] = useState(null);
   useEffect(() => {
@@ -546,6 +557,8 @@ function ShellScreens() {
    * the only three there are — everything past sign-in is an app's business.
    */
   const [publicPage, setPublicPageState] = useState(publicPageFromPath);
+  /* Explore's link, latched on the way in: a signed-in session's company code may join the address a moment later. */
+  const [exploreLink] = useState(() => isExplorePath());
   /* W-3: app.clor.in/invite?token=... — read once; the page itself never puts the token anywhere else. */
   const [inviteToken, setInviteToken] = useState(() => {
     try {
@@ -722,6 +735,17 @@ function ShellScreens() {
    * day.
    */
   if (legalDoc) return <LegalPage doc={legalDoc} />;
+  /* Explore: the link from a demo request opens the sample company (Explore.jsx). */
+  if (exploreLink) {
+    return (
+      <ExploreLanding
+        demoUrl={DEMO_URL}
+        restoring={restoring}
+        signedIn={user && !explore ? { company: tenant?.name || '', name: user.fullName || user.email || '' } : null}
+        signOut={signOut}
+      />
+    );
+  }
   if (appPublicPage) {
     return (
       <>
@@ -769,6 +793,7 @@ function ShellScreens() {
     );
   }
 
+  if (!user && exploreEnded) return <ExploreEnded demoUrl={DEMO_URL} />;
   if (!user) {
     /* The product's front page is clor.in now; the app opens on its doors. */
     const toSite = () => window.location.assign(MARKETING_URL);
@@ -1278,6 +1303,7 @@ function ShellScreens() {
           </button>
         </header>
 
+        <ExploreNotice explore={explore} demoUrl={DEMO_URL} />
         <SubscriptionBanner billing={tenant.billing} />
         {tenant.archivedAt ? (
           <div role="status" className="flex flex-wrap items-center gap-3 px-6 py-2 text-sm" style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}>

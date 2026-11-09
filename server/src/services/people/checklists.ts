@@ -208,6 +208,28 @@ export async function startChecklist(who: Who, employee: { id: string }, kind: K
   }
 }
 
+/**
+ * CLOR ticks a step itself when the thing the step asks for has happened
+ * elsewhere in CLOR (People plan 8 Nov 2026, step 4): Payroll confirms a
+ * salary, an appointment letter is issued. Matched by words in the title, so a
+ * company's own template wording still ticks when it says the same thing.
+ * Returns how many steps closed. Never throws: the hand-off that called it
+ * has already happened.
+ */
+export async function tickWhenDone(orgId: string, employeeId: string, kind: Kind, words: string[], note: string, byUserId: string | null) {
+  try {
+    const r = await peoplePrisma.checklistTask.updateMany({
+      where: { orgId, employeeId, kind, doneAt: null, system: null, AND: words.map((w) => ({ title: { contains: w, mode: 'insensitive' as const } })) },
+      data: { doneAt: new Date(), doneByUserId: byUserId, note: note.slice(0, 500) },
+    });
+    return r.count;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[checklists] step not ticked:', e instanceof Error ? e.message : e);
+    return 0;
+  }
+}
+
 /** The tasks on my name, open first by due date, with the person each is for (LIFE-07: done from Home). */
 export async function myTasks(orgId: string, userId: string, limit = 200) {
   const tasks = await peoplePrisma.checklistTask.findMany({ where: { orgId, ownerUserId: userId }, orderBy: [{ doneAt: 'asc' }, { dueDate: 'asc' }, { sortOrder: 'asc' }], take: limit });

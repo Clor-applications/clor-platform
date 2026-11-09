@@ -10,6 +10,15 @@ const send = (path, method, body) => apiFetch(`${base()}${path}`, { ...opts, met
 /* The claims, carrying the reimbursement line Payroll pays them on (`.reimbursement`: name, taxed). */
 export const listClaims = (status) => apiFetch(`${base()}/claims${status ? `?status=${id(status)}` : ''}`, opts).then((r) => Object.assign(r?.claims || [], { reimbursement: r?.reimbursement || null }));
 export const payClaim = (claimId, body) => send(`/claims/${id(claimId)}/pay`, 'POST', body).then((r) => r?.claim);
+/** HR records a claim on someone's behalf: { employeeId, title, lines: [{ spentOn, categoryId, merchant, amount, note, bill?, billName? }] }. */
+export const recordClaim = (body) => send('/claims', 'POST', body).then((r) => r?.claim);
+/** A bill picked by HR, as the server takes it: a data URL with its type. */
+export const readBill = (file) => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve({ name: file.name, data: r.result });
+  r.onerror = () => reject(new Error('Could not read the file.'));
+  r.readAsDataURL(file);
+});
 export const sanctionClaim = (claimId, lines) => send(`/claims/${id(claimId)}/sanction`, 'POST', { lines }).then((r) => r?.claim);
 export const markRecorded = (body) => send('/books-recorded', 'POST', body);
 

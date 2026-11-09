@@ -163,7 +163,7 @@ peopleTalentRouter.post(`${base}/candidates/:id/hire`, hiringOn, can(PermissionA
   }
   await audit(req, 'Employee', employee.id, within ? 'MOVED_WITHIN' : 'HIRED', `${within ? 'Moved from within' : 'Hired'} ${employee.name}`, { candidateId: String(req.params.id) });
   await referrals.afterCandidateMoved(req.tenant!.accountId, orgId, String(req.params.id)).catch((e) => console.error('[referrals]', e instanceof Error ? e.message : e));
-  res.status(201).json({ employee: { id: employee.id, name: employee.name, code: employee.code }, movedFromWithin: within });
+  res.status(201).json({ employee: { id: employee.id, name: employee.name, code: employee.code }, movedFromWithin: within, handoffs: 'handoffs' in employee ? employee.handoffs : null });
 }));
 
 /* ---------------------------------------------------------------- interviews */

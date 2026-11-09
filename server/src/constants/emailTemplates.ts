@@ -113,6 +113,23 @@ The link works once and for {{days}} days. If it has run out, use "Forgot passwo
     transactional: true,
   },
   {
+    key: 'explore.pass',
+    label: 'Look around CLOR',
+    description: 'Sent to somebody who asked for a demo on clor.in: a 14-day link to a sample company they can look around, read-only.',
+    subject: 'Look around {{appName}} while we set up your demo',
+    body: `Hello {{name}},
+
+Thank you for asking for a demo of {{apps}}. We will call you to fix a time.
+
+Until then, you can look around now. This link opens Sample Traders Pvt Ltd, a made-up company with a few months of invoices, pay runs, people and attendance in it. Open any screen you like; nothing you change is saved.
+
+{{exploreUrl}}
+
+The link works for {{days}} days, until {{expiresOn}}. Anyone with it sees the same sample company, and nothing of yours.`,
+    fields: ['name', 'apps', 'exploreUrl', 'days', 'expiresOn', 'appName'],
+    transactional: true,
+  },
+  {
     key: 'sales.demo_requested',
     label: 'Demo requested',
     description: 'Sent to the CLOR sales inbox when somebody asks for a demo on clor.in.',
@@ -303,6 +320,38 @@ If you did not expect this, ignore it.`,
     fields: ['name', 'orgName', 'designation', 'ctc', 'link', 'acceptBy', 'message'],
     /* The accept link is the offer: switched off, the offer was saved SENT and the candidate could never accept it (offers.ts). HR sends it on purpose, one person at a time. */
     transactional: true,
+  },
+  {
+    key: 'people.interview',
+    label: 'Interview set or moved',
+    description: 'Sent to a candidate when an interview is set for them, and again when it is moved: the day, the time, how it is held and who they will meet.',
+    subject: '{{headline}}: {{orgName}}, {{day}} at {{time}}',
+    body: `Hello {{name}},
+
+{{headline}} for the {{jobTitle}} position at {{orgName}}.
+
+When: {{day}} at {{time}} ({{minutes}} minutes)
+How: {{mode}}{{placeLine}}
+You will meet: {{interviewers}}
+
+If the time does not suit you, reply to this e-mail and we will find another.
+
+{{orgName}}`,
+    fields: ['name', 'headline', 'jobTitle', 'orgName', 'day', 'time', 'minutes', 'mode', 'placeLine', 'interviewers'],
+  },
+  {
+    key: 'people.candidate_not_taken',
+    label: 'Candidate not taken forward',
+    description: 'Sent to a candidate when the company decides not to go ahead with their application. Plain and kind; it gives no reason.',
+    subject: 'Your application to {{orgName}}',
+    body: `Hello {{name}},
+
+Thank you for applying for the {{jobTitle}} position at {{orgName}}, and for the time you gave us.
+
+We will not be taking your application further this time. We were glad to meet you, and we wish you well in your search.
+
+{{orgName}}`,
+    fields: ['name', 'jobTitle', 'orgName'],
   },
   {
     key: 'people.task_assigned',

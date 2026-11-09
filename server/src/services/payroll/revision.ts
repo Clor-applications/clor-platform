@@ -3,6 +3,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { calculateStructure, type EngineComponent, type EngineResult } from './engine/calculator.js';
 import { loadRules, applyStatutory } from './statutory/resolve.js';
 import { round2 } from '../../utils/money.js';
+import { tickWhenDone } from '../people/checklists.js';
 
 /**
  * A salary revision, and what it actually costs.
@@ -352,5 +353,9 @@ export async function applyRevision(opts: { accountId: string; orgId: string; us
     });
 
     return { revision: row, assignment };
+  }).then(async (out) => {
+    /* Payroll has confirmed their salary: the joining step for it closes by itself (People plan 8 Nov 2026, step 4). */
+    await tickWhenDone(opts.orgId, revision.employeeId, 'JOINING', ['salary structure'], `Payroll put them on ${structure.name} at Rs ${annualCtc.toLocaleString('en-IN')} a year, from ${revision.effectiveFrom}.`, opts.userId);
+    return out;
   });
 }

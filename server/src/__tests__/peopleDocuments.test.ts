@@ -74,8 +74,12 @@ describe('who can see a document', () => {
     for (const id of Object.values(docs)) await people(am).get(`/documents/${id}`).expect(403);
   });
 
-  it('Documents VIEW opens what the person can see and HR-only files, and does not reveal restricted or confidential ones', async () => {
-    const viewer = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW']);
+  it('Documents VIEW opens what the person can see; with HR-only documents, HR-only files too; never restricted or confidential ones', async () => {
+    /* Documents VIEW alone (the Viewer template, owner 8 Nov 2026): only what the person themself can see. */
+    const reader = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW']);
+    expect((await people(reader).get(`/employees/${employeeId}/documents`).expect(200)).body.documents.map((d: any) => d.classification)).toEqual(['EMPLOYEE_VISIBLE']);
+    await people(reader).get(`/documents/${docs.HR_ONLY}`).expect(404);
+    const viewer = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW', 'PEOPLE::HR-only Documents::VIEW']);
     const listed = (await people(viewer).get(`/employees/${employeeId}/documents`).expect(200)).body.documents.map((d: any) => d.classification).sort();
     expect(listed).toEqual(['EMPLOYEE_VISIBLE', 'HR_ONLY']);
     const register = (await people(viewer).get('/documents').expect(200)).body.documents.map((d: any) => d.title);
@@ -88,7 +92,7 @@ describe('who can see a document', () => {
   });
 
   it('Documents EDIT opens restricted files too; only Confidential Documents VIEW opens confidential ones', async () => {
-    const editor = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW', 'PEOPLE::Documents::EDIT']);
+    const editor = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW', 'PEOPLE::HR-only Documents::VIEW', 'PEOPLE::Documents::EDIT']);
     expect((await people(editor).get(`/employees/${employeeId}/documents`).expect(200)).body.documents.map((d: any) => d.classification).sort()).toEqual(['EMPLOYEE_VISIBLE', 'HR_ONLY', 'RESTRICTED']);
     await people(editor).get(`/documents/${docs.CONFIDENTIAL}`).expect(404);
 
@@ -186,7 +190,7 @@ describe('a team manager and the HR-only files of their team (audit #1)', () => 
   });
 
   it('HR, with a company-wide Documents VIEW, lists and opens every HR-only file and payslip', async () => {
-    const hrUser = await colleague(boss, ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW']);
+    const hrUser = await colleague(boss, ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW', 'PEOPLE::HR-only Documents::VIEW']);
     for (const who of [boss, hrUser]) {
       const listed = (await people(who).get(`/employees/${report.id}/documents`).expect(200)).body.documents.map((d: any) => d.id).sort();
       expect(listed).toEqual([f.shared, f.hrPayslip, f.hrContract, f.reportPayslip].sort());
@@ -366,7 +370,7 @@ describe('a team-scoped writer and every other surface that names a file (review
 
   it('sent now by someone weaker than its creator, it lists only what both may open', async () => {
     await upload(boss, report.id, { title: 'Address proof TW', kind: 'ADDRESS_PROOF', classification: 'RESTRICTED', expiresOn: '2020-03-01' });
-    const weaker = await colleague(boss, ['ATTENDANCE::Attendance Records::VIEW', 'PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW']);
+    const weaker = await colleague(boss, ['ATTENDANCE::Attendance Records::VIEW', 'PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW', 'PEOPLE::HR-only Documents::VIEW']);
     const s = (await att(boss).post('/schedules', { reportId: 'documents', cadence: 'DAILY', hour: 7, recipients: 'hr@example.com' }).expect(201)).body.schedule;
     await att(weaker).post(`/schedules/${s.id}/send`).expect(200);
     const mail = await mailOf(s.id);

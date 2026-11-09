@@ -4,11 +4,11 @@ import { outsideTenant, runInTenant } from '../../../utils/tenantScope.js';
 import { exclusive, leaseFor } from '../../jobLease.js';
 import { registerJob } from '../../jobRegistry.js';
 import { sendTemplate } from '../../mailer.js';
-import { upsertNotice, usersWithPermission } from '../../notifications.js';
+import { upsertNotice } from '../../notifications.js';
 import { startChecklist } from '../checklists.js';
 import { NO_SETTLEMENT } from './leaving.js';
 import { checkReaderTasks } from './readersDone.js';
-import { automation, recordRun } from '../engagement/automations.js';
+import { automation, recipientUsers, recordRun } from '../engagement/automations.js';
 import { addDays as plus, dayWords, todayIst } from '../../../utils/istDate.js';
 
 /**
@@ -66,16 +66,19 @@ type DueTask = { id: string; accountId: string; orgId: string; employeeId: strin
 /** One company's digest for the day. */
 async function digestFor(accountId: string, orgId: string, today: string) {
   /* Settings → Automations (WORKFLOW-GAP-RESEARCH 4.7): a company that switched the digest off gets none; the tasks still show on Home and Tasks. */
-  if (!(await automation(orgId, 'taskDigest')).on) return 0;
+  const setting = await automation(orgId, 'taskDigest');
+  if (!setting.on) return 0;
   const due = (await peoplePrisma.checklistTask.findMany({ where: { orgId, doneAt: null, dueDate: { lte: today }, OR: [{ remindedOn: null }, { remindedOn: { lt: today } }] }, orderBy: { dueDate: 'asc' }, take: 1000 })) as DueTask[];
   if (!due.length) return 0;
   const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(due.map((t) => t.employeeId))] } }, select: { id: true, name: true } })).map((p) => [p.id, p.name]));
   const line = (t: DueTask) => `- ${t.title} — ${people.get(t.employeeId) || 'someone'}${t.dueDate && t.dueDate < today ? ` (late since ${dayWords(t.dueDate)})` : ' (today)'}`;
   const byOwner = new Map<string, DueTask[]>();
   for (const t of due) if (t.ownerUserId) byOwner.set(t.ownerUserId, [...(byOwner.get(t.ownerUserId) || []), t]);
-  /* Escalation: late by three or more days on someone else's name, or on nobody's, goes to HR too. */
+  /* Escalation: late by three or more days on someone else's name, or on nobody's, goes to HR too (or whoever the company chose). */
   const cutoff = plus(today, -ESCALATE_AFTER);
-  const hr = await usersWithPermission(accountId, orgId, 'PEOPLE::Employees::EDIT').catch(() => [] as string[]);
+  const hr = await recipientUsers({ accountId, orgId }, setting.to, { fallback: ['HR'] }).catch(() => [] as string[]);
+  const bell = setting.channels.includes('bell');
+  const email = setting.channels.includes('email');
   const stuck = due.filter((t) => t.dueDate && t.dueDate <= cutoff);
   const recipients = new Set([...byOwner.keys(), ...(stuck.length ? hr : [])]);
   if (!recipients.size) return 0;
@@ -87,6 +90,26 @@ async function digestFor(accountId: string, orgId: string, today: string) {
     const others = hr.includes(userId) ? stuck.filter((t) => t.ownerUserId !== userId) : [];
     if (!mine.length && !others.length) continue;
     const count = mine.length + others.length;
+    const u = users.get(userId);
+    const mailTo = email ? u?.email : null;
+    /*
+     * One digest mail per person per IST day. The job runs every 15 minutes and the bell row is refreshed
+     * rather than deduped by day, so a task added at 11:00 would otherwise mail again.
+     */
+    const mailedToday = async () => !!mailTo && (await platformPrisma.emailOutbox.count({ where: { orgId, templateKey: 'people.task_digest', toEmail: mailTo, status: { not: 'FAILED' }, createdAt: { gte: new Date(`${today}T00:00:00+05:30`) } } })) > 0;
+    const mail = () => sendTemplate({
+      templateKey: 'people.task_digest', to: mailTo!, toName: u!.fullName, accountId, orgId, relatedType: 'ChecklistTask', relatedId: (mine[0] || others[0]).id,
+      data: { count: String(count), lines: mine.map(line).join('\n') || '- Nothing of your own.', others: others.length ? `\nLate by ${ESCALATE_AFTER} days or more on someone else's name, or nobody's:\n${others.map((t) => `${line(t)}`).join('\n')}\n` : '' },
+    }).catch(() => null);
+    if (!bell) {
+      /* Mail only: it counts as sent only once it went. */
+      if (!mailTo || (await mailedToday())) continue;
+      const row = await mail();
+      if (row?.status !== 'SENT') continue;
+      sent += 1;
+      if (u?.fullName) told.push(u.fullName);
+      continue;
+    }
     /* One row per person, refreshed each morning (never one per day piling up); my own tasks open Inbox › My tasks, others' the Tasks screen. Rows under the old dated keys go. */
     const n = await upsertNotice(accountId, orgId, userId, {
       kind: 'people.task',
@@ -96,14 +119,8 @@ async function digestFor(accountId: string, orgId: string, today: string) {
     }, `lifecycle-digest:${userId}`, { retire: { startsWith: `lifecycle-digest:${userId}:` } }).catch(() => 0);
     if (!n) continue;
     sent += 1;
-    const u = users.get(userId);
     if (u?.fullName) told.push(u.fullName);
-    if (u?.email) {
-      await sendTemplate({
-        templateKey: 'people.task_digest', to: u.email, toName: u.fullName, accountId, orgId, relatedType: 'ChecklistTask', relatedId: (mine[0] || others[0]).id,
-        data: { count: String(count), lines: mine.map(line).join('\n') || '- Nothing of your own.', others: others.length ? `\nLate by ${ESCALATE_AFTER} days or more on someone else's name, or nobody's:\n${others.map((t) => `${line(t)}`).join('\n')}\n` : '' },
-      }).catch(() => undefined);
-    }
+    if (mailTo && !(await mailedToday())) await mail();
   }
   await peoplePrisma.checklistTask.updateMany({ where: { id: { in: due.map((t) => t.id) } }, data: { remindedOn: today } });
   await recordRun(accountId, orgId, 'taskDigest', sent, told);
