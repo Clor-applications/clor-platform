@@ -2093,3 +2093,10 @@ main:focus {
   mask-image: linear-gradient(to top, transparent 0, #000 22%), linear-gradient(to right, transparent 0, #000 12%);
   mask-composite: intersect;
 }
+/* Attendance's photo keeps the reader (with CLOR's punch screen) in view: the fade ends before it. */
+.app-card--scene.app-card--attendance .app-card-pic,
+.app-card--attendance .app-card-pic {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 13%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 13%);
+  object-position: left center;
+}

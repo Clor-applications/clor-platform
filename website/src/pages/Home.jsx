@@ -205,7 +205,7 @@ export default function Home() {
               const pic = PICS[slug];
               const soon = p.status !== 'available';
               return (
-                <li key={slug} className={`app-card app-card--${pic.kind}`} style={{ '--app': p.accent }}>
+                <li key={slug} className={`app-card app-card--${pic.kind} app-card--${slug}`} style={{ '--app': p.accent }}>
                   <div className="app-card-copy">
                     <div className="app-card-name">
                       <Mark product={p} size={44} />
