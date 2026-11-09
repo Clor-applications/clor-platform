@@ -1272,3 +1272,43 @@ model OperatorAuditEvent {
   @@index([at])
   @@index([targetAccountId, at])
 }
+
+/// A "Request a demo" from clor.in. Platform data, not a customer's: there is
+/// no account yet, so no accountId and no row-level policy. Written only by the
+/// public form; read and changed only by CLOR operators (routes/demoRequests.ts,
+/// behind requireOperator).
+model DemoRequest {
+  id                    String    @id @default(cuid())
+  name                  String
+  company               String
+  /// Lower-cased.
+  email                 String
+  phone                 String
+  city                  String
+  /// Employees: 1-10 | 11-20 | 21-50 | 51-200 | 200+
+  companySize           String
+  /// How many people will sign in.
+  users                 Int
+  /// App codes (accounting, payroll, people, attendance), in the order ticked.
+  apps                  String[]
+  message               String?
+  /// NEW | CONTACTED | DEMO_DONE | ACCOUNT_CREATED | NOT_A_FIT
+  status                String    @default("NEW")
+  /// The operator's latest note; every change is also in OperatorAuditEvent.
+  note                  String?
+  statusChangedAt       DateTime?
+  statusChangedByUserId String?
+  /// Set while Create account runs, so a second click cannot start a second one.
+  provisioningAt        DateTime?
+  /// The account made from this request (one at most).
+  accountId             String?   @unique
+  ownerUserId           String?
+  ip                    String?
+  userAgent             String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@index([email, createdAt])
+}

@@ -1,17 +1,10 @@
 import { Router } from 'express';
-import { track } from '../services/productEvents.js';
-import { assignOrgCode, assignUserCode } from '../services/displayCodes.js';
 import type { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
-import { companyLimitReason } from '../services/entitlements.js';
-import { suggestSlug } from '../services/slug.js';
-import { PermissionAction, RoleType } from '../constants/enums.js';
-import { ensureLedgerSetup } from '../services/ledger.js';
-import { ensurePermissionCatalog } from '../services/permissionCatalogSeed.js';
+import { RoleType } from '../constants/enums.js';
 import { clearRefreshCookie, refreshTokenFrom, setRefreshCookie } from '../utils/refreshCookie.js';
 import { codeLimiter, loginLimiter, refreshLimiter, resetLimiter, signupLimiter } from '../middleware/rateLimit.js';
 import {
@@ -38,14 +31,12 @@ import { hashRecovery, verifyCode } from '../services/totp.js';
 import { adminTwoFactorMissing } from '../services/twoFactorPolicy.js';
 import { DEFAULT_POLICY, policyForUser, sessionPolicyFor, validatePassword, getAuthPolicy } from '../services/policy.js';
 import { type EntryRefusal, resendChallengeFor, resendChallengeUser, signInEntry } from '../services/signInRules.js';
-import { expandPreset, permKey } from '../constants/permissionCatalog.js';
 import { validateGstinOrThrow, deriveStateCodeFromInput } from '../utils/gstin.js';
 import { isDevOrTest } from '../utils/devMode.js';
 import { requireAuth as requireLiveAuth } from '../middleware/auth.js';
-import { APP_CATALOG } from '../constants/appCatalog.js';
-import { appAccess } from '../services/subscriptions.js';
+import { ProvisionError, SIGNUP_APPS, createAccountWithOwner, createCompany } from '../services/accountProvisioning.js';
 import { ACCOUNT_ADMINS, accountRoleOf } from '../services/accountMembership.js';
-import { QuotaBusyError, lockQuota } from '../services/quotaLock.js';
+import { QuotaBusyError } from '../services/quotaLock.js';
 import { acrossCompanies, outsideTenant } from '../utils/tenantScope.js';
 import { closedForOutsider } from '../services/outsideAccess.js';
 
@@ -60,53 +51,6 @@ const LOCKOUT_NOTICE = Number(process.env.LOCKOUT_MINUTES || 15);
 
 function getJwtSecret() {
   return process.env.JWT_SECRET || (isDevOrTest() ? 'dev-secret' : '');
-}
-
-async function bootstrapOwnerRole(accountId: string, orgId: string, userId: string) {
-  // Seed every catalog permission once, then grant the whole Administrator
-  // preset to the org creator's Owner role.
-  await ensurePermissionCatalog();
-
-  const roleName = 'Owner';
-  const role =
-    (await platformPrisma.role.findFirst({
-      where: { accountId, orgId, branchId: null, name: roleName },
-      select: { id: true },
-    })) ||
-    (await platformPrisma.role.create({
-      data: {
-        accountId,
-        orgId,
-        branchId: null,
-        name: roleName,
-        description: 'Full access. Created automatically for the account owner.',
-        roleType: RoleType.ADMIN,
-        createdByUserId: userId,
-      },
-      select: { id: true },
-    }));
-
-  const wanted = new Set(expandPreset('ADMIN').map((r) => permKey(r.module, r.subModule, r.action)));
-  const permissions = await platformPrisma.permission.findMany({
-    select: { id: true, module: true, subModule: true, action: true },
-  });
-
-  /* One insert for every permission, not one each: row by row this was the slowest part of setting up a company. */
-  await platformPrisma.rolePermission.createMany({
-    data: permissions
-      .filter((p) => wanted.has(permKey(p.module, p.subModule, p.action)))
-      .map((p) => ({ accountId, orgId, roleId: role.id, permissionId: p.id, allowed: true })),
-    skipDuplicates: true,
-  });
-
-  try {
-    await platformPrisma.userRoleAssignment.create({
-      data: { accountId, orgId, branchId: null, userId, roleId: role.id, createdByUserId: userId },
-      select: { id: true },
-    });
-  } catch (err: any) {
-    if (String(err?.code || '') !== 'P2002') throw err;
-  }
 }
 
 authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
@@ -669,45 +613,12 @@ authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) =>
   const passwordHash = await bcrypt.hash(body.password, rounds);
 
   /*
-   * Provision identity and commercial access atomically. New accounts never
+   * Provision identity and commercial access atomically, through the one
+   * account-making path (services/accountProvisioning.ts). New accounts never
    * rely on the legacy fail-open rule: every available app they receive is an
-   * explicit subscription item. Pricing is still manual/open-ended today, so
-   * this preserves the pre-upgrade signup experience without ambiguous access.
+   * explicit subscription item.
    */
-  const { account, user } = await platformPrisma.$transaction(async (tx) => {
-    const createdAccount = await tx.account.create({
-      data: { name: body.name.trim() || email },
-      select: { id: true, name: true },
-    });
-    await tx.subscription.create({
-      data: {
-        accountId: createdAccount.id,
-        status: 'active',
-        items: {
-          create: APP_CATALOG.filter((app) => app.available).map((app) => ({
-            appCode: app.code,
-            tier: app.defaultTier ?? null,
-            priceModel: 'free',
-          })),
-        },
-      },
-    });
-    const createdUser = await tx.user.create({
-      data: {
-        accountId: createdAccount.id,
-        email,
-        username: null,
-        fullName: body.name.trim(),
-        passwordHash,
-        isActive: true,
-        ...(body.noticeVersion ? { noticeVersion: body.noticeVersion, noticeAcceptedAt: new Date() } : {}),
-      },
-      select: { id: true, accountId: true, email: true, fullName: true },
-    });
-    /* Whoever makes the account owns it (W-1.1), in the same transaction: no account is ever left without an owner. */
-    await tx.accountMembership.create({ data: { accountId: createdAccount.id, userId: createdUser.id, role: 'OWNER' } });
-    return { account: createdAccount, user: createdUser };
-  });
+  const { user } = await createAccountWithOwner({ email, name: body.name, passwordHash, noticeVersion: body.noticeVersion, plan: SIGNUP_APPS });
 
   const { session, refreshToken } = await createSession({
     accountId: user.accountId,
@@ -782,9 +693,6 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
   // code disagrees with the state that was chosen.
   validateGstinOrThrow(gstin, stateName);
 
-  const now = new Date();
-
-  // Create org + head-office branch, assign memberships
   /*
    * A-04 / W-1.4: whoever creates a company becomes its Administrator, so
    * creating one is an account-level act. Allowed for the account's very first
@@ -803,179 +711,15 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
     }
   }
 
-  /*
-   * The public handle, derived from the name and free at the moment of
-   * creation. Offered for editing later rather than fixed here: `agc-traders-2`
-   * is a URL somebody has to live with, and only they can say whether it is the
-   * one they want.
-   */
-  const slug = await suggestSlug(body.companyName);
-
-  /*
-   * The company master, kept.
-   *
-   * Everything the signup wizard asks after the name — trade name, entity
-   * type, industries, the financial year it starts, the currency, the
-   * registered address — was parsed and thrown away: the schema accepted a
-   * `profile` object and nothing ever read it. Somebody answered eleven
-   * questions about their business and the app kept three of the answers, so
-   * the profile screen greeted them empty and asked again.
-   *
-   * State and GSTIN are stored here as well as on the head-office branch. The
-   * branch is where tax is computed from; this is what the browser reads to
-   * know which company it is looking at.
-   */
-  const profileJson = JSON.stringify({
-    ...(body.profile && typeof body.profile === 'object' ? body.profile : {}),
-    state: stateName,
-    gstin: gstin || null,
-  });
-
-  /*
-   * The plan's company allowance, checked and used under the account's quota
-   * lock (W-6.1): two requests at once can no longer both see room. An
-   * account with no entitlement row is on the default plan, which is
-   * unlimited — so this refuses nobody until a plan is deliberately assigned.
-   */
-  let releaseQuota: () => Promise<void>;
+  /* Everything a new company needs, in the one account-making path (services/accountProvisioning.ts). */
+  let made;
   try {
-    releaseQuota = await lockQuota(auth.accountId, 'COMPANIES');
+    made = await createCompany({ accountId: auth.accountId, userId: auth.userId, companyName: body.companyName, state: stateName, gstin, profile: body.profile });
   } catch (e) {
-    if (e instanceof QuotaBusyError) return res.status(e.status).json({ error: e.message, code: e.code });
+    if (e instanceof QuotaBusyError || e instanceof ProvisionError) return res.status(e.status).json({ error: e.message, code: e.code });
     throw e;
   }
-  let org: { id: string; name: string; slug: string | null };
-  try {
-    const overLimit = await companyLimitReason(auth.accountId);
-    if (overLimit) return res.status(403).json({ error: overLimit, code: 'COMPANY_LIMIT' });
-    org = await platformPrisma.org.create({
-      data: {
-        accountId: auth.accountId,
-        name: body.companyName.trim(),
-        legalName: body.companyName.trim(),
-        slug,
-        profileJson,
-        createdByUserId: auth.userId,
-      },
-      select: { id: true, name: true, slug: true },
-    });
-  } finally {
-    await releaseQuota();
-  }
-  await assignOrgCode(auth.accountId, org.id, body.companyName.trim());
-  await assignUserCode(auth.userId, org.id);
-
-  const branch = await platformPrisma.branch.create({
-    data: {
-      accountId: auth.accountId,
-      orgId: org.id,
-      branchCode: 'HO',
-      branchName: 'Head Office',
-      addressLine1: '',
-      city: '',
-      state: stateName,
-      country: 'India',
-      // A business that gives a GSTIN is registered by definition; one that
-      // does not is composition-or-unregistered and can say so later.
-      gstRegistrationType: gstin ? 'REGULAR' : 'UNREGISTERED',
-      gstin: gstin || null,
-      parentBranchId: null,
-      shareHeadOfficeSettings: false,
-      createdByUserId: auth.userId,
-      createdAt: now,
-    },
-    select: { id: true },
-  });
-
-  await platformPrisma.userOrgMembership.create({
-    data: { accountId: auth.accountId, orgId: org.id, userId: auth.userId },
-  });
-
-  await platformPrisma.userBranchMembership.create({
-    data: { accountId: auth.accountId, orgId: org.id, branchId: branch.id, userId: auth.userId },
-  });
-
-  /*
-   * A new company starts with the apps its account owns, switched on for it.
-   *
-   * App switches follow subscription CHANGES (syncAppSwitches), so an org
-   * created under a standing subscription never sees one — without this the
-   * owned apps would sit at the catalog default (off) and the customer would
-   * find an empty shelf behind a pay-up tile. Only owned-but-lapsed apps keep
-   * it too (ownedApps, not entitledApps): a lapsed app stays visible, its
-   * routes refuse work, and the switch is still where the customer left it.
-   * Other companies of the account are untouched; failures cannot sink the
-   * company the account just paid for.
-   */
-  try {
-    const owned = (await appAccess(auth.accountId)).ownedApps;
-    for (const app of APP_CATALOG.filter((a) => a.available && a.featureKey && owned.includes(a.code))) {
-      await platformPrisma.featureSetting.upsert({
-        where: { orgId_key: { orgId: org.id, key: app.featureKey! } },
-        update: {},
-        create: { accountId: auth.accountId, orgId: org.id, key: app.featureKey!, enabled: true, updatedByUserId: 'subscription' },
-      });
-    }
-  } catch {
-    /* The org exists even if its switches could not be written. */
-  }
-
-  /*
-   * Simple mode (PRODUCT-VIEW §6), on for a new company: it has no employees
-   * and one user, so it fits (up to 10 and up to 2). Only ever written here,
-   * once: a company that already exists keeps the menus it has, and one that
-   * grows is offered the switch on Home, never switched for it.
-   */
-  try {
-    await platformPrisma.featureSetting.upsert({
-      where: { orgId_key: { orgId: org.id, key: 'peopleSimpleMode' } },
-      update: {},
-      create: { accountId: auth.accountId, orgId: org.id, key: 'peopleSimpleMode', enabled: true, updatedByUserId: 'system' },
-    });
-    void track(org.id, auth.userId, 'simple_mode_toggled', { on: true, trigger: 'company_created', app: 'people' });
-  } catch {
-    /* The full menus are the fallback. */
-  }
-
-  /*
-   * Every org gets a warehouse, for the same reason it gets a branch.
-   *
-   * Warehouse is a required field on an invoice, a bill and a stock transfer.
-   * A tenant created with a branch and no warehouse could not raise its first
-   * invoice at all: the form demanded a warehouse and the dropdown held only
-   * "Select Warehouse". The first thing a new customer tried to do was the one
-   * thing they could not.
-   *
-   * Named "Main Store" rather than after the branch, because a business with
-   * one location still calls it the store, not the head office.
-   */
-  const mainWarehouse = await prisma.warehouse.create({
-    data: {
-      accountId: auth.accountId,
-      orgId: org.id,
-      branchId: branch.id,
-      code: 'MAIN',
-      name: 'Main Store',
-      createdByUserId: auth.userId,
-    },
-  });
-
-  await platformPrisma.userWarehouseAccess.create({
-    data: {
-      accountId: auth.accountId,
-      orgId: org.id,
-      branchId: branch.id,
-      warehouseId: mainWarehouse.id,
-      userId: auth.userId,
-    },
-  });
-
-  // Ensure the creator can manage setup screens immediately.
-  await bootstrapOwnerRole(auth.accountId, org.id, auth.userId);
-
-  // Every org gets a chart of accounts and journals up front, so the first
-  // invoice has somewhere to post.
-  await ensureLedgerSetup(auth.accountId, org.id, auth.userId);
+  const { org, branch } = made;
 
   // Frontend expects { company: { id, name, orgId }, branch: { id } }
   return res.json({
