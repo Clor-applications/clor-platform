@@ -70,8 +70,8 @@ peopleMoneyRouter.get(`${base}/claims`, can(PermissionAction.VIEW, EXPENSES), ru
   res.json({ claims, reimbursement: component ? { name: component.name, taxed: component.isTaxable } : null });
 }));
 
-/** HR records a claim on someone's behalf (a paper bill handed over): the same shape as the app's, sent for approval under the person's name. */
-peopleMoneyRouter.post(`${base}/claims`, can(PermissionAction.CREATE, EXPENSES), run(async (req, res) => {
+/** HR records a claim on someone's behalf (a paper bill handed over): the same shape as the app's, sent for approval under the person's name. The grant that pays and settles claims (Expenses: Edit) records one too. */
+peopleMoneyRouter.post(`${base}/claims`, can(PermissionAction.EDIT, EXPENSES), run(async (req, res) => {
   res.status(201).json({ claim: await recordClaim(staffOf(req), req.body || {}) });
 }));
 
