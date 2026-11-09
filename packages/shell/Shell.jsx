@@ -532,7 +532,7 @@ function ShellScreens() {
   });
   useEffect(() => {
     const onScreen = (e) => {
-      if (e.detail?.screen) goToRef.current?.(e.detail.screen);
+      if (e.detail?.screen) goToRef.current?.(e.detail.screen, e.detail.params || null);
     };
     window.addEventListener(OPEN_SCREEN_EVENT, onScreen);
     return () => window.removeEventListener(OPEN_SCREEN_EVENT, onScreen);

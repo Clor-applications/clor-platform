@@ -153,9 +153,9 @@ export function onPlatformContextChange(fn) {
  * browser's back button behave the same.
  */
 export const OPEN_SCREEN_EVENT = 'clor:open-screen';
-export function requestOpenScreen(screen) {
+export function requestOpenScreen(screen, params = null) {
   try {
-    window.dispatchEvent(new CustomEvent(OPEN_SCREEN_EVENT, { detail: { screen } }));
+    window.dispatchEvent(new CustomEvent(OPEN_SCREEN_EVENT, { detail: { screen, params } }));
   } catch {
     /* No window (a test): nothing to open. */
   }

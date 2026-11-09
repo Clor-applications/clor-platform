@@ -53,3 +53,19 @@ export const saveFnfRecoveryCap = ({ percent }) =>
     body: { percent },
     skipWarehouseHeader: true,
   });
+
+/**
+ * The numbers each statutory return is filed under: PF establishment code,
+ * ESI employer code, professional tax registration by state, TAN and the
+ * Form 24Q deductor details. The same fields the Compliance screen edits.
+ */
+export const getStatutoryRegistrations = () =>
+  apiFetch(`/orgs/${encodeURIComponent(orgId())}/payroll/settings/statutory-registrations`, { skipWarehouseHeader: true });
+
+/** Any of `pf`, `esi`, `pt`, `tds` may be left out to leave it as it is. */
+export const saveStatutoryRegistrations = (body) =>
+  apiFetch(`/orgs/${encodeURIComponent(orgId())}/payroll/settings/statutory-registrations`, {
+    method: 'PUT',
+    body,
+    skipWarehouseHeader: true,
+  });
