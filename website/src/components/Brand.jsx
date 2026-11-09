@@ -2,11 +2,11 @@ import React from 'react';
 import { BookOpen, Briefcase, CalendarClock, Fingerprint, UserRound, Wallet } from 'lucide-react';
 import { Link } from '../router.jsx';
 
-/** The CLOR logo: the owner's wordmark in red, its marigold dot in the C (public/brand/clor-logo.png, 752 x 188). */
+/** The CLOR logo, as the apps draw it (packages/ui ClorLogo): orange C-mark and O, slate L and R (public/brand/clor-logo.png, 434 x 147). */
 export function Logo({ height = 22 }) {
   return (
     <Link href="/" className="logo" aria-label="CLOR home" translate="no">
-      <img src="/brand/clor-logo.png" alt="CLOR" height={height} width={Math.round((height * 752) / 188)} />
+      <img src="/brand/clor-logo.png" alt="CLOR" height={height} width={Math.round((height * 434) / 147)} />
     </Link>
   );
 }
