@@ -227,7 +227,7 @@ function Console() {
 
   /* Signing in can leave a company's address behind (/o/CLOR-…); the console has no such pages. */
   useEffect(() => {
-    if (/^\/o\//.test(window.location.pathname)) window.history.replaceState({}, '', OPS_HOST ? '/' : '/ops');
+    if (/^\/o\//.test(window.location.pathname)) window.history.replaceState({}, '', `${OPS_HOST ? '/' : '/ops'}${window.location.hash}`);
   }, []);
   useEffect(() => {
     const onHash = () => setRoute(parseRoute(window.location.hash));

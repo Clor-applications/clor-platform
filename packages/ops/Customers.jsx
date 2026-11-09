@@ -166,7 +166,9 @@ const TABS = [
   ['activity', 'Activity'],
 ];
 
-export function CustomerPage({ id, tab = 'overview', role, back, setTab, openDemo }) {
+export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo }) {
+  /* An old or mistyped link opens the overview rather than an empty page. */
+  const tab = TABS.some(([k]) => k === asked) ? asked : 'overview';
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
   const load = useCallback(() => {
@@ -188,7 +190,6 @@ export function CustomerPage({ id, tab = 'overview', role, back, setTab, openDem
         </button>
       </div>
       <PageHead
-        crumbs={['Customers']}
         title={a.name}
         meta={
           <>

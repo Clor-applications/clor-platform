@@ -375,7 +375,7 @@ export function EmailLog({ role, initialStatus = 'all', openCustomer }) {
               {d.messages.map((m) => (
                 <tr key={m.id}>
                   <td className="tabular-nums">{when(m.at)}</td>
-                  <td style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                  <td style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', minWidth: 160 }}>
                     {m.to}
                     {m.accountName ? (
                       <div className="ws-item-sub">
