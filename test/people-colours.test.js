@@ -294,7 +294,7 @@ describe('chosen and the employee app', () => {
     expect(portal).toContain('className="ui-portal min-h-dvh pb-20" data-brand="d"');
     expect(portal).not.toMatch(/data-palette/);
     const rules = block.slice(block.indexOf('The employee app'));
-    expect(rules).toMatch(/\.ui-portal\[data-brand='d'\] \.ui-pill-warn \{ background: rgb\(var\(--marigold\)\); color: rgb\(var\(--oxblood\)\); \}/);
+    expect(rules).toMatch(/\.ui-portal\[data-brand='d'\] \.ui-pill-warn \{ background: rgb\(var\(--marigold\)\); color: rgb\(var\(--oxblood, var\(--ink\)\)\); \}/);
     for (const line of rules.split('\n').filter((l) => l.includes('{'))) expect(line).toContain(".ui-portal[data-brand='d']");
   });
 });
