@@ -176,7 +176,10 @@ describe('workforce backend', () => {
     const times = all.map((x: any) => x.at);
     expect([...times].sort().reverse()).toEqual(times);
 
-    const viewer = await colleague(boss, 'Line Viewer', ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW']);
+    /* HR-only files need HR-only documents besides Documents VIEW (owner, 8 Nov 2026). */
+    const viewer = await colleague(boss, 'Line Viewer', ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW', 'PEOPLE::HR-only Documents::VIEW']);
+    const plain = await colleague(boss, 'Plain Viewer', ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW']);
+    expect(JSON.stringify((await people(plain).get(`/employees/${e.id}/activity`).expect(200)).body.events)).not.toContain('Uploaded Offer letter');
     const seen = (await people(viewer).get(`/employees/${e.id}/activity`).expect(200)).body.events;
     expect(seen.some((x: any) => x.type === 'comment')).toBe(false);
     expect(seen.some((x: any) => /Medical note/.test(x.title))).toBe(false);

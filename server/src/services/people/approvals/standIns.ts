@@ -219,9 +219,13 @@ export async function listStandIns(orgId: string, endsFrom: string | null, day: 
   }));
 }
 
-/** Who may decide anything at all: a stand-in handing on People requests must be one of them. */
-export async function deciders(accountId: string, orgId: string) {
+/**
+ * Who may decide anything at all: a stand-in handing on People requests must be one of them. Handing on leave
+ * (`types` with LEAVE) also takes Leave APPROVE: People's Requests APPROVE alone (HR User) decides no leave.
+ */
+export async function deciders(accountId: string, orgId: string, types: string[] = []) {
   const [people, leave] = await Promise.all([usersWithPermission(accountId, orgId, 'PEOPLE::Requests::APPROVE'), usersWithPermission(accountId, orgId, 'ATTENDANCE::Leave Requests::APPROVE')]);
+  if (types.includes('LEAVE')) return new Set(leave);
   return new Set([...people, ...leave]);
 }
 
