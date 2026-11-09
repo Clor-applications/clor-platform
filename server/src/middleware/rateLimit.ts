@@ -88,6 +88,8 @@ export const demoRequestLimiter = [
 
 /* Price quotes on clor.in (routes/pricing.ts): a person moving the sliders, debounced, never this many. Counted in-process: nothing is written. */
 export const pricingQuoteLimiter = [bucket(60 * 1000, 120, 'price quotes', (req) => `price-quote:${ipOf(req)}`)];
+/** Test connection calls the payment provider; a few a minute is plenty. */
+export const paymentTestLimiter = [bucket(60 * 1000, 10, 'connection tests', (req) => `payment-test:${req.auth?.userId || ipOf(req)}`)];
 
 export const codeLimiter = [guard(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 

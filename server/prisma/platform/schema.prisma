@@ -1137,8 +1137,51 @@ model PaymentEvent {
   processed  Boolean  @default(false)
   receivedAt DateTime @default(now())
 
+  /// What became of it: APPLIED (changed a subscription), RECORDED (kept,
+  /// nothing to change), FAILED (could not be applied; Retry), REJECTED (the
+  /// signature did not match).
+  status           String    @default("RECORDED")
+  /// The plain sentence the Payments log shows with it: why it failed or was rejected, or what it changed.
+  detail           String?
+  /// Amount in paise, when the event carries one.
+  amount           Int?
+  /// The payment's own reference: a gateway payment id, or a UTR for a manual payment.
+  reference        String?
+  /// The provider-neutral event, kept so a failed one can be applied again.
+  normalized       Json?
+  attempts         Int       @default(0)
+  processedAt      DateTime?
+  recordedByUserId String?
+
   @@unique([gateway, eventId])
   @@index([accountId])
+  @@index([receivedAt])
+  @@index([status])
+}
+
+/// A way customers pay CLOR: cashfree, razorpay or manual (UPI and bank
+/// transfer). Set up only in the operator console, Payments. At most one is
+/// active (a partial unique index). Test and Live keys are kept apart.
+/// Secrets are AES-256-GCM encrypted (services/mailer.ts encryptSecret) as
+/// one JSON blob and never leave the server; the console sees only their
+/// last four characters, in secretHints.
+model PaymentProvider {
+  code            String    @id
+  enabled         Boolean   @default(false)
+  active          Boolean   @default(false)
+  /// TEST | LIVE
+  mode            String    @default("TEST")
+  /// Not secret: { test: { appId }, live: { appId } }, or the manual details (UPI ID, QR, bank).
+  config          Json      @default("{}")
+  secretsEnc      String?
+  secretHints     Json      @default("{}")
+  lastTestAt      DateTime?
+  lastTestOk      Boolean?
+  lastTestMessage String?
+  lastTestMode    String?
+  updatedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 /// Which API instance runs a background job right now. The API runs on more

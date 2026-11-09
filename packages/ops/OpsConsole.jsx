@@ -12,6 +12,7 @@ import { useSession } from '../shell/session';
 import SignIn from '../shell/SignIn';
 import OperatorBrand from './OperatorBrand';
 import { DemoRequestDetail, DemoRequests } from './DemoRequests';
+import { Payments } from './Payments';
 import { Pricing } from './Pricing';
 import { Settings } from './Settings';
 import {
@@ -665,6 +666,7 @@ const NAV = [
   ['accounts', 'Accounts', ICON.companies],
   ['demos', 'Demo requests', ICON.mail],
   ['pricing', 'Pricing', ICON.plan],
+  ['payments', 'Payments', ICON.payments],
   ['audit', 'Operator log', ICON.history],
   ['operators', 'Operators', ICON.secure, 'SUPER_ADMIN'],
   ['settings', 'Settings', ICON.settings],
@@ -732,7 +734,7 @@ function Console() {
           ))}
         </nav>
         <span className="ops-who">{me.user.fullName} · {ROLE[me.role]}</span>
-        <button type="button" className="ui-icon-btn" aria-label="Sign out" title="Sign out" onClick={signOut}>
+        <button type="button" className="ui-icon-btn" aria-label="Sign out" title={`Sign out ${me.user.fullName} · ${ROLE[me.role]}`} onClick={signOut}>
           <LogOut size={16} aria-hidden="true" />
         </button>
       </header>
@@ -750,6 +752,8 @@ function Console() {
             <DemoRequests openRequest={setDemoId} />
           ) : page === 'pricing' ? (
             <Pricing role={me.role} />
+          ) : page === 'payments' ? (
+            <Payments role={me.role} />
           ) : page === 'settings' ? (
             <Settings role={me.role} />
           ) : page === 'audit' ? (
