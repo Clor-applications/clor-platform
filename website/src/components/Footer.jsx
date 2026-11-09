@@ -62,7 +62,7 @@ export default function Footer() {
           <br />
           {SITE.address}
         </p>
-        <p className="caption">Pictures by unDraw, recoloured. Made in India.</p>
+        <p className="caption">Screens on this site are drawn with sample data. Made in India.</p>
       </div>
     </footer>
   );

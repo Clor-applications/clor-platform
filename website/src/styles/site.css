@@ -58,9 +58,10 @@
   --s-10: 128px;
   --wrap: 1200px;
   --gutter: clamp(16px, 4vw, 48px);
-  --section: clamp(var(--s-7), 7vw, var(--s-9));
-  --gap-col: clamp(var(--s-6), 5vw, var(--s-8));
-  --gap-head: clamp(var(--s-6), 4vw, var(--s-7));
+  /* Vertical rhythm: 40px between sections on a phone, 64px on a desktop, never more. */
+  --section: clamp(40px, 2.5rem + 2.5vw, var(--s-8));
+  --gap-col: clamp(var(--s-5), 4vw, var(--s-7));
+  --gap-head: clamp(var(--s-5), 3vw, var(--s-6));
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   color-scheme: light;
 }
@@ -574,13 +575,14 @@ main:focus {
 /* ------------------------------------------------------------------ footer */
 .footer {
   border-top: 1px solid var(--line);
-  padding-top: var(--s-8);
+  padding-top: var(--s-7);
+  line-height: 1.5;
   background: var(--bg);
 }
 .footer-grid {
   display: grid;
   grid-template-columns: 1.4fr repeat(4, 1fr);
-  gap: var(--s-6);
+  gap: var(--s-5);
 }
 .footer-brand {
   display: grid;
@@ -591,23 +593,28 @@ main:focus {
 .footer-title {
   font-weight: 600;
   font-size: var(--t-sm);
-  margin-bottom: var(--s-3);
+  margin-bottom: var(--s-2);
 }
 .footer-col ul {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
+  gap: var(--s-3);
 }
 /* Each link is a full-height row to tap, not just its 18px of text. */
 .footer a {
   display: inline-block;
-  padding-block: 6px;
+  padding-block: 0;
+  line-height: 1.5;
   color: var(--ink-2);
   text-decoration: none;
   font-size: var(--t-sm);
 }
 @media (pointer: coarse) {
+  .footer-col ul {
+    gap: 0;
+  }
   .footer a {
     padding-block: 11px;
   }
@@ -621,8 +628,8 @@ main:focus {
   display: flex;
   justify-content: space-between;
   gap: var(--s-4);
-  margin-top: var(--s-8);
-  padding-block: var(--s-5) var(--s-6);
+  margin-top: var(--s-7);
+  padding-block: var(--s-4) var(--s-5);
   border-top: 1px solid var(--line);
 }
 @media (max-width: 900px) {
@@ -634,179 +641,9 @@ main:focus {
   }
 }
 
-/* ---------------------------------------------------------------- windows */
-/* Miniature CLOR screens, drawn with sample data. Each sets its own type size (--win-fs). */
-.win {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  font-size: var(--win-fs, 13px);
-  line-height: 1.4;
-  color: var(--ink);
-  overflow: hidden;
-}
-.win-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.6em;
-  padding: 0.65em 0.9em;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface-2);
-}
-.win-bar .mark {
-  --mark: 1.6em !important;
-  border-radius: 0.45em;
-}
-.win-bar .mark svg {
-  width: 58%;
-  height: 58%;
-}
-.win-app {
-  font-weight: 650;
-}
-.win-title {
-  color: var(--ink-2);
-  margin-left: auto;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.win-body {
-  padding: 0.9em;
-  display: grid;
-  gap: 0.75em;
-}
-.w-row {
-  display: flex;
-  align-items: center;
-  gap: 0.7em;
-}
-.w-between {
-  justify-content: space-between;
-}
-.w-k {
-  color: var(--ink-3);
-  font-size: 0.86em;
-}
-.w-v {
-  font-weight: 600;
-}
-.w-pill {
-  font-size: 0.8em;
-  font-weight: 600;
-  padding: 0.25em 0.7em;
-  border-radius: 99px;
-  background: var(--surface-2);
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-.w-pill--ok {
-  background: #e3f3ea;
-  color: var(--ok);
-}
-.w-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.92em;
-}
-.w-table th {
-  text-align: left;
-  font-weight: 550;
-  color: var(--ink-3);
-  font-size: 0.9em;
-  padding-bottom: 0.35em;
-  border-bottom: 1px solid var(--line);
-}
-.w-table td {
-  padding: 0.4em 0;
-  border-bottom: 1px solid var(--line);
-}
-.num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.w-totals {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.3em 1em;
-  font-size: 0.92em;
-  color: var(--ink-2);
-}
-.w-totals strong {
-  color: var(--ink);
-}
-.w-avatar {
-  display: grid;
-  place-items: center;
-  width: 2.6em;
-  height: 2.6em;
-  border-radius: 50%;
-  background: #e6f4f2;
-  color: #0f6860;
-  font-weight: 700;
-  font-size: 0.9em;
-}
-.w-facts {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.35em 1em;
-  margin: 0;
-  font-size: 0.92em;
-}
-.w-facts dt {
-  color: var(--ink-3);
-}
-.w-facts dd {
-  margin: 0;
-  font-weight: 550;
-}
-.w-facts--3 {
-  grid-template-columns: repeat(3, auto 1fr);
-}
-.w-checks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4em;
-}
-.w-check {
-  font-size: 0.82em;
-  padding: 0.25em 0.6em;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  color: var(--ink-2);
-}
-.w-check.is-done {
-  color: var(--ok);
-  border-color: #cfe7da;
-  background: #f1f9f4;
-}
-.w-month {
-  display: grid;
-  grid-template-columns: repeat(16, 1fr);
-  gap: 0.25em;
-}
-.w-day {
-  aspect-ratio: 1;
-  border-radius: 0.2em;
-  background: #e5ebe3;
-}
-.w-day--P {
-  background: #b8d9c6;
-}
-.w-day--L {
-  background: #f0d3a8;
-}
-.w-day--H {
-  background: #dcebe2;
-  box-shadow: inset 0 -0.35em 0 #f0d3a8;
-}
-.w-day--O {
-  background: #eceeea;
-}
-
 /* -------------------------------------------------------------------- hero */
 .hero {
-  padding-top: clamp(var(--s-7), 8vw, var(--s-9));
+  padding-top: clamp(var(--s-6), 5vw, var(--s-8));
   padding-bottom: clamp(var(--s-6), 4vw, var(--s-8));
   overflow: hidden;
 }
@@ -859,8 +696,6 @@ main:focus {
 }
 .split > .sec-head {
   margin-bottom: 0;
-  position: sticky;
-  top: 100px;
 }
 .split > .sec-head .h-1 {
   font-size: var(--t-2xl);
@@ -938,18 +773,20 @@ main:focus {
 }
 
 /* --------------------------------------------------------------------- faq */
-/* Every answer shown: a question, then its answer, parted by hairlines. */
+/* Every answer shown: the questions in two columns on a desktop, one on a phone. */
 .faq {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: var(--gap-col);
+  gap: var(--gap-head);
 }
 .faq-list {
   margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--gap-col);
   border-top: 1px solid var(--line);
 }
 .faq-item {
-  padding: var(--s-5) 0;
+  padding: var(--s-4) 0;
   border-bottom: 1px solid var(--line);
 }
 .faq-item dt {
@@ -957,9 +794,10 @@ main:focus {
 }
 .faq-item dd {
   margin: var(--s-2) 0 0;
+  color: var(--ink-2);
 }
-@media (max-width: 900px) {
-  .faq {
+@media (max-width: 760px) {
+  .faq-list {
     grid-template-columns: 1fr;
   }
 }
@@ -991,11 +829,11 @@ main:focus {
 
 /* ---------------------------------------------------------- inner pages */
 .hero--product {
-  padding-bottom: clamp(var(--s-7), 6vw, var(--s-9));
+  padding-bottom: clamp(var(--s-6), 4vw, var(--s-8));
   border-bottom: 1px solid var(--line);
 }
 .section--flush {
-  padding-top: clamp(var(--s-7), 5vw, var(--s-8));
+  padding-top: 0;
 }
 .product-hero {
   display: grid;
@@ -1495,8 +1333,8 @@ main:focus {
 .hero--home,
 .p-hero,
 .sol-hero {
-  padding-top: clamp(var(--s-7), 7vw, var(--s-9));
-  padding-bottom: clamp(var(--s-7), 6vw, var(--s-9));
+  padding-top: clamp(var(--s-6), 5vw, var(--s-8));
+  padding-bottom: clamp(var(--s-6), 5vw, var(--s-8));
   border-bottom: 1px solid var(--line);
 }
 .hero-copy {
@@ -1516,18 +1354,9 @@ main:focus {
 /* A product's hero: its words, and beside them one screen drawn with sample data. */
 .p-hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   gap: var(--gap-col);
   align-items: center;
-}
-.p-shot {
-  margin: 0;
-}
-.p-shot .win {
-  --win-fs: clamp(13px, 1.1vw, 15px);
-}
-.p-shot figcaption {
-  margin-top: var(--s-3);
 }
 @media (max-width: 900px) {
   .p-hero-grid {
@@ -1543,7 +1372,7 @@ main:focus {
   padding: 0;
   border-top: 1px solid var(--line);
 }
-.plist li {
+.plist > li {
   display: grid;
   grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
   gap: var(--s-2) var(--gap-col);
@@ -1569,7 +1398,7 @@ main:focus {
   color: var(--ink-2);
 }
 @media (max-width: 720px) {
-  .plist li {
+  .plist > li {
     grid-template-columns: 1fr;
   }
 }
@@ -1588,15 +1417,37 @@ main:focus {
   display: grid;
   align-content: start;
   gap: var(--s-2);
-  padding: var(--s-5) 0;
+  padding: var(--s-4) 0;
   border-top: 1px solid var(--line);
+}
+/* Four across under one hairline grid: the lines between cells are the grid's own gap, painted by the list. */
+.groups--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+.groups--4 li {
+  background: var(--bg);
+  border-top: 0;
+  padding: var(--s-4);
+  grid-template-rows: auto 1fr auto;
+}
+.groups--4 .body {
+  font-size: var(--t-sm);
+}
+@media (max-width: 960px) {
+  .groups--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .groups .text-link {
   justify-self: start;
   margin-top: var(--s-1);
 }
 @media (max-width: 720px) {
-  .groups {
+  .groups,
+  .groups--4 {
     grid-template-columns: 1fr;
   }
 }
@@ -1606,7 +1457,7 @@ main:focus {
   margin: 0;
   padding-left: 1.2em;
   display: grid;
-  gap: var(--s-3);
+  gap: var(--s-2);
   color: var(--ink-2);
   max-width: 62ch;
 }
@@ -1618,12 +1469,17 @@ main:focus {
 .p-features {
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0 var(--gap-col);
 }
 .p-feature {
-  padding: var(--s-5) 0;
+  padding: var(--s-4) 0;
   border-top: 1px solid var(--line);
+}
+@media (max-width: 900px) {
+  .p-features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .p-feature dd {
   margin: var(--s-2) 0 0;
@@ -1642,9 +1498,12 @@ main:focus {
 /* Its name, what it does and a link, beside its screen; the side alternates down the page. */
 .app-sec {
   display: grid;
-  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   gap: var(--gap-col);
   align-items: center;
+}
+.app-sec--flip {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
 }
 .app-sec--flip .app-sec-copy {
   order: 2;
@@ -1653,6 +1512,7 @@ main:focus {
   display: grid;
   gap: var(--s-4);
   justify-items: start;
+  min-width: 0;
 }
 .app-sec-copy .h-1 {
   font-size: var(--t-2xl);
@@ -1662,12 +1522,6 @@ main:focus {
   align-items: center;
   gap: var(--s-2);
   font-weight: 700;
-}
-.app-sec-shot {
-  margin: 0;
-}
-.app-sec-shot .win {
-  --win-fs: clamp(13px, 1.1vw, 15px);
 }
 @media (max-width: 900px) {
   .app-sec {
@@ -1681,68 +1535,16 @@ main:focus {
 /* The home hero: Books' tax invoice and the month's GSTR-1 it feeds, one above the other. */
 .home-hero {
   display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   gap: var(--gap-col);
   align-items: center;
-}
-.home-shots {
-  margin: 0;
-  display: grid;
-  gap: var(--s-4);
-}
-.home-shots .win {
-  --win-fs: clamp(13px, 1.05vw, 15px);
-}
-.home-shots .win + .win {
-  margin-left: var(--s-8);
 }
 @media (max-width: 900px) {
   .home-hero {
     grid-template-columns: 1fr;
   }
-  .home-shots .win + .win {
-    margin-left: 0;
-  }
 }
 
-
-/* ================================================================ pictures
- * One unDraw illustration per product, recoloured to Blaze Orange, on the
- * white ground with nothing round it. It is the one thing on the page that
- * is not words, so it gets room.
- */
-.pic {
-  width: 100%;
-  height: auto;
-}
-.app-sec-pic,
-.p-pic {
-  display: grid;
-  place-items: center;
-  min-width: 0;
-}
-.app-sec-pic .pic {
-  max-width: 480px;
-  max-height: 380px;
-  object-fit: contain;
-}
-.p-pic .pic {
-  max-width: 520px;
-  max-height: 400px;
-  object-fit: contain;
-}
-.app-sec--flip .app-sec-pic {
-  order: 1;
-}
-@media (max-width: 900px) {
-  .app-sec--flip .app-sec-pic {
-    order: 0;
-  }
-  .app-sec-pic .pic,
-  .p-pic .pic {
-    max-height: 260px;
-  }
-}
 
 /* Who a product is for: one plain line under its title. */
 .p-who {
@@ -1751,53 +1553,34 @@ main:focus {
 }
 
 /* The home hero: the headline beside Books' invoice. */
-.home-shot {
-  margin: 0;
-  display: grid;
-  gap: var(--s-3);
+.home-shot,
+.app-sec-pic,
+.p-pic {
+  min-width: 0;
 }
-.home-shot .win {
-  --win-fs: clamp(13px, 1.05vw, 15px);
-}
-
-/* What's in it, beside the drawn screen. */
-.p-inside {
-  display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-  gap: var(--gap-col);
-  align-items: start;
-}
-.p-inside .p-shot {
-  position: sticky;
-  top: 100px;
-}
-.p-inside .p-features {
-  grid-template-columns: 1fr;
+.app-sec--flip .app-sec-pic {
+  order: 1;
 }
 @media (max-width: 900px) {
-  .p-inside {
-    grid-template-columns: 1fr;
-  }
-  .p-inside .p-shot {
-    position: static;
+  .app-sec--flip .app-sec-pic {
+    order: 0;
   }
 }
 
 /* The products index: picture, then words, one ruled row per product. */
-.plist li {
-  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+.plist > li {
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   gap: var(--s-4) var(--gap-col);
-  padding: var(--s-7) 0;
+  padding: var(--s-6) 0;
   align-items: center;
 }
 .plist-pic {
   display: grid;
-  place-items: center;
+  align-items: center;
+  min-width: 0;
 }
-.plist-pic .pic {
-  max-width: 320px;
-  max-height: 220px;
-  object-fit: contain;
+.plist .is-soon .plist-pic {
+  justify-items: start;
 }
 .plist-copy {
   display: grid;
@@ -1818,12 +1601,9 @@ main:focus {
   color: var(--accent-text);
 }
 @media (max-width: 720px) {
-  .plist li {
+  .plist > li {
     grid-template-columns: 1fr;
-    padding: var(--s-6) 0;
-  }
-  .plist-pic .pic {
-    max-height: 180px;
+    padding: var(--s-5) 0;
   }
 }
 
@@ -1893,5 +1673,443 @@ main:focus {
     grid-row: 1 / span 2;
     align-self: center;
     text-align: right;
+  }
+}
+
+/* ------------------------------------------------- what is inside, home */
+/* Six one-line items under a product's lines, two across, each with a 20px line icon. */
+.inside {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-2) var(--s-5);
+  width: 100%;
+  border-top: 1px solid var(--line);
+  padding-top: var(--s-4);
+}
+.inside li {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 28px;
+  font-size: var(--t-sm);
+  color: var(--ink);
+}
+.inside svg {
+  flex: none;
+  color: var(--ink-2);
+}
+@media (max-width: 480px) {
+  .inside {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =================================================================== screens
+ * CLOR screens drawn in HTML and CSS with sample data. The frame keeps a
+ * fixed 16:11 shape, so nothing shifts while the page loads; the type inside
+ * scales with the column (container units), between 9.5px and 13.5px. The
+ * product's own accent (--acc, from site.js) marks the current rail item and
+ * nothing else; page chrome around the screen stays orange on white.
+ */
+.shot {
+  margin: 0;
+  display: grid;
+  gap: var(--s-2);
+  container-type: inline-size;
+  min-width: 0;
+}
+.win {
+  position: relative;
+  aspect-ratio: 16 / 11;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  color: var(--ink);
+  font-size: clamp(9.5px, 1.95cqw, 13.5px);
+  line-height: 1.4;
+  text-wrap: initial;
+}
+.win p,
+.win dl,
+.win ul,
+.win table {
+  margin: 0;
+  font-size: inherit;
+}
+.win-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.6em 0.9em;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+.win-bar .mark {
+  --mark: 1.6em !important;
+  border-radius: 0.4em;
+}
+.win-bar .mark svg {
+  width: 58%;
+  height: 58%;
+}
+.win-app {
+  font-weight: 700;
+}
+.win-crumb {
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.win-right {
+  margin-left: auto;
+  color: var(--ink-2);
+  font-size: 0.9em;
+}
+.win-main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 8.5em minmax(0, 1fr);
+}
+.win-rail {
+  list-style: none;
+  padding: 0.7em 0.5em;
+  border-right: 1px solid var(--line);
+  background: var(--surface-2);
+  display: grid;
+  align-content: start;
+  gap: 0.15em;
+  font-size: 0.92em;
+  color: var(--ink-2);
+}
+.win-rail li {
+  padding: 0.35em 0.6em;
+  border-radius: 0.45em;
+  white-space: nowrap;
+}
+.win-rail li.is-current {
+  background: color-mix(in srgb, var(--acc) 12%, white);
+  color: var(--ink);
+  font-weight: 600;
+}
+.win-body {
+  padding: 0.9em 1em;
+  display: grid;
+  align-content: start;
+  gap: 0.8em;
+  min-width: 0;
+}
+.w-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8em;
+}
+.w-title {
+  font-weight: 700;
+  font-size: 1.15em;
+  line-height: 1.25;
+}
+.w-sub {
+  font-weight: 650;
+  font-size: 0.92em;
+  margin-bottom: 0.35em !important;
+}
+.w-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+}
+.w-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6em 1.2em;
+  align-items: start;
+}
+.w-k {
+  color: var(--ink-3);
+  font-size: 0.9em;
+}
+.w-v {
+  font-weight: 600;
+}
+.w-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35em;
+}
+.w-pill {
+  display: inline-block;
+  font-size: 0.8em;
+  font-weight: 600;
+  padding: 0.2em 0.7em;
+  border-radius: 99px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.w-pill--ok {
+  background: #e8f5ec;
+  border-color: #cfe7da;
+  color: var(--ok);
+}
+.w-pill--sm {
+  font-size: 0.78em;
+  margin-left: 0.4em;
+}
+.w-tabs {
+  display: flex;
+  gap: 1.2em;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.92em;
+  color: var(--ink-2);
+}
+.w-tabs span {
+  padding-bottom: 0.4em;
+  margin-bottom: -1px;
+}
+.w-tabs .is-current {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom: 2px solid var(--acc);
+}
+.w-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+.w-table th {
+  text-align: left;
+  font-weight: 550;
+  color: var(--ink-3);
+  font-size: 0.9em;
+  padding: 0 0.4em 0.35em 0;
+  border-bottom: 1px solid var(--line);
+}
+.w-table td {
+  padding: 0.38em 0.4em 0.38em 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.w-table th:last-child,
+.w-table td:last-child {
+  padding-right: 0;
+}
+.w-table .w-strong td {
+  font-weight: 650;
+}
+.w-from {
+  display: block;
+}
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.w-table th.num,
+.w-table td.num {
+  white-space: nowrap;
+}
+.w-totals {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.25em 1em;
+  font-size: 0.92em;
+  color: var(--ink-2);
+  justify-self: end;
+  min-width: 55%;
+}
+.w-totals strong {
+  color: var(--ink);
+  font-size: 1.1em;
+}
+.w-totals--net {
+  justify-self: stretch;
+  min-width: 0;
+  padding-top: 0.5em;
+  border-top: 1px solid var(--line-strong);
+}
+.w-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.6em;
+  height: 2.6em;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--acc) 12%, white);
+  color: var(--acc);
+  font-weight: 700;
+  font-size: 0.9em;
+  flex: none;
+}
+.w-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3em 1em;
+  font-size: 0.92em;
+}
+.w-facts--2 {
+  grid-template-columns: auto 1fr auto 1fr;
+}
+.w-facts dt {
+  color: var(--ink-3);
+}
+.w-facts dd {
+  margin: 0;
+  font-weight: 550;
+}
+.w-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.3em;
+  font-size: 0.92em;
+}
+.w-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5em;
+}
+.w-list li > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.w-tick {
+  width: 1.1em;
+  height: 1.1em;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  display: grid;
+  place-items: center;
+}
+.is-done .w-tick {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+.is-done .w-tick::after {
+  content: '';
+  width: 0.5em;
+  height: 0.28em;
+  border-left: 1.5px solid #fff;
+  border-bottom: 1.5px solid #fff;
+  transform: translateY(-0.08em) rotate(-45deg);
+}
+.is-warn .w-tick {
+  background: #fff4e0;
+  border-color: #f0c583;
+}
+.is-warn .w-tick::after {
+  content: '!';
+  font-size: 0.8em;
+  font-weight: 700;
+  color: #9a5b00;
+  line-height: 1;
+}
+.w-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6em;
+}
+.w-stats > div {
+  display: grid;
+  gap: 0.1em;
+  padding: 0.55em 0.8em;
+  border: 1px solid var(--line);
+  border-radius: 0.6em;
+}
+.w-stats strong {
+  font-size: 1.5em;
+  line-height: 1.1;
+  text-align: left;
+}
+.w-stats span {
+  color: var(--ink-3);
+  font-size: 0.88em;
+}
+.w-dot {
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  margin-right: 0.45em;
+  background: var(--line-strong);
+  vertical-align: 0.05em;
+}
+.w-dot--ok {
+  background: var(--ok);
+}
+.w-dot--warn {
+  background: #e08a00;
+}
+.w-dot--off {
+  background: #7c8ea3;
+}
+.w-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+}
+.w-tags span {
+  font-size: 0.82em;
+  padding: 0.22em 0.6em;
+  border: 1px solid var(--line);
+  border-radius: 0.4em;
+  color: var(--ink-2);
+}
+.w-log {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.35em;
+  font-size: 0.92em;
+}
+.w-log li {
+  display: grid;
+  grid-template-columns: 6.5em minmax(0, 1fr);
+  gap: 0.8em;
+  padding-bottom: 0.35em;
+  border-bottom: 1px solid var(--line);
+}
+.w-log .num {
+  text-align: left;
+  white-space: nowrap;
+}
+.w-log b {
+  font-weight: 600;
+}
+/* In a narrow column the rail would eat the record, so it goes and the body has the width. */
+@container (max-width: 460px) {
+  .win {
+    aspect-ratio: 1 / 1;
+  }
+  .win-main {
+    grid-template-columns: 1fr;
+  }
+  .win-rail {
+    display: none;
+  }
+  .win-right {
+    display: none;
+  }
+}
+/* The products index shows each screen small: the caption is already in the row's words. */
+.plist-pic .shot {
+  gap: 0;
+}
+
+/* Text buttons are still a finger-sized target on a phone. */
+@media (pointer: coarse) {
+  .btn--text {
+    min-height: 44px;
   }
 }

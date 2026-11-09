@@ -12,7 +12,6 @@ items a person must confirm or supply first. Most live in `src/site.js` or `src/
 | Company details in the legal pages | `website/.env`: the same `VITE_OPERATOR_*`, `VITE_GRIEVANCE_*`, `VITE_HOSTING_PROVIDER`, `VITE_GOVERNING_LAW`, `VITE_POLICY_EFFECTIVE_DATE` the app uses (`packages/platform/operator.js`) | Filled from `website/.env.production`. Still open: CIN (registration in progress), GSTIN, and how long sign-in attempt history is kept (`AUTH_EVENT_RETENTION_DAYS`, one placeholder on Privacy) |
 | Prices | `/pricing` | "Being finalised", with "Ask about pricing" |
 | Real screenshots | `src/components/Windows.jsx` draws the screens with sample data | Captioned as drawn; replace with screenshots of a demo company |
-| Product pictures | `public/illustrations/*.svg` (unDraw: Digital invoice, Meet the team, Calendar, Payments, Shared workspace), recoloured | In place; swap any one by downloading another unDraw SVG and replacing `#6c63ff` with `#FF5400` |
 | Sign-up link | `SITE.signUpUrl` | app.clor.in/signup (live since 24 Oct 2026) |
 
 ## Confirm (each claim is in the code; confirm it is live in production)

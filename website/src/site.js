@@ -40,8 +40,7 @@ export const SITE = {
 
 /**
  * status: 'available' | 'soon'. accent: the product's own colour, used only on its own marks.
- * picture: an unDraw illustration (MIT, undraw.co) recoloured to Blaze Orange, in public/illustrations;
- * its size is the SVG's viewBox, so the page keeps its shape while the picture loads.
+ * Each available product has a screen drawn with sample data in components/Windows.jsx.
  * Order is the owner's: Books first, then People, Attendance, Payroll, Workspace.
  */
 export const PRODUCTS = [
@@ -53,7 +52,6 @@ export const PRODUCTS = [
     accent: '#232A66',
     line: 'GST invoices, e-way bills, stock, bank reconciliation and the returns, for Indian businesses.',
     who: 'Any company that raises GST invoices',
-    picture: { file: 'books', width: 960, height: 743, alt: 'A tax invoice open on a desktop screen', source: 'Digital invoice' },
   },
   {
     slug: 'people',
@@ -63,7 +61,6 @@ export const PRODUCTS = [
     accent: '#C93F28',
     line: 'The full HR app for growing, medium and big companies: records, documents, leave, attendance, joining and leaving, and an app for every employee.',
     who: 'Growing, medium and big companies',
-    picture: { file: 'people', width: 960, height: 811, alt: 'A list of employee records with photographs', source: 'Meet the team' },
   },
   {
     slug: 'attendance',
@@ -73,7 +70,6 @@ export const PRODUCTS = [
     accent: '#854D0E',
     line: 'Time, leave and shifts for small companies, from biometric readers at the gate or a phone on site.',
     who: 'Small companies',
-    picture: { file: 'attendance', width: 711, height: 611, alt: 'A person marking days on a wall calendar', source: 'Calendar' },
   },
   {
     slug: 'payroll',
@@ -83,7 +79,6 @@ export const PRODUCTS = [
     accent: '#0079BF',
     line: 'Salaries with PF, ESI, professional tax and TDS worked out, payslips in the employee app, and the journal posted to Books.',
     who: 'Any company that pays salaries',
-    picture: { file: 'payroll', width: 774, height: 419, alt: 'A bank card beside a person holding a payslip', source: 'Payments' },
   },
   {
     slug: 'workspace',
@@ -93,7 +88,6 @@ export const PRODUCTS = [
     accent: '#FF5400',
     line: 'The one sign-in behind every CLOR app: your companies and branches, your people and what each may see, and the audit trail.',
     who: 'Included with every product',
-    picture: { file: 'workspace', width: 800, height: 258, alt: 'Two people working at laptops side by side', source: 'Shared workspace' },
   },
   {
     slug: 'projects',

@@ -34,26 +34,3 @@ export function Mark({ product, size = 36 }) {
 export function Status({ product }) {
   return product.status === 'available' ? <span className="status">Available</span> : <span className="status status--soon">Coming soon</span>;
 }
-
-/*
- * A product's picture: an unDraw illustration (undraw.co, MIT) recoloured to
- * Blaze Orange, served from public/illustrations. Width and height are the
- * SVG's own, so the page keeps its shape before the file arrives. The first
- * picture on a page loads eagerly; the rest wait until they are near.
- */
-export function Illustration({ product, eager = false, className = '' }) {
-  const pic = product.picture;
-  if (!pic) return null;
-  return (
-    <img
-      className={`pic ${className}`.trim()}
-      src={`/illustrations/${pic.file}.svg`}
-      alt={pic.alt}
-      width={pic.width}
-      height={pic.height}
-      loading={eager ? 'eager' : 'lazy'}
-      decoding="async"
-      fetchPriority={eager ? 'high' : undefined}
-    />
-  );
-}

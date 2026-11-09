@@ -2,19 +2,19 @@ import React from 'react';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, PRODUCTS, SITE, demoFor, productBySlug } from '../site.js';
 import { PRODUCT_CONTENT } from '../content.js';
-import { Illustration, Mark, Status } from '../components/Brand.jsx';
+import { Mark, Status } from '../components/Brand.jsx';
 import { WINDOWS } from '../components/Windows.jsx';
 import { Closing, Faq, Steps } from '../components/Blocks.jsx';
 import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
 
 /*
- * Each product's page: who it is for and what it does beside its picture,
- * what it fixes, what is in it with a screen drawn with sample data, a
- * working day in it, how it joins the other products, who sees what, and
+ * Each product's page: who it is for and what it does beside its screen
+ * drawn with sample data, what it fixes, what is in it, a working day in it, how it joins the other products, who sees what, and
  * the questions people ask. The demo request carries the product (?app=).
  */
 
 function Hero({ p, c, soon }) {
+  const Win = WINDOWS[p.slug];
   return (
     <section className="hero p-hero" aria-labelledby="p-title">
       <div className="wrap p-hero-grid">
@@ -42,9 +42,9 @@ function Hero({ p, c, soon }) {
             </Link>
           </div>
         </div>
-        {p.picture ? (
+        {Win ? (
           <div className="p-pic">
-            <Illustration product={p} eager />
+            <Win />
           </div>
         ) : null}
       </div>
@@ -78,7 +78,6 @@ export default function Product({ slug }) {
   const c = PRODUCT_CONTENT[slug];
   if (p.status !== 'available') return <SoonPage p={p} c={c} />;
   const links = CONNECTIONS.filter((x) => x.from === slug || x.to === slug);
-  const Win = WINDOWS[slug];
   return (
     <>
       <Hero p={p} c={c} />
@@ -98,24 +97,16 @@ export default function Product({ slug }) {
       </section>
 
       <section className="section" aria-labelledby="inside-title">
-        <div className={`wrap${Win ? ' p-inside' : ''}`}>
-          <div>
-            <Head id="inside-title" title={`What’s in ${p.name}`} />
-            <dl className="p-features">
-              {c.features.map(([k, v]) => (
-                <div key={k} className="p-feature">
-                  <dt className="h-3">{k}</dt>
-                  <dd className="body">{v}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-          {Win ? (
-            <figure className="p-shot">
-              <Win />
-              <figcaption className="caption">A CLOR {p.name} screen, drawn with sample data. Real screenshots are on the way.</figcaption>
-            </figure>
-          ) : null}
+        <div className="wrap">
+          <Head id="inside-title" title={`What’s in ${p.name}`} />
+          <dl className="p-features">
+            {c.features.map(([k, v]) => (
+              <div key={k} className="p-feature">
+                <dt className="h-3">{k}</dt>
+                <dd className="body">{v}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       </section>
 
@@ -178,7 +169,7 @@ export default function Product({ slug }) {
   );
 }
 
-/* The products index: each one a row with its picture, who it is for and what it does. */
+/* The products index: each one a row with its drawn screen, who it is for and what it does. */
 export function Products() {
   return (
     <>
@@ -193,7 +184,7 @@ export function Products() {
           <ul className="plist">
             {PRODUCTS.map((p) => (
               <li key={p.slug} className={p.status === 'soon' ? 'is-soon' : ''}>
-                <div className="plist-pic">{p.picture ? <Illustration product={p} /> : <Mark product={p} size={56} />}</div>
+                <div className="plist-pic">{WINDOWS[p.slug] ? React.createElement(WINDOWS[p.slug], { caption: false }) : <Mark product={p} size={56} />}</div>
                 <div className="plist-copy">
                   <h2 className="h-2">
                     <Link href={`/products/${p.slug}`}>CLOR&nbsp;{p.name}</Link> {p.status === 'soon' ? <Status product={p} /> : null}

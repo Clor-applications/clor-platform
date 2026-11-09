@@ -1,19 +1,68 @@
 import React from 'react';
+import {
+  Bank,
+  Buildings,
+  CalendarBlank,
+  CalendarCheck,
+  ChartBar,
+  ClipboardText,
+  Clock,
+  DeviceMobile,
+  FileArrowDown,
+  Files,
+  Fingerprint,
+  IdentificationCard,
+  Key,
+  LockSimple,
+  MapPin,
+  Package,
+  PencilSimple,
+  Percent,
+  Receipt,
+  ShieldCheck,
+  Timer,
+  ToggleLeft,
+  TreeStructure,
+  Truck,
+  UsersThree,
+  Wallet,
+} from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, SITE, productBySlug } from '../site.js';
-import { BooksWindow } from '../components/Windows.jsx';
+import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
 import { Head } from '../components/Sections.jsx';
 import { Closing, Faq } from '../components/Blocks.jsx';
-import { Illustration, Mark } from '../components/Brand.jsx';
+import { Mark } from '../components/Brand.jsx';
 
 /*
- * The home page: Books first with its invoice drawn with sample data, then
- * one section per app in the owner's order (People, Attendance, Payroll,
- * Workspace), each with its orange unDraw picture on the other side. Then how
- * the apps join, who uses CLOR, the questions people ask and the demo.
- * Every claim here is in CONTENT_CHECKLIST.md.
+ * The home page: the headline beside Books' invoice, then one section per
+ * product in the owner's order (Books, People, Attendance, Payroll,
+ * Workspace), each with three plain lines, a grid of what is inside, and its
+ * screen drawn with sample data on the other side (Books shows the month's
+ * GSTR-1, since its invoice is already in the hero). Then how the products
+ * join, who uses CLOR, the questions people ask and the demo. Every claim
+ * here is in CONTENT_CHECKLIST.md; the "inside" lines name what the product
+ * pages list in content.js.
  */
 const APPS = [
+  {
+    slug: 'books',
+    screen: GstrWindow,
+    title: 'Accounting that already knows GST.',
+    lines: [
+      'Every invoice, bill, receipt and stock movement posts its own journal, so the books are never a month behind the business.',
+      'e-Invoices and e-way bills from the invoice itself; GSTR-1 and GSTR-3B from the month’s documents.',
+      'Import masters and opening balances from Tally; reconcile the bank statement against the books.',
+    ],
+    inside: [
+      [Receipt, 'Quotations, invoices, credit notes'],
+      [Package, 'Stock by warehouse, batch and serial'],
+      [Bank, 'Bank and cash books, reconciliation'],
+      [Percent, 'GSTR-1 and GSTR-3B'],
+      [Truck, 'e-Invoices and e-way bills'],
+      [ChartBar, 'P&L, balance sheet, day book'],
+    ],
+  },
   {
     slug: 'people',
     title: 'One record for every employee, and everything that follows from it.',
@@ -21,6 +70,14 @@ const APPS = [
       'For growing, medium and big companies. Personal, job and statutory details with a dated history, and documents that remind you before they expire.',
       'Attendance, leave and shifts are inside People, so you do not need a second app for time.',
       'Joining and leaving run from checklists for HR, IT and the manager, and end in the final settlement for Payroll.',
+    ],
+    inside: [
+      [IdentificationCard, 'Records with a dated history'],
+      [Clock, 'Time, leave and shifts'],
+      [Files, 'Documents with expiry reminders'],
+      [ClipboardText, 'Joining and leaving checklists'],
+      [TreeStructure, 'Org chart and reporting lines'],
+      [DeviceMobile, 'An app for every employee'],
     ],
   },
   {
@@ -31,6 +88,14 @@ const APPS = [
       'Shifts, late marks and overtime are worked out as the punches arrive; leave is asked for and approved in the employee app.',
       'Closing the month hands paid days, overtime and leave to Payroll.',
     ],
+    inside: [
+      [Fingerprint, 'ZKTeco, eSSL, Hikvision, Matrix'],
+      [MapPin, 'Phone punches inside a geofence'],
+      [CalendarBlank, 'Shifts, rosters and weekly offs'],
+      [Timer, 'Late marks and overtime'],
+      [PencilSimple, 'Missed-punch corrections'],
+      [LockSimple, 'Month close, handed to Payroll'],
+    ],
   },
   {
     slug: 'payroll',
@@ -40,6 +105,14 @@ const APPS = [
       'The PF ECR file and Form 16 come out of the same payslips.',
       'Locking the run posts its journal to Books; paying salaries posts the payment.',
     ],
+    inside: [
+      [Wallet, 'Salary structures and revisions'],
+      [Percent, 'PF, ESI, professional tax, TDS'],
+      [LockSimple, 'Validate, review and lock the run'],
+      [DeviceMobile, 'Payslips in the employee app'],
+      [FileArrowDown, 'PF ECR file and Form 16'],
+      [Receipt, 'Journal and payment to Books'],
+    ],
   },
   {
     slug: 'workspace',
@@ -48,6 +121,14 @@ const APPS = [
       'Comes with every product. All your companies and branches under one sign-in, switched from one menu.',
       'Invite your accountant with their own login and the role you choose; end it whenever you like.',
       'Every change anyone makes is written to the audit trail, in plain words, with their name on it.',
+    ],
+    inside: [
+      [Buildings, 'Companies and branches'],
+      [UsersThree, 'Users, with a role per company'],
+      [CalendarCheck, 'Outside access that ends on a date'],
+      [ShieldCheck, 'Audit trail in plain words'],
+      [Key, 'Google, Microsoft, SAML sign-in'],
+      [ToggleLeft, 'Products on or off per company'],
     ],
   },
 ];
@@ -84,11 +165,26 @@ const FAQ = [
   ['Can I leave with my data?', 'Yes. You can export your company’s data at any time, and closing a company comes with a notice period.'],
 ];
 
-/** One product's section: its name, what it does in a few plain lines, and its picture on the other side. */
-function AppSection({ slug, title, lines, flip }) {
-  const p = productBySlug(slug);
+/** What is inside a product: six one-line items with a line icon, so the words stand as tall as the screen beside them. */
+export function Inside({ items }) {
   return (
-    <section className="section app-sec-wrap" aria-labelledby={`${slug}-title`}>
+    <ul className="inside">
+      {items.map(([Icon, text]) => (
+        <li key={text}>
+          <Icon size={20} weight="regular" aria-hidden="true" />
+          <span>{text}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** One product's section: its name, what it does in a few plain lines, what is inside, and its screen on the other side. */
+function AppSection({ slug, title, lines, inside, flip, screen }) {
+  const p = productBySlug(slug);
+  const Win = screen || WINDOWS[slug];
+  return (
+    <section className="section" aria-labelledby={`${slug}-title`}>
       <div className={`wrap app-sec${flip ? ' app-sec--flip' : ''}`}>
         <div className="app-sec-copy">
           <p className="app-sec-name">
@@ -102,12 +198,13 @@ function AppSection({ slug, title, lines, flip }) {
               <li key={x}>{x}</li>
             ))}
           </ul>
+          <Inside items={inside} />
           <Link className="text-link" href={`/products/${slug}`}>
             More about CLOR&nbsp;{p.name}
           </Link>
         </div>
         <div className="app-sec-pic">
-          <Illustration product={p} />
+          <Win />
         </div>
       </div>
     </section>
@@ -115,7 +212,7 @@ function AppSection({ slug, title, lines, flip }) {
 }
 
 export default function Home() {
-  const books = productBySlug('books');
+  const Books = WINDOWS.books;
   return (
     <>
       <section className="hero hero--home" aria-labelledby="hero-title">
@@ -137,39 +234,14 @@ export default function Home() {
               </Link>
             </div>
           </div>
-          <figure className="home-shot">
-            <BooksWindow />
-            <figcaption className="caption">A tax invoice in CLOR Books, drawn with sample data.</figcaption>
-          </figure>
-        </div>
-      </section>
-
-      <section className="section" aria-labelledby="books-title">
-        <div className="wrap app-sec">
-          <div className="app-sec-copy">
-            <p className="app-sec-name">
-              <Mark product={books} size={28} /> CLOR&nbsp;Books
-            </p>
-            <h2 className="h-1" id="books-title">
-              Accounting that already knows GST.
-            </h2>
-            <ul className="facts-list">
-              <li>Every invoice, bill, receipt and stock movement posts its own journal, so the books are never a month behind the business.</li>
-              <li>e-Invoices and e-way bills from the invoice itself; GSTR-1 and GSTR-3B from the month’s documents.</li>
-              <li>Import masters and opening balances from Tally; reconcile the bank statement against the books.</li>
-            </ul>
-            <Link className="text-link" href="/products/books">
-              More about CLOR&nbsp;Books
-            </Link>
-          </div>
-          <div className="app-sec-pic">
-            <Illustration product={books} eager />
+          <div className="home-shot">
+            <Books />
           </div>
         </div>
       </section>
 
       {APPS.map((a, i) => (
-        <AppSection key={a.slug} {...a} flip={i % 2 === 0} />
+        <AppSection key={a.slug} {...a} flip={i % 2 === 1} />
       ))}
 
       <section className="section" aria-labelledby="connected-title">
@@ -193,7 +265,7 @@ export default function Home() {
       <section className="section" aria-labelledby="team-title">
         <div className="wrap">
           <Head id="team-title" title="Who uses CLOR" />
-          <ul className="groups">
+          <ul className="groups groups--4">
             {TEAMS.map((t) => (
               <li key={t.title}>
                 <h3 className="h-3">{t.title}</h3>
