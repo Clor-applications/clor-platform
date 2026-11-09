@@ -163,6 +163,11 @@
     },
     {
       "method": "POST",
+      "path": "/api/billing/webhook/:provider",
+      "reason": "One payment provider's webhook (cashfree, razorpay), the address shown in the operator console: raw body ahead of the JSON parser; the provider's HMAC signature is checked with its secret saved (encrypted) in Payments, refused events are kept at most 200 an hour; idempotent on the provider event id; billingWebhookLimiter."
+    },
+    {
+      "method": "POST",
       "path": "/api/orgs/:orgId/notifications/inbox/mutes",
       "reason": "Self-service: mutes kinds for the caller only (where userId = caller)."
     },

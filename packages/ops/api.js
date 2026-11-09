@@ -38,3 +38,15 @@ export const opsArchivePriceBook = (id) => apiFetch(`/ops/pricing/books/${encode
 export const opsRollBackPriceBook = (id) => apiFetch(`/ops/pricing/books/${encodeURIComponent(id)}/roll-back`, { ...o, method: 'POST', body: {} });
 export const opsTax = () => apiFetch('/ops/settings/tax', o);
 export const opsSaveTax = (body) => apiFetch('/ops/settings/tax', { ...o, method: 'PUT', body });
+
+/* Payments (server: routes/opsPayments.ts). */
+const prov = (code) => `/ops/payments/providers/${encodeURIComponent(code)}`;
+export const opsPayments = () => apiFetch('/ops/payments', o);
+export const opsSaveProvider = (code, body) => apiFetch(prov(code), { ...o, method: 'PUT', body });
+export const opsProviderMode = (code, mode, confirm) => apiFetch(`${prov(code)}/mode`, { ...o, method: 'POST', body: { mode, confirm } });
+export const opsActivateProvider = (code) => apiFetch(`${prov(code)}/activate`, { ...o, method: 'POST', body: {} });
+export const opsTestProvider = (code) => apiFetch(`${prov(code)}/test`, { ...o, method: 'POST', body: {} });
+export const opsPaymentEvents = (params) => apiFetch(`/ops/payments/events${q(params)}`, o);
+export const opsRetryPaymentEvent = (id) => apiFetch(`/ops/payments/events/${encodeURIComponent(id)}/retry`, { ...o, method: 'POST', body: {} });
+export const opsPaymentAccounts = (text) => apiFetch(`/ops/payments/accounts${q({ q: text })}`, o);
+export const opsRecordPayment = (body) => apiFetch('/ops/payments/manual', { ...o, method: 'POST', body });

@@ -12,6 +12,7 @@ vi.mock('./api', () => ({
   opsDemoRequests: vi.fn(), opsDemoRequest: vi.fn(), opsSetDemoStatus: vi.fn(), opsCreateDemoAccount: vi.fn(),
   opsPricing: vi.fn(), opsPriceBook: vi.fn(), opsSamplePlans: vi.fn(), opsPricePreview: vi.fn(), opsNewPriceBook: vi.fn(), opsSavePriceBook: vi.fn(),
   opsPublishPriceBook: vi.fn(), opsArchivePriceBook: vi.fn(), opsRollBackPriceBook: vi.fn(), opsTax: vi.fn(), opsSaveTax: vi.fn(),
+  opsPayments: vi.fn(), opsSaveProvider: vi.fn(), opsProviderMode: vi.fn(), opsActivateProvider: vi.fn(), opsTestProvider: vi.fn(), opsPaymentEvents: vi.fn(), opsRetryPaymentEvent: vi.fn(), opsPaymentAccounts: vi.fn(), opsRecordPayment: vi.fn(),
 }));
 const session = vi.hoisted(() => ({ value: { user: { id: 'u1' }, restoring: false, signOut: vi.fn() } }));
 vi.mock('../shell/session', () => ({ useSession: () => session.value }));

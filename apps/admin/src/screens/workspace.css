@@ -1799,10 +1799,18 @@ button.ws-item:hover {
   margin: 12vh auto;
   padding: 0 24px;
 }
-@media (max-width: 760px) {
+/* Nine sections: below 1600px the name gives way to them (it stays on the sign-out button's tooltip), below 1360px the icons do too. */
+@media (max-width: 1599px) {
   .ops-who {
     display: none;
   }
+}
+@media (max-width: 1359px) {
+  .ops-nav-item svg {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
   .ops-bar-top {
     padding: 0 12px;
     gap: 8px;
