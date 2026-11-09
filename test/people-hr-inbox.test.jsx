@@ -85,7 +85,7 @@ describe('one Approvals inbox', () => {
     approvalsApi.getInbox.mockResolvedValue(INBOX);
     const { rerender } = render(<Approvals params={{}} updateParams={() => {}} />);
     await screen.findAllByText('Ravi Kumar');
-    expect(screen.getByRole('tab', { name: /Waiting for me/ })).toHaveTextContent('4');
+    expect(screen.getByRole('tab', { name: /To approve/ })).toHaveTextContent('4');
     const table = screen.getByRole('table');
     const names = within(table).getAllByRole('row').slice(1).map((r) => r.textContent);
     expect(names[0]).toMatch(/Asha Rao.*Leave.*Casual/);

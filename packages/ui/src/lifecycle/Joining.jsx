@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { UserPlus } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
@@ -71,6 +71,16 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
   const tabIndicator = useTabIndicator(tabsRef, view);
   const counts = { ...(list.data?.counts || {}), forms: forms.length };
   const canAdd = can(perms, 'PEOPLE::Employees::CREATE');
+  /* Opened without a view: the first tab that has rows, not an empty "Before day one" beside a tab with forty (People plan 8 Nov 2026, step 2). Once. */
+  const steered = useRef(false);
+  useEffect(() => {
+    if (steered.current || p.view || !list.data?.counts) return;
+    steered.current = true;
+    if (Number(counts.preparing) > 0) return;
+    const first = VIEWS.find(([k]) => k !== 'done' && k !== 'all' && Number(counts[k]) > 0);
+    if (first) set({ view: first[0] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the first answer only
+  }, [list.data]);
 
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (r) => <PersonCell person={r} line={[r.code, r.designation, r.department].filter(Boolean).join(' · ')} /> },

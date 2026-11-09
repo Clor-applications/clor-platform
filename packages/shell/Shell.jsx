@@ -829,6 +829,13 @@ export default function Shell() {
   const screenMissing = Boolean(!Root && app && openedWith && screenKey === openedWith && !app.screens?.[openedWith]);
   /* Or ask for the split sidebar: modules on a rail, the open module's screens beside it (splitNav.js). */
   const modules = resolveModules(app, nav);
+  /* What the rail counts as waiting, in all, and the screen the first counted module opens: the bell says the same number. */
+  const waitingOnRail = (() => {
+    const count = modules.reduce((n, m) => n + (Number(railCounts[m.key]) || 0), 0);
+    /* The module that carries the count, or the one that would if anything waited: with nought the bell still says so. */
+    const first = modules.find((m) => railCounts[m.key] > 0) || modules.find((m) => m.key in railCounts);
+    return { count, screen: first?.items?.[0] || first?.key || null };
+  })();
   const split = modules.length > 0;
   const currentModule = moduleForScreen(modules, screen, nav) || modules[0] || null;
   /* The module whose panel is open; follows the screen unless the person is browsing another on the rail. */
@@ -1211,6 +1218,9 @@ export default function Shell() {
           <NotificationBell
             tenantKey={tenantKey}
             icon={app?.iconSet === 'color' ? BellColor : undefined}
+            /* The one waiting number the rail shows (manifest railCounts), so the bell never disagrees with Home or the Inbox. */
+            waiting={waitingOnRail.count}
+            onOpenWaiting={waitingOnRail.screen ? () => goTo(waitingOnRail.screen) : undefined}
             onOpen={(link) => {
               if (!link?.app) return;
               if (link.app === activeAppId && !Root) {
