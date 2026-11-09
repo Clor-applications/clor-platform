@@ -13,6 +13,8 @@ export default defineConfig({
   envDir: '.',
   resolve: {
     alias: { '@platform': fileURLToPath(new URL('../packages/platform', import.meta.url)) },
+    /* The shared legal documents live outside this package; they must use this package's React. */
+    dedupe: ['react', 'react-dom'],
   },
   server: { fs: { allow: ['..'] } },
   build: { outDir: 'dist', assetsInlineLimit: 0 },
