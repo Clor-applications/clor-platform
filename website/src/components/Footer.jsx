@@ -8,7 +8,7 @@ export default function Footer() {
     ['Products', [{ href: '/products', name: 'All products' }, ...PRODUCTS.map((p) => ({ href: `/products/${p.slug}`, name: `CLOR\u00a0${p.name}` }))]],
     ['Solutions', NAV.solutions],
     ['Resources', [...NAV.resources, { href: '/pricing', name: 'Pricing' }]],
-    ['Company', [...NAV.company, { href: '/legal/privacy', name: 'Privacy' }, { href: '/legal/terms', name: 'Terms' }, { href: '/legal/cookies', name: 'Cookies' }, { href: '/legal/refund', name: 'Refunds' }]],
+    ['Company', [...NAV.company, { href: '/legal/privacy', name: 'Privacy' }, { href: '/legal/terms', name: 'Terms' }, { href: '/legal/cookies', name: 'Cookies' }, { href: '/legal/refund', name: 'Refunds' }, { href: '/legal/delivery', name: 'Delivery' }]],
   ];
   return (
     <footer className="footer">
