@@ -8,7 +8,7 @@ import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/peopl
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { correlationOf } from '../services/people/employees.js';
 import {
-  MoneyError, billFile, categories, claimForStaff, closeAdvance, detailForRequest, exportCsv, listAdvances, listClaims, markRecorded, payAdvance, payClaim, report, sanction, saveCategory, type Staff,
+  MoneyError, billFile, categories, claimForStaff, recordClaim, closeAdvance, detailForRequest, exportCsv, listAdvances, listClaims, markRecorded, payAdvance, payClaim, report, sanction, saveCategory, type Staff,
 } from '../services/people/money/expenses.js';
 import { listAsks, sendAgain } from '../services/people/money/salaryAdvance.js';
 import { reimbursementComponent } from '../services/people/money/payrollBridge.js';
@@ -68,6 +68,11 @@ peopleMoneyRouter.get(`${base}/claims`, can(PermissionAction.VIEW, EXPENSES), ru
   ]);
   /* Whether Payroll taxes the reimbursement line, so "pay with salary" never says "not taxed" when it is. */
   res.json({ claims, reimbursement: component ? { name: component.name, taxed: component.isTaxable } : null });
+}));
+
+/** HR records a claim on someone's behalf (a paper bill handed over): the same shape as the app's, sent for approval under the person's name. */
+peopleMoneyRouter.post(`${base}/claims`, can(PermissionAction.CREATE, EXPENSES), run(async (req, res) => {
+  res.status(201).json({ claim: await recordClaim(staffOf(req), req.body || {}) });
 }));
 
 peopleMoneyRouter.get(`${base}/claims/:id`, can(PermissionAction.VIEW, EXPENSES), run(async (req, res) => {
