@@ -23,9 +23,9 @@ export const rememberSampleOrg = (orgId: string) => {
 };
 
 /** The sample company's id, or null while there is none (looked up at most once a minute until there is). */
-export async function sampleOrgIdOrNull(): Promise<string | null> {
+export async function sampleOrgIdOrNull(opts: { fresh?: boolean } = {}): Promise<string | null> {
   if (sampleOrgId) return sampleOrgId;
-  if (Date.now() - checkedAt < 60_000) return null;
+  if (!opts.fresh && Date.now() - checkedAt < 60_000) return null;
   checkedAt = Date.now();
   try {
     const found = await outsideTenant('explore: which company is the sample', async () => {

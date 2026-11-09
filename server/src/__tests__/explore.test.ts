@@ -259,6 +259,59 @@ describe('the operator console', () => {
   });
 });
 
+describe('Explore on the operator console', () => {
+  it('shows the sample company and builds it in the background, on the record', async () => {
+    const h = await operator();
+    const before = (await request(app).get('/api/ops/explore/sample').set(h).expect(200)).body;
+    expect(before).toMatchObject({ exists: true, company: 'Sample Traders Pvt Ltd' });
+    expect(before.counts).toMatchObject({ employees: expect.any(Number), invoices: expect.any(Number) });
+    expect(before.livePasses).toBeGreaterThan(0);
+
+    /* A change needs the step-up. */
+    await request(app).post('/api/ops/explore/sample/build').set({ Authorization: h.Authorization }).send({}).expect(403);
+    const started = (await request(app).post('/api/ops/explore/sample/build').set(h).send({ force: true }).expect(202)).body;
+    expect(started.build).toMatchObject({ state: 'running', force: true });
+    /* One at a time. */
+    expect((await request(app).post('/api/ops/explore/sample/build').set(h).send({}).expect(409)).body.code).toBe('SAMPLE_BUILD_RUNNING');
+
+    let status: any = null;
+    for (let i = 0; i < 100; i += 1) {
+      status = (await request(app).get('/api/ops/explore/sample').set(h).expect(200)).body;
+      if (status.build?.state !== 'running') break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(status.build).toMatchObject({ state: 'done', error: null });
+    expect(await platformPrisma.jobRun.findFirst({ where: { worker: 'explore-sample-build' }, orderBy: { startedAt: 'desc' }, select: { outcome: true } })).toEqual({ outcome: 'OK' });
+    const logged = await platformPrisma.operatorAuditEvent.findFirst({ where: { action: 'EXPLORE_SAMPLE_REBUILT' }, orderBy: { at: 'desc' } });
+    expect(logged?.detail).toEqual({ force: true });
+  });
+
+  it('lists every link, and resends or ends one from the list', async () => {
+    const h = await operator();
+    const a = await asked();
+    const list = (await request(app).get('/api/ops/explore/passes?state=active').set(h).expect(200)).body;
+    const row = list.passes.find((p: any) => p.email === a.body.email);
+    expect(row).toMatchObject({ state: 'active', demoRequest: { id: a.request.id, name: a.body.name, company: a.body.company } });
+    expect(list.active).toBeGreaterThan(0);
+
+    await request(app).post(`/api/ops/explore/passes/${row.id}/end`).set({ Authorization: h.Authorization }).expect(403);
+    expect((await request(app).post(`/api/ops/explore/passes/${row.id}/end`).set(h).expect(200)).body.explore.state).toBe('ended');
+    expect((await request(app).get('/api/ops/explore/passes?state=ended').set(h).expect(200)).body.passes.some((p: any) => p.id === row.id)).toBe(true);
+    expect((await request(app).post(`/api/ops/explore/passes/${row.id}/resend`).set(h).expect(200)).body.explore).toMatchObject({ state: 'active', sendCount: 2 });
+
+    const audit = await platformPrisma.operatorAuditEvent.findMany({ where: { detail: { path: ['explorePassId'], equals: row.id } }, orderBy: { at: 'asc' } });
+    expect(audit.map((e) => e.action)).toEqual(['EXPLORE_ENDED', 'EXPLORE_RESENT']);
+    /* The request's own history shows them too. */
+    expect(audit.every((e) => (e.detail as any)?.demoRequestId === a.request.id)).toBe(true);
+  });
+
+  it('is for operators only', async () => {
+    const owner = await company();
+    await request(app).get('/api/ops/explore/sample').set(bearer(owner.token)).expect(403);
+    await request(app).get('/api/ops/explore/passes').set(bearer(owner.token)).expect(403);
+  });
+});
+
 describe('a quiet sample company', () => {
   it('gives the visitor no notices and mails nobody made up, and clears what an older fill left', async () => {
     const { sendNotice, upsertNotice } = await import('../services/notifications.js');

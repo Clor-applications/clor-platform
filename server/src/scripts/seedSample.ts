@@ -2,8 +2,9 @@ import 'dotenv/config';
 /**
  * The Explore sample company (services/sampleCompany.ts), made and filled.
  *
- * The first Explore visitor makes it anyway; this is for doing it ahead of
- * them, after a deploy, so nobody waits on the fill. Safe to run again: it
+ * A developer fallback: Clor staff build it from the operator console
+ * (Sample company, Build sample company — routes/opsExplore.ts), which runs
+ * the same build. The first Explore visitor makes it anyway. Safe to run again: it
  * adds only what is missing. `--force` runs the fill again even when the
  * company says it is filled (still adding only what is missing).
  *
