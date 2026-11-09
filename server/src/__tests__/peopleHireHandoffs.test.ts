@@ -195,8 +195,11 @@ describe('candidates hear from the company', () => {
     expect(sent[0].bodyText).toContain('10:30 am');
     expect(sent[0].bodyText).toContain('Video call');
     expect(sent[0].bodyText).toContain('Join here: https://meet.example/dev');
-    expect(sent[0].bodyText).toContain('You will meet: Asha, Ira');
+    /* First names only, in alphabetical order, whatever order the database returns them. */
+    const meet = /You will meet: (.*)/.exec(sent[0].bodyText || '')?.[1] || '';
+    expect(meet.split(', ').sort()).toEqual(['Asha', 'Ira']);
     expect(sent[0].bodyText).not.toContain('Menon');
+    expect(sent[0].bodyText).not.toContain('Owner');
     await request(app).put(`/api/orgs/${hr.orgId}/people/talent/interviews/${set.id}`).set(at(hr)).send({ at: new Date(at1.getTime() + 86_400_000).toISOString(), mode: 'IN_PERSON', place: 'Office, 2nd floor', interviewerUserIds: [hr.userId] }).expect(200);
     sent = await mails(hr.orgId, 'people.interview', email);
     expect(sent).toHaveLength(2);

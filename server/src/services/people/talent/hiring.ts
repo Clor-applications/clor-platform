@@ -284,7 +284,7 @@ const IST = { timeZone: 'Asia/Kolkata' } as const;
 const dayWords = (d: Date) => d.toLocaleDateString('en-IN', { ...IST, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 const timeWords = (d: Date) => d.toLocaleTimeString('en-IN', { ...IST, hour: 'numeric', minute: '2-digit' });
 /** First names only: a candidate is told whom they meet, not the company's e-mail directory. */
-const firstNames = (names: string[]) => names.map((n) => n.trim().split(/\s+/)[0]).filter(Boolean).join(', ') || 'the team';
+const firstNames = (names: string[]) => [...new Set(names.map((n) => n.trim().split(/\s+/)[0]).filter(Boolean))].sort((a, b) => a.localeCompare(b)).join(', ') || 'the team';
 
 export async function noteCandidate(who: Who, id: string, note: unknown) {
   const t = text(note, 4000);
@@ -416,7 +416,7 @@ export async function scheduleInterview(who: Who, candidateId: string, raw: any,
   await notifyUsers(who.accountId, who.orgId, others, { kind: 'people.hiring', title: `Interview: ${c.name}`, body: at.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }), link: { app: 'people', screen: 'interviews', params: { id: row.id } } as any });
   /* The candidate hears too: the day, the time, how and whom they meet (People plan 8 Nov 2026, step 4). */
   if (c.email) {
-    const users = await platformPrisma.user.findMany({ where: { id: { in: ids } }, select: { fullName: true, email: true } });
+    const users = await platformPrisma.user.findMany({ where: { id: { in: ids } }, select: { fullName: true, email: true }, orderBy: { fullName: 'asc' } });
     const place = text(raw?.place, 300);
     await mailCandidate(who, c, 'people.interview', {
       headline: id ? 'Your interview has moved' : 'Your interview is set',
