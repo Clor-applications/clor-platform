@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X } from '@ui/components/ui/lineIcons';
 
 import Drawer from '@ui/components/ui/Drawer';
 import SuggestInput from '@ui/components/ui/SuggestInput';

@@ -1,33 +1,15 @@
 import React from 'react';
 import { Link } from '../router.jsx';
-import { ArrowRight, Building2, FileText, Layers, Lock, Rocket, ShieldCheck, User, UserPlus, Users } from 'lucide-react';
-import Illustration from './Illustration.jsx';
-import { Reveal, RevealGroup } from './Blocks.jsx';
 
 /*
  * Sections the home page and every product page share, so they stay word for
- * word the same: the section head, How it works and Trust and security.
+ * word the same: the section head, Setting up, and Where your data lives.
  */
-const STEPS = [
-  { Icon: User, tone: 'orange', title: 'Create your workspace', text: 'Sign up and create your account.' },
-  { Icon: Building2, tone: 'orange', title: 'Set up your company', text: 'Add your company details and structure.' },
-  { Icon: Layers, tone: 'green', title: 'Choose your applications', text: 'Select the apps you need.' },
-  { Icon: UserPlus, tone: 'blue', title: 'Invite your team', text: 'Add members and assign access.' },
-  { Icon: Rocket, tone: 'orange', title: 'Start working', text: 'Go live and manage your business.' },
-];
 
-const TRUST = [
-  { Icon: ShieldCheck, tone: 'green', title: 'Tenant isolation', text: 'Your data stays separate and secure.' },
-  { Icon: Users, tone: 'orange', title: 'Scoped access', text: 'Role-based permissions across all applications.' },
-  { Icon: FileText, tone: 'pink', title: 'Audit and control', text: 'Track activity and manage access.' },
-  { Icon: Lock, tone: 'blue', title: 'Secure infrastructure', text: 'Built on modern, reliable cloud platform.' },
-];
-
-/** A section's small orange label, its title and its line under the title. */
-export function Head({ eyebrow, title, intro, center = false, id }) {
+/** A section's title and its line under the title. */
+export function Head({ title, intro, id }) {
   return (
-    <div className={`head${center ? ' head--center' : ''}`}>
-      {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
+    <div className="head">
       <h2 className="h-1" id={id}>
         {title}
       </h2>
@@ -36,68 +18,47 @@ export function Head({ eyebrow, title, intro, center = false, id }) {
   );
 }
 
-
-/** Get started in minutes: the five steps and the add-your-company form. */
-export function HowItWorks() {
+/** How a company gets going: one sentence, no numbered steps. */
+export function SettingUp() {
   return (
-      <section className="section" id="how-it-works" aria-labelledby="how-title">
-        <div className="wrap">
-          <div className="panel-band">
-            <Head id="how-title" eyebrow="How it works" title="Get started in minutes." />
-            <RevealGroup as="ol" className="flow">
-              {STEPS.map(({ Icon, tone, title, text }, i) => (
-                <li key={title} className="flow-step" style={{ '--i': i }}>
-                  <span className={`flow-icon tone-${tone}`} aria-hidden="true">
-                    <Icon size={30} strokeWidth={1.75} />
-                  </span>
-                  <span className={`flow-n tone-${tone}`} aria-hidden="true">
-                    {i + 1}
-                  </span>
-                  <h3 className="h-3">{title}</h3>
-                  <p className="body">{text}</p>
-                </li>
-              ))}
-            </RevealGroup>
-            <Reveal className="flow-art">
-              <Illustration src="/illustrations/start-form.webp" width={1300} height={260} alt="Adding your company in Clor: company name, country, industry and GST number, step one of four." />
-            </Reveal>
-          </div>
+    <section className="section" aria-labelledby="setup-title">
+      <div className="wrap split">
+        <Head id="setup-title" title="Setting up" />
+        <div className="stack">
+          <p className="lede">
+            Add the company with its name, address and GSTIN, switch on the products you bought, then invite your accountant and your staff, each with their own login. Most of it is one
+            form.
+          </p>
+          <p className="body">
+            Coming from Tally? Masters and opening balances import directly, and the on-site connector can keep Tally in step while you move. Employee lists come in from a spreadsheet, with a
+            preview before anything is saved.
+          </p>
         </div>
-      </section>
+      </div>
+    </section>
   );
 }
 
-/** Your data. Always protected. */
+/** Where the data is kept, said plainly on the page ground. */
 export function TrustBand() {
   return (
-      <section className="section" aria-labelledby="trust-title">
-        <div className="wrap">
-          <div className="trust">
-            <div className="trust-copy">
-              <Head id="trust-title" eyebrow="Trust and security" title="Your data. Always protected." intro="Built with security, privacy and compliance at the core." />
-              <RevealGroup as="ul" className="trust-cards">
-                {TRUST.map(({ Icon, tone, title, text }, i) => (
-                  <li key={title} className="trust-card" style={{ '--i': i }}>
-                    <span className={`trust-icon tone-${tone}`} aria-hidden="true">
-                      <Icon size={26} strokeWidth={1.75} />
-                    </span>
-                    <h3 className="h-3">{title}</h3>
-                    <p className="body">{text}</p>
-                  </li>
-                ))}
-              </RevealGroup>
-              <Link className="btn btn--text" href="/security">
-                How Clor keeps your data safe <ArrowRight size={16} strokeWidth={2} aria-hidden="true" />
-              </Link>
-            </div>
-            <div className="trust-shield" aria-hidden="true">
-              <span className="trust-shield-glow" />
-              <span className="trust-shield-body">
-                <Lock size={56} strokeWidth={1.5} />
-              </span>
-            </div>
-          </div>
+    <section className="section" aria-labelledby="trust-title">
+      <div className="wrap split">
+        <Head id="trust-title" title="Where your data lives" />
+        <div className="stack">
+          <p className="lede">
+            Your records are kept in Google Cloud’s Mumbai region. One company can never see another’s, and you can export everything at any time.
+          </p>
+          <ul className="facts-list">
+            <li>Each company’s records are walled off from every other company on CLOR, in the database itself.</li>
+            <li>Every user sees only the companies, branches and products you gave them, and every change is written to an audit trail with their name on it.</li>
+            <li>Changing salary bank details or closing a company can need a second person’s approval or a fresh authenticator code.</li>
+          </ul>
+          <Link className="text-link" href="/security">
+            How CLOR keeps your data safe
+          </Link>
         </div>
-      </section>
+      </div>
+    </section>
   );
 }

@@ -88,6 +88,7 @@ import {
   Users,
 } from '@phosphor-icons/react';
 import { lazyScreens } from '@ui/utils/lazyScreens';
+import { duo } from '@ui/components/ui/duoIcon';
 import { withSidePanel } from '@ui/components/list/SidePanel';
 
 /* Screens load as one file the first time the app opens (WX-03). */
@@ -204,23 +205,9 @@ const LateMarks = screen('LateMarks');
 const Absences = screen('Absences');
 const NightWork = screen('NightWork');
 
-/* A Phosphor line mark, for the app's own tile in the bar (white on teal), where a full-colour icon would clash. */
-const line = (Icon, name, tint) => {
-  // eslint-disable-next-line no-unused-vars -- Lucide's strokeWidth and the old tint are taken off so neither reaches the svg
-  const Line = ({ size = 16, strokeWidth, weight = 'duotone', className = '', ...rest }) => <Icon size={size} weight={weight} className={`ui-glyph ${className}`.trim()} {...rest} />;
-  void tint;
-  Line.displayName = `Line(${name})`;
-  return Line;
-};
-/* People's icons in brand D (owner, 29 Oct 2026, option C of six): Phosphor's two-tone set, an indigo line over
-   a lilac fill, and the fill turns marigold on the open module and screen (.ui-glyph in people.css). One family
-   and three brand colours, where Fluent's full-colour set brought blue, teal, green and pink. */
-const duo = (Icon, name) => {
-  // eslint-disable-next-line no-unused-vars -- Lucide's strokeWidth is taken off so it is not passed to the svg
-  const Duo = ({ size = 16, strokeWidth, className = '', ...rest }) => <Icon size={size} weight="duotone" className={`ui-glyph ${className}`.trim()} {...rest} />;
-  Duo.displayName = `Duo(${name})`;
-  return Duo;
-};
+/* People's icons in brand D (owner, 29 Oct 2026, option C of six): Phosphor's two-tone set, the shared `duo`
+   helper (@ui/components/ui/duoIcon), now the icon family of every app but Accounting. The fill turns on the open
+   module and screen (.ui-glyph in people.css). */
 /* Each kind of work wears its own colour (owner, 8 Nov 2026, option A): the line and a light fill in the kind's
    colour (people.css, `.ui-glyph[data-kind]`). Kinds: people, time, join, leave, pay, docs, work, talent, admin. */
 const kinded = (icons, kinds) => Object.fromEntries(Object.entries(icons).map(([key, Icon]) => {
@@ -382,7 +369,7 @@ const register = (kind) => {
 export const peopleApp = {
   id: 'people',
   name: 'People',
-  icon: line(UsersThree, 'UsersThree', 'sky'),
+  icon: duo(UsersThree, 'UsersThree'),
   blurb: 'Every HR job in one place: people, time off, hiring, growth and the workplace.',
   available: true,
   database: 'people.db',

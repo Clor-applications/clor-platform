@@ -1706,6 +1706,29 @@ button.ws-item:hover {
   font-size: 0.75rem;
   color: rgb(var(--ws-muted));
 }
+/* One demo request: label, value, on the page ground. */
+.ops-facts {
+  display: grid;
+  grid-template-columns: minmax(140px, max-content) minmax(0, 1fr);
+  gap: 10px 20px;
+  margin: 0;
+}
+.ops-facts dt {
+  color: rgb(var(--ws-muted));
+}
+.ops-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .ops-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .ops-facts dd {
+    margin-bottom: 10px;
+  }
+}
 .ops-refused {
   display: grid;
   justify-items: start;

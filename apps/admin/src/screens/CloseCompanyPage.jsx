@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Check, Download, Undo2 } from 'lucide-react';
+import { Check, Download, Undo2 } from '@ui/components/ui/lineIcons';
 
 import { apiFetch } from '@platform/http';
 import { orgId as platformOrgId } from '@platform/context';

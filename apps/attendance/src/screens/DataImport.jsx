@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Download, Upload } from 'lucide-react';
+import { CheckCircle2, Download, Upload } from '@ui/components/ui/lineIcons';
 
 import { PageHeader } from '@ui/components/ui/Primitives';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';

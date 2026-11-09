@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BadgePercent, MinusCircle, Pencil, Plus, PlusCircle, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { BadgePercent, MinusCircle, Pencil, Plus, PlusCircle, SlidersHorizontal, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';

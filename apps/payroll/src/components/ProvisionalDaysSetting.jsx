@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Info } from "lucide-react";
+import { Info } from '@ui/components/ui/lineIcons';
 
 import { notify } from "@ui/components/ui/notify";
 import { getProvisionalDays, saveProvisionalDays } from "../api/payrollSetup";

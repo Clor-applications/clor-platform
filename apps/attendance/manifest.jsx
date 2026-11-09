@@ -1,54 +1,55 @@
 import {
-  ArrowClockwiseDashesColor,
-  ArrowSquareDownColor,
-  ArrowSyncColor,
-  BoardColor,
-  BookmarkColor,
-  BriefcaseColor,
-  BuildingColor,
-  BuildingMultipleColor,
-  CalendarCancelColor,
-  CalendarCheckmarkColor,
-  CalendarClockColor,
-  CalendarColor,
-  CalendarDataBarColor,
-  CheckboxPersonColor,
-  ClipboardTaskColor,
-  ClipboardTextEditColor,
-  ClockAlarmColor,
-  ClockColor,
-  DataBarVerticalAscendingColor,
-  DataTrendingColor,
-  DataPieColor,
-  DocumentAddColor,
-  DocumentEditColor,
-  DocumentFolderColor,
-  DocumentTextColor,
-  GaugeColor,
-  HistoryColor,
-  LinkColor,
-  LinkMultipleColor,
-  LocationRippleColor,
-  LockClosedColor,
-  PeopleColor,
-  PeopleSyncColor,
-  PersonAddColor,
-  PersonAvailableColor,
-  PersonKeyColor,
-  PersonWarningColor,
-  PhoneColor,
-  QuestionCircleColor,
-  RibbonStarColor,
-  ScanPersonColor,
-  SettingsColor,
-  ShieldCheckmarkColor,
-  TableColor,
-  TextBulletListSquareColor,
-  WarningColor,
-  WrenchScrewdriverColor,
-} from '@fluentui/react-icons';
+  ArrowsClockwise as PArrowsClockwise,
+  ArrowsLeftRight as PArrowsLeftRight,
+  BookOpen as PBookOpen,
+  Briefcase as PBriefcase,
+  Buildings as PBuildings,
+  CalendarBlank as PCalendarBlank,
+  CalendarCheck as PCalendarCheck,
+  CalendarDots as PCalendarDots,
+  CalendarPlus as PCalendarPlus,
+  CalendarX as PCalendarX,
+  ChartBar as PChartBar,
+  ChartLineUp as PChartLineUp,
+  ClipboardText as PClipboardText,
+  Clock as PClock,
+  ClockCounterClockwise as PClockCounterClockwise,
+  Cpu as PCpu,
+  Crosshair as PCrosshair,
+  DeviceMobile as PDeviceMobile,
+  DownloadSimple as PDownloadSimple,
+  FileText as PFileText,
+  Fingerprint as PFingerprint,
+  Gavel as PGavel,
+  GearSix as PGearSix,
+  HandTap as PHandTap,
+  HardHat as PHardHat,
+  Heartbeat as PHeartbeat,
+  Key as PKey,
+  LinkSimple as PLinkSimple,
+  ListChecks as PListChecks,
+  Lock as PLock,
+  MapPin as PMapPin,
+  NotePencil as PNotePencil,
+  PiggyBank as PPiggyBank,
+  Plug as PPlug,
+  Question as PQuestion,
+  Repeat as PRepeat,
+  ScanSmiley as PScanSmiley,
+  SealCheck as PSealCheck,
+  ShieldCheck as PShieldCheck,
+  ShieldWarning as PShieldWarning,
+  SquaresFour as PSquaresFour,
+  Table as PTable,
+  Timer as PTimer,
+  Trash as PTrash,
+  UploadSimple as PUploadSimple,
+  UserCheck as PUserCheck,
+  UserMinus as PUserMinus,
+  UsersThree as PUsersThree,
+} from '@phosphor-icons/react';
 
-import { colorIcon } from '@ui/components/ui/iconSet';
+import { duo } from '@ui/components/ui/duoIcon';
 
 import { lazy } from 'react';
 import { lazyScreens } from '@ui/utils/lazyScreens';
@@ -136,57 +137,56 @@ const reportScreen = (id) => {
   return NamedReport;
 };
 
-/* Full-colour icons (Microsoft Fluent), under the names the nav below already
-   uses. Attendance opts into this set with `iconSet: 'color'`; other apps keep
-   the line icons. */
-const ArrowRightLeft = colorIcon(ArrowSyncColor, 'ArrowSync');
-const BarChart3 = colorIcon(DataBarVerticalAscendingColor, 'DataBarVerticalAscending');
-const TrendChart = colorIcon(DataTrendingColor, 'DataTrending');
-const CalendarClock = colorIcon(CalendarClockColor, 'CalendarClock');
-const CalendarRange = colorIcon(CalendarDataBarColor, 'CalendarDataBar');
-const Gavel = colorIcon(ClipboardTextEditColor, 'ClipboardTextEdit');
-const Briefcase = colorIcon(BriefcaseColor, 'Briefcase');
-const Building2 = colorIcon(BuildingColor, 'Building');
-const CalendarCheck = colorIcon(CalendarCheckmarkColor, 'CalendarCheckmark');
-const CalendarDays = colorIcon(CalendarColor, 'Calendar');
-const CalendarOff = colorIcon(CalendarCancelColor, 'CalendarCancel');
-const CircleHelp = colorIcon(QuestionCircleColor, 'QuestionCircle');
-const ClipboardCheck = colorIcon(ClipboardTaskColor, 'ClipboardTask');
-const Clock3 = colorIcon(ClockColor, 'Clock');
-const Cpu = colorIcon(ScanPersonColor, 'ScanPerson');
-const Fingerprint = colorIcon(ScanPersonColor, 'ScanPerson');
-const HardHat = colorIcon(WrenchScrewdriverColor, 'WrenchScrewdriver');
-const HeartPulse = colorIcon(GaugeColor, 'Gauge');
-const KeyRound = colorIcon(PersonKeyColor, 'PersonKey');
-const LocateFixed = colorIcon(LocationRippleColor, 'LocationRipple');
-const History = colorIcon(HistoryColor, 'History');
-const Inbox = colorIcon(DocumentEditColor, 'DocumentEdit');
-const LayoutDashboard = colorIcon(BoardColor, 'Board');
-const ListChecks = colorIcon(TextBulletListSquareColor, 'TextBulletListSquare');
-const MapPin = colorIcon(BuildingMultipleColor, 'BuildingMultiple');
-const Plug = colorIcon(LinkMultipleColor, 'LinkMultiple');
-const Repeat = colorIcon(ArrowClockwiseDashesColor, 'ArrowClockwiseDashes');
-const RefreshCcwDot = colorIcon(PeopleSyncColor, 'PeopleSync');
-const Scale = colorIcon(DataPieColor, 'DataPie');
-const ScanFace = colorIcon(PersonAddColor, 'PersonAdd');
-const Tags = colorIcon(BookmarkColor, 'Bookmark');
-const UserMinus = colorIcon(PersonWarningColor, 'PersonWarning');
-const UserRoundCheck = colorIcon(PersonAvailableColor, 'PersonAvailable');
-const Users = colorIcon(PeopleColor, 'People');
-const Grid3x3 = colorIcon(TableColor, 'Table');
-const Upload = colorIcon(DocumentAddColor, 'DocumentAdd');
-const Download = colorIcon(ArrowSquareDownColor, 'ArrowSquareDown');
-const ShieldCheck = colorIcon(ShieldCheckmarkColor, 'ShieldCheckmark');
-const ShieldAlert = colorIcon(WarningColor, 'Warning');
-const Lock = colorIcon(LockClosedColor, 'LockClosed');
-const Timer = colorIcon(ClockAlarmColor, 'ClockAlarm');
-const BadgeCheck = colorIcon(RibbonStarColor, 'RibbonStar');
-const Smartphone = colorIcon(PhoneColor, 'Phone');
-const Link2 = colorIcon(LinkColor, 'Link');
-const ClipboardList = colorIcon(SettingsColor, 'Settings');
-const PunchIcon = colorIcon(CheckboxPersonColor, 'CheckboxPerson');
-const AuditIcon = colorIcon(DocumentTextColor, 'DocumentText');
-const BinIcon = colorIcon(DocumentFolderColor, 'DocumentFolder');
+/* People's icon family (owner, 9 Nov 2026: "use same icons which is used in people everywhere except books"):
+   Phosphor two-tone marks, under the names the nav below already uses. Attendance's amber stays its own. */
+const ArrowRightLeft = duo(PArrowsLeftRight, 'ArrowRightLeft');
+const BarChart3 = duo(PChartBar, 'BarChart3');
+const TrendChart = duo(PChartLineUp, 'TrendChart');
+const CalendarClock = duo(PCalendarPlus, 'CalendarClock');
+const CalendarRange = duo(PCalendarDots, 'CalendarRange');
+const Gavel = duo(PGavel, 'Gavel');
+const Briefcase = duo(PBriefcase, 'Briefcase');
+const Building2 = duo(PBuildings, 'Building2');
+const CalendarCheck = duo(PCalendarCheck, 'CalendarCheck');
+const CalendarDays = duo(PCalendarBlank, 'CalendarDays');
+const CalendarOff = duo(PCalendarX, 'CalendarOff');
+const CircleHelp = duo(PQuestion, 'CircleHelp');
+const ClipboardCheck = duo(PClipboardText, 'ClipboardCheck');
+const Clock3 = duo(PClock, 'Clock3');
+const Cpu = duo(PCpu, 'Cpu');
+const Fingerprint = duo(PFingerprint, 'Fingerprint');
+const HardHat = duo(PHardHat, 'HardHat');
+const HeartPulse = duo(PHeartbeat, 'HeartPulse');
+const KeyRound = duo(PKey, 'KeyRound');
+const LocateFixed = duo(PCrosshair, 'LocateFixed');
+const History = duo(PClockCounterClockwise, 'History');
+const Inbox = duo(PNotePencil, 'Inbox');
+const LayoutDashboard = duo(PSquaresFour, 'LayoutDashboard');
+const ListChecks = duo(PListChecks, 'ListChecks');
+const MapPin = duo(PMapPin, 'MapPin');
+const Plug = duo(PPlug, 'Plug');
+const Repeat = duo(PRepeat, 'Repeat');
+const RefreshCcwDot = duo(PArrowsClockwise, 'RefreshCcwDot');
+const Scale = duo(PPiggyBank, 'Scale');
+const ScanFace = duo(PScanSmiley, 'ScanFace');
+const Tags = duo(PBookOpen, 'Tags');
+const UserMinus = duo(PUserMinus, 'UserMinus');
+const UserRoundCheck = duo(PUserCheck, 'UserRoundCheck');
+const Users = duo(PUsersThree, 'Users');
+const Grid3x3 = duo(PTable, 'Grid3x3');
+const Upload = duo(PUploadSimple, 'Upload');
+const Download = duo(PDownloadSimple, 'Download');
+const ShieldCheck = duo(PShieldCheck, 'ShieldCheck');
+const ShieldAlert = duo(PShieldWarning, 'ShieldAlert');
+const Lock = duo(PLock, 'Lock');
+const Timer = duo(PTimer, 'Timer');
+const BadgeCheck = duo(PSealCheck, 'BadgeCheck');
+const Smartphone = duo(PDeviceMobile, 'Smartphone');
+const Link2 = duo(PLinkSimple, 'Link2');
+const ClipboardList = duo(PGearSix, 'ClipboardList');
+const PunchIcon = duo(PHandTap, 'PunchIcon');
+const AuditIcon = duo(PFileText, 'AuditIcon');
+const BinIcon = duo(PTrash, 'BinIcon');
 
 /**
  * Everything the shell knows about Attendance.
@@ -211,8 +211,9 @@ export const attendanceApp = {
   home: 'today',
   /** The shared Blaze palette (packages/ui/src/index.css, [data-palette='blaze']). */
   palette: 'blaze',
-  /** Shared full-colour icons (packages/ui/src/components/ui/iconSet.jsx). */
-  iconSet: 'color',
+  /** People's icon family: two-tone marks (duoIcon.jsx), and Fluent line icons on buttons and actions. */
+  iconSet: 'duo',
+  lineIcons: 'fluent',
   /* The phone's tab bar; the rest is behind Menu (packages/shell/mobileTabs.js). */
   /* In order of preference, among the screens this person may open: a manager
      gets Exceptions, their main to-do (UX-14); someone without it gets My attendance. */

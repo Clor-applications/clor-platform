@@ -1,28 +1,32 @@
 import React from 'react';
-import { BookOpen, Briefcase, CalendarClock, Fingerprint, UserRound, Wallet } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
+import { Briefcase, CalendarDots, Fingerprint, UsersThree, Wallet } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 
-/** The CLOR logo: the owner's wordmark in red, its marigold dot in the C (public/brand/clor-logo.png, 752 x 188). */
-export function Logo({ height = 22 }) {
+/** The CLOR logo image (public/brand/clor-logo.png, 752 x 188); the brand files themselves are replaced separately. */
+/** The header's copy loads first; the footer's (lazy) waits until it is near. */
+export function Logo({ height = 22, lazy = false }) {
   return (
     <Link href="/" className="logo" aria-label="CLOR home" translate="no">
-      <img src="/brand/clor-logo.png" alt="CLOR" height={height} width={Math.round((height * 752) / 188)} />
+      <img src="/brand/clor-logo.png" alt="CLOR" height={height} width={Math.round((height * 752) / 188)} loading={lazy ? 'lazy' : undefined} fetchPriority={lazy ? undefined : 'high'} />
     </Link>
   );
 }
 
 /*
- * Product marks: the same icons the apps use for themselves (lucide, as in each
- * app's manifest), on a tile in the product's own tint — one family, and each
- * accent stays on its own product.
+ * Product marks: the same icons the apps use for themselves, on a tile in the
+ * product's own tint. People, Payroll, Attendance and the apps to come draw
+ * People's two-tone Phosphor marks (owner, 9 Nov 2026: "use same icons which is
+ * used in people everywhere except books"); Books keeps its Lucide book.
  */
-const ICONS = { books: BookOpen, people: UserRound, payroll: Wallet, attendance: Fingerprint, projects: Briefcase, timesheet: CalendarClock };
+const DUO = { people: UsersThree, payroll: Wallet, attendance: Fingerprint, projects: Briefcase, timesheet: CalendarDots };
 
 export function Mark({ product, size = 36 }) {
-  const Icon = ICONS[product.slug];
+  const Duo = DUO[product.slug];
+  const iconSize = Math.round(size * 0.5);
   return (
     <span className="mark" aria-hidden="true" style={{ '--mark': `${size}px`, '--mark-bg': `${product.accent}14`, '--mark-fg': product.accent, '--mark-line': `${product.accent}33` }}>
-      <Icon size={Math.round(size * 0.5)} strokeWidth={1.75} absoluteStrokeWidth />
+      {Duo ? <Duo size={iconSize} weight="duotone" /> : <BookOpen size={iconSize} strokeWidth={1.75} absoluteStrokeWidth />}
     </span>
   );
 }

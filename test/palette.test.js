@@ -56,11 +56,15 @@ describe('shared palettes', () => {
     expect(css.slice(start)).not.toMatch(/\[data-app='attendance'\]/);
   });
 
-  /* The Workspace joined them in its redesign (W-R2: Fluent colour icons, as Attendance draws). */
-  /* Owner, 28 Oct 2026: People moved to Phosphor line icons, so rose stays the only colour in its chrome. */
-  /* People drew in the colour set on 28 Oct 2026, then moved to its brand two-tone set (iconSet 'duo') on 29 Oct. */
-  it('Attendance and the Workspace draw in the colour icon set; the others do not', () => {
-    expect(APPS.filter((a) => a.iconSet === 'color').map((a) => a.id).sort()).toEqual(['admin', 'attendance']);
+  /* Owner, 9 Nov 2026: "use same icons which is used in people everywhere except books". The colour set (Attendance,
+     Workspace) and Payroll's plain Lucide gave way to People's two-tone marks and Fluent line icons; Accounting keeps Lucide. */
+  it('every app but Accounting draws in the People icon family; Accounting keeps the line set', () => {
+    const live = APPS.filter((a) => a.available);
+    expect(live.filter((a) => a.iconSet === 'duo' && a.lineIcons === 'fluent').map((a) => a.id).sort()).toEqual(['admin', 'attendance', 'payroll', 'people']);
+    const books = live.find((a) => a.id === 'accounting');
+    expect(books.iconSet).toBeUndefined();
+    expect(books.lineIcons).toBeUndefined();
+    expect(APPS.filter((a) => a.iconSet === 'color')).toEqual([]);
   });
 
   it('colour icons keep their own colours: nothing tints them with the palette', () => {

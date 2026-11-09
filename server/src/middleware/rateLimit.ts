@@ -80,6 +80,12 @@ export const applyLimiter = [guard(60 * 60 * 1000, 10, 'applications', (req) => 
 export const referViewLimiter = [guard(60 * 1000, 30, 'page views', (req) => `refer-view:${ipOf(req)}`)];
 export const referLimiter = [guard(60 * 60 * 1000, 20, 'referrals', (req) => `refer:${req.auth?.userId || req.portal?.employeeId || ipOf(req)}`)];
 
+/* "Request a demo" on clor.in (routes/demoRequests.ts): a few an hour from one address, fewer for one email address. */
+export const demoRequestLimiter = [
+  guard(60 * 60 * 1000, 10, 'demo requests', (req) => `demo-ip:${ipOf(req)}`),
+  guard(60 * 60 * 1000, 3, 'demo requests', (req) => `demo-id:${digest(identityOf(req))}`, (req) => !identityOf(req)),
+];
+
 export const codeLimiter = [guard(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 
 /** Machine clients with a bearer token (SCIM providers, on-site connectors): per token, and per address for the ones guessing. */

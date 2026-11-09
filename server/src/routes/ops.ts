@@ -78,7 +78,8 @@ opsRouter.use('/ops', requireAuth, requireOperator);
 
 const DAY = 86_400_000;
 
-async function audit(req: Request, action: string, target: { accountId?: string | null; userId?: string | null }, detail?: unknown) {
+/** What an operator did, on the append-only record, and on the customer's own security log when it is about their account. */
+export async function audit(req: Request, action: string, target: { accountId?: string | null; userId?: string | null }, detail?: unknown) {
   await platformPrisma.operatorAuditEvent.create({
     data: {
       operatorUserId: req.auth!.userId,

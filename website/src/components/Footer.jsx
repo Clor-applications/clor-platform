@@ -5,7 +5,7 @@ import { Logo } from './Brand.jsx';
 
 export default function Footer() {
   const cols = [
-    ['Products', [{ href: '/products', name: 'All products' }, ...PRODUCTS.map((p) => ({ href: `/products/${p.slug}`, name: `Clor ${p.name}` }))]],
+    ['Products', [{ href: '/products', name: 'All products' }, ...PRODUCTS.map((p) => ({ href: `/products/${p.slug}`, name: `CLOR\u00a0${p.name}` }))]],
     ['Solutions', NAV.solutions],
     ['Resources', [...NAV.resources, { href: '/pricing', name: 'Pricing' }]],
     ['Company', [...NAV.company, { href: '/legal/privacy', name: 'Privacy' }, { href: '/legal/terms', name: 'Terms' }, { href: '/legal/cookies', name: 'Cookies' }, { href: '/legal/refund', name: 'Refunds' }]],
@@ -14,8 +14,8 @@ export default function Footer() {
     <footer className="footer">
       <div className="wrap footer-grid">
         <div className="footer-brand">
-          <Logo height={20} />
-          <p className="small">Business software for Indian companies: accounting, people, payroll and attendance, in one workspace.</p>
+          <Logo height={20} lazy />
+          <p className="small">Accounting, HR, attendance and payroll for Indian companies. Your data is kept in {SITE.hosting}.</p>
           <ul className="footer-mail">
             {[
               ['General', SITE.contactEmail],
@@ -43,7 +43,7 @@ export default function Footer() {
       </div>
       <div className="wrap footer-base">
         <p className="caption">
-          © {new Date().getFullYear()} {SITE.company} · {SITE.address}
+          © <span suppressHydrationWarning>{new Date().getFullYear()}</span> {SITE.company} · {SITE.address}
         </p>
         <p className="caption">Made in India</p>
       </div>

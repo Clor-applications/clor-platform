@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, RotateCw, Send, XCircle } from 'lucide-react';
+import { Plus, RotateCw, Send, XCircle } from '@ui/components/ui/lineIcons';
 
 import { createInvitation, listInvitations, resendInvitation, revokeInvitation } from '@platform/admin/account';
 import { ICON, PageHead, Stat, WsDrawer } from './wsKit';

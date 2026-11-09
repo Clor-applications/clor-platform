@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, getHolidays, getUpdates, pickRestrictedHoliday, todayIst } from './portalApi';

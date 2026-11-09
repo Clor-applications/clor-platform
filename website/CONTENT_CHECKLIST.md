@@ -30,4 +30,4 @@ items a person must confirm or supply first. Most live in `src/site.js` or `src/
 
 - Cloudflare Pages project: root directory `website`, build command `npm ci && npm run build`, output `dist`, custom domain `clor.in` (and `www.clor.in` redirecting to it).
 - Pages serves `products/books.html` at `/products/books` (the canonical address) and `404.html` for unknown addresses.
-- Fonts: Manrope and Inter, both SIL Open Font License, self-hosted from `@fontsource-variable`.
+- Font: Plus Jakarta Sans, SIL Open Font License, self-hosted from `@fontsource-variable`.
