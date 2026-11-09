@@ -20,6 +20,10 @@ export const SITE = {
   /* The app's own doors: /signin and /signup open those pages directly. */
   signInUrl: `${APP_URL}/signin`,
   signUpUrl: `${APP_URL}/signup`,
+  /* Staff punch, apply for leave and read payslips here, with no CLOR user of their own. */
+  portalUrl: `${APP_URL.replace('//app.', '//attendance.')}/#/portal`,
+  /* Until the demo form has its own page, a demo request is a message to sales. */
+  demoUrl: '/contact?about=demo',
   /* Confirmed by the company, 2026-10-24. */
   contactEmail: 'info@clor.in',
   salesEmail: 'sales@clor.in',

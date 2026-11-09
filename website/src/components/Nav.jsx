@@ -60,6 +60,31 @@ function ListMenu({ items, onPick }) {
   );
 }
 
+/* Two doors: the company's own users, and staff who only punch, ask for leave and read payslips. */
+const DOORS = [
+  { href: SITE.signInUrl, name: 'Company sign-in', line: 'Owners, HR, managers and accountants.' },
+  { href: SITE.portalUrl, name: 'Employee portal', line: 'Punch in, ask for leave, see your payslips.' },
+];
+
+function SignInMenu({ onPick }) {
+  return (
+    <div className="mega mega--list">
+      <ul>
+        {DOORS.map((d) => (
+          <li key={d.name}>
+            <a href={d.href} className="mega-item mega-item--plain" onClick={onPick}>
+              <span className="mega-text">
+                <span className="mega-name">{d.name}</span>
+                <span className="mega-line">{d.line}</span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 const MENUS = [
   { key: 'products', label: 'Products' },
   { key: 'solutions', label: 'Solutions', items: NAV.solutions },
@@ -72,8 +97,17 @@ export default function Nav() {
   const path = usePath();
   const [open, setOpen] = useState(null);
   const [mobile, setMobile] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const ref = useRef(null);
+  /* A mouse opens a menu on hover; the click that follows must not close it again. */
+  const hoveredAt = useRef(0);
+  const hover = (key) => ({
+    onMouseEnter: () => {
+      hoveredAt.current = Date.now();
+      setOpen(key);
+    },
+    onMouseLeave: () => setOpen(null),
+  });
+  const toggle = (key) => () => setOpen((cur) => (cur === key && Date.now() - hoveredAt.current > 400 ? null : key));
   const close = () => {
     setOpen(null);
     setMobile(false);
@@ -89,17 +123,11 @@ export default function Nav() {
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && close();
     const onClick = (e) => ref.current && !ref.current.contains(e.target) && setOpen(null);
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    /* The page may open scrolled (Back, a #link): read it on the next frame, not inside the effect. */
-    const frame = requestAnimationFrame(onScroll);
     window.addEventListener('keydown', onKey);
     document.addEventListener('pointerdown', onClick);
-    window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      cancelAnimationFrame(frame);
       window.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onClick);
-      window.removeEventListener('scroll', onScroll);
     };
   }, []);
   useEffect(() => {
@@ -110,7 +138,7 @@ export default function Nav() {
 
   return (
     <>
-    <header className={`nav${scrolled ? ' nav--scrolled' : ''}`} ref={ref}>
+    <header className="nav" ref={ref}>
       <div className="wrap nav-bar">
         <Logo />
         <nav className="nav-main" aria-label="Main">
@@ -123,8 +151,8 @@ export default function Nav() {
                   </Link>
                 </li>
               ) : (
-                <li key={m.key} onMouseEnter={() => setOpen(m.key)} onMouseLeave={() => setOpen(null)}>
-                  <button type="button" className={`nav-trigger${section(m.key) ? ' is-current' : ''}`} aria-expanded={open === m.key} onClick={() => setOpen(open === m.key ? null : m.key)}>
+                <li key={m.key} {...hover(m.key)}>
+                  <button type="button" className={`nav-trigger${section(m.key) ? ' is-current' : ''}`} aria-expanded={open === m.key} onClick={toggle(m.key)}>
                     {m.label}
                     <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
                   </button>
@@ -135,12 +163,18 @@ export default function Nav() {
           </ul>
         </nav>
         <div className="nav-end">
-          <a className="btn btn--text nav-signin" href={SITE.signInUrl}>
-            Sign in
-          </a>
-          <a className="btn btn--primary" href={SITE.signUpUrl}>
-            Get started
-          </a>
+          <div className="nav-doors" {...hover('signin')}>
+            <button type="button" className="nav-trigger" aria-expanded={open === 'signin'} onClick={toggle('signin')}>
+              Sign in
+              <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
+            </button>
+            <div className={`mega-wrap mega-wrap--end${open === 'signin' ? ' is-open' : ''}`}>
+              <SignInMenu onPick={close} />
+            </div>
+          </div>
+          <Link href={SITE.demoUrl} className="btn btn--primary nav-demo">
+            Request a demo
+          </Link>
           <button type="button" className="nav-burger" aria-expanded={mobile} aria-controls="mobile-menu" onClick={() => setMobile(!mobile)}>
             <span className="sr-only">{mobile ? 'Close menu' : 'Open menu'}</span>
             {mobile ? <X size={20} strokeWidth={1.75} aria-hidden="true" /> : <Menu size={20} strokeWidth={1.75} aria-hidden="true" />}
@@ -187,10 +221,18 @@ export default function Nav() {
                 Pricing
               </Link>
             </li>
-            <li>
-              <a href={SITE.signInUrl}>Sign in</a>
-            </li>
           </ul>
+          <p className="mega-cat">Sign in</p>
+          <ul className="mobile-list">
+            {DOORS.map((d) => (
+              <li key={d.name}>
+                <a href={d.href}>{d.name}</a>
+              </li>
+            ))}
+          </ul>
+          <Link href={SITE.demoUrl} className="btn btn--primary btn--lg mobile-demo" onClick={close}>
+            Request a demo
+          </Link>
         </div>
       </div>
     </>
