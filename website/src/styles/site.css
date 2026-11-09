@@ -3002,7 +3002,7 @@ html.is-scrolled .nav {
   overflow: hidden;
   border-right: 1.5px solid var(--accent);
   clip-path: inset(0 100% 0 0);
-  animation: sf-type 8s steps(22) infinite;
+  animation: sf-type 8s steps(25) infinite;
 }
 .sf-type--2 {
   animation-name: sf-type-2;
