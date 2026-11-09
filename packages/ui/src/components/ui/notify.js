@@ -35,6 +35,9 @@ export const notify = {
   info: (m) => push('info', m),
 };
 
+/** What the server says when an Explore session (the read-only sample company) tries a change. */
+export const EXPLORE_READ_ONLY_TEXT = 'This is a sample company, so changes are off.';
+
 export const subscribeToasts = (fn) => {
   toastListeners.add(fn);
   return () => toastListeners.delete(fn);

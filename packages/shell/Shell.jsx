@@ -20,7 +20,9 @@ import { landingScreen, mergeParams, moduleForScreen, railAction, readScreenSear
 import { useSession } from './session';
 import { OPEN_APP_EVENT, OPEN_HELP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
 import { clearUnsaved, confirmLeave, hasUnsaved } from '@platform/unsaved';
-import { confirmDialog } from '@ui/components/ui/notify';
+import { EXPLORE_READ_ONLY_TEXT, confirmDialog, notify } from '@ui/components/ui/notify';
+import { ExploreEnded, ExploreLanding, ExploreNotice } from './Explore';
+import { isExplorePath } from './exploreLink';
 
 /* Asked before any navigation that would drop edits a screen has not saved (spec v1 §5.1, WF-11). */
 const askLeave = () => confirmDialog({ title: 'Leave without saving?', message: 'Your changes on this page have not been saved.', confirmLabel: 'Leave', tone: 'danger' });
@@ -79,6 +81,9 @@ function AppLoading() {
 const MARKETING_URL = import.meta.env.VITE_MARKETING_URL || 'https://clor.in';
 /* Before any page rewrites the address: remember the app a visitor came for. */
 captureAppIntent();
+
+/* Explore's way back to a person: the demo form on clor.in. */
+const DEMO_URL = `${MARKETING_URL.replace(/\/$/, '')}/demo`;
 
 const PUBLIC_PATHS = { signin: '/signin', signup: '/signup', forgot: '/forgot-password' };
 
@@ -217,7 +222,7 @@ export default function Shell() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [tabletPanel]);
-  const { user, tenant, tenants, accounts, createCompany, deniedCode, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired } = useSession();
+  const { user, tenant, tenants, accounts, createCompany, deniedCode, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired, explore, exploreEnded } = useSession();
 
   /* The shared hook, not a second copy: the public page has a toggle too, and
      a private key here would mean the choice did not follow you inside. */
@@ -523,6 +528,12 @@ export default function Shell() {
     window.addEventListener(OPEN_SCREEN_EVENT, onScreen);
     return () => window.removeEventListener(OPEN_SCREEN_EVENT, onScreen);
   }, []);
+  /* Explore: the sample company refused a change. The same sentence as the bar, as a toast, whichever screen tried. */
+  useEffect(() => {
+    const on = () => notify.info(EXPLORE_READ_ONLY_TEXT);
+    window.addEventListener('clor:explore-read-only', on);
+    return () => window.removeEventListener('clor:explore-read-only', on);
+  }, []);
   /* The API refused an app this account has not bought (402): say so once, with the way to add it. */
   const [unbought, setUnbought] = useState(null);
   useEffect(() => {
@@ -713,6 +724,8 @@ export default function Shell() {
    * day.
    */
   if (legalDoc) return <LegalPage doc={legalDoc} />;
+  /* Explore: the link from a demo request opens the sample company (Explore.jsx). */
+  if (isExplorePath()) return <ExploreLanding demoUrl={DEMO_URL} />;
   if (appPublicPage) {
     return (
       <>
@@ -760,6 +773,7 @@ export default function Shell() {
     );
   }
 
+  if (!user && exploreEnded) return <ExploreEnded demoUrl={DEMO_URL} />;
   if (!user) {
     /* The product's front page is clor.in now; the app opens on its doors. */
     const toSite = () => window.location.assign(MARKETING_URL);
@@ -1272,6 +1286,7 @@ export default function Shell() {
           </button>
         </header>
 
+        <ExploreNotice explore={explore} demoUrl={DEMO_URL} />
         <SubscriptionBanner billing={tenant.billing} />
         {tenant.archivedAt ? (
           <div role="status" className="flex flex-wrap items-center gap-3 px-6 py-2 text-sm" style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}>

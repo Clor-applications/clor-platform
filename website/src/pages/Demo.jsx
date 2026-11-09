@@ -125,7 +125,9 @@ export default function Demo() {
       });
       const body = await r.json().catch(() => ({}));
       if (r.ok) {
-        setDone({ name: form.name.trim().split(/\s+/)[0], phone: form.phone.trim() });
+        /* Explore (roadmap item 6): a 14-day link to a sample company, also mailed to them. Only a link to the app itself is followed. */
+        const explore = typeof body.explore?.url === 'string' && body.explore.url.startsWith(`${SITE.appUrl}/explore?`) ? body.explore.url : '';
+        setDone({ name: form.name.trim().split(/\s+/)[0], phone: form.phone.trim(), explore });
         return undefined;
       }
       if (r.status === 400 && body.fields) {
@@ -149,12 +151,24 @@ export default function Demo() {
           <div className="wrap demo-thanks" ref={thanksRef} tabIndex={-1} role="status">
             <h2 className="h-2">Thank you{done.name ? `, ${done.name}` : ''}.</h2>
             <p className="lede">We have your request. Someone from the CLOR team will call you on {done.phone} within one working day to fix a time.</p>
+            {done.explore ? (
+              <>
+                <p className="body">
+                  Until then, look around CLOR with a sample company: a made-up business with a few months of invoices, pay runs, people and attendance. Open any screen; nothing you change is saved. The link is in your email too, and works for 14 days.
+                </p>
+                <a className="btn btn--primary" href={done.explore}>
+                  Explore the apps now
+                </a>
+              </>
+            ) : null}
             <p className="body">
               Anything to add? Write to <a href={`mailto:${SITE.salesEmail}`}>{SITE.salesEmail}</a>.
             </p>
-            <Link className="btn btn--text" href="/products">
-              Look around the products meanwhile
-            </Link>
+            {done.explore ? null : (
+              <Link className="btn btn--text" href="/products">
+                Look around the products meanwhile
+              </Link>
+            )}
           </div>
         </section>
       </>

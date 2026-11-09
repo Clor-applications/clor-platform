@@ -722,6 +722,8 @@
   --ink: 31 26 28; --cream: 255 248 240;
   --logo-mark: 255 84 0; --logo-dot: 255 84 0; /* neon orange #FF5400; L/R slate handled in component */
   --logo-mark-orange: 255 84 0; --logo-mark-slate: 15 23 42; /* two-color logo tokens */
+  /* The Explore notice (shell): Workspace Blaze in every app; no palette sets these, so it reads the same over People, Payroll or Books. Ink 5.4:1 on the soft. */
+  --explore-mark: 255 84 0; --explore-ink: 186 57 0; --explore-soft: 255 243 235; --explore-line: 255 212 184;
   /* The ground is a warm white with a trace of rose, so hairlines and blush belong to it. */
   --app-bg: 250 246 244; --surface: 255 255 255; --surface-raised: 255 255 255;
   --surface-sunken: 245 239 238; --border: 234 223 225; --border-strong: 206 188 192;

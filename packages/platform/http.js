@@ -320,6 +320,10 @@ export async function apiFetch(
     if (res.status === 403 && err.code === 'ACCOUNT_SUSPENDED' && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('clor:account-suspended', { detail: { message: data?.error || '' } }));
     }
+    /* Explore: the sample company refused a change. The shell shows the one sentence, whichever screen asked (and whether or not it shows errors). */
+    if (res.status === 403 && err.code === 'EXPLORE_READ_ONLY' && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('clor:explore-read-only', { detail: { message: data?.error || '' } }));
+    }
     /* An app the account has not bought: the shell offers the way forward once, whichever screen asked. */
     if (res.status === 402 && err.code === 'APP_NOT_SUBSCRIBED' && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('clor:app-not-subscribed', { detail: { app: data?.app || null, message: data?.error || '' } }));
