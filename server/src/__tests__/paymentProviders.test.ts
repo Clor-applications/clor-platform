@@ -227,7 +227,7 @@ describe('a payment recorded by hand', () => {
     const accountId = await accountOf(cust);
     await db(() => setSubscription(accountId, { apps: [{ appCode: 'payroll' }], trialDays: 30 }));
     const { name } = await db(() => platformPrisma.account.findUniqueOrThrow({ where: { id: accountId }, select: { name: true } }));
-    const found = await request(app).get(`/api/ops/payments/accounts?q=${encodeURIComponent(name.slice(0, 6))}`).set(h).expect(200);
+    const found = await request(app).get(`/api/ops/payments/accounts?q=${encodeURIComponent(name)}`).set(h).expect(200);
     expect(found.body.accounts.some((a: any) => a.id === accountId)).toBe(true);
 
     const pay = { accountId, amount: 50000, reference: 'utr412345678901', paidOn: '2026-11-09', months: 1 };
