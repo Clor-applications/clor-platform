@@ -49,7 +49,10 @@ describe('People home', () => {
     expect(by('probation')).toMatchObject({ count: 1, screen: 'employees' });
     expect(by('leave')).toMatchObject({ count: 1, screen: 'approvals', params: { kind: 'LEAVE' } });
     expect(by('candidates')).toMatchObject({ count: 1, screen: 'candidates' });
-    expect(by('checklists')?.screen).toBe('checklists');
+    /* The owner's own tasks are the Waiting card's line (step 2: a number appears once on Home); the checklists tile counts others' only. */
+    expect(by('myTasks')).toMatchObject({ screen: 'approvals', params: { tab: 'tasks' } });
+    expect(by('myTasks').count).toBeGreaterThan(0);
+    if (by('checklists')) expect(by('checklists').screen).toBe('checklists');
     /* Urgent first. */
     const tones = todos.map((t: any) => t.tone);
     expect(tones.indexOf('info')).toBeGreaterThan(tones.lastIndexOf('urgent'));

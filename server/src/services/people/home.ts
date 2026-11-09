@@ -71,10 +71,11 @@ export async function homeTodosAndWaiting(req: Request): Promise<{ todos: Todo[]
     const leavingsOk = await seesLeavings(req);
     /* A team lead counts their own team's tasks, as the task queue lists them (QA, 1 Nov 2026). */
     const scope = await teamScope(req);
-    const counted = tasks.filter((t) => inScope(scope, t.employee!.id) && (leavingsOk || t.kind !== 'LEAVING' || t.ownerUserId === userId));
+    /* A number appears once on Home: tasks on the reader's own name are the Waiting card's line (myTasks), so only others' count here. */
+    const counted = tasks.filter((t) => t.ownerUserId !== userId && inScope(scope, t.employee!.id) && (leavingsOk || t.kind !== 'LEAVING'));
     const late = counted.filter((t) => t.overdue).length;
     const dueSoon = counted.filter((t) => !t.overdue && t.dueDate && t.dueDate <= week).length;
-    if (late || dueSoon) out.push({ key: 'checklists', title: 'Joining and leaving tasks', detail: [late && `${late} late`, dueSoon && `${dueSoon} due this week`].filter(Boolean).join(' · '), count: late + dueSoon, tone: late ? 'urgent' : 'soon', screen: 'checklists' });
+    if (late || dueSoon) out.push({ key: 'checklists', title: "Joining and leaving tasks on others' names", detail: [late && `${late} late`, dueSoon && `${dueSoon} due this week`].filter(Boolean).join(' · '), count: late + dueSoon, tone: late ? 'urgent' : 'soon', screen: 'checklists', params: { view: late ? 'late' : 'open' } });
     if (health.blocking) out.push({ key: 'dataHealth', title: 'Details that would stop payroll', detail: `${plural(health.blocking, 'person', 'people')} to fix: missing PAN, UAN, bank, joining date…`, count: health.blocking, tone: 'urgent', screen: 'dataHealth' });
     const cLate = compliance.filter((o) => o.status === 'OVERDUE').length;
     const cSoon = compliance.filter((o) => o.status === 'DUE' && o.dueOn <= week).length;
