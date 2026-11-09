@@ -3209,3 +3209,12 @@ html.is-scrolled .nav {
   background: #fff;
   border-color: #ffd0b8;
 }
+
+/* Wide screens (owner, 10 Nov 2026: "space right and left"): the page grows to
+ * 1360px from 1600px wide screens, so less of the screen is empty margin.
+ * Reading lines keep their own limits inside it. */
+@media (min-width: 1600px) {
+  :root {
+    --wrap: 1360px;
+  }
+}
