@@ -20,14 +20,24 @@ import { EXPLORE_TEXT, KNOWN_APPS, exchangeOnce, readLinkOnce } from './exploreL
  *    (middleware/exploreReadOnly.ts); this only says so first.
  */
 
-export function ExploreLanding({ demoUrl }) {
+/**
+ * `restoring`: this browser's own session is still being checked.
+ * `signedIn`: `{ company, name }` when somebody is signed in here to a real
+ * company; the link then asks before it replaces that sign-in.
+ * `signOut`: ends that sign-in (the shell's), before the link is traded.
+ */
+export function ExploreLanding({ demoUrl, restoring = false, signedIn = null, signOut = null }) {
   /* Read once per page load: the first read takes the token out of the address. */
   const [link] = useState(readLinkOnce);
   const [state, setState] = useState(link.token ? 'opening' : 'ended');
+  /* Somebody signed in here said yes (or nobody was signed in). */
+  const [chosen, setChosen] = useState(false);
+  const asking = Boolean(link.token) && !restoring && Boolean(signedIn) && !chosen;
+  const go = Boolean(link.token) && !restoring && (!signedIn || chosen);
 
   useEffect(() => {
     const { token, app } = link;
-    if (!token) return undefined;
+    if (!token || !go) return undefined;
     let off = false;
     exchangeOnce(token)
       .then((r) => {
@@ -50,7 +60,42 @@ export function ExploreLanding({ demoUrl }) {
     return () => {
       off = true;
     };
-  }, [link]);
+  }, [link, go]);
+
+  const [leaving, setLeaving] = useState(false);
+  /* Signed out first, then traded: the sign-out must not end the sample's new session. */
+  const openSample = async () => {
+    setLeaving(true);
+    try {
+      await signOut?.();
+    } finally {
+      setChosen(true);
+    }
+  };
+
+  if (asking) {
+    const company = signedIn.company || 'your company';
+    return (
+      <div className="min-h-dvh" style={{ backgroundColor: 'rgb(var(--surface))' }}>
+        <header className="flex h-14 items-center px-4" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
+          <ClorLogo size={20} />
+        </header>
+        <main className="mx-auto px-6 py-12 grid gap-4" style={{ maxWidth: '36rem' }}>
+          <h1 className="ui-t-page">Open the sample company instead?</h1>
+          <p className="ui-muted">
+            You’re signed in to {company}
+            {signedIn.name ? ` as ${signedIn.name}` : ''}. Opening the sample company signs you out here first.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="ui-btn ui-btn-primary" onClick={openSample} disabled={leaving}>
+              {leaving ? 'Opening…' : 'Open the sample company'}
+            </button>
+            <a className="ui-btn ui-btn-secondary" href="/">Stay in {company}</a>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (state === 'opening') {
     return (

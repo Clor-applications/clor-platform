@@ -161,6 +161,28 @@ lost and exits 1 when something really would be:
 ssh ubuntu@$HOST 'cd /opt/clor/server && set -a && . /opt/clor/.env && set +a && npx tsx scripts/preflight.ts'
 ```
 
+### Explore's sample company (migration `20261123090000_explore_passes`): one time, after migrate
+
+Explore links (a demo request on clor.in mails one) open a shared, read-only
+sample company, "Sample Traders Pvt Ltd". It is made the first time somebody
+opens a link, which makes that person wait about a minute. Make it once,
+right after the release that brings the migration has migrated, so nobody
+waits:
+
+```bash
+ssh ubuntu@$HOST 'cd /opt/clor/server && set -a && . /opt/clor/.env && set +a && npm run seed:sample'
+```
+
+On Cloud Run, run the same `npm run seed:sample` from the release's image
+with the API's environment (as a one-off job), against the same database.
+
+It is safe to run again: a second run only reads, and adds only what is
+missing; `npm run seed:sample -- --force` fills again after the sample data
+changes shape. It goes through the API's own routes, in the process, so it
+needs no running server. The sample company sends no mail and gives no
+notices; every person and customer in it is on the reserved `.example`
+domain.
+
 ### Stand-in merge (workflow engine 2b, migration `20261118090000_stand_in_merge`): rolling back
 
 Until phase 3c, a rollback to an API from before 2b is safe:

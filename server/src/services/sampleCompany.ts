@@ -11,6 +11,7 @@ import { bootstrapOwnerRole, createAccountWithOwner, createCompany } from './acc
 import { ensureAccountMembership } from './accountMembership.js';
 import { assignUserCode } from './displayCodes.js';
 import { createSession, revokeSession, signAccessToken } from './auth.js';
+import { SAMPLE_COMPANY_NAME, SAMPLE_OWNER_EMAIL, rememberSampleOrg } from './sampleIdentity.js';
 
 /**
  * The sample company behind Explore (roadmap item 6): one shared, made-up
@@ -36,12 +37,12 @@ import { createSession, revokeSession, signAccessToken } from './auth.js';
  */
 
 export const SAMPLE = {
-  company: 'Sample Traders Pvt Ltd',
+  company: SAMPLE_COMPANY_NAME,
   state: 'Maharashtra',
   city: 'Pune',
   /* A sample GSTIN: Maharashtra (27), PAN AAACS0000S, the check digit computed. */
   gstin: '27AAACS0000S1ZF',
-  owner: { email: 'owner@sample-traders.example', name: 'Rohan Kulkarni' },
+  owner: { email: SAMPLE_OWNER_EMAIL, name: 'Rohan Kulkarni' },
   approver: { email: 'director@sample-traders.example', name: 'Anita Kulkarni' },
   viewer: { email: 'explore@sample-traders.example', name: 'Visitor' },
 } as const;
@@ -224,6 +225,20 @@ async function fill(c: SampleCompany, log: (msg: string) => void) {
   }
 }
 
+/**
+ * The visitor starts with a clean bell, and nobody made up is mailed.
+ *
+ * The bell and the mailer already leave the sample alone (sampleIdentity.ts);
+ * this clears what an older fill left behind: every notice in the company,
+ * and any message still waiting to go, kept as SUPPRESSED so it can be seen.
+ */
+async function quietSample(orgId: string) {
+  await outsideTenant('explore: a clean bell for the sample', async () => {
+    await platformPrisma.notification.deleteMany({ where: { orgId } });
+    await platformPrisma.emailOutbox.updateMany({ where: { orgId, status: 'QUEUED' }, data: { status: 'SUPPRESSED', lastError: 'Sample company: nothing is sent' } });
+  });
+}
+
 let inflight: Promise<SampleCompany> | null = null;
 /* Once made and filled, this process remembers it for a while: every Explore visit asks. */
 let ready: { at: number; company: SampleCompany } | null = null;
@@ -241,6 +256,7 @@ export function ensureSampleCompany(opts: { fill?: boolean; force?: boolean; log
   if (inflight) return inflight;
   inflight = (async () => {
     const c = await ensureSkeleton();
+    rememberSampleOrg(c.orgId);
     if (wantFill) {
       const profile = await profileOf(c.orgId);
       if (opts.force || Number(profile.sample?.filledVersion || 0) < FILL_VERSION) {
@@ -249,6 +265,7 @@ export function ensureSampleCompany(opts: { fill?: boolean; force?: boolean; log
       }
       ready = { at: Date.now(), company: c };
     }
+    await quietSample(c.orgId);
     return c;
   })().finally(() => {
     inflight = null;

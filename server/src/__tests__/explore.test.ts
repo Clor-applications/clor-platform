@@ -258,3 +258,24 @@ describe('the operator console', () => {
     expect((await request(app).post(`/api/ops/demo-requests/${a.request.id}/explore/end`).set(bearer(owner.token)).expect(403)).body.code).toBe('OPERATOR_ONLY');
   });
 });
+
+describe('a quiet sample company', () => {
+  it('gives the visitor no notices and mails nobody made up, and clears what an older fill left', async () => {
+    const { sendNotice, upsertNotice } = await import('../services/notifications.js');
+    const { sendTemplate } = await import('../services/mailer.js');
+    const notice = { kind: 'approval.requested', title: 'Waiting for you: leave' };
+    expect(await sendNotice(sample.accountId, sample.orgId, [sample.viewerUserId], notice)).toBe(0);
+    expect(await upsertNotice(sample.accountId, sample.orgId, sample.viewerUserId, notice, 'digest:today')).toBe(0);
+    const mail: any = await sendTemplate({ templateKey: 'explore.pass', to: 'someone@sample-traders.example', accountId: sample.accountId, orgId: sample.orgId, transactional: true, data: { name: 'x', apps: 'CLOR', exploreUrl: 'http://x/explore', days: '14' } });
+    expect([mail.status, mail.lastError]).toEqual(['SUPPRESSED', 'Sample company: nothing is sent']);
+
+    /* Left by a fill from before the bell was quiet: the next ensure clears it. */
+    await platformPrisma.notification.create({ data: { accountId: sample.accountId, orgId: sample.orgId, userId: sample.viewerUserId, kind: 'approval.requested', title: 'Old' } });
+    await ensureSampleCompany({ fill: false });
+    expect(await platformPrisma.notification.count({ where: { orgId: sample.orgId } })).toBe(0);
+
+    /* Another company is told as before. */
+    const other = await company();
+    expect(await sendNotice(other.accountId, other.orgId, [other.userId], notice)).toBe(1);
+  });
+});

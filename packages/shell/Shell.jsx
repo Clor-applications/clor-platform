@@ -727,7 +727,16 @@ export default function Shell() {
    */
   if (legalDoc) return <LegalPage doc={legalDoc} />;
   /* Explore: the link from a demo request opens the sample company (Explore.jsx). */
-  if (exploreLink) return <ExploreLanding demoUrl={DEMO_URL} />;
+  if (exploreLink) {
+    return (
+      <ExploreLanding
+        demoUrl={DEMO_URL}
+        restoring={restoring}
+        signedIn={user && !explore ? { company: tenant?.name || '', name: user.fullName || user.email || '' } : null}
+        signOut={signOut}
+      />
+    );
+  }
   if (appPublicPage) {
     return (
       <>
