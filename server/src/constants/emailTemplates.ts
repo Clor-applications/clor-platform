@@ -262,6 +262,38 @@ If you did not expect this, ignore it.`,
     fields: ['name', 'orgName', 'designation', 'ctc', 'link', 'acceptBy', 'message'],
   },
   {
+    key: 'people.interview',
+    label: 'Interview set or moved',
+    description: 'Sent to a candidate when an interview is set for them, and again when it is moved: the day, the time, how it is held and who they will meet.',
+    subject: '{{headline}}: {{orgName}}, {{day}} at {{time}}',
+    body: `Hello {{name}},
+
+{{headline}} for the {{jobTitle}} position at {{orgName}}.
+
+When: {{day}} at {{time}} ({{minutes}} minutes)
+How: {{mode}}{{placeLine}}
+You will meet: {{interviewers}}
+
+If the time does not suit you, reply to this e-mail and we will find another.
+
+{{orgName}}`,
+    fields: ['name', 'headline', 'jobTitle', 'orgName', 'day', 'time', 'minutes', 'mode', 'placeLine', 'interviewers'],
+  },
+  {
+    key: 'people.candidate_not_taken',
+    label: 'Candidate not taken forward',
+    description: 'Sent to a candidate when the company decides not to go ahead with their application. Plain and kind; it gives no reason.',
+    subject: 'Your application to {{orgName}}',
+    body: `Hello {{name}},
+
+Thank you for applying for the {{jobTitle}} position at {{orgName}}, and for the time you gave us.
+
+We will not be taking your application further this time. We were glad to meet you, and we wish you well in your search.
+
+{{orgName}}`,
+    fields: ['name', 'jobTitle', 'orgName'],
+  },
+  {
     key: 'people.task_assigned',
     label: 'Joining or leaving tasks for you',
     description: 'Sent once to each person given tasks on a joining, leaving or change plan, listing their tasks, each with a link that marks it done.',
