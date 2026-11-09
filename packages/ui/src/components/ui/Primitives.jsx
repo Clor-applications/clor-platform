@@ -331,7 +331,9 @@ export const EmptyState = ({
             blank screen in the product puts the button you came to press.
           */
           <div className="mt-4 flex flex-col items-center gap-2">
-            <button type="button" onClick={routes[0].onSelect} className="ui-btn ui-btn-primary">
+            {/* Secondary, not primary: the screen's one primary is top right (DESIGN.md, Component Contract rule 1;
+                People plan 8 Nov 2026, step 3). The empty state repeats the way in, it does not compete with it. */}
+            <button type="button" onClick={routes[0].onSelect} className="ui-btn ui-btn-secondary">
               {routes[0].label}
             </button>
             {routes[0].description ? (

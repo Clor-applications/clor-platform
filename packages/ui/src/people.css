@@ -1067,7 +1067,7 @@
  * still carry their letter, so colour is never the only signal.
  */
 .att-summary { display: flex; flex-direction: column; gap: 0.625rem; padding: 0.875rem 1rem; border-radius: var(--soft-card-r, 1rem); background: rgb(var(--surface)); box-shadow: 0 0 0 1px rgb(var(--soft-ring, 24 24 27 / 0.06)), var(--soft-ambient, none); }
-#main-content .att-summary ~ [role='tablist'], .att-summary ~ [role='tablist'] { display: none !important; }
+/* (8 Nov 2026 plan, step 3: the day's tabs show again; the legend under the bar is gone, the tabs carry its counts.) */
 .att-summary-bar { display: flex; gap: 3px; height: 0.625rem; }
 .att-summary-bar > span { flex-basis: 0; min-width: 4px; border-radius: 4px; }
 .att-summary [data-tone='pos'] { --t: var(--pos); }
@@ -2349,3 +2349,36 @@ html:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .u
  */
 :root:not([data-theme='dark']) .ui-portal[data-brand='d'] .ui-pill-warn { background: rgb(var(--marigold)); color: rgb(var(--oxblood)); }
 :root:not([data-theme='dark']) .ui-portal[data-brand='d'] nav[aria-label='Portal'] button[aria-current='page'] { box-shadow: inset 0 3px 0 rgb(var(--marigold)); }
+
+/*
+ * People plan (8 Nov 2026), step 3: one list header, brand colour on actions only.
+ * Titles, section heads, breadcrumbs and column heads read in ink or muted ink; the coral stays on the one primary,
+ * links and the chosen view. The primary's glow goes (shadows are token-only: DESIGN.md, Elevation). Department bars
+ * are a neutral; a segmented switch's chosen segment is solid teal, the same as a chosen tab.
+ */
+html:root[data-palette='sky']:not([data-theme='dark']),
+html:root:not([data-theme='dark']) [data-palette='sky'] {
+  --fg-heading: var(--fg);
+}
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-breadcrumb [aria-current='page'] { color: rgb(var(--fg)); font-weight: 600; }
+html:root[data-palette='sky']:not([data-theme='dark']) #main-content .ui-table thead :is(th, .ui-th) { color: rgb(var(--fg-muted)); }
+:root[data-palette='sky'] #main-content .ui-btn-primary,
+:root[data-palette='sky'] .ui-scrim .ui-btn-primary,
+:root[data-palette='sky'] .ui-btn-primary,
+:root[data-palette='sky'] .soft-pill-primary,
+:root[data-palette='sky'] .soft-pill-primary:hover { box-shadow: none; }
+:root[data-palette='sky'] .org-count-bar > span { background: rgb(var(--fg-muted) / 0.45); }
+:root[data-palette='sky'] .org-tile { border-radius: var(--radius-btn, 8px); }
+/* The list header's description is the one line a list may say about itself; a page title elsewhere still has none. */
+:root[data-palette='sky'] #main-content .ui-list-header .ui-page-heading { margin-bottom: 0; }
+:root[data-palette='sky'] #main-content .ui-list-desc { display: block; margin-top: -0.25rem; color: rgb(var(--fg-muted)); }
+:root[data-palette='sky'] #main-content .ui-list-header .ui-datatable-toolbar { display: none; }
+/* Segmented switch: the tray and the chosen segment look like the tabs' (solid teal), on every screen that has one. */
+:root[data-palette='sky'] #main-content .ui-segmented.ui-segmented-solid { gap: 0.25rem; padding: 0.25rem; border: 0; border-radius: var(--soft-card-r); background: rgb(var(--choice-tray)); box-shadow: none; }
+:root[data-palette='sky'] #main-content .ui-segmented-solid .ui-segment { height: 1.875rem; padding: 0 0.875rem; border: 0; border-radius: var(--radius-btn); background: transparent; box-shadow: none; color: rgb(var(--fg)); font-size: 0.8125rem; font-weight: 500; }
+:root[data-palette='sky'] #main-content .ui-segmented-solid .ui-segment[aria-checked='true'] { background: rgb(var(--choice)); color: rgb(var(--on-choice)); font-weight: 700; }
+:root[data-palette='sky'] #main-content .ui-segmented-solid .ui-segment .ui-segment-count { margin-inline-start: 0.375rem; padding: 0 0.375rem; border-radius: 999px; font-size: 0.75rem; background: rgb(var(--brand-soft)); color: rgb(var(--brand-ink)); }
+:root[data-palette='sky'] #main-content .ui-segmented-solid .ui-segment[aria-checked='true'] .ui-segment-count { background: rgb(255 255 255 / 0.22); color: rgb(var(--on-choice)); }
+@media (max-width: 767px) {
+  :root[data-palette='sky'] #main-content .ui-segmented-solid .ui-segment { height: 2.75rem; }
+}

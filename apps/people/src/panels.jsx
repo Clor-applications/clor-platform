@@ -6,15 +6,13 @@ import {
 
 import useRequest from '@ui/components/ui/useRequest';
 import { formatDate } from '@ui/components/ui/DatePicker';
-import { DateTile, SideAlert, SideBlock, SideClear, SideLine, SideLinks, SideTimeline } from '@ui/components/list/SidePanel';
+import { DateTile, SideAlert, SideBlock, SideClear, SideLine, SideTimeline } from '@ui/components/list/SidePanel';
 import { Avatar } from '@ui/personnel/Employees';
-import { listAllEmployees, listCompanyDocuments } from '@ui/personnel/api';
+import { listAllEmployees } from '@ui/personnel/api';
 import { OWNER_WORD, pageTasks } from '@ui/lifecycle/api';
-import { getLeaveBalances, getTimeOverview, listHolidays, listLeaveRequests, todayIst } from '@ui/timeOff/api';
-import { getInbox } from './api/approvals';
+import { todayIst } from '@ui/timeOff/api';
 import { listDesk } from './api/desk';
 import { listItems, structureHistory } from './organization/api';
-import { listRecords } from './api/workspace';
 import { listSalaryRevisions } from '../../payroll/src/api/payrollRevisions';
 import { addDaysIso as plusDays } from '@ui/utils/dates';
 
@@ -26,8 +24,8 @@ import { addDaysIso as plusDays } from '@ui/utils/dates';
  * may not read fails quietly to nothing.
  */
 
-/* Quick links take their mark's tint from where they go (4 Nov 2026 review): teal people and structure, green time
-   and leave, clay rules and policy, violet records and documents, marigold only Approvals, which waits on you. */
+/* No quick links and no date line any more (People plan 8 Nov 2026, §3 rule 3): the module panel already names the
+   screens, and a column that only repeats it is filler. A panel is kept only where it says what the list cannot. */
 
 /* Today in India, not on the device: a laptop set to another zone (or a
    late-night UTC clock) must not shift which leave counts as "this week". */
@@ -37,164 +35,10 @@ const day = (iso) => {
   const s = formatDate(String(iso || '').slice(0, 10));
   return s.endsWith(` ${new Date().getFullYear()}`) ? s.slice(0, -5) : s;
 };
-const span = (from, to) => (!to || from === to ? day(from) : `${day(from)} – ${day(to)}`);
 const quiet = (p) => p.catch(() => null);
 const face = (name, photoUrl) => <Avatar person={{ name, photoUrl }} size={28} />;
-const daysSince = (at) => Math.max(0, Math.floor((Date.now() - new Date(at).getTime()) / 86_400_000));
-const waited = (at) => { const d = daysSince(at); return d === 0 ? 'today' : `${d}d`; };
-
-/* Leave requests: who is away this week and where that leaves a team thin, the next holidays, what changed lately. */
-export function LeaveRequestsPanel({ openScreen }) {
-  const today = todayIso();
-  const end = plusDays(today, 6);
-  const req = useRequest(() => Promise.all([
-    quiet(listLeaveRequests({ from: today, to: end })),
-    quiet(listHolidays(Number(today.slice(0, 4)))),
-    quiet(listLeaveRequests({ year: Number(today.slice(0, 4)) })),
-  ]), [today]);
-  const [week, holidays, year] = req.data || [];
-  const away = (week || []).filter((r) => r.status === 'APPROVED' || r.status === 'PENDING');
-  /* Two or more of one department off on the same day is worth a look before approving a third. */
-  const clashes = [];
-  for (let i = 0; i < 7; i += 1) {
-    const d = plusDays(today, i);
-    const byDept = {};
-    for (const r of away) if (r.department && r.fromDate <= d && r.toDate >= d) (byDept[r.department] ||= new Set()).add(r.employeeId);
-    for (const [dept, ids] of Object.entries(byDept)) if (ids.size >= 2 && !clashes.some((c) => c.dept === dept)) clashes.push({ dept, n: ids.size, d });
-  }
-  const next = (holidays || []).filter((h) => String(h.date).slice(0, 10) >= today).sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(0, 3);
-  const recent = (year || [])
-    .map((r) => ({ r, at: r.reviewedAt || r.createdAt, what: r.status === 'APPROVED' ? 'Approved' : r.status === 'REJECTED' ? 'Rejected' : r.status === 'CANCELLED' ? 'Cancelled' : 'Asked for' }))
-    .sort((a, b) => new Date(b.at) - new Date(a.at))
-    .slice(0, 5);
-  return (
-    <>
-      <SideBlock title="Away this week" count={away.length} action={{ label: 'Calendar', onClick: () => openScreen?.('leaveCalendar') }}>
-        {clashes.map((c) => <SideAlert key={`c-${c.dept}`} tone="warn" title={`${c.dept} is short on ${day(c.d)}`} sub={`${c.n} people off the same day`} />)}
-        {away.slice(0, 5).map((r) => (
-          <SideLine key={r.id} lead={face(r.employeeName, r.photoUrl)} title={r.employeeName} sub={`${r.leaveTypeName} · ${span(r.fromDate, r.toDate)}`}
-            meta={r.status === 'PENDING' ? 'Waiting' : 'Off'} tone={r.status === 'PENDING' ? 'warn' : 'info'} />
-        ))}
-        {away.length > 5 ? <SideLine title={`${away.length - 5} more this week`} onClick={() => openScreen?.('leaveCalendar')} /> : null}
-        {week && !away.length ? <SideClear>Nobody is off this week</SideClear> : null}
-      </SideBlock>
-      <SideBlock title="Next holidays" action={next.length ? { label: 'All', onClick: () => openScreen?.('holidays') } : null}>
-        {next.map((h) => <SideLine key={h.id || h.date} lead={<DateTile iso={h.date} />} title={h.name} sub={new Date(`${String(h.date).slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'UTC' })} />)}
-      </SideBlock>
-      {/* Nothing yet this year: no block, so an empty heading never sits on top of Quick links. */}
-      <SideBlock title="Recent activity">
-        {recent.length ? <SideTimeline items={recent.map(({ r, at, what }) => ({
-          key: `${r.id}-${what}`, at, title: r.employeeName, sub: `${what} ${r.leaveTypeName.toLowerCase()} · ${span(r.fromDate, r.toDate)}`,
-          tone: what === 'Approved' ? 'pos' : what === 'Rejected' ? 'neg' : what === 'Cancelled' ? undefined : 'info',
-        }))} /> : null}
-      </SideBlock>
-      <SideLinks links={[
-        { label: 'Calendar', icon: CalendarRange, tint: 'mint', onClick: () => openScreen?.('leaveCalendar') },
-        { label: 'Balances', icon: Scale, tint: 'mint', onClick: () => openScreen?.('leaveBalances') },
-        { label: 'Policy', icon: Gavel, tint: 'peach', onClick: () => openScreen?.('leaveTypes') },
-        { label: 'Holidays', icon: CalendarDays, tint: 'mint', onClick: () => openScreen?.('holidays') },
-      ]} />
-    </>
-  );
-}
 
 const INBOX_KIND = { LEAVE: 'Leave', ATTENDANCE: 'Attendance requests', APPROVAL: 'People approvals', HELPDESK: 'Help desk' };
-
-/* Approvals: what has waited longest, and how the pile splits by kind (a kind narrows the list). */
-export function ApprovalsPanel({ openScreen }) {
-  const req = useRequest(() => quiet(getInbox()), []);
-  const items = req.data?.items || [];
-  const counts = req.data?.counts || {};
-  const oldest = [...items].sort((a, b) => new Date(a.since) - new Date(b.since)).slice(0, 4);
-  const stale = items.filter((i) => i.overdue || daysSince(i.since) >= 3).length;
-  return (
-    <>
-      <SideBlock title="Waiting longest" count={items.length} tone="warn">
-        {stale ? <SideAlert title={`${stale} waiting 3 days or more`} sub="Oldest first in the list" tone="warn" /> : null}
-        {oldest.map((i) => (
-          <SideLine key={i.key} lead={face(i.employeeName, i.photoUrl)} title={i.employeeName} sub={i.what} meta={waited(i.since)}
-            tone={i.overdue || daysSince(i.since) >= 3 ? 'neg' : daysSince(i.since) >= 1 ? 'warn' : 'info'} />
-        ))}
-        {req.data && !items.length ? <SideClear>Nothing waiting for you</SideClear> : null}
-      </SideBlock>
-      <SideBlock title="By kind">
-        {Object.keys(INBOX_KIND).filter((k) => counts[k]).map((k) => (
-          <SideLine key={k} title={INBOX_KIND[k]} meta={counts[k]} tone="count" bar={(counts[k] / Math.max(1, counts.all || items.length)) * 100} onClick={() => openScreen?.('approvals', { kind: k })} />
-        ))}
-      </SideBlock>
-      <SideLinks links={[
-        { label: 'Leave', icon: CalendarDays, tint: 'mint', onClick: () => openScreen?.('leaveRequests') },
-        { label: 'Delegates', icon: UserCheck, tint: 'sky', onClick: () => openScreen?.('standIns') },
-        { label: 'Rules', icon: Workflow, tint: 'peach', onClick: () => openScreen?.('approvalRules') },
-        { label: 'Help desk', icon: LifeBuoy, tint: 'lilac', onClick: () => openScreen?.('helpdesk') },
-      ]} />
-    </>
-  );
-}
-
-/* Attendance requests: who is away or working elsewhere today, and the leave still waiting. */
-export function AttendanceRequestsPanel({ openScreen }) {
-  const req = useRequest(() => quiet(getTimeOverview()), []);
-  const o = req.data || {};
-  const away = o.awayToday || [];
-  const elsewhere = o.workingAwayToday || [];
-  return (
-    <>
-      <SideBlock title="Away today" count={away.length}>
-        {away.slice(0, 5).map((r) => <SideLine key={r.id || r.employeeId} lead={face(r.employeeName, r.photoUrl)} title={r.employeeName} sub={r.leaveTypeName} meta="Off" tone="info" />)}
-        {req.data && !away.length ? <SideClear>Everyone is in today</SideClear> : null}
-      </SideBlock>
-      <SideBlock title="Working elsewhere today" count={elsewhere.length}>
-        {elsewhere.slice(0, 5).map((r) => <SideLine key={r.id || r.employeeId} lead={face(r.employeeName, r.photoUrl)} title={r.employeeName} sub={r.kindName || r.kind} />)}
-      </SideBlock>
-      <SideBlock title="Leave waiting">
-        {o.waiting?.count ? <SideLine title="Leave requests" sub={o.waiting.olderThan3Days ? `${o.waiting.olderThan3Days} older than 3 days` : 'All asked recently'} meta={o.waiting.count} tone={o.waiting.olderThan3Days ? 'neg' : 'count'} onClick={() => openScreen?.('leaveRequests')} /> : null}
-      </SideBlock>
-      <SideLinks links={[
-        { label: 'Attendance', icon: Timer, tint: 'mint', onClick: () => openScreen?.('attendance') },
-        { label: 'Approvals', icon: Inbox, tint: 'butter', onClick: () => openScreen?.('approvals') },
-        { label: 'Rules', icon: Workflow, tint: 'peach', onClick: () => openScreen?.('requestRules') },
-        { label: 'Leave', icon: CalendarDays, tint: 'mint', onClick: () => openScreen?.('leaveRequests') },
-      ]} />
-    </>
-  );
-}
-
-/* Leave balances: who is nearly out of a leave, and what lapses at the period end. */
-export function LeaveBalancesPanel({ openScreen }) {
-  const year = new Date().getFullYear();
-  const req = useRequest(() => Promise.all([quiet(getLeaveBalances(year)), quiet(getTimeOverview())]), [year]);
-  const [b, o] = req.data || [];
-  const types = (b?.types || []).filter((t) => t.isPaid);
-  const low = [];
-  for (const r of b?.rows || []) {
-    for (const t of types) {
-      const x = r.balances?.[t.id];
-      if (x && !x.locked && typeof x.available === 'number' && x.allocated > 0 && x.available <= Math.max(1, x.allocated * 0.15)) low.push({ r, t, x });
-    }
-  }
-  low.sort((a, c) => a.x.available - c.x.available);
-  const lapsing = o?.lapsing?.rows || [];
-  return (
-    <>
-      <SideBlock title="Running low" count={low.length}>
-        {low.slice(0, 5).map(({ r, t, x }) => (
-          <SideLine key={`${r.id}-${t.id}`} lead={face(r.name, r.photoUrl)} title={r.name} sub={t.name} meta={`${x.available} left`} tone={x.available <= 0 ? 'neg' : 'warn'} />
-        ))}
-        {b && !low.length ? <SideClear>Nobody is running low</SideClear> : null}
-      </SideBlock>
-      <SideBlock title={o?.lapsing?.periodEnd ? `Lapses on ${day(o.lapsing.periodEnd)}` : 'Lapsing'} count={lapsing.length}>
-        {lapsing.slice(0, 4).map((x, i) => <SideLine key={x.employeeId || i} title={x.employeeName || x.name} sub={x.leaveTypeName} meta={x.days ?? x.lapsing} tone="warn" />)}
-      </SideBlock>
-      {/* Only pages outside this module's menu (Reports, Settings), under their menu names; Leave requests is one click away already. */}
-      <SideLinks links={[
-        { label: 'Leave register', icon: BarChart3, tint: 'mint', onClick: () => openScreen?.('leaveRegister') },
-        { label: 'Leave year end', icon: CalendarRange, tint: 'mint', onClick: () => openScreen?.('leaveYearEnd') },
-        { label: 'Leave policy', icon: Gavel, tint: 'peach', onClick: () => openScreen?.('leaveTypes') },
-      ]} />
-    </>
-  );
-}
 
 /* Employees: the week's joiners, leavers and birthdays; who needs something set; headcount by department (a department filters the list). */
 export function EmployeesPanel({ openScreen }) {
@@ -235,18 +79,12 @@ export function EmployeesPanel({ openScreen }) {
             onClick={d.id ? () => openScreen?.('employees', { dept: d.id }) : undefined} />
         ))}
       </SideBlock>
-      <SideLinks links={[
-        { label: 'Org chart', icon: Network, tint: 'sky', onClick: () => openScreen?.('orgChart') },
-        { label: 'Onboarding', icon: ListChecks, tint: 'lilac', onClick: () => openScreen?.('checklists') },
-        { label: 'Import', icon: Upload, tint: 'sky', onClick: () => openScreen?.('employeeImport') },
-        { label: 'Departments', icon: Building2, tint: 'sky', onClick: () => openScreen?.('departments') },
-      ]} />
     </>
   );
 }
 
 /* Tasks (Joining & leaving): who joins or leaves with tasks open, and whose tasks are late. */
-export function ChecklistsPanel({ openScreen, navItems }) {
+export function ChecklistsPanel({ openScreen }) {
   /* Every open Joining & leaving task in the caller's reach (Tasks screen, `open` view). */
   const req = useRequest(() => quiet(Promise.all([pageTasks({ view: 'open', limit: 100 }), pageTasks({ view: 'late', limit: 100 })])), []);
   const tasks = req.data?.[0]?.rows || [];
@@ -272,42 +110,12 @@ export function ChecklistsPanel({ openScreen, navItems }) {
         {Object.entries(byOwner).sort((a, b) => b[1] - a[1]).map(([o, n]) => <SideLine key={o} title={OWNER_WORD[o] || o} meta={n} tone="neg" bar={(n / Math.max(1, late)) * 100} />)}
       </SideBlock>
       {/* Tasks is where People opens for someone without Home (an employee, an auditor): only links they may follow. */}
-      <SideLinks navItems={navItems} links={[
-        { label: 'Employees', icon: Users, screen: 'employees', tint: 'sky', onClick: () => openScreen?.('employees') },
-        { label: 'Documents', icon: FileText, screen: 'documents', tint: 'lilac', onClick: () => openScreen?.('documents') },
-        { label: 'Assets', icon: ClipboardCheck, screen: 'assets', tint: 'lilac', onClick: () => openScreen?.('assets') },
-        { label: 'Letters', icon: FileText, screen: 'letterTemplates', tint: 'lilac', onClick: () => openScreen?.('letterTemplates') },
-      ]} />
-    </>
-  );
-}
-
-/* Documents: what expires in the next 30 days, and what already has. */
-export function DocumentsPanel({ openScreen }) {
-  const req = useRequest(() => quiet(listCompanyDocuments()), []);
-  const today = todayIso();
-  const docs = (req.data || []).filter((d) => d.expiresOn);
-  const soon = docs.filter((d) => d.expiresOn.slice(0, 10) >= today && d.expiresOn.slice(0, 10) <= plusDays(today, 30)).sort((a, b) => a.expiresOn.localeCompare(b.expiresOn));
-  const gone = docs.filter((d) => d.expiresOn.slice(0, 10) < today);
-  return (
-    <>
-      <SideBlock title="Expiring in 30 days" count={soon.length}>
-        {gone.length ? <SideAlert title={`${gone.length} already expired`} sub="Ask for renewed copies" onClick={() => openScreen?.('documents', { tab: 'expired' })} /> : null}
-        {soon.slice(0, 6).map((d) => <SideLine key={d.id} lead={<DateTile iso={d.expiresOn} />} title={d.title || d.kind} sub={d.employeeName} meta="Soon" tone="warn" onClick={d.employeeId ? () => openScreen?.('employee', { id: d.employeeId, tab: 'documents' }) : undefined} />)}
-        {req.data && !soon.length && !gone.length ? <SideClear>Nothing expires this month</SideClear> : null}
-      </SideBlock>
-      <SideLinks links={[
-        { label: 'Letters', icon: FileText, tint: 'lilac', onClick: () => openScreen?.('letterTemplates') },
-        { label: 'Onboarding', icon: ListChecks, tint: 'lilac', onClick: () => openScreen?.('checklists') },
-        { label: 'Employees', icon: Users, tint: 'sky', onClick: () => openScreen?.('employees') },
-        { label: 'Policies', icon: Gavel, tint: 'peach', onClick: () => openScreen?.('policies') },
-      ]} />
     </>
   );
 }
 
 /* Help desk: open requests by queue, what is late on its reply or fix. */
-export function HelpDeskPanel({ openScreen }) {
+export function HelpDeskPanel() {
   const req = useRequest(() => quiet(listDesk({ status: '' })), []);
   const rows = (req.data?.requests || []).filter((r) => r.status !== 'RESOLVED' && r.status !== 'CLOSED');
   const byQueue = {};
@@ -322,12 +130,6 @@ export function HelpDeskPanel({ openScreen }) {
         {Object.entries(byQueue).sort((a, b) => b[1] - a[1]).map(([q, n]) => <SideLine key={q} title={q} meta={n} tone="count" bar={(n / Math.max(1, rows.length)) * 100} />)}
         {req.data && !rows.length ? <SideClear>Nothing open</SideClear> : null}
       </SideBlock>
-      <SideLinks links={[
-        { label: 'Private', icon: Lock, tint: 'peach', onClick: () => openScreen?.('privateCases') },
-        { label: 'Settings', icon: Settings2, tint: 'peach', onClick: () => openScreen?.('helpDeskSettings') },
-        { label: 'Approvals', icon: Inbox, tint: 'butter', onClick: () => openScreen?.('approvals') },
-        { label: 'Policies', icon: Gavel, tint: 'peach', onClick: () => openScreen?.('policies') },
-      ]} />
     </>
   );
 }
@@ -347,12 +149,6 @@ export function DepartmentsPanel({ openScreen }) {
             onClick={() => openScreen?.('employees', { dept: r.id })} />
         ))}
       </SideBlock>
-      <SideLinks links={[
-        { label: 'Org chart', icon: Network, tint: 'sky', onClick: () => openScreen?.('orgChart') },
-        { label: 'Roles', icon: Users, tint: 'sky', onClick: () => openScreen?.('jobPositions') },
-        { label: 'Branches', icon: MapPin, tint: 'sky', onClick: () => openScreen?.('branches') },
-        { label: 'Changes', icon: Workflow, tint: 'lilac', onClick: () => openScreen?.('orgChanges') },
-      ]} />
     </>
   );
 }
@@ -368,12 +164,6 @@ export function BranchesPanel({ openScreen }) {
         {none ? <SideAlert title={`${none} without a branch`} sub="Holidays and working week come from the branch" tone="warn" onClick={() => openScreen?.('employees', { branch: 'none' })} /> : null}
         {req.data && !none ? <SideClear>Everyone has a branch</SideClear> : null}
       </SideBlock>
-      <SideLinks links={[
-        { label: 'Departments', icon: Building2, tint: 'sky', onClick: () => openScreen?.('departments') },
-        { label: 'Holidays', icon: CalendarDays, tint: 'mint', onClick: () => openScreen?.('holidays') },
-        { label: 'Org chart', icon: Network, tint: 'sky', onClick: () => openScreen?.('orgChart') },
-        { label: 'Employees', icon: Users, tint: 'sky', onClick: () => openScreen?.('employees') },
-      ]} />
     </>
   );
 }
@@ -384,43 +174,8 @@ const words = (s) => String(s || '').toLowerCase().replace(/_/g, ' ').replace(/^
 const countBy = (rows, f) => rows.reduce((m, r) => { const k = f(r); m.set(k, (m.get(k) || 0) + 1); return m; }, new Map());
 const daysTo = (iso) => Math.round((new Date(`${String(iso).slice(0, 10)}T00:00:00Z`) - new Date(`${todayIso()}T00:00:00Z`)) / 86_400_000);
 
-/* Assets: what is free to give out, what is away for repair, and what is due back. */
-export function AssetsPanel({ openScreen }) {
-  const req = useRequest(() => Promise.all([quiet(listRecords('assets')), quiet(listAllEmployees({ status: 'ALL' }).then((r) => r?.employees || []))]), []);
-  const [rows, people] = req.data || [];
-  if (!rows) return null;
-  const name = new Map((people || []).map((p) => [p.id, p.name]));
-  const by = countBy(rows, (r) => r.status);
-  const free = rows.filter((r) => r.status === 'AVAILABLE' || r.status === 'RETURNED');
-  const repair = rows.filter((r) => r.status === 'REPAIR');
-  const dueBack = rows.filter((r) => r.status === 'ASSIGNED' && r.dueDate).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
-  const types = countBy(rows.filter((r) => r.status !== 'RETIRED'), (r) => r.details?.category || 'Other');
-  const peak = Math.max(1, ...types.values());
-  return (
-    <>
-      <SideBlock title="Due back" count={dueBack.length}>
-        {dueBack.slice(0, 4).map((r) => <SideLine key={r.id} title={r.title} sub={name.get(r.employeeId) || 'Not assigned'} meta={daysTo(r.dueDate) < 0 ? 'Overdue' : day(r.dueDate)} tone={daysTo(r.dueDate) < 0 ? 'neg' : 'warn'} />)}
-      </SideBlock>
-      <SideBlock title="Ready to give out" count={free.length}>
-        {free.slice(0, 4).map((r) => <SideLine key={r.id} title={r.title} sub={r.details?.assetTag || words(r.status)} meta={words(r.status)} />)}
-        {!free.length ? <SideClear>Nothing spare right now</SideClear> : null}
-      </SideBlock>
-      <SideBlock title="In repair" count={repair.length}>
-        {repair.slice(0, 3).map((r) => <SideLine key={r.id} title={r.title} sub={r.details?.condition || r.details?.assetTag} tone="warn" />)}
-      </SideBlock>
-      <SideBlock title="By kind" count={rows.length - (by.get('RETIRED') || 0)}>
-        {[...types].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, n]) => <SideLine key={k} title={k} meta={n} tone="count" bar={(n / peak) * 100} />)}
-      </SideBlock>
-      <SideLinks links={[
-        { label: 'Onboarding & exit', icon: ClipboardCheck, tint: 'lilac', onClick: () => openScreen?.('checklists') },
-        { label: 'Employees', icon: Users, tint: 'sky', onClick: () => openScreen?.('employees') },
-      ]} />
-    </>
-  );
-}
-
 /* Designations: the biggest ones, the ones nobody holds, and the ones tied to no department. */
-export function DesignationsPanel({ openScreen }) {
+export function DesignationsPanel() {
   const req = useRequest(() => Promise.all([quiet(listItems('job-positions')), quiet(listItems('departments'))]), []);
   const [items, depts] = req.data || [];
   if (!items) return null;
@@ -443,17 +198,12 @@ export function DesignationsPanel({ openScreen }) {
         {loose.length ? <SideAlert title={`${loose.length} not tied to a department`} sub={loose.slice(0, 3).map((r) => r.name).join(', ')} tone="warn" /> : null}
       </SideBlock>
       {!empty.length && !loose.length ? <SideBlock title="Tidy"><SideClear>Every designation is held and has a department</SideClear></SideBlock> : null}
-      <SideLinks links={[
-        { label: 'Departments', icon: Building2, tint: 'sky', onClick: () => openScreen?.('departments') },
-        { label: 'Org chart', icon: Network, tint: 'sky', onClick: () => openScreen?.('orgChart') },
-        { label: 'Employees', icon: Users, tint: 'sky', onClick: () => openScreen?.('employees') },
-      ]} />
     </>
   );
 }
 
 /* Change history: how much changed lately, of what kind, and by whom. */
-export function ChangesPanel({ openScreen }) {
+export function ChangesPanel() {
   const req = useRequest(() => quiet(structureHistory({ limit: 100 })), []);
   const entries = req.data?.entries;
   if (!entries) return null;
@@ -472,36 +222,12 @@ export function ChangesPanel({ openScreen }) {
       <SideBlock title="Made by" count={who.size || null}>
         {[...who].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => <SideLine key={k} lead={face(k)} title={k} meta={`${n} change${n === 1 ? '' : 's'}`} />)}
       </SideBlock>
-      <SideLinks links={[
-        { label: 'Departments', icon: Building2, tint: 'sky', onClick: () => openScreen?.('departments') },
-        { label: 'Branches', icon: MapPin, tint: 'sky', onClick: () => openScreen?.('branches') },
-        { label: 'Audit logs', icon: FileText, tint: 'peach', onClick: () => openScreen?.('auditLogs') },
-      ]} />
-    </>
-  );
-}
-
-/* Who's away: the holidays coming, and the way to every leave list. */
-export function TimeOverviewPanel({ openScreen }) {
-  const req = useRequest(() => quiet(listHolidays()), []);
-  const next = (req.data?.holidays || req.data || []).filter((h) => String(h.date || '').slice(0, 10) >= todayIso()).sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(0, 4);
-  return (
-    <>
-      <SideBlock title="Next holidays" count={next.length || null} action={{ label: 'All', onClick: () => openScreen?.('holidays') }}>
-        {next.map((h) => <SideLine key={h.id || h.date} lead={<DateTile iso={h.date} />} title={h.name} sub={new Date(`${String(h.date).slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'UTC' })} />)}
-      </SideBlock>
-      <SideLinks links={[
-        { label: 'Leave calendar', icon: CalendarRange, tint: 'mint', onClick: () => openScreen?.('leaveCalendar') },
-        { label: 'Leave balances', icon: Scale, tint: 'mint', onClick: () => openScreen?.('leaveBalances') },
-        { label: 'Leave requests', icon: Inbox, tint: 'mint', onClick: () => openScreen?.('leaveRequests') },
-        { label: 'Delegates', icon: UserCheck, tint: 'sky', onClick: () => openScreen?.('standIns') },
-      ]} />
     </>
   );
 }
 
 /* Salary revisions: what waits for a decision and what takes effect soon. */
-export function SalaryRevisionsPanel({ openScreen }) {
+export function SalaryRevisionsPanel() {
   const req = useRequest(() => quiet(listSalaryRevisions()), []);
   const rows = req.data;
   if (!rows) return null;
@@ -516,49 +242,8 @@ export function SalaryRevisionsPanel({ openScreen }) {
         {soon.slice(0, 4).map((r) => <SideLine key={r.id} title={r.employeeName || 'Employee'} meta={day(r.effectiveFrom)} />)}
       </SideBlock>
       {!waiting.length && !soon.length ? <SideBlock title="Nothing pending"><SideClear>No revision waits or starts in the next 60 days</SideClear></SideBlock> : null}
-      <SideLinks links={[
-        { label: 'Employees', icon: Users, tint: 'sky', onClick: () => openScreen?.('employees') },
-        { label: 'People report', icon: BarChart3, tint: 'lilac', onClick: () => openScreen?.('reports') },
-      ]} />
     </>
   );
 }
 
 /* The registers (benefits, announcements, events): where each stands and what is due. */
-const REGISTER_LINKS = {
-  benefits: [['Salary revisions', Scale, 'compensation', 'lilac'], ['Employees', Users, 'employees', 'sky']],
-  announcements: [['Events', CalendarDays, 'events', 'lilac'], ['Help desk', LifeBuoy, 'helpdesk', 'lilac']],
-  events: [['Announcements', Inbox, 'announcements', 'lilac'], ['Holidays', CalendarRange, 'holidays', 'mint']],
-};
-export function registerPanel(kind) {
-  const RegisterPanel = ({ openScreen }) => {
-    const req = useRequest(() => quiet(listRecords(kind)), []);
-    const rows = req.data;
-    if (!rows) return null;
-    const by = countBy(rows, (r) => r.status);
-    const peak = Math.max(1, ...by.values());
-    const dated = rows.filter((r) => r.dueDate && !['CLOSED', 'COMPLETED', 'CANCELLED', 'RETIRED', 'ARCHIVED', 'HIRED', 'REJECTED'].includes(r.status));
-    const late = dated.filter((r) => daysTo(r.dueDate) < 0);
-    const soon = dated.filter((r) => daysTo(r.dueDate) >= 0 && daysTo(r.dueDate) <= 14).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
-    return (
-      <>
-        <SideBlock title="Where they stand" count={rows.length}>
-          {[...by].sort((a, b) => b[1] - a[1]).map(([k, n]) => <SideLine key={k} title={words(k)} meta={n} tone="count" bar={(n / peak) * 100} onClick={() => openScreen?.(kind, { status: k })} />)}
-          {!rows.length ? <SideClear>Nothing here yet</SideClear> : null}
-        </SideBlock>
-        <SideBlock title="Overdue" count={late.length}>
-          {late.slice(0, 4).map((r) => <SideLine key={r.id} title={r.title} meta={day(r.dueDate)} tone="neg" />)}
-        </SideBlock>
-        <SideBlock title="Due in 14 days" count={soon.length}>
-          {soon.slice(0, 4).map((r) => <SideLine key={r.id} title={r.title} meta={day(r.dueDate)} />)}
-        </SideBlock>
-        <SideLinks links={(REGISTER_LINKS[kind] || []).map(([label, icon, key, tint]) => ({ label, icon, tint, onClick: () => openScreen?.(key) }))} />
-      </>
-    );
-  };
-  RegisterPanel.displayName = `RegisterPanel(${kind})`;
-  return RegisterPanel;
-}
-export const BenefitsPanel = registerPanel('benefits');
-export const AnnouncementsPanel = registerPanel('announcements');
-export const EventsPanel = registerPanel('events');

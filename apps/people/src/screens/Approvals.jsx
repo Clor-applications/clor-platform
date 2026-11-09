@@ -79,12 +79,15 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
   const perms = usePermissions();
   const allowed = (k) => can(perms, k);
   const p = params || {};
-  const tab = p.tab === 'mine' ? 'mine' : p.tab === 'tasks' ? 'tasks' : 'waiting';
   const kind = KIND_ORDER.includes(p.kind) ? p.kind : '';
   const page = Math.max(1, Number(p.page || 1));
   const size = [25, 50, 100].includes(Number(p.size)) ? Number(p.size) : 25;
   const set = (patch, push = false) => updateParams?.(patch, { push });
   const inbox = useRequest(() => getInbox(), []);
+  /* The inbox opens on what there is to do: with nothing to approve and tasks on my name, My tasks (People plan 8 Nov 2026, step 3). */
+  const askedTab = p.tab === 'mine' ? 'mine' : p.tab === 'tasks' ? 'tasks' : p.tab === 'waiting' ? 'waiting' : null;
+  const loadedCounts = inbox.data?.counts || null;
+  const tab = askedTab || (loadedCounts && !loadedCounts.all && loadedCounts.TASK ? 'tasks' : 'waiting');
   const mine = useRequest(() => (tab === 'mine' ? listRequests() : Promise.resolve(null)), [tab]);
   const [q, setQ] = useState('');
   /* A notice about a request (a withdrawn one says "Withdrawn") opens it here: ?open=APPROVAL&id=… */
