@@ -24,7 +24,8 @@ import { findSampleViewerId } from '../services/sampleCompany.js';
  * What they may not even read: the operator console and operator billing, the
  * employee portal, the company-wide data export and the person's own data
  * export, the list of signed-in devices, and the machine doors (outside API,
- * connectors, readers, SCIM, pay pages).
+ * connectors, readers, SCIM, pay pages). A read there gets 403 EXPLORE_CLOSED,
+ * a change 403 EXPLORE_READ_ONLY like anywhere else.
  */
 
 const READS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -47,6 +48,9 @@ export const EXPLORE_CLOSED: RegExp[] = [
 ];
 
 const refuse = (res: Response) => res.status(403).json({ error: EXPLORE_READ_ONLY_TEXT, code: 'EXPLORE_READ_ONLY' });
+/* A read of a closed part is not a change, so it is not told "changes are off" (and the app shows no toast for it). */
+export const EXPLORE_CLOSED_TEXT = 'This part of CLOR is not open in the sample company.';
+const closed = (res: Response) => res.status(403).json({ error: EXPLORE_CLOSED_TEXT, code: 'EXPLORE_CLOSED' });
 
 /** The token's claims if it is one this server signed; null otherwise (requireAuth answers those). */
 function claimsOf(req: Request): { userId?: string; xp?: string } | null {
@@ -87,7 +91,7 @@ export async function exploreReadOnly(req: Request, res: Response, next: NextFun
     exploring = String(claims.userId) === (await viewer());
   }
   if (!exploring) return next();
-  if (EXPLORE_CLOSED.some((r) => r.test(path))) return refuse(res);
+  if (EXPLORE_CLOSED.some((r) => r.test(path))) return READS.has(method) ? closed(res) : refuse(res);
   if (READS.has(method)) return next();
   if (EXPLORE_ALLOWED_WRITES.some(([m, r]) => m === method && r.test(path))) return next();
   return refuse(res);

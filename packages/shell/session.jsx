@@ -18,6 +18,7 @@ import {
 
 import { appFromHost } from './appHosts';
 import { chooseTenant, codeNames, lastUsedKey, orgCodeFromPath, tabChoiceKey, withOrgPath } from './orgUrl';
+import { isExplorePath } from './exploreLink';
 
 /**
  * Who is signed in, which company they are looking at, and which apps that
@@ -224,6 +225,8 @@ export function SessionProvider({ children }) {
   const tenantLegacyCode = tenantCode ? tenant.legacyCode || '' : '';
   useEffect(() => {
     if (!tenantCode || typeof window === 'undefined') return;
+    /* Explore's landing page trades its link for the sample company's session; no company code belongs on it. */
+    if (isExplorePath()) return;
     const current = orgCodeFromPath(window.location.pathname);
     if (current === tenantCode.toUpperCase()) return;
     const url = `${withOrgPath(window.location.pathname, tenantCode)}${window.location.search}${window.location.hash}`;

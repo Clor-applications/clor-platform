@@ -104,7 +104,8 @@ export function ExploreNotice({ explore, demoUrl }) {
       className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-1.5 text-sm"
       style={{ backgroundColor: 'rgb(var(--explore-soft))', borderBottom: '1px solid rgb(var(--explore-line))', borderLeft: '3px solid rgb(var(--explore-mark))', color: 'rgb(var(--fg))' }}
     >
-      <span className="min-w-0 flex-1">{EXPLORE_TEXT}</span>
+      {/* A phone gives the sentence its own line; wider, it shares one with the days and the button. */}
+      <span className="min-w-0 grow basis-full sm:basis-0">{EXPLORE_TEXT}</span>
       {left ? <span className="tabular-nums" style={{ color: 'rgb(var(--explore-ink))' }}>{left}</span> : null}
       {/* TODO(explore): "Start your own company" once self-serve sign-up from Explore opens (roadmap). */}
       <a className="ui-btn ui-btn-secondary ui-btn-sm" href={demoUrl}>Request a demo</a>

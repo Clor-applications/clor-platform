@@ -548,6 +548,8 @@ export default function Shell() {
    * the only three there are — everything past sign-in is an app's business.
    */
   const [publicPage, setPublicPageState] = useState(publicPageFromPath);
+  /* Explore's link, latched on the way in: a signed-in session's company code may join the address a moment later. */
+  const [exploreLink] = useState(() => isExplorePath());
   /* W-3: app.clor.in/invite?token=... — read once; the page itself never puts the token anywhere else. */
   const [inviteToken, setInviteToken] = useState(() => {
     try {
@@ -725,7 +727,7 @@ export default function Shell() {
    */
   if (legalDoc) return <LegalPage doc={legalDoc} />;
   /* Explore: the link from a demo request opens the sample company (Explore.jsx). */
-  if (isExplorePath()) return <ExploreLanding demoUrl={DEMO_URL} />;
+  if (exploreLink) return <ExploreLanding demoUrl={DEMO_URL} />;
   if (appPublicPage) {
     return (
       <>

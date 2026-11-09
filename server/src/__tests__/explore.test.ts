@@ -193,8 +193,10 @@ describe('read-only, on the server', () => {
   it('closes the operator console, the employee portal, exports and the device list even to reads', async () => {
     for (const p of ['/api/ops/me', '/api/ops/demo-requests', '/api/portal/me', '/api/auth/me/export', '/api/auth/sessions', `/api/orgs/${sample.orgId}/export`, '/v1/employees']) {
       const r = await request(app).get(p).set(as());
-      expect([p, r.status, r.body?.code]).toEqual([p, 403, 'EXPLORE_READ_ONLY']);
+      expect([p, r.status, r.body?.code, r.body?.error]).toEqual([p, 403, 'EXPLORE_CLOSED', 'This part of CLOR is not open in the sample company.']);
     }
+    /* A change there is still the one sentence. */
+    expect((await request(app).post('/api/ops/step-up').set(as()).send({ code: '000000' })).body.code).toBe('EXPLORE_READ_ONLY');
   });
 
   it('refuses the viewer even with a token that does not say Explore', async () => {

@@ -43,7 +43,7 @@ export const SAMPLE = {
   gstin: '27AAACS0000S1ZF',
   owner: { email: 'owner@sample-traders.example', name: 'Rohan Kulkarni' },
   approver: { email: 'director@sample-traders.example', name: 'Anita Kulkarni' },
-  viewer: { email: 'explore@sample-traders.example', name: 'Explore visitor' },
+  viewer: { email: 'explore@sample-traders.example', name: 'Visitor' },
 } as const;
 
 /** Bump when the sample data changes shape; the next ensure fills it again (each step only adds what is missing). */
