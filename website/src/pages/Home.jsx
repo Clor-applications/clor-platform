@@ -5,6 +5,7 @@ import Connection from '../components/Connection.jsx';
 import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
 import { Closing, Faq } from '../components/Blocks.jsx';
 import { Status } from '../components/Brand.jsx';
+import Person from '../components/Person.jsx';
 
 /*
  * The home page says which jobs CLOR does, in the words an Indian accountant
@@ -21,21 +22,25 @@ const LINES = {
 
 const TEAMS = [
   {
+    person: 'owner',
     title: 'Owners of small companies',
     text: 'File GSTR-1 and GSTR-3B from the invoices you already raised. Import masters and opening balances from Tally. Reconcile the bank statement against Books.',
     link: ['/solutions/businesses', 'CLOR for businesses'],
   },
   {
+    person: 'accountant',
     title: 'Accountants and CA firms',
     text: 'Your client invites you with your own login and decides what you may see and change. You switch between clients from the company menu without signing out.',
     link: ['/solutions/accounting-firms', 'CLOR for accounting firms'],
   },
   {
+    person: 'hr',
     title: 'HR teams',
     text: 'Joining and exit checklists that HR, IT and the manager each tick off. Documents remind you before they expire. One record per person, from offer letter to final settlement.',
     link: ['/products/people', 'CLOR People'],
   },
   {
+    person: 'manager',
     title: 'Finance teams',
     text: 'Invoices, bills and the salary run post their own journals. Invoices above an amount wait for approval, and a change to bank details needs a second person.',
     link: ['/products/books', 'CLOR Books'],
@@ -106,14 +111,17 @@ export default function Home() {
       <section className="section" aria-labelledby="team-title">
         <div className="wrap">
           <Head id="team-title" title="Who uses CLOR" />
-          <ul className="groups">
+          <ul className="groups groups--people">
             {TEAMS.map((t) => (
               <li key={t.title}>
-                <h3 className="h-3">{t.title}</h3>
-                <p className="body">{t.text}</p>
-                <Link className="text-link" href={t.link[0]}>
-                  {t.link[1]}
-                </Link>
+                <Person who={t.person} />
+                <div className="groups-text">
+                  <h3 className="h-3">{t.title}</h3>
+                  <p className="body">{t.text}</p>
+                  <Link className="text-link" href={t.link[0]}>
+                    {t.link[1]}
+                  </Link>
+                </div>
               </li>
             ))}
           </ul>

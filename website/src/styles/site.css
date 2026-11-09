@@ -1781,3 +1781,80 @@ main:focus {
 .links .text-link {
   justify-self: start;
 }
+
+/* ---------------------------------------------------------------- people */
+/* Hand-drawn people (Open Peeps, CC0): small, beside the words, never in a box. */
+.person {
+  display: block;
+  width: auto;
+  height: 112px;
+}
+.groups--people li {
+  grid-template-columns: 84px minmax(0, 1fr);
+  column-gap: var(--s-5);
+  align-items: start;
+}
+.groups-text {
+  display: grid;
+  gap: var(--s-2);
+}
+.groups-text .text-link {
+  justify-self: start;
+  margin-top: var(--s-1);
+}
+.people-row {
+  display: flex;
+  gap: var(--s-6);
+  align-items: end;
+  padding-top: var(--s-4);
+}
+.people-row .person {
+  height: 120px;
+}
+@media (max-width: 480px) {
+  .groups--people li {
+    grid-template-columns: 64px minmax(0, 1fr);
+    column-gap: var(--s-4);
+  }
+  .groups--people .person {
+    height: 88px;
+  }
+  .people-row {
+    gap: var(--s-4);
+  }
+  .people-row .person {
+    height: 96px;
+  }
+}
+
+/* ---------------------------------------------------------------- photos */
+/* A photograph is a plain picture: 12px corners, no shadow, overlay or tint. */
+.photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+.p-fixes {
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  gap: var(--gap-col);
+  align-items: start;
+}
+.steps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+.steps-list li {
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-4) 0;
+  border-bottom: 1px solid var(--line);
+}
+@media (max-width: 900px) {
+  .p-fixes {
+    grid-template-columns: 1fr;
+  }
+}
