@@ -86,6 +86,12 @@ export const demoRequestLimiter = [
   guard(60 * 60 * 1000, 3, 'demo requests', (req) => `demo-id:${digest(identityOf(req))}`, (req) => !identityOf(req)),
 ];
 
+/* Opening an Explore link (routes/explore.ts): a few a quarter-hour from one address, and per link, so tokens cannot be walked. */
+export const exploreLimiter = [
+  guard(15 * 60 * 1000, 30, 'attempts to open a sample link', (req) => `explore-ip:${ipOf(req)}`),
+  guard(15 * 60 * 1000, 10, 'attempts to open a sample link', (req) => `explore-t:${digest(String(req.body?.token || ''))}`, (req) => !req.body?.token),
+];
+
 export const codeLimiter = [guard(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 
 /** Machine clients with a bearer token (SCIM providers, on-site connectors): per token, and per address for the ones guessing. */

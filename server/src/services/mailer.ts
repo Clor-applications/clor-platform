@@ -314,10 +314,11 @@ export async function sendTemplate(opts: SendOptions) {
  * rendered email, live link and all, in plain text in the database and every
  * backup. Once the message has gone, the stored copy keeps the shape of the
  * link and loses the secret. A message still waiting to be retried keeps it;
- * those tokens expire on their own (30 minutes, 24 hours).
+ * those tokens expire on their own (30 minutes, 24 hours; an Explore link,
+ * `?t=`, in 14 days, and Resend replaces it).
  */
 export const withoutLinkTokens = (text: string) =>
-  String(text || '').replace(/([?&](?:token|share|reset|verify)=)[^\s&"'<>]+/gi, '$1[removed-after-sending]');
+  String(text || '').replace(/([?&](?:token|share|reset|verify|t)=)[^\s&"'<>]+/gi, '$1[removed-after-sending]');
 
 /** Attempts delivery of one outbox row and records the result. */
 export async function deliver(outboxId: string, accountId?: string | null, orgId?: string | null) {
