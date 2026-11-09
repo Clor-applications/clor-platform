@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import ErrorState from '@ui/components/ui/ErrorState';
 import SearchField from '@ui/components/ui/SearchField';
@@ -10,7 +10,7 @@ import { rupees } from '@ui/referrals/words';
 import { bonusForfeit, bonusPaid, getReferrerRule, listOpenings, listReferrals, referralReport, saveReferrerRule, sendBonus } from '../api/talent';
 import CandidateDrawer from './CandidateDrawer';
 import Drawer from '@ui/components/ui/Drawer';
-import { Footer, FormError, Pill, ReasonDrawer, STAGES, Tabs, day, useParamState, usePerm } from './shared';
+import { Footer, FormError, Pill, ReasonDrawer, STAGES, day, tabItems, useParamState, usePerm } from './shared';
 
 /**
  * Referrals (A20): every referral with who made it, where the candidate is and the bonus; and
@@ -71,16 +71,27 @@ export default function Referrals({ params = {}, openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Referrals' }]} title="Referrals"
-        actions={canEdit ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setRule(true)}>Bonus rule</button> : null} />
+      {/* Refer someone is the one primary action here (People plan, 8 Nov 2026), not a menu entry of its own. */}
+      <ListHeader
+        module="Talent"
+        title="Referrals"
+        description="People your staff put forward, where each stands, and the bonus owed when one is hired."
+        secondary={canEdit ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setRule(true)}>Bonus rule</button> : null}
+        primary={{ label: 'Refer someone', onClick: () => openScreen?.('referMe') }}
+        toolbar={report ? null : (
+          <>
+            <SearchField value={q} onSearch={setQ} placeholder="Search candidate, job or referrer" label="Search referrals" className="w-full sm:w-72" />
+            <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Opening" placeholder="Every opening" value={opening} alwaysSearch={(openings.data || []).length > 8} onChange={(v) => setOpening(v || '')} options={[{ value: '', label: 'Every opening' }, ...(openings.data || []).map((o) => ({ value: o.id, label: o.title }))]} /></div>
+          </>
+        )}
+        tabs={tabItems(TABS.map(([k, l]) => [k, l, k !== 'report' && k !== 'all' ? counts[k] : undefined]))}
+        tab={status}
+        onTab={setStatus}
+      />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : report ? (
-        <>
-          <Tabs label="Referrals" tabs={TABS.map(([k, l]) => [k, l, k !== 'report' ? counts[k] : undefined])} value={status} onChange={setStatus} />
-          <Report data={req.data} loading={req.loading} money={money} />
-        </>
+        <Report data={req.data} loading={req.loading} money={money} />
       ) : (
         <DataTable
-          tabs={<Tabs label="Referrals" tabs={TABS.map(([k, l]) => [k, l, k !== 'report' && k !== 'all' ? counts[k] : undefined])} value={status} onChange={setStatus} />}
           label="Referrals" columns={columns} rows={rows} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun="referrals"
           onRowClick={(r) => setOpen(r.candidateId)} rowActions={rowActions}
           card={(r) => (
@@ -92,13 +103,7 @@ export default function Referrals({ params = {}, openScreen }) {
           )}
           empty={q || opening || status !== 'all'
             ? <EmptyState kind="filtered" title="No referrals match" description="Nothing here matches the search, the opening or the tab." />
-            : <EmptyState title="No referrals yet" description="Open a job to referrals and your staff can put people forward from their phone." routes={[{ label: 'Job openings', onSelect: () => openScreen?.('recruitment') }]} />}
-          toolbar={(
-            <>
-              <SearchField value={q} onSearch={setQ} placeholder="Search candidate, job or referrer" label="Search referrals" className="w-full sm:w-72" />
-              <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Opening" placeholder="Every opening" value={opening} alwaysSearch={(openings.data || []).length > 8} onChange={(v) => setOpening(v || '')} options={[{ value: '', label: 'Every opening' }, ...(openings.data || []).map((o) => ({ value: o.id, label: o.title }))]} /></div>
-            </>
-          )} />
+            : <EmptyState title="No referrals yet" description="Open a job to referrals and your staff can put people forward from their phone." routes={[{ label: 'Job openings', onSelect: () => openScreen?.('recruitment') }]} />} />
       )}
       {open ? <CandidateDrawer id={open} hr known={[]} canEdit={canEdit} canHire={canEdit && allowed('PEOPLE::Employees::CREATE')} canOffer={canEdit && allowed('PEOPLE::Documents::CREATE')} onClose={() => setOpen(null)} onChanged={req.reload} onHired={() => req.reload()} /> : null}
       {rule ? <RuleDrawer onClose={() => setRule(false)} /> : null}

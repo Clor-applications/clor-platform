@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MoreHorizontal, Plus, Search } from 'lucide-react';
+import { MoreHorizontal, Plus, Search } from '@ui/components/ui/lineIcons';
 
 import { MoreButton } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';

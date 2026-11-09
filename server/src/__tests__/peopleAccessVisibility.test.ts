@@ -127,6 +127,9 @@ describe('gap 3: People roles may act on their own leave and attendance', () => 
     await outsideTenant('test: roles as they were before the change, and as administrators changed some', async () => {
       /* Made from the old templates: no My attendance CREATE, and Team Manager without Performance VIEW. */
       await platformPrisma.rolePermission.deleteMany({ where: { roleId: { in: all }, permissionId: create.id } });
+      /* Nor the Attendance grants the templates gained later (20261121090000_attendance_role_grants). */
+      const later = await platformPrisma.permission.findMany({ where: { module: 'ATTENDANCE', subModule: { in: ['Attendance Records', 'Shifts'] } }, select: { id: true } });
+      await platformPrisma.rolePermission.deleteMany({ where: { roleId: { in: all }, permissionId: { in: later.map((x) => x.id) } } });
       await platformPrisma.rolePermission.deleteMany({ where: { roleId: { in: [teamMgr.id, wideMgr.id] }, permissionId: perf.id } });
       /* An administrator unticked something on this HR Manager: the roles screen deletes the row, no refusal is kept. */
       await platformPrisma.rolePermission.deleteMany({ where: { roleId: hrMgr.id, permissionId: empDelete.id } });

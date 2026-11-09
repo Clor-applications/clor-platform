@@ -3,7 +3,6 @@ import { Check } from '@ui/components/ui/lineIcons';
 
 import Illustration from './Illustration';
 import { iconFor } from './entityIdentity';
-import { COLOR_ENTITY_ICON, useIconSet } from './iconSet';
 import { resolveStatus } from '../../utils/statusRegistry';
 
 /**
@@ -34,8 +33,7 @@ import { resolveStatus } from '../../utils/statusRegistry';
  * rather than choosing an icon and a colour for itself.
  */
 export const EntityMark = ({ entity, size = 18 }) => {
-  const iconSet = useIconSet();
-  const icon = (iconSet === 'color' && COLOR_ENTITY_ICON[entity]) || iconFor(entity);
+  const icon = iconFor(entity);
   if (!icon) return null;
   return (
     <span
@@ -233,6 +231,9 @@ export const EmptyState = ({
   onClearFilters = null,
   /** [{ label, description, onSelect }] — the real ways to a first record. */
   routes = [],
+  /** Say the description on a nothing-yet state too. People's lists do (plan 8 Nov 2026, §3 rule 4: one sentence on
+      what the screen is for and one action); Accounting's keep the heading alone, as decided before. */
+  describe = false,
 }) => {
   const isFiltered = kind === 'filtered';
   const isDisabled = kind === 'disabled';
@@ -279,7 +280,7 @@ export const EmptyState = ({
         records exist and the filters are hiding them, which the heading
         cannot say on its own.
       */}
-      {body && isFiltered ? <div className="ui-muted ui-t-body mt-1 max-w-md">{body}</div> : null}
+      {body && (isFiltered || describe) ? <div className="ui-muted ui-t-body mt-1 max-w-md">{body}</div> : null}
 
       {isFiltered && filters.length ? (
         <div className="mt-3 flex flex-wrap gap-1.5 justify-center">
@@ -331,7 +332,9 @@ export const EmptyState = ({
             blank screen in the product puts the button you came to press.
           */
           <div className="mt-4 flex flex-col items-center gap-2">
-            <button type="button" onClick={routes[0].onSelect} className="ui-btn ui-btn-primary">
+            {/* Secondary, not primary: the screen's one primary is top right (DESIGN.md, Component Contract rule 1;
+                People plan 8 Nov 2026, step 3). The empty state repeats the way in, it does not compete with it. */}
+            <button type="button" onClick={routes[0].onSelect} className="ui-btn ui-btn-secondary">
               {routes[0].label}
             </button>
             {routes[0].description ? (

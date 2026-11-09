@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Copy, Plus, Trash2 } from 'lucide-react';
+import { Copy, Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { orgId as platformOrgId, requestOpenApp } from '@platform/context';

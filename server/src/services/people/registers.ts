@@ -46,7 +46,8 @@ export async function musterRoll(accountId: string, orgId: string, month: string
       if (!s) {
         if (ctx.holidaysFor(p as any).has(d)) s = 'HOLIDAY';
         else if (isWeeklyOff(ctx.shiftOn(p.id, d).rule, d)) s = 'WEEKLY_OFF';
-        else if (d <= ctx.today && attendanceOn) s = 'ABSENT';
+        /* Before the company kept attendance on CLOR (its start date) a day with nothing recorded is blank, not absent. */
+        else if (d <= ctx.today && attendanceOn && !ctx.untracked(p.id, d)) s = 'ABSENT';
       }
       const m = s ? MARK[s] || '' : '';
       if (m in tally) tally[m] += 1;

@@ -81,7 +81,10 @@ describe('the app home screen', () => {
     const sn = serial();
     await addReader(c, sn);
     const t = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
-    await reader(sn).push([`H2\t${t} 09:05:00\t0\t1`]).expect(200);
+    // A punch from a minute ago: one stamped later today is held as still ahead of the clock.
+    const ago = new Date(Date.now() + 330 * 60_000 - 60_000).toISOString();
+    const stamp = ago.slice(0, 10) === t ? ago.slice(11, 19) : '00:00:01';
+    await reader(sn).push([`H2\t${t} ${stamp}\t0\t1`]).expect(200);
     const me = await portalFor(c, p.id, 'H2');
     const h = (await me.get('/home').expect(200)).body;
     expect(h.company.name).toMatch(/Home Co/);

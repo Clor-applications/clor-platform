@@ -7,8 +7,8 @@ const base = () => `/orgs/${encodeURIComponent(orgId())}/people`;
 const send = (path, method, body) => apiFetch(`${base()}${path}`, { method, body, ...opts });
 
 export const getOverview = () => apiFetch(`${base()}/overview`, opts);
-/* People → Home: what needs someone today (server: services/people/home.ts). */
-export const getPeopleHome = () => apiFetch(`${base()}/home`, opts).then((r) => r?.todos || []);
+/** People → Home (server: services/people/home.ts): the to-dos, the one waiting number (the inbox's own), probation ending, this week and last month's close. */
+export const getPeopleHome = () => apiFetch(`${base()}/home`, opts).then((r) => ({ todos: r?.todos || [], waiting: Number(r?.waiting) || 0, probation: r?.probation ?? null, week: r?.week ?? null, monthClose: r?.monthClose ?? null }));
 /* People → Home's setup list and simple mode's suggestion (server: services/people/setup.ts). */
 export const getPeopleSetup = () => apiFetch(`${base()}/setup`, opts);
 /* { action: 'skip' | 'unskip' | 'hide' | 'show' | 'simpleAdviceSeen', step? } */
@@ -115,6 +115,9 @@ export const getDataHealth = () => apiFetch(`${base()}/data-health`, opts);
 /* Snooze a Health check item with a reason and a date (HLTH-03); headcount and movements (HLTH-04). */
 export const snoozeHealthCheck = (checkId, body) => send(`/data-health/${encodeURIComponent(checkId)}/snooze`, 'POST', body);
 export const unsnoozeHealthCheck = (checkId) => send(`/data-health/${encodeURIComponent(checkId)}/snooze`, 'DELETE');
+/* Days the old full-day rule paid short, marked paid once the difference went out (server: attendance full-day/paid). */
+export const markFullDaysPaid = (ids, note) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/attendance/full-day/paid`, { ...opts, method: 'POST', body: { ids, note } });
+export const unmarkFullDaysPaid = (ids) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/attendance/full-day/unpaid`, { ...opts, method: 'POST', body: { ids } });
 export const getHeadcount = (params = {}) => apiFetch(`${base()}/headcount?${new URLSearchParams(Object.entries(params).filter(([, v]) => v))}`, opts);
 /* What else a change affects (LIFE-04): asked before the form is sent, with the fields as they would be saved. */
 export const getChangeImpact = (id, fields) => {

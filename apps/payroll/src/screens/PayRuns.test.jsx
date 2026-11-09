@@ -58,3 +58,17 @@ it('still lists the runs and offers a run when only the pay groups are refused',
   expect(screen.getAllByRole('button', { name: /Run payroll/ })[0]).not.toBeDisabled();
   expect(screen.queryByRole('alert')).toBeNull();
 });
+
+/* Review of #138, S4: tax withheld without a PAN is approved only by name. */
+it('approving with tax withheld without a PAN names the people and sends who was acknowledged', async () => {
+  const { approvePayrollRun } = await import('../api/payrollRuns');
+  const { confirmDialog } = await import('@ui/components/ui/notify');
+  const refused = Object.assign(new Error('withheld without a PAN'), { code: 'NO_PAN_UNACKNOWLEDGED', data: { people: [{ employeeId: 'e7', name: 'Ravi Kumar' }] } });
+  vi.mocked(approvePayrollRun).mockRejectedValueOnce(refused).mockResolvedValueOnce({ run: {} });
+  vi.mocked(confirmDialog).mockResolvedValue(true);
+  const user = userEvent.setup();
+  render(<RunPrimaryAction run={{ ...calculated, status: 'REVIEW', number: 'PR-0001', netTotal: 100, employeeCount: 1 }} busy="" act={act} runId="r1" setIssues={() => {}} />);
+  await user.click(screen.getByRole('button', { name: 'Approve payroll' }));
+  await waitFor(() => expect(approvePayrollRun).toHaveBeenLastCalledWith('r1', { noPanAcknowledged: ['e7'] }));
+  expect(vi.mocked(confirmDialog).mock.calls[1][0].message).toMatch(/Ravi Kumar has no valid PAN/);
+});

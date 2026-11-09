@@ -317,7 +317,7 @@ export async function sendTemplate(opts: SendOptions) {
  * those tokens expire on their own (30 minutes, 24 hours).
  */
 export const withoutLinkTokens = (text: string) =>
-  String(text || '').replace(/([?&](?:token|share)=)[^\s&"'<>]+/gi, '$1[removed-after-sending]');
+  String(text || '').replace(/([?&](?:token|share|reset|verify)=)[^\s&"'<>]+/gi, '$1[removed-after-sending]');
 
 /** Attempts delivery of one outbox row and records the result. */
 export async function deliver(outboxId: string, accountId?: string | null, orgId?: string | null) {

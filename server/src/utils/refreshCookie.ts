@@ -26,7 +26,9 @@ const COOKIE_PATH = '/api/auth';
 
 const isProduction = () => String(process.env.NODE_ENV || '') === 'production';
 
-export const setRefreshCookie = (res: Response, token: string) => {
+/** `expiresAt` is the session's own end (#4: the company's "Stay signed in for"); 30 days when not given. */
+export const setRefreshCookie = (res: Response, token: string, expiresAt?: Date) => {
+  const maxAge = expiresAt ? Math.max(0, expiresAt.getTime() - Date.now()) : 30 * 24 * 60 * 60 * 1000;
   res.cookie(REFRESH_COOKIE, token, {
     httpOnly: true,
     // Over HTTPS only in production. Development is plain http on localhost, and
@@ -42,7 +44,7 @@ export const setRefreshCookie = (res: Response, token: string) => {
     path: COOKIE_PATH,
     // Matches the session's own life. The server is still the authority: a
     // revoked session is refused however long the cookie lasts.
-    maxAge: 30 * 24 * 60 * 60 * 1000,
+    maxAge,
   });
 };
 

@@ -42,7 +42,6 @@ export { OrgDepartments, OrgDesignations, OrgJobRoles, OrgTeams, OrgPositions, O
 export { default as Tags } from './screens/Tags';
 export { DataHealth } from './screens/DataHealth';
 export { default as LifecycleTasks } from '@ui/lifecycle/Tasks';
-export { default as LifecycleOverview } from '@ui/lifecycle/Overview';
 export { default as Joiners } from '@ui/lifecycle/Joining';
 export { default as LifecycleChanges } from '@ui/lifecycle/Changes';
 export { default as Leavers } from '@ui/lifecycle/Leaving';

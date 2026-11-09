@@ -124,7 +124,17 @@ export async function approveLoan(opts: { accountId: string; orgId: string; user
 
   const periodIds = loan.recoveryStartPeriodId ? await periodsFrom(opts.orgId, loan.recoveryStartPeriodId, schedule.length) : [];
 
+  /*
+   * The reads above were outside it (re-review of #145, N2). A cancel in
+   * between, overwritten by ACTIVE here, left instalments recovered from a
+   * cancelled loan. So the schedule lock the cancel and a run's recovery take,
+   * the status read again under it, and the loan moved only from DRAFT.
+   */
   return payrollPrisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payroll-loan-schedule:${loan.id}`}))`;
+    const now = await tx.payrollLoan.findFirst({ where: { orgId: opts.orgId, id: loan.id }, select: { status: true } });
+    if (!now || now.status === 'CANCELLED') throw new PayrollLoanError('LOAN_CANCELLED', 'This loan has just been cancelled.', 409);
+    if (now.status !== 'DRAFT') throw new PayrollLoanError('LOAN_CHANGED', 'This loan has just been approved by someone else. Reload it.', 409);
     await tx.payrollLoanInstallment.deleteMany({ where: { loanId: loan.id } });
     await tx.payrollLoanInstallment.createMany({
       data: schedule.map((row, i) => ({
@@ -146,8 +156,8 @@ export async function approveLoan(opts: { accountId: string; orgId: string; user
       })),
     });
 
-    return tx.payrollLoan.update({
-      where: { id: loan.id },
+    const moved = await tx.payrollLoan.updateMany({
+      where: { orgId: opts.orgId, id: loan.id, status: 'DRAFT' },
       data: {
         status: 'ACTIVE',
         installmentAmount: schedule[0]?.dueAmount ?? 0,
@@ -155,8 +165,9 @@ export async function approveLoan(opts: { accountId: string; orgId: string; user
         approvedByUserId: opts.userId,
         approvedAt: new Date(),
       },
-      include: { installments: { orderBy: { sequence: 'asc' } } },
     });
+    if (moved.count !== 1) throw new PayrollLoanError('LOAN_CHANGED', 'This loan has just changed. Reload it.', 409);
+    return tx.payrollLoan.findUniqueOrThrow({ where: { id: loan.id }, include: { installments: { orderBy: { sequence: 'asc' } } } });
   });
 }
 

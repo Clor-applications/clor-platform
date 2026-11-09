@@ -8,7 +8,7 @@ import { writeEvent } from './outbox.js';
 import { registerJob } from '../jobRegistry.js';
 import { verifiedMime } from '../fileType.js';
 import { applicability, dueDates, staleLevyItem } from './compliance.js';
-import { addDays, istDate, todayIst } from '../../utils/istDate.js';
+import { addDays, dayWords, istDate, todayIst } from '../../utils/istDate.js';
 
 /**
  * The rule library and the obligations it produces (docs/people/02-PRD.md
@@ -473,7 +473,7 @@ export async function runObligationDues(now = new Date()) {
           await tx.obligation.update({ where: { id: o.id }, data: { dueToldAt: now } });
           await writeEvent(tx, { accountId, orgId, correlationId: `obligation_${o.id}` }, 'people.obligation.due.v1', { obligationId: o.id, ruleId: o.ruleId, ruleVersion: o.ruleVersion, establishmentId: o.establishmentId, period: o.period, title: o.title, dueOn: o.dueOn, status: o.status });
         });
-        const notice = { kind: 'people.obligation', title: `${o.status === 'OVERDUE' ? 'Overdue' : 'Due soon'}: ${o.title}`, body: `Due ${o.dueOn}.`, link: ownerLink(o.id) };
+        const notice = { kind: 'people.obligation', title: `${o.status === 'OVERDUE' ? 'Overdue' : 'Due soon'}: ${o.title}`, body: `Due ${dayWords(o.dueOn)}.`, link: ownerLink(o.id) };
         if (o.ownerUserId) await notifyUsers(accountId, orgId, [o.ownerUserId], notice).catch(() => undefined);
         else await notifyPermission(accountId, orgId, 'PEOPLE::Employees::EDIT', notice).catch(() => undefined);
         n += 1;

@@ -8,7 +8,7 @@ const q = (params) => {
 };
 
 export const opsMe = () => apiFetch('/ops/me', o);
-export const opsStartTwoFactor = () => apiFetch('/ops/two-factor/setup', { ...o, method: 'POST' });
+export const opsStartTwoFactor = (password) => apiFetch('/ops/two-factor/setup', { ...o, method: 'POST', body: { password } });
 export const opsEnableTwoFactor = (code) => apiFetch('/ops/two-factor/enable', { ...o, method: 'POST', body: { code } });
 export const opsOverview = () => apiFetch('/ops/overview', o);
 export const opsAccounts = (params) => apiFetch(`/ops/accounts${q(params)}`, o);
@@ -21,3 +21,8 @@ export const opsAudit = (params) => apiFetch(`/ops/audit${q(params)}`, o);
 export const opsOperators = () => apiFetch('/ops/operators', o);
 export const opsAddOperator = (body) => apiFetch('/ops/operators', { ...o, method: 'POST', body });
 export const opsChangeOperator = (userId, body) => apiFetch(`/ops/operators/${encodeURIComponent(userId)}`, { ...o, method: 'PATCH', body });
+/* Demo requests from clor.in (server: routes/demoRequests.ts). */
+export const opsDemoRequests = (params) => apiFetch(`/ops/demo-requests${q(params)}`, o);
+export const opsDemoRequest = (id) => apiFetch(`/ops/demo-requests/${encodeURIComponent(id)}`, o);
+export const opsSetDemoStatus = (id, body) => apiFetch(`/ops/demo-requests/${encodeURIComponent(id)}`, { ...o, method: 'PATCH', body });
+export const opsCreateDemoAccount = (id, body) => apiFetch(`/ops/demo-requests/${encodeURIComponent(id)}/create-account`, { ...o, method: 'POST', body });

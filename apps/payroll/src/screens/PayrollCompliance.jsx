@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, PenLine, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Check, PenLine, Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';

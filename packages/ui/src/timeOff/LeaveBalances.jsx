@@ -3,7 +3,8 @@ import { Trash2 } from '@ui/components/ui/lineIcons';
 
 import { useListSearch } from '@ui/components/ListToolbar';
 import { usePaged, useResetPage } from '@ui/components/list/ListPageParts';
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { SkeletonCard } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
@@ -29,9 +30,10 @@ import { addLeaveAdjustment, deleteLeaveAdjustment, getLeaveBalances, getLeaveLe
 const KIND = { CARRIED: 'Carried in', EARNED: 'Earned', CREDIT: 'Credited', UPCOMING: 'To be credited', ALLOCATED: 'Set for this person', ADJUST: 'Changed by HR', ENCASH: 'Reserved for payout', TAKEN: 'Approved', PENDING: 'Waiting' };
 const signed = (n) => `${n > 0 ? '+' : ''}${n}`;
 
-export default function LeaveBalances() {
+export default function LeaveBalances({ openScreen }) {
   const perms = usePermissions();
   const canChange = can(perms, 'ATTENDANCE::Leave Requests::EDIT');
+  const setUpTypes = can(perms, 'ATTENDANCE::Leave Types::EDIT') && openScreen ? () => openScreen('leaveTypes') : null;
   const settings = useRequest(() => getLeaveSettings().catch(() => null), []);
   const [picked, setPicked] = useState(null);
   const year = picked ?? settings.data?.current?.year ?? (settings.loading ? null : thisYear());
@@ -77,9 +79,23 @@ export default function LeaveBalances() {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={homeCrumbs()} title="Leave balances" actions={canChange && types.length ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setGranting(true)}>Grant leave to many</button> : null} />
+      <ListHeader
+        breadcrumb={homeCrumbs()}
+        title="Leave balances"
+        description="Everyone's days for the leave period, and the ledger behind each number."
+        primary={data && !types.length ? (setUpTypes ? { label: 'Set up leave types', onClick: setUpTypes } : null)
+          : canChange && types.length ? { label: 'Grant leave to many', onClick: () => setGranting(true) } : null}
+        toolbar={data && types.length ? <>
+          <SearchField value={search.query} onSearch={search.setQuery} placeholder="Search name, employee ID or department" label="Search balances" className="w-full sm:w-80" />
+          {choices.length > 1 ? (
+            <div className="w-full sm:w-48">
+              <PopupSelect showValueSubtext={false} ariaLabel="Leave period" value={String(year || '')} onChange={(v) => v && setPicked(Number(v))} options={choices.map((c) => ({ value: String(c.year), label: c.label }))} />
+            </div>
+          ) : null}
+        </> : null}
+      />
       {req.error && !data ? <ErrorState error={req.error} onRetry={req.reload} /> : !data ? <SkeletonCard lines={6} /> : !types.length ? (
-        <EmptyState title="No paid leave types yet" description="Add them in Settings → Leave policy." />
+        <EmptyState title="No paid leave types yet" description={<>Leave balances need at least one paid leave type. Set them up under {setUpTypes ? <button type="button" className="ui-link" onClick={setUpTypes}>Settings › Leave policy</button> : 'Settings › Leave policy'}.</>} />
       ) : (
         <DataTable
           label="Leave balances"
@@ -101,14 +117,6 @@ export default function LeaveBalances() {
               <span className="block ui-caption tabular-nums">{types.map((t) => `${t.code || t.name} ${r.balances[t.id]?.available ?? '—'}`).join(' · ')}</span>
             </span>
           )}
-          toolbar={<>
-            <SearchField value={search.query} onSearch={search.setQuery} placeholder="Search name, employee ID or department" label="Search balances" className="w-full sm:w-80" />
-            {choices.length > 1 ? (
-              <div className="w-full sm:w-48">
-                <PopupSelect showValueSubtext={false} ariaLabel="Leave period" value={String(year || '')} onChange={(v) => v && setPicked(Number(v))} options={choices.map((c) => ({ value: String(c.year), label: c.label }))} />
-              </div>
-            ) : null}
-          </>}
           empty={search.query ? <EmptyState kind="filtered" title="Nobody matches" onClearFilters={() => search.setQuery('')} /> : <EmptyState title="Nobody employed in this period" />}
         />
       )}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileClock, KeyRound, ShieldCheck, UserCog } from 'lucide-react';
+import { FileClock, KeyRound, ShieldCheck, UserCog } from '@ui/components/ui/lineIcons';
 
 /**
  * The brand side of the operator console's sign-in.

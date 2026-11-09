@@ -3785,7 +3785,7 @@ const AppShell = () => {
             >
               <PanelLeftOpen size={18} aria-hidden="true" />
             </button> : null}
-            <img src={currentCompany?.logo || '/clor-logo.png'} alt={currentCompany?.logo ? `${activeOrgName} logo` : 'CLOR'} className="h-5 w-5 shrink-0 object-contain" />
+            <img src={currentCompany?.logo || '/icon.svg'} alt={currentCompany?.logo ? `${activeOrgName} logo` : 'CLOR'} className="h-5 w-5 shrink-0 object-contain" />
             <div className="relative" ref={orgMenuRef}>
                 <button
                   type="button"

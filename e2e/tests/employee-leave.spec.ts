@@ -33,7 +33,7 @@ test.describe('Priya asks for leave in the employee app', () => {
     /* Rahul is told: the request waits in his Approvals, and his bell says so. */
     const rahul = await web('manager');
     await rahul.goto();
-    await rahul.open('Approvals');
+    await rahul.open('Inbox');
     const item = rahul.row(`${shortDate(from)} – ${shortDate(to)}`);
     await expect(item).toContainText('Priya Sharma');
     await expect(item).toContainText('Casual leave');
@@ -114,7 +114,7 @@ test.describe('Priya asks for leave in the employee app', () => {
 
     const rahul = await web('manager');
     await rahul.goto();
-    await rahul.open('Approvals');
+    await rahul.open('Inbox');
     await expect(rahul.row(`${shortDate(from)} – ${shortDate(to)}`)).toHaveCount(0);
   });
 });

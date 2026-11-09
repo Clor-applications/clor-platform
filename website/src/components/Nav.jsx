@@ -20,7 +20,7 @@ function ProductsMenu({ onPick }) {
                     <Mark product={p} size={34} />
                     <span className="mega-text">
                       <span className="mega-name">
-                        Clor {p.name} <Status product={p} />
+                        CLOR&nbsp;{p.name} <Status product={p} />
                       </span>
                       <span className="mega-line">{p.line}</span>
                     </span>
@@ -60,6 +60,31 @@ function ListMenu({ items, onPick }) {
   );
 }
 
+/* Two doors: the company's own users, and staff who only punch, ask for leave and read payslips. */
+const DOORS = [
+  { href: SITE.signInUrl, name: 'Company sign-in', line: 'Owners, HR, managers and accountants.' },
+  { href: SITE.portalUrl, name: 'Employee portal', line: 'Punch in, ask for leave, see your payslips.' },
+];
+
+function SignInMenu({ onPick }) {
+  return (
+    <div className="mega mega--list">
+      <ul>
+        {DOORS.map((d) => (
+          <li key={d.name}>
+            <a href={d.href} className="mega-item mega-item--plain" onClick={onPick}>
+              <span className="mega-text">
+                <span className="mega-name">{d.name}</span>
+                <span className="mega-line">{d.line}</span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 const MENUS = [
   { key: 'products', label: 'Products' },
   { key: 'solutions', label: 'Solutions', items: NAV.solutions },
@@ -72,8 +97,24 @@ export default function Nav() {
   const path = usePath();
   const [open, setOpen] = useState(null);
   const [mobile, setMobile] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const ref = useRef(null);
+  /* A mouse opens a menu on hover; the click that follows must not close it again. */
+  const hoveredAt = useRef(0);
+  const hover = (key) => ({
+    onMouseEnter: () => {
+      hoveredAt.current = Date.now();
+      setOpen(key);
+    },
+    onMouseLeave: () => setOpen(null),
+  });
+  /* The control that opened a menu, so Escape can hand focus back to it. */
+  const opener = useRef(null);
+  const burger = useRef(null);
+  const panel = useRef(null);
+  const toggle = (key) => (e) => {
+    opener.current = e.currentTarget;
+    setOpen((cur) => (cur === key && Date.now() - hoveredAt.current > 400 ? null : key));
+  };
   const close = () => {
     setOpen(null);
     setMobile(false);
@@ -87,30 +128,58 @@ export default function Nav() {
     setMobile(false);
   }
   useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && close();
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (mobile) {
+        setMobile(false);
+        burger.current?.focus();
+      } else if (open) {
+        setOpen(null);
+        opener.current?.focus();
+      }
+    };
     const onClick = (e) => ref.current && !ref.current.contains(e.target) && setOpen(null);
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    /* The page may open scrolled (Back, a #link): read it on the next frame, not inside the effect. */
-    const frame = requestAnimationFrame(onScroll);
     window.addEventListener('keydown', onKey);
     document.addEventListener('pointerdown', onClick);
-    window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      cancelAnimationFrame(frame);
       window.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onClick);
-      window.removeEventListener('scroll', onScroll);
     };
-  }, []);
+  }, [open, mobile]);
+
+  /*
+   * The open phone menu is the whole page for the moment: the page behind is
+   * inert and does not scroll, and Tab circles between the close button and
+   * the menu's own links.
+   */
   useEffect(() => {
-    document.body.style.overflow = mobile ? 'hidden' : '';
+    if (!mobile) return undefined;
+    const behind = [document.getElementById('main'), document.querySelector('body > #root > footer, footer.footer')].filter(Boolean);
+    behind.forEach((el) => (el.inert = true));
+    document.body.style.overflow = 'hidden';
+    const items = () => [burger.current, ...panel.current.querySelectorAll('a[href], button')].filter(Boolean);
+    items()[1]?.focus();
+    const onTab = (e) => {
+      if (e.key !== 'Tab') return;
+      const list = items();
+      const at = list.indexOf(document.activeElement);
+      const next = e.shiftKey ? (at <= 0 ? list.length - 1 : at - 1) : at === -1 || at === list.length - 1 ? 0 : at + 1;
+      e.preventDefault();
+      list[next].focus();
+    };
+    document.addEventListener('keydown', onTab);
+    return () => {
+      behind.forEach((el) => (el.inert = false));
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', onTab);
+    };
   }, [mobile]);
 
   const section = (key) => (key === 'products' ? path.startsWith('/products') : MENUS.find((m) => m.key === key)?.items?.some((i) => path.startsWith(i.href)));
 
   return (
     <>
-    <header className={`nav${scrolled ? ' nav--scrolled' : ''}`} ref={ref}>
+    <header className="nav" ref={ref}>
       <div className="wrap nav-bar">
         <Logo />
         <nav className="nav-main" aria-label="Main">
@@ -123,8 +192,8 @@ export default function Nav() {
                   </Link>
                 </li>
               ) : (
-                <li key={m.key} onMouseEnter={() => setOpen(m.key)} onMouseLeave={() => setOpen(null)}>
-                  <button type="button" className={`nav-trigger${section(m.key) ? ' is-current' : ''}`} aria-expanded={open === m.key} onClick={() => setOpen(open === m.key ? null : m.key)}>
+                <li key={m.key} {...hover(m.key)}>
+                  <button type="button" className={`nav-trigger${section(m.key) ? ' is-current' : ''}`} aria-expanded={open === m.key} onClick={toggle(m.key)}>
                     {m.label}
                     <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
                   </button>
@@ -135,13 +204,19 @@ export default function Nav() {
           </ul>
         </nav>
         <div className="nav-end">
-          <a className="btn btn--text nav-signin" href={SITE.signInUrl}>
-            Sign in
-          </a>
-          <a className="btn btn--primary" href={SITE.signUpUrl}>
-            Get started
-          </a>
-          <button type="button" className="nav-burger" aria-expanded={mobile} aria-controls="mobile-menu" onClick={() => setMobile(!mobile)}>
+          <div className="nav-doors" {...hover('signin')}>
+            <button type="button" className="nav-trigger" aria-expanded={open === 'signin'} onClick={toggle('signin')}>
+              Sign in
+              <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
+            </button>
+            <div className={`mega-wrap mega-wrap--end${open === 'signin' ? ' is-open' : ''}`}>
+              <SignInMenu onPick={close} />
+            </div>
+          </div>
+          <Link href={SITE.demoUrl} className="btn btn--primary nav-demo">
+            Request a demo
+          </Link>
+          <button type="button" ref={burger} className="nav-burger" aria-expanded={mobile} aria-controls="mobile-menu" onClick={() => setMobile(!mobile)}>
             <span className="sr-only">{mobile ? 'Close menu' : 'Open menu'}</span>
             {mobile ? <X size={20} strokeWidth={1.75} aria-hidden="true" /> : <Menu size={20} strokeWidth={1.75} aria-hidden="true" />}
           </button>
@@ -150,7 +225,7 @@ export default function Nav() {
     </header>
 
       {/* Outside the header: its backdrop blur would otherwise be the box this fixed panel is placed in. */}
-      <div id="mobile-menu" className={`mobile${mobile ? ' is-open' : ''}`} hidden={!mobile}>
+      <div id="mobile-menu" ref={panel} className={`mobile${mobile ? ' is-open' : ''}`} hidden={!mobile}>
         <div className="wrap">
           <p className="mega-cat">Products</p>
           <ul className="mobile-products">
@@ -160,7 +235,7 @@ export default function Nav() {
                   <Mark product={p} size={32} />
                   <span className="mega-text">
                     <span className="mega-name">
-                      Clor {p.name} <Status product={p} />
+                      CLOR&nbsp;{p.name} <Status product={p} />
                     </span>
                   </span>
                 </Link>
@@ -187,10 +262,18 @@ export default function Nav() {
                 Pricing
               </Link>
             </li>
-            <li>
-              <a href={SITE.signInUrl}>Sign in</a>
-            </li>
           </ul>
+          <p className="mega-cat">Sign in</p>
+          <ul className="mobile-list">
+            {DOORS.map((d) => (
+              <li key={d.name}>
+                <a href={d.href}>{d.name}</a>
+              </li>
+            ))}
+          </ul>
+          <Link href={SITE.demoUrl} className="btn btn--primary btn--lg mobile-demo" onClick={close}>
+            Request a demo
+          </Link>
         </div>
       </div>
     </>

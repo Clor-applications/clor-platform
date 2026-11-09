@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CheckCheck, Clock, MessageSquareWarning, Smartphone } from 'lucide-react';
+import { CheckCheck, Clock, MessageSquareWarning, Smartphone } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';

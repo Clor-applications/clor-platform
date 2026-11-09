@@ -65,6 +65,8 @@ const TABLES: Array<{ table: string; model: string; make: (c: Ctx, employeeId: s
   { table: 'AutomationRun', model: 'automationRun', make: (c) => ({ accountId: c.accountId, orgId: c.orgId, key: 'birthdays', ranOn: `2099-03-${rnd()}` }) },
   { table: 'CelebrationOptOut', model: 'celebrationOptOut', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, byUserId: 'u' }) },
   { table: 'GreetingPost', model: 'greetingPost', make: (c) => ({ accountId: c.accountId, orgId: c.orgId, onDate: '2099-01-01', kind: 'HOLIDAY', key: `HOLIDAY:${rnd()}`, text: 'x' }) },
+  /* The full-day rule fix's record of the days it corrected or held (attendance audit 7 Nov 2026, PR #141). */
+  { table: 'AttendanceFullDayReview', model: 'attendanceFullDayReview', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, employeeId, date: '2026-09-09', recordId: `rec-${rnd()}${rnd()}`, fromStatus: 'HALF_DAY', toStatus: 'PRESENT', workedMinutes: 474, outcome: 'HELD', reason: 'PAYROLL_TAKEN' }) },
   /* Workflow engine 2a (docs/people/workflow-engine/SPEC.md 6): no new table; the new columns (a rule variant, a request's source record, a step's slot) sit behind the existing policies. */
   { table: 'ApprovalRule', model: 'approvalRule', make: (c) => ({ accountId: c.accountId, orgId: c.orgId, name: 'Pune', requestType: 'JOB_CHANGE', variantKey: `v-${rnd()}`, specVersion: 2, appliesWhen: [{ field: 'branchId', op: 'eq', value: 'x' }], priority: 1, steps: [] }) },
   { table: 'ApprovalRequest', model: 'approvalRequest', make: (c, employeeId) => ({ accountId: c.accountId, orgId: c.orgId, requestType: 'JOB_CHANGE', subjectEmployeeId: employeeId, requesterUserId: 'u', ruleId: 'r', ruleVersion: 1, title: 'x', payload: {}, sourceKind: 'LEAVE', sourceId: `l-${rnd()}`, ruleVariant: 'v', steps: { create: [{ accountId: c.accountId, orgId: c.orgId, order: 1, slot: 1, mode: 'ALL', candidateUserIds: [], dueAt: new Date(), resolvedHow: 'STAND_IN' }] } }) },
@@ -97,4 +99,20 @@ describe('row-level security on the new People tables', () => {
       expect(touched.count).toBe(0);
     });
   }
+});
+
+describe('full-day review rows across companies', () => {
+  it('company B can neither read nor mark paid (or undo) a held day of company A, through the API or the client', async () => {
+    const held = await runInTenant(a.orgId, () => peoplePrisma.attendanceFullDayReview.create({ data: { accountId: a.accountId, orgId: a.orgId, employeeId: employeeA, date: '2026-09-09', recordId: `rec-${rnd()}${rnd()}`, fromStatus: 'HALF_DAY', toStatus: 'PRESENT', workedMinutes: 474, outcome: 'HELD', reason: 'PAYROLL_TAKEN' } }));
+    await request(app).put(`/api/orgs/${b.orgId}/features`).set(at(b)).send({ features: { people: true, attendance: true } }).expect(200);
+    /* B's own company, B's own route: A's row is not there to settle. */
+    expect((await request(app).post(`/api/orgs/${b.orgId}/attendance/full-day/paid`).set(at(b)).send({ ids: [held.id] })).status).toBe(409);
+    /* A's company in the path with B's sign-in: refused before anything is read. */
+    expect([403, 404]).toContain((await request(app).post(`/api/orgs/${a.orgId}/attendance/full-day/paid`).set(at(b)).send({ ids: [held.id] })).status);
+    expect([403, 404]).toContain((await request(app).get(`/api/orgs/${a.orgId}/people/data-health`).set(at(b))).status);
+    const health = (await request(app).get(`/api/orgs/${b.orgId}/people/data-health`).set(at(b)).expect(200)).body;
+    expect(JSON.stringify(health)).not.toContain(held.id);
+    expect(await runInTenant(b.orgId, () => peoplePrisma.attendanceFullDayReview.updateMany({ where: { id: held.id }, data: { settledAs: 'PAID', settledAt: new Date() } }))).toMatchObject({ count: 0 });
+    expect((await runInTenant(a.orgId, () => peoplePrisma.attendanceFullDayReview.findUnique({ where: { id: held.id } })))!.settledAt).toBeNull();
+  });
 });

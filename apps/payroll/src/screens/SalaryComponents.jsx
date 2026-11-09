@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BadgePercent, MinusCircle, Pencil, Plus, PlusCircle, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { BadgePercent, MinusCircle, Pencil, Plus, PlusCircle, SlidersHorizontal, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -777,6 +777,12 @@ const ComponentForm = ({ initial, onClose, onSaved }) => {
           <Check field="isVariable" label="Entered each month" hint="The amount is given per payroll rather than standing." />
           <Check field="isActive" label="Active" hint="An inactive component stays on old payslips but is offered nowhere new." />
         </div>
+        {/* Income tax counts only a method of "Entered each month" as a one-off (review of #146, 8). */}
+        {form.isVariable && form.calculationMethod !== 'VARIABLE' ? (
+          <p className="ui-caption mt-2" role="note" style={{ color: 'rgb(var(--warn-ink))' }}>
+            Marked as entered each month, but its method is “{METHODS.find((m) => m.id === form.calculationMethod)?.label || form.calculationMethod}”, so income tax treats it as pay that repeats every month. Choose “Entered each month” as the method if it is a one-off.
+          </p>
+        ) : null}
       </section>
 
       <div className="flex items-center justify-end gap-2 pt-1">

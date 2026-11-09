@@ -17,9 +17,13 @@ import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from '.
 import { PAYROLL_HISTORY, PAYROLL_SETUP, lockPayrollEmployee } from '../services/payroll/employeeLock.js';
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { BANK_FIELDS, BankChangeError, approveBankChange, maskNumber, rejectBankChange, routeBankUpdate } from '../services/payroll/bankChanges.js';
-import { requirePayrollStepUp } from '../services/stepUp.js';
+import { requirePayrollStepUp, stepUpIfEnrolledRefusal } from '../services/stepUp.js';
+import { REGIME_LOCKED_MESSAGE, financialYearOf, regimeFixedForYear, regimeInForce } from '../services/payroll/taxDeclaration.js';
+import { todayIst } from '../utils/istDate.js';
+import { recordAudit } from '../services/auditTrail.js';
 import { nomineesOf } from '../services/payroll/statutoryWrite.js';
 import { costCentreRefusal } from '../services/payroll/accounting/references.js';
+import { ownPayRefusal } from '../services/payroll/ownPay.js';
 
 /**
  * The people payroll pays, and the payroll-specific things known about them.
@@ -69,7 +73,8 @@ const bodySchema = z.object({
      anybody has decided how they are paid. */
   payroll: z
     .object({
-      payrollStatus: z.enum(PAYROLL_STATUSES).default('IN_PAYROLL'),
+      /* Left out means unchanged, as for PF/ESI/PT below (re-review of #145, N1): a default here reset OLD to NEW on every save that omitted it. A new profile takes the column default. */
+      payrollStatus: z.enum(PAYROLL_STATUSES).optional(),
       payGroupId: z.string().trim().optional().nullable(),
       costCenterId: z.string().trim().optional().nullable(),
       bankAccountName: z.string().trim().max(120).optional().nullable(),
@@ -80,7 +85,7 @@ const bodySchema = z.object({
       uan: z.string().trim().max(30).optional().nullable(),
       pfNumber: z.string().trim().max(40).optional().nullable(),
       esiNumber: z.string().trim().max(40).optional().nullable(),
-      taxRegime: z.enum(['OLD', 'NEW']).default('NEW'),
+      taxRegime: z.enum(['OLD', 'NEW']).optional(),
       professionalTaxState: z.string().trim().max(60).optional().nullable(),
       /* Left out means unchanged: a form without the switches must not turn PF and PT off (QA of #82, F9). New profiles start off. */
       pfApplicable: z.boolean().optional(),
@@ -164,7 +169,7 @@ async function mayRevealSensitive(req: any) {
 
 /** The payroll half, as it goes into the database. */
 const payrollData = (p: NonNullable<z.infer<typeof bodySchema>['payroll']>) => ({
-  payrollStatus: p.payrollStatus,
+  ...(p.payrollStatus !== undefined ? { payrollStatus: p.payrollStatus } : {}),
   payGroupId: blank(p.payGroupId),
   costCenterId: blank(p.costCenterId),
   bankAccountName: blank(p.bankAccountName),
@@ -175,12 +180,18 @@ const payrollData = (p: NonNullable<z.infer<typeof bodySchema>['payroll']>) => (
   uan: blank(p.uan),
   pfNumber: blank(p.pfNumber),
   esiNumber: blank(p.esiNumber),
-  taxRegime: p.taxRegime,
-  professionalTaxState: blank(p.professionalTaxState),
+  ...(p.taxRegime !== undefined ? { taxRegime: p.taxRegime } : {}),
+  /* Same for the PT state: left out is unchanged; sent blank clears it. */
+  ...(p.professionalTaxState !== undefined ? { professionalTaxState: blank(p.professionalTaxState) } : {}),
   ...(p.pfApplicable !== undefined ? { pfApplicable: p.pfApplicable } : {}),
   ...(p.esiApplicable !== undefined ? { esiApplicable: p.esiApplicable } : {}),
   ...(p.ptApplicable !== undefined ? { ptApplicable: p.ptApplicable } : {}),
 });
+
+/** Profile fields that change what is deducted from somebody's pay (ownPayRefusal on edit). */
+const OWN_STATUTORY_FIELDS = ['pfApplicable', 'esiApplicable', 'ptApplicable', 'taxRegime', 'professionalTaxState', 'pan', 'payrollStatus'];
+/** What a profile not yet on file holds, so sending the defaults is not a change. */
+const STATUTORY_DEFAULTS: Record<string, unknown> = { pfApplicable: false, esiApplicable: false, ptApplicable: false, taxRegime: 'NEW', payrollStatus: 'IN_PAYROLL' };
 
 payrollEmployeesRouter.get(
   '/orgs/:orgId/payroll/employees',
@@ -319,6 +330,30 @@ payrollEmployeesRouter.put(
       return res.status(400).json({ error: 'Somebody cannot leave before they joined.' });
     }
 
+    /*
+     * The tax regime is fixed for the year once a payslip went out on it
+     * (CBDT Circular 04/2023; review of #146, 10). Here it is the profile's
+     * regime, which counts only while the year has no declaration (the
+     * declaration's wins). An owner or administrator may override, with a
+     * reason and a fresh authenticator code where they have one.
+     */
+    let regimeOverride: { fy: string; from: string; to: string; reason: string } | null = null;
+    if (body.payroll?.taxRegime) {
+      const fy = financialYearOf(todayIst());
+      const inForce = await regimeInForce(orgId, existing.id, fy);
+      const declared = await payrollPrisma.taxDeclaration.count({ where: { orgId, employeeId: existing.id, financialYear: fy } });
+      if (!declared && body.payroll.taxRegime !== inForce && (await regimeFixedForYear(orgId, existing.id, fy))) {
+        const reason = String((req.body?.payroll as any)?.regimeOverrideReason || '').trim().slice(0, 300);
+        if (!reason) return res.status(409).json({ error: REGIME_LOCKED_MESSAGE, code: 'REGIME_LOCKED' });
+        if (!req.isAdmin) return res.status(403).json({ error: 'Only an owner or administrator can change the tax regime once the year has started.', code: 'ADMIN_ONLY' });
+        if (reason.length < 5) return res.status(400).json({ error: 'Say in a few words why the regime changes mid-year.', code: 'NO_REASON' });
+        const stepUp = await stepUpIfEnrolledRefusal(req);
+        if (stepUp) return res.status(stepUp.status).json(stepUp.body);
+        /* Audited once the save has gone through (re-review of #146), below. */
+        regimeOverride = { fy, from: inForce, to: body.payroll.taxRegime, reason };
+      }
+    }
+
     const code = blank(body.code);
     if (code && code !== existing.code) {
       const clash = await peoplePrisma.employee.findFirst({
@@ -326,6 +361,23 @@ payrollEmployeesRouter.put(
         select: { id: true },
       });
       if (clash) return res.status(409).json({ error: `An employee with the code ${code} already exists.` });
+    }
+
+    /*
+     * Nobody switches their own PF, ESI, PT, tax regime, PAN or payroll status
+     * (review of #145, S4): each one changes what is deducted from their own
+     * pay. Their name or phone they may; these, somebody else does.
+     */
+    if (body.payroll) {
+      const before = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: existing.id } });
+      const after = payrollData(body.payroll) as Record<string, unknown>;
+      /* A caller shown the PAN masked sends it back masked, and it is kept as it was below. */
+      const fields = (await mayRevealSensitive(req)) ? OWN_STATUTORY_FIELDS : OWN_STATUTORY_FIELDS.filter((k) => k !== 'pan');
+      const changed = fields.filter((k) => k in after && after[k] !== undefined && (after[k] ?? null) !== ((before as any)?.[k] ?? STATUTORY_DEFAULTS[k] ?? null));
+      if (changed.length) {
+        const own = await ownPayRefusal(req, existing.id, { what: 'tax and statutory settings', does: 'change them', module: PAYROLL_MODULE, resource: RESOURCE, action: 'EDIT', entity: 'EMPLOYEE_PAYROLL_PROFILE', entityId: before?.id || existing.id });
+        if (own) return res.status(own.status).json(own.body);
+      }
     }
 
     const row = await peoplePrisma.employee.update({
@@ -387,6 +439,26 @@ payrollEmployeesRouter.put(
         : await payrollPrisma.employeePayrollProfile.create({
             data: { accountId, orgId, employeeId: row.id, createdByUserId: req.auth!.userId, ...incoming },
           });
+    }
+
+    if (regimeOverride) {
+      /*
+       * A year with payslips keeps the regime its first payslip went out on
+       * (yearRegimes), not the profile's; so the override is written as that
+       * year's declaration regime, which the payroll reads first.
+       */
+      await payrollPrisma.taxDeclaration.upsert({
+        where: { orgId_employeeId_financialYear: { orgId, employeeId: existing.id, financialYear: regimeOverride.fy } },
+        create: { accountId, orgId, employeeId: existing.id, financialYear: regimeOverride.fy, regime: regimeOverride.to, updatedByUserId: req.auth!.userId },
+        update: { regime: regimeOverride.to, updatedByUserId: req.auth!.userId },
+      });
+      await recordAudit(req, {
+        entity: 'EMPLOYEE_PAYROLL_PROFILE',
+        entityId: existing.id,
+        action: 'REGIME_OVERRIDE',
+        message: `Changed ${existing.name}’s tax regime for ${regimeOverride.fy} from ${regimeOverride.from} to ${regimeOverride.to} after payslips went out: ${regimeOverride.reason}`,
+        metadata: { employeeId: existing.id, financialYear: regimeOverride.fy, from: regimeOverride.from, to: regimeOverride.to, reason: regimeOverride.reason },
+      });
     }
 
     res.json({ employee: shape({ ...row, payroll }, await mayRevealSensitive(req)), bankChangePending });

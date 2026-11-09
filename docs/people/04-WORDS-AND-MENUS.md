@@ -79,50 +79,58 @@ The aim: someone who has never used HR software finds what they need in two clic
 
 ## 3. Menus
 
+The menu as built on 8 November 2026 (`apps/people/manifest.jsx`, after `docs/people/10-PEOPLE-PLAN-2026-11-08.md` §2). Sentence case; every page title equals its menu label; old names stay as search keywords.
+
 ### 3.1 The rail
 
-Seven groups for HR. Fewer for other roles (section 3.2). P1/P2 items hidden in the first release.
+| Rail | Group | Screens |
+|---|---|---|
+| **Home** | – | Home |
+| **Inbox** | – | Inbox |
+| **People** | (no heading) | Employees · Org chart · Documents |
+| | Joining & leaving | Joining · Offers · Job changes · Leaving · Tasks |
+| | Pay & assets | Salary revisions · Expenses · Benefits · Assets |
+| **Time** | Leave | Who's away · Leave requests · Leave calendar · Leave balances |
+| | Attendance | Daily attendance · Attendance fixes · Shift swaps · Late marks · Absent without leave · Night work |
+| **Workplace** | News | Announcements · Events |
+| | Help | Help desk · Policies · Confidential cases |
+| **Talent** (module switches) | Hiring | Job openings · Candidates · Interviews · Referrals |
+| | Performance | Goals · Reviews · One-on-ones · Improvement plans · Training |
+| **Reports** | People | Headcount & attrition |
+| | Time | Leave register · Requests report |
+| | Statutory registers | Statutory registers (tabs: Register of employees · Muster roll · Leave register · Leave summary) |
+| **Settings** | – | one page, section 3.3 |
 
-| Group (rail label) | Items | Priority | Today |
-|---|---|---|---|
-| **Home** | Home · To do | P0 | Home exists; To do new |
-| **Me** | My profile · My requests · My documents · My timeline · My leave · My attendance | P0 | My leave, My attendance exist (shared) |
-| **People** | Directory · Org chart · Teams and seats | P0 | Directory, Org chart exist |
-| **Join and leave** | Before day one · Joining · Changes · Leaving | P0 | Built 27 Oct 2026 as the rail module **Joining & Leaving**: Overview · Joining · Changes · Leaving · Tasks (was "Onboarding & Exit"); steps under Settings (`design-v1/JOINING-LEAVING-DECISIONS.md`) |
-| **Help** | Help desk · Policies · Private cases | P0 | HR Cases register exists |
-| **Time** (shared, unchanged) | Leave requests · Leave calendar · Leave balances · Leave register · Attendance | exists | Shared module, out of scope |
-| **Checks** | Health check · Compliance · Reports | P0 | Data Health, Compliance Calendar, Workforce Report exist |
-| **Growth** (P1) | Goals and reviews · Skills and training · Hiring · Openings inside (P2) · Team plan | P1/P2 | Registers today |
-| **Settings** (hub) | see 3.3 | P0 | Hub exists |
+Off the menu, still at their addresses: Organisation overview (`organization`), the Joining & leaving hub (removed), Refer someone (`referMe`, the primary action on Referrals), Leave summary (`leaveSummary`, a tab of Statutory registers). My leave, My attendance and My requests open from My profile.
 
-Current menu for comparison (`apps/people/manifest.jsx:186-204`): Home · Employees (Directory; Joining & Leaving; Pay & Benefits) · Leave & Attendance · Hiring · Performance · Engage · Insights · Settings. Moves: "Employees" becomes **People**; "Joining & Leaving" becomes its own group **Join and leave**; "Engage" items (announcements, events) move to Home as News (P1); "HR Cases" moves to **Help** as Help desk; "Insights" becomes **Checks**; "Pay & Benefits" moves to Growth (P1) and Payroll.
+Renamed on 8 November 2026: Growth → Performance; Change history → Org changes; Absences → Absent without leave; "Pay, benefits & assets" → Pay & assets; People report → Headcount & attrition; Compliance → Compliance calendar; Company choices → Who decides & who sees (it holds who decides requests and who sees salary revisions and leavings, not probation or notice, which live under Employment types).
 
 ### 3.2 What each role sees
 
 | Role | Rail |
 |---|---|
-| Employee | Home · Me · Help (Ask HR, Policies) · Time (own leave and attendance) |
-| Manager | Home · Me · People (my team) · Join and leave (my team) · Help · Time |
-| HR executive | All P0 groups; Private cases only if a member |
-| HR head | All P0 groups |
-| Founder / CEO | Home · People · Checks · Growth (P1) |
-| Compliance officer | Home · Checks · Help (Policies, Private cases if a member) |
-| IT administrator | Home (To do) · Join and leave (read, own tasks) |
-| Payroll administrator | Home · People (read) · Join and leave (read) · Checks (Health check) |
-| External auditor | One screen: Shared evidence |
+| Employee | Home · Inbox (own tasks) · Workplace (Help desk, Policies) · My profile (My leave, My attendance, My requests) |
+| Manager | Home · Inbox · People (own team) · Time (own team) · Workplace |
+| HR executive | Everything; Confidential cases only if on a case or committee |
+| HR head / owner | Everything |
+| Compliance officer | Home · Reports · Settings (Compliance calendar) · Workplace (Policies) |
+| IT administrator | Home · Inbox (own tasks) |
+| Payroll administrator | Home · People (read) · Reports |
+| External auditor | One page: Settings › Audit evidence |
 
-### 3.3 Settings hub
+### 3.3 Settings
 
-One page of cards, grouped (existing `SettingsHub` pattern):
+One page of rows in seven groups (`apps/people/src/screens/PeopleSettings.jsx`), each row with its own icon.
 
-| Section | Cards |
+| Group | Rows |
 |---|---|
-| Organisation | Company (legal) · Establishments · Departments and teams · Designations · Grades · Locations · Cost centres · Business units |
-| People data | Custom fields · Forms (phase 3) · Employee types · Work types · Tags · Import |
-| Rules | Approval rules · Automations (phase 3) · Letter templates · Probation and notice · Help desk categories and times |
-| Compliance and privacy | Compliance rules · Privacy notices · Retention · Private case committee · External auditor access · Data requests · Recycle bin |
-| Access | Roles and access (opens Workspace, ADR-010) · Users and security · Audit history |
-| Apps and AI | Modules · Integrations · AI controls |
+| Company | Company details · Legal entity (detailed mode) · Branches · Departments · Designations · Org changes · Compliance calendar |
+| More structure (detailed mode) | Work sites · Locations · Teams · Positions · Business units · Grades · Cost centres · Job roles |
+| People | Custom fields · Employment types · Work modes · Tags · Letters · Joining & leaving steps · Exit interview · Self-service edits · Employee app |
+| Time | Leave policy · Holidays · Leave block dates · Working week · Leave year end · Attendance rules · Attendance request types |
+| Requests & approvals | Approval rules · Request types · Delegates · Automations · Help desk settings · Who decides & who sees |
+| Data & privacy | Import data · Export data · Data check · Privacy controls · Data protection · Data requests · Recycle bin · Audit logs · Audit evidence |
+| Access & apps | Users & security · Roles & permissions · Features & apps · Integrations · Payroll · Attendance |
 
 ---
 

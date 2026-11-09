@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { BadgeAlert, HardHat, Plus, Upload, UserCheck, Users } from 'lucide-react';
+import { BadgeAlert, HardHat, Plus, Upload, UserCheck, Users } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';

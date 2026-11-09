@@ -108,7 +108,7 @@ test.describe('Hiring, referrals, swaps and requests', () => {
     await expect(ask).toBeHidden();
 
     await rahul.goto();
-    await rahul.open('Approvals');
+    await rahul.open('Inbox');
     await (await rahul.approve('Priya Sharma', /swap/i)).click();
     await expect(rahul.row('Priya Sharma', /swap/i)).toHaveCount(0);
 
@@ -131,7 +131,7 @@ test.describe('Hiring, referrals, swaps and requests', () => {
     await expect(section.getByRole('list', { name: 'My requests to HR' })).toContainText('ID card');
 
     await kavya.goto();
-    await kavya.open('Approvals');
+    await kavya.open('Inbox');
     await (await kavya.approve('Priya Sharma', 'ID card')).click();
     await expect(kavya.row('Priya Sharma', 'ID card')).toHaveCount(0);
 

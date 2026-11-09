@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowLeft, Ban, BookOpen, Check, Download, Plus, Send, Wallet, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Ban, BookOpen, Check, Download, Plus, Send, Wallet, X } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -54,6 +54,8 @@ const LINE_STATUS = {
   PENDING: { label: 'Waiting', tone: 'ui-pill-neutral' },
   PAID: { label: 'Paid', tone: 'ui-pill-pos' },
   FAILED: { label: 'Rejected', tone: 'ui-pill-neg' },
+  /* The batch was called off: the payslip went back to be paid in another. */
+  CANCELLED: { label: 'Called off', tone: 'ui-pill-neutral' },
 };
 
 const METHODS = [

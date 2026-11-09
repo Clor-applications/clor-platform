@@ -168,7 +168,7 @@ test.describe('Suresh owns the account', () => {
     await expect(mine).toContainText('Waiting');
 
     /* Nobody above her and nobody else to approve: it waits in her own Approvals, saying why she may decide it. */
-    await people.open('Approvals');
+    await people.open('Inbox');
     const own = people.row('Lalitha Rao', /Casual Leave/);
     await expect(own).toContainText(/only approver/i);
     await expect(own).toContainText(/logged/i);

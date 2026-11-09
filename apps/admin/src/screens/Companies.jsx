@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowDownUp, Plus, Search } from 'lucide-react';
+import { ArrowDownUp, Plus, Search } from '@ui/components/ui/lineIcons';
 
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import { isValidGstin } from '@ui/utils/gstin';

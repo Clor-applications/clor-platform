@@ -115,6 +115,12 @@ export function applyStatutory(opts: {
    * financial year. Defaults to `onDate`.
    */
   levyDate?: string;
+  /**
+   * The day the pay period starts, for income tax: the rule of the financial
+   * year the pay is for (audit 7 Nov 2026, #1). March's salary paid on 1 April
+   * is taxed under March's year. Defaults to `onDate`.
+   */
+  taxDate?: string;
   /** Professional tax already on this financial year's payslips (run.ts ptPaidSoFar). */
   ptSoFar?: { yearToDate: number; thisMonth: number; byState: Map<string, { amount: number; months: number; gross?: number }> };
   /** Months of the financial year the person is employed (run.ts monthsEmployedInYear). */
@@ -123,6 +129,8 @@ export function applyStatutory(opts: {
   lwf?: { headcountByState?: Map<string, number>; coverage?: LwfContext['coverage'] };
   /** The year's declared deductions, given this period's employee PF (which counts towards 80C). */
   taxDeductionsFor?: (employeePf: number) => { total: number; note: string };
+  /** The year's professional tax, given this period's (old regime: deducted from salary before tax). */
+  professionalTaxFor?: (ptThisPeriod: number) => number;
 }): StatutoryOutcome {
   const amounts: Record<string, number> = {};
   const results: StatutoryAmount[] = [];
@@ -133,7 +141,7 @@ export function applyStatutory(opts: {
   const levyMonth = Number(levyDate.slice(5, 7)) || month;
   const state = canonicalState(opts.employee.professionalTaxState);
 
-  /* Income tax last: it needs this period's PF for 80C. */
+  /* Income tax last: it needs this period's PF for 80C and PT for section 16(iii). */
   const ordered = [...opts.rules].sort(([a], [b]) => Number(a === 'TDS') - Number(b === 'TDS'));
   for (const [scheme, rows] of ordered) {
     /*
@@ -143,15 +151,20 @@ export function applyStatutory(opts: {
      */
     const stateLevy = scheme === 'PT' || scheme === 'LWF';
     if (stateLevy && !state) continue;
-    const row = ruleInForce(rows, stateLevy ? levyDate : opts.onDate, stateLevy ? state : null);
+    const row = ruleInForce(rows, stateLevy ? levyDate : scheme === 'TDS' ? opts.taxDate || opts.onDate : opts.onDate, stateLevy ? state : null);
     if (!row) continue;
     /* A state rule only: a PT rule written with no state must not tax everybody. */
     if (stateLevy && !row.jurisdiction) continue;
 
     const rule = toEngineRule(row);
+    const thisPeriod = (s: StatutoryScheme) => results.find((r) => r.scheme === s)?.employee || 0;
     const wages =
-      scheme === 'TDS' && opts.taxDeductionsFor
-        ? { ...opts.wages, taxDeductions: opts.taxDeductionsFor(results.find((r) => r.scheme === 'PF')?.employee || 0) }
+      scheme === 'TDS'
+        ? {
+            ...opts.wages,
+            ...(opts.taxDeductionsFor ? { taxDeductions: opts.taxDeductionsFor(thisPeriod('PF')) } : {}),
+            ...(opts.professionalTaxFor ? { professionalTax: opts.professionalTaxFor(thisPeriod('PT')) } : {}),
+          }
         : opts.wages;
     const inState = opts.ptSoFar?.byState.get(state);
     const result = computeStatutory(rule, wages, opts.employee, {

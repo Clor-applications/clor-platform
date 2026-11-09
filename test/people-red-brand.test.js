@@ -19,8 +19,8 @@ const lum = (rgb) => {
 };
 const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 const WHITE = '255 255 255';
-const RED = '200 16 46';
-const RED_INK = '165 13 38';
+const RED = '201 63 40'; // People's action colour: coral since 8 Nov 2026 (was red 200 16 46)
+const RED_INK = '154 46 27';
 const OXBLOOD = '92 10 22';
 const INK = '31 26 28';
 const MARIGOLD = '245 166 35';
@@ -53,7 +53,7 @@ describe('the frame and its blocks: every word reads', () => {
     const greeting = block.match(/\.people-home > header\.soft-band-top \{[^}]*\}/)[0];
     expect(greeting).not.toMatch(/background/);
     expect(block).toMatch(/\.people-home h1\.soft-band-title \{ color: rgb\(var\(--fg-heading\)\) !important;/);
-    expect(block).toMatch(/\.people-home \.soft-pill-primary \{ background: rgb\(var\(--red\)\); color: rgb\(255 255 255\);/);
+    expect(block).toMatch(/\.people-home \.soft-pill-primary \{ background: rgb\(var\(--brand\)\); color: rgb\(255 255 255\);/);
     expect(contrast(WHITE, RED)).toBeGreaterThan(4.5);
     expect(contrast(RED_INK, WHITE)).toBeGreaterThan(4.5);
     expect(block).not.toMatch(/--page-heading-bg: var\(--frame\);/);
@@ -80,15 +80,15 @@ describe('the frame and its blocks: every word reads', () => {
   it('the open screen is a white tile on the blush panel, with red words and a red edge (the board)', () => {
     expect(contrast(RED_INK, WHITE)).toBeGreaterThan(7);
     expect(token(people.slice(people.indexOf('The red brand (owner, 3 Nov 2026')), 'brand-ink')).toBe(RED_INK);
-    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(255 255 255\); color: rgb\(var\(--brand-ink\)\);[^}]*inset 3px 0 0 rgb\(var\(--red\)\)/);
+    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(255 255 255\); color: rgb\(var\(--brand-ink\)\);[^}]*inset 3px 0 0 rgb\(var\(--brand\)\)/);
   });
 
-  it('marigold on the rail is a fill or a mark: the open module and the waiting tile, oxblood words on it', () => {
+  it('marigold on the rail is a fill or a mark: the open module and the probation-due tile, oxblood words on it', () => {
     expect(contrast(MARIGOLD, frame)).toBeGreaterThan(6);
     expect(contrast(OXBLOOD, MARIGOLD)).toBeGreaterThan(4.5);
     expect(block).toMatch(/\.ui-split-rail \.ui-split-mod\[data-current\] \.ui-glyph \[opacity='0\.2'\] \{ fill: rgb\(var\(--marigold\)\); \}/);
     expect(block).toMatch(/\.soft-band-stat\[data-attention\] \{ background: rgb\(var\(--marigold\)\); \}/);
-    expect(read('apps/people/src/screens/PeopleOverview.jsx')).toContain('data-attention={waiting > 0 || undefined}');
+    expect(read('apps/people/src/screens/PeopleOverview.jsx')).toContain('data-attention={probationDue > 0 || undefined}');
   });
 
   it('the work area keeps readable support text and a firmer row line', () => {
@@ -169,8 +169,8 @@ describe('a white work area, colour in the accents ("complete white background",
     expect(white).toMatch(/\.ui-side-chips \{ grid-template-columns: minmax\(0, 1fr\);/);
     expect(white).toMatch(/\.ui-side-chip \{[^}]*border: 0; background: transparent;/);
   });
-  it('the module panel fits "Attendance requests" on one line, with one width rule', () => {
-    expect(white).toMatch(/:root\[data-palette='sky'\] \.ui-split-panel \{ width: 13\.5rem; \}/);
+  it('the module panel is 216px (owner, 9 Nov 2026), with one width rule', () => {
+    expect(white).toMatch(/:root\[data-palette='sky'\] \.ui-split-panel \{ width: 13.5rem; \}/);
     expect(people.match(/\.ui-split-panel \{ width: [\d.]+rem; \}/g)).toEqual(['.ui-split-panel { width: 13.5rem; }']);
   });
   it('a Home figure\'s caption wraps rather than being cut off', () => {

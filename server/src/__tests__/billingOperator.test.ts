@@ -37,10 +37,11 @@ const subscription = async (c: Ctx) => (await request(app).get('/api/billing/sub
 /** Enrol an authenticator for this person and return a fresh step-up token (A-17). */
 async function stepUp(c: Ctx) {
   const sec = (p: string, b: unknown = {}) => request(app).post(`/api/orgs/${c.orgId}/security${p}`).set(at(c)).send(b as any);
-  const { secret } = (await sec('/two-factor/setup').expect(200)).body;
+  const { secret } = (await sec('/two-factor/setup', { password: 'Passw0rd!23' }).expect(200)).body;
   await clearOfStepEdge();
   await sec('/two-factor/enable', { code: codeAt(secret, stepNow() - 1) }).expect(200);
-  return (await sec('/step-up', { code: codeAt(secret, stepNow()) }).expect(200)).body.token as string;
+  /* Review S1: an operator action takes only the operator console's own step-up. */
+  return (await request(app).post('/api/ops/step-up').set({ Authorization: `Bearer ${c.token}` }).send({ code: codeAt(secret, stepNow()) }).expect(200)).body.token as string;
 }
 const everything = { apps: [{ appCode: 'people', tier: 'FULL' }, { appCode: 'attendance' }, { appCode: 'payroll' }] };
 

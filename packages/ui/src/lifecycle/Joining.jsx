@@ -1,12 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { UserPlus } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import Alert from '@ui/components/ui/Alert';
@@ -67,10 +66,18 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
     }
   };
   const [open, setOpen] = useState(null);
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, view);
   const counts = { ...(list.data?.counts || {}), forms: forms.length };
   const canAdd = can(perms, 'PEOPLE::Employees::CREATE');
+  /* Opened without a view: the first tab that has rows, not an empty "Before day one" beside a tab with forty (People plan 8 Nov 2026, step 2). Once. */
+  const steered = useRef(false);
+  useEffect(() => {
+    if (steered.current || p.view || !list.data?.counts) return;
+    steered.current = true;
+    if (Number(counts.preparing) > 0) return;
+    const first = VIEWS.find(([k]) => k !== 'done' && k !== 'all' && Number(counts[k]) > 0);
+    if (first) set({ view: first[0] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the first answer only
+  }, [list.data]);
 
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (r) => <PersonCell person={r} line={[r.code, r.designation, r.department].filter(Boolean).join(' · ')} /> },
@@ -82,15 +89,16 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={crumbs()} title="Joining" actions={canAdd ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => openScreen?.('employeeNew')}><UserPlus size={16} aria-hidden="true" /> Add employee</button> : null} />
-      <div ref={tabsRef} role="tablist" aria-label="Joining" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {VIEWS.map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => set({ view: k === 'preparing' ? null : k, page: null }, true)}>
-            {l}{counts[k] && k !== 'all' && k !== 'done' ? <span className="ui-tab-count tabular-nums">{counts[k]}</span> : null}
-          </button>
-        ))}
-        {tabIndicator}
-      </div>
+      <ListHeader
+        breadcrumb={crumbs()}
+        title="Joining"
+        description="Everyone joining or just joined, with their plan's steps and what comes next."
+        primary={canAdd ? { label: 'Add employee', icon: UserPlus, onClick: () => openScreen?.('employeeNew') } : null}
+        toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or designation" label="Search joiners" className="w-full sm:w-72" />}
+        tabs={VIEWS.map(([k, l]) => ({ key: k, label: l, count: k !== 'all' && k !== 'done' ? counts[k] : 0 }))}
+        tab={view}
+        onTab={(k) => set({ view: k === 'preparing' ? null : k, page: null }, true)}
+      />
       {canSendHeld ? (
         <Alert tone="info" title={`${held.length === 1 ? 'One joiner’s' : `${held.length} joiners’`} PAN, PF, ESI and bank details are kept in People`} action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={sending} onClick={sendHeld}>{sending ? 'Sending…' : 'Send to Payroll'}</button>}>
           They were approved before Payroll was switched on.
@@ -117,7 +125,6 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
             <span className="block truncate ui-caption tabular-nums">Joins {formatDate(r.dateOfJoining)} · {r.total ? `${r.done} of ${r.total} steps` : 'no plan'}{r.late ? `, ${r.late} late` : ''}</span>
           </span>
         )}
-        toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or designation" label="Search joiners" className="w-full sm:w-72" />}
         empty={list.error ? <ErrorState error={list.error} onRetry={list.reload} />
           : p.q ? <EmptyState kind="filtered" title="Nobody matches" onClearFilters={() => set({ q: null, page: null })} />
             : <EmptyState icon={UserPlus} title={view === 'week' ? 'Nobody starts this week' : view === 'preparing' ? 'Nobody is joining yet' : view === 'joined' ? 'No joiner has steps open' : 'Nobody here'} description={view === 'preparing' && canAdd ? 'Add an employee with a joining date ahead and their plan starts here.' : undefined} />}

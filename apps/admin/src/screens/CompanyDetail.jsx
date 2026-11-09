@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRightLeft, Pencil } from 'lucide-react';
+import { ArrowRightLeft, Pencil } from '@ui/components/ui/lineIcons';
 
 import { memberDirectory } from '@platform/admin/account';
 import { getArchiveReasons } from '@platform/admin/admin';

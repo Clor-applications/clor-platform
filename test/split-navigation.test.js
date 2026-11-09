@@ -23,57 +23,56 @@ const shape = (app) =>
 
 describe('Attendance navigation structure', () => {
   it('has the six business modules in order, then Me', () => {
-    expect(resolveModules(attendanceApp, attendanceApp.nav).map((m) => m.label)).toEqual(['Overview', 'People', 'Readers', 'Attendance', 'Reports', 'Settings', 'Me']);
+    expect(resolveModules(attendanceApp, attendanceApp.nav).map((m) => m.label)).toEqual(['Today', 'People', 'Readers', 'Attendance', 'Reports', 'Settings', 'Me']);
   });
   it('groups each module the way the navigation brief does', () => {
     const s = Object.fromEntries(shape(attendanceApp).map((m) => [m.module, m.groups]));
     expect(s.People).toEqual([
       ['Directory', ['Employees', 'Contractors']],
-      ['Employment Changes', ['Joining & Leaving Tasks', 'Resignations', 'Transfers']],
-      ['Organization', ['Departments', 'Designations', 'Locations & Sites']],
-      ['Access', ['Employee Portal Access']],
+      ['Employment changes', ['Joining & leaving tasks', 'Resignations', 'Transfers']],
+      ['Organization', ['Departments', 'Designations', 'Locations & sites']],
+      ['Access', ['Employee portal access']],
     ]);
     expect(s.Readers).toEqual([
-      ['Monitoring', ['Reader Health', 'Sync Monitoring', 'Reader Logs']],
-      ['Devices', ['All Readers', 'Device Enrollment']],
-      ['Punch Data', ['Punch Transactions', 'Unmatched Punches', 'Employee ID Mapping']],
-      ['Other Punch Sources', ['Mobile Punches']],
+      ['Monitoring', ['Reader health', 'Sync monitoring', 'Reader logs']],
+      ['Devices', ['All readers', 'Device enrollment']],
+      ['Punch data', ['Punch transactions', 'Unmatched punches', 'Employee ID mapping']],
+      ['Other punch sources', ['Mobile punches']],
     ]);
     expect(s.Attendance).toEqual([
-      ['Daily Operations', ['Attendance Records', 'Punches', 'Exceptions', 'Attendance Requests']],
-      ['Scheduling', ['Schedule Calendar', 'Shifts', 'Shift Assignments', 'Department Schedules', 'Temporary Schedules', 'Shift Rotations']],
+      ['Daily operations', ['Attendance records', 'Punches', 'Exceptions', 'Attendance fixes']],
+      ['Scheduling', ['Schedule calendar', 'Shifts', 'Shift assignments', 'Department schedules', 'Temporary schedules', 'Shift rotations']],
       /* Time & Leave: the screens People shows, shared (TIME-LEAVE-DECISIONS.md). */
-      ['Leave', ["Who's Away", 'Leave Requests', 'Leave Calendar', 'Leave Balances', 'Leave Register', 'Delegates']],
-      ['Time Management', ['Overtime & Comp-Off']],
-      ['Period Closing', ['Payroll Readiness', 'Employee Confirmations', 'Month Close']],
+      ['Leave', ["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Leave register', 'Delegates']],
+      ['Time management', ['Overtime & comp-off']],
+      ['Period closing', ['Payroll readiness', 'Employee confirmations', 'Month close']],
     ]);
     expect(s.Reports).toEqual([
-      ['Overview', ['Attendance Insights']],
-      ['Attendance', ['Daily Attendance Register', 'Monthly Attendance Summary', 'Attendance Calendar', 'Late Arrivals & Early Exits', 'Absence Report']],
-      ['Workforce', ['Department Attendance', 'Employee Attendance History']],
-      ['Time & Leave', ['Overtime Report', 'Leave Report']],
-      ['Devices', ['Reader Activity']],
-      ['All Reports', ['Report Catalogue']],
+      ['Overview', ['Attendance insights']],
+      ['Attendance', ['Daily attendance register', 'Monthly attendance summary', 'Attendance calendar', 'Late arrivals & early exits', 'Absence report']],
+      ['Workforce', ['Department attendance', 'Employee attendance history']],
+      ['Time & leave', ['Overtime report', 'Leave report']],
+      ['Devices', ['Reader activity']],
+      ['All reports', ['Report catalogue']],
     ]);
     expect(s.Settings).toEqual([
-      ['Organization', ['Attendance Setup', 'Punch Areas', 'Punch Area Check', 'Joining & Leaving Steps']],
-      ['Work Policy', ['Attendance Policy', 'Weekly Off Policy', 'Overtime Policy', 'Leave Policy', 'Working Week', 'Holidays', 'Leave Year End', 'Attendance Request Types']],
+      ['Organization', ['Attendance setup', 'Punch areas', 'Punch area check', 'Joining & leaving steps']],
+      ['Work policy', ['Attendance policy', 'Weekly off policy', 'Overtime policy', 'Leave policy', 'Working week', 'Holidays', 'Leave year end', 'Attendance request types']],
       ['Integrations', ['Integrations']],
-      ['Access & Security', ['Users & Security', 'Roles & Access']],
-      ['Data Management', ['Data Health', 'Import Data', 'Export Data', 'Close Company']],
+      ['Access & security', ['Users & security', 'Roles & access']],
+      ['Data management', ['Data health', 'Import data', 'Export data', 'Close company']],
       ['Compliance', ['Compliance']],
-      ['Privacy', ['Data Protection', 'Data Requests']],
-      ['Audit & Recovery', ['Audit Logs', 'Recycle Bin']],
+      ['Privacy', ['Data protection', 'Data requests']],
+      ['Audit & recovery', ['Audit logs', 'Recycle bin']],
     ]);
-    expect(s.Me).toEqual([['Self-Service', ['My Attendance', 'My Leave']]]);
+    expect(s.Me).toEqual([['Self-Service', ['My attendance', 'My leave']]]);
   });
-  it('labels are Title Case and appear once', () => {
+  it('labels are sentence case and appear once (People plan, 8 Nov 2026: one wording rule in both apps)', () => {
     const labels = attendanceApp.nav.filter((i) => i.key).map((i) => i.label);
     expect(new Set(labels).size).toBe(labels.length);
-    const small = new Set(['&', 'of', 'and', 'to', 'a', 'on']);
-    for (const l of labels) for (const w of l.split(/[\s-]+/)) if (!small.has(w)) expect(w[0], l).toBe(w[0].toUpperCase());
+    for (const l of labels) for (const w of l.split(/\s+/).slice(1)) if (!/^[A-Z0-9&-]{2,}$/.test(w)) expect(w[0], l).toBe(w[0].toLowerCase());
   });
-  it('every screen that existed before the regrouping still has a place in the sidebar', () => {
+it('every screen that existed before the regrouping still has a place in the sidebar', () => {
     const before = ['today', 'employees', 'departments', 'positions', 'areas', 'contractors', 'resignations', 'transfer', 'dataProtection', 'sso', 'dataRequests',
       'readerHealth', 'readers', 'readerSync', 'transactions', 'enrolments', 'unmatched', 'deviceLogs', 'records', 'requests', 'leaveRequests', 'summary',
       'register', 'calendar', 'reports', 'scheduleCalendar', 'shifts', 'shiftAssignments', 'departmentSchedule', 'temporarySchedule', 'rotations', 'holidays',

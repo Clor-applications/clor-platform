@@ -53,7 +53,7 @@ async function stepUp(c: Ctx) {
   const have = tokens.get(c.token);
   if (have) return have;
   const sec = (p: string, b: unknown = {}) => request(app).post(`/api/orgs/${c.orgId}/security${p}`).set(at(c)).send(b as any);
-  const secret = (await sec('/two-factor/setup').expect(200)).body.secret as string;
+  const secret = (await sec('/two-factor/setup', { password: 'Passw0rd!23' }).expect(200)).body.secret as string;
   await clearOfStepEdge();
   await sec('/two-factor/enable', { code: codeAt(secret, stepNow() - 1) }).expect(200);
   const token = (await sec('/step-up', { code: codeAt(secret, stepNow()) }).expect(200)).body.token as string;

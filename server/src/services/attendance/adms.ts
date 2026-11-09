@@ -218,7 +218,13 @@ export const instantOf = (localTime: string) => {
   const m = LOCAL_TIME.exec(localTime);
   if (!m) return null;
   const d = new Date(`${m[1]}T${m[2]}:${m[3]}:${m[4]}+05:30`);
-  return Number.isNaN(d.getTime()) ? null : d;
+  if (Number.isNaN(d.getTime())) return null;
+  /*
+   * A date that does not exist is not a punch (audit 7 Nov 2026, #11): "2026-02-31 09:00:00" parsed as
+   * 3 March and was stored with the shift day "2026-02-31". Read back on the IST clock, it must be what came in.
+   */
+  const back = new Date(d.getTime() + 330 * 60_000).toISOString().slice(0, 19).replace('T', ' ');
+  return back === localTime ? d : null;
 };
 
 const EXPLICIT_OUT = [1, 2, 5, 9]; // check-out, break-out, OT-out

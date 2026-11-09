@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, GripVertical, Layers, Pencil, Plus, SlidersHorizontal, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, GripVertical, Layers, Pencil, Plus, SlidersHorizontal, Trash2, Users } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';

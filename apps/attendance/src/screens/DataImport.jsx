@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Download, Upload } from 'lucide-react';
+import { CheckCircle2, Download, Upload } from '@ui/components/ui/lineIcons';
 
 import { PageHeader } from '@ui/components/ui/Primitives';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
@@ -230,7 +230,7 @@ export default function DataImport({ params } = {}) {
 
   return (
     <div className="space-y-3">
-      <PageHeader entity="settings" title="Import Data" description="Bring a spreadsheet in: pick what it holds, use the template, drop the file." />
+      <PageHeader entity="settings" title="Import data" description="Bring a spreadsheet in: pick what it holds, use the template, drop the file." />
       <div className="pb-8 space-y-6">
       <ol className="grid gap-4 lg:grid-cols-3">
         <li className="ui-card p-4 space-y-3">

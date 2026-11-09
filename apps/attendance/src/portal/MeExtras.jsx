@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft } from '@ui/components/ui/lineIcons';
 import { confirmDialog } from '@ui/components/ui/notify';
 
 import LoadFailed from '@ui/components/ui/LoadFailed';

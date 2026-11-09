@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request } from 'express';
 import { z } from 'zod';
+import bcrypt from 'bcrypt';
 
 import { requireAuth } from '../middleware/auth.js';
 import { OPERATOR_ROLES, operatorUserIds, requireOperator, requireOperatorRole, requireOperatorToEnrol } from '../middleware/operator.js';
@@ -11,9 +12,10 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { outsideTenant } from '../utils/tenantScope.js';
 import { clearAccessCache } from '../utils/accessCache.js';
 import { clientIp, recordAuthEvent } from '../services/auth.js';
-import { issueStepUp, requireOperatorStepUp } from '../services/stepUp.js';
+import { issueOperatorStepUp, requireOperatorStepUp } from '../services/stepUp.js';
 import { getSubscription, inGoodStanding } from '../services/subscriptions.js';
 import { useSecondFactor } from './security.js';
+import { ensureLiveLineIndex, liveLineHealth } from '../services/payroll/liveLineIndex.js';
 
 /**
  * The Clor operator console (W-8.2): Clor's own staff, looking across every
@@ -45,10 +47,15 @@ export const opsRouter = Router();
  * an operator need not belong to one.
  */
 const enrolling = (req: Request) =>
-  platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { id: true, email: true, totpSecretEnc: true } });
+  platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { id: true, email: true, totpSecretEnc: true, passwordHash: true } });
 
-opsRouter.post('/ops/two-factor/setup', requireAuth, requireOperatorToEnrol, async (req, res) => {
+/* #12: the operator's password first, so a stolen access token cannot enrol the thief's authenticator and then pass every step-up. */
+opsRouter.post('/ops/two-factor/setup', requireAuth, ...codeLimiter, requireOperatorToEnrol, async (req, res) => {
   const u = (await enrolling(req))!;
+  if (!(await bcrypt.compare(String(req.body?.password || ''), u.passwordHash))) {
+    await platformPrisma.operatorAuditEvent.create({ data: { operatorUserId: u.id, action: 'TWO_FACTOR_SETUP_REFUSED', ip: clientIp(req) ?? null } });
+    return res.status(400).json({ error: 'Your password is not correct.', code: 'BAD_PASSWORD' });
+  }
   const secret = newSecret();
   await platformPrisma.user.update({ where: { id: u.id }, data: { totpSecretEnc: encryptSecret(secret), totpLastStep: null } });
   res.json({ secret, uri: otpauthUri(secret, u.email) });
@@ -71,7 +78,8 @@ opsRouter.use('/ops', requireAuth, requireOperator);
 
 const DAY = 86_400_000;
 
-async function audit(req: Request, action: string, target: { accountId?: string | null; userId?: string | null }, detail?: unknown) {
+/** What an operator did, on the append-only record, and on the customer's own security log when it is about their account. */
+export async function audit(req: Request, action: string, target: { accountId?: string | null; userId?: string | null }, detail?: unknown) {
   await platformPrisma.operatorAuditEvent.create({
     data: {
       operatorUserId: req.auth!.userId,
@@ -102,19 +110,42 @@ opsRouter.get('/ops/me', async (req, res) => {
   res.json({ user: u, role: res.locals.operatorRole });
 });
 
-/** A fresh authenticator code for fifteen minutes of changes (the console has no company to ask through). */
-opsRouter.post('/ops/step-up', async (req, res) => {
+/** Wrong step-up codes an operator may type in a window before the console stops taking them (#9). */
+export const OPS_STEP_UP_MAX_FAILURES = 5;
+export const OPS_STEP_UP_WINDOW_MIN = 15;
+
+/**
+ * A fresh authenticator code for fifteen minutes of changes (the console has no company to ask through).
+ *
+ * #9: this unlocks changes to every customer account, so a stolen operator
+ * token must not be able to walk the six digits. The shared code limiter
+ * counts every try; on top of that, five wrong codes in fifteen minutes stop
+ * step-up for this operator until the window has passed — counted from the
+ * append-only audit, so every API instance sees the same number — and the
+ * lockout is written to the operator's sign-in log as well.
+ */
+opsRouter.post('/ops/step-up', ...codeLimiter, async (req, res) => {
   const u = await platformPrisma.user.findUnique({
     where: { id: req.auth!.userId },
-    select: { id: true, totpSecretEnc: true, totpEnabledAt: true, totpLastStep: true, totpRecoveryJson: true },
+    select: { id: true, accountId: true, totpSecretEnc: true, totpEnabledAt: true, totpLastStep: true, totpRecoveryJson: true },
   });
   if (!u?.totpEnabledAt || !u.totpSecretEnc) return res.status(400).json({ error: 'Set up an authenticator app first.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
+  const since = new Date(Date.now() - OPS_STEP_UP_WINDOW_MIN * 60_000);
+  const failures = () => platformPrisma.operatorAuditEvent.count({ where: { operatorUserId: u.id, action: 'STEP_UP_FAILED', at: { gt: since } } });
+  if ((await failures()) >= OPS_STEP_UP_MAX_FAILURES) {
+    return res.status(429).json({ error: `Too many wrong codes. Wait ${OPS_STEP_UP_WINDOW_MIN} minutes, then try again.`, code: 'STEP_UP_LOCKED' });
+  }
   const used = await useSecondFactor(u, String(req.body?.code || ''));
   if (!used) {
     await platformPrisma.operatorAuditEvent.create({ data: { operatorUserId: u.id, action: 'STEP_UP_FAILED', ip: clientIp(req) ?? null } });
+    if ((await failures()) >= OPS_STEP_UP_MAX_FAILURES) {
+      await platformPrisma.operatorAuditEvent.create({ data: { operatorUserId: u.id, action: 'STEP_UP_LOCKED', ip: clientIp(req) ?? null } });
+      await recordAuthEvent({ accountId: u.accountId, userId: u.id, eventType: 'OPERATOR_STEP_UP_LOCKED', ip: clientIp(req), detail: `${OPS_STEP_UP_MAX_FAILURES} wrong codes in ${OPS_STEP_UP_WINDOW_MIN} minutes` });
+      console.warn('[ops] operator step-up locked after repeated wrong codes', { operatorUserId: u.id, ip: clientIp(req) });
+    }
     return res.status(400).json({ error: 'That code is not right, or has been used. Wait for the next one.', code: 'BAD_CODE' });
   }
-  res.json(issueStepUp(u.id, req.auth!.sessionId));
+  res.json(issueOperatorStepUp(u.id, req.auth!.sessionId));
 });
 
 /** The numbers on the console's first page. */
@@ -147,6 +178,39 @@ opsRouter.get('/ops/overview', (_req, res) =>
       trialsEndingIn7d: trialsEnding,
       signups: [...byDay.entries()].map(([day, count]) => ({ day, count })),
     });
+  }),
+);
+
+/*
+ * Data health: one live salary payment per payslip (review of #145, S3).
+ * Whether the database index is built, and which companies have a payslip in
+ * two live payments, by count only (no payroll figures leave the company).
+ * The build is the follow-up once their owners have cancelled the extra
+ * batch; it refuses while any clash is left.
+ */
+opsRouter.get('/ops/data-health/payroll-payments', (_req, res) =>
+  outsideTenant('ops: payroll live payment index', async () => {
+    const health = await liveLineHealth();
+    const orgs = health.companies.length ? await platformPrisma.org.findMany({ where: { id: { in: health.companies } }, select: { id: true, name: true, accountId: true } }) : [];
+    res.json({
+      indexPresent: health.indexPresent,
+      companies: orgs.map((o) => ({ orgId: o.id, accountId: o.accountId, name: o.name, payslips: health.clashes.filter((c) => c.orgId === o.id).length })),
+    });
+  }),
+);
+
+opsRouter.post('/ops/data-health/payroll-payments/build-index', requireOperatorRole('SUPPORT'), requireOperatorStepUp, (req, res) =>
+  outsideTenant('ops: build payroll live payment index', async () => {
+    const r = await ensureLiveLineIndex();
+    await audit(req, 'PAYROLL_LIVE_LINE_INDEX', {}, { indexPresent: r.indexPresent, built: r.built, clashes: r.clashes.length });
+    if (!r.indexPresent) {
+      return res.status(409).json({
+        error: r.clashes.length ? `Not built: ${r.clashes.length} payslip(s) are still in two live payments. Their companies cancel the extra batch first.` : 'Not built; the server log says why.',
+        code: 'LIVE_LINES_CLASH',
+        companies: [...new Set(r.clashes.map((c) => c.orgId))],
+      });
+    }
+    res.json({ indexPresent: true, built: r.built });
   }),
 );
 

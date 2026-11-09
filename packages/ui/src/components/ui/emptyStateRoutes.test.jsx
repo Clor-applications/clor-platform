@@ -32,7 +32,8 @@ describe('the routes under an empty list', () => {
        empty state around it. */
     const { unmount } = render(<EmptyState kind="new" title="Nothing" routes={routes.slice(0, 1)} />);
     const only = screen.getByText('Quote one now').closest('button');
-    expect(only.className).toContain('ui-btn-primary');
+    expect(only.className).toContain('ui-btn-secondary');
+    expect(only.className).not.toContain('ui-btn-primary');
     expect(only.parentElement.className).toContain('items-center');
     unmount();
 

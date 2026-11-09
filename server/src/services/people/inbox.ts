@@ -99,7 +99,40 @@ export async function inboxRights(req: Request) {
   } as Record<InboxKind, { see: boolean; decide: boolean }>;
 }
 
-export async function inboxFor(req: Request): Promise<{ items: InboxItem[]; counts: Record<InboxKind | 'all', number>; rights: Record<InboxKind, { see: boolean; decide: boolean }> }> {
+/** A joining or leaving task on the reader's own name, open: Inbox › My tasks. */
+export type InboxTask = { id: string; kind: string; title: string; owner: string; dueDate: string | null; overdue: boolean; note: string | null; employee: { id: string; name: string; code: string | null } | undefined };
+
+export type InboxCounts = Record<InboxKind | 'all' | 'TASK' | 'waiting', number>;
+
+/**
+ * One waiting number (People plan 8 Nov 2026, §3 rule 1): everything in the
+ * inbox to approve plus the reader's own open tasks. Home's subtitle and
+ * "Waiting for you" card, the rail badge, the bell and the Inbox tabs all
+ * read this, so they never disagree.
+ */
+export async function waitingFor(req: Request): Promise<{ waiting: number; approvals: number; tasks: number; counts: InboxCounts }> {
+  const { counts } = await inboxFor(req);
+  return { waiting: counts.waiting, approvals: counts.all, tasks: counts.TASK, counts };
+}
+
+/**
+ * Something waits on this person by name, whatever their role: a leave step
+ * that names them, a task on their name, or overtime from someone they manage
+ * (or stand in for) under a manager-first chain. Such a person has an inbox.
+ */
+export async function hasPersonalInbox(orgId: string, userId: string): Promise<boolean> {
+  if (await peoplePrisma.leaveRequest.count({ where: { orgId, status: 'PENDING', ruleId: { not: null }, stepUserIds: { has: userId } } })) return true;
+  if (await peoplePrisma.checklistTask.count({ where: { orgId, ownerUserId: userId, doneAt: null } })) return true;
+  const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } });
+  if (!me) return false;
+  const { standingInFor } = await import('../attendance/standIns.js');
+  const covered = [me.id, ...(await standingInFor(orgId, me.id, undefined, 'ATTENDANCE'))];
+  const reports = await peoplePrisma.employee.findMany({ where: { orgId, reportingManagerId: { in: covered } }, select: { id: true } });
+  if (!reports.length) return false;
+  return (await peoplePrisma.overtimeRequest.count({ where: { orgId, status: 'PENDING', employeeId: { in: reports.map((r) => r.id) } } })) > 0;
+}
+
+export async function inboxFor(req: Request): Promise<{ items: InboxItem[]; tasks: InboxTask[]; counts: InboxCounts; rights: Record<InboxKind, { see: boolean; decide: boolean }> }> {
   const { accountId, orgId } = req.tenant!;
   const userId = req.auth!.userId;
   const rights = await inboxRights(req);
@@ -177,12 +210,23 @@ export async function inboxFor(req: Request): Promise<{ items: InboxItem[]; coun
     }
   }
 
-  if (rights.PUNCH.see || rights.OVERTIME.see) items.push(...(await timeItems(orgId, userId, await teamScope(req), rights)));
+  /* Overtime reaches the step's approver whatever their role (step 2, People plan 8 Nov 2026): the manager's rows are theirs by identity, not by the Records right. */
+  const timeOn = rights.PUNCH.see || rights.OVERTIME.see || rights.LEAVE.see || rights.ATTENDANCE.see || (await isFeatureEnabled(accountId, orgId, 'people')) || (await isFeatureEnabled(accountId, orgId, 'attendance'));
+  if (timeOn) {
+    const timeRows = await timeItems(orgId, userId, await teamScope(req), rights);
+    if (timeRows.some((i) => i.kind === 'OVERTIME') && !rights.OVERTIME.see) rights.OVERTIME = { see: true, decide: false };
+    items.push(...timeRows);
+  }
 
   items.sort((a, b) => a.since.localeCompare(b.since));
-  const counts = { all: items.length } as Record<InboxKind | 'all', number>;
+  /* The reader's own open tasks (joining, leaving, probation, letters…), from the same service Tasks › Mine reads. */
+  const { myTasks } = await import('./checklists.js');
+  const tasks: InboxTask[] = (await myTasks(orgId, userId, 500)).filter((t) => !t.done).map((t) => ({ id: t.id, kind: t.kind, title: t.title, owner: t.owner, dueDate: t.dueDate, overdue: t.overdue, note: t.note, employee: t.employee }));
+  /* The number is counted, not the capped list's length: 320 late tasks say 320. */
+  const openTasks = await peoplePrisma.checklistTask.count({ where: { orgId, ownerUserId: userId, doneAt: null } });
+  const counts = { all: items.length, TASK: openTasks, waiting: items.length + openTasks } as InboxCounts;
   for (const k of INBOX_KINDS) counts[k] = items.filter((i) => i.kind === k).length;
-  return { items, counts, rights };
+  return { items, tasks, counts, rights };
 }
 
 /**
@@ -194,9 +238,20 @@ export async function inboxFor(req: Request): Promise<{ items: InboxItem[]; coun
  */
 async function timeItems(orgId: string, userId: string, scope: Awaited<ReturnType<typeof teamScope>>, rights: Record<InboxKind, { see: boolean; decide: boolean }>): Promise<InboxItem[]> {
   const inTeam = scope.all ? {} : { employeeId: { in: scope.ids } };
+  /* HR reads every pending overtime in scope; anyone else reads the ones from people they manage (or stand in for), whatever their scope. */
+  const me = userId ? await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } }) : null;
+  const { standingInFor } = await import('../attendance/standIns.js');
+  const covers = new Set(me ? await standingInFor(orgId, me.id, undefined, 'ATTENDANCE') : []);
+  const managed = me ? [me.id, ...covers] : [];
   const [punches, asks] = await Promise.all([
     rights.PUNCH.see ? peoplePrisma.devicePunch.findMany({ where: { orgId, outsideSite: true, reviewStatus: 'PENDING', employeeId: { not: null }, ...inTeam }, orderBy: { at: 'asc' }, take: 500 }) : Promise.resolve([]),
-    rights.OVERTIME.see ? peoplePrisma.overtimeRequest.findMany({ where: { orgId, status: 'PENDING', ...inTeam }, orderBy: { createdAt: 'asc' }, take: 500 }) : Promise.resolve([]),
+    rights.OVERTIME.see
+      ? peoplePrisma.overtimeRequest.findMany({ where: { orgId, status: 'PENDING', ...inTeam }, orderBy: { createdAt: 'asc' }, take: 500 })
+      : managed.length
+        ? peoplePrisma.employee
+            .findMany({ where: { orgId, reportingManagerId: { in: managed } }, select: { id: true } })
+            .then((reports) => (reports.length ? peoplePrisma.overtimeRequest.findMany({ where: { orgId, status: 'PENDING', employeeId: { in: reports.map((r) => r.id) } }, orderBy: { createdAt: 'asc' }, take: 500 }) : []))
+        : Promise.resolve([]),
   ]);
   if (!punches.length && !asks.length) return [];
   const ids = [...new Set([...punches.map((p) => p.employeeId!), ...asks.map((a) => a.employeeId)])];
@@ -215,12 +270,9 @@ async function timeItems(orgId: string, userId: string, scope: Awaited<ReturnTyp
   }
   if (asks.length) {
     const { overtimeChain } = await import('../attendance/selfService.js');
-    const { standingInFor } = await import('../attendance/standIns.js');
     const chain = await overtimeChain(orgId);
     const managerIds = [...new Set(asks.map((a) => people.get(a.employeeId)?.reportingManagerId).filter(Boolean) as string[])];
     const managers = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, status: true, userId: true } })).map((m) => [m.id, m]));
-    const me = userId ? await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } }) : null;
-    const covers = new Set(me ? await standingInFor(orgId, me.id, undefined, 'ATTENDANCE') : []);
     /* On the approval engine (workflow engine 2d): the chain each was asked under, and whether the manager's step is closed. */
     const { OVERTIME_SOURCE, engineChains } = await import('../attendance/attendanceEngine.js');
     const engines = await engineChains(orgId, OVERTIME_SOURCE, asks.map((a) => a.id));
@@ -229,12 +281,16 @@ async function timeItems(orgId: string, userId: string, scope: Awaited<ReturnTyp
       const m = managers.get(people.get(a.employeeId)?.reportingManagerId || '');
       const manager = m && m.status !== 'LEFT' && m.status !== 'SUSPENDED' ? m : null;
       const eng = engines.get(a.id);
+      const mineToTake = Boolean(manager && (manager.userId === userId || covers.has(manager.id)));
+      const managerStepOpen = Boolean(manager && (eng?.chain || chain) !== 'HR' && !a.managerApprovedAt && !(eng && eng.step > 1));
       /* Waiting on the manager first: theirs (or their stand-in's), not HR's yet. */
-      if (manager && (eng?.chain || chain) !== 'HR' && !a.managerApprovedAt && !(eng && eng.step > 1) && !(manager.userId === userId || covers.has(manager.id))) continue;
+      if (managerStepOpen && !mineToTake) continue;
+      /* Without the Records right, only the step that is theirs: the manager's, while it is open. */
+      if (!rights.OVERTIME.see && !(managerStepOpen && mineToTake)) continue;
       out.push({
         key: `OVERTIME:${a.id}`, kind: 'OVERTIME', id: a.id, what: a.kind === 'COMP_OFF' ? 'Comp-off' : 'Overtime', subKind: a.kind,
         ...who(a.employeeId), fromDate: a.date, toDate: a.date, days: a.kind === 'COMP_OFF' ? a.days : null, halfDay: null, minutes: a.kind === 'OVERTIME' ? a.minutes : null, reason: a.reason,
-        since: iso(a.createdAt)!, dueAt: null, overdue: false, managerApproved: Boolean(a.managerApprovedAt), bulk: rights.OVERTIME.decide || Boolean(manager && (manager.userId === userId || covers.has(manager.id))),
+        since: iso(a.createdAt)!, dueAt: null, overdue: false, managerApproved: Boolean(a.managerApprovedAt), bulk: rights.OVERTIME.decide || mineToTake,
       });
     }
   }

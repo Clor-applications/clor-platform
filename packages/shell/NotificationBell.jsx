@@ -20,7 +20,12 @@ const ago = (iso) => {
   return `${Math.floor(s / 86_400)} d ago`;
 };
 
-export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell }) {
+/**
+ * `waiting` is the one waiting number the app's rail shows (requests to approve
+ * plus the reader's own open tasks): the badge says it, so the bell, Home and
+ * the Inbox never disagree. Unread notices stay the list underneath.
+ */
+export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell, waiting = 0, onOpenWaiting }) {
   const [state, setState] = useState({ key: '', unread: 0, items: [] });
   const [open, setOpen] = useState(false);
   const [mutes, setMutes] = useState([]);
@@ -48,6 +53,10 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell 
 
   const items = state.key === tenantKey ? state.items : [];
   const unread = state.key === tenantKey ? state.unread : 0;
+  const waitingN = Number(waiting) || 0;
+  /* The badge counts distinct unread notices (the server reads a stacked daily digest as one); what waits for your answer is the first line of the list. */
+  const badge = unread;
+  const badgeLabel = `${unread} unread`;
 
   const openOne = async (n) => {
     setOpen(false);
@@ -58,16 +67,22 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell 
 
   return (
     <div className="relative" ref={ref}>
-      <button type="button" className="ui-icon-btn relative" aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+      <button type="button" className="ui-icon-btn relative" aria-label={badge ? `Notifications, ${badgeLabel}` : 'Notifications'} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         <Icon size={Icon === Bell ? 16 : 20} />
-        {unread ? (
+        {badge ? (
           <span className="ui-bell-count">
-            {unread > 99 ? '99+' : unread}
+            {badge > 99 ? '99+' : badge}
           </span>
         ) : null}
       </button>
       {open ? (
         <div className="ui-card absolute end-0 z-40 mt-2 w-[min(24rem,92vw)] p-2 shadow-lg max-sm:fixed max-sm:inset-x-4 max-sm:top-14 max-sm:w-auto" role="dialog" aria-label="Notifications">
+          {onOpenWaiting ? (
+            <button type="button" className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken" onClick={() => { setOpen(false); onOpenWaiting(); }}>
+              <span>{waitingN ? <><strong className="tabular-nums">{waitingN}</strong> {waitingN === 1 ? 'thing waits' : 'things wait'} for your answer</> : 'Nothing waits for your answer'}</span>
+              <span className="ui-caption whitespace-nowrap">Open Inbox</span>
+            </button>
+          ) : null}
           <div className="flex items-center justify-between px-2 py-1">
             <span className="ui-t-sec">Notifications</span>
             {unread ? (

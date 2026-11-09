@@ -1,6 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
-  <title id="title">CLOR Accounting app icon</title>
-  <path fill="#14152B" d="M57.6 0 H198.4 A57.6 57.6 0 0 1 256 57.6 V198.4 A57.6 57.6 0 0 1 198.4 256 H57.6 A57.6 57.6 0 0 1 0 198.4 V57.6 A57.6 57.6 0 0 1 57.6 0 Z"/>
-  <g transform="translate(0 -8)"><path fill="#FFFFFF" d="M64 78 Q96 70 122 84 V168 Q96 156 64 162 Z M134 84 Q160 70 192 78 V162 Q160 156 134 168 Z"/></g>
-  <path fill="#FF6B00" d="M90.55 186 L174.55 186 L168 204 L84 204 Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="CLOR">
+  <rect width="100" height="100" rx="20" fill="#FF5400"/>
+  <svg x="8" y="8" width="84" height="84" viewBox="10 0 60 60">
+    <path d="M48 14C33.5 14 20 25 20 38C20 51 33.5 62 48 62C55.5 62 61 59 64 53.5L51.5 44C49.5 46 47 47.5 44 47.5C36 47.5 30.5 41.5 30.5 35C30.5 28.5 36 22.5 44 22.5C47 22.5 49.5 24 51.5 26L64 16.5C61 11 55.5 8 48 8"
+      transform="translate(-4, -6)" fill="white"/>
+    <circle cx="39" cy="30" r="5.5" fill="white"/>
+  </svg>
 </svg>

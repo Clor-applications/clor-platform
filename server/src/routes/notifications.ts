@@ -34,16 +34,24 @@ const shape = (n: { id: string; kind: string; title: string; body: string | null
   return { id: n.id, kind: n.kind, title: n.title, body: n.body, link, readAt: n.readAt, createdAt: n.createdAt };
 };
 
+const sameAs = (n: { kind: string; title: string; linkJson: string | null }) => `${n.kind}\u0000${n.title}\u0000${n.linkJson || ''}`;
+/** Distinct unread notices: the bell's badge. */
+const distinctUnread = async (orgId: string, userId: string) => new Set((await platformPrisma.notification.findMany({ where: { orgId, userId, readAt: null }, select: { kind: true, title: true, linkJson: true } })).map(sameAs)).size;
+
 notificationsRouter.get(base, async (req, res) => {
   if (!orgOk(req, res)) return;
   const { orgId } = req.tenant!;
   const userId = req.auth!.userId;
   const take = Math.min(100, Math.max(1, Number(req.query.limit) || 30));
-  const [rows, unread] = await Promise.all([
-    platformPrisma.notification.findMany({ where: { orgId, userId }, orderBy: { createdAt: 'desc' }, take }),
-    platformPrisma.notification.count({ where: { orgId, userId, readAt: null } }),
-  ]);
-  res.json({ unread, notifications: rows.map(shape) });
+  /*
+   * Distinct notices (production, 9 Nov 2026: a daily digest stacked once a day for two weeks and the bell said 18).
+   * Recurring jobs now refresh one row (upsertNotice); rows from before are read as one: the newest of each
+   * kind + title + link speaks, and the badge counts distinct unread notices.
+   */
+  const [rows, unread] = await Promise.all([platformPrisma.notification.findMany({ where: { orgId, userId }, orderBy: { createdAt: 'desc' }, take: take * 3 }), distinctUnread(orgId, userId)]);
+  const seen = new Set<string>();
+  const distinct = rows.filter((n) => { const k = sameAs(n); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, take);
+  res.json({ unread, notifications: distinct.map(shape) });
 });
 
 /** Mark some (or all) read. */
@@ -58,8 +66,7 @@ notificationsRouter.post(`${base}/read`, async (req, res) => {
   const opened = p.data.all ? [] : await platformPrisma.notification.findMany({ where: { ...where, kind: { in: DIGEST_KINDS } }, select: { kind: true } });
   const r = await platformPrisma.notification.updateMany({ where, data: { readAt: new Date() } });
   for (const n of opened) void track(orgId, userId, 'digest_opened', { kind: n.kind, channel: 'bell' });
-  const unread = await platformPrisma.notification.count({ where: { orgId, userId, readAt: null } });
-  res.json({ marked: r.count, unread });
+  res.json({ marked: r.count, unread: await distinctUnread(orgId, userId) });
 });
 
 /** Kinds this person muted for this company. */

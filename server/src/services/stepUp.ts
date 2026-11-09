@@ -17,19 +17,28 @@ import { getJwtSecret } from './auth.js';
 
 export const STEP_UP_MINUTES = 15;
 const AUDIENCE = 'clor-step-up';
+/*
+ * Review S1: an operator's code is taken only by /ops/step-up, which locks
+ * after repeated wrong codes (#9). A company's step-up has no such lockout,
+ * so its tokens must not open operator actions: they carry another audience.
+ */
+const OPERATOR_AUDIENCE = 'clor-operator-step-up';
 const issuer = () => process.env.JWT_ISSUER || 'accounting';
 
-export function issueStepUp(userId: string, sid: string | undefined) {
+export function issueStepUp(userId: string, sid: string | undefined, audience = AUDIENCE) {
   const expiresAt = new Date(Date.now() + STEP_UP_MINUTES * 60_000);
-  const token = jwt.sign({ typ: 'stepup', userId, sid: sid || '' }, getJwtSecret(), { expiresIn: STEP_UP_MINUTES * 60, issuer: issuer(), audience: AUDIENCE });
+  const token = jwt.sign({ typ: 'stepup', userId, sid: sid || '' }, getJwtSecret(), { expiresIn: STEP_UP_MINUTES * 60, issuer: issuer(), audience });
   return { token, expiresAt };
 }
 
-function validFor(req: Request) {
+/** The operator console's step-up (routes/ops.ts), accepted only by operator actions. */
+export const issueOperatorStepUp = (userId: string, sid: string | undefined) => issueStepUp(userId, sid, OPERATOR_AUDIENCE);
+
+function validFor(req: Request, audience = AUDIENCE) {
   const raw = String(req.headers['x-step-up'] || '').trim();
   if (!raw) return false;
   try {
-    const p = jwt.verify(raw, getJwtSecret(), { issuer: issuer(), audience: AUDIENCE, algorithms: ['HS256'] }) as any;
+    const p = jwt.verify(raw, getJwtSecret(), { issuer: issuer(), audience, algorithms: ['HS256'] }) as any;
     return p?.typ === 'stepup' && p.userId === req.auth?.userId && (!p.sid || !req.auth?.sessionId || p.sid === req.auth.sessionId);
   } catch {
     return false;
@@ -42,11 +51,11 @@ export const hasValidStepUp = (req: Request) => validFor(req);
 /**
  * CLOR operators change any customer's subscription (A-17). That is too
  * much reach for a password alone: the operator must have an authenticator
- * and must have used it in the last few minutes (POST .../security/step-up
- * in any company they belong to), whatever any company's own policy says.
+ * and must have used it in the last few minutes (POST /ops/step-up, the only
+ * place that issues an operator step-up), whatever any company's own policy says.
  */
 export async function requireOperatorStepUp(req: Request, res: Response, next: NextFunction) {
-  const refused = await stepUpRefusal(req, 'CLOR operators must sign in with an authenticator app. Set one up first.');
+  const refused = await stepUpRefusal(req, 'CLOR operators must sign in with an authenticator app. Set one up first.', OPERATOR_AUDIENCE);
   return refused ? res.status(refused.status).json(refused.body) : next();
 }
 
@@ -56,10 +65,23 @@ export async function requireOperatorStepUp(req: Request, res: Response, next: N
  * for acts nobody can undo (closing a company, A-21) or with reach beyond one
  * company (operators, A-17).
  */
-export async function stepUpRefusal(req: Request, noAuthenticator: string) {
+export async function stepUpRefusal(req: Request, noAuthenticator: string, audience = AUDIENCE) {
   const user = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { totpEnabledAt: true } });
   if (!user?.totpEnabledAt) return { status: 403, body: { error: noAuthenticator, code: 'TWO_FACTOR_SETUP_REQUIRED' } };
-  if (!validFor(req)) return { status: 403, body: { error: 'Enter the code from your authenticator app to continue.', code: 'STEP_UP_REQUIRED' } };
+  if (!validFor(req, audience)) return { status: 403, body: { error: 'Enter the code from your authenticator app to continue.', code: 'STEP_UP_REQUIRED' } };
+  return null;
+}
+
+/**
+ * W-5.2's rule for changes that hand out access in bulk — making someone an
+ * administrator, single sign-on, directory sync: where the person making the
+ * change has an authenticator, it takes a fresh code (the client asks and
+ * retries). Someone with none is not stopped, as for an administrator grant;
+ * the change is in the audit either way. Null when it may go ahead.
+ */
+export async function stepUpIfHeld(req: Request, message = 'Enter the code from your authenticator app to change this.') {
+  const user = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { totpEnabledAt: true } });
+  if (user?.totpEnabledAt && !validFor(req)) return { status: 403, body: { error: message, code: 'STEP_UP_REQUIRED' } };
   return null;
 }
 
@@ -77,4 +99,17 @@ export async function requirePayrollStepUp(req: Request, res: Response, next: Ne
     });
   }
   return res.status(403).json({ error: 'Enter the code from your authenticator app to continue.', code: 'STEP_UP_REQUIRED' });
+}
+
+/**
+ * A fresh code from whoever has an authenticator, whatever the company's
+ * payroll setting says; somebody without one is not stopped. For an act that
+ * lets a payroll go out short of a statutory line (statutory-waiver, review of
+ * #145 N2): the session alone is not enough where a second factor exists.
+ */
+export async function stepUpIfEnrolledRefusal(req: Request) {
+  if (validFor(req)) return null;
+  const user = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { totpEnabledAt: true } });
+  if (!user?.totpEnabledAt) return null;
+  return { status: 403, body: { error: 'Enter the code from your authenticator app to continue.', code: 'STEP_UP_REQUIRED' } };
 }

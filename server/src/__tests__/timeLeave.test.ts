@@ -697,7 +697,7 @@ describe('closure audit (27 Oct 2026): nobody decides their own, team roles keep
     const p = await person(hr, { name: 'Late Worker', code: 'O2' });
     const day = (await att(hr, 'put', '/records', { employeeId: p.id, date: '2026-09-03', checkIn: '09:00', checkOut: '22:00' }).expect(200)).body.record;
     const keep = (await att(hr, 'post', '/holidays', { date: '2026-09-15', name: 'Before close' }).expect(201)).body.holiday;
-    await att(hr, 'post', '/months/2026-09/close', { acknowledge: true }).expect(200);
+    await att(hr, 'post', '/months/2026-09/close', { acknowledge: true, ...(await att(hr, 'get', '/months/2026-09/readiness')).body.noRecordConfirm }).expect(200);
     expect((await att(hr, 'post', '/holidays', { date: '2026-09-10', name: 'Too late' }).expect(409)).body.code).toBe('ATTENDANCE_MONTH_CLOSED');
     await att(hr, 'put', `/holidays/${keep.id}`, { date: '2026-10-15', name: 'Moved out' }).expect(409);
     await (request(app) as any).delete(`/api/orgs/${hr.orgId}/attendance/holidays/${keep.id}`).set(at(hr)).expect(409);

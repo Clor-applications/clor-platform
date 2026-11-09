@@ -2,6 +2,7 @@ import 'express-async-errors';
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { authRouter } from './routes/auth.js';
@@ -119,6 +120,7 @@ import { stockDocumentsRouter } from './routes/stockDocuments.js';
 import { stockLedgerRouter } from './routes/stockLedger.js';
 import { notFound, errorHandler } from './middleware/errors.js';
 import { billingRouter, billingOperatorRouter, billingWebhook } from './routes/billing.js';
+import { demoRequestCors, demoRequestsRouter, opsDemoRequestsRouter } from './routes/demoRequests.js';
 import { opsRouter } from './routes/ops.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
 import { internalJobsRouter } from './routes/internalJobs.js';
@@ -186,6 +188,21 @@ export function buildApp() {
 
   app.use(helmet());
   /*
+   * Gzip what a browser asks for: a list of 5,000 exceptions is 1.8 MB as
+   * JSON and about 120 KB compressed. Reader devices (/iclock for ZKTeco, /matrix
+   * for Matrix COSEC) and ingest hooks are left alone, since their clients may not unpack it, and a
+   * server-sent event stream would be held back by the compressor's buffer.
+   */
+  app.use(
+    compression({
+      filter: (req, res) => {
+        if (req.path.startsWith('/iclock') || req.path.startsWith('/ingest') || req.path.startsWith('/matrix')) return false;
+        if (String(res.getHeader('Content-Type') || '').includes('text/event-stream')) return false;
+        return compression.filter(req, res);
+      },
+    })
+  );
+  /*
    * Nothing this server answers is for a browser or proxy to keep: company
    * data, employee files and tokens alike (GAP-012). A route that wants
    * otherwise sets its own header, which replaces this one.
@@ -224,6 +241,8 @@ export function buildApp() {
    */
   const nativeShellAllow = new Set(['https://localhost', 'capacitor://localhost']);
 
+  /* clor.in's "Request a demo" form: open to the site's origins, without credentials, and only that route (routes/demoRequests.ts). */
+  app.use('/api/public/demo-requests', demoRequestCors);
   app.use(
     cors({
       origin(origin, cb) {
@@ -244,10 +263,11 @@ export function buildApp() {
    * Biometric readers (ZKTeco / eSSL push). Plain-text bodies, no login: a
    * reader is known by its serial number, which a company claims under
    * Attendance → Readers. Mounted before the JSON parser and outside /api, so
-   * none of the user-session middleware applies. Bodies are capped: a real
-   * batch of punches is a few hundred KB (ClorTime caps at 8 MB).
+   * none of the user-session middleware applies. Bodies are capped inside the
+   * router: 8 MB for a reader a company added (a real batch is a few hundred KB;
+   * ClorTime caps at 8 MB), 64 KB for any other serial (routes/iclock.ts, iclockBody).
    */
-  app.use('/iclock', express.text({ type: () => true, limit: '8mb' }), iclockRouter);
+  app.use('/iclock', iclockRouter);
   /* Any shape of body: JSON when it says so, a form, or plain text we try as JSON. */
   /* The exact bytes are kept beside the parsed body, so a signed push can be checked (routes/ingest.ts). */
   const keepRaw = (req: any, _res: any, buf: Buffer) => {
@@ -373,6 +393,8 @@ export function buildApp() {
   /* Cloud Scheduler's wake call for background jobs (token-guarded; 404 without JOBS_TOKEN). */
   app.use('/api', internalJobsRouter);
   app.use('/api', invitationsRouter);
+  /* "Request a demo" from clor.in: no sign-in, no account yet. */
+  app.use('/api', demoRequestsRouter);
 
   /* No auth and no tenant headers: the customer has no account here. Mounted
      with authRouter for the same reason gstinRouter is — a router at '/api'
@@ -401,6 +423,7 @@ export function buildApp() {
   app.use('/api', billingOperatorRouter);
   /* W-8.2: the operator console — Clor staff, outside every customer account, so ahead of the tenant routers. */
   app.use('/api', opsRouter);
+  app.use('/api', opsDemoRequestsRouter);
 
   /*
    * Mounted before every tenant-scoped router, and that position is the point.

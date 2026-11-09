@@ -1,12 +1,12 @@
-import React, { useRef } from 'react';
+import React, { useState } from 'react';
 import { FileText } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
+import PickPersonDrawer from '@ui/personnel/PickPersonDrawer';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
@@ -15,7 +15,7 @@ import { PersonCell, crumbs } from '@ui/lifecycle/shared';
 import { listOffers, withdrawOffer } from './api';
 import { can } from './shared';
 import { wholeRupees as rupees } from '@ui/utils/money';
-import { istDay } from '@ui/utils/dates';
+import { istDay, todayIst } from '@ui/utils/dates';
 
 /**
  * Joining & leaving → Offers (FEATURE-UI-AUDIT gap 7): every offer sent with
@@ -44,9 +44,10 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
   const size = [25, 50, 100].includes(Number(p.size)) ? Number(p.size) : 25;
   const set = (patch, push = false) => updateParams?.(patch, { push });
   const req = useRequest(() => listOffers(), []);
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, view);
+  const [picking, setPicking] = useState(false);
   const canWithdraw = can(perms, 'PEOPLE::Documents::CREATE');
+  /* An offer goes to someone not yet started: a joiner with a joining date ahead (the record's own rule). */
+  const notStarted = (e) => e.dateOfJoining && String(e.dateOfJoining).slice(0, 10) > todayIst();
   const q = String(p.q || '').trim().toLowerCase();
   const all = req.data || [];
   const counts = Object.fromEntries(VIEWS.map(([k]) => [k, all.filter((o) => inView(o, k)).length]));
@@ -78,15 +79,16 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={crumbs()} title="Offers" />
-      <div ref={tabsRef} role="tablist" aria-label="Offers" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {VIEWS.map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => set({ view: k === 'open' ? null : k, page: null }, true)}>
-            {l}{counts[k] && k !== 'all' ? <span className="ui-tab-count tabular-nums">{counts[k]}</span> : null}
-          </button>
-        ))}
-        {tabIndicator}
-      </div>
+      <ListHeader
+        breadcrumb={crumbs()}
+        title="Offers"
+        description="Every offer sent with an accept link, and where each one stands."
+        primary={canWithdraw ? { label: 'Make an offer', icon: FileText, onClick: () => setPicking(true) } : null}
+        toolbar={<SearchField value={p.q || ''} onSearch={(v) => set({ q: v || null, page: null })} placeholder="Search name, designation or e-mail" label="Search offers" className="w-full sm:w-72" />}
+        tabs={VIEWS.map(([k, l]) => ({ key: k, label: l, count: k !== 'all' ? counts[k] : 0 }))}
+        tab={view}
+        onTab={(k) => set({ view: k === 'open' ? null : k, page: null }, true)}
+      />
       <DataTable
         label="Offers"
         columns={columns}
@@ -112,11 +114,14 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
             <span className="block truncate ui-caption tabular-nums">Sent {sentOn(o)}{when(o) ? ` · ${when(o)}` : ''}</span>
           </span>
         )}
-        toolbar={<SearchField value={p.q || ''} onSearch={(v) => set({ q: v || null, page: null })} placeholder="Search name, designation or e-mail" label="Search offers" className="w-full sm:w-72" />}
         empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} />
           : q ? <EmptyState kind="filtered" title="Nobody matches" onClearFilters={() => set({ q: null, page: null })} />
-            : <EmptyState icon={FileText} title={view === 'open' ? 'No offer is waiting for an answer' : view === 'accepted' ? 'No offer accepted yet' : view === 'closed' ? 'Nothing declined or withdrawn' : 'No offers sent yet'} description={view === 'open' || view === 'all' ? 'Send one from a joiner’s record: More → Send an offer.' : undefined} />}
+            : <EmptyState icon={FileText} title={view === 'open' ? 'No offer is waiting for an answer' : view === 'accepted' ? 'No offer accepted yet' : view === 'closed' ? 'Nothing declined or withdrawn' : 'No offers sent yet'} description={view === 'open' || view === 'all' ? 'An offer goes to a joiner with a joining date ahead, or to a candidate from Talent.' : undefined} />}
       />
+      {picking ? (
+        <PickPersonDrawer title="Make an offer" description="A joiner whose joining date is ahead. For a candidate, offer from Talent › Candidates." action="Write the offer" filter={notStarted}
+          onClose={() => setPicking(false)} onPick={(person) => { setPicking(false); openScreen?.('employee', { id: person.id, action: 'offer' }); }} />
+      ) : null}
     </div>
   );
 }

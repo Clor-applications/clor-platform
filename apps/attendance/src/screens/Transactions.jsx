@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Camera, Fingerprint, MapPin, Router, Users, UserX } from 'lucide-react';
+import { Camera, Fingerprint, MapPin, Router, Users, UserX } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';

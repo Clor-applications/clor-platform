@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, Lock } from 'lucide-react';
+import { ChevronDown, Lock } from '@ui/components/ui/lineIcons';
 
 import { displayModules, moduleKeys, permissionKey } from './permissionKeys';
 import './workspace.css';

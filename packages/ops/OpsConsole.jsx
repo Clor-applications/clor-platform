@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, KeyRound, LogOut, Search } from 'lucide-react';
+import { ArrowLeft, KeyRound, LogOut, Search } from '@ui/components/ui/lineIcons';
 import QRCode from 'qrcode';
 
 import { ClorLogo } from '@ui/components/brand';
+import { IconSetContext, LineSetContext } from '@ui/components/ui/iconSet';
 import Toaster from '@ui/components/ui/Toaster';
 import { notify } from '@ui/components/ui/notify';
 import { ICON, PageHead, Panel, Stat, WsDrawer, ago } from '../../apps/admin/src/screens/wsKit';
@@ -10,6 +11,7 @@ import '../../apps/admin/src/screens/workspace.css';
 import { useSession } from '../shell/session';
 import SignIn from '../shell/SignIn';
 import OperatorBrand from './OperatorBrand';
+import { DemoRequestDetail, DemoRequests } from './DemoRequests';
 import {
   opsAccount,
   opsAccounts,
@@ -580,6 +582,7 @@ function EnrolAuthenticator({ onDone }) {
   const [qr, setQr] = useState('');
   const [code, setCode] = useState('');
   const [codes, setCodes] = useState(null);
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -594,12 +597,16 @@ function EnrolAuthenticator({ onDone }) {
       setBusy(false);
     }
   };
-  const begin = () =>
+  /* The password first, so a stolen session cannot put someone else's authenticator on the console. */
+  const begin = (e) => {
+    e.preventDefault();
     act(async () => {
-      const r = await opsStartTwoFactor();
+      const r = await opsStartTwoFactor(password);
+      setPassword('');
       setSetup(r);
       setQr(await QRCode.toDataURL(r.uri, { margin: 1, width: 192 }));
     });
+  };
   const confirm = (e) => {
     e.preventDefault();
     act(async () => {
@@ -636,9 +643,15 @@ function EnrolAuthenticator({ onDone }) {
           </div>
         </form>
       ) : (
-        <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={begin}>
-          <KeyRound size={16} aria-hidden="true" /> Set up an authenticator app
-        </button>
+        <form onSubmit={begin} className="flex flex-wrap items-end gap-2">
+          <label className="grid gap-1">
+            <span className="text-sm font-medium">Your password</span>
+            <input type="password" className="ui-input" autoComplete="current-password" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} required />
+          </label>
+          <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || !password}>
+            <KeyRound size={16} aria-hidden="true" /> Set up an authenticator app
+          </button>
+        </form>
       )}
       {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
     </div>
@@ -648,6 +661,7 @@ function EnrolAuthenticator({ onDone }) {
 const NAV = [
   ['overview', 'Overview', ICON.home],
   ['accounts', 'Accounts', ICON.companies],
+  ['demos', 'Demo requests', ICON.mail],
   ['audit', 'Operator log', ICON.history],
   ['operators', 'Operators', ICON.secure, 'SUPER_ADMIN'],
 ];
@@ -658,6 +672,7 @@ function Console() {
   const [refused, setRefused] = useState(null);
   const [page, setPage] = useState('overview');
   const [accountId, setAccountId] = useState('');
+  const [demoId, setDemoId] = useState('');
   const [accountsStatus, setAccountsStatus] = useState('all');
   const [reload, setReload] = useState(0);
 
@@ -697,6 +712,7 @@ function Console() {
   const open = (p) => {
     setPage(p);
     setAccountId('');
+    setDemoId('');
     window.scrollTo(0, 0);
   };
   return (
@@ -720,10 +736,14 @@ function Console() {
         <div className="ws-inner">
           {accountId ? (
             <AccountDetail id={accountId} role={me.role} back={() => setAccountId('')} />
+          ) : demoId ? (
+            <DemoRequestDetail id={demoId} role={me.role} back={() => setDemoId('')} openAccount={(id) => { setDemoId(''); setAccountId(id); }} />
           ) : page === 'overview' ? (
             <Overview openAccounts={(st) => { setAccountsStatus(st); open('accounts'); }} />
           ) : page === 'accounts' ? (
             <Accounts key={accountsStatus} initialStatus={accountsStatus} openAccount={setAccountId} />
+          ) : page === 'demos' ? (
+            <DemoRequests openRequest={setDemoId} />
           ) : page === 'audit' ? (
             <AuditLog />
           ) : page === 'operators' && me.role === 'SUPER_ADMIN' ? (
@@ -736,7 +756,18 @@ function Console() {
   );
 }
 
+/* The console draws in the icon family of every app but Accounting (owner, 9 Nov 2026): two-tone marks, Fluent line icons. */
 export default function OpsConsole() {
+  return (
+    <IconSetContext.Provider value="duo">
+      <LineSetContext.Provider value="fluent">
+        <OpsScreens />
+      </LineSetContext.Provider>
+    </IconSetContext.Provider>
+  );
+}
+
+function OpsScreens() {
   const { user, restoring } = useSession();
   if (restoring) return null;
   if (!user) {
