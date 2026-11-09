@@ -10,6 +10,7 @@ import '../../apps/admin/src/screens/workspace.css';
 import { useSession } from '../shell/session';
 import SignIn from '../shell/SignIn';
 import OperatorBrand from './OperatorBrand';
+import { DemoRequestDetail, DemoRequests } from './DemoRequests';
 import {
   opsAccount,
   opsAccounts,
@@ -659,6 +660,7 @@ function EnrolAuthenticator({ onDone }) {
 const NAV = [
   ['overview', 'Overview', ICON.home],
   ['accounts', 'Accounts', ICON.companies],
+  ['demos', 'Demo requests', ICON.mail],
   ['audit', 'Operator log', ICON.history],
   ['operators', 'Operators', ICON.secure, 'SUPER_ADMIN'],
 ];
@@ -669,6 +671,7 @@ function Console() {
   const [refused, setRefused] = useState(null);
   const [page, setPage] = useState('overview');
   const [accountId, setAccountId] = useState('');
+  const [demoId, setDemoId] = useState('');
   const [accountsStatus, setAccountsStatus] = useState('all');
   const [reload, setReload] = useState(0);
 
@@ -708,6 +711,7 @@ function Console() {
   const open = (p) => {
     setPage(p);
     setAccountId('');
+    setDemoId('');
     window.scrollTo(0, 0);
   };
   return (
@@ -731,10 +735,14 @@ function Console() {
         <div className="ws-inner">
           {accountId ? (
             <AccountDetail id={accountId} role={me.role} back={() => setAccountId('')} />
+          ) : demoId ? (
+            <DemoRequestDetail id={demoId} role={me.role} back={() => setDemoId('')} openAccount={(id) => { setDemoId(''); setAccountId(id); }} />
           ) : page === 'overview' ? (
             <Overview openAccounts={(st) => { setAccountsStatus(st); open('accounts'); }} />
           ) : page === 'accounts' ? (
             <Accounts key={accountsStatus} initialStatus={accountsStatus} openAccount={setAccountId} />
+          ) : page === 'demos' ? (
+            <DemoRequests openRequest={setDemoId} />
           ) : page === 'audit' ? (
             <AuditLog />
           ) : page === 'operators' && me.role === 'SUPER_ADMIN' ? (

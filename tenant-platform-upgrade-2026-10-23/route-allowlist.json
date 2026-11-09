@@ -987,6 +987,11 @@
       "reason": "Lists People outbox events that used every retry (leave and request notices among them) for the operator: ids, company, event name, attempts and last error, no payload; same JOBS_TOKEN check, 404 when unset (closure audit O-07)."
     },
     {
+      "method": "POST",
+      "path": "/api/public/demo-requests",
+      "reason": "Request a demo on clor.in (demoRequests.ts): no account exists yet; demoRequestLimiter (10 an hour per address, 3 per email); hidden trap field drops bots; fields validated; writes one platform DemoRequest row (no accountId), a DEMO_REQUESTED auth event and a mail to sales; reads nothing back. CORS open to the site origins only, without credentials."
+    },
+    {
       "method": "GET",
       "path": "/api/people/apply/:token",
       "reason": "Talent apply page (TALENT-DECISIONS.md): token kept only as sha256, works while the opening is open and its link is on; shows the job title, company and description only; outsideTenant lookup then enterTenant."

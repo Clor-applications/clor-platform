@@ -119,6 +119,7 @@ import { stockDocumentsRouter } from './routes/stockDocuments.js';
 import { stockLedgerRouter } from './routes/stockLedger.js';
 import { notFound, errorHandler } from './middleware/errors.js';
 import { billingRouter, billingOperatorRouter, billingWebhook } from './routes/billing.js';
+import { demoRequestCors, demoRequestsRouter, opsDemoRequestsRouter } from './routes/demoRequests.js';
 import { opsRouter } from './routes/ops.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
 import { internalJobsRouter } from './routes/internalJobs.js';
@@ -239,6 +240,8 @@ export function buildApp() {
    */
   const nativeShellAllow = new Set(['https://localhost', 'capacitor://localhost']);
 
+  /* clor.in's "Request a demo" form: open to the site's origins, without credentials, and only that route (routes/demoRequests.ts). */
+  app.use('/api/public/demo-requests', demoRequestCors);
   app.use(
     cors({
       origin(origin, cb) {
@@ -389,6 +392,8 @@ export function buildApp() {
   /* Cloud Scheduler's wake call for background jobs (token-guarded; 404 without JOBS_TOKEN). */
   app.use('/api', internalJobsRouter);
   app.use('/api', invitationsRouter);
+  /* "Request a demo" from clor.in: no sign-in, no account yet. */
+  app.use('/api', demoRequestsRouter);
 
   /* No auth and no tenant headers: the customer has no account here. Mounted
      with authRouter for the same reason gstinRouter is — a router at '/api'
@@ -417,6 +422,7 @@ export function buildApp() {
   app.use('/api', billingOperatorRouter);
   /* W-8.2: the operator console — Clor staff, outside every customer account, so ahead of the tenant routers. */
   app.use('/api', opsRouter);
+  app.use('/api', opsDemoRequestsRouter);
 
   /*
    * Mounted before every tenant-scoped router, and that position is the point.

@@ -24,6 +24,7 @@
   --accent-text: #ba3900;
   --accent-soft: #fff1ea;
   --ok: #15803d;
+  --bad: #b91c1c;
 
   --font-display: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-text: var(--font-display);
@@ -1258,6 +1259,78 @@ main:focus {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--s-4);
+}
+.field-hint {
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.field-error,
+.form-error {
+  font-weight: 550;
+  color: var(--bad);
+}
+.form-error {
+  margin: 0;
+  font-size: var(--t-sm);
+}
+.field [aria-invalid='true'] {
+  border-color: var(--bad);
+}
+.field-short {
+  max-width: 10rem;
+}
+/* A group of ticks (Request a demo: which apps). */
+.field-set {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.field-set legend {
+  padding: 0;
+  margin-bottom: var(--s-2);
+}
+.field-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-5);
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 44px;
+  font: 400 var(--t-md) / 1.4 var(--font-text);
+  cursor: pointer;
+}
+.check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+/* For bots only: off the page, out of the tab order, hidden from assistive tech. */
+.trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.demo-steps {
+  margin: 0;
+  padding-left: 1.25em;
+  display: grid;
+  gap: var(--s-2);
+}
+.demo-thanks {
+  display: grid;
+  gap: var(--s-4);
+  justify-items: start;
+  max-width: 640px;
+}
+.demo-thanks:focus {
+  outline: none;
 }
 .contact-aside {
   padding-left: clamp(0px, 3vw, var(--s-7));

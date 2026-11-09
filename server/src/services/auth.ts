@@ -331,7 +331,8 @@ export async function clearFailedLogins(userId: string) {
 // Password reset
 // ---------------------------------------------------------------------------
 
-export async function issuePasswordResetToken(user: { id: string; accountId: string }, ip?: string) {
+/** ttlMs: 30 minutes for a reset someone asked for; longer for the set-password link of an account made for them (services/accountProvisioning.ts). */
+export async function issuePasswordResetToken(user: { id: string; accountId: string }, ip?: string, ttlMs = 30 * 60 * 1000) {
   // Any earlier token is spent: requesting a new link must invalidate the old.
   await platformPrisma.passwordResetToken.updateMany({
     where: { userId: user.id, usedAt: null },
@@ -344,7 +345,7 @@ export async function issuePasswordResetToken(user: { id: string; accountId: str
       accountId: user.accountId,
       userId: user.id,
       tokenHash: sha256(token),
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+      expiresAt: new Date(Date.now() + ttlMs),
       requestedIp: ip || null,
     },
   });
