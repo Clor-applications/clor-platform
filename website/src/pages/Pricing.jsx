@@ -52,7 +52,7 @@ function Plan({ plan, period }) {
           </p>
           <p className="small plan-terms">
             For up to {plan.includedUnits} {unitWord(plan.unit, plan.includedUnits)}
-            {price.extraUnitPrice ? `, then ${inr(price.extraUnitPrice)} ${per} for each ${unitWord(plan.unit, 1)} more.` : `. No charge for more ${unitWord(plan.unit, 2)}.`}
+            {price.extraUnitPrice ? `, then ${inr(price.extraUnitPrice)} ${per} for each extra ${unitWord(plan.unit, 1)}.` : `. No charge for more ${unitWord(plan.unit, 2)}.`}
             {period === 'yearly' && price.saving ? ` ${inr(price.saving)} less than paying monthly.` : ''}
           </p>
         </>

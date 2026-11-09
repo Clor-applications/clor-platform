@@ -18,6 +18,18 @@ import { inr, rupeesText, toPaise } from './money';
 const STATUS = { DRAFT: 'Draft', PUBLISHED: 'On clor.in', ARCHIVED: 'Archived' };
 const UNIT = { COMPANY: 'company', USER: 'user', EMPLOYEE: 'employee' };
 const UNITS = { COMPANY: 'companies', USER: 'users', EMPLOYEE: 'employees' };
+const units = (unit, n) => (Number(n) === 1 ? UNIT[unit] : UNITS[unit]);
+/** The tax lines of a quote: none at all while CLOR charges no GST. */
+function taxRows(tax) {
+  if (!tax?.charged) return [];
+  const half = tax.ratePercent / 2;
+  if (tax.kind === 'CGST_SGST')
+    return [
+      [`CGST ${half}%`, tax.cgst],
+      [`SGST ${half}%`, tax.sgst],
+    ];
+  return [[`${tax.kind === 'IGST' ? 'IGST' : 'GST'} ${tax.ratePercent}%`, tax.amount]];
+}
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 const may = (role, ...roles) => role === 'SUPER_ADMIN' || roles.includes(role);
 const Err = ({ children }) =>
@@ -100,7 +112,7 @@ export function Pricing({ role }) {
   }, []);
   useEffect(load, [load]);
 
-  if (bookId) return <PriceBook id={bookId} role={role} catalogue={data?.apps || []} back={() => (setBookId(''), load())} open={setBookId} />;
+  if (bookId) return <PriceBook id={bookId} role={role} catalogue={data?.apps || []} back={() => (setBookId(''), load())} open={setBookId} live={data?.books?.find((b) => b.status === 'PUBLISHED') || null} />;
   if (!data) return error ? <Err>{error}</Err> : <p className="ws-card-blurb">Loading…</p>;
   const live = data.books.find((b) => b.status === 'PUBLISHED');
   const draft = data.books.find((b) => b.status === 'DRAFT');
@@ -225,7 +237,7 @@ function NewBook({ open, live, onClose, onMade }) {
 }
 
 /* ------------------------------------------------------------ one book */
-function PriceBook({ id, role, catalogue, back, open }) {
+function PriceBook({ id, role, catalogue, back, open, live }) {
   const [book, setBook] = useState(null);
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -244,7 +256,7 @@ function PriceBook({ id, role, catalogue, back, open }) {
       </button>
     </div>
   );
-  if (book.status === 'DRAFT') return <DraftEditor book={book} mayChange={mayChange} catalogue={catalogue} backButton={backButton} reload={load} back={back} />;
+  if (book.status === 'DRAFT') return <DraftEditor book={book} mayChange={mayChange} catalogue={catalogue} backButton={backButton} reload={load} back={back} live={live} />;
 
   return (
     <>
@@ -254,7 +266,7 @@ function PriceBook({ id, role, catalogue, back, open }) {
         title={`Version ${book.version}`}
         meta={
           <>
-            <StatusPill status={book.status} /> {book.status === 'PUBLISHED' ? `since ${day(book.publishedAt)}` : `archived ${day(book.archivedAt)}`}
+            <StatusPill status={book.status} /> {book.status === 'PUBLISHED' ? `since ${day(book.publishedAt)}` : `on ${day(book.archivedAt)}`}
           </>
         }
         actions={
@@ -291,7 +303,7 @@ function PriceBook({ id, role, catalogue, back, open }) {
       <Confirm
         open={confirm === 'rollback'}
         title={`Bring version ${book.version} back?`}
-        text={`Its plans and prices go on clor.in at once, as a new version copied from version ${book.version}. The version on clor.in now is archived and kept. Customers already subscribed keep their prices.`}
+        text={`Its plans and prices go on clor.in at once, as a new version copied from version ${book.version}.${live ? ` Version ${live.version}, on clor.in now, is archived and kept.` : ''} Customers already subscribed keep their prices.`}
         action="Bring it back"
         busyLabel="Publishing…"
         onClose={() => setConfirm('')}
@@ -314,7 +326,7 @@ const priceCell = (plan, period) => {
     <>
       <div>{inr(p.basePrice)}</div>
       <div className="ws-item-sub">
-        {p.extraUnitPrice ? `+ ${inr(p.extraUnitPrice)} a ${UNIT[plan.unit]}` : `no charge per ${UNIT[plan.unit]}`}
+        {p.extraUnitPrice ? `+ ${inr(p.extraUnitPrice)} per extra ${UNIT[plan.unit]}` : `no charge per ${UNIT[plan.unit]}`}
         {period === 'YEARLY' && plan.yearlyDiscountPct != null ? ` · ${plan.yearlyDiscountPct}% off` : ''}
       </div>
     </>
@@ -370,7 +382,7 @@ function PlanTable({ plans, catalogue, onEdit, onRemove }) {
               <td className="num">{priceCell(p, 'MONTHLY')}</td>
               <td className="num">{priceCell(p, 'YEARLY')}</td>
               <td className="num">{p.trialDays ? `${p.trialDays} days` : 'None'}</td>
-              <td>{!p.showOnWebsite ? 'Hidden' : p.apps.some((a) => !catalogue.find((c) => c.code === a)?.available) ? 'Hidden until the app is ready' : p.highlight ? 'Shown, highlighted' : 'Shown'}</td>
+              <td style={{ whiteSpace: 'normal' }}>{!p.showOnWebsite ? 'Hidden' : p.apps.some((a) => !catalogue.find((c) => c.code === a)?.available) ? 'Hidden until the app is ready' : p.highlight ? 'Shown, highlighted' : 'Shown'}</td>
               {onEdit ? (
                 <td>
                   <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => onRemove(i)}>
@@ -407,7 +419,7 @@ const blankPlan = (n) => ({
   ],
 });
 
-function DraftEditor({ book, mayChange, catalogue, backButton, reload, back }) {
+function DraftEditor({ book, mayChange, catalogue, backButton, reload, back, live }) {
   const [plans, setPlans] = useState(book.plans);
   const [note, setNote] = useState(book.note || '');
   const [editing, setEditing] = useState(null);
@@ -518,7 +530,7 @@ function DraftEditor({ book, mayChange, catalogue, backButton, reload, back }) {
       <Confirm
         open={confirm === 'publish'}
         title={`Publish version ${book.version}?`}
-        text="Its plans and prices go on clor.in and into every new quote straight away. The version on clor.in now is archived and kept, and can be brought back. Customers already subscribed keep their prices."
+        text={`Its plans and prices go on clor.in and into every new quote straight away.${live ? ` Version ${live.version}, on clor.in now, is archived and kept, and can be brought back.` : ''} Customers already subscribed keep their prices.`}
         action="Publish"
         busyLabel="Publishing…"
         onClose={() => setConfirm('')}
@@ -701,7 +713,7 @@ function PlanDrawer({ open, plan, isNew, catalogue, takenCodes, onClose, onDone 
         </fieldset>
         {monthly || (yearly && f.yearlyMode === 'discount') ? (
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-            <Field id="ops-plan-mbase" label="Monthly price, ₹" hint={`For up to ${f.includedUnits} ${UNITS[f.unit]}.`}>
+            <Field id="ops-plan-mbase" label="Monthly price, ₹" hint={`For up to ${f.includedUnits} ${units(f.unit, f.includedUnits)}.`}>
               {money('mBase', 'ops-plan-mbase')}
             </Field>
             <Field id="ops-plan-mextra" label={`Each extra ${unit} a month, ₹`} hint="0 if more cost nothing.">
@@ -734,7 +746,7 @@ function PlanDrawer({ open, plan, isNew, catalogue, takenCodes, onClose, onDone 
             </label>
             {f.yearlyMode === 'own' ? (
               <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-                <Field id="ops-plan-ybase" label="Yearly price, ₹" hint={`For up to ${f.includedUnits} ${UNITS[f.unit]}.`}>
+                <Field id="ops-plan-ybase" label="Yearly price, ₹" hint={`For up to ${f.includedUnits} ${units(f.unit, f.includedUnits)}.`}>
                   {money('yBase', 'ops-plan-ybase')}
                 </Field>
                 <Field id="ops-plan-yextra" label={`Each extra ${unit} a year, ₹`}>
@@ -824,8 +836,8 @@ function Preview({ plans, catalogue }) {
                     <span className="ws-item-sub"> {p ? (period === 'YEARLY' ? 'a year' : 'a month') : 'not offered'}</span>
                   </span>
                   <span className="ws-item-sub">
-                    {appNames(c.apps, catalogue)} · up to {c.includedUnits} {UNITS[c.unit]}
-                    {p?.extraUnitPrice ? `, then ${inr(p.extraUnitPrice)} a ${UNIT[c.unit]}` : ''}
+                    {appNames(c.apps, catalogue)} · up to {c.includedUnits} {units(c.unit, c.includedUnits)}
+                    {p?.extraUnitPrice ? `, then ${inr(p.extraUnitPrice)} for each extra ${UNIT[c.unit]}` : ''}
                     {c.trialDays ? ` · ${c.trialDays}-day free trial` : ''}
                   </span>
                 </li>
@@ -887,7 +899,7 @@ function Preview({ plans, catalogue }) {
                   <td style={{ whiteSpace: 'normal', paddingInline: 0 }}>
                     {l.planName}
                     <div className="ws-item-sub">
-                      {l.quantity} {UNITS[l.unit]}
+                      {l.quantity} {units(l.unit, l.quantity)}
                       {l.extraUnits ? `, ${l.extraUnits} extra` : ''}
                     </div>
                   </td>
@@ -904,12 +916,14 @@ function Preview({ plans, catalogue }) {
                   </td>
                 </tr>
               ) : null}
-              <tr>
-                <td style={{ paddingInline: 0 }}>GST</td>
-                <td className="num" style={{ paddingInline: 0 }}>
-                  {inr(r.quote.tax.amount)}
-                </td>
-              </tr>
+              {taxRows(r.quote.tax).map(([label, amount]) => (
+                <tr key={label}>
+                  <td style={{ paddingInline: 0 }}>{label}</td>
+                  <td className="num" style={{ paddingInline: 0 }}>
+                    {inr(amount)}
+                  </td>
+                </tr>
+              ))}
               <tr>
                 <td className="font-medium" style={{ paddingInline: 0 }}>
                   Total {period === 'YEARLY' ? 'a year' : 'a month'}

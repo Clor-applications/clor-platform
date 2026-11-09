@@ -118,7 +118,7 @@ export function Settings({ role }) {
               <label htmlFor="ops-tax-sac" className="text-sm font-medium">
                 SAC code
               </label>
-              <input id="ops-tax-sac" className="ui-input ui-num" maxLength={8} inputMode="numeric" value={f.sac} disabled={!mayChange} onChange={set('sac')} placeholder="998314" />
+              <input id="ops-tax-sac" className="ui-input tabular-nums" maxLength={8} inputMode="numeric" value={f.sac} disabled={!mayChange} onChange={set('sac')} placeholder="998314" />
               <span className="ws-card-blurb">The service code your accountant chose for CLOR’s subscriptions.</span>
             </div>
             <div className="grid gap-1">
