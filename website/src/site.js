@@ -11,19 +11,22 @@
 const env = (typeof import.meta !== 'undefined' && import.meta.env) || {};
 const SITE_URL = env.VITE_SITE_URL || 'https://clor.in';
 const APP_URL = env.VITE_APP_URL || 'https://app.clor.in';
+/* The API beside the app: app.clor.in -> api.clor.in, app.staging.clor.in -> api.staging.clor.in. VITE_API_URL for a local run. */
+const API_URL = env.VITE_API_URL || `${APP_URL.replace('//app.', '//api.')}/api`;
 
 export const SITE = {
   name: 'CLOR',
   company: 'Clor Applications Pvt Ltd',
   url: SITE_URL,
   appUrl: APP_URL,
+  apiUrl: API_URL,
   /* The app's own doors: /signin and /signup open those pages directly. */
   signInUrl: `${APP_URL}/signin`,
   signUpUrl: `${APP_URL}/signup`,
   /* Staff punch, apply for leave and read payslips here, with no CLOR user of their own. */
   portalUrl: `${APP_URL.replace('//app.', '//attendance.')}/#/portal`,
-  /* Until the demo form has its own page, a demo request is a message to sales. */
-  demoUrl: '/contact?about=demo',
+  /* The Request a demo form (pages/Demo.jsx); the header's button opens it with no app chosen. */
+  demoUrl: '/demo',
   /* Short form for the About page and the footer. */
   city: 'Yelahanka, Bengaluru',
   /* Confirmed by the company, 2026-10-24. */
@@ -119,6 +122,6 @@ export const NAV = {
 
 /** The app id inside app.clor.in, where it differs from the site's slug. */
 const APP_ID = { books: 'accounting' };
-/** A demo request for one product: the contact page reads ?app= and names it in the message. */
-export const demoFor = (slug) => `${SITE.demoUrl}&app=${slug}`;
+/** A demo request for one product: the form reads ?app= and ticks it. */
+export const demoFor = (slug) => `${SITE.demoUrl}?app=${slug}`;
 export const appIdFor = (slug) => APP_ID[slug] || slug;

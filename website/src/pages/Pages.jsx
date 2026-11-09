@@ -6,7 +6,7 @@ import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
 import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
 import { DOCUMENTS } from '../../../packages/shell/legal/documents.jsx';
 
-function PageHead({ title, intro, children }) {
+export function PageHead({ title, intro, children }) {
   return (
     <section className="hero hero--product">
       <div className="wrap stack" style={{ '--stack': '1.25rem' }}>
@@ -345,29 +345,21 @@ export function About() {
 }
 
 /* ----------------------------------------------------------------- contact */
-/* Questions about buying go to sales; everything else to the general inbox. */
-const SALES_TOPICS = new Set(['demo', 'pricing', 'projects', 'timesheet', 'firm']);
-const TOPICS = { demo: 'A demo for my company', general: 'A question about CLOR', pricing: 'Pricing for my company', projects: 'CLOR Projects, when it’s ready', timesheet: 'CLOR Timesheet, when it’s ready', firm: 'CLOR for my accounting firm' };
+/* Questions about buying go to sales; everything else to the general inbox. A demo has its own form (/demo). */
+const SALES_TOPICS = new Set(['pricing', 'projects', 'timesheet', 'firm']);
+const TOPICS = { general: 'A question about CLOR', pricing: 'Pricing for my company', projects: 'CLOR Projects, when it’s ready', timesheet: 'CLOR Timesheet, when it’s ready', firm: 'CLOR for my accounting firm' };
 
 export function Contact() {
   const [about, setAbout] = useState('general');
   const [form, setForm] = useState({ name: '', company: '', email: '', message: '' });
-  /* The query comes from the router, so an in-page link to another ?about= or ?app= is heard too. */
+  /* The query comes from the router, so an in-page link to another ?about= is heard too. */
   const search = useSearch();
   useEffect(() => {
-    /*
-     * The address is read after hydration (the server has none); on the next frame, not inside the effect.
-     * ?about= picks the topic; ?app= (from a product page's demo button) names the product in the message,
-     * unless the visitor has already written one of their own.
-     */
+    /* The address is read after hydration (the server has none); on the next frame, not inside the effect. ?about= picks the topic. */
     const q = new URLSearchParams(search);
     const topic = TOPICS[q.get('about')] ? q.get('about') : null;
-    const product = productBySlug(q.get('app') || '');
-    if (!topic && !product) return undefined;
-    const frame = requestAnimationFrame(() => {
-      if (topic) setAbout(topic);
-      if (product) setForm((f) => (f.message && !f.message.startsWith('I’d like a demo of CLOR') ? f : { ...f, message: `I’d like a demo of CLOR ${product.name} for my company.` }));
-    });
+    if (!topic) return undefined;
+    const frame = requestAnimationFrame(() => setAbout(topic));
     return () => cancelAnimationFrame(frame);
   }, [search]);
   /* No form backend yet: the message opens in the visitor's own email app, addressed to us. */
