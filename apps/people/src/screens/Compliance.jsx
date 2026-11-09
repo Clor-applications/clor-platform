@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { FileText, Plus, X } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState, SegmentedControl } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -9,7 +9,6 @@ import SuggestInput from '@ui/components/ui/SuggestInput';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import * as api from '../api/compliance';
@@ -82,8 +81,6 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
   const owners = useRequest(() => (canAct ? api.listOwners() : Promise.resolve({ users: [], names: [] })), [canAct]);
   const regs = useRequest(() => api.listRegistrations(), []);
   const rules = useRequest(() => (view === 'rules' ? api.listRules() : Promise.resolve(null)), [view]);
-  const viewsRef = useRef(null);
-  const viewIndicator = useTabIndicator(viewsRef, view);
   const all = owed.data || [];
   const open = params.id ? all.find((o) => o.id === params.id) : null;
   const inTab = (o, k) => TABS.find(([key]) => key === k)[2].includes(o.status);
@@ -112,25 +109,25 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Compliance calendar" actions={actions} />
-      <div ref={viewsRef} role="tablist" aria-label="Compliance" className={`ui-record-tablist ${viewIndicator ? 'has-indicator' : ''}`}>
-        {VIEWS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => set({ view: k === 'owed' ? null : k, status: null, id: null })}>{l}</button>)}
-        {viewIndicator}
-      </div>
+      <ListHeader
+        section="Settings"
+        title="Compliance calendar"
+        description="What the company owes under labour law and to Payroll, when, and whose job it is, with the registrations and rules behind it."
+        secondary={actions}
+        toolbar={<>
+          <SegmentedControl label="Compliance" options={VIEWS.map(([k, l]) => ({ key: k, label: l }))} value={view} onChange={(k) => set({ view: k === 'owed' ? null : k, status: null, id: null })} />
+          {view === 'owed' ? <SearchField value={q} onSearch={setQ} placeholder="Search what is owed" label="Search what is owed" className="w-full sm:w-80" /> : null}
+        </>}
+        tabs={view === 'owed' ? TABS.map(([k, l]) => ({ key: k, label: l, count: all.filter((o) => inTab(o, k)).length, tone: k === 'OVERDUE' ? 'warn' : undefined })) : null}
+        tab={tab}
+        onTab={(k) => set({ status: k === 'OPEN' ? null : k })}
+        tabsLabel="Status"
+      />
 
       {view === 'owed' ? (
         owed.error && !owed.data ? <ErrorState error={owed.error} onRetry={owed.reload} /> : (
           <DataTable
             label="What is owed"
-            tabs={(
-              <div role="tablist" aria-label="Status" className="flex flex-wrap gap-1">
-                {TABS.map(([k, l]) => {
-                  const n = all.filter((o) => inTab(o, k)).length;
-                  return <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-pill ${tab === k ? 'ui-pill-info' : ''}`} onClick={() => set({ status: k === 'OPEN' ? null : k })}>{l}{n ? <span className="tabular-nums"> {n}</span> : null}</button>;
-                })}
-              </div>
-            )}
-            toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search what is owed" label="Search what is owed" className="w-full sm:w-80" />}
             columns={columns} rows={shown} total={shown.length} pageSize={Math.max(25, shown.length)} noun="items"
             loading={owed.loading} refreshing={owed.refreshing} onRowClick={(o) => set({ id: o.id })}
             card={(o) => (

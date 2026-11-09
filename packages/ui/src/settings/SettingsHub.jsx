@@ -23,17 +23,16 @@ export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [],
 
   return (
     <div className="space-y-6 pb-8">
-      <PageHeader
-        entity="settings"
-        title="Settings"
-        description={description}
-        actions={
+      {/* The search is a toolbar under the title (People plan 8 Nov 2026, step 3), not a right-hand column. */}
+      <header className="ui-list-header">
+        <PageHeader entity="settings" title="Settings" description={description} />
+        <div className="ui-list-toolbar">
           <label className="relative block w-72 max-w-full">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" aria-hidden="true" />
             <input className="ui-input w-full pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search settings…" aria-label="Search settings" />
           </label>
-        }
-      />
+        </div>
+      </header>
       {!groups.length ? <p className="ui-muted text-sm">No setting matches “{q}”.</p> : null}
       {groups.map((g) => (
         <section key={g.title} className="space-y-2" aria-labelledby={`set-${g.title}`}>

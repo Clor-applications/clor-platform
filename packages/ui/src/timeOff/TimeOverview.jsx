@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { CalendarClock, CalendarDays, Clock3, Hourglass, Plus } from '@ui/components/ui/lineIcons';
 import { useContentIcon } from '@ui/components/ui/colorSwap';
 
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { SkeletonCard } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
 import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
 import { formatDate } from '@ui/components/ui/DatePicker';
@@ -65,10 +66,11 @@ export default function TimeOverview({ openScreen }) {
   const inbox = activeApp() === 'people' && can(perms, 'PEOPLE::Requests::VIEW');
   const toDecide = () => (inbox ? openScreen?.('approvals', { kind: 'LEAVE' }) : openScreen?.('leaveRequests'));
   const header = (
-    <PageHeader
+    <ListHeader
       breadcrumb={homeCrumbs()}
       title="Who's away"
-      actions={can(perms, 'ATTENDANCE::Leave Requests::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Enter leave</button> : null}
+      description="Who is away today, who is away in the next seven days, and the leave waiting for a decision."
+      primary={can(perms, 'ATTENDANCE::Leave Requests::CREATE') ? { label: 'Enter leave', icon: Plus, onClick: () => setAdding(true) } : null}
     />
   );
 

@@ -92,3 +92,17 @@ it('has a My tasks tab with the task count, lists my open tasks, and marks one d
   fireEvent.click(within(row).getByRole('button', { name: /Done/ }));
   await waitFor(() => expect(updateChecklistTask).toHaveBeenCalledWith('t1', { done: true }));
 });
+
+/* People plan 8 Nov 2026, step 3: with nothing to approve and tasks on my name, the Inbox opens on My tasks; a tab in the address still wins. */
+it('opens on My tasks when nothing waits to approve, unless the address names a tab', async () => {
+  const { getInbox } = await import('../api/approvals');
+  getInbox.mockResolvedValueOnce({ counts: { all: 0, TASK: 1, waiting: 1 }, tasks: [{ id: 't1', kind: 'JOINING', title: 'Collect the signed offer', owner: 'HR', dueDate: '2026-11-03', employee: { id: 'e3', name: 'Dev Kumar', code: 'MF-007' } }], rights: {}, items: [] });
+  mount();
+  expect((await screen.findAllByText('Collect the signed offer')).length).toBeGreaterThan(0);
+  expect(screen.getByRole('tab', { name: /My tasks/ }).getAttribute('aria-selected')).toBe('true');
+  cleanup();
+  getInbox.mockResolvedValueOnce({ counts: { all: 0, TASK: 1, waiting: 1 }, tasks: [], rights: {}, items: [] });
+  render(<PermissionContext.Provider value={{ loading: false, error: '', isAdmin: true, permissions: new Set() }}><Approvals params={{ tab: 'waiting' }} updateParams={() => {}} /></PermissionContext.Provider>);
+  expect(await screen.findByText('Nothing waiting for you')).toBeTruthy();
+  expect(screen.getByRole('tab', { name: /To approve/ }).getAttribute('aria-selected')).toBe('true');
+});

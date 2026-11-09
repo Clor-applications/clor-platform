@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -9,7 +9,7 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 import { createPlan, decidePlan, listPlans, notePlan } from '../api/talent';
-import { FormError, Footer, PLAN_STATUS, Pill, SHEET, Tabs, WIDE_SHEET, day, staffOptions, todayIst, useParamState, useStaff, when } from './shared';
+import { FormError, Footer, PLAN_STATUS, Pill, SHEET, WIDE_SHEET, day, staffOptions, tabItems, todayIst, useParamState, useStaff, when } from './shared';
 
 /**
  * Improvement plans (TALENT-DECISIONS.md, Growth): why, what is expected by the end, from and to,
@@ -43,11 +43,19 @@ export default function Plans({ params = {} }) {
   const gone = Boolean(open && open === params?.id && lookup.data && !lookup.loading && !lookup.refreshing && !current);
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Improvement plans' }]} title="Improvement plans"
-        actions={canStart ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setCreating(true)}><Plus size={16} aria-hidden="true" /> New plan</button> : null} />
+      <ListHeader
+        module="Talent"
+        title="Improvement plans"
+        description="Plans agreed with someone whose work needs to change: why, what is expected, and by when."
+        primary={canStart ? { label: 'New plan', icon: Plus, onClick: () => setCreating(true) } : null}
+        tabs={tabItems(TABS)}
+        tab={status}
+        onTab={setStatus}
+        tabsLabel="Plans"
+      />
       {gone ? <p className="ui-alert ui-alert-info text-sm" role="status">That plan is not in your sight any more. The plans you can see are below.</p> : null}
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
-        <DataTable tabs={<Tabs label="Plans" tabs={TABS} value={status} onChange={setStatus} />}
+        <DataTable
           label="Improvement plans" columns={columns} rows={rows} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun="plans"
           onRowClick={(p) => setOpen(p.id)}
           card={(p) => (

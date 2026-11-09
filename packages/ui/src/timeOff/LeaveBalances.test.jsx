@@ -64,3 +64,20 @@ it('says what a pay-out is worth and that it went to Payroll', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Save change' }));
   await waitFor(() => expect(notify.success).toHaveBeenCalledWith('Paid out: ₹3,000 sent to Payroll for November 2026, to be approved there.'));
 });
+
+/* People plan 8 Nov 2026, step 3: with no leave types the one action is to set them up, in the header and under the empty state. */
+it('with no paid leave types, Set up leave types is the primary and opens Leave policy', async () => {
+  const { getLeaveBalances } = await import('./api');
+  getLeaveBalances.mockResolvedValueOnce({ year: 2026, types: [], rows: [] });
+  const openScreen = vi.fn();
+  render(<PermissionContext.Provider value={{ loading: false, error: '', isAdmin: true, permissions: new Set() }}><LeaveBalances openScreen={openScreen} /></PermissionContext.Provider>);
+  expect(await screen.findByText('No paid leave types yet')).toBeTruthy();
+  /* Once: the header's primary. The empty state is a sentence with the way there as a link, not a second button. */
+  const buttons = screen.getAllByRole('button', { name: 'Set up leave types' });
+  expect(buttons).toHaveLength(1);
+  expect(buttons[0].className).toContain('ui-btn-primary');
+  expect(screen.getByText(/need at least one paid leave type/)).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Grant leave to many' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Settings › Leave policy' }));
+  expect(openScreen).toHaveBeenCalledWith('leaveTypes');
+});

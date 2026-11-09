@@ -242,7 +242,7 @@ export function CandidateForm({ value, openings = [], known = [], onClose, onSav
 }
 
 /** Set or move an interview: when, how, where, and who sits on it. */
-function InterviewForm({ candidate, interview, onClose, onSaved }) {
+export function InterviewForm({ candidate, interview, onClose, onSaved }) {
   const users = useRequest(() => interviewers().catch(() => []), []);
   /* Rooms and meeting links used before (the company's own places, nobody's private details). */
   const places = useRequest(() => listInterviews({ when: 'all' }).then((r) => usedValues(r?.interviews || [], (i) => i.place)).catch(() => []), []);

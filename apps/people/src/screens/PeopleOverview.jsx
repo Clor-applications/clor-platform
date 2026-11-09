@@ -480,10 +480,7 @@ export default function PeopleOverview({ openScreen }) {
           {may('PEOPLE::HR Cases::VIEW') ? <button type="button" className="soft-pill" data-tint="lilac" onClick={go('helpdesk')}><ChatsCircle size={18} aria-hidden="true" /> HR cases</button> : null}
           {may('PEOPLE::Announcements::CREATE') ? <button type="button" className="soft-pill" data-tint="lilac" onClick={go('announcements')}><Megaphone size={18} aria-hidden="true" /> Announce</button> : null}
           {may('PEOPLE::Employees::CREATE') ? (
-            <button type="button" className="soft-pill soft-pill-primary" onClick={go('employeeNew')}>
-              Add an employee
-              <span className="soft-pill-orb"><ArrowUpRight size={16} weight="bold" aria-hidden="true" /></span>
-            </button>
+            <button type="button" className="soft-pill soft-pill-primary" onClick={go('employeeNew')}>Add an employee</button>
           ) : null}
         </div>
       </header>

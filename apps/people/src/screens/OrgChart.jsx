@@ -29,7 +29,10 @@ export default function OrgChart({ openScreen, params = {}, updateParams }) {
   const asOfDay = params.view === 'departments' ? '' : params.asOf || '';
   const req = useRequest(() => getOrgChart({ asOf: asOfDay }), [asOfDay]);
   /* Three views of one company: the chart as a picture (the default), the same lines as a searchable outline, and who sits in which department under which head. */
-  const view = params.view === 'departments' || params.view === 'reporting' ? params.view : 'chart';
+  /* With no reporting lines drawn yet, the chart would be a row of loose names at 60%: the page opens grouped by
+     department instead, at full size, until someone is given a manager (People plan 8 Nov 2026, §3 rule 4). */
+  const hasLines = useMemo(() => { const ids = new Set((req.data?.nodes || []).map((n) => n.id)); return (req.data?.nodes || []).some((n) => n.reportingManagerId && ids.has(n.reportingManagerId)); }, [req.data]);
+  const view = params.view === 'departments' || params.view === 'reporting' ? params.view : req.data && !hasLines && (req.data.nodes || []).length ? 'departments' : 'chart';
   const tabsRef = useRef(null);
   const tabIndicator = useTabIndicator(tabsRef, view);
   /* null until someone opens or closes a row: then the chart's own starting shape applies. */
@@ -149,7 +152,7 @@ export default function OrgChart({ openScreen, params = {}, updateParams }) {
       {view === 'departments' ? <DepartmentView nodes={nodes} openScreen={openScreen} /> : nodes.length === 0 ? (
         asOfDay
           ? <EmptyState title={`Nobody here on ${formatDate(asOfDay)}`} description="Nobody had joined by then." action={<button type="button" className="ui-btn ui-btn-secondary" onClick={() => updateParams?.({ asOf: null })}>Show today</button>} />
-          : <EmptyState title="Nobody yet" description="Add employees and who they report to." />
+          : <EmptyState title="Nobody yet" description="The chart draws itself from who reports to whom. Add employees, each with a manager, and it appears here." action={openScreen ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('employeeNew')}>Add employee</button> : null} />
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-3 ui-no-print">

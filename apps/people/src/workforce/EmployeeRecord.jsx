@@ -82,6 +82,9 @@ function Section({ title, count = null, onEdit, children, action = null }) {
   );
 }
 
+/* Actions in the address that open one of the record's own forms rather than the operation drawer. */
+const RECORD_FORMS = ['leave', 'offer'];
+
 export default function EmployeeRecord({ params = {}, updateParams, openScreen }) {
   const perms = usePermissions();
   /* A team lead's own record is changed through the employee app (the server says so as ownRecordLocked), so its edit actions are not offered. */
@@ -268,13 +271,14 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       </RecordTabs>
       </FormDirty.Provider>
 
-      {params.action && lists ? (
+      {params.action && lists && !RECORD_FORMS.includes(params.action) ? (
         <OperationDrawer action={params.action} person={person} lists={lists} onClose={() => set({ action: null })} onDone={() => { set({ action: null }); rec.reload(); }} />
       ) : null}
-      {resigning ? <ResignForm person={person} onClose={() => setResigning(false)} onDone={(p) => { setResigning(false); setPerson(p); rec.reload(); }} /> : null}
+      {/* A list's primary (Leaving → Record a leaving, Offers → Make an offer) opens the record with the form already open. */}
+      {resigning || params.action === 'leave' ? <ResignForm person={person} onClose={() => { setResigning(false); if (params.action === 'leave') set({ action: null }); }} onDone={(p) => { setResigning(false); if (params.action === 'leave') set({ action: null }); setPerson(p); rec.reload(); }} /> : null}
       {inviting ? <InviteForm person={person} onClose={() => setInviting(false)} onDone={() => setInviting(false)} /> : null}
       {lettering ? <IssueLetter employeeId={person.id} onClose={() => setLettering(false)} onIssued={() => { setLettering(false); rec.reload(); }} /> : null}
-      {offering ? <OfferDrawer employee={person} onClose={() => setOffering(false)} onSent={() => { setOffering(false); rec.reload(); }} /> : null}
+      {offering || params.action === 'offer' ? <OfferDrawer employee={person} onClose={() => { setOffering(false); if (params.action === 'offer') set({ action: null }); }} onSent={() => { setOffering(false); if (params.action === 'offer') set({ action: null }); rec.reload(); }} /> : null}
       {givingAccess ? <AppAccessSend people={[{ id: person.id, name: person.name }]} onClose={() => { setGivingAccess(false); setAccessKey((k) => k + 1); }} /> : null}
     </div>
   );

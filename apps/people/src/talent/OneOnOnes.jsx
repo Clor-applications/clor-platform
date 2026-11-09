@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -31,8 +31,13 @@ export default function OneOnOnes() {
   const blank = { employeeId: person || (reports.length === 1 ? reports[0].id : '') };
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'One-on-ones' }]} title="One-on-ones"
-        actions={reports.length ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blank)}><Plus size={16} aria-hidden="true" /> New one-on-one</button> : null} />
+      <ListHeader
+        module="Talent"
+        title="One-on-ones"
+        description="What you talked about with each person in your team, and what you both agreed."
+        primary={reports.length ? { label: 'New one-on-one', icon: Plus, onClick: () => setEditing(blank) } : null}
+        toolbar={reports.length > 1 ? <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Person" value={person} onChange={(v) => setPerson(v || '')} options={[{ value: '', label: 'Everyone' }, ...reports.map((p) => ({ value: p.id, label: p.name }))]} /></div> : null}
+      />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable label="One-on-ones" columns={columns} rows={rows} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun="one-on-ones"
           onRowClick={(r) => (r.mine ? setEditing(r) : null)}
@@ -44,8 +49,7 @@ export default function OneOnOnes() {
           )}
           empty={person
             ? <EmptyState kind="filtered" title="None with this person yet" description="Write down what you talked about and what you both agreed." routes={[{ label: 'New one-on-one', onSelect: () => setEditing(blank) }]} />
-            : <EmptyState title="No one-on-ones yet" description={reports.length ? 'Write down what you talked about with someone in your team, and what you both agreed.' : 'People who report to you, and your own talks with your manager, show here.'} routes={reports.length ? [{ label: 'New one-on-one', onSelect: () => setEditing(blank) }] : undefined} />}
-          toolbar={reports.length > 1 ? <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Person" value={person} onChange={(v) => setPerson(v || '')} options={[{ value: '', label: 'Everyone' }, ...reports.map((p) => ({ value: p.id, label: p.name }))]} /></div> : null} />
+            : <EmptyState title="No one-on-ones yet" description={reports.length ? 'Write down what you talked about with someone in your team, and what you both agreed.' : 'People who report to you, and your own talks with your manager, show here.'} routes={reports.length ? [{ label: 'New one-on-one', onSelect: () => setEditing(blank) }] : undefined} />} />
       )}
       {editing ? <OneOnOneForm value={editing} reports={reports} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); req.reload(); }} /> : null}
     </div>

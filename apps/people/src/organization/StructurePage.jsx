@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { tintOf } from './tints';
 import { KIND_WORDS } from '@ui/personnel/employmentKinds';
 import SuggestInput from '@ui/components/ui/SuggestInput';
@@ -6,14 +6,13 @@ import { useSuggestions } from '../workforce/suggestions';
 import { Plus, X } from '@ui/components/ui/lineIcons';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { GST_STATE_BY_CODE } from '@ui/utils/gst';
@@ -186,8 +185,6 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
   const [editing, setEditing] = useState(() => (params.new === '1' ? { name: '', isActive: true } : null));
   const [retiring, setRetiring] = useState(null);
   const [merging, setMerging] = useState(null);
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, tab);
 
   const items = req.data?.items || [];
   const noun = cfg.noun || cfg.title.toLowerCase();
@@ -241,20 +238,18 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <ListHeader
+        section="Settings"
         title={cfg.title}
-        actions={canCreate ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ name: '', isActive: true })}><Plus size={16} aria-hidden="true" /> New {cfg.singular}</button> : null}
+        description={`The ${noun} people are filed under, in use or retired, and how many are in each.`}
+        primary={canCreate ? { label: `New ${cfg.singular}`, icon: Plus, onClick: () => setEditing({ name: '', isActive: true }) } : null}
+        toolbar={<SearchField value={q} onSearch={setQ} placeholder={`Search ${noun}`} label={`Search ${noun}`} className="w-full sm:w-80" />}
+        tabs={[{ key: 'active', label: 'In use', count: counts.active }, { key: 'retired', label: 'Retired', count: counts.retired }]}
+        tab={tab}
+        onTab={setTab}
       />
       {req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
-          tabs={(
-            <div ref={tabsRef} role="tablist" aria-label={cfg.title} className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-              {[['active', 'In use', counts.active], ['retired', 'Retired', counts.retired]].map(([k, l, n]) => (
-                <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
-              ))}
-              {tabIndicator}
-            </div>
-          )}
           label={cfg.title}
           columns={columns}
           rows={shown}
@@ -276,8 +271,7 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
             ? <EmptyState kind="filtered" title={`No ${noun} match`} description="Nothing here matches the search." />
             : tab === 'retired'
               ? <EmptyState title={`No retired ${noun}`} description="What you retire stays here, with its history." />
-              : <EmptyState title={`No ${noun} yet`} description={`Add the first ${cfg.singular}.`} />}
-          toolbar={<SearchField value={q} onSearch={setQ} placeholder={`Search ${noun}`} label={`Search ${noun}`} className="w-full sm:w-80" />}
+              : <EmptyState title={`No ${noun} yet`} description={`People are filed under ${noun} once there is one to file them under.`} routes={canCreate ? [{ label: `New ${cfg.singular}`, onSelect: () => setEditing({ name: '', isActive: true }) }] : undefined} />}
         />
       )}
       {editing ? <EditDrawer kind={kind} cfg={cfg} value={editing} items={items} refs={req.data?.refs || {}} staff={req.data?.staff || []} onClose={() => { setEditing(null); if (params.new) updateParams?.({ new: null }); }} onDone={() => { setEditing(null); if (params.new) updateParams?.({ new: null }); req.reload(); }} onRetire={(r) => { setEditing(null); setRetiring(r); }} /> : null}
