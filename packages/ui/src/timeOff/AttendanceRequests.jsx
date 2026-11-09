@@ -1,7 +1,8 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Check, Plus, X } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
@@ -10,7 +11,6 @@ import SuggestInput from '@ui/components/ui/SuggestInput';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
@@ -120,8 +120,6 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
   const rows = list.data?.requests || [];
   const counts = list.data?.counts || {};
   const [adding, setAdding] = useState(false);
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, tab);
   const filtered = Boolean(p.q || p.kind || p.month);
   const months = useMemo(() => [{ value: '', label: 'Every month' }, ...monthChoices()], []);
   /* Several waiting requests decided at once (a week of missed punches on a Monday): one note, the same checks as one. */
@@ -175,10 +173,19 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <ListHeader
         breadcrumb={homeCrumbs()}
         title="Attendance fixes"
-        actions={allowed('ATTENDANCE::Attendance Requests::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Enter request</button> : null}
+        description="Missed punches, work from home, on duty and permission hours asked for: waiting for a decision, or decided."
+        primary={allowed('ATTENDANCE::Attendance Requests::CREATE') ? { label: 'Enter request', icon: Plus, onClick: () => setAdding(true) } : null}
+        toolbar={<>
+          <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name or employee ID" label="Search attendance requests" className="w-full sm:w-72" />
+          <div className="w-full sm:w-44"><PopupSelect showValueSubtext={false} ariaLabel="Kind" value={p.kind || ''} onChange={(v) => set({ kind: v || null, page: null })} options={KIND_OPTIONS} placeholder="Every kind" /></div>
+          <div className="w-full sm:w-44"><PopupSelect showValueSubtext={false} ariaLabel="Month" value={p.month || ''} onChange={(v) => set({ month: v || null, page: null })} options={months} placeholder="Every month" /></div>
+        </>}
+        tabs={TABS.map(([k, l]) => ({ key: k, label: l, count: counts[k], tone: k === 'PENDING' ? 'warn' : undefined }))}
+        tab={tab}
+        onTab={(k) => set({ tab: k === 'PENDING' ? null : k, page: null }, true)}
       />
 
       {chosen.length ? (
@@ -192,16 +199,6 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
       ) : null}
 
       <DataTable
-        tabs={(
-          <div ref={tabsRef} role="tablist" aria-label="Attendance requests" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-            {TABS.map(([k, l]) => (
-              <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => set({ tab: k === 'PENDING' ? null : k, page: null }, true)}>
-                {l}{counts[k] ? <span className="ui-tab-count tabular-nums" data-tone={k === 'PENDING' ? 'warn' : undefined}>{counts[k]}</span> : null}
-              </button>
-            ))}
-            {tabIndicator}
-          </div>
-        )}
         label="Attendance requests"
         columns={shownColumns}
         rows={rows}
@@ -227,17 +224,12 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
             </span>
           </span>
         )}
-        toolbar={<>
-          <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name or employee ID" label="Search attendance requests" className="w-full sm:w-72" />
-          <div className="w-full sm:w-44"><PopupSelect showValueSubtext={false} ariaLabel="Kind" value={p.kind || ''} onChange={(v) => set({ kind: v || null, page: null })} options={KIND_OPTIONS} placeholder="Every kind" /></div>
-          <div className="w-full sm:w-44"><PopupSelect showValueSubtext={false} ariaLabel="Month" value={p.month || ''} onChange={(v) => set({ month: v || null, page: null })} options={months} placeholder="Every month" /></div>
-        </>}
         empty={list.error ? (
           <ErrorState error={list.error} onRetry={list.reload} />
         ) : filtered ? (
           <EmptyState kind="filtered" title="No requests match" onClearFilters={() => set({ q: null, kind: null, month: null, page: null })} />
         ) : tab === 'PENDING' ? (
-          <EmptyState title="Nothing waiting" />
+          <EmptyState title="Nothing waiting" description="A missed punch, work from home, on duty or permission asked for in the employee app, or entered here, waits here for a decision." />
         ) : (
           <EmptyState title={`No ${tab === 'all' ? '' : `${STATUS_LABEL[tab].toLowerCase()} `}requests`} />
         )}

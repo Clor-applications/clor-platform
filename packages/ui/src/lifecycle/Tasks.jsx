@@ -1,12 +1,12 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { CheckCheck } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -36,8 +36,6 @@ export default function Tasks({ params = {}, updateParams, openScreen }) {
   const query = { view, kind: p.kind, q: p.q, limit: size, offset: (page - 1) * size };
   const list = useRequest(() => pageTasks(query), [JSON.stringify(query)]);
   const [open, setOpen] = useState(null);
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, view);
   const counts = list.data?.counts || {};
   const mineOnly = Boolean(list.data?.mineOnly);
   const views = mineOnly ? VIEWS.filter(([k]) => k === 'mine' || k === 'done') : VIEWS;
@@ -62,15 +60,18 @@ export default function Tasks({ params = {}, updateParams, openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={crumbs()} title="Tasks" />
-      <div ref={tabsRef} role="tablist" aria-label="Tasks" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {views.map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => set({ view: k === 'mine' ? null : k, page: null }, true)}>
-            {l}{counts[k] && k !== 'done' ? <span className="ui-tab-count tabular-nums" data-tone={k === 'late' ? 'warn' : undefined}>{counts[k]}</span> : null}
-          </button>
-        ))}
-        {tabIndicator}
-      </div>
+      <ListHeader
+        breadcrumb={crumbs()}
+        title="Tasks"
+        description="Every joining, leaving, probation and letter step: whose it is, when it is due, and closing it."
+        toolbar={<>
+          <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search task or person" label="Search tasks" className="w-full sm:w-72" />
+          <div className="w-full sm:w-44"><PopupSelect showValueSubtext={false} ariaLabel="Kind of task" placeholder="Every kind" value={p.kind || ''} onChange={(v) => set({ kind: v || null, page: null })} options={KINDS.map(([value, label]) => ({ value, label }))} /></div>
+        </>}
+        tabs={views.map(([k, l]) => ({ key: k, label: l, count: k !== 'done' ? counts[k] : 0, tone: k === 'late' ? 'warn' : undefined }))}
+        tab={view}
+        onTab={(k) => set({ view: k === 'mine' ? null : k, page: null }, true)}
+      />
       <DataTable
         label="Tasks"
         columns={columns}
@@ -94,10 +95,6 @@ export default function Tasks({ params = {}, updateParams, openScreen }) {
             <span className="block truncate ui-caption">{[KIND_WORD[t.kind], t.employee.name, t.ownerName || OWNER_WORD[t.owner]].filter(Boolean).join(' · ')}</span>
           </span>
         )}
-        toolbar={<>
-          <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search task or person" label="Search tasks" className="w-full sm:w-72" />
-          <div className="w-full sm:w-44"><PopupSelect showValueSubtext={false} ariaLabel="Kind of task" placeholder="Every kind" value={p.kind || ''} onChange={(v) => set({ kind: v || null, page: null })} options={KINDS.map(([value, label]) => ({ value, label }))} /></div>
-        </>}
         empty={list.error ? <ErrorState error={list.error} onRetry={list.reload} />
           : filtered ? <EmptyState kind="filtered" title="No tasks match" onClearFilters={() => set({ q: null, kind: null, page: null })} />
             : <EmptyState icon={CheckCheck} title={view === 'mine' ? 'Nothing on your name' : view === 'late' ? 'Nothing late' : view === 'nobody' ? 'Every task has an owner' : view === 'done' ? 'Nothing done in the last 90 days' : 'Nothing open'} />}

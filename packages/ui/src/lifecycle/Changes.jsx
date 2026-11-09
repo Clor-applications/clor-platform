@@ -1,16 +1,18 @@
-import React, { useRef } from 'react';
+import React, { useState } from 'react';
 import { ArrowRightLeft } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
+import PickPersonDrawer from '@ui/personnel/PickPersonDrawer';
+import { usePermissions } from '@ui/permissions/usePermissions';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { formatDate } from '@ui/components/ui/DatePicker';
 
 import { pageChanges } from './api';
-import { PersonCell, crumbs } from './shared';
+import { PersonCell, can, crumbs } from './shared';
 
 /**
  * Joining & Leaving → Changes: what is about to change in someone's job and
@@ -22,6 +24,8 @@ import { PersonCell, crumbs } from './shared';
  */
 const VIEWS = [['scheduled', 'Dated'], ['approval', 'Waiting for approval'], ['probation', 'Probation ending'], ['contracts', 'Contracts ending'], ['applied', 'Done lately']];
 const DATE_WORD = { scheduled: 'From', approval: 'Asked', probation: 'Ends', contracts: 'Ends', applied: 'From' };
+/* The kinds of change the record's own drawer makes (EmployeeRecord `params.action`). */
+const CHANGE_KINDS = [['transfer', 'Transfer'], ['designation', 'Change designation'], ['manager', 'Change manager'], ['type', 'Change employment type']];
 
 export default function Changes({ params = {}, updateParams, openScreen }) {
   const p = params || {};
@@ -31,8 +35,9 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
   const set = (patch, push = false) => updateParams?.(patch, { push });
   const query = { view, q: p.q, limit: size, offset: (page - 1) * size };
   const list = useRequest(() => pageChanges(query), [JSON.stringify(query)]);
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, view);
+  const perms = usePermissions();
+  const canChange = can(perms, 'PEOPLE::Employees::EDIT');
+  const [picking, setPicking] = useState(false);
   const counts = list.data?.counts || {};
   const go = (r) => (r.kind === 'APPROVAL' ? openScreen?.('approvals', { id: r.id }) : openScreen?.('employee', { id: r.employee.id }));
 
@@ -50,15 +55,16 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={crumbs()} title="Job changes" />
-      <div ref={tabsRef} role="tablist" aria-label="Changes" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {VIEWS.map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => set({ view: k === 'scheduled' ? null : k, page: null }, true)}>
-            {l}{counts[k] && k !== 'applied' ? <span className="ui-tab-count tabular-nums" data-tone={k === 'approval' ? 'warn' : undefined}>{counts[k]}</span> : null}
-          </button>
-        ))}
-        {tabIndicator}
-      </div>
+      <ListHeader
+        breadcrumb={crumbs()}
+        title="Job changes"
+        description="Changes to someone's job: dated ahead, waiting for approval, probation or contract ending, and done lately."
+        primary={canChange ? { label: 'New job change', icon: ArrowRightLeft, onClick: () => setPicking(true) } : null}
+        toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or change" label="Search changes" className="w-full sm:w-72" />}
+        tabs={VIEWS.map(([k, l]) => ({ key: k, label: l, count: k !== 'applied' ? counts[k] : 0, tone: k === 'approval' ? 'warn' : undefined }))}
+        tab={view}
+        onTab={(k) => set({ view: k === 'scheduled' ? null : k, page: null }, true)}
+      />
       <DataTable
         label="Changes"
         columns={columns}
@@ -79,11 +85,14 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
             <span className="block ui-caption">{r.what}{r.from || r.to ? `: ${r.from || 'None'} → ${r.to || 'None'}` : ''}</span>
           </span>
         )}
-        toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or change" label="Search changes" className="w-full sm:w-72" />}
         empty={list.error ? <ErrorState error={list.error} onRetry={list.reload} />
           : p.q ? <EmptyState kind="filtered" title="Nothing matches" onClearFilters={() => set({ q: null, page: null })} />
             : <EmptyState icon={ArrowRightLeft} title={{ scheduled: 'No dated changes waiting', approval: 'No change waiting for approval', probation: 'No probation ends in the next 30 days', contracts: 'No contract ends in the next 30 days', applied: 'No changes in the last 30 days' }[view]} description={view === 'scheduled' ? 'A transfer or promotion dated ahead on someone’s record waits here for its day.' : undefined} />}
       />
+      {picking ? (
+        <PickPersonDrawer title="New job change" description="Whose job changes, and how. The change is made on their record, with its date, preview and approval." action="Continue" choices={CHANGE_KINDS} choiceLabel="Change"
+          onClose={() => setPicking(false)} onPick={(person, kind) => { setPicking(false); openScreen?.('employee', { id: person.id, tab: 'employment', action: kind }); }} />
+      ) : null}
     </div>
   );
 }

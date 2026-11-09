@@ -5,7 +5,8 @@ import { HoursChoice, PreviewNotes } from './LeaveShape';
 import { hoursBody, hoursReady, hoursText, isHourly } from './partOfDay';
 import { Check, Download, Plus, X } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
@@ -14,7 +15,6 @@ import SuggestInput from '@ui/components/ui/SuggestInput';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { runListExport } from '@ui/components/list/exportMenu';
 import { usePermissions } from '@ui/permissions/usePermissions';
@@ -80,9 +80,10 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
   const rows = list.data?.requests || [];
   const counts = list.data?.counts || {};
   const [adding, setAdding] = useState(false);
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, tab);
   const filtered = Boolean(p.q || p.type);
+  /* No leave types yet: nothing can be entered or asked for, so the screen's one action is to set them up (People plan 8 Nov 2026, step 3). */
+  const noTypes = Array.isArray(types.data) && types.data.length === 0;
+  const setUpTypes = noTypes && allowed(LEAVE_TYPES_EDIT) && openScreen ? () => openScreen('leaveTypes') : null;
 
   const columns = [
     { key: 'employee', label: 'Employee', always: true, render: (r) => (
@@ -119,26 +120,24 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <ListHeader
         breadcrumb={homeCrumbs()}
         title="Leave requests"
-        actions={<>
-          {allowed('ATTENDANCE::Leave Requests::EXPORT') || perms?.isAdmin ? <button type="button" className="ui-btn ui-btn-secondary" onClick={exportAll}><Download size={16} aria-hidden="true" /> Export</button> : null}
-          {allowed('ATTENDANCE::Leave Requests::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Enter leave</button> : null}
+        description="Leave asked for in the employee app or entered here: waiting for a decision, or decided, in the leave period."
+        secondary={allowed('ATTENDANCE::Leave Requests::EXPORT') || perms?.isAdmin ? <button type="button" className="ui-btn ui-btn-secondary" onClick={exportAll}><Download size={16} aria-hidden="true" /> Export</button> : null}
+        primary={setUpTypes ? { label: 'Set up leave types', onClick: setUpTypes }
+          : allowed('ATTENDANCE::Leave Requests::CREATE') ? { label: 'Enter leave', icon: Plus, onClick: () => setAdding(true), disabled: noTypes, title: noTypes ? 'No leave types yet' : undefined } : null}
+        toolbar={<>
+          <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name or employee ID" label="Search leave requests" className="w-full sm:w-72" />
+          <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave type" value={p.type || ''} onChange={(v) => set({ type: v || null, page: null })} options={typeOptions} placeholder="Every type" /></div>
+          {periodOptions.length > 1 ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave period" value={String(year || '')} onChange={(v) => set({ year: v && Number(v) !== settings.data?.current?.year ? v : null, page: null })} options={periodOptions} /></div> : null}
         </>}
+        tabs={TABS.map(([k, l]) => ({ key: k, label: l, count: counts[k], tone: k === 'PENDING' ? 'warn' : undefined }))}
+        tab={tab}
+        onTab={(k) => set({ tab: k === 'PENDING' ? null : k, page: null }, true)}
       />
 
       <DataTable
-        tabs={(
-          <div ref={tabsRef} role="tablist" aria-label="Leave requests" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-            {TABS.map(([k, l]) => (
-              <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => set({ tab: k === 'PENDING' ? null : k, page: null }, true)}>
-                {l}{counts[k] ? <span className="ui-tab-count tabular-nums" data-tone={k === 'PENDING' ? 'warn' : undefined}>{counts[k]}</span> : null}
-              </button>
-            ))}
-            {tabIndicator}
-          </div>
-        )}
         label="Leave requests"
         columns={shownColumns}
         rows={rows}
@@ -161,11 +160,6 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
             </span>
           </span>
         )}
-        toolbar={<>
-          <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name or employee ID" label="Search leave requests" className="w-full sm:w-72" />
-          <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave type" value={p.type || ''} onChange={(v) => set({ type: v || null, page: null })} options={typeOptions} placeholder="Every type" /></div>
-          {periodOptions.length > 1 ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave period" value={String(year || '')} onChange={(v) => set({ year: v && Number(v) !== settings.data?.current?.year ? v : null, page: null })} options={periodOptions} /></div> : null}
-        </>}
         empty={list.error ? (
           <ErrorState error={list.error} onRetry={list.reload} />
         ) : !year && settings.error ? (
@@ -173,8 +167,11 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
           <ErrorState error={settings.error} onRetry={settings.reload} />
         ) : filtered ? (
           <EmptyState kind="filtered" title="No requests match" onClearFilters={() => set({ q: null, type: null, page: null })} />
+        ) : noTypes ? (
+          <EmptyState title="No leave types yet" description="Leave waits here for a decision once there are kinds of leave to ask for. Set them up in Settings › Leave policy."
+            action={setUpTypes ? <button type="button" className="ui-btn ui-btn-secondary" onClick={setUpTypes}>Set up leave types</button> : null} />
         ) : tab === 'PENDING' ? (
-          <EmptyState title="Nothing waiting" />
+          <EmptyState title="Nothing waiting" description="Leave asked for in the employee app, or entered here, waits here for a decision." />
         ) : (
           <EmptyState title={`No ${tab === 'all' ? '' : `${STATUS_LABEL[tab].toLowerCase()} `}requests in this period`} />
         )}

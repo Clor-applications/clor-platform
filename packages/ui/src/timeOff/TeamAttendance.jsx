@@ -1,15 +1,15 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ArrowUpRight, ChevronLeft, ChevronRight, Download } from '@ui/components/ui/lineIcons';
 
 import { useListSearch } from '@ui/components/ListToolbar';
 import { usePaged, useResetPage } from '@ui/components/list/ListPageParts';
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
+import ListHeader, { SegmentedControl } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import ErrorState from '@ui/components/ui/ErrorState';
 import DatePicker from '@ui/components/ui/DatePicker';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { getPayableDays, listPeople } from './api';
 import { runListExport } from '@ui/components/list/exportMenu';
 import { notify } from '@ui/components/ui/notify';
@@ -92,8 +92,6 @@ export default function TeamAttendance() {
   const payable = useRequest(() => (view === 'month' ? getPayableDays(month) : Promise.resolve(null)), [view, month]);
   const payOf = useMemo(() => new Map((payable.data?.rows || []).map((r) => [r.employeeId, r])), [payable.data]);
   const [busy, setBusy] = useState('');
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, status);
 
   const byPerson = useMemo(() => {
     const m = new Map();
@@ -186,59 +184,44 @@ export default function TeamAttendance() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <ListHeader
         breadcrumb={homeCrumbs()}
         title="Daily attendance"
-        actions={<>
+        description={hasAttendance.data === false ? 'Everyone’s days from leave, holidays and their own check-ins.' : 'Everyone’s days from leave, holidays, their own check-ins and the readers.'}
+        secondary={<>
           {view === 'month' && !loading ? <button type="button" className="ui-btn ui-btn-secondary" onClick={exportMonth}><Download size={16} aria-hidden="true" /> Export</button> : null}
           {hasAttendance.data ? <a className="ui-btn ui-btn-secondary" href="?app=attendance&open=records">Shifts & readers <ArrowUpRight size={16} aria-hidden="true" /></a> : null}
         </>}
+        toolbar={<>
+          <SegmentedControl label="View" options={[{ key: 'day', label: 'Day' }, { key: 'month', label: 'Month' }]} value={view} onChange={setView} />
+          {view === 'day' ? (
+            <div className="w-44"><DatePicker label="Day" value={date} max={today} onChange={(v) => setDate(v || today)} /></div>
+          ) : (
+            <div className="inline-flex items-center gap-1" role="group" aria-label="Month">
+              <button type="button" className="ui-icon-btn" aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
+              <span className="min-w-36 text-center font-medium" aria-live="polite">{monthTitle(month)}</span>
+              <button type="button" className="ui-icon-btn" aria-label="Next month" disabled={month >= today.slice(0, 7)} onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
+            </div>
+          )}
+          <SearchField value={search.query} onSearch={search.setQuery} placeholder="Search name, employee ID or department" label="Search attendance" className="w-full sm:w-80" />
+        </>}
+        tabs={view === 'day' ? TABS.map(([k, l]) => ({ key: k || 'all', label: l, count: k ? counts[k] : 0, tone: k === 'NONE' ? 'warn' : undefined })) : null}
+        tab={status || 'all'}
+        onTab={(k) => setStatus(k === 'all' ? '' : k)}
       />
-      {hasAttendance.data === false ? <p className="text-sm ui-muted">Days from leave, holidays and people’s own check-ins.</p> : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex gap-1" role="radiogroup" aria-label="View">
-          {[['day', 'Day'], ['month', 'Month']].map(([k, l]) => (
-            <button key={k} type="button" role="radio" aria-checked={view === k} className={`ui-btn ${view === k ? 'ui-btn-soft' : 'ui-btn-ghost'}`} onClick={() => setView(k)}>{l}</button>
-          ))}
-        </div>
-        {view === 'day' ? (
-          <div className="w-44"><DatePicker label="Day" value={date} max={today} onChange={(v) => setDate(v || today)} /></div>
-        ) : (
-          <div className="inline-flex items-center gap-1" role="group" aria-label="Month">
-            <button type="button" className="ui-icon-btn" aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
-            <span className="min-w-36 text-center font-medium" aria-live="polite">{monthTitle(month)}</span>
-            <button type="button" className="ui-icon-btn" aria-label="Next month" disabled={month >= today.slice(0, 7)} onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
-          </div>
-        )}
-      </div>
-
+      {/* The day in one bar; its figures are on the tabs, so there is no second row of them (8 Nov 2026 plan, step 3). */}
       {view === 'day' && !loading ? (
         <section className="att-summary" aria-label="The day at a glance">
           <div className="att-summary-bar" role="img" aria-label={SUMMARY.map(([k, l]) => `${l} ${counts[k] || 0}`).join(', ')}>
             {SUMMARY.map(([k, , tone]) => (counts[k] ? <span key={k} data-tone={tone} style={{ flexGrow: counts[k] }} /> : null))}
           </div>
-          <ul className="att-summary-keys">
-            {SUMMARY.map(([k, l, tone]) => (
-              <li key={k}><button type="button" data-tone={tone} aria-pressed={status === k} onClick={() => setStatus(status === k ? '' : k)}><i aria-hidden="true" />{l}<b>{counts[k] || 0}</b></button></li>
-            ))}
-            {lateCount ? <li className="att-summary-late">{lateCount} late</li> : null}
-          </ul>
+          {lateCount ? <p className="ui-caption att-summary-late">{lateCount} late</p> : null}
         </section>
       ) : null}
 
       {error && loading ? <ErrorState error={error} onRetry={() => { people.reload(); records.reload(); }} /> : view === 'day' ? (
         <DataTable
-          tabs={(
-            <div ref={tabsRef} role="tablist" aria-label="Day" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-              {TABS.map(([k, l]) => (
-                <button key={k || 'all'} type="button" role="tab" aria-selected={status === k} className={`ui-tab ${status === k ? 'is-active' : ''}`} onClick={() => setStatus(k)}>
-                  {l}{counts[k] ? <span className="ui-tab-count tabular-nums" data-tone={k === 'NONE' ? 'warn' : undefined}>{counts[k]}</span> : null}
-                </button>
-              ))}
-              {tabIndicator}
-            </div>
-          )}
           label={`Attendance on ${date}`}
           columns={columns}
           rows={pageRows}
@@ -256,12 +239,10 @@ export default function TeamAttendance() {
               <span className="block ui-caption tabular-nums">{p.day?.checkInTime ? `In ${p.day.checkInTime}${p.day.checkOutTime ? `, out ${p.day.checkOutTime}` : ''}` : ''}</span>
             </span>
           )}
-          toolbar={<SearchField value={search.query} onSearch={search.setQuery} placeholder="Search name, employee ID or department" label="Search attendance" className="w-full sm:w-80" />}
           empty={search.query || status ? <EmptyState kind="filtered" title="Nobody here" onClearFilters={() => { search.setQuery(''); setStatus(''); }} /> : <EmptyState title="Nobody employed yet" />}
         />
       ) : loading ? <SkeletonCard lines={6} /> : (
         <section className="space-y-3" aria-label={`Attendance in ${monthTitle(month)}`}>
-          <SearchField value={search.query} onSearch={search.setQuery} placeholder="Search name, employee ID or department" label="Search attendance" className="w-full sm:w-80" />
           {!search.filtered.length ? <EmptyState kind="filtered" title="Nobody here" onClearFilters={() => search.setQuery('')} /> : (
             <div className="ui-table-scroll border-t" style={{ borderColor: 'rgb(var(--border))' }}>
               <table className="w-full border-collapse text-xs" aria-label={`Attendance in ${monthTitle(month)}`}>
