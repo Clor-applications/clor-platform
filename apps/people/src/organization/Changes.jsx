@@ -17,11 +17,11 @@ import { structureHistory } from './api';
  * row menu opens it filtered to that one item.
  */
 const ACTION_WORDS = { CREATED: 'Added', RENAMED: 'Renamed', EDITED: 'Changed', MOVED: 'Moved', RETIRED: 'Retired', REACTIVATED: 'Brought back', MERGED: 'Merged', DELETED: 'Deleted' };
-const KIND_FILTER = [['all', 'Everything'], ['departments', 'Departments'], ['job-positions', 'Designations'], ['branches', 'Branches'], ['establishments', 'Work Sites'], ['areas', 'Locations'], ['teams', 'Teams'], ['seats', 'Positions'], ['business-units', 'Business Units'], ['grades', 'Grades'], ['cost-centres', 'Cost Centres'], ['job-roles', 'Job Roles']];
+const KIND_FILTER = [['all', 'Everything'], ['departments', 'Departments'], ['job-positions', 'Designations'], ['branches', 'Branches'], ['establishments', 'Work sites'], ['areas', 'Locations'], ['teams', 'Teams'], ['seats', 'Positions'], ['business-units', 'Business units'], ['grades', 'Grades'], ['cost-centres', 'Cost centres'], ['job-roles', 'Job roles']];
 const time = (at) => new Date(at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 const day = (at) => formatDate(new Date(new Date(at).getTime() + 330 * 60_000).toISOString().slice(0, 10));
 
-export default function Changes({ params = {}, updateParams, openScreen }) {
+export default function Changes({ params = {}, updateParams }) {
   const kind = params.kind || '';
   const item = params.item || '';
   /* The first page follows the filter; earlier pages are added below it. A new filter starts over (keyed list). */
@@ -31,7 +31,7 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
   const itemName = item && entries?.[0]?.itemId === item ? entries[0].itemName : null;
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Organisation', onClick: () => openScreen?.('organization') }, { label: 'Change history' }]} title={itemName ? `Change history: ${itemName}` : 'Change history'} />
+      <PageHeader title={itemName ? `Org changes: ${itemName}` : 'Org changes'} />
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-full sm:w-64"><PopupSelect showValueSubtext={false} label="Show" value={kind || 'all'} onChange={(v) => updateParams?.({ kind: v && v !== 'all' ? v : null, item: null }, { push: true })} options={KIND_FILTER.map(([value, label]) => ({ value, label }))} /></div>
         {item ? <button type="button" className="ui-btn ui-btn-ghost" onClick={() => updateParams?.({ item: null }, { push: true })}>Show all {KIND_FILTER.find(([k]) => k === kind && k !== 'all')?.[1] || 'changes'}</button> : null}

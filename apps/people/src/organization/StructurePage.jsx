@@ -48,7 +48,7 @@ export const KINDS = {
     columns: [{ key: 'department', label: 'Department', render: (r, refs) => refs.departments?.get(r.departmentId) || '—' }],
   },
   'job-roles': {
-    title: 'Job Roles', singular: 'job role', screen: 'jobRoles',
+    title: 'Job roles', singular: 'job role', screen: 'jobRoles',
     fields: [{ key: 'jobPositionId', label: 'Designation', type: 'ref', ref: 'job-positions', placeholder: 'Choose…', required: true }],
     columns: [{ key: 'designation', label: 'Designation', render: (r, refs) => refs['job-positions']?.get(r.jobPositionId) || '—' }],
   },
@@ -75,7 +75,7 @@ export const KINDS = {
     columns: [],
   },
   establishments: {
-    title: 'Work Sites', singular: 'work site', screen: 'establishments', noDelete: false,
+    title: 'Work sites', singular: 'work site', screen: 'establishments', noDelete: false,
     fields: [
       { key: 'state', label: 'State', type: 'state', required: true },
       { key: 'legalEntityId', label: 'Legal company', type: 'ref', ref: 'legal-entities', placeholder: 'Not set' },
@@ -92,7 +92,7 @@ export const KINDS = {
   },
   /* Settings lists: a person's terms and the company in law, laid out like every other list. */
   'employee-types': {
-    title: 'Employment Types', singular: 'employment type', screen: 'employeeTypes', settings: true,
+    title: 'Employment types', singular: 'employment type', screen: 'employeeTypes', settings: true,
     fields: [
       { key: 'category', label: 'Counts as', type: 'select', options: Object.entries(KIND_WORDS) },
       { key: 'probationMonths', label: 'Probation (months)', type: 'text', inputMode: 'numeric', placeholder: 'None' },
@@ -104,7 +104,7 @@ export const KINDS = {
       { key: 'notice', label: 'Notice', render: (r) => (r.noticeDays ? <span className="tabular-nums">{r.noticeDays} days</span> : '—') },
     ],
   },
-  'work-types': { title: 'Work Modes', singular: 'work mode', screen: 'workTypes', settings: true, fields: [], columns: [] },
+  'work-types': { title: 'Work modes', singular: 'work mode', screen: 'workTypes', settings: true, fields: [], columns: [] },
   'legal-entities': {
     title: 'Legal entity', singular: 'legal entity', noun: 'legal companies', screen: 'legalEntities', settings: true,
     fields: [
@@ -114,9 +114,9 @@ export const KINDS = {
     ],
     columns: [{ key: 'pan', label: 'PAN', render: (r) => <span className="tabular-nums">{r.pan || '—'}</span> }],
   },
-  'business-units': { title: 'Business Units', singular: 'business unit', screen: 'businessUnits', fields: [], columns: [] },
+  'business-units': { title: 'Business units', singular: 'business unit', screen: 'businessUnits', fields: [], columns: [] },
   grades: { title: 'Grades', singular: 'grade', screen: 'grades', fields: [], columns: [] },
-  'cost-centres': { title: 'Cost Centres', singular: 'cost centre', screen: 'costCentres', fields: [], columns: [] },
+  'cost-centres': { title: 'Cost centres', singular: 'cost centre', screen: 'costCentres', fields: [], columns: [] },
 };
 
 /* The registrations a work site holds; the same list Compliance names (services/people/complianceRules.ts). */
@@ -242,7 +242,6 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={cfg.settings ? null : [{ label: 'People' }, { label: 'Organisation', onClick: () => openScreen?.('organization') }, { label: cfg.title }]}
         title={cfg.title}
         actions={canCreate ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ name: '', isActive: true })}><Plus size={16} aria-hidden="true" /> New {cfg.singular}</button> : null}
       />

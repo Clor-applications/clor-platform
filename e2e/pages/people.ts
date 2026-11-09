@@ -19,8 +19,8 @@ export const MENU: Record<string, string> = {
   Home: 'Home',
   Inbox: 'Inbox',
   Employees: 'People',
+  'Org chart': 'People',
   Documents: 'People',
-  'Joining & leaving': 'People',
   Joining: 'People',
   Offers: 'People',
   'Job changes': 'People',
@@ -30,28 +30,20 @@ export const MENU: Record<string, string> = {
   Benefits: 'People',
   Assets: 'People',
   Expenses: 'People',
-  Overview: 'Organisation',
-  Departments: 'Organisation',
-  Designations: 'Organisation',
-  'Org chart': 'Organisation',
-  Branches: 'Organisation',
-  'Change history': 'Organisation',
   "Who's away": 'Time',
   'Leave requests': 'Time',
   'Leave calendar': 'Time',
   'Leave balances': 'Time',
-  Delegates: 'Time',
   'Daily attendance': 'Time',
   'Attendance requests': 'Time',
   'Shift swaps': 'Time',
   'Late marks': 'Time',
-  Absences: 'Time',
+  'Absent without leave': 'Time',
   'Night work': 'Time',
   'Job openings': 'Talent',
   Candidates: 'Talent',
   Interviews: 'Talent',
   Referrals: 'Talent',
-  'Refer someone': 'Talent',
   Goals: 'Talent',
   Reviews: 'Talent',
   'One-on-ones': 'Talent',
@@ -62,12 +54,10 @@ export const MENU: Record<string, string> = {
   'Help desk': 'Workplace',
   Policies: 'Workplace',
   'Confidential cases': 'Workplace',
-  'People report': 'Reports',
-  'Leave summary': 'Reports',
+  'Headcount & attrition': 'Reports',
   'Leave register': 'Reports',
   'Requests report': 'Reports',
   'Statutory registers': 'Reports',
-  Compliance: 'Reports',
   Settings: 'Settings',
 };
 
@@ -147,6 +137,15 @@ export class PeopleWeb {
     }
     if (this.isPhone && (await this.page.getByRole('dialog', { name: 'People navigation' }).isVisible())) await this.page.keyboard.press('Escape');
     await expect(this.title).toHaveText(opts.title || label);
+    await this.settle();
+    await auditScreen(this.page, this.testInfo);
+  }
+
+  /** A page under Settings (Departments, Delegates, Compliance calendar…): the Settings page, then its row. */
+  async openSetting(label: string) {
+    await this.open('Settings');
+    await this.main.getByRole('button', { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`) }).click();
+    await expect(this.title).toHaveText(label);
     await this.settle();
     await auditScreen(this.page, this.testInfo);
   }

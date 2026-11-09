@@ -112,7 +112,7 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Reports' }]} title="Compliance" actions={actions} />
+      <PageHeader title="Compliance calendar" actions={actions} />
       <div ref={viewsRef} role="tablist" aria-label="Compliance" className={`ui-record-tablist ${viewIndicator ? 'has-indicator' : ''}`}>
         {VIEWS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => set({ view: k === 'owed' ? null : k, status: null, id: null })}>{l}</button>)}
         {viewIndicator}

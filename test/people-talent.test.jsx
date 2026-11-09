@@ -61,11 +61,14 @@ describe('Talent runs on its own routes, and the register is retired for it', ()
     for (const s of screens) expect(peopleApp.screens[s], s).toBeTruthy();
   });
 
-  it('Talent sits on the rail as Hiring and Growth, gated by the module switches', () => {
+  it('Talent sits on the rail as Hiring and Performance, gated by the module switches', () => {
     const talentModule = peopleApp.modules.find((m) => m.key === 'talent');
-    expect(talentModule.groups.map((g) => g.items)).toEqual([['recruitment', 'candidates', 'interviews', 'referrals', 'referMe'], ['performance', 'reviews', 'oneOnOnes', 'plans', 'learning']]);
+    expect(talentModule.groups.map((g) => g.label)).toEqual(['Hiring', 'Performance']);
+    /* Refer someone is the primary action on Referrals (People plan, 8 Nov 2026), not a menu entry; its address stays. */
+    expect(talentModule.groups.map((g) => g.items)).toEqual([['recruitment', 'candidates', 'interviews', 'referrals'], ['performance', 'reviews', 'oneOnOnes', 'plans', 'learning']]);
     const nav = Object.fromEntries(peopleApp.nav.map((i) => [i.key, i]));
     for (const k of ['recruitment', 'candidates', 'interviews', 'referrals', 'referMe']) expect(nav[k].feature, k).toBe('peopleHiring');
+    expect(nav.referMe.parent).toBe('referrals');
     /* Referrals: HR's list needs Recruitment; anyone who works here may refer (the server finds their record). */
     expect(nav.referrals.permission).toBe('PEOPLE::Recruitment::VIEW');
     expect(nav.referMe.permission).toBeUndefined();
