@@ -3218,3 +3218,13 @@ html.is-scrolled .nav {
     --wrap: 1360px;
   }
 }
+
+/* Menu beside the logo (owner, 10 Nov 2026: "space between logo and other
+ * options"): the options start 40px after the logo instead of floating in
+ * the middle of the bar; Sign in and the demo button stay on the right. */
+.nav-bar {
+  gap: 40px;
+}
+.nav-main > ul {
+  justify-content: flex-start;
+}
