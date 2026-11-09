@@ -150,6 +150,11 @@ export async function notifyPermission(accountId: string, orgId: string, permiss
  */
 export async function notifyPermissionOnce(accountId: string, orgId: string, permission: string, notice: Notice & { dedupeKey: string }, opts: { ever?: boolean } = {}) {
   const ids = await usersWithPermission(accountId, orgId, permission).catch(() => [] as string[]);
+  return notifyUsersOnce(accountId, orgId, ids, notice, opts);
+}
+
+/** As notifyPermissionOnce, to these users (an automation's chosen recipients). */
+export async function notifyUsersOnce(accountId: string, orgId: string, ids: string[], notice: Notice & { dedupeKey: string }, opts: { ever?: boolean } = {}) {
   if (!ids.length) return 0;
   const have = await platformPrisma.notification.findMany({ where: { orgId, userId: { in: ids }, kind: notice.kind, ...(opts.ever ? {} : { readAt: null }), linkJson: { contains: `"dedupe":"${notice.dedupeKey}"` } }, select: { userId: true } });
   const seen = new Set(have.map((h) => h.userId));

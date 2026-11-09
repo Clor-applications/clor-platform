@@ -116,8 +116,12 @@ const maskPan = (value: string | null) => {
   return `${s.slice(0, 3)}${'•'.repeat(Math.max(3, s.length - 4))}${s.slice(-1)}`;
 };
 
-const shape = (row: any, revealSensitive: boolean) => {
+/** What a caller sees in full: PAN and bank by Payroll's field level; UAN, PF and ESI numbers also with People's Full identifiers. */
+type Reveal = { sensitive: boolean; ids: boolean };
+
+const shape = (row: any, reveal: Reveal) => {
   const p = row.payroll || null;
+  const revealSensitive = reveal.sensitive;
   return {
     id: row.id,
     name: row.name,
@@ -145,9 +149,11 @@ const shape = (row: any, revealSensitive: boolean) => {
           pan: revealSensitive ? p.pan || '' : maskPan(p.pan),
           bankAccountNumberMasked: !revealSensitive && Boolean(p.bankAccountNumber),
           panMasked: !revealSensitive && Boolean(p.pan),
-          uan: p.uan || '',
-          pfNumber: p.pfNumber || '',
-          esiNumber: p.esiNumber || '',
+          /* Statutory numbers are identifiers too (owner, 8 Nov 2026): a read-only role gets the tail, never the number. */
+          uan: reveal.ids ? p.uan || '' : maskTail(p.uan),
+          pfNumber: reveal.ids ? p.pfNumber || '' : maskTail(p.pfNumber),
+          esiNumber: reveal.ids ? p.esiNumber || '' : maskTail(p.esiNumber),
+          statutoryMasked: !reveal.ids && Boolean(p.uan || p.pfNumber || p.esiNumber),
           taxRegime: p.taxRegime,
           professionalTaxState: p.professionalTaxState || '',
           pfApplicable: !!p.pfApplicable,
@@ -160,11 +166,12 @@ const shape = (row: any, revealSensitive: boolean) => {
   };
 };
 
-/** Whether this caller may see a whole bank account number and PAN. */
-async function mayRevealSensitive(req: any) {
+/** Whether this caller may see a whole bank account number and PAN, and whole UAN, PF and ESI numbers. */
+async function mayRevealSensitive(req: any): Promise<Reveal> {
   const { accountId, orgId, branchId } = req.tenant!;
   const access = await resolveAccess(accountId, orgId, req.auth!.userId, branchId);
-  return levelFor(access, PAYROLL_MODULE, RESOURCE, PermissionAction.VIEW) >= SENSITIVE_LEVEL;
+  const sensitive = levelFor(access, PAYROLL_MODULE, RESOURCE, PermissionAction.VIEW) >= SENSITIVE_LEVEL;
+  return { sensitive, ids: sensitive || access.isAdmin || access.permissions.has('PEOPLE::Full Identifiers::VIEW') };
 }
 
 /** The payroll half, as it goes into the database. */
@@ -231,7 +238,7 @@ payrollEmployeesRouter.get(
 
     res.json({
       employees: rows.map((r) => shape({ ...r, payroll: byEmployee.get(r.id) || null }, reveal)),
-      sensitiveVisible: reveal,
+      sensitiveVisible: reveal.sensitive,
     });
   }
 );
@@ -248,7 +255,7 @@ payrollEmployeesRouter.get(
     const payroll = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: row.id } });
     const reveal = await mayRevealSensitive(req);
     /* PF nominees (Form 2): names and shares, from the joining form or entered here. */
-    res.json({ employee: shape({ ...row, payroll }, reveal), sensitiveVisible: reveal, nominees: await nomineesOf(orgId, row.id) });
+    res.json({ employee: shape({ ...row, payroll }, reveal), sensitiveVisible: reveal.sensitive, nominees: await nomineesOf(orgId, row.id) });
   }
 );
 
@@ -418,9 +425,15 @@ payrollEmployeesRouter.put(
        * "••••4821" into the account number and quietly destroy it. The stored
        * value is kept instead of whatever came back.
        */
-      if (!reveal) {
+      if (!reveal.sensitive) {
         incoming.bankAccountNumber = payroll?.bankAccountNumber ?? null;
         incoming.pan = payroll?.pan ?? null;
+      }
+      /* Nor do UAN, PF and ESI numbers sent back masked overwrite the real ones; a number typed in full is taken. */
+      if (!reveal.ids) {
+        for (const k of ['uan', 'pfNumber', 'esiNumber'] as const) {
+          if (String(incoming[k] ?? '').includes('•') || (incoming[k] ?? null) === (maskTail(payroll?.[k] ?? null) || null)) incoming[k] = payroll?.[k] ?? null;
+        }
       }
 
       /*

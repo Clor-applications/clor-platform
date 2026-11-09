@@ -112,11 +112,22 @@ describe('Documents: ask to read and accept (gap 6)', () => {
   });
 
   it('without Documents edit, nobody is asked', async () => {
-    perms.current = { isAdmin: false, permissions: new Set(['PEOPLE::Documents::VIEW']) };
+    perms.current = { isAdmin: false, permissions: new Set(['PEOPLE::Documents::VIEW', 'PEOPLE::Documents::CREATE']) };
     personnel.listDocuments.mockResolvedValue([doc()]);
     render(<EmployeeDocuments employeeId="e1" />);
     fireEvent.click(await screen.findByRole('button', { name: 'More for Code of conduct' }));
     expect(screen.queryByRole('menuitem', { name: 'Ask to read and accept' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Remove' })).toBeNull();
+  });
+
+  it('a read-only role (Viewer) gets the file and nothing that adds, replaces or removes one', async () => {
+    perms.current = { isAdmin: false, permissions: new Set(['PEOPLE::Documents::VIEW']) };
+    personnel.listDocuments.mockResolvedValue([doc()]);
+    render(<EmployeeDocuments employeeId="e1" />);
+    expect(await screen.findByRole('button', { name: 'Download Code of conduct' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Upload/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Issue a letter' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More for Code of conduct' })).toBeNull();
   });
 });
 

@@ -10,7 +10,7 @@ import { teamOf, teamScope, type TeamScope } from './scope.js';
  * Who can open a document on an employee's file (docs/people/02-PRD.md DOC-01; review R-01; audit 7 Nov 2026 #1).
  *
  *   EMPLOYEE_VISIBLE   Documents VIEW
- *   HR_ONLY            Documents VIEW, company-wide
+ *   HR_ONLY            Documents VIEW and HR-only Documents VIEW, company-wide (a read-only Viewer goes without; owner, 8 Nov 2026)
  *   RESTRICTED         Documents EDIT, company-wide
  *   CONFIDENTIAL       Confidential Documents VIEW, company-wide (its own grant)
  *
@@ -27,10 +27,13 @@ export type DocAccess = { classes: DocClass[]; payslipsOf: 'ALL' | string | null
 
 export type DocLike = { classification?: string | null; kind?: string | null; employeeId?: string | null };
 
-function shape(grants: { view: boolean; edit: boolean; confidential: boolean }, scope: TeamScope): DocAccess {
+type Grants = { view: boolean; hrOnly: boolean; edit: boolean; confidential: boolean };
+
+function shape(grants: Grants, scope: TeamScope): DocAccess {
   if (!scope.all) return { classes: grants.view ? ['EMPLOYEE_VISIBLE'] : [], payslipsOf: scope.selfId, employeeIds: scope.ids };
   const classes: DocClass[] = [];
-  if (grants.view) classes.push('EMPLOYEE_VISIBLE', 'HR_ONLY');
+  if (grants.view) classes.push('EMPLOYEE_VISIBLE');
+  if (grants.view && grants.hrOnly) classes.push('HR_ONLY');
   if (grants.edit) classes.push('RESTRICTED');
   if (grants.confidential) classes.push('CONFIDENTIAL');
   return { classes, payslipsOf: 'ALL', employeeIds: null };
@@ -39,9 +42,10 @@ function shape(grants: { view: boolean; edit: boolean; confidential: boolean }, 
 /** The signed-in reader's access. */
 export async function docAccess(req: Request): Promise<DocAccess> {
   const view = !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, PEOPLE_RESOURCE.documents));
+  const hrOnly = !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, PEOPLE_RESOURCE.hrOnlyDocuments));
   const edit = !(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, PEOPLE_RESOURCE.documents));
   const confidential = !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, PEOPLE_RESOURCE.confidentialDocuments));
-  return shape({ view, edit, confidential }, await teamScope(req));
+  return shape({ view, hrOnly, edit, confidential }, await teamScope(req));
 }
 
 /**
@@ -54,7 +58,7 @@ export async function docAccessOfUser(accountId: string, orgId: string, userId: 
   const access = await resolveAccess(accountId, orgId, userId, COMPANY_WIDE);
   if (!access.roleIds.length) return none;
   const has = (action: string, resource: string) => access.isAdmin || access.permissions.has(permKey(PEOPLE_MODULE, resource, action));
-  const grants = { view: has(PermissionAction.VIEW, PEOPLE_RESOURCE.documents), edit: has(PermissionAction.EDIT, PEOPLE_RESOURCE.documents), confidential: has(PermissionAction.VIEW, PEOPLE_RESOURCE.confidentialDocuments) };
+  const grants: Grants = { view: has(PermissionAction.VIEW, PEOPLE_RESOURCE.documents), hrOnly: has(PermissionAction.VIEW, PEOPLE_RESOURCE.hrOnlyDocuments), edit: has(PermissionAction.EDIT, PEOPLE_RESOURCE.documents), confidential: has(PermissionAction.VIEW, PEOPLE_RESOURCE.confidentialDocuments) };
   return shape(grants, access.ownDocumentsOnly ? await teamOf(orgId, userId) : { all: true });
 }
 

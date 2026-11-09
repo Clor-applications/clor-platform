@@ -8714,3 +8714,139 @@ button.ui-side-alert { cursor: pointer; }
 .ui-list-toolbar-end { margin-inline-start: auto; display: flex; align-items: center; gap: 0.5rem; }
 /* A segmented switch is a radio group; the chosen segment reads as chosen without a colour of its own. */
 .ui-segment[aria-checked='true'] { background-color: rgb(var(--surface)); color: rgb(var(--fg)); border-color: rgb(var(--border)); }
+
+/*
+ * The picture side (owner, 10 Nov 2026): a scene fills 60% of the screen beside the form, the logo on its
+ * bottom-left corner (the picture's own title is top left); on a phone the scene is a short band above the form. The form sits on the white page
+ * without its own card, so there is no card beside a picture.
+ */
+.ui-auth-brand--scene {
+  /* 70% picture, 30% form (owner, 10 Nov 2026); the form never narrower than 420px. */
+  width: min(70%, calc(100% - 420px));
+  flex: none;
+  max-width: none;
+  border-right: 0;
+  padding: 0;
+}
+.ui-auth-scene {
+  position: relative;
+  flex: 1;
+  min-height: 100%;
+  background: rgb(var(--surface-sunken));
+}
+.ui-auth-scene img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Each picture's title is in its top-left corner: crop from the right and bottom only. */
+  object-position: 0% 0%;
+}
+.ui-auth-scene {
+  overflow: hidden;
+}
+.ui-auth-form-logo {
+  margin-bottom: 28px;
+}
+.ui-auth-scene-top {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 24px;
+  padding: 32px 40px;
+}
+/* The picture drifts closer, slowly, and back. */
+.ui-auth-scene img {
+  transform-origin: 0% 0%;
+  animation: ui-auth-drift 26s ease-in-out infinite alternate;
+}
+@keyframes ui-auth-drift {
+  from { transform: scale(1); }
+  to { transform: scale(1.05); }
+}
+/* A glass card of facts on the navy fade. */
+.ui-auth-facts {
+  max-width: 340px;
+  padding: 14px 18px 12px;
+  border-radius: 12px;
+  color: #fff;
+  background: rgb(11 21 48 / 0.55);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+}
+.ui-auth-fact {
+  margin: 0;
+  min-height: 2.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  animation: ui-auth-fact-in 500ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes ui-auth-fact-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.ui-auth-fact-dots {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.ui-auth-fact-dots button {
+  width: 18px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: width 200ms;
+}
+.ui-auth-fact-dots button::before {
+  content: '';
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.3);
+  transition: background-color 200ms;
+}
+.ui-auth-fact-dots button[aria-current='true'] {
+  width: 28px;
+}
+.ui-auth-fact-dots button[aria-current='true']::before {
+  background: #ff5400;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-auth-scene img,
+  .ui-auth-fact {
+    animation: none;
+  }
+}
+.ui-auth-scene-logo {
+  display: inline-flex;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.92);
+}
+.ui-auth-scene-band {
+  overflow: hidden;
+  height: 240px;
+  margin: 0 -24px 24px;
+}
+.ui-auth-scene-band img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* The picture's own title is in its top-left corner: keep the top in view. */
+  object-position: 50% 0%;
+}
+.ui-auth.has-scene .ui-auth-card {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}

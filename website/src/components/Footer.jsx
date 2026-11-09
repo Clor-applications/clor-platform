@@ -14,7 +14,7 @@ export default function Footer() {
     <footer className="footer">
       <div className="wrap footer-grid">
         <div className="footer-brand">
-          <Logo height={20} lazy />
+          <Logo height={20} lazy light />
           <p className="small">Accounting, HR, attendance and payroll for Indian companies. Your data is kept in {SITE.hosting}.</p>
           <ul className="footer-mail">
             {[
