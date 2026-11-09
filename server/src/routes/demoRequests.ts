@@ -70,7 +70,7 @@ export function indianPhone(raw: string): string | null {
  * is also open to the site's own origins, with no credentials, and nothing
  * else. Mounted in app.ts ahead of the app-wide CORS.
  */
-const siteOrigins = () =>
+export const siteOrigins = () =>
   new Set(
     [
       'https://clor.in',

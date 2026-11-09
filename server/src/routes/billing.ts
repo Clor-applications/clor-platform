@@ -13,6 +13,9 @@ import { getGateway } from '../billing/gateway.js';
 import { requireOperatorStepUp } from '../services/stepUp.js';
 import { clientIp, recordAuthEvent } from '../services/auth.js';
 import { acrossCompanies } from '../utils/tenantScope.js';
+import { publishedBook } from '../services/pricing/books.js';
+import { gstSetting } from '../services/pricing/settings.js';
+import { publicPricing } from './pricing.js';
 
 export const billingRouter = Router();
 /** CLOR operators acting on an account from outside it. See app.ts for where it is mounted. */
@@ -94,9 +97,10 @@ billingOperatorRouter.post('/billing/accounts/:accountId/subscription', requireA
 // Everything else is tenant-scoped.
 billingRouter.use(requireAuth, requireTenantContext);
 
-/** The catalog: which apps can be bought and the accounting plans. Pricing TBD. */
-billingRouter.get('/billing/catalog', (_req, res) => {
-  res.json({ apps: APP_CATALOG, accountingPlans: PLAN_CATALOG, gateway: getGateway().name });
+/** The catalog: which apps can be bought, the accounting plans, and the published price list (services/pricing/). */
+billingRouter.get('/billing/catalog', async (_req, res) => {
+  const [book, gst] = await Promise.all([publishedBook(), gstSetting()]);
+  res.json({ apps: APP_CATALOG, accountingPlans: PLAN_CATALOG, gateway: getGateway().name, pricing: book ? publicPricing(book, gst) : null });
 });
 
 /** This account's subscription + the apps it may currently open. */

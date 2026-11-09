@@ -993,6 +993,16 @@
     },
     {
       "method": "GET",
+      "path": "/api/public/pricing",
+      "reason": "clor.in's pricing page (pricing.ts): CLOR's own published price book (apps, tiers, amounts in paise, trial days) and whether GST is charged; no customer data, no draft or archived book. Read-only, cached a minute per instance and five minutes in the browser. CORS open to the site origins only, without credentials."
+    },
+    {
+      "method": "POST",
+      "path": "/api/public/pricing/quote",
+      "reason": "A price quote on clor.in (pricing.ts): arithmetic over the published price book for the apps, tier, period and counts sent; validated by zod; pricingQuoteLimiter (120 a minute per address, in-process); writes nothing and reads only the published book and CLOR's GST setting. CORS open to the site origins only, without credentials."
+    },
+    {
+      "method": "GET",
       "path": "/api/people/apply/:token",
       "reason": "Talent apply page (TALENT-DECISIONS.md): token kept only as sha256, works while the opening is open and its link is on; shows the job title, company and description only; outsideTenant lookup then enterTenant."
     },

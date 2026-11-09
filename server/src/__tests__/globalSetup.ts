@@ -359,6 +359,8 @@ export default async function setup() {
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261026090100_operator_audit_append_only');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261028090000_audit_log_actor_append_only');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261031090100_product_events_append_only');
+  /* Pricing: one published price book, a partial index `db push` cannot build. */
+  await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261123090100_price_book_one_published');
 
   await grantToAppRole(database, schemas);
 

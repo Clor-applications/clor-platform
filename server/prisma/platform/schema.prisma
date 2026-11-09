@@ -1312,3 +1312,74 @@ model DemoRequest {
   @@index([createdAt])
   @@index([email, createdAt])
 }
+
+/// One version of CLOR's own price list (roadmap item 9). Prices change by
+/// making a new version, never by editing one that was published: a draft is
+/// copied from the published book, edited, and published, and the book it
+/// replaces is archived and kept. Exactly one is PUBLISHED at a time (partial
+/// unique index PriceBook_one_published, migration
+/// 20261123090100_price_book_one_published). Platform data, not a customer's:
+/// no accountId and no row-level policy. clor.in reads the published book;
+/// only CLOR operators (routes/pricing.ts) and the first-run mock seed
+/// (services/pricing/seed.ts) write one.
+model PriceBook {
+  id                String    @id @default(cuid())
+  /// 1, 2, 3... in the order the books were made.
+  version           Int       @unique
+  /// DRAFT | PUBLISHED | ARCHIVED
+  status            String    @default("DRAFT")
+  currency          String    @default("INR")
+  /// What this version is, in a line. The mock seed's says "Mock prices — not final".
+  note              String?
+  /// The book this draft was copied from.
+  copiedFromId      String?
+  createdByUserId   String?
+  publishedAt       DateTime?
+  publishedByUserId String?
+  archivedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  prices PlanPrice[]
+
+  @@index([status])
+}
+
+/// One price in a price book: an app, a tier and a billing period. Amounts in
+/// paise, as integers. Subscriptions already running are not priced from
+/// here: SubscriptionItem keeps its own unitAmount.
+model PlanPrice {
+  id            String   @id @default(cuid())
+  priceBookId   String
+  /// accounting | payroll | people | attendance (constants/appCatalog.ts)
+  appCode       String
+  /// starter | growth
+  tier          String
+  /// MONTHLY | YEARLY
+  period        String
+  /// COMPANY | USER | EMPLOYEE: what one unit is.
+  unit          String
+  /// Paise for one unit for one period.
+  unitAmount    Int
+  /// The fewest units billed: the price covers up to this many.
+  includedUnits Int      @default(1)
+  trialDays     Int      @default(0)
+  /// Whether GST is added once CLOR charges GST (PlatformSetting billing.gst).
+  gstApplies    Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  priceBook PriceBook @relation(fields: [priceBookId], references: [id], onDelete: Cascade)
+
+  @@unique([priceBookId, appCode, tier, period])
+}
+
+/// CLOR's own settings as a seller, one row per key. `billing.gst` holds
+/// { registered, gstin }: until CLOR has a GSTIN, registered is false and no
+/// quote carries GST (services/pricing/settings.ts).
+model PlatformSetting {
+  key             String   @id
+  value           Json
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+}

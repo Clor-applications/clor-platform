@@ -86,6 +86,9 @@ export const demoRequestLimiter = [
   guard(60 * 60 * 1000, 3, 'demo requests', (req) => `demo-id:${digest(identityOf(req))}`, (req) => !identityOf(req)),
 ];
 
+/* Price quotes on clor.in (routes/pricing.ts): a person moving the sliders, debounced, never this many. Counted in-process: nothing is written. */
+export const pricingQuoteLimiter = [bucket(60 * 1000, 120, 'price quotes', (req) => `price-quote:${ipOf(req)}`)];
+
 export const codeLimiter = [guard(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 
 /** Machine clients with a bearer token (SCIM providers, on-site connectors): per token, and per address for the ones guessing. */

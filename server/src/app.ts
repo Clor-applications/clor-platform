@@ -120,6 +120,7 @@ import { stockLedgerRouter } from './routes/stockLedger.js';
 import { notFound, errorHandler } from './middleware/errors.js';
 import { billingRouter, billingOperatorRouter, billingWebhook } from './routes/billing.js';
 import { demoRequestCors, demoRequestsRouter, opsDemoRequestsRouter } from './routes/demoRequests.js';
+import { opsPricingRouter, pricingCors, pricingRouter } from './routes/pricing.js';
 import { opsRouter } from './routes/ops.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
 import { internalJobsRouter } from './routes/internalJobs.js';
@@ -242,6 +243,8 @@ export function buildApp() {
 
   /* clor.in's "Request a demo" form: open to the site's origins, without credentials, and only that route (routes/demoRequests.ts). */
   app.use('/api/public/demo-requests', demoRequestCors);
+  /* clor.in's pricing page: the published price list and a quote, the same way (routes/pricing.ts). */
+  app.use('/api/public/pricing', pricingCors);
   app.use(
     cors({
       origin(origin, cb) {
@@ -394,6 +397,8 @@ export function buildApp() {
   app.use('/api', invitationsRouter);
   /* "Request a demo" from clor.in: no sign-in, no account yet. */
   app.use('/api', demoRequestsRouter);
+  /* The published price list and quotes for clor.in: no sign-in. */
+  app.use('/api', pricingRouter);
 
   /* No auth and no tenant headers: the customer has no account here. Mounted
      with authRouter for the same reason gstinRouter is — a router at '/api'
@@ -423,6 +428,7 @@ export function buildApp() {
   /* W-8.2: the operator console — Clor staff, outside every customer account, so ahead of the tenant routers. */
   app.use('/api', opsRouter);
   app.use('/api', opsDemoRequestsRouter);
+  app.use('/api', opsPricingRouter);
 
   /*
    * Mounted before every tenant-scoped router, and that position is the point.

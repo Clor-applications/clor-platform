@@ -35,6 +35,7 @@ import { startIntegrityChecks } from './services/integrity/checks.js';
 import { startOrgDetailBackfill } from './services/people/organization.js';
 import { startStatutoryCatalogueBackfill } from './services/payroll/statutory/resolve.js';
 import { startFullDayFix } from './services/attendance/fullDayFix.js';
+import { ensureFirstPriceBook } from './services/pricing/seed.js';
 
 /* Crashes and unhandled rejections are reported, not lost. */
 reportProcessErrors();
@@ -130,3 +131,7 @@ startOrgDetailBackfill();
 startStatutoryCatalogueBackfill();
 /* Attendance: days scored under the old full-day rule set to present in open months; closed months are listed, never changed. */
 startFullDayFix();
+/* Pricing: price book version 1, the mock prices, when there is no price book yet; never touches one that exists. */
+ensureFirstPriceBook()
+  .then((r) => r.created && console.log(`Pricing: price book version ${r.version} made with mock prices`)) // eslint-disable-line no-console
+  .catch((e) => console.error('Pricing: first price book failed:', e instanceof Error ? e.message : e)); // eslint-disable-line no-console
