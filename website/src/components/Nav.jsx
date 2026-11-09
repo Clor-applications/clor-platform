@@ -185,7 +185,7 @@ export default function Nav() {
     </div>
     <header className="nav" ref={ref}>
       <div className="wrap nav-bar">
-        <Logo />
+        <Logo light />
         <nav className="nav-main" aria-label="Main">
           <ul>
             {MENUS.map((m) =>
