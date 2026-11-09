@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Receipt } from '@ui/components/ui/lineIcons';
+import { Plus, Receipt } from '@ui/components/ui/lineIcons';
 
 import { StatStrip } from '@ui/components/ui/Primitives';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
+import PickPersonDrawer from '@ui/personnel/PickPersonDrawer';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -19,6 +20,7 @@ import {
   advanceReturned, downloadCsv, getReport, listAdvances, listCategories, listClaims, listSalaryAdvances, markRecorded, openBill, payAdvance, payClaim, recoverAdvance, saveCategory, sendToPayroll,
 } from '../api/money';
 import { money } from './words';
+import RecordClaimDrawer from './RecordClaimDrawer';
 import { todayIst as today } from '@ui/utils/dates';
 
 /**
@@ -44,16 +46,18 @@ export default function Expenses({ params = {}, updateParams }) {
   const tab = TABS.some(([k]) => k === p.tab) ? p.tab : 'pay';
   const set = (patch, push = false) => updateParams?.(patch, { push });
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  /* Record a claim: which person first, then their bills (People plan 8 Nov 2026, step 4). */
+  const [recording, setRecording] = useState(null);
   const toPay = useRequest(() => listClaims('TO_PAY'), []);
 
   const exportBooks = () => downloadCsv('books').catch((e) => notify.error(String(e?.message || 'Not downloaded.')));
   return (
     <div className="space-y-6">
-      {/* Claims are made by staff in the employee app and approved in the Inbox; here they are paid, so the screen has no "new claim" (no HR entry on the server yet). */}
       <ListHeader
-        section="Pay, benefits & assets"
+        section="Pay & assets"
         title="Expenses"
         description="Claims approved in the Inbox, waiting to be paid or to go into Books, and the advances given out."
+        primary={mayPay ? { label: 'Record a claim', icon: Plus, onClick: () => setRecording({ step: 'person' }) } : null}
         secondary={<>
           {mayPay ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setCategoriesOpen(true)}>Categories and limits</button> : null}
           {mayExport ? <button type="button" className="ui-btn ui-btn-secondary" onClick={exportBooks}>Download for Books</button> : null}
@@ -67,6 +71,13 @@ export default function Expenses({ params = {}, updateParams }) {
       {tab === 'salary' ? <SalaryAdvanceList params={p} set={set} mayPay={mayPay} /> : null}
       {tab === 'report' ? <Report mayExport={mayExport} /> : null}
       {categoriesOpen ? <CategoriesDrawer onClose={() => setCategoriesOpen(false)} /> : null}
+      {recording?.step === 'person' ? (
+        <PickPersonDrawer title="Record a claim" description="Whose bills are these? The claim goes for approval under their name." action="Add the bills"
+          onClose={() => setRecording(null)} onPick={(person) => setRecording({ step: 'bills', person })} />
+      ) : null}
+      {recording?.step === 'bills' ? (
+        <RecordClaimDrawer person={recording.person} onClose={() => setRecording(null)} onDone={() => { setRecording(null); toPay.reload(); if (tab !== 'all') set({ tab: 'all', page: null, q: null }, true); }} />
+      ) : null}
     </div>
   );
 }
@@ -98,7 +109,7 @@ function ClaimList({ tab, params: p, set, mayPay, onPaid, preloaded }) {
   const amountOf = (c) => (tab === 'pay' ? c.toPay : c.approved ?? c.claimed);
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (c) => <PersonCell person={{ name: c.employeeName || '—' }} line={c.employeeCode || ''} /> },
-    { key: 'claim', label: 'Claim', render: (c) => <span className="min-w-0"><span className="block truncate">{c.title}</span><span className="block ui-caption">{c.number} · {c.lines.length} bill{c.lines.length === 1 ? '' : 's'}</span></span> },
+    { key: 'claim', label: 'Claim', render: (c) => <span className="min-w-0"><span className="block truncate">{c.title}</span><span className="block ui-caption">{c.number} · {c.lines.length} bill{c.lines.length === 1 ? '' : 's'}{c.recordedByUserId ? ' · recorded by HR' : ''}</span></span> },
     { key: 'status', label: 'Status', render: (c) => <span className="block"><Pill status={c.status} />{c.status === 'PAID' || c.status === 'WITH_SALARY' ? <span className="block ui-caption mt-0.5">{c.payMode === 'SALARY' ? `With salary${c.payrollPeriodName ? `, ${c.payrollPeriodName}` : ''}` : `${METHOD[c.paidMethod] || 'Paid now'} · ${day(c.paidOn)}`}</span> : null}</span> },
     { key: 'amount', label: tab === 'pay' ? 'To pay' : 'Amount', align: 'right', render: (c) => <span className="tabular-nums whitespace-nowrap">{money(amountOf(c))}</span> },
   ];
@@ -138,7 +149,7 @@ function ClaimList({ tab, params: p, set, mayPay, onPaid, preloaded }) {
         toolbar={<SearchField value={p.q || ''} onSearch={(v) => set({ q: v || null, page: null })} placeholder="Search name, employee ID or claim" label="Search claims" className="w-full sm:w-72" />}
         empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} />
           : q ? <EmptyState kind="filtered" title="Nothing matches" onClearFilters={() => set({ q: null, page: null })} />
-            : <EmptyState icon={Receipt} title={tab === 'pay' ? 'Nothing to pay' : books ? 'Nothing waiting to go into Books' : 'No claims yet'} description={tab === 'pay' ? 'Claims approved in Approvals wait here to be paid.' : tab === 'all' ? 'Staff add bills from the employee app, under Me.' : undefined} />}
+            : <EmptyState icon={Receipt} title={tab === 'pay' ? 'Nothing to pay' : books ? 'Nothing waiting to go into Books' : 'No claims yet'} description={tab === 'pay' ? 'Claims approved in the Inbox wait here to be paid.' : tab === 'all' ? 'Staff add bills from the employee app, under Me, or HR records a claim for them.' : undefined} />}
       />
       {open ? <ClaimDrawer claim={open} reimbursement={req.data?.reimbursement} mayPay={mayPay} onClose={() => setOpen(null)} onDone={() => { setOpen(null); reload(); }} /> : null}
     </>

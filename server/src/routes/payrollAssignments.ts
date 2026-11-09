@@ -11,6 +11,7 @@ import { forLiveEmployee } from '../services/payroll/employeeLock.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { costCentreRefusal } from '../services/payroll/accounting/references.js';
 import { ownPayRefusal } from '../services/payroll/ownPay.js';
+import { tickWhenDone } from '../services/people/checklists.js';
 
 /**
  * What one person is paid, from a date.
@@ -231,6 +232,9 @@ payrollAssignmentsRouter.post(
         },
       });
     });
+
+    /* Their salary is set: the joining step asking for it closes by itself (People plan 8 Nov 2026, step 4). */
+    await tickWhenDone(orgId, body.employeeId, 'JOINING', ['salary structure'], `Payroll put them on ${structure.name} at Rs ${body.annualCtc.toLocaleString('en-IN')} a year, from ${body.effectiveFrom}.`, req.auth!.userId);
 
     res.status(201).json({ assignment: shape(row, { employee, structure }) });
   }
