@@ -310,14 +310,9 @@ h4 {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: saturate(1.4) blur(10px);
-  -webkit-backdrop-filter: saturate(1.4) blur(10px);
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.2s var(--ease);
-}
-.nav--scrolled {
-  border-bottom-color: var(--line);
+  /* A solid bar under one hairline: no blur, no colour bleeding through. */
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
 }
 .nav-bar {
   display: flex;
@@ -492,10 +487,23 @@ h4 {
   width: 320px;
   padding: var(--s-2);
 }
+.nav-doors {
+  position: relative;
+}
+/* The sign-in menu sits under the right edge of the bar, so it opens leftwards. */
+.mega-wrap--end {
+  left: auto;
+  right: -12px;
+}
+.mobile-demo {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--s-6);
+}
 
 @media (max-width: 960px) {
   .nav-main,
-  .nav-signin {
+  .nav-doors {
     display: none;
   }
   .nav-end {

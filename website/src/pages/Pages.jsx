@@ -375,8 +375,8 @@ export function About() {
 
 /* ----------------------------------------------------------------- contact */
 /* Questions about buying go to sales; everything else to the general inbox. */
-const SALES_TOPICS = new Set(['pricing', 'projects', 'timesheet', 'firm']);
-const TOPICS = { general: 'A question about Clor', pricing: 'Pricing for my company', projects: 'Clor Projects, when it’s ready', timesheet: 'Clor Timesheet, when it’s ready', firm: 'Clor for my accounting firm' };
+const SALES_TOPICS = new Set(['demo', 'pricing', 'projects', 'timesheet', 'firm']);
+const TOPICS = { demo: 'A demo for my company', general: 'A question about Clor', pricing: 'Pricing for my company', projects: 'Clor Projects, when it’s ready', timesheet: 'Clor Timesheet, when it’s ready', firm: 'Clor for my accounting firm' };
 
 export function Contact() {
   const [about, setAbout] = useState('general');
