@@ -28,6 +28,7 @@ export const ROUTES = [
   { path: '/legal/privacy', title: 'Privacy notice', description: 'What CLOR collects, why, who else sees it, how long it is kept, and your rights.', page: () => <Legal doc="privacy" /> },
   { path: '/legal/terms', title: 'Terms of service', description: 'The agreement for using CLOR.', page: () => <Legal doc="terms" /> },
   { path: '/legal/refund', title: 'Refund and cancellation', description: 'How billing, cancellation and refunds work for CLOR.', page: () => <Legal doc="refund" /> },
+  { path: '/legal/delivery', title: 'Delivery policy', description: 'How you receive CLOR after you sign up or pay: by email, with nothing shipped.', page: () => <Legal doc="delivery" /> },
   { path: '/legal/cookies', title: 'Cookies and browser storage', description: 'What CLOR keeps in your browser, and why.', page: () => <Legal doc="cookies" /> },
 ];
 

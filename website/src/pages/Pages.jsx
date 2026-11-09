@@ -532,7 +532,48 @@ const REFUND = {
     </>
   ),
 };
-const LEGAL = { ...DOCUMENTS, refund: REFUND };
+/*
+ * Delivery (shipping) policy. CLOR ships nothing physical; payment providers
+ * still ask how and when a buyer receives what they paid for. Like the refund
+ * page, the website's own, not one of the app's shared legal documents.
+ */
+const DELIVERY = {
+  title: 'Delivery policy',
+  summary: 'How you receive CLOR after you sign up or pay. Last updated 9 November 2026.',
+  Body: () => (
+    <>
+      <h2>Nothing is shipped</h2>
+      <p>
+        CLOR is software used in a web browser and in our phone apps. We do not send any physical goods, so there are no shipping charges and
+        no delivery address is needed.
+      </p>
+      <h2>Cloud plans</h2>
+      <p>
+        Access is delivered by email to the address you sign up with. When you create an account yourself, you can use it as soon as you have
+        confirmed your email. When our team creates the account for you after a demo, we email the owner a link to set a password, and the
+        apps you chose are ready when you sign in.
+      </p>
+      <p>
+        A paid plan or an added app starts as soon as the payment is confirmed. Nothing changes in how you sign in: the new apps appear in the
+        same account.
+      </p>
+      <h2>On-premise licenses</h2>
+      <p>The license key and the installation guide are emailed to the address on the order once the payment is confirmed.</p>
+      <h2>Invoices</h2>
+      <p>The invoice for each payment is emailed to the account owner.</p>
+      <h2>If something has not arrived</h2>
+      <p>
+        Check your spam folder first. If the email is still missing, write to{' '}
+        <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a> from the address you signed up with, and we will send it again.
+      </p>
+      <h2>Who delivers it</h2>
+      <p>
+        {SITE.company}, {SITE.address}.
+      </p>
+    </>
+  ),
+};
+const LEGAL = { ...DOCUMENTS, refund: REFUND, delivery: DELIVERY };
 
 export function Legal({ doc }) {
   const d = LEGAL[doc];
@@ -543,7 +584,7 @@ export function Legal({ doc }) {
       <section className="section section--flush">
         <div className="wrap">
           <nav className="legal-nav" aria-label="Legal documents">
-            {['privacy', 'terms', 'cookies', 'refund'].map((k) => (
+            {['privacy', 'terms', 'cookies', 'refund', 'delivery'].map((k) => (
               <Link key={k} href={`/legal/${k}`} aria-current={k === doc ? 'page' : undefined}>
                 {LEGAL[k].title}
               </Link>
