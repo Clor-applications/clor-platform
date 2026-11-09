@@ -998,6 +998,26 @@
     },
     {
       "method": "GET",
+      "path": "/api/public/signup/options",
+      "reason": "Free trial on clor.in (signup.ts): no account exists yet; answers only the published self-serve offer (which apps can start alone, trial days, link hours), the same facts the public pricing page shows; reads nothing of any account."
+    },
+    {
+      "method": "POST",
+      "path": "/api/public/signup/start",
+      "reason": "Free trial on clor.in (signup.ts): no account exists yet; signupStartLimiter (10 an hour per address, 3 per email); hidden trap field drops bots; email validated; writes one platform TrialSignup row (no accountId) holding only a SHA-256 of a 24-hour token and mails the link to that address. Says when an email already signs in (409); rate-limited like the demo form, so address probing is bounded."
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/signup/pending",
+      "reason": "Free trial link (signup.ts): the token is the credential, kept only as a SHA-256 hash, 24 hours; signupLinkLimiter (30 per address and 10 per token a quarter-hour) so tokens cannot be walked; answers only that sign-up row's own email, chosen app and the public offer; the same error for unknown and run-out links."
+    },
+    {
+      "method": "POST",
+      "path": "/api/public/signup/confirm",
+      "reason": "Free trial link (signup.ts): the token is the credential (SHA-256 hash, 24 hours, single use via a conditional claim so two tabs cannot both start); signupLinkLimiter; creates the account through provisionAccount, the same code as the operator console Create account, then opens a session for that new owner only."
+    },
+    {
+      "method": "GET",
       "path": "/api/people/apply/:token",
       "reason": "Talent apply page (TALENT-DECISIONS.md): token kept only as sha256, works while the opening is open and its link is on; shows the job title, company and description only; outsideTenant lookup then enterTenant."
     },
