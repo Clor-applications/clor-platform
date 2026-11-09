@@ -3228,3 +3228,59 @@ html.is-scrolled .nav {
 .nav-main > ul {
   justify-content: flex-start;
 }
+
+/* ===================================== header, navy (owner, 10 Nov 2026)
+ * "Add navy blue for header you used in footbar": the strip and the bar take
+ * the footer's two navies, options in white, orange for the current section
+ * and the one button. Menus that open stay white so their lists read easily.
+ */
+.topbar {
+  background: var(--navy-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #c9d1e6;
+}
+.topbar a {
+  color: #c9d1e6;
+}
+.topbar a:hover {
+  color: #fff;
+}
+.nav {
+  background: var(--navy);
+  border-bottom: 0;
+  color: #fff;
+}
+html.is-scrolled .nav {
+  box-shadow: 0 10px 28px -18px rgba(7, 16, 34, 0.7);
+}
+.nav-trigger,
+.nav-signin {
+  color: #fff;
+}
+.nav-trigger svg {
+  color: #9aa6c4;
+}
+.nav-trigger:hover,
+.nav-trigger[aria-expanded='true'] {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.nav-trigger:hover svg,
+.nav-trigger[aria-expanded='true'] svg {
+  color: #fff;
+}
+.nav-trigger.is-current {
+  color: #fff;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.nav-signin:hover {
+  color: #ffb08a;
+}
+.nav-burger {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+.nav :focus-visible {
+  outline-color: #ffb08a;
+}
