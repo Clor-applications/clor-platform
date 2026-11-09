@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight } from '@ui/components/ui/lineIcons';
 
 import { accountAudit, listInvitations, memberDirectory } from '@platform/admin/account';
 import { getMySessions, getPolicy, getProviders } from '@platform/admin/security';

@@ -8,6 +8,7 @@ import { userLimitReason } from './entitlements.js';
 import { sendTemplate } from './mailer.js';
 import { ACCOUNT_ADMINS, accountRoleOf, recordAccountEvent, type AccountRole } from './accountMembership.js';
 import { lockQuota } from './quotaLock.js';
+import { domainRefusalFor, policyForOrgs, validatePassword } from './policy.js';
 
 /**
  * Workspace W-3: inviting a person into the account.
@@ -158,6 +159,9 @@ export async function createInvitation(req: Request, input: { email?: unknown; a
       if (m?.status === 'ACTIVE') throw new InvitationError(409, 'This person is already in the account. Change their access under Users instead.', 'ALREADY_MEMBER');
     }
     const grants = await checkGrants(accountId, inviterId, (Array.isArray(input.grants) ? input.grants : []) as Grant[]);
+    /* #4: every company named must allow this address's domain. */
+    const domainRefused = await domainRefusalFor(grants.map((g) => g.orgId), email);
+    if (domainRefused) throw new InvitationError(400, domainRefused, 'EMAIL_DOMAIN_NOT_ALLOWED');
     const seatWarning = existing ? null : await userLimitReason(accountId);
 
     const token = randomBytes(32).toString('base64url');
@@ -271,8 +275,18 @@ export async function acceptInvitation(input: { token?: unknown; signedInUserId?
       const password = String(input.password || '');
       const fullName = String(input.fullName || '').trim();
       if (fullName.length < 2) throw new InvitationError(400, 'Tell us your name.', 'BAD_NAME');
-      if (password.length < 8) throw new InvitationError(400, 'Choose a password of at least eight characters.', 'BAD_PASSWORD');
+      /*
+       * The same rule as signing up, and as an administrator adding someone:
+       * the product's own (length, not a common password) and the strictest
+       * password rules of the companies the invitation opens. Only length was
+       * checked, so "password1" was taken here and refused everywhere else.
+       */
+      const weak = validatePassword(password, await policyForOrgs(grants.map((g) => g.orgId)));
+      if (weak) throw new InvitationError(400, weak, 'WEAK_PASSWORD');
     }
+    /* #4: a company may have narrowed its allowed domains since the invitation went out. */
+    const domainRefused = await domainRefusalFor(grants.map((g) => g.orgId), row.email);
+    if (domainRefused) throw new InvitationError(403, domainRefused, 'EMAIL_DOMAIN_NOT_ALLOWED');
 
     /* W-6.1: a new login is counted against the plan under the account's quota lock. */
     const releaseQuota = user ? null : await lockQuota(row.accountId, 'USERS');

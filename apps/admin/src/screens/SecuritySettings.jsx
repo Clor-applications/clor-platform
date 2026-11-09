@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, KeyRound, LogOut, Save } from 'lucide-react';
+import { ChevronRight, KeyRound, LogOut, Save } from '@ui/components/ui/lineIcons';
 
 import {
   changePassword,
@@ -25,7 +25,7 @@ import './workspace.css';
 const NUMBERS = [
   { key: 'maxFailedLogins', label: 'Failed attempts before lockout', min: 3, max: 50 },
   { key: 'lockoutMinutes', label: 'Lockout duration (minutes)', min: 1, max: 1440 },
-  { key: 'sessionDays', label: 'Stay signed in for (days)', min: 1, max: 365 },
+  { key: 'sessionDays', label: 'Stay signed in for (days)', min: 1, max: 30 },
   { key: 'accessTokenMinutes', label: 'Access token lifetime (minutes)', min: 5, max: 1440 },
 ];
 const PASSWORD_RULES = [
@@ -39,6 +39,14 @@ const GATES = [
   { key: 'requirePayrollStepUp', label: 'Ask for an authenticator code before approving payments and pay runs' },
 ];
 const EMPTY_PW = { current: '', next: '', confirm: '' };
+const people = (n) => (n === 1 ? '1 person' : `${n} people`);
+/* Who the saved rules now keep out (#4), said once rather than discovered by them. */
+const savedNote = (keptOut) => {
+  const parts = ['Sign-in rules saved.'];
+  if (keptOut?.unconfirmed) parts.push(`${people(keptOut.unconfirmed)} must confirm their email before they can open this company.`);
+  if (keptOut?.outsideDomains) parts.push(`${people(keptOut.outsideDomains)} with an address outside the allowed domains can no longer open it.`);
+  return parts.join(' ');
+};
 const stamp = (d) => (d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 const eventTone = (t) => (/SUCCESS|VERIFIED|CHANGED/.test(t) ? 'ws-pill ws-pill--ok' : 'ws-pill');
 /* No danger pill in the kit yet: a failure or lockout borrows the Workspace danger tokens. */
@@ -90,8 +98,8 @@ export const SecuritySettings = ({ openScreen }) => {
     setError('');
     setNotice('');
     try {
-      await fn();
-      if (note) setNotice(note);
+      const said = await fn();
+      if (said || note) setNotice(said || note);
     } catch (e) {
       setError(String(e?.message || e));
     } finally {
@@ -104,6 +112,7 @@ export const SecuritySettings = ({ openScreen }) => {
     run('policy', async () => {
       const r = await savePolicy(policy);
       setBaseline(r?.policy || policy);
+      return savedNote(r?.keptOut);
     }, 'Sign-in rules saved.');
   };
 
@@ -168,9 +177,9 @@ export const SecuritySettings = ({ openScreen }) => {
 
               <Panel title="Who may sign in">
                 <label className="grid gap-1">
-                  <span className="text-sm font-medium">Restrict new users to domains</span>
+                  <span className="text-sm font-medium">Allowed email domains</span>
                   <input className="ui-input" value={policy.allowedEmailDomains || ''} onChange={(e) => setField({ allowedEmailDomains: e.target.value })} placeholder="yourcompany.com, group.com" />
-                  <span className="ui-caption">Blank: any address may be invited.</span>
+                  <span className="ui-caption">Only addresses at these domains can be invited, added or open this company. Blank: any address.</span>
                 </label>
                 <div className="grid gap-2">
                   {GATES.map((f) => (

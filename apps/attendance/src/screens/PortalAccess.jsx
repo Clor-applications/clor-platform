@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Copy, ExternalLink, KeyRound, MapPin, Printer, Smartphone, UserCheck } from 'lucide-react';
+import { Copy, ExternalLink, KeyRound, MapPin, Printer, Smartphone, UserCheck } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check } from 'lucide-react';
+import { Check } from '@ui/components/ui/lineIcons';
 import { ClorLogo } from '@ui/components/brand';
 import LegalLinks from './legal/LegalLinks';
 
@@ -10,9 +10,10 @@ import LegalLinks from './legal/LegalLinks';
  * different form in it — and a sign-up that looked like a different product
  * would make somebody wonder whether they had followed the right link.
  *
- * The brand side is the "Done, daily" panel of the red brand board: cream
- * paper, the promise in red, and a day's list ticked off in red. It carries
- * the platform claim, not the accounting one — somebody signing in may be here for payroll alone.
+ * The brand side says plainly what CLOR does and shows a day in it. It
+ * carries the platform claim, not the accounting one — somebody signing in may
+ * be here for payroll alone. No slogan, accent word or decoration (owner,
+ * 8 Nov 2026: drop what reads as machine-made).
  */
 
 /* What a day in CLOR looks like: two things done, one waiting on you. */
@@ -27,10 +28,7 @@ function CustomerBrand() {
   return (
     <>
       <div className="ui-auth-copy">
-        <h2 className="ui-auth-title">
-          Done, <span className="ui-auth-accent">daily.</span>
-        </h2>
-        <p className="ui-auth-lede">Books, GST, people and pay, ticked off before tea.</p>
+        <h2 className="ui-auth-title">Accounts, GST, staff and salaries for small businesses in India.</h2>
       </div>
 
       <div className="ui-auth-today" aria-label="An example day">
@@ -45,7 +43,6 @@ function CustomerBrand() {
           ))}
         </ul>
       </div>
-      <div className="ui-auth-halftone" aria-hidden="true" />
     </>
   );
 }

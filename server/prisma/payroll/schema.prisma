@@ -314,6 +314,10 @@ model SalaryComponent {
   exceedBehaviour String  @default("CAP")
 
   isTaxable             Boolean @default(true)
+  /// EMPLOYER_NPS: the employer's NPS contribution, taxed as salary and
+  /// deducted up to 10% (old regime) or 14% (new) of Basic and DA under
+  /// section 80CCD(2) (124 from April 2026). Null for anything else.
+  taxSection            String?
   prorate               Boolean @default(true)
   includeInPfWage       Boolean @default(false)
   includeInEsiWage      Boolean @default(false)
@@ -648,6 +652,11 @@ model PayrollRun {
   /// deductionCapPercent): { percent, people, carried } — how many payslips
   /// had a loan or advance instalment carried to the next run, and how much.
   deductionCap Json?
+
+  /// The owner's record that a statutory scheme on these payslips does not
+  /// apply to the company (statutoryGaps.ts): { schemes, reason, userId, at,
+  /// calculatedAt }. Counts only for the calculation it was given on.
+  statutoryWaiver Json?
 
   /// Who is working this run out right now (run.ts calculateRun): a lease,
   /// taken and let go without holding a database connection, so a payroll
@@ -1135,7 +1144,7 @@ model PayrollPaymentLine {
 
   amount Decimal @default(0)
 
-  /// PENDING | PAID | FAILED
+  /// PENDING | PAID | FAILED | CANCELLED (its batch was called off)
   status        String    @default("PENDING")
   failureReason String?
   reference     String?
@@ -1151,6 +1160,8 @@ model PayrollPaymentLine {
   payment PayrollPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@unique([paymentId, slipId])
+  /// And one live (PENDING or PAID) line per slip across every payment: a
+  /// partial unique index, SQL only (migration 20261107100000_run_integrity).
   @@index([accountId, orgId, paymentId, status])
 }
 
@@ -1243,6 +1254,15 @@ model TaxDeclaration {
   seniorSelf    Boolean @default(false)
   seniorParents Boolean @default(false)
 
+  /// Form 12B: salary from an employer this person left earlier in the same
+  /// year (taxable, after its section 10 exemptions), the professional tax and
+  /// the TDS that employer took. Tax here is worked on the year's whole salary,
+  /// less what was already withheld there.
+  previousEmployerName    String?
+  previousEmployerIncome  Decimal @default(0)
+  previousEmployerPt      Decimal @default(0)
+  previousEmployerTds     Decimal @default(0)
+
   submittedAt      DateTime?
   verifiedAt       DateTime?
   verifiedByUserId String?
@@ -1252,6 +1272,48 @@ model TaxDeclaration {
 
   @@unique([orgId, employeeId, financialYear])
   @@index([accountId, orgId, financialYear, status])
+}
+
+/// What this company paid someone earlier in a financial year, before its
+/// payroll ran on CLOR (audit 7 Nov 2026, #2): the months paid elsewhere, or
+/// by hand. Income tax for the rest of the year reads it as pay and tax so
+/// far, the way it reads CLOR's own earlier payslips; Form 16 adds it in. Not
+/// a previous employer's pay — that is Form 12B, on the tax declaration.
+model PayrollOpeningYtd {
+  id            String @id @default(cuid())
+  accountId     String
+  orgId         String
+  employeeId    String
+  /// "2026-27": April 2026 to March 2027.
+  financialYear String
+  /// Gross salary paid in those months.
+  grossPay        Decimal @default(0)
+  /// What income tax reads of it: taxable earnings and employer NPS (taxablePay.ts).
+  taxablePay      Decimal @default(0)
+  /// Income tax deducted from it (section 192).
+  tds             Decimal @default(0)
+  professionalTax Decimal @default(0)
+  /// The employee's PF, for Form 16's 80C line.
+  employeePf      Decimal @default(0)
+  /// Basic and DA paid in those months: HRA exemption (10(13A)) and the employer NPS limit.
+  basicDa         Decimal @default(0)
+  /// HRA paid in those months, for the HRA exemption.
+  hraReceived     Decimal @default(0)
+  /// Employer NPS in those months (inside taxable pay; deducted under 80CCD(2)).
+  employerNps     Decimal @default(0)
+  /// Removed: kept as a row so a calculated payroll sees the change (runStale), read as absent.
+  deletedAt       DateTime?
+  /// Up to which month the figures run, "2026-09"; informative.
+  throughMonth    String?
+  note            String?
+
+  createdByUserId String
+  updatedByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, employeeId, financialYear])
+  @@index([accountId, orgId, financialYear])
 }
 
 /// A PF nominee (EPF Form 2): who receives the PF if the member dies, and
@@ -1322,6 +1384,13 @@ model PayrollSetting {
   /// The statutory catalogue version this company was last topped up to
   /// (defaults.ts SEED_CATALOGUE_VERSION).
   statutoryCatalogue     String?
+  /// The financial year ("2026-27") the owner said is this company's first
+  /// year of paying salaries, so nobody has earlier months to bring in and a
+  /// first payroll after April needs no opening figures (audit 7 Nov 2026, #2).
+  firstPayrollYear       String?
+  firstPayrollYearReason String?
+  firstPayrollYearBy     String?
+  firstPayrollYearAt     DateTime?
 
   updatedByUserId String
   createdAt       DateTime @default(now())

@@ -26,7 +26,7 @@ const rupees = (n) => `₹${n.toLocaleString('en-IN')}`;
 
 export function BooksWindow(props) {
   const lines = [
-    ['Steel brackets, 40 mm', 120, 85],
+    ['Steel brackets, 40\u00a0mm', 120, 85],
     ['Hinges, heavy duty', 60, 140],
     ['Fitting labour', 1, 2400],
   ];
@@ -116,7 +116,7 @@ export function AttendanceWindow(props) {
         <dt>Leave</dt>
         <dd className="num">1</dd>
         <dt>Overtime</dt>
-        <dd className="num">3 h</dd>
+        <dd className="num">3&nbsp;h</dd>
       </dl>
     </Frame>
   );
@@ -149,6 +149,48 @@ export function PayrollWindow(props) {
       <div className="w-totals">
         <strong>Net pay, Kavya</strong>
         <strong className="num">{rupees(net)}</strong>
+      </div>
+    </Frame>
+  );
+}
+
+/** The month's GSTR-1 as Books builds it from the invoices raised (sample figures). */
+export function GstrWindow(props) {
+  const rows = [
+    ['B2B invoices', 142, 1840500],
+    ['B2C invoices', 316, 412300],
+    ['Credit notes', 6, -38200],
+  ];
+  const taxable = rows.reduce((s, [, , v]) => s + v, 0);
+  return (
+    <Frame slug="books" title="GSTR-1, October 2026" {...props}>
+      <div className="w-row w-between">
+        <p className="w-v">Anand Traders, GSTIN 27AAKFA4821L1Z3</p>
+        <span className="w-pill w-pill--ok">Ready to file</span>
+      </div>
+      <table className="w-table">
+        <thead>
+          <tr>
+            <th>Section</th>
+            <th className="num">Count</th>
+            <th className="num">Taxable value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([k, n, v]) => (
+            <tr key={k}>
+              <td>{k}</td>
+              <td className="num">{n}</td>
+              <td className="num">{v < 0 ? `− ${rupees(-v)}` : rupees(v)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="w-totals">
+        <span>Taxable value</span>
+        <span className="num">{rupees(taxable)}</span>
+        <strong>Tax, CGST + SGST + IGST</strong>
+        <strong className="num">{rupees(Math.round(taxable * 0.18))}</strong>
       </div>
     </Frame>
   );

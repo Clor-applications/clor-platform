@@ -34,6 +34,7 @@ import { startCredentialChecks } from './services/credentialReview.js';
 import { startIntegrityChecks } from './services/integrity/checks.js';
 import { startOrgDetailBackfill } from './services/people/organization.js';
 import { startStatutoryCatalogueBackfill } from './services/payroll/statutory/resolve.js';
+import { startFullDayFix } from './services/attendance/fullDayFix.js';
 
 /* Crashes and unhandled rejections are reported, not lost. */
 reportProcessErrors();
@@ -127,3 +128,5 @@ startIntegrityChecks();
 startOrgDetailBackfill();
 /* Payroll: every company that took the standard statutory rates gets CLOR's newer PT and LWF figures, once per catalogue. */
 startStatutoryCatalogueBackfill();
+/* Attendance: days scored under the old full-day rule set to present in open months; closed months are listed, never changed. */
+startFullDayFix();

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert } from '@ui/components/ui/lineIcons';
 
 import { accountAudit } from '@platform/admin/account';
 import { PageHead } from './wsKit';

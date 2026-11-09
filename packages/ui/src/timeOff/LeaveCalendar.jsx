@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { SkeletonCard } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
@@ -54,15 +55,21 @@ export default function LeaveCalendar() {
   const [dept, setDept] = useState('');
   const req = useRequest(
     () => Promise.all([listLeaveRequests({ month }), listHolidays(month.slice(0, 4)).catch(() => []), getWorkingWeek().catch(() => null), getWorkingAway(month).catch(() => [])])
-      .then(([r, h, week, working]) => ({ requests: r.filter((x) => ['APPROVED', 'PENDING'].includes(x.status)), holidays: h, week, working })),
+      .then(([r, h, week, working]) => ({ month, requests: r.filter((x) => ['APPROVED', 'PENDING'].includes(x.status)), holidays: h, week, working })),
     [month],
   );
-  const requests = req.data?.requests;
+  /*
+   * Only the open month's answer is drawn (UI audit, 7 Nov 2026). useRequest already lets the newest request win; this
+   * also keeps the last month's people off the new month's grid while it loads, and lets a failed month say so rather
+   * than sit behind the month before.
+   */
+  const data = req.data?.month === month ? req.data : undefined;
+  const requests = data?.requests;
 
   const days = daysIn(month);
-  const isOffDay = useMemo(() => offTest(req.data?.week), [req.data?.week]);
-  const holidayOn = useMemo(() => new Map((req.data?.holidays || []).filter((h) => h.date.startsWith(month) && !h.isOptional).map((h) => [h.date, h.name])), [req.data, month]);
-  const working = req.data?.working;
+  const isOffDay = useMemo(() => offTest(data?.week), [data?.week]);
+  const holidayOn = useMemo(() => new Map((data?.holidays || []).filter((h) => h.date.startsWith(month) && !h.isOptional).map((h) => [h.date, h.name])), [data, month]);
+  const working = data?.working;
   const departments = useMemo(() => [...new Set([...(requests || []), ...(working || [])].map((r) => r.department).filter(Boolean))].sort(), [requests, working]);
   const people = useMemo(() => {
     const byPerson = new Map();
@@ -95,29 +102,28 @@ export default function LeaveCalendar() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <ListHeader
         breadcrumb={homeCrumbs()}
         title="Leave calendar"
-        actions={<>
+        description="Who is away on each day of the month, with holidays and weekly offs shaded."
+        toolbar={<>
           <div className="inline-flex items-center gap-1" role="group" aria-label="Month">
             <button type="button" className="ui-icon-btn" aria-label="Previous month" onClick={() => setMonth(shift(month, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
             <span className="min-w-36 text-center font-medium" aria-live="polite">{title(month)}</span>
             <button type="button" className="ui-icon-btn" aria-label="Next month" onClick={() => setMonth(shift(month, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
           </div>
           {month !== today.slice(0, 7) ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setMonth(today.slice(0, 7))}>This month</button> : null}
+          {departments.length > 1 ? (
+            <div className="w-full sm:w-56">
+              <PopupSelect showValueSubtext={false} ariaLabel="Department" value={dept} onChange={(v) => setDept(v || '')} placeholder="Every department"
+                options={[{ value: '', label: 'Every department' }, ...departments.map((d) => ({ value: d, label: d }))]} />
+            </div>
+          ) : null}
         </>}
       />
 
-      {departments.length > 1 ? (
-        <div className="w-full sm:w-56">
-          <PopupSelect showValueSubtext={false} ariaLabel="Department" value={dept} onChange={(v) => setDept(v || '')} placeholder="Every department"
-            options={[{ value: '', label: 'Every department' }, ...departments.map((d) => ({ value: d, label: d }))]} />
-        </div>
-      ) : null}
-
-      {req.error && !requests ? <ErrorState error={req.error} onRetry={req.reload} /> : !requests ? <SkeletonCard lines={6} /> : !people.length ? (
-        <EmptyState title={`Nobody is away or working elsewhere in ${title(month)}${dept ? ` in ${dept}` : ''}`} />
-      ) : (
+      {/* The month is always drawn (People plan 8 Nov 2026, §3 rule 4): with nobody away it still shows its weekends and holidays. */}
+      {req.error && !requests ? <ErrorState error={req.error} onRetry={req.reload} /> : !requests ? <SkeletonCard lines={6} /> : (
         <section className="space-y-3" aria-label={`Leave in ${title(month)}`}>
           {clashes.length ? (
             <ul className="space-y-1 text-sm" aria-label="Away the same day">
@@ -145,6 +151,11 @@ export default function LeaveCalendar() {
                 </tr>
               </thead>
               <tbody>
+                {!people.length ? (
+                  <tr className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
+                    <td className="p-3 text-sm ui-muted" colSpan={days.length + 1} role="status">Nobody is away or working elsewhere in {title(month)}{dept ? ` in ${dept}` : ''}. Leave approved for these days shows here, one line a person.</td>
+                  </tr>
+                ) : null}
                 {people.map((p) => (
                   <tr key={p.id} className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
                     <th scope="row" className="sticky left-0 z-10 bg-[rgb(var(--app-bg))] p-2 text-left text-sm font-normal">

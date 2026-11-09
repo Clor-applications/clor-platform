@@ -7,7 +7,8 @@
 --               and Attendance, additively: org structure, leave types, attendance records, shifts,
 --               recruitment, performance, learning, the help desk and reading expenses.
 --   Viewer      read-only employee records without confidential or HR-only files, full identifiers,
---               privacy work, confidential cases, or Payroll's statutory reports (every PAN and UAN in full).
+--               privacy work or confidential cases. Payroll stays out, as 20261107100100_viewer_without_payroll
+--               left it (every payslip, report and full PAN), so the old Viewer template here has no Payroll row.
 --   Auditor     gains read-only People: the employee list with joining and leaving dates. No documents, no
 --               identifiers.
 --
@@ -89,17 +90,6 @@ VALUES
   (gen_random_uuid()::text, 'MASTERS', 'Salesmen', 'VIEW'),
   (gen_random_uuid()::text, 'MASTERS', 'Units of Measure', 'VIEW'),
   (gen_random_uuid()::text, 'MASTERS', 'Vendors', 'VIEW'),
-  (gen_random_uuid()::text, 'PAYROLL', 'Employee Payroll Profile', 'VIEW'),
-  (gen_random_uuid()::text, 'PAYROLL', 'Payroll Adjustments', 'VIEW'),
-  (gen_random_uuid()::text, 'PAYROLL', 'Payroll Loans', 'VIEW'),
-  (gen_random_uuid()::text, 'PAYROLL', 'Payroll Payments', 'VIEW'),
-  (gen_random_uuid()::text, 'PAYROLL', 'Payroll Posting', 'VIEW'),
-  (gen_random_uuid()::text, 'PAYROLL', 'Payroll Runs', 'VIEW'),
-  (gen_random_uuid()::text, 'PAYROLL', 'Payroll Settings', 'VIEW'),
-  (gen_random_uuid()::text, 'PAYROLL', 'Salary Assignments', 'VIEW'),
-  (gen_random_uuid()::text, 'PAYROLL', 'Salary Revisions', 'VIEW'),
-  (gen_random_uuid()::text, 'PAYROLL', 'Salary Slips', 'VIEW'),
-  (gen_random_uuid()::text, 'PAYROLL', 'Salary Structures', 'VIEW'),
   (gen_random_uuid()::text, 'PEOPLE', 'Announcements', 'CREATE'),
   (gen_random_uuid()::text, 'PEOPLE', 'Announcements', 'DELETE'),
   (gen_random_uuid()::text, 'PEOPLE', 'Announcements', 'EDIT'),
@@ -381,18 +371,6 @@ WITH old_template ("name", "module", "subModule", "action") AS (
     ('viewer', 'MASTERS', 'Salesmen', 'VIEW'),
     ('viewer', 'MASTERS', 'Units of Measure', 'VIEW'),
     ('viewer', 'MASTERS', 'Vendors', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Employee Payroll Profile', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Payroll Adjustments', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Payroll Loans', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Payroll Payments', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Payroll Posting', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Payroll Reports', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Payroll Runs', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Payroll Settings', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Salary Assignments', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Salary Revisions', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Salary Slips', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Salary Structures', 'VIEW'),
     ('viewer', 'PEOPLE', 'Announcements', 'VIEW'),
     ('viewer', 'PEOPLE', 'Approvals', 'VIEW'),
     ('viewer', 'PEOPLE', 'Assets', 'VIEW'),
@@ -706,17 +684,6 @@ new_template ("name", "module", "subModule", "action") AS (
     ('viewer', 'MASTERS', 'Salesmen', 'VIEW'),
     ('viewer', 'MASTERS', 'Units of Measure', 'VIEW'),
     ('viewer', 'MASTERS', 'Vendors', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Employee Payroll Profile', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Payroll Adjustments', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Payroll Loans', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Payroll Payments', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Payroll Posting', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Payroll Runs', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Payroll Settings', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Salary Assignments', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Salary Revisions', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Salary Slips', 'VIEW'),
-    ('viewer', 'PAYROLL', 'Salary Structures', 'VIEW'),
     ('viewer', 'PEOPLE', 'Announcements', 'VIEW'),
     ('viewer', 'PEOPLE', 'Approvals', 'VIEW'),
     ('viewer', 'PEOPLE', 'Assets', 'VIEW'),
@@ -837,7 +804,8 @@ descriptions ("name", "old_description", "new_description") AS (
   VALUES
     ('hr user', 'Keep employee files and notes up to date; read the org structure', 'Keep employee files, documents and notes, attendance, shifts and leave types up to date, and raise leave; HR Manager approves leave'),
     ('hr manager', 'Everything in People: employee files, org structure, notes, removal', 'Everything in People: employee files, confidential documents, policies, privacy requests and confidential cases; approves leave'),
-    ('viewer', 'Read-only across the product', 'Read-only across the product, employee records included; no confidential or HR-only documents, and PAN, Aadhaar, UAN and bank stay masked'),
+    ('viewer', 'Read-only across the product, except salaries', 'Read-only across the product, except salaries; employee records included, but no confidential or HR-only documents, and PAN, Aadhaar, UAN and bank stay masked'),
+    ('viewer', 'Read-only across the product', 'Read-only across the product, except salaries; employee records included, but no confidential or HR-only documents, and PAN, Aadhaar, UAN and bank stay masked'),
     ('auditor', 'Read and export every book, document, report and the audit trail; change nothing', 'Read and export every book, document, report and the audit trail, and the employee list with joining and leaving dates; no employee documents or identifiers; change nothing')
 ),
 template_size AS MATERIALIZED (

@@ -404,9 +404,21 @@ dataExportRouter.get('/orgs/:orgId/export', EXPORT, async (req, res) => {
    * A full export is what closing the company requires first
    * (services/companyClosure.ts) — and only a copy with nothing withheld is one.
    */
-  if (wantData && wantConfiguration && !withheld.length) {
-    await recordAudit(req, { entity: 'Company', entityId: orgId, action: 'EXPORT_ALL', message: `Full company export (${Object.values(counts).reduce((a, b) => a + b, 0)} rows)` });
-  }
+  /*
+   * #11: and every other export is in the audit trail too — data only,
+   * configuration only, or a full export with something withheld — with
+   * what was asked for, how many rows of each table left, and what was held
+   * back. "Who took our data" has an answer whatever the scope.
+   */
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const full = wantData && wantConfiguration && !withheld.length;
+  await recordAudit(req, {
+    entity: 'Company',
+    entityId: orgId,
+    action: full ? 'EXPORT_ALL' : 'EXPORT',
+    message: full ? `Full company export (${total} rows)` : `Company export: ${asked === 'all' ? 'everything allowed' : asked === 'data' ? 'data' : 'configuration'} (${total} rows${withheld.length ? `; withheld ${withheld.map((w) => w.domain).join(', ')}` : ''})`,
+    metadata: { scope: asked, counts, withheld: withheld.map((w) => w.domain) },
+  });
 
   res.json({
     /*

@@ -1,14 +1,13 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Check, X } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { notify } from '@ui/components/ui/notify';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
@@ -19,6 +18,7 @@ import { RequestDrawer as LeaveDrawer } from '@ui/timeOff/LeaveRequests';
 import { hoursBetween, hoursWords } from '@ui/timeOff/partOfDay';
 import { RequestDrawer as AttendanceDrawer, KIND_NAME } from '@ui/timeOff/AttendanceRequests';
 import { bulkDecideRequests, decideRequest, getInbox, getRequest, listRequests, replyRequest, withdrawRequest } from '../api/approvals';
+import { updateChecklistTask } from '@ui/personnel/api';
 import { requestFile } from '../api/requests';
 import { openFile } from '@ui/requests/formFiles';
 import MoneyRequestDetail from '../money/MoneyRequestDetail';
@@ -46,7 +46,9 @@ const TONE = { WAITING: 'warn', APPROVED: 'pos', REJECTED: 'neg', WITHDRAWN: 'ne
 const TYPE = { PROFILE_CHANGE: 'Profile change', JOB_CHANGE: 'Job change', LEAVING: 'Leaving', DOCUMENT_REQUEST: 'Document', LETTER_REQUEST: 'Letter', POLICY_PUBLISH: 'Policy', DESK_ESCALATION: 'Help desk', SEAT_REQUEST: 'Seat', PROBATION: 'Probation', SHIFT_SWAP: 'Shift swap', ...MONEY_TYPES };
 /* A request type HR set up (FORM:<id>, gap 25) is named by its form; one asked before the name was read shows as a request. */
 const typeOf = (requestType, payload) => TYPE[requestType] || (String(requestType || '').startsWith('FORM:') ? payload?.formName || 'Request' : requestType);
-const TABS = [['waiting', 'Waiting for me'], ['mine', 'Asked by me']];
+/* To approve, then my own open tasks (joining, leaving, probation, letters: People plan 8 Nov 2026, step 2), then what I asked for. */
+const TABS = [['waiting', 'To approve'], ['tasks', 'My tasks'], ['mine', 'Asked by me']];
+const TASK_KIND = { JOINING: 'Joining', LEAVING: 'Leaving', CHANGE: 'Change', PROBATION: 'Probation', RENEWAL: 'Renewal', LETTER: 'Letter', LEAVING_WITHDRAWN: 'Leaving withdrawn' };
 const INBOX_KIND = { LEAVE: 'Leave', ATTENDANCE: 'Attendance request', PUNCH: 'Field punch', OVERTIME: 'Overtime', APPROVAL: 'People approval', HELPDESK: 'Help desk' };
 const KIND_ORDER = ['LEAVE', 'ATTENDANCE', 'PUNCH', 'OVERTIME', 'APPROVAL', 'HELPDESK'];
 /* Each kind's own bulk route: its checks hold per request (a field punch takes no note). */
@@ -76,12 +78,15 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
   const perms = usePermissions();
   const allowed = (k) => can(perms, k);
   const p = params || {};
-  const tab = p.tab === 'mine' ? 'mine' : 'waiting';
   const kind = KIND_ORDER.includes(p.kind) ? p.kind : '';
   const page = Math.max(1, Number(p.page || 1));
   const size = [25, 50, 100].includes(Number(p.size)) ? Number(p.size) : 25;
   const set = (patch, push = false) => updateParams?.(patch, { push });
   const inbox = useRequest(() => getInbox(), []);
+  /* The inbox opens on what there is to do: with nothing to approve and tasks on my name, My tasks (People plan 8 Nov 2026, step 3). */
+  const askedTab = p.tab === 'mine' ? 'mine' : p.tab === 'tasks' ? 'tasks' : p.tab === 'waiting' ? 'waiting' : null;
+  const loadedCounts = inbox.data?.counts || null;
+  const tab = askedTab || (loadedCounts && !loadedCounts.all && loadedCounts.TASK ? 'tasks' : 'waiting');
   const mine = useRequest(() => (tab === 'mine' ? listRequests() : Promise.resolve(null)), [tab]);
   const [q, setQ] = useState('');
   /* A notice about a request (a withdrawn one says "Withdrawn") opens it here: ?open=APPROVAL&id=… */
@@ -89,15 +94,14 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
   const [selected, setSelected] = useState(() => new Set());
   const [bulkNote, setBulkNote] = useState('');
   const [bulkBusy, setBulkBusy] = useState(false);
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, tab);
 
   const items = useMemo(() => inbox.data?.items || [], [inbox.data]);
   const counts = inbox.data?.counts || {};
   const needle = q.trim().toLowerCase();
   const shown = useMemo(() => items.filter((i) => (!kind || i.kind === kind) && (!needle || [i.employeeName, i.employeeCode, i.what, kindText(i)].some((v) => String(v || '').toLowerCase().includes(needle)))), [items, kind, needle]);
   const mineRows = useMemo(() => (mine.data?.mine || []).filter((r) => !needle || [r.title, typeOf(r.requestType, r.payload)].some((v) => String(v || '').toLowerCase().includes(needle))), [mine.data, needle]);
-  const list = tab === 'waiting' ? shown : mineRows;
+  const taskRows = useMemo(() => (inbox.data?.tasks || []).filter((t) => !needle || [t.title, t.employee?.name, t.employee?.code, TASK_KIND[t.kind]].some((v) => String(v || '').toLowerCase().includes(needle))), [inbox.data, needle]);
+  const list = tab === 'waiting' ? shown : tab === 'tasks' ? taskRows : mineRows;
   const pageRows = list.slice((page - 1) * size, page * size);
   const chosen = shown.filter((i) => selected.has(i.key) && i.bulk);
   const reload = () => { inbox.reload(); if (tab === 'mine') mine.reload(); };
@@ -171,6 +175,23 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     setOpen(i);
   };
 
+  /* A task on my name, done from its row: the same tick as the employee's plan and Tasks › Mine. A step that needs a note says so. */
+  const finishTask = async (t) => {
+    if (rowBusyRef.current.has(t.id)) return;
+    rowBusyRef.current.add(t.id);
+    setRowBusy(new Set(rowBusyRef.current));
+    try {
+      await updateChecklistTask(t.id, { done: true });
+      notify.success(`${t.title}: done.`);
+      inbox.reload();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not saved.'));
+    } finally {
+      rowBusyRef.current.delete(t.id);
+      setRowBusy(new Set(rowBusyRef.current));
+    }
+  };
+
   const waitingColumns = [
     { key: 'employee', label: 'Person', always: true, render: (i) => (
       <span className="flex items-center gap-2.5 min-w-0">
@@ -204,6 +225,20 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
       </button>
     ) : null) },
   ];
+  const taskColumns = [
+    { key: 'task', label: 'Task', always: true, render: (t) => (
+      <span className="block min-w-0 whitespace-normal">
+        <span className="block font-medium">{t.title}</span>
+        <span className="block ui-caption">{TASK_KIND[t.kind] || t.kind} · {t.employee?.name || '—'}{t.employee?.code ? ` (${t.employee.code})` : ''}</span>
+      </span>
+    ) },
+    { key: 'due', label: 'Due', render: (t) => <span className={`whitespace-nowrap tabular-nums ${t.overdue ? 'ui-text-neg font-medium' : ''}`}>{t.dueDate ? day(t.dueDate) : '—'}{t.overdue ? ' (late)' : ''}</span> },
+    { key: 'act', label: <span className="sr-only">Actions</span>, align: 'right', always: true, render: (t) => (
+      <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={rowBusy.has(t.id)} onClick={(e) => { e.stopPropagation(); finishTask(t); }}>
+        <Check size={14} aria-hidden="true" /> {rowBusy.has(t.id) ? 'Saving…' : 'Done'}
+      </button>
+    ) },
+  ];
   const mineColumns = [
     { key: 'title', label: 'Request', always: true, render: (r) => <span className="font-medium">{r.title}</span> },
     { key: 'kind', label: 'Kind', render: (r) => typeOf(r.requestType, r.payload) },
@@ -211,12 +246,24 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ui-pill-${TONE[r.status] || 'neutral'}`}>{STATUS[r.status] || r.status}</span> },
   ];
   const kindOptions = [{ value: '', label: 'Every kind' }, ...KIND_ORDER.filter((k) => inbox.data?.rights?.[k]?.see).map((k) => ({ value: k, label: `${INBOX_KIND[k]}${counts[k] ? ` (${counts[k]})` : ''}` }))];
-  const req = tab === 'waiting' ? inbox : mine;
+  const req = tab === 'mine' ? mine : inbox;
+  const tabCount = { waiting: counts.all, tasks: counts.TASK };
   const filtered = Boolean(needle || (tab === 'waiting' && kind));
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Home' }]} title="Approvals" />
+      <ListHeader
+        title="Inbox"
+        description="What waits for your decision, the tasks on your name, and what you asked for."
+        toolbar={<>
+          <SearchField value={q} onSearch={(v) => { setQ(v || ''); set({ page: null }); }} placeholder={tab === 'tasks' ? 'Search task or person' : 'Search name, employee ID or request'} label={tab === 'tasks' ? 'Search tasks' : 'Search approvals'} className="w-full sm:w-72" />
+          {tab === 'waiting' ? <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Kind" value={kind} onChange={(v) => { setSelected(new Set()); set({ kind: v || null, page: null }); }} options={kindOptions} placeholder="Every kind" /></div> : null}
+        </>}
+        tabs={TABS.map(([k, l]) => ({ key: k, label: l, count: tabCount[k], tone: 'warn' }))}
+        tab={tab}
+        onTab={(k) => { setSelected(new Set()); set({ tab: k === 'waiting' ? null : k, page: null }, true); }}
+        tabsLabel="Approvals"
+      />
 
       {tab === 'waiting' && chosen.length ? (
         <div className="ui-bulkbar" role="region" aria-label="Decide the chosen requests">
@@ -229,31 +276,21 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
       ) : null}
 
       <DataTable
-        tabs={(
-          <div ref={tabsRef} role="tablist" aria-label="Approvals" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-            {TABS.map(([k, l]) => (
-              <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => { setSelected(new Set()); set({ tab: k === 'waiting' ? null : k, page: null }, true); }}>
-                {l}{k === 'waiting' && counts.all ? <span className="ui-tab-count tabular-nums" data-tone="warn">{counts.all}</span> : null}
-              </button>
-            ))}
-            {tabIndicator}
-          </div>
-        )}
-        label={tab === 'waiting' ? 'Waiting for me' : 'Asked by me'}
-        columns={tab === 'waiting' ? waitingColumns : mineColumns}
+        label={tab === 'waiting' ? 'To approve' : tab === 'tasks' ? 'My tasks' : 'Asked by me'}
+        columns={tab === 'waiting' ? waitingColumns : tab === 'tasks' ? taskColumns : mineColumns}
         rows={pageRows}
         rowKey={tab === 'waiting' ? (i) => i.key : (r) => r.id}
         total={list.length}
         page={page}
         pageSize={size}
-        noun="requests"
+        noun={tab === 'tasks' ? 'tasks' : 'requests'}
         selectable={tab === 'waiting' && shown.some((i) => i.bulk)}
         selected={selected}
         canSelect={(i) => Boolean(i.bulk)}
         onSelect={(next) => setSelected(new Set([...next].filter((key) => items.find((i) => i.key === key)?.bulk)))}
         onPage={(n) => set({ page: n > 1 ? n : null }, true)}
         onPageSize={(n) => set({ size: n === 25 ? null : n, page: null })}
-        onRowClick={tab === 'waiting' ? openItem : (r) => setOpen({ kind: 'APPROVAL', id: r.id, mine: true })}
+        onRowClick={tab === 'waiting' ? openItem : tab === 'tasks' ? (t) => (t.employee?.id ? openScreen?.('employee', { id: t.employee.id }) : undefined) : (r) => setOpen({ kind: 'APPROVAL', id: r.id, mine: true })}
         loading={req.loading}
         refreshing={req.refreshing}
         card={tab === 'waiting' ? (i) => (
@@ -266,22 +303,27 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
               {OWN_NOTE[i.own] ? <span className="block ui-caption">{OWN_NOTE[i.own]}</span> : null}
             </span>
           </span>
+        ) : tab === 'tasks' ? (t) => (
+          <span className="flex items-center gap-3 min-w-0 flex-1">
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{t.title}</span><span className={`ui-caption whitespace-nowrap tabular-nums ${t.overdue ? 'ui-text-neg' : ''}`}>{t.dueDate ? day(t.dueDate) : ''}</span></span>
+              <span className="block truncate ui-caption">{TASK_KIND[t.kind] || t.kind} · {t.employee?.name || '—'}</span>
+            </span>
+          </span>
         ) : (r) => (
           <span className="min-w-0 flex-1">
             <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span><span className={`ui-pill ui-pill-${TONE[r.status] || 'neutral'}`}>{STATUS[r.status] || r.status}</span></span>
             <span className="block truncate ui-caption">{typeOf(r.requestType, r.payload)}</span>
           </span>
         )}
-        toolbar={<>
-          <SearchField value={q} onSearch={(v) => { setQ(v || ''); set({ page: null }); }} placeholder="Search name, employee ID or request" label="Search approvals" className="w-full sm:w-72" />
-          {tab === 'waiting' ? <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Kind" value={kind} onChange={(v) => { setSelected(new Set()); set({ kind: v || null, page: null }); }} options={kindOptions} placeholder="Every kind" /></div> : null}
-        </>}
         empty={req.error ? (
           <ErrorState error={req.error} onRetry={reload} />
         ) : filtered ? (
           <EmptyState kind="filtered" title="Nothing matches" onClearFilters={() => { setQ(''); set({ kind: null, page: null }); }} />
         ) : tab === 'waiting' ? (
           <EmptyState title="Nothing waiting for you" description="Leave, attendance requests, approvals and help desk cases that need you show here, oldest first." />
+        ) : tab === 'tasks' ? (
+          <EmptyState title="No tasks on your name" description="Joining, leaving and other plan steps given to you show here until you mark them done." />
         ) : (
           <EmptyState title="You have not asked for anything yet" description="A change you send for approval shows here with each step." />
         )}

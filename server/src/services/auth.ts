@@ -1,8 +1,10 @@
 import { createHash, randomBytes } from 'crypto';
+import { signInEntry } from './signInRules.js';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { isDevOrTest } from '../utils/devMode.js';
+import { sessionPolicyFor } from './policy.js';
 
 /**
  * Session and credential handling.
@@ -28,11 +30,16 @@ export function getJwtSecret() {
   return process.env.JWT_SECRET || (isDevOrTest() ? 'dev-secret' : '');
 }
 
-export function signAccessToken(payload: { userId: string; accountId: string; sid?: string }) {
+/**
+ * `minutes` is the access-token lifetime the person's companies ask for
+ * (AuthPolicy.accessTokenMinutes, the strictest of them — services/policy.ts
+ * sessionPolicyFor). Absent, the deployment's JWT_EXPIRES_IN.
+ */
+export function signAccessToken(payload: { userId: string; accountId: string; sid?: string }, minutes?: number) {
   const secret = getJwtSecret();
   if (!secret) throw new Error('Server misconfigured: JWT_SECRET missing');
   return jwt.sign(payload, secret, {
-    expiresIn: ACCESS_TOKEN_TTL as any,
+    expiresIn: (minutes && minutes > 0 ? minutes * 60 : ACCESS_TOKEN_TTL) as any,
     issuer: process.env.JWT_ISSUER || 'accounting',
     audience: process.env.JWT_AUDIENCE || 'accounting-web',
   });
@@ -44,14 +51,23 @@ const sha256 = (value: string) => createHash('sha256').update(value).digest('hex
 // Sessions
 // ---------------------------------------------------------------------------
 
+/**
+ * A new session. `days` is how long the person's companies let a sign-in
+ * last (AuthPolicy.sessionDays); `notAfter` caps it, so a rotated session
+ * keeps the end its sign-in was given instead of starting a fresh 30 days.
+ */
 export async function createSession(opts: {
   accountId: string;
   userId: string;
   ip?: string;
   userAgent?: string;
+  days?: number;
+  notAfter?: Date;
 }) {
   const refreshToken = randomBytes(48).toString('base64url');
-  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000);
+  const days = opts.days && opts.days > 0 ? opts.days : REFRESH_TOKEN_DAYS;
+  let expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  if (opts.notAfter && opts.notAfter < expiresAt) expiresAt = opts.notAfter;
 
   const session = await platformPrisma.session.create({
     data: {
@@ -119,9 +135,13 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
 
   const user = await platformPrisma.user.findFirst({
     where: { id: session.userId, isActive: true },
-    select: { id: true, accountId: true },
+    select: { id: true, accountId: true, email: true, emailVerifiedAt: true },
   });
   if (!user) throw new AuthError('Account is no longer active');
+
+  /* Review N5: a refresh is a sign-in without the password; if no company's rules let the person in now, it is refused like one. */
+  const entry = await signInEntry(user.id, user);
+  if (entry.refusal) throw new AuthError(entry.refusal.error, 403, entry.refusal.code);
 
   /*
    * A-06: claim the old session before issuing the next one. Reading
@@ -145,16 +165,25 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
     throw new AuthError('Session is no longer valid. Please sign in again.');
   }
 
+  /*
+   * #4: the next session keeps the end its sign-in was given, and the
+   * companies' rule as it stands now may only bring that closer: a session
+   * no longer gains another 30 days on every refresh, and shortening "Stay
+   * signed in for" reaches sessions already open at their next refresh.
+   */
+  const policy = await sessionPolicyFor(session.userId);
   const next = await createSession({
     accountId: session.accountId,
     userId: session.userId,
     ip: ctx.ip,
     userAgent: ctx.userAgent,
+    days: policy.sessionDays,
+    notAfter: session.expiresAt,
   });
   await platformPrisma.session.update({ where: { id: session.id }, data: { replacedBySessionId: next.session.id } });
 
   return {
-    accessToken: signAccessToken({ userId: user.id, accountId: user.accountId, sid: next.session.id }),
+    accessToken: signAccessToken({ userId: user.id, accountId: user.accountId, sid: next.session.id }, policy.accessTokenMinutes),
     refreshToken: next.refreshToken,
     session: next.session,
   };
@@ -302,7 +331,8 @@ export async function clearFailedLogins(userId: string) {
 // Password reset
 // ---------------------------------------------------------------------------
 
-export async function issuePasswordResetToken(user: { id: string; accountId: string }, ip?: string) {
+/** ttlMs: 30 minutes for a reset someone asked for; longer for the set-password link of an account made for them (services/accountProvisioning.ts). */
+export async function issuePasswordResetToken(user: { id: string; accountId: string }, ip?: string, ttlMs = 30 * 60 * 1000) {
   // Any earlier token is spent: requesting a new link must invalidate the old.
   await platformPrisma.passwordResetToken.updateMany({
     where: { userId: user.id, usedAt: null },
@@ -315,7 +345,7 @@ export async function issuePasswordResetToken(user: { id: string; accountId: str
       accountId: user.accountId,
       userId: user.id,
       tokenHash: sha256(token),
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+      expiresAt: new Date(Date.now() + ttlMs),
       requestedIp: ip || null,
     },
   });

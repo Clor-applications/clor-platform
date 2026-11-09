@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle } from '@ui/components/ui/lineIcons';
 
 import { notify } from "@ui/components/ui/notify";
 import { getRunLopCheck, lockPayrollRun } from "../api/payrollRuns";

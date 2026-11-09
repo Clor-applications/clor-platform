@@ -291,7 +291,8 @@ publicApiRouter.get('/attendance/punches', scope('attendance:read'), async (req,
   if ('error' in r) return fail(res, 400, r.error!);
   const { accountId, orgId } = req.apiClient!;
   const rows = await peoplePrisma.devicePunch.findMany({
-    where: { accountId, orgId, localTime: { gte: `${r.from} 00:00:00`, lte: `${r.to} 23:59:59` } },
+    /* Only punches that count: not one held for a look (a reader clock ahead), rejected or still waiting (review of #144). */
+    where: { accountId, orgId, localTime: { gte: `${r.from} 00:00:00`, lte: `${r.to} 23:59:59` }, OR: [{ reviewStatus: null }, { reviewStatus: 'APPROVED' }] },
     orderBy: { at: 'asc' },
     take: 20_000,
   });

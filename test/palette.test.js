@@ -7,16 +7,16 @@ import { APPS } from '../packages/shell/registry';
  * The Blaze palette is shared, not Attendance's own styling: an app opts in
  * with `palette: 'blaze'` in its manifest and the shell sets data-palette.
  * Attendance wears Blaze; People wears Sky (owner, 28 Oct 2026; Rose before that, D-01)
- * on Accounting's layout; Payroll keeps the platform's colours (the red brand since 3 Nov 2026);
+ * on Accounting's layout; Payroll wears Electric Cyan (`payroll`, neon brand, 5–6 Nov 2026);
  * Accounting keeps Direction D's indigo (owner, 3 Nov 2026: "do not change color to accounting").
  */
 const css = readFileSync('packages/ui/src/index.css', 'utf8') + readFileSync('packages/ui/src/people.css', 'utf8');
 
 describe('shared palettes', () => {
-  it('Attendance wears Blaze, People wears Sky, Accounting keeps Indigo; Payroll keeps the platform colours', () => {
+  it('Attendance wears Blaze, People wears Sky, Accounting keeps Indigo, Payroll wears its own cyan', () => {
     const byPalette = {};
     for (const a of APPS.filter((x) => x.palette)) (byPalette[a.palette] ||= []).push(a.id);
-    expect(byPalette).toEqual({ blaze: ['attendance'], sky: ['people'], indigo: ['accounting'] });
+    expect(byPalette).toEqual({ blaze: ['attendance'], sky: ['people'], indigo: ['accounting'], payroll: ['payroll'] });
   });
 
   it('Indigo is Direction D as it was, keyed on the palette, and leaves the CLOR logo alone', () => {
@@ -56,11 +56,15 @@ describe('shared palettes', () => {
     expect(css.slice(start)).not.toMatch(/\[data-app='attendance'\]/);
   });
 
-  /* The Workspace joined them in its redesign (W-R2: Fluent colour icons, as Attendance draws). */
-  /* Owner, 28 Oct 2026: People moved to Phosphor line icons, so rose stays the only colour in its chrome. */
-  /* People drew in the colour set on 28 Oct 2026, then moved to its brand two-tone set (iconSet 'duo') on 29 Oct. */
-  it('Attendance and the Workspace draw in the colour icon set; the others do not', () => {
-    expect(APPS.filter((a) => a.iconSet === 'color').map((a) => a.id).sort()).toEqual(['admin', 'attendance']);
+  /* Owner, 9 Nov 2026: "use same icons which is used in people everywhere except books". The colour set (Attendance,
+     Workspace) and Payroll's plain Lucide gave way to People's two-tone marks and Fluent line icons; Accounting keeps Lucide. */
+  it('every app but Accounting draws in the People icon family; Accounting keeps the line set', () => {
+    const live = APPS.filter((a) => a.available);
+    expect(live.filter((a) => a.iconSet === 'duo' && a.lineIcons === 'fluent').map((a) => a.id).sort()).toEqual(['admin', 'attendance', 'payroll', 'people']);
+    const books = live.find((a) => a.id === 'accounting');
+    expect(books.iconSet).toBeUndefined();
+    expect(books.lineIcons).toBeUndefined();
+    expect(APPS.filter((a) => a.iconSet === 'color')).toEqual([]);
   });
 
   it('colour icons keep their own colours: nothing tints them with the palette', () => {

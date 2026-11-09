@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LocateFixed, MapPin } from 'lucide-react';
+import { LocateFixed, MapPin } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { listGeofences } from '../api/attendance';

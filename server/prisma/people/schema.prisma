@@ -509,6 +509,47 @@ model AttendanceRecord {
   @@index([accountId, orgId, employeeId, date])
   @@index([attendanceRequestId])
   @@index([orgId, trust, date])
+  /// The full-day rule fix's scan (services/attendance/fullDayFix.ts): half days and absences by company.
+  @@index([orgId, status, date])
+}
+
+/// A day the full-day rule fix (attendance audit 7 Nov 2026) looked at, kept so the owner sees
+/// both what was corrected and what was left, and the scan never weighs the same day twice
+/// (services/attendance/fullDayFix.ts).
+model AttendanceFullDayReview {
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  employeeId    String
+  date          String /// YYYY-MM-DD
+  recordId      String    @unique
+  fromStatus    String
+  toStatus      String
+  workedMinutes Int
+  /// The punches as they stood when the day was looked at: a held day is settled as changed only when these, the status or the minutes change.
+  checkIn       DateTime?
+  checkOut      DateTime?
+  /// CORRECTED (set to present) | HELD (left as it was)
+  outcome       String
+  /// Why a day was held: MONTH_CLOSED | PAYROLL_TAKEN | PAYROLL_PENDING | BEFORE_PAYROLL | OLD
+  reason        String?
+  /// A held day settled: PAID (someone paid the difference) | RECORD_CHANGED (the day itself was corrected since)
+  settledAs       String?
+  settledByUserId String?
+  settledAt       DateTime?
+  note            String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([orgId, outcome, settledAt])
+  @@index([orgId, employeeId])
+}
+
+/// When the full-day rule fix was released: set by its migration at deploy (now()), one row, id "release".
+/// A day last scored (a WRITE or BULK in its history) before then was scored by the old rule. Not per company: no orgId, no policy.
+model AttendanceFullDayFixMeta {
+  id         String   @id
+  releasedAt DateTime @default(now())
 }
 
 /// Each clock-in and clock-out as it happened; the record keeps the day's
@@ -1028,6 +1069,19 @@ model DevicePunch {
   address      String?
   /// Field punches waiting for a decision: PENDING (not counted yet), APPROVED, REJECTED. Null = counts.
   reviewStatus String?
+  /// Why a reader punch is held instead of counted (reviewStatus HELD): FUTURE, the reader's clock was ahead of
+  /// the server's when it arrived. A held punch has no shift day and changes no day until someone releases it.
+  heldReason   String?
+  /// A held punch counted "moved back" (the reader's clock was ahead): the minutes taken off its time. Null = as recorded.
+  clockShiftMinutes Int?
+  /// The reader's own time, kept when the punch was moved back.
+  recordedLocalTime String?
+  /// The instant the reader sent, kept when the punch was moved back: a resend of the reader's log still
+  /// matches it (ingest de-dup), so it is never counted twice. Indexed partially (WHERE "recordedAt" IS NOT NULL)
+  /// in migration 20261123090000_punch_recorded_at, which Prisma's schema cannot express.
+  recordedAt   DateTime?
+  /// Counted while its month was closed: the day was left alone, and is worked out when the month reopens.
+  dayPending   Boolean  @default(false)
   createdAt    DateTime @default(now())
 
   /// Per reader: two sites may give the same reader ID to different people
@@ -1488,6 +1542,13 @@ model AttendanceSettings {
   /// missing-punch notice (on), absence: the unexplained-absence check (on), night: women's night-work
   /// consent check (on, 7 pm to 6 am) }. Each part is read over its defaults; versioned in AttendanceRuleVersion.
   timeRules             Json      @default("{}")
+  /// The first day this company kept attendance on CLOR (YYYY-MM-DD). Days before it with no record are not
+  /// counted: not absent, not loss of pay, not "no record" on month close (audit 7 Nov 2026, #5). Null = no limit.
+  attendanceStartDate   String?
+  /// Clock-in from a browser (POST /attendance/clock). Off, only readers and phone punches count (audit #6).
+  webClockAllowed       Boolean   @default(true)
+  /// Addresses a browser clock-in may come from, one per line: an IPv4/IPv6 address or a CIDR block. Empty = any.
+  webClockIps           String    @default("")
 
   updatedByUserId String
   updatedAt       DateTime @updatedAt
@@ -2532,6 +2593,7 @@ model AttendanceRecordHistory {
 
   @@index([orgId, employeeId, date])
   @@index([accountId, orgId, at])
+  @@index([orgId, recordId, action])
 }
 
 /// What a month looked like when it was closed: the figures Payroll takes.

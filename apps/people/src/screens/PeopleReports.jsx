@@ -112,7 +112,7 @@ export default function PeopleReports({ params = {}, updateParams }) {
   };
 
   return (
-    <DocumentListShell title="People report" entity="people" tight
+    <DocumentListShell title="Headcount & attrition" entity="people" tight
       moreItems={[exportMenuItem('Export')]} onMoreSelect={onExport}
       cards={t ? [
         { label: 'Headcount today', value: d.headcount, count: true, Icon: Users, tone: 'sent', tint: 'sky' },

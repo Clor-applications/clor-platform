@@ -93,7 +93,7 @@ describe('the four templates', () => {
     const k = keysOf('VIEWER');
     expect(k.every((x) => x.endsWith('::VIEW'))).toBe(true);
     for (const key of ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW', 'PEOPLE::Statutory Details::VIEW', 'SALES::Invoices::VIEW', 'SETTINGS::Users::VIEW']) expect(k).toContain(key);
-    for (const key of ['PEOPLE::Confidential Documents::VIEW', 'PEOPLE::HR-only Documents::VIEW', 'PEOPLE::Full Identifiers::VIEW', 'PEOPLE::Privacy::VIEW', 'PEOPLE::Private Cases::VIEW', 'PAYROLL::Payroll Reports::VIEW']) expect(k).not.toContain(key);
+    for (const key of ['PEOPLE::Confidential Documents::VIEW', 'PEOPLE::HR-only Documents::VIEW', 'PEOPLE::Full Identifiers::VIEW', 'PEOPLE::Privacy::VIEW', 'PEOPLE::Private Cases::VIEW', 'PAYROLL::Payroll Reports::VIEW', 'PAYROLL::Salary Slips::VIEW']) expect(k).not.toContain(key);
   });
 
   it('Auditor reads People’s list and the audit trail, and no document or identifier at all', () => {
@@ -224,7 +224,7 @@ describe('the server enforces each rule for each role', () => {
     expect(JSON.stringify((await api(as['HR Manager']).get('/recycle-bin').expect(200)).body)).toContain('BINNED');
   });
 
-  it('exports and reports: Viewer exports nothing; Auditor exports the list without identifiers; Payroll’s statutory report is refused to both', async () => {
+  it('exports and reports: Viewer exports nothing and reads no Payroll; Auditor exports the list without identifiers; Payroll’s statutory report is refused to both', async () => {
     await api(as.Viewer).get('/people/employees/export').expect(403);
     const exported = await api(as.Auditor).get('/people/employees/export?format=csv');
     expect(exported.status).toBe(200);
@@ -233,11 +233,9 @@ describe('the server enforces each rule for each role', () => {
       const refused = await api(as[r]).get('/payroll/reports/statutory').expect(403);
       expect(refused.body.permission, r).toMatchObject({ module: 'PAYROLL', subModule: 'Payroll Reports' });
     }
-    /* Payroll's own employee screen keeps them masked for Viewer: PAN and bank by its field level, UAN, PF and ESI numbers without Full identifiers. */
-    const pay = await api(as.Viewer).get(`/payroll/employees/${emp.id}`).expect(200);
-    for (const clear of ['ABCPE1234F', '987654321012', '100200300400', 'KABLR00112230000099', '3100445566']) expect(JSON.stringify(pay.body), clear).not.toContain(clear);
-    expect(pay.body.employee.payroll.uan).toMatch(/0400$/);
-    expect(pay.body.employee.payroll.statutoryMasked).toBe(true);
+    /* Viewer reads no Payroll at all (audit 7 Nov 2026, #8), its employee screen included. */
+    const pay = await api(as.Viewer).get(`/payroll/employees/${emp.id}`).expect(403);
+    expect(pay.body.permission).toMatchObject({ module: 'PAYROLL' });
     const own = await api(boss).get(`/payroll/employees/${emp.id}`).expect(200);
     expect(own.body.employee.payroll).toMatchObject({ uan: '100200300400', pfNumber: 'KABLR00112230000099', esiNumber: '3100445566' });
   });

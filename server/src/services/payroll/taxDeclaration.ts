@@ -1,3 +1,4 @@
+import { todayIst } from '../../utils/istDate.js';
 import { z } from 'zod';
 
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
@@ -92,6 +93,19 @@ export function deductionsFor(decl: Decl | null, annual: { basic: number; hra: n
   return { total: round2(lines.reduce((t, l) => t + l.allowed, 0)), lines, basis };
 }
 
+/**
+ * Form 12B, where somebody joined from another employer this year: the salary
+ * that employer paid (taxable, after its own exemptions), the professional tax
+ * and the TDS it took. Null when there is none.
+ */
+export function previousEmployerOf(row: { previousEmployerName?: string | null; previousEmployerIncome?: unknown; previousEmployerPt?: unknown; previousEmployerTds?: unknown } | null) {
+  const income = Number(row?.previousEmployerIncome ?? 0) || 0;
+  const professionalTax = Number(row?.previousEmployerPt ?? 0) || 0;
+  const tds = Number(row?.previousEmployerTds ?? 0) || 0;
+  if (!income && !professionalTax && !tds) return null;
+  return { name: row?.previousEmployerName || null, income, professionalTax, tds };
+}
+
 const money = z.coerce.number().min(0, 'Amounts cannot be negative.').max(100_000_000);
 export const declarationSchema = z.object({
   regime: z.enum(['NEW', 'OLD']),
@@ -104,6 +118,16 @@ export const declarationSchema = z.object({
   landlordPan: z.string().trim().toUpperCase().regex(/^[A-Z]{5}\d{4}[A-Z]$/, 'That is not a PAN.').nullable().optional().or(z.literal('')),
   seniorSelf: z.boolean().default(false),
   seniorParents: z.boolean().default(false),
+  /* Form 12B: an earlier employer this year. Counts under either regime. */
+  previousEmployer: z
+    .object({
+      name: z.string().trim().max(200).nullable().optional(),
+      income: money.default(0),
+      professionalTax: money.max(2500, 'Professional tax is at most ₹2,500 a year.').default(0),
+      tds: money.default(0),
+    })
+    .nullable()
+    .optional(),
 });
 
 export class DeclarationError extends Error {
@@ -118,18 +142,89 @@ export class DeclarationError extends Error {
  * declaration HR has verified. HR may change anything until it is verified.
  * Rent over ₹1 lakh a year needs the landlord's PAN, as the rules require.
  */
+/**
+ * Whether somebody already has a CLOR payslip in the tax year (a payroll past
+ * review, by the pay period's end, as the tax year is read). From then on the
+ * regime is fixed for salary TDS (CBDT Circular 04/2023: the option given to
+ * the employer holds for the year; review of #146, 10).
+ */
+export async function regimeFixedForYear(orgId: string, employeeId: string, financialYear: string) {
+  const start = Number(financialYear.slice(0, 4));
+  const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, endDate: { gte: `${start}-04-01`, lte: `${start + 1}-03-31` } }, select: { id: true } });
+  if (!periods.length) return false;
+  const n = await payrollPrisma.salarySlip.count({
+    where: { orgId, employeeId, status: { not: 'CANCELLED' }, run: { status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] }, periodId: { in: periods.map((p) => p.id) } } },
+  });
+  return n > 0;
+}
+
+/**
+ * The regime each person's first CLOR payslip of the year went out on, for a
+ * year with no declaration (re-review of #146, S1). The profile holds one
+ * regime for every year: from 1 April it is next year's choice, and a
+ * declaration for next year is copied onto it. Read for last year's March run,
+ * it would move March to next year's regime with no override. So a year that
+ * has a payslip keeps the regime that payslip was worked out on.
+ */
+export async function yearRegimes(orgId: string, employeeIds: string[], financialYear: string, exceptRunId?: string) {
+  const out = new Map<string, 'OLD' | 'NEW'>();
+  if (!employeeIds.length) return out;
+  const start = Number(financialYear.slice(0, 4));
+  const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, endDate: { gte: `${start}-04-01`, lte: `${start + 1}-03-31` } }, select: { id: true, endDate: true } });
+  if (!periods.length) return out;
+  const endOf = new Map(periods.map((p) => [p.id, p.endDate]));
+  const slips = await payrollPrisma.salarySlip.findMany({
+    where: {
+      orgId,
+      employeeId: { in: employeeIds },
+      status: { not: 'CANCELLED' },
+      periodId: { in: periods.map((p) => p.id) },
+      run: { status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] }, ...(exceptRunId ? { id: { not: exceptRunId } } : {}) },
+    },
+    select: { employeeId: true, periodId: true, createdAt: true, employeeSnapshotJson: true },
+  });
+  slips.sort((a, b) => String(endOf.get(a.periodId)).localeCompare(String(endOf.get(b.periodId))) || a.createdAt.getTime() - b.createdAt.getTime());
+  for (const s of slips) {
+    if (out.has(s.employeeId)) continue;
+    let regime: unknown = null;
+    try {
+      regime = JSON.parse(s.employeeSnapshotJson || '{}').taxRegime;
+    } catch {
+      regime = null;
+    }
+    if (regime === 'OLD' || regime === 'NEW') out.set(s.employeeId, regime);
+  }
+  return out;
+}
+
+/** The regime the year's tax is worked out on: the year's declaration, else its first payslip's, else the profile's. */
+export async function regimeInForce(orgId: string, employeeId: string, financialYear: string) {
+  const [d, y, p] = await Promise.all([
+    payrollPrisma.taxDeclaration.findUnique({ where: { orgId_employeeId_financialYear: { orgId, employeeId, financialYear } }, select: { regime: true } }),
+    yearRegimes(orgId, [employeeId], financialYear),
+    payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId }, select: { taxRegime: true } }),
+  ]);
+  return (d?.regime || y.get(employeeId) || p?.taxRegime || 'NEW') as 'OLD' | 'NEW';
+}
+
+export const REGIME_LOCKED_MESSAGE =
+  'The tax regime is fixed for the year once a payslip has gone out on it (CBDT Circular 04/2023): the choice given at the start of the year holds for salary TDS. The person can still choose the other regime in their own income tax return. Only an owner or administrator can change it here, with a reason.';
+
 export async function saveDeclaration(
   t: { accountId: string; orgId: string },
   employeeId: string,
   financialYear: string,
   input: unknown,
-  by: { userId: string; asEmployee: boolean }
+  by: { userId: string; asEmployee: boolean; regimeOverride?: boolean }
 ) {
   const parsed = declarationSchema.safeParse(input);
   if (!parsed.success) throw new DeclarationError(parsed.error.issues[0]?.message || 'Check the amounts.');
   const d = parsed.data;
   const existing = await payrollPrisma.taxDeclaration.findUnique({ where: { orgId_employeeId_financialYear: { orgId: t.orgId, employeeId, financialYear } } });
   if (existing?.status === 'VERIFIED') throw new DeclarationError('This year’s declaration has been verified. Ask HR to reopen it.', 409, 'VERIFIED');
+  if (!by.regimeOverride && d.regime !== (await regimeInForce(t.orgId, employeeId, financialYear)) && (await regimeFixedForYear(t.orgId, employeeId, financialYear))) {
+    throw new DeclarationError(REGIME_LOCKED_MESSAGE, 409, 'REGIME_LOCKED');
+  }
   if (d.monthlyRent * 12 > 100_000 && !d.landlordPan) throw new DeclarationError('Rent over ₹1,00,000 a year needs your landlord’s PAN.', 400, 'LANDLORD_PAN');
 
   const before = new Map(parseItems(existing?.itemsJson).map((i) => [i.code, i]));
@@ -150,6 +245,19 @@ export async function saveDeclaration(
     landlordPan: d.landlordPan || null,
     seniorSelf: d.seniorSelf,
     seniorParents: d.seniorParents,
+    /*
+     * Form 12B is HR's to enter (review of #138, B1): it is used as given, and
+     * a previous employer's TDS sent from the portal would cut this year's tax
+     * to nothing. From the portal it is ignored and what is stored is kept.
+     */
+    ...(d.previousEmployer !== undefined && !by.asEmployee
+      ? {
+          previousEmployerName: d.previousEmployer?.name || null,
+          previousEmployerIncome: round2(d.previousEmployer?.income || 0),
+          previousEmployerPt: round2(d.previousEmployer?.professionalTax || 0),
+          previousEmployerTds: round2(d.previousEmployer?.tds || 0),
+        }
+      : {}),
     updatedByUserId: by.userId,
     ...(by.asEmployee ? { status: 'SUBMITTED', submittedAt: new Date() } : {}),
   };
@@ -158,8 +266,14 @@ export async function saveDeclaration(
     create: { accountId: t.accountId, orgId: t.orgId, employeeId, financialYear, ...data },
     update: data,
   });
-  /* The profile shows the regime on the employee screen; keep it the same. */
-  await payrollPrisma.employeePayrollProfile.updateMany({ where: { orgId: t.orgId, employeeId }, data: { taxRegime: d.regime } });
+  /*
+   * The profile shows the regime on the employee screen; keep it the same,
+   * but only for this tax year's declaration: last year's correction or next
+   * year's early choice is not today's regime.
+   */
+  if (financialYear === financialYearOf(todayIst())) {
+    await payrollPrisma.employeePayrollProfile.updateMany({ where: { orgId: t.orgId, employeeId }, data: { taxRegime: d.regime } });
+  }
   return row;
 }
 
@@ -186,6 +300,7 @@ export function shapeDeclaration(row: any | null, employeeId: string, financialY
     landlordPan: row?.landlordPan || '',
     seniorSelf: !!row?.seniorSelf,
     seniorParents: !!row?.seniorParents,
+    previousEmployer: previousEmployerOf(row),
     submittedAt: row?.submittedAt || null,
     verifiedAt: row?.verifiedAt || null,
     updatedAt: row?.updatedAt || null,

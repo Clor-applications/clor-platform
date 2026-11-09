@@ -543,8 +543,8 @@ const REFERENCE_DATA: Array<[string, string, string[]]> = [
 
 /*
  * What Viewer goes without (owner, 8 Nov 2026): read-only employee records, but no confidential or HR-only file,
- * no full identifier, nobody's privacy work or confidential case, and not Payroll's statutory reports, which carry
- * every PAN, UAN and ESIC number in full for the returns.
+ * no full identifier, nobody's privacy work or confidential case. (Payroll, statutory reports included, is left out
+ * of Viewer as a whole; see the preset.)
  */
 const VIEWER_WITHOUT = new Set([
   'PEOPLE::Confidential Documents',
@@ -552,7 +552,6 @@ const VIEWER_WITHOUT = new Set([
   'PEOPLE::Full Identifiers',
   'PEOPLE::Privacy',
   'PEOPLE::Private Cases',
-  'PAYROLL::Payroll Reports',
 ]);
 
 export const ROLE_PRESETS: Record<string, RolePreset> = {
@@ -798,7 +797,10 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['ATTENDANCE', 'My Attendance', [A.VIEW, A.CREATE]],
       ['ATTENDANCE', 'Employee Portal', ['*']],
       ['ATTENDANCE', 'Attendance Requests', ['*']],
-      /* ERPNext HR Manager: Attendance and Shift Type / Assignment, everything. */
+      /* In a business of one to twenty, HR runs attendance (audit 7 Nov 2026, #4): everyone's days, the muster
+         roll and month close (Records), and shifts, as ERPNext's HR Manager has Attendance and Shift Type /
+         Assignment. Readers stay with the Attendance Manager. Migration 20261121090000_attendance_role_grants
+         gives roles still exactly the old template the same. */
       ['ATTENDANCE', 'Attendance Records', ['*']],
       ['ATTENDANCE', 'Shifts', ['*']],
     ],
@@ -822,6 +824,9 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['ATTENDANCE', 'Leave Requests', [A.VIEW, A.APPROVE]],
       ['ATTENDANCE', 'Attendance Requests', [A.VIEW, A.APPROVE]],
       ['ATTENDANCE', 'My Attendance', [A.VIEW, A.CREATE]],
+      /* Their team today: who is in, late or not in (audit #3). Read only, and team-scoped on every Records
+         route (ownDocumentsOnly); the company-wide reports and month close refuse a team-scoped role. */
+      ['ATTENDANCE', 'Attendance Records', [A.VIEW]],
     ],
   },
   COMPLIANCE_OFFICER: {
@@ -957,9 +962,16 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   VIEWER: {
     label: 'Viewer',
     group: 'Read-only',
-    description: 'Read-only across the product, employee records included; no confidential or HR-only documents, and PAN, Aadhaar, UAN and bank stay masked',
+    description: 'Read-only across the product, except salaries; employee records included, but no confidential or HR-only documents, and PAN, Aadhaar, UAN and bank stay masked',
     roleType: 'CUSTOM',
-    grants: PERMISSION_CATALOG.flatMap((m) =>
+    /*
+     * Not Payroll (audit 7 Nov 2026, #8): read-only there is every payslip, CTC,
+     * report and full PAN. Somebody who should see salaries is given a Payroll
+     * role, on purpose. Existing Viewer roles: platform migration 20261107100100_viewer_without_payroll.
+     * In People, not the resources VIEWER_WITHOUT names (owner, 8 Nov 2026); migration
+     * 20261116090000_people_role_templates_erpnext.
+     */
+    grants: PERMISSION_CATALOG.filter((m) => m.key !== 'PAYROLL').flatMap((m) =>
       m.resources
         .filter((r) => r.actions.includes(A.VIEW) && !VIEWER_WITHOUT.has(`${m.key}::${r.key}`))
         .map((r) => [m.key, r.key, [A.VIEW]] as [string, string, string[]])

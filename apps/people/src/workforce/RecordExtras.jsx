@@ -27,9 +27,9 @@ const onDay = (t) => (t ? formatDate(new Date(new Date(t).getTime() + 330 * 60_0
 
 /* `writeAllowed`: the record screen is read-only for someone without Employees edit (WriteGuard), but a manager
    may still write a probation review with Lifecycle edit; the server checks that grant itself. */
-function Part({ title, count = null, action = null, writeAllowed = false, children }) {
+function Part({ id, title, count = null, action = null, writeAllowed = false, children }) {
   return (
-    <section className="ui-record-section" aria-label={title} data-write-allowed={writeAllowed ? '' : undefined}>
+    <section id={id} className="ui-record-section" aria-label={title} data-write-allowed={writeAllowed ? '' : undefined}>
       <header className="flex items-center justify-between gap-2 mb-3">
         <h2 className="ui-t-sec">{title}{count != null ? <span className="ui-section-count tabular-nums">{count}</span> : null}</h2>
         {action}
@@ -79,7 +79,7 @@ export function ProbationSection({ person, canReview, canDecide, onDecided }) {
   const mayDecide = canDecide && !own;
   const recommended = open?.recommendation;
   return (
-    <Part title="Probation" writeAllowed={mayReview} action={mayReview && !reviews.loading ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setWriting(true)}>{open ? 'Edit review' : 'Write review'}</button> : null}>
+    <Part id="probation" title="Probation" writeAllowed={mayReview} action={mayReview && !reviews.loading ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setWriting(true)}>{open ? 'Edit review' : 'Write review'}</button> : null}>
       <p className="text-sm mb-3">Ends <span className="tabular-nums">{day(person.probationEndDate)}</span>{String(person.probationEndDate).slice(0, 10) < todayIst() ? ', not confirmed yet.' : '.'}</p>
       {reviews.error ? <ErrorState error={reviews.error} onRetry={reviews.reload} compact /> : open ? (
         <dl className="ui-field-grid mb-4" aria-label="Review">

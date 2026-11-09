@@ -8,6 +8,7 @@ import { ownerExists } from '../credentialReview.js';
 import { revokeCredential, SYSTEM } from '../credentials.js';
 import { fileStore } from '../fileStore.js';
 import { registerJob } from '../jobRegistry.js';
+import { ensureLiveLineIndex, liveLineClashes } from '../payroll/liveLineIndex.js';
 
 /**
  * GAP-010: find, and where it is safe, repair, names one database keeps of
@@ -108,6 +109,10 @@ export async function checkCompany({ accountId, orgId }: Company, opts: { repair
     for (const l of await peoplePrisma.leaveAdjustment.findMany({ where: { ...where, paidInRunId: { not: null } }, select: { id: true, paidInRunId: true } })) {
       if (!runs.has(l.paidInRunId!)) report('people.LeaveAdjustment.paidInRunId → payroll.PayrollRun', l.id, l.paidInRunId!);
     }
+    /* A payslip in two live salary payments: one bank file must not go (review of #145, S3). Only a person cancels the extra batch. */
+    for (const c of await liveLineClashes(orgId)) {
+      report('payroll.PayrollPaymentLine: one payslip in two live payments (cancel one batch)', c.slipId, c.paymentIds.join(', '));
+    }
     return out;
   });
 }
@@ -129,6 +134,8 @@ export async function checkAllCompanies(opts: { repair?: boolean } = { repair: t
     }
   }
   for (const [link, t] of totals) console.log(`[integrity] ${link}: ${t.repaired} repaired, ${t.reported} to look at`);
+  /* Once no payslip is in two live payments, the index the migration had to leave out is built. */
+  if (opts.repair) await ensureLiveLineIndex().catch((e) => console.error('[integrity] live payment index:', e instanceof Error ? e.message : e));
   return Object.fromEntries(totals);
 }
 
@@ -139,6 +146,11 @@ export function startIntegrityChecks({ intervalMs = 24 * 3_600_000, startupDelay
       console.error('[integrity] nightly check failed:', e instanceof Error ? e.message : e)
     );
   registerJob('startIntegrityChecks', tick, intervalMs);
+  /* At start, soon: a missing live payment index is said in the log (and built if the data is clean) without waiting for the nightly check. */
+  const early = setTimeout(() => {
+    ensureLiveLineIndex().catch((e) => console.error('[integrity] live payment index:', e instanceof Error ? e.message : e));
+  }, 30_000);
+  early.unref?.();
   const t = setTimeout(() => {
     tick();
     const i = setInterval(tick, intervalMs);
