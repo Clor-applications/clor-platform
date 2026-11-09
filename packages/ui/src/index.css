@@ -8721,7 +8721,9 @@ button.ui-side-alert { cursor: pointer; }
  * without its own card, so there is no card beside a picture.
  */
 .ui-auth-brand--scene {
-  width: 60%;
+  /* 70% picture, 30% form (owner, 10 Nov 2026); the form never narrower than 420px. */
+  width: min(70%, calc(100% - 420px));
+  flex: none;
   max-width: none;
   border-right: 0;
   padding: 0;
@@ -8744,6 +8746,9 @@ button.ui-side-alert { cursor: pointer; }
 .ui-auth-scene {
   overflow: hidden;
 }
+.ui-auth-form-logo {
+  margin-bottom: 28px;
+}
 .ui-auth-scene-top {
   position: absolute;
   bottom: 0;
@@ -8751,7 +8756,7 @@ button.ui-side-alert { cursor: pointer; }
   right: 0;
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 24px;
   padding: 32px 40px;
 }

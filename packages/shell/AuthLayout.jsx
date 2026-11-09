@@ -87,9 +87,6 @@ function Scene({ file, onHome, band = false, app = null }) {
       <img src={src} srcSet={srcSet} sizes={band ? '100vw' : '60vw'} alt="" decoding="async" fetchpriority="high" />
       {band ? null : (
         <div className="ui-auth-scene-top">
-          <button type="button" onClick={onHome} className="ui-auth-scene-logo">
-            <ClorLogo size={30} title="CLOR, back to clor.in" />
-          </button>
           <Facts app={app} />
         </div>
       )}
@@ -133,8 +130,14 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
 
             <div className="ui-auth-card ui-in">
               <div className="mb-7">
+                {file ? (
+                  /* Beside a picture the logo sits over the form, above the page's title (owner, 10 Nov 2026). */
+                  <button type="button" onClick={onHome} className="ui-auth-form-logo hidden lg:inline-flex">
+                    <ClorLogo size={30} title="CLOR, back to clor.in" />
+                  </button>
+                ) : null}
                 <h1 className="ui-auth-form-title">{title}</h1>
-                <p className="ui-muted mt-2 text-sm">{subtitle}</p>
+                {subtitle ? <p className="ui-muted mt-2 text-sm">{subtitle}</p> : null}
               </div>
 
               {children}
