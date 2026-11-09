@@ -6,7 +6,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction, RoleType } from '../constants/enums.js';
-import { isKnownPermission, permKey, roleGroup } from '../constants/permissionCatalog.js';
+import { isKnownPermission, permKey, roleGroup, templateDrift } from '../constants/permissionCatalog.js';
 import { ROLE_DELETED_PREFIX, ensureDefaultRoles } from '../services/defaultRoles.js';
 import { ensurePermissionCatalog } from '../services/permissionCatalogSeed.js';
 import { resolveRoleIds } from '../services/access.js';
@@ -151,6 +151,8 @@ rolesRouter.get('/orgs/:orgId/roles', requirePermission('SETTINGS', PermissionAc
     ...r,
     assignedUsersCount: countByRoleId.get(r.id) || 0,
     group: roleGroup(r),
+    /* A stock role someone changed keeps its own grants when the template moves on; the screen says how it differs. */
+    template: templateDrift(r, r.permissions.filter((p) => p.allowed).map((p) => permKey(p.permission.module, p.permission.subModule, p.permission.action))),
   }));
 
   res.json({ roles: rolesWithCounts });
