@@ -71,10 +71,11 @@ export async function homeTodosAndWaiting(req: Request): Promise<{ todos: Todo[]
     const leavingsOk = await seesLeavings(req);
     /* A team lead counts their own team's tasks, as the task queue lists them (QA, 1 Nov 2026). */
     const scope = await teamScope(req);
-    const counted = tasks.filter((t) => inScope(scope, t.employee!.id) && (leavingsOk || t.kind !== 'LEAVING' || t.ownerUserId === userId));
+    /* A number appears once on Home: tasks on the reader's own name are the Waiting card's line (myTasks), so only others' count here. */
+    const counted = tasks.filter((t) => t.ownerUserId !== userId && inScope(scope, t.employee!.id) && (leavingsOk || t.kind !== 'LEAVING'));
     const late = counted.filter((t) => t.overdue).length;
     const dueSoon = counted.filter((t) => !t.overdue && t.dueDate && t.dueDate <= week).length;
-    if (late || dueSoon) out.push({ key: 'checklists', title: 'Joining and leaving tasks', detail: [late && `${late} late`, dueSoon && `${dueSoon} due this week`].filter(Boolean).join(' · '), count: late + dueSoon, tone: late ? 'urgent' : 'soon', screen: 'checklists' });
+    if (late || dueSoon) out.push({ key: 'checklists', title: "Joining and leaving tasks on others' names", detail: [late && `${late} late`, dueSoon && `${dueSoon} due this week`].filter(Boolean).join(' · '), count: late + dueSoon, tone: late ? 'urgent' : 'soon', screen: 'checklists', params: { view: late ? 'late' : 'open' } });
     if (health.blocking) out.push({ key: 'dataHealth', title: 'Details that would stop payroll', detail: `${plural(health.blocking, 'person', 'people')} to fix: missing PAN, UAN, bank, joining date…`, count: health.blocking, tone: 'urgent', screen: 'dataHealth' });
     const cLate = compliance.filter((o) => o.status === 'OVERDUE').length;
     const cSoon = compliance.filter((o) => o.status === 'DUE' && o.dueOn <= week).length;
@@ -100,7 +101,9 @@ export async function homeTodosAndWaiting(req: Request): Promise<{ todos: Todo[]
   {
     const { inboxFor } = await import('./inbox.js');
     const { counts, items } = await inboxFor(req);
-    waiting = counts.all;
+    /* Requests to approve plus the reader's own open tasks: the number the rail badge, the bell and the Inbox show. */
+    waiting = counts.waiting;
+    if (counts.TASK) out.push({ key: 'myTasks', title: 'Tasks on your name', detail: `${plural(counts.TASK, 'joining, leaving or other task')} to do`, count: counts.TASK, tone: 'soon', screen: 'approvals', params: { tab: 'tasks' } });
     if (counts.LEAVE) out.push({ key: 'leave', title: 'Leave waiting for a decision', detail: `${plural(counts.LEAVE, 'request')} to approve or reject`, count: counts.LEAVE, tone: 'soon', screen: 'approvals', params: { kind: 'LEAVE' } });
     if (counts.ATTENDANCE) out.push({ key: 'attendanceRequests', title: 'Attendance requests waiting', detail: `${plural(counts.ATTENDANCE, 'request')}: work from home, on duty, permission or missed punch`, count: counts.ATTENDANCE, tone: 'soon', screen: 'approvals', params: { kind: 'ATTENDANCE' } });
     if (counts.PUNCH) out.push({ key: 'fieldPunches', title: 'Field punches waiting', detail: `${plural(counts.PUNCH, 'punch', 'punches')} made outside the work sites`, count: counts.PUNCH, tone: 'soon', screen: 'approvals', params: { kind: 'PUNCH' } });

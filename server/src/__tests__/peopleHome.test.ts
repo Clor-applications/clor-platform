@@ -49,7 +49,10 @@ describe('People home', () => {
     expect(by('probation')).toMatchObject({ count: 1, screen: 'employees' });
     expect(by('leave')).toMatchObject({ count: 1, screen: 'approvals', params: { kind: 'LEAVE' } });
     expect(by('candidates')).toMatchObject({ count: 1, screen: 'candidates' });
-    expect(by('checklists')?.screen).toBe('checklists');
+    /* The owner's own tasks are the Waiting card's line (step 2: a number appears once on Home); the checklists tile counts others' only. */
+    expect(by('myTasks')).toMatchObject({ screen: 'approvals', params: { tab: 'tasks' } });
+    expect(by('myTasks').count).toBeGreaterThan(0);
+    if (by('checklists')) expect(by('checklists').screen).toBe('checklists');
     /* Urgent first. */
     const tones = todos.map((t: any) => t.tone);
     expect(tones.indexOf('info')).toBeGreaterThan(tones.lastIndexOf('urgent'));
@@ -81,9 +84,10 @@ describe('People home', () => {
 
     const home = (await people('get', '/home').expect(200)).body;
     const inbox = (await people('get', '/inbox').expect(200)).body;
-    /* Home's To approve, the rail badge and the Inbox's Waiting tab: one number from one place. */
-    expect(home.waiting).toBe(inbox.counts.all);
-    expect(home.waiting).toBeGreaterThanOrEqual(2);
+    /* Home's subtitle and card, the rail badge, the bell and the Inbox tabs: one number from one place (requests to approve plus the reader's own open tasks). */
+    expect(home.waiting).toBe(inbox.counts.waiting);
+    expect(inbox.counts.waiting).toBe(inbox.counts.all + inbox.counts.TASK);
+    expect(inbox.counts.all).toBeGreaterThanOrEqual(2);
 
     expect(home.probation.map((p: any) => p.id)).toEqual([late.id, a.id]);
     expect(home.probation[0]).toMatchObject({ over: true, endsOn: plus(-3) });

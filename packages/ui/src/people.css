@@ -2130,7 +2130,7 @@ html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail { backgrou
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod { color: rgb(var(--fg-muted)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod:hover:not([data-current]) { background: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] { background: transparent; color: rgb(var(--brand-ink)); font-weight: 700; }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod > span { color: inherit; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod > span:not(.ui-split-mod-count) { color: inherit; }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-glyph { color: rgb(var(--oxblood)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-glyph [opacity='0.2'] { fill: rgb(var(--panel-line)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] > svg.ui-glyph { color: rgb(var(--oxblood)); background: rgb(var(--blush)); box-shadow: inset 0 0 0 1px rgb(var(--panel-line)); }
@@ -2288,7 +2288,7 @@ html:root:not([data-theme='dark']) [data-palette='sky'] {
 }
 /* Words that sat in oxblood on marigold: a filled count is white on teal, a pill is teal ink on the teal tint. */
 html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-tab-count, .ui-side-count)[data-tone='warn'] { background: rgb(var(--teal)) !important; color: rgb(255 255 255) !important; }
-html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-bell-count, .soft-pill-primary .soft-pill-orb) { background: rgb(var(--teal)); color: rgb(255 255 255); }
+html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-bell-count, .ui-split-mod-count, .soft-pill-primary .soft-pill-orb) { background: rgb(var(--teal)); color: rgb(255 255 255); }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-pill-primary .soft-pill-orb { background: rgb(255 255 255); color: rgb(var(--brand)); }
 html:root[data-palette='sky']:not([data-theme='dark']) :is(.ui-pill-warn, .ui-side-pill[data-tone='warn'], .people-row-count[data-tone='warn']) { background: rgb(var(--teal-soft)); color: rgb(var(--teal-ink)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .people-home .soft-band-stat[data-attention] :is(.soft-band-stat-label, .soft-band-stat-note) { color: rgb(var(--fg-muted)); }

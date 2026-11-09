@@ -55,15 +55,16 @@ describe('a Team Manager’s joining and leaving tasks', () => {
     const mine = (await people(boss).post('/employees', { name: 'Priya Report', code: 'TM-2', dateOfJoining: day(3), reportingManagerId: lead.id }).expect(201)).body.employee;
     const other = (await people(boss).post('/employees', { name: 'Arjun Other', code: 'TM-3', dateOfJoining: day(3) }).expect(201)).body.employee;
 
-    const open = await runInTenant(boss.orgId, () => peoplePrisma.checklistTask.findMany({ where: { orgId: boss.orgId, doneAt: null }, select: { employeeId: true, dueDate: true } }));
+    const open = await runInTenant(boss.orgId, () => peoplePrisma.checklistTask.findMany({ where: { orgId: boss.orgId, doneAt: null }, select: { employeeId: true, dueDate: true, ownerUserId: true } }));
     const week = day(7);
     const dueOf = (id: string) => open.filter((t) => t.employeeId === id && t.dueDate && t.dueDate <= week).length;
+    /* Home's tile counts tasks on others' names: the reader's own are the Waiting card's line (step 2: a number appears once on Home). */
+    const dueNotMine = (id: string, userId: string) => open.filter((t) => t.employeeId === id && t.ownerUserId !== userId && t.dueDate && t.dueDate <= week).length;
     expect(dueOf(mine.id)).toBeGreaterThan(0);
     expect(dueOf(other.id)).toBeGreaterThan(0);
 
     /* His team is himself and whoever reports to him (scope.ts). */
     const team = new Set([lead.id, mine.id]);
-    const teamDue = dueOf(lead.id) + dueOf(mine.id);
 
     /* The queue (a route open to anyone signed in, so no permission check has set the scope yet): his team's tasks, nobody else's. */
     const queue = (await people(rahul).get('/lifecycle/tasks?view=open&limit=100').expect(200)).body;
@@ -73,11 +74,15 @@ describe('a Team Manager’s joining and leaving tasks', () => {
 
     /* Home's tile: his team's count, not the company's. */
     const tile = (await people(rahul).get('/home').expect(200)).body.todos.find((t: any) => t.key === 'checklists');
-    expect(tile?.count).toBe(teamDue);
+    expect(tile?.count ?? 0).toBe(dueNotMine(lead.id, rahul.userId) + dueNotMine(mine.id, rahul.userId));
 
     /* HR (the owner) still counts everyone. */
-    const all = (await people(boss).get('/home').expect(200)).body.todos.find((t: any) => t.key === 'checklists');
-    expect(all.count).toBe(teamDue + dueOf(other.id));
+    const bossHome = (await people(boss).get('/home').expect(200)).body.todos;
+    const all = bossHome.find((t: any) => t.key === 'checklists');
+    const bossId = (await request(app).get('/api/auth/me').set('Authorization', `Bearer ${boss.token}`).expect(200)).body.user.id;
+    expect(all?.count ?? 0).toBe([lead.id, mine.id, other.id].reduce((n, id) => n + dueNotMine(id, bossId), 0));
+    /* The owner's own tasks are counted once, on the Waiting card's My tasks line. */
+    expect(bossHome.find((t: any) => t.key === 'myTasks')?.count).toBe(open.filter((t) => t.ownerUserId === bossId).length);
   }, 60_000);
 
   it('a signed-in user with no roles is in nobody’s scope; the owner keeps the whole company', async () => {

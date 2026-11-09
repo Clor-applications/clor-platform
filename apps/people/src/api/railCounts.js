@@ -1,7 +1,11 @@
-import { getInbox } from './approvals.js';
+import { getWaiting } from './approvals.js';
 
-/* Rail counts for People: what waits in the Inbox. A person who cannot open it gets none, never an error. */
+/*
+ * Rail counts for People: the one waiting number (requests to approve plus the
+ * reader's own open tasks), the same Home's subtitle and card, the bell and the
+ * Inbox tabs show. A person with nothing waiting gets none, never an error.
+ */
 export async function peopleRailCounts() {
-  const inbox = await getInbox().catch(() => null);
-  return { approvals: Number(inbox?.counts?.all) || 0 };
+  const w = await getWaiting().catch(() => null);
+  return { approvals: Number(w?.waiting) || 0 };
 }

@@ -1278,16 +1278,48 @@ attendanceInsightsRouter.get(`${base}/overtime/requests`, can(PermissionAction.V
   });
 });
 
-attendanceInsightsRouter.post(`${base}/overtime/requests/:id/:decision`, can(PermissionAction.EDIT, R.records), async (req, res) => {
+/**
+ * Who may decide overtime and comp-off (People plan 8 Nov 2026, step 2): HR by
+ * the Records right as before, or the step's approver by identity, whatever
+ * their role: the manager of everyone named (or whoever stands in for that
+ * manager today). A Team Manager under a MANAGER or MANAGER_THEN_HR chain was
+ * stuck before: the inbox showed nothing and the route refused them.
+ */
+const overtimeDecider = async (req: any, res: any, next: any) => {
+  const refusal = await authorize(req, ATTENDANCE_MODULE, PermissionAction.EDIT as any, R.records);
+  if (!refusal) return next();
+  const { orgId } = req.tenant!;
+  const ids: string[] = req.params?.id ? [String(req.params.id)] : Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
+  const me = ids.length ? await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } }) : null;
+  if (me) {
+    const rows = await peoplePrisma.overtimeRequest.findMany({ where: { orgId, id: { in: ids } }, select: { employeeId: true } });
+    let mine = rows.length === ids.length;
+    for (const r of rows) if (mine && !(await managerStepBy(orgId, me.id, r.employeeId, undefined, 'ATTENDANCE'))) mine = false;
+    if (mine) {
+      req.overtimeManagerOnly = me.id;
+      return next();
+    }
+  }
+  return res.status(refusal.status).json(refusal.body);
+};
+
+attendanceInsightsRouter.post(`${base}/overtime/requests/:id/:decision`, overtimeDecider, async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const decision = String(req.params.decision);
   if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'approve or reject.' });
   /* A team-scoped role decides its own team's overtime and comp-off only, as the bulk review does. */
-  const row = await peoplePrisma.overtimeRequest.findFirst({ where: { id: String(req.params.id), orgId }, select: { employeeId: true } });
+  const id = String(req.params.id);
+  const row = await peoplePrisma.overtimeRequest.findFirst({ where: { id, orgId }, select: { employeeId: true, managerApprovedAt: true } });
   if (!row || !inScope(await teamScope(req), row.employeeId)) return res.status(404).json({ error: 'No such request.' });
   try {
-    const r = await decideOvertime(orgId, String(req.params.id), decision === 'approve', { userId: req.auth!.userId }, String(req.body?.note || '').trim().slice(0, 500) || null);
+    /* Their manager (or stand-in) takes the manager's step where the chain has one; HR decides the rest. */
+    const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
+    const chain = (await engineOf(orgId, OVERTIME_SOURCE, id).then((e) => (onEngine(e) ? ((e.payload as { chain?: string })?.chain as any) : null))) || (await overtimeChain(orgId));
+    const step = (await engineChains(orgId, OVERTIME_SOURCE, [id])).get(id)?.step || 1;
+    const asManager = Boolean(me && chain !== 'HR' && !row.managerApprovedAt && !(step > 1) && (await managerStepBy(orgId, me.id, row.employeeId, undefined, 'ATTENDANCE')));
+    if ((req as any).overtimeManagerOnly && !asManager) return res.status(403).json({ error: 'This request is not yours to decide.' });
+    const r = await decideOvertime(orgId, id, decision === 'approve', { userId: req.auth!.userId, ...(asManager ? { managerId: me!.id } : {}) }, String(req.body?.note || '').trim().slice(0, 500) || null);
     res.json({ request: r });
   } catch (err: any) {
     res.status(err?.status || 500).json({ error: err?.message || 'Not done.' });
@@ -1335,7 +1367,7 @@ attendanceInsightsRouter.post(`${base}/phone-punches/bulk-review`, can(Permissio
   res.json(bulkReply(results));
 });
 
-attendanceInsightsRouter.post(`${base}/overtime/requests/bulk-review`, can(PermissionAction.EDIT, R.records), async (req, res) => {
+attendanceInsightsRouter.post(`${base}/overtime/requests/bulk-review`, overtimeDecider, async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const ids = bulkIds(req);
@@ -1359,6 +1391,8 @@ attendanceInsightsRouter.post(`${base}/overtime/requests/bulk-review`, can(Permi
     const chain = engines.get(id)?.chain || chainNow;
     /* Their manager, or whoever stands in for that manager today, takes the manager's step where the chain has one; anyone else decides as HR. */
     const asManager = Boolean(me && chain !== 'HR' && !r.managerApprovedAt && !((engines.get(id)?.step || 1) > 1) && (subjects.get(r.employeeId)?.reportingManagerId === me.id || (await managerStepBy(orgId, me.id, r.employeeId, undefined, 'ATTENDANCE'))));
+    /* Without the Records right, only the manager's step is theirs. */
+    if ((req as any).overtimeManagerOnly && !asManager) { results.push({ id, ok: false, error: 'This request is not yours to decide.' }); continue; }
     try {
       const out = await decideOvertime(orgId, id, approve, { userId: req.auth!.userId, ...(asManager ? { managerId: me!.id } : {}) }, note);
       if (out.status === 'PENDING') handedOn += 1;

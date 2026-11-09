@@ -23,11 +23,10 @@ import {
 } from '@phosphor-icons/react';
 
 import { SkeletonCard } from '@ui/components/ui/Primitives';
-import { getOverview, getPeopleHome, listEmployees, listMyTasks, summaryOpened, updateChecklistTask } from '@ui/personnel/api';
+import { getOverview, getPeopleHome, listEmployees, summaryOpened } from '@ui/personnel/api';
 import { listLeaveRequests } from '@ui/timeOff/api';
 import { listRecords } from '../api/workspace';
 import { symbolOf } from './symbols';
-import { notify } from '@ui/components/ui/notify';
 import { todayIst } from '@ui/utils/dates';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { requestOpenApp } from '@platform/context';
@@ -359,7 +358,6 @@ export default function PeopleOverview({ openScreen }) {
   const [data, setData] = useState(null);
   /* People → Home's own answer: to-dos, the waiting number, probation, this week, last month's close. */
   const [home, setHome] = useState(null);
-  const [tasks, setTasks] = useState(null);
   const [people, setPeople] = useState(null);
   const [leave, setLeave] = useState(null);
   const [news, setNews] = useState(null);
@@ -377,7 +375,6 @@ export default function PeopleOverview({ openScreen }) {
   const [setupShowing, setSetupShowing] = useState(false);
   const onSetup = useCallback((d) => setSetupShowing(Boolean(d?.setup?.show)), []);
   const loadTodos = () => loadCard('todos', getPeopleHome, setHome, setFailed, inFlight);
-  const loadTasks = () => loadCard('tasks', listMyTasks, setTasks, setFailed, inFlight);
   const loadLeave = () => loadCard('leave', listLeaveRequests, setLeave, setFailed, inFlight);
   const loadPeople = () => loadCard('people', () => listEmployees({ limit: 500 }).then((r) => (r?.employees || []).filter((p) => p.status !== 'LEFT')), setPeople, setFailed, inFlight);
   const loadNews = () => loadCard('news', () => listRecords('announcements'), setNews, setFailed, inFlight);
@@ -386,17 +383,7 @@ export default function PeopleOverview({ openScreen }) {
   /* "Waiting for you" reads three lists; its Retry asks again only for those that failed. */
   const retryWaiting = () => {
     if (failed.todos) loadTodos();
-    if (failed.tasks) loadTasks();
     if (failed.leave) loadLeave();
-  };
-  const tick = async (t) => {
-    try {
-      await updateChecklistTask(t.id, { done: true });
-      setTasks((list) => (list || []).filter((x) => x.id !== t.id));
-      notify.success(`${t.title}: done.`);
-    } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
-    }
   };
 
   useEffect(() => {
@@ -410,7 +397,6 @@ export default function PeopleOverview({ openScreen }) {
     loadNews();
     loadEvents();
     loadFinalPay();
-    loadTasks();
     /* Opened from the Monday summary's e-mail: counted once (PRODUCT-VIEW §7). */
     try {
       if (new URLSearchParams(window.location.search).get('from') === 'weekly') summaryOpened().catch(() => {});
@@ -454,15 +440,17 @@ export default function PeopleOverview({ openScreen }) {
    * Until it loads, leave alone; unknown (null) while it failed, never a confident nought.
    */
   const waiting = glance ? glance.waiting : todos ? 0 : failed.todos ? null : pending.length;
-  const waitFailed = Boolean(failed.todos || failed.tasks || failed.leave);
+  const waitFailed = Boolean(failed.todos || failed.leave);
+  /* The two lines that make up the waiting number: requests in the Inbox, and the tasks on my name (Inbox › My tasks). */
+  const myTaskLine = (todos || []).find((t) => t.key === 'myTasks') || null;
+  const requestsWaiting = Math.max(0, (waiting || 0) - (myTaskLine?.count || 0));
   const outToday = (leave || []).filter((r) => r.status === 'APPROVED' && r.fromDate <= today && r.toDate >= today);
   const onNotice = data.byStatus.ON_NOTICE || 0;
   const tenure = averageTenure(people || []);
-  const openTasks = (tasks || []).filter((t) => !t.done);
   /* Leave already listed above with its own Approve: the summary row would say it twice. */
   /* What the Inbox holds is the one line above; the rest of Home's to-dos are tasks, listed here. */
   /* Probation has its own figure and its own list below, so it is not a third time a task row here. */
-  const otherTodos = (todos || []).filter((t) => t.screen !== 'approvals' && t.screen !== 'leaveRequests' && t.key !== 'probation');
+  const otherTodos = (todos || []).filter((t) => t.screen !== 'approvals' && t.screen !== 'leaveRequests' && t.key !== 'probation' && t.key !== 'myTasks');
   const deptOf = new Map((people || []).map((p) => [p.id, p.department]));
   const posts = (news || []).filter((n) => n.status === 'PUBLISHED').slice(0, 3);
   const upcoming = (events || [])
@@ -483,7 +471,7 @@ export default function PeopleOverview({ openScreen }) {
           {/* Titled by the day, not a time-of-day greeting (8 Nov 2026). */}
           <h1 className="soft-band-title">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</h1>
           <p className="soft-band-sub">
-            {waiting === null ? <>Could not check what waits for your answer</> : !todos && !leave ? <>Checking what waits for your answer</> : waiting ? <>You have <strong>{plural(waiting, 'request')}</strong> to answer</> : <>Nothing waits for your answer</>}
+            {waiting === null ? <>Could not check what waits for your answer</> : !todos && !leave ? <>Checking what waits for your answer</> : waiting ? <><strong>{plural(waiting, 'thing')}</strong> {waiting === 1 ? 'waits' : 'wait'} for your answer</> : <>Nothing waits for your answer</>}
             {leave ? <> and <strong data-zero={outToday.length === 0 || undefined}>{plural(outToday.length, 'person', 'people')}</strong> {outToday.length === 1 ? 'is' : 'are'} out today.</> : '.'}
           </p>
         </div>
@@ -555,24 +543,52 @@ export default function PeopleOverview({ openScreen }) {
                * Approvals live in the Inbox, not on Home (owner, 8 Nov 2026): one line with the Inbox's own count, the
                * number the rail badge and the Inbox's Waiting tab show, and the way there.
                */}
+              {/*
+                * The card adds up to the subtitle's number, no more (People plan 8 Nov 2026, §3 rule 1): the requests in the
+                * Inbox on one line, the tasks on my name on another, each opening the Inbox tab that holds them.
+                */}
               {waiting ? (
                 <ul className="people-list">
-                  <li>
-                    <button type="button" onClick={go('approvals')} className="people-row people-row-action">
-                      <span className="people-row-count" data-tone="warn">{waiting}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-medium text-sm">{waiting === 1 ? '1 request waits' : `${waiting} requests wait`} for you</span>
-                        <span className="ui-caption block">{pending.length ? `${plural(pending.length, 'leave request')} among them, next starts ${dayDate(pending[0].fromDate)}` : 'Leave, attendance and other requests'}</span>
-                      </span>
-                      <span className="people-more">Open Inbox <CaretRight size={14} aria-hidden="true" /></span>
-                    </button>
-                  </li>
+                  {requestsWaiting ? (
+                    <li>
+                      <button type="button" onClick={go('approvals')} className="people-row people-row-action">
+                        <span className="people-row-count" data-tone="warn">{requestsWaiting}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-medium text-sm">{requestsWaiting === 1 ? '1 request waits' : `${requestsWaiting} requests wait`} for you</span>
+                          <span className="ui-caption block">{pending.length ? `${plural(pending.length, 'leave request')} among them, next starts ${dayDate(pending[0].fromDate)}` : 'Leave, attendance and other requests'}</span>
+                        </span>
+                        <span className="people-more">Open Inbox <CaretRight size={14} aria-hidden="true" /></span>
+                      </button>
+                    </li>
+                  ) : null}
+                  {myTaskLine ? (
+                    <li>
+                      <button type="button" onClick={go('approvals', { tab: 'tasks' })} className="people-row people-row-action">
+                        <span className="people-row-count" data-tone="warn">{myTaskLine.count}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-medium text-sm">{myTaskLine.count === 1 ? '1 task is' : `${myTaskLine.count} tasks are`} on your name</span>
+                          <span className="ui-caption block">Joining, leaving and other plan steps given to you</span>
+                        </span>
+                        <span className="people-more">My tasks <CaretRight size={14} aria-hidden="true" /></span>
+                      </button>
+                    </li>
+                  ) : null}
                 </ul>
               ) : null}
-              {waitFailed ? <CardFailed what={failed.todos ? 'what waits for you' : failed.leave ? 'the leave waiting for you' : 'your tasks'} onRetry={retryWaiting} role="alert" /> : null}
+              {waitFailed ? <CardFailed what={failed.todos ? 'what waits for you' : 'the leave waiting for you'} onRetry={retryWaiting} role="alert" /> : null}
               {failed.todos ? null : !todos ? (
                 <div className="p-4"><SkeletonCard lines={2} /></div>
-              ) : otherTodos.length ? (
+              ) : !waiting && !waitFailed ? (
+                <p className="people-empty">{setupShowing ? 'Nothing waits for you yet. Start with the steps below.' : <><strong>All caught up</strong>. Nothing needs your answer right now.</>}</p>
+              ) : null}
+            </section>
+          </Bezel>
+
+          {/* HR's other to-dos: not answers anyone waits on, so not in the waiting number; each opens the screen that fixes it. */}
+          {otherTodos.length ? (
+          <Bezel i={3}>
+            <section aria-labelledby="attention-h">
+              <PanelHead id="attention-h" icon={CheckSquare} tint="sky" title="Needs attention" />
                 <ul className="people-list">
                   {otherTodos.map((t) => (
                     <li key={t.key}>
@@ -590,35 +606,14 @@ export default function PeopleOverview({ openScreen }) {
                     </li>
                   ))}
                 </ul>
-              ) : !waiting && !waitFailed ? (
-                <p className="people-empty">{setupShowing ? 'Nothing waits for you yet. Start with the steps below.' : <><strong>All caught up</strong>. Nothing needs your answer right now.</>}</p>
-              ) : null}
             </section>
           </Bezel>
+          ) : null}
 
           <HomeGlance glance={glance} go={go} />
 
           {/* The setup list sits under what waits on you, so a request is never below the fold behind it (2 Nov 2026). */}
           <HomeSetup openScreen={openScreen} onState={onSetup} />
-
-          {openTasks.length ? (
-            <Bezel i={3}>
-              <section aria-labelledby="mytasks-h">
-                <PanelHead id="mytasks-h" icon={CheckSquare} tint="sky" title="Your tasks" />
-                <ul className="people-list">
-                  {openTasks.slice(0, 6).map((t) => (
-                    <li key={t.id} className="people-row">
-                      <input type="checkbox" className="mt-0.5" aria-label={`Done: ${t.title}`} onChange={() => tick(t)} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm">{t.title} <span className="ui-muted">· {t.employee?.name}</span></p>
-                        <p className="ui-caption">{t.kind.charAt(0)}{t.kind.slice(1).toLowerCase()}{t.dueDate ? ` · due ${formatDate(String(t.dueDate).slice(0, 10))}` : ''}{t.overdue ? <span className="ui-pill ui-pill-neg ml-2">Overdue</span> : null}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            </Bezel>
-          ) : null}
 
           <Bezel i={4}>
             <section aria-labelledby="out-h">
