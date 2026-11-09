@@ -1,6 +1,6 @@
 import React from 'react';
 import { BookOpen } from 'lucide-react';
-import { Briefcase, CalendarDots, Fingerprint, UsersThree, Wallet } from '@phosphor-icons/react';
+import { Briefcase, Buildings, CalendarDots, Fingerprint, UsersThree, Wallet } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 
 /** The CLOR logo, as the apps draw it (packages/ui ClorLogo): orange C-mark and O, slate L and R (public/brand/clor-logo.png, 434 x 147). */
@@ -19,7 +19,7 @@ export function Logo({ height = 22, lazy = false }) {
  * People's two-tone Phosphor marks (owner, 9 Nov 2026: "use same icons which is
  * used in people everywhere except books"); Books keeps its Lucide book.
  */
-const DUO = { people: UsersThree, payroll: Wallet, attendance: Fingerprint, projects: Briefcase, timesheet: CalendarDots };
+const DUO = { people: UsersThree, payroll: Wallet, attendance: Fingerprint, workspace: Buildings, projects: Briefcase, timesheet: CalendarDots };
 
 export function Mark({ product, size = 36 }) {
   const Duo = DUO[product.slug];
@@ -33,4 +33,27 @@ export function Mark({ product, size = 36 }) {
 
 export function Status({ product }) {
   return product.status === 'available' ? <span className="status">Available</span> : <span className="status status--soon">Coming soon</span>;
+}
+
+/*
+ * A product's picture: an unDraw illustration (undraw.co, MIT) recoloured to
+ * Blaze Orange, served from public/illustrations. Width and height are the
+ * SVG's own, so the page keeps its shape before the file arrives. The first
+ * picture on a page loads eagerly; the rest wait until they are near.
+ */
+export function Illustration({ product, eager = false, className = '' }) {
+  const pic = product.picture;
+  if (!pic) return null;
+  return (
+    <img
+      className={`pic ${className}`.trim()}
+      src={`/illustrations/${pic.file}.svg`}
+      alt={pic.alt}
+      width={pic.width}
+      height={pic.height}
+      loading={eager ? 'eager' : 'lazy'}
+      decoding="async"
+      fetchPriority={eager ? 'high' : undefined}
+    />
+  );
 }

@@ -38,7 +38,7 @@
   --t-xl: 1.4375rem;
   --t-2xl: clamp(1.75rem, 1.3rem + 1.5vw, 2.4rem);
   --t-3xl: clamp(2rem, 1.4rem + 2vw, 3rem);
-  --t-hero: clamp(2.5rem, 1.5rem + 3.4vw, 4.35rem);
+  --t-hero: clamp(2.25rem, 1.3rem + 3.2vw, 4.25rem);
 
   --r-control: 8px;
   --r-panel: 12px;
@@ -57,8 +57,8 @@
   --s-9: 96px;
   --s-10: 128px;
   --wrap: 1200px;
-  --gutter: clamp(20px, 4vw, 48px);
-  --section: clamp(var(--s-8), 9vw, var(--s-10));
+  --gutter: clamp(16px, 4vw, 48px);
+  --section: clamp(var(--s-7), 7vw, var(--s-9));
   --gap-col: clamp(var(--s-6), 5vw, var(--s-8));
   --gap-head: clamp(var(--s-6), 4vw, var(--s-7));
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -350,7 +350,9 @@ main:focus {
 }
 .logo {
   display: inline-flex;
+  align-items: center;
   flex: none;
+  min-height: 44px;
 }
 .logo img {
   height: 22px;
@@ -373,7 +375,7 @@ main:focus {
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
-  height: 40px;
+  height: 44px;
   padding: 0 var(--s-3);
   border: 0;
   border-radius: var(--r-control);
@@ -1503,7 +1505,7 @@ main:focus {
   justify-items: start;
 }
 .hero--home .h-hero {
-  max-width: 18ch;
+  max-width: 22ch;
 }
 .btn--lg {
   min-height: 50px;
@@ -1679,7 +1681,7 @@ main:focus {
 /* The home hero: Books' tax invoice and the month's GSTR-1 it feeds, one above the other. */
 .home-hero {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
   gap: var(--gap-col);
   align-items: center;
 }
@@ -1700,5 +1702,196 @@ main:focus {
   }
   .home-shots .win + .win {
     margin-left: 0;
+  }
+}
+
+
+/* ================================================================ pictures
+ * One unDraw illustration per product, recoloured to Blaze Orange, on the
+ * white ground with nothing round it. It is the one thing on the page that
+ * is not words, so it gets room.
+ */
+.pic {
+  width: 100%;
+  height: auto;
+}
+.app-sec-pic,
+.p-pic {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+}
+.app-sec-pic .pic {
+  max-width: 480px;
+  max-height: 380px;
+  object-fit: contain;
+}
+.p-pic .pic {
+  max-width: 520px;
+  max-height: 400px;
+  object-fit: contain;
+}
+.app-sec--flip .app-sec-pic {
+  order: 1;
+}
+@media (max-width: 900px) {
+  .app-sec--flip .app-sec-pic {
+    order: 0;
+  }
+  .app-sec-pic .pic,
+  .p-pic .pic {
+    max-height: 260px;
+  }
+}
+
+/* Who a product is for: one plain line under its title. */
+.p-who {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* The home hero: the headline beside Books' invoice. */
+.home-shot {
+  margin: 0;
+  display: grid;
+  gap: var(--s-3);
+}
+.home-shot .win {
+  --win-fs: clamp(13px, 1.05vw, 15px);
+}
+
+/* What's in it, beside the drawn screen. */
+.p-inside {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: var(--gap-col);
+  align-items: start;
+}
+.p-inside .p-shot {
+  position: sticky;
+  top: 100px;
+}
+.p-inside .p-features {
+  grid-template-columns: 1fr;
+}
+@media (max-width: 900px) {
+  .p-inside {
+    grid-template-columns: 1fr;
+  }
+  .p-inside .p-shot {
+    position: static;
+  }
+}
+
+/* The products index: picture, then words, one ruled row per product. */
+.plist li {
+  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  gap: var(--s-4) var(--gap-col);
+  padding: var(--s-7) 0;
+  align-items: center;
+}
+.plist-pic {
+  display: grid;
+  place-items: center;
+}
+.plist-pic .pic {
+  max-width: 320px;
+  max-height: 220px;
+  object-fit: contain;
+}
+.plist-copy {
+  display: grid;
+  gap: var(--s-3);
+  justify-items: start;
+}
+.plist .h-2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+}
+.plist .h-2 a {
+  color: var(--ink);
+  text-decoration: none;
+}
+.plist .h-2 a:hover {
+  color: var(--accent-text);
+}
+@media (max-width: 720px) {
+  .plist li {
+    grid-template-columns: 1fr;
+    padding: var(--s-6) 0;
+  }
+  .plist-pic .pic {
+    max-height: 180px;
+  }
+}
+
+/* The phone menu: the demo button first, then the same lists as the bar and the footer. */
+.mobile-title {
+  margin: var(--s-6) 0 var(--s-2);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.mobile-demo {
+  margin-top: var(--s-2);
+}
+.mobile-list a {
+  min-height: 44px;
+}
+.mobile-line {
+  display: block;
+  font-weight: 400;
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+}
+.mobile-products .mega-item {
+  min-height: 44px;
+  align-items: center;
+}
+
+/* The products menu: one column of five, two when there is room. */
+.mega-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+}
+.mega--products {
+  width: min(720px, calc(100vw - 2 * var(--gutter)));
+}
+
+/* Pricing on a phone: each product a block, its columns read as lines. */
+@media (max-width: 640px) {
+  .price-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .price-table tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--s-1) var(--s-4);
+    padding: var(--s-4) 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .price-table th,
+  .price-table td {
+    padding: 0;
+    border: 0;
+  }
+  .price-table tbody th {
+    width: auto;
+    grid-column: 1;
+  }
+  .price-table td:nth-child(2) {
+    grid-column: 1;
+  }
+  .price-table td:nth-child(3) {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    text-align: right;
   }
 }

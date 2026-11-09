@@ -1,52 +1,51 @@
 import React from 'react';
 import { Link } from '../router.jsx';
-import { CONNECTIONS, PRODUCTS, demoFor, productBySlug } from '../site.js';
+import { CONNECTIONS, PRODUCTS, SITE, demoFor, productBySlug } from '../site.js';
 import { PRODUCT_CONTENT } from '../content.js';
-import { Mark, Status } from '../components/Brand.jsx';
+import { Illustration, Mark, Status } from '../components/Brand.jsx';
 import { WINDOWS } from '../components/Windows.jsx';
-import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
+import { Closing, Faq, Steps } from '../components/Blocks.jsx';
 import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
 
 /*
- * Each product's page: what it is, a screen drawn with sample data, what it
- * fixes, what is in it, a working day in it, and how it joins the other
- * products. The demo request carries the product (?app=), so the contact
- * page names it in the message.
+ * Each product's page: who it is for and what it does beside its picture,
+ * what it fixes, what is in it with a screen drawn with sample data, a
+ * working day in it, how it joins the other products, who sees what, and
+ * the questions people ask. The demo request carries the product (?app=).
  */
 
 function Hero({ p, c, soon }) {
-  const Win = WINDOWS[p.slug];
   return (
     <section className="hero p-hero" aria-labelledby="p-title">
-      <div className={`wrap${Win ? ' p-hero-grid' : ''}`}>
+      <div className="wrap p-hero-grid">
         <div className="hero-copy">
-          <h1 id="p-title" className="h-hero">
-            CLOR&nbsp;{p.name}
-          </h1>
-          {soon ? <Status product={p} /> : null}
-          <p className="lede">
-            {c.title} {c.intro}
+          <p className="app-sec-name">
+            <Mark product={p} size={28} /> CLOR&nbsp;{p.name} {soon ? <Status product={p} /> : null}
           </p>
+          <h1 id="p-title" className="h-hero">
+            {c.title}
+          </h1>
+          {p.who && !soon ? <p className="p-who">For: {p.who.charAt(0).toLowerCase() + p.who.slice(1)}.</p> : null}
+          <p className="lede">{c.intro}</p>
           <div className="actions">
             {soon ? (
               <Link className="btn btn--primary btn--lg" href={`/contact?about=${p.slug}`}>
                 Tell me when it’s ready
               </Link>
             ) : (
-              <Link className="btn btn--primary btn--lg" href={demoFor(p.slug)}>
+              <Link className="btn btn--primary btn--lg" href={p.slug === 'workspace' ? SITE.demoUrl : demoFor(p.slug)}>
                 Request a demo
               </Link>
             )}
             <Link className="btn btn--text" href="/products">
-              {soon ? 'See what’s available now' : 'All products'}
+              All products
             </Link>
           </div>
         </div>
-        {Win ? (
-          <figure className="p-shot">
-            <Win />
-            <figcaption className="caption">Drawn with sample data. Real screenshots are on the way.</figcaption>
-          </figure>
+        {p.picture ? (
+          <div className="p-pic">
+            <Illustration product={p} eager />
+          </div>
         ) : null}
       </div>
     </section>
@@ -67,7 +66,7 @@ function SoonPage({ p, c }) {
           </ul>
         </div>
       </section>
-      <Closing title="Use the products that are ready today." text="Books, Payroll, People and Attendance share one login and one list of employees. Projects joins them when it is ready.">
+      <Closing title="Use the products that are ready today." text="Books, People, Attendance and Payroll share one sign-in and one list of employees. Projects and Timesheet join them when they are ready.">
         <Link href="/products">See every product</Link>
       </Closing>
     </>
@@ -79,14 +78,15 @@ export default function Product({ slug }) {
   const c = PRODUCT_CONTENT[slug];
   if (p.status !== 'available') return <SoonPage p={p} c={c} />;
   const links = CONNECTIONS.filter((x) => x.from === slug || x.to === slug);
+  const Win = WINDOWS[slug];
   return (
     <>
       <Hero p={p} c={c} />
 
       <section className="section" aria-labelledby="fixes-title">
-        <div className="wrap">
+        <div className="wrap split">
           <Head id="fixes-title" title="What it fixes" />
-          <ul className="groups">
+          <ul className="problems">
             {c.problems.map(([prob, fix]) => (
               <li key={prob}>
                 <h3 className="h-3">{prob}</h3>
@@ -98,16 +98,24 @@ export default function Product({ slug }) {
       </section>
 
       <section className="section" aria-labelledby="inside-title">
-        <div className="wrap">
-          <Head id="inside-title" title={`What’s in ${p.name}`} />
-          <dl className="p-features">
-            {c.features.map(([k, v]) => (
-              <div key={k} className="p-feature">
-                <dt className="h-3">{k}</dt>
-                <dd className="body">{v}</dd>
-              </div>
-            ))}
-          </dl>
+        <div className={`wrap${Win ? ' p-inside' : ''}`}>
+          <div>
+            <Head id="inside-title" title={`What’s in ${p.name}`} />
+            <dl className="p-features">
+              {c.features.map(([k, v]) => (
+                <div key={k} className="p-feature">
+                  <dt className="h-3">{k}</dt>
+                  <dd className="body">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+          {Win ? (
+            <figure className="p-shot">
+              <Win />
+              <figcaption className="caption">A CLOR {p.name} screen, drawn with sample data. Real screenshots are on the way.</figcaption>
+            </figure>
+          ) : null}
         </div>
       </section>
 
@@ -144,7 +152,7 @@ export default function Product({ slug }) {
         </section>
       ) : null}
 
-      <SettingUp />
+      {slug === 'workspace' ? null : <SettingUp />}
 
       <section className="section" aria-labelledby="roles-title">
         <div className="wrap split">
@@ -161,45 +169,64 @@ export default function Product({ slug }) {
         </div>
       </section>
 
-      <Closing demoHref={demoFor(slug)} title={`See ${p.name} with your own data.`} text={`Tell us how you handle this today and we will walk you through the same month in CLOR ${p.name}.`} />
+      <Closing
+        demoHref={slug === 'workspace' ? SITE.demoUrl : demoFor(slug)}
+        title={`See ${p.name} with your own data.`}
+        text={`Tell us how you handle this today and we will walk you through the same month in CLOR ${p.name}.`}
+      />
     </>
   );
 }
 
+/* The products index: each one a row with its picture, who it is for and what it does. */
 export function Products() {
   return (
     <>
       <section className="hero hero--product">
-        <div className="wrap stack" style={{ '--stack': '1.25rem' }}>
-          <h1 className="h-1">The CLOR products</h1>
-          <p className="lede">Each one does a job on its own. Bought together, they share one login, one list of employees and one set of books.</p>
+        <div className="wrap hero-copy">
+          <h1 className="h-hero">Five products. Buy the ones you need.</h1>
+          <p className="lede">Each one does its job on its own. Used together, they share one sign-in, one list of employees and one set of books. Workspace comes with any of them.</p>
         </div>
       </section>
       <section className="section section--flush">
         <div className="wrap">
-          {['Finance', 'HR', 'Operations'].map((cat) => (
-            <div key={cat} className="cat">
-              <h2 className="h-2">{cat}</h2>
-              <div className="cat-list">
-                {PRODUCTS.filter((p) => p.category === cat).map((p) => (
-                  <Link key={p.slug} href={`/products/${p.slug}`} className="cat-item">
-                    <Mark product={p} size={44} />
-                    <span className="stack" style={{ '--stack': '0.4rem' }}>
-                      <span className="cat-name">
-                        CLOR&nbsp;{p.name} <Status product={p} />
-                      </span>
-                      <span className="body">{p.line}</span>
-                    </span>
+          <ul className="plist">
+            {PRODUCTS.map((p) => (
+              <li key={p.slug} className={p.status === 'soon' ? 'is-soon' : ''}>
+                <div className="plist-pic">{p.picture ? <Illustration product={p} /> : <Mark product={p} size={56} />}</div>
+                <div className="plist-copy">
+                  <h2 className="h-2">
+                    <Link href={`/products/${p.slug}`}>CLOR&nbsp;{p.name}</Link> {p.status === 'soon' ? <Status product={p} /> : null}
+                  </h2>
+                  {p.who ? <p className="p-who">For: {p.who.charAt(0).toLowerCase() + p.who.slice(1)}.</p> : null}
+                  <p className="body">{p.line}</p>
+                  <Link className="text-link" href={`/products/${p.slug}`}>
+                    {p.status === 'soon' ? 'What is planned' : `More about ${p.name}`}
                   </Link>
-                ))}
-              </div>
-            </div>
-          ))}
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
       <section className="section">
         <div className="wrap split">
-          <SectionHead title="Better together, never required" intro="Links between products appear only when you have both. Nothing in one product stops working without another." />
+          <Head title="People or Attendance?" intro="Two apps for time and leave, because a company of eight and a company of eight hundred do not need the same thing." />
+          <ul className="problems">
+            <li>
+              <h3 className="h-3">Attendance, for a small company</h3>
+              <p className="body">Time, leave and shifts, from biometric readers or a phone, and the month close for payroll. Nothing else to set up.</p>
+            </li>
+            <li>
+              <h3 className="h-3">People, for a company that is growing</h3>
+              <p className="body">The full HR app: records, documents, joining and leaving, letters, the org chart and the employee app. It includes everything Attendance does, so you never run both.</p>
+            </li>
+          </ul>
+        </div>
+      </section>
+      <section className="section">
+        <div className="wrap split">
+          <Head title="Together, never required" intro="Links between products appear only when you have both. Nothing in one product stops working without another." />
           <ul className="links">
             {CONNECTIONS.map((x) => (
               <li key={x.from + x.to}>

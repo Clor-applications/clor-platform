@@ -179,7 +179,7 @@ export function Firms() {
 export function Pricing() {
   return (
     <>
-      <PageHead title="Pay for the products you use." intro="Every CLOR product has its own subscription. A company that needs only payroll pays only for payroll, and adding a product later never means changing plans." />
+      <PageHead title="Pay for the products you use." intro="Every CLOR product has its own subscription. A company that needs only payroll pays only for payroll, and adding a product later never means changing plans. Workspace comes with any of them." />
       <section className="section">
         <div className="wrap">
           <table className="price-table">
@@ -187,7 +187,7 @@ export function Pricing() {
             <thead>
               <tr>
                 <th scope="col">Product</th>
-                <th scope="col">Status</th>
+                <th scope="col">For</th>
                 <th scope="col">Price</th>
               </tr>
             </thead>
@@ -199,10 +199,8 @@ export function Pricing() {
                       <Mark product={p} size={28} /> CLOR&nbsp;{p.name}
                     </span>
                   </th>
-                  <td>
-                    <Status product={p} />
-                  </td>
-                  <td className="small">{p.status === 'available' ? 'Being finalised' : 'At launch'}</td>
+                  <td className="small">{p.status === 'soon' ? <Status product={p} /> : p.who}</td>
+                  <td className="small">{p.slug === 'workspace' ? 'Included with any product' : p.status === 'available' ? 'Being finalised' : 'At launch'}</td>
                 </tr>
               ))}
             </tbody>
@@ -221,6 +219,7 @@ export function Pricing() {
             title="How subscriptions work"
             items={[
               ['Is there one plan for everything?', 'No. Each product is subscribed to on its own, for the companies in your workspace that use it.'],
+              ['Do I pay for People and Attendance both?', 'No. People includes everything Attendance does. A small company takes Attendance; a growing one takes People.'],
               ['What happens to my data if I stop a product?', 'The data stays in your workspace and can be exported. Switching the product back on brings it back.'],
               ['Do accountants and employees count as users?', 'Employees using only the employee app are not workspace users. How outside accountants are counted will be set out with the prices.'],
             ]}
@@ -310,7 +309,7 @@ export function About() {
     <>
       <PageHead
         title="About CLOR"
-        intro={`${SITE.company} makes CLOR: accounting, HR, payroll and attendance that read the same records, so an employee added in People is the same person on the attendance reader, in the salary run and in the books.`}
+        intro={`${SITE.company} makes CLOR: accounting, HR, attendance and payroll that read the same records, so an employee added in People is the same person on the attendance reader, in the salary run and in the books.`}
       >
         <p className="body">
           We work from our office in {SITE.city}: {SITE.address}. You are welcome to visit; write to {SITE.contactEmail} first so someone is there to meet you.
@@ -601,7 +600,7 @@ export function Legal({ doc }) {
 
 export function NotFound() {
   return (
-    <PageHead title="This page isn’t here." intro="It may have moved, or the address may be mistyped.">
+    <PageHead title="This page isn’t here." intro="It may have moved, or the address may be mistyped. The products, pricing and policies are all in the footer.">
       <div className="actions">
         <Link className="btn btn--primary" href="/">
           Go to the home page

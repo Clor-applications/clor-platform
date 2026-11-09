@@ -13,5 +13,7 @@ npm run preview   # http://localhost:5191, the built site
 
 - Content and product status: `src/site.js`, `src/content.js`. Pages: `src/pages`. Routes and page titles: `src/routes.jsx`.
 - Design: light only, white ground, tokens at the top of `src/styles/site.css`; one face, Plus Jakarta Sans; Blaze Orange (#FF5400) is kept for primary actions, the current-page marker and the focus ring, and #BA3900 for orange words.
-- Home leads with Books, then Payroll, People and Attendance, each beside its screen drawn in code with sample data (`src/components/Windows.jsx`). No animation; pictures wait for the new illustration style.
+- Five products in the owner's order: Books, People, Attendance, Payroll, Workspace (Projects and Timesheet marked coming soon). Home leads with Books' invoice drawn in code with sample data (`src/components/Windows.jsx`), then one section per product beside its picture.
+- Pictures: one unDraw illustration per product (undraw.co, MIT licence), downloaded and recoloured to Blaze Orange `#FF5400` with the near-black set to slate, in `public/illustrations/`. The source names are in `PRODUCTS[].picture.source` in `src/site.js`. No AI art, no stock photos. The drawn screens stay on the product pages, captioned as drawn, until real screenshots exist.
+- Header: Products, Pricing, Sign in (company and employee doors), Request a demo. Solutions, guides, company and policy pages are linked from the footer.
 - Before publishing: `CONTENT_CHECKLIST.md`.
