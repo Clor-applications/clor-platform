@@ -35,3 +35,36 @@ export const opsBuildSample = (force = false) => apiFetch('/ops/explore/sample/b
 export const opsExplorePasses = (params) => apiFetch(`/ops/explore/passes${q(params)}`, o);
 export const opsResendPass = (id) => apiFetch(`/ops/explore/passes/${encodeURIComponent(id)}/resend`, { ...o, method: 'POST' });
 export const opsEndPass = (id) => apiFetch(`/ops/explore/passes/${encodeURIComponent(id)}/end`, { ...o, method: 'POST' });
+/* One page per customer (server: routes/opsCustomers.ts). */
+const acct = (id) => `/ops/accounts/${encodeURIComponent(id)}`;
+export const opsChangeApps = (id, apps, reason) => apiFetch(`${acct(id)}/apps`, { ...o, method: 'POST', body: { apps, reason } });
+export const opsCancelSubscription = (id, reason) => apiFetch(`${acct(id)}/cancel`, { ...o, method: 'POST', body: { reason } });
+export const opsReopenSubscription = (id, reason) => apiFetch(`${acct(id)}/reopen`, { ...o, method: 'POST', body: { reason } });
+export const opsCustomerPayments = (id) => apiFetch(`${acct(id)}/payments`, o);
+export const opsCustomerRequests = (id) => apiFetch(`${acct(id)}/requests`, o);
+export const opsCustomerUsers = (id) => apiFetch(`${acct(id)}/users`, o);
+export const opsCustomerActivity = (id) => apiFetch(`${acct(id)}/activity`, o);
+export const opsSendResetLink = (id, userId, reason) => apiFetch(`${acct(id)}/users/${encodeURIComponent(userId)}/reset-link`, { ...o, method: 'POST', body: { reason } });
+export const opsSignOutEverywhere = (id, userId, reason) => apiFetch(`${acct(id)}/users/${encodeURIComponent(userId)}/sign-out`, { ...o, method: 'POST', body: { reason } });
+export const opsResendInvitation = (id, invitationId, reason) => apiFetch(`${acct(id)}/invitations/${encodeURIComponent(invitationId)}/resend`, { ...o, method: 'POST', body: { reason } });
+/* Home, the audit log and staff (server: routes/ops.ts). */
+export const opsHome = () => apiFetch('/ops/home', o);
+export const opsAuditFilters = () => apiFetch('/ops/audit/filters', o);
+export const opsAuditExportUrl = (params) => `/ops/audit/export${q(params)}`;
+export const opsAuditExport = (params) => apiFetch(opsAuditExportUrl(params), { ...o, asText: true });
+export const opsRemoveOperator = (userId, reason) => apiFetch(`/ops/operators/${encodeURIComponent(userId)}`, { ...o, method: 'DELETE', body: { reason } });
+export const opsWithdrawInvite = (id, reason) => apiFetch(`/ops/operators/invites/${encodeURIComponent(id)}`, { ...o, method: 'DELETE', body: { reason } });
+/* Email (server: routes/opsEmail.ts). */
+export const opsEmailSenders = () => apiFetch('/ops/email/senders', o);
+export const opsSaveSender = (purpose, body) => apiFetch(`/ops/email/senders/${encodeURIComponent(purpose)}`, { ...o, method: 'PUT', body });
+export const opsTestSender = (purpose, to) => apiFetch(`/ops/email/senders/${encodeURIComponent(purpose)}/test`, { ...o, method: 'POST', body: to ? { to } : {} });
+export const opsEmailTemplates = () => apiFetch('/ops/email/templates', o);
+export const opsSaveTemplate = (key, body) => apiFetch(`/ops/email/templates/${encodeURIComponent(key)}`, { ...o, method: 'PUT', body });
+export const opsResetTemplate = (key, reason) => apiFetch(`/ops/email/templates/${encodeURIComponent(key)}`, { ...o, method: 'DELETE', body: { reason } });
+export const opsPreviewTemplate = (key, body) => apiFetch(`/ops/email/templates/${encodeURIComponent(key)}/preview`, { ...o, method: 'POST', body });
+export const opsTestTemplate = (key, to) => apiFetch(`/ops/email/templates/${encodeURIComponent(key)}/test`, { ...o, method: 'POST', body: to ? { to } : {} });
+export const opsEmailLog = (params) => apiFetch(`/ops/email/log${q(params)}`, o);
+export const opsResendEmail = (id, reason) => apiFetch(`/ops/email/log/${encodeURIComponent(id)}/resend`, { ...o, method: 'POST', body: { reason } });
+/* The app catalogue (server: routes/opsCatalogue.ts). */
+export const opsApps = () => apiFetch('/ops/apps', o);
+export const opsSaveApp = (code, body) => apiFetch(`/ops/apps/${encodeURIComponent(code)}`, { ...o, method: 'PUT', body });
