@@ -77,6 +77,8 @@ async function makeOwner(): Promise<Ctx> {
     .expect(200);
   const c = { token: signup.body.token, orgId: setup.body.company.orgId, branchId: setup.body.branch.id };
   await request(app).put(`/api/orgs/${c.orgId}/features`).set(at(c)).send({ features: { payroll: true, people: true, attendance: true } }).expect(200);
+  /* Its payroll starts in September with nothing earlier to bring in (audit 7 Nov 2026, #2). */
+  await api.put(c, '/opening-ytd-first-year?fy=2026-27', { firstYear: true, reason: 'First year of paying salaries' }).expect(200);
   return c;
 }
 
@@ -96,7 +98,7 @@ async function setUp(c: Ctx) {
     .post(c, '/structures', { name: `Staff ${rnd()}`, frequency: 'MONTHLY', effectiveFrom: '2026-04-01', status: 'ACTIVE', components: ids.map((componentId, i) => ({ componentId, displayOrder: i + 1, ...(i === 2 ? { isBalancing: true } : {}) })) })
     .expect(201);
   const person = await api
-    .post(c, '/employees', { name: 'Ravi Kumar', code: 'T101', dateOfJoining: '2026-04-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'OLD' } })
+    .post(c, '/employees', { name: 'Ravi Kumar', code: 'T101', dateOfJoining: '2026-04-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'OLD', pan: 'ABCDE1234F' } })
     .expect(201);
   const employeeId = person.body.employee.id;
   await api.post(c, '/assignments', { employeeId, structureId: structure.body.structure.id, effectiveFrom: '2026-04-01', annualCtc: 1_200_000 }).expect(201);

@@ -52,7 +52,7 @@ const events = (accountId: string) =>
 /** Switch on the authenticator and return a fresh step-up token. */
 async function stepUp(c: Ctx) {
   const sec = (p: string, b?: unknown) => request(app).post(`/api/orgs/${c.orgId}/security${p}`).set(at(c)).send(b as any);
-  const { secret } = (await sec('/two-factor/setup').expect(200)).body;
+  const { secret } = (await sec('/two-factor/setup', { password: PASSWORD }).expect(200)).body;
   await clearOfStepEdge();
   const s0 = stepNow();
   await sec('/two-factor/enable', { code: codeAt(secret, s0) }).expect(200);

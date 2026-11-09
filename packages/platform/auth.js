@@ -16,6 +16,10 @@ import { orgId as contextOrgId } from './context';
 export const login = ({ email, password }) =>
   apiFetch('/auth/login', { method: 'POST', body: { email, password }, skipAuth: true });
 
+/* A sign-in refused for an unconfirmed address carries a short token that asks for a new link (#4). */
+export const resendVerificationForSignIn = (challenge) =>
+  apiFetch('/auth/resend-verification/sign-in', { method: 'POST', body: { challenge }, skipAuth: true });
+
 /* The second step for someone with an authenticator: the challenge /auth/login returned, and a code. */
 export const loginTwoFactor = ({ challenge, code }) =>
   apiFetch('/auth/login/two-factor', { method: 'POST', body: { challenge, code }, skipAuth: true });

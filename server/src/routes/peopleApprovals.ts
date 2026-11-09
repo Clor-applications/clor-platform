@@ -5,7 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requireAnyPermission, requirePermission } from '../middleware/rbac.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from '../services/attendance/guards.js';
-import { inboxFor } from '../services/people/inbox.js';
+import { hasPersonalInbox, inboxFor, waitingFor as waitingCountFor } from '../services/people/inbox.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -221,20 +221,28 @@ const inboxRight = requireAnyPermission(
   [ATTENDANCE_MODULE, PermissionAction.EDIT, ATTENDANCE_RESOURCE.devices],
   [ATTENDANCE_MODULE, PermissionAction.EDIT, ATTENDANCE_RESOURCE.records],
 );
-peopleApprovalsRouter.get(
-  `${base}/inbox`,
-  /* Someone a step of the leave approval rule names has an inbox, whatever else they may do. */
-  async (req: any, res: any, next: any) => {
-    const orgId = req.tenant?.orgId || req.params?.orgId;
-    const userId = req.auth?.userId;
-    if (orgId && userId && (await peoplePrisma.leaveRequest.count({ where: { orgId, status: 'PENDING', ruleId: { not: null }, stepUserIds: { has: userId } } }))) return next();
-    return inboxRight(req, res, next);
-  },
-  async (req, res) => {
-    if (!(await peopleRouteOk(req, res))) return;
-    res.json(await inboxFor(req));
-  },
-);
+/* Someone a leave step names, with a task on their name, or managing someone's overtime has an inbox, whatever else they may do. */
+const inboxOrPersonal = async (req: any, res: any, next: any) => {
+  const orgId = req.tenant?.orgId || req.params?.orgId;
+  const userId = req.auth?.userId;
+  if (orgId && userId && (await hasPersonalInbox(orgId, userId))) return next();
+  return inboxRight(req, res, next);
+};
+peopleApprovalsRouter.get(`${base}/inbox`, inboxOrPersonal, async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json(await inboxFor(req));
+});
+
+/**
+ * The one waiting number (People plan 8 Nov 2026, §3 rule 1): what waits on
+ * this reader to approve, plus their own open tasks. Open to anyone in the
+ * company: it says nothing about anyone else, and a reader with no rights and
+ * no tasks gets nought.
+ */
+peopleApprovalsRouter.get(`${base}/inbox/waiting`, async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json(await waitingCountFor(req));
+});
 
 peopleApprovalsRouter.get(`${base}/requests/:id`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;

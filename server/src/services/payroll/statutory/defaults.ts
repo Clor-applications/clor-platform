@@ -12,7 +12,8 @@
  * it changes, never an edit here: a payslip records the version it used, and
  * editing a live rate would restate months that have already been filed.
  *
- * PF, ESI and TDS are accurate as of the 2025-26 Indian financial year.
+ * PF and ESI are accurate as of the 2025-26 Indian financial year; TDS for
+ * 2025-26 and 2026-27, each version citing the law it follows.
  * Professional tax and Labour Welfare Fund come from CLOR's state-by-state
  * research of 2 Nov 2026 (statePt.ts and stateLwf.ts), each rule's note naming
  * its source and how sure it is. Verify before relying on them for a live
@@ -86,6 +87,12 @@ export const SEED_RULES: SeedRule[] = [
     wageCeiling: null,
     eligibilityThreshold: null,
     rounding: 'NEAREST',
+    /*
+     * As first seeded, and left as it was: companies hold copies of it. The
+     * figures it lacks (old regime slabs by age, surcharge, employer NPS, the
+     * no-PAN rate) are the engine's fallbacks, the same as the 2026-04-01
+     * version below (statutory/engine.ts incomeTax).
+     */
     config: {
       standardDeduction: 75000,
       /* Each rate applies only to the part of income inside its band. */
@@ -114,7 +121,92 @@ export const SEED_RULES: SeedRule[] = [
       /* The old regime's own deduction and rebate (section 87A). */
       oldRegime: { standardDeduction: 50000, rebateUpTo: 500000, rebateMax: 12500, marginalRelief: false },
     },
-    note: 'Income tax withheld from salary, new regime by default. Declarations and investment proofs are not modelled yet.',
+    note: 'Income tax withheld from salary for 2025-26 (Income-tax Act 1961, Finance Act 2025), new regime by default.',
+  },
+  {
+    scheme: 'TDS',
+    jurisdiction: 'IN',
+    version: '2026-04-01',
+    effectiveFrom: '2026-04-01',
+    employeeRate: 0,
+    employerRate: 0,
+    wageCeiling: null,
+    eligibilityThreshold: null,
+    rounding: 'NEAREST',
+    /*
+     * Tax year 2026-27, the first under the Income-tax Act 2025 (as amended by
+     * the Finance Act 2026; ICAI's text of April 2026). The Finance Act 2026
+     * kept 2025-26's figures; this version writes every one of them down, with
+     * where it comes from, rather than leaving any to the engine.
+     */
+    config: {
+      /* Section 19(1) Table Sl. No. 2(a): ₹75,000 under section 202(1). */
+      standardDeduction: 75000,
+      /* Section 202(1) Table. */
+      newRegimeBands: [
+        { upTo: 400000, rate: 0 },
+        { upTo: 800000, rate: 5 },
+        { upTo: 1200000, rate: 10 },
+        { upTo: 1600000, rate: 15 },
+        { upTo: 2000000, rate: 20 },
+        { upTo: 2400000, rate: 25 },
+        { upTo: null, rate: 30 },
+      ],
+      /* Finance Act 2026, First Schedule Part III Paragraph A(I): under 60. */
+      oldRegimeBands: [
+        { upTo: 250000, rate: 0 },
+        { upTo: 500000, rate: 5 },
+        { upTo: 1000000, rate: 20 },
+        { upTo: null, rate: 30 },
+      ],
+      /* Section 156(2): rebate up to ₹60,000 on income up to ₹12 lakh, with marginal relief above. */
+      rebateUpTo: 1200000,
+      rebateMax: 60000,
+      marginalRelief: true,
+      /* Finance Act 2026 section 3(12)(b) Table Sl. No. 10: section 202 income, capped at 25%. */
+      surcharge: [
+        { over: 5000000, rate: 10 },
+        { over: 10000000, rate: 15 },
+        { over: 20000000, rate: 25 },
+      ],
+      /* Section 124(2): 14% of salary under section 202(1). */
+      employerNpsRate: 14,
+      /* Health and Education Cess, 4% of tax and surcharge (Finance Act 2026 section 3). */
+      cessRate: 4,
+      /* Section 397(2)(b)(i)(C): 20% where no valid PAN is furnished. */
+      noPanRate: 20,
+      oldRegime: {
+        /* Section 19(1) Table Sl. No. 2(b). */
+        standardDeduction: 50000,
+        /* Section 156(1): up to ₹12,500 on income up to ₹5 lakh, no marginal relief. */
+        rebateUpTo: 500000,
+        rebateMax: 12500,
+        marginalRelief: false,
+        /* Part III Paragraph A(II), resident 60 to 79 at any time in the year. */
+        seniorBands: [
+          { upTo: 300000, rate: 0 },
+          { upTo: 500000, rate: 5 },
+          { upTo: 1000000, rate: 20 },
+          { upTo: null, rate: 30 },
+        ],
+        /* Part III Paragraph A(III), resident 80 or over. */
+        superSeniorBands: [
+          { upTo: 500000, rate: 0 },
+          { upTo: 1000000, rate: 20 },
+          { upTo: null, rate: 30 },
+        ],
+        /* Part III Paragraph F Table 1 Sl. No. 1, with marginal relief under Table 2. */
+        surcharge: [
+          { over: 5000000, rate: 10 },
+          { over: 10000000, rate: 15 },
+          { over: 20000000, rate: 25 },
+          { over: 50000000, rate: 37 },
+        ],
+        /* Section 124(1)(b): 10% of salary, an employer other than a government. */
+        employerNpsRate: 10,
+      },
+    },
+    note: 'Income tax withheld from salary for 2026-27 (Income-tax Act 2025 section 392, Finance Act 2026), new regime by default. Same figures as 2025-26.',
   },
   ...PT_SEEDS,
   ...LWF_SEEDS,
@@ -124,7 +216,7 @@ export const SEED_RULES: SeedRule[] = [
  * Bumped whenever the rules above change, so every company that has seeded
  * before is topped up once (resolve.ts `ensureStatutoryCatalogue`).
  */
-export const SEED_CATALOGUE_VERSION = '2026-11-02.3';
+export const SEED_CATALOGUE_VERSION = '2026-11-06.1';
 
 /**
  * Rules CLOR seeded once and has since corrected under a new version, kept so

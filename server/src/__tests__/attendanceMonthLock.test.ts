@@ -66,7 +66,19 @@ describe('a closed month', () => {
     const refused = await att(c).post('/months/2026-09/close').expect(409);
     expect(refused.body.code).toBe('MONTH_NOT_READY');
     expect(refused.body.readiness.checks.find((x: any) => x.key === 'noRecord').count).toBeGreaterThan(0);
-    const closed = await att(c).post('/months/2026-09/close', { acknowledge: true }).expect(200);
+    // Working days with no record are docked as unpaid absence: an acknowledgement alone is not enough (audit #5).
+    const noRecordDays = refused.body.readiness.noRecordDays;
+    expect(noRecordDays).toBeGreaterThan(0);
+    const unconfirmed = await att(c).post('/months/2026-09/close', { acknowledge: true }).expect(409);
+    expect(unconfirmed.body.code).toBe('NO_RECORD_UNCONFIRMED');
+    expect(unconfirmed.body.people.find((x: any) => x.employeeId === p.id).days).toContain('2026-09-03');
+    const token = refused.body.readiness.noRecordToken;
+    expect(token).toMatch(/^[0-9a-f]{24}$/);
+    await att(c).post('/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: noRecordDays - 1, confirmNoRecordToken: token }).expect(409);
+    /* The count alone is not enough: the token names the days that were shown. */
+    await att(c).post('/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: noRecordDays }).expect(409);
+    await att(c).post('/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: noRecordDays, confirmNoRecordToken: 'f'.repeat(24) }).expect(409);
+    const closed = await att(c).post('/months/2026-09/close', { acknowledge: true, confirmNoRecordDays: noRecordDays, confirmNoRecordToken: token }).expect(200);
     expect(closed.body.closed).toBeTruthy();
     // What Payroll takes is kept as a numbered snapshot.
     expect(closed.body.snapshot.version).toBe(1);

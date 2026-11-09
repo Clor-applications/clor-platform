@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LocateFixed, MapPin, Plus, Search, Users } from 'lucide-react';
+import { Globe, LocateFixed, MapPin, Plus, Search, Users } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -10,6 +10,8 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
 import { createGeofence, deleteGeofence, listGeofences, placeAt, searchPlaces, updateGeofence } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { usePermissions } from '@ui/permissions/usePermissions';
+import WebClockSettings from '../components/WebClockSettings';
 
 /* The map library (Leaflet, ~150 KB) loads with this drawer, not with the app every user downloads. */
 const SiteMap = lazy(() => import('../components/SiteMap'));
@@ -40,6 +42,10 @@ export default function Geofences() {
   const [areas, setAreas] = useState([]);
   const [editing, setEditing] = useState(null);
   const [status, setStatus] = useState('ACTIVE');
+  /* Where a browser clock-in may come from sits beside where a phone punch may (audit #6). */
+  const [webClock, setWebClock] = useState(false);
+  const perms = usePermissions();
+  const canEditPortal = Boolean(perms?.isAdmin) || Boolean(perms?.permissions?.has?.('ATTENDANCE::Employee Portal::EDIT'));
   const load = useCallback(() => {
     listGeofences().then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load sites.')));
   }, []);
@@ -77,6 +83,8 @@ export default function Geofences() {
       tight
       denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search punch areas…', label: 'Search punch areas' }}
+      moreItems={[{ key: 'webClock', label: 'Clock-in from a browser', Icon: Globe }]}
+      onMoreSelect={(k) => { if (k === 'webClock') setWebClock(true); }}
       primary={
         <button type="button" className="ui-btn ui-btn-primary" onClick={add}>
           <Plus size={16} aria-hidden="true" /> New site
@@ -142,6 +150,7 @@ export default function Geofences() {
           </table>
         </div>
       )}
+      {webClock ? <WebClockSettings canEdit={canEditPortal} onClose={() => setWebClock(false)} /> : null}
       {editing ? <SiteForm initial={editing} areas={areas} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}
     </DocumentListShell>
   );

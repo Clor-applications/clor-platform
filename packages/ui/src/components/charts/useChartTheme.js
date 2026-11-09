@@ -18,7 +18,7 @@ const readVar = (name, fallback) => {
 };
 
 const build = () => ({
-  brand: readVar('--brand', '#C8102E'),
+  brand: readVar('--brand', '#FF5400'),
   accent: readVar('--accent', '#C2410C'),
   brandDeep: readVar('--brand-deep', '#C2410C'),
   info: readVar('--info', '#2563EB'),

@@ -14,7 +14,12 @@ import { notifyPermission } from '../services/notifications.js';
 import { privacyNoticeFor } from '../services/attendance/privacyNotice.js';
 import { clearBiometricPolicy } from '../services/attendance/biometrics.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
-import { DeclarationError, financialYearOf, saveDeclaration, shapeDeclaration } from '../services/payroll/taxDeclaration.js';
+import { DeclarationError, financialYearOf, regimeInForce, saveDeclaration, shapeDeclaration } from '../services/payroll/taxDeclaration.js';
+import { anotherApproverExists } from '../services/makerChecker.js';
+import { resolveAccess } from '../services/access.js';
+import { permKey } from '../constants/permissionCatalog.js';
+import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
+import { PermissionAction } from '../constants/enums.js';
 import { isDevOrTest } from '../utils/devMode.js';
 import { announcementReaches, departmentNames } from '../services/people/workspace.js';
 import { isFeatureEnabled } from '../services/features.js';
@@ -752,11 +757,13 @@ portalRouter.get('/schedule', async (req, res) => {
 portalRouter.get('/leave', async (req, res) => {
   const { accountId, orgId, employeeId } = req.portal!;
   const y = Number(req.query.year);
-  const year = Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : await leaveYearOf(orgId);
+  const thisYear = await leaveYearOf(orgId);
+  const year = Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : thisYear;
   const { types, balances, period } = await balancesFor(accountId, orgId, [employeeId], year);
   const mine = balances.get(employeeId)!;
+  /* This leave year also lists what is asked for beyond it (a January trip asked for in November), so it can still be changed or withdrawn. */
   const requests = await peoplePrisma.leaveRequest.findMany({
-    where: { accountId, orgId, employeeId, fromDate: { gte: periodStart(period, year), lte: periodEnd(period, year) } },
+    where: { accountId, orgId, employeeId, fromDate: year === thisYear ? { gte: periodStart(period, year) } : { gte: periodStart(period, year), lte: periodEnd(period, year) } },
     orderBy: [{ fromDate: 'desc' }, { createdAt: 'desc' }],
   });
   res.json({
@@ -1379,6 +1386,21 @@ portalRouter.put('/tax', async (req, res) => {
   const e = req.portal!.employee;
   if (!(await paidHere(e))) return res.status(404).json({ error: 'Your company does not run payroll here.' });
   const financialYear = financialYearOf(today());
+  /*
+   * Somebody who runs payroll and also signs in here (re-review of #146): the
+   * same rule as Payroll › Tax declarations. Their own regime is somebody
+   * else's to change while anybody else holds Payroll's edit right.
+   */
+  const linked = await peoplePrisma.employee.findFirst({ where: { id: e.id, orgId: e.orgId }, select: { userId: true } });
+  if (linked?.userId && req.body?.regime !== undefined) {
+    const key = permKey(PAYROLL_MODULE, PAYROLL_RESOURCE.profile, PermissionAction.EDIT);
+    const access = await resolveAccess(e.accountId, e.orgId, linked.userId);
+    if ((access.isAdmin || access.permissions.has(key)) && String(req.body.regime) !== (await regimeInForce(e.orgId, e.id, financialYear))) {
+      if (await anotherApproverExists(e.accountId, e.orgId, linked.userId, key)) {
+        return res.status(403).json({ error: 'You run payroll here, so somebody else has to change your own tax regime.', code: 'OWN_RECORD' });
+      }
+    }
+  }
   try {
     const row = await saveDeclaration({ accountId: e.accountId, orgId: e.orgId }, e.id, financialYear, req.body, { userId: who(req).userId, asEmployee: true });
     res.json({ available: true, declaration: shapeDeclaration(row, e.id, financialYear) });

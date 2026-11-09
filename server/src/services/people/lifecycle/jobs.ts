@@ -4,12 +4,12 @@ import { outsideTenant, runInTenant } from '../../../utils/tenantScope.js';
 import { exclusive, leaseFor } from '../../jobLease.js';
 import { registerJob } from '../../jobRegistry.js';
 import { sendTemplate } from '../../mailer.js';
-import { sendNotice, usersWithPermission } from '../../notifications.js';
+import { upsertNotice, usersWithPermission } from '../../notifications.js';
 import { startChecklist } from '../checklists.js';
 import { NO_SETTLEMENT } from './leaving.js';
 import { checkReaderTasks } from './readersDone.js';
 import { automation, recordRun } from '../engagement/automations.js';
-import { addDays as plus, todayIst } from '../../../utils/istDate.js';
+import { addDays as plus, dayWords, todayIst } from '../../../utils/istDate.js';
 
 /**
  * The Joining & Leaving job (every 15 minutes, woken by Cloud Scheduler on
@@ -70,7 +70,7 @@ async function digestFor(accountId: string, orgId: string, today: string) {
   const due = (await peoplePrisma.checklistTask.findMany({ where: { orgId, doneAt: null, dueDate: { lte: today }, OR: [{ remindedOn: null }, { remindedOn: { lt: today } }] }, orderBy: { dueDate: 'asc' }, take: 1000 })) as DueTask[];
   if (!due.length) return 0;
   const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(due.map((t) => t.employeeId))] } }, select: { id: true, name: true } })).map((p) => [p.id, p.name]));
-  const line = (t: DueTask) => `- ${t.title} — ${people.get(t.employeeId) || 'someone'}${t.dueDate && t.dueDate < today ? ` (late since ${t.dueDate})` : ' (today)'}`;
+  const line = (t: DueTask) => `- ${t.title} — ${people.get(t.employeeId) || 'someone'}${t.dueDate && t.dueDate < today ? ` (late since ${dayWords(t.dueDate)})` : ' (today)'}`;
   const byOwner = new Map<string, DueTask[]>();
   for (const t of due) if (t.ownerUserId) byOwner.set(t.ownerUserId, [...(byOwner.get(t.ownerUserId) || []), t]);
   /* Escalation: late by three or more days on someone else's name, or on nobody's, goes to HR too. */
@@ -87,12 +87,13 @@ async function digestFor(accountId: string, orgId: string, today: string) {
     const others = hr.includes(userId) ? stuck.filter((t) => t.ownerUserId !== userId) : [];
     if (!mine.length && !others.length) continue;
     const count = mine.length + others.length;
-    const n = await sendNotice(accountId, orgId, [userId], {
+    /* One row per person, refreshed each morning (never one per day piling up); my own tasks open Inbox › My tasks, others' the Tasks screen. Rows under the old dated keys go. */
+    const n = await upsertNotice(accountId, orgId, userId, {
       kind: 'people.task',
       title: mine.length ? `${mine.length} joining and leaving task${mine.length === 1 ? '' : 's'} due or late` : `${others.length} task${others.length === 1 ? '' : 's'} late on others' names`,
       body: [...mine, ...others].slice(0, 5).map(line).join('\n'),
-      link: { app: 'people', screen: 'checklists', params: { view: mine.length ? 'mine' : 'late' } } as any,
-    }, { dedupeKey: `lifecycle-digest:${userId}:${today}` }).catch(() => 0);
+      link: mine.length ? { app: 'people', screen: 'approvals', params: { tab: 'tasks' } } : { app: 'people', screen: 'checklists', params: { view: 'late' } },
+    }, `lifecycle-digest:${userId}`, { retire: { startsWith: `lifecycle-digest:${userId}:` } }).catch(() => 0);
     if (!n) continue;
     sent += 1;
     const u = users.get(userId);

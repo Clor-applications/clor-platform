@@ -36,7 +36,7 @@ beforeEach(() => {
 it('shows each choice as a sentence with its value, the standard or who changed it, and the two set elsewhere', async () => {
   const openScreen = vi.fn();
   render(<CompanyChoices openScreen={openScreen} />);
-  expect(await screen.findByRole('heading', { name: 'Company choices' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'Who decides & who sees' })).toBeTruthy();
   const who = screen.getByLabelText(/Missed punch, work from home, on duty, permission and shift change requests are decided by/);
   expect(who.value).toBe('HR_OR_MANAGER');
   expect(screen.getByText(/Whoever acts first/)).toBeTruthy();

@@ -1,5 +1,5 @@
 import { PRIVATE_LABEL, dayWords, readsPrivateLeave } from './leave.js';
-import { inScope, teamScope } from '../services/people/scope.js';
+import { inScope, teamScope, type TeamScope } from '../services/people/scope.js';
 import { Router } from 'express';
 import { pinMatcher, recomputeDeviceDay } from '../services/attendance/punches.js';
 import { z } from 'zod';
@@ -13,7 +13,7 @@ import { recordAudit } from '../services/auditTrail.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
-import { computeDay, istInstant, istTime, type ShiftRule } from '../services/attendance/compute.js';
+import { computeDay, istInstant, istTime, shiftRuleProblem, type ShiftRule } from '../services/attendance/compute.js';
 import { loadSchedule, resolveShift, toRule } from '../services/attendance/schedule.js';
 import { explainDay } from '../services/attendance/explain.js';
 import { dayDiff, daySnapshot, dayHistory } from '../services/attendance/history.js';
@@ -146,6 +146,8 @@ attendanceInsightsRouter.get(`${base}/days/explain`, can(PermissionAction.VIEW, 
   if (!date) return res.status(400).json({ error: 'Which day? Dates are YYYY-MM-DD.' });
   try {
     const employee = await employeeIn(orgId, accountId, String(req.query.employeeId || ''));
+    /* Outside a team-scoped role's team the person reads as absent. */
+    if (!inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
     res.json(await explainFor(orgId, employee, date, await readsPrivateLeave(req)));
   } catch (e) {
     return sendError(res, e);
@@ -171,6 +173,93 @@ attendanceInsightsRouter.get(`${base}/me/days/explain`, can(PermissionAction.VIE
 
 const EXC_STATUS = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'IGNORED'] as const;
 
+/* State rows for these keys, asked for in chunks so a long list stays under the database's parameter limit. */
+async function statesOf(orgId: string, keys: string[]) {
+  const out: Awaited<ReturnType<typeof peoplePrisma.attendanceExceptionState.findMany>> = [];
+  for (let i = 0; i < keys.length; i += 5000) out.push(...(await peoplePrisma.attendanceExceptionState.findMany({ where: { orgId, key: { in: keys.slice(i, i + 5000) } } })));
+  return out;
+}
+
+/**
+ * Sort keys by what they name, in this company and inside the caller's team:
+ * `live` is an item still to settle; `gone` is one that exists but was fixed
+ * at its source since (the day was corrected in Records, the request decided,
+ * the reader problem closed), so there is nothing left to settle. Anything else
+ * (another team's person, another company's record, a made-up key) is in
+ * neither. Reader IDs and reader problems belong to no team, so only a
+ * company-wide role may change them.
+ */
+async function sortKeys(orgId: string, scope: TeamScope, keys: string[]) {
+  const live = new Set<string>();
+  const gone = new Set<string>();
+  const put = (key: string, still: boolean) => (still ? live : gone).add(key);
+  const parts = keys.map((key) => ({ key, kind: key.split(':')[0], rest: key.split(':').slice(1) }));
+  const ofKind = (...k: string[]) => parts.filter((p) => k.includes(p.kind));
+  const person = (id: string | null | undefined) => Boolean(id) && inScope(scope, id as string);
+  const chunks = <T,>(list: T[]) => Array.from({ length: Math.ceil(list.length / 5000) }, (_, i) => list.slice(i * 5000, i * 5000 + 5000));
+  /* A day of one person's record: still to settle while the day still shows it. */
+  for (const c of chunks(ofKind('MISSING_OUT', 'OVERTIME', 'READER_ON_MANUAL'))) {
+    const rows = await peoplePrisma.attendanceRecord.findMany({ where: { orgId, id: { in: c.map((p) => p.rest[0]) } }, select: { id: true, employeeId: true, checkIn: true, checkOut: true, overtimeMinutes: true, overtimeApproved: true, trust: true, trustReasons: true } });
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    for (const p of c) {
+      const r = byId.get(p.rest[0]);
+      if (!r || !person(r.employeeId)) continue;
+      if (p.kind === 'MISSING_OUT') put(p.key, Boolean(r.checkIn && !r.checkOut));
+      else if (p.kind === 'OVERTIME') put(p.key, r.overtimeMinutes > 0 && !r.overtimeApproved);
+      else put(p.key, r.trust === 'MANUAL' && reasonsOf(r.trustReasons).some((x) => x.code === PUNCH_ON_DECIDED));
+    }
+  }
+  /* A working day with nothing on it: the person, a valid date, and still no record that day. */
+  for (const c of chunks(ofKind('NO_RECORD').filter((p) => ISO_DATE.test(p.rest[1] || '')))) {
+    const who = [...new Set(c.map((p) => p.rest[0]))];
+    const there = new Set((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: who } }, select: { id: true } })).map((r) => r.id));
+    const days = new Set((await peoplePrisma.attendanceRecord.findMany({ where: { orgId, employeeId: { in: who }, date: { in: [...new Set(c.map((p) => p.rest[1]))] } }, select: { employeeId: true, date: true } })).map((r) => `${r.employeeId}:${r.date}`));
+    for (const p of c) if (there.has(p.rest[0]) && person(p.rest[0])) put(p.key, !days.has(`${p.rest[0]}:${p.rest[1]}`));
+  }
+  for (const [kind, model] of [['CORRECTION', peoplePrisma.attendanceRequest], ['LEAVE', peoplePrisma.leaveRequest]] as const) {
+    for (const c of chunks(ofKind(kind))) {
+      const rows = await (model as any).findMany({ where: { orgId, id: { in: c.map((p) => p.rest[0]) } }, select: { id: true, employeeId: true, status: true } });
+      const byId = new Map<string, { employeeId: string; status: string }>(rows.map((r: any) => [r.id, r]));
+      for (const p of c) {
+        const r = byId.get(p.rest[0]);
+        if (r && person(r.employeeId)) put(p.key, r.status === 'PENDING');
+      }
+    }
+  }
+  const clash = ofKind('SHIFT_CLASH');
+  if (clash.length) {
+    const rows = await peoplePrisma.temporarySchedule.findMany({ where: { orgId, id: { in: clash.flatMap((p) => p.rest.slice(0, 2)) } }, select: { id: true, employeeId: true } });
+    const byId = new Map(rows.map((r) => [r.id, r.employeeId]));
+    for (const p of clash) if (p.rest.length === 2 && byId.get(p.rest[0]) === byId.get(p.rest[1]) && person(byId.get(p.rest[0]))) put(p.key, true);
+  }
+  if (scope.all) {
+    const alerts = ofKind('READER');
+    if (alerts.length) {
+      const rows = await peoplePrisma.readerAlert.findMany({ where: { orgId, id: { in: alerts.map((p) => p.rest[0]) } }, select: { id: true, resolvedAt: true } });
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      for (const p of alerts) if (byId.has(p.rest[0])) put(p.key, !byId.get(p.rest[0])!.resolvedAt);
+    }
+    const pins = ofKind('UNMATCHED');
+    if (pins.length) {
+      const asked = pins.map((p) => p.rest.join(':'));
+      const seen = await peoplePrisma.devicePunch.groupBy({ by: ['pin'], where: { orgId, pin: { in: asked } }, _count: { _all: true } });
+      const unmatched = new Set((await peoplePrisma.devicePunch.groupBy({ by: ['pin'], where: { orgId, employeeId: null, pin: { in: asked } } })).map((r) => r.pin));
+      const known = new Set(seen.map((r) => r.pin));
+      for (const p of pins) if (known.has(p.rest.join(':'))) put(p.key, unmatched.has(p.rest.join(':')));
+    }
+  }
+  return { live, gone };
+}
+const EXC_KINDS = ['MISSING_OUT', 'NO_RECORD', 'OVERTIME', 'CORRECTION', 'LEAVE', 'UNMATCHED', 'READER', 'SHIFT_CLASH', 'READER_ON_MANUAL'] as const;
+/*
+ * Rows sent in one answer. Past it the answer says how many there are, and a
+ * kind or a shorter range (both applied before the cap) reaches the rest:
+ * 600 people with nobody marked for a week is 3,000 "No attendance" items.
+ */
+const EXC_LIMIT = 5000;
+/* Items one bulk change takes; the screen sends more in batches of this size. */
+const EXC_BULK_MAX = 500;
+
 attendanceInsightsRouter.get(`${base}/exceptions`, can(PermissionAction.VIEW, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -181,13 +270,13 @@ attendanceInsightsRouter.get(`${base}/exceptions`, can(PermissionAction.VIEW, R.
   /* A long range is a report, not a work queue. */
   if (addDays(from, 62) < to) from = addDays(to, -62);
   const show = String(req.query.show || 'open');
+  /* One kind, chosen before the cap below, so picking a kind really does reach all of it. */
+  const kindQ = String(req.query.kind || '');
+  const onlyKind = EXC_KINDS.includes(kindQ as any) ? kindQ : '';
 
-  const [{ people }, queues, states] = await Promise.all([
-    scanDays(accountId, orgId, from, to),
-    scanQueues(orgId, from, to),
-    peoplePrisma.attendanceExceptionState.findMany({ where: { orgId } }),
-  ]);
-  const stateOf = new Map(states.map((s) => [s.key, s]));
+  /* A team-scoped role sees its own team's items only, and every count is over those. */
+  const scope = await teamScope(req);
+  const [{ people }, queues] = await Promise.all([scanDays(accountId, orgId, from, to, scope), scanQueues(orgId, from, to, scope)]);
   const items: any[] = [];
   const add = (x: { key: string; kind: string; severity: 'high' | 'medium' | 'low'; title: string; detail: string; employeeId?: string | null; employeeName?: string | null; date?: string | null; screen: string; ref?: string | null }) => items.push(x);
 
@@ -206,7 +295,7 @@ attendanceInsightsRouter.get(`${base}/exceptions`, can(PermissionAction.VIEW, R.
 
   /* Reader trust (O-11): a reader punch reached a day already decided by hand. The day was not changed; HR decides. */
   if (await readerTrustOn(accountId, orgId)) {
-    const decided = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: from, lte: to }, trust: 'MANUAL' }, select: { id: true, employeeId: true, date: true, trustReasons: true } });
+    const decided = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: from, lte: to }, trust: 'MANUAL', ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, select: { id: true, employeeId: true, date: true, trustReasons: true } });
     const raised = decided.filter((r) => reasonsOf(r.trustReasons).some((x) => x.code === PUNCH_ON_DECIDED));
     const names = await named(raised.map((r) => ({ employeeId: r.employeeId })));
     raised.forEach((r, i) => {
@@ -215,6 +304,9 @@ attendanceInsightsRouter.get(`${base}/exceptions`, can(PermissionAction.VIEW, R.
     });
   }
 
+  /* Only the state rows of the items listed, not every row ever kept. */
+  const states = await statesOf(orgId, items.map((x) => x.key));
+  const stateOf = new Map(states.map((s) => [s.key, s]));
   const assignees = await namesOf(states.map((s) => s.assigneeUserId || '').filter(Boolean));
   const withState = items.map((x) => {
     const s = stateOf.get(x.key);
@@ -232,7 +324,14 @@ attendanceInsightsRouter.get(`${base}/exceptions`, can(PermissionAction.VIEW, R.
   visible.sort((a, b) => order[a.severity] - order[b.severity] || String(b.date || '').localeCompare(String(a.date || '')));
   const counts: Record<string, number> = {};
   for (const x of withState.filter((y) => y.status === 'OPEN' || y.status === 'IN_PROGRESS')) counts[x.kind] = (counts[x.kind] || 0) + 1;
-  res.json({ from, to, counts, total: visible.length, exceptions: visible.slice(0, 1000), truncated: visible.length > 1000 });
+  /* The figures strip counts everything shown, of every kind, not just the rows sent. */
+  const figures = { high: 0, medium: 0, low: 0, unowned: 0 };
+  for (const x of visible) {
+    figures[x.severity as 'high' | 'medium' | 'low'] += 1;
+    if (!x.assigneeUserId && (x.status === 'OPEN' || x.status === 'IN_PROGRESS')) figures.unowned += 1;
+  }
+  const inKind = onlyKind ? visible.filter((x) => x.kind === onlyKind) : visible;
+  res.json({ from, to, kind: onlyKind || null, counts, figures, total: inKind.length, limit: EXC_LIMIT, exceptions: inKind.slice(0, EXC_LIMIT), truncated: inKind.length > EXC_LIMIT });
 });
 
 
@@ -249,6 +348,8 @@ attendanceInsightsRouter.post(`${base}/exceptions/state`, can(PermissionAction.E
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid change.' });
   const b = parsed.data;
+  const sorted = await sortKeys(orgId, await teamScope(req), [b.key]);
+  if (!sorted.live.has(b.key) && !sorted.gone.has(b.key)) return res.status(404).json({ error: 'No such item.' });
   const kind = b.key.split(':')[0];
   let assigneeUserId: string | null | undefined;
   if (b.assignee === 'me') assigneeUserId = req.auth!.userId;
@@ -283,26 +384,39 @@ attendanceInsightsRouter.post(`${base}/exceptions/state/bulk`, can(PermissionAct
   const { accountId, orgId } = req.tenant!;
   const parsed = z
     .object({
-      keys: z.array(z.string().trim().min(3).max(200)).min(1).max(500),
+      keys: z.array(z.string().trim().min(3).max(200)).min(1, 'Pick at least one item.').max(EXC_BULK_MAX, `At most ${EXC_BULK_MAX} items at a time. Send the rest in another batch.`),
       status: z.enum(['RESOLVED', 'IGNORED', 'OPEN']),
       note: z.string().trim().max(500).optional().nullable(),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid change.' });
   const { status, note } = parsed.data;
-  const keys = [...new Set(parsed.data.keys)];
+  const sent = [...new Set(parsed.data.keys)];
+  /* Only items that exist, in this company, inside the caller's team, and are still to settle. */
+  const { live, gone } = await sortKeys(orgId, await teamScope(req), sent);
   const closing = status !== 'OPEN';
+  const keys = closing ? [...live] : [...live, ...gone];
   const closed = closing ? { resolvedAt: new Date(), resolvedByUserId: req.auth!.userId } : { resolvedAt: null, resolvedByUserId: null };
-  await peoplePrisma.$transaction(
-    keys.map((key) =>
-      peoplePrisma.attendanceExceptionState.upsert({
-        where: { orgId_key: { orgId, key } },
-        create: { accountId, orgId, key, kind: key.split(':')[0], status, note: note || null, ...(closing ? closed : {}) },
-        update: { status, ...(note !== undefined ? { note: note || null } : {}), ...closed },
+  /*
+   * Change only what is still in the state this change starts from: settling
+   * or ignoring takes open items (or ones nobody has touched, which have no
+   * row), reopening takes settled or ignored ones. A colleague's decision made
+   * in the meantime is left alone and counted as skipped, never overwritten.
+   */
+  const from = closing ? ['OPEN', 'IN_PROGRESS'] : ['RESOLVED', 'IGNORED'];
+  const changed = keys.length
+    ? await peopleWrite(orgId, async () => {
+        const created = closing
+          ? (await peoplePrisma.attendanceExceptionState.createMany({ data: keys.map((key) => ({ accountId, orgId, key, kind: key.split(':')[0], status, note: note || null, ...closed })), skipDuplicates: true })).count
+          : 0;
+        /* A row just created already has the new status, so the update below cannot count it twice. */
+        const updated = (await peoplePrisma.attendanceExceptionState.updateMany({ where: { orgId, key: { in: keys }, status: { in: from } }, data: { status, ...(note !== undefined ? { note: note || null } : {}), ...closed } })).count;
+        return created + updated;
       })
-    )
-  );
-  res.json({ updated: keys.length });
+    : 0;
+  /* Fixed at the source since, or decided by someone else meanwhile: skipped, not claimed. */
+  const known = live.size + gone.size;
+  res.json({ updated: changed, changed, skipped: known - changed, unknown: sent.length - known });
 });
 
 // ---------------------------------------------------------------------------
@@ -314,9 +428,11 @@ attendanceInsightsRouter.get(`${base}/months/:month/readiness`, can(PermissionAc
   const { accountId, orgId } = req.tenant!;
   const month = String(req.params.month);
   if (!isMonth(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
-  const r = await monthReadiness(accountId, orgId, month);
+  const scope = await teamScope(req);
+  const r = await monthReadiness(accountId, orgId, month, scope);
   const by = await namesOf(r.snapshots.map((s) => s.createdByUserId));
-  res.json({ ...r, snapshots: r.snapshots.map((s) => ({ ...s, by: actorName(s.createdByUserId, by) })), confirmations: await confirmationsFor(orgId, month) });
+  /* `scope: 'team'` tells the screen this role sees its team, and does not close or reopen the month. */
+  res.json({ ...r, scope: scope.all ? 'company' : 'team', snapshots: r.snapshots.map((s) => ({ ...s, by: actorName(s.createdByUserId, by) })), confirmations: await confirmationsFor(orgId, month) });
 });
 
 /**
@@ -329,6 +445,12 @@ attendanceInsightsRouter.get(`${base}/months/:month/payroll-readiness`, can(Perm
   const { accountId, orgId } = req.tenant!;
   const month = String(req.params.month);
   if (!isMonth(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
+  /*
+   * The whole company's pay run: headcounts, named blockers and rupees at stake,
+   * with People and Payroll data checks that know no team. A team-scoped role
+   * is told so, and month close shows its own team's days.
+   */
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Payroll readiness covers the whole company. Month close shows your team’s days.', code: 'TEAM_SCOPED' });
   const pay = !(await authorize(req, PAYROLL_MODULE, PermissionAction.VIEW as any, PAYROLL_RESOURCE.assignments));
   res.json(await payrollReadiness(accountId, orgId, month, { pay }));
 });
@@ -338,7 +460,18 @@ attendanceInsightsRouter.get(`${base}/months/:month/snapshots/:version`, can(Per
   const { orgId } = req.tenant!;
   const snap = await peoplePrisma.attendanceMonthSnapshot.findUnique({ where: { orgId_month_version: { orgId, month: String(req.params.month), version: Number(req.params.version) || 0 } } });
   if (!snap) return res.status(404).json({ error: 'No such snapshot.' });
-  res.json({ month: snap.month, version: snap.version, createdAt: snap.createdAt, rows: JSON.parse(snap.rowsJson), readiness: JSON.parse(snap.readinessJson) });
+  const rows = JSON.parse(snap.rowsJson || '[]') as Array<{ employeeId: string }>;
+  const readiness = JSON.parse(snap.readinessJson || 'null');
+  const scope = await teamScope(req);
+  if (scope.all) return res.json({ month: snap.month, version: snap.version, createdAt: snap.createdAt, rows, readiness });
+  /* A team-scoped role gets its own team's rows and people; the company-wide checklist counts are left out. */
+  res.json({
+    month: snap.month,
+    version: snap.version,
+    createdAt: snap.createdAt,
+    rows: rows.filter((r) => inScope(scope, r.employeeId)),
+    readiness: readiness ? { people: (readiness.people || []).filter((p: { employeeId: string }) => inScope(scope, p.employeeId)) } : null,
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -421,7 +554,9 @@ attendanceInsightsRouter.post(`${base}/records/bulk`, can(PermissionAction.EDIT,
     const ok = await requirePermissionNow(req, PermissionAction.APPROVE, R.records);
     if (!ok) return res.status(403).json({ error: 'Approving overtime needs approve rights on attendance records.' });
   }
-  const records = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, id: { in: b.ids } } });
+  /* A team-scoped role changes its own team's days only; anyone else's reads as not found. */
+  const scope = await teamScope(req);
+  const records = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, id: { in: b.ids }, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) } });
   const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(records.map((r) => r.employeeId))] } }, select: { id: true, name: true, branchId: true, areaId: true } })).map((p) => [p.id, p]));
   const schedule = await loadSchedule(orgId, [...people.keys()]);
   const locks = new Set((await peoplePrisma.attendanceMonthLock.findMany({ where: { orgId }, select: { month: true } })).map((l) => l.month));
@@ -465,7 +600,7 @@ attendanceInsightsRouter.post(`${base}/records/bulk`, can(PermissionAction.EDIT,
       if (b.operation === 'APPROVE_OVERTIME') {
         const updated = await peoplePrisma.attendanceRecord.update({ where: { id: r.id }, data: { overtimeApproved: true } });
         const { logDayChange } = await import('../services/attendance/history.js');
-        await logDayChange({ accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'BULK', before: r, after: updated, userId: req.auth!.userId, reason: b.reason });
+        await logDayChange({ accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'OVERTIME', before: r, after: updated, userId: req.auth!.userId, reason: b.reason });
       } else {
         const person = people.get(r.employeeId)!;
         await writeDay({
@@ -571,6 +706,10 @@ attendanceInsightsRouter.post(`${base}/rules/simulate`, can(PermissionAction.VIE
   const current: ShiftRule = toRule(shift);
   const proposed: ShiftRule = { ...current, ...Object.fromEntries(Object.entries(b.changes).filter(([, v]) => v !== undefined)) } as ShiftRule;
   if (proposed.halfDayMinutes > proposed.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.' });
+  /* The same rule a save applies (routes/attendance.ts): a change to the hours that the shift could never meet is not previewed as if it could. */
+  const HOURS = ['startTime', 'endTime', 'breakMinutes', 'halfDayMinutes', 'fullDayMinutes'] as const;
+  const problem = HOURS.some((k) => b.changes[k] !== undefined && b.changes[k] !== (current as any)[k]) ? shiftRuleProblem(proposed) : null;
+  if (problem) return res.status(400).json({ error: problem, code: 'SHIFT_RULES' });
   const records = await peoplePrisma.attendanceRecord.findMany({ where: { orgId, accountId, shiftId: shift.id, date: { gte: b.from, lte: b.to } } });
   const locks = new Set((await peoplePrisma.attendanceMonthLock.findMany({ where: { orgId }, select: { month: true } })).map((l) => l.month));
   const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(records.map((r) => r.employeeId))] } }, select: { id: true, name: true, branchId: true, areaId: true } })).map((p) => [p.id, p]));
@@ -765,6 +904,8 @@ attendanceInsightsRouter.get(`${base}/me/leave/explain`, can(PermissionAction.VI
 attendanceInsightsRouter.get(`${base}/evidence/punches`, can(PermissionAction.VIEW, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
+  /* Outside a team-scoped role's team the person reads as absent, whatever the company's settings. */
+  if (!inScope(await teamScope(req), String(req.query.employeeId || ''))) return res.status(404).json({ error: 'No such employee.' });
   if (!(await readerTrustOn(accountId, orgId))) return res.status(409).json({ error: 'Turn on reader trust in Attendance policy first.', code: 'READER_TRUST_OFF' });
   const from = dateQ(req.query.from);
   const to = dateQ(req.query.to);
@@ -794,6 +935,8 @@ attendanceInsightsRouter.get(`${base}/evidence/punches`, can(PermissionAction.VI
 attendanceInsightsRouter.post(`${base}/trust/recompute`, can(PermissionAction.EDIT, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
+  /* It works over every person's days: a company-wide job. */
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Working reader trust out again is done by someone who sees the whole company.', code: 'TEAM_SCOPED' });
   if (!(await readerTrustOn(accountId, orgId))) return res.status(409).json({ error: 'Turn on reader trust in Attendance policy first.', code: 'READER_TRUST_OFF' });
   const from = dateQ(req.body?.from);
   const to = dateQ(req.body?.to);
@@ -811,6 +954,7 @@ attendanceInsightsRouter.get(`${base}/evidence`, can(PermissionAction.VIEW, R.re
   if (addDays(from, 92) < to) return res.status(400).json({ error: 'Up to 92 days at a time.' });
   try {
     const employee = await employeeIn(orgId, accountId, String(req.query.employeeId || ''));
+    if (!inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
     const reads = await readsPrivateLeave(req);
     const privateTypes = new Set((await peoplePrisma.leaveType.findMany({ where: { orgId, isPrivate: true }, select: { id: true } })).map((t) => t.id));
     const fromAt = istInstant(from, '00:00');
@@ -1095,6 +1239,8 @@ attendanceInsightsRouter.put(`${base}/overtime/rules`, can(PermissionAction.EDIT
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the rules.' });
+  /* The rules are the company's: a team role does not set them. */
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Overtime rules are set by someone who decides for the whole company.', code: 'TEAM_SCOPED' });
   const v = parsed.data;
   if (v.compOffEnabled && !v.compOffLeaveTypeId) return res.status(400).json({ error: 'Choose the leave type comp-off days are added to.' });
   if (v.compOffLeaveTypeId && !(await peoplePrisma.leaveType.findFirst({ where: { id: v.compOffLeaveTypeId, orgId } }))) return res.status(400).json({ error: 'No such leave type.' });
@@ -1113,7 +1259,9 @@ attendanceInsightsRouter.get(`${base}/overtime/requests`, can(PermissionAction.V
   if (!(await attendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const status = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].includes(String(req.query.status)) ? String(req.query.status) : 'PENDING';
-  const rows = await peoplePrisma.overtimeRequest.findMany({ where: { orgId, status }, orderBy: { createdAt: status === 'PENDING' ? 'asc' : 'desc' }, take: 300 });
+  /* A team-scoped role sees its own team's requests. */
+  const scope = await teamScope(req);
+  const rows = await peoplePrisma.overtimeRequest.findMany({ where: { orgId, status, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: { createdAt: status === 'PENDING' ? 'asc' : 'desc' }, take: 300 });
   const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.employeeId))] } }, select: { id: true, name: true, code: true, reportingManagerId: true } });
   const by = new Map(people.map((p) => [p.id, p]));
   const chain = await overtimeChain(orgId);
@@ -1130,16 +1278,48 @@ attendanceInsightsRouter.get(`${base}/overtime/requests`, can(PermissionAction.V
   });
 });
 
-attendanceInsightsRouter.post(`${base}/overtime/requests/:id/:decision`, can(PermissionAction.EDIT, R.records), async (req, res) => {
+/**
+ * Who may decide overtime and comp-off (People plan 8 Nov 2026, step 2): HR by
+ * the Records right as before, or the step's approver by identity, whatever
+ * their role: the manager of everyone named (or whoever stands in for that
+ * manager today). A Team Manager under a MANAGER or MANAGER_THEN_HR chain was
+ * stuck before: the inbox showed nothing and the route refused them.
+ */
+const overtimeDecider = async (req: any, res: any, next: any) => {
+  const refusal = await authorize(req, ATTENDANCE_MODULE, PermissionAction.EDIT as any, R.records);
+  if (!refusal) return next();
+  const { orgId } = req.tenant!;
+  const ids: string[] = req.params?.id ? [String(req.params.id)] : Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
+  const me = ids.length ? await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } }) : null;
+  if (me) {
+    const rows = await peoplePrisma.overtimeRequest.findMany({ where: { orgId, id: { in: ids } }, select: { employeeId: true } });
+    let mine = rows.length === ids.length;
+    for (const r of rows) if (mine && !(await managerStepBy(orgId, me.id, r.employeeId, undefined, 'ATTENDANCE'))) mine = false;
+    if (mine) {
+      req.overtimeManagerOnly = me.id;
+      return next();
+    }
+  }
+  return res.status(refusal.status).json(refusal.body);
+};
+
+attendanceInsightsRouter.post(`${base}/overtime/requests/:id/:decision`, overtimeDecider, async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const decision = String(req.params.decision);
   if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'approve or reject.' });
   /* A team-scoped role decides its own team's overtime and comp-off only, as the bulk review does. */
-  const row = await peoplePrisma.overtimeRequest.findFirst({ where: { id: String(req.params.id), orgId }, select: { employeeId: true } });
+  const id = String(req.params.id);
+  const row = await peoplePrisma.overtimeRequest.findFirst({ where: { id, orgId }, select: { employeeId: true, managerApprovedAt: true } });
   if (!row || !inScope(await teamScope(req), row.employeeId)) return res.status(404).json({ error: 'No such request.' });
   try {
-    const r = await decideOvertime(orgId, String(req.params.id), decision === 'approve', { userId: req.auth!.userId }, String(req.body?.note || '').trim().slice(0, 500) || null);
+    /* Their manager (or stand-in) takes the manager's step where the chain has one; HR decides the rest. */
+    const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
+    const chain = (await engineOf(orgId, OVERTIME_SOURCE, id).then((e) => (onEngine(e) ? ((e.payload as { chain?: string })?.chain as any) : null))) || (await overtimeChain(orgId));
+    const step = (await engineChains(orgId, OVERTIME_SOURCE, [id])).get(id)?.step || 1;
+    const asManager = Boolean(me && chain !== 'HR' && !row.managerApprovedAt && !(step > 1) && (await managerStepBy(orgId, me.id, row.employeeId, undefined, 'ATTENDANCE')));
+    if ((req as any).overtimeManagerOnly && !asManager) return res.status(403).json({ error: 'This request is not yours to decide.' });
+    const r = await decideOvertime(orgId, id, decision === 'approve', { userId: req.auth!.userId, ...(asManager ? { managerId: me!.id } : {}) }, String(req.body?.note || '').trim().slice(0, 500) || null);
     res.json({ request: r });
   } catch (err: any) {
     res.status(err?.status || 500).json({ error: err?.message || 'Not done.' });
@@ -1187,7 +1367,7 @@ attendanceInsightsRouter.post(`${base}/phone-punches/bulk-review`, can(Permissio
   res.json(bulkReply(results));
 });
 
-attendanceInsightsRouter.post(`${base}/overtime/requests/bulk-review`, can(PermissionAction.EDIT, R.records), async (req, res) => {
+attendanceInsightsRouter.post(`${base}/overtime/requests/bulk-review`, overtimeDecider, async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const ids = bulkIds(req);
@@ -1211,6 +1391,8 @@ attendanceInsightsRouter.post(`${base}/overtime/requests/bulk-review`, can(Permi
     const chain = engines.get(id)?.chain || chainNow;
     /* Their manager, or whoever stands in for that manager today, takes the manager's step where the chain has one; anyone else decides as HR. */
     const asManager = Boolean(me && chain !== 'HR' && !r.managerApprovedAt && !((engines.get(id)?.step || 1) > 1) && (subjects.get(r.employeeId)?.reportingManagerId === me.id || (await managerStepBy(orgId, me.id, r.employeeId, undefined, 'ATTENDANCE'))));
+    /* Without the Records right, only the manager's step is theirs. */
+    if ((req as any).overtimeManagerOnly && !asManager) { results.push({ id, ok: false, error: 'This request is not yours to decide.' }); continue; }
     try {
       const out = await decideOvertime(orgId, id, approve, { userId: req.auth!.userId, ...(asManager ? { managerId: me!.id } : {}) }, note);
       if (out.status === 'PENDING') handedOn += 1;

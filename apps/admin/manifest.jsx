@@ -1,4 +1,6 @@
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from '@phosphor-icons/react';
+
+import { duo } from '@ui/components/ui/duoIcon';
 
 import { ICON } from './src/screens/wsKit.jsx';
 import SetupGuide from './src/screens/SetupGuide.jsx';
@@ -53,7 +55,7 @@ const CloseCompany = screen('CloseCompany');
 export const adminApp = {
   id: 'admin',
   name: 'Workspace',
-  icon: ShieldCheck,
+  icon: duo(ShieldCheck, 'ShieldCheck'),
   blurb: 'People, roles, sign-in, billing and the audit trail — for every app.',
   available: true,
   platform: true,
@@ -66,8 +68,9 @@ export const adminApp = {
   railOpensHome: true,
   /* The rail's foot: how far setup has got (owners and admins, until it is done), then Help, which leaves the bar. */
   railFoot: { Component: SetupGuide, helpIcon: ICON.help },
-  /* The icon set Clor Attendance draws in: Microsoft Fluent colour icons. */
-  iconSet: 'color',
+  /* People's icon family (owner, 9 Nov 2026): two-tone marks, and Fluent line icons on buttons and actions. */
+  iconSet: 'duo',
+  lineIcons: 'fluent',
 
   modules: [
     { key: 'home', label: 'Overview', icon: ICON.home, items: ['home'] },

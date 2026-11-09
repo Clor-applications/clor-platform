@@ -52,10 +52,11 @@ import { ask as askToRead, remind as ackRemind, report as ackReport } from '../s
 import { dataHealth, readinessOf } from '../services/people/dataHealth.js';
 import { KIND_LABEL, MERGEABLE, OrgError, STRUCTURE_KINDS, actionOf, ensureOrgDetail, headFields, headsOf, inUseRefusal, logStructure, mergeInto, movePeople, organizationOverview, peopleIn, retireBranch, structureChanges, structureHistory, targetFor, type Kind } from '../services/people/organization.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
+import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from '../services/attendance/guards.js';
 import { KINDS, checklistOf, cleanItems, itemsFor, myTasks, openTasks, ownPlanRefusal, lastDayMoved, redatePlan, startChecklist, tickRefusal, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { settleReaderTask } from '../services/people/lifecycle/readersDone.js';
 import { calendar, evidenceOf } from '../services/people/compliance.js';
-import { homeTodos } from '../services/people/home.js';
+import { homeGlance, homeTodosAndWaiting } from '../services/people/home.js';
 import { SetupError, changeSetup, peopleSetup } from '../services/people/setup.js';
 import { track } from '../services/productEvents.js';
 import { PAYROLL_HISTORY, lockPayrollEmployee } from '../services/payroll/employeeLock.js';
@@ -460,7 +461,8 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/statutory/reveal', can(Perm
 /** People → Home: what needs someone today (services/people/home.ts). */
 peopleRouter.get('/orgs/:orgId/people/home', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  res.json({ todos: await homeTodos(req) });
+  const [{ todos, waiting }, glance] = await Promise.all([homeTodosAndWaiting(req), homeGlance(req)]);
+  res.json({ todos, waiting, ...glance });
 });
 
 /** People → Home: the setup list and simple mode's suggestion, for whoever sets the company up (services/people/setup.ts). */
@@ -1263,8 +1265,11 @@ peopleRouter.get('/orgs/:orgId/people/data-health', can(PermissionAction.VIEW, E
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const payroll = !(await authorize(req, PAYROLL_MODULE, PermissionAction.VIEW as any, PAYROLL_RESOURCE.profile));
+  /* The full-day fix's days are attendance records: listed only for someone who may see them, and marked paid by someone who may edit them. */
+  const fullDay = !(await authorize(req, ATTENDANCE_MODULE, PermissionAction.VIEW as any, ATTENDANCE_RESOURCE.records));
+  const canSettle = fullDay && !(await authorize(req, ATTENDANCE_MODULE, PermissionAction.EDIT as any, ATTENDANCE_RESOURCE.records));
   const scope = await teamScope(req);
-  res.json(await dataHealth(accountId, orgId, { payroll, readable: await readableClassifications(req), ...(scope.all ? {} : { onlyIds: scope.ids }) }));
+  res.json(await dataHealth(accountId, orgId, { payroll, fullDay, canSettle, readable: await readableClassifications(req), ...(scope.all ? {} : { onlyIds: scope.ids }) }));
 });
 
 /** One person's readiness (the same checks, filtered to them): shown on their record. */

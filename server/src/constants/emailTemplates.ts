@@ -96,6 +96,43 @@ The link works once and expires on {{expiresOn}}. If you were not expecting this
     transactional: true,
   },
   {
+    key: 'account.welcome',
+    label: 'Your account is ready',
+    description: 'Sent to a new owner when the CLOR team creates their account (after a demo). Carries the link to set a password.',
+    subject: 'Your {{appName}} account for {{companyName}} is ready',
+    body: `Hello {{userName}},
+
+Your {{appName}} account for {{companyName}} is ready, with {{apps}}.{{trialNote}}
+
+Set your password here, then sign in with {{email}}:
+
+{{setPasswordUrl}}
+
+The link works once and for {{days}} days. If it has run out, use "Forgot password" on the sign-in page.`,
+    fields: ['userName', 'companyName', 'apps', 'trialNote', 'setPasswordUrl', 'email', 'days', 'appName'],
+    transactional: true,
+  },
+  {
+    key: 'sales.demo_requested',
+    label: 'Demo requested',
+    description: 'Sent to the CLOR sales inbox when somebody asks for a demo on clor.in.',
+    subject: 'Demo request: {{company}} ({{apps}})',
+    body: `{{name}} from {{company}} asked for a demo.
+
+Apps: {{apps}}
+Company size: {{companySize}} employees
+People who will sign in: {{users}}
+City: {{city}}
+Email: {{email}}
+Phone: {{phone}}
+
+{{message}}
+
+Open it in the operator console: {{opsUrl}}`,
+    fields: ['name', 'company', 'apps', 'companySize', 'users', 'city', 'email', 'phone', 'message', 'opsUrl'],
+    transactional: true,
+  },
+  {
     key: 'approval.requested',
     label: 'Approval requested',
     description: 'Sent to holders of the approving role when a document exceeds a threshold.',

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Printer } from 'lucide-react';
+import { Download, Printer } from '@ui/components/ui/lineIcons';
 
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';

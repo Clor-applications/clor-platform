@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronRight } from '@ui/components/ui/lineIcons';
 
 import { accountAudit, getAccountMe, listAccountMembers, listInvitations, memberDirectory } from '@platform/admin/account';
 import { getAccountOverview } from '@platform/admin/admin';
@@ -7,8 +7,6 @@ import { operator } from '@platform/operator';
 import { ACTION_WORDS } from './AccountActivity';
 import { ICON, Meter, Panel, Stat, ago, productIcon } from './wsKit';
 import { requestOpenHelp } from '@platform/context';
-import heroImage from '../assets/clor-office.webp';
-import heroImageSmall from '../assets/clor-office-800.webp';
 import './workspace.css';
 
 /**
@@ -56,7 +54,6 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const [me, setMe] = useState(null);
   const [overview, setOverview] = useState(null);
   const [members, setMembers] = useState(null);
-  const [heroReady, setHeroReady] = useState(false);
   const [pending, setPending] = useState(null);
   const [privilegedNo2fa, setPrivilegedNo2fa] = useState(null);
   const [activity, setActivity] = useState(null);
@@ -126,23 +123,6 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             </p>
             <h1 id="ws-hero-title" className="ws-hero-title">{name ? `Welcome back, ${name}` : 'Welcome back'}</h1>
             <p className="ws-hero-lede">{ROLE_LEDE[role] || DEFAULT_LEDE}</p>
-          </div>
-          {/* Clor's office: a licensed illustration, re-lettered and recoloured to the Workspace palette. Decorative. */}
-          <div className="ws-hero-media">
-            <img
-              src={heroImage}
-              srcSet={`${heroImageSmall} 800w, ${heroImage} 1400w`}
-              sizes="(max-width: 767px) 1px, 42vw"
-              alt=""
-              width="1400"
-              height="559"
-              decoding="async"
-              data-loaded={heroReady || undefined}
-              ref={(el) => {
-                if (el?.complete && !heroReady) setHeroReady(true);
-              }}
-              onLoad={() => setHeroReady(true)}
-            />
           </div>
         </section>
 

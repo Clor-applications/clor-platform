@@ -59,7 +59,9 @@ export function CheckInCard({ me, onChanged, secondary = false }) {
           {t?.checkOutTime ? `, out ${t.checkOutTime}` : ''}
         </p>
       </div>
-      {closed || !canAct ? null : (
+      {/* The company's punch policy (audit #6): phone-only people, browser clock-in off, or not from the office network. */}
+      {!closed && canAct && me.webClock?.allowed === false ? <p className="ui-caption" role="note">{me.webClock.why}</p> : null}
+      {closed || !canAct || me.webClock?.allowed === false ? null : (
         <button type="button" className={`ui-btn ${secondary ? 'ui-btn-secondary' : 'ui-btn-primary'}`} disabled={busy} onClick={press}>
           {me.clockedIn ? <LogOut size={16} aria-hidden="true" /> : <LogIn size={16} aria-hidden="true" />} {me.clockedIn ? 'Check out' : 'Check in'}
         </button>

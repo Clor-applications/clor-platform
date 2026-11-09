@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Check, Minus } from 'lucide-react';
+import { ArrowRight, Check, Minus } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { getMappingAudit, getPortalAccess, getReaderHealth, getRules, listDevices, listEmployees, listHolidays, listLeaveTypes, listShifts, todayIst } from '../api/attendance';

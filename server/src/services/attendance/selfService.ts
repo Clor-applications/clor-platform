@@ -46,14 +46,17 @@ export type AttentionItem = {
 /** Past working days with something missing or waiting, newest first. */
 export async function attentionFor(e: Who, from: string, to: string): Promise<AttentionItem[]> {
   if (from > to) return [];
-  const [schedule, holidays, records, corrections, field, leave] = await Promise.all([
+  const [schedule, holidays, records, corrections, field, leave, settings] = await Promise.all([
     loadSchedule(e.orgId, [e.id]),
     loadHolidays(e.orgId, from, to),
     peoplePrisma.attendanceRecord.findMany({ where: { orgId: e.orgId, employeeId: e.id, date: { gte: from, lte: to } } }),
     peoplePrisma.attendanceRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: 'PENDING', date: { gte: from, lte: to } }, select: { date: true } }),
     peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: e.id, outsideSite: true, reviewStatus: 'PENDING', shiftDate: { gte: from, lte: to } }, select: { shiftDate: true, localTime: true } }),
     peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: 'PENDING', fromDate: { lte: to }, toDate: { gte: from } }, select: { fromDate: true, toDate: true } }),
+    peoplePrisma.attendanceSettings.findUnique({ where: { orgId: e.orgId }, select: { attendanceStartDate: true } }),
   ]);
+  /* Before the company's attendance start date a day with no record is not counted, so there is nothing to fix (audit #5). */
+  const start = settings?.attendanceStartDate || null;
   const mine = holidays.forArea(e.areaId, e.branchId);
   const byDate = new Map(records.map((r) => [r.date, r]));
   const fixing = new Set(corrections.map((c) => c.date));
@@ -72,8 +75,9 @@ export async function attentionFor(e: Who, from: string, to: string): Promise<At
       continue;
     }
     if (!working || leaveAsked(d)) continue;
-    if (!r) out.push({ date: d, kind: 'NO_PUNCHES', text: 'No punches on a working day', action: 'FIX' });
-    else if (r.status === 'ABSENT') out.push({ date: d, kind: 'ABSENT', text: 'Marked absent', action: 'FIX', checkIn: r.checkIn ? istTime(r.checkIn) : null });
+    if (!r) {
+      if (!start || d >= start) out.push({ date: d, kind: 'NO_PUNCHES', text: 'No punches on a working day', action: 'FIX' });
+    } else if (r.status === 'ABSENT') out.push({ date: d, kind: 'ABSENT', text: 'Marked absent', action: 'FIX', checkIn: r.checkIn ? istTime(r.checkIn) : null });
     else if (r.checkIn && !r.checkOut) out.push({ date: d, kind: 'NO_OUT', text: `In at ${istTime(r.checkIn)}, no punch out`, action: 'FIX', checkIn: istTime(r.checkIn) });
   }
   return out.reverse();
@@ -106,8 +110,13 @@ export async function monthReview(e: Who, month: string) {
   /* The late-mark penalty under the company's rules, as payroll will take it (markRules.ts). */
   const { penaltiesOver } = await import('./markRules.js');
   const penalty = (await penaltiesOver(e.accountId, e.orgId, days, { employeeIds: [e.id] })).get(e.id);
+  /* Before the company's attendance start date a day with no record is not counted, as on the register (audit #5, days.ts periodContext). */
+  const start = settings?.attendanceStartDate || null;
+  const recorded = new Set(records.map((r) => r.date));
+  const counted = start ? days.filter((d) => d >= start || recorded.has(d)) : days;
+  const untrackedDays = days.length - counted.length;
   const summary = monthSummary({
-    days,
+    days: counted,
     records: new Map(records.map((r) => [r.date, { status: r.status as any, lateMinutes: r.lateMinutes, overtimeMinutes: r.overtimeMinutes, overtimeApproved: r.overtimeApproved, checkIn: r.checkIn, checkOut: r.checkOut }])),
     shift: (d) => resolveShift(schedule, e.id, d).rule,
     holidays: mine,
@@ -129,7 +138,7 @@ export async function monthReview(e: Who, month: string) {
       late: summary.lateCount,
       latePenaltyDays: summary.latePenaltyDays,
       lossOfPayDays: summary.lossOfPayDays,
-      payableDays: summary.payableDays,
+      payableDays: summary.payableDays + untrackedDays,
       notYet: summary.notYet,
       workedMinutes: records.reduce((a, r) => a + (r.workedMinutes || 0), 0),
       overtimeMinutes: records.reduce((a, r) => a + (r.overtimeMinutes || 0), 0),

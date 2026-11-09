@@ -132,8 +132,13 @@ function describeHttpFailure(status, text) {
  * token, and the action is sent again with it. The token is kept in memory
  * only — a new tab or a reload asks again.
  */
-let stepUp = null;
-const stepUpHeader = () => (stepUp && stepUp.expiresAt > Date.now() + 5000 ? { 'x-step-up': stepUp.token } : {});
+/* Operator actions take only the operator console's own step-up (server: services/stepUp.ts), so the two are kept apart. */
+const operatorPath = (path) => /^\/(ops|billing\/accounts)\//.test(String(path));
+const stepUps = { company: null, operator: null };
+const stepUpHeader = (path) => {
+  const s = stepUps[operatorPath(path) ? 'operator' : 'company'];
+  return s && s.expiresAt > Date.now() + 5000 ? { 'x-step-up': s.token } : {};
+};
 
 /** Asks for a code through the app's dialog (Toaster listens), or the browser's prompt. */
 function askForCode(message) {
@@ -160,9 +165,9 @@ async function stepUpAndRetry(path, opts, data) {
     }
     try {
       /* The operator console has no company to ask through: it has its own step-up. */
-      const where = String(path).startsWith('/ops/') ? '/ops/step-up' : `/orgs/${encodeURIComponent(getOrgId())}/security/step-up`;
+      const where = operatorPath(path) ? '/ops/step-up' : `/orgs/${encodeURIComponent(getOrgId())}/security/step-up`;
       const r = await apiFetch(where, { method: 'POST', body: { code }, stepUpRetried: true });
-      stepUp = { token: r.token, expiresAt: new Date(r.expiresAt).getTime() };
+      stepUps[operatorPath(path) ? 'operator' : 'company'] = { token: r.token, expiresAt: new Date(r.expiresAt).getTime() };
       return apiFetch(path, { ...opts, stepUpRetried: true });
     } catch (e) {
       if (e?.code !== 'BAD_CODE') throw e;
@@ -239,7 +244,7 @@ export async function apiFetch(
         ...(!skipAuth && orgId ? { 'x-org-id': orgId } : {}),
         ...(!skipAuth && !skipBranchHeader && branchId ? { 'x-branch-id': branchId } : {}),
         ...(!skipAuth && !skipWarehouseHeader && warehouseId ? { 'x-warehouse-id': warehouseId } : {}),
-        ...(!skipAuth ? stepUpHeader() : {}),
+        ...(!skipAuth ? stepUpHeader(path) : {}),
         ...(() => {
           const k = idempotencyKeyFor(method, path, body);
           return k ? { 'Idempotency-Key': k } : {};
@@ -292,7 +297,7 @@ export async function apiFetch(
   }
 
   if (res.status === 403 && data?.code === 'STEP_UP_REQUIRED' && !stepUpRetried && !skipAuth) {
-    stepUp = null;
+    stepUps[operatorPath(path) ? 'operator' : 'company'] = null;
     return stepUpAndRetry(path, { method, body, headers, skipBranchHeader, skipWarehouseHeader, skipAuth, isRetry, transientRetryCount, asText }, data);
   }
 

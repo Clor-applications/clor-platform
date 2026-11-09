@@ -31,8 +31,6 @@ import { watchWideTables } from './wideTables';
 import HelpMenu from './HelpMenu';
 import TwoFactorGate from './TwoFactorGate';
 import CommandPalette from '@ui/components/ui/CommandPalette';
-import { AlertColor, PersonColor } from '@fluentui/react-icons';
-import { colorIcon } from '@ui/components/ui/iconSet';
 import CompanySetup from './CompanySetup';
 import { appIntent, captureAppIntent } from './appIntent';
 import NoCompanyAccess from './NoCompanyAccess';
@@ -188,11 +186,22 @@ function ScreenState({ title, text, action }) {
   );
 }
 
-/* The bar's own icons in the colour set, for an app that draws in it (manifest iconSet: 'color'). */
-const BellColor = colorIcon(AlertColor, 'Alert');
-const ProfileColor = colorIcon(PersonColor, 'Person');
-
+/*
+ * The platform's own pages (sign-in, company setup, an app's public page) draw in the icon family every app but
+ * Accounting uses (owner, 9 Nov 2026): Phosphor two-tone marks and Fluent line icons. Inside, the open app's
+ * manifest decides, so Accounting keeps its Lucide line icons exactly as before.
+ */
 export default function Shell() {
+  return (
+    <IconSetContext.Provider value="duo">
+      <LineSetContext.Provider value="fluent">
+        <ShellScreens />
+      </LineSetContext.Provider>
+    </IconSetContext.Provider>
+  );
+}
+
+function ShellScreens() {
   /* A phone: no rail, a menu sheet and a tab bar instead (mobileTabs.js). */
   const [phone, setPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia(PHONE_QUERY).matches);
   const [navOpen, setNavOpen] = useState(false);
@@ -243,7 +252,7 @@ export default function Shell() {
     let off = false;
     Promise.resolve()
       .then(getMyPermissions)
-      .then((d) => !off && setGrants({ key: tenantKey, set: new Set(Array.isArray(d?.permissions) ? d.permissions : []) }))
+      .then((d) => !off && setGrants({ key: tenantKey, set: new Set(Array.isArray(d?.permissions) ? d.permissions : []), teamOnly: Boolean(d?.ownDocumentsOnly) && !d?.isAdmin }))
       .catch(() => undefined);
     return () => {
       off = true;
@@ -347,6 +356,19 @@ export default function Shell() {
   useEffect(() => {
     try { window.localStorage.setItem('clor.splitPanel', panelClosed ? 'closed' : 'open'); } catch { /* storage blocked */ }
   }, [panelClosed]);
+  /* Counts beside rail entries (manifest `railCounts`: { moduleKey: n }), fetched again on each screen change so an
+     answered request leaves the count. A failed load shows none. */
+  const [railLoad, setRailLoad] = useState({ key: '', counts: {} });
+  const railKey = `${activeAppId || ''}|${tenant?.id || ''}`;
+  useEffect(() => {
+    const load = tenant?.id ? appById(activeAppId)?.railCounts : null;
+    if (!load) return undefined;
+    let live = true;
+    load().then((c) => { if (live) setRailLoad({ key: railKey, counts: c || {} }); }).catch(() => { if (live) setRailLoad({ key: railKey, counts: {} }); });
+    return () => { live = false; };
+  }, [activeAppId, tenant?.id, screenKey, railKey]);
+  /* Counts from another app or company are never shown while the new ones load. */
+  const railCounts = railLoad.key === railKey ? railLoad.counts : {};
   /* A page the platform owns rather than the app (My profile), shown in an
      app's main area. Only for apps that use the shell's menu: an app that
      draws its own (Accounting) has its own profile entry. */
@@ -791,7 +813,9 @@ export default function Shell() {
   /* Items whose `permission` this person lacks go, and those of a module the company switched off (`feature`), then a settings page left with nothing on it, then any section heading left with nothing under it. */
   const switchedOn = (item) => !item.feature || !tenant?.features || tenant.features[item.feature] !== false;
   const holds = (p) => holdsPermission(p, granted, extraAccess);
-  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || (holds(item.permission) && switchedOn(item))));
+  /* `wholeCompany`: a screen of company-wide figures, which a team-only role (a Team Manager) is refused by the server; not offered to it. */
+  const teamOnly = grants.key === tenantKey && Boolean(grants.teamOnly);
+  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || (holds(item.permission) && switchedOn(item) && !(item.wholeCompany && teamOnly))));
   const nav = allowed.filter((item, i) => !item.section || (allowed[i + 1] && !allowed[i + 1].section));
   /* A screen the open app does not have is not a screen: the same company
      switch that changes the app leaves last app's screen key behind, and
@@ -814,6 +838,13 @@ export default function Shell() {
   const screenMissing = Boolean(!Root && app && openedWith && screenKey === openedWith && !app.screens?.[openedWith]);
   /* Or ask for the split sidebar: modules on a rail, the open module's screens beside it (splitNav.js). */
   const modules = resolveModules(app, nav);
+  /* What the rail counts as waiting, in all, and the screen the first counted module opens: the bell says the same number. */
+  const waitingOnRail = (() => {
+    const count = modules.reduce((n, m) => n + (Number(railCounts[m.key]) || 0), 0);
+    /* The module that carries the count, or the one that would if anything waited: with nought the bell still says so. */
+    const first = modules.find((m) => railCounts[m.key] > 0) || modules.find((m) => m.key in railCounts);
+    return { count, screen: first?.items?.[0] || first?.key || null };
+  })();
   const split = modules.length > 0;
   const currentModule = moduleForScreen(modules, screen, nav) || modules[0] || null;
   /* The module whose panel is open; follows the screen unless the person is browsing another on the rail. */
@@ -865,6 +896,7 @@ export default function Shell() {
             {Icon ? <Icon size={20} aria-hidden="true" /> : null}
             {/* The rail is narrow: a module may give it a shorter name; the panel and the tooltip keep the full one. */}
             <span>{m.short || m.label}</span>
+            {railCounts[m.key] > 0 ? <span className="ui-split-mod-count tabular-nums" aria-label={`${railCounts[m.key]} waiting`}>{railCounts[m.key] > 99 ? '99+' : railCounts[m.key]}</span> : null}
           </button>
         );
       })}
@@ -913,7 +945,7 @@ export default function Shell() {
       </div>
       {openModule.groups.map((g, gi) => (
         <div key={g.label || gi} className={gi ? 'mt-4' : ''}>
-          {g.label ? <p className="ui-caption px-2 pb-1 uppercase tracking-wide">{g.label}</p> : null}
+          {g.label ? <p className="ui-caption px-2 pb-1">{g.label}</p> : null}
           {g.items.map((item) => (
             <button
               key={item.key}
@@ -945,7 +977,7 @@ export default function Shell() {
           {nav.map((item) =>
             /* `{ section: 'Settings' }` starts a group: setup apart from daily work. */
             item.section ? (
-              <p key={`section:${item.section}`} className="ui-caption px-2 pt-4 pb-1 uppercase tracking-wide">
+              <p key={`section:${item.section}`} className="ui-caption px-2 pt-4 pb-1">
                 {item.section}
               </p>
             ) : (
@@ -995,8 +1027,8 @@ export default function Shell() {
   return (
     /* The open app's icon set (`iconSet` in its manifest): shared marks such as
        the page-header icon draw in it. No icon set, the line icons as before. */
-    <IconSetContext.Provider value={app?.iconSet || 'line'}>
-    <LineSetContext.Provider value={app?.lineIcons || 'lucide'}>
+    <IconSetContext.Provider value={app ? app.iconSet || 'line' : 'duo'}>
+    <LineSetContext.Provider value={app ? app.lineIcons || 'lucide' : 'fluent'}>
       <div
         className="ui-min-h-viewport"
         /* Which app is open, for styling: People, Attendance and Payroll wear the
@@ -1127,7 +1159,7 @@ export default function Shell() {
               <button type="button" ref={searchRef} className="ui-global-search" onClick={() => setPaletteOpen(true)} aria-keyshortcuts="Meta+K Control+K">
                 <Search size={16} aria-hidden="true" />
                 {/* Named by its visible words; the shortcut is announced through aria-keyshortcuts, so the keycap is hidden from it. */}
-                <span>Search screens and apps</span>
+                <span>{app?.searchRecords ? "Search people and screens" : "Search screens and apps"}</span>
                 <kbd aria-hidden="true">{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
               </button>
             )
@@ -1194,7 +1226,9 @@ export default function Shell() {
           {/* One inbox for every app: an approval, a quiet reader, a bank change, a person the directory added. */}
           <NotificationBell
             tenantKey={tenantKey}
-            icon={app?.iconSet === 'color' ? BellColor : undefined}
+            /* The one waiting number the rail shows (manifest railCounts), so the bell never disagrees with Home or the Inbox. */
+            waiting={waitingOnRail.count}
+            onOpenWaiting={waitingOnRail.screen ? () => goTo(waitingOnRail.screen) : undefined}
             onOpen={(link) => {
               if (!link?.app) return;
               if (link.app === activeAppId && !Root) {
@@ -1224,8 +1258,6 @@ export default function Shell() {
               ) : user?.fullName ? (
                 /* No photo yet: the person's initials, so the button is theirs at a glance (in the colour set too: a stock figure is nobody's). */
                 <span className="ui-topbar-initials" aria-hidden="true">{String(user.fullName).trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>
-              ) : app?.iconSet === 'color' ? (
-                <ProfileColor size={20} />
               ) : (
                 <UserRound size={18} aria-hidden="true" />
               )}
@@ -1508,17 +1540,25 @@ export default function Shell() {
         {paletteOpen && !Root ? (
           <CommandPalette
             onClose={() => setPaletteOpen(false)}
-            placeholder={`Search ${app?.name || 'CLOR'} screens and apps…`}
+            placeholder={app?.searchRecords ? `Search people, jobs and screens…` : `Search ${app?.name || 'CLOR'} screens and apps…`}
+            /* People by name, code or email (manifest `searchRecords`), as the person types. */
+            loadRecords={app?.searchRecords ? (q) => app.searchRecords(q, { apps: mine.map((a) => a.id) }) : undefined}
             items={[
               /* A screen can sit in two places in the menu; it is one destination here. */
-              ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key })),
+              ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key, keywords: i.keywords })),
+              /* Jobs named the way people ask for them (manifest `searchActions`): "probation", "fix a punch", "month close".
+                 One in another app shows only when this company has that app and this person can open it there. */
+              ...(app?.searchActions || [])
+                .filter((a) => (a.appId ? mine.some((m) => m.id === a.appId) : nav.some((i) => i.key === a.screen)))
+                .map((a) => ({ key: `do:${a.appId || ''}:${a.screen}:${a.label}`, label: a.label, group: a.appId ? appById(a.appId)?.name || 'Apps' : 'Do', icon: a.icon, screen: a.screen, params: a.params, appId: a.appId, keywords: a.keywords })),
               ...mine.filter((a) => a.id !== activeAppId).map((a) => ({ key: `app:${a.id}`, label: `Open ${a.name}`, group: 'Apps', icon: a.icon, appId: a.id })),
               { key: 'profile', label: 'My profile', group: 'You', icon: UserRound },
               { key: 'help', label: 'Help centre', group: 'You', icon: CircleHelp },
             ]}
             onSelect={(item) => {
               setPaletteOpen(false);
-              if (item.screen) goTo(item.screen);
+              if (item.appId && item.appId !== activeAppId) openApp(item.appId, item.screen || '', item.params || {});
+              else if (item.screen) goTo(item.screen, item.params || null);
               else if (item.appId) openApp(item.appId);
               else if (item.key === 'profile') {
                 setPlatformScreen('profile');

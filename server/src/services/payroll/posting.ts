@@ -1,6 +1,7 @@
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { accountingFor, type AccountingClient } from './accounting/client.js';
 import { round2 } from '../../utils/money.js';
+import { paymentLockKey } from './payment.js';
 
 /**
  * Payroll into the books.
@@ -439,6 +440,21 @@ export async function postPayrollRun(opts: {
   }
 
   /*
+   * Still approved, now that the claim is ours (audit 7 Nov 2026, #4). The
+   * run's cancel holds the same lock while it checks for a claim and commits,
+   * so either it sees this claim and refuses, or this sees the run cancelled
+   * and lets the claim go: never a journal for a cancelled payroll.
+   */
+  const stillApproved = await payrollPrisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${paymentLockKey(orgId, runId)}))`;
+    return tx.payrollRun.count({ where: { orgId, id: runId, status: { in: ['APPROVED', 'LOCKED', 'PAID'] } } });
+  });
+  if (!stillApproved) {
+    await payrollPrisma.payrollPosting.updateMany({ where: { id: claim!.id, status: 'POSTING' }, data: { status: 'DRAFT' } });
+    throw new PayrollPostingError('RUN_NOT_APPROVED', 'This payroll has just been cancelled, so it was not posted. Reload it.');
+  }
+
+  /*
    * A journal already carrying this run as its source is one a previous
    * attempt wrote before it could finish. Adopt it; writing a second would
    * double the company's salary cost.
@@ -505,7 +521,8 @@ export async function postPayrollRun(opts: {
       })),
     });
 
-    await tx.payrollRun.update({ where: { id: runId }, data: { status: 'POSTED' } });
+    /* Forward only: approved, locked or paid becomes POSTED (compare-and-set). */
+    await tx.payrollRun.updateMany({ where: { orgId, id: runId, status: { in: ['APPROVED', 'LOCKED', 'PAID'] } }, data: { status: 'POSTED' } });
     return row;
   });
 

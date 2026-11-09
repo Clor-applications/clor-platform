@@ -207,14 +207,15 @@ agentRouter.post('/report', async (req, res) => {
 /* ---- Making agents: for routes/integrations.ts ---- */
 
 /** A SCIM token for the agent's LDAP sync, made once and handed over on its next poll. */
-export async function ensureScimForAgent(a: { id: string; accountId: string; orgId: string; scimTokenId: string | null; pendingEnc: string | null; createdByUserId: string; name?: string }, defaultRoleId: string | null) {
+export async function ensureScimForAgent(a: { id: string; accountId: string; orgId: string; scimTokenId: string | null; pendingEnc: string | null; createdByUserId: string; name?: string }, defaultRoleId: string | null, chosenByUserId: string) {
   /* A-31: a revoked token is as good as none — a new one is made and handed over. */
   const current = a.scimTokenId ? await platformPrisma.scimToken.findUnique({ where: { id: a.scimTokenId } }) : null;
   if (current && !current.revokedAt) {
-    if (defaultRoleId !== undefined) await platformPrisma.scimToken.update({ where: { id: current.id }, data: { defaultRoleId } });
+    /* Review B1: whoever sets the role now answers for it; provisioning checks the role against them. */
+    if (defaultRoleId !== undefined) await platformPrisma.scimToken.update({ where: { id: current.id }, data: { defaultRoleId, createdByUserId: chosenByUserId } });
     return current.id;
   }
-  const row = await issueAgentScimToken(a, defaultRoleId, SYSTEM);
+  const row = await issueAgentScimToken(a, defaultRoleId, SYSTEM, chosenByUserId);
   return row.id;
 }
 

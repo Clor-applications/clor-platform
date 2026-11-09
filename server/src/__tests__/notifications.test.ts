@@ -78,6 +78,20 @@ describe('the inbox', () => {
     /* B cannot read A's inbox through A's organisation id. */
     await request(app).get(`/api/orgs/${a.orgId}/notifications/inbox`).set(at(b)).expect(403);
   });
+
+  /* Production, 9 Nov 2026: a daily digest stacked once a day for two weeks and the bell said 18. Stacked rows read as one; the badge counts distinct unread notices. */
+  it('reads a daily notice stacked over many days as one, and counts distinct unread notices', async () => {
+    const a = await makeOwner();
+    for (let d = 1; d <= 5; d += 1) {
+      await platformPrisma.notification.create({ data: { accountId: a.accountId, orgId: a.orgId, userId: a.userId, kind: 'people.task', title: '3 joining and leaving tasks due or late', linkJson: JSON.stringify({ app: 'people', screen: 'checklists' }), dedupeKey: `lifecycle-digest:${a.userId}:2026-10-0${d}` } });
+    }
+    await platformPrisma.notification.create({ data: { accountId: a.accountId, orgId: a.orgId, userId: a.userId, kind: 'people.obligation', title: 'Due soon: PF return', body: 'Due 15 Nov 2026.' } });
+    const list = (await inbox(a).expect(200)).body;
+    expect(list.unread).toBe(2);
+    expect(list.notifications.map((n: any) => n.title)).toEqual(['Due soon: PF return', '3 joining and leaving tasks due or late']);
+    expect((await request(app).post(`/api/orgs/${a.orgId}/notifications/inbox/read`).set(at(a)).send({ ids: [list.notifications[1].id] }).expect(200)).body.unread).toBe(2);
+    expect((await request(app).post(`/api/orgs/${a.orgId}/notifications/inbox/read`).set(at(a)).send({ all: true }).expect(200)).body.unread).toBe(0);
+  });
 });
 
 describe('a person’s own choices', () => {
