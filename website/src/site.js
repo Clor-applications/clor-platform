@@ -13,7 +13,7 @@ const SITE_URL = env.VITE_SITE_URL || 'https://clor.in';
 const APP_URL = env.VITE_APP_URL || 'https://app.clor.in';
 
 export const SITE = {
-  name: 'Clor',
+  name: 'CLOR',
   company: 'Clor Applications Pvt Ltd',
   url: SITE_URL,
   appUrl: APP_URL,
@@ -24,6 +24,8 @@ export const SITE = {
   portalUrl: `${APP_URL.replace('//app.', '//attendance.')}/#/portal`,
   /* Until the demo form has its own page, a demo request is a message to sales. */
   demoUrl: '/contact?about=demo',
+  /* Short form for the About page and the footer. */
+  city: 'Yelahanka, Bengaluru',
   /* Confirmed by the company, 2026-10-24. */
   contactEmail: 'info@clor.in',
   salesEmail: 'sales@clor.in',
@@ -40,31 +42,31 @@ export const PRODUCTS = [
     name: 'Books',
     category: 'Finance',
     status: 'available',
-    accent: '#2F6FDB',
+    accent: '#232A66',
     line: 'GST invoicing, accounting and inventory, built for Indian businesses.',
-  },
-  {
-    slug: 'people',
-    name: 'People',
-    category: 'HR',
-    status: 'available',
-    accent: '#7A4FD6',
-    line: 'Employee records, documents, onboarding and an app for every employee.',
   },
   {
     slug: 'payroll',
     name: 'Payroll',
     category: 'HR',
     status: 'available',
-    accent: '#1E9E6A',
+    accent: '#0079BF',
     line: 'Salaries with PF, ESI, PT and TDS, payslips, and postings into your books.',
+  },
+  {
+    slug: 'people',
+    name: 'People',
+    category: 'HR',
+    status: 'available',
+    accent: '#C93F28',
+    line: 'Employee records, documents, onboarding and an app for every employee.',
   },
   {
     slug: 'attendance',
     name: 'Attendance',
     category: 'HR',
     status: 'available',
-    accent: '#D07A1F',
+    accent: '#854D0E',
     line: 'Biometric readers, phone punches with location, shifts, leave and month close.',
   },
   {
@@ -80,7 +82,7 @@ export const PRODUCTS = [
     name: 'Timesheet',
     category: 'Operations',
     status: 'soon',
-    accent: '#B5487A',
+    accent: '#57534E',
     line: 'Time logged against projects and clients, approved and billed.',
   },
 ];
@@ -89,7 +91,7 @@ export const productBySlug = (slug) => PRODUCTS.find((p) => p.slug === slug);
 export const AVAILABLE = PRODUCTS.filter((p) => p.status === 'available');
 
 /**
- * Links between products that work today — each a real path in the platform:
+ * Links between products that work today, each a real path in the platform:
  * People holds the one employee record, Attendance closes a month for payroll,
  * a locked pay run posts its journal to Books.
  */
@@ -101,16 +103,22 @@ export const CONNECTIONS = [
 
 export const NAV = {
   solutions: [
-    { href: '/solutions/businesses', name: 'For businesses', line: 'Books, people and payroll in one workspace.' },
+    { href: '/solutions/businesses', name: 'For businesses', line: 'GST invoices, staff records and salaries under one login.' },
     { href: '/solutions/accounting-firms', name: 'For accounting firms', line: 'Work in clients’ books with the access they give you.' },
   ],
   resources: [
     { href: '/resources', name: 'Guides', line: 'Setting up readers, connectors, sign-in and more.' },
-    { href: '/integrations', name: 'Integrations', line: 'What connects to Clor today.' },
+    { href: '/integrations', name: 'Integrations', line: 'Readers, Tally, HR tools and sign-in that connect today.' },
     { href: '/security', name: 'Security', line: 'How your data is kept apart and safe.' },
   ],
   company: [
-    { href: '/company/about', name: 'About', line: 'Who builds Clor, and why.' },
+    { href: '/company/about', name: 'About', line: 'Who makes CLOR, and where.' },
     { href: '/contact', name: 'Contact', line: 'Talk to us about your business.' },
   ],
 };
+
+/** The app id inside app.clor.in, where it differs from the site's slug. */
+const APP_ID = { books: 'accounting' };
+/** A demo request for one product: the contact page reads ?app= and names it in the message. */
+export const demoFor = (slug) => `${SITE.demoUrl}&app=${slug}`;
+export const appIdFor = (slug) => APP_ID[slug] || slug;

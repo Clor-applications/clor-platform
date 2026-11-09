@@ -20,7 +20,7 @@ function ProductsMenu({ onPick }) {
                     <Mark product={p} size={34} />
                     <span className="mega-text">
                       <span className="mega-name">
-                        Clor {p.name} <Status product={p} />
+                        CLOR&nbsp;{p.name} <Status product={p} />
                       </span>
                       <span className="mega-line">{p.line}</span>
                     </span>
@@ -107,7 +107,14 @@ export default function Nav() {
     },
     onMouseLeave: () => setOpen(null),
   });
-  const toggle = (key) => () => setOpen((cur) => (cur === key && Date.now() - hoveredAt.current > 400 ? null : key));
+  /* The control that opened a menu, so Escape can hand focus back to it. */
+  const opener = useRef(null);
+  const burger = useRef(null);
+  const panel = useRef(null);
+  const toggle = (key) => (e) => {
+    opener.current = e.currentTarget;
+    setOpen((cur) => (cur === key && Date.now() - hoveredAt.current > 400 ? null : key));
+  };
   const close = () => {
     setOpen(null);
     setMobile(false);
@@ -121,7 +128,16 @@ export default function Nav() {
     setMobile(false);
   }
   useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && close();
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (mobile) {
+        setMobile(false);
+        burger.current?.focus();
+      } else if (open) {
+        setOpen(null);
+        opener.current?.focus();
+      }
+    };
     const onClick = (e) => ref.current && !ref.current.contains(e.target) && setOpen(null);
     window.addEventListener('keydown', onKey);
     document.addEventListener('pointerdown', onClick);
@@ -129,9 +145,34 @@ export default function Nav() {
       window.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onClick);
     };
-  }, []);
+  }, [open, mobile]);
+
+  /*
+   * The open phone menu is the whole page for the moment: the page behind is
+   * inert and does not scroll, and Tab circles between the close button and
+   * the menu's own links.
+   */
   useEffect(() => {
-    document.body.style.overflow = mobile ? 'hidden' : '';
+    if (!mobile) return undefined;
+    const behind = [document.getElementById('main'), document.querySelector('body > #root > footer, footer.footer')].filter(Boolean);
+    behind.forEach((el) => (el.inert = true));
+    document.body.style.overflow = 'hidden';
+    const items = () => [burger.current, ...panel.current.querySelectorAll('a[href], button')].filter(Boolean);
+    items()[1]?.focus();
+    const onTab = (e) => {
+      if (e.key !== 'Tab') return;
+      const list = items();
+      const at = list.indexOf(document.activeElement);
+      const next = e.shiftKey ? (at <= 0 ? list.length - 1 : at - 1) : at === -1 || at === list.length - 1 ? 0 : at + 1;
+      e.preventDefault();
+      list[next].focus();
+    };
+    document.addEventListener('keydown', onTab);
+    return () => {
+      behind.forEach((el) => (el.inert = false));
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', onTab);
+    };
   }, [mobile]);
 
   const section = (key) => (key === 'products' ? path.startsWith('/products') : MENUS.find((m) => m.key === key)?.items?.some((i) => path.startsWith(i.href)));
@@ -175,7 +216,7 @@ export default function Nav() {
           <Link href={SITE.demoUrl} className="btn btn--primary nav-demo">
             Request a demo
           </Link>
-          <button type="button" className="nav-burger" aria-expanded={mobile} aria-controls="mobile-menu" onClick={() => setMobile(!mobile)}>
+          <button type="button" ref={burger} className="nav-burger" aria-expanded={mobile} aria-controls="mobile-menu" onClick={() => setMobile(!mobile)}>
             <span className="sr-only">{mobile ? 'Close menu' : 'Open menu'}</span>
             {mobile ? <X size={20} strokeWidth={1.75} aria-hidden="true" /> : <Menu size={20} strokeWidth={1.75} aria-hidden="true" />}
           </button>
@@ -184,7 +225,7 @@ export default function Nav() {
     </header>
 
       {/* Outside the header: its backdrop blur would otherwise be the box this fixed panel is placed in. */}
-      <div id="mobile-menu" className={`mobile${mobile ? ' is-open' : ''}`} hidden={!mobile}>
+      <div id="mobile-menu" ref={panel} className={`mobile${mobile ? ' is-open' : ''}`} hidden={!mobile}>
         <div className="wrap">
           <p className="mega-cat">Products</p>
           <ul className="mobile-products">
@@ -194,7 +235,7 @@ export default function Nav() {
                   <Mark product={p} size={32} />
                   <span className="mega-text">
                     <span className="mega-name">
-                      Clor {p.name} <Status product={p} />
+                      CLOR&nbsp;{p.name} <Status product={p} />
                     </span>
                   </span>
                 </Link>
