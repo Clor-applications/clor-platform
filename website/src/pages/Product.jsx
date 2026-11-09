@@ -14,17 +14,6 @@ import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
  * page names it in the message.
  */
 
-/*
- * One photograph on some product pages, of the kind of business that uses
- * it (Unsplash; credited on the About page). Never in the hero, and never
- * presented as a customer.
- */
-const PHOTOS = {
-  books: { src: '/photos/photo-shop.webp', width: 1000, height: 668, alt: 'A snack shop in Mumbai with the owner behind the counter, packets of chips hanging on every side.' },
-  attendance: { src: '/photos/photo-workshop.webp', width: 1000, height: 668, alt: 'A carpenter cutting a plank on a band saw in a small workshop.' },
-  payroll: { src: '/photos/photo-office.webp', width: 1000, height: 750, alt: 'Two people at a laptop on a cafe table outdoors, talking through what is on the screen.' },
-};
-
 function Hero({ p, c, soon }) {
   const Win = WINDOWS[p.slug];
   return (
@@ -78,7 +67,7 @@ function SoonPage({ p, c }) {
           </ul>
         </div>
       </section>
-      <Closing title="Use the products that are ready today." text="Books, People, Payroll and Attendance share one login and one list of employees. Projects joins them when it is ready.">
+      <Closing title="Use the products that are ready today." text="Books, Payroll, People and Attendance share one login and one list of employees. Projects joins them when it is ready.">
         <Link href="/products">See every product</Link>
       </Closing>
     </>
@@ -90,25 +79,21 @@ export default function Product({ slug }) {
   const c = PRODUCT_CONTENT[slug];
   if (p.status !== 'available') return <SoonPage p={p} c={c} />;
   const links = CONNECTIONS.filter((x) => x.from === slug || x.to === slug);
-  const photo = PHOTOS[slug];
   return (
     <>
       <Hero p={p} c={c} />
 
       <section className="section" aria-labelledby="fixes-title">
-        <div className={`wrap${photo ? ' p-fixes' : ''}`}>
-          <div>
-            <Head id="fixes-title" title="What it fixes" />
-            <ul className={photo ? 'steps-list' : 'groups'}>
-              {c.problems.map(([prob, fix]) => (
-                <li key={prob}>
-                  <h3 className="h-3">{prob}</h3>
-                  <p className="body">{fix}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-          {photo ? <img className="photo" src={photo.src} width={photo.width} height={photo.height} alt={photo.alt} loading="lazy" decoding="async" /> : null}
+        <div className="wrap">
+          <Head id="fixes-title" title="What it fixes" />
+          <ul className="groups">
+            {c.problems.map(([prob, fix]) => (
+              <li key={prob}>
+                <h3 className="h-3">{prob}</h3>
+                <p className="body">{fix}</p>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 

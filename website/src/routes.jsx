@@ -8,7 +8,7 @@ import { About, Businesses, Contact, Firms, Integrations, Legal, NotFound, Prici
 /** Every page: its address, title, description and component. The sitemap is made from this list. */
 export const ROUTES = [
   { path: '/', title: 'CLOR: accounting, HR and payroll for Indian companies', description: 'GST invoicing and accounts, employee records, attendance from biometric readers, and payroll with PF, ESI and TDS, for Indian companies. Use one CLOR product or several.', page: () => <Home /> },
-  { path: '/products', title: 'Products', description: 'CLOR Books, People, Payroll and Attendance, with Projects and Timesheet on the way. Buy only the ones you need.', page: () => <Products /> },
+  { path: '/products', title: 'Products', description: 'CLOR Books, Payroll, People and Attendance, with Projects and Timesheet on the way. Buy only the ones you need.', page: () => <Products /> },
   ...PRODUCTS.map((p) => ({
     path: `/products/${p.slug}`,
     title: `CLOR ${p.name}${p.status === 'soon' ? ' (coming soon)' : ''}`,

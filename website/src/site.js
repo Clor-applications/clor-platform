@@ -46,20 +46,20 @@ export const PRODUCTS = [
     line: 'GST invoicing, accounting and inventory, built for Indian businesses.',
   },
   {
-    slug: 'people',
-    name: 'People',
-    category: 'HR',
-    status: 'available',
-    accent: '#C93F28',
-    line: 'Employee records, documents, onboarding and an app for every employee.',
-  },
-  {
     slug: 'payroll',
     name: 'Payroll',
     category: 'HR',
     status: 'available',
     accent: '#0079BF',
     line: 'Salaries with PF, ESI, PT and TDS, payslips, and postings into your books.',
+  },
+  {
+    slug: 'people',
+    name: 'People',
+    category: 'HR',
+    status: 'available',
+    accent: '#C93F28',
+    line: 'Employee records, documents, onboarding and an app for every employee.',
   },
   {
     slug: 'attendance',

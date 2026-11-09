@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Link, useSearch } from '../router.jsx';
 import { PRODUCTS, SITE, productBySlug } from '../site.js';
 import { Mark, Status } from '../components/Brand.jsx';
-import Person from '../components/Person.jsx';
 import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
 import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
 import { DOCUMENTS } from '../../../packages/shell/legal/documents.jsx';
@@ -316,12 +315,6 @@ export function About() {
         <p className="body">
           We work from our office in {SITE.city}: {SITE.address}. You are welcome to visit; write to {SITE.contactEmail} first so someone is there to meet you.
         </p>
-        <div className="people-row">
-          <Person who="founder" />
-          <Person who="employee" />
-          <Person who="hr" />
-        </div>
-        <p className="caption">Illustrations: Open Peeps by Pablo Stanley, CC0. Photos: Saad Ahmad and Yash Parashar on Unsplash.</p>
       </PageHead>
       <section className="section">
         <div className="wrap split">

@@ -1,49 +1,67 @@
 import React from 'react';
 import { Link } from '../router.jsx';
-import { SITE, PRODUCTS } from '../site.js';
-import Connection from '../components/Connection.jsx';
+import { CONNECTIONS, SITE, productBySlug } from '../site.js';
+import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
 import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
 import { Closing, Faq } from '../components/Blocks.jsx';
-import { Status } from '../components/Brand.jsx';
-import Person from '../components/Person.jsx';
+import { Mark } from '../components/Brand.jsx';
 
 /*
- * The home page says which jobs CLOR does, in the words an Indian accountant
- * or owner uses for them. Every claim here is in CONTENT_CHECKLIST.md.
+ * The home page leads with Books, the main product, then gives each of the
+ * others its own section in the owner's order (Payroll, People, Attendance),
+ * each with its screen drawn with sample data. How they join comes after.
+ * Every claim here is in CONTENT_CHECKLIST.md.
  */
-const LINES = {
-  books: 'GST invoices, e-invoices and e-way bills, purchase bills with TDS, stock by warehouse and bank reconciliation. GSTR-1 and GSTR-3B are made from what you already raised.',
-  people: 'One record per employee, with documents, joining and exit checklists and letters. Staff see their payslips and ask for leave on their own phone.',
-  payroll: 'Salaries with PF, ESI, professional tax and TDS. The PF ECR file and Form 16 come out of the same run, and the run posts its journal to Books.',
-  attendance: 'Punches from ZKTeco, eSSL, Hikvision and Matrix readers, or from a phone inside your site. Shifts, late marks and overtime, closed each month for payroll.',
-  projects: 'Tasks, milestones and what each project costs. We are still building it.',
-  timesheet: 'Hours logged against projects and clients, approved and billed. We are still building it.',
-};
+const APPS = [
+  {
+    slug: 'payroll',
+    title: 'Salaries with PF, ESI, PT and TDS worked out.',
+    lines: [
+      'Each payslip shows earnings, PF, ESI, professional tax and TDS, and reaches the employee’s phone when the run is locked.',
+      'The PF ECR file and Form 16 come out of the same payslips.',
+      'Locking the run posts its journal to Books; paying salaries posts the payment.',
+    ],
+  },
+  {
+    slug: 'people',
+    title: 'One record for every employee.',
+    lines: [
+      'Personal, job and statutory details with a dated history of every change, and documents that remind you before they expire.',
+      'Leave balances and requests from the employee app, approved by the manager.',
+      'Joining and leaving checklists for HR, IT and the manager, ending in the final settlement for Payroll.',
+    ],
+  },
+  {
+    slug: 'attendance',
+    title: 'Punches from the reader at the gate, or a phone on site.',
+    lines: [
+      'ZKTeco, eSSL, Hikvision and Matrix readers send punches as they happen; field staff punch from a phone inside your site’s geofence.',
+      'Shifts, late marks and overtime are worked out as the punches arrive.',
+      'Closing the month hands paid days, overtime and leave to Payroll.',
+    ],
+  },
+];
 
 const TEAMS = [
   {
-    person: 'owner',
     title: 'Owners of small companies',
     text: 'File GSTR-1 and GSTR-3B from the invoices you already raised. Import masters and opening balances from Tally. Reconcile the bank statement against Books.',
     link: ['/solutions/businesses', 'CLOR for businesses'],
   },
   {
-    person: 'accountant',
     title: 'Accountants and CA firms',
     text: 'Your client invites you with your own login and decides what you may see and change. You switch between clients from the company menu without signing out.',
     link: ['/solutions/accounting-firms', 'CLOR for accounting firms'],
   },
   {
-    person: 'hr',
-    title: 'HR teams',
-    text: 'Joining and exit checklists that HR, IT and the manager each tick off. Documents remind you before they expire. One record per person, from offer letter to final settlement.',
-    link: ['/products/people', 'CLOR People'],
-  },
-  {
-    person: 'manager',
     title: 'Finance teams',
     text: 'Invoices, bills and the salary run post their own journals. Invoices above an amount wait for approval, and a change to bank details needs a second person.',
     link: ['/products/books', 'CLOR Books'],
+  },
+  {
+    title: 'HR teams',
+    text: 'Joining and exit checklists that HR, IT and the manager each tick off. Documents remind you before they expire. One record per person, from offer letter to final settlement.',
+    link: ['/products/people', 'CLOR People'],
   },
 ];
 
@@ -55,51 +73,89 @@ const FAQ = [
   ['Can I leave with my data?', 'Yes. You can export your company’s data at any time, and closing a company comes with a notice period.'],
 ];
 
+const BooksWindow = WINDOWS.books;
+
+/** One product's section: what it does in a few plain lines, and its screen beside them. */
+function AppSection({ slug, title, lines, flip }) {
+  const p = productBySlug(slug);
+  const Win = WINDOWS[slug];
+  return (
+    <section className="section" aria-labelledby={`${slug}-title`}>
+      <div className={`wrap app-sec${flip ? ' app-sec--flip' : ''}`}>
+        <div className="app-sec-copy">
+          <p className="app-sec-name">
+            <Mark product={p} size={28} /> CLOR&nbsp;{p.name}
+          </p>
+          <h2 className="h-1" id={`${slug}-title`}>
+            {title}
+          </h2>
+          <ul className="facts-list">
+            {lines.map((x) => (
+              <li key={x}>{x}</li>
+            ))}
+          </ul>
+          <Link className="text-link" href={`/products/${slug}`}>
+            More about CLOR&nbsp;{p.name}
+          </Link>
+        </div>
+        <figure className="app-sec-shot">
+          <Win />
+        </figure>
+      </div>
+    </section>
+  );
+}
+
 export default function Home() {
   return (
     <>
       <section className="hero hero--home" aria-labelledby="hero-title">
-        <div className="wrap hero-copy">
-          <h1 id="hero-title" className="h-hero">
-            Accounts and payroll for Indian companies, under one login.
-          </h1>
-          <p className="lede">
-            Raise GST invoices and e-way bills in Books. Run salaries with PF, ESI and TDS in Payroll. The person you hire on Monday is already on the salary sheet, because both read the
-            same employee record.
-          </p>
-          <div className="actions">
-            <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
-              Request a demo
-            </Link>
-            <a className="btn btn--text" href="#screens">
-              See the screens
-            </a>
+        <div className="wrap home-hero">
+          <div className="hero-copy">
+            <h1 id="hero-title" className="h-hero">
+              GST accounting for Indian companies.
+            </h1>
+            <p className="lede">
+              Raise GST invoices and e-way bills in CLOR Books, and file GSTR-1 and GSTR-3B from what you raised. Import masters and opening balances from Tally, and reconcile the bank
+              statement against your books. Payroll, People and Attendance join the same records when you need them.
+            </p>
+            <div className="actions">
+              <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
+                Request a demo
+              </Link>
+              <Link className="btn btn--text" href="/products/books">
+                More about CLOR Books
+              </Link>
+            </div>
           </div>
+          <figure className="home-shots">
+            <BooksWindow />
+            <GstrWindow />
+            <figcaption className="caption">CLOR screens on this page are drawn with sample data.</figcaption>
+          </figure>
         </div>
       </section>
 
-      <section className="section" id="screens" aria-labelledby="connected-title">
-        <div className="wrap">
+      {APPS.map((a, i) => (
+        <AppSection key={a.slug} {...a} flip={i % 2 === 0} />
+      ))}
+
+      <section className="section" aria-labelledby="connected-title">
+        <div className="wrap split">
           <Head
             id="connected-title"
             title="Attendance feeds payroll. Payroll posts to Books."
-            intro="Payable days from the biometric reader become the month’s salary run, and the salary run lands in Books as a journal entry. Nobody exports a spreadsheet in between."
+            intro="Bought together, the four products read the same employees and post to the same books, so nobody exports a spreadsheet in between. Projects and Timesheet are next."
           />
-          <Connection />
-        </div>
-      </section>
-
-      <section className="section" aria-labelledby="apps-title">
-        <div className="wrap">
-          <Head id="apps-title" title="Four products today. Projects and Timesheet are next." intro="Buy only the one you need. Add another later and it picks up the employees and accounts you already have." />
-          <ul className="plist">
-            {PRODUCTS.map((p) => (
-              <li key={p.slug} className={p.status === 'soon' ? 'is-soon' : undefined}>
-                <h3 className="h-3">
-                  <Link href={`/products/${p.slug}`}>CLOR&nbsp;{p.name}</Link>
-                  {p.status === 'soon' ? <Status product={p} /> : null}
-                </h3>
-                <p className="body">{LINES[p.slug]}</p>
+          <ul className="links">
+            {CONNECTIONS.map((x) => (
+              <li key={x.from + x.to}>
+                <span className="links-pair">
+                  <Mark product={productBySlug(x.from)} size={26} />
+                  <span className="links-wire" aria-hidden="true" />
+                  <Mark product={productBySlug(x.to)} size={26} />
+                </span>
+                <p className="body">{x.text}</p>
               </li>
             ))}
           </ul>
@@ -111,17 +167,14 @@ export default function Home() {
       <section className="section" aria-labelledby="team-title">
         <div className="wrap">
           <Head id="team-title" title="Who uses CLOR" />
-          <ul className="groups groups--people">
+          <ul className="groups">
             {TEAMS.map((t) => (
               <li key={t.title}>
-                <Person who={t.person} />
-                <div className="groups-text">
-                  <h3 className="h-3">{t.title}</h3>
-                  <p className="body">{t.text}</p>
-                  <Link className="text-link" href={t.link[0]}>
-                    {t.link[1]}
-                  </Link>
-                </div>
+                <h3 className="h-3">{t.title}</h3>
+                <p className="body">{t.text}</p>
+                <Link className="text-link" href={t.link[0]}>
+                  {t.link[1]}
+                </Link>
               </li>
             ))}
           </ul>
