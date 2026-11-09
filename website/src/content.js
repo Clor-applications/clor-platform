@@ -8,7 +8,7 @@ export const PRODUCT_CONTENT = {
   books: {
     title: 'Accounting that already knows GST.',
     intro:
-      'Raise GST invoices, e-invoices and e-way bills, keep stock across warehouses, reconcile the bank and close the month — with the ledger posting itself as you work.',
+      'Raise GST invoices, e-invoices and e-way bills, keep stock across warehouses, reconcile the bank and close the month. The ledger posts itself as you work.',
     problems: [
       ['Invoices in one tool, books in another', 'Every invoice, bill, receipt and stock movement posts its own journal, so the books are never a month behind the business.'],
       ['GST filing as a monthly scramble', 'GSTR-1 and GSTR-3B are built from the documents you already raised, with e-invoice and e-way bill details kept on each one.'],
@@ -35,7 +35,7 @@ export const PRODUCT_CONTENT = {
     faq: [
       ['Can I bring my data from Tally?', 'Yes. Masters and opening balances can be imported, and the Tally connector can keep Tally in step while you move.'],
       ['Does it handle more than one branch or GSTIN?', 'Yes. Each branch keeps its own GSTIN, series and stock, and reports can be read per branch or together.'],
-      ['Can my accountant work in it?', 'Yes. Invite them from your Workspace (Access › Invitations) with their own login; you decide what they can see and change, and can end it at any time.'],
+      ['Can my accountant work in it?', 'Yes. Invite them from your Workspace (Access, then Invitations) with their own login; you decide what they can see and change, and can end it at any time.'],
     ],
   },
   people: {
@@ -43,7 +43,7 @@ export const PRODUCT_CONTENT = {
     intro:
       'Keep each person’s details, documents and history in one place. Onboard new joiners with a checklist, issue letters, and give every employee an app for their own requests.',
     problems: [
-      ['The same person in five spreadsheets', 'One employee record that Attendance, Payroll and the employee app all read — changed once, right everywhere.'],
+      ['The same person in five spreadsheets', 'One employee record that Attendance, Payroll and the employee app all read. Change it once and it is right everywhere.'],
       ['Joining and leaving done from memory', 'Checklists for joining and leaving, with tasks for HR, IT and the manager, ticked as the work is done.'],
       ['HR as the help desk for everything', 'Employees see their payslips, leave, documents and requests in their own app, and raise what they need there.'],
     ],
@@ -64,10 +64,10 @@ export const PRODUCT_CONTENT = {
         ['On the reader and payroll', 'Attendance enrols them on the readers; Payroll takes them from the joining date.'],
       ],
     },
-    roles: 'HR sees the whole company; managers see their teams; each employee sees only themselves. Sensitive documents and fields — bank details, IDs — can be limited to the people who need them.',
+    roles: 'HR sees the whole company; managers see their teams; each employee sees only themselves. Sensitive documents and fields, such as bank details and IDs, can be limited to the people who need them.',
     faq: [
       ['Do employees need a login to the workspace?', 'No. They use the employee app with an activation code from HR; it opens only their own data.'],
-      ['Can I use People without Payroll?', 'Yes. Each Clor product works on its own; together they share the employee record.'],
+      ['Can I use People without Payroll?', 'Yes. Each CLOR product works on its own; together they share the employee record.'],
       ['Can we import our employee list?', 'Yes, from a spreadsheet, with a preview before anything is saved.'],
     ],
   },
@@ -132,19 +132,19 @@ export const PRODUCT_CONTENT = {
     },
     roles: 'Managers approve their teams’ leave and corrections; HR sees every site; selfies are kept only as long as the company’s retention period.',
     faq: [
-      ['Which readers work with Clor?', 'ZKTeco and eSSL readers over their push protocol, Hikvision and Matrix readers, and others through the on-site connector.'],
+      ['Which readers work with CLOR?', 'ZKTeco and eSSL readers over their push protocol, Hikvision and Matrix readers, and others through the on-site connector.'],
       ['Do phone punches need GPS?', 'Yes, location is checked against your sites; punches outside them can still be approved by a manager.'],
       ['Can we use Attendance without Payroll?', 'Yes. The month’s totals can also be exported for another payroll.'],
     ],
   },
   projects: {
     title: 'Projects is on its way.',
-    intro: 'Plan work, track tasks and see what each project costs — sharing the same workspace, people and books as the rest of Clor.',
+    intro: 'Plan work, track tasks and see what each project costs, using the same login, employees and books as the rest of CLOR.',
     planned: ['Projects, tasks and milestones', 'Team assignment from People', 'Costs and billing through Books'],
   },
   timesheet: {
     title: 'Timesheet is on its way.',
-    intro: 'Log time against projects and clients, approve it, and bill it — with the hours flowing to payroll and invoices where you want them.',
+    intro: 'Log time against projects and clients, approve it, and bill it. The hours can go on to payroll and to invoices where you want them.',
     planned: ['Daily and weekly time entry', 'Approval by the manager', 'Billable hours to invoices'],
   },
 };
