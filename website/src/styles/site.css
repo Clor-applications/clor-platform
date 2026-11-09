@@ -2110,3 +2110,26 @@ main:focus {
   max-width: 440px;
   justify-self: center;
 }
+
+/* For businesses: words left, the manager at her laptop (CLOR home screen) right. */
+.sol-hero-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: clamp(var(--s-6), 4vw, var(--s-9));
+  align-items: center;
+}
+.sol-hero-photo {
+  margin: 0;
+}
+.sol-hero-photo img,
+.demo-pic {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--r-panel);
+}
+@media (max-width: 900px) {
+  .sol-hero-split {
+    grid-template-columns: 1fr;
+  }
+}
