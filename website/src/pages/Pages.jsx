@@ -175,62 +175,6 @@ export function Firms() {
   );
 }
 
-/* ----------------------------------------------------------------- pricing */
-export function Pricing() {
-  return (
-    <>
-      <PageHead title="Pay for the products you use." intro="Every CLOR product has its own subscription. A company that needs only payroll pays only for payroll, and adding a product later never means changing plans." />
-      <section className="section">
-        <div className="wrap">
-          <table className="price-table">
-            <caption className="sr-only">Products and pricing</caption>
-            <thead>
-              <tr>
-                <th scope="col">Product</th>
-                <th scope="col">Status</th>
-                <th scope="col">Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {PRODUCTS.map((p) => (
-                <tr key={p.slug}>
-                  <th scope="row">
-                    <span className="price-name">
-                      <Mark product={p} size={28} /> CLOR&nbsp;{p.name}
-                    </span>
-                  </th>
-                  <td>
-                    <Status product={p} />
-                  </td>
-                  <td className="small">{p.status === 'available' ? 'Being finalised' : 'At launch'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="small price-note">Prices are being set now. Until they are published, talk to us and we will tell you what your company would pay.</p>
-          <div className="actions price-actions">
-            <Link className="btn btn--primary" href="/contact?about=pricing">
-              Ask about pricing
-            </Link>
-          </div>
-        </div>
-      </section>
-      <section className="section">
-        <div className="wrap">
-          <Faq
-            title="How subscriptions work"
-            items={[
-              ['Is there one plan for everything?', 'No. Each product is subscribed to on its own, for the companies in your workspace that use it.'],
-              ['What happens to my data if I stop a product?', 'The data stays in your workspace and can be exported. Switching the product back on brings it back.'],
-              ['Do accountants and employees count as users?', 'Employees using only the employee app are not workspace users. How outside accountants are counted will be set out with the prices.'],
-            ]}
-          />
-        </div>
-      </section>
-    </>
-  );
-}
-
 /* ------------------------------------------------------------ integrations */
 const INTEGRATIONS = [
   ['Biometric and face readers', 'ZKTeco and eSSL over their cloud push protocol, Hikvision and Matrix readers, and others through the on-site connector.', 'attendance'],

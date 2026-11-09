@@ -1,3 +1,5 @@
 node_modules
 dist
 dist-ssr
+# Written by scripts/fetch-pricing.mjs at build time: the price list published in the operator console.
+src/data/pricing.live.json

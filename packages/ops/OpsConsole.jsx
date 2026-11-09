@@ -12,6 +12,8 @@ import { useSession } from '../shell/session';
 import SignIn from '../shell/SignIn';
 import OperatorBrand from './OperatorBrand';
 import { DemoRequestDetail, DemoRequests } from './DemoRequests';
+import { Pricing } from './Pricing';
+import { Settings } from './Settings';
 import {
   opsAccount,
   opsAccounts,
@@ -662,8 +664,10 @@ const NAV = [
   ['overview', 'Overview', ICON.home],
   ['accounts', 'Accounts', ICON.companies],
   ['demos', 'Demo requests', ICON.mail],
+  ['pricing', 'Pricing', ICON.plan],
   ['audit', 'Operator log', ICON.history],
   ['operators', 'Operators', ICON.secure, 'SUPER_ADMIN'],
+  ['settings', 'Settings', ICON.settings],
 ];
 
 function Console() {
@@ -744,6 +748,10 @@ function Console() {
             <Accounts key={accountsStatus} initialStatus={accountsStatus} openAccount={setAccountId} />
           ) : page === 'demos' ? (
             <DemoRequests openRequest={setDemoId} />
+          ) : page === 'pricing' ? (
+            <Pricing role={me.role} />
+          ) : page === 'settings' ? (
+            <Settings role={me.role} />
           ) : page === 'audit' ? (
             <AuditLog />
           ) : page === 'operators' && me.role === 'SUPER_ADMIN' ? (
