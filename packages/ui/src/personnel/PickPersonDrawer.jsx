@@ -21,7 +21,8 @@ export default function PickPersonDrawer({ title, description, action = 'Continu
   const [person, setPerson] = useState('');
   const [choice, setChoice] = useState(choices?.[0]?.[0] || '');
   const people = req.data || [];
-  const options = people.map((p) => ({ value: p.id, label: p.code ? `${p.name} (${p.code})` : p.name, subtext: [p.designation, p.department].filter(Boolean).join(' · ') }));
+  /* No designation or department: no second line (never the record's id in its place). */
+  const options = people.map((p) => ({ value: p.id, label: p.code ? `${p.name} (${p.code})` : p.name, subtext: [p.designation, p.department].filter(Boolean).join(' · ') || undefined }));
   const go = (e) => {
     e?.preventDefault();
     if (!person) return;
@@ -36,7 +37,7 @@ export default function PickPersonDrawer({ title, description, action = 'Continu
       <form id="pick-person" className="grid gap-4" onSubmit={go}>
         {req.loading ? <p className="ui-muted text-sm" aria-busy="true">Loading people…</p>
           : !people.length ? <p className="ui-muted text-sm" role="status">Nobody to choose from yet. Add an employee first.</p>
-            : <PopupSelect label="Person" alwaysSearch value={person} onChange={(v) => setPerson(v || '')} options={options} placeholder="Choose a person" />}
+            : <PopupSelect label="Person" alwaysSearch showValueSubtext={false} value={person} onChange={(v) => setPerson(v || '')} options={options} placeholder="Choose a person" />}
         {choices?.length ? <PopupSelect label={choiceLabel} showValueSubtext={false} value={choice} onChange={(v) => setChoice(v || choices[0][0])} options={choices.map(([k, l]) => ({ value: k, label: l }))} /> : null}
       </form>
     </Drawer>
