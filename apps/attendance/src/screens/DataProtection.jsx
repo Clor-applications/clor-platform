@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Plus, ShieldCheck, X } from 'lucide-react';
+import { Plus, ShieldCheck, X } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';

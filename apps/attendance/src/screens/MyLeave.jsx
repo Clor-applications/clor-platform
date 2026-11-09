@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus } from '@ui/components/ui/lineIcons';
 
 import { apiFetch } from '@platform/http';
 import { orgId as platformOrgId } from '@platform/context';

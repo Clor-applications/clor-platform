@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, CalendarDays, CheckCircle2, Download, Lock, Unlock } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CheckCircle2, Download, Lock, Unlock } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';

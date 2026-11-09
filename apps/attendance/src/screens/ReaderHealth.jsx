@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, BellRing, ChevronDown, Cpu, Fingerprint, History, RefreshCw, Router, Wifi } from 'lucide-react';
+import { AlertTriangle, BellRing, ChevronDown, Cpu, Fingerprint, History, RefreshCw, Router, Wifi } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';

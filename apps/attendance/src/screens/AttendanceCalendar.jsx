@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { getCalendar, listReports, runReport, todayIst } from '../api/attendance';

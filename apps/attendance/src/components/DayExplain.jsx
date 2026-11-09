@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, Clock, Fingerprint, History, Info, MapPin, ShieldCheck, Smartphone } from 'lucide-react';
+import { AlertTriangle, Clock, Fingerprint, History, Info, MapPin, ShieldCheck, Smartphone } from '@ui/components/ui/lineIcons';
 
 import Drawer from '@ui/components/ui/Drawer';
 import { SkeletonCard } from '@ui/components/ui/Primitives';

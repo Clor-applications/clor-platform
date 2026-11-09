@@ -1,30 +1,31 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight } from '@ui/components/ui/lineIcons';
 import {
-  CalendarCancelColor,
-  CalendarCheckmarkColor,
-  ClockColor,
-  DocumentEditColor,
-  PeopleColor,
-  PersonAvailableColor,
-  PersonWarningColor,
-  ScanPersonColor,
-  TextBulletListSquareColor,
-} from '@fluentui/react-icons';
-import { colorIcon } from '@ui/components/ui/iconSet';
+  CalendarCheck as PCalendarCheck,
+  CalendarX as PCalendarX,
+  Clock as PClock,
+  Cpu as PCpu,
+  ListChecks as PListChecks,
+  NotePencil as PNotePencil,
+  UserCheck as PUserCheck,
+  UserMinus as PUserMinus,
+  UsersThree as PUsersThree,
+} from '@phosphor-icons/react';
+import { duo as duoIcon } from '@ui/components/ui/duoIcon';
 
 import { PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
 
-/* Attendance draws in the shared full-colour icon set (Fluent). */
-const CalendarCheck = colorIcon(CalendarCheckmarkColor, 'CalendarCheckmark');
-const CalendarOff = colorIcon(CalendarCancelColor, 'CalendarCancel');
-const Clock = colorIcon(ClockColor, 'Clock');
-const Cpu = colorIcon(ScanPersonColor, 'ScanPerson');
-const Inbox = colorIcon(DocumentEditColor, 'DocumentEdit');
-const ListChecks = colorIcon(TextBulletListSquareColor, 'TextBulletListSquare');
-const UserCheck = colorIcon(PersonAvailableColor, 'PersonAvailable');
-const UserX = colorIcon(PersonWarningColor, 'PersonWarning');
-const Users = colorIcon(PeopleColor, 'People');
+/* Today's figures in People's two-tone marks (owner, 9 Nov 2026), the same family as the rail beside them. */
+const duo = (Icon, name) => duoIcon(Icon, name, 20);
+const CalendarCheck = duo(PCalendarCheck, 'CalendarCheck');
+const CalendarOff = duo(PCalendarX, 'CalendarOff');
+const Clock = duo(PClock, 'Clock');
+const Cpu = duo(PCpu, 'Cpu');
+const Inbox = duo(PNotePencil, 'Inbox');
+const ListChecks = duo(PListChecks, 'ListChecks');
+const UserCheck = duo(PUserCheck, 'UserCheck');
+const UserX = duo(PUserMinus, 'UserX');
+const Users = duo(PUsersThree, 'Users');
 import { getCalendar, getOverview, getReaderHealth, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 

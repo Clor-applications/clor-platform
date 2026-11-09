@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Globe, LocateFixed, MapPin, Plus, Search, Users } from 'lucide-react';
+import { Globe, LocateFixed, MapPin, Plus, Search, Users } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';

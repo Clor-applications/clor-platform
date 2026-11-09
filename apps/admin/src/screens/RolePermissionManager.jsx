@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, RotateCcw, Save } from 'lucide-react';
+import { Check, RotateCcw, Save } from '@ui/components/ui/lineIcons';
 
 import { listRoles, updateRole } from '@platform/admin/admin';
 import { expandPreset, getPermissionCatalog, getRolePermissions, setRolePermissions } from '@ui/api/permissions';

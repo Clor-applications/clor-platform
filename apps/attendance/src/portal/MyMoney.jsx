@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, FileText, X } from 'lucide-react';
+import { Camera, FileText, X } from '@ui/components/ui/lineIcons';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 
