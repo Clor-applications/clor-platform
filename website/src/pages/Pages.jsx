@@ -23,16 +23,28 @@ export function PageHead({ title, intro, children }) {
  * lists on the page ground, and the shared Setting up and data sections.
  * What is planned is marked planned.
  */
-function SolutionHero({ title, intro, children }) {
+function SolutionHero({ title, intro, pic, children }) {
+  const copy = (
+    <div className="hero-copy">
+      <h1 id="sol-title" className="h-hero">
+        {title}
+      </h1>
+      <p className="lede">{intro}</p>
+      <div className="actions">{children}</div>
+    </div>
+  );
   return (
     <section className="hero sol-hero" aria-labelledby="sol-title">
-      <div className="wrap hero-copy">
-        <h1 id="sol-title" className="h-hero">
-          {title}
-        </h1>
-        <p className="lede">{intro}</p>
-        <div className="actions">{children}</div>
-      </div>
+      {pic ? (
+        <div className="wrap sol-hero-split">
+          {copy}
+          <figure className="sol-hero-photo">
+            <img src={pic.src[1]} srcSet={`${pic.src[0]} ${pic.w[0]}w, ${pic.src[1]} ${pic.w[1]}w`} sizes="(max-width: 900px) 100vw, 640px" width={pic.w[1]} height={pic.h} fetchPriority="high" alt={pic.alt} />
+          </figure>
+        </div>
+      ) : (
+        <div className="wrap">{copy}</div>
+      )}
     </section>
   );
 }
@@ -53,7 +65,8 @@ export function Businesses() {
     <>
       <SolutionHero
         title="CLOR for businesses"
-        intro="Small Indian companies use CLOR to raise GST invoices, keep each employee’s record, take attendance from the reader at the gate and pay salaries, without copying figures from one tool into the next."
+        pic={{ src: ['/people/business-workspace-700.webp', '/people/business-workspace-1400.webp'], w: [700, 1400], h: 788, alt: 'A manager at her laptop on the CLOR home screen, with Books, People, Payroll and Attendance' }}
+        intro="Growing Indian companies use CLOR to raise GST invoices, keep each employee’s record, take attendance from the reader at the gate and pay salaries, without copying figures from one tool into the next."
       >
         <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
           Request a demo
