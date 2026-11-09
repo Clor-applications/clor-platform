@@ -1,6 +1,7 @@
 import React from 'react';
 
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
 import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
 import { formatDate } from '@ui/components/ui/DatePicker';
@@ -27,15 +28,15 @@ const STATUS = {
 export function SalaryRevisionsReadOnly() {
   const req = useRequest(() => getHrSalaryRevisions(), []);
   const title = 'Salary revisions';
-  if (req.error && !req.data) return <div className="space-y-6"><PageHeader title={title} /><ErrorState error={req.error} onRetry={req.reload} /></div>;
-  if (!req.data) return <div className="space-y-6"><PageHeader title={title} /><SkeletonCard lines={6} /></div>;
+  const header = <ListHeader section="Pay, benefits & assets" title={title} description="Who moved from what pay to what, from when, and where each revision stands. Read only: Payroll raises, reviews and approves revisions." />;
+  if (req.error && !req.data) return <div className="space-y-6">{header}<ErrorState error={req.error} onRetry={req.reload} /></div>;
+  if (!req.data) return <div className="space-y-6">{header}<SkeletonCard lines={6} /></div>;
   const rows = req.data.revisions || [];
   return (
-    <div className="space-y-4">
-      <PageHeader title={title} />
-      <p className="ui-caption">Read only. Payroll raises, reviews and approves revisions.</p>
+    <div className="space-y-6">
+      {header}
       {!rows.length ? (
-        <EmptyState title="No salary revisions yet" />
+        <EmptyState title="No salary revisions yet" description="A revision raised in Payroll shows here once it exists, with its old and new pay." />
       ) : (
         <div className="ui-table-scroll border-t" style={{ borderColor: 'rgb(var(--border))' }}>
           <table className="ui-table w-full" aria-label="Salary revisions">

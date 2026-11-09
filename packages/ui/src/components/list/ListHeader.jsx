@@ -24,6 +24,8 @@ export default function ListHeader({
   section = null,
   title,
   description = null,
+  /** A figures strip whose numbers the tabs do not already carry (Employees); never one that repeats them. */
+  strip = null,
   primary = null,
   secondary = null,
   toolbar = null,
@@ -47,6 +49,7 @@ export default function ListHeader({
     <header className="ui-list-header">
       <PageHeader breadcrumb={crumbs} title={title} entity={entity} actions={actions} />
       {description ? <p className="ui-list-desc ui-muted">{description}</p> : null}
+      {strip}
       {toolbar || toolbarEnd ? (
         <div className="ui-list-toolbar">
           {toolbar}

@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Copy, Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -14,7 +15,7 @@ import { structure } from '../workforce/api';
 import { listBranches } from '../organization/api';
 import { createOpening, deleteOpening, getOpening, listOpenings, setApplyLink, setOpeningStatus, updateOpening } from '../api/talent';
 import { ReferralBlock } from './ReferralSettings';
-import { FormError, Footer, OPENING_STATUS, Pill, ReasonDrawer, SHEET, Tabs, day, staffOptions, useParamState, usePerm, useStaff, usedValues } from './shared';
+import { FormError, Footer, OPENING_STATUS, Pill, ReasonDrawer, SHEET, day, staffOptions, tabItems, useParamState, usePerm, useStaff, usedValues } from './shared';
 
 /**
  * Job openings (TALENT-DECISIONS.md, Hiring): what the company is hiring for, picked from its own
@@ -76,11 +77,19 @@ export default function Openings({ params = {}, openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Job openings' }]} title="Job openings"
-        actions={canCreate ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blank)}><Plus size={16} aria-hidden="true" /> {canEdit ? 'New opening' : 'Ask for an opening'}</button> : null} />
+      <ListHeader
+        module="Talent"
+        title="Job openings"
+        description="What the company is hiring for; candidates and interviews hang off each opening."
+        primary={canCreate ? { label: canEdit ? 'New opening' : 'Ask for an opening', icon: Plus, onClick: () => setEditing(blank) } : null}
+        toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search job, department or place" label="Search openings" className="w-full sm:w-80" />}
+        tabs={tabItems(TABS)}
+        tab={status}
+        onTab={setStatus}
+        tabsLabel="Openings"
+      />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
-          tabs={<Tabs label="Openings" tabs={TABS} value={status} onChange={setStatus} />}
           label="Job openings"
           columns={oneStatus ? columns.map((c) => (c.key === 'status' ? { ...c, label: 'Apply link', render: (r) => (r.applyOpen ? <span className="ui-pill ui-pill-info">On</span> : <span className="ui-muted">Off</span>) } : c)) : columns}
           rows={rows} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun="openings"
@@ -93,8 +102,7 @@ export default function Openings({ params = {}, openScreen }) {
           )}
           empty={q || status !== 'active'
             ? <EmptyState kind="filtered" title="No openings match" description="Nothing here matches the search or the tab." />
-            : <EmptyState title="No openings yet" description="Add the job you are hiring for; candidates and interviews hang off it." routes={canCreate ? [{ label: canEdit ? 'New opening' : 'Ask for an opening', onSelect: () => setEditing(blank) }] : undefined} />}
-          toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search job, department or place" label="Search openings" className="w-full sm:w-80" />} />
+            : <EmptyState title="No openings yet" description="Add the job you are hiring for; candidates and interviews hang off it." routes={canCreate ? [{ label: canEdit ? 'New opening' : 'Ask for an opening', onSelect: () => setEditing(blank) }] : undefined} />} />
       )}
       {open ? <OpeningDrawer id={open} canEdit={canEdit} moves={moves} onMove={move} onEdit={(o) => { setOpen(null); setEditing(o); }} openScreen={openScreen} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
       {editing ? <OpeningForm value={editing} rows={rows} canEdit={canEdit} onClose={() => setEditing(null)} onSaved={(o) => { setEditing(null); req.reload(); setOpen(o.id); }} /> : null}

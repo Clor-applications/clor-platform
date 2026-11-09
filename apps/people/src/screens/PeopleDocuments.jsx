@@ -1,13 +1,13 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Download, Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import SearchField from '@ui/components/ui/SearchField';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { notify } from '@ui/components/ui/notify';
 import { runListExport } from '@ui/components/list/exportMenu';
@@ -46,8 +46,6 @@ export default function PeopleDocuments({ openScreen }) {
   const [drawer, setDrawer] = useState(null);
   /* A reader who may not add files (a view-only manager) is not offered New document; the server refuses it anyway. */
   const mayAdd = can(usePermissions(), 'PEOPLE::Documents::CREATE');
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, tab);
   const today = todayIst();
   const expired = (r) => Boolean(r.expiresOn && r.expiresOn < today);
   const shown = useMemo(() => {
@@ -74,29 +72,25 @@ export default function PeopleDocuments({ openScreen }) {
   ];
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Documents' }]} title="Documents"
-        actions={<>
-          <button type="button" className="ui-btn ui-btn-secondary" disabled={!shown.length} onClick={() => runListExport({ format: 'csv', title: 'Documents', fileName: 'document-register', label: 'Documents', rows: shown, columns: EXPORT_COLUMNS })}><Download size={16} aria-hidden="true" /> Export</button>
-          {mayAdd ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setDrawer({ employeeId: '' })}><Plus size={16} aria-hidden="true" /> New document</button> : null}
-        </>} />
+      <ListHeader
+        title="Documents"
+        description="Every document on people's records, with who may see it and when it runs out."
+        secondary={<button type="button" className="ui-btn ui-btn-secondary" disabled={!shown.length} onClick={() => runListExport({ format: 'csv', title: 'Documents', fileName: 'document-register', label: 'Documents', rows: shown, columns: EXPORT_COLUMNS })}><Download size={16} aria-hidden="true" /> Export</button>}
+        primary={mayAdd ? { label: 'New document', icon: Plus, onClick: () => setDrawer({ employeeId: '' }) } : null}
+        toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search documents" label="Search documents" className="w-full sm:w-80" />}
+        tabs={[{ key: 'all', label: 'All', count: counts.all }, { key: 'valid', label: 'Current', count: counts.valid }, { key: 'expired', label: 'Expired', count: counts.expired }]}
+        tab={tab}
+        onTab={setTab}
+      />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
-          tabs={(
-            <div ref={tabsRef} role="tablist" aria-label="Documents" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-              {[['all', 'All', counts.all], ['valid', 'Current', counts.valid], ['expired', 'Expired', counts.expired]].map(([k, l, n]) => (
-                <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
-              ))}
-              {tabIndicator}
-            </div>
-          )}
           label="Documents" columns={columns} rows={shown} loading={req.loading} refreshing={req.refreshing}
           total={shown.length} pageSize={Math.max(25, shown.length)} noun="documents"
           onRowClick={(r) => setDrawer({ employeeId: r.employeeId || '' })} rowActions={rowActions}
           card={(r) => <span className="min-w-0 flex-1"><span className="block truncate font-medium">{r.title}</span><span className="block truncate ui-caption">{[r.employeeName, kindWord(r.kind), r.expiresOn ? `until ${formatDate(r.expiresOn)}` : null].filter(Boolean).join(' · ')}</span></span>}
           empty={q || tab !== 'all'
             ? <EmptyState kind="filtered" title="No documents match" description="Nothing here matches the search or the tab." />
-            : <EmptyState title="No documents yet" description="Documents added on a person's record, or here, are listed with their expiry." routes={mayAdd ? [{ label: 'New document', onSelect: () => setDrawer({ employeeId: '' }) }] : []} />}
-          toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search documents" label="Search documents" className="w-full sm:w-80" />} />
+            : <EmptyState title="No documents yet" description="Documents added on a person's record, or here, are listed with who may see them and their expiry." routes={mayAdd ? [{ label: 'New document', onSelect: () => setDrawer({ employeeId: '' }) }] : []} />} />
       )}
       {drawer ? (
         <Drawer open title="Employee documents" onClose={() => { setDrawer(null); req.reload(); }} widthClass="w-[min(44rem,96vw)] ui-drawer-sheet">

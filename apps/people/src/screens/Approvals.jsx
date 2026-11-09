@@ -1,14 +1,14 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Check, X } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { notify } from '@ui/components/ui/notify';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
@@ -95,8 +95,6 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
   const [selected, setSelected] = useState(() => new Set());
   const [bulkNote, setBulkNote] = useState('');
   const [bulkBusy, setBulkBusy] = useState(false);
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, tab);
 
   const items = useMemo(() => inbox.data?.items || [], [inbox.data]);
   const counts = inbox.data?.counts || {};
@@ -255,7 +253,18 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Inbox" />
+      <ListHeader
+        title="Inbox"
+        description="What waits for your decision, the tasks on your name, and what you asked for."
+        toolbar={<>
+          <SearchField value={q} onSearch={(v) => { setQ(v || ''); set({ page: null }); }} placeholder={tab === 'tasks' ? 'Search task or person' : 'Search name, employee ID or request'} label={tab === 'tasks' ? 'Search tasks' : 'Search approvals'} className="w-full sm:w-72" />
+          {tab === 'waiting' ? <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Kind" value={kind} onChange={(v) => { setSelected(new Set()); set({ kind: v || null, page: null }); }} options={kindOptions} placeholder="Every kind" /></div> : null}
+        </>}
+        tabs={TABS.map(([k, l]) => ({ key: k, label: l, count: tabCount[k], tone: 'warn' }))}
+        tab={tab}
+        onTab={(k) => { setSelected(new Set()); set({ tab: k === 'waiting' ? null : k, page: null }, true); }}
+        tabsLabel="Approvals"
+      />
 
       {tab === 'waiting' && chosen.length ? (
         <div className="ui-bulkbar" role="region" aria-label="Decide the chosen requests">
@@ -268,16 +277,6 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
       ) : null}
 
       <DataTable
-        tabs={(
-          <div ref={tabsRef} role="tablist" aria-label="Approvals" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-            {TABS.map(([k, l]) => (
-              <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => { setSelected(new Set()); set({ tab: k === 'waiting' ? null : k, page: null }, true); }}>
-                {l}{tabCount[k] ? <span className="ui-tab-count tabular-nums" data-tone="warn">{tabCount[k]}</span> : null}
-              </button>
-            ))}
-            {tabIndicator}
-          </div>
-        )}
         label={tab === 'waiting' ? 'To approve' : tab === 'tasks' ? 'My tasks' : 'Asked by me'}
         columns={tab === 'waiting' ? waitingColumns : tab === 'tasks' ? taskColumns : mineColumns}
         rows={pageRows}
@@ -318,10 +317,6 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
             <span className="block truncate ui-caption">{typeOf(r.requestType, r.payload)}</span>
           </span>
         )}
-        toolbar={<>
-          <SearchField value={q} onSearch={(v) => { setQ(v || ''); set({ page: null }); }} placeholder={tab === 'tasks' ? 'Search task or person' : 'Search name, employee ID or request'} label={tab === 'tasks' ? 'Search tasks' : 'Search approvals'} className="w-full sm:w-72" />
-          {tab === 'waiting' ? <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Kind" value={kind} onChange={(v) => { setSelected(new Set()); set({ kind: v || null, page: null }); }} options={kindOptions} placeholder="Every kind" /></div> : null}
-        </>}
         empty={req.error ? (
           <ErrorState error={req.error} onRetry={reload} />
         ) : filtered ? (

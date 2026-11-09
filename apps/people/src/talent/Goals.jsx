@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -11,7 +12,7 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { checkIn, createGoal, getGoal, listGoals, updateGoal } from '../api/talent';
-import { FormError, Footer, HEALTH, Pill, SHEET, Tabs, day, staffOptions, todayIst, useParamState, usedValues, useStaff, when } from './shared';
+import { FormError, Footer, HEALTH, Pill, SHEET, day, staffOptions, tabItems, todayIst, useParamState, usedValues, useStaff, when } from './shared';
 
 /**
  * Goals (TALENT-DECISIONS.md, Growth): what a person is working towards, how it is measured and
@@ -54,11 +55,21 @@ export default function Goals({ params = {} }) {
   const blank = { employeeId: person || (people.length === 1 ? people[0].id : me && !staff.length ? me.id : '') };
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Goals' }]} title="Goals"
-        actions={canAdd ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blank)}><Plus size={16} aria-hidden="true" /> New goal</button> : null} />
+      <ListHeader
+        module="Talent"
+        title="Goals"
+        description="What each person is working towards, how it is measured, by when, and how it is going."
+        primary={canAdd ? { label: 'New goal', icon: Plus, onClick: () => setEditing(blank) } : null}
+        toolbar={<>
+          <SearchField value={q} onSearch={setQ} placeholder="Search goal or person" label="Search goals" className="w-full sm:w-72" />
+          <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Person" value={person} alwaysSearch onChange={(v) => setPerson(v || '')} options={[{ value: '', label: 'Everyone I can see' }, ...staffOptions(people)]} /></div>
+        </>}
+        tabs={tabItems(TABS)}
+        tab={status}
+        onTab={setStatus}
+      />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
-          tabs={<Tabs label="Goals" tabs={TABS} value={status} onChange={setStatus} />}
           label="Goals" columns={columns} rows={rows} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun="goals"
           onRowClick={(g) => setOpen(g.id)}
           card={(g) => (
@@ -69,11 +80,7 @@ export default function Goals({ params = {} }) {
           )}
           empty={q || person || status !== 'ACTIVE'
             ? <EmptyState kind="filtered" title="No goals match" description="Nothing here matches the search, the person or the tab." />
-            : <EmptyState title="No goals yet" description="Agree what someone is working towards, how it is measured and by when." routes={canAdd ? [{ label: 'New goal', onSelect: () => setEditing(blank) }] : undefined} />}
-          toolbar={<>
-            <SearchField value={q} onSearch={setQ} placeholder="Search goal or person" label="Search goals" className="w-full sm:w-72" />
-            <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Person" value={person} alwaysSearch onChange={(v) => setPerson(v || '')} options={[{ value: '', label: 'Everyone I can see' }, ...staffOptions(people)]} /></div>
-          </>} />
+            : <EmptyState title="No goals yet" description="Agree what someone is working towards, how it is measured and by when." routes={canAdd ? [{ label: 'New goal', onSelect: () => setEditing(blank) }] : undefined} />} />
       )}
       {open ? <GoalDrawer id={open} onEdit={(g) => { setOpen(null); setEditing(g); }} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
       {editing ? <GoalForm value={editing} staff={people} rows={rows} onClose={() => setEditing(null)} onSaved={(g) => { setEditing(null); req.reload(); setOpen(g.id); }} /> : null}

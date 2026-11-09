@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { ChevronDown, Download, FileText, MoreVertical, Search, SlidersHorizontal, Table2 } from '@ui/components/ui/lineIcons';
 
 import Popover from '../ui/Popover';
-import { formatMoney } from '../../utils/money';
+import { formatMoney, wholeRupees } from '../../utils/money';
 import { exportRows } from '../ListToolbar';
 import { LIST_PERIODS, describeView } from '../../utils/listPeriod';
 import { exportListPdf } from '../../utils/listPdf';
@@ -107,10 +107,11 @@ export function StatCards({ cards, company, dense = false }) {
             </span>
             <span
               className={`block truncate tabular-nums ${dense ? 'leading-5 text-sm' : 'leading-6 text-base'} ${c.count ? '' : 'ui-mono'}`}
-      title={c.count ? String(c.value) : formatMoney(c.value, company)}
+      title={c.count ? String(c.value) : c.whole ? wholeRupees(c.value) : formatMoney(c.value, company)}
               style={toneVars(c.tone).figure ? { color: toneVars(c.tone).figure } : undefined}
             >
-              {c.count ? String(c.value) : formatMoney(c.value, company)}
+              {/* `whole`: a yearly total, said without paise (8 Nov 2026 plan, §3 rule 7). */}
+              {c.count ? String(c.value) : c.whole ? wholeRupees(c.value) : formatMoney(c.value, company)}
             </span>
             {anyHint ? (
               <span className="ui-subtle text-xs block leading-4 truncate">{c.hint || '\u00a0'}</span>

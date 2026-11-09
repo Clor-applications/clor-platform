@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LayoutGrid, List, Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import ErrorState from '@ui/components/ui/ErrorState';
 import SearchField from '@ui/components/ui/SearchField';
@@ -9,7 +10,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 import { listCandidates, listOpenings, moveCandidate } from '../api/talent';
 import CandidateDrawer, { CandidateForm } from './CandidateDrawer';
-import { OPEN_STAGES, Pill, SOURCES, STAGES, Tabs, day, useParamState, usePerm, word } from './shared';
+import { OPEN_STAGES, Pill, SOURCES, STAGES, day, tabItems, useParamState, usePerm, word } from './shared';
 
 /**
  * Candidates (TALENT-DECISIONS.md): everyone applying, on one pipeline from Applied to Hired,
@@ -58,16 +59,21 @@ export default function Candidates({ params = {}, openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Candidates' }]} title="Candidates"
-        actions={canCreate ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Add candidate</button> : null} />
+      <ListHeader
+        module="Talent"
+        title="Candidates"
+        description="Everyone applying, on one pipeline from applied to hired, as a list or a board of stages."
+        primary={canCreate ? { label: 'Add candidate', icon: Plus, onClick: () => setAdding(true) } : null}
+        toolbar={<ToolbarItems {...{ q, setQ, opening, setOpening, openings: openings.data || [], view, chooseView }} />}
+        tabs={board ? null : tabItems(TABS.map(([k, l]) => [k, l, counts[COUNT_KEY[k] || k] || 0]))}
+        tab={stage}
+        onTab={setStage}
+        tabsLabel="Stages"
+      />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : board ? (
-        <>
-          <Toolbar {...{ q, setQ, opening, setOpening, openings: openings.data || [], view, chooseView }} />
-          <Board rows={rows} loading={req.loading} canEdit={canEdit} onOpen={(r) => setOpen(r.id)} onMove={move} />
-        </>
+        <Board rows={rows} loading={req.loading} canEdit={canEdit} onOpen={(r) => setOpen(r.id)} onMove={move} />
       ) : (
         <DataTable
-          tabs={<Tabs label="Stages" tabs={TABS.map(([k, l]) => [k, l, counts[COUNT_KEY[k] || k] || 0])} value={stage} onChange={setStage} />}
           label="Candidates" columns={oneStage ? columns.filter((c) => c.key !== 'stage') : columns}
           rows={rows} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun="candidates"
           onRowClick={(r) => setOpen(r.id)} rowActions={rowActions}
@@ -79,8 +85,7 @@ export default function Candidates({ params = {}, openScreen }) {
           )}
           empty={filtered
             ? <EmptyState kind="filtered" title="No candidates match" description="Nothing here matches the search, the opening or the tab." />
-            : <EmptyState title="No candidates yet" description="Add someone who applied, or turn on an opening's apply link." routes={canCreate ? [{ label: 'Add candidate', onSelect: () => setAdding(true) }, { label: 'Job openings', onSelect: () => openScreen?.('recruitment') }] : undefined} />}
-          toolbar={<ToolbarItems {...{ q, setQ, opening, setOpening, openings: openings.data || [], view, chooseView }} />} />
+            : <EmptyState title="No candidates yet" description="Add someone who applied, or turn on an opening's apply link." routes={canCreate ? [{ label: 'Add candidate', onSelect: () => setAdding(true) }, { label: 'Job openings', onSelect: () => openScreen?.('recruitment') }] : undefined} />} />
       )}
       {open ? <CandidateDrawer id={open} hr known={rows} canEdit={canEdit} canHire={canHire} canOffer={canOffer} onClose={() => setOpen(null)} onChanged={req.reload} onHired={() => openScreen?.('joiners')} /> : null}
       {adding ? <CandidateForm value={{ openingId: opening && live.some((o) => o.id === opening) ? opening : live.length === 1 ? live[0].id : '' }} openings={live} known={rows} onClose={() => setAdding(false)} onSaved={(c) => { setAdding(false); req.reload(); if (c?.id) setOpen(c.id); }} /> : null}

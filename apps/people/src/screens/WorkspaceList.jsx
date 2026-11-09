@@ -1,6 +1,7 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Download, Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -9,7 +10,6 @@ import SuggestInput from '@ui/components/ui/SuggestInput';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { runListExport } from '@ui/components/list/exportMenu';
 import { usePermissions } from '@ui/permissions/usePermissions';
@@ -52,8 +52,6 @@ export default function WorkspaceList({ kind, params }) {
   const [status, setStatus] = useState(() => params?.status || 'ALL');
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState(null);
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, status);
   const names = useMemo(() => new Map(employees.map((e) => [e.id, e.name])), [employees]);
   /* An audience saved without its words (made through the API, or before the lists loaded) is named from its ids (#80 QA: "—" for Sales). */
   const hasAudience = cfg.fields.some((f) => f.type === 'audience');
@@ -103,29 +101,25 @@ export default function WorkspaceList({ kind, params }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: cfg.title }]} title={cfg.title}
-        actions={<>
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={exportRows} disabled={!shown.length}><Download size={16} aria-hidden="true" /> Export</button>
-          {canCreate ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blank())} disabled={Boolean(req.error && !req.data)}><Plus size={16} aria-hidden="true" /> New {cfg.singular}</button> : null}
-        </>} />
+      <ListHeader
+        title={cfg.title}
+        description={cfg.description}
+        secondary={<button type="button" className="ui-btn ui-btn-secondary" onClick={exportRows} disabled={!shown.length}><Download size={16} aria-hidden="true" /> Export</button>}
+        primary={canCreate ? { label: `New ${cfg.singular}`, icon: Plus, onClick: () => setEditing(blank()), disabled: Boolean(req.error && !req.data) } : null}
+        toolbar={<SearchField value={q} onSearch={setQ} placeholder={`Search ${noun}`} label={`Search ${noun}`} className="w-full sm:w-80" />}
+        tabs={[{ key: 'ALL', label: 'All', count: rows.length }, ...cfg.statuses.map((s) => ({ key: s, label: statusLabel(s), count: counts[s] }))]}
+        tab={status}
+        onTab={setStatus}
+      />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
-          tabs={(
-            <div ref={tabsRef} role="tablist" aria-label={cfg.title} className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-              {[['ALL', 'All', rows.length], ...cfg.statuses.map((s) => [s, statusLabel(s), counts[s]])].map(([k, l, n]) => (
-                <button key={k} type="button" role="tab" aria-selected={status === k} className={`ui-tab ${status === k ? 'is-active' : ''}`} onClick={() => setStatus(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
-              ))}
-              {tabIndicator}
-            </div>
-          )}
           label={cfg.title} columns={status === 'ALL' ? columns : columns.filter((c) => c.key !== 'status')} rows={shown} loading={req.loading} refreshing={req.refreshing}
           total={shown.length} pageSize={Math.max(25, shown.length)} noun={noun}
           onRowClick={(r) => setEditing({ ...r, details: { ...r.details } })} rowActions={rowActions}
           card={(r) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{symbolOf(r.details?.symbol) ? <span className="mr-1.5" aria-hidden="true">{symbolOf(r.details.symbol).emoji}</span> : null}{r.title}</span><span className={`ui-pill ${POSITIVE.includes(r.status) ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{statusLabel(r.status)}</span></span><span className="block truncate ui-caption">{[cfg.employee ? names.get(r.employeeId) || NOBODY[kind] || 'Nobody' : null, ...cfg.columns.map((k) => detailValue(r, k))].filter(Boolean).join(' · ')}</span></span>}
           empty={q || status !== 'ALL'
             ? <EmptyState kind="filtered" title={`No ${noun} match`} description="Nothing here matches the search or the tab." />
-            : <EmptyState title={`No ${noun} yet`} description={cfg.description} routes={canCreate ? [{ label: `New ${cfg.singular}`, onSelect: () => setEditing(blank()) }] : undefined} />}
-          toolbar={<SearchField value={q} onSearch={setQ} placeholder={`Search ${noun}`} label={`Search ${noun}`} className="w-full sm:w-80" />} />
+            : <EmptyState title={`No ${noun} yet`} description={`The first ${cfg.singular} starts the list.`} routes={canCreate ? [{ label: `New ${cfg.singular}`, onSelect: () => setEditing(blank()) }] : undefined} />} />
       )}
       {editing ? <RecordDrawer kind={kind} cfg={cfg} rows={rows} value={editing} employees={employees} onClose={() => setEditing(null)} onDone={() => { setEditing(null); req.reload(); }} /> : null}
     </div>

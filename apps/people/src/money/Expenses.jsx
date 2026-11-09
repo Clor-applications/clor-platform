@@ -1,14 +1,14 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Receipt } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader, StatStrip } from '@ui/components/ui/Primitives';
+import { EmptyState, StatStrip } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import SearchField from '@ui/components/ui/SearchField';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
@@ -43,27 +43,25 @@ export default function Expenses({ params = {}, updateParams }) {
   const p = params || {};
   const tab = TABS.some(([k]) => k === p.tab) ? p.tab : 'pay';
   const set = (patch, push = false) => updateParams?.(patch, { push });
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, tab);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const toPay = useRequest(() => listClaims('TO_PAY'), []);
 
   const exportBooks = () => downloadCsv('books').catch((e) => notify.error(String(e?.message || 'Not downloaded.')));
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Pay, benefits & assets' }]} title="Expenses"
-        actions={<>
+      {/* Claims are made by staff in the employee app and approved in the Inbox; here they are paid, so the screen has no "new claim" (no HR entry on the server yet). */}
+      <ListHeader
+        section="Pay, benefits & assets"
+        title="Expenses"
+        description="Claims approved in the Inbox, waiting to be paid or to go into Books, and the advances given out."
+        secondary={<>
           {mayPay ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setCategoriesOpen(true)}>Categories and limits</button> : null}
           {mayExport ? <button type="button" className="ui-btn ui-btn-secondary" onClick={exportBooks}>Download for Books</button> : null}
-        </>} />
-      <div ref={tabsRef} role="tablist" aria-label="Expenses" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {TABS.map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => set({ tab: k === 'pay' ? null : k, page: null, q: null }, true)}>
-            {l}{k === 'pay' && toPay.data?.length ? <span className="ui-tab-count tabular-nums" data-tone="warn">{toPay.data.length}</span> : null}
-          </button>
-        ))}
-        {tabIndicator}
-      </div>
+        </>}
+        tabs={TABS.map(([k, l]) => ({ key: k, label: l, count: k === 'pay' ? toPay.data?.length || 0 : 0, tone: 'warn' }))}
+        tab={tab}
+        onTab={(k) => set({ tab: k === 'pay' ? null : k, page: null, q: null }, true)}
+      />
       {tab === 'pay' || tab === 'all' || tab === 'books' ? <ClaimList key={tab} tab={tab} params={p} set={set} mayPay={mayPay} onPaid={toPay.reload} preloaded={tab === 'pay' ? toPay : null} /> : null}
       {tab === 'advances' ? <AdvanceList params={p} set={set} mayPay={mayPay} /> : null}
       {tab === 'salary' ? <SalaryAdvanceList params={p} set={set} mayPay={mayPay} /> : null}

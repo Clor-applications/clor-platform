@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Download, Printer } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
+import ListHeader from '@ui/components/list/ListHeader';
 import ErrorState from '@ui/components/ui/ErrorState';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
@@ -40,6 +41,15 @@ const monthTitle = (month) => new Date(`${month}-01T00:00:00Z`).toLocaleDateStri
 /** Columns that hold figures or day marks: right-aligned (figures) or centred (marks), never left. */
 const isFigure = (label) => ['Present', 'Absent', 'Leave', 'Holidays & offs', 'Days', 'People', 'Sl. no.'].includes(label);
 const isDay = (label) => /^\d{1,2}$/.test(label);
+
+/* The server sends the register as stored (MALE, 2023-12-31); the page says it as it is read (Female, 31 Dec 2023). The CSV keeps the stored form. */
+const GENDER_WORD = { MALE: 'Male', FEMALE: 'Female', OTHER: 'Other', NON_BINARY: 'Non-binary', PREFER_NOT_TO_SAY: 'Not said' };
+export const showRegisterValue = (v) => {
+  const s = v == null ? '' : String(v);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return formatDate(s);
+  if (GENDER_WORD[s]) return GENDER_WORD[s];
+  return s;
+};
 
 const PRINT_CSS = `
 @media print {
@@ -90,16 +100,13 @@ export default function Registers({ params = {}, updateParams, register: fixed }
   return (
     <div className="space-y-6">
       <style>{PRINT_CSS}</style>
-      <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Reports' }]}
+      <ListHeader
+        section="Reports"
         title={fixed ? reg.label : 'Statutory registers'}
-        actions={<>
-          <button type="button" className="ui-btn ui-btn-secondary" disabled={!d?.rows?.length} onClick={exportCsv}><Download size={16} aria-hidden="true" /> Export CSV</button>
-          <button type="button" className="ui-btn ui-btn-primary" disabled={!d?.rows?.length} onClick={() => window.print()}><Printer size={16} aria-hidden="true" /> Print</button>
-        </>}
-      />
-
-      <div className="flex flex-wrap items-end gap-3">
+        description="What a labour inspector asks to see, for an establishment and a period, ready to print or export. Wages are in Payroll's registers."
+        secondary={<button type="button" className="ui-btn ui-btn-secondary" disabled={!d?.rows?.length} onClick={exportCsv}><Download size={16} aria-hidden="true" /> Export CSV</button>}
+        primary={{ label: 'Print', icon: Printer, disabled: !d?.rows?.length, onClick: () => window.print() }}
+        toolbar={<>
         {!fixed ? (
           <div className="w-full sm:w-64">
             <PopupSelect showValueSubtext={false} label="Register" value={kind} onChange={(v) => v && set({ register: v === 'employees' ? null : v })} options={REGISTERS.map((r) => ({ value: r.key, label: r.label }))} />
@@ -125,8 +132,9 @@ export default function Registers({ params = {}, updateParams, register: fixed }
             </div>
           </>
         ) : null}
-      </div>
-      <p className="ui-caption">{reg.hint} Wages are in Payroll’s registers.</p>
+        </>}
+      />
+      <p className="ui-caption">{reg.hint}</p>
 
       {data.error && !d ? <ErrorState error={data.error} onRetry={data.reload} /> : data.loading && !d ? <SkeletonCard lines={8} /> : !d ? (
         <EmptyState title="Choose a period" description="The end has to be on or after the start." />
@@ -150,7 +158,7 @@ export default function Registers({ params = {}, updateParams, register: fixed }
                 <tbody>
                   {d.rows.map((r, ri) => (
                     <tr key={ri} className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
-                      {r.map((v, i) => <td key={i} className={`p-2 align-top ${isDay(d.columns[i]) ? 'text-center p-0.5' : isFigure(d.columns[i]) ? 'text-right tabular-nums' : /^\d{4}-\d{2}-\d{2}$/.test(v) ? 'tabular-nums whitespace-nowrap' : ''}`}>{v}</td>)}
+                      {r.map((v, i) => <td key={i} className={`p-2 align-top ${isDay(d.columns[i]) ? 'text-center p-0.5' : isFigure(d.columns[i]) ? 'text-right tabular-nums' : /^\d{4}-\d{2}-\d{2}$/.test(v) ? 'tabular-nums whitespace-nowrap' : ''}`}>{showRegisterValue(v)}</td>)}
                     </tr>
                   ))}
                   {d.totals ? (
