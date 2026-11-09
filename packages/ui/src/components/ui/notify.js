@@ -8,13 +8,22 @@
  * only subscriber.
  */
 
+/** What the server says when an Explore session (the read-only sample company) tries a change. */
+export const EXPLORE_READ_ONLY_TEXT = 'This is a sample company, so changes are off.';
+
 const toastListeners = new Set();
 const confirmListeners = new Set();
 let nextId = 0;
 
 const push = (kind, message) => {
-  const text = String(message ?? '').trim();
+  let text = String(message ?? '').trim();
   if (!text) return;
+  /* Explore: whatever a screen wraps the refusal in ("Saved on this device only — the server
+     refused it: …"), the visitor reads the one sentence, once, as a note rather than an error. */
+  if (text.includes(EXPLORE_READ_ONLY_TEXT)) {
+    text = EXPLORE_READ_ONLY_TEXT;
+    kind = 'info';
+  }
   const toast = { id: ++nextId, kind, message: text };
   toastListeners.forEach((l) => l(toast));
 };

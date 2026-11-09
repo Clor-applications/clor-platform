@@ -111,6 +111,23 @@ The link works once and for {{days}} days. If it has run out, use "Forgot passwo
     transactional: true,
   },
   {
+    key: 'explore.pass',
+    label: 'Look around CLOR',
+    description: 'Sent to somebody who asked for a demo on clor.in: a 14-day link to a sample company they can look around, read-only.',
+    subject: 'Look around {{appName}} while we set up your demo',
+    body: `Hello {{name}},
+
+Thank you for asking for a demo of {{apps}}. We will call you to fix a time.
+
+Until then, you can look around now. This link opens Sample Traders Pvt Ltd, a made-up company with a few months of invoices, pay runs, people and attendance in it. Open any screen you like; nothing you change is saved.
+
+{{exploreUrl}}
+
+The link works for {{days}} days, until {{expiresOn}}. Anyone with it sees the same sample company, and nothing of yours.`,
+    fields: ['name', 'apps', 'exploreUrl', 'days', 'expiresOn', 'appName'],
+    transactional: true,
+  },
+  {
     key: 'sales.demo_requested',
     label: 'Demo requested',
     description: 'Sent to the CLOR sales inbox when somebody asks for a demo on clor.in.',

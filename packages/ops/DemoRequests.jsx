@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 import { PageHead, Panel, WsDrawer, ago } from '../../apps/admin/src/screens/wsKit';
-import { opsCreateDemoAccount, opsDemoRequest, opsDemoRequests, opsSetDemoStatus } from './api';
+import { opsCreateDemoAccount, opsDemoRequest, opsDemoRequests, opsEndExplore, opsResendExplore, opsSetDemoStatus } from './api';
 
 /**
  * Demo requests from clor.in/demo (server: routes/demoRequests.ts). The team
@@ -30,6 +30,10 @@ const phone = (p) => (/^\+91\d{10}$/.test(p || '') ? `+91 ${p.slice(3, 8)} ${p.s
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 const may = (role, ...roles) => role === 'SUPER_ADMIN' || roles.includes(role);
 const Err = ({ children }) => (children ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{children}</p> : null);
+
+/* What the team did, in a line each. */
+const HISTORY = { DEMO_ACCOUNT_CREATED: 'Account created', EXPLORE_RESENT: 'Explore link sent again', EXPLORE_ENDED: 'Explore access ended' };
+const when = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—');
 
 export function DemoPill({ status }) {
   const tone = status === 'ACCOUNT_CREATED' ? 'ws-pill ws-pill--ok' : status === 'NEW' ? 'ws-pill ws-pill--warn' : status === 'NOT_A_FIT' ? 'ws-pill ws-pill--off' : 'ws-pill';
@@ -242,6 +246,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
               </form>
             )}
           </Panel>
+          <ExplorePanel id={r.id} pass={d.explore} mayAct={mayMove} onChange={load} />
           <Panel title="What the team did">
             {d.history.length ? (
               <ul className="ws-list">
@@ -250,7 +255,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
                     <div className="ws-item">
                       <span className="ws-item-text">
                         <span className="ws-item-title">
-                          {e.action === 'DEMO_ACCOUNT_CREATED' ? 'Account created' : `${DEMO_STATUS[e.detail?.from] || e.detail?.from} → ${DEMO_STATUS[e.detail?.to] || e.detail?.to}`}
+                          {HISTORY[e.action] || `${DEMO_STATUS[e.detail?.from] || e.detail?.from} → ${DEMO_STATUS[e.detail?.to] || e.detail?.to}`}
                         </span>
                         <span className="ws-item-sub">{e.operatorName || 'operator'} · {ago(e.at)}{e.detail?.note ? ` · ${e.detail.note}` : ''}</span>
                       </span>
@@ -267,6 +272,72 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
 
       <CreateAccount open={creating} request={r} onClose={() => setCreating(false)} onDone={() => { setCreating(false); load(); }} />
     </>
+  );
+}
+
+/**
+ * The Explore link sent with the request (server: services/explore.ts): a
+ * read-only look at the sample company for 14 days. Resend mails a new link
+ * (the old one stops working; an ended link opens again for 14 days); End
+ * access stops the link and signs out whoever is using it.
+ */
+const PASS_STATE = { active: ['Open', 'ws-pill ws-pill--ok'], expired: ['Ran out', 'ws-pill ws-pill--off'], ended: ['Ended', 'ws-pill ws-pill--off'] };
+function ExplorePanel({ id, pass, mayAct, onChange }) {
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const act = async (kind) => {
+    if (kind === 'end' && !(await confirmDialog({ title: 'End Explore access?', message: 'The link stops working and anyone using it now is signed out. Resend makes a new one.', confirmLabel: 'End access' }))) return;
+    setBusy(kind);
+    setError('');
+    try {
+      if (kind === 'end') {
+        const r = await opsEndExplore(id);
+        notify.success(r.sessionsEnded ? `Access ended. ${r.sessionsEnded} open session${r.sessionsEnded === 1 ? '' : 's'} signed out.` : 'Access ended.');
+      } else {
+        await opsResendExplore(id);
+        notify.success('A new link is on its way. The old one no longer works.');
+      }
+      onChange();
+    } catch (e) {
+      setError(String(e?.message || e));
+    } finally {
+      setBusy('');
+    }
+  };
+  const [label, tone] = pass ? PASS_STATE[pass.state] || [pass.state, 'ws-pill'] : [];
+  return (
+    <Panel title="Explore link">
+      {pass ? (
+        <div className="grid gap-3">
+          <div><span className={tone}>{label}</span></div>
+          <dl className="ops-facts">
+            <dt>Sent</dt>
+            <dd>{when(pass.sentAt)}{pass.sendCount > 1 ? ` (${pass.sendCount} times)` : ''}</dd>
+            <dt>Last used</dt>
+            <dd>{pass.lastUsedAt ? ago(pass.lastUsedAt) : 'Not yet'}</dd>
+            <dt>Times used</dt>
+            <dd className="tabular-nums">{pass.useCount}</dd>
+            <dt>{pass.state === 'active' ? 'Works until' : 'Worked until'}</dt>
+            <dd>{day(pass.revokedAt || pass.expiresAt)}</dd>
+          </dl>
+        </div>
+      ) : (
+        <p className="ws-card-blurb">No link was sent with this request.</p>
+      )}
+      <Err>{error}</Err>
+      {mayAct ? (
+        <div className="flex flex-wrap gap-2 mt-3">
+          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={Boolean(busy)} onClick={() => act('resend')}>
+            {busy === 'resend' ? 'Sending…' : pass ? 'Resend' : 'Send a link'}
+          </button>
+          {pass && pass.state === 'active' ? (
+            <button type="button" className="ws-btn ws-btn--danger ws-btn--small" disabled={Boolean(busy)} onClick={() => act('end')}>
+              {busy === 'end' ? 'Ending…' : 'End access'}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </Panel>
   );
 }
 

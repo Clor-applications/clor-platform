@@ -26,3 +26,12 @@ export const opsDemoRequests = (params) => apiFetch(`/ops/demo-requests${q(param
 export const opsDemoRequest = (id) => apiFetch(`/ops/demo-requests/${encodeURIComponent(id)}`, o);
 export const opsSetDemoStatus = (id, body) => apiFetch(`/ops/demo-requests/${encodeURIComponent(id)}`, { ...o, method: 'PATCH', body });
 export const opsCreateDemoAccount = (id, body) => apiFetch(`/ops/demo-requests/${encodeURIComponent(id)}/create-account`, { ...o, method: 'POST', body });
+/* The request's Explore link (server: routes/demoRequests.ts, services/explore.ts). */
+export const opsResendExplore = (id) => apiFetch(`/ops/demo-requests/${encodeURIComponent(id)}/explore/resend`, { ...o, method: 'POST' });
+export const opsEndExplore = (id) => apiFetch(`/ops/demo-requests/${encodeURIComponent(id)}/explore/end`, { ...o, method: 'POST' });
+/* Explore on the console: the sample company and every link (server: routes/opsExplore.ts). */
+export const opsSampleCompany = () => apiFetch('/ops/explore/sample', o);
+export const opsBuildSample = (force = false) => apiFetch('/ops/explore/sample/build', { ...o, method: 'POST', body: { force } });
+export const opsExplorePasses = (params) => apiFetch(`/ops/explore/passes${q(params)}`, o);
+export const opsResendPass = (id) => apiFetch(`/ops/explore/passes/${encodeURIComponent(id)}/resend`, { ...o, method: 'POST' });
+export const opsEndPass = (id) => apiFetch(`/ops/explore/passes/${encodeURIComponent(id)}/end`, { ...o, method: 'POST' });

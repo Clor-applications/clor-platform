@@ -1,4 +1,5 @@
 import { isArchived } from './companyArchive.js';
+import { isSampleOrg } from './sampleIdentity.js';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 import nodemailer from 'nodemailer';
 // Nodemailer 10 no longer exposes its types under the default export's
@@ -241,8 +242,10 @@ export async function sendTemplate(opts: SendOptions) {
   const subject = render(template.subject, data);
   const bodyText = render(template.body, data);
 
+  /* Explore's sample company sends nothing: its people and customers are made up (services/sampleIdentity.ts). */
+  const sample = Boolean(opts.orgId) && (await isSampleOrg(opts.orgId));
   /* An archived company sends nothing (services/companyArchive.ts): kept as SUPPRESSED so it can be seen. Closure notices still go. */
-  if (opts.orgId && !String(template.key).startsWith('closure') && (await isArchived(opts.orgId))) {
+  if (opts.orgId && (sample || (!String(template.key).startsWith('closure') && (await isArchived(opts.orgId))))) {
     return platformPrisma.emailOutbox.create({
       data: {
         accountId: opts.accountId ?? null,
@@ -253,7 +256,7 @@ export async function sendTemplate(opts: SendOptions) {
         subject,
         bodyText,
         status: 'SUPPRESSED',
-        lastError: 'Company archived',
+        lastError: sample ? 'Sample company: nothing is sent' : 'Company archived',
         relatedType: opts.relatedType ?? null,
         relatedId: opts.relatedId ?? null,
       },
@@ -314,10 +317,11 @@ export async function sendTemplate(opts: SendOptions) {
  * rendered email, live link and all, in plain text in the database and every
  * backup. Once the message has gone, the stored copy keeps the shape of the
  * link and loses the secret. A message still waiting to be retried keeps it;
- * those tokens expire on their own (30 minutes, 24 hours).
+ * those tokens expire on their own (30 minutes, 24 hours; an Explore link,
+ * `?t=`, in 14 days, and Resend replaces it).
  */
 export const withoutLinkTokens = (text: string) =>
-  String(text || '').replace(/([?&](?:token|share|reset|verify)=)[^\s&"'<>]+/gi, '$1[removed-after-sending]');
+  String(text || '').replace(/([?&](?:token|share|reset|verify|t)=)[^\s&"'<>]+/gi, '$1[removed-after-sending]');
 
 /** Attempts delivery of one outbox row and records the result. */
 export async function deliver(outboxId: string, accountId?: string | null, orgId?: string | null) {

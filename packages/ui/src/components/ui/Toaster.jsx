@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { X } from '@ui/components/ui/lineIcons';
 import { Toaster as SonnerToaster, toast as sonnerToast } from 'sonner';
 
-import { subscribeConfirms, subscribeToasts } from './notify';
+import { EXPLORE_READ_ONLY_TEXT, subscribeConfirms, subscribeToasts } from './notify';
 
 /**
  * The one place notifications become pixels: a toast stack bottom-right and
@@ -50,6 +50,8 @@ export default function Toaster() {
       /* An error lingers: it usually carries an instruction, and four seconds
          is not long enough to read one and act on it. */
       const opts = { duration: t.kind === 'error' ? 7000 : 4000 };
+      /* Explore: the shell and the screen that tried may both say the sample refused a change; one toast. */
+      if (t.message === EXPLORE_READ_ONLY_TEXT) opts.id = 'explore-read-only';
       if (t.kind === 'success') sonnerToast.success(t.message, opts);
       else if (t.kind === 'error') sonnerToast.error(t.message, opts);
       else sonnerToast(t.message, opts);
