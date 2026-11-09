@@ -246,7 +246,7 @@ opsRouter.get('/ops/accounts', (req, res) =>
     const accountsAll = await platformPrisma.account.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      select: { id: true, name: true, code: true, createdAt: true, suspendedAt: true, legacyUnrestrictedAt: true, _count: { select: { orgs: true, users: true } } },
+      select: { id: true, name: true, code: true, createdAt: true, suspendedAt: true, legacyUnrestrictedAt: true, orgs: { select: { name: true }, orderBy: { createdAt: 'asc' }, take: 1 }, _count: { select: { orgs: true, users: true } } },
     });
     const ids = accountsAll.map((a) => a.id);
     const [subs, owners, last] = await Promise.all([
@@ -267,6 +267,7 @@ opsRouter.get('/ops/accounts', (req, res) =>
       return {
         id: a.id,
         name: a.name,
+        title: customerTitle(a.name, ownerBy.get(a.id)?.name, a.orgs[0]?.name),
         code: a.code,
         createdAt: a.createdAt,
         owner: ownerBy.get(a.id) || null,
@@ -291,6 +292,19 @@ opsRouter.get('/ops/accounts', (req, res) =>
     res.json({ total: rows.length, page, pageSize: PAGE, accounts: rows.slice(page * PAGE, page * PAGE + PAGE) });
   }),
 );
+
+/**
+ * What a customer is called on the console: the business, not the person.
+ * An account made without a company name was named after its owner, so when
+ * the account name is just the owner's name the first company's name is used;
+ * with neither, the owner's name.
+ */
+export function customerTitle(accountName: string | null | undefined, ownerName: string | null | undefined, firstCompany: string | null | undefined): string {
+  const name = String(accountName || '').trim();
+  const owner = String(ownerName || '').trim();
+  if (name && name.toLowerCase() !== owner.toLowerCase()) return name;
+  return String(firstCompany || '').trim() || name || owner || 'Unnamed customer';
+}
 
 /** One account: owners and members, companies, subscription, recent security events. Metadata only. */
 opsRouter.get('/ops/accounts/:id', (req, res) =>
@@ -322,8 +336,10 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
     );
     const opUsers = await platformPrisma.user.findMany({ where: { id: { in: [...new Set(opEvents.map((e) => e.operatorUserId))] } }, select: { id: true, fullName: true } });
     const opName = new Map(opUsers.map((u) => [u.id, u.fullName]));
+    const firstOwner = members.find((m) => m.role === 'OWNER');
+    const ownerUser = firstOwner ? userBy.get(firstOwner.userId) : undefined;
     res.json({
-      account,
+      account: { ...account, title: customerTitle(account.name, ownerUser?.fullName, orgs[0]?.name), ownerName: ownerUser?.fullName || null },
       members: members.map((m) => {
         const u = userBy.get(m.userId);
         return { userId: m.userId, role: m.role, status: m.status, since: m.createdAt, name: u?.fullName || null, email: u?.email || null, active: u?.isActive ?? false, lastLoginAt: u?.lastLoginAt || null, authenticator: Boolean(u?.totpEnabledAt) };

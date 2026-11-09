@@ -131,7 +131,7 @@ export function Customers({ initialStatus = 'all', openCustomer }) {
                 return (
                   <tr key={a.id}>
                     <td>
-                      <button type="button" className="ws-name-link" onClick={() => openCustomer(a.id)}>{a.name}</button>
+                      <button type="button" className="ws-name-link" onClick={() => openCustomer(a.id)}>{a.title || a.name}</button>
                       <div className="ws-item-sub tabular-nums">{a.code || '—'}</div>
                     </td>
                     <td className="hidden md:table-cell">
@@ -181,6 +181,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo }) {
   if (!d) return error ? <Err>{error}</Err> : <Loading />;
   const a = d.account;
   const s = d.subscription;
+  const name = a.title || a.name;
   const plan = a.suspendedAt ? 'suspended' : s ? customerStatus(s.status, s.trialEndsAt) : a.legacyUnrestrictedAt ? 'legacy' : 'no-plan';
   return (
     <>
@@ -190,7 +191,8 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo }) {
         </button>
       </div>
       <PageHead
-        title={a.name}
+        title={name}
+        description={a.ownerName && a.ownerName !== name ? `Owner: ${a.ownerName}` : null}
         meta={
           <>
             <span className="tabular-nums">{a.code || '—'}</span> · <StatusPill status={plan} />
@@ -202,10 +204,10 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo }) {
           Suspended on {day(a.suspendedAt)}: {a.suspendedReason}. Nobody in this account can open any of its companies until it is resumed.
         </p>
       ) : null}
-      <Tabs label={`${a.name}`} tabs={TABS} value={tab} onChange={setTab} />
+      <Tabs label={name} tabs={TABS} value={tab} onChange={setTab} />
       <div role="tabpanel" aria-labelledby={`tab-${tab}`} className="grid gap-6">
         {tab === 'overview' ? <Overview d={d} plan={plan} /> : null}
-        {tab === 'subscription' ? <Subscription d={d} plan={plan} role={role} reload={load} /> : null}
+        {tab === 'subscription' ? <Subscription d={d} name={name} plan={plan} role={role} reload={load} /> : null}
         {tab === 'money' ? <Money id={id} /> : null}
         {tab === 'requests' ? <Requests id={id} openDemo={openDemo} /> : null}
         {tab === 'users' ? <Users id={id} role={role} /> : null}
@@ -272,6 +274,19 @@ function Overview({ d, plan }) {
 }
 
 /* ----------------------------------------------------------- subscription */
+/* People carries Attendance: ticking People ticks Attendance and holds it there. */
+const withIncluded = (set) => {
+  const n = new Set(set);
+  if (n.has('people')) n.add('attendance');
+  return n;
+};
+const toggle = (set, k) => {
+  const n = new Set(set);
+  if (n.has(k)) n.delete(k);
+  else n.add(k);
+  return n;
+};
+
 const ACTIONS = {
   trial: { label: 'Extend trial', title: 'Extend the trial', confirm: 'Extend trial', roles: ['BILLING', 'SALES'] },
   apps: { label: 'Change apps', title: 'Change apps', confirm: 'Change apps', roles: ['BILLING'] },
@@ -282,7 +297,7 @@ const ACTIONS = {
   reopen: { label: 'Reopen', title: 'Reopen the subscription', confirm: 'Reopen', roles: ['BILLING'] },
 };
 
-function Subscription({ d, plan, role, reload }) {
+function Subscription({ d, name, plan, role, reload }) {
   const a = d.account;
   const s = d.subscription;
   const [action, setAction] = useState(null);
@@ -291,7 +306,7 @@ function Subscription({ d, plan, role, reload }) {
   const [trialDays, setTrialDays] = useState(30);
   const [status, setStatus] = useState('trialing');
   const openAction = (k) => {
-    if (k === 'apps') setApps(new Set(s?.apps || []));
+    if (k === 'apps') setApps(withIncluded(new Set(s?.apps || [])));
     if (k === 'plan') setApps(new Set(['accounting']));
     setAction(k);
   };
@@ -307,20 +322,20 @@ function Subscription({ d, plan, role, reload }) {
   ].filter(Boolean);
 
   const what = {
-    trial: `The trial ends on ${day(s?.trialEndsAt)}. The extra days are added to that date, or to today if it has passed.`,
-    apps: 'Apps added are switched on for every company in the account; apps taken away are switched off. Their data stays.',
-    plan: 'Gives this customer a plan by hand: a free trial, or active for a deal paid outside CLOR. Only CLOR can set a plan by hand.',
-    suspend: 'Nobody in this account can open any of its companies until you resume it. They see that CLOR suspended it and to contact support.',
-    resume: 'Everybody in this account can sign in and work again.',
-    cancel: 'The apps stop for every company in this account. The account and all its data stay, and the subscription can be reopened.',
-    reopen: 'Puts the subscription back: on trial if the trial still has days left, otherwise active.',
+    trial: `${name}'s trial ends on ${day(s?.trialEndsAt)}. The extra days are added to that date, or to today if it has passed.`,
+    apps: `Apps added are switched on for every company ${name} has; apps taken away are switched off. Their data stays.`,
+    plan: `Gives ${name} a plan by hand: a free trial, or active for a deal paid outside CLOR. Only CLOR can set a plan by hand.`,
+    suspend: `Suspending ${name} stops everyone in it from opening any of its companies, to read or to change anything, until you resume. They are told CLOR suspended it and to contact support. Their data stays.`,
+    resume: `Everyone in ${name} can sign in and work again.`,
+    cancel: `Cancelling stops every app for every company ${name} has. Nobody can work in them until the subscription is reopened. The account and all its data stay.`,
+    reopen: `Puts ${name}'s subscription back: on trial if the trial still has days left, otherwise active.`,
   };
 
   const run = async (reason) => {
     const id = a.id;
     if (action === 'trial') await opsExtendTrial(id, Number(days), reason);
-    if (action === 'apps') await opsChangeApps(id, [...apps], reason);
-    if (action === 'plan') await opsGrantPlan(id, { apps: [...apps].map((appCode) => ({ appCode, priceModel: 'free' })), status, reason, ...(status === 'trialing' ? { trialDays: Number(trialDays) } : {}) });
+    if (action === 'apps') await opsChangeApps(id, [...withIncluded(apps)], reason);
+    if (action === 'plan') await opsGrantPlan(id, { apps: [...withIncluded(apps)].map((appCode) => ({ appCode, priceModel: 'free' })), status, reason, ...(status === 'trialing' ? { trialDays: Number(trialDays) } : {}) });
     if (action === 'suspend') await opsSuspend(id, reason);
     if (action === 'resume') await opsReinstate(id, reason);
     if (action === 'cancel') await opsCancelSubscription(id, reason);
@@ -330,9 +345,9 @@ function Subscription({ d, plan, role, reload }) {
         trial: `Trial extended by ${days} days.`,
         apps: 'Apps changed.',
         plan: 'Plan set.',
-        suspend: `${a.name} is suspended.`,
-        resume: `${a.name} can work again.`,
-        cancel: 'Subscription cancelled.',
+        suspend: `${name} is suspended.`,
+        resume: `${name} can work again.`,
+        cancel: `${name}'s subscription is cancelled.`,
         reopen: 'Subscription reopened.',
       }[action],
     );
@@ -354,12 +369,18 @@ function Subscription({ d, plan, role, reload }) {
         ]}
       />
       {offered.length ? (
-        <div className="flex flex-wrap gap-2">
-          {offered.map((k) => (
-            <button key={k} type="button" className="ws-btn ws-btn--quiet" onClick={() => openAction(k)}>
-              {ACTIONS[k].label}
-            </button>
-          ))}
+        <div className="ops-actions">
+          {[offered.filter((k) => ACTIONS[k].tone !== 'danger'), offered.filter((k) => ACTIONS[k].tone === 'danger')].map((group, i) =>
+            group.length ? (
+              <div key={i} className={i ? 'ops-actions-danger' : 'ops-actions-main'}>
+                {group.map((k) => (
+                  <button key={k} type="button" className={`ws-btn ${i ? 'ws-btn--danger-quiet' : 'ws-btn--quiet'}`} onClick={() => openAction(k)}>
+                    {ACTIONS[k].label}
+                  </button>
+                ))}
+              </div>
+            ) : null,
+          )}
         </div>
       ) : (
         <p className="ws-card-blurb">Your role can look at this subscription but not change it.</p>
@@ -383,12 +404,25 @@ function Subscription({ d, plan, role, reload }) {
         {action === 'apps' || action === 'plan' ? (
           <fieldset className="grid gap-2">
             <legend className="text-sm font-medium" style={{ marginBottom: 6 }}>Apps</legend>
-            {SELLABLE.map((k) => (
-              <label key={k} className="flex items-center gap-2">
-                <input type="checkbox" checked={apps.has(k)} onChange={() => setApps((cur) => { const n = new Set(cur); if (n.has(k)) n.delete(k); else n.add(k); return n; })} />
-                {APP_NAMES[k]}
-              </label>
-            ))}
+            {SELLABLE.map((k) => {
+              const included = k === 'attendance' && apps.has('people');
+              return (
+                <label key={k} className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    style={{ marginTop: 4 }}
+                    checked={included || apps.has(k)}
+                    disabled={included}
+                    aria-describedby={included ? 'ops-included-attendance' : undefined}
+                    onChange={() => setApps((cur) => withIncluded(toggle(cur, k)))}
+                  />
+                  <span>
+                    {APP_NAMES[k]}
+                    {included ? <span id="ops-included-attendance" className="ws-item-sub" style={{ display: 'block' }}>Included with People</span> : null}
+                  </span>
+                </label>
+              );
+            })}
           </fieldset>
         ) : null}
         {action === 'plan' ? (
@@ -521,7 +555,7 @@ function Users({ id, role }) {
   return (
     <>
       <div className="ws-table-wrap">
-        <table className="ws-table">
+        <table className="ws-table ops-stack">
           <caption className="sr-only">Users</caption>
           <thead>
             <tr>
@@ -536,17 +570,17 @@ function Users({ id, role }) {
           <tbody>
             {d.users.map((u) => (
               <tr key={u.userId}>
-                <td>
+                <td className="ops-primary">
                   <strong style={{ fontWeight: 600 }}>{u.name || '—'}</strong>
                   {u.status === 'off' ? <> <span className="ws-pill ws-pill--off">Off</span></> : null}
                   <div className="ws-item-sub">{u.email}{u.emailConfirmed ? '' : ' · email not confirmed'}</div>
                 </td>
-                <td className="hidden sm:table-cell">{ACCOUNT_ROLE[u.role] || u.role}</td>
-                <td className="hidden md:table-cell">{u.authenticator ? 'Yes' : 'No'}</td>
-                <td className="hidden md:table-cell">{u.lastLoginAt ? ago(u.lastLoginAt) : 'Never'}</td>
-                <td className="hidden lg:table-cell tabular-nums">{u.signedInOn ? `${u.signedInOn} ${u.signedInOn === 1 ? 'device' : 'devices'}` : '—'}</td>
+                <td className="hidden sm:table-cell" data-label="Role">{ACCOUNT_ROLE[u.role] || u.role}</td>
+                <td className="hidden md:table-cell" data-label="Authenticator">{u.authenticator ? 'Yes' : 'No'}</td>
+                <td className="hidden md:table-cell" data-label="Last sign-in">{u.lastLoginAt ? ago(u.lastLoginAt) : 'Never'}</td>
+                <td className="hidden lg:table-cell tabular-nums" data-label="Signed in on">{u.signedInOn ? `${u.signedInOn} ${u.signedInOn === 1 ? 'device' : 'devices'}` : '—'}</td>
                 {support ? (
-                  <td className="num">
+                  <td className="num ops-stack-actions">
                     <div className="flex flex-wrap justify-end gap-1">
                       <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={u.status === 'off'} onClick={() => setAct({ kind: 'reset', user: u })}>Send reset link</button>
                       <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={!u.signedInOn} onClick={() => setAct({ kind: 'signout', user: u })}>Sign out everywhere</button>

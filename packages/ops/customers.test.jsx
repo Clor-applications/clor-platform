@@ -37,7 +37,7 @@ describe('Customers', () => {
     render(<Customers openCustomer={open} />);
     expect(await screen.findByText('Rao Textiles')).toBeInTheDocument();
     expect(screen.getByText('asha@rao.in')).toBeInTheDocument();
-    expect(screen.getByText('Books, People')).toBeInTheDocument();
+    expect(screen.getByText('Books, People (with Attendance)')).toBeInTheDocument();
     expect(screen.getByText('Set by hand')).toBeInTheDocument();
     expect(screen.getByText('Trial', { selector: '.ws-pill' })).toBeInTheDocument();
     expect(screen.getByText('Never')).toBeInTheDocument();
@@ -65,6 +65,28 @@ describe('a customer’s page', () => {
     expect(screen.getByText('Nobody has signed in yet')).toBeInTheDocument();
   });
 
+  it('titles the page with the business and names the owner under it', async () => {
+    api.opsAccount.mockResolvedValue(detail({ account: { ...detail().account, name: 'Asha Rao', title: 'Rao Textiles', ownerName: 'Asha Rao' } }));
+    render(<CustomerPage id="a1" tab="overview" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    expect(await screen.findByRole('heading', { name: 'Rao Textiles' })).toBeInTheDocument();
+    expect(screen.getByText('Owner: Asha Rao')).toBeInTheDocument();
+  });
+
+  it('ticks and holds Attendance when People is ticked, and sends both', async () => {
+    api.opsAccount.mockResolvedValue(detail());
+    api.opsChangeApps.mockResolvedValue({ apps: ['accounting', 'attendance', 'people'] });
+    render(<CustomerPage id="a1" tab="subscription" role="BILLING" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Change apps' }));
+    fireEvent.click(screen.getByLabelText('People'));
+    const attendance = screen.getByRole('checkbox', { name: /Attendance/ });
+    expect(attendance).toBeChecked();
+    expect(attendance).toBeDisabled();
+    expect(screen.getByText('Included with People')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: 'Bought People' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Change apps' }).at(-1));
+    await waitFor(() => expect(api.opsChangeApps).toHaveBeenCalledWith('a1', expect.arrayContaining(['accounting', 'people', 'attendance']), 'Bought People'));
+  });
+
   it('lets Finance change apps with a reason, and offers read-only nothing', async () => {
     api.opsAccount.mockResolvedValue(detail());
     api.opsChangeApps.mockResolvedValue({ apps: ['accounting', 'payroll'] });
@@ -88,7 +110,8 @@ describe('a customer’s page', () => {
     api.opsSuspend.mockResolvedValue({ suspended: true });
     render(<CustomerPage id="a1" tab="subscription" role="SUPPORT" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Suspend' }));
-    expect(screen.getByText(/Nobody in this account can open any of its companies until you resume it/)).toBeInTheDocument();
+    expect(screen.getByText(/Suspending Rao Textiles stops everyone in it from opening any of its companies, to read or to change anything, until you resume/)).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Suspend' })[0]).toHaveClass('ws-btn--danger-quiet');
     fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: 'Unpaid' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Suspend' }).at(-1));
     await waitFor(() => expect(api.opsSuspend).toHaveBeenCalledWith('a1', 'Unpaid'));

@@ -27,7 +27,15 @@ export const when = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'nume
 /* clor.in's names for the apps a plan carries. */
 export const APP_NAMES = { accounting: 'Books', payroll: 'Payroll', people: 'People', attendance: 'Attendance', projects: 'Projects' };
 export const SELLABLE = ['accounting', 'people', 'attendance', 'payroll'];
-export const appsText = (codes = []) => (codes.length ? codes.map((c) => APP_NAMES[c] || c).join(', ') : '—');
+/** App names in words. People carries Attendance, so a plan with People reads "People (with Attendance)" and Attendance is not listed twice. */
+export const appsText = (codes = []) => {
+  if (!codes.length) return '—';
+  const people = codes.includes('people');
+  return codes
+    .filter((c) => !(people && c === 'attendance'))
+    .map((c) => (c === 'people' ? 'People (with Attendance)' : APP_NAMES[c] || c))
+    .join(', ');
+};
 
 export const Err = ({ children }) => (children ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{children}</p> : null);
 export const Loading = () => <p className="ws-card-blurb">Loading…</p>;

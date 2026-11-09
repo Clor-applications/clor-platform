@@ -129,3 +129,13 @@ describe('a customer’s page in the operator console', () => {
     expect(p).toEqual({ invoices: [], payments: [] });
   }, 90_000);
 });
+
+describe('what the console calls a customer', () => {
+  it('uses the business: the account name, or the first company when the account carries only the owner’s name', async () => {
+    const { customerTitle } = await import('../routes/ops.js');
+    expect(customerTitle('Rao Textiles', 'Asha Rao', 'Rao Textiles Pvt Ltd')).toBe('Rao Textiles');
+    expect(customerTitle('Asha Rao', 'Asha Rao', 'Rao Textiles')).toBe('Rao Textiles');
+    expect(customerTitle('', 'Asha Rao', null)).toBe('Asha Rao');
+    expect(customerTitle(null, null, null)).toBe('Unnamed customer');
+  });
+});
