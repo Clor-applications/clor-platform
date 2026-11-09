@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, SITE, productBySlug } from '../site.js';
 import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
@@ -83,8 +83,6 @@ const FAQ = [
   ['Can I leave with my data?', 'Yes. You can export your company’s data at any time, and closing a company comes with a notice period.'],
 ];
 
-const BooksWindow = WINDOWS.books;
-
 /** A product's screen standing in 3D, with two blank sheets stacked behind it. */
 function Stage({ children, flip }) {
   return (
@@ -122,9 +120,23 @@ function AppSection({ slug, title, lines, flip }) {
             More about CLOR&nbsp;{p.name}
           </Link>
         </div>
-        <Stage flip={flip}>
-          <Win />
-        </Stage>
+        {slug === 'books' ? (
+          <figure className="app-sec-photo">
+            <img
+              src="/people/books-invoice-980.webp"
+              srcSet="/people/books-invoice-560.webp 560w, /people/books-invoice-980.webp 980w"
+              sizes="(max-width: 900px) 100vw, 560px"
+              width="980"
+              height="620"
+              loading="lazy"
+              alt="A tax invoice in CLOR Books on a laptop, with sample data"
+            />
+          </figure>
+        ) : (
+          <Stage flip={flip}>
+            <Win />
+          </Stage>
+        )}
       </div>
     </section>
   );
@@ -142,64 +154,11 @@ const PICS = {
   timesheet: { kind: 'scene' },
 };
 
-/**
- * The hero's 3D object: Books' invoice in front, the payslip and the attendance
- * month fanned behind it, tilting a little toward the pointer. Built from the
- * same drawn screens as the rest of the page; still for anyone who asks their
- * device for less motion.
- */
-function Deck() {
-  const ref = useRef(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches || !window.matchMedia('(pointer: fine)').matches) return undefined;
-    let raf = 0;
-    const onMove = (e) => {
-      const r = el.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width - 0.5;
-      const y = (e.clientY - r.top) / r.height - 0.5;
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        el.style.setProperty('--ry', `${(x * 8).toFixed(2)}deg`);
-        el.style.setProperty('--rx', `${(-y * 6).toFixed(2)}deg`);
-      });
-    };
-    const onLeave = () => {
-      el.style.setProperty('--ry', '0deg');
-      el.style.setProperty('--rx', '0deg');
-    };
-    window.addEventListener('pointermove', onMove);
-    el.addEventListener('pointerleave', onLeave);
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      el.removeEventListener('pointerleave', onLeave);
-      cancelAnimationFrame(raf);
-    };
-  }, []);
-  const Pay = WINDOWS.payroll;
-  const Att = WINDOWS.attendance;
-  return (
-    <figure className="deck" ref={ref}>
-      <div className="deck-obj">
-        <div className="deck-card deck-card--back-l">
-          <Att />
-        </div>
-        <div className="deck-card deck-card--back-r">
-          <Pay />
-        </div>
-        <div className="deck-card deck-card--front">
-          <BooksWindow />
-        </div>
-      </div>
-    </figure>
-  );
-}
-
 export default function Home() {
   return (
     <>
       <section className="hero hero--home" aria-labelledby="hero-title">
-        <div className="wrap home-hero">
+        <div className="wrap home-hero home-hero--split">
           <div className="hero-copy">
             <h1 id="hero-title" className="h-hero">
               Accounts, payroll and HR for growing Indian companies.
@@ -217,10 +176,18 @@ export default function Home() {
               </Link>
             </div>
           </div>
-        </div>
-        <div className="wrap">
-          <Deck />
-          <p className="caption hero-caption">CLOR screens on this page are drawn with sample data.</p>
+          <figure className="hero-photo">
+            <img
+              src="/people/hero-books-1400.webp"
+              srcSet="/people/hero-books-700.webp 700w, /people/hero-books-1400.webp 1400w"
+              sizes="(max-width: 900px) 100vw, 640px"
+              width="1400"
+              height="875"
+              fetchPriority="high"
+              alt="An accountant at his desk with the CLOR Books dashboard open on his laptop"
+            />
+            <figcaption className="caption">Screens show sample data.</figcaption>
+          </figure>
         </div>
       </section>
 

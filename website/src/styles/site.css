@@ -2034,3 +2034,62 @@ main:focus {
     padding: var(--s-5);
   }
 }
+
+/* The home hero, split: the line and buttons on the left, the accountant at his laptop on the right (owner, 10 Nov 2026). */
+.home-hero--split {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  align-items: center;
+  justify-items: stretch;
+  gap: clamp(var(--s-6), 4vw, var(--s-9));
+  text-align: left;
+}
+.home-hero--split .hero-copy {
+  justify-items: start;
+}
+.home-hero--split .actions {
+  justify-content: flex-start;
+}
+.hero-photo {
+  margin: 0;
+}
+.hero-photo img,
+.app-sec-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.hero-photo .caption {
+  margin-top: var(--s-2);
+  text-align: right;
+}
+.app-sec-photo {
+  margin: 0;
+}
+@media (max-width: 900px) {
+  .home-hero--split {
+    grid-template-columns: 1fr;
+  }
+}
+.hero--home:has(.home-hero--split) {
+  padding-bottom: clamp(var(--s-7), 6vw, var(--s-9));
+}
+.home-hero--split {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr);
+}
+.hero--home .home-hero--split .h-hero {
+  max-width: 16ch;
+  font-size: clamp(2.25rem, 1.2rem + 2.6vw, 3.5rem);
+  line-height: 1.08;
+}
+@media (max-width: 900px) {
+  .home-hero--split {
+    grid-template-columns: 1fr;
+  }
+}
+/* The laptop is cut from a photo, so its table's square edges fade into the page. */
+.app-sec-photo img {
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 22%), linear-gradient(to right, transparent 0, #000 12%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to top, transparent 0, #000 22%), linear-gradient(to right, transparent 0, #000 12%);
+  mask-composite: intersect;
+}
