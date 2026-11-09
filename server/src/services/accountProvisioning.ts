@@ -226,6 +226,9 @@ export async function provisionAccount(input: { ownerName: string; ownerEmail: s
 
   const token = await issuePasswordResetToken({ id: user.id, accountId: account.id }, input.ip, SET_PASSWORD_DAYS * 86_400_000);
   const appUrl = (process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
+  /* Only an app this company has, by the codes the shell knows. */
+  const asked = String(input.profile?.requestedApp || '');
+  const landing = input.plan.apps.includes(asked) && ['accounting', 'payroll', 'people', 'attendance'].includes(asked) ? asked : '';
   const apps = APP_CATALOG.filter((a) => input.plan.apps.includes(a.code)).map((a) => a.name);
   await sendTemplate({
     templateKey: 'account.welcome',
@@ -240,7 +243,8 @@ export async function provisionAccount(input: { ownerName: string; ownerEmail: s
       companyName: org.name,
       apps: apps.join(', ') || 'CLOR',
       trialNote: input.plan.status === 'trialing' && input.plan.trialEndsAt ? ` Your trial runs until ${input.plan.trialEndsAt.toISOString().slice(0, 10)}.` : '',
-      setPasswordUrl: `${appUrl}/?reset=${token}`,
+      /* ?app= opens the app they asked for once the password is set (shell appIntent.js), then the Workspace is one click away. */
+      setPasswordUrl: `${appUrl}/?reset=${token}${landing ? `&app=${landing}` : ''}`,
       email,
       days: String(SET_PASSWORD_DAYS),
     },

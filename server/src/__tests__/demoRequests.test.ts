@@ -194,6 +194,8 @@ describe('Demo requests in the operator console', () => {
     /* One set-password email, and the link in it sets a password the owner can sign in with. */
     const mails = await platformPrisma.emailOutbox.findMany({ where: { templateKey: 'account.welcome', toEmail: body.email } });
     expect(mails).toHaveLength(1);
+    /* The link opens the app they asked for once the password is set (roadmap item 5). */
+    expect(mails[0].bodyText).toMatch(/\?reset=[^\s&]+&app=payroll/);
     const reset = await platformPrisma.passwordResetToken.findFirstOrThrow({ where: { userId: row.ownerUserId!, usedAt: null } });
     expect(reset.expiresAt.getTime()).toBeGreaterThan(Date.now() + 6 * 86_400_000);
     await request(app).post('/api/auth/login').send({ email: body.email, password: 'anything-at-all' }).expect((r) => expect(r.status).toBeGreaterThanOrEqual(400));
