@@ -40,7 +40,7 @@ export const SITE = {
 
 /**
  * status: 'available' | 'soon'. accent: the product's own colour, used only on its own marks.
- * Each available product has a screen drawn with sample data in components/Windows.jsx.
+ * Each available product has figures drawn with sample data in components/Figures.jsx.
  * Order is the owner's: Books first, then People, Attendance, Payroll, Workspace.
  */
 export const PRODUCTS = [
