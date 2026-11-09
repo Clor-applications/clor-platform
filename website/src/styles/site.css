@@ -72,7 +72,6 @@
 }
 html {
   -webkit-text-size-adjust: 100%;
-  scroll-padding-top: 88px;
   -webkit-tap-highlight-color: rgba(255, 84, 0, 0.12);
 }
 a,
@@ -122,6 +121,14 @@ h4 {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
   border-radius: 4px;
+}
+/* An in-page target clears the 68px sticky bar (and a little air). */
+[id] {
+  scroll-margin-top: 84px;
+}
+/* Focus moves to the page after an in-page navigation; the page itself needs no ring. */
+main:focus {
+  outline: none;
 }
 .skip {
   position: absolute;
@@ -539,10 +546,9 @@ h4 {
   inset: 68px 0 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-bottom: env(safe-area-inset-bottom);
   background: var(--bg);
   border-top: 1px solid var(--line);
-  padding-block: var(--s-4) var(--s-7);
+  padding-block: var(--s-4) calc(var(--s-7) + env(safe-area-inset-bottom));
 }
 .mobile .mega-cat {
   margin: var(--s-5) 0 var(--s-2);
@@ -1353,21 +1359,26 @@ h4 {
 
 /* Pricing. */
 .price-table {
+  width: 100%;
+  border-collapse: collapse;
   border-top: 1px solid var(--line-strong);
+  text-align: left;
 }
-.price-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: var(--s-4);
-  align-items: center;
+.price-table th,
+.price-table td {
   padding: var(--s-4) var(--s-1);
   border-bottom: 1px solid var(--line);
+  vertical-align: middle;
 }
-.price-row--head {
+.price-table thead th {
   font-size: var(--t-xs);
   color: var(--ink-3);
   font-weight: 600;
   padding-block: var(--s-3);
+}
+.price-table tbody th {
+  width: 50%;
+  font-weight: 600;
 }
 .price-name {
   display: flex;

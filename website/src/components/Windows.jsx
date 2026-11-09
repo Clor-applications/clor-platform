@@ -26,7 +26,7 @@ const rupees = (n) => `₹${n.toLocaleString('en-IN')}`;
 
 export function BooksWindow(props) {
   const lines = [
-    ['Steel brackets, 40 mm', 120, 85],
+    ['Steel brackets, 40\u00a0mm', 120, 85],
     ['Hinges, heavy duty', 60, 140],
     ['Fitting labour', 1, 2400],
   ];
@@ -116,7 +116,7 @@ export function AttendanceWindow(props) {
         <dt>Leave</dt>
         <dd className="num">1</dd>
         <dt>Overtime</dt>
-        <dd className="num">3 h</dd>
+        <dd className="num">3&nbsp;h</dd>
       </dl>
     </Frame>
   );

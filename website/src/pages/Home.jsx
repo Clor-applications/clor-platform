@@ -91,7 +91,7 @@ export default function Home() {
             {PRODUCTS.map((p) => (
               <li key={p.slug} className={p.status === 'soon' ? 'is-soon' : undefined}>
                 <h3 className="h-3">
-                  <Link href={`/products/${p.slug}`}>CLOR {p.name}</Link>
+                  <Link href={`/products/${p.slug}`}>CLOR&nbsp;{p.name}</Link>
                   {p.status === 'soon' ? <Status product={p} /> : null}
                 </h3>
                 <p className="body">{LINES[p.slug]}</p>

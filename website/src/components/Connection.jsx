@@ -36,6 +36,9 @@ export default function Connection() {
   const ref = useRef(null);
   const wins = useRef({});
   const motions = useRef([]);
+  /* The play's timers; they live past the phase changes they cause, and go when the stage does. */
+  const timers = useRef([]);
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
   const [geo, setGeo] = useState(null);
   const [phase, setPhase] = useState('idle');
 
@@ -72,8 +75,10 @@ export default function Connection() {
         if (!e.some((x) => x.isIntersecting)) return;
         io.disconnect();
         setPhase('play');
-        motions.current.forEach((m, i) => setTimeout(() => m?.beginElement?.(), 900 + i * 1300));
-        setTimeout(() => setPhase('done'), 900 + motions.current.length * 1300 + 200);
+        timers.current = [
+          ...motions.current.map((m, i) => setTimeout(() => m?.beginElement?.(), 900 + i * 1300)),
+          setTimeout(() => setPhase('done'), 900 + motions.current.length * 1300 + 200),
+        ];
       },
       { threshold: 0.3 }
     );

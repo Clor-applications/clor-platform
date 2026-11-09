@@ -3,10 +3,11 @@ import { BookOpen, Briefcase, CalendarClock, Fingerprint, UserRound, Wallet } fr
 import { Link } from '../router.jsx';
 
 /** The CLOR logo image (public/brand/clor-logo.png, 752 x 188); the brand files themselves are replaced separately. */
-export function Logo({ height = 22 }) {
+/** The header's copy loads first; the footer's (lazy) waits until it is near. */
+export function Logo({ height = 22, lazy = false }) {
   return (
     <Link href="/" className="logo" aria-label="CLOR home" translate="no">
-      <img src="/brand/clor-logo.png" alt="CLOR" height={height} width={Math.round((height * 752) / 188)} />
+      <img src="/brand/clor-logo.png" alt="CLOR" height={height} width={Math.round((height * 752) / 188)} loading={lazy ? 'lazy' : undefined} fetchPriority={lazy ? undefined : 'high'} />
     </Link>
   );
 }

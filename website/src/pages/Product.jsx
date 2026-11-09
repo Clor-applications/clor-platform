@@ -21,7 +21,7 @@ function Hero({ p, c, soon }) {
       <div className={`wrap${Win ? ' p-hero-grid' : ''}`}>
         <div className="hero-copy">
           <h1 id="p-title" className="h-hero">
-            CLOR {p.name}
+            CLOR&nbsp;{p.name}
           </h1>
           {soon ? <Status product={p} /> : null}
           <p className="lede">
@@ -134,7 +134,7 @@ export default function Product({ slug }) {
                     </span>
                     <p className="body">{x.text}</p>
                     <Link className="text-link" href={`/products/${other.slug}`}>
-                      CLOR {other.name}
+                      CLOR&nbsp;{other.name}
                     </Link>
                   </li>
                 );
@@ -186,7 +186,7 @@ export function Products() {
                     <Mark product={p} size={44} />
                     <span className="stack" style={{ '--stack': '0.4rem' }}>
                       <span className="cat-name">
-                        CLOR {p.name} <Status product={p} />
+                        CLOR&nbsp;{p.name} <Status product={p} />
                       </span>
                       <span className="body">{p.line}</span>
                     </span>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from '../router.jsx';
+import { Link, useSearch } from '../router.jsx';
 import { PRODUCTS, SITE, productBySlug } from '../site.js';
 import { Mark, Status } from '../components/Brand.jsx';
 import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
@@ -182,26 +182,31 @@ export function Pricing() {
       <PageHead title="Pay for the products you use." intro="Every CLOR product has its own subscription. A company that needs only payroll pays only for payroll, and adding a product later never means changing plans." />
       <section className="section">
         <div className="wrap">
-          <div className="price-table" role="table" aria-label="Products and pricing">
-            <div className="price-row price-row--head" role="row">
-              <span role="columnheader">Product</span>
-              <span role="columnheader">Status</span>
-              <span role="columnheader">Price</span>
-            </div>
-            {PRODUCTS.map((p) => (
-              <div key={p.slug} className="price-row" role="row">
-                <span role="cell" className="price-name">
-                  <Mark product={p} size={28} /> CLOR {p.name}
-                </span>
-                <span role="cell">
-                  <Status product={p} />
-                </span>
-                <span role="cell" className="small">
-                  {p.status === 'available' ? 'Being finalised' : 'At launch'}
-                </span>
-              </div>
-            ))}
-          </div>
+          <table className="price-table">
+            <caption className="sr-only">Products and pricing</caption>
+            <thead>
+              <tr>
+                <th scope="col">Product</th>
+                <th scope="col">Status</th>
+                <th scope="col">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PRODUCTS.map((p) => (
+                <tr key={p.slug}>
+                  <th scope="row">
+                    <span className="price-name">
+                      <Mark product={p} size={28} /> CLOR&nbsp;{p.name}
+                    </span>
+                  </th>
+                  <td>
+                    <Status product={p} />
+                  </td>
+                  <td className="small">{p.status === 'available' ? 'Being finalised' : 'At launch'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
           <p className="small price-note">Prices are being set now. Until they are published, talk to us and we will tell you what your company would pay.</p>
           <div className="actions price-actions">
             <Link className="btn btn--primary" href="/contact?about=pricing">
@@ -251,7 +256,7 @@ export function Integrations() {
                 <p className="body">{text}</p>
                 {product ? (
                   <Link className="small int-product" href={`/products/${product}`}>
-                    <Mark product={productBySlug(product)} size={20} /> CLOR {productBySlug(product).name}
+                    <Mark product={productBySlug(product)} size={20} /> CLOR&nbsp;{productBySlug(product).name}
                   </Link>
                 ) : (
                   <span className="small int-product">Every CLOR product</span>
@@ -347,21 +352,24 @@ const TOPICS = { demo: 'A demo for my company', general: 'A question about CLOR'
 export function Contact() {
   const [about, setAbout] = useState('general');
   const [form, setForm] = useState({ name: '', company: '', email: '', message: '' });
+  /* The query comes from the router, so an in-page link to another ?about= or ?app= is heard too. */
+  const search = useSearch();
   useEffect(() => {
     /*
      * The address is read after hydration (the server has none); on the next frame, not inside the effect.
-     * ?about= picks the topic; ?app= (from a product page's demo button) names the product in the message.
+     * ?about= picks the topic; ?app= (from a product page's demo button) names the product in the message,
+     * unless the visitor has already written one of their own.
      */
-    const q = new URLSearchParams(window.location.search);
+    const q = new URLSearchParams(search);
     const topic = TOPICS[q.get('about')] ? q.get('about') : null;
     const product = productBySlug(q.get('app') || '');
     if (!topic && !product) return undefined;
     const frame = requestAnimationFrame(() => {
       if (topic) setAbout(topic);
-      if (product) setForm((f) => (f.message ? f : { ...f, message: `I’d like a demo of CLOR ${product.name} for my company.` }));
+      if (product) setForm((f) => (f.message && !f.message.startsWith('I’d like a demo of CLOR') ? f : { ...f, message: `I’d like a demo of CLOR ${product.name} for my company.` }));
     });
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [search]);
   /* No form backend yet: the message opens in the visitor's own email app, addressed to us. */
   const mailto = () => {
     const body = `${form.message}\n\nName: ${form.name}\nCompany: ${form.company}\nEmail: ${form.email}`;
