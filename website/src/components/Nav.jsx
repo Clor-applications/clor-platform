@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Menu, X } from 'lucide-react';
 import { Link, usePath } from '../router.jsx';
-import { NAV, PRODUCTS, SITE } from '../site.js';
+import { NAV, SITE } from '../site.js';
 import { Logo, Mark, Status } from './Brand.jsx';
+import { useProducts } from '../catalogue.js';
 
 const CATEGORIES = ['Finance', 'HR', 'Operations'];
 
 function ProductsMenu({ onPick }) {
+  const PRODUCTS = useProducts();
   return (
     <div className="mega mega--products">
       <div className="mega-body">
@@ -82,6 +84,7 @@ const MENUS = [
 ];
 
 export default function Nav() {
+  const PRODUCTS = useProducts();
   const path = usePath();
   const [open, setOpen] = useState(null);
   const [mobile, setMobile] = useState(false);

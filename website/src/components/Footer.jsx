@@ -1,9 +1,11 @@
 import React from 'react';
 import { Link } from '../router.jsx';
-import { NAV, PRODUCTS, SITE } from '../site.js';
+import { NAV, SITE } from '../site.js';
+import { useProducts } from '../catalogue.js';
 import { Logo } from './Brand.jsx';
 
 export default function Footer() {
+  const PRODUCTS = useProducts();
   const cols = [
     ['Products', [{ href: '/products', name: 'All products' }, ...PRODUCTS.map((p) => ({ href: `/products/${p.slug}`, name: `CLOR\u00a0${p.name}` }))]],
     ['Solutions', NAV.solutions],
