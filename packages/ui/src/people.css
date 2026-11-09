@@ -2130,7 +2130,7 @@ html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail { backgrou
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod { color: rgb(var(--fg-muted)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod:hover:not([data-current]) { background: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] { background: transparent; color: rgb(var(--brand-ink)); font-weight: 700; }
-html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod > span { color: inherit; }
+html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod > span:not(.ui-split-mod-count) { color: inherit; }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-glyph { color: rgb(var(--oxblood)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-glyph [opacity='0.2'] { fill: rgb(var(--panel-line)); }
 html:root[data-palette='sky']:not([data-theme='dark']) .ui-split-rail .ui-split-mod[data-current] > svg.ui-glyph { color: rgb(var(--oxblood)); background: rgb(var(--blush)); box-shadow: inset 0 0 0 1px rgb(var(--panel-line)); }
