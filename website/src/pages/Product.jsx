@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from '../router.jsx';
-import { CONNECTIONS, PRODUCTS, demoFor, productBySlug } from '../site.js';
+import { CONNECTIONS, PRODUCTS, SITE, demoFor, productBySlug } from '../site.js';
 import { PRODUCT_CONTENT } from '../content.js';
 import { Mark, Status } from '../components/Brand.jsx';
 import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
@@ -42,9 +42,14 @@ function Hero({ p, c, soon }) {
                 Tell me when it’s ready
               </Link>
             ) : (
-              <Link className="btn btn--primary btn--lg" href={demoFor(p.slug)}>
-                Request a demo
-              </Link>
+              <>
+                <Link className="btn btn--primary btn--lg" href={demoFor(p.slug)}>
+                  Request a demo
+                </Link>
+                <a className="btn btn--quiet btn--lg" href={`${SITE.startUrl}?app=${p.slug}`}>
+                  Start free trial
+                </a>
+              </>
             )}
             <Link className="btn btn--text" href="/products">
               {soon ? 'See what’s available now' : 'All products'}

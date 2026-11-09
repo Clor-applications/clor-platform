@@ -1176,6 +1176,43 @@ main:focus {
 .price-actions {
   margin-top: var(--s-5);
 }
+.price-table .price-trial {
+  text-align: right;
+}
+/* On a phone the trial button drops under its product's row, so the table never runs past the screen. */
+@media (max-width: 640px) {
+  .price-table {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .price-table thead,
+  .price-table tbody {
+    display: contents;
+  }
+  .price-table tr {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .price-table th,
+  .price-table td {
+    border-bottom: 0;
+  }
+  .price-table tbody th {
+    width: auto;
+  }
+  .price-table thead th:last-child,
+  .price-table .price-trial:empty {
+    display: none;
+  }
+  .price-table .price-trial {
+    grid-column: 1 / -1;
+    text-align: left;
+    padding-top: 0;
+  }
+}
 
 /* Integrations and guides. */
 .integrations,
