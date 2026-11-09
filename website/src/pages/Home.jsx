@@ -4,7 +4,7 @@ import { CONNECTIONS, SITE, productBySlug } from '../site.js';
 import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
 import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
 import { Faq } from '../components/Blocks.jsx';
-import { Mark } from '../components/Brand.jsx';
+import { Mark, Status } from '../components/Brand.jsx';
 
 /*
  * The home page reads like the suite it is: one line for accounts, payroll and
@@ -130,7 +130,17 @@ function AppSection({ slug, title, lines, flip }) {
   );
 }
 
-const SUITE = ['books', 'payroll', 'people', 'attendance'];
+const SUITE = ['books', 'people', 'payroll', 'attendance', 'projects', 'timesheet'];
+
+/** Each card's picture: a person cut out on the page ground, or a scene that fades into the card. */
+const PICS = {
+  books: { kind: 'cut' },
+  people: { kind: 'cut' },
+  payroll: { kind: 'cut' },
+  attendance: { kind: 'scene' },
+  projects: { kind: 'scene' },
+  timesheet: { kind: 'scene' },
+};
 
 /**
  * The hero's 3D object: Books' invoice in front, the payslip and the attendance
@@ -214,23 +224,43 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section suite-sec" aria-labelledby="suite-title">
+      <section className="section" aria-labelledby="suite-title">
         <div className="wrap">
-          <h2 className="sr-only" id="suite-title">
-            The CLOR products
-          </h2>
-          <ul className="suite">
+          <div className="head head--center">
+            <h2 className="h-1" id="suite-title">
+              Connected business applications
+            </h2>
+            <p className="lede">One back office for accounts, people, attendance and payroll, sharing one login and one list of employees.</p>
+          </div>
+          <ul className="apps">
             {SUITE.map((slug) => {
               const p = productBySlug(slug);
+              const pic = PICS[slug];
+              const soon = p.status !== 'available';
               return (
-                <li key={slug}>
-                  <Link href={`/products/${slug}`} className="suite-link">
-                    <span className={`tile tile--${slug}`} aria-hidden="true">
-                      <Mark product={p} size={40} />
-                    </span>
-                    <span className="h-3">CLOR {p.name}</span>
-                    <span className="body">{p.line}</span>
-                  </Link>
+                <li key={slug} className={`app-card app-card--${pic.kind}`} style={{ '--app': p.accent }}>
+                  <div className="app-card-copy">
+                    <div className="app-card-name">
+                      <Mark product={p} size={44} />
+                      <div>
+                        <h3 className="h-3">CLOR {p.name}</h3>
+                        <Status product={p} />
+                      </div>
+                    </div>
+                    <p className="body">{p.line}</p>
+                    <Link className="app-card-btn" href={`/products/${slug}`}>
+                      {soon ? 'See what’s planned' : `Explore ${p.name}`}
+                      <span aria-hidden="true">→</span>
+                    </Link>
+                  </div>
+                  <img
+                    className="app-card-pic"
+                    src={`/people/${slug}-360.webp`}
+                    srcSet={`/people/${slug}-360.webp 1x, /people/${slug}-720.webp 2x`}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </li>
               );
             })}
