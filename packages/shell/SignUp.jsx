@@ -54,9 +54,8 @@ export default function SignUp({ onHome, onSignIn }) {
   };
 
   return (
-    <AuthLayout
+    <AuthLayout scene="signup"
       title="Create your account"
-      subtitle="Then you will set up your first company — it takes about a minute."
       onHome={onHome}
       footer={
         <span className="ui-muted">

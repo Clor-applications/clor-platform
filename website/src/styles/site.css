@@ -123,9 +123,9 @@ h4 {
   outline-offset: 3px;
   border-radius: 4px;
 }
-/* An in-page target clears the 68px sticky bar (and a little air). */
+/* An in-page target clears the 72px sticky bar (and a little air). */
 [id] {
-  scroll-margin-top: 84px;
+  scroll-margin-top: 92px;
 }
 /* Focus moves to the page after an in-page navigation; the page itself needs no ring. */
 main:focus {
@@ -544,7 +544,7 @@ main:focus {
 .mobile {
   position: fixed;
   z-index: 49;
-  inset: 68px 0 0;
+  inset: 72px 0 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--bg);
@@ -765,6 +765,7 @@ main:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4em;
+  white-space: nowrap;
 }
 .w-check {
   font-size: 0.82em;
@@ -1676,29 +1677,1535 @@ main:focus {
   }
 }
 
-/* The home hero: Books' tax invoice and the month's GSTR-1 it feeds, one above the other. */
+/* The home hero: the line and buttons centred, then one wide team photo with Books' screen on its corner. */
 .home-hero {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-  gap: var(--gap-col);
-  align-items: center;
+  justify-items: center;
+  text-align: center;
 }
-.home-shots {
+.home-hero .hero-copy {
+  justify-items: center;
+  max-width: 52rem;
+}
+.hero--home .h-hero {
+  max-width: 20ch;
+}
+.home-hero .actions {
+  justify-content: center;
+}
+.hero-caption {
+  margin-top: var(--s-3);
+  text-align: center;
+}
+.hero--home {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+/* The hero's 3D stack: three screens on a tilted plane, the front one lifted. */
+.deck {
+  --rx: 0deg;
+  --ry: 0deg;
+  margin: clamp(var(--s-7), 6vw, var(--s-9)) auto 0;
+  max-width: 1040px;
+  perspective: 1800px;
+  padding: 0 0 var(--s-6);
+}
+.deck-obj {
+  position: relative;
+  height: clamp(280px, 28vw, 360px);
+  transform-style: preserve-3d;
+  transform: rotateX(calc(14deg + var(--rx))) rotateY(var(--ry));
+  transition: transform 600ms var(--ease);
+  animation: deck-in 1000ms var(--ease) both;
+}
+.deck-card {
+  position: absolute;
+  width: min(54%, 500px);
+  border-radius: var(--r-panel);
+  box-shadow: 0 30px 60px -30px rgba(15, 23, 42, 0.35), 0 2px 4px rgba(15, 23, 42, 0.06);
+}
+.deck-card .win {
+  --win-fs: clamp(10px, 1vw, 14px);
+}
+.deck-card--front {
+  left: 50%;
+  top: 4%;
+  transform: translateX(-50%) translateZ(60px);
+  z-index: 3;
+}
+.deck-card--back-l {
+  left: 0;
+  top: 18%;
+  width: min(42%, 400px);
+  transform: translateZ(-40px) rotateZ(-4deg);
+  z-index: 1;
+}
+.deck-card--back-r {
+  right: 0;
+  top: 14%;
+  width: min(40%, 380px);
+  transform: translateZ(-20px) rotateZ(4deg);
+  z-index: 2;
+}
+@keyframes deck-in {
+  from { opacity: 0; transform: rotateX(30deg) translateY(40px); }
+  to { opacity: 1; }
+}
+@media (max-width: 720px) {
+  .deck-obj {
+    height: auto;
+    transform: none;
+    display: grid;
+  }
+  .deck-card {
+    position: relative;
+    width: 100%;
+    left: auto;
+    right: auto;
+    top: auto;
+    transform: none;
+  }
+  .deck-card--back-l,
+  .deck-card--back-r {
+    display: none;
+  }
+}
+
+/* The four products in one row, each a mark, its name and its line, under one hairline. */
+.suite {
+  list-style: none;
   margin: 0;
+  padding: 0;
   display: grid;
-  gap: var(--s-4);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s-6);
+  border-top: 1px solid var(--line);
+  padding-top: var(--s-6);
 }
-.home-shots .win {
-  --win-fs: clamp(13px, 1.05vw, 15px);
+.suite-link {
+  display: grid;
+  gap: var(--s-2);
+  justify-items: start;
+  color: var(--ink);
+  text-decoration: none;
+  border-radius: var(--r-control);
 }
-.home-shots .win + .win {
-  margin-left: var(--s-8);
+.suite-link .body {
+  color: var(--ink-2);
+}
+.suite-link:hover .h-3 {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+/* An app's tile: a rounded square with depth below it, lifting a little on hover. */
+.tile {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 0 var(--line), 0 2px 0 var(--line), 0 3px 0 var(--line), 0 4px 0 var(--line-strong), 0 14px 22px -12px rgba(15, 23, 42, 0.3);
+  transition: transform 220ms var(--ease), box-shadow 220ms var(--ease);
+  margin-bottom: var(--s-2);
+}
+.suite-link:hover .tile {
+  transform: translateY(-3px);
+  box-shadow: 0 1px 0 var(--line), 0 2px 0 var(--line), 0 3px 0 var(--line), 0 4px 0 var(--line), 0 5px 0 var(--line), 0 6px 0 var(--line), 0 7px 0 var(--line-strong), 0 20px 28px -14px rgba(15, 23, 42, 0.32);
 }
 @media (max-width: 900px) {
-  .home-hero {
+  .suite {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .suite {
     grid-template-columns: 1fr;
   }
-  .home-shots .win + .win {
-    margin-left: 0;
+}
+
+/* A product's screen standing in 3D, turned toward its words, two blank sheets behind. */
+.stage {
+  margin: 0;
+  perspective: 1400px;
+  padding: var(--s-5) var(--s-5) var(--s-7);
+}
+.stage-obj {
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateY(-12deg) rotateX(6deg);
+  transition: transform 700ms var(--ease);
+}
+.stage--flip .stage-obj {
+  transform: rotateY(12deg) rotateX(6deg);
+}
+.stage:hover .stage-obj {
+  transform: rotateY(-4deg) rotateX(3deg);
+}
+.stage--flip:hover .stage-obj {
+  transform: rotateY(4deg) rotateX(3deg);
+}
+.stage-win {
+  position: relative;
+  border-radius: var(--r-panel);
+  box-shadow: 0 30px 50px -28px rgba(15, 23, 42, 0.35), 0 2px 4px rgba(15, 23, 42, 0.06);
+  transform: translateZ(40px);
+}
+.stage-win .win {
+  --win-fs: clamp(12px, 1.05vw, 15px);
+}
+.stage-sheet {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-panel);
+  background: #fff;
+  border: 1px solid var(--line);
+}
+.stage-sheet--1 {
+  transform: translate(14px, 14px) translateZ(0);
+  background: #fafafa;
+}
+.stage-sheet--2 {
+  transform: translate(28px, 28px) translateZ(-40px);
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+@media (max-width: 900px) {
+  .stage-obj,
+  .stage--flip .stage-obj {
+    transform: none;
   }
+}
+
+/* The last word: a slate band with the demo request on it. */
+.closing-band {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: clamp(var(--s-9), 10vw, 160px) 0;
+  color: #fff;
+  background: var(--ink);
+}
+.closing-band-inner {
+  display: grid;
+  gap: var(--s-4);
+  justify-items: start;
+}
+.closing-band .h-1,
+.closing-band .lede {
+  color: #fff;
+  max-width: 30ch;
+}
+.closing-band .lede {
+  max-width: 48ch;
+}
+.btn--onphoto {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+.btn--onphoto:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* -------------------------------------------- the products, as six cards */
+/* Each card: its mark, name, state and line on the left; a person on the right over a soft wash of the app's colour. */
+.head--center {
+  justify-items: center;
+  text-align: center;
+}
+.head--center .lede {
+  max-width: 56ch;
+}
+.apps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-5);
+}
+.app-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 320px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  background: var(--surface);
+  isolation: isolate;
+  transition: transform 260ms var(--ease), box-shadow 260ms var(--ease);
+}
+.app-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lift);
+}
+.app-card::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  right: -18%;
+  bottom: -30%;
+  width: 78%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--app) 16%, transparent), transparent);
+}
+.app-card-copy {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: var(--s-4);
+  align-content: start;
+  justify-items: start;
+  width: 56%;
+  padding: var(--s-6);
+}
+.app-card-copy .body {
+  color: var(--ink-2);
+  font-size: var(--t-sm);
+}
+.app-card-name {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.app-card-name .h-3 {
+  margin: 0 0 var(--s-1);
+  white-space: nowrap;
+}
+.app-card .status {
+  white-space: nowrap;
+}
+.app-card--scene .app-card-copy {
+  width: 60%;
+}
+.app-card-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  white-space: nowrap;
+  min-height: 40px;
+  padding: 0 var(--s-4);
+  border-radius: var(--r-control);
+  font-weight: 600;
+  font-size: var(--t-sm);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--app) 9%, #fff);
+  text-decoration: none;
+}
+.app-card-btn:hover {
+  background: color-mix(in srgb, var(--app) 15%, #fff);
+}
+.app-card-pic {
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  bottom: 0;
+  height: 80%;
+  width: auto;
+  max-width: 46%;
+  object-fit: contain;
+  object-position: right bottom;
+  pointer-events: none;
+}
+.app-card--scene .app-card-pic {
+  height: 100%;
+  width: 40%;
+  max-width: none;
+  object-fit: cover;
+  object-position: 30% center;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 55%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 55%);
+}
+@media (max-width: 1080px) {
+  .apps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .apps {
+    grid-template-columns: 1fr;
+  }
+  .app-card-copy {
+    width: 62%;
+    padding: var(--s-5);
+  }
+}
+
+/* The home hero, split: the line and buttons on the left, the accountant at his laptop on the right (owner, 10 Nov 2026). */
+.home-hero--split {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  align-items: center;
+  justify-items: stretch;
+  gap: clamp(var(--s-6), 4vw, var(--s-9));
+  text-align: left;
+}
+.home-hero--split .hero-copy {
+  justify-items: start;
+}
+.home-hero--split .actions {
+  justify-content: flex-start;
+}
+.hero-photo {
+  margin: 0;
+}
+.hero-photo img,
+.app-sec-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.hero-photo .caption {
+  margin-top: var(--s-2);
+  text-align: right;
+}
+.app-sec-photo {
+  margin: 0;
+}
+@media (max-width: 900px) {
+  .home-hero--split {
+    grid-template-columns: 1fr;
+  }
+}
+.hero--home:has(.home-hero--split) {
+  padding-bottom: clamp(var(--s-7), 6vw, var(--s-9));
+}
+.home-hero--split {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr);
+}
+.hero--home .home-hero--split .h-hero {
+  max-width: 16ch;
+  font-size: clamp(2.25rem, 1.2rem + 2.6vw, 3.5rem);
+  line-height: 1.08;
+}
+@media (max-width: 900px) {
+  .home-hero--split {
+    grid-template-columns: 1fr;
+  }
+}
+/* The laptop is cut from a photo, so its table's square edges fade into the page. */
+.app-sec-photo img {
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 22%), linear-gradient(to right, transparent 0, #000 12%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to top, transparent 0, #000 22%), linear-gradient(to right, transparent 0, #000 12%);
+  mask-composite: intersect;
+}
+/* Attendance's photo keeps the reader (with CLOR's punch screen) in view: the fade ends before it. */
+.app-card--scene.app-card--attendance .app-card-pic,
+.app-card--attendance .app-card-pic {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 13%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 13%);
+  object-position: left center;
+}
+/* Photos with a CLOR screen on the device: a content surface, 12px corners. The Books laptop stays a cut-out. */
+.app-sec-photo:not(.app-sec-photo--books) img {
+  border-radius: var(--r-panel);
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.app-sec-photo--payroll {
+  max-width: 440px;
+  justify-self: center;
+}
+
+/* For businesses: words left, the manager at her laptop (CLOR home screen) right. */
+.sol-hero-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: clamp(var(--s-6), 4vw, var(--s-9));
+  align-items: center;
+}
+.sol-hero-photo {
+  margin: 0;
+}
+.sol-hero-photo img,
+.demo-pic {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--r-panel);
+}
+@media (max-width: 900px) {
+  .sol-hero-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* -------------------------------------------------------------- header, 10 Nov 2026
+ * Like the corporate HR suites: a quiet strip above the bar for sales, the employee portal
+ * and help; the bar itself holds the menus, a plain Sign in and the one orange button.
+ * Products opens wide, with the apps on the left and a picture of the home screen on the right.
+ */
+.topbar {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+}
+.topbar-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  height: 36px;
+}
+.topbar a {
+  color: inherit;
+  text-decoration: none;
+}
+.topbar a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.topbar ul {
+  display: flex;
+  gap: var(--s-5);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.nav-bar {
+  height: 72px;
+}
+.logo img {
+  height: 24px;
+}
+.nav-main > ul {
+  justify-content: center;
+  gap: var(--s-1);
+}
+.nav-trigger {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.nav-signin {
+  font-weight: 600;
+}
+.nav-demo {
+  height: 44px;
+}
+.mega--products {
+  width: min(1040px, calc(100vw - 2 * var(--gutter)));
+}
+.mega-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+}
+.mega-feature {
+  display: grid;
+  align-content: start;
+  gap: var(--s-2);
+  margin: var(--s-4) var(--s-4) var(--s-4) 0;
+  padding: var(--s-3);
+  border-radius: var(--r-panel);
+  background: var(--surface-2);
+  color: var(--ink);
+  text-decoration: none;
+}
+.mega-feature img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--r-control);
+  margin-bottom: var(--s-2);
+}
+.mega-feature:hover .mega-name {
+  color: var(--accent);
+}
+/* The products menu hangs from the whole bar, centred, so its wide panel always stays on screen. */
+.nav-bar {
+  position: relative;
+}
+.nav-main li:first-child {
+  position: static;
+}
+.nav-main li:first-child .mega-wrap {
+  left: var(--gutter);
+  right: var(--gutter);
+  display: flex;
+  justify-content: center;
+}
+@media (max-width: 960px) {
+  .topbar {
+    display: none;
+  }
+  .nav-signin {
+    display: none;
+  }
+}
+@media (max-width: 1180px) {
+  .mega-body {
+    grid-template-columns: 1fr;
+  }
+  .mega-feature {
+    display: none;
+  }
+}
+
+/* ===================================================== polish, 10 Nov 2026
+ * One rhythm for the whole site: one section heading size, tighter section
+ * padding, links that sit clear of the text above them, and quiet motion —
+ * the hero rises in once, later blocks fade up as they reach the screen.
+ * Everything here switches off under prefers-reduced-motion.
+ */
+:root {
+  --section: clamp(56px, 7vw, 112px);
+  --t-h1: clamp(1.875rem, 1.2rem + 1.8vw, 2.75rem);
+  --gap-head: clamp(var(--s-6), 3.5vw, var(--s-7));
+}
+
+/* Type: every section heading one size, whatever block it sits in. */
+.h-1,
+.split > .head .h-1,
+.split > .sec-head .h-1,
+.band > .sec-head .h-1,
+.app-sec-copy .h-1 {
+  font-size: var(--t-h1);
+  line-height: 1.1;
+  letter-spacing: -0.022em;
+}
+.h-hero {
+  letter-spacing: -0.028em;
+}
+.lede {
+  line-height: 1.6;
+}
+.head {
+  gap: var(--s-3);
+}
+.head--center {
+  margin-inline: auto;
+  max-width: 760px;
+}
+/* The product name over a section heading reads as a small label. */
+.app-sec-name {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+  letter-spacing: 0.01em;
+}
+.app-sec-copy {
+  gap: var(--s-5);
+}
+.app-sec-copy .app-sec-name + .h-1 {
+  margin-top: calc(-1 * var(--s-2));
+}
+.facts-list {
+  gap: var(--s-3);
+  line-height: 1.6;
+}
+
+/* Spacing: a link after a list or paragraph stands clear of it. */
+.stack > .text-link {
+  display: inline-block;
+  margin-top: var(--s-5);
+}
+.split {
+  align-items: start;
+}
+.split > .head {
+  padding-top: 2px;
+}
+/* The payroll phone photo lines up with the page edge like the other photos. */
+.app-sec-photo--payroll {
+  max-width: 460px;
+  justify-self: start;
+}
+.app-sec-photo img {
+  width: 100%;
+  height: auto;
+}
+
+/* Links: the underline draws in from the left. */
+.text-link {
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0 1.5px no-repeat;
+  padding-bottom: 2px;
+  transition: background-size 280ms var(--ease);
+}
+.text-link:hover {
+  text-decoration: none;
+  background-size: 100% 1.5px;
+}
+
+/* Buttons lift a pixel; the arrow in a card button nudges forward. */
+.btn {
+  transition: background-color 180ms var(--ease), color 180ms var(--ease), border-color 180ms var(--ease), transform 180ms var(--ease), box-shadow 180ms var(--ease);
+}
+.btn--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -8px rgba(255, 84, 0, 0.55);
+}
+.btn--primary:active {
+  transform: none;
+  box-shadow: none;
+}
+.app-card-btn span {
+  display: inline-block;
+  transition: transform 220ms var(--ease);
+}
+.app-card:hover .app-card-btn span,
+.app-card-btn:hover span {
+  transform: translateX(3px);
+}
+.app-card-pic {
+  transition: transform 600ms var(--ease);
+}
+.app-card:hover .app-card-pic {
+  transform: scale(1.03);
+}
+
+/* The header gains a hairline shadow once the page has scrolled. */
+.nav {
+  transition: box-shadow 200ms var(--ease);
+}
+html.is-scrolled .nav {
+  box-shadow: 0 1px 0 var(--line), 0 6px 18px -14px rgba(15, 23, 42, 0.25);
+}
+
+/* Hero: the words rise in, then the photo, once on load. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.home-hero .hero-copy > *,
+.sol-hero-split > :first-child > *,
+.p-hero .wrap > * {
+  animation: rise 700ms var(--ease) both;
+}
+.home-hero .hero-copy > :nth-child(2),
+.sol-hero-split > :first-child > :nth-child(2),
+.p-hero .wrap > :nth-child(2) {
+  animation-delay: 80ms;
+}
+.home-hero .hero-copy > :nth-child(3),
+.sol-hero-split > :first-child > :nth-child(3),
+.p-hero .wrap > :nth-child(3) {
+  animation-delay: 160ms;
+}
+.hero-photo,
+.sol-hero-photo {
+  animation: settle 900ms var(--ease) 120ms both;
+}
+
+/* Scroll reveal: set by App.jsx only on blocks below the first screen, and only with motion allowed. */
+.rv {
+  opacity: 0;
+  transform: translateY(18px);
+}
+.rv.rv-in {
+  opacity: 1;
+  transform: none;
+  transition: opacity 700ms var(--ease), transform 700ms var(--ease);
+  transition-delay: calc(var(--rv-i, 0) * 70ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rv {
+    opacity: 1;
+    transform: none;
+  }
+  .app-card:hover,
+  .app-card:hover .app-card-pic,
+  .btn--primary:hover {
+    transform: none;
+  }
+}
+/* The footer's hairline lines up with the content edge, not the padded box. */
+.footer-base {
+  border-top: 0;
+  background: linear-gradient(var(--line), var(--line)) var(--gutter) 0 / calc(100% - 2 * var(--gutter)) 1px no-repeat;
+}
+.stack > .facts-list {
+  margin-top: var(--s-5);
+}
+
+/* ===================================================== colour, 10 Nov 2026
+ * A deep navy frames the page (top strip, closing band, footer); a warm
+ * orange glow sits behind the hero and the closing call; tinted bands set
+ * the product cards and the connections apart; each product section takes
+ * its own colour for its label.
+ */
+:root {
+  --navy: #0b1530;
+  --navy-2: #071022;
+  --navy-line: rgba(255, 255, 255, 0.1);
+  --on-navy: #ffffff;
+  --on-navy-2: rgba(226, 232, 240, 0.78);
+  --on-navy-3: rgba(203, 213, 225, 0.6);
+  --tint: #f6f7fb;
+  --glow: rgba(255, 84, 0, 0.14);
+  --glow-cool: rgba(56, 97, 251, 0.08);
+}
+
+/* Top strip: navy, light words. */
+.topbar {
+  background: var(--navy);
+  border-bottom: 0;
+  color: var(--on-navy-2);
+}
+.topbar a:hover {
+  color: var(--on-navy);
+}
+
+/* Header: frosted white over the page, an orange hairline under the strip. */
+.nav {
+  background: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.nav::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent) 30%, #ff9a3d 70%, transparent);
+  opacity: 0.85;
+  pointer-events: none;
+}
+.topbar + .nav-bar,
+.nav .nav-bar {
+  background: transparent;
+}
+.nav-trigger {
+  border-radius: var(--r-control);
+  transition: background-color 160ms var(--ease), color 160ms var(--ease);
+}
+.nav-trigger:hover,
+.nav-trigger[aria-expanded='true'] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* Hero: a warm glow top right, a cool one bottom left. */
+.hero--home,
+.p-hero,
+.sol-hero {
+  background:
+    radial-gradient(55% 70% at 88% 18%, var(--glow), transparent 70%),
+    radial-gradient(45% 60% at 0% 100%, var(--glow-cool), transparent 70%),
+    var(--bg);
+}
+
+/* Tinted bands. */
+.section--tint {
+  background: var(--tint);
+}
+.section--tint + .section,
+.section + .section--tint {
+  border-top: 0;
+}
+.section--tint .app-card {
+  border-color: rgba(15, 23, 42, 0.06);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px -24px rgba(15, 23, 42, 0.25);
+}
+/* Each card carries its product colour as a thin line along the top. */
+.app-card::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--app);
+  opacity: 0.9;
+  z-index: 3;
+}
+
+/* Product sections: the label in the product's colour. */
+.app-sec-wrap .app-sec-name {
+  color: var(--app);
+}
+.app-sec-wrap .facts-list li::marker {
+  color: var(--app);
+}
+
+/* Closing call: navy with an orange glow. */
+.closing-band {
+  background:
+    radial-gradient(50% 90% at 92% 10%, rgba(255, 84, 0, 0.32), transparent 70%),
+    radial-gradient(40% 80% at 0% 100%, rgba(56, 97, 251, 0.22), transparent 70%),
+    var(--navy);
+}
+
+/* Footer: the deepest navy, light text, orange on hover. */
+.footer {
+  background: var(--navy-2);
+  border-top: 1px solid var(--navy-line);
+  color: var(--on-navy-2);
+}
+.footer .small,
+.footer .caption {
+  color: var(--on-navy-3);
+}
+.footer-title {
+  color: var(--on-navy);
+}
+.footer a {
+  color: var(--on-navy-2);
+}
+.footer a:hover {
+  color: #ff9a6b;
+  text-decoration: none;
+}
+.footer-base {
+  background: linear-gradient(var(--navy-line), var(--navy-line)) var(--gutter) 0 / calc(100% - 2 * var(--gutter)) 1px no-repeat;
+}
+.footer :focus-visible {
+  outline-color: #ff9a6b;
+}
+
+/* ======================================== header, navy (owner, 10 Nov 2026)
+ * The main bar is navy with white words and the light logo; the strip above
+ * it is a shade deeper. Menus open as white panels with a navy feature card.
+ */
+.topbar {
+  background: var(--navy-2);
+  border-bottom: 1px solid var(--navy-line);
+}
+.nav {
+  background: rgba(11, 21, 48, 0.94);
+  border-bottom: 1px solid var(--navy-line);
+  color: var(--on-navy);
+}
+.nav::before {
+  inset: auto 0 -1px;
+  height: 1px;
+  opacity: 0.7;
+}
+html.is-scrolled .nav {
+  box-shadow: 0 10px 28px -18px rgba(2, 6, 23, 0.7);
+}
+.nav-trigger {
+  color: var(--on-navy-2);
+}
+.nav-trigger svg {
+  color: currentColor;
+  opacity: 0.7;
+}
+.nav-trigger:hover,
+.nav-trigger[aria-expanded='true'] {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--on-navy);
+}
+.nav-trigger.is-current {
+  color: var(--on-navy);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.nav-signin {
+  color: var(--on-navy);
+}
+.nav-demo {
+  box-shadow: 0 6px 18px -8px rgba(255, 84, 0, 0.7);
+}
+.nav-burger {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--on-navy);
+}
+.nav :focus-visible {
+  outline-color: #ff9a6b;
+}
+
+/* Menu panels: white, softly lifted, an orange line along the top. */
+.mega {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 24px 60px -24px rgba(2, 6, 23, 0.45), 0 2px 6px rgba(2, 6, 23, 0.06);
+  color: var(--ink);
+}
+.mega::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), #ff9a3d);
+}
+.mega-cat {
+  margin: var(--s-2) var(--s-3) var(--s-2);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+.mega-item {
+  position: relative;
+  transition: background-color 0.15s var(--ease);
+}
+.mega-item:hover {
+  background: var(--accent-soft);
+}
+.mega-item:hover .mega-name {
+  color: var(--accent-text);
+}
+.mega-foot {
+  background: var(--tint);
+}
+.mega--list .mega-item:hover {
+  background: var(--accent-soft);
+}
+/* The feature card: navy, its photo, white words, orange glow. */
+.mega-feature {
+  background:
+    radial-gradient(80% 60% at 100% 0%, rgba(255, 84, 0, 0.35), transparent 70%),
+    var(--navy);
+  color: var(--on-navy);
+  padding: var(--s-4);
+}
+.mega-feature .mega-name {
+  color: var(--on-navy);
+}
+.mega-feature .mega-line,
+.mega-feature p {
+  color: var(--on-navy-2);
+}
+.mega-feature:hover .mega-name {
+  color: #ffb08a;
+}
+
+/* ===================================== header, light (owner, 10 Nov 2026)
+ * "Keep it light, make the options properly visible": white bar, a soft
+ * warm strip above it, menu words in full ink at 16px/600, a clear orange
+ * pill on hover and an orange underline on the current section.
+ */
+.topbar {
+  background: var(--accent-soft);
+  border-bottom: 1px solid #ffe0cf;
+  color: var(--ink-2);
+}
+.topbar a:hover {
+  color: var(--accent-text);
+}
+.nav {
+  background: rgba(255, 255, 255, 0.97);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+.nav::before {
+  inset: auto 0 -1px;
+  height: 2px;
+  opacity: 0.9;
+}
+html.is-scrolled .nav {
+  box-shadow: 0 8px 24px -16px rgba(15, 23, 42, 0.28);
+}
+.nav-trigger {
+  height: 42px;
+  padding: 0 14px;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.nav-trigger svg {
+  color: var(--ink-3);
+  opacity: 1;
+}
+.nav-trigger:hover,
+.nav-trigger[aria-expanded='true'] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.nav-trigger:hover svg,
+.nav-trigger[aria-expanded='true'] svg {
+  color: var(--accent-text);
+}
+.nav-trigger.is-current {
+  color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.nav-signin {
+  color: var(--ink);
+}
+.nav-burger {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.nav :focus-visible {
+  outline-color: var(--accent);
+}
+.mega-feature {
+  background: linear-gradient(160deg, var(--accent-soft), #ffffff 70%);
+  border: 1px solid #ffe0cf;
+  color: var(--ink);
+}
+.mega-feature .mega-name {
+  color: var(--ink);
+}
+.mega-feature .mega-line,
+.mega-feature p {
+  color: var(--ink-2);
+}
+.mega-feature:hover .mega-name {
+  color: var(--accent-text);
+}
+
+/* =========================================== layout fixes (owner, 10 Nov 2026)
+ * "Huge empty places": a heading alone in a left column beside a long right
+ * column left half the screen bare. Every two-column section now stacks: the
+ * heading across the top, its content in columns underneath.
+ */
+.split {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap-head);
+}
+.split > .head,
+.split > .sec-head {
+  position: static;
+  max-width: 46rem;
+}
+.split > .stack {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-5) var(--gap-col);
+  align-items: start;
+}
+.split > .stack > * + * {
+  margin-top: 0;
+}
+.split > .stack > .text-link {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-top: 0;
+}
+.split > .facts-list {
+  max-width: none;
+  columns: 2;
+  column-gap: var(--gap-col);
+  display: block;
+}
+.split > .facts-list li {
+  break-inside: avoid;
+  margin-bottom: var(--s-3);
+}
+.split > .btn--text {
+  grid-column: auto;
+}
+/* Connections: three across, each under a hairline. */
+.split > .links {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 var(--gap-col);
+  border-top: 0;
+}
+.split > .links li {
+  border-bottom: 0;
+  border-top: 2px solid var(--line);
+  padding-top: var(--s-5);
+}
+/* Questions: two columns of question and answer. */
+.faq {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap-head);
+}
+.faq > .h-2 {
+  font-size: var(--t-h1);
+  line-height: 1.1;
+  letter-spacing: -0.022em;
+}
+.faq-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--gap-col);
+  border-top: 0;
+}
+.faq-item {
+  border-bottom: 0;
+  border-top: 1px solid var(--line);
+}
+@media (max-width: 900px) {
+  .split > .stack,
+  .split > .links,
+  .faq-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .split > .facts-list {
+    columns: 1;
+  }
+}
+
+/* A product's hero photo. */
+.p-photo {
+  margin: 0;
+}
+.p-photo img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--r-panel);
+  box-shadow: 0 24px 48px -28px rgba(15, 23, 42, 0.35);
+}
+.p-photo--cut img {
+  border-radius: 0;
+  box-shadow: none;
+  -webkit-mask-image: linear-gradient(180deg, #000 80%, transparent);
+  mask-image: linear-gradient(180deg, #000 80%, transparent);
+}
+.p-photo--tall {
+  max-width: 420px;
+  justify-self: center;
+}
+
+/* ===================================== clean white + moving pictures (10 Nov)
+ * Owner: a clean white page, and some life in Setting up and the plain lists.
+ */
+.hero--home,
+.p-hero,
+.sol-hero,
+.section--tint {
+  background: var(--bg);
+}
+.section--tint + .section,
+.section + .section--tint {
+  border-top: 1px solid var(--line);
+}
+
+/* An icon tile: duotone icon in the brand orange on its tint. */
+.tile {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid #ffe0cf;
+  flex: none;
+}
+.groups li .tile {
+  margin-bottom: var(--s-2);
+}
+
+/* Where your data lives: three points, each with its icon. */
+.icon-facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-5);
+}
+.icon-facts li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s-4);
+  align-items: start;
+}
+.split > .stack > .icon-facts {
+  grid-row: span 2;
+}
+
+/* The wire between two marks: a dot runs along it. */
+.links-wire::after {
+  animation: wire-run 2.6s var(--ease) infinite;
+}
+@keyframes wire-run {
+  0% { right: 100%; opacity: 0; }
+  15% { opacity: 1; }
+  70%, 100% { right: -4px; opacity: 1; }
+}
+
+/* ---- Setting up: three steps, each a small looping picture over its words */
+.setup {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap-col);
+  counter-reset: step;
+}
+.setup-step {
+  display: grid;
+  gap: var(--s-5);
+  align-content: start;
+}
+.setup-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 220px;
+  border-radius: var(--r-panel);
+  background:
+    radial-gradient(60% 70% at 50% 0%, var(--accent-soft), transparent 70%),
+    var(--surface-2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.setup-copy {
+  display: grid;
+  gap: var(--s-2);
+  justify-items: start;
+}
+.setup-copy .tile {
+  margin-bottom: var(--s-1);
+}
+.setup-tally {
+  margin-top: var(--gap-head);
+  padding: var(--s-5) var(--s-6);
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2);
+  border-radius: 0 var(--r-panel) var(--r-panel) 0;
+  color: var(--ink-2);
+  max-width: none;
+}
+.setup-tally strong {
+  color: var(--ink);
+}
+
+/* Step 1: the company form types itself in. */
+.sf {
+  width: min(260px, 80%);
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px -18px rgba(15, 23, 42, 0.35);
+  font-size: 12px;
+}
+.sf-label {
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 600;
+}
+.sf-field {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  margin-bottom: 4px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.sf-type {
+  white-space: nowrap;
+  overflow: hidden;
+  border-right: 1.5px solid var(--accent);
+  clip-path: inset(0 100% 0 0);
+  animation: sf-type 8s steps(25) infinite;
+}
+.sf-type--2 {
+  animation-name: sf-type-2;
+  animation-timing-function: steps(15);
+}
+@keyframes sf-type {
+  0%, 6% { clip-path: inset(0 100% 0 0); }
+  30%, 92% { clip-path: inset(0 0 0 0); }
+  100% { clip-path: inset(0 100% 0 0); }
+}
+@keyframes sf-type-2 {
+  0%, 34% { clip-path: inset(0 100% 0 0); }
+  55%, 92% { clip-path: inset(0 0 0 0); }
+  100% { clip-path: inset(0 100% 0 0); }
+}
+.sf-ok {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #15803d;
+  font-weight: 700;
+  font-size: 11px;
+  opacity: 0;
+  animation: sf-ok 8s var(--ease) infinite;
+}
+@keyframes sf-ok {
+  0%, 58% { opacity: 0; transform: translateY(4px); }
+  64%, 92% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
+/* Step 2: products switch on one by one. */
+.sw {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: min(270px, 84%);
+  display: grid;
+  gap: 8px;
+}
+.sw li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.sw li > span:nth-child(2) {
+  flex: 1;
+}
+.sw-toggle {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  animation: sw-bg 8s var(--ease) infinite;
+  animation-delay: calc(var(--i) * 0.7s);
+}
+.sw-toggle span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.3);
+  animation: sw-knob 8s var(--ease) infinite;
+  animation-delay: calc(var(--i) * 0.7s);
+}
+@keyframes sw-bg {
+  0%, 12% { background: var(--line-strong); }
+  18%, 90% { background: var(--app); }
+  100% { background: var(--line-strong); }
+}
+@keyframes sw-knob {
+  0%, 12% { transform: none; }
+  18%, 90% { transform: translateX(14px); }
+  100% { transform: none; }
+}
+
+/* Step 3: the team arrives, each with a tick. */
+.tm {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: min(250px, 80%);
+  display: grid;
+  gap: 10px;
+}
+.tm li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 18px -14px rgba(15, 23, 42, 0.35);
+  opacity: 0;
+  animation: tm-in 8s var(--ease) infinite;
+  animation-delay: calc(var(--i) * 0.8s);
+}
+.tm-av {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.tm-role {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.tm-ok {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #15803d;
+}
+@keyframes tm-in {
+  0%, 6% { opacity: 0; transform: translateY(10px) scale(0.96); }
+  14%, 88% { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; transform: translateY(-6px); }
+}
+@media (max-width: 900px) {
+  .setup {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* Less motion: every picture shows its finished state, still. */
+@media (prefers-reduced-motion: reduce) {
+  .sf-type,
+  .sf-ok,
+  .sw-toggle,
+  .sw-toggle span,
+  .tm li,
+  .links-wire::after {
+    animation: none !important;
+  }
+  .sf-type {
+    clip-path: none;
+    border-right: 0;
+  }
+  .sf-ok,
+  .tm li {
+    opacity: 1;
+  }
+  .sw-toggle {
+    background: var(--app);
+  }
+  .sw-toggle span {
+    transform: translateX(14px);
+  }
+}
+
+/* ===================================== header colour (owner, 10 Nov 2026)
+ * "I asked change header colour": a white bar read as no change. The strip
+ * above is solid brand orange with white words; the menu bar is a light
+ * warm peach, still light, with the options in full ink.
+ */
+.topbar {
+  background: #ff5400;
+  border-bottom: 0;
+  color: #fff;
+}
+.topbar a,
+.topbar a:hover {
+  color: #fff;
+}
+.topbar a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.nav {
+  background: #fff1e8;
+  border-bottom: 1px solid #ffd9c4;
+}
+.nav::before {
+  display: none;
+}
+.nav-trigger:hover,
+.nav-trigger[aria-expanded='true'] {
+  background: #fff;
+  color: var(--accent-text);
+}
+.nav-burger {
+  background: #fff;
+  border-color: #ffd0b8;
 }

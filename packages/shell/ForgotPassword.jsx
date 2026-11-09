@@ -33,7 +33,7 @@ export default function ForgotPassword({ onHome, onSignIn }) {
   };
 
   return (
-    <AuthLayout
+    <AuthLayout scene="forgot"
       title="Reset your password"
       subtitle={sent ? 'Check your inbox.' : 'We will email you a link to choose a new one.'}
       onHome={onHome}
