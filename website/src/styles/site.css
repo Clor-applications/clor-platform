@@ -2571,3 +2571,113 @@ html.is-scrolled .nav {
 .footer :focus-visible {
   outline-color: #ff9a6b;
 }
+
+/* ======================================== header, navy (owner, 10 Nov 2026)
+ * The main bar is navy with white words and the light logo; the strip above
+ * it is a shade deeper. Menus open as white panels with a navy feature card.
+ */
+.topbar {
+  background: var(--navy-2);
+  border-bottom: 1px solid var(--navy-line);
+}
+.nav {
+  background: rgba(11, 21, 48, 0.94);
+  border-bottom: 1px solid var(--navy-line);
+  color: var(--on-navy);
+}
+.nav::before {
+  inset: auto 0 -1px;
+  height: 1px;
+  opacity: 0.7;
+}
+html.is-scrolled .nav {
+  box-shadow: 0 10px 28px -18px rgba(2, 6, 23, 0.7);
+}
+.nav-trigger {
+  color: var(--on-navy-2);
+}
+.nav-trigger svg {
+  color: currentColor;
+  opacity: 0.7;
+}
+.nav-trigger:hover,
+.nav-trigger[aria-expanded='true'] {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--on-navy);
+}
+.nav-trigger.is-current {
+  color: var(--on-navy);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.nav-signin {
+  color: var(--on-navy);
+}
+.nav-demo {
+  box-shadow: 0 6px 18px -8px rgba(255, 84, 0, 0.7);
+}
+.nav-burger {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--on-navy);
+}
+.nav :focus-visible {
+  outline-color: #ff9a6b;
+}
+
+/* Menu panels: white, softly lifted, an orange line along the top. */
+.mega {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 24px 60px -24px rgba(2, 6, 23, 0.45), 0 2px 6px rgba(2, 6, 23, 0.06);
+  color: var(--ink);
+}
+.mega::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), #ff9a3d);
+}
+.mega-cat {
+  margin: var(--s-2) var(--s-3) var(--s-2);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+.mega-item {
+  position: relative;
+  transition: background-color 0.15s var(--ease);
+}
+.mega-item:hover {
+  background: var(--accent-soft);
+}
+.mega-item:hover .mega-name {
+  color: var(--accent-text);
+}
+.mega-foot {
+  background: var(--tint);
+}
+.mega--list .mega-item:hover {
+  background: var(--accent-soft);
+}
+/* The feature card: navy, its photo, white words, orange glow. */
+.mega-feature {
+  background:
+    radial-gradient(80% 60% at 100% 0%, rgba(255, 84, 0, 0.35), transparent 70%),
+    var(--navy);
+  color: var(--on-navy);
+  padding: var(--s-4);
+}
+.mega-feature .mega-name {
+  color: var(--on-navy);
+}
+.mega-feature .mega-line,
+.mega-feature p {
+  color: var(--on-navy-2);
+}
+.mega-feature:hover .mega-name {
+  color: #ffb08a;
+}
