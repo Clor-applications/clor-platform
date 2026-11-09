@@ -1,67 +1,46 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Menu, X } from 'lucide-react';
 import { Link, usePath } from '../router.jsx';
-import { NAV, PRODUCTS, SITE } from '../site.js';
+import { HEADER, NAV, PRODUCTS, SITE } from '../site.js';
 import { Logo, Mark, Status } from './Brand.jsx';
 
-const CATEGORIES = ['Finance', 'HR', 'Operations'];
+/*
+ * The header: Products, Pricing, Sign in (two doors) and Request a demo. The
+ * solutions, guides and company pages are reached from the footer and from
+ * the pages themselves, so the bar stays short enough to read in one glance.
+ * The bar is solid under one hairline; the phone menu is the same list.
+ */
 
 function ProductsMenu({ onPick }) {
   return (
     <div className="mega mega--products">
-      <div className="mega-grid">
-        {CATEGORIES.map((cat) => (
-          <div key={cat} className="mega-col">
-            <p className="mega-cat">{cat}</p>
-            <ul>
-              {PRODUCTS.filter((p) => p.category === cat).map((p) => (
-                <li key={p.slug}>
-                  <Link href={`/products/${p.slug}`} className="mega-item" onClick={onPick}>
-                    <Mark product={p} size={34} />
-                    <span className="mega-text">
-                      <span className="mega-name">
-                        CLOR&nbsp;{p.name} <Status product={p} />
-                      </span>
-                      <span className="mega-line">{p.line}</span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+      <ul className="mega-grid">
+        {PRODUCTS.map((p) => (
+          <li key={p.slug}>
+            <Link href={`/products/${p.slug}`} className="mega-item" onClick={onPick}>
+              <Mark product={p} size={34} />
+              <span className="mega-text">
+                <span className="mega-name">
+                  CLOR&nbsp;{p.name} {p.status === 'soon' ? <Status product={p} /> : null}
+                </span>
+                <span className="mega-line">{p.who || p.line}</span>
+              </span>
+            </Link>
+          </li>
         ))}
-      </div>
+      </ul>
       <div className="mega-foot">
-        <p className="small">Choose the products you need. They share one workspace, one sign-in and one set of people.</p>
+        <p className="small">Each product works on its own. Together they share one sign-in and one list of employees.</p>
         <Link href="/products" className="btn btn--text" onClick={onPick}>
-          See all products
+          All products
         </Link>
       </div>
     </div>
   );
 }
 
-function ListMenu({ items, onPick }) {
-  return (
-    <div className="mega mega--list">
-      <ul>
-        {items.map((i) => (
-          <li key={i.href}>
-            <Link href={i.href} className="mega-item mega-item--plain" onClick={onPick}>
-              <span className="mega-text">
-                <span className="mega-name">{i.name}</span>
-                <span className="mega-line">{i.line}</span>
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 /* Two doors: the company's own users, and staff who only punch, ask for leave and read payslips. */
-const DOORS = [
+export const DOORS = [
   { href: SITE.signInUrl, name: 'Company sign-in', line: 'Owners, HR, managers and accountants.' },
   { href: SITE.portalUrl, name: 'Employee portal', line: 'Punch in, ask for leave, see your payslips.' },
 ];
@@ -84,14 +63,6 @@ function SignInMenu({ onPick }) {
     </div>
   );
 }
-
-const MENUS = [
-  { key: 'products', label: 'Products' },
-  { key: 'solutions', label: 'Solutions', items: NAV.solutions },
-  { key: 'pricing', label: 'Pricing', href: '/pricing' },
-  { key: 'resources', label: 'Resources', items: NAV.resources },
-  { key: 'company', label: 'Company', items: NAV.company },
-];
 
 export default function Nav() {
   const path = usePath();
@@ -154,7 +125,7 @@ export default function Nav() {
    */
   useEffect(() => {
     if (!mobile) return undefined;
-    const behind = [document.getElementById('main'), document.querySelector('body > #root > footer, footer.footer')].filter(Boolean);
+    const behind = [document.getElementById('main'), document.querySelector('footer.footer')].filter(Boolean);
     behind.forEach((el) => (el.inert = true));
     document.body.style.overflow = 'hidden';
     const items = () => [burger.current, ...panel.current.querySelectorAll('a[href], button')].filter(Boolean);
@@ -175,59 +146,61 @@ export default function Nav() {
     };
   }, [mobile]);
 
-  const section = (key) => (key === 'products' ? path.startsWith('/products') : MENUS.find((m) => m.key === key)?.items?.some((i) => path.startsWith(i.href)));
+  const onProducts = path.startsWith('/products');
+  const more = [...NAV.solutions, ...NAV.resources, ...NAV.company];
 
   return (
     <>
-    <header className="nav" ref={ref}>
-      <div className="wrap nav-bar">
-        <Logo />
-        <nav className="nav-main" aria-label="Main">
-          <ul>
-            {MENUS.map((m) =>
-              m.href ? (
-                <li key={m.key}>
-                  <Link href={m.href} className={`nav-trigger${path === m.href ? ' is-current' : ''}`} aria-current={path === m.href ? 'page' : undefined}>
-                    {m.label}
+      <header className="nav" ref={ref}>
+        <div className="wrap nav-bar">
+          <Logo />
+          <nav className="nav-main" aria-label="Main">
+            <ul>
+              <li {...hover('products')}>
+                <button type="button" className={`nav-trigger${onProducts ? ' is-current' : ''}`} aria-expanded={open === 'products'} aria-current={onProducts ? 'page' : undefined} onClick={toggle('products')}>
+                  Products
+                  <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
+                </button>
+                <div className={`mega-wrap${open === 'products' ? ' is-open' : ''}`}>
+                  <ProductsMenu onPick={close} />
+                </div>
+              </li>
+              {HEADER.filter((h) => h.href !== '/products').map((h) => (
+                <li key={h.href}>
+                  <Link href={h.href} className={`nav-trigger${path === h.href ? ' is-current' : ''}`} aria-current={path === h.href ? 'page' : undefined}>
+                    {h.name}
                   </Link>
                 </li>
-              ) : (
-                <li key={m.key} {...hover(m.key)}>
-                  <button type="button" className={`nav-trigger${section(m.key) ? ' is-current' : ''}`} aria-expanded={open === m.key} onClick={toggle(m.key)}>
-                    {m.label}
-                    <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
-                  </button>
-                  <div className={`mega-wrap${open === m.key ? ' is-open' : ''}`}>{m.key === 'products' ? <ProductsMenu onPick={close} /> : <ListMenu items={m.items} onPick={close} />}</div>
-                </li>
-              )
-            )}
-          </ul>
-        </nav>
-        <div className="nav-end">
-          <div className="nav-doors" {...hover('signin')}>
-            <button type="button" className="nav-trigger" aria-expanded={open === 'signin'} onClick={toggle('signin')}>
-              Sign in
-              <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
-            </button>
-            <div className={`mega-wrap mega-wrap--end${open === 'signin' ? ' is-open' : ''}`}>
-              <SignInMenu onPick={close} />
+              ))}
+            </ul>
+          </nav>
+          <div className="nav-end">
+            <div className="nav-doors" {...hover('signin')}>
+              <button type="button" className="nav-trigger" aria-expanded={open === 'signin'} onClick={toggle('signin')}>
+                Sign in
+                <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
+              </button>
+              <div className={`mega-wrap mega-wrap--end${open === 'signin' ? ' is-open' : ''}`}>
+                <SignInMenu onPick={close} />
+              </div>
             </div>
+            <Link href={SITE.demoUrl} className="btn btn--primary nav-demo">
+              Request a demo
+            </Link>
+            <button type="button" ref={burger} className="nav-burger" aria-expanded={mobile} aria-controls="mobile-menu" onClick={() => setMobile(!mobile)}>
+              <span className="sr-only">{mobile ? 'Close menu' : 'Open menu'}</span>
+              {mobile ? <X size={20} strokeWidth={1.75} aria-hidden="true" /> : <Menu size={20} strokeWidth={1.75} aria-hidden="true" />}
+            </button>
           </div>
-          <Link href={SITE.demoUrl} className="btn btn--primary nav-demo">
-            Request a demo
-          </Link>
-          <button type="button" ref={burger} className="nav-burger" aria-expanded={mobile} aria-controls="mobile-menu" onClick={() => setMobile(!mobile)}>
-            <span className="sr-only">{mobile ? 'Close menu' : 'Open menu'}</span>
-            {mobile ? <X size={20} strokeWidth={1.75} aria-hidden="true" /> : <Menu size={20} strokeWidth={1.75} aria-hidden="true" />}
-          </button>
         </div>
-      </div>
-    </header>
+      </header>
 
-      {/* Outside the header: its backdrop blur would otherwise be the box this fixed panel is placed in. */}
       <div id="mobile-menu" ref={panel} className={`mobile${mobile ? ' is-open' : ''}`} hidden={!mobile}>
         <div className="wrap">
-          <p className="mega-cat">Products</p>
+          <Link href={SITE.demoUrl} className="btn btn--primary btn--lg mobile-demo" onClick={close}>
+            Request a demo
+          </Link>
+          <p className="mobile-title">Products</p>
           <ul className="mobile-products">
             {PRODUCTS.map((p) => (
               <li key={p.slug}>
@@ -235,45 +208,46 @@ export default function Nav() {
                   <Mark product={p} size={32} />
                   <span className="mega-text">
                     <span className="mega-name">
-                      CLOR&nbsp;{p.name} <Status product={p} />
+                      CLOR&nbsp;{p.name} {p.status === 'soon' ? <Status product={p} /> : null}
                     </span>
                   </span>
                 </Link>
               </li>
             ))}
           </ul>
-          {MENUS.filter((m) => m.items).map((m) => (
-            <div key={m.key}>
-              <p className="mega-cat">{m.label}</p>
-              <ul className="mobile-list">
-                {m.items.map((i) => (
-                  <li key={i.href}>
-                    <Link href={i.href} onClick={close}>
-                      {i.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
           <ul className="mobile-list">
+            <li>
+              <Link href="/products" onClick={close}>
+                All products
+              </Link>
+            </li>
             <li>
               <Link href="/pricing" onClick={close}>
                 Pricing
               </Link>
             </li>
           </ul>
-          <p className="mega-cat">Sign in</p>
+          <p className="mobile-title">Sign in</p>
           <ul className="mobile-list">
             {DOORS.map((d) => (
               <li key={d.name}>
-                <a href={d.href}>{d.name}</a>
+                <a href={d.href}>
+                  {d.name}
+                  <span className="mobile-line">{d.line}</span>
+                </a>
               </li>
             ))}
           </ul>
-          <Link href={SITE.demoUrl} className="btn btn--primary btn--lg mobile-demo" onClick={close}>
-            Request a demo
-          </Link>
+          <p className="mobile-title">More</p>
+          <ul className="mobile-list">
+            {more.map((i) => (
+              <li key={i.href}>
+                <Link href={i.href} onClick={close}>
+                  {i.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useSearch } from '../router.jsx';
-import { AVAILABLE, SITE, productBySlug } from '../site.js';
+import { DEMO_APPS, SITE } from '../site.js';
 import { PageHead } from './Pages.jsx';
 
 /*
@@ -73,8 +73,8 @@ export default function Demo() {
 
   /* ?app= is known only in the browser: read after hydration, on the next frame. */
   useEffect(() => {
-    const p = productBySlug(new URLSearchParams(search).get('app') || '');
-    if (!p || p.status !== 'available') return undefined;
+    const p = DEMO_APPS.find((x) => x.slug === new URLSearchParams(search).get('app'));
+    if (!p) return undefined;
     const frame = requestAnimationFrame(() => {
       setCameFor(p.slug);
       setApps((s) => (s.has(p.slug) ? s : new Set([...s, p.slug])));
@@ -121,7 +121,7 @@ export default function Demo() {
       const r = await fetch(`${SITE.apiUrl}/public/demo-requests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, users: Number(form.users), apps: AVAILABLE.filter((p) => apps.has(p.slug)).map((p) => p.slug).sort((x, y) => (y === cameFor) - (x === cameFor)) }),
+        body: JSON.stringify({ ...form, users: Number(form.users), apps: DEMO_APPS.filter((p) => apps.has(p.slug)).map((p) => p.slug).sort((x, y) => (y === cameFor) - (x === cameFor)) }),
       });
       const body = await r.json().catch(() => ({}));
       if (r.ok) {
@@ -177,7 +177,7 @@ export default function Demo() {
 
   return (
     <>
-      <PageHead title="Request a demo" intro="Tell us about your company. We will call within one working day and show you CLOR with your kind of work." />
+      <PageHead title="Request a demo" intro="Tell us about your company. We call within one working day and show you CLOR doing your kind of work, on a video call." />
       <section className="section">
         <div className="wrap contact">
           <form ref={formRef} className="form" onSubmit={submit} noValidate aria-describedby={failed ? 'demo-failed' : undefined}>
@@ -218,7 +218,7 @@ export default function Demo() {
             <fieldset className="field field-set" aria-invalid={errors.apps ? true : undefined} aria-describedby={errors.apps ? 'demo-apps-error' : undefined}>
               <legend>Which apps</legend>
               <div className="field-checks">
-                {AVAILABLE.map((p) => (
+                {DEMO_APPS.map((p) => (
                   <label key={p.slug} className="check">
                     <input type="checkbox" name="apps" value={p.slug} checked={apps.has(p.slug)} onChange={() => toggle(p.slug)} />
                     <span>{p.name}</span>

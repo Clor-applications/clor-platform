@@ -38,23 +38,20 @@ export const SITE = {
   hosting: 'Google Cloud, Mumbai region',
 };
 
-/** status: 'available' | 'soon'. accent: the product's own colour, used only on its own marks. */
+/**
+ * status: 'available' | 'soon'. accent: the product's own colour, used only on its own marks.
+ * Each available product has figures drawn with sample data in components/Figures.jsx.
+ * Order is the owner's: Books first, then People, Attendance, Payroll, Workspace.
+ */
 export const PRODUCTS = [
   {
     slug: 'books',
     name: 'Books',
-    category: 'Finance',
+    category: 'Accounting',
     status: 'available',
     accent: '#232A66',
-    line: 'GST invoicing, accounting and inventory, built for Indian businesses.',
-  },
-  {
-    slug: 'payroll',
-    name: 'Payroll',
-    category: 'HR',
-    status: 'available',
-    accent: '#0079BF',
-    line: 'Salaries with PF, ESI, PT and TDS, payslips, and postings into your books.',
+    line: 'GST invoices, e-way bills, stock, bank reconciliation and the returns, for Indian businesses.',
+    who: 'Any company that raises GST invoices',
   },
   {
     slug: 'people',
@@ -62,7 +59,8 @@ export const PRODUCTS = [
     category: 'HR',
     status: 'available',
     accent: '#C93F28',
-    line: 'Employee records, documents, onboarding and an app for every employee.',
+    line: 'The full HR app for growing, medium and big companies: records, documents, leave, attendance, joining and leaving, and an app for every employee.',
+    who: 'Growing, medium and big companies',
   },
   {
     slug: 'attendance',
@@ -70,12 +68,31 @@ export const PRODUCTS = [
     category: 'HR',
     status: 'available',
     accent: '#854D0E',
-    line: 'Biometric readers, phone punches with location, shifts, leave and month close.',
+    line: 'Time, leave and shifts for small companies, from biometric readers at the gate or a phone on site.',
+    who: 'Small companies',
+  },
+  {
+    slug: 'payroll',
+    name: 'Payroll',
+    category: 'HR',
+    status: 'available',
+    accent: '#0079BF',
+    line: 'Salaries with PF, ESI, professional tax and TDS worked out, payslips in the employee app, and the journal posted to Books.',
+    who: 'Any company that pays salaries',
+  },
+  {
+    slug: 'workspace',
+    name: 'Workspace',
+    category: 'Platform',
+    status: 'available',
+    accent: '#FF5400',
+    line: 'The one sign-in behind every CLOR app: your companies and branches, your people and what each may see, and the audit trail.',
+    who: 'Included with every product',
   },
   {
     slug: 'projects',
     name: 'Projects',
-    category: 'Operations',
+    category: 'Coming soon',
     status: 'soon',
     accent: '#2E8DA3',
     line: 'Plan work, track tasks and see what each project costs.',
@@ -83,7 +100,7 @@ export const PRODUCTS = [
   {
     slug: 'timesheet',
     name: 'Timesheet',
-    category: 'Operations',
+    category: 'Coming soon',
     status: 'soon',
     accent: '#57534E',
     line: 'Time logged against projects and clients, approved and billed.',
@@ -92,6 +109,8 @@ export const PRODUCTS = [
 
 export const productBySlug = (slug) => PRODUCTS.find((p) => p.slug === slug);
 export const AVAILABLE = PRODUCTS.filter((p) => p.status === 'available');
+/** The apps a demo can be asked for: the ones the demo form and the platform's app catalogue know. */
+export const DEMO_APPS = AVAILABLE.filter((p) => p.slug !== 'workspace');
 
 /**
  * Links between products that work today, each a real path in the platform:
@@ -122,6 +141,11 @@ export const NAV = {
 
 /** The app id inside app.clor.in, where it differs from the site's slug. */
 const APP_ID = { books: 'accounting' };
+/** Links in the header bar; everything else is reached from the footer and the pages themselves. */
+export const HEADER = [
+  { href: '/products', name: 'Products' },
+  { href: '/pricing', name: 'Pricing' },
+];
 /** A demo request for one product: the form reads ?app= and ticks it. */
 export const demoFor = (slug) => `${SITE.demoUrl}?app=${slug}`;
 export const appIdFor = (slug) => APP_ID[slug] || slug;

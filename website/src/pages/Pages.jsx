@@ -179,39 +179,31 @@ export function Firms() {
 export function Pricing() {
   return (
     <>
-      <PageHead title="Pay for the products you use." intro="Every CLOR product has its own subscription. A company that needs only payroll pays only for payroll, and adding a product later never means changing plans." />
+      <PageHead title="Pay for the products you use." intro="Every CLOR product has its own subscription. A company that needs only payroll pays only for payroll, and adding a product later never means changing plans. Workspace comes with any of them." />
       <section className="section">
-        <div className="wrap">
-          <table className="price-table">
-            <caption className="sr-only">Products and pricing</caption>
-            <thead>
-              <tr>
-                <th scope="col">Product</th>
-                <th scope="col">Status</th>
-                <th scope="col">Price</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="wrap split">
+          <Head title="The five products" intro="Prices are being set now. Until they are published, talk to us and we will tell you what your company would pay." />
+          <div className="stack" style={{ '--stack': '24px' }}>
+            <ul className="price-list">
               {PRODUCTS.map((p) => (
-                <tr key={p.slug}>
-                  <th scope="row">
-                    <span className="price-name">
-                      <Mark product={p} size={28} /> CLOR&nbsp;{p.name}
-                    </span>
-                  </th>
-                  <td>
-                    <Status product={p} />
-                  </td>
-                  <td className="small">{p.status === 'available' ? 'Being finalised' : 'At launch'}</td>
-                </tr>
+                <li key={p.slug} className={p.status === 'soon' ? 'is-soon' : ''}>
+                  <Mark product={p} size={32} />
+                  <span className="price-name">
+                    <Link href={`/products/${p.slug}`}>CLOR&nbsp;{p.name}</Link>
+                    <span className="small">{p.status === 'soon' ? <Status product={p} /> : p.who}</span>
+                  </span>
+                  <span className="price-amount">{p.slug === 'workspace' ? 'Included with any product' : p.status === 'available' ? 'Being finalised' : 'At launch'}</span>
+                </li>
               ))}
-            </tbody>
-          </table>
-          <p className="small price-note">Prices are being set now. Until they are published, talk to us and we will tell you what your company would pay.</p>
-          <div className="actions price-actions">
-            <Link className="btn btn--primary" href="/contact?about=pricing">
-              Ask about pricing
-            </Link>
+            </ul>
+            <div className="actions">
+              <Link className="btn btn--primary" href="/contact?about=pricing">
+                Ask about pricing
+              </Link>
+              <Link className="btn btn--quiet" href={SITE.demoUrl}>
+                Request a demo
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -221,6 +213,7 @@ export function Pricing() {
             title="How subscriptions work"
             items={[
               ['Is there one plan for everything?', 'No. Each product is subscribed to on its own, for the companies in your workspace that use it.'],
+              ['Do I pay for People and Attendance both?', 'No. People includes everything Attendance does. A small company takes Attendance; a growing one takes People.'],
               ['What happens to my data if I stop a product?', 'The data stays in your workspace and can be exported. Switching the product back on brings it back.'],
               ['Do accountants and employees count as users?', 'Employees using only the employee app are not workspace users. How outside accountants are counted will be set out with the prices.'],
             ]}
@@ -310,7 +303,7 @@ export function About() {
     <>
       <PageHead
         title="About CLOR"
-        intro={`${SITE.company} makes CLOR: accounting, HR, payroll and attendance that read the same records, so an employee added in People is the same person on the attendance reader, in the salary run and in the books.`}
+        intro={`${SITE.company} makes CLOR: accounting, HR, attendance and payroll that read the same records, so an employee added in People is the same person on the attendance reader, in the salary run and in the books.`}
       >
         <p className="body">
           We work from our office in {SITE.city}: {SITE.address}. You are welcome to visit; write to {SITE.contactEmail} first so someone is there to meet you.
@@ -601,16 +594,35 @@ export function Legal({ doc }) {
 
 export function NotFound() {
   return (
-    <PageHead title="This page isn’t here." intro="It may have moved, or the address may be mistyped.">
-      <div className="actions">
-        <Link className="btn btn--primary" href="/">
-          Go to the home page
-        </Link>
-        <Link className="btn btn--quiet" href="/products">
-          See the products
-        </Link>
+    <section className="hero notfound" aria-labelledby="nf-title">
+      <div className="wrap notfound-grid">
+        <div className="hero-copy">
+          <p className="app-sec-n num" aria-hidden="true">
+            404
+          </p>
+          <h1 id="nf-title" className="h-hero">
+            This page isn’t here.
+          </h1>
+          <p className="lede">It may have moved, or the address may be mistyped. The products, pricing and policies are all in the footer.</p>
+          <div className="actions">
+            <Link className="btn btn--primary btn--lg" href="/">
+              Go to the home page
+            </Link>
+            <Link className="btn btn--quiet btn--lg" href="/products">
+              See the products
+            </Link>
+          </div>
+        </div>
+        <ul className="notfound-list">
+          {PRODUCTS.filter((p) => p.status === 'available').map((p) => (
+            <li key={p.slug}>
+              <Link href={`/products/${p.slug}`}>
+                <Mark product={p} size={28} /> CLOR&nbsp;{p.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
       </div>
-    </PageHead>
+    </section>
   );
 }
-
