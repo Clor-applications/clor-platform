@@ -1,18 +1,28 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, SITE, productBySlug } from '../site.js';
 import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
 import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
-import { Closing, Faq } from '../components/Blocks.jsx';
+import { Faq } from '../components/Blocks.jsx';
 import { Mark } from '../components/Brand.jsx';
 
 /*
- * The home page leads with Books, the main product, then gives each of the
- * others its own section in the owner's order (Payroll, People, Attendance),
- * each with its screen drawn with sample data. How they join comes after.
+ * The home page reads like the suite it is: one line for accounts, payroll and
+ * HR, the three screens standing as one 3D stack, the four products as tiles,
+ * then a section each with its screen standing in 3D (all drawn with sample
+ * data). How they join comes after, and the page closes on a slate band.
  * Every claim here is in CONTENT_CHECKLIST.md.
  */
 const APPS = [
+  {
+    slug: 'books',
+    title: 'GST invoices, returns and books in one place.',
+    lines: [
+      'Raise GST invoices, e-invoices and e-way bills, and file GSTR-1 and GSTR-3B from what you raised.',
+      'Import masters and opening balances from Tally, and reconcile the bank statement against your books.',
+      'Invoices above an amount wait for approval before they go out.',
+    ],
+  },
   {
     slug: 'payroll',
     title: 'Salaries with PF, ESI, PT and TDS worked out.',
@@ -44,7 +54,7 @@ const APPS = [
 
 const TEAMS = [
   {
-    title: 'Owners of small companies',
+    title: 'Business owners',
     text: 'File GSTR-1 and GSTR-3B from the invoices you already raised. Import masters and opening balances from Tally. Reconcile the bank statement against Books.',
     link: ['/solutions/businesses', 'CLOR for businesses'],
   },
@@ -75,10 +85,24 @@ const FAQ = [
 
 const BooksWindow = WINDOWS.books;
 
-/** One product's section: what it does in a few plain lines, and its screen beside them. */
+/** A product's screen standing in 3D, with two blank sheets stacked behind it. */
+function Stage({ children, flip }) {
+  return (
+    <figure className={`stage${flip ? ' stage--flip' : ''}`}>
+      <div className="stage-obj">
+        <span className="stage-sheet stage-sheet--2" aria-hidden="true" />
+        <span className="stage-sheet stage-sheet--1" aria-hidden="true" />
+        <div className="stage-win">{children}</div>
+      </div>
+    </figure>
+  );
+}
+
+/** One product's section: what it does in a few plain lines, beside a photo and its screen. */
 function AppSection({ slug, title, lines, flip }) {
   const p = productBySlug(slug);
-  const Win = WINDOWS[slug];
+  // The hero already shows Books' invoice, so Books' own section shows the GSTR-1 it feeds.
+  const Win = slug === 'books' ? GstrWindow : WINDOWS[slug];
   return (
     <section className="section" aria-labelledby={`${slug}-title`}>
       <div className={`wrap app-sec${flip ? ' app-sec--flip' : ''}`}>
@@ -98,11 +122,66 @@ function AppSection({ slug, title, lines, flip }) {
             More about CLOR&nbsp;{p.name}
           </Link>
         </div>
-        <figure className="app-sec-shot">
+        <Stage flip={flip}>
           <Win />
-        </figure>
+        </Stage>
       </div>
     </section>
+  );
+}
+
+const SUITE = ['books', 'payroll', 'people', 'attendance'];
+
+/**
+ * The hero's 3D object: Books' invoice in front, the payslip and the attendance
+ * month fanned behind it, tilting a little toward the pointer. Built from the
+ * same drawn screens as the rest of the page; still for anyone who asks their
+ * device for less motion.
+ */
+function Deck() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches || !window.matchMedia('(pointer: fine)').matches) return undefined;
+    let raf = 0;
+    const onMove = (e) => {
+      const r = el.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - 0.5;
+      const y = (e.clientY - r.top) / r.height - 0.5;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        el.style.setProperty('--ry', `${(x * 8).toFixed(2)}deg`);
+        el.style.setProperty('--rx', `${(-y * 6).toFixed(2)}deg`);
+      });
+    };
+    const onLeave = () => {
+      el.style.setProperty('--ry', '0deg');
+      el.style.setProperty('--rx', '0deg');
+    };
+    window.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerleave', onLeave);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerleave', onLeave);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+  const Pay = WINDOWS.payroll;
+  const Att = WINDOWS.attendance;
+  return (
+    <figure className="deck" ref={ref}>
+      <div className="deck-obj">
+        <div className="deck-card deck-card--back-l">
+          <Att />
+        </div>
+        <div className="deck-card deck-card--back-r">
+          <Pay />
+        </div>
+        <div className="deck-card deck-card--front">
+          <BooksWindow />
+        </div>
+      </div>
+    </figure>
   );
 }
 
@@ -113,31 +192,54 @@ export default function Home() {
         <div className="wrap home-hero">
           <div className="hero-copy">
             <h1 id="hero-title" className="h-hero">
-              GST accounting for Indian companies.
+              Accounts, payroll and HR for growing Indian companies.
             </h1>
             <p className="lede">
-              Raise GST invoices and e-way bills in CLOR Books, and file GSTR-1 and GSTR-3B from what you raised. Import masters and opening balances from Tally, and reconcile the bank
-              statement against your books. Payroll, People and Attendance join the same records when you need them.
+              GST accounting in CLOR Books, salaries with PF, ESI, PT and TDS in Payroll, every employee’s record in People, and punches from the gate in Attendance. One login, one list
+              of employees, one set of books.
             </p>
             <div className="actions">
               <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
                 Request a demo
               </Link>
-              <Link className="btn btn--text" href="/products/books">
-                More about CLOR Books
+              <Link className="btn btn--text" href="/pricing">
+                See pricing
               </Link>
             </div>
           </div>
-          <figure className="home-shots">
-            <BooksWindow />
-            <GstrWindow />
-            <figcaption className="caption">CLOR screens on this page are drawn with sample data.</figcaption>
-          </figure>
+        </div>
+        <div className="wrap">
+          <Deck />
+          <p className="caption hero-caption">CLOR screens on this page are drawn with sample data.</p>
+        </div>
+      </section>
+
+      <section className="section suite-sec" aria-labelledby="suite-title">
+        <div className="wrap">
+          <h2 className="sr-only" id="suite-title">
+            The CLOR products
+          </h2>
+          <ul className="suite">
+            {SUITE.map((slug) => {
+              const p = productBySlug(slug);
+              return (
+                <li key={slug}>
+                  <Link href={`/products/${slug}`} className="suite-link">
+                    <span className={`tile tile--${slug}`} aria-hidden="true">
+                      <Mark product={p} size={40} />
+                    </span>
+                    <span className="h-3">CLOR {p.name}</span>
+                    <span className="body">{p.line}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </section>
 
       {APPS.map((a, i) => (
-        <AppSection key={a.slug} {...a} flip={i % 2 === 0} />
+        <AppSection key={a.slug} {...a} flip={i % 2 === 1} />
       ))}
 
       <section className="section" aria-labelledby="connected-title">
@@ -189,9 +291,22 @@ export default function Home() {
         </div>
       </section>
 
-      <Closing title="See it with your own company’s figures." text="Tell us what you use today for accounts, attendance and salaries, and we will show you the same month’s work in CLOR.">
-        Each product has its own subscription; prices are being finalised. <Link href="/pricing">How pricing works</Link>
-      </Closing>
+      <section className="closing-band" aria-labelledby="closing-title">
+        <div className="wrap closing-band-inner">
+          <h2 className="h-1" id="closing-title">
+            See CLOR with your own company’s figures.
+          </h2>
+          <p className="lede">Tell us what you use today for accounts, attendance and salaries, and we will show you the same month’s work in CLOR.</p>
+          <div className="actions">
+            <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
+              Request a demo
+            </Link>
+            <Link className="btn btn--onphoto" href="/contact">
+              Write to us
+            </Link>
+          </div>
+        </div>
+      </section>
     </>
   );
 }

@@ -1676,29 +1676,236 @@ main:focus {
   }
 }
 
-/* The home hero: Books' tax invoice and the month's GSTR-1 it feeds, one above the other. */
+/* The home hero: the line and buttons centred, then one wide team photo with Books' screen on its corner. */
 .home-hero {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-  gap: var(--gap-col);
-  align-items: center;
+  justify-items: center;
+  text-align: center;
 }
-.home-shots {
+.home-hero .hero-copy {
+  justify-items: center;
+  max-width: 52rem;
+}
+.hero--home .h-hero {
+  max-width: 20ch;
+}
+.home-hero .actions {
+  justify-content: center;
+}
+.hero-caption {
+  margin-top: var(--s-3);
+  text-align: center;
+}
+.hero--home {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+/* The hero's 3D stack: three screens on a tilted plane, the front one lifted. */
+.deck {
+  --rx: 0deg;
+  --ry: 0deg;
+  margin: clamp(var(--s-7), 6vw, var(--s-9)) auto 0;
+  max-width: 1040px;
+  perspective: 1800px;
+  padding: 0 0 var(--s-6);
+}
+.deck-obj {
+  position: relative;
+  height: clamp(280px, 28vw, 360px);
+  transform-style: preserve-3d;
+  transform: rotateX(calc(14deg + var(--rx))) rotateY(var(--ry));
+  transition: transform 600ms var(--ease);
+  animation: deck-in 1000ms var(--ease) both;
+}
+.deck-card {
+  position: absolute;
+  width: min(54%, 500px);
+  border-radius: var(--r-panel);
+  box-shadow: 0 30px 60px -30px rgba(15, 23, 42, 0.35), 0 2px 4px rgba(15, 23, 42, 0.06);
+}
+.deck-card .win {
+  --win-fs: clamp(10px, 1vw, 14px);
+}
+.deck-card--front {
+  left: 50%;
+  top: 4%;
+  transform: translateX(-50%) translateZ(60px);
+  z-index: 3;
+}
+.deck-card--back-l {
+  left: 0;
+  top: 18%;
+  width: min(42%, 400px);
+  transform: translateZ(-40px) rotateZ(-4deg);
+  z-index: 1;
+}
+.deck-card--back-r {
+  right: 0;
+  top: 14%;
+  width: min(40%, 380px);
+  transform: translateZ(-20px) rotateZ(4deg);
+  z-index: 2;
+}
+@keyframes deck-in {
+  from { opacity: 0; transform: rotateX(30deg) translateY(40px); }
+  to { opacity: 1; }
+}
+@media (max-width: 720px) {
+  .deck-obj {
+    height: auto;
+    transform: none;
+    display: grid;
+  }
+  .deck-card {
+    position: relative;
+    width: 100%;
+    left: auto;
+    right: auto;
+    top: auto;
+    transform: none;
+  }
+  .deck-card--back-l,
+  .deck-card--back-r {
+    display: none;
+  }
+}
+
+/* The four products in one row, each a mark, its name and its line, under one hairline. */
+.suite {
+  list-style: none;
   margin: 0;
+  padding: 0;
   display: grid;
-  gap: var(--s-4);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s-6);
+  border-top: 1px solid var(--line);
+  padding-top: var(--s-6);
 }
-.home-shots .win {
-  --win-fs: clamp(13px, 1.05vw, 15px);
+.suite-link {
+  display: grid;
+  gap: var(--s-2);
+  justify-items: start;
+  color: var(--ink);
+  text-decoration: none;
+  border-radius: var(--r-control);
 }
-.home-shots .win + .win {
-  margin-left: var(--s-8);
+.suite-link .body {
+  color: var(--ink-2);
+}
+.suite-link:hover .h-3 {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+/* An app's tile: a rounded square with depth below it, lifting a little on hover. */
+.tile {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 0 var(--line), 0 2px 0 var(--line), 0 3px 0 var(--line), 0 4px 0 var(--line-strong), 0 14px 22px -12px rgba(15, 23, 42, 0.3);
+  transition: transform 220ms var(--ease), box-shadow 220ms var(--ease);
+  margin-bottom: var(--s-2);
+}
+.suite-link:hover .tile {
+  transform: translateY(-3px);
+  box-shadow: 0 1px 0 var(--line), 0 2px 0 var(--line), 0 3px 0 var(--line), 0 4px 0 var(--line), 0 5px 0 var(--line), 0 6px 0 var(--line), 0 7px 0 var(--line-strong), 0 20px 28px -14px rgba(15, 23, 42, 0.32);
 }
 @media (max-width: 900px) {
-  .home-hero {
+  .suite {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .suite {
     grid-template-columns: 1fr;
   }
-  .home-shots .win + .win {
-    margin-left: 0;
+}
+
+/* A product's screen standing in 3D, turned toward its words, two blank sheets behind. */
+.stage {
+  margin: 0;
+  perspective: 1400px;
+  padding: var(--s-5) var(--s-5) var(--s-7);
+}
+.stage-obj {
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateY(-12deg) rotateX(6deg);
+  transition: transform 700ms var(--ease);
+}
+.stage--flip .stage-obj {
+  transform: rotateY(12deg) rotateX(6deg);
+}
+.stage:hover .stage-obj {
+  transform: rotateY(-4deg) rotateX(3deg);
+}
+.stage--flip:hover .stage-obj {
+  transform: rotateY(4deg) rotateX(3deg);
+}
+.stage-win {
+  position: relative;
+  border-radius: var(--r-panel);
+  box-shadow: 0 30px 50px -28px rgba(15, 23, 42, 0.35), 0 2px 4px rgba(15, 23, 42, 0.06);
+  transform: translateZ(40px);
+}
+.stage-win .win {
+  --win-fs: clamp(12px, 1.05vw, 15px);
+}
+.stage-sheet {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-panel);
+  background: #fff;
+  border: 1px solid var(--line);
+}
+.stage-sheet--1 {
+  transform: translate(14px, 14px) translateZ(0);
+  background: #fafafa;
+}
+.stage-sheet--2 {
+  transform: translate(28px, 28px) translateZ(-40px);
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+@media (max-width: 900px) {
+  .stage-obj,
+  .stage--flip .stage-obj {
+    transform: none;
   }
+}
+
+/* The last word: a slate band with the demo request on it. */
+.closing-band {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: clamp(var(--s-9), 10vw, 160px) 0;
+  color: #fff;
+  background: var(--ink);
+}
+.closing-band-inner {
+  display: grid;
+  gap: var(--s-4);
+  justify-items: start;
+}
+.closing-band .h-1,
+.closing-band .lede {
+  color: #fff;
+  max-width: 30ch;
+}
+.closing-band .lede {
+  max-width: 48ch;
+}
+.btn--onphoto {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+.btn--onphoto:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
