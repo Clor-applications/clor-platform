@@ -121,7 +121,7 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = '
 
   if (challenge) {
     return (
-      <AuthLayout title="Enter your code" subtitle="Open your authenticator app and type the 6-digit code for CLOR." onHome={onHome} brand={brand}>
+      <AuthLayout scene="twoStep" title="Enter your code" subtitle="Open your authenticator app and type the 6-digit code for CLOR." onHome={onHome} brand={brand}>
         <form onSubmit={submitCode} className="space-y-5">
           <div>
             <label className="ui-label" htmlFor="signin-code">Code</label>
