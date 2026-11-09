@@ -1,23 +1,26 @@
+import { APP_CATALOG } from '../../constants/appCatalog.js';
+
 /**
- * The pricing engine (roadmap item 9): what a set of CLOR apps costs, from a
- * price book. Pure functions, no database: the book and CLOR's GST standing
- * are handed in, so a quote can be worked out, tested and explained to the
- * rupee without anything else running.
+ * The pricing engine (roadmap item 9): what a set of CLOR plans costs, from a
+ * price book an operator made in the operator console. Pure functions, no
+ * database, and no prices of its own: the book and CLOR's GST standing are
+ * handed in, so a quote can be worked out, previewed in the editor and tested
+ * to the rupee without anything else running.
  *
  * Money is paise, integers, everywhere. Nothing here multiplies a float.
  *
- * How one price works: `unitAmount` paise per unit (a company, a user, an
- * employee) per period, and the price covers at least `includedUnits` — so
- * People at ₹30 an employee with 10 included is ₹300 a month for up to ten
- * employees and ₹30 for each one more.
+ * A plan carries one or more apps and is counted by one unit (a company, a
+ * user or an employee). For each period it is offered for, its base price
+ * covers `includedUnits`, and each unit beyond adds `extraUnitPrice`.
  *
- * Yearly: a book carries its own yearly prices. Where a yearly price is less
- * than twelve months of the monthly one, the quote shows the saving.
+ * Yearly: either the plan's own yearly price, or — when the plan has a yearly
+ * discount — twelve months of the monthly price less that percent. Either way
+ * the quote shows what yearly saves on twelve monthly payments.
  *
- * GST: none until CLOR is registered (services/pricing/settings.ts). Then 18%
- * on the lines that carry it: CGST 9% + SGST 9% to a buyer in CLOR's own
- * state, IGST 18% to anyone else, and, before the buyer's state is known,
- * 18% with the split left open.
+ * GST: none until CLOR is registered (services/pricing/settings.ts). Then the
+ * configured rate (18%) on the plans that carry it: CGST + SGST, half each, to
+ * a buyer in CLOR's own state, IGST to anyone else and, before the buyer's
+ * state is known, the full rate with the split left open.
  */
 
 export const PRICE_PERIODS = ['MONTHLY', 'YEARLY'] as const;
@@ -26,65 +29,39 @@ export const PRICE_BOOK_STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const;
 export type PricePeriod = (typeof PRICE_PERIODS)[number];
 export type PriceUnit = (typeof PRICE_UNITS)[number];
 
-/** The apps that carry a price, by the names clor.in uses, in its order. */
-export const PRICED_APPS: { code: string; name: string }[] = [
-  { code: 'accounting', name: 'Books' },
-  { code: 'payroll', name: 'Payroll' },
-  { code: 'people', name: 'People' },
-  { code: 'attendance', name: 'Attendance' },
-];
-/** clor.in's product slugs, and the platform's own app codes, both accepted. */
-const APP_ALIASES: Record<string, string> = {
-  books: 'accounting',
-  accounting: 'accounting',
-  payroll: 'payroll',
-  people: 'people',
-  attendance: 'attendance',
-};
-export const appCodeOf = (raw: string) =>
-  APP_ALIASES[
-    String(raw || '')
-      .trim()
-      .toLowerCase()
-  ] || null;
-export const pricedAppName = (code: string) => PRICED_APPS.find((a) => a.code === code)?.name || code;
+/** The names clor.in uses; the catalogue's own otherwise. */
+const SITE_NAMES: Record<string, string> = { accounting: 'Books' };
+/** Every app a plan may carry: the platform's catalogue, available or coming. */
+export const PRICEABLE_APPS = APP_CATALOG.map((a) => ({ code: a.code, name: SITE_NAMES[a.code] || a.name, available: a.available }));
+export const appName = (code: string) => PRICEABLE_APPS.find((a) => a.code === code)?.name || code;
+export const appAvailable = (code: string) => Boolean(PRICEABLE_APPS.find((a) => a.code === code)?.available);
 
-/** Tiers in the order they are shown. A tier not listed sorts after them, by its code. */
-export const TIERS: { code: string; name: string }[] = [
-  { code: 'starter', name: 'Starter' },
-  { code: 'growth', name: 'Growth' },
-];
-export const tierName = (code: string) => TIERS.find((t) => t.code === code)?.name || code.charAt(0).toUpperCase() + code.slice(1);
-const tierOrder = (code: string) => {
-  const i = TIERS.findIndex((t) => t.code === code);
-  return i < 0 ? TIERS.length : i;
-};
+export const DEFAULT_GST_RATE = 18;
 
-export const GST_RATE_PERCENT = 18;
-/** Karnataka: CLOR's registered office is in Bengaluru. */
-export const CLOR_STATE_CODE = '29';
-
-export type PlanPriceRow = {
-  appCode: string;
-  tier: string;
-  period: PricePeriod;
+export type PeriodPrice = { period: PricePeriod; basePrice: number; extraUnitPrice: number };
+export type PlanData = {
+  code: string;
+  name: string;
+  description?: string | null;
+  apps: string[];
   unit: PriceUnit;
-  unitAmount: number;
   includedUnits: number;
   trialDays: number;
+  periods: PricePeriod[];
+  yearlyDiscountPct: number | null;
+  displayOrder: number;
+  showOnWebsite: boolean;
+  highlight: boolean;
   gstApplies: boolean;
+  prices: PeriodPrice[];
 };
-export type PriceBookData = {
-  version: number;
-  currency: string;
-  note?: string | null;
-  prices: PlanPriceRow[];
-};
+export type PriceBookData = { version: number; currency: string; note?: string | null; plans: PlanData[] };
 export type GstStanding = {
-  /** False until CLOR has a GSTIN: no GST on any quote. */
+  /** False until CLOR is registered: no GST on any quote. */
   registered: boolean;
   /** CLOR's own state code, from its GSTIN. */
   sellerStateCode?: string | null;
+  ratePercent?: number;
 };
 
 export class PricingError extends Error {
@@ -97,104 +74,125 @@ export class PricingError extends Error {
   }
 }
 
-/* ---------------------------------------------------------------- checks */
-
-export const TIER_CODE = /^[a-z][a-z0-9-]{1,23}$/;
-/** ₹1 crore a unit is far past any real price; it catches a slipped decimal. */
-export const MAX_UNIT_AMOUNT = 1_000_000_000;
-
-/** Every problem with a set of prices, as plain sentences. Empty means it may be saved. */
-export function priceProblems(prices: PlanPriceRow[]): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const p of prices) {
-    const where = `${pricedAppName(p.appCode)} ${tierName(String(p.tier))} ${String(p.period).toLowerCase()}`;
-    if (!PRICED_APPS.some((a) => a.code === p.appCode)) out.push(`${p.appCode} is not an app CLOR sells.`);
-    if (!TIER_CODE.test(String(p.tier))) out.push(`${where}: a tier is written in small letters, like starter.`);
-    if (!PRICE_PERIODS.includes(p.period)) out.push(`${where}: the period is monthly or yearly.`);
-    if (!PRICE_UNITS.includes(p.unit)) out.push(`${where}: the unit is a company, a user or an employee.`);
-    if (!Number.isSafeInteger(p.unitAmount) || p.unitAmount < 0 || p.unitAmount > MAX_UNIT_AMOUNT) out.push(`${where}: the amount is whole paise, from 0 to ₹1 crore.`);
-    if (!Number.isSafeInteger(p.includedUnits) || p.includedUnits < 1 || p.includedUnits > 100_000) out.push(`${where}: at least one unit is included.`);
-    if (!Number.isSafeInteger(p.trialDays) || p.trialDays < 0 || p.trialDays > 90) out.push(`${where}: a trial is 0 to 90 days.`);
-    if (typeof p.gstApplies !== 'boolean') out.push(`${where}: say whether GST applies.`);
-    const key = `${p.appCode}|${p.tier}|${p.period}`;
-    if (seen.has(key)) out.push(`${where} is in the book twice.`);
-    seen.add(key);
-  }
-  /* A tier sold one way is sold both ways, on the same terms: the site's monthly/yearly switch shows every tier in both. */
-  const pairs = new Map<string, PlanPriceRow[]>();
-  for (const p of prices) pairs.set(`${p.appCode}|${p.tier}`, [...(pairs.get(`${p.appCode}|${p.tier}`) || []), p]);
-  for (const rows of pairs.values()) {
-    const [a] = rows;
-    const name = `${pricedAppName(a.appCode)} ${tierName(String(a.tier))}`;
-    if (rows.length !== 2) out.push(`${name} needs both a monthly and a yearly price.`);
-    else if (rows[0].unit !== rows[1].unit || rows[0].includedUnits !== rows[1].includedUnits) out.push(`${name}: the monthly and yearly prices count the same unit and include the same number.`);
-  }
-  return out;
-}
-
-/** The book's prices in the order they are shown: app, then tier, monthly before yearly. */
-export function sortPrices<T extends Pick<PlanPriceRow, 'appCode' | 'tier' | 'period'>>(prices: T[]): T[] {
-  const app = (c: string) => {
-    const i = PRICED_APPS.findIndex((a) => a.code === c);
-    return i < 0 ? PRICED_APPS.length : i;
-  };
-  return [...prices].sort(
-    (a, b) => app(a.appCode) - app(b.appCode) || tierOrder(a.tier) - tierOrder(b.tier) || a.tier.localeCompare(b.tier) || PRICE_PERIODS.indexOf(a.period) - PRICE_PERIODS.indexOf(b.period),
-  );
-}
-
 /* ----------------------------------------------------------------- money */
 
-/** Half up, on integers: `paise × percent / 100`, without a float. */
+/** Half up, on integers: `paise × percent / 100`. */
 export function percentOf(paise: number, percent: number) {
   return Math.floor((paise * percent + 50) / 100);
 }
 
 /** ₹1,23,456.50 the Indian way; whole rupees drop the paise. */
 export function rupees(paise: number) {
-  const neg = paise < 0;
   const abs = Math.abs(paise);
-  const whole = Math.floor(abs / 100);
-  const fraction = abs % 100;
-  const s = String(whole);
+  const s = String(Math.floor(abs / 100));
   const last3 = s.slice(-3);
   const rest = s.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',');
-  return `${neg ? '−' : ''}₹${rest ? `${rest},` : ''}${last3}${fraction ? `.${String(fraction).padStart(2, '0')}` : ''}`;
+  const fraction = abs % 100;
+  return `${paise < 0 ? '−' : ''}₹${rest ? `${rest},` : ''}${last3}${fraction ? `.${String(fraction).padStart(2, '0')}` : ''}`;
+}
+
+/* ---------------------------------------------------------------- prices */
+
+/** A plan's price for a period, worked out: its own row, or yearly from monthly less the discount. Null when not offered. */
+export function priceFor(plan: PlanData, period: PricePeriod): PeriodPrice | null {
+  if (!plan.periods.includes(period)) return null;
+  if (period === 'YEARLY' && plan.yearlyDiscountPct != null) {
+    const m = plan.prices.find((p) => p.period === 'MONTHLY');
+    if (!m) return null;
+    const keep = 100 - plan.yearlyDiscountPct;
+    return { period, basePrice: percentOf(m.basePrice * 12, keep), extraUnitPrice: percentOf(m.extraUnitPrice * 12, keep) };
+  }
+  return plan.prices.find((p) => p.period === period) || null;
+}
+
+/** What a plan costs for a number of units in a period. */
+export const amountFor = (price: PeriodPrice, includedUnits: number, quantity: number) => price.basePrice + price.extraUnitPrice * Math.max(0, quantity - includedUnits);
+
+/** Plans in the order they are shown: display order, then name. */
+export const sortPlans = <T extends Pick<PlanData, 'displayOrder' | 'name'>>(plans: T[]) => [...plans].sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
+
+/** A plan clor.in shows: switched on for the site, and every app in it available. */
+export const onWebsite = (p: Pick<PlanData, 'showOnWebsite' | 'apps'>) => p.showOnWebsite && p.apps.length > 0 && p.apps.every(appAvailable);
+
+/* ---------------------------------------------------------------- checks */
+
+export const PLAN_CODE = /^[a-z][a-z0-9-]{1,31}$/;
+/** ₹1 crore for a period is far past any real price; it catches a slipped decimal. */
+export const MAX_AMOUNT = 1_000_000_000;
+const whole = (v: unknown, min: number, max: number) => Number.isSafeInteger(v) && (v as number) >= min && (v as number) <= max;
+
+/** Every problem with a set of plans, as plain sentences. Empty means it may be saved or published. */
+export function planProblems(plans: PlanData[]): string[] {
+  const out: string[] = [];
+  const codes = new Set<string>();
+  for (const p of plans) {
+    const n = String(p.name || p.code || 'A plan').trim();
+    if (!PLAN_CODE.test(String(p.code))) out.push(`${n}: the code is small letters, numbers and dashes, like books-starter.`);
+    else if (codes.has(p.code)) out.push(`Two plans have the code ${p.code}.`);
+    codes.add(p.code);
+    if (!String(p.name || '').trim() || String(p.name).length > 60) out.push(`${n}: give it a name of up to 60 characters.`);
+    if (p.description && String(p.description).length > 300) out.push(`${n}: keep the description under 300 characters.`);
+    if (!Array.isArray(p.apps) || !p.apps.length) out.push(`${n}: choose at least one app.`);
+    else {
+      for (const a of p.apps) if (!PRICEABLE_APPS.some((x) => x.code === a)) out.push(`${n}: ${a} is not a CLOR app.`);
+      if (new Set(p.apps).size !== p.apps.length) out.push(`${n}: an app is chosen twice.`);
+    }
+    if (!PRICE_UNITS.includes(p.unit)) out.push(`${n}: count it per company, per user or per employee.`);
+    if (!whole(p.includedUnits, 1, 100_000)) out.push(`${n}: the price includes at least one.`);
+    if (!whole(p.trialDays, 0, 90)) out.push(`${n}: a trial is 0 to 90 days.`);
+    if (p.yearlyDiscountPct != null && !whole(p.yearlyDiscountPct, 0, 90)) out.push(`${n}: the yearly discount is 0 to 90 percent.`);
+    if (!whole(p.displayOrder, 0, 10_000)) out.push(`${n}: the display order is a whole number.`);
+    for (const f of ['showOnWebsite', 'highlight', 'gstApplies'] as const) if (typeof p[f] !== 'boolean') out.push(`${n}: ${f} is yes or no.`);
+    const periods = Array.isArray(p.periods) ? p.periods : [];
+    if (!periods.length || periods.some((x) => !PRICE_PERIODS.includes(x)) || new Set(periods).size !== periods.length) out.push(`${n}: offer it monthly, yearly or both.`);
+    const prices = Array.isArray(p.prices) ? p.prices : [];
+    for (const pr of prices) {
+      if (!PRICE_PERIODS.includes(pr.period)) out.push(`${n}: a price is monthly or yearly.`);
+      else if (!whole(pr.basePrice, 0, MAX_AMOUNT) || !whole(pr.extraUnitPrice, 0, MAX_AMOUNT)) out.push(`${n} ${pr.period.toLowerCase()}: prices are whole paise, from 0 to ₹1 crore.`);
+    }
+    if (new Set(prices.map((x) => x.period)).size !== prices.length) out.push(`${n}: a period has two prices.`);
+    for (const per of periods) {
+      if (!PRICE_PERIODS.includes(per)) continue;
+      const derived = per === 'YEARLY' && p.yearlyDiscountPct != null;
+      if (derived && !prices.some((x) => x.period === 'MONTHLY')) out.push(`${n}: a yearly discount needs a monthly price to work from.`);
+      if (!derived && !prices.some((x) => x.period === per)) out.push(`${n}: give it a ${per.toLowerCase()} price.`);
+    }
+  }
+  return out;
 }
 
 /* ----------------------------------------------------------------- quote */
 
 export type QuoteInput = {
-  /** App codes or clor.in slugs (books = accounting). */
-  apps: string[];
-  tier: string;
+  /** Plan codes. Two plans may not carry the same app. */
+  plans: string[];
   period: PricePeriod | 'monthly' | 'yearly';
-  /** People who sign in: counted by per-user prices. */
+  /** People who sign in: counted by per-user plans. */
   users?: number;
-  /** People on the payroll or in People: counted by per-employee prices. */
+  /** People on the payroll or in People: counted by per-employee plans. */
   employees?: number;
-  /** Companies: counted by per-company prices. One unless said. */
+  /** Companies: counted by per-company plans. One unless said. */
   companies?: number;
   priceBook: PriceBookData;
   gst?: GstStanding;
   /** The buyer's state code (two digits), once known: decides CGST + SGST or IGST. */
   buyerStateCode?: string | null;
+  /** clor.in quotes only the plans it shows. */
+  websiteOnly?: boolean;
 };
 
 export type QuoteLine = {
-  appCode: string;
-  appName: string;
-  tier: string;
-  tierName: string;
+  planCode: string;
+  planName: string;
+  apps: string[];
   period: PricePeriod;
   unit: PriceUnit;
   /** How many the buyer has. */
   quantity: number;
-  /** How many are billed: at least the included number. */
-  billedUnits: number;
   includedUnits: number;
-  unitAmount: number;
+  extraUnits: number;
+  basePrice: number;
+  extraUnitPrice: number;
   amount: number;
   /** Yearly only: twelve months at the monthly price, and what the yearly price saves on it. */
   monthlyEquivalent: number | null;
@@ -219,7 +217,6 @@ export type QuoteTax = {
 export type Quote = {
   priceBookVersion: number;
   currency: string;
-  tier: string;
   period: PricePeriod;
   lines: QuoteLine[];
   subtotal: number;
@@ -227,9 +224,8 @@ export type Quote = {
   yearlySaving: number;
   tax: QuoteTax;
   total: number;
-  /** The shortest trial among the apps quoted. */
+  /** The shortest trial among the plans quoted. */
   trialDays: number;
-  /** "Mock prices — not final" and the like, from the book. */
   note: string | null;
 };
 
@@ -244,57 +240,54 @@ export const NO_GST_NOTE = 'No GST is charged: CLOR is not registered for GST ye
 export function quote(input: QuoteInput): Quote {
   const period = String(input.period || '').toUpperCase() as PricePeriod;
   if (!PRICE_PERIODS.includes(period)) throw new PricingError('Choose monthly or yearly.', 'BAD_PERIOD');
-  const tier = String(input.tier || '')
-    .trim()
-    .toLowerCase();
-  const codes = [...new Set((input.apps || []).map((a) => appCodeOf(a)))];
-  if (!codes.length) throw new PricingError('Choose at least one app.', 'NO_APPS');
-  if (codes.includes(null)) throw new PricingError('One of those is not an app CLOR sells.', 'UNKNOWN_APP');
+  const codes = [...new Set((input.plans || []).map((c) => String(c).trim().toLowerCase()))];
+  if (!codes.length) throw new PricingError('Choose at least one plan.', 'NO_PLANS');
   const quantities: Record<PriceUnit, number> = {
     COMPANY: count(input.companies, 1),
     USER: count(input.users, 1),
     EMPLOYEE: count(input.employees, 0),
   };
   const book = input.priceBook;
-  const find = (app: string, p: PricePeriod) => book.prices.find((r) => r.appCode === app && r.tier === tier && r.period === p);
+  const chosen = codes.map((c) => {
+    const plan = book.plans.find((p) => p.code === c && (!input.websiteOnly || onWebsite(p)));
+    if (!plan) throw new PricingError('One of those plans is not on the price list.', 'UNKNOWN_PLAN');
+    return plan;
+  });
+  const apps = chosen.flatMap((p) => p.apps);
+  const twice = apps.find((a, i) => apps.indexOf(a) !== i);
+  if (twice) throw new PricingError(`Two of those plans both carry ${appName(twice)}. Choose one.`, 'APP_TWICE');
 
-  const lines: QuoteLine[] = sortPrices(codes.map((c) => ({ appCode: c as string, tier, period }))).map(({ appCode }) => {
-    const row = find(appCode, period);
-    if (!row) throw new PricingError(`${pricedAppName(appCode)} has no ${tierName(tier)} ${period.toLowerCase()} price.`, 'NO_PRICE');
-    const quantity = quantities[row.unit];
-    const billedUnits = Math.max(quantity, row.includedUnits);
-    const amount = row.unitAmount * billedUnits;
-    const monthly = period === 'YEARLY' ? find(appCode, 'MONTHLY') : undefined;
-    const monthlyEquivalent = monthly ? monthly.unitAmount * Math.max(quantities[monthly.unit], monthly.includedUnits) * 12 : null;
+  const lines: QuoteLine[] = sortPlans(chosen).map((plan) => {
+    const price = priceFor(plan, period);
+    if (!price) throw new PricingError(`${plan.name} is not offered ${period === 'MONTHLY' ? 'monthly' : 'yearly'}.`, 'NO_PRICE');
+    const quantity = quantities[plan.unit];
+    const amount = amountFor(price, plan.includedUnits, quantity);
+    const monthly = period === 'YEARLY' ? priceFor(plan, 'MONTHLY') : null;
+    const monthlyEquivalent = monthly ? amountFor(monthly, plan.includedUnits, quantity) * 12 : null;
     return {
-      appCode,
-      appName: pricedAppName(appCode),
-      tier,
-      tierName: tierName(tier),
+      planCode: plan.code,
+      planName: plan.name,
+      apps: plan.apps,
       period,
-      unit: row.unit,
+      unit: plan.unit,
       quantity,
-      billedUnits,
-      includedUnits: row.includedUnits,
-      unitAmount: row.unitAmount,
+      includedUnits: plan.includedUnits,
+      extraUnits: Math.max(0, quantity - plan.includedUnits),
+      basePrice: price.basePrice,
+      extraUnitPrice: price.extraUnitPrice,
       amount,
       monthlyEquivalent,
       saving: monthlyEquivalent == null ? 0 : Math.max(0, monthlyEquivalent - amount),
-      trialDays: row.trialDays,
-      gstApplies: row.gstApplies,
+      trialDays: plan.trialDays,
+      gstApplies: plan.gstApplies,
     };
   });
 
   const subtotal = lines.reduce((s, l) => s + l.amount, 0);
-  const tax = gstOn(
-    lines.filter((l) => l.gstApplies).reduce((s, l) => s + l.amount, 0),
-    input.gst,
-    input.buyerStateCode,
-  );
+  const tax = gstOn(lines.filter((l) => l.gstApplies).reduce((s, l) => s + l.amount, 0), input.gst, input.buyerStateCode);
   return {
     priceBookVersion: book.version,
     currency: book.currency || 'INR',
-    tier,
     period,
     lines,
     subtotal,
@@ -309,54 +302,18 @@ export function quote(input: QuoteInput): Quote {
 /** GST on an amount, by CLOR's standing and the buyer's state. */
 export function gstOn(taxable: number, gst: GstStanding | undefined, buyerStateCode?: string | null): QuoteTax {
   const none = { cgst: 0, sgst: 0, igst: 0 };
-  if (!gst?.registered)
-    return {
-      charged: false,
-      kind: 'NONE',
-      ratePercent: 0,
-      taxable,
-      ...none,
-      amount: 0,
-      note: NO_GST_NOTE,
-    };
-  const seller = gst.sellerStateCode || CLOR_STATE_CODE;
+  if (!gst?.registered) return { charged: false, kind: 'NONE', ratePercent: 0, taxable, ...none, amount: 0, note: NO_GST_NOTE };
+  const rate = gst.ratePercent ?? DEFAULT_GST_RATE;
+  const seller = gst.sellerStateCode || '';
   const buyer = /^\d{2}$/.test(String(buyerStateCode || '')) ? String(buyerStateCode) : null;
   if (!buyer) {
-    const amount = percentOf(taxable, GST_RATE_PERCENT);
-    return {
-      charged: true,
-      kind: 'GST',
-      ratePercent: GST_RATE_PERCENT,
-      taxable,
-      ...none,
-      amount,
-      note: `GST at ${GST_RATE_PERCENT}%: CGST and SGST in CLOR's own state, IGST anywhere else.`,
-    };
+    const amount = percentOf(taxable, rate);
+    return { charged: true, kind: 'GST', ratePercent: rate, taxable, ...none, amount, note: `GST at ${rate}%: CGST and SGST in CLOR's own state, IGST anywhere else.` };
   }
   if (buyer === seller) {
-    const half = percentOf(taxable, GST_RATE_PERCENT / 2);
-    return {
-      charged: true,
-      kind: 'CGST_SGST',
-      ratePercent: GST_RATE_PERCENT,
-      taxable,
-      cgst: half,
-      sgst: half,
-      igst: 0,
-      amount: half * 2,
-      note: `CGST ${GST_RATE_PERCENT / 2}% and SGST ${GST_RATE_PERCENT / 2}%: you are in the same state as CLOR.`,
-    };
+    const half = percentOf(taxable, rate / 2);
+    return { charged: true, kind: 'CGST_SGST', ratePercent: rate, taxable, cgst: half, sgst: half, igst: 0, amount: half * 2, note: `CGST ${rate / 2}% and SGST ${rate / 2}%: you are in the same state as CLOR.` };
   }
-  const igst = percentOf(taxable, GST_RATE_PERCENT);
-  return {
-    charged: true,
-    kind: 'IGST',
-    ratePercent: GST_RATE_PERCENT,
-    taxable,
-    cgst: 0,
-    sgst: 0,
-    igst,
-    amount: igst,
-    note: `IGST ${GST_RATE_PERCENT}%: you are in another state from CLOR.`,
-  };
+  const igst = percentOf(taxable, rate);
+  return { charged: true, kind: 'IGST', ratePercent: rate, taxable, cgst: 0, sgst: 0, igst, amount: igst, note: `IGST ${rate}%: you are in another state from CLOR.` };
 }

@@ -14,7 +14,7 @@ import { requireOperatorStepUp } from '../services/stepUp.js';
 import { clientIp, recordAuthEvent } from '../services/auth.js';
 import { acrossCompanies } from '../utils/tenantScope.js';
 import { publishedBook } from '../services/pricing/books.js';
-import { gstSetting } from '../services/pricing/settings.js';
+import { taxSetting } from '../services/pricing/settings.js';
 import { publicPricing } from './pricing.js';
 
 export const billingRouter = Router();
@@ -99,7 +99,7 @@ billingRouter.use(requireAuth, requireTenantContext);
 
 /** The catalog: which apps can be bought, the accounting plans, and the published price list (services/pricing/). */
 billingRouter.get('/billing/catalog', async (_req, res) => {
-  const [book, gst] = await Promise.all([publishedBook(), gstSetting()]);
+  const [book, gst] = await Promise.all([publishedBook(), taxSetting()]);
   res.json({ apps: APP_CATALOG, accountingPlans: PLAN_CATALOG, gateway: getGateway().name, pricing: book ? publicPricing(book, gst) : null });
 });
 
